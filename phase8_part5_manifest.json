@@ -1,0 +1,89 @@
+{
+  "project": "AIONEX AIOS",
+  "phase": 8,
+  "part": 5,
+  "version": "2.3.0-beta.5",
+  "status": "complete",
+  "files": [
+    {
+      "path": "README-PHASE8-PART5.md",
+      "sha256": "d1d366fbc82969fa02c83e5a4359a69dabcbc37ebfe34686d95a76f35d91583d",
+      "size": 239
+    },
+    {
+      "path": "RELEASE-NOTES-v2.3.0-beta.5-phase.8-part.5.md",
+      "sha256": "302b1d3a14b509a51de14f53460bb6c2945ebb9600d08605840602f3a0c747f9",
+      "size": 265
+    },
+    {
+      "path": "VERSION",
+      "sha256": "e530289c69cba0f6d2008feba24c70accaf622c66240f2bab149966b4f714e35",
+      "size": 13
+    },
+    {
+      "path": "docs/AIS/AIS-0023-ENTERPRISE-OPERATIONS.md",
+      "sha256": "572ef26154685ba2242981facfc1d9be14b2be3301aea768e0f4f2195dc58097",
+      "size": 268
+    },
+    {
+      "path": "src/aios/infrastructure/operations/__init__.py",
+      "sha256": "5485ae13253074adb0cd094ffc02ef09126f3afc5bc1fe3a04c3cd466ed2fdc3",
+      "size": 175
+    },
+    {
+      "path": "src/aios/infrastructure/operations/alerting.py",
+      "sha256": "da80cf0f41617f662bd342aec20bafda3b405897e04d4ce4332a314864b88e6a",
+      "size": 5090
+    },
+    {
+      "path": "src/aios/infrastructure/operations/api.py",
+      "sha256": "092cfaad00752e9d8d06a39a470564e87c6f91ee757195f43f7aec85e0d80864",
+      "size": 865
+    },
+    {
+      "path": "src/aios/infrastructure/operations/backup.py",
+      "sha256": "f8912afac5e0304291ae00c3fd955a409e6c15692c6bf508bb6c77571fa1ab80",
+      "size": 3827
+    },
+    {
+      "path": "src/aios/infrastructure/operations/controller.py",
+      "sha256": "121ca38f493b0bdda1b2904f416b1be8fe1ffa611a5ee390584d9710f45222aa",
+      "size": 1877
+    },
+    {
+      "path": "src/aios/infrastructure/operations/dashboard.py",
+      "sha256": "21b1882952e5fc19641cc1744ccfa74cb941d11d3bd48c7c892c72db88a2bcbc",
+      "size": 1393
+    },
+    {
+      "path": "src/aios/infrastructure/operations/health.py",
+      "sha256": "5bc24a90794b8b0cd89c9fd60ed756de24a3fdcbeda7782941706859658fc836",
+      "size": 6347
+    },
+    {
+      "path": "src/aios/infrastructure/operations/integration.py",
+      "sha256": "87252992f1a193583cf5b28da1a1414d32cc4ad41a6af93093c453552f7b0366",
+      "size": 1161
+    },
+    {
+      "path": "src/aios/infrastructure/operations/logging.py",
+      "sha256": "f53457adb86bfa969ca865e5e80bb7e9b235fa6bf023e663241e1c3468e31f4b",
+      "size": 2624
+    },
+    {
+      "path": "src/aios/infrastructure/operations/monitoring.py",
+      "sha256": "c77786dc95114687fcbaffb81296c8b81c0d62b348155e24afe5348f7bc37671",
+      "size": 3489
+    },
+    {
+      "path": "src/aios/infrastructure/operations/recovery.py",
+      "sha256": "ad53c719d43a6c82feb71bc5ce29a3658d19feb95f35168bbcc511ffc48c6725",
+      "size": 2111
+    },
+    {
+      "path": "tests/test_phase8_part5_enterprise_operations.py",
+      "sha256": "c7af368c25fa00902bdeaa2e9898da1b75e95537cd18067b9b9314bf04d79319",
+      "size": 1039
+    }
+  ]
+}

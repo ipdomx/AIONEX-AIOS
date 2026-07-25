@@ -1,0 +1,15 @@
+[Unit]
+Description=AIOS API
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/AIOS
+EnvironmentFile=/opt/AIOS/.env
+ExecStart=/opt/AIOS/.venv/bin/aios-api
+Restart=on-failure
+User=aios
+Group=aios
+
+[Install]
+WantedBy=multi-user.target

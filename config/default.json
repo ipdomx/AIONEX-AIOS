@@ -1,0 +1,11 @@
+{
+  "system_name": "AIOS",
+  "version": "1.0.0",
+  "default_language": "ar",
+  "approval_required": true,
+  "allow_live_project_writes": false,
+  "security_active_testing": false,
+  "self_update_mode": "plan_only",
+  "api_host": "127.0.0.1",
+  "api_port": 8080
+}

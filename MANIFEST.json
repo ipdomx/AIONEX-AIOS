@@ -1,0 +1,342 @@
+[
+  {
+    "path": ".env.example",
+    "sha256": "2f54d85a8b59d8b8b6903b367f976f7bd4024ad2e07dccd6769ce4668e28b70f",
+    "size": 235
+  },
+  {
+    "path": ".gitignore",
+    "sha256": "ded399468a4d387a258f13a2b4937cb59d8ced90014d9dae78b1cf2974604730",
+    "size": 109
+  },
+  {
+    "path": "AFS/ADR/ADR-0001.md",
+    "sha256": "db980f3ce2bb0e9579a368cc5f4c4ed388523ae71224aa1438ad2d3eb514777a",
+    "size": 139
+  },
+  {
+    "path": "AFS/ADR/ADR-0002.md",
+    "sha256": "da6b11f0fcdf326c7cab9070ac994d18c0b1b4042f447e9193b5508c4eec49b0",
+    "size": 154
+  },
+  {
+    "path": "AFS/ADR/ADR-0003.md",
+    "sha256": "8a136fdc5b86eb5e60c2eae7407362627f7a5cfaa1fa2c9c0883b81c12210a47",
+    "size": 153
+  },
+  {
+    "path": "AFS/AFS-0000.md",
+    "sha256": "3719bb172b19ce38fd5efb37814ebdd74087e9a1d394a9e44ee1033ab82dc60d",
+    "size": 675
+  },
+  {
+    "path": "CHANGELOG.md",
+    "sha256": "b38cb05ef52ddfd846bb00962f583e4ef77f191ccea337ba601fa4805160c6b5",
+    "size": 558
+  },
+  {
+    "path": "README.md",
+    "sha256": "c5c03cd6dea1a23fcdda9680f8c324e51bb7cba300aed97a630865d640b36cfa",
+    "size": 1302
+  },
+  {
+    "path": "VERSION",
+    "sha256": "59854984853104df5c353e2f681a15fc7924742f9a2e468c29af248dce45ce03",
+    "size": 6
+  },
+  {
+    "path": "config/default.json",
+    "sha256": "d907feb06fd91f472d94f84c9fa8809b1e03886e9d4022fba03f968160ee0bad",
+    "size": 262
+  },
+  {
+    "path": "deploy/systemd/aios-api.service",
+    "sha256": "8c5fcc0dc9580dcb6e0f705b983092ef0d7553e80b6562e1f61cb604cb7096ed",
+    "size": 247
+  },
+  {
+    "path": "deploy/systemd/aios-telegram.service",
+    "sha256": "81680512a605dd01699f2170db403a681848263333c959bc0238f6e56fbce262",
+    "size": 257
+  },
+  {
+    "path": "pyproject.toml",
+    "sha256": "87a5dac567acb33f0931f0fedc80d5769c7020a8bc41fadf09cdb59b88d38115",
+    "size": 551
+  },
+  {
+    "path": "scripts/backup.sh",
+    "sha256": "9440dbf8202ff9b34f479bc2c74cb9e82834ecc47196e46f4be04e88a37b448c",
+    "size": 229
+  },
+  {
+    "path": "scripts/install.sh",
+    "sha256": "504f8db21032f44b02c515491e97dddf7086bbc35553b8b8130d34c7f56a5531",
+    "size": 383
+  },
+  {
+    "path": "scripts/run-api.sh",
+    "sha256": "74a22a35afb6456a7e7a6d86b40f44e91e5d9bbdf5d43d89bd7bce58b264d470",
+    "size": 138
+  },
+  {
+    "path": "scripts/run-telegram.sh",
+    "sha256": "900d59f80da4f1ffd402199322d790ef9c732ab73eb77131ef5ff49057fe1d7c",
+    "size": 143
+  },
+  {
+    "path": "scripts/test.sh",
+    "sha256": "2c0dbc1f0a59e904312be27feec61809098481742a86a5f2f747ef2bd42081f3",
+    "size": 140
+  },
+  {
+    "path": "src/aios/__init__.py",
+    "sha256": "a097d3c72776c96db9af8536824ae665a5ea2469d3d8f4eef9dd20946b370e12",
+    "size": 79
+  },
+  {
+    "path": "src/aios/__main__.py",
+    "sha256": "f38fd2f2c920c29c828645e87ed64743d567aaaef7fba7a15d2c7d7f8094f91f",
+    "size": 61
+  },
+  {
+    "path": "src/aios/__pycache__/__init__.cpython-313.pyc",
+    "sha256": "c2dbaac8e119ebecea4ada09e56cd7ece281f907c46939adf4e826daed7a8dc4",
+    "size": 232
+  },
+  {
+    "path": "src/aios/__pycache__/__main__.cpython-313.pyc",
+    "sha256": "c19100303036aa46928c32fddd8300c8585f821c1a8a984bf24000ca26212231",
+    "size": 233
+  },
+  {
+    "path": "src/aios/__pycache__/api.cpython-313.pyc",
+    "sha256": "141a6b0f0601bf4820e9157391b1b5fcab2d645a104702697ce4a3f38b6b131d",
+    "size": 3564
+  },
+  {
+    "path": "src/aios/__pycache__/approvals.cpython-313.pyc",
+    "sha256": "1656bc29a5bdc4ee8afebbc0951cea0ee364eb740c68134c7e1cf12d8cffde82",
+    "size": 1823
+  },
+  {
+    "path": "src/aios/__pycache__/audit.cpython-313.pyc",
+    "sha256": "feb05d5e47d71e0fa24d8f68e2c3d153634a175d664f6cdd76b2f63e9570a028",
+    "size": 1933
+  },
+  {
+    "path": "src/aios/__pycache__/cli.cpython-313.pyc",
+    "sha256": "d15bc94f4db04cb937881529cef38ef497d27d19c354fa87043d51c48a3c23b7",
+    "size": 6584
+  },
+  {
+    "path": "src/aios/__pycache__/council.cpython-313.pyc",
+    "sha256": "5e37b9b5f569e2ce2aa6eed5c6a80bde65d6b857c626c62328fb5739892ff41c",
+    "size": 2149
+  },
+  {
+    "path": "src/aios/__pycache__/db.cpython-313.pyc",
+    "sha256": "928e457f8dcb401e71286438b70f72a213948cfeedb463e04373490f55333752",
+    "size": 4325
+  },
+  {
+    "path": "src/aios/__pycache__/decision.cpython-313.pyc",
+    "sha256": "8056ea66a24e735565776bb64ad3f29596ba2367bdda958c08e70769aaed2fb9",
+    "size": 3728
+  },
+  {
+    "path": "src/aios/__pycache__/kernel.cpython-313.pyc",
+    "sha256": "7601a1d1bd006fcefb1b48a687b68aadc483ac8802b3619938adea7ed433a284",
+    "size": 4746
+  },
+  {
+    "path": "src/aios/__pycache__/memory.cpython-313.pyc",
+    "sha256": "1512bc9cc291a207ff027379cc2446d7050aae82bbe832a34b80bb66adfe71c0",
+    "size": 4293
+  },
+  {
+    "path": "src/aios/__pycache__/paths.cpython-313.pyc",
+    "sha256": "da5b4f405b2e9278608dc6054e076ffc338d5b7f001641e66406b773915ed0d6",
+    "size": 1558
+  },
+  {
+    "path": "src/aios/__pycache__/plugins.cpython-313.pyc",
+    "sha256": "78b465119e32d7d531f5cbc2542309bb6677cbf3eb9d46d1913732a940c5bdfd",
+    "size": 1786
+  },
+  {
+    "path": "src/aios/__pycache__/projects.cpython-313.pyc",
+    "sha256": "13f44321399e478b97a3ba5fc66afa428cb95d85d3c5934922ee3c8d84ed9482",
+    "size": 3564
+  },
+  {
+    "path": "src/aios/__pycache__/research.cpython-313.pyc",
+    "sha256": "01978d553a457cfeedc9ba6d93910a72620f5eb09b3b04e22293bbf998d69258",
+    "size": 1083
+  },
+  {
+    "path": "src/aios/__pycache__/security.cpython-313.pyc",
+    "sha256": "f2d55d303f358477dbf45c4c2457e3b7c06e5200ff15ad5d7fdbc961242c40d0",
+    "size": 5134
+  },
+  {
+    "path": "src/aios/__pycache__/telegram.cpython-313.pyc",
+    "sha256": "e74f10743ea688004b00660efaf9f95972fca732e49dbc88f5389248a98fc50b",
+    "size": 4478
+  },
+  {
+    "path": "src/aios/__pycache__/update.cpython-313.pyc",
+    "sha256": "ee0d7641b9386d6e2e8ccbbef8c7903033b403eb702f11e7e8b141e55841dde9",
+    "size": 1471
+  },
+  {
+    "path": "src/aios/api.py",
+    "sha256": "3f7814c65b8fd0a56b5dc20ad4ad0121a9a9a141a5d4da2cc2010cca7972e9f9",
+    "size": 1577
+  },
+  {
+    "path": "src/aios/approvals.py",
+    "sha256": "8f1db7baf1ea65d726aed0f6d8a45231f2fec9fe112624f1d037499e56a49f28",
+    "size": 850
+  },
+  {
+    "path": "src/aios/audit.py",
+    "sha256": "ad907b23b22ec1e79138615bacd02cee4f8e16d533331380edde83c0bd818c90",
+    "size": 854
+  },
+  {
+    "path": "src/aios/cli.py",
+    "sha256": "7102cabf25c1d85bf43905cae8f7a8b4870583a3e25ab2c97a6f4abcd7d306f3",
+    "size": 3481
+  },
+  {
+    "path": "src/aios/council.py",
+    "sha256": "d28073bca157174c6bfc54fa13940436785ac77f25a8702bb983e84ae8093564",
+    "size": 1205
+  },
+  {
+    "path": "src/aios/db.py",
+    "sha256": "20fc542cbbfec1babce953e93335b9d74d0ef327dddf1185c96dd888a268f64d",
+    "size": 3299
+  },
+  {
+    "path": "src/aios/decision.py",
+    "sha256": "b37c04a05ffc673f29d38a85e7be292ef3ca3214f79a30c658b5daca5c66da08",
+    "size": 2237
+  },
+  {
+    "path": "src/aios/kernel.py",
+    "sha256": "b27ce7ae3597462196a64aefa0e3151d8419130db5dfee563a9aedd3219d5438",
+    "size": 2913
+  },
+  {
+    "path": "src/aios/memory.py",
+    "sha256": "c6518ab99ac69453bb4c10f34d51c8be8e12d0dcb529010d7c3b1a2e2d363242",
+    "size": 2474
+  },
+  {
+    "path": "src/aios/models/__pycache__/base.cpython-313.pyc",
+    "sha256": "bbbeb070feb59c15aae5bc1965f6bcdd6f8df0cdab14888f15a000f375ae6614",
+    "size": 1194
+  },
+  {
+    "path": "src/aios/models/__pycache__/local.cpython-313.pyc",
+    "sha256": "d257c72ea228dd439bd42bc1b7ccd80321c8a2d693a84d129b7dd89c6274dcf0",
+    "size": 1243
+  },
+  {
+    "path": "src/aios/models/__pycache__/openai_compatible.cpython-313.pyc",
+    "sha256": "8c74adbc12637bcb62873a5da9cd2f5579483402355ca6349795e70ba0951fa2",
+    "size": 2404
+  },
+  {
+    "path": "src/aios/models/__pycache__/router.cpython-313.pyc",
+    "sha256": "ff7d4a5eed1927fd9a96c9172d2d74259e1150c9ff7a4c393d13601d164c898e",
+    "size": 1527
+  },
+  {
+    "path": "src/aios/models/base.py",
+    "sha256": "3fb19832de443fc98d8c3ed5613b86a96ced270a687d0860a26b1f8310c9b332",
+    "size": 405
+  },
+  {
+    "path": "src/aios/models/local.py",
+    "sha256": "f871f614734044480dc4b169798c0172facd329d62cdf54bb065a8552a971572",
+    "size": 614
+  },
+  {
+    "path": "src/aios/models/openai_compatible.py",
+    "sha256": "3a2c8d55223ed481523711693977e5c59c0ecc505452ba5f965c2857ba766879",
+    "size": 1253
+  },
+  {
+    "path": "src/aios/models/router.py",
+    "sha256": "0450608102ddf82462330a7ef33a0af9d45ca37d79acd9ddc85b355f58c51721",
+    "size": 827
+  },
+  {
+    "path": "src/aios/paths.py",
+    "sha256": "f8b87b39e747da692f4a785d78843bad94f56d228435878a2aa6e516b7b35367",
+    "size": 908
+  },
+  {
+    "path": "src/aios/plugins.py",
+    "sha256": "0c385bc78dec7520c82363dd379d5fac236cf52b0ab2a9f7fd9e861ab1debcf4",
+    "size": 695
+  },
+  {
+    "path": "src/aios/projects.py",
+    "sha256": "8d2f68f546aea4bcb283e15c1d8827740d96ba7278f74f76a0d5c5526204ee31",
+    "size": 1642
+  },
+  {
+    "path": "src/aios/research.py",
+    "sha256": "04a0d86619f1d5bad5855798d8b5c939c75c660982372aca7aea297bfa1fab4f",
+    "size": 525
+  },
+  {
+    "path": "src/aios/security.py",
+    "sha256": "7d9502e2ed21401a30b89627dd569f36f2257e495a56a63cf91c2d9d091d5dd4",
+    "size": 3191
+  },
+  {
+    "path": "src/aios/telegram.py",
+    "sha256": "0fa568c92ef08bf53cf9208a64fd990ad68ac2876b37158a89d264411d07ba78",
+    "size": 2229
+  },
+  {
+    "path": "src/aios/update.py",
+    "sha256": "7a9826b165802ec126eb8518c271d72eb814b14186e227f13ac129bdb9145ddb",
+    "size": 755
+  },
+  {
+    "path": "tests/__pycache__/test_kernel.cpython-313.pyc",
+    "sha256": "a9f77785a654a09045cdb8a37380770e0dce0edffde1dce139f4d6242cf53ed5",
+    "size": 1335
+  },
+  {
+    "path": "tests/__pycache__/test_memory.cpython-313.pyc",
+    "sha256": "bab63b0ed5888c925157692c389f71eef63b56fdcfd2a2ec1a91c228c0062146",
+    "size": 1542
+  },
+  {
+    "path": "tests/__pycache__/test_project.cpython-313.pyc",
+    "sha256": "657941b799c3d669ea8c9ca925d1d95bdf0b99894dc648427bf852367c20ca70",
+    "size": 1867
+  },
+  {
+    "path": "tests/test_kernel.py",
+    "sha256": "5bdfddf548bf0765433ef172375aa3d63808fa6145136f87195aed6e97f2b270",
+    "size": 422
+  },
+  {
+    "path": "tests/test_memory.py",
+    "sha256": "5f4ecbf70ea34d5e23866b95dd33335f244554b3ec339d1118939909cf1ab94d",
+    "size": 534
+  },
+  {
+    "path": "tests/test_project.py",
+    "sha256": "b6bf91877a6f7c1ce5ca31a7cd14cfaa63ac30f12adca45c5e9bf6aa363b20dd",
+    "size": 763
+  }
+]
