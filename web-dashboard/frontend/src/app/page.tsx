@@ -32,7 +32,6 @@ import {
 } from "lucide-react";
 import CountUp from "react-countup";
 
-// Animated Counter Component
 function AnimatedCounter({ end, duration = 2, suffix = "" }: { end: number; duration?: number; suffix?: string }) {
   return (
     <CountUp
@@ -45,7 +44,6 @@ function AnimatedCounter({ end, duration = 2, suffix = "" }: { end: number; dura
   );
 }
 
-// Metric Card Component
 function MetricCard({
   title,
   value,
@@ -92,7 +90,6 @@ function MetricCard({
   );
 }
 
-// Status Badge Component
 function StatusBadge({ status, text }: { status: "online" | "warning" | "error" | "offline"; text: string }) {
   const colors = {
     online: "bg-green-500/10 text-green-400 border-green-500/20",
@@ -109,7 +106,6 @@ function StatusBadge({ status, text }: { status: "online" | "warning" | "error" 
   );
 }
 
-// Activity Item Component
 function ActivityItem({
   icon: Icon,
   title,
@@ -137,7 +133,6 @@ function ActivityItem({
   );
 }
 
-// Resource Bar Component
 function ResourceBar({ label, used, total, color }: { label: string; used: number; total: number; color: string }) {
   const percentage = Math.round((used / total) * 100);
 
@@ -192,7 +187,7 @@ export default function DashboardPage() {
     { title: "SSL Expiring Soon", severity: "warning" as const, message: "Certificate for api.aionex.io expires in 7 days", time: "1h ago" },
   ];
 
-  const quickActions = [
+  const quickActions: Array<{ icon: React.ElementType; label: string; color: string }> = [
     { icon: Plus, label: "New Project", color: "bg-blue-500/20 text-blue-400" },
     { icon: Bot, label: "New Agent", color: "bg-purple-500/20 text-purple-400" },
     { icon: Workflow, label: "New Workflow", color: "bg-cyan-500/20 text-cyan-400" },
@@ -203,7 +198,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -219,34 +213,33 @@ export default function DashboardPage() {
         </div>
       </motion.div>
 
-      {/* Quick Actions */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.1 }}
         className="flex items-center gap-2 overflow-x-auto pb-2"
       >
-        {quickActions.map((action, i) => (
-          <button
-            key={i}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl glass hover:bg-white/[0.06] transition-all duration-200 group flex-shrink-0"
-          >
-            <action.icon className={`w-4 h-4 ${action.color.split(" ")[1]}`} />
-            <span className="text-xs font-medium text-white/70 group-hover:text-white transition-colors">{action.label}</span>
-          </button>
-        ))}
+        {quickActions.map((action, i) => {
+          const ActionIcon = action.icon;
+          return (
+            <button
+              key={i}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl glass hover:bg-white/[0.06] transition-all duration-200 group flex-shrink-0"
+            >
+              <ActionIcon className={`w-4 h-4 ${action.color.split(" ")[1]}`} />
+              <span className="text-xs font-medium text-white/70 group-hover:text-white transition-colors">{action.label}</span>
+            </button>
+          );
+        })}
       </motion.div>
 
-      {/* Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {metrics.map((metric, i) => (
           <MetricCard key={metric.title} {...metric} delay={i * 0.05} />
         ))}
       </div>
 
-      {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Infrastructure Health */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -280,28 +273,26 @@ export default function DashboardPage() {
           </div>
         </motion.div>
 
-        {/* Recent Activity */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.4 }}
           className="glass-card p-5"
         >
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-electric-400" />
+              <Clock className="w-4 h-4 text-purple-400" />
               <h2 className="text-sm font-semibold text-white">Recent Activity</h2>
             </div>
-            <button className="text-xs text-electric-400 hover:text-electric-300 transition-colors">View All</button>
+            <button className="text-xs text-white/40 hover:text-white transition-colors">View all</button>
           </div>
           <div>
-            {activities.map((activity, i) => (
+            {activities.slice(0, 5).map((activity, i) => (
               <ActivityItem key={i} {...activity} />
             ))}
           </div>
         </motion.div>
 
-        {/* Active Alerts */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -313,157 +304,99 @@ export default function DashboardPage() {
               <AlertTriangle className="w-4 h-4 text-orange-400" />
               <h2 className="text-sm font-semibold text-white">Active Alerts</h2>
             </div>
-            <span className="px-2 py-0.5 rounded-md bg-orange-500/10 text-orange-400 text-xs font-medium border border-orange-500/20">3 Active</span>
+            <span className="text-xs font-medium text-orange-400">{alerts.length} active</span>
           </div>
           <div className="space-y-3">
             {alerts.map((alert, i) => (
-              <div key={i} className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04] transition-colors">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <StatusBadge status={alert.severity} text={alert.severity === "warning" ? "Warning" : "Critical"} />
-                  <span className="text-[10px] text-white/30">{alert.time}</span>
+              <div key={i} className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-1.5 h-1.5 rounded-full ${alert.severity === "error" ? "bg-red-400" : "bg-orange-400"}`} />
+                      <p className="text-xs font-medium text-white truncate">{alert.title}</p>
+                    </div>
+                    <p className="text-[11px] text-white/40 mt-1 ml-3.5">{alert.message}</p>
+                  </div>
+                  <span className="text-[10px] text-white/30 flex-shrink-0">{alert.time}</span>
                 </div>
-                <p className="text-sm font-medium text-white">{alert.title}</p>
-                <p className="text-xs text-white/40 mt-0.5">{alert.message}</p>
               </div>
             ))}
           </div>
-          <button className="w-full mt-4 py-2 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] text-xs text-white/50 hover:text-white/70 transition-all">
-            View Alert History
-          </button>
         </motion.div>
       </div>
 
-      {/* AI Performance Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.6 }}
-        className="glass-card p-5"
-      >
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-purple-400" />
-            <h2 className="text-sm font-semibold text-white">AI Performance</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.6 }}
+          className="glass-card p-5"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-purple-400" />
+              <h2 className="text-sm font-semibold text-white">AI Performance</h2>
+            </div>
+            <button className="flex items-center gap-1 text-xs text-white/40 hover:text-white transition-colors">
+              Details <ArrowUpRight className="w-3 h-3" />
+            </button>
           </div>
-          <div className="flex items-center gap-2">
-            <StatusBadge status="online" text="All Providers Active" />
-            <button className="text-xs text-electric-400 hover:text-electric-300 transition-colors">View Details</button>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
-                <Zap className="w-4 h-4 text-green-400" />
-              </div>
-              <span className="text-xs text-white/50">Tokens Today</span>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center p-4 rounded-xl bg-purple-500/5 border border-purple-500/10">
+              <Bot className="w-5 h-5 text-purple-400 mx-auto mb-2" />
+              <div className="text-xl font-bold text-white">156</div>
+              <div className="text-[10px] text-white/40 mt-0.5">Active Agents</div>
             </div>
-            <div className="text-xl font-bold text-white">
-              <AnimatedCounter end={2847291} suffix="" />
+            <div className="text-center p-4 rounded-xl bg-blue-500/5 border border-blue-500/10">
+              <Zap className="w-5 h-5 text-blue-400 mx-auto mb-2" />
+              <div className="text-xl font-bold text-white">2.8M</div>
+              <div className="text-[10px] text-white/40 mt-0.5">Tokens Today</div>
             </div>
-            <div className="flex items-center gap-1 mt-1">
-              <TrendingUp className="w-3 h-3 text-green-400" />
-              <span className="text-xs text-green-400">+23.4%</span>
-              <span className="text-xs text-white/30">vs yesterday</span>
-            </div>
-          </div>
-          <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                <CreditCard className="w-4 h-4 text-blue-400" />
-              </div>
-              <span className="text-xs text-white/50">Cost Today</span>
-            </div>
-            <div className="text-xl font-bold text-white">
-              $<AnimatedCounter end={1247} suffix=".50" />
-            </div>
-            <div className="flex items-center gap-1 mt-1">
-              <TrendingDown className="w-3 h-3 text-green-400" />
-              <span className="text-xs text-green-400">-5.2%</span>
-              <span className="text-xs text-white/30">vs yesterday</span>
+            <div className="text-center p-4 rounded-xl bg-green-500/5 border border-green-500/10">
+              <CheckCircle2 className="w-5 h-5 text-green-400 mx-auto mb-2" />
+              <div className="text-xl font-bold text-white">99.7%</div>
+              <div className="text-[10px] text-white/40 mt-0.5">Success Rate</div>
             </div>
           </div>
-          <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
-                <Cpu className="w-4 h-4 text-purple-400" />
-              </div>
-              <span className="text-xs text-white/50">Avg Latency</span>
-            </div>
-            <div className="text-xl font-bold text-white">
-              <AnimatedCounter end={142} suffix="ms" />
-            </div>
-            <div className="flex items-center gap-1 mt-1">
-              <TrendingDown className="w-3 h-3 text-green-400" />
-              <span className="text-xs text-green-400">-12ms</span>
-              <span className="text-xs text-white/30">vs yesterday</span>
-            </div>
-          </div>
-          <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
-                <CheckCircle2 className="w-4 h-4 text-cyan-400" />
-              </div>
-              <span className="text-xs text-white/50">Success Rate</span>
-            </div>
-            <div className="text-xl font-bold text-white">
-              <AnimatedCounter end={99} suffix=".7%" />
-            </div>
-            <div className="flex items-center gap-1 mt-1">
-              <TrendingUp className="w-3 h-3 text-green-400" />
-              <span className="text-xs text-green-400">+0.3%</span>
-              <span className="text-xs text-white/30">vs yesterday</span>
-            </div>
-          </div>
-        </div>
-      </motion.div>
+        </motion.div>
 
-      {/* Running Jobs */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.7 }}
-        className="glass-card p-5"
-      >
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-2">
-            <Layers className="w-4 h-4 text-cyan-400" />
-            <h2 className="text-sm font-semibold text-white">Running Jobs</h2>
-          </div>
-          <button className="text-xs text-electric-400 hover:text-electric-300 transition-colors">View All Jobs</button>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[
-            { name: "Data Sync Pipeline", progress: 67, status: "running", eta: "4m remaining" },
-            { name: "Model Training v3", progress: 34, status: "running", eta: "23m remaining" },
-            { name: "Database Backup", progress: 89, status: "running", eta: "1m remaining" },
-          ].map((job, i) => (
-            <div key={i} className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-white">{job.name}</span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-electric-500 animate-pulse" />
-                  <span className="text-xs text-electric-400">Running</span>
-                </span>
-              </div>
-              <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden mb-2">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${job.progress}%` }}
-                  transition={{ duration: 1.5, delay: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                  className="h-full rounded-full bg-gradient-to-r from-electric-500 to-cyan-500"
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-white/40">{job.progress}%</span>
-                <span className="text-xs text-white/30">{job.eta}</span>
-              </div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.7 }}
+          className="glass-card p-5"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Layers className="w-4 h-4 text-cyan-400" />
+              <h2 className="text-sm font-semibold text-white">Platform Overview</h2>
             </div>
-          ))}
-        </div>
-      </motion.div>
+            <StatusBadge status="online" text="Healthy" />
+          </div>
+          <div className="grid grid-cols-4 gap-3">
+            <div className="text-center">
+              <Globe className="w-5 h-5 text-blue-400 mx-auto mb-1.5" />
+              <div className="text-sm font-bold text-white">12</div>
+              <div className="text-[9px] text-white/40">Regions</div>
+            </div>
+            <div className="text-center">
+              <Cpu className="w-5 h-5 text-purple-400 mx-auto mb-1.5" />
+              <div className="text-sm font-bold text-white">1.2K</div>
+              <div className="text-[9px] text-white/40">CPU Cores</div>
+            </div>
+            <div className="text-center">
+              <HardDrive className="w-5 h-5 text-green-400 mx-auto mb-1.5" />
+              <div className="text-sm font-bold text-white">48TB</div>
+              <div className="text-[9px] text-white/40">Storage</div>
+            </div>
+            <div className="text-center">
+              <Network className="w-5 h-5 text-orange-400 mx-auto mb-1.5" />
+              <div className="text-sm font-bold text-white">10Gb</div>
+              <div className="text-[9px] text-white/40">Network</div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
     </div>
   );
 }
-
-import { Plus } from "lucide-react";
