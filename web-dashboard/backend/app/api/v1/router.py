@@ -27,6 +27,9 @@ from app.api.v1.endpoints import (
     permissions,
     websocket,
     integration,
+    reports,
+    backups,
+    final_integration,
 )
 
 api_router = APIRouter()
@@ -53,4 +56,8 @@ api_router.include_router(notifications.router, prefix="/notifications", tags=["
 api_router.include_router(settings.router, prefix="/settings", tags=["Settings"])
 api_router.include_router(roles.router, prefix="/roles", tags=["Roles"])
 api_router.include_router(permissions.router, prefix="/permissions", tags=["Permissions"])
+api_router.include_router(reports.router, prefix="/reports", tags=["Reports"])
+api_router.include_router(backups.router, prefix="/backups", tags=["Backup and Recovery"])
+api_router.include_router(websocket.router, prefix="/realtime", tags=["Realtime"])
 api_router.include_router(integration.router, prefix="/integration", tags=["AIOS Integration"])
+api_router.include_router(final_integration.router, prefix="/final-integration", tags=["Final Integration"])
