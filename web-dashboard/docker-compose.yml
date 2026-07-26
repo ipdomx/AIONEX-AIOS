@@ -1,7 +1,6 @@
 version: "3.8"
 
 services:
-  # Frontend
   frontend:
     build:
       context: ./frontend
@@ -9,14 +8,13 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
       - NEXT_PUBLIC_WS_URL=ws://localhost:8000
     depends_on:
       - backend
     networks:
       - aionex-network
 
-  # Backend
   backend:
     build:
       context: ./backend
@@ -30,13 +28,16 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=your-super-secret-key-change-in-production
       - CORS_ORIGINS=["http://localhost:3000"]
+      - AIOS_REPO_ROOT=/workspace
+      - PYTHONPATH=/workspace/src:/app
+    volumes:
+      - ..:/workspace:ro
     depends_on:
       - postgres
       - redis
     networks:
       - aionex-network
 
-  # PostgreSQL
   postgres:
     image: postgres:16-alpine
     environment:
@@ -50,7 +51,6 @@ services:
     networks:
       - aionex-network
 
-  # Redis
   redis:
     image: redis:7-alpine
     ports:
@@ -60,7 +60,6 @@ services:
     networks:
       - aionex-network
 
-  # Nginx (Reverse Proxy)
   nginx:
     image: nginx:alpine
     ports:
