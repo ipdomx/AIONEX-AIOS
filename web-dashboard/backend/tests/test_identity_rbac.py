@@ -46,7 +46,7 @@ def test_owner_can_create_org_role_and_user() -> None:
             "name": "Batch One Engineer",
             "description": "Batch-one verification role",
             "organization_id": organization_id,
-            "permissions": ["projects:read", "profile:read"],
+            "permissions": ["projects:read", "users:read"],
         },
     )
     assert role_response.status_code in (201, 409)
