@@ -1,75 +1,80 @@
-"""Dashboard endpoints."""
+"""Dashboard endpoints backed by live consolidated runtime state."""
 
-from fastapi import APIRouter
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, Query
+
+from app.core.auth import UserRecord, current_user
+from app.core.runtime_store import runtime_store
 
 router = APIRouter()
 
-@router.get("/stats")
-async def get_dashboard_stats():
-    """Get dashboard statistics."""
-    return {
-        "total_users": 2847,
-        "total_organizations": 156,
-        "total_projects": 89,
-        "total_agents": 156,
-        "active_agents": 89,
-        "total_workflows": 124,
-        "active_workflows": 89,
-        "total_servers": 42,
-        "online_servers": 38,
-        "total_containers": 156,
-        "running_containers": 134,
-        "total_databases": 18,
-        "healthy_databases": 16,
-        "alerts_today": 12,
-        "critical_alerts": 3,
-        "tasks_today": 45,
-        "completed_tasks": 30,
-        "meetings_today": 8,
-        "cpu_usage": 64.5,
-        "memory_usage": 78.2,
-        "storage_usage": 45.8,
-        "network_rx": 892.4,
-        "network_tx": 645.2,
-        "ai_cost_today": 1247.50,
-        "ai_tokens_today": 2847291,
-        "api_calls_today": 4567890,
-        "api_errors_today": 45,
-    }
 
-@router.get("/activity")
-async def get_recent_activity(limit: int = 20):
-    """Get recent activity."""
+def _visible(collection: dict, user: UserRecord, include_deleted: bool = False):
     return [
-        {
-            "id": f"activity-{i}",
-            "type": "deployment" if i % 5 == 0 else "agent" if i % 5 == 1 else "alert" if i % 5 == 2 else "user" if i % 5 == 3 else "backup",
-            "title": f"Activity {i}",
-            "description": f"Activity description {i}",
-            "user": "Alex Chen",
-            "timestamp": "2024-01-15T10:00:00Z",
-        }
-        for i in range(limit)
+        item
+        for item in collection.values()
+        if item.get("organization_id") == user.organization_id
+        and (include_deleted or not item.get("deleted"))
     ]
 
-@router.get("/charts")
-async def get_dashboard_charts():
-    """Get dashboard chart data."""
+
+@router.get("/stats")
+async def get_dashboard_stats(user: UserRecord = Depends(current_user)):
+    projects = _visible(runtime_store.projects, user)
+    tasks = _visible(runtime_store.tasks, user)
+    workflows = _visible(runtime_store.workflows, user)
+    meetings = _visible(runtime_store.meetings, user)
+    workspaces = _visible(runtime_store.workspaces, user)
+    reports = _visible(runtime_store.reports, user, include_deleted=True)
     return {
-        "cpu_usage": {
-            "labels": ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00"],
-            "data": [45, 52, 67, 78, 65, 55],
+        "total_workspaces": len(workspaces),
+        "total_projects": len(projects),
+        "active_projects": sum(1 for item in projects if item.get("status") == "active"),
+        "total_tasks": len(tasks),
+        "completed_tasks": sum(1 for item in tasks if item.get("status") == "done"),
+        "in_progress_tasks": sum(1 for item in tasks if item.get("status") == "in_progress"),
+        "todo_tasks": sum(1 for item in tasks if item.get("status") == "todo"),
+        "total_workflows": len(workflows),
+        "active_workflows": sum(1 for item in workflows if item.get("status") == "active"),
+        "total_meetings": len(meetings),
+        "pending_meetings": sum(1 for item in meetings if item.get("status") == "pending_approval"),
+        "total_reports": len(reports),
+        "average_project_progress": round(sum(int(item.get("progress", 0)) for item in projects) / len(projects), 2) if projects else 0,
+        "activity_count": len(runtime_store.activities),
+    }
+
+
+@router.get("/activity")
+async def get_recent_activity(limit: int = Query(20, ge=1, le=100), user: UserRecord = Depends(current_user)):
+    visible_names = {item.get("name") for item in _visible(runtime_store.projects, user)}
+    return [
+        item
+        for item in runtime_store.activities
+        if item.get("user_id") == user.id or any(name and name in item.get("description", "") for name in visible_names)
+    ][:limit]
+
+
+@router.get("/charts")
+async def get_dashboard_charts(user: UserRecord = Depends(current_user)):
+    projects = _visible(runtime_store.projects, user)
+    tasks = _visible(runtime_store.tasks, user)
+    workflows = _visible(runtime_store.workflows, user)
+    return {
+        "project_status": {
+            "labels": ["planning", "active", "paused", "completed"],
+            "data": [sum(1 for item in projects if item.get("status") == status) for status in ["planning", "active", "paused", "completed"]],
         },
-        "memory_usage": {
-            "labels": ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00"],
-            "data": [60, 62, 70, 82, 75, 68],
+        "task_status": {
+            "labels": ["todo", "in_progress", "review", "done"],
+            "data": [sum(1 for item in tasks if item.get("status") == status) for status in ["todo", "in_progress", "review", "done"]],
         },
-        "api_calls": {
-            "labels": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-            "data": [3200000, 3500000, 3800000, 4200000, 3900000, 2800000, 2600000],
+        "workflow_runs": {
+            "labels": [item.get("name", item.get("id")) for item in workflows],
+            "data": [int(item.get("run_count", 0)) for item in workflows],
         },
-        "ai_cost": {
-            "labels": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-            "data": [850, 920, 1100, 1247, 980, 650, 580],
+        "project_progress": {
+            "labels": [item.get("name", item.get("id")) for item in projects],
+            "data": [int(item.get("progress", 0)) for item in projects],
         },
     }
