@@ -1,89 +1,70 @@
-"""Security endpoints."""
+"""Security, audit and session endpoints."""
+from fastapi import APIRouter, HTTPException, Query
+from typing import Optional
 
-from fastapi import APIRouter, Query
-from typing import List, Optional
+from app.core.production_runtime import production_runtime
 
 router = APIRouter()
 
+
 @router.get("/events")
-async def get_security_events(
-    type: Optional[str] = None,
-    user_id: Optional[str] = None,
-    risk_level: Optional[str] = None,
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=500),
-):
-    """Get security events."""
-    return [
-        {
-            "id": f"event-{i}",
-            "timestamp": "2024-01-15T10:00:00Z",
-            "type": "login" if i % 5 == 0 else "failed_login" if i % 5 == 1 else "api_call" if i % 5 == 2 else "permission_change" if i % 5 == 3 else "suspicious",
-            "user_id": f"user-{i % 10}",
-            "ip": f"192.168.1.{i + 10}",
-            "user_agent": "Mozilla/5.0",
-            "resource": "api",
-            "action": "read",
-            "result": "success" if i % 3 == 0 else "failure",
-            "risk_score": 10 + i * 2,
-            "geo": {"country": "UAE", "city": "Dubai"},
-        }
-        for i in range(limit)
-    ]
+async def get_security_events(type: Optional[str] = None, user_id: Optional[str] = None, risk_level: Optional[str] = None, skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500)):
+    items = list(reversed(production_runtime.security_events))
+    if type:
+        items = [item for item in items if item["type"] == type]
+    if user_id:
+        items = [item for item in items if item.get("user_id") == user_id]
+    if risk_level:
+        items = [item for item in items if item["risk_level"] == risk_level]
+    return items[skip:skip + limit]
+
+
+@router.post("/events")
+async def create_security_event(event_type: str, risk_score: int = Query(..., ge=0, le=100), result: str = "detected", user_id: str | None = None, ip: str | None = None):
+    return production_runtime.security_event(event_type, risk_score, result, user_id, ip)
+
 
 @router.get("/threats")
-async def get_threats(
-    severity: Optional[str] = None,
-    status: Optional[str] = None,
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
-):
-    """Get threat intelligence."""
-    return [
-        {
-            "id": f"threat-{i}",
-            "title": f"Threat {i}",
-            "description": f"Threat description {i}",
-            "severity": "high" if i % 3 == 0 else "medium",
-            "status": "active" if i % 2 == 0 else "mitigated",
-            "source_ip": f"10.0.0.{i + 1}",
-            "detected_at": "2024-01-15T10:00:00Z",
-        }
-        for i in range(limit)
-    ]
+async def get_threats(severity: Optional[str] = None, status: Optional[str] = None, skip: int = Query(0, ge=0), limit: int = Query(20, ge=1, le=100)):
+    items = []
+    for event in reversed(production_runtime.security_events):
+        if event["risk_score"] < 60:
+            continue
+        item = {"id": event["id"], "title": f"Security threat: {event['type']}", "description": f"Risk score {event['risk_score']}", "severity": event["risk_level"], "status": "active" if event["result"] != "mitigated" else "mitigated", "source_ip": event.get("ip"), "detected_at": event["timestamp"]}
+        items.append(item)
+    if severity:
+        items = [item for item in items if item["severity"] == severity]
+    if status:
+        items = [item for item in items if item["status"] == status]
+    return items[skip:skip + limit]
 
-@router.get("/sessions")
-async def get_active_sessions(
-    user_id: Optional[str] = None,
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
-):
-    """Get active sessions."""
-    return [
-        {
-            "id": f"session-{i}",
-            "user_id": f"user-{i % 10}",
-            "user_name": f"User {i % 10}",
-            "ip": f"192.168.1.{i + 10}",
-            "user_agent": "Mozilla/5.0",
-            "location": "Dubai, UAE",
-            "created_at": "2024-01-15T08:00:00Z",
-            "last_active": "2024-01-15T10:00:00Z",
-            "is_current": i == 0,
-        }
-        for i in range(limit)
-    ]
 
-@router.delete("/sessions/{session_id}")
-async def terminate_session(session_id: str):
-    """Terminate session."""
-    return {"message": "Session terminated", "session_id": session_id}
+@router.get("/audit")
+async def get_audit_events(action: str | None = None, actor: str | None = None, skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=500)):
+    items = list(reversed(production_runtime.audit_events))
+    if action:
+        items = [item for item in items if item["action"] == action]
+    if actor:
+        items = [item for item in items if item["actor"] == actor]
+    return items[skip:skip + limit]
+
+
+@router.post("/audit")
+async def create_audit_event(actor: str, action: str, resource: str):
+    return production_runtime.audit(actor, action, resource)
+
 
 @router.get("/policies")
 async def get_policies():
-    """Get security policies."""
     return [
-        {"id": "policy-1", "name": "Password Policy", "status": "active", "rules": 8},
-        {"id": "policy-2", "name": "MFA Policy", "status": "active", "rules": 3},
-        {"id": "policy-3", "name": "IP Whitelist", "status": "active", "rules": 15},
+        {"id": "password-policy", "name": "Password Policy", "status": "active", "rules": {"minimum_length": 12, "rotation_required": True}},
+        {"id": "mfa-policy", "name": "MFA Policy", "status": "active", "rules": {"owners_required": True, "admins_required": True}},
+        {"id": "session-policy", "name": "Session Policy", "status": "active", "rules": {"access_minutes": 30, "refresh_days": 7}},
+        {"id": "audit-policy", "name": "Audit Policy", "status": "active", "rules": {"retention_days": 365, "immutable": True}},
     ]
+
+
+@router.delete("/sessions/{session_id}")
+async def terminate_session(session_id: str):
+    production_runtime.audit("operator", "session.terminate", session_id)
+    return {"message": "Session termination recorded", "session_id": session_id}
