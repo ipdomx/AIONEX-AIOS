@@ -29,6 +29,7 @@ from app.api.v1.endpoints import (
     integration,
     reports,
     backups,
+    final_integration,
 )
 
 api_router = APIRouter()
@@ -59,3 +60,4 @@ api_router.include_router(reports.router, prefix="/reports", tags=["Reports"])
 api_router.include_router(backups.router, prefix="/backups", tags=["Backup and Recovery"])
 api_router.include_router(websocket.router, prefix="/realtime", tags=["Realtime"])
 api_router.include_router(integration.router, prefix="/integration", tags=["AIOS Integration"])
+api_router.include_router(final_integration.router, prefix="/final-integration", tags=["Final Integration"])
