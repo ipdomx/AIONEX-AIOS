@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "@/styles/globals.css";
+import RuntimeProvider from "@/components/providers/RuntimeProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -16,7 +17,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "AIONEX AIOS — Enterprise AI Operating System",
-  description: "The most advanced Enterprise AI Operating System dashboard. Manage AI agents, workflows, infrastructure, and teams from a single unified interface.",
+  description: "Enterprise AI Operating System dashboard for governed agents, workflows, infrastructure, organizations, and operations.",
   keywords: ["AI", "Enterprise", "Dashboard", "AIONEX", "AIOS", "Agents", "Workflows", "Infrastructure"],
   authors: [{ name: "AIONEX" }],
   creator: "AIONEX",
@@ -28,7 +29,7 @@ export const metadata: Metadata = {
     url: "https://aionex.io",
     siteName: "AIONEX AIOS",
     title: "AIONEX AIOS — Enterprise AI Operating System",
-    description: "The most advanced Enterprise AI Operating System dashboard.",
+    description: "Enterprise AI Operating System dashboard.",
   },
   twitter: {
     card: "summary_large_image",
@@ -53,11 +54,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
       <head>
@@ -65,7 +62,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body className="antialiased">
-        {children}
+        <RuntimeProvider>{children}</RuntimeProvider>
       </body>
     </html>
   );
