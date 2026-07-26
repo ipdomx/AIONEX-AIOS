@@ -1,5 +1,4 @@
 """Production authentication and session primitives for the dashboard backend."""
-
 from __future__ import annotations
 
 import hashlib
@@ -16,7 +15,7 @@ from passlib.context import CryptContext
 from app.core.config import settings
 from app.core.identity_store import IdentityUserRecord, identity_store, utc_now
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 
