@@ -1,6 +1,6 @@
 # AIONEX AIOS Backend
 fastapi==0.110.0
-uvicorn[standard]==0.27.0
+uvicorn[standard]==0.51.0
 pydantic==2.6.0
 pydantic-settings==2.1.0
 sqlalchemy==2.0.25
