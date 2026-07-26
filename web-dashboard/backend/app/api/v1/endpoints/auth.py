@@ -1,17 +1,13 @@
 """Authentication endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import APIRouter, Depends, status
+from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr
+
+from app.core.auth import UserRecord, auth_service, current_user, oauth2_scheme
 
 router = APIRouter()
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
-
-class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
-    mfa_code: str | None = None
 
 class LoginResponse(BaseModel):
     access_token: str
@@ -20,18 +16,26 @@ class LoginResponse(BaseModel):
     expires_in: int
     user: dict
 
+
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     name: str
     organization_name: str | None = None
 
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
 class PasswordResetRequest(BaseModel):
     email: EmailStr
+
 
 class PasswordResetConfirm(BaseModel):
     token: str
     new_password: str
+
 
 class MFASetupResponse(BaseModel):
     secret: str
@@ -41,77 +45,51 @@ class MFASetupResponse(BaseModel):
 
 @router.post("/login", response_model=LoginResponse)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    """Authenticate user and return tokens."""
-    return {
-        "access_token": "mock_token",
-        "refresh_token": "mock_refresh",
-        "token_type": "bearer",
-        "expires_in": 1800,
-        "user": {
-            "id": "mock-user-id",
-            "email": form_data.username,
-            "name": "Alex Chen",
-            "role": "Super Owner",
-        },
-    }
+    user = auth_service.authenticate(form_data.username, form_data.password)
+    return auth_service.issue_pair(user)
+
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register(data: RegisterRequest):
-    """Register new user and organization."""
-    return {"message": "User registered successfully", "user_id": "mock-id"}
+    user = auth_service.register(data.email, data.password, data.name, data.organization_name)
+    return {"message": "User registered successfully", "user": auth_service.serialize_user(user)}
+
 
 @router.post("/logout")
 async def logout(token: str = Depends(oauth2_scheme)):
-    """Logout user and invalidate token."""
+    auth_service.revoke_access_token(token)
     return {"message": "Logged out successfully"}
 
-@router.post("/refresh")
-async def refresh_token(refresh_token: str):
-    """Refresh access token."""
-    return {
-        "access_token": "new_mock_token",
-        "token_type": "bearer",
-        "expires_in": 1800,
-    }
+
+@router.post("/refresh", response_model=LoginResponse)
+async def refresh_token(data: RefreshRequest):
+    return auth_service.refresh(data.refresh_token)
+
 
 @router.post("/password-reset")
 async def request_password_reset(data: PasswordResetRequest):
-    """Request password reset."""
-    return {"message": "Password reset email sent"}
+    return {"message": "Password reset request accepted"}
+
 
 @router.post("/password-reset/confirm")
 async def confirm_password_reset(data: PasswordResetConfirm):
-    """Confirm password reset."""
-    return {"message": "Password reset successful"}
+    return {"message": "Password reset confirmation accepted"}
+
 
 @router.post("/mfa/setup", response_model=MFASetupResponse)
-async def setup_mfa(token: str = Depends(oauth2_scheme)):
-    """Setup MFA for user."""
+async def setup_mfa(user: UserRecord = Depends(current_user)):
     return {
-        "secret": "mock-secret",
-        "qr_code": "data:image/png;base64,mock",
-        "backup_codes": ["code1", "code2", "code3", "code4", "code5"],
+        "secret": "mfa-setup-required",
+        "qr_code": "",
+        "backup_codes": [],
     }
+
 
 @router.post("/mfa/verify")
-async def verify_mfa(code: str, token: str = Depends(oauth2_scheme)):
-    """Verify MFA code."""
-    return {"verified": True}
+async def verify_mfa(code: str, user: UserRecord = Depends(current_user)):
+    return {"verified": bool(code.strip())}
+
 
 @router.get("/me")
-async def get_current_user(token: str = Depends(oauth2_scheme)):
-    """Get current authenticated user."""
-    return {
-        "id": "mock-user-id",
-        "email": "alex@aionex.io",
-        "name": "Alex Chen",
-        "avatar": None,
-        "role": "Super Owner",
-        "status": "online",
-        "organization": {
-            "id": "mock-org-id",
-            "name": "AIONEX Corp",
-            "plan": "enterprise",
-        },
-        "permissions": ["*"],
-    }
+async def get_current_user(user: UserRecord = Depends(current_user)):
+    return auth_service.serialize_user(user)
