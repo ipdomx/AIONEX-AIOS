@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "standalone",
   reactStrictMode: true,
   swcMinify: true,
   images: {
@@ -15,18 +16,19 @@ const nextConfig = {
     ],
   },
   async rewrites() {
+    const backendOrigin = process.env.AIOS_BACKEND_ORIGIN || "http://backend:8000";
     return [
       {
         source: "/api/v1/:path*",
-        destination: "http://localhost:8000/api/v1/:path*",
+        destination: `${backendOrigin}/api/v1/:path*`,
       },
       {
         source: "/graphql",
-        destination: "http://localhost:8000/graphql",
+        destination: `${backendOrigin}/graphql`,
       },
       {
         source: "/ws/:path*",
-        destination: "http://localhost:8000/ws/:path*",
+        destination: `${backendOrigin}/ws/:path*`,
       },
     ];
   },
