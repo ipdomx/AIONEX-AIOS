@@ -6,7 +6,7 @@ import { Construction } from "lucide-react";
 export default function RedisPage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-      <motion.div initial={ opacity: 0, scale: 0.9 } animate={ opacity: 1, scale: 1 } transition={ duration: 0.5 }>
+      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }}>
         <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-electric-500/20 to-purple-500/20 flex items-center justify-center border border-white/[0.08] mb-4 mx-auto">
           <Construction className="w-8 h-8 text-electric-400" />
         </div>
