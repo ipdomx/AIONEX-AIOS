@@ -1,10 +1,17 @@
-"""AI Agents endpoints."""
+"""AI agent orchestration endpoints."""
 
-from fastapi import APIRouter, Depends, Query
+import asyncio
+from dataclasses import asdict
+from typing import Optional
+
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from pydantic import BaseModel
-from typing import List, Optional
+
+from app.core.ai_runtime import ai_runtime
+from app.core.auth import UserRecord, current_user
 
 router = APIRouter()
+
 
 class AgentCreate(BaseModel):
     name: str
@@ -13,8 +20,9 @@ class AgentCreate(BaseModel):
     provider_id: str
     model: str
     system_prompt: Optional[str] = None
-    organization_id: str
+    organization_id: Optional[str] = None
     workspace_id: Optional[str] = None
+
 
 class AgentUpdate(BaseModel):
     name: Optional[str] = None
@@ -23,25 +31,12 @@ class AgentUpdate(BaseModel):
     system_prompt: Optional[str] = None
     temperature: Optional[float] = None
 
-class AgentResponse(BaseModel):
-    id: str
-    name: str
-    slug: str
-    status: str
-    role: str
-    department: str
-    provider: str
-    model: str
-    tasks_completed: int
-    tasks_failed: int
-    performance: float
-    latency: int
-    cost: float
-    tokens_used: int
-    created_at: str
+
+class AgentExecutionRequest(BaseModel):
+    prompt: str
 
 
-@router.get("", response_model=List[AgentResponse])
+@router.get("")
 async def list_agents(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -49,98 +44,69 @@ async def list_agents(
     provider: Optional[str] = None,
     role: Optional[str] = None,
     search: Optional[str] = None,
+    user: UserRecord = Depends(current_user),
 ):
-    """List all AI agents."""
-    return [
-        {
-            "id": f"agent-{i}",
-            "name": f"AI Agent {i}",
-            "slug": f"ai-agent-{i}",
-            "status": "running" if i % 3 == 0 else "idle",
-            "role": "Code Reviewer" if i % 2 == 0 else "Data Analyst",
-            "department": "Engineering",
-            "provider": "OpenAI",
-            "model": "gpt-4",
-            "tasks_completed": 150 + i * 10,
-            "tasks_failed": 5 + i,
-            "performance": 98.5 - i * 0.5,
-            "latency": 120 + i * 5,
-            "cost": 45.50 + i * 2,
-            "tokens_used": 500000 + i * 10000,
-            "created_at": "2024-01-01T00:00:00Z",
-        }
-        for i in range(limit)
-    ]
+    rows = ai_runtime.list_agents(user.organization_id)
+    if status:
+        rows = [row for row in rows if row["status"] == status]
+    if provider:
+        rows = [row for row in rows if row["provider"].lower() == provider.lower()]
+    if role:
+        rows = [row for row in rows if row["role"].lower() == role.lower()]
+    if search:
+        needle = search.lower()
+        rows = [row for row in rows if needle in row["name"].lower() or needle in row["role"].lower()]
+    return rows[skip : skip + limit]
+
 
 @router.post("", status_code=201)
-async def create_agent(data: AgentCreate):
-    """Create new AI agent."""
-    return {"id": "new-agent-id", "message": "Agent created successfully"}
+async def create_agent(data: AgentCreate, user: UserRecord = Depends(current_user)):
+    payload = data.model_dump(exclude={"organization_id"})
+    return ai_runtime.create_agent(payload, user.organization_id)
 
-@router.get("/{agent_id}", response_model=AgentResponse)
-async def get_agent(agent_id: str):
-    """Get agent by ID."""
-    return {
-        "id": agent_id,
-        "name": "Code Reviewer AI",
-        "slug": "code-reviewer",
-        "status": "running",
-        "role": "Code Reviewer",
-        "department": "Engineering",
-        "provider": "OpenAI",
-        "model": "gpt-4",
-        "tasks_completed": 892,
-        "tasks_failed": 12,
-        "performance": 98.7,
-        "latency": 145,
-        "cost": 124.50,
-        "tokens_used": 2847291,
-        "created_at": "2024-01-01T00:00:00Z",
-    }
+
+@router.get("/{agent_id}")
+async def get_agent(agent_id: str, user: UserRecord = Depends(current_user)):
+    agent = ai_runtime.get_agent(agent_id, user.organization_id)
+    row = asdict(agent)
+    row["provider"] = ai_runtime.providers.get(agent.provider_id).name if agent.provider_id in ai_runtime.providers else "Unknown"
+    return row
+
 
 @router.put("/{agent_id}")
-async def update_agent(agent_id: str, data: AgentUpdate):
-    """Update agent."""
-    return {"id": agent_id, "message": "Agent updated successfully"}
+async def update_agent(agent_id: str, data: AgentUpdate, user: UserRecord = Depends(current_user)):
+    return ai_runtime.update_agent(agent_id, user.organization_id, data.model_dump(exclude_unset=True))
+
 
 @router.delete("/{agent_id}")
-async def delete_agent(agent_id: str):
-    """Delete agent."""
+async def delete_agent(agent_id: str, user: UserRecord = Depends(current_user)):
+    ai_runtime.delete_agent(agent_id, user.organization_id)
     return {"message": "Agent deleted successfully"}
 
-@router.post("/{agent_id}/execute")
-async def execute_agent(agent_id: str, prompt: str):
-    """Execute agent with prompt."""
-    return {
-        "agent_id": agent_id,
-        "status": "completed",
-        "result": "Agent execution result...",
-        "tokens_used": 150,
-        "cost": 0.03,
-        "latency_ms": 234,
-    }
+
+@router.post("/{agent_id}/execute", status_code=202)
+async def execute_agent(
+    agent_id: str,
+    data: AgentExecutionRequest,
+    background_tasks: BackgroundTasks,
+    user: UserRecord = Depends(current_user),
+):
+    job = ai_runtime.create_job(agent_id, user.organization_id, data.prompt)
+    background_tasks.add_task(ai_runtime.run_job, job.id)
+    return asdict(job)
+
 
 @router.get("/{agent_id}/tasks")
-async def get_agent_tasks(agent_id: str, limit: int = 20):
-    """Get agent task history."""
-    return [
-        {
-            "id": f"task-{i}",
-            "status": "completed" if i % 3 != 0 else "failed",
-            "prompt": f"Task {i} prompt...",
-            "result": f"Task {i} result...",
-            "tokens_used": 100 + i * 10,
-            "cost": 0.02 + i * 0.001,
-            "latency_ms": 200 + i * 10,
-            "created_at": "2024-01-15T10:00:00Z",
-        }
-        for i in range(limit)
-    ]
+async def get_agent_tasks(agent_id: str, limit: int = 20, user: UserRecord = Depends(current_user)):
+    ai_runtime.get_agent(agent_id, user.organization_id)
+    return [row for row in ai_runtime.list_jobs(user.organization_id, limit=100) if row["agent_id"] == agent_id][:limit]
+
 
 @router.get("/{agent_id}/knowledge")
-async def get_agent_knowledge(agent_id: str):
-    """Get agent knowledge base."""
-    return [
-        {"id": f"k-{i}", "title": f"Knowledge {i}", "relevance": 0.95 - i * 0.05}
-        for i in range(10)
-    ]
+async def get_agent_knowledge(agent_id: str, user: UserRecord = Depends(current_user)):
+    agent = ai_runtime.get_agent(agent_id, user.organization_id)
+    return {
+        "agent_id": agent.id,
+        "system_prompt": agent.system_prompt,
+        "sources": [],
+    }
