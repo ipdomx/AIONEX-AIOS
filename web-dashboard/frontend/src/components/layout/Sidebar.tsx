@@ -1,45 +1,40 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useCallback, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import type { LucideIcon } from "lucide-react";
 import {
-  LayoutDashboard,
-  Users,
+  Activity,
+  BarChart3,
+  Bell,
+  BookOpen,
   Bot,
   Brain,
-  Workflow,
-  Server,
-  Database,
-  Shield,
-  FileText,
-  Settings,
-  Bell,
-  Search,
-  ChevronRight,
-  ChevronLeft,
-  Building2,
   Briefcase,
-  Layers,
-  Activity,
-  Lock,
-  CreditCard,
+  Building2,
   Calendar,
   CheckSquare,
-  MessageSquare,
-  Zap,
-  BookOpen,
-  Cpu,
-  HardDrive,
-  Globe,
-  Terminal,
-  BarChart3,
-  FolderOpen,
-  Sparkles,
-  Command,
-  Pin,
+  ChevronLeft,
+  ChevronRight,
   Clock,
+  Cpu,
+  Database,
+  FileText,
+  FolderOpen,
+  Globe,
+  Layers,
+  LayoutDashboard,
+  Lock,
+  Pin,
+  Server,
+  Settings,
+  Shield,
+  Sparkles,
   Star,
-  MoreHorizontal,
+  Terminal,
+  Users,
+  Workflow,
+  Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -55,20 +50,26 @@ interface SidebarProps {
   onToggle: () => void;
 }
 
-const mainNavSections = [
-  {
-    id: "overview",
-    label: "Overview",
-    icon: LayoutDashboard,
-    href: "/",
-  },
-  {
-    id: "projects",
-    label: "Projects",
-    icon: FolderOpen,
-    href: "/projects",
-    badge: 12,
-  },
+interface NavChild {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  href: string;
+  badge?: number;
+}
+
+interface NavSection {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  href?: string;
+  badge?: number;
+  children?: NavChild[];
+}
+
+const mainNavSections: NavSection[] = [
+  { id: "overview", label: "Overview", icon: LayoutDashboard, href: "/" },
+  { id: "projects", label: "Projects", icon: FolderOpen, href: "/projects", badge: 12 },
   {
     id: "ai",
     label: "AI",
@@ -80,19 +81,8 @@ const mainNavSections = [
       { id: "ai-usage", label: "Usage", icon: BarChart3, href: "/ai/usage" },
     ],
   },
-  {
-    id: "workflows",
-    label: "Workflows",
-    icon: Workflow,
-    href: "/workflows",
-    badge: 24,
-  },
-  {
-    id: "knowledge",
-    label: "Knowledge",
-    icon: BookOpen,
-    href: "/knowledge",
-  },
+  { id: "workflows", label: "Workflows", icon: Workflow, href: "/workflows", badge: 24 },
+  { id: "knowledge", label: "Knowledge", icon: BookOpen, href: "/knowledge" },
   {
     id: "infrastructure",
     label: "Infrastructure",
@@ -140,296 +130,181 @@ const mainNavSections = [
       { id: "users-permissions", label: "Permissions", icon: Shield, href: "/users/permissions" },
     ],
   },
-  {
-    id: "tasks",
-    label: "Tasks",
-    icon: CheckSquare,
-    href: "/tasks",
-    badge: 15,
-  },
-  {
-    id: "meetings",
-    label: "Meetings",
-    icon: Calendar,
-    href: "/meetings",
-  },
-  {
-    id: "reports",
-    label: "Reports",
-    icon: BarChart3,
-    href: "/reports",
-  },
+  { id: "tasks", label: "Tasks", icon: CheckSquare, href: "/tasks", badge: 15 },
+  { id: "meetings", label: "Meetings", icon: Calendar, href: "/meetings" },
+  { id: "reports", label: "Reports", icon: BarChart3, href: "/reports" },
 ];
 
-const bottomNavSections = [
-  {
-    id: "settings",
-    label: "Settings",
-    icon: Settings,
-    href: "/settings",
-  },
+const bottomNavSections: NavSection[] = [
+  { id: "settings", label: "Settings", icon: Settings, href: "/settings" },
 ];
 
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const [expandedSections, setExpandedSections] = useState<string[]>(["ai", "infrastructure"]);
   const [favorites] = useState(["ai-agents", "infra-servers", "mon-alerts"]);
-  const [recentPages] = useState(["Projects", "AI Agents", "Server-01"]);
 
   const toggleSection = useCallback((sectionId: string) => {
-    setExpandedSections((prev) =>
-      prev.includes(sectionId) ? prev.filter((id) => id !== sectionId) : [...prev, sectionId]
+    setExpandedSections((current) =>
+      current.includes(sectionId)
+        ? current.filter((id) => id !== sectionId)
+        : [...current, sectionId],
     );
   }, []);
 
   const isActive = useCallback(
-    (href: string) => {
-      if (href === "/") return pathname === "/";
-      return pathname.startsWith(href);
-    },
-    [pathname]
+    (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href)),
+    [pathname],
   );
+
+  const renderBadge = (badge?: number) =>
+    !collapsed && badge ? (
+      <span className="flex-shrink-0 rounded-md bg-white/[0.08] px-1.5 py-0.5 text-[10px] font-semibold text-white/60">
+        {badge}
+      </span>
+    ) : null;
 
   return (
     <motion.aside
       initial={false}
       animate={{ width: collapsed ? 72 : 280 }}
       transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      className="fixed left-0 top-0 h-screen z-50 flex flex-col glass-strong border-r border-white/[0.06]"
+      className="glass-strong fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-white/[0.06]"
     >
-      {/* Logo */}
-      <div className="flex items-center gap-3 px-4 h-16 border-b border-white/[0.06]">
-        <div className="relative flex-shrink-0 w-9 h-9 rounded-xl bg-gradient-to-br from-electric-500/20 to-purple-500/20 flex items-center justify-center border border-white/[0.08]">
-          <Sparkles className="w-5 h-5 text-electric-400" />
-          <div className="absolute inset-0 rounded-xl bg-electric-500/10 animate-pulse-glow" />
+      <div className="flex h-16 items-center gap-3 border-b border-white/[0.06] px-4">
+        <div className="relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-gradient-to-br from-electric-500/20 to-purple-500/20">
+          <Sparkles className="h-5 w-5 text-electric-400" />
         </div>
         <AnimatePresence>
           {!collapsed && (
-            <motion.div
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
-              transition={{ duration: 0.2 }}
-              className="flex flex-col"
-            >
-              <span className="text-sm font-bold text-white tracking-tight">AIONEX</span>
-              <span className="text-[10px] text-white/40 font-medium tracking-widest uppercase">AIOS</span>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col">
+              <span className="text-sm font-bold tracking-tight text-white">AIONEX</span>
+              <span className="text-[10px] font-medium uppercase tracking-widest text-white/40">AIOS</span>
             </motion.div>
           )}
         </AnimatePresence>
-        <button
-          onClick={onToggle}
-          className="ml-auto p-1.5 rounded-lg hover:bg-white/[0.08] transition-colors"
-        >
-          {collapsed ? (
-            <ChevronRight className="w-4 h-4 text-white/40" />
-          ) : (
-            <ChevronLeft className="w-4 h-4 text-white/40" />
+        <button onClick={onToggle} className="ml-auto rounded-lg p-1.5 transition-colors hover:bg-white/[0.08]" aria-label="Toggle sidebar">
+          {collapsed ? <ChevronRight className="h-4 w-4 text-white/40" /> : <ChevronLeft className="h-4 w-4 text-white/40" />}
+        </button>
+      </div>
+
+      <div className="border-b border-white/[0.06] px-3 py-3">
+        <button className="flex w-full items-center gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 transition-all hover:bg-white/[0.06]">
+          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border border-white/[0.08] bg-gradient-to-br from-blue-500/20 to-purple-500/20">
+            <Building2 className="h-3.5 w-3.5 text-blue-400" />
+          </div>
+          {!collapsed && (
+            <div className="flex min-w-0 flex-1 flex-col items-start">
+              <span className="truncate text-xs font-semibold text-white">AIONEX Corp</span>
+              <span className="text-[10px] text-white/40">Enterprise Plan</span>
+            </div>
           )}
         </button>
       </div>
 
-      {/* Workspace Switcher */}
-      <div className="px-3 py-3 border-b border-white/[0.06]">
-        <button className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] transition-all duration-200 group">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center flex-shrink-0 border border-white/[0.08]">
-            <Building2 className="w-3.5 h-3.5 text-blue-400" />
-          </div>
-          <AnimatePresence>
-            {!collapsed && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex flex-col items-start flex-1 min-w-0"
-              >
-                <span className="text-xs font-semibold text-white truncate">AIONEX Corp</span>
-                <span className="text-[10px] text-white/40">Enterprise Plan</span>
-              </motion.div>
-            )}
-          </AnimatePresence>
-          {!collapsed && <ChevronRight className="w-3.5 h-3.5 text-white/30 group-hover:text-white/60 transition-colors" />}
-        </button>
-      </div>
-
-      {/* Quick Access */}
       {!collapsed && (
-        <div className="px-3 py-2 border-b border-white/[0.06]">
-          <div className="flex items-center gap-2 px-3 mb-2">
-            <Star className="w-3 h-3 text-white/30" />
-            <span className="text-[10px] font-semibold text-white/30 uppercase tracking-wider">Favorites</span>
+        <div className="border-b border-white/[0.06] px-3 py-2">
+          <div className="mb-2 flex items-center gap-2 px-3">
+            <Star className="h-3 w-3 text-white/30" />
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-white/30">Favorites</span>
           </div>
-          <div className="space-y-0.5">
-            {favorites.map((fav) => (
-              <button
-                key={fav}
-                className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-white/50 hover:text-white/80 hover:bg-white/[0.04] transition-all"
-              >
-                <Pin className="w-3 h-3" />
-                <span className="truncate">{fav}</span>
-              </button>
-            ))}
-          </div>
+          {favorites.map((favorite) => (
+            <button key={favorite} className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-xs text-white/50 transition-all hover:bg-white/[0.04] hover:text-white/80">
+              <Pin className="h-3 w-3" />
+              <span className="truncate">{favorite}</span>
+            </button>
+          ))}
         </div>
       )}
 
-      {/* Main Navigation */}
-      <div className="flex-1 overflow-y-auto py-2 px-3 scrollbar-thin">
+      <div className="scrollbar-thin flex-1 overflow-y-auto px-3 py-2">
         <div className="space-y-0.5">
           {mainNavSections.map((section) => {
-            const Icon = section.icon;
-            const hasChildren = section.children && section.children.length > 0;
-            const isExpanded = expandedSections.includes(section.id);
-            const isSectionActive = hasChildren
-              ? section.children?.some((child) => isActive(child.href))
-              : isActive(section.href || "");
+            const SectionIcon = section.icon;
+            const hasChildren = Boolean(section.children?.length);
+            const expanded = expandedSections.includes(section.id);
+            const active = hasChildren
+              ? section.children?.some((child) => isActive(child.href)) ?? false
+              : isActive(section.href ?? "/");
 
-            return (
-              <div key={section.id}>
-                {hasChildren ? (
-                  <>
-                    <button
-                      onClick={() => toggleSection(section.id)}
-                      className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200",
-                        isSectionActive
-                          ? "text-white bg-white/[0.08]"
-                          : "text-white/50 hover:text-white/80 hover:bg-white/[0.04]"
-                      )}
-                    >
-                      <Icon className={cn("w-[18px] h-[18px] flex-shrink-0", isSectionActive && "text-electric-400")} />
-                      <AnimatePresence>
-                        {!collapsed && (
-                          <motion.span
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="flex-1 text-left"
-                          >
-                            {section.label}
-                          </motion.span>
-                        )}
-                      </AnimatePresence>
-                      {!collapsed && (
-                        <motion.div
-                          animate={{ rotate: isExpanded ? 90 : 0 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          <ChevronRight className="w-3.5 h-3.5 text-white/30" />
-                        </motion.div>
-                      )}
-                      {!collapsed && section.badge && (
-                        <span className="flex-shrink-0 px-1.5 py-0.5 rounded-md bg-white/[0.08] text-[10px] font-semibold text-white/60">
-                          {section.badge}
-                        </span>
-                      )}
-                    </button>
-                    <AnimatePresence>
-                      {isExpanded && !collapsed && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: "auto", opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                          className="overflow-hidden"
-                        >
-                          <div className="ml-4 pl-3 border-l border-white/[0.06] space-y-0.5 mt-0.5">
-                            {section.children?.map((child) => (
+            if (hasChildren) {
+              return (
+                <div key={section.id}>
+                  <button
+                    onClick={() => toggleSection(section.id)}
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all",
+                      active ? "bg-white/[0.08] text-white" : "text-white/50 hover:bg-white/[0.04] hover:text-white/80",
+                    )}
+                  >
+                    <SectionIcon className={cn("h-[18px] w-[18px] flex-shrink-0", active && "text-electric-400")} />
+                    {!collapsed && <span className="flex-1 text-left">{section.label}</span>}
+                    {!collapsed && <ChevronRight className={cn("h-3.5 w-3.5 text-white/30 transition-transform", expanded && "rotate-90")} />}
+                    {renderBadge(section.badge)}
+                  </button>
+                  <AnimatePresence>
+                    {expanded && !collapsed && (
+                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                        <div className="ml-4 mt-0.5 space-y-0.5 border-l border-white/[0.06] pl-3">
+                          {section.children?.map((child) => {
+                            const ChildIcon = child.icon;
+                            return (
                               <Link
                                 key={child.id}
                                 href={child.href}
                                 className={cn(
-                                  "flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200",
-                                  isActive(child.href)
-                                    ? "text-white bg-white/[0.06]"
-                                    : "text-white/40 hover:text-white/70 hover:bg-white/[0.03]"
+                                  "flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+                                  isActive(child.href) ? "bg-white/[0.06] text-white" : "text-white/40 hover:bg-white/[0.03] hover:text-white/70",
                                 )}
                               >
-                                <child.icon className="w-3.5 h-3.5" />
+                                <ChildIcon className="h-3.5 w-3.5" />
                                 <span className="flex-1">{child.label}</span>
-                                {child.badge && (
-                                  <span className="flex-shrink-0 px-1.5 py-0.5 rounded-md bg-white/[0.06] text-[10px] font-medium text-white/50">
-                                    {child.badge}
-                                  </span>
-                                )}
+                                {child.badge ? <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-white/50">{child.badge}</span> : null}
                               </Link>
-                            ))}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </>
-                ) : (
-                  <Link
-                    href={section.href || "/"}
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 relative",
-                      isActive(section.href || "")
-                        ? "text-white bg-white/[0.08]"
-                        : "text-white/50 hover:text-white/80 hover:bg-white/[0.04]"
+                            );
+                          })}
+                        </div>
+                      </motion.div>
                     )}
-                  >
-                    {isActive(section.href || "") && (
-                      <motion.div
-                        layoutId="sidebar-active"
-                        className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-electric-500"
-                        style={{ boxShadow: "0 0 10px rgba(0, 212, 255, 0.5)" }}
-                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                      />
-                    )}
-                    <Icon className={cn("w-[18px] h-[18px] flex-shrink-0", isActive(section.href || "") && "text-electric-400")} />
-                    <AnimatePresence>
-                      {!collapsed && (
-                        <motion.span
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          className="flex-1"
-                        >
-                          {section.label}
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
-                    {!collapsed && section.badge && (
-                      <span className="flex-shrink-0 px-1.5 py-0.5 rounded-md bg-white/[0.08] text-[10px] font-semibold text-white/60">
-                        {section.badge}
-                      </span>
-                    )}
-                  </Link>
+                  </AnimatePresence>
+                </div>
+              );
+            }
+
+            const href = section.href ?? "/";
+            return (
+              <Link
+                key={section.id}
+                href={href}
+                className={cn(
+                  "relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all",
+                  isActive(href) ? "bg-white/[0.08] text-white" : "text-white/50 hover:bg-white/[0.04] hover:text-white/80",
                 )}
-              </div>
+              >
+                <SectionIcon className={cn("h-[18px] w-[18px] flex-shrink-0", isActive(href) && "text-electric-400")} />
+                {!collapsed && <span className="flex-1">{section.label}</span>}
+                {renderBadge(section.badge)}
+              </Link>
             );
           })}
         </div>
       </div>
 
-      {/* Bottom Navigation */}
-      <div className="px-3 py-2 border-t border-white/[0.06]">
+      <div className="border-t border-white/[0.06] px-3 py-2">
         {bottomNavSections.map((section) => {
           const Icon = section.icon;
+          const href = section.href ?? "/";
           return (
             <Link
               key={section.id}
-              href={section.href || "/"}
+              href={href}
               className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200",
-                isActive(section.href || "")
-                  ? "text-white bg-white/[0.08]"
-                  : "text-white/50 hover:text-white/80 hover:bg-white/[0.04]"
+                "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all",
+                isActive(href) ? "bg-white/[0.08] text-white" : "text-white/50 hover:bg-white/[0.04] hover:text-white/80",
               )}
             >
-              <Icon className="w-[18px] h-[18px] flex-shrink-0" />
-              <AnimatePresence>
-                {!collapsed && (
-                  <motion.span
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                  >
-                    {section.label}
-                  </motion.span>
-                )}
-              </AnimatePresence>
+              <Icon className="h-[18px] w-[18px] flex-shrink-0" />
+              {!collapsed && <span>{section.label}</span>}
             </Link>
           );
         })}
