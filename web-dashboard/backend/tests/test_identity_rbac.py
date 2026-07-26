@@ -32,7 +32,7 @@ def test_owner_can_create_org_role_and_user() -> None:
         headers=headers,
         json={"name": "Example Enterprise", "slug": "example-enterprise", "plan": "enterprise"},
     )
-    assert organization_response.status_code in (201, 409)
+    assert organization_response.status_code in (201, 409), organization_response.text
     if organization_response.status_code == 201:
         organization_id = organization_response.json()["id"]
     else:
@@ -46,10 +46,10 @@ def test_owner_can_create_org_role_and_user() -> None:
             "name": "Batch One Engineer",
             "description": "Batch-one verification role",
             "organization_id": organization_id,
-            "permissions": ["projects:read", "users:read"],
+            "permissions": ["projects:read", "profile:read"],
         },
     )
-    assert role_response.status_code in (201, 409)
+    assert role_response.status_code in (201, 409), role_response.text
     if role_response.status_code == 201:
         role_id = role_response.json()["id"]
     else:
@@ -60,14 +60,14 @@ def test_owner_can_create_org_role_and_user() -> None:
         "/api/v1/users",
         headers=headers,
         json={
-            "email": "batch1@example.test",
+            "email": "batch1@example.com",
             "name": "Batch One User",
             "role_id": role_id,
             "organization_id": organization_id,
             "password": "SecureBatchOne!123",
         },
     )
-    assert user_response.status_code in (201, 409)
+    assert user_response.status_code in (201, 409), user_response.text
 
 
 def test_unauthenticated_identity_access_is_rejected() -> None:
