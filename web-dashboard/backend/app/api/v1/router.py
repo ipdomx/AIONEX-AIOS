@@ -26,6 +26,7 @@ from app.api.v1.endpoints import (
     roles,
     permissions,
     websocket,
+    integration,
 )
 
 api_router = APIRouter()
@@ -52,3 +53,4 @@ api_router.include_router(notifications.router, prefix="/notifications", tags=["
 api_router.include_router(settings.router, prefix="/settings", tags=["Settings"])
 api_router.include_router(roles.router, prefix="/roles", tags=["Roles"])
 api_router.include_router(permissions.router, prefix="/permissions", tags=["Permissions"])
+api_router.include_router(integration.router, prefix="/integration", tags=["AIOS Integration"])
