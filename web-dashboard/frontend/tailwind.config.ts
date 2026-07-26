@@ -1,0 +1,232 @@
+import type { Config } from "tailwindcss";
+
+const config: Config = {
+  darkMode: "class",
+  content: [
+    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
+  theme: {
+    extend: {
+      colors: {
+        // AIONEX Brand Colors
+        space: {
+          950: "#030308",
+          900: "#07070F",
+          800: "#0A0A14",
+          700: "#0F0F1E",
+          600: "#141428",
+          500: "#1A1A33",
+          400: "#222244",
+          300: "#2D2D5A",
+          200: "#3D3D7A",
+          100: "#5A5AAA",
+        },
+        graphite: {
+          950: "#0D0D0D",
+          900: "#141414",
+          800: "#1A1A1A",
+          700: "#222222",
+          600: "#2A2A2A",
+          500: "#333333",
+          400: "#444444",
+          300: "#666666",
+          200: "#888888",
+          100: "#AAAAAA",
+        },
+        electric: {
+          500: "#00D4FF",
+          400: "#33DDFF",
+          300: "#66E6FF",
+          200: "#99EEFF",
+          100: "#CCF7FF",
+          50: "#E5FBFF",
+        },
+        deepblue: {
+          900: "#0A0E27",
+          800: "#0F1538",
+          700: "#141C4A",
+          600: "#1A245C",
+          500: "#1F2C6E",
+          400: "#2A3A8A",
+          300: "#3D4FA8",
+          200: "#5A6FC8",
+          100: "#7A8FE0",
+        },
+        cyan: {
+          500: "#00F0FF",
+          400: "#33F3FF",
+          300: "#66F6FF",
+          200: "#99F9FF",
+          100: "#CCFCFF",
+        },
+        accent: {
+          blue: "#3B82F6",
+          purple: "#8B5CF6",
+          green: "#10B981",
+          orange: "#F59E0B",
+          red: "#EF4444",
+          pink: "#EC4899",
+          teal: "#14B8A6",
+          indigo: "#6366F1",
+        },
+        status: {
+          online: "#10B981",
+          offline: "#6B7280",
+          busy: "#EF4444",
+          away: "#F59E0B",
+          warning: "#F59E0B",
+          error: "#EF4444",
+          success: "#10B981",
+          info: "#3B82F6",
+        },
+      },
+      fontFamily: {
+        sans: ["Inter", "SF Pro Display", "system-ui", "sans-serif"],
+        mono: ["JetBrains Mono", "Fira Code", "monospace"],
+        display: ["Inter", "SF Pro Display", "system-ui", "sans-serif"],
+      },
+      fontSize: {
+        "2xs": ["0.625rem", { lineHeight: "0.875rem" }],
+        "3xs": ["0.5rem", { lineHeight: "0.75rem" }],
+      },
+      spacing: {
+        "18": "4.5rem",
+        "22": "5.5rem",
+        "26": "6.5rem",
+        "30": "7.5rem",
+        "34": "8.5rem",
+        "88": "22rem",
+        "92": "23rem",
+        "128": "32rem",
+        "144": "36rem",
+      },
+      borderRadius: {
+        "4xl": "2rem",
+        "5xl": "2.5rem",
+      },
+      backdropBlur: {
+        xs: "2px",
+      },
+      animation: {
+        "fade-in": "fadeIn 0.3s ease-out",
+        "fade-out": "fadeOut 0.2s ease-in",
+        "slide-up": "slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+        "slide-down": "slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+        "slide-left": "slideLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+        "slide-right": "slideRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+        "scale-in": "scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+        "scale-out": "scaleOut 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+        "spin-slow": "spin 3s linear infinite",
+        "pulse-glow": "pulseGlow 2s ease-in-out infinite",
+        "shimmer": "shimmer 2s linear infinite",
+        "float": "float 3s ease-in-out infinite",
+        "bounce-subtle": "bounceSubtle 2s ease-in-out infinite",
+        "typing": "typing 1.5s ease-in-out infinite",
+        "progress": "progress 1s linear infinite",
+        "ripple": "ripple 0.6s linear",
+        "glow": "glow 2s ease-in-out infinite alternate",
+      },
+      keyframes: {
+        fadeIn: {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
+        fadeOut: {
+          "0%": { opacity: "1" },
+          "100%": { opacity: "0" },
+        },
+        slideUp: {
+          "0%": { transform: "translateY(10px)", opacity: "0" },
+          "100%": { transform: "translateY(0)", opacity: "1" },
+        },
+        slideDown: {
+          "0%": { transform: "translateY(-10px)", opacity: "0" },
+          "100%": { transform: "translateY(0)", opacity: "1" },
+        },
+        slideLeft: {
+          "0%": { transform: "translateX(10px)", opacity: "0" },
+          "100%": { transform: "translateX(0)", opacity: "1" },
+        },
+        slideRight: {
+          "0%": { transform: "translateX(-10px)", opacity: "0" },
+          "100%": { transform: "translateX(0)", opacity: "1" },
+        },
+        scaleIn: {
+          "0%": { transform: "scale(0.95)", opacity: "0" },
+          "100%": { transform: "scale(1)", opacity: "1" },
+        },
+        scaleOut: {
+          "0%": { transform: "scale(1)", opacity: "1" },
+          "100%": { transform: "scale(0.95)", opacity: "0" },
+        },
+        pulseGlow: {
+          "0%, 100%": { boxShadow: "0 0 5px rgba(0, 212, 255, 0.3)" },
+          "50%": { boxShadow: "0 0 20px rgba(0, 212, 255, 0.6)" },
+        },
+        shimmer: {
+          "0%": { backgroundPosition: "-200% 0" },
+          "100%": { backgroundPosition: "200% 0" },
+        },
+        float: {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-5px)" },
+        },
+        bounceSubtle: {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-3px)" },
+        },
+        typing: {
+          "0%": { width: "0%" },
+          "50%": { width: "100%" },
+          "100%": { width: "0%" },
+        },
+        progress: {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(100%)" },
+        },
+        ripple: {
+          "0%": { transform: "scale(0)", opacity: "1" },
+          "100%": { transform: "scale(4)", opacity: "0" },
+        },
+        glow: {
+          "0%": { boxShadow: "0 0 5px rgba(59, 130, 246, 0.3)" },
+          "100%": { boxShadow: "0 0 20px rgba(59, 130, 246, 0.6), 0 0 40px rgba(59, 130, 246, 0.3)" },
+        },
+      },
+      backgroundImage: {
+        "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
+        "gradient-conic": "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
+        "glass": "linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%)",
+        "shimmer": "linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent)",
+      },
+      boxShadow: {
+        "glass": "0 8px 32px 0 rgba(0, 0, 0, 0.36)",
+        "glow-blue": "0 0 20px rgba(59, 130, 246, 0.5)",
+        "glow-cyan": "0 0 20px rgba(0, 212, 255, 0.5)",
+        "glow-purple": "0 0 20px rgba(139, 92, 246, 0.5)",
+        "glow-green": "0 0 20px rgba(16, 185, 129, 0.5)",
+        "inner-glow": "inset 0 0 20px rgba(0, 212, 255, 0.1)",
+        "premium": "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+        "card": "0 4px 24px -1px rgba(0, 0, 0, 0.3)",
+        "dropdown": "0 10px 40px -10px rgba(0, 0, 0, 0.5)",
+        "modal": "0 25px 50px -12px rgba(0, 0, 0, 0.7)",
+        "tooltip": "0 4px 12px rgba(0, 0, 0, 0.4)",
+      },
+      transitionTimingFunction: {
+        "spring": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "bounce-out": "cubic-bezier(0.34, 1.56, 0.64, 1)",
+      },
+    },
+  },
+  plugins: [
+    require("@tailwindcss/forms"),
+    require("@tailwindcss/typography"),
+    require("@tailwindcss/aspect-ratio"),
+    require("tailwindcss-animate"),
+    require("tailwind-scrollbar"),
+  ],
+};
+
+export default config;
