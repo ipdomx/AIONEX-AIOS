@@ -23,14 +23,29 @@ class AIOSCoreBridge:
     """Loads AIOS core packages from the monorepo without coupling dashboard code."""
 
     def __init__(self) -> None:
-        self.repo_root = Path(
-            os.getenv("AIOS_REPO_ROOT", Path(__file__).resolve().parents[4])
-        ).resolve()
+        self.repo_root = self._resolve_repo_root()
         self.src_root = self.repo_root / "src"
         self._error: str | None = None
         self._modules: dict[str, bool] = {}
 
+    @staticmethod
+    def _resolve_repo_root() -> Path:
+        configured_root = os.getenv("AIOS_REPO_ROOT")
+        if configured_root:
+            return Path(configured_root).expanduser().resolve()
+
+        current = Path(__file__).resolve()
+        for candidate in (current.parent, *current.parents):
+            if (candidate / "VERSION").is_file() and (candidate / "src" / "aios").is_dir():
+                return candidate
+
+        # Safe local fallback for the standalone dashboard backend image.
+        return Path.cwd().resolve()
+
     def initialize(self) -> AIOSIntegrationStatus:
+        self._error = None
+        self._modules = {}
+
         if str(self.src_root) not in sys.path:
             sys.path.insert(0, str(self.src_root))
 
