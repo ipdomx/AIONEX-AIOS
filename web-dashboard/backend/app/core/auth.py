@@ -6,7 +6,7 @@ import hashlib
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Callable
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -14,6 +14,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 from app.core.config import settings
+from app.core.identity_store import IdentityUserRecord, identity_store, utc_now
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -37,57 +38,84 @@ class UserRecord:
     organization_id: str
     organization_name: str
     permissions: list[str]
-    status: str = "online"
+    status: str = "active"
 
 
 class AuthService:
     def __init__(self) -> None:
-        self._users: dict[str, UserRecord] = {}
         self._refresh_tokens: dict[str, dict[str, Any]] = {}
         self._revoked_access_tokens: set[str] = set()
         self._bootstrap_owner()
 
     def _bootstrap_owner(self) -> None:
-        email = "owner@aionex.local"
-        if email in self._users:
+        if identity_store.find_user_by_email("owner@aionex.local"):
             return
-        self._users[email] = UserRecord(
+        identity_store.users["owner-1"] = IdentityUserRecord(
             id="owner-1",
-            email=email,
+            email="owner@aionex.local",
             name="AIONEX Owner",
-            role="Super Owner",
-            password_hash=pwd_context.hash("ChangeMeNow!123"),
+            role_id="role-super-owner",
             organization_id="aionex-org",
-            organization_name="AIONEX Corp",
-            permissions=["*"],
+            password_hash=pwd_context.hash("ChangeMeNow!123"),
+            status="active",
+            last_active=utc_now(),
+        )
+
+    def _to_user_record(self, user: IdentityUserRecord) -> UserRecord:
+        role = identity_store.get_role(user.role_id)
+        organization = identity_store.get_organization(user.organization_id)
+        return UserRecord(
+            id=user.id,
+            email=user.email,
+            name=user.name,
+            role=role.name,
+            password_hash=user.password_hash,
+            organization_id=organization.id,
+            organization_name=organization.name,
+            permissions=list(role.permissions),
+            status=user.status,
         )
 
     def register(self, email: str, password: str, name: str, organization_name: str | None = None) -> UserRecord:
         normalized = email.strip().lower()
-        if normalized in self._users:
+        if identity_store.find_user_by_email(normalized):
             raise HTTPException(status_code=409, detail="Email already registered")
         if len(password) < settings.PASSWORD_MIN_LENGTH:
             raise HTTPException(status_code=422, detail=f"Password must be at least {settings.PASSWORD_MIN_LENGTH} characters")
+
         user_id = secrets.token_urlsafe(12)
-        org_id = secrets.token_urlsafe(10)
-        user = UserRecord(
+        organization_id = secrets.token_urlsafe(10)
+        organization_display_name = (organization_name or f"{name.strip()} Organization").strip()
+        identity_store.organizations[organization_id] = identity_store.organizations["aionex-org"].__class__(
+            id=organization_id,
+            name=organization_display_name,
+            slug=f"org-{organization_id.lower()}",
+            owner_user_id=user_id,
+        )
+        owner_role = identity_store.get_role("role-owner")
+        identity_user = IdentityUserRecord(
             id=user_id,
             email=normalized,
             name=name.strip(),
-            role="Owner",
+            role_id=owner_role.id,
+            organization_id=organization_id,
             password_hash=pwd_context.hash(password),
-            organization_id=org_id,
-            organization_name=(organization_name or f"{name.strip()} Organization").strip(),
-            permissions=["projects:read", "projects:write", "profile:read"],
+            status="active",
+            last_active=utc_now(),
         )
-        self._users[normalized] = user
-        return user
+        identity_store.users[user_id] = identity_user
+        identity_store.record_audit(user_id, "register", "user", user_id, {"organization_id": organization_id})
+        return self._to_user_record(identity_user)
 
     def authenticate(self, email: str, password: str) -> UserRecord:
-        user = self._users.get(email.strip().lower())
-        if user is None or not pwd_context.verify(password, user.password_hash):
+        identity_user = identity_store.find_user_by_email(email)
+        if identity_user is None or not pwd_context.verify(password, identity_user.password_hash):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
-        return user
+        if identity_user.status not in {"active", "online"}:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account is not active")
+        identity_user.last_active = utc_now()
+        identity_store.record_audit(identity_user.id, "login", "session", identity_user.id)
+        return self._to_user_record(identity_user)
 
     def _access_payload(self, user: UserRecord) -> dict[str, Any]:
         issued_at = _now()
@@ -115,6 +143,12 @@ class AuthService:
             "expires_at": _now() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
             "revoked": False,
         }
+        identity_store.sessions.setdefault(user.id, []).append({
+            "id": digest[:16],
+            "created_at": utc_now(),
+            "last_active": utc_now(),
+            "is_current": True,
+        })
         return raw
 
     def issue_pair(self, user: UserRecord) -> dict[str, Any]:
@@ -150,26 +184,17 @@ class AuthService:
         self._revoked_access_tokens.add(token)
 
     def get_user_by_id(self, user_id: str) -> UserRecord:
-        for user in self._users.values():
-            if user.id == user_id:
-                return user
-        raise HTTPException(status_code=404, detail="User not found")
+        return self._to_user_record(identity_store.get_user(user_id))
 
     def serialize_user(self, user: UserRecord) -> dict[str, Any]:
-        return {
-            "id": user.id,
-            "email": user.email,
-            "name": user.name,
-            "avatar": None,
-            "role": user.role,
-            "status": user.status,
-            "organization": {
-                "id": user.organization_id,
-                "name": user.organization_name,
-                "plan": "enterprise",
-            },
-            "permissions": user.permissions,
+        identity_user = identity_store.get_user(user.id)
+        payload = identity_store.serialize_user(identity_user)
+        payload["organization"] = {
+            "id": user.organization_id,
+            "name": user.organization_name,
+            "plan": identity_store.get_organization(user.organization_id).plan,
         }
+        return payload
 
 
 auth_service = AuthService()
@@ -178,3 +203,13 @@ auth_service = AuthService()
 def current_user(token: str = Depends(oauth2_scheme)) -> UserRecord:
     payload = auth_service.decode_access_token(token)
     return auth_service.get_user_by_id(str(payload["sub"]))
+
+
+def require_permissions(*required: str) -> Callable[[UserRecord], UserRecord]:
+    def dependency(user: UserRecord = Depends(current_user)) -> UserRecord:
+        granted = set(user.permissions)
+        if "*" in granted or all(permission in granted for permission in required):
+            return user
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
+    return dependency
