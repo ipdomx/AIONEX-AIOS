@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -47,15 +48,23 @@ class AuthService:
         self._bootstrap_owner()
 
     def _bootstrap_owner(self) -> None:
-        if identity_store.find_user_by_email("owner@aionex.local"):
+        owner_email = os.getenv("AIOS_BOOTSTRAP_OWNER_EMAIL", "owner@aionex.local").strip().lower()
+        owner_password = os.getenv("AIOS_BOOTSTRAP_OWNER_PASSWORD", "ChangeMeNow!123")
+
+        existing = identity_store.find_user_by_email(owner_email)
+        if existing:
+            existing.password_hash = pwd_context.hash(owner_password)
+            existing.status = "active"
+            existing.updated_at = utc_now()
             return
+
         identity_store.users["owner-1"] = IdentityUserRecord(
             id="owner-1",
-            email="owner@aionex.local",
+            email=owner_email,
             name="AIONEX Owner",
             role_id="role-super-owner",
             organization_id="aionex-org",
-            password_hash=pwd_context.hash("ChangeMeNow!123"),
+            password_hash=pwd_context.hash(owner_password),
             status="active",
             last_active=utc_now(),
         )
