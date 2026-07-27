@@ -1,37 +1,40 @@
+import pytest
 from fastapi import HTTPException
 
 from app.core.auth import auth_service
+from app.db.base import SessionLocal
+from app.db.seed import seed
 
 
-def test_invalid_password_is_rejected():
-    try:
-        auth_service.authenticate("owner@aionex.local", "wrong-password")
-    except HTTPException as exc:
-        assert exc.status_code == 401
-    else:
-        raise AssertionError("Invalid credentials were accepted")
+@pytest.mark.asyncio
+async def test_invalid_password_is_rejected():
+    await seed()
+    async with SessionLocal() as session:
+        with pytest.raises(HTTPException) as exc_info:
+            await auth_service.authenticate(session, "owner@aionex.local", "wrong-password")
+        assert exc_info.value.status_code == 401
 
 
-def test_refresh_token_rotation_rejects_reuse():
-    user = auth_service.authenticate("owner@aionex.local", "ChangeMeNow!123")
-    pair = auth_service.issue_pair(user)
-    rotated = auth_service.refresh(pair["refresh_token"])
-    assert rotated["access_token"] != pair["access_token"]
-    try:
-        auth_service.refresh(pair["refresh_token"])
-    except HTTPException as exc:
-        assert exc.status_code == 401
-    else:
-        raise AssertionError("A rotated refresh token was reused")
+@pytest.mark.asyncio
+async def test_refresh_token_rotation_rejects_reuse():
+    await seed()
+    async with SessionLocal() as session:
+        user = await auth_service.authenticate(session, "owner@aionex.local", "ChangeMeNow!123")
+        pair = await auth_service.issue_pair(session, user)
+        rotated = await auth_service.refresh(session, pair["refresh_token"])
+        assert rotated["access_token"] != pair["access_token"]
+        with pytest.raises(HTTPException) as exc_info:
+            await auth_service.refresh(session, pair["refresh_token"])
+        assert exc_info.value.status_code == 401
 
 
-def test_revoked_access_token_is_rejected():
-    user = auth_service.authenticate("owner@aionex.local", "ChangeMeNow!123")
-    token = auth_service.create_access_token(user)
-    auth_service.revoke_access_token(token)
-    try:
-        auth_service.decode_access_token(token)
-    except HTTPException as exc:
-        assert exc.status_code == 401
-    else:
-        raise AssertionError("A revoked access token remained valid")
+@pytest.mark.asyncio
+async def test_revoked_access_token_is_rejected():
+    await seed()
+    async with SessionLocal() as session:
+        user = await auth_service.authenticate(session, "owner@aionex.local", "ChangeMeNow!123")
+        token = auth_service.create_access_token(user)
+        await auth_service.revoke_access_token(token)
+        with pytest.raises(HTTPException) as exc_info:
+            auth_service.decode_access_token(token)
+        assert exc_info.value.status_code == 401

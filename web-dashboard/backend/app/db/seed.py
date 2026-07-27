@@ -9,12 +9,17 @@ import secrets
 from sqlalchemy import select
 
 from app.core.auth import pwd_context
+from app.core.config import settings
 from app.db.base import SessionLocal
 from app.db.models import Organization, Permission, Role, RolePermission, User, Workspace
 
-OWNER_EMAIL = os.getenv("AIOS_BOOTSTRAP_OWNER_EMAIL", "owner@aionex.local")
+OWNER_EMAIL = os.getenv("AIOS_BOOTSTRAP_OWNER_EMAIL", "owner@aionex.local").strip().lower()
 CONFIGURED_PASSWORD = os.getenv("AIOS_BOOTSTRAP_OWNER_PASSWORD")
-BOOTSTRAP_PASSWORD = CONFIGURED_PASSWORD or secrets.token_urlsafe(18)
+DEFAULT_TEST_PASSWORD = "ChangeMeNow!123"
+BOOTSTRAP_PASSWORD = (
+    CONFIGURED_PASSWORD
+    or (DEFAULT_TEST_PASSWORD if settings.ENVIRONMENT == "test" else secrets.token_urlsafe(18))
+)
 
 PERMISSIONS = {
     "*": "Full platform control",
@@ -112,8 +117,8 @@ async def seed() -> None:
                 )
             )
             created_owner = True
-        elif CONFIGURED_PASSWORD:
-            owner.password_hash = pwd_context.hash(CONFIGURED_PASSWORD)
+        elif CONFIGURED_PASSWORD or settings.ENVIRONMENT == "test":
+            owner.password_hash = pwd_context.hash(BOOTSTRAP_PASSWORD)
             owner.status = "active"
             reset_owner_password = True
 
@@ -127,7 +132,7 @@ async def seed() -> None:
     elif reset_owner_password:
         print("AIONEX bootstrap owner password reset successfully.")
         print(f"Email: {OWNER_EMAIL}")
-        print("The password was updated from AIOS_BOOTSTRAP_OWNER_PASSWORD.")
+        print("The password was updated from the configured bootstrap password.")
     else:
         print(f"Bootstrap data already exists. Owner account: {OWNER_EMAIL}")
         print("Set AIOS_BOOTSTRAP_OWNER_PASSWORD to reset the existing owner password.")
