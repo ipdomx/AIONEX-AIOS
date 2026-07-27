@@ -7,15 +7,9 @@ from main import app
 from app.db.seed import seed
 
 
-@pytest.fixture(scope="module", autouse=True)
-def bootstrap_identity_data() -> None:
-    import asyncio
-
-    asyncio.run(seed())
-
-
 @pytest.mark.asyncio
 async def test_owner_can_read_identity_catalogues() -> None:
+    await seed()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.post(
@@ -33,6 +27,7 @@ async def test_owner_can_read_identity_catalogues() -> None:
 
 @pytest.mark.asyncio
 async def test_owner_can_create_org_role_and_user() -> None:
+    await seed()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.post(
