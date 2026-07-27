@@ -157,17 +157,26 @@ export const runtimeServices = {
   listProjects(params?: { status?: string; search?: string; limit?: number }) {
     return apiClient.get<ProjectSummary[]>("/projects", { params });
   },
+  createProject(data: Record<string, unknown>) {
+    return apiClient.post<ProjectSummary>("/projects", data);
+  },
   listTasks(params?: { status?: string; project_id?: string; search?: string; limit?: number }) {
     return apiClient.get<TaskSummary[]>("/tasks", { params });
   },
   listWorkflows(params?: { status?: string; project_id?: string; limit?: number }) {
     return apiClient.get<WorkflowSummary[]>("/workflows", { params });
   },
+  createWorkflow(data: Record<string, unknown>) {
+    return apiClient.post<WorkflowSummary>("/workflows", data);
+  },
   runWorkflow(workflowId: string) {
     return apiClient.post<{ run_id: string; status: string }>(`/workflows/${workflowId}/run`);
   },
   listMeetings(params?: { status?: string; project_id?: string; limit?: number }) {
     return apiClient.get<MeetingSummary[]>("/meetings", { params });
+  },
+  createMeeting(data: Record<string, unknown>) {
+    return apiClient.post<MeetingSummary>("/meetings", data);
   },
   listReports(params?: { type?: string; project_id?: string; limit?: number }) {
     return apiClient.get<ReportSummary[]>("/reports", { params });
