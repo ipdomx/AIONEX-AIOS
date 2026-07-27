@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import type { LucideIcon } from "lucide-react";
 import { BadgeCheck, CircleAlert, FileCheck2, RefreshCw, ShieldCheck } from "lucide-react";
 import { attestComplianceControl, fetchComplianceControls, type ComplianceControl } from "@/lib/owner-compliance-runtime";
 
@@ -10,6 +11,8 @@ const statusClass: Record<ComplianceControl["status"], string> = {
   warning: "border-orange-500/20 bg-orange-500/10 text-orange-300",
   noncompliant: "border-red-500/20 bg-red-500/10 text-red-300",
 };
+
+type SummaryCard = readonly [label: string, value: number, icon: LucideIcon];
 
 export default function OwnerComplianceRuntimePage() {
   const [items, setItems] = useState<ComplianceControl[]>([]);
@@ -41,6 +44,12 @@ export default function OwnerComplianceRuntimePage() {
     noncompliant: items.filter((item) => item.status === "noncompliant").length,
   }), [items]);
 
+  const cards: SummaryCard[] = [
+    ["Compliant", summary.compliant, ShieldCheck],
+    ["Warnings", summary.warning, CircleAlert],
+    ["Non-compliant", summary.noncompliant, FileCheck2],
+  ];
+
   async function attest(id: string) {
     setMessage("Submitting owner attestation...");
     try {
@@ -64,8 +73,8 @@ export default function OwnerComplianceRuntimePage() {
       </motion.div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {[["Compliant", summary.compliant, ShieldCheck], ["Warnings", summary.warning, CircleAlert], ["Non-compliant", summary.noncompliant, FileCheck2]].map(([label, value, Icon]) => (
-          <div key={String(label)} className="glass-card p-5"><Icon className="h-5 w-5 text-electric-300" /><div className="mt-4 text-3xl font-bold text-white">{String(value)}</div><div className="mt-1 text-xs text-white/40">{String(label)}</div></div>
+        {cards.map(([label, value, Icon]) => (
+          <div key={label} className="glass-card p-5"><Icon className="h-5 w-5 text-electric-300" /><div className="mt-4 text-3xl font-bold text-white">{value}</div><div className="mt-1 text-xs text-white/40">{label}</div></div>
         ))}
       </div>
 
