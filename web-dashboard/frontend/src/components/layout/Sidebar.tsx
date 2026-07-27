@@ -21,6 +21,7 @@ import {
   Clock,
   Coins,
   Cpu,
+  CreditCard,
   Database,
   FileCog,
   FileText,
@@ -155,6 +156,7 @@ const mainNavSections: NavSection[] = [
       { id: "owner-global-command", label: "Global Command", icon: RadioTower, href: "/owner/global-command" },
       { id: "owner-system-map", label: "Live System Map", icon: Map, href: "/owner/system-map" },
       { id: "owner-policies", label: "Policy Engine", icon: FileCog, href: "/owner/policies" },
+      { id: "owner-billing", label: "Billing & Plans", icon: CreditCard, href: "/owner/billing" },
       { id: "owner-executive", label: "Executive Overview", icon: Gauge, href: "/owner/executive" },
       { id: "owner-health", label: "System Health", icon: HeartPulse, href: "/owner/health" },
       { id: "owner-approvals", label: "Approvals", icon: GitPullRequest, href: "/owner/approvals", badge: 7 },
@@ -185,7 +187,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const [expandedSections, setExpandedSections] = useState<string[]>(["ai", "infrastructure", "owner-governance"]);
   const favorites = [
     { id: "owner-global-command", label: "Global Command", href: "/owner/global-command" },
-    { id: "owner-system-map", label: "Live System Map", href: "/owner/system-map" },
+    { id: "owner-billing", label: "Billing & Plans", href: "/owner/billing" },
     { id: "owner-policies", label: "Policy Engine", href: "/owner/policies" },
   ];
 
