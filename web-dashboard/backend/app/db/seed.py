@@ -13,7 +13,8 @@ from app.db.base import SessionLocal
 from app.db.models import Organization, Permission, Role, RolePermission, User, Workspace
 
 OWNER_EMAIL = os.getenv("AIOS_BOOTSTRAP_OWNER_EMAIL", "owner@aionex.local")
-BOOTSTRAP_PASSWORD = os.getenv("AIOS_BOOTSTRAP_OWNER_PASSWORD") or secrets.token_urlsafe(18)
+CONFIGURED_PASSWORD = os.getenv("AIOS_BOOTSTRAP_OWNER_PASSWORD")
+BOOTSTRAP_PASSWORD = CONFIGURED_PASSWORD or secrets.token_urlsafe(18)
 
 PERMISSIONS = {
     "*": "Full platform control",
@@ -47,6 +48,7 @@ PERMISSIONS = {
 
 async def seed() -> None:
     created_owner = False
+    reset_owner_password = False
 
     async with SessionLocal() as session:
         org = await session.scalar(select(Organization).where(Organization.slug == "aionex"))
@@ -110,6 +112,10 @@ async def seed() -> None:
                 )
             )
             created_owner = True
+        elif CONFIGURED_PASSWORD:
+            owner.password_hash = pwd_context.hash(CONFIGURED_PASSWORD)
+            owner.status = "active"
+            reset_owner_password = True
 
         await session.commit()
 
@@ -118,8 +124,13 @@ async def seed() -> None:
         print(f"Email: {OWNER_EMAIL}")
         print(f"Temporary password: {BOOTSTRAP_PASSWORD}")
         print("Change this password immediately after the first successful login.")
+    elif reset_owner_password:
+        print("AIONEX bootstrap owner password reset successfully.")
+        print(f"Email: {OWNER_EMAIL}")
+        print("The password was updated from AIOS_BOOTSTRAP_OWNER_PASSWORD.")
     else:
         print(f"Bootstrap data already exists. Owner account: {OWNER_EMAIL}")
+        print("Set AIOS_BOOTSTRAP_OWNER_PASSWORD to reset the existing owner password.")
 
 
 if __name__ == "__main__":
