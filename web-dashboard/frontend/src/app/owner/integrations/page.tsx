@@ -16,6 +16,12 @@ type Integration = {
   lastCheck: string;
 };
 
+type SummaryCard = {
+  label: string;
+  value: number;
+  icon: React.ElementType;
+};
+
 const initialIntegrations: Integration[] = [
   { id: "openai", name: "OpenAI", category: "runtime", provider: "OpenAI", status: "connected", enabled: true, latency: 142, projects: 8, lastCheck: "Just now" },
   { id: "github", name: "GitHub", category: "source", provider: "GitHub", status: "connected", enabled: true, latency: 86, projects: 12, lastCheck: "1m ago" },
@@ -32,7 +38,7 @@ const statusClass: Record<Integration["status"], string> = {
   pending: "border-blue-500/20 bg-blue-500/10 text-blue-300",
 };
 
-const icons = {
+const icons: Record<Integration["category"], React.ElementType> = {
   cloud: Cloud,
   source: GitBranch,
   database: Database,
@@ -56,8 +62,19 @@ export default function OwnerIntegrationsPage() {
     [items, query, category],
   );
 
+  const summaryCards: SummaryCard[] = [
+    { label: "Connected", value: items.filter((item) => item.status === "connected").length, icon: PlugZap },
+    { label: "Degraded", value: items.filter((item) => item.status === "degraded").length, icon: Activity },
+    { label: "Disabled", value: items.filter((item) => !item.enabled).length, icon: ToggleLeft },
+    { label: "Projects", value: items.reduce((total, item) => total + item.projects, 0), icon: Wrench },
+  ];
+
   function toggleIntegration(id: string) {
-    setItems((current) => current.map((item) => item.id === id ? { ...item, enabled: !item.enabled, status: item.enabled ? "disabled" : "connected" } : item));
+    setItems((current) => current.map((item) => {
+      if (item.id !== id) return item;
+      const enabled = !item.enabled;
+      return { ...item, enabled, status: enabled ? "connected" : "disabled" };
+    }));
     setMessage(`Owner service control updated for ${id}.`);
   }
 
@@ -83,14 +100,10 @@ export default function OwnerIntegrationsPage() {
       </motion.div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {[
-          ["Connected", items.filter((item) => item.status === "connected").length, PlugZap],
-          ["Degraded", items.filter((item) => item.status === "degraded").length, Activity],
-          ["Disabled", items.filter((item) => !item.enabled).length, ToggleLeft],
-          ["Projects", items.reduce((total, item) => total + item.projects, 0), Wrench],
-        ].map(([label, value, Icon]) => (
-          <div key={String(label)} className="glass-card p-4"><Icon className="h-5 w-5 text-electric-300" /><div className="mt-3 text-2xl font-bold text-white">{String(value)}</div><div className="text-xs text-white/35">{String(label)}</div></div>
-        ))}
+        {summaryCards.map((card) => {
+          const Icon = card.icon;
+          return <div key={card.label} className="glass-card p-4"><Icon className="h-5 w-5 text-electric-300" /><div className="mt-3 text-2xl font-bold text-white">{card.value}</div><div className="text-xs text-white/35">{card.label}</div></div>;
+        })}
       </div>
 
       <div className="glass-card p-4">
