@@ -33,6 +33,7 @@ import {
   Layers,
   LayoutDashboard,
   Lock,
+  Map,
   MessageCircle,
   Pin,
   RadioTower,
@@ -151,6 +152,7 @@ const mainNavSections: NavSection[] = [
     icon: GitPullRequest,
     children: [
       { id: "owner-global-command", label: "Global Command", icon: RadioTower, href: "/owner/global-command" },
+      { id: "owner-system-map", label: "Live System Map", icon: Map, href: "/owner/system-map" },
       { id: "owner-executive", label: "Executive Overview", icon: Gauge, href: "/owner/executive" },
       { id: "owner-health", label: "System Health", icon: HeartPulse, href: "/owner/health" },
       { id: "owner-approvals", label: "Approvals", icon: GitPullRequest, href: "/owner/approvals", badge: 7 },
@@ -181,7 +183,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const [expandedSections, setExpandedSections] = useState<string[]>(["ai", "infrastructure", "owner-governance"]);
   const favorites = [
     { id: "owner-global-command", label: "Global Command", href: "/owner/global-command" },
-    { id: "owner-executive", label: "Executive Overview", href: "/owner/executive" },
+    { id: "owner-system-map", label: "Live System Map", href: "/owner/system-map" },
     { id: "owner-release", label: "Release Authority", href: "/owner/release" },
   ];
 
