@@ -18,6 +18,12 @@ const statusClass: Record<IntegrationTarget["status"], string> = {
   disconnected: "border-red-500/20 bg-red-500/10 text-red-300",
 };
 
+type SummaryCard = {
+  label: string;
+  value: number;
+  Icon: typeof CheckCircle2;
+};
+
 export default function OwnerPlatformIntegrationPage() {
   const [snapshot, setSnapshot] = useState<IntegrationSnapshot>(emptySnapshot);
   const [loading, setLoading] = useState(true);
@@ -50,6 +56,12 @@ export default function OwnerPlatformIntegrationPage() {
     disconnected: snapshot.targets.filter((item) => item.status === "disconnected").length,
   }), [snapshot.targets]);
 
+  const summaryCards: SummaryCard[] = [
+    { label: "Connected", value: summary.connected, Icon: CheckCircle2 },
+    { label: "Degraded", value: summary.degraded, Icon: TriangleAlert },
+    { label: "Disconnected", value: summary.disconnected, Icon: XCircle },
+  ];
+
   async function command(targetId: string, action: "refresh" | "reconnect" | "validate") {
     setMessage(`Running ${action} for ${targetId}...`);
     try {
@@ -78,8 +90,8 @@ export default function OwnerPlatformIntegrationPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {[["Connected", summary.connected, CheckCircle2], ["Degraded", summary.degraded, TriangleAlert], ["Disconnected", summary.disconnected, XCircle]].map(([label, value, Icon]) => (
-          <div key={String(label)} className="glass-card p-5"><Icon className="h-5 w-5 text-electric-300" /><div className="mt-4 text-3xl font-bold text-white">{String(value)}</div><div className="mt-1 text-xs text-white/40">{String(label)}</div></div>
+        {summaryCards.map(({ label, value, Icon }) => (
+          <div key={label} className="glass-card p-5"><Icon className="h-5 w-5 text-electric-300" /><div className="mt-4 text-3xl font-bold text-white">{value}</div><div className="mt-1 text-xs text-white/40">{label}</div></div>
         ))}
       </div>
 
