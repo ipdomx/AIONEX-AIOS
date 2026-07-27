@@ -31,7 +31,9 @@ export default function OwnerOperationsIntegrationPage() {
       setSnapshot(data);
       setMessage("Enterprise operations synchronized.");
     } catch (error) {
-      if (!(error instanceof DOMException && error.name === "AbortError")) setMessage("Operations synchronization failed.");
+      if (!(error instanceof DOMException && error.name === "AbortError")) {
+        setMessage("Operations synchronization failed.");
+      }
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
@@ -48,6 +50,12 @@ export default function OwnerOperationsIntegrationPage() {
     degraded: snapshot.targets.filter((item) => item.status === "degraded").length,
     offline: snapshot.targets.filter((item) => item.status === "offline").length,
   }), [snapshot.targets]);
+
+  const summaryCards = [
+    { label: "Healthy", value: summary.healthy, Icon: CheckCircle2 },
+    { label: "Degraded", value: summary.degraded, Icon: TriangleAlert },
+    { label: "Offline", value: summary.offline, Icon: XCircle },
+  ];
 
   async function command(targetId: string, action: OperationsAction) {
     setMessage(`Running ${action} for ${targetId}...`);
@@ -77,8 +85,8 @@ export default function OwnerOperationsIntegrationPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {[["Healthy", summary.healthy, CheckCircle2], ["Degraded", summary.degraded, TriangleAlert], ["Offline", summary.offline, XCircle]].map(([label, value, Icon]) => (
-          <div key={String(label)} className="glass-card p-5"><Icon className="h-5 w-5 text-electric-300" /><div className="mt-4 text-3xl font-bold text-white">{String(value)}</div><div className="mt-1 text-xs text-white/40">{String(label)}</div></div>
+        {summaryCards.map(({ label, value, Icon }) => (
+          <div key={label} className="glass-card p-5"><Icon className="h-5 w-5 text-electric-300" /><div className="mt-4 text-3xl font-bold text-white">{value}</div><div className="mt-1 text-xs text-white/40">{label}</div></div>
         ))}
       </div>
 
