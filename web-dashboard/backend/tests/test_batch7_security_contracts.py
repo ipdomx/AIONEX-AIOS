@@ -2,22 +2,28 @@ import pytest
 from fastapi import HTTPException
 
 from app.core.auth import auth_service
-from app.db.base import SessionLocal
+from app.db.base import SessionLocal, engine
 from app.db.seed import seed
 
 
-@pytest.mark.asyncio
-async def test_invalid_password_is_rejected():
+@pytest.fixture(scope="module", autouse=True)
+async def bootstrap_auth_data():
+    await engine.dispose()
     await seed()
+    yield
+    await engine.dispose()
+
+
+@pytest.mark.asyncio(scope="module")
+async def test_invalid_password_is_rejected():
     async with SessionLocal() as session:
         with pytest.raises(HTTPException) as exc_info:
             await auth_service.authenticate(session, "owner@aionex.local", "wrong-password")
         assert exc_info.value.status_code == 401
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio(scope="module")
 async def test_refresh_token_rotation_rejects_reuse():
-    await seed()
     async with SessionLocal() as session:
         user = await auth_service.authenticate(session, "owner@aionex.local", "ChangeMeNow!123")
         pair = await auth_service.issue_pair(session, user)
@@ -28,9 +34,8 @@ async def test_refresh_token_rotation_rejects_reuse():
         assert exc_info.value.status_code == 401
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio(scope="module")
 async def test_revoked_access_token_is_rejected():
-    await seed()
     async with SessionLocal() as session:
         user = await auth_service.authenticate(session, "owner@aionex.local", "ChangeMeNow!123")
         token = auth_service.create_access_token(user)
