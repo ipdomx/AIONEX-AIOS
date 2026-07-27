@@ -3,8 +3,10 @@
 from fastapi import APIRouter, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import UserRecord, auth_service, current_user, oauth2_scheme
+from app.db.base import get_db
 
 router = APIRouter()
 
@@ -44,26 +46,29 @@ class MFASetupResponse(BaseModel):
 
 
 @router.post("/login", response_model=LoginResponse)
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = auth_service.authenticate(form_data.username, form_data.password)
-    return auth_service.issue_pair(user)
+async def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    session: AsyncSession = Depends(get_db),
+):
+    user = await auth_service.authenticate(session, form_data.username, form_data.password)
+    return await auth_service.issue_pair(session, user)
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
-async def register(data: RegisterRequest):
-    user = auth_service.register(data.email, data.password, data.name, data.organization_name)
+async def register(data: RegisterRequest, session: AsyncSession = Depends(get_db)):
+    user = await auth_service.register(session, data.email, data.password, data.name, data.organization_name)
     return {"message": "User registered successfully", "user": auth_service.serialize_user(user)}
 
 
 @router.post("/logout")
 async def logout(token: str = Depends(oauth2_scheme)):
-    auth_service.revoke_access_token(token)
+    await auth_service.revoke_access_token(token)
     return {"message": "Logged out successfully"}
 
 
 @router.post("/refresh", response_model=LoginResponse)
-async def refresh_token(data: RefreshRequest):
-    return auth_service.refresh(data.refresh_token)
+async def refresh_token(data: RefreshRequest, session: AsyncSession = Depends(get_db)):
+    return await auth_service.refresh(session, data.refresh_token)
 
 
 @router.post("/password-reset")
