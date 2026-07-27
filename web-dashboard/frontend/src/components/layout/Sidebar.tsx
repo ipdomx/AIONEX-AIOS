@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Coins,
   Cpu,
   Database,
   FileText,
@@ -32,6 +33,7 @@ import {
   Server,
   Settings,
   Shield,
+  ShieldCheck,
   Sparkles,
   Star,
   Terminal,
@@ -144,6 +146,8 @@ const mainNavSections: NavSection[] = [
       { id: "owner-notifications", label: "Notifications", icon: Bell, href: "/owner/notifications", badge: 24 },
       { id: "owner-services", label: "Service Control", icon: ToggleRight, href: "/owner/services" },
       { id: "owner-incidents", label: "Incidents", icon: AlertTriangle, href: "/owner/incidents", badge: 3 },
+      { id: "owner-audit", label: "Owner Audit", icon: ShieldCheck, href: "/owner/audit" },
+      { id: "owner-costs", label: "Cost Governance", icon: Coins, href: "/owner/costs" },
     ],
   },
   { id: "tasks", label: "Tasks", icon: CheckSquare, href: "/tasks", badge: 15 },
@@ -161,7 +165,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const favorites = [
     { id: "owner-services", label: "Service Control", href: "/owner/services" },
     { id: "owner-incidents", label: "Incidents", href: "/owner/incidents" },
-    { id: "owner-approvals", label: "Approvals", href: "/owner/approvals" },
+    { id: "owner-audit", label: "Owner Audit", href: "/owner/audit" },
   ];
 
   const toggleSection = useCallback((sectionId: string) => {
