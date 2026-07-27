@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import type { LucideIcon } from "lucide-react";
 import { CheckCircle2, CircleAlert, RefreshCw, ShieldCheck, XCircle } from "lucide-react";
 import { fetchOwnerFinalizationSnapshot, type OwnerFinalizationSnapshot } from "@/lib/owner-finalization";
 
@@ -13,8 +14,14 @@ const statusClass: Record<"passed" | "warning" | "failed", string> = {
   failed: "border-red-500/20 bg-red-500/10 text-red-300",
 };
 
+type SummaryCard = {
+  label: string;
+  value: number;
+  icon: LucideIcon;
+};
+
 export default function OwnerFinalizationPage() {
-  const [snapshot, setSnapshot] = useState(emptySnapshot);
+  const [snapshot, setSnapshot] = useState<OwnerFinalizationSnapshot>(emptySnapshot);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("Running owner dashboard finalization checks...");
 
@@ -43,6 +50,12 @@ export default function OwnerFinalizationPage() {
     failed: snapshot.checks.filter((item) => item.status === "failed").length,
   }), [snapshot]);
 
+  const summaryCards: SummaryCard[] = [
+    { label: "Passed", value: summary.passed, icon: CheckCircle2 },
+    { label: "Warnings", value: summary.warnings, icon: CircleAlert },
+    { label: "Failed", value: summary.failed, icon: XCircle },
+  ];
+
   return (
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -60,12 +73,8 @@ export default function OwnerFinalizationPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {[
-          ["Passed", summary.passed, CheckCircle2],
-          ["Warnings", summary.warnings, CircleAlert],
-          ["Failed", summary.failed, XCircle],
-        ].map(([label, value, Icon]) => (
-          <div key={String(label)} className="glass-card p-5"><Icon className="h-5 w-5 text-electric-300" /><div className="mt-4 text-3xl font-bold text-white">{String(value)}</div><div className="mt-1 text-xs text-white/40">{String(label)}</div></div>
+        {summaryCards.map(({ label, value, icon: Icon }) => (
+          <div key={label} className="glass-card p-5"><Icon className="h-5 w-5 text-electric-300" /><div className="mt-4 text-3xl font-bold text-white">{value}</div><div className="mt-1 text-xs text-white/40">{label}</div></div>
         ))}
       </div>
 
