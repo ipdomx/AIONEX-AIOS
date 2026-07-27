@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import type { LucideIcon } from "lucide-react";
 import { Bell, Mail, MessageCircle, RefreshCw, Smartphone, ToggleLeft, ToggleRight } from "lucide-react";
 import { fetchNotificationRules, updateNotificationRule, type OwnerNotificationRule } from "@/lib/owner-notification-runtime";
 
@@ -11,12 +12,14 @@ const severityClass: Record<OwnerNotificationRule["severity"], string> = {
   critical: "border-red-500/20 bg-red-500/10 text-red-300",
 };
 
-const channelIcon = {
+const channelIcon: Record<OwnerNotificationRule["channels"][number], LucideIcon> = {
   in_app: Bell,
   email: Mail,
   push: Smartphone,
   whatsapp: MessageCircle,
 };
+
+type SummaryCard = readonly [label: string, value: number, icon: LucideIcon];
 
 export default function OwnerNotificationRuntimePage() {
   const [items, setItems] = useState<OwnerNotificationRule[]>([]);
@@ -48,6 +51,12 @@ export default function OwnerNotificationRuntimePage() {
     whatsapp: items.filter((item) => item.channels.includes("whatsapp")).length,
   }), [items]);
 
+  const cards: SummaryCard[] = [
+    ["Enabled rules", summary.enabled, ToggleRight],
+    ["Critical rules", summary.critical, Bell],
+    ["WhatsApp rules", summary.whatsapp, MessageCircle],
+  ];
+
   async function toggle(id: string) {
     const current = items.find((item) => item.id === id);
     if (!current) return;
@@ -74,8 +83,8 @@ export default function OwnerNotificationRuntimePage() {
       </motion.div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {[["Enabled rules", summary.enabled, ToggleRight], ["Critical rules", summary.critical, Bell], ["WhatsApp rules", summary.whatsapp, MessageCircle]].map(([label, value, Icon]) => (
-          <div key={String(label)} className="glass-card p-5"><Icon className="h-5 w-5 text-electric-300" /><div className="mt-4 text-3xl font-bold text-white">{String(value)}</div><div className="mt-1 text-xs text-white/40">{String(label)}</div></div>
+        {cards.map(([label, value, Icon]) => (
+          <div key={label} className="glass-card p-5"><Icon className="h-5 w-5 text-electric-300" /><div className="mt-4 text-3xl font-bold text-white">{value}</div><div className="mt-1 text-xs text-white/40">{label}</div></div>
         ))}
       </div>
 
