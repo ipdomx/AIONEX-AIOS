@@ -23,6 +23,7 @@ import {
   Cpu,
   CreditCard,
   Database,
+  FileCheck2,
   FileCog,
   FileText,
   FolderOpen,
@@ -157,6 +158,7 @@ const mainNavSections: NavSection[] = [
       { id: "owner-system-map", label: "Live System Map", icon: Map, href: "/owner/system-map" },
       { id: "owner-policies", label: "Policy Engine", icon: FileCog, href: "/owner/policies" },
       { id: "owner-billing", label: "Billing & Plans", icon: CreditCard, href: "/owner/billing" },
+      { id: "owner-compliance", label: "Compliance", icon: FileCheck2, href: "/owner/compliance" },
       { id: "owner-executive", label: "Executive Overview", icon: Gauge, href: "/owner/executive" },
       { id: "owner-health", label: "System Health", icon: HeartPulse, href: "/owner/health" },
       { id: "owner-approvals", label: "Approvals", icon: GitPullRequest, href: "/owner/approvals", badge: 7 },
@@ -187,8 +189,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const [expandedSections, setExpandedSections] = useState<string[]>(["ai", "infrastructure", "owner-governance"]);
   const favorites = [
     { id: "owner-global-command", label: "Global Command", href: "/owner/global-command" },
+    { id: "owner-compliance", label: "Compliance", href: "/owner/compliance" },
     { id: "owner-billing", label: "Billing & Plans", href: "/owner/billing" },
-    { id: "owner-policies", label: "Policy Engine", href: "/owner/policies" },
   ];
 
   const toggleSection = useCallback((sectionId: string) => {
@@ -222,7 +224,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     if (hasChildren) {
       return (
         <div key={section.id}>
-          <button onClick={() => toggleSection(section.id)} className={cn("flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all", active ? "bg-white/[0.08] text-white" : "text-white/50 hover:bg-white/[0.04] hover:text-white/80")}>
+          <button onClick={() => toggleSection(section.id)} className={cn("flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all", active ? "bg-white/[0.08] text-white" : "text-white/50 hover:bg-white/[0.04] hover:text-white/80")}> 
             <SectionIcon className={cn("h-[18px] w-[18px] flex-shrink-0", active && "text-electric-400")} />
             {!collapsed && <span className="flex-1 text-left">{section.label}</span>}
             {!collapsed && <ChevronRight className={cn("h-3.5 w-3.5 text-white/30 transition-transform", expanded && "rotate-90")} />}
@@ -235,7 +237,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   {section.children?.map((child) => {
                     const ChildIcon = child.icon;
                     return (
-                      <Link key={child.id} href={child.href} className={cn("flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all", isActive(child.href) ? "bg-white/[0.06] text-white" : "text-white/40 hover:bg-white/[0.03] hover:text-white/70")}>
+                      <Link key={child.id} href={child.href} className={cn("flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all", isActive(child.href) ? "bg-white/[0.06] text-white" : "text-white/40 hover:bg-white/[0.03] hover:text-white/70")}> 
                         <ChildIcon className="h-3.5 w-3.5" />
                         <span className="flex-1">{child.label}</span>
                         {child.badge ? <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-white/50">{child.badge}</span> : null}
@@ -252,7 +254,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
     const href = section.href ?? "/";
     return (
-      <Link key={section.id} href={href} className={cn("relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all", isActive(href) ? "bg-white/[0.08] text-white" : "text-white/50 hover:bg-white/[0.04] hover:text-white/80")}>
+      <Link key={section.id} href={href} className={cn("relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all", isActive(href) ? "bg-white/[0.08] text-white" : "text-white/50 hover:bg-white/[0.04] hover:text-white/80")}> 
         <SectionIcon className={cn("h-[18px] w-[18px] flex-shrink-0", isActive(href) && "text-electric-400")} />
         {!collapsed && <span className="flex-1">{section.label}</span>}
         {renderBadge(section.badge)}
