@@ -30,6 +30,18 @@ def _hash_refresh_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+def _normalize_db_datetime(value: datetime) -> datetime:
+    """Normalize database datetimes for safe UTC-aware comparisons.
+
+    PostgreSQL returns aware values for timestamptz columns, while SQLite-backed
+    tests may return naive values. Treat naive values as UTC so refresh-token
+    expiry checks behave consistently across environments.
+    """
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
 @dataclass
 class UserRecord:
     id: str
@@ -181,7 +193,11 @@ class AuthService:
     async def refresh(self, session: AsyncSession, refresh_token: str) -> dict[str, Any]:
         digest = _hash_refresh_token(refresh_token)
         record = await session.scalar(select(RefreshSession).where(RefreshSession.token_hash == digest))
-        if record is None or record.revoked_at is not None or record.expires_at <= _now():
+        if (
+            record is None
+            or record.revoked_at is not None
+            or _normalize_db_datetime(record.expires_at) <= _now()
+        ):
             raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
 
         record.revoked_at = _now()
