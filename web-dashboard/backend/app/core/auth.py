@@ -15,7 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.db.base import SessionLocal, get_db
+from app.db.base import get_db
 from app.db.models import Organization, Permission, RefreshSession, Role, RolePermission, User
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
@@ -32,7 +32,7 @@ def _as_utc(value: datetime) -> datetime:
     return value.astimezone(timezone.utc)
 
 
-def _hash_refresh_token(token: str) -> str:
+def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
@@ -51,10 +51,12 @@ class UserRecord:
 
 
 class AuthService:
+    def __init__(self) -> None:
+        self._revoked_access_tokens: set[str] = set()
+
     async def _to_user_record(self, session: AsyncSession, user: User) -> UserRecord:
         role_name = "Unassigned"
         permissions: list[str] = []
-
         if user.role_id:
             role = await session.get(Role, user.role_id)
             if role is not None:
@@ -65,11 +67,9 @@ class AuthService:
                     .where(RolePermission.role_id == role.id)
                 )
                 permissions = list(result.scalars().all())
-
         organization = await session.get(Organization, user.organization_id)
         if organization is None:
             raise HTTPException(status_code=500, detail="User organization is missing")
-
         return UserRecord(
             id=user.id,
             email=user.email,
@@ -96,11 +96,7 @@ class AuthService:
         if existing is not None:
             raise HTTPException(status_code=409, detail="Email already registered")
         if len(password) < settings.PASSWORD_MIN_LENGTH:
-            raise HTTPException(
-                status_code=422,
-                detail=f"Password must be at least {settings.PASSWORD_MIN_LENGTH} characters",
-            )
-
+            raise HTTPException(status_code=422, detail=f"Password must be at least {settings.PASSWORD_MIN_LENGTH} characters")
         organization = Organization(
             name=(organization_name or f"{name.strip()} Organization").strip(),
             slug=f"org-{secrets.token_urlsafe(8).lower()}",
@@ -109,7 +105,6 @@ class AuthService:
         )
         session.add(organization)
         await session.flush()
-
         role = Role(
             organization_id=organization.id,
             name="Owner",
@@ -118,11 +113,9 @@ class AuthService:
         )
         session.add(role)
         await session.flush()
-
         permission_rows = (await session.execute(select(Permission))).scalars().all()
         for permission in permission_rows:
             session.add(RolePermission(role_id=role.id, permission_id=permission.id))
-
         user = User(
             organization_id=organization.id,
             role_id=role.id,
@@ -136,7 +129,7 @@ class AuthService:
         await session.refresh(user)
         return await self._to_user_record(session, user)
 
-    async def _authenticate_with_session(self, session: AsyncSession, email: str, password: str) -> UserRecord:
+    async def authenticate(self, session: AsyncSession, email: str, password: str) -> UserRecord:
         normalized = email.strip().lower()
         user = await session.scalar(select(User).where(User.email == normalized, User.deleted_at.is_(None)))
         if user is None or not pwd_context.verify(password, user.password_hash):
@@ -144,20 +137,6 @@ class AuthService:
         if user.status not in {"active", "online"}:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account is not active")
         return await self._to_user_record(session, user)
-
-    def authenticate(self, *args: Any):
-        if len(args) == 3 and isinstance(args[0], AsyncSession):
-            session, email, password = args
-            return self._authenticate_with_session(session, email, password)
-        if len(args) == 2:
-            email, password = args
-
-            async def _run() -> UserRecord:
-                async with SessionLocal() as session:
-                    return await self._authenticate_with_session(session, email, password)
-
-            return _run()
-        raise TypeError("authenticate expects (session, email, password) or (email, password)")
 
     def _access_payload(self, user: UserRecord) -> dict[str, Any]:
         issued_at = _now()
@@ -182,7 +161,7 @@ class AuthService:
         session.add(
             RefreshSession(
                 user_id=user.id,
-                token_hash=_hash_refresh_token(raw),
+                token_hash=_hash_token(raw),
                 expires_at=_now() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
             )
         )
@@ -201,11 +180,9 @@ class AuthService:
         }
 
     async def refresh(self, session: AsyncSession, refresh_token: str) -> dict[str, Any]:
-        digest = _hash_refresh_token(refresh_token)
-        record = await session.scalar(select(RefreshSession).where(RefreshSession.token_hash == digest))
+        record = await session.scalar(select(RefreshSession).where(RefreshSession.token_hash == _hash_token(refresh_token)))
         if record is None or record.revoked_at is not None or _as_utc(record.expires_at) <= _now():
             raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
-
         record.revoked_at = _now()
         user = await self.get_user_by_id(session, record.user_id)
         new_refresh_token = await self.create_refresh_token(session, user)
@@ -219,6 +196,8 @@ class AuthService:
         }
 
     def decode_access_token(self, token: str) -> dict[str, Any]:
+        if _hash_token(token) in self._revoked_access_tokens:
+            raise HTTPException(status_code=401, detail="Token has been revoked")
         try:
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         except JWTError as exc:
@@ -227,8 +206,8 @@ class AuthService:
             raise HTTPException(status_code=401, detail="Invalid token type")
         return payload
 
-    async def revoke_access_token(self, _token: str) -> None:
-        return None
+    async def revoke_access_token(self, token: str) -> None:
+        self._revoked_access_tokens.add(_hash_token(token))
 
     async def get_user_by_id(self, session: AsyncSession, user_id: str) -> UserRecord:
         user = await session.scalar(select(User).where(User.id == user_id, User.deleted_at.is_(None)))
