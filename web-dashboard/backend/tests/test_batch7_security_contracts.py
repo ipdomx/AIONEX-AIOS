@@ -6,24 +6,21 @@ from app.db.base import SessionLocal, engine
 from app.db.seed import seed
 
 
-@pytest.fixture(scope="module", autouse=True)
-async def bootstrap_auth_data():
+@pytest.mark.asyncio
+async def test_invalid_password_is_rejected():
     await engine.dispose()
     await seed()
-    yield
-    await engine.dispose()
-
-
-@pytest.mark.asyncio(scope="module")
-async def test_invalid_password_is_rejected():
     async with SessionLocal() as session:
         with pytest.raises(HTTPException) as exc_info:
             await auth_service.authenticate(session, "owner@aionex.local", "wrong-password")
         assert exc_info.value.status_code == 401
+    await engine.dispose()
 
 
-@pytest.mark.asyncio(scope="module")
+@pytest.mark.asyncio
 async def test_refresh_token_rotation_rejects_reuse():
+    await engine.dispose()
+    await seed()
     async with SessionLocal() as session:
         user = await auth_service.authenticate(session, "owner@aionex.local", "ChangeMeNow!123")
         pair = await auth_service.issue_pair(session, user)
@@ -32,10 +29,13 @@ async def test_refresh_token_rotation_rejects_reuse():
         with pytest.raises(HTTPException) as exc_info:
             await auth_service.refresh(session, pair["refresh_token"])
         assert exc_info.value.status_code == 401
+    await engine.dispose()
 
 
-@pytest.mark.asyncio(scope="module")
+@pytest.mark.asyncio
 async def test_revoked_access_token_is_rejected():
+    await engine.dispose()
+    await seed()
     async with SessionLocal() as session:
         user = await auth_service.authenticate(session, "owner@aionex.local", "ChangeMeNow!123")
         token = auth_service.create_access_token(user)
@@ -43,3 +43,4 @@ async def test_revoked_access_token_is_rejected():
         with pytest.raises(HTTPException) as exc_info:
             auth_service.decode_access_token(token)
         assert exc_info.value.status_code == 401
+    await engine.dispose()
