@@ -25,6 +25,12 @@ const statusClass: Record<ProductionRuntimeTarget["status"], string> = {
   blocked: "border-red-500/20 bg-red-500/10 text-red-300",
 };
 
+const summaryCards = [
+  { key: "ready", label: "Ready", Icon: CheckCircle2 },
+  { key: "degraded", label: "Degraded", Icon: TriangleAlert },
+  { key: "blocked", label: "Blocked", Icon: XCircle },
+] as const;
+
 export default function OwnerProductionRuntimePage() {
   const [snapshot, setSnapshot] = useState<ProductionRuntimeSnapshot>(emptySnapshot);
   const [loading, setLoading] = useState(true);
@@ -92,12 +98,8 @@ export default function OwnerProductionRuntimePage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {[
-          ["Ready", summary.ready, CheckCircle2],
-          ["Degraded", summary.degraded, TriangleAlert],
-          ["Blocked", summary.blocked, XCircle],
-        ].map(([label, value, Icon]) => (
-          <div key={String(label)} className="glass-card p-5"><Icon className="h-5 w-5 text-electric-300" /><div className="mt-4 text-3xl font-bold text-white">{String(value)}</div><div className="mt-1 text-xs text-white/40">{String(label)}</div></div>
+        {summaryCards.map(({ key, label, Icon }) => (
+          <div key={key} className="glass-card p-5"><Icon className="h-5 w-5 text-electric-300" /><div className="mt-4 text-3xl font-bold text-white">{summary[key]}</div><div className="mt-1 text-xs text-white/40">{label}</div></div>
         ))}
       </div>
 
