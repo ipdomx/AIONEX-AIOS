@@ -28,11 +28,13 @@ import {
   Gavel,
   GitPullRequest,
   Globe,
+  KeyRound,
   Layers,
   LayoutDashboard,
   Lock,
   MessageCircle,
   Pin,
+  Rocket,
   Server,
   Settings,
   Shield,
@@ -156,6 +158,8 @@ const mainNavSections: NavSection[] = [
       { id: "owner-councils", label: "Councils & Ministries", icon: Gavel, href: "/owner/governance" },
       { id: "owner-communications", label: "Communications", icon: MessageCircle, href: "/owner/communications" },
       { id: "owner-recovery", label: "Recovery Center", icon: ArchiveRestore, href: "/owner/recovery" },
+      { id: "owner-access", label: "Access Authority", icon: KeyRound, href: "/owner/access" },
+      { id: "owner-release", label: "Release Authority", icon: Rocket, href: "/owner/release" },
     ],
   },
   { id: "tasks", label: "Tasks", icon: CheckSquare, href: "/tasks", badge: 15 },
@@ -171,9 +175,9 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const [expandedSections, setExpandedSections] = useState<string[]>(["ai", "infrastructure", "owner-governance"]);
   const favorites = [
-    { id: "owner-communications", label: "Communications", href: "/owner/communications" },
+    { id: "owner-access", label: "Access Authority", href: "/owner/access" },
+    { id: "owner-release", label: "Release Authority", href: "/owner/release" },
     { id: "owner-recovery", label: "Recovery Center", href: "/owner/recovery" },
-    { id: "owner-incidents", label: "Incidents", href: "/owner/incidents" },
   ];
 
   const toggleSection = useCallback((sectionId: string) => {
