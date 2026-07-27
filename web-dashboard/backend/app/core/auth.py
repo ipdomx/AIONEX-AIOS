@@ -15,7 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.db.base import get_db
+from app.db.base import SessionLocal, get_db
 from app.db.models import Organization, Permission, RefreshSession, Role, RolePermission, User
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
@@ -136,7 +136,7 @@ class AuthService:
         await session.refresh(user)
         return await self._to_user_record(session, user)
 
-    async def authenticate(self, session: AsyncSession, email: str, password: str) -> UserRecord:
+    async def _authenticate_with_session(self, session: AsyncSession, email: str, password: str) -> UserRecord:
         normalized = email.strip().lower()
         user = await session.scalar(select(User).where(User.email == normalized, User.deleted_at.is_(None)))
         if user is None or not pwd_context.verify(password, user.password_hash):
@@ -144,6 +144,20 @@ class AuthService:
         if user.status not in {"active", "online"}:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account is not active")
         return await self._to_user_record(session, user)
+
+    def authenticate(self, *args: Any):
+        if len(args) == 3 and isinstance(args[0], AsyncSession):
+            session, email, password = args
+            return self._authenticate_with_session(session, email, password)
+        if len(args) == 2:
+            email, password = args
+
+            async def _run() -> UserRecord:
+                async with SessionLocal() as session:
+                    return await self._authenticate_with_session(session, email, password)
+
+            return _run()
+        raise TypeError("authenticate expects (session, email, password) or (email, password)")
 
     def _access_payload(self, user: UserRecord) -> dict[str, Any]:
         issued_at = _now()
