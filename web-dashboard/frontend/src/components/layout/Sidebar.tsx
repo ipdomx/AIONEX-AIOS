@@ -6,6 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Activity,
   AlertTriangle,
+  ArchiveRestore,
   BarChart3,
   Bell,
   BookOpen,
@@ -30,6 +31,7 @@ import {
   Layers,
   LayoutDashboard,
   Lock,
+  MessageCircle,
   Pin,
   Server,
   Settings,
@@ -152,6 +154,8 @@ const mainNavSections: NavSection[] = [
       { id: "owner-costs", label: "Cost Governance", icon: Coins, href: "/owner/costs" },
       { id: "owner-staff", label: "Staff Oversight", icon: UserCog, href: "/owner/staff" },
       { id: "owner-councils", label: "Councils & Ministries", icon: Gavel, href: "/owner/governance" },
+      { id: "owner-communications", label: "Communications", icon: MessageCircle, href: "/owner/communications" },
+      { id: "owner-recovery", label: "Recovery Center", icon: ArchiveRestore, href: "/owner/recovery" },
     ],
   },
   { id: "tasks", label: "Tasks", icon: CheckSquare, href: "/tasks", badge: 15 },
@@ -167,8 +171,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const [expandedSections, setExpandedSections] = useState<string[]>(["ai", "infrastructure", "owner-governance"]);
   const favorites = [
-    { id: "owner-staff", label: "Staff Oversight", href: "/owner/staff" },
-    { id: "owner-councils", label: "Governance", href: "/owner/governance" },
+    { id: "owner-communications", label: "Communications", href: "/owner/communications" },
+    { id: "owner-recovery", label: "Recovery Center", href: "/owner/recovery" },
     { id: "owner-incidents", label: "Incidents", href: "/owner/incidents" },
   ];
 
@@ -251,7 +255,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <div className="border-b border-white/[0.06] px-3 py-3"><Link href="/owner" className="flex w-full items-center gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 transition-all hover:bg-white/[0.06]"><div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border border-white/[0.08] bg-gradient-to-br from-blue-500/20 to-purple-500/20"><Building2 className="h-3.5 w-3.5 text-blue-400" /></div>{!collapsed && <div className="flex min-w-0 flex-1 flex-col items-start"><span className="truncate text-xs font-semibold text-white">AIONEX Corp</span><span className="text-[10px] text-white/40">Owner · Enterprise Plan</span></div>}</Link></div>
       {!collapsed && <div className="border-b border-white/[0.06] px-3 py-2"><div className="mb-2 flex items-center gap-2 px-3"><Star className="h-3 w-3 text-white/30" /><span className="text-[10px] font-semibold uppercase tracking-wider text-white/30">Favorites</span></div>{favorites.map((favorite) => <Link key={favorite.id} href={favorite.href} className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-xs text-white/50 transition-all hover:bg-white/[0.04] hover:text-white/80"><Pin className="h-3 w-3" /><span className="truncate">{favorite.label}</span></Link>)}</div>}
       <div className="scrollbar-thin flex-1 overflow-y-auto px-3 py-2"><div className="space-y-0.5">{mainNavSections.map(renderSection)}</div></div>
-      <div className="border-t border-white/[0.06] px-3 py-3"><div className="space-y-0.5">{bottomNavSections.map(renderSection)}</div></div>
+      <div className="border-t border-white/[0.06] px-3 py-2"><div className="space-y-0.5">{bottomNavSections.map(renderSection)}</div></div>
     </motion.aside>
   );
 }
