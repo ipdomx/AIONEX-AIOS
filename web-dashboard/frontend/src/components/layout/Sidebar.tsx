@@ -35,6 +35,7 @@ import {
   Lock,
   MessageCircle,
   Pin,
+  RadioTower,
   Rocket,
   Server,
   Settings,
@@ -149,6 +150,7 @@ const mainNavSections: NavSection[] = [
     label: "Owner Governance",
     icon: GitPullRequest,
     children: [
+      { id: "owner-global-command", label: "Global Command", icon: RadioTower, href: "/owner/global-command" },
       { id: "owner-executive", label: "Executive Overview", icon: Gauge, href: "/owner/executive" },
       { id: "owner-health", label: "System Health", icon: HeartPulse, href: "/owner/health" },
       { id: "owner-approvals", label: "Approvals", icon: GitPullRequest, href: "/owner/approvals", badge: 7 },
@@ -178,8 +180,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const [expandedSections, setExpandedSections] = useState<string[]>(["ai", "infrastructure", "owner-governance"]);
   const favorites = [
+    { id: "owner-global-command", label: "Global Command", href: "/owner/global-command" },
     { id: "owner-executive", label: "Executive Overview", href: "/owner/executive" },
-    { id: "owner-health", label: "System Health", href: "/owner/health" },
     { id: "owner-release", label: "Release Authority", href: "/owner/release" },
   ];
 
