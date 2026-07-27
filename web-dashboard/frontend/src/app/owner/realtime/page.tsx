@@ -53,6 +53,12 @@ export default function OwnerRealtimePage() {
     critical: snapshot.metrics.filter((metric) => metric.status === "critical").length,
   }), [snapshot]);
 
+  const cards: Array<{ label: string; value: number; Icon: typeof ShieldCheck }> = [
+    { label: "Healthy", value: summary.healthy, Icon: ShieldCheck },
+    { label: "Warnings", value: summary.warning, Icon: AlertTriangle },
+    { label: "Critical", value: summary.critical, Icon: Server },
+  ];
+
   return (
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -65,12 +71,8 @@ export default function OwnerRealtimePage() {
       </motion.div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {[
-          ["Healthy", summary.healthy, ShieldCheck],
-          ["Warnings", summary.warning, AlertTriangle],
-          ["Critical", summary.critical, Server],
-        ].map(([label, value, Icon]) => (
-          <div key={String(label)} className="glass-card p-5"><Icon className="h-5 w-5 text-electric-300" /><div className="mt-4 text-3xl font-bold text-white">{String(value)}</div><div className="mt-1 text-xs text-white/40">{String(label)}</div></div>
+        {cards.map(({ label, value, Icon }) => (
+          <div key={label} className="glass-card p-5"><Icon className="h-5 w-5 text-electric-300" /><div className="mt-4 text-3xl font-bold text-white">{value}</div><div className="mt-1 text-xs text-white/40">{label}</div></div>
         ))}
       </div>
 
