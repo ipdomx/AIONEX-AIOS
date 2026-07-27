@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "@/styles/globals.css";
 import RuntimeProvider from "@/components/providers/RuntimeProvider";
 import AuthProvider from "@/components/providers/AuthProvider";
+import AuthGate from "@/components/auth/AuthGate";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -37,22 +38,23 @@ export const metadata: Metadata = {
     title: "AIONEX AIOS",
     description: "Enterprise AI Operating System",
   },
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  },
-  themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#030308" },
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-  ],
   icons: {
     icon: "/favicon.ico",
     shortcut: "/favicon-16x16.png",
     apple: "/apple-touch-icon.png",
   },
   manifest: "/manifest.json",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#030308" },
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+  ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -64,7 +66,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="antialiased">
         <AuthProvider>
-          <RuntimeProvider>{children}</RuntimeProvider>
+          <AuthGate>
+            <RuntimeProvider>{children}</RuntimeProvider>
+          </AuthGate>
         </AuthProvider>
       </body>
     </html>
