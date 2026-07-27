@@ -2,7 +2,18 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Activity, AlertTriangle, Bot, Database, Globe2, Network, RefreshCw, Server, ShieldCheck, Workflow } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  Bot,
+  Database,
+  Globe2,
+  Network,
+  RefreshCw,
+  Server,
+  ShieldCheck,
+  Workflow,
+} from "lucide-react";
 
 type NodeKind = "region" | "server" | "worker" | "database" | "service";
 type Health = "healthy" | "warning" | "critical" | "offline";
@@ -19,6 +30,12 @@ type SystemNode = {
   connections: number;
 };
 
+type SummaryCard = {
+  label: string;
+  value: number;
+  icon: React.ElementType;
+};
+
 const initialNodes: SystemNode[] = [
   { id: "region-dubai", name: "Dubai Region", kind: "region", region: "Dubai", health: "healthy", latency: 18, load: 46, connections: 34 },
   { id: "srv-api-01", name: "api-dubai-01", kind: "server", region: "Dubai", parent: "region-dubai", health: "healthy", latency: 21, load: 58, connections: 18 },
@@ -30,7 +47,7 @@ const initialNodes: SystemNode[] = [
   { id: "service-notify", name: "Notifications", kind: "service", region: "Global", parent: "region-eu", health: "offline", latency: 0, load: 0, connections: 0 },
 ];
 
-const icons = {
+const icons: Record<NodeKind, React.ElementType> = {
   region: Globe2,
   server: Server,
   worker: Bot,
@@ -46,24 +63,43 @@ const healthClass: Record<Health, string> = {
 };
 
 export default function OwnerSystemMapPage() {
-  const [nodes, setNodes] = useState(initialNodes);
+  const [nodes, setNodes] = useState<SystemNode[]>(initialNodes);
   const [selectedRegion, setSelectedRegion] = useState("all");
   const [message, setMessage] = useState("Live topology synchronized.");
 
   const regions = useMemo(() => ["all", ...Array.from(new Set(nodes.map((node) => node.region)))], [nodes]);
-  const visible = useMemo(() => selectedRegion === "all" ? nodes : nodes.filter((node) => node.region === selectedRegion), [nodes, selectedRegion]);
+  const visible = useMemo(
+    () => (selectedRegion === "all" ? nodes : nodes.filter((node) => node.region === selectedRegion)),
+    [nodes, selectedRegion],
+  );
+
+  const summaryCards: SummaryCard[] = [
+    { label: "Nodes", value: nodes.length, icon: Network },
+    { label: "Healthy", value: nodes.filter((node) => node.health === "healthy").length, icon: ShieldCheck },
+    { label: "Warnings", value: nodes.filter((node) => node.health === "warning").length, icon: Activity },
+    { label: "Critical", value: nodes.filter((node) => node.health === "critical").length, icon: AlertTriangle },
+    { label: "Offline", value: nodes.filter((node) => node.health === "offline").length, icon: Server },
+  ];
 
   function refreshMap() {
-    setNodes((items) => items.map((node) => ({
-      ...node,
-      latency: node.health === "offline" ? 0 : Math.max(8, node.latency + (node.load > 80 ? 4 : -2)),
-      connections: node.health === "offline" ? 0 : Math.max(1, node.connections + 1),
-    })));
+    setNodes((items) =>
+      items.map((node) => ({
+        ...node,
+        latency: node.health === "offline" ? 0 : Math.max(8, node.latency + (node.load > 80 ? 4 : -2)),
+        connections: node.health === "offline" ? 0 : Math.max(1, node.connections + 1),
+      })),
+    );
     setMessage("Topology refreshed and health signals recalculated.");
   }
 
   function recoverNode(id: string) {
-    setNodes((items) => items.map((node) => node.id === id ? { ...node, health: "warning", latency: 75, load: 55, connections: Math.max(1, node.connections) } : node));
+    setNodes((items) =>
+      items.map((node) =>
+        node.id === id
+          ? { ...node, health: "warning", latency: 75, load: 55, connections: Math.max(1, node.connections) }
+          : node,
+      ),
+    );
     setMessage(`Recovery command issued for ${id}.`);
   }
 
@@ -72,22 +108,23 @@ export default function OwnerSystemMapPage() {
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs font-medium text-electric-300"><Network className="h-3.5 w-3.5" /> Owner Live System Map</div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">Live Infrastructure & Service Topology</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-white">Live Infrastructure &amp; Service Topology</h1>
           <p className="mt-2 text-sm text-white/45">Real-time owner visibility across regions, servers, workers, databases and platform services.</p>
         </div>
         <button onClick={refreshMap} className="btn-primary"><RefreshCw className="h-4 w-4" />Refresh topology</button>
       </motion.div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        {[
-          ["Nodes", nodes.length, Network],
-          ["Healthy", nodes.filter((node) => node.health === "healthy").length, ShieldCheck],
-          ["Warnings", nodes.filter((node) => node.health === "warning").length, Activity],
-          ["Critical", nodes.filter((node) => node.health === "critical").length, AlertTriangle],
-          ["Offline", nodes.filter((node) => node.health === "offline").length, Server],
-        ].map(([label, value, Icon]) => (
-          <div key={String(label)} className="glass-card p-4"><Icon className="h-5 w-5 text-electric-300" /><div className="mt-3 text-2xl font-bold text-white">{String(value)}</div><div className="text-xs text-white/35">{String(label)}</div></div>
-        ))}
+        {summaryCards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <div key={card.label} className="glass-card p-4">
+              <Icon className="h-5 w-5 text-electric-300" />
+              <div className="mt-3 text-2xl font-bold text-white">{card.value}</div>
+              <div className="text-xs text-white/35">{card.label}</div>
+            </div>
+          );
+        })}
       </div>
 
       <div className="glass-card p-4">
