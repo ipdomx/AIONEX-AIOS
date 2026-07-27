@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import hashlib
-import inspect
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -177,9 +176,7 @@ class AuthService:
         return raw
 
     async def issue_pair(self, session: AsyncSession, user: UserRecord) -> dict[str, Any]:
-        refresh_token = self.create_refresh_token(session, user)
-        if inspect.isawaitable(refresh_token):
-            refresh_token = await refresh_token
+        refresh_token = await self.create_refresh_token(session, user)
         return {
             "access_token": self.create_access_token(user),
             "refresh_token": refresh_token,
