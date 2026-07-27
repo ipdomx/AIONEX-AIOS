@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
+  AlertTriangle,
   BarChart3,
   Bell,
   BookOpen,
@@ -34,6 +35,7 @@ import {
   Sparkles,
   Star,
   Terminal,
+  ToggleRight,
   Users,
   Workflow,
   Zap,
@@ -140,6 +142,8 @@ const mainNavSections: NavSection[] = [
     children: [
       { id: "owner-approvals", label: "Approvals", icon: GitPullRequest, href: "/owner/approvals", badge: 7 },
       { id: "owner-notifications", label: "Notifications", icon: Bell, href: "/owner/notifications", badge: 24 },
+      { id: "owner-services", label: "Service Control", icon: ToggleRight, href: "/owner/services" },
+      { id: "owner-incidents", label: "Incidents", icon: AlertTriangle, href: "/owner/incidents", badge: 3 },
     ],
   },
   { id: "tasks", label: "Tasks", icon: CheckSquare, href: "/tasks", badge: 15 },
@@ -155,9 +159,9 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const [expandedSections, setExpandedSections] = useState<string[]>(["ai", "infrastructure", "owner-governance"]);
   const favorites = [
-    { id: "ai-agents", label: "AI Agents", href: "/ai/agents" },
-    { id: "infra-servers", label: "Servers", href: "/infrastructure/servers" },
-    { id: "mon-alerts", label: "Alerts", href: "/monitoring/alerts" },
+    { id: "owner-services", label: "Service Control", href: "/owner/services" },
+    { id: "owner-incidents", label: "Incidents", href: "/owner/incidents" },
+    { id: "owner-approvals", label: "Approvals", href: "/owner/approvals" },
   ];
 
   const toggleSection = useCallback((sectionId: string) => {
