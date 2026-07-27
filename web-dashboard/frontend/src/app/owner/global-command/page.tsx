@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Activity, AlertTriangle, Bot, Building2, CheckCircle2, FolderKanban, PauseCircle, PlayCircle, Search, Server, ShieldCheck, Users, Workflow, XCircle } from "lucide-react";
+import { Activity, AlertTriangle, Bot, Building2, CheckCircle2, FolderKanban, PauseCircle, PlayCircle, Search, Server, ShieldCheck, Users, XCircle } from "lucide-react";
 
 type Entity = {
   id: string;
@@ -13,6 +13,12 @@ type Entity = {
   status: "active" | "paused" | "warning" | "offline";
   risk: "low" | "medium" | "high" | "critical";
   owner: string;
+};
+
+type SummaryCard = {
+  label: string;
+  value: number;
+  icon: React.ElementType;
 };
 
 const initialEntities: Entity[] = [
@@ -46,7 +52,7 @@ const riskStyles: Record<Entity["risk"], string> = {
 };
 
 export default function OwnerGlobalCommandPage() {
-  const [entities, setEntities] = useState(initialEntities);
+  const [entities, setEntities] = useState<Entity[]>(initialEntities);
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | Entity["type"]>("all");
   const [message, setMessage] = useState("Ready for owner command.");
@@ -56,6 +62,14 @@ export default function OwnerGlobalCommandPage() {
     const matchesType = typeFilter === "all" || entity.type === typeFilter;
     return matchesQuery && matchesType;
   }), [entities, query, typeFilter]);
+
+  const summaryCards: SummaryCard[] = [
+    { label: "Projects", value: entities.filter((item) => item.type === "project").length, icon: FolderKanban },
+    { label: "Organizations", value: entities.filter((item) => item.type === "organization").length, icon: Users },
+    { label: "Workers", value: entities.filter((item) => item.type === "worker").length, icon: Bot },
+    { label: "Services", value: entities.filter((item) => item.type === "service").length, icon: Server },
+    { label: "Critical", value: entities.filter((item) => item.risk === "critical").length, icon: AlertTriangle },
+  ];
 
   function updateStatus(id: string, status: Entity["status"]) {
     setEntities((items) => items.map((item) => item.id === id ? { ...item, status } : item));
@@ -85,14 +99,8 @@ export default function OwnerGlobalCommandPage() {
       </motion.div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        {[
-          ["Projects", entities.filter((item) => item.type === "project").length, FolderKanban],
-          ["Organizations", entities.filter((item) => item.type === "organization").length, Users],
-          ["Workers", entities.filter((item) => item.type === "worker").length, Bot],
-          ["Services", entities.filter((item) => item.type === "service").length, Server],
-          ["Critical", entities.filter((item) => item.risk === "critical").length, AlertTriangle],
-        ].map(([label, value, Icon]) => (
-          <div key={String(label)} className="glass-card p-4"><Icon className="h-5 w-5 text-electric-300" /><div className="mt-3 text-2xl font-bold text-white">{String(value)}</div><div className="text-xs text-white/35">{String(label)}</div></div>
+        {summaryCards.map(({ label, value, icon: Icon }) => (
+          <div key={label} className="glass-card p-4"><Icon className="h-5 w-5 text-electric-300" /><div className="mt-3 text-2xl font-bold text-white">{value}</div><div className="text-xs text-white/35">{label}</div></div>
         ))}
       </div>
 
