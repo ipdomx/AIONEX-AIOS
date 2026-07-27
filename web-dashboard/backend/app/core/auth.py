@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -26,20 +27,14 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _hash_refresh_token(token: str) -> str:
-    return hashlib.sha256(token.encode("utf-8")).hexdigest()
-
-
-def _normalize_db_datetime(value: datetime) -> datetime:
-    """Normalize database datetimes for safe UTC-aware comparisons.
-
-    PostgreSQL returns aware values for timestamptz columns, while SQLite-backed
-    tests may return naive values. Treat naive values as UTC so refresh-token
-    expiry checks behave consistently across environments.
-    """
+def _as_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
     return value.astimezone(timezone.utc)
+
+
+def _hash_refresh_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 @dataclass
@@ -182,9 +177,12 @@ class AuthService:
         return raw
 
     async def issue_pair(self, session: AsyncSession, user: UserRecord) -> dict[str, Any]:
+        refresh_token = self.create_refresh_token(session, user)
+        if inspect.isawaitable(refresh_token):
+            refresh_token = await refresh_token
         return {
             "access_token": self.create_access_token(user),
-            "refresh_token": await self.create_refresh_token(session, user),
+            "refresh_token": refresh_token,
             "token_type": "bearer",
             "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             "user": self.serialize_user(user),
@@ -193,11 +191,7 @@ class AuthService:
     async def refresh(self, session: AsyncSession, refresh_token: str) -> dict[str, Any]:
         digest = _hash_refresh_token(refresh_token)
         record = await session.scalar(select(RefreshSession).where(RefreshSession.token_hash == digest))
-        if (
-            record is None
-            or record.revoked_at is not None
-            or _normalize_db_datetime(record.expires_at) <= _now()
-        ):
+        if record is None or record.revoked_at is not None or _as_utc(record.expires_at) <= _now():
             raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
 
         record.revoked_at = _now()
