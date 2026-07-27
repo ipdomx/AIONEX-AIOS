@@ -172,11 +172,12 @@ class AuthService:
                 expires_at=_now() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
             )
         )
-        await session.commit()
+        await session.flush()
         return raw
 
     async def issue_pair(self, session: AsyncSession, user: UserRecord) -> dict[str, Any]:
         refresh_token = await self.create_refresh_token(session, user)
+        await session.commit()
         return {
             "access_token": self.create_access_token(user),
             "refresh_token": refresh_token,
@@ -193,8 +194,15 @@ class AuthService:
 
         record.revoked_at = _now()
         user = await self.get_user_by_id(session, record.user_id)
+        new_refresh_token = await self.create_refresh_token(session, user)
         await session.commit()
-        return await self.issue_pair(session, user)
+        return {
+            "access_token": self.create_access_token(user),
+            "refresh_token": new_refresh_token,
+            "token_type": "bearer",
+            "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            "user": self.serialize_user(user),
+        }
 
     def decode_access_token(self, token: str) -> dict[str, Any]:
         try:
