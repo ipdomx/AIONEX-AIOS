@@ -10,21 +10,13 @@ import {
   Bot,
   Calendar,
   CheckCircle2,
-  CheckSquare,
   Clock,
-  Cpu,
   Database,
   FileText,
-  Globe,
-  HardDrive,
-  Layers,
-  MessageSquare,
   Minus,
-  Network,
   Plus,
   Server,
   Shield,
-  Sparkles,
   TrendingDown,
   TrendingUp,
   Users,
@@ -32,6 +24,7 @@ import {
   Zap,
 } from "lucide-react";
 import CountUp from "react-countup";
+import Link from "next/link";
 
 function AnimatedCounter({ end, duration = 2, suffix = "" }: { end: number; duration?: number; suffix?: string }) {
   return <CountUp end={end} duration={duration} separator="," suffix={suffix} className="tabular-nums" />;
@@ -132,7 +125,6 @@ export default function DashboardPage() {
     { icon: AlertTriangle, title: "High CPU Alert", description: "Server prod-web-01 CPU usage at 87%", time: "32m ago", color: "bg-orange-500/20" },
     { icon: Shield, title: "Security Scan Complete", description: "Weekly security scan found 0 critical issues", time: "1h ago", color: "bg-blue-500/20" },
     { icon: Database, title: "Backup Successful", description: "Database backup completed in 4m 23s", time: "2h ago", color: "bg-cyan-500/20" },
-    { icon: Users, title: "New Team Member", description: "Sarah Johnson joined Engineering team", time: "3h ago", color: "bg-pink-500/20" },
   ];
 
   const alerts = [
@@ -141,26 +133,31 @@ export default function DashboardPage() {
     { title: "SSL Expiring Soon", severity: "warning" as const, message: "Certificate for api.aionex.io expires in 7 days", time: "1h ago" },
   ];
 
-  const quickActions: Array<{ icon: React.ElementType; label: string; color: string }> = [
-    { icon: Plus, label: "New Project", color: "bg-blue-500/20 text-blue-400" },
-    { icon: Bot, label: "New Agent", color: "bg-purple-500/20 text-purple-400" },
-    { icon: Workflow, label: "New Workflow", color: "bg-cyan-500/20 text-cyan-400" },
-    { icon: Server, label: "New Server", color: "bg-green-500/20 text-green-400" },
-    { icon: FileText, label: "New Doc", color: "bg-orange-500/20 text-orange-400" },
-    { icon: Calendar, label: "New Meeting", color: "bg-pink-500/20 text-pink-400" },
+  const quickActions: Array<{ icon: React.ElementType; label: string; color: string; href: string }> = [
+    { icon: Plus, label: "New Project", color: "bg-blue-500/20 text-blue-400", href: "/projects?create=1" },
+    { icon: Bot, label: "New Agent", color: "bg-purple-500/20 text-purple-400", href: "/ai/agents?create=1" },
+    { icon: Workflow, label: "New Workflow", color: "bg-cyan-500/20 text-cyan-400", href: "/workflows?create=1" },
+    { icon: Server, label: "New Server", color: "bg-green-500/20 text-green-400", href: "/infrastructure/servers?create=1" },
+    { icon: FileText, label: "New Doc", color: "bg-orange-500/20 text-orange-400", href: "/knowledge?create=1" },
+    { icon: Calendar, label: "New Meeting", color: "bg-pink-500/20 text-pink-400", href: "/meetings?create=1" },
   ];
 
   return (
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-white tracking-tight">Dashboard</h1><p className="text-sm text-white/40 mt-1">Welcome back, Alex. Here&apos;s what&apos;s happening today.</p></div>
+        <div><h1 className="text-2xl font-bold text-white tracking-tight">Dashboard</h1><p className="text-sm text-white/40 mt-1">Welcome back. Here&apos;s what&apos;s happening today.</p></div>
         <div className="flex items-center gap-3"><span className="text-xs text-white/30">{new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</span></div>
       </motion.div>
 
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.1 }} className="flex items-center gap-2 overflow-x-auto pb-2">
-        {quickActions.map((action, i) => {
+        {quickActions.map((action) => {
           const ActionIcon = action.icon;
-          return <button key={i} className="flex items-center gap-2 px-4 py-2.5 rounded-xl glass hover:bg-white/[0.06] transition-all duration-200 group flex-shrink-0"><ActionIcon className={`w-4 h-4 ${action.color.split(" ")[1]}`} /><span className="text-xs font-medium text-white/70 group-hover:text-white transition-colors">{action.label}</span></button>;
+          return (
+            <Link key={action.label} href={action.href} className="flex items-center gap-2 px-4 py-2.5 rounded-xl glass hover:bg-white/[0.06] transition-all duration-200 group flex-shrink-0">
+              <ActionIcon className={`w-4 h-4 ${action.color.split(" ")[1]}`} />
+              <span className="text-xs font-medium text-white/70 group-hover:text-white transition-colors">{action.label}</span>
+            </Link>
+          );
         })}
       </motion.div>
 
@@ -170,24 +167,17 @@ export default function DashboardPage() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }} className="glass-card p-5">
           <div className="flex items-center justify-between mb-5"><div className="flex items-center gap-2"><Activity className="w-4 h-4 text-electric-400" /><h2 className="text-sm font-semibold text-white">Infrastructure Health</h2></div><StatusBadge status="online" text="All Systems Operational" /></div>
           <div className="space-y-5"><ResourceBar label="CPU Usage" used={64} total={128} color="bg-gradient-to-r from-blue-500 to-cyan-500" /><ResourceBar label="Memory" used={256} total={512} color="bg-gradient-to-r from-purple-500 to-pink-500" /><ResourceBar label="Storage" used={1840} total={4096} color="bg-gradient-to-r from-green-500 to-emerald-500" /><ResourceBar label="Network I/O" used={892} total={2000} color="bg-gradient-to-r from-orange-500 to-yellow-500" /></div>
-          <div className="grid grid-cols-2 gap-3 mt-5 pt-5 border-t border-white/[0.06]"><div className="text-center"><div className="text-lg font-bold text-white">99.99%</div><div className="text-[10px] text-white/40 uppercase tracking-wider mt-0.5">Uptime</div></div><div className="text-center"><div className="text-lg font-bold text-white">23ms</div><div className="text-[10px] text-white/40 uppercase tracking-wider mt-0.5">Latency</div></div></div>
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }} className="glass-card p-5">
-          <div className="flex items-center justify-between mb-2"><div className="flex items-center gap-2"><Clock className="w-4 h-4 text-purple-400" /><h2 className="text-sm font-semibold text-white">Recent Activity</h2></div><button className="text-xs text-electric-400 hover:text-electric-300 transition-colors flex items-center gap-1">View All<ArrowUpRight className="w-3 h-3" /></button></div>
-          <div>{activities.slice(0, 5).map((activity, i) => <ActivityItem key={i} {...activity} />)}</div>
+          <div className="flex items-center justify-between mb-2"><div className="flex items-center gap-2"><Clock className="w-4 h-4 text-purple-400" /><h2 className="text-sm font-semibold text-white">Recent Activity</h2></div><Link href="/monitoring/events" className="text-xs text-electric-400 hover:text-electric-300 transition-colors flex items-center gap-1">View All<ArrowUpRight className="w-3 h-3" /></Link></div>
+          <div>{activities.map((activity, i) => <ActivityItem key={i} {...activity} />)}</div>
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.5 }} className="glass-card p-5">
-          <div className="flex items-center justify-between mb-4"><div className="flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-orange-400" /><h2 className="text-sm font-semibold text-white">Active Alerts</h2></div><span className="text-xs text-white/30">{alerts.length} active</span></div>
-          <div className="space-y-3">{alerts.map((alert, i) => <div key={i} className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05]"><div className="flex items-start justify-between gap-2"><div className="flex-1"><div className="flex items-center gap-2 mb-1"><span className={`w-1.5 h-1.5 rounded-full ${alert.severity === "error" ? "bg-red-400" : "bg-orange-400"}`} /><span className="text-xs font-medium text-white">{alert.title}</span></div><p className="text-[11px] text-white/40 leading-relaxed">{alert.message}</p></div><span className="text-[10px] text-white/25 flex-shrink-0">{alert.time}</span></div></div>)}</div>
+          <div className="flex items-center justify-between mb-4"><div className="flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-orange-400" /><h2 className="text-sm font-semibold text-white">Active Alerts</h2></div><Link href="/monitoring/alerts" className="text-xs text-electric-400 hover:text-electric-300">View All</Link></div>
+          <div className="space-y-3">{alerts.map((alert) => <div key={alert.title} className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05]"><div className="flex items-start justify-between gap-2"><div className="flex-1"><div className="flex items-center gap-2 mb-1"><span className={`w-1.5 h-1.5 rounded-full ${alert.severity === "error" ? "bg-red-400" : "bg-orange-400"}`} /><p className="text-xs font-medium text-white/80">{alert.title}</p></div><p className="text-[11px] text-white/40 leading-relaxed">{alert.message}</p></div><span className="text-[10px] text-white/25 flex-shrink-0">{alert.time}</span></div></div>)}</div>
         </motion.div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.6 }} className="glass-card p-5"><div className="flex items-center justify-between mb-5"><div className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-electric-400" /><h2 className="text-sm font-semibold text-white">AI Operations</h2></div><StatusBadge status="online" text="156 Agents Active" /></div><div className="grid grid-cols-2 sm:grid-cols-4 gap-3">{[{ icon: Bot, label: "Agents", value: "156", color: "text-purple-400" },{ icon: Workflow, label: "Workflows", value: "89", color: "text-cyan-400" },{ icon: Layers, label: "Models", value: "24", color: "text-blue-400" },{ icon: MessageSquare, label: "Tasks Today", value: "12.4K", color: "text-green-400" }].map((item, i) => <div key={i} className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] text-center"><item.icon className={`w-5 h-5 mx-auto mb-2 ${item.color}`} /><div className="text-lg font-bold text-white">{item.value}</div><div className="text-[10px] text-white/40 mt-0.5">{item.label}</div></div>)}</div></motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.7 }} className="glass-card p-5"><div className="flex items-center justify-between mb-5"><div className="flex items-center gap-2"><BarChart3 className="w-4 h-4 text-green-400" /><h2 className="text-sm font-semibold text-white">System Overview</h2></div><span className="text-xs text-white/30">Last 24 hours</span></div><div className="grid grid-cols-3 gap-4"><div className="text-center p-3"><Globe className="w-5 h-5 text-blue-400 mx-auto mb-2" /><div className="text-lg font-bold text-white">8</div><div className="text-[10px] text-white/40">Regions</div></div><div className="text-center p-3 border-x border-white/[0.05]"><Cpu className="w-5 h-5 text-cyan-400 mx-auto mb-2" /><div className="text-lg font-bold text-white">1,024</div><div className="text-[10px] text-white/40">vCPUs</div></div><div className="text-center p-3"><HardDrive className="w-5 h-5 text-purple-400 mx-auto mb-2" /><div className="text-lg font-bold text-white">48TB</div><div className="text-[10px] text-white/40">Storage</div></div></div><div className="mt-4 pt-4 border-t border-white/[0.05] flex items-center justify-between"><div className="flex items-center gap-2"><Network className="w-4 h-4 text-electric-400" /><span className="text-xs text-white/50">Network Throughput</span></div><span className="text-sm font-semibold text-white">12.8 GB/s</span></div></motion.div>
       </div>
     </div>
   );
