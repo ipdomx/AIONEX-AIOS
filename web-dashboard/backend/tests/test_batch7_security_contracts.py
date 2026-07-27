@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 from fastapi import HTTPException
 
@@ -8,14 +10,10 @@ from app.db.seed import seed
 
 @pytest.fixture(scope="module", autouse=True)
 def bootstrap_auth_data():
-    import asyncio
-
     asyncio.run(seed())
 
 
 def test_invalid_password_is_rejected():
-    import asyncio
-
     async def run() -> None:
         async with SessionLocal() as session:
             with pytest.raises(HTTPException) as exc_info:
@@ -26,8 +24,6 @@ def test_invalid_password_is_rejected():
 
 
 def test_refresh_token_rotation_rejects_reuse():
-    import asyncio
-
     async def run() -> None:
         async with SessionLocal() as session:
             user = await auth_service.authenticate(session, "owner@aionex.local", "ChangeMeNow!123")
@@ -42,8 +38,6 @@ def test_refresh_token_rotation_rejects_reuse():
 
 
 def test_revoked_access_token_is_rejected():
-    import asyncio
-
     async def run() -> None:
         async with SessionLocal() as session:
             user = await auth_service.authenticate(session, "owner@aionex.local", "ChangeMeNow!123")
