@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import secrets
 
 from sqlalchemy import select
 
@@ -10,8 +12,8 @@ from app.core.auth import pwd_context
 from app.db.base import SessionLocal
 from app.db.models import Organization, Permission, Role, RolePermission, User, Workspace
 
-OWNER_EMAIL = "owner@aionex.local"
-BOOTSTRAP_PASSWORD = "ChangeMeNow!123"
+OWNER_EMAIL = os.getenv("AIOS_BOOTSTRAP_OWNER_EMAIL", "owner@aionex.local")
+BOOTSTRAP_PASSWORD = os.getenv("AIOS_BOOTSTRAP_OWNER_PASSWORD") or secrets.token_urlsafe(18)
 
 PERMISSIONS = {
     "*": "Full platform control",
@@ -44,6 +46,8 @@ PERMISSIONS = {
 
 
 async def seed() -> None:
+    created_owner = False
+
     async with SessionLocal() as session:
         org = await session.scalar(select(Organization).where(Organization.slug == "aionex"))
         if org is None:
@@ -105,8 +109,17 @@ async def seed() -> None:
                     status="active",
                 )
             )
+            created_owner = True
 
         await session.commit()
+
+    if created_owner:
+        print("AIONEX bootstrap owner created successfully.")
+        print(f"Email: {OWNER_EMAIL}")
+        print(f"Temporary password: {BOOTSTRAP_PASSWORD}")
+        print("Change this password immediately after the first successful login.")
+    else:
+        print(f"Bootstrap data already exists. Owner account: {OWNER_EMAIL}")
 
 
 if __name__ == "__main__":
