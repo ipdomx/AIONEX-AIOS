@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import type { LucideIcon } from "lucide-react";
 import { BadgeCheck, CircleDollarSign, KeyRound, RefreshCw, RotateCcw, ShieldAlert, Users } from "lucide-react";
 import { fetchOwnerLicenses, updateOwnerLicense, type LicenseRecord } from "@/lib/owner-licensing";
 
@@ -11,6 +12,8 @@ const statusClass: Record<LicenseRecord["status"], string> = {
   suspended: "border-red-500/20 bg-red-500/10 text-red-300",
   pending: "border-blue-500/20 bg-blue-500/10 text-blue-300",
 };
+
+type SummaryCard = { label: string; value: string | number; icon: LucideIcon };
 
 export default function OwnerLicensingPage() {
   const [items, setItems] = useState<LicenseRecord[]>([]);
@@ -43,6 +46,13 @@ export default function OwnerLicensingPage() {
     monthlyValue: items.reduce((total, item) => total + item.monthlyValue, 0),
   }), [items]);
 
+  const cards: SummaryCard[] = [
+    { label: "Active licenses", value: summary.active, icon: BadgeCheck },
+    { label: "Total seats", value: summary.seats, icon: Users },
+    { label: "Active seats", value: summary.activeSeats, icon: Users },
+    { label: "Monthly value", value: `€${summary.monthlyValue.toLocaleString()}`, icon: CircleDollarSign },
+  ];
+
   async function act(id: string, action: "renew" | "suspend" | "restore") {
     setMessage(`Submitting ${action} action...`);
     try {
@@ -66,13 +76,8 @@ export default function OwnerLicensingPage() {
       </motion.div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        {[
-          ["Active licenses", summary.active, BadgeCheck],
-          ["Total seats", summary.seats, Users],
-          ["Active seats", summary.activeSeats, Users],
-          ["Monthly value", `€${summary.monthlyValue.toLocaleString()}`, CircleDollarSign],
-        ].map(([label, value, Icon]) => (
-          <div key={String(label)} className="glass-card p-5"><Icon className="h-5 w-5 text-electric-300" /><div className="mt-4 text-3xl font-bold text-white">{String(value)}</div><div className="mt-1 text-xs text-white/40">{String(label)}</div></div>
+        {cards.map(({ label, value, icon: Icon }) => (
+          <div key={label} className="glass-card p-5"><Icon className="h-5 w-5 text-electric-300" /><div className="mt-4 text-3xl font-bold text-white">{value}</div><div className="mt-1 text-xs text-white/40">{label}</div></div>
         ))}
       </div>
 
