@@ -42,18 +42,40 @@ The most premium Enterprise AI Operating System dashboard ever created.
 
 ```bash
 # Clone the repository
-git clone https://github.com/aionex/aios.git
-cd aionex-aios-dashboard
+git clone https://github.com/ipdomx/AIONEX-AIOS.git
+cd AIONEX-AIOS/web-dashboard
 
-# Copy environment file
+# Create and secure the environment file
 cp .env.example .env
 
 # Start all services
-docker-compose up -d
+docker compose up -d
 
 # Access the dashboard
 open http://localhost:3000
 ```
+
+The bundled Compose stack uses the `POSTGRES_*` values for both PostgreSQL and
+the backend. Leave `DATABASE_URL` empty to let the backend construct a safely
+encoded asyncpg URL. Set `DATABASE_URL` only when connecting to an external
+database.
+
+### Existing PostgreSQL volume recovery
+
+PostgreSQL applies `POSTGRES_PASSWORD` only when it initializes an empty data
+directory. Editing `.env` later does not change the role password stored in an
+existing `postgres_data` volume. If the backend reports `password
+authentication failed`, synchronize the existing role without deleting data:
+
+```bash
+cd /opt/AIOS/web-dashboard
+chmod +x scripts/reconcile-postgres-credentials.sh
+./scripts/reconcile-postgres-credentials.sh
+```
+
+The script waits for PostgreSQL, updates the existing role to the configured
+password, verifies password authentication over TCP, recreates the backend, and
+waits for its health check. It never deletes the database volume.
 
 ### Local Development
 
@@ -63,7 +85,8 @@ cd backend
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env
+cp ../.env.example .env
+# Change POSTGRES_HOST to localhost when PostgreSQL runs on the host.
 python main.py
 
 # Frontend (new terminal)
@@ -76,28 +99,13 @@ npm run dev
 ## Project Structure
 
 ```
-aionex-aios-dashboard/
-├── frontend/           # Next.js React Application
-│   ├── src/
-│   │   ├── app/       # Next.js App Router
-│   │   ├── components/# React Components
-│   │   ├── types/     # TypeScript Types
-│   │   ├── store/     # Zustand Store
-│   │   └── styles/    # Global Styles
-│   ├── package.json
-│   └── Dockerfile
-├── backend/            # FastAPI Python Application
-│   ├── app/
-│   │   ├── api/       # API Endpoints
-│   │   ├── core/      # Config, Logging, Events
-│   │   ├── models/    # Database Models
-│   │   ├── db/        # Database & Redis
-│   │   └── websocket/ # WebSocket Manager
-│   ├── main.py
-│   ├── requirements.txt
-│   └── Dockerfile
-├── docker/            # Docker Configurations
-├── docker-compose.yml
+AIONEX-AIOS/
+├── web-dashboard/
+│   ├── frontend/           # Next.js React application
+│   ├── backend/            # FastAPI application
+│   ├── docker/             # Docker configuration
+│   ├── scripts/            # Operational recovery scripts
+│   └── docker-compose.yml
 └── README.md
 ```
 
