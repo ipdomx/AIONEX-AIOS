@@ -3,8 +3,9 @@
 from functools import lru_cache
 from typing import List, Optional
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings
+from sqlalchemy.engine import URL
 
 
 class Settings(BaseSettings):
@@ -19,10 +20,12 @@ class Settings(BaseSettings):
     WORKERS: int = Field(default=4, validation_alias="WORKERS")
     SECRET_KEY: str = Field(default="", validation_alias="SECRET_KEY")
 
-    DATABASE_URL: str = Field(
-        default="postgresql+asyncpg://postgres:postgres@localhost:5432/aionex",
-        validation_alias="DATABASE_URL",
-    )
+    DATABASE_URL: str = Field(default="", validation_alias="DATABASE_URL")
+    POSTGRES_HOST: str = Field(default="localhost", validation_alias="POSTGRES_HOST")
+    POSTGRES_PORT: int = Field(default=5432, validation_alias="POSTGRES_PORT")
+    POSTGRES_USER: str = Field(default="postgres", validation_alias="POSTGRES_USER")
+    POSTGRES_PASSWORD: str = Field(default="postgres", validation_alias="POSTGRES_PASSWORD")
+    POSTGRES_DB: str = Field(default="aionex", validation_alias="POSTGRES_DB")
     DATABASE_POOL_SIZE: int = Field(default=20, validation_alias="DATABASE_POOL_SIZE")
     DATABASE_MAX_OVERFLOW: int = Field(default=10, validation_alias="DATABASE_MAX_OVERFLOW")
     DATABASE_ECHO: bool = Field(default=False, validation_alias="DATABASE_ECHO")
@@ -64,6 +67,23 @@ class Settings(BaseSettings):
 
     STRIPE_SECRET_KEY: Optional[str] = Field(default=None, validation_alias="STRIPE_SECRET_KEY")
     STRIPE_WEBHOOK_SECRET: Optional[str] = Field(default=None, validation_alias="STRIPE_WEBHOOK_SECRET")
+
+    @model_validator(mode="after")
+    def resolve_database_url(self) -> "Settings":
+        """Build one encoded URL from the same credentials used by PostgreSQL."""
+        if self.DATABASE_URL.strip():
+            self.DATABASE_URL = self.DATABASE_URL.strip()
+            return self
+
+        self.DATABASE_URL = URL.create(
+            drivername="postgresql+asyncpg",
+            username=self.POSTGRES_USER,
+            password=self.POSTGRES_PASSWORD,
+            host=self.POSTGRES_HOST,
+            port=self.POSTGRES_PORT,
+            database=self.POSTGRES_DB,
+        ).render_as_string(hide_password=False)
+        return self
 
     @field_validator("SECRET_KEY")
     @classmethod
