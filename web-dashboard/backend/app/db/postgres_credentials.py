@@ -123,24 +123,15 @@ def resolve_bundled_credentials(
 
 def _build_password_verifier(
     credentials: BundledPostgresCredentials,
-    socket_directory: str,
+    connection: psycopg2.extensions.connection,
 ) -> str:
-    """Build the server-selected password verifier without logging plaintext."""
+    """Build a server-compatible verifier using an existing admin connection."""
 
-    connection = psycopg2.connect(
-        host=socket_directory,
-        user=credentials.user,
-        dbname=credentials.database,
-        connect_timeout=15,
+    return encrypt_password(
+        credentials.password,
+        credentials.user,
+        scope=connection,
     )
-    try:
-        return encrypt_password(
-            credentials.password,
-            credentials.user,
-            scope=connection,
-        )
-    finally:
-        connection.close()
 
 
 def _resolve_recovery_lease_seconds(environ: Mapping[str, str]) -> int:
@@ -239,7 +230,7 @@ async def _password_authentication_succeeds(
             database=credentials.database,
             timeout=15,
         )
-    except asyncpg.InvalidPasswordError:
+    except (asyncpg.InvalidPasswordError, asyncpg.InvalidAuthorizationSpecificationError):
         return False
 
     try:
@@ -259,18 +250,25 @@ async def reconcile_bundled_postgres_credentials(
     if await _password_authentication_succeeds(credentials):
         return
 
-    password_verifier = await asyncio.to_thread(
-        _build_password_verifier,
-        credentials,
-        socket_directory,
-    )
     local_connection = await asyncpg.connect(
         host=socket_directory,
-        user=credentials.user,
+        user="postgres",
         database=credentials.database,
         timeout=15,
     )
+    verifier_connection = await asyncio.to_thread(
+        psycopg2.connect,
+        host=socket_directory,
+        user="postgres",
+        dbname=credentials.database,
+        connect_timeout=15,
+    )
     try:
+        password_verifier = await asyncio.to_thread(
+            _build_password_verifier,
+            credentials,
+            verifier_connection,
+        )
         try:
             async with local_connection.transaction():
                 await local_connection.execute("SET LOCAL lock_timeout = '30s'")
@@ -322,6 +320,7 @@ async def reconcile_bundled_postgres_credentials(
             ) from exc
     finally:
         await local_connection.close()
+        verifier_connection.close()
 
     if not await _password_authentication_succeeds(credentials):
         raise RuntimeError("PostgreSQL authentication probe failed")
