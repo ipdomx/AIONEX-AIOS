@@ -6,6 +6,7 @@ import asyncio
 from dataclasses import dataclass, field
 import os
 import sys
+import traceback
 from typing import Mapping
 
 import asyncpg
@@ -346,6 +347,15 @@ async def _run() -> bool:
     return True
 
 
+def _debug_enabled() -> bool:
+    return os.environ.get("AIOS_POSTGRES_RECONCILER_DEBUG", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 def main() -> int:
     """Run reconciliation without printing credentials or connection URLs."""
 
@@ -355,18 +365,24 @@ def main() -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     except (asyncpg.PostgresError, psycopg2.Error, OSError) as exc:
-        print(
-            "error: PostgreSQL credential reconciliation failed safely: "
-            f"{type(exc).__name__}",
-            file=sys.stderr,
-        )
+        if _debug_enabled():
+            traceback.print_exception(type(exc), exc, exc.__traceback__, file=sys.stderr)
+        else:
+            print(
+                "error: PostgreSQL credential reconciliation failed safely: "
+                f"{type(exc).__name__}",
+                file=sys.stderr,
+            )
         return 1
     except Exception as exc:
-        print(
-            "error: PostgreSQL credential reconciliation failed safely: "
-            f"{type(exc).__name__}",
-            file=sys.stderr,
-        )
+        if _debug_enabled():
+            traceback.print_exception(type(exc), exc, exc.__traceback__, file=sys.stderr)
+        else:
+            print(
+                "error: PostgreSQL credential reconciliation failed safely: "
+                f"{type(exc).__name__}",
+                file=sys.stderr,
+            )
         return 1
     if not reconciled:
         print("External DATABASE_URL detected; bundled reconciliation skipped.")
