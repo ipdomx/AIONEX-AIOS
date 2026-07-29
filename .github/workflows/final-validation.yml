@@ -231,7 +231,7 @@ jobs:
               -e RUN_LIVE_BACKUP_SMOKE=1 \
               backup-worker \
               python -m pytest -q \
-              tests/test_backup_executor.py::test_live_postgres_worker_backup_and_restore_smoke
+              /workspace/web-dashboard/backend/tests/test_backup_executor.py::test_live_postgres_worker_backup_and_restore_smoke
 
   security:
     name: Dependency Security
