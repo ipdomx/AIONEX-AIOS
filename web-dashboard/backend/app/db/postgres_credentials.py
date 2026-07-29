@@ -354,13 +354,20 @@ def main() -> int:
     except CredentialConfigurationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    except Exception:
+    except (asyncpg.PostgresError, psycopg2.Error, OSError) as exc:
         print(
-            "error: PostgreSQL credential reconciliation failed; "
-            "the configured role may already have been synchronized",
+            "error: PostgreSQL credential reconciliation failed safely: "
+            f"{type(exc).__name__}",
             file=sys.stderr,
         )
-        return 2
+        return 1
+    except Exception as exc:
+        print(
+            "error: PostgreSQL credential reconciliation failed safely: "
+            f"{type(exc).__name__}",
+            file=sys.stderr,
+        )
+        return 1
     if not reconciled:
         print("External DATABASE_URL detected; bundled reconciliation skipped.")
         return 0
