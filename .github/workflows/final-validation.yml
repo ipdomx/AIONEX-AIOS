@@ -244,9 +244,7 @@ jobs:
           AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" \
             "${compose_args[@]}" down --remove-orphans
           sed -i \
-            -e 's/^POSTGRES_USER=.*/POSTGRES_USER=stale_user/' \
             -e 's/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=conflicting-password/' \
-            -e 's/^POSTGRES_DB=.*/POSTGRES_DB=stale_database/' \
             -e 's|^DATABASE_URL=.*|DATABASE_URL=postgresql+asyncpg://legacy_user:rotated-password@postgres:5432/legacy_database|' \
             .env.legacy
 
@@ -331,9 +329,18 @@ jobs:
             .env
           bare_project=aionex-bare-legacy-compat
           cleanup() {
+            exit_code=$?
+            set +e
+            if ((exit_code != 0)); then
+              COMPOSE_PROJECT_NAME="$bare_project" \
+                docker compose logs \
+                  --no-color \
+                  postgres-credential-reconciler
+            fi
             COMPOSE_PROJECT_NAME="$bare_project" \
               docker compose down --volumes --remove-orphans
             rm -f .env
+            exit "$exit_code"
           }
           trap cleanup EXIT
 
