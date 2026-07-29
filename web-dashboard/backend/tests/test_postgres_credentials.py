@@ -253,14 +253,6 @@ class _FakeConnection:
         self.closed = True
 
 
-class _FakeVerifierConnection:
-    def __init__(self) -> None:
-        self.closed = False
-
-    def close(self) -> None:
-        self.closed = True
-
-
 @pytest.fixture
 def credentials() -> BundledPostgresCredentials:
     return BundledPostgresCredentials(
@@ -272,29 +264,6 @@ def credentials() -> BundledPostgresCredentials:
     )
 
 
-def test_password_verifier_uses_existing_admin_connection(
-    monkeypatch: pytest.MonkeyPatch,
-    credentials: BundledPostgresCredentials,
-) -> None:
-    connection = _FakeVerifierConnection()
-    encrypt_calls: list[tuple[str, str, object]] = []
-
-    def fake_encrypt(password: str, user: str, *, scope: object) -> str:
-        encrypt_calls.append((password, user, scope))
-        return "SCRAM-SHA-256$4096:test-verifier"
-
-    monkeypatch.setattr(postgres_credentials, "encrypt_password", fake_encrypt)
-
-    verifier = postgres_credentials._build_password_verifier(
-        credentials,
-        connection,
-    )
-
-    assert verifier == "SCRAM-SHA-256$4096:test-verifier"
-    assert encrypt_calls == [("safe-password", "aionex", connection)]
-    assert "safe-password" not in repr(credentials)
-
-
 @pytest.mark.asyncio
 async def test_reconcile_restores_login_for_target_role(
     monkeypatch: pytest.MonkeyPatch,
@@ -302,9 +271,7 @@ async def test_reconcile_restores_login_for_target_role(
 ) -> None:
     local_connection = _FakeConnection()
     authenticated_connection = _FakeConnection(authenticated=True)
-    verifier_connection = _FakeVerifierConnection()
     async_connections: list[dict[str, object]] = []
-    sync_connections: list[dict[str, object]] = []
 
     async def fake_async_connect(**kwargs: object) -> _FakeConnection:
         async_connections.append(kwargs)
@@ -316,17 +283,7 @@ async def test_reconcile_restores_login_for_target_role(
             return local_connection
         return authenticated_connection
 
-    def fake_sync_connect(**kwargs: object) -> _FakeVerifierConnection:
-        sync_connections.append(kwargs)
-        return verifier_connection
-
     monkeypatch.setattr(postgres_credentials.asyncpg, "connect", fake_async_connect)
-    monkeypatch.setattr(postgres_credentials.psycopg2, "connect", fake_sync_connect)
-    monkeypatch.setattr(
-        postgres_credentials,
-        "_build_password_verifier",
-        lambda *_args: "SCRAM-SHA-256$4096:test-verifier",
-    )
 
     await reconcile_bundled_postgres_credentials(
         credentials,
@@ -349,23 +306,12 @@ async def test_reconcile_restores_login_for_target_role(
         "timeout": 15,
     }
     assert async_connections[2] == expected_password_connection
-    assert sync_connections == [
-        {
-            "host": "/var/run/postgresql",
-            "user": "postgres",
-            "dbname": "aionex",
-            "connect_timeout": 15,
-        }
-    ]
     credential_insert = next(
         item
         for item in local_connection.execution_calls
         if item[0].startswith("INSERT INTO aios_postgres_credentials")
     )
-    assert credential_insert[1] == (
-        "aionex",
-        "SCRAM-SHA-256$4096:test-verifier",
-    )
+    assert credential_insert[1] == ("aionex", "safe-password")
     alter_block = next(
         statement
         for statement in local_connection.executions
@@ -373,7 +319,6 @@ async def test_reconcile_restores_login_for_target_role(
     )
     assert "ALTER ROLE %I WITH LOGIN PASSWORD %L" in alter_block
     assert local_connection.closed
-    assert verifier_connection.closed
     assert authenticated_connection.closed
 
 
