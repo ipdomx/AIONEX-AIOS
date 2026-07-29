@@ -35,12 +35,13 @@ def resolve_bundled_credentials(
 ) -> BundledPostgresCredentials | None:
     """Resolve the credentials used by the bundled PostgreSQL service.
 
-    Existing deployments may still carry a DATABASE_URL whose credentials
-    differ from POSTGRES_* because those initialization values do not update an
+    Existing deployments may still carry a DATABASE_URL whose password differs
+    from POSTGRES_* because those initialization values do not update an
     existing PostgreSQL volume. For a URL targeting the bundled ``postgres``
-    service, the complete URL identity is therefore authoritative. A valid
-    external URL is deliberately skipped so this helper never mutates the
-    bundled database on behalf of an external-database deployment.
+    service, the URL password is therefore authoritative while its user and
+    database must match POSTGRES_*. A valid external URL is deliberately
+    skipped so this helper never mutates the bundled database on behalf of an
+    external-database deployment.
     """
 
     host = environ.get("POSTGRES_HOST", "").strip()
@@ -104,9 +105,11 @@ def resolve_bundled_credentials(
         assert url_password is not None
         assert url.username is not None
         assert url.database is not None
-        user = url.username
+        if url.username != user or url.database != database:
+            raise CredentialConfigurationError(
+                "Bundled DATABASE_URL user and database must match POSTGRES_*"
+            )
         password = url_password
-        database = url.database
 
     return BundledPostgresCredentials(
         host="postgres",
@@ -170,8 +173,7 @@ async def _active_recovery_job_count(
         "CREATE TEMP TABLE aios_active_recovery_jobs "
         "(job_count bigint NOT NULL) ON COMMIT DROP"
     )
-    await connection.execute(
-        """
+    await connection.execute("""
         DO $aionex$
         DECLARE
           relation regclass;
@@ -218,8 +220,7 @@ async def _active_recovery_job_count(
           INSERT INTO aios_active_recovery_jobs (job_count) VALUES (total);
         END;
         $aionex$;
-        """
-    )
+        """)
     return int(
         await connection.fetchval("SELECT job_count FROM aios_active_recovery_jobs")
     )
@@ -295,8 +296,7 @@ async def reconcile_bundled_postgres_credentials(
                 credentials.user,
                 password_verifier,
             )
-            await local_connection.execute(
-                """
+            await local_connection.execute("""
                 DO $aionex$
                 DECLARE
                   target_role text;
@@ -312,8 +312,7 @@ async def reconcile_bundled_postgres_credentials(
                   );
                 END;
                 $aionex$;
-                """
-            )
+                """)
     finally:
         await local_connection.close()
 
@@ -355,7 +354,7 @@ def main() -> int:
             "waiting for database activity; no credential change was committed",
             file=sys.stderr,
         )
-        return 3
+        return 1
     except Exception:
         print(
             "error: PostgreSQL credential reconciliation failed; "

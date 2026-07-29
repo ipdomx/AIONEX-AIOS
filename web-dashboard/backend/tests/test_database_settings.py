@@ -403,11 +403,13 @@ def test_production_compose_preserves_postgres_credential_contract() -> None:
     for worker in (dashboard_worker, deployment_worker):
         assert "condition: service_healthy" in worker
     for reconciler in (dashboard_reconciler, deployment_reconciler):
-        assert 'command: ["python", "-m", "app.db.postgres_credentials"]' in reconciler
+        assert (
+            'command: ["python", "/app/app/db/postgres_credentials.py"]' in reconciler
+        )
         assert "- postgres_socket:/var/run/postgresql" in reconciler
         assert "env_file:" in reconciler
     assert (
-        'command: ["python", "-m", "app.db.postgres_credentials"]'
+        'command: ["python", "/app/app/db/postgres_credentials.py"]'
         in development_compose
     )
     assert "env_file:" not in dashboard_postgres

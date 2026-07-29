@@ -65,7 +65,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: "no"
-    command: ["python", "-m", "app.db.postgres_credentials"]
+    command: ["python", "/app/app/db/postgres_credentials.py"]
     environment:
       DATABASE_URL: "${DATABASE_URL:-}"
       POSTGRES_HOST: postgres

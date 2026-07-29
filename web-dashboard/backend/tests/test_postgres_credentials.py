@@ -1,3 +1,8 @@
+import os
+from pathlib import Path
+import subprocess
+import sys
+
 import pytest
 from sqlalchemy.engine import URL
 
@@ -132,24 +137,33 @@ def test_database_url_password_override_does_not_leak() -> None:
     assert database_url not in repr(credentials)
 
 
-def test_bundled_database_url_identity_takes_precedence() -> None:
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("POSTGRES_USER", "stale_user"),
+        ("POSTGRES_DB", "stale_database"),
+    ],
+)
+def test_bundled_database_url_identity_conflicts_fail_closed(
+    key: str,
+    value: str,
+) -> None:
     secret = "do-not-print-this-password"
-    environment = _postgres_environment(
-        DATABASE_URL=(
+    overrides = {
+        "DATABASE_URL": (
             "postgresql+asyncpg://legacy_user:"
             f"{secret}@postgres:5432/legacy_database"
         ),
-        POSTGRES_USER="stale_user",
-        POSTGRES_DB="stale_database",
-    )
+        "POSTGRES_USER": "legacy_user",
+        "POSTGRES_DB": "legacy_database",
+    }
+    overrides[key] = value
+    environment = _postgres_environment(**overrides)
 
-    credentials = resolve_bundled_credentials(environment)
+    with pytest.raises(CredentialConfigurationError) as exc_info:
+        resolve_bundled_credentials(environment)
 
-    assert credentials is not None
-    assert credentials.user == "legacy_user"
-    assert credentials.password == secret
-    assert credentials.database == "legacy_database"
-    assert secret not in repr(credentials)
+    assert secret not in str(exc_info.value)
 
 
 @pytest.mark.parametrize("value", ["", "119", "604801", "not-a-number"])
@@ -162,6 +176,31 @@ def test_invalid_recovery_lease_is_rejected(value: str) -> None:
 
 def test_default_recovery_lease_matches_worker_default() -> None:
     assert postgres_credentials._resolve_recovery_lease_seconds({}) == 3600
+
+
+def test_standalone_reconciler_does_not_load_application_settings() -> None:
+    script = Path(postgres_credentials.__file__).resolve()
+    environment = os.environ.copy()
+    environment.pop("SECRET_KEY", None)
+    environment.update(
+        _postgres_environment(
+            DATABASE_URL=(
+                "postgresql+asyncpg://external:secret" "@db.example.test:6432/external"
+            )
+        )
+    )
+
+    result = subprocess.run(
+        [sys.executable, str(script)],
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert "External DATABASE_URL detected" in result.stdout
+    assert "SECRET_KEY" not in result.stderr
 
 
 class _FakeTransaction:
@@ -441,7 +480,7 @@ def test_lock_timeouts_fail_cleanly_without_secret_output(
 
     monkeypatch.setattr(postgres_credentials, "_run", fail)
 
-    assert postgres_credentials.main() == 3
+    assert postgres_credentials.main() == 1
     captured = capsys.readouterr()
     assert "no credential change was committed" in captured.err
     assert "lock timeout" not in captured.err

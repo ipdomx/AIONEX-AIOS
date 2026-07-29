@@ -41,7 +41,7 @@ services:
     build:
       context: ../../web-dashboard/backend
     restart: "no"
-    command: ["python", "-m", "app.db.postgres_credentials"]
+    command: ["python", "/app/app/db/postgres_credentials.py"]
     env_file:
       - ${AIOS_ENV_FILE:-.env.production}
     environment:
