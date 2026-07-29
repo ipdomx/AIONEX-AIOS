@@ -22,11 +22,14 @@ from app.services.backup_executor import (
     BackupExecutor,
     AsyncPostgresCommandRunner,
     RestoreValidation,
+    is_managed_restore_database_name,
+    restore_scratch_database_name,
 )
 from app.services.backup_worker import (
     BackupJobWorker,
     ClaimedJob,
     LeaseLostError,
+    RESTORE_SCRATCH_DATABASES_KEY,
     retention_candidate_ids,
 )
 from sqlalchemy import BigInteger, delete
@@ -354,11 +357,9 @@ async def test_reclaimed_restore_attempt_uses_a_distinct_scratch_database(
         "shared-restore-run",
         "stale-lease-token",
     )
-    stale_scratch_names = {
-        call["command"][-1]
-        for call in runner.calls
-        if call["command"][0] in {"dropdb", "createdb"}
-    }
+    stale_scratch_database = next(
+        call["command"][-1] for call in runner.calls if call["command"][0] == "createdb"
+    )
     runner.calls.clear()
 
     await executor.validate_restore(
@@ -366,16 +367,59 @@ async def test_reclaimed_restore_attempt_uses_a_distinct_scratch_database(
         artifact.checksum,
         "shared-restore-run",
         "winning-lease-token",
+        stale_scratch_databases=(stale_scratch_database,),
     )
-    winning_scratch_names = {
-        call["command"][-1]
-        for call in runner.calls
-        if call["command"][0] in {"dropdb", "createdb"}
-    }
+    winning_scratch_database = next(
+        call["command"][-1] for call in runner.calls if call["command"][0] == "createdb"
+    )
 
-    assert len(stale_scratch_names) == 1
-    assert len(winning_scratch_names) == 1
-    assert stale_scratch_names.isdisjoint(winning_scratch_names)
+    assert stale_scratch_database != winning_scratch_database
+    assert runner.calls[0]["command"][0] == "dropdb"
+    assert runner.calls[0]["command"][-1] == stale_scratch_database
+
+
+@pytest.mark.asyncio
+async def test_restore_cleanup_rejects_non_worker_database_before_deletion(
+    tmp_path: Path,
+) -> None:
+    runner = FakeRunner()
+    executor = BackupExecutor(_settings(tmp_path), runner)
+
+    with pytest.raises(BackupExecutionError, match="not worker-managed"):
+        await executor.validate_restore(
+            str(tmp_path / "missing.dump"),
+            "a" * 64,
+            "restore-run-unmanaged",
+            "restore-attempt-unmanaged",
+            stale_scratch_databases=("postgres",),
+        )
+
+    assert runner.calls == []
+
+
+@pytest.mark.asyncio
+async def test_stale_restore_database_is_cleaned_before_artifact_validation(
+    tmp_path: Path,
+) -> None:
+    runner = FakeRunner()
+    executor = BackupExecutor(_settings(tmp_path), runner)
+    (tmp_path / "protected-backups").mkdir(mode=0o700)
+    stale_database = restore_scratch_database_name(
+        "restore-run-stale",
+        "stale-attempt",
+    )
+
+    with pytest.raises(BackupExecutionError, match="backup artifact"):
+        await executor.validate_restore(
+            str(tmp_path / "missing.dump"),
+            "a" * 64,
+            "restore-run-stale",
+            "winning-attempt",
+            stale_scratch_databases=(stale_database,),
+        )
+
+    assert [call["command"][0] for call in runner.calls] == ["dropdb"]
+    assert runner.calls[0]["command"][-1] == stale_database
 
 
 @pytest.mark.asyncio
@@ -656,6 +700,44 @@ async def test_expired_lease_gets_new_token_and_is_marked_reclaimed() -> None:
     assert claim.reclaimed is True
     assert claim.lease_token != old_token
     assert record.lease_token == claim.lease_token
+
+
+@pytest.mark.asyncio
+async def test_repeated_restore_reclaims_persist_all_attempt_database_names() -> None:
+    run = DisasterRecoveryRun(
+        id="restore-reclaim-chain",
+        operation="restore_validation",
+        status="pending",
+        details={"backup_id": "protected-backup"},
+    )
+    worker = BackupJobWorker(
+        executor=FakeExecutor(),  # type: ignore[arg-type]
+        session_factory=FakeSessionFactory(  # type: ignore[arg-type]
+            [FakeSession([run]), FakeSession([run]), FakeSession([run])]
+        ),
+    )
+    claims = []
+
+    for _ in range(3):
+        claim = await worker.claim_restore_validation()
+        assert claim is not None
+        claims.append(claim)
+
+    expected_databases = [
+        restore_scratch_database_name(run.id, claim.lease_token) for claim in claims
+    ]
+    assert claims[0].reclaimed is False
+    assert claims[0].stale_scratch_databases == ()
+    assert claims[1].reclaimed is True
+    assert claims[1].stale_scratch_databases == tuple(expected_databases[:1])
+    assert claims[2].stale_scratch_databases == tuple(expected_databases[:2])
+    assert run.details[RESTORE_SCRATCH_DATABASES_KEY] == expected_databases
+    assert all(
+        is_managed_restore_database_name(database_name)
+        for database_name in expected_databases
+    )
+    persisted_details = str(run.details)
+    assert all(claim.lease_token not in persisted_details for claim in claims)
 
 
 @pytest.mark.asyncio
@@ -964,12 +1046,14 @@ class RestoreExecutor:
         validation_id: str,
         attempt_token: str,
         *,
+        stale_scratch_databases: Sequence[str] = (),
         expected_size_bytes: int | None = None,
     ) -> RestoreValidation:
         assert location == "/protected/restore.dump"
         assert checksum == "b" * 64
         assert validation_id == "restore-job-1"
         self.attempt_token = attempt_token
+        assert stale_scratch_databases == ()
         assert expected_size_bytes == 512
         return RestoreValidation(
             checksum=checksum,
@@ -1020,6 +1104,7 @@ async def test_worker_claims_dr_drill_and_persists_completed_restore_evidence() 
     assert run.details["validated"] is True
     assert run.details["checksum"] == backup.checksum
     assert run.details["size_bytes"] == 512
+    assert RESTORE_SCRATCH_DATABASES_KEY not in run.details
     assert executor.attempt_token == claimed.lease_token
     completed_audit = next(
         item for item in finish_session.added if isinstance(item, AuditEvent)
@@ -1037,8 +1122,10 @@ class RestoreFailingExecutor:
         _validation_id: str,
         _attempt_token: str,
         *,
+        stale_scratch_databases: Sequence[str] = (),
         expected_size_bytes: int | None = None,
     ) -> RestoreValidation:
+        assert stale_scratch_databases == ()
         assert expected_size_bytes == 512
         raise BackupExecutionError(
             "PostgreSQL restore validation",

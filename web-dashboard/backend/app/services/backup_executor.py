@@ -25,6 +25,22 @@ from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession
 
+_RESTORE_SCRATCH_DATABASE = re.compile(r"aionex_restore_[0-9a-f]{20}")
+
+
+def restore_scratch_database_name(validation_id: str, attempt_token: str) -> str:
+    """Return the allowlisted database name for one fenced restore attempt."""
+
+    attempt_identity = f"{validation_id}\0{attempt_token}"
+    scratch_hash = hashlib.sha256(attempt_identity.encode("utf-8")).hexdigest()[:20]
+    return f"aionex_restore_{scratch_hash}"
+
+
+def is_managed_restore_database_name(database_name: str) -> bool:
+    """Return whether a database name belongs to the restore worker namespace."""
+
+    return _RESTORE_SCRATCH_DATABASE.fullmatch(database_name) is not None
+
 
 class BackupExecutionError(RuntimeError):
     """A sanitized operational failure safe to expose to an authenticated owner."""
@@ -778,9 +794,46 @@ class BackupExecutor:
         validation_id: str,
         attempt_token: str,
         *,
+        stale_scratch_databases: Sequence[str] = (),
         expected_size_bytes: int | None = None,
     ) -> RestoreValidation:
         """Restore an archive into a unique scratch database and remove it."""
+
+        scratch_database = restore_scratch_database_name(
+            validation_id,
+            attempt_token,
+        )
+        stale_databases: list[str] = []
+        for database_name in stale_scratch_databases:
+            if not is_managed_restore_database_name(database_name):
+                raise BackupExecutionError(
+                    "stale restore validation cleanup",
+                    "A stale restore database name is not worker-managed",
+                    status_code=409,
+                )
+            if (
+                database_name != scratch_database
+                and database_name not in stale_databases
+            ):
+                stale_databases.append(database_name)
+
+        environment = self._environment()
+        connection = self._connection_arguments()
+        for stale_database in stale_databases:
+            await self._runner.run(
+                [
+                    "dropdb",
+                    *connection,
+                    "--maintenance-db",
+                    self._target.database,
+                    "--if-exists",
+                    "--force",
+                    stale_database,
+                ],
+                environment=environment,
+                timeout_seconds=self._settings.BACKUP_CLEANUP_TIMEOUT_SECONDS,
+                operation="Stale restore validation cleanup",
+            )
 
         if expected_size_bytes is not None:
             verified = await asyncio.to_thread(
@@ -798,20 +851,11 @@ class BackupExecutor:
                 location,
                 expected_checksum,
             )
-        # The durable job id is stable across lease reclamation, so it is not
-        # sufficient fencing by itself.  Include the current lease token to
-        # prevent a stale attempt's final cleanup from dropping the winning
-        # attempt's scratch database.
-        scratch_token = f"{validation_id}\0{attempt_token}"
-        scratch_hash = hashlib.sha256(scratch_token.encode("utf-8")).hexdigest()[:20]
-        scratch_database = f"aionex_restore_{scratch_hash}"
-        environment = self._environment()
-        connection = self._connection_arguments()
         created = False
         primary_error: BackupExecutionError | None = None
         try:
-            # A killed worker can leave only its deterministic scratch database
-            # behind.  Remove that isolated database before retrying the job.
+            # Retrying the same fenced attempt is idempotent.  A reclaimed
+            # attempt uses a different database, so it cannot drop this one.
             await self._runner.run(
                 [
                     "dropdb",

@@ -218,7 +218,7 @@ tempCodeRunnerFile.py
 pytest-of-root/
 deploy/production/backups/
 web-dashboard/backend/pip-*/
-web-dashboard/backend/tmp*
+web-dashboard/backend/tmp*/
 web-dashboard/backend/*.db
 web-dashboard/backend/*.db-journal
 

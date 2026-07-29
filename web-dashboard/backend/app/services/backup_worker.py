@@ -23,6 +23,7 @@ from app.services.backup_executor import (
     BackupExecutor,
     acquire_enqueue_lock,
     get_backup_executor,
+    restore_scratch_database_name,
 )
 from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,6 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 logger = get_logger(__name__)
 SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
 MAINTENANCE_INTERVAL_SECONDS = 300
+RESTORE_SCRATCH_DATABASES_KEY = "_restore_scratch_databases"
 
 
 def _now() -> datetime:
@@ -61,6 +63,7 @@ class ClaimedJob:
     id: str
     lease_token: str
     reclaimed: bool
+    stale_scratch_databases: tuple[str, ...] = ()
 
 
 def _as_utc(value: datetime | None) -> datetime:
@@ -228,6 +231,28 @@ class BackupJobWorker:
                 return None
             reclaimed = record.status == "running"
             lease_token = str(uuid4())
+            scratch_database = restore_scratch_database_name(
+                record.id,
+                lease_token,
+            )
+            details = dict(record.details or {})
+            persisted_scratch_databases = details.get(
+                RESTORE_SCRATCH_DATABASES_KEY,
+                [],
+            )
+            scratch_databases = (
+                [
+                    value
+                    for value in persisted_scratch_databases
+                    if isinstance(value, str)
+                ]
+                if isinstance(persisted_scratch_databases, list)
+                else []
+            )
+            if scratch_database not in scratch_databases:
+                scratch_databases.append(scratch_database)
+            details[RESTORE_SCRATCH_DATABASES_KEY] = scratch_databases
+            record.details = details
             record.status = "running"
             record.lease_token = lease_token
             record.updated_at = self._lease_timestamp(session)
@@ -245,7 +270,16 @@ class BackupJobWorker:
                 )
             )
             await session.commit()
-            return ClaimedJob(record.id, lease_token, reclaimed)
+            return ClaimedJob(
+                record.id,
+                lease_token,
+                reclaimed,
+                tuple(
+                    database_name
+                    for database_name in scratch_databases
+                    if database_name != scratch_database
+                ),
+            )
 
     async def _renew_lease(self, model: Any, claim: ClaimedJob) -> None:
         async with self._session_factory() as session:
@@ -641,6 +675,7 @@ class BackupJobWorker:
                 backup.checksum,
                 claim.id,
                 claim.lease_token,
+                stale_scratch_databases=claim.stale_scratch_databases,
                 expected_size_bytes=backup.size_bytes,
             )
         except asyncio.CancelledError:
@@ -675,8 +710,10 @@ class BackupJobWorker:
             run.status = "completed"
             run.lease_token = None
             run.completed_at = _now()
+            details = dict(run.details or {})
+            details.pop(RESTORE_SCRATCH_DATABASES_KEY, None)
             run.details = {
-                **(run.details or {}),
+                **details,
                 "validated": validation.restored,
                 "checksum": validation.checksum,
                 "size_bytes": validation.size_bytes,
