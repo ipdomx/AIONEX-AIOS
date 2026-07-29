@@ -250,3 +250,13 @@ def require_permissions(*required: str) -> Callable[[UserRecord], UserRecord]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
 
     return dependency
+
+
+async def require_super_owner(user: UserRecord = Depends(current_user)) -> UserRecord:
+    """Restrict global platform controls to the bootstrap Super Owner role."""
+    if user.role == "Super Owner":
+        return user
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Super Owner access required",
+    )

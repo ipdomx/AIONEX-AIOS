@@ -1,6 +1,15 @@
 """API router configuration."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+
+from app.api.owner import (
+    final_platform_integration,
+    operations_integration,
+    platform_integration,
+    production_runtime,
+    security_integration,
+)
+from app.core.auth import require_super_owner
 
 from app.api.v1.endpoints import (
     auth,
@@ -61,3 +70,11 @@ api_router.include_router(backups.router, prefix="/backups", tags=["Backup and R
 api_router.include_router(websocket.router, prefix="/realtime", tags=["Realtime"])
 api_router.include_router(integration.router, prefix="/integration", tags=["AIOS Integration"])
 api_router.include_router(final_integration.router, prefix="/final-integration", tags=["Final Integration"])
+
+owner_router = APIRouter(dependencies=[Depends(require_super_owner)])
+owner_router.include_router(platform_integration.router)
+owner_router.include_router(operations_integration.router)
+owner_router.include_router(security_integration.router)
+owner_router.include_router(production_runtime.router)
+owner_router.include_router(final_platform_integration.router)
+api_router.include_router(owner_router)
