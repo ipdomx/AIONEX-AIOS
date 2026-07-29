@@ -74,6 +74,7 @@ services:
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
       POSTGRES_DB: "${POSTGRES_DB:-aionex}"
       POSTGRES_SOCKET_DIR: /var/run/postgresql
+      AIOS_POSTGRES_RECONCILER_DEBUG: "${AIOS_POSTGRES_RECONCILER_DEBUG:-false}"
     volumes:
       - postgres_socket:/var/run/postgresql
     depends_on:
