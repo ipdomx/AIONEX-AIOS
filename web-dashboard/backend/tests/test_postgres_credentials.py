@@ -94,6 +94,7 @@ def test_incomplete_or_non_bundled_postgres_values_are_rejected(
         "postgresql+psycopg2://aionex:safe-password@postgres:5432/aionex",
         "postgresql+evil://aionex:safe-password@postgres:5432/aionex",
         "PostgreSQL+AsyncPG://aionex:safe-password@postgres:5432/aionex",
+        "postgresql+asyncpg://aionex:safe-password@postgres:0/aionex",
         "postgresql+asyncpg://aionex:safe-password@postgres:5433/aionex",
         "postgresql+asyncpg://aionex:safe-password@postgres:"
         "18446744073709557048/aionex",
@@ -212,9 +213,18 @@ class _FakeTransaction:
 
 
 class _FakeConnection:
-    def __init__(self, *, active_jobs: int = 0, authenticated: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        active_jobs: int = 0,
+        authenticated: bool = False,
+        execute_error: Exception | None = None,
+        fail_when: str = "",
+    ) -> None:
         self.active_jobs = active_jobs
         self.authenticated = authenticated
+        self.execute_error = execute_error
+        self.fail_when = fail_when
         self.closed = False
         self.executions: list[str] = []
         self.execution_calls: list[tuple[str, tuple[object, ...]]] = []
@@ -226,6 +236,8 @@ class _FakeConnection:
     async def execute(self, statement: str, *args: object) -> str:
         self.executions.append(statement)
         self.execution_calls.append((statement, args))
+        if self.execute_error is not None and self.fail_when in statement:
+            raise self.execute_error
         return "OK"
 
     async def fetchval(self, statement: str, *args: object) -> object:
@@ -470,20 +482,61 @@ def test_unexpected_runtime_errors_do_not_print_secrets(
         postgres_credentials.asyncpg.QueryCanceledError("statement timeout"),
     ],
 )
-def test_lock_timeouts_fail_cleanly_without_secret_output(
+@pytest.mark.asyncio
+async def test_transaction_timeouts_fail_cleanly_before_password_change(
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
+    credentials: BundledPostgresCredentials,
     error: Exception,
 ) -> None:
+    local_connection = _FakeConnection(
+        execute_error=error,
+        fail_when="pg_advisory_xact_lock",
+    )
+    connection_count = 0
+
+    async def fake_connect(**_kwargs: object) -> _FakeConnection:
+        nonlocal connection_count
+        connection_count += 1
+        if connection_count == 1:
+            raise postgres_credentials.asyncpg.InvalidPasswordError(
+                "password authentication failed"
+            )
+        return local_connection
+
+    monkeypatch.setattr(postgres_credentials.asyncpg, "connect", fake_connect)
+    monkeypatch.setattr(
+        postgres_credentials,
+        "_build_password_verifier",
+        lambda *_args: "SCRAM-SHA-256$4096:test-verifier",
+    )
+
+    with pytest.raises(
+        CredentialConfigurationError,
+        match="no credential change was committed",
+    ):
+        await reconcile_bundled_postgres_credentials(
+            credentials,
+            socket_directory="/var/run/postgresql",
+        )
+
+    assert not any(
+        "ALTER ROLE" in statement for statement in local_connection.executions
+    )
+    assert local_connection.closed
+
+
+def test_post_commit_query_cancellation_is_treated_as_ambiguous(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     async def fail() -> None:
-        raise error
+        raise postgres_credentials.asyncpg.QueryCanceledError("statement timeout")
 
     monkeypatch.setattr(postgres_credentials, "_run", fail)
 
-    assert postgres_credentials.main() == 1
+    assert postgres_credentials.main() == 2
     captured = capsys.readouterr()
-    assert "no credential change was committed" in captured.err
-    assert "lock timeout" not in captured.err
+    assert "may already have been synchronized" in captured.err
     assert "statement timeout" not in captured.err
 
 

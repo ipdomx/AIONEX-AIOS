@@ -55,7 +55,7 @@ def resolve_bundled_credentials(
     if database_url:
         try:
             url = make_url(database_url)
-            url_port = url.port or 5432
+            url_port = url.port if url.port is not None else 5432
         except (ArgumentError, ValueError) as exc:
             raise CredentialConfigurationError(
                 "DATABASE_URL is not a valid PostgreSQL URL"
@@ -270,49 +270,55 @@ async def reconcile_bundled_postgres_credentials(
         timeout=15,
     )
     try:
-        async with local_connection.transaction():
-            await local_connection.execute("SET LOCAL lock_timeout = '30s'")
-            await local_connection.execute("SET LOCAL statement_timeout = '90s'")
-            await local_connection.execute(
-                "SELECT pg_advisory_xact_lock(741905231017001)"
-            )
-            if await _active_recovery_job_count(
-                local_connection,
-                recovery_lease_seconds,
-            ):
-                raise CredentialConfigurationError(
-                    "credential reconciliation refused because a backup or "
-                    "restore job remains running"
+        try:
+            async with local_connection.transaction():
+                await local_connection.execute("SET LOCAL lock_timeout = '30s'")
+                await local_connection.execute("SET LOCAL statement_timeout = '90s'")
+                await local_connection.execute(
+                    "SELECT pg_advisory_xact_lock(741905231017001)"
                 )
-            await local_connection.execute(
-                "CREATE TEMP TABLE aios_postgres_credentials ("
-                "role_name text NOT NULL, "
-                "password_verifier text NOT NULL"
-                ") ON COMMIT DROP"
-            )
-            await local_connection.execute(
-                "INSERT INTO aios_postgres_credentials "
-                "(role_name, password_verifier) VALUES ($1, $2)",
-                credentials.user,
-                password_verifier,
-            )
-            await local_connection.execute("""
-                DO $aionex$
-                DECLARE
-                  target_role text;
-                  target_verifier text;
-                BEGIN
-                  SELECT role_name, password_verifier
-                  INTO STRICT target_role, target_verifier
-                  FROM aios_postgres_credentials;
-                  EXECUTE format(
-                    'ALTER ROLE %I WITH LOGIN PASSWORD %L',
-                    target_role,
-                    target_verifier
-                  );
-                END;
-                $aionex$;
-                """)
+                if await _active_recovery_job_count(
+                    local_connection,
+                    recovery_lease_seconds,
+                ):
+                    raise CredentialConfigurationError(
+                        "credential reconciliation refused because a backup or "
+                        "restore job remains running"
+                    )
+                await local_connection.execute(
+                    "CREATE TEMP TABLE aios_postgres_credentials ("
+                    "role_name text NOT NULL, "
+                    "password_verifier text NOT NULL"
+                    ") ON COMMIT DROP"
+                )
+                await local_connection.execute(
+                    "INSERT INTO aios_postgres_credentials "
+                    "(role_name, password_verifier) VALUES ($1, $2)",
+                    credentials.user,
+                    password_verifier,
+                )
+                await local_connection.execute("""
+                    DO $aionex$
+                    DECLARE
+                      target_role text;
+                      target_verifier text;
+                    BEGIN
+                      SELECT role_name, password_verifier
+                      INTO STRICT target_role, target_verifier
+                      FROM aios_postgres_credentials;
+                      EXECUTE format(
+                        'ALTER ROLE %I WITH LOGIN PASSWORD %L',
+                        target_role,
+                        target_verifier
+                      );
+                    END;
+                    $aionex$;
+                    """)
+        except (asyncpg.LockNotAvailableError, asyncpg.QueryCanceledError) as exc:
+            raise CredentialConfigurationError(
+                "PostgreSQL credential reconciliation timed out while waiting "
+                "for database activity; no credential change was committed"
+            ) from exc
     finally:
         await local_connection.close()
 
@@ -347,13 +353,6 @@ def main() -> int:
         reconciled = asyncio.run(_run())
     except CredentialConfigurationError as exc:
         print(f"error: {exc}", file=sys.stderr)
-        return 1
-    except (asyncpg.LockNotAvailableError, asyncpg.QueryCanceledError):
-        print(
-            "error: PostgreSQL credential reconciliation timed out while "
-            "waiting for database activity; no credential change was committed",
-            file=sys.stderr,
-        )
         return 1
     except Exception:
         print(
