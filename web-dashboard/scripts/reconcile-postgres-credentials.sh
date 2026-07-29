@@ -53,6 +53,9 @@ credentials_changed=false
 cleanup() {
   exit_code=$?
   set +e
+  if [[ "${credentials_changed}" == "true" ]]; then
+    compose up -d --no-deps --force-recreate backend >/dev/null
+  fi
   if [[ "${backup_worker_stopped}" == "true" ]]; then
     if [[ "${credentials_changed}" == "true" ]]; then
       compose up -d --no-deps --force-recreate backup-worker >/dev/null
@@ -65,60 +68,14 @@ cleanup() {
 }
 trap cleanup EXIT
 
-running_recovery_job_count() {
-  compose exec -T postgres sh -ceu \
-    'psql --no-psqlrc --no-password --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --set ON_ERROR_STOP=1 --tuples-only --no-align --quiet' <<'SQL'
-CREATE TEMP TABLE aios_active_recovery_jobs (job_count bigint NOT NULL);
-DO $aionex$
-DECLARE
-  relation regclass;
-  relation_count bigint;
-  total bigint := 0;
-BEGIN
-  relation := to_regclass('backup_records');
-  IF relation IS NOT NULL THEN
-    EXECUTE format(
-      'SELECT count(*) FROM %s WHERE status = %L',
-      relation,
-      'running'
-    ) INTO relation_count;
-    total := total + relation_count;
-  END IF;
-
-  relation := to_regclass('disaster_recovery_runs');
-  IF relation IS NOT NULL THEN
-    EXECUTE format(
-      'SELECT count(*) FROM %s WHERE status = %L',
-      relation,
-      'running'
-    ) INTO relation_count;
-    total := total + relation_count;
-  END IF;
-
-  INSERT INTO aios_active_recovery_jobs (job_count) VALUES (total);
-END;
-$aionex$;
-SELECT job_count FROM aios_active_recovery_jobs;
-SQL
-}
-
 compose_services="$(compose config --services)"
-grep -qx "postgres" <<<"${compose_services}" ||
-  die "the postgres service is missing from the Compose project"
-grep -qx "backend" <<<"${compose_services}" ||
-  die "the backend service is missing from the Compose project"
+for required_service in postgres postgres-credential-reconciler backend; do
+  grep -qx "${required_service}" <<<"${compose_services}" ||
+    die "the ${required_service} service is missing from the Compose project"
+done
 has_backup_worker=false
 if grep -qx "backup-worker" <<<"${compose_services}"; then
   has_backup_worker=true
-fi
-
-resolved_database_url="$(
-  compose config --environment |
-    sed -n 's/^DATABASE_URL=//p' |
-    tail -n 1
-)"
-if [[ -n "${resolved_database_url}" ]]; then
-  die "backend DATABASE_URL is explicitly set; reconcile only the bundled PostgreSQL service through POSTGRES_*"
 fi
 
 echo "Starting PostgreSQL..."
@@ -127,7 +84,7 @@ compose up -d --no-deps postgres
 ready=false
 for ((attempt = 1; attempt <= 30; attempt++)); do
   if compose exec -T postgres sh -ceu \
-    'pg_isready --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" >/dev/null'
+    'pg_isready --host 127.0.0.1 --port 5432 --quiet'
   then
     ready=true
     break
@@ -146,59 +103,21 @@ if [[ "${has_backup_worker}" == "true" ]] &&
   compose stop backup-worker
 fi
 
-running_job_count="$(
-  running_recovery_job_count |
-    tr -d '[:space:]'
-)"
-[[ "${running_job_count}" =~ ^[[:digit:]]+$ ]] ||
-  die "could not verify active backup and restore jobs"
-if ((running_job_count > 0)); then
-  die "credential reconciliation refused because a backup or restore job remains running"
+echo "Reconciling and verifying the configured PostgreSQL credentials..."
+set +e
+compose run --rm --no-deps postgres-credential-reconciler
+reconcile_status=$?
+set -e
+if ((reconcile_status != 0)); then
+  # Exit 1 is reserved for a fail-closed configuration or active-job refusal
+  # before mutation. Other failures are conservatively treated as possibly
+  # post-commit, so cleanup recreates dependent services with the current env.
+  if ((reconcile_status != 1)); then
+    credentials_changed=true
+  fi
+  exit "${reconcile_status}"
 fi
-
-echo "Synchronizing the PostgreSQL role password with the container environment..."
-compose exec -T postgres sh -s <<'CONTAINER_SH'
-set -eu
-set +x
-
-: "${POSTGRES_USER:?POSTGRES_USER is required}"
-: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
-: "${POSTGRES_DB:?POSTGRES_DB is required}"
-
-export PSQLRC=/dev/null
-
-escaped_user="$(printf '%s' "${POSTGRES_USER}" | sed 's/"/""/g')"
-escaped_password="$(printf '%s' "${POSTGRES_PASSWORD}" | sed "s/'/''/g")"
-
-printf 'ALTER ROLE "%s" WITH LOGIN PASSWORD '\''%s'\'';\n' \
-  "${escaped_user}" "${escaped_password}" |
-  psql \
-    --no-psqlrc \
-    --no-password \
-    --username "${POSTGRES_USER}" \
-    --dbname "${POSTGRES_DB}" \
-    --set ON_ERROR_STOP=1 \
-    >/dev/null
-CONTAINER_SH
 credentials_changed=true
-
-echo "Verifying TCP password authentication..."
-compose exec -T postgres sh -ceu '
-  set +x
-  export PSQLRC=/dev/null
-
-  PGPASSWORD="$POSTGRES_PASSWORD" psql \
-    --no-psqlrc \
-    --no-password \
-    --host 127.0.0.1 \
-    --username "$POSTGRES_USER" \
-    --dbname "$POSTGRES_DB" \
-    --set ON_ERROR_STOP=1 \
-    --tuples-only \
-    --no-align \
-    --command "SELECT 1" \
-    | grep -qx "1"
-'
 
 echo "Recreating the backend with the synchronized credentials..."
 compose up -d --force-recreate backend
@@ -249,7 +168,8 @@ if [[ "${has_backup_worker}" == "true" ]]; then
       backup_worker_running=true
       break
     fi
-    if [[ "${backup_worker_state}" == "exited" || "${backup_worker_state}" == "dead" ]]; then
+    if [[ "${backup_worker_state}" == "exited" ||
+      "${backup_worker_state}" == "dead" ]]; then
       break
     fi
     sleep 2
@@ -262,4 +182,4 @@ if [[ "${has_backup_worker}" == "true" ]]; then
 fi
 
 trap - EXIT
-echo "PostgreSQL credentials synchronized and dependent services restarted."
+echo "PostgreSQL credential gate completed and dependent services restarted."

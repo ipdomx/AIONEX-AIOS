@@ -17,6 +17,7 @@ services:
       - aionex-network
 
   backend:
+    image: aionex-aios-backend:local
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -50,9 +51,34 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      postgres-credential-reconciler:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - aionex-network
+
+  postgres-credential-reconciler:
+    image: aionex-aios-backend:local
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: "no"
+    command: ["python", "-m", "app.db.postgres_credentials"]
+    environment:
+      DATABASE_URL: "${DATABASE_URL:-}"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: "${POSTGRES_USER:-postgres}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+      POSTGRES_DB: "${POSTGRES_DB:-aionex}"
+      POSTGRES_SOCKET_DIR: /var/run/postgresql
+    volumes:
+      - postgres_socket:/var/run/postgresql
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - aionex-network
 
@@ -64,13 +90,14 @@ services:
       POSTGRES_DB: "${POSTGRES_DB:-aionex}"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - postgres_socket:/var/run/postgresql
     ports:
       - "5432:5432"
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          'PGPASSWORD="$${POSTGRES_PASSWORD}" psql --host 127.0.0.1 --username "$${POSTGRES_USER}" --dbname "$${POSTGRES_DB}" --no-password --tuples-only --command "SELECT 1" >/dev/null',
+          "pg_isready --host 127.0.0.1 --port 5432 --quiet",
         ]
       interval: 5s
       timeout: 5s
@@ -115,6 +142,7 @@ services:
 
 volumes:
   postgres_data:
+  postgres_socket:
   redis_data:
 
 networks:

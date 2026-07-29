@@ -93,7 +93,11 @@ additionally verify that standard APIs and Owner pages observe the same project,
 meeting, notification, alert, metric, and recovery rows.
 
 The production container applies Alembic before bootstrap/startup, verifies the
-exact schema head, uses the same `POSTGRES_*` credential source as PostgreSQL,
-and keeps `scripts/reconcile-postgres-credentials.sh` compatible with both
-development and production Compose projects. No database volume deletion is
-performed.
+exact schema head, supports both the current `POSTGRES_*` contract and legacy
+bundled `DATABASE_URL` passwords as the compatibility source while requiring
+the same PostgreSQL user and database, and keeps
+`scripts/reconcile-postgres-credentials.sh` compatible with both development
+and production Compose projects. A one-shot authenticated reconciliation gate
+runs before the backend, skips valid external URLs, rejects malformed bundled
+values and identity conflicts before local mutation, does not expose plaintext
+credentials, and never deletes a database volume.

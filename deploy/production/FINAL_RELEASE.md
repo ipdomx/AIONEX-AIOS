@@ -50,6 +50,17 @@ interchangeable deployment commands. Switching between them can make a
 different, empty volume appear even though the original data still exists.
 Choose one stack per server and keep using it.
 
+Existing environment files may retain a bundled `DATABASE_URL` alongside
+`POSTGRES_*`. The backend, backup worker, and reconciliation script honor that
+URL when it uses `postgresql+asyncpg`, targets the Compose service `postgres`,
+and matches the `POSTGRES_*` user and database; no manual environment-file
+rewrite is required. Its password is authoritative for backward compatibility.
+Compose runs the authenticated reconciliation gate before the backend, so a
+stored password from an existing volume is synchronized automatically. Valid
+external URLs skip local reconciliation, malformed values and identity
+conflicts fail before mutation, and the gate never deletes or recreates
+`postgres_data`.
+
 Owner backups are custom PostgreSQL archives in the persistent `backup_data`
 volume and are referenced by immutable checksum and size in the database.
 The worker retains the newest backup per scope, active recovery references, and
