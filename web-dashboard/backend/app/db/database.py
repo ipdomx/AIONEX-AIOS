@@ -1,43 +1,64 @@
-"""Database configuration and session management."""
+"""Compatibility facade for the consolidated, Alembic-managed database."""
 
+from functools import lru_cache
+from pathlib import Path
 from typing import AsyncGenerator
 
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from alembic.config import Config
+from alembic.runtime.migration import MigrationContext
+from alembic.script import ScriptDirectory
+from sqlalchemy.engine import Connection
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import declarative_base
-from sqlalchemy.pool import NullPool
 
-from app.core.config import settings
 from app.core.logging import get_logger
+from app.db.base import SessionLocal, engine
 
 logger = get_logger(__name__)
 
-# Create async engine
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    pool_size=settings.DATABASE_POOL_SIZE,
-    max_overflow=settings.DATABASE_MAX_OVERFLOW,
-    echo=settings.DATABASE_ECHO,
-    pool_pre_ping=True,
-    pool_recycle=3600,
-)
+AsyncSessionLocal = SessionLocal
 
-# Create async session factory
-AsyncSessionLocal = async_sessionmaker(
-    engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autoflush=False,
-)
-
-# Base class for models
+# Retained only for legacy model imports. Runtime tables are defined by
+# app.db.base.Base and must be created exclusively through Alembic.
 Base = declarative_base()
+
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+
+
+@lru_cache(maxsize=1)
+def expected_alembic_heads() -> frozenset[str]:
+    """Return the immutable set of schema heads shipped with this backend."""
+    config = Config(str(BACKEND_ROOT / "alembic.ini"))
+    config.set_main_option("script_location", str(BACKEND_ROOT / "alembic"))
+    return frozenset(ScriptDirectory.from_config(config).get_heads())
+
+
+def current_alembic_heads(connection: Connection) -> frozenset[str]:
+    """Read all applied heads from an existing synchronous SQLAlchemy connection."""
+    migration_context = MigrationContext.configure(connection)
+    return frozenset(migration_context.get_current_heads())
 
 
 async def init_db():
-    """Initialize database tables."""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("Database tables created")
+    """Fail fast unless the Alembic-managed schema matches the shipped head."""
+    expected_heads = expected_alembic_heads()
+    async with engine.connect() as connection:
+        current_heads = await connection.run_sync(current_alembic_heads)
+
+    if not expected_heads:
+        raise RuntimeError("No Alembic head is defined for the backend schema")
+    if current_heads != expected_heads:
+        current_label = ", ".join(sorted(current_heads)) or "unmigrated"
+        expected_label = ", ".join(sorted(expected_heads))
+        raise RuntimeError(
+            "Database schema is not at the required Alembic head "
+            f"(current: {current_label}; expected: {expected_label}); "
+            "run `alembic upgrade head`"
+        )
+    logger.info(
+        "Database schema verified",
+        revisions=",".join(sorted(current_heads)),
+    )
 
 
 async def close_db():

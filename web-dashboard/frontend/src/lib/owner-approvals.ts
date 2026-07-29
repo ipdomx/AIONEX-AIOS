@@ -8,7 +8,7 @@ export type OwnerApproval = {
   title: string;
   requester: string;
   scope: string;
-  category: "release" | "service" | "policy" | "meeting" | "staff";
+  category: "meeting";
   status: ApprovalStatus;
   priority: "low" | "medium" | "high" | "critical";
   createdAt: string;

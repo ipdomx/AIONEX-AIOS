@@ -1,14 +1,19 @@
-"""Workflow endpoints backed by the consolidated runtime store."""
+"""Organization-scoped workflow endpoints backed by the relational database."""
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any, Optional
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import UserRecord, current_user
-from app.core.runtime_store import new_id, runtime_store, utcnow
+from app.core.auth import UserRecord, require_permissions
+from app.db.base import get_db
+from app.db.models import AuditEvent, Project, Workflow, Workspace
 
 router = APIRouter()
 
@@ -30,8 +35,93 @@ class WorkflowUpdate(BaseModel):
     steps: Optional[list[dict[str, Any]]] = None
 
 
-def _visible(user: UserRecord):
-    return [item for item in runtime_store.workflows.values() if not item.get("deleted") and item.get("organization_id") == user.organization_id]
+def _iso(value: datetime | None) -> str | None:
+    return value.isoformat() if value is not None else None
+
+
+def _serialize_workflow(workflow: Workflow) -> dict[str, Any]:
+    return {
+        "id": workflow.id,
+        "name": workflow.name,
+        "description": workflow.description,
+        "status": workflow.status,
+        "organization_id": workflow.organization_id,
+        "workspace_id": workflow.workspace_id,
+        "project_id": workflow.project_id,
+        "trigger": workflow.trigger,
+        "steps": workflow.steps or [],
+        "run_count": workflow.run_count,
+        "last_run_at": _iso(workflow.last_run_at),
+        "created_at": _iso(workflow.created_at),
+        "updated_at": _iso(workflow.updated_at),
+        "deleted": workflow.status == "deleted",
+    }
+
+
+def _workflow_statement(organization_id: str):
+    return select(Workflow).where(
+        Workflow.organization_id == organization_id,
+        Workflow.status != "deleted",
+    )
+
+
+async def _workflow_row(
+    session: AsyncSession,
+    workflow_id: str,
+    organization_id: str,
+):
+    return await session.scalar(
+        _workflow_statement(organization_id).where(Workflow.id == workflow_id)
+    )
+
+
+async def _project(
+    session: AsyncSession,
+    project_id: str,
+    organization_id: str,
+) -> Project:
+    project = await session.scalar(
+        select(Project).where(
+            Project.id == project_id,
+            Project.organization_id == organization_id,
+            Project.status != "deleted",
+        )
+    )
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return project
+
+
+async def _validate_workspace(
+    session: AsyncSession,
+    workspace_id: str,
+    organization_id: str,
+) -> None:
+    workspace = await session.scalar(
+        select(Workspace.id).where(
+            Workspace.id == workspace_id,
+            Workspace.organization_id == organization_id,
+            Workspace.status != "deleted",
+        )
+    )
+    if workspace is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+
+
+def _audit(
+    actor: UserRecord,
+    action: str,
+    workflow: Workflow,
+    details: dict[str, Any] | None = None,
+) -> AuditEvent:
+    return AuditEvent(
+        organization_id=actor.organization_id,
+        user_id=actor.id,
+        action=action,
+        resource_type="workflow",
+        resource_id=workflow.id,
+        details={"name": workflow.name, **(details or {})},
+    )
 
 
 @router.get("")
@@ -40,80 +130,179 @@ async def list_workflows(
     limit: int = Query(20, ge=1, le=100),
     status_filter: Optional[str] = Query(None, alias="status"),
     project_id: Optional[str] = None,
-    user: UserRecord = Depends(current_user),
+    actor: UserRecord = Depends(require_permissions("workflows:read")),
+    session: AsyncSession = Depends(get_db),
 ):
-    workflows = _visible(user)
+    statement = _workflow_statement(actor.organization_id)
     if status_filter:
-        workflows = [item for item in workflows if item.get("status") == status_filter]
+        statement = statement.where(Workflow.status == status_filter)
     if project_id:
-        workflows = [item for item in workflows if item.get("project_id") == project_id]
-    workflows.sort(key=lambda item: item.get("created_at", ""), reverse=True)
-    return workflows[skip : skip + limit]
+        statement = statement.where(Workflow.project_id == project_id)
+    workflows = (
+        await session.scalars(
+            statement.order_by(Workflow.created_at.desc()).offset(skip).limit(limit)
+        )
+    ).all()
+    return [_serialize_workflow(workflow) for workflow in workflows]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-async def create_workflow(data: WorkflowCreate, user: UserRecord = Depends(current_user)):
+async def create_workflow(
+    data: WorkflowCreate,
+    actor: UserRecord = Depends(require_permissions("workflows:write")),
+    session: AsyncSession = Depends(get_db),
+):
+    normalized_name = data.name.strip()
+    if len(normalized_name) < 2:
+        raise HTTPException(status_code=422, detail="Workflow name is required")
+    project: Project | None = None
     if data.project_id:
-        project = runtime_store.projects.get(data.project_id)
-        if not project or project.get("deleted") or project.get("organization_id") != user.organization_id:
-            raise HTTPException(status_code=404, detail="Project not found")
-    workflow_id = new_id("workflow")
-    workflow = {
-        "id": workflow_id,
-        "name": data.name.strip(),
-        "description": data.description,
-        "status": "draft",
-        "organization_id": user.organization_id,
-        "workspace_id": data.workspace_id,
-        "project_id": data.project_id,
-        "trigger": data.trigger,
-        "steps": data.steps,
-        "run_count": 0,
-        "last_run_at": None,
-        "created_at": utcnow(),
-        "updated_at": utcnow(),
-        "deleted": False,
-    }
-    runtime_store.workflows[workflow_id] = workflow
-    runtime_store.add_activity("workflow", "Workflow created", workflow["name"], user.id)
-    return workflow
+        project = await _project(session, data.project_id, actor.organization_id)
+        if data.workspace_id and data.workspace_id != project.workspace_id:
+            raise HTTPException(
+                status_code=422,
+                detail="Workflow workspace does not match the selected project",
+            )
+    workspace_id = data.workspace_id or (project.workspace_id if project else None)
+    if workspace_id:
+        await _validate_workspace(
+            session,
+            workspace_id,
+            actor.organization_id,
+        )
+
+    workflow = Workflow(
+        organization_id=actor.organization_id,
+        workspace_id=workspace_id,
+        project_id=project.id if project else None,
+        name=normalized_name,
+        description=data.description,
+        status="draft",
+        trigger=data.trigger,
+        steps=data.steps,
+        run_count=0,
+    )
+    session.add(workflow)
+    await session.flush()
+    session.add(
+        _audit(
+            actor,
+            "workflow.create",
+            workflow,
+            {"workspace_id": workspace_id},
+        )
+    )
+    await session.commit()
+    row = await _workflow_row(session, workflow.id, actor.organization_id)
+    if row is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Created workflow could not be loaded",
+        )
+    return _serialize_workflow(row)
 
 
 @router.get("/{workflow_id}")
-async def get_workflow(workflow_id: str, user: UserRecord = Depends(current_user)):
-    workflow = runtime_store.workflows.get(workflow_id)
-    if not workflow or workflow.get("deleted") or workflow.get("organization_id") != user.organization_id:
+async def get_workflow(
+    workflow_id: str,
+    actor: UserRecord = Depends(require_permissions("workflows:read")),
+    session: AsyncSession = Depends(get_db),
+):
+    row = await _workflow_row(session, workflow_id, actor.organization_id)
+    if row is None:
         raise HTTPException(status_code=404, detail="Workflow not found")
-    return workflow
+    return _serialize_workflow(row)
 
 
 @router.put("/{workflow_id}")
-async def update_workflow(workflow_id: str, data: WorkflowUpdate, user: UserRecord = Depends(current_user)):
-    workflow = await get_workflow(workflow_id, user)
-    source = runtime_store.workflows[workflow_id]
+async def update_workflow(
+    workflow_id: str,
+    data: WorkflowUpdate,
+    actor: UserRecord = Depends(require_permissions("workflows:write")),
+    session: AsyncSession = Depends(get_db),
+):
+    row = await _workflow_row(session, workflow_id, actor.organization_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    workflow = row
     updates = data.model_dump(exclude_unset=True)
+    changed_fields = sorted(updates)
+    for field in ("name", "status", "trigger", "steps"):
+        if field in updates and updates[field] is None:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Workflow {field} cannot be null",
+            )
+    if updates.get("status") == "deleted":
+        raise HTTPException(
+            status_code=422,
+            detail="Use the delete endpoint to delete a workflow",
+        )
     if "name" in updates:
         updates["name"] = updates["name"].strip()
-    source.update(updates)
-    source["updated_at"] = utcnow()
-    runtime_store.add_activity("workflow", "Workflow updated", source["name"], user.id)
-    return source
+        if len(updates["name"]) < 2:
+            raise HTTPException(status_code=422, detail="Workflow name is required")
+    for field in ("name", "description", "status", "trigger", "steps"):
+        if field in updates:
+            setattr(workflow, field, updates[field])
+    session.add(
+        _audit(
+            actor,
+            "workflow.update",
+            workflow,
+            {"fields": changed_fields},
+        )
+    )
+    await session.commit()
+    refreshed = await _workflow_row(session, workflow.id, actor.organization_id)
+    if refreshed is None:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    return _serialize_workflow(refreshed)
 
 
 @router.post("/{workflow_id}/run")
-async def run_workflow(workflow_id: str, user: UserRecord = Depends(current_user)):
-    workflow = await get_workflow(workflow_id, user)
-    workflow["run_count"] = int(workflow.get("run_count", 0)) + 1
-    workflow["last_run_at"] = utcnow()
-    workflow["status"] = "active"
-    workflow["updated_at"] = utcnow()
-    runtime_store.add_activity("workflow", "Workflow executed", workflow["name"], user.id)
-    return {"workflow": workflow, "run_id": new_id("run"), "status": "accepted"}
+async def run_workflow(
+    workflow_id: str,
+    actor: UserRecord = Depends(require_permissions("workflows:write")),
+    session: AsyncSession = Depends(get_db),
+):
+    row = await _workflow_row(session, workflow_id, actor.organization_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    workflow = row
+    workflow.run_count += 1
+    workflow.last_run_at = datetime.now(UTC)
+    workflow.status = "active"
+    session.add(
+        _audit(
+            actor,
+            "workflow.run",
+            workflow,
+            {"run_count": workflow.run_count},
+        )
+    )
+    await session.commit()
+    refreshed = await _workflow_row(session, workflow.id, actor.organization_id)
+    if refreshed is None:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    return {
+        "workflow": _serialize_workflow(refreshed),
+        "run_id": f"run-{uuid4()}",
+        "status": "accepted",
+    }
 
 
 @router.delete("/{workflow_id}")
-async def delete_workflow(workflow_id: str, user: UserRecord = Depends(current_user)):
-    await get_workflow(workflow_id, user)
-    runtime_store.workflows[workflow_id]["deleted"] = True
-    runtime_store.workflows[workflow_id]["updated_at"] = utcnow()
+async def delete_workflow(
+    workflow_id: str,
+    actor: UserRecord = Depends(require_permissions("workflows:write")),
+    session: AsyncSession = Depends(get_db),
+):
+    row = await _workflow_row(session, workflow_id, actor.organization_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    workflow = row
+    workflow.status = "deleted"
+    session.add(_audit(actor, "workflow.delete", workflow))
+    await session.commit()
     return {"message": "Workflow deleted successfully"}

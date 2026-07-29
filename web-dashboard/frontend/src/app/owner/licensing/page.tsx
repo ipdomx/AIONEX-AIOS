@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
 import {
   BadgeCheck,
-  CircleDollarSign,
   KeyRound,
   RefreshCw,
-  RotateCcw,
   ShieldAlert,
   Users,
 } from "lucide-react";
@@ -30,7 +28,9 @@ type SummaryCard = { label: string; value: string | number; icon: LucideIcon };
 export default function OwnerLicensingPage() {
   const [items, setItems] = useState<LicenseRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actingId, setActingId] = useState<string | null>(null);
   const [message, setMessage] = useState("Loading licenses...");
+  const actionInFlight = useRef(false);
 
   async function load(signal?: AbortSignal) {
     setLoading(true);
@@ -59,7 +59,7 @@ export default function OwnerLicensingPage() {
       active: items.filter((item) => item.status === "active").length,
       seats: items.reduce((total, item) => total + item.seats, 0),
       activeSeats: items.reduce((total, item) => total + item.activeSeats, 0),
-      monthlyValue: items.reduce((total, item) => total + item.monthlyValue, 0),
+      suspended: items.filter((item) => item.status === "suspended").length,
     }),
     [items],
   );
@@ -69,22 +69,37 @@ export default function OwnerLicensingPage() {
     { label: "Total seats", value: summary.seats, icon: Users },
     { label: "Active seats", value: summary.activeSeats, icon: Users },
     {
-      label: "Monthly value",
-      value: `€${summary.monthlyValue.toLocaleString()}`,
-      icon: CircleDollarSign,
+      label: "Suspended",
+      value: summary.suspended,
+      icon: ShieldAlert,
     },
   ];
 
-  async function act(id: string, action: "renew" | "suspend" | "restore") {
+  async function act(id: string, action: "suspend" | "restore") {
+    if (actionInFlight.current) return;
+    const license = items.find((item) => item.id === id);
+    if (
+      action === "suspend" &&
+      !window.confirm(
+        `Suspend plan access for ${license?.organization ?? "the selected organization"}?`,
+      )
+    ) {
+      return;
+    }
+    actionInFlight.current = true;
+    setActingId(id);
     setMessage(`Submitting ${action} action...`);
     try {
       const updated = await updateOwnerLicense(id, action);
       setItems((current) =>
         current.map((item) => (item.id === id ? updated : item)),
       );
-      setMessage(`License action completed: ${action}.`);
+      setMessage(`Organization plan action completed: ${action}.`);
     } catch {
       setMessage("License action failed and was not persisted.");
+    } finally {
+      actionInFlight.current = false;
+      setActingId(null);
     }
   }
 
@@ -100,15 +115,15 @@ export default function OwnerLicensingPage() {
             <KeyRound className="h-3.5 w-3.5" /> Owner Licensing
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
-            Enterprise Licensing & Entitlements
+            Organization Licensing Status
           </h1>
           <p className="mt-2 text-sm text-white/45">
-            Owner control for plans, seats, renewals, suspensions, restoration
-            and commercial visibility.
+            Owner control for organization plans, current seats, access
+            suspension and restoration.
           </p>
         </div>
         <button
-          disabled={loading}
+          disabled={loading || actingId !== null}
           onClick={() => void load()}
           className="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
         >
@@ -144,7 +159,7 @@ export default function OwnerLicensingPage() {
                   {item.organization}
                 </h2>
                 <p className="mt-1 text-xs text-white/40">
-                  {item.plan} plan · expires {item.expiresAt}
+                  {item.plan} plan · organization access status
                 </p>
               </div>
               <span
@@ -153,7 +168,7 @@ export default function OwnerLicensingPage() {
                 {item.status}
               </span>
             </div>
-            <div className="mt-4 grid grid-cols-3 gap-3">
+            <div className="mt-4 grid grid-cols-2 gap-3">
               <div className="rounded-lg bg-white/[0.02] p-3">
                 <div className="text-[10px] uppercase tracking-wider text-white/30">
                   Seats
@@ -170,38 +185,25 @@ export default function OwnerLicensingPage() {
                   {item.activeSeats}
                 </div>
               </div>
-              <div className="rounded-lg bg-white/[0.02] p-3">
-                <div className="text-[10px] uppercase tracking-wider text-white/30">
-                  Monthly
-                </div>
-                <div className="mt-1 text-sm font-semibold text-white">
-                  €{item.monthlyValue.toLocaleString()}
-                </div>
-              </div>
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                onClick={() => void act(item.id, "renew")}
-                className="rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-2 text-xs text-green-300"
-              >
-                <RotateCcw className="mr-1 inline h-3.5 w-3.5" />
-                Renew
-              </button>
               {item.status === "suspended" ? (
                 <button
+                  disabled={actingId !== null}
                   onClick={() => void act(item.id, "restore")}
-                  className="rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-xs text-blue-300"
+                  className="rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-xs text-blue-300 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <BadgeCheck className="mr-1 inline h-3.5 w-3.5" />
                   Restore
                 </button>
               ) : (
                 <button
+                  disabled={actingId !== null || item.protected}
                   onClick={() => void act(item.id, "suspend")}
-                  className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300"
+                  className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <ShieldAlert className="mr-1 inline h-3.5 w-3.5" />
-                  Suspend
+                  {item.protected ? "Protected" : "Suspend"}
                 </button>
               )}
             </div>

@@ -138,6 +138,10 @@ const platformPages: SearchResult[] = [
   },
 ];
 
+const ownerUtilityPages = platformPages.filter(
+  (page) => page.url === "/settings",
+);
+
 export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
   const router = useRouter();
   const { user } = useAuth();
@@ -148,7 +152,6 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
   const results = useMemo(() => {
     if (user?.role !== "Super Owner") return platformPages;
     return [
-      ...platformPages,
       {
         id: "search-owner-root",
         title: "Owner Center",
@@ -165,6 +168,7 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
         url: item.href,
         type: "owner",
       })),
+      ...ownerUtilityPages,
     ];
   }, [user?.role]);
 

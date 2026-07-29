@@ -7,8 +7,7 @@ export type LicenseRecord = {
   seats: number;
   activeSeats: number;
   status: "active" | "expiring" | "suspended" | "pending";
-  expiresAt: string;
-  monthlyValue: number;
+  protected: boolean;
 };
 
 export async function fetchOwnerLicenses(
@@ -19,7 +18,7 @@ export async function fetchOwnerLicenses(
 
 export async function updateOwnerLicense(
   id: string,
-  action: "renew" | "suspend" | "restore",
+  action: "suspend" | "restore",
   seats?: number,
 ): Promise<LicenseRecord> {
   return apiClient.patch<LicenseRecord>(

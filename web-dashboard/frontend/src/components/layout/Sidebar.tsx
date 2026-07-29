@@ -289,9 +289,7 @@ export default function Sidebar({
 
     return [
       { id: "owner", label: "Owner Center", icon: Gauge, href: "/owner" },
-      baseMainNavSections[0],
       ...ownerSections,
-      ...baseMainNavSections.slice(1),
     ];
   }, [isSuperOwner]);
   const favorites = isSuperOwner

@@ -4,12 +4,19 @@ from functools import lru_cache
 from typing import List, Optional
 
 from pydantic import Field, field_validator, model_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL
 
 
 class Settings(BaseSettings):
     """Application settings."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+        extra="ignore",
+    )
 
     APP_NAME: str = "AIONEX AIOS"
     APP_VERSION: str = "1.0.0"
@@ -24,17 +31,67 @@ class Settings(BaseSettings):
     POSTGRES_HOST: str = Field(default="localhost", validation_alias="POSTGRES_HOST")
     POSTGRES_PORT: int = Field(default=5432, validation_alias="POSTGRES_PORT")
     POSTGRES_USER: str = Field(default="postgres", validation_alias="POSTGRES_USER")
-    POSTGRES_PASSWORD: str = Field(default="postgres", validation_alias="POSTGRES_PASSWORD")
+    POSTGRES_PASSWORD: str = Field(
+        default="postgres", validation_alias="POSTGRES_PASSWORD"
+    )
     POSTGRES_DB: str = Field(default="aionex", validation_alias="POSTGRES_DB")
     DATABASE_POOL_SIZE: int = Field(default=20, validation_alias="DATABASE_POOL_SIZE")
-    DATABASE_MAX_OVERFLOW: int = Field(default=10, validation_alias="DATABASE_MAX_OVERFLOW")
+    DATABASE_MAX_OVERFLOW: int = Field(
+        default=10, validation_alias="DATABASE_MAX_OVERFLOW"
+    )
     DATABASE_ECHO: bool = Field(default=False, validation_alias="DATABASE_ECHO")
+    BACKUP_DIR: str = Field(
+        default="/var/lib/aionex/backups",
+        validation_alias="BACKUP_DIR",
+    )
+    BACKUP_TIMEOUT_SECONDS: int = Field(
+        default=900,
+        ge=30,
+        le=86400,
+        validation_alias="BACKUP_TIMEOUT_SECONDS",
+    )
+    BACKUP_VALIDATION_TIMEOUT_SECONDS: int = Field(
+        default=900,
+        ge=30,
+        le=86400,
+        validation_alias="BACKUP_VALIDATION_TIMEOUT_SECONDS",
+    )
+    BACKUP_CLEANUP_TIMEOUT_SECONDS: int = Field(
+        default=120,
+        ge=10,
+        le=3600,
+        validation_alias="BACKUP_CLEANUP_TIMEOUT_SECONDS",
+    )
+    BACKUP_JOB_LEASE_SECONDS: int = Field(
+        default=3600,
+        ge=120,
+        le=604800,
+        validation_alias="BACKUP_JOB_LEASE_SECONDS",
+    )
+    BACKUP_WORKER_POLL_SECONDS: int = Field(
+        default=2,
+        ge=1,
+        le=60,
+        validation_alias="BACKUP_WORKER_POLL_SECONDS",
+    )
+    BACKUP_WORKER_HEARTBEAT_SECONDS: int = Field(
+        default=10,
+        ge=2,
+        le=60,
+        validation_alias="BACKUP_WORKER_HEARTBEAT_SECONDS",
+    )
 
-    REDIS_URL: str = Field(default="redis://localhost:6379/0", validation_alias="REDIS_URL")
+    REDIS_URL: str = Field(
+        default="redis://localhost:6379/0", validation_alias="REDIS_URL"
+    )
     REDIS_POOL_SIZE: int = Field(default=10, validation_alias="REDIS_POOL_SIZE")
 
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, validation_alias="ACCESS_TOKEN_EXPIRE_MINUTES")
-    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=7, validation_alias="REFRESH_TOKEN_EXPIRE_DAYS")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
+        default=30, validation_alias="ACCESS_TOKEN_EXPIRE_MINUTES"
+    )
+    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(
+        default=7, validation_alias="REFRESH_TOKEN_EXPIRE_DAYS"
+    )
     ALGORITHM: str = Field(default="HS256", validation_alias="ALGORITHM")
     MFA_ENABLED: bool = Field(default=True, validation_alias="MFA_ENABLED")
     PASSWORD_MIN_LENGTH: int = Field(default=12, validation_alias="PASSWORD_MIN_LENGTH")
@@ -44,13 +101,23 @@ class Settings(BaseSettings):
         validation_alias="CORS_ORIGINS",
     )
 
-    OPENAI_API_KEY: Optional[str] = Field(default=None, validation_alias="OPENAI_API_KEY")
-    ANTHROPIC_API_KEY: Optional[str] = Field(default=None, validation_alias="ANTHROPIC_API_KEY")
-    GOOGLE_API_KEY: Optional[str] = Field(default=None, validation_alias="GOOGLE_API_KEY")
-    OPENROUTER_API_KEY: Optional[str] = Field(default=None, validation_alias="OPENROUTER_API_KEY")
+    OPENAI_API_KEY: Optional[str] = Field(
+        default=None, validation_alias="OPENAI_API_KEY"
+    )
+    ANTHROPIC_API_KEY: Optional[str] = Field(
+        default=None, validation_alias="ANTHROPIC_API_KEY"
+    )
+    GOOGLE_API_KEY: Optional[str] = Field(
+        default=None, validation_alias="GOOGLE_API_KEY"
+    )
+    OPENROUTER_API_KEY: Optional[str] = Field(
+        default=None, validation_alias="OPENROUTER_API_KEY"
+    )
 
     SENTRY_DSN: Optional[str] = Field(default=None, validation_alias="SENTRY_DSN")
-    PROMETHEUS_ENABLED: bool = Field(default=True, validation_alias="PROMETHEUS_ENABLED")
+    PROMETHEUS_ENABLED: bool = Field(
+        default=True, validation_alias="PROMETHEUS_ENABLED"
+    )
     LOG_LEVEL: str = Field(default="INFO", validation_alias="LOG_LEVEL")
 
     SMTP_HOST: Optional[str] = Field(default=None, validation_alias="SMTP_HOST")
@@ -60,17 +127,38 @@ class Settings(BaseSettings):
     SMTP_TLS: bool = Field(default=True, validation_alias="SMTP_TLS")
 
     STORAGE_TYPE: str = Field(default="local", validation_alias="STORAGE_TYPE")
-    AWS_ACCESS_KEY_ID: Optional[str] = Field(default=None, validation_alias="AWS_ACCESS_KEY_ID")
-    AWS_SECRET_ACCESS_KEY: Optional[str] = Field(default=None, validation_alias="AWS_SECRET_ACCESS_KEY")
+    AWS_ACCESS_KEY_ID: Optional[str] = Field(
+        default=None, validation_alias="AWS_ACCESS_KEY_ID"
+    )
+    AWS_SECRET_ACCESS_KEY: Optional[str] = Field(
+        default=None, validation_alias="AWS_SECRET_ACCESS_KEY"
+    )
     AWS_S3_BUCKET: Optional[str] = Field(default=None, validation_alias="AWS_S3_BUCKET")
     AWS_S3_REGION: Optional[str] = Field(default=None, validation_alias="AWS_S3_REGION")
 
-    STRIPE_SECRET_KEY: Optional[str] = Field(default=None, validation_alias="STRIPE_SECRET_KEY")
-    STRIPE_WEBHOOK_SECRET: Optional[str] = Field(default=None, validation_alias="STRIPE_WEBHOOK_SECRET")
+    STRIPE_SECRET_KEY: Optional[str] = Field(
+        default=None, validation_alias="STRIPE_SECRET_KEY"
+    )
+    STRIPE_WEBHOOK_SECRET: Optional[str] = Field(
+        default=None, validation_alias="STRIPE_WEBHOOK_SECRET"
+    )
 
     @model_validator(mode="after")
     def resolve_database_url(self) -> "Settings":
         """Build one encoded URL from the same credentials used by PostgreSQL."""
+        minimum_lease = (
+            max(
+                self.BACKUP_TIMEOUT_SECONDS,
+                3 * self.BACKUP_VALIDATION_TIMEOUT_SECONDS,
+            )
+            + (2 * self.BACKUP_CLEANUP_TIMEOUT_SECONDS)
+            + 60
+        )
+        if self.BACKUP_JOB_LEASE_SECONDS < minimum_lease:
+            raise ValueError(
+                "BACKUP_JOB_LEASE_SECONDS must exceed the longest backup "
+                "operation and cleanup timeout"
+            )
         if self.DATABASE_URL.strip():
             self.DATABASE_URL = self.DATABASE_URL.strip()
             return self
@@ -91,11 +179,6 @@ class Settings(BaseSettings):
         if len(value) < 32:
             raise ValueError("SECRET_KEY must contain at least 32 characters")
         return value
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = True
 
 
 @lru_cache()

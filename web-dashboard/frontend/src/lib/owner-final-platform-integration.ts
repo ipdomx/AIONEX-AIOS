@@ -1,7 +1,7 @@
 import { apiClient } from "@/lib/api-client";
 
 export type FinalIntegrationStatus = "ready" | "warning" | "blocked";
-export type FinalIntegrationAction = "validate" | "synchronize" | "close";
+export type FinalIntegrationAction = "validate" | "close";
 
 export type FinalIntegrationTarget = {
   id: string;
@@ -16,6 +16,7 @@ export type FinalIntegrationTarget = {
 export type FinalIntegrationSnapshot = {
   generated_at: string;
   completion: number;
+  closed?: boolean;
   targets: FinalIntegrationTarget[];
 };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -13,13 +13,17 @@ import {
 import {
   attestComplianceControl,
   fetchComplianceControls,
+  recordComplianceEvidence,
   type ComplianceControl,
 } from "@/lib/owner-compliance-runtime";
 
 const statusClass: Record<ComplianceControl["status"], string> = {
   compliant: "border-green-500/20 bg-green-500/10 text-green-300",
+  partial: "border-orange-500/20 bg-orange-500/10 text-orange-300",
   warning: "border-orange-500/20 bg-orange-500/10 text-orange-300",
-  noncompliant: "border-red-500/20 bg-red-500/10 text-red-300",
+  non_compliant: "border-red-500/20 bg-red-500/10 text-red-300",
+  not_applicable: "border-white/10 bg-white/[0.03] text-white/40",
+  not_assessed: "border-white/10 bg-white/[0.03] text-white/40",
 };
 
 type SummaryCard = readonly [label: string, value: number, icon: LucideIcon];
@@ -27,7 +31,12 @@ type SummaryCard = readonly [label: string, value: number, icon: LucideIcon];
 export default function OwnerComplianceRuntimePage() {
   const [items, setItems] = useState<ComplianceControl[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actingId, setActingId] = useState<string | null>(null);
+  const [evidenceReferences, setEvidenceReferences] = useState<
+    Record<string, string>
+  >({});
   const [message, setMessage] = useState("Loading compliance controls...");
+  const actionInFlight = useRef(false);
 
   async function load(signal?: AbortSignal) {
     setLoading(true);
@@ -54,8 +63,10 @@ export default function OwnerComplianceRuntimePage() {
   const summary = useMemo(
     () => ({
       compliant: items.filter((item) => item.status === "compliant").length,
-      warning: items.filter((item) => item.status === "warning").length,
-      noncompliant: items.filter((item) => item.status === "noncompliant")
+      warning: items.filter((item) =>
+        ["warning", "partial"].includes(item.status),
+      ).length,
+      noncompliant: items.filter((item) => item.status === "non_compliant")
         .length,
     }),
     [items],
@@ -68,6 +79,11 @@ export default function OwnerComplianceRuntimePage() {
   ];
 
   async function attest(id: string) {
+    if (actionInFlight.current) return;
+    const control = items.find((item) => item.id === id);
+    if (!control || control.evidence <= 0) return;
+    actionInFlight.current = true;
+    setActingId(id);
     setMessage("Submitting owner attestation...");
     try {
       const attested = await attestComplianceControl(id);
@@ -77,6 +93,28 @@ export default function OwnerComplianceRuntimePage() {
       setMessage("Owner attestation completed.");
     } catch {
       setMessage("Attestation failed and was not persisted.");
+    } finally {
+      actionInFlight.current = false;
+      setActingId(null);
+    }
+  }
+
+  async function recordEvidence(id: string) {
+    const reference = evidenceReferences[id]?.trim() ?? "";
+    if (!reference || actionInFlight.current) return;
+    actionInFlight.current = true;
+    setActingId(id);
+    setMessage("Recording compliance evidence reference...");
+    try {
+      await recordComplianceEvidence(id, reference);
+      setEvidenceReferences((current) => ({ ...current, [id]: "" }));
+      await load();
+      setMessage("Evidence reference recorded and controls reloaded.");
+    } catch {
+      setMessage("Evidence reference was not recorded.");
+    } finally {
+      actionInFlight.current = false;
+      setActingId(null);
     }
   }
 
@@ -95,12 +133,12 @@ export default function OwnerComplianceRuntimePage() {
             Compliance Controls & Evidence
           </h1>
           <p className="mt-2 text-sm text-white/45">
-            Owner-level control assurance for ISO 27001, SOC 2, GDPR and
+            Evidence-backed Owner attestations for ISO 27001, SOC 2, GDPR and
             internal governance frameworks.
           </p>
         </div>
         <button
-          disabled={loading}
+          disabled={loading || actingId !== null}
           onClick={() => void load()}
           className="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
         >
@@ -146,12 +184,40 @@ export default function OwnerComplianceRuntimePage() {
                 {item.status}
               </span>
             </div>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <label className="min-w-0 flex-1">
+                <span className="sr-only">
+                  Evidence reference for {item.control}
+                </span>
+                <input
+                  value={evidenceReferences[item.id] ?? ""}
+                  onChange={(event) =>
+                    setEvidenceReferences((current) => ({
+                      ...current,
+                      [item.id]: event.target.value,
+                    }))
+                  }
+                  placeholder="Evidence reference, URL, ticket, or artifact ID"
+                  className="glass-input w-full rounded-lg px-3 py-2 text-xs text-white outline-none"
+                />
+              </label>
+              <button
+                disabled={
+                  actingId !== null || !evidenceReferences[item.id]?.trim()
+                }
+                onClick={() => void recordEvidence(item.id)}
+                className="rounded-lg border border-electric-500/20 bg-electric-500/10 px-3 py-2 text-xs text-electric-300 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {actingId === item.id ? "Recording…" : "Record evidence"}
+              </button>
+            </div>
             <button
+              disabled={actingId !== null || item.evidence <= 0}
               onClick={() => void attest(item.id)}
-              className="mt-4 rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-2 text-xs text-green-300"
+              className="mt-4 rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-2 text-xs text-green-300 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <BadgeCheck className="mr-1 inline h-3.5 w-3.5" />
-              Attest control
+              {item.evidence > 0 ? "Attest control" : "Evidence required"}
             </button>
           </motion.div>
         ))}

@@ -5,7 +5,7 @@ export type ExecutiveMetric = {
   label: string;
   value: number;
   unit: string;
-  trend: number;
+  trend: number | null;
   status: "good" | "watch" | "critical";
 };
 

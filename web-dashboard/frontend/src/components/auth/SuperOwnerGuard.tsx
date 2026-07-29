@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ShieldAlert } from "lucide-react";
+import { LoaderCircle, ShieldAlert } from "lucide-react";
 
 import { useAuth } from "@/components/providers/AuthProvider";
 
@@ -10,7 +10,22 @@ export default function SuperOwnerGuard({
 }: {
   children: React.ReactNode;
 }) {
-  const { user } = useAuth();
+  const { loading, user } = useAuth();
+
+  if (loading) {
+    return (
+      <section
+        aria-busy="true"
+        aria-label="Restoring owner session"
+        className="flex min-h-[calc(100vh-7rem)] items-center justify-center"
+      >
+        <div className="flex items-center gap-3 text-sm text-white/45">
+          <LoaderCircle className="h-5 w-5 animate-spin text-electric-300" />
+          Restoring owner session…
+        </div>
+      </section>
+    );
+  }
 
   if (user?.role === "Super Owner") {
     return <>{children}</>;

@@ -9,6 +9,10 @@ if [ ! -f .env.production ]; then
   exit 1
 fi
 
+export AIOS_ENV_FILE="$SCRIPT_DIR/.env.production"
+ENV_FILE="$AIOS_ENV_FILE" \
+  COMPOSE_FILE="$SCRIPT_DIR/docker-compose.production.yml" \
+  bash "$SCRIPT_DIR/final-release-check.sh"
 docker compose -f docker-compose.production.yml --env-file .env.production config >/dev/null
 docker compose -f docker-compose.production.yml --env-file .env.production pull --ignore-buildable
 docker compose -f docker-compose.production.yml --env-file .env.production build --pull

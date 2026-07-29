@@ -71,8 +71,8 @@ export default function OwnerExecutiveBIPage() {
             Executive Intelligence Center
           </h1>
           <p className="mt-2 text-sm text-white/45">
-            Owner-only business, operational, financial and risk intelligence
-            with decision-ready recommendations.
+            Owner-only operational inventory and active-incident intelligence
+            from the executive backend snapshot.
           </p>
         </div>
         <button
@@ -108,12 +108,18 @@ export default function OwnerExecutiveBIPage() {
               </span>
             </div>
             <div className="mt-1 text-xs text-white/40">{metric.label}</div>
-            <div
-              className={`mt-3 text-xs ${metric.trend >= 0 ? "text-green-300" : "text-orange-300"}`}
-            >
-              {metric.trend >= 0 ? "+" : ""}
-              {metric.trend}% trend
-            </div>
+            {metric.trend === null ? (
+              <div className="mt-3 text-xs text-white/30">
+                Trend unavailable
+              </div>
+            ) : (
+              <div
+                className={`mt-3 text-xs ${metric.trend >= 0 ? "text-green-300" : "text-orange-300"}`}
+              >
+                {metric.trend >= 0 ? "+" : ""}
+                {metric.trend}% trend
+              </div>
+            )}
           </div>
         ))}
       </div>

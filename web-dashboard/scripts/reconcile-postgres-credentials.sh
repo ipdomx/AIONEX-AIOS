@@ -14,6 +14,18 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 cd "${COMPOSE_DIR}"
 
+COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml}"
+ENV_FILE="${ENV_FILE:-}"
+
+[[ -f "${COMPOSE_FILE}" ]] ||
+  die "Compose file not found: ${COMPOSE_FILE}"
+if [[ -n "${ENV_FILE}" && ! -f "${ENV_FILE}" ]]; then
+  die "environment file not found: ${ENV_FILE}"
+fi
+if [[ -n "${ENV_FILE}" ]]; then
+  ENV_FILE="$(realpath "${ENV_FILE}")"
+fi
+
 if ! command -v docker >/dev/null 2>&1; then
   die "docker is required"
 fi
@@ -22,18 +34,44 @@ if ! docker compose version >/dev/null 2>&1; then
   die "Docker Compose v2 is required"
 fi
 
-compose_services="$(docker compose config --services)"
+compose_args=(-f "${COMPOSE_FILE}")
+if [[ -n "${ENV_FILE}" ]]; then
+  compose_args+=(--env-file "${ENV_FILE}")
+fi
+
+compose() {
+  if [[ -n "${ENV_FILE}" ]]; then
+    AIOS_ENV_FILE="${ENV_FILE}" docker compose "${compose_args[@]}" "$@"
+  else
+    docker compose "${compose_args[@]}" "$@"
+  fi
+}
+
+compose_services="$(compose config --services)"
 grep -qx "postgres" <<<"${compose_services}" ||
   die "the postgres service is missing from the Compose project"
 grep -qx "backend" <<<"${compose_services}" ||
   die "the backend service is missing from the Compose project"
+has_backup_worker=false
+if grep -qx "backup-worker" <<<"${compose_services}"; then
+  has_backup_worker=true
+fi
+
+resolved_database_url="$(
+  compose config --environment |
+    sed -n 's/^DATABASE_URL=//p' |
+    tail -n 1
+)"
+if [[ -n "${resolved_database_url}" ]]; then
+  die "backend DATABASE_URL is explicitly set; reconcile only the bundled PostgreSQL service through POSTGRES_*"
+fi
 
 echo "Starting PostgreSQL..."
-docker compose up -d --no-deps postgres
+compose up -d --no-deps postgres
 
 ready=false
 for ((attempt = 1; attempt <= 30; attempt++)); do
-  if docker compose exec -T postgres sh -ceu \
+  if compose exec -T postgres sh -ceu \
     'pg_isready --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" >/dev/null'
   then
     ready=true
@@ -47,7 +85,7 @@ if [[ "${ready}" != "true" ]]; then
 fi
 
 echo "Synchronizing the PostgreSQL role password with the container environment..."
-docker compose exec -T postgres sh -s <<'CONTAINER_SH'
+compose exec -T postgres sh -s <<'CONTAINER_SH'
 set -eu
 set +x
 
@@ -72,7 +110,7 @@ printf 'ALTER ROLE "%s" WITH LOGIN PASSWORD '\''%s'\'';\n' \
 CONTAINER_SH
 
 echo "Verifying TCP password authentication..."
-docker compose exec -T postgres sh -ceu '
+compose exec -T postgres sh -ceu '
   set +x
   export PSQLRC=/dev/null
 
@@ -90,9 +128,9 @@ docker compose exec -T postgres sh -ceu '
 '
 
 echo "Recreating the backend with the synchronized credentials..."
-docker compose up -d --force-recreate backend
+compose up -d --force-recreate backend
 
-backend_id="$(docker compose ps -q backend)"
+backend_id="$(compose ps -q backend)"
 if [[ -z "${backend_id}" ]]; then
   die "Backend container was not created"
 fi
@@ -118,4 +156,35 @@ if [[ "${healthy}" != "true" ]]; then
   die "Backend did not become healthy; inspect it with: docker compose logs backend"
 fi
 
-echo "PostgreSQL credentials synchronized and backend healthy."
+if [[ "${has_backup_worker}" == "true" ]]; then
+  echo "Recreating the backup worker with the synchronized credentials..."
+  compose up -d --no-deps --force-recreate backup-worker
+
+  backup_worker_id="$(compose ps -q backup-worker)"
+  if [[ -z "${backup_worker_id}" ]]; then
+    die "Backup worker container was not created"
+  fi
+
+  backup_worker_running=false
+  for ((attempt = 1; attempt <= 30; attempt++)); do
+    backup_worker_state="$(
+      docker inspect \
+        --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' \
+        "${backup_worker_id}"
+    )"
+    if [[ "${backup_worker_state}" == "healthy" ]]; then
+      backup_worker_running=true
+      break
+    fi
+    if [[ "${backup_worker_state}" == "exited" || "${backup_worker_state}" == "dead" ]]; then
+      break
+    fi
+    sleep 2
+  done
+
+  if [[ "${backup_worker_running}" != "true" ]]; then
+    die "Backup worker did not become healthy; inspect it with: docker compose logs backup-worker"
+  fi
+fi
+
+echo "PostgreSQL credentials synchronized and dependent services restarted."

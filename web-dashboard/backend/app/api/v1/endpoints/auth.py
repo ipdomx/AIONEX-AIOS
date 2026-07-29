@@ -1,6 +1,6 @@
 """Authentication endpoints."""
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,6 +30,10 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
+class LogoutRequest(BaseModel):
+    refresh_token: str | None = None
+
+
 class PasswordResetRequest(BaseModel):
     email: EmailStr
 
@@ -50,18 +54,36 @@ async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     session: AsyncSession = Depends(get_db),
 ):
-    user = await auth_service.authenticate(session, form_data.username, form_data.password)
+    user = await auth_service.authenticate(
+        session, form_data.username, form_data.password
+    )
     return await auth_service.issue_pair(session, user)
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register(data: RegisterRequest, session: AsyncSession = Depends(get_db)):
-    user = await auth_service.register(session, data.email, data.password, data.name, data.organization_name)
-    return {"message": "User registered successfully", "user": auth_service.serialize_user(user)}
+    user = await auth_service.register(
+        session, data.email, data.password, data.name, data.organization_name
+    )
+    return {
+        "message": "User registered successfully",
+        "user": auth_service.serialize_user(user),
+    }
 
 
 @router.post("/logout")
-async def logout(token: str = Depends(oauth2_scheme)):
+async def logout(
+    data: LogoutRequest | None = None,
+    token: str = Depends(oauth2_scheme),
+    session: AsyncSession = Depends(get_db),
+):
+    payload = auth_service._decode_access_token_payload(token)
+    if data is not None and data.refresh_token:
+        await auth_service.revoke_refresh_token(
+            session,
+            data.refresh_token,
+            user_id=str(payload["sub"]),
+        )
     await auth_service.revoke_access_token(token)
     return {"message": "Logged out successfully"}
 
@@ -83,16 +105,18 @@ async def confirm_password_reset(data: PasswordResetConfirm):
 
 @router.post("/mfa/setup", response_model=MFASetupResponse)
 async def setup_mfa(user: UserRecord = Depends(current_user)):
-    return {
-        "secret": "mfa-setup-required",
-        "qr_code": "",
-        "backup_codes": [],
-    }
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="MFA enrollment is not configured for this deployment",
+    )
 
 
 @router.post("/mfa/verify")
 async def verify_mfa(code: str, user: UserRecord = Depends(current_user)):
-    return {"verified": bool(code.strip())}
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="MFA verification is not configured for this deployment",
+    )
 
 
 @router.get("/me")

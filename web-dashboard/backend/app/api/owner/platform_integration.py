@@ -1,24 +1,36 @@
+"""Live platform-integration status backed by durable owner configuration."""
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException
+from app.api.owner.control_plane import (
+    _apply_live_action,
+    _integration_items,
+    _run_audited_mutation,
+)
+from app.core.auth import UserRecord, require_super_owner
+from app.db.base import get_db
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
-router = APIRouter(prefix="/owner/platform-integration", tags=["owner-platform-integration"])
-
-IntegrationStatus = Literal["connected", "degraded", "disconnected"]
+router = APIRouter(
+    prefix="/owner/platform-integration",
+    tags=["owner-platform-integration"],
+)
 
 
 class IntegrationTarget(BaseModel):
     id: str
     name: str
     category: str
-    status: IntegrationStatus
+    status: Literal["connected", "degraded", "disconnected"]
     health: int = Field(ge=0, le=100)
     endpoint: str
     owner_visible: bool = True
+    configured: bool
     last_checked_at: str
     details: str
 
@@ -30,92 +42,102 @@ class IntegrationSnapshot(BaseModel):
 
 
 class IntegrationCommand(BaseModel):
-    action: Literal["refresh", "reconnect", "validate"]
+    action: Literal["validate"]
     target_id: str
 
 
-_TARGETS: dict[str, IntegrationTarget] = {
-    "orchestrator": IntegrationTarget(
-        id="orchestrator",
-        name="Core Orchestrator",
-        category="runtime",
-        status="connected",
-        health=100,
-        endpoint="/api/v1/integration/health",
-        last_checked_at=datetime.now(timezone.utc).isoformat(),
-        details="Owner dashboard is connected to the central runtime orchestration surface.",
-    ),
-    "workers": IntegrationTarget(
-        id="workers",
-        name="Distributed Workers",
-        category="runtime",
-        status="connected",
-        health=96,
-        endpoint="/api/v1/realtime/status",
-        last_checked_at=datetime.now(timezone.utc).isoformat(),
-        details="Worker fleet visibility and health aggregation are available to the owner.",
-    ),
-    "knowledge": IntegrationTarget(
-        id="knowledge",
-        name="Knowledge & Memory Platform",
-        category="intelligence",
-        status="connected",
-        health=94,
-        endpoint="/api/v1/knowledge",
-        last_checked_at=datetime.now(timezone.utc).isoformat(),
-        details="Knowledge, memory, learning and verification summaries are connected.",
-    ),
-    "providers": IntegrationTarget(
-        id="providers",
-        name="AI Provider Registry",
-        category="providers",
-        status="connected",
-        health=92,
-        endpoint="/api/v1/ai/providers",
-        last_checked_at=datetime.now(timezone.utc).isoformat(),
-        details="Provider registry and routing status are visible through the owner control plane.",
-    ),
-    "notifications": IntegrationTarget(
-        id="notifications",
-        name="Notification Center",
-        category="communications",
-        status="connected",
-        health=95,
-        endpoint="/api/v1/notifications",
-        last_checked_at=datetime.now(timezone.utc).isoformat(),
-        details="In-app, email, push and owner-only WhatsApp channels are represented.",
-    ),
-}
-
-
-def _snapshot() -> IntegrationSnapshot:
-    targets = list(_TARGETS.values())
-    completion = round(sum(target.health for target in targets) / max(len(targets), 1))
+async def _snapshot(session: AsyncSession) -> IntegrationSnapshot:
+    records = await _integration_items(session)
+    targets: list[IntegrationTarget] = []
+    for item in records:
+        raw_status = str(item.get("status", "unconfigured"))
+        connected = bool(item.get("enabled")) and raw_status == "connected"
+        status: Literal["connected", "degraded", "disconnected"] = (
+            "connected"
+            if connected
+            else (
+                "degraded"
+                if bool(item.get("enabled")) and bool(item.get("configured"))
+                else "disconnected"
+            )
+        )
+        health = 100 if connected else 50 if status == "degraded" else 0
+        targets.append(
+            IntegrationTarget(
+                id=item["id"],
+                name=str(item.get("name", item["id"])),
+                category=str(item.get("category", "platform")),
+                status=status,
+                health=health,
+                endpoint=str(item.get("endpoint", "Not configured")),
+                configured=bool(item.get("configured")),
+                last_checked_at=str(item.get("lastCheck", item["updatedAt"])),
+                details=(
+                    "Connected and validated by a live dependency probe."
+                    if connected
+                    else (
+                        "Credentials are configured; external reachability is not asserted."
+                        if item.get("configured")
+                        else "Deployment credentials are not configured."
+                    )
+                ),
+            )
+        )
+    completion = round(sum(target.health for target in targets) / max(1, len(targets)))
     return IntegrationSnapshot(
-        generated_at=datetime.now(timezone.utc).isoformat(),
+        generated_at=datetime.now(UTC).isoformat(),
         completion=completion,
         targets=targets,
     )
 
 
 @router.get("/snapshot", response_model=IntegrationSnapshot)
-async def get_platform_integration_snapshot() -> IntegrationSnapshot:
-    return _snapshot()
+async def get_platform_integration_snapshot(
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+) -> IntegrationSnapshot:
+    return await _snapshot(session)
 
 
 @router.post("/command", response_model=IntegrationSnapshot)
-async def run_platform_integration_command(command: IntegrationCommand) -> IntegrationSnapshot:
-    target = _TARGETS.get(command.target_id)
-    if target is None:
-        raise HTTPException(status_code=404, detail="Integration target not found")
+async def run_platform_integration_command(
+    command: IntegrationCommand,
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+) -> IntegrationSnapshot:
+    async def validate(_audit: object) -> dict[str, Any]:
+        records = await _integration_items(session)
+        target = next(
+            (item for item in records if item["id"] == command.target_id),
+            None,
+        )
+        if target is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Integration target not found",
+            )
+        if not target.get("configured"):
+            raise HTTPException(
+                status_code=409,
+                detail="Configure deployment credentials before validation",
+            )
+        await _apply_live_action(
+            session,
+            actor,
+            "integrations",
+            command.target_id,
+            "health-check",
+            {},
+        )
+        return {"checked": True, "target_id": command.target_id}
 
-    now = datetime.now(timezone.utc).isoformat()
-    updates: dict[str, Any] = {"last_checked_at": now}
-
-    if command.action == "reconnect":
-        updates.update(status="connected", health=max(target.health, 90))
-    elif command.action == "validate":
-        updates.update(health=min(100, target.health + 1))
-
-    _TARGETS[command.target_id] = target.model_copy(update=updates)
-    return _snapshot()
+    await _run_audited_mutation(
+        session,
+        actor=actor,
+        domain="integrations",
+        resource_id=command.target_id,
+        action=command.action,
+        request=command.model_dump(mode="json"),
+        mutation=validate,
+    )
+    return await _snapshot(session)

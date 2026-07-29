@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   CheckCircle2,
@@ -21,8 +22,8 @@ import {
 const emptySnapshot: ProductionRuntimeSnapshot = {
   generated_at: "",
   completion: 0,
-  public_origin: "https://ai.vip-e.net",
-  api_origin: "https://api.ai.vip-e.net",
+  public_origin: "",
+  api_origin: "",
   targets: [],
 };
 
@@ -42,7 +43,9 @@ export default function OwnerProductionRuntimePage() {
   const [snapshot, setSnapshot] =
     useState<ProductionRuntimeSnapshot>(emptySnapshot);
   const [loading, setLoading] = useState(true);
+  const [actingTarget, setActingTarget] = useState<string | null>(null);
   const [message, setMessage] = useState("Validating production runtime...");
+  const actionInFlight = useRef(false);
 
   async function load(signal?: AbortSignal) {
     setLoading(true);
@@ -52,6 +55,7 @@ export default function OwnerProductionRuntimePage() {
       setMessage("Production runtime synchronized.");
     } catch (error) {
       if (!(error instanceof DOMException && error.name === "AbortError")) {
+        setSnapshot(emptySnapshot);
         setMessage("Production runtime synchronization failed.");
       }
     } finally {
@@ -77,15 +81,21 @@ export default function OwnerProductionRuntimePage() {
   );
 
   async function command(targetId: string, action: ProductionRuntimeAction) {
+    if (actionInFlight.current) return;
+    actionInFlight.current = true;
+    setActingTarget(targetId);
     setMessage(`Running ${action} for ${targetId}...`);
     try {
       const data = await runProductionRuntimeCommand(targetId, action);
       setSnapshot(data);
       setMessage(
-        `Production runtime ${action} request acknowledged; the current snapshot was refreshed.`,
+        `Live backend dependency ${action} completed and the snapshot was refreshed.`,
       );
     } catch {
       setMessage("Production runtime command failed.");
+    } finally {
+      actionInFlight.current = false;
+      setActingTarget(null);
     }
   }
 
@@ -101,15 +111,15 @@ export default function OwnerProductionRuntimePage() {
             <Globe2 className="h-3.5 w-3.5" /> Production Runtime
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
-            Deployment-Ready Runtime
+            Backend Dependency Readiness
           </h1>
           <p className="mt-2 text-sm text-white/45">
-            Final runtime preparation for ai.vip-e.net and environment-driven
-            production deployment.
+            Live health evidence for the backend dependencies exposed by the
+            production runtime contract.
           </p>
         </div>
         <button
-          disabled={loading}
+          disabled={loading || actingTarget !== null}
           onClick={() => void load()}
           className="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
         >
@@ -122,15 +132,17 @@ export default function OwnerProductionRuntimePage() {
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <div className="text-xs uppercase tracking-wider text-white/30">
-              Production completion
+              Live dependency readiness
             </div>
             <div className="mt-2 text-4xl font-bold text-white">
               {snapshot.completion}%
             </div>
           </div>
           <div className="text-xs text-white/50">
-            <div>{snapshot.public_origin}</div>
-            <div className="mt-1">{snapshot.api_origin}</div>
+            <div>Public origin: {snapshot.public_origin || "Not loaded"}</div>
+            <div className="mt-1">
+              API origin: {snapshot.api_origin || "Not loaded"}
+            </div>
           </div>
           <ShieldCheck className="h-8 w-8 text-electric-300" />
         </div>
@@ -188,17 +200,18 @@ export default function OwnerProductionRuntimePage() {
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <button
+                disabled={loading || actingTarget !== null}
                 onClick={() => void command(item.id, "validate")}
-                className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white/70"
+                className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white/70 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Validate
+                {actingTarget === item.id ? "Validating…" : "Validate"}
               </button>
-              <button
-                onClick={() => void command(item.id, "prepare")}
+              <Link
+                href="/owner/release-governance"
                 className="rounded-lg border border-electric-500/20 bg-electric-500/10 px-3 py-2 text-xs text-electric-300"
               >
-                Prepare
-              </button>
+                Open release pipeline
+              </Link>
             </div>
           </motion.div>
         ))}

@@ -15,6 +15,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  root-tests:
+    name: Core Owner / Release / Web Contracts
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}/src
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install core test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+      - name: Run core tests
+        # The repository currently carries two separate legacy `aios` package
+        # trees. Keep the Owner-adjacent contracts that use the supported
+        # `src/aios` tree here, while the full dashboard suite runs below.
+        run: |
+          python -m pytest -q \
+            tests/test_release_governance.py \
+            tests/test_web_dashboard_integration.py \
+            tests/test_web_integration.py \
+            tests/test_production_hardening.py
+
   backend-tests:
     name: Backend Tests
     runs-on: ubuntu-latest
@@ -47,6 +74,8 @@ jobs:
       SECRET_KEY: ci-validation-secret-key-with-at-least-32-characters
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/aionex_test
       REDIS_URL: redis://localhost:6379/0
+      BACKUP_DIR: /tmp/aionex-ci-backups
+      RUN_LIVE_BACKUP_SMOKE: "1"
       AIOS_REPO_ROOT: ${{ github.workspace }}
       PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}/web-dashboard/backend
     steps:
@@ -54,9 +83,13 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: web-dashboard/backend/requirements.txt
       - name: Install backend dependencies
         working-directory: web-dashboard/backend
         run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-16
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: Run database migrations
@@ -69,7 +102,7 @@ jobs:
           ./scripts/verify_backend.sh
       - name: Run backend tests with coverage
         working-directory: web-dashboard/backend
-        run: pytest -q --cov=app --cov-report=term-missing --cov-fail-under=22
+        run: python -m pytest -q tests --cov=app --cov-report=term-missing --cov-fail-under=22
 
   frontend-build:
     name: Frontend Build
@@ -82,26 +115,102 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
+          cache: npm
+          cache-dependency-path: web-dashboard/frontend/package-lock.json
       - name: Install frontend dependencies
+        run: npm ci
+      - name: Check TypeScript
+        run: npm run type-check
+      - name: Lint Owner dashboard
         run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
-      - run: npm run build
+          lint_args=(
+            --dir src/app/owner
+            --file src/app/settings/page.tsx
+            --file src/components/auth/SuperOwnerGuard.tsx
+            --file src/components/layout/CommandPalette.tsx
+            --file src/components/layout/Sidebar.tsx
+            --file src/components/search/GlobalSearch.tsx
+            --file src/hooks/use-owner-resource.ts
+            --file src/lib/account-settings.ts
+          )
+          for owner_lib in src/lib/owner-*.ts; do
+            lint_args+=(--file "$owner_lib")
+          done
+          npm run lint -- "${lint_args[@]}"
+      - name: Check frontend formatting
+        run: |
+          npx prettier --check \
+            src/app/owner \
+            src/app/settings/page.tsx \
+            src/components/auth/SuperOwnerGuard.tsx \
+            src/components/layout/CommandPalette.tsx \
+            src/components/layout/Sidebar.tsx \
+            src/components/search/GlobalSearch.tsx \
+            src/hooks/use-owner-resource.ts \
+            src/lib/account-settings.ts \
+            src/lib/owner-*.ts
+      - name: Build production frontend
+        run: npm run build
 
   docker-build:
-    name: Docker Build
+    name: Production Docker Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Validate Compose configuration
+      - name: Prepare production Compose environment
         working-directory: web-dashboard
-        run: docker compose -f docker-compose.yml config
+        run: cp .env.production.example .env.production
+      - name: Validate Compose configurations
+        working-directory: web-dashboard
+        run: |
+          docker compose -f docker-compose.yml config --quiet
+          AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
+          docker compose \
+            --env-file .env.production \
+            -f docker-compose.production.yml \
+            config --quiet
+          AIOS_ENV_FILE="$GITHUB_WORKSPACE/deploy/production/.env.production.example" \
+          docker compose \
+            --env-file "$GITHUB_WORKSPACE/deploy/production/.env.production.example" \
+            -f ../deploy/production/docker-compose.production.yml \
+            config --quiet
       - name: Build production images
         working-directory: web-dashboard
-        run: docker compose -f docker-compose.yml build
+        run: |
+          AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
+          docker compose \
+            --env-file .env.production \
+            -f docker-compose.production.yml \
+            build backend frontend
+      - name: Smoke backup worker health
+        working-directory: web-dashboard
+        run: |
+          compose_args=(
+            docker compose
+            --env-file .env.production
+            -f docker-compose.production.yml
+          )
+          cleanup() {
+            AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
+              "${compose_args[@]}" down --remove-orphans
+          }
+          trap cleanup EXIT
+          AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
+            "${compose_args[@]}" up \
+              -d \
+              --wait \
+              --wait-timeout 180 \
+              backup-worker
+          worker_id="$(
+            AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
+              "${compose_args[@]}" ps -q backup-worker
+          )"
+          test -n "$worker_id"
+          test "$(
+            docker inspect \
+              --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}' \
+              "$worker_id"
+          )" = "healthy"
 
   security:
     name: Dependency Security
@@ -113,16 +222,16 @@ jobs:
           python-version: "3.11"
       - name: Audit Python dependencies
         working-directory: web-dashboard/backend
-        continue-on-error: true
         run: |
           python -m pip install --upgrade pip pip-audit
           pip-audit -r requirements.txt
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
+          cache: npm
+          cache-dependency-path: web-dashboard/frontend/package-lock.json
       - name: Audit frontend dependencies
         working-directory: web-dashboard/frontend
-        continue-on-error: true
         run: |
-          npm install
-          npm audit --audit-level=high
+          npm ci
+          npm audit --omit=dev

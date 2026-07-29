@@ -73,7 +73,7 @@ export const ownerNavigationSections: OwnerNavigationSection[] = [
         id: "owner-executive-bi",
         label: "Executive Intelligence",
         description:
-          "Financial, operational, availability, and incident intelligence.",
+          "Operational inventory, availability, and incident intelligence.",
         href: "/owner/executive-bi",
         icon: BarChart3,
       },
@@ -101,7 +101,8 @@ export const ownerNavigationSections: OwnerNavigationSection[] = [
       {
         id: "owner-realtime",
         label: "Realtime Monitoring",
-        description: "Live worker, queue, latency, and event visibility.",
+        description:
+          "Auto-refreshed backend metrics and owner audit-event visibility.",
         href: "/owner/realtime",
         icon: Activity,
       },
@@ -114,8 +115,8 @@ export const ownerNavigationSections: OwnerNavigationSection[] = [
       },
       {
         id: "owner-system-map",
-        label: "Live System Map",
-        description: "Regions, servers, workers, databases, and services.",
+        label: "System Topology",
+        description: "Latest backend-reported dependency nodes and health.",
         href: "/owner/system-map",
         icon: Map,
       },
@@ -166,38 +167,36 @@ export const ownerNavigationSections: OwnerNavigationSection[] = [
       {
         id: "owner-approvals",
         label: "Approval Center",
-        description: "Pending owner decisions and approval visibility.",
+        description: "Pending meeting requests requiring an owner decision.",
         href: "/owner/approvals",
         icon: GitPullRequest,
       },
       {
         id: "owner-approvals-live",
         label: "Approval Execution",
-        description: "Protected approve, reject, and request-changes workflow.",
+        description:
+          "Protected meeting approve, reject, and request-changes workflow.",
         href: "/owner/approvals-live",
         icon: ClipboardCheck,
       },
       {
         id: "owner-councils",
-        label: "Councils & Ministries",
-        description:
-          "Councils, ministries, voting, quorum, and owner decisions.",
+        label: "Owner Decisions",
+        description: "Durable owner decision records and approval state.",
         href: "/owner/governance",
         icon: Gavel,
       },
       {
         id: "owner-billing",
         label: "Billing & Plans",
-        description:
-          "Subscriptions, usage limits, seats, and billing controls.",
+        description: "Organization plan, seat, and access-status controls.",
         href: "/owner/billing",
         icon: CreditCard,
       },
       {
         id: "owner-licensing",
         label: "Licensing",
-        description:
-          "Enterprise licenses, entitlements, renewals, and suspensions.",
+        description: "Organization plan, seat, suspension, and restore status.",
         href: "/owner/licensing",
         icon: BadgeCheck,
       },
@@ -330,14 +329,14 @@ export const ownerNavigationSections: OwnerNavigationSection[] = [
         id: "owner-operations-integration",
         label: "Operations Integration",
         description:
-          "Monitoring, logging, alerting, backup, and recovery integration.",
+          "Dependency health, alert, backup, and recovery readiness.",
         href: "/owner/operations-integration",
         icon: Activity,
       },
       {
         id: "owner-production-runtime",
         label: "Production Runtime",
-        description: "Frontend, API, domain, TLS, and environment readiness.",
+        description: "Live backend dependency health and configured origins.",
         href: "/owner/production-runtime",
         icon: Server,
       },
@@ -351,15 +350,15 @@ export const ownerNavigationSections: OwnerNavigationSection[] = [
       {
         id: "owner-release-governance",
         label: "Release Governance",
-        description:
-          "Release candidates, gate decisions, and rollback authority.",
+        description: "Release candidates, quality gates, and owner decisions.",
         href: "/owner/release-governance",
         icon: GitPullRequest,
       },
       {
         id: "owner-final-platform-integration",
         label: "Final Integration",
-        description: "End-to-end, performance, security, and release closure.",
+        description:
+          "Live backend dependency and non-owner release-gate readiness.",
         href: "/owner/final-platform-integration",
         icon: Combine,
       },
@@ -381,7 +380,7 @@ export const ownerNavigationSections: OwnerNavigationSection[] = [
       {
         id: "owner-staff",
         label: "Staff Oversight",
-        description: "Internal staff performance, incidents, and supervision.",
+        description: "Internal staff identity, role, organization, and status.",
         href: "/owner/staff",
         icon: UserCog,
       },

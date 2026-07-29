@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -10,7 +10,6 @@ import {
   RefreshCw,
   Rocket,
   ShieldCheck,
-  Undo2,
   XCircle,
 } from "lucide-react";
 import {
@@ -20,13 +19,14 @@ import {
 } from "@/lib/owner-release-governance";
 
 const statusClass: Record<
-  "passed" | "warning" | "blocked" | "pending",
+  "passed" | "warning" | "blocked" | "pending" | "rejected",
   string
 > = {
   passed: "border-green-500/20 bg-green-500/10 text-green-300",
   warning: "border-orange-500/20 bg-orange-500/10 text-orange-300",
   blocked: "border-red-500/20 bg-red-500/10 text-red-300",
   pending: "border-blue-500/20 bg-blue-500/10 text-blue-300",
+  rejected: "border-red-500/20 bg-red-500/10 text-red-300",
 };
 
 type SummaryCard = { label: string; value: number; icon: LucideIcon };
@@ -34,7 +34,9 @@ type SummaryCard = { label: string; value: number; icon: LucideIcon };
 export default function OwnerReleaseGovernancePage() {
   const [items, setItems] = useState<ReleaseCandidate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actingId, setActingId] = useState<string | null>(null);
   const [message, setMessage] = useState("Loading release governance...");
+  const actionInFlight = useRef(false);
 
   async function load(signal?: AbortSignal) {
     setLoading(true);
@@ -77,7 +79,17 @@ export default function OwnerReleaseGovernancePage() {
     { label: "Owner action", value: summary.pendingOwner, icon: Clock3 },
   ];
 
-  async function act(id: string, decision: "approve" | "reject" | "rollback") {
+  async function act(id: string, decision: "approve" | "reject") {
+    if (actionInFlight.current) return;
+    if (
+      !window.confirm(
+        `${decision === "approve" ? "Approve" : "Reject"} this production release candidate?`,
+      )
+    ) {
+      return;
+    }
+    actionInFlight.current = true;
+    setActingId(id);
     setMessage(`Submitting ${decision} decision...`);
     try {
       const updated = await decideRelease(
@@ -91,6 +103,9 @@ export default function OwnerReleaseGovernancePage() {
       setMessage(`Release decision completed: ${decision}.`);
     } catch {
       setMessage("Release decision failed and was not persisted.");
+    } finally {
+      actionInFlight.current = false;
+      setActingId(null);
     }
   }
 
@@ -109,12 +124,12 @@ export default function OwnerReleaseGovernancePage() {
             Release Authority & Quality Gates
           </h1>
           <p className="mt-2 text-sm text-white/45">
-            Final owner authority for production releases, quality gates,
-            rejection and rollback.
+            Review quality-gate evidence and persist the Owner decision for the
+            current build. This registry does not execute a deployment.
           </p>
         </div>
         <button
-          disabled={loading}
+          disabled={loading || actingId !== null}
           onClick={() => void load()}
           className="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
         >
@@ -139,77 +154,93 @@ export default function OwnerReleaseGovernancePage() {
       </div>
 
       <div className="space-y-4">
-        {items.map((item, index) => (
-          <motion.section
-            key={item.id}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.03 }}
-            className="glass-card p-5"
-          >
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-white">
-                  v{item.version}
-                </h2>
-                <p className="mt-1 text-xs text-white/40">
-                  {item.environment} · requested by {item.requestedBy} ·{" "}
-                  {item.createdAt}
-                </p>
-              </div>
-              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/65">
-                {item.status}
-              </span>
-            </div>
-            <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
-              {item.gates.map((gate) => (
-                <div
-                  key={gate.id}
-                  className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-medium text-white">
-                        {gate.name}
-                      </div>
-                      <div className="mt-1 text-xs text-white/30">
-                        {gate.updatedAt}
-                      </div>
-                    </div>
-                    <span
-                      className={`rounded-full border px-2.5 py-1 text-[11px] ${statusClass[gate.status]}`}
-                    >
-                      {gate.status}
-                    </span>
-                  </div>
+        {items.map((item, index) => {
+          const approvalGate = item.gates.find((gate) => gate.ownerRequired);
+          const canApprove = item.gates
+            .filter((gate) => !gate.ownerRequired)
+            .every((gate) => gate.status === "passed");
+          return (
+            <motion.section
+              key={item.id}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.03 }}
+              className="glass-card p-5"
+            >
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-white">
+                    v{item.version}
+                  </h2>
+                  <p className="mt-1 text-xs text-white/40">
+                    {item.environment} · requested by {item.requestedBy} ·{" "}
+                    {item.createdAt}
+                  </p>
                 </div>
-              ))}
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                onClick={() => void act(item.id, "approve")}
-                className="rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-2 text-xs text-green-300"
-              >
-                <CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />
-                Approve release
-              </button>
-              <button
-                onClick={() => void act(item.id, "reject")}
-                className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300"
-              >
-                <CircleAlert className="mr-1 inline h-3.5 w-3.5" />
-                Reject
-              </button>
-              <button
-                onClick={() => void act(item.id, "rollback")}
-                className="rounded-lg border border-orange-500/20 bg-orange-500/10 px-3 py-2 text-xs text-orange-300"
-              >
-                <Undo2 className="mr-1 inline h-3.5 w-3.5" />
-                Rollback
-              </button>
-            </div>
-          </motion.section>
-        ))}
+                <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/65">
+                  {item.status}
+                </span>
+              </div>
+              {item.closed && (
+                <div className="mt-3 rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-2 text-xs text-green-300">
+                  Final readiness closed at {item.closedAt ?? "recorded time"}.
+                  Release decisions are locked.
+                </div>
+              )}
+              <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
+                {item.gates.map((gate) => (
+                  <div
+                    key={gate.id}
+                    className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-medium text-white">
+                          {gate.name}
+                        </div>
+                        <div className="mt-1 text-xs text-white/30">
+                          {gate.updatedAt}
+                        </div>
+                      </div>
+                      <span
+                        className={`rounded-full border px-2.5 py-1 text-[11px] ${statusClass[gate.status]}`}
+                      >
+                        {gate.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  disabled={
+                    actingId !== null ||
+                    item.closed ||
+                    !canApprove ||
+                    approvalGate?.status === "passed"
+                  }
+                  onClick={() => void act(item.id, "approve")}
+                  className="rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-2 text-xs text-green-300 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />
+                  Approve release
+                </button>
+                <button
+                  disabled={
+                    actingId !== null ||
+                    item.closed ||
+                    approvalGate?.status === "rejected"
+                  }
+                  onClick={() => void act(item.id, "reject")}
+                  className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <CircleAlert className="mr-1 inline h-3.5 w-3.5" />
+                  Reject
+                </button>
+              </div>
+            </motion.section>
+          );
+        })}
       </div>
     </div>
   );

@@ -1,22 +1,29 @@
+"""Production runtime readiness derived from live backend dependencies."""
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Literal
+import os
+from datetime import UTC, datetime
+from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException
+from app.api.owner.control_plane import _health_items, _run_audited_mutation
+from app.core.auth import UserRecord, require_super_owner
+from app.db.base import get_db
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
-router = APIRouter(prefix="/owner/production-runtime", tags=["owner-production-runtime"])
-
-RuntimeStatus = Literal["ready", "degraded", "blocked"]
-RuntimeAction = Literal["validate", "synchronize", "prepare"]
+router = APIRouter(
+    prefix="/owner/production-runtime",
+    tags=["owner-production-runtime"],
+)
 
 
 class RuntimeTarget(BaseModel):
     id: str
     name: str
     category: str
-    status: RuntimeStatus
+    status: Literal["ready", "degraded", "blocked"]
     readiness: int = Field(ge=0, le=100)
     details: str
     last_checked_at: str
@@ -32,67 +39,86 @@ class RuntimeSnapshot(BaseModel):
 
 class RuntimeCommand(BaseModel):
     target_id: str
-    action: RuntimeAction
+    action: Literal["validate"]
 
 
-def _snapshot() -> RuntimeSnapshot:
-    now = datetime.now(timezone.utc).isoformat()
+async def _snapshot(session: AsyncSession) -> RuntimeSnapshot:
+    health = await _health_items(session)
+    now = datetime.now(UTC).isoformat()
     targets = [
         RuntimeTarget(
-            id="web-runtime",
-            name="Web Application Runtime",
-            category="frontend",
-            status="ready",
-            readiness=100,
-            details="Production frontend is configured to use environment-provided API origins and secure runtime headers.",
+            id=item["id"],
+            name=item["name"],
+            category="runtime",
+            status=(
+                "ready"
+                if item["status"] == "healthy"
+                else (
+                    "degraded"
+                    if item["status"] in {"degraded", "warning"}
+                    else "blocked"
+                )
+            ),
+            readiness=(
+                100
+                if item["status"] == "healthy"
+                else 60 if item["status"] in {"degraded", "warning"} else 0
+            ),
+            details=item["detail"],
             last_checked_at=now,
-        ),
-        RuntimeTarget(
-            id="api-runtime",
-            name="Owner API Runtime",
-            category="backend",
-            status="ready",
-            readiness=100,
-            details="Owner APIs expose health-aware production endpoints and do not require source changes during deployment.",
-            last_checked_at=now,
-        ),
-        RuntimeTarget(
-            id="domain-runtime",
-            name="Domain and TLS Runtime",
-            category="edge",
-            status="ready",
-            readiness=100,
-            details="Runtime templates are prepared for ai.vip-e.net and api.ai.vip-e.net with TLS termination handled at deployment.",
-            last_checked_at=now,
-        ),
-        RuntimeTarget(
-            id="configuration-runtime",
-            name="Environment Configuration",
-            category="configuration",
-            status="ready",
-            readiness=100,
-            details="Production values are injected through environment files or secret stores without modifying repository code.",
-            last_checked_at=now,
-        ),
+        )
+        for item in health
     ]
-    completion = round(sum(item.readiness for item in targets) / len(targets))
+    completion = round(sum(item.readiness for item in targets) / max(1, len(targets)))
     return RuntimeSnapshot(
         generated_at=now,
         completion=completion,
-        public_origin="https://ai.vip-e.net",
-        api_origin="https://api.ai.vip-e.net",
+        public_origin=os.getenv("AIOS_PUBLIC_ORIGIN", "Not configured"),
+        api_origin=os.getenv("AIOS_API_ORIGIN", "Not configured"),
         targets=targets,
     )
 
 
 @router.get("", response_model=RuntimeSnapshot)
-def get_runtime_snapshot() -> RuntimeSnapshot:
-    return _snapshot()
+async def get_runtime_snapshot(
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+) -> RuntimeSnapshot:
+    return await _snapshot(session)
 
 
 @router.post("/command", response_model=RuntimeSnapshot)
-def run_runtime_command(command: RuntimeCommand) -> RuntimeSnapshot:
-    snapshot = _snapshot()
-    if not any(target.id == command.target_id for target in snapshot.targets):
-        raise HTTPException(status_code=404, detail="Production runtime target not found")
-    return snapshot
+async def run_runtime_command(
+    command: RuntimeCommand,
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+) -> RuntimeSnapshot:
+    async def validate(_audit: object) -> dict[str, Any]:
+        snapshot = await _snapshot(session)
+        if not any(target.id == command.target_id for target in snapshot.targets):
+            raise HTTPException(
+                status_code=404,
+                detail="Production runtime target not found",
+            )
+        target = next(item for item in snapshot.targets if item.id == command.target_id)
+        if target.status != "ready":
+            raise HTTPException(
+                status_code=503,
+                detail=f"{target.name} is not production ready",
+            )
+        return {
+            "health_rechecked": True,
+            "status": target.status,
+            "readiness": target.readiness,
+        }
+
+    await _run_audited_mutation(
+        session,
+        actor=actor,
+        domain="production-runtime",
+        resource_id=command.target_id,
+        action=command.action,
+        request=command.model_dump(mode="json"),
+        mutation=validate,
+    )
+    return await _snapshot(session)

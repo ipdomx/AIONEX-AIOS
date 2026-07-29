@@ -6,6 +6,9 @@ from typing import Optional
 
 from app.core.ai_runtime import ai_runtime
 from app.core.auth import UserRecord, current_user
+from app.core.owner_policy import require_owner_service_allowed
+from app.db.base import get_db
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 
@@ -26,7 +29,9 @@ async def list_providers(user: UserRecord = Depends(current_user)):
 
 
 @router.post("", status_code=201)
-async def create_provider(data: ProviderCreate, user: UserRecord = Depends(current_user)):
+async def create_provider(
+    data: ProviderCreate, user: UserRecord = Depends(current_user)
+):
     payload = data.model_dump(exclude={"organization_id"})
     return ai_runtime.create_provider(payload, user.organization_id)
 
@@ -47,10 +52,19 @@ async def delete_provider(provider_id: str, user: UserRecord = Depends(current_u
 
 
 @router.post("/{provider_id}/test")
-async def test_provider(provider_id: str, user: UserRecord = Depends(current_user)):
+async def test_provider(
+    provider_id: str,
+    user: UserRecord = Depends(current_user),
+    session: AsyncSession = Depends(get_db),
+):
     provider = ai_runtime.get_provider(provider_id, user.organization_id)
+    await require_owner_service_allowed(session, provider.type)
     return {
         "status": "success" if provider.enabled else "disabled",
         "latency_ms": provider.latency,
-        "message": "Provider configuration is available" if provider.enabled else "Provider is disabled",
+        "message": (
+            "Provider configuration is available"
+            if provider.enabled
+            else "Provider is disabled"
+        ),
     }

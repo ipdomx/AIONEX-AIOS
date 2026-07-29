@@ -16,6 +16,7 @@ eggs/
 .eggs/
 lib/
 lib64/
+!web-dashboard/frontend/src/lib/
 parts/
 sdist/
 var/
@@ -25,6 +26,12 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
+# Node / Next.js generated artifacts
+node_modules/
+.next/
+*.tsbuildinfo
+next-env.d.ts
 
 # PyInstaller
 #   Usually these files are written by a python script from a template
@@ -149,6 +156,9 @@ activemq-data/
 
 # Environments
 .env
+.env.*
+!.env.example
+!.env.*.example
 .envrc
 .venv
 env/
@@ -205,6 +215,11 @@ tempCodeRunnerFile.py
 
 # Ruff stuff:
 .ruff_cache/
+pytest-of-root/
+deploy/production/backups/
+web-dashboard/backend/pip-*/
+web-dashboard/backend/*.db
+web-dashboard/backend/*.db-journal
 
 # PyPI configuration file
 .pypirc

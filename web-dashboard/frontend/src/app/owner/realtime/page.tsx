@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Activity,
@@ -21,42 +21,58 @@ const emptySnapshot: OwnerRealtimeSnapshot = {
   events: [],
 };
 
-const statusClass: Record<"healthy" | "warning" | "critical", string> = {
+const statusClass: Record<
+  "healthy" | "warning" | "critical" | "unknown",
+  string
+> = {
   healthy: "border-green-500/20 bg-green-500/10 text-green-300",
   warning: "border-orange-500/20 bg-orange-500/10 text-orange-300",
   critical: "border-red-500/20 bg-red-500/10 text-red-300",
+  unknown: "border-white/10 bg-white/[0.03] text-white/45",
 };
 
 export default function OwnerRealtimePage() {
   const [snapshot, setSnapshot] = useState(emptySnapshot);
   const [loading, setLoading] = useState(true);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const [message, setMessage] = useState(
-    "Connecting to owner realtime data...",
+    "Connecting to auto-refreshed owner data...",
   );
+  const requestInFlight = useRef(false);
 
-  async function load(signal?: AbortSignal) {
+  const load = useCallback(async (signal?: AbortSignal) => {
+    if (requestInFlight.current) return;
+    requestInFlight.current = true;
     setLoading(true);
     try {
       const data = await fetchOwnerRealtimeSnapshot(signal);
       setSnapshot(data);
-      setMessage(
-        `Realtime synchronized at ${new Date(data.generatedAt).toLocaleTimeString()}.`,
-      );
+      setLastUpdatedAt(new Date().toISOString());
+      setMessage("Auto-refresh is active every 15 seconds.");
     } catch (error) {
       if (!(error instanceof DOMException && error.name === "AbortError")) {
-        setSnapshot(emptySnapshot);
-        setMessage("Realtime Owner backend contract is not available.");
+        setMessage(
+          "Auto-refresh failed; the last successful snapshot remains visible.",
+        );
       }
     } finally {
+      requestInFlight.current = false;
       if (!signal?.aborted) setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
     void load(controller.signal);
-    return () => controller.abort();
-  }, []);
+    const intervalId = window.setInterval(
+      () => void load(controller.signal),
+      15_000,
+    );
+    return () => {
+      window.clearInterval(intervalId);
+      controller.abort();
+    };
+  }, [load]);
 
   const summary = useMemo(
     () => ({
@@ -67,6 +83,8 @@ export default function OwnerRealtimePage() {
       critical: snapshot.metrics.filter(
         (metric) => metric.status === "critical",
       ).length,
+      unknown: snapshot.metrics.filter((metric) => metric.status === "unknown")
+        .length,
     }),
     [snapshot],
   );
@@ -79,6 +97,7 @@ export default function OwnerRealtimePage() {
     { label: "Healthy", value: summary.healthy, Icon: ShieldCheck },
     { label: "Warnings", value: summary.warning, Icon: AlertTriangle },
     { label: "Critical", value: summary.critical, Icon: Server },
+    { label: "Unknown", value: summary.unknown, Icon: Activity },
   ];
 
   return (
@@ -93,11 +112,11 @@ export default function OwnerRealtimePage() {
             <RadioTower className="h-3.5 w-3.5" /> Owner Realtime Control
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
-            Live Runtime Monitoring
+            Auto-Refreshed Owner Monitoring
           </h1>
           <p className="mt-2 text-sm text-white/45">
-            Continuous owner visibility into workers, queues, latency, errors
-            and critical runtime events.
+            Backend metric samples and owner audit events refreshed every 15
+            seconds.
           </p>
         </div>
         <button
@@ -110,7 +129,7 @@ export default function OwnerRealtimePage() {
         </button>
       </motion.div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         {cards.map(({ label, value, Icon }) => (
           <div key={label} className="glass-card p-5">
             <Icon className="h-5 w-5 text-electric-300" />
@@ -122,7 +141,10 @@ export default function OwnerRealtimePage() {
 
       <div className="glass-card p-4 text-xs text-electric-300">
         <Activity className="mr-2 inline h-3.5 w-3.5" />
-        {message}
+        {message}{" "}
+        {lastUpdatedAt
+          ? `Last successful refresh: ${new Date(lastUpdatedAt).toLocaleTimeString()}.`
+          : "No successful snapshot yet."}
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -160,7 +182,9 @@ export default function OwnerRealtimePage() {
       </div>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-white">Live events</h2>
+        <h2 className="text-sm font-semibold text-white">
+          Recent owner audit events
+        </h2>
         {snapshot.events.map((event) => (
           <div
             key={event.id}

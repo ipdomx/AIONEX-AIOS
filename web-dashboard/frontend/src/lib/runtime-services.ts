@@ -16,6 +16,17 @@ export interface ProjectSummary {
   created_at: string;
 }
 
+export interface WorkspaceSummary {
+  id: string;
+  name: string;
+  slug: string;
+  organization_id: string;
+  description?: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface TaskSummary {
   id: string;
   title: string;
@@ -154,25 +165,43 @@ export interface IntegrationHealth {
 }
 
 export const runtimeServices = {
+  listWorkspaces() {
+    return apiClient.get<WorkspaceSummary[]>("/workspaces");
+  },
   listProjects(params?: { status?: string; search?: string; limit?: number }) {
     return apiClient.get<ProjectSummary[]>("/projects", { params });
   },
   createProject(data: Record<string, unknown>) {
     return apiClient.post<ProjectSummary>("/projects", data);
   },
-  listTasks(params?: { status?: string; project_id?: string; search?: string; limit?: number }) {
+  listTasks(params?: {
+    status?: string;
+    project_id?: string;
+    search?: string;
+    limit?: number;
+  }) {
     return apiClient.get<TaskSummary[]>("/tasks", { params });
   },
-  listWorkflows(params?: { status?: string; project_id?: string; limit?: number }) {
+  listWorkflows(params?: {
+    status?: string;
+    project_id?: string;
+    limit?: number;
+  }) {
     return apiClient.get<WorkflowSummary[]>("/workflows", { params });
   },
   createWorkflow(data: Record<string, unknown>) {
     return apiClient.post<WorkflowSummary>("/workflows", data);
   },
   runWorkflow(workflowId: string) {
-    return apiClient.post<{ run_id: string; status: string }>(`/workflows/${workflowId}/run`);
+    return apiClient.post<{ run_id: string; status: string }>(
+      `/workflows/${workflowId}/run`,
+    );
   },
-  listMeetings(params?: { status?: string; project_id?: string; limit?: number }) {
+  listMeetings(params?: {
+    status?: string;
+    project_id?: string;
+    limit?: number;
+  }) {
     return apiClient.get<MeetingSummary[]>("/meetings", { params });
   },
   createMeeting(data: Record<string, unknown>) {
@@ -181,14 +210,22 @@ export const runtimeServices = {
   listReports(params?: { type?: string; project_id?: string; limit?: number }) {
     return apiClient.get<ReportSummary[]>("/reports", { params });
   },
-  listAgents(params?: { status?: string; provider?: string; role?: string; search?: string; limit?: number }) {
+  listAgents(params?: {
+    status?: string;
+    provider?: string;
+    role?: string;
+    search?: string;
+    limit?: number;
+  }) {
     return apiClient.get<AgentSummary[]>("/ai/agents", { params });
   },
   createAgent(data: Record<string, unknown>) {
     return apiClient.post<AgentSummary>("/ai/agents", data);
   },
   executeAgent(agentId: string, prompt: string) {
-    return apiClient.post<JobSummary>(`/ai/agents/${agentId}/execute`, { prompt });
+    return apiClient.post<JobSummary>(`/ai/agents/${agentId}/execute`, {
+      prompt,
+    });
   },
   listProviders() {
     return apiClient.get<ProviderSummary[]>("/ai/providers");
@@ -197,22 +234,37 @@ export const runtimeServices = {
     return apiClient.post<ProviderSummary>("/ai/providers", data);
   },
   testProvider(providerId: string) {
-    return apiClient.post<{ status: string; latency_ms: number; message: string }>(`/ai/providers/${providerId}/test`);
+    return apiClient.post<{
+      status: string;
+      latency_ms: number;
+      message: string;
+    }>(`/ai/providers/${providerId}/test`);
   },
   listNotifications(unreadOnly = false) {
-    return apiClient.get<NotificationSummary[]>("/notifications", { params: { unread_only: unreadOnly } });
+    return apiClient.get<NotificationSummary[]>("/notifications", {
+      params: { unread_only: unreadOnly },
+    });
   },
   markNotification(notificationId: string, read = true) {
-    return apiClient.request<NotificationSummary>({ method: "PATCH", url: `/notifications/${notificationId}`, data: { read } });
+    return apiClient.request<NotificationSummary>({
+      method: "PATCH",
+      url: `/notifications/${notificationId}`,
+      data: { read },
+    });
   },
   dashboardStats() {
     return apiClient.get<DashboardStats>("/dashboard/stats");
   },
   dashboardActivity(limit = 20) {
-    return apiClient.get<Array<Record<string, unknown>>>("/dashboard/activity", { params: { limit } });
+    return apiClient.get<Array<Record<string, unknown>>>(
+      "/dashboard/activity",
+      { params: { limit } },
+    );
   },
   dashboardCharts() {
-    return apiClient.get<Record<string, { labels: string[]; data: number[] }>>("/dashboard/charts");
+    return apiClient.get<Record<string, { labels: string[]; data: number[] }>>(
+      "/dashboard/charts",
+    );
   },
   integrationStatus() {
     return apiClient.get<IntegrationStatus>("/integration/status");

@@ -104,14 +104,15 @@ export default function OwnerNotificationRuntimePage() {
       >
         <div>
           <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs font-medium text-electric-300">
-            <Bell className="h-3.5 w-3.5" /> Owner Notification Runtime
+            <Bell className="h-3.5 w-3.5" /> Owner Notification Registry
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
-            Notification Rules & Delivery
+            Notification Routing Rules
           </h1>
           <p className="mt-2 text-sm text-white/45">
-            Owner control for project, incident and clarification notifications
-            across in-app, email, push and WhatsApp.
+            Persist routing declarations for project, incident and clarification
+            events. A channel delivers only when its provider and event consumer
+            are connected.
           </p>
         </div>
         <button
@@ -162,7 +163,7 @@ export default function OwnerNotificationRuntimePage() {
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               {item.channels.map((channel) => {
-                const Icon = channelIcon[channel];
+                const Icon = channelIcon[channel] ?? Bell;
                 return (
                   <span
                     key={channel}

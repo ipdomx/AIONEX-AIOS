@@ -1,17 +1,28 @@
-"""Owner Dashboard navigation, API registration, and authorization contracts."""
+"""Owner Dashboard navigation, API, persistence, and authorization contracts."""
 
 from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Any, Iterator
+from uuid import uuid4
 
 import pytest
+from app.api.owner.control_plane import ORGANIZATION_PLANS
+from app.api.v1.router import api_router
+from app.core.auth import UserRecord, current_user, require_super_owner
+from app.db.base import SessionLocal
+from app.db.models import (
+    AuditEvent,
+    Organization,
+    OwnerCommandRecord,
+    OwnerControlRecord,
+)
+from app.db.seed import seed
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from httpx import ASGITransport, AsyncClient
-
-from app.api.v1.router import api_router
-from app.core.auth import UserRecord, current_user, require_super_owner
+from sqlalchemy import select
 
 WEB_DASHBOARD = Path(__file__).resolve().parents[2]
 FRONTEND = WEB_DASHBOARD / "frontend"
@@ -29,11 +40,113 @@ OWNER_API_CONTRACT = {
     ("POST", "/api/v1/owner/production-runtime/command"),
     ("GET", "/api/v1/owner/final-platform-integration"),
     ("POST", "/api/v1/owner/final-platform-integration/command"),
+    ("GET", "/api/v1/owner/resources/{domain}"),
+    ("POST", "/api/v1/owner/resources/{domain}"),
+    (
+        "POST",
+        "/api/v1/owner/resources/{domain}/{resource_id}/actions",
+    ),
+    ("POST", "/api/v1/owner/operations"),
+    ("GET", "/api/v1/owner/runtime"),
+    ("GET", "/api/v1/owner/executive"),
+    ("GET", "/api/v1/owner/realtime"),
+    ("GET", "/api/v1/owner/timeline"),
+    ("GET", "/api/v1/owner/approvals"),
+    ("PATCH", "/api/v1/owner/approvals/{approval_id}"),
+    ("GET", "/api/v1/owner/compliance-controls"),
+    (
+        "POST",
+        "/api/v1/owner/compliance-controls/{control_id}/attest",
+    ),
+    ("GET", "/api/v1/owner/notification-rules"),
+    ("PATCH", "/api/v1/owner/notification-rules/{rule_id}"),
+    ("GET", "/api/v1/owner/licenses"),
+    ("PATCH", "/api/v1/owner/licenses/{license_id}"),
+    ("GET", "/api/v1/owner/releases"),
+    ("POST", "/api/v1/owner/releases/{candidate_id}/decision"),
+    ("GET", "/api/v1/owner/finalization"),
 }
 
 OWNER_GET_ROUTES = sorted(
     path for method, path in OWNER_API_CONTRACT if method == "GET"
 )
+OWNER_MUTATION_REQUESTS = {
+    ("POST", "/api/v1/owner/platform-integration/command"): {
+        "action": "validate",
+        "target_id": "missing-target",
+    },
+    ("POST", "/api/v1/owner/operations-integration/{target_id}/command"): {
+        "action": "validate",
+    },
+    ("POST", "/api/v1/owner/security-integration/{target_id}/command"): {
+        "action": "validate",
+    },
+    ("POST", "/api/v1/owner/production-runtime/command"): {
+        "target_id": "missing-target",
+        "action": "validate",
+    },
+    ("POST", "/api/v1/owner/final-platform-integration/command"): {
+        "target_id": "missing-target",
+        "action": "validate",
+    },
+    ("POST", "/api/v1/owner/resources/{domain}"): {
+        "id": "missing-resource",
+        "payload": {"name": "Missing resource"},
+    },
+    (
+        "POST",
+        "/api/v1/owner/resources/{domain}/{resource_id}/actions",
+    ): {
+        "action": "toggle",
+        "payload": {},
+    },
+    ("POST", "/api/v1/owner/operations"): {
+        "entity": "organization",
+        "operation": "create",
+        "payload": {"name": "Missing organization"},
+    },
+    ("PATCH", "/api/v1/owner/approvals/{approval_id}"): {
+        "status": "approved",
+        "reason": "",
+    },
+    (
+        "POST",
+        "/api/v1/owner/compliance-controls/{control_id}/attest",
+    ): None,
+    ("PATCH", "/api/v1/owner/notification-rules/{rule_id}"): {
+        "enabled": True,
+    },
+    ("PATCH", "/api/v1/owner/licenses/{license_id}"): {
+        "action": "suspend",
+    },
+    ("POST", "/api/v1/owner/releases/{candidate_id}/decision"): {
+        "decision": "approve",
+        "note": "",
+    },
+}
+
+NON_DATA_OWNER_PAGES = {"completion", "search"}
+OWNER_DATA_SOURCE_MARKERS = (
+    "@/hooks/use-owner-resource",
+    "@/lib/owner-",
+)
+CLIENT_CALL_PATTERN = re.compile(
+    r"apiClient\.(get|post|put|patch|delete)" r"(?:<.*?>)?\(\s*([`\"'])(.*?)\2",
+    re.DOTALL,
+)
+INITIAL_ARRAY_PATTERN = re.compile(
+    r"\b(?:const|let)\s+initial[A-Za-z0-9_]*" r"\s*(?::[^=]+)?=\s*\[",
+    re.DOTALL,
+)
+TOP_LEVEL_OBJECT_ARRAY_PATTERN = re.compile(
+    r"^const\s+([A-Za-z][A-Za-z0-9_]*)" r"\s*(?::[^=]+)?=\s*\[\s*\{",
+    re.MULTILINE,
+)
+STATIC_CONFIGURATION_ARRAY_NAMES = {
+    "entities",
+    "summaryCards",
+}
+BUTTON_PATTERN = re.compile(r"<button\b(?P<attributes>[^>]*)>", re.DOTALL)
 
 
 def _test_app() -> FastAPI:
@@ -42,18 +155,83 @@ def _test_app() -> FastAPI:
     return app
 
 
-def _user(role: str) -> UserRecord:
+def _user(
+    role: str,
+    *,
+    user_id: str | None = None,
+    organization_id: str = "org-1",
+) -> UserRecord:
     return UserRecord(
-        id=f"{role.lower().replace(' ', '-')}-id",
+        id=user_id or f"{role.lower().replace(' ', '-')}-id",
         email=f"{role.lower().replace(' ', '-')}@example.com",
         name=role,
         role=role,
         password_hash="unused",
-        organization_id="org-1",
+        organization_id=organization_id,
         organization_name="Example",
         organization_plan="enterprise",
         permissions=["*"],
     )
+
+
+def _effective_api_routes(app: FastAPI) -> Iterator[Any]:
+    """Yield API routes across old and lazy-inclusion FastAPI releases."""
+    for candidate in app.routes:
+        route_contexts = getattr(candidate, "effective_route_contexts", None)
+        if callable(route_contexts):
+            yield from (
+                route
+                for route in route_contexts()
+                if getattr(route, "dependant", None) is not None
+            )
+        elif isinstance(candidate, APIRoute):
+            yield candidate
+
+
+def _owner_routes(app: FastAPI) -> set[tuple[str, str]]:
+    return {
+        (method, route.path)
+        for route in _effective_api_routes(app)
+        if route.path.startswith("/api/v1/owner/")
+        for method in route.methods
+        if method in {"GET", "POST", "PATCH", "PUT", "DELETE"}
+    }
+
+
+def _materialize_route(path: str) -> str:
+    values = {
+        "domain": "services",
+        "target_id": "missing-target",
+        "resource_id": "missing-resource",
+        "approval_id": "missing-approval",
+        "control_id": "missing-control",
+        "rule_id": "missing-rule",
+        "license_id": "missing-license",
+        "candidate_id": "missing-release",
+    }
+    return re.sub(
+        r"\{([^}]+)\}",
+        lambda match: values.get(match.group(1), "missing"),
+        path,
+    )
+
+
+def _path_shape(path: str) -> str:
+    without_prefix = path.removeprefix("/api/v1")
+    without_templates = re.sub(r"\$\{[^}]+\}", "{}", without_prefix)
+    return re.sub(r"\{[^}]+\}", "{}", without_templates)
+
+
+def _client_api_calls() -> dict[str, set[tuple[str, str]]]:
+    calls: dict[str, set[tuple[str, str]]] = {}
+    for client in sorted(OWNER_CLIENTS.glob("owner-*.ts")):
+        matches = {
+            (match.group(1).upper(), _path_shape(match.group(3)))
+            for match in CLIENT_CALL_PATTERN.finditer(client.read_text())
+        }
+        assert matches, f"{client.name} does not call the authenticated API client"
+        calls[client.name] = matches
+    return calls
 
 
 def test_owner_navigation_registry_matches_all_owner_pages() -> None:
@@ -107,26 +285,125 @@ def test_all_literal_owner_links_resolve_and_use_the_registry() -> None:
     )
 
 
-def test_owner_api_contract_is_exact_and_protected() -> None:
-    app = _test_app()
-    routes = {
-        (method, route.path)
-        for route in app.routes
-        if isinstance(route, APIRoute) and route.path.startswith("/api/v1/owner/")
-        for method in route.methods
-        if method in {"GET", "POST", "PATCH", "PUT", "DELETE"}
-    }
-    assert routes == OWNER_API_CONTRACT
+def test_super_owner_sidebar_exposes_only_production_ready_owner_routes() -> None:
+    sidebar = (FRONTEND / "src" / "components" / "layout" / "Sidebar.tsx").read_text()
+    assert "...baseMainNavSections" not in sidebar
+    assert "ownerNavigationSections.map" in sidebar
 
-    for route in app.routes:
-        if not isinstance(route, APIRoute) or not route.path.startswith(
-            "/api/v1/owner/"
-        ):
+
+def test_super_owner_search_surfaces_exclude_legacy_placeholder_routes() -> None:
+    command_palette = (
+        FRONTEND / "src" / "components" / "layout" / "CommandPalette.tsx"
+    ).read_text()
+    global_search = (
+        FRONTEND / "src" / "components" / "search" / "GlobalSearch.tsx"
+    ).read_text()
+
+    assert "...navigationCommands," not in command_palette
+    assert "...platformPages," not in global_search
+    assert 'command.href === "/settings"' in command_palette
+    assert 'page.url === "/settings"' in global_search
+    assert "...ownerUtilityCommands" in command_palette
+    assert "...ownerUtilityPages" in global_search
+
+
+def test_every_owner_data_page_uses_a_live_client_without_mock_arrays() -> None:
+    failures: list[str] = []
+    for page in sorted(OWNER_APP.glob("*/page.tsx")):
+        route = page.parent.name
+        if route in NON_DATA_OWNER_PAGES:
+            continue
+        source = page.read_text()
+        if not any(marker in source for marker in OWNER_DATA_SOURCE_MARKERS):
+            failures.append(f"{route}: no Owner API client or resource hook")
+        if INITIAL_ARRAY_PATTERN.search(source):
+            failures.append(f"{route}: initial mock array remains")
+        unexpected_top_level_arrays = sorted(
+            set(TOP_LEVEL_OBJECT_ARRAY_PATTERN.findall(source))
+            - STATIC_CONFIGURATION_ARRAY_NAMES
+        )
+        if unexpected_top_level_arrays:
+            failures.append(
+                f"{route}: top-level mock data arrays remain: "
+                f"{', '.join(unexpected_top_level_arrays)}"
+            )
+        lowered = source.lower()
+        if "this page is under development" in lowered:
+            failures.append(f"{route}: placeholder text remains")
+
+    assert not failures, "\n".join(failures)
+
+
+def test_every_owner_button_has_an_explicit_handler() -> None:
+    failures: list[str] = []
+    for page in sorted(OWNER_APP.glob("*/page.tsx")):
+        source = page.read_text()
+        for match in BUTTON_PATTERN.finditer(source):
+            attributes = match.group("attributes")
+            interactive = (
+                re.search(r"\bonClick\s*=", attributes) is not None
+                or re.search(r"\btype\s*=\s*[\"']submit[\"']", attributes) is not None
+                or re.search(r"\bformAction\s*=", attributes) is not None
+            )
+            if interactive:
+                continue
+            line = source.count("\n", 0, match.start()) + 1
+            failures.append(f"{page.parent.name}:{line}")
+
+    assert not failures, "Owner buttons without handlers: " + ", ".join(failures)
+
+
+def test_billing_selector_matches_the_backend_plan_contract() -> None:
+    billing_page = (OWNER_APP / "billing" / "page.tsx").read_text()
+    declaration = re.search(
+        r"const supportedPlans = \[(?P<plans>.*?)\] as const;",
+        billing_page,
+        re.DOTALL,
+    )
+    assert declaration is not None
+    frontend_plans = {
+        plan.casefold() for plan in re.findall(r'"([^"]+)"', declaration.group("plans"))
+    }
+
+    assert frontend_plans == ORGANIZATION_PLANS
+    assert "supportedPlans.map" in billing_page
+
+
+def test_owner_api_contract_is_complete_and_protected() -> None:
+    app = _test_app()
+    assert _owner_routes(app) == OWNER_API_CONTRACT
+    assert set(OWNER_MUTATION_REQUESTS) == {
+        route for route in OWNER_API_CONTRACT if route[0] != "GET"
+    }
+
+    for route in _effective_api_routes(app):
+        if not route.path.startswith("/api/v1/owner/"):
             continue
         assert any(
             dependency.call is require_super_owner
             for dependency in route.dependant.dependencies
         ), route.path
+
+
+def test_every_owner_client_call_matches_a_registered_api_route() -> None:
+    registered = {(method, _path_shape(path)) for method, path in OWNER_API_CONTRACT}
+    calls_by_client = _client_api_calls()
+    client_calls = set().union(*calls_by_client.values())
+
+    unexpected = client_calls - registered
+    uncovered = registered - client_calls
+    assert (
+        not unexpected
+    ), f"Owner clients call unregistered routes: {sorted(unexpected)}"
+    assert not uncovered, f"Owner routes have no frontend client: {sorted(uncovered)}"
+
+    combined = "\n".join(
+        client.read_text() for client in sorted(OWNER_CLIENTS.glob("owner-*.ts"))
+    )
+    assert "fetch(" not in combined
+    assert "/api/owner" not in combined
+    assert "localhost:8000/owner" not in combined
+    assert "fallback" not in combined.lower()
 
 
 @pytest.mark.asyncio
@@ -137,7 +414,17 @@ async def test_owner_api_rejects_anonymous_requests() -> None:
         base_url="http://test",
     ) as client:
         for path in OWNER_GET_ROUTES:
-            assert (await client.get(path)).status_code == 401
+            response = await client.get(_materialize_route(path))
+            assert response.status_code == 401, (path, response.text)
+
+        for (method, path), payload in OWNER_MUTATION_REQUESTS.items():
+            request_kwargs = {} if payload is None else {"json": payload}
+            response = await client.request(
+                method,
+                _materialize_route(path),
+                **request_kwargs,
+            )
+            assert response.status_code == 401, (method, path, response.text)
 
 
 @pytest.mark.asyncio
@@ -150,65 +437,110 @@ async def test_owner_api_rejects_non_global_roles_even_with_wildcard(role: str) 
         base_url="http://test",
     ) as client:
         for path in OWNER_GET_ROUTES:
-            assert (await client.get(path)).status_code == 403
+            response = await client.get(_materialize_route(path))
+            assert response.status_code == 403, (path, response.text)
+
+        for (method, path), payload in OWNER_MUTATION_REQUESTS.items():
+            request_kwargs = {} if payload is None else {"json": payload}
+            response = await client.request(
+                method,
+                _materialize_route(path),
+                **request_kwargs,
+            )
+            assert response.status_code == 403, (method, path, response.text)
 
 
 @pytest.mark.asyncio
-async def test_owner_api_accepts_exact_super_owner_role() -> None:
+async def test_owner_mutations_persist_and_create_audit_records() -> None:
+    await seed()
     app = _test_app()
-    app.dependency_overrides[current_user] = lambda: _user("Super Owner")
+    app.dependency_overrides[current_user] = lambda: _user(
+        "Super Owner",
+        user_id="owner-1",
+        organization_id="aionex-org",
+    )
+    policy_id = f"ci-policy-{uuid4().hex}"
+    organization_slug = f"ci-owner-{uuid4().hex}"
+
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
     ) as client:
-        for path in OWNER_GET_ROUTES:
-            response = await client.get(path)
-            assert response.status_code == 200, (path, response.text)
-
-        response = await client.post(
-            "/api/v1/owner/production-runtime/command",
-            json={"target_id": "missing-target", "action": "validate"},
+        created = await client.post(
+            "/api/v1/owner/resources/policies",
+            json={
+                "id": policy_id,
+                "payload": {
+                    "name": "CI persisted policy",
+                    "scope": "global",
+                    "status": "draft",
+                    "enforcement": "mandatory",
+                },
+            },
         )
-        assert response.status_code == 404
+        assert created.status_code == 201, created.text
+        assert any(item["id"] == policy_id for item in created.json()["items"])
 
+        paused = await client.post(
+            f"/api/v1/owner/resources/policies/{policy_id}/actions",
+            json={"action": "pause", "payload": {}},
+        )
+        assert paused.status_code == 200, paused.text
+        policy = next(
+            item for item in paused.json()["items"] if item["id"] == policy_id
+        )
+        assert policy["status"] == "paused"
+        assert policy["enabled"] is False
 
-def test_owner_clients_are_authenticated_and_do_not_fabricate_fallbacks() -> None:
-    clients = sorted(OWNER_CLIENTS.glob("owner-*.ts"))
-    assert len(clients) == 16
+        operation = await client.post(
+            "/api/v1/owner/operations",
+            json={
+                "entity": "organization",
+                "operation": "create",
+                "payload": {
+                    "name": "CI Owner Organization",
+                    "slug": organization_slug,
+                    "plan": "enterprise",
+                },
+            },
+        )
+        assert operation.status_code == 200, operation.text
+        assert operation.json()["ok"] is True
 
-    combined = "\n".join(client.read_text() for client in clients)
-    assert "fetch(" not in combined
-    assert "/api/owner" not in combined
-    assert "localhost:8000/owner" not in combined
-    assert "fallback" not in combined.lower()
+    async with SessionLocal() as session:
+        persisted_policy = await session.scalar(
+            select(OwnerControlRecord).where(
+                OwnerControlRecord.domain == "policies",
+                OwnerControlRecord.resource_id == policy_id,
+            )
+        )
+        assert persisted_policy is not None
+        assert persisted_policy.status == "paused"
+        assert persisted_policy.enabled is False
 
-    live_clients = {
-        "owner-platform-integration.ts": (
-            "/owner/platform-integration/snapshot",
-            "/owner/platform-integration/command",
-        ),
-        "owner-operations-integration.ts": (
-            "/owner/operations-integration",
-            "/owner/operations-integration/${encodeURIComponent(targetId)}/command",
-        ),
-        "owner-security-integration.ts": (
-            "/owner/security-integration",
-            "/owner/security-integration/${encodeURIComponent(targetId)}/command",
-        ),
-        "owner-production-runtime.ts": (
-            "/owner/production-runtime",
-            "/owner/production-runtime/command",
-        ),
-        "owner-final-platform-integration.ts": (
-            "/owner/final-platform-integration",
-            "/owner/final-platform-integration/command",
-        ),
-    }
-    for filename, paths in live_clients.items():
-        text = (OWNER_CLIENTS / filename).read_text()
-        assert "apiClient." in text
-        for path in paths:
-            assert path in text
+        commands = (
+            await session.scalars(
+                select(OwnerCommandRecord).where(
+                    OwnerCommandRecord.resource_id == policy_id
+                )
+            )
+        ).all()
+        assert {command.action for command in commands} >= {"create", "pause"}
+        assert all(command.status == "completed" for command in commands)
+
+        audit = await session.scalar(
+            select(AuditEvent).where(
+                AuditEvent.action == "owner.policies.pause",
+                AuditEvent.resource_id == policy_id,
+            )
+        )
+        assert audit is not None
+
+        organization = await session.scalar(
+            select(Organization).where(Organization.slug == organization_slug)
+        )
+        assert organization is not None
+        assert organization.status == "active"
 
 
 def test_integration_registry_references_live_health_routes() -> None:
@@ -222,12 +554,5 @@ def test_integration_registry_references_live_health_routes() -> None:
     platform_contract = (
         WEB_DASHBOARD / "backend" / "app" / "api" / "owner" / "platform_integration.py"
     ).read_text()
-    for route in {
-        "/api/v1/integration/health",
-        "/api/v1/realtime/status",
-        "/api/v1/knowledge",
-        "/api/v1/ai/providers",
-        "/api/v1/notifications",
-    }:
-        assert route in platform_contract
-    assert "/api/runtime/" not in platform_contract
+    assert "_integration_items" in platform_contract
+    assert "_TARGETS" not in platform_contract

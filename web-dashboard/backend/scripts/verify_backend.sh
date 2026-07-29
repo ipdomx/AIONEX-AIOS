@@ -5,7 +5,18 @@ python -m compileall app main.py
 python - <<'PY'
 from main import app
 
-paths = {route.path for route in app.routes}
+paths = set()
+for route in app.routes:
+    effective_route_contexts = getattr(route, "effective_route_contexts", None)
+    if callable(effective_route_contexts):
+        paths.update(
+            context.path
+            for context in effective_route_contexts()
+            if getattr(context, "path", None)
+        )
+    elif getattr(route, "path", None):
+        paths.add(route.path)
+
 required = {
     "/health",
     "/ready",
