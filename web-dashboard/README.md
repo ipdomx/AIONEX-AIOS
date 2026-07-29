@@ -55,10 +55,13 @@ docker compose up -d
 open http://localhost:3000
 ```
 
-The bundled Compose stack uses the `POSTGRES_*` values for both PostgreSQL and
-the backend. Leave `DATABASE_URL` empty to let the backend construct a safely
-encoded asyncpg URL. Set `DATABASE_URL` only when connecting to an external
-database.
+New bundled Compose installations use the `POSTGRES_*` values for PostgreSQL
+and leave `DATABASE_URL` empty so the backend constructs a safely encoded
+asyncpg URL. Existing installations may keep an explicit `DATABASE_URL`;
+the backend and backup worker continue to honor it without requiring a manual
+environment-file migration. When that URL targets the bundled `postgres`
+service, its password takes precedence while the user and database must match
+`POSTGRES_*`.
 
 ### Existing PostgreSQL volume recovery
 
@@ -91,9 +94,18 @@ TLS terminator. Use `deploy/production` when Caddy-managed public TLS is
 required. The two stacks use separate Compose projects and must not be run
 interchangeably against a server's existing data.
 
-The script waits for PostgreSQL, updates the existing role to the configured
-password, verifies password authentication over TCP, recreates the backend, and
-waits for its health check. It never deletes the database volume.
+Compose automatically runs a one-shot credential reconciler before the backend.
+It accepts `POSTGRES_*` alone or a legacy `postgresql+asyncpg` `DATABASE_URL`.
+A URL targeting the bundled `postgres` service becomes the compatibility
+password source; its user and database must match `POSTGRES_*` to prevent
+split-brain operation. A valid external URL skips local reconciliation.
+Malformed bundled values and identity conflicts fail before changing the local
+role. The same gate is used by this recovery script, which stops the backup
+worker, updates only the existing role password through the private PostgreSQL
+socket, verifies password-authenticated TCP access, recreates the backend and
+backup worker, and waits for their health checks. It never deletes or recreates
+the database volume, never writes the environment file, and never places
+plaintext credentials in SQL or command arguments.
 
 On first startup the backend creates the configured Super Owner after Alembic
 finishes. Later restarts never reset that password. To perform an intentional

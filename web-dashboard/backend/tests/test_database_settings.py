@@ -117,15 +117,9 @@ done
 
 case "${1:-}" in
   config)
-    printf 'postgres\\nbackend\\n'
+    printf 'postgres\\npostgres-credential-reconciler\\nbackend\\n'
     if [[ "${HAS_BACKUP_WORKER:-false}" == "true" ]]; then
       printf 'backup-worker\\n'
-    fi
-    ;;
-  exec)
-    payload="$(cat || true)"
-    if [[ "$payload" == *"active_recovery_jobs"* ]]; then
-      printf '0\\n'
     fi
     ;;
   ps)
@@ -170,12 +164,15 @@ esac
     if env_file:
         expected_prefix += f"--env-file {(dashboard_root / env_file).resolve()} "
 
-    expected_call_count = 13 if compose_file else 9
+    expected_call_count = 10 if compose_file else 6
     assert len(wrapped_calls) == expected_call_count
     assert all(line.startswith(expected_prefix) for line in wrapped_calls)
     assert any(line.endswith("config --services") for line in wrapped_calls)
-    assert any(line.endswith("config --environment") for line in wrapped_calls)
     assert any(line.endswith("up -d --no-deps postgres") for line in wrapped_calls)
+    assert any(
+        line.endswith("run --rm --no-deps postgres-credential-reconciler")
+        for line in wrapped_calls
+    )
     assert any(
         line.endswith("up -d --force-recreate backend") for line in wrapped_calls
     )
@@ -195,8 +192,14 @@ esac
         assert not any("backup-worker" in line for line in wrapped_calls)
 
 
-def test_postgres_reconcile_refuses_running_job_and_restarts_worker(
+@pytest.mark.parametrize(
+    ("reconcile_exit_code", "ambiguous_mutation"),
+    [(1, False), (2, True)],
+)
+def test_postgres_reconcile_failure_restores_dependents_safely(
     tmp_path: Path,
+    reconcile_exit_code: int,
+    ambiguous_mutation: bool,
 ) -> None:
     dashboard_root = Path(__file__).resolve().parents[2]
     script = dashboard_root / "scripts" / "reconcile-postgres-credentials.sh"
@@ -217,13 +220,13 @@ while [[ "${1:-}" == "-f" || "${1:-}" == "--env-file" ]]; do
 done
 case "${1:-}" in
   config)
-    printf 'postgres\\nbackend\\nbackup-worker\\n'
+    printf 'postgres\\npostgres-credential-reconciler\\nbackend\\nbackup-worker\\n'
     ;;
-  exec)
-    payload="$(cat || true)"
-    if [[ "$payload" == *"active_recovery_jobs"* ]]; then
-      printf '1\\n'
-    fi
+  run)
+    printf '%s\\n' \
+      'error: credential reconciliation refused because a backup or restore job remains running' \
+      >&2
+    exit "${RECONCILE_EXIT_CODE:?}"
     ;;
   ps)
     echo "backup-worker-container-id"
@@ -238,6 +241,7 @@ esac
     environment["DOCKER_CALL_LOG"] = str(call_log)
     environment["COMPOSE_FILE"] = "docker-compose.production.yml"
     environment["ENV_FILE"] = ".env.production.example"
+    environment["RECONCILE_EXIT_CODE"] = str(reconcile_exit_code)
 
     result = subprocess.run(
         ["bash", str(script)],
@@ -247,13 +251,19 @@ esac
         text=True,
     )
 
-    assert result.returncode != 0
+    assert result.returncode == reconcile_exit_code
     assert "job remains running" in result.stderr
     calls = call_log.read_text(encoding="utf-8")
     assert "stop backup-worker" in calls
-    assert "start backup-worker" in calls
-    assert "exec -T postgres sh -s" not in calls
-    assert "force-recreate backend" not in calls
+    assert "run --rm --no-deps postgres-credential-reconciler" in calls
+    if ambiguous_mutation:
+        assert "start backup-worker" not in calls
+        assert "up -d --no-deps --force-recreate backend" in calls
+        assert "up -d --no-deps --force-recreate backup-worker" in calls
+    else:
+        assert "start backup-worker" in calls
+        assert "force-recreate backend" not in calls
+        assert "force-recreate backup-worker" not in calls
 
 
 class _FakeAsyncConnection:
@@ -337,29 +347,39 @@ def test_production_compose_preserves_postgres_credential_contract() -> None:
     reconcile_script = (
         dashboard_root / "scripts" / "reconcile-postgres-credentials.sh"
     ).read_text()
+    reconcile_module = (
+        dashboard_root / "backend" / "app" / "db" / "postgres_credentials.py"
+    ).read_text()
     nginx_config = (dashboard_root / "docker" / "nginx.conf").read_text()
     dashboard_postgres = compose.split("\n  postgres:", 1)[1].split("\n  redis:", 1)[0]
     deployment_postgres = deployment_compose.split("\n  postgres:", 1)[1].split(
         "\n  redis:", 1
     )[0]
     dashboard_backend = compose.split("\n  backend:", 1)[1].split(
-        "\n  backup-worker:", 1
+        "\n  postgres-credential-reconciler:", 1
     )[0]
+    dashboard_reconciler = compose.split("\n  postgres-credential-reconciler:", 1)[
+        1
+    ].split("\n  backup-worker:", 1)[0]
     dashboard_worker = compose.split("\n  backup-worker:", 1)[1].split(
         "\n  postgres:", 1
     )[0]
     deployment_backend = deployment_compose.split("\n  backend:", 1)[1].split(
-        "\n  backup-worker:", 1
+        "\n  postgres-credential-reconciler:", 1
     )[0]
+    deployment_reconciler = deployment_compose.split(
+        "\n  postgres-credential-reconciler:", 1
+    )[1].split("\n  backup-worker:", 1)[0]
     deployment_worker = deployment_compose.split("\n  backup-worker:", 1)[1].split(
         "\n  frontend:", 1
     )[0]
 
-    assert 'DATABASE_URL: ""' in compose
+    assert 'DATABASE_URL: ""' not in compose
     assert "postgresql+asyncpg://${POSTGRES_USER}" not in compose
     assert "POSTGRES_HOST: postgres" in compose
-    assert 'PGPASSWORD="$${POSTGRES_PASSWORD}"' in compose
-    assert 'PGPASSWORD="$${POSTGRES_PASSWORD}"' in development_compose
+    assert "pg_isready --host 127.0.0.1 --port 5432 --quiet" in compose
+    assert "pg_isready --host 127.0.0.1 --port 5432 --quiet" in development_compose
+    assert 'DATABASE_URL: "${DATABASE_URL:-}"' in development_compose
     assert "--host 127.0.0.1" in compose
     assert "http://localhost:8000/ready" in compose
     assert "http://localhost:8000/ready" in dockerfile
@@ -367,11 +387,35 @@ def test_production_compose_preserves_postgres_credential_contract() -> None:
     assert "python -m app.db.seed" in dockerfile
     assert "render_alembic_config_url(settings.DATABASE_URL)" in alembic_environment
     assert "pg_advisory_xact_lock" in alembic_environment
-    assert 'DATABASE_URL: ""' in deployment_compose
+    assert 'DATABASE_URL: ""' not in deployment_compose
     assert "POSTGRES_HOST: postgres" in deployment_compose
-    assert 'PGPASSWORD="$${POSTGRES_PASSWORD}"' in deployment_compose
+    assert "pg_isready --host 127.0.0.1 --port 5432 --quiet" in deployment_compose
+    for backend in (
+        dashboard_backend,
+        dashboard_worker,
+        deployment_backend,
+        deployment_worker,
+    ):
+        assert "DATABASE_URL:" not in backend
+        assert "env_file:" in backend
+    for backend in (dashboard_backend, deployment_backend):
+        assert "service_completed_successfully" in backend
+    for worker in (dashboard_worker, deployment_worker):
+        assert "condition: service_healthy" in worker
+    for reconciler in (dashboard_reconciler, deployment_reconciler):
+        assert (
+            'command: ["python", "/app/app/db/postgres_credentials.py"]' in reconciler
+        )
+        assert "- postgres_socket:/var/run/postgresql" in reconciler
+        assert "env_file:" in reconciler
+    assert (
+        'command: ["python", "/app/app/db/postgres_credentials.py"]'
+        in development_compose
+    )
     assert "env_file:" not in dashboard_postgres
     assert "env_file:" not in deployment_postgres
+    assert "- postgres_socket:/var/run/postgresql" in dashboard_postgres
+    assert "- postgres_socket:/var/run/postgresql" in deployment_postgres
     for postgres_key in ("POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD"):
         assert f"{postgres_key}:" in dashboard_postgres
         assert f"{postgres_key}:" in deployment_postgres
@@ -402,11 +446,19 @@ def test_production_compose_preserves_postgres_credential_contract() -> None:
     assert "active_recovery_jobs" in restore_script
     assert "'pending'," in restore_script
     assert "'running'" in restore_script
-    for recovery_script in (restore_script, reconcile_script):
-        assert "to_regclass('backup_records')" in recovery_script
-        assert "to_regclass('disaster_recovery_runs')" in recovery_script
-        assert "CREATE TEMP TABLE aios_active_recovery_jobs" in recovery_script
-        assert "EXECUTE format(" in recovery_script
+    for recovery_code in (restore_script, reconcile_module):
+        assert "to_regclass('backup_records')" in recovery_code
+        assert "to_regclass('disaster_recovery_runs')" in recovery_code
+        assert "CREATE TEMP TABLE aios_active_recovery_jobs" in recovery_code
+        assert "EXECUTE format(" in recovery_code
+    assert "run --rm --no-deps postgres-credential-reconciler" in reconcile_script
+    assert "service_completed_successfully" in compose
+    assert "service_completed_successfully" in deployment_compose
+    assert "pg_advisory_xact_lock" in reconcile_module
+    assert "LOCK TABLE %s IN ACCESS EXCLUSIVE MODE" in reconcile_module
+    assert "encrypt_password" in reconcile_module
+    assert "password=credentials.password" in reconcile_module
+    assert 'fetchval("SELECT 1")' in reconcile_module
     assert "pg_restore --no-password --clean --if-exists" in restore_script
     assert "compose stop backend" in restore_script
     assert "compose stop backup-worker" in restore_script

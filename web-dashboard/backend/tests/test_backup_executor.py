@@ -1328,7 +1328,7 @@ async def test_worker_shutdown_drains_an_inflight_job_before_exit(
     assert calls == 1
 
 
-def test_production_images_and_stacks_ship_the_backup_worker_once() -> None:
+def test_production_images_ship_worker_and_credential_gate_once() -> None:
     backend_root = Path(__file__).resolve().parents[1]
     web_root = backend_root.parent
     repository_root = web_root.parent
@@ -1356,9 +1356,11 @@ def test_production_images_and_stacks_ship_the_backup_worker_once() -> None:
     assert "install -d -m 0700 -o aionex -g aionex" in dockerfile
     for compose in (primary_compose, deploy_compose):
         assert "backup-worker:" in compose
-        assert compose.count("image: aionex-aios-backend:local") == 2
+        assert "postgres-credential-reconciler:" in compose
+        assert compose.count("image: aionex-aios-backend:local") == 3
         assert "backup_data:/var/lib/aionex/backups" in compose
         assert 'command: ["python", "-m", "app.services.backup_worker"]' in compose
+        assert 'command: ["python", "/app/app/db/postgres_credentials.py"]' in compose
         assert (
             'test: ["CMD", "python", "-m", "app.services.backup_worker", '
             '"--healthcheck"]' in compose
