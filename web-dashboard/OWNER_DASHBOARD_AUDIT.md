@@ -94,10 +94,9 @@ meeting, notification, alert, metric, and recovery rows.
 
 The production container applies Alembic before bootstrap/startup, verifies the
 exact schema head, supports both the current `POSTGRES_*` contract and legacy
-bundled `DATABASE_URL` passwords as the compatibility source while requiring
-the same PostgreSQL user and database, and keeps
+bundled `DATABASE_URL` credentials as the compatibility source, and keeps
 `scripts/reconcile-postgres-credentials.sh` compatible with both development
 and production Compose projects. A one-shot authenticated reconciliation gate
 runs before the backend, skips valid external URLs, rejects malformed bundled
-values and identity conflicts before local mutation, does not expose plaintext
-credentials, and never deletes a database volume.
+values before local mutation, does not expose plaintext credentials, and never
+deletes a database volume.

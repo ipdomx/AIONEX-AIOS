@@ -35,13 +35,12 @@ def resolve_bundled_credentials(
 ) -> BundledPostgresCredentials | None:
     """Resolve the credentials used by the bundled PostgreSQL service.
 
-    Existing deployments may still carry a DATABASE_URL whose password differs
-    from POSTGRES_PASSWORD because the latter does not update an initialized
-    PostgreSQL volume. For a URL targeting the bundled ``postgres`` service,
-    the URL password is therefore authoritative while its user and database
-    must match POSTGRES_*. A valid external URL is deliberately skipped so this
-    helper never mutates the bundled database on behalf of an external-database
-    deployment.
+    Existing deployments may still carry a DATABASE_URL whose credentials
+    differ from POSTGRES_* because those initialization values do not update an
+    existing PostgreSQL volume. For a URL targeting the bundled ``postgres``
+    service, the complete URL identity is therefore authoritative. A valid
+    external URL is deliberately skipped so this helper never mutates the
+    bundled database on behalf of an external-database deployment.
     """
 
     host = environ.get("POSTGRES_HOST", "").strip()
@@ -102,12 +101,12 @@ def resolve_bundled_credentials(
         raise CredentialConfigurationError("POSTGRES_PORT must be 5432")
 
     if database_url:
-        if url.username != user or url.database != database:
-            raise CredentialConfigurationError(
-                "Bundled DATABASE_URL must match POSTGRES_USER and POSTGRES_DB"
-            )
         assert url_password is not None
+        assert url.username is not None
+        assert url.database is not None
+        user = url.username
         password = url_password
+        database = url.database
 
     return BundledPostgresCredentials(
         host="postgres",
@@ -140,7 +139,33 @@ def _build_password_verifier(
         connection.close()
 
 
-async def _active_recovery_job_count(connection: asyncpg.Connection) -> int:
+def _resolve_recovery_lease_seconds(environ: Mapping[str, str]) -> int:
+    raw_value = environ.get("BACKUP_JOB_LEASE_SECONDS", "3600").strip()
+    try:
+        lease_seconds = int(raw_value, 10)
+    except ValueError as exc:
+        raise CredentialConfigurationError(
+            "BACKUP_JOB_LEASE_SECONDS must be an integer from 120 to 604800"
+        ) from exc
+    if not 120 <= lease_seconds <= 604800:
+        raise CredentialConfigurationError(
+            "BACKUP_JOB_LEASE_SECONDS must be an integer from 120 to 604800"
+        )
+    return lease_seconds
+
+
+async def _active_recovery_job_count(
+    connection: asyncpg.Connection,
+    lease_seconds: int,
+) -> int:
+    await connection.execute(
+        "CREATE TEMP TABLE aios_recovery_policy "
+        "(lease_seconds bigint NOT NULL) ON COMMIT DROP"
+    )
+    await connection.execute(
+        "INSERT INTO aios_recovery_policy (lease_seconds) VALUES ($1)",
+        lease_seconds,
+    )
     await connection.execute(
         "CREATE TEMP TABLE aios_active_recovery_jobs "
         "(job_count bigint NOT NULL) ON COMMIT DROP"
@@ -152,7 +177,16 @@ async def _active_recovery_job_count(connection: asyncpg.Connection) -> int:
           relation regclass;
           relation_count bigint;
           total bigint := 0;
+          lease_seconds bigint;
+          stale_before timestamptz;
         BEGIN
+          SELECT policy.lease_seconds
+          INTO STRICT lease_seconds
+          FROM aios_recovery_policy AS policy;
+          stale_before := clock_timestamp() - make_interval(
+            secs => lease_seconds::double precision
+          );
+
           relation := to_regclass('backup_records');
           IF relation IS NOT NULL THEN
             EXECUTE format(
@@ -160,10 +194,10 @@ async def _active_recovery_job_count(connection: asyncpg.Connection) -> int:
               relation
             );
             EXECUTE format(
-              'SELECT count(*) FROM %s WHERE status = %L',
-              relation,
-              'running'
-            ) INTO relation_count;
+              'SELECT count(*) FROM %s '
+              'WHERE status = $1 AND updated_at >= $2',
+              relation
+            ) INTO relation_count USING 'running', stale_before;
             total := total + relation_count;
           END IF;
 
@@ -174,10 +208,10 @@ async def _active_recovery_job_count(connection: asyncpg.Connection) -> int:
               relation
             );
             EXECUTE format(
-              'SELECT count(*) FROM %s WHERE status = %L',
-              relation,
-              'running'
-            ) INTO relation_count;
+              'SELECT count(*) FROM %s '
+              'WHERE status = $1 AND updated_at >= $2',
+              relation
+            ) INTO relation_count USING 'running', stale_before;
             total := total + relation_count;
           END IF;
 
@@ -216,6 +250,7 @@ async def reconcile_bundled_postgres_credentials(
     credentials: BundledPostgresCredentials,
     *,
     socket_directory: str,
+    recovery_lease_seconds: int = 3600,
 ) -> None:
     """Synchronize one existing role, then verify password-authenticated TCP."""
 
@@ -235,10 +270,15 @@ async def reconcile_bundled_postgres_credentials(
     )
     try:
         async with local_connection.transaction():
+            await local_connection.execute("SET LOCAL lock_timeout = '30s'")
+            await local_connection.execute("SET LOCAL statement_timeout = '90s'")
             await local_connection.execute(
                 "SELECT pg_advisory_xact_lock(741905231017001)"
             )
-            if await _active_recovery_job_count(local_connection):
+            if await _active_recovery_job_count(
+                local_connection,
+                recovery_lease_seconds,
+            ):
                 raise CredentialConfigurationError(
                     "credential reconciliation refused because a backup or "
                     "restore job remains running"
@@ -296,6 +336,7 @@ async def _run() -> bool:
     await reconcile_bundled_postgres_credentials(
         credentials,
         socket_directory=socket_directory,
+        recovery_lease_seconds=_resolve_recovery_lease_seconds(os.environ),
     )
     return True
 
@@ -308,6 +349,13 @@ def main() -> int:
     except CredentialConfigurationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+    except (asyncpg.LockNotAvailableError, asyncpg.QueryCanceledError):
+        print(
+            "error: PostgreSQL credential reconciliation timed out while "
+            "waiting for database activity; no credential change was committed",
+            file=sys.stderr,
+        )
+        return 3
     except Exception:
         print(
             "error: PostgreSQL credential reconciliation failed; "

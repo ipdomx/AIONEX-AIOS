@@ -132,27 +132,36 @@ def test_database_url_password_override_does_not_leak() -> None:
     assert database_url not in repr(credentials)
 
 
-@pytest.mark.parametrize(
-    ("key", "value"),
-    [
-        ("POSTGRES_USER", "other"),
-        ("POSTGRES_DB", "other"),
-    ],
-)
-def test_database_url_identity_conflicts_fail_closed(
-    key: str,
-    value: str,
-) -> None:
+def test_bundled_database_url_identity_takes_precedence() -> None:
     secret = "do-not-print-this-password"
     environment = _postgres_environment(
-        DATABASE_URL=("postgresql+asyncpg://aionex:" f"{secret}@postgres:5432/aionex"),
-        **{key: value},
+        DATABASE_URL=(
+            "postgresql+asyncpg://legacy_user:"
+            f"{secret}@postgres:5432/legacy_database"
+        ),
+        POSTGRES_USER="stale_user",
+        POSTGRES_DB="stale_database",
     )
 
-    with pytest.raises(CredentialConfigurationError) as exc_info:
-        resolve_bundled_credentials(environment)
+    credentials = resolve_bundled_credentials(environment)
 
-    assert secret not in str(exc_info.value)
+    assert credentials is not None
+    assert credentials.user == "legacy_user"
+    assert credentials.password == secret
+    assert credentials.database == "legacy_database"
+    assert secret not in repr(credentials)
+
+
+@pytest.mark.parametrize("value", ["", "119", "604801", "not-a-number"])
+def test_invalid_recovery_lease_is_rejected(value: str) -> None:
+    with pytest.raises(CredentialConfigurationError):
+        postgres_credentials._resolve_recovery_lease_seconds(
+            {"BACKUP_JOB_LEASE_SECONDS": value}
+        )
+
+
+def test_default_recovery_lease_matches_worker_default() -> None:
+    assert postgres_credentials._resolve_recovery_lease_seconds({}) == 3600
 
 
 class _FakeTransaction:
@@ -311,6 +320,20 @@ async def test_reconcile_uses_local_trust_then_authenticated_tcp(
         if "DO $aionex$" in statement
     )
     assert recovery_query.count("LOCK TABLE %s IN ACCESS EXCLUSIVE MODE") == 2
+    assert recovery_query.count("updated_at >= $2") == 2
+    assert "secs => lease_seconds::double precision" in recovery_query
+    assert (
+        "SET LOCAL lock_timeout = '30s'",
+        (),
+    ) in local_connection.execution_calls
+    assert (
+        "SET LOCAL statement_timeout = '90s'",
+        (),
+    ) in local_connection.execution_calls
+    assert (
+        "INSERT INTO aios_recovery_policy (lease_seconds) VALUES ($1)",
+        (3600,),
+    ) in local_connection.execution_calls
     assert local_connection.closed
     assert authenticated_connection.closed
 
@@ -399,6 +422,30 @@ def test_unexpected_runtime_errors_do_not_print_secrets(
     captured = capsys.readouterr()
     assert secret not in captured.out
     assert secret not in captured.err
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        postgres_credentials.asyncpg.LockNotAvailableError("lock timeout"),
+        postgres_credentials.asyncpg.QueryCanceledError("statement timeout"),
+    ],
+)
+def test_lock_timeouts_fail_cleanly_without_secret_output(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    error: Exception,
+) -> None:
+    async def fail() -> None:
+        raise error
+
+    monkeypatch.setattr(postgres_credentials, "_run", fail)
+
+    assert postgres_credentials.main() == 3
+    captured = capsys.readouterr()
+    assert "no credential change was committed" in captured.err
+    assert "lock timeout" not in captured.err
+    assert "statement timeout" not in captured.err
 
 
 def test_external_database_skip_is_reported_without_reconciliation(
