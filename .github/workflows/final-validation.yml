@@ -244,7 +244,9 @@ jobs:
           AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" \
             "${compose_args[@]}" down --remove-orphans
           sed -i \
+            -e 's/^POSTGRES_USER=.*/POSTGRES_USER=stale_user/' \
             -e 's/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=conflicting-password/' \
+            -e 's/^POSTGRES_DB=.*/POSTGRES_DB=stale_database/' \
             -e 's|^DATABASE_URL=.*|DATABASE_URL=postgresql+asyncpg://legacy_user:rotated-password@postgres:5432/legacy_database|' \
             .env.legacy
 
@@ -281,32 +283,38 @@ jobs:
           )" = "$postgres_volume"
           test "$(
             AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" \
-              "${compose_args[@]}" exec -T postgres sh -ceu '
-                PGPASSWORD=rotated-password psql \
-                  --host 127.0.0.1 \
-                  --username legacy_user \
-                  --dbname legacy_database \
-                  --no-password \
-                  --tuples-only \
-                  --no-align \
-                  --set ON_ERROR_STOP=1 \
-                  --command "
-                    SELECT value
-                    FROM aionex_legacy_upgrade_sentinel
-                    WHERE id = 1
-                  "
-              ' | tr -d '[:space:]'
+              "${compose_args[@]}" run \
+                --rm \
+                --no-deps \
+                -e PGPASSWORD=rotated-password \
+                postgres-credential-reconciler \
+                psql \
+                --host postgres \
+                --username legacy_user \
+                --dbname legacy_database \
+                --no-password \
+                --tuples-only \
+                --no-align \
+                --set ON_ERROR_STOP=1 \
+                --command "
+                  SELECT value
+                  FROM aionex_legacy_upgrade_sentinel
+                  WHERE id = 1
+                " | tr -d '[:space:]'
           )" = "preserved"
           if AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" \
-            "${compose_args[@]}" exec -T postgres sh -ceu '
-              PGPASSWORD=legacy-password psql \
-                --host 127.0.0.1 \
+            "${compose_args[@]}" run \
+              --rm \
+              --no-deps \
+              -e PGPASSWORD=legacy-password \
+              postgres-credential-reconciler \
+              psql \
+                --host postgres \
                 --username legacy_user \
                 --dbname legacy_database \
                 --no-password \
                 --command "SELECT 1" \
                 >/dev/null 2>&1
-            '
           then
             echo "The superseded PostgreSQL password still authenticates." >&2
             exit 1
@@ -387,21 +395,24 @@ jobs:
           )" = "$postgres_volume"
           test "$(
             COMPOSE_PROJECT_NAME="$bare_project" \
-              docker compose exec -T postgres sh -ceu '
-                PGPASSWORD=bare-rotated-password psql \
-                  --host 127.0.0.1 \
-                  --username bare_legacy_user \
-                  --dbname bare_legacy_database \
-                  --no-password \
-                  --tuples-only \
-                  --no-align \
-                  --set ON_ERROR_STOP=1 \
-                  --command "
-                    SELECT value
-                    FROM aionex_bare_upgrade_sentinel
-                    WHERE id = 1
-                  "
-              ' | tr -d '[:space:]'
+              docker compose run \
+                --rm \
+                --no-deps \
+                -e PGPASSWORD=bare-rotated-password \
+                postgres-credential-reconciler \
+                psql \
+                --host postgres \
+                --username bare_legacy_user \
+                --dbname bare_legacy_database \
+                --no-password \
+                --tuples-only \
+                --no-align \
+                --set ON_ERROR_STOP=1 \
+                --command "
+                  SELECT value
+                  FROM aionex_bare_upgrade_sentinel
+                  WHERE id = 1
+                " | tr -d '[:space:]'
           )" = "preserved"
       - name: Smoke production backup worker and restore round-trip
         working-directory: web-dashboard
