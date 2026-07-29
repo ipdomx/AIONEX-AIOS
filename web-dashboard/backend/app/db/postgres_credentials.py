@@ -11,7 +11,6 @@ from typing import Mapping
 
 import asyncpg
 import psycopg2
-from psycopg2.extensions import encrypt_password
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 
@@ -118,19 +117,6 @@ def resolve_bundled_credentials(
         user=user,
         password=password,
         database=database,
-    )
-
-
-def _build_password_verifier(
-    credentials: BundledPostgresCredentials,
-    connection: psycopg2.extensions.connection,
-) -> str:
-    """Build a server-compatible verifier using an existing admin connection."""
-
-    return encrypt_password(
-        credentials.password,
-        credentials.user,
-        scope=connection,
     )
 
 
@@ -245,7 +231,7 @@ async def reconcile_bundled_postgres_credentials(
     socket_directory: str,
     recovery_lease_seconds: int = 3600,
 ) -> None:
-    """Synchronize one existing role, then verify password-authenticated TCP."""
+    """Synchronize an existing role and verify password-authenticated TCP."""
 
     if await _password_authentication_succeeds(credentials):
         return
@@ -256,19 +242,7 @@ async def reconcile_bundled_postgres_credentials(
         database=credentials.database,
         timeout=15,
     )
-    verifier_connection = await asyncio.to_thread(
-        psycopg2.connect,
-        host=socket_directory,
-        user="postgres",
-        dbname=credentials.database,
-        connect_timeout=15,
-    )
     try:
-        password_verifier = await asyncio.to_thread(
-            _build_password_verifier,
-            credentials,
-            verifier_connection,
-        )
         try:
             async with local_connection.transaction():
                 await local_connection.execute("SET LOCAL lock_timeout = '30s'")
@@ -287,28 +261,28 @@ async def reconcile_bundled_postgres_credentials(
                 await local_connection.execute(
                     "CREATE TEMP TABLE aios_postgres_credentials ("
                     "role_name text NOT NULL, "
-                    "password_verifier text NOT NULL"
+                    "role_password text NOT NULL"
                     ") ON COMMIT DROP"
                 )
                 await local_connection.execute(
                     "INSERT INTO aios_postgres_credentials "
-                    "(role_name, password_verifier) VALUES ($1, $2)",
+                    "(role_name, role_password) VALUES ($1, $2)",
                     credentials.user,
-                    password_verifier,
+                    credentials.password,
                 )
                 await local_connection.execute("""
                     DO $aionex$
                     DECLARE
                       target_role text;
-                      target_verifier text;
+                      target_password text;
                     BEGIN
-                      SELECT role_name, password_verifier
-                      INTO STRICT target_role, target_verifier
+                      SELECT role_name, role_password
+                      INTO STRICT target_role, target_password
                       FROM aios_postgres_credentials;
                       EXECUTE format(
                         'ALTER ROLE %I WITH LOGIN PASSWORD %L',
                         target_role,
-                        target_verifier
+                        target_password
                       );
                     END;
                     $aionex$;
@@ -320,7 +294,6 @@ async def reconcile_bundled_postgres_credentials(
             ) from exc
     finally:
         await local_connection.close()
-        verifier_connection.close()
 
     if not await _password_authentication_succeeds(credentials):
         raise RuntimeError("PostgreSQL authentication probe failed")
