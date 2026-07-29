@@ -65,7 +65,7 @@ export default function TopBar({
 
   return (
     <header
-      className="glass-strong fixed left-0 right-0 top-0 z-40 flex h-16 items-center border-b border-white/[0.06] px-3 transition-[margin] duration-300 sm:px-4"
+      className="fixed left-0 right-0 top-0 z-40 flex h-16 items-center border-b border-white/[0.08] bg-[#07090f]/95 px-3 shadow-[0_12px_32px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-[margin] duration-300 sm:px-4"
       style={{
         marginLeft: mobile ? "0px" : sidebarCollapsed ? "72px" : "280px",
       }}
@@ -77,7 +77,7 @@ export default function TopBar({
           className="mr-2 rounded-xl p-2 transition hover:bg-white/[0.06]"
           aria-label="Open navigation"
         >
-          <Menu className="h-[18px] w-[18px] text-white/50" />
+          <Menu className="h-[18px] w-[18px] text-white/60" />
         </button>
       )}
       <nav className="hidden min-w-0 flex-1 items-center gap-2 text-sm sm:flex">
@@ -90,7 +90,7 @@ export default function TopBar({
         <button
           type="button"
           onClick={onSearchOpen}
-          className="group flex w-full items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-2 transition hover:border-white/[0.1] hover:bg-white/[0.05]"
+          className="group flex w-full items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-2 transition hover:border-white/[0.12] hover:bg-white/[0.055]"
         >
           <Search className="h-4 w-4 text-white/30 transition-colors group-hover:text-white/50" />
           <span className="text-sm text-white/30 transition-colors group-hover:text-white/50">
@@ -125,9 +125,11 @@ export default function TopBar({
             type="button"
             onClick={() => setProfileOpen((current) => !current)}
             className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 transition hover:bg-white/[0.06]"
+            aria-expanded={profileOpen}
+            aria-haspopup="menu"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/[0.08] bg-gradient-to-br from-blue-500/20 to-purple-500/20">
-              <User className="h-4 w-4 text-blue-400" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/[0.1] bg-gradient-to-br from-blue-500/25 to-purple-500/25">
+              <User className="h-4 w-4 text-blue-300" />
             </div>
             <div className="hidden flex-col items-start lg:flex">
               <span className="max-w-36 truncate text-xs font-semibold text-white">
@@ -146,29 +148,30 @@ export default function TopBar({
                 <button
                   type="button"
                   aria-label="Close profile menu"
-                  className="fixed inset-0 z-40 cursor-default"
+                  className="fixed inset-0 z-40 cursor-default bg-black/20"
                   onClick={() => setProfileOpen(false)}
                 />
                 <motion.div
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  initial={{ opacity: 0, y: 10, scale: 0.96 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                  className="glass-card absolute right-0 top-12 z-50 w-64 overflow-hidden"
+                  exit={{ opacity: 0, y: 10, scale: 0.96 }}
+                  transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                  role="menu"
+                  className="fixed left-3 right-3 top-[4.5rem] z-[60] overflow-hidden rounded-2xl border border-white/[0.12] bg-[#0b0e15] shadow-[0_24px_70px_rgba(0,0,0,0.65)] sm:absolute sm:left-auto sm:right-0 sm:top-12 sm:w-72"
                 >
-                  <div className="border-b border-white/[0.06] px-4 py-4">
+                  <div className="border-b border-white/[0.08] bg-white/[0.025] px-4 py-4">
                     <span className="block truncate text-sm font-semibold text-white">
                       {user?.name ?? "Signed-in user"}
                     </span>
-                    <span className="block truncate text-xs text-white/40">
+                    <span className="mt-0.5 block truncate text-xs text-white/50">
                       {user?.email}
                     </span>
                   </div>
-                  <div className="py-1">
+                  <div className="py-1.5">
                     <Link
                       href="/settings"
                       onClick={() => setProfileOpen(false)}
-                      className="flex items-center gap-3 px-4 py-2 text-sm text-white/60 transition hover:bg-white/[0.04] hover:text-white"
+                      className="flex items-center gap-3 px-4 py-3 text-sm text-white/70 transition hover:bg-white/[0.06] hover:text-white"
                     >
                       <Settings className="h-4 w-4" />
                       Settings
@@ -178,7 +181,7 @@ export default function TopBar({
                         <Link
                           href="/owner/access"
                           onClick={() => setProfileOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2 text-sm text-white/60 transition hover:bg-white/[0.04] hover:text-white"
+                          className="flex items-center gap-3 px-4 py-3 text-sm text-white/70 transition hover:bg-white/[0.06] hover:text-white"
                         >
                           <Shield className="h-4 w-4" />
                           Owner access
@@ -186,7 +189,7 @@ export default function TopBar({
                         <Link
                           href="/owner/billing"
                           onClick={() => setProfileOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2 text-sm text-white/60 transition hover:bg-white/[0.04] hover:text-white"
+                          className="flex items-center gap-3 px-4 py-3 text-sm text-white/70 transition hover:bg-white/[0.06] hover:text-white"
                         >
                           <CreditCard className="h-4 w-4" />
                           Billing
@@ -194,11 +197,11 @@ export default function TopBar({
                       </>
                     )}
                   </div>
-                  <div className="border-t border-white/[0.06] py-1">
+                  <div className="border-t border-white/[0.08] py-1.5">
                     <button
                       type="button"
                       onClick={() => void signOut()}
-                      className="flex w-full items-center gap-3 px-4 py-2 text-sm text-red-400 transition hover:bg-red-500/5 hover:text-red-300"
+                      className="flex w-full items-center gap-3 px-4 py-3 text-sm text-red-300 transition hover:bg-red-500/10 hover:text-red-200"
                     >
                       <LogOut className="h-4 w-4" />
                       Sign out

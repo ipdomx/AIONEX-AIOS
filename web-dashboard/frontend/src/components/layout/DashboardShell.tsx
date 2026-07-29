@@ -24,7 +24,7 @@ export default function DashboardShell({
   }, []);
 
   useEffect(() => {
-    const media = window.matchMedia("(max-width: 767px)");
+    const media = window.matchMedia("(max-width: 1023px)");
     const updateMobile = () => {
       setMobile(media.matches);
       if (!media.matches) setMobileSidebarOpen(false);
@@ -56,12 +56,12 @@ export default function DashboardShell({
   }, []);
 
   return (
-    <div className="min-h-screen bg-space-950">
+    <div className="min-h-screen overflow-x-hidden bg-space-950">
       {mobile && mobileSidebarOpen && (
         <button
           type="button"
           aria-label="Close navigation"
-          className="fixed inset-0 z-[45] bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-[45] bg-black/70 backdrop-blur-sm"
           onClick={() => setMobileSidebarOpen(false)}
         />
       )}
@@ -85,12 +85,13 @@ export default function DashboardShell({
         initial={false}
         animate={{ marginLeft: mobile ? 0 : sidebarCollapsed ? 72 : 280 }}
         transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-        className="min-h-screen p-4 pt-20 sm:p-6 sm:pt-20"
+        className="min-h-screen min-w-0 px-3 pb-6 pt-20 sm:px-5 lg:px-6"
       >
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3 }}
+          className="mx-auto w-full min-w-0 max-w-[1600px]"
         >
           {children}
         </motion.div>

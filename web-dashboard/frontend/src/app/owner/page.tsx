@@ -39,19 +39,19 @@ export default function OwnerDashboardPage() {
     executiveMetrics.find((item) => item.id === id)?.value ?? 0;
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-4 sm:space-y-6">
       <motion.header
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="glass-card p-6"
+        className="glass-card min-w-0 overflow-hidden p-4 sm:p-6"
       >
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs font-medium text-electric-300">
-              <Gauge className="h-3.5 w-3.5" />
-              Super Owner Command Center
+        <div className="flex min-w-0 flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+          <div className="min-w-0">
+            <div className="mb-2 inline-flex max-w-full items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-[11px] font-medium text-electric-300 sm:text-xs">
+              <Gauge className="h-3.5 w-3.5 flex-shrink-0" />
+              <span className="truncate">Super Owner Command Center</span>
             </div>
-            <h1 className="text-3xl font-bold tracking-tight text-white">
+            <h1 className="break-words text-2xl font-bold tracking-tight text-white sm:text-3xl xl:text-4xl">
               AIONEX AIOS Owner Dashboard
             </h1>
             <p className="mt-2 max-w-4xl text-sm leading-relaxed text-white/45">
@@ -59,19 +59,19 @@ export default function OwnerDashboardPage() {
               present in the platform.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap">
             <Link
               href={{
                 pathname: "/owner/operations",
                 query: { entity: "project", operation: "create" },
               }}
-              className="btn-primary"
+              className="btn-primary w-full justify-center text-center sm:w-auto"
             >
               Create governed project
             </Link>
             <Link
               href="/owner/completion"
-              className="rounded-xl border border-green-500/20 bg-green-500/10 px-4 py-2.5 text-sm font-medium text-green-300 transition hover:bg-green-500/15"
+              className="w-full rounded-xl border border-green-500/20 bg-green-500/10 px-4 py-2.5 text-center text-sm font-medium text-green-300 transition hover:bg-green-500/15 sm:w-auto"
             >
               Completion Inventory
             </Link>
@@ -83,29 +83,29 @@ export default function OwnerDashboardPage() {
         {loading ? "Loading live owner control data…" : message}
       </section>
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="glass-card p-5">
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+        <div className="glass-card p-4 sm:p-5">
           <Gauge className="h-5 w-5 text-electric-300" />
           <div className="mt-4 text-3xl font-bold text-white">
             {metric("projects")}
           </div>
           <div className="mt-1 text-xs text-white/40">Live projects</div>
         </div>
-        <div className="glass-card p-5">
+        <div className="glass-card p-4 sm:p-5">
           <Gavel className="h-5 w-5 text-electric-300" />
           <div className="mt-4 text-3xl font-bold text-white">
             {metric("organizations")}
           </div>
           <div className="mt-1 text-xs text-white/40">Organizations</div>
         </div>
-        <div className="glass-card p-5">
+        <div className="glass-card p-4 sm:p-5">
           <ShieldCheck className="h-5 w-5 text-electric-300" />
           <div className="mt-4 text-3xl font-bold text-white">
             {metric("users")}
           </div>
           <div className="mt-1 text-xs text-white/40">Managed users</div>
         </div>
-        <div className="glass-card p-5">
+        <div className="glass-card p-4 sm:p-5">
           <CheckCircle2 className="h-5 w-5 text-green-300" />
           <div className="mt-4 text-3xl font-bold text-white">
             {metric("alerts")}
@@ -117,17 +117,17 @@ export default function OwnerDashboardPage() {
       {ownerNavigationSections.map((section) => {
         const SectionIcon = section.icon;
         return (
-          <section key={section.id} className="space-y-3">
-            <div className="flex items-center gap-2">
-              <SectionIcon className="h-4 w-4 text-electric-300" />
-              <h2 className="text-sm font-semibold text-white">
+          <section key={section.id} className="min-w-0 space-y-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <SectionIcon className="h-4 w-4 flex-shrink-0 text-electric-300" />
+              <h2 className="truncate text-sm font-semibold text-white">
                 {section.label}
               </h2>
-              <span className="text-xs text-white/30">
+              <span className="flex-shrink-0 text-xs text-white/30">
                 {section.items.length} pages
               </span>
             </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
               {section.items.map((item, index) => {
                 const Icon = item.icon;
                 return (
@@ -136,16 +136,17 @@ export default function OwnerDashboardPage() {
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.015 }}
+                    className="min-w-0"
                   >
                     <Link
                       href={item.href}
-                      className="glass-card block h-full p-5 transition hover:bg-white/[0.05]"
+                      className="glass-card block h-full min-w-0 p-4 transition hover:bg-white/[0.05] sm:p-5"
                     >
                       <Icon className="h-5 w-5 text-electric-300" />
-                      <h3 className="mt-4 text-sm font-semibold text-white">
+                      <h3 className="mt-4 break-words text-sm font-semibold text-white">
                         {item.label}
                       </h3>
-                      <p className="mt-2 text-xs leading-relaxed text-white/40">
+                      <p className="mt-2 break-words text-xs leading-relaxed text-white/40">
                         {item.description}
                       </p>
                     </Link>
@@ -157,19 +158,19 @@ export default function OwnerDashboardPage() {
         );
       })}
 
-      <section className="glass-card p-5">
+      <section className="glass-card min-w-0 p-4 sm:p-5">
         <h2 className="text-sm font-semibold text-white">
           Core platform access
         </h2>
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        <div className="mt-4 grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
           {requestedCoverage.map((item) => (
             <Link
               key={item.label}
               href={item.href}
-              className="flex items-center gap-2 rounded-xl border border-white/[0.05] bg-white/[0.02] px-3 py-3 text-xs text-white/60 transition hover:bg-white/[0.05] hover:text-white"
+              className="flex min-w-0 items-center gap-2 rounded-xl border border-white/[0.05] bg-white/[0.02] px-3 py-3 text-xs text-white/60 transition hover:bg-white/[0.05] hover:text-white"
             >
-              <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />
-              {item.label}
+              <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0 text-green-400" />
+              <span className="truncate">{item.label}</span>
             </Link>
           ))}
         </div>
