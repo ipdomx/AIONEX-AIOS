@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/owner/production-runtime", tags=["owner-production-runtime"])
@@ -92,4 +92,7 @@ def get_runtime_snapshot() -> RuntimeSnapshot:
 
 @router.post("/command", response_model=RuntimeSnapshot)
 def run_runtime_command(command: RuntimeCommand) -> RuntimeSnapshot:
-    return _snapshot()
+    snapshot = _snapshot()
+    if not any(target.id == command.target_id for target in snapshot.targets):
+        raise HTTPException(status_code=404, detail="Production runtime target not found")
+    return snapshot

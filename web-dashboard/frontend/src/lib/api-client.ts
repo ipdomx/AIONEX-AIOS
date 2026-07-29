@@ -11,14 +11,18 @@ export interface ApiErrorShape {
 }
 
 function createCorrelationId(): string {
-  const cryptoApi = typeof globalThis !== "undefined" ? globalThis.crypto : undefined;
-  if (cryptoApi && typeof cryptoApi.randomUUID === "function") return cryptoApi.randomUUID();
+  const cryptoApi =
+    typeof globalThis !== "undefined" ? globalThis.crypto : undefined;
+  if (cryptoApi && typeof cryptoApi.randomUUID === "function")
+    return cryptoApi.randomUUID();
   if (cryptoApi && typeof cryptoApi.getRandomValues === "function") {
     const bytes = new Uint8Array(16);
     cryptoApi.getRandomValues(bytes);
     bytes[6] = (bytes[6] & 0x0f) | 0x40;
     bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    const hex = Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
+    const hex = Array.from(bytes, (value) =>
+      value.toString(16).padStart(2, "0"),
+    ).join("");
     return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
   }
   return `aionex-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
@@ -51,12 +55,21 @@ class ApiClient {
     this.client.interceptors.response.use(
       (response) => response,
       async (error: AxiosError<ApiErrorShape>) => {
-        const original = error.config as (AxiosRequestConfig & { _retry?: boolean }) | undefined;
-        if (error.response?.status === 401 && original && !original._retry && !String(original.url).includes("/auth/")) {
+        const original = error.config as
+          (AxiosRequestConfig & { _retry?: boolean }) | undefined;
+        if (
+          error.response?.status === 401 &&
+          original &&
+          !original._retry &&
+          !String(original.url).includes("/auth/")
+        ) {
           original._retry = true;
           const token = await this.refreshAccessToken();
           if (token) {
-            original.headers = { ...(original.headers || {}), Authorization: `Bearer ${token}` };
+            original.headers = {
+              ...(original.headers || {}),
+              Authorization: `Bearer ${token}`,
+            };
             return this.client.request(original);
           }
         }
@@ -71,13 +84,19 @@ class ApiClient {
     if (!storage || !refreshToken) return null;
     if (!this.refreshPromise) {
       this.refreshPromise = axios
-        .post(`${API_BASE_URL}/auth/refresh`, { refresh_token: refreshToken }, { headers: { "X-Correlation-ID": createCorrelationId() } })
+        .post(
+          `${API_BASE_URL}/auth/refresh`,
+          { refresh_token: refreshToken },
+          { headers: { "X-Correlation-ID": createCorrelationId() } },
+        )
         .then((response) => {
           const accessToken = response.data?.access_token as string | undefined;
-          const nextRefreshToken = response.data?.refresh_token as string | undefined;
+          const nextRefreshToken = response.data?.refresh_token as
+            string | undefined;
           if (!accessToken) return null;
           storage.setItem(ACCESS_TOKEN_KEY, accessToken);
-          if (nextRefreshToken) storage.setItem(REFRESH_TOKEN_KEY, nextRefreshToken);
+          if (nextRefreshToken)
+            storage.setItem(REFRESH_TOKEN_KEY, nextRefreshToken);
           return accessToken;
         })
         .catch(() => {
@@ -98,12 +117,19 @@ class ApiClient {
       const response = await this.client.request<T>(config);
       return response.data;
     } catch (error) {
+      if (axios.isCancel(error)) {
+        throw new DOMException("The request was aborted", "AbortError");
+      }
       const axiosError = error as AxiosError<ApiErrorShape>;
       const payload = axiosError.response?.data;
       const detail = payload?.detail;
-      const message = typeof detail === "string"
-        ? detail
-        : detail?.message || payload?.message || axiosError.message || "Request failed";
+      const message =
+        typeof detail === "string"
+          ? detail
+          : detail?.message ||
+            payload?.message ||
+            axiosError.message ||
+            "Request failed";
       throw new Error(message);
     }
   }
@@ -112,12 +138,24 @@ class ApiClient {
     return this.request<T>({ ...config, method: "GET", url });
   }
 
-  post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  post<T>(
+    url: string,
+    data?: unknown,
+    config?: AxiosRequestConfig,
+  ): Promise<T> {
     return this.request<T>({ ...config, method: "POST", url, data });
   }
 
   put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
     return this.request<T>({ ...config, method: "PUT", url, data });
+  }
+
+  patch<T>(
+    url: string,
+    data?: unknown,
+    config?: AxiosRequestConfig,
+  ): Promise<T> {
+    return this.request<T>({ ...config, method: "PATCH", url, data });
   }
 
   delete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {

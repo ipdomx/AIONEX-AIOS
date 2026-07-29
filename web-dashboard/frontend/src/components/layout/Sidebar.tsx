@@ -1,12 +1,10 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
-  AlertTriangle,
-  ArchiveRestore,
   BarChart3,
   Bell,
   BookOpen,
@@ -19,39 +17,21 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  Coins,
   Cpu,
-  CreditCard,
   Database,
-  FileCheck2,
-  FileCog,
   FileText,
   FolderOpen,
   Gauge,
-  Gavel,
-  GitPullRequest,
   Globe,
-  HeartPulse,
-  KeyRound,
   Layers,
   LayoutDashboard,
   Lock,
-  LockKeyhole,
-  Map,
-  MessageCircle,
-  Pin,
-  PlugZap,
-  RadioTower,
-  Rocket,
   Server,
   Settings,
   Shield,
-  ShieldCheck,
   Sparkles,
   Star,
   Terminal,
-  ToggleRight,
-  UserCog,
   Users,
   Workflow,
   Zap,
@@ -61,13 +41,19 @@ import { usePathname } from "next/navigation";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
+import { useAuth } from "@/components/providers/AuthProvider";
+import { ownerNavigationSections } from "@/config/owner-navigation";
+
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 interface SidebarProps {
   collapsed: boolean;
+  mobile: boolean;
+  open: boolean;
   onToggle: () => void;
+  onNavigate: () => void;
 }
 
 interface NavChild {
@@ -87,34 +73,87 @@ interface NavSection {
   children?: NavChild[];
 }
 
-const mainNavSections: NavSection[] = [
-  { id: "owner", label: "Owner Center", icon: Gauge, href: "/owner" },
+const baseMainNavSections: NavSection[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard, href: "/" },
-  { id: "projects", label: "Projects", icon: FolderOpen, href: "/projects", badge: 12 },
+  {
+    id: "projects",
+    label: "Projects",
+    icon: FolderOpen,
+    href: "/projects",
+    badge: 12,
+  },
   {
     id: "ai",
     label: "AI",
     icon: Sparkles,
     children: [
-      { id: "ai-providers", label: "Providers", icon: Zap, href: "/ai/providers" },
-      { id: "ai-agents", label: "Agents", icon: Bot, href: "/ai/agents", badge: 8 },
+      {
+        id: "ai-providers",
+        label: "Providers",
+        icon: Zap,
+        href: "/ai/providers",
+      },
+      {
+        id: "ai-agents",
+        label: "Agents",
+        icon: Bot,
+        href: "/ai/agents",
+        badge: 8,
+      },
       { id: "ai-models", label: "Models", icon: Brain, href: "/ai/models" },
       { id: "ai-usage", label: "Usage", icon: BarChart3, href: "/ai/usage" },
     ],
   },
-  { id: "workflows", label: "Workflows", icon: Workflow, href: "/workflows", badge: 24 },
+  {
+    id: "workflows",
+    label: "Workflows",
+    icon: Workflow,
+    href: "/workflows",
+    badge: 24,
+  },
   { id: "knowledge", label: "Knowledge", icon: BookOpen, href: "/knowledge" },
   {
     id: "infrastructure",
     label: "Infrastructure",
     icon: Server,
     children: [
-      { id: "infra-servers", label: "Servers", icon: Cpu, href: "/infrastructure/servers", badge: 6 },
-      { id: "infra-containers", label: "Containers", icon: Layers, href: "/infrastructure/containers" },
-      { id: "infra-kubernetes", label: "Kubernetes", icon: Globe, href: "/infrastructure/kubernetes" },
-      { id: "infra-databases", label: "Databases", icon: Database, href: "/infrastructure/databases" },
-      { id: "infra-redis", label: "Redis", icon: Zap, href: "/infrastructure/redis" },
-      { id: "infra-queues", label: "Queues", icon: Terminal, href: "/infrastructure/queues" },
+      {
+        id: "infra-servers",
+        label: "Servers",
+        icon: Cpu,
+        href: "/infrastructure/servers",
+        badge: 6,
+      },
+      {
+        id: "infra-containers",
+        label: "Containers",
+        icon: Layers,
+        href: "/infrastructure/containers",
+      },
+      {
+        id: "infra-kubernetes",
+        label: "Kubernetes",
+        icon: Globe,
+        href: "/infrastructure/kubernetes",
+      },
+      {
+        id: "infra-databases",
+        label: "Databases",
+        icon: Database,
+        href: "/infrastructure/databases",
+      },
+      {
+        id: "infra-redis",
+        label: "Redis",
+        icon: Zap,
+        href: "/infrastructure/redis",
+      },
+      {
+        id: "infra-queues",
+        label: "Queues",
+        icon: Terminal,
+        href: "/infrastructure/queues",
+      },
     ],
   },
   {
@@ -122,10 +161,31 @@ const mainNavSections: NavSection[] = [
     label: "Monitoring",
     icon: Activity,
     children: [
-      { id: "mon-metrics", label: "Metrics", icon: BarChart3, href: "/monitoring/metrics" },
-      { id: "mon-logs", label: "Logs", icon: FileText, href: "/monitoring/logs" },
-      { id: "mon-alerts", label: "Alerts", icon: Bell, href: "/monitoring/alerts", badge: 3 },
-      { id: "mon-events", label: "Events", icon: Clock, href: "/monitoring/events" },
+      {
+        id: "mon-metrics",
+        label: "Metrics",
+        icon: BarChart3,
+        href: "/monitoring/metrics",
+      },
+      {
+        id: "mon-logs",
+        label: "Logs",
+        icon: FileText,
+        href: "/monitoring/logs",
+      },
+      {
+        id: "mon-alerts",
+        label: "Alerts",
+        icon: Bell,
+        href: "/monitoring/alerts",
+        badge: 3,
+      },
+      {
+        id: "mon-events",
+        label: "Events",
+        icon: Clock,
+        href: "/monitoring/events",
+      },
     ],
   },
   {
@@ -133,10 +193,30 @@ const mainNavSections: NavSection[] = [
     label: "Security",
     icon: Shield,
     children: [
-      { id: "sec-threats", label: "Threat Center", icon: Lock, href: "/security/threats" },
-      { id: "sec-audit", label: "Audit", icon: FileText, href: "/security/audit" },
-      { id: "sec-sessions", label: "Sessions", icon: Globe, href: "/security/sessions" },
-      { id: "sec-policies", label: "Policies", icon: Shield, href: "/security/policies" },
+      {
+        id: "sec-threats",
+        label: "Threat Center",
+        icon: Lock,
+        href: "/security/threats",
+      },
+      {
+        id: "sec-audit",
+        label: "Audit",
+        icon: FileText,
+        href: "/security/audit",
+      },
+      {
+        id: "sec-sessions",
+        label: "Sessions",
+        icon: Globe,
+        href: "/security/sessions",
+      },
+      {
+        id: "sec-policies",
+        label: "Policies",
+        icon: Shield,
+        href: "/security/policies",
+      },
     ],
   },
   {
@@ -145,39 +225,25 @@ const mainNavSections: NavSection[] = [
     icon: Users,
     children: [
       { id: "users-list", label: "All Users", icon: Users, href: "/users" },
-      { id: "users-orgs", label: "Organizations", icon: Building2, href: "/users/organizations" },
-      { id: "users-teams", label: "Teams", icon: Briefcase, href: "/users/teams" },
+      {
+        id: "users-orgs",
+        label: "Organizations",
+        icon: Building2,
+        href: "/users/organizations",
+      },
+      {
+        id: "users-teams",
+        label: "Teams",
+        icon: Briefcase,
+        href: "/users/teams",
+      },
       { id: "users-roles", label: "Roles", icon: Lock, href: "/users/roles" },
-      { id: "users-permissions", label: "Permissions", icon: Shield, href: "/users/permissions" },
-    ],
-  },
-  {
-    id: "owner-governance",
-    label: "Owner Governance",
-    icon: GitPullRequest,
-    children: [
-      { id: "owner-runtime", label: "Live Ownership Data", icon: Database, href: "/owner/runtime" },
-      { id: "owner-global-command", label: "Global Command", icon: RadioTower, href: "/owner/global-command" },
-      { id: "owner-system-map", label: "Live System Map", icon: Map, href: "/owner/system-map" },
-      { id: "owner-policies", label: "Policy Engine", icon: FileCog, href: "/owner/policies" },
-      { id: "owner-billing", label: "Billing & Plans", icon: CreditCard, href: "/owner/billing" },
-      { id: "owner-compliance", label: "Compliance", icon: FileCheck2, href: "/owner/compliance" },
-      { id: "owner-secrets", label: "Secrets & Keys", icon: LockKeyhole, href: "/owner/secrets" },
-      { id: "owner-integrations", label: "Integrations", icon: PlugZap, href: "/owner/integrations" },
-      { id: "owner-executive", label: "Executive Overview", icon: Gauge, href: "/owner/executive" },
-      { id: "owner-health", label: "System Health", icon: HeartPulse, href: "/owner/health" },
-      { id: "owner-approvals", label: "Approvals", icon: GitPullRequest, href: "/owner/approvals", badge: 7 },
-      { id: "owner-notifications", label: "Notifications", icon: Bell, href: "/owner/notifications", badge: 24 },
-      { id: "owner-services", label: "Service Control", icon: ToggleRight, href: "/owner/services" },
-      { id: "owner-incidents", label: "Incidents", icon: AlertTriangle, href: "/owner/incidents", badge: 3 },
-      { id: "owner-audit", label: "Owner Audit", icon: ShieldCheck, href: "/owner/audit" },
-      { id: "owner-costs", label: "Cost Governance", icon: Coins, href: "/owner/costs" },
-      { id: "owner-staff", label: "Staff Oversight", icon: UserCog, href: "/owner/staff" },
-      { id: "owner-councils", label: "Councils & Ministries", icon: Gavel, href: "/owner/governance" },
-      { id: "owner-communications", label: "Communications", icon: MessageCircle, href: "/owner/communications" },
-      { id: "owner-recovery", label: "Recovery Center", icon: ArchiveRestore, href: "/owner/recovery" },
-      { id: "owner-access", label: "Access Authority", icon: KeyRound, href: "/owner/access" },
-      { id: "owner-release", label: "Release Authority", icon: Rocket, href: "/owner/release" },
+      {
+        id: "users-permissions",
+        label: "Permissions",
+        icon: Shield,
+        href: "/users/permissions",
+      },
     ],
   },
   { id: "tasks", label: "Tasks", icon: CheckSquare, href: "/tasks", badge: 15 },
@@ -189,14 +255,64 @@ const bottomNavSections: NavSection[] = [
   { id: "settings", label: "Settings", icon: Settings, href: "/settings" },
 ];
 
-export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export default function Sidebar({
+  collapsed,
+  mobile,
+  open,
+  onToggle,
+  onNavigate,
+}: SidebarProps) {
   const pathname = usePathname();
-  const [expandedSections, setExpandedSections] = useState<string[]>(["ai", "infrastructure", "owner-governance"]);
-  const favorites = [
-    { id: "owner-runtime", label: "Live Ownership Data", href: "/owner/runtime" },
-    { id: "owner-global-command", label: "Global Command", href: "/owner/global-command" },
-    { id: "owner-integrations", label: "Integrations", href: "/owner/integrations" },
-  ];
+  const { user } = useAuth();
+  const isSuperOwner = user?.role === "Super Owner";
+  const [expandedSections, setExpandedSections] = useState<string[]>([
+    "ai",
+    "infrastructure",
+    "owner-overview-control",
+  ]);
+  const mainNavSections = useMemo<NavSection[]>(() => {
+    if (!isSuperOwner) return baseMainNavSections;
+
+    const ownerSections: NavSection[] = ownerNavigationSections.map(
+      (section) => ({
+        id: section.id,
+        label: section.label,
+        icon: section.icon,
+        children: section.items.map((item) => ({
+          id: item.id,
+          label: item.label,
+          icon: item.icon,
+          href: item.href,
+        })),
+      }),
+    );
+
+    return [
+      { id: "owner", label: "Owner Center", icon: Gauge, href: "/owner" },
+      baseMainNavSections[0],
+      ...ownerSections,
+      ...baseMainNavSections.slice(1),
+    ];
+  }, [isSuperOwner]);
+  const favorites = isSuperOwner
+    ? [
+        {
+          id: "owner-runtime",
+          label: "Live Ownership Data",
+          href: "/owner/runtime",
+        },
+        {
+          id: "owner-global-command",
+          label: "Global Command",
+          href: "/owner/global-command",
+        },
+        {
+          id: "owner-integrations",
+          label: "Integrations",
+          href: "/owner/integrations",
+        },
+      ]
+    : [];
 
   const toggleSection = useCallback((sectionId: string) => {
     setExpandedSections((current) =>
@@ -207,9 +323,24 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   }, []);
 
   const isActive = useCallback(
-    (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href)),
+    (href: string) =>
+      href === "/" || href === "/owner"
+        ? pathname === href
+        : pathname === href || pathname.startsWith(`${href}/`),
     [pathname],
   );
+
+  useEffect(() => {
+    const activeSection = mainNavSections.find((section) =>
+      section.children?.some((child) => isActive(child.href)),
+    );
+    if (!activeSection) return;
+    setExpandedSections((current) =>
+      current.includes(activeSection.id)
+        ? current
+        : [...current, activeSection.id],
+    );
+  }, [isActive, mainNavSections, pathname]);
 
   const renderBadge = (badge?: number) =>
     !collapsed && badge ? (
@@ -223,29 +354,73 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     const hasChildren = Boolean(section.children?.length);
     const expanded = expandedSections.includes(section.id);
     const active = hasChildren
-      ? section.children?.some((child) => isActive(child.href)) ?? false
+      ? (section.children?.some((child) => isActive(child.href)) ?? false)
       : isActive(section.href ?? "/");
 
     if (hasChildren) {
       return (
         <div key={section.id}>
-          <button onClick={() => toggleSection(section.id)} className={cn("flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all", active ? "bg-white/[0.08] text-white" : "text-white/50 hover:bg-white/[0.04] hover:text-white/80")}>
-            <SectionIcon className={cn("h-[18px] w-[18px] flex-shrink-0", active && "text-electric-400")} />
-            {!collapsed && <span className="flex-1 text-left">{section.label}</span>}
-            {!collapsed && <ChevronRight className={cn("h-3.5 w-3.5 text-white/30 transition-transform", expanded && "rotate-90")} />}
+          <button
+            onClick={() => {
+              if (collapsed) onToggle();
+              toggleSection(section.id);
+            }}
+            className={cn(
+              "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all",
+              active
+                ? "bg-white/[0.08] text-white"
+                : "text-white/50 hover:bg-white/[0.04] hover:text-white/80",
+            )}
+          >
+            <SectionIcon
+              className={cn(
+                "h-[18px] w-[18px] flex-shrink-0",
+                active && "text-electric-400",
+              )}
+            />
+            {!collapsed && (
+              <span className="flex-1 text-left">{section.label}</span>
+            )}
+            {!collapsed && (
+              <ChevronRight
+                className={cn(
+                  "h-3.5 w-3.5 text-white/30 transition-transform",
+                  expanded && "rotate-90",
+                )}
+              />
+            )}
             {renderBadge(section.badge)}
           </button>
           <AnimatePresence>
             {expanded && !collapsed && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
                 <div className="ml-4 mt-0.5 space-y-0.5 border-l border-white/[0.06] pl-3">
                   {section.children?.map((child) => {
                     const ChildIcon = child.icon;
                     return (
-                      <Link key={child.id} href={child.href} className={cn("flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all", isActive(child.href) ? "bg-white/[0.06] text-white" : "text-white/40 hover:bg-white/[0.03] hover:text-white/70")}>
+                      <Link
+                        key={child.id}
+                        href={child.href}
+                        onClick={onNavigate}
+                        className={cn(
+                          "flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+                          isActive(child.href)
+                            ? "bg-white/[0.06] text-white"
+                            : "text-white/40 hover:bg-white/[0.03] hover:text-white/70",
+                        )}
+                      >
                         <ChildIcon className="h-3.5 w-3.5" />
                         <span className="flex-1">{child.label}</span>
-                        {child.badge ? <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-white/50">{child.badge}</span> : null}
+                        {child.badge ? (
+                          <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-white/50">
+                            {child.badge}
+                          </span>
+                        ) : null}
                       </Link>
                     );
                   })}
@@ -259,8 +434,23 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
     const href = section.href ?? "/";
     return (
-      <Link key={section.id} href={href} className={cn("relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all", isActive(href) ? "bg-white/[0.08] text-white" : "text-white/50 hover:bg-white/[0.04] hover:text-white/80")}>
-        <SectionIcon className={cn("h-[18px] w-[18px] flex-shrink-0", isActive(href) && "text-electric-400")} />
+      <Link
+        key={section.id}
+        href={href}
+        onClick={onNavigate}
+        className={cn(
+          "relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all",
+          isActive(href)
+            ? "bg-white/[0.08] text-white"
+            : "text-white/50 hover:bg-white/[0.04] hover:text-white/80",
+        )}
+      >
+        <SectionIcon
+          className={cn(
+            "h-[18px] w-[18px] flex-shrink-0",
+            isActive(href) && "text-electric-400",
+          )}
+        />
         {!collapsed && <span className="flex-1">{section.label}</span>}
         {renderBadge(section.badge)}
       </Link>
@@ -268,19 +458,68 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   };
 
   return (
-    <motion.aside initial={false} animate={{ width: collapsed ? 72 : 280 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="glass-strong fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-white/[0.06]">
+    <motion.aside
+      initial={false}
+      animate={{
+        width: mobile ? 280 : collapsed ? 72 : 280,
+        x: mobile && !open ? -280 : 0,
+      }}
+      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+      className="glass-strong fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-white/[0.06]"
+    >
       <div className="flex h-16 items-center gap-3 border-b border-white/[0.06] px-4">
-        <div className="relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04]"><Sparkles className="h-5 w-5 text-electric-300" /></div>
-        {!collapsed && <div><div className="text-sm font-semibold text-white">AIONEX AIOS</div><div className="text-[10px] text-white/35">Owner Control</div></div>}
+        <div className="relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04]">
+          <Sparkles className="h-5 w-5 text-electric-300" />
+        </div>
+        {!collapsed && (
+          <div>
+            <div className="text-sm font-semibold text-white">AIONEX AIOS</div>
+            <div className="text-[10px] text-white/35">
+              {isSuperOwner ? "Owner Control" : "Platform Control"}
+            </div>
+          </div>
+        )}
       </div>
       <div className="flex-1 overflow-y-auto px-3 py-4">
-        {!collapsed && <div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/25">Navigation</div>}
+        {!collapsed && (
+          <div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/25">
+            Navigation
+          </div>
+        )}
         <div className="space-y-1">{mainNavSections.map(renderSection)}</div>
-        {!collapsed && <div className="mt-5 border-t border-white/[0.06] pt-4"><div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/25">Favorites</div>{favorites.map((favorite) => <Link key={favorite.id} href={favorite.href} className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-white/45 hover:bg-white/[0.04] hover:text-white/75"><Star className="h-3.5 w-3.5" />{favorite.label}</Link>)}</div>}
+        {!collapsed && favorites.length > 0 && (
+          <div className="mt-5 border-t border-white/[0.06] pt-4">
+            <div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/25">
+              Favorites
+            </div>
+            {favorites.map((favorite) => (
+              <Link
+                key={favorite.id}
+                href={favorite.href}
+                onClick={onNavigate}
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-white/45 hover:bg-white/[0.04] hover:text-white/75"
+              >
+                <Star className="h-3.5 w-3.5" />
+                {favorite.label}
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
       <div className="border-t border-white/[0.06] p-3">
-        <div className="mb-2 space-y-1">{bottomNavSections.map(renderSection)}</div>
-        <button onClick={onToggle} className="flex w-full items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] p-2 text-white/40 hover:bg-white/[0.06] hover:text-white/70">{collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}</button>
+        <div className="mb-2 space-y-1">
+          {bottomNavSections.map(renderSection)}
+        </div>
+        <button
+          onClick={onToggle}
+          className="flex w-full items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] p-2 text-white/40 hover:bg-white/[0.06] hover:text-white/70"
+        >
+          {collapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <ChevronLeft className="h-4 w-4" />
+          )}
+        </button>
       </div>
     </motion.aside>
   );

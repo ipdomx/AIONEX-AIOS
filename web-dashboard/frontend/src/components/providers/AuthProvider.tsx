@@ -1,6 +1,13 @@
 "use client";
 
-import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  PropsWithChildren,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import { AuthUser, authService } from "@/lib/auth-service";
 
@@ -37,7 +44,8 @@ export default function AuthProvider({ children }: PropsWithChildren) {
         if (!cancelled) setUser(current);
       } catch {
         authService.clearSession();
-        if (!cancelled) setUser(stored && authService.hasAccessToken() ? stored : null);
+        if (!cancelled)
+          setUser(stored && authService.hasAccessToken() ? stored : null);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -59,8 +67,11 @@ export default function AuthProvider({ children }: PropsWithChildren) {
         setUser(response.user);
       },
       async logout() {
-        await authService.logout();
-        setUser(null);
+        try {
+          await authService.logout();
+        } finally {
+          setUser(null);
+        }
       },
       async refreshUser() {
         const current = await authService.currentUser();
