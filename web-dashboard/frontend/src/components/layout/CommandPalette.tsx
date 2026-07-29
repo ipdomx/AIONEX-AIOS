@@ -146,6 +146,10 @@ const navigationCommands: CommandItem[] = [
   },
 ];
 
+const ownerUtilityCommands = navigationCommands.filter(
+  (command) => command.href === "/settings",
+);
+
 export default function CommandPalette({
   isOpen,
   onClose,
@@ -160,7 +164,6 @@ export default function CommandPalette({
   const commands = useMemo(() => {
     if (user?.role !== "Super Owner") return navigationCommands;
     return [
-      ...navigationCommands,
       {
         id: "command-owner-root",
         name: "Owner Center",
@@ -177,6 +180,7 @@ export default function CommandPalette({
         href: item.href,
         keywords: ["owner", item.description],
       })),
+      ...ownerUtilityCommands,
     ];
   }, [user?.role]);
 

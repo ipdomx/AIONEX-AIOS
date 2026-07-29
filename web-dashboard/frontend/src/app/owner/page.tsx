@@ -4,17 +4,22 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { CheckCircle2, Gauge, Gavel, ShieldCheck } from "lucide-react";
 
-import {
-  ownerNavigationItems,
-  ownerNavigationSections,
-} from "@/config/owner-navigation";
+import { ownerNavigationSections } from "@/config/owner-navigation";
+import { useOwnerResource } from "@/hooks/use-owner-resource";
+
+type ExecutiveMetric = {
+  id: string;
+  label: string;
+  value: number;
+  status: "good" | "watch" | "critical";
+};
 
 const requestedCoverage = [
   { label: "Settings", href: "/settings" },
   { label: "Organizations", href: "/owner/organizations" },
   { label: "Policies", href: "/owner/policies" },
   { label: "Services", href: "/owner/services" },
-  { label: "AI Providers", href: "/ai/providers" },
+  { label: "AI Providers", href: "/owner/platform-integration" },
   { label: "Notifications", href: "/owner/notifications" },
   { label: "Security", href: "/owner/security-integration" },
   { label: "Integrations", href: "/owner/integrations" },
@@ -25,6 +30,14 @@ const requestedCoverage = [
 ];
 
 export default function OwnerDashboardPage() {
+  const {
+    items: executiveMetrics,
+    loading,
+    message,
+  } = useOwnerResource<ExecutiveMetric>("executive");
+  const metric = (id: string) =>
+    executiveMetrics.find((item) => item.id === id)?.value ?? 0;
+
   return (
     <div className="space-y-6">
       <motion.header
@@ -47,8 +60,14 @@ export default function OwnerDashboardPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link href="/projects?create=1" className="btn-primary">
-              New Project
+            <Link
+              href={{
+                pathname: "/owner/operations",
+                query: { entity: "project", operation: "create" },
+              }}
+              className="btn-primary"
+            >
+              Create governed project
             </Link>
             <Link
               href="/owner/completion"
@@ -61,41 +80,37 @@ export default function OwnerDashboardPage() {
       </motion.header>
 
       <section className="rounded-xl border border-electric-500/15 bg-electric-500/5 px-4 py-3 text-xs leading-relaxed text-electric-200/80">
-        Every existing Owner page is now reachable. Runtime clients no longer
-        substitute sample success data when a backend contract is absent; those
-        pages report the missing contract explicitly.
+        {loading ? "Loading live owner control data…" : message}
       </section>
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="glass-card p-5">
           <Gauge className="h-5 w-5 text-electric-300" />
           <div className="mt-4 text-3xl font-bold text-white">
-            {ownerNavigationItems.length}
+            {metric("projects")}
           </div>
-          <div className="mt-1 text-xs text-white/40">
-            Registered Owner pages
-          </div>
+          <div className="mt-1 text-xs text-white/40">Live projects</div>
         </div>
         <div className="glass-card p-5">
           <Gavel className="h-5 w-5 text-electric-300" />
           <div className="mt-4 text-3xl font-bold text-white">
-            {ownerNavigationSections.length}
+            {metric("organizations")}
           </div>
-          <div className="mt-1 text-xs text-white/40">Navigation groups</div>
+          <div className="mt-1 text-xs text-white/40">Organizations</div>
         </div>
         <div className="glass-card p-5">
           <ShieldCheck className="h-5 w-5 text-electric-300" />
-          <div className="mt-4 text-3xl font-bold text-white">Super Owner</div>
-          <div className="mt-1 text-xs text-white/40">Required global role</div>
+          <div className="mt-4 text-3xl font-bold text-white">
+            {metric("users")}
+          </div>
+          <div className="mt-1 text-xs text-white/40">Managed users</div>
         </div>
         <div className="glass-card p-5">
           <CheckCircle2 className="h-5 w-5 text-green-300" />
           <div className="mt-4 text-3xl font-bold text-white">
-            {requestedCoverage.length}
+            {metric("alerts")}
           </div>
-          <div className="mt-1 text-xs text-white/40">
-            Core platform areas linked
-          </div>
+          <div className="mt-1 text-xs text-white/40">Active incidents</div>
         </div>
       </section>
 

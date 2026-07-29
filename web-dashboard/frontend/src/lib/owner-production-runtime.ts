@@ -1,7 +1,7 @@
 import { apiClient } from "@/lib/api-client";
 
 export type ProductionRuntimeStatus = "ready" | "degraded" | "blocked";
-export type ProductionRuntimeAction = "validate" | "synchronize" | "prepare";
+export type ProductionRuntimeAction = "validate";
 
 export interface ProductionRuntimeTarget {
   id: string;

@@ -1,90 +1,387 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
-import { Settings, User, Shield, Bell, Globe, Palette, Database, CreditCard, Key } from "lucide-react";
+import {
+  Bell,
+  CreditCard,
+  Database,
+  Globe,
+  Key,
+  Palette,
+  Settings,
+  Shield,
+  User,
+} from "lucide-react";
 
-const settingsSections = [
-  { id: "profile", label: "Profile", icon: User, description: "Manage your personal information" },
-  { id: "security", label: "Security", icon: Shield, description: "Password, MFA, and sessions" },
-  { id: "notifications", label: "Notifications", icon: Bell, description: "Email, push, and webhook settings" },
-  { id: "language", label: "Language & Region", icon: Globe, description: "Language, timezone, and format" },
-  { id: "appearance", label: "Appearance", icon: Palette, description: "Theme, colors, and layout" },
-  { id: "database", label: "Database", icon: Database, description: "Connection and migration settings" },
-  { id: "billing", label: "Billing", icon: CreditCard, description: "Subscription and payment methods" },
-  { id: "api", label: "API Keys", icon: Key, description: "Manage API keys and webhooks" },
-];
+import {
+  changeAccountPassword,
+  fetchAccountSettings,
+  revokeAccountSessions,
+  updateAccountSettings,
+  type AccountSettings,
+} from "@/lib/account-settings";
+
+const sections = [
+  { id: "profile", label: "Profile", icon: User },
+  { id: "security", label: "Security", icon: Shield },
+  { id: "notifications", label: "Notifications", icon: Bell },
+  { id: "language", label: "Language & Region", icon: Globe },
+  { id: "appearance", label: "Appearance", icon: Palette },
+  { id: "database", label: "Database", icon: Database },
+  { id: "billing", label: "Billing", icon: CreditCard },
+  { id: "api", label: "API Keys", icon: Key },
+] as const;
+
+const empty: AccountSettings = {
+  profile: { id: "", name: "", email: "", role: "", organization: "" },
+  preferences: {
+    language: "en",
+    timezone: "UTC",
+    theme: "dark",
+    email_notifications: true,
+    push_notifications: false,
+  },
+  security: {
+    mfa_policy_enabled: false,
+    active_sessions: 0,
+    password_min_length: 12,
+  },
+};
 
 export default function SettingsPage() {
-  const [activeSection, setActiveSection] = useState("profile");
+  const [active, setActive] =
+    useState<(typeof sections)[number]["id"]>("profile");
+  const [data, setData] = useState<AccountSettings>(empty);
+  const [name, setName] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("Loading settings...");
+  const visibleSections = sections.filter(
+    (section) =>
+      !["database", "billing", "api"].includes(section.id) ||
+      data.profile.role === "Super Owner",
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchAccountSettings(controller.signal)
+      .then((result) => {
+        setData(result);
+        setName(result.profile.name);
+        setMessage("Settings synchronized.");
+      })
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          setMessage(
+            error instanceof Error ? error.message : "Settings failed",
+          );
+        }
+      });
+    return () => controller.abort();
+  }, []);
+
+  async function save(payload: Record<string, unknown>, success: string) {
+    setBusy(true);
+    try {
+      const result = await updateAccountSettings(payload);
+      setData(result);
+      setName(result.profile.name);
+      setMessage(success);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Save failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function changePassword() {
+    setBusy(true);
+    try {
+      const result = await changeAccountPassword(currentPassword, newPassword);
+      setCurrentPassword("");
+      setNewPassword("");
+      setData((current) => ({
+        ...current,
+        security: { ...current.security, active_sessions: 0 },
+      }));
+      setMessage(result.message);
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Password change failed",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function revokeSessions() {
+    setBusy(true);
+    try {
+      const result = await revokeAccountSessions();
+      setData((current) => ({
+        ...current,
+        security: { ...current.security, active_sessions: 0 },
+      }));
+      setMessage(`Revoked ${result.revoked} refresh session(s).`);
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Session revoke failed",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-2xl font-bold text-white tracking-tight">Settings</h1>
-        <p className="text-sm text-white/40 mt-1">Manage your account and system preferences</p>
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <h1 className="text-2xl font-bold tracking-tight text-white">
+          Settings
+        </h1>
+        <p className="mt-1 text-sm text-white/40">{message}</p>
       </motion.div>
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-1">
-          {settingsSections.map((section) => {
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+        <div className="space-y-1">
+          {visibleSections.map((section) => {
             const Icon = section.icon;
-            const isActive = activeSection === section.id;
             return (
-              <button key={section.id} onClick={() => setActiveSection(section.id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 ${isActive ? "bg-white/[0.08] text-white" : "text-white/50 hover:text-white/80 hover:bg-white/[0.04]"}`}>
-                <Icon className={`w-[18px] h-[18px] ${isActive ? "text-electric-400" : "text-white/40"}`} />
-                <div className="flex-1">
-                  <div className="text-sm font-medium">{section.label}</div>
-                  <div className="text-[10px] text-white/30">{section.description}</div>
-                </div>
+              <button
+                key={section.id}
+                type="button"
+                onClick={() => setActive(section.id)}
+                className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm transition ${
+                  active === section.id
+                    ? "bg-white/[0.08] text-white"
+                    : "text-white/50 hover:bg-white/[0.04] hover:text-white/80"
+                }`}
+              >
+                <Icon className="h-[18px] w-[18px]" />
+                {section.label}
               </button>
             );
           })}
-        </motion.div>
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-3 glass-card p-6">
-          {activeSection === "profile" && (
-            <div className="space-y-6">
-              <h2 className="text-lg font-semibold text-white">Profile Settings</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2"><label className="text-xs text-white/40 uppercase tracking-wider">Full Name</label><input type="text" defaultValue="Alex Chen" className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white outline-none" /></div>
-                <div className="space-y-2"><label className="text-xs text-white/40 uppercase tracking-wider">Email</label><input type="email" defaultValue="alex@aionex.io" className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white outline-none" /></div>
-                <div className="space-y-2"><label className="text-xs text-white/40 uppercase tracking-wider">Job Title</label><input type="text" defaultValue="Super Owner" className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white outline-none" /></div>
-                <div className="space-y-2"><label className="text-xs text-white/40 uppercase tracking-wider">Department</label><input type="text" defaultValue="Engineering" className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white outline-none" /></div>
+        </div>
+
+        <section className="glass-card p-6 lg:col-span-3">
+          {active === "profile" && (
+            <div className="space-y-5">
+              <h2 className="text-lg font-semibold text-white">Profile</h2>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="space-y-2 text-xs text-white/40">
+                  Full name
+                  <input
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    className="glass-input w-full rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+                  />
+                </label>
+                <label className="space-y-2 text-xs text-white/40">
+                  Email
+                  <input
+                    value={data.profile.email}
+                    readOnly
+                    className="glass-input w-full rounded-xl px-4 py-2.5 text-sm text-white/60 outline-none"
+                  />
+                </label>
+                <div className="rounded-xl bg-white/[0.02] p-4 text-sm text-white/60">
+                  Role: {data.profile.role || "—"}
+                </div>
+                <div className="rounded-xl bg-white/[0.02] p-4 text-sm text-white/60">
+                  Organization: {data.profile.organization || "—"}
+                </div>
               </div>
-              <div className="flex justify-end"><button className="btn-primary">Save Changes</button></div>
+              <button
+                disabled={busy || name.trim().length < 2}
+                onClick={() => void save({ name }, "Profile saved.")}
+                className="btn-primary disabled:opacity-50"
+              >
+                Save changes
+              </button>
             </div>
           )}
-          {activeSection === "security" && (
-            <div className="space-y-6">
-              <h2 className="text-lg font-semibold text-white">Security Settings</h2>
-              <div className="space-y-4">
-                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-                  <div className="flex items-center justify-between"><div><h3 className="text-sm font-medium text-white">Two-Factor Authentication</h3><p className="text-xs text-white/40">Add an extra layer of security</p></div><button className="px-4 py-2 rounded-lg bg-green-500/10 text-green-400 text-xs font-medium border border-green-500/20">Enabled</button></div>
-                </div>
-                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-                  <div className="flex items-center justify-between"><div><h3 className="text-sm font-medium text-white">Password</h3><p className="text-xs text-white/40">Last changed 30 days ago</p></div><button className="px-4 py-2 rounded-lg bg-white/[0.04] text-white/60 text-xs font-medium border border-white/[0.08] hover:bg-white/[0.08]">Change</button></div>
-                </div>
-                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-                  <div className="flex items-center justify-between"><div><h3 className="text-sm font-medium text-white">Active Sessions</h3><p className="text-xs text-white/40">3 active sessions</p></div><button className="px-4 py-2 rounded-lg bg-white/[0.04] text-white/60 text-xs font-medium border border-white/[0.08] hover:bg-white/[0.08]">Manage</button></div>
-                </div>
+
+          {active === "security" && (
+            <div className="space-y-5">
+              <h2 className="text-lg font-semibold text-white">Security</h2>
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-sm text-white/60">
+                MFA deployment flag:{" "}
+                {data.security.mfa_policy_enabled ? "Enabled" : "Disabled"}.
+                This settings contract does not assert sign-in enforcement.
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(event) => setCurrentPassword(event.target.value)}
+                  placeholder="Current password"
+                  className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+                />
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                  placeholder={`New password (${data.security.password_min_length}+ characters)`}
+                  className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+                />
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  disabled={
+                    busy ||
+                    !currentPassword ||
+                    newPassword.length < data.security.password_min_length
+                  }
+                  onClick={() => void changePassword()}
+                  className="btn-primary disabled:opacity-50"
+                >
+                  Change password
+                </button>
+                <button
+                  disabled={busy || data.security.active_sessions === 0}
+                  onClick={() => void revokeSessions()}
+                  className="rounded-xl border border-orange-500/20 bg-orange-500/10 px-4 py-2 text-sm text-orange-300 disabled:opacity-50"
+                >
+                  Revoke {data.security.active_sessions} session(s)
+                </button>
               </div>
             </div>
           )}
-          {activeSection === "appearance" && (
-            <div className="space-y-6">
+
+          {active === "notifications" && (
+            <div className="space-y-5">
+              <h2 className="text-lg font-semibold text-white">
+                Notifications
+              </h2>
+              {(["email_notifications", "push_notifications"] as const).map(
+                (key) => (
+                  <label
+                    key={key}
+                    className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-sm text-white/65"
+                  >
+                    {key === "email_notifications"
+                      ? "Email notifications"
+                      : "Push notifications"}
+                    <input
+                      type="checkbox"
+                      checked={data.preferences[key]}
+                      onChange={(event) =>
+                        void save(
+                          { [key]: event.target.checked },
+                          "Notification preference saved.",
+                        )
+                      }
+                    />
+                  </label>
+                ),
+              )}
+            </div>
+          )}
+
+          {active === "language" && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="space-y-2 text-xs text-white/40">
+                Language
+                <select
+                  value={data.preferences.language}
+                  onChange={(event) =>
+                    void save(
+                      { language: event.target.value },
+                      "Language saved.",
+                    )
+                  }
+                  className="glass-input w-full rounded-xl px-4 py-2.5 text-sm text-white"
+                >
+                  <option value="en" className="bg-space-800">
+                    English
+                  </option>
+                  <option value="ar" className="bg-space-800">
+                    العربية
+                  </option>
+                </select>
+              </label>
+              <label className="space-y-2 text-xs text-white/40">
+                Timezone
+                <select
+                  value={data.preferences.timezone}
+                  onChange={(event) =>
+                    void save(
+                      { timezone: event.target.value },
+                      "Timezone saved.",
+                    )
+                  }
+                  className="glass-input w-full rounded-xl px-4 py-2.5 text-sm text-white"
+                >
+                  <option value="UTC" className="bg-space-800">
+                    UTC
+                  </option>
+                  <option value="Asia/Dubai" className="bg-space-800">
+                    Asia/Dubai
+                  </option>
+                </select>
+              </label>
+            </div>
+          )}
+
+          {active === "appearance" && (
+            <div className="space-y-4">
               <h2 className="text-lg font-semibold text-white">Appearance</h2>
-              <div className="space-y-4">
-                <div className="space-y-2"><label className="text-xs text-white/40 uppercase tracking-wider">Theme</label><div className="flex gap-3"><button className="flex-1 p-4 rounded-xl bg-white/[0.08] border border-electric-500/50 text-center"><div className="text-sm font-medium text-white">Dark</div></button><button className="flex-1 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] text-center"><div className="text-sm font-medium text-white/60">Light</div></button><button className="flex-1 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] text-center"><div className="text-sm font-medium text-white/60">System</div></button></div></div>
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-sm text-white/60">
+                The production dashboard currently uses its supported dark
+                theme.
               </div>
             </div>
           )}
-          {activeSection !== "profile" && activeSection !== "security" && activeSection !== "appearance" && (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Settings className="w-12 h-12 text-white/10 mb-4" />
-              <p className="text-sm text-white/30">{settingsSections.find((s) => s.id === activeSection)?.label} settings coming soon</p>
-            </div>
+
+          {active === "database" && (
+            <SettingsLink
+              href="/owner/health"
+              title="Database health"
+              description="Open live PostgreSQL and dependency probes."
+            />
           )}
-        </motion.div>
+          {active === "billing" && (
+            <SettingsLink
+              href="/owner/billing"
+              title="Billing & plans"
+              description="Manage organization plans and suspension state."
+            />
+          )}
+          {active === "api" && (
+            <SettingsLink
+              href="/owner/secrets"
+              title="API keys & secret references"
+              description="Manage protected external vault references."
+            />
+          )}
+        </section>
       </div>
+    </div>
+  );
+}
+
+function SettingsLink({
+  href,
+  title,
+  description,
+}: {
+  href: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <Settings className="mb-4 h-12 w-12 text-electric-300" />
+      <h2 className="text-lg font-semibold text-white">{title}</h2>
+      <p className="mt-2 text-sm text-white/40">{description}</p>
+      <Link href={href} className="btn-primary mt-5">
+        Open control
+      </Link>
     </div>
   );
 }

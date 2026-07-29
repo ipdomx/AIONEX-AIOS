@@ -10,6 +10,7 @@ export interface IntegrationTarget {
   health: number;
   endpoint: string;
   owner_visible: boolean;
+  configured: boolean;
   last_checked_at: string;
   details: string;
 }
@@ -31,7 +32,7 @@ export async function fetchOwnerPlatformIntegration(
 
 export async function runOwnerIntegrationCommand(
   targetId: string,
-  action: "refresh" | "reconnect" | "validate",
+  action: "validate",
 ): Promise<IntegrationSnapshot> {
   return apiClient.post<IntegrationSnapshot>(
     "/owner/platform-integration/command",

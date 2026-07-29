@@ -1,7 +1,7 @@
 import { apiClient } from "@/lib/api-client";
 
 export type SecurityStatus = "secure" | "warning" | "critical";
-export type SecurityAction = "validate" | "rotate" | "quarantine";
+export type SecurityAction = "validate" | "acknowledge";
 
 export interface SecurityTarget {
   id: string;

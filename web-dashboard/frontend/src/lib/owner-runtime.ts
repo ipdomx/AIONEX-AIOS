@@ -1,10 +1,25 @@
 import { apiClient } from "@/lib/api-client";
 
+export type OwnerProjectStatus =
+  | "planning"
+  | "active"
+  | "paused"
+  | "completed"
+  | "blocked"
+  | "review"
+  | "archived"
+  | "deleted";
+
+export type OwnerOrganizationStatus =
+  "active" | "pending" | "suspended" | "restricted" | "inactive";
+
+export type OwnerUserStatus = "active" | "invited" | "suspended" | "inactive";
+
 export type OwnerProject = {
   id: string;
   name: string;
   organization: string;
-  status: "active" | "paused" | "completed" | "blocked";
+  status: OwnerProjectStatus;
   progress: number;
   updatedAt: string;
 };
@@ -14,7 +29,7 @@ export type OwnerOrganization = {
   name: string;
   users: number;
   projects: number;
-  status: "active" | "suspended" | "pending";
+  status: OwnerOrganizationStatus;
 };
 
 export type OwnerUser = {
@@ -23,7 +38,7 @@ export type OwnerUser = {
   email: string;
   role: string;
   organization: string;
-  status: "active" | "suspended" | "invited";
+  status: OwnerUserStatus;
 };
 
 export type OwnerRuntimeSnapshot = {

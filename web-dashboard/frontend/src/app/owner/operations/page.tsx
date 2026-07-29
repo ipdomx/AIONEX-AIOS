@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Activity,
@@ -32,13 +32,41 @@ const operations: OwnerOperation[] = [
 
 export default function OwnerOperationsPage() {
   const [entity, setEntity] = useState<OwnerEntityKind>("project");
-  const [operation, setOperation] = useState<OwnerOperation>("update");
+  const [operation, setOperation] = useState<OwnerOperation>("create");
   const [recordId, setRecordId] = useState("");
   const [name, setName] = useState("");
+  const [organizationId, setOrganizationId] = useState("");
+  const [roleId, setRoleId] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [description, setDescription] = useState("");
+  const [plan, setPlan] = useState("enterprise");
+  const [priority, setPriority] = useState("medium");
   const [message, setMessage] = useState(
-    "This page requires the protected Owner operations backend contract.",
+    "Ready to execute an audited Owner operation.",
   );
   const [running, setRunning] = useState(false);
+  const runningRef = useRef(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedEntity = params.get("entity");
+    const requestedOperation = params.get("operation");
+    const requestedId = params.get("id");
+    const validEntity = entities.some((item) => item.value === requestedEntity);
+    const validOperation = operations.includes(
+      requestedOperation as OwnerOperation,
+    );
+
+    if (validEntity) setEntity(requestedEntity as OwnerEntityKind);
+    if (validOperation) {
+      const nextOperation = requestedOperation as OwnerOperation;
+      setOperation(nextOperation);
+      setPlan(nextOperation === "create" ? "enterprise" : "");
+      setPriority(nextOperation === "create" ? "medium" : "");
+    }
+    if (requestedId) setRecordId(requestedId);
+  }, []);
 
   const Icon = useMemo(
     () =>
@@ -51,21 +79,82 @@ export default function OwnerOperationsPage() {
   );
 
   async function submit() {
+    const payload: Record<string, unknown> = {};
+    if (name.trim()) payload.name = name.trim();
+    if (entity === "organization" && ["create", "update"].includes(operation)) {
+      if (operation === "create") payload.plan = plan || "enterprise";
+      if (operation === "update" && plan) payload.plan = plan;
+    }
+    if (entity === "project" && ["create", "update"].includes(operation)) {
+      if (description.trim()) payload.description = description.trim();
+      if (operation === "create") payload.priority = priority || "medium";
+      if (operation === "update" && priority) payload.priority = priority;
+      if (operation === "create" && organizationId.trim()) {
+        payload.organization_id = organizationId.trim();
+      }
+    }
+    if (entity === "user" && ["create", "update"].includes(operation)) {
+      if (roleId.trim()) payload.role_id = roleId.trim();
+      if (operation === "create") {
+        payload.organization_id = organizationId.trim();
+        payload.email = email.trim();
+        payload.password = password;
+      }
+    }
+
+    if (operation !== "create" && !recordId.trim()) {
+      setMessage("Record ID is required for this operation.");
+      return;
+    }
+    if (operation === "create" && name.trim().length < 2) {
+      setMessage("A name with at least two characters is required.");
+      return;
+    }
+    if (
+      entity === "user" &&
+      operation === "create" &&
+      (!organizationId.trim() ||
+        !roleId.trim() ||
+        !email.trim() ||
+        password.length < 12)
+    ) {
+      setMessage(
+        "User creation requires organization ID, role ID, email, and a 12+ character password.",
+      );
+      return;
+    }
+    if (operation === "update" && Object.keys(payload).length === 0) {
+      setMessage("Provide at least one field to update.");
+      return;
+    }
+    if (
+      ["suspend", "delete"].includes(operation) &&
+      !window.confirm(
+        `${operation === "delete" ? "Delete" : "Suspend"} this ${entity}? This audited operation changes its live platform state.`,
+      )
+    ) {
+      return;
+    }
+    if (runningRef.current) return;
+
+    runningRef.current = true;
     setRunning(true);
     setMessage("Executing protected owner operation...");
     try {
       const result = await executeOwnerOperation({
         entity,
         operation,
-        id: recordId || undefined,
-        payload: name ? { name } : undefined,
+        id: recordId.trim() || undefined,
+        payload,
       });
       setMessage(`${result.message} Operation ID: ${result.operationId}`);
+      setPassword("");
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "Owner operation failed.",
       );
     } finally {
+      runningRef.current = false;
       setRunning(false);
     }
   }
@@ -90,15 +179,20 @@ export default function OwnerOperationsPage() {
       </motion.div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_320px]">
-        <div className="glass-card space-y-4 p-5">
+        <fieldset
+          disabled={running}
+          className="glass-card space-y-4 p-5 disabled:opacity-80"
+        >
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <label className="space-y-2 text-xs text-white/50">
               Entity
               <select
                 value={entity}
-                onChange={(event) =>
-                  setEntity(event.target.value as OwnerEntityKind)
-                }
+                onChange={(event) => {
+                  setEntity(event.target.value as OwnerEntityKind);
+                  setPlan(operation === "create" ? "enterprise" : "");
+                  setPriority(operation === "create" ? "medium" : "");
+                }}
                 className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
               >
                 {entities.map((item) => (
@@ -116,9 +210,12 @@ export default function OwnerOperationsPage() {
               Operation
               <select
                 value={operation}
-                onChange={(event) =>
-                  setOperation(event.target.value as OwnerOperation)
-                }
+                onChange={(event) => {
+                  const nextOperation = event.target.value as OwnerOperation;
+                  setOperation(nextOperation);
+                  setPlan(nextOperation === "create" ? "enterprise" : "");
+                  setPriority(nextOperation === "create" ? "medium" : "");
+                }}
                 className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
               >
                 {operations.map((item) => (
@@ -134,19 +231,156 @@ export default function OwnerOperationsPage() {
             <input
               value={recordId}
               onChange={(event) => setRecordId(event.target.value)}
-              placeholder="Optional for create"
+              placeholder={
+                operation === "create" ? "Generated by the backend" : "Required"
+              }
+              disabled={operation === "create"}
               className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
             />
           </label>
-          <label className="block space-y-2 text-xs text-white/50">
-            Name
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Payload name"
-              className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
-            />
-          </label>
+          {["create", "update"].includes(operation) && (
+            <>
+              <label className="block space-y-2 text-xs text-white/50">
+                Name
+                <input
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder={
+                    operation === "create"
+                      ? `${entity} name`
+                      : "Leave blank to keep the current name"
+                  }
+                  className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
+                />
+              </label>
+
+              {entity === "organization" && (
+                <label className="block space-y-2 text-xs text-white/50">
+                  Plan
+                  <select
+                    value={plan}
+                    onChange={(event) => setPlan(event.target.value)}
+                    className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
+                  >
+                    {operation === "update" && (
+                      <option value="" className="bg-space-800">
+                        Keep current plan
+                      </option>
+                    )}
+                    {["enterprise", "professional", "starter"].map((item) => (
+                      <option key={item} value={item} className="bg-space-800">
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
+              {entity === "project" && (
+                <>
+                  {operation === "create" && (
+                    <label className="block space-y-2 text-xs text-white/50">
+                      Organization ID
+                      <input
+                        value={organizationId}
+                        onChange={(event) =>
+                          setOrganizationId(event.target.value)
+                        }
+                        placeholder="Optional; defaults to the Owner organization"
+                        className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
+                      />
+                    </label>
+                  )}
+                  <label className="block space-y-2 text-xs text-white/50">
+                    Description
+                    <textarea
+                      value={description}
+                      onChange={(event) => setDescription(event.target.value)}
+                      rows={3}
+                      className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
+                    />
+                  </label>
+                  <label className="block space-y-2 text-xs text-white/50">
+                    Priority
+                    <select
+                      value={priority}
+                      onChange={(event) => setPriority(event.target.value)}
+                      className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
+                    >
+                      {operation === "update" && (
+                        <option value="" className="bg-space-800">
+                          Keep current priority
+                        </option>
+                      )}
+                      {["low", "medium", "high", "critical"].map((item) => (
+                        <option
+                          key={item}
+                          value={item}
+                          className="bg-space-800"
+                        >
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              )}
+
+              {entity === "user" && (
+                <>
+                  <label className="block space-y-2 text-xs text-white/50">
+                    Role ID
+                    <input
+                      value={roleId}
+                      onChange={(event) => setRoleId(event.target.value)}
+                      placeholder={
+                        operation === "create"
+                          ? "Required"
+                          : "Leave blank to keep the current role"
+                      }
+                      className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
+                    />
+                  </label>
+                  {operation === "create" && (
+                    <>
+                      <label className="block space-y-2 text-xs text-white/50">
+                        Organization ID
+                        <input
+                          value={organizationId}
+                          onChange={(event) =>
+                            setOrganizationId(event.target.value)
+                          }
+                          placeholder="Required"
+                          className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
+                        />
+                      </label>
+                      <label className="block space-y-2 text-xs text-white/50">
+                        Email
+                        <input
+                          type="email"
+                          value={email}
+                          onChange={(event) => setEmail(event.target.value)}
+                          placeholder="owner-managed@example.com"
+                          className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
+                        />
+                      </label>
+                      <label className="block space-y-2 text-xs text-white/50">
+                        Initial password
+                        <input
+                          type="password"
+                          value={password}
+                          onChange={(event) => setPassword(event.target.value)}
+                          placeholder="12+ characters"
+                          autoComplete="new-password"
+                          className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
+                        />
+                      </label>
+                    </>
+                  )}
+                </>
+              )}
+            </>
+          )}
           <button
             disabled={running}
             onClick={() => void submit()}
@@ -159,7 +393,7 @@ export default function OwnerOperationsPage() {
             <Activity className="mt-0.5 h-4 w-4 flex-shrink-0" />
             {message}
           </div>
-        </div>
+        </fieldset>
 
         <div className="glass-card p-5">
           <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3">

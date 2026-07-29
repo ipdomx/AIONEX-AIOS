@@ -3,22 +3,21 @@ AIONEX AIOS — Enterprise AI Operating System
 FastAPI Backend Application
 """
 
-import os
-import sys
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from app.api.v1.router import api_router
+from app.core.config import settings
+from app.core.events import shutdown_event, startup_event
+from app.core.logging import get_logger, setup_logging
+from app.db.base import SessionLocal
+from app.db.redis import get_redis
+from app.websocket.manager import websocket_manager
+from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
-
-from app.core.config import settings
-from app.core.logging import setup_logging, get_logger
-from app.core.events import startup_event, shutdown_event
-from app.api.v1.router import api_router
-from app.websocket.manager import websocket_manager
+from sqlalchemy import text
 
 # Setup logging
 setup_logging()
@@ -70,12 +69,29 @@ async def health_check():
 
 
 @app.get("/ready", tags=["System"])
-async def readiness_check():
-    """Readiness check endpoint."""
+async def readiness_check(response: Response):
+    """Probe the dependencies required by authenticated dashboard requests."""
+    database_status = "unavailable"
+    redis_status = "unavailable"
+    try:
+        async with SessionLocal() as session:
+            await session.execute(text("SELECT 1"))
+        database_status = "connected"
+    except Exception:
+        logger.exception("Readiness database probe failed")
+    try:
+        redis = await get_redis()
+        if await redis.ping():
+            redis_status = "connected"
+    except Exception:
+        logger.exception("Readiness Redis probe failed")
+
+    ready = database_status == "connected" and redis_status == "connected"
+    response.status_code = 200 if ready else 503
     return {
-        "status": "ready",
-        "database": "connected",
-        "redis": "connected",
+        "status": "ready" if ready else "not_ready",
+        "database": database_status,
+        "redis": redis_status,
     }
 
 

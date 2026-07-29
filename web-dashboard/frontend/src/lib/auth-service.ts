@@ -55,7 +55,13 @@ export const authService = {
 
   async logout(): Promise<void> {
     try {
-      await apiClient.post<{ message: string }>("/auth/logout");
+      const refreshToken =
+        typeof window === "undefined"
+          ? null
+          : window.localStorage.getItem(REFRESH_TOKEN_KEY);
+      await apiClient.post<{ message: string }>("/auth/logout", {
+        refresh_token: refreshToken,
+      });
     } finally {
       clearSession();
     }
@@ -91,7 +97,10 @@ export const authService = {
   },
 
   hasAccessToken(): boolean {
-    return typeof window !== "undefined" && Boolean(window.localStorage.getItem(ACCESS_TOKEN_KEY));
+    return (
+      typeof window !== "undefined" &&
+      Boolean(window.localStorage.getItem(ACCESS_TOKEN_KEY))
+    );
   },
 
   clearSession,

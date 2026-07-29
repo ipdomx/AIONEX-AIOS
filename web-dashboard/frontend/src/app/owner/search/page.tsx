@@ -9,10 +9,24 @@ import {
   ownerNavigationItems,
   ownerNavigationSections,
 } from "@/config/owner-navigation";
+import { useOwnerResource } from "@/hooks/use-owner-resource";
+
+type SearchableOwnerEntity = {
+  id: string;
+  name: string;
+  type: "project" | "organization" | "service" | "worker";
+  status: string;
+  owner: string;
+};
 
 export default function OwnerGlobalSearchPage() {
   const [query, setQuery] = useState("");
   const [sectionId, setSectionId] = useState("all");
+  const {
+    items: liveItems,
+    loading,
+    message,
+  } = useOwnerResource<SearchableOwnerEntity>("global-command");
 
   const results = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -30,6 +44,15 @@ export default function OwnerGlobalSearchPage() {
         item.href.toLowerCase().includes(needle),
     );
   }, [query, sectionId]);
+  const liveResults = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return liveItems.slice(0, 20);
+    return liveItems.filter((item) =>
+      `${item.name} ${item.type} ${item.status} ${item.owner}`
+        .toLowerCase()
+        .includes(needle),
+    );
+  }, [liveItems, query]);
 
   return (
     <div className="space-y-6">
@@ -45,8 +68,8 @@ export default function OwnerGlobalSearchPage() {
           Find an Owner Module
         </h1>
         <p className="mt-2 text-sm text-white/45">
-          Search every registered Owner page without presenting unverified
-          platform records.
+          Search registered Owner pages and live platform records from the
+          protected control plane.
         </p>
       </motion.div>
 
@@ -83,7 +106,14 @@ export default function OwnerGlobalSearchPage() {
         </div>
         <p className="mt-3 text-xs text-electric-300">
           {results.length} reachable Owner page{results.length === 1 ? "" : "s"}
+          {" · "}
+          {loading
+            ? "loading live records"
+            : `${liveResults.length} live records`}
         </p>
+        {!loading && (
+          <p className="mt-1 text-[11px] text-white/35">{message}</p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -121,6 +151,34 @@ export default function OwnerGlobalSearchPage() {
           );
         })}
       </div>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold text-white">Live records</h2>
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+          {liveResults.map((item) => {
+            const href =
+              item.type === "project"
+                ? "/owner/projects"
+                : item.type === "organization"
+                  ? "/owner/organizations"
+                  : "/owner/services";
+            return (
+              <Link
+                key={`${item.type}-${item.id}`}
+                href={href}
+                className="glass-card p-4 transition hover:bg-white/[0.05]"
+              >
+                <div className="text-sm font-semibold text-white">
+                  {item.name}
+                </div>
+                <div className="mt-1 text-xs text-white/40">
+                  {item.type} · {item.status} · {item.owner}
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
 
       {results.length === 0 && (
         <div className="glass-card p-8 text-center text-sm text-white/40">

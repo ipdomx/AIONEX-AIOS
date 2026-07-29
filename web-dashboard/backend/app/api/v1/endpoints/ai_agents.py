@@ -1,6 +1,5 @@
 """AI agent orchestration endpoints."""
 
-import asyncio
 from dataclasses import asdict
 from typing import Optional
 
@@ -9,6 +8,9 @@ from pydantic import BaseModel
 
 from app.core.ai_runtime import ai_runtime
 from app.core.auth import UserRecord, current_user
+from app.core.owner_policy import require_owner_service_allowed
+from app.db.base import get_db
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 
@@ -55,12 +57,22 @@ async def list_agents(
         rows = [row for row in rows if row["role"].lower() == role.lower()]
     if search:
         needle = search.lower()
-        rows = [row for row in rows if needle in row["name"].lower() or needle in row["role"].lower()]
+        rows = [
+            row
+            for row in rows
+            if needle in row["name"].lower() or needle in row["role"].lower()
+        ]
     return rows[skip : skip + limit]
 
 
 @router.post("", status_code=201)
-async def create_agent(data: AgentCreate, user: UserRecord = Depends(current_user)):
+async def create_agent(
+    data: AgentCreate,
+    user: UserRecord = Depends(current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    provider = ai_runtime.get_provider(data.provider_id, user.organization_id)
+    await require_owner_service_allowed(session, provider.type)
     payload = data.model_dump(exclude={"organization_id"})
     return ai_runtime.create_agent(payload, user.organization_id)
 
@@ -69,13 +81,21 @@ async def create_agent(data: AgentCreate, user: UserRecord = Depends(current_use
 async def get_agent(agent_id: str, user: UserRecord = Depends(current_user)):
     agent = ai_runtime.get_agent(agent_id, user.organization_id)
     row = asdict(agent)
-    row["provider"] = ai_runtime.providers.get(agent.provider_id).name if agent.provider_id in ai_runtime.providers else "Unknown"
+    row["provider"] = (
+        ai_runtime.providers.get(agent.provider_id).name
+        if agent.provider_id in ai_runtime.providers
+        else "Unknown"
+    )
     return row
 
 
 @router.put("/{agent_id}")
-async def update_agent(agent_id: str, data: AgentUpdate, user: UserRecord = Depends(current_user)):
-    return ai_runtime.update_agent(agent_id, user.organization_id, data.model_dump(exclude_unset=True))
+async def update_agent(
+    agent_id: str, data: AgentUpdate, user: UserRecord = Depends(current_user)
+):
+    return ai_runtime.update_agent(
+        agent_id, user.organization_id, data.model_dump(exclude_unset=True)
+    )
 
 
 @router.delete("/{agent_id}")
@@ -90,16 +110,26 @@ async def execute_agent(
     data: AgentExecutionRequest,
     background_tasks: BackgroundTasks,
     user: UserRecord = Depends(current_user),
+    session: AsyncSession = Depends(get_db),
 ):
+    agent = ai_runtime.get_agent(agent_id, user.organization_id)
+    provider = ai_runtime.get_provider(agent.provider_id, user.organization_id)
+    await require_owner_service_allowed(session, provider.type)
     job = ai_runtime.create_job(agent_id, user.organization_id, data.prompt)
     background_tasks.add_task(ai_runtime.run_job, job.id)
     return asdict(job)
 
 
 @router.get("/{agent_id}/tasks")
-async def get_agent_tasks(agent_id: str, limit: int = 20, user: UserRecord = Depends(current_user)):
+async def get_agent_tasks(
+    agent_id: str, limit: int = 20, user: UserRecord = Depends(current_user)
+):
     ai_runtime.get_agent(agent_id, user.organization_id)
-    return [row for row in ai_runtime.list_jobs(user.organization_id, limit=100) if row["agent_id"] == agent_id][:limit]
+    return [
+        row
+        for row in ai_runtime.list_jobs(user.organization_id, limit=100)
+        if row["agent_id"] == agent_id
+    ][:limit]
 
 
 @router.get("/{agent_id}/knowledge")

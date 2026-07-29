@@ -5,7 +5,7 @@ export type OwnerRealtimeMetric = {
   label: string;
   value: number;
   unit: string;
-  status: "healthy" | "warning" | "critical";
+  status: "healthy" | "warning" | "critical" | "unknown";
   updatedAt: string;
 };
 

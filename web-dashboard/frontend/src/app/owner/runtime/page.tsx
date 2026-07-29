@@ -24,6 +24,22 @@ const emptySnapshot: OwnerRuntimeSnapshot = {
 
 type MetricCard = { label: string; value: number; icon: LucideIcon };
 
+function runtimeStatusClass(status: string) {
+  if (["active", "completed"].includes(status)) {
+    return "border-green-500/20 bg-green-500/10 text-green-300";
+  }
+  if (["planning", "pending", "invited", "review"].includes(status)) {
+    return "border-blue-500/20 bg-blue-500/10 text-blue-300";
+  }
+  if (["paused", "suspended", "archived"].includes(status)) {
+    return "border-orange-500/20 bg-orange-500/10 text-orange-300";
+  }
+  if (["restricted", "blocked", "inactive", "deleted"].includes(status)) {
+    return "border-red-500/20 bg-red-500/10 text-red-300";
+  }
+  return "border-white/10 bg-white/[0.03] text-white/45";
+}
+
 export default function OwnerRuntimePage() {
   const [snapshot, setSnapshot] = useState(emptySnapshot);
   const [loading, setLoading] = useState(true);
@@ -135,7 +151,11 @@ export default function OwnerRuntimePage() {
                     {project.organization} · {project.updatedAt}
                   </p>
                 </div>
-                <span className="rounded-full border border-green-500/20 bg-green-500/10 px-2.5 py-1 text-xs text-green-300">
+                <span
+                  className={`rounded-full border px-2.5 py-1 text-xs ${runtimeStatusClass(
+                    project.status,
+                  )}`}
+                >
                   {project.status}
                 </span>
               </div>
@@ -170,7 +190,11 @@ export default function OwnerRuntimePage() {
                   {organization.users} users · {organization.projects} projects
                 </div>
               </div>
-              <span className="text-xs text-green-300">
+              <span
+                className={`rounded-full border px-2.5 py-1 text-xs ${runtimeStatusClass(
+                  organization.status,
+                )}`}
+              >
                 {organization.status}
               </span>
             </div>
@@ -191,7 +215,13 @@ export default function OwnerRuntimePage() {
                   {user.role} · {user.organization}
                 </div>
               </div>
-              <span className="text-xs text-green-300">{user.status}</span>
+              <span
+                className={`rounded-full border px-2.5 py-1 text-xs ${runtimeStatusClass(
+                  user.status,
+                )}`}
+              >
+                {user.status}
+              </span>
             </div>
           ))}
         </section>

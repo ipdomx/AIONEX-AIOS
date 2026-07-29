@@ -96,8 +96,9 @@ export default function OwnerFinalizationPage() {
             Production Readiness & Closure
           </h1>
           <p className="mt-2 text-sm text-white/45">
-            Unified final verification for integration, security, reliability,
-            performance and owner workflows.
+            Live dependency checks, unresolved critical-incident clearance,
+            explicit performance telemetry, verified restore evidence, and Owner
+            approval.
           </p>
         </div>
         <button

@@ -1,14 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import {
-  CheckCircle2,
-  Clock3,
-  RefreshCw,
-  ShieldCheck,
-  XCircle,
-} from "lucide-react";
+import { Clock3, RefreshCw, ShieldCheck } from "lucide-react";
 import {
   decideOwnerApproval,
   fetchOwnerApprovals,
@@ -19,7 +13,9 @@ import {
 export default function OwnerApprovalsLivePage() {
   const [items, setItems] = useState<OwnerApproval[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actingId, setActingId] = useState<string | null>(null);
   const [message, setMessage] = useState("Loading owner approvals...");
+  const actionInFlight = useRef(false);
 
   async function load(signal?: AbortSignal) {
     setLoading(true);
@@ -54,6 +50,9 @@ export default function OwnerApprovalsLivePage() {
     item: OwnerApproval,
     status: Exclude<ApprovalStatus, "pending">,
   ) {
+    if (actionInFlight.current) return;
+    actionInFlight.current = true;
+    setActingId(item.id);
     setMessage(`Applying ${status} decision to ${item.title}...`);
     try {
       const updated = await decideOwnerApproval(item.id, {
@@ -66,6 +65,9 @@ export default function OwnerApprovalsLivePage() {
       setMessage(`Decision recorded: ${item.title} → ${status}.`);
     } catch {
       setMessage("Approval decision failed and was not persisted.");
+    } finally {
+      actionInFlight.current = false;
+      setActingId(null);
     }
   }
 
@@ -81,15 +83,14 @@ export default function OwnerApprovalsLivePage() {
             <ShieldCheck className="h-3.5 w-3.5" /> Owner Approval Engine
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
-            Protected Approval Workflow
+            Protected Meeting Approval Workflow
           </h1>
           <p className="mt-2 text-sm text-white/45">
-            Live owner decisions for releases, services, policies, meetings and
-            staff actions.
+            Live Super Owner decisions for pending meeting requests.
           </p>
         </div>
         <button
-          disabled={loading}
+          disabled={loading || actingId !== null}
           onClick={() => void load()}
           className="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
         >
@@ -98,27 +99,13 @@ export default function OwnerApprovalsLivePage() {
         </button>
       </motion.div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid max-w-sm grid-cols-1 gap-4">
         <div className="glass-card p-5">
           <Clock3 className="h-5 w-5 text-orange-300" />
           <div className="mt-4 text-3xl font-bold text-white">{pending}</div>
           <div className="mt-1 text-xs text-white/40">
-            Pending owner decisions
+            Pending meeting decisions
           </div>
-        </div>
-        <div className="glass-card p-5">
-          <CheckCircle2 className="h-5 w-5 text-green-300" />
-          <div className="mt-4 text-3xl font-bold text-white">
-            {items.filter((item) => item.status === "approved").length}
-          </div>
-          <div className="mt-1 text-xs text-white/40">Approved</div>
-        </div>
-        <div className="glass-card p-5">
-          <XCircle className="h-5 w-5 text-red-300" />
-          <div className="mt-4 text-3xl font-bold text-white">
-            {items.filter((item) => item.status === "rejected").length}
-          </div>
-          <div className="mt-1 text-xs text-white/40">Rejected</div>
         </div>
       </div>
 
@@ -152,20 +139,23 @@ export default function OwnerApprovalsLivePage() {
             {item.status === "pending" && (
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
+                  disabled={actingId !== null}
                   onClick={() => void decide(item, "approved")}
-                  className="rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-2 text-xs text-green-300"
+                  className="rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-2 text-xs text-green-300 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Approve
                 </button>
                 <button
+                  disabled={actingId !== null}
                   onClick={() => void decide(item, "changes_requested")}
-                  className="rounded-lg border border-orange-500/20 bg-orange-500/10 px-3 py-2 text-xs text-orange-300"
+                  className="rounded-lg border border-orange-500/20 bg-orange-500/10 px-3 py-2 text-xs text-orange-300 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Request changes
                 </button>
                 <button
+                  disabled={actingId !== null}
                   onClick={() => void decide(item, "rejected")}
-                  className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300"
+                  className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Reject
                 </button>

@@ -73,9 +73,33 @@ chmod +x scripts/reconcile-postgres-credentials.sh
 ./scripts/reconcile-postgres-credentials.sh
 ```
 
+For the production stack, pass the same Compose and environment files used to
+start it so every reconciliation command targets one project consistently:
+
+```bash
+AIOS_ENV_FILE="$PWD/.env.production" \
+docker compose --env-file .env.production \
+  -f docker-compose.production.yml up -d
+
+COMPOSE_FILE=docker-compose.production.yml \
+ENV_FILE=.env.production \
+./scripts/reconcile-postgres-credentials.sh
+```
+
+This `web-dashboard` production stack exposes HTTP on port 80 for an external
+TLS terminator. Use `deploy/production` when Caddy-managed public TLS is
+required. The two stacks use separate Compose projects and must not be run
+interchangeably against a server's existing data.
+
 The script waits for PostgreSQL, updates the existing role to the configured
 password, verifies password authentication over TCP, recreates the backend, and
 waits for its health check. It never deletes the database volume.
+
+On first startup the backend creates the configured Super Owner after Alembic
+finishes. Later restarts never reset that password. To perform an intentional
+reset, set both `AIOS_BOOTSTRAP_OWNER_PASSWORD` and
+`AIOS_BOOTSTRAP_RESET_OWNER_PASSWORD=true` for one controlled restart, then
+clear the password and disable the reset flag again.
 
 ### Local Development
 
@@ -87,6 +111,8 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 cp ../.env.example .env
 # Change POSTGRES_HOST to localhost when PostgreSQL runs on the host.
+alembic upgrade head
+python -m app.db.seed
 python main.py
 
 # Frontend (new terminal)
