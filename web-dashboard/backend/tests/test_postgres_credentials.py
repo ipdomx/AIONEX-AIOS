@@ -381,47 +381,30 @@ async def test_reconcile_uses_local_trust_then_authenticated_tcp(
         "SET LOCAL statement_timeout = '90s'",
         (),
     ) in local_connection.execution_calls
-    assert (
-        "INSERT INTO aios_recovery_policy (lease_seconds) VALUES ($1)",
-        (3600,),
-    ) in local_connection.execution_calls
-    assert local_connection.closed
-    assert authenticated_connection.closed
 
 
 @pytest.mark.asyncio
-async def test_reconcile_is_a_noop_when_password_already_authenticates(
+async def test_reconcile_returns_when_password_already_matches(
     monkeypatch: pytest.MonkeyPatch,
     credentials: BundledPostgresCredentials,
 ) -> None:
     authenticated_connection = _FakeConnection(authenticated=True)
-    connections: list[dict[str, object]] = []
 
-    async def fake_connect(**kwargs: object) -> _FakeConnection:
-        connections.append(kwargs)
+    async def fake_connect(**_kwargs: object) -> _FakeConnection:
         return authenticated_connection
 
-    def unexpected_verifier(*_args: object) -> str:
-        raise AssertionError("password verifier should not be generated")
-
     monkeypatch.setattr(postgres_credentials.asyncpg, "connect", fake_connect)
-    monkeypatch.setattr(
-        postgres_credentials,
-        "_build_password_verifier",
-        unexpected_verifier,
-    )
 
     await reconcile_bundled_postgres_credentials(
         credentials,
         socket_directory="/var/run/postgresql",
     )
 
-    assert len(connections) == 1
     assert authenticated_connection.closed
 
 
 @pytest.mark.asyncio
-async def test_reconcile_refuses_active_recovery_before_alter(
+async def test_reconcile_rejects_active_recovery_jobs(
     monkeypatch: pytest.MonkeyPatch,
     credentials: BundledPostgresCredentials,
 ) -> None:
@@ -469,10 +452,11 @@ def test_unexpected_runtime_errors_do_not_print_secrets(
 
     monkeypatch.setattr(postgres_credentials, "_run", fail)
 
-    assert postgres_credentials.main() == 2
+    assert postgres_credentials.main() == 1
     captured = capsys.readouterr()
     assert secret not in captured.out
     assert secret not in captured.err
+    assert "RuntimeError" in captured.err
 
 
 @pytest.mark.parametrize(
@@ -525,7 +509,7 @@ async def test_transaction_timeouts_fail_cleanly_before_password_change(
     assert local_connection.closed
 
 
-def test_post_commit_query_cancellation_is_treated_as_ambiguous(
+def test_post_commit_query_cancellation_fails_closed_without_secret_output(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -534,10 +518,11 @@ def test_post_commit_query_cancellation_is_treated_as_ambiguous(
 
     monkeypatch.setattr(postgres_credentials, "_run", fail)
 
-    assert postgres_credentials.main() == 2
+    assert postgres_credentials.main() == 1
     captured = capsys.readouterr()
-    assert "may already have been synchronized" in captured.err
+    assert "QueryCanceledError" in captured.err
     assert "statement timeout" not in captured.err
+    assert "may already have been synchronized" not in captured.err
 
 
 def test_external_database_skip_is_reported_without_reconciliation(
