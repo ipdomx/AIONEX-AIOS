@@ -195,13 +195,49 @@ async def create_backup(
 
 async def _enqueue_restore_validation(
     *,
-    backup: BackupRecord,
+    backup_id: str | None,
     operation: str,
     actor: UserRecord,
     session: AsyncSession,
     region: str | None = None,
-) -> DisasterRecoveryRun:
+) -> tuple[BackupRecord, DisasterRecoveryRun]:
+    # Retention uses the same transaction-scoped advisory lock before it locks a
+    # BackupRecord row. Keep that order here as well, then re-read the durable
+    # record under the lock so an artifact cannot be expired between selection
+    # and enqueue.
     await acquire_enqueue_lock(session, "restore-validation")
+
+    if backup_id is None:
+        backup_statement = (
+            select(BackupRecord)
+            .where(
+                BackupRecord.status == "completed",
+                BackupRecord.completed_at.is_not(None),
+                BackupRecord.location.is_not(None),
+                BackupRecord.checksum.is_not(None),
+                BackupRecord.size_bytes.is_not(None),
+                BackupRecord.size_bytes > 0,
+            )
+            .order_by(BackupRecord.completed_at.desc())
+            .limit(1)
+        )
+    else:
+        backup_statement = select(BackupRecord).where(BackupRecord.id == backup_id)
+
+    backup = await session.scalar(backup_statement.with_for_update())
+    if backup is None:
+        if backup_id is not None:
+            raise HTTPException(status_code=404, detail="Backup not found")
+        raise HTTPException(
+            status_code=409,
+            detail="A completed backup is required for a disaster-recovery drill",
+        )
+    if not _artifact_ready(backup):
+        raise HTTPException(
+            status_code=409,
+            detail="Only a completed backup with a protected artifact can be validated",
+        )
+
     active = await session.scalar(
         select(DisasterRecoveryRun.id)
         .where(
@@ -240,7 +276,7 @@ async def _enqueue_restore_validation(
         )
     )
     await session.commit()
-    return run
+    return backup, run
 
 
 @router.post("/{backup_id}/restore", status_code=202)
@@ -259,18 +295,8 @@ async def restore_backup(
                 "--owner-backup-id runbook"
             ),
         )
-    backup = await session.scalar(
-        select(BackupRecord).where(BackupRecord.id == backup_id).with_for_update()
-    )
-    if backup is None:
-        raise HTTPException(status_code=404, detail="Backup not found")
-    if not _artifact_ready(backup):
-        raise HTTPException(
-            status_code=409,
-            detail="Only a completed backup with a protected artifact can be validated",
-        )
-    run = await _enqueue_restore_validation(
-        backup=backup,
+    backup, run = await _enqueue_restore_validation(
+        backup_id=backup_id,
         operation="restore_validation",
         actor=actor,
         session=session,
@@ -297,26 +323,8 @@ async def test_disaster_recovery(
     actor: UserRecord = Depends(require_super_owner),
     session: AsyncSession = Depends(get_db),
 ):
-    backup = await session.scalar(
-        select(BackupRecord)
-        .where(
-            BackupRecord.status == "completed",
-            BackupRecord.completed_at.is_not(None),
-            BackupRecord.location.is_not(None),
-            BackupRecord.checksum.is_not(None),
-            BackupRecord.size_bytes.is_not(None),
-            BackupRecord.size_bytes > 0,
-        )
-        .order_by(BackupRecord.completed_at.desc())
-        .limit(1)
-    )
-    if backup is None:
-        raise HTTPException(
-            status_code=409,
-            detail="A completed backup is required for a disaster-recovery drill",
-        )
-    run = await _enqueue_restore_validation(
-        backup=backup,
+    _, run = await _enqueue_restore_validation(
+        backup_id=None,
         operation="test",
         actor=actor,
         session=session,

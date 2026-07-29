@@ -80,6 +80,23 @@ class Settings(BaseSettings):
         le=60,
         validation_alias="BACKUP_WORKER_HEARTBEAT_SECONDS",
     )
+    BACKUP_RETENTION_COUNT: int = Field(
+        default=7,
+        ge=1,
+        le=1000,
+        validation_alias="BACKUP_RETENTION_COUNT",
+    )
+    BACKUP_RETENTION_DAYS: int = Field(
+        default=30,
+        ge=1,
+        le=3650,
+        validation_alias="BACKUP_RETENTION_DAYS",
+    )
+    BACKUP_MIN_FREE_BYTES: int = Field(
+        default=1_073_741_824,
+        ge=0,
+        validation_alias="BACKUP_MIN_FREE_BYTES",
+    )
 
     REDIS_URL: str = Field(
         default="redis://localhost:6379/0", validation_alias="REDIS_URL"

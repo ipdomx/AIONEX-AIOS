@@ -22,7 +22,7 @@ services:
       - "8000"
     volumes:
       - ../..:/workspace:ro
-      - backup_data:/var/lib/aionex/backups
+      - backup_data:/var/lib/aionex/backups:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -37,6 +37,7 @@ services:
 
   backup-worker:
     image: aionex-aios-backend:local
+    stop_grace_period: ${BACKUP_JOB_LEASE_SECONDS:-3600}s
     env_file:
       - ${AIOS_ENV_FILE:-.env.production}
     environment:
@@ -52,7 +53,7 @@ services:
     restart: unless-stopped
     volumes:
       - ../..:/workspace:ro
-      - backup_data:/var/lib/aionex/backups
+      - backup_data:/var/lib/aionex/backups:rw
     depends_on:
       backend:
         condition: service_healthy

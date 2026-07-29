@@ -11,6 +11,8 @@ import asyncio
 import hashlib
 import hmac
 import os
+import re
+import shutil
 import stat
 import time
 from dataclasses import dataclass
@@ -206,18 +208,32 @@ class BackupExecutor:
             sslmode=str(sslmode) if sslmode else None,
         )
 
-    def _secure_backup_directory(self) -> Path:
+    def _protected_backup_directory(self) -> Path:
+        """Resolve the protected volume without requiring write access."""
+
         try:
-            self._backup_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
             metadata = self._backup_dir.lstat()
             if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
                 raise BackupExecutionError(
                     "backup storage",
-                    "The configured backup location is not a secure directory",
+                    "The configured backup location is not a protected directory",
                     status_code=500,
                 )
-            os.chmod(self._backup_dir, 0o700)
             return self._backup_dir.resolve(strict=True)
+        except BackupExecutionError:
+            raise
+        except OSError as exc:
+            raise BackupExecutionError(
+                "backup storage",
+                "The configured backup location is unavailable",
+                status_code=500,
+            ) from exc
+
+    def _secure_backup_directory(self) -> Path:
+        try:
+            self._backup_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+            os.chmod(self._backup_dir, 0o700)
+            return self._protected_backup_directory()
         except BackupExecutionError:
             raise
         except OSError as exc:
@@ -226,6 +242,118 @@ class BackupExecutor:
                 "The configured backup location is not writable",
                 status_code=500,
             ) from exc
+
+    def _remove_partials(
+        self,
+        directory: Path,
+        pattern: str,
+        *,
+        cutoff: float | None,
+    ) -> int:
+        removed = 0
+        for candidate in directory.glob(pattern):
+            try:
+                metadata = candidate.lstat()
+                if (
+                    stat.S_ISLNK(metadata.st_mode)
+                    or not stat.S_ISREG(metadata.st_mode)
+                    or (cutoff is not None and metadata.st_mtime > cutoff)
+                ):
+                    continue
+                candidate.unlink()
+                removed += 1
+            except FileNotFoundError:
+                continue
+            except OSError as exc:
+                raise BackupExecutionError(
+                    "backup storage cleanup",
+                    "An abandoned backup partial could not be removed safely",
+                    status_code=500,
+                ) from exc
+        if removed:
+            self._sync_directory(directory)
+        return removed
+
+    def cleanup_stale_partials(self, maximum_age_seconds: int) -> int:
+        """Remove only abandoned partial dumps older than the durable job lease."""
+
+        directory = self._secure_backup_directory()
+        return self._remove_partials(
+            directory,
+            ".backup-*.partial",
+            cutoff=time.time() - maximum_age_seconds,
+        )
+
+    def cleanup_backup_partials(self, backup_id: str) -> int:
+        """Remove partials for a job after the worker has exclusively claimed it."""
+
+        directory = self._secure_backup_directory()
+        stable_name = hashlib.sha256(backup_id.encode("utf-8")).hexdigest()[:24]
+        return self._remove_partials(
+            directory,
+            f".backup-{stable_name}-*.partial",
+            cutoff=None,
+        )
+
+    def cleanup_orphan_artifacts(
+        self,
+        referenced_locations: set[str],
+        maximum_age_seconds: int,
+        active_attempts: set[tuple[str, str]] | None = None,
+    ) -> int:
+        """Remove only unreferenced attempt artifacts older than a full lease."""
+
+        directory = self._secure_backup_directory()
+        referenced: set[Path] = set()
+        for location in referenced_locations:
+            try:
+                candidate = Path(location).resolve(strict=False)
+                candidate.relative_to(directory)
+                referenced.add(candidate)
+            except (OSError, ValueError):
+                continue
+        for backup_id, attempt_token in active_attempts or set():
+            destination_name, _ = self._artifact_names(backup_id, attempt_token)
+            referenced.add(directory / destination_name)
+        cutoff = time.time() - maximum_age_seconds
+        removed = 0
+        for candidate in directory.glob("backup-*.dump"):
+            if not re.fullmatch(
+                r"backup-[0-9a-f]{24}(?:-[0-9a-f]{32})?\.dump",
+                candidate.name,
+            ):
+                continue
+            try:
+                metadata = candidate.lstat()
+                if (
+                    stat.S_ISLNK(metadata.st_mode)
+                    or not stat.S_ISREG(metadata.st_mode)
+                    or metadata.st_mtime > cutoff
+                    or candidate.resolve(strict=True) in referenced
+                ):
+                    continue
+                candidate.unlink()
+                removed += 1
+            except FileNotFoundError:
+                continue
+            except OSError as exc:
+                raise BackupExecutionError(
+                    "backup storage cleanup",
+                    "An orphaned backup artifact could not be removed safely",
+                    status_code=500,
+                ) from exc
+        if removed:
+            self._sync_directory(directory)
+        return removed
+
+    @staticmethod
+    def _artifact_names(backup_id: str, attempt_token: str) -> tuple[str, str]:
+        stable_name = hashlib.sha256(backup_id.encode("utf-8")).hexdigest()[:24]
+        attempt_name = hashlib.sha256(attempt_token.encode("utf-8")).hexdigest()[:32]
+        return (
+            f"backup-{stable_name}-{attempt_name}.dump",
+            f".backup-{stable_name}-{attempt_name}.partial",
+        )
 
     @property
     def _heartbeat_path(self) -> Path:
@@ -394,15 +522,81 @@ class BackupExecutor:
         finally:
             os.close(descriptor)
 
-    async def create_backup(self, backup_id: str) -> BackupArtifact:
+    def available_bytes(self) -> int:
+        """Return writable capacity on the protected backup filesystem."""
+
+        directory = self._secure_backup_directory()
+        try:
+            return shutil.disk_usage(directory).free
+        except OSError as exc:
+            raise BackupExecutionError(
+                "backup capacity check",
+                "Free space on the protected backup volume could not be determined",
+                status_code=500,
+            ) from exc
+
+    def delete_artifact(self, location: str) -> bool:
+        """Delete one worker-owned artifact without following links.
+
+        Durable rows are intentionally retained by the worker as ``expired``;
+        this boundary removes only the corresponding immutable file.
+        """
+
+        directory = self._protected_backup_directory()
+        candidate = Path(location)
+        if not re.fullmatch(
+            r"backup-[0-9a-f]{24}(?:-[0-9a-f]{32})?\.dump",
+            candidate.name,
+        ):
+            raise BackupExecutionError(
+                "backup retention",
+                "The expired artifact path is not worker-managed",
+                status_code=409,
+            )
+        try:
+            candidate_parent = candidate.parent.resolve(strict=True)
+            if candidate_parent != directory:
+                raise OSError("artifact is not directly inside the backup directory")
+            metadata = candidate.lstat()
+            if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+                raise OSError("artifact is not a regular file")
+            resolved = candidate.resolve(strict=True)
+            if resolved.parent != directory:
+                raise OSError("artifact is outside the backup directory")
+            # Unlink the checked directory entry, never its resolved target.
+            # If the entry is replaced with a symlink after lstat(), unlink()
+            # removes the link itself instead of following it.
+            candidate.unlink()
+            self._sync_directory(directory)
+            return True
+        except FileNotFoundError:
+            return False
+        except (OSError, ValueError) as exc:
+            raise BackupExecutionError(
+                "backup retention",
+                "The expired backup artifact could not be removed safely",
+                status_code=500,
+            ) from exc
+
+    async def create_backup(
+        self,
+        backup_id: str,
+        attempt_token: str,
+    ) -> BackupArtifact:
         """Write one custom-format dump atomically and return integrity metadata."""
 
         directory = self._secure_backup_directory()
-        stable_name = hashlib.sha256(backup_id.encode("utf-8")).hexdigest()[:24]
-        destination = directory / f"backup-{stable_name}.dump"
-        temporary = directory / f".backup-{stable_name}-{uuid4().hex}.partial"
+        destination_name, temporary_name = self._artifact_names(
+            backup_id,
+            attempt_token,
+        )
+        destination = directory / destination_name
+        temporary = directory / temporary_name
         if destination.exists():
-            checksum, size_bytes = self._checksum(destination)
+            checksum, size_bytes = await asyncio.to_thread(
+                self._checksum,
+                destination,
+            )
             os.chmod(destination, 0o600, follow_symlinks=False)
             return BackupArtifact(
                 location=str(destination),
@@ -435,17 +629,21 @@ class BackupExecutor:
                 timeout_seconds=self._settings.BACKUP_TIMEOUT_SECONDS,
                 operation="PostgreSQL backup",
             )
-            checksum, size_bytes = self._checksum(temporary)
+            checksum, size_bytes = await asyncio.to_thread(
+                self._checksum,
+                temporary,
+            )
             if size_bytes <= 5:
                 raise BackupExecutionError(
                     "PostgreSQL backup",
                     "PostgreSQL produced an empty backup archive",
                 )
-            os.chmod(temporary, 0o600)
-            with temporary.open("rb") as stream:
-                os.fsync(stream.fileno())
-            os.replace(temporary, destination)
-            self._sync_directory(directory)
+            await asyncio.to_thread(
+                self._publish_artifact,
+                temporary,
+                destination,
+                directory,
+            )
             return BackupArtifact(
                 location=str(destination),
                 checksum=checksum,
@@ -466,6 +664,19 @@ class BackupExecutor:
             except OSError:
                 pass
 
+    @classmethod
+    def _publish_artifact(
+        cls,
+        temporary: Path,
+        destination: Path,
+        directory: Path,
+    ) -> None:
+        os.chmod(temporary, 0o600)
+        with temporary.open("rb") as stream:
+            os.fsync(stream.fileno())
+        os.replace(temporary, destination)
+        cls._sync_directory(directory)
+
     def verify_artifact(
         self,
         location: str,
@@ -482,7 +693,7 @@ class BackupExecutor:
         event loop for potentially large artifacts.
         """
 
-        directory = self._secure_backup_directory()
+        directory = self._protected_backup_directory()
         candidate = Path(location)
         try:
             resolved = candidate.resolve(strict=True)
@@ -536,7 +747,7 @@ class BackupExecutor:
         # Restore callers created before size metadata became mandatory still
         # use this private boundary. Verify the checksum first, then return the
         # observed size to the restore evidence.
-        directory = self._secure_backup_directory()
+        directory = self._protected_backup_directory()
         candidate = Path(location)
         try:
             resolved = candidate.resolve(strict=True)
@@ -564,14 +775,16 @@ class BackupExecutor:
         self,
         location: str,
         expected_checksum: str | None,
-        validation_id: str | None = None,
+        validation_id: str,
+        attempt_token: str,
         *,
         expected_size_bytes: int | None = None,
     ) -> RestoreValidation:
         """Restore an archive into a unique scratch database and remove it."""
 
         if expected_size_bytes is not None:
-            verified = self.verify_artifact(
+            verified = await asyncio.to_thread(
+                self.verify_artifact,
                 location,
                 expected_checksum,
                 expected_size_bytes,
@@ -580,11 +793,16 @@ class BackupExecutor:
             checksum = verified.checksum
             size_bytes = verified.size_bytes
         else:
-            artifact, checksum, size_bytes = self._validated_artifact(
+            artifact, checksum, size_bytes = await asyncio.to_thread(
+                self._validated_artifact,
                 location,
                 expected_checksum,
             )
-        scratch_token = validation_id or uuid4().hex
+        # The durable job id is stable across lease reclamation, so it is not
+        # sufficient fencing by itself.  Include the current lease token to
+        # prevent a stale attempt's final cleanup from dropping the winning
+        # attempt's scratch database.
+        scratch_token = f"{validation_id}\0{attempt_token}"
         scratch_hash = hashlib.sha256(scratch_token.encode("utf-8")).hexdigest()[:20]
         scratch_database = f"aionex_restore_{scratch_hash}"
         environment = self._environment()

@@ -19,14 +19,15 @@ Production endpoints:
    both operations as `completed` before the release backup gate can pass.
 5. During a controlled maintenance window, test the exact Owner artifact with
    `bash deploy/production/restore.sh --owner-backup-id <uuid>`. The script
-   resolves only a completed database record, exports its deterministic custom
+   resolves only a completed database record, exports its immutable custom
    archive from the protected volume, verifies its SHA-256 checksum, size, and
-   PostgreSQL header, then stops the API and worker and applies `pg_restore` in
-   one transaction. It restarts both services and waits for their healthchecks
-   before reporting success.
+   PostgreSQL header, stops the API before draining the worker, rejects queued
+   or running recovery jobs, and applies `pg_restore` in one transaction. It
+   restarts both services and waits for their healthchecks before reporting
+   success.
 6. The legacy off-host path remains available: run
-   `bash deploy/production/backup.sh`, copy the resulting archive to protected
-   storage, and test it with
+   `bash deploy/production/backup.sh`, copy both the resulting archive and its
+   adjacent `.sha256` sidecar to protected storage, and test them with
    `bash deploy/production/restore.sh <backup.tar.gz>`.
 
 ## PostgreSQL credentials and existing data
@@ -51,8 +52,14 @@ Choose one stack per server and keep using it.
 
 Owner backups are custom PostgreSQL archives in the persistent `backup_data`
 volume and are referenced by immutable checksum and size in the database.
-Legacy archives are stored under `deploy/production/backups/` with restrictive
-permissions and are excluded from Git. Copy either backup class to protected
-off-host storage according to the operating runbook. The restore script accepts
-both formats and rejects missing records, unsafe paths, checksum/size mismatch,
-or ambiguous legacy archives before it stops any service.
+The worker retains the newest backup per scope, active recovery references, and
+the latest validated recovery evidence. It expires older artifacts according
+to `BACKUP_RETENTION_COUNT` and `BACKUP_RETENTION_DAYS`, while
+`BACKUP_MIN_FREE_BYTES` reserves additional capacity beyond the live database
+size before `pg_dump` starts.
+Legacy archives and their required `.sha256` sidecars are stored under
+`deploy/production/backups/` with restrictive permissions and are excluded from
+Git. Copy either backup class to protected off-host storage according to the
+operating runbook. The restore script accepts both formats and rejects missing
+records, unsafe paths, checksum/size mismatch, queued or running recovery jobs,
+or ambiguous legacy archives before it changes the database.

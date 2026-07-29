@@ -53,13 +53,52 @@ cleanup() {
     compose up -d backend >/dev/null
   fi
   if [[ "${backup_worker_stopped}" == "true" ]]; then
-    compose up -d backup-worker >/dev/null
+    compose start backup-worker >/dev/null
   fi
   rm -rf "${TMP_DIR}"
   trap - EXIT
   exit "${exit_code}"
 }
 trap cleanup EXIT
+
+running_recovery_job_count() {
+  compose exec -T postgres sh -ceu \
+    'psql --no-psqlrc --no-password --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --set ON_ERROR_STOP=1 --tuples-only --no-align --quiet' <<'SQL'
+CREATE TEMP TABLE aios_active_recovery_jobs (job_count bigint NOT NULL);
+DO $aionex$
+DECLARE
+  relation regclass;
+  relation_count bigint;
+  total bigint := 0;
+BEGIN
+  relation := to_regclass('backup_records');
+  IF relation IS NOT NULL THEN
+    EXECUTE format(
+      'SELECT count(*) FROM %s WHERE status IN (%L, %L)',
+      relation,
+      'pending',
+      'running'
+    ) INTO relation_count;
+    total := total + relation_count;
+  END IF;
+
+  relation := to_regclass('disaster_recovery_runs');
+  IF relation IS NOT NULL THEN
+    EXECUTE format(
+      'SELECT count(*) FROM %s WHERE status IN (%L, %L)',
+      relation,
+      'pending',
+      'running'
+    ) INTO relation_count;
+    total := total + relation_count;
+  END IF;
+
+  INSERT INTO aios_active_recovery_jobs (job_count) VALUES (total);
+END;
+$aionex$;
+SELECT job_count FROM aios_active_recovery_jobs;
+SQL
+}
 
 if [[ -n "${OWNER_BACKUP_ID}" ]]; then
   owner_record="$(
@@ -114,7 +153,7 @@ if [[ -n "${OWNER_BACKUP_ID}" ]]; then
     echo "Owner backup record has an invalid scope." >&2
     exit 1
   }
-  [[ "${owner_location}" =~ ^/var/lib/aionex/backups/backup-[[:xdigit:]]{24}\.dump$ ]] || {
+  [[ "${owner_location}" =~ ^/var/lib/aionex/backups/backup-[[:xdigit:]]{24}(-[[:xdigit:]]{32})?\.dump$ ]] || {
     echo "Owner backup record points outside the protected backup volume." >&2
     exit 1
   }
@@ -165,6 +204,21 @@ if [[ "${ARCHIVE}" == *.dump ]]; then
     exit 1
   fi
 else
+  checksum_file="${ARCHIVE}.sha256"
+  [[ -f "${checksum_file}" && ! -L "${checksum_file}" ]] || {
+    echo "Legacy backup SHA-256 sidecar is missing or unsafe." >&2
+    exit 1
+  }
+  EXPECTED_CHECKSUM="$(<"${checksum_file}")"
+  [[ "${EXPECTED_CHECKSUM}" =~ ^[[:xdigit:]]{64}$ ]] || {
+    echo "Legacy backup SHA-256 sidecar is invalid." >&2
+    exit 1
+  }
+  actual_checksum="$(sha256sum "${ARCHIVE}" | awk '{print $1}')"
+  if [[ "${actual_checksum,,}" != "${EXPECTED_CHECKSUM,,}" ]]; then
+    echo "Legacy backup checksum verification failed." >&2
+    exit 1
+  fi
   archive_entries="$(tar -tzf "$ARCHIVE")"
   if grep -Eq '(^/|(^|/)\.\.(/|$))' <<<"${archive_entries}"; then
     echo "Backup archive contains an unsafe path." >&2
@@ -189,13 +243,25 @@ else
   fi
 fi
 
-if [[ -n "$(compose ps --status running -q backup-worker)" ]]; then
-  compose stop backup-worker
-  backup_worker_stopped=true
-fi
 if [[ -n "$(compose ps --status running -q backend)" ]]; then
-  compose stop backend
   backend_stopped=true
+  compose stop backend
+fi
+if [[ -n "$(compose ps --status running -q backup-worker)" ]]; then
+  backup_worker_stopped=true
+  compose stop backup-worker
+fi
+running_job_count="$(
+  running_recovery_job_count |
+    tr -d '[:space:]'
+)"
+[[ "${running_job_count}" =~ ^[[:digit:]]+$ ]] || {
+  echo "Could not verify active backup and restore jobs." >&2
+  exit 1
+}
+if ((running_job_count > 0)); then
+  echo "Restore refused because a backup or restore job remains queued or running." >&2
+  exit 1
 fi
 
 if [[ "${restore_kind}" == "custom" ]]; then
@@ -242,6 +308,7 @@ INSERT INTO backup_records (
   location,
   checksum,
   size_bytes,
+  lease_token,
   completed_at,
   created_at,
   updated_at
@@ -254,6 +321,7 @@ VALUES (
   :'backup_location',
   :'backup_checksum',
   :'backup_size'::bigint,
+  NULL,
   to_timestamp(:'backup_completed_epoch'::double precision),
   to_timestamp(:'backup_completed_epoch'::double precision),
   CURRENT_TIMESTAMP
@@ -265,6 +333,7 @@ SET kind = EXCLUDED.kind,
     location = EXCLUDED.location,
     checksum = EXCLUDED.checksum,
     size_bytes = EXCLUDED.size_bytes,
+    lease_token = NULL,
     completed_at = EXCLUDED.completed_at,
     updated_at = CURRENT_TIMESTAMP;
 
@@ -277,6 +346,7 @@ SELECT 1 / CASE
       AND location = :'backup_location'
       AND checksum = :'backup_checksum'
       AND size_bytes = :'backup_size'::bigint
+      AND lease_token IS NULL
       AND completed_at IS NOT NULL
   )
   THEN 1

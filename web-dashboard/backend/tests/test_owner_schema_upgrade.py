@@ -25,6 +25,9 @@ OWNER_MIGRATION_PATH = (
 RUNTIME_SAFETY_MIGRATION_PATH = (
     BACKEND_ROOT / "alembic" / "versions" / "20260729_0003_owner_runtime_safety.py"
 )
+BACKUP_JOB_LEASE_MIGRATION_PATH = (
+    BACKEND_ROOT / "alembic" / "versions" / "20260729_0004_backup_job_leases.py"
+)
 
 
 def _load_migration(path: Path, module_name: str) -> ModuleType:
@@ -49,6 +52,13 @@ def _load_runtime_safety_migration() -> ModuleType:
     return _load_migration(
         RUNTIME_SAFETY_MIGRATION_PATH,
         "owner_runtime_safety_schema_upgrade",
+    )
+
+
+def _load_backup_job_lease_migration() -> ModuleType:
+    return _load_migration(
+        BACKUP_JOB_LEASE_MIGRATION_PATH,
+        "backup_job_lease_schema_upgrade",
     )
 
 
@@ -225,6 +235,18 @@ def _legacy_metadata() -> sa.MetaData:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
     )
+    sa.Table(
+        "disaster_recovery_runs",
+        metadata,
+        sa.Column("id", sa.String(length=36), primary_key=True),
+        sa.Column("operation", sa.String(length=80), nullable=False),
+        sa.Column("status", sa.String(length=32), nullable=False),
+        sa.Column("region", sa.String(length=120), nullable=True),
+        sa.Column("details", sa.JSON(), nullable=False),
+        sa.Column("completed_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+    )
     return metadata
 
 
@@ -239,6 +261,7 @@ def _insert_legacy_sentinels(connection: Connection, legacy: sa.MetaData) -> dic
         "meeting_id": str(uuid.uuid4()),
         "audit_id": str(uuid.uuid4()),
         "backup_id": str(uuid.uuid4()),
+        "recovery_id": str(uuid.uuid4()),
         "backup_size_bytes": 2_000_000_000,
         "audit_resource_id": "legacy-resource-" + ("x" * 96),
     }
@@ -340,6 +363,20 @@ def _insert_legacy_sentinels(connection: Connection, legacy: sa.MetaData) -> dic
             updated_at=now,
         )
     )
+    connection.execute(
+        legacy.tables["disaster_recovery_runs"]
+        .insert()
+        .values(
+            id=sentinel["recovery_id"],
+            operation="restore_validation",
+            status="completed",
+            region=None,
+            details={"backup_id": sentinel["backup_id"], "validated": True},
+            completed_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+    )
     return sentinel
 
 
@@ -388,6 +425,7 @@ def test_postgres_legacy_schema_upgrades_in_isolated_schema() -> None:
         legacy = _legacy_metadata()
         migration = _load_owner_migration()
         runtime_safety_migration = _load_runtime_safety_migration()
+        backup_job_lease_migration = _load_backup_job_lease_migration()
 
         with isolated_engine.begin() as connection:
             assert connection.execute(
@@ -425,6 +463,12 @@ def test_postgres_legacy_schema_upgrades_in_isolated_schema() -> None:
             runtime_safety_migration.upgrade()
             migration_context.stamp(_script_directory(), "20260729_0003")
             assert migration_context.get_current_heads() == ("20260729_0003",)
+
+            backup_job_lease_migration.op = Operations(migration_context)
+            backup_job_lease_migration.upgrade()
+            backup_job_lease_migration.upgrade()
+            migration_context.stamp(_script_directory(), "20260729_0004")
+            assert migration_context.get_current_heads() == ("20260729_0004",)
 
             inspector = sa.inspect(connection)
             assert {
@@ -544,6 +588,19 @@ def test_postgres_legacy_schema_upgrades_in_isolated_schema() -> None:
                 for column in inspector.get_columns("backup_records")
             }
             assert isinstance(backup_columns["size_bytes"]["type"], sa.BigInteger)
+            assert backup_columns["lease_token"]["nullable"] is True
+            recovery_columns = {
+                column["name"]: column
+                for column in inspector.get_columns("disaster_recovery_runs")
+            }
+            assert recovery_columns["lease_token"]["nullable"] is True
+            assert connection.execute(
+                sa.text("SELECT details FROM disaster_recovery_runs WHERE id = :id"),
+                {"id": sentinel["recovery_id"]},
+            ).scalar_one() == {
+                "backup_id": sentinel["backup_id"],
+                "validated": True,
+            }
             assert (
                 connection.execute(
                     sa.text("SELECT size_bytes FROM backup_records WHERE id = :id"),
@@ -709,6 +766,7 @@ def test_legacy_owner_schema_upgrades_without_current_model_metadata(
 
     migration = _load_owner_migration()
     runtime_safety_migration = _load_runtime_safety_migration()
+    backup_job_lease_migration = _load_backup_job_lease_migration()
     with engine.begin() as connection:
         legacy.create_all(connection)
         connection.execute(roles.insert().values(id="role-1", name="Legacy Owner"))
@@ -731,6 +789,26 @@ def test_legacy_owner_schema_upgrades_without_current_model_metadata(
         runtime_safety_migration.upgrade()
         migration_context.stamp(script_directory, "20260729_0003")
         assert migration_context.get_current_heads() == ("20260729_0003",)
+
+        lease_metadata = sa.MetaData()
+        sa.Table(
+            "backup_records",
+            lease_metadata,
+            sa.Column("id", sa.String(length=36), primary_key=True),
+            sa.Column("status", sa.String(length=32), nullable=False),
+        )
+        sa.Table(
+            "disaster_recovery_runs",
+            lease_metadata,
+            sa.Column("id", sa.String(length=36), primary_key=True),
+            sa.Column("status", sa.String(length=32), nullable=False),
+        )
+        lease_metadata.create_all(connection)
+        backup_job_lease_migration.op = Operations(migration_context)
+        backup_job_lease_migration.upgrade()
+        backup_job_lease_migration.upgrade()
+        migration_context.stamp(script_directory, "20260729_0004")
+        assert migration_context.get_current_heads() == ("20260729_0004",)
 
         inspector = sa.inspect(connection)
         assert {
@@ -765,3 +843,80 @@ def test_legacy_owner_schema_upgrades_without_current_model_metadata(
         }.issubset(
             {index["name"] for index in inspector.get_indexes("owner_command_records")}
         )
+
+
+def test_backup_job_lease_migration_rejects_incomplete_or_incompatible_schema() -> None:
+    migration = _load_backup_job_lease_migration()
+
+    incomplete_engine = sa.create_engine("sqlite://")
+    with incomplete_engine.begin() as connection:
+        sa.Table(
+            "backup_records",
+            sa.MetaData(),
+            sa.Column("id", sa.String(length=36), primary_key=True),
+            sa.Column("status", sa.String(length=32), nullable=False),
+        ).create(connection)
+        migration.op = Operations(MigrationContext.configure(connection))
+        with pytest.raises(RuntimeError, match="required tables are missing"):
+            migration.upgrade()
+
+    incompatible_engine = sa.create_engine("sqlite://")
+    incompatible = sa.MetaData()
+    for table_name in ("backup_records", "disaster_recovery_runs"):
+        sa.Table(
+            table_name,
+            incompatible,
+            sa.Column("id", sa.String(length=36), primary_key=True),
+            sa.Column("status", sa.String(length=32), nullable=False),
+            sa.Column("lease_token", sa.String(length=12), nullable=False),
+        )
+    with incompatible_engine.begin() as connection:
+        incompatible.create_all(connection)
+        migration.op = Operations(MigrationContext.configure(connection))
+        with pytest.raises(RuntimeError, match="nullable VARCHAR\\(36\\)"):
+            migration.upgrade()
+
+
+def test_backup_job_lease_downgrade_requires_drained_workers() -> None:
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    for table_name in ("backup_records", "disaster_recovery_runs"):
+        sa.Table(
+            table_name,
+            metadata,
+            sa.Column("id", sa.String(length=36), primary_key=True),
+            sa.Column("status", sa.String(length=32), nullable=False),
+            sa.Column("lease_token", sa.String(length=36), nullable=True),
+        )
+    migration = _load_backup_job_lease_migration()
+    with engine.begin() as connection:
+        metadata.create_all(connection)
+        connection.execute(
+            metadata.tables["backup_records"]
+            .insert()
+            .values(
+                id="active-backup",
+                status="running",
+                lease_token="lease-token",
+            )
+        )
+        migration.op = Operations(MigrationContext.configure(connection))
+        with pytest.raises(RuntimeError, match="jobs are running"):
+            migration.downgrade()
+        connection.execute(
+            metadata.tables["backup_records"]
+            .update()
+            .values(status="completed", lease_token=None)
+        )
+        migration.downgrade()
+        migration.downgrade()
+        migration.upgrade()
+        inspector = sa.inspect(connection)
+        for table_name in ("backup_records", "disaster_recovery_runs"):
+            lease_token = next(
+                column
+                for column in inspector.get_columns(table_name)
+                if column["name"] == "lease_token"
+            )
+            assert lease_token["nullable"] is True
+            assert lease_token["type"].length == 36

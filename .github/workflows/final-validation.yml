@@ -182,7 +182,7 @@ jobs:
             --env-file .env.production \
             -f docker-compose.production.yml \
             build backend frontend
-      - name: Smoke backup worker health
+      - name: Smoke production backup worker and restore round-trip
         working-directory: web-dashboard
         run: |
           compose_args=(
@@ -211,6 +211,27 @@ jobs:
               --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}' \
               "$worker_id"
           )" = "healthy"
+          AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
+            "${compose_args[@]}" exec -T backup-worker \
+              sh -ceu \
+              'pg_dump --version | grep -Eq "\(PostgreSQL\) 16(\.|$)"'
+          # The production worker has proved it can start. Stop it before
+          # inserting the deterministic smoke job so it cannot race the
+          # in-process worker exercised by the round-trip test.
+          AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
+            "${compose_args[@]}" stop backup-worker
+          test -z "$(
+            AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
+              "${compose_args[@]}" ps --status running -q backup-worker
+          )"
+          AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
+            "${compose_args[@]}" run \
+              --rm \
+              --no-deps \
+              -e RUN_LIVE_BACKUP_SMOKE=1 \
+              backup-worker \
+              python -m pytest -q \
+              tests/test_backup_executor.py::test_live_postgres_worker_backup_and_restore_smoke
 
   security:
     name: Dependency Security

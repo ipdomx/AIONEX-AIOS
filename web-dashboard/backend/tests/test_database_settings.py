@@ -2,6 +2,7 @@ import hashlib
 import os
 from pathlib import Path
 import subprocess
+import tarfile
 
 import pytest
 from alembic.config import Config
@@ -121,6 +122,12 @@ case "${1:-}" in
       printf 'backup-worker\\n'
     fi
     ;;
+  exec)
+    payload="$(cat || true)"
+    if [[ "$payload" == *"active_recovery_jobs"* ]]; then
+      printf '0\\n'
+    fi
+    ;;
   ps)
     echo "${3:-unknown}-container-id"
     ;;
@@ -163,7 +170,7 @@ esac
     if env_file:
         expected_prefix += f"--env-file {(dashboard_root / env_file).resolve()} "
 
-    expected_call_count = 10 if compose_file else 8
+    expected_call_count = 13 if compose_file else 9
     assert len(wrapped_calls) == expected_call_count
     assert all(line.startswith(expected_prefix) for line in wrapped_calls)
     assert any(line.endswith("config --services") for line in wrapped_calls)
@@ -175,12 +182,78 @@ esac
     assert any(line.endswith("ps -q backend") for line in wrapped_calls)
     if compose_file:
         assert any(
+            line.endswith("ps --status running -q backup-worker")
+            for line in wrapped_calls
+        )
+        assert any(line.endswith("stop backup-worker") for line in wrapped_calls)
+        assert any(
             line.endswith("up -d --no-deps --force-recreate backup-worker")
             for line in wrapped_calls
         )
         assert any(line.endswith("ps -q backup-worker") for line in wrapped_calls)
     else:
         assert not any("backup-worker" in line for line in wrapped_calls)
+
+
+def test_postgres_reconcile_refuses_running_job_and_restarts_worker(
+    tmp_path: Path,
+) -> None:
+    dashboard_root = Path(__file__).resolve().parents[2]
+    script = dashboard_root / "scripts" / "reconcile-postgres-credentials.sh"
+    fake_docker = tmp_path / "docker"
+    call_log = tmp_path / "docker-calls.log"
+    fake_docker.write_text(
+        """#!/usr/bin/env bash
+set -eu
+printf '%s\\n' "$*" >> "${DOCKER_CALL_LOG:?}"
+
+[[ "${1:-}" == "compose" ]] || exit 1
+shift
+if [[ "${1:-}" == "version" ]]; then
+  exit 0
+fi
+while [[ "${1:-}" == "-f" || "${1:-}" == "--env-file" ]]; do
+  shift 2
+done
+case "${1:-}" in
+  config)
+    printf 'postgres\\nbackend\\nbackup-worker\\n'
+    ;;
+  exec)
+    payload="$(cat || true)"
+    if [[ "$payload" == *"active_recovery_jobs"* ]]; then
+      printf '1\\n'
+    fi
+    ;;
+  ps)
+    echo "backup-worker-container-id"
+    ;;
+esac
+""",
+        encoding="utf-8",
+    )
+    fake_docker.chmod(0o755)
+    environment = os.environ.copy()
+    environment["PATH"] = f"{tmp_path}:{environment['PATH']}"
+    environment["DOCKER_CALL_LOG"] = str(call_log)
+    environment["COMPOSE_FILE"] = "docker-compose.production.yml"
+    environment["ENV_FILE"] = ".env.production.example"
+
+    result = subprocess.run(
+        ["bash", str(script)],
+        cwd=dashboard_root,
+        env=environment,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "job remains running" in result.stderr
+    calls = call_log.read_text(encoding="utf-8")
+    assert "stop backup-worker" in calls
+    assert "start backup-worker" in calls
+    assert "exec -T postgres sh -s" not in calls
+    assert "force-recreate backend" not in calls
 
 
 class _FakeAsyncConnection:
@@ -207,7 +280,7 @@ class _FakeAsyncEngine:
 
 def test_backend_exposes_the_shipped_alembic_head() -> None:
     database.expected_alembic_heads.cache_clear()
-    assert database.expected_alembic_heads() == frozenset({"20260729_0003"})
+    assert database.expected_alembic_heads() == frozenset({"20260729_0004"})
 
 
 @pytest.mark.asyncio
@@ -222,7 +295,7 @@ async def test_database_startup_rejects_a_stale_alembic_revision(
     monkeypatch.setattr(
         database,
         "expected_alembic_heads",
-        lambda: frozenset({"20260729_0003"}),
+        lambda: frozenset({"20260729_0004"}),
     )
 
     with pytest.raises(RuntimeError, match="current: 20260726_0001"):
@@ -233,7 +306,7 @@ async def test_database_startup_rejects_a_stale_alembic_revision(
 async def test_database_startup_accepts_the_exact_alembic_head(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    head = frozenset({"20260729_0003"})
+    head = frozenset({"20260729_0004"})
     monkeypatch.setattr(database, "engine", _FakeAsyncEngine(head))
     monkeypatch.setattr(database, "expected_alembic_heads", lambda: head)
 
@@ -261,10 +334,25 @@ def test_production_compose_preserves_postgres_credential_contract() -> None:
     restore_script = (
         repository_root / "deploy" / "production" / "restore.sh"
     ).read_text()
+    reconcile_script = (
+        dashboard_root / "scripts" / "reconcile-postgres-credentials.sh"
+    ).read_text()
     nginx_config = (dashboard_root / "docker" / "nginx.conf").read_text()
     dashboard_postgres = compose.split("\n  postgres:", 1)[1].split("\n  redis:", 1)[0]
     deployment_postgres = deployment_compose.split("\n  postgres:", 1)[1].split(
         "\n  redis:", 1
+    )[0]
+    dashboard_backend = compose.split("\n  backend:", 1)[1].split(
+        "\n  backup-worker:", 1
+    )[0]
+    dashboard_worker = compose.split("\n  backup-worker:", 1)[1].split(
+        "\n  postgres:", 1
+    )[0]
+    deployment_backend = deployment_compose.split("\n  backend:", 1)[1].split(
+        "\n  backup-worker:", 1
+    )[0]
+    deployment_worker = deployment_compose.split("\n  backup-worker:", 1)[1].split(
+        "\n  frontend:", 1
     )[0]
 
     assert 'DATABASE_URL: ""' in compose
@@ -291,6 +379,8 @@ def test_production_compose_preserves_postgres_credential_contract() -> None:
     assert (
         'tar -czf "${ARCHIVE_PATH}" -C "${BACKUP_DIR}" "${SQL_NAME}"' in backup_script
     )
+    assert 'sha256sum "${ARCHIVE_PATH}"' in backup_script
+    assert 'CHECKSUM_PATH="${ARCHIVE_PATH}.sha256"' in backup_script
     assert "pg_dump --clean --if-exists" in backup_script
     assert "umask 077" in backup_script
     assert "deploy/production" not in backup_script
@@ -300,13 +390,208 @@ def test_production_compose_preserves_postgres_credential_contract() -> None:
     assert 'compose cp "backup-worker:${owner_location}"' in restore_script
     assert "Custom backup checksum verification failed." in restore_script
     assert "Custom backup size verification failed." in restore_script
+    assert "size_bytes,\n  lease_token,\n  completed_at" in restore_script
+    assert (
+        ":'backup_size'::bigint,\n  NULL,\n  "
+        "to_timestamp(:'backup_completed_epoch'::double precision)"
+    ) in restore_script
+    assert "lease_token = NULL" in restore_script
+    assert "AND lease_token IS NULL" in restore_script
+    assert "Legacy backup SHA-256 sidecar is missing or unsafe." in restore_script
+    assert "Legacy backup checksum verification failed." in restore_script
+    assert "active_recovery_jobs" in restore_script
+    assert "'pending'," in restore_script
+    assert "'running'" in restore_script
+    for recovery_script in (restore_script, reconcile_script):
+        assert "to_regclass('backup_records')" in recovery_script
+        assert "to_regclass('disaster_recovery_runs')" in recovery_script
+        assert "CREATE TEMP TABLE aios_active_recovery_jobs" in recovery_script
+        assert "EXECUTE format(" in recovery_script
     assert "pg_restore --no-password --clean --if-exists" in restore_script
     assert "compose stop backend" in restore_script
     assert "compose stop backup-worker" in restore_script
     assert "backend backup-worker" in restore_script
+    for backend in (dashboard_backend, deployment_backend):
+        assert "- backup_data:/var/lib/aionex/backups:ro" in backend
+    for worker in (dashboard_worker, deployment_worker):
+        assert "- backup_data:/var/lib/aionex/backups:rw" in worker
+        assert "stop_grace_period: ${BACKUP_JOB_LEASE_SECONDS:-3600}s" in worker
     assert '- "443:443"' not in compose
     assert "server_name _;" in nginx_config
     assert "$aionex_forwarded_proto" in nginx_config
+
+
+def test_legacy_backup_writes_sha256_sidecar(tmp_path: Path) -> None:
+    repository_root = Path(__file__).resolve().parents[3]
+    backup_script = repository_root / "deploy" / "production" / "backup.sh"
+    env_file = tmp_path / ".env.production"
+    compose_file = tmp_path / "docker-compose.production.yml"
+    backup_dir = tmp_path / "backups"
+    env_file.write_text("POSTGRES_DB=aionex\n", encoding="utf-8")
+    compose_file.write_text("services: {}\n", encoding="utf-8")
+    fake_docker = tmp_path / "docker"
+    fake_docker.write_text(
+        """#!/usr/bin/env bash
+set -eu
+printf '%s\\n' 'CREATE TABLE sidecar_test (id integer);'
+""",
+        encoding="utf-8",
+    )
+    fake_docker.chmod(0o755)
+    environment = os.environ.copy()
+    environment["PATH"] = f"{tmp_path}:{environment['PATH']}"
+    environment["ENV_FILE"] = str(env_file)
+    environment["COMPOSE_FILE"] = str(compose_file)
+    environment["BACKUP_DIR"] = str(backup_dir)
+
+    result = subprocess.run(
+        ["bash", str(backup_script)],
+        cwd=repository_root,
+        env=environment,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    archives = list(backup_dir.glob("aios-*.tar.gz"))
+    assert len(archives) == 1
+    archive = archives[0]
+    sidecar = Path(f"{archive}.sha256")
+    assert sidecar.is_file()
+    assert (
+        sidecar.read_text(encoding="utf-8").strip()
+        == hashlib.sha256(archive.read_bytes()).hexdigest()
+    )
+
+
+def _write_legacy_archive(tmp_path: Path) -> Path:
+    sql_file = tmp_path / "aios-test.sql"
+    sql_file.write_text("SELECT 1;\n", encoding="utf-8")
+    archive = tmp_path / "aios-test.tar.gz"
+    with tarfile.open(archive, "w:gz") as bundle:
+        bundle.add(sql_file, arcname=sql_file.name)
+    return archive
+
+
+def test_legacy_restore_rejects_missing_or_mismatched_sha256_before_stop(
+    tmp_path: Path,
+) -> None:
+    repository_root = Path(__file__).resolve().parents[3]
+    restore_script = repository_root / "deploy" / "production" / "restore.sh"
+    env_file = tmp_path / ".env.production"
+    compose_file = tmp_path / "docker-compose.production.yml"
+    archive = _write_legacy_archive(tmp_path)
+    call_log = tmp_path / "docker-calls.log"
+    env_file.write_text("POSTGRES_DB=aionex\n", encoding="utf-8")
+    compose_file.write_text("services: {}\n", encoding="utf-8")
+    fake_docker = tmp_path / "docker"
+    fake_docker.write_text(
+        """#!/usr/bin/env bash
+set -eu
+printf '%s\\n' "$*" >> "${DOCKER_CALL_LOG:?}"
+""",
+        encoding="utf-8",
+    )
+    fake_docker.chmod(0o755)
+    environment = os.environ.copy()
+    environment["PATH"] = f"{tmp_path}:{environment['PATH']}"
+    environment["DOCKER_CALL_LOG"] = str(call_log)
+    environment["ENV_FILE"] = str(env_file)
+    environment["COMPOSE_FILE"] = str(compose_file)
+    environment["TMPDIR"] = str(tmp_path)
+
+    missing = subprocess.run(
+        ["bash", str(restore_script), str(archive)],
+        cwd=repository_root,
+        env=environment,
+        capture_output=True,
+        text=True,
+    )
+    assert missing.returncode != 0
+    assert "sidecar is missing or unsafe" in missing.stderr
+    assert not call_log.exists()
+
+    Path(f"{archive}.sha256").write_text("0" * 64 + "\n", encoding="utf-8")
+    mismatched = subprocess.run(
+        ["bash", str(restore_script), str(archive)],
+        cwd=repository_root,
+        env=environment,
+        capture_output=True,
+        text=True,
+    )
+    assert mismatched.returncode != 0
+    assert "checksum verification failed" in mismatched.stderr
+    assert not call_log.exists()
+
+
+def test_restore_blocks_api_and_rejects_queued_job_before_database_change(
+    tmp_path: Path,
+) -> None:
+    repository_root = Path(__file__).resolve().parents[3]
+    restore_script = repository_root / "deploy" / "production" / "restore.sh"
+    env_file = tmp_path / ".env.production"
+    compose_file = tmp_path / "docker-compose.production.yml"
+    archive = _write_legacy_archive(tmp_path)
+    Path(f"{archive}.sha256").write_text(
+        hashlib.sha256(archive.read_bytes()).hexdigest() + "\n",
+        encoding="utf-8",
+    )
+    call_log = tmp_path / "docker-calls.log"
+    env_file.write_text("POSTGRES_DB=aionex\n", encoding="utf-8")
+    compose_file.write_text("services: {}\n", encoding="utf-8")
+    fake_docker = tmp_path / "docker"
+    fake_docker.write_text(
+        """#!/usr/bin/env bash
+set -eu
+printf '%s\\n' "$*" >> "${DOCKER_CALL_LOG:?}"
+[[ "${1:-}" == "compose" ]] || exit 1
+shift
+while [[ "${1:-}" == "-f" || "${1:-}" == "--env-file" ]]; do
+  shift 2
+done
+command="${1:-}"
+shift || true
+case "$command" in
+  ps)
+    echo "${*: -1}-container-id"
+    ;;
+  exec)
+    payload="$(cat || true)"
+    printf 'SQL:%s\\n' "$payload" >> "${DOCKER_CALL_LOG:?}"
+    if [[ "$payload" == *"active_recovery_jobs"* ]]; then
+      printf '1\\n'
+    fi
+    ;;
+esac
+""",
+        encoding="utf-8",
+    )
+    fake_docker.chmod(0o755)
+    environment = os.environ.copy()
+    environment["PATH"] = f"{tmp_path}:{environment['PATH']}"
+    environment["DOCKER_CALL_LOG"] = str(call_log)
+    environment["ENV_FILE"] = str(env_file)
+    environment["COMPOSE_FILE"] = str(compose_file)
+    environment["TMPDIR"] = str(tmp_path)
+
+    result = subprocess.run(
+        ["bash", str(restore_script), str(archive)],
+        cwd=repository_root,
+        env=environment,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "job remains queued or running" in result.stderr
+    calls = call_log.read_text(encoding="utf-8")
+    assert "stop backend" in calls
+    assert "stop backup-worker" in calls
+    assert calls.index("stop backend") < calls.index("stop backup-worker")
+    assert calls.index("stop backup-worker") < calls.index("active_recovery_jobs")
+    assert "up -d backend" in calls
+    assert "start backup-worker" in calls
+    assert "pg_restore" not in calls
 
 
 def test_owner_backup_restore_runbook_verifies_and_restores_custom_archive(
@@ -350,7 +635,11 @@ case "$command" in
         "6461746162617365" "706c6174666f726d" \
         "${FAKE_CHECKSUM:?}" "${FAKE_SIZE:?}" "1785283200.123456"
     else
-      cat >/dev/null
+      payload="$(cat || true)"
+      printf 'SQL:%s\\n' "$payload" >> "${DOCKER_CALL_LOG:?}"
+      if [[ "$payload" == *"active_recovery_jobs"* ]]; then
+        printf '0\\n'
+      fi
     fi
     ;;
 esac
@@ -388,6 +677,9 @@ esac
     )
     assert "stop backup-worker" in calls
     assert "stop backend" in calls
+    assert calls.index("stop backend") < calls.index("stop backup-worker")
+    assert calls.index("stop backup-worker") < calls.index("active_recovery_jobs")
+    assert calls.index("active_recovery_jobs") < calls.index("pg_restore")
     assert "pg_restore --no-password --clean --if-exists" in calls
     assert "AIOS_BACKUP_REPAIR=1" in calls
     assert "INSERT INTO backup_records" in calls

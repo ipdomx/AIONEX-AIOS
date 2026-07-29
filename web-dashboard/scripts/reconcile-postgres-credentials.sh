@@ -47,6 +47,61 @@ compose() {
   fi
 }
 
+backup_worker_stopped=false
+credentials_changed=false
+
+cleanup() {
+  exit_code=$?
+  set +e
+  if [[ "${backup_worker_stopped}" == "true" ]]; then
+    if [[ "${credentials_changed}" == "true" ]]; then
+      compose up -d --no-deps --force-recreate backup-worker >/dev/null
+    else
+      compose start backup-worker >/dev/null
+    fi
+  fi
+  trap - EXIT
+  exit "${exit_code}"
+}
+trap cleanup EXIT
+
+running_recovery_job_count() {
+  compose exec -T postgres sh -ceu \
+    'psql --no-psqlrc --no-password --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --set ON_ERROR_STOP=1 --tuples-only --no-align --quiet' <<'SQL'
+CREATE TEMP TABLE aios_active_recovery_jobs (job_count bigint NOT NULL);
+DO $aionex$
+DECLARE
+  relation regclass;
+  relation_count bigint;
+  total bigint := 0;
+BEGIN
+  relation := to_regclass('backup_records');
+  IF relation IS NOT NULL THEN
+    EXECUTE format(
+      'SELECT count(*) FROM %s WHERE status = %L',
+      relation,
+      'running'
+    ) INTO relation_count;
+    total := total + relation_count;
+  END IF;
+
+  relation := to_regclass('disaster_recovery_runs');
+  IF relation IS NOT NULL THEN
+    EXECUTE format(
+      'SELECT count(*) FROM %s WHERE status = %L',
+      relation,
+      'running'
+    ) INTO relation_count;
+    total := total + relation_count;
+  END IF;
+
+  INSERT INTO aios_active_recovery_jobs (job_count) VALUES (total);
+END;
+$aionex$;
+SELECT job_count FROM aios_active_recovery_jobs;
+SQL
+}
+
 compose_services="$(compose config --services)"
 grep -qx "postgres" <<<"${compose_services}" ||
   die "the postgres service is missing from the Compose project"
@@ -84,6 +139,23 @@ if [[ "${ready}" != "true" ]]; then
   die "PostgreSQL did not become ready within 60 seconds"
 fi
 
+if [[ "${has_backup_worker}" == "true" ]] &&
+  [[ -n "$(compose ps --status running -q backup-worker)" ]]; then
+  echo "Stopping the backup worker before changing database credentials..."
+  backup_worker_stopped=true
+  compose stop backup-worker
+fi
+
+running_job_count="$(
+  running_recovery_job_count |
+    tr -d '[:space:]'
+)"
+[[ "${running_job_count}" =~ ^[[:digit:]]+$ ]] ||
+  die "could not verify active backup and restore jobs"
+if ((running_job_count > 0)); then
+  die "credential reconciliation refused because a backup or restore job remains running"
+fi
+
 echo "Synchronizing the PostgreSQL role password with the container environment..."
 compose exec -T postgres sh -s <<'CONTAINER_SH'
 set -eu
@@ -108,6 +180,7 @@ printf 'ALTER ROLE "%s" WITH LOGIN PASSWORD '\''%s'\'';\n' \
     --set ON_ERROR_STOP=1 \
     >/dev/null
 CONTAINER_SH
+credentials_changed=true
 
 echo "Verifying TCP password authentication..."
 compose exec -T postgres sh -ceu '
@@ -185,6 +258,8 @@ if [[ "${has_backup_worker}" == "true" ]]; then
   if [[ "${backup_worker_running}" != "true" ]]; then
     die "Backup worker did not become healthy; inspect it with: docker compose logs backup-worker"
   fi
+  backup_worker_stopped=false
 fi
 
+trap - EXIT
 echo "PostgreSQL credentials synchronized and dependent services restarted."

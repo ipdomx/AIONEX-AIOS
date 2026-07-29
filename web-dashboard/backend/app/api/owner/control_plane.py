@@ -2036,7 +2036,7 @@ async def _validate_release_gate(
         recovery_run = None
         artifact_ready = await _backup_artifact_ready(
             completed_backup,
-            verify_checksum=False,
+            verify_checksum=True,
         )
         if completed_backup is not None and artifact_ready:
             for candidate in recovery_runs:
@@ -2061,7 +2061,7 @@ async def _validate_release_gate(
                 "No completed backup from the last 24 hours is available"
                 if completed_backup is None
                 else (
-                    "The latest completed backup failed live artifact readiness "
+                    "The latest completed backup failed full artifact integrity "
                     "verification"
                     if not artifact_ready
                     else (

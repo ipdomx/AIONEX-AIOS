@@ -20,10 +20,12 @@ STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 BACKUP_DIR="${BACKUP_DIR:-${SCRIPT_DIR}/backups}"
 SQL_NAME="aios-${STAMP}.sql"
 ARCHIVE_PATH="${BACKUP_DIR}/aios-${STAMP}.tar.gz"
+CHECKSUM_PATH="${ARCHIVE_PATH}.sha256"
+CHECKSUM_TMP="${CHECKSUM_PATH}.tmp"
 SQL_PATH="${BACKUP_DIR}/${SQL_NAME}"
 mkdir -p "${BACKUP_DIR}"
 cleanup_plaintext() {
-  rm -f "${SQL_PATH}"
+  rm -f "${SQL_PATH}" "${CHECKSUM_TMP}"
 }
 trap cleanup_plaintext EXIT
 
@@ -33,7 +35,15 @@ AIOS_ENV_FILE="${ENV_FILE}" \
   > "${SQL_PATH}"
 
 tar -czf "${ARCHIVE_PATH}" -C "${BACKUP_DIR}" "${SQL_NAME}"
+archive_checksum="$(sha256sum "${ARCHIVE_PATH}" | awk '{print $1}')"
+[[ "${archive_checksum}" =~ ^[[:xdigit:]]{64}$ ]] || {
+  echo "Failed to calculate the backup archive SHA-256 checksum." >&2
+  exit 1
+}
+printf '%s\n' "${archive_checksum,,}" > "${CHECKSUM_TMP}"
+mv -f -- "${CHECKSUM_TMP}" "${CHECKSUM_PATH}"
 cleanup_plaintext
 trap - EXIT
 
 echo "Backup created: ${ARCHIVE_PATH}"
+echo "Checksum created: ${CHECKSUM_PATH}"

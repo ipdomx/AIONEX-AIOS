@@ -408,7 +408,7 @@ async def test_backup_release_gate_requires_recent_backup_and_matching_recovery(
         *,
         verify_checksum: bool,
     ) -> bool:
-        assert verify_checksum is False
+        assert verify_checksum is True
         return backup is not None
 
     monkeypatch.setattr(control_plane, "_backup_artifact_ready", artifact_ready)
@@ -538,7 +538,7 @@ async def test_backup_release_gate_blocks_failed_live_artifact_readiness(
         *,
         verify_checksum: bool,
     ) -> bool:
-        assert verify_checksum is False
+        assert verify_checksum is True
         return False
 
     monkeypatch.setattr(control_plane, "_backup_artifact_ready", artifact_missing)
@@ -551,7 +551,7 @@ async def test_backup_release_gate_blocks_failed_live_artifact_readiness(
     assert gate.status == "blocked"
     assert result["evidence"]["artifactIntegrity"] == "failed"
     assert result["evidence"]["recoveryRunId"] is None
-    assert "readiness" in result["lastResult"].lower()
+    assert "integrity" in result["lastResult"].lower()
 
 
 @pytest.mark.asyncio

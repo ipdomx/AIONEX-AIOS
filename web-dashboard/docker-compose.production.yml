@@ -37,7 +37,7 @@ services:
       PYTHONPATH: /workspace/src:/app
     volumes:
       - ..:/workspace:ro
-      - backup_data:/var/lib/aionex/backups
+      - backup_data:/var/lib/aionex/backups:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -55,6 +55,7 @@ services:
   backup-worker:
     image: aionex-aios-backend:local
     restart: unless-stopped
+    stop_grace_period: ${BACKUP_JOB_LEASE_SECONDS:-3600}s
     command: ["python", "-m", "app.services.backup_worker"]
     env_file:
       - ${AIOS_ENV_FILE:-.env.production}
@@ -69,7 +70,7 @@ services:
       PYTHONPATH: /workspace/src:/app
     volumes:
       - ..:/workspace:ro
-      - backup_data:/var/lib/aionex/backups
+      - backup_data:/var/lib/aionex/backups:rw
     depends_on:
       backend:
         condition: service_healthy

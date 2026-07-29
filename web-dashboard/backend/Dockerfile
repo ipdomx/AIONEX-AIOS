@@ -1,19 +1,38 @@
 # AIONEX AIOS — Backend Dockerfile
 
-# Debian trixie ships PostgreSQL client 17, which can dump the PostgreSQL 16
-# server used by both production Compose stacks.  Pin the suite so a base-image
-# alias cannot silently regress to the incompatible client 15 from bookworm.
-FROM python:3.11-slim-trixie AS base
+# Both production Compose stacks run PostgreSQL 16. Pin the Debian suite and
+# install the matching client from PostgreSQL's signed official PGDG repository.
+FROM python:3.11-slim-bookworm AS base
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    libpq-dev \
-    postgresql-client-17 \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# Install build/runtime dependencies and PostgreSQL client 16. The downloaded
+# repository key is authenticated by its full fingerprint before it is trusted,
+# and apt is restricted to that key through a repository-scoped signed-by rule.
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        gnupg; \
+    curl -fsSL \
+        https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+        -o /tmp/postgresql-pgdg.asc; \
+    gpg --batch --show-keys --with-colons /tmp/postgresql-pgdg.asc \
+        | grep -qx 'fpr:::::::::B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8:'; \
+    gpg --batch --yes --dearmor \
+        --output /usr/share/keyrings/postgresql-pgdg.gpg \
+        /tmp/postgresql-pgdg.asc; \
+    echo 'deb [signed-by=/usr/share/keyrings/postgresql-pgdg.gpg] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main' \
+        > /etc/apt/sources.list.d/postgresql-pgdg.list; \
+    rm -f /tmp/postgresql-pgdg.asc; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        gcc \
+        libpq-dev \
+        postgresql-client-16; \
+    apt-get purge -y --auto-remove gnupg; \
+    rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
 COPY requirements.txt .

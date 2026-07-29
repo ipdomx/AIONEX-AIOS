@@ -427,6 +427,7 @@ class BackupRecord(Base, TimestampMixin):
     location: Mapped[str | None] = mapped_column(Text)
     checksum: Mapped[str | None] = mapped_column(String(128))
     size_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    lease_token: Mapped[str | None] = mapped_column(String(36))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
@@ -438,6 +439,7 @@ class DisasterRecoveryRun(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
     region: Mapped[str | None] = mapped_column(String(120))
     details: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    lease_token: Mapped[str | None] = mapped_column(String(36))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 

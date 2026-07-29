@@ -6,6 +6,8 @@ import asyncio
 import hashlib
 import os
 import stat
+import time
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 from uuid import uuid4
@@ -21,7 +23,12 @@ from app.services.backup_executor import (
     AsyncPostgresCommandRunner,
     RestoreValidation,
 )
-from app.services.backup_worker import BackupJobWorker
+from app.services.backup_worker import (
+    BackupJobWorker,
+    ClaimedJob,
+    LeaseLostError,
+    retention_candidate_ids,
+)
 from sqlalchemy import BigInteger, delete
 
 
@@ -77,7 +84,7 @@ async def test_backup_is_atomic_private_checksumming_and_secret_safe(
     runner = FakeRunner()
     executor = BackupExecutor(_settings(tmp_path), runner)
 
-    artifact = await executor.create_backup("backup-record-1")
+    artifact = await executor.create_backup("backup-record-1", "attempt-1")
 
     path = Path(artifact.location)
     payload = path.read_bytes()
@@ -94,11 +101,27 @@ async def test_backup_is_atomic_private_checksumming_and_secret_safe(
     assert "SECRET_KEY" not in call["environment"]
     assert "SMTP_PASSWORD" not in call["environment"]
 
-    # Retrying a stale durable job reuses the already finalized immutable
-    # artifact instead of creating a duplicate dump.
-    repeated = await executor.create_backup("backup-record-1")
+    # Retrying the same lease reuses only that lease's immutable artifact.
+    repeated = await executor.create_backup("backup-record-1", "attempt-1")
     assert repeated == artifact
     assert len(runner.calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_reclaimed_attempt_cannot_overwrite_prior_attempt_artifact(
+    tmp_path: Path,
+) -> None:
+    runner = FakeRunner()
+    executor = BackupExecutor(_settings(tmp_path), runner)
+
+    first = await executor.create_backup("shared-backup", "lease-one")
+    first_payload = Path(first.location).read_bytes()
+    second = await executor.create_backup("shared-backup", "lease-two")
+
+    assert first.location != second.location
+    assert Path(first.location).read_bytes() == first_payload
+    assert Path(second.location).is_file()
+    assert len(runner.calls) == 2
 
 
 def test_artifact_probe_checks_live_path_size_and_checksum(tmp_path: Path) -> None:
@@ -148,19 +171,149 @@ def test_artifact_probe_checks_live_path_size_and_checksum(tmp_path: Path) -> No
         executor.verify_artifact(str(outside), checksum, len(payload))
 
 
+def test_read_only_artifact_probe_never_mutates_the_backup_directory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executor = BackupExecutor(_settings(tmp_path), FakeRunner())
+    backup_dir = tmp_path / "protected-backups"
+    backup_dir.mkdir(mode=0o700)
+    artifact_path = backup_dir / "backup-read-only.dump"
+    payload = b"PGDMPread-only-artifact"
+    artifact_path.write_bytes(payload)
+
+    def writable_probe() -> Path:
+        raise AssertionError("read-only verification requested write access")
+
+    monkeypatch.setattr(executor, "_secure_backup_directory", writable_probe)
+    verified = executor.verify_artifact(
+        str(artifact_path),
+        hashlib.sha256(payload).hexdigest(),
+        len(payload),
+    )
+
+    assert verified.location == str(artifact_path)
+
+
+def test_stale_partial_cleanup_is_lease_bounded_and_symlink_safe(
+    tmp_path: Path,
+) -> None:
+    executor = BackupExecutor(_settings(tmp_path), FakeRunner())
+    backup_dir = tmp_path / "protected-backups"
+    backup_dir.mkdir(mode=0o700)
+    stale = backup_dir / ".backup-stale.partial"
+    fresh = backup_dir / ".backup-fresh.partial"
+    unrelated = backup_dir / "keep-me.partial"
+    target = backup_dir / "target.dump"
+    stale.write_bytes(b"partial")
+    fresh.write_bytes(b"partial")
+    unrelated.write_bytes(b"partial")
+    target.write_bytes(b"PGDMPprotected")
+    symlink = backup_dir / ".backup-symlink.partial"
+    symlink.symlink_to(target)
+    old = time.time() - 3600
+    os.utime(stale, (old, old))
+    os.utime(symlink, (old, old), follow_symlinks=False)
+
+    assert executor.cleanup_stale_partials(600) == 1
+    assert not stale.exists()
+    assert fresh.exists()
+    assert unrelated.exists()
+    assert symlink.is_symlink()
+    assert target.exists()
+
+
+@pytest.mark.asyncio
+async def test_reclaimed_backup_removes_only_its_abandoned_partial(
+    tmp_path: Path,
+) -> None:
+    backup_id = "reclaimed-backup-job"
+    executor = BackupExecutor(_settings(tmp_path), FakeRunner())
+    backup_dir = tmp_path / "protected-backups"
+    backup_dir.mkdir(mode=0o700)
+    stable_name = hashlib.sha256(backup_id.encode("utf-8")).hexdigest()[:24]
+    abandoned = backup_dir / f".backup-{stable_name}-abandoned.partial"
+    unrelated = backup_dir / ".backup-unrelated-abandoned.partial"
+    abandoned.write_bytes(b"abandoned dump")
+    unrelated.write_bytes(b"unrelated dump")
+
+    assert executor.cleanup_backup_partials(backup_id) == 1
+    artifact = await executor.create_backup(backup_id, "reclaimed-attempt")
+
+    assert not abandoned.exists()
+    assert unrelated.exists()
+    assert Path(artifact.location).is_file()
+
+
+def test_orphan_cleanup_waits_for_lease_and_preserves_referenced_artifacts(
+    tmp_path: Path,
+) -> None:
+    executor = BackupExecutor(_settings(tmp_path), FakeRunner())
+    backup_dir = tmp_path / "protected-backups"
+    backup_dir.mkdir(mode=0o700)
+    referenced = backup_dir / f"backup-{'a' * 24}-{'b' * 32}.dump"
+    orphan = backup_dir / f"backup-{'c' * 24}-{'d' * 32}.dump"
+    fresh = backup_dir / f"backup-{'e' * 24}-{'f' * 32}.dump"
+    active_backup_id = "active-backup-job"
+    active_attempt_token = "active-attempt-token"
+    active = backup_dir / (
+        "backup-"
+        f"{hashlib.sha256(active_backup_id.encode()).hexdigest()[:24]}-"
+        f"{hashlib.sha256(active_attempt_token.encode()).hexdigest()[:32]}.dump"
+    )
+    for artifact in (referenced, orphan, fresh, active):
+        artifact.write_bytes(b"PGDMPartifact")
+    old = time.time() - 3600
+    os.utime(referenced, (old, old))
+    os.utime(orphan, (old, old))
+    os.utime(active, (old, old))
+
+    assert (
+        executor.cleanup_orphan_artifacts(
+            {str(referenced)},
+            600,
+            {(active_backup_id, active_attempt_token)},
+        )
+        == 1
+    )
+    assert referenced.exists()
+    assert not orphan.exists()
+    assert fresh.exists()
+    assert active.exists()
+
+
+def test_retention_rejects_symlink_without_deleting_its_target(
+    tmp_path: Path,
+) -> None:
+    executor = BackupExecutor(_settings(tmp_path), FakeRunner())
+    backup_dir = tmp_path / "protected-backups"
+    backup_dir.mkdir(mode=0o700)
+    target = backup_dir / f"backup-{'a' * 24}-{'b' * 32}.dump"
+    symlink = backup_dir / f"backup-{'c' * 24}-{'d' * 32}.dump"
+    target.write_bytes(b"PGDMPprotected-target")
+    symlink.symlink_to(target)
+
+    with pytest.raises(BackupExecutionError, match="could not be removed safely"):
+        executor.delete_artifact(str(symlink))
+
+    assert symlink.is_symlink()
+    assert target.read_bytes() == b"PGDMPprotected-target"
+
+
 @pytest.mark.asyncio
 async def test_restore_validation_uses_isolated_database_and_always_cleans_up(
     tmp_path: Path,
 ) -> None:
     runner = FakeRunner()
     executor = BackupExecutor(_settings(tmp_path), runner)
-    artifact = await executor.create_backup("backup-record-2")
+    artifact = await executor.create_backup("backup-record-2", "attempt-2")
     runner.calls.clear()
 
     validation = await executor.validate_restore(
         artifact.location,
         artifact.checksum,
         "restore-run-1",
+        "restore-attempt-1",
     )
 
     assert validation.restored is True
@@ -187,12 +340,51 @@ async def test_restore_validation_uses_isolated_database_and_always_cleans_up(
 
 
 @pytest.mark.asyncio
+async def test_reclaimed_restore_attempt_uses_a_distinct_scratch_database(
+    tmp_path: Path,
+) -> None:
+    runner = FakeRunner()
+    executor = BackupExecutor(_settings(tmp_path), runner)
+    artifact = await executor.create_backup("backup-record-fenced", "backup-attempt")
+    runner.calls.clear()
+
+    await executor.validate_restore(
+        artifact.location,
+        artifact.checksum,
+        "shared-restore-run",
+        "stale-lease-token",
+    )
+    stale_scratch_names = {
+        call["command"][-1]
+        for call in runner.calls
+        if call["command"][0] in {"dropdb", "createdb"}
+    }
+    runner.calls.clear()
+
+    await executor.validate_restore(
+        artifact.location,
+        artifact.checksum,
+        "shared-restore-run",
+        "winning-lease-token",
+    )
+    winning_scratch_names = {
+        call["command"][-1]
+        for call in runner.calls
+        if call["command"][0] in {"dropdb", "createdb"}
+    }
+
+    assert len(stale_scratch_names) == 1
+    assert len(winning_scratch_names) == 1
+    assert stale_scratch_names.isdisjoint(winning_scratch_names)
+
+
+@pytest.mark.asyncio
 async def test_restore_failure_is_sanitized_and_scratch_database_is_removed(
     tmp_path: Path,
 ) -> None:
     runner = FakeRunner()
     executor = BackupExecutor(_settings(tmp_path), runner)
-    artifact = await executor.create_backup("backup-record-3")
+    artifact = await executor.create_backup("backup-record-3", "attempt-3")
     runner.calls.clear()
     runner.fail_operation = "PostgreSQL restore validation"
 
@@ -201,6 +393,7 @@ async def test_restore_failure_is_sanitized_and_scratch_database_is_removed(
             artifact.location,
             artifact.checksum,
             "restore-run-2",
+            "restore-attempt-2",
         )
 
     assert failure.value.public_message == "PostgreSQL restore validation failed safely"
@@ -289,7 +482,11 @@ class FakeSessionFactory:
 
 
 class FakeExecutor:
-    async def create_backup(self, backup_id: str) -> BackupArtifact:
+    async def create_backup(
+        self,
+        backup_id: str,
+        _attempt_token: str,
+    ) -> BackupArtifact:
         assert backup_id == "backup-job-1"
         return BackupArtifact(
             location="/protected/backup.dump",
@@ -299,7 +496,9 @@ class FakeExecutor:
 
 
 @pytest.mark.asyncio
-async def test_worker_atomically_claims_and_completes_backup() -> None:
+async def test_worker_atomically_claims_and_completes_backup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     record = BackupRecord(
         id="backup-job-1",
         kind="on-demand",
@@ -315,13 +514,25 @@ async def test_worker_atomically_claims_and_completes_backup() -> None:
         ),
     )
 
+    async def skip_capacity(_backup_id: str) -> None:
+        return None
+
+    async def skip_retention(**_kwargs: object) -> None:
+        return None
+
+    monkeypatch.setattr(worker, "_ensure_capacity", skip_capacity)
+    monkeypatch.setattr(worker, "_apply_retention", skip_retention)
+
     claimed = await worker.claim_backup()
-    assert claimed == record.id
+    assert claimed is not None
+    assert claimed.id == record.id
+    assert claimed.lease_token == record.lease_token
+    assert claimed.reclaimed is False
     assert record.status == "running"
     assert claim_session.commits == 1
     assert claim_session.statement._for_update_arg.skip_locked is True
 
-    await worker.execute_backup(record.id)
+    await worker.execute_backup(claimed)
     assert record.status == "completed"
     assert record.location == "/protected/backup.dump"
     assert record.checksum == "a" * 64
@@ -335,7 +546,11 @@ async def test_worker_atomically_claims_and_completes_backup() -> None:
 
 
 class FailingExecutor:
-    async def create_backup(self, _backup_id: str) -> BackupArtifact:
+    async def create_backup(
+        self,
+        _backup_id: str,
+        _attempt_token: str,
+    ) -> BackupArtifact:
         raise BackupExecutionError(
             "PostgreSQL backup",
             "PostgreSQL backup failed with PostgreSQL client exit code 1",
@@ -343,12 +558,15 @@ class FailingExecutor:
 
 
 @pytest.mark.asyncio
-async def test_worker_persists_sanitized_backup_failure() -> None:
+async def test_worker_persists_sanitized_backup_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     record = BackupRecord(
         id="backup-job-2",
         kind="on-demand",
         scope="platform",
         status="running",
+        lease_token="failure-lease",
     )
     failure_session = FakeSession([record])
     worker = BackupJobWorker(
@@ -356,7 +574,12 @@ async def test_worker_persists_sanitized_backup_failure() -> None:
         session_factory=FakeSessionFactory([failure_session]),  # type: ignore[arg-type]
     )
 
-    await worker.execute_backup(record.id)
+    async def skip_capacity(_backup_id: str) -> None:
+        return None
+
+    monkeypatch.setattr(worker, "_ensure_capacity", skip_capacity)
+
+    await worker.execute_backup(ClaimedJob(record.id, "failure-lease", reclaimed=False))
 
     assert record.status == "failed"
     assert record.completed_at is not None
@@ -368,17 +591,24 @@ async def test_worker_persists_sanitized_backup_failure() -> None:
 
 
 class UnexpectedFailingExecutor:
-    async def create_backup(self, _backup_id: str) -> BackupArtifact:
+    async def create_backup(
+        self,
+        _backup_id: str,
+        _attempt_token: str,
+    ) -> BackupArtifact:
         raise RuntimeError("postgresql://user:plaintext-secret@database/aionex")
 
 
 @pytest.mark.asyncio
-async def test_worker_sanitizes_unexpected_executor_failure() -> None:
+async def test_worker_sanitizes_unexpected_executor_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     record = BackupRecord(
         id="backup-job-3",
         kind="on-demand",
         scope="platform",
         status="running",
+        lease_token="unexpected-lease",
     )
     failure_session = FakeSession([record])
     worker = BackupJobWorker(
@@ -386,7 +616,14 @@ async def test_worker_sanitizes_unexpected_executor_failure() -> None:
         session_factory=FakeSessionFactory([failure_session]),  # type: ignore[arg-type]
     )
 
-    await worker.execute_backup(record.id)
+    async def skip_capacity(_backup_id: str) -> None:
+        return None
+
+    monkeypatch.setattr(worker, "_ensure_capacity", skip_capacity)
+
+    await worker.execute_backup(
+        ClaimedJob(record.id, "unexpected-lease", reclaimed=False)
+    )
 
     assert record.status == "failed"
     failure_audit = next(
@@ -396,18 +633,343 @@ async def test_worker_sanitizes_unexpected_executor_failure() -> None:
     assert "plaintext-secret" not in str(failure_audit.details)
 
 
+@pytest.mark.asyncio
+async def test_expired_lease_gets_new_token_and_is_marked_reclaimed() -> None:
+    old_token = str(uuid4())
+    record = BackupRecord(
+        id="stale-backup",
+        kind="scheduled",
+        scope="platform",
+        status="running",
+        lease_token=old_token,
+        updated_at=datetime.now(UTC) - timedelta(hours=2),
+    )
+    session = FakeSession([record])
+    worker = BackupJobWorker(
+        executor=FakeExecutor(),  # type: ignore[arg-type]
+        session_factory=FakeSessionFactory([session]),  # type: ignore[arg-type]
+    )
+
+    claim = await worker.claim_backup()
+
+    assert claim is not None
+    assert claim.reclaimed is True
+    assert claim.lease_token != old_token
+    assert record.lease_token == claim.lease_token
+
+
+@pytest.mark.asyncio
+async def test_lease_heartbeat_is_fenced_by_current_token() -> None:
+    record = BackupRecord(
+        id="heartbeat-backup",
+        kind="scheduled",
+        scope="platform",
+        status="running",
+        lease_token="current-token",
+        updated_at=datetime.now(UTC) - timedelta(seconds=30),
+    )
+    renewed = FakeSession([record])
+    lost = FakeSession([None])
+    worker = BackupJobWorker(
+        executor=FakeExecutor(),  # type: ignore[arg-type]
+        session_factory=FakeSessionFactory([renewed, lost]),  # type: ignore[arg-type]
+    )
+    claim = ClaimedJob(record.id, "current-token", reclaimed=False)
+    previous = record.updated_at
+
+    await worker._renew_lease(BackupRecord, claim)
+
+    assert record.updated_at > previous
+    assert renewed.commits == 1
+    with pytest.raises(LeaseLostError):
+        await worker._renew_lease(
+            BackupRecord,
+            ClaimedJob(record.id, "stale-token", reclaimed=True),
+        )
+
+
+@pytest.mark.asyncio
+async def test_stale_worker_cannot_publish_or_overwrite_winning_artifact(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class LateExecutor:
+        def __init__(self) -> None:
+            self.deleted: list[str] = []
+
+        async def create_backup(
+            self,
+            backup_id: str,
+            attempt_token: str,
+        ) -> BackupArtifact:
+            assert backup_id == "fenced-backup"
+            assert attempt_token == "stale-token"
+            return BackupArtifact(
+                location="/protected/stale-attempt.dump",
+                checksum="c" * 64,
+                size_bytes=256,
+            )
+
+        def delete_artifact(self, location: str) -> bool:
+            self.deleted.append(location)
+            return True
+
+    executor = LateExecutor()
+    finish_session = FakeSession([None])
+    worker = BackupJobWorker(
+        executor=executor,  # type: ignore[arg-type]
+        session_factory=FakeSessionFactory([finish_session]),  # type: ignore[arg-type]
+    )
+
+    async def skip_capacity(_backup_id: str) -> None:
+        return None
+
+    monkeypatch.setattr(worker, "_ensure_capacity", skip_capacity)
+    await worker.execute_backup(
+        ClaimedJob("fenced-backup", "stale-token", reclaimed=False)
+    )
+
+    assert finish_session.commits == 0
+    assert executor.deleted == ["/protected/stale-attempt.dump"]
+
+
+@pytest.mark.asyncio
+async def test_low_capacity_blocks_pg_dump_after_safe_cleanup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class CapacityExecutor:
+        def __init__(self) -> None:
+            self.dump_started = False
+
+        def available_bytes(self) -> int:
+            return 0
+
+        async def create_backup(
+            self,
+            _backup_id: str,
+            _attempt_token: str,
+        ) -> BackupArtifact:
+            self.dump_started = True
+            raise AssertionError("pg_dump must not start without safe capacity")
+
+    record = BackupRecord(
+        id="capacity-backup",
+        kind="scheduled",
+        scope="platform",
+        status="running",
+        lease_token="capacity-token",
+    )
+    failure_session = FakeSession([record])
+    executor = CapacityExecutor()
+    worker = BackupJobWorker(
+        executor=executor,  # type: ignore[arg-type]
+        session_factory=FakeSessionFactory([failure_session]),  # type: ignore[arg-type]
+    )
+
+    async def skip_retention(**_kwargs: object) -> None:
+        return None
+
+    async def database_size() -> int:
+        return 1
+
+    monkeypatch.setattr(worker, "_apply_retention", skip_retention)
+    monkeypatch.setattr(worker, "_database_size_bytes", database_size)
+    await worker.execute_backup(
+        ClaimedJob(record.id, "capacity-token", reclaimed=False)
+    )
+
+    assert executor.dump_started is False
+    assert record.status == "failed"
+
+
+def test_retention_protects_scope_latest_active_dr_and_latest_validation() -> None:
+    now = datetime.now(UTC)
+
+    def backup(
+        backup_id: str,
+        scope: str,
+        age_days: int,
+    ) -> BackupRecord:
+        completed_at = now - timedelta(days=age_days)
+        return BackupRecord(
+            id=backup_id,
+            kind="scheduled",
+            scope=scope,
+            status="completed",
+            location=f"/protected/{backup_id}.dump",
+            checksum="d" * 64,
+            size_bytes=128,
+            completed_at=completed_at,
+            created_at=completed_at,
+        )
+
+    backups = [
+        backup("platform-latest", "platform", 1),
+        backup("active-dr", "platform", 40),
+        backup("validated-evidence", "platform", 50),
+        backup("safe-old", "platform", 60),
+        backup("regional-latest", "regional", 90),
+    ]
+    runs = [
+        DisasterRecoveryRun(
+            id="pending-dr",
+            operation="test",
+            status="pending",
+            details={"backup_id": "active-dr"},
+            created_at=now,
+        ),
+        DisasterRecoveryRun(
+            id="validated-dr",
+            operation="test",
+            status="completed",
+            details={"backup_id": "validated-evidence", "validated": True},
+            completed_at=now,
+            created_at=now,
+        ),
+    ]
+
+    assert retention_candidate_ids(
+        backups,
+        runs,
+        now=now,
+        keep_count=2,
+        keep_days=30,
+    ) == ["safe-old"]
+    assert retention_candidate_ids(
+        backups,
+        runs,
+        now=now,
+        keep_count=2,
+        keep_days=30,
+        pressure=True,
+    ) == ["safe-old"]
+
+
+@pytest.mark.asyncio
+async def test_expiration_deletes_only_artifact_and_keeps_audit_metadata() -> None:
+    class RetentionExecutor:
+        def __init__(self) -> None:
+            self.deleted: list[str] = []
+
+        def delete_artifact(self, location: str) -> bool:
+            self.deleted.append(location)
+            return True
+
+    completed_at = datetime.now(UTC) - timedelta(days=45)
+    record = BackupRecord(
+        id="expired-backup",
+        kind="scheduled",
+        scope="platform",
+        status="completed",
+        location="/protected/expired.dump",
+        checksum="e" * 64,
+        size_bytes=4096,
+        completed_at=completed_at,
+    )
+    expire_session = FakeSession([record, None])
+    delete_session = FakeSession([record])
+    executor = RetentionExecutor()
+    worker = BackupJobWorker(
+        executor=executor,  # type: ignore[arg-type]
+        session_factory=FakeSessionFactory(  # type: ignore[arg-type]
+            [expire_session, delete_session]
+        ),
+    )
+
+    await worker._delete_expired_artifact(record.id, reason="retention policy")
+
+    assert record.status == "expired"
+    assert record.location is None
+    assert record.checksum == "e" * 64
+    assert record.size_bytes == 4096
+    assert record.completed_at == completed_at
+    assert executor.deleted == ["/protected/expired.dump"]
+
+
+@pytest.mark.asyncio
+async def test_expiration_rechecks_active_recovery_reference_before_delete() -> None:
+    class RetentionExecutor:
+        def __init__(self) -> None:
+            self.deleted: list[str] = []
+
+        def delete_artifact(self, location: str) -> bool:
+            self.deleted.append(location)
+            return True
+
+    record = BackupRecord(
+        id="active-recovery-backup",
+        kind="scheduled",
+        scope="platform",
+        status="completed",
+        location="/protected/active-recovery.dump",
+        checksum="f" * 64,
+        size_bytes=2048,
+        completed_at=datetime.now(UTC) - timedelta(days=45),
+    )
+    session = FakeSession([record, "active-recovery-run"])
+    executor = RetentionExecutor()
+    worker = BackupJobWorker(
+        executor=executor,  # type: ignore[arg-type]
+        session_factory=FakeSessionFactory([session]),  # type: ignore[arg-type]
+    )
+
+    await worker._delete_expired_artifact(record.id, reason="retention policy")
+
+    assert record.status == "completed"
+    assert record.location == "/protected/active-recovery.dump"
+    assert session.commits == 0
+    assert executor.deleted == []
+
+
+@pytest.mark.asyncio
+async def test_post_backup_retention_runs_after_the_lease_heartbeat_stops(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    claim = ClaimedJob("backup-job", "lease-token", reclaimed=False)
+    worker = BackupJobWorker(
+        executor=FakeExecutor(),  # type: ignore[arg-type]
+        session_factory=FakeSessionFactory([]),  # type: ignore[arg-type]
+    )
+    events: list[str] = []
+
+    async def claim_backup() -> ClaimedJob:
+        return claim
+
+    async def run_with_heartbeat(
+        _model: object,
+        received_claim: ClaimedJob,
+        _operation: object,
+    ) -> None:
+        assert received_claim == claim
+        events.append("heartbeat-stopped")
+
+    async def apply_retention(**_kwargs: object) -> None:
+        events.append("retention")
+
+    monkeypatch.setattr(worker, "claim_backup", claim_backup)
+    monkeypatch.setattr(worker, "_run_with_heartbeat", run_with_heartbeat)
+    monkeypatch.setattr(worker, "_apply_retention", apply_retention)
+
+    assert await worker.run_once() is True
+    assert events == ["heartbeat-stopped", "retention"]
+
+
 class RestoreExecutor:
+    def __init__(self) -> None:
+        self.attempt_token: str | None = None
+
     async def validate_restore(
         self,
         location: str,
         checksum: str,
         validation_id: str,
+        attempt_token: str,
         *,
         expected_size_bytes: int | None = None,
     ) -> RestoreValidation:
         assert location == "/protected/restore.dump"
         assert checksum == "b" * 64
         assert validation_id == "restore-job-1"
+        self.attempt_token = attempt_token
         assert expected_size_bytes == 512
         return RestoreValidation(
             checksum=checksum,
@@ -435,19 +997,22 @@ async def test_worker_claims_dr_drill_and_persists_completed_restore_evidence() 
     claim_session = FakeSession([run])
     load_session = FakeSession([run, backup])
     finish_session = FakeSession([run])
+    executor = RestoreExecutor()
     worker = BackupJobWorker(
-        executor=RestoreExecutor(),  # type: ignore[arg-type]
+        executor=executor,  # type: ignore[arg-type]
         session_factory=FakeSessionFactory(  # type: ignore[arg-type]
             [claim_session, load_session, finish_session]
         ),
     )
 
     claimed = await worker.claim_restore_validation()
-    assert claimed == run.id
+    assert claimed is not None
+    assert claimed.id == run.id
+    assert claimed.lease_token == run.lease_token
     assert run.status == "running"
     assert claim_session.statement._for_update_arg.skip_locked is True
 
-    await worker.execute_restore_validation(run.id)
+    await worker.execute_restore_validation(claimed)
 
     assert run.status == "completed"
     assert run.completed_at is not None
@@ -455,6 +1020,7 @@ async def test_worker_claims_dr_drill_and_persists_completed_restore_evidence() 
     assert run.details["validated"] is True
     assert run.details["checksum"] == backup.checksum
     assert run.details["size_bytes"] == 512
+    assert executor.attempt_token == claimed.lease_token
     completed_audit = next(
         item for item in finish_session.added if isinstance(item, AuditEvent)
     )
@@ -469,6 +1035,7 @@ class RestoreFailingExecutor:
         _location: str,
         _checksum: str,
         _validation_id: str,
+        _attempt_token: str,
         *,
         expected_size_bytes: int | None = None,
     ) -> RestoreValidation:
@@ -495,6 +1062,7 @@ async def test_worker_persists_failed_restore_validation_evidence() -> None:
         operation="restore_validation",
         status="running",
         details={"backup_id": backup.id, "requested_by": "owner-1"},
+        lease_token="restore-failure-lease",
     )
     load_session = FakeSession([run, backup])
     failure_session = FakeSession([run])
@@ -505,7 +1073,9 @@ async def test_worker_persists_failed_restore_validation_evidence() -> None:
         ),
     )
 
-    await worker.execute_restore_validation(run.id)
+    await worker.execute_restore_validation(
+        ClaimedJob(run.id, "restore-failure-lease", reclaimed=False)
+    )
 
     assert run.status == "failed"
     assert run.completed_at is not None
@@ -522,12 +1092,17 @@ class PreflightExecutor:
     def __init__(self) -> None:
         self.storage_verified = False
         self.heartbeat_verified = False
+        self.partials_cleaned_with: int | None = None
 
     def verify_storage(self) -> None:
         self.storage_verified = True
 
     def verify_heartbeat(self) -> None:
         self.heartbeat_verified = True
+
+    def cleanup_stale_partials(self, maximum_age_seconds: int) -> int:
+        self.partials_cleaned_with = maximum_age_seconds
+        return 0
 
 
 @pytest.mark.asyncio
@@ -538,7 +1113,7 @@ async def test_worker_preflight_checks_schema_storage_heartbeat_and_version(
         returncode = 0
 
         async def communicate(self) -> tuple[bytes, bytes]:
-            return b"pg_dump (PostgreSQL) 17.10\n", b""
+            return b"pg_dump (PostgreSQL) 16.10\n", b""
 
         def kill(self) -> None:
             return None
@@ -559,17 +1134,20 @@ async def test_worker_preflight_checks_schema_storage_heartbeat_and_version(
 
     assert executor.storage_verified is True
     assert executor.heartbeat_verified is True
+    assert executor.partials_cleaned_with is None
 
 
 @pytest.mark.asyncio
-async def test_worker_preflight_rejects_older_pg_dump(
+@pytest.mark.parametrize("client_major", [15, 17])
+async def test_worker_preflight_rejects_mismatched_pg_dump(
     monkeypatch: pytest.MonkeyPatch,
+    client_major: int,
 ) -> None:
     class VersionProcess:
         returncode = 0
 
         async def communicate(self) -> tuple[bytes, bytes]:
-            return b"pg_dump (PostgreSQL) 15.13\n", b""
+            return f"pg_dump (PostgreSQL) {client_major}.13\n".encode(), b""
 
         def kill(self) -> None:
             return None
@@ -586,8 +1164,81 @@ async def test_worker_preflight_rejects_older_pg_dump(
         ),
     )
 
-    with pytest.raises(RuntimeError, match="older than"):
+    with pytest.raises(RuntimeError, match="major versions must match"):
         await worker.preflight()
+
+
+@pytest.mark.asyncio
+async def test_worker_startup_cleans_only_partials_older_than_the_job_lease(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class VersionProcess:
+        returncode = 0
+
+        async def communicate(self) -> tuple[bytes, bytes]:
+            return b"pg_dump (PostgreSQL) 16.10\n", b""
+
+        def kill(self) -> None:
+            return None
+
+    async def create_process(*_args: object, **_kwargs: object) -> VersionProcess:
+        return VersionProcess()
+
+    monkeypatch.setattr("shutil.which", lambda tool: f"/usr/bin/{tool}")
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", create_process)
+    executor = PreflightExecutor()
+    worker = BackupJobWorker(
+        executor=executor,  # type: ignore[arg-type]
+        session_factory=FakeSessionFactory([FakeSession([160010, True])]),  # type: ignore[arg-type]
+    )
+
+    await worker.preflight()
+
+    assert (
+        executor.partials_cleaned_with == application_settings.BACKUP_JOB_LEASE_SECONDS
+    )
+    assert executor.heartbeat_verified is False
+
+
+@pytest.mark.asyncio
+async def test_worker_shutdown_drains_an_inflight_job_before_exit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    worker = BackupJobWorker(
+        executor=PreflightExecutor(),  # type: ignore[arg-type]
+        session_factory=FakeSessionFactory([]),  # type: ignore[arg-type]
+    )
+    stop_event = asyncio.Event()
+    started = asyncio.Event()
+    release = asyncio.Event()
+    calls = 0
+
+    async def preflight(*, require_heartbeat: bool = False) -> None:
+        assert require_heartbeat is False
+
+    async def heartbeat(event: asyncio.Event) -> None:
+        await event.wait()
+
+    async def run_once() -> bool:
+        nonlocal calls
+        calls += 1
+        started.set()
+        await release.wait()
+        return True
+
+    monkeypatch.setattr(worker, "preflight", preflight)
+    monkeypatch.setattr(worker, "_heartbeat_forever", heartbeat)
+    monkeypatch.setattr(worker, "run_once", run_once)
+    task = asyncio.create_task(worker.run_forever(stop_event))
+    await started.wait()
+
+    stop_event.set()
+    await asyncio.sleep(0)
+    assert not task.done()
+    release.set()
+    await task
+
+    assert calls == 1
 
 
 def test_production_images_and_stacks_ship_the_backup_worker_once() -> None:
@@ -601,9 +1252,20 @@ def test_production_images_and_stacks_ship_the_backup_worker_once() -> None:
     deploy_compose = (
         repository_root / "deploy/production/docker-compose.production.yml"
     ).read_text(encoding="utf-8")
+    validation_workflow = (
+        repository_root / ".github/workflows/final-validation.yml"
+    ).read_text(encoding="utf-8")
 
-    assert "FROM python:3.11-slim-trixie" in dockerfile
-    assert "postgresql-client-17" in dockerfile
+    assert "FROM python:3.11-slim-bookworm" in dockerfile
+    assert "https://www.postgresql.org/media/keys/ACCC4CF8.asc" in dockerfile
+    assert "B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8" in dockerfile
+    assert (
+        "deb [signed-by=/usr/share/keyrings/postgresql-pgdg.gpg] "
+        "https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" in dockerfile
+    )
+    assert "postgresql-client-16" in dockerfile
+    assert "postgresql-client-17" not in dockerfile
+    assert "apt-key" not in dockerfile
     assert "install -d -m 0700 -o aionex -g aionex" in dockerfile
     for compose in (primary_compose, deploy_compose):
         assert "backup-worker:" in compose
@@ -614,6 +1276,22 @@ def test_production_images_and_stacks_ship_the_backup_worker_once() -> None:
             'test: ["CMD", "python", "-m", "app.services.backup_worker", '
             '"--healthcheck"]' in compose
         )
+
+    health_probe = validation_workflow.index("docker inspect")
+    worker_stop = validation_workflow.index('"${compose_args[@]}" stop backup-worker')
+    round_trip = validation_workflow.index(
+        "tests/test_backup_executor.py::"
+        "test_live_postgres_worker_backup_and_restore_smoke"
+    )
+    assert health_probe < worker_stop < round_trip
+    assert "pg_dump --version" in validation_workflow
+    assert r"\(PostgreSQL\) 16(\.|$)" in validation_workflow
+    assert "ps --status running -q backup-worker" in validation_workflow
+    assert "-e RUN_LIVE_BACKUP_SMOKE=1" in validation_workflow
+    assert '"${compose_args[@]}" run' in validation_workflow
+    assert "--rm" in validation_workflow
+    assert "--no-deps" in validation_workflow
+    assert "backup-worker \\\n              python -m pytest" in validation_workflow
 
 
 def test_backup_size_schema_supports_archives_larger_than_two_gibibytes() -> None:
@@ -634,9 +1312,8 @@ async def test_live_postgres_worker_backup_and_restore_smoke() -> None:
         pytest.skip("Live PostgreSQL backup smoke is enabled only in CI")
 
     suffix = uuid4().hex
-    backup_id = f"bkp-{suffix}"
     backup = BackupRecord(
-        id=backup_id,
+        id=f"bkp-{suffix}",
         kind="ci-smoke",
         scope=f"ci-smoke-{suffix}",
         status="pending",
@@ -652,9 +1329,8 @@ async def test_live_postgres_worker_backup_and_restore_smoke() -> None:
     artifact_path: Path | None = None
     run_id = f"rst-{suffix}"
     try:
-        assert await worker.claim_backup() == backup.id
+        assert await worker.run_once() is True
         assert await worker.claim_backup() is None
-        await worker.execute_backup(backup.id)
         async with SessionLocal() as session:
             completed_backup = await session.get(BackupRecord, backup.id)
             assert completed_backup is not None
@@ -673,9 +1349,8 @@ async def test_live_postgres_worker_backup_and_restore_smoke() -> None:
             )
             await session.commit()
 
-        assert await worker.claim_restore_validation() == run_id
+        assert await worker.run_once() is True
         assert await worker.claim_restore_validation() is None
-        await worker.execute_restore_validation(run_id)
         async with SessionLocal() as session:
             completed_run = await session.get(DisasterRecoveryRun, run_id)
             assert completed_run is not None
