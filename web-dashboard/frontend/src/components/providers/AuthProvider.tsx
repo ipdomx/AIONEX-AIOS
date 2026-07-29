@@ -1,8 +1,16 @@
 "use client";
 
-import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  PropsWithChildren,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import { AuthUser, authService } from "@/lib/auth-service";
+import { AUTH_SESSION_EVENT } from "@/lib/api-client";
 
 type AuthContextValue = {
   user: AuthUser | null;
@@ -37,7 +45,8 @@ export default function AuthProvider({ children }: PropsWithChildren) {
         if (!cancelled) setUser(current);
       } catch {
         authService.clearSession();
-        if (!cancelled) setUser(stored && authService.hasAccessToken() ? stored : null);
+        if (!cancelled)
+          setUser(stored && authService.hasAccessToken() ? stored : null);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -46,6 +55,20 @@ export default function AuthProvider({ children }: PropsWithChildren) {
     void restoreSession();
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    function synchronizeSession() {
+      const stored = authService.getStoredUser();
+      setUser(authService.hasAccessToken() ? stored : null);
+    }
+
+    window.addEventListener(AUTH_SESSION_EVENT, synchronizeSession);
+    window.addEventListener("storage", synchronizeSession);
+    return () => {
+      window.removeEventListener(AUTH_SESSION_EVENT, synchronizeSession);
+      window.removeEventListener("storage", synchronizeSession);
     };
   }, []);
 
@@ -59,8 +82,13 @@ export default function AuthProvider({ children }: PropsWithChildren) {
         setUser(response.user);
       },
       async logout() {
-        await authService.logout();
-        setUser(null);
+        try {
+          await authService.logout();
+        } catch {
+          // The local tokens are cleared by authService even if revocation fails.
+        } finally {
+          setUser(null);
+        }
       },
       async refreshUser() {
         const current = await authService.currentUser();

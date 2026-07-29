@@ -4,6 +4,7 @@ import "@/styles/globals.css";
 import RuntimeProvider from "@/components/providers/RuntimeProvider";
 import AuthProvider from "@/components/providers/AuthProvider";
 import AuthGate from "@/components/auth/AuthGate";
+import DashboardShell from "@/components/layout/DashboardShell";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -19,8 +20,18 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "AIONEX AIOS — Enterprise AI Operating System",
-  description: "Enterprise AI Operating System dashboard for governed agents, workflows, infrastructure, organizations, and operations.",
-  keywords: ["AI", "Enterprise", "Dashboard", "AIONEX", "AIOS", "Agents", "Workflows", "Infrastructure"],
+  description:
+    "Enterprise AI Operating System dashboard for governed agents, workflows, infrastructure, organizations, and operations.",
+  keywords: [
+    "AI",
+    "Enterprise",
+    "Dashboard",
+    "AIONEX",
+    "AIOS",
+    "Agents",
+    "Workflows",
+    "Infrastructure",
+  ],
   authors: [{ name: "AIONEX" }],
   creator: "AIONEX",
   publisher: "AIONEX",
@@ -57,17 +68,31 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${inter.variable} ${jetbrainsMono.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
       </head>
       <body className="antialiased">
         <AuthProvider>
           <AuthGate>
-            <RuntimeProvider>{children}</RuntimeProvider>
+            <RuntimeProvider>
+              <DashboardShell>{children}</DashboardShell>
+            </RuntimeProvider>
           </AuthGate>
         </AuthProvider>
       </body>

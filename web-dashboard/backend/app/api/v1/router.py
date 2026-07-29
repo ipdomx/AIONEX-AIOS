@@ -31,6 +31,7 @@ from app.api.v1.endpoints import (
     backups,
     final_integration,
 )
+from app.api.owner import router as owner_router
 
 api_router = APIRouter()
 
@@ -61,3 +62,4 @@ api_router.include_router(backups.router, prefix="/backups", tags=["Backup and R
 api_router.include_router(websocket.router, prefix="/realtime", tags=["Realtime"])
 api_router.include_router(integration.router, prefix="/integration", tags=["AIOS Integration"])
 api_router.include_router(final_integration.router, prefix="/final-integration", tags=["Final Integration"])
+api_router.include_router(owner_router)

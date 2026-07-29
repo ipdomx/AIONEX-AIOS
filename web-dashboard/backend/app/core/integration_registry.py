@@ -42,7 +42,7 @@ integration_registry = IntegrationRegistry()
 for _name, _routes in {
     "identity": ("/auth/me", "/users", "/organizations", "/roles", "/permissions"),
     "operations": ("/projects", "/tasks", "/workflows", "/meetings", "/reports"),
-    "ai_runtime": ("/ai/agents", "/ai/providers", "/notifications", "/realtime"),
-    "production": ("/monitoring/metrics", "/monitoring/alerts", "/security/events", "/operations/health"),
+    "ai_runtime": ("/ai/agents", "/ai/providers", "/notifications", "/realtime/status"),
+    "production": ("/monitoring/metrics", "/monitoring/alerts", "/security/events", "/monitoring/health"),
 }.items():
     integration_registry.register(IntegrationContract(_name, _routes))

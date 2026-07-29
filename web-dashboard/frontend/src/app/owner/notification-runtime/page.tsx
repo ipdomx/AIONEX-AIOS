@@ -3,8 +3,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
-import { Bell, Mail, MessageCircle, RefreshCw, Smartphone, ToggleLeft, ToggleRight } from "lucide-react";
-import { fetchNotificationRules, updateNotificationRule, type OwnerNotificationRule } from "@/lib/owner-notification-runtime";
+import {
+  Bell,
+  Mail,
+  MessageCircle,
+  RefreshCw,
+  Smartphone,
+  ToggleRight,
+} from "lucide-react";
+import {
+  fetchNotificationRules,
+  type OwnerNotificationRule,
+} from "@/lib/owner-notification-runtime";
 
 const severityClass: Record<OwnerNotificationRule["severity"], string> = {
   info: "border-blue-500/20 bg-blue-500/10 text-blue-300",
@@ -12,7 +22,10 @@ const severityClass: Record<OwnerNotificationRule["severity"], string> = {
   critical: "border-red-500/20 bg-red-500/10 text-red-300",
 };
 
-const channelIcon: Record<OwnerNotificationRule["channels"][number], LucideIcon> = {
+const channelIcon: Record<
+  OwnerNotificationRule["channels"][number],
+  LucideIcon
+> = {
   in_app: Bell,
   email: Mail,
   push: Smartphone,
@@ -33,7 +46,8 @@ export default function OwnerNotificationRuntimePage() {
       setItems(data);
       setMessage("Notification rules synchronized.");
     } catch (error) {
-      if (!(error instanceof DOMException && error.name === "AbortError")) setMessage("Notification synchronization failed.");
+      if (!(error instanceof DOMException && error.name === "AbortError"))
+        setMessage("Notification synchronization failed.");
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
@@ -45,11 +59,15 @@ export default function OwnerNotificationRuntimePage() {
     return () => controller.abort();
   }, []);
 
-  const summary = useMemo(() => ({
-    enabled: items.filter((item) => item.enabled).length,
-    critical: items.filter((item) => item.severity === "critical").length,
-    whatsapp: items.filter((item) => item.channels.includes("whatsapp")).length,
-  }), [items]);
+  const summary = useMemo(
+    () => ({
+      enabled: items.filter((item) => item.enabled).length,
+      critical: items.filter((item) => item.severity === "critical").length,
+      whatsapp: items.filter((item) => item.channels.includes("whatsapp"))
+        .length,
+    }),
+    [items],
+  );
 
   const cards: SummaryCard[] = [
     ["Enabled rules", summary.enabled, ToggleRight],
@@ -57,34 +75,42 @@ export default function OwnerNotificationRuntimePage() {
     ["WhatsApp rules", summary.whatsapp, MessageCircle],
   ];
 
-  async function toggle(id: string) {
-    const current = items.find((item) => item.id === id);
-    if (!current) return;
-    const next = !current.enabled;
-    setItems((value) => value.map((item) => item.id === id ? { ...item, enabled: next, updatedAt: "Just now" } : item));
-    setMessage("Updating notification rule...");
-    try {
-      await updateNotificationRule(id, { enabled: next });
-      setMessage("Notification rule updated.");
-    } catch {
-      setMessage("Backend endpoint unavailable; local state only.");
-    }
-  }
-
   return (
     <div className="space-y-6">
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"
+      >
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs font-medium text-electric-300"><Bell className="h-3.5 w-3.5" /> Owner Notification Runtime</div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">Notification Rules & Delivery</h1>
-          <p className="mt-2 text-sm text-white/45">Owner control for project, incident and clarification notifications across in-app, email, push and WhatsApp.</p>
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs font-medium text-electric-300">
+            <Bell className="h-3.5 w-3.5" /> Owner Notification Runtime
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight text-white">
+            Notification Rules & Delivery
+          </h1>
+          <p className="mt-2 text-sm text-white/45">
+            Observed project, incident and clarification delivery behavior
+            across the current notification runtime.
+          </p>
         </div>
-        <button disabled={loading} onClick={() => void load()} className="btn-primary disabled:cursor-not-allowed disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Refresh</button>
+        <button
+          disabled={loading}
+          onClick={() => void load()}
+          className="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          Refresh
+        </button>
       </motion.div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {cards.map(([label, value, Icon]) => (
-          <div key={label} className="glass-card p-5"><Icon className="h-5 w-5 text-electric-300" /><div className="mt-4 text-3xl font-bold text-white">{value}</div><div className="mt-1 text-xs text-white/40">{label}</div></div>
+          <div key={label} className="glass-card p-5">
+            <Icon className="h-5 w-5 text-electric-300" />
+            <div className="mt-4 text-3xl font-bold text-white">{value}</div>
+            <div className="mt-1 text-xs text-white/40">{label}</div>
+          </div>
         ))}
       </div>
 
@@ -92,18 +118,49 @@ export default function OwnerNotificationRuntimePage() {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         {items.map((item, index) => (
-          <motion.div key={item.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.03 }} className="glass-card p-5">
+          <motion.div
+            key={item.id}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.03 }}
+            className="glass-card p-5"
+          >
             <div className="flex items-start justify-between gap-4">
-              <div><h2 className="text-sm font-semibold text-white">{item.name}</h2><p className="mt-1 text-xs text-white/40">{item.event} · {item.audience} · {item.updatedAt}</p></div>
-              <span className={`rounded-full border px-2.5 py-1 text-xs ${severityClass[item.severity]}`}>{item.severity}</span>
+              <div>
+                <h2 className="text-sm font-semibold text-white">
+                  {item.name}
+                </h2>
+                <p className="mt-1 text-xs text-white/40">
+                  {item.event} · {item.audience} · {item.updatedAt}
+                </p>
+              </div>
+              <span
+                className={`rounded-full border px-2.5 py-1 text-xs ${severityClass[item.severity]}`}
+              >
+                {item.severity}
+              </span>
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               {item.channels.map((channel) => {
                 const Icon = channelIcon[channel];
-                return <span key={channel} className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-2.5 py-1.5 text-xs text-white/55"><Icon className="mr-1 inline h-3.5 w-3.5" />{channel}</span>;
+                return (
+                  <span
+                    key={channel}
+                    className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-2.5 py-1.5 text-xs text-white/55"
+                  >
+                    <Icon className="mr-1 inline h-3.5 w-3.5" />
+                    {channel}
+                  </span>
+                );
               })}
             </div>
-            <button onClick={() => void toggle(item.id)} className="mt-4 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white/70">{item.enabled ? <ToggleRight className="mr-1 inline h-3.5 w-3.5" /> : <ToggleLeft className="mr-1 inline h-3.5 w-3.5" />}{item.enabled ? "Disable" : "Enable"}</button>
+            <div
+              className="mt-4 inline-flex rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white/45"
+              title="The current runtime exposes observed delivery behavior but has no mutable rule registry."
+            >
+              <ToggleRight className="mr-1 inline h-3.5 w-3.5" />
+              Observed rule · read-only
+            </div>
           </motion.div>
         ))}
       </div>

@@ -250,3 +250,15 @@ def require_permissions(*required: str) -> Callable[[UserRecord], UserRecord]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
 
     return dependency
+
+
+async def require_super_owner(user: UserRecord = Depends(current_user)) -> UserRecord:
+    normalized_role = " ".join(
+        user.role.strip().lower().replace("_", " ").replace("-", " ").split()
+    )
+    if normalized_role == "super owner":
+        return user
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Super Owner access required",
+    )

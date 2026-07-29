@@ -14,6 +14,15 @@ import {
   CheckSquare,
   ArrowRight,
 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+
+import { useAuth } from "@/components/providers/AuthProvider";
+import {
+  ownerNavigationGroups,
+  ownerRootNavigationItem,
+} from "@/config/owner-navigation";
+import { isOwnerRole } from "@/config/owner-access";
 
 interface GlobalSearchProps {
   isOpen: boolean;
@@ -22,7 +31,15 @@ interface GlobalSearchProps {
 
 interface SearchResult {
   id: string;
-  type: "project" | "agent" | "workflow" | "document" | "user" | "server" | "task";
+  type:
+    | "owner"
+    | "project"
+    | "agent"
+    | "workflow"
+    | "document"
+    | "user"
+    | "server"
+    | "task";
   title: string;
   subtitle: string;
   icon: React.ElementType;
@@ -30,19 +47,89 @@ interface SearchResult {
 }
 
 const mockResults: SearchResult[] = [
-  { id: "1", type: "project", title: "Data Pipeline v2", subtitle: "Active Project • Engineering", icon: FolderOpen, url: "/projects/1" },
-  { id: "2", type: "agent", title: "Code Reviewer AI", subtitle: "Active Agent • 89 tasks completed", icon: Bot, url: "/ai/agents/1" },
-  { id: "3", type: "workflow", title: "Customer Onboarding", subtitle: "Active Workflow • 24 executions", icon: Workflow, url: "/workflows/1" },
-  { id: "4", type: "document", title: "API Documentation", subtitle: "Knowledge Base • Updated 2h ago", icon: FileText, url: "/knowledge/1" },
-  { id: "5", type: "user", title: "Sarah Johnson", subtitle: "Senior Engineer • Engineering Team", icon: Users, url: "/users/1" },
-  { id: "6", type: "server", title: "prod-web-01", subtitle: "Online • CPU 67% • Memory 82%", icon: Server, url: "/infrastructure/servers/1" },
-  { id: "7", type: "task", title: "Fix Authentication Bug", subtitle: "High Priority • Due in 2 days", icon: CheckSquare, url: "/tasks/1" },
-  { id: "8", type: "project", title: "AI Model Training", subtitle: "Active Project • Research", icon: FolderOpen, url: "/projects/2" },
-  { id: "9", type: "agent", title: "Data Analyzer", subtitle: "Active Agent • Processing", icon: Bot, url: "/ai/agents/2" },
-  { id: "10", type: "workflow", title: "Nightly Backup", subtitle: "Scheduled • Daily at 2:00 AM", icon: Workflow, url: "/workflows/2" },
+  {
+    id: "projects",
+    type: "project",
+    title: "Projects",
+    subtitle: "Open project planning and delivery",
+    icon: FolderOpen,
+    url: "/projects",
+  },
+  {
+    id: "agents",
+    type: "agent",
+    title: "AI Agents",
+    subtitle: "Open the agent registry and runtime",
+    icon: Bot,
+    url: "/ai/agents",
+  },
+  {
+    id: "workflows",
+    type: "workflow",
+    title: "Workflows",
+    subtitle: "Open workflow definitions and executions",
+    icon: Workflow,
+    url: "/workflows",
+  },
+  {
+    id: "knowledge",
+    type: "document",
+    title: "Knowledge",
+    subtitle: "Open documents and the knowledge base",
+    icon: FileText,
+    url: "/knowledge",
+  },
+  {
+    id: "users",
+    type: "user",
+    title: "Users",
+    subtitle: "Open user and access administration",
+    icon: Users,
+    url: "/users",
+  },
+  {
+    id: "servers",
+    type: "server",
+    title: "Servers",
+    subtitle: "Open infrastructure server status",
+    icon: Server,
+    url: "/infrastructure/servers",
+  },
+  {
+    id: "tasks",
+    type: "task",
+    title: "Tasks",
+    subtitle: "Open assigned work and task tracking",
+    icon: CheckSquare,
+    url: "/tasks",
+  },
 ];
 
+const ownerResults: SearchResult[] = [
+  {
+    id: `owner-${ownerRootNavigationItem.id}`,
+    type: "owner",
+    title: ownerRootNavigationItem.label,
+    subtitle: ownerRootNavigationItem.description,
+    icon: ownerRootNavigationItem.icon,
+    url: ownerRootNavigationItem.href,
+  },
+  ...ownerNavigationGroups.flatMap((group) =>
+    group.items.map((item) => ({
+      id: `owner-${item.id}`,
+      type: "owner" as const,
+      title: item.label,
+      subtitle: `${group.label} • Owner Center`,
+      icon: item.icon,
+      url: item.href,
+    })),
+  ),
+];
+
+const searchResults = [...ownerResults, ...mockResults];
+
 const typeColors: Record<string, string> = {
+  owner: "bg-electric-500/20 text-electric-300",
   project: "bg-blue-500/20 text-blue-400",
   agent: "bg-purple-500/20 text-purple-400",
   workflow: "bg-cyan-500/20 text-cyan-400",
@@ -53,18 +140,23 @@ const typeColors: Record<string, string> = {
 };
 
 export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
+  const router = useRouter();
+  const { user } = useAuth();
+  const canAccessOwner = isOwnerRole(user?.role);
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const availableResults = canAccessOwner ? searchResults : mockResults;
 
-  const filteredResults = query.trim() === ""
-    ? mockResults
-    : mockResults.filter(
-        (r) =>
-          r.title.toLowerCase().includes(query.toLowerCase()) ||
-          r.subtitle.toLowerCase().includes(query.toLowerCase()) ||
-          r.type.toLowerCase().includes(query.toLowerCase())
-      );
+  const filteredResults =
+    query.trim() === ""
+      ? availableResults
+      : availableResults.filter(
+          (r) =>
+            r.title.toLowerCase().includes(query.toLowerCase()) ||
+            r.subtitle.toLowerCase().includes(query.toLowerCase()) ||
+            r.type.toLowerCase().includes(query.toLowerCase()),
+        );
 
   useEffect(() => {
     if (isOpen) {
@@ -82,18 +174,23 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
         return;
       }
       if (e.key === "ArrowDown") {
+        if (!filteredResults.length) return;
         e.preventDefault();
         setSelectedIndex((prev) => (prev + 1) % filteredResults.length);
       } else if (e.key === "ArrowUp") {
+        if (!filteredResults.length) return;
         e.preventDefault();
-        setSelectedIndex((prev) => (prev - 1 + filteredResults.length) % filteredResults.length);
+        setSelectedIndex(
+          (prev) =>
+            (prev - 1 + filteredResults.length) % filteredResults.length,
+        );
       } else if (e.key === "Enter" && filteredResults[selectedIndex]) {
         e.preventDefault();
-        window.location.href = filteredResults[selectedIndex].url;
+        router.push(filteredResults[selectedIndex].url);
         onClose();
       }
     },
-    [isOpen, filteredResults, selectedIndex, onClose]
+    [isOpen, filteredResults, selectedIndex, onClose, router],
   );
 
   useEffect(() => {
@@ -131,11 +228,16 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
                   setQuery(e.target.value);
                   setSelectedIndex(0);
                 }}
-                placeholder="Search projects, agents, workflows, documents, users, servers..."
+                placeholder="Search Owner pages, projects, agents, workflows, users, and servers..."
                 className="flex-1 bg-transparent text-white placeholder-white/30 text-sm outline-none"
               />
               {query && (
-                <button onClick={() => { setQuery(""); inputRef.current?.focus(); }}>
+                <button
+                  onClick={() => {
+                    setQuery("");
+                    inputRef.current?.focus();
+                  }}
+                >
                   <X className="w-4 h-4 text-white/30 hover:text-white/60" />
                 </button>
               )}
@@ -150,29 +252,41 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
                     const Icon = result.icon;
                     const isSelected = index === selectedIndex;
                     return (
-                      <a
+                      <Link
                         key={result.id}
                         href={result.url}
                         onMouseEnter={() => setSelectedIndex(index)}
                         onClick={() => onClose()}
                         className={`flex items-center gap-3 px-4 py-3 transition-all duration-150 ${
-                          isSelected ? "bg-white/[0.08]" : "hover:bg-white/[0.03]"
+                          isSelected
+                            ? "bg-white/[0.08]"
+                            : "hover:bg-white/[0.03]"
                         }`}
                       >
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${typeColors[result.type]}`}>
+                        <div
+                          className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${typeColors[result.type]}`}
+                        >
                           <Icon className="w-4 h-4" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-white">{result.title}</span>
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium uppercase ${typeColors[result.type]}`}>
+                            <span className="text-sm font-medium text-white">
+                              {result.title}
+                            </span>
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-medium uppercase ${typeColors[result.type]}`}
+                            >
                               {result.type}
                             </span>
                           </div>
-                          <p className="text-xs text-white/40 mt-0.5">{result.subtitle}</p>
+                          <p className="text-xs text-white/40 mt-0.5">
+                            {result.subtitle}
+                          </p>
                         </div>
-                        <ArrowRight className={`w-3.5 h-3.5 text-white/20 transition-opacity ${isSelected ? "opacity-100" : "opacity-0"}`} />
-                      </a>
+                        <ArrowRight
+                          className={`w-3.5 h-3.5 text-white/20 transition-opacity ${isSelected ? "opacity-100" : "opacity-0"}`}
+                        />
+                      </Link>
                     );
                   })}
                 </div>
@@ -180,22 +294,32 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <Search className="w-10 h-10 text-white/15 mb-4" />
                   <p className="text-sm text-white/30">No results found</p>
-                  <p className="text-xs text-white/20 mt-1">Try a different search term</p>
+                  <p className="text-xs text-white/20 mt-1">
+                    Try a different search term
+                  </p>
                 </div>
               )}
             </div>
             <div className="flex items-center justify-between px-4 py-2.5 border-t border-white/[0.06] bg-white/[0.02]">
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-1">
-                  <kbd className="px-1.5 py-0.5 rounded bg-white/[0.06] text-[10px] text-white/40 font-mono border border-white/[0.08]">↑↓</kbd>
-                  <span className="text-[10px] text-white/30 ml-1">Navigate</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-white/[0.06] text-[10px] text-white/40 font-mono border border-white/[0.08]">
+                    ↑↓
+                  </kbd>
+                  <span className="text-[10px] text-white/30 ml-1">
+                    Navigate
+                  </span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <kbd className="px-1.5 py-0.5 rounded bg-white/[0.06] text-[10px] text-white/40 font-mono border border-white/[0.08]">↵</kbd>
+                  <kbd className="px-1.5 py-0.5 rounded bg-white/[0.06] text-[10px] text-white/40 font-mono border border-white/[0.08]">
+                    ↵
+                  </kbd>
                   <span className="text-[10px] text-white/30 ml-1">Open</span>
                 </div>
               </div>
-              <span className="text-[10px] text-white/20">{filteredResults.length} results</span>
+              <span className="text-[10px] text-white/20">
+                {filteredResults.length} results
+              </span>
             </div>
           </motion.div>
         </motion.div>
