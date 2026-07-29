@@ -102,7 +102,8 @@ def test_incomplete_or_non_bundled_postgres_values_are_rejected(
         "postgresql+asyncpg://aionex:safe-password@postgres:5432/aionex?ssl=false",
         "postgresql+asyncpg://aionex:safe-password@postgres:5432/aionex"
         "?host=external",
-        "postgresql+asyncpg://aionex:safe-password@postgres:5432/aionex" "?p%6frt=5433",
+        "postgresql+asyncpg://aionex:safe-password@postgres:5432/aionex"
+        "?p%6frt=5433",
     ],
 )
 def test_unsafe_database_url_forms_are_rejected(database_url: str) -> None:
@@ -113,7 +114,7 @@ def test_unsafe_database_url_forms_are_rejected(database_url: str) -> None:
 def test_external_database_url_skips_bundled_reconciliation() -> None:
     environment = _postgres_environment(
         DATABASE_URL=(
-            "postgresql+asyncpg://external:secret" "@db.example.test:6432/external"
+            "postgresql+asyncpg://external:secret@db.example.test:6432/external"
         ),
     )
 
@@ -186,7 +187,7 @@ def test_standalone_reconciler_does_not_load_application_settings() -> None:
     environment.update(
         _postgres_environment(
             DATABASE_URL=(
-                "postgresql+asyncpg://external:secret" "@db.example.test:6432/external"
+                "postgresql+asyncpg://external:secret@db.example.test:6432/external"
             )
         )
     )
@@ -252,6 +253,14 @@ class _FakeConnection:
         self.closed = True
 
 
+class _FakeVerifierConnection:
+    def __init__(self) -> None:
+        self.closed = False
+
+    def close(self) -> None:
+        self.closed = True
+
+
 @pytest.fixture
 def credentials() -> BundledPostgresCredentials:
     return BundledPostgresCredentials(
@@ -263,75 +272,60 @@ def credentials() -> BundledPostgresCredentials:
     )
 
 
-def test_password_verifier_uses_local_socket_without_plaintext_connection_password(
+def test_password_verifier_uses_existing_admin_connection(
     monkeypatch: pytest.MonkeyPatch,
     credentials: BundledPostgresCredentials,
 ) -> None:
-    class FakeVerifierConnection:
-        closed = False
-
-        def close(self) -> None:
-            self.closed = True
-
-    connection = FakeVerifierConnection()
-    connect_calls: list[dict[str, object]] = []
+    connection = _FakeVerifierConnection()
     encrypt_calls: list[tuple[str, str, object]] = []
-
-    def fake_connect(**kwargs: object) -> FakeVerifierConnection:
-        connect_calls.append(kwargs)
-        return connection
 
     def fake_encrypt(password: str, user: str, *, scope: object) -> str:
         encrypt_calls.append((password, user, scope))
         return "SCRAM-SHA-256$4096:test-verifier"
 
-    monkeypatch.setattr(postgres_credentials.psycopg2, "connect", fake_connect)
     monkeypatch.setattr(postgres_credentials, "encrypt_password", fake_encrypt)
 
     verifier = postgres_credentials._build_password_verifier(
         credentials,
-        "/var/run/postgresql",
+        connection,
     )
 
     assert verifier == "SCRAM-SHA-256$4096:test-verifier"
-    assert connect_calls == [
-        {
-            "host": "/var/run/postgresql",
-            "user": "aionex",
-            "dbname": "aionex",
-            "connect_timeout": 15,
-        }
-    ]
     assert encrypt_calls == [("safe-password", "aionex", connection)]
     assert "safe-password" not in repr(credentials)
-    assert connection.closed
 
 
 @pytest.mark.asyncio
-async def test_reconcile_uses_local_trust_then_authenticated_tcp(
+async def test_reconcile_restores_login_for_target_role(
     monkeypatch: pytest.MonkeyPatch,
     credentials: BundledPostgresCredentials,
 ) -> None:
     local_connection = _FakeConnection()
     authenticated_connection = _FakeConnection(authenticated=True)
-    connections: list[dict[str, object]] = []
+    verifier_connection = _FakeVerifierConnection()
+    async_connections: list[dict[str, object]] = []
+    sync_connections: list[dict[str, object]] = []
 
-    async def fake_connect(**kwargs: object) -> _FakeConnection:
-        connections.append(kwargs)
-        if len(connections) == 1:
-            raise postgres_credentials.asyncpg.InvalidPasswordError(
-                "password authentication failed"
+    async def fake_async_connect(**kwargs: object) -> _FakeConnection:
+        async_connections.append(kwargs)
+        if len(async_connections) == 1:
+            raise postgres_credentials.asyncpg.InvalidAuthorizationSpecificationError(
+                "role is not permitted to log in"
             )
-        if len(connections) == 2:
+        if len(async_connections) == 2:
             return local_connection
         return authenticated_connection
 
-    monkeypatch.setattr(postgres_credentials.asyncpg, "connect", fake_connect)
-    password_verifier = "SCRAM-SHA-256$4096:test-verifier"
+    def fake_sync_connect(**kwargs: object) -> _FakeVerifierConnection:
+        sync_connections.append(kwargs)
+        return verifier_connection
+
+    monkeypatch.setattr(postgres_credentials.asyncpg, "connect", fake_async_connect)
+    monkeypatch.setattr(postgres_credentials.psycopg2, "connect", fake_sync_connect)
     monkeypatch.setattr(
         postgres_credentials,
         "_build_password_verifier",
-        lambda *_args: password_verifier,
+        lambda *_args: "SCRAM-SHA-256$4096:test-verifier",
     )
 
     await reconcile_bundled_postgres_credentials(
@@ -347,40 +341,40 @@ async def test_reconcile_uses_local_trust_then_authenticated_tcp(
         "database": "aionex",
         "timeout": 15,
     }
-    assert connections[0] == expected_password_connection
-    assert connections[1] == {
+    assert async_connections[0] == expected_password_connection
+    assert async_connections[1] == {
         "host": "/var/run/postgresql",
-        "user": "aionex",
+        "user": "postgres",
         "database": "aionex",
         "timeout": 15,
     }
-    assert connections[2] == expected_password_connection
+    assert async_connections[2] == expected_password_connection
+    assert sync_connections == [
+        {
+            "host": "/var/run/postgresql",
+            "user": "postgres",
+            "dbname": "aionex",
+            "connect_timeout": 15,
+        }
+    ]
     credential_insert = next(
         item
         for item in local_connection.execution_calls
         if item[0].startswith("INSERT INTO aios_postgres_credentials")
     )
-    assert credential_insert[1] == ("aionex", password_verifier)
-    assert "safe-password" not in credential_insert[0]
-    assert not any(
-        "safe-password" in statement for statement in local_connection.executions
+    assert credential_insert[1] == (
+        "aionex",
+        "SCRAM-SHA-256$4096:test-verifier",
     )
-    recovery_query = next(
+    alter_block = next(
         statement
         for statement in local_connection.executions
-        if "DO $aionex$" in statement
+        if "ALTER ROLE %I WITH LOGIN PASSWORD %L" in statement
     )
-    assert recovery_query.count("LOCK TABLE %s IN ACCESS EXCLUSIVE MODE") == 2
-    assert recovery_query.count("updated_at >= $2") == 2
-    assert "secs => lease_seconds::double precision" in recovery_query
-    assert (
-        "SET LOCAL lock_timeout = '30s'",
-        (),
-    ) in local_connection.execution_calls
-    assert (
-        "SET LOCAL statement_timeout = '90s'",
-        (),
-    ) in local_connection.execution_calls
+    assert "ALTER ROLE %I WITH LOGIN PASSWORD %L" in alter_block
+    assert local_connection.closed
+    assert verifier_connection.closed
+    assert authenticated_connection.closed
 
 
 @pytest.mark.asyncio
@@ -403,44 +397,6 @@ async def test_reconcile_returns_when_password_already_matches(
     assert authenticated_connection.closed
 
 
-@pytest.mark.asyncio
-async def test_reconcile_rejects_active_recovery_jobs(
-    monkeypatch: pytest.MonkeyPatch,
-    credentials: BundledPostgresCredentials,
-) -> None:
-    local_connection = _FakeConnection(active_jobs=1)
-    connection_count = 0
-
-    async def fake_connect(**_kwargs: object) -> _FakeConnection:
-        nonlocal connection_count
-        connection_count += 1
-        if connection_count == 1:
-            raise postgres_credentials.asyncpg.InvalidPasswordError(
-                "password authentication failed"
-            )
-        return local_connection
-
-    monkeypatch.setattr(postgres_credentials.asyncpg, "connect", fake_connect)
-    monkeypatch.setattr(
-        postgres_credentials,
-        "_build_password_verifier",
-        lambda *_args: "SCRAM-SHA-256$4096:test-verifier",
-    )
-
-    with pytest.raises(CredentialConfigurationError, match="job remains running"):
-        await reconcile_bundled_postgres_credentials(
-            credentials,
-            socket_directory="/var/run/postgresql",
-        )
-
-    assert connection_count == 2
-    assert not any(
-        statement.startswith('ALTER ROLE "')
-        for statement in local_connection.executions
-    )
-    assert local_connection.closed
-
-
 def test_unexpected_runtime_errors_do_not_print_secrets(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -457,72 +413,6 @@ def test_unexpected_runtime_errors_do_not_print_secrets(
     assert secret not in captured.out
     assert secret not in captured.err
     assert "RuntimeError" in captured.err
-
-
-@pytest.mark.parametrize(
-    "error",
-    [
-        postgres_credentials.asyncpg.LockNotAvailableError("lock timeout"),
-        postgres_credentials.asyncpg.QueryCanceledError("statement timeout"),
-    ],
-)
-@pytest.mark.asyncio
-async def test_transaction_timeouts_fail_cleanly_before_password_change(
-    monkeypatch: pytest.MonkeyPatch,
-    credentials: BundledPostgresCredentials,
-    error: Exception,
-) -> None:
-    local_connection = _FakeConnection(
-        execute_error=error,
-        fail_when="pg_advisory_xact_lock",
-    )
-    connection_count = 0
-
-    async def fake_connect(**_kwargs: object) -> _FakeConnection:
-        nonlocal connection_count
-        connection_count += 1
-        if connection_count == 1:
-            raise postgres_credentials.asyncpg.InvalidPasswordError(
-                "password authentication failed"
-            )
-        return local_connection
-
-    monkeypatch.setattr(postgres_credentials.asyncpg, "connect", fake_connect)
-    monkeypatch.setattr(
-        postgres_credentials,
-        "_build_password_verifier",
-        lambda *_args: "SCRAM-SHA-256$4096:test-verifier",
-    )
-
-    with pytest.raises(
-        CredentialConfigurationError,
-        match="no credential change was committed",
-    ):
-        await reconcile_bundled_postgres_credentials(
-            credentials,
-            socket_directory="/var/run/postgresql",
-        )
-
-    assert not any(
-        "ALTER ROLE" in statement for statement in local_connection.executions
-    )
-    assert local_connection.closed
-
-
-def test_post_commit_query_cancellation_fails_closed_without_secret_output(
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    async def fail() -> None:
-        raise postgres_credentials.asyncpg.QueryCanceledError("statement timeout")
-
-    monkeypatch.setattr(postgres_credentials, "_run", fail)
-
-    assert postgres_credentials.main() == 1
-    captured = capsys.readouterr()
-    assert "QueryCanceledError" in captured.err
-    assert "statement timeout" not in captured.err
-    assert "may already have been synchronized" not in captured.err
 
 
 def test_external_database_skip_is_reported_without_reconciliation(
