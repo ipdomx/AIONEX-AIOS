@@ -1,4 +1,5 @@
 import { apiClient } from "@/lib/api-client";
+import type { FreeTierStatus } from "@/lib/auth-service";
 
 export type AccountSettings = {
   profile: {
@@ -7,6 +8,7 @@ export type AccountSettings = {
     email: string;
     role: string;
     organization: string;
+    avatar?: string | null;
   };
   preferences: {
     language: string;
@@ -20,6 +22,7 @@ export type AccountSettings = {
     active_sessions: number;
     password_min_length: number;
   };
+  free_tier?: FreeTierStatus | null;
 };
 
 export function fetchAccountSettings(
