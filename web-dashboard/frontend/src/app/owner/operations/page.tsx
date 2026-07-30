@@ -10,11 +10,26 @@ import {
   ShieldCheck,
   UserCog,
 } from "lucide-react";
+
+import { useOwnerResource } from "@/hooks/use-owner-resource";
 import {
   executeOwnerOperation,
   type OwnerEntityKind,
   type OwnerOperation,
 } from "@/lib/owner-operations";
+
+type OwnerOrganizationOption = {
+  id: string;
+  name: string;
+  status: string;
+};
+
+type OwnerRoleOption = {
+  id: string;
+  name: string;
+  scope: string;
+  status: "active" | "suspended" | "protected";
+};
 
 const entities: { value: OwnerEntityKind; label: string }[] = [
   { value: "project", label: "Project" },
@@ -48,6 +63,17 @@ export default function OwnerOperationsPage() {
   const [running, setRunning] = useState(false);
   const runningRef = useRef(false);
 
+  const {
+    items: organizations,
+    loading: organizationsLoading,
+    message: organizationsMessage,
+  } = useOwnerResource<OwnerOrganizationOption>("organizations");
+  const {
+    items: roles,
+    loading: rolesLoading,
+    message: rolesMessage,
+  } = useOwnerResource<OwnerRoleOption>("access");
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const requestedEntity = params.get("entity");
@@ -68,6 +94,19 @@ export default function OwnerOperationsPage() {
     if (requestedId) setRecordId(requestedId);
   }, []);
 
+  useEffect(() => {
+    if (!organizationId && organizations.length === 1) {
+      setOrganizationId(organizations[0].id);
+    }
+  }, [organizationId, organizations]);
+
+  useEffect(() => {
+    const activeRoles = roles.filter((role) => role.status !== "suspended");
+    if (!roleId && activeRoles.length === 1) {
+      setRoleId(activeRoles[0].id);
+    }
+  }, [roleId, roles]);
+
   const Icon = useMemo(
     () =>
       entity === "project"
@@ -77,6 +116,20 @@ export default function OwnerOperationsPage() {
           : UserCog,
     [entity],
   );
+
+  const activeRoles = useMemo(
+    () => roles.filter((role) => role.status !== "suspended"),
+    [roles],
+  );
+
+  const referencesLoading = organizationsLoading || rolesLoading;
+  const createUserReady =
+    entity !== "user" ||
+    operation !== "create" ||
+    (Boolean(organizationId) &&
+      Boolean(roleId) &&
+      Boolean(email.trim()) &&
+      password.length >= 12);
 
   async function submit() {
     const payload: Record<string, unknown> = {};
@@ -89,14 +142,14 @@ export default function OwnerOperationsPage() {
       if (description.trim()) payload.description = description.trim();
       if (operation === "create") payload.priority = priority || "medium";
       if (operation === "update" && priority) payload.priority = priority;
-      if (operation === "create" && organizationId.trim()) {
-        payload.organization_id = organizationId.trim();
+      if (operation === "create" && organizationId) {
+        payload.organization_id = organizationId;
       }
     }
     if (entity === "user" && ["create", "update"].includes(operation)) {
-      if (roleId.trim()) payload.role_id = roleId.trim();
+      if (roleId) payload.role_id = roleId;
       if (operation === "create") {
-        payload.organization_id = organizationId.trim();
+        payload.organization_id = organizationId;
         payload.email = email.trim();
         payload.password = password;
       }
@@ -110,16 +163,9 @@ export default function OwnerOperationsPage() {
       setMessage("A name with at least two characters is required.");
       return;
     }
-    if (
-      entity === "user" &&
-      operation === "create" &&
-      (!organizationId.trim() ||
-        !roleId.trim() ||
-        !email.trim() ||
-        password.length < 12)
-    ) {
+    if (entity === "user" && operation === "create" && !createUserReady) {
       setMessage(
-        "User creation requires organization ID, role ID, email, and a 12+ character password.",
+        "Select a live organization and role, enter a valid email, and use a 12+ character password.",
       );
       return;
     }
@@ -196,11 +242,7 @@ export default function OwnerOperationsPage() {
                 className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
               >
                 {entities.map((item) => (
-                  <option
-                    key={item.value}
-                    value={item.value}
-                    className="bg-space-800"
-                  >
+                  <option key={item.value} value={item.value} className="bg-space-800">
                     {item.label}
                   </option>
                 ))}
@@ -226,18 +268,18 @@ export default function OwnerOperationsPage() {
               </select>
             </label>
           </div>
+
           <label className="block space-y-2 text-xs text-white/50">
             Record ID
             <input
               value={recordId}
               onChange={(event) => setRecordId(event.target.value)}
-              placeholder={
-                operation === "create" ? "Generated by the backend" : "Required"
-              }
+              placeholder={operation === "create" ? "Generated by the backend" : "Required"}
               disabled={operation === "create"}
               className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
             />
           </label>
+
           {["create", "update"].includes(operation) && (
             <>
               <label className="block space-y-2 text-xs text-white/50">
@@ -245,11 +287,7 @@ export default function OwnerOperationsPage() {
                 <input
                   value={name}
                   onChange={(event) => setName(event.target.value)}
-                  placeholder={
-                    operation === "create"
-                      ? `${entity} name`
-                      : "Leave blank to keep the current name"
-                  }
+                  placeholder={operation === "create" ? `${entity} name` : "Leave blank to keep the current name"}
                   className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
                 />
               </label>
@@ -262,15 +300,9 @@ export default function OwnerOperationsPage() {
                     onChange={(event) => setPlan(event.target.value)}
                     className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
                   >
-                    {operation === "update" && (
-                      <option value="" className="bg-space-800">
-                        Keep current plan
-                      </option>
-                    )}
+                    {operation === "update" && <option value="" className="bg-space-800">Keep current plan</option>}
                     {["enterprise", "professional", "starter"].map((item) => (
-                      <option key={item} value={item} className="bg-space-800">
-                        {item}
-                      </option>
+                      <option key={item} value={item} className="bg-space-800">{item}</option>
                     ))}
                   </select>
                 </label>
@@ -280,15 +312,20 @@ export default function OwnerOperationsPage() {
                 <>
                   {operation === "create" && (
                     <label className="block space-y-2 text-xs text-white/50">
-                      Organization ID
-                      <input
+                      Organization
+                      <select
                         value={organizationId}
-                        onChange={(event) =>
-                          setOrganizationId(event.target.value)
-                        }
-                        placeholder="Optional; defaults to the Owner organization"
+                        onChange={(event) => setOrganizationId(event.target.value)}
+                        disabled={organizationsLoading}
                         className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
-                      />
+                      >
+                        <option value="" className="bg-space-800">Owner default organization</option>
+                        {organizations.map((organization) => (
+                          <option key={organization.id} value={organization.id} className="bg-space-800">
+                            {organization.name} · {organization.status}
+                          </option>
+                        ))}
+                      </select>
                     </label>
                   )}
                   <label className="block space-y-2 text-xs text-white/50">
@@ -307,19 +344,9 @@ export default function OwnerOperationsPage() {
                       onChange={(event) => setPriority(event.target.value)}
                       className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
                     >
-                      {operation === "update" && (
-                        <option value="" className="bg-space-800">
-                          Keep current priority
-                        </option>
-                      )}
+                      {operation === "update" && <option value="" className="bg-space-800">Keep current priority</option>}
                       {["low", "medium", "high", "critical"].map((item) => (
-                        <option
-                          key={item}
-                          value={item}
-                          className="bg-space-800"
-                        >
-                          {item}
-                        </option>
+                        <option key={item} value={item} className="bg-space-800">{item}</option>
                       ))}
                     </select>
                   </label>
@@ -329,30 +356,42 @@ export default function OwnerOperationsPage() {
               {entity === "user" && (
                 <>
                   <label className="block space-y-2 text-xs text-white/50">
-                    Role ID
-                    <input
+                    Role
+                    <select
                       value={roleId}
                       onChange={(event) => setRoleId(event.target.value)}
-                      placeholder={
-                        operation === "create"
-                          ? "Required"
-                          : "Leave blank to keep the current role"
-                      }
+                      disabled={rolesLoading}
                       className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
-                    />
+                    >
+                      <option value="" className="bg-space-800">
+                        {rolesLoading ? "Loading live roles..." : "Select a role"}
+                      </option>
+                      {activeRoles.map((role) => (
+                        <option key={role.id} value={role.id} className="bg-space-800">
+                          {role.name} · {role.scope}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                   {operation === "create" && (
                     <>
                       <label className="block space-y-2 text-xs text-white/50">
-                        Organization ID
-                        <input
+                        Organization
+                        <select
                           value={organizationId}
-                          onChange={(event) =>
-                            setOrganizationId(event.target.value)
-                          }
-                          placeholder="Required"
+                          onChange={(event) => setOrganizationId(event.target.value)}
+                          disabled={organizationsLoading}
                           className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
-                        />
+                        >
+                          <option value="" className="bg-space-800">
+                            {organizationsLoading ? "Loading live organizations..." : "Select an organization"}
+                          </option>
+                          {organizations.map((organization) => (
+                            <option key={organization.id} value={organization.id} className="bg-space-800">
+                              {organization.name} · {organization.status}
+                            </option>
+                          ))}
+                        </select>
                       </label>
                       <label className="block space-y-2 text-xs text-white/50">
                         Email
@@ -381,17 +420,22 @@ export default function OwnerOperationsPage() {
               )}
             </>
           )}
+
           <button
-            disabled={running}
+            type="button"
+            disabled={running || referencesLoading || !createUserReady}
             onClick={() => void submit()}
             className="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Play className="h-4 w-4" />
-            {running ? "Executing..." : "Execute operation"}
+            {running ? "Executing..." : referencesLoading ? "Loading live references..." : "Execute operation"}
           </button>
+
           <div className="flex items-start gap-2 rounded-xl border border-electric-500/15 bg-electric-500/5 p-4 text-xs text-electric-300">
             <Activity className="mt-0.5 h-4 w-4 flex-shrink-0" />
-            {message}
+            {referencesLoading
+              ? `${organizationsMessage} ${rolesMessage}`
+              : message}
           </div>
         </fieldset>
 
@@ -399,9 +443,7 @@ export default function OwnerOperationsPage() {
           <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3">
             <Icon className="h-6 w-6 text-electric-300" />
           </div>
-          <h2 className="mt-4 text-sm font-semibold text-white">
-            Current request
-          </h2>
+          <h2 className="mt-4 text-sm font-semibold text-white">Current request</h2>
           <dl className="mt-4 space-y-3 text-xs">
             <div className="flex justify-between gap-3">
               <dt className="text-white/35">Entity</dt>
@@ -413,9 +455,7 @@ export default function OwnerOperationsPage() {
             </div>
             <div className="flex justify-between gap-3">
               <dt className="text-white/35">Record</dt>
-              <dd className="max-w-[180px] truncate text-white/75">
-                {recordId || "new record"}
-              </dd>
+              <dd className="max-w-[180px] truncate text-white/75">{recordId || "new record"}</dd>
             </div>
           </dl>
         </div>
