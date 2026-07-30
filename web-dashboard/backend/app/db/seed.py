@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from sqlalchemy import select, text
@@ -65,7 +66,239 @@ PERMISSIONS = {
     "backups:write": "Manage backup and recovery",
 }
 
+
+@dataclass(frozen=True, slots=True)
+class BuiltinRoleDefinition:
+    name: str
+    description: str
+    permissions: tuple[str, ...]
+    id: str | None = None
+
+
+OWNER_PERMISSIONS = tuple(code for code in PERMISSIONS if code != "*")
+
+BUILTIN_ROLES = (
+    BuiltinRoleDefinition(
+        id="super-owner-role",
+        name="Super Owner",
+        description="Protected global platform owner with unrestricted control.",
+        permissions=tuple(PERMISSIONS),
+    ),
+    BuiltinRoleDefinition(
+        name="Owner",
+        description=(
+            "Organization owner with every explicit platform permission, including "
+            "meeting approval and backup recovery."
+        ),
+        permissions=OWNER_PERMISSIONS,
+    ),
+    BuiltinRoleDefinition(
+        name="Administrator",
+        description=(
+            "Organization administrator for identity, access, projects, AI services, "
+            "operations visibility and configuration."
+        ),
+        permissions=(
+            "organizations:read",
+            "organizations:write",
+            "users:read",
+            "users:write",
+            "roles:read",
+            "roles:write",
+            "permissions:read",
+            "permissions:write",
+            "profile:read",
+            "audit:read",
+            "projects:read",
+            "projects:write",
+            "tasks:read",
+            "tasks:write",
+            "workflows:read",
+            "workflows:write",
+            "meetings:read",
+            "meetings:write",
+            "reports:read",
+            "reports:write",
+            "agents:read",
+            "agents:write",
+            "providers:read",
+            "providers:write",
+            "notifications:read",
+            "monitoring:read",
+            "security:read",
+            "backups:read",
+        ),
+    ),
+    BuiltinRoleDefinition(
+        name="Manager",
+        description=(
+            "Delivery manager for projects, tasks, workflows, meetings and reports."
+        ),
+        permissions=(
+            "organizations:read",
+            "users:read",
+            "roles:read",
+            "profile:read",
+            "projects:read",
+            "projects:write",
+            "tasks:read",
+            "tasks:write",
+            "workflows:read",
+            "workflows:write",
+            "meetings:read",
+            "meetings:write",
+            "reports:read",
+            "reports:write",
+            "agents:read",
+            "providers:read",
+            "notifications:read",
+            "monitoring:read",
+        ),
+    ),
+    BuiltinRoleDefinition(
+        name="Engineer",
+        description=(
+            "Engineering role for project delivery, automation, AI agents and "
+            "operational diagnostics."
+        ),
+        permissions=(
+            "organizations:read",
+            "users:read",
+            "profile:read",
+            "projects:read",
+            "projects:write",
+            "tasks:read",
+            "tasks:write",
+            "workflows:read",
+            "workflows:write",
+            "reports:read",
+            "reports:write",
+            "agents:read",
+            "agents:write",
+            "providers:read",
+            "notifications:read",
+            "monitoring:read",
+            "security:read",
+        ),
+    ),
+    BuiltinRoleDefinition(
+        name="Developer",
+        description=(
+            "Development role for implementation work, workflows and AI-agent "
+            "execution without administrative control."
+        ),
+        permissions=(
+            "organizations:read",
+            "users:read",
+            "profile:read",
+            "projects:read",
+            "tasks:read",
+            "tasks:write",
+            "workflows:read",
+            "workflows:write",
+            "reports:read",
+            "agents:read",
+            "agents:write",
+            "providers:read",
+            "notifications:read",
+            "monitoring:read",
+        ),
+    ),
+    BuiltinRoleDefinition(
+        name="Support",
+        description=(
+            "Read-oriented support role for users, projects, meetings, reports and "
+            "operational status."
+        ),
+        permissions=(
+            "organizations:read",
+            "users:read",
+            "profile:read",
+            "projects:read",
+            "tasks:read",
+            "meetings:read",
+            "reports:read",
+            "notifications:read",
+            "monitoring:read",
+        ),
+    ),
+)
+
+ASSIGNABLE_BUILTIN_ROLES = tuple(
+    definition for definition in BUILTIN_ROLES if definition.name != "Super Owner"
+)
+
 BOOTSTRAP_ADVISORY_LOCK_ID = 1_095_327_060
+
+
+async def _ensure_permission_catalogue(session) -> dict[str, Permission]:
+    permission_rows: dict[str, Permission] = {}
+    for code, description in PERMISSIONS.items():
+        permission = await session.scalar(
+            select(Permission).where(Permission.code == code)
+        )
+        if permission is None:
+            permission = Permission(code=code, description=description)
+            session.add(permission)
+            await session.flush()
+        elif permission.description != description:
+            permission.description = description
+        permission_rows[code] = permission
+    return permission_rows
+
+
+async def _ensure_builtin_roles(
+    session,
+    organization: Organization,
+    permission_rows: dict[str, Permission],
+    *,
+    definitions: tuple[BuiltinRoleDefinition, ...] = BUILTIN_ROLES,
+) -> dict[str, Role]:
+    roles: dict[str, Role] = {}
+    for definition in definitions:
+        role = await session.scalar(
+            select(Role).where(
+                Role.organization_id == organization.id,
+                Role.name == definition.name,
+            )
+        )
+        if role is None:
+            values = {
+                "organization_id": organization.id,
+                "name": definition.name,
+                "description": definition.description,
+                "system": True,
+                "status": "active",
+            }
+            if definition.id is not None:
+                values["id"] = definition.id
+            role = Role(**values)
+            session.add(role)
+            await session.flush()
+        else:
+            role.description = definition.description
+            role.system = True
+            role.status = "active"
+
+        assigned_permission_ids = set(
+            (
+                await session.scalars(
+                    select(RolePermission.permission_id).where(
+                        RolePermission.role_id == role.id
+                    )
+                )
+            ).all()
+        )
+        for code in definition.permissions:
+            permission = permission_rows[code]
+            if permission.id not in assigned_permission_ids:
+                session.add(
+                    RolePermission(role_id=role.id, permission_id=permission.id)
+                )
+                assigned_permission_ids.add(permission.id)
+
+        roles[definition.name] = role
+    return roles
 
 
 async def seed() -> None:
@@ -99,43 +332,9 @@ async def seed() -> None:
             session.add(org)
             await session.flush()
 
-        role = await session.scalar(
-            select(Role).where(
-                Role.organization_id == org.id, Role.name == "Super Owner"
-            )
-        )
-        if role is None:
-            role = Role(
-                id="super-owner-role",
-                organization_id=org.id,
-                name="Super Owner",
-                system=True,
-            )
-            session.add(role)
-            await session.flush()
-
-        permission_rows: dict[str, Permission] = {}
-        for code, description in PERMISSIONS.items():
-            permission = await session.scalar(
-                select(Permission).where(Permission.code == code)
-            )
-            if permission is None:
-                permission = Permission(code=code, description=description)
-                session.add(permission)
-                await session.flush()
-            permission_rows[code] = permission
-
-        for permission in permission_rows.values():
-            assignment = await session.scalar(
-                select(RolePermission).where(
-                    RolePermission.role_id == role.id,
-                    RolePermission.permission_id == permission.id,
-                )
-            )
-            if assignment is None:
-                session.add(
-                    RolePermission(role_id=role.id, permission_id=permission.id)
-                )
+        permission_rows = await _ensure_permission_catalogue(session)
+        roles = await _ensure_builtin_roles(session, org, permission_rows)
+        role = roles["Super Owner"]
 
         workspace = await session.scalar(
             select(Workspace).where(
