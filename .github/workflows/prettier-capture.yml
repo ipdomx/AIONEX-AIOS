@@ -1,9 +1,9 @@
 name: Prettier Capture
 
 on:
-  push:
+  pull_request:
     branches:
-      - feat/owner-operations-live-selectors
+      - main
 
 permissions:
   contents: read
