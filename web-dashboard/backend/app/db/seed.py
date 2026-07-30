@@ -11,9 +11,13 @@ from sqlalchemy import select, text
 from app.core.auth import pwd_context
 from app.core.config import settings
 from app.db.base import SessionLocal
+from app.db.bootstrap_roles import (
+    PERMISSIONS,
+    ensure_default_roles,
+    ensure_permission_catalog,
+)
 from app.db.models import (
     Organization,
-    Permission,
     RefreshSession,
     Role,
     RolePermission,
@@ -30,40 +34,6 @@ RESET_CONFIGURED_PASSWORD = os.getenv(
 ).strip().lower() in {"1", "true", "yes", "on"}
 DEFAULT_TEST_PASSWORD = "ChangeMeNow!123"
 BOOTSTRAP_PASSWORD = CONFIGURED_PASSWORD or DEFAULT_TEST_PASSWORD
-
-PERMISSIONS = {
-    "*": "Full platform control",
-    "organizations:read": "Read organizations",
-    "organizations:write": "Manage organizations",
-    "users:read": "Read users",
-    "users:write": "Manage users",
-    "roles:read": "Read roles",
-    "roles:write": "Manage roles and assignments",
-    "permissions:read": "Read permission catalogue",
-    "permissions:write": "Manage role permission assignments",
-    "profile:read": "Read own profile",
-    "audit:read": "Read identity and access audit events",
-    "projects:read": "Read projects",
-    "projects:write": "Manage projects",
-    "tasks:read": "Read tasks",
-    "tasks:write": "Manage tasks",
-    "workflows:read": "Read workflows",
-    "workflows:write": "Manage and execute workflows",
-    "meetings:read": "Read meetings",
-    "meetings:write": "Create and manage meetings",
-    "meetings:approve": "Approve meetings as owner",
-    "reports:read": "Read reports",
-    "reports:write": "Create and manage reports",
-    "agents:read": "Read AI agents",
-    "agents:write": "Manage and execute AI agents",
-    "providers:read": "Read AI providers",
-    "providers:write": "Manage AI providers",
-    "notifications:read": "Read notifications",
-    "monitoring:read": "Read monitoring data",
-    "security:read": "Read security data",
-    "backups:read": "Read backup status",
-    "backups:write": "Manage backup and recovery",
-}
 
 BOOTSTRAP_ADVISORY_LOCK_ID = 1_095_327_060
 
@@ -109,21 +79,19 @@ async def seed() -> None:
                 id="super-owner-role",
                 organization_id=org.id,
                 name="Super Owner",
+                description="Protected global platform owner",
                 system=True,
+                status="active",
             )
             session.add(role)
             await session.flush()
+        else:
+            role.system = True
+            role.status = "active"
+            if not role.description:
+                role.description = "Protected global platform owner"
 
-        permission_rows: dict[str, Permission] = {}
-        for code, description in PERMISSIONS.items():
-            permission = await session.scalar(
-                select(Permission).where(Permission.code == code)
-            )
-            if permission is None:
-                permission = Permission(code=code, description=description)
-                session.add(permission)
-                await session.flush()
-            permission_rows[code] = permission
+        permission_rows = await ensure_permission_catalog(session)
 
         for permission in permission_rows.values():
             assignment = await session.scalar(
@@ -136,6 +104,14 @@ async def seed() -> None:
                 session.add(
                     RolePermission(role_id=role.id, permission_id=permission.id)
                 )
+
+        organizations = list((await session.scalars(select(Organization))).all())
+        for organization in organizations:
+            await ensure_default_roles(
+                session,
+                organization.id,
+                permission_rows=permission_rows,
+            )
 
         workspace = await session.scalar(
             select(Workspace).where(
@@ -206,6 +182,12 @@ async def seed() -> None:
             "Set AIOS_BOOTSTRAP_OWNER_PASSWORD and "
             "AIOS_BOOTSTRAP_RESET_OWNER_PASSWORD=true to reset it explicitly."
         )
+    print(
+        "Default organization roles verified: "
+        + ", ".join(spec.name for spec in __import__(
+            "app.db.bootstrap_roles", fromlist=["DEFAULT_ROLE_SPECS"]
+        ).DEFAULT_ROLE_SPECS)
+    )
 
 
 if __name__ == "__main__":
