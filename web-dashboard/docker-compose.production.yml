@@ -22,7 +22,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     env_file:
-      - ${AIOS_ENV_FILE:-.env.production}
+      - ${AIOS_ENV_FILE:-.env}
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -59,13 +59,14 @@ services:
     restart: "no"
     command: ["python", "/app/app/db/postgres_credentials.py"]
     env_file:
-      - ${AIOS_ENV_FILE:-.env.production}
+      - ${AIOS_ENV_FILE:-.env}
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
       POSTGRES_SOCKET_DIR: /var/run/postgresql
     volumes:
       - postgres_socket:/var/run/postgresql
+      - postgres_data:/var/lib/postgresql/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -78,7 +79,7 @@ services:
     stop_grace_period: ${BACKUP_JOB_LEASE_SECONDS:-3600}s
     command: ["python", "-m", "app.services.backup_worker"]
     env_file:
-      - ${AIOS_ENV_FILE:-.env.production}
+      - ${AIOS_ENV_FILE:-.env}
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
