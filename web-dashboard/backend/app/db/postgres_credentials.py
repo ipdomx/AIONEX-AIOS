@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 import os
-import re
 import sys
 import traceback
 from typing import Mapping
@@ -28,17 +27,6 @@ class BundledPostgresCredentials:
     user: str
     password: str = field(repr=False)
     database: str
-
-
-_SAFE_ROLE_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_$-]{0,62}$")
-
-
-def _validate_role_name(role: str) -> str:
-    if not _SAFE_ROLE_RE.fullmatch(role):
-        raise CredentialConfigurationError(
-            "POSTGRES_USER must be a simple PostgreSQL role name"
-        )
-    return role
 
 
 def resolve_bundled_credentials(
@@ -102,8 +90,6 @@ def resolve_bundled_credentials(
         raise CredentialConfigurationError("POSTGRES_PORT must be 5432") from exc
     if port != 5432:
         raise CredentialConfigurationError("POSTGRES_PORT must be 5432")
-
-    user = _validate_role_name(user)
 
     if database_url:
         assert url_password is not None
@@ -245,9 +231,10 @@ async def reconcile_bundled_postgres_credentials(
     if await _password_authentication_succeeds(credentials):
         return
 
+    admin_user = os.environ.get("POSTGRES_ADMIN_USER", "postgres").strip() or "postgres"
     local_connection = await asyncpg.connect(
         host=socket_directory,
-        user=os.environ.get("POSTGRES_ADMIN_USER", "postgres"),
+        user=admin_user,
         database=credentials.database,
         timeout=15,
     )
@@ -267,9 +254,36 @@ async def reconcile_bundled_postgres_credentials(
                     "restore job remains running"
                 )
 
-            escaped_role = credentials.user.replace('"', '""')
-            statement = f'ALTER ROLE "{escaped_role}" WITH LOGIN PASSWORD $1'
-            await local_connection.execute(statement, credentials.password)
+            await local_connection.execute(
+                "SELECT pg_catalog.set_config('aios.role_name', $1, true)",
+                credentials.user,
+            )
+            await local_connection.execute(
+                "SELECT pg_catalog.set_config('aios.role_password', $1, true)",
+                credentials.password,
+            )
+            await local_connection.execute(
+                """
+                DO $aionex$
+                DECLARE
+                  target_role text := current_setting('aios.role_name');
+                  target_password text := current_setting('aios.role_password');
+                BEGIN
+                  IF NOT EXISTS (
+                    SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = target_role
+                  ) THEN
+                    RAISE EXCEPTION 'configured PostgreSQL role does not exist';
+                  END IF;
+                  EXECUTE format(
+                    'ALTER ROLE %I WITH LOGIN PASSWORD %L',
+                    target_role,
+                    target_password
+                  );
+                  PERFORM pg_catalog.set_config('aios.role_password', '', true);
+                END;
+                $aionex$;
+                """
+            )
     except (asyncpg.LockNotAvailableError, asyncpg.QueryCanceledError) as exc:
         raise CredentialConfigurationError(
             "PostgreSQL credential reconciliation timed out while waiting "
