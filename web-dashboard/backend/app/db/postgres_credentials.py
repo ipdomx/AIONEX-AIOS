@@ -10,7 +10,6 @@ import traceback
 from typing import Mapping
 
 import asyncpg
-import psycopg2
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 
@@ -234,49 +233,29 @@ async def reconcile_bundled_postgres_credentials(
         timeout=15,
     )
     try:
-        try:
-            async with local_connection.transaction():
-                await local_connection.execute("SET LOCAL lock_timeout = '30s'")
-                await local_connection.execute("SET LOCAL statement_timeout = '90s'")
-                await local_connection.execute(
-                    "SELECT pg_advisory_xact_lock(741905231017001)"
+        async with local_connection.transaction():
+            await local_connection.execute("SET LOCAL lock_timeout = '30s'")
+            await local_connection.execute("SET LOCAL statement_timeout = '90s'")
+            await local_connection.execute(
+                "SELECT pg_advisory_xact_lock(741905231017001)"
+            )
+            if await _active_recovery_job_count(
+                local_connection,
+                recovery_lease_seconds,
+            ):
+                raise CredentialConfigurationError(
+                    "credential reconciliation refused because a backup or "
+                    "restore job remains running"
                 )
-                if await _active_recovery_job_count(
-                    local_connection,
-                    recovery_lease_seconds,
-                ):
-                    raise CredentialConfigurationError(
-                        "credential reconciliation refused because a backup or "
-                        "restore job remains running"
-                    )
-                await local_connection.execute(
-                    "SELECT pg_catalog.set_config('aios.role_name', $1, true)",
-                    credentials.user,
-                )
-                await local_connection.execute(
-                    "SELECT pg_catalog.set_config('aios.role_password', $1, true)",
-                    credentials.password,
-                )
-                await local_connection.execute("""
-                    DO $aionex$
-                    DECLARE
-                      target_role text := current_setting('aios.role_name');
-                      target_password text := current_setting('aios.role_password');
-                    BEGIN
-                      EXECUTE format(
-                        'ALTER ROLE %I WITH LOGIN PASSWORD %L',
-                        target_role,
-                        target_password
-                      );
-                      PERFORM pg_catalog.set_config('aios.role_password', '', true);
-                    END;
-                    $aionex$;
-                    """)
-        except (asyncpg.LockNotAvailableError, asyncpg.QueryCanceledError) as exc:
-            raise CredentialConfigurationError(
-                "PostgreSQL credential reconciliation timed out while waiting "
-                "for database activity; no credential change was committed"
-            ) from exc
+
+            escaped_role = credentials.user.replace('"', '""')
+            statement = f'ALTER ROLE "{escaped_role}" WITH LOGIN PASSWORD $1'
+            await local_connection.execute(statement, credentials.password)
+    except (asyncpg.LockNotAvailableError, asyncpg.QueryCanceledError) as exc:
+        raise CredentialConfigurationError(
+            "PostgreSQL credential reconciliation timed out while waiting "
+            "for database activity; no credential change was committed"
+        ) from exc
     finally:
         await local_connection.close()
 
@@ -321,7 +300,7 @@ def main() -> int:
     except CredentialConfigurationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    except (asyncpg.PostgresError, psycopg2.Error, OSError) as exc:
+    except (asyncpg.PostgresError, OSError) as exc:
         if _debug_enabled():
             traceback.print_exception(type(exc), exc, exc.__traceback__, file=sys.stderr)
         else:
