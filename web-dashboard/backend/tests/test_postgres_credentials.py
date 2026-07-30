@@ -96,14 +96,11 @@ def test_incomplete_or_non_bundled_postgres_values_are_rejected(
         "PostgreSQL+AsyncPG://aionex:safe-password@postgres:5432/aionex",
         "postgresql+asyncpg://aionex:safe-password@postgres:0/aionex",
         "postgresql+asyncpg://aionex:safe-password@postgres:5433/aionex",
-        "postgresql+asyncpg://aionex:safe-password@postgres:"
-        "18446744073709557048/aionex",
+        "postgresql+asyncpg://aionex:safe-password@postgres:18446744073709557048/aionex",
         "postgresql+asyncpg://aionex:@postgres:5432/aionex",
         "postgresql+asyncpg://aionex:safe-password@postgres:5432/aionex?ssl=false",
-        "postgresql+asyncpg://aionex:safe-password@postgres:5432/aionex"
-        "?host=external",
-        "postgresql+asyncpg://aionex:safe-password@postgres:5432/aionex"
-        "?p%6frt=5433",
+        "postgresql+asyncpg://aionex:safe-password@postgres:5432/aionex?host=external",
+        "postgresql+asyncpg://aionex:safe-password@postgres:5432/aionex?p%6frt=5433",
     ],
 )
 def test_unsafe_database_url_forms_are_rejected(database_url: str) -> None:
@@ -123,7 +120,7 @@ def test_external_database_url_skips_bundled_reconciliation() -> None:
 
 def test_database_url_password_override_does_not_leak() -> None:
     secret = "do-not-print-this-password"
-    database_url = "postgresql+asyncpg://aionex:" f"{secret}@postgres:5432/aionex"
+    database_url = f"postgresql+asyncpg://aionex:{secret}@postgres:5432/aionex"
     environment = _postgres_environment(
         DATABASE_URL=database_url,
         POSTGRES_PASSWORD="other",
@@ -307,9 +304,21 @@ async def test_reconcile_restores_login_for_target_role(
     }
     assert async_connections[2] == expected_password_connection
     assert (
-        'ALTER ROLE "aionex" WITH LOGIN PASSWORD $1',
+        "SELECT pg_catalog.set_config('aios.role_name', $1, true)",
+        ("aionex",),
+    ) in local_connection.execution_calls
+    assert (
+        "SELECT pg_catalog.set_config('aios.role_password', $1, true)",
         ("safe-password",),
     ) in local_connection.execution_calls
+    alter_block = next(
+        statement
+        for statement in local_connection.executions
+        if "ALTER ROLE %I WITH LOGIN PASSWORD %L" in statement
+    )
+    assert "configured PostgreSQL role does not exist" in alter_block
+    assert "current_setting('aios.role_name')" in alter_block
+    assert "current_setting('aios.role_password')" in alter_block
     assert local_connection.closed
     assert authenticated_connection.closed
 
