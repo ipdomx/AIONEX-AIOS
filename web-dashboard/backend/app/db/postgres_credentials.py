@@ -143,35 +143,71 @@ async def _active_recovery_job_count(
     connection: asyncpg.Connection,
     lease_seconds: int,
 ) -> int:
-    rows = await connection.fetch(
+    await connection.execute(
+        "CREATE TEMP TABLE aios_recovery_policy "
+        "(lease_seconds bigint NOT NULL) ON COMMIT DROP"
+    )
+    await connection.execute(
+        "INSERT INTO aios_recovery_policy (lease_seconds) VALUES ($1)",
+        lease_seconds,
+    )
+    await connection.execute(
+        "CREATE TEMP TABLE aios_active_recovery_jobs "
+        "(job_count bigint NOT NULL) ON COMMIT DROP"
+    )
+    await connection.execute(
         """
-        SELECT to_regclass('backup_records') IS NOT NULL AS has_backup_records,
-               to_regclass('disaster_recovery_runs') IS NOT NULL AS has_dr_runs
+        DO $aionex$
+        DECLARE
+          relation regclass;
+          relation_count bigint;
+          total bigint := 0;
+          lease_seconds bigint;
+          stale_before timestamptz;
+        BEGIN
+          SELECT policy.lease_seconds
+          INTO STRICT lease_seconds
+          FROM aios_recovery_policy AS policy;
+          stale_before := clock_timestamp() - make_interval(
+            secs => lease_seconds::double precision
+          );
+
+          relation := to_regclass('backup_records');
+          IF relation IS NOT NULL THEN
+            EXECUTE format(
+              'LOCK TABLE %s IN ACCESS EXCLUSIVE MODE',
+              relation
+            );
+            EXECUTE format(
+              'SELECT count(*) FROM %s '
+              'WHERE status = $1 AND updated_at >= $2',
+              relation
+            ) INTO relation_count USING 'running', stale_before;
+            total := total + relation_count;
+          END IF;
+
+          relation := to_regclass('disaster_recovery_runs');
+          IF relation IS NOT NULL THEN
+            EXECUTE format(
+              'LOCK TABLE %s IN ACCESS EXCLUSIVE MODE',
+              relation
+            );
+            EXECUTE format(
+              'SELECT count(*) FROM %s '
+              'WHERE status = $1 AND updated_at >= $2',
+              relation
+            ) INTO relation_count USING 'running', stale_before;
+            total := total + relation_count;
+          END IF;
+
+          INSERT INTO aios_active_recovery_jobs (job_count) VALUES (total);
+        END;
+        $aionex$;
         """
     )
-    flags = rows[0]
-    total = 0
-    stale_before_sql = "clock_timestamp() - make_interval(secs => $1::double precision)"
-
-    if flags["has_backup_records"]:
-        total += int(
-            await connection.fetchval(
-                f"SELECT count(*) FROM backup_records "
-                f"WHERE status = 'running' AND updated_at >= {stale_before_sql}",
-                lease_seconds,
-            )
-            or 0
-        )
-    if flags["has_dr_runs"]:
-        total += int(
-            await connection.fetchval(
-                f"SELECT count(*) FROM disaster_recovery_runs "
-                f"WHERE status = 'running' AND updated_at >= {stale_before_sql}",
-                lease_seconds,
-            )
-            or 0
-        )
-    return total
+    return int(
+        await connection.fetchval("SELECT job_count FROM aios_active_recovery_jobs")
+    )
 
 
 async def _password_authentication_succeeds(
