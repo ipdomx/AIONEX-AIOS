@@ -206,7 +206,10 @@ async def _password_authentication_succeeds(
             database=credentials.database,
             timeout=15,
         )
-    except (asyncpg.InvalidPasswordError, asyncpg.InvalidAuthorizationSpecificationError):
+    except (
+        asyncpg.InvalidPasswordError,
+        asyncpg.InvalidAuthorizationSpecificationError,
+    ):
         return False
 
     try:
