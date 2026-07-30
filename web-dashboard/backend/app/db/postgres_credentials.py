@@ -255,32 +255,40 @@ async def reconcile_bundled_postgres_credentials(
                 )
 
             await local_connection.execute(
-                "SELECT pg_catalog.set_config('aios.role_name', $1, true)",
-                credentials.user,
+                "CREATE TEMP TABLE aios_role_reconcile "
+                "(role_name text NOT NULL, role_password text NOT NULL) "
+                "ON COMMIT DROP"
             )
             await local_connection.execute(
-                "SELECT pg_catalog.set_config('aios.role_password', $1, true)",
+                "INSERT INTO aios_role_reconcile (role_name, role_password) "
+                "VALUES ($1, $2)",
+                credentials.user,
                 credentials.password,
             )
             await local_connection.execute(
                 """
                 DO $aionex$
                 DECLARE
-                  target_role text := current_setting('aios.role_name');
-                  target_password text := current_setting('aios.role_password');
+                  target_role text;
+                  target_password text;
                 BEGIN
+                  SELECT role_name, role_password
+                  INTO STRICT target_role, target_password
+                  FROM aios_role_reconcile;
+
                   IF NOT EXISTS (
                     SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = target_role
                   ) THEN
                     RAISE EXCEPTION 'configured PostgreSQL role does not exist';
                   END IF;
+
                   EXECUTE format(
                     'ALTER ROLE %I WITH LOGIN PASSWORD %L',
                     target_role,
                     target_password
                   );
-                  PERFORM pg_catalog.set_config('aios.role_password', '', true);
-                  PERFORM pg_catalog.set_config('aios.role_name', '', true);
+
+                  DELETE FROM aios_role_reconcile;
                 END;
                 $aionex$;
                 """
