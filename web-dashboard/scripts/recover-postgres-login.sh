@@ -90,20 +90,23 @@ docker run --rm \
   --volumes-from "${postgres_id}" \
   -e TARGET_ROLE="${POSTGRES_USER}" \
   -e TARGET_PASSWORD="${POSTGRES_PASSWORD}" \
-  -e TARGET_DATABASE="${POSTGRES_DB}" \
   postgres:16-alpine \
   sh -ceu '
-    recovery_hba="$(mktemp)"
-    printf "%s\n" "local all all trust" > "$recovery_hba"
-    chmod 600 "$recovery_hba"
-    trap "pg_ctl -D /var/lib/postgresql/data -m fast -w stop >/dev/null 2>&1 || true; rm -f \"$recovery_hba\"" EXIT
-    pg_ctl -D /var/lib/postgresql/data \
-      -o "-c listen_addresses= -c unix_socket_directories=/tmp -c hba_file=$recovery_hba" \
-      -w start
-    psql --host /tmp --dbname template1 --set ON_ERROR_STOP=1 \
-      --set target_role="$TARGET_ROLE" \
-      --set target_password="$TARGET_PASSWORD" \
-      --command "SELECT format('"'"'ALTER ROLE %I WITH LOGIN PASSWORD %L'"'"', :'"'"'target_role'"'"', :'"'"'target_password'"'"') \\gexec"
+    command_file="$(mktemp)"
+    trap "rm -f \"$command_file\"" EXIT
+    python3 - "$TARGET_ROLE" "$TARGET_PASSWORD" > "$command_file" <<'"'"'PY'"'"'
+import sys
+
+def quote_identifier(value: str) -> str:
+    return '"' + value.replace('"', '""') + '"'
+
+def quote_literal(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+role, password = sys.argv[1:3]
+print(f"ALTER ROLE {quote_identifier(role)} WITH LOGIN PASSWORD {quote_literal(password)};")
+PY
+    postgres --single -D /var/lib/postgresql/data template1 < "$command_file"
   '
 recovery_status=$?
 set -e
