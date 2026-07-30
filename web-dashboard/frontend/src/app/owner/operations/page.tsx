@@ -380,7 +380,11 @@ export default function OwnerOperationsPage() {
                         </option>
                       )}
                       {["low", "medium", "high", "critical"].map((item) => (
-                        <option key={item} value={item} className="bg-space-800">
+                        <option
+                          key={item}
+                          value={item}
+                          className="bg-space-800"
+                        >
                           {item}
                         </option>
                       ))}
