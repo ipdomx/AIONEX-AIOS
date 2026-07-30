@@ -301,7 +301,7 @@ async def test_reconcile_restores_login_for_target_role(
     assert async_connections[0] == expected_password_connection
     assert async_connections[1] == {
         "host": "/var/run/postgresql",
-        "user": "postgres",
+        "user": "aionex",
         "database": "aionex",
         "timeout": 15,
     }
