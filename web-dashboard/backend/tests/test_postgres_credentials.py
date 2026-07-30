@@ -306,18 +306,21 @@ async def test_reconcile_restores_login_for_target_role(
         "timeout": 15,
     }
     assert async_connections[2] == expected_password_connection
-    credential_insert = next(
-        item
-        for item in local_connection.execution_calls
-        if item[0].startswith("INSERT INTO aios_postgres_credentials")
-    )
-    assert credential_insert[1] == ("aionex", "safe-password")
+    assert (
+        "SELECT pg_catalog.set_config('aios.role_name', $1, true)",
+        ("aionex",),
+    ) in local_connection.execution_calls
+    assert (
+        "SELECT pg_catalog.set_config('aios.role_password', $1, true)",
+        ("safe-password",),
+    ) in local_connection.execution_calls
     alter_block = next(
         statement
         for statement in local_connection.executions
         if "ALTER ROLE %I WITH LOGIN PASSWORD %L" in statement
     )
-    assert "ALTER ROLE %I WITH LOGIN PASSWORD %L" in alter_block
+    assert "current_setting('aios.role_name')" in alter_block
+    assert "current_setting('aios.role_password')" in alter_block
     assert local_connection.closed
     assert authenticated_connection.closed
 
