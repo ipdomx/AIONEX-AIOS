@@ -307,12 +307,14 @@ async def test_reconcile_restores_login_for_target_role(
     }
     assert async_connections[2] == expected_password_connection
     assert (
-        "SELECT pg_catalog.set_config('aios.role_name', $1, true)",
-        ("aionex",),
+        "CREATE TEMP TABLE aios_role_reconcile "
+        "(role_name text NOT NULL, role_password text NOT NULL) "
+        "ON COMMIT DROP",
+        (),
     ) in local_connection.execution_calls
     assert (
-        "SELECT pg_catalog.set_config('aios.role_password', $1, true)",
-        ("safe-password",),
+        "INSERT INTO aios_role_reconcile (role_name, role_password) VALUES ($1, $2)",
+        ("aionex", "safe-password"),
     ) in local_connection.execution_calls
     alter_block = next(
         statement
@@ -320,16 +322,8 @@ async def test_reconcile_restores_login_for_target_role(
         if "ALTER ROLE %I WITH LOGIN PASSWORD %L" in statement
     )
     assert "configured PostgreSQL role does not exist" in alter_block
-    assert "current_setting('aios.role_name')" in alter_block
-    assert "current_setting('aios.role_password')" in alter_block
-    assert (
-        "SELECT pg_catalog.set_config('aios.role_password', '', true)",
-        (),
-    ) in local_connection.execution_calls
-    assert (
-        "SELECT pg_catalog.set_config('aios.role_name', '', true)",
-        (),
-    ) in local_connection.execution_calls
+    assert "FROM aios_role_reconcile" in alter_block
+    assert "DELETE FROM aios_role_reconcile" in alter_block
     assert local_connection.closed
     assert authenticated_connection.closed
 
