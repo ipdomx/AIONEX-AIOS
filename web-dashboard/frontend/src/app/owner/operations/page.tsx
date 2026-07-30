@@ -331,7 +331,9 @@ export default function OwnerOperationsPage() {
                       Organization
                       <select
                         value={organizationId}
-                        onChange={(event) => setOrganizationId(event.target.value)}
+                        onChange={(event) =>
+                          setOrganizationId(event.target.value)
+                        }
                         disabled={organizationsLoading}
                         className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
                       >
