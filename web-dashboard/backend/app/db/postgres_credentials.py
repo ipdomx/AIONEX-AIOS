@@ -268,6 +268,7 @@ async def reconcile_bundled_postgres_credentials(
                         target_role,
                         target_password
                       );
+                      PERFORM pg_catalog.set_config('aios.role_password', '', true);
                     END;
                     $aionex$;
                     """)
