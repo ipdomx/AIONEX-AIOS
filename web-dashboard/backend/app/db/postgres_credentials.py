@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 import os
+import re
 import sys
 import traceback
 from typing import Mapping
@@ -27,6 +28,17 @@ class BundledPostgresCredentials:
     user: str
     password: str = field(repr=False)
     database: str
+
+
+_SAFE_ROLE_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_$-]{0,62}$")
+
+
+def _validate_role_name(role: str) -> str:
+    if not _SAFE_ROLE_RE.fullmatch(role):
+        raise CredentialConfigurationError(
+            "POSTGRES_USER must be a simple PostgreSQL role name"
+        )
+    return role
 
 
 def resolve_bundled_credentials(
@@ -91,6 +103,8 @@ def resolve_bundled_credentials(
     if port != 5432:
         raise CredentialConfigurationError("POSTGRES_PORT must be 5432")
 
+    user = _validate_role_name(user)
+
     if database_url:
         assert url_password is not None
         assert url.username is not None
@@ -129,69 +143,35 @@ async def _active_recovery_job_count(
     connection: asyncpg.Connection,
     lease_seconds: int,
 ) -> int:
-    await connection.execute(
-        "CREATE TEMP TABLE aios_recovery_policy "
-        "(lease_seconds bigint NOT NULL) ON COMMIT DROP"
+    rows = await connection.fetch(
+        """
+        SELECT to_regclass('backup_records') IS NOT NULL AS has_backup_records,
+               to_regclass('disaster_recovery_runs') IS NOT NULL AS has_dr_runs
+        """
     )
-    await connection.execute(
-        "INSERT INTO aios_recovery_policy (lease_seconds) VALUES ($1)",
-        lease_seconds,
-    )
-    await connection.execute(
-        "CREATE TEMP TABLE aios_active_recovery_jobs "
-        "(job_count bigint NOT NULL) ON COMMIT DROP"
-    )
-    await connection.execute("""
-        DO $aionex$
-        DECLARE
-          relation regclass;
-          relation_count bigint;
-          total bigint := 0;
-          lease_seconds bigint;
-          stale_before timestamptz;
-        BEGIN
-          SELECT policy.lease_seconds
-          INTO STRICT lease_seconds
-          FROM aios_recovery_policy AS policy;
-          stale_before := clock_timestamp() - make_interval(
-            secs => lease_seconds::double precision
-          );
+    flags = rows[0]
+    total = 0
+    stale_before_sql = "clock_timestamp() - make_interval(secs => $1::double precision)"
 
-          relation := to_regclass('backup_records');
-          IF relation IS NOT NULL THEN
-            EXECUTE format(
-              'LOCK TABLE %s IN ACCESS EXCLUSIVE MODE',
-              relation
-            );
-            EXECUTE format(
-              'SELECT count(*) FROM %s '
-              'WHERE status = $1 AND updated_at >= $2',
-              relation
-            ) INTO relation_count USING 'running', stale_before;
-            total := total + relation_count;
-          END IF;
-
-          relation := to_regclass('disaster_recovery_runs');
-          IF relation IS NOT NULL THEN
-            EXECUTE format(
-              'LOCK TABLE %s IN ACCESS EXCLUSIVE MODE',
-              relation
-            );
-            EXECUTE format(
-              'SELECT count(*) FROM %s '
-              'WHERE status = $1 AND updated_at >= $2',
-              relation
-            ) INTO relation_count USING 'running', stale_before;
-            total := total + relation_count;
-          END IF;
-
-          INSERT INTO aios_active_recovery_jobs (job_count) VALUES (total);
-        END;
-        $aionex$;
-        """)
-    return int(
-        await connection.fetchval("SELECT job_count FROM aios_active_recovery_jobs")
-    )
+    if flags["has_backup_records"]:
+        total += int(
+            await connection.fetchval(
+                f"SELECT count(*) FROM backup_records "
+                f"WHERE status = 'running' AND updated_at >= {stale_before_sql}",
+                lease_seconds,
+            )
+            or 0
+        )
+    if flags["has_dr_runs"]:
+        total += int(
+            await connection.fetchval(
+                f"SELECT count(*) FROM disaster_recovery_runs "
+                f"WHERE status = 'running' AND updated_at >= {stale_before_sql}",
+                lease_seconds,
+            )
+            or 0
+        )
+    return total
 
 
 async def _password_authentication_succeeds(
@@ -231,7 +211,7 @@ async def reconcile_bundled_postgres_credentials(
 
     local_connection = await asyncpg.connect(
         host=socket_directory,
-        user="postgres",
+        user=os.environ.get("POSTGRES_ADMIN_USER", "postgres"),
         database=credentials.database,
         timeout=15,
     )
