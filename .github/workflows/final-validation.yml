@@ -32,9 +32,6 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
       - name: Run core tests
-        # The repository currently carries two separate legacy `aios` package
-        # trees. Keep the Owner-adjacent contracts that use the supported
-        # `src/aios` tree here, while the full dashboard suite runs below.
         run: |
           python -m pytest -q \
             tests/test_release_governance.py \
@@ -102,7 +99,38 @@ jobs:
           ./scripts/verify_backend.sh
       - name: Run backend tests with coverage
         working-directory: web-dashboard/backend
-        run: python -m pytest -q tests --cov=app --cov-report=term-missing --cov-fail-under=22
+        run: |
+          set -o pipefail
+          mkdir -p diagnostics/backend
+          python -m pytest -vv tests \
+            --maxfail=1 \
+            --tb=long \
+            --showlocals \
+            --cov=app \
+            --cov-report=term-missing \
+            --cov-fail-under=22 2>&1 | tee diagnostics/backend/pytest-full.log
+      - name: Collect backend diagnostics
+        if: always()
+        working-directory: web-dashboard/backend
+        run: |
+          mkdir -p diagnostics/backend
+          PGPASSWORD=postgres psql \
+            --host localhost \
+            --username postgres \
+            --dbname aionex_test \
+            --no-password \
+            --command 'SELECT version(), current_user, current_database();' \
+            > diagnostics/backend/postgres-readiness.log 2>&1 || true
+          env | sed -E 's/(PASSWORD|SECRET|TOKEN|KEY)=.*/\1=[REDACTED]/I' \
+            > diagnostics/backend/environment-redacted.log
+      - name: Upload backend diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-diagnostics
+          path: web-dashboard/backend/diagnostics/backend
+          if-no-files-found: warn
+          retention-days: 7
 
   frontend-build:
     name: Frontend Build
@@ -185,6 +213,8 @@ jobs:
       - name: Verify legacy DATABASE_URL upgrade preserves PostgreSQL data
         working-directory: web-dashboard
         run: |
+          set -Eeuo pipefail
+          mkdir -p diagnostics/docker
           cp .env.production.example .env.legacy
           sed -i \
             -e 's/^POSTGRES_USER=.*/POSTGRES_USER=legacy_user/' \
@@ -198,29 +228,38 @@ jobs:
             --env-file .env.legacy
             -f docker-compose.production.yml
           )
-          cleanup() {
+          collect_diagnostics() {
+            set +e
             AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" \
-              "${compose_args[@]}" down --volumes --remove-orphans
+              "${compose_args[@]}" ps --all > diagnostics/docker/compose-ps.log 2>&1
+            AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" \
+              "${compose_args[@]}" logs --no-color postgres-credential-reconciler \
+              > diagnostics/docker/reconciler.log 2>&1
+            AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" \
+              "${compose_args[@]}" logs --no-color postgres \
+              > diagnostics/docker/postgres.log 2>&1
+            AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" \
+              "${compose_args[@]}" logs --no-color backend \
+              > diagnostics/docker/backend.log 2>&1
+            cp .env.legacy diagnostics/docker/env.legacy.redacted
+            sed -Ei 's/^((POSTGRES_PASSWORD|DATABASE_URL|SECRET_KEY)=).*/\1[REDACTED]/' \
+              diagnostics/docker/env.legacy.redacted
+          }
+          cleanup() {
+            exit_code=$?
+            collect_diagnostics
+            AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" \
+              "${compose_args[@]}" down --volumes --remove-orphans || true
             rm -f .env.legacy
+            exit "$exit_code"
           }
           trap cleanup EXIT
 
           AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" \
-            "${compose_args[@]}" up \
-              -d \
-              --wait \
-              --wait-timeout 180 \
-              backend
-          postgres_id="$(
-            AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" \
-              "${compose_args[@]}" ps -q postgres
-          )"
+            "${compose_args[@]}" up -d --wait --wait-timeout 180 backend
+          postgres_id="$(AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" "${compose_args[@]}" ps -q postgres)"
           test -n "$postgres_id"
-          postgres_volume="$(
-            docker inspect \
-              --format '{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Name}}{{end}}{{end}}' \
-              "$postgres_id"
-          )"
+          postgres_volume="$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Name}}{{end}}{{end}}' "$postgres_id")"
           test -n "$postgres_volume"
           AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" \
             "${compose_args[@]}" exec -T postgres sh -ceu '
@@ -251,72 +290,32 @@ jobs:
           AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" \
             "${compose_args[@]}" up -d --build
           AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" \
-            "${compose_args[@]}" up \
-              -d \
-              --wait \
-              --wait-timeout 180 \
-              backend \
-              backup-worker
-          reconciler_id="$(
-            AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" \
-              "${compose_args[@]}" ps --all -q postgres-credential-reconciler
-          )"
+            "${compose_args[@]}" up -d --wait --wait-timeout 180 backend backup-worker
+          reconciler_id="$(AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" "${compose_args[@]}" ps --all -q postgres-credential-reconciler)"
           test -n "$reconciler_id"
-          test "$(
-            docker inspect --format '{{.State.ExitCode}}' "$reconciler_id"
-          )" = "0"
+          test "$(docker inspect --format '{{.State.ExitCode}}' "$reconciler_id")" = "0"
           COMPOSE_PROJECT_NAME=aionex-legacy-compat \
             COMPOSE_FILE=docker-compose.production.yml \
             ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" \
             ./scripts/reconcile-postgres-credentials.sh
-          upgraded_postgres_id="$(
-            AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" \
-              "${compose_args[@]}" ps -q postgres
-          )"
+          upgraded_postgres_id="$(AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" "${compose_args[@]}" ps -q postgres)"
           test -n "$upgraded_postgres_id"
-          test "$(
-            docker inspect \
-              --format '{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Name}}{{end}}{{end}}' \
-              "$upgraded_postgres_id"
-          )" = "$postgres_volume"
-          test "$(
-            AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" \
-              "${compose_args[@]}" run \
-                --rm \
-                --no-deps \
-                -e PGPASSWORD=rotated-password \
-                postgres-credential-reconciler \
-                psql \
-                --host postgres \
-                --username legacy_user \
-                --dbname legacy_database \
-                --no-password \
-                --tuples-only \
-                --no-align \
-                --set ON_ERROR_STOP=1 \
-                --command "
-                  SELECT value
-                  FROM aionex_legacy_upgrade_sentinel
-                  WHERE id = 1
-                " | tr -d '[:space:]'
-          )" = "preserved"
+          test "$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Name}}{{end}}{{end}}' "$upgraded_postgres_id")" = "$postgres_volume"
+          test "$(AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" "${compose_args[@]}" run --rm --no-deps -e PGPASSWORD=rotated-password postgres-credential-reconciler psql --host postgres --username legacy_user --dbname legacy_database --no-password --tuples-only --no-align --set ON_ERROR_STOP=1 --command 'SELECT value FROM aionex_legacy_upgrade_sentinel WHERE id = 1' | tr -d '[:space:]')" = "preserved"
           if AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" \
-            "${compose_args[@]}" run \
-              --rm \
-              --no-deps \
-              -e PGPASSWORD=legacy-password \
-              postgres-credential-reconciler \
-              psql \
-                --host postgres \
-                --username legacy_user \
-                --dbname legacy_database \
-                --no-password \
-                --command "SELECT 1" \
-                >/dev/null 2>&1
+            "${compose_args[@]}" run --rm --no-deps -e PGPASSWORD=legacy-password postgres-credential-reconciler psql --host postgres --username legacy_user --dbname legacy_database --no-password --command "SELECT 1" >/dev/null 2>&1
           then
             echo "The superseded PostgreSQL password still authenticates." >&2
             exit 1
           fi
+      - name: Upload production diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-docker-diagnostics
+          path: web-dashboard/diagnostics/docker
+          if-no-files-found: warn
+          retention-days: 7
       - name: Verify bare Compose upgrade reads legacy .env
         working-directory: web-dashboard
         run: |
@@ -348,16 +347,9 @@ jobs:
             docker compose up -d --build backend
           COMPOSE_PROJECT_NAME="$bare_project" \
             docker compose up -d --wait --wait-timeout 180 backend
-          postgres_id="$(
-            COMPOSE_PROJECT_NAME="$bare_project" \
-              docker compose ps -q postgres
-          )"
+          postgres_id="$(COMPOSE_PROJECT_NAME="$bare_project" docker compose ps -q postgres)"
           test -n "$postgres_id"
-          postgres_volume="$(
-            docker inspect \
-              --format '{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Name}}{{end}}{{end}}' \
-              "$postgres_id"
-          )"
+          postgres_volume="$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Name}}{{end}}{{end}}' "$postgres_id")"
           test -n "$postgres_volume"
           COMPOSE_PROJECT_NAME="$bare_project" \
             docker compose exec -T postgres sh -ceu '
@@ -390,37 +382,10 @@ jobs:
             docker compose up -d --wait --wait-timeout 180 backend
           COMPOSE_PROJECT_NAME="$bare_project" \
             ./scripts/reconcile-postgres-credentials.sh
-          upgraded_postgres_id="$(
-            COMPOSE_PROJECT_NAME="$bare_project" \
-              docker compose ps -q postgres
-          )"
+          upgraded_postgres_id="$(COMPOSE_PROJECT_NAME="$bare_project" docker compose ps -q postgres)"
           test -n "$upgraded_postgres_id"
-          test "$(
-            docker inspect \
-              --format '{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Name}}{{end}}{{end}}' \
-              "$upgraded_postgres_id"
-          )" = "$postgres_volume"
-          test "$(
-            COMPOSE_PROJECT_NAME="$bare_project" \
-              docker compose run \
-                --rm \
-                --no-deps \
-                -e PGPASSWORD=bare-rotated-password \
-                postgres-credential-reconciler \
-                psql \
-                --host postgres \
-                --username bare_legacy_user \
-                --dbname bare_legacy_database \
-                --no-password \
-                --tuples-only \
-                --no-align \
-                --set ON_ERROR_STOP=1 \
-                --command "
-                  SELECT value
-                  FROM aionex_bare_upgrade_sentinel
-                  WHERE id = 1
-                " | tr -d '[:space:]'
-          )" = "preserved"
+          test "$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Name}}{{end}}{{end}}' "$upgraded_postgres_id")" = "$postgres_volume"
+          test "$(COMPOSE_PROJECT_NAME="$bare_project" docker compose run --rm --no-deps -e PGPASSWORD=bare-rotated-password postgres-credential-reconciler psql --host postgres --username bare_legacy_user --dbname bare_legacy_database --no-password --tuples-only --no-align --set ON_ERROR_STOP=1 --command 'SELECT value FROM aionex_bare_upgrade_sentinel WHERE id = 1' | tr -d '[:space:]')" = "preserved"
       - name: Smoke production backup worker and restore round-trip
         working-directory: web-dashboard
         run: |
@@ -440,29 +405,16 @@ jobs:
               --wait \
               --wait-timeout 180 \
               backup-worker
-          worker_id="$(
-            AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
-              "${compose_args[@]}" ps -q backup-worker
-          )"
+          worker_id="$(AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" "${compose_args[@]}" ps -q backup-worker)"
           test -n "$worker_id"
-          test "$(
-            docker inspect \
-              --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}' \
-              "$worker_id"
-          )" = "healthy"
+          test "$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$worker_id")" = "healthy"
           AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
             "${compose_args[@]}" exec -T backup-worker \
               sh -ceu \
               'pg_dump --version | grep -Eq "\(PostgreSQL\) 16(\.|$)"'
-          # The production worker has proved it can start. Stop it before
-          # inserting the deterministic smoke job so it cannot race the
-          # in-process worker exercised by the round-trip test.
           AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
             "${compose_args[@]}" stop backup-worker
-          test -z "$(
-            AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
-              "${compose_args[@]}" ps --status running -q backup-worker
-          )"
+          test -z "$(AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" "${compose_args[@]}" ps --status running -q backup-worker)"
           AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
             "${compose_args[@]}" run \
               --rm \
