@@ -94,18 +94,14 @@ docker run --rm \
   sh -ceu '
     command_file="$(mktemp)"
     trap "rm -f \"$command_file\"" EXIT
-    python3 - "$TARGET_ROLE" "$TARGET_PASSWORD" > "$command_file" <<'"'"'PY'"'"'
-import sys
 
-def quote_identifier(value: str) -> str:
-    return '"' + value.replace('"', '""') + '"'
+    escaped_role=$(printf "%s" "$TARGET_ROLE" | sed "s/\"/\"\"/g")
+    escaped_password=$(printf "%s" "$TARGET_PASSWORD" | sed "s/'"'"'/''/g")
+    printf "ALTER ROLE \"%s\" WITH LOGIN PASSWORD '\''%s'\'';\n" \
+      "$escaped_role" \
+      "$escaped_password" \
+      > "$command_file"
 
-def quote_literal(value: str) -> str:
-    return "'" + value.replace("'", "''") + "'"
-
-role, password = sys.argv[1:3]
-print(f"ALTER ROLE {quote_identifier(role)} WITH LOGIN PASSWORD {quote_literal(password)};")
-PY
     postgres --single -D /var/lib/postgresql/data template1 < "$command_file"
   '
 recovery_status=$?
