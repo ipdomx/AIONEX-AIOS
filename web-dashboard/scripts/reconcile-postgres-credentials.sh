@@ -18,10 +18,16 @@ COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml}"
 ENV_FILE="${ENV_FILE:-}"
 
 if [[ -z "${ENV_FILE}" ]]; then
-  if [[ -f .env.production ]]; then
-    ENV_FILE=.env.production
+  if [[ "${COMPOSE_FILE}" == *production* ]]; then
+    if [[ -f .env.production ]]; then
+      ENV_FILE=.env.production
+    elif [[ -f .env ]]; then
+      ENV_FILE=.env
+    fi
   elif [[ -f .env ]]; then
     ENV_FILE=.env
+  elif [[ -f .env.production ]]; then
+    ENV_FILE=.env.production
   fi
 fi
 
