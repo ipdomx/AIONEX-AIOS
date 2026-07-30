@@ -41,10 +41,6 @@ compose() {
   AIOS_ENV_FILE="${ENV_FILE}" "${compose_args[@]}" "$@"
 }
 
-# Never `source` a dotenv file. Docker Compose accepts dotenv syntax that is not
-# valid shell syntax (for example JSON arrays containing spaces), and sourcing it
-# can execute or split user-controlled values. Ask Compose to parse the file,
-# then extract only the three exact values required by this recovery workflow.
 compose_environment="$("${compose_args[@]}" config --environment)"
 environment_value() {
   local key="$1"
@@ -97,8 +93,13 @@ docker run --rm \
   -e TARGET_DATABASE="${POSTGRES_DB}" \
   postgres:16-alpine \
   sh -ceu '
-    trap "pg_ctl -D /var/lib/postgresql/data -m fast -w stop >/dev/null 2>&1 || true" EXIT
-    pg_ctl -D /var/lib/postgresql/data -o "-c listen_addresses= -c unix_socket_directories=/tmp -c hba_file=/dev/null" -w start
+    recovery_hba="$(mktemp)"
+    printf "%s\n" "local all all trust" > "$recovery_hba"
+    chmod 600 "$recovery_hba"
+    trap "pg_ctl -D /var/lib/postgresql/data -m fast -w stop >/dev/null 2>&1 || true; rm -f \"$recovery_hba\"" EXIT
+    pg_ctl -D /var/lib/postgresql/data \
+      -o "-c listen_addresses= -c unix_socket_directories=/tmp -c hba_file=$recovery_hba" \
+      -w start
     psql --host /tmp --dbname template1 --set ON_ERROR_STOP=1 \
       --set target_role="$TARGET_ROLE" \
       --set target_password="$TARGET_PASSWORD" \
