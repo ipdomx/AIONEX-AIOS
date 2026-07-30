@@ -12,6 +12,7 @@ from app.core.auth import pwd_context
 from app.core.config import settings
 from app.db.base import SessionLocal
 from app.db.bootstrap_roles import (
+    DEFAULT_ROLE_NAMES,
     PERMISSIONS,
     ensure_default_roles,
     ensure_permission_catalog,
@@ -182,12 +183,7 @@ async def seed() -> None:
             "Set AIOS_BOOTSTRAP_OWNER_PASSWORD and "
             "AIOS_BOOTSTRAP_RESET_OWNER_PASSWORD=true to reset it explicitly."
         )
-    print(
-        "Default organization roles verified: "
-        + ", ".join(spec.name for spec in __import__(
-            "app.db.bootstrap_roles", fromlist=["DEFAULT_ROLE_SPECS"]
-        ).DEFAULT_ROLE_SPECS)
-    )
+    print("Default organization roles verified: " + ", ".join(DEFAULT_ROLE_NAMES))
 
 
 if __name__ == "__main__":
