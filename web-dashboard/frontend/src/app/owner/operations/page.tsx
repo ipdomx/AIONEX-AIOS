@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Activity,
@@ -10,6 +9,7 @@ import {
   ShieldCheck,
   UserCog,
 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useOwnerResource } from "@/hooks/use-owner-resource";
 import {
@@ -134,10 +134,12 @@ export default function OwnerOperationsPage() {
   async function submit() {
     const payload: Record<string, unknown> = {};
     if (name.trim()) payload.name = name.trim();
+
     if (entity === "organization" && ["create", "update"].includes(operation)) {
       if (operation === "create") payload.plan = plan || "enterprise";
       if (operation === "update" && plan) payload.plan = plan;
     }
+
     if (entity === "project" && ["create", "update"].includes(operation)) {
       if (description.trim()) payload.description = description.trim();
       if (operation === "create") payload.priority = priority || "medium";
@@ -146,6 +148,7 @@ export default function OwnerOperationsPage() {
         payload.organization_id = organizationId;
       }
     }
+
     if (entity === "user" && ["create", "update"].includes(operation)) {
       if (roleId) payload.role_id = roleId;
       if (operation === "create") {
@@ -252,6 +255,7 @@ export default function OwnerOperationsPage() {
                 ))}
               </select>
             </label>
+
             <label className="space-y-2 text-xs text-white/50">
               Operation
               <select
@@ -352,6 +356,7 @@ export default function OwnerOperationsPage() {
                       </select>
                     </label>
                   )}
+
                   <label className="block space-y-2 text-xs text-white/50">
                     Description
                     <textarea
@@ -361,6 +366,7 @@ export default function OwnerOperationsPage() {
                       className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
                     />
                   </label>
+
                   <label className="block space-y-2 text-xs text-white/50">
                     Priority
                     <select
@@ -407,6 +413,7 @@ export default function OwnerOperationsPage() {
                       ))}
                     </select>
                   </label>
+
                   {operation === "create" && (
                     <>
                       <label className="block space-y-2 text-xs text-white/50">
@@ -433,6 +440,7 @@ export default function OwnerOperationsPage() {
                           ))}
                         </select>
                       </label>
+
                       <label className="block space-y-2 text-xs text-white/50">
                         Email
                         <input
@@ -443,6 +451,7 @@ export default function OwnerOperationsPage() {
                           className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
                         />
                       </label>
+
                       <label className="block space-y-2 text-xs text-white/50">
                         Initial password
                         <input
