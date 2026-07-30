@@ -322,6 +322,14 @@ async def test_reconcile_restores_login_for_target_role(
     assert "configured PostgreSQL role does not exist" in alter_block
     assert "current_setting('aios.role_name')" in alter_block
     assert "current_setting('aios.role_password')" in alter_block
+    assert (
+        "SELECT pg_catalog.set_config('aios.role_password', '', true)",
+        (),
+    ) in local_connection.execution_calls
+    assert (
+        "SELECT pg_catalog.set_config('aios.role_name', '', true)",
+        (),
+    ) in local_connection.execution_calls
     assert local_connection.closed
     assert authenticated_connection.closed
 
