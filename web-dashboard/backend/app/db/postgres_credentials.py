@@ -262,35 +262,29 @@ async def reconcile_bundled_postgres_credentials(
                 "SELECT pg_catalog.set_config('aios.role_password', $1, true)",
                 credentials.password,
             )
-            try:
-                await local_connection.execute(
-                    """
-                    DO $aionex$
-                    DECLARE
-                      target_role text := current_setting('aios.role_name');
-                      target_password text := current_setting('aios.role_password');
-                    BEGIN
-                      IF NOT EXISTS (
-                        SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = target_role
-                      ) THEN
-                        RAISE EXCEPTION 'configured PostgreSQL role does not exist';
-                      END IF;
-                      EXECUTE format(
-                        'ALTER ROLE %I WITH LOGIN PASSWORD %L',
-                        target_role,
-                        target_password
-                      );
-                    END;
-                    $aionex$;
-                    """
-                )
-            finally:
-                await local_connection.execute(
-                    "SELECT pg_catalog.set_config('aios.role_password', '', true)"
-                )
-                await local_connection.execute(
-                    "SELECT pg_catalog.set_config('aios.role_name', '', true)"
-                )
+            await local_connection.execute(
+                """
+                DO $aionex$
+                DECLARE
+                  target_role text := current_setting('aios.role_name');
+                  target_password text := current_setting('aios.role_password');
+                BEGIN
+                  IF NOT EXISTS (
+                    SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = target_role
+                  ) THEN
+                    RAISE EXCEPTION 'configured PostgreSQL role does not exist';
+                  END IF;
+                  EXECUTE format(
+                    'ALTER ROLE %I WITH LOGIN PASSWORD %L',
+                    target_role,
+                    target_password
+                  );
+                  PERFORM pg_catalog.set_config('aios.role_password', '', true);
+                  PERFORM pg_catalog.set_config('aios.role_name', '', true);
+                END;
+                $aionex$;
+                """
+            )
     except (asyncpg.LockNotAvailableError, asyncpg.QueryCanceledError) as exc:
         raise CredentialConfigurationError(
             "PostgreSQL credential reconciliation timed out while waiting "
