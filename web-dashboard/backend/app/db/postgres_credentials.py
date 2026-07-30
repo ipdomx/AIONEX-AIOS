@@ -33,16 +33,7 @@ class BundledPostgresCredentials:
 def resolve_bundled_credentials(
     environ: Mapping[str, str],
 ) -> BundledPostgresCredentials | None:
-    """Resolve the credentials used by the bundled PostgreSQL service.
-
-    Existing deployments may still carry a DATABASE_URL whose password differs
-    from POSTGRES_* because those initialization values do not update an
-    existing PostgreSQL volume. For a URL targeting the bundled ``postgres``
-    service, the URL password is therefore authoritative while its user and
-    database must match POSTGRES_*. A valid external URL is deliberately
-    skipped so this helper never mutates the bundled database on behalf of an
-    external-database deployment.
-    """
+    """Resolve credentials for the bundled PostgreSQL service."""
 
     host = environ.get("POSTGRES_HOST", "").strip()
     port_value = environ.get("POSTGRES_PORT", "").strip()
@@ -259,26 +250,19 @@ async def reconcile_bundled_postgres_credentials(
                         "restore job remains running"
                     )
                 await local_connection.execute(
-                    "CREATE TEMP TABLE aios_postgres_credentials ("
-                    "role_name text NOT NULL, "
-                    "role_password text NOT NULL"
-                    ") ON COMMIT DROP"
+                    "SELECT pg_catalog.set_config('aios.role_name', $1, true)",
+                    credentials.user,
                 )
                 await local_connection.execute(
-                    "INSERT INTO aios_postgres_credentials "
-                    "(role_name, role_password) VALUES ($1, $2)",
-                    credentials.user,
+                    "SELECT pg_catalog.set_config('aios.role_password', $1, true)",
                     credentials.password,
                 )
                 await local_connection.execute("""
                     DO $aionex$
                     DECLARE
-                      target_role text;
-                      target_password text;
+                      target_role text := current_setting('aios.role_name');
+                      target_password text := current_setting('aios.role_password');
                     BEGIN
-                      SELECT role_name, role_password
-                      INTO STRICT target_role, target_password
-                      FROM aios_postgres_credentials;
                       EXECUTE format(
                         'ALTER ROLE %I WITH LOGIN PASSWORD %L',
                         target_role,
