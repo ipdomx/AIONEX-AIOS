@@ -18,6 +18,8 @@ jobs:
   root-tests:
     name: Core Owner / Release / Web Contracts
     runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}/src
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -30,8 +32,6 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
       - name: Run core tests
-        env:
-          PYTHONPATH: ${{ github.workspace }}/src
         run: |
           python -m pytest -q \
             tests/test_release_governance.py \
@@ -257,12 +257,10 @@ jobs:
 
           AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" \
             "${compose_args[@]}" up -d --wait --wait-timeout 180 backend
-
           postgres_id="$(AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" "${compose_args[@]}" ps -q postgres)"
           test -n "$postgres_id"
           postgres_volume="$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Name}}{{end}}{{end}}' "$postgres_id")"
           test -n "$postgres_volume"
-
           AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" \
             "${compose_args[@]}" exec -T postgres sh -ceu '
               PGPASSWORD="$POSTGRES_PASSWORD" psql \
@@ -293,22 +291,17 @@ jobs:
             "${compose_args[@]}" up -d --build
           AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" \
             "${compose_args[@]}" up -d --wait --wait-timeout 180 backend backup-worker
-
           reconciler_id="$(AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" "${compose_args[@]}" ps --all -q postgres-credential-reconciler)"
           test -n "$reconciler_id"
           test "$(docker inspect --format '{{.State.ExitCode}}' "$reconciler_id")" = "0"
-
           COMPOSE_PROJECT_NAME=aionex-legacy-compat \
             COMPOSE_FILE=docker-compose.production.yml \
             ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" \
             ./scripts/reconcile-postgres-credentials.sh
-
           upgraded_postgres_id="$(AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" "${compose_args[@]}" ps -q postgres)"
           test -n "$upgraded_postgres_id"
           test "$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Name}}{{end}}{{end}}' "$upgraded_postgres_id")" = "$postgres_volume"
-
           test "$(AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" "${compose_args[@]}" run --rm --no-deps -e PGPASSWORD=rotated-password postgres-credential-reconciler psql --host postgres --username legacy_user --dbname legacy_database --no-password --tuples-only --no-align --set ON_ERROR_STOP=1 --command 'SELECT value FROM aionex_legacy_upgrade_sentinel WHERE id = 1' | tr -d '[:space:]')" = "preserved"
-
           if AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" \
             "${compose_args[@]}" run --rm --no-deps -e PGPASSWORD=legacy-password postgres-credential-reconciler psql --host postgres --username legacy_user --dbname legacy_database --no-password --command "SELECT 1" >/dev/null 2>&1
           then
@@ -354,6 +347,45 @@ jobs:
             docker compose up -d --build backend
           COMPOSE_PROJECT_NAME="$bare_project" \
             docker compose up -d --wait --wait-timeout 180 backend
+          postgres_id="$(COMPOSE_PROJECT_NAME="$bare_project" docker compose ps -q postgres)"
+          test -n "$postgres_id"
+          postgres_volume="$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Name}}{{end}}{{end}}' "$postgres_id")"
+          test -n "$postgres_volume"
+          COMPOSE_PROJECT_NAME="$bare_project" \
+            docker compose exec -T postgres sh -ceu '
+              PGPASSWORD="$POSTGRES_PASSWORD" psql \
+                --host 127.0.0.1 \
+                --username "$POSTGRES_USER" \
+                --dbname "$POSTGRES_DB" \
+                --no-password \
+                --set ON_ERROR_STOP=1 \
+                --command "
+                  CREATE TABLE aionex_bare_upgrade_sentinel (
+                    id integer PRIMARY KEY,
+                    value text NOT NULL
+                  );
+                  INSERT INTO aionex_bare_upgrade_sentinel (id, value)
+                  VALUES (1, '\''preserved'\'');
+                "
+            '
+
+          COMPOSE_PROJECT_NAME="$bare_project" \
+            docker compose down --remove-orphans
+          sed -i \
+            -e 's/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=bare-conflicting-password/' \
+            -e 's|^DATABASE_URL=.*|DATABASE_URL=postgresql+asyncpg://bare_legacy_user:bare-rotated-password@postgres:5432/bare_legacy_database|' \
+            .env
+
+          COMPOSE_PROJECT_NAME="$bare_project" \
+            docker compose up -d --build
+          COMPOSE_PROJECT_NAME="$bare_project" \
+            docker compose up -d --wait --wait-timeout 180 backend
+          COMPOSE_PROJECT_NAME="$bare_project" \
+            ./scripts/reconcile-postgres-credentials.sh
+          upgraded_postgres_id="$(COMPOSE_PROJECT_NAME="$bare_project" docker compose ps -q postgres)"
+          test -n "$upgraded_postgres_id"
+          test "$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Name}}{{end}}{{end}}' "$upgraded_postgres_id")" = "$postgres_volume"
+          test "$(COMPOSE_PROJECT_NAME="$bare_project" docker compose run --rm --no-deps -e PGPASSWORD=bare-rotated-password postgres-credential-reconciler psql --host postgres --username bare_legacy_user --dbname bare_legacy_database --no-password --tuples-only --no-align --set ON_ERROR_STOP=1 --command 'SELECT value FROM aionex_bare_upgrade_sentinel WHERE id = 1' | tr -d '[:space:]')" = "preserved"
       - name: Smoke production backup worker and restore round-trip
         working-directory: web-dashboard
         run: |
@@ -362,16 +394,27 @@ jobs:
             --env-file .env.production
             -f docker-compose.production.yml
           )
+          cleanup() {
+            AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
+              "${compose_args[@]}" down --remove-orphans
+          }
+          trap cleanup EXIT
           AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
-            "${compose_args[@]}" up -d --build backend backup-worker
-          AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
-            "${compose_args[@]}" up -d --wait --wait-timeout 180 backend backup-worker
-          worker_id="$(AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" "${compose_args[@]}" ps --status running -q backup-worker)"
+            "${compose_args[@]}" up \
+              -d \
+              --wait \
+              --wait-timeout 180 \
+              backup-worker
+          worker_id="$(AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" "${compose_args[@]}" ps -q backup-worker)"
           test -n "$worker_id"
+          test "$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$worker_id")" = "healthy"
           AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
-            "${compose_args[@]}" exec -T backup-worker pg_dump --version | grep -Eq '\(PostgreSQL\) 16(\.|$)'
+            "${compose_args[@]}" exec -T backup-worker \
+              sh -ceu \
+              'pg_dump --version | grep -Eq "\(PostgreSQL\) 16(\.|$)"'
           AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
             "${compose_args[@]}" stop backup-worker
+          test -z "$(AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" "${compose_args[@]}" ps --status running -q backup-worker)"
           AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
             "${compose_args[@]}" run \
               --rm \
@@ -379,4 +422,28 @@ jobs:
               -e RUN_LIVE_BACKUP_SMOKE=1 \
               backup-worker \
               python -m pytest -q \
-                tests/test_backup_executor.py::test_live_postgres_worker_backup_and_restore_smoke
+              /workspace/web-dashboard/backend/tests/test_backup_executor.py::test_live_postgres_worker_backup_and_restore_smoke
+
+  security:
+    name: Dependency Security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Audit Python dependencies
+        working-directory: web-dashboard/backend
+        run: |
+          python -m pip install --upgrade pip pip-audit
+          pip-audit -r requirements.txt
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web-dashboard/frontend/package-lock.json
+      - name: Audit frontend dependencies
+        working-directory: web-dashboard/frontend
+        run: |
+          npm ci
+          npm audit --omit=dev
