@@ -96,11 +96,14 @@ def test_incomplete_or_non_bundled_postgres_values_are_rejected(
         "PostgreSQL+AsyncPG://aionex:safe-password@postgres:5432/aionex",
         "postgresql+asyncpg://aionex:safe-password@postgres:0/aionex",
         "postgresql+asyncpg://aionex:safe-password@postgres:5433/aionex",
-        "postgresql+asyncpg://aionex:safe-password@postgres:18446744073709557048/aionex",
+        "postgresql+asyncpg://aionex:safe-password@postgres:"
+        "18446744073709557048/aionex",
         "postgresql+asyncpg://aionex:@postgres:5432/aionex",
         "postgresql+asyncpg://aionex:safe-password@postgres:5432/aionex?ssl=false",
-        "postgresql+asyncpg://aionex:safe-password@postgres:5432/aionex?host=external",
-        "postgresql+asyncpg://aionex:safe-password@postgres:5432/aionex?p%6frt=5433",
+        "postgresql+asyncpg://aionex:safe-password@postgres:5432/aionex"
+        "?host=external",
+        "postgresql+asyncpg://aionex:safe-password@postgres:5432/aionex"
+        "?p%6frt=5433",
     ],
 )
 def test_unsafe_database_url_forms_are_rejected(database_url: str) -> None:
@@ -120,7 +123,7 @@ def test_external_database_url_skips_bundled_reconciliation() -> None:
 
 def test_database_url_password_override_does_not_leak() -> None:
     secret = "do-not-print-this-password"
-    database_url = f"postgresql+asyncpg://aionex:{secret}@postgres:5432/aionex"
+    database_url = "postgresql+asyncpg://aionex:" f"{secret}@postgres:5432/aionex"
     environment = _postgres_environment(
         DATABASE_URL=database_url,
         POSTGRES_PASSWORD="other",
