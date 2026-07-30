@@ -17,6 +17,14 @@ cd "${COMPOSE_DIR}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml}"
 ENV_FILE="${ENV_FILE:-}"
 
+if [[ -z "${ENV_FILE}" ]]; then
+  if [[ -f .env.production ]]; then
+    ENV_FILE=.env.production
+  elif [[ -f .env ]]; then
+    ENV_FILE=.env
+  fi
+fi
+
 [[ -f "${COMPOSE_FILE}" ]] ||
   die "Compose file not found: ${COMPOSE_FILE}"
 if [[ -n "${ENV_FILE}" && ! -f "${ENV_FILE}" ]]; then
@@ -109,9 +117,6 @@ compose run --rm --no-deps postgres-credential-reconciler
 reconcile_status=$?
 set -e
 if ((reconcile_status != 0)); then
-  # Exit 1 is reserved for a fail-closed configuration or active-job refusal
-  # before mutation. Other failures are conservatively treated as possibly
-  # post-commit, so cleanup recreates dependent services with the current env.
   if ((reconcile_status != 1)); then
     credentials_changed=true
   fi
