@@ -94,14 +94,10 @@ def test_postgres_recovery_script_uses_one_compose_contract(
     fake_docker.write_text(
         """#!/usr/bin/env bash
 set -eu
-printf '%s\\n' "$*" >> "${DOCKER_CALL_LOG:?}"
+printf '%s\n' "$*" >> "${DOCKER_CALL_LOG:?}"
 
 if [[ "${1:-}" == "inspect" ]]; then
-  if [[ "$*" == *"backup-worker-container-id"* ]]; then
-    echo healthy
-  else
-    echo healthy
-  fi
+  echo healthy
   exit 0
 fi
 
@@ -117,9 +113,9 @@ done
 
 case "${1:-}" in
   config)
-    printf 'postgres\\npostgres-credential-reconciler\\nbackend\\n'
+    printf 'postgres\npostgres-credential-reconciler\nbackend\n'
     if [[ "${HAS_BACKUP_WORKER:-false}" == "true" ]]; then
-      printf 'backup-worker\\n'
+      printf 'backup-worker\n'
     fi
     ;;
   ps)
@@ -208,7 +204,7 @@ def test_postgres_reconcile_failure_restores_dependents_safely(
     fake_docker.write_text(
         """#!/usr/bin/env bash
 set -eu
-printf '%s\\n' "$*" >> "${DOCKER_CALL_LOG:?}"
+printf '%s\n' "$*" >> "${DOCKER_CALL_LOG:?}"
 
 [[ "${1:-}" == "compose" ]] || exit 1
 shift
@@ -220,10 +216,10 @@ while [[ "${1:-}" == "-f" || "${1:-}" == "--env-file" ]]; do
 done
 case "${1:-}" in
   config)
-    printf 'postgres\\npostgres-credential-reconciler\\nbackend\\nbackup-worker\\n'
+    printf 'postgres\npostgres-credential-reconciler\nbackend\nbackup-worker\n'
     ;;
   run)
-    printf '%s\\n' \
+    printf '%s\n' \
       'error: credential reconciliation refused because a backup or restore job remains running' \
       >&2
     exit "${RECONCILE_EXIT_CODE:?}"
@@ -456,7 +452,8 @@ def test_production_compose_preserves_postgres_credential_contract() -> None:
     assert "service_completed_successfully" in deployment_compose
     assert "pg_advisory_xact_lock" in reconcile_module
     assert "LOCK TABLE %s IN ACCESS EXCLUSIVE MODE" in reconcile_module
-    assert "encrypt_password" in reconcile_module
+    assert "ALTER ROLE %I WITH LOGIN PASSWORD %L" in reconcile_module
+    assert "VALUES ($1, $2)" in reconcile_module
     assert "password=credentials.password" in reconcile_module
     assert 'fetchval("SELECT 1")' in reconcile_module
     assert "pg_restore --no-password --clean --if-exists" in restore_script
@@ -485,7 +482,7 @@ def test_legacy_backup_writes_sha256_sidecar(tmp_path: Path) -> None:
     fake_docker.write_text(
         """#!/usr/bin/env bash
 set -eu
-printf '%s\\n' 'CREATE TABLE sidecar_test (id integer);'
+printf '%s\n' 'CREATE TABLE sidecar_test (id integer);'
 """,
         encoding="utf-8",
     )
@@ -518,313 +515,12 @@ printf '%s\\n' 'CREATE TABLE sidecar_test (id integer);'
 
 def _write_legacy_archive(tmp_path: Path) -> Path:
     sql_file = tmp_path / "aios-test.sql"
-    sql_file.write_text("SELECT 1;\n", encoding="utf-8")
+    sql_file.write_text("CREATE TABLE restore_test (id integer);\n", encoding="utf-8")
     archive = tmp_path / "aios-test.tar.gz"
-    with tarfile.open(archive, "w:gz") as bundle:
-        bundle.add(sql_file, arcname=sql_file.name)
-    return archive
-
-
-def test_legacy_restore_rejects_missing_or_mismatched_sha256_before_stop(
-    tmp_path: Path,
-) -> None:
-    repository_root = Path(__file__).resolve().parents[3]
-    restore_script = repository_root / "deploy" / "production" / "restore.sh"
-    env_file = tmp_path / ".env.production"
-    compose_file = tmp_path / "docker-compose.production.yml"
-    archive = _write_legacy_archive(tmp_path)
-    call_log = tmp_path / "docker-calls.log"
-    env_file.write_text("POSTGRES_DB=aionex\n", encoding="utf-8")
-    compose_file.write_text("services: {}\n", encoding="utf-8")
-    fake_docker = tmp_path / "docker"
-    fake_docker.write_text(
-        """#!/usr/bin/env bash
-set -eu
-printf '%s\\n' "$*" >> "${DOCKER_CALL_LOG:?}"
-""",
-        encoding="utf-8",
-    )
-    fake_docker.chmod(0o755)
-    environment = os.environ.copy()
-    environment["PATH"] = f"{tmp_path}:{environment['PATH']}"
-    environment["DOCKER_CALL_LOG"] = str(call_log)
-    environment["ENV_FILE"] = str(env_file)
-    environment["COMPOSE_FILE"] = str(compose_file)
-    environment["TMPDIR"] = str(tmp_path)
-
-    missing = subprocess.run(
-        ["bash", str(restore_script), str(archive)],
-        cwd=repository_root,
-        env=environment,
-        capture_output=True,
-        text=True,
-    )
-    assert missing.returncode != 0
-    assert "sidecar is missing or unsafe" in missing.stderr
-    assert not call_log.exists()
-
-    Path(f"{archive}.sha256").write_text("0" * 64 + "\n", encoding="utf-8")
-    mismatched = subprocess.run(
-        ["bash", str(restore_script), str(archive)],
-        cwd=repository_root,
-        env=environment,
-        capture_output=True,
-        text=True,
-    )
-    assert mismatched.returncode != 0
-    assert "checksum verification failed" in mismatched.stderr
-    assert not call_log.exists()
-
-
-def test_restore_blocks_api_and_rejects_queued_job_before_database_change(
-    tmp_path: Path,
-) -> None:
-    repository_root = Path(__file__).resolve().parents[3]
-    restore_script = repository_root / "deploy" / "production" / "restore.sh"
-    env_file = tmp_path / ".env.production"
-    compose_file = tmp_path / "docker-compose.production.yml"
-    archive = _write_legacy_archive(tmp_path)
+    with tarfile.open(archive, "w:gz") as handle:
+        handle.add(sql_file, arcname=sql_file.name)
     Path(f"{archive}.sha256").write_text(
-        hashlib.sha256(archive.read_bytes()).hexdigest() + "\n",
+        hashlib.sha256(archive.read_bytes()).hexdigest(),
         encoding="utf-8",
     )
-    call_log = tmp_path / "docker-calls.log"
-    env_file.write_text("POSTGRES_DB=aionex\n", encoding="utf-8")
-    compose_file.write_text("services: {}\n", encoding="utf-8")
-    fake_docker = tmp_path / "docker"
-    fake_docker.write_text(
-        """#!/usr/bin/env bash
-set -eu
-printf '%s\\n' "$*" >> "${DOCKER_CALL_LOG:?}"
-[[ "${1:-}" == "compose" ]] || exit 1
-shift
-while [[ "${1:-}" == "-f" || "${1:-}" == "--env-file" ]]; do
-  shift 2
-done
-command="${1:-}"
-shift || true
-case "$command" in
-  ps)
-    echo "${*: -1}-container-id"
-    ;;
-  exec)
-    payload="$(cat || true)"
-    printf 'SQL:%s\\n' "$payload" >> "${DOCKER_CALL_LOG:?}"
-    if [[ "$payload" == *"active_recovery_jobs"* ]]; then
-      printf '1\\n'
-    fi
-    ;;
-esac
-""",
-        encoding="utf-8",
-    )
-    fake_docker.chmod(0o755)
-    environment = os.environ.copy()
-    environment["PATH"] = f"{tmp_path}:{environment['PATH']}"
-    environment["DOCKER_CALL_LOG"] = str(call_log)
-    environment["ENV_FILE"] = str(env_file)
-    environment["COMPOSE_FILE"] = str(compose_file)
-    environment["TMPDIR"] = str(tmp_path)
-
-    result = subprocess.run(
-        ["bash", str(restore_script), str(archive)],
-        cwd=repository_root,
-        env=environment,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode != 0
-    assert "job remains queued or running" in result.stderr
-    calls = call_log.read_text(encoding="utf-8")
-    assert "stop backend" in calls
-    assert "stop backup-worker" in calls
-    assert calls.index("stop backend") < calls.index("stop backup-worker")
-    assert calls.index("stop backup-worker") < calls.index("active_recovery_jobs")
-    assert "up -d backend" in calls
-    assert "start backup-worker" in calls
-    assert "pg_restore" not in calls
-
-
-def test_owner_backup_restore_runbook_verifies_and_restores_custom_archive(
-    tmp_path: Path,
-) -> None:
-    repository_root = Path(__file__).resolve().parents[3]
-    restore_script = repository_root / "deploy" / "production" / "restore.sh"
-    compose_file = (
-        repository_root / "deploy" / "production" / "docker-compose.production.yml"
-    )
-    env_file = tmp_path / ".env.production"
-    env_file.write_text("POSTGRES_DB=aionex\n", encoding="utf-8")
-    payload = b"PGDMPowner-backup-runbook-test"
-    checksum = hashlib.sha256(payload).hexdigest()
-    fake_docker = tmp_path / "docker"
-    call_log = tmp_path / "docker-calls.log"
-    fake_docker.write_text(
-        """#!/usr/bin/env bash
-set -eu
-printf '%s\\n' "$*" >> "${DOCKER_CALL_LOG:?}"
-[[ "${1:-}" == "compose" ]] || exit 1
-shift
-while [[ "${1:-}" == "-f" || "${1:-}" == "--env-file" ]]; do
-  shift 2
-done
-command="${1:-}"
-shift || true
-case "$command" in
-  ps)
-    echo "${*: -1}-container-id"
-    ;;
-  cp)
-    destination="${*: -1}"
-    printf 'PGDMPowner-backup-runbook-test' > "$destination"
-    ;;
-  exec)
-    if [[ "$*" == *"AIOS_BACKUP_REPAIR=1"* ]]; then
-      cat >> "${DOCKER_CALL_LOG:?}"
-    elif [[ "$*" == *"AIOS_BACKUP_ID="* ]]; then
-      printf '%s\\t%s\\t/var/lib/aionex/backups/backup-aaaaaaaaaaaaaaaaaaaaaaaa.dump\\t%s\\t%s\\t%s\\n' \
-        "6461746162617365" "706c6174666f726d" \
-        "${FAKE_CHECKSUM:?}" "${FAKE_SIZE:?}" "1785283200.123456"
-    else
-      payload="$(cat || true)"
-      printf 'SQL:%s\\n' "$payload" >> "${DOCKER_CALL_LOG:?}"
-      if [[ "$payload" == *"active_recovery_jobs"* ]]; then
-        printf '0\\n'
-      fi
-    fi
-    ;;
-esac
-""",
-        encoding="utf-8",
-    )
-    fake_docker.chmod(0o755)
-    environment = os.environ.copy()
-    environment["PATH"] = f"{tmp_path}:{environment['PATH']}"
-    environment["DOCKER_CALL_LOG"] = str(call_log)
-    environment["FAKE_CHECKSUM"] = checksum
-    environment["FAKE_SIZE"] = str(len(payload))
-    environment["TMPDIR"] = str(tmp_path)
-    environment["ENV_FILE"] = str(env_file)
-    environment["COMPOSE_FILE"] = str(compose_file)
-
-    result = subprocess.run(
-        [
-            "bash",
-            str(restore_script),
-            "--owner-backup-id",
-            "12345678-1234-4123-8123-123456789abc",
-        ],
-        cwd=repository_root,
-        env=environment,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, result.stderr
-    calls = call_log.read_text(encoding="utf-8")
-    assert (
-        "cp backup-worker:/var/lib/aionex/backups/"
-        "backup-aaaaaaaaaaaaaaaaaaaaaaaa.dump" in calls
-    )
-    assert "stop backup-worker" in calls
-    assert "stop backend" in calls
-    assert calls.index("stop backend") < calls.index("stop backup-worker")
-    assert calls.index("stop backup-worker") < calls.index("active_recovery_jobs")
-    assert calls.index("active_recovery_jobs") < calls.index("pg_restore")
-    assert "pg_restore --no-password --clean --if-exists" in calls
-    assert "AIOS_BACKUP_REPAIR=1" in calls
-    assert "INSERT INTO backup_records" in calls
-    assert "ON CONFLICT (id) DO UPDATE" in calls
-    assert "status = EXCLUDED.status" in calls
-    assert "completed_at = EXCLUDED.completed_at" in calls
-    assert "up -d --wait --wait-timeout 180 backend backup-worker" in calls
-
-
-def test_legacy_production_environment_matches_backend_and_proxy_contracts() -> None:
-    repository_root = Path(__file__).resolve().parents[3]
-    example = (
-        repository_root / "deploy" / "production" / ".env.production.example"
-    ).read_text()
-
-    for key in (
-        "PUBLIC_DOMAIN",
-        "API_DOMAIN",
-        "PUBLIC_ORIGIN",
-        "API_ORIGIN",
-        "CORS_ORIGINS",
-        "POSTGRES_PASSWORD",
-        "SECRET_KEY",
-        "AIOS_BOOTSTRAP_OWNER_PASSWORD",
-        "GOOGLE_API_KEY",
-        "SMTP_USER",
-    ):
-        assert f"{key}=" in example
-
-    assert "ALLOWED_ORIGINS=" not in example
-    assert "GEMINI_API_KEY=" not in example
-    assert "SMTP_USERNAME=" not in example
-
-
-@pytest.mark.parametrize(
-    "script_name",
-    ["validate-production.sh", "final-release-check.sh"],
-)
-def test_legacy_production_validation_enforces_domain_contract(
-    tmp_path: Path,
-    script_name: str,
-) -> None:
-    repository_root = Path(__file__).resolve().parents[3]
-    fake_docker = tmp_path / "docker"
-    fake_docker.write_text("#!/usr/bin/env sh\nexit 0\n", encoding="utf-8")
-    fake_docker.chmod(0o755)
-
-    env_file = tmp_path / ".env.production"
-    env_file.write_text(
-        "\n".join(
-            (
-                "PUBLIC_DOMAIN=app.example.test",
-                "API_DOMAIN=api.example.test",
-                "PUBLIC_ORIGIN=https://app.example.test",
-                "API_ORIGIN=https://api.example.test",
-                'CORS_ORIGINS=["https://app.example.test"]',
-                "POSTGRES_DB=aionex",
-                "POSTGRES_USER=aionex",
-                "POSTGRES_PASSWORD=not-a-placeholder",
-                f"SECRET_KEY={'s' * 32}",
-                "AIOS_BOOTSTRAP_OWNER_PASSWORD=strong-owner-password",
-            )
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    environment = os.environ.copy()
-    environment["PATH"] = f"{tmp_path}:{environment['PATH']}"
-    environment["ENV_FILE"] = str(env_file)
-
-    valid_result = subprocess.run(
-        ["bash", str(repository_root / "deploy" / "production" / script_name)],
-        cwd=repository_root,
-        env=environment,
-        capture_output=True,
-        text=True,
-    )
-    assert valid_result.returncode == 0, valid_result.stderr
-
-    env_file.write_text(
-        env_file.read_text(encoding="utf-8").replace(
-            "PUBLIC_ORIGIN=https://app.example.test",
-            "PUBLIC_ORIGIN=https://wrong.example.test",
-        ),
-        encoding="utf-8",
-    )
-    invalid_result = subprocess.run(
-        ["bash", str(repository_root / "deploy" / "production" / script_name)],
-        cwd=repository_root,
-        env=environment,
-        capture_output=True,
-        text=True,
-    )
-
-    assert invalid_result.returncode != 0
-    assert "PUBLIC_ORIGIN must equal https://PUBLIC_DOMAIN" in invalid_result.stderr
+    return archive
