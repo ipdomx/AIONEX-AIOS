@@ -220,6 +220,44 @@ async def _password_authentication_succeeds(
         await connection.close()
 
 
+async def _discover_local_admin_connection(
+    credentials: BundledPostgresCredentials,
+    *,
+    socket_directory: str,
+) -> asyncpg.Connection:
+    """Open a trusted local socket connection using an existing login role."""
+
+    candidates: list[str] = []
+    configured_admin = os.environ.get("POSTGRES_ADMIN_USER", "").strip()
+    if configured_admin:
+        candidates.append(configured_admin)
+    candidates.extend((credentials.user, "postgres"))
+
+    seen: set[str] = set()
+    last_error: BaseException | None = None
+    for candidate in candidates:
+        if not candidate or candidate in seen:
+            continue
+        seen.add(candidate)
+        try:
+            return await asyncpg.connect(
+                host=socket_directory,
+                user=candidate,
+                database=credentials.database,
+                timeout=15,
+            )
+        except (
+            asyncpg.InvalidAuthorizationSpecificationError,
+            asyncpg.InvalidPasswordError,
+            asyncpg.InvalidCatalogNameError,
+        ) as exc:
+            last_error = exc
+
+    raise CredentialConfigurationError(
+        "no local PostgreSQL login role is available for credential reconciliation"
+    ) from last_error
+
+
 async def reconcile_bundled_postgres_credentials(
     credentials: BundledPostgresCredentials,
     *,
@@ -231,12 +269,9 @@ async def reconcile_bundled_postgres_credentials(
     if await _password_authentication_succeeds(credentials):
         return
 
-    admin_user = os.environ.get("POSTGRES_ADMIN_USER", "postgres").strip() or "postgres"
-    local_connection = await asyncpg.connect(
-        host=socket_directory,
-        user=admin_user,
-        database=credentials.database,
-        timeout=15,
+    local_connection = await _discover_local_admin_connection(
+        credentials,
+        socket_directory=socket_directory,
     )
     try:
         async with local_connection.transaction():
