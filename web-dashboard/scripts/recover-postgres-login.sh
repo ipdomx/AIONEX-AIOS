@@ -26,32 +26,55 @@ if [[ -z "${ENV_FILE}" ]]; then
   fi
 fi
 [[ -f "${ENV_FILE}" ]] || die "environment file not found: ${ENV_FILE}"
+[[ -f "${COMPOSE_FILE}" ]] || die "Compose file not found: ${COMPOSE_FILE}"
 ENV_FILE="$(realpath "${ENV_FILE}")"
 
-set -a
-# shellcheck disable=SC1090
-source "${ENV_FILE}"
-set +a
-
-: "${POSTGRES_USER:?POSTGRES_USER is required}"
-: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
-: "${POSTGRES_DB:?POSTGRES_DB is required}"
+if ! command -v docker >/dev/null 2>&1; then
+  die "docker is required"
+fi
+if ! docker compose version >/dev/null 2>&1; then
+  die "Docker Compose v2 is required"
+fi
 
 compose_args=(docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}")
 compose() {
   AIOS_ENV_FILE="${ENV_FILE}" "${compose_args[@]}" "$@"
 }
 
+# Never `source` a dotenv file. Docker Compose accepts dotenv syntax that is not
+# valid shell syntax (for example JSON arrays containing spaces), and sourcing it
+# can execute or split user-controlled values. Ask Compose to parse the file,
+# then extract only the three exact values required by this recovery workflow.
+compose_environment="$("${compose_args[@]}" config --environment)"
+environment_value() {
+  local key="$1"
+  local line
+  line="$(grep -m1 -E "^${key}=" <<<"${compose_environment}" || true)"
+  [[ -n "${line}" ]] || return 1
+  printf '%s' "${line#*=}"
+}
+
+POSTGRES_USER="$(environment_value POSTGRES_USER || true)"
+POSTGRES_PASSWORD="$(environment_value POSTGRES_PASSWORD || true)"
+POSTGRES_DB="$(environment_value POSTGRES_DB || true)"
+
+[[ -n "${POSTGRES_USER}" ]] || die "POSTGRES_USER is required"
+[[ -n "${POSTGRES_PASSWORD}" ]] || die "POSTGRES_PASSWORD is required"
+[[ -n "${POSTGRES_DB}" ]] || die "POSTGRES_DB is required"
+
 compose up -d --no-deps postgres
 postgres_id="$(compose ps -q postgres)"
 [[ -n "${postgres_id}" ]] || die "PostgreSQL container was not created"
 
+ready=false
 for ((attempt = 1; attempt <= 30; attempt++)); do
   if compose exec -T postgres pg_isready --host 127.0.0.1 --port 5432 --quiet; then
+    ready=true
     break
   fi
   sleep 2
 done
+[[ "${ready}" == "true" ]] || die "PostgreSQL did not become ready within 60 seconds"
 
 if compose exec -T postgres psql --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" --no-password --command 'SELECT 1' >/dev/null 2>&1; then
   echo "Configured PostgreSQL role already permits local login."
@@ -79,7 +102,7 @@ docker run --rm \
     psql --host /tmp --dbname template1 --set ON_ERROR_STOP=1 \
       --set target_role="$TARGET_ROLE" \
       --set target_password="$TARGET_PASSWORD" \
-      --command "SELECT format('"'"'ALTER ROLE %I WITH LOGIN PASSWORD %L'"'"', :'"'"'target_role'"'"', :'"'"'target_password'"'"') \gexec"
+      --command "SELECT format('"'"'ALTER ROLE %I WITH LOGIN PASSWORD %L'"'"', :'"'"'target_role'"'"', :'"'"'target_password'"'"') \\gexec"
   '
 recovery_status=$?
 set -e
