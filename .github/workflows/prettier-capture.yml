@@ -1,4 +1,4 @@
-name: Prettier Capture
+name: Prettier Canonical Commit
 
 on:
   pull_request:
@@ -6,16 +6,22 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  capture:
+  format-and-commit:
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    env:
+      HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
     defaults:
       run:
         working-directory: web-dashboard/frontend
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
@@ -23,16 +29,17 @@ jobs:
           cache-dependency-path: web-dashboard/frontend/package-lock.json
       - name: Install frontend dependencies
         run: npm ci
-      - name: Generate canonical Prettier output
+      - name: Apply canonical Prettier output
+        run: npx prettier --write src/app/owner/operations/page.tsx
+      - name: Commit canonical formatting
         run: |
-          npx prettier --write src/app/owner/operations/page.tsx
-          mkdir -p prettier-capture/src/app/owner/operations
-          cp src/app/owner/operations/page.tsx prettier-capture/src/app/owner/operations/page.tsx
-          git diff -- src/app/owner/operations/page.tsx > prettier-capture/prettier.patch
-      - name: Upload canonical Prettier output
-        uses: actions/upload-artifact@v4
-        with:
-          name: owner-operations-prettier-capture
-          path: web-dashboard/frontend/prettier-capture
-          if-no-files-found: error
-          retention-days: 1
+          git diff --check
+          if git diff --quiet -- src/app/owner/operations/page.tsx; then
+            echo "Owner Operations page is already canonical."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/app/owner/operations/page.tsx
+          git commit -m "Apply canonical Prettier output to Owner Operations"
+          git push origin "HEAD:${HEAD_BRANCH}"
