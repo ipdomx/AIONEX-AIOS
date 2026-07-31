@@ -1,6 +1,7 @@
 from pathlib import Path
 
 
+# Mobile-browser failures must stay diagnosable without developer tools.
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 AUTH_GATE = (
     REPOSITORY_ROOT
