@@ -32,9 +32,11 @@ services:
       BACKUP_DIR: /var/lib/aionex/backups
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
+      FIREBASE_ADMIN_CREDENTIALS_JSON: /run/secrets/firebase-admin.json
     volumes:
       - ..:/workspace:ro
       - backup_data:/var/lib/aionex/backups:ro
+      - ./secrets/firebase-admin.json:/run/secrets/firebase-admin.json:ro
     depends_on:
       postgres:
         condition: service_healthy
