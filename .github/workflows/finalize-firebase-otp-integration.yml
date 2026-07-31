@@ -1,24 +1,26 @@
 name: Finalize Firebase Phone OTP Integration
 
 on:
-  push:
-    branches:
-      - feat/firebase-phone-otp-complete
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: finalize-firebase-phone-otp-integration
-  cancel-in-progress: false
+  group: finalize-firebase-phone-otp-integration-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   finalize:
     name: Apply, verify, and commit Firebase OTP integration
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TARGET_BRANCH: ${{ github.head_ref || 'feat/firebase-phone-otp-complete' }}
       ENVIRONMENT: test
       DEBUG: "false"
       SECRET_KEY: ci-firebase-integration-secret-key-with-at-least-32-characters
@@ -30,7 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: feat/firebase-phone-otp-complete
+          ref: ${{ env.TARGET_BRANCH }}
           fetch-depth: 0
 
       - name: Reconstruct and apply reviewed source overlay
@@ -218,4 +220,4 @@ jobs:
           git diff --cached --check
           test -n "$(git diff --cached --name-only)"
           git commit -m "Integrate Firebase phone OTP verification"
-          git push origin HEAD:feat/firebase-phone-otp-complete
+          git push origin "HEAD:${TARGET_BRANCH}"
