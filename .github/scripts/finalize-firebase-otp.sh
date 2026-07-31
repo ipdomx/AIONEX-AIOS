@@ -93,13 +93,35 @@ def verify_phone_verification_token(
 '''
     text = text.replace(marker, compatibility + marker, 1)
     path.write_text(text)
+
+path = Path("web-dashboard/backend/app/services/firebase_phone.py")
+text = path.read_text()
+if "def _firebase_app(" not in text:
+    marker = "\ndef verify_firebase_phone_token("
+    if marker not in text:
+        raise SystemExit("Firebase compatibility verifier marker was not found")
+    alias = r'''
+
+def _firebase_app() -> Any:
+    """Backward-compatible Firebase app hook for verified-token callers."""
+
+    return _compat_firebase_app()
+
+'''
+    text = text.replace(marker, alias + marker, 1)
+text = text.replace("app=_compat_firebase_app(),", "app=_firebase_app(),")
+path.write_text(text)
 PY
 
 cd web-dashboard/backend
 python -m pip install --upgrade pip
 pip install -r requirements.txt
-python -m black --target-version py311 app/services/free_tier.py
-python -m ruff check app/services/free_tier.py
+python -m black --target-version py311 \
+  app/services/free_tier.py \
+  app/services/firebase_phone.py
+python -m ruff check \
+  app/services/free_tier.py \
+  app/services/firebase_phone.py
 python -m compileall app main.py
 python -m pytest -vv \
   tests/test_firebase_phone.py \
@@ -116,5 +138,5 @@ git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 git add -A
 git diff --cached --check
 test -n "$(git diff --cached --name-only)"
-git commit -m "Restore legacy phone assertion compatibility"
+git commit -m "Restore Firebase phone compatibility contracts"
 git push origin "HEAD:${TARGET_BRANCH}"
