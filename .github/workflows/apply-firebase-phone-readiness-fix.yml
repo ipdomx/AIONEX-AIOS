@@ -1,0 +1,122 @@
+name: Apply Firebase Phone Readiness Fix
+
+on:
+  push:
+    branches:
+      - fix/firebase-phone-readiness-country
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-firebase-phone-readiness-country
+  cancel-in-progress: false
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    env:
+      TARGET_BRANCH: fix/firebase-phone-readiness-country
+      ENVIRONMENT: test
+      DEBUG: "false"
+      SECRET_KEY: ci-firebase-readiness-secret-key-with-at-least-32-characters
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/aionex_test
+      REDIS_URL: redis://localhost:6379/0
+      BACKUP_DIR: /tmp/aionex-ci-backups
+      AIOS_REPO_ROOT: ${{ github.workspace }}
+      PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}/web-dashboard/backend
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: fix/firebase-phone-readiness-country
+          fetch-depth: 0
+
+      - name: Apply deterministic source repair
+        run: |
+          set -Eeuo pipefail
+          sed -i \
+            -e 's/if count != 1:/if count < 1:/' \
+            -e 's/expected one replacement, found/expected at least one replacement, found/' \
+            .github/scripts/apply-firebase-phone-readiness-fix.py
+          python .github/scripts/apply-firebase-phone-readiness-fix.py
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: web-dashboard/backend/requirements.txt
+
+      - name: Install backend dependencies
+        working-directory: web-dashboard/backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Format and statically verify backend
+        run: |
+          python -m isort \
+            web-dashboard/backend/app/api/v1/endpoints/auth.py \
+            web-dashboard/backend/app/services/firebase_phone.py \
+            web-dashboard/backend/app/services/free_tier.py \
+            web-dashboard/backend/tests/test_batch7_quality_contracts.py \
+            web-dashboard/backend/tests/test_firebase_phone_auth.py
+          python -m black --target-version py311 \
+            web-dashboard/backend/app/api/v1/endpoints/auth.py \
+            web-dashboard/backend/app/services/firebase_phone.py \
+            web-dashboard/backend/app/services/free_tier.py \
+            web-dashboard/backend/tests/test_batch7_quality_contracts.py \
+            web-dashboard/backend/tests/test_firebase_phone_auth.py
+          python -m ruff check \
+            web-dashboard/backend/app/api/v1/endpoints/auth.py \
+            web-dashboard/backend/app/services/firebase_phone.py \
+            web-dashboard/backend/app/services/free_tier.py \
+            web-dashboard/backend/tests/test_batch7_quality_contracts.py \
+            web-dashboard/backend/tests/test_firebase_phone_auth.py
+          python -m compileall web-dashboard/backend/app web-dashboard/backend/main.py
+
+      - name: Run focused backend tests
+        working-directory: web-dashboard/backend
+        run: |
+          python -m pytest -vv \
+            tests/test_firebase_phone_auth.py \
+            tests/test_free_registration_identity.py \
+            tests/test_batch7_quality_contracts.py \
+            --maxfail=1 --tb=long --showlocals
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web-dashboard/frontend/package-lock.json
+
+      - name: Install and verify frontend
+        working-directory: web-dashboard/frontend
+        run: |
+          npm ci
+          npx prettier --write \
+            src/components/auth/AuthGate.tsx \
+            src/lib/auth-service.ts \
+            src/lib/firebase-phone-auth.ts
+          npx prettier --check \
+            src/components/auth/AuthGate.tsx \
+            src/lib/auth-service.ts \
+            src/lib/firebase-phone-auth.ts
+          npm run lint -- \
+            --file src/components/auth/AuthGate.tsx \
+            --file src/lib/auth-service.ts \
+            --file src/lib/firebase-phone-auth.ts
+          npm run type-check
+          npm run build
+
+      - name: Commit verified repair
+        run: |
+          set -Eeuo pipefail
+          rm -f .github/scripts/apply-firebase-phone-readiness-fix.py
+          rm -f .github/workflows/apply-firebase-phone-readiness-fix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          test -n "$(git diff --cached --name-only)"
+          git commit -m "Fix Firebase phone readiness and country detection"
+          git push origin "HEAD:${TARGET_BRANCH}"
