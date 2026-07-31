@@ -1,3 +1,4 @@
+# Trusted repository-owner validation trigger.
 name: Fix Firebase Phone Activation Diagnostics and Country Code
 
 on:
