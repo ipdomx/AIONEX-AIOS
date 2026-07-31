@@ -15,13 +15,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import UserRecord, auth_service, current_user, oauth2_scheme
 from app.db.base import get_db
 from app.db.models import AuditEvent, RefreshSession
+from app.services import free_tier as free_tier_service
+from app.services.firebase_phone import verify_firebase_phone_token
 from app.services.free_tier import (
     client_ip_from_request,
     get_free_tier_policy,
     get_free_tier_status,
     public_free_tier_policy,
-    register_free_account,
 )
+
+# Keep the free-tier registration service provider-agnostic while selecting
+# Firebase as the deployment phone-verification adapter.
+free_tier_service.verify_phone_verification_token = verify_firebase_phone_token
 
 router = APIRouter()
 
@@ -187,7 +192,7 @@ async def register_free(
     request: Request,
     session: AsyncSession = Depends(get_db),
 ):
-    user = await register_free_account(
+    user = await free_tier_service.register_free_account(
         session,
         request,
         username=data.username,
