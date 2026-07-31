@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
+import re
 from datetime import UTC, datetime
 from typing import Any, Literal
 
@@ -9,6 +12,12 @@ from app.core.auth import UserRecord, current_user, pwd_context
 from app.core.config import settings
 from app.db.base import get_db
 from app.db.models import OwnerControlRecord, RefreshSession, User, uuid_str
+from app.services.free_tier import (
+    FREE_USER_ROLE_NAME,
+    adjust_storage_usage,
+    avatar_data_size,
+    get_free_tier_status,
+)
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -25,9 +34,15 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     "push_notifications": False,
 }
 
+_AVATAR_PATTERN = re.compile(
+    r"^data:image/(?:png|jpeg|jpg|webp|gif);base64,([A-Za-z0-9+/=]+)$"
+)
+_MAX_AVATAR_BYTES = 2 * 1024 * 1024
+
 
 class SettingsUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=200)
+    avatar: str | None = Field(default=None, max_length=3_000_000)
     language: str | None = Field(default=None, min_length=2, max_length=20)
     timezone: str | None = Field(default=None, min_length=2, max_length=80)
     theme: Literal["dark", "light", "system"] | None = None
@@ -80,10 +95,35 @@ async def _preference_record(session: AsyncSession, user_id: str) -> OwnerContro
     return record
 
 
+def _validated_avatar(value: str) -> str | None:
+    normalized = value.strip()
+    if not normalized:
+        return None
+    match = _AVATAR_PATTERN.fullmatch(normalized)
+    if match is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Profile image must be an uploaded PNG, JPEG, WebP, or GIF",
+        )
+    try:
+        decoded = base64.b64decode(match.group(1), validate=True)
+    except (ValueError, binascii.Error) as exc:
+        raise HTTPException(status_code=422, detail="Profile image is invalid") from exc
+    if not decoded or len(decoded) > _MAX_AVATAR_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail="Profile image must be no larger than 2 MB",
+        )
+    return normalized
+
+
 async def _serialize_settings(
     session: AsyncSession, actor: UserRecord
 ) -> dict[str, Any]:
     record = await _preference_record(session, actor.id)
+    user = await session.get(User, actor.id)
+    if user is None or user.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="User not found")
     sessions = (
         await session.scalars(
             select(RefreshSession).where(
@@ -99,6 +139,7 @@ async def _serialize_settings(
             "email": actor.email,
             "role": actor.role,
             "organization": actor.organization_name,
+            "avatar": user.avatar,
         },
         "preferences": record.payload,
         "security": {
@@ -106,6 +147,11 @@ async def _serialize_settings(
             "active_sessions": len(sessions),
             "password_min_length": settings.PASSWORD_MIN_LENGTH,
         },
+        "free_tier": (
+            await get_free_tier_status(session, actor)
+            if actor.role == FREE_USER_ROLE_NAME
+            else None
+        ),
     }
 
 
@@ -129,12 +175,29 @@ async def update_settings(
     if user is None or user.deleted_at is not None:
         raise HTTPException(status_code=404, detail="User not found")
     updates = data.model_dump(exclude_none=True)
+    if actor.role == FREE_USER_ROLE_NAME:
+        disallowed = set(updates) - {"avatar"}
+        if disallowed:
+            raise HTTPException(
+                status_code=403,
+                detail="Free users may only change their profile image or password",
+            )
     if "name" in updates:
         user.name = str(updates.pop("name")).strip()
         actor.name = user.name
+    if "avatar" in updates:
+        next_avatar = _validated_avatar(str(updates.pop("avatar")))
+        if actor.role == FREE_USER_ROLE_NAME:
+            await adjust_storage_usage(
+                session,
+                actor,
+                avatar_data_size(next_avatar) - avatar_data_size(user.avatar),
+            )
+        user.avatar = next_avatar
     record = await _preference_record(session, actor.id)
-    record.payload = {**record.payload, **updates}
-    record.version += 1
+    if updates:
+        record.payload = {**record.payload, **updates}
+        record.version += 1
     await session.commit()
     return await _serialize_settings(session, actor)
 

@@ -5,6 +5,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from app.core.ai_runtime import ai_runtime
 from app.core.auth import auth_service
 from app.db.base import SessionLocal
+from app.services.free_tier import FREE_USER_ROLE_NAME
 
 router = APIRouter()
 
@@ -22,8 +23,10 @@ async def websocket_connect(websocket: WebSocket, token: str):
             user = await auth_service.get_user_by_id(session, str(payload["sub"]))
         if int(payload.get("auth_version", 0)) != user.auth_version:
             raise PermissionError("Access token generation is no longer valid")
+        if user.role == FREE_USER_ROLE_NAME:
+            raise PermissionError("Free accounts cannot open the platform event stream")
     except Exception:
-        await websocket.close(code=4401)
+        await websocket.close(code=4403)
         return
 
     organization_id = user.organization_id

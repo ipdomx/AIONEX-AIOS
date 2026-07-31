@@ -65,6 +65,8 @@ OWNER_API_CONTRACT = {
     ("GET", "/api/v1/owner/releases"),
     ("POST", "/api/v1/owner/releases/{candidate_id}/decision"),
     ("GET", "/api/v1/owner/finalization"),
+    ("GET", "/api/v1/owner/free-tier"),
+    ("PATCH", "/api/v1/owner/free-tier"),
 }
 
 OWNER_GET_ROUTES = sorted(
@@ -118,6 +120,9 @@ OWNER_MUTATION_REQUESTS = {
     },
     ("PATCH", "/api/v1/owner/licenses/{license_id}"): {
         "action": "suspend",
+    },
+    ("PATCH", "/api/v1/owner/free-tier"): {
+        "enabled": True,
     },
     ("POST", "/api/v1/owner/releases/{candidate_id}/decision"): {
         "decision": "approve",
