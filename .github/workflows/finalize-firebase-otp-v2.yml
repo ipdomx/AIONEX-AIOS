@@ -1,6 +1,8 @@
 name: Firebase OTP Integration Builder
 
 on:
+  push:
+    branches: [feat/firebase-phone-otp-complete]
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened]
@@ -9,16 +11,16 @@ permissions:
   contents: write
 
 concurrency:
-  group: firebase-otp-builder-${{ github.event.pull_request.number }}
+  group: firebase-otp-builder-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      TARGET_BRANCH: ${{ github.head_ref }}
+      TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
       ENVIRONMENT: test
       DEBUG: "false"
       SECRET_KEY: ci-firebase-integration-secret-key-with-at-least-32-characters
@@ -29,7 +31,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.head_ref }}
+          ref: ${{ env.TARGET_BRANCH }}
           fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
