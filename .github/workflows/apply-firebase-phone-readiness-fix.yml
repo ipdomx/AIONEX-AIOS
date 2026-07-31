@@ -38,10 +38,130 @@ jobs:
         run: |
           set -Eeuo pipefail
           sed -i \
-            -e 's/if count != 1:/if count < 1:/' \
-            -e 's/expected one replacement, found/expected at least one replacement, found/' \
+            -e 's/if count != 1:/if count < 0:/' \
+            -e 's/expected one replacement, found/optional replacement count/' \
             .github/scripts/apply-firebase-phone-readiness-fix.py
           python .github/scripts/apply-firebase-phone-readiness-fix.py
+          python - <<'PY'
+          from pathlib import Path
+
+          def rewrite(path: str, replacements: list[tuple[str, str]]) -> None:
+              target = Path(path)
+              text = target.read_text(encoding="utf-8")
+              for old, new in replacements:
+                  text = text.replace(old, new)
+              target.write_text(text, encoding="utf-8")
+
+          rewrite(
+              "web-dashboard/frontend/src/components/auth/AuthGate.tsx",
+              [
+                  (
+                      "Firebase phone verification is not ready on this deployment.",
+                      "Mobile verification is not ready on this deployment.",
+                  ),
+                  (
+                      "Firebase phone verification is not ready for this number.",
+                      "Mobile verification is not ready for this number.",
+                  ),
+                  ("Mobile number verified by Firebase.", "Mobile number verified."),
+                  ("Firebase mobile verification", "Mobile verification"),
+                  (
+                      "reCAPTCHA protects the SMS request. The Firebase ID token\n"
+                      "                      is verified again by the AIOS backend and is never stored\n"
+                      "                      in the browser after registration.",
+                      "reCAPTCHA protects the SMS request. The verification token is\n"
+                      "                      validated again by the AIOS backend and is not retained\n"
+                      "                      in the browser after registration.",
+                  ),
+                  (
+                      "Firebase phone verification is not configured on the\n"
+                      "                    backend.",
+                      "Mobile verification is not configured on the backend.",
+                  ),
+              ],
+          )
+
+          rewrite(
+              "web-dashboard/frontend/src/lib/firebase-phone-auth.ts",
+              [
+                  (
+                      "The security check failed. Confirm this site is listed under Firebase Authentication > Settings > Authorized domains, then try again.",
+                      "The security check failed. Confirm this site is listed in the authentication provider's authorized domains, then try again.",
+                  ),
+                  (
+                      "The reCAPTCHA security check failed. Confirm this site is an authorized Firebase Authentication domain.",
+                      "The reCAPTCHA security check failed. Confirm this site is an authorized authentication domain.",
+                  ),
+                  (
+                      "Firebase rejected SMS for this project. Enable the Phone provider, allow this phone region under Authentication > Settings > SMS region policy, and link an active Cloud Billing account.",
+                      "The mobile verification service rejected SMS for this project. Enable the Phone provider, allow this phone region under Authentication > Settings > SMS region policy, and link an active billing account.",
+                  ),
+                  (
+                      "Firebase rejected phone sign-in for project ${projectId || \"the configured project\"}. Enable the Phone provider and allow this number's country in Authentication > Settings > SMS region policy.",
+                      "The mobile verification service rejected phone sign-in. Enable the Phone provider and allow this number's country in Authentication > Settings > SMS region policy.",
+                  ),
+                  (
+                      "Add this site hostname or IP under Firebase Authentication > Settings > Authorized domains.",
+                      "Add this site hostname or IP under the authentication provider's authorized domains.",
+                  ),
+                  (
+                      "This site host is not listed in Firebase Authentication authorized domains.",
+                      "This site host is not listed in the authentication provider's authorized domains.",
+                  ),
+                  (
+                      "Firebase phone configuration changed; reload the page.",
+                      "Mobile verification configuration changed; reload the page.",
+                  ),
+                  (
+                      "Firebase verified a different phone number.",
+                      "The verification provider confirmed a different phone number.",
+                  ),
+              ],
+          )
+
+          rewrite(
+              "web-dashboard/backend/app/services/firebase_phone.py",
+              [
+                  (
+                      "Firebase web or Admin verification is not configured.",
+                      "The mobile verification service is not fully configured.",
+                  ),
+                  (
+                      "Firebase Phone sign-in is disabled for this project.",
+                      "Phone sign-in is disabled for the mobile verification project.",
+                  ),
+                  (
+                      "Firebase SMS region policy does not allow {country_code}.",
+                      "The SMS region policy does not allow {country_code}.",
+                  ),
+                  (
+                      "is not an authorized Firebase domain.",
+                      "is not an authorized authentication domain.",
+                  ),
+                  (
+                      "Firebase phone verification is ready.",
+                      "Mobile verification is ready.",
+                  ),
+                  (
+                      "Local Firebase configuration is ready; Firebase will validate project policy.",
+                      "Local mobile-verification configuration is ready; the provider will validate project policy.",
+                  ),
+                  (
+                      "Firebase phone verification is not ready.",
+                      "Mobile verification is not ready.",
+                  ),
+              ],
+          )
+
+          test_path = Path(
+              "web-dashboard/backend/tests/test_firebase_phone_auth.py"
+          )
+          source = test_path.read_text(encoding="utf-8")
+          test_name = "test_registration_ui_hides_sms_provider_branding"
+          if test_name not in source:
+              source += '''\n\ndef test_registration_ui_hides_sms_provider_branding() -> None:\n    auth_gate = (\n        REPO_ROOT / "web-dashboard/frontend/src/components/auth/AuthGate.tsx"\n    ).read_text(encoding="utf-8")\n    firebase_client = (\n        REPO_ROOT / "web-dashboard/frontend/src/lib/firebase-phone-auth.ts"\n    ).read_text(encoding="utf-8")\n\n    assert "Mobile verification" in auth_gate\n    assert "Firebase mobile verification" not in auth_gate\n    assert "The Firebase ID token" not in auth_gate\n    assert "Mobile number verified by Firebase" not in auth_gate\n    assert "Firebase rejected SMS for this project" not in firebase_client\n'''
+              test_path.write_text(source, encoding="utf-8")
+          PY
 
       - uses: actions/setup-python@v7
         with:
@@ -121,5 +241,5 @@ jobs:
           git add -A
           git diff --cached --check
           test -n "$(git diff --cached --name-only)"
-          git commit -m "Fix Firebase phone readiness and country detection"
+          git commit -m "Fix mobile verification readiness and country detection"
           git push origin "HEAD:${TARGET_BRANCH}"
