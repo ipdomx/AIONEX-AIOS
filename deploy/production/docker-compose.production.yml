@@ -14,6 +14,7 @@ services:
       BACKUP_DIR: /var/lib/aionex/backups
       AIOS_PUBLIC_ORIGIN: ${PUBLIC_ORIGIN}
       AIOS_API_ORIGIN: ${API_ORIGIN}
+      FIREBASE_ADMIN_CREDENTIALS_JSON: /run/secrets/aionex/firebase-admin.json
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
     restart: unless-stopped
@@ -21,6 +22,7 @@ services:
       - "8000"
     volumes:
       - ../..:/workspace:ro
+      - ../../web-dashboard/secrets:/run/secrets/aionex:ro
       - backup_data:/var/lib/aionex/backups:ro
     depends_on:
       postgres:

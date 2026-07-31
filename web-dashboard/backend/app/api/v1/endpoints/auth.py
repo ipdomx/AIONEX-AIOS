@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import UserRecord, auth_service, current_user, oauth2_scheme
 from app.db.base import get_db
 from app.db.models import AuditEvent, RefreshSession
+from app.services.firebase_phone import firebase_public_configuration
 from app.services.free_tier import (
     client_ip_from_request,
     get_free_tier_policy,
@@ -77,7 +78,7 @@ class FreeRegisterRequest(BaseModel):
         max_length=20,
         pattern=r"^\+[1-9][0-9]{7,14}$",
     )
-    phone_verification_token: str = Field(min_length=24, max_length=4096)
+    firebase_id_token: str | None = Field(default=None, min_length=100, max_length=8192)
     consent_accepted: bool
     consent_version: str = Field(min_length=4, max_length=80)
     telemetry: FreeRegistrationTelemetry = Field(
@@ -177,6 +178,11 @@ async def get_public_free_tier(session: AsyncSession = Depends(get_db)):
     return public_free_tier_policy(policy)
 
 
+@router.get("/firebase/phone/public")
+async def get_public_firebase_phone_configuration():
+    return firebase_public_configuration()
+
+
 @router.post(
     "/register/free",
     response_model=LoginResponse,
@@ -197,7 +203,7 @@ async def register_free(
         birth_date=data.birth_date,
         country_code=data.country_code,
         phone_number=data.phone_number,
-        phone_verification_token=data.phone_verification_token,
+        firebase_id_token=data.firebase_id_token,
         consent_accepted=data.consent_accepted,
         consent_version=data.consent_version,
         telemetry=data.telemetry.model_dump(exclude_none=True),

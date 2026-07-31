@@ -44,10 +44,20 @@ services:
       AIOS_BOOTSTRAP_OWNER_EMAIL: "${AIOS_BOOTSTRAP_OWNER_EMAIL:-owner@aionex.local}"
       AIOS_BOOTSTRAP_OWNER_PASSWORD: "${AIOS_BOOTSTRAP_OWNER_PASSWORD:-}"
       AIOS_BOOTSTRAP_RESET_OWNER_PASSWORD: "${AIOS_BOOTSTRAP_RESET_OWNER_PASSWORD:-false}"
+      FIREBASE_PROJECT_ID: "${FIREBASE_PROJECT_ID:-}"
+      FIREBASE_WEB_API_KEY: "${FIREBASE_WEB_API_KEY:-}"
+      FIREBASE_AUTH_DOMAIN: "${FIREBASE_AUTH_DOMAIN:-}"
+      FIREBASE_STORAGE_BUCKET: "${FIREBASE_STORAGE_BUCKET:-}"
+      FIREBASE_MESSAGING_SENDER_ID: "${FIREBASE_MESSAGING_SENDER_ID:-}"
+      FIREBASE_APP_ID: "${FIREBASE_APP_ID:-}"
+      FIREBASE_MEASUREMENT_ID: "${FIREBASE_MEASUREMENT_ID:-}"
+      FIREBASE_ADMIN_CREDENTIALS_JSON: /run/secrets/aionex/firebase-admin.json
+      FIREBASE_PHONE_TOKEN_MAX_AGE_SECONDS: "${FIREBASE_PHONE_TOKEN_MAX_AGE_SECONDS:-900}"
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
     volumes:
       - ..:/workspace:ro
+      - ./secrets:/run/secrets/aionex:ro
     depends_on:
       postgres:
         condition: service_healthy

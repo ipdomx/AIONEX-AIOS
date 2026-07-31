@@ -1,6 +1,7 @@
-from app.api.v1.router import api_router
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
+
+from app.api.v1.router import api_router
 
 
 def _registered_routes():
@@ -23,6 +24,9 @@ def test_required_runtime_routes_are_registered():
     required = {
         "/auth/login",
         "/auth/me",
+        "/auth/firebase/phone/public",
+        "/auth/free-tier/public",
+        "/auth/register/free",
         "/projects",
         "/tasks",
         "/workflows",

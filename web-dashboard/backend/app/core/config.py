@@ -160,6 +160,37 @@ class Settings(BaseSettings):
         default=None, validation_alias="STRIPE_WEBHOOK_SECRET"
     )
 
+    FIREBASE_PROJECT_ID: Optional[str] = Field(
+        default=None, validation_alias="FIREBASE_PROJECT_ID"
+    )
+    FIREBASE_WEB_API_KEY: Optional[str] = Field(
+        default=None, validation_alias="FIREBASE_WEB_API_KEY"
+    )
+    FIREBASE_AUTH_DOMAIN: Optional[str] = Field(
+        default=None, validation_alias="FIREBASE_AUTH_DOMAIN"
+    )
+    FIREBASE_STORAGE_BUCKET: Optional[str] = Field(
+        default=None, validation_alias="FIREBASE_STORAGE_BUCKET"
+    )
+    FIREBASE_MESSAGING_SENDER_ID: Optional[str] = Field(
+        default=None, validation_alias="FIREBASE_MESSAGING_SENDER_ID"
+    )
+    FIREBASE_APP_ID: Optional[str] = Field(
+        default=None, validation_alias="FIREBASE_APP_ID"
+    )
+    FIREBASE_MEASUREMENT_ID: Optional[str] = Field(
+        default=None, validation_alias="FIREBASE_MEASUREMENT_ID"
+    )
+    FIREBASE_ADMIN_CREDENTIALS_JSON: Optional[str] = Field(
+        default=None, validation_alias="FIREBASE_ADMIN_CREDENTIALS_JSON"
+    )
+    FIREBASE_PHONE_TOKEN_MAX_AGE_SECONDS: int = Field(
+        default=900,
+        ge=60,
+        le=3600,
+        validation_alias="FIREBASE_PHONE_TOKEN_MAX_AGE_SECONDS",
+    )
+
     @model_validator(mode="after")
     def resolve_database_url(self) -> "Settings":
         """Build one encoded URL from the same credentials used by PostgreSQL."""

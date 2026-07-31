@@ -44,6 +44,21 @@ export type FreeTierPublicPolicy = {
   required_registration_data: string[];
 };
 
+export type FirebasePhoneConfiguration = {
+  provider: "firebase";
+  enabled: boolean;
+  admin_verification_ready: boolean;
+  web_config: {
+    apiKey: string;
+    authDomain: string;
+    projectId: string;
+    storageBucket?: string;
+    messagingSenderId?: string;
+    appId: string;
+    measurementId?: string;
+  } | null;
+};
+
 export type FreeTierStatus = {
   plan: string;
   free_tier: boolean;
@@ -103,7 +118,7 @@ export type FreeRegistrationPayload = {
   birth_date: string;
   country_code: string;
   phone_number: string;
-  phone_verification_token: string;
+  firebase_id_token?: string;
   consent_accepted: boolean;
   consent_version: string;
   telemetry: FreeRegistrationTelemetry;
@@ -132,7 +147,10 @@ function saveEssentialConsent(version: string): void {
   if (typeof document === "undefined") return;
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
   const value = encodeURIComponent(
-    JSON.stringify({ categories: ["essential", "security", "quota", "device"], version }),
+    JSON.stringify({
+      categories: ["essential", "security", "quota", "device"],
+      version,
+    }),
   );
   document.cookie = `${CONSENT_COOKIE}=${value}; Max-Age=31536000; Path=/; SameSite=Lax${secure}`;
 }
@@ -153,7 +171,8 @@ type TelemetryNavigator = Navigator & {
 };
 
 export function collectRegistrationTelemetry(): FreeRegistrationTelemetry {
-  if (typeof window === "undefined" || typeof navigator === "undefined") return {};
+  if (typeof window === "undefined" || typeof navigator === "undefined")
+    return {};
   const telemetryNavigator = navigator as TelemetryNavigator;
   const connection =
     telemetryNavigator.connection ??
@@ -197,7 +216,10 @@ export const authService = {
   },
 
   async registerFree(payload: FreeRegistrationPayload): Promise<LoginResponse> {
-    const response = await apiClient.post<LoginResponse>("/auth/register/free", payload);
+    const response = await apiClient.post<LoginResponse>(
+      "/auth/register/free",
+      payload,
+    );
     saveEssentialConsent(payload.consent_version);
     saveSession(response);
     return response;
@@ -205,6 +227,12 @@ export const authService = {
 
   async getPublicFreeTierPolicy(): Promise<FreeTierPublicPolicy> {
     return apiClient.get<FreeTierPublicPolicy>("/auth/free-tier/public");
+  },
+
+  async getFirebasePhoneConfiguration(): Promise<FirebasePhoneConfiguration> {
+    return apiClient.get<FirebasePhoneConfiguration>(
+      "/auth/firebase/phone/public",
+    );
   },
 
   async getFreeTierStatus(): Promise<FreeTierStatus> {
