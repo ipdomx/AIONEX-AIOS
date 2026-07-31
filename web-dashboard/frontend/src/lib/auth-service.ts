@@ -34,6 +34,13 @@ export type FreeTierPublicPolicy = {
     max_message_characters: number;
   };
   consent_version: string;
+  identity: {
+    minimum_age: number;
+    phone_verification_required: boolean;
+    device_signals_required: boolean;
+    one_account_per_network: boolean;
+    one_account_per_device: boolean;
+  };
   required_registration_data: string[];
 };
 
@@ -84,13 +91,19 @@ export type FreeRegistrationTelemetry = {
   rtt_ms?: number;
   save_data?: boolean;
   referrer?: string;
+  vendor?: string;
+  webdriver?: boolean;
 };
 
 export type FreeRegistrationPayload = {
+  username: string;
   name: string;
   email: string;
   password: string;
+  birth_date: string;
   country_code: string;
+  phone_number: string;
+  phone_verification_token: string;
   consent_accepted: boolean;
   consent_version: string;
   telemetry: FreeRegistrationTelemetry;
@@ -166,6 +179,8 @@ export function collectRegistrationTelemetry(): FreeRegistrationTelemetry {
     rtt_ms: connection?.rtt,
     save_data: connection?.saveData,
     referrer: document.referrer || undefined,
+    vendor: navigator.vendor || undefined,
+    webdriver: navigator.webdriver,
   };
 }
 

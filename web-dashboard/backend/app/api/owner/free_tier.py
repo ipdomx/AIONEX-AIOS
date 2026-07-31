@@ -36,6 +36,11 @@ class FreeTierPolicyUpdate(BaseModel):
     )
     max_message_characters: int | None = Field(default=None, ge=128, le=200_000)
     registrations_per_ip_per_day: int | None = Field(default=None, ge=1, le=1000)
+    minimum_age: int | None = Field(default=None, ge=13, le=100)
+    require_phone_verification: bool | None = None
+    require_device_signals: bool | None = None
+    one_account_per_network: bool | None = None
+    one_account_per_device: bool | None = None
     telemetry_retention_days: int | None = Field(default=None, ge=1, le=3650)
     consent_version: str | None = Field(default=None, min_length=4, max_length=80)
     require_country: bool | None = None

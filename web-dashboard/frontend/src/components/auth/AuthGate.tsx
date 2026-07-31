@@ -52,7 +52,11 @@ export default function AuthGate({ children }: PropsWithChildren) {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [loginEmail, setLoginEmail] = useState("owner@aionex.local");
   const [loginPassword, setLoginPassword] = useState("");
+  const [username, setUsername] = useState("");
   const [name, setName] = useState("");
+  const [birthDate, setBirthDate] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [phoneVerificationToken, setPhoneVerificationToken] = useState("");
   const [registrationEmail, setRegistrationEmail] = useState("");
   const [registrationPassword, setRegistrationPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -122,6 +126,37 @@ export default function AuthGate({ children }: PropsWithChildren) {
       setError("Free registration is currently disabled by the platform owner.");
       return;
     }
+    if (!/^[A-Za-z0-9_.-]{3,32}$/.test(username.trim())) {
+      setError("Username must contain 3-32 letters, numbers, dots, dashes, or underscores.");
+      return;
+    }
+    if (!birthDate) {
+      setError("Date of birth is required.");
+      return;
+    }
+    const birth = new Date(`${birthDate}T00:00:00Z`);
+    const today = new Date();
+    let age = today.getUTCFullYear() - birth.getUTCFullYear();
+    const beforeBirthday =
+      today.getUTCMonth() < birth.getUTCMonth() ||
+      (today.getUTCMonth() === birth.getUTCMonth() &&
+        today.getUTCDate() < birth.getUTCDate());
+    if (beforeBirthday) age -= 1;
+    if (!Number.isFinite(age) || age < (policy.identity?.minimum_age ?? 18)) {
+      setError(`You must be at least ${policy.identity?.minimum_age ?? 18} years old.`);
+      return;
+    }
+    if (!/^\+[1-9][0-9]{7,14}$/.test(phoneNumber.trim())) {
+      setError("Enter a verified mobile number in international format, such as +971501234567.");
+      return;
+    }
+    if (
+      policy.identity?.phone_verification_required &&
+      phoneVerificationToken.trim().length < 24
+    ) {
+      setError("Complete mobile-number verification before creating the account.");
+      return;
+    }
     if (registrationPassword !== confirmPassword) {
       setError("Passwords do not match.");
       return;
@@ -139,16 +174,26 @@ export default function AuthGate({ children }: PropsWithChildren) {
       return;
     }
 
+    const telemetry = collectRegistrationTelemetry();
+    if (policy.identity?.device_signals_required && telemetry.cookie_enabled !== true) {
+      setError("Required cookies must be enabled before registration.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       await registerFree({
+        username: username.trim().toLowerCase(),
         name: name.trim(),
         email: registrationEmail.trim(),
         password: registrationPassword,
+        birth_date: birthDate,
         country_code: countryCode.trim().toUpperCase(),
+        phone_number: phoneNumber.trim(),
+        phone_verification_token: phoneVerificationToken.trim(),
         consent_accepted: true,
         consent_version: policy.consent_version,
-        telemetry: collectRegistrationTelemetry(),
+        telemetry,
       });
       router.replace("/projects");
     } catch (registrationError) {
@@ -269,6 +314,24 @@ export default function AuthGate({ children }: PropsWithChildren) {
           <form className="space-y-5" onSubmit={handleRegistration}>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="space-y-2">
+                <span className="text-sm text-white/70">Username</span>
+                <input
+                  value={username}
+                  onChange={(event) =>
+                    setUsername(
+                      event.target.value
+                        .replace(/[^A-Za-z0-9_.-]/g, "")
+                        .slice(0, 32),
+                    )
+                  }
+                  autoComplete="username"
+                  minLength={3}
+                  maxLength={32}
+                  required
+                  className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none focus:border-electric-400/60"
+                />
+              </label>
+              <label className="space-y-2">
                 <span className="text-sm text-white/70">Full name</span>
                 <input
                   value={name}
@@ -289,6 +352,52 @@ export default function AuthGate({ children }: PropsWithChildren) {
                   required
                   className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none focus:border-electric-400/60"
                 />
+              </label>
+              <label className="space-y-2">
+                <span className="text-sm text-white/70">Date of birth</span>
+                <input
+                  type="date"
+                  value={birthDate}
+                  onChange={(event) => setBirthDate(event.target.value)}
+                  autoComplete="bday"
+                  required
+                  className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none focus:border-electric-400/60"
+                />
+              </label>
+              <label className="space-y-2">
+                <span className="text-sm text-white/70">Mobile number</span>
+                <input
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(event) =>
+                    setPhoneNumber(
+                      event.target.value.replace(/[^+0-9]/g, "").slice(0, 16),
+                    )
+                  }
+                  placeholder="+971501234567"
+                  autoComplete="tel"
+                  required
+                  className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none focus:border-electric-400/60"
+                />
+              </label>
+              <label className="space-y-2 sm:col-span-2">
+                <span className="text-sm text-white/70">
+                  Phone verification assertion
+                </span>
+                <input
+                  value={phoneVerificationToken}
+                  onChange={(event) => setPhoneVerificationToken(event.target.value)}
+                  autoComplete="one-time-code"
+                  minLength={24}
+                  required={policy?.identity?.phone_verification_required ?? true}
+                  placeholder="Issued after OTP and mobile-line verification"
+                  className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 font-mono text-xs text-white outline-none focus:border-electric-400/60"
+                />
+                <span className="block text-[11px] leading-5 text-white/35">
+                  Registration fails closed until the configured phone-verification
+                  provider confirms a real mobile line; virtual and VoIP numbers are
+                  rejected.
+                </span>
               </label>
               <label className="space-y-2">
                 <span className="text-sm text-white/70">Password</span>
@@ -365,15 +474,16 @@ export default function AuthGate({ children }: PropsWithChildren) {
               />
               <span>
                 <span className="mb-1 flex items-center gap-2 font-semibold text-white/85">
-                  <Cookie className="h-4 w-4 text-electric-300" /> Required consent
+                  <Cookie className="h-4 w-4 text-electric-300" /> Required privacy and security consent
                 </span>
                 I accept the terms, privacy notice, and essential cookies. After
-                consent, AIONEX records my declared/detected country, IP address,
-                browser/user agent, language, timezone, screen and coarse device
-                capabilities, plus network-quality information when the browser
-                provides it. This supports security, abuse prevention, quotas, and
-                owner audit. No MAC address, Wi-Fi name, contacts, files, or precise
-                GPS location are collected by this form.
+                consent, AIONEX records my verified username, date of birth,
+                country, protected phone identity, IP address, browser/user agent,
+                language, timezone, screen and coarse device capabilities, plus
+                network-quality information when the browser provides it. This
+                supports identity verification, one-account controls, security,
+                quotas, and owner audit. No MAC address, Wi-Fi name, contacts,
+                files, or precise GPS location are collected by this web form.
               </span>
             </label>
 

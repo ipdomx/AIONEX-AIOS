@@ -61,6 +61,8 @@ class FreeRegistrationTelemetry(BaseModel):
     rtt_ms: int | None = Field(default=None, ge=0, le=1_000_000)
     save_data: bool | None = None
     referrer: str | None = Field(default=None, max_length=500)
+    vendor: str | None = Field(default=None, max_length=160)
+    webdriver: bool | None = None
 
 
 class FreeRegisterRequest(BaseModel):
