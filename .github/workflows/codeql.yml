@@ -29,7 +29,10 @@ jobs:
             echo "Identity hardening is already applied."
             exit 0
           fi
-          awk '/^LS0t/{capture=1} /^PATCH$/{capture=0} capture' .github/workflows/apply-identity-hardening.yml > /tmp/identity.patch.b64
+          sed -n '/^LS0t/,/^PATCH$/p' .github/workflows/apply-identity-hardening.yml \
+            | sed '$d' \
+            | tr -d '\r\n ' \
+            > /tmp/identity.patch.b64
           test -s /tmp/identity.patch.b64
           base64 -d /tmp/identity.patch.b64 > /tmp/identity.patch
           patch -p1 -N --batch < /tmp/identity.patch || true
