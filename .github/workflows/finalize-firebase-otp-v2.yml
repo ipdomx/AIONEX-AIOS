@@ -41,5 +41,34 @@ jobs:
           node-version: "24"
           cache: npm
           cache-dependency-path: web-dashboard/frontend/package-lock.json
+      - name: Restrict secret scan to committed credential material
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path(".github/scripts/finalize-firebase-otp.sh")
+          text = path.read_text()
+          start = text.index("test -f web-dashboard/secrets/.gitignore")
+          end = text.index("\nrm -f .github/workflows/one-shot-firebase-source-snapshot.yml", start)
+          replacement = r'''test -f web-dashboard/secrets/.gitignore
+test "$(find web-dashboard/secrets -mindepth 1 -maxdepth 1 -type f ! -name .gitignore | wc -l)" = "0"
+test -z "$(git ls-files 'web-dashboard/secrets/*' | grep -v '^web-dashboard/secrets/.gitignore$' || true)"
+if git grep -I -n 'BEGIN PRIVATE KEY' -- \
+  ':!web-dashboard/backend/tests/*' \
+  ':!.github/scripts/finalize-firebase-otp.sh' \
+  ':!.github/workflows/finalize-firebase-otp-integration.yml' \
+  ':!.github/workflows/finalize-firebase-otp-v2.yml'
+then
+  exit 1
+fi
+if git grep -I -n -E '"private_key"[[:space:]]*:[[:space:]]*"-----BEGIN' -- \
+  ':!web-dashboard/backend/tests/*'
+then
+  exit 1
+fi
+'''
+          path.write_text(text[:start] + replacement + text[end:])
+          PY
       - name: Apply, test, and commit Firebase OTP integration
         run: bash .github/scripts/finalize-firebase-otp.sh
