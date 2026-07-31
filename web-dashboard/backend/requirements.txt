@@ -21,7 +21,7 @@ strawberry-graphql[fastapi]==0.323.2
 python-dotenv==1.2.2
 email-validator==2.3.0
 phonenumbers==8.13.0
-firebase-admin==7.1.0
+firebase-admin==6.5.0
 pytz==2024.1
 python-dateutil==2.8.2
 orjson==3.11.9
