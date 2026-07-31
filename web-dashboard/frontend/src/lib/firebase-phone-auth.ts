@@ -43,15 +43,16 @@ function firebaseErrorMessage(error: unknown): string {
     "auth/too-many-requests":
       "Too many verification attempts. Try again later.",
     "auth/quota-exceeded": "The SMS verification quota is currently exhausted.",
-    "auth/captcha-check-failed": "The security check failed. Please try again.",
+    "auth/captcha-check-failed":
+      "The security check failed. Confirm this site is listed under Firebase Authentication > Settings > Authorized domains, then try again.",
     "auth/code-expired": "The verification code expired. Request a new code.",
     "auth/invalid-verification-code": "The verification code is incorrect.",
     "auth/network-request-failed":
       "The verification service could not be reached.",
     "auth/operation-not-allowed":
-      "Phone verification is not enabled for this project.",
+      "Firebase rejected SMS for this project. Enable the Phone provider, allow this phone region under Authentication > Settings > SMS region policy, and link an active Cloud Billing account.",
     "auth/unauthorized-domain":
-      "This site domain is not authorized in Firebase.",
+      "Add this site hostname or IP under Firebase Authentication > Settings > Authorized domains.",
   };
   return messages[error.code] ?? "Phone verification failed. Please try again.";
 }
