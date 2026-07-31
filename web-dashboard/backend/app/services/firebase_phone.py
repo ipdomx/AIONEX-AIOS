@@ -337,6 +337,12 @@ def _compat_firebase_app() -> Any:
         return firebase_admin.get_app()
 
 
+def _firebase_app() -> Any:
+    """Backward-compatible Firebase app hook for verified-token callers."""
+
+    return _compat_firebase_app()
+
+
 def verify_firebase_phone_token(id_token: str, expected_phone: str) -> dict[str, Any]:
     """Verify a recent, non-revoked Firebase phone ID token for one E.164 number."""
 
@@ -351,7 +357,7 @@ def verify_firebase_phone_token(id_token: str, expected_phone: str) -> dict[str,
     try:
         claims = auth.verify_id_token(
             id_token,
-            app=_compat_firebase_app(),
+            app=_firebase_app(),
             check_revoked=True,
             clock_skew_seconds=30,
         )
