@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from datetime import date
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -63,10 +64,18 @@ class FreeRegistrationTelemetry(BaseModel):
 
 
 class FreeRegisterRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=32, pattern=r"^[A-Za-z0-9_.-]+$")
     email: EmailStr
     password: str
     name: str = Field(min_length=2, max_length=200)
+    birth_date: date
     country_code: str = Field(min_length=2, max_length=2, pattern=r"^[A-Za-z]{2}$")
+    phone_number: str = Field(
+        min_length=8,
+        max_length=20,
+        pattern=r"^\+[1-9][0-9]{7,14}$",
+    )
+    phone_verification_token: str = Field(min_length=24, max_length=4096)
     consent_accepted: bool
     consent_version: str = Field(min_length=4, max_length=80)
     telemetry: FreeRegistrationTelemetry = Field(
@@ -179,10 +188,14 @@ async def register_free(
     user = await register_free_account(
         session,
         request,
+        username=data.username,
         email=str(data.email),
         password=data.password,
         name=data.name,
+        birth_date=data.birth_date,
         country_code=data.country_code,
+        phone_number=data.phone_number,
+        phone_verification_token=data.phone_verification_token,
         consent_accepted=data.consent_accepted,
         consent_version=data.consent_version,
         telemetry=data.telemetry.model_dump(exclude_none=True),
