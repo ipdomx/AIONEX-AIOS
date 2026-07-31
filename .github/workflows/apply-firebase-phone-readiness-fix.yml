@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - fix/firebase-phone-readiness-country
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
