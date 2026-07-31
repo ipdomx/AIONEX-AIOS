@@ -1,0 +1,219 @@
+name: Finalize Firebase Phone Integration
+
+on:
+  push:
+    branches:
+      - feat/firebase-phone-auth-integration
+
+permissions:
+  contents: write
+
+concurrency:
+  group: finalize-firebase-phone-integration
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    name: Apply, verify, and commit Firebase integration
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ENVIRONMENT: test
+      DEBUG: "false"
+      SECRET_KEY: ci-firebase-integration-secret-key-with-at-least-32-characters
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/aionex_test
+      REDIS_URL: redis://localhost:6379/0
+      BACKUP_DIR: /tmp/aionex-ci-backups
+      AIOS_REPO_ROOT: ${{ github.workspace }}
+      PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}/web-dashboard/backend
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feat/firebase-phone-auth-integration
+          fetch-depth: 0
+
+      - name: Reconstruct and apply reviewed source overlay
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          archive=/tmp/aionex-firebase-overlay.tar.gz
+          : > "$archive"
+          for blob in \
+            92fd1682e0bae234e5a1ed4191ffbb75acd4c9e7 \
+            66366f8daf7490057a250df3ced7f2a9fd218ffe \
+            1d6f68585e4ef309b91afc056451d0e4c23fd7ac \
+            9629aa5e2da703803e5adf8f400acf6ab7dd6d6a \
+            8c56e10e2fd70c34451e254448261e1460d36280
+          do
+            curl --fail --silent --show-error --location \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/blobs/${blob}" \
+              | jq -r '.content' \
+              | tr -d '\r\n ' \
+              | base64 --decode \
+              >> "$archive"
+          done
+          echo "401449922759153d3a289dbcdd295fbed3e69cf3c4d358c36255d86d9f412164  $archive" \
+            | sha256sum --check --strict
+          tar -tzf "$archive" > /tmp/firebase-overlay-files.txt
+          test "$(wc -l < /tmp/firebase-overlay-files.txt)" = "22"
+          tar -xzf "$archive" -C "$GITHUB_WORKSPACE"
+          git rm -f --ignore-unmatch web-dashboard/secrets/.gitkeep
+          chmod 0755 web-dashboard/backend/scripts/docker-entrypoint.sh
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: web-dashboard/backend/requirements.txt
+
+      - name: Install backend dependencies
+        working-directory: web-dashboard/backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Format and statically verify backend changes
+        run: |
+          python -m isort \
+            web-dashboard/backend/app/api/v1/endpoints/auth.py \
+            web-dashboard/backend/app/core/config.py \
+            web-dashboard/backend/app/services/firebase_phone.py \
+            web-dashboard/backend/app/services/free_tier.py \
+            web-dashboard/backend/tests/test_batch7_quality_contracts.py \
+            web-dashboard/backend/tests/test_firebase_phone_auth.py \
+            web-dashboard/backend/tests/test_free_registration_identity.py
+          python -m black \
+            web-dashboard/backend/app/api/v1/endpoints/auth.py \
+            web-dashboard/backend/app/core/config.py \
+            web-dashboard/backend/app/services/firebase_phone.py \
+            web-dashboard/backend/app/services/free_tier.py \
+            web-dashboard/backend/tests/test_batch7_quality_contracts.py \
+            web-dashboard/backend/tests/test_firebase_phone_auth.py \
+            web-dashboard/backend/tests/test_free_registration_identity.py
+          python -m ruff check \
+            web-dashboard/backend/app/api/v1/endpoints/auth.py \
+            web-dashboard/backend/app/core/config.py \
+            web-dashboard/backend/app/services/firebase_phone.py \
+            web-dashboard/backend/app/services/free_tier.py \
+            web-dashboard/backend/tests/test_batch7_quality_contracts.py \
+            web-dashboard/backend/tests/test_firebase_phone_auth.py \
+            web-dashboard/backend/tests/test_free_registration_identity.py
+          python -m compileall web-dashboard/backend/app web-dashboard/backend/main.py
+          sh -n web-dashboard/backend/scripts/docker-entrypoint.sh
+          sh -n web-dashboard/backend/scripts/verify_backend.sh
+
+      - name: Run focused backend security and contract tests
+        working-directory: web-dashboard/backend
+        run: |
+          python -m pytest -vv \
+            tests/test_firebase_phone_auth.py \
+            tests/test_free_registration_identity.py \
+            tests/test_batch7_quality_contracts.py \
+            --maxfail=1 \
+            --tb=long \
+            --showlocals
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web-dashboard/frontend/package-lock.json
+
+      - name: Lock and install frontend dependencies
+        working-directory: web-dashboard/frontend
+        run: |
+          npm install firebase@12.16.0 --save-exact --package-lock-only --ignore-scripts
+          npm ci
+
+      - name: Format, lint, type-check, and build frontend
+        working-directory: web-dashboard/frontend
+        run: |
+          npx prettier --write \
+            package.json \
+            src/components/auth/AuthGate.tsx \
+            src/lib/auth-service.ts \
+            src/lib/firebase-phone-auth.ts
+          npx prettier --check \
+            package.json \
+            src/components/auth/AuthGate.tsx \
+            src/lib/auth-service.ts \
+            src/lib/firebase-phone-auth.ts
+          npm run lint -- \
+            --file src/components/auth/AuthGate.tsx \
+            --file src/lib/auth-service.ts \
+            --file src/lib/firebase-phone-auth.ts
+          npm run type-check
+          npm run build
+
+      - name: Validate Compose contracts and build backend image
+        run: |
+          set -Eeuo pipefail
+          AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production.example" \
+            docker compose \
+              --env-file web-dashboard/.env.production.example \
+              -f web-dashboard/docker-compose.production.yml \
+              config --quiet
+          AIOS_ENV_FILE="$GITHUB_WORKSPACE/deploy/production/.env.production.example" \
+            docker compose \
+              --env-file deploy/production/.env.production.example \
+              -f deploy/production/docker-compose.production.yml \
+              config --quiet
+          docker compose -f web-dashboard/docker-compose.yml config --quiet
+          docker build \
+            --tag aionex-firebase-backend-test \
+            web-dashboard/backend
+
+      - name: Verify protected credential mount and privilege drop
+        run: |
+          set -Eeuo pipefail
+          secret_dir="$(mktemp -d)"
+          trap 'rm -rf "$secret_dir"' EXIT
+          cat > "$secret_dir/firebase-admin.json" <<'JSON'
+          {"placeholder":true}
+          JSON
+          chmod 0600 "$secret_dir/firebase-admin.json"
+          docker run --rm \
+            --volume "$secret_dir:/run/secrets/aionex:ro" \
+            --env FIREBASE_ADMIN_CREDENTIALS_JSON=/run/secrets/aionex/firebase-admin.json \
+            aionex-firebase-backend-test \
+            sh -ceu '
+              test "$(id -u)" = "1000"
+              test "$FIREBASE_ADMIN_CREDENTIALS_JSON" = "/run/aionex/firebase-admin.json"
+              test "$(stat -c %a "$FIREBASE_ADMIN_CREDENTIALS_JSON")" = "400"
+              test -r "$FIREBASE_ADMIN_CREDENTIALS_JSON"
+            '
+
+      - name: Verify credential and repository safety
+        run: |
+          set -Eeuo pipefail
+          test -f web-dashboard/secrets/.gitignore
+          test "$(find web-dashboard/secrets -mindepth 1 -maxdepth 1 -type f ! -name .gitignore | wc -l)" = "0"
+          if git grep -I -n -E '"private_key"[[:space:]]*:' -- \
+            ':!web-dashboard/backend/tests/*'
+          then
+            echo "A private-key field was committed outside tests." >&2
+            exit 1
+          fi
+          if git grep -I -n -E 'BEGIN PRIVATE KEY' -- \
+            ':!web-dashboard/backend/tests/*'
+          then
+            echo "Private-key material was committed outside tests." >&2
+            exit 1
+          fi
+          test -z "$(git ls-files 'web-dashboard/secrets/*' | grep -v '^web-dashboard/secrets/.gitignore$' || true)"
+
+      - name: Commit verified implementation
+        run: |
+          set -Eeuo pipefail
+          rm -f .github/workflows/one-shot-firebase-source-snapshot.yml
+          rm -f .github/workflows/finalize-firebase-integration.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          test -n "$(git diff --cached --name-only)"
+          git commit -m "Integrate Firebase phone OTP verification"
+          git push origin HEAD:feat/firebase-phone-auth-integration
