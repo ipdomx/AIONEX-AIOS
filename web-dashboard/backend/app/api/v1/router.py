@@ -18,6 +18,7 @@ from app.api.v1.endpoints import (
     dashboard,
     databases,
     final_integration,
+    firebase_phone,
     integration,
     knowledge,
     meetings,
@@ -51,6 +52,11 @@ api_router = APIRouter()
 restricted = [Depends(require_non_free_user)]
 
 api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
+api_router.include_router(
+    firebase_phone.router,
+    prefix="/auth/phone",
+    tags=["Authentication"],
+)
 api_router.include_router(
     users.router,
     prefix="/users",
