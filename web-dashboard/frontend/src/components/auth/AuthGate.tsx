@@ -40,10 +40,26 @@ const FREE_ALLOWED_PREFIXES = ["/projects", "/profile"];
 
 function inferredCountryCode(): string {
   if (typeof navigator === "undefined") return "";
-  const locale = navigator.language.replace("_", "-");
-  const segments = locale.split("-");
-  const region = segments.find((segment) => /^[A-Za-z]{2}$/.test(segment));
-  return region?.toUpperCase() ?? "";
+
+  const locales = Array.from(
+    new Set([...(navigator.languages ?? []), navigator.language].filter(Boolean)),
+  );
+  for (const locale of locales) {
+    const normalized = locale.replace("_", "-");
+    try {
+      const region = new Intl.Locale(normalized).region;
+      if (region && /^[A-Za-z]{2}$/.test(region)) {
+        return region.toUpperCase();
+      }
+    } catch {
+      const fallbackRegion = normalized
+        .split("-")
+        .slice(1)
+        .find((segment) => /^[A-Za-z]{2}$/.test(segment));
+      if (fallbackRegion) return fallbackRegion.toUpperCase();
+    }
+  }
+  return "";
 }
 
 function formatBytes(bytes: number): string {
