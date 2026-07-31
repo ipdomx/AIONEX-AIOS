@@ -63,6 +63,9 @@ jobs:
           tar -tzf "$archive" > /tmp/firebase-overlay-files.txt
           test "$(wc -l < /tmp/firebase-overlay-files.txt)" = "22"
           tar -xzf "$archive" -C "$GITHUB_WORKSPACE"
+          sed -i -E 's/^firebase-admin==7\.5\.0$/firebase-admin>=6.5,<8/' \
+            web-dashboard/backend/requirements.txt
+          grep -qx 'firebase-admin>=6.5,<8' web-dashboard/backend/requirements.txt
           git rm -f --ignore-unmatch web-dashboard/secrets/.gitkeep
           chmod 0755 web-dashboard/backend/scripts/docker-entrypoint.sh
 
