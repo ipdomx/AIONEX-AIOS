@@ -96,6 +96,8 @@ def verify_phone_verification_token(
 PY
 
 cd web-dashboard/backend
+python -m pip install --upgrade pip
+pip install -r requirements.txt
 python -m black --target-version py311 app/services/free_tier.py tests/test_firebase_phone.py
 python -m ruff check app/services/free_tier.py tests/test_firebase_phone.py
 python -m compileall app main.py
