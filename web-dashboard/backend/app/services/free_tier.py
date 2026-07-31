@@ -19,11 +19,6 @@ import secrets
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
-from fastapi import Depends, HTTPException, Request, status
-from sqlalchemy import delete, func, select
-from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.core.auth import UserRecord, current_user, pwd_context
 from app.core.config import settings
 from app.db.base import get_db
@@ -41,6 +36,10 @@ from app.db.models import (
     uuid_str,
 )
 from app.services.firebase_phone import verify_firebase_phone_id_token
+from fastapi import Depends, HTTPException, Request, status
+from sqlalchemy import delete, func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.ext.asyncio import AsyncSession
 
 FREE_USER_ROLE_NAME = "Free User"
 FREE_PLAN_NAME = "free"
@@ -826,6 +825,12 @@ async def register_free_account(
         }
     )
     normalized_phone = str(phone_assertion.get("phone_number") or normalized_phone)
+    verified_country = str(phone_assertion.get("country_code") or "").upper()
+    if verified_country and normalized_country != verified_country:
+        raise HTTPException(
+            status_code=422,
+            detail="Declared country must match the verified mobile-number country",
+        )
     sanitized = sanitize_registration_telemetry(telemetry)
     if policy["require_device_signals"]:
         _assert_real_device_signals(sanitized)

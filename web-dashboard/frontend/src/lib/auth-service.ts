@@ -59,6 +59,19 @@ export type FirebasePhoneConfiguration = {
   } | null;
 };
 
+export type FirebasePhoneReadiness = {
+  provider: "firebase";
+  ready: boolean;
+  diagnostics_available: boolean;
+  project_id: string;
+  phone_number: string;
+  country_code: string;
+  provider_enabled: boolean | null;
+  sms_region_allowed: boolean | null;
+  origin_authorized: boolean | null;
+  detail: string;
+};
+
 export type FreeTierStatus = {
   plan: string;
   free_tier: boolean;
@@ -232,6 +245,16 @@ export const authService = {
   async getFirebasePhoneConfiguration(): Promise<FirebasePhoneConfiguration> {
     return apiClient.get<FirebasePhoneConfiguration>(
       "/auth/firebase/phone/public",
+    );
+  },
+
+  async getFirebasePhoneReadiness(
+    phoneNumber: string,
+    origin: string,
+  ): Promise<FirebasePhoneReadiness> {
+    return apiClient.get<FirebasePhoneReadiness>(
+      "/auth/firebase/phone/readiness",
+      { params: { phone_number: phoneNumber, origin } },
     );
   },
 

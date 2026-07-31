@@ -42,7 +42,9 @@ function inferredCountryCode(): string {
   if (typeof navigator === "undefined") return "";
 
   const locales = Array.from(
-    new Set([...(navigator.languages ?? []), navigator.language].filter(Boolean)),
+    new Set(
+      [...(navigator.languages ?? []), navigator.language].filter(Boolean),
+    ),
   );
   for (const locale of locales) {
     const normalized = locale.replace("_", "-");
@@ -196,7 +198,7 @@ export default function AuthGate({ children }: PropsWithChildren) {
       return;
     }
     if (!firebasePhone?.enabled || !firebasePhone.web_config) {
-      setError("Firebase phone verification is not ready on this deployment.");
+      setError("Mobile verification is not ready on this deployment.");
       return;
     }
 
@@ -208,9 +210,20 @@ export default function AuthGate({ children }: PropsWithChildren) {
     setVerifiedPhoneNumber("");
     setVerificationCode("");
     try {
+      const readiness = await authService.getFirebasePhoneReadiness(
+        normalizedPhone,
+        window.location.origin,
+      );
+      setCountryCode(readiness.country_code);
+      if (!readiness.ready) {
+        throw new Error(
+          readiness.detail ||
+            "Mobile verification is not ready for this number.",
+        );
+      }
       const challenge = await startFirebasePhoneVerification(
         firebasePhone.web_config,
-        normalizedPhone,
+        readiness.phone_number,
         "firebase-phone-recaptcha",
       );
       phoneChallengeRef.current = challenge;
@@ -249,7 +262,7 @@ export default function AuthGate({ children }: PropsWithChildren) {
       setVerifiedPhoneNumber(challenge.phoneNumber);
       setOtpSent(false);
       setVerificationCode("");
-      setOtpStatus("Mobile number verified by Firebase.");
+      setOtpStatus("Mobile number verified.");
     } catch (verificationError) {
       phoneChallengeRef.current = null;
       setOtpSent(false);
@@ -547,11 +560,11 @@ export default function AuthGate({ children }: PropsWithChildren) {
                   <div>
                     <span className="flex items-center gap-2 text-sm font-medium text-white/80">
                       <Smartphone className="h-4 w-4 text-electric-300" />
-                      Firebase mobile verification
+                      Mobile verification
                     </span>
                     <span className="mt-1 block text-[11px] leading-5 text-white/35">
-                      reCAPTCHA protects the SMS request. The Firebase ID token
-                      is verified again by the AIOS backend and is never stored
+                      reCAPTCHA protects the SMS request. The verification token
+                      is validated again by the AIOS backend and is not retained
                       in the browser after registration.
                     </span>
                   </div>
@@ -621,8 +634,7 @@ export default function AuthGate({ children }: PropsWithChildren) {
                 ) : null}
                 {!firebasePhone?.enabled && !policyLoading ? (
                   <p className="text-xs text-orange-300">
-                    Firebase phone verification is not configured on the
-                    backend.
+                    Mobile verification is not configured on the backend.
                   </p>
                 ) : null}
               </div>
