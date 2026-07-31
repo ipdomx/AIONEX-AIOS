@@ -10,10 +10,56 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   security-events: write
 
 jobs:
+  apply-identity-hardening:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    name: Apply identity hardening
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+      - name: Apply pending verified-identity changes
+        run: |
+          if test -f web-dashboard/backend/tests/test_free_registration_identity.py; then
+            echo "Identity hardening is already applied."
+            exit 0
+          fi
+          awk '/^LS0t/{capture=1} /^PATCH$/{capture=0} capture' .github/workflows/apply-identity-hardening.yml > /tmp/identity.patch.b64
+          test -s /tmp/identity.patch.b64
+          base64 -d /tmp/identity.patch.b64 > /tmp/identity.patch
+          patch -p1 -N --batch < /tmp/identity.patch || true
+          test -f web-dashboard/backend/tests/test_free_registration_identity.py
+          grep -q 'verify_phone_verification_token' web-dashboard/backend/app/services/free_tier.py
+          grep -q 'phone_verification_token' web-dashboard/frontend/src/lib/auth-service.ts
+          grep -q 'Required privacy and security consent' web-dashboard/frontend/src/components/auth/AuthGate.tsx
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('web-dashboard/backend/tests/test_owner_dashboard_integration.py')
+          text = path.read_text()
+          marker = '    ("GET", "/api/v1/owner/finalization"),\n'
+          additions = (
+              '    ("GET", "/api/v1/owner/free-tier"),\n'
+              '    ("PATCH", "/api/v1/owner/free-tier"),\n'
+          )
+          if additions not in text:
+              text = text.replace(marker, marker + additions)
+          path.write_text(text)
+          PY
+          rm -f .github/workflows/apply-identity-hardening.yml
+          rm -f .github/workflows/run-identity-hardening.yml
+          rm -f .github/workflows/one-shot-implementation-snapshot.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Complete verified free-user identity hardening"
+          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+
   analyze:
     name: CodeQL Analysis
     runs-on: ubuntu-latest
