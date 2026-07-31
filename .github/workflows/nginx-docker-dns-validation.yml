@@ -1,0 +1,153 @@
+name: Nginx Docker DNS Validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "web-dashboard/docker/nginx.conf"
+      - "web-dashboard/docker-compose.production.yml"
+      - ".github/workflows/nginx-docker-dns-validation.yml"
+  push:
+    branches: [main]
+    paths:
+      - "web-dashboard/docker/nginx.conf"
+      - "web-dashboard/docker-compose.production.yml"
+      - ".github/workflows/nginx-docker-dns-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nginx-docker-dns-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dynamic-upstream-smoke:
+    name: Re-resolve recreated Docker upstreams
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validate Nginx configuration
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE/web-dashboard/docker/nginx.conf:/etc/nginx/nginx.conf:ro" \
+            nginx:1.27-alpine nginx -t
+
+      - name: Verify frontend and backend recover without restarting Nginx
+        run: |
+          set -Eeuo pipefail
+
+          network="aionex-nginx-dns-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          proxy="aionex-nginx-proxy-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          frontend_one="aionex-nginx-frontend-one-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          frontend_two="aionex-nginx-frontend-two-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          frontend_blocker="aionex-nginx-frontend-blocker-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          backend_one="aionex-nginx-backend-one-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          backend_two="aionex-nginx-backend-two-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          backend_blocker="aionex-nginx-backend-blocker-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+
+          cleanup() {
+            exit_code=$?
+            set +e
+            docker logs "$proxy" 2>/dev/null || true
+            docker rm -f \
+              "$proxy" \
+              "$frontend_one" \
+              "$frontend_two" \
+              "$frontend_blocker" \
+              "$backend_one" \
+              "$backend_two" \
+              "$backend_blocker" \
+              >/dev/null 2>&1 || true
+            docker network rm "$network" >/dev/null 2>&1 || true
+            exit "$exit_code"
+          }
+          trap cleanup EXIT
+
+          container_ip() {
+            docker inspect \
+              --format "{{with index .NetworkSettings.Networks \"$network\"}}{{.IPAddress}}{{end}}" \
+              "$1"
+          }
+
+          wait_for_body() {
+            expected="$1"
+            url="$2"
+            for _ in $(seq 1 30); do
+              body="$(curl --fail --silent --show-error --max-time 2 "$url" 2>/dev/null || true)"
+              if [ "$body" = "$expected" ]; then
+                return 0
+              fi
+              sleep 1
+            done
+            echo "Timed out waiting for '$expected' from $url" >&2
+            return 1
+          }
+
+          start_frontend() {
+            name="$1"
+            body="$2"
+            docker run -d \
+              --name "$name" \
+              --network "$network" \
+              --network-alias frontend \
+              busybox:1.36 \
+              sh -c "mkdir -p /www && printf '%s' '$body' > /www/index.html && exec httpd -f -p 3000 -h /www" \
+              >/dev/null
+          }
+
+          start_backend() {
+            name="$1"
+            body="$2"
+            docker run -d \
+              --name "$name" \
+              --network "$network" \
+              --network-alias backend \
+              busybox:1.36 \
+              sh -c "mkdir -p /www/api && printf '%s' '$body' > /www/api/check && exec httpd -f -p 8000 -h /www" \
+              >/dev/null
+          }
+
+          docker network create "$network" >/dev/null
+          start_frontend "$frontend_one" "frontend-one"
+          start_backend "$backend_one" "backend-one"
+
+          docker run -d \
+            --name "$proxy" \
+            --network "$network" \
+            -p 18080:80 \
+            -v "$GITHUB_WORKSPACE/web-dashboard/docker/nginx.conf:/etc/nginx/nginx.conf:ro" \
+            nginx:1.27-alpine \
+            >/dev/null
+
+          wait_for_body "frontend-one" "http://127.0.0.1:18080/"
+          wait_for_body "backend-one" "http://127.0.0.1:18080/api/check"
+
+          frontend_old_ip="$(container_ip "$frontend_one")"
+          docker rm -f "$frontend_one" >/dev/null
+          docker run -d \
+            --name "$frontend_blocker" \
+            --network "$network" \
+            busybox:1.36 sleep 120 \
+            >/dev/null
+          start_frontend "$frontend_two" "frontend-two"
+          frontend_new_ip="$(container_ip "$frontend_two")"
+          test "$frontend_old_ip" != "$frontend_new_ip"
+          wait_for_body "frontend-two" "http://127.0.0.1:18080/"
+
+          backend_old_ip="$(container_ip "$backend_one")"
+          docker rm -f "$backend_one" >/dev/null
+          docker run -d \
+            --name "$backend_blocker" \
+            --network "$network" \
+            busybox:1.36 sleep 120 \
+            >/dev/null
+          start_backend "$backend_two" "backend-two"
+          backend_new_ip="$(container_ip "$backend_two")"
+          test "$backend_old_ip" != "$backend_new_ip"
+          wait_for_body "backend-two" "http://127.0.0.1:18080/api/check"
+
+          test "$(docker inspect --format '{{.RestartCount}}' "$proxy")" = "0"
+          echo "Nginx recovered both recreated upstreams without a restart."
