@@ -1,3 +1,4 @@
+# Trusted repository-owner validation trigger for the mobile verification repair.
 from app.api.v1.router import api_router
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
