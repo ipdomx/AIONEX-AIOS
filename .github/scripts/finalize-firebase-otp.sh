@@ -36,6 +36,115 @@ from pathlib import Path
 
 path = Path("web-dashboard/backend/app/services/firebase_phone.py")
 text = path.read_text()
+
+if "def verify_firebase_phone_token(" not in text:
+    text += r'''
+
+
+def _compat_firebase_app() -> Any:
+    """Initialize the Firebase Admin app from the protected AIOS credential source."""
+
+    import json
+    import os
+    from pathlib import Path
+
+    import firebase_admin
+    from fastapi import HTTPException, status
+    from firebase_admin import credentials
+
+    try:
+        return firebase_admin.get_app()
+    except ValueError:
+        pass
+
+    configured = os.getenv("FIREBASE_ADMIN_CREDENTIALS_JSON", "").strip()
+    project_id = os.getenv("FIREBASE_PROJECT_ID", "").strip()
+    if not configured or not project_id:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Firebase phone verification is not configured",
+        )
+    if configured.startswith("{"):
+        try:
+            source: dict[str, Any] | str = json.loads(configured)
+        except json.JSONDecodeError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Firebase Admin credentials JSON is invalid",
+            ) from exc
+    else:
+        credential_path = Path(configured)
+        if not credential_path.is_file():
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Firebase Admin credentials file is unavailable",
+            )
+        source = str(credential_path)
+    try:
+        return firebase_admin.initialize_app(
+            credentials.Certificate(source),
+            options={"projectId": project_id},
+        )
+    except ValueError:
+        return firebase_admin.get_app()
+
+
+def verify_firebase_phone_token(id_token: str, expected_phone: str) -> dict[str, Any]:
+    """Verify a recent, non-revoked Firebase phone ID token for one E.164 number."""
+
+    import os
+    from datetime import UTC, datetime, timedelta
+
+    from fastapi import HTTPException
+    from firebase_admin import auth
+
+    if not id_token or len(id_token) < 100:
+        raise HTTPException(status_code=422, detail="Invalid Firebase ID token")
+    try:
+        claims = auth.verify_id_token(
+            id_token,
+            app=_compat_firebase_app(),
+            check_revoked=True,
+            clock_skew_seconds=30,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=422,
+            detail="Firebase phone verification failed",
+        ) from exc
+
+    phone = str(claims.get("phone_number") or "").strip()
+    firebase_claim = claims.get("firebase")
+    provider = (
+        firebase_claim.get("sign_in_provider")
+        if isinstance(firebase_claim, dict)
+        else None
+    )
+    try:
+        authenticated_at = datetime.fromtimestamp(int(claims.get("auth_time")), tz=UTC)
+    except (TypeError, ValueError, OSError) as exc:
+        raise HTTPException(
+            status_code=422,
+            detail="Firebase token has no valid auth time",
+        ) from exc
+
+    now = datetime.now(UTC)
+    max_age_seconds = int(os.getenv("FIREBASE_PHONE_TOKEN_MAX_AGE_SECONDS", "600"))
+    if (
+        phone != expected_phone
+        or provider != "phone"
+        or authenticated_at > now + timedelta(seconds=30)
+        or now - authenticated_at > timedelta(seconds=max_age_seconds)
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="A recent Firebase verification for this phone number is required",
+        )
+    return claims
+'''
+
 if "def issue_aios_phone_assertion(" not in text:
     text += r'''
 
@@ -73,9 +182,12 @@ def issue_aios_phone_assertion(claims: dict[str, Any], phone_number: str) -> str
     encoded_signature = base64.urlsafe_b64encode(signature).rstrip(b"=").decode("ascii")
     return f"{encoded}.{encoded_signature}"
 '''
-    path.write_text(text)
+
+path.write_text(text)
 PY
 
+grep -q '^def verify_firebase_phone_token' \
+  web-dashboard/backend/app/services/firebase_phone.py
 grep -q '^def issue_aios_phone_assertion' \
   web-dashboard/backend/app/services/firebase_phone.py
 
