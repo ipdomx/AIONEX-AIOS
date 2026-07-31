@@ -24,24 +24,31 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
       - name: Apply pending verified-identity changes
+        shell: bash
         run: |
-          if test -f web-dashboard/backend/tests/test_free_registration_identity.py; then
-            echo "Identity hardening is already applied."
-            exit 0
-          fi
-          sed -n '/^LS0t/,/^PATCH$/p' .github/workflows/apply-identity-hardening.yml \
-            | sed '$d' \
+          set -Eeuo pipefail
+
+          cat .github/identity-patch/00 .github/identity-patch/01 \
             | tr -d '\r\n ' \
             > /tmp/identity.patch.b64
           test -s /tmp/identity.patch.b64
-          base64 -d /tmp/identity.patch.b64 > /tmp/identity.patch
-          patch -p1 -N --batch < /tmp/identity.patch || true
+          base64 --decode /tmp/identity.patch.b64 > /tmp/identity.patch
+          test -s /tmp/identity.patch
+
+          patch -p1 --forward --batch < /tmp/identity.patch || true
+
           test -f web-dashboard/backend/tests/test_free_registration_identity.py
-          grep -q 'verify_phone_verification_token' web-dashboard/backend/app/services/free_tier.py
+          grep -q 'def verify_phone_verification_token' web-dashboard/backend/app/services/free_tier.py
+          grep -q 'def _age_on' web-dashboard/backend/app/services/free_tier.py
+          grep -q 'def _assert_real_device_signals' web-dashboard/backend/app/services/free_tier.py
+          grep -q 'phone_verification_token' web-dashboard/backend/app/api/v1/endpoints/auth.py
           grep -q 'phone_verification_token' web-dashboard/frontend/src/lib/auth-service.ts
-          grep -q 'Required privacy and security consent' web-dashboard/frontend/src/components/auth/AuthGate.tsx
+          grep -q 'birth_date' web-dashboard/frontend/src/lib/auth-service.ts
+          grep -q 'phone_number' web-dashboard/frontend/src/components/auth/AuthGate.tsx
+
           python - <<'PY'
           from pathlib import Path
+
           path = Path('web-dashboard/backend/tests/test_owner_dashboard_integration.py')
           text = path.read_text()
           marker = '    ("GET", "/api/v1/owner/finalization"),\n'
@@ -50,16 +57,56 @@ jobs:
               '    ("PATCH", "/api/v1/owner/free-tier"),\n'
           )
           if additions not in text:
+              if marker not in text:
+                  raise SystemExit('Owner API contract insertion point was not found')
               text = text.replace(marker, marker + additions)
-          path.write_text(text)
+              path.write_text(text)
           PY
+
+          rm -rf .github/identity-patch
+          rm -f .github/identity.patch.b64
           rm -f .github/workflows/apply-identity-hardening.yml
           rm -f .github/workflows/run-identity-hardening.yml
           rm -f .github/workflows/one-shot-implementation-snapshot.yml
+
+          cat > .github/workflows/codeql.yml <<'YAML'
+          name: CodeQL
+
+          on:
+            push:
+              branches: [main]
+            pull_request:
+              branches: [main]
+            schedule:
+              - cron: "17 3 * * 1"
+            workflow_dispatch:
+
+          permissions:
+            contents: read
+            security-events: write
+
+          jobs:
+            analyze:
+              name: CodeQL Analysis
+              runs-on: ubuntu-latest
+              strategy:
+                fail-fast: false
+                matrix:
+                  language: [python, javascript-typescript]
+              steps:
+                - uses: actions/checkout@v7
+                - uses: github/codeql-action/init@v4
+                  with:
+                    languages: ${{ matrix.language }}
+                - uses: github/codeql-action/autobuild@v4
+                - uses: github/codeql-action/analyze@v4
+          YAML
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git diff --cached --check
+          git diff --cached --quiet && exit 0
           git commit -m "Complete verified free-user identity hardening"
           git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
 
