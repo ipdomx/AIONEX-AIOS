@@ -6,15 +6,16 @@ FROM python:3.11-slim-bookworm AS base
 
 WORKDIR /app
 
-# Install build/runtime dependencies and PostgreSQL client 16. The downloaded
-# repository key is authenticated by its full fingerprint before it is trusted,
-# and apt is restricted to that key through a repository-scoped signed-by rule.
+# Install build/runtime dependencies, a privilege-drop helper, and PostgreSQL
+# client 16. The downloaded repository key is authenticated by its full
+# fingerprint and apt is restricted to that key with a signed-by rule.
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
-        gnupg; \
+        gnupg \
+        gosu; \
     curl -fsSL \
         https://www.postgresql.org/media/keys/ACCC4CF8.asc \
         -o /tmp/postgresql-pgdg.asc; \
@@ -34,25 +35,25 @@ RUN set -eux; \
     apt-get purge -y --auto-remove gnupg; \
     rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
 COPY . .
 
-# Create non-root user and the protected, persistent backup mount point.
+# Runtime services execute as the non-root account.  The entrypoint starts as
+# root only long enough to copy a root-readable bind-mounted Firebase credential
+# into a private 0400 path owned by this account, then immediately uses gosu.
 RUN useradd -m -u 1000 aionex \
     && install -d -m 0700 -o aionex -g aionex /var/lib/aionex/backups \
-    && chown -R aionex:aionex /app
-USER aionex
+    && chown -R aionex:aionex /app \
+    && chmod 0755 /app/scripts/docker-entrypoint.sh
 
-# Expose port
 EXPOSE 8000
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
-    CMD curl -fsS http://localhost:8000/ready || exit 1
+    CMD gosu aionex curl -fsS http://localhost:8000/ready || exit 1
+
+ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]
 
 # Apply non-destructive schema migrations before serving authenticated routes.
 # Alembic resolves the same Settings.DATABASE_URL used by the application and

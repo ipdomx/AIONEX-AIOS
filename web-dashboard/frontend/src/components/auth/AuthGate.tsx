@@ -1,13 +1,23 @@
 "use client";
 
-import { FormEvent, PropsWithChildren, useEffect, useMemo, useState } from "react";
 import {
+  FormEvent,
+  PropsWithChildren,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  CheckCircle2,
   Cookie,
   HardDrive,
   Loader2,
   LogIn,
   MessageSquare,
+  Send,
   ShieldCheck,
+  Smartphone,
   UserPlus,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
@@ -16,8 +26,15 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import {
   authService,
   collectRegistrationTelemetry,
+  type FirebasePhoneConfiguration,
   type FreeTierPublicPolicy,
 } from "@/lib/auth-service";
+import {
+  completeFirebasePhoneVerification,
+  disposeFirebasePhoneChallenge,
+  startFirebasePhoneVerification,
+  type FirebasePhoneChallenge,
+} from "@/lib/firebase-phone-auth";
 
 const FREE_ALLOWED_PREFIXES = ["/projects", "/profile"];
 
@@ -56,13 +73,21 @@ export default function AuthGate({ children }: PropsWithChildren) {
   const [name, setName] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [phoneVerificationToken, setPhoneVerificationToken] = useState("");
+  const [firebaseIdToken, setFirebaseIdToken] = useState("");
+  const [verifiedPhoneNumber, setVerifiedPhoneNumber] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpBusy, setOtpBusy] = useState(false);
+  const [otpStatus, setOtpStatus] = useState("");
+  const phoneChallengeRef = useRef<FirebasePhoneChallenge | null>(null);
   const [registrationEmail, setRegistrationEmail] = useState("");
   const [registrationPassword, setRegistrationPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [countryCode, setCountryCode] = useState("");
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [policy, setPolicy] = useState<FreeTierPublicPolicy | null>(null);
+  const [firebasePhone, setFirebasePhone] =
+    useState<FirebasePhoneConfiguration | null>(null);
   const [policyLoading, setPolicyLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,10 +101,15 @@ export default function AuthGate({ children }: PropsWithChildren) {
   useEffect(() => {
     setCountryCode((current) => current || inferredCountryCode());
     let cancelled = false;
-    authService
-      .getPublicFreeTierPolicy()
-      .then((result) => {
-        if (!cancelled) setPolicy(result);
+    Promise.all([
+      authService.getPublicFreeTierPolicy(),
+      authService.getFirebasePhoneConfiguration(),
+    ])
+      .then(([policyResult, firebaseResult]) => {
+        if (!cancelled) {
+          setPolicy(policyResult);
+          setFirebasePhone(firebaseResult);
+        }
       })
       .catch((policyError: unknown) => {
         if (!cancelled) {
@@ -119,15 +149,118 @@ export default function AuthGate({ children }: PropsWithChildren) {
     }
   }
 
+  useEffect(() => {
+    return () => disposeFirebasePhoneChallenge(phoneChallengeRef.current);
+  }, []);
+
+  function resetPhoneVerification(nextPhoneNumber?: string) {
+    disposeFirebasePhoneChallenge(phoneChallengeRef.current);
+    phoneChallengeRef.current = null;
+    setFirebaseIdToken("");
+    setVerifiedPhoneNumber("");
+    setVerificationCode("");
+    setOtpSent(false);
+    setOtpStatus("");
+    if (nextPhoneNumber !== undefined) setPhoneNumber(nextPhoneNumber);
+  }
+
+  async function sendVerificationCode() {
+    setError(null);
+    const normalizedPhone = phoneNumber.trim();
+    if (!consentAccepted) {
+      setError(
+        "Accept the required privacy and security consent before sending SMS.",
+      );
+      return;
+    }
+    if (!/^\+[1-9][0-9]{7,14}$/.test(normalizedPhone)) {
+      setError(
+        "Enter a valid mobile number in international format, such as +971501234567.",
+      );
+      return;
+    }
+    if (!firebasePhone?.enabled || !firebasePhone.web_config) {
+      setError("Firebase phone verification is not ready on this deployment.");
+      return;
+    }
+
+    setOtpBusy(true);
+    setOtpStatus("Running security verification and sending the SMS…");
+    disposeFirebasePhoneChallenge(phoneChallengeRef.current);
+    phoneChallengeRef.current = null;
+    setFirebaseIdToken("");
+    setVerifiedPhoneNumber("");
+    setVerificationCode("");
+    try {
+      const challenge = await startFirebasePhoneVerification(
+        firebasePhone.web_config,
+        normalizedPhone,
+        "firebase-phone-recaptcha",
+      );
+      phoneChallengeRef.current = challenge;
+      setOtpSent(true);
+      setOtpStatus("Verification code sent. Enter the six-digit code.");
+    } catch (verificationError) {
+      setOtpSent(false);
+      setOtpStatus("");
+      setError(
+        verificationError instanceof Error
+          ? verificationError.message
+          : "Unable to send the verification code.",
+      );
+    } finally {
+      setOtpBusy(false);
+    }
+  }
+
+  async function verifyCode() {
+    setError(null);
+    const challenge = phoneChallengeRef.current;
+    if (!challenge || !/^\d{6}$/.test(verificationCode)) {
+      setError("Enter the six-digit code sent to your phone.");
+      return;
+    }
+
+    setOtpBusy(true);
+    setOtpStatus("Verifying the mobile number…");
+    try {
+      const idToken = await completeFirebasePhoneVerification(
+        challenge,
+        verificationCode,
+      );
+      phoneChallengeRef.current = null;
+      setFirebaseIdToken(idToken);
+      setVerifiedPhoneNumber(challenge.phoneNumber);
+      setOtpSent(false);
+      setVerificationCode("");
+      setOtpStatus("Mobile number verified by Firebase.");
+    } catch (verificationError) {
+      phoneChallengeRef.current = null;
+      setOtpSent(false);
+      setOtpStatus("");
+      setError(
+        verificationError instanceof Error
+          ? verificationError.message
+          : "Unable to verify the mobile number.",
+      );
+    } finally {
+      setOtpBusy(false);
+    }
+  }
+
   async function handleRegistration(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     if (!policy?.enabled) {
-      setError("Free registration is currently disabled by the platform owner.");
+      setError(
+        "Free registration is currently disabled by the platform owner.",
+      );
       return;
     }
     if (!/^[A-Za-z0-9_.-]{3,32}$/.test(username.trim())) {
-      setError("Username must contain 3-32 letters, numbers, dots, dashes, or underscores.");
+      setError(
+        "Username must contain 3-32 letters, numbers, dots, dashes, or underscores.",
+      );
       return;
     }
     if (!birthDate) {
@@ -143,18 +276,25 @@ export default function AuthGate({ children }: PropsWithChildren) {
         today.getUTCDate() < birth.getUTCDate());
     if (beforeBirthday) age -= 1;
     if (!Number.isFinite(age) || age < (policy.identity?.minimum_age ?? 18)) {
-      setError(`You must be at least ${policy.identity?.minimum_age ?? 18} years old.`);
+      setError(
+        `You must be at least ${policy.identity?.minimum_age ?? 18} years old.`,
+      );
       return;
     }
     if (!/^\+[1-9][0-9]{7,14}$/.test(phoneNumber.trim())) {
-      setError("Enter a verified mobile number in international format, such as +971501234567.");
+      setError(
+        "Enter a verified mobile number in international format, such as +971501234567.",
+      );
       return;
     }
     if (
       policy.identity?.phone_verification_required &&
-      phoneVerificationToken.trim().length < 24
+      (firebaseIdToken.trim().length < 100 ||
+        verifiedPhoneNumber !== phoneNumber.trim())
     ) {
-      setError("Complete mobile-number verification before creating the account.");
+      setError(
+        "Complete Firebase mobile-number verification before creating the account.",
+      );
       return;
     }
     if (registrationPassword !== confirmPassword) {
@@ -175,7 +315,10 @@ export default function AuthGate({ children }: PropsWithChildren) {
     }
 
     const telemetry = collectRegistrationTelemetry();
-    if (policy.identity?.device_signals_required && telemetry.cookie_enabled !== true) {
+    if (
+      policy.identity?.device_signals_required &&
+      telemetry.cookie_enabled !== true
+    ) {
       setError("Required cookies must be enabled before registration.");
       return;
     }
@@ -190,7 +333,7 @@ export default function AuthGate({ children }: PropsWithChildren) {
         birth_date: birthDate,
         country_code: countryCode.trim().toUpperCase(),
         phone_number: phoneNumber.trim(),
-        phone_verification_token: phoneVerificationToken.trim(),
+        firebase_id_token: firebaseIdToken.trim() || undefined,
         consent_accepted: true,
         consent_version: policy.consent_version,
         telemetry,
@@ -369,42 +512,112 @@ export default function AuthGate({ children }: PropsWithChildren) {
                 <input
                   type="tel"
                   value={phoneNumber}
-                  onChange={(event) =>
-                    setPhoneNumber(
-                      event.target.value.replace(/[^+0-9]/g, "").slice(0, 16),
-                    )
-                  }
+                  onChange={(event) => {
+                    const nextPhoneNumber = event.target.value
+                      .replace(/[^+0-9]/g, "")
+                      .slice(0, 16);
+                    if (nextPhoneNumber !== phoneNumber) {
+                      resetPhoneVerification(nextPhoneNumber);
+                    }
+                  }}
                   placeholder="+971501234567"
                   autoComplete="tel"
                   required
                   className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none focus:border-electric-400/60"
                 />
               </label>
-              <label className="space-y-2 sm:col-span-2">
-                <span className="text-sm text-white/70">
-                  Phone verification assertion
-                </span>
-                <input
-                  value={phoneVerificationToken}
-                  onChange={(event) => setPhoneVerificationToken(event.target.value)}
-                  autoComplete="one-time-code"
-                  minLength={24}
-                  required={policy?.identity?.phone_verification_required ?? true}
-                  placeholder="Issued after OTP and mobile-line verification"
-                  className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 font-mono text-xs text-white outline-none focus:border-electric-400/60"
-                />
-                <span className="block text-[11px] leading-5 text-white/35">
-                  Registration fails closed until the configured phone-verification
-                  provider confirms a real mobile line; virtual and VoIP numbers are
-                  rejected.
-                </span>
-              </label>
+              <div className="space-y-3 rounded-2xl border border-white/[0.08] bg-black/20 p-4 sm:col-span-2">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <span className="flex items-center gap-2 text-sm font-medium text-white/80">
+                      <Smartphone className="h-4 w-4 text-electric-300" />
+                      Firebase mobile verification
+                    </span>
+                    <span className="mt-1 block text-[11px] leading-5 text-white/35">
+                      reCAPTCHA protects the SMS request. The Firebase ID token
+                      is verified again by the AIOS backend and is never stored
+                      in the browser after registration.
+                    </span>
+                  </div>
+                  {verifiedPhoneNumber === phoneNumber.trim() &&
+                  firebaseIdToken ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-green-500/20 bg-green-500/10 px-3 py-1 text-xs text-green-300">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Verified
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-[auto_1fr_auto]">
+                  <button
+                    type="button"
+                    disabled={
+                      otpBusy ||
+                      !consentAccepted ||
+                      !firebasePhone?.enabled ||
+                      !/^\+[1-9][0-9]{7,14}$/.test(phoneNumber.trim())
+                    }
+                    onClick={() => void sendVerificationCode()}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-electric-500/25 bg-electric-500/10 px-4 py-3 text-sm font-medium text-electric-200 transition hover:bg-electric-500/15 disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    {otpBusy && !otpSent ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                    {firebaseIdToken ? "Send new code" : "Send code"}
+                  </button>
+
+                  <input
+                    value={verificationCode}
+                    onChange={(event) =>
+                      setVerificationCode(
+                        event.target.value.replace(/[^0-9]/g, "").slice(0, 6),
+                      )
+                    }
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    disabled={!otpSent || otpBusy}
+                    placeholder="6-digit code"
+                    className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-center font-mono tracking-[0.35em] text-white outline-none focus:border-electric-400/60 disabled:opacity-45"
+                  />
+
+                  <button
+                    type="button"
+                    disabled={
+                      otpBusy || !otpSent || verificationCode.length !== 6
+                    }
+                    onClick={() => void verifyCode()}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-electric-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-electric-400 disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    {otpBusy && otpSent ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ShieldCheck className="h-4 w-4" />
+                    )}
+                    Verify
+                  </button>
+                </div>
+
+                <div id="firebase-phone-recaptcha" />
+                {otpStatus ? (
+                  <p className="text-xs text-electric-200/75">{otpStatus}</p>
+                ) : null}
+                {!firebasePhone?.enabled && !policyLoading ? (
+                  <p className="text-xs text-orange-300">
+                    Firebase phone verification is not configured on the
+                    backend.
+                  </p>
+                ) : null}
+              </div>
               <label className="space-y-2">
                 <span className="text-sm text-white/70">Password</span>
                 <input
                   type="password"
                   value={registrationPassword}
-                  onChange={(event) => setRegistrationPassword(event.target.value)}
+                  onChange={(event) =>
+                    setRegistrationPassword(event.target.value)
+                  }
                   autoComplete="new-password"
                   minLength={12}
                   required
@@ -474,16 +687,18 @@ export default function AuthGate({ children }: PropsWithChildren) {
               />
               <span>
                 <span className="mb-1 flex items-center gap-2 font-semibold text-white/85">
-                  <Cookie className="h-4 w-4 text-electric-300" /> Required privacy and security consent
+                  <Cookie className="h-4 w-4 text-electric-300" /> Required
+                  privacy and security consent
                 </span>
                 I accept the terms, privacy notice, and essential cookies. After
                 consent, AIONEX records my verified username, date of birth,
-                country, protected phone identity, IP address, browser/user agent,
-                language, timezone, screen and coarse device capabilities, plus
-                network-quality information when the browser provides it. This
-                supports identity verification, one-account controls, security,
-                quotas, and owner audit. No MAC address, Wi-Fi name, contacts,
-                files, or precise GPS location are collected by this web form.
+                country, protected phone identity, IP address, browser/user
+                agent, language, timezone, screen and coarse device
+                capabilities, plus network-quality information when the browser
+                provides it. This supports identity verification, one-account
+                controls, security, quotas, and owner audit. No MAC address,
+                Wi-Fi name, contacts, files, or precise GPS location are
+                collected by this web form.
               </span>
             </label>
 
@@ -502,7 +717,12 @@ export default function AuthGate({ children }: PropsWithChildren) {
                 submitting ||
                 policyLoading ||
                 !policy?.enabled ||
-                !consentAccepted
+                !consentAccepted ||
+                Boolean(
+                  policy?.identity?.phone_verification_required &&
+                  (verifiedPhoneNumber !== phoneNumber.trim() ||
+                    !firebaseIdToken),
+                )
               }
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-electric-500 px-4 py-3 font-semibold text-white transition hover:bg-electric-400 disabled:cursor-not-allowed disabled:opacity-60"
             >

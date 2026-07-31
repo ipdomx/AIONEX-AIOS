@@ -21,6 +21,7 @@ required = {
     "/health",
     "/ready",
     "/api/v1/auth/login",
+    "/api/v1/auth/firebase/phone/public",
     "/api/v1/projects",
     "/api/v1/integration/health",
 }

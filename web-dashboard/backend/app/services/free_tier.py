@@ -40,6 +40,7 @@ from app.db.models import (
     Workspace,
     uuid_str,
 )
+from app.services.firebase_phone import verify_firebase_phone_id_token
 
 FREE_USER_ROLE_NAME = "Free User"
 FREE_PLAN_NAME = "free"
@@ -51,6 +52,7 @@ FREE_USERNAME_IDENTITY_DOMAIN = "free-identity-username"
 FREE_PHONE_IDENTITY_DOMAIN = "free-identity-phone"
 FREE_NETWORK_IDENTITY_DOMAIN = "free-identity-network"
 FREE_DEVICE_IDENTITY_DOMAIN = "free-identity-device"
+FREE_FIREBASE_UID_IDENTITY_DOMAIN = "free-identity-firebase-uid"
 FREE_USER_PERMISSIONS = (
     "profile:read",
     "projects:read",
@@ -123,13 +125,9 @@ def _policy_payload(payload: dict[str, Any] | None) -> dict[str, Any]:
         ),
         "storage_limit_bytes": int(merged["storage_limit_bytes"]),
         "max_message_characters": int(merged["max_message_characters"]),
-        "registrations_per_ip_per_day": int(
-            merged["registrations_per_ip_per_day"]
-        ),
+        "registrations_per_ip_per_day": int(merged["registrations_per_ip_per_day"]),
         "minimum_age": int(merged["minimum_age"]),
-        "require_phone_verification": bool(
-            merged["require_phone_verification"]
-        ),
+        "require_phone_verification": bool(merged["require_phone_verification"]),
         "require_device_signals": bool(merged["require_device_signals"]),
         "one_account_per_network": bool(merged["one_account_per_network"]),
         "one_account_per_device": bool(merged["one_account_per_device"]),
@@ -206,18 +204,14 @@ def public_free_tier_policy(policy: dict[str, Any]) -> dict[str, Any]:
         "limits": {
             "projects": policy["project_limit"],
             "user_messages_per_month": policy["monthly_user_message_limit"],
-            "assistant_responses_per_month": policy[
-                "monthly_assistant_response_limit"
-            ],
+            "assistant_responses_per_month": policy["monthly_assistant_response_limit"],
             "storage_bytes": policy["storage_limit_bytes"],
             "max_message_characters": policy["max_message_characters"],
         },
         "consent_version": policy["consent_version"],
         "identity": {
             "minimum_age": policy["minimum_age"],
-            "phone_verification_required": policy[
-                "require_phone_verification"
-            ],
+            "phone_verification_required": policy["require_phone_verification"],
             "device_signals_required": policy["require_device_signals"],
             "one_account_per_network": policy["one_account_per_network"],
             "one_account_per_device": policy["one_account_per_device"],
@@ -337,7 +331,12 @@ async def get_free_tier_status(
         "usage": consumed,
         "remaining": {
             key: max(0, int(limits[key]) - int(consumed[key]))
-            for key in ("projects", "user_messages", "assistant_responses", "storage_bytes")
+            for key in (
+                "projects",
+                "user_messages",
+                "assistant_responses",
+                "storage_bytes",
+            )
         },
         "period_started_at": usage.get("period_started_at"),
         "period_ends_at": usage.get("period_ends_at"),
@@ -553,87 +552,11 @@ def avatar_data_size(value: str | None) -> int:
         return len(encoded.encode("utf-8"))
 
 
-def _b64url_decode(value: str) -> bytes:
-    padding = "=" * (-len(value) % 4)
-    try:
-        return base64.urlsafe_b64decode(value + padding)
-    except (ValueError, TypeError) as exc:
-        raise HTTPException(
-            status_code=422,
-            detail="Invalid phone verification token",
-        ) from exc
-
-
-def verify_phone_verification_token(
-    token: str,
-    phone_number: str,
-) -> dict[str, Any]:
-    """Validate a signed assertion from the configured phone-verification service.
-
-    The provider must sign ``base64url(JSON).base64url(HMAC-SHA256(payload))`` and
-    attest that the number is a currently verified mobile line.  The application
-    fails closed when no production secret is configured.
-    """
-
-    secret = os.getenv("AIOS_PHONE_VERIFICATION_SECRET", "").encode("utf-8")
-    if len(secret) < 32:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Phone verification provider is not configured",
-        )
-
-    try:
-        encoded_payload, encoded_signature = token.split(".", 1)
-        payload_bytes = _b64url_decode(encoded_payload)
-        signature = _b64url_decode(encoded_signature)
-        expected = hmac.new(
-            secret,
-            encoded_payload.encode("ascii"),
-            hashlib.sha256,
-        ).digest()
-        if not hmac.compare_digest(signature, expected):
-            raise ValueError("invalid signature")
-        payload = json.loads(payload_bytes)
-        if not isinstance(payload, dict):
-            raise TypeError("phone assertion payload must be an object")
-    except (ValueError, TypeError, json.JSONDecodeError, UnicodeDecodeError) as exc:
-        raise HTTPException(
-            status_code=422,
-            detail="Invalid phone verification token",
-        ) from exc
-
-    expires_at = _as_utc(payload.get("expires_at"))
-    line_type = str(payload.get("line_type") or "").strip().lower()
-    blocked_types = {
-        "voip",
-        "virtual",
-        "fixed_voip",
-        "landline",
-        "toll_free",
-        "premium",
-        "unknown",
-    }
-    if (
-        payload.get("phone_number") != phone_number
-        or payload.get("verified") is not True
-        or line_type != "mobile"
-        or line_type in blocked_types
-        or expires_at is None
-        or expires_at <= _now()
-        or not str(payload.get("provider") or "").strip()
-    ):
-        raise HTTPException(
-            status_code=422,
-            detail="A currently verified real mobile number is required",
-        )
-
-    payload["line_type"] = line_type
-    return payload
-
-
 def _age_on(birth_date: date, today: date) -> int:
-    return today.year - birth_date.year - (
-        (today.month, today.day) < (birth_date.month, birth_date.day)
+    return (
+        today.year
+        - birth_date.year
+        - ((today.month, today.day) < (birth_date.month, birth_date.day))
     )
 
 
@@ -662,9 +585,7 @@ def _assert_real_device_signals(telemetry: dict[str, Any]) -> None:
 
 
 def _identity_hmac(value: str) -> str:
-    configured = os.getenv("AIOS_IDENTITY_HASH_SECRET") or os.getenv(
-        "AIOS_PHONE_VERIFICATION_SECRET"
-    )
+    configured = os.getenv("AIOS_IDENTITY_HASH_SECRET")
     secret = (configured or settings.SECRET_KEY).encode("utf-8")
     if len(secret) < 32:
         raise HTTPException(
@@ -758,7 +679,7 @@ async def register_free_account(
     birth_date: date,
     country_code: str,
     phone_number: str,
-    phone_verification_token: str,
+    firebase_id_token: str | None,
     consent_accepted: bool,
     consent_version: str,
     telemetry: dict[str, Any] | None,
@@ -813,13 +734,19 @@ async def register_free_account(
         )
 
     phone_assertion = (
-        verify_phone_verification_token(
-            phone_verification_token,
+        await verify_firebase_phone_id_token(
+            firebase_id_token or "",
             normalized_phone,
         )
         if policy["require_phone_verification"]
-        else {"provider": "disabled", "line_type": "mobile", "verified": False}
+        else {
+            "provider": "disabled",
+            "line_type": "unverified",
+            "verified": False,
+            "phone_number": normalized_phone,
+        }
     )
+    normalized_phone = str(phone_assertion.get("phone_number") or normalized_phone)
     sanitized = sanitize_registration_telemetry(telemetry)
     if policy["require_device_signals"]:
         _assert_real_device_signals(sanitized)
@@ -857,6 +784,15 @@ async def register_free_account(
         user_id=user_id,
         duplicate_detail="Phone number already registered",
     )
+    firebase_uid = str(phone_assertion.get("firebase_uid") or "").strip()
+    if firebase_uid:
+        await _reserve_identity(
+            session,
+            domain=FREE_FIREBASE_UID_IDENTITY_DOMAIN,
+            resource_id=_identity_hmac(firebase_uid),
+            user_id=user_id,
+            duplicate_detail="Firebase phone identity already registered",
+        )
     if policy["one_account_per_network"]:
         await _reserve_identity(
             session,
@@ -948,8 +884,7 @@ async def register_free_account(
     )
 
     detected_country = _safe_text(
-        request.headers.get("cf-ipcountry")
-        or request.headers.get("x-country-code"),
+        request.headers.get("cf-ipcountry") or request.headers.get("x-country-code"),
         2,
     )
     session.add(
@@ -962,26 +897,37 @@ async def register_free_account(
                 "username": normalized_username,
                 "birth_date": birth_date.isoformat(),
                 "declared_country": normalized_country,
-                "detected_country": detected_country.upper()
-                if detected_country
-                else None,
+                "detected_country": (
+                    detected_country.upper() if detected_country else None
+                ),
                 "phone_hash": phone_hash,
                 "phone_masked": f"{normalized_phone[:3]}***{normalized_phone[-4:]}",
                 "phone_verification": {
-                    "verified": bool(phone_assertion.get("verified", True)),
+                    "verified": phone_assertion.get("verified") is True,
                     "provider": str(phone_assertion.get("provider") or "unknown"),
                     "line_type": str(phone_assertion.get("line_type") or "unknown"),
-                    "verified_at": str(
-                        phone_assertion.get("verified_at") or _iso(now)
+                    "line_type_source": str(
+                        phone_assertion.get("line_type_source") or "unknown"
+                    ),
+                    "firebase_uid_hash": (
+                        _identity_hmac(firebase_uid) if firebase_uid else None
+                    ),
+                    "verified_at": (
+                        str(phone_assertion["verified_at"])
+                        if phone_assertion.get("verified") is True
+                        and phone_assertion.get("verified_at")
+                        else None
                     ),
                 },
-                "identity_status": "verified",
+                "identity_status": (
+                    "verified"
+                    if phone_assertion.get("verified") is True
+                    else "unverified"
+                ),
                 "network_hash": network_hash,
                 "device_hash": device_hash,
                 "ip_address": ip_address,
-                "server_user_agent": _safe_text(
-                    request.headers.get("user-agent"), 512
-                ),
+                "server_user_agent": _safe_text(request.headers.get("user-agent"), 512),
                 "accept_language": _safe_text(
                     request.headers.get("accept-language"), 160
                 ),
@@ -1009,7 +955,11 @@ async def register_free_account(
                 "declared_country": normalized_country,
                 "phone_provider": phone_assertion.get("provider"),
                 "phone_line_type": phone_assertion.get("line_type"),
-                "identity_status": "verified",
+                "identity_status": (
+                    "verified"
+                    if phone_assertion.get("verified") is True
+                    else "unverified"
+                ),
                 "consent_version": consent_version,
             },
             ip_address=ip_address,
@@ -1098,9 +1048,9 @@ async def list_free_accounts(
                 "status": user.status,
                 "created_at": user.created_at.isoformat(),
                 "quota": await get_free_tier_status(session, actor),
-                "registration": telemetry_record.payload
-                if telemetry_record is not None
-                else None,
+                "registration": (
+                    telemetry_record.payload if telemetry_record is not None else None
+                ),
             }
         )
     return result
