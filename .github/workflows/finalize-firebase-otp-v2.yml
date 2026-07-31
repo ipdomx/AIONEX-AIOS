@@ -74,3 +74,5 @@ fi
           PY
       - name: Apply, test, and commit Firebase OTP integration
         run: bash .github/scripts/finalize-firebase-otp.sh
+
+# Workflow trigger after enabling feature-branch push execution.
