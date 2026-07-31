@@ -13,24 +13,30 @@ import asyncio
 import json
 import os
 import threading
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import firebase_admin
 import phonenumbers
+from app.core.config import settings
 from fastapi import HTTPException, status
 from firebase_admin import auth as firebase_auth
 from firebase_admin import credentials
 from firebase_admin.exceptions import FirebaseError
+from google.auth.transport.requests import AuthorizedSession
+from google.oauth2 import service_account
 from phonenumbers import NumberParseException, PhoneNumberFormat, PhoneNumberType
-
-from app.core.config import settings
 
 _FIREBASE_APP_NAME = "aionex-phone-auth"
 _FIREBASE_APP_LOCK = threading.Lock()
 _FIREBASE_APP: firebase_admin.App | None = None
 _FIREBASE_APP_SIGNATURE: tuple[str, str, str] | None = None
+_IDENTITY_CONFIG_LOCK = threading.Lock()
+_IDENTITY_CONFIG_CACHE: tuple[float, dict[str, Any] | None] = (0.0, None)
+_IDENTITY_CONFIG_TTL_SECONDS = 300
 
 
 def _configured_text(name: str) -> str:
@@ -96,6 +102,43 @@ def _load_service_account() -> tuple[Path, dict[str, Any], str]:
             detail="Firebase Admin credentials do not match this project",
         )
     return path, document, project_id
+
+
+def _identity_platform_config() -> dict[str, Any] | None:
+    """Retrieve and briefly cache non-secret Firebase Auth project settings."""
+
+    global _IDENTITY_CONFIG_CACHE
+    now = time.monotonic()
+    expires_at, cached = _IDENTITY_CONFIG_CACHE
+    if now < expires_at:
+        return cached
+
+    with _IDENTITY_CONFIG_LOCK:
+        expires_at, cached = _IDENTITY_CONFIG_CACHE
+        if now < expires_at:
+            return cached
+        payload: dict[str, Any] | None = None
+        try:
+            _, document, project_id = _load_service_account()
+            scoped_credentials = service_account.Credentials.from_service_account_info(
+                document,
+                scopes=["https://www.googleapis.com/auth/cloud-platform"],
+            )
+            with AuthorizedSession(scoped_credentials) as session:
+                response = session.get(
+                    "https://identitytoolkit.googleapis.com/admin/v2/"
+                    f"projects/{project_id}/config",
+                    timeout=8,
+                )
+                if response.status_code == 200:
+                    candidate = response.json()
+                    if isinstance(candidate, dict):
+                        payload = candidate
+        except Exception:
+            payload = None
+        ttl = _IDENTITY_CONFIG_TTL_SECONDS if payload is not None else 60
+        _IDENTITY_CONFIG_CACHE = (now + ttl, payload)
+        return payload
 
 
 def _admin_verification_ready() -> bool:
@@ -206,6 +249,123 @@ def _canonical_mobile_number(phone_number: str) -> str:
     return phonenumbers.format_number(parsed, PhoneNumberFormat.E164)
 
 
+def mobile_number_country_code(phone_number: str) -> str:
+    """Return the authoritative ISO-3166 alpha-2 region for an E.164 number."""
+
+    try:
+        parsed = phonenumbers.parse(phone_number, None)
+    except NumberParseException as exc:
+        raise HTTPException(
+            status_code=422,
+            detail="A valid international mobile number is required",
+        ) from exc
+    region = str(phonenumbers.region_code_for_number(parsed) or "").upper()
+    if len(region) != 2 or not region.isalpha():
+        raise HTTPException(
+            status_code=422,
+            detail="The mobile-number country could not be determined",
+        )
+    return region
+
+
+def canonical_mobile_number_details(phone_number: str) -> tuple[str, str]:
+    canonical = _canonical_mobile_number(phone_number)
+    return canonical, mobile_number_country_code(canonical)
+
+
+def _sms_region_allowed(config: dict[str, Any], country_code: str) -> bool | None:
+    sms_config = config.get("smsRegionConfig")
+    if not isinstance(sms_config, dict):
+        return None
+    allowlist = sms_config.get("allowlistOnly")
+    if isinstance(allowlist, dict):
+        allowed = {
+            str(value).upper() for value in allowlist.get("allowedRegions", []) if value
+        }
+        return country_code in allowed
+    allow_by_default = sms_config.get("allowByDefault")
+    if isinstance(allow_by_default, dict):
+        denied = {
+            str(value).upper()
+            for value in allow_by_default.get("disallowedRegions", [])
+            if value
+        }
+        return country_code not in denied
+    return None
+
+
+def firebase_phone_readiness(
+    phone_number: str, origin: str | None = None
+) -> dict[str, Any]:
+    """Report known Firebase Phone, region-policy, and origin blockers safely."""
+
+    canonical_phone, country_code = canonical_mobile_number_details(phone_number)
+    local = firebase_public_configuration()
+    project_id = _configured_text("FIREBASE_PROJECT_ID")
+    config = _identity_platform_config()
+    provider_enabled: bool | None = None
+    sms_region_allowed: bool | None = None
+    origin_authorized: bool | None = None
+    reasons: list[str] = []
+
+    if not local["enabled"]:
+        reasons.append("The mobile verification service is not fully configured.")
+    if config is not None:
+        sign_in = config.get("signIn")
+        phone_config = sign_in.get("phoneNumber") if isinstance(sign_in, dict) else None
+        provider_enabled = (
+            bool(phone_config.get("enabled"))
+            if isinstance(phone_config, dict)
+            else False
+        )
+        sms_region_allowed = _sms_region_allowed(config, country_code)
+        parsed_origin = urlparse(origin or "")
+        origin_host = str(parsed_origin.hostname or "").lower()
+        if origin_host:
+            authorized = {
+                str(value).lower()
+                for value in config.get("authorizedDomains", [])
+                if value
+            }
+            origin_authorized = origin_host in authorized
+
+        if provider_enabled is False:
+            reasons.append(
+                "Phone sign-in is disabled for the mobile verification project."
+            )
+        if sms_region_allowed is False:
+            reasons.append(f"The SMS region policy does not allow {country_code}.")
+        if origin_authorized is False:
+            reasons.append(
+                f"The site host {origin_host} is not an authorized authentication domain."
+            )
+
+    ready = bool(local["enabled"]) and all(
+        value is not False
+        for value in (provider_enabled, sms_region_allowed, origin_authorized)
+    )
+    if ready:
+        detail = (
+            "Mobile verification is ready."
+            if config is not None
+            else "Local mobile-verification configuration is ready; the provider will validate project policy."
+        )
+    else:
+        detail = " ".join(reasons) or "Mobile verification is not ready."
+    return {
+        "provider": "firebase",
+        "ready": ready,
+        "diagnostics_available": config is not None,
+        "project_id": project_id,
+        "phone_number": canonical_phone,
+        "country_code": country_code,
+        "provider_enabled": provider_enabled,
+        "sms_region_allowed": sms_region_allowed,
+        "origin_authorized": origin_authorized,
+        "detail": detail,
+    }
+
+
 async def verify_firebase_phone_id_token(
     id_token: str,
     expected_phone_number: str,
@@ -215,7 +375,9 @@ async def verify_firebase_phone_id_token(
     if not id_token or len(id_token) > 8192:
         raise HTTPException(status_code=422, detail="Invalid Firebase phone token")
 
-    canonical_phone = _canonical_mobile_number(expected_phone_number)
+    canonical_phone, country_code = canonical_mobile_number_details(
+        expected_phone_number
+    )
     try:
         claims = await asyncio.to_thread(_verify_id_token_sync, id_token)
     except HTTPException:
@@ -284,6 +446,7 @@ async def verify_firebase_phone_id_token(
         "line_type": "mobile",
         "line_type_source": "libphonenumber",
         "phone_number": canonical_phone,
+        "country_code": country_code,
         "verified_at": datetime.fromtimestamp(auth_time, tz=UTC).isoformat(),
         "firebase_uid": uid,
     }

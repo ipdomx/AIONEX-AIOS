@@ -1,7 +1,7 @@
+# Trusted repository-owner validation trigger for the mobile verification repair.
+from app.api.v1.router import api_router
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
-
-from app.api.v1.router import api_router
 
 
 def _registered_routes():
@@ -25,6 +25,7 @@ def test_required_runtime_routes_are_registered():
         "/auth/login",
         "/auth/me",
         "/auth/firebase/phone/public",
+        "/auth/firebase/phone/readiness",
         "/auth/free-tier/public",
         "/auth/register/free",
         "/projects",

@@ -29,7 +29,7 @@ export type FirebasePhoneChallenge = {
 
 const FIREBASE_APP_NAME = "aionex-phone-auth";
 
-function firebaseErrorMessage(error: unknown): string {
+function firebaseErrorMessage(error: unknown, projectId = ""): string {
   if (!(error instanceof FirebaseError)) {
     return error instanceof Error
       ? error.message
@@ -44,15 +44,15 @@ function firebaseErrorMessage(error: unknown): string {
       "Too many verification attempts. Try again later.",
     "auth/quota-exceeded": "The SMS verification quota is currently exhausted.",
     "auth/captcha-check-failed":
-      "The security check failed. Confirm this site is listed under Firebase Authentication > Settings > Authorized domains, then try again.",
+      "The security check failed. Confirm this site is listed in the authentication provider's authorized domains, then try again.",
     "auth/code-expired": "The verification code expired. Request a new code.",
     "auth/invalid-verification-code": "The verification code is incorrect.",
     "auth/network-request-failed":
       "The verification service could not be reached.",
     "auth/operation-not-allowed":
-      "Firebase rejected SMS for this project. Enable the Phone provider, allow this phone region under Authentication > Settings > SMS region policy, and link an active Cloud Billing account.",
+      "The mobile verification service rejected SMS for this project. Enable the Phone provider, allow this phone region under Authentication > Settings > SMS region policy, and link an active billing account.",
     "auth/unauthorized-domain":
-      "Add this site hostname or IP under Firebase Authentication > Settings > Authorized domains.",
+      "Add this site hostname or IP under the authentication provider's authorized domains.",
   };
   return messages[error.code] ?? "Phone verification failed. Please try again.";
 }
@@ -66,7 +66,9 @@ function configuredApp(config: FirebasePhoneWebConfig) {
       existingOptions.appId !== config.appId ||
       existingOptions.apiKey !== config.apiKey
     ) {
-      throw new Error("Firebase phone configuration changed; reload the page.");
+      throw new Error(
+        "Mobile verification configuration changed; reload the page.",
+      );
     }
     return getApp(FIREBASE_APP_NAME);
   }
@@ -88,7 +90,7 @@ export async function startFirebasePhoneVerification(
   container.replaceChildren();
 
   const auth = getAuth(configuredApp(config));
-  auth.languageCode = navigator.language || "en";
+  auth.useDeviceLanguage();
   await setPersistence(auth, inMemoryPersistence);
 
   const verifier = new RecaptchaVerifier(auth, recaptchaContainerId, {
@@ -104,7 +106,9 @@ export async function startFirebasePhoneVerification(
   } catch (error) {
     verifier.clear();
     container.replaceChildren();
-    throw new Error(firebaseErrorMessage(error), { cause: error });
+    throw new Error(firebaseErrorMessage(error, config.projectId), {
+      cause: error,
+    });
   }
 }
 
@@ -115,11 +119,19 @@ export async function completeFirebasePhoneVerification(
   try {
     const credential = await challenge.confirmation.confirm(verificationCode);
     if (credential.user.phoneNumber !== challenge.phoneNumber) {
-      throw new Error("Firebase verified a different phone number.");
+      throw new Error(
+        "The verification provider confirmed a different phone number.",
+      );
     }
     return await credential.user.getIdToken(true);
   } catch (error) {
-    throw new Error(firebaseErrorMessage(error), { cause: error });
+    throw new Error(
+      firebaseErrorMessage(
+        error,
+        String(challenge.auth.app.options.projectId ?? ""),
+      ),
+      { cause: error },
+    );
   } finally {
     challenge.verifier.clear();
     await signOut(challenge.auth).catch(() => undefined);

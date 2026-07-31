@@ -6,11 +6,10 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
-from fastapi import HTTPException
-from phonenumbers import PhoneNumberType
-
 from app.api.v1.endpoints.auth import FreeRegisterRequest
 from app.services import firebase_phone
+from fastapi import HTTPException
+from phonenumbers import PhoneNumberType
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PHONE = "+971501234567"
@@ -105,6 +104,7 @@ async def test_recent_firebase_phone_token_is_bound_to_exact_number(
         "line_type": "mobile",
         "line_type_source": "libphonenumber",
         "phone_number": PHONE,
+        "country_code": "AE",
         "verified_at": datetime.fromtimestamp(now, tz=UTC).isoformat(),
         "firebase_uid": "firebase-user-1",
     }
@@ -231,6 +231,66 @@ def test_frontend_uses_firebase_sms_recaptcha_and_in_memory_tokens() -> None:
     assert "signInWithPhoneNumber" in firebase_client
     assert "inMemoryPersistence" in firebase_client
     assert "firebase_id_token?: string" in auth_service
+    assert "new Intl.Locale" in auth_gate
+    assert "getFirebasePhoneReadiness" in auth_gate
+    assert "SMS region policy" in firebase_client
+
+
+def test_mobile_country_and_firebase_project_readiness(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    _configure(monkeypatch, tmp_path)
+    monkeypatch.setattr(firebase_phone, "_get_firebase_app", lambda: object())
+    monkeypatch.setattr(
+        firebase_phone,
+        "_identity_platform_config",
+        lambda: {
+            "signIn": {"phoneNumber": {"enabled": True}},
+            "smsRegionConfig": {"allowlistOnly": {"allowedRegions": ["AE"]}},
+            "authorizedDomains": ["209.74.65.106"],
+        },
+    )
+
+    result = firebase_phone.firebase_phone_readiness(
+        PHONE,
+        "http://209.74.65.106",
+    )
+
+    assert result["ready"] is True
+    assert result["country_code"] == "AE"
+    assert result["phone_number"] == PHONE
+    assert result["provider_enabled"] is True
+    assert result["sms_region_allowed"] is True
+    assert result["origin_authorized"] is True
+
+
+def test_firebase_readiness_reports_sms_region_and_domain_blockers(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    _configure(monkeypatch, tmp_path)
+    monkeypatch.setattr(firebase_phone, "_get_firebase_app", lambda: object())
+    monkeypatch.setattr(
+        firebase_phone,
+        "_identity_platform_config",
+        lambda: {
+            "signIn": {"phoneNumber": {"enabled": True}},
+            "smsRegionConfig": {"allowlistOnly": {"allowedRegions": ["EG"]}},
+            "authorizedDomains": ["example.com"],
+        },
+    )
+
+    result = firebase_phone.firebase_phone_readiness(
+        PHONE,
+        "http://209.74.65.106",
+    )
+
+    assert result["ready"] is False
+    assert result["sms_region_allowed"] is False
+    assert result["origin_authorized"] is False
+    assert "SMS region policy" in result["detail"]
+    assert "authorized authentication domain" in result["detail"]
 
 
 def test_production_mounts_admin_credential_and_drops_privileges() -> None:
@@ -267,3 +327,18 @@ def test_production_mounts_admin_credential_and_drops_privileges() -> None:
         ],
         check=True,
     )
+
+
+def test_registration_ui_hides_sms_provider_branding() -> None:
+    auth_gate = (
+        REPO_ROOT / "web-dashboard/frontend/src/components/auth/AuthGate.tsx"
+    ).read_text(encoding="utf-8")
+    firebase_client = (
+        REPO_ROOT / "web-dashboard/frontend/src/lib/firebase-phone-auth.ts"
+    ).read_text(encoding="utf-8")
+
+    assert "Mobile verification" in auth_gate
+    assert "Firebase mobile verification" not in auth_gate
+    assert "The Firebase ID token" not in auth_gate
+    assert "Mobile number verified by Firebase" not in auth_gate
+    assert "Firebase rejected SMS for this project" not in firebase_client

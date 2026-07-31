@@ -20,9 +20,10 @@ def test_country_inference_uses_locale_region_not_language_code():
     assert "segments.find" not in source
 
 
-def test_firebase_phone_error_is_actionable_for_cloud_activation():
+def test_mobile_verification_error_is_actionable_without_provider_branding():
     source = FIREBASE_PHONE_AUTH.read_text(encoding="utf-8")
     assert "SMS region policy" in source
-    assert "Cloud Billing account" in source
-    assert "Authorized domains" in source
+    assert "active billing account" in source
+    assert "authorized domains" in source
     assert "Phone verification is not enabled for this project." not in source
+    assert "Firebase rejected SMS for this project" not in source

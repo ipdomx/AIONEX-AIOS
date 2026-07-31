@@ -6,16 +6,13 @@ import hashlib
 from datetime import date
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel, EmailStr, Field
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.core.auth import UserRecord, auth_service, current_user, oauth2_scheme
 from app.db.base import get_db
 from app.db.models import AuditEvent, RefreshSession
-from app.services.firebase_phone import firebase_public_configuration
+from app.services.firebase_phone import (
+    firebase_phone_readiness,
+    firebase_public_configuration,
+)
 from app.services.free_tier import (
     client_ip_from_request,
     get_free_tier_policy,
@@ -23,6 +20,11 @@ from app.services.free_tier import (
     public_free_tier_policy,
     register_free_account,
 )
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel, EmailStr, Field
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 
@@ -181,6 +183,18 @@ async def get_public_free_tier(session: AsyncSession = Depends(get_db)):
 @router.get("/firebase/phone/public")
 async def get_public_firebase_phone_configuration():
     return firebase_public_configuration()
+
+
+@router.get("/firebase/phone/readiness")
+async def get_public_firebase_phone_readiness(
+    phone_number: str = Query(
+        min_length=8,
+        max_length=20,
+        pattern=r"^\+[1-9][0-9]{7,14}$",
+    ),
+    origin: str | None = Query(default=None, max_length=512),
+):
+    return firebase_phone_readiness(phone_number, origin)
 
 
 @router.post(
