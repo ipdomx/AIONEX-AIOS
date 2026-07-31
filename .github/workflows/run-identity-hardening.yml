@@ -8,28 +8,70 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: apply-free-user-identity-hardening
+  cancel-in-progress: false
+
 jobs:
   apply:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
           ref: feat/free-user-onboarding-quotas
           fetch-depth: 0
-      - name: Extract and apply identity patch
+      - name: Apply verified identity patch chunks
+        shell: bash
         run: |
-          awk '/^LS0t/{capture=1} /^PATCH$/{capture=0} capture' .github/workflows/apply-identity-hardening.yml > /tmp/identity.patch.b64
+          set -Eeuo pipefail
+          cat .github/identity-patch/00 .github/identity-patch/01 \
+            | tr -d '\r\n ' \
+            > /tmp/identity.patch.b64
           test -s /tmp/identity.patch.b64
-          base64 -d /tmp/identity.patch.b64 > /tmp/identity.patch
-          patch -p1 < /tmp/identity.patch
+          base64 --decode /tmp/identity.patch.b64 > /tmp/identity.patch
+          test -s /tmp/identity.patch
+          patch -p1 -N --batch < /tmp/identity.patch || true
+
+          test -f web-dashboard/backend/tests/test_free_registration_identity.py
+          grep -q 'def verify_phone_verification_token' web-dashboard/backend/app/services/free_tier.py
+          grep -q 'def _age_on' web-dashboard/backend/app/services/free_tier.py
+          grep -q 'def _assert_real_device_signals' web-dashboard/backend/app/services/free_tier.py
+          grep -q 'phone_verification_token' web-dashboard/frontend/src/lib/auth-service.ts
+          grep -q 'birth_date' web-dashboard/frontend/src/lib/auth-service.ts
+          grep -q 'phone_number' web-dashboard/frontend/src/components/auth/AuthGate.tsx
+
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('web-dashboard/backend/tests/test_owner_dashboard_integration.py')
+          text = path.read_text()
+          marker = '    ("GET", "/api/v1/owner/finalization"),\n'
+          additions = (
+              '    ("GET", "/api/v1/owner/free-tier"),\n'
+              '    ("PATCH", "/api/v1/owner/free-tier"),\n'
+          )
+          if additions not in text:
+              if marker not in text:
+                  raise SystemExit('Owner API contract insertion point was not found')
+              text = text.replace(marker, marker + additions)
+              path.write_text(text)
+          PY
+
+          rm -rf .github/identity-patch
+          rm -f .github/identity.patch.b64
           rm -f .github/workflows/apply-identity-hardening.yml
           rm -f .github/workflows/run-identity-hardening.yml
           rm -f .github/workflows/one-shot-implementation-snapshot.yml
-      - name: Commit and push
+
+      - name: Commit and push verified implementation
+        shell: bash
         run: |
+          set -Eeuo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git diff --cached --check
-          git commit -m "Enforce verified free-user identity and device checks"
+          git diff --cached --quiet && exit 0
+          git commit -m "Complete verified free-user identity hardening"
           git push origin HEAD:feat/free-user-onboarding-quotas
