@@ -11,6 +11,10 @@ FIREBASE_PHONE_AUTH = (
     REPOSITORY_ROOT
     / "web-dashboard/frontend/src/lib/firebase-phone-auth.ts"
 )
+RUNTIME_PROVIDER = (
+    REPOSITORY_ROOT
+    / "web-dashboard/frontend/src/components/providers/RuntimeProvider.tsx"
+)
 
 
 def test_country_inference_uses_locale_region_not_language_code():
@@ -39,3 +43,12 @@ def test_mobile_verification_unknown_errors_expose_safe_reference_codes():
     assert '"auth/invalid-recaptcha-token"' in source
     assert "requests-from-referer" in source
     assert "error.message" in source
+
+
+def test_free_user_does_not_probe_restricted_enterprise_runtime():
+    source = RUNTIME_PROVIDER.read_text(encoding="utf-8")
+    assert 'user?.role === "Free User"' in source
+    free_user_guard = source.index('user?.role === "Free User"')
+    runtime_probe = source.index("runtimeServices.integrationHealth()")
+    assert free_user_guard < runtime_probe
+    assert "setState({ loading: false, health: null, error: null })" in source
