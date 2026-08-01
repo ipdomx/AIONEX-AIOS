@@ -14,6 +14,7 @@ from app.api.v1.endpoints import (
     ai_providers,
     auth,
     backups,
+    capabilities,
     containers,
     dashboard,
     databases,
@@ -21,6 +22,7 @@ from app.api.v1.endpoints import (
     firebase_phone,
     integration,
     knowledge,
+    locale,
     meetings,
     monitoring,
     notifications,
@@ -51,6 +53,8 @@ api_router = APIRouter()
 
 restricted = [Depends(require_non_free_user)]
 
+api_router.include_router(locale.router, prefix="/locale", tags=["Locale"])
+api_router.include_router(capabilities.router, prefix="/capabilities", tags=["Capabilities"])
 api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 api_router.include_router(
     firebase_phone.router,
