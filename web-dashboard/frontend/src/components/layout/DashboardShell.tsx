@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 
+import LanguageVoiceControls from "@/components/accessibility/LanguageVoiceControls";
 import CommandPalette from "@/components/layout/CommandPalette";
 import Sidebar from "@/components/layout/Sidebar";
 import TopBar from "@/components/layout/TopBar";
@@ -85,7 +86,7 @@ export default function DashboardShell({
         initial={false}
         animate={{ marginLeft: mobile ? 0 : sidebarCollapsed ? 72 : 280 }}
         transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-        className="min-h-screen min-w-0 px-3 pb-6 pt-20 sm:px-5 lg:px-6"
+        className="min-h-screen min-w-0 px-3 pb-24 pt-20 sm:px-5 lg:px-6"
       >
         <motion.div
           initial={{ opacity: 0 }}
@@ -104,6 +105,7 @@ export default function DashboardShell({
         isOpen={globalSearchOpen}
         onClose={() => setGlobalSearchOpen(false)}
       />
+      <LanguageVoiceControls />
     </div>
   );
 }
