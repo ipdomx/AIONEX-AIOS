@@ -1,0 +1,17 @@
+# Default ownership
+* @ipdomx
+
+# Security, deployment, identity, billing, and governance require owner review
+/.github/ @ipdomx
+/deploy/ @ipdomx
+/web-dashboard/docker/ @ipdomx
+/web-dashboard/docker-compose*.yml @ipdomx
+/web-dashboard/scripts/ @ipdomx
+/web-dashboard/backend/app/core/ @ipdomx
+/web-dashboard/backend/app/db/ @ipdomx
+/web-dashboard/backend/app/api/v1/endpoints/auth* @ipdomx
+/web-dashboard/backend/app/api/v1/endpoints/owner* @ipdomx
+/web-dashboard/backend/app/services/backup* @ipdomx
+/web-dashboard/backend/app/services/security* @ipdomx
+/web-dashboard/frontend/src/app/owner/ @ipdomx
+/web-dashboard/frontend/src/lib/auth* @ipdomx
