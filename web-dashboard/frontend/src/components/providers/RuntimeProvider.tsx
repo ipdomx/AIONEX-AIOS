@@ -2,6 +2,7 @@
 
 import { PropsWithChildren, useEffect, useState } from "react";
 
+import { useAuth } from "@/components/providers/AuthProvider";
 import { IntegrationHealth, runtimeServices } from "@/lib/runtime-services";
 
 type RuntimeState = {
@@ -11,10 +12,28 @@ type RuntimeState = {
 };
 
 export default function RuntimeProvider({ children }: PropsWithChildren) {
-  const [state, setState] = useState<RuntimeState>({ loading: true, health: null, error: null });
+  const { loading: authLoading, user } = useAuth();
+  const [state, setState] = useState<RuntimeState>({
+    loading: true,
+    health: null,
+    error: null,
+  });
 
   useEffect(() => {
     let cancelled = false;
+
+    if (authLoading) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (user?.role === "Free User") {
+      setState({ loading: false, health: null, error: null });
+      return () => {
+        cancelled = true;
+      };
+    }
 
     async function verifyRuntime() {
       try {
@@ -22,7 +41,12 @@ export default function RuntimeProvider({ children }: PropsWithChildren) {
         if (!cancelled) setState({ loading: false, health, error: null });
       } catch (error) {
         if (!cancelled) {
-          setState({ loading: false, health: null, error: error instanceof Error ? error.message : "Runtime unavailable" });
+          setState({
+            loading: false,
+            health: null,
+            error:
+              error instanceof Error ? error.message : "Runtime unavailable",
+          });
         }
       }
     }
@@ -31,7 +55,7 @@ export default function RuntimeProvider({ children }: PropsWithChildren) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [authLoading, user?.role]);
 
   return (
     <>
