@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+SELF = Path(__file__).resolve()
 TEXT_SUFFIXES = {
     ".py", ".js", ".jsx", ".ts", ".tsx", ".json", ".yml", ".yaml", ".toml",
     ".ini", ".cfg", ".conf", ".sh", ".md", ".txt", ".env", ".html", ".css",
@@ -27,6 +28,10 @@ SECRET_PATTERNS = {
     "jwt": re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b"),
 }
 PLACEHOLDER_MARKERS = ("replace-with-", "example", "dummy", "changeme", "test-token")
+ALLOWED_FAKE_PRIVATE_KEYS = {
+    Path("web-dashboard/backend/tests/test_firebase_phone_auth.py"):
+        "-----BEGIN PRIVATE KEY-----\\ntest\\n-----END PRIVATE KEY-----",
+}
 
 
 def tracked_files() -> list[Path]:
@@ -54,17 +59,23 @@ def main() -> int:
             text = path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
             continue
-        lowered = text.lower()
+        scan_text = text
+        fake_key = ALLOWED_FAKE_PRIVATE_KEYS.get(relative)
+        if fake_key:
+            scan_text = scan_text.replace(fake_key, "")
+        lowered = scan_text.lower()
         for label, pattern in SECRET_PATTERNS.items():
-            for match in pattern.finditer(text):
+            for match in pattern.finditer(scan_text):
                 window = lowered[max(0, match.start() - 100): match.end() + 100]
                 if any(marker in window for marker in PLACEHOLDER_MARKERS):
                     continue
-                findings.append(f"possible {label}: {relative}:{text.count(chr(10), 0, match.start()) + 1}")
+                findings.append(f"possible {label}: {relative}:{scan_text.count(chr(10), 0, match.start()) + 1}")
         if path.name in {"next.config.js", "next.config.mjs", "next.config.ts"} and re.search(r"productionBrowserSourceMaps\s*:\s*true", text):
             findings.append(f"production browser source maps enabled: {relative}")
-        if "allow_origins=[\"*\"]" in text.replace(" ", "") or "allow_origins=['*']" in text.replace(" ", ""):
-            findings.append(f"wildcard CORS policy: {relative}")
+        if path.resolve() != SELF:
+            compact = text.replace(" ", "")
+            if "allow_origins=[\"*\"]" in compact or "allow_origins=['*']" in compact:
+                findings.append(f"wildcard CORS policy: {relative}")
 
     if findings:
         print("Security audit failed:", file=sys.stderr)
