@@ -80,7 +80,8 @@ async def production_security_boundary(request: Request, call_next):
     response.headers["Referrer-Policy"] = "no-referrer"
     response.headers["Permissions-Policy"] = "camera=(), geolocation=(), microphone=(self), payment=(), usb=()"
     response.headers["Cache-Control"] = "no-store" if request.url.path.startswith("/api/") else response.headers.get("Cache-Control", "")
-    response.headers.pop("server", None)
+    if "server" in response.headers:
+        del response.headers["server"]
     return response
 
 
