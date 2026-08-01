@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from app.api.v1.endpoints import studio
 from app.services.programming_languages import programming_language_manifest
 from fastapi import APIRouter
 
 router = APIRouter()
+router.include_router(studio.router, prefix="/studio", tags=["Production Studio"])
 
 
 @router.get("/programming-languages")
