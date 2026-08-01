@@ -11,6 +11,7 @@ import {
   useState,
 } from "react";
 
+import { translateInterfaceText } from "@/lib/interface-translations";
 import {
   ArabicDialect,
   decideLocale,
@@ -22,6 +23,7 @@ import {
 
 const LOCALE_KEY = "aionex.locale";
 const DIALECT_KEY = "aionex.dialect";
+const ORIGINAL_TEXT = "aionexOriginalText";
 
 type LocaleContextResponse = {
   ip_country?: string | null;
@@ -82,6 +84,28 @@ function insertTranscript(text: string) {
   window.dispatchEvent(new CustomEvent("aionex:voice-transcript", { detail: { text } }));
 }
 
+function translateNode(node: Node, locale: SupportedLocale) {
+  if (node.nodeType === Node.TEXT_NODE) {
+    const parent = node.parentElement;
+    if (!parent || parent.closest("script, style, code, pre, [data-no-translate]") || !node.textContent) return;
+    const holder = parent.dataset;
+    const original = holder[ORIGINAL_TEXT] ?? node.textContent;
+    holder[ORIGINAL_TEXT] = original;
+    node.textContent = translateInterfaceText(original, locale);
+    return;
+  }
+  if (node instanceof HTMLElement) {
+    node.childNodes.forEach((child) => translateNode(child, locale));
+    if (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement) {
+      const originalPlaceholder = node.dataset.aionexOriginalPlaceholder ?? node.placeholder;
+      if (originalPlaceholder) {
+        node.dataset.aionexOriginalPlaceholder = originalPlaceholder;
+        node.placeholder = translateInterfaceText(originalPlaceholder, locale);
+      }
+    }
+  }
+}
+
 export default function LanguageVoiceProvider({ children }: PropsWithChildren) {
   const [decision, setDecision] = useState<LocaleDecision>(() =>
     decideLocale({ browserLocales: ["en-US"] }),
@@ -102,13 +126,22 @@ export default function LanguageVoiceProvider({ children }: PropsWithChildren) {
       if (cancelled) return;
       const explicitLocale = window.localStorage.getItem(LOCALE_KEY);
       const storedDialect = window.localStorage.getItem(DIALECT_KEY) as ArabicDialect | null;
+      const browserLocales = [
+        ...(navigator.languages?.length ? navigator.languages : [navigator.language]),
+        ...(context.accept_languages ?? []),
+      ];
       const next = decideLocale({
         explicitLocale,
-        browserLocales: navigator.languages?.length ? navigator.languages : [navigator.language],
+        browserLocales,
         ipCountry: context.ip_country,
       });
       const locale = storedDialect ? dialectLocale(next.locale, storedDialect) : next.locale;
-      setDecision({ ...next, locale, dialect: storedDialect ?? next.dialect, direction: locale.startsWith("ar-") || locale === "ur-PK" ? "rtl" : "ltr" });
+      setDecision({
+        ...next,
+        locale,
+        dialect: storedDialect ?? next.dialect,
+        direction: locale.startsWith("ar-") || locale === "ur-PK" ? "rtl" : "ltr",
+      });
     }
     void detect();
     return () => {
@@ -123,6 +156,17 @@ export default function LanguageVoiceProvider({ children }: PropsWithChildren) {
     if (decision.dialect) document.body.dataset.dialect = decision.dialect;
     else delete document.body.dataset.dialect;
   }, [decision]);
+
+  useEffect(() => {
+    translateNode(document.body, decision.locale);
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        record.addedNodes.forEach((node) => translateNode(node, decision.locale));
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [decision.locale]);
 
   const setLocale = useCallback((locale: SupportedLocale) => {
     window.localStorage.setItem(LOCALE_KEY, locale);
