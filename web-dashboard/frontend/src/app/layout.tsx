@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "@/styles/globals.css";
 import RuntimeProvider from "@/components/providers/RuntimeProvider";
 import AuthProvider from "@/components/providers/AuthProvider";
+import LanguageVoiceProvider from "@/components/providers/LanguageVoiceProvider";
 import AuthGate from "@/components/auth/AuthGate";
 import DashboardShell from "@/components/layout/DashboardShell";
 
@@ -75,7 +76,8 @@ export default function RootLayout({
 }) {
   return (
     <html
-      lang="en"
+      lang="en-US"
+      dir="ltr"
       className={`${inter.variable} ${jetbrainsMono.variable}`}
       suppressHydrationWarning
     >
@@ -88,13 +90,15 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
-        <AuthProvider>
-          <AuthGate>
-            <RuntimeProvider>
-              <DashboardShell>{children}</DashboardShell>
-            </RuntimeProvider>
-          </AuthGate>
-        </AuthProvider>
+        <LanguageVoiceProvider>
+          <AuthProvider>
+            <AuthGate>
+              <RuntimeProvider>
+                <DashboardShell>{children}</DashboardShell>
+              </RuntimeProvider>
+            </AuthGate>
+          </AuthProvider>
+        </LanguageVoiceProvider>
       </body>
     </html>
   );
