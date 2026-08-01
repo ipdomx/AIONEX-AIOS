@@ -3,6 +3,8 @@ AIONEX AIOS — Enterprise AI Operating System
 FastAPI Backend Application
 """
 
+import os
+import secrets
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -19,20 +21,26 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
-# Setup logging
 setup_logging()
 logger = get_logger(__name__)
 
 
+def _production() -> bool:
+    return settings.ENVIRONMENT.strip().lower() == "production" and not settings.DEBUG
+
+
+def _allowed_hosts() -> set[str]:
+    configured = os.getenv("AIOS_ALLOWED_HOSTS", "")
+    return {item.strip().lower() for item in configured.split(",") if item.strip()}
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan events."""
     await startup_event()
     yield
     await shutdown_event()
 
 
-# Create FastAPI application
 app = FastAPI(
     title="AIONEX AIOS API",
     description="Enterprise AI Operating System — Backend API",
@@ -43,34 +51,50 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Correlation-ID", "X-CSRF-Token"],
 )
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-# API Routes
+
+@app.middleware("http")
+async def production_security_boundary(request: Request, call_next):
+    request_id = request.headers.get("x-request-id") or request.headers.get("x-correlation-id") or secrets.token_hex(16)
+    if _production():
+        allowed = _allowed_hosts()
+        host = request.headers.get("host", "").split(":", 1)[0].lower()
+        if not allowed:
+            logger.error("AIOS_ALLOWED_HOSTS is required in production")
+            return JSONResponse(status_code=503, content={"detail": "Production host policy is not configured"})
+        if host not in allowed:
+            logger.warning("Rejected untrusted host", host=host, request_id=request_id)
+            return JSONResponse(status_code=421, content={"detail": "Untrusted host"})
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Permissions-Policy"] = "camera=(), geolocation=(), microphone=(self), payment=(), usb=()"
+    response.headers["Cache-Control"] = "no-store" if request.url.path.startswith("/api/") else response.headers.get("Cache-Control", "")
+    if "server" in response.headers:
+        del response.headers["server"]
+    return response
+
+
 app.include_router(api_router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["System"])
 async def health_check():
-    """Health check endpoint."""
-    return {
-        "status": "healthy",
-        "service": "aionex-aios-api",
-        "version": "1.0.0",
-        "environment": settings.ENVIRONMENT,
-    }
+    return {"status": "healthy", "service": "aionex-aios-api", "version": "1.0.0"}
 
 
 @app.get("/ready", tags=["System"])
 async def readiness_check(response: Response):
-    """Probe the dependencies required by authenticated dashboard requests."""
     database_status = "unavailable"
     redis_status = "unavailable"
     try:
@@ -88,27 +112,17 @@ async def readiness_check(response: Response):
 
     ready = database_status == "connected" and redis_status == "connected"
     response.status_code = 200 if ready else 503
-    return {
-        "status": "ready" if ready else "not_ready",
-        "database": database_status,
-        "redis": redis_status,
-    }
+    return {"status": "ready" if ready else "not_ready"}
 
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    """Global exception handler."""
-    logger.error(f"Unhandled exception: {exc}", exc_info=True)
-    return JSONResponse(
-        status_code=500,
-        content={"detail": "Internal server error", "code": "INTERNAL_ERROR"},
-    )
+    logger.error("Unhandled request exception", exc_info=True, path=request.url.path)
+    return JSONResponse(status_code=500, content={"detail": "Internal server error", "code": "INTERNAL_ERROR"})
 
 
-# WebSocket endpoint
 @app.websocket("/ws/{client_id}")
 async def websocket_endpoint(websocket: WebSocket, client_id: str):
-    """WebSocket endpoint for real-time updates."""
     await websocket_manager.connect(websocket, client_id)
     try:
         while True:
@@ -116,8 +130,8 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
             await websocket_manager.broadcast(f"Client {client_id}: {data}")
     except WebSocketDisconnect:
         websocket_manager.disconnect(client_id)
-    except Exception as e:
-        logger.error(f"WebSocket error: {e}")
+    except Exception:
+        logger.exception("WebSocket failure", client_id=client_id)
         websocket_manager.disconnect(client_id)
 
 
@@ -129,4 +143,6 @@ if __name__ == "__main__":
         reload=settings.DEBUG,
         workers=1 if settings.DEBUG else settings.WORKERS,
         log_level="info" if settings.DEBUG else "warning",
+        server_header=False,
+        date_header=False,
     )

@@ -13,19 +13,13 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
-      test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "fetch('http://127.0.0.1:3000/').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))",
-        ]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 15s
-    networks:
-      - aionex-network
+    security_opt: ["no-new-privileges:true"]
+    networks: [aionex-network]
 
   backend:
     image: aionex-aios-backend:local
@@ -33,8 +27,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
-    env_file:
-      - ${AIOS_ENV_FILE:-.env}
+    env_file: ["${AIOS_ENV_FILE:-.env}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -50,20 +43,17 @@ services:
       - ./secrets:/run/secrets/aionex:ro
       - backup_data:/var/lib/aionex/backups:ro
     depends_on:
-      postgres:
-        condition: service_healthy
-      postgres-credential-reconciler:
-        condition: service_completed_successfully
-      redis:
-        condition: service_healthy
+      postgres: {condition: service_healthy}
+      postgres-credential-reconciler: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready', timeout=5)"]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 20s
-    networks:
-      - aionex-network
+    security_opt: ["no-new-privileges:true"]
+    networks: [aionex-network]
 
   postgres-credential-reconciler:
     image: aionex-aios-backend:local
@@ -72,8 +62,7 @@ services:
       dockerfile: Dockerfile
     restart: "no"
     command: ["python", "/app/app/db/postgres_credentials.py"]
-    env_file:
-      - ${AIOS_ENV_FILE:-.env}
+    env_file: ["${AIOS_ENV_FILE:-.env}"]
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
@@ -85,18 +74,16 @@ services:
       - postgres_socket:/var/run/postgresql
       - postgres_data:/var/lib/postgresql/data
     depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - aionex-network
+      postgres: {condition: service_healthy}
+    security_opt: ["no-new-privileges:true"]
+    networks: [aionex-network]
 
   backup-worker:
     image: aionex-aios-backend:local
     restart: unless-stopped
     stop_grace_period: ${BACKUP_JOB_LEASE_SECONDS:-3600}s
     command: ["python", "-m", "app.services.backup_worker"]
-    env_file:
-      - ${AIOS_ENV_FILE:-.env}
+    env_file: ["${AIOS_ENV_FILE:-.env}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -109,16 +96,15 @@ services:
       - ..:/workspace:ro
       - backup_data:/var/lib/aionex/backups:rw
     depends_on:
-      backend:
-        condition: service_healthy
+      backend: {condition: service_healthy}
     healthcheck:
       test: ["CMD", "python", "-m", "app.services.backup_worker", "--healthcheck"]
       interval: 30s
       timeout: 15s
       retries: 3
       start_period: 20s
-    networks:
-      - aionex-network
+    security_opt: ["no-new-privileges:true"]
+    networks: [aionex-network]
 
   postgres:
     image: postgres:16-alpine
@@ -131,52 +117,55 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - postgres_socket:/var/run/postgresql
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready --host 127.0.0.1 --port 5432 --quiet",
-        ]
+      test: ["CMD-SHELL", "pg_isready --host 127.0.0.1 --port 5432 --quiet"]
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 10s
-    networks:
-      - aionex-network
+    security_opt: ["no-new-privileges:true"]
+    networks: [aionex-network]
 
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
-    volumes:
-      - redis_data:/data
+    command: ["redis-server", "--appendonly", "yes", "--protected-mode", "no"]
+    volumes: ["redis_data:/data"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 10
-    networks:
-      - aionex-network
+    security_opt: ["no-new-privileges:true"]
+    networks: [aionex-network]
 
   nginx:
     image: nginx:1.27-alpine
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "127.0.0.1:${AIOS_ORIGIN_PORT:-8080}:8080"
     volumes:
       - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      frontend:
-        condition: service_healthy
-      backend:
-        condition: service_healthy
+      frontend: {condition: service_healthy}
+      backend: {condition: service_healthy}
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ >/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 10s
-    networks:
-      - aionex-network
+    security_opt: ["no-new-privileges:true"]
+    networks: [aionex-network]
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.7.0
+    profiles: ["tunnel"]
+    restart: unless-stopped
+    command: ["tunnel", "--no-autoupdate", "run", "--token", "${CLOUDFLARE_TUNNEL_TOKEN:-}"]
+    depends_on:
+      nginx: {condition: service_healthy}
+    security_opt: ["no-new-privileges:true"]
+    networks: [aionex-network]
 
 volumes:
   postgres_data:
@@ -187,3 +176,4 @@ volumes:
 networks:
   aionex-network:
     driver: bridge
+    internal: false
