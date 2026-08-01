@@ -117,7 +117,7 @@ jobs:
           docker run -d \
             --name "$proxy" \
             --network "$network" \
-            -p 18080:80 \
+            -p 18080:8080 \
             -v "$GITHUB_WORKSPACE/web-dashboard/docker/nginx.conf:/etc/nginx/nginx.conf:ro" \
             nginx:1.27-alpine \
             >/dev/null
