@@ -3,16 +3,17 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Any
 
 from app.core.auth import UserRecord, auth_service, current_user, oauth2_scheme
 from app.db.base import get_db
-from app.db.models import AuditEvent, RefreshSession
+from app.db.models import AuditEvent, ExternalIdentity, RefreshSession, uuid_str
 from app.services.firebase_phone import (
     firebase_phone_readiness,
     firebase_public_configuration,
 )
+from app.services.firebase_social import consume_social_registration
 from app.services.free_tier import (
     client_ip_from_request,
     get_free_tier_policy,
@@ -24,6 +25,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
@@ -81,6 +83,11 @@ class FreeRegisterRequest(BaseModel):
         pattern=r"^\+[1-9][0-9]{7,14}$",
     )
     firebase_id_token: str | None = Field(default=None, min_length=100, max_length=8192)
+    social_registration_token: str | None = Field(
+        default=None,
+        min_length=20,
+        max_length=256,
+    )
     consent_accepted: bool
     consent_version: str = Field(min_length=4, max_length=80)
     telemetry: FreeRegistrationTelemetry = Field(
@@ -222,6 +229,56 @@ async def register_free(
         consent_version=data.consent_version,
         telemetry=data.telemetry.model_dump(exclude_none=True),
     )
+    if data.social_registration_token:
+        social_identity = await consume_social_registration(
+            data.social_registration_token
+        )
+        if str(social_identity["email"]).strip().lower() != user.email:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "SOCIAL_EMAIL_MISMATCH",
+                    "message": (
+                        "Registration email must match the verified social identity."
+                    ),
+                },
+            )
+        external_identity = ExternalIdentity(
+            id=uuid_str(),
+            user_id=user.id,
+            provider=str(social_identity["provider"]),
+            subject=str(social_identity["subject"]),
+            email=user.email,
+            provider_metadata={
+                "firebase_uid": social_identity["firebase_uid"],
+                "name": social_identity.get("name"),
+                "picture": social_identity.get("picture"),
+            },
+            last_login_at=datetime.now(UTC),
+        )
+        session.add(external_identity)
+        session.add(
+            AuditEvent(
+                organization_id=user.organization_id,
+                user_id=user.id,
+                action="auth.social_identity_registered",
+                resource_type="external_identity",
+                resource_id=external_identity.id,
+                details={"provider": external_identity.provider},
+                ip_address=client_ip_from_request(request),
+            )
+        )
+        try:
+            await session.flush()
+        except IntegrityError as exc:
+            await session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "code": "SOCIAL_IDENTITY_CONFLICT",
+                    "message": "This social identity is already registered.",
+                },
+            ) from exc
     user_record = await auth_service.get_user_by_id(session, user.id)
     response = await auth_service.issue_pair(session, user_record)
     await _attach_session_context(

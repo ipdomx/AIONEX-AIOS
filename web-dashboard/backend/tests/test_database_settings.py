@@ -286,7 +286,7 @@ class _FakeAsyncEngine:
 
 def test_backend_exposes_the_shipped_alembic_head() -> None:
     database.expected_alembic_heads.cache_clear()
-    assert database.expected_alembic_heads() == frozenset({"20260729_0004"})
+    assert database.expected_alembic_heads() == frozenset({"20260802_0005"})
 
 
 @pytest.mark.asyncio

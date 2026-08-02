@@ -21,6 +21,7 @@ from app.api.v1.endpoints import (
     final_integration,
     firebase_phone,
     integration,
+    identity,
     knowledge,
     locale,
     meetings,
@@ -58,6 +59,7 @@ api_router.include_router(capabilities.router, prefix="/capabilities", tags=["Ca
 api_router.include_router(studio.router, prefix="/studio", tags=["Production Studio"])
 api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 api_router.include_router(firebase_phone.router, prefix="/auth/phone", tags=["Authentication"])
+api_router.include_router(identity.router, prefix="/auth", tags=["Authentication"])
 api_router.include_router(users.router, prefix="/users", tags=["Users"], dependencies=restricted)
 api_router.include_router(organizations.router, prefix="/organizations", tags=["Organizations"], dependencies=restricted)
 api_router.include_router(workspaces.router, prefix="/workspaces", tags=["Workspaces"], dependencies=[Depends(enforce_free_workspace_request)])

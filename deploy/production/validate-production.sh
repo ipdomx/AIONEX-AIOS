@@ -27,6 +27,14 @@ required=(
   POSTGRES_USER
   POSTGRES_PASSWORD
   SECRET_KEY
+  FIREBASE_PROJECT_ID
+  FIREBASE_WEB_API_KEY
+  FIREBASE_AUTH_DOMAIN
+  FIREBASE_APP_ID
+  FIREBASE_ADMIN_CREDENTIALS_JSON
+  FIREBASE_SOCIAL_PROVIDERS
+  PASSKEY_RP_ID
+  PASSKEY_ALLOWED_ORIGINS
 )
 for key in "${required[@]}"; do
   value="$(read_value "$key")"
@@ -41,6 +49,9 @@ cors_origins="$(read_value CORS_ORIGINS)"
 postgres_password="$(read_value POSTGRES_PASSWORD)"
 secret_key="$(read_value SECRET_KEY)"
 bootstrap_owner_password="$(read_value AIOS_BOOTSTRAP_OWNER_PASSWORD)"
+social_providers="$(read_value FIREBASE_SOCIAL_PROVIDERS)"
+passkey_rp_id="$(read_value PASSKEY_RP_ID)"
+passkey_origins="$(read_value PASSKEY_ALLOWED_ORIGINS)"
 
 [[ "$public_origin" == "https://${public_domain}" ]] || {
   echo "PUBLIC_ORIGIN must equal https://PUBLIC_DOMAIN" >&2
@@ -67,6 +78,20 @@ bootstrap_owner_password="$(read_value AIOS_BOOTSTRAP_OWNER_PASSWORD)"
   ${#bootstrap_owner_password} -ge 12
 ) ]] || {
   echo "AIOS_BOOTSTRAP_OWNER_PASSWORD must be replaced with at least 12 characters" >&2
+  exit 1
+}
+for provider in google apple facebook x instagram; do
+  [[ "$social_providers" == *"\"${provider}\""* ]] || {
+    echo "FIREBASE_SOCIAL_PROVIDERS must include ${provider}" >&2
+    exit 1
+  }
+done
+[[ "$public_domain" == "$passkey_rp_id" || "$public_domain" == *."$passkey_rp_id" ]] || {
+  echo "PASSKEY_RP_ID must be PUBLIC_DOMAIN or its registrable parent domain" >&2
+  exit 1
+}
+[[ "$passkey_origins" == *"\"${public_origin}\""* ]] || {
+  echo "PASSKEY_ALLOWED_ORIGINS must include PUBLIC_ORIGIN" >&2
   exit 1
 }
 

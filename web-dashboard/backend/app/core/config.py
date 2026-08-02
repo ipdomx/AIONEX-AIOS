@@ -1,7 +1,8 @@
 """Application configuration."""
 
 from functools import lru_cache
-from typing import List, Optional
+from typing import Dict, List, Optional
+from urllib.parse import urlparse
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -190,6 +191,48 @@ class Settings(BaseSettings):
         le=3600,
         validation_alias="FIREBASE_PHONE_TOKEN_MAX_AGE_SECONDS",
     )
+    FIREBASE_SOCIAL_PROVIDERS: List[str] = Field(
+        default=["google", "apple", "facebook", "x", "instagram"],
+        validation_alias="FIREBASE_SOCIAL_PROVIDERS",
+    )
+    FIREBASE_SOCIAL_PROVIDER_IDS: Dict[str, str] = Field(
+        default={
+            "google": "google.com",
+            "apple": "apple.com",
+            "facebook": "facebook.com",
+            "x": "twitter.com",
+            "instagram": "oidc.instagram",
+        },
+        validation_alias="FIREBASE_SOCIAL_PROVIDER_IDS",
+    )
+    FIREBASE_SOCIAL_TOKEN_MAX_AGE_SECONDS: int = Field(
+        default=300,
+        ge=60,
+        le=1800,
+        validation_alias="FIREBASE_SOCIAL_TOKEN_MAX_AGE_SECONDS",
+    )
+    FIREBASE_SOCIAL_REGISTRATION_TTL_SECONDS: int = Field(
+        default=900,
+        ge=120,
+        le=3600,
+        validation_alias="FIREBASE_SOCIAL_REGISTRATION_TTL_SECONDS",
+    )
+
+    PASSKEY_ENABLED: bool = Field(default=True, validation_alias="PASSKEY_ENABLED")
+    PASSKEY_RP_ID: str = Field(default="vip-e.net", validation_alias="PASSKEY_RP_ID")
+    PASSKEY_RP_NAME: str = Field(
+        default="AIONEX AIOS", validation_alias="PASSKEY_RP_NAME"
+    )
+    PASSKEY_ALLOWED_ORIGINS: List[str] = Field(
+        default=["https://vip-e.net", "https://www.vip-e.net"],
+        validation_alias="PASSKEY_ALLOWED_ORIGINS",
+    )
+    PASSKEY_CHALLENGE_TTL_SECONDS: int = Field(
+        default=300,
+        ge=60,
+        le=600,
+        validation_alias="PASSKEY_CHALLENGE_TTL_SECONDS",
+    )
 
     @model_validator(mode="after")
     def resolve_database_url(self) -> "Settings":
@@ -219,6 +262,75 @@ class Settings(BaseSettings):
             port=self.POSTGRES_PORT,
             database=self.POSTGRES_DB,
         ).render_as_string(hide_password=False)
+        return self
+
+    @model_validator(mode="after")
+    def validate_identity_configuration(self) -> "Settings":
+        known_providers = {"google", "apple", "facebook", "x", "instagram"}
+        normalized_providers = []
+        for provider in self.FIREBASE_SOCIAL_PROVIDERS:
+            normalized = str(provider).strip().lower()
+            if normalized and normalized not in normalized_providers:
+                normalized_providers.append(normalized)
+        unknown = sorted(set(normalized_providers) - known_providers)
+        if unknown:
+            raise ValueError(
+                "FIREBASE_SOCIAL_PROVIDERS contains unsupported providers: "
+                + ", ".join(unknown)
+            )
+        provider_ids = {
+            str(key).strip().lower(): str(value).strip()
+            for key, value in self.FIREBASE_SOCIAL_PROVIDER_IDS.items()
+            if str(key).strip() and str(value).strip()
+        }
+        missing = sorted(set(normalized_providers) - set(provider_ids))
+        if missing:
+            raise ValueError(
+                "FIREBASE_SOCIAL_PROVIDER_IDS is missing: " + ", ".join(missing)
+            )
+        self.FIREBASE_SOCIAL_PROVIDERS = normalized_providers
+        self.FIREBASE_SOCIAL_PROVIDER_IDS = provider_ids
+
+        rp_id = self.PASSKEY_RP_ID.strip().lower().rstrip(".")
+        if not rp_id or "://" in rp_id or "/" in rp_id or ":" in rp_id or " " in rp_id:
+            raise ValueError(
+                "PASSKEY_RP_ID must be a hostname without a scheme or port"
+            )
+        self.PASSKEY_RP_ID = rp_id
+
+        normalized_origins: list[str] = []
+        for raw_origin in self.PASSKEY_ALLOWED_ORIGINS:
+            origin = str(raw_origin).strip().rstrip("/")
+            parsed = urlparse(origin)
+            host = (parsed.hostname or "").lower().rstrip(".")
+            local_development = host in {"localhost", "127.0.0.1", "::1"}
+            if (
+                parsed.scheme
+                not in ({"http", "https"} if local_development else {"https"})
+                or not host
+                or parsed.username is not None
+                or parsed.password is not None
+                or parsed.path not in {"", "/"}
+                or parsed.params
+                or parsed.query
+                or parsed.fragment
+            ):
+                raise ValueError(
+                    "PASSKEY_ALLOWED_ORIGINS must contain secure web origins"
+                )
+            if (
+                rp_id != "localhost"
+                and host != rp_id
+                and not host.endswith(f".{rp_id}")
+            ):
+                raise ValueError(
+                    "Every passkey origin must be the RP ID or one of its subdomains"
+                )
+            if origin not in normalized_origins:
+                normalized_origins.append(origin)
+        if not normalized_origins:
+            raise ValueError("PASSKEY_ALLOWED_ORIGINS cannot be empty")
+        self.PASSKEY_ALLOWED_ORIGINS = normalized_origins
         return self
 
     @field_validator("SECRET_KEY")
