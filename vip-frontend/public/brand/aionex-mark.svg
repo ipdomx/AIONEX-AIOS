@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">AIONEX AIOS</title>
+  <description id="description">A human and machine profile joined inside an orbital mark</description>
+  <defs>
+    <linearGradient id="ring" x1="62" y1="50" x2="458" y2="465" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#72E8FF"/>
+      <stop offset=".52" stop-color="#16B8E6"/>
+      <stop offset="1" stop-color="#8C6CFF"/>
+    </linearGradient>
+    <radialGradient id="core" cx="0" cy="0" r="1" gradientTransform="translate(230 195) rotate(52) scale(260)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#132C45"/>
+      <stop offset="1" stop-color="#060A12"/>
+    </radialGradient>
+  </defs>
+  <circle cx="256" cy="256" r="222" fill="url(#core)" stroke="url(#ring)" stroke-width="16"/>
+  <path d="M248 118c-68 4-119 58-119 128 0 44 20 82 52 106v47c0 16 13 29 29 29h38V118Z" fill="#EAFBFF" fill-opacity=".96"/>
+  <path d="M264 118c69 4 119 58 119 128 0 45-21 84-54 108v74h-65V118Z" fill="#0E1A2B" stroke="#4DDBF7" stroke-width="6"/>
+  <path d="M248 172c-34 4-57 31-57 64 0 23 11 43 29 54l-12 43h40V172Z" fill="#92EFFF" fill-opacity=".44"/>
+  <path d="M286 176v48h54M286 256h71M286 290v56h50" fill="none" stroke="#7BEAFF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="342" cy="224" r="10" fill="#9B83FF"/>
+  <circle cx="357" cy="256" r="10" fill="#66E6FF"/>
+  <circle cx="337" cy="346" r="10" fill="#9B83FF"/>
+  <path d="M160 389c28 26 61 39 96 39 35 0 69-13 96-39" fill="none" stroke="url(#ring)" stroke-width="12" stroke-linecap="round"/>
+</svg>

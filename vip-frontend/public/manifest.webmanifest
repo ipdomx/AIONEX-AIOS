@@ -1,0 +1,17 @@
+{
+  "name": "AIONEX AIOS",
+  "short_name": "AIONEX",
+  "description": "Governed enterprise AI operating system for verified project delivery.",
+  "start_url": "/ar",
+  "display": "standalone",
+  "background_color": "#03050a",
+  "theme_color": "#03050a",
+  "icons": [
+    {
+      "src": "/brand/aionex-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
