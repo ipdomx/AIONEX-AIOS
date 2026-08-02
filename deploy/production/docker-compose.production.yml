@@ -86,7 +86,7 @@ services:
 
   frontend:
     build:
-      context: ../../web-dashboard/frontend
+      context: ../../vip-frontend
     environment:
       NODE_ENV: production
       AIOS_BACKEND_ORIGIN: http://backend:8000

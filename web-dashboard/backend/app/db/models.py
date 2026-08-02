@@ -131,6 +131,55 @@ class RefreshSession(Base, TimestampMixin):
     user_agent: Mapped[str | None] = mapped_column(Text)
 
 
+class ExternalIdentity(Base, TimestampMixin):
+    """A verified identity owned by an external authentication provider."""
+
+    __tablename__ = "external_identities"
+    __table_args__ = (
+        UniqueConstraint("provider", "subject", name="uq_external_identity_subject"),
+        UniqueConstraint(
+            "user_id", "provider", name="uq_external_identity_user_provider"
+        ),
+        Index("ix_external_identity_user_provider", "user_id", "provider"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    provider: Mapped[str] = mapped_column(String(80), nullable=False)
+    subject: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[str] = mapped_column(String(320), nullable=False)
+    provider_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class PasskeyCredential(Base, TimestampMixin):
+    """A WebAuthn public-key credential. Private keys never leave the device."""
+
+    __tablename__ = "passkey_credentials"
+    __table_args__ = (
+        UniqueConstraint("credential_id", name="uq_passkey_credential_id"),
+        Index("ix_passkey_user_created", "user_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    credential_id: Mapped[str] = mapped_column(String(1024), nullable=False)
+    public_key: Mapped[str] = mapped_column(Text, nullable=False)
+    sign_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    transports: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    aaguid: Mapped[str | None] = mapped_column(String(64))
+    device_type: Mapped[str | None] = mapped_column(String(32))
+    backed_up: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    nickname: Mapped[str] = mapped_column(
+        String(120), default="Passkey", nullable=False
+    )
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class Workspace(Base, TimestampMixin):
     __tablename__ = "workspaces"
     __table_args__ = (

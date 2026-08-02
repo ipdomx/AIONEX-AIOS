@@ -219,6 +219,7 @@ pytest-of-root/
 deploy/production/backups/
 web-dashboard/backend/pip-*/
 web-dashboard/backend/tmp*/
+/pip-*/
 web-dashboard/backend/*.db
 web-dashboard/backend/*.db-journal
 

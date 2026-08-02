@@ -2,8 +2,8 @@
 
 Production endpoints:
 
-- Web: `https://ai.vip-e.net`
-- API: `https://api.ai.vip-e.net`
+- Web: `https://vip-e.net`
+- API: `https://api.vip-e.net`
 
 ## Final deployment sequence
 
