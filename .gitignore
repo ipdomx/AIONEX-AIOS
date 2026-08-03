@@ -17,6 +17,7 @@ eggs/
 lib/
 lib64/
 !web-dashboard/frontend/src/lib/
+!vip-frontend/src/lib/
 parts/
 sdist/
 var/

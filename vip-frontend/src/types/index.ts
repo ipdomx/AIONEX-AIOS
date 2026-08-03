@@ -72,7 +72,8 @@ export interface FirebasePhoneReadiness {
   detail: string;
 }
 
-export type OAuthProviderId = "google" | "apple" | "facebook" | "x" | "instagram";
+export type OAuthProviderId =
+  "google" | "apple" | "facebook" | "x" | "instagram";
 
 export interface OAuthProvider {
   id: OAuthProviderId;

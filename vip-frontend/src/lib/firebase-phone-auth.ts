@@ -1,6 +1,7 @@
 import { FirebaseError, getApp, getApps, initializeApp } from "firebase/app";
 import {
   inMemoryPersistence,
+  getAuth,
   RecaptchaVerifier,
   setPersistence,
   signInWithPhoneNumber,
@@ -8,32 +9,21 @@ import {
   type Auth,
   type ConfirmationResult,
 } from "firebase/auth";
-import { getAuth } from "firebase/auth";
+import type { FirebaseOptions } from "firebase/app";
 
-export type FirebasePhoneWebConfig = {
-  apiKey: string;
-  authDomain: string;
-  projectId: string;
-  storageBucket?: string;
-  messagingSenderId?: string;
-  appId: string;
-  measurementId?: string;
-};
-
-export type FirebasePhoneChallenge = {
+export interface FirebasePhoneChallenge {
   auth: Auth;
   confirmation: ConfirmationResult;
   phoneNumber: string;
   verifier: RecaptchaVerifier;
-};
+}
 
-const FIREBASE_APP_NAME = "aionex-phone-auth";
+const APP_NAME = "aionex-vip-phone-auth";
 
 function firebaseErrorCode(error: unknown): string {
   if (error instanceof FirebaseError) return error.code;
-  if (typeof error !== "object" || error === null || !("code" in error)) {
+  if (typeof error !== "object" || error === null || !("code" in error))
     return "";
-  }
   const candidate = (error as { code?: unknown }).code;
   return typeof candidate === "string" ? candidate.trim().toLowerCase() : "";
 }
@@ -89,9 +79,8 @@ function firebaseErrorMessage(error: unknown): string {
     "auth/operation-not-allowed":
       "The mobile verification service rejected SMS for this project. Enable the Phone provider, allow this phone region under Authentication > Settings > SMS region policy, and link an active billing account.",
     "auth/unauthorized-domain":
-      "Add this site hostname or IP under the authentication provider's authorized domains.",
-    "auth/user-disabled":
-      "Mobile verification is disabled for this account.",
+      "Add this site hostname under the authentication provider's authorized domains.",
+    "auth/user-disabled": "Mobile verification is disabled for this account.",
     "auth/credential-already-in-use":
       "This mobile number is already linked to another account.",
     "auth/argument-error":
@@ -99,7 +88,10 @@ function firebaseErrorMessage(error: unknown): string {
   };
 
   if (code) {
-    if (code.includes("requests-from-referer") && code.includes("are-blocked")) {
+    if (
+      code.includes("requests-from-referer") &&
+      code.includes("are-blocked")
+    ) {
       return withSafeReference(
         "The Web API key is blocking requests from this site. Update the API key application restrictions to allow the production hostname.",
         code,
@@ -116,43 +108,40 @@ function firebaseErrorMessage(error: unknown): string {
     : "Mobile verification failed.";
 }
 
-function configuredApp(config: FirebasePhoneWebConfig) {
-  const existing = getApps().find((app) => app.name === FIREBASE_APP_NAME);
+function configuredApp(options: FirebaseOptions) {
+  const existing = getApps().find((app) => app.name === APP_NAME);
   if (existing) {
-    const existingOptions = existing.options;
     if (
-      existingOptions.projectId !== config.projectId ||
-      existingOptions.appId !== config.appId ||
-      existingOptions.apiKey !== config.apiKey
+      existing.options.projectId !== options.projectId ||
+      existing.options.appId !== options.appId ||
+      existing.options.apiKey !== options.apiKey
     ) {
       throw new Error(
         "Mobile verification configuration changed; reload the page.",
       );
     }
-    return getApp(FIREBASE_APP_NAME);
+    return getApp(APP_NAME);
   }
-  return initializeApp(config, FIREBASE_APP_NAME);
+  return initializeApp(options, APP_NAME);
 }
 
 export async function startFirebasePhoneVerification(
-  config: FirebasePhoneWebConfig,
+  options: FirebaseOptions,
   phoneNumber: string,
-  recaptchaContainerId: string,
+  containerId: string,
 ): Promise<FirebasePhoneChallenge> {
   if (typeof window === "undefined") {
     throw new Error("Phone verification requires a browser.");
   }
-
-  const container = document.getElementById(recaptchaContainerId);
+  const container = document.getElementById(containerId);
   if (!container)
     throw new Error("Phone verification security container is missing.");
   container.replaceChildren();
 
-  const auth = getAuth(configuredApp(config));
+  const auth = getAuth(configuredApp(options));
   auth.useDeviceLanguage();
   await setPersistence(auth, inMemoryPersistence);
-
-  const verifier = new RecaptchaVerifier(auth, recaptchaContainerId, {
+  const verifier = new RecaptchaVerifier(auth, containerId, {
     size: "invisible",
   });
   try {
@@ -171,10 +160,10 @@ export async function startFirebasePhoneVerification(
 
 export async function completeFirebasePhoneVerification(
   challenge: FirebasePhoneChallenge,
-  verificationCode: string,
+  code: string,
 ): Promise<string> {
   try {
-    const credential = await challenge.confirmation.confirm(verificationCode);
+    const credential = await challenge.confirmation.confirm(code);
     if (credential.user.phoneNumber !== challenge.phoneNumber) {
       throw new Error(
         "The verification provider confirmed a different phone number.",

@@ -13,6 +13,7 @@ RUNBOOK = ROOT / "web-dashboard/PRIVATE_ORIGIN_DEPLOYMENT.md"
 def test_origin_and_data_services_are_not_publicly_exposed():
     source = COMPOSE.read_text(encoding="utf-8")
     assert '"127.0.0.1:${AIOS_ORIGIN_PORT:-8080}:8080"' in source
+    assert '"127.0.0.1:${AIOS_CONTROL_PORT:-8081}:8081"' in source
     assert "cloudflare/cloudflared" in source
     assert 'profiles: ["tunnel"]' in source
     assert "CLOUDFLARE_TUNNEL_TOKEN" in source
@@ -33,6 +34,12 @@ def test_gateway_enforces_headers_limits_and_private_docs():
         "client_max_body_size",
         "openapi\\.json",
         "listen 8080",
+        "listen 8081",
+        "X-AIOS-Auth-Channel public",
+        "X-AIOS-Auth-Channel private",
+        "Only contracts used by the public user portal",
+        "location /api/",
+        "return 404",
     ):
         assert required in source
 
@@ -59,6 +66,10 @@ def test_backend_requires_explicit_production_hosts_and_hides_details():
 def test_deployment_preflight_rejects_wildcards_and_weak_secrets():
     source = PREFLIGHT.read_text(encoding="utf-8")
     assert "AIOS_ALLOWED_HOSTS is required" in source
+    assert "AIOS_CONTROL_HOST is required" in source
+    assert "AIOS_CONTROL_HOST must be the private Cloudflare Access hostname" in source
+    assert "AIOS_ALLOWED_HOSTS must include AIOS_CONTROL_HOST" in source
+    assert "AIOS_PUBLIC_PORTAL_ORIGINS must include AIOS_USER_PORTAL_URL" in source
     assert "CORS_ORIGINS cannot contain wildcard" in source
     assert "SECRET_KEY must contain at least 32 characters" in source
     assert "possible committed secret detected" in source

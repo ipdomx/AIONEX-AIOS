@@ -6,7 +6,13 @@ import hashlib
 from datetime import UTC, date, datetime
 from typing import Any
 
-from app.core.auth import UserRecord, auth_service, current_user, oauth2_scheme
+from app.core.auth import (
+    UserRecord,
+    auth_service,
+    current_user,
+    enforce_auth_channel_role,
+    oauth2_scheme,
+)
 from app.db.base import get_db
 from app.db.models import AuditEvent, ExternalIdentity, RefreshSession, uuid_str
 from app.services.firebase_phone import (
@@ -37,13 +43,6 @@ class LoginResponse(BaseModel):
     token_type: str = "bearer"
     expires_in: int
     user: dict
-
-
-class RegisterRequest(BaseModel):
-    email: EmailStr
-    password: str
-    name: str
-    organization_name: str | None = None
 
 
 class FreeRegistrationTelemetry(BaseModel):
@@ -158,6 +157,7 @@ async def login(
     user = await auth_service.authenticate(
         session, form_data.username, form_data.password
     )
+    enforce_auth_channel_role(request, user)
     response = await auth_service.issue_pair(session, user)
     await _attach_session_context(
         session,
@@ -167,17 +167,6 @@ async def login(
         action="auth.login",
     )
     return response
-
-
-@router.post("/register", status_code=status.HTTP_201_CREATED)
-async def register(data: RegisterRequest, session: AsyncSession = Depends(get_db)):
-    user = await auth_service.register(
-        session, data.email, data.password, data.name, data.organization_name
-    )
-    return {
-        "message": "User registered successfully",
-        "user": auth_service.serialize_user(user),
-    }
 
 
 @router.get("/free-tier/public")
@@ -319,18 +308,30 @@ async def logout(
 
 
 @router.post("/refresh", response_model=LoginResponse)
-async def refresh_token(data: RefreshRequest, session: AsyncSession = Depends(get_db)):
+async def refresh_token(
+    data: RefreshRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+):
+    user = await auth_service.get_refresh_user(session, data.refresh_token)
+    enforce_auth_channel_role(request, user)
     return await auth_service.refresh(session, data.refresh_token)
 
 
 @router.post("/password-reset")
 async def request_password_reset(data: PasswordResetRequest):
-    return {"message": "Password reset request accepted"}
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Password recovery is not configured for this deployment",
+    )
 
 
 @router.post("/password-reset/confirm")
 async def confirm_password_reset(data: PasswordResetConfirm):
-    return {"message": "Password reset confirmation accepted"}
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Password recovery is not configured for this deployment",
+    )
 
 
 @router.post("/mfa/setup", response_model=MFASetupResponse)

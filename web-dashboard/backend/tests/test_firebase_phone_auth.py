@@ -214,25 +214,25 @@ def test_registration_contract_uses_optional_firebase_id_token() -> None:
 
 
 def test_frontend_uses_firebase_sms_recaptcha_and_in_memory_tokens() -> None:
-    auth_gate = (
-        REPO_ROOT / "web-dashboard/frontend/src/components/auth/AuthGate.tsx"
+    registration = (
+        REPO_ROOT / "vip-frontend/src/components/pages/register-client.tsx"
     ).read_text(encoding="utf-8")
     firebase_client = (
-        REPO_ROOT / "web-dashboard/frontend/src/lib/firebase-phone-auth.ts"
+        REPO_ROOT / "vip-frontend/src/lib/firebase-phone-auth.ts"
     ).read_text(encoding="utf-8")
-    auth_service = (
-        REPO_ROOT / "web-dashboard/frontend/src/lib/auth-service.ts"
+    types = (
+        REPO_ROOT / "vip-frontend/src/types/index.ts"
     ).read_text(encoding="utf-8")
 
-    assert "startFirebasePhoneVerification" in auth_gate
-    assert "firebase_id_token" in auth_gate
-    assert "Phone verification assertion" not in auth_gate
+    assert "startFirebasePhoneVerification" in registration
+    assert "firebase_id_token" in registration
+    assert "Phone verification assertion" not in registration
     assert "RecaptchaVerifier" in firebase_client
     assert "signInWithPhoneNumber" in firebase_client
     assert "inMemoryPersistence" in firebase_client
-    assert "firebase_id_token?: string" in auth_service
-    assert "new Intl.Locale" in auth_gate
-    assert "getFirebasePhoneReadiness" in auth_gate
+    assert "firebase_id_token?: string" in types
+    assert "new Intl.Locale" in registration
+    assert "getFirebasePhoneReadiness" in registration
     assert "SMS region policy" in firebase_client
 
 
@@ -330,15 +330,18 @@ def test_production_mounts_admin_credential_and_drops_privileges() -> None:
 
 
 def test_registration_ui_hides_sms_provider_branding() -> None:
-    auth_gate = (
-        REPO_ROOT / "web-dashboard/frontend/src/components/auth/AuthGate.tsx"
+    registration = (
+        REPO_ROOT / "vip-frontend/src/components/pages/register-client.tsx"
     ).read_text(encoding="utf-8")
     firebase_client = (
-        REPO_ROOT / "web-dashboard/frontend/src/lib/firebase-phone-auth.ts"
+        REPO_ROOT / "vip-frontend/src/lib/firebase-phone-auth.ts"
     ).read_text(encoding="utf-8")
+    messages = (REPO_ROOT / "vip-frontend/src/messages/en.json").read_text(
+        encoding="utf-8"
+    )
 
-    assert "Mobile verification" in auth_gate
-    assert "Firebase mobile verification" not in auth_gate
-    assert "The Firebase ID token" not in auth_gate
-    assert "Mobile number verified by Firebase" not in auth_gate
+    assert '"phoneTitle": "Mobile verification"' in messages
+    assert "Firebase mobile verification" not in registration + messages
+    assert "The Firebase ID token" not in registration + messages
+    assert "Mobile number verified by Firebase" not in registration + messages
     assert "Firebase rejected SMS for this project" not in firebase_client

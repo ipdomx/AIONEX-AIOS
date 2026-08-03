@@ -28,6 +28,7 @@ def test_required_runtime_routes_are_registered():
         "/auth/firebase/phone/readiness",
         "/auth/free-tier/public",
         "/auth/register/free",
+        "/support/requests",
         "/projects",
         "/tasks",
         "/workflows",

@@ -9,18 +9,13 @@ import {
   useState,
 } from "react";
 
-import {
-  AuthUser,
-  authService,
-  type FreeRegistrationPayload,
-} from "@/lib/auth-service";
+import { AuthUser, authService } from "@/lib/auth-service";
 
 type AuthContextValue = {
   user: AuthUser | null;
   loading: boolean;
   authenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  registerFree: (payload: FreeRegistrationPayload) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 };
@@ -69,10 +64,6 @@ export default function AuthProvider({ children }: PropsWithChildren) {
       authenticated: Boolean(user),
       async login(email: string, password: string) {
         const response = await authService.login(email, password);
-        setUser(response.user);
-      },
-      async registerFree(payload: FreeRegistrationPayload) {
-        const response = await authService.registerFree(payload);
         setUser(response.user);
       },
       async logout() {

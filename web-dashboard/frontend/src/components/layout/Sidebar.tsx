@@ -80,7 +80,6 @@ const baseMainNavSections: NavSection[] = [
     label: "Projects",
     icon: FolderOpen,
     href: "/projects",
-    badge: 12,
   },
   {
     id: "ai",
@@ -98,7 +97,6 @@ const baseMainNavSections: NavSection[] = [
         label: "Agents",
         icon: Bot,
         href: "/ai/agents",
-        badge: 8,
       },
       { id: "ai-models", label: "Models", icon: Brain, href: "/ai/models" },
       { id: "ai-usage", label: "Usage", icon: BarChart3, href: "/ai/usage" },
@@ -109,7 +107,6 @@ const baseMainNavSections: NavSection[] = [
     label: "Workflows",
     icon: Workflow,
     href: "/workflows",
-    badge: 24,
   },
   { id: "knowledge", label: "Knowledge", icon: BookOpen, href: "/knowledge" },
   {
@@ -122,7 +119,6 @@ const baseMainNavSections: NavSection[] = [
         label: "Servers",
         icon: Cpu,
         href: "/infrastructure/servers",
-        badge: 6,
       },
       {
         id: "infra-containers",
@@ -178,7 +174,6 @@ const baseMainNavSections: NavSection[] = [
         label: "Alerts",
         icon: Bell,
         href: "/monitoring/alerts",
-        badge: 3,
       },
       {
         id: "mon-events",
@@ -246,7 +241,7 @@ const baseMainNavSections: NavSection[] = [
       },
     ],
   },
-  { id: "tasks", label: "Tasks", icon: CheckSquare, href: "/tasks", badge: 15 },
+  { id: "tasks", label: "Tasks", icon: CheckSquare, href: "/tasks" },
   { id: "meetings", label: "Meetings", icon: Calendar, href: "/meetings" },
   { id: "reports", label: "Reports", icon: BarChart3, href: "/reports" },
 ];

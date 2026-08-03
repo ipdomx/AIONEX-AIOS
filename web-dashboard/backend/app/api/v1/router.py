@@ -37,6 +37,7 @@ from app.api.v1.endpoints import (
     servers,
     settings,
     studio,
+    support,
     tasks,
     users,
     websocket,
@@ -79,6 +80,7 @@ api_router.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboar
 api_router.include_router(search.router, prefix="/search", tags=["Search"], dependencies=restricted)
 api_router.include_router(notifications.router, prefix="/notifications", tags=["Notifications"], dependencies=restricted)
 api_router.include_router(settings.router, prefix="/settings", tags=["Settings"])
+api_router.include_router(support.router, prefix="/support", tags=["Support"])
 api_router.include_router(roles.router, prefix="/roles", tags=["Roles"], dependencies=restricted)
 api_router.include_router(permissions.router, prefix="/permissions", tags=["Permissions"], dependencies=restricted)
 api_router.include_router(reports.router, prefix="/reports", tags=["Reports"], dependencies=restricted)

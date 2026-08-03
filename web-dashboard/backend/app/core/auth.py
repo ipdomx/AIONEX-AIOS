@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import os
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
+from urllib.parse import urlsplit
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jwt import InvalidTokenError as JWTError
 from passlib.context import CryptContext
@@ -36,6 +39,11 @@ logger = get_logger(__name__)
 ACTIVE_USER_STATUSES = frozenset({"active", "online"})
 ACTIVE_ORGANIZATION_STATUSES = frozenset({"active", "trial"})
 ACCESS_TOKEN_REVOCATION_PREFIX = "aionex:auth:revoked:access:"
+DEFAULT_PUBLIC_PORTAL_ORIGINS = (
+    "https://ai.vip-e.net",
+    "https://vip-e.net",
+    "https://www.vip-e.net",
+)
 
 
 def _now() -> datetime:
@@ -54,6 +62,57 @@ def _hash_token(token: str) -> str:
 
 def _access_token_revocation_key(token: str) -> str:
     return f"{ACCESS_TOKEN_REVOCATION_PREFIX}{_hash_token(token)}"
+
+
+def _normalized_origin(value: str) -> str | None:
+    try:
+        parsed = urlsplit(value.strip())
+    except ValueError:
+        return None
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        return None
+    default_port = 443 if parsed.scheme == "https" else 80
+    port = parsed.port or default_port
+    suffix = "" if port == default_port else f":{port}"
+    return f"{parsed.scheme}://{parsed.hostname.lower()}{suffix}"
+
+
+def public_portal_origins() -> set[str]:
+    raw = os.getenv("AIOS_PUBLIC_PORTAL_ORIGINS", "").strip()
+    values: list[str]
+    if not raw:
+        values = list(DEFAULT_PUBLIC_PORTAL_ORIGINS)
+    elif raw.startswith("["):
+        try:
+            decoded = json.loads(raw)
+        except json.JSONDecodeError:
+            decoded = []
+        values = [str(item) for item in decoded] if isinstance(decoded, list) else []
+    else:
+        values = raw.split(",")
+    return {
+        normalized
+        for value in values
+        if (normalized := _normalized_origin(value)) is not None
+    }
+
+
+def enforce_auth_channel_role(request: Request, user: "UserRecord") -> None:
+    """Keep public users and the Super Owner on separate ingress channels."""
+
+    auth_channel = request.headers.get("x-aios-auth-channel", "").strip().lower()
+    origin = _normalized_origin(request.headers.get("origin", ""))
+    public_request = auth_channel == "public" or origin in public_portal_origins()
+    if public_request and user.role == "Super Owner":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Sign-in is unavailable for this account",
+        )
+    if auth_channel == "private" and user.role != "Super Owner":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Control-plane access denied",
+        )
 
 
 def _authentication_state_unavailable(exc: Exception) -> HTTPException:
@@ -287,6 +346,22 @@ class AuthService:
             "user": self.serialize_user(user),
         }
 
+    async def get_refresh_user(
+        self, session: AsyncSession, refresh_token: str
+    ) -> UserRecord:
+        record = await session.scalar(
+            select(RefreshSession).where(
+                RefreshSession.token_hash == _hash_token(refresh_token),
+                RefreshSession.revoked_at.is_(None),
+            )
+        )
+        if record is None or _as_utc(record.expires_at) <= _now():
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired refresh token",
+            )
+        return await self.get_user_by_id(session, record.user_id)
+
     def _decode_access_token_payload(self, token: str) -> dict[str, Any]:
         try:
             payload = jwt.decode(
@@ -378,6 +453,7 @@ auth_service = AuthService()
 
 
 async def current_user(
+    request: Request,
     token: str = Depends(oauth2_scheme),
     session: AsyncSession = Depends(get_db),
 ) -> UserRecord:
@@ -388,6 +464,7 @@ async def current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Session is no longer valid",
         )
+    enforce_auth_channel_role(request, user)
     return user
 
 

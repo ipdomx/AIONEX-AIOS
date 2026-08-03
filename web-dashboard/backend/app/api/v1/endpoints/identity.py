@@ -6,7 +6,12 @@ import hashlib
 from datetime import UTC, datetime
 from typing import Any
 
-from app.core.auth import UserRecord, auth_service, current_user
+from app.core.auth import (
+    UserRecord,
+    auth_service,
+    current_user,
+    enforce_auth_channel_role,
+)
 from app.db.base import get_db
 from app.db.models import (
     AuditEvent,
@@ -214,6 +219,7 @@ async def create_social_session(
         ) from exc
 
     user = await auth_service.get_user_by_id(session, row.user_id)
+    enforce_auth_channel_role(request, user)
     response = await auth_service.issue_pair(session, user)
     await _audit_session(
         session,
@@ -309,6 +315,7 @@ async def complete_passkey_authentication(
         credential=data.credential,
     )
     user = await auth_service.get_user_by_id(session, row.user_id)
+    enforce_auth_channel_role(request, user)
     response = await auth_service.issue_pair(session, user)
     await _audit_session(
         session,

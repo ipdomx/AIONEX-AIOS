@@ -7,7 +7,7 @@ import {
   useEffect,
   useMemo,
   useState,
-  type ReactNode
+  type ReactNode,
 } from "react";
 import {
   clearSession,
@@ -17,7 +17,7 @@ import {
   login as apiLogin,
   logout as apiLogout,
   registerFree as apiRegisterFree,
-  storedUser
+  storedUser,
 } from "@/lib/api";
 import { firebaseSocialIdToken } from "@/lib/firebase-social-auth";
 import { authenticateWithPasskey } from "@/lib/passkeys";
@@ -25,7 +25,7 @@ import type {
   FirebaseSocialConfiguration,
   FreeRegistrationPayload,
   OAuthProviderId,
-  User
+  User,
 } from "@/types";
 
 interface AuthContextValue {
@@ -35,7 +35,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<User>;
   loginWithSocial: (
     provider: OAuthProviderId,
-    configuration: FirebaseSocialConfiguration
+    configuration: FirebaseSocialConfiguration,
   ) => Promise<User>;
   loginWithPasskey: () => Promise<User>;
   registerFree: (payload: FreeRegistrationPayload) => Promise<User>;
@@ -80,14 +80,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginWithSocial = useCallback(
     async (
       provider: OAuthProviderId,
-      configuration: FirebaseSocialConfiguration
+      configuration: FirebaseSocialConfiguration,
     ) => {
       const idToken = await firebaseSocialIdToken(provider, configuration);
       const response = await createFirebaseSocialSession(idToken);
       setUser(response.user);
       return response.user;
     },
-    []
+    [],
   );
 
   const loginWithPasskey = useCallback(async () => {
@@ -96,14 +96,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return response.user;
   }, []);
 
-  const registerFree = useCallback(
-    async (payload: FreeRegistrationPayload) => {
-      const response = await apiRegisterFree(payload);
-      setUser(response.user);
-      return response.user;
-    },
-    []
-  );
+  const registerFree = useCallback(async (payload: FreeRegistrationPayload) => {
+    const response = await apiRegisterFree(payload);
+    setUser(response.user);
+    return response.user;
+  }, []);
 
   const logout = useCallback(async () => {
     try {
@@ -128,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       registerFree,
       logout,
       refreshUser,
-      updateUser
+      updateUser,
     }),
     [
       isLoading,
@@ -139,8 +136,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refreshUser,
       registerFree,
       updateUser,
-      user
-    ]
+      user,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

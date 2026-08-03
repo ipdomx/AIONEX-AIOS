@@ -3,13 +3,13 @@ from pathlib import Path
 
 # Mobile-browser failures must stay diagnosable without developer tools.
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-AUTH_GATE = (
+REGISTER_CLIENT = (
     REPOSITORY_ROOT
-    / "web-dashboard/frontend/src/components/auth/AuthGate.tsx"
+    / "vip-frontend/src/components/pages/register-client.tsx"
 )
 FIREBASE_PHONE_AUTH = (
     REPOSITORY_ROOT
-    / "web-dashboard/frontend/src/lib/firebase-phone-auth.ts"
+    / "vip-frontend/src/lib/firebase-phone-auth.ts"
 )
 RUNTIME_PROVIDER = (
     REPOSITORY_ROOT
@@ -18,7 +18,7 @@ RUNTIME_PROVIDER = (
 
 
 def test_country_inference_uses_locale_region_not_language_code():
-    source = AUTH_GATE.read_text(encoding="utf-8")
+    source = REGISTER_CLIENT.read_text(encoding="utf-8")
     assert "new Intl.Locale(normalized).region" in source
     assert 'split("-")' in source
     assert ".slice(1)" in source

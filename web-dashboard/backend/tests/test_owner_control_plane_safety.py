@@ -12,6 +12,7 @@ import pytest
 from fastapi import FastAPI, HTTPException
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import func, select
+from starlette.requests import Request
 
 from app.api.owner import control_plane
 from app.api.v1.router import api_router
@@ -48,6 +49,10 @@ def _test_app() -> FastAPI:
         permissions=["*"],
     )
     return app
+
+
+def _auth_request() -> Request:
+    return Request({"type": "http", "method": "GET", "path": "/", "headers": []})
 
 
 def test_command_audit_redacts_nested_case_insensitive_secrets() -> None:
@@ -179,7 +184,11 @@ async def test_current_user_rejects_access_token_from_old_auth_generation(
     monkeypatch.setattr(auth_service, "decode_access_token", decode)
     monkeypatch.setattr(auth_service, "get_user_by_id", load_user)
     with pytest.raises(HTTPException) as stale:
-        await current_user("stale-token", object())  # type: ignore[arg-type]
+        await current_user(
+            request=_auth_request(),
+            token="stale-token",
+            session=object(),  # type: ignore[arg-type]
+        )
     assert stale.value.status_code == 401
 
 
@@ -760,7 +769,11 @@ async def test_suspension_revokes_refresh_and_pre_restore_access_sessions(
         )
         for stale_token in payloads:
             with pytest.raises(HTTPException) as error:
-                await current_user(token=stale_token, session=session)
+                await current_user(
+                    request=_auth_request(),
+                    token=stale_token,
+                    session=session,
+                )
             assert error.value.status_code == 401
             assert error.value.detail == "Session is no longer valid"
 
