@@ -29,7 +29,7 @@ Enable WAF managed rules, bot protection, DDoS protection, rate limiting for aut
 
 ## Frontend hosting separation
 
-A separate hosting provider can serve the public AIONEX user portal at `ai.vip-e.net`. It is the only public registration/user sign-in surface and contains no privileged control-plane link. The shared-hosting site must not contain backend source, secrets, origin addresses, internal prompts, or privileged tokens. Browser code and the API gateway hostname are inherently inspectable; critical authorization and paid-feature checks must remain server-side.
+A separate hosting provider can serve the public AIONEX user portal at `ai.vip-e.net`. It is the only public registration/user sign-in surface and contains no privileged control-plane link. The shared-hosting site must not contain backend source, secrets, origin addresses, internal prompts, or privileged tokens. Browser code is inherently inspectable, and the API gateway hostname is also discoverable; critical authorization and paid-feature checks must remain server-side.
 
 ## Security properties implemented by this repository
 
