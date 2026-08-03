@@ -4,16 +4,18 @@ This deployment keeps application logic, provider keys, workers, databases, and 
 
 ## Traffic design
 
-`app.example.com -> Cloudflare -> Cloudflare Tunnel -> nginx:8080 -> frontend/backend`
+`api.example.com -> Cloudflare -> Cloudflare Tunnel -> nginx:8080 -> backend only`
 
-The production Compose file binds Nginx to `127.0.0.1` only. PostgreSQL, Redis, backend, and frontend have no host ports. The optional `cloudflared` service reaches Nginx over the Docker network.
+`private-control.example.com -> Cloudflare Access -> Cloudflare Tunnel -> nginx:8081 -> frontend/backend`
+
+The production Compose file binds both Nginx listeners to `127.0.0.1` only. The public listener on `8080` returns `404` for dashboard pages and unlisted API paths, exposes only the user-portal contracts plus health/WebSocket access, and stamps requests as the public authentication channel. Super Owner sessions are rejected on that channel. The private listener on `8081` stamps the private authentication channel, serves the control plane, and must be protected by Cloudflare Access. PostgreSQL, Redis, backend, and frontend have no host ports.
 
 ## Server actions required
 
 1. Copy `.env.private-origin.example` to `.env.production` and replace all placeholders.
 2. Set `AIOS_ALLOWED_HOSTS` to the exact application/API hostnames.
-3. Set `CORS_ORIGINS` to the exact HTTPS frontend origin. Do not use `*`.
-4. Create a remotely managed Cloudflare Tunnel and map its public hostname to `http://nginx:8080`.
+3. Set `CORS_ORIGINS` and `AIOS_PUBLIC_PORTAL_ORIGINS` to the exact HTTPS user-portal origin. Set `AIOS_USER_PORTAL_URL` to the same public entry point. Do not use `*`.
+4. Map the public API hostname to `http://nginx:8080`. Map a separate, non-publicized control-plane hostname to `http://nginx:8081` and require Cloudflare Access before the tunnel route.
 5. Put the tunnel token in `.env.production`; never paste it into GitHub or logs.
 6. Run `chmod +x scripts/validate-private-origin.sh` and execute the preflight.
 7. Start with `docker compose --env-file .env.production -f docker-compose.production.yml --profile tunnel up -d --build`.
@@ -23,11 +25,11 @@ The production Compose file binds Nginx to `127.0.0.1` only. PostgreSQL, Redis, 
 
 ## Cloudflare controls
 
-Enable WAF managed rules, bot protection, DDoS protection, rate limiting for authentication paths, and Access protection for owner/admin routes. Configure TLS mode as strict. Do not create an unproxied DNS record pointing to the server IP.
+Enable WAF managed rules, bot protection, DDoS protection, rate limiting for authentication paths, and Access protection for the entire private control-plane hostname. Configure TLS mode as strict. Do not create an unproxied DNS record pointing to the server IP.
 
 ## Frontend hosting separation
 
-A separate hosting provider can serve a marketing site at `www.example.com`. The authenticated AIOS application should be on a protected hostname such as `app.example.com`. The marketing site must not contain backend source, secrets, private API URLs, internal prompts, or privileged tokens. Browser code is inherently inspectable; critical authorization and paid-feature checks must remain in the backend.
+A separate hosting provider can serve the public AIONEX user portal at `ai.vip-e.net`. It is the only public registration/user sign-in surface and contains no privileged control-plane link. The shared-hosting site must not contain backend source, secrets, origin addresses, internal prompts, or privileged tokens. Browser code and the API gateway hostname are inherently inspectable; critical authorization and paid-feature checks must remain server-side.
 
 ## Security properties implemented by this repository
 
@@ -40,6 +42,8 @@ A separate hosting provider can serve a marketing site at `www.example.com`. The
 - disabled public browser source maps
 - strict response security headers and CSP
 - authentication/API rate limits and connection limits
+- public API contract allowlist and public/private authentication-channel enforcement
+- Super Owner rejection on the public user portal
 - hidden server versions and no-index headers
 - preflight checks for wildcard origins, weak secrets, source maps, Compose validity, and common committed-secret patterns
 

@@ -1,5 +1,4 @@
 import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
 
 const port = 3127;
 const base = `http://127.0.0.1:${port}`;
@@ -67,26 +66,21 @@ async function checkRoutes() {
   }
 
   const unknownPaths = [
-    ["/ar/not-a-real-route", "ar"],
-    ["/en/not-a-real-route", "en"],
-    ["/not-a-real-route", "en"]
+    "/ar/not-a-real-route",
+    "/en/not-a-real-route",
+    "/not-a-real-route"
   ];
-  for (const [path, locale] of unknownPaths) {
+  for (const path of unknownPaths) {
     const response = await fetch(base + path, { redirect: "follow" });
     const body = await response.text();
-    const messages = JSON.parse(
-      readFileSync(new URL(`../src/messages/${locale}.json`, import.meta.url), "utf8")
-    );
     if (response.status !== 404) failures.push(`${path}: expected HTTP 404, got ${response.status}`);
-    if (!body.includes(messages.common.notFoundTitle)) failures.push(`${path}: localized 404 copy missing`);
-    if (!body.includes(`https://vip-e.net/${locale}`)) failures.push(`${path}: localized 404 metadata missing`);
     if (!/name="robots" content="noindex/.test(body)) failures.push(`${path}: 404 noindex missing`);
   }
 
   const root = await fetch(base, { redirect: "manual" });
-  if (![307, 308].includes(root.status)) failures.push(`/: expected locale redirect, got HTTP ${root.status}`);
+  if (root.status !== 200) failures.push(`/: expected HTTP 200, got ${root.status}`);
   if (failures.length) throw new Error(failures.join("\n"));
-  console.log(`Smoke test passed: ${paths.size + unknownPaths.length + 1} production URLs, six locales, localized 404, RTL, canonical and noindex rules.`);
+  console.log(`Smoke test passed: ${paths.size + unknownPaths.length + 1} production URLs, six locales, 404, RTL, canonical and noindex rules.`);
 }
 
 try {

@@ -1,5 +1,9 @@
 node_modules
 .next
+out
+file-manager-package
+file-manager-release-*
+*.zip
 .env
 .env.local
 *.log

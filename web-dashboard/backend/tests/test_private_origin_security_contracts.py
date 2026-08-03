@@ -13,6 +13,7 @@ RUNBOOK = ROOT / "web-dashboard/PRIVATE_ORIGIN_DEPLOYMENT.md"
 def test_origin_and_data_services_are_not_publicly_exposed():
     source = COMPOSE.read_text(encoding="utf-8")
     assert '"127.0.0.1:${AIOS_ORIGIN_PORT:-8080}:8080"' in source
+    assert '"127.0.0.1:${AIOS_CONTROL_PORT:-8081}:8081"' in source
     assert "cloudflare/cloudflared" in source
     assert 'profiles: ["tunnel"]' in source
     assert "CLOUDFLARE_TUNNEL_TOKEN" in source
@@ -33,6 +34,12 @@ def test_gateway_enforces_headers_limits_and_private_docs():
         "client_max_body_size",
         "openapi\\.json",
         "listen 8080",
+        "listen 8081",
+        "X-AIOS-Auth-Channel public",
+        "X-AIOS-Auth-Channel private",
+        "Only contracts used by the public user portal",
+        "location /api/",
+        "return 404",
     ):
         assert required in source
 

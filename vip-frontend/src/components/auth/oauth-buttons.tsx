@@ -10,7 +10,7 @@ import {
   ApiError,
   createFirebaseSocialSession,
   getFirebaseSocialConfiguration,
-  prepareFirebaseSocialRegistration
+  prepareFirebaseSocialRegistration,
 } from "@/lib/api";
 import { firebaseSocialIdToken } from "@/lib/firebase-social-auth";
 import { cn } from "@/lib/utils";
@@ -18,7 +18,7 @@ import type {
   FirebaseSocialConfiguration,
   OAuthProvider,
   OAuthProviderId,
-  SocialRegistrationPreparation
+  SocialRegistrationPreparation,
 } from "@/types";
 
 const styles: Record<OAuthProviderId, string> = {
@@ -27,7 +27,7 @@ const styles: Record<OAuthProviderId, string> = {
   facebook: "bg-[#1877F2] text-white",
   x: "bg-black text-white",
   instagram:
-    "bg-gradient-to-r from-[#833AB4] via-[#E1306C] to-[#F77737] text-white"
+    "bg-gradient-to-r from-[#833AB4] via-[#E1306C] to-[#F77737] text-white",
 };
 
 const glyphs: Record<OAuthProviderId, string> = {
@@ -35,15 +35,35 @@ const glyphs: Record<OAuthProviderId, string> = {
   apple: "●",
   facebook: "f",
   x: "X",
-  instagram: "◎"
+  instagram: "◎",
 };
 
 const knownProviders: OAuthProvider[] = [
-  { id: "google", label: "Google", firebase_provider: "google.com", enabled: false },
-  { id: "apple", label: "Apple", firebase_provider: "apple.com", enabled: false },
-  { id: "facebook", label: "Facebook", firebase_provider: "facebook.com", enabled: false },
+  {
+    id: "google",
+    label: "Google",
+    firebase_provider: "google.com",
+    enabled: false,
+  },
+  {
+    id: "apple",
+    label: "Apple",
+    firebase_provider: "apple.com",
+    enabled: false,
+  },
+  {
+    id: "facebook",
+    label: "Facebook",
+    firebase_provider: "facebook.com",
+    enabled: false,
+  },
   { id: "x", label: "X", firebase_provider: "twitter.com", enabled: false },
-  { id: "instagram", label: "Instagram", firebase_provider: "oidc.instagram", enabled: false }
+  {
+    id: "instagram",
+    label: "Instagram",
+    firebase_provider: "oidc.instagram",
+    enabled: false,
+  },
 ];
 
 interface OAuthButtonsProps {
@@ -53,7 +73,7 @@ interface OAuthButtonsProps {
 
 export function OAuthButtons({
   mode = "login",
-  onRegistrationPrepared
+  onRegistrationPrepared,
 }: OAuthButtonsProps) {
   const t = useTranslations("auth");
   const locale = useLocale();
@@ -61,7 +81,8 @@ export function OAuthButtons({
   const { loginWithSocial, refreshUser } = useAuth();
   const [configuration, setConfiguration] =
     useState<FirebaseSocialConfiguration | null>(null);
-  const [loadingProvider, setLoadingProvider] = useState<OAuthProviderId | null>(null);
+  const [loadingProvider, setLoadingProvider] =
+    useState<OAuthProviderId | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -80,9 +101,14 @@ export function OAuthButtons({
 
   const providers = useMemo(() => {
     const configured = new Map(
-      (configuration?.providers || []).map((provider) => [provider.id, provider])
+      (configuration?.providers || []).map((provider) => [
+        provider.id,
+        provider,
+      ]),
     );
-    return knownProviders.map((provider) => configured.get(provider.id) || provider);
+    return knownProviders.map(
+      (provider) => configured.get(provider.id) || provider,
+    );
   }, [configuration]);
 
   async function signIn(providerId: OAuthProviderId) {
@@ -92,14 +118,14 @@ export function OAuthButtons({
     try {
       if (mode === "login") {
         await loginWithSocial(providerId, configuration);
-        router.replace(`/${locale}/projects`);
+        router.replace(`/${locale}/dashboard`);
         return;
       }
       const idToken = await firebaseSocialIdToken(providerId, configuration);
       try {
         await createFirebaseSocialSession(idToken);
         await refreshUser();
-        router.replace(`/${locale}/projects`);
+        router.replace(`/${locale}/dashboard`);
       } catch (cause) {
         if (
           !(cause instanceof ApiError) ||
@@ -111,7 +137,10 @@ export function OAuthButtons({
         onRegistrationPrepared?.(prepared);
       }
     } catch (cause) {
-      if (cause instanceof ApiError && cause.code === "ACCOUNT_REGISTRATION_REQUIRED") {
+      if (
+        cause instanceof ApiError &&
+        cause.code === "ACCOUNT_REGISTRATION_REQUIRED"
+      ) {
         setError(t("socialRegistrationRequired"));
       } else {
         setError(t("socialError"));
@@ -136,13 +165,17 @@ export function OAuthButtons({
               className={cn(
                 "flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 px-3 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-300",
                 styles[provider.id],
-                (!enabled || loadingProvider) && "cursor-not-allowed opacity-55"
+                (!enabled || loadingProvider) &&
+                  "cursor-not-allowed opacity-55",
               )}
               title={!enabled ? t("providerUnavailable") : undefined}
               aria-label={provider.label}
             >
               {busy ? (
-                <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+                <LoaderCircle
+                  className="h-4 w-4 animate-spin"
+                  aria-hidden="true"
+                />
               ) : (
                 <span className="text-base leading-none" aria-hidden="true">
                   {glyphs[provider.id]}

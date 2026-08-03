@@ -10,8 +10,10 @@ RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
 FROM base AS builder
 WORKDIR /app
+ARG NEXT_PUBLIC_USER_PORTAL_URL=https://ai.vip-e.net
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV AIOS_BACKEND_ORIGIN=http://backend:8000
+ENV NEXT_PUBLIC_USER_PORTAL_URL=$NEXT_PUBLIC_USER_PORTAL_URL
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build

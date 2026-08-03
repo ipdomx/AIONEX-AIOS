@@ -1,6 +1,12 @@
 "use client";
 
-import { ArrowRight, Fingerprint, LoaderCircle, LockKeyhole, Mail } from "lucide-react";
+import {
+  ArrowRight,
+  Fingerprint,
+  LoaderCircle,
+  LockKeyhole,
+  Mail,
+} from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -25,14 +31,15 @@ export function LoginClient() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) router.replace(`/${locale}/projects`);
+    if (!isLoading && isAuthenticated) router.replace(`/${locale}/dashboard`);
   }, [isAuthenticated, isLoading, locale, router]);
 
   useEffect(() => {
     let active = true;
     getPasskeyConfiguration()
       .then((configuration) => {
-        if (active) setPasskeyReady(configuration.enabled && passkeysSupported());
+        if (active)
+          setPasskeyReady(configuration.enabled && passkeysSupported());
       })
       .catch(() => {
         if (active) setPasskeyReady(false);
@@ -48,7 +55,7 @@ export function LoginClient() {
     setSubmitting(true);
     try {
       await login(email, password);
-      router.replace(`/${locale}/projects`);
+      router.replace(`/${locale}/dashboard`);
     } catch {
       setError(t("connectionError"));
     } finally {
@@ -61,7 +68,7 @@ export function LoginClient() {
     setPasskeySubmitting(true);
     try {
       await loginWithPasskey();
-      router.replace(`/${locale}/projects`);
+      router.replace(`/${locale}/dashboard`);
     } catch {
       setError(t("passkeyError"));
     } finally {
@@ -77,7 +84,10 @@ export function LoginClient() {
           <h1 className="section-title mt-7">{t("loginTitle")}</h1>
           <p className="section-copy mt-5">{t("loginDescription")}</p>
           <div className="mt-8 flex items-start gap-3 rounded-2xl border border-electric-300/15 bg-electric-400/[0.06] p-5 text-sm leading-7 text-white/55">
-            <LockKeyhole className="mt-1 h-5 w-5 shrink-0 text-electric-200" aria-hidden="true" />
+            <LockKeyhole
+              className="mt-1 h-5 w-5 shrink-0 text-electric-200"
+              aria-hidden="true"
+            />
             {t("securityNote")}
           </div>
         </div>
@@ -85,23 +95,63 @@ export function LoginClient() {
         <div className="glass-panel rounded-3xl p-6 sm:p-9">
           <form onSubmit={submit}>
             <div>
-              <label htmlFor="login-email" className="field-label">{t("email")}</label>
+              <label htmlFor="login-email" className="field-label">
+                {t("email")}
+              </label>
               <div className="relative">
-                <Mail className="pointer-events-none absolute start-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" aria-hidden="true" />
-                <input id="login-email" type="email" className="field-control ps-11" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" required />
+                <Mail
+                  className="pointer-events-none absolute start-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30"
+                  aria-hidden="true"
+                />
+                <input
+                  id="login-email"
+                  type="email"
+                  className="field-control ps-11"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  autoComplete="email"
+                  required
+                />
               </div>
             </div>
             <div className="mt-5">
-              <label htmlFor="login-password" className="field-label">{t("password")}</label>
+              <label htmlFor="login-password" className="field-label">
+                {t("password")}
+              </label>
               <div className="relative">
-                <LockKeyhole className="pointer-events-none absolute start-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" aria-hidden="true" />
-                <input id="login-password" type="password" className="field-control ps-11" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required />
+                <LockKeyhole
+                  className="pointer-events-none absolute start-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30"
+                  aria-hidden="true"
+                />
+                <input
+                  id="login-password"
+                  type="password"
+                  className="field-control ps-11"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="current-password"
+                  required
+                />
               </div>
             </div>
-            {error && <StatusMessage tone="error" className="mt-5">{error}</StatusMessage>}
-            <Button type="submit" size="lg" className="mt-7 w-full" disabled={submitting || isLoading}>
+            {error && (
+              <StatusMessage tone="error" className="mt-5">
+                {error}
+              </StatusMessage>
+            )}
+            <Button
+              type="submit"
+              size="lg"
+              className="mt-7 w-full"
+              disabled={submitting || isLoading}
+            >
               {submitting ? t("signingIn") : t("signIn")}
-              {!submitting && <ArrowRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />}
+              {!submitting && (
+                <ArrowRight
+                  className="h-4 w-4 rtl:rotate-180"
+                  aria-hidden="true"
+                />
+              )}
             </Button>
           </form>
 
@@ -115,11 +165,16 @@ export function LoginClient() {
               onClick={() => void signInWithPasskey()}
             >
               {passkeySubmitting ? (
-                <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+                <LoaderCircle
+                  className="h-4 w-4 animate-spin"
+                  aria-hidden="true"
+                />
               ) : (
                 <Fingerprint className="h-4 w-4" aria-hidden="true" />
               )}
-              {passkeySubmitting ? t("passkeySigningIn") : t("signInWithPasskey")}
+              {passkeySubmitting
+                ? t("passkeySigningIn")
+                : t("signInWithPasskey")}
             </Button>
           )}
 
@@ -131,8 +186,11 @@ export function LoginClient() {
           <OAuthButtons />
 
           <p className="mt-8 text-center text-sm text-white/45">
-            {t("noAccount")} {" "}
-            <Link href={`/${locale}/register`} className="font-semibold text-electric-200 hover:text-electric-100">
+            {t("noAccount")}{" "}
+            <Link
+              href={`/${locale}/register`}
+              className="font-semibold text-electric-200 hover:text-electric-100"
+            >
               {t("createAccount")}
             </Link>
           </p>

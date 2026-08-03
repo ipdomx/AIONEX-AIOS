@@ -1,6 +1,6 @@
 {
   "name": "aionex-aios-vip-frontend",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "engines": {
     "node": ">=20.18.0"
@@ -8,12 +8,15 @@
   "scripts": {
     "dev": "next dev",
     "build": "node --require ./scripts/process-memory-shim.cjs ./node_modules/next/dist/bin/next build",
+    "build:static": "node scripts/build-static.mjs",
     "start": "node --require ./scripts/process-memory-shim.cjs ./node_modules/next/dist/bin/next start",
     "lint": "eslint . --max-warnings=0",
     "type-check": "tsc --noEmit",
     "check:integrity": "node scripts/check-integrity.mjs",
     "smoke": "node --require ./scripts/process-memory-shim.cjs scripts/smoke-test.mjs",
-    "verify": "npm run check:integrity && npm run type-check && npm run lint && npm run build && npm run smoke"
+    "smoke:static": "node scripts/static-smoke-test.mjs",
+    "verify": "npm run check:integrity && npm run type-check && npm run lint && npm run build && npm run smoke",
+    "verify:static": "npm run check:integrity && npm run type-check && npm run lint && npm run build:static && npm run smoke:static"
   },
   "dependencies": {
     "clsx": "2.1.1",

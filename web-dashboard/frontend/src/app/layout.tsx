@@ -36,19 +36,12 @@ export const metadata: Metadata = {
   authors: [{ name: "AIONEX" }],
   creator: "AIONEX",
   publisher: "AIONEX",
-  robots: "index, follow",
-  openGraph: {
-    type: "website",
-    locale: "en_US",
-    url: "https://aionex.io",
-    siteName: "AIONEX AIOS",
-    title: "AIONEX AIOS — Enterprise AI Operating System",
-    description: "Enterprise AI Operating System dashboard.",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "AIONEX AIOS",
-    description: "Enterprise AI Operating System",
+  robots: {
+    index: false,
+    follow: false,
+    noarchive: true,
+    nosnippet: true,
+    noimageindex: true,
   },
   icons: {
     icon: "/favicon.ico",
