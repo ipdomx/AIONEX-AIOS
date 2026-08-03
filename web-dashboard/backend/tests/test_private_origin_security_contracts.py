@@ -66,6 +66,10 @@ def test_backend_requires_explicit_production_hosts_and_hides_details():
 def test_deployment_preflight_rejects_wildcards_and_weak_secrets():
     source = PREFLIGHT.read_text(encoding="utf-8")
     assert "AIOS_ALLOWED_HOSTS is required" in source
+    assert "AIOS_CONTROL_HOST is required" in source
+    assert "AIOS_CONTROL_HOST must be the private Cloudflare Access hostname" in source
+    assert "AIOS_ALLOWED_HOSTS must include AIOS_CONTROL_HOST" in source
+    assert "AIOS_PUBLIC_PORTAL_ORIGINS must include AIOS_USER_PORTAL_URL" in source
     assert "CORS_ORIGINS cannot contain wildcard" in source
     assert "SECRET_KEY must contain at least 32 characters" in source
     assert "possible committed secret detected" in source
