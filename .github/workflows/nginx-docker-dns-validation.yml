@@ -106,7 +106,7 @@ jobs:
               --network "$network" \
               --network-alias backend \
               busybox:1.36 \
-              sh -c "mkdir -p /www/api && printf '%s' '$body' > /www/api/check && exec httpd -f -p 8000 -h /www" \
+              sh -c "mkdir -p /www && printf '%s' '$body' > /www/health && exec httpd -f -p 8000 -h /www" \
               >/dev/null
           }
 
@@ -118,12 +118,13 @@ jobs:
             --name "$proxy" \
             --network "$network" \
             -p 18080:8080 \
+            -p 18081:8081 \
             -v "$GITHUB_WORKSPACE/web-dashboard/docker/nginx.conf:/etc/nginx/nginx.conf:ro" \
             nginx:1.27-alpine \
             >/dev/null
 
-          wait_for_body "frontend-one" "http://127.0.0.1:18080/"
-          wait_for_body "backend-one" "http://127.0.0.1:18080/api/check"
+          wait_for_body "frontend-one" "http://127.0.0.1:18081/"
+          wait_for_body "backend-one" "http://127.0.0.1:18080/health"
 
           frontend_old_ip="$(container_ip "$frontend_one")"
           docker rm -f "$frontend_one" >/dev/null
@@ -135,7 +136,7 @@ jobs:
           start_frontend "$frontend_two" "frontend-two"
           frontend_new_ip="$(container_ip "$frontend_two")"
           test "$frontend_old_ip" != "$frontend_new_ip"
-          wait_for_body "frontend-two" "http://127.0.0.1:18080/"
+          wait_for_body "frontend-two" "http://127.0.0.1:18081/"
 
           backend_old_ip="$(container_ip "$backend_one")"
           docker rm -f "$backend_one" >/dev/null
@@ -147,7 +148,7 @@ jobs:
           start_backend "$backend_two" "backend-two"
           backend_new_ip="$(container_ip "$backend_two")"
           test "$backend_old_ip" != "$backend_new_ip"
-          wait_for_body "backend-two" "http://127.0.0.1:18080/api/check"
+          wait_for_body "backend-two" "http://127.0.0.1:18080/health"
 
           test "$(docker inspect --format '{{.RestartCount}}' "$proxy")" = "0"
           echo "Nginx recovered both recreated upstreams without a restart."
