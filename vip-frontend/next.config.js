@@ -19,7 +19,7 @@ const contentSecurityPolicy = [
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
   "connect-src 'self' https://api.vip-e.net https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://*.googleapis.com https://*.firebaseapp.com",
-  "frame-src https://www.google.com https://accounts.google.com https://www.recaptcha.net https://*.firebaseapp.com"
+  "frame-src https://www.google.com https://accounts.google.com https://www.recaptcha.net https://*.firebaseapp.com",
 ].join("; ");
 
 /** @type {import('next').NextConfig} */
@@ -36,8 +36,8 @@ const nextConfig = {
           return [
             {
               source: "/api/v1/:path*",
-              destination: `${backendOrigin}/api/v1/:path*`
-            }
+              destination: `${backendOrigin}/api/v1/:path*`,
+            },
           ];
         },
         async headers() {
@@ -45,19 +45,26 @@ const nextConfig = {
             {
               source: "/:path*",
               headers: [
-                { key: "Content-Security-Policy", value: contentSecurityPolicy },
-                { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+                {
+                  key: "Content-Security-Policy",
+                  value: contentSecurityPolicy,
+                },
+                {
+                  key: "Referrer-Policy",
+                  value: "strict-origin-when-cross-origin",
+                },
                 { key: "X-Content-Type-Options", value: "nosniff" },
                 { key: "X-Frame-Options", value: "DENY" },
                 {
                   key: "Permissions-Policy",
-                  value: "camera=(), geolocation=(), microphone=(), payment=(), publickey-credentials-create=(self), publickey-credentials-get=(self), usb=()"
-                }
-              ]
-            }
+                  value:
+                    "camera=(), geolocation=(), microphone=(), payment=(), publickey-credentials-create=(self), publickey-credentials-get=(self), usb=()",
+                },
+              ],
+            },
           ];
-        }
-      })
+        },
+      }),
 };
 
 module.exports = withNextIntl(nextConfig);
