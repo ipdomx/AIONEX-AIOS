@@ -13,9 +13,9 @@ The production Compose file binds both Nginx listeners to `127.0.0.1` only. The 
 ## Server actions required
 
 1. Copy `.env.private-origin.example` to `.env.production` and replace all placeholders.
-2. Set `AIOS_ALLOWED_HOSTS` to the exact application/API hostnames.
+2. Choose a non-publicized control hostname, store it as `AIOS_CONTROL_HOST`, and include that exact value plus the API hostname in `AIOS_ALLOWED_HOSTS`. Never commit the real control hostname.
 3. Set `CORS_ORIGINS` and `AIOS_PUBLIC_PORTAL_ORIGINS` to the exact HTTPS user-portal origin. Set `AIOS_USER_PORTAL_URL` to the same public entry point. Do not use `*`.
-4. Map the public API hostname to `http://nginx:8080`. Map a separate, non-publicized control-plane hostname to `http://nginx:8081` and require Cloudflare Access before the tunnel route.
+4. Map the public API hostname to `http://nginx:8080`. Map `AIOS_CONTROL_HOST` to `http://nginx:8081` and require Cloudflare Access before the tunnel route.
 5. Put the tunnel token in `.env.production`; never paste it into GitHub or logs.
 6. Run `chmod +x scripts/validate-private-origin.sh` and execute the preflight.
 7. Start with `docker compose --env-file .env.production -f docker-compose.production.yml --profile tunnel up -d --build`.
