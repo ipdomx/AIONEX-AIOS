@@ -4,16 +4,22 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
+  AlertCircle,
   Bell,
+  CheckCircle2,
   CreditCard,
   Database,
   Globe,
   Key,
+  Loader2,
   Palette,
   Settings,
   Shield,
   User,
 } from "lucide-react";
+
+import { useLanguageVoice } from "@/components/providers/LanguageVoiceProvider";
+import type { SupportedLocale } from "@/lib/locale-engine";
 
 import {
   changeAccountPassword,
@@ -37,7 +43,7 @@ const sections = [
 const empty: AccountSettings = {
   profile: { id: "", name: "", email: "", role: "", organization: "" },
   preferences: {
-    language: "en",
+    language: "en-US",
     timezone: "UTC",
     theme: "dark",
     email_notifications: true,
@@ -51,12 +57,18 @@ const empty: AccountSettings = {
 };
 
 export default function SettingsPage() {
+  const { setLocale } = useLanguageVoice();
   const [active, setActive] =
     useState<(typeof sections)[number]["id"]>("profile");
   const [data, setData] = useState<AccountSettings>(empty);
   const [name, setName] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [securityNotice, setSecurityNotice] = useState<{
+    tone: "success" | "error" | "info";
+    text: string;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("Loading settings...");
   const visibleSections = sections.filter(
@@ -98,20 +110,28 @@ export default function SettingsPage() {
   }
 
   async function changePassword() {
+    if (newPassword !== confirmPassword) {
+      setSecurityNotice({ tone: "error", text: "New passwords do not match." });
+      return;
+    }
     setBusy(true);
+    setSecurityNotice({ tone: "info", text: "Changing password…" });
     try {
       const result = await changeAccountPassword(currentPassword, newPassword);
       setCurrentPassword("");
       setNewPassword("");
+      setConfirmPassword("");
       setData((current) => ({
         ...current,
         security: { ...current.security, active_sessions: 0 },
       }));
+      setSecurityNotice({ tone: "success", text: result.message });
       setMessage(result.message);
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Password change failed",
-      );
+      const detail =
+        error instanceof Error ? error.message : "Password change failed";
+      setSecurityNotice({ tone: "error", text: detail });
+      setMessage(detail);
     } finally {
       setBusy(false);
     }
@@ -119,17 +139,23 @@ export default function SettingsPage() {
 
   async function revokeSessions() {
     setBusy(true);
+    setSecurityNotice({ tone: "info", text: "Signing out other sessions…" });
     try {
       const result = await revokeAccountSessions();
       setData((current) => ({
         ...current,
         security: { ...current.security, active_sessions: 0 },
       }));
-      setMessage(`Revoked ${result.revoked} refresh session(s).`);
+      const detail = result.revoked
+        ? `Revoked ${result.revoked} refresh session(s).`
+        : "No other active sessions";
+      setSecurityNotice({ tone: "success", text: detail });
+      setMessage(detail);
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Session revoke failed",
-      );
+      const detail =
+        error instanceof Error ? error.message : "Session revoke failed";
+      setSecurityNotice({ tone: "error", text: detail });
+      setMessage(detail);
     } finally {
       setBusy(false);
     }
@@ -208,18 +234,30 @@ export default function SettingsPage() {
 
           {active === "security" && (
             <div className="space-y-5">
-              <h2 className="text-lg font-semibold text-white">Security</h2>
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-sm text-white/60">
-                MFA deployment flag:{" "}
-                {data.security.mfa_policy_enabled ? "Enabled" : "Disabled"}.
-                This settings contract does not assert sign-in enforcement.
+              <div>
+                <h2 className="text-lg font-semibold text-white">Security</h2>
+                <p className="mt-1 text-xs leading-6 text-white/40">
+                  This session remains active until the next authenticated
+                  request after a password change.
+                </p>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-sm text-white/60">
+                <div className="font-medium text-white/75">MFA policy</div>
+                <div className="mt-2">
+                  {data.security.mfa_policy_enabled ? "Enabled" : "Disabled"}
+                </div>
+                <p className="mt-2 text-xs leading-6 text-white/40">
+                  MFA is configured at deployment level. Sign-in enforcement is
+                  reported separately by the authentication service.
+                </p>
+              </div>
+              <div className="grid gap-3 lg:grid-cols-3">
                 <input
                   type="password"
                   value={currentPassword}
                   onChange={(event) => setCurrentPassword(event.target.value)}
                   placeholder="Current password"
+                  autoComplete="current-password"
                   className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-none"
                 />
                 <input
@@ -227,27 +265,64 @@ export default function SettingsPage() {
                   value={newPassword}
                   onChange={(event) => setNewPassword(event.target.value)}
                   placeholder={`New password (${data.security.password_min_length}+ characters)`}
+                  autoComplete="new-password"
+                  className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+                />
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  placeholder="Confirm new password"
+                  autoComplete="new-password"
                   className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-none"
                 />
               </div>
+              {securityNotice && (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className={`flex items-start gap-2 rounded-xl border px-4 py-3 text-sm ${
+                    securityNotice.tone === "success"
+                      ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-200"
+                      : securityNotice.tone === "error"
+                        ? "border-red-500/20 bg-red-500/10 text-red-200"
+                        : "border-electric-500/20 bg-electric-500/10 text-electric-200"
+                  }`}
+                >
+                  {securityNotice.tone === "success" ? (
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                  ) : securityNotice.tone === "error" ? (
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  ) : (
+                    <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
+                  )}
+                  <span>{securityNotice.text}</span>
+                </div>
+              )}
               <div className="flex flex-wrap gap-3">
                 <button
+                  type="button"
                   disabled={
                     busy ||
                     !currentPassword ||
-                    newPassword.length < data.security.password_min_length
+                    newPassword.length < data.security.password_min_length ||
+                    !confirmPassword
                   }
                   onClick={() => void changePassword()}
-                  className="btn-primary disabled:opacity-50"
+                  className="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
                 >
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                   Change password
                 </button>
                 <button
+                  type="button"
                   disabled={busy || data.security.active_sessions === 0}
                   onClick={() => void revokeSessions()}
-                  className="rounded-xl border border-orange-500/20 bg-orange-500/10 px-4 py-2 text-sm text-orange-300 disabled:opacity-50"
+                  className="rounded-xl border border-orange-500/20 bg-orange-500/10 px-4 py-2 text-sm text-orange-300 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Revoke {data.security.active_sessions} session(s)
+                  {data.security.active_sessions === 0
+                    ? "No other active sessions"
+                    : "Sign out other sessions"}
                 </button>
               </div>
             </div>
@@ -289,18 +364,21 @@ export default function SettingsPage() {
                 Language
                 <select
                   value={data.preferences.language}
-                  onChange={(event) =>
-                    void save(
-                      { language: event.target.value },
-                      "Language saved.",
-                    )
-                  }
+                  onChange={(event) => {
+                    const language = event.target.value as SupportedLocale;
+                    setLocale(language);
+                    setData((current) => ({
+                      ...current,
+                      preferences: { ...current.preferences, language },
+                    }));
+                    setMessage("Language saved.");
+                  }}
                   className="glass-input w-full rounded-xl px-4 py-2.5 text-sm text-white"
                 >
-                  <option value="en" className="bg-space-800">
+                  <option value="en-US" className="bg-space-800">
                     English
                   </option>
-                  <option value="ar" className="bg-space-800">
+                  <option value="ar-AE" className="bg-space-800">
                     العربية
                   </option>
                 </select>

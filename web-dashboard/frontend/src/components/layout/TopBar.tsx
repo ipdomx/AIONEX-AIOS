@@ -17,6 +17,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { useAuth } from "@/components/providers/AuthProvider";
+import { useLanguageVoice } from "@/components/providers/LanguageVoiceProvider";
 import { ownerNavigationItems } from "@/config/owner-navigation";
 
 interface TopBarProps {
@@ -50,6 +51,8 @@ export default function TopBar({
 }: TopBarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { decision } = useLanguageVoice();
+  const isRtl = decision.direction === "rtl";
   const [profileOpen, setProfileOpen] = useState(false);
   const pageLabel = useMemo(() => routeLabel(pathname), [pathname]);
   const isSuperOwner = user?.role === "Super Owner";
@@ -67,14 +70,17 @@ export default function TopBar({
     <header
       className="fixed left-0 right-0 top-0 z-40 flex h-16 items-center border-b border-white/[0.08] bg-[#07090f]/95 px-3 shadow-[0_12px_32px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-[margin] duration-300 sm:px-4"
       style={{
-        marginLeft: mobile ? "0px" : sidebarCollapsed ? "72px" : "280px",
+        marginLeft:
+          isRtl || mobile ? "0px" : sidebarCollapsed ? "72px" : "280px",
+        marginRight:
+          !isRtl || mobile ? "0px" : sidebarCollapsed ? "72px" : "280px",
       }}
     >
       {mobile && (
         <button
           type="button"
           onClick={onMenuOpen}
-          className="mr-2 rounded-xl p-2 transition hover:bg-white/[0.06]"
+          className="me-2 rounded-xl p-2 transition hover:bg-white/[0.06]"
           aria-label="Open navigation"
         >
           <Menu className="h-[18px] w-[18px] text-white/60" />
@@ -96,13 +102,13 @@ export default function TopBar({
           <span className="text-sm text-white/30 transition-colors group-hover:text-white/50">
             Search pages and Owner modules…
           </span>
-          <kbd className="ml-auto rounded-md border border-white/[0.08] bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-white/40">
+          <kbd className="ms-auto rounded-md border border-white/[0.08] bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-white/40">
             ⇧⌘K
           </kbd>
         </button>
       </div>
 
-      <div className="ml-auto flex flex-1 items-center justify-end gap-1 sm:gap-2">
+      <div className="ms-auto flex flex-1 items-center justify-end gap-1 sm:gap-2">
         <button
           type="button"
           onClick={onSearchOpen}
@@ -157,7 +163,7 @@ export default function TopBar({
                   exit={{ opacity: 0, y: 10, scale: 0.96 }}
                   transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
                   role="menu"
-                  className="fixed left-3 right-3 top-[4.5rem] z-[60] overflow-hidden rounded-2xl border border-white/[0.12] bg-[#0b0e15] shadow-[0_24px_70px_rgba(0,0,0,0.65)] sm:absolute sm:left-auto sm:right-0 sm:top-12 sm:w-72"
+                  className={`fixed left-3 right-3 top-[4.5rem] z-[60] overflow-hidden rounded-2xl border border-white/[0.12] bg-[#0b0e15] shadow-[0_24px_70px_rgba(0,0,0,0.65)] sm:absolute sm:top-12 sm:w-72 ${isRtl ? "sm:left-0 sm:right-auto" : "sm:left-auto sm:right-0"}`}
                 >
                   <div className="border-b border-white/[0.08] bg-white/[0.025] px-4 py-4">
                     <span className="block truncate text-sm font-semibold text-white">

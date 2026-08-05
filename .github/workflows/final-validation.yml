@@ -147,6 +147,8 @@ jobs:
           cache-dependency-path: web-dashboard/frontend/package-lock.json
       - name: Install frontend dependencies
         run: npm ci
+      - name: Check Owner Arabic coverage
+        run: npm run check:owner-arabic
       - name: Check TypeScript
         run: npm run type-check
       - name: Lint Owner dashboard
