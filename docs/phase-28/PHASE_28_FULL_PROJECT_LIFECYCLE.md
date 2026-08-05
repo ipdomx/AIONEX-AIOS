@@ -135,3 +135,29 @@ The Owner-approval closure passed:
 The first post-merge normal-user acceptance attempt reached `external_research` and stopped safely before planning because the research response ended incomplete at the output-token boundary. The failed record stored no raw prompt, raw response, or credential and reported zero completed provider work.
 
 The activation correction assigns web research to the fixed, account-verified `gpt-5.4-nano` model with reasoning disabled and low verbosity, while keeping planning and implementation on `gpt-5-mini`. GPT-5.4 nano is explicitly intended for lightweight extraction and sub-agent work and supports Responses web search and structured outputs. The full worst-case calculation for research, six planning requests, and one implementation request remains below the `0.05 USD` execution cap.
+
+## Final normal-user production acceptance
+
+The final production acceptance used a temporary normal tenant Owner account, not the Super Owner control-plane account. The user created and executed `AIONEX Governed Daily Board` through the public project API, then explicitly closed the sole retained Owner-approval gate without issuing another paid provider request.
+
+The durable result recorded:
+
+- execution status: `completed`;
+- release stage: `approved`;
+- approved: `true`;
+- readiness score: `1.0`;
+- blocking findings: none;
+- rework plan: none;
+- all governance layers executed: `true`;
+- provider requests: `8` — one researched intake, six departments, and one implementation specification;
+- input tokens: `16,361`;
+- output tokens: `7,185`;
+- total tokens: `23,546`;
+- calculated provider cost: `0.02687675 USD` inside the fixed `0.05 USD` cap;
+- fallback used: `false`;
+- production modified by the project cycle: `false`;
+- model claims used as execution proof: `false`.
+
+The retained delivery archive contained thirteen safe files, including the mode-`600` Owner approval receipt and a nested five-file executable prototype. Path-containment validation found no unsafe entries. The extracted prototype passed a live loopback acceptance covering HTTP delivery, health, create/list/delete persistence, Content Security Policy, frame denial, and MIME-sniffing protection.
+
+All six digital workers were evaluated and retained as active with promotion-review eligibility. Production Backend, Frontend, Nginx, PostgreSQL, Redis, project worker, backup worker, and Cloudflare Tunnel remained healthy after approval and download. The temporary acceptance session and credentials were revoked after evidence capture.
