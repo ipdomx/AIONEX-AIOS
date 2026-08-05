@@ -422,6 +422,7 @@ jobs:
               --rm \
               --no-deps \
               -e RUN_LIVE_BACKUP_SMOKE=1 \
+              -e AIOS_ALLOW_DISPOSABLE_PRODUCTION_TESTS=1 \
               backup-worker \
               python -m pytest -q \
               /workspace/web-dashboard/backend/tests/test_backup_executor.py::test_live_postgres_worker_backup_and_restore_smoke
