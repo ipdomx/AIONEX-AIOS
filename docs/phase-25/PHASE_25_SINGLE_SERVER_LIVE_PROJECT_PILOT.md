@@ -2,7 +2,9 @@
 
 ## Status
 
-Implementation and isolated validation are complete. Production activation and the first real user-style project cycle are intentionally performed only after the pull request passes CI and is merged.
+Phase 25 completed its production activation and first real user-style project cycle successfully on 2026-08-05.
+
+The implementation was merged through PR `#185` at merge commit `12fb98375c7659089415f1d42e7ed9a0f5e9e176`. All nine GitHub checks passed, including backend tests, production Docker build, CodeQL, dependency security, and Docker DNS re-resolution.
 
 Phase 25 keeps AIONEX AIOS on the current server. It does not require or provision another VPS. The public user portal remains separate from the private Owner Dashboard, while the authenticated project execution API and a dedicated worker run inside the existing production stack.
 
@@ -98,17 +100,53 @@ The six-language static portal now:
 - non-root worker secret/reference/output preparation: passed;
 - source compilation, diff whitespace, and credential-shaped-value scans: passed.
 
-## Activation sequence after merge
+## Production activation evidence
 
-1. Create a protected pre-migration PostgreSQL backup.
-2. Apply Alembic revision `20260805_0006`.
-3. Rebuild and safely recreate the backend.
-4. Start only the optional `project-worker` profile.
-5. Confirm backend, worker, PostgreSQL, Redis, Nginx, frontend, backup worker, and Cloudflare Tunnel health.
-6. Create a controlled internal pilot account and project.
-7. Start the cycle through the public authenticated API.
-8. Poll it to a terminal state and verify cost, evidence, notifications, audit records, and production health.
-9. Remove temporary pilot credentials.
-10. Publish the rebuilt static portal package to the existing user-portal hosting path when the configured deployment channel is available.
+The activation followed the protected sequence:
 
-Android, iOS, and Telegram validation/publication follow only after this real web project cycle is proven.
+1. A pre-migration PostgreSQL custom-format dump was created, verified with `pg_restore --list`, hashed, and stored root-only with mode `600`.
+2. Alembic advanced from `20260802_0005` to `20260805_0006`.
+3. The backend was safely recreated and returned healthy.
+4. The optional `project-worker` profile was started and returned healthy.
+5. The backup worker was recreated from the validated image and returned healthy.
+6. A controlled Manager account, workspace, and real project were created.
+7. Login, project creation, execution enqueue, status polling, and logout were all exercised through the public API gateway at `api.vip-e.net`.
+8. The temporary pilot identity was disabled, its refresh sessions were revoked, and its credentials/session files were removed.
+
+The production services remained healthy after the cycle: Nginx, Backend, Frontend, Project Worker, Backup Worker, PostgreSQL, and Redis were healthy; Cloudflared remained running.
+
+## Real project cycle result
+
+Project: `AIONEX Social Growth Campaign Orchestrator`.
+
+The real objective requested a low-cost bilingual Arabic/English social-media campaign management product with secure accounts, campaign planning, content calendars, approvals, analytics, notifications, Android, iOS, and Telegram delivery.
+
+The durable production result recorded:
+
+- status: `completed`;
+- stage: `rework_required`;
+- provider/model: `openai` / `gpt-5-mini`;
+- department artifacts: `6`;
+- provider requests: `6`;
+- retries: `0`;
+- input tokens: `2,389`;
+- output tokens: `3,414`;
+- total tokens: `5,803`;
+- calculated cost: `0.00742525 USD`;
+- fixed budget cap: `0.05 USD`;
+- provider execution duration: `96.441046` seconds;
+- readiness score: `0.82`;
+- fallback used: `false`;
+- production modified by the cycle: `false`.
+
+`approved=false` is a truthful planning result rather than an execution failure. The model produced implementation plans but did not claim that department tests or security reviews had already happened. The stored rework plan therefore requires those gates before implementation approval.
+
+The evidence validation confirmed six artifacts, one durable completion notification, three execution audit events, released job lease, no stored provider secret, no Authorization header, no raw prompt, and no raw provider response. The project moved to `active` with initial progress `25%` after the planning stage completed.
+
+## Portal release
+
+The multilingual static user portal release is now version `1.3.0`. Its TypeScript, lint, static build, and static smoke checks passed. The generated package is ready for the existing `ai.vip-e.net` shared-hosting document root.
+
+The server does not contain a configured FTP/SFTP/cPanel deployment credential for that external hosting account. Therefore the package is prepared and retained securely, but no hosting credential was guessed or fabricated. The live API and worker are active; publishing the new portal assets requires a real authenticated deployment channel to the separate hosting provider.
+
+Android, iOS, and Telegram validation/publication follow this proven real web project cycle.
