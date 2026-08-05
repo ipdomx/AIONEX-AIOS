@@ -21,6 +21,12 @@ const expectedUrls = [
   "/robots.txt",
   "/sitemap.xml",
   "/manifest.webmanifest",
+  "/.well-known/assetlinks.json",
+  "/sw.js",
+  "/offline.html",
+  "/icons/aionex-180.png",
+  "/icons/aionex-192.png",
+  "/icons/aionex-512.png",
   ...locales.flatMap((locale) =>
     localizedRoutes.map((route) => `/${locale}/${route ? `${route}/` : ""}`),
   ),
@@ -127,9 +133,32 @@ try {
   if (bundleText.includes("https://api.ai.vip-e.net")) {
     throw new Error("Static bundle contains the rejected API host");
   }
-  await stat(join(root, ".htaccess"));
+  const manifest = JSON.parse(
+    await readFile(join(root, "manifest.webmanifest"), "utf8"),
+  );
+  if (manifest.display !== "standalone" || manifest.start_url !== "/ar/") {
+    throw new Error("Installable PWA manifest is incomplete");
+  }
+  const assetLinks = JSON.parse(
+    await readFile(join(root, ".well-known", "assetlinks.json"), "utf8"),
+  );
+  if (
+    !Array.isArray(assetLinks) ||
+    assetLinks[0]?.target?.package_name !== "net.vipe.aionex" ||
+    !assetLinks[0]?.target?.sha256_cert_fingerprints?.length
+  ) {
+    throw new Error("Android App Links declaration is incomplete");
+  }
+  const serviceWorker = await readFile(join(root, "sw.js"), "utf8");
+  if (!serviceWorker.includes('url.pathname.startsWith("/api/")')) {
+    throw new Error("Service worker does not exclude authenticated API requests");
+  }
+  const htaccess = await readFile(join(root, ".htaccess"), "utf8");
+  if (!htaccess.includes('Service-Worker-Allowed "/"')) {
+    throw new Error("Service worker scope header is missing");
+  }
   console.log(
-    `Static smoke test passed: ${expectedUrls.length} URLs, 404 fallback, API target and deployment headers.`,
+    `Static smoke test passed: ${expectedUrls.length} URLs, PWA assets, 404 fallback, API target and deployment headers.`,
   );
 } finally {
   await new Promise((resolve, reject) =>

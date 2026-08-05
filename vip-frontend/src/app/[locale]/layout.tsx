@@ -9,6 +9,7 @@ import { notFound } from "next/navigation";
 import { Footer } from "@/components/layout/footer";
 import { SiteFrame } from "@/components/layout/site-frame";
 import { AuthProvider } from "@/hooks/use-auth";
+import { PwaRegister } from "@/components/pwa/pwa-register";
 import { localeDirection, locales, type Locale } from "@/i18n";
 import { SITE_URL } from "@/lib/site";
 import "@/styles/globals.css";
@@ -53,9 +54,10 @@ export async function generateMetadata({
     icons: {
       icon: "/brand/aionex-mark.svg",
       shortcut: "/brand/aionex-mark.svg",
-      apple: "/brand/aionex-mark.svg",
+      apple: "/icons/aionex-180.png",
     },
     manifest: "/manifest.webmanifest",
+    appleWebApp: { capable: true, title: "AIONEX", statusBarStyle: "black-translucent" },
     alternates: {
       canonical: `${SITE_URL}/${locale}`,
       languages: Object.fromEntries(
@@ -100,6 +102,7 @@ export default async function LocaleLayout({ children, params }: Props) {
           timeZone="UTC"
         >
           <AuthProvider>
+            <PwaRegister />
             <script
               type="application/ld+json"
               dangerouslySetInnerHTML={{

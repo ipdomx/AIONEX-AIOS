@@ -142,6 +142,37 @@ services:
     security_opt: ["no-new-privileges:true"]
     networks: [aionex-network]
 
+
+  telegram-worker:
+    profiles: ["telegram"]
+    image: aionex-aios-backend:local
+    restart: unless-stopped
+    stop_grace_period: 45s
+    command: ["python", "-m", "app.services.telegram_worker"]
+    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      REDIS_URL: redis://redis:6379/0
+      AIOS_REPO_ROOT: /workspace
+      PYTHONPATH: /workspace/src:/app
+      AIOS_TELEGRAM_BOT_TOKEN_FILE: /run/secrets/aionex/telegram-bot-token
+    volumes:
+      - ..:/workspace:ro
+      - ${AIOS_TELEGRAM_BOT_TOKEN_HOST_FILE:-/root/.config/aionex/telegram/bot-token}:/run/secrets/aionex/telegram-bot-token:ro
+    depends_on:
+      backend: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.services.telegram_worker", "--healthcheck"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 45s
+    security_opt: ["no-new-privileges:true"]
+    networks: [aionex-network]
+
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
