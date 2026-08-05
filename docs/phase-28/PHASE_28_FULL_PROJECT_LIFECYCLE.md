@@ -121,6 +121,15 @@ The approval path:
 - adds the approval receipt to the downloadable delivery archive;
 - never converts unexecuted external deployment, payment, mobile-store, or third-party integration work into an approved claim.
 
+The Owner-approval closure passed:
+
+- complete root suite: `468 passed`;
+- isolated PostgreSQL/Redis project-execution contracts: `12 passed`;
+- VIP portal TypeScript and lint: passed;
+- VIP static production build: `73 pages`;
+- VIP static smoke: `76 URLs`;
+- Python compilation and Git whitespace checks: passed.
+
 ## Live activation correction
 
 The first post-merge normal-user acceptance attempt reached `external_research` and stopped safely before planning because the research response ended incomplete at the output-token boundary. The failed record stored no raw prompt, raw response, or credential and reported zero completed provider work.
