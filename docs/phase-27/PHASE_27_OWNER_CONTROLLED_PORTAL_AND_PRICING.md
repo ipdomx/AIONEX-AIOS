@@ -134,3 +134,53 @@ Phase 27 does not make the product ready for stores or marketing. After merge:
 7. connect and test each provider and paid service;
 8. execute real projects, including advertising-video production;
 9. approve the product only after the full user and owner experience passes.
+
+## Merge and production deployment evidence
+
+Phase 27 owner-controlled portal implementation was merged through PR `#188`.
+
+- feature commit: `52bff4cb5ee6fc9eb90131055118393eb9db1dcf`;
+- Nginx validation fix: `5538b5199b520161a12297fc3c9b6240e7ae8836`;
+- merge commit: `0d1122d6a96b39b81b5f26c6d5834663f857e2ad`;
+- GitHub checks: `9/9` successful, including Backend Tests, CodeQL, Dependency Security, Frontend Build, Production Docker Build, and Nginx Docker DNS Validation.
+
+Production deployment completed on the existing single server without adding another server or changing the database schema.
+
+Observed production evidence:
+
+- public configuration endpoint: `200`;
+- initial publication version: `1`;
+- controlled pages represented: `11`;
+- catalogue plans represented: `3`;
+- enabled paid plans: `0`;
+- unauthenticated private Owner API request: `401`;
+- private Owner portal page through the internal origin: `200`;
+- durable records: `draft` and `published`;
+- asset volume permissions: mode `0750`, owner `aionex:aionex`;
+- Alembic head remained `20260805_0006`;
+- backend, frontend, Nginx, PostgreSQL, Redis, backup worker, and project worker remained healthy;
+- Cloudflare Access continued protecting the private Owner hostname.
+
+A validated pre-deployment PostgreSQL archive was retained outside Git at:
+
+`/root/.config/aionex/backups/phase27-pre-portal-deploy-20260805T165531Z.dump`
+
+## VIP Frontend v1.5.0 release
+
+The one-time owner-controlled static shell was published as GitHub release:
+
+`vip-frontend-v1.5.0`
+
+Artifact:
+
+`AIONEX-AIOS-vip-frontend-v1.5.0-owner-controlled-static-2026-08-05.zip`
+
+- size: `1,863,973` bytes;
+- SHA-256: `c6cc5d07e3b0f8e52ffabf6fd5a418e7e9833bb0479b61101048f8ee0d451b00`;
+- ZIP entries: `198`;
+- contains `.htaccess`, `.well-known/assetlinks.json`, PWA files, six locales, pricing routes, and no source maps;
+- contains no private key, provider token, database credential, or Owner session.
+
+The current shared-hosting document root remains unchanged until the owner uploads and extracts v1.5.0. This is the final routine static-shell upload required for this control architecture. After that upload, portal presentation and pricing updates are published from `/owner/portal`.
+
+This deployment completes the portal-control prerequisite only. Full website acceptance, provider integration, video-generation tests, commercial plan approval, mobile-store publication, and marketing approval remain open.
