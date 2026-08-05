@@ -57,6 +57,7 @@ Planning statements such as `tests_passed` or `security_reviewed` are not accept
 Phase 28 creates a tested, self-contained full-stack web prototype with a fixed safe file allowlist, local assets, deterministic browser/server checks, credential scanning, archive hashing, and rollback restoration verification.
 
 The prototype is not misrepresented as an automatically deployed production service. Objectives requiring production hosting, live authentication, payments, native mobile applications, or external integrations remain blocked until their actual infrastructure, credentials, and executed acceptance evidence exist.
+Explicit exclusions such as “must not require payments or production deployment” are treated as boundaries, not requested capabilities, so a bounded local prototype is not incorrectly escalated for Owner approval.
 
 ## Workforce governance
 
@@ -105,6 +106,29 @@ The Phase 28 branch passed all of the following before PR creation:
 ## Final acceptance requirement
 
 Code completion is not represented as production acceptance until the merged implementation is deployed and one real normal-user project is executed through the complete lifecycle. That acceptance run must preserve the fixed budget, no-fallback rule, production health, tenant isolation, downloadable package, governance evidence, and workforce records.
+
+## Post-execution Owner approval closure
+
+When every executed technical gate passes and the only remaining blocker is `owner approval is required`, the project Organization Owner can explicitly approve the retained evidence package through the tenant-scoped execution API and portal.
+
+The approval path:
+
+- rejects managers, foreign tenants, incomplete executions, and any result with another blocker;
+- requires an explicit confirmation after the evidence is available;
+- appends a mode-`600` `owner-approval.json` receipt beside the immutable full-cycle manifest instead of rewriting that manifest;
+- hashes the retained execution manifest and the approval receipt;
+- updates the durable execution, project status, notification, and audit trail;
+- adds the approval receipt to the downloadable delivery archive;
+- never converts unexecuted external deployment, payment, mobile-store, or third-party integration work into an approved claim.
+
+The Owner-approval closure passed:
+
+- complete root suite: `468 passed`;
+- isolated PostgreSQL/Redis project-execution contracts: `12 passed`;
+- VIP portal TypeScript and lint: passed;
+- VIP static production build: `73 pages`;
+- VIP static smoke: `76 URLs`;
+- Python compilation and Git whitespace checks: passed.
 
 ## Live activation correction
 

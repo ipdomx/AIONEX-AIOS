@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
+import hashlib
 import io
+import json
+import os
 from pathlib import Path
 from typing import Any, Literal
+from uuid import uuid4
 import zipfile
 
 from app.core.auth import UserRecord, require_permissions
 from app.core.config import settings
 from app.db.base import get_db
-from app.db.models import AuditEvent, Project, ProjectExecution
+from app.db.models import AuditEvent, Notification, Project, ProjectExecution
 from app.services.free_tier import consume_assistant_response, consume_user_message
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
@@ -29,8 +33,40 @@ class ProjectExecutionStart(BaseModel):
     objective: str | None = Field(default=None, min_length=10, max_length=6000)
 
 
+class ProjectExecutionApproval(BaseModel):
+    confirm_owner_approval: bool
+    note: str | None = Field(default=None, max_length=500)
+
+
 def _iso(value: datetime | None) -> str | None:
     return value.isoformat() if value is not None else None
+
+
+def _canonical_json(payload: dict[str, Any]) -> str:
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _atomic_approval_receipt(path: Path, payload: dict[str, Any]) -> str:
+    content = _canonical_json(payload)
+    temporary = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
+    try:
+        with temporary.open("x", encoding="utf-8", newline="\n") as stream:
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(temporary, 0o600)
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
 def _public_result(summary: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -69,6 +105,7 @@ def _public_result(summary: dict[str, Any] | None) -> dict[str, Any] | None:
         "delivery_package",
         "all_governance_layers_executed",
         "model_claims_used_as_execution_proof",
+        "owner_approval",
     }
     return {key: summary[key] for key in allowed if key in summary}
 
@@ -264,6 +301,214 @@ async def get_project_execution(
     return serialize_project_execution(record)
 
 
+@router.post("/{project_id}/executions/{execution_id}/approve")
+async def approve_project_execution(
+    project_id: str,
+    execution_id: str,
+    data: ProjectExecutionApproval,
+    actor: UserRecord = Depends(require_permissions("projects:write")),
+    session: AsyncSession = Depends(get_db),
+):
+    if data.confirm_owner_approval is not True:
+        raise HTTPException(
+            status_code=422,
+            detail="Explicit Owner approval confirmation is required",
+        )
+    project = await _project(session, project_id, actor.organization_id)
+    if actor.role != "Owner" or project.owner_id != actor.id:
+        raise HTTPException(
+            status_code=403,
+            detail="The project Organization Owner must approve this release",
+        )
+    record = await session.scalar(
+        select(ProjectExecution)
+        .where(
+            ProjectExecution.id == execution_id,
+            ProjectExecution.project_id == project.id,
+            ProjectExecution.organization_id == actor.organization_id,
+        )
+        .with_for_update()
+    )
+    if record is None:
+        raise HTTPException(status_code=404, detail="Project execution not found")
+    if record.approved is True and record.stage == "approved":
+        return serialize_project_execution(record)
+    if record.status != "completed" or not record.evidence_path:
+        raise HTTPException(
+            status_code=409,
+            detail="Only a completed governed execution can be approved",
+        )
+    summary = record.result_summary
+    if not isinstance(summary, dict):
+        raise HTTPException(status_code=409, detail="Execution result is invalid")
+    release = summary.get("release_review")
+    blockers = list(summary.get("blocking_findings") or [])
+    other_blockers = [
+        str(item)
+        for item in blockers
+        if str(item) != "owner approval is required"
+    ]
+    if (
+        not isinstance(release, dict)
+        or release.get("owner_approval_required") is not True
+        or summary.get("all_governance_layers_executed") is not True
+        or summary.get("model_claims_used_as_execution_proof") is not False
+        or summary.get("fallback_used") is not False
+        or summary.get("production_modified") is not False
+        or other_blockers
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Execution evidence still contains non-Owner release blockers",
+        )
+
+    raw_evidence_root = Path(record.evidence_path)
+    raw_manifest_path = raw_evidence_root / "manifest.json"
+    if raw_evidence_root.is_symlink() or raw_manifest_path.is_symlink():
+        raise HTTPException(status_code=409, detail="Execution evidence is unsafe")
+    try:
+        allowed_root = Path(settings.PROJECT_EXECUTION_OUTPUT_ROOT).resolve(strict=True)
+        evidence_root = raw_evidence_root.resolve(strict=True)
+        manifest_path = raw_manifest_path.resolve(strict=True)
+    except (FileNotFoundError, OSError) as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Execution evidence is unavailable",
+        ) from exc
+    if (
+        evidence_root == allowed_root
+        or allowed_root not in evidence_root.parents
+        or not evidence_root.is_dir()
+        or evidence_root not in manifest_path.parents
+        or not manifest_path.is_file()
+    ):
+        raise HTTPException(status_code=409, detail="Execution evidence is unsafe")
+
+    approval_path = evidence_root / "owner-approval.json"
+    approved_at = datetime.now(UTC)
+    receipt = {
+        "schema_version": 1,
+        "decision": "approved",
+        "execution_id": record.id,
+        "project_id": project.id,
+        "organization_id": actor.organization_id,
+        "approved_by_id": actor.id,
+        "approved_by_role": actor.role,
+        "approved_at": approved_at.isoformat(),
+        "evidence_manifest": "manifest.json",
+        "evidence_manifest_sha256": _sha256(manifest_path),
+        "note": (data.note or "").strip() or None,
+        "claim_boundary": (
+            "Owner approval closes only the retained evidence package and does "
+            "not assert unexecuted deployment, external integration, or store publication."
+        ),
+    }
+    if approval_path.exists():
+        if not approval_path.is_file() or approval_path.is_symlink():
+            raise HTTPException(status_code=409, detail="Owner approval receipt is unsafe")
+        try:
+            existing = json.loads(approval_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise HTTPException(
+                status_code=409,
+                detail="Owner approval receipt is invalid",
+            ) from exc
+        if (
+            not isinstance(existing, dict)
+            or existing.get("decision") != "approved"
+            or existing.get("execution_id") != record.id
+            or existing.get("project_id") != project.id
+            or existing.get("organization_id") != actor.organization_id
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="Owner approval receipt does not match this execution",
+            )
+        receipt = existing
+        receipt_sha256 = _sha256(approval_path)
+        approved_at_text = str(existing.get("approved_at") or approved_at.isoformat())
+    else:
+        receipt_sha256 = _atomic_approval_receipt(approval_path, receipt)
+        approved_at_text = approved_at.isoformat()
+
+    updated = json.loads(json.dumps(summary))
+    updated["status"] = "approved"
+    updated["approved"] = True
+    updated["blocking_findings"] = []
+    updated["rework_plan"] = []
+    updated["owner_approval"] = {
+        "approved": True,
+        "approved_by_id": actor.id,
+        "approved_at": approved_at_text,
+        "receipt": "owner-approval.json",
+        "receipt_sha256": receipt_sha256,
+    }
+    updated_release = dict(updated.get("release_review") or {})
+    updated_release.update(
+        {
+            "approved": True,
+            "status": "approved",
+            "owner_approved": True,
+            "blocking_findings": [],
+            "rework_plan": [],
+        }
+    )
+    updated["release_review"] = updated_release
+    governance = dict(updated.get("governance") or {})
+    government = dict(governance.get("government") or {})
+    government["owner_approved"] = True
+    governance["government"] = government
+    updated["governance"] = governance
+    package = dict(updated.get("delivery_package") or {})
+    package["owner_approval_receipt"] = "owner-approval.json"
+    package["owner_approval_receipt_sha256"] = receipt_sha256
+    updated["delivery_package"] = package
+
+    record.approved = True
+    record.stage = "approved"
+    record.progress = 100
+    record.result_summary = updated
+    project.status = "completed"
+    project.progress = 100
+    session.add(
+        Notification(
+            organization_id=record.organization_id,
+            recipient_id=record.requested_by_id,
+            type="project.execution.owner_approved",
+            title="Governed project release approved",
+            message=(
+                "The Organization Owner approved the retained evidence package. "
+                "The final delivery archive is ready."
+            ),
+            severity="success",
+            payload={
+                "project_id": project.id,
+                "execution_id": record.id,
+                "approved": True,
+                "receipt_sha256": receipt_sha256,
+            },
+        )
+    )
+    session.add(
+        AuditEvent(
+            organization_id=record.organization_id,
+            user_id=actor.id,
+            action="project.execution.owner_approved",
+            resource_type="project_execution",
+            resource_id=record.id,
+            details={
+                "project_id": project.id,
+                "receipt_sha256": receipt_sha256,
+                "evidence_manifest_sha256": receipt["evidence_manifest_sha256"],
+                "remaining_blockers": 0,
+            },
+        )
+    )
+    await session.commit()
+    await session.refresh(record)
+    return serialize_project_execution(record)
+
+
 @router.get("/{project_id}/executions/{execution_id}/download")
 async def download_project_execution(
     project_id: str,
@@ -313,6 +558,17 @@ async def download_project_execution(
                     status_code=409, detail="Project delivery file escapes package root"
                 )
             bundle.write(resolved, resolved.relative_to(package_root))
+        approval_path = evidence_root / "owner-approval.json"
+        if approval_path.exists():
+            if not approval_path.is_file() or approval_path.is_symlink():
+                raise HTTPException(
+                    status_code=409, detail="Owner approval receipt is unsafe"
+                )
+            if approval_path.stat().st_size > 64 * 1024:
+                raise HTTPException(
+                    status_code=409, detail="Owner approval receipt is invalid"
+                )
+            bundle.write(approval_path, "owner-approval.json")
     archive.seek(0)
     return StreamingResponse(
         archive,

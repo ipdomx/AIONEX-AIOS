@@ -376,7 +376,13 @@
       "workforceTitle": "Mitarbeiterprüfung",
       "workforceSummary": "{count} digitale Worker bewertet · {training} in Training oder unter Aufsicht",
       "researchTitle": "Unabhängige Recherche",
-      "researchSummary": "{facts} verifizierte Fakten · {sources} unabhängige Quellen"
+      "researchSummary": "{facts} verifizierte Fakten · {sources} unabhängige Quellen",
+      "approve": "Finale Freigabe erteilen",
+      "approving": "Wird freigegeben…",
+      "approvalConfirm": "Das vollständige gespeicherte Nachweispaket freigeben und das letzte Owner-Gate schließen? Nicht ausgeführte externe Bereitstellungen oder Store-Veröffentlichungen werden dadurch nicht behauptet.",
+      "approvalError": "Die endgültige Owner-Freigabe konnte nicht gespeichert werden.",
+      "ownerApprovalRequired": "Alle ausgeführten Nachweis-Gates wurden bestanden. Die finale Freigabe wartet nur noch auf die ausdrückliche Zustimmung des Organisationsinhabers.",
+      "ownerApproved": "Der Organisationsinhaber hat das Nachweispaket freigegeben. Das finale Archiv enthält den signierten Freigabebeleg."
     }
   },
   "legal": {

@@ -376,7 +376,13 @@
       "workforceTitle": "İşgücü incelemesi",
       "workforceSummary": "{count} dijital worker değerlendirildi · {training} eğitimde veya gözetim altında",
       "researchTitle": "Bağımsız araştırma",
-      "researchSummary": "{facts} doğrulanmış gerçek · {sources} bağımsız kaynak"
+      "researchSummary": "{facts} doğrulanmış gerçek · {sources} bağımsız kaynak",
+      "approve": "Nihai sürümü onayla",
+      "approving": "Onaylanıyor…",
+      "approvalConfirm": "Saklanan eksiksiz kanıt paketini onaylayıp son sahip kapısını kapatmak istiyor musunuz? Bu işlem, gerçekleştirilmemiş harici dağıtım veya mağaza yayını iddiasında bulunmaz.",
+      "approvalError": "Nihai sahip onayı kaydedilemedi.",
+      "ownerApprovalRequired": "Çalıştırılan tüm kanıt kapıları geçti. Nihai sürüm yalnızca kuruluş sahibinin açık onayını bekliyor.",
+      "ownerApproved": "Kuruluş sahibi saklanan kanıt paketini onayladı. Nihai arşiv imzalı onay makbuzunu içerir."
     }
   },
   "legal": {

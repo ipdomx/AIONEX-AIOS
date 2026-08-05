@@ -319,3 +319,32 @@ def test_full_cycle_rejects_tampered_implementation_source(tmp_path: Path) -> No
             implementation_directory=implementation,
             output_root=tmp_path / "cycles",
         )
+
+
+def test_full_cycle_respects_explicitly_excluded_runtime_capabilities(
+    tmp_path: Path,
+) -> None:
+    planning = _write_planning(tmp_path / "planning")
+    implementation = _write_implementation(tmp_path, planning)
+    objective = (
+        "Build a self-contained local microsite that must not require authentication, "
+        "payments, native mobile applications, external integrations, or production "
+        "deployment."
+    )
+    result = FullProjectCycle().execute(
+        execution_id="cycle-explicit-exclusions",
+        project="Demo Project",
+        objective=objective,
+        planning_directory=planning,
+        implementation_directory=implementation,
+        research_evidence=_research_evidence(),
+        output_root=tmp_path / "cycles",
+    )
+    assert FullProjectCycle._risk_level(objective) == "medium"
+    assert FullProjectCycle._security_sensitive(objective) is False
+    assert FullProjectCycle._implementation_scope_blockers(
+        objective, {"tests_passed": True}
+    ) == []
+    assert result["approved"] is True
+    assert result["blocking_findings"] == []
+    assert result["governance"]["owner_approval_required"] is False

@@ -5,11 +5,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from uuid import uuid4
+import zipfile
 
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from starlette.requests import Request
 
 from app.api.v1.router import api_router
@@ -39,12 +40,18 @@ from app.services.project_execution import (
 ROOT = Path(__file__).resolve().parents[3]
 
 
-def _actor(user_id: str, organization_id: str, organization_name: str) -> UserRecord:
+def _actor(
+    user_id: str,
+    organization_id: str,
+    organization_name: str,
+    *,
+    role: str = "Manager",
+) -> UserRecord:
     return UserRecord(
         id=user_id,
         email=f"{user_id}@example.com",
         name="Project Pilot Operator",
-        role="Manager",
+        role=role,
         password_hash="unused",
         organization_id=organization_id,
         organization_name=organization_name,
@@ -149,6 +156,7 @@ def test_project_execution_table_and_compose_worker_contracts() -> None:
     assert "/run/secrets/aionex/project-openai.env:ro" in compose
     assert "/run/references/phase22b/local-qwen3-8b:ro" in compose
     assert "project_execution_data:/var/lib/aionex/project-executions" in compose
+    assert "project_execution_data:/var/lib/aionex/project-executions:rw" in compose
 
 
 @pytest.mark.asyncio
@@ -940,3 +948,276 @@ def test_project_runner_rejects_unknown_research_model_before_provider_use(
         match="research model is not in the fixed allowlist",
     ):
         ProjectPlanningRunner()
+
+
+@pytest.mark.asyncio
+async def test_organization_owner_closes_only_owner_approval_blocker_and_downloads_receipt(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    suffix = uuid4().hex[:12]
+    organization, user, _, project = await _create_project_tenant(suffix)
+    output_root = tmp_path / "project-executions"
+    evidence_root = output_root / f"execution-{suffix}" / "full-cycle" / "cycle"
+    package_root = evidence_root / "delivery-package"
+    package_root.mkdir(parents=True)
+    (evidence_root / "manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "phase": 28,
+                "execution_id": "cycle",
+                "review": {"approved": False},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (package_root / "index.html").write_text(
+        "<!doctype html><title>Governed delivery</title>",
+        encoding="utf-8",
+    )
+    (package_root / "manifest.json").write_text(
+        json.dumps({"schema_version": 1, "files": ["index.html"]}),
+        encoding="utf-8",
+    )
+    execution = ProjectExecution(
+        id=f"approval-{suffix}",
+        organization_id=organization.id,
+        workspace_id=project.workspace_id,
+        project_id=project.id,
+        requested_by_id=user.id,
+        mode="full",
+        provider="openai",
+        model="gpt-5-mini",
+        status="completed",
+        stage="rework_required",
+        progress=100,
+        objective=project.description or project.name,
+        external_processing_confirmed=True,
+        budget_cap_usd=0.05,
+        calculated_cost_usd=0.02,
+        requests_count=8,
+        retries_count=0,
+        input_tokens=1000,
+        output_tokens=2000,
+        total_tokens=3000,
+        approved=False,
+        readiness_score=1.0,
+        result_summary={
+            "success": True,
+            "status": "rework_required",
+            "phase": 28,
+            "mode": "full",
+            "provider": "openai",
+            "model": "gpt-5-mini",
+            "approved": False,
+            "readiness_score": 1.0,
+            "blocking_findings": ["owner approval is required"],
+            "rework_plan": [
+                "Request explicit Owner approval with the complete evidence package."
+            ],
+            "all_governance_layers_executed": True,
+            "model_claims_used_as_execution_proof": False,
+            "fallback_used": False,
+            "production_modified": False,
+            "governance": {
+                "government": {
+                    "owner_approval_required": True,
+                    "owner_approved": False,
+                    "verdict": "approved",
+                }
+            },
+            "release_review": {
+                "approved": False,
+                "status": "rework_required",
+                "owner_approval_required": True,
+                "owner_approved": False,
+                "blocking_findings": ["owner approval is required"],
+                "rework_plan": [
+                    "Request explicit Owner approval with the complete evidence package."
+                ],
+            },
+            "delivery_package": {
+                "contains_executable_product": True,
+                "path": "delivery-package",
+            },
+        },
+        evidence_path=str(evidence_root),
+        attempts=1,
+        max_attempts=1,
+    )
+    async with SessionLocal() as session:
+        session.add(execution)
+        await session.commit()
+
+    monkeypatch.setattr(
+        settings,
+        "PROJECT_EXECUTION_OUTPUT_ROOT",
+        str(output_root),
+    )
+    actor_holder = {
+        "actor": _actor(user.id, organization.id, organization.name)
+    }
+    app = FastAPI()
+    app.include_router(api_router, prefix="/api/v1")
+    app.dependency_overrides[current_user] = lambda: actor_holder["actor"]
+
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+        ) as client:
+            manager_denied = await client.post(
+                f"/api/v1/projects/{project.id}/executions/{execution.id}/approve",
+                json={"confirm_owner_approval": True},
+            )
+            assert manager_denied.status_code == 403, manager_denied.text
+
+            actor_holder["actor"] = _actor(
+                user.id,
+                organization.id,
+                organization.name,
+                role="Owner",
+            )
+            missing_confirmation = await client.post(
+                f"/api/v1/projects/{project.id}/executions/{execution.id}/approve",
+                json={"confirm_owner_approval": False},
+            )
+            assert missing_confirmation.status_code == 422
+
+            approved = await client.post(
+                f"/api/v1/projects/{project.id}/executions/{execution.id}/approve",
+                json={
+                    "confirm_owner_approval": True,
+                    "note": "Reviewed the complete retained evidence package.",
+                },
+            )
+            assert approved.status_code == 200, approved.text
+            result = approved.json()
+            assert result["approved"] is True
+            assert result["stage"] == "approved"
+            assert result["result"]["blocking_findings"] == []
+            assert result["result"]["release_review"]["owner_approved"] is True
+            assert result["result"]["owner_approval"]["approved"] is True
+
+            duplicate = await client.post(
+                f"/api/v1/projects/{project.id}/executions/{execution.id}/approve",
+                json={"confirm_owner_approval": True},
+            )
+            assert duplicate.status_code == 200
+            assert duplicate.json()["approved"] is True
+
+            download = await client.get(
+                f"/api/v1/projects/{project.id}/executions/{execution.id}/download"
+            )
+            assert download.status_code == 200, download.text
+            archive = tmp_path / "approved-delivery.zip"
+            archive.write_bytes(download.content)
+            with zipfile.ZipFile(archive) as bundle:
+                names = set(bundle.namelist())
+                assert "index.html" in names
+                assert "manifest.json" in names
+                assert "owner-approval.json" in names
+                receipt = json.loads(bundle.read("owner-approval.json"))
+                assert receipt["decision"] == "approved"
+                assert receipt["execution_id"] == execution.id
+                assert receipt["approved_by_id"] == user.id
+
+        async with SessionLocal() as session:
+            stored = await session.get(ProjectExecution, execution.id)
+            stored_project = await session.get(Project, project.id)
+            assert stored is not None and stored.approved is True
+            assert stored.stage == "approved"
+            assert stored_project is not None
+            assert stored_project.status == "completed"
+            assert stored_project.progress == 100
+            approval_events = (
+                await session.scalars(
+                    select(AuditEvent).where(
+                        AuditEvent.resource_id == execution.id,
+                        AuditEvent.action == "project.execution.owner_approved",
+                    )
+                )
+            ).all()
+            approval_notifications = (
+                await session.scalars(
+                    select(Notification).where(
+                        Notification.recipient_id == user.id,
+                        Notification.type == "project.execution.owner_approved",
+                    )
+                )
+            ).all()
+            assert len(approval_events) == 1
+            assert len(approval_notifications) == 1
+            assert (evidence_root / "owner-approval.json").is_file()
+    finally:
+        await _cleanup(organization.id)
+
+
+@pytest.mark.asyncio
+async def test_owner_approval_cannot_hide_other_release_blockers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    suffix = uuid4().hex[:12]
+    organization, user, _, project = await _create_project_tenant(suffix)
+    output_root = tmp_path / "project-executions"
+    evidence_root = output_root / f"blocked-{suffix}"
+    evidence_root.mkdir(parents=True)
+    (evidence_root / "manifest.json").write_text("{}", encoding="utf-8")
+    execution = ProjectExecution(
+        id=f"blocked-{suffix}",
+        organization_id=organization.id,
+        workspace_id=project.workspace_id,
+        project_id=project.id,
+        requested_by_id=user.id,
+        mode="full",
+        provider="openai",
+        status="completed",
+        stage="rework_required",
+        progress=100,
+        objective=project.description or project.name,
+        external_processing_confirmed=True,
+        budget_cap_usd=0.05,
+        approved=False,
+        readiness_score=0.9,
+        result_summary={
+            "blocking_findings": [
+                "owner approval is required",
+                "security:high:unresolved finding",
+            ],
+            "all_governance_layers_executed": True,
+            "model_claims_used_as_execution_proof": False,
+            "fallback_used": False,
+            "production_modified": False,
+            "release_review": {"owner_approval_required": True},
+        },
+        evidence_path=str(evidence_root),
+        attempts=1,
+        max_attempts=1,
+    )
+    async with SessionLocal() as session:
+        session.add(execution)
+        await session.commit()
+    monkeypatch.setattr(settings, "PROJECT_EXECUTION_OUTPUT_ROOT", str(output_root))
+    app = FastAPI()
+    app.include_router(api_router, prefix="/api/v1")
+    app.dependency_overrides[current_user] = lambda: _actor(
+        user.id,
+        organization.id,
+        organization.name,
+        role="Owner",
+    )
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+        ) as client:
+            response = await client.post(
+                f"/api/v1/projects/{project.id}/executions/{execution.id}/approve",
+                json={"confirm_owner_approval": True},
+            )
+            assert response.status_code == 409
+        assert not (evidence_root / "owner-approval.json").exists()
+    finally:
+        await _cleanup(organization.id)

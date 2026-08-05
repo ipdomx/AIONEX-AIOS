@@ -67,6 +67,12 @@ PORTAL_EXECUTION_KEYS = {
     "failed",
     "download",
     "downloadError",
+    "approve",
+    "approving",
+    "approvalConfirm",
+    "approvalError",
+    "ownerApprovalRequired",
+    "ownerApproved",
     "newCycle",
     "governanceTitle",
     "governanceComplete",
@@ -121,6 +127,8 @@ def test_live_backend_connects_full_cycle_builder_worker_and_owner_workforce() -
     assert 'execution_id="cycle"' in runner
     assert 'mode: Literal["full", "planning"]' in endpoint
     assert "download_project_execution" in endpoint
+    assert "approve_project_execution" in endpoint
+    assert "owner-approval.json" in endpoint
     assert "stage_callback" in worker
     assert 'domain="digital-workforce"' in worker
     assert 'OwnerControlRecord.domain == "digital-workforce"' in owner
@@ -159,6 +167,9 @@ def test_normal_user_portal_has_complete_localized_full_cycle_contract() -> None
     ).read_text(encoding="utf-8")
     assert 'mode: "full"' in api
     assert "downloadProjectExecution" in api
+    assert "approveProjectExecution" in api
+    assert "approveExecution" in page
+    assert "ownerApprovalPending" in page
     assert "all_governance_layers_executed" in page
     assert "workforce" in page
 
