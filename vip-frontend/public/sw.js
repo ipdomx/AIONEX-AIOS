@@ -1,4 +1,4 @@
-const CACHE = "aionex-aios-v1.4.0";
+const CACHE = "aionex-aios-v1.5.0";
 const CORE = [
   "/offline.html",
   "/manifest.webmanifest",

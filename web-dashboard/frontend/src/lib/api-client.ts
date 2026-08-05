@@ -48,6 +48,9 @@ class ApiClient {
       const storage = browserStorage();
       const token = storage?.getItem(ACCESS_TOKEN_KEY);
       if (token) config.headers.Authorization = `Bearer ${token}`;
+      if (typeof FormData !== "undefined" && config.data instanceof FormData) {
+        delete config.headers["Content-Type"];
+      }
       config.headers["X-Correlation-ID"] = createCorrelationId();
       return config;
     });

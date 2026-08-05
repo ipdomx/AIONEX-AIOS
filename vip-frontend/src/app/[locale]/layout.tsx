@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { NextIntlClientProvider } from "next-intl";
 import {
   getMessages,
   getTranslations,
@@ -10,6 +9,7 @@ import { Footer } from "@/components/layout/footer";
 import { SiteFrame } from "@/components/layout/site-frame";
 import { AuthProvider } from "@/hooks/use-auth";
 import { PwaRegister } from "@/components/pwa/pwa-register";
+import { PortalExperienceProvider } from "@/components/portal/portal-experience-provider";
 import { localeDirection, locales, type Locale } from "@/i18n";
 import { SITE_URL } from "@/lib/site";
 import "@/styles/globals.css";
@@ -96,10 +96,9 @@ export default async function LocaleLayout({ children, params }: Props) {
   return (
     <html lang={locale} dir={direction} suppressHydrationWarning>
       <body className={locale === "ar" ? "font-arabic" : "font-sans"}>
-        <NextIntlClientProvider
+        <PortalExperienceProvider
           messages={messages}
-          locale={locale}
-          timeZone="UTC"
+          locale={locale as Locale}
         >
           <AuthProvider>
             <PwaRegister />
@@ -111,7 +110,7 @@ export default async function LocaleLayout({ children, params }: Props) {
             />
             <SiteFrame footer={<Footer />}>{children}</SiteFrame>
           </AuthProvider>
-        </NextIntlClientProvider>
+        </PortalExperienceProvider>
       </body>
     </html>
   );

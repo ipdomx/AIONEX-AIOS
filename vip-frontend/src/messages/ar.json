@@ -17,7 +17,9 @@
     "projectsTitle": "المشاريع",
     "projectsDescription": "أنشئ مشاريعك وراجعها ضمن الحدود المعتمدة لحسابك.",
     "dashboardTitle": "لوحة AIONEX الخاصة بك",
-    "dashboardDescription": "بيانات الحساب والحصص والمشاريع الحية في مكان واحد."
+    "dashboardDescription": "بيانات الحساب والحصص والمشاريع الحية في مكان واحد.",
+    "pricingTitle": "خطط وأسعار AIONEX AIOS",
+    "pricingDescription": "قارن الخطط ومدد الاشتراك المتاحة."
   },
   "nav": {
     "home": "الرئيسية",
@@ -33,7 +35,8 @@
     "theme": "تغيير المظهر اللوني",
     "mainNavigation": "التنقل الرئيسي",
     "openMenu": "فتح القائمة",
-    "closeMenu": "إغلاق القائمة"
+    "closeMenu": "إغلاق القائمة",
+    "pricing": "الأسعار"
   },
   "footer": {
     "description": "نظام تشغيل ذكاء اصطناعي محكوم لتنسيق الوكلاء والنماذج والمشاريع وضوابط التشغيل.",

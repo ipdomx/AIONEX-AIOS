@@ -17,7 +17,9 @@
     "projectsTitle": "Projects",
     "projectsDescription": "Create and review projects within your approved limits.",
     "dashboardTitle": "Your AIONEX dashboard",
-    "dashboardDescription": "Live account, quota, and project information in one place."
+    "dashboardDescription": "Live account, quota, and project information in one place.",
+    "pricingTitle": "AIONEX AIOS plans and pricing",
+    "pricingDescription": "Compare available plans and subscription periods."
   },
   "nav": {
     "home": "Home",
@@ -33,7 +35,8 @@
     "theme": "Switch color theme",
     "mainNavigation": "Main navigation",
     "openMenu": "Open menu",
-    "closeMenu": "Close menu"
+    "closeMenu": "Close menu",
+    "pricing": "Pricing"
   },
   "footer": {
     "description": "A governed AI operating system for coordinating agents, models, projects, and operational controls.",

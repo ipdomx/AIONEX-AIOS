@@ -17,7 +17,9 @@
     "projectsTitle": "Proyectos",
     "projectsDescription": "Crea y revisa proyectos dentro de los límites aprobados.",
     "dashboardTitle": "Tu panel de AIONEX",
-    "dashboardDescription": "Datos activos de cuenta, cuotas y proyectos en un solo lugar."
+    "dashboardDescription": "Datos activos de cuenta, cuotas y proyectos en un solo lugar.",
+    "pricingTitle": "Planes y precios de AIONEX AIOS",
+    "pricingDescription": "Compara los planes y periodos de suscripción."
   },
   "nav": {
     "home": "Inicio",
@@ -33,7 +35,8 @@
     "theme": "Cambiar tema de color",
     "mainNavigation": "Navegación principal",
     "openMenu": "Abrir menú",
-    "closeMenu": "Cerrar menú"
+    "closeMenu": "Cerrar menú",
+    "pricing": "Precios"
   },
   "footer": {
     "description": "Un sistema operativo de IA gobernado para coordinar agentes, modelos, proyectos y controles operativos.",

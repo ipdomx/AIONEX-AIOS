@@ -6,6 +6,7 @@ from app.api.owner import (
     free_tier,
     operations_integration,
     platform_integration,
+    portal as owner_portal,
     production_runtime,
     security_integration,
 )
@@ -29,6 +30,7 @@ from app.api.v1.endpoints import (
     notifications,
     organizations,
     permissions,
+    portal,
     project_executions,
     projects,
     reports,
@@ -57,6 +59,7 @@ api_router = APIRouter()
 restricted = [Depends(require_non_free_user)]
 
 api_router.include_router(locale.router, prefix="/locale", tags=["Locale"])
+api_router.include_router(portal.router, prefix="/portal", tags=["Public Portal"])
 api_router.include_router(capabilities.router, prefix="/capabilities", tags=["Capabilities"])
 api_router.include_router(studio.router, prefix="/studio", tags=["Production Studio"])
 api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
@@ -98,5 +101,6 @@ owner_router.include_router(security_integration.router)
 owner_router.include_router(production_runtime.router)
 owner_router.include_router(final_platform_integration.router)
 owner_router.include_router(free_tier.router)
+owner_router.include_router(owner_portal.router)
 owner_router.include_router(control_plane.router)
 api_router.include_router(owner_router)

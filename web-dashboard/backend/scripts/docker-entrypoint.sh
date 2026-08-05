@@ -49,6 +49,12 @@ if [ "$(id -u)" = "0" ]; then
         install -d -m 0700 -o aionex -g aionex "$project_output_root"
     fi
 
+    portal_asset_root="${PORTAL_ASSET_ROOT:-/var/lib/aionex/portal-assets}"
+    if [ -n "$portal_asset_root" ]; then
+        install -d -m 0750 -o aionex -g aionex "$portal_asset_root"
+    fi
+
+
     telegram_token_source="${AIOS_TELEGRAM_BOT_TOKEN_FILE:-}"
     if [ -n "$telegram_token_source" ] && [ -f "$telegram_token_source" ]; then
         runtime_dir=/run/aionex

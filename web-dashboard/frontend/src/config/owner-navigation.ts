@@ -27,6 +27,7 @@ import {
   Map,
   MessageCircle,
   Network,
+  Palette,
   PlugZap,
   RadioTower,
   Rocket,
@@ -90,6 +91,14 @@ export const ownerNavigationSections: OwnerNavigationSection[] = [
         description: "Platform-wide operational commands and risk visibility.",
         href: "/owner/global-command",
         icon: RadioTower,
+      },
+      {
+        id: "owner-portal",
+        label: "VIP Portal Control",
+        description:
+          "Branding, theme, pages, pricing, assets, translations, publishing, and rollback.",
+        href: "/owner/portal",
+        icon: Palette,
       },
       {
         id: "owner-operations",

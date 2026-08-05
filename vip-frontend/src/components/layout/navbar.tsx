@@ -10,6 +10,7 @@ import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
+import { usePortalExperience } from "@/components/portal/portal-experience-provider";
 import { cn } from "@/lib/utils";
 
 export function Navbar() {
@@ -18,13 +19,38 @@ export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const { isAuthenticated, isLoading, logout } = useAuth();
+  const { configuration, text, href: portalHref } = usePortalExperience();
   const [open, setOpen] = useState(false);
 
-  const links = [
-    { href: `/${locale}`, label: t("home") },
-    { href: `/${locale}/about`, label: t("about") },
-    { href: `/${locale}/contact`, label: t("contact") },
+  const fallbackLinks = [
+    { id: "home", href: `/${locale}`, label: t("home"), external: false },
+    { id: "about", href: `/${locale}/about`, label: t("about"), external: false },
+    { id: "pricing", href: `/${locale}/pricing`, label: t.has("pricing") ? t("pricing") : "Pricing", external: false },
+    { id: "contact", href: `/${locale}/contact`, label: t("contact"), external: false },
   ];
+  const links = configuration
+    ? configuration.navigation
+        .filter((item) => item.enabled)
+        .filter((item) => item.audience === "all" || (item.audience === "guest" ? !isAuthenticated : isAuthenticated))
+        .sort((a, b) => a.order - b.order)
+        .map((item) => ({ id: item.id, href: portalHref(item.href), label: text(item.label, item.id), external: item.external }))
+    : fallbackLinks;
+
+
+  function NavigationLink({ link, mobile = false }: { link: (typeof links)[number]; mobile?: boolean }) {
+    const className = mobile
+      ? "rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06] hover:text-white"
+      : cn(
+          "rounded-lg px-4 py-2 text-sm transition",
+          pathname === link.href
+            ? "bg-white/[0.07] text-white"
+            : "text-white/55 hover:bg-white/[0.05] hover:text-white",
+        );
+    if (link.external || link.href.startsWith("https://")) {
+      return <a href={link.href} target="_blank" rel="noreferrer" className={className} onClick={() => mobile && setOpen(false)}>{link.label}</a>;
+    }
+    return <Link href={link.href} className={className} onClick={() => mobile && setOpen(false)}>{link.label}</Link>;
+  }
 
   async function signOut() {
     await logout();
@@ -33,7 +59,7 @@ export function Navbar() {
   }
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.07] bg-ink-950/80 backdrop-blur-2xl">
+    <header className="relative border-b border-white/[0.07] bg-ink-950/80 backdrop-blur-2xl">
       <nav
         className="page-shell flex h-20 items-center justify-between"
         aria-label={t("mainNavigation")}
@@ -43,20 +69,7 @@ export function Navbar() {
         </span>
 
         <div className="hidden items-center gap-1 lg:flex">
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={cn(
-                "rounded-lg px-4 py-2 text-sm transition",
-                pathname === link.href
-                  ? "bg-white/[0.07] text-white"
-                  : "text-white/55 hover:bg-white/[0.05] hover:text-white",
-              )}
-            >
-              {link.label}
-            </Link>
-          ))}
+          {links.map((link) => <NavigationLink key={link.id} link={link} />)}
         </div>
 
         <div className="hidden items-center gap-2 lg:flex">
@@ -127,16 +140,7 @@ export function Navbar() {
       {open && (
         <div className="border-t border-white/[0.07] bg-ink-950/95 px-4 py-5 backdrop-blur-2xl lg:hidden">
           <div className="mx-auto flex max-w-7xl flex-col gap-2">
-            {links.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setOpen(false)}
-                className="rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06] hover:text-white"
-              >
-                {link.label}
-              </Link>
-            ))}
+            {links.map((link) => <NavigationLink key={link.id} link={link} mobile />)}
             {isAuthenticated && (
               <>
                 <Link
