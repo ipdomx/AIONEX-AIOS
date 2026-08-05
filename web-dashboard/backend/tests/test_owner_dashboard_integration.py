@@ -8,21 +8,19 @@ from typing import Any, Iterator
 from uuid import uuid4
 
 import pytest
-from app.api.owner.control_plane import ORGANIZATION_PLANS
-from app.api.v1.router import api_router
-from app.core.auth import UserRecord, current_user, require_super_owner
-from app.db.base import SessionLocal
-from app.db.models import (
-    AuditEvent,
-    Organization,
-    OwnerCommandRecord,
-    OwnerControlRecord,
-)
-from app.db.seed import seed
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
+
+from app.api.owner.control_plane import ORGANIZATION_PLANS
+from app.api.v1.router import api_router
+from app.core.auth import UserRecord, current_user, require_super_owner
+from app.db.base import SessionLocal
+from app.db.models import (AuditEvent, Organization, OwnerCommandRecord,
+                           OwnerControlRecord)
+from app.db.seed import seed
+from app.services.portal_cms import default_portal_configuration
 
 WEB_DASHBOARD = Path(__file__).resolve().parents[2]
 FRONTEND = WEB_DASHBOARD / "frontend"
@@ -67,6 +65,13 @@ OWNER_API_CONTRACT = {
     ("GET", "/api/v1/owner/finalization"),
     ("GET", "/api/v1/owner/free-tier"),
     ("PATCH", "/api/v1/owner/free-tier"),
+    ("GET", "/api/v1/owner/portal"),
+    ("PUT", "/api/v1/owner/portal/draft"),
+    ("POST", "/api/v1/owner/portal/publish"),
+    ("POST", "/api/v1/owner/portal/rollback/{version}"),
+    ("POST", "/api/v1/owner/portal/reset-draft"),
+    ("POST", "/api/v1/owner/portal/assets"),
+    ("DELETE", "/api/v1/owner/portal/assets/{asset_id}"),
 }
 
 OWNER_GET_ROUTES = sorted(
@@ -128,6 +133,14 @@ OWNER_MUTATION_REQUESTS = {
         "decision": "approve",
         "note": "",
     },
+    ("PUT", "/api/v1/owner/portal/draft"): {
+        "configuration": default_portal_configuration(),
+    },
+    ("POST", "/api/v1/owner/portal/publish"): None,
+    ("POST", "/api/v1/owner/portal/rollback/{version}"): None,
+    ("POST", "/api/v1/owner/portal/reset-draft"): None,
+    ("POST", "/api/v1/owner/portal/assets"): {"__files__": True},
+    ("DELETE", "/api/v1/owner/portal/assets/{asset_id}"): None,
 }
 
 NON_DATA_OWNER_PAGES = {"completion", "search"}
@@ -150,6 +163,7 @@ TOP_LEVEL_OBJECT_ARRAY_PATTERN = re.compile(
 STATIC_CONFIGURATION_ARRAY_NAMES = {
     "entities",
     "summaryCards",
+    "tabs",
 }
 BUTTON_PATTERN = re.compile(r"<button\b(?P<attributes>[^>]*)>", re.DOTALL)
 
@@ -213,6 +227,8 @@ def _materialize_route(path: str) -> str:
         "rule_id": "missing-rule",
         "license_id": "missing-license",
         "candidate_id": "missing-release",
+        "version": "1",
+        "asset_id": "0" * 32,
     }
     return re.sub(
         r"\{([^}]+)\}",
@@ -244,13 +260,13 @@ def test_owner_navigation_registry_matches_all_owner_pages() -> None:
         f"/owner/{page.parent.relative_to(OWNER_APP).as_posix()}"
         for page in OWNER_APP.glob("*/page.tsx")
     }
-    assert len(page_routes) == 41
+    assert len(page_routes) == 42
 
     registry = (FRONTEND / "src" / "config" / "owner-navigation.ts").read_text()
     registry_routes = re.findall(r'href:\s*"(/owner/[^"]+)"', registry)
 
-    assert len(registry_routes) == 41
-    assert len(set(registry_routes)) == 41
+    assert len(registry_routes) == 42
+    assert len(set(registry_routes)) == 42
     assert set(registry_routes) == page_routes
 
 
@@ -411,6 +427,20 @@ def test_every_owner_client_call_matches_a_registered_api_route() -> None:
     assert "fallback" not in combined.lower()
 
 
+def _mutation_request_kwargs(payload: dict[str, Any] | None) -> dict[str, Any]:
+    if payload == {"__files__": True}:
+        return {
+            "files": {
+                "asset": (
+                    "owner-logo.png",
+                    b"\x89PNG\r\n\x1a\n" + b"\x00" * 32,
+                    "image/png",
+                )
+            }
+        }
+    return {} if payload is None else {"json": payload}
+
+
 @pytest.mark.asyncio
 async def test_owner_api_rejects_anonymous_requests() -> None:
     app = _test_app()
@@ -423,7 +453,7 @@ async def test_owner_api_rejects_anonymous_requests() -> None:
             assert response.status_code == 401, (path, response.text)
 
         for (method, path), payload in OWNER_MUTATION_REQUESTS.items():
-            request_kwargs = {} if payload is None else {"json": payload}
+            request_kwargs = _mutation_request_kwargs(payload)
             response = await client.request(
                 method,
                 _materialize_route(path),
@@ -446,7 +476,7 @@ async def test_owner_api_rejects_non_global_roles_even_with_wildcard(role: str) 
             assert response.status_code == 403, (path, response.text)
 
         for (method, path), payload in OWNER_MUTATION_REQUESTS.items():
-            request_kwargs = {} if payload is None else {"json": payload}
+            request_kwargs = _mutation_request_kwargs(payload)
             response = await client.request(
                 method,
                 _materialize_route(path),

@@ -11,6 +11,23 @@
     --muted: rgba(255, 255, 255, 0.58);
     --line: rgba(255, 255, 255, 0.08);
     --panel: rgba(255, 255, 255, 0.035);
+    --surface: #0b1220;
+    --muted-solid: #94a3b8;
+    --primary: #14b8e6;
+    --secondary: #8b5cf6;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --portal-radius: 16px;
+    --portal-max-width: 1280px;
+    --portal-section-space: 96px;
+    --portal-logo-size: 42px;
+    --portal-heading-font: Inter, "Segoe UI", Arial, sans-serif;
+    --portal-body-font: Inter, "Segoe UI", Arial, sans-serif;
+    --portal-arabic-font: Tahoma, Arial, sans-serif;
+    --portal-background-image: none;
+    --portal-background-position: center;
+    --portal-background-opacity: 0.12;
   }
 
   html.light {
@@ -40,9 +57,24 @@
       radial-gradient(circle at 88% 10%, rgba(139, 92, 246, 0.1), transparent 30rem),
       linear-gradient(180deg, var(--page) 0%, var(--page-deep) 48%, var(--page) 100%);
     color: var(--text);
-    font-family: Inter, "Segoe UI", Arial, system-ui, sans-serif;
+    font-family: var(--portal-body-font), system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    position: relative;
+    isolation: isolate;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image: var(--portal-background-image);
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: var(--portal-background-position);
+    opacity: var(--portal-background-opacity);
   }
 
   a {
@@ -50,7 +82,7 @@
   }
 
   [dir="rtl"] {
-    font-family: Tahoma, Arial, system-ui, sans-serif;
+    font-family: var(--portal-arabic-font), system-ui, sans-serif;
   }
 
   ::selection {
@@ -71,7 +103,9 @@
 
 @layer components {
   .page-shell {
-    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+    width: 100%;
+    max-width: var(--portal-max-width);
+    @apply mx-auto px-4 sm:px-6 lg:px-8;
   }
 
   .site-frame {
@@ -89,10 +123,12 @@
   }
 
   .section-pad {
-    @apply py-20 sm:py-24 lg:py-32;
+    padding-top: var(--portal-section-space);
+    padding-bottom: var(--portal-section-space);
   }
 
   .section-title {
+    font-family: var(--portal-heading-font);
     @apply text-balance text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl;
   }
 
@@ -193,6 +229,20 @@
   .reveal-delay-3 { animation-delay: 300ms; }
 }
 
+
+  .portal-primary-button {
+    border-radius: var(--portal-radius);
+    background: linear-gradient(110deg, var(--primary), var(--secondary));
+    box-shadow: 0 18px 45px color-mix(in srgb, var(--primary) 22%, transparent);
+    transition: filter 180ms ease, transform 180ms ease;
+  }
+  .portal-primary-button:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+  html[data-portal-button-style="pill"] .portal-primary-button { border-radius: 999px; }
+  html[data-portal-button-style="square"] .portal-primary-button { border-radius: 2px; }
+  html[data-portal-grid="off"] .grid-surface { background-image: none; }
+  html[data-portal-glow="off"] body { background: linear-gradient(180deg, var(--page), var(--page-deep), var(--page)); }
+
 @keyframes orbit {
   to { transform: rotate(360deg); }
 }
@@ -245,3 +295,18 @@ html.light select { color: #09111e; }
     transition-duration: 0.01ms !important;
   }
 }
+
+
+/* Owner-controlled design tokens override the static Tailwind palette across the portal. */
+.text-electric-100, .text-electric-200, .text-electric-300 { color: var(--primary) !important; }
+.text-violet-400, .text-violet-500 { color: var(--secondary) !important; }
+.text-emerald-200, .text-emerald-300 { color: var(--success) !important; }
+.bg-electric-400, .bg-electric-500 { background-color: var(--primary) !important; }
+.bg-violet-500 { background-color: var(--secondary) !important; }
+.from-electric-400, .from-electric-500 { --tw-gradient-from: var(--primary) var(--tw-gradient-from-position) !important; --tw-gradient-to: color-mix(in srgb, var(--primary) 0%, transparent) var(--tw-gradient-to-position) !important; }
+.to-violet-500 { --tw-gradient-to: var(--secondary) var(--tw-gradient-to-position) !important; }
+.border-electric-300\/30, .border-electric-300\/20, .border-electric-500\/20 { border-color: color-mix(in srgb, var(--primary) 30%, transparent) !important; }
+.shadow-electric-500\/15, .shadow-electric-500\/20 { --tw-shadow-color: color-mix(in srgb, var(--primary) 20%, transparent) !important; }
+.title-gradient { background-image: linear-gradient(110deg, var(--text) 15%, var(--primary) 52%, var(--secondary) 92%); }
+.eyebrow { border-color: color-mix(in srgb, var(--primary) 24%, transparent); background-color: color-mix(in srgb, var(--primary) 8%, transparent); color: var(--primary); }
+.glass-panel, .glass-card { border-radius: var(--portal-radius); }

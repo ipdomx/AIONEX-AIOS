@@ -16,8 +16,8 @@ const contentSecurityPolicy = [
   "object-src 'none'",
   "script-src 'self' 'unsafe-inline' https://www.gstatic.com https://www.google.com https://apis.google.com https://www.recaptcha.net",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "font-src 'self' data:",
+  "img-src 'self' data: blob: https://api.vip-e.net",
+  "font-src 'self' data: https://api.vip-e.net",
   "connect-src 'self' https://api.vip-e.net https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://*.googleapis.com https://*.firebaseapp.com",
   "frame-src https://www.google.com https://accounts.google.com https://www.recaptcha.net https://*.firebaseapp.com",
 ].join("; ");

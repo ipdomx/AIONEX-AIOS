@@ -17,7 +17,9 @@
     "projectsTitle": "Projekte",
     "projectsDescription": "Erstellen und prüfen Sie Projekte innerhalb Ihrer genehmigten Grenzen.",
     "dashboardTitle": "Ihr AIONEX-Dashboard",
-    "dashboardDescription": "Live-Konto-, Kontingent- und Projektdaten an einem Ort."
+    "dashboardDescription": "Live-Konto-, Kontingent- und Projektdaten an einem Ort.",
+    "pricingTitle": "AIONEX AIOS Tarife und Preise",
+    "pricingDescription": "Vergleichen Sie Tarife und Abonnementzeiträume."
   },
   "nav": {
     "home": "Start",
@@ -33,7 +35,8 @@
     "theme": "Farbschema wechseln",
     "mainNavigation": "Hauptnavigation",
     "openMenu": "Menü öffnen",
-    "closeMenu": "Menü schließen"
+    "closeMenu": "Menü schließen",
+    "pricing": "Preise"
   },
   "footer": {
     "description": "Ein gesteuertes KI-Betriebssystem zur Koordination von Agenten, Modellen, Projekten und Betriebskontrollen.",

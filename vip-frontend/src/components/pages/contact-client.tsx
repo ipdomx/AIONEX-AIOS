@@ -1,9 +1,14 @@
 "use client";
 
 import {
+  ExternalLink,
   LoaderCircle,
   LogIn,
+  Mail,
+  MapPin,
+  MessageCircle,
   MessageSquareText,
+  Phone,
   Send,
   ShieldCheck,
 } from "lucide-react";
@@ -14,11 +19,21 @@ import { Button } from "@/components/ui/button";
 import { StatusMessage } from "@/components/ui/status-message";
 import { useAuth } from "@/hooks/use-auth";
 import { createSupportRequest } from "@/lib/api";
+import { usePortalExperience } from "@/components/portal/portal-experience-provider";
 
 export function ContactClient() {
   const t = useTranslations("contact");
   const locale = useLocale();
   const { isAuthenticated, isLoading } = useAuth();
+  const { configuration, text } = usePortalExperience();
+  const contact = configuration?.contact ?? {
+    support_email: "",
+    sales_email: "",
+    phone: "",
+    whatsapp_url: "",
+    address: { ar: "", en: "", fr: "", de: "", es: "", tr: "" },
+    social_links: {},
+  };
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -51,6 +66,17 @@ export function ContactClient() {
           <span className="eyebrow">{t("eyebrow")}</span>
           <h1 className="section-title mt-7">{t("title")}</h1>
           <p className="section-copy mt-6">{t("description")}</p>
+          {(contact.support_email || contact.sales_email || contact.phone || contact.whatsapp_url || text(contact.address) || Object.keys(contact.social_links).length > 0) && (
+            <div className="mt-8 space-y-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-5 text-sm text-white/55">
+              {contact.support_email && <a className="flex items-center gap-3 hover:text-white" href={`mailto:${contact.support_email}`}><Mail className="h-4 w-4 text-electric-200" />{contact.support_email}</a>}
+              {contact.sales_email && contact.sales_email !== contact.support_email && <a className="flex items-center gap-3 hover:text-white" href={`mailto:${contact.sales_email}`}><Mail className="h-4 w-4 text-violet-400" />{contact.sales_email}</a>}
+              {contact.phone && <a className="flex items-center gap-3 hover:text-white" href={`tel:${contact.phone.replace(/[^+0-9]/g, "")}`}><Phone className="h-4 w-4 text-electric-200" />{contact.phone}</a>}
+              {contact.whatsapp_url && <a className="flex items-center gap-3 hover:text-white" href={contact.whatsapp_url} target="_blank" rel="noreferrer"><MessageCircle className="h-4 w-4 text-emerald-300" />WhatsApp <ExternalLink className="h-3.5 w-3.5" /></a>}
+              {text(contact.address) && <p className="flex items-start gap-3"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-electric-200" />{text(contact.address)}</p>}
+              {Object.entries(contact.social_links || {}).map(([network, url]) => <a key={network} className="flex items-center gap-3 capitalize hover:text-white" href={url} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4 text-electric-200" />{network}</a>)}
+            </div>
+          )}
+
           <div className="mt-8 rounded-2xl border border-electric-300/15 bg-electric-400/[0.06] p-5">
             <div className="flex items-start gap-3">
               <ShieldCheck

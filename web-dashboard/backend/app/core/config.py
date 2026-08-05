@@ -99,6 +99,27 @@ class Settings(BaseSettings):
         validation_alias="BACKUP_MIN_FREE_BYTES",
     )
 
+    PORTAL_ASSET_ROOT: str = Field(
+        default="/var/lib/aionex/portal-assets",
+        validation_alias="PORTAL_ASSET_ROOT",
+    )
+    PORTAL_PUBLIC_API_ORIGIN: str = Field(
+        default="https://api.vip-e.net",
+        validation_alias="PORTAL_PUBLIC_API_ORIGIN",
+    )
+    PORTAL_ASSET_MAX_BYTES: int = Field(
+        default=10 * 1024 * 1024,
+        ge=1024,
+        le=50 * 1024 * 1024,
+        validation_alias="PORTAL_ASSET_MAX_BYTES",
+    )
+    PORTAL_PUBLIC_CACHE_SECONDS: int = Field(
+        default=60,
+        ge=0,
+        le=3600,
+        validation_alias="PORTAL_PUBLIC_CACHE_SECONDS",
+    )
+
     PROJECT_EXECUTION_ENABLED: bool = Field(
         default=True,
         validation_alias="PROJECT_EXECUTION_ENABLED",
@@ -392,6 +413,24 @@ class Settings(BaseSettings):
             raise ValueError("PASSKEY_ALLOWED_ORIGINS cannot be empty")
         self.PASSKEY_ALLOWED_ORIGINS = normalized_origins
         return self
+
+    @field_validator("PORTAL_PUBLIC_API_ORIGIN")
+    @classmethod
+    def validate_portal_public_api_origin(cls, value: str) -> str:
+        normalized = value.strip().rstrip("/")
+        parsed = urlparse(normalized)
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.path not in {"", "/"}
+            or parsed.params
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("PORTAL_PUBLIC_API_ORIGIN must be a secure web origin")
+        return normalized
 
     @field_validator("SECRET_KEY")
     @classmethod

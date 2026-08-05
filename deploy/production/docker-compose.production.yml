@@ -24,6 +24,7 @@ services:
       - ../..:/workspace:ro
       - ../../web-dashboard/secrets:/run/secrets/aionex:ro
       - backup_data:/var/lib/aionex/backups:ro
+      - portal_asset_data:/var/lib/aionex/portal-assets:rw
     depends_on:
       postgres:
         condition: service_healthy
@@ -218,5 +219,6 @@ volumes:
   redis_data:
   backup_data:
   project_execution_data:
+  portal_asset_data:
   caddy_data:
   caddy_config:

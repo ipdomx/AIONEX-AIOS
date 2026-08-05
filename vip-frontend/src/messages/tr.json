@@ -17,7 +17,9 @@
     "projectsTitle": "Projeler",
     "projectsDescription": "Projelerinizi onaylanmış sınırlar içinde oluşturun ve inceleyin.",
     "dashboardTitle": "AIONEX panonuz",
-    "dashboardDescription": "Canlı hesap, kota ve proje bilgileri tek bir yerde."
+    "dashboardDescription": "Canlı hesap, kota ve proje bilgileri tek bir yerde.",
+    "pricingTitle": "AIONEX AIOS planları ve fiyatları",
+    "pricingDescription": "Planları ve abonelik dönemlerini karşılaştırın."
   },
   "nav": {
     "home": "Ana sayfa",
@@ -33,7 +35,8 @@
     "theme": "Renk temasını değiştir",
     "mainNavigation": "Ana gezinme",
     "openMenu": "Menüyü aç",
-    "closeMenu": "Menüyü kapat"
+    "closeMenu": "Menüyü kapat",
+    "pricing": "Fiyatlandırma"
   },
   "footer": {
     "description": "Ajanları, modelleri, projeleri ve operasyonel kontrolleri koordine eden yönetişimli bir yapay zekâ işletim sistemi.",
