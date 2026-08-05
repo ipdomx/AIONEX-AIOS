@@ -40,8 +40,8 @@ class WorkerRuntime:
                 continue
             if not needed.issubset(record.skills):
                 continue
-            health = self.health.history(record.employee_id)
-            latest_health = health[-1].operational_health if health else 100.0
+            report = self.health.latest_report(record.employee_id)
+            latest_health = report.operational_health if report is not None else 100.0
             matches.append((record.success_count - record.failure_count, int(latest_health), record.employee_id))
         matches.sort(reverse=True)
         return tuple(item[2] for item in matches)

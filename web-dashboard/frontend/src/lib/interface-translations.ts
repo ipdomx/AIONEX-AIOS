@@ -266,6 +266,29 @@ const AR: Catalog = {
   "Owner Service Control": "تحكم المالك في الخدمات",
   "Owner Services & Security": "خدمات وأمن المالك",
   "Owner Staff Oversight": "إشراف المالك على الموظفين",
+  "Owner Workforce Oversight": "إشراف المالك على القوى العاملة",
+  "Human & Digital Workforce": "القوى العاملة البشرية والرقمية",
+  "Live identity status plus evidence-based performance, health, training, supervision and certification for AIOS digital workers.":
+    "حالة الهوية المباشرة مع الأداء والصحة والتدريب والإشراف والاعتماد القائم على الأدلة للعاملين الرقميين في AIOS.",
+  "Human Staff": "الموظفون البشريون",
+  "Digital Workers": "العاملون الرقميون",
+  "Under Supervision": "تحت الإشراف",
+  "In Retraining": "قيد إعادة التدريب",
+  "Search worker, role, department, ministry or organization...":
+    "ابحث بالعامل أو الدور أو القسم أو الوزارة أو المؤسسة...",
+  "All Workforce": "كل القوى العاملة",
+  "Loading workforce records...": "جارٍ تحميل سجلات القوى العاملة...",
+  "No workforce records match the current filters.":
+    "لا توجد سجلات قوى عاملة تطابق عوامل التصفية الحالية.",
+  "Performance record": "سجل الأداء",
+  "Successful assignments:": "المهام الناجحة:",
+  "Failed or returned:": "المهام الفاشلة أو المعادة:",
+  "Latest training assessment": "أحدث تقييم تدريبي",
+  "Not passed": "لم يجتز",
+  "No assessment recorded.": "لم يُسجل أي تقييم.",
+  "Institute recommendation": "توصية المعهد",
+  "Human account status is read directly from the identity database. Digital-worker performance scores do not apply to human identities.":
+    "تُقرأ حالة الحساب البشري مباشرة من قاعدة بيانات الهوية، ولا تنطبق درجات أداء العاملين الرقميين على الهويات البشرية.",
   "Owner System Health": "صحة نظام المالك",
   "Owner System Map": "خريطة نظام المالك",
   "Owner-only authority over role status, access scope, privileged sessions and identity governance.":

@@ -1,4 +1,4 @@
-"""Durable single-server worker for real project planning executions."""
+"""Durable worker for the complete governed project lifecycle."""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ from app.db.base import SessionLocal
 from app.db.models import (
     AuditEvent,
     Notification,
+    OwnerControlRecord,
     Project,
     ProjectExecution,
 )
@@ -94,8 +95,8 @@ class ProjectExecutionWorker:
             if not reclaimed:
                 record.attempts += 1
             record.status = "running"
-            record.stage = "provider_execution"
-            record.progress = max(record.progress, 20)
+            record.stage = "intake"
+            record.progress = max(record.progress, 2)
             record.lease_token = lease_token
             record.started_at = record.started_at or _now()
             record.updated_at = timestamp
@@ -154,7 +155,39 @@ class ProjectExecutionWorker:
                 "job_id": record.id,
                 "project_name": project_name,
                 "objective": record.objective,
+                "tenant_id": record.organization_id,
+                "requested_by_id": record.requested_by_id,
             }
+
+    async def update_stage(
+        self,
+        execution_id: str,
+        lease_token: str,
+        stage: str,
+        progress: int,
+    ) -> None:
+        async with self.session_factory() as session:
+            record = await session.scalar(
+                select(ProjectExecution)
+                .where(
+                    ProjectExecution.id == execution_id,
+                    ProjectExecution.status == "running",
+                    ProjectExecution.lease_token == lease_token,
+                )
+                .with_for_update()
+            )
+            if record is None:
+                raise ProjectExecutionLeaseLost(execution_id)
+            record.stage = stage[:64]
+            record.progress = max(record.progress, max(0, min(99, int(progress))))
+            record.updated_at = self._database_timestamp(session)
+            project = await session.scalar(
+                select(Project).where(Project.id == record.project_id).with_for_update()
+            )
+            if project is not None:
+                project.status = "in_progress"
+                project.progress = max(project.progress, min(95, record.progress))
+            await session.commit()
 
     async def _heartbeat(
         self,
@@ -178,7 +211,28 @@ class ProjectExecutionWorker:
         heartbeat_task = asyncio.create_task(
             self._heartbeat(execution_id, lease_token, stop_event)
         )
-        operation_task = asyncio.create_task(asyncio.to_thread(self.runner.run, **payload))
+        loop = asyncio.get_running_loop()
+
+        def stage_callback(stage: str, progress: int) -> None:
+            future = asyncio.run_coroutine_threadsafe(
+                self.update_stage(
+                    execution_id, lease_token, stage, progress
+                ),
+                loop,
+            )
+            future.result(
+                timeout=max(
+                    5, settings.PROJECT_EXECUTION_HEARTBEAT_SECONDS * 2
+                )
+            )
+
+        operation_task = asyncio.create_task(
+            asyncio.to_thread(
+                self.runner.run,
+                **payload,
+                stage_callback=stage_callback,
+            )
+        )
         try:
             done, _ = await asyncio.wait(
                 {operation_task, heartbeat_task},
@@ -238,20 +292,67 @@ class ProjectExecutionWorker:
                 select(Project).where(Project.id == record.project_id).with_for_update()
             )
             if project is not None:
-                project.status = "active"
-                project.progress = max(project.progress, 25)
+                project.status = "active" if record.approved else "planning"
+                project.progress = (
+                    100 if record.approved else max(project.progress, 60)
+                )
+
+            workforce = summary.get("workforce") or []
+            if isinstance(workforce, list):
+                for worker in workforce:
+                    if not isinstance(worker, dict) or not worker.get("worker_id"):
+                        continue
+                    resource_id = f"{record.organization_id}:{worker['worker_id']}"
+                    workforce_record = await session.scalar(
+                        select(OwnerControlRecord).where(
+                            OwnerControlRecord.domain == "digital-workforce",
+                            OwnerControlRecord.resource_id == resource_id,
+                        )
+                    )
+                    payload = {
+                        **worker,
+                        "organization_id": record.organization_id,
+                        "project_id": record.project_id,
+                        "execution_id": record.id,
+                        "last_evaluated_at": _now().isoformat(),
+                    }
+                    if workforce_record is None:
+                        session.add(
+                            OwnerControlRecord(
+                                domain="digital-workforce",
+                                resource_id=resource_id,
+                                status=str(worker.get("employment_state") or "active"),
+                                enabled=(
+                                    worker.get("employment_state")
+                                    not in {"suspended", "retired"}
+                                ),
+                                payload=payload,
+                                version=1,
+                            )
+                        )
+                    else:
+                        workforce_record.status = str(
+                            worker.get("employment_state") or "active"
+                        )
+                        workforce_record.enabled = (
+                            worker.get("employment_state")
+                            not in {"suspended", "retired"}
+                        )
+                        workforce_record.payload = payload
+                        workforce_record.version += 1
             session.add(
                 Notification(
                     organization_id=record.organization_id,
                     recipient_id=record.requested_by_id,
                     type="project.execution.completed",
-                    title="AI project planning cycle completed",
+                    title="Full governed project cycle completed",
                     message=(
-                        "The six-department planning cycle finished. "
+                        "The project passed through cognitive, government, research, "
+                        "ministry, engineering, security, workforce and release review. "
                         + (
-                            "All review gates passed."
+                            "Every retained evidence gate passed."
                             if record.approved
-                            else "The result includes a truthful rework plan before implementation approval."
+                            else "The release remains withheld with a truthful rework and training plan."
                         )
                     ),
                     severity="success" if record.approved else "info",
@@ -277,6 +378,13 @@ class ProjectExecutionWorker:
                         "requests_count": record.requests_count,
                         "calculated_cost_usd": record.calculated_cost_usd,
                         "production_modified": False,
+                        "phase": summary.get("phase"),
+                        "all_governance_layers_executed": bool(
+                            summary.get("all_governance_layers_executed")
+                        ),
+                        "workers_evaluated": len(
+                            summary.get("workforce") or []
+                        ),
                     },
                 )
             )
@@ -317,7 +425,7 @@ class ProjectExecutionWorker:
                     organization_id=record.organization_id,
                     recipient_id=record.requested_by_id,
                     type="project.execution.failed",
-                    title="AI project planning cycle stopped safely",
+                    title="Full governed project cycle stopped safely",
                     message=message,
                     severity="error",
                     payload={

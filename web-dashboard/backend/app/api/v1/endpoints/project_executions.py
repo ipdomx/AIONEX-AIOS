@@ -1,9 +1,12 @@
-"""Durable user project execution endpoints for the single-server pilot."""
+"""Durable endpoints for the complete governed user project lifecycle."""
 
 from __future__ import annotations
 
 from datetime import datetime
+import io
+from pathlib import Path
 from typing import Any, Literal
+import zipfile
 
 from app.core.auth import UserRecord, require_permissions
 from app.core.config import settings
@@ -11,6 +14,7 @@ from app.db.base import get_db
 from app.db.models import AuditEvent, Project, ProjectExecution
 from app.services.free_tier import consume_assistant_response, consume_user_message
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -21,7 +25,7 @@ router = APIRouter()
 
 class ProjectExecutionStart(BaseModel):
     confirm_external_processing: bool
-    mode: Literal["planning"] = "planning"
+    mode: Literal["full", "planning"] = "full"
     objective: str | None = Field(default=None, min_length=10, max_length=6000)
 
 
@@ -54,6 +58,17 @@ def _public_result(summary: dict[str, Any] | None) -> dict[str, Any] | None:
         "fallback_used",
         "production_modified",
         "recovered_from_existing_evidence",
+        "phase",
+        "mode",
+        "governance",
+        "workforce",
+        "engineering_review",
+        "security_review",
+        "integration_review",
+        "release_review",
+        "delivery_package",
+        "all_governance_layers_executed",
+        "model_claims_used_as_execution_proof",
     }
     return {key: summary[key] for key in allowed if key in summary}
 
@@ -133,7 +148,7 @@ async def start_project_execution(
     if len(objective) < 10:
         raise HTTPException(
             status_code=422,
-            detail="Add a clear project description before starting the AI planning cycle",
+            detail="Add a clear project description before starting the full governed project cycle",
         )
 
     existing = await session.scalar(
@@ -141,6 +156,7 @@ async def start_project_execution(
         .where(
             ProjectExecution.project_id == project.id,
             ProjectExecution.organization_id == actor.organization_id,
+            ProjectExecution.status.in_(("queued", "running")),
         )
         .order_by(ProjectExecution.created_at.desc())
         .limit(1)
@@ -149,8 +165,8 @@ async def start_project_execution(
         raise HTTPException(
             status_code=409,
             detail={
-                "code": "PROJECT_EXECUTION_ALREADY_EXISTS",
-                "message": "This project already has an execution record.",
+                "code": "PROJECT_EXECUTION_ACTIVE",
+                "message": "This project already has a queued or running execution.",
                 "execution": serialize_project_execution(existing),
             },
         )
@@ -163,7 +179,7 @@ async def start_project_execution(
         workspace_id=project.workspace_id,
         project_id=project.id,
         requested_by_id=actor.id,
-        mode=data.mode,
+        mode="full" if data.mode == "planning" else data.mode,
         provider="openai",
         status="queued",
         stage="queued",
@@ -189,7 +205,7 @@ async def start_project_execution(
                 resource_id=record.id,
                 details={
                     "project_id": project.id,
-                    "mode": data.mode,
+                    "mode": "full" if data.mode == "planning" else data.mode,
                     "provider": "openai",
                     "budget_cap_usd": record.budget_cap_usd,
                     "external_processing_confirmed": True,
@@ -246,3 +262,66 @@ async def get_project_execution(
     if record is None:
         raise HTTPException(status_code=404, detail="Project execution not found")
     return serialize_project_execution(record)
+
+
+@router.get("/{project_id}/executions/{execution_id}/download")
+async def download_project_execution(
+    project_id: str,
+    execution_id: str,
+    actor: UserRecord = Depends(require_permissions("projects:read")),
+    session: AsyncSession = Depends(get_db),
+) -> StreamingResponse:
+    record = await session.scalar(
+        select(ProjectExecution).where(
+            ProjectExecution.id == execution_id,
+            ProjectExecution.project_id == project_id,
+            ProjectExecution.organization_id == actor.organization_id,
+            ProjectExecution.status == "completed",
+        )
+    )
+    if record is None or not record.evidence_path:
+        raise HTTPException(
+            status_code=404, detail="Completed project delivery package not found"
+        )
+    try:
+        evidence_root = Path(record.evidence_path).resolve(strict=True)
+        package_root = (evidence_root / "delivery-package").resolve(strict=True)
+    except (FileNotFoundError, OSError) as exc:
+        raise HTTPException(
+            status_code=409, detail="Project delivery package is unavailable"
+        ) from exc
+    if evidence_root not in package_root.parents or not package_root.is_dir():
+        raise HTTPException(status_code=409, detail="Project delivery package is unsafe")
+
+    files = [
+        path
+        for path in package_root.rglob("*")
+        if path.is_file() and not path.is_symlink()
+    ]
+    if not files or len(files) > 100:
+        raise HTTPException(status_code=409, detail="Project delivery package is invalid")
+    total_bytes = sum(path.stat().st_size for path in files)
+    if total_bytes > 50 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Project delivery package is too large")
+
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
+        for path in sorted(files):
+            resolved = path.resolve(strict=True)
+            if package_root not in resolved.parents:
+                raise HTTPException(
+                    status_code=409, detail="Project delivery file escapes package root"
+                )
+            bundle.write(resolved, resolved.relative_to(package_root))
+    archive.seek(0)
+    return StreamingResponse(
+        archive,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="aionex-project-{project_id[:8]}-{execution_id[:8]}.zip"'
+            ),
+            "Cache-Control": "no-store",
+            "X-AIONEX-Execution": execution_id,
+        },
+    )

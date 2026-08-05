@@ -21,6 +21,9 @@ from aios.multi_host_runtime import (
 from aios.multi_host_runtime.client import MultiHostControlClient
 
 
+ROOT = Path(__file__).resolve().parents[1]
+
+
 DEPARTMENTS = ("Architecture", "Backend", "Frontend", "Security", "Quality", "DevOps")
 CRITERIA = {
     "Architecture": ("architecture documented", "dependencies mapped", "failure modes reviewed"),
@@ -430,7 +433,7 @@ def test_deployment_bundle_generator_creates_unique_certificates_and_external_se
             "--host",
             "host-c|https://host-c:9443|frontend|server-c",
         ],
-        cwd="/opt/AIOS",
+        cwd=ROOT,
         text=True,
         capture_output=True,
         check=True,
@@ -519,7 +522,7 @@ def test_generator_includes_control_plane_service_and_runtime_environment(tmp_pa
             "--host",
             "host-c|https://host-c:9443|frontend|server-c",
         ],
-        cwd="/opt/AIOS",
+        cwd=ROOT,
         check=True,
         text=True,
         capture_output=True,
@@ -552,7 +555,7 @@ def test_remote_inventory_deployment_is_dry_run_by_default(tmp_path):
             "--host",
             "host-c|https://host-c:9443|frontend|server-c",
         ],
-        cwd="/opt/AIOS",
+        cwd=ROOT,
         check=True,
         text=True,
         capture_output=True,
@@ -576,9 +579,9 @@ def test_remote_inventory_deployment_is_dry_run_by_default(tmp_path):
             "--bundle-root",
             str(root),
             "--project-root",
-            "/opt/AIOS",
+            str(ROOT),
         ],
-        cwd="/opt/AIOS",
+        cwd=ROOT,
         check=True,
         text=True,
         capture_output=True,

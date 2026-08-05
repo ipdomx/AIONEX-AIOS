@@ -14,6 +14,7 @@ class OperationalHealthInstitute:
 
     def __init__(self) -> None:
         self._history: dict[str, list[WorkerObservation]] = defaultdict(list)
+        self._reports: dict[str, list[WorkerHealthReport]] = defaultdict(list)
         self._advisors: dict[str, str] = {}
 
     def assign_advisor(self, worker_id: str, advisor_id: str) -> None:
@@ -51,7 +52,7 @@ class OperationalHealthInstitute:
         else:
             recommendation = "temporary_suspension_and_recertification"
 
-        return WorkerHealthReport(
+        report = WorkerHealthReport(
             worker_id=observation.worker_id,
             operational_health=health,
             performance=performance,
@@ -61,6 +62,15 @@ class OperationalHealthInstitute:
             recommendation=recommendation,
             restrictions=tuple(restrictions),
         )
+        self._reports[observation.worker_id].append(report)
+        return report
 
     def history(self, worker_id: str) -> tuple[WorkerObservation, ...]:
         return tuple(self._history.get(worker_id, ()))
+
+    def reports(self, worker_id: str) -> tuple[WorkerHealthReport, ...]:
+        return tuple(self._reports.get(worker_id, ()))
+
+    def latest_report(self, worker_id: str) -> WorkerHealthReport | None:
+        reports = self._reports.get(worker_id)
+        return reports[-1] if reports else None

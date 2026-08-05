@@ -1182,16 +1182,85 @@ async def _staff_items(session: AsyncSession) -> list[dict[str, Any]]:
             .order_by(User.name)
         )
     ).all()
-    return [
+    staff: list[dict[str, Any]] = [
         {
             "id": user.id,
+            "kind": "human",
             "name": user.name,
+            "role": role.name if role else "Unassigned",
             "department": role.name if role else "Unassigned",
+            "ministry": None,
             "organization": organization_name,
+            "organizationId": user.organization_id,
             "status": user.status,
+            "performance": None,
+            "operationalHealth": None,
+            "trust": None,
+            "learning": None,
+            "successCount": None,
+            "failureCount": None,
+            "recommendation": None,
+            "restrictions": [],
+            "warnings": [],
+            "certifications": [],
+            "training": None,
+            "lastEvaluatedAt": None,
         }
         for user, role, organization_name in rows
     ]
+
+    organization_names = dict(
+        (await session.execute(select(Organization.id, Organization.name))).all()
+    )
+    digital_records = (
+        await session.scalars(
+            select(OwnerControlRecord)
+            .where(OwnerControlRecord.domain == "digital-workforce")
+            .order_by(OwnerControlRecord.updated_at.desc())
+        )
+    ).all()
+    for record in digital_records:
+        payload = record.payload if isinstance(record.payload, dict) else {}
+        organization_id = str(payload.get("organization_id") or "")
+        staff.append(
+            {
+                "id": record.resource_id,
+                "kind": "digital",
+                "name": str(payload.get("worker_id") or record.resource_id),
+                "role": str(payload.get("role") or "Digital Worker"),
+                "department": str(payload.get("department") or "Unassigned"),
+                "ministry": payload.get("ministry_id"),
+                "organization": organization_names.get(
+                    organization_id, organization_id or "Platform"
+                ),
+                "organizationId": organization_id or None,
+                "status": str(payload.get("employment_state") or record.status),
+                "performance": payload.get("quality"),
+                "operationalHealth": payload.get("operational_health"),
+                "trust": payload.get("trust"),
+                "learning": payload.get("learning"),
+                "successCount": payload.get("success_count"),
+                "failureCount": payload.get("failure_count"),
+                "recommendation": payload.get("recommendation"),
+                "restrictions": list(payload.get("restrictions") or []),
+                "warnings": list(payload.get("warnings") or []),
+                "certifications": list(payload.get("certifications") or []),
+                "training": payload.get("training"),
+                "lastEvaluatedAt": payload.get("last_evaluated_at"),
+                "projectId": payload.get("project_id"),
+                "executionId": payload.get("execution_id"),
+                "version": record.version,
+            }
+        )
+    return sorted(
+        staff,
+        key=lambda item: (
+            item["kind"] != "digital",
+            str(item["organization"]).lower(),
+            str(item["department"]).lower(),
+            str(item["name"]).lower(),
+        ),
+    )
 
 
 async def _system_map_items(session: AsyncSession) -> list[dict[str, Any]]:

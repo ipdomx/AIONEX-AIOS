@@ -4,11 +4,15 @@ import {
   ArrowUpRight,
   BrainCircuit,
   CircleDollarSign,
+  Download,
   FolderKanban,
+  GraduationCap,
+  Landmark,
   Gauge,
   LoaderCircle,
   Plus,
   RefreshCw,
+  Search,
   ShieldCheck,
   Tags,
   Timer,
@@ -27,6 +31,7 @@ import { StatusMessage } from "@/components/ui/status-message";
 import { useAuth } from "@/hooks/use-auth";
 import {
   createProject,
+  downloadProjectExecution,
   getFreeTierStatus,
   listProjectExecutions,
   listProjects,
@@ -69,13 +74,16 @@ export function ProjectsClient() {
   const [startingProjectId, setStartingProjectId] = useState<string | null>(
     null,
   );
+  const [downloadingExecutionId, setDownloadingExecutionId] = useState<
+    string | null
+  >(null);
   const [createError, setCreateError] = useState("");
 
   const canCreate = useMemo(
     () =>
       Boolean(
         user?.permissions.includes("projects:write") ||
-          user?.permissions.includes("*"),
+        user?.permissions.includes("*"),
       ),
     [user],
   );
@@ -91,26 +99,22 @@ export function ProjectsClient() {
   );
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated)
-      router.replace(`/${locale}/login`);
+    if (!isLoading && !isAuthenticated) router.replace(`/${locale}/login`);
   }, [isAuthenticated, isLoading, locale, router]);
 
-  const fetchLatestExecutions = useCallback(
-    async (items: Project[]) => {
-      const pairs = await Promise.all(
-        items.map(async (project): Promise<[string, ProjectExecution | null]> => {
-          try {
-            const rows = await listProjectExecutions(project.id, 1);
-            return [project.id, rows[0] || null];
-          } catch {
-            return [project.id, null];
-          }
-        }),
-      );
-      return latestExecutionMap(pairs);
-    },
-    [],
-  );
+  const fetchLatestExecutions = useCallback(async (items: Project[]) => {
+    const pairs = await Promise.all(
+      items.map(async (project): Promise<[string, ProjectExecution | null]> => {
+        try {
+          const rows = await listProjectExecutions(project.id, 1);
+          return [project.id, rows[0] || null];
+        } catch {
+          return [project.id, null];
+        }
+      }),
+    );
+    return latestExecutionMap(pairs);
+  }, []);
 
   const load = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -152,9 +156,15 @@ export function ProjectsClient() {
             ...current,
             ...latestExecutionMap([...pairs]),
           }));
-          if (pairs.some(([, execution]) => execution?.status === "completed")) {
-            void listProjects().then(setProjects).catch(() => undefined);
-            void getFreeTierStatus().then(setQuota).catch(() => undefined);
+          if (
+            pairs.some(([, execution]) => execution?.status === "completed")
+          ) {
+            void listProjects()
+              .then(setProjects)
+              .catch(() => undefined);
+            void getFreeTierStatus()
+              .then(setQuota)
+              .catch(() => undefined);
           }
         })
         .catch(() => undefined);
@@ -171,13 +181,9 @@ export function ProjectsClient() {
     try {
       const project = await createProject({
         name: String(form.get("name") || "").trim(),
-        description:
-          String(form.get("description") || "").trim() || null,
+        description: String(form.get("description") || "").trim() || null,
         priority: String(form.get("priority") || "medium") as
-          | "low"
-          | "medium"
-          | "high"
-          | "critical",
+          "low" | "medium" | "high" | "critical",
         workspace_id: String(form.get("workspaceId") || ""),
         tags: String(form.get("tags") || "")
           .split(",")
@@ -189,7 +195,9 @@ export function ProjectsClient() {
       setExecutions((current) => ({ ...current, [project.id]: null }));
       setShowCreate(false);
       formElement.reset();
-      void getFreeTierStatus().then(setQuota).catch(() => undefined);
+      void getFreeTierStatus()
+        .then(setQuota)
+        .catch(() => undefined);
     } catch (cause) {
       setCreateError(errorText(cause, t("createError")));
     } finally {
@@ -216,15 +224,44 @@ export function ProjectsClient() {
       setProjects((current) =>
         current.map((item) =>
           item.id === project.id
-            ? { ...item, status: "planning", progress: Math.max(item.progress, 1) }
+            ? {
+                ...item,
+                status: "planning",
+                progress: Math.max(item.progress, 1),
+              }
             : item,
         ),
       );
-      void getFreeTierStatus().then(setQuota).catch(() => undefined);
+      void getFreeTierStatus()
+        .then(setQuota)
+        .catch(() => undefined);
     } catch (cause) {
       setExecutionError(errorText(cause, t("execution.startError")));
     } finally {
       setStartingProjectId(null);
+    }
+  }
+
+  async function downloadExecution(projectId: string, executionId: string) {
+    setExecutionError("");
+    setDownloadingExecutionId(executionId);
+    try {
+      const { blob, filename } = await downloadProjectExecution(
+        projectId,
+        executionId,
+      );
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (cause) {
+      setExecutionError(errorText(cause, t("execution.downloadError")));
+    } finally {
+      setDownloadingExecutionId(null);
     }
   }
 
@@ -242,22 +279,38 @@ export function ProjectsClient() {
 
   function priorityLabel(priority: string) {
     const known = ["low", "medium", "high", "critical"];
-    return known.includes(priority)
-      ? t(`priorityValue.${priority}`)
-      : priority;
+    return known.includes(priority) ? t(`priorityValue.${priority}`) : priority;
   }
 
   function executionStatusLabel(status: string) {
     const known = ["queued", "running", "completed", "failed"];
-    return known.includes(status)
-      ? t(`execution.status.${status}`)
-      : status;
+    return known.includes(status) ? t(`execution.status.${status}`) : status;
   }
 
   function executionStageLabel(stage: string) {
     const known = [
       "queued",
+      "intake",
+      "cognitive_review",
+      "constitutional_review",
+      "wisdom_deliberation",
+      "government_review",
+      "provider_model_validation",
+      "external_research",
       "provider_execution",
+      "provider_execution_completed",
+      "implementation_specification",
+      "implementation_generation",
+      "implementation_tests",
+      "rollback_verification",
+      "research_verification",
+      "ministry_routing",
+      "workforce_execution",
+      "engineering_review",
+      "security_review",
+      "integration_review",
+      "release_review",
+      "completed",
       "approved",
       "rework_required",
       "failed",
@@ -403,11 +456,7 @@ export function ProjectsClient() {
                 >
                   {(["low", "medium", "high", "critical"] as const).map(
                     (value) => (
-                      <option
-                        key={value}
-                        value={value}
-                        className="bg-ink-800"
-                      >
+                      <option key={value} value={value} className="bg-ink-800">
                         {t(`priorityValue.${value}`)}
                       </option>
                     ),
@@ -475,7 +524,9 @@ export function ProjectsClient() {
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-electric-200">
                       {statusLabel(project.status)}
                     </p>
-                    <h2 className="mt-3 text-xl font-semibold">{project.name}</h2>
+                    <h2 className="mt-3 text-xl font-semibold">
+                      {project.name}
+                    </h2>
                   </div>
                   <span className="rounded-lg border border-white/[0.07] px-2.5 py-1 text-xs text-white/40">
                     {priorityLabel(project.priority)}
@@ -581,7 +632,10 @@ export function ProjectsClient() {
                           </p>
                           <p className="mt-1 inline-flex items-center gap-1 text-xs text-white/60">
                             <CircleDollarSign className="h-3.5 w-3.5" />
-                            {(execution.calculated_cost_usd || 0).toFixed(6)} USD
+                            {(execution.calculated_cost_usd || 0).toFixed(
+                              6,
+                            )}{" "}
+                            USD
                           </p>
                         </div>
                         <div className="rounded-xl bg-black/10 p-3">
@@ -602,16 +656,16 @@ export function ProjectsClient() {
                           {t("execution.runningNotice")}
                         </p>
                       )}
-                      {execution.status === "completed" &&
-                        execution.result && (
-                          <div className="mt-4 text-xs leading-6 text-white/45">
+                      {execution.status === "completed" && execution.result && (
+                        <div className="mt-4 space-y-4 text-xs leading-6 text-white/45">
+                          <div>
                             <p>
                               {execution.approved
                                 ? t("execution.approved")
                                 : t("execution.rework", {
                                     count:
-                                      execution.result.blocking_findings?.length ||
-                                      0,
+                                      execution.result.blocking_findings
+                                        ?.length || 0,
                                   })}
                             </p>
                             <p className="mt-1">
@@ -621,11 +675,112 @@ export function ProjectsClient() {
                               })}
                             </p>
                           </div>
-                        )}
+
+                          <div className="grid gap-3 sm:grid-cols-3">
+                            <div className="rounded-xl border border-white/[0.06] bg-black/10 p-3">
+                              <p className="flex items-center gap-2 text-white/65">
+                                <Landmark className="h-3.5 w-3.5 text-electric-200" />
+                                {t("execution.governanceTitle")}
+                              </p>
+                              <p className="mt-1 text-white/35">
+                                {execution.result.all_governance_layers_executed
+                                  ? t("execution.governanceComplete")
+                                  : t("execution.governancePending")}
+                              </p>
+                            </div>
+                            <div className="rounded-xl border border-white/[0.06] bg-black/10 p-3">
+                              <p className="flex items-center gap-2 text-white/65">
+                                <Search className="h-3.5 w-3.5 text-electric-200" />
+                                {t("execution.researchTitle")}
+                              </p>
+                              <p className="mt-1 text-white/35">
+                                {t("execution.researchSummary", {
+                                  sources:
+                                    execution.result.external_research?.sources
+                                      ?.length || 0,
+                                  facts:
+                                    execution.result.external_research
+                                      ?.verified_facts?.length || 0,
+                                })}
+                              </p>
+                            </div>
+                            <div className="rounded-xl border border-white/[0.06] bg-black/10 p-3">
+                              <p className="flex items-center gap-2 text-white/65">
+                                <GraduationCap className="h-3.5 w-3.5 text-electric-200" />
+                                {t("execution.workforceTitle")}
+                              </p>
+                              <p className="mt-1 text-white/35">
+                                {t("execution.workforceSummary", {
+                                  count:
+                                    execution.result.workforce?.length || 0,
+                                  training:
+                                    execution.result.workforce?.filter(
+                                      (worker) =>
+                                        worker.employment_state ===
+                                          "retraining" ||
+                                        worker.employment_state ===
+                                          "supervised",
+                                    ).length || 0,
+                                })}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2">
+                            {execution.evidence_available && (
+                              <Button
+                                variant="secondary"
+                                onClick={() =>
+                                  void downloadExecution(
+                                    project.id,
+                                    execution.id,
+                                  )
+                                }
+                                disabled={
+                                  downloadingExecutionId === execution.id
+                                }
+                              >
+                                {downloadingExecutionId === execution.id ? (
+                                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Download className="h-4 w-4" />
+                                )}
+                                {t("execution.download")}
+                              </Button>
+                            )}
+                            {canCreate && (
+                              <Button
+                                variant="ghost"
+                                onClick={() => void startExecution(project)}
+                                disabled={startingProjectId === project.id}
+                              >
+                                {startingProjectId === project.id ? (
+                                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="h-4 w-4" />
+                                )}
+                                {t("execution.newCycle")}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )}
                       {execution.status === "failed" && (
-                        <StatusMessage tone="error" className="mt-4">
-                          {execution.error_message || t("execution.failed")}
-                        </StatusMessage>
+                        <div className="mt-4 space-y-3">
+                          <StatusMessage tone="error">
+                            {execution.error_message || t("execution.failed")}
+                          </StatusMessage>
+                          {canCreate && (
+                            <Button
+                              variant="secondary"
+                              onClick={() => void startExecution(project)}
+                              disabled={startingProjectId === project.id}
+                            >
+                              <RefreshCw className="h-4 w-4" />
+                              {t("execution.newCycle")}
+                            </Button>
+                          )}
+                        </div>
                       )}
                     </>
                   )}
