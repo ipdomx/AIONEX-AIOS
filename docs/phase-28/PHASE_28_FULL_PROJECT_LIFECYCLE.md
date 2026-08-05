@@ -164,6 +164,6 @@ All six digital workers were evaluated and retained as active with promotion-rev
 
 ## Final portal release artifact
 
-The completed normal-user portal is version `1.6.0`. Its verified direct-document-root archive is `AIONEX-AIOS-vip-frontend-v1.6.0-static-2026-08-06.zip` with SHA-256 `666b26a797f462e4c20f5981565464433f3537a97baa78518f977a40ba2b992f`. The archive contains `198` files, no unsafe paths, no duplicate names, and no hash mismatches.
+The completed normal-user portal is version `1.6.0`. Its verified direct-document-root archive is `AIONEX-AIOS-vip-frontend-v1.6.0-static-2026-08-06.zip` with SHA-256 `a3f2801e8bbfa603b5167710a251bdd5089cebd61d9a5638bfdd565371b55e1e`. The archive contains `198` files, no unsafe paths, no duplicate names, and no hash mismatches.
 
 The current server has no authenticated shared-hosting deployment credential for the separate `ai.vip-e.net` document root. The release is therefore published as a verified artifact; replacing the older hosted static shell is the remaining external hosting activation step and does not affect the already active full-lifecycle API and worker.
