@@ -295,3 +295,25 @@ def test_incomplete_research_response_has_sanitized_diagnostics() -> None:
     assert raised.value.error_code == "response_incomplete"
     assert raised.value.error_param == "max_output_tokens"
     assert API_KEY not in str(raised.value)
+
+
+def test_verified_fact_urls_are_canonicalized_to_observed_sources() -> None:
+    response = _response()
+    synthesis = _synthesis()
+    synthesis["verified_facts"][0]["source_urls"] = [
+        SOURCE_ONE + "/?utm_source=search#section"
+    ]
+    response["output"][-1]["content"][0]["text"] = json.dumps(synthesis)
+    result = ControlledWebResearch(
+        API_KEY,
+        model=MODEL,
+        input_cost_per_million=0.25,
+        output_cost_per_million=2.0,
+        remaining_budget_usd=0.05,
+        web_search_tool_cost_usd=0.01,
+        post_json=lambda *args: response,
+    ).execute(
+        project="AIONEX Demo",
+        objective="Build a current evidence-based governed project prototype.",
+    )
+    assert result.verified_facts[0]["source_urls"] == [SOURCE_ONE]

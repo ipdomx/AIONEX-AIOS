@@ -447,6 +447,19 @@ class ControlledWebResearch:
         return sorted(found.values(), key=lambda item: item.url), search_calls
 
     @staticmethod
+    def _url_identity(value: str) -> str:
+        """Compare observed and cited URLs without tracking or fragment noise."""
+        parts = urlsplit(value.strip())
+        if parts.scheme != "https" or not parts.hostname:
+            return ""
+        hostname = parts.hostname.lower().rstrip(".")
+        port = f":{parts.port}" if parts.port not in (None, 443) else ""
+        path = re.sub(r"/{2,}", "/", parts.path or "/")
+        if path != "/":
+            path = path.rstrip("/")
+        return f"https://{hostname}{port}{path}"
+
+    @staticmethod
     def _add_source(
         found: dict[str, ResearchSource], url_value: Any, title_value: Any
     ) -> None:
@@ -496,7 +509,9 @@ class ControlledWebResearch:
             raise ControlledResearchError("web research schema version is invalid")
         cls._validate_text(payload["research_question"], "research_question", 10, 500)
         cls._validate_text(payload["summary"], "summary", 20, 1800)
-        source_urls = {source.url for source in sources}
+        source_urls = {
+            cls._url_identity(source.url): source.url for source in sources
+        }
         facts = payload["verified_facts"]
         if not isinstance(facts, list) or not 2 <= len(facts) <= 10:
             raise ControlledResearchError(
@@ -514,14 +529,19 @@ class ControlledWebResearch:
             urls = fact["source_urls"]
             if not isinstance(urls, list) or not urls:
                 raise ControlledResearchError("every verified fact requires a source")
-            if any(str(url) not in source_urls for url in urls):
-                raise ControlledResearchError(
-                    "verified fact references an unobserved source URL"
-                )
+            canonical_urls: list[str] = []
             for url in urls:
-                hostname = urlsplit(str(url)).hostname
+                identity = cls._url_identity(str(url))
+                observed = source_urls.get(identity)
+                if observed is None:
+                    raise ControlledResearchError(
+                        "verified fact references an unobserved source URL"
+                    )
+                canonical_urls.append(observed)
+                hostname = urlsplit(observed).hostname
                 if hostname:
                     used_domains.add(hostname.lower())
+            fact["source_urls"] = list(dict.fromkeys(canonical_urls))
             confidence = float(fact["confidence"])
             if not 0.0 <= confidence <= 1.0:
                 raise ControlledResearchError("fact confidence is outside zero to one")
