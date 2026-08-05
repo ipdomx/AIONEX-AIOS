@@ -922,7 +922,7 @@ def test_project_runner_uses_separate_web_search_capable_research_model(
     )
     planning = 6 * ((4096 * 0.25) + (1200 * 2.00)) / 1_000_000
     research = 0.01 + ((16_384 * 0.20) + (3000 * 1.25)) / 1_000_000
-    implementation = ((4096 * 0.25) + (1200 * 2.00)) / 1_000_000
+    implementation = ((4096 * 0.25) + (3000 * 2.00)) / 1_000_000
     assert planning + research + implementation < runner.budget_cap
 
 

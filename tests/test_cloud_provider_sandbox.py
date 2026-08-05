@@ -811,3 +811,38 @@ def test_manifest_and_reports_never_contain_authorization_or_secret(tmp_path):
             assert API_KEY not in text
             assert "Authorization" not in text
             assert "Bearer " not in text
+
+
+def test_transport_supports_explicit_implementation_output_ceiling() -> None:
+    captured = {}
+
+    def post_json(url, payload, headers, timeout):
+        captured["max_output_tokens"] = payload["max_output_tokens"]
+        return completed_api_response()
+
+    transport = OpenAIOfficialHTTPTransport(
+        API_KEY,
+        maximum_requests=1,
+        maximum_output_tokens=3000,
+        input_cost_per_million=INPUT_RATE,
+        output_cost_per_million=OUTPUT_RATE,
+        post_json=post_json,
+    )
+    payload = responses_payload()
+    payload["max_output_tokens"] = 3000
+    asyncio.run(transport(payload))
+    assert transport.maximum_output_tokens == 3000
+    assert captured["max_output_tokens"] == 3000
+
+
+def test_transport_default_output_ceiling_remains_phase22c_limit() -> None:
+    transport = OpenAIOfficialHTTPTransport(
+        API_KEY,
+        input_cost_per_million=INPUT_RATE,
+        output_cost_per_million=OUTPUT_RATE,
+        post_json=lambda *args: completed_api_response(),
+    )
+    payload = responses_payload()
+    payload["max_output_tokens"] = 1201
+    with pytest.raises(CloudSandboxValidationError, match="configured transport limit"):
+        asyncio.run(transport(payload))

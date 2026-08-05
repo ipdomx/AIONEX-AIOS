@@ -317,3 +317,31 @@ def test_verified_fact_urls_are_canonicalized_to_observed_sources() -> None:
         objective="Build a current evidence-based governed project prototype.",
     )
     assert result.verified_facts[0]["source_urls"] == [SOURCE_ONE]
+
+
+def test_optional_research_lists_are_bounded_without_fabrication() -> None:
+    response = _response()
+    synthesis = _synthesis()
+    synthesis["risks"] = []
+    synthesis["unknowns"] = []
+    synthesis["recommended_constraints"] = [
+        f"Constraint {index}: retain a deterministic local verification path."
+        for index in range(14)
+    ]
+    response["output"][-1]["content"][0]["text"] = json.dumps(synthesis)
+    result = ControlledWebResearch(
+        API_KEY,
+        model=MODEL,
+        input_cost_per_million=0.25,
+        output_cost_per_million=2.0,
+        remaining_budget_usd=0.05,
+        web_search_tool_cost_usd=0.01,
+        post_json=lambda *args: response,
+    ).execute(
+        project="AIONEX Demo",
+        objective="Build a current evidence-based governed project prototype.",
+    )
+    assert result.risks == ()
+    assert result.unknowns == ()
+    assert len(result.recommended_constraints) == 10
+    assert result.recommended_constraints[0].startswith("Constraint 0:")

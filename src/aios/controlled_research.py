@@ -549,16 +549,24 @@ class ControlledWebResearch:
             raise ControlledResearchError(
                 "verified facts must rely on at least two independent domains"
             )
-        for name, minimum, maximum in (
-            ("risks", 1, 8),
-            ("unknowns", 1, 8),
-            ("recommended_constraints", 1, 10),
+        for name, maximum in (
+            ("risks", 8),
+            ("unknowns", 8),
+            ("recommended_constraints", 10),
         ):
             values = payload[name]
-            if not isinstance(values, list) or not minimum <= len(values) <= maximum:
-                raise ControlledResearchError(f"{name} cardinality is invalid")
+            if not isinstance(values, list):
+                raise ControlledResearchError(f"{name} must be an array")
+            normalized: list[str] = []
             for index, value in enumerate(values):
                 cls._validate_text(value, f"{name}[{index}]", 3, 500)
+                cleaned = value.strip()
+                if cleaned not in normalized:
+                    normalized.append(cleaned)
+            # Optional findings must never be fabricated merely to satisfy a
+            # cardinality rule. Keep the bounded, deduplicated evidence that the
+            # research model actually returned and discard only excess items.
+            payload[name] = normalized[:maximum]
         return payload
 
     @staticmethod

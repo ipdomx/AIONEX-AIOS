@@ -30,6 +30,7 @@ ALLOWED_OPENAI_MODELS_ENDPOINT = "https://api.openai.com/v1/models"
 PHASE22C_SECRET_PATH = Path("/root/.config/aionex/phase22c-openai.env")
 DEFAULT_MAXIMUM_REQUESTS = 6
 DEFAULT_MAXIMUM_OUTPUT_TOKENS = 1200
+MAXIMUM_TRANSPORT_OUTPUT_TOKENS = 3000
 DEFAULT_MAXIMUM_BUDGET_USD = 1.0
 DEFAULT_TIMEOUT_SECONDS = 180.0
 DEFAULT_MAXIMUM_INPUT_TOKENS = 4096
@@ -139,6 +140,7 @@ class OpenAIOfficialHTTPTransport:
         models_endpoint: str = ALLOWED_OPENAI_MODELS_ENDPOINT,
         timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
         maximum_requests: int = DEFAULT_MAXIMUM_REQUESTS,
+        maximum_output_tokens: int = DEFAULT_MAXIMUM_OUTPUT_TOKENS,
         input_cost_per_million: float,
         output_cost_per_million: float,
         post_json: PostJSON | None = None,
@@ -152,6 +154,8 @@ class OpenAIOfficialHTTPTransport:
             raise ValueError("timeout_seconds must be between 1 and 180")
         if not 1 <= int(maximum_requests) <= DEFAULT_MAXIMUM_REQUESTS:
             raise ValueError("maximum_requests must be between 1 and 6")
+        if not 1 <= int(maximum_output_tokens) <= MAXIMUM_TRANSPORT_OUTPUT_TOKENS:
+            raise ValueError("maximum_output_tokens must be between 1 and 3000")
         if input_cost_per_million < 0 or output_cost_per_million < 0:
             raise ValueError("model prices must be non-negative")
         if input_cost_per_million == 0 and output_cost_per_million == 0:
@@ -159,6 +163,7 @@ class OpenAIOfficialHTTPTransport:
         self._api_key = api_key
         self.timeout_seconds = float(timeout_seconds)
         self.maximum_requests = int(maximum_requests)
+        self.maximum_output_tokens = int(maximum_output_tokens)
         self.input_cost_per_million = float(input_cost_per_million)
         self.output_cost_per_million = float(output_cost_per_million)
         self._post_json = post_json or self._default_post_json
@@ -172,7 +177,8 @@ class OpenAIOfficialHTTPTransport:
     def __repr__(self) -> str:
         return (
             "OpenAIOfficialHTTPTransport(api_key='[REDACTED]', "
-            f"endpoint={self.endpoint!r}, maximum_requests={self.maximum_requests})"
+            f"endpoint={self.endpoint!r}, maximum_requests={self.maximum_requests}, "
+            f"maximum_output_tokens={self.maximum_output_tokens})"
         )
 
     async def validate_model(self, model: str) -> dict[str, Any]:
@@ -246,8 +252,7 @@ class OpenAIOfficialHTTPTransport:
             raise ValueError("only the official OpenAI API endpoint is permitted")
         return endpoint
 
-    @staticmethod
-    def _request_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    def _request_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
         if payload.get("tools"):
             raise CloudSandboxValidationError("tools are forbidden in Phase 22C")
         metadata = payload.get("metadata") or {}
@@ -270,8 +275,10 @@ class OpenAIOfficialHTTPTransport:
         if payload.get("temperature") != 0.0:
             raise CloudSandboxValidationError("temperature must equal zero")
         max_output_tokens = int(payload.get("max_output_tokens", 0) or 0)
-        if not 1 <= max_output_tokens <= DEFAULT_MAXIMUM_OUTPUT_TOKENS:
-            raise CloudSandboxValidationError("max_output_tokens exceeds the Phase 22C limit")
+        if not 1 <= max_output_tokens <= self.maximum_output_tokens:
+            raise CloudSandboxValidationError(
+                "max_output_tokens exceeds the configured transport limit"
+            )
 
         model = str(payload.get("model") or "")
         request_body: dict[str, Any] = {
