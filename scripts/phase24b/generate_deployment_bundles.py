@@ -5,7 +5,6 @@ import argparse
 import hashlib
 import json
 import os
-import secrets
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -50,12 +49,6 @@ def cert_fingerprint(cert_path: Path) -> str:
 def write_text(path: Path, content: str, mode: int = 0o644) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8", newline="\n")
-    path.chmod(mode)
-
-
-def write_bytes(path: Path, content: bytes, mode: int = 0o600) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(content)
     path.chmod(mode)
 
 
@@ -258,16 +251,16 @@ WantedBy=multi-user.target
             san=f"DNS:{host.host_id}",
             extended_key_usage="clientAuth",
         )
-        secret = secrets.token_bytes(32)
-        secret_hex = secret.hex().encode("ascii") + b"\n"
-        write_bytes(host_secret_directory / f"{host.host_id}.key", secret_hex)
+        secret_path = host_secret_directory / f"{host.host_id}.key"
+        run(["openssl", "rand", "-hex", "-out", str(secret_path), "32"])
+        secret_path.chmod(0o600)
 
         bundle = root / host.host_id
         bundle.mkdir(mode=0o700)
         shutil.copy2(ca_cert, bundle / "ca.crt")
         shutil.copy2(cert, bundle / "host.crt")
         shutil.copy2(key, bundle / "host-private.key")
-        shutil.copy2(host_secret_directory / f"{host.host_id}.key", bundle / "host.key")
+        shutil.copy2(secret_path, bundle / "host.key")
         (bundle / "host-private.key").chmod(0o600)
         (bundle / "host.key").chmod(0o600)
 
