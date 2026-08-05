@@ -69,7 +69,17 @@ class AutoScaler:
             (queued_tasks + self.policy.backlog_per_node - 1)
             // self.policy.backlog_per_node
         )
-        desired = max(self.policy.min_nodes, healthy_nodes, required_for_backlog)
+        # Unavailable nodes remain part of current_nodes but provide no capacity.
+        # Request one replacement for each unavailable node before considering
+        # utilization or backlog pressure, otherwise a degraded cluster can
+        # incorrectly HOLD while its healthy capacity has shrunk.
+        replacement_target = current_nodes + unavailable_nodes if unavailable_nodes else 0
+        desired = max(
+            self.policy.min_nodes,
+            healthy_nodes,
+            required_for_backlog,
+            replacement_target,
+        )
 
         if average >= self.policy.scale_out_threshold or desired > current_nodes:
             desired = min(self.policy.max_nodes, max(current_nodes + 1, desired))

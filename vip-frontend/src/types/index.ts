@@ -224,8 +224,34 @@ export interface Project {
   updated_at: string;
 }
 
+export interface ProjectWorkforceResult {
+  worker_id: string;
+  role: string;
+  department: string;
+  ministry_id: string;
+  employment_state: string;
+  assignment_state: string;
+  success_count: number;
+  failure_count: number;
+  quality: number;
+  operational_health: number;
+  trust: number;
+  learning: number;
+  recommendation: string;
+  restrictions: string[];
+  warnings: string[];
+  certifications: string[];
+  training: {
+    course_id: string;
+    score: number;
+    passed: boolean;
+  };
+}
+
 export interface ProjectExecutionResult {
   success: boolean;
+  phase?: number;
+  mode?: "full" | "planning";
   status: string;
   provider: string;
   model?: string | null;
@@ -242,6 +268,33 @@ export interface ProjectExecutionResult {
   readiness_score: number;
   blocking_findings: string[];
   rework_plan: string[];
+  governance?: Record<string, unknown>;
+  external_research?: {
+    research_question?: string;
+    summary?: string;
+    verified_facts?: Array<{
+      claim: string;
+      source_urls: string[];
+      confidence: number;
+    }>;
+    sources?: Array<{ url: string; title: string; domain: string }>;
+    search_calls?: number;
+  } | null;
+  web_search_calls?: number;
+  workforce?: ProjectWorkforceResult[];
+  engineering_review?: Record<string, unknown>;
+  security_review?: Record<string, unknown>;
+  integration_review?: Record<string, unknown>;
+  release_review?: Record<string, unknown>;
+  delivery_package?: {
+    path?: string;
+    manifest?: string;
+    manifest_sha256?: string;
+    files_count?: number;
+    contains_executable_product?: boolean;
+  };
+  all_governance_layers_executed?: boolean;
+  model_claims_used_as_execution_proof?: boolean;
   comparison?: {
     available?: boolean;
     winner_by_quality?: string | null;
@@ -260,7 +313,7 @@ export interface ProjectExecution {
   workspace_id: string;
   organization_id: string;
   requested_by_id: string;
-  mode: "planning";
+  mode: "full" | "planning";
   provider: "openai";
   model?: string | null;
   status: "queued" | "running" | "completed" | "failed";

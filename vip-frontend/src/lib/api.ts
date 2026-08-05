@@ -238,6 +238,33 @@ async function request<T>(
   return payload as T;
 }
 
+async function downloadRequest(
+  path: string,
+  retry = true,
+): Promise<{ blob: Blob; filename: string }> {
+  const headers = new Headers({ Accept: "application/zip" });
+  const accessToken = readStorage(STORAGE_KEYS.access);
+  if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+  const response = await fetch(`${API_ROOT}${path}`, {
+    credentials: "include",
+    headers,
+  });
+  if (response.status === 401 && retry && readStorage(STORAGE_KEYS.refresh)) {
+    await refreshSession();
+    return downloadRequest(path, false);
+  }
+  if (!response.ok) {
+    const payload = await responsePayload(response);
+    throw apiError(response, payload);
+  }
+  const disposition = response.headers.get("Content-Disposition") || "";
+  const match = disposition.match(/filename="?([^";]+)"?/i);
+  return {
+    blob: await response.blob(),
+    filename: match?.[1] || "aionex-project-delivery.zip",
+  };
+}
+
 function jsonRequest<T>(
   path: string,
   method: "POST" | "PATCH" | "PUT" | "DELETE",
@@ -483,7 +510,16 @@ export function startProjectExecution(
   return jsonRequest<ProjectExecution>(
     `/projects/${encodeURIComponent(projectId)}/executions`,
     "POST",
-    { confirm_external_processing: true, mode: "planning" },
+    { confirm_external_processing: true, mode: "full" },
+  );
+}
+
+export function downloadProjectExecution(
+  projectId: string,
+  executionId: string,
+): Promise<{ blob: Blob; filename: string }> {
+  return downloadRequest(
+    `/projects/${encodeURIComponent(projectId)}/executions/${encodeURIComponent(executionId)}/download`,
   );
 }
 

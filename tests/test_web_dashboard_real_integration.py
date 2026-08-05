@@ -13,6 +13,6 @@ def test_dashboard_router_registers_integration() -> None:
 
 def test_dashboard_compose_mounts_aios_core() -> None:
     compose = Path("web-dashboard/docker-compose.yml").read_text(encoding="utf-8")
-    assert "AIOS_REPO_ROOT=/workspace" in compose
-    assert "PYTHONPATH=/workspace/src:/app" in compose
+    assert "AIOS_REPO_ROOT: /workspace" in compose
+    assert "PYTHONPATH: /workspace/src:/app" in compose
     assert "..:/workspace:ro" in compose

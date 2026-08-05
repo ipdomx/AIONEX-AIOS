@@ -1,4 +1,4 @@
-"""Controlled single-server OpenAI planning cycle for durable project jobs."""
+"""Controlled full-governed OpenAI project lifecycle for durable user jobs."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ import stat
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from collections.abc import Callable
 from typing import Any, Mapping
 
 from aios.cloud_provider_sandbox import (
@@ -26,6 +27,15 @@ from aios.offline_execution import (
     OfflineExecutionResult,
     OfflineMockExecutor,
 )
+from aios.controlled_project_builder import (
+    ControlledProjectBuildError,
+    ControlledProjectBuilder,
+)
+from aios.controlled_research import (
+    ControlledResearchError,
+    ControlledWebResearch,
+)
+from aios.full_project_cycle import FullProjectCycle, FullProjectCycleValidationError
 from aios.providers import BudgetAccount, CostGovernor, ProviderPolicy
 
 from app.core.config import settings
@@ -122,6 +132,62 @@ def _safe_comparison(path: Path) -> dict[str, Any]:
     }
 
 
+def _load_research_evidence(path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ProjectExecutionAlreadyStarted(
+            "existing controlled research evidence is invalid"
+        ) from exc
+    if (
+        not isinstance(payload, dict)
+        or payload.get("mode") != "controlled-web-research"
+        or payload.get("provider") != "openai"
+        or int(payload.get("request_count") or 0) != 1
+        or int(payload.get("search_calls") or 0) != 1
+        or payload.get("fallback_used") is not False
+        or payload.get("production_modified") is not False
+        or len(payload.get("sources") or []) < 2
+        or len(payload.get("verified_facts") or []) < 2
+    ):
+        raise ProjectExecutionAlreadyStarted(
+            "existing controlled research evidence is not trusted"
+        )
+    return payload
+
+
+def _planning_objective(
+    objective: str, research: Mapping[str, Any]
+) -> str:
+    facts = [
+        str(item.get("claim") or "")[:500]
+        for item in (research.get("verified_facts") or [])[:6]
+        if isinstance(item, Mapping) and str(item.get("claim") or "").strip()
+    ]
+    constraints = [
+        str(item)[:400]
+        for item in (research.get("recommended_constraints") or [])[:6]
+        if str(item).strip()
+    ]
+    source_domains = sorted(
+        {
+            str(item.get("domain") or "")
+            for item in (research.get("sources") or [])
+            if isinstance(item, Mapping) and str(item.get("domain") or "").strip()
+        }
+    )
+    context = [
+        objective,
+        "",
+        "Independent current research context verified by AIOS:",
+        *[f"- Verified fact: {item}" for item in facts],
+        *[f"- Engineering constraint: {item}" for item in constraints],
+        f"- Independent source domains: {', '.join(source_domains)}",
+        "Use these facts as constraints, but do not claim unexecuted tests, security reviews, deployments, or integrations.",
+    ]
+    return "\n".join(context)[:6000]
+
+
 def _summary_from_manifest(manifest_path: Path, *, recovered: bool) -> dict[str, Any]:
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -166,6 +232,108 @@ def _summary_from_manifest(manifest_path: Path, *, recovered: bool) -> dict[str,
     }
 
 
+def _summary_from_full_manifest(
+    manifest_path: Path,
+    planning: Mapping[str, Any],
+    *,
+    recovered: bool,
+) -> dict[str, Any]:
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ProjectExecutionAlreadyStarted(
+            "existing full project cycle manifest is invalid"
+        ) from exc
+    if (
+        not isinstance(manifest, dict)
+        or manifest.get("mode") != "full-governed-project-cycle"
+        or manifest.get("phase") != 28
+    ):
+        raise ProjectExecutionAlreadyStarted(
+            "existing full project cycle manifest is not trusted"
+        )
+    cycle_summary = manifest.get("summary") or {}
+    release = manifest.get("release_review") or {}
+    source = manifest.get("source_planning") or {}
+    implementation = manifest.get("implementation") or {}
+    external_research = manifest.get("external_research") or {}
+    implementation_requests = int(implementation.get("requests_count") or 0)
+    research_requests = int(external_research.get("request_count") or 0)
+    output_directory = manifest_path.parent
+    return {
+        "success": True,
+        "phase": 28,
+        "mode": "full",
+        "status": str(cycle_summary.get("status") or "rework_required"),
+        "provider": str(planning.get("provider") or "openai"),
+        "model": planning.get("model") or source.get("model"),
+        "execution_id": manifest.get("execution_id"),
+        "output_directory": str(output_directory),
+        "manifest_path": str(manifest_path),
+        "report_path": str(output_directory / "REPORT.md"),
+        "planning_output_directory": planning.get("output_directory"),
+        "planning_manifest_path": planning.get("manifest_path"),
+        "planning_report_path": planning.get("report_path"),
+        "comparison_path": planning.get("comparison_path"),
+        "comparison_report_path": planning.get("comparison_report_path"),
+        "artifacts_count": int(planning.get("artifacts_count") or 0),
+        "requests_count": int(planning.get("requests_count") or 0)
+        + implementation_requests
+        + research_requests,
+        "retries_count": int(planning.get("retries_count") or 0),
+        "input_tokens": int(planning.get("input_tokens") or 0)
+        + int(implementation.get("input_tokens") or 0)
+        + int(external_research.get("input_tokens") or 0),
+        "output_tokens": int(planning.get("output_tokens") or 0)
+        + int(implementation.get("output_tokens") or 0)
+        + int(external_research.get("output_tokens") or 0),
+        "total_tokens": int(planning.get("total_tokens") or 0)
+        + int(implementation.get("total_tokens") or 0)
+        + int(external_research.get("total_tokens") or 0),
+        "calculated_cost": float(planning.get("calculated_cost") or 0.0)
+        + float(implementation.get("calculated_cost") or 0.0)
+        + float(external_research.get("calculated_cost") or 0.0),
+        "budget_cap": float(planning.get("budget_cap") or 0.0),
+        "total_duration": float(planning.get("total_duration") or 0.0)
+        + float(implementation.get("total_duration") or 0.0)
+        + float(external_research.get("total_duration") or 0.0)
+        + float(cycle_summary.get("duration_seconds") or 0.0),
+        "approved": bool(cycle_summary.get("approved")),
+        "readiness_score": float(cycle_summary.get("readiness_score") or 0.0),
+        "blocking_findings": list(release.get("blocking_findings") or []),
+        "rework_plan": list(release.get("rework_plan") or []),
+        "governance": {
+            "cognitive": manifest.get("cognitive_review"),
+            "constitution": manifest.get("constitutional_review"),
+            "research": manifest.get("research_verification"),
+            "wisdom": manifest.get("wisdom_deliberation"),
+            "government": manifest.get("government_review"),
+            "ministries": manifest.get("ministry_routing"),
+        },
+        "workforce": list(manifest.get("workforce") or []),
+        "engineering_review": manifest.get("engineering_review"),
+        "security_review": manifest.get("security_review"),
+        "integration_review": manifest.get("integration_review"),
+        "release_review": release,
+        "delivery_package": manifest.get("delivery_package"),
+        "implementation": implementation or None,
+        "external_research": external_research or None,
+        "web_search_calls": int(external_research.get("search_calls") or 0),
+        "comparison": planning.get("comparison") or {},
+        "recovered_from_existing_evidence": recovered,
+        "all_governance_layers_executed": bool(
+            (manifest.get("proof") or {}).get("all_governance_layers_executed")
+        ),
+        "model_claims_used_as_execution_proof": False,
+        "fallback_used": False,
+        "production_modified": False,
+        "raw_prompt_returned": False,
+        "raw_response_returned": False,
+        "authorization_header_returned": False,
+        "secret_returned": False,
+    }
+
+
 def _load_offline_result(directory: Path) -> OfflineExecutionResult:
     manifest_path = directory / "manifest.json"
     try:
@@ -188,19 +356,37 @@ def _load_offline_result(directory: Path) -> OfflineExecutionResult:
 
 
 class ProjectPlanningRunner:
-    """Run exactly one bounded OpenAI planning cycle and retain sanitized evidence."""
+    """Run bounded planning, implementation and complete governance with evidence."""
 
     def __init__(self) -> None:
         self.output_root = Path(settings.PROJECT_EXECUTION_OUTPUT_ROOT)
         self.local_reference = Path(settings.PROJECT_EXECUTION_LOCAL_REFERENCE)
         self.secret_path = Path(settings.PROJECT_EXECUTION_SECRET_FILE)
         self.budget_cap = float(settings.PROJECT_EXECUTION_BUDGET_CAP_USD)
+        self.web_search_tool_cost = float(
+            settings.PROJECT_EXECUTION_WEB_SEARCH_COST_USD
+        )
         if not self.output_root.is_absolute() or not self.local_reference.is_absolute():
             raise ProjectExecutionConfigurationError("project execution paths must be absolute")
         if not 0 < self.budget_cap <= 0.05:
-            raise ProjectExecutionConfigurationError("project execution budget cap must be at most 0.05 USD")
+            raise ProjectExecutionConfigurationError(
+                "project execution budget cap must be at most 0.05 USD"
+            )
+        if not 0 < self.web_search_tool_cost <= self.budget_cap:
+            raise ProjectExecutionConfigurationError(
+                "project web search tool cost must fit inside the execution budget"
+            )
 
-    def run(self, *, job_id: str, project_name: str, objective: str) -> dict[str, Any]:
+    def run(
+        self,
+        *,
+        job_id: str,
+        project_name: str,
+        objective: str,
+        tenant_id: str = "platform",
+        requested_by_id: str = "system",
+        stage_callback: Callable[[str, int], None] | None = None,
+    ) -> dict[str, Any]:
         if not _EXECUTION_ID.fullmatch(job_id):
             raise ValueError("project execution id is invalid")
         normalized_project = project_name.strip()[:240]
@@ -208,83 +394,233 @@ class ProjectPlanningRunner:
         if len(normalized_project) < 2 or len(normalized_objective) < 10:
             raise ValueError("project name and objective are required")
 
+        def report_stage(stage: str, progress: int) -> None:
+            if stage_callback is not None:
+                stage_callback(stage, max(0, min(100, int(progress))))
+
         job_root = (self.output_root / job_id).resolve(strict=False)
         expected_root = self.output_root.resolve(strict=False)
         if expected_root not in job_root.parents:
             raise ValueError("project execution path escapes the output root")
         receipt_path = job_root / "execution-receipt.json"
+        research_manifest = job_root / "research" / "manifest.json"
         cloud_manifest = job_root / "cloud" / "manifest.json"
+        implementation_directory = job_root / "implementation" / "prototype"
+        implementation_manifest = implementation_directory / "manifest.json"
+        full_manifest = job_root / "full-cycle" / "cycle" / "manifest.json"
         if receipt_path.is_file():
             payload = json.loads(receipt_path.read_text(encoding="utf-8"))
             if not isinstance(payload, dict) or payload.get("success") is not True:
-                raise ProjectExecutionAlreadyStarted("existing project execution receipt is invalid")
+                raise ProjectExecutionAlreadyStarted(
+                    "existing project execution receipt is invalid"
+                )
             payload = dict(payload)
             payload["recovered_from_existing_evidence"] = True
             return payload
-        if cloud_manifest.is_file():
-            summary = _summary_from_manifest(cloud_manifest, recovered=True)
+        if full_manifest.is_file() and cloud_manifest.is_file():
+            planning = _summary_from_manifest(cloud_manifest, recovered=True)
+            summary = _summary_from_full_manifest(
+                full_manifest, planning, recovered=True
+            )
             _atomic_json(receipt_path, summary)
             return summary
         if (job_root / ".staging-cloud").exists():
-            raise ProjectExecutionAlreadyStarted("an incomplete cloud execution already exists")
+            raise ProjectExecutionAlreadyStarted(
+                "an incomplete cloud execution already exists"
+            )
 
-        secret = load_project_provider_secret(self.secret_path)
-        pricing = MODEL_PRICING[secret.model]
-        if not self.local_reference.is_dir() or not (self.local_reference / "manifest.json").is_file():
-            raise ProjectExecutionConfigurationError("retained local-model reference is missing")
+        if (
+            not self.local_reference.is_dir()
+            or not (self.local_reference / "manifest.json").is_file()
+        ):
+            raise ProjectExecutionConfigurationError(
+                "retained local-model reference is missing"
+            )
         job_root.mkdir(parents=True, exist_ok=True, mode=0o700)
 
-        offline_directory = job_root / "offline"
-        if offline_directory.is_dir():
-            offline_result = _load_offline_result(offline_directory)
-            offline_duration = 0.0
-        else:
-            offline_started = time.monotonic()
-            offline_result = OfflineMockExecutor().execute(
-                execution_id="offline",
-                project=normalized_project,
-                objective=normalized_objective,
-                output_root=job_root,
-            )
-            offline_duration = time.monotonic() - offline_started
-
-        transport = OpenAIOfficialHTTPTransport(
-            secret.api_key,
-            endpoint=ALLOWED_OPENAI_ENDPOINT,
-            models_endpoint=ALLOWED_OPENAI_MODELS_ENDPOINT,
-            timeout_seconds=180.0,
-            maximum_requests=6,
-            input_cost_per_million=pricing[0],
-            output_cost_per_million=pricing[1],
-        )
-        model_status = asyncio.run(transport.validate_model(secret.model))
-        if model_status.get("id") != secret.model:
-            raise OpenAITransportError("configured OpenAI model is unavailable")
-
-        sandbox = CloudProviderSandbox(
-            transport,
-            model=secret.model,
-            input_cost_per_million=pricing[0],
-            output_cost_per_million=pricing[1],
-            cost_governor=CostGovernor(),
-            budget_account=BudgetAccount(limit=self.budget_cap),
-            provider_policy=ProviderPolicy(),
-            maximum_requests=6,
-            maximum_output_tokens=1200,
-            maximum_input_tokens=4096,
-            timeout_seconds=180.0,
-            maximum_attempts_per_department=1,
-        )
-        result = sandbox.execute(
-            execution_id="cloud",
+        lifecycle = FullProjectCycle()
+        lifecycle.preflight(
+            execution_id="preflight",
             project=normalized_project,
             objective=normalized_objective,
-            output_root=job_root,
-            offline_result=offline_result,
-            local_result_directory=self.local_reference,
-            offline_run_metrics={"total_duration": offline_duration},
+            output_root=job_root / "governance-intake",
+            requested_by_id=requested_by_id,
+            external_processing_authorized=True,
+            stage_callback=lambda stage, progress: report_stage(stage, progress),
         )
-        summary = _summary_from_manifest(result.manifest_path, recovered=False)
+
+        if research_manifest.is_file():
+            research_evidence = _load_research_evidence(research_manifest)
+        else:
+            secret = load_project_provider_secret(self.secret_path)
+            pricing = MODEL_PRICING[secret.model]
+            report_stage("provider_model_validation", 20)
+            validation_transport = OpenAIOfficialHTTPTransport(
+                secret.api_key,
+                endpoint=ALLOWED_OPENAI_ENDPOINT,
+                models_endpoint=ALLOWED_OPENAI_MODELS_ENDPOINT,
+                timeout_seconds=180.0,
+                maximum_requests=1,
+                input_cost_per_million=pricing[0],
+                output_cost_per_million=pricing[1],
+            )
+            model_status = asyncio.run(
+                validation_transport.validate_model(secret.model)
+            )
+            if model_status.get("id") != secret.model:
+                raise OpenAITransportError(
+                    "configured OpenAI model is unavailable"
+                )
+            report_stage("external_research", 28)
+            research_result = ControlledWebResearch(
+                secret.api_key,
+                model=secret.model,
+                input_cost_per_million=pricing[0],
+                output_cost_per_million=pricing[1],
+                remaining_budget_usd=self.budget_cap,
+                web_search_tool_cost_usd=self.web_search_tool_cost,
+            ).execute(
+                project=normalized_project,
+                objective=normalized_objective,
+            )
+            research_evidence = {
+                "schema_version": 1,
+                "mode": "controlled-web-research",
+                "request_count": 1,
+                **research_result.sanitized(),
+            }
+            _atomic_json(research_manifest, research_evidence)
+
+        governed_planning_objective = _planning_objective(
+            normalized_objective, research_evidence
+        )
+
+        if cloud_manifest.is_file():
+            planning = _summary_from_manifest(cloud_manifest, recovered=True)
+        else:
+            secret = load_project_provider_secret(self.secret_path)
+            pricing = MODEL_PRICING[secret.model]
+            offline_directory = job_root / "offline"
+            if offline_directory.is_dir():
+                offline_result = _load_offline_result(offline_directory)
+                offline_duration = 0.0
+            else:
+                offline_started = time.monotonic()
+                offline_result = OfflineMockExecutor().execute(
+                    execution_id="offline",
+                    project=normalized_project,
+                    objective=normalized_objective,
+                    output_root=job_root,
+                )
+                offline_duration = time.monotonic() - offline_started
+
+            report_stage("provider_execution", 36)
+            transport = OpenAIOfficialHTTPTransport(
+                secret.api_key,
+                endpoint=ALLOWED_OPENAI_ENDPOINT,
+                models_endpoint=ALLOWED_OPENAI_MODELS_ENDPOINT,
+                timeout_seconds=180.0,
+                maximum_requests=6,
+                input_cost_per_million=pricing[0],
+                output_cost_per_million=pricing[1],
+            )
+            sandbox = CloudProviderSandbox(
+                transport,
+                model=secret.model,
+                input_cost_per_million=pricing[0],
+                output_cost_per_million=pricing[1],
+                cost_governor=CostGovernor(),
+                budget_account=BudgetAccount(limit=self.budget_cap),
+                provider_policy=ProviderPolicy(),
+                maximum_requests=6,
+                maximum_output_tokens=1200,
+                maximum_input_tokens=4096,
+                timeout_seconds=180.0,
+                maximum_attempts_per_department=1,
+            )
+            result = sandbox.execute(
+                execution_id="cloud",
+                project=normalized_project,
+                objective=governed_planning_objective,
+                output_root=job_root,
+                offline_result=offline_result,
+                local_result_directory=self.local_reference,
+                offline_run_metrics={"total_duration": offline_duration},
+            )
+            planning = _summary_from_manifest(
+                result.manifest_path, recovered=False
+            )
+            report_stage("provider_execution_completed", 52)
+
+        if implementation_manifest.is_file():
+            implementation_result = ControlledProjectBuilder.load_result(
+                implementation_directory
+            )
+        else:
+            secret = load_project_provider_secret(self.secret_path)
+            pricing = MODEL_PRICING[secret.model]
+            remaining_budget = (
+                self.budget_cap
+                - float(planning.get("calculated_cost") or 0.0)
+                - float(research_evidence.get("calculated_cost") or 0.0)
+            )
+            if remaining_budget <= 0:
+                raise CloudBudgetExceeded(
+                    "planning consumed the complete project execution budget"
+                )
+            implementation_transport = OpenAIOfficialHTTPTransport(
+                secret.api_key,
+                endpoint=ALLOWED_OPENAI_ENDPOINT,
+                models_endpoint=ALLOWED_OPENAI_MODELS_ENDPOINT,
+                timeout_seconds=180.0,
+                maximum_requests=1,
+                input_cost_per_million=pricing[0],
+                output_cost_per_million=pricing[1],
+            )
+            implementation_result = ControlledProjectBuilder(
+                implementation_transport,
+                model=secret.model,
+                input_cost_per_million=pricing[0],
+                output_cost_per_million=pricing[1],
+                remaining_budget_usd=remaining_budget,
+            ).execute(
+                execution_id="prototype",
+                project=normalized_project,
+                objective=normalized_objective,
+                planning_directory=Path(str(planning["output_directory"])),
+                output_root=job_root / "implementation",
+                stage_callback=lambda stage, progress: report_stage(
+                    stage, 52 + round((progress - 60) * 0.55)
+                ),
+            )
+            if (
+                float(planning.get("calculated_cost") or 0.0)
+                + float(research_evidence.get("calculated_cost") or 0.0)
+                + implementation_result.calculated_cost
+                > self.budget_cap + 1e-12
+            ):
+                raise CloudBudgetExceeded(
+                    "combined planning and implementation cost exceeded the budget"
+                )
+
+        final_result = lifecycle.execute(
+            execution_id="cycle",
+            project=normalized_project,
+            objective=normalized_objective,
+            planning_directory=Path(str(planning["output_directory"])),
+            implementation_directory=implementation_result.output_directory,
+            research_evidence=research_evidence,
+            output_root=job_root / "full-cycle",
+            tenant_id=tenant_id,
+            requested_by_id=requested_by_id,
+            external_processing_authorized=True,
+            stage_callback=lambda stage, progress: report_stage(
+                stage, 70 + round(progress * 0.3)
+            ),
+        )
+        summary = _summary_from_full_manifest(
+            Path(final_result["manifest_path"]), planning, recovered=False
+        )
         _atomic_json(receipt_path, summary)
         return summary
 
@@ -299,8 +635,19 @@ def sanitized_execution_error(exc: BaseException) -> tuple[str, str]:
         return "budget_exceeded", "The fixed project execution budget was exceeded."
     if isinstance(exc, CloudRequestLimitExceeded):
         return "request_limit", "The fixed project execution request limit was reached."
-    if isinstance(exc, CloudSandboxValidationError):
-        return "validation", "The provider output did not satisfy the project execution contract."
+    if isinstance(
+        exc,
+        (
+            CloudSandboxValidationError,
+            ControlledProjectBuildError,
+            ControlledResearchError,
+            FullProjectCycleValidationError,
+        ),
+    ):
+        return (
+            "validation",
+            "The project evidence did not satisfy the full governed execution contract.",
+        )
     if isinstance(exc, OpenAITransportError):
         if exc.status_code in {401, 403}:
             return "provider_authentication", "The configured provider rejected authentication."

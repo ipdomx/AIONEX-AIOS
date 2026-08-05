@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import importlib
-from .db import Database
+from ..db import Database
 
 
 class PluginRegistry:
