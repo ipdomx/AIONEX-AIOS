@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "net.vipe.aionex",
+      "sha256_cert_fingerprints": ["E5:F9:0E:46:83:83:11:25:AC:D2:75:9B:14:77:84:0E:47:82:2D:0B:3C:99:8A:23:57:32:B4:69:43:5E:DA:74"]
+    }
+  }
+]

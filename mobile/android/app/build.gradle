@@ -1,0 +1,65 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'net.vipe.aionex'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'net.vipe.aionex'
+        minSdk 27
+        targetSdk 36
+        versionCode 1
+        versionName '1.0.0'
+    }
+
+    signingConfigs {
+        release {
+            def keyFile = System.getenv('AIOS_ANDROID_KEYSTORE_FILE')
+            if (keyFile) {
+                storeFile file(keyFile)
+                storePassword System.getenv('AIOS_ANDROID_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('AIOS_ANDROID_KEY_ALIAS') ?: 'aionex'
+                keyPassword System.getenv('AIOS_ANDROID_KEY_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (System.getenv('AIOS_ANDROID_KEYSTORE_FILE')) {
+                signingConfig signingConfigs.release
+            }
+        }
+        debug {
+            applicationIdSuffix '.debug'
+            versionNameSuffix '-debug'
+        }
+    }
+
+    packaging {
+        resources.excludes += ['META-INF/**']
+    }
+}
+
+def vipOutput = rootProject.file('generated-web')
+def generatedAssets = file('src/main/assets/www')
+
+tasks.register('syncVipAssets', Sync) {
+    doFirst {
+        if (!vipOutput.isDirectory()) {
+            throw new GradleException("generated-web is missing; run scripts/mobile/prepare_android_assets.py first")
+        }
+    }
+    from vipOutput
+    into generatedAssets
+    exclude '**/.DS_Store'
+}
+
+tasks.named('preBuild').configure {
+    dependsOn tasks.named('syncVipAssets')
+}

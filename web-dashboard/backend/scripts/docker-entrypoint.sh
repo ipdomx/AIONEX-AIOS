@@ -49,6 +49,20 @@ if [ "$(id -u)" = "0" ]; then
         install -d -m 0700 -o aionex -g aionex "$project_output_root"
     fi
 
+    telegram_token_source="${AIOS_TELEGRAM_BOT_TOKEN_FILE:-}"
+    if [ -n "$telegram_token_source" ] && [ -f "$telegram_token_source" ]; then
+        runtime_dir=/run/aionex
+        telegram_token_runtime="$runtime_dir/telegram-bot-token"
+        install -d -m 0700 -o aionex -g aionex "$runtime_dir"
+        if [ "$telegram_token_source" != "$telegram_token_runtime" ]; then
+            install -m 0400 -o aionex -g aionex "$telegram_token_source" "$telegram_token_runtime"
+        else
+            chown aionex:aionex "$telegram_token_runtime"
+            chmod 0400 "$telegram_token_runtime"
+        fi
+        export AIOS_TELEGRAM_BOT_TOKEN_FILE="$telegram_token_runtime"
+    fi
+
     exec gosu aionex "$@"
 fi
 

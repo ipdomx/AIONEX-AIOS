@@ -1,0 +1,20 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["REPLACE_WITH_APPLE_TEAM_ID.net.vipe.aionex"],
+        "components": [
+          {"/": "/ar/*"},
+          {"/": "/en/*"},
+          {"/": "/fr/*"},
+          {"/": "/de/*"},
+          {"/": "/es/*"},
+          {"/": "/tr/*"}
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": ["REPLACE_WITH_APPLE_TEAM_ID.net.vipe.aionex"]
+  }
+}

@@ -1,17 +1,44 @@
 {
+  "id": "/",
   "name": "AIONEX AIOS",
   "short_name": "AIONEX",
-  "description": "Governed enterprise AI operating system for verified project delivery.",
-  "start_url": "/ar",
+  "description": "Governed AI project planning, execution evidence, and mobile project access.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/ar/",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
   "background_color": "#03050a",
   "theme_color": "#03050a",
+  "categories": ["business", "productivity", "utilities"],
   "icons": [
     {
-      "src": "/brand/aionex-mark.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/icons/aionex-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/aionex-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Projects",
+      "short_name": "Projects",
+      "url": "/ar/projects/",
+      "icons": [{"src": "/icons/aionex-192.png", "sizes": "192x192"}]
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "url": "/ar/dashboard/",
+      "icons": [{"src": "/icons/aionex-192.png", "sizes": "192x192"}]
     }
   ]
 }
