@@ -1,0 +1,56 @@
+name: Security Baseline
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-baseline-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repository-audit:
+    name: Repository Secret and Artifact Audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Use Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Run fail-closed repository audit
+        run: python scripts/security-audit.py
+      - name: Reject oversized tracked files
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          limit=$((10 * 1024 * 1024))
+          while IFS= read -r -d '' file; do
+            size=$(stat -c '%s' "$file")
+            if (( size > limit )); then
+              echo "Tracked file exceeds 10 MiB: $file ($size bytes)" >&2
+              exit 1
+            fi
+          done < <(git ls-files -z)
+      - name: Reject executable files outside approved paths
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          while IFS= read -r mode _ _ path; do
+            [[ "$mode" == "100755" ]] || continue
+            case "$path" in
+              scripts/*|web-dashboard/scripts/*|web-dashboard/backend/scripts/*|deploy/*) ;;
+              *) echo "Unexpected executable tracked file: $path" >&2; exit 1 ;;
+            esac
+          done < <(git ls-files --stage)
