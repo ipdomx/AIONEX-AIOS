@@ -167,6 +167,12 @@ class Settings(BaseSettings):
         le=0.05,
         validation_alias="PROJECT_EXECUTION_WEB_SEARCH_COST_USD",
     )
+    PROJECT_EXECUTION_RESEARCH_MODEL: str = Field(
+        default="gpt-5.4-nano",
+        min_length=1,
+        max_length=160,
+        validation_alias="PROJECT_EXECUTION_RESEARCH_MODEL",
+    )
     PROJECT_EXECUTION_WORKER_POLL_SECONDS: int = Field(
         default=2,
         ge=1,

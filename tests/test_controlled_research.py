@@ -155,6 +155,8 @@ def test_controlled_research_uses_one_official_search_and_returns_sources() -> N
     assert captured["payload"]["max_tool_calls"] == 1
     assert captured["payload"]["tool_choice"] == "required"
     assert captured["payload"]["store"] is False
+    assert captured["payload"]["reasoning"] == {"effort": "none"}
+    assert captured["payload"]["text"]["verbosity"] == "low"
     assert "temperature" not in captured["payload"]
     assert captured["payload"]["text"]["format"]["strict"] is True
     assert captured["headers"]["Authorization"] == f"Bearer {API_KEY}"
@@ -267,3 +269,29 @@ def test_execute_rejects_running_event_loop() -> None:
             )
 
     asyncio.run(run())
+
+
+def test_incomplete_research_response_has_sanitized_diagnostics() -> None:
+    response = _response()
+    response["status"] = "incomplete"
+    response["incomplete_details"] = {"reason": "max_output_tokens"}
+    executor = ControlledWebResearch(
+        API_KEY,
+        model=MODEL,
+        input_cost_per_million=0.25,
+        output_cost_per_million=2.0,
+        remaining_budget_usd=0.05,
+        web_search_tool_cost_usd=0.01,
+        post_json=lambda *args: response,
+    )
+    from aios.cloud_provider_sandbox import OpenAITransportError
+
+    with pytest.raises(OpenAITransportError) as raised:
+        executor.execute(
+            project="AIONEX Demo",
+            objective="Build a current evidence-based governed project prototype.",
+        )
+    assert raised.value.error_type == "response_status"
+    assert raised.value.error_code == "response_incomplete"
+    assert raised.value.error_param == "max_output_tokens"
+    assert API_KEY not in str(raised.value)

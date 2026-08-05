@@ -35,8 +35,8 @@ The complete lifecycle uses OpenAI only and has no fallback provider.
 
 Its fixed paid boundary is:
 
-- one controlled web-research Responses request with exactly one web-search tool call;
-- six sequential department planning requests;
+- one controlled web-research Responses request using the fixed `gpt-5.4-nano` research model with exactly one web-search tool call;
+- six sequential department planning requests using the configured `gpt-5-mini` model;
 - one controlled implementation-specification request;
 - maximum combined budget: `0.05 USD` per execution;
 - no parallel provider calls;
@@ -44,7 +44,7 @@ Its fixed paid boundary is:
 - provider request and token costs retained in the durable execution record;
 - raw prompts, raw responses, credentials, and authorization headers are never returned to users or stored in the public result.
 
-Model availability is checked before paid project work. Only the explicitly allowlisted model and official OpenAI HTTPS endpoints are accepted.
+Model availability is checked before paid project work. Planning and implementation remain on the configured `gpt-5-mini` model, while research uses the separately allowlisted web-search-capable `gpt-5.4-nano` model with current fixed pricing. Both use the same external API key, official OpenAI HTTPS endpoints, no fallback, and one combined budget.
 
 ## Research and truthfulness
 
@@ -105,3 +105,9 @@ The Phase 28 branch passed all of the following before PR creation:
 ## Final acceptance requirement
 
 Code completion is not represented as production acceptance until the merged implementation is deployed and one real normal-user project is executed through the complete lifecycle. That acceptance run must preserve the fixed budget, no-fallback rule, production health, tenant isolation, downloadable package, governance evidence, and workforce records.
+
+## Live activation correction
+
+The first post-merge normal-user acceptance attempt reached `external_research` and stopped safely before planning because the research response ended incomplete at the output-token boundary. The failed record stored no raw prompt, raw response, or credential and reported zero completed provider work.
+
+The activation correction assigns web research to the fixed, account-verified `gpt-5.4-nano` model with reasoning disabled and low verbosity, while keeping planning and implementation on `gpt-5-mini`. GPT-5.4 nano is explicitly intended for lightweight extraction and sub-agent work and supports Responses web search and structured outputs. The full worst-case calculation for research, six planning requests, and one implementation request remains below the `0.05 USD` execution cap.

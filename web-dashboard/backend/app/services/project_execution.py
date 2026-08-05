@@ -44,6 +44,10 @@ MODEL_PRICING: dict[str, tuple[float, float]] = {
     "gpt-5-mini": (0.25, 2.00),
     "gpt-5-mini-2025-08-07": (0.25, 2.00),
 }
+RESEARCH_MODEL_PRICING: dict[str, tuple[float, float]] = {
+    "gpt-5.4-nano": (0.20, 1.25),
+    "gpt-5.4-nano-2026-03-17": (0.20, 1.25),
+}
 _EXECUTION_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 
 
@@ -366,6 +370,7 @@ class ProjectPlanningRunner:
         self.web_search_tool_cost = float(
             settings.PROJECT_EXECUTION_WEB_SEARCH_COST_USD
         )
+        self.research_model = settings.PROJECT_EXECUTION_RESEARCH_MODEL.strip()
         if not self.output_root.is_absolute() or not self.local_reference.is_absolute():
             raise ProjectExecutionConfigurationError("project execution paths must be absolute")
         if not 0 < self.budget_cap <= 0.05:
@@ -375,6 +380,31 @@ class ProjectPlanningRunner:
         if not 0 < self.web_search_tool_cost <= self.budget_cap:
             raise ProjectExecutionConfigurationError(
                 "project web search tool cost must fit inside the execution budget"
+            )
+        if self.research_model not in RESEARCH_MODEL_PRICING:
+            raise ProjectExecutionConfigurationError(
+                "project research model is not in the fixed allowlist"
+            )
+        planning_model = "gpt-5-mini"
+        planning_prices = MODEL_PRICING[planning_model]
+        research_prices = RESEARCH_MODEL_PRICING[self.research_model]
+        planning_worst_case = 6 * (
+            4096 * planning_prices[0] + 1200 * planning_prices[1]
+        ) / 1_000_000
+        research_worst_case = self.web_search_tool_cost + (
+            16_384 * research_prices[0] + 3000 * research_prices[1]
+        ) / 1_000_000
+        implementation_worst_case = (
+            4096 * planning_prices[0] + 1200 * planning_prices[1]
+        ) / 1_000_000
+        if (
+            planning_worst_case
+            + research_worst_case
+            + implementation_worst_case
+            > self.budget_cap + 1e-12
+        ):
+            raise ProjectExecutionConfigurationError(
+                "complete project lifecycle worst-case cost exceeds the fixed budget"
             )
 
     def run(
@@ -471,12 +501,21 @@ class ProjectPlanningRunner:
                 raise OpenAITransportError(
                     "configured OpenAI model is unavailable"
                 )
+            research_pricing = RESEARCH_MODEL_PRICING[self.research_model]
+            report_stage("research_model_validation", 24)
+            research_model_status = asyncio.run(
+                validation_transport.validate_model(self.research_model)
+            )
+            if research_model_status.get("id") != self.research_model:
+                raise OpenAITransportError(
+                    "configured OpenAI research model is unavailable"
+                )
             report_stage("external_research", 28)
             research_result = ControlledWebResearch(
                 secret.api_key,
-                model=secret.model,
-                input_cost_per_million=pricing[0],
-                output_cost_per_million=pricing[1],
+                model=self.research_model,
+                input_cost_per_million=research_pricing[0],
+                output_cost_per_million=research_pricing[1],
                 remaining_budget_usd=self.budget_cap,
                 web_search_tool_cost_usd=self.web_search_tool_cost,
             ).execute(
@@ -649,6 +688,11 @@ def sanitized_execution_error(exc: BaseException) -> tuple[str, str]:
             "The project evidence did not satisfy the full governed execution contract.",
         )
     if isinstance(exc, OpenAITransportError):
+        if exc.error_code == "response_incomplete":
+            return (
+                "provider_incomplete",
+                "The provider response ended before the governed result was complete.",
+            )
         if exc.status_code in {401, 403}:
             return "provider_authentication", "The configured provider rejected authentication."
         if exc.status_code == 404:
