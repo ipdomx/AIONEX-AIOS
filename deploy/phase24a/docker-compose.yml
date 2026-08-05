@@ -1,0 +1,102 @@
+name: aionex-phase24a
+
+x-node-common: &node-common
+  image: aionex-phase24a-node:local
+  build:
+    context: ../..
+    dockerfile: deploy/phase24a/Dockerfile
+  restart: "no"
+  read_only: true
+  user: "10001:10001"
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=32m
+  environment: &node-environment
+    AIOS_CLUSTER_ID: aionex-phase24a
+    AIOS_CLUSTER_CAPABILITIES: architecture,backend,frontend,security,quality,devops
+    AIOS_CLUSTER_STATE_PATH: /state/cluster.sqlite3
+    AIOS_CLUSTER_SECRET_FILE: /run/aionex/secrets/cluster.key
+    AIOS_CLUSTER_CA_FILE: /run/aionex/tls/ca.crt
+    AIOS_CLUSTER_CERT_FILE: /run/aionex/tls/cluster.crt
+    AIOS_CLUSTER_KEY_FILE: /run/aionex/tls/cluster.key
+    AIOS_CLUSTER_SOURCE_ROOT: /var/tmp/aionex-phase22d/evidence-closure/phase22d-evidence-closure-v2
+    AIOS_CLUSTER_LISTEN_HOST: 0.0.0.0
+    AIOS_CLUSTER_LISTEN_PORT: "8443"
+    AIOS_CLUSTER_HEARTBEAT_INTERVAL: "0.5"
+    AIOS_CLUSTER_HEARTBEAT_TIMEOUT: "3.0"
+    AIOS_CLUSTER_LEADER_LEASE: "2.0"
+    AIOS_CLUSTER_TASK_LEASE: "2.0"
+    AIOS_CLUSTER_PEER_PROBE_INTERVAL: "0.75"
+  volumes:
+    - type: bind
+      source: ${AIOS_PHASE24A_ROOT:-/var/tmp/aionex-phase24a}/state
+      target: /state
+    - type: bind
+      source: ${AIOS_PHASE24A_ROOT:-/var/tmp/aionex-phase24a}/secrets
+      target: /run/aionex/secrets
+      read_only: true
+    - type: bind
+      source: ${AIOS_PHASE24A_ROOT:-/var/tmp/aionex-phase24a}/certs
+      target: /run/aionex/tls
+      read_only: true
+    - type: bind
+      source: ${AIOS_PHASE24A_ROOT:-/var/tmp/aionex-phase24a}/source/phase22d
+      target: /var/tmp/aionex-phase22d/evidence-closure/phase22d-evidence-closure-v2
+      read_only: true
+  networks:
+    - cluster-internal
+  healthcheck:
+    test:
+      - CMD
+      - python
+      - -c
+      - >-
+        import json,ssl,urllib.request;
+        data=json.load(urllib.request.urlopen('https://localhost:8443/healthz',context=ssl._create_unverified_context(),timeout=2));
+        assert data['status']=='ok'
+    interval: 2s
+    timeout: 3s
+    retries: 15
+    start_period: 2s
+
+services:
+  node-a:
+    <<: *node-common
+    container_name: aionex-phase24a-node-a
+    environment:
+      <<: *node-environment
+      AIOS_CLUSTER_NODE_ID: node-a
+      AIOS_CLUSTER_SERVICE_URL: https://node-a:8443
+      AIOS_CLUSTER_PEERS: node-b=https://node-b:8443;node-c=https://node-c:8443
+    ports:
+      - "127.0.0.1:19401:8443"
+
+  node-b:
+    <<: *node-common
+    container_name: aionex-phase24a-node-b
+    environment:
+      <<: *node-environment
+      AIOS_CLUSTER_NODE_ID: node-b
+      AIOS_CLUSTER_SERVICE_URL: https://node-b:8443
+      AIOS_CLUSTER_PEERS: node-a=https://node-a:8443;node-c=https://node-c:8443
+    ports:
+      - "127.0.0.1:19402:8443"
+
+  node-c:
+    <<: *node-common
+    container_name: aionex-phase24a-node-c
+    environment:
+      <<: *node-environment
+      AIOS_CLUSTER_NODE_ID: node-c
+      AIOS_CLUSTER_SERVICE_URL: https://node-c:8443
+      AIOS_CLUSTER_PEERS: node-a=https://node-a:8443;node-b=https://node-b:8443
+    ports:
+      - "127.0.0.1:19403:8443"
+
+networks:
+  cluster-internal:
+    name: aionex-phase24a-internal
+    internal: true
