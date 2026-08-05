@@ -1,0 +1,20 @@
+{
+  "control_plane": {
+    "host_id": "control-plane",
+    "ssh_target": "root@control-plane.example"
+  },
+  "hosts": [
+    {
+      "host_id": "host-a",
+      "ssh_target": "root@host-a.example"
+    },
+    {
+      "host_id": "host-b",
+      "ssh_target": "root@host-b.example"
+    },
+    {
+      "host_id": "host-c",
+      "ssh_target": "root@host-c.example"
+    }
+  ]
+}

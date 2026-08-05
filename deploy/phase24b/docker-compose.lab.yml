@@ -1,0 +1,169 @@
+name: aionex-phase24b
+
+x-agent-common: &agent-common
+  image: aionex-phase24b:local
+  user: "10001:10001"
+  read_only: true
+  restart: "no"
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=32m
+  networks:
+    - interhost
+  volumes:
+    - type: bind
+      source: /var/tmp/aionex-phase24b/source
+      target: /var/tmp/aionex-phase24b/source
+      read_only: true
+  environment: &agent-env
+    AIOS_MULTI_HOST_CLUSTER_ID: aionex-phase24b
+    AIOS_MULTI_HOST_CONTROL_PLANE_URL: https://control-plane:9443
+    AIOS_MULTI_HOST_SOURCE_ROOT: /var/tmp/aionex-phase24b/source
+    AIOS_MULTI_HOST_HEARTBEAT_INTERVAL: "0.75"
+    AIOS_MULTI_HOST_POLL_INTERVAL: "0.10"
+    AIOS_MULTI_HOST_TASK_RENEW_INTERVAL: "0.60"
+
+services:
+  control-plane:
+    image: aionex-phase24b:local
+    container_name: aionex-phase24b-control-plane
+    command: ["python", "-m", "aios.multi_host_runtime.control_plane"]
+    user: "10001:10001"
+    read_only: true
+    restart: "no"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=32m
+    networks:
+      - interhost
+    ports:
+      - "127.0.0.1:19600:9443"
+    volumes:
+      - type: bind
+        source: /var/tmp/aionex-phase24b/state
+        target: /state
+      - type: bind
+        source: /var/tmp/aionex-phase24b/credentials/control-plane
+        target: /run/aionex/control-plane
+        read_only: true
+      - type: bind
+        source: /var/tmp/aionex-phase24b/credentials/host-secrets
+        target: /run/aionex/host-secrets
+        read_only: true
+    environment:
+      AIOS_MULTI_HOST_CLUSTER_ID: aionex-phase24b
+      AIOS_MULTI_HOST_STATE_PATH: /state/control-plane.sqlite3
+      AIOS_MULTI_HOST_SECRET_DIR: /run/aionex/host-secrets
+      AIOS_MULTI_HOST_ENROLLMENT_MANIFEST: /run/aionex/control-plane/enrollment.json
+      AIOS_MULTI_HOST_CA_FILE: /run/aionex/control-plane/ca.crt
+      AIOS_MULTI_HOST_CERT_FILE: /run/aionex/control-plane/control-plane.crt
+      AIOS_MULTI_HOST_KEY_FILE: /run/aionex/control-plane/control-plane.key
+      AIOS_MULTI_HOST_LISTEN_HOST: 0.0.0.0
+      AIOS_MULTI_HOST_LISTEN_PORT: "9443"
+      AIOS_MULTI_HOST_HEARTBEAT_TIMEOUT: "4.0"
+      AIOS_MULTI_HOST_LEADER_LEASE: "2.0"
+      AIOS_MULTI_HOST_TASK_LEASE: "2.5"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import json,ssl,urllib.request;
+          c=ssl.create_default_context(cafile='/run/aionex/control-plane/ca.crt');
+          c.load_cert_chain('/run/aionex/control-plane/control-plane.crt','/run/aionex/control-plane/control-plane.key');
+          d=json.load(urllib.request.urlopen('https://control-plane:9443/healthz',context=c,timeout=2));
+          assert d['status']=='ok'
+      interval: 2s
+      timeout: 3s
+      retries: 20
+      start_period: 2s
+
+  host-a:
+    <<: *agent-common
+    container_name: aionex-phase24b-host-a
+    command: ["python", "-m", "aios.multi_host_runtime.agent"]
+    depends_on:
+      control-plane:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: /var/tmp/aionex-phase24b/source
+        target: /var/tmp/aionex-phase24b/source
+        read_only: true
+      - type: bind
+        source: /var/tmp/aionex-phase24b/credentials/host-a
+        target: /run/aionex/host
+        read_only: true
+    environment:
+      <<: *agent-env
+      AIOS_MULTI_HOST_HOST_ID: host-a
+      AIOS_MULTI_HOST_SERVICE_URL: https://host-a:9443
+      AIOS_MULTI_HOST_CAPABILITIES: architecture
+      AIOS_MULTI_HOST_SECRET_FILE: /run/aionex/host/host.key
+      AIOS_MULTI_HOST_CA_FILE: /run/aionex/host/ca.crt
+      AIOS_MULTI_HOST_CERT_FILE: /run/aionex/host/host.crt
+      AIOS_MULTI_HOST_KEY_FILE: /run/aionex/host/host-private.key
+
+  host-b:
+    <<: *agent-common
+    container_name: aionex-phase24b-host-b
+    command: ["python", "-m", "aios.multi_host_runtime.agent"]
+    depends_on:
+      control-plane:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: /var/tmp/aionex-phase24b/source
+        target: /var/tmp/aionex-phase24b/source
+        read_only: true
+      - type: bind
+        source: /var/tmp/aionex-phase24b/credentials/host-b
+        target: /run/aionex/host
+        read_only: true
+    environment:
+      <<: *agent-env
+      AIOS_MULTI_HOST_HOST_ID: host-b
+      AIOS_MULTI_HOST_SERVICE_URL: https://host-b:9443
+      AIOS_MULTI_HOST_CAPABILITIES: backend,security,devops
+      AIOS_MULTI_HOST_SECRET_FILE: /run/aionex/host/host.key
+      AIOS_MULTI_HOST_CA_FILE: /run/aionex/host/ca.crt
+      AIOS_MULTI_HOST_CERT_FILE: /run/aionex/host/host.crt
+      AIOS_MULTI_HOST_KEY_FILE: /run/aionex/host/host-private.key
+
+  host-c:
+    <<: *agent-common
+    container_name: aionex-phase24b-host-c
+    command: ["python", "-m", "aios.multi_host_runtime.agent"]
+    depends_on:
+      control-plane:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: /var/tmp/aionex-phase24b/source
+        target: /var/tmp/aionex-phase24b/source
+        read_only: true
+      - type: bind
+        source: /var/tmp/aionex-phase24b/credentials/host-c
+        target: /run/aionex/host
+        read_only: true
+    environment:
+      <<: *agent-env
+      AIOS_MULTI_HOST_HOST_ID: host-c
+      AIOS_MULTI_HOST_SERVICE_URL: https://host-c:9443
+      AIOS_MULTI_HOST_CAPABILITIES: frontend,quality,architecture
+      AIOS_MULTI_HOST_SECRET_FILE: /run/aionex/host/host.key
+      AIOS_MULTI_HOST_CA_FILE: /run/aionex/host/ca.crt
+      AIOS_MULTI_HOST_CERT_FILE: /run/aionex/host/host.crt
+      AIOS_MULTI_HOST_KEY_FILE: /run/aionex/host/host-private.key
+
+networks:
+  interhost:
+    name: aionex-phase24b-interhost
+    internal: true
