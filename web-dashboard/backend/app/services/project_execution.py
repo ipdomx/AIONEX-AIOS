@@ -395,7 +395,8 @@ class ProjectPlanningRunner:
             16_384 * research_prices[0] + 3000 * research_prices[1]
         ) / 1_000_000
         implementation_worst_case = (
-            4096 * planning_prices[0] + 1200 * planning_prices[1]
+            ControlledProjectBuilder.MAX_INPUT_TOKENS * planning_prices[0]
+            + ControlledProjectBuilder.MAX_OUTPUT_TOKENS * planning_prices[1]
         ) / 1_000_000
         if (
             planning_worst_case
@@ -613,6 +614,7 @@ class ProjectPlanningRunner:
                 models_endpoint=ALLOWED_OPENAI_MODELS_ENDPOINT,
                 timeout_seconds=180.0,
                 maximum_requests=1,
+                maximum_output_tokens=ControlledProjectBuilder.MAX_OUTPUT_TOKENS,
                 input_cost_per_million=pricing[0],
                 output_cost_per_million=pricing[1],
             )

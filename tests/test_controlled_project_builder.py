@@ -195,3 +195,39 @@ def test_builder_rejects_insufficient_remaining_budget() -> None:
             output_cost_per_million=2.0,
             remaining_budget_usd=0.001,
         )
+
+
+def test_builder_allows_one_provider_attempt_with_sufficient_output_budget() -> None:
+    builder = ControlledProjectBuilder(
+        FakeTransport(_specification()),  # type: ignore[arg-type]
+        model="gpt-5-mini",
+        input_cost_per_million=0.25,
+        output_cost_per_million=2.0,
+        remaining_budget_usd=0.01,
+    )
+    assert builder.MAX_OUTPUT_TOKENS == 3000
+    assert builder.provider.retry.policy.max_attempts == 1
+
+
+def test_builder_normalizes_long_copy_and_section_order() -> None:
+    payload = _specification()
+    payload["primary_action"] = "Review the complete governed project workflow and all retained evidence before continuing"
+    payload["sections"] = [
+        payload["sections"][2],
+        payload["sections"][0],
+        payload["sections"][1],
+    ]
+    validated = ControlledProjectBuilder._validate_spec(json.dumps(payload))
+    assert len(validated["primary_action"]) <= 80
+    assert [item["id"] for item in validated["sections"]] == [
+        "overview",
+        "workflow",
+        "evidence",
+    ]
+
+
+def test_builder_never_normalizes_forbidden_content_into_acceptance() -> None:
+    payload = _specification()
+    payload["primary_action"] = "Open https://example.com and continue"
+    with pytest.raises(ControlledProjectBuildError, match="forbidden content"):
+        ControlledProjectBuilder._validate_spec(json.dumps(payload))

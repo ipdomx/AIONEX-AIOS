@@ -37,7 +37,7 @@ Its fixed paid boundary is:
 
 - one controlled web-research Responses request using the fixed `gpt-5.4-nano` research model with exactly one web-search tool call;
 - six sequential department planning requests using the configured `gpt-5-mini` model;
-- one controlled implementation-specification request;
+- one controlled implementation-specification request with a 3,000-token completion ceiling and no automatic retry;
 - maximum combined budget: `0.05 USD` per execution;
 - no parallel provider calls;
 - no automatic provider fallback;
@@ -48,7 +48,7 @@ Model availability is checked before paid project work. Planning and implementat
 
 ## Research and truthfulness
 
-The research stage requires at least two independent HTTPS source domains and at least two attributable verified facts. Every fact must reference an observed source URL. Unknowns and risks remain explicit.
+The research stage requires at least two independent HTTPS source domains and at least two attributable verified facts. Every fact must reference an observed source URL. Optional risks, unknowns, and recommended constraints are deduplicated and bounded without inventing placeholder findings when the provider legitimately returns none.
 
 Planning statements such as `tests_passed` or `security_reviewed` are not accepted as executed proof. Release evidence comes only from deterministic tests, retained hashes, the authorized local security review, and rollback verification.
 

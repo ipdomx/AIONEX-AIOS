@@ -20,7 +20,13 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from .cloud_provider_sandbox import OpenAIOfficialHTTPTransport
-from .providers import DataSensitivity, ModelCapability, ModelRequest
+from .providers import (
+    DataSensitivity,
+    ModelCapability,
+    ModelRequest,
+    RetryManager,
+    RetryPolicy,
+)
 from .providers.adapters import OpenAIProvider
 
 
@@ -78,7 +84,7 @@ class ControlledProjectBuilder:
     becoming arbitrary code.
     """
 
-    MAX_OUTPUT_TOKENS = 1200
+    MAX_OUTPUT_TOKENS = 3000
     MAX_INPUT_TOKENS = 4096
     REQUIRED_SECTIONS = ("overview", "workflow", "evidence")
 
@@ -121,6 +127,9 @@ class ControlledProjectBuilder:
             output_cost_per_million=self.output_cost_per_million,
         )
         self.provider = OpenAIProvider((capability,), raw_transport=transport)
+        self.provider.retry = RetryManager(
+            RetryPolicy(max_attempts=1, base_delay=0, max_delay=0)
+        )
 
     def execute(
         self,
@@ -460,22 +469,28 @@ class ControlledProjectBuilder:
             "secondary_action": (2, 80),
         }
         for name, (minimum, maximum) in scalar_limits.items():
-            cls._validate_text(payload[name], name, minimum, maximum)
+            payload[name] = cls._normalize_text(
+                payload[name], name, minimum, maximum
+            )
         features = payload["features"]
         limitations = payload["limitations"]
-        if not isinstance(features, list) or not 3 <= len(features) <= 8:
-            raise ControlledProjectBuildError("features must contain three to eight items")
-        if not isinstance(limitations, list) or not 1 <= len(limitations) <= 6:
-            raise ControlledProjectBuildError("limitations must contain one to six items")
-        for index, value in enumerate(features):
-            cls._validate_text(value, f"features[{index}]", 3, 180)
-        for index, value in enumerate(limitations):
-            cls._validate_text(value, f"limitations[{index}]", 3, 220)
+        if not isinstance(features, list) or len(features) < 3:
+            raise ControlledProjectBuildError("features must contain at least three items")
+        if not isinstance(limitations, list) or not limitations:
+            raise ControlledProjectBuildError("limitations must contain at least one item")
+        payload["features"] = [
+            cls._normalize_text(value, f"features[{index}]", 3, 180)
+            for index, value in enumerate(features[:8])
+        ]
+        payload["limitations"] = [
+            cls._normalize_text(value, f"limitations[{index}]", 3, 220)
+            for index, value in enumerate(limitations[:6])
+        ]
         sections = payload["sections"]
         if not isinstance(sections, list) or len(sections) != 3:
             raise ControlledProjectBuildError("exactly three sections are required")
-        ids = []
-        for index, section in enumerate(sections):
+        sections_by_id: dict[str, dict[str, Any]] = {}
+        for section in sections:
             if not isinstance(section, dict) or set(section) != {
                 "id",
                 "title",
@@ -483,33 +498,60 @@ class ControlledProjectBuilder:
                 "items",
             }:
                 raise ControlledProjectBuildError("section schema is invalid")
-            ids.append(section["id"])
-            cls._validate_text(section["title"], f"section[{index}].title", 2, 100)
-            cls._validate_text(section["body"], f"section[{index}].body", 10, 500)
-            items = section["items"]
-            if not isinstance(items, list) or not 2 <= len(items) <= 6:
-                raise ControlledProjectBuildError(
-                    "each section must contain two to six items"
-                )
-            for item_index, value in enumerate(items):
-                cls._validate_text(
-                    value, f"section[{index}].items[{item_index}]", 3, 180
-                )
-        if tuple(ids) != cls.REQUIRED_SECTIONS:
+            section_id = str(section["id"])
+            if section_id in sections_by_id:
+                raise ControlledProjectBuildError("section identifiers are duplicated")
+            sections_by_id[section_id] = section
+        if set(sections_by_id) != set(cls.REQUIRED_SECTIONS):
             raise ControlledProjectBuildError(
-                "sections must be ordered as overview, workflow, evidence"
+                "sections must contain overview, workflow, and evidence"
             )
+        ordered_sections: list[dict[str, Any]] = []
+        for index, section_id in enumerate(cls.REQUIRED_SECTIONS):
+            section = sections_by_id[section_id]
+            items = section["items"]
+            if not isinstance(items, list) or len(items) < 2:
+                raise ControlledProjectBuildError(
+                    "each section must contain at least two items"
+                )
+            ordered_sections.append(
+                {
+                    "id": section_id,
+                    "title": cls._normalize_text(
+                        section["title"], f"section[{index}].title", 2, 100
+                    ),
+                    "body": cls._normalize_text(
+                        section["body"], f"section[{index}].body", 10, 500
+                    ),
+                    "items": [
+                        cls._normalize_text(
+                            value,
+                            f"section[{index}].items[{item_index}]",
+                            3,
+                            180,
+                        )
+                        for item_index, value in enumerate(items[:6])
+                    ],
+                }
+            )
+        payload["sections"] = ordered_sections
         return payload
 
     @staticmethod
-    def _validate_text(value: Any, name: str, minimum: int, maximum: int) -> None:
+    def _normalize_text(
+        value: Any, name: str, minimum: int, maximum: int
+    ) -> str:
         if not isinstance(value, str):
             raise ControlledProjectBuildError(f"{name} must be text")
-        normalized = value.strip()
-        if not minimum <= len(normalized) <= maximum:
-            raise ControlledProjectBuildError(f"{name} length is invalid")
+        normalized = " ".join(value.split())
         if _FORBIDDEN_TEXT.search(normalized) or "<" in normalized or ">" in normalized:
             raise ControlledProjectBuildError(f"{name} contains forbidden content")
+        if len(normalized) > maximum:
+            shortened = normalized[:maximum].rsplit(" ", 1)[0].strip()
+            normalized = shortened or normalized[:maximum].strip()
+        if len(normalized) < minimum:
+            raise ControlledProjectBuildError(f"{name} length is invalid")
+        return normalized
 
     @classmethod
     def _render_files(
