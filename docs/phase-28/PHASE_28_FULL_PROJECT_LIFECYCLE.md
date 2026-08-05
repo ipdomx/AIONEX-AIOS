@@ -161,3 +161,9 @@ The durable result recorded:
 The retained delivery archive contained thirteen safe files, including the mode-`600` Owner approval receipt and a nested five-file executable prototype. Path-containment validation found no unsafe entries. The extracted prototype passed a live loopback acceptance covering HTTP delivery, health, create/list/delete persistence, Content Security Policy, frame denial, and MIME-sniffing protection.
 
 All six digital workers were evaluated and retained as active with promotion-review eligibility. Production Backend, Frontend, Nginx, PostgreSQL, Redis, project worker, backup worker, and Cloudflare Tunnel remained healthy after approval and download. The temporary acceptance session and credentials were revoked after evidence capture.
+
+## Final portal release artifact
+
+The completed normal-user portal is version `1.6.0`. Its verified direct-document-root archive is `AIONEX-AIOS-vip-frontend-v1.6.0-static-2026-08-06.zip` with SHA-256 `a3f2801e8bbfa603b5167710a251bdd5089cebd61d9a5638bfdd565371b55e1e`. The archive contains `198` files, no unsafe paths, no duplicate names, and no hash mismatches.
+
+The current server has no authenticated shared-hosting deployment credential for the separate `ai.vip-e.net` document root. The release is therefore published as a verified artifact; replacing the older hosted static shell is the remaining external hosting activation step and does not affect the already active full-lifecycle API and worker.
