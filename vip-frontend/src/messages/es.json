@@ -315,6 +315,35 @@
       "medium": "Media",
       "high": "Alta",
       "critical": "Crítica"
+    },
+    "execution": {
+      "title": "Ciclo de planificación del proyecto con IA",
+      "description": "Ejecuta un ciclo controlado de seis departamentos en este servidor, con un presupuesto máximo fijo de 0,05 $.",
+      "confirm": "¿Iniciar el ciclo controlado con {provider}? El nombre y la descripción del proyecto se procesarán externamente. El presupuesto máximo fijo es ${budget}.",
+      "start": "Iniciar planificación IA",
+      "starting": "Iniciando…",
+      "startError": "No se pudo iniciar el ciclo de planificación IA.",
+      "stageLabel": "Etapa actual",
+      "cost": "Coste calculado",
+      "readiness": "Preparación",
+      "runningNotice": "El worker se ejecuta de forma segura en el mismo servidor. Esta página se actualiza automáticamente.",
+      "approved": "La revisión de planificación superó todos los controles actuales.",
+      "rework": "El ciclo terminó con transparencia y {count} bloqueos antes de aprobar la implementación.",
+      "usage": "{requests} solicitudes al proveedor · {tokens} tokens totales",
+      "failed": "El ciclo de planificación se detuvo de forma segura.",
+      "status": {
+        "queued": "En cola",
+        "running": "En ejecución",
+        "completed": "Completado",
+        "failed": "Fallido"
+      },
+      "stage": {
+        "queued": "En cola",
+        "provider_execution": "Ejecución del proveedor en seis departamentos",
+        "approved": "Aprobado",
+        "rework_required": "Requiere correcciones",
+        "failed": "Fallido"
+      }
     }
   },
   "legal": {

@@ -108,6 +108,40 @@ services:
     security_opt: ["no-new-privileges:true"]
     networks: [aionex-network]
 
+  project-worker:
+    profiles: ["ai-execution"]
+    image: aionex-aios-backend:local
+    restart: unless-stopped
+    command: ["python", "-m", "app.services.project_execution_worker"]
+    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      REDIS_URL: redis://redis:6379/0
+      AIOS_REPO_ROOT: /workspace
+      PYTHONPATH: /workspace/src:/app
+      PROJECT_EXECUTION_SECRET_FILE: /run/secrets/aionex/project-openai.env
+      PROJECT_EXECUTION_OUTPUT_ROOT: /var/lib/aionex/project-executions
+      PROJECT_EXECUTION_LOCAL_REFERENCE: /run/references/phase22b/local-qwen3-8b
+      PROJECT_EXECUTION_BUDGET_CAP_USD: "0.05"
+    volumes:
+      - ..:/workspace:ro
+      - ${AIOS_PROJECT_EXECUTION_SECRET_HOST_FILE:-/root/.config/aionex/phase22c-openai.env}:/run/secrets/aionex/project-openai.env:ro
+      - ${AIOS_PHASE22B_REFERENCE_HOST_DIR:-/var/tmp/aionex-phase22b/sandbox-output/local-qwen3-8b}:/run/references/phase22b/local-qwen3-8b:ro
+      - project_execution_data:/var/lib/aionex/project-executions
+    depends_on:
+      backend: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.services.project_execution_worker", "--healthcheck"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 20s
+    security_opt: ["no-new-privileges:true"]
+    networks: [aionex-network]
+
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -175,6 +209,7 @@ volumes:
   postgres_socket:
   redis_data:
   backup_data:
+  project_execution_data:
 
 networks:
   aionex-network:

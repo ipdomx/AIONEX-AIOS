@@ -99,6 +99,47 @@ class Settings(BaseSettings):
         validation_alias="BACKUP_MIN_FREE_BYTES",
     )
 
+    PROJECT_EXECUTION_ENABLED: bool = Field(
+        default=True,
+        validation_alias="PROJECT_EXECUTION_ENABLED",
+    )
+    PROJECT_EXECUTION_SECRET_FILE: str = Field(
+        default="/run/secrets/aionex/project-openai.env",
+        validation_alias="PROJECT_EXECUTION_SECRET_FILE",
+    )
+    PROJECT_EXECUTION_OUTPUT_ROOT: str = Field(
+        default="/var/lib/aionex/project-executions",
+        validation_alias="PROJECT_EXECUTION_OUTPUT_ROOT",
+    )
+    PROJECT_EXECUTION_LOCAL_REFERENCE: str = Field(
+        default="/run/references/phase22b/local-qwen3-8b",
+        validation_alias="PROJECT_EXECUTION_LOCAL_REFERENCE",
+    )
+    PROJECT_EXECUTION_BUDGET_CAP_USD: float = Field(
+        default=0.05,
+        ge=0.001,
+        le=0.05,
+        validation_alias="PROJECT_EXECUTION_BUDGET_CAP_USD",
+    )
+    PROJECT_EXECUTION_WORKER_POLL_SECONDS: int = Field(
+        default=2,
+        ge=1,
+        le=60,
+        validation_alias="PROJECT_EXECUTION_WORKER_POLL_SECONDS",
+    )
+    PROJECT_EXECUTION_JOB_LEASE_SECONDS: int = Field(
+        default=900,
+        ge=120,
+        le=3600,
+        validation_alias="PROJECT_EXECUTION_JOB_LEASE_SECONDS",
+    )
+    PROJECT_EXECUTION_HEARTBEAT_SECONDS: int = Field(
+        default=10,
+        ge=2,
+        le=60,
+        validation_alias="PROJECT_EXECUTION_HEARTBEAT_SECONDS",
+    )
+
     REDIS_URL: str = Field(
         default="redis://localhost:6379/0", validation_alias="REDIS_URL"
     )

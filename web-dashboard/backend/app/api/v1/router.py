@@ -29,6 +29,7 @@ from app.api.v1.endpoints import (
     notifications,
     organizations,
     permissions,
+    project_executions,
     projects,
     reports,
     roles,
@@ -64,6 +65,7 @@ api_router.include_router(identity.router, prefix="/auth", tags=["Authentication
 api_router.include_router(users.router, prefix="/users", tags=["Users"], dependencies=restricted)
 api_router.include_router(organizations.router, prefix="/organizations", tags=["Organizations"], dependencies=restricted)
 api_router.include_router(workspaces.router, prefix="/workspaces", tags=["Workspaces"], dependencies=[Depends(enforce_free_workspace_request)])
+api_router.include_router(project_executions.router, prefix="/projects", tags=["Project Executions"], dependencies=[Depends(enforce_free_project_request)])
 api_router.include_router(projects.router, prefix="/projects", tags=["Projects"], dependencies=[Depends(enforce_free_project_request)])
 api_router.include_router(ai_agents.router, prefix="/ai/agents", tags=["AI Agents"], dependencies=restricted)
 api_router.include_router(ai_providers.router, prefix="/ai/providers", tags=["AI Providers"], dependencies=restricted)

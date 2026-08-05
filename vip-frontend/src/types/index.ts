@@ -224,6 +224,67 @@ export interface Project {
   updated_at: string;
 }
 
+export interface ProjectExecutionResult {
+  success: boolean;
+  status: string;
+  provider: string;
+  model?: string | null;
+  artifacts_count?: number;
+  requests_count: number;
+  retries_count: number;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  calculated_cost: number;
+  budget_cap: number;
+  total_duration: number;
+  approved: boolean;
+  readiness_score: number;
+  blocking_findings: string[];
+  rework_plan: string[];
+  comparison?: {
+    available?: boolean;
+    winner_by_quality?: string | null;
+    offline_mock_readiness?: number | null;
+    local_model_readiness?: number | null;
+    openai_readiness?: number | null;
+  };
+  fallback_used: boolean;
+  production_modified: boolean;
+  recovered_from_existing_evidence?: boolean;
+}
+
+export interface ProjectExecution {
+  id: string;
+  project_id: string;
+  workspace_id: string;
+  organization_id: string;
+  requested_by_id: string;
+  mode: "planning";
+  provider: "openai";
+  model?: string | null;
+  status: "queued" | "running" | "completed" | "failed";
+  stage: string;
+  progress: number;
+  budget_cap_usd: number;
+  calculated_cost_usd?: number | null;
+  requests_count: number;
+  retries_count: number;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  approved?: boolean | null;
+  readiness_score?: number | null;
+  result?: ProjectExecutionResult | null;
+  error_code?: string | null;
+  error_message?: string | null;
+  evidence_available: boolean;
+  created_at: string;
+  updated_at: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+}
+
 export interface CreateProjectPayload {
   name: string;
   description: string | null;
