@@ -2,6 +2,7 @@
 
 import {
   ArrowUpRight,
+  BadgeCheck,
   BrainCircuit,
   CircleDollarSign,
   Download,
@@ -30,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { StatusMessage } from "@/components/ui/status-message";
 import { useAuth } from "@/hooks/use-auth";
 import {
+  approveProjectExecution,
   createProject,
   downloadProjectExecution,
   getFreeTierStatus,
@@ -75,6 +77,9 @@ export function ProjectsClient() {
     null,
   );
   const [downloadingExecutionId, setDownloadingExecutionId] = useState<
+    string | null
+  >(null);
+  const [approvingExecutionId, setApprovingExecutionId] = useState<
     string | null
   >(null);
   const [createError, setCreateError] = useState("");
@@ -239,6 +244,31 @@ export function ProjectsClient() {
       setExecutionError(errorText(cause, t("execution.startError")));
     } finally {
       setStartingProjectId(null);
+    }
+  }
+
+  async function approveExecution(
+    projectId: string,
+    executionId: string,
+  ) {
+    const confirmed = window.confirm(t("execution.approvalConfirm"));
+    if (!confirmed) return;
+    setExecutionError("");
+    setApprovingExecutionId(executionId);
+    try {
+      const approved = await approveProjectExecution(projectId, executionId);
+      setExecutions((current) => ({ ...current, [projectId]: approved }));
+      setProjects((current) =>
+        current.map((project) =>
+          project.id === projectId
+            ? { ...project, status: "completed", progress: 100 }
+            : project,
+        ),
+      );
+    } catch (cause) {
+      setExecutionError(errorText(cause, t("execution.approvalError")));
+    } finally {
+      setApprovingExecutionId(null);
     }
   }
 
@@ -514,6 +544,14 @@ export function ProjectsClient() {
             const active = Boolean(
               execution && ["queued", "running"].includes(execution.status),
             );
+            const ownerApprovalPending = Boolean(
+              execution?.status === "completed" &&
+                execution.approved !== true &&
+                user?.role === "Owner" &&
+                execution.result?.blocking_findings?.length === 1 &&
+                execution.result.blocking_findings[0] ===
+                  "owner approval is required",
+            );
             return (
               <article
                 key={project.id}
@@ -726,7 +764,35 @@ export function ProjectsClient() {
                             </div>
                           </div>
 
+                          {ownerApprovalPending && (
+                            <StatusMessage>
+                              {t("execution.ownerApprovalRequired")}
+                            </StatusMessage>
+                          )}
+                          {execution.result.owner_approval?.approved && (
+                            <StatusMessage tone="success">
+                              {t("execution.ownerApproved")}
+                            </StatusMessage>
+                          )}
+
                           <div className="flex flex-wrap gap-2">
+                            {ownerApprovalPending && (
+                              <Button
+                                onClick={() =>
+                                  void approveExecution(project.id, execution.id)
+                                }
+                                disabled={approvingExecutionId === execution.id}
+                              >
+                                {approvingExecutionId === execution.id ? (
+                                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <BadgeCheck className="h-4 w-4" />
+                                )}
+                                {approvingExecutionId === execution.id
+                                  ? t("execution.approving")
+                                  : t("execution.approve")}
+                              </Button>
+                            )}
                             {execution.evidence_available && (
                               <Button
                                 variant="secondary"

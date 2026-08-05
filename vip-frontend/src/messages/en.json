@@ -376,7 +376,13 @@
       "workforceTitle": "Workforce review",
       "workforceSummary": "{count} digital workers evaluated · {training} under training or supervision",
       "researchTitle": "Independent research",
-      "researchSummary": "{facts} verified facts · {sources} independent sources"
+      "researchSummary": "{facts} verified facts · {sources} independent sources",
+      "approve": "Approve final release",
+      "approving": "Approving…",
+      "approvalConfirm": "Approve the complete retained evidence package and close the final Owner gate? This does not claim any unexecuted external deployment or store publication.",
+      "approvalError": "The final Owner approval could not be recorded.",
+      "ownerApprovalRequired": "Every executed evidence gate passed. Final release is waiting only for the Organization Owner's explicit approval.",
+      "ownerApproved": "The Organization Owner approved the retained evidence package. The final archive includes the signed approval receipt."
     }
   },
   "legal": {

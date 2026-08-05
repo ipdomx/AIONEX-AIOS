@@ -514,6 +514,22 @@ export function startProjectExecution(
   );
 }
 
+export function approveProjectExecution(
+  projectId: string,
+  executionId: string,
+  note?: string,
+): Promise<ProjectExecution> {
+  return jsonRequest<ProjectExecution>(
+    `/projects/${encodeURIComponent(projectId)}/executions/${encodeURIComponent(executionId)}/approve`,
+    "POST",
+    {
+      confirm_owner_approval: true,
+      note: note?.trim() || null,
+    },
+  );
+}
+
+
 export function downloadProjectExecution(
   projectId: string,
   executionId: string,

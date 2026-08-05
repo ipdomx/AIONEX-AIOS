@@ -109,7 +109,7 @@ class FullProjectCycle:
             stage("cognitive_review", 12)
             cognitive = CognitiveCore(staging / "decision-ledger.jsonl").decide(
                 "Authorize controlled project planning",
-                selected_objective,
+                self._governance_objective(selected_objective),
                 project=selected_project,
                 risk_level=self._risk_level(selected_objective),
                 metadata={
@@ -314,7 +314,7 @@ class FullProjectCycle:
             risk_level = self._risk_level(selected_objective)
             cognitive = CognitiveCore(staging / "decision-ledger.jsonl").decide(
                 "Execute full governed project cycle",
-                selected_objective,
+                self._governance_objective(selected_objective),
                 project=selected_project,
                 risk_level=risk_level,
                 metadata={
@@ -1424,17 +1424,96 @@ class FullProjectCycle:
         }
         blockers = []
         for capability, terms in capability_terms.items():
-            if any(term in lowered for term in terms):
+            if any(
+                FullProjectCycle._contains_requested_term(lowered, term)
+                for term in terms
+            ):
                 blockers.append(
                     f"prototype scope does not prove requested {capability} runtime capability"
                 )
         return blockers
 
     @staticmethod
-    def _risk_level(objective: str) -> str:
+    def _negative_scope_spans(text: str) -> tuple[tuple[int, int], ...]:
+        markers = (
+            "must not require",
+            "must not include",
+            "does not require",
+            "does not include",
+            "do not require",
+            "do not include",
+            "doesn't require",
+            "is not required to include",
+            "without requiring",
+            "without",
+            "no need for",
+            "exclude",
+            "excludes",
+            "excluded",
+            "excluding",
+            "لا يتطلب",
+            "لا يحتاج",
+            "لا يشمل",
+            "لن يتطلب",
+            "دون",
+            "بدون",
+            "باستثناء",
+        )
+        spans: list[tuple[int, int]] = []
+        for marker in markers:
+            start = 0
+            while True:
+                index = text.find(marker, start)
+                if index < 0:
+                    break
+                boundary_candidates = [
+                    text.find(symbol, index) for symbol in (".", "!", "?", ";", "\n")
+                ]
+                boundaries = [value for value in boundary_candidates if value >= 0]
+                end = min(boundaries) if boundaries else min(len(text), index + 320)
+                spans.append((index, min(len(text), max(end, index + len(marker)))))
+                start = index + len(marker)
+        return tuple(spans)
+
+    @classmethod
+    def _contains_requested_term(cls, text: str, term: str) -> bool:
+        spans = cls._negative_scope_spans(text)
+        start = 0
+        while True:
+            index = text.find(term, start)
+            if index < 0:
+                return False
+            if not any(left <= index <= right for left, right in spans):
+                return True
+            start = index + len(term)
+
+    @classmethod
+    def _governance_objective(cls, objective: str) -> str:
+        """Remove explicitly excluded capabilities from rule-based risk review."""
+        spans = sorted(cls._negative_scope_spans(objective.lower()))
+        if not spans:
+            return objective
+        merged: list[tuple[int, int]] = []
+        for start, end in spans:
+            if merged and start <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+            else:
+                merged.append((start, end))
+        parts: list[str] = []
+        cursor = 0
+        for start, end in merged:
+            parts.append(objective[cursor:start])
+            parts.append(" bounded local prototype scope ")
+            cursor = end
+        parts.append(objective[cursor:])
+        normalized = " ".join("".join(parts).split())
+        return normalized or "Build a bounded local prototype."
+
+    @classmethod
+    def _risk_level(cls, objective: str) -> str:
         lowered = objective.lower()
         if any(
-            token in lowered
+            cls._contains_requested_term(lowered, token)
             for token in (
                 "production",
                 "payment",
@@ -1453,11 +1532,11 @@ class FullProjectCycle:
             return "high"
         return "medium"
 
-    @staticmethod
-    def _security_sensitive(objective: str) -> bool:
+    @classmethod
+    def _security_sensitive(cls, objective: str) -> bool:
         lowered = objective.lower()
         return any(
-            token in lowered
+            cls._contains_requested_term(lowered, token)
             for token in (
                 "authentication",
                 "password",

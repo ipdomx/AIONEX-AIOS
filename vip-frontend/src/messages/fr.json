@@ -376,7 +376,13 @@
       "workforceTitle": "Revue du personnel",
       "workforceSummary": "{count} workers numériques évalués · {training} en formation ou sous supervision",
       "researchTitle": "Recherche indépendante",
-      "researchSummary": "{facts} faits vérifiés · {sources} sources indépendantes"
+      "researchSummary": "{facts} faits vérifiés · {sources} sources indépendantes",
+      "approve": "Approuver la version finale",
+      "approving": "Approbation…",
+      "approvalConfirm": "Approuver le dossier complet de preuves conservées et fermer la dernière étape d’approbation du propriétaire ? Cela n’atteste aucun déploiement externe ni publication en boutique non exécuté.",
+      "approvalError": "L’approbation finale du propriétaire n’a pas pu être enregistrée.",
+      "ownerApprovalRequired": "Toutes les étapes de preuve exécutées ont réussi. La version finale attend uniquement l’approbation explicite du propriétaire de l’organisation.",
+      "ownerApproved": "Le propriétaire de l’organisation a approuvé le dossier de preuves. L’archive finale contient le reçu d’approbation signé."
     }
   },
   "legal": {

@@ -292,6 +292,15 @@ export interface ProjectExecutionResult {
     manifest_sha256?: string;
     files_count?: number;
     contains_executable_product?: boolean;
+    owner_approval_receipt?: string;
+    owner_approval_receipt_sha256?: string;
+  };
+  owner_approval?: {
+    approved: boolean;
+    approved_by_id: string;
+    approved_at: string;
+    receipt: string;
+    receipt_sha256: string;
   };
   all_governance_layers_executed?: boolean;
   model_claims_used_as_execution_proof?: boolean;
