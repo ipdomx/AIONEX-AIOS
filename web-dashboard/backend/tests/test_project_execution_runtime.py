@@ -27,10 +27,12 @@ from app.db.models import (
     Workspace,
 )
 from app.services import free_tier
+from aios.cloud_provider_sandbox import OpenAITransportError
 from app.services.project_execution import (
     ProjectExecutionConfigurationError,
     ProjectPlanningRunner,
     load_project_provider_secret,
+    sanitized_execution_error,
 )
 
 
@@ -876,3 +878,65 @@ def test_runner_executes_planning_prototype_and_full_governance_without_network(
     assert any(stage == "external_research" for stage, _ in stages)
     assert any(stage == "implementation_tests" for stage, _ in stages)
     assert any(stage == "release_review" for stage, _ in stages)
+
+
+def test_incomplete_provider_response_is_reported_without_raw_details() -> None:
+    code, message = sanitized_execution_error(
+        OpenAITransportError(
+            "safe incomplete response",
+            error_type="response_status",
+            error_code="response_incomplete",
+            error_param="max_output_tokens",
+        )
+    )
+    assert code == "provider_incomplete"
+    assert message == (
+        "The provider response ended before the governed result was complete."
+    )
+    assert "max_output_tokens" not in message
+
+
+def test_project_runner_uses_separate_web_search_capable_research_model(
+    monkeypatch,
+) -> None:
+    import app.services.project_execution as project_execution_module
+
+    monkeypatch.setattr(
+        settings,
+        "PROJECT_EXECUTION_RESEARCH_MODEL",
+        "gpt-5.4-nano",
+    )
+    monkeypatch.setattr(settings, "PROJECT_EXECUTION_BUDGET_CAP_USD", 0.05)
+    monkeypatch.setattr(
+        settings,
+        "PROJECT_EXECUTION_WEB_SEARCH_COST_USD",
+        0.01,
+    )
+
+    runner = ProjectPlanningRunner()
+
+    assert runner.research_model == "gpt-5.4-nano"
+    assert project_execution_module.RESEARCH_MODEL_PRICING[runner.research_model] == (
+        0.20,
+        1.25,
+    )
+    planning = 6 * ((4096 * 0.25) + (1200 * 2.00)) / 1_000_000
+    research = 0.01 + ((16_384 * 0.20) + (3000 * 1.25)) / 1_000_000
+    implementation = ((4096 * 0.25) + (1200 * 2.00)) / 1_000_000
+    assert planning + research + implementation < runner.budget_cap
+
+
+def test_project_runner_rejects_unknown_research_model_before_provider_use(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        settings,
+        "PROJECT_EXECUTION_RESEARCH_MODEL",
+        "gpt-5-mini",
+    )
+
+    with pytest.raises(
+        ProjectExecutionConfigurationError,
+        match="research model is not in the fixed allowlist",
+    ):
+        ProjectPlanningRunner()

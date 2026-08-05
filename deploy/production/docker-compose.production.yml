@@ -103,6 +103,7 @@ services:
       PROJECT_EXECUTION_LOCAL_REFERENCE: /run/references/phase22b/local-qwen3-8b
       PROJECT_EXECUTION_BUDGET_CAP_USD: "0.05"
       PROJECT_EXECUTION_WEB_SEARCH_COST_USD: "0.01"
+      PROJECT_EXECUTION_RESEARCH_MODEL: "gpt-5.4-nano"
     command: ["python", "-m", "app.services.project_execution_worker"]
     restart: unless-stopped
     volumes:

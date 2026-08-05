@@ -17,7 +17,7 @@ from .cloud_provider_sandbox import ALLOWED_OPENAI_ENDPOINT, OpenAITransportErro
 
 
 DEFAULT_WEB_SEARCH_TOOL_COST_USD = 0.01
-DEFAULT_MAXIMUM_INPUT_TOKENS = 4096
+DEFAULT_MAXIMUM_INPUT_TOKENS = 16_384
 DEFAULT_MAXIMUM_OUTPUT_TOKENS = 3000
 DEFAULT_TIMEOUT_SECONDS = 180.0
 _URL_PATTERN = re.compile(r"^https://[^\s]+$")
@@ -203,7 +203,9 @@ class ControlledWebResearch:
             "max_tool_calls": 1,
             "max_output_tokens": DEFAULT_MAXIMUM_OUTPUT_TOKENS,
             "store": False,
+            "reasoning": {"effort": "none"},
             "text": {
+                "verbosity": "low",
                 "format": {
                     "type": "json_schema",
                     "name": "aionex_controlled_research",
@@ -232,7 +234,10 @@ class ControlledWebResearch:
                     reason = str(incomplete.get("reason") or "")[:80]
             raise OpenAITransportError(
                 "OpenAI web research response was not completed"
-                + (f": {reason}" if reason else "")
+                + (f": {reason}" if reason else ""),
+                error_type="response_status",
+                error_code="response_incomplete",
+                error_param=reason,
             )
         text = self._extract_output_text(raw)
         sources, search_calls = self._extract_sources(raw)
