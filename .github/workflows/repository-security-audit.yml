@@ -1,0 +1,41 @@
+name: Repository Security Audit
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repository-security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repository-security-audit:
+    name: Secrets and repository hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Audit tracked files and secret patterns
+        run: bash scripts/repository-security-audit.sh
+
+      - name: Detect accidental merge conflict markers
+        run: |
+          set -Eeuo pipefail
+          if git grep -nE '^(<<<<<<<|=======|>>>>>>>)' -- ':!*.md'; then
+            echo 'Merge conflict markers were found.' >&2
+            exit 1
+          fi
+
+      - name: Verify executable security scripts
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/repository-security-audit.sh
+          bash -n web-dashboard/scripts/validate-private-origin.sh
