@@ -36,6 +36,24 @@ OUTPUT_RATE = 2.0
 API_KEY = "sk-test-secret-that-must-never-leak"
 
 
+def _pretend_root_owned(monkeypatch, target: Path) -> None:
+    """Keep the production root-owner guard while making CI fixtures portable."""
+    original_stat = Path.stat
+
+    def fake_stat(self, *args, **kwargs):
+        value = original_stat(self, *args, **kwargs)
+        if self == target:
+            class RootOwnedStat:
+                st_mode = value.st_mode
+                st_uid = 0
+                st_size = value.st_size
+
+            return RootOwnedStat()
+        return value
+
+    monkeypatch.setattr(Path, "stat", fake_stat)
+
+
 def valid_department_payload(department, criteria, *, tests_passed=True, security_reviewed=True):
     return {
         "schema_version": 1,
@@ -472,6 +490,7 @@ def test_secret_loader_accepts_only_root_owned_mode_600_exact_variables(tmp_path
     )
     secret_path.chmod(0o600)
     monkeypatch.setattr(cloud_module, "PHASE22C_SECRET_PATH", secret_path)
+    _pretend_root_owned(monkeypatch, secret_path)
     secret = load_phase22c_secret(secret_path)
     assert secret.model == MODEL
     assert secret.key_last4 == API_KEY[-4:]
@@ -485,6 +504,7 @@ def test_secret_loader_accepts_only_root_owned_mode_600_exact_variables(tmp_path
 def test_secret_loader_rejects_unknown_or_duplicate_variables(tmp_path, monkeypatch):
     secret_path = tmp_path / "phase22c-openai.env"
     monkeypatch.setattr(cloud_module, "PHASE22C_SECRET_PATH", secret_path)
+    _pretend_root_owned(monkeypatch, secret_path)
     secret_path.write_text(
         "OPENAI_API_KEY=" + API_KEY + "\nAIOS_PHASE22C_MODEL=" + MODEL + "\nEXTRA=value\n",
         encoding="utf-8",
