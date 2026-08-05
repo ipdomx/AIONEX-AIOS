@@ -315,6 +315,35 @@
       "medium": "Medium",
       "high": "High",
       "critical": "Critical"
+    },
+    "execution": {
+      "title": "AI project planning cycle",
+      "description": "Run one controlled six-department planning cycle on this server. The fixed provider budget is capped at $0.05.",
+      "confirm": "Start the controlled planning cycle with {provider}? Project name and description will be processed externally. The fixed maximum budget is ${budget}.",
+      "start": "Start AI planning",
+      "starting": "Starting…",
+      "startError": "The AI planning cycle could not be started.",
+      "stageLabel": "Current stage",
+      "cost": "Calculated cost",
+      "readiness": "Readiness",
+      "runningNotice": "The worker is running securely on the same server. This page updates automatically.",
+      "approved": "The project planning review passed all current gates.",
+      "rework": "The planning cycle completed truthfully with {count} blocking findings before implementation approval.",
+      "usage": "{requests} provider requests · {tokens} total tokens",
+      "failed": "The planning cycle stopped safely.",
+      "status": {
+        "queued": "Queued",
+        "running": "Running",
+        "completed": "Completed",
+        "failed": "Failed"
+      },
+      "stage": {
+        "queued": "Queued",
+        "provider_execution": "Six-department provider execution",
+        "approved": "Approved",
+        "rework_required": "Rework required",
+        "failed": "Failed"
+      }
     }
   },
   "legal": {

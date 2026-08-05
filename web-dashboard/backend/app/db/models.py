@@ -388,6 +388,71 @@ class Job(Base, TimestampMixin):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class ProjectExecution(Base, TimestampMixin):
+    """Durable single-server project planning execution requested by a user."""
+
+    __tablename__ = "project_executions"
+    __table_args__ = (
+        Index(
+            "ix_project_executions_org_status_created",
+            "organization_id",
+            "status",
+            "created_at",
+        ),
+        Index(
+            "ix_project_executions_project_created",
+            "project_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    requested_by_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    mode: Mapped[str] = mapped_column(String(32), default="planning", nullable=False)
+    provider: Mapped[str] = mapped_column(String(64), default="openai", nullable=False)
+    model: Mapped[str | None] = mapped_column(String(160))
+    status: Mapped[str] = mapped_column(
+        String(32), default="queued", nullable=False, index=True
+    )
+    stage: Mapped[str] = mapped_column(
+        String(64), default="queued", nullable=False
+    )
+    progress: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    objective: Mapped[str] = mapped_column(Text, nullable=False)
+    external_processing_confirmed: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    budget_cap_usd: Mapped[float] = mapped_column(Float, nullable=False)
+    calculated_cost_usd: Mapped[float | None] = mapped_column(Float)
+    requests_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    retries_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    total_tokens: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    approved: Mapped[bool | None] = mapped_column(Boolean)
+    readiness_score: Mapped[float | None] = mapped_column(Float)
+    result_summary: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    evidence_path: Mapped[str | None] = mapped_column(Text)
+    error_code: Mapped[str | None] = mapped_column(String(120))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    lease_token: Mapped[str | None] = mapped_column(String(36))
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class Notification(Base, TimestampMixin):
     __tablename__ = "notifications"
     __table_args__ = (

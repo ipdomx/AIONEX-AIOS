@@ -315,6 +315,35 @@
       "medium": "Orta",
       "high": "Yüksek",
       "critical": "Kritik"
+    },
+    "execution": {
+      "title": "Yapay zekâ proje planlama döngüsü",
+      "description": "Bu sunucuda altı departmanlı kontrollü bir planlama döngüsü çalıştırın. Sabit sağlayıcı bütçesi 0,05 ABD dolarıyla sınırlıdır.",
+      "confirm": "{provider} ile kontrollü döngü başlatılsın mı? Proje adı ve açıklaması harici olarak işlenecektir. Sabit azami bütçe ${budget}.",
+      "start": "Yapay zekâ planlamasını başlat",
+      "starting": "Başlatılıyor…",
+      "startError": "Yapay zekâ planlama döngüsü başlatılamadı.",
+      "stageLabel": "Geçerli aşama",
+      "cost": "Hesaplanan maliyet",
+      "readiness": "Hazırlık",
+      "runningNotice": "Worker aynı sunucuda güvenli biçimde çalışıyor. Bu sayfa otomatik güncellenir.",
+      "approved": "Proje planlama incelemesi mevcut tüm kapıları geçti.",
+      "rework": "Döngü, uygulama onayından önce {count} engelleyici bulguyla dürüstçe tamamlandı.",
+      "usage": "{requests} sağlayıcı isteği · toplam {tokens} token",
+      "failed": "Planlama döngüsü güvenli biçimde durduruldu.",
+      "status": {
+        "queued": "Kuyrukta",
+        "running": "Çalışıyor",
+        "completed": "Tamamlandı",
+        "failed": "Başarısız"
+      },
+      "stage": {
+        "queued": "Kuyrukta",
+        "provider_execution": "Altı departmanlı sağlayıcı yürütmesi",
+        "approved": "Onaylandı",
+        "rework_required": "Yeniden çalışma gerekli",
+        "failed": "Başarısız"
+      }
     }
   },
   "legal": {

@@ -315,6 +315,35 @@
       "medium": "Mittel",
       "high": "Hoch",
       "critical": "Kritisch"
+    },
+    "execution": {
+      "title": "KI-Projektplanungszyklus",
+      "description": "Führen Sie einen kontrollierten Planungszyklus mit sechs Abteilungen auf diesem Server aus. Das Anbieterbudget ist auf 0,05 $ begrenzt.",
+      "confirm": "Kontrollierten Zyklus mit {provider} starten? Projektname und -beschreibung werden extern verarbeitet. Das feste Höchstbudget beträgt ${budget}.",
+      "start": "KI-Planung starten",
+      "starting": "Wird gestartet…",
+      "startError": "Der KI-Planungszyklus konnte nicht gestartet werden.",
+      "stageLabel": "Aktuelle Phase",
+      "cost": "Berechnete Kosten",
+      "readiness": "Bereitschaft",
+      "runningNotice": "Der Worker läuft sicher auf demselben Server. Diese Seite wird automatisch aktualisiert.",
+      "approved": "Die Projektplanungsprüfung hat alle aktuellen Gates bestanden.",
+      "rework": "Der Zyklus wurde wahrheitsgemäß mit {count} Blockern vor der Implementierungsfreigabe abgeschlossen.",
+      "usage": "{requests} Anbieteranfragen · {tokens} Token insgesamt",
+      "failed": "Der Planungszyklus wurde sicher beendet.",
+      "status": {
+        "queued": "Warteschlange",
+        "running": "Läuft",
+        "completed": "Abgeschlossen",
+        "failed": "Fehlgeschlagen"
+      },
+      "stage": {
+        "queued": "Warteschlange",
+        "provider_execution": "Anbieterausführung in sechs Abteilungen",
+        "approved": "Freigegeben",
+        "rework_required": "Nacharbeit erforderlich",
+        "failed": "Fehlgeschlagen"
+      }
     }
   },
   "legal": {

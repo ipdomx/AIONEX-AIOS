@@ -12,6 +12,7 @@ import type {
   PasskeyConfiguration,
   PasskeyCredentialSummary,
   Project,
+  ProjectExecution,
   RegistrationTelemetry,
   SocialRegistrationPreparation,
   User,
@@ -456,6 +457,34 @@ export function listProjects(): Promise<Project[]> {
 
 export function createProject(payload: CreateProjectPayload): Promise<Project> {
   return jsonRequest<Project>("/projects", "POST", payload);
+}
+
+export function listProjectExecutions(
+  projectId: string,
+  limit = 10,
+): Promise<ProjectExecution[]> {
+  return request<ProjectExecution[]>(
+    `/projects/${encodeURIComponent(projectId)}/executions?limit=${limit}`,
+  );
+}
+
+export function getProjectExecution(
+  projectId: string,
+  executionId: string,
+): Promise<ProjectExecution> {
+  return request<ProjectExecution>(
+    `/projects/${encodeURIComponent(projectId)}/executions/${encodeURIComponent(executionId)}`,
+  );
+}
+
+export function startProjectExecution(
+  projectId: string,
+): Promise<ProjectExecution> {
+  return jsonRequest<ProjectExecution>(
+    `/projects/${encodeURIComponent(projectId)}/executions`,
+    "POST",
+    { confirm_external_processing: true, mode: "planning" },
+  );
 }
 
 export function createSupportRequest(

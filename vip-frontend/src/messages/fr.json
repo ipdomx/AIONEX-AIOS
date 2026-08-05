@@ -315,6 +315,35 @@
       "medium": "Moyenne",
       "high": "Élevée",
       "critical": "Critique"
+    },
+    "execution": {
+      "title": "Cycle de planification IA du projet",
+      "description": "Exécutez un cycle contrôlé de six départements sur ce serveur, avec un budget fournisseur plafonné à 0,05 $.",
+      "confirm": "Démarrer le cycle contrôlé avec {provider} ? Le nom et la description du projet seront traités en externe. Le budget maximal fixe est de ${budget}.",
+      "start": "Démarrer la planification IA",
+      "starting": "Démarrage…",
+      "startError": "Impossible de démarrer le cycle de planification IA.",
+      "stageLabel": "Étape actuelle",
+      "cost": "Coût calculé",
+      "readiness": "Préparation",
+      "runningNotice": "Le worker s’exécute en sécurité sur le même serveur. Cette page se met à jour automatiquement.",
+      "approved": "La revue de planification a validé toutes les étapes actuelles.",
+      "rework": "Le cycle s’est terminé honnêtement avec {count} blocages avant validation de la mise en œuvre.",
+      "usage": "{requests} requêtes fournisseur · {tokens} jetons au total",
+      "failed": "Le cycle de planification s’est arrêté en sécurité.",
+      "status": {
+        "queued": "En attente",
+        "running": "En cours",
+        "completed": "Terminé",
+        "failed": "Échec"
+      },
+      "stage": {
+        "queued": "En attente",
+        "provider_execution": "Exécution fournisseur sur six départements",
+        "approved": "Approuvé",
+        "rework_required": "Reprise requise",
+        "failed": "Échec"
+      }
     }
   },
   "legal": {

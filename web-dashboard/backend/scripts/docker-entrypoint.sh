@@ -18,6 +18,37 @@ if [ "$(id -u)" = "0" ]; then
         fi
         export FIREBASE_ADMIN_CREDENTIALS_JSON="$runtime_path"
     fi
+    project_secret_source="${PROJECT_EXECUTION_SECRET_FILE:-}"
+    if [ -n "$project_secret_source" ] && [ -f "$project_secret_source" ]; then
+        runtime_dir=/run/aionex
+        project_secret_runtime="$runtime_dir/project-openai.env"
+        install -d -m 0700 -o aionex -g aionex "$runtime_dir"
+        if [ "$project_secret_source" != "$project_secret_runtime" ]; then
+            install -m 0400 -o aionex -g aionex "$project_secret_source" "$project_secret_runtime"
+        else
+            chown aionex:aionex "$project_secret_runtime"
+            chmod 0400 "$project_secret_runtime"
+        fi
+        export PROJECT_EXECUTION_SECRET_FILE="$project_secret_runtime"
+    fi
+
+    project_reference_source="${PROJECT_EXECUTION_LOCAL_REFERENCE:-}"
+    if [ -n "$project_reference_source" ] && [ -d "$project_reference_source" ]; then
+        runtime_dir=/run/aionex
+        project_reference_runtime="$runtime_dir/phase22b-local-reference"
+        install -d -m 0700 -o aionex -g aionex "$runtime_dir"
+        rm -rf "$project_reference_runtime"
+        cp -a "$project_reference_source" "$project_reference_runtime"
+        chown -R aionex:aionex "$project_reference_runtime"
+        chmod -R u=rwX,go= "$project_reference_runtime"
+        export PROJECT_EXECUTION_LOCAL_REFERENCE="$project_reference_runtime"
+    fi
+
+    project_output_root="${PROJECT_EXECUTION_OUTPUT_ROOT:-}"
+    if [ -n "$project_output_root" ]; then
+        install -d -m 0700 -o aionex -g aionex "$project_output_root"
+    fi
+
     exec gosu aionex "$@"
 fi
 
