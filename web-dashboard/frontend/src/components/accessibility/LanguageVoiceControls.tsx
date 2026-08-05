@@ -3,7 +3,11 @@
 import { Languages, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
 
 import { useLanguageVoice } from "@/components/providers/LanguageVoiceProvider";
-import { ArabicDialect, SUPPORTED_LOCALES, SupportedLocale } from "@/lib/locale-engine";
+import {
+  ArabicDialect,
+  SUPPORTED_LOCALES,
+  SupportedLocale,
+} from "@/lib/locale-engine";
 
 const LOCALE_LABELS: Record<SupportedLocale, string> = {
   "en-US": "English",
@@ -51,7 +55,11 @@ export default function LanguageVoiceControls() {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-[90] flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-space-900/95 p-2 shadow-2xl backdrop-blur-xl" role="group" aria-label="Language and voice controls">
+    <div
+      className="fixed bottom-4 end-4 z-[90] flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-space-900/95 p-2 shadow-2xl backdrop-blur-xl"
+      role="group"
+      aria-label="Language and voice controls"
+    >
       <Languages className="h-4 w-4 text-cyan-300" aria-hidden="true" />
       <select
         value={locale}
@@ -87,7 +95,11 @@ export default function LanguageVoiceControls() {
           aria-label={listening ? "Stop voice input" : "Start voice input"}
           title="Voice input is inserted into the focused field"
         >
-          {listening ? <MicOff className="h-4 w-4 text-red-300" /> : <Mic className="h-4 w-4 text-cyan-300" />}
+          {listening ? (
+            <MicOff className="h-4 w-4 text-red-300" />
+          ) : (
+            <Mic className="h-4 w-4 text-cyan-300" />
+          )}
         </button>
       )}
       {speechSynthesisAvailable && (

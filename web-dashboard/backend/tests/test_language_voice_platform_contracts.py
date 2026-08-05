@@ -1,11 +1,9 @@
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[3]
 LOCALE_ENGINE = ROOT / "web-dashboard/frontend/src/lib/locale-engine.ts"
 VOICE_PROVIDER = (
-    ROOT
-    / "web-dashboard/frontend/src/components/providers/LanguageVoiceProvider.tsx"
+    ROOT / "web-dashboard/frontend/src/components/providers/LanguageVoiceProvider.tsx"
 )
 CONTROLS = (
     ROOT
@@ -58,14 +56,49 @@ def test_voice_input_output_and_live_interface_controls_are_wired():
 def test_translation_catalog_covers_core_live_registration_and_projects():
     source = TRANSLATIONS.read_text(encoding="utf-8")
     for phrase in (
-        '"Sign in"',
-        '"Create a free account"',
-        '"Mobile verification"',
-        '"Send code"',
-        '"Projects"',
-        '"New Project"',
-        '"Create Project"',
+        "Sign in",
+        "Create a free account",
+        "Mobile verification",
+        "Send code",
+        "Projects",
+        "New Project",
+        "Create Project",
     ):
         assert phrase in source
-    for locale_marker in ("const AR", "const FR", "const ES", "const DE", "const TR", "const ZH", "const HI", "const UR"):
+    for locale_marker in (
+        "const AR",
+        "const FR",
+        "const ES",
+        "const DE",
+        "const TR",
+        "const ZH",
+        "const HI",
+        "const UR",
+    ):
         assert locale_marker in source
+
+
+def test_live_translation_tracks_each_text_node_and_account_locale_without_repetition():
+    provider = VOICE_PROVIDER.read_text(encoding="utf-8")
+    assert "originalTextByNode = new WeakMap<Node, string>()" in provider
+    assert "renderedTextByNode = new WeakMap<Node, string>()" in provider
+    assert "characterData: true" in provider
+    assert 'apiClient.get<AccountLocaleResponse>("/settings")' in provider
+    assert "accountLocale," in provider
+    assert "aionexOriginalText" not in provider
+
+
+def test_arabic_catalog_covers_owner_navigation_access_and_security_actions():
+    source = TRANSLATIONS.read_text(encoding="utf-8")
+    for phrase in (
+        '"Owner Control"',
+        '"VIP Portal Control"',
+        '"Roles, Permissions & Session Control"',
+        '"Organizations represented"',
+        '"Change password"',
+        '"Sign out other sessions"',
+        '"No other active sessions"',
+        '"Scope:"',
+    ):
+        assert phrase in source
+    assert "translateArabicPattern" in source

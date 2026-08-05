@@ -42,6 +42,7 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 import { useAuth } from "@/components/providers/AuthProvider";
+import { useLanguageVoice } from "@/components/providers/LanguageVoiceProvider";
 import { ownerNavigationSections } from "@/config/owner-navigation";
 
 function cn(...inputs: ClassValue[]) {
@@ -259,6 +260,8 @@ export default function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const { user } = useAuth();
+  const { decision } = useLanguageVoice();
+  const isRtl = decision.direction === "rtl";
   const isSuperOwner = user?.role === "Super Owner";
   const [expandedSections, setExpandedSections] = useState<string[]>([
     "ai",
@@ -372,13 +375,18 @@ export default function Sidebar({
               )}
             />
             {!collapsed && (
-              <span className="flex-1 text-left">{section.label}</span>
+              <span
+                className={cn("flex-1", isRtl ? "text-right" : "text-left")}
+              >
+                {section.label}
+              </span>
             )}
             {!collapsed && (
               <ChevronRight
                 className={cn(
                   "h-3.5 w-3.5 text-white/30 transition-transform",
-                  expanded && "rotate-90",
+                  isRtl && !expanded && "rotate-180",
+                  expanded && (isRtl ? "-rotate-90" : "rotate-90"),
                 )}
               />
             )}
@@ -392,7 +400,14 @@ export default function Sidebar({
                 exit={{ height: 0, opacity: 0 }}
                 className="overflow-hidden"
               >
-                <div className="ml-4 mt-0.5 space-y-0.5 border-l border-white/[0.06] pl-3">
+                <div
+                  className={cn(
+                    "mt-0.5 space-y-0.5",
+                    isRtl
+                      ? "mr-4 border-r border-white/[0.06] pr-3"
+                      : "ml-4 border-l border-white/[0.06] pl-3",
+                  )}
+                >
                   {section.children?.map((child) => {
                     const ChildIcon = child.icon;
                     return (
@@ -455,10 +470,13 @@ export default function Sidebar({
       initial={false}
       animate={{
         width: mobile ? 280 : collapsed ? 72 : 280,
-        x: mobile && !open ? -280 : 0,
+        x: mobile && !open ? (isRtl ? 280 : -280) : 0,
       }}
       transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      className="glass-strong fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-white/[0.06]"
+      className={cn(
+        "glass-strong fixed top-0 z-50 flex h-screen flex-col border-white/[0.06]",
+        isRtl ? "right-0 border-l" : "left-0 border-r",
+      )}
     >
       <div className="flex h-16 items-center gap-3 border-b border-white/[0.06] px-4">
         <div className="relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04]">
@@ -508,6 +526,12 @@ export default function Sidebar({
           className="flex w-full items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] p-2 text-white/40 hover:bg-white/[0.06] hover:text-white/70"
         >
           {collapsed ? (
+            isRtl ? (
+              <ChevronLeft className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )
+          ) : isRtl ? (
             <ChevronRight className="h-4 w-4" />
           ) : (
             <ChevronLeft className="h-4 w-4" />

@@ -21,6 +21,12 @@ from time import perf_counter
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
+from sqlalchemy import func, or_, select, text, update
+from sqlalchemy.dialects.postgresql import insert as postgres_insert
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.auth import UserRecord, pwd_context, require_super_owner
 from app.core.config import settings
 from app.db.base import SessionLocal, get_db
@@ -48,11 +54,6 @@ from app.services.backup_executor import (
     acquire_enqueue_lock,
     get_backup_executor,
 )
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
-from sqlalchemy import func, or_, select, text, update
-from sqlalchemy.dialects.postgresql import insert as postgres_insert
-from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/owner", tags=["owner-control-plane"])
 
@@ -806,20 +807,25 @@ async def _access_items(session: AsyncSession) -> list[dict[str, Any]]:
             )
         ).all()
     )
-    roles = (
-        await session.scalars(
-            select(Role).where(Role.status != "deleted").order_by(Role.name)
+    rows = (
+        await session.execute(
+            select(Role, Organization.name)
+            .outerjoin(Organization, Organization.id == Role.organization_id)
+            .where(Role.status != "deleted")
+            .order_by(Organization.name, Role.name, Role.id)
         )
     ).all()
     return [
         {
             "id": role.id,
             "name": role.name,
+            "organization": organization_name or "Platform",
+            "organizationId": role.organization_id,
             "scope": "Global" if role.name == "Super Owner" else "Organization",
             "users": user_counts.get(role.id, 0),
             "status": "protected" if role.name == "Super Owner" else role.status,
         }
-        for role in roles
+        for role, organization_name in rows
     ]
 
 
