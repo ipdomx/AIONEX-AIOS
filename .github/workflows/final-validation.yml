@@ -206,7 +206,7 @@ jobs:
           docker compose \
             --env-file .env.production \
             -f docker-compose.production.yml \
-            build backend frontend
+            build backend frontend portal
       - name: Verify legacy DATABASE_URL upgrade preserves PostgreSQL data
         working-directory: web-dashboard
         run: |
