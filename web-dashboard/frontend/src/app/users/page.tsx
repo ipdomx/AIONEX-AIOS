@@ -1,85 +1,313 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { Users, Plus, Search, Shield, Mail, Clock } from "lucide-react";
-
-const users = [
-  { id: "1", name: "Alex Chen", email: "alex@aionex.io", role: "Super Owner", status: "online", department: "Engineering", lastActive: "2m ago", avatar: null },
-  { id: "2", name: "Sarah Johnson", email: "sarah@aionex.io", role: "CTO", status: "online", department: "Engineering", lastActive: "5m ago", avatar: null },
-  { id: "3", name: "Mike Davis", email: "mike@aionex.io", role: "Engineering Manager", status: "away", department: "Engineering", lastActive: "1h ago", avatar: null },
-  { id: "4", name: "Emma Wilson", email: "emma@aionex.io", role: "Security Officer", status: "online", department: "Security", lastActive: "3m ago", avatar: null },
-  { id: "5", name: "Chris Lee", email: "chris@aionex.io", role: "DevOps", status: "offline", department: "Infrastructure", lastActive: "3h ago", avatar: null },
-  { id: "6", name: "Lisa Park", email: "lisa@aionex.io", role: "AI Researcher", status: "online", department: "Research", lastActive: "1m ago", avatar: null },
-];
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  Loader2,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+  UserRound,
+} from "lucide-react";
+import {
+  identityApi,
+  type IdentityUser,
+  type OrganizationRecord,
+  type RoleRecord,
+  type WorkspaceRecord,
+} from "@/lib/identity-api";
 
 export default function UsersPage() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const filteredUsers = users.filter((u) => u.name.toLowerCase().includes(searchQuery.toLowerCase()) || u.email.toLowerCase().includes(searchQuery.toLowerCase()));
+  const [users, setUsers] = useState<IdentityUser[]>([]);
+  const [organizations, setOrganizations] = useState<OrganizationRecord[]>([]);
+  const [roles, setRoles] = useState<RoleRecord[]>([]);
+  const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("Loading live identity records...");
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "online": return "bg-green-500";
-      case "away": return "bg-orange-500";
-      case "busy": return "bg-red-500";
-      default: return "bg-white/30";
+  async function load() {
+    setLoading(true);
+    try {
+      const [nextUsers, nextOrganizations, nextRoles, nextWorkspaces] =
+        await Promise.all([
+          identityApi.users(),
+          identityApi.organizations(),
+          identityApi.roles(),
+          identityApi.workspaces(),
+        ]);
+      setUsers(nextUsers);
+      setOrganizations(nextOrganizations);
+      setRoles(nextRoles);
+      setWorkspaces(nextWorkspaces);
+      setMessage(`Synchronized ${nextUsers.length} user records.`);
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Identity load failed",
+      );
+    } finally {
+      setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return users.filter((user) =>
+      `${user.name} ${user.email} ${user.role} ${user.organization} ${user.workspace || ""}`
+        .toLowerCase()
+        .includes(query),
+    );
+  }, [search, users]);
+
+  async function createUser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setBusy(true);
+    try {
+      const result = await identityApi.createUser({
+        name: String(form.get("name") || "").trim(),
+        email: String(form.get("email") || "").trim(),
+        password: String(form.get("password") || ""),
+        organization_id: String(form.get("organization_id") || ""),
+        role_id: String(form.get("role_id") || ""),
+        workspace_id: String(form.get("workspace_id") || "") || null,
+      });
+      setUsers((current) => [result.user, ...current]);
+      event.currentTarget.reset();
+      setMessage("User created with a stored workspace and role assignment.");
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "User creation failed",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function changeUser(
+    user: IdentityUser,
+    payload: Record<string, unknown>,
+  ) {
+    setBusy(true);
+    try {
+      const updated = await identityApi.updateUser(user.id, payload);
+      setUsers((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      );
+      setMessage("User identity and sessions were synchronized.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "User update failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeUser(user: IdentityUser) {
+    if (!window.confirm(`Delete ${user.email}?`)) return;
+    setBusy(true);
+    try {
+      await identityApi.deleteUser(user.id);
+      setUsers((current) => current.filter((item) => item.id !== user.id));
+      setMessage("User deleted and active refresh sessions revoked.");
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "User deletion failed",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
+      <header className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Users</h1>
-          <p className="text-sm text-white/40 mt-1">Manage team members and permissions</p>
+          <h1 className="text-2xl font-bold text-white">Users</h1>
+          <p className="mt-1 text-sm text-white/40">{message}</p>
         </div>
-        <button className="btn-primary"><Plus className="w-4 h-4" />Invite User</button>
-      </motion.div>
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-        <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search users..." className="w-full pl-10 pr-4 py-2.5 rounded-xl glass-input text-sm text-white placeholder-white/30 outline-none" />
-      </div>
-      <div className="glass-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-white/[0.06]">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-white/40 uppercase tracking-wider">User</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-white/40 uppercase tracking-wider">Role</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-white/40 uppercase tracking-wider">Department</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-white/40 uppercase tracking-wider">Status</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-white/40 uppercase tracking-wider">Last Active</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsers.map((user, i) => (
-                <motion.tr key={user.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.05 }} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center border border-white/[0.08]">
-                        <span className="text-xs font-bold text-white">{user.name.charAt(0)}</span>
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-white">{user.name}</div>
-                        <div className="text-xs text-white/40">{user.email}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3"><span className="px-2 py-0.5 rounded-full text-xs bg-white/[0.06] text-white/60 border border-white/[0.08]">{user.role}</span></td>
-                  <td className="px-4 py-3 text-sm text-white/60">{user.department}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${getStatusColor(user.status)}`} />
-                      <span className="text-sm text-white/60 capitalize">{user.status}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-white/40">{user.lastActive}</td>
-                </motion.tr>
-              ))}
-            </tbody>
-          </table>
+        <button
+          className="btn-primary"
+          disabled={loading}
+          onClick={() => void load()}
+        >
+          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          Refresh
+        </button>
+      </header>
+
+      <form
+        onSubmit={createUser}
+        className="glass-card grid gap-3 p-5 md:grid-cols-2 xl:grid-cols-6"
+      >
+        <input
+          name="name"
+          required
+          minLength={2}
+          placeholder="Full name"
+          className="glass-input rounded-xl px-3 py-2 text-sm text-white"
+        />
+        <input
+          name="email"
+          required
+          type="email"
+          placeholder="Email"
+          className="glass-input rounded-xl px-3 py-2 text-sm text-white"
+        />
+        <input
+          name="password"
+          required
+          type="password"
+          minLength={12}
+          placeholder="Initial password"
+          className="glass-input rounded-xl px-3 py-2 text-sm text-white"
+        />
+        <select
+          name="organization_id"
+          required
+          className="glass-input rounded-xl px-3 py-2 text-sm text-white"
+        >
+          <option value="">Organization</option>
+          {organizations.map((item) => (
+            <option key={item.id} value={item.id} className="bg-space-800">
+              {item.name}
+            </option>
+          ))}
+        </select>
+        <select
+          name="role_id"
+          required
+          className="glass-input rounded-xl px-3 py-2 text-sm text-white"
+        >
+          <option value="">Role</option>
+          {roles
+            .filter((item) => item.name !== "Super Owner")
+            .map((item) => (
+              <option key={item.id} value={item.id} className="bg-space-800">
+                {item.name}
+              </option>
+            ))}
+        </select>
+        <div className="flex gap-2">
+          <select
+            name="workspace_id"
+            className="glass-input min-w-0 flex-1 rounded-xl px-3 py-2 text-sm text-white"
+          >
+            <option value="">No workspace</option>
+            {workspaces.map((item) => (
+              <option key={item.id} value={item.id} className="bg-space-800">
+                {item.name}
+              </option>
+            ))}
+          </select>
+          <button disabled={busy} className="btn-primary px-3">
+            <Plus className="h-4 w-4" />
+          </button>
         </div>
+      </form>
+
+      <label className="relative block max-w-xl">
+        <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+        <input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search users, roles, organizations or workspaces..."
+          className="glass-input w-full rounded-xl py-3 ps-10 pe-4 text-sm text-white"
+        />
+      </label>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        {filtered.map((user) => (
+          <article key={user.id} className="glass-card p-5">
+            <div className="flex items-start gap-3">
+              <span className="rounded-xl bg-electric-500/10 p-2.5 text-electric-300">
+                <UserRound className="h-5 w-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h2 className="truncate text-sm font-semibold text-white">
+                  {user.name}
+                </h2>
+                <p className="truncate text-xs text-white/40">{user.email}</p>
+                <p className="mt-2 text-xs text-white/45">
+                  {user.organization} · {user.role} ·{" "}
+                  {user.workspace || "No workspace"}
+                </p>
+                <p className="mt-1 text-[11px] text-white/30">
+                  Last active:{" "}
+                  {user.last_active
+                    ? new Date(user.last_active).toLocaleString()
+                    : "Never"}
+                </p>
+              </div>
+              <span
+                className={`rounded-full px-2.5 py-1 text-xs ${user.status === "active" || user.status === "online" ? "bg-green-500/10 text-green-300" : "bg-orange-500/10 text-orange-300"}`}
+              >
+                {user.status}
+              </span>
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+              <select
+                value={user.workspace_id || ""}
+                disabled={busy}
+                onChange={(event) =>
+                  void changeUser(user, {
+                    workspace_id: event.target.value || null,
+                  })
+                }
+                className="glass-input rounded-lg px-3 py-2 text-xs text-white"
+              >
+                <option value="">No workspace</option>
+                {workspaces
+                  .filter(
+                    (item) => item.organization_id === user.organization_id,
+                  )
+                  .map((item) => (
+                    <option
+                      key={item.id}
+                      value={item.id}
+                      className="bg-space-800"
+                    >
+                      {item.name}
+                    </option>
+                  ))}
+              </select>
+              <button
+                disabled={busy}
+                onClick={() =>
+                  void changeUser(user, {
+                    status:
+                      user.status === "active" || user.status === "online"
+                        ? "inactive"
+                        : "active",
+                  })
+                }
+                className="rounded-lg border border-orange-500/20 bg-orange-500/10 px-3 py-2 text-xs text-orange-300"
+              >
+                {user.status === "active" || user.status === "online"
+                  ? "Suspend"
+                  : "Restore"}
+              </button>
+              <button
+                disabled={busy}
+                onClick={() => void removeUser(user)}
+                className="rounded-lg border border-red-500/20 bg-red-500/10 p-2 text-red-300"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          </article>
+        ))}
       </div>
+      {loading && (
+        <div className="flex items-center gap-2 text-sm text-white/40">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading users…
+        </div>
+      )}
     </div>
   );
 }

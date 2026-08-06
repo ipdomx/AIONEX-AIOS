@@ -39,6 +39,9 @@ const empty: AccountSettings = {
     mfa_policy_enabled: false,
     active_sessions: 0,
     password_min_length: 12,
+    mfa_enabled: false,
+    mfa_backup_codes_remaining: 0,
+    passkey_count: 0,
   },
   free_tier: null,
 };
@@ -65,7 +68,8 @@ function QuotaCard({
       <Icon className="h-5 w-5 text-electric-300" />
       <div className="mt-3 text-xs text-white/40">{label}</div>
       <div className="mt-1 text-lg font-semibold text-white">
-        {used} <span className="text-sm font-normal text-white/35">/ {limit}</span>
+        {used}{" "}
+        <span className="text-sm font-normal text-white/35">/ {limit}</span>
       </div>
     </div>
   );
@@ -124,7 +128,9 @@ export default function ProfilePage() {
       await refreshUser();
       setMessage("Profile image updated.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Avatar update failed");
+      setMessage(
+        error instanceof Error ? error.message : "Avatar update failed",
+      );
     } finally {
       setBusy(false);
     }
@@ -216,13 +222,15 @@ export default function ProfilePage() {
                   className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-4"
                 >
                   <div className="text-xs text-white/35">{label}</div>
-                  <div className="mt-2 break-all text-sm text-white/80">{value}</div>
+                  <div className="mt-2 break-all text-sm text-white/80">
+                    {value}
+                  </div>
                 </div>
               ))}
               <div className="sm:col-span-2 rounded-xl border border-electric-500/15 bg-electric-500/[0.05] p-4 text-xs leading-5 text-electric-200/80">
-                This account can manage one free project, view this profile, change
-                its profile image, and change its password. Additional platform
-                capabilities require an owner-assigned plan or role.
+                This account can manage one free project, view this profile,
+                change its profile image, and change its password. Additional
+                platform capabilities require an owner-assigned plan or role.
               </div>
             </div>
           </section>
@@ -231,7 +239,9 @@ export default function ProfilePage() {
             <section className="glass-card p-6">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-lg font-semibold text-white">Free-plan usage</h2>
+                  <h2 className="text-lg font-semibold text-white">
+                    Free-plan usage
+                  </h2>
                   <p className="mt-1 text-xs text-white/35">
                     Limits are configured by the platform owner.
                   </p>
@@ -275,9 +285,12 @@ export default function ProfilePage() {
             <div className="flex items-center gap-3">
               <KeyRound className="h-5 w-5 text-electric-300" />
               <div>
-                <h2 className="text-lg font-semibold text-white">Change password</h2>
+                <h2 className="text-lg font-semibold text-white">
+                  Change password
+                </h2>
                 <p className="text-xs text-white/35">
-                  All active refresh sessions are revoked after a successful change.
+                  All active refresh sessions are revoked after a successful
+                  change.
                 </p>
               </div>
             </div>

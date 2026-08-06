@@ -24,6 +24,7 @@ from app.db.models import (
     RefreshSession,
     Role,
     User,
+    Workspace,
 )
 
 router = APIRouter()
@@ -68,15 +69,26 @@ def _iso(value: datetime | None) -> str | None:
     return value.isoformat() if value is not None else None
 
 
-def _workspace_not_supported(workspace_id: str | None) -> None:
-    if workspace_id:
+async def _resolve_workspace(
+    session: AsyncSession,
+    workspace_id: str | None,
+    organization_id: str,
+) -> Workspace | None:
+    if workspace_id is None:
+        return None
+    workspace = await session.scalar(
+        select(Workspace).where(
+            Workspace.id == workspace_id,
+            Workspace.organization_id == organization_id,
+            Workspace.status != "deleted",
+        )
+    )
+    if workspace is None:
         raise HTTPException(
             status_code=422,
-            detail=(
-                "User workspace assignment is not persisted by the current "
-                "identity schema"
-            ),
+            detail="Workspace does not belong to the selected organization",
         )
+    return workspace
 
 
 async def serialize_user(
@@ -92,6 +104,11 @@ async def serialize_user(
         organization = await session.get(Organization, user.organization_id)
     if organization is None:
         raise HTTPException(status_code=500, detail="User organization is missing")
+    workspace = (
+        await session.get(Workspace, user.workspace_id)
+        if user.workspace_id is not None
+        else None
+    )
     permission_codes = (
         await get_role_permission_codes(session, role.id) if role is not None else []
     )
@@ -106,11 +123,9 @@ async def serialize_user(
         "status": user.status,
         "organization": organization.name,
         "organization_id": organization.id,
-        # The current relational User model has no workspace or last-active
-        # column. Return an honest null instead of an in-memory value.
-        "workspace": None,
-        "workspace_id": None,
-        "last_active": None,
+        "workspace": workspace.name if workspace is not None else None,
+        "workspace_id": workspace.id if workspace is not None else None,
+        "last_active": _iso(user.last_active_at),
         "created_at": _iso(user.created_at),
         "updated_at": _iso(user.updated_at),
     }
@@ -197,11 +212,6 @@ async def list_users(
     actor: UserRecord = Depends(require_permissions("users:read")),
     session: AsyncSession = Depends(get_db),
 ):
-    # No workspace assignment exists in the current User schema, so a
-    # workspace-filtered query has no honest matches.
-    if workspace_id:
-        return []
-
     statement = (
         select(User, Role, Organization)
         .outerjoin(Role, Role.id == User.role_id)
@@ -212,6 +222,8 @@ async def list_users(
         statement = statement.where(User.organization_id == actor.organization_id)
     if organization_id:
         statement = statement.where(User.organization_id == organization_id)
+    if workspace_id:
+        statement = statement.where(User.workspace_id == workspace_id)
     if role:
         statement = statement.where(Role.name.ilike(role.strip()))
     if status_filter:
@@ -244,7 +256,6 @@ async def create_user(
     actor: UserRecord = Depends(require_permissions("users:write")),
     session: AsyncSession = Depends(get_db),
 ):
-    _workspace_not_supported(data.workspace_id)
     organization = await session.get(Organization, data.organization_id)
     if organization is None:
         raise HTTPException(status_code=404, detail="Organization not found")
@@ -260,6 +271,9 @@ async def create_user(
             detail="Role does not belong to the selected organization",
         )
     _reject_super_owner_assignment(role)
+    workspace = await _resolve_workspace(
+        session, data.workspace_id, organization.id
+    )
 
     normalized_email = data.email.strip().lower()
     if (
@@ -277,6 +291,7 @@ async def create_user(
         name=name,
         role_id=role.id,
         organization_id=organization.id,
+        workspace_id=workspace.id if workspace is not None else None,
         password_hash=pwd_context.hash(raw_password),
         status="active",
     )
@@ -327,7 +342,6 @@ async def update_user(
     actor: UserRecord = Depends(require_permissions("users:write")),
     session: AsyncSession = Depends(get_db),
 ):
-    _workspace_not_supported(data.workspace_id)
     user = await get_user(session, user_id)
     assert_user_scope(actor, user, "update")
     existing_role = await _target_role(session, user)
@@ -380,6 +394,11 @@ async def update_user(
         user.status = data.status
         if data.status not in {"active", "online"}:
             await _revoke_sessions(session, user.id)
+    if "workspace_id" in data.model_fields_set:
+        workspace = await _resolve_workspace(
+            session, data.workspace_id or None, user.organization_id
+        )
+        user.workspace_id = workspace.id if workspace is not None else None
     if data.avatar is not None:
         user.avatar = data.avatar
 

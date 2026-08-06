@@ -11,7 +11,8 @@ from typing import Any, Literal
 from app.core.auth import UserRecord, current_user, pwd_context
 from app.core.config import settings
 from app.db.base import get_db
-from app.db.models import OwnerControlRecord, RefreshSession, User, uuid_str
+from app.db.models import OwnerControlRecord, PasskeyCredential, RefreshSession, User, uuid_str
+from app.services.account_security import mfa_status
 from app.services.free_tier import (
     FREE_USER_ROLE_NAME,
     adjust_storage_usage,
@@ -20,7 +21,7 @@ from app.services.free_tier import (
 )
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -132,6 +133,12 @@ async def _serialize_settings(
             )
         )
     ).all()
+    passkey_count = await session.scalar(
+        select(func.count(PasskeyCredential.id)).where(
+            PasskeyCredential.user_id == actor.id
+        )
+    )
+    mfa = await mfa_status(session, actor.id)
     return {
         "profile": {
             "id": actor.id,
@@ -146,6 +153,9 @@ async def _serialize_settings(
             "mfa_policy_enabled": settings.MFA_ENABLED,
             "active_sessions": len(sessions),
             "password_min_length": settings.PASSWORD_MIN_LENGTH,
+            "mfa_enabled": bool(mfa["enabled"]),
+            "mfa_backup_codes_remaining": int(mfa["backup_codes_remaining"]),
+            "passkey_count": int(passkey_count or 0),
         },
         "free_tier": (
             await get_free_tier_status(session, actor)
@@ -237,6 +247,58 @@ async def change_password(
             "Password changed successfully; active refresh sessions were revoked"
         )
     }
+
+
+@router.get("/sessions")
+async def list_sessions(
+    actor: UserRecord = Depends(current_user),
+    session: AsyncSession = Depends(get_db),
+) -> list[dict[str, Any]]:
+    rows = list(
+        (
+            await session.scalars(
+                select(RefreshSession)
+                .where(RefreshSession.user_id == actor.id)
+                .order_by(RefreshSession.created_at.desc())
+                .limit(100)
+            )
+        ).all()
+    )
+    return [
+        {
+            "id": item.id,
+            "created_at": item.created_at.isoformat(),
+            "updated_at": item.updated_at.isoformat(),
+            "expires_at": item.expires_at.isoformat(),
+            "revoked_at": item.revoked_at.isoformat() if item.revoked_at else None,
+            "active": item.revoked_at is None and item.expires_at > datetime.now(UTC),
+            "ip_address": item.ip_address,
+            "user_agent": item.user_agent,
+        }
+        for item in rows
+    ]
+
+
+@router.delete("/sessions/{session_id}")
+async def revoke_session(
+    session_id: str,
+    actor: UserRecord = Depends(current_user),
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, bool]:
+    record = await session.scalar(
+        select(RefreshSession)
+        .where(
+            RefreshSession.id == session_id,
+            RefreshSession.user_id == actor.id,
+        )
+        .with_for_update()
+    )
+    if record is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if record.revoked_at is None:
+        record.revoked_at = datetime.now(UTC)
+        await session.commit()
+    return {"revoked": True}
 
 
 @router.delete("/sessions")

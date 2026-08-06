@@ -21,7 +21,10 @@ from app.db.models import (
     RefreshSession,
     Role,
     RolePermission,
+    Team,
+    TeamMembership,
     User,
+    Workspace,
 )
 from app.db.seed import seed
 
@@ -49,7 +52,14 @@ def _actor(
 
 
 def test_identity_endpoints_no_longer_use_the_in_memory_store() -> None:
-    for filename in ("organizations.py", "users.py", "roles.py", "permissions.py"):
+    for filename in (
+        "organizations.py",
+        "users.py",
+        "roles.py",
+        "permissions.py",
+        "workspaces.py",
+        "teams.py",
+    ):
         source = (ENDPOINTS / filename).read_text(encoding="utf-8")
         assert "identity_store" not in source
         assert "app.db.models" in source
@@ -69,6 +79,8 @@ async def test_identity_lifecycle_is_relational_scoped_and_audited() -> None:
     role_id: str | None = None
     user_id: str | None = None
     refresh_session_id: str | None = None
+    workspace_id: str | None = None
+    team_id: str | None = None
 
     try:
         async with AsyncClient(
@@ -108,6 +120,8 @@ async def test_identity_lifecycle_is_relational_scoped_and_audited() -> None:
                         "users:write",
                         "profile:read",
                         "audit:read",
+                        "projects:read",
+                        "projects:write",
                     ],
                 },
             )
@@ -116,6 +130,8 @@ async def test_identity_lifecycle_is_relational_scoped_and_audited() -> None:
             assert role_response.json()["permissions"] == [
                 "audit:read",
                 "profile:read",
+                "projects:read",
+                "projects:write",
                 "users:read",
                 "users:write",
             ]
@@ -149,6 +165,79 @@ async def test_identity_lifecycle_is_relational_scoped_and_audited() -> None:
             assert user_payload["workspace_id"] is None
             assert user_payload["last_active"] is None
             assert user_response.json()["temporary_password"] is None
+
+            actor_holder["actor"] = _actor(
+                user_id=user_id,
+                role="Manager",
+                organization_id=organization_id,
+                permissions=[
+                    "organizations:read",
+                    "users:read",
+                    "users:write",
+                    "roles:read",
+                    "permissions:read",
+                    "projects:read",
+                    "projects:write",
+                    "audit:read",
+                ],
+            )
+            workspace_response = await client.post(
+                "/api/v1/workspaces",
+                json={
+                    "name": f"Identity Workspace {suffix}",
+                    "description": "Persisted workspace assignment",
+                },
+            )
+            assert workspace_response.status_code == 201, workspace_response.text
+            workspace_id = workspace_response.json()["id"]
+
+            assigned_workspace = await client.put(
+                f"/api/v1/users/{user_id}",
+                json={"workspace_id": workspace_id},
+            )
+            assert assigned_workspace.status_code == 200, assigned_workspace.text
+            assert assigned_workspace.json()["workspace_id"] == workspace_id
+            assert assigned_workspace.json()["workspace"] == f"Identity Workspace {suffix}"
+
+            filtered_users = await client.get(
+                "/api/v1/users", params={"workspace_id": workspace_id}
+            )
+            assert filtered_users.status_code == 200, filtered_users.text
+            assert {item["id"] for item in filtered_users.json()} == {user_id}
+
+            actor_holder["actor"] = _actor()
+            team_response = await client.post(
+                "/api/v1/teams",
+                json={
+                    "name": f"Identity Team {suffix}",
+                    "organization_id": organization_id,
+                    "workspace_id": workspace_id,
+                },
+            )
+            assert team_response.status_code == 201, team_response.text
+            team_id = team_response.json()["id"]
+            assert team_response.json()["organization_id"] == organization_id
+            assert team_response.json()["workspace_id"] == workspace_id
+
+            membership_response = await client.put(
+                f"/api/v1/teams/{team_id}/members/{user_id}",
+                json={"membership_role": "lead"},
+            )
+            assert membership_response.status_code == 200, membership_response.text
+            actor_holder["actor"] = _actor(
+                user_id=user_id,
+                role="Manager",
+                organization_id=organization_id,
+                permissions=["users:read", "users:write", "projects:read", "projects:write"],
+            )
+            members = await client.get(f"/api/v1/teams/{team_id}/members")
+            assert members.status_code == 200, members.text
+            assert members.json()[0]["id"] == user_id
+            assert members.json()[0]["membership_role"] == "lead"
+
+            actor_holder["actor"] = _actor()
+            foreign_team = await client.get(f"/api/v1/teams/{team_id}")
+            assert foreign_team.status_code == 200
 
             promote_to_super_owner = await client.put(
                 f"/api/v1/users/{user_id}",
@@ -228,6 +317,26 @@ async def test_identity_lifecycle_is_relational_scoped_and_audited() -> None:
             )
             foreign_scope = await client.get("/api/v1/organizations/aionex-org")
             assert foreign_scope.status_code == 403
+            actor_holder["actor"] = _actor(
+                user_id="owner-1",
+                role="Owner",
+                organization_id="aionex-org",
+                permissions=["users:read", "users:write"],
+            )
+            hidden_team = await client.get(f"/api/v1/teams/{team_id}")
+            assert hidden_team.status_code == 404
+            actor_holder["actor"] = _actor(
+                user_id=user_id,
+                role="Manager",
+                organization_id=organization_id,
+                permissions=[
+                    "organizations:read",
+                    "users:read",
+                    "users:write",
+                    "roles:read",
+                    "permissions:read",
+                ],
+            )
             cross_organization_create = await client.post(
                 "/api/v1/users",
                 json={
@@ -239,6 +348,20 @@ async def test_identity_lifecycle_is_relational_scoped_and_audited() -> None:
                 },
             )
             assert cross_organization_create.status_code == 403
+
+            actor_holder["actor"] = _actor(
+                user_id=user_id,
+                role="Manager",
+                organization_id=organization_id,
+                permissions=["users:read", "users:write", "projects:read", "projects:write"],
+            )
+            delete_team_response = await client.delete(f"/api/v1/teams/{team_id}")
+            assert delete_team_response.status_code == 200, delete_team_response.text
+            clear_workspace = await client.put(
+                f"/api/v1/users/{user_id}", json={"workspace_id": None}
+            )
+            assert clear_workspace.status_code == 200, clear_workspace.text
+            assert clear_workspace.json()["workspace_id"] is None
 
             actor_holder["actor"] = _actor()
             delete_user_response = await client.delete(f"/api/v1/users/{user_id}")
@@ -309,8 +432,17 @@ async def test_identity_lifecycle_is_relational_scoped_and_audited() -> None:
                             RefreshSession.id == refresh_session_id
                         )
                     )
+                if team_id is not None:
+                    await session.execute(
+                        delete(TeamMembership).where(TeamMembership.team_id == team_id)
+                    )
+                    await session.execute(delete(Team).where(Team.id == team_id))
                 if user_id is not None:
                     await session.execute(delete(User).where(User.id == user_id))
+                if workspace_id is not None:
+                    await session.execute(
+                        delete(Workspace).where(Workspace.id == workspace_id)
+                    )
                 if role_id is not None:
                     await session.execute(
                         delete(RolePermission).where(RolePermission.role_id == role_id)

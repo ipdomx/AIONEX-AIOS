@@ -11,6 +11,7 @@ import {
 } from "react";
 import {
   clearSession,
+  completeMfaLogin,
   createFirebaseSocialSession,
   getCurrentUser,
   hasStoredSession,
@@ -24,6 +25,7 @@ import { authenticateWithPasskey } from "@/lib/passkeys";
 import type {
   FirebaseSocialConfiguration,
   FreeRegistrationPayload,
+  MFAChallengeResponse,
   OAuthProviderId,
   User,
 } from "@/types";
@@ -32,7 +34,11 @@ interface AuthContextValue {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<User>;
+  login: (
+    email: string,
+    password: string,
+  ) => Promise<User | MFAChallengeResponse>;
+  completeMfa: (challengeToken: string, code: string) => Promise<User>;
   loginWithSocial: (
     provider: OAuthProviderId,
     configuration: FirebaseSocialConfiguration,
@@ -73,9 +79,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const response = await apiLogin(email, password);
+    if ("mfa_required" in response) return response;
     setUser(response.user);
     return response.user;
   }, []);
+
+  const completeMfa = useCallback(
+    async (challengeToken: string, code: string) => {
+      const response = await completeMfaLogin(challengeToken, code);
+      setUser(response.user);
+      return response.user;
+    },
+    [],
+  );
 
   const loginWithSocial = useCallback(
     async (
@@ -120,6 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: Boolean(user),
       isLoading,
       login,
+      completeMfa,
       loginWithSocial,
       loginWithPasskey,
       registerFree,
@@ -130,6 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [
       isLoading,
       login,
+      completeMfa,
       loginWithPasskey,
       loginWithSocial,
       logout,

@@ -10,7 +10,13 @@ def test_expected_tables_are_registered():
         "role_permissions",
         "users",
         "refresh_sessions",
+        "external_identities",
+        "passkey_credentials",
+        "password_reset_tokens",
+        "user_mfa",
         "workspaces",
+        "teams",
+        "team_memberships",
         "projects",
         "tasks",
         "workflows",
@@ -40,6 +46,10 @@ def test_core_unique_constraints_and_indexes_exist():
     audit_events = Base.metadata.tables["audit_events"]
     owner_controls = Base.metadata.tables["owner_control_records"]
     owner_commands = Base.metadata.tables["owner_command_records"]
+    teams = Base.metadata.tables["teams"]
+    memberships = Base.metadata.tables["team_memberships"]
+    password_resets = Base.metadata.tables["password_reset_tokens"]
+    user_mfa = Base.metadata.tables["user_mfa"]
 
     assert any(column.name == "email" and column.unique for column in users.columns)
     assert any(
@@ -91,3 +101,20 @@ def test_core_unique_constraints_and_indexes_exist():
         index.name == "ix_owner_command_records_created_at"
         for index in owner_commands.indexes
     )
+    assert users.c.workspace_id.nullable is True
+    assert any(
+        foreign_key.target_fullname == "workspaces.id"
+        for foreign_key in users.c.workspace_id.foreign_keys
+    )
+    assert any(index.name == "ix_users_workspace_id" for index in users.indexes)
+    assert any(index.name == "ix_users_last_active_at" for index in users.indexes)
+    assert any(
+        constraint.name == "uq_team_org_slug" for constraint in teams.constraints
+    )
+    assert any(
+        constraint.name == "uq_team_membership"
+        for constraint in memberships.constraints
+    )
+    assert password_resets.c.token_hash.unique is True
+    assert user_mfa.c.user_id.primary_key is True
+    assert user_mfa.c.enabled.nullable is False

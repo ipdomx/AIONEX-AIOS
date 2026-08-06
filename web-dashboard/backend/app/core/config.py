@@ -206,6 +206,13 @@ class Settings(BaseSettings):
     ALGORITHM: str = Field(default="HS256", validation_alias="ALGORITHM")
     MFA_ENABLED: bool = Field(default=True, validation_alias="MFA_ENABLED")
     PASSWORD_MIN_LENGTH: int = Field(default=12, validation_alias="PASSWORD_MIN_LENGTH")
+    PASSWORD_RESET_EXPIRE_MINUTES: int = Field(
+        default=30, ge=5, le=1440, validation_alias="PASSWORD_RESET_EXPIRE_MINUTES"
+    )
+    PASSWORD_RESET_URL_BASE: str = Field(
+        default="https://ai.vip-e.net/en/reset-password",
+        validation_alias="PASSWORD_RESET_URL_BASE",
+    )
 
     CORS_ORIGINS: List[str] = Field(
         default=["http://localhost:3000", "https://aionex.io"],

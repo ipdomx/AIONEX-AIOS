@@ -9,13 +9,21 @@ import {
   useState,
 } from "react";
 
-import { AuthUser, authService } from "@/lib/auth-service";
+import {
+  AuthUser,
+  MFAChallengeResponse,
+  authService,
+} from "@/lib/auth-service";
 
 type AuthContextValue = {
   user: AuthUser | null;
   loading: boolean;
   authenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (
+    email: string,
+    password: string,
+  ) => Promise<MFAChallengeResponse | null>;
+  completeMfa: (challengeToken: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 };
@@ -64,6 +72,12 @@ export default function AuthProvider({ children }: PropsWithChildren) {
       authenticated: Boolean(user),
       async login(email: string, password: string) {
         const response = await authService.login(email, password);
+        if ("mfa_required" in response) return response;
+        setUser(response.user);
+        return null;
+      },
+      async completeMfa(challengeToken: string, code: string) {
+        const response = await authService.completeMfa(challengeToken, code);
         setUser(response.user);
       },
       async logout() {
