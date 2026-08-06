@@ -4,6 +4,7 @@ FastAPI Backend Application
 """
 
 import os
+import re
 import secrets
 from contextlib import asynccontextmanager
 
@@ -32,6 +33,23 @@ def _production() -> bool:
 def _allowed_hosts() -> set[str]:
     configured = os.getenv("AIOS_ALLOWED_HOSTS", "")
     return {item.strip().lower() for item in configured.split(",") if item.strip()}
+
+
+_PUBLIC_CACHEABLE_API = re.compile(
+    r"^/api/v1/portal/(?:published|assets/[0-9a-f]{32})$"
+)
+
+
+def _preserve_public_api_cache(request: Request, response: Response) -> bool:
+    """Preserve explicit public caching only for the read-only portal contract."""
+
+    cache_control = response.headers.get("Cache-Control", "").strip().lower()
+    return (
+        request.method in {"GET", "HEAD"}
+        and response.status_code in {200, 304}
+        and _PUBLIC_CACHEABLE_API.fullmatch(request.url.path) is not None
+        and cache_control.startswith("public")
+    )
 
 
 @asynccontextmanager
@@ -79,7 +97,10 @@ async def production_security_boundary(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
     response.headers["Permissions-Policy"] = "camera=(), geolocation=(), microphone=(self), payment=(), usb=()"
-    response.headers["Cache-Control"] = "no-store" if request.url.path.startswith("/api/") else response.headers.get("Cache-Control", "")
+    if request.url.path.startswith("/api/") and not _preserve_public_api_cache(
+        request, response
+    ):
+        response.headers["Cache-Control"] = "no-store"
     if "server" in response.headers:
         del response.headers["server"]
     return response
