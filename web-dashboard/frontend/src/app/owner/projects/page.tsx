@@ -5,12 +5,15 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
+  Archive,
   CheckCircle2,
+  ClipboardCheck,
   FolderKanban,
   PauseCircle,
   PlayCircle,
   Search,
   ShieldCheck,
+  XCircle,
 } from "lucide-react";
 
 import { useOwnerResource } from "@/hooks/use-owner-resource";
@@ -44,7 +47,8 @@ export default function OwnerProjectsPage() {
 
   function runProjectAction(
     projectId: string,
-    action: "resume" | "pause" | "approve",
+    action:
+      "resume" | "pause" | "request-review" | "approve" | "archive" | "cancel",
   ) {
     void execute(projectId, action);
   }
@@ -197,6 +201,18 @@ export default function OwnerProjectsPage() {
                       <PauseCircle className="h-4 w-4" />
                     </button>
                   ) : null}
+                  {["active", "in_progress"].includes(project.status) && (
+                    <button
+                      onClick={() =>
+                        runProjectAction(project.id, "request-review")
+                      }
+                      disabled={busy}
+                      className="rounded-lg border border-purple-500/20 bg-purple-500/10 p-2 text-purple-300 disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label={`Request review for ${project.name}`}
+                    >
+                      <ClipboardCheck className="h-4 w-4" />
+                    </button>
+                  )}
                   {project.status === "review" && (
                     <button
                       onClick={() => runProjectAction(project.id, "approve")}
@@ -205,6 +221,30 @@ export default function OwnerProjectsPage() {
                       aria-label={`Approve ${project.name}`}
                     >
                       <CheckCircle2 className="h-4 w-4" />
+                    </button>
+                  )}
+                  {["approved", "completed", "cancelled"].includes(
+                    project.status,
+                  ) && (
+                    <button
+                      onClick={() => runProjectAction(project.id, "archive")}
+                      disabled={busy}
+                      className="rounded-lg border border-white/[0.08] p-2 text-white/55 hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label={`Archive ${project.name}`}
+                    >
+                      <Archive className="h-4 w-4" />
+                    </button>
+                  )}
+                  {!["archived", "cancelled", "completed"].includes(
+                    project.status,
+                  ) && (
+                    <button
+                      onClick={() => runProjectAction(project.id, "cancel")}
+                      disabled={busy}
+                      className="rounded-lg border border-red-500/20 bg-red-500/10 p-2 text-red-300 disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label={`Cancel ${project.name}`}
+                    >
+                      <XCircle className="h-4 w-4" />
                     </button>
                   )}
                 </div>

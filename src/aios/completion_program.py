@@ -223,27 +223,48 @@ FEATURES: Final[tuple[CompletionFeature, ...]] = (
         "project-work-management",
         "29F",
         "Projects, tasks, workflows, reports, and delivery history",
-        "pending",
+        "verified",
         (
             "Create, update, run, pause, resume, review, approve, archive, search, report, and download paths pass end to end.",
+        ),
+        (
+            "docs/phase-29/PHASE_29F_PROJECTS_WORKFORCE_KNOWLEDGE_COMPLETION.md",
+            "web-dashboard/backend/app/services/work_management.py",
+            "web-dashboard/backend/app/api/v1/endpoints/project_executions.py",
+            "web-dashboard/backend/tests/test_phase29f_projects_workforce_knowledge.py",
+            "vip-frontend/src/components/pages/projects-client.tsx",
         ),
     ),
     CompletionFeature(
         "workforce-academy",
         "29F",
         "Digital workforce, HR, health, training, certification, and promotion",
-        "pending",
+        "verified",
         (
             "Assignment, performance, incidents, retraining, tests, certification, suspension, retirement, and promotion are durable.",
+        ),
+        (
+            "web-dashboard/backend/app/services/workforce.py",
+            "web-dashboard/backend/app/api/v1/endpoints/workforce.py",
+            "web-dashboard/backend/app/api/v1/endpoints/academy.py",
+            "web-dashboard/frontend/src/app/workforce/page.tsx",
+            "web-dashboard/frontend/src/app/academy/page.tsx",
+            "web-dashboard/frontend/src/app/owner/staff/page.tsx",
         ),
     ),
     CompletionFeature(
         "knowledge-learning",
         "29F",
         "Knowledge, memory, provenance, learning, and self-improvement evidence",
-        "pending",
+        "verified",
         (
             "Knowledge ingestion, verification, provenance, scoped memory, lessons, and outcome learning are tenant-safe and testable.",
+        ),
+        (
+            "web-dashboard/backend/app/services/knowledge_learning.py",
+            "web-dashboard/backend/app/api/v1/endpoints/knowledge.py",
+            "web-dashboard/frontend/src/app/knowledge/page.tsx",
+            "web-dashboard/backend/tests/test_phase29f_projects_workforce_knowledge.py",
         ),
     ),
     CompletionFeature(
@@ -352,7 +373,7 @@ BATCHES: Final[tuple[CompletionBatch, ...]] = (
     CompletionBatch("29C", 3, "Identity, tenancy, access, and accounts", "complete", "Finish all identity and account lifecycles and prove isolation.", _feature_ids("29C")),
     CompletionBatch("29D", 4, "Billing, licensing, payments, and entitlements", "complete", "Finish commercial, quota, metering, and payment lifecycles.", _feature_ids("29D")),
     CompletionBatch("29E", 5, "Communications, notifications, meetings, and governance", "complete", "Finish human communication, escalation, councils, and approvals.", _feature_ids("29E")),
-    CompletionBatch("29F", 6, "Projects, workforce, academy, knowledge, and workflows", "pending", "Finish daily project operations and the governed digital workforce.", _feature_ids("29F")),
+    CompletionBatch("29F", 6, "Projects, workforce, academy, knowledge, and workflows", "complete", "Finish daily project operations and the governed digital workforce.", _feature_ids("29F")),
     CompletionBatch("29G", 7, "Operations, observability, security, recovery, and release", "pending", "Prove the complete production operations and assurance plane.", _feature_ids("29G")),
     CompletionBatch("29H", 8, "Production Studio and mobile delivery", "pending", "Finish provider-neutral media production and mobile delivery surfaces.", _feature_ids("29H")),
     CompletionBatch("29I", 9, "Plugins, marketplace, distributed runtime, and integrations", "pending", "Finish extension, distribution, and non-model enterprise integrations.", _feature_ids("29I")),
@@ -411,7 +432,7 @@ VIP_PAGE_BATCH: Final[dict[str, str]] = {
 }
 
 ENDPOINT_BATCH: Final[dict[str, str]] = {
-    "ai_agents": "29J", "ai_providers": "29J", "auth": "29C", "backups": "29G",
+    "academy": "29F", "ai_agents": "29J", "ai_providers": "29J", "auth": "29C", "backups": "29G",
     "billing": "29D", "communications": "29E",
     "capabilities": "29A", "containers": "29G", "dashboard": "29B", "databases": "29G",
     "final_integration": "29G", "firebase_phone": "29C", "governance": "29E",
@@ -421,7 +442,7 @@ ENDPOINT_BATCH: Final[dict[str, str]] = {
     "reports": "29F", "roles": "29C", "search": "29B", "security": "29G",
     "servers": "29G", "settings": "29C", "studio": "29H", "support": "29E",
     "tasks": "29F", "teams": "29C", "users": "29C", "websocket": "29E",
-    "workflows": "29F", "workspaces": "29C",
+    "workflows": "29F", "workforce": "29F", "workspaces": "29C",
 }
 
 

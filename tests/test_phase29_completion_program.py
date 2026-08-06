@@ -83,9 +83,9 @@ def test_every_current_backend_endpoint_is_registered_exactly_once() -> None:
 
 def test_snapshot_is_truthful_and_points_to_next_non_provider_batch() -> None:
     snapshot = completion_program_snapshot()
-    assert snapshot["current_batch"] == "29F"
+    assert snapshot["current_batch"] == "29G"
     assert snapshot["models_providers_batch"] == "29J"
     assert snapshot["completion"] < 100
-    assert snapshot["verified_features"] == 13
+    assert snapshot["verified_features"] == 16
     assert snapshot["deferred_features"] == 1
     assert len(snapshot["batches"]) == 10

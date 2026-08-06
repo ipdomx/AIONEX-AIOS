@@ -23,6 +23,7 @@ import {
   FolderOpen,
   Gauge,
   Globe,
+  GraduationCap,
   Layers,
   LayoutDashboard,
   Lock,
@@ -109,6 +110,8 @@ const baseMainNavSections: NavSection[] = [
     icon: Workflow,
     href: "/workflows",
   },
+  { id: "workforce", label: "Workforce", icon: Users, href: "/workforce" },
+  { id: "academy", label: "Academy", icon: GraduationCap, href: "/academy" },
   { id: "knowledge", label: "Knowledge", icon: BookOpen, href: "/knowledge" },
   {
     id: "infrastructure",

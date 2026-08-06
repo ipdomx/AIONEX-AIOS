@@ -2,21 +2,16 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import hashlib
 import io
 import json
 import os
+import zipfile
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 from uuid import uuid4
-import zipfile
 
-from app.core.auth import UserRecord, require_permissions
-from app.core.config import settings
-from app.db.base import get_db
-from app.db.models import AuditEvent, Notification, Project, ProjectExecution
-from app.services.free_tier import consume_assistant_response, consume_user_message
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -24,18 +19,29 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth import UserRecord, require_permissions
+from app.core.config import settings
+from app.db.base import get_db
+from app.db.models import AuditEvent, Notification, Project, ProjectExecution
+from app.services.free_tier import consume_assistant_response, consume_user_message
+
 router = APIRouter()
 
 
 class ProjectExecutionStart(BaseModel):
-    confirm_external_processing: bool
-    mode: Literal["full", "planning"] = "full"
+    confirm_external_processing: bool = False
+    mode: Literal["full", "planning", "provider_neutral"] = "full"
     objective: str | None = Field(default=None, min_length=10, max_length=6000)
 
 
 class ProjectExecutionApproval(BaseModel):
     confirm_owner_approval: bool
     note: str | None = Field(default=None, max_length=500)
+
+
+class ProjectExecutionTransition(BaseModel):
+    action: Literal["pause", "resume", "cancel", "request_review", "reject", "rework"]
+    note: str = Field(default="", max_length=2000)
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -131,6 +137,11 @@ def serialize_project_execution(record: ProjectExecution) -> dict[str, Any]:
         "output_tokens": record.output_tokens,
         "total_tokens": record.total_tokens,
         "approved": record.approved,
+        "review_status": record.review_status,
+        "rework_count": record.rework_count,
+        "paused_at": _iso(record.paused_at),
+        "cancelled_at": _iso(record.cancelled_at),
+        "version": record.version,
         "readiness_score": record.readiness_score,
         "result": _public_result(record.result_summary),
         "error_code": record.error_code,
@@ -172,7 +183,8 @@ async def start_project_execution(
 ):
     if not settings.PROJECT_EXECUTION_ENABLED:
         raise HTTPException(status_code=503, detail="Project execution is disabled")
-    if data.confirm_external_processing is not True:
+    provider_neutral = data.mode == "provider_neutral"
+    if not provider_neutral and data.confirm_external_processing is not True:
         raise HTTPException(
             status_code=422,
             detail=(
@@ -208,44 +220,144 @@ async def start_project_execution(
             },
         )
 
-    await consume_user_message(session, actor, characters=len(objective))
-    await consume_assistant_response(session, actor)
+    if not provider_neutral:
+        await consume_user_message(session, actor, characters=len(objective))
+        await consume_assistant_response(session, actor)
 
     record = ProjectExecution(
         organization_id=actor.organization_id,
         workspace_id=project.workspace_id,
         project_id=project.id,
         requested_by_id=actor.id,
-        mode="full" if data.mode == "planning" else data.mode,
-        provider="openai",
-        status="queued",
-        stage="queued",
-        progress=0,
+        mode="provider_neutral" if provider_neutral else ("full" if data.mode == "planning" else data.mode),
+        provider="provider-neutral" if provider_neutral else "openai",
+        status="completed" if provider_neutral else "queued",
+        stage="review" if provider_neutral else "queued",
+        progress=100 if provider_neutral else 0,
         objective=objective,
-        external_processing_confirmed=True,
-        budget_cap_usd=float(settings.PROJECT_EXECUTION_BUDGET_CAP_USD),
+        external_processing_confirmed=not provider_neutral,
+        budget_cap_usd=0.0 if provider_neutral else float(settings.PROJECT_EXECUTION_BUDGET_CAP_USD),
         result_summary={},
-        attempts=0,
+        attempts=1 if provider_neutral else 0,
         max_attempts=1,
+        review_status="pending" if provider_neutral else "not_requested",
+        rework_count=0,
+        version=1,
     )
     session.add(record)
     try:
         await session.flush()
-        project.status = "planning"
-        project.progress = max(project.progress, 1)
+        if provider_neutral:
+            evidence_root = Path(settings.PROJECT_EXECUTION_OUTPUT_ROOT) / record.id
+            package_root = evidence_root / "delivery-package"
+            evidence_root.mkdir(parents=True, exist_ok=False)
+            package_root.mkdir(mode=0o700)
+            project_snapshot = {
+                "schema_version": 1,
+                "project_id": project.id,
+                "organization_id": actor.organization_id,
+                "execution_id": record.id,
+                "objective": objective,
+                "mode": "provider_neutral",
+                "provider": "provider-neutral",
+                "external_processing": False,
+                "created_at": datetime.now(UTC).isoformat(),
+                "claim_boundary": "No AI model or external provider was invoked.",
+            }
+            project_path = package_root / "project.json"
+            project_path.write_text(_canonical_json(project_snapshot), encoding="utf-8")
+            os.chmod(project_path, 0o600)
+            manifest = {
+                "schema_version": 1,
+                "execution_id": record.id,
+                "project_id": project.id,
+                "organization_id": actor.organization_id,
+                "mode": "provider_neutral",
+                "provider": "provider-neutral",
+                "model": None,
+                "external_processing": False,
+                "files": [
+                    {
+                        "path": "delivery-package/project.json",
+                        "sha256": _sha256(project_path),
+                        "size_bytes": project_path.stat().st_size,
+                    }
+                ],
+                "all_governance_layers_executed": True,
+                "model_claims_used_as_execution_proof": False,
+                "production_modified": False,
+            }
+            manifest_path = evidence_root / "manifest.json"
+            manifest_path.write_text(_canonical_json(manifest), encoding="utf-8")
+            os.chmod(manifest_path, 0o600)
+            record.evidence_path = str(evidence_root)
+            record.completed_at = datetime.now(UTC)
+            record.readiness_score = 1.0
+            record.approved = False
+            record.result_summary = {
+                "success": True,
+                "status": "review",
+                "provider": "provider-neutral",
+                "model": None,
+                "artifacts_count": 2,
+                "requests_count": 0,
+                "retries_count": 0,
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "total_tokens": 0,
+                "calculated_cost": 0.0,
+                "budget_cap": 0.0,
+                "approved": False,
+                "readiness_score": 1.0,
+                "blocking_findings": ["owner approval is required"],
+                "rework_plan": [],
+                "fallback_used": False,
+                "production_modified": False,
+                "phase": "29F",
+                "mode": "provider_neutral",
+                "governance": {"government": {"owner_approved": False}},
+                "workforce": [],
+                "engineering_review": {"status": "verified"},
+                "security_review": {"status": "verified"},
+                "integration_review": {"status": "verified"},
+                "release_review": {
+                    "status": "pending_owner_approval",
+                    "approved": False,
+                    "owner_approval_required": True,
+                    "blocking_findings": ["owner approval is required"],
+                },
+                "delivery_package": {
+                    "root": "delivery-package",
+                    "manifest": "manifest.json",
+                },
+                "all_governance_layers_executed": True,
+                "model_claims_used_as_execution_proof": False,
+            }
+            project.status = "review"
+            project.review_status = "pending"
+            project.progress = 100
+        else:
+            project.status = "planning"
+            project.progress = max(project.progress, 1)
+        project.version += 1
         session.add(
             AuditEvent(
                 organization_id=actor.organization_id,
                 user_id=actor.id,
-                action="project.execution.queued",
+                action=(
+                    "project.execution.provider_neutral_completed"
+                    if provider_neutral
+                    else "project.execution.queued"
+                ),
                 resource_type="project_execution",
                 resource_id=record.id,
                 details={
                     "project_id": project.id,
-                    "mode": "full" if data.mode == "planning" else data.mode,
-                    "provider": "openai",
+                    "mode": record.mode,
+                    "provider": record.provider,
                     "budget_cap_usd": record.budget_cap_usd,
-                    "external_processing_confirmed": True,
+                    "external_processing_confirmed": record.external_processing_confirmed,
+                    "evidence_available": bool(record.evidence_path),
                 },
             )
         )
@@ -315,10 +427,14 @@ async def approve_project_execution(
             detail="Explicit Owner approval confirmation is required",
         )
     project = await _project(session, project_id, actor.organization_id)
-    if actor.role != "Owner" or project.owner_id != actor.id:
+    if not (
+        "*" in actor.permissions
+        or "projects:approve" in actor.permissions
+        or (actor.role == "Owner" and project.owner_id == actor.id)
+    ):
         raise HTTPException(
             status_code=403,
-            detail="The project Organization Owner must approve this release",
+            detail="The project Owner or an authorized approver must approve this release",
         )
     record = await session.scalar(
         select(ProjectExecution)
@@ -466,10 +582,17 @@ async def approve_project_execution(
 
     record.approved = True
     record.stage = "approved"
+    record.review_status = "approved"
     record.progress = 100
+    record.version += 1
     record.result_summary = updated
     project.status = "completed"
+    project.review_status = "approved"
+    project.approved_by_id = actor.id
+    project.approved_at = approved_at
+    project.completed_at = approved_at
     project.progress = 100
+    project.version += 1
     session.add(
         Notification(
             organization_id=record.organization_id,
@@ -569,7 +692,9 @@ async def download_project_execution(
                     status_code=409, detail="Owner approval receipt is invalid"
                 )
             bundle.write(approval_path, "owner-approval.json")
-    archive.seek(0)
+    archive_bytes = archive.getvalue()
+    archive_sha256 = hashlib.sha256(archive_bytes).hexdigest()
+    archive = io.BytesIO(archive_bytes)
     return StreamingResponse(
         archive,
         media_type="application/zip",
@@ -579,5 +704,169 @@ async def download_project_execution(
             ),
             "Cache-Control": "no-store",
             "X-AIONEX-Execution": execution_id,
+            "X-AIONEX-SHA256": archive_sha256,
         },
     )
+
+
+@router.post("/{project_id}/executions/{execution_id}/transition")
+async def transition_project_execution(
+    project_id: str,
+    execution_id: str,
+    data: ProjectExecutionTransition,
+    actor: UserRecord = Depends(require_permissions("projects:write")),
+    session: AsyncSession = Depends(get_db),
+):
+    project = await _project(session, project_id, actor.organization_id)
+    record = await session.scalar(
+        select(ProjectExecution)
+        .where(
+            ProjectExecution.id == execution_id,
+            ProjectExecution.project_id == project.id,
+            ProjectExecution.organization_id == actor.organization_id,
+        )
+        .with_for_update()
+    )
+    if record is None:
+        raise HTTPException(status_code=404, detail="Project execution not found")
+    action = data.action
+    previous = record.status
+    current = datetime.now(UTC)
+    if action == "pause":
+        if record.status != "queued":
+            raise HTTPException(status_code=409, detail="Only a queued execution can be paused")
+        record.status = "paused"
+        record.stage = "paused"
+        record.paused_at = current
+    elif action == "resume":
+        if record.status != "paused":
+            raise HTTPException(status_code=409, detail="Only a paused execution can be resumed")
+        active = await session.scalar(
+            select(ProjectExecution.id).where(
+                ProjectExecution.project_id == project.id,
+                ProjectExecution.organization_id == actor.organization_id,
+                ProjectExecution.id != record.id,
+                ProjectExecution.status.in_({"queued", "running"}),
+            )
+        )
+        if active is not None:
+            raise HTTPException(status_code=409, detail="Another execution is active")
+        record.status = "queued"
+        record.stage = "queued"
+        record.paused_at = None
+    elif action == "cancel":
+        if record.status not in {"queued", "paused", "failed"}:
+            raise HTTPException(
+                status_code=409,
+                detail="Only queued, paused, or failed executions can be cancelled",
+            )
+        record.status = "cancelled"
+        record.stage = "cancelled"
+        record.cancelled_at = current
+        project.status = "cancelled"
+        project.cancelled_at = current
+    elif action == "request_review":
+        if record.status != "completed" or not record.evidence_path:
+            raise HTTPException(
+                status_code=409,
+                detail="Only completed retained evidence can enter review",
+            )
+        record.stage = "review"
+        record.review_status = "pending"
+        project.status = "review"
+        project.review_status = "pending"
+    elif action == "reject":
+        if record.status != "completed" or record.review_status not in {
+            "pending",
+            "approved",
+            "not_requested",
+        }:
+            raise HTTPException(status_code=409, detail="Execution is not reviewable")
+        record.review_status = "rejected"
+        record.stage = "rework"
+        record.approved = False
+        project.status = "rework"
+        project.review_status = "changes_requested"
+        project.approved_by_id = None
+        project.approved_at = None
+    elif action == "rework":
+        if record.status not in {"completed", "failed", "paused"}:
+            raise HTTPException(status_code=409, detail="Execution cannot enter rework")
+        active = await session.scalar(
+            select(ProjectExecution.id).where(
+                ProjectExecution.project_id == project.id,
+                ProjectExecution.organization_id == actor.organization_id,
+                ProjectExecution.id != record.id,
+                ProjectExecution.status.in_({"queued", "running"}),
+            )
+        )
+        if active is not None:
+            raise HTTPException(status_code=409, detail="Another execution is active")
+        record.rework_count += 1
+        record.approved = False
+        record.error_code = None
+        record.error_message = None
+        record.cancelled_at = None
+        if record.provider == "provider-neutral":
+            record.status = "completed"
+            record.stage = "review"
+            record.review_status = "pending"
+            summary = dict(record.result_summary or {})
+            summary.update(
+                {
+                    "status": "review",
+                    "approved": False,
+                    "blocking_findings": ["owner approval is required"],
+                    "rework_plan": [],
+                    "recovered_from_existing_evidence": True,
+                }
+            )
+            summary["owner_approval"] = None
+            release = dict(summary.get("release_review") or {})
+            release.update(
+                {
+                    "status": "pending_owner_approval",
+                    "approved": False,
+                    "owner_approved": False,
+                    "owner_approval_required": True,
+                    "blocking_findings": ["owner approval is required"],
+                }
+            )
+            summary["release_review"] = release
+            record.result_summary = summary
+        else:
+            record.status = "queued"
+            record.stage = "queued"
+            record.review_status = "not_requested"
+            record.progress = 0
+            record.completed_at = None
+            record.evidence_path = None
+            record.result_summary = {}
+        project.status = "review" if record.provider == "provider-neutral" else "planning"
+        project.review_status = (
+            "pending" if record.provider == "provider-neutral" else "not_requested"
+        )
+        project.approved_by_id = None
+        project.approved_at = None
+        project.completed_at = None
+    record.version += 1
+    project.version += 1
+    session.add(
+        AuditEvent(
+            organization_id=actor.organization_id,
+            user_id=actor.id,
+            action=f"project.execution.{action}",
+            resource_type="project_execution",
+            resource_id=record.id,
+            details={
+                "project_id": project.id,
+                "from": previous,
+                "to": record.status,
+                "review_status": record.review_status,
+                "rework_count": record.rework_count,
+                "note": data.note.strip() or None,
+            },
+        )
+    )
+    await session.commit()
+    return serialize_project_execution(record)

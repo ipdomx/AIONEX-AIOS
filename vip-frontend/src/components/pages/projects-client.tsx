@@ -214,8 +214,8 @@ export function ProjectsClient() {
     setExecutionError("");
     const confirmed = window.confirm(
       t("execution.confirm", {
-        provider: "OpenAI",
-        budget: "0.05",
+        provider: "AIOS provider-neutral runtime",
+        budget: "0.00",
       }),
     );
     if (!confirmed) return;
@@ -247,10 +247,7 @@ export function ProjectsClient() {
     }
   }
 
-  async function approveExecution(
-    projectId: string,
-    executionId: string,
-  ) {
+  async function approveExecution(projectId: string, executionId: string) {
     const confirmed = window.confirm(t("execution.approvalConfirm"));
     if (!confirmed) return;
     setExecutionError("");
@@ -340,6 +337,7 @@ export function ProjectsClient() {
       "security_review",
       "integration_review",
       "release_review",
+      "review",
       "completed",
       "approved",
       "rework_required",
@@ -546,11 +544,11 @@ export function ProjectsClient() {
             );
             const ownerApprovalPending = Boolean(
               execution?.status === "completed" &&
-                execution.approved !== true &&
-                user?.role === "Owner" &&
-                execution.result?.blocking_findings?.length === 1 &&
-                execution.result.blocking_findings[0] ===
-                  "owner approval is required",
+              execution.approved !== true &&
+              user?.role === "Owner" &&
+              execution.result?.blocking_findings?.length === 1 &&
+              execution.result.blocking_findings[0] ===
+                "owner approval is required",
             );
             return (
               <article
@@ -779,7 +777,10 @@ export function ProjectsClient() {
                             {ownerApprovalPending && (
                               <Button
                                 onClick={() =>
-                                  void approveExecution(project.id, execution.id)
+                                  void approveExecution(
+                                    project.id,
+                                    execution.id,
+                                  )
                                 }
                                 disabled={approvingExecutionId === execution.id}
                               >

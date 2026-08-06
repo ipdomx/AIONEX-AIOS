@@ -125,7 +125,12 @@ def test_live_backend_connects_full_cycle_builder_worker_and_owner_workforce() -
     assert "FullProjectCycle" in runner
     assert 'execution_id="prototype"' in runner
     assert 'execution_id="cycle"' in runner
-    assert 'mode: Literal["full", "planning"]' in endpoint
+    assert 'mode: Literal["full", "planning", "provider_neutral"]' in endpoint
+    assert 'provider_neutral = data.mode == "provider_neutral"' in endpoint
+    assert (
+        'if not provider_neutral and data.confirm_external_processing is not True'
+        in endpoint
+    )
     assert "download_project_execution" in endpoint
     assert "approve_project_execution" in endpoint
     assert "owner-approval.json" in endpoint
@@ -165,7 +170,10 @@ def test_normal_user_portal_has_complete_localized_full_cycle_contract() -> None
     page = (
         ROOT / "vip-frontend/src/components/pages/projects-client.tsx"
     ).read_text(encoding="utf-8")
-    assert 'mode: "full"' in api
+    assert 'mode: "provider_neutral" | "full" = "provider_neutral"' in api
+    assert 'confirm_external_processing: mode === "full"' in api
+    assert 'provider: "AIOS provider-neutral runtime"' in page
+    assert 'budget: "0.00"' in page
     assert "downloadProjectExecution" in api
     assert "approveProjectExecution" in api
     assert "approveExecution" in page

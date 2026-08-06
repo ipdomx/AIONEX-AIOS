@@ -95,6 +95,10 @@ Scope:
 
 ## Batch 29F — Projects, workforce, academy, knowledge, and workflows
 
+Status: **complete and verified**. The authoritative evidence is recorded in
+`docs/phase-29/PHASE_29F_PROJECTS_WORKFORCE_KNOWLEDGE_COMPLETION.md`; the next
+active batch is **29G**.
+
 Scope:
 
 - project, task, workflow, report, search, history, pause, resume, cancel, archive, and download lifecycles;

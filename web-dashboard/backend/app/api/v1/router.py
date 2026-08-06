@@ -1,16 +1,21 @@
 """API router configuration."""
 
+from fastapi import APIRouter, Depends
+
 from app.api.owner import (
     control_plane,
     final_platform_integration,
     free_tier,
     operations_integration,
     platform_integration,
-    portal as owner_portal,
     production_runtime,
     security_integration,
 )
+from app.api.owner import (
+    portal as owner_portal,
+)
 from app.api.v1.endpoints import (
+    academy,
     ai_agents,
     ai_providers,
     auth,
@@ -24,9 +29,9 @@ from app.api.v1.endpoints import (
     final_integration,
     firebase_phone,
     governance,
-    integration,
     identity,
     incidents,
+    integration,
     knowledge,
     locale,
     meetings,
@@ -50,6 +55,7 @@ from app.api.v1.endpoints import (
     users,
     websocket,
     workflows,
+    workforce,
     workspaces,
 )
 from app.core.auth import require_super_owner
@@ -58,7 +64,6 @@ from app.services.free_tier import (
     enforce_free_workspace_request,
     require_non_free_user,
 )
-from fastapi import APIRouter, Depends
 
 api_router = APIRouter()
 restricted = [Depends(require_non_free_user)]
@@ -151,6 +156,12 @@ api_router.include_router(
 )
 api_router.include_router(
     knowledge.router, prefix="/knowledge", tags=["Knowledge"], dependencies=restricted
+)
+api_router.include_router(
+    workforce.router, prefix="/workforce", tags=["Workforce"], dependencies=restricted
+)
+api_router.include_router(
+    academy.router, prefix="/academy", tags=["Academy"], dependencies=restricted
 )
 api_router.include_router(
     dashboard.router, prefix="/dashboard", tags=["Dashboard"], dependencies=restricted

@@ -5,7 +5,6 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from app.db.base import Base
 from sqlalchemy import (
     JSON,
     BigInteger,
@@ -18,8 +17,11 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
+
+from app.db.base import Base
 
 
 def uuid_str() -> str:
@@ -310,6 +312,14 @@ class Project(Base, TimestampMixin):
     tags: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     start_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     end_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    risk: Mapped[str] = mapped_column(String(32), default="normal", nullable=False)
+    review_status: Mapped[str] = mapped_column(String(32), default="not_requested", nullable=False)
+    approved_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
 
 class Task(Base, TimestampMixin):
@@ -339,6 +349,11 @@ class Task(Base, TimestampMixin):
         DateTime(timezone=True), index=True
     )
     tags: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    review_status: Mapped[str] = mapped_column(String(32), default="not_requested", nullable=False)
+    rework_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
 
 class Workflow(Base, TimestampMixin):
@@ -361,6 +376,8 @@ class Workflow(Base, TimestampMixin):
     steps: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
     run_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
 
 class Meeting(Base, TimestampMixin):
@@ -415,6 +432,14 @@ class Report(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(32), default="ready", nullable=False)
     summary: Mapped[str | None] = mapped_column(Text)
     metrics: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    workspace_id: Mapped[str | None] = mapped_column(ForeignKey("workspaces.id", ondelete="SET NULL"), index=True)
+    generated_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    format: Mapped[str] = mapped_column(String(32), default="json", nullable=False)
+    content: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    checksum: Mapped[str | None] = mapped_column(String(64))
+    size_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
 
 class AIProvider(Base, TimestampMixin):
@@ -496,6 +521,12 @@ class ProjectExecution(Base, TimestampMixin):
             "project_id",
             "created_at",
         ),
+        Index(
+            "uq_project_executions_active_project",
+            "project_id",
+            unique=True,
+            postgresql_where=text("status IN ('queued', 'running')"),
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
@@ -539,6 +570,11 @@ class ProjectExecution(Base, TimestampMixin):
     lease_token: Mapped[str | None] = mapped_column(String(36))
     attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     max_attempts: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    review_status: Mapped[str] = mapped_column(String(32), default="not_requested", nullable=False)
+    rework_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    paused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
@@ -1620,3 +1656,390 @@ class OwnerCommandRecord(Base):
         index=True,
     )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+# Phase 29F — project delivery, workforce, academy, and knowledge persistence.
+
+class ProjectMembership(Base, TimestampMixin):
+    __tablename__ = "project_memberships"
+    __table_args__ = (
+        UniqueConstraint("project_id", "member_key", name="uq_project_membership_key"),
+        Index("ix_project_memberships_org_project_status", "organization_id", "project_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    workforce_member_id: Mapped[str | None] = mapped_column(ForeignKey("workforce_members.id", ondelete="SET NULL"), index=True)
+    member_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    member_type: Mapped[str] = mapped_column(String(32), default="human", nullable=False)
+    role: Mapped[str] = mapped_column(String(120), default="contributor", nullable=False)
+    allocation_percent: Mapped[int] = mapped_column(Integer, default=100, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
+
+
+class ProjectEvent(Base):
+    __tablename__ = "project_events"
+    __table_args__ = (
+        Index("ix_project_events_project_created", "project_id", "created_at"),
+        Index("ix_project_events_org_type_created", "organization_id", "event_type", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    actor_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    event_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    from_status: Mapped[str | None] = mapped_column(String(32))
+    to_status: Mapped[str | None] = mapped_column(String(32))
+    summary: Mapped[str | None] = mapped_column(String(500))
+    details: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False, index=True)
+
+
+class TaskComment(Base):
+    __tablename__ = "task_comments"
+    __table_args__ = (Index("ix_task_comments_task_created", "task_id", "created_at"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False, index=True)
+    author_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    workforce_member_id: Mapped[str | None] = mapped_column(ForeignKey("workforce_members.id", ondelete="SET NULL"), index=True)
+    visibility: Mapped[str] = mapped_column(String(32), default="organization", nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    attachments: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+
+class WorkflowRun(Base, TimestampMixin):
+    __tablename__ = "workflow_runs"
+    __table_args__ = (
+        Index("ix_workflow_runs_workflow_created", "workflow_id", "created_at"),
+        Index("ix_workflow_runs_org_status_created", "organization_id", "status", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    workflow_id: Mapped[str] = mapped_column(ForeignKey("workflows.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id", ondelete="SET NULL"), index=True)
+    requested_by_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), default="queued", nullable=False, index=True)
+    current_step: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    input: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    output: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    evidence: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
+    error_code: Mapped[str | None] = mapped_column(String(120))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class WorkforceMember(Base, TimestampMixin):
+    __tablename__ = "workforce_members"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "worker_key", name="uq_workforce_member_org_key"),
+        Index("ix_workforce_members_org_status_kind", "organization_id", "status", "kind"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    manager_id: Mapped[str | None] = mapped_column(ForeignKey("workforce_members.id", ondelete="SET NULL"), index=True)
+    worker_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), default="human", nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    role: Mapped[str] = mapped_column(String(120), nullable=False)
+    department: Mapped[str] = mapped_column(String(120), default="Unassigned", nullable=False)
+    ministry: Mapped[str | None] = mapped_column(String(160))
+    grade: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False, index=True)
+    skills: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    certifications: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    restrictions: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    warnings: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    provider_neutral: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    profile_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    retired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class WorkforceAssignment(Base, TimestampMixin):
+    __tablename__ = "workforce_assignments"
+    __table_args__ = (
+        Index("ix_workforce_assignments_worker_status", "worker_id", "status", "created_at"),
+        Index("ix_workforce_assignments_project_status", "project_id", "status", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    task_id: Mapped[str | None] = mapped_column(ForeignKey("tasks.id", ondelete="SET NULL"), index=True)
+    worker_id: Mapped[str] = mapped_column(ForeignKey("workforce_members.id", ondelete="RESTRICT"), nullable=False, index=True)
+    reviewer_id: Mapped[str | None] = mapped_column(ForeignKey("workforce_members.id", ondelete="SET NULL"), index=True)
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+    required_skills: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    acceptance_criteria: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="assigned", nullable=False, index=True)
+    priority: Mapped[int] = mapped_column(Integer, default=50, nullable=False)
+    risk: Mapped[str] = mapped_column(String(32), default="normal", nullable=False)
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    defects: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class WorkforcePerformanceEvent(Base):
+    __tablename__ = "workforce_performance_events"
+    __table_args__ = (Index("ix_workforce_performance_worker_created", "worker_id", "created_at"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    worker_id: Mapped[str] = mapped_column(ForeignKey("workforce_members.id", ondelete="CASCADE"), nullable=False, index=True)
+    assignment_id: Mapped[str | None] = mapped_column(ForeignKey("workforce_assignments.id", ondelete="SET NULL"), index=True)
+    outcome: Mapped[str] = mapped_column(String(32), nullable=False)
+    quality_score: Mapped[float] = mapped_column(Float, nullable=False)
+    reliability_score: Mapped[float] = mapped_column(Float, nullable=False)
+    collaboration_score: Mapped[float] = mapped_column(Float, nullable=False)
+    policy_score: Mapped[float] = mapped_column(Float, nullable=False)
+    learning_score: Mapped[float] = mapped_column(Float, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+
+class WorkforceHealthReport(Base):
+    __tablename__ = "workforce_health_reports"
+    __table_args__ = (Index("ix_workforce_health_worker_created", "worker_id", "created_at"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    worker_id: Mapped[str] = mapped_column(ForeignKey("workforce_members.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id", ondelete="SET NULL"), index=True)
+    operational_health: Mapped[float] = mapped_column(Float, nullable=False)
+    performance: Mapped[float] = mapped_column(Float, nullable=False)
+    collaboration: Mapped[float] = mapped_column(Float, nullable=False)
+    trust: Mapped[float] = mapped_column(Float, nullable=False)
+    learning: Mapped[float] = mapped_column(Float, nullable=False)
+    recommendation: Mapped[str] = mapped_column(String(120), nullable=False)
+    restrictions: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    incidents: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    generated_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+
+class WorkforceIncident(Base, TimestampMixin):
+    __tablename__ = "workforce_incidents"
+    __table_args__ = (Index("ix_workforce_incidents_worker_status", "worker_id", "status", "created_at"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    worker_id: Mapped[str] = mapped_column(ForeignKey("workforce_members.id", ondelete="CASCADE"), nullable=False, index=True)
+    assignment_id: Mapped[str | None] = mapped_column(ForeignKey("workforce_assignments.id", ondelete="SET NULL"), index=True)
+    severity: Mapped[str] = mapped_column(String(32), nullable=False)
+    category: Mapped[str] = mapped_column(String(80), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="open", nullable=False, index=True)
+    restrictions_applied: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    opened_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    resolved_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AcademyCourse(Base, TimestampMixin):
+    __tablename__ = "academy_courses"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "code", name="uq_academy_course_org_code"),
+        Index("ix_academy_courses_org_status", "organization_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    code: Mapped[str] = mapped_column(String(120), nullable=False)
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    competencies: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    passing_score: Mapped[float] = mapped_column(Float, default=80.0, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+
+
+class AcademyEnrollment(Base, TimestampMixin):
+    __tablename__ = "academy_enrollments"
+    __table_args__ = (
+        UniqueConstraint("course_id", "worker_id", "status", name="uq_academy_active_enrollment"),
+        Index("ix_academy_enrollments_worker_status", "worker_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    course_id: Mapped[str] = mapped_column(ForeignKey("academy_courses.id", ondelete="CASCADE"), nullable=False, index=True)
+    worker_id: Mapped[str] = mapped_column(ForeignKey("workforce_members.id", ondelete="CASCADE"), nullable=False, index=True)
+    assigned_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    status: Mapped[str] = mapped_column(String(32), default="assigned", nullable=False)
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+
+class AcademyAssessment(Base):
+    __tablename__ = "academy_assessments"
+    __table_args__ = (
+        UniqueConstraint("enrollment_id", "attempt_number", name="uq_academy_assessment_attempt"),
+        Index("ix_academy_assessments_worker_created", "worker_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    enrollment_id: Mapped[str] = mapped_column(ForeignKey("academy_enrollments.id", ondelete="CASCADE"), nullable=False, index=True)
+    course_id: Mapped[str] = mapped_column(ForeignKey("academy_courses.id", ondelete="CASCADE"), nullable=False, index=True)
+    worker_id: Mapped[str] = mapped_column(ForeignKey("workforce_members.id", ondelete="CASCADE"), nullable=False, index=True)
+    assessed_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    attempt_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    score: Mapped[float] = mapped_column(Float, nullable=False)
+    passed: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+
+class AcademyCertification(Base, TimestampMixin):
+    __tablename__ = "academy_certifications"
+    __table_args__ = (
+        UniqueConstraint("code", name="uq_academy_certification_code"),
+        Index("ix_academy_certifications_worker_status", "worker_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    worker_id: Mapped[str] = mapped_column(ForeignKey("workforce_members.id", ondelete="CASCADE"), nullable=False, index=True)
+    course_id: Mapped[str] = mapped_column(ForeignKey("academy_courses.id", ondelete="CASCADE"), nullable=False, index=True)
+    assessment_id: Mapped[str] = mapped_column(ForeignKey("academy_assessments.id", ondelete="RESTRICT"), nullable=False, index=True)
+    issued_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    code: Mapped[str] = mapped_column(String(160), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
+    issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    certification_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class KnowledgeItem(Base, TimestampMixin):
+    __tablename__ = "knowledge_items"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "checksum", name="uq_knowledge_org_checksum"),
+        Index("ix_knowledge_items_scope_status", "organization_id", "scope_type", "scope_id", "status"),
+        Index("ix_knowledge_items_namespace_subject", "organization_id", "namespace", "subject"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    workspace_id: Mapped[str | None] = mapped_column(ForeignKey("workspaces.id", ondelete="SET NULL"), index=True)
+    project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id", ondelete="SET NULL"), index=True)
+    worker_id: Mapped[str | None] = mapped_column(ForeignKey("workforce_members.id", ondelete="SET NULL"), index=True)
+    created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    verified_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    supersedes_id: Mapped[str | None] = mapped_column(ForeignKey("knowledge_items.id", ondelete="SET NULL"), index=True)
+    scope_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    scope_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    namespace: Mapped[str] = mapped_column(String(120), nullable=False)
+    subject: Mapped[str] = mapped_column(String(300), nullable=False)
+    content: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    content_text: Mapped[str] = mapped_column(Text, nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, default=0.5, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False, index=True)
+    checksum: Mapped[str] = mapped_column(String(64), nullable=False)
+    tags: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class KnowledgeProvenance(Base):
+    __tablename__ = "knowledge_provenance"
+    __table_args__ = (Index("ix_knowledge_provenance_item", "knowledge_item_id", "collected_at"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    knowledge_item_id: Mapped[str] = mapped_column(ForeignKey("knowledge_items.id", ondelete="CASCADE"), nullable=False, index=True)
+    source: Mapped[str] = mapped_column(String(500), nullable=False)
+    source_type: Mapped[str] = mapped_column(String(80), default="internal", nullable=False)
+    author: Mapped[str | None] = mapped_column(String(200))
+    uri: Mapped[str | None] = mapped_column(Text)
+    checksum: Mapped[str | None] = mapped_column(String(64))
+    source_quality: Mapped[float] = mapped_column(Float, default=0.5, nullable=False)
+    direct_evidence: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    collected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+
+class ScopedMemory(Base, TimestampMixin):
+    __tablename__ = "scoped_memories"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "scope_type", "scope_id", "key", name="uq_scoped_memory_key"),
+        Index("ix_scoped_memories_scope_status", "organization_id", "scope_type", "scope_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    source_item_id: Mapped[str | None] = mapped_column(ForeignKey("knowledge_items.id", ondelete="SET NULL"), index=True)
+    scope_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    scope_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    key: Mapped[str] = mapped_column(String(200), nullable=False)
+    value: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    summary: Mapped[str | None] = mapped_column(Text)
+    confidence: Mapped[float] = mapped_column(Float, default=0.5, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class LearningEvent(Base, TimestampMixin):
+    __tablename__ = "learning_events"
+    __table_args__ = (
+        Index("ix_learning_events_org_outcome_created", "organization_id", "outcome", "created_at"),
+        Index("ix_learning_events_context", "organization_id", "context_fingerprint"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id", ondelete="SET NULL"), index=True)
+    worker_id: Mapped[str | None] = mapped_column(ForeignKey("workforce_members.id", ondelete="SET NULL"), index=True)
+    assignment_id: Mapped[str | None] = mapped_column(ForeignKey("workforce_assignments.id", ondelete="SET NULL"), index=True)
+    created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    verified_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    action: Mapped[str] = mapped_column(String(160), nullable=False)
+    context_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    outcome: Mapped[str] = mapped_column(String(32), nullable=False)
+    evidence: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    strategy: Mapped[str | None] = mapped_column(String(200))
+    error_fingerprint: Mapped[str | None] = mapped_column(String(64))
+    lesson: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), default="recorded", nullable=False)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Lesson(Base, TimestampMixin):
+    __tablename__ = "lessons"
+    __table_args__ = (Index("ix_lessons_org_status_created", "organization_id", "status", "created_at"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id", ondelete="SET NULL"), index=True)
+    worker_id: Mapped[str | None] = mapped_column(ForeignKey("workforce_members.id", ondelete="SET NULL"), index=True)
+    source_event_id: Mapped[str | None] = mapped_column(ForeignKey("learning_events.id", ondelete="SET NULL"), index=True)
+    promoted_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+    lesson: Mapped[str] = mapped_column(Text, nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, default=0.5, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False)
+    tags: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    promoted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

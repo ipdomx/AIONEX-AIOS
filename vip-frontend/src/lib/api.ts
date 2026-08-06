@@ -661,11 +661,15 @@ export function getProjectExecution(
 
 export function startProjectExecution(
   projectId: string,
+  mode: "provider_neutral" | "full" = "provider_neutral",
 ): Promise<ProjectExecution> {
   return jsonRequest<ProjectExecution>(
     `/projects/${encodeURIComponent(projectId)}/executions`,
     "POST",
-    { confirm_external_processing: true, mode: "full" },
+    {
+      confirm_external_processing: mode === "full",
+      mode,
+    },
   );
 }
 
@@ -703,9 +707,9 @@ export function listNotifications(options?: {
   if (options?.archived) query.set("archived", "true");
   if (options?.category) query.set("category", options.category);
   const suffix = query.size ? `?${query.toString()}` : "";
-  return request<{ items: PortalNotification[] }>(`/notifications${suffix}`).then(
-    (response) => response.items,
-  );
+  return request<{ items: PortalNotification[] }>(
+    `/notifications${suffix}`,
+  ).then((response) => response.items);
 }
 
 export function updateNotification(
@@ -766,7 +770,9 @@ export function deleteCommunicationEndpoint(endpointId: string): Promise<void> {
   );
 }
 
-export function getNotificationPreferences(): Promise<NotificationPreference[]> {
+export function getNotificationPreferences(): Promise<
+  NotificationPreference[]
+> {
   return request<NotificationPreference[]>("/communications/preferences");
 }
 

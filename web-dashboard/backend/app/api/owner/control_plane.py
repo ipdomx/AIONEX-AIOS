@@ -21,18 +21,18 @@ from time import perf_counter
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
-from aios.completion_program import completion_program_snapshot
-
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select, text, update
 from sqlalchemy.dialects.postgresql import insert as postgres_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aios.completion_program import completion_program_snapshot
 from app.core.auth import UserRecord, pwd_context, require_super_owner
 from app.core.config import settings
 from app.db.base import SessionLocal, get_db
 from app.db.models import (
+    AcademyAssessment,
     Alert,
     ApprovalRequest,
     AuditEvent,
@@ -55,17 +55,19 @@ from app.db.models import (
     SupportMessage,
     SupportRequest,
     User,
+    WorkforceMember,
     Workspace,
     uuid_str,
 )
 from app.db.redis import get_redis
+from app.services import communications, work_management
+from app.services import governance as governance_service
+from app.services import workforce as workforce_service
 from app.services.backup_executor import (
     BackupExecutionError,
     acquire_enqueue_lock,
     get_backup_executor,
 )
-from app.services import communications
-from app.services import governance as governance_service
 
 router = APIRouter(prefix="/owner", tags=["owner-control-plane"])
 
@@ -954,13 +956,16 @@ async def _project_items(session: AsyncSession) -> list[dict[str, Any]]:
             "owner": owner_name,
             "organization": organization_name,
             "status": project.status,
-            "risk": (
-                "high"
-                if project.priority in {"critical", "high"}
-                else "medium" if project.priority == "medium" else "low"
-            ),
+            "risk": project.risk,
+            "priority": project.priority,
+            "reviewStatus": project.review_status,
             "progress": project.progress,
             "approvals": approval_counts.get(project.id, 0),
+            "approvedById": project.approved_by_id,
+            "approvedAt": _iso(project.approved_at) if project.approved_at else None,
+            "completedAt": _iso(project.completed_at) if project.completed_at else None,
+            "archivedAt": _iso(project.archived_at) if project.archived_at else None,
+            "version": project.version,
             "updatedAt": _iso(project.updated_at),
         }
         for project, organization_name, owner_name in rows
@@ -1232,88 +1237,204 @@ async def _recovery_items(session: AsyncSession) -> list[dict[str, Any]]:
 
 
 async def _staff_items(session: AsyncSession) -> list[dict[str, Any]]:
-    rows = (
-        await session.execute(
-            select(User, Role, Organization.name)
-            .outerjoin(Role, Role.id == User.role_id)
-            .join(Organization, Organization.id == User.organization_id)
-            .where(
-                User.deleted_at.is_(None),
-                or_(Role.id.is_(None), Role.name != "Super Owner"),
-            )
-            .order_by(User.name)
-        )
+    organization_rows = (
+        await session.execute(select(Organization.id, Organization.name))
     ).all()
-    staff: list[dict[str, Any]] = [
-        {
-            "id": user.id,
-            "kind": "human",
-            "name": user.name,
-            "role": role.name if role else "Unassigned",
-            "department": role.name if role else "Unassigned",
-            "ministry": None,
-            "organization": organization_name,
-            "organizationId": user.organization_id,
-            "status": user.status,
-            "performance": None,
-            "operationalHealth": None,
-            "trust": None,
-            "learning": None,
-            "successCount": None,
-            "failureCount": None,
-            "recommendation": None,
-            "restrictions": [],
-            "warnings": [],
-            "certifications": [],
-            "training": None,
-            "lastEvaluatedAt": None,
-        }
-        for user, role, organization_name in rows
-    ]
+    organization_names = {str(item[0]): str(item[1]) for item in organization_rows}
+    for organization_id in organization_names:
+        await workforce_service.sync_human_workforce(session, organization_id)
 
-    organization_names = dict(
-        (await session.execute(select(Organization.id, Organization.name))).all()
+    legacy_records = list(
+        (
+            await session.scalars(
+                select(OwnerControlRecord).where(
+                    OwnerControlRecord.domain == "digital-workforce"
+                )
+            )
+        ).all()
     )
-    digital_records = (
-        await session.scalars(
-            select(OwnerControlRecord)
-            .where(OwnerControlRecord.domain == "digital-workforce")
-            .order_by(OwnerControlRecord.updated_at.desc())
-        )
-    ).all()
-    for record in digital_records:
+    legacy_payload_by_member: dict[str, dict[str, Any]] = {}
+    for record in legacy_records:
         payload = record.payload if isinstance(record.payload, dict) else {}
         organization_id = str(payload.get("organization_id") or "")
+        if organization_id not in organization_names:
+            continue
+        key = f"legacy:{record.resource_id}"[:160]
+        existing = await session.scalar(
+            select(WorkforceMember).where(
+                WorkforceMember.organization_id == organization_id,
+                WorkforceMember.worker_key == key,
+            )
+        )
+        if existing is None:
+            existing = WorkforceMember(
+                id=uuid_str(),
+                organization_id=organization_id,
+                worker_key=key,
+                kind="digital",
+                name=str(payload.get("worker_id") or record.resource_id),
+                role=str(payload.get("role") or "Digital Worker"),
+                department=str(payload.get("department") or "Unassigned"),
+                ministry=(str(payload.get("ministry_id") or "").strip() or None),
+                grade=int(payload.get("grade") or 1),
+                status=str(payload.get("employment_state") or record.status),
+                skills=list(payload.get("skills") or []),
+                certifications=list(payload.get("certifications") or []),
+                restrictions=list(payload.get("restrictions") or []),
+                warnings=list(payload.get("warnings") or []),
+                provider_neutral=True,
+                profile_metadata={
+                    "legacy_resource_id": record.resource_id,
+                    "provider_activation": "deferred_to_29J",
+                    "legacy_project_id": payload.get("project_id"),
+                    "legacy_execution_id": payload.get("execution_id"),
+                },
+                version=max(1, record.version),
+            )
+            session.add(existing)
+        else:
+            existing.name = str(payload.get("worker_id") or existing.name)
+            existing.role = str(payload.get("role") or existing.role)
+            existing.department = str(payload.get("department") or existing.department)
+            existing.ministry = str(payload.get("ministry_id") or "").strip() or existing.ministry
+            existing.status = str(payload.get("employment_state") or record.status)
+            existing.certifications = list(payload.get("certifications") or existing.certifications or [])
+            existing.restrictions = list(payload.get("restrictions") or existing.restrictions or [])
+            existing.warnings = list(payload.get("warnings") or existing.warnings or [])
+            existing.profile_metadata = {
+                **(existing.profile_metadata or {}),
+                "legacy_resource_id": record.resource_id,
+                "provider_activation": "deferred_to_29J",
+                "legacy_project_id": payload.get("project_id"),
+                "legacy_execution_id": payload.get("execution_id"),
+            }
+        legacy_payload_by_member[existing.id] = payload
+    await session.flush()
+
+    role_rows = (
+        await session.execute(
+            select(User.id, Role.name)
+            .outerjoin(Role, Role.id == User.role_id)
+            .where(User.deleted_at.is_(None))
+        )
+    ).all()
+    roles = {str(user_id): str(role_name or "Unassigned") for user_id, role_name in role_rows}
+    members = list(
+        (
+            await session.scalars(
+                select(WorkforceMember).order_by(
+                    WorkforceMember.kind,
+                    WorkforceMember.name,
+                )
+            )
+        ).all()
+    )
+    members = [
+        item
+        for item in members
+        if not (item.kind == "human" and roles.get(str(item.user_id)) == "Super Owner")
+    ]
+    metrics = await workforce_service.member_metrics(
+        session, [item.id for item in members]
+    )
+    assessments = list(
+        (
+            await session.scalars(
+                select(AcademyAssessment).order_by(
+                    AcademyAssessment.worker_id,
+                    AcademyAssessment.created_at.desc(),
+                )
+            )
+        ).all()
+    )
+    latest_assessment: dict[str, AcademyAssessment] = {}
+    for assessment in assessments:
+        latest_assessment.setdefault(assessment.worker_id, assessment)
+
+    staff: list[dict[str, Any]] = []
+    for item in members:
+        current = metrics.get(item.id, {})
+        performance = current.get("performance") or {}
+        health = current.get("health")
+        assessment = latest_assessment.get(item.id)
+        legacy_payload = legacy_payload_by_member.get(item.id, {})
+
+        def metric_value(
+            name: str,
+            fallback: Any = None,
+            *,
+            _performance: dict[str, Any] = performance,
+            _legacy_payload: dict[str, Any] = legacy_payload,
+        ) -> Any:
+            value = _performance.get(name)
+            if value is not None:
+                return value
+            return _legacy_payload.get(name, fallback)
         staff.append(
             {
-                "id": record.resource_id,
-                "kind": "digital",
-                "name": str(payload.get("worker_id") or record.resource_id),
-                "role": str(payload.get("role") or "Digital Worker"),
-                "department": str(payload.get("department") or "Unassigned"),
-                "ministry": payload.get("ministry_id"),
+                "id": item.id,
+                "kind": item.kind,
+                "name": item.name,
+                "role": item.role,
+                "department": item.department,
+                "ministry": item.ministry,
                 "organization": organization_names.get(
-                    organization_id, organization_id or "Platform"
+                    item.organization_id, item.organization_id
                 ),
-                "organizationId": organization_id or None,
-                "status": str(payload.get("employment_state") or record.status),
-                "performance": payload.get("quality"),
-                "operationalHealth": payload.get("operational_health"),
-                "trust": payload.get("trust"),
-                "learning": payload.get("learning"),
-                "successCount": payload.get("success_count"),
-                "failureCount": payload.get("failure_count"),
-                "recommendation": payload.get("recommendation"),
-                "restrictions": list(payload.get("restrictions") or []),
-                "warnings": list(payload.get("warnings") or []),
-                "certifications": list(payload.get("certifications") or []),
-                "training": payload.get("training"),
-                "lastEvaluatedAt": payload.get("last_evaluated_at"),
-                "projectId": payload.get("project_id"),
-                "executionId": payload.get("execution_id"),
-                "version": record.version,
+                "organizationId": item.organization_id,
+                "status": item.status,
+                "performance": metric_value("quality"),
+                "operationalHealth": (
+                    health.operational_health
+                    if health is not None
+                    else legacy_payload.get("operational_health")
+                ),
+                "trust": (
+                    health.trust
+                    if health is not None
+                    else metric_value("policy", legacy_payload.get("trust"))
+                ),
+                "learning": (
+                    health.learning
+                    if health is not None
+                    else metric_value("learning")
+                ),
+                "successCount": current.get(
+                    "success_count", legacy_payload.get("success_count", 0)
+                ),
+                "failureCount": current.get(
+                    "failure_count", legacy_payload.get("failure_count", 0)
+                ),
+                "recommendation": (
+                    health.recommendation
+                    if health is not None
+                    else legacy_payload.get("recommendation")
+                ),
+                "restrictions": list(item.restrictions or []),
+                "warnings": list(item.warnings or []),
+                "certifications": list(item.certifications or []),
+                "training": (
+                    {
+                        "course_id": assessment.course_id,
+                        "score": assessment.score,
+                        "passed": assessment.passed,
+                    }
+                    if assessment is not None
+                    else legacy_payload.get("training")
+                ),
+                "lastEvaluatedAt": (
+                    _iso(health.created_at)
+                    if health is not None
+                    else legacy_payload.get("last_evaluated_at")
+                ),
+                "projectId": legacy_payload.get("project_id"),
+                "executionId": legacy_payload.get("execution_id"),
+                "grade": item.grade,
+                "providerNeutral": item.provider_neutral,
+                "version": item.version,
             }
         )
+    await session.commit()
     return sorted(
         staff,
         key=lambda item: (
@@ -2438,22 +2559,26 @@ async def _apply_live_action(
                 "validated": True,
                 "evidence": evidence,
             }
-        transitions = {
-            "resume": (PROJECT_RESUMABLE_STATUSES, "active"),
-            "pause": (PROJECT_PAUSABLE_STATUSES, "paused"),
-            "approve": (PROJECT_APPROVABLE_STATUSES, "active"),
-        }
-        transition = transitions.get(action)
-        if transition is None:
-            raise HTTPException(status_code=422, detail="Unsupported project action")
-        allowed_statuses, target_status = transition
-        if project.status not in allowed_statuses:
-            raise HTTPException(
-                status_code=409,
-                detail=(f"Project cannot {action} from status " f"{project.status}"),
+        normalized_action = {
+            "request-review": "request_review",
+            "request_review": "request_review",
+        }.get(action, action)
+        try:
+            await work_management.transition_project(
+                session,
+                actor,
+                project,
+                action=normalized_action,
+                reason=str(payload.get("reason", "")),
             )
-        project.status = target_status
-        return {"id": project.id, "status": project.status}
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return {
+            "id": project.id,
+            "status": project.status,
+            "reviewStatus": project.review_status,
+            "version": project.version,
+        }
 
     if domain == "incidents":
         incident = await session.get(Alert, resource_id)
@@ -3042,14 +3167,43 @@ async def _apply_live_action(
         }
 
     if domain == "staff":
-        if action not in {"refresh", "review"}:
-            raise HTTPException(status_code=409, detail="Unsupported staff action")
-        staff = await _staff_items(session)
-        return {
-            "reviewedAt": _iso(),
-            "records": len(staff),
-            "active": sum(item["status"] == "active" for item in staff),
-        }
+        if action in {"refresh", "review"}:
+            staff = await _staff_items(session)
+            return {
+                "reviewedAt": _iso(),
+                "records": len(staff),
+                "active": sum(item["status"] == "active" for item in staff),
+            }
+        member = await session.scalar(
+            select(WorkforceMember)
+            .where(WorkforceMember.id == resource_id)
+            .with_for_update()
+        )
+        if member is None:
+            raise HTTPException(status_code=404, detail="Workforce member not found")
+        normalized_action = {
+            "supervision": "supervise",
+            "training": "retrain",
+            "promotion": "promote",
+            "suspension": "suspend",
+            "retirement": "retire",
+        }.get(action, action)
+        try:
+            await workforce_service.transition_member(
+                session,
+                actor,
+                member,
+                action=normalized_action,
+                reason=str(payload.get("reason", "")),
+                grade=(
+                    int(payload["grade"])
+                    if payload.get("grade") is not None
+                    else None
+                ),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return workforce_service.member_snapshot(member)
 
     return await _apply_control_action(session, domain, resource_id, action, payload)
 
