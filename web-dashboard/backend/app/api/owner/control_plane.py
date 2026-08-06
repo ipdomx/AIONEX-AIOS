@@ -21,6 +21,8 @@ from time import perf_counter
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
+from aios.completion_program import completion_program_snapshot
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select, text, update
@@ -4010,4 +4012,5 @@ async def finalization(
         "generatedAt": _iso(),
         "completion": completion,
         "checks": checks,
+        "program": completion_program_snapshot(),
     }
