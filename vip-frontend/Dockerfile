@@ -8,19 +8,25 @@ RUN npm ci
 
 FROM base AS builder
 WORKDIR /app
+ARG NEXT_PUBLIC_API_URL=https://api.vip-e.net/api/v1
+ARG AIOS_BACKEND_ORIGIN=https://api.vip-e.net
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV AIOS_BACKEND_ORIGIN=http://backend:8000
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV AIOS_BACKEND_ORIGIN=${AIOS_BACKEND_ORIGIN}
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
 FROM base AS runner
 WORKDIR /app
+ARG NEXT_PUBLIC_API_URL=https://api.vip-e.net/api/v1
+ARG AIOS_BACKEND_ORIGIN=https://api.vip-e.net
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
-ENV AIOS_BACKEND_ORIGIN=http://backend:8000
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV AIOS_BACKEND_ORIGIN=${AIOS_BACKEND_ORIGIN}
 
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs
