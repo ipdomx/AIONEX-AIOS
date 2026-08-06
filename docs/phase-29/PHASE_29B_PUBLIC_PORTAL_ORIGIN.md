@@ -116,3 +116,27 @@ The scoped API token must have Zone Read, DNS Write, and Cloudflare Tunnel Write
 7. restore the original tunnel configuration automatically if the DNS mutation fails.
 
 It rejects duplicate hostnames, multiple catch-all rules, changed existing production routes, non-CNAME DNS conflicts, inactive tokens, wrong accounts or zones, locally managed tunnels, unsafe secret files, and unsuccessful verification. Its JSON result contains no token, connector secret, Authorization header, raw API body, account ID, zone ID, or tunnel ID.
+
+## Browser accessibility and responsive acceptance
+
+The current portal image was rebuilt after correcting the two defects found by the first real-browser audit:
+
+- configured About pages now retain a visible localized `h1` before CMS-managed sections;
+- the Facebook authentication button uses an accessible darker blue while preserving white text.
+
+A fresh Chromium acceptance run used both a `390 × 844` mobile viewport and a `1440 × 900` desktop viewport. It covered Arabic, English, French, German, Spanish, and Turkish across home, About, Contact, Pricing, Login, Register, Privacy, and Terms.
+
+Verified result:
+
+- pages checked: `96`;
+- HTTP failures: `0`;
+- WCAG 2 A/AA, WCAG 2.1 AA, and WCAG 2.2 AA violation pages: `0`;
+- accessibility violation nodes: `0`;
+- horizontal-overflow failures: `0`;
+- language-direction failures: `0`;
+- missing-main or missing-`h1` failures: `0`;
+- duplicate-ID failures: `0`;
+- keyboard-focus checks: `36`, all passed;
+- mobile navigation checks: `6`, all passed.
+
+Static regression tests require the configured About branch to retain its visible `h1` and prohibit restoration of the insufficient-contrast Facebook color.
