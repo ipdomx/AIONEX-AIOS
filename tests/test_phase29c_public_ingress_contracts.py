@@ -12,7 +12,16 @@ def test_public_identity_recovery_and_mfa_routes_reach_backend() -> None:
 
 
 def test_public_account_session_management_is_allowlisted() -> None:
-    assert "settings(?:/(?:password|sessions))?" in NGINX
+    assert (
+        "settings(?:/(?:password|sessions(?:/[0-9a-f]{8}-[0-9a-f]{4}-"
+        "[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?))?"
+        in NGINX
+    )
+
+
+def test_public_session_revoke_path_is_uuid_scoped() -> None:
+    assert "sessions(?:/.*)?" not in NGINX
+    assert "sessions(?:/[^/]+)?" not in NGINX
 
 
 def test_privileged_identity_administration_remains_private() -> None:
