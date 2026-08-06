@@ -1,0 +1,394 @@
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass
+from typing import Final, Literal
+
+BatchStatus = Literal["complete", "pending", "deferred"]
+FeatureStatus = Literal["verified", "pending", "deferred"]
+
+
+@dataclass(frozen=True, slots=True)
+class CompletionFeature:
+    feature_id: str
+    batch_id: str
+    title: str
+    status: FeatureStatus
+    acceptance: tuple[str, ...]
+    evidence: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class CompletionBatch:
+    batch_id: str
+    sequence: int
+    title: str
+    status: BatchStatus
+    objective: str
+    feature_ids: tuple[str, ...]
+
+
+FEATURES: Final[tuple[CompletionFeature, ...]] = (
+    CompletionFeature(
+        "completion-registry",
+        "29A",
+        "Authoritative platform completion registry",
+        "verified",
+        (
+            "Every current AIOS module is assigned to exactly one completion batch.",
+            "Every Owner page, public portal page, and backend endpoint is assigned.",
+            "Unregistered future surfaces fail automated tests.",
+        ),
+        (
+            "src/aios/completion_program.py",
+            "tests/test_phase29_completion_program.py",
+        ),
+    ),
+    CompletionFeature(
+        "completion-control-plane",
+        "29A",
+        "Owner-visible completion program",
+        "verified",
+        (
+            "The protected Owner finalization contract exposes batches and progress.",
+            "The Completion Inventory distinguishes runtime readiness from program completion.",
+        ),
+        (
+            "web-dashboard/backend/app/api/owner/control_plane.py",
+            "web-dashboard/frontend/src/app/owner/completion/page.tsx",
+        ),
+    ),
+    CompletionFeature(
+        "completion-roadmap-ci",
+        "29A",
+        "No-omission roadmap and CI gate",
+        "verified",
+        (
+            "Models and providers are the final batch.",
+            "No batch may close with a pending feature.",
+            "The roadmap is versioned and reviewed through GitHub.",
+        ),
+        ("docs/phase-29/PHASE_29_PLATFORM_COMPLETION_PROGRAM.md",),
+    ),
+    CompletionFeature(
+        "public-portal-release",
+        "29B",
+        "Public portal and user experience activation",
+        "pending",
+        (
+            "The current portal release is deployed to ai.vip-e.net.",
+            "All six locales, mobile layouts, accessibility, PWA, SEO, and legal pages pass live smoke tests.",
+            "The full project lifecycle, approval, and download controls are visible to normal users.",
+        ),
+    ),
+    CompletionFeature(
+        "owner-portal-cms",
+        "29B",
+        "Owner-controlled portal CMS and publishing",
+        "pending",
+        (
+            "Branding, pages, pricing, assets, translations, publish, and rollback work against retained production data.",
+            "Public and private portal boundaries remain enforced.",
+        ),
+    ),
+    CompletionFeature(
+        "identity-tenancy",
+        "29C",
+        "Identity, organizations, workspaces, teams, roles, and permissions",
+        "pending",
+        (
+            "Tenant isolation and role authority are proven end to end.",
+            "User, organization, workspace, team, role, and permission lifecycles are complete.",
+        ),
+    ),
+    CompletionFeature(
+        "authentication-security",
+        "29C",
+        "Authentication, sessions, recovery, passkeys, phone, and social login",
+        "pending",
+        (
+            "Password, refresh, logout, revocation, passkey, phone, and configured social flows pass live acceptance.",
+            "Suspension and authentication-generation changes invalidate every session.",
+        ),
+    ),
+    CompletionFeature(
+        "account-settings",
+        "29C",
+        "Account profile, preferences, language, security, and privacy",
+        "pending",
+        (
+            "Profile, password, notification preferences, language, timezone, theme, and credential management are complete.",
+        ),
+    ),
+    CompletionFeature(
+        "billing-licensing",
+        "29D",
+        "Billing, plans, licensing, seats, quotas, and metering",
+        "pending",
+        (
+            "Plan, seat, quota, usage, suspension, restore, and cost-governance records agree across API and Owner UI.",
+        ),
+    ),
+    CompletionFeature(
+        "payments-commerce",
+        "29D",
+        "Payments, checkout, invoices, subscriptions, refunds, and webhooks",
+        "pending",
+        (
+            "Sandbox and production-safe payment flows are idempotent, tenant-scoped, audited, and reconciled.",
+            "Pricing shown publicly matches enforced entitlements.",
+        ),
+    ),
+    CompletionFeature(
+        "notifications-channels",
+        "29E",
+        "Notification center and delivery channels",
+        "pending",
+        (
+            "In-app, email, push, Telegram, and WhatsApp channel states are truthful and delivery is audited.",
+            "Missing external credentials fail closed without losing durable notifications.",
+        ),
+    ),
+    CompletionFeature(
+        "communications-support",
+        "29E",
+        "Communications, support, incidents, and escalation",
+        "pending",
+        (
+            "User support, owner escalation, incidents, acknowledgements, retries, and delivery receipts are complete.",
+        ),
+    ),
+    CompletionFeature(
+        "meetings-approvals-governance",
+        "29E",
+        "Meetings, councils, policies, approvals, and government workflows",
+        "pending",
+        (
+            "Meeting lifecycle and every approval decision are durable, tenant-safe, owner-governed, and audited.",
+        ),
+    ),
+    CompletionFeature(
+        "project-work-management",
+        "29F",
+        "Projects, tasks, workflows, reports, and delivery history",
+        "pending",
+        (
+            "Create, update, run, pause, resume, review, approve, archive, search, report, and download paths pass end to end.",
+        ),
+    ),
+    CompletionFeature(
+        "workforce-academy",
+        "29F",
+        "Digital workforce, HR, health, training, certification, and promotion",
+        "pending",
+        (
+            "Assignment, performance, incidents, retraining, tests, certification, suspension, retirement, and promotion are durable.",
+        ),
+    ),
+    CompletionFeature(
+        "knowledge-learning",
+        "29F",
+        "Knowledge, memory, provenance, learning, and self-improvement evidence",
+        "pending",
+        (
+            "Knowledge ingestion, verification, provenance, scoped memory, lessons, and outcome learning are tenant-safe and testable.",
+        ),
+    ),
+    CompletionFeature(
+        "infrastructure-operations",
+        "29G",
+        "Infrastructure inventory, runtime, queues, databases, containers, and multi-service operations",
+        "pending",
+        (
+            "Every production component has truthful health, ownership, configuration, and failure handling.",
+        ),
+    ),
+    CompletionFeature(
+        "observability-incidents",
+        "29G",
+        "Metrics, logs, traces, alerts, topology, incidents, and audit",
+        "pending",
+        (
+            "Operational telemetry is live, searchable, retained, correlated, and drives incident workflows.",
+        ),
+    ),
+    CompletionFeature(
+        "security-compliance",
+        "29G",
+        "Security, secrets, policies, threats, compliance, and evidence",
+        "pending",
+        (
+            "Security and compliance controls use executed evidence, enforce tenant and owner boundaries, and fail closed.",
+        ),
+    ),
+    CompletionFeature(
+        "backup-recovery-release",
+        "29G",
+        "Backups, restore, disaster recovery, release governance, and rollback",
+        "pending",
+        (
+            "Backup, checksum, restore drill, recovery objectives, release gates, approval, deployment, and rollback are proven live.",
+        ),
+    ),
+    CompletionFeature(
+        "production-studio",
+        "29H",
+        "Production Studio for text, image, audio, video, web, and 3D artifacts",
+        "pending",
+        (
+            "Provider-neutral contracts, jobs, assets, revisions, safety, download, and project attachment are complete.",
+            "Provider activation remains reserved for batch 29J.",
+        ),
+    ),
+    CompletionFeature(
+        "mobile-pwa-delivery",
+        "29H",
+        "PWA, Android, iOS, mobile notifications, and release artifacts",
+        "pending",
+        (
+            "Mobile and PWA builds, signing boundaries, install/update behavior, offline state, and release artifacts are verified.",
+        ),
+    ),
+    CompletionFeature(
+        "plugins-marketplace",
+        "29I",
+        "Plugin SDK, marketplace, installation, permissions, isolation, and lifecycle",
+        "pending",
+        (
+            "Plugin publish, review, install, update, disable, uninstall, permission, audit, and rollback are complete.",
+        ),
+    ),
+    CompletionFeature(
+        "distributed-runtime",
+        "29I",
+        "Distributed workers, clusters, multi-host execution, leases, and recovery",
+        "pending",
+        (
+            "Multi-node execution, fencing, scheduling, retries, cancellation, failover, evidence, and reconciliation pass live tests.",
+        ),
+    ),
+    CompletionFeature(
+        "external-integrations",
+        "29I",
+        "Cloud, source control, storage, webhooks, calendars, messaging, and enterprise integrations",
+        "pending",
+        (
+            "Each non-model integration has configuration, health, scopes, retries, audit, disable, and recovery behavior.",
+        ),
+    ),
+    CompletionFeature(
+        "models-providers",
+        "29J",
+        "All AI models, providers, routing, capabilities, budgets, and fallbacks",
+        "deferred",
+        (
+            "Every supported provider is explicitly activated or explicitly removed from the supported product contract.",
+            "Model discovery, capability routing, policy, budgets, secrets, streaming, tools, media, health, and fallback are proven.",
+            "This batch is executed only after every non-provider batch is complete.",
+        ),
+    ),
+)
+
+
+def _feature_ids(batch_id: str) -> tuple[str, ...]:
+    return tuple(feature.feature_id for feature in FEATURES if feature.batch_id == batch_id)
+
+
+BATCHES: Final[tuple[CompletionBatch, ...]] = (
+    CompletionBatch("29A", 1, "Completion governance and exhaustive inventory", "complete", "Establish the no-omission completion contract and Owner visibility.", _feature_ids("29A")),
+    CompletionBatch("29B", 2, "Public portal and product experience", "pending", "Deploy and verify every public and user-facing portal capability.", _feature_ids("29B")),
+    CompletionBatch("29C", 3, "Identity, tenancy, access, and accounts", "pending", "Finish all identity and account lifecycles and prove isolation.", _feature_ids("29C")),
+    CompletionBatch("29D", 4, "Billing, licensing, payments, and entitlements", "pending", "Finish commercial, quota, metering, and payment lifecycles.", _feature_ids("29D")),
+    CompletionBatch("29E", 5, "Communications, notifications, meetings, and governance", "pending", "Finish human communication, escalation, councils, and approvals.", _feature_ids("29E")),
+    CompletionBatch("29F", 6, "Projects, workforce, academy, knowledge, and workflows", "pending", "Finish daily project operations and the governed digital workforce.", _feature_ids("29F")),
+    CompletionBatch("29G", 7, "Operations, observability, security, recovery, and release", "pending", "Prove the complete production operations and assurance plane.", _feature_ids("29G")),
+    CompletionBatch("29H", 8, "Production Studio and mobile delivery", "pending", "Finish provider-neutral media production and mobile delivery surfaces.", _feature_ids("29H")),
+    CompletionBatch("29I", 9, "Plugins, marketplace, distributed runtime, and integrations", "pending", "Finish extension, distribution, and non-model enterprise integrations.", _feature_ids("29I")),
+    CompletionBatch("29J", 10, "Models and providers — final batch", "deferred", "Activate and prove every supported AI model and provider only after all prior batches close.", _feature_ids("29J")),
+)
+
+
+MODULE_BATCH: Final[dict[str, str]] = {
+    "academy": "29F", "access": "29C", "api_experience": "29B", "api_gateway": "29G",
+    "autonomy_governance": "29E", "cluster_runtime": "29I", "cognitive": "29E",
+    "dashboard": "29B", "distributed": "29I", "distributed_runtime": "29I",
+    "engineering_platform": "29F", "enterprise": "29I", "enterprise_continuity": "29G",
+    "enterprise_hardening": "29G", "enterprise_intelligence": "29F",
+    "enterprise_launch_operations": "29G", "enterprise_marketplace": "29I",
+    "execution_fabric": "29I", "gateway": "29G", "global_communications": "29E",
+    "government": "29E", "hr": "29F", "infrastructure": "29G", "intelligence": "29E",
+    "interactions": "29C", "ios": "29H", "ios_app": "29H", "knowledge_learning": "29F",
+    "languages": "29B", "meetings_access": "29E", "ministries": "29E",
+    "mission_control": "29G", "mobile": "29H", "mobile_android": "29H",
+    "mobile_ecosystem": "29H", "models": "29J", "multi_host_runtime": "29I",
+    "notifications": "29E", "orchestration": "29F", "organization": "29C",
+    "payments": "29D", "plugin_sdk": "29I", "plugins": "29I",
+    "production_hardening": "29G", "providers": "29J", "release_candidate": "29G",
+    "release_governance": "29G", "runtime": "29G", "security_platform": "29G",
+    "self_evolution": "29F", "services": "29G", "stable_release": "29G",
+    "telegram_bot": "29E", "web_dashboard_integration": "29B", "web_integration": "29B",
+    "workers": "29F", "workforce_health": "29F",
+}
+
+OWNER_PAGE_BATCH: Final[dict[str, str]] = {
+    "access": "29C", "approvals": "29E", "approvals-live": "29E", "audit": "29G",
+    "billing": "29D", "communications": "29E", "completion": "29A", "compliance": "29G",
+    "compliance-runtime": "29G", "costs": "29D", "executive": "29B", "executive-bi": "29B",
+    "final-platform-integration": "29G", "finalization": "29G", "global-command": "29B",
+    "governance": "29E", "health": "29G", "incidents": "29G", "integrations": "29I",
+    "licensing": "29D", "notification-runtime": "29E", "notifications": "29E",
+    "operations": "29C", "operations-integration": "29G", "organizations": "29C",
+    "platform-integration": "29G", "policies": "29E", "portal": "29B",
+    "production-runtime": "29G", "projects": "29F", "realtime": "29G", "recovery": "29G",
+    "release": "29G", "release-governance": "29G", "runtime": "29B", "search": "29B",
+    "secrets": "29G", "security-integration": "29G", "services": "29G", "staff": "29F",
+    "system-map": "29G", "timeline": "29B",
+}
+
+VIP_PAGE_BATCH: Final[dict[str, str]] = {
+    "(root)/page.tsx": "29B", "[locale]/about/page.tsx": "29B",
+    "[locale]/contact/page.tsx": "29E", "[locale]/dashboard/page.tsx": "29F",
+    "[locale]/legal/privacy/page.tsx": "29B", "[locale]/legal/terms/page.tsx": "29B",
+    "[locale]/login/page.tsx": "29C", "[locale]/page.tsx": "29B",
+    "[locale]/pricing/page.tsx": "29D", "[locale]/profile/page.tsx": "29C",
+    "[locale]/projects/page.tsx": "29F", "[locale]/register/page.tsx": "29C",
+}
+
+ENDPOINT_BATCH: Final[dict[str, str]] = {
+    "ai_agents": "29J", "ai_providers": "29J", "auth": "29C", "backups": "29G",
+    "capabilities": "29A", "containers": "29G", "dashboard": "29B", "databases": "29G",
+    "final_integration": "29G", "firebase_phone": "29C", "identity": "29C",
+    "integration": "29I", "knowledge": "29F", "locale": "29B", "meetings": "29E",
+    "monitoring": "29G", "notifications": "29E", "organizations": "29C",
+    "permissions": "29C", "portal": "29B", "project_executions": "29F", "projects": "29F",
+    "reports": "29F", "roles": "29C", "search": "29B", "security": "29G",
+    "servers": "29G", "settings": "29C", "studio": "29H", "support": "29E",
+    "tasks": "29F", "users": "29C", "websocket": "29E", "workflows": "29F",
+    "workspaces": "29C",
+}
+
+
+def completion_program_snapshot() -> dict[str, object]:
+    completed = sum(feature.status == "verified" for feature in FEATURES)
+    actionable = sum(feature.status != "deferred" for feature in FEATURES)
+    batches = []
+    for batch in BATCHES:
+        features = [feature for feature in FEATURES if feature.batch_id == batch.batch_id]
+        batches.append(
+            {
+                **asdict(batch),
+                "features": [asdict(feature) for feature in features],
+                "verified_features": sum(feature.status == "verified" for feature in features),
+                "total_features": len(features),
+            }
+        )
+    current = next((batch.batch_id for batch in BATCHES if batch.status == "pending"), None)
+    return {
+        "program": "Phase 29 — Platform Completion Program",
+        "completion": round(100 * completed / max(1, actionable)),
+        "verified_features": completed,
+        "actionable_features": actionable,
+        "deferred_features": sum(feature.status == "deferred" for feature in FEATURES),
+        "current_batch": current,
+        "models_providers_batch": "29J",
+        "batches": batches,
+    }

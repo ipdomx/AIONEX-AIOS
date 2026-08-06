@@ -11,6 +11,7 @@ import {
   XCircle,
 } from "lucide-react";
 import {
+  EMPTY_OWNER_COMPLETION_PROGRAM,
   fetchOwnerFinalizationSnapshot,
   type OwnerFinalizationSnapshot,
 } from "@/lib/owner-finalization";
@@ -19,6 +20,7 @@ const emptySnapshot: OwnerFinalizationSnapshot = {
   generatedAt: "",
   completion: 0,
   checks: [],
+  program: EMPTY_OWNER_COMPLETION_PROGRAM,
 };
 
 const statusClass: Record<"passed" | "warning" | "failed", string> = {
