@@ -83,3 +83,36 @@ The corrected contract preserves explicit public caching only when all of the fo
 - the endpoint explicitly emitted a `public` cache directive.
 
 Every mutation, Owner API, error response, malformed asset path, and other API route continues to receive `Cache-Control: no-store`. Focused isolated PostgreSQL/Redis tests cover the public configuration, ETag/304 behavior, immutable asset path, private APIs, mutations, errors, and invalid paths.
+
+## Fixed-purpose Cloudflare activation operator
+
+`scripts/phase29b/activate_portal_hostname.py` closes the external hostname step without accepting an arbitrary hostname, origin, tunnel, zone, or filesystem path.
+
+It reads one external root-only file:
+
+`/root/.config/aionex/cloudflare/phase29b-portal.env`
+
+The file contract is exact:
+
+- owner: `root:root`;
+- directory mode: `0700`;
+- file mode: `0600`;
+- `CLOUDFLARE_API_TOKEN`;
+- `CLOUDFLARE_ACCOUNT_ID`;
+- `CLOUDFLARE_ZONE_ID`;
+- no extra or duplicate variables;
+- no placeholders.
+
+The scoped API token must have Zone Read, DNS Write, and Cloudflare Tunnel Write for the AIONEX account and `vip-e.net` zone. The operator derives the existing production tunnel identity from the external connector token without returning either credential.
+
+`--check` performs read-only verification. `--apply` can only:
+
+1. verify the API token, account, zone, and remotely managed production tunnel;
+2. preserve the existing `api.vip-e.net → nginx:8080` route;
+3. preserve the existing `gabarot.vip-e.net → nginx:8081` route and its per-route settings;
+4. add or correct `ai.vip-e.net → nginx:8082` before the mandatory `http_status:404` catch-all;
+5. create or replace one proxied CNAME to the current tunnel;
+6. verify tunnel and DNS state after the mutation;
+7. restore the original tunnel configuration automatically if the DNS mutation fails.
+
+It rejects duplicate hostnames, multiple catch-all rules, changed existing production routes, non-CNAME DNS conflicts, inactive tokens, wrong accounts or zones, locally managed tunnels, unsafe secret files, and unsuccessful verification. Its JSON result contains no token, connector secret, Authorization header, raw API body, account ID, zone ID, or tunnel ID.
