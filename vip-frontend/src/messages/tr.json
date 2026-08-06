@@ -21,7 +21,11 @@
     "pricingTitle": "AIONEX AIOS planları ve fiyatları",
     "pricingDescription": "Planları ve abonelik dönemlerini karşılaştırın.",
     "billingTitle": "Faturalandırma ve abonelikler",
-    "billingDescription": "AIONEX AIOS planınızı, faturalarınızı, kullanımınızı ve ödeme yöntemlerinizi yönetin."
+    "billingDescription": "AIONEX AIOS planınızı, faturalarınızı, kullanımınızı ve ödeme yöntemlerinizi yönetin.",
+    "notificationsTitle": "Bildirimler ve iletişim tercihleri",
+    "notificationsDescription": "Kalıcı bildirimleri, teslim kayıtlarını ve kanalları inceleyin.",
+    "supportTitle": "Destek talepleri",
+    "supportDescription": "AIONEX ile kalıcı destek görüşmeleri açın ve takip edin."
   },
   "nav": {
     "home": "Ana sayfa",
@@ -39,7 +43,9 @@
     "openMenu": "Menüyü aç",
     "closeMenu": "Menüyü kapat",
     "pricing": "Fiyatlandırma",
-    "billing": "Faturalandırma"
+    "billing": "Faturalandırma",
+    "notifications": "Bildirimler",
+    "support": "Destek"
   },
   "footer": {
     "description": "Ajanları, modelleri, projeleri ve operasyonel kontrolleri koordine eden yönetişimli bir yapay zekâ işletim sistemi.",
@@ -153,7 +159,8 @@
     "accountSettings": "Hesap ayarları",
     "contactSupport": "Destekle iletişim",
     "organization": "Kuruluş: {name}",
-    "manageBilling": "Faturalandırmayı yönet"
+    "manageBilling": "Faturalandırmayı yönet",
+    "notifications": "Bildirimler"
   },
   "auth": {
     "secureAccess": "Güvenli kullanıcı erişimi",
@@ -522,5 +529,91 @@
     "status": "Durum",
     "total": "Toplam",
     "noInvoices": "Henüz fatura yok."
+  },
+  "notifications": {
+    "eyebrow": "İletişim merkezi",
+    "title": "Bildirimler ve kanallar",
+    "description": "Her olay önce uygulamada saklanır; etkin kanalların teslim durumu açıkça gösterilir.",
+    "loading": "Bildirimler yükleniyor",
+    "loadError": "Bildirimler yüklenemedi.",
+    "saveError": "Değişiklikler kaydedilemedi.",
+    "markAllRead": "Tümünü okundu işaretle",
+    "refresh": "Yenile",
+    "markedAll": "{count} bildirim okundu işaretlendi.",
+    "archived": "Bildirim arşivlendi.",
+    "inbox": "Bildirim kutusu",
+    "unreadCount": "{count} okunmamış",
+    "unreadOnly": "Yalnızca okunmamış",
+    "markUnread": "Okunmamış işaretle",
+    "markRead": "Okundu işaretle",
+    "archive": "Bildirimi arşivle",
+    "empty": "Bildirim yok",
+    "emptyCopy": "Yeni proje, destek, faturalama, toplantı ve yönetişim olayları burada görünür.",
+    "channelReadiness": "Kanal hazır olma durumu",
+    "ready": "Hazır",
+    "notConfigured": "Yapılandırılmamış",
+    "preferences": "Teslim tercihleri",
+    "minimumSeverity": "En düşük önem",
+    "severity": {
+      "info": "Bilgi",
+      "warning": "Uyarı",
+      "critical": "Kritik"
+    },
+    "savePreferences": "Tercihleri kaydet",
+    "preferencesSaved": "Bildirim tercihleri kaydedildi.",
+    "endpoints": "İletişim uçları",
+    "endpointsCopy": "Adresler saklanmadan önce şifrelenir. Telegram ve WhatsApp için sahip doğrulaması gerekir.",
+    "primaryEndpoint": "Birincil uç",
+    "endpointAdded": "Uç eklendi ve doğrulandı.",
+    "endpointPending": "Uç eklendi; doğrulama bekleniyor.",
+    "endpointError": "Uç kaydedilemedi.",
+    "endpointRemoved": "Uç kaldırıldı.",
+    "channel": {
+      "email": "E-posta",
+      "push": "Push belirteci",
+      "telegram": "Telegram sohbeti",
+      "whatsapp": "WhatsApp numarası"
+    },
+    "endpointAddress": "E-posta, cihaz belirteci, sohbet kimliği veya telefon",
+    "endpointLabel": "Uç etiketi",
+    "addEndpoint": "Uç ekle",
+    "verified": "Doğrulandı",
+    "verificationPending": "Doğrulama bekleniyor",
+    "removeEndpoint": "Ucu kaldır",
+    "noEndpoints": "Henüz harici uç kaydedilmedi."
+  },
+  "support": {
+    "eyebrow": "Kalıcı destek",
+    "title": "Destek talepleri",
+    "description": "Görüşme geçmişini kaybetmeden destek talepleri oluşturun, izleyin ve yanıtlayın.",
+    "refresh": "Yenile",
+    "loading": "Destek talepleri yükleniyor",
+    "loadError": "Destek talepleri yüklenemedi.",
+    "saveError": "Destek talebi kaydedilemedi.",
+    "created": "Destek talebi oluşturuldu.",
+    "replySent": "Yanıt gönderildi.",
+    "back": "Taleplere dön",
+    "replyPlaceholder": "Yanıt yazın",
+    "sendReply": "Yanıt gönder",
+    "newTicket": "Yeni destek talebi",
+    "subject": "Konu",
+    "message": "Sorunu en az 10 karakterle açıklayın",
+    "create": "Talep oluştur",
+    "history": "Talep geçmişi",
+    "empty": "Henüz destek talebi yok.",
+    "category": {
+      "general": "Genel",
+      "technical": "Teknik",
+      "billing": "Faturalama",
+      "security": "Güvenlik",
+      "account": "Hesap",
+      "project": "Proje"
+    },
+    "priority": {
+      "low": "Düşük",
+      "normal": "Normal",
+      "high": "Yüksek",
+      "urgent": "Acil"
+    }
   }
 }

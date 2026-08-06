@@ -1083,7 +1083,9 @@ async def test_approval_history_keeps_durable_decisions_visible() -> None:
     ]
 
     class ApprovalSession:
-        async def scalars(self, _statement: object) -> _ScalarRows:
+        async def scalars(self, statement: object) -> _ScalarRows:
+            if "approval_requests" in str(statement):
+                return _ScalarRows([])
             return _ScalarRows(meetings)
 
     items = await control_plane._approval_items(ApprovalSession())  # type: ignore[arg-type]

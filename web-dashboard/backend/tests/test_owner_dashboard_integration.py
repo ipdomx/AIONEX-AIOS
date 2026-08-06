@@ -54,6 +54,20 @@ OWNER_API_CONTRACT = {
     ("GET", "/api/v1/owner/timeline"),
     ("GET", "/api/v1/owner/approvals"),
     ("PATCH", "/api/v1/owner/approvals/{approval_id}"),
+    ("GET", "/api/v1/owner/communications/overview"),
+    ("GET", "/api/v1/owner/communications/deliveries"),
+    (
+        "POST",
+        "/api/v1/owner/communications/deliveries/{delivery_id}/retry",
+    ),
+    ("GET", "/api/v1/owner/support/requests"),
+    ("GET", "/api/v1/owner/support/requests/{request_id}"),
+    (
+        "POST",
+        "/api/v1/owner/support/requests/{request_id}/messages",
+    ),
+    ("PATCH", "/api/v1/owner/support/requests/{request_id}"),
+    ("GET", "/api/v1/owner/governance/overview"),
     ("GET", "/api/v1/owner/compliance-controls"),
     (
         "POST",
@@ -118,6 +132,18 @@ OWNER_MUTATION_REQUESTS = {
     ("PATCH", "/api/v1/owner/approvals/{approval_id}"): {
         "status": "approved",
         "reason": "",
+    },
+    (
+        "POST",
+        "/api/v1/owner/communications/deliveries/{delivery_id}/retry",
+    ): None,
+    (
+        "POST",
+        "/api/v1/owner/support/requests/{request_id}/messages",
+    ): {"message": "Owner test reply", "visibility": "requester"},
+    ("PATCH", "/api/v1/owner/support/requests/{request_id}"): {
+        "status": "in_progress",
+        "assigned_to_id": None,
     },
     (
         "POST",
@@ -233,6 +259,8 @@ def _materialize_route(path: str) -> str:
         "candidate_id": "missing-release",
         "version": "1",
         "asset_id": "0" * 32,
+        "delivery_id": "missing-delivery",
+        "request_id": "missing-support-request",
     }
     return re.sub(
         r"\{([^}]+)\}",
@@ -264,13 +292,13 @@ def test_owner_navigation_registry_matches_all_owner_pages() -> None:
         f"/owner/{page.parent.relative_to(OWNER_APP).as_posix()}"
         for page in OWNER_APP.glob("*/page.tsx")
     }
-    assert len(page_routes) == 42
+    assert len(page_routes) == 43
 
     registry = (FRONTEND / "src" / "config" / "owner-navigation.ts").read_text()
     registry_routes = re.findall(r'href:\s*"(/owner/[^"]+)"', registry)
 
-    assert len(registry_routes) == 42
-    assert len(set(registry_routes)) == 42
+    assert len(registry_routes) == 43
+    assert len(set(registry_routes)) == 43
     assert set(registry_routes) == page_routes
 
 

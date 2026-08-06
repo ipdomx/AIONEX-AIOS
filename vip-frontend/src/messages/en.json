@@ -21,7 +21,11 @@
     "pricingTitle": "AIONEX AIOS plans and pricing",
     "pricingDescription": "Compare available plans and subscription periods.",
     "billingTitle": "Billing and subscriptions",
-    "billingDescription": "Manage your AIONEX AIOS plan, invoices, usage and payment methods."
+    "billingDescription": "Manage your AIONEX AIOS plan, invoices, usage and payment methods.",
+    "notificationsTitle": "Notifications and communication preferences",
+    "notificationsDescription": "Review durable notifications, delivery receipts, and communication channels.",
+    "supportTitle": "Support requests",
+    "supportDescription": "Open and follow durable support conversations with AIONEX."
   },
   "nav": {
     "home": "Home",
@@ -39,7 +43,9 @@
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
     "pricing": "Pricing",
-    "billing": "Billing"
+    "billing": "Billing",
+    "notifications": "Notifications",
+    "support": "Support"
   },
   "footer": {
     "description": "A governed AI operating system for coordinating agents, models, projects, and operational controls.",
@@ -153,7 +159,8 @@
     "accountSettings": "Account settings",
     "contactSupport": "Contact support",
     "organization": "Organization: {name}",
-    "manageBilling": "Manage billing"
+    "manageBilling": "Manage billing",
+    "notifications": "Notifications"
   },
   "auth": {
     "secureAccess": "Secure user access",
@@ -522,5 +529,91 @@
     "status": "Status",
     "total": "Total",
     "noInvoices": "No invoices have been issued yet."
+  },
+  "notifications": {
+    "eyebrow": "Communication center",
+    "title": "Notifications and channels",
+    "description": "Every event is stored in-app first, with transparent delivery status for each enabled channel.",
+    "loading": "Loading notifications",
+    "loadError": "Notifications could not be loaded.",
+    "saveError": "Your changes could not be saved.",
+    "markAllRead": "Mark all read",
+    "refresh": "Refresh",
+    "markedAll": "Marked {count} notifications as read.",
+    "archived": "Notification archived.",
+    "inbox": "Notification inbox",
+    "unreadCount": "{count} unread",
+    "unreadOnly": "Unread only",
+    "markUnread": "Mark unread",
+    "markRead": "Mark read",
+    "archive": "Archive notification",
+    "empty": "No notifications",
+    "emptyCopy": "New project, support, billing, meeting, and governance events will appear here.",
+    "channelReadiness": "Channel readiness",
+    "ready": "Ready",
+    "notConfigured": "Not configured",
+    "preferences": "Delivery preferences",
+    "minimumSeverity": "Minimum severity",
+    "severity": {
+      "info": "Information",
+      "warning": "Warning",
+      "critical": "Critical"
+    },
+    "savePreferences": "Save preferences",
+    "preferencesSaved": "Notification preferences saved.",
+    "endpoints": "Communication endpoints",
+    "endpointsCopy": "Addresses are encrypted before storage. Telegram and WhatsApp require owner verification before delivery.",
+    "primaryEndpoint": "Primary endpoint",
+    "endpointAdded": "Endpoint added and verified.",
+    "endpointPending": "Endpoint added and awaiting owner verification.",
+    "endpointError": "The endpoint could not be registered.",
+    "endpointRemoved": "Endpoint removed.",
+    "channel": {
+      "email": "Email",
+      "push": "Push token",
+      "telegram": "Telegram chat",
+      "whatsapp": "WhatsApp number"
+    },
+    "endpointAddress": "Email, device token, chat ID, or phone number",
+    "endpointLabel": "Endpoint label",
+    "addEndpoint": "Add endpoint",
+    "verified": "Verified",
+    "verificationPending": "Verification pending",
+    "removeEndpoint": "Remove endpoint",
+    "noEndpoints": "No external endpoints are registered yet."
+  },
+  "support": {
+    "eyebrow": "Durable support",
+    "title": "Support requests",
+    "description": "Create, track, and reply to support requests without losing conversation history.",
+    "refresh": "Refresh",
+    "loading": "Loading support requests",
+    "loadError": "Support requests could not be loaded.",
+    "saveError": "The support request could not be saved.",
+    "created": "Support request created.",
+    "replySent": "Reply sent.",
+    "back": "Back to requests",
+    "replyPlaceholder": "Write a reply",
+    "sendReply": "Send reply",
+    "newTicket": "New support request",
+    "subject": "Subject",
+    "message": "Describe the issue in at least 10 characters",
+    "create": "Create request",
+    "history": "Request history",
+    "empty": "No support requests yet.",
+    "category": {
+      "general": "General",
+      "technical": "Technical",
+      "billing": "Billing",
+      "security": "Security",
+      "account": "Account",
+      "project": "Project"
+    },
+    "priority": {
+      "low": "Low",
+      "normal": "Normal",
+      "high": "High",
+      "urgent": "Urgent"
+    }
   }
 }

@@ -543,3 +543,117 @@ export interface BillingCheckout {
     instructions?: Record<string, string | number | null>;
   };
 }
+
+export type NotificationChannelId =
+  | "in_app"
+  | "email"
+  | "push"
+  | "telegram"
+  | "whatsapp";
+
+export interface NotificationDelivery {
+  id: string;
+  notification_id: string;
+  channel: NotificationChannelId;
+  status: string;
+  attempt_count: number;
+  max_attempts: number;
+  next_attempt_at: string | null;
+  provider_message_id: string | null;
+  error_code: string | null;
+  delivered_at: string | null;
+  acknowledged_at: string | null;
+  dead_lettered_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PortalNotification {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  type: string;
+  category: string;
+  event_key: string;
+  audience: string;
+  title: string;
+  message: string;
+  severity: "info" | "success" | "warning" | "critical";
+  source_type: string | null;
+  source_id: string | null;
+  correlation_id: string | null;
+  payload: Record<string, unknown>;
+  read: boolean;
+  archived: boolean;
+  read_at: string | null;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+  deliveries: NotificationDelivery[];
+}
+
+export interface CommunicationChannelReadiness {
+  id: NotificationChannelId;
+  name: string;
+  configured: boolean;
+  ready: boolean;
+  status: "ready" | "unconfigured";
+  reason: string;
+  owner_only: boolean;
+  capabilities: string[];
+}
+
+export interface CommunicationEndpoint {
+  id: string;
+  channel: Exclude<NotificationChannelId, "in_app">;
+  label: string;
+  status: string;
+  verified: boolean;
+  verified_at: string | null;
+  last_used_at: string | null;
+  masked_address: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NotificationPreference {
+  id: string;
+  category: string;
+  enabled: boolean;
+  channels: NotificationChannelId[];
+  minimum_severity: "info" | "success" | "warning" | "critical";
+  quiet_hours_start: string | null;
+  quiet_hours_end: string | null;
+  timezone: string;
+  digest_mode: "immediate" | "hourly" | "daily";
+  updated_at: string;
+}
+
+export interface SupportTicketMessage {
+  id: string;
+  support_request_id: string;
+  sender_id: string | null;
+  visibility: "requester" | "internal";
+  message: string;
+  attachments: Array<Record<string, unknown>>;
+  created_at: string;
+}
+
+export interface SupportTicket {
+  id: string;
+  organization_id: string;
+  requester_id: string;
+  assigned_to_id: string | null;
+  subject: string;
+  category: string;
+  priority: string;
+  status: string;
+  message_count: number | null;
+  last_message_at: string;
+  escalated_at: string | null;
+  resolved_at: string | null;
+  closed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  messages?: SupportTicketMessage[];
+}

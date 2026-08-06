@@ -24,6 +24,7 @@ import {
   HeartPulse,
   KeyRound,
   LockKeyhole,
+  LifeBuoy,
   Map,
   MessageCircle,
   Network,
@@ -286,7 +287,8 @@ export const ownerNavigationSections: OwnerNavigationSection[] = [
       {
         id: "owner-notification-runtime",
         label: "Notification Runtime",
-        description: "Delivery rules for in-app, email, push, and WhatsApp.",
+        description:
+          "Delivery rules for in-app, email, push, Telegram, and WhatsApp.",
         href: "/owner/notification-runtime",
         icon: BellRing,
       },
@@ -296,6 +298,14 @@ export const ownerNavigationSections: OwnerNavigationSection[] = [
         description: "Communication channels, routing, and delivery control.",
         href: "/owner/communications",
         icon: MessageCircle,
+      },
+      {
+        id: "owner-support",
+        label: "Support Command",
+        description:
+          "Durable support conversations, assignment, and resolution.",
+        href: "/owner/support",
+        icon: LifeBuoy,
       },
       {
         id: "owner-incidents",

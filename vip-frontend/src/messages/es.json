@@ -21,7 +21,11 @@
     "pricingTitle": "Planes y precios de AIONEX AIOS",
     "pricingDescription": "Compara los planes y periodos de suscripción.",
     "billingTitle": "Facturación y suscripciones",
-    "billingDescription": "Gestiona tu plan AIONEX AIOS, facturas, uso y métodos de pago."
+    "billingDescription": "Gestiona tu plan AIONEX AIOS, facturas, uso y métodos de pago.",
+    "notificationsTitle": "Notificaciones y preferencias de comunicación",
+    "notificationsDescription": "Revisa notificaciones duraderas, recibos de entrega y canales.",
+    "supportTitle": "Solicitudes de soporte",
+    "supportDescription": "Abre y sigue conversaciones de soporte duraderas con AIONEX."
   },
   "nav": {
     "home": "Inicio",
@@ -39,7 +43,9 @@
     "openMenu": "Abrir menú",
     "closeMenu": "Cerrar menú",
     "pricing": "Precios",
-    "billing": "Facturación"
+    "billing": "Facturación",
+    "notifications": "Notificaciones",
+    "support": "Soporte"
   },
   "footer": {
     "description": "Un sistema operativo de IA gobernado para coordinar agentes, modelos, proyectos y controles operativos.",
@@ -153,7 +159,8 @@
     "accountSettings": "Configuración de cuenta",
     "contactSupport": "Contactar con soporte",
     "organization": "Organización: {name}",
-    "manageBilling": "Gestionar facturación"
+    "manageBilling": "Gestionar facturación",
+    "notifications": "Notificaciones"
   },
   "auth": {
     "secureAccess": "Acceso seguro",
@@ -522,5 +529,91 @@
     "status": "Estado",
     "total": "Total",
     "noInvoices": "Aún no hay facturas."
+  },
+  "notifications": {
+    "eyebrow": "Centro de comunicación",
+    "title": "Notificaciones y canales",
+    "description": "Cada evento se guarda primero en la aplicación, con un estado de entrega transparente por canal.",
+    "loading": "Cargando notificaciones",
+    "loadError": "No se pudieron cargar las notificaciones.",
+    "saveError": "No se pudieron guardar los cambios.",
+    "markAllRead": "Marcar todo como leído",
+    "refresh": "Actualizar",
+    "markedAll": "Se marcaron {count} notificaciones como leídas.",
+    "archived": "Notificación archivada.",
+    "inbox": "Bandeja de notificaciones",
+    "unreadCount": "{count} sin leer",
+    "unreadOnly": "Solo no leídas",
+    "markUnread": "Marcar no leída",
+    "markRead": "Marcar leída",
+    "archive": "Archivar notificación",
+    "empty": "No hay notificaciones",
+    "emptyCopy": "Los nuevos eventos de proyectos, soporte, facturación, reuniones y gobierno aparecerán aquí.",
+    "channelReadiness": "Disponibilidad de canales",
+    "ready": "Listo",
+    "notConfigured": "No configurado",
+    "preferences": "Preferencias de entrega",
+    "minimumSeverity": "Severidad mínima",
+    "severity": {
+      "info": "Información",
+      "warning": "Advertencia",
+      "critical": "Crítica"
+    },
+    "savePreferences": "Guardar preferencias",
+    "preferencesSaved": "Preferencias guardadas.",
+    "endpoints": "Puntos de comunicación",
+    "endpointsCopy": "Las direcciones se cifran antes de guardarse. Telegram y WhatsApp requieren verificación del propietario.",
+    "primaryEndpoint": "Punto principal",
+    "endpointAdded": "Punto añadido y verificado.",
+    "endpointPending": "Punto añadido; verificación pendiente.",
+    "endpointError": "No se pudo registrar el punto.",
+    "endpointRemoved": "Punto eliminado.",
+    "channel": {
+      "email": "Correo",
+      "push": "Token push",
+      "telegram": "Chat de Telegram",
+      "whatsapp": "Número de WhatsApp"
+    },
+    "endpointAddress": "Correo, token de dispositivo, ID de chat o teléfono",
+    "endpointLabel": "Etiqueta del punto",
+    "addEndpoint": "Añadir punto",
+    "verified": "Verificado",
+    "verificationPending": "Verificación pendiente",
+    "removeEndpoint": "Eliminar punto",
+    "noEndpoints": "Aún no hay puntos externos registrados."
+  },
+  "support": {
+    "eyebrow": "Soporte duradero",
+    "title": "Solicitudes de soporte",
+    "description": "Crea, sigue y responde solicitudes sin perder el historial.",
+    "refresh": "Actualizar",
+    "loading": "Cargando solicitudes",
+    "loadError": "No se pudieron cargar las solicitudes.",
+    "saveError": "No se pudo guardar la solicitud.",
+    "created": "Solicitud creada.",
+    "replySent": "Respuesta enviada.",
+    "back": "Volver a solicitudes",
+    "replyPlaceholder": "Escribe una respuesta",
+    "sendReply": "Enviar respuesta",
+    "newTicket": "Nueva solicitud",
+    "subject": "Asunto",
+    "message": "Describe el problema con al menos 10 caracteres",
+    "create": "Crear solicitud",
+    "history": "Historial de solicitudes",
+    "empty": "Aún no hay solicitudes.",
+    "category": {
+      "general": "General",
+      "technical": "Técnico",
+      "billing": "Facturación",
+      "security": "Seguridad",
+      "account": "Cuenta",
+      "project": "Proyecto"
+    },
+    "priority": {
+      "low": "Baja",
+      "normal": "Normal",
+      "high": "Alta",
+      "urgent": "Urgente"
+    }
   }
 }

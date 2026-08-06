@@ -1,8 +1,10 @@
 "use client";
 
 import {
+  Bell,
   CreditCard,
   LayoutDashboard,
+  LifeBuoy,
   LogOut,
   Menu,
   UserRound,
@@ -154,6 +156,20 @@ export function Navbar() {
                 {t("billing")}
               </Link>
               <Link
+                href={`/${locale}/notifications`}
+                className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/65 hover:text-white"
+              >
+                <Bell className="h-4 w-4" aria-hidden="true" />
+                {t("notifications")}
+              </Link>
+              <Link
+                href={`/${locale}/support`}
+                className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/65 hover:text-white"
+              >
+                <LifeBuoy className="h-4 w-4" aria-hidden="true" />
+                {t("support")}
+              </Link>
+              <Link
                 href={`/${locale}/profile`}
                 className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-sm text-white/70 hover:bg-white/[0.08] hover:text-white"
               >
@@ -228,6 +244,20 @@ export function Navbar() {
                   className="rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06]"
                 >
                   {t("billing")}
+                </Link>
+                <Link
+                  href={`/${locale}/notifications`}
+                  onClick={() => setOpen(false)}
+                  className="rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06]"
+                >
+                  {t("notifications")}
+                </Link>
+                <Link
+                  href={`/${locale}/support`}
+                  onClick={() => setOpen(false)}
+                  className="rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06]"
+                >
+                  {t("support")}
                 </Link>
                 <Link
                   href={`/${locale}/profile`}

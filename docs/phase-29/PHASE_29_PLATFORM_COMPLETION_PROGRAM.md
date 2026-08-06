@@ -80,6 +80,10 @@ Scope:
 
 ## Batch 29E — Communications, notifications, meetings, and governance
 
+Status: **complete and verified**. The authoritative evidence is recorded in
+`docs/phase-29/PHASE_29E_COMMUNICATIONS_GOVERNANCE_COMPLETION.md`; the next
+active batch is **29F**.
+
 Scope:
 
 - durable in-app notifications;

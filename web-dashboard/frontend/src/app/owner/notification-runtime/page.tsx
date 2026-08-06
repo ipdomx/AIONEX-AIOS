@@ -8,6 +8,7 @@ import {
   Mail,
   MessageCircle,
   RefreshCw,
+  Send,
   Smartphone,
   ToggleLeft,
   ToggleRight,
@@ -31,6 +32,7 @@ const channelIcon: Record<
   in_app: Bell,
   email: Mail,
   push: Smartphone,
+  telegram: Send,
   whatsapp: MessageCircle,
 };
 

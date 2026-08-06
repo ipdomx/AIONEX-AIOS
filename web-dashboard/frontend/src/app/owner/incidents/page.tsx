@@ -21,6 +21,8 @@ type Incident = {
   status: string;
   owner: string;
   startedAt: string;
+  escalation_level?: number;
+  last_escalated_at?: string | null;
 };
 
 const severityStyle = (severity: string) =>
@@ -152,7 +154,8 @@ export default function OwnerIncidentsPage() {
                       {incident.title}
                     </h2>
                     <p className="mt-1 text-xs text-white/35">
-                      {incident.source} · Owner team: {incident.owner} ·{" "}
+                      {incident.source} · Owner team: {incident.owner} ·
+                      escalation {incident.escalation_level || 0} ·{" "}
                       {incident.startedAt}
                     </p>
                   </div>
@@ -164,6 +167,13 @@ export default function OwnerIncidentsPage() {
                     className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white/65 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Investigate
+                  </button>
+                  <button
+                    disabled={busy || incident.status === "resolved"}
+                    onClick={() => void execute(incident.id, "escalate")}
+                    className="rounded-xl border border-orange-500/20 bg-orange-500/10 px-3 py-2 text-xs text-orange-300 hover:bg-orange-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Escalate
                   </button>
                   <button
                     disabled={busy || incident.status === "resolved"}
