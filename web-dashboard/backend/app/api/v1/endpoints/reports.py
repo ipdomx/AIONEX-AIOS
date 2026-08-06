@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+import hashlib
+import json
+from datetime import UTC, datetime
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import UserRecord, require_permissions
 from app.db.base import get_db
 from app.db.models import AuditEvent, Project, Report, Workspace
+from app.services import work_management
 
 router = APIRouter()
 
@@ -24,6 +28,7 @@ class ReportCreate(BaseModel):
     project_id: Optional[str] = None
     summary: Optional[str] = None
     metrics: dict[str, Any] = Field(default_factory=dict)
+    format: str = Field(default="json", pattern=r"^(json|text)$")
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -40,12 +45,17 @@ def _serialize_report(
         "name": report.name,
         "type": report.type,
         "organization_id": report.organization_id,
-        "workspace_id": workspace_id,
+        "workspace_id": report.workspace_id or workspace_id,
         "project_id": report.project_id,
         "status": report.status,
-        "generated_by": generated_by,
+        "generated_by": report.generated_by_id or generated_by,
         "summary": report.summary,
         "metrics": report.metrics or {},
+        "format": report.format,
+        "checksum": report.checksum,
+        "size_bytes": report.size_bytes,
+        "version": report.version,
+        "archived_at": _iso(report.archived_at),
         "created_at": _iso(report.created_at),
         "updated_at": _iso(report.updated_at),
     }
@@ -199,15 +209,21 @@ async def create_report(
 
     report = Report(
         organization_id=actor.organization_id,
+        workspace_id=workspace_id,
         project_id=project.id if project else None,
+        generated_by_id=actor.id,
         name=data.name.strip(),
         type=data.type,
         status="ready",
         summary=data.summary,
         metrics=data.metrics,
+        format=data.format,
+        content={},
+        version=1,
     )
     session.add(report)
     await session.flush()
+    await work_management.generate_report_content(session, actor, report, audit=False)
     session.add(_audit(actor, report, workspace_id))
     await session.commit()
     row = (
@@ -254,3 +270,92 @@ async def get_report(
         project_workspace_id or audit_workspace_id,
         generated_by,
     )
+
+
+@router.post("/{report_id}/regenerate")
+async def regenerate_report(
+    report_id: str,
+    actor: UserRecord = Depends(require_permissions("reports:write")),
+    session: AsyncSession = Depends(get_db),
+):
+    report = await session.scalar(
+        select(Report)
+        .where(
+            Report.id == report_id,
+            Report.organization_id == actor.organization_id,
+            Report.archived_at.is_(None),
+        )
+        .with_for_update()
+    )
+    if report is None:
+        raise HTTPException(status_code=404, detail="Report not found")
+    await work_management.generate_report_content(session, actor, report)
+    await session.commit()
+    return work_management.report_snapshot(report)
+
+
+@router.get("/{report_id}/download")
+async def download_report(
+    report_id: str,
+    actor: UserRecord = Depends(require_permissions("reports:read")),
+    session: AsyncSession = Depends(get_db),
+) -> Response:
+    report = await session.scalar(
+        select(Report).where(
+            Report.id == report_id,
+            Report.organization_id == actor.organization_id,
+        )
+    )
+    if report is None:
+        raise HTTPException(status_code=404, detail="Report not found")
+    if not report.content or not report.checksum:
+        await work_management.generate_report_content(session, actor, report)
+        await session.commit()
+    content = (
+        json.dumps(report.content, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
+    ).encode("utf-8")
+    digest = hashlib.sha256(content).hexdigest()
+    if report.checksum != digest:
+        raise HTTPException(status_code=409, detail="Report checksum validation failed")
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={
+            "Content-Disposition": f'attachment; filename="aionex-report-{report.id[:8]}.json"',
+            "Cache-Control": "no-store",
+            "X-AIONEX-SHA256": digest,
+        },
+    )
+
+
+@router.post("/{report_id}/archive")
+async def archive_report(
+    report_id: str,
+    actor: UserRecord = Depends(require_permissions("reports:write")),
+    session: AsyncSession = Depends(get_db),
+):
+    report = await session.scalar(
+        select(Report)
+        .where(
+            Report.id == report_id,
+            Report.organization_id == actor.organization_id,
+        )
+        .with_for_update()
+    )
+    if report is None:
+        raise HTTPException(status_code=404, detail="Report not found")
+    report.status = "archived"
+    report.archived_at = datetime.now(report.created_at.tzinfo or UTC)
+    report.version += 1
+    session.add(
+        AuditEvent(
+            organization_id=actor.organization_id,
+            user_id=actor.id,
+            action="report.archived",
+            resource_type="report",
+            resource_id=report.id,
+            details={"version": report.version},
+        )
+    )
+    await session.commit()
+    return work_management.report_snapshot(report)

@@ -1,29 +1,287 @@
-"""Search endpoints."""
+"""Tenant-scoped global search across durable provider-neutral resources."""
 
-from fastapi import APIRouter, Query
-from typing import List
+from __future__ import annotations
+
+from typing import Any
+
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.auth import UserRecord, current_user
+from app.db.base import get_db
+from app.db.models import (
+    KnowledgeItem,
+    Lesson,
+    Project,
+    Report,
+    Task,
+    Workflow,
+    WorkforceMember,
+)
 
 router = APIRouter()
 
+
+def _result(
+    identifier: str,
+    kind: str,
+    title: str,
+    subtitle: str,
+    url: str,
+    *,
+    status: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "id": identifier,
+        "type": kind,
+        "title": title,
+        "subtitle": subtitle,
+        "url": url,
+        "status": status,
+    }
+
+
 @router.get("")
 async def global_search(
-    q: str = Query(..., min_length=1),
-    type: str = Query("all"),
+    q: str = Query(..., min_length=1, max_length=300),
+    type: str = Query("all", max_length=40),
     limit: int = Query(20, ge=1, le=100),
+    actor: UserRecord = Depends(current_user),
+    session: AsyncSession = Depends(get_db),
 ):
-    """Global search across all resources."""
+    normalized = q.strip()
+    kinds = {
+        "project",
+        "task",
+        "workflow",
+        "report",
+        "knowledge",
+        "lesson",
+        "workforce",
+    }
+    selected = kinds if type == "all" else ({type} if type in kinds else set())
+    results: list[dict[str, Any]] = []
+
+    if "project" in selected:
+        rows = list(
+            (
+                await session.scalars(
+                    select(Project)
+                    .where(
+                        Project.organization_id == actor.organization_id,
+                        Project.status != "deleted",
+                        or_(
+                            Project.name.ilike(f"%{normalized}%"),
+                            Project.description.ilike(f"%{normalized}%"),
+                        ),
+                    )
+                    .order_by(Project.updated_at.desc())
+                    .limit(limit)
+                )
+            ).all()
+        )
+        results.extend(
+            _result(
+                item.id,
+                "project",
+                item.name,
+                item.description or item.status,
+                f"/projects?project={item.id}",
+                status=item.status,
+            )
+            for item in rows
+        )
+
+    if "task" in selected:
+        rows = list(
+            (
+                await session.scalars(
+                    select(Task)
+                    .where(
+                        Task.organization_id == actor.organization_id,
+                        Task.status != "deleted",
+                        or_(
+                            Task.title.ilike(f"%{normalized}%"),
+                            Task.description.ilike(f"%{normalized}%"),
+                        ),
+                    )
+                    .order_by(Task.updated_at.desc())
+                    .limit(limit)
+                )
+            ).all()
+        )
+        results.extend(
+            _result(
+                item.id,
+                "task",
+                item.title,
+                item.description or item.priority,
+                f"/tasks?task={item.id}",
+                status=item.status,
+            )
+            for item in rows
+        )
+
+    if "workflow" in selected:
+        rows = list(
+            (
+                await session.scalars(
+                    select(Workflow)
+                    .where(
+                        Workflow.organization_id == actor.organization_id,
+                        Workflow.status != "deleted",
+                        or_(
+                            Workflow.name.ilike(f"%{normalized}%"),
+                            Workflow.description.ilike(f"%{normalized}%"),
+                        ),
+                    )
+                    .order_by(Workflow.updated_at.desc())
+                    .limit(limit)
+                )
+            ).all()
+        )
+        results.extend(
+            _result(
+                item.id,
+                "workflow",
+                item.name,
+                item.description or item.trigger,
+                f"/workflows?workflow={item.id}",
+                status=item.status,
+            )
+            for item in rows
+        )
+
+    if "report" in selected:
+        rows = list(
+            (
+                await session.scalars(
+                    select(Report)
+                    .where(
+                        Report.organization_id == actor.organization_id,
+                        or_(
+                            Report.name.ilike(f"%{normalized}%"),
+                            Report.summary.ilike(f"%{normalized}%"),
+                        ),
+                    )
+                    .order_by(Report.updated_at.desc())
+                    .limit(limit)
+                )
+            ).all()
+        )
+        results.extend(
+            _result(
+                item.id,
+                "report",
+                item.name,
+                item.summary or item.type,
+                f"/reports?report={item.id}",
+                status=item.status,
+            )
+            for item in rows
+        )
+
+    if "knowledge" in selected:
+        rows = list(
+            (
+                await session.scalars(
+                    select(KnowledgeItem)
+                    .where(
+                        KnowledgeItem.organization_id == actor.organization_id,
+                        KnowledgeItem.status == "verified",
+                        or_(
+                            KnowledgeItem.subject.ilike(f"%{normalized}%"),
+                            KnowledgeItem.content_text.ilike(f"%{normalized}%"),
+                            KnowledgeItem.namespace.ilike(f"%{normalized}%"),
+                        ),
+                        (KnowledgeItem.scope_type != "user")
+                        | (KnowledgeItem.scope_id == actor.id),
+                    )
+                    .order_by(KnowledgeItem.updated_at.desc())
+                    .limit(limit)
+                )
+            ).all()
+        )
+        results.extend(
+            _result(
+                item.id,
+                "knowledge",
+                item.subject,
+                item.content_text[:240],
+                f"/knowledge?item={item.id}",
+                status=item.status,
+            )
+            for item in rows
+        )
+
+    if "lesson" in selected:
+        rows = list(
+            (
+                await session.scalars(
+                    select(Lesson)
+                    .where(
+                        Lesson.organization_id == actor.organization_id,
+                        Lesson.status == "verified",
+                        or_(
+                            Lesson.title.ilike(f"%{normalized}%"),
+                            Lesson.lesson.ilike(f"%{normalized}%"),
+                        ),
+                    )
+                    .order_by(Lesson.updated_at.desc())
+                    .limit(limit)
+                )
+            ).all()
+        )
+        results.extend(
+            _result(
+                item.id,
+                "lesson",
+                item.title,
+                item.lesson[:240],
+                f"/knowledge?lesson={item.id}",
+                status=item.status,
+            )
+            for item in rows
+        )
+
+    if "workforce" in selected and (
+        "*" in actor.permissions or "workforce:read" in actor.permissions
+    ):
+        rows = list(
+            (
+                await session.scalars(
+                    select(WorkforceMember)
+                    .where(
+                        WorkforceMember.organization_id == actor.organization_id,
+                        or_(
+                            WorkforceMember.name.ilike(f"%{normalized}%"),
+                            WorkforceMember.role.ilike(f"%{normalized}%"),
+                            WorkforceMember.department.ilike(f"%{normalized}%"),
+                        ),
+                    )
+                    .order_by(WorkforceMember.updated_at.desc())
+                    .limit(limit)
+                )
+            ).all()
+        )
+        results.extend(
+            _result(
+                item.id,
+                "workforce",
+                item.name,
+                f"{item.role} · {item.department}",
+                f"/owner/staff?member={item.id}",
+                status=item.status,
+            )
+            for item in rows
+        )
+
+    ordered = results[:limit]
     return {
-        "query": q,
-        "total": 45,
-        "results": [
-            {
-                "id": f"result-{i}",
-                "type": "project" if i % 5 == 0 else "agent" if i % 5 == 1 else "workflow" if i % 5 == 2 else "document" if i % 5 == 3 else "user",
-                "title": f"{q} Result {i}",
-                "subtitle": f"Found in {['Projects', 'AI Agents', 'Workflows', 'Knowledge', 'Users'][i % 5]}",
-                "url": f"/result/{i}",
-                "relevance": 0.95 - i * 0.02,
-            }
-            for i in range(limit)
-        ],
+        "query": normalized,
+        "type": type,
+        "total": len(results),
+        "results": ordered,
+        "provider_claims": False,
     }

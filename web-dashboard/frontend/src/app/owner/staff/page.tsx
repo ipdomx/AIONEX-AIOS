@@ -4,14 +4,19 @@ import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Activity,
+  Award,
   Bot,
   Brain,
   Briefcase,
   Building2,
   GraduationCap,
+  PauseCircle,
+  PlayCircle,
+  RefreshCw,
   Search,
   ShieldCheck,
   UserCog,
+  UserMinus,
   Users,
 } from "lucide-react";
 
@@ -45,6 +50,8 @@ type StaffMember = {
   certifications: string[];
   training: TrainingResult | null;
   lastEvaluatedAt: string | null;
+  providerNeutral?: boolean;
+  grade?: number;
 };
 
 const score = (value: number | null) =>
@@ -64,7 +71,8 @@ const statusClass = (status: string) => {
 };
 
 export default function OwnerStaffPage() {
-  const { items, loading, message } = useOwnerResource<StaffMember>("staff");
+  const { items, loading, busy, message, execute } =
+    useOwnerResource<StaffMember>("staff");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [kind, setKind] = useState("all");
@@ -322,6 +330,73 @@ export default function OwnerStaffPage() {
                         ))}
                       </div>
                     )}
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2 border-t border-white/[0.05] pt-4">
+                    <button
+                      type="button"
+                      disabled={busy || member.status === "retired"}
+                      onClick={() =>
+                        void execute(member.id, "promotion", {
+                          grade: Math.min(100, (member.grade ?? 1) + 1),
+                          reason: "Owner verified performance promotion",
+                        })
+                      }
+                      className="inline-flex items-center gap-2 rounded-xl border border-green-500/20 bg-green-500/10 px-3 py-2 text-xs text-green-300 disabled:opacity-40"
+                    >
+                      <Award className="h-3.5 w-3.5" /> Promote
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy || member.status === "retired"}
+                      onClick={() =>
+                        void execute(member.id, "training", {
+                          reason: "Owner assigned governed retraining",
+                        })
+                      }
+                      className="inline-flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-200 disabled:opacity-40"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" /> Retrain
+                    </button>
+                    {member.status === "suspended" ? (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          void execute(member.id, "restore", {
+                            reason: "Owner restored workforce member",
+                          })
+                        }
+                        className="inline-flex items-center gap-2 rounded-xl border border-electric-500/20 bg-electric-500/10 px-3 py-2 text-xs text-electric-200 disabled:opacity-40"
+                      >
+                        <PlayCircle className="h-3.5 w-3.5" /> Restore
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={busy || member.status === "retired"}
+                        onClick={() =>
+                          void execute(member.id, "suspension", {
+                            reason: "Owner suspended workforce member",
+                          })
+                        }
+                        className="inline-flex items-center gap-2 rounded-xl border border-orange-500/20 bg-orange-500/10 px-3 py-2 text-xs text-orange-300 disabled:opacity-40"
+                      >
+                        <PauseCircle className="h-3.5 w-3.5" /> Suspend
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      disabled={busy || member.status === "retired"}
+                      onClick={() =>
+                        void execute(member.id, "retirement", {
+                          reason: "Owner retired workforce member",
+                        })
+                      }
+                      className="inline-flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300 disabled:opacity-40"
+                    >
+                      <UserMinus className="h-3.5 w-3.5" /> Retire
+                    </button>
                   </div>
                 </>
               ) : (

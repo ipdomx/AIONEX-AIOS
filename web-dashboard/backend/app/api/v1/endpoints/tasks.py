@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any, List, Optional
+from datetime import UTC, datetime
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
@@ -12,7 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import UserRecord, require_permissions
 from app.db.base import get_db
-from app.db.models import AuditEvent, Project, Task, User, Workspace
+from app.db.models import AuditEvent, Project, Task, TaskComment, User, Workspace
+from app.services import work_management
 
 router = APIRouter()
 
@@ -26,7 +27,7 @@ class TaskCreate(BaseModel):
     workspace_id: Optional[str] = None
     organization_id: Optional[str] = None
     due_date: Optional[datetime] = None
-    tags: List[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
 
 
 class TaskUpdate(BaseModel):
@@ -36,7 +37,18 @@ class TaskUpdate(BaseModel):
     priority: Optional[str] = None
     assignee_id: Optional[str] = None
     due_date: Optional[datetime] = None
-    tags: Optional[List[str]] = None
+    tags: Optional[list[str]] = None
+
+
+class TaskTransition(BaseModel):
+    action: str = Field(min_length=2, max_length=40)
+    reason: str = Field(default="", max_length=2000)
+
+
+class TaskCommentCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=10000)
+    visibility: str = Field(default="organization", min_length=2, max_length=32)
+    attachments: list[dict[str, Any]] = Field(default_factory=list, max_length=50)
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -62,6 +74,11 @@ def _serialize_task(
         "organization_id": task.organization_id,
         "due_date": _iso(task.due_date),
         "tags": task.tags or [],
+        "review_status": task.review_status,
+        "rework_count": task.rework_count,
+        "completed_at": _iso(task.completed_at),
+        "cancelled_at": _iso(task.cancelled_at),
+        "version": task.version,
         "comments": [],
         "created_at": _iso(task.created_at),
         "updated_at": _iso(task.updated_at),
@@ -245,9 +262,21 @@ async def create_task(
         priority=data.priority,
         due_date=data.due_date,
         tags=data.tags,
+        review_status="not_requested",
+        rework_count=0,
+        version=1,
     )
     session.add(task)
     await session.flush()
+    if project is not None:
+        await work_management.record_project_event(
+            session,
+            project,
+            actor_id=actor.id,
+            event_type="task.created",
+            summary=task.title,
+            details={"task_id": task.id, "priority": task.priority},
+        )
     session.add(_audit(actor, "task.create", task))
     await session.commit()
     row = await _task_row(session, task.id, actor.organization_id)
@@ -302,6 +331,7 @@ async def update_task(
             updates["assignee_id"],
             actor.organization_id,
         )
+    previous_status = task.status
     for field in (
         "title",
         "description",
@@ -313,7 +343,21 @@ async def update_task(
     ):
         if field in updates:
             setattr(task, field, updates[field])
-    session.add(_audit(actor, "task.update", task, {"fields": changed_fields}))
+    task.version += 1
+    if task.status == "done" and previous_status != "done":
+        task.completed_at = datetime.now(task.created_at.tzinfo or UTC)
+    session.add(_audit(actor, "task.update", task, {"fields": changed_fields, "version": task.version}))
+    if task.project_id:
+        project = await session.get(Project, task.project_id)
+        if project is not None:
+            await work_management.record_project_event(
+                session,
+                project,
+                actor_id=actor.id,
+                event_type="task.updated",
+                summary=task.title,
+                details={"task_id": task.id, "fields": changed_fields, "from": previous_status, "to": task.status},
+            )
     await session.commit()
     refreshed = await _task_row(session, task.id, actor.organization_id)
     if refreshed is None:
@@ -335,3 +379,103 @@ async def delete_task(
     session.add(_audit(actor, "task.delete", task))
     await session.commit()
     return {"message": "Task deleted successfully"}
+
+
+@router.post("/{task_id}/transition")
+async def transition_task(
+    task_id: str,
+    data: TaskTransition,
+    actor: UserRecord = Depends(require_permissions("tasks:write")),
+    session: AsyncSession = Depends(get_db),
+):
+    task = await session.scalar(
+        select(Task)
+        .where(
+            Task.id == task_id,
+            Task.organization_id == actor.organization_id,
+            Task.status != "deleted",
+        )
+        .with_for_update()
+    )
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if data.action == "approve" and not (
+        "*" in actor.permissions
+        or "projects:approve" in actor.permissions
+        or actor.role == "Owner"
+    ):
+        raise HTTPException(status_code=403, detail="Task approval permission is required")
+    try:
+        await work_management.transition_task(
+            session,
+            actor,
+            task,
+            action=data.action,
+            reason=data.reason,
+        )
+        await session.commit()
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    row = await _task_row(session, task.id, actor.organization_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return _serialize_task(*row)
+
+
+@router.get("/{task_id}/comments")
+async def list_task_comments(
+    task_id: str,
+    limit: int = Query(default=200, ge=1, le=1000),
+    actor: UserRecord = Depends(require_permissions("tasks:read")),
+    session: AsyncSession = Depends(get_db),
+):
+    row = await _task_row(session, task_id, actor.organization_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    items = list(
+        (
+            await session.scalars(
+                select(TaskComment)
+                .where(
+                    TaskComment.task_id == task_id,
+                    TaskComment.organization_id == actor.organization_id,
+                )
+                .order_by(TaskComment.created_at)
+                .limit(limit)
+            )
+        ).all()
+    )
+    return [work_management.comment_snapshot(item) for item in items]
+
+
+@router.post("/{task_id}/comments", status_code=status.HTTP_201_CREATED)
+async def create_task_comment(
+    task_id: str,
+    data: TaskCommentCreate,
+    actor: UserRecord = Depends(require_permissions("tasks:write")),
+    session: AsyncSession = Depends(get_db),
+):
+    task = await session.scalar(
+        select(Task).where(
+            Task.id == task_id,
+            Task.organization_id == actor.organization_id,
+            Task.status != "deleted",
+        )
+    )
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    try:
+        item = await work_management.add_task_comment(
+            session,
+            actor,
+            task,
+            body=data.body,
+            visibility=data.visibility,
+            attachments=data.attachments,
+        )
+        await session.commit()
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return work_management.comment_snapshot(item)

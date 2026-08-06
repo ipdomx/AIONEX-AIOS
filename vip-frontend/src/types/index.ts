@@ -284,8 +284,8 @@ export interface ProjectWorkforceResult {
 
 export interface ProjectExecutionResult {
   success: boolean;
-  phase?: number;
-  mode?: "full" | "planning";
+  phase?: number | string;
+  mode?: "full" | "planning" | "provider_neutral";
   status: string;
   provider: string;
   model?: string | null;
@@ -356,8 +356,8 @@ export interface ProjectExecution {
   workspace_id: string;
   organization_id: string;
   requested_by_id: string;
-  mode: "full" | "planning";
-  provider: "openai";
+  mode: "full" | "planning" | "provider_neutral";
+  provider: "openai" | "provider-neutral";
   model?: string | null;
   status: "queued" | "running" | "completed" | "failed";
   stage: string;
@@ -370,6 +370,11 @@ export interface ProjectExecution {
   output_tokens: number;
   total_tokens: number;
   approved?: boolean | null;
+  review_status?: string;
+  rework_count?: number;
+  paused_at?: string | null;
+  cancelled_at?: string | null;
+  version?: number;
   readiness_score?: number | null;
   result?: ProjectExecutionResult | null;
   error_code?: string | null;
@@ -545,11 +550,7 @@ export interface BillingCheckout {
 }
 
 export type NotificationChannelId =
-  | "in_app"
-  | "email"
-  | "push"
-  | "telegram"
-  | "whatsapp";
+  "in_app" | "email" | "push" | "telegram" | "whatsapp";
 
 export interface NotificationDelivery {
   id: string;
