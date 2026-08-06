@@ -23,6 +23,14 @@ export interface LoginResponse {
   user: AuthUser;
 }
 
+export interface MFAChallengeResponse {
+  mfa_required: true;
+  challenge_token: string;
+  expires_in: number;
+}
+
+export type LoginAttempt = LoginResponse | MFAChallengeResponse;
+
 export type FreeTierStatus = {
   plan: string;
   free_tier: boolean;
@@ -69,13 +77,28 @@ function clearSession(): void {
 }
 
 export const authService = {
-  async login(email: string, password: string): Promise<LoginResponse> {
+  async login(email: string, password: string): Promise<LoginAttempt> {
     const body = new URLSearchParams();
     body.set("username", email);
     body.set("password", password);
-    const response = await apiClient.post<LoginResponse>("/auth/login", body, {
+    const response = await apiClient.post<LoginAttempt>("/auth/login", body, {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
     });
+    if (!("mfa_required" in response)) saveSession(response);
+    return response;
+  },
+
+  async completeMfa(
+    challengeToken: string,
+    code: string,
+  ): Promise<LoginResponse> {
+    const response = await apiClient.post<LoginResponse>(
+      "/auth/mfa/challenge",
+      {
+        challenge_token: challengeToken,
+        code,
+      },
+    );
     saveSession(response);
     return response;
   },

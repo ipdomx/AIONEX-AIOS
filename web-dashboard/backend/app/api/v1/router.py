@@ -42,6 +42,7 @@ from app.api.v1.endpoints import (
     studio,
     support,
     tasks,
+    teams,
     users,
     websocket,
     workflows,
@@ -79,6 +80,7 @@ api_router.include_router(databases.router, prefix="/infrastructure/databases", 
 api_router.include_router(monitoring.router, prefix="/monitoring", tags=["Monitoring"], dependencies=restricted)
 api_router.include_router(security.router, prefix="/security", tags=["Security"], dependencies=restricted)
 api_router.include_router(tasks.router, prefix="/tasks", tags=["Tasks"], dependencies=restricted)
+api_router.include_router(teams.router, prefix="/teams", tags=["Teams"], dependencies=restricted)
 api_router.include_router(meetings.router, prefix="/meetings", tags=["Meetings"], dependencies=restricted)
 api_router.include_router(knowledge.router, prefix="/knowledge", tags=["Knowledge"], dependencies=restricted)
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"], dependencies=restricted)

@@ -8,7 +8,7 @@ from typing import Any, Optional
 
 from app.core.auth import UserRecord, require_permissions
 from app.db.base import get_db
-from app.db.models import AuditEvent, Project, Workspace
+from app.db.models import AuditEvent, Project, User, Workspace
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
@@ -237,6 +237,18 @@ async def delete_workspace(
     if project_id is not None:
         raise HTTPException(
             status_code=409, detail="Workspace contains active projects"
+        )
+    assigned_user_id = await session.scalar(
+        select(User.id)
+        .where(
+            User.workspace_id == workspace.id,
+            User.deleted_at.is_(None),
+        )
+        .limit(1)
+    )
+    if assigned_user_id is not None:
+        raise HTTPException(
+            status_code=409, detail="Workspace is assigned to active users"
         )
     workspace.status = "deleted"
     session.add(_audit(actor, "workspace.delete", workspace))

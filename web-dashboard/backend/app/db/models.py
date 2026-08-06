@@ -102,6 +102,9 @@ class User(Base, TimestampMixin):
     role_id: Mapped[str | None] = mapped_column(
         ForeignKey("roles.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    workspace_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     email: Mapped[str] = mapped_column(
         String(320), unique=True, nullable=False, index=True
     )
@@ -110,6 +113,7 @@ class User(Base, TimestampMixin):
     auth_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
     avatar: Mapped[str | None] = mapped_column(Text)
+    last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
@@ -180,6 +184,37 @@ class PasskeyCredential(Base, TimestampMixin):
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class PasswordResetToken(Base, TimestampMixin):
+    __tablename__ = "password_reset_tokens"
+    __table_args__ = (
+        Index("ix_password_reset_user_expiry", "user_id", "expires_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    requested_ip: Mapped[str | None] = mapped_column(String(64))
+    delivery_status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
+    delivery_attempted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class UserMFA(Base, TimestampMixin):
+    __tablename__ = "user_mfa"
+
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    secret_ciphertext: Mapped[str] = mapped_column(Text, nullable=False)
+    backup_code_hashes: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class Workspace(Base, TimestampMixin):
     __tablename__ = "workspaces"
     __table_args__ = (
@@ -194,6 +229,43 @@ class Workspace(Base, TimestampMixin):
     slug: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
+
+
+class Team(Base, TimestampMixin):
+    __tablename__ = "teams"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "slug", name="uq_team_org_slug"),
+        Index("ix_teams_org_status", "organization_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    workspace_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    slug: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
+
+
+class TeamMembership(Base, TimestampMixin):
+    __tablename__ = "team_memberships"
+    __table_args__ = (
+        UniqueConstraint("team_id", "user_id", name="uq_team_membership"),
+        Index("ix_team_memberships_user_team", "user_id", "team_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    team_id: Mapped[str] = mapped_column(
+        ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    membership_role: Mapped[str] = mapped_column(String(32), default="member", nullable=False)
 
 
 class Project(Base, TimestampMixin):

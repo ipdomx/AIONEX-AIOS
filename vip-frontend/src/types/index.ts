@@ -23,6 +23,37 @@ export interface LoginResponse {
   user: User;
 }
 
+export interface MFAChallengeResponse {
+  mfa_required: true;
+  challenge_token: string;
+  expires_in: number;
+}
+
+export type LoginAttempt = LoginResponse | MFAChallengeResponse;
+
+export interface MFAStatus {
+  enabled: boolean;
+  backup_codes_remaining: number;
+  verified_at: string | null;
+}
+
+export interface MFASetup {
+  secret: string;
+  qr_code: string;
+  backup_codes: string[];
+}
+
+export interface AccountSession {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  expires_at: string;
+  revoked_at: string | null;
+  active: boolean;
+  ip_address: string | null;
+  user_agent: string | null;
+}
+
 export interface FreeTierPublicPolicy {
   enabled: boolean;
   plan: "free";
@@ -190,6 +221,9 @@ export interface AccountSettings {
     mfa_policy_enabled: boolean;
     active_sessions: number;
     password_min_length: number;
+    mfa_enabled?: boolean;
+    mfa_backup_codes_remaining?: number;
+    passkey_count?: number;
   };
   free_tier: FreeTierStatus | null;
 }

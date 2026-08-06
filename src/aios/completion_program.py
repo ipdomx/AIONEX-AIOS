@@ -73,50 +73,73 @@ FEATURES: Final[tuple[CompletionFeature, ...]] = (
         "public-portal-release",
         "29B",
         "Public portal and user experience activation",
-        "pending",
+        "verified",
         (
-            "The current portal release is deployed to ai.vip-e.net.",
-            "All six locales, mobile layouts, accessibility, PWA, SEO, and legal pages pass live smoke tests.",
+            "The current portal release is built as a complete direct-document-root artifact for the final shared-hosting upload.",
+            "All six locales, mobile layouts, accessibility, PWA, SEO, and legal pages pass real-browser acceptance.",
             "The full project lifecycle, approval, and download controls are visible to normal users.",
+        ),
+        (
+            "docs/phase-29/PHASE_29B_PUBLIC_PORTAL_ORIGIN.md",
+            "tests/test_phase29b_portal_accessibility_contracts.py",
         ),
     ),
     CompletionFeature(
         "owner-portal-cms",
         "29B",
         "Owner-controlled portal CMS and publishing",
-        "pending",
+        "verified",
         (
             "Branding, pages, pricing, assets, translations, publish, and rollback work against retained production data.",
             "Public and private portal boundaries remain enforced.",
+        ),
+        (
+            "docs/phase-29/PHASE_29B_PUBLIC_PORTAL_ORIGIN.md",
+            "web-dashboard/backend/tests/test_portal_cms.py",
         ),
     ),
     CompletionFeature(
         "identity-tenancy",
         "29C",
         "Identity, organizations, workspaces, teams, roles, and permissions",
-        "pending",
+        "verified",
         (
             "Tenant isolation and role authority are proven end to end.",
             "User, organization, workspace, team, role, and permission lifecycles are complete.",
+        ),
+        (
+            "web-dashboard/backend/tests/test_identity_sql_endpoints.py",
+            "web-dashboard/backend/app/api/v1/endpoints/teams.py",
+            "web-dashboard/frontend/src/lib/identity-api.ts",
         ),
     ),
     CompletionFeature(
         "authentication-security",
         "29C",
         "Authentication, sessions, recovery, passkeys, phone, and social login",
-        "pending",
+        "verified",
         (
-            "Password, refresh, logout, revocation, passkey, phone, and configured social flows pass live acceptance.",
-            "Suspension and authentication-generation changes invalidate every session.",
+            "Password, refresh, logout, recovery, MFA, revocation, passkey, phone, and configured social contracts pass acceptance.",
+            "Suspension, password recovery, and authentication-generation changes invalidate every session.",
+        ),
+        (
+            "web-dashboard/backend/tests/test_phase29c_account_security.py",
+            "web-dashboard/backend/app/services/account_security.py",
+            "vip-frontend/src/components/pages/login-client.tsx",
         ),
     ),
     CompletionFeature(
         "account-settings",
         "29C",
         "Account profile, preferences, language, security, and privacy",
-        "pending",
+        "verified",
         (
-            "Profile, password, notification preferences, language, timezone, theme, and credential management are complete.",
+            "Profile, password, notification preferences, language, timezone, theme, MFA, passkeys, and session management are complete.",
+        ),
+        (
+            "vip-frontend/src/components/pages/profile-client.tsx",
+            "vip-frontend/src/components/auth/account-security-manager.tsx",
+            "web-dashboard/backend/app/api/v1/endpoints/settings.py",
         ),
     ),
     CompletionFeature(
@@ -295,8 +318,8 @@ def _feature_ids(batch_id: str) -> tuple[str, ...]:
 
 BATCHES: Final[tuple[CompletionBatch, ...]] = (
     CompletionBatch("29A", 1, "Completion governance and exhaustive inventory", "complete", "Establish the no-omission completion contract and Owner visibility.", _feature_ids("29A")),
-    CompletionBatch("29B", 2, "Public portal and product experience", "pending", "Deploy and verify every public and user-facing portal capability.", _feature_ids("29B")),
-    CompletionBatch("29C", 3, "Identity, tenancy, access, and accounts", "pending", "Finish all identity and account lifecycles and prove isolation.", _feature_ids("29C")),
+    CompletionBatch("29B", 2, "Public portal and product experience", "complete", "Deploy and verify every public and user-facing portal capability.", _feature_ids("29B")),
+    CompletionBatch("29C", 3, "Identity, tenancy, access, and accounts", "complete", "Finish all identity and account lifecycles and prove isolation.", _feature_ids("29C")),
     CompletionBatch("29D", 4, "Billing, licensing, payments, and entitlements", "pending", "Finish commercial, quota, metering, and payment lifecycles.", _feature_ids("29D")),
     CompletionBatch("29E", 5, "Communications, notifications, meetings, and governance", "pending", "Finish human communication, escalation, councils, and approvals.", _feature_ids("29E")),
     CompletionBatch("29F", 6, "Projects, workforce, academy, knowledge, and workflows", "pending", "Finish daily project operations and the governed digital workforce.", _feature_ids("29F")),
@@ -348,9 +371,11 @@ VIP_PAGE_BATCH: Final[dict[str, str]] = {
     "(root)/page.tsx": "29B", "[locale]/about/page.tsx": "29B",
     "[locale]/contact/page.tsx": "29E", "[locale]/dashboard/page.tsx": "29F",
     "[locale]/legal/privacy/page.tsx": "29B", "[locale]/legal/terms/page.tsx": "29B",
+    "[locale]/forgot-password/page.tsx": "29C",
     "[locale]/login/page.tsx": "29C", "[locale]/page.tsx": "29B",
     "[locale]/pricing/page.tsx": "29D", "[locale]/profile/page.tsx": "29C",
     "[locale]/projects/page.tsx": "29F", "[locale]/register/page.tsx": "29C",
+    "[locale]/reset-password/page.tsx": "29C",
 }
 
 ENDPOINT_BATCH: Final[dict[str, str]] = {
@@ -362,8 +387,8 @@ ENDPOINT_BATCH: Final[dict[str, str]] = {
     "permissions": "29C", "portal": "29B", "project_executions": "29F", "projects": "29F",
     "reports": "29F", "roles": "29C", "search": "29B", "security": "29G",
     "servers": "29G", "settings": "29C", "studio": "29H", "support": "29E",
-    "tasks": "29F", "users": "29C", "websocket": "29E", "workflows": "29F",
-    "workspaces": "29C",
+    "tasks": "29F", "teams": "29C", "users": "29C", "websocket": "29E",
+    "workflows": "29F", "workspaces": "29C",
 }
 
 

@@ -21,6 +21,8 @@ import {
 import { useLanguageVoice } from "@/components/providers/LanguageVoiceProvider";
 import type { SupportedLocale } from "@/lib/locale-engine";
 
+import OwnerAccountSecurityManager from "@/components/auth/OwnerAccountSecurityManager";
+
 import {
   changeAccountPassword,
   fetchAccountSettings,
@@ -53,6 +55,9 @@ const empty: AccountSettings = {
     mfa_policy_enabled: false,
     active_sessions: 0,
     password_min_length: 12,
+    mfa_enabled: false,
+    mfa_backup_codes_remaining: 0,
+    passkey_count: 0,
   },
 };
 
@@ -241,16 +246,7 @@ export default function SettingsPage() {
                   request after a password change.
                 </p>
               </div>
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-sm text-white/60">
-                <div className="font-medium text-white/75">MFA policy</div>
-                <div className="mt-2">
-                  {data.security.mfa_policy_enabled ? "Enabled" : "Disabled"}
-                </div>
-                <p className="mt-2 text-xs leading-6 text-white/40">
-                  MFA is configured at deployment level. Sign-in enforcement is
-                  reported separately by the authentication service.
-                </p>
-              </div>
+              <OwnerAccountSecurityManager />
               <div className="grid gap-3 lg:grid-cols-3">
                 <input
                   type="password"

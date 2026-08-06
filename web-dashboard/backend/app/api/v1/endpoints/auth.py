@@ -14,12 +14,23 @@ from app.core.auth import (
     oauth2_scheme,
 )
 from app.db.base import get_db
-from app.db.models import AuditEvent, ExternalIdentity, RefreshSession, uuid_str
+from app.db.models import AuditEvent, ExternalIdentity, RefreshSession, User, uuid_str
 from app.services.firebase_phone import (
     firebase_phone_readiness,
     firebase_public_configuration,
 )
 from app.services.firebase_social import consume_social_registration
+from app.services.account_security import (
+    confirm_mfa_setup,
+    confirm_password_reset as confirm_password_reset_service,
+    consume_mfa_challenge,
+    create_mfa_challenge,
+    disable_mfa,
+    mfa_enabled,
+    mfa_status,
+    request_password_reset as request_password_reset_service,
+    start_mfa_setup,
+)
 from app.services.free_tier import (
     client_ip_from_request,
     get_free_tier_policy,
@@ -43,6 +54,26 @@ class LoginResponse(BaseModel):
     token_type: str = "bearer"
     expires_in: int
     user: dict
+
+
+class MFAChallengeResponse(BaseModel):
+    mfa_required: bool = True
+    challenge_token: str
+    expires_in: int
+
+
+class MFAChallengeVerify(BaseModel):
+    challenge_token: str = Field(min_length=20, max_length=4096)
+    code: str = Field(min_length=6, max_length=32)
+
+
+class MFACodeRequest(BaseModel):
+    code: str = Field(min_length=6, max_length=32)
+
+
+class MFADisableRequest(BaseModel):
+    current_password: str = Field(min_length=1, max_length=256)
+    code: str = Field(min_length=6, max_length=32)
 
 
 class FreeRegistrationTelemetry(BaseModel):
@@ -134,6 +165,9 @@ async def _attach_session_context(
     if refresh_session is not None:
         refresh_session.ip_address = ip_address
         refresh_session.user_agent = (request.headers.get("user-agent") or "")[:2000]
+    db_user = await session.get(User, user.id)
+    if db_user is not None:
+        db_user.last_active_at = datetime.now(UTC)
     session.add(
         AuditEvent(
             organization_id=user.organization_id,
@@ -148,7 +182,7 @@ async def _attach_session_context(
     await session.commit()
 
 
-@router.post("/login", response_model=LoginResponse)
+@router.post("/login", response_model=LoginResponse | MFAChallengeResponse)
 async def login(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
@@ -158,6 +192,8 @@ async def login(
         session, form_data.username, form_data.password
     )
     enforce_auth_channel_role(request, user)
+    if await mfa_enabled(session, user.id):
+        return create_mfa_challenge(user)
     response = await auth_service.issue_pair(session, user)
     await _attach_session_context(
         session,
@@ -315,39 +351,84 @@ async def refresh_token(
 ):
     user = await auth_service.get_refresh_user(session, data.refresh_token)
     enforce_auth_channel_role(request, user)
-    return await auth_service.refresh(session, data.refresh_token)
-
-
-@router.post("/password-reset")
-async def request_password_reset(data: PasswordResetRequest):
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Password recovery is not configured for this deployment",
+    response = await auth_service.refresh(session, data.refresh_token)
+    await _attach_session_context(
+        session, request, response, user, action="auth.refresh"
     )
+    return response
+
+
+@router.post("/password-reset", status_code=status.HTTP_202_ACCEPTED)
+async def request_password_reset(
+    data: PasswordResetRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+):
+    return await request_password_reset_service(session, request, str(data.email))
 
 
 @router.post("/password-reset/confirm")
-async def confirm_password_reset(data: PasswordResetConfirm):
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Password recovery is not configured for this deployment",
+async def confirm_password_reset(
+    data: PasswordResetConfirm,
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+):
+    return await confirm_password_reset_service(
+        session, request, data.token, data.new_password
     )
+
+
+@router.get("/mfa/status")
+async def get_mfa_status(
+    user: UserRecord = Depends(current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    return await mfa_status(session, user.id)
 
 
 @router.post("/mfa/setup", response_model=MFASetupResponse)
-async def setup_mfa(user: UserRecord = Depends(current_user)):
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="MFA enrollment is not configured for this deployment",
-    )
+async def setup_mfa(
+    user: UserRecord = Depends(current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    return await start_mfa_setup(session, user)
 
 
 @router.post("/mfa/verify")
-async def verify_mfa(code: str, user: UserRecord = Depends(current_user)):
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="MFA verification is not configured for this deployment",
+async def verify_mfa(
+    data: MFACodeRequest,
+    user: UserRecord = Depends(current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    return await confirm_mfa_setup(session, user, data.code)
+
+
+@router.post("/mfa/disable")
+async def disable_mfa_endpoint(
+    data: MFADisableRequest,
+    user: UserRecord = Depends(current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    return await disable_mfa(
+        session, user, data.current_password, data.code
     )
+
+
+@router.post("/mfa/challenge", response_model=LoginResponse)
+async def verify_mfa_challenge(
+    data: MFAChallengeVerify,
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+):
+    user = await consume_mfa_challenge(
+        session, data.challenge_token, data.code
+    )
+    enforce_auth_channel_role(request, user)
+    response = await auth_service.issue_pair(session, user)
+    await _attach_session_context(
+        session, request, response, user, action="auth.mfa_login"
+    )
+    return response
 
 
 @router.get("/me")

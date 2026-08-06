@@ -21,10 +21,13 @@ function LoadingScreen({ label }: { label: string }) {
 }
 
 export default function AuthGate({ children }: PropsWithChildren) {
-  const { authenticated, loading, login, logout, user } = useAuth();
+  const { authenticated, completeMfa, loading, login, logout, user } =
+    useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [mfaChallenge, setMfaChallenge] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const unauthorizedRole = authenticated && user?.role !== "Super Owner";
@@ -42,10 +45,31 @@ export default function AuthGate({ children }: PropsWithChildren) {
     setSubmitting(true);
     setError(null);
     try {
-      await login(email.trim(), password);
+      const challenge = await login(email.trim(), password);
+      if (challenge) {
+        setMfaChallenge(challenge.challenge_token);
+        setPassword("");
+      }
     } catch (loginError) {
       setError(
         loginError instanceof Error ? loginError.message : "Unable to sign in",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleMfa(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      await completeMfa(mfaChallenge, mfaCode);
+    } catch (mfaError) {
+      setError(
+        mfaError instanceof Error
+          ? mfaError.message
+          : "Unable to verify the security code",
       );
     } finally {
       setSubmitting(false);
@@ -72,52 +96,105 @@ export default function AuthGate({ children }: PropsWithChildren) {
           </div>
         </div>
 
-        <form className="space-y-5" onSubmit={handleLogin}>
-          <label className="block space-y-2">
-            <span className="text-sm text-white/70">Email</span>
-            <input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              autoComplete="username"
-              required
-              className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-electric-400/60 focus:ring-2 focus:ring-electric-400/20"
-            />
-          </label>
-          <label className="block space-y-2">
-            <span className="text-sm text-white/70">Password</span>
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              autoComplete="current-password"
-              required
-              className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-electric-400/60 focus:ring-2 focus:ring-electric-400/20"
-            />
-          </label>
-
-          {error && (
-            <div
-              role="alert"
-              className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200"
-            >
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-electric-500 px-4 py-3 font-semibold text-white transition hover:bg-electric-400 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {submitting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <LockKeyhole className="h-4 w-4" />
+        {mfaChallenge ? (
+          <form className="space-y-5" onSubmit={handleMfa}>
+            <label className="block space-y-2">
+              <span className="text-sm text-white/70">
+                Verification or recovery code
+              </span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={mfaCode}
+                onChange={(event) => setMfaCode(event.target.value)}
+                autoComplete="one-time-code"
+                minLength={6}
+                maxLength={32}
+                required
+                autoFocus
+                className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-electric-400/60 focus:ring-2 focus:ring-electric-400/20"
+              />
+            </label>
+            {error && (
+              <div
+                role="alert"
+                className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200"
+              >
+                {error}
+              </div>
             )}
-            {submitting ? "Verifying…" : "Continue"}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={submitting || mfaCode.length < 6}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-electric-500 px-4 py-3 font-semibold text-white transition hover:bg-electric-400 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {submitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <LockKeyhole className="h-4 w-4" />
+              )}
+              {submitting ? "Verifying…" : "Verify and continue"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMfaChallenge("");
+                setMfaCode("");
+                setError(null);
+              }}
+              className="w-full text-sm text-white/45 hover:text-white"
+            >
+              Use a different account
+            </button>
+          </form>
+        ) : (
+          <form className="space-y-5" onSubmit={handleLogin}>
+            <label className="block space-y-2">
+              <span className="text-sm text-white/70">Email</span>
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                autoComplete="username"
+                required
+                className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-electric-400/60 focus:ring-2 focus:ring-electric-400/20"
+              />
+            </label>
+            <label className="block space-y-2">
+              <span className="text-sm text-white/70">Password</span>
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+                required
+                className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-electric-400/60 focus:ring-2 focus:ring-electric-400/20"
+              />
+            </label>
+
+            {error && (
+              <div
+                role="alert"
+                className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200"
+              >
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-electric-500 px-4 py-3 font-semibold text-white transition hover:bg-electric-400 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {submitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <LockKeyhole className="h-4 w-4" />
+              )}
+              {submitting ? "Verifying…" : "Continue"}
+            </button>
+          </form>
+        )}
       </section>
     </main>
   );

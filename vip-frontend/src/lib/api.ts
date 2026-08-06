@@ -1,4 +1,5 @@
 import type {
+  AccountSession,
   AccountSettings,
   CreateProjectPayload,
   FirebasePhoneConfiguration,
@@ -7,7 +8,10 @@ import type {
   FreeRegistrationPayload,
   FreeTierPublicPolicy,
   FreeTierStatus,
+  LoginAttempt,
   LoginResponse,
+  MFASetup,
+  MFAStatus,
   PasskeyCeremonyOptions,
   PasskeyConfiguration,
   PasskeyCredentialSummary,
@@ -282,16 +286,52 @@ function jsonRequest<T>(
 export async function login(
   email: string,
   password: string,
-): Promise<LoginResponse> {
+): Promise<LoginAttempt> {
   const body = new URLSearchParams({ username: email.trim(), password });
-  const session = await request<LoginResponse>("/auth/login", {
+  const result = await request<LoginAttempt>("/auth/login", {
     method: "POST",
     auth: false,
     retry: false,
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
   });
+  return "mfa_required" in result ? result : storeSession(result);
+}
+
+export async function completeMfaLogin(
+  challengeToken: string,
+  code: string,
+): Promise<LoginResponse> {
+  const session = await jsonRequest<LoginResponse>(
+    "/auth/mfa/challenge",
+    "POST",
+    { challenge_token: challengeToken, code },
+    { auth: false, retry: false },
+  );
   return storeSession(session);
+}
+
+export function requestPasswordReset(
+  email: string,
+): Promise<{ message: string }> {
+  return jsonRequest<{ message: string }>(
+    "/auth/password-reset",
+    "POST",
+    { email },
+    { auth: false, retry: false },
+  );
+}
+
+export function confirmPasswordReset(
+  token: string,
+  newPassword: string,
+): Promise<{ message: string }> {
+  return jsonRequest<{ message: string }>(
+    "/auth/password-reset/confirm",
+    "POST",
+    { token, new_password: newPassword },
+    { auth: false, retry: false },
+  );
 }
 
 export async function registerFree(
@@ -442,6 +482,41 @@ export function deletePasskey(passkeyId: string): Promise<void> {
   });
 }
 
+export function getMfaStatus(): Promise<MFAStatus> {
+  return request<MFAStatus>("/auth/mfa/status");
+}
+
+export function startMfaSetup(): Promise<MFASetup> {
+  return jsonRequest<MFASetup>("/auth/mfa/setup", "POST");
+}
+
+export function verifyMfaSetup(code: string): Promise<MFAStatus> {
+  return jsonRequest<MFAStatus>("/auth/mfa/verify", "POST", { code });
+}
+
+export function disableMfa(
+  currentPassword: string,
+  code: string,
+): Promise<MFAStatus> {
+  return jsonRequest<MFAStatus>("/auth/mfa/disable", "POST", {
+    current_password: currentPassword,
+    code,
+  });
+}
+
+export function listAccountSessions(): Promise<AccountSession[]> {
+  return request<AccountSession[]>("/settings/sessions");
+}
+
+export function revokeAccountSession(
+  sessionId: string,
+): Promise<{ revoked: boolean }> {
+  return request<{ revoked: boolean }>(
+    `/settings/sessions/${encodeURIComponent(sessionId)}`,
+    { method: "DELETE" },
+  );
+}
+
 export function getFreeTierStatus(): Promise<FreeTierStatus> {
   return request<FreeTierStatus>("/auth/free-tier");
 }
@@ -528,7 +603,6 @@ export function approveProjectExecution(
     },
   );
 }
-
 
 export function downloadProjectExecution(
   projectId: string,
