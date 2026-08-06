@@ -524,3 +524,15 @@ def _write_legacy_archive(tmp_path: Path) -> Path:
         encoding="utf-8",
     )
     return archive
+
+
+def test_legacy_payment_environment_aliases_remain_supported() -> None:
+    settings = Settings(
+        _env_file=None,
+        SECRET_KEY=VALID_SECRET,
+        PAYMENTS_ENV="sandbox",
+        PAYPAL_BASE_URL="https://api-m.sandbox.paypal.com",
+    )
+
+    assert settings.PAYMENTS_ENVIRONMENT == "sandbox"
+    assert settings.PAYPAL_API_BASE == "https://api-m.sandbox.paypal.com"

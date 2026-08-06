@@ -312,11 +312,11 @@ FEATURES: Final[tuple[CompletionFeature, ...]] = (
     CompletionFeature(
         "models-providers",
         "29J",
-        "All AI models, providers, routing, capabilities, budgets, and fallbacks",
+        "All models and external providers, routing, capabilities, budgets, and fallbacks",
         "deferred",
         (
-            "Every supported provider is explicitly activated or explicitly removed from the supported product contract.",
-            "Model discovery, capability routing, policy, budgets, secrets, streaming, tools, media, health, and fallback are proven.",
+            "Every supported AI, payment, media, and external service provider is explicitly activated or explicitly removed from the supported product contract.",
+            "Model discovery, provider checkout or invocation, capability routing, policy, budgets, secrets, streaming, tools, media, health, and fallback are proven.",
             "This batch is executed only after every non-provider batch is complete.",
         ),
     ),

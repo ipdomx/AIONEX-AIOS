@@ -4,7 +4,7 @@ from functools import lru_cache
 from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL
 
@@ -261,7 +261,7 @@ class Settings(BaseSettings):
         default=None, validation_alias="STRIPE_WEBHOOK_SECRET"
     )
     PAYMENTS_ENVIRONMENT: str = Field(
-        default="sandbox", validation_alias="PAYMENTS_ENVIRONMENT"
+        default="sandbox", validation_alias=AliasChoices("PAYMENTS_ENVIRONMENT", "PAYMENTS_ENV")
     )
     PAYMENTS_DEFAULT_CURRENCY: str = Field(
         default="USD", validation_alias="PAYMENTS_DEFAULT_CURRENCY"
@@ -293,7 +293,7 @@ class Settings(BaseSettings):
         default=None, validation_alias="PAYPAL_WEBHOOK_ID"
     )
     PAYPAL_API_BASE: str = Field(
-        default="https://api-m.sandbox.paypal.com", validation_alias="PAYPAL_API_BASE"
+        default="https://api-m.sandbox.paypal.com", validation_alias=AliasChoices("PAYPAL_API_BASE", "PAYPAL_BASE_URL")
     )
     PADDLE_API_KEY: Optional[str] = Field(
         default=None, validation_alias="PADDLE_API_KEY"

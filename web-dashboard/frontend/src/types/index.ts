@@ -186,7 +186,7 @@ export interface WorkflowNode {
   id: string;
   type: string;
   position: { x: number; y: number };
-  data: Record<string, any>;
+  data: Record<string, unknown>;
 }
 
 export interface WorkflowEdge {
@@ -348,7 +348,7 @@ export interface LogEntry {
   level: "debug" | "info" | "warning" | "error" | "critical";
   service: string;
   message: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   traceId?: string;
   userId?: string;
   source: string;
@@ -444,7 +444,7 @@ export interface SecurityEvent {
   action: string;
   result: "success" | "failure" | "blocked";
   riskScore: number;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   geoLocation?: GeoLocation;
 }
 
@@ -525,7 +525,7 @@ export interface SearchResult {
   subtitle?: string;
   icon?: string;
   url: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface CommandItem {
