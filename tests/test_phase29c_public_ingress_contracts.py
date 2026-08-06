@@ -6,7 +6,8 @@ NGINX = (ROOT / "web-dashboard/docker/nginx.conf").read_text(encoding="utf-8")
 
 def test_public_identity_recovery_and_mfa_routes_reach_backend() -> None:
     assert "password-reset(?:/confirm)?" in NGINX
-    assert "mfa/challenge/verify" in NGINX
+    assert "mfa/challenge" in NGINX
+    assert "mfa/challenge/verify" not in NGINX
     assert "mfa(?:/.*)?" in NGINX
 
 
