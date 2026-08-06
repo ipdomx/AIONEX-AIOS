@@ -68,3 +68,18 @@ Therefore no DNS or tunnel configuration is changed by this delivery. Batch 29B 
 - `ai.vip-e.net` → `http://nginx:8082`;
 
 and the hostname passes the complete live acceptance suite. No secret value belongs in Git, Compose, command output, or the Owner database.
+
+## Portal CMS live acceptance and cache correction
+
+The production Owner CMS was exercised through the private API without exposing the Super Owner credential. A non-visual acceptance marker was saved to the draft, published as a new version, observed in the retained publication history, rolled back to the original version, and removed from the current public configuration. The draft and published configuration hashes were restored to their original values. The operation produced durable publication history and audit evidence.
+
+This acceptance exposed a real middleware defect: the public portal endpoints correctly emitted `ETag` and public cache directives, but the global API security middleware replaced those directives with `Cache-Control: no-store`.
+
+The corrected contract preserves explicit public caching only when all of the following are true:
+
+- the request method is `GET` or `HEAD`;
+- the response status is `200` or `304`;
+- the path is exactly `/api/v1/portal/published` or a valid 32-hex portal asset path;
+- the endpoint explicitly emitted a `public` cache directive.
+
+Every mutation, Owner API, error response, malformed asset path, and other API route continues to receive `Cache-Control: no-store`. Focused isolated PostgreSQL/Redis tests cover the public configuration, ETag/304 behavior, immutable asset path, private APIs, mutations, errors, and invalid paths.

@@ -263,10 +263,12 @@ async def test_public_etag_and_owner_api_boundary() -> None:
             assert public.status_code == 200, public.text
             assert public.json()["configuration"]["pricing"]["plans"]
             etag = public.headers["etag"]
+            assert public.headers["cache-control"].startswith("public, max-age=")
             cached = await client.get(
                 "/api/v1/portal/published", headers={"If-None-Match": etag}
             )
             assert cached.status_code == 304
+            assert cached.headers["cache-control"].startswith("public, max-age=")
             owner = await client.get("/api/v1/owner/portal")
             assert owner.status_code == 200, owner.text
             assert owner.json()["published"]["publication"]["version"] == 1
