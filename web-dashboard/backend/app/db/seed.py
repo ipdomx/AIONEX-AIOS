@@ -64,6 +64,9 @@ PERMISSIONS = {
     "security:read": "Read security data",
     "backups:read": "Read backup status",
     "backups:write": "Manage backup and recovery",
+    "billing:read": "Read organization billing, invoices, usage, and licenses",
+    "billing:write": "Manage organization checkout, subscriptions, and payment methods",
+    "billing:admin": "Administer plans, refunds, wallets, taxes, coupons, and reconciliation",
 }
 
 
@@ -127,6 +130,8 @@ BUILTIN_ROLES = (
             "monitoring:read",
             "security:read",
             "backups:read",
+            "billing:read",
+            "billing:write",
         ),
     ),
     BuiltinRoleDefinition(
@@ -153,6 +158,7 @@ BUILTIN_ROLES = (
             "providers:read",
             "notifications:read",
             "monitoring:read",
+            "billing:read",
         ),
     ),
     BuiltinRoleDefinition(
@@ -220,6 +226,7 @@ BUILTIN_ROLES = (
             "reports:read",
             "notifications:read",
             "monitoring:read",
+            "billing:read",
         ),
     ),
 )

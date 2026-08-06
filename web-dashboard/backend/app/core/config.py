@@ -4,7 +4,7 @@ from functools import lru_cache
 from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL
 
@@ -259,6 +259,78 @@ class Settings(BaseSettings):
     )
     STRIPE_WEBHOOK_SECRET: Optional[str] = Field(
         default=None, validation_alias="STRIPE_WEBHOOK_SECRET"
+    )
+    PAYMENTS_ENVIRONMENT: str = Field(
+        default="sandbox", validation_alias=AliasChoices("PAYMENTS_ENVIRONMENT", "PAYMENTS_ENV")
+    )
+    PAYMENTS_DEFAULT_CURRENCY: str = Field(
+        default="USD", validation_alias="PAYMENTS_DEFAULT_CURRENCY"
+    )
+    PAYMENTS_SUCCESS_URL: str = Field(
+        default="https://ai.vip-e.net/en/billing?checkout=success",
+        validation_alias="PAYMENTS_SUCCESS_URL",
+    )
+    PAYMENTS_CANCEL_URL: str = Field(
+        default="https://ai.vip-e.net/en/billing?checkout=cancelled",
+        validation_alias="PAYMENTS_CANCEL_URL",
+    )
+    PAYMENTS_WEBHOOK_TOLERANCE_SECONDS: int = Field(
+        default=300,
+        ge=30,
+        le=3600,
+        validation_alias="PAYMENTS_WEBHOOK_TOLERANCE_SECONDS",
+    )
+    STRIPE_API_BASE: str = Field(
+        default="https://api.stripe.com", validation_alias="STRIPE_API_BASE"
+    )
+    PAYPAL_CLIENT_ID: Optional[str] = Field(
+        default=None, validation_alias="PAYPAL_CLIENT_ID"
+    )
+    PAYPAL_CLIENT_SECRET: Optional[str] = Field(
+        default=None, validation_alias="PAYPAL_CLIENT_SECRET"
+    )
+    PAYPAL_WEBHOOK_ID: Optional[str] = Field(
+        default=None, validation_alias="PAYPAL_WEBHOOK_ID"
+    )
+    PAYPAL_API_BASE: str = Field(
+        default="https://api-m.sandbox.paypal.com", validation_alias=AliasChoices("PAYPAL_API_BASE", "PAYPAL_BASE_URL")
+    )
+    PADDLE_API_KEY: Optional[str] = Field(
+        default=None, validation_alias="PADDLE_API_KEY"
+    )
+    PADDLE_WEBHOOK_SECRET: Optional[str] = Field(
+        default=None, validation_alias="PADDLE_WEBHOOK_SECRET"
+    )
+    PADDLE_API_BASE: str = Field(
+        default="https://sandbox-api.paddle.com", validation_alias="PADDLE_API_BASE"
+    )
+    PAYMOB_API_KEY: Optional[str] = Field(
+        default=None, validation_alias="PAYMOB_API_KEY"
+    )
+    PAYMOB_WEBHOOK_SECRET: Optional[str] = Field(
+        default=None, validation_alias="PAYMOB_WEBHOOK_SECRET"
+    )
+    FAWRY_API_KEY: Optional[str] = Field(default=None, validation_alias="FAWRY_API_KEY")
+    FAWRY_WEBHOOK_SECRET: Optional[str] = Field(
+        default=None, validation_alias="FAWRY_WEBHOOK_SECRET"
+    )
+    STC_PAY_API_KEY: Optional[str] = Field(
+        default=None, validation_alias="STC_PAY_API_KEY"
+    )
+    STC_PAY_WEBHOOK_SECRET: Optional[str] = Field(
+        default=None, validation_alias="STC_PAY_WEBHOOK_SECRET"
+    )
+    BANK_TRANSFER_BANK_NAME: Optional[str] = Field(
+        default=None, validation_alias="BANK_TRANSFER_BANK_NAME"
+    )
+    BANK_TRANSFER_ACCOUNT_NAME: Optional[str] = Field(
+        default=None, validation_alias="BANK_TRANSFER_ACCOUNT_NAME"
+    )
+    BANK_TRANSFER_IBAN: Optional[str] = Field(
+        default=None, validation_alias="BANK_TRANSFER_IBAN"
+    )
+    BANK_TRANSFER_SWIFT: Optional[str] = Field(
+        default=None, validation_alias="BANK_TRANSFER_SWIFT"
     )
 
     FIREBASE_PROJECT_ID: Optional[str] = Field(

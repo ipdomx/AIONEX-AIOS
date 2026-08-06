@@ -1005,6 +1005,56 @@ const AR: Catalog = {
     "تحقق من قنوات التسليم المضبوطة واحفظ اختيارات المالك للتفعيل. يستخدم التسليم التجريبي مزود الخادم المتصل.",
   "Verifying…": "جارٍ التحقق…",
   "Visitors may dismiss it": "يمكن للزوار إغلاقه",
+  "Billing load failed.": "فشل تحميل الفوترة.",
+  "Wallet credit must be a positive integer in minor units.":
+    "يجب أن يكون رصيد المحفظة عددًا صحيحًا موجبًا بالوحدات الصغرى.",
+  "Usage quantity must be a positive integer.":
+    "يجب أن تكون كمية الاستخدام عددًا صحيحًا موجبًا.",
+  "Settlement note:": "ملاحظة التسوية:",
+  "Failure note:": "ملاحظة الفشل:",
+  "Offline payment verified": "تم التحقق من الدفع غير المتصل",
+  "Offline payment rejected": "تم رفض الدفع غير المتصل",
+  "Refund amount is outside the refundable balance.":
+    "مبلغ الاسترداد خارج الرصيد القابل للاسترداد.",
+  "License seats must be a positive integer.":
+    "يجب أن يكون عدد مقاعد الترخيص عددًا صحيحًا موجبًا.",
+  "Loading billing control plane...": "جارٍ تحميل طبقة التحكم في الفوترة...",
+  "Durable Billing Authority": "سلطة الفوترة الدائمة",
+  "Billing, Licensing, Payments & Entitlements":
+    "الفوترة والتراخيص والمدفوعات والاستحقاقات",
+  "One control plane for public pricing, enforced limits, seats, wallets, usage, subscriptions, invoices, refunds, licenses, verified webhooks, and provider reconciliation.":
+    "طبقة تحكم واحدة للأسعار العامة والحدود المطبقة والمقاعد والمحافظ والاستخدام والاشتراكات والفواتير والاستردادات والتراخيص وإشعارات الويب الموثقة ومصالحة المزودين.",
+  "Search organizations, plans, or status...":
+    "ابحث بالمؤسسة أو الخطة أو الحالة...",
+  "active of": "نشط من",
+  "licensed seats · period ends": "مقعدًا مرخصًا · تنتهي الفترة",
+  "· Entitlements:": "· الاستحقاقات:",
+  "No transactions recorded.": "لا توجد معاملات مسجلة.",
+  "· Tax": "· الضريبة",
+  "· Paid": "· المدفوع",
+  "· Refunded": "· المسترد",
+  "No invoices recorded.": "لا توجد فواتير مسجلة.",
+  "Fixed amount": "مبلغ ثابت",
+  "Percent or minor amount": "النسبة أو المبلغ بالوحدة الصغرى",
+  "Max redemptions": "الحد الأقصى لمرات الاستخدام",
+  "Create coupon": "إنشاء قسيمة",
+  "Tax rates": "معدلات الضرائب",
+  "Tax code": "رمز الضريبة",
+  "Country code": "رمز الدولة",
+  "Save tax": "حفظ الضريبة",
+  "Organization wallets": "محافظ المؤسسات",
+  "Wallets are created on first credit or usage event.":
+    "تُنشأ المحافظ عند أول إضافة رصيد أو حدث استخدام.",
+  "seats ·": "مقاعد ·",
+  "No durable licenses issued.": "لم تُصدر تراخيص دائمة.",
+  "Metered usage": "الاستخدام المقاس",
+  "used ·": "مستخدم ·",
+  "No metered usage recorded.": "لا يوجد استخدام مقاس مسجل.",
+  "Payment providers": "مزودو الدفع",
+  "Verified webhook ledger": "سجل إشعارات الويب الموثقة",
+  "No verified webhook events received.": "لم تُستقبل أحداث Webhook موثقة.",
+  "Reconciliation history": "سجل المصالحة",
+  "No reconciliation runs yet.": "لم تُنفذ عمليات مصالحة بعد.",
 };
 
 const FR: Catalog = {

@@ -13,12 +13,15 @@ from fastapi.routing import APIRoute
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
-from app.api.owner.control_plane import ORGANIZATION_PLANS
 from app.api.v1.router import api_router
 from app.core.auth import UserRecord, current_user, require_super_owner
 from app.db.base import SessionLocal
-from app.db.models import (AuditEvent, Organization, OwnerCommandRecord,
-                           OwnerControlRecord)
+from app.db.models import (
+    AuditEvent,
+    Organization,
+    OwnerCommandRecord,
+    OwnerControlRecord,
+)
 from app.db.seed import seed
 from app.services.portal_cms import default_portal_configuration
 
@@ -143,10 +146,11 @@ OWNER_MUTATION_REQUESTS = {
     ("DELETE", "/api/v1/owner/portal/assets/{asset_id}"): None,
 }
 
-NON_DATA_OWNER_PAGES = {"completion", "search"}
+NON_DATA_OWNER_PAGES = {"completion", "search", "costs", "licensing"}
 OWNER_DATA_SOURCE_MARKERS = (
     "@/hooks/use-owner-resource",
     "@/lib/owner-",
+    "@/lib/billing-api",
 )
 CLIENT_CALL_PATTERN = re.compile(
     r"apiClient\.(get|post|put|patch|delete)" r"(?:<.*?>)?\(\s*([`\"'])(.*?)\2",
@@ -374,20 +378,16 @@ def test_every_owner_button_has_an_explicit_handler() -> None:
     assert not failures, "Owner buttons without handlers: " + ", ".join(failures)
 
 
-def test_billing_selector_matches_the_backend_plan_contract() -> None:
+def test_billing_selector_uses_the_published_backend_catalogue() -> None:
     billing_page = (OWNER_APP / "billing" / "page.tsx").read_text()
-    declaration = re.search(
-        r"const supportedPlans = \[(?P<plans>.*?)\] as const;",
-        billing_page,
-        re.DOTALL,
-    )
-    assert declaration is not None
-    frontend_plans = {
-        plan.casefold() for plan in re.findall(r'"([^"]+)"', declaration.group("plans"))
-    }
+    billing_client = (OWNER_CLIENTS / "billing-api.ts").read_text()
 
-    assert frontend_plans == ORGANIZATION_PLANS
-    assert "supportedPlans.map" in billing_page
+    assert "fetchBillingOverview" in billing_page
+    assert "overview.catalog.plans.map" in billing_page
+    assert "plan.code" in billing_page
+    assert "updateBillingAccount" in billing_page
+    assert '"/billing/owner/overview"' in billing_client
+    assert "supportedPlans" not in billing_page
 
 
 def test_owner_api_contract_is_complete_and_protected() -> None:

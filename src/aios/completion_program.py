@@ -146,19 +146,30 @@ FEATURES: Final[tuple[CompletionFeature, ...]] = (
         "billing-licensing",
         "29D",
         "Billing, plans, licensing, seats, quotas, and metering",
-        "pending",
+        "verified",
         (
             "Plan, seat, quota, usage, suspension, restore, and cost-governance records agree across API and Owner UI.",
+        ),
+        (
+            "docs/phase-29/PHASE_29D_BILLING_PAYMENTS_COMPLETION.md",
+            "web-dashboard/backend/app/services/billing.py",
+            "web-dashboard/frontend/src/app/owner/billing/page.tsx",
         ),
     ),
     CompletionFeature(
         "payments-commerce",
         "29D",
         "Payments, checkout, invoices, subscriptions, refunds, and webhooks",
-        "pending",
+        "verified",
         (
             "Sandbox and production-safe payment flows are idempotent, tenant-scoped, audited, and reconciled.",
             "Pricing shown publicly matches enforced entitlements.",
+        ),
+        (
+            "web-dashboard/backend/tests/test_phase29d_billing_payments.py",
+            "web-dashboard/backend/app/api/v1/endpoints/billing.py",
+            "vip-frontend/src/components/pages/billing-client.tsx",
+            "vip-frontend/src/components/pages/pricing-client.tsx",
         ),
     ),
     CompletionFeature(
@@ -301,11 +312,11 @@ FEATURES: Final[tuple[CompletionFeature, ...]] = (
     CompletionFeature(
         "models-providers",
         "29J",
-        "All AI models, providers, routing, capabilities, budgets, and fallbacks",
+        "All models and external providers, routing, capabilities, budgets, and fallbacks",
         "deferred",
         (
-            "Every supported provider is explicitly activated or explicitly removed from the supported product contract.",
-            "Model discovery, capability routing, policy, budgets, secrets, streaming, tools, media, health, and fallback are proven.",
+            "Every supported AI, payment, media, and external service provider is explicitly activated or explicitly removed from the supported product contract.",
+            "Model discovery, provider checkout or invocation, capability routing, policy, budgets, secrets, streaming, tools, media, health, and fallback are proven.",
             "This batch is executed only after every non-provider batch is complete.",
         ),
     ),
@@ -320,7 +331,7 @@ BATCHES: Final[tuple[CompletionBatch, ...]] = (
     CompletionBatch("29A", 1, "Completion governance and exhaustive inventory", "complete", "Establish the no-omission completion contract and Owner visibility.", _feature_ids("29A")),
     CompletionBatch("29B", 2, "Public portal and product experience", "complete", "Deploy and verify every public and user-facing portal capability.", _feature_ids("29B")),
     CompletionBatch("29C", 3, "Identity, tenancy, access, and accounts", "complete", "Finish all identity and account lifecycles and prove isolation.", _feature_ids("29C")),
-    CompletionBatch("29D", 4, "Billing, licensing, payments, and entitlements", "pending", "Finish commercial, quota, metering, and payment lifecycles.", _feature_ids("29D")),
+    CompletionBatch("29D", 4, "Billing, licensing, payments, and entitlements", "complete", "Finish commercial, quota, metering, and payment lifecycles.", _feature_ids("29D")),
     CompletionBatch("29E", 5, "Communications, notifications, meetings, and governance", "pending", "Finish human communication, escalation, councils, and approvals.", _feature_ids("29E")),
     CompletionBatch("29F", 6, "Projects, workforce, academy, knowledge, and workflows", "pending", "Finish daily project operations and the governed digital workforce.", _feature_ids("29F")),
     CompletionBatch("29G", 7, "Operations, observability, security, recovery, and release", "pending", "Prove the complete production operations and assurance plane.", _feature_ids("29G")),
@@ -369,6 +380,7 @@ OWNER_PAGE_BATCH: Final[dict[str, str]] = {
 
 VIP_PAGE_BATCH: Final[dict[str, str]] = {
     "(root)/page.tsx": "29B", "[locale]/about/page.tsx": "29B",
+    "[locale]/billing/page.tsx": "29D",
     "[locale]/contact/page.tsx": "29E", "[locale]/dashboard/page.tsx": "29F",
     "[locale]/legal/privacy/page.tsx": "29B", "[locale]/legal/terms/page.tsx": "29B",
     "[locale]/forgot-password/page.tsx": "29C",
@@ -380,6 +392,7 @@ VIP_PAGE_BATCH: Final[dict[str, str]] = {
 
 ENDPOINT_BATCH: Final[dict[str, str]] = {
     "ai_agents": "29J", "ai_providers": "29J", "auth": "29C", "backups": "29G",
+    "billing": "29D",
     "capabilities": "29A", "containers": "29G", "dashboard": "29B", "databases": "29G",
     "final_integration": "29G", "firebase_phone": "29C", "identity": "29C",
     "integration": "29I", "knowledge": "29F", "locale": "29B", "meetings": "29E",

@@ -1000,11 +1000,14 @@ function PricingEditor({
                   compare_at_price: null,
                   currency: n.pricing.default_currency,
                   enabled: true,
+                  checkout_provider: undefined,
+                  checkout_reference: "",
                 },
               ],
               features: [],
               limits: {},
               entitlements: [],
+              metering: {},
               cta_label: {
                 ...emptyLocalized(),
                 en: "Choose plan",
@@ -1189,12 +1192,33 @@ function PlanEditor({
               })
             }
           >
-            {["none", "stripe", "paddle", "paypal", "manual"].map((v) => (
+            {[
+              "none",
+              "stripe",
+              "paddle",
+              "paypal",
+              "manual",
+              "bank_transfer",
+            ].map((v) => (
               <option key={v} value={v}>
                 {v}
               </option>
             ))}
           </select>
+        </Field>
+        <Field
+          label="Default provider reference"
+          note="Provider price ID used only when a period does not define its own reference."
+        >
+          <input
+            className={inputClass}
+            value={plan.checkout_reference}
+            onChange={(e) =>
+              mutate((n) => {
+                n.pricing.plans[index].checkout_reference = e.target.value;
+              })
+            }
+          />
         </Field>
       </div>
       <h4 className="mt-6 text-sm font-semibold text-white">
@@ -1289,6 +1313,49 @@ function PlanEditor({
                   }
                 />
               </Field>
+              <Field label="Payment provider">
+                <select
+                  className={inputClass}
+                  value={period.checkout_provider || plan.checkout_provider}
+                  onChange={(e) =>
+                    mutate((n) => {
+                      n.pricing.plans[index].periods[
+                        periodIndex
+                      ].checkout_provider = e.target
+                        .value as typeof plan.checkout_provider;
+                    })
+                  }
+                >
+                  {[
+                    "none",
+                    "stripe",
+                    "paypal",
+                    "paddle",
+                    "manual",
+                    "bank_transfer",
+                  ].map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field
+                label="Provider price reference"
+                note="Stripe Price ID, PayPal Plan ID or Paddle Price ID. Leave blank for manual or bank transfer."
+              >
+                <input
+                  className={inputClass}
+                  value={period.checkout_reference}
+                  onChange={(e) =>
+                    mutate((n) => {
+                      n.pricing.plans[index].periods[
+                        periodIndex
+                      ].checkout_reference = e.target.value;
+                    })
+                  }
+                />
+              </Field>
               <label className="flex items-center gap-2 text-xs text-white/50">
                 <input
                   type="checkbox"
@@ -1328,12 +1395,75 @@ function PlanEditor({
               compare_at_price: null,
               currency: n.pricing.default_currency,
               enabled: true,
+              checkout_provider: undefined,
+              checkout_reference: "",
             });
           })
         }
       >
         + Add subscription period
       </button>
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        <Field
+          label="Limits JSON"
+          note='Example: {"projects":10,"storage_bytes":1073741824}'
+        >
+          <textarea
+            className={`${inputClass} min-h-32 font-mono text-xs`}
+            value={JSON.stringify(plan.limits, null, 2)}
+            onChange={(e) => {
+              try {
+                const value = JSON.parse(e.target.value) as typeof plan.limits;
+                mutate((n) => {
+                  n.pricing.plans[index].limits = value;
+                });
+              } catch {
+                // Keep the last valid structured limits value.
+              }
+            }}
+          />
+        </Field>
+        <Field
+          label="Entitlements JSON"
+          note='Example: ["projects.core","studio.image"]'
+        >
+          <textarea
+            className={`${inputClass} min-h-32 font-mono text-xs`}
+            value={JSON.stringify(plan.entitlements, null, 2)}
+            onChange={(e) => {
+              try {
+                const value = JSON.parse(e.target.value) as string[];
+                mutate((n) => {
+                  n.pricing.plans[index].entitlements = value;
+                });
+              } catch {
+                // Keep the last valid structured entitlement value.
+              }
+            }}
+          />
+        </Field>
+        <Field
+          label="Metering JSON"
+          note='Example: {"tokens":{"included":100000,"unit_size":1000,"unit_price_minor":2,"currency":"USD"}}'
+        >
+          <textarea
+            className={`${inputClass} min-h-32 font-mono text-xs`}
+            value={JSON.stringify(plan.metering, null, 2)}
+            onChange={(e) => {
+              try {
+                const value = JSON.parse(
+                  e.target.value,
+                ) as typeof plan.metering;
+                mutate((n) => {
+                  n.pricing.plans[index].metering = value;
+                });
+              } catch {
+                // Keep the last valid structured metering value.
+              }
+            }}
+          />
+        </Field>
+      </div>
       <h4 className="mt-6 text-sm font-semibold text-white">
         Features — {localeLabels[locale]}
       </h4>

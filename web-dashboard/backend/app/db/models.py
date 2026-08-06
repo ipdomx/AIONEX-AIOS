@@ -113,7 +113,9 @@ class User(Base, TimestampMixin):
     auth_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
     avatar: Mapped[str | None] = mapped_column(Text)
-    last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    last_active_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), index=True
+    )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
@@ -186,20 +188,26 @@ class PasskeyCredential(Base, TimestampMixin):
 
 class PasswordResetToken(Base, TimestampMixin):
     __tablename__ = "password_reset_tokens"
-    __table_args__ = (
-        Index("ix_password_reset_user_expiry", "user_id", "expires_at"),
-    )
+    __table_args__ = (Index("ix_password_reset_user_expiry", "user_id", "expires_at"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
     user_id: Mapped[str] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    token_hash: Mapped[str] = mapped_column(
+        String(64), unique=True, nullable=False, index=True
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     requested_ip: Mapped[str | None] = mapped_column(String(64))
-    delivery_status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
-    delivery_attempted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    delivery_status: Mapped[str] = mapped_column(
+        String(32), default="pending", nullable=False
+    )
+    delivery_attempted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
 
 
 class UserMFA(Base, TimestampMixin):
@@ -209,8 +217,12 @@ class UserMFA(Base, TimestampMixin):
         ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
     secret_ciphertext: Mapped[str] = mapped_column(Text, nullable=False)
-    backup_code_hashes: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
-    enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
+    backup_code_hashes: Mapped[list[str]] = mapped_column(
+        JSON, default=list, nullable=False
+    )
+    enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, index=True
+    )
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
@@ -265,7 +277,9 @@ class TeamMembership(Base, TimestampMixin):
     user_id: Mapped[str] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    membership_role: Mapped[str] = mapped_column(String(32), default="member", nullable=False)
+    membership_role: Mapped[str] = mapped_column(
+        String(32), default="member", nullable=False
+    )
 
 
 class Project(Base, TimestampMixin):
@@ -497,9 +511,7 @@ class ProjectExecution(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(
         String(32), default="queued", nullable=False, index=True
     )
-    stage: Mapped[str] = mapped_column(
-        String(64), default="queued", nullable=False
-    )
+    stage: Mapped[str] = mapped_column(String(64), default="queued", nullable=False)
     progress: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     objective: Mapped[str] = mapped_column(Text, nullable=False)
     external_processing_confirmed: Mapped[bool] = mapped_column(
@@ -522,6 +534,496 @@ class ProjectExecution(Base, TimestampMixin):
     attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     max_attempts: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class BillingPlan(Base, TimestampMixin):
+    __tablename__ = "billing_plans"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    code: Mapped[str] = mapped_column(
+        String(80), unique=True, nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(
+        String(32), default="inactive", nullable=False, index=True
+    )
+    default_currency: Mapped[str] = mapped_column(
+        String(3), default="USD", nullable=False
+    )
+    limits: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    entitlements: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    metering: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    source_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    source_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
+class BillingPrice(Base, TimestampMixin):
+    __tablename__ = "billing_prices"
+    __table_args__ = (
+        UniqueConstraint(
+            "plan_id",
+            "period_code",
+            "currency",
+            name="uq_billing_price_plan_period_currency",
+        ),
+        Index("ix_billing_prices_plan_enabled", "plan_id", "enabled"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    plan_id: Mapped[str] = mapped_column(
+        ForeignKey("billing_plans.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    period_code: Mapped[str] = mapped_column(String(80), nullable=False)
+    months: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    amount_minor: Mapped[int | None] = mapped_column(BigInteger)
+    compare_at_minor: Mapped[int | None] = mapped_column(BigInteger)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    provider: Mapped[str] = mapped_column(String(40), default="none", nullable=False)
+    provider_reference: Mapped[str | None] = mapped_column(String(255))
+    price_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class BillingAccount(Base, TimestampMixin):
+    __tablename__ = "billing_accounts"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+    plan_id: Mapped[str | None] = mapped_column(
+        ForeignKey("billing_plans.id", ondelete="SET NULL"), index=True
+    )
+    status: Mapped[str] = mapped_column(
+        String(32), default="active", nullable=False, index=True
+    )
+    licensed_seats: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    provider_customers: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    limits: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    entitlements: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    trial_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    current_period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    suspended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    suspension_reason: Mapped[str | None] = mapped_column(Text)
+
+
+class BillingSubscription(Base, TimestampMixin):
+    __tablename__ = "billing_subscriptions"
+    __table_args__ = (
+        UniqueConstraint(
+            "provider",
+            "external_reference",
+            name="uq_billing_subscription_provider_external",
+        ),
+        Index("ix_billing_subscriptions_org_status", "organization_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    plan_id: Mapped[str] = mapped_column(
+        ForeignKey("billing_plans.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    price_id: Mapped[str | None] = mapped_column(
+        ForeignKey("billing_prices.id", ondelete="SET NULL"), index=True
+    )
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    external_reference: Mapped[str | None] = mapped_column(String(255))
+    status: Mapped[str] = mapped_column(
+        String(32), default="pending", nullable=False, index=True
+    )
+    cancel_at_period_end: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    current_period_start: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
+    current_period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    trial_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    canceled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    subscription_metadata: Mapped[dict] = mapped_column(
+        JSON, default=dict, nullable=False
+    )
+
+
+class BillingCheckoutSession(Base, TimestampMixin):
+    __tablename__ = "billing_checkout_sessions"
+    __table_args__ = (
+        UniqueConstraint("idempotency_key", name="uq_billing_checkout_idempotency"),
+        UniqueConstraint(
+            "provider",
+            "external_reference",
+            name="uq_billing_checkout_provider_external",
+        ),
+        Index("ix_billing_checkout_org_created", "organization_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    plan_id: Mapped[str] = mapped_column(
+        ForeignKey("billing_plans.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    price_id: Mapped[str] = mapped_column(
+        ForeignKey("billing_prices.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    external_reference: Mapped[str | None] = mapped_column(String(255))
+    status: Mapped[str] = mapped_column(
+        String(32), default="pending", nullable=False, index=True
+    )
+    checkout_url: Mapped[str | None] = mapped_column(Text)
+    idempotency_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    coupon_code: Mapped[str | None] = mapped_column(String(80))
+    billing_country: Mapped[str | None] = mapped_column(String(2))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    session_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class BillingInvoice(Base, TimestampMixin):
+    __tablename__ = "billing_invoices"
+    __table_args__ = (
+        UniqueConstraint(
+            "provider",
+            "external_reference",
+            name="uq_billing_invoice_provider_external",
+        ),
+        Index("ix_billing_invoices_org_status", "organization_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    subscription_id: Mapped[str | None] = mapped_column(
+        ForeignKey("billing_subscriptions.id", ondelete="SET NULL"), index=True
+    )
+    provider: Mapped[str] = mapped_column(
+        String(40), default="internal", nullable=False
+    )
+    external_reference: Mapped[str | None] = mapped_column(String(255))
+    number: Mapped[str] = mapped_column(
+        String(80), unique=True, nullable=False, index=True
+    )
+    status: Mapped[str] = mapped_column(
+        String(32), default="draft", nullable=False, index=True
+    )
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    subtotal_minor: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    discount_minor: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    tax_minor: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    total_minor: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    amount_paid_minor: Mapped[int] = mapped_column(
+        BigInteger, default=0, nullable=False
+    )
+    amount_refunded_minor: Mapped[int] = mapped_column(
+        BigInteger, default=0, nullable=False
+    )
+    line_items: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    invoice_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class BillingTransaction(Base, TimestampMixin):
+    __tablename__ = "billing_transactions"
+    __table_args__ = (
+        UniqueConstraint(
+            "provider",
+            "external_reference",
+            name="uq_billing_transaction_provider_external",
+        ),
+        UniqueConstraint("idempotency_key", name="uq_billing_transaction_idempotency"),
+        Index("ix_billing_transactions_org_created", "organization_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    invoice_id: Mapped[str | None] = mapped_column(
+        ForeignKey("billing_invoices.id", ondelete="SET NULL"), index=True
+    )
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    external_reference: Mapped[str | None] = mapped_column(String(255))
+    transaction_type: Mapped[str] = mapped_column(
+        String(40), default="payment", nullable=False
+    )
+    status: Mapped[str] = mapped_column(
+        String(32), default="pending", nullable=False, index=True
+    )
+    amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    transaction_metadata: Mapped[dict] = mapped_column(
+        JSON, default=dict, nullable=False
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class BillingPaymentMethod(Base, TimestampMixin):
+    __tablename__ = "billing_payment_methods"
+    __table_args__ = (
+        UniqueConstraint(
+            "provider", "external_reference", name="uq_billing_payment_method_external"
+        ),
+        Index("ix_billing_payment_methods_org_status", "organization_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    external_reference: Mapped[str] = mapped_column(String(255), nullable=False)
+    method_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    brand: Mapped[str | None] = mapped_column(String(40))
+    last4: Mapped[str | None] = mapped_column(String(4))
+    expiry_month: Mapped[int | None] = mapped_column(Integer)
+    expiry_year: Mapped[int | None] = mapped_column(Integer)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
+
+
+class BillingRefund(Base, TimestampMixin):
+    __tablename__ = "billing_refunds"
+    __table_args__ = (
+        UniqueConstraint("idempotency_key", name="uq_billing_refund_idempotency"),
+        UniqueConstraint(
+            "provider", "external_reference", name="uq_billing_refund_provider_external"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    transaction_id: Mapped[str] = mapped_column(
+        ForeignKey("billing_transactions.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    invoice_id: Mapped[str | None] = mapped_column(
+        ForeignKey("billing_invoices.id", ondelete="SET NULL"), index=True
+    )
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    external_reference: Mapped[str | None] = mapped_column(String(255))
+    amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    reason: Mapped[str] = mapped_column(String(240), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32), default="pending", nullable=False, index=True
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    refund_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class BillingWebhookEvent(Base, TimestampMixin):
+    __tablename__ = "billing_webhook_events"
+    __table_args__ = (
+        UniqueConstraint(
+            "provider", "external_event_id", name="uq_billing_webhook_provider_event"
+        ),
+        Index("ix_billing_webhooks_status_received", "status", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    external_event_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(160), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="received", nullable=False)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    event_payload: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    error: Mapped[str | None] = mapped_column(Text)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class BillingCoupon(Base, TimestampMixin):
+    __tablename__ = "billing_coupons"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    code: Mapped[str] = mapped_column(
+        String(80), unique=True, nullable=False, index=True
+    )
+    discount_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    percent_off_basis_points: Mapped[int | None] = mapped_column(Integer)
+    amount_off_minor: Mapped[int | None] = mapped_column(BigInteger)
+    currency: Mapped[str | None] = mapped_column(String(3))
+    max_redemptions: Mapped[int | None] = mapped_column(Integer)
+    redeemed_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    coupon_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class BillingCouponRedemption(Base, TimestampMixin):
+    __tablename__ = "billing_coupon_redemptions"
+    __table_args__ = (
+        UniqueConstraint(
+            "coupon_id", "checkout_session_id", name="uq_billing_coupon_checkout"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    coupon_id: Mapped[str] = mapped_column(
+        ForeignKey("billing_coupons.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    checkout_session_id: Mapped[str] = mapped_column(
+        ForeignKey("billing_checkout_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    discount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+
+class BillingTaxRate(Base, TimestampMixin):
+    __tablename__ = "billing_tax_rates"
+    __table_args__ = (
+        UniqueConstraint(
+            "country_code", "region_code", "code", name="uq_billing_tax_scope_code"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    code: Mapped[str] = mapped_column(String(80), nullable=False)
+    country_code: Mapped[str] = mapped_column(String(2), nullable=False, index=True)
+    region_code: Mapped[str | None] = mapped_column(String(80))
+    percentage_basis_points: Mapped[int] = mapped_column(Integer, nullable=False)
+    inclusive: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
+class BillingUsageRecord(Base, TimestampMixin):
+    __tablename__ = "billing_usage_records"
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id", "metric", "period_start", name="uq_billing_usage_period"
+        ),
+        Index(
+            "ix_billing_usage_org_period",
+            "organization_id",
+            "period_start",
+            "period_end",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    metric: Mapped[str] = mapped_column(String(120), nullable=False)
+    quantity: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    included_quantity: Mapped[int | None] = mapped_column(BigInteger)
+    billable_quantity: Mapped[int] = mapped_column(
+        BigInteger, default=0, nullable=False
+    )
+    charge_minor: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), default="USD", nullable=False)
+    period_start: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    period_end: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    last_event_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    usage_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class BillingWallet(Base, TimestampMixin):
+    __tablename__ = "billing_wallets"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+    currency: Mapped[str] = mapped_column(String(3), default="USD", nullable=False)
+    balance_minor: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
+
+
+class BillingWalletEntry(Base, TimestampMixin):
+    __tablename__ = "billing_wallet_entries"
+    __table_args__ = (
+        UniqueConstraint("idempotency_key", name="uq_billing_wallet_entry_idempotency"),
+        Index("ix_billing_wallet_entries_wallet_created", "wallet_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    wallet_id: Mapped[str] = mapped_column(
+        ForeignKey("billing_wallets.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    entry_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    balance_after_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    reference_type: Mapped[str | None] = mapped_column(String(80))
+    reference_id: Mapped[str | None] = mapped_column(String(160))
+    description: Mapped[str | None] = mapped_column(Text)
+    entry_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class BillingLicense(Base, TimestampMixin):
+    __tablename__ = "billing_licenses"
+    __table_args__ = (
+        UniqueConstraint("key_hash", name="uq_billing_license_key_hash"),
+        Index("ix_billing_licenses_org_status", "organization_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    plan_id: Mapped[str | None] = mapped_column(
+        ForeignKey("billing_plans.id", ondelete="SET NULL"), index=True
+    )
+    key_prefix: Mapped[str] = mapped_column(String(24), nullable=False)
+    key_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
+    seats: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    issued_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+    )
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    license_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class BillingReconciliationRun(Base, TimestampMixin):
+    __tablename__ = "billing_reconciliation_runs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32), default="pending", nullable=False, index=True
+    )
+    requested_by_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    summary: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    error: Mapped[str | None] = mapped_column(Text)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 

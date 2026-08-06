@@ -109,10 +109,21 @@ export type PortalConfiguration = {
         compare_at_price: number | null;
         currency: string;
         enabled: boolean;
+        checkout_provider?: "none" | "stripe" | "paddle" | "paypal" | "manual";
+        checkout_reference: string;
       }>;
       features: LocalizedText[];
       limits: Record<string, number | string | boolean | null>;
       entitlements: string[];
+      metering: Record<
+        string,
+        {
+          included?: number;
+          unit_size?: number;
+          unit_price_minor?: number;
+          currency?: string;
+        }
+      >;
       cta_label: LocalizedText;
       cta_url: string;
       checkout_provider: "none" | "stripe" | "paddle" | "paypal" | "manual";

@@ -56,6 +56,8 @@ FREE_USER_PERMISSIONS = (
     "profile:read",
     "projects:read",
     "projects:write",
+    "billing:read",
+    "billing:write",
 )
 
 DEFAULT_FREE_TIER_POLICY: dict[str, Any] = {
@@ -459,10 +461,9 @@ async def enforce_free_project_request(
     actor: UserRecord = Depends(current_user),
     session: AsyncSession = Depends(get_db),
 ) -> UserRecord:
-    is_collection_create = (
-        request.method.upper() == "POST"
-        and request.url.path.rstrip("/").endswith("/api/v1/projects")
-    )
+    is_collection_create = request.method.upper() == "POST" and request.url.path.rstrip(
+        "/"
+    ).endswith("/api/v1/projects")
     if actor.role == FREE_USER_ROLE_NAME and is_collection_create:
         await assert_free_project_creation_allowed(session, actor)
     return actor

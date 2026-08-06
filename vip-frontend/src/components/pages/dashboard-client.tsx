@@ -2,6 +2,7 @@
 
 import {
   ArrowUpRight,
+  CreditCard,
   FolderKanban,
   Gauge,
   LoaderCircle,
@@ -269,6 +270,16 @@ export function DashboardClient() {
                 >
                   {t("manageProjects")}
                   <FolderKanban
+                    className="h-4 w-4 text-electric-200"
+                    aria-hidden="true"
+                  />
+                </Link>
+                <Link
+                  href={`/${locale}/billing`}
+                  className="inline-flex min-h-12 items-center justify-between rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold text-white/75 transition hover:bg-white/[0.08] hover:text-white"
+                >
+                  {t("manageBilling")}
+                  <CreditCard
                     className="h-4 w-4 text-electric-200"
                     aria-hidden="true"
                   />

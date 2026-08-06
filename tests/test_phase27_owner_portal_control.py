@@ -112,7 +112,9 @@ def test_static_vip_shell_consumes_owner_configuration_at_runtime() -> None:
     assert "PortalSectionRenderer" in home
     assert "configuration?.pricing" in pricing
     assert "periods.find" in pricing
-    assert "price == null" in pricing
+    assert "amount_minor == null" in pricing
+    assert "getPublicBillingCatalog" in pricing
+    assert "checkout_available" in pricing
     assert "configuration?.contact" in contact
     assert "configuration.navigation" in navbar
     assert "configuration?.footer" in footer
