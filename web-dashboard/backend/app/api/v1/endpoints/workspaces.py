@@ -9,6 +9,7 @@ from typing import Any, Optional
 from app.core.auth import UserRecord, require_permissions
 from app.db.base import get_db
 from app.db.models import AuditEvent, Project, User, Workspace
+from app.services.billing import enforce_limit
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
@@ -131,6 +132,18 @@ async def create_workspace(
     actor: UserRecord = Depends(require_permissions("projects:write")),
     session: AsyncSession = Depends(get_db),
 ):
+    current_workspaces = int(
+        await session.scalar(
+            select(func.count(Workspace.id)).where(
+                Workspace.organization_id == actor.organization_id,
+                Workspace.status != "deleted",
+            )
+        )
+        or 0
+    )
+    await enforce_limit(
+        session, actor.organization_id, "workspaces", current_workspaces
+    )
     workspace = Workspace(
         organization_id=actor.organization_id,
         name=data.name.strip(),

@@ -393,6 +393,10 @@ class PortalBillingPeriod(BaseModel):
     compare_at_price: float | None = Field(default=None, ge=0, le=10_000_000)
     currency: str = Field(default="USD", min_length=3, max_length=3)
     enabled: bool = True
+    checkout_provider: (
+        Literal["none", "stripe", "paddle", "paypal", "manual", "bank_transfer"] | None
+    ) = None
+    checkout_reference: str = Field(default="", max_length=255)
 
     @field_validator("id")
     @classmethod
@@ -437,9 +441,12 @@ class PortalPricingPlan(BaseModel):
     features: list[dict[str, str]] = Field(default_factory=list, max_length=100)
     limits: dict[str, int | float | str | bool | None] = Field(default_factory=dict)
     entitlements: list[str] = Field(default_factory=list, max_length=200)
+    metering: dict[str, dict[str, int | str]] = Field(default_factory=dict)
     cta_label: dict[str, str]
     cta_url: str = "/register"
-    checkout_provider: Literal["none", "stripe", "paddle", "paypal", "manual"] = "none"
+    checkout_provider: Literal[
+        "none", "stripe", "paddle", "paypal", "manual", "bank_transfer"
+    ] = "none"
     checkout_reference: str = Field(default="", max_length=200)
 
     @field_validator("id")
@@ -477,6 +484,21 @@ class PortalPricingPlan(BaseModel):
                 raise ValueError("pricing entitlement is invalid")
             if text not in normalized:
                 normalized.append(text)
+        return normalized
+
+    @field_validator("metering")
+    @classmethod
+    def validate_metering(cls, value: dict[str, dict[str, int | str]]):
+        normalized: dict[str, dict[str, int | str]] = {}
+        for metric, raw in value.items():
+            key = str(metric).strip().lower()
+            if not re.fullmatch(r"[a-z0-9][a-z0-9._:-]{0,119}", key):
+                raise ValueError("pricing metering metric is invalid")
+            rule = dict(raw or {})
+            for numeric in ("included", "unit_size", "unit_price_minor"):
+                if numeric in rule and int(rule[numeric]) < 0:
+                    raise ValueError("pricing metering values cannot be negative")
+            normalized[key] = rule
         return normalized
 
     @model_validator(mode="after")

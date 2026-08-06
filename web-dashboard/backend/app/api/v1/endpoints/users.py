@@ -18,6 +18,7 @@ from app.api.v1.endpoints.permissions import (
 )
 from app.core.auth import UserRecord, pwd_context, require_permissions
 from app.db.base import get_db
+from app.services.billing import enforce_seat_limit
 from app.db.models import (
     AuditEvent,
     Organization,
@@ -271,9 +272,8 @@ async def create_user(
             detail="Role does not belong to the selected organization",
         )
     _reject_super_owner_assignment(role)
-    workspace = await _resolve_workspace(
-        session, data.workspace_id, organization.id
-    )
+    workspace = await _resolve_workspace(session, data.workspace_id, organization.id)
+    await enforce_seat_limit(session, organization.id)
 
     normalized_email = data.email.strip().lower()
     if (

@@ -1,6 +1,11 @@
 import type {
   AccountSession,
   AccountSettings,
+  BillingCatalog,
+  BillingCheckout,
+  BillingPaymentMethod,
+  BillingSummary,
+  BillingSubscriptionSummary,
   CreateProjectPayload,
   FirebasePhoneConfiguration,
   FirebasePhoneReadiness,
@@ -519,6 +524,75 @@ export function revokeAccountSession(
 
 export function getFreeTierStatus(): Promise<FreeTierStatus> {
   return request<FreeTierStatus>("/auth/free-tier");
+}
+
+export function getPublicBillingCatalog(): Promise<BillingCatalog> {
+  return request<BillingCatalog>("/billing/catalog/public", { auth: false });
+}
+
+export function getBillingSummary(): Promise<BillingSummary> {
+  return request<BillingSummary>("/billing");
+}
+
+export function listBillingPaymentMethods(): Promise<BillingPaymentMethod[]> {
+  return request<BillingPaymentMethod[]>("/billing/payment-methods");
+}
+
+export function createBillingCheckout(
+  payload: {
+    plan_code: string;
+    period_code: string;
+    coupon_code?: string | null;
+    billing_country?: string | null;
+  },
+  idempotencyKey: string,
+): Promise<BillingCheckout> {
+  return jsonRequest<BillingCheckout>("/billing/checkout", "POST", payload, {
+    headers: { "Idempotency-Key": idempotencyKey },
+  });
+}
+
+export function cancelBillingSubscription(
+  immediately = false,
+): Promise<BillingSubscriptionSummary> {
+  return jsonRequest<BillingSubscriptionSummary>(
+    "/billing/subscription/cancel",
+    "POST",
+    { immediately },
+  );
+}
+
+export function createBillingPortalSession(): Promise<{ url: string }> {
+  return jsonRequest<{ url: string }>("/billing/portal-session", "POST", {});
+}
+
+export function setDefaultBillingPaymentMethod(
+  methodId: string,
+): Promise<BillingPaymentMethod> {
+  return jsonRequest<BillingPaymentMethod>(
+    `/billing/payment-methods/${encodeURIComponent(methodId)}/default`,
+    "POST",
+    {},
+  );
+}
+
+export function removeBillingPaymentMethod(methodId: string): Promise<void> {
+  return request<void>(
+    `/billing/payment-methods/${encodeURIComponent(methodId)}`,
+    { method: "DELETE" },
+  );
+}
+
+export function validateBillingCoupon(
+  code: string,
+  amountMinor: number,
+  currency: string,
+): Promise<{ discount_minor: number; total_minor: number }> {
+  return jsonRequest<{ discount_minor: number; total_minor: number }>(
+    "/billing/coupons/validate",
+    "POST",
+    { code, amount_minor: amountMinor, currency },
+  );
 }
 
 export function getSettings(): Promise<AccountSettings> {

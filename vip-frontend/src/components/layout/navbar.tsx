@@ -1,6 +1,13 @@
 "use client";
 
-import { LayoutDashboard, LogOut, Menu, UserRound, X } from "lucide-react";
+import {
+  CreditCard,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  UserRound,
+  X,
+} from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -24,20 +31,49 @@ export function Navbar() {
 
   const fallbackLinks = [
     { id: "home", href: `/${locale}`, label: t("home"), external: false },
-    { id: "about", href: `/${locale}/about`, label: t("about"), external: false },
-    { id: "pricing", href: `/${locale}/pricing`, label: t.has("pricing") ? t("pricing") : "Pricing", external: false },
-    { id: "contact", href: `/${locale}/contact`, label: t("contact"), external: false },
+    {
+      id: "about",
+      href: `/${locale}/about`,
+      label: t("about"),
+      external: false,
+    },
+    {
+      id: "pricing",
+      href: `/${locale}/pricing`,
+      label: t.has("pricing") ? t("pricing") : "Pricing",
+      external: false,
+    },
+    {
+      id: "contact",
+      href: `/${locale}/contact`,
+      label: t("contact"),
+      external: false,
+    },
   ];
   const links = configuration
     ? configuration.navigation
         .filter((item) => item.enabled)
-        .filter((item) => item.audience === "all" || (item.audience === "guest" ? !isAuthenticated : isAuthenticated))
+        .filter(
+          (item) =>
+            item.audience === "all" ||
+            (item.audience === "guest" ? !isAuthenticated : isAuthenticated),
+        )
         .sort((a, b) => a.order - b.order)
-        .map((item) => ({ id: item.id, href: portalHref(item.href), label: text(item.label, item.id), external: item.external }))
+        .map((item) => ({
+          id: item.id,
+          href: portalHref(item.href),
+          label: text(item.label, item.id),
+          external: item.external,
+        }))
     : fallbackLinks;
 
-
-  function NavigationLink({ link, mobile = false }: { link: (typeof links)[number]; mobile?: boolean }) {
+  function NavigationLink({
+    link,
+    mobile = false,
+  }: {
+    link: (typeof links)[number];
+    mobile?: boolean;
+  }) {
     const className = mobile
       ? "rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06] hover:text-white"
       : cn(
@@ -47,9 +83,27 @@ export function Navbar() {
             : "text-white/55 hover:bg-white/[0.05] hover:text-white",
         );
     if (link.external || link.href.startsWith("https://")) {
-      return <a href={link.href} target="_blank" rel="noreferrer" className={className} onClick={() => mobile && setOpen(false)}>{link.label}</a>;
+      return (
+        <a
+          href={link.href}
+          target="_blank"
+          rel="noreferrer"
+          className={className}
+          onClick={() => mobile && setOpen(false)}
+        >
+          {link.label}
+        </a>
+      );
     }
-    return <Link href={link.href} className={className} onClick={() => mobile && setOpen(false)}>{link.label}</Link>;
+    return (
+      <Link
+        href={link.href}
+        className={className}
+        onClick={() => mobile && setOpen(false)}
+      >
+        {link.label}
+      </Link>
+    );
   }
 
   async function signOut() {
@@ -69,7 +123,9 @@ export function Navbar() {
         </span>
 
         <div className="hidden items-center gap-1 lg:flex">
-          {links.map((link) => <NavigationLink key={link.id} link={link} />)}
+          {links.map((link) => (
+            <NavigationLink key={link.id} link={link} />
+          ))}
         </div>
 
         <div className="hidden items-center gap-2 lg:flex">
@@ -89,6 +145,13 @@ export function Navbar() {
                 className="rounded-xl px-3 py-2 text-sm text-white/65 hover:text-white"
               >
                 {t("projects")}
+              </Link>
+              <Link
+                href={`/${locale}/billing`}
+                className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/65 hover:text-white"
+              >
+                <CreditCard className="h-4 w-4" aria-hidden="true" />
+                {t("billing")}
               </Link>
               <Link
                 href={`/${locale}/profile`}
@@ -140,7 +203,9 @@ export function Navbar() {
       {open && (
         <div className="border-t border-white/[0.07] bg-ink-950/95 px-4 py-5 backdrop-blur-2xl lg:hidden">
           <div className="mx-auto flex max-w-7xl flex-col gap-2">
-            {links.map((link) => <NavigationLink key={link.id} link={link} mobile />)}
+            {links.map((link) => (
+              <NavigationLink key={link.id} link={link} mobile />
+            ))}
             {isAuthenticated && (
               <>
                 <Link
@@ -156,6 +221,13 @@ export function Navbar() {
                   className="rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06]"
                 >
                   {t("projects")}
+                </Link>
+                <Link
+                  href={`/${locale}/billing`}
+                  onClick={() => setOpen(false)}
+                  className="rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06]"
+                >
+                  {t("billing")}
                 </Link>
                 <Link
                   href={`/${locale}/profile`}

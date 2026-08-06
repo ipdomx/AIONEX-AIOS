@@ -9,6 +9,7 @@ from typing import Any, List, Optional
 from app.core.auth import UserRecord, require_permissions
 from app.db.base import get_db
 from app.db.models import AuditEvent, Project, Task, User, Workspace
+from app.services.billing import enforce_limit
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
@@ -227,6 +228,16 @@ async def create_project(
     )
     if owner is None:
         raise HTTPException(status_code=404, detail="Project owner not found")
+    current_projects = int(
+        await session.scalar(
+            select(func.count(Project.id)).where(
+                Project.organization_id == actor.organization_id,
+                Project.status != "deleted",
+            )
+        )
+        or 0
+    )
+    await enforce_limit(session, actor.organization_id, "projects", current_projects)
     project = Project(
         organization_id=actor.organization_id,
         workspace_id=workspace.id,

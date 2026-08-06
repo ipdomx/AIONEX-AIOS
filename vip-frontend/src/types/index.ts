@@ -388,3 +388,158 @@ export interface CreateProjectPayload {
   workspace_id: string;
   tags: string[];
 }
+
+export interface BillingProviderReadiness {
+  id: string;
+  configured: boolean;
+  mode: string;
+  capabilities: string[];
+  status: "ready" | "unconfigured" | "blocked" | string;
+}
+
+export interface BillingCatalogPeriod {
+  id: string;
+  label: Record<string, string>;
+  months: number;
+  amount_minor: number | null;
+  compare_at_minor: number | null;
+  currency: string;
+  enabled: boolean;
+  provider: string;
+  checkout_available: boolean;
+}
+
+export interface BillingCatalogPlan {
+  code: string;
+  name: Record<string, string>;
+  description: Record<string, string>;
+  enabled: boolean;
+  featured: boolean;
+  order: number;
+  features: Array<Record<string, string>>;
+  limits: Record<string, number | string | boolean | null>;
+  entitlements: string[];
+  metering: Record<
+    string,
+    {
+      included?: number;
+      unit_size?: number;
+      unit_price_minor?: number;
+      currency?: string;
+    }
+  >;
+  cta_label: Record<string, string>;
+  checkout_provider: string;
+  periods: BillingCatalogPeriod[];
+}
+
+export interface BillingCatalog {
+  enabled: boolean;
+  default_currency: string;
+  default_period: string;
+  show_tax_note: boolean;
+  heading: Record<string, string>;
+  description: Record<string, string>;
+  tax_note: Record<string, string>;
+  faq: Array<{
+    question: Record<string, string>;
+    answer: Record<string, string>;
+  }>;
+  source_version: number;
+  plans: BillingCatalogPlan[];
+  providers: BillingProviderReadiness[];
+}
+
+export interface BillingSubscriptionSummary {
+  id: string;
+  provider: string;
+  status: string;
+  cancel_at_period_end: boolean;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  canceled_at: string | null;
+}
+
+export interface BillingInvoiceSummary {
+  id: string;
+  number: string;
+  provider: string;
+  status: string;
+  currency: string;
+  subtotal_minor: number;
+  discount_minor: number;
+  tax_minor: number;
+  total_minor: number;
+  amount_paid_minor: number;
+  amount_refunded_minor: number;
+  line_items: Array<Record<string, unknown>>;
+  created_at: string;
+  paid_at: string | null;
+}
+
+export interface BillingTransactionSummary {
+  id: string;
+  provider: string;
+  type: string;
+  status: string;
+  amount_minor: number;
+  currency: string;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export interface BillingWalletSummary {
+  id: string;
+  currency: string;
+  balance_minor: number;
+  status: string;
+}
+
+export interface BillingSummary {
+  account: {
+    id: string;
+    status: string;
+    licensed_seats: number;
+    plan: string | null;
+    plan_name: string | null;
+    limits: Record<string, number | string | boolean | null>;
+    entitlements: string[];
+    usage: Record<string, number>;
+    current_period_end: string | null;
+  };
+  subscription: BillingSubscriptionSummary | null;
+  invoices: BillingInvoiceSummary[];
+  transactions: BillingTransactionSummary[];
+  wallet: BillingWalletSummary;
+  catalog_version: number;
+}
+
+export interface BillingPaymentMethod {
+  id: string;
+  provider: string;
+  type: string;
+  brand: string | null;
+  last4: string | null;
+  expiry_month: number | null;
+  expiry_year: number | null;
+  is_default: boolean;
+}
+
+export interface BillingCheckout {
+  id: string;
+  provider: string;
+  status: string;
+  checkout_url: string | null;
+  expires_at: string | null;
+  completed_at: string | null;
+  summary: {
+    subtotal_minor?: number;
+    discount_minor?: number;
+    tax_minor?: number;
+    total_minor?: number;
+    currency?: string;
+    plan_code?: string;
+    period_code?: string;
+    instructions?: Record<string, string | number | null>;
+  };
+}
