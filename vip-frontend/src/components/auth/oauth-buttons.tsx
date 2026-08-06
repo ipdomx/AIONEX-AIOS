@@ -24,7 +24,7 @@ import type {
 const styles: Record<OAuthProviderId, string> = {
   google: "bg-white text-slate-900",
   apple: "bg-white text-black",
-  facebook: "bg-[#1877F2] text-white",
+  facebook: "bg-[#166FE5] text-white",
   x: "bg-black text-white",
   instagram:
     "bg-gradient-to-r from-[#833AB4] via-[#E1306C] to-[#F77737] text-white",
