@@ -21,7 +21,11 @@
     "pricingTitle": "AIONEX AIOS Tarife und Preise",
     "pricingDescription": "Vergleichen Sie Tarife und Abonnementzeiträume.",
     "billingTitle": "Abrechnung und Abonnements",
-    "billingDescription": "Verwalten Sie AIONEX-AIOS-Tarif, Rechnungen, Nutzung und Zahlungsmethoden."
+    "billingDescription": "Verwalten Sie AIONEX-AIOS-Tarif, Rechnungen, Nutzung und Zahlungsmethoden.",
+    "notificationsTitle": "Benachrichtigungen und Kommunikationspräferenzen",
+    "notificationsDescription": "Dauerhafte Benachrichtigungen, Zustellbelege und Kanäle prüfen.",
+    "supportTitle": "Supportanfragen",
+    "supportDescription": "Dauerhafte Supportgespräche mit AIONEX erstellen und verfolgen."
   },
   "nav": {
     "home": "Start",
@@ -39,7 +43,9 @@
     "openMenu": "Menü öffnen",
     "closeMenu": "Menü schließen",
     "pricing": "Preise",
-    "billing": "Abrechnung"
+    "billing": "Abrechnung",
+    "notifications": "Benachrichtigungen",
+    "support": "Support"
   },
   "footer": {
     "description": "Ein gesteuertes KI-Betriebssystem zur Koordination von Agenten, Modellen, Projekten und Betriebskontrollen.",
@@ -153,7 +159,8 @@
     "accountSettings": "Kontoeinstellungen",
     "contactSupport": "Support kontaktieren",
     "organization": "Organisation: {name}",
-    "manageBilling": "Abrechnung verwalten"
+    "manageBilling": "Abrechnung verwalten",
+    "notifications": "Benachrichtigungen"
   },
   "auth": {
     "secureAccess": "Sicherer Nutzerzugang",
@@ -522,5 +529,91 @@
     "status": "Status",
     "total": "Gesamt",
     "noInvoices": "Noch keine Rechnungen."
+  },
+  "notifications": {
+    "eyebrow": "Kommunikationszentrum",
+    "title": "Benachrichtigungen und Kanäle",
+    "description": "Jedes Ereignis wird zuerst in der App gespeichert; der Zustellstatus jedes Kanals bleibt transparent.",
+    "loading": "Benachrichtigungen werden geladen",
+    "loadError": "Benachrichtigungen konnten nicht geladen werden.",
+    "saveError": "Änderungen konnten nicht gespeichert werden.",
+    "markAllRead": "Alle als gelesen markieren",
+    "refresh": "Aktualisieren",
+    "markedAll": "{count} Benachrichtigungen als gelesen markiert.",
+    "archived": "Benachrichtigung archiviert.",
+    "inbox": "Benachrichtigungseingang",
+    "unreadCount": "{count} ungelesen",
+    "unreadOnly": "Nur ungelesene",
+    "markUnread": "Als ungelesen markieren",
+    "markRead": "Als gelesen markieren",
+    "archive": "Benachrichtigung archivieren",
+    "empty": "Keine Benachrichtigungen",
+    "emptyCopy": "Neue Projekt-, Support-, Abrechnungs-, Besprechungs- und Governance-Ereignisse erscheinen hier.",
+    "channelReadiness": "Kanalbereitschaft",
+    "ready": "Bereit",
+    "notConfigured": "Nicht konfiguriert",
+    "preferences": "Zustellpräferenzen",
+    "minimumSeverity": "Mindestschweregrad",
+    "severity": {
+      "info": "Information",
+      "warning": "Warnung",
+      "critical": "Kritisch"
+    },
+    "savePreferences": "Präferenzen speichern",
+    "preferencesSaved": "Benachrichtigungspräferenzen gespeichert.",
+    "endpoints": "Kommunikationsziele",
+    "endpointsCopy": "Adressen werden vor der Speicherung verschlüsselt. Telegram und WhatsApp benötigen eine Eigentümerprüfung.",
+    "primaryEndpoint": "Primäres Ziel",
+    "endpointAdded": "Ziel hinzugefügt und verifiziert.",
+    "endpointPending": "Ziel hinzugefügt; Prüfung ausstehend.",
+    "endpointError": "Ziel konnte nicht registriert werden.",
+    "endpointRemoved": "Ziel entfernt.",
+    "channel": {
+      "email": "E-Mail",
+      "push": "Push-Token",
+      "telegram": "Telegram-Chat",
+      "whatsapp": "WhatsApp-Nummer"
+    },
+    "endpointAddress": "E-Mail, Geräte-Token, Chat-ID oder Telefonnummer",
+    "endpointLabel": "Bezeichnung",
+    "addEndpoint": "Ziel hinzufügen",
+    "verified": "Verifiziert",
+    "verificationPending": "Prüfung ausstehend",
+    "removeEndpoint": "Ziel entfernen",
+    "noEndpoints": "Noch keine externen Ziele registriert."
+  },
+  "support": {
+    "eyebrow": "Dauerhafter Support",
+    "title": "Supportanfragen",
+    "description": "Supportanfragen erstellen, verfolgen und beantworten, ohne den Verlauf zu verlieren.",
+    "refresh": "Aktualisieren",
+    "loading": "Supportanfragen werden geladen",
+    "loadError": "Supportanfragen konnten nicht geladen werden.",
+    "saveError": "Die Supportanfrage konnte nicht gespeichert werden.",
+    "created": "Supportanfrage erstellt.",
+    "replySent": "Antwort gesendet.",
+    "back": "Zurück zu Anfragen",
+    "replyPlaceholder": "Antwort schreiben",
+    "sendReply": "Antwort senden",
+    "newTicket": "Neue Supportanfrage",
+    "subject": "Betreff",
+    "message": "Problem mit mindestens 10 Zeichen beschreiben",
+    "create": "Anfrage erstellen",
+    "history": "Anfrageverlauf",
+    "empty": "Noch keine Supportanfragen.",
+    "category": {
+      "general": "Allgemein",
+      "technical": "Technisch",
+      "billing": "Abrechnung",
+      "security": "Sicherheit",
+      "account": "Konto",
+      "project": "Projekt"
+    },
+    "priority": {
+      "low": "Niedrig",
+      "normal": "Normal",
+      "high": "Hoch",
+      "urgent": "Dringend"
+    }
   }
 }

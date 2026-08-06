@@ -21,7 +21,11 @@
     "pricingTitle": "Offres et tarifs AIONEX AIOS",
     "pricingDescription": "Comparez les offres et les périodes d’abonnement.",
     "billingTitle": "Facturation et abonnements",
-    "billingDescription": "Gérez votre forfait AIONEX AIOS, vos factures, votre utilisation et vos paiements."
+    "billingDescription": "Gérez votre forfait AIONEX AIOS, vos factures, votre utilisation et vos paiements.",
+    "notificationsTitle": "Notifications et préférences de communication",
+    "notificationsDescription": "Consultez les notifications durables, les reçus de livraison et les canaux.",
+    "supportTitle": "Demandes d’assistance",
+    "supportDescription": "Ouvrez et suivez des conversations d’assistance durables avec AIONEX."
   },
   "nav": {
     "home": "Accueil",
@@ -39,7 +43,9 @@
     "openMenu": "Ouvrir le menu",
     "closeMenu": "Fermer le menu",
     "pricing": "Tarifs",
-    "billing": "Facturation"
+    "billing": "Facturation",
+    "notifications": "Notifications",
+    "support": "Assistance"
   },
   "footer": {
     "description": "Un système d’exploitation IA gouverné pour coordonner agents, modèles, projets et contrôles opérationnels.",
@@ -153,7 +159,8 @@
     "accountSettings": "Paramètres du compte",
     "contactSupport": "Contacter l’assistance",
     "organization": "Organisation : {name}",
-    "manageBilling": "Gérer la facturation"
+    "manageBilling": "Gérer la facturation",
+    "notifications": "Notifications"
   },
   "auth": {
     "secureAccess": "Accès utilisateur sécurisé",
@@ -522,5 +529,91 @@
     "status": "État",
     "total": "Total",
     "noInvoices": "Aucune facture émise."
+  },
+  "notifications": {
+    "eyebrow": "Centre de communication",
+    "title": "Notifications et canaux",
+    "description": "Chaque événement est d’abord conservé dans l’application, avec un état de livraison transparent pour chaque canal.",
+    "loading": "Chargement des notifications",
+    "loadError": "Impossible de charger les notifications.",
+    "saveError": "Impossible d’enregistrer vos modifications.",
+    "markAllRead": "Tout marquer comme lu",
+    "refresh": "Actualiser",
+    "markedAll": "{count} notifications marquées comme lues.",
+    "archived": "Notification archivée.",
+    "inbox": "Boîte de notifications",
+    "unreadCount": "{count} non lues",
+    "unreadOnly": "Non lues uniquement",
+    "markUnread": "Marquer non lue",
+    "markRead": "Marquer lue",
+    "archive": "Archiver la notification",
+    "empty": "Aucune notification",
+    "emptyCopy": "Les nouveaux événements de projet, d’assistance, de facturation, de réunion et de gouvernance apparaîtront ici.",
+    "channelReadiness": "Disponibilité des canaux",
+    "ready": "Prêt",
+    "notConfigured": "Non configuré",
+    "preferences": "Préférences de livraison",
+    "minimumSeverity": "Sévérité minimale",
+    "severity": {
+      "info": "Information",
+      "warning": "Avertissement",
+      "critical": "Critique"
+    },
+    "savePreferences": "Enregistrer les préférences",
+    "preferencesSaved": "Préférences enregistrées.",
+    "endpoints": "Points de contact",
+    "endpointsCopy": "Les adresses sont chiffrées avant stockage. Telegram et WhatsApp nécessitent la vérification du propriétaire.",
+    "primaryEndpoint": "Point principal",
+    "endpointAdded": "Point ajouté et vérifié.",
+    "endpointPending": "Point ajouté, en attente de vérification.",
+    "endpointError": "Impossible d’enregistrer le point.",
+    "endpointRemoved": "Point supprimé.",
+    "channel": {
+      "email": "E-mail",
+      "push": "Jeton push",
+      "telegram": "Discussion Telegram",
+      "whatsapp": "Numéro WhatsApp"
+    },
+    "endpointAddress": "E-mail, jeton appareil, ID de discussion ou téléphone",
+    "endpointLabel": "Libellé du point",
+    "addEndpoint": "Ajouter un point",
+    "verified": "Vérifié",
+    "verificationPending": "Vérification en attente",
+    "removeEndpoint": "Supprimer le point",
+    "noEndpoints": "Aucun point externe enregistré."
+  },
+  "support": {
+    "eyebrow": "Assistance durable",
+    "title": "Demandes d’assistance",
+    "description": "Créez, suivez et répondez aux demandes sans perdre l’historique.",
+    "refresh": "Actualiser",
+    "loading": "Chargement des demandes",
+    "loadError": "Impossible de charger les demandes.",
+    "saveError": "Impossible d’enregistrer la demande.",
+    "created": "Demande créée.",
+    "replySent": "Réponse envoyée.",
+    "back": "Retour aux demandes",
+    "replyPlaceholder": "Écrire une réponse",
+    "sendReply": "Envoyer la réponse",
+    "newTicket": "Nouvelle demande",
+    "subject": "Objet",
+    "message": "Décrivez le problème en au moins 10 caractères",
+    "create": "Créer la demande",
+    "history": "Historique des demandes",
+    "empty": "Aucune demande pour le moment.",
+    "category": {
+      "general": "Général",
+      "technical": "Technique",
+      "billing": "Facturation",
+      "security": "Sécurité",
+      "account": "Compte",
+      "project": "Projet"
+    },
+    "priority": {
+      "low": "Faible",
+      "normal": "Normale",
+      "high": "Élevée",
+      "urgent": "Urgente"
+    }
   }
 }

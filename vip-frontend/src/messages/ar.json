@@ -21,7 +21,11 @@
     "pricingTitle": "خطط وأسعار AIONEX AIOS",
     "pricingDescription": "قارن الخطط ومدد الاشتراك المتاحة.",
     "billingTitle": "الفوترة والاشتراكات",
-    "billingDescription": "إدارة خطة AIONEX AIOS والفواتير والاستخدام ووسائل الدفع."
+    "billingDescription": "إدارة خطة AIONEX AIOS والفواتير والاستخدام ووسائل الدفع.",
+    "notificationsTitle": "الإشعارات وتفضيلات الاتصال",
+    "notificationsDescription": "راجع الإشعارات الدائمة وإيصالات التسليم وقنوات الاتصال.",
+    "supportTitle": "طلبات الدعم",
+    "supportDescription": "أنشئ محادثات دعم دائمة وتابعها مع AIONEX."
   },
   "nav": {
     "home": "الرئيسية",
@@ -39,7 +43,9 @@
     "openMenu": "فتح القائمة",
     "closeMenu": "إغلاق القائمة",
     "pricing": "الأسعار",
-    "billing": "الفوترة"
+    "billing": "الفوترة",
+    "notifications": "الإشعارات",
+    "support": "الدعم"
   },
   "footer": {
     "description": "نظام تشغيل ذكاء اصطناعي محكوم لتنسيق الوكلاء والنماذج والمشاريع وضوابط التشغيل.",
@@ -153,7 +159,8 @@
     "accountSettings": "إعدادات الحساب",
     "contactSupport": "التواصل مع الدعم",
     "organization": "المؤسسة: {name}",
-    "manageBilling": "إدارة الفوترة"
+    "manageBilling": "إدارة الفوترة",
+    "notifications": "الإشعارات"
   },
   "auth": {
     "secureAccess": "دخول آمن للمستخدم",
@@ -522,5 +529,91 @@
     "status": "الحالة",
     "total": "الإجمالي",
     "noInvoices": "لم تُصدر أي فواتير بعد."
+  },
+  "notifications": {
+    "eyebrow": "مركز الاتصالات",
+    "title": "الإشعارات والقنوات",
+    "description": "يُحفظ كل حدث داخل المنصة أولًا، مع إظهار حالة التسليم لكل قناة مفعلة.",
+    "loading": "جارٍ تحميل الإشعارات",
+    "loadError": "تعذر تحميل الإشعارات.",
+    "saveError": "تعذر حفظ التغييرات.",
+    "markAllRead": "تحديد الكل كمقروء",
+    "refresh": "تحديث",
+    "markedAll": "تم تحديد {count} إشعارات كمقروءة.",
+    "archived": "تمت أرشفة الإشعار.",
+    "inbox": "صندوق الإشعارات",
+    "unreadCount": "{count} غير مقروء",
+    "unreadOnly": "غير المقروء فقط",
+    "markUnread": "تحديد كغير مقروء",
+    "markRead": "تحديد كمقروء",
+    "archive": "أرشفة الإشعار",
+    "empty": "لا توجد إشعارات",
+    "emptyCopy": "ستظهر هنا أحداث المشاريع والدعم والفوترة والاجتماعات والحوكمة الجديدة.",
+    "channelReadiness": "جاهزية القنوات",
+    "ready": "جاهزة",
+    "notConfigured": "غير مهيأة",
+    "preferences": "تفضيلات التسليم",
+    "minimumSeverity": "أدنى درجة أهمية",
+    "severity": {
+      "info": "معلومات",
+      "warning": "تحذير",
+      "critical": "حرج"
+    },
+    "savePreferences": "حفظ التفضيلات",
+    "preferencesSaved": "تم حفظ تفضيلات الإشعارات.",
+    "endpoints": "نقاط الاتصال",
+    "endpointsCopy": "تُشفّر العناوين قبل التخزين. تتطلب Telegram وWhatsApp تحقق المالك قبل التسليم.",
+    "primaryEndpoint": "نقطة الاتصال الأساسية",
+    "endpointAdded": "تمت إضافة نقطة الاتصال والتحقق منها.",
+    "endpointPending": "تمت إضافة نقطة الاتصال وهي بانتظار تحقق المالك.",
+    "endpointError": "تعذر تسجيل نقطة الاتصال.",
+    "endpointRemoved": "تمت إزالة نقطة الاتصال.",
+    "channel": {
+      "email": "البريد الإلكتروني",
+      "push": "رمز الإشعارات الفورية",
+      "telegram": "محادثة Telegram",
+      "whatsapp": "رقم WhatsApp"
+    },
+    "endpointAddress": "البريد أو رمز الجهاز أو معرف المحادثة أو رقم الهاتف",
+    "endpointLabel": "اسم نقطة الاتصال",
+    "addEndpoint": "إضافة نقطة اتصال",
+    "verified": "تم التحقق",
+    "verificationPending": "التحقق معلق",
+    "removeEndpoint": "إزالة نقطة الاتصال",
+    "noEndpoints": "لا توجد نقاط اتصال خارجية مسجلة حتى الآن."
+  },
+  "support": {
+    "eyebrow": "دعم دائم",
+    "title": "طلبات الدعم",
+    "description": "أنشئ طلبات الدعم وتابعها ورد عليها دون فقدان سجل المحادثة.",
+    "refresh": "تحديث",
+    "loading": "جارٍ تحميل طلبات الدعم",
+    "loadError": "تعذر تحميل طلبات الدعم.",
+    "saveError": "تعذر حفظ طلب الدعم.",
+    "created": "تم إنشاء طلب الدعم.",
+    "replySent": "تم إرسال الرد.",
+    "back": "العودة إلى الطلبات",
+    "replyPlaceholder": "اكتب ردًا",
+    "sendReply": "إرسال الرد",
+    "newTicket": "طلب دعم جديد",
+    "subject": "الموضوع",
+    "message": "اشرح المشكلة في 10 أحرف على الأقل",
+    "create": "إنشاء الطلب",
+    "history": "سجل الطلبات",
+    "empty": "لا توجد طلبات دعم حتى الآن.",
+    "category": {
+      "general": "عام",
+      "technical": "تقني",
+      "billing": "الفوترة",
+      "security": "الأمان",
+      "account": "الحساب",
+      "project": "المشروع"
+    },
+    "priority": {
+      "low": "منخفض",
+      "normal": "عادي",
+      "high": "مرتفع",
+      "urgent": "عاجل"
+    }
   }
 }

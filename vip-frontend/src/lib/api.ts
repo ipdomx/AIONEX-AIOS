@@ -20,6 +20,12 @@ import type {
   PasskeyCeremonyOptions,
   PasskeyConfiguration,
   PasskeyCredentialSummary,
+  CommunicationChannelReadiness,
+  CommunicationEndpoint,
+  NotificationPreference,
+  PortalNotification,
+  SupportTicket,
+  SupportTicketMessage,
   Project,
   ProjectExecution,
   RegistrationTelemetry,
@@ -687,14 +693,131 @@ export function downloadProjectExecution(
   );
 }
 
+export function listNotifications(options?: {
+  unreadOnly?: boolean;
+  archived?: boolean;
+  category?: string;
+}): Promise<PortalNotification[]> {
+  const query = new URLSearchParams();
+  if (options?.unreadOnly) query.set("unread_only", "true");
+  if (options?.archived) query.set("archived", "true");
+  if (options?.category) query.set("category", options.category);
+  const suffix = query.size ? `?${query.toString()}` : "";
+  return request<{ items: PortalNotification[] }>(`/notifications${suffix}`).then(
+    (response) => response.items,
+  );
+}
+
+export function updateNotification(
+  notificationId: string,
+  values: { read?: boolean; archived?: boolean },
+): Promise<PortalNotification> {
+  return jsonRequest<PortalNotification>(
+    `/notifications/${encodeURIComponent(notificationId)}`,
+    "PATCH",
+    values,
+  );
+}
+
+export function markAllNotificationsRead(): Promise<{ updated: number }> {
+  return jsonRequest<{ updated: number }>(
+    "/notifications/mark-all-read",
+    "POST",
+    {},
+  );
+}
+
+export function acknowledgeNotificationDelivery(
+  deliveryId: string,
+): Promise<PortalNotification["deliveries"][number]> {
+  return jsonRequest<PortalNotification["deliveries"][number]>(
+    `/notifications/deliveries/${encodeURIComponent(deliveryId)}/acknowledge`,
+    "POST",
+    {},
+  );
+}
+
+export function getCommunicationChannels(): Promise<
+  CommunicationChannelReadiness[]
+> {
+  return request<CommunicationChannelReadiness[]>("/communications/channels");
+}
+
+export function listCommunicationEndpoints(): Promise<CommunicationEndpoint[]> {
+  return request<CommunicationEndpoint[]>("/communications/endpoints");
+}
+
+export function registerCommunicationEndpoint(values: {
+  channel: CommunicationEndpoint["channel"];
+  address: string;
+  label: string;
+}): Promise<CommunicationEndpoint> {
+  return jsonRequest<CommunicationEndpoint>(
+    "/communications/endpoints",
+    "POST",
+    values,
+  );
+}
+
+export function deleteCommunicationEndpoint(endpointId: string): Promise<void> {
+  return request<void>(
+    `/communications/endpoints/${encodeURIComponent(endpointId)}`,
+    { method: "DELETE" },
+  );
+}
+
+export function getNotificationPreferences(): Promise<NotificationPreference[]> {
+  return request<NotificationPreference[]>("/communications/preferences");
+}
+
+export function updateNotificationPreference(values: {
+  category: string;
+  enabled: boolean;
+  channels: NotificationPreference["channels"];
+  minimum_severity: NotificationPreference["minimum_severity"];
+  quiet_hours_start?: string | null;
+  quiet_hours_end?: string | null;
+  timezone: string;
+  digest_mode: NotificationPreference["digest_mode"];
+}): Promise<NotificationPreference> {
+  return jsonRequest<NotificationPreference>(
+    "/communications/preferences",
+    "PUT",
+    values,
+  );
+}
+
 export function createSupportRequest(
   subject: string,
   message: string,
-): Promise<{ status: "accepted"; request_id: string }> {
-  return jsonRequest<{ status: "accepted"; request_id: string }>(
-    "/support/requests",
+  options?: { category?: string; priority?: string },
+): Promise<SupportTicket> {
+  return jsonRequest<SupportTicket>("/support/requests", "POST", {
+    subject,
+    message,
+    category: options?.category || "general",
+    priority: options?.priority || "normal",
+  });
+}
+
+export function listSupportRequests(): Promise<SupportTicket[]> {
+  return request<SupportTicket[]>("/support/requests");
+}
+
+export function getSupportRequest(requestId: string): Promise<SupportTicket> {
+  return request<SupportTicket>(
+    `/support/requests/${encodeURIComponent(requestId)}`,
+  );
+}
+
+export function replyToSupportRequest(
+  requestId: string,
+  message: string,
+): Promise<SupportTicketMessage> {
+  return jsonRequest<SupportTicketMessage>(
+    `/support/requests/${encodeURIComponent(requestId)}/messages`,
     "POST",
-    { subject, message },
+    { message, visibility: "requester" },
   );
 }
 

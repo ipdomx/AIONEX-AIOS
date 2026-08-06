@@ -143,6 +143,34 @@ class Settings(BaseSettings):
         default="/tmp/aionex-telegram-worker-health.json",
         validation_alias="AIOS_TELEGRAM_HEALTH_FILE",
     )
+    COMMUNICATION_WORKER_POLL_SECONDS: int = Field(
+        default=2,
+        ge=1,
+        le=60,
+        validation_alias="COMMUNICATION_WORKER_POLL_SECONDS",
+    )
+    COMMUNICATION_DELIVERY_LEASE_SECONDS: int = Field(
+        default=120,
+        ge=30,
+        le=900,
+        validation_alias="COMMUNICATION_DELIVERY_LEASE_SECONDS",
+    )
+    COMMUNICATION_MAX_ATTEMPTS: int = Field(
+        default=5,
+        ge=1,
+        le=20,
+        validation_alias="COMMUNICATION_MAX_ATTEMPTS",
+    )
+    COMMUNICATION_RETRY_BASE_SECONDS: int = Field(
+        default=30,
+        ge=1,
+        le=3600,
+        validation_alias="COMMUNICATION_RETRY_BASE_SECONDS",
+    )
+    COMMUNICATION_WORKER_HEALTH_FILE: str = Field(
+        default="/tmp/aionex-communication-worker-health.json",
+        validation_alias="COMMUNICATION_WORKER_HEALTH_FILE",
+    )
     PROJECT_EXECUTION_SECRET_FILE: str = Field(
         default="/run/secrets/aionex/project-openai.env",
         validation_alias="PROJECT_EXECUTION_SECRET_FILE",
@@ -243,6 +271,15 @@ class Settings(BaseSettings):
     SMTP_USER: Optional[str] = Field(default=None, validation_alias="SMTP_USER")
     SMTP_PASSWORD: Optional[str] = Field(default=None, validation_alias="SMTP_PASSWORD")
     SMTP_TLS: bool = Field(default=True, validation_alias="SMTP_TLS")
+    WHATSAPP_ACCESS_TOKEN: Optional[str] = Field(
+        default=None, validation_alias="WHATSAPP_ACCESS_TOKEN"
+    )
+    WHATSAPP_PHONE_NUMBER_ID: Optional[str] = Field(
+        default=None, validation_alias="WHATSAPP_PHONE_NUMBER_ID"
+    )
+    WHATSAPP_API_BASE: Optional[str] = Field(
+        default=None, validation_alias="WHATSAPP_API_BASE"
+    )
 
     STORAGE_TYPE: str = Field(default="local", validation_alias="STORAGE_TYPE")
     AWS_ACCESS_KEY_ID: Optional[str] = Field(

@@ -23,7 +23,7 @@ from urllib.parse import urlsplit
 
 from aios.completion_program import completion_program_snapshot
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select, text, update
 from sqlalchemy.dialects.postgresql import insert as postgres_insert
@@ -34,18 +34,26 @@ from app.core.config import settings
 from app.db.base import SessionLocal, get_db
 from app.db.models import (
     Alert,
+    ApprovalRequest,
     AuditEvent,
     BackupRecord,
     DisasterRecoveryRun,
+    GovernanceBody,
+    GovernanceDecision,
+    GovernancePolicy,
     Meeting,
     MetricSample,
     Notification,
+    NotificationDelivery,
+    NotificationRule,
     Organization,
     OwnerCommandRecord,
     OwnerControlRecord,
     Project,
     RefreshSession,
     Role,
+    SupportMessage,
+    SupportRequest,
     User,
     Workspace,
     uuid_str,
@@ -56,6 +64,8 @@ from app.services.backup_executor import (
     acquire_enqueue_lock,
     get_backup_executor,
 )
+from app.services import communications
+from app.services import governance as governance_service
 
 router = APIRouter(prefix="/owner", tags=["owner-control-plane"])
 
@@ -141,6 +151,16 @@ class OwnerApprovalDecision(BaseModel):
     reason: str = Field(default="", max_length=1000)
 
 
+class OwnerSupportMessageCreate(BaseModel):
+    message: str = Field(min_length=1, max_length=10000)
+    visibility: Literal["requester", "internal"] = "requester"
+
+
+class OwnerSupportStatusUpdate(BaseModel):
+    status: Literal["open", "in_progress", "waiting_user", "resolved", "closed"]
+    assigned_to_id: str | None = None
+
+
 class OwnerLicenseAction(BaseModel):
     action: Literal["suspend", "restore"]
     seats: int | None = Field(default=None, ge=1, le=100000)
@@ -150,7 +170,7 @@ class OwnerNotificationRuleUpdate(BaseModel):
     name: str | None = None
     event: str | None = None
     audience: str | None = None
-    channels: list[Literal["in_app", "email", "push", "whatsapp"]] | None = None
+    channels: list[Literal["in_app", "email", "push", "telegram", "whatsapp"]] | None = None
     enabled: bool | None = None
     severity: Literal["info", "warning", "critical"] | None = None
 
@@ -388,6 +408,14 @@ CONTROL_DEFAULTS: dict[str, list[dict[str, Any]]] = {
             "status": "unconfigured",
         },
         {
+            "id": "telegram",
+            "name": "Telegram",
+            "description": "Owner-verified Telegram chat delivery and escalation.",
+            "enabled": False,
+            "ownerOnly": True,
+            "status": "unconfigured",
+        },
+        {
             "id": "whatsapp",
             "name": "WhatsApp",
             "description": "Owner-only critical escalation channel.",
@@ -420,7 +448,7 @@ CONTROL_DEFAULTS: dict[str, list[dict[str, Any]]] = {
             "name": "Critical incident",
             "event": "incident.critical",
             "audience": "owner",
-            "channels": ["in_app", "email", "push", "whatsapp"],
+            "channels": ["in_app", "email", "push", "telegram", "whatsapp"],
             "enabled": True,
             "severity": "critical",
         },
@@ -715,31 +743,39 @@ async def _service_items(session: AsyncSession) -> list[dict[str, Any]]:
     ]
 
 
-def _communication_configured(channel_id: str) -> bool:
-    return {
-        "in_app": True,
-        "email": bool(settings.SMTP_HOST),
-        "push": False,
-        "whatsapp": False,
-    }.get(channel_id, False)
-
-
 async def _communication_items(session: AsyncSession) -> list[dict[str, Any]]:
+    controls = {
+        str(item["id"]): item for item in await _control_items(session, "communications")
+    }
+    statistics = await communications.delivery_statistics(session)
+    channel_counts = statistics["by_channel"]
     items: list[dict[str, Any]] = []
-    for item in await _control_items(session, "communications"):
-        channel_id = str(item["id"])
-        configured = _communication_configured(channel_id)
+    descriptions = {
+        "in_app": "Persistent tenant-scoped notifications with read receipts.",
+        "email": "SMTP delivery with durable attempts and receipts.",
+        "push": "Firebase mobile and web push after endpoint registration.",
+        "telegram": "Owner-verified Telegram chat delivery and escalation.",
+        "whatsapp": "Owner-controlled WhatsApp critical escalation.",
+    }
+    for readiness in statistics["readiness"]:
+        channel_id = str(readiness["id"])
+        configured = bool(readiness["configured"])
         protected = channel_id == "in_app"
-        enabled = True if protected else bool(item["enabled"] and configured)
+        requested_enabled = bool(controls.get(channel_id, {}).get("enabled", True))
+        enabled = True if protected else bool(configured and requested_enabled)
         items.append(
             {
-                **item,
+                "id": channel_id,
+                "name": readiness["name"],
+                "description": descriptions[channel_id],
                 "configured": configured,
                 "protected": protected,
+                "ownerOnly": bool(readiness["owner_only"]),
                 "enabled": enabled,
-                "status": (
-                    "ready" if enabled else "disabled" if configured else "unconfigured"
-                ),
+                "status": "ready" if enabled else ("disabled" if configured else "unconfigured"),
+                "reason": readiness["reason"],
+                "capabilities": readiness["capabilities"],
+                "deliveries": int(channel_counts.get(channel_id, 0)),
             }
         )
     return items
@@ -1024,22 +1060,48 @@ async def _audit_items(session: AsyncSession) -> list[dict[str, Any]]:
 async def _notification_items(
     session: AsyncSession, actor: UserRecord
 ) -> list[dict[str, Any]]:
-    rows = (
-        await session.scalars(
-            select(Notification)
-            .where(Notification.recipient_id == actor.id)
-            .order_by(Notification.created_at.desc())
-            .limit(200)
+    rows = list(
+        (
+            await session.scalars(
+                select(Notification)
+                .order_by(Notification.created_at.desc())
+                .limit(200)
+            )
+        ).all()
+    )
+    ids = [item.id for item in rows]
+    deliveries = (
+        list(
+            (
+                await session.scalars(
+                    select(NotificationDelivery).where(
+                        NotificationDelivery.notification_id.in_(ids)
+                    )
+                )
+            ).all()
         )
-    ).all()
+        if ids
+        else []
+    )
+    delivery_map: dict[str, list[dict[str, Any]]] = {}
+    for delivery in deliveries:
+        delivery_map.setdefault(delivery.notification_id, []).append(
+            communications.delivery_snapshot(delivery)
+        )
     return [
         {
             "id": item.id,
+            "organizationId": item.organization_id,
+            "recipientId": item.recipient_id,
             "title": item.title,
             "message": item.message,
             "type": item.type,
+            "event": item.event_key,
+            "category": item.category,
             "severity": item.severity,
             "read": item.read_at is not None,
+            "archived": item.archived_at is not None,
+            "deliveries": delivery_map.get(item.id, []),
             "createdAt": _iso(item.created_at),
         }
         for item in rows
@@ -1047,20 +1109,18 @@ async def _notification_items(
 
 
 async def _incident_items(session: AsyncSession) -> list[dict[str, Any]]:
-    rows = (
-        await session.scalars(
-            select(Alert).order_by(Alert.created_at.desc()).limit(200)
-        )
-    ).all()
+    rows = list(
+        (
+            await session.scalars(
+                select(Alert).order_by(Alert.created_at.desc()).limit(200)
+            )
+        ).all()
+    )
     return [
         {
-            "id": item.id,
-            "title": item.title,
-            "source": item.source,
-            "severity": item.severity,
-            "status": item.status,
+            **communications.incident_snapshot(item),
             "startedAt": _iso(item.created_at),
-            "owner": "Platform Operations",
+            "owner": item.assigned_to_id or "Platform Operations",
         }
         for item in rows
     ]
@@ -2219,9 +2279,6 @@ async def _apply_live_action(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
     if domain == "approvals":
-        meeting = await session.get(Meeting, resource_id)
-        if meeting is None or meeting.status not in {"pending", "pending_approval"}:
-            raise HTTPException(status_code=404, detail="Approval request not found")
         normalized = {
             "approve": "approved",
             "approved": "approved",
@@ -2232,6 +2289,34 @@ async def _apply_live_action(
         }.get(action)
         if normalized is None:
             raise HTTPException(status_code=422, detail="Unsupported approval action")
+        request = await session.get(ApprovalRequest, resource_id)
+        if request is None:
+            request = await session.scalar(
+                select(ApprovalRequest)
+                .where(
+                    ApprovalRequest.target_type == "meeting",
+                    ApprovalRequest.target_id == resource_id,
+                    ApprovalRequest.status.in_({"pending", "changes_requested"}),
+                )
+                .order_by(ApprovalRequest.created_at.desc())
+            )
+        if request is not None:
+            try:
+                request, _record, notifications = await governance_service.decide_approval(
+                    session,
+                    actor,
+                    request,
+                    decision=normalized,
+                    reason=str(payload.get("reason", "")),
+                    metadata={"owner_control": True},
+                )
+            except (LookupError, ValueError) as exc:
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
+            session.info.setdefault("phase29e_notifications", []).extend(notifications)
+            return governance_service.approval_snapshot(request)
+        meeting = await session.get(Meeting, resource_id)
+        if meeting is None or meeting.status not in {"pending", "pending_approval"}:
+            raise HTTPException(status_code=404, detail="Approval request not found")
         meeting.status = (
             "scheduled"
             if normalized == "approved"
@@ -2242,7 +2327,7 @@ async def _apply_live_action(
         if normalized == "approved":
             meeting.approved_by_id = actor.id
             meeting.approved_at = _now()
-        return {"id": meeting.id, "status": normalized}
+        return {"id": meeting.id, "status": normalized, "legacy": True}
 
     if domain == "access":
         role = await session.get(Role, resource_id)
@@ -2374,15 +2459,22 @@ async def _apply_live_action(
         incident = await session.get(Alert, resource_id)
         if incident is None:
             raise HTTPException(status_code=404, detail="Incident not found")
-        if action in {"investigate", "acknowledge"}:
-            incident.status = "investigating"
-            incident.acknowledged_at = _now()
-        elif action == "resolve":
-            incident.status = "resolved"
-            incident.resolved_at = _now()
-        else:
-            raise HTTPException(status_code=422, detail="Unsupported incident action")
-        return {"id": incident.id, "status": incident.status}
+        try:
+            notifications = []
+            if action in {"investigate", "acknowledge"}:
+                await communications.acknowledge_incident(session, actor, incident)
+            elif action == "escalate":
+                incident, notifications = await communications.escalate_incident(
+                    session, actor, incident
+                )
+            elif action == "resolve":
+                await communications.resolve_incident(session, actor, incident)
+            else:
+                raise HTTPException(status_code=422, detail="Unsupported incident action")
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        session.info.setdefault("phase29e_notifications", []).extend(notifications)
+        return communications.incident_snapshot(incident)
 
     if domain == "integrations":
         record = await _control_record(session, "integrations", resource_id)
@@ -2512,7 +2604,11 @@ async def _apply_live_action(
 
     if domain == "communications":
         record = await _control_record(session, "communications", resource_id)
-        configured = _communication_configured(resource_id)
+        try:
+            readiness = communications.channel_state(resource_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        configured = bool(readiness["configured"])
         if action == "toggle":
             if resource_id == "in_app":
                 raise HTTPException(
@@ -2536,44 +2632,45 @@ async def _apply_live_action(
         if not configured or (resource_id != "in_app" and not record.enabled):
             raise HTTPException(
                 status_code=409,
-                detail="Communication channel is not configured",
+                detail="Communication channel is not configured or enabled",
             )
-        if resource_id not in {"in_app", "email"}:
-            raise HTTPException(
-                status_code=409,
-                detail="External delivery provider is not connected",
-            )
-        if resource_id == "email":
-            try:
-                evidence = await asyncio.to_thread(
-                    _send_owner_test_email,
-                    actor.email,
-                )
-            except Exception as exc:
-                raise HTTPException(
-                    status_code=502,
-                    detail="SMTP delivery test failed",
-                ) from exc
-            record.payload = {
-                **record.payload,
-                "lastCheck": _iso(),
-                "lastResult": "delivered",
-            }
-            record.version += 1
-            return {"id": resource_id, "delivered": True, **evidence}
-
-        notification = Notification(
-            organization_id=actor.organization_id,
-            recipient_id=actor.id,
-            type="owner.channel.test",
-            title="Owner channel test",
-            message="The in-app owner notification channel is working.",
+        recipient = await session.get(User, actor.id)
+        if recipient is None:
+            raise HTTPException(status_code=404, detail="Owner account not found")
+        notification = await communications.create_notification(
+            session,
+            recipient,
+            event_key="owner.channel.test",
+            category="system",
+            title=f"{readiness['name']} channel test",
+            message=f"AIONEX queued a governed test for the {readiness['name']} channel.",
             severity="info",
-            payload={"channel": resource_id},
+            channels=[resource_id],
+            source_type="communication_channel",
+            source_id=resource_id,
+            correlation_id=f"owner-test:{resource_id}:{uuid_str()}",
+            actor_id=actor.id,
         )
-        session.add(notification)
-        await session.flush()
-        return {"id": notification.id, "delivered": True, "channel": resource_id}
+        session.info.setdefault("phase29e_notifications", []).append(notification)
+        delivery = await session.scalar(
+            select(NotificationDelivery).where(
+                NotificationDelivery.notification_id == notification.id,
+                NotificationDelivery.channel == resource_id,
+            )
+        )
+        record.payload = {
+            **record.payload,
+            "lastCheck": _iso(),
+            "lastResult": delivery.status if delivery else "persisted",
+        }
+        record.version += 1
+        return {
+            "id": notification.id,
+            "delivered": bool(delivery and delivery.status == "delivered"),
+            "queued": bool(delivery and delivery.status in {"queued", "retrying"}),
+            "channel": resource_id,
+            "status": delivery.status if delivery else "persisted",
+        }
 
     if domain == "compliance":
         record = await _control_record(session, "compliance", resource_id)
@@ -2958,6 +3055,28 @@ async def _apply_live_action(
 
 
 async def _approval_items(session: AsyncSession) -> list[dict[str, Any]]:
+    requests = list(
+        (
+            await session.scalars(
+                select(ApprovalRequest)
+                .order_by(ApprovalRequest.updated_at.desc())
+                .limit(250)
+            )
+        ).all()
+    )
+    items = []
+    for item in requests:
+        snapshot = governance_service.approval_snapshot(item)
+        if item.target_type == "meeting":
+            snapshot = {
+                **snapshot,
+                "id": item.target_id,
+                "approvalId": item.id,
+            }
+        items.append(snapshot)
+    represented_meetings = {
+        item.target_id for item in requests if item.target_type == "meeting"
+    }
     status_map = {
         "pending": "pending",
         "pending_approval": "pending",
@@ -2965,31 +3084,43 @@ async def _approval_items(session: AsyncSession) -> list[dict[str, Any]]:
         "rejected": "rejected",
         "changes_requested": "changes_requested",
     }
-    meetings = (
-        await session.scalars(
-            select(Meeting)
-            .where(Meeting.status.in_(list(status_map)))
-            .order_by(Meeting.updated_at.desc())
-            .limit(250)
-        )
-    ).all()
-    return [
+    meetings = list(
+        (
+            await session.scalars(
+                select(Meeting)
+                .where(
+                    Meeting.status.in_(list(status_map)),
+                    Meeting.id.notin_(represented_meetings)
+                    if represented_meetings
+                    else text("TRUE"),
+                )
+                .order_by(Meeting.updated_at.desc())
+                .limit(250)
+            )
+        ).all()
+    )
+    items.extend(
         {
             "id": item.id,
             "title": item.title,
             "requester": item.organizer_id,
+            "requester_id": item.organizer_id,
+            "target_type": "meeting",
+            "target_id": item.id,
             "scope": item.project_id or item.organization_id,
             "category": "meeting",
-            "type": "Meeting",
+            "type": "Meeting (legacy)",
             "status": status_map[item.status],
             "priority": "medium",
             "risk": "medium" if status_map[item.status] == "pending" else "low",
             "createdAt": _iso(item.created_at),
             "updatedAt": _iso(item.updated_at),
             "decidedAt": _iso(item.approved_at) if item.approved_at else None,
+            "legacy": True,
         }
         for item in meetings
-    ]
+    )
+    return sorted(items, key=lambda item: item.get("updatedAt") or item.get("createdAt") or "", reverse=True)[:250]
 
 
 @router.get(
@@ -3120,6 +3251,8 @@ async def create_owner_resource(
         request=data.model_dump(mode="json"),
         mutation=create,
     )
+    notifications = list(session.info.pop("phase29e_notifications", []))
+    await communications.publish_many(notifications)
     return await _collection(session, domain, actor)
 
 
@@ -3158,6 +3291,8 @@ async def execute_owner_resource_action(
         request=data.payload,
         mutation=apply,
     )
+    notifications = list(session.info.pop("phase29e_notifications", []))
+    await communications.publish_many(notifications)
     return await _collection(session, domain, actor)
 
 
@@ -3676,38 +3811,16 @@ async def decide_owner_approval(
     session: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     async def decide(_command: OwnerCommandRecord) -> dict[str, Any]:
-        meeting = await session.scalar(
-            select(Meeting).where(Meeting.id == approval_id).with_for_update()
+        return await _apply_live_action(
+            session,
+            actor,
+            "approvals",
+            approval_id,
+            data.status,
+            {"reason": data.reason},
         )
-        if meeting is None or meeting.status not in {"pending", "pending_approval"}:
-            raise HTTPException(status_code=404, detail="Approval request not found")
-        meeting.status = (
-            "scheduled"
-            if data.status == "approved"
-            else (
-                "changes_requested"
-                if data.status == "changes_requested"
-                else "rejected"
-            )
-        )
-        if data.status == "approved":
-            meeting.approved_by_id = actor.id
-            meeting.approved_at = _now()
-        else:
-            meeting.approved_by_id = None
-            meeting.approved_at = None
-        return {
-            "id": meeting.id,
-            "title": meeting.title,
-            "requester": meeting.organizer_id,
-            "scope": meeting.project_id or meeting.organization_id,
-            "category": "meeting",
-            "status": data.status,
-            "priority": "medium",
-            "createdAt": _iso(meeting.created_at),
-        }
 
-    return await _run_audited_mutation(
+    result = await _run_audited_mutation(
         session,
         actor=actor,
         domain="approvals",
@@ -3716,6 +3829,196 @@ async def decide_owner_approval(
         request=data.model_dump(mode="json"),
         mutation=decide,
     )
+    notifications = list(session.info.pop("phase29e_notifications", []))
+    await communications.publish_many(notifications)
+    return result
+
+
+@router.get("/communications/overview")
+async def owner_communications_overview(
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    return await communications.delivery_statistics(session)
+
+
+@router.get("/communications/deliveries")
+async def owner_communication_deliveries(
+    status_filter: str | None = Query(default=None, alias="status", max_length=32),
+    channel: str | None = Query(default=None, max_length=32),
+    limit: int = Query(default=250, ge=1, le=1000),
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+) -> list[dict[str, Any]]:
+    statement = select(NotificationDelivery)
+    if status_filter:
+        statement = statement.where(NotificationDelivery.status == status_filter)
+    if channel:
+        statement = statement.where(NotificationDelivery.channel == channel)
+    rows = list(
+        (
+            await session.scalars(
+                statement.order_by(NotificationDelivery.created_at.desc()).limit(limit)
+            )
+        ).all()
+    )
+    return [communications.delivery_snapshot(item) for item in rows]
+
+
+@router.post("/communications/deliveries/{delivery_id}/retry")
+async def owner_retry_communication_delivery(
+    delivery_id: str,
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    delivery = await session.scalar(
+        select(NotificationDelivery)
+        .where(NotificationDelivery.id == delivery_id)
+        .with_for_update()
+    )
+    if delivery is None:
+        raise HTTPException(status_code=404, detail="Notification delivery not found")
+    try:
+        await communications.retry_delivery(session, delivery, actor_id=actor.id)
+        await session.commit()
+    except communications.ProviderNotConfigured as exc:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail="Delivery provider is not configured") from exc
+    except (communications.PermanentDeliveryError, ValueError) as exc:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return communications.delivery_snapshot(delivery)
+
+
+@router.get("/support/requests")
+async def owner_support_requests(
+    status_filter: str | None = Query(default=None, alias="status", max_length=32),
+    limit: int = Query(default=250, ge=1, le=1000),
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+) -> list[dict[str, Any]]:
+    statement = select(SupportRequest)
+    if status_filter:
+        statement = statement.where(SupportRequest.status == status_filter)
+    rows = list(
+        (
+            await session.scalars(
+                statement.order_by(SupportRequest.updated_at.desc()).limit(limit)
+            )
+        ).all()
+    )
+    return [communications.support_snapshot(item) for item in rows]
+
+
+@router.get("/support/requests/{request_id}")
+async def owner_support_request(
+    request_id: str,
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    ticket = await session.get(SupportRequest, request_id)
+    if ticket is None:
+        raise HTTPException(status_code=404, detail="Support request not found")
+    messages = list(
+        (
+            await session.scalars(
+                select(SupportMessage)
+                .where(SupportMessage.support_request_id == ticket.id)
+                .order_by(SupportMessage.created_at)
+            )
+        ).all()
+    )
+    return {
+        **communications.support_snapshot(ticket, messages=len(messages)),
+        "messages": [
+            communications.support_message_snapshot(item) for item in messages
+        ],
+    }
+
+
+@router.post("/support/requests/{request_id}/messages", status_code=status.HTTP_201_CREATED)
+async def owner_support_reply(
+    request_id: str,
+    data: OwnerSupportMessageCreate,
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    ticket = await session.scalar(
+        select(SupportRequest)
+        .where(SupportRequest.id == request_id)
+        .with_for_update()
+    )
+    if ticket is None:
+        raise HTTPException(status_code=404, detail="Support request not found")
+    try:
+        message, notifications = await communications.add_support_message(
+            session,
+            actor,
+            ticket,
+            message=data.message,
+            visibility=data.visibility,
+            manager=True,
+        )
+        await session.commit()
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    await communications.publish_many(notifications)
+    return communications.support_message_snapshot(message)
+
+
+@router.patch("/support/requests/{request_id}")
+async def owner_update_support_request(
+    request_id: str,
+    data: OwnerSupportStatusUpdate,
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    ticket = await session.scalar(
+        select(SupportRequest)
+        .where(SupportRequest.id == request_id)
+        .with_for_update()
+    )
+    if ticket is None:
+        raise HTTPException(status_code=404, detail="Support request not found")
+    try:
+        await communications.update_support_status(
+            session,
+            actor,
+            ticket,
+            status=data.status,
+            assigned_to_id=data.assigned_to_id,
+        )
+        await session.commit()
+    except ValueError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return communications.support_snapshot(ticket)
+
+
+@router.get("/governance/overview")
+async def owner_governance_overview(
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    bodies = int(await session.scalar(select(func.count(GovernanceBody.id))) or 0)
+    policies = int(await session.scalar(select(func.count(GovernancePolicy.id))) or 0)
+    decisions = int(await session.scalar(select(func.count(GovernanceDecision.id))) or 0)
+    pending = int(
+        await session.scalar(
+            select(func.count(ApprovalRequest.id)).where(
+                ApprovalRequest.status == "pending"
+            )
+        )
+        or 0
+    )
+    return {
+        "bodies": bodies,
+        "policies": policies,
+        "decisions": decisions,
+        "pending_approvals": pending,
+        "generated_at": _iso(),
+    }
 
 
 @router.get("/compliance-controls")
@@ -3755,12 +4058,39 @@ async def attest_compliance(
     return _control_item(record)
 
 
+def _notification_rule_item(rule: NotificationRule) -> dict[str, Any]:
+    return {
+        "id": rule.id,
+        "code": rule.code,
+        "name": rule.name,
+        "event": rule.event_pattern,
+        "audience": rule.audience,
+        "channels": rule.channels,
+        "enabled": rule.enabled,
+        "severity": rule.severity,
+        "system": rule.system,
+        "version": rule.version,
+        "escalationPolicyId": rule.escalation_policy_id,
+        "createdAt": _iso(rule.created_at),
+        "updatedAt": _iso(rule.updated_at),
+    }
+
+
 @router.get("/notification-rules")
 async def notification_rules(
     actor: UserRecord = Depends(require_super_owner),
     session: AsyncSession = Depends(get_db),
 ) -> list[dict[str, Any]]:
-    return await _control_items(session, "notification-rules")
+    await communications.ensure_defaults(session)
+    await session.commit()
+    rows = list(
+        (
+            await session.scalars(
+                select(NotificationRule).order_by(NotificationRule.code)
+            )
+        ).all()
+    )
+    return [_notification_rule_item(item) for item in rows]
 
 
 @router.patch("/notification-rules/{rule_id}")
@@ -3773,16 +4103,53 @@ async def update_notification_rule(
     updates = data.model_dump(exclude_none=True)
 
     async def apply(_command: OwnerCommandRecord) -> dict[str, Any]:
-        await _apply_control_action(
-            session,
-            "notification-rules",
-            rule_id,
-            "update",
-            updates,
+        await communications.ensure_defaults(session)
+        rule = await session.scalar(
+            select(NotificationRule)
+            .where(
+                or_(NotificationRule.id == rule_id, NotificationRule.code == rule_id)
+            )
+            .with_for_update()
         )
-        return {"updated": sorted(updates)}
+        if rule is None:
+            raise HTTPException(status_code=404, detail="Notification rule not found")
+        if "name" in updates:
+            rule.name = str(updates["name"]).strip()
+        if "event" in updates:
+            event = str(updates["event"]).strip().lower()
+            if not event or len(event) > 160:
+                raise HTTPException(status_code=422, detail="Notification event is invalid")
+            rule.event_pattern = event
+        if "audience" in updates:
+            audience = str(updates["audience"]).strip().lower()
+            if audience not in {"user", "organization", "workforce", "owner", "all"}:
+                raise HTTPException(status_code=422, detail="Unsupported notification audience")
+            rule.audience = audience
+        if "channels" in updates:
+            channels = list(dict.fromkeys(str(value) for value in updates["channels"]))
+            if not channels or any(value not in communications.CHANNELS for value in channels):
+                raise HTTPException(status_code=422, detail="Unsupported notification channel")
+            if "in_app" not in channels:
+                channels.insert(0, "in_app")
+            rule.channels = channels
+        if "enabled" in updates:
+            rule.enabled = bool(updates["enabled"])
+        if "severity" in updates:
+            rule.severity = str(updates["severity"])
+        rule.version += 1
+        session.add(
+            AuditEvent(
+                organization_id=actor.organization_id,
+                user_id=actor.id,
+                action="notification.rule.updated",
+                resource_type="notification_rule",
+                resource_id=rule.id,
+                details={"updated": sorted(updates), "code": rule.code},
+            )
+        )
+        return _notification_rule_item(rule)
 
-    await _run_audited_mutation(
+    result = await _run_audited_mutation(
         session,
         actor=actor,
         domain="notification-rules",
@@ -3791,8 +4158,7 @@ async def update_notification_rule(
         request=updates,
         mutation=apply,
     )
-    record = await _control_record(session, "notification-rules", rule_id)
-    return _control_item(record)
+    return result
 
 
 @router.get("/licenses")

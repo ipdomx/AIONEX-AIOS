@@ -1,6 +1,7 @@
 import { apiClient } from "@/lib/api-client";
 
-export type NotificationChannel = "in_app" | "email" | "push" | "whatsapp";
+export type NotificationChannel =
+  "in_app" | "email" | "push" | "telegram" | "whatsapp";
 
 export type OwnerNotificationRule = {
   id: string;

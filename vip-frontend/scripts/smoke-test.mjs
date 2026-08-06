@@ -37,7 +37,14 @@ async function waitUntilReady() {
 async function checkRoutes() {
   const locales = ["ar", "en", "fr", "de", "es", "tr"];
   const publicPaths = ["", "/about", "/contact", "/legal/privacy", "/legal/terms"];
-  const privatePaths = ["/login", "/register", "/profile", "/projects"];
+  const privatePaths = [
+    "/login",
+    "/register",
+    "/profile",
+    "/projects",
+    "/notifications",
+    "/support",
+  ];
   const paths = new Set([
     "/robots.txt",
     "/sitemap.xml",

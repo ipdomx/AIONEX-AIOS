@@ -391,7 +391,13 @@ class Meeting(Base, TimestampMixin):
     end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     location: Mapped[str | None] = mapped_column(String(300))
     attendee_ids: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    meeting_type: Mapped[str] = mapped_column(String(40), default="standard", nullable=False)
+    timezone: Mapped[str] = mapped_column(String(80), default="UTC", nullable=False)
+    agenda: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
+    cancel_reason: Mapped[str | None] = mapped_column(Text)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
 
 class Report(Base, TimestampMixin):
@@ -1031,6 +1037,8 @@ class Notification(Base, TimestampMixin):
     __tablename__ = "notifications"
     __table_args__ = (
         Index("ix_notifications_recipient_read", "recipient_id", "read_at"),
+        Index("ix_notifications_org_event_created", "organization_id", "event_key", "created_at"),
+        UniqueConstraint("organization_id", "dedupe_key", name="uq_notifications_org_dedupe"),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
@@ -1041,11 +1049,429 @@ class Notification(Base, TimestampMixin):
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     type: Mapped[str] = mapped_column(String(80), nullable=False)
+    category: Mapped[str] = mapped_column(String(80), default="system", nullable=False, index=True)
+    event_key: Mapped[str] = mapped_column(String(160), default="notification.created", nullable=False, index=True)
+    audience: Mapped[str] = mapped_column(String(40), default="user", nullable=False)
     title: Mapped[str] = mapped_column(String(240), nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
     severity: Mapped[str] = mapped_column(String(32), default="info", nullable=False)
+    source_type: Mapped[str | None] = mapped_column(String(80))
+    source_id: Mapped[str | None] = mapped_column(String(160))
+    correlation_id: Mapped[str | None] = mapped_column(String(160), index=True)
+    dedupe_key: Mapped[str | None] = mapped_column(String(200))
     payload: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class CommunicationEndpoint(Base, TimestampMixin):
+    __tablename__ = "communication_endpoints"
+    __table_args__ = (
+        UniqueConstraint("user_id", "channel", "address_hash", name="uq_communication_endpoint"),
+        Index("ix_communication_endpoints_user_channel", "user_id", "channel", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    channel: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    address_ciphertext: Mapped[str] = mapped_column(Text, nullable=False)
+    address_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    label: Mapped[str] = mapped_column(String(120), default="Primary", nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False, index=True)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    endpoint_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class NotificationPreference(Base, TimestampMixin):
+    __tablename__ = "notification_preferences"
+    __table_args__ = (
+        UniqueConstraint("user_id", "category", name="uq_notification_preference_user_category"),
+        Index("ix_notification_preferences_user", "user_id", "enabled"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    category: Mapped[str] = mapped_column(String(80), default="*", nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    channels: Mapped[list[str]] = mapped_column(JSON, default=lambda: ["in_app"], nullable=False)
+    minimum_severity: Mapped[str] = mapped_column(String(32), default="info", nullable=False)
+    quiet_hours_start: Mapped[str | None] = mapped_column(String(5))
+    quiet_hours_end: Mapped[str | None] = mapped_column(String(5))
+    timezone: Mapped[str] = mapped_column(String(80), default="UTC", nullable=False)
+    digest_mode: Mapped[str] = mapped_column(String(32), default="immediate", nullable=False)
+
+
+class EscalationPolicy(Base, TimestampMixin):
+    __tablename__ = "escalation_policies"
+    __table_args__ = (
+        UniqueConstraint("code", name="uq_escalation_policies_code"),
+        Index("ix_escalation_policies_enabled", "enabled", "severity_threshold"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str | None] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), index=True
+    )
+    code: Mapped[str] = mapped_column(String(120), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    severity_threshold: Mapped[str] = mapped_column(String(32), default="warning", nullable=False)
+    steps: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class NotificationRule(Base, TimestampMixin):
+    __tablename__ = "notification_rules"
+    __table_args__ = (
+        UniqueConstraint("code", name="uq_notification_rules_code"),
+        Index("ix_notification_rules_event_enabled", "event_pattern", "enabled"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str | None] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), index=True
+    )
+    escalation_policy_id: Mapped[str | None] = mapped_column(
+        ForeignKey("escalation_policies.id", ondelete="SET NULL"), index=True
+    )
+    code: Mapped[str] = mapped_column(String(120), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    event_pattern: Mapped[str] = mapped_column(String(160), nullable=False)
+    audience: Mapped[str] = mapped_column(String(40), default="user", nullable=False)
+    channels: Mapped[list[str]] = mapped_column(JSON, default=lambda: ["in_app"], nullable=False)
+    severity: Mapped[str] = mapped_column(String(32), default="info", nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    system: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    title_template: Mapped[str | None] = mapped_column(String(240))
+    message_template: Mapped[str | None] = mapped_column(Text)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class NotificationDelivery(Base, TimestampMixin):
+    __tablename__ = "notification_deliveries"
+    __table_args__ = (
+        UniqueConstraint("idempotency_key", name="uq_notification_delivery_idempotency"),
+        Index("ix_notification_delivery_due", "status", "next_attempt_at"),
+        Index("ix_notification_delivery_notification", "notification_id", "channel"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    notification_id: Mapped[str] = mapped_column(
+        ForeignKey("notifications.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    endpoint_id: Mapped[str | None] = mapped_column(
+        ForeignKey("communication_endpoints.id", ondelete="SET NULL"), index=True
+    )
+    channel: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), default="queued", nullable=False, index=True)
+    priority: Mapped[int] = mapped_column(Integer, default=50, nullable=False)
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    lease_token: Mapped[str | None] = mapped_column(String(36))
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    provider_message_id: Mapped[str | None] = mapped_column(String(255))
+    error_code: Mapped[str | None] = mapped_column(String(120))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    dead_lettered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    idempotency_key: Mapped[str] = mapped_column(String(200), nullable=False)
+    delivery_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class NotificationDeliveryAttempt(Base):
+    __tablename__ = "notification_delivery_attempts"
+    __table_args__ = (
+        UniqueConstraint("delivery_id", "attempt_number", name="uq_notification_delivery_attempt"),
+        Index("ix_notification_delivery_attempts_delivery", "delivery_id", "started_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    delivery_id: Mapped[str] = mapped_column(
+        ForeignKey("notification_deliveries.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    attempt_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    provider_message_id: Mapped[str | None] = mapped_column(String(255))
+    error_code: Mapped[str | None] = mapped_column(String(120))
+    response_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SupportRequest(Base, TimestampMixin):
+    __tablename__ = "support_requests"
+    __table_args__ = (
+        Index("ix_support_requests_org_status", "organization_id", "status", "updated_at"),
+        Index("ix_support_requests_requester", "requester_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    requester_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    assigned_to_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    subject: Mapped[str] = mapped_column(String(240), nullable=False)
+    category: Mapped[str] = mapped_column(String(80), default="general", nullable=False)
+    priority: Mapped[str] = mapped_column(String(32), default="normal", nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="open", nullable=False, index=True)
+    last_message_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    escalated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    request_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class SupportMessage(Base):
+    __tablename__ = "support_messages"
+    __table_args__ = (Index("ix_support_messages_request_created", "support_request_id", "created_at"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    support_request_id: Mapped[str] = mapped_column(
+        ForeignKey("support_requests.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    sender_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    visibility: Mapped[str] = mapped_column(String(32), default="requester", nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    attachments: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+
+class ApprovalRequest(Base, TimestampMixin):
+    __tablename__ = "approval_requests"
+    __table_args__ = (
+        Index("ix_approval_requests_org_status", "organization_id", "status", "created_at"),
+        Index("ix_approval_requests_target", "target_type", "target_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    requester_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    target_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    target_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False, index=True)
+    priority: Mapped[str] = mapped_column(String(32), default="medium", nullable=False)
+    risk: Mapped[str] = mapped_column(String(32), default="medium", nullable=False)
+    required_role: Mapped[str] = mapped_column(String(120), default="Owner", nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approval_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class ApprovalDecision(Base):
+    __tablename__ = "approval_decisions"
+    __table_args__ = (Index("ix_approval_decisions_request_created", "approval_request_id", "created_at"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    approval_request_id: Mapped[str] = mapped_column(
+        ForeignKey("approval_requests.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    actor_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    decision: Mapped[str] = mapped_column(String(32), nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text)
+    decision_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+
+class GovernanceBody(Base, TimestampMixin):
+    __tablename__ = "governance_bodies"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "slug", name="uq_governance_body_org_slug"),
+        Index("ix_governance_bodies_org_kind", "organization_id", "kind", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    parent_id: Mapped[str | None] = mapped_column(
+        ForeignKey("governance_bodies.id", ondelete="SET NULL"), index=True
+    )
+    owner_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    slug: Mapped[str] = mapped_column(String(200), nullable=False)
+    kind: Mapped[str] = mapped_column(String(40), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False, index=True)
+    charter: Mapped[str | None] = mapped_column(Text)
+    jurisdiction: Mapped[str | None] = mapped_column(String(240))
+    quorum: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    body_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class GovernanceMembership(Base, TimestampMixin):
+    __tablename__ = "governance_memberships"
+    __table_args__ = (
+        UniqueConstraint("body_id", "user_id", name="uq_governance_membership"),
+        Index("ix_governance_memberships_body_status", "body_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    body_id: Mapped[str] = mapped_column(
+        ForeignKey("governance_bodies.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    role: Mapped[str] = mapped_column(String(80), default="member", nullable=False)
+    voting_weight: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
+
+
+class GovernancePolicy(Base, TimestampMixin):
+    __tablename__ = "governance_policies"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "code", name="uq_governance_policy_org_code"),
+        Index("ix_governance_policies_org_status", "organization_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    body_id: Mapped[str | None] = mapped_column(
+        ForeignKey("governance_bodies.id", ondelete="SET NULL"), index=True
+    )
+    created_by_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    approved_by_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL")
+    )
+    code: Mapped[str] = mapped_column(String(120), nullable=False)
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    scope: Mapped[str] = mapped_column(String(120), default="organization", nullable=False)
+    enforcement: Mapped[str] = mapped_column(String(32), default="mandatory", nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False, index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    policy: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    effective_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    retired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class GovernanceDecision(Base, TimestampMixin):
+    __tablename__ = "governance_decisions"
+    __table_args__ = (Index("ix_governance_decisions_org_status", "organization_id", "status", "created_at"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    body_id: Mapped[str | None] = mapped_column(
+        ForeignKey("governance_bodies.id", ondelete="SET NULL"), index=True
+    )
+    policy_id: Mapped[str | None] = mapped_column(
+        ForeignKey("governance_policies.id", ondelete="SET NULL"), index=True
+    )
+    meeting_id: Mapped[str | None] = mapped_column(
+        ForeignKey("meetings.id", ondelete="SET NULL"), index=True
+    )
+    requested_by_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    decided_by_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL")
+    )
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    rationale: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False, index=True)
+    decision: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class GovernanceVote(Base):
+    __tablename__ = "governance_votes"
+    __table_args__ = (
+        UniqueConstraint("decision_id", "voter_id", name="uq_governance_vote"),
+        Index("ix_governance_votes_decision", "decision_id", "vote"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    decision_id: Mapped[str] = mapped_column(
+        ForeignKey("governance_decisions.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    voter_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    vote: Mapped[str] = mapped_column(String(32), nullable=False)
+    rationale: Mapped[str | None] = mapped_column(Text)
+    weight: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+
+class MeetingAttendance(Base, TimestampMixin):
+    __tablename__ = "meeting_attendance"
+    __table_args__ = (
+        UniqueConstraint("meeting_id", "user_id", name="uq_meeting_attendance"),
+        Index("ix_meeting_attendance_meeting_status", "meeting_id", "response_status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    meeting_id: Mapped[str] = mapped_column(
+        ForeignKey("meetings.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    response_status: Mapped[str] = mapped_column(String(32), default="invited", nullable=False)
+    response_note: Mapped[str | None] = mapped_column(Text)
+    responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    attended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class MeetingMinutes(Base, TimestampMixin):
+    __tablename__ = "meeting_minutes"
+    __table_args__ = (UniqueConstraint("meeting_id", name="uq_meeting_minutes_meeting"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    meeting_id: Mapped[str] = mapped_column(
+        ForeignKey("meetings.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    published_by_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL")
+    )
+    summary: Mapped[str | None] = mapped_column(Text)
+    notes: Mapped[str | None] = mapped_column(Text)
+    decisions: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
+    action_items: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class AuditEvent(Base):
@@ -1099,6 +1525,18 @@ class Alert(Base, TimestampMixin):
         String(32), default="active", nullable=False, index=True
     )
     source: Mapped[str] = mapped_column(String(120), nullable=False)
+    assigned_to_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    acknowledged_by_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL")
+    )
+    resolved_by_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL")
+    )
+    escalation_level: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_escalated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    details: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

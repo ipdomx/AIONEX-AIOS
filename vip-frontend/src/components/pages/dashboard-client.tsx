@@ -2,6 +2,7 @@
 
 import {
   ArrowUpRight,
+  Bell,
   CreditCard,
   FolderKanban,
   Gauge,
@@ -295,7 +296,17 @@ export function DashboardClient() {
                   />
                 </Link>
                 <Link
-                  href={`/${locale}/contact`}
+                  href={`/${locale}/notifications`}
+                  className="inline-flex min-h-12 items-center justify-between rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold text-white/75 transition hover:bg-white/[0.08] hover:text-white"
+                >
+                  {t("notifications")}
+                  <Bell
+                    className="h-4 w-4 text-electric-200"
+                    aria-hidden="true"
+                  />
+                </Link>
+                <Link
+                  href={`/${locale}/support`}
                   className="inline-flex min-h-12 items-center justify-between rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold text-white/75 transition hover:bg-white/[0.08] hover:text-white"
                 >
                   {t("contactSupport")}

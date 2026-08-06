@@ -13,6 +13,8 @@ const localizedRoutes = [
   "register",
   "profile",
   "projects",
+  "notifications",
+  "support",
   "pricing",
   "legal/privacy",
   "legal/terms",

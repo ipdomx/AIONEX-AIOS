@@ -3,6 +3,63 @@ import type { SupportedLocale } from "@/lib/locale-engine";
 type Catalog = Record<string, string>;
 
 const AR: Catalog = {
+  "Communication queues, receipts, and support records synchronized.":
+    "تمت مزامنة قوائم انتظار الاتصالات وإيصالاتها وسجلات الدعم.",
+  "Communication evidence could not be loaded.": "تعذر تحميل أدلة الاتصالات.",
+  "Re-queueing the selected delivery…":
+    "جارٍ إعادة التسليم المحدد إلى قائمة الانتظار…",
+  "Delivery was safely returned to the durable queue.":
+    "أُعيد التسليم بأمان إلى قائمة الانتظار الدائمة.",
+  "Delivery retry failed.": "فشلت إعادة محاولة التسليم.",
+  "Resolving the selected support request…": "جارٍ حل طلب الدعم المحدد…",
+  "Support request resolved and retained in the audit trail.":
+    "تم حل طلب الدعم والاحتفاظ به في سجل التدقيق.",
+  "Support update failed.": "فشل تحديث الدعم.",
+  "Notification, Delivery & Support Control":
+    "التحكم في الإشعارات والتسليم والدعم",
+  "Durable in-app records, truthful provider readiness, delivery receipts, retries, dead-letter recovery, and private support intake.":
+    "سجلات دائمة داخل التطبيق، وجاهزية صادقة للمزودين، وإيصالات تسليم، وإعادة محاولات، واستعادة الرسائل المتعثرة، واستقبال دعم خاص.",
+  "Truthful channel readiness": "جاهزية القنوات الفعلية",
+  "Delivery receipts & recovery": "إيصالات التسليم والاستعادة",
+  "Every external attempt remains durable, including unconfigured and dead-letter states.":
+    "تظل كل محاولة خارجية محفوظة، بما فيها حالات عدم التهيئة والرسائل المتعثرة.",
+  "No delivery records are available.": "لا توجد سجلات تسليم متاحة.",
+  "Retry delivery": "إعادة محاولة التسليم",
+  "Private support intake": "استقبال الدعم الخاص",
+  "Requests remain tenant-owned while the Super Owner has complete platform visibility.":
+    "تظل الطلبات مملوكة للمؤسسة مع رؤية كاملة للمالك الأعلى على المنصة.",
+  "No support requests are recorded.": "لا توجد طلبات دعم مسجلة.",
+  "Resolve request": "حل الطلب",
+  "Councils, ministries, policies, and decisions synchronized.":
+    "تمت مزامنة المجالس والوزارات والسياسات والقرارات.",
+  "Governance records could not be loaded.": "تعذر تحميل سجلات الحوكمة.",
+  "Councils, Ministries, Policies & Decisions":
+    "المجالس والوزارات والسياسات والقرارات",
+  "Durable governance bodies, weighted quorum, policy lifecycle, change requests, rejection, and final Owner ratification.":
+    "هيئات حوكمة دائمة ونصاب موزون ودورة حياة للسياسات وطلبات تعديل ورفض وتصديق نهائي من المالك.",
+  "Create council or ministry": "إنشاء مجلس أو وزارة",
+  "Governance body name": "اسم هيئة الحوكمة",
+  "No parent body": "لا توجد هيئة أم",
+  "Charter and responsibilities": "الميثاق والمسؤوليات",
+  "Create governance body": "إنشاء هيئة حوكمة",
+  "· quorum": "· النصاب",
+  "Create governed policy": "إنشاء سياسة محكومة",
+  "Policy code": "رمز السياسة",
+  "Policy title": "عنوان السياسة",
+  "Organization-wide Owner policy": "سياسة المالك على مستوى المؤسسة",
+  "Policy purpose and rules": "غرض السياسة وقواعدها",
+  "Create policy": "إنشاء سياسة",
+  "· version": "· الإصدار",
+  "Submit for approval": "إرسال للموافقة",
+  "Create governance decision": "إنشاء قرار حوكمة",
+  "Direct Owner decision": "قرار مباشر من المالك",
+  "No linked policy": "لا توجد سياسة مرتبطة",
+  "Decision rationale and retained evidence": "مبررات القرار والأدلة المحفوظة",
+  "Create decision": "إنشاء قرار",
+  "Weighted body vote": "تصويت موزون للهيئة",
+  "Direct Owner review": "مراجعة مباشرة من المالك",
+  "Open review cycle": "فتح دورة المراجعة",
+  "· escalation": "· التصعيد",
   "Access Authority": "سلطة الوصول",
   Active: "نشط",
   "Active roles": "الأدوار النشطة",
@@ -1055,6 +1112,31 @@ const AR: Catalog = {
   "No verified webhook events received.": "لم تُستقبل أحداث Webhook موثقة.",
   "Reconciliation history": "سجل المصالحة",
   "No reconciliation runs yet.": "لم تُنفذ عمليات مصالحة بعد.",
+  "Support Command": "قيادة الدعم",
+  "Durable support conversations, assignment, and resolution.":
+    "محادثات دعم دائمة وإسناد ومعالجة موثقة.",
+  "Owner Support Command": "قيادة دعم المالك",
+  "Durable Support Operations": "عمليات الدعم الدائمة",
+  "Review tenant requests, preserve every message, assign work, and close the loop with auditable status changes.":
+    "راجع طلبات المؤسسات واحفظ كل رسالة وأسند العمل وأغلق الدورة بتغييرات حالة قابلة للتدقيق.",
+  "Total requests": "إجمالي الطلبات",
+  "Open requests": "الطلبات المفتوحة",
+  "Resolved requests": "الطلبات المعالجة",
+  "Back to requests": "العودة إلى الطلبات",
+  "Start work": "بدء العمل",
+  Resolve: "معالجة",
+  Close: "إغلاق",
+  "Write a durable reply": "اكتب ردًا دائمًا",
+  "Send reply": "إرسال الرد",
+  "Loading support requests…": "جارٍ تحميل طلبات الدعم…",
+  "No support requests are currently recorded.":
+    "لا توجد طلبات دعم مسجلة حاليًا.",
+  "Unable to load support requests.": "تعذر تحميل طلبات الدعم.",
+  "Unable to load support request.": "تعذر تحميل طلب الدعم.",
+  "Reply delivered and recorded.": "تم تسليم الرد وتسجيله.",
+  "Unable to send the reply.": "تعذر إرسال الرد.",
+  "Support request status updated.": "تم تحديث حالة طلب الدعم.",
+  "Unable to update the support request.": "تعذر تحديث طلب الدعم.",
 };
 
 const FR: Catalog = {

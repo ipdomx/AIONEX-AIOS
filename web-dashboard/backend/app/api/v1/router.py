@@ -17,13 +17,16 @@ from app.api.v1.endpoints import (
     backups,
     billing,
     capabilities,
+    communications,
     containers,
     dashboard,
     databases,
     final_integration,
     firebase_phone,
+    governance,
     integration,
     identity,
+    incidents,
     knowledge,
     locale,
     meetings,
@@ -159,6 +162,22 @@ api_router.include_router(
     notifications.router,
     prefix="/notifications",
     tags=["Notifications"],
+)
+api_router.include_router(
+    communications.router,
+    prefix="/communications",
+    tags=["Communications"],
+)
+api_router.include_router(
+    incidents.router,
+    prefix="/incidents",
+    tags=["Incidents"],
+    dependencies=restricted,
+)
+api_router.include_router(
+    governance.router,
+    prefix="/governance",
+    tags=["Governance and Approvals"],
     dependencies=restricted,
 )
 api_router.include_router(settings.router, prefix="/settings", tags=["Settings"])
