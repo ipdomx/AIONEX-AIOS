@@ -136,6 +136,8 @@ Scope:
 
 ## Batch 29I — Plugins, marketplace, distributed runtime, and integrations
 
+**Status: complete and verified.** Evidence: `PHASE_29I_PLUGINS_DISTRIBUTED_INTEGRATIONS_COMPLETION.md`. The next active batch is **29J**.
+
 Scope:
 
 - Plugin SDK, manifests, review, permissions, isolation, signing, installation, update, disable, uninstall, audit, and rollback;
