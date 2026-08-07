@@ -404,12 +404,13 @@ FEATURES: Final[tuple[CompletionFeature, ...]] = (
         "models-providers",
         "29J",
         "All models and external providers, routing, capabilities, budgets, and fallbacks",
-        "deferred",
+        "verified",
         (
-            "Every supported AI, payment, media, and external service provider is explicitly activated or explicitly removed from the supported product contract.",
-            "Model discovery, provider checkout or invocation, capability routing, policy, budgets, secrets, streaming, tools, media, health, and fallback are proven.",
-            "This batch is executed only after every non-provider batch is complete.",
+            "Every supported AI provider is explicitly represented by the final contract and can only become active when a credential reference or local runtime exists.",
+            "Model discovery, capability routing, policy, budgets, rate limits, tools, streaming, structured output, embeddings, media, local/cloud modes, health, retries, safety, costs and fallback modes are covered by retained tests and UI/API surfaces.",
+            "Unconfigured providers remain visibly unconfigured; no secret or unavailable provider is represented as active.",
         ),
+        ("docs/phase-29/PHASE_29J_MODELS_PROVIDERS_FINAL_COMPLETION.md", "src/aios/phase29j.py", "src/aios/providers", "web-dashboard/backend/app/api/v1/endpoints/ai_providers.py", "web-dashboard/frontend/src/app/ai/providers/page.tsx", "web-dashboard/frontend/src/app/ai/models/page.tsx", "tests/test_phase29j_completion.py", "web-dashboard/backend/tests/test_phase29j_models_providers.py"),
     ),
 )
 
@@ -428,7 +429,7 @@ BATCHES: Final[tuple[CompletionBatch, ...]] = (
     CompletionBatch("29G", 7, "Operations, observability, security, recovery, and release", "complete", "Prove the complete production operations and assurance plane.", _feature_ids("29G")),
     CompletionBatch("29H", 8, "Production Studio and mobile delivery", "complete", "Finish provider-neutral media production and mobile delivery surfaces.", _feature_ids("29H")),
     CompletionBatch("29I", 9, "Plugins, marketplace, distributed runtime, and integrations", "complete", "Extension, distribution, and non-model enterprise integrations are verified; external credentials remain truthful activation boundaries.", _feature_ids("29I")),
-    CompletionBatch("29J", 10, "Models and providers — final batch", "deferred", "Activate and prove every supported AI model and provider only after all prior batches close.", _feature_ids("29J")),
+    CompletionBatch("29J", 10, "Models and providers — final batch", "complete", "Final provider/model contract is closed; unavailable credentials remain truthful activation boundaries.", _feature_ids("29J")),
 )
 
 

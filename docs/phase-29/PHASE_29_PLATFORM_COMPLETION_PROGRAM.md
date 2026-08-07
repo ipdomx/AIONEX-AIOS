@@ -148,6 +148,8 @@ Scope:
 
 ## Batch 29J — Models and providers — final batch
 
+**Status: complete and verified.** Evidence: `PHASE_29J_MODELS_PROVIDERS_FINAL_COMPLETION.md`. Phase 29 is fully closed.
+
 Scope:
 
 - definitive supported-provider contract;
