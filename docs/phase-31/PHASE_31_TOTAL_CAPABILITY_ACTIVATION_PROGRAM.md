@@ -49,3 +49,12 @@ Implementation: `src/aios/phase31e_acceptance.py`.
 AIOS now retains a deterministic full end-to-end acceptance layer that verifies the required Phase 30/31 capability chain is present and executes a governed 3D project lifecycle from blueprint through scaffold, asset governance, browser acceptance evidence, desktop/mobile/low-power performance gates, explicit Owner approval, deployment/rollback evidence, and final release readiness. Acceptance remains truthful: the test harness provides explicit evidence receipts and never treats missing provider/tool/browser/runtime evidence as success.
 
 Automated evidence: `tests/test_phase31e_full_end_to_end_acceptance.py` plus retained Phase 30F and Phase 31B–31D tests, full root suite, frontend production build, dependency audit, CI, and production health verification.
+
+### Batch 31F completion evidence
+Status: **complete and verified**.
+
+Implementation: `src/aios/phase31f_certification.py` plus final repository cleanup and production certification checks.
+
+The retained certification rejects stale source artifacts, dead HTTP 501 surfaces, unfinished UI markers, placeholder runtimes, and concrete unimplemented paths outside reviewed abstract bases. It also requires the retained Phase 31 capability/evidence modules. The final certification is combined with Python compile validation, complete root tests, frontend type-check/build, dependency audit, Alembic head verification, GitHub CI, and live production health.
+
+Automated evidence: `tests/test_phase31f_final_certification.py` plus all retained Phase 31 tests and CI.
