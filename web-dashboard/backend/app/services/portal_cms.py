@@ -12,7 +12,7 @@ import hashlib
 import json
 import os
 import re
-import xml.etree.ElementTree as ET
+from defusedxml import ElementTree as ET
 from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path

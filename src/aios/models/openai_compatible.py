@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import urllib.request
+from urllib.parse import urlsplit
 
 from .base import ModelProvider, ModelResponse
 
@@ -10,6 +11,24 @@ class OpenAICompatibleProvider(ModelProvider):
     name = 'openai-compatible'
 
     def __init__(self, base_url: str, api_key: str, model: str):
+        parts = urlsplit(base_url)
+        if (
+            parts.scheme not in {"http", "https"}
+            or not parts.hostname
+            or parts.username is not None
+            or parts.password is not None
+            or parts.query
+            or parts.fragment
+        ):
+            raise ValueError("OpenAI-compatible base URL must be a plain HTTP(S) origin")
+        if parts.scheme == "http" and parts.hostname not in {"127.0.0.1", "localhost", "::1"}:
+            raise ValueError("plain HTTP is allowed only for local OpenAI-compatible runtimes")
+        if parts.path.rstrip("/"):
+            raise ValueError("OpenAI-compatible base URL must not contain a path")
+        if not api_key.strip():
+            raise ValueError("OpenAI-compatible API key is required")
+        if not model.strip():
+            raise ValueError("OpenAI-compatible model is required")
         self.base_url = base_url.rstrip('/')
         self.api_key = api_key
         self.model = model
