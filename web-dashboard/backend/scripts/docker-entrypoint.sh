@@ -61,7 +61,15 @@ if [ "$(id -u)" = "0" ]; then
 
     mobile_release_root="${MOBILE_RELEASE_ROOT:-/var/lib/aionex/mobile-releases}"
     if [ -n "$mobile_release_root" ]; then
-        install -d -m 0750 -o aionex -g aionex "$mobile_release_root"
+        # Readers mount the release store read-only. Preparing ownership is only
+        # required when the path is writable; an existing readable read-only
+        # mount is already valid and must not prevent the API from starting.
+        if ! install -d -m 0750 -o aionex -g aionex "$mobile_release_root" 2>/dev/null; then
+            if [ ! -d "$mobile_release_root" ] || [ ! -r "$mobile_release_root" ]; then
+                echo "Unable to prepare mobile release root: $mobile_release_root" >&2
+                exit 1
+            fi
+        fi
     fi
 
 
