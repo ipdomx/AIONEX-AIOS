@@ -87,3 +87,23 @@ __all__ += [
     "PerformanceSample", "PerformanceViolation", "ReleaseEvidence",
     "ReleaseGateResult", "ThreeDReleaseGate",
 ]
+
+from .lifecycle import (
+    ApprovalDecision,
+    LifecycleInputs,
+    LifecycleResult,
+    LifecycleStage,
+    OwnerEvidence,
+    RemediationRecommendation,
+    ThreeDProjectLifecycle,
+)
+
+__all__ += [
+    "ApprovalDecision",
+    "LifecycleInputs",
+    "LifecycleResult",
+    "LifecycleStage",
+    "OwnerEvidence",
+    "RemediationRecommendation",
+    "ThreeDProjectLifecycle",
+]
