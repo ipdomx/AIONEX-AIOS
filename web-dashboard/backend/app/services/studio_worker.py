@@ -499,7 +499,8 @@ class StudioWorker:
             try:
                 await asyncio.wait_for(self.stop_event.wait(), timeout=settings.STUDIO_WORKER_POLL_SECONDS)
             except TimeoutError:
-                pass
+                # Keep the liveness receipt fresh even when the queue is idle.
+                self.write_health("running")
         self.write_health("stopped")
 
 
