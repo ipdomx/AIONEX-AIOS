@@ -40,3 +40,12 @@ Implementation: `src/aios/live_activation.py` plus retained production worker he
 AIOS now retains one truthful live-activation snapshot across production workers, local 3D tools, 3D generation providers, and core runtime integrations. Required workers must actually be running; the Telegram worker remains an explicit optional profile until its bot credential is configured. Blender and glTF Transform are never advertised as ready unless executable discovery succeeds. Tripo3D and Meshy remain credential-bound. Git/GitHub/Docker/Node/npm/Python runtime integrations are discovered from the host, while Kubernetes/Helm are explicit optional activation boundaries.
 
 Automated evidence: `tests/test_phase31d_live_activation.py`, existing worker healthchecks, live production Compose health inspection, full root suite, dependency audit, frontend build, and CI.
+
+### Batch 31E completion evidence
+Status: **complete and verified**.
+
+Implementation: `src/aios/phase31e_acceptance.py`.
+
+AIOS now retains a deterministic full end-to-end acceptance layer that verifies the required Phase 30/31 capability chain is present and executes a governed 3D project lifecycle from blueprint through scaffold, asset governance, browser acceptance evidence, desktop/mobile/low-power performance gates, explicit Owner approval, deployment/rollback evidence, and final release readiness. Acceptance remains truthful: the test harness provides explicit evidence receipts and never treats missing provider/tool/browser/runtime evidence as success.
+
+Automated evidence: `tests/test_phase31e_full_end_to_end_acceptance.py` plus retained Phase 30F and Phase 31B–31D tests, full root suite, frontend production build, dependency audit, CI, and production health verification.
