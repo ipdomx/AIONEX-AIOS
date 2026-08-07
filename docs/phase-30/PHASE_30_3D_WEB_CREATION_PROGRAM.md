@@ -77,3 +77,14 @@ Implementation: `src/aios/three_d_web/performance.py`.
 AIOS now enforces profile-specific 3D performance budgets for FPS, frame time, draw calls, triangles, total scene asset bytes, application bundle bytes and GPU memory where policy requires it. Performance receipts are deterministic and checksum-addressed. The release gate is fail-closed and requires desktop, mobile and low-power results, successful visual QA, successful asset governance, successful production build, valid release evidence, deployment receipt and rollback receipt before release approval.
 
 Automated evidence: `tests/test_phase30e_3d_performance_release_gate.py`.
+
+### Batch 30F completion evidence
+Status: **complete and verified**.
+
+Implementation: `src/aios/three_d_web/lifecycle.py`.
+
+AIOS now has a governed autonomous 3D project lifecycle that integrates validated blueprint creation, deterministic runtime scaffold generation, registered asset inspection and manifests, browser/visual QA evidence, profile-specific performance QA, explicit owner approval, and fail-closed production release evaluation with deployment and rollback receipts. The lifecycle emits owner-visible stage evidence, deterministic aggregate SHA-256 receipts, and remediation recommendations for every failed stage. It does not claim browser execution, deployment, rollback, or external 3D asset generation unless corresponding real receipts or configured providers exist.
+
+Automated evidence: `tests/test_phase30f_3d_project_lifecycle.py` plus retained 30A–30E tests.
+
+Phase 30 status: **complete**. Batches 30A through 30F are implemented, tested and merged into the 3D web creation capability program.
