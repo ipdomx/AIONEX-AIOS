@@ -451,7 +451,7 @@ MODULE_BATCH: Final[dict[str, str]] = {
     "production_hardening": "29G", "providers": "29J", "release_candidate": "29G",
     "release_governance": "29G", "runtime": "29G", "security_platform": "29G",
     "self_evolution": "29F", "services": "29G", "stable_release": "29G",
-    "telegram_bot": "29E", "web_dashboard_integration": "29B", "web_integration": "29B",
+    "telegram_bot": "29E", "three_d_web": "30A", "web_dashboard_integration": "29B", "web_integration": "29B",
     "workers": "29F", "workforce_health": "29F",
 }
 
