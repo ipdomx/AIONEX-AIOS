@@ -189,27 +189,45 @@ export default function OwnerReleaseGovernancePage() {
               )}
               <div className="mt-4 grid gap-3 lg:grid-cols-2">
                 <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-xs text-white/45">
-                  <div className="font-medium text-white">Deployment evidence</div>
+                  <div className="font-medium text-white">
+                    Deployment evidence
+                  </div>
                   {item.deploymentEvidence ? (
                     <div className="mt-2 space-y-1">
-                      <div>Commit: {item.deploymentEvidence.commit.slice(0, 12)}</div>
-                      <div>Validated: {item.deploymentEvidence.validated ? "yes" : "no"}</div>
+                      <div>
+                        Commit: {item.deploymentEvidence.commit.slice(0, 12)}
+                      </div>
+                      <div>
+                        Validated:{" "}
+                        {item.deploymentEvidence.validated ? "yes" : "no"}
+                      </div>
                       <div>{item.deploymentEvidence.recordedAt}</div>
                     </div>
                   ) : (
-                    <div className="mt-2">No validated deployment evidence recorded yet.</div>
+                    <div className="mt-2">
+                      No validated deployment evidence recorded yet.
+                    </div>
                   )}
                 </div>
                 <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-xs text-white/45">
-                  <div className="font-medium text-white">Rollback evidence</div>
+                  <div className="font-medium text-white">
+                    Rollback evidence
+                  </div>
                   {item.rollbackEvidence ? (
                     <div className="mt-2 space-y-1">
-                      <div>Commit: {item.rollbackEvidence.commit.slice(0, 12)}</div>
-                      <div>Validated: {item.rollbackEvidence.validated ? "yes" : "no"}</div>
+                      <div>
+                        Commit: {item.rollbackEvidence.commit.slice(0, 12)}
+                      </div>
+                      <div>
+                        Validated:{" "}
+                        {item.rollbackEvidence.validated ? "yes" : "no"}
+                      </div>
                       <div>{item.rollbackEvidence.recordedAt}</div>
                     </div>
                   ) : (
-                    <div className="mt-2">No validated rollback drill evidence recorded yet.</div>
+                    <div className="mt-2">
+                      No validated rollback drill evidence recorded yet.
+                    </div>
                   )}
                 </div>
               </div>

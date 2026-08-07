@@ -941,11 +941,14 @@ const AR: Catalog = {
   "Release approval recorded": "تم تسجيل اعتماد الإصدار",
   "Release Approved": "الإصدار معتمد",
   "Release Authority & Quality Gates": "سلطة الإصدار وبوابات الجودة",
-  "No validated rollback drill evidence recorded yet.": "لم يُسجل دليل تدريب رجوع موثق حتى الآن.",
+  "No validated rollback drill evidence recorded yet.":
+    "لم يُسجل دليل تدريب رجوع موثق حتى الآن.",
   "Rollback evidence": "دليل الرجوع",
-  "No validated deployment evidence recorded yet.": "لم يُسجل دليل نشر موثق حتى الآن.",
+  "No validated deployment evidence recorded yet.":
+    "لم يُسجل دليل نشر موثق حتى الآن.",
   "Deployment evidence": "دليل النشر",
-  "Review quality-gate evidence, Owner approval, and retained live deployment and rollback evidence for the current production build.": "راجع أدلة بوابات الجودة وموافقة المالك وأدلة النشر والرجوع المباشرة المحفوظة للبناء الإنتاجي الحالي.",
+  "Review quality-gate evidence, Owner approval, and retained live deployment and rollback evidence for the current production build.":
+    "راجع أدلة بوابات الجودة وموافقة المالك وأدلة النشر والرجوع المباشرة المحفوظة للبناء الإنتاجي الحالي.",
   "Release candidates synchronized.": "تمت مزامنة مرشحي الإصدار.",
   "Release decision failed and was not persisted.":
     "فشل قرار الإصدار ولم يُحفظ.",
