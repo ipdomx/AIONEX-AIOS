@@ -26,6 +26,8 @@ services:
       - backup_data:/var/lib/aionex/backups:ro
       - portal_asset_data:/var/lib/aionex/portal-assets:rw
       - project_execution_data:/var/lib/aionex/project-executions:rw
+      - studio_asset_data:/var/lib/aionex/studio-assets:rw
+      - mobile_release_data:/var/lib/aionex/mobile-releases:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -136,6 +138,33 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-m", "app.services.operations_observer", "--healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  studio-worker:
+    image: aionex-aios-backend:local
+    env_file:
+      - ${AIOS_ENV_FILE:-.env.production}
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      STUDIO_ASSET_ROOT: /var/lib/aionex/studio-assets
+      AIOS_REPO_ROOT: /workspace
+      PYTHONPATH: /workspace/src:/app
+    command: ["python", "-m", "app.services.studio_worker"]
+    restart: unless-stopped
+    volumes:
+      - ../..:/workspace:ro
+      - studio_asset_data:/var/lib/aionex/studio-assets:rw
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.services.studio_worker", "--healthcheck"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -277,6 +306,8 @@ volumes:
   redis_data:
   backup_data:
   project_execution_data:
+  studio_asset_data:
+  mobile_release_data:
   portal_asset_data:
   caddy_data:
   caddy_config:

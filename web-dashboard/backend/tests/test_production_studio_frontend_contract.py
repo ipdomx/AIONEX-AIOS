@@ -10,10 +10,12 @@ ROUTER = ROOT / "web-dashboard/backend/app/api/v1/router.py"
 def test_studio_is_visible_and_has_dedicated_department_choices():
     source = PAGE.read_text(encoding="utf-8")
     for label in (
+        "Text Studio",
         "Website Studio",
         "Code Studio",
         "UI/UX Studio",
-        "3D & Three.js",
+        "3D & Three.js Studio",
+        "Audio Studio",
         "Video Studio",
         "Animation Studio",
         "Advertising Studio",
@@ -22,8 +24,8 @@ def test_studio_is_visible_and_has_dedicated_department_choices():
         "Branding Studio",
     ):
         assert label in source
-    assert 'fetch("/api/v1/studio/generate"' in source
-    assert "Generate & Download ZIP" in source
+    assert "createStudioJob" in source
+    assert "Queue durable Studio job" in source
 
 
 def test_production_studio_has_persistent_navigation_entry():

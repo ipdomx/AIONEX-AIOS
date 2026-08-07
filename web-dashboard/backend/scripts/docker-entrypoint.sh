@@ -54,6 +54,24 @@ if [ "$(id -u)" = "0" ]; then
         install -d -m 0750 -o aionex -g aionex "$portal_asset_root"
     fi
 
+    studio_asset_root="${STUDIO_ASSET_ROOT:-/var/lib/aionex/studio-assets}"
+    if [ -n "$studio_asset_root" ]; then
+        install -d -m 0700 -o aionex -g aionex "$studio_asset_root"
+    fi
+
+    mobile_release_root="${MOBILE_RELEASE_ROOT:-/var/lib/aionex/mobile-releases}"
+    if [ -n "$mobile_release_root" ]; then
+        # Readers mount the release store read-only. Preparing ownership is only
+        # required when the path is writable; an existing readable read-only
+        # mount is already valid and must not prevent the API from starting.
+        if ! install -d -m 0750 -o aionex -g aionex "$mobile_release_root" 2>/dev/null; then
+            if [ ! -d "$mobile_release_root" ] || [ ! -r "$mobile_release_root" ]; then
+                echo "Unable to prepare mobile release root: $mobile_release_root" >&2
+                exit 1
+            fi
+        fi
+    fi
+
 
     telegram_token_source="${AIOS_TELEGRAM_BOT_TOKEN_FILE:-}"
     if [ -n "$telegram_token_source" ] && [ -f "$telegram_token_source" ]; then

@@ -2043,3 +2043,190 @@ class Lesson(Base, TimestampMixin):
     tags: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     promoted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+# Phase 29H — provider-neutral Production Studio and mobile delivery persistence.
+
+class StudioJob(Base, TimestampMixin):
+    __tablename__ = "studio_jobs"
+    __table_args__ = (
+        Index("ix_studio_jobs_org_status_created", "organization_id", "status", "created_at"),
+        Index("ix_studio_jobs_project_created", "project_id", "created_at"),
+        Index("ix_studio_jobs_revision_asset", "revision_of_asset_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    workspace_id: Mapped[str | None] = mapped_column(ForeignKey("workspaces.id", ondelete="SET NULL"), index=True)
+    project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id", ondelete="SET NULL"), index=True)
+    requested_by_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    revision_of_asset_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    department: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    output_kind: Mapped[str] = mapped_column(String(40), nullable=False)
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    brief: Mapped[str] = mapped_column(Text, nullable=False)
+    language: Mapped[str] = mapped_column(String(35), default="en-US", nullable=False)
+    style: Mapped[str] = mapped_column(String(120), default="modern", nullable=False)
+    target: Mapped[str | None] = mapped_column(String(240))
+    programming_language: Mapped[str | None] = mapped_column(String(40))
+    change_note: Mapped[str | None] = mapped_column(Text)
+    provider_mode: Mapped[str] = mapped_column(String(40), default="provider_neutral", nullable=False)
+    provider: Mapped[str | None] = mapped_column(String(120))
+    model: Mapped[str | None] = mapped_column(String(160))
+    status: Mapped[str] = mapped_column(String(32), default="queued", nullable=False, index=True)
+    progress: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    safety_status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
+    safety_findings: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
+    request_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    result_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    error_code: Mapped[str | None] = mapped_column(String(120))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    lease_token: Mapped[str | None] = mapped_column(String(36))
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class StudioAsset(Base, TimestampMixin):
+    __tablename__ = "studio_assets"
+    __table_args__ = (
+        Index("ix_studio_assets_org_status_created", "organization_id", "status", "created_at"),
+        Index("ix_studio_assets_project_created", "project_id", "created_at"),
+        UniqueConstraint("job_id", name="uq_studio_asset_job"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    job_id: Mapped[str] = mapped_column(ForeignKey("studio_jobs.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id", ondelete="SET NULL"), index=True)
+    created_by_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    department: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    asset_type: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    filename: Mapped[str] = mapped_column(String(300), nullable=False)
+    media_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    storage_path: Mapped[str] = mapped_column(Text, nullable=False)
+    checksum: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False, index=True)
+    current_revision: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    asset_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class StudioAssetRevision(Base, TimestampMixin):
+    __tablename__ = "studio_asset_revisions"
+    __table_args__ = (
+        UniqueConstraint("asset_id", "revision_number", name="uq_studio_asset_revision_number"),
+        Index("ix_studio_asset_revisions_asset_created", "asset_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    asset_id: Mapped[str] = mapped_column(ForeignKey("studio_assets.id", ondelete="CASCADE"), nullable=False, index=True)
+    job_id: Mapped[str] = mapped_column(ForeignKey("studio_jobs.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    revision_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    filename: Mapped[str] = mapped_column(String(300), nullable=False)
+    media_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    storage_path: Mapped[str] = mapped_column(Text, nullable=False)
+    checksum: Mapped[str] = mapped_column(String(64), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    change_note: Mapped[str | None] = mapped_column(Text)
+    revision_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
+
+
+class StudioSafetyReview(Base, TimestampMixin):
+    __tablename__ = "studio_safety_reviews"
+    __table_args__ = (
+        Index("ix_studio_safety_reviews_job_created", "job_id", "created_at"),
+        Index("ix_studio_safety_reviews_org_status", "organization_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    job_id: Mapped[str] = mapped_column(ForeignKey("studio_jobs.id", ondelete="CASCADE"), nullable=False, index=True)
+    asset_id: Mapped[str | None] = mapped_column(ForeignKey("studio_assets.id", ondelete="SET NULL"), index=True)
+    reviewer_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    policy_version: Mapped[str] = mapped_column(String(40), default="29H.1", nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    categories: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    findings: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    reviewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+
+class ProjectStudioAttachment(Base, TimestampMixin):
+    __tablename__ = "project_studio_attachments"
+    __table_args__ = (
+        UniqueConstraint("project_id", "asset_id", name="uq_project_studio_attachment"),
+        Index("ix_project_studio_attachments_project_status", "project_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    asset_id: Mapped[str] = mapped_column(ForeignKey("studio_assets.id", ondelete="CASCADE"), nullable=False, index=True)
+    attached_by_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
+
+
+class MobileRelease(Base, TimestampMixin):
+    __tablename__ = "mobile_releases"
+    __table_args__ = (
+        UniqueConstraint("platform", "version", "build_number", "channel", name="uq_mobile_release_identity"),
+        Index("ix_mobile_releases_platform_status_created", "platform", "status", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    platform: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    version: Mapped[str] = mapped_column(String(80), nullable=False)
+    build_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    channel: Mapped[str] = mapped_column(String(40), default="internal", nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    signing_status: Mapped[str] = mapped_column(String(40), nullable=False)
+    publication_status: Mapped[str] = mapped_column(String(40), default="not_published", nullable=False)
+    source_commit: Mapped[str] = mapped_column(String(64), nullable=False)
+    manifest_path: Mapped[str] = mapped_column(Text, nullable=False)
+    manifest_checksum: Mapped[str] = mapped_column(String(64), nullable=False)
+    release_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    built_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    validated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class MobileReleaseArtifact(Base, TimestampMixin):
+    __tablename__ = "mobile_release_artifacts"
+    __table_args__ = (
+        UniqueConstraint("release_id", "artifact_type", name="uq_mobile_release_artifact_type"),
+        Index("ix_mobile_release_artifacts_release_status", "release_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    release_id: Mapped[str] = mapped_column(ForeignKey("mobile_releases.id", ondelete="CASCADE"), nullable=False, index=True)
+    artifact_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    filename: Mapped[str] = mapped_column(String(300), nullable=False)
+    storage_path: Mapped[str] = mapped_column(Text, nullable=False)
+    media_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    checksum: Mapped[str] = mapped_column(String(64), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    signed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    signature_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="ready", nullable=False)
+
+
+class MobileValidationRun(Base, TimestampMixin):
+    __tablename__ = "mobile_validation_runs"
+    __table_args__ = (
+        Index("ix_mobile_validation_runs_release_operation", "release_id", "operation", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    release_id: Mapped[str] = mapped_column(ForeignKey("mobile_releases.id", ondelete="CASCADE"), nullable=False, index=True)
+    operation: Mapped[str] = mapped_column(String(80), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

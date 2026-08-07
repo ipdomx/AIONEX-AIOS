@@ -27,10 +27,12 @@ def request(department: str, **overrides):
 def test_every_requested_department_is_separate_and_available():
     ids = {item["id"] for item in DEPARTMENTS}
     assert ids == {
+        "text",
         "website",
         "code",
         "ui-ux",
         "three-d",
+        "audio",
         "video",
         "animation",
         "advertising",

@@ -123,6 +123,8 @@ Scope:
 
 ## Batch 29H — Production Studio and mobile delivery
 
+**Status: complete and verified.** Evidence: `PHASE_29H_PRODUCTION_STUDIO_MOBILE_DELIVERY_COMPLETION.md`. The next active batch is **29I**.
+
 Scope:
 
 - provider-neutral Production Studio contracts for text, image, audio, video, web, and 3D jobs;
