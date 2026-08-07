@@ -3,6 +3,32 @@ import type { SupportedLocale } from "@/lib/locale-engine";
 type Catalog = Record<string, string>;
 
 const AR: Catalog = {
+  "· commit": "· معرّف الالتزام",
+  "Mobile Delivery": "تسليم تطبيقات الهاتف",
+  "PWA, Android, iOS, signing boundaries, and release artifacts.":
+    "تطبيق الويب التقدمي وأندرويد وiOS وحدود التوقيع وملفات الإصدار.",
+  "Owner Mobile Delivery": "تسليم تطبيقات الهاتف للمالك",
+  "PWA, Android & iOS Release Evidence":
+    "أدلة إصدارات تطبيق الويب التقدمي وأندرويد وiOS",
+  "Verified install, update, offline, signing, artifact, and publication boundaries. App-store publication and the final ai.vip-e.net upload remain explicit external actions and are never reported as completed.":
+    "حدود موثقة للتثبيت والتحديث والعمل دون اتصال والتوقيع والملفات والنشر. يظل النشر في متاجر التطبيقات والرفع النهائي إلى ai.vip-e.net إجراءات خارجية صريحة ولا يتم الإبلاغ عنها كمكتملة.",
+  "Loading mobile release evidence...": "جارٍ تحميل أدلة إصدارات الهاتف...",
+  "Mobile release evidence synchronized.": "تمت مزامنة أدلة إصدارات الهاتف.",
+  "Mobile release evidence could not be loaded.":
+    "تعذر تحميل أدلة إصدارات الهاتف.",
+  "Downloading protected mobile artifact...": "جارٍ تنزيل ملف الهاتف المحمي...",
+  "Mobile artifact integrity was verified and the download started.":
+    "تم التحقق من سلامة ملف الهاتف وبدأ التنزيل.",
+  "Mobile artifact download failed integrity or access validation.":
+    "فشل تنزيل ملف الهاتف بسبب التحقق من السلامة أو الوصول.",
+  "No registered release": "لا يوجد إصدار مسجل",
+  "Validations passed": "نجحت عمليات التحقق",
+  "Validation unavailable": "التحقق غير متاح",
+  "Download verified artifact": "تنزيل الملف الموثق",
+  signed: "موقّع",
+  "unsigned boundary": "حد غير موقّع",
+  "not built": "لم يتم بناؤه",
+  unavailable: "غير متاح",
   "Communication queues, receipts, and support records synchronized.":
     "تمت مزامنة قوائم انتظار الاتصالات وإيصالاتها وسجلات الدعم.",
   "Communication evidence could not be loaded.": "تعذر تحميل أدلة الاتصالات.",

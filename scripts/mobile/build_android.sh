@@ -5,19 +5,29 @@ IMAGE=${AIOS_ANDROID_BUILDER_IMAGE:-aionex-android-builder:36}
 RELEASE_DIR=${AIOS_MOBILE_RELEASE_DIR:-/root/.config/aionex/releases}
 KEYSTORE=${AIOS_ANDROID_KEYSTORE_FILE:-/root/.config/aionex/mobile/android-release.jks}
 CREDENTIAL_FILE=${AIOS_ANDROID_CREDENTIAL_FILE:-/root/.config/aionex/mobile/android-release.env}
+VERSION_NAME=${AIOS_ANDROID_VERSION_NAME:-${AIOS_MOBILE_VERSION:-1.6.0}}
+VERSION_CODE=${AIOS_ANDROID_VERSION_CODE:-10600}
+PREFIX="AIONEX-AIOS-Android-v${VERSION_NAME}"
+
+if [[ ! "$VERSION_NAME" =~ ^[0-9A-Za-z][0-9A-Za-z._-]{0,79}$ ]]; then
+  echo "Invalid Android version name" >&2
+  exit 1
+fi
+if [[ ! "$VERSION_CODE" =~ ^[1-9][0-9]{0,8}$ ]]; then
+  echo "Invalid Android version code" >&2
+  exit 1
+fi
 
 install -d -m 0700 "$(dirname "$KEYSTORE")" "$RELEASE_DIR"
 python3 "$ROOT/scripts/mobile/prepare_android_assets.py"
 if [[ ! -f "$CREDENTIAL_FILE" ]]; then
   umask 077
   store_password=$(openssl rand -base64 36 | tr -d '\r\n')
-  printf 'STORE_PASSWORD=%s\nKEY_PASSWORD=%s\nKEY_ALIAS=aionex\n' \
-    "$store_password" "$store_password" > "$CREDENTIAL_FILE"
+  printf 'STORE_PASSWORD=%q\nKEY_ALIAS=%q\n' "$store_password" "aionex" > "$CREDENTIAL_FILE"
   chmod 0600 "$CREDENTIAL_FILE"
 fi
 # shellcheck disable=SC1090
 source "$CREDENTIAL_FILE"
-# Java's default PKCS12 keystore uses the store password for the private key.
 KEY_PASSWORD="$STORE_PASSWORD"
 if [[ ! -f "$KEYSTORE" ]]; then
   docker run --rm \
@@ -40,21 +50,20 @@ docker run --rm \
   -e AIOS_ANDROID_KEYSTORE_PASSWORD="$STORE_PASSWORD" \
   -e AIOS_ANDROID_KEY_ALIAS="$KEY_ALIAS" \
   -e AIOS_ANDROID_KEY_PASSWORD="$KEY_PASSWORD" \
+  -e AIOS_ANDROID_VERSION_NAME="$VERSION_NAME" \
+  -e AIOS_ANDROID_VERSION_CODE="$VERSION_CODE" \
   "$IMAGE" ./gradlew --no-daemon clean lintRelease assembleRelease bundleRelease
 
 APK="$ROOT/mobile/android/app/build/outputs/apk/release/app-release.apk"
 AAB="$ROOT/mobile/android/app/build/outputs/bundle/release/app-release.aab"
 test -s "$APK" && test -s "$AAB"
-install -m 0600 "$APK" "$RELEASE_DIR/AIONEX-AIOS-Android-v1.0.0.apk"
-install -m 0600 "$AAB" "$RELEASE_DIR/AIONEX-AIOS-Android-v1.0.0.aab"
-sha256sum \
-  "$RELEASE_DIR/AIONEX-AIOS-Android-v1.0.0.apk" \
-  "$RELEASE_DIR/AIONEX-AIOS-Android-v1.0.0.aab" \
-  > "$RELEASE_DIR/AIONEX-AIOS-Android-v1.0.0.sha256"
-chmod 0600 "$RELEASE_DIR/AIONEX-AIOS-Android-v1.0.0.sha256"
+install -m 0600 "$APK" "$RELEASE_DIR/${PREFIX}.apk"
+install -m 0600 "$AAB" "$RELEASE_DIR/${PREFIX}.aab"
+sha256sum "$RELEASE_DIR/${PREFIX}.apk" "$RELEASE_DIR/${PREFIX}.aab" > "$RELEASE_DIR/${PREFIX}.sha256"
+chmod 0600 "$RELEASE_DIR/${PREFIX}.sha256"
 
 CERT_SHA256=$(docker run --rm \
-  -v "$RELEASE_DIR/AIONEX-AIOS-Android-v1.0.0.apk:/release/app.apk:ro" \
+  -v "$RELEASE_DIR/${PREFIX}.apk:/release/app.apk:ro" \
   "$IMAGE" sh -lc \
   '/opt/android-sdk/build-tools/36.0.0/apksigner verify --print-certs /release/app.apk' \
   | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1)
@@ -70,18 +79,18 @@ if [[ "${CERT_SHA256,,}" != "$EXPECTED_CERT_SHA256" ]]; then
   exit 1
 fi
 
-APK_SHA256=$(sha256sum "$RELEASE_DIR/AIONEX-AIOS-Android-v1.0.0.apk" | awk '{print $1}')
-AAB_SHA256=$(sha256sum "$RELEASE_DIR/AIONEX-AIOS-Android-v1.0.0.aab" | awk '{print $1}')
-export APK_SHA256 AAB_SHA256 CERT_SHA256 RELEASE_DIR
+APK_SHA256=$(sha256sum "$RELEASE_DIR/${PREFIX}.apk" | awk '{print $1}')
+AAB_SHA256=$(sha256sum "$RELEASE_DIR/${PREFIX}.aab" | awk '{print $1}')
+export APK_SHA256 AAB_SHA256 CERT_SHA256 RELEASE_DIR PREFIX VERSION_NAME VERSION_CODE
 python3 - <<'PYMETA'
 import json, os
 from pathlib import Path
 root=Path(os.environ['RELEASE_DIR'])
 payload={
-    'schema_version': 1,
+    'schema_version': 2,
     'application_id': 'net.vipe.aionex',
-    'version_name': '1.0.0',
-    'version_code': 1,
+    'version_name': os.environ['VERSION_NAME'],
+    'version_code': int(os.environ['VERSION_CODE']),
     'minimum_sdk': 27,
     'target_sdk': 36,
     'apk_sha256': os.environ['APK_SHA256'],
@@ -90,13 +99,15 @@ payload={
     'portal_url': 'https://ai.vip-e.net/ar/',
     'cleartext_traffic_allowed': False,
     'signing_secret_returned': False,
+    'store_publication_performed': False,
 }
-path=root/'AIONEX-AIOS-Android-v1.0.0-release.json'
+path=root/f"{os.environ['PREFIX']}-release.json"
 path.write_text(json.dumps(payload,sort_keys=True,indent=2)+'\n',encoding='utf-8')
 path.chmod(0o600)
 PYMETA
 
-printf 'ANDROID_APK=%s\nANDROID_AAB=%s\nANDROID_CERT_SHA256=%s\n' \
-  "$RELEASE_DIR/AIONEX-AIOS-Android-v1.0.0.apk" \
-  "$RELEASE_DIR/AIONEX-AIOS-Android-v1.0.0.aab" \
+printf 'ANDROID_APK=%s\nANDROID_AAB=%s\nANDROID_METADATA=%s\nANDROID_CERT_SHA256=%s\n' \
+  "$RELEASE_DIR/${PREFIX}.apk" \
+  "$RELEASE_DIR/${PREFIX}.aab" \
+  "$RELEASE_DIR/${PREFIX}-release.json" \
   "$CERT_SHA256"

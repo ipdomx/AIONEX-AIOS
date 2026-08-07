@@ -231,6 +231,34 @@ class Settings(BaseSettings):
         validation_alias="PROJECT_EXECUTION_HEARTBEAT_SECONDS",
     )
 
+    STUDIO_ASSET_ROOT: str = Field(
+        default="/var/lib/aionex/studio-assets",
+        validation_alias="STUDIO_ASSET_ROOT",
+    )
+    STUDIO_WORKER_POLL_SECONDS: int = Field(
+        default=2, ge=1, le=60, validation_alias="STUDIO_WORKER_POLL_SECONDS"
+    )
+    STUDIO_JOB_LEASE_SECONDS: int = Field(
+        default=300, ge=60, le=3600, validation_alias="STUDIO_JOB_LEASE_SECONDS"
+    )
+    STUDIO_WORKER_HEARTBEAT_SECONDS: int = Field(
+        default=10, ge=2, le=60, validation_alias="STUDIO_WORKER_HEARTBEAT_SECONDS"
+    )
+    STUDIO_MAX_ARTIFACT_BYTES: int = Field(
+        default=50 * 1024 * 1024,
+        ge=1024 * 1024,
+        le=500 * 1024 * 1024,
+        validation_alias="STUDIO_MAX_ARTIFACT_BYTES",
+    )
+    STUDIO_WORKER_HEALTH_FILE: str = Field(
+        default="/tmp/aionex-studio-worker-health.json",
+        validation_alias="STUDIO_WORKER_HEALTH_FILE",
+    )
+    MOBILE_RELEASE_ROOT: str = Field(
+        default="/var/lib/aionex/mobile-releases",
+        validation_alias="MOBILE_RELEASE_ROOT",
+    )
+
     REDIS_URL: str = Field(
         default="redis://localhost:6379/0", validation_alias="REDIS_URL"
     )

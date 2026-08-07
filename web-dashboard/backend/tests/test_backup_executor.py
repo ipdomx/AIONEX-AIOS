@@ -1360,11 +1360,15 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
         assert "communication-worker:" in compose
         assert "operations-observer:" in compose
         assert 'command: ["python", "-m", "app.services.operations_observer"]' in compose
+        assert "studio-worker:" in compose
+        assert 'command: ["python", "-m", "app.services.studio_worker"]' in compose
+        assert "studio_asset_data:/var/lib/aionex/studio-assets" in compose
+        assert "mobile_release_data:/var/lib/aionex/mobile-releases:ro" in compose
         assert (
             'test: ["CMD", "python", "-m", "app.services.operations_observer", '
             '"--healthcheck"]' in compose
         )
-        assert compose.count("image: aionex-aios-backend:local") == 7
+        assert compose.count("image: aionex-aios-backend:local") == 8
         assert "backup_data:/var/lib/aionex/backups" in compose
         assert 'command: ["python", "-m", "app.services.backup_worker"]' in compose
         assert 'command: ["python", "/app/app/db/postgres_credentials.py"]' in compose

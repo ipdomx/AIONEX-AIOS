@@ -37,6 +37,7 @@ import {
   Server,
   Shield,
   ShieldCheck,
+  Smartphone,
   Terminal,
   ToggleRight,
   UserCog,
@@ -358,6 +359,14 @@ export const ownerNavigationSections: OwnerNavigationSection[] = [
         description: "Live backend dependency health and configured origins.",
         href: "/owner/production-runtime",
         icon: Server,
+      },
+      {
+        id: "owner-mobile-delivery",
+        label: "Mobile Delivery",
+        description:
+          "PWA, Android, iOS, signing boundaries, and release artifacts.",
+        href: "/owner/mobile-delivery",
+        icon: Smartphone,
       },
       {
         id: "owner-release",

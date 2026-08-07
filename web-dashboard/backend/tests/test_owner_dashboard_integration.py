@@ -77,6 +77,10 @@ OWNER_API_CONTRACT = {
     ("PATCH", "/api/v1/owner/notification-rules/{rule_id}"),
     ("GET", "/api/v1/owner/licenses"),
     ("PATCH", "/api/v1/owner/licenses/{license_id}"),
+    ("GET", "/api/v1/owner/mobile/readiness"),
+    ("GET", "/api/v1/owner/mobile/releases/{release_id}"),
+    ("GET", "/api/v1/owner/mobile/releases"),
+    ("GET", "/api/v1/owner/mobile/releases/{release_id}/artifacts/{artifact_id}/download"),
     ("GET", "/api/v1/owner/releases"),
     ("POST", "/api/v1/owner/releases/{candidate_id}/decision"),
     ("POST", "/api/v1/owner/releases/{candidate_id}/evidence"),
@@ -300,13 +304,13 @@ def test_owner_navigation_registry_matches_all_owner_pages() -> None:
         f"/owner/{page.parent.relative_to(OWNER_APP).as_posix()}"
         for page in OWNER_APP.glob("*/page.tsx")
     }
-    assert len(page_routes) == 43
+    assert len(page_routes) == 44
 
     registry = (FRONTEND / "src" / "config" / "owner-navigation.ts").read_text()
     registry_routes = re.findall(r'href:\s*"(/owner/[^"]+)"', registry)
 
-    assert len(registry_routes) == 43
-    assert len(set(registry_routes)) == 43
+    assert len(registry_routes) == 44
+    assert len(set(registry_routes)) == 44
     assert set(registry_routes) == page_routes
 
 

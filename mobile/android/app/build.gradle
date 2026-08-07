@@ -10,8 +10,8 @@ android {
         applicationId 'net.vipe.aionex'
         minSdk 27
         targetSdk 36
-        versionCode 1
-        versionName '1.0.0'
+        versionCode = Integer.parseInt(System.getenv('AIOS_ANDROID_VERSION_CODE') ?: '10600')
+        versionName = System.getenv('AIOS_ANDROID_VERSION_NAME') ?: '1.6.0'
     }
 
     signingConfigs {
