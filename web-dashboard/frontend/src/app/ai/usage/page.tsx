@@ -1,18 +1,5 @@
 "use client";
-
-import { motion } from "framer-motion";
-import { Construction } from "lucide-react";
-
-export default function AIUsagePage() {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }}>
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-electric-500/20 to-purple-500/20 flex items-center justify-center border border-white/[0.08] mb-4 mx-auto">
-          <Construction className="w-8 h-8 text-electric-400" />
-        </div>
-        <h1 className="text-2xl font-bold text-white tracking-tight mb-2">AI Usage</h1>
-        <p className="text-sm text-white/40">This page is under development</p>
-      </motion.div>
-    </div>
-  );
-}
+import {useEffect,useState} from "react";
+import {runtimeServices,ProviderSummary} from "@/lib/runtime-services";
+import {LiveDataPanel,JsonCard} from "@/components/system/LiveDataPanel";
+export default function Page(){const[d,setD]=useState<ProviderSummary[]>([]),[e,setE]=useState<string|null>(null),[l,setL]=useState(true);useEffect(()=>{runtimeServices.listProviders().then(setD).catch(x=>setE(x.message)).finally(()=>setL(false))},[]);return <LiveDataPanel title="AI Usage" subtitle="Live provider usage, limits and last-use evidence." loading={l} error={e} empty={!d.length}><div className="grid gap-4 xl:grid-cols-2">{d.map(x=><JsonCard key={x.id} title={x.name} value={{type:x.type,status:x.status,enabled:x.enabled,usage_today:x.usage_today,usage_limit:x.usage_limit,last_used:x.last_used,cost_per_1k_tokens:x.cost_per_1k_tokens}}/>)}</div></LiveDataPanel>}

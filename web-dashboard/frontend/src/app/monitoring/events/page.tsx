@@ -1,18 +1,3 @@
 "use client";
-
-import { motion } from "framer-motion";
-import { Construction } from "lucide-react";
-
-export default function EventsPage() {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }}>
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-electric-500/20 to-purple-500/20 flex items-center justify-center border border-white/[0.08] mb-4 mx-auto">
-          <Construction className="w-8 h-8 text-electric-400" />
-        </div>
-        <h1 className="text-2xl font-bold text-white tracking-tight mb-2">Events</h1>
-        <p className="text-sm text-white/40">This page is under development</p>
-      </motion.div>
-    </div>
-  );
-}
+import {useEffect,useState} from "react";import {opsSecurityServices,SecurityEvent} from "@/lib/ops-security-services";import {LiveDataPanel,JsonCard} from "@/components/system/LiveDataPanel";
+export default function Page(){const[d,setD]=useState<SecurityEvent[]>([]),[e,setE]=useState<string|null>(null),[l,setL]=useState(true);useEffect(()=>{opsSecurityServices.securityEvents().then(setD).catch(x=>setE(x.message)).finally(()=>setL(false))},[]);return <LiveDataPanel title="Events" subtitle="Live security and operational event evidence." loading={l} error={e} empty={!d.length}><div className="space-y-3">{d.map(x=><JsonCard key={x.id} title={x.type} value={x}/>)}</div></LiveDataPanel>}
