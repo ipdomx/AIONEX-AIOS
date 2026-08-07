@@ -345,8 +345,8 @@ async def failover(
     if not confirm:
         raise HTTPException(status_code=409, detail="Explicit confirmation is required")
     raise HTTPException(
-        status_code=501,
-        detail="Automated infrastructure failover is not configured",
+        status_code=503,
+        detail="Automated infrastructure failover provider is unavailable; configure a supported infrastructure failover integration before execution",
     )
 
 
@@ -359,6 +359,6 @@ async def failback(
     if not confirm:
         raise HTTPException(status_code=409, detail="Explicit confirmation is required")
     raise HTTPException(
-        status_code=501,
-        detail="Automated infrastructure failback is not configured",
+        status_code=503,
+        detail="Automated infrastructure failback provider is unavailable; configure a supported infrastructure failover integration before execution",
     )
