@@ -51,5 +51,9 @@ def default_providers(transports: dict[str, Transport] | None = None) -> tuple[B
         "azure_openai": (_cap("azure_openai", "default", {"coding", "reasoning", "enterprise"}, quality=.91, privacy=.85, input_cost=5, output_cost=15),),
         "aws_bedrock": (_cap("aws_bedrock", "default", {"coding", "reasoning", "enterprise"}, quality=.87, privacy=.85, input_cost=4, output_cost=12),),
     }
+    generic_specs.update({
+        "tripo3d": (_cap("tripo3d", "default", {"text-to-3d", "image-to-3d", "3d-asset-generation"}, tools=False, vision=True, quality=.82, input_cost=0, output_cost=0),),
+        "meshy": (_cap("meshy", "default", {"text-to-3d", "image-to-3d", "texture-generation", "3d-asset-generation"}, tools=False, vision=True, quality=.82, input_cost=0, output_cost=0),),
+    })
     providers.extend(GenericProvider(name, caps, transports.get(name)) for name, caps in generic_specs.items())
     return tuple(providers)
