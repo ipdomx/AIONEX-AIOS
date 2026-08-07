@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from typing import Optional
 
-from app.core.ai_runtime import ai_runtime
+from app.core.ai_runtime import FINAL_SUPPORTED_PROVIDER_TYPES, ai_runtime, provider_models
 from app.core.auth import UserRecord, current_user
 from app.core.owner_policy import require_owner_service_allowed
 from app.db.base import get_db
@@ -28,6 +28,24 @@ async def list_providers(user: UserRecord = Depends(current_user)):
     return ai_runtime.list_providers(user.organization_id)
 
 
+
+
+@router.get("/catalog/supported")
+async def supported_provider_catalog(user: UserRecord = Depends(current_user)):
+    configured = {item["type"]: item for item in ai_runtime.list_providers(user.organization_id)}
+    rows = []
+    for provider_type in FINAL_SUPPORTED_PROVIDER_TYPES:
+        item = configured.get(provider_type)
+        rows.append({
+            "type": provider_type,
+            "configured": item is not None and item.get("api_key_hint") not in {None, "not-configured"},
+            "enabled": bool(item and item.get("enabled")),
+            "status": item.get("status", "unconfigured") if item else "unconfigured",
+            "models": provider_models(provider_type),
+        })
+    return rows
+
+
 @router.post("", status_code=201)
 async def create_provider(
     data: ProviderCreate, user: UserRecord = Depends(current_user)
@@ -41,7 +59,7 @@ async def get_provider(provider_id: str, user: UserRecord = Depends(current_user
     provider = ai_runtime.get_provider(provider_id, user.organization_id)
     return {
         **provider.__dict__,
-        "models": [],
+        "models": provider_models(provider.type),
     }
 
 
