@@ -24,7 +24,7 @@ from app.db.models import (
     Role,
     User,
 )
-from app.services import operations_assurance
+from app.services import operations_assurance, operations_observer
 
 
 class Identity:
@@ -450,6 +450,33 @@ async def test_release_deployment_and_rollback_evidence_is_append_only() -> None
             assert count == 2
     finally:
         await cleanup(data.organization.id)
+
+
+@pytest.mark.asyncio
+async def test_operations_observer_initializes_and_closes_redis(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+
+    async def initialize() -> None:
+        events.append("redis-initialized")
+
+    async def close() -> None:
+        events.append("redis-closed")
+
+    async def run_forever(_observer: operations_observer.OperationsObserver) -> None:
+        events.append("observer-ran")
+
+    monkeypatch.setattr(operations_observer, "init_redis", initialize)
+    monkeypatch.setattr(operations_observer, "close_redis", close)
+    monkeypatch.setattr(
+        operations_observer.OperationsObserver,
+        "run_forever",
+        run_forever,
+    )
+
+    assert await operations_observer.async_main() == 0
+    assert events == ["redis-initialized", "observer-ran", "redis-closed"]
 
 
 def test_phase29g_has_no_simulated_infrastructure_endpoints() -> None:
