@@ -1021,6 +1021,19 @@ async def test_recovery_collection_always_includes_latest_restorable_backup(
     assert missing_artifact["artifactReady"] is False
 
 
+def test_repo_version_uses_configured_root_without_eager_parent_lookup(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    (tmp_path / "VERSION").write_text("29g-final-test\n", encoding="utf-8")
+    monkeypatch.setenv("AIOS_REPO_ROOT", str(tmp_path))
+    monkeypatch.setattr(
+        control_plane,
+        "__file__",
+        "/app/app/api/owner/control_plane.py",
+    )
+    assert control_plane._repo_version() == "29g-final-test"
+
+
 @pytest.mark.asyncio
 async def test_release_rejection_and_license_plan_contracts(
     monkeypatch: pytest.MonkeyPatch,

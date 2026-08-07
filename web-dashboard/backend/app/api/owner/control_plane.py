@@ -85,9 +85,15 @@ def _iso(value: datetime | None = None) -> str:
 
 
 def _repo_version() -> str:
-    repository_root = Path(
-        os.getenv("AIOS_REPO_ROOT", str(Path(__file__).resolve().parents[5]))
-    )
+    configured_root = os.getenv("AIOS_REPO_ROOT")
+    if configured_root:
+        repository_root = Path(configured_root)
+    else:
+        resolved = Path(__file__).resolve()
+        repository_root = next(
+            (parent for parent in resolved.parents if (parent / "VERSION").is_file()),
+            resolved.parent,
+        )
     version_file = repository_root / "VERSION"
     try:
         return version_file.read_text(encoding="utf-8").strip()
