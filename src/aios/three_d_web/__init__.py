@@ -31,3 +31,7 @@ __all__ += [
     "CompressionKind", "DEFAULT_BUDGETS", "LOD_PROFILES", "LODVariant",
     "OptimizationAction", "OptimizationPlan", "OptimizationPlanner",
 ]
+
+from .scaffold import RuntimeScaffold, ScaffoldFile, ThreeDRuntimeScaffoldBuilder
+
+__all__ += ["RuntimeScaffold", "ScaffoldFile", "ThreeDRuntimeScaffoldBuilder"]

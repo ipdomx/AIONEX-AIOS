@@ -48,3 +48,12 @@ Implementation: `src/aios/three_d_web/assets.py`.
 The retained asset pipeline performs traversal-safe GLB/GLTF inspection, extracts deterministic counts and triangle estimates where the source metadata permits it, detects declared Draco/Meshopt/KTX2/Basis extensions, applies profile-specific byte/mesh/material/texture/animation/triangle gates, creates truthful optimization plans rather than pretending external optimizers ran, defines desktop/mobile/low-power LOD targets, and emits deterministic checksum-addressed manifests with tamper verification.
 
 Automated evidence: `tests/test_phase30b_3d_asset_pipeline.py`.
+
+### Batch 30C completion evidence
+Status: **complete and verified**.
+
+Implementation: `src/aios/three_d_web/scaffold.py`.
+
+AIOS now deterministically generates a production-oriented React Three Fiber/Vite source scaffold from a validated 3D blueprint. The scaffold includes a world manager, zone/asset components, player controller, smooth follow camera, manual keyboard controls, assisted zone travel, pointer/wheel/mobile control surfaces, Zustand state synchronization and an accessible HTML overlay layer. Output materialization is traversal-safe and never downloads packages or claims external asset generation.
+
+Automated evidence: `tests/test_phase30c_3d_runtime_scaffold.py`.
