@@ -373,28 +373,32 @@ FEATURES: Final[tuple[CompletionFeature, ...]] = (
         "plugins-marketplace",
         "29I",
         "Plugin SDK, marketplace, installation, permissions, isolation, and lifecycle",
-        "pending",
+        "verified",
         (
             "Plugin publish, review, install, update, disable, uninstall, permission, audit, and rollback are complete.",
         ),
+        ("docs/phase-29/PHASE_29I_PLUGINS_DISTRIBUTED_INTEGRATIONS_COMPLETION.md", "src/aios/phase29i.py", "tests/test_phase29i_completion.py"),
     ),
     CompletionFeature(
         "distributed-runtime",
         "29I",
         "Distributed workers, clusters, multi-host execution, leases, and recovery",
-        "pending",
+        "verified",
         (
             "Multi-node execution, fencing, scheduling, retries, cancellation, failover, evidence, and reconciliation pass live tests.",
         ),
+        ("docs/phase-29/PHASE_29I_PLUGINS_DISTRIBUTED_INTEGRATIONS_COMPLETION.md", "src/aios/phase29i.py", "tests/test_phase29i_completion.py", "tests/test_phase23_distributed_execution_fabric.py", "tests/test_phase24a_multi_node_cluster_runtime.py", "tests/test_phase24b_multi_host_cluster_deployment.py"),
     ),
     CompletionFeature(
         "external-integrations",
         "29I",
         "Cloud, source control, storage, webhooks, calendars, messaging, and enterprise integrations",
-        "pending",
+        "verified",
         (
             "Each non-model integration has configuration, health, scopes, retries, audit, disable, and recovery behavior.",
+            "External credentials remain truthful activation boundaries; missing credentials never report ready.",
         ),
+        ("docs/phase-29/PHASE_29I_PLUGINS_DISTRIBUTED_INTEGRATIONS_COMPLETION.md", "src/aios/phase29i.py", "src/aios/infrastructure", "tests/test_phase29i_completion.py", "tests/test_phase8_part2_development_server_integrations.py", "tests/test_phase8_part3_cloud_platform_integrations.py"),
     ),
     CompletionFeature(
         "models-providers",
@@ -423,7 +427,7 @@ BATCHES: Final[tuple[CompletionBatch, ...]] = (
     CompletionBatch("29F", 6, "Projects, workforce, academy, knowledge, and workflows", "complete", "Finish daily project operations and the governed digital workforce.", _feature_ids("29F")),
     CompletionBatch("29G", 7, "Operations, observability, security, recovery, and release", "complete", "Prove the complete production operations and assurance plane.", _feature_ids("29G")),
     CompletionBatch("29H", 8, "Production Studio and mobile delivery", "complete", "Finish provider-neutral media production and mobile delivery surfaces.", _feature_ids("29H")),
-    CompletionBatch("29I", 9, "Plugins, marketplace, distributed runtime, and integrations", "pending", "Finish extension, distribution, and non-model enterprise integrations.", _feature_ids("29I")),
+    CompletionBatch("29I", 9, "Plugins, marketplace, distributed runtime, and integrations", "complete", "Extension, distribution, and non-model enterprise integrations are verified; external credentials remain truthful activation boundaries.", _feature_ids("29I")),
     CompletionBatch("29J", 10, "Models and providers — final batch", "deferred", "Activate and prove every supported AI model and provider only after all prior batches close.", _feature_ids("29J")),
 )
 
@@ -507,10 +511,10 @@ def completion_program_snapshot() -> dict[str, object]:
                 "total_features": len(features),
             }
         )
-    current = next((batch.batch_id for batch in BATCHES if batch.status == "pending"), None)
+    current = next((batch.batch_id for batch in BATCHES if batch.status in {"pending", "deferred"}), None)
     return {
         "program": "Phase 29 — Platform Completion Program",
-        "completion": round(100 * completed / max(1, actionable)),
+        "completion": round(100 * completed / max(1, len(FEATURES))),
         "verified_features": completed,
         "actionable_features": actionable,
         "deferred_features": sum(feature.status == "deferred" for feature in FEATURES),
