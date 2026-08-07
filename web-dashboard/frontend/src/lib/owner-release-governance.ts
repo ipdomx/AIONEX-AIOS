@@ -8,6 +8,17 @@ export type ReleaseGate = {
   updatedAt: string;
 };
 
+export type ReleaseEvidence = {
+  id: string;
+  event: "deployment" | "rollback";
+  commit: string;
+  imageDigests: Record<string, string>;
+  validated: boolean;
+  note?: string | null;
+  recordedBy: string;
+  recordedAt: string;
+};
+
 export type ReleaseCandidate = {
   id: string;
   version: string;
@@ -17,6 +28,8 @@ export type ReleaseCandidate = {
   createdAt: string;
   closed: boolean;
   closedAt: string | null;
+  deploymentEvidence?: ReleaseEvidence | null;
+  rollbackEvidence?: ReleaseEvidence | null;
   gates: ReleaseGate[];
 };
 
@@ -34,5 +47,21 @@ export async function decideRelease(
   return apiClient.post<ReleaseCandidate>(
     `/owner/releases/${encodeURIComponent(candidateId)}/decision`,
     { decision, note },
+  );
+}
+
+export async function recordReleaseEvidence(
+  candidateId: string,
+  payload: {
+    event: "deployment" | "rollback";
+    commit: string;
+    image_digests: Record<string, string>;
+    validated: true;
+    note?: string;
+  },
+): Promise<ReleaseEvidence> {
+  return apiClient.post<ReleaseEvidence>(
+    `/owner/releases/${encodeURIComponent(candidateId)}/evidence`,
+    payload,
   );
 }

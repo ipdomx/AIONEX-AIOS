@@ -163,6 +163,32 @@ services:
     security_opt: ["no-new-privileges:true"]
     networks: [aionex-network]
 
+  operations-observer:
+    image: aionex-aios-backend:local
+    restart: unless-stopped
+    command: ["python", "-m", "app.services.operations_observer"]
+    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      REDIS_URL: redis://redis:6379/0
+      AIOS_REPO_ROOT: /workspace
+      PYTHONPATH: /workspace/src:/app
+    volumes:
+      - ..:/workspace:ro
+    depends_on:
+      backend: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.services.operations_observer", "--healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    security_opt: ["no-new-privileges:true"]
+    networks: [aionex-network]
+
   project-worker:
     profiles: ["ai-execution"]
     image: aionex-aios-backend:local

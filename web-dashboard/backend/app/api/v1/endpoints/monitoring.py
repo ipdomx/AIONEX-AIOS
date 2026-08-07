@@ -11,6 +11,7 @@ from app.core.auth import (
     require_super_owner,
 )
 from app.db.base import get_db
+from app.services import operations_assurance
 from app.db.models import (
     Alert,
     AuditEvent,
@@ -358,4 +359,105 @@ async def monitoring_health(
             "rpo_minutes": 15,
             "rto_minutes": 60,
         },
+    }
+
+
+@router.get("/traces")
+async def get_traces(
+    trace_id: str | None = None,
+    service: str | None = None,
+    hours: int = Query(24, ge=1, le=168),
+    limit: int = Query(100, ge=1, le=500),
+    actor: UserRecord = Depends(require_permissions("monitoring:read")),
+    session: AsyncSession = Depends(get_db),
+):
+    statement = select(AuditEvent).where(
+        AuditEvent.created_at >= datetime.now(UTC) - timedelta(hours=hours),
+        or_(
+            AuditEvent.organization_id == actor.organization_id,
+            AuditEvent.organization_id.is_(None),
+        ),
+    )
+    rows = list(
+        (
+            await session.scalars(
+                statement.order_by(AuditEvent.created_at.desc()).limit(limit * 5)
+            )
+        ).all()
+    )
+    traces: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        details = row.details or {}
+        current_trace = str(details.get("trace_id") or "").strip()
+        if not current_trace:
+            continue
+        current_service = str(details.get("service") or row.resource_type or "runtime")
+        if trace_id and current_trace != trace_id:
+            continue
+        if service and current_service != service:
+            continue
+        trace = traces.setdefault(
+            current_trace,
+            {
+                "trace_id": current_trace,
+                "started_at": _iso(row.created_at),
+                "ended_at": _iso(row.created_at),
+                "services": set(),
+                "events": [],
+            },
+        )
+        trace["services"].add(current_service)
+        trace["events"].append(
+            {
+                "id": row.id,
+                "timestamp": _iso(row.created_at),
+                "service": current_service,
+                "action": row.action,
+                "level": details.get("level", "info"),
+                "message": details.get("message", row.action),
+            }
+        )
+        timestamp = _iso(row.created_at)
+        if timestamp < trace["started_at"]:
+            trace["started_at"] = timestamp
+        if timestamp > trace["ended_at"]:
+            trace["ended_at"] = timestamp
+    result = []
+    for trace in traces.values():
+        trace["services"] = sorted(trace["services"])
+        trace["events"] = sorted(trace["events"], key=lambda item: item["timestamp"])
+        result.append(trace)
+    result.sort(key=lambda item: item["ended_at"], reverse=True)
+    return result[:limit]
+
+
+@router.get("/topology")
+async def get_topology(
+    actor: UserRecord = Depends(require_permissions("monitoring:read")),
+    session: AsyncSession = Depends(get_db),
+):
+    del actor
+    return await operations_assurance.runtime_topology(session)
+
+
+@router.post("/observe")
+async def observe_now(
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+):
+    samples = await operations_assurance.record_observation_cycle(session)
+    session.add(
+        AuditEvent(
+            organization_id=actor.organization_id,
+            user_id=actor.id,
+            action="operations.observation.manual",
+            resource_type="runtime",
+            resource_id="platform",
+            details={"status": "completed", "samples": len(samples)},
+        )
+    )
+    await session.commit()
+    return {
+        "observed_at": _iso(datetime.now(UTC)),
+        "samples": [_serialize_metric(item) for item in samples],
     }

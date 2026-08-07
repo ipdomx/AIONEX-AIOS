@@ -115,6 +115,32 @@ services:
       retries: 3
       start_period: 20s
 
+  operations-observer:
+    image: aionex-aios-backend:local
+    env_file:
+      - ${AIOS_ENV_FILE:-.env.production}
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      REDIS_URL: redis://redis:6379/0
+      AIOS_REPO_ROOT: /workspace
+      PYTHONPATH: /workspace/src:/app
+    command: ["python", "-m", "app.services.operations_observer"]
+    restart: unless-stopped
+    volumes:
+      - ../..:/workspace:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.services.operations_observer", "--healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
   project-worker:
     profiles: ["ai-execution"]
     image: aionex-aios-backend:local
