@@ -58,3 +58,9 @@ Implementation: `src/aios/phase31f_certification.py` plus final repository clean
 The retained certification rejects stale source artifacts, dead HTTP 501 surfaces, unfinished UI markers, placeholder runtimes, and concrete unimplemented paths outside reviewed abstract bases. It also requires the retained Phase 31 capability/evidence modules. The final certification is combined with Python compile validation, complete root tests, frontend type-check/build, dependency audit, Alembic head verification, GitHub CI, and live production health.
 
 Automated evidence: `tests/test_phase31f_final_certification.py` plus all retained Phase 31 tests and CI.
+
+## Phase 32 — Market Readiness & Live Activation Hardening
+
+Phase 32 is the final market-readiness program. It does not fabricate readiness for third-party services that require credentials the operator has not supplied. It upgrades locally controllable capabilities, performs independent dependency and static-security audits, retains explicit activation boundaries for optional external providers, and certifies repository/runtime readiness through `src/aios/phase32_market_readiness.py`.
+
+Locally activated and validated during Phase 32: Blender headless runtime and glTF Transform CLI. Existing required production workers remain healthy. Tripo3D, Meshy, Telegram, Kubernetes/Helm, PayPal, WhatsApp/Twilio and push-provider features remain external activation boundaries until valid service-specific credentials or runtimes are supplied; AIOS must display them as unconfigured rather than fake-ready.

@@ -52,8 +52,14 @@ class ConnectorRegistry:
     def _validate_endpoint(connector_type: str, endpoint: str) -> None:
         if connector_type == 'http':
             parsed = urlparse(endpoint)
-            if parsed.scheme not in {'http', 'https'} or not parsed.hostname:
-                raise ValueError('HTTP endpoint must be an http(s) URL')
+            if (
+                parsed.scheme not in {'http', 'https'}
+                or not parsed.hostname
+                or parsed.username is not None
+                or parsed.password is not None
+                or parsed.fragment
+            ):
+                raise ValueError('HTTP endpoint must be a plain http(s) URL without embedded credentials or fragments')
         elif connector_type == 'tcp':
             host, sep, port = endpoint.rpartition(':')
             if not sep or not host or not port.isdigit() or not (1 <= int(port) <= 65535):
