@@ -2280,14 +2280,20 @@ async def _validate_release_gate(
         last_result = f"{critical_alerts} unresolved critical alert(s)"
         evidence = {"unresolvedCriticalAlerts": critical_alerts}
     elif resource_id == "performance":
-        samples = (
-            await session.scalars(
-                select(MetricSample)
-                .where(MetricSample.timestamp >= _now() - timedelta(hours=24))
-                .order_by(MetricSample.timestamp.desc())
-                .limit(100)
-            )
-        ).all()
+        history_samples = list(
+            (
+                await session.scalars(
+                    select(MetricSample)
+                    .where(MetricSample.timestamp >= _now() - timedelta(hours=24))
+                    .order_by(MetricSample.timestamp.desc())
+                    .limit(1000)
+                )
+            ).all()
+        )
+        latest_by_signal: dict[tuple[str, str], MetricSample] = {}
+        for sample in history_samples:
+            latest_by_signal.setdefault((sample.name, sample.resource), sample)
+        samples = list(latest_by_signal.values())
         unknown = sum("status" not in (sample.labels or {}) for sample in samples)
         unhealthy = sum(
             "status" in (sample.labels or {})
@@ -2297,7 +2303,8 @@ async def _validate_release_gate(
         passed = bool(samples) and unknown == 0 and unhealthy == 0
         last_result = (
             (
-                f"{len(samples)} recent metric sample(s), {unhealthy} unhealthy, "
+                f"{len(samples)} current metric signal(s) from "
+                f"{len(history_samples)} retained sample(s), {unhealthy} unhealthy, "
                 f"{unknown} without an explicit status"
             )
             if samples
@@ -2305,6 +2312,7 @@ async def _validate_release_gate(
         )
         evidence = {
             "sampleCount": len(samples),
+            "historicalSampleCount": len(history_samples),
             "unhealthySampleCount": unhealthy,
             "unknownStatusSampleCount": unknown,
             "windowHours": 24,
