@@ -35,3 +35,34 @@ __all__ += [
 from .scaffold import RuntimeScaffold, ScaffoldFile, ThreeDRuntimeScaffoldBuilder
 
 __all__ += ["RuntimeScaffold", "ScaffoldFile", "ThreeDRuntimeScaffoldBuilder"]
+
+from .visual_qa import (
+    BrowserAcceptancePlanner,
+    BrowserRunReceipt,
+    BrowserSpec,
+    BrowserSupport,
+    ConsoleRecord,
+    DEFAULT_BROWSERS,
+    DEFAULT_SCENARIOS,
+    DEFAULT_VIEWPORTS,
+    EvidenceEntry,
+    EvidenceKind,
+    EvidenceManifestBuilder,
+    ScenarioResult,
+    SmokeScenario,
+    ViewportSpec,
+    VisualQAEvidenceManifest,
+    VisualQAGate,
+    VisualQAPolicy,
+    VisualQAVerdict,
+    WebGLErrorRecord,
+    checksum_bytes,
+)
+
+__all__ += [
+    "BrowserAcceptancePlanner", "BrowserRunReceipt", "BrowserSpec", "BrowserSupport",
+    "ConsoleRecord", "DEFAULT_BROWSERS", "DEFAULT_SCENARIOS", "DEFAULT_VIEWPORTS",
+    "EvidenceEntry", "EvidenceKind", "EvidenceManifestBuilder", "ScenarioResult",
+    "SmokeScenario", "ViewportSpec", "VisualQAEvidenceManifest", "VisualQAGate",
+    "VisualQAPolicy", "VisualQAVerdict", "WebGLErrorRecord", "checksum_bytes",
+]
