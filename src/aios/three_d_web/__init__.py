@@ -66,3 +66,24 @@ __all__ += [
     "SmokeScenario", "ViewportSpec", "VisualQAEvidenceManifest", "VisualQAGate",
     "VisualQAPolicy", "VisualQAVerdict", "WebGLErrorRecord", "checksum_bytes",
 ]
+
+from .performance import (
+    DEFAULT_PERFORMANCE_BUDGETS,
+    PerformanceBudget,
+    PerformanceGate,
+    PerformanceGateResult,
+    PerformanceReceipt,
+    PerformanceReceiptBuilder,
+    PerformanceSample,
+    PerformanceViolation,
+    ReleaseEvidence,
+    ReleaseGateResult,
+    ThreeDReleaseGate,
+)
+
+__all__ += [
+    "DEFAULT_PERFORMANCE_BUDGETS", "PerformanceBudget", "PerformanceGate",
+    "PerformanceGateResult", "PerformanceReceipt", "PerformanceReceiptBuilder",
+    "PerformanceSample", "PerformanceViolation", "ReleaseEvidence",
+    "ReleaseGateResult", "ThreeDReleaseGate",
+]

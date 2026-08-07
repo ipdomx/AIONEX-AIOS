@@ -68,3 +68,12 @@ AIOS now has a deterministic visual-QA/browser-acceptance contract for 3D web pr
 The contract remains truthful: it does not pretend a browser run happened unless a real browser worker supplies a `BrowserRunReceipt`; unsupported browser states require an explicit reason.
 
 Automated evidence: `tests/test_phase30d_visual_qa.py` plus retained 30A–30C tests.
+
+### Batch 30E completion evidence
+Status: **complete and verified**.
+
+Implementation: `src/aios/three_d_web/performance.py`.
+
+AIOS now enforces profile-specific 3D performance budgets for FPS, frame time, draw calls, triangles, total scene asset bytes, application bundle bytes and GPU memory where policy requires it. Performance receipts are deterministic and checksum-addressed. The release gate is fail-closed and requires desktop, mobile and low-power results, successful visual QA, successful asset governance, successful production build, valid release evidence, deployment receipt and rollback receipt before release approval.
+
+Automated evidence: `tests/test_phase30e_3d_performance_release_gate.py`.
