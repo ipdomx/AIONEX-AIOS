@@ -14,6 +14,7 @@ from pathlib import Path
 from app.core.config import settings
 from app.core.logging import get_logger, setup_logging
 from app.db.base import SessionLocal
+from app.db.redis import close_redis, init_redis
 from app.services.operations_assurance import record_observation_cycle
 
 logger = get_logger(__name__)
@@ -99,8 +100,12 @@ async def async_main() -> int:
             loop.add_signal_handler(signum, observer.stop_event.set)
         except NotImplementedError:
             pass
-    await observer.run_forever()
-    return 0
+    await init_redis()
+    try:
+        await observer.run_forever()
+        return 0
+    finally:
+        await close_redis()
 
 
 def main() -> int:
