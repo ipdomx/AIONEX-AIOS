@@ -31,3 +31,13 @@ __all__ += ["AIRoutingLayer", "BestResultSelector", "CandidateResult", "Consensu
 from .integration import AIInteractionJournal, AIProviderIntegration, AIWorkItem, AIWorkResult, PromptContextFirewall
 
 __all__ += ["AIInteractionJournal", "AIProviderIntegration", "AIWorkItem", "AIWorkResult", "PromptContextFirewall"]
+
+from .tool_catalog import (
+    ProviderCapabilityRecord, THREE_D_PROVIDER_RECORDS, ToolActivation, ToolCapability,
+    local_tool_catalog, provider_activation,
+)
+
+__all__ += [
+    "ProviderCapabilityRecord", "THREE_D_PROVIDER_RECORDS", "ToolActivation", "ToolCapability",
+    "local_tool_catalog", "provider_activation",
+]

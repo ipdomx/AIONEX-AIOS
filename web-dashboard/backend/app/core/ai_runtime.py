@@ -320,7 +320,7 @@ ai_runtime = AIRuntimeState()
 FINAL_SUPPORTED_PROVIDER_TYPES = (
     "openai", "anthropic", "gemini", "openrouter", "ollama", "mistral",
     "cohere", "xai", "deepseek", "groq", "together", "fireworks",
-    "huggingface", "azure_openai", "aws_bedrock",
+    "huggingface", "azure_openai", "aws_bedrock", "tripo3d", "meshy",
 )
 
 
