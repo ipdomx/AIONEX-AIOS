@@ -57,3 +57,14 @@ Implementation: `src/aios/three_d_web/scaffold.py`.
 AIOS now deterministically generates a production-oriented React Three Fiber/Vite source scaffold from a validated 3D blueprint. The scaffold includes a world manager, zone/asset components, player controller, smooth follow camera, manual keyboard controls, assisted zone travel, pointer/wheel/mobile control surfaces, Zustand state synchronization and an accessible HTML overlay layer. Output materialization is traversal-safe and never downloads packages or claims external asset generation.
 
 Automated evidence: `tests/test_phase30c_3d_runtime_scaffold.py`.
+
+### Batch 30D completion evidence
+Status: **complete and verified**.
+
+Implementation: `src/aios/three_d_web/visual_qa.py`.
+
+AIOS now has a deterministic visual-QA/browser-acceptance contract for 3D web projects. It defines supported/unsupported/unavailable browser states, desktop and mobile viewport contracts, route/asset/interaction/camera smoke scenarios, console and WebGL error capture records, screenshot/evidence receipts with traversal-safe checksum-addressed paths, deterministic evidence manifests, and a fail-closed visual QA gate that refuses success when required desktop/mobile coverage, screenshots, scenarios, or runtime/WebGL health are missing.
+
+The contract remains truthful: it does not pretend a browser run happened unless a real browser worker supplies a `BrowserRunReceipt`; unsupported browser states require an explicit reason.
+
+Automated evidence: `tests/test_phase30d_visual_qa.py` plus retained 30A–30C tests.
