@@ -39,3 +39,12 @@ Purpose: extend AIONEX AIOS so it can autonomously plan, build, validate, optimi
 - Final end-to-end deterministic acceptance proving AIOS can build and govern a complete 3D web project.
 
 No batch may claim external 3D asset generation unless a real configured tool/provider produced the asset. Missing Blender/media integrations remain explicit activation boundaries.
+
+### Batch 30B completion evidence
+Status: **complete and verified**.
+
+Implementation: `src/aios/three_d_web/assets.py`.
+
+The retained asset pipeline performs traversal-safe GLB/GLTF inspection, extracts deterministic counts and triangle estimates where the source metadata permits it, detects declared Draco/Meshopt/KTX2/Basis extensions, applies profile-specific byte/mesh/material/texture/animation/triangle gates, creates truthful optimization plans rather than pretending external optimizers ran, defines desktop/mobile/low-power LOD targets, and emits deterministic checksum-addressed manifests with tamper verification.
+
+Automated evidence: `tests/test_phase30b_3d_asset_pipeline.py`.

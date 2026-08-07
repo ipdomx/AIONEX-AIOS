@@ -18,3 +18,16 @@ __all__ = [
     "SceneZone",
     "ThreeDProjectPlanner",
 ]
+
+from .assets import (
+    ArtifactManifest, ArtifactManifestBuilder, AssetBudget, AssetBudgetGate, AssetBudgetResult,
+    AssetInspector, AssetMetadata, BudgetViolation, CompressionKind, DEFAULT_BUDGETS,
+    LOD_PROFILES, LODVariant, OptimizationAction, OptimizationPlan, OptimizationPlanner,
+)
+
+__all__ += [
+    "ArtifactManifest", "ArtifactManifestBuilder", "AssetBudget", "AssetBudgetGate",
+    "AssetBudgetResult", "AssetInspector", "AssetMetadata", "BudgetViolation",
+    "CompressionKind", "DEFAULT_BUDGETS", "LOD_PROFILES", "LODVariant",
+    "OptimizationAction", "OptimizationPlan", "OptimizationPlanner",
+]
