@@ -398,6 +398,28 @@ async def test_performance_gate_requires_explicit_healthy_telemetry() -> None:
     )
     assert gate.status == "passed"
 
+    latest = MetricSample(
+        name="redis.latency.ms",
+        resource="redis-primary",
+        value=1,
+        labels={"status": "healthy"},
+    )
+    latest.timestamp = datetime.now(UTC)
+    historical = MetricSample(
+        name="redis.latency.ms",
+        resource="redis-primary",
+        value=0,
+        labels={"status": "failed"},
+    )
+    historical.timestamp = datetime.now(UTC) - timedelta(minutes=5)
+    await control_plane._validate_release_gate(  # type: ignore[arg-type]
+        _PerformanceEvidenceSession([latest, historical]),
+        gate,
+    )
+    assert gate.status == "passed"
+    assert gate.payload["evidence"]["sampleCount"] == 1
+    assert gate.payload["evidence"]["historicalSampleCount"] == 2
+
 
 @pytest.mark.asyncio
 async def test_backup_release_gate_requires_recent_backup_and_matching_recovery(
