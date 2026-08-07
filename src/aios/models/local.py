@@ -3,16 +3,20 @@ from __future__ import annotations
 from .base import ModelProvider, ModelResponse
 
 
-class LocalPlaceholderProvider(ModelProvider):
-    name = 'local'
+class UnconfiguredLocalProvider(ModelProvider):
+    """Truthful local-model activation boundary.
 
-    def __init__(self, model: str = 'local-placeholder'):
+    This provider never fabricates model output. It exists only so callers get a
+    deterministic, actionable failure until a real local runtime such as Ollama
+    is configured through the supported provider platform.
+    """
+
+    name = "local-unconfigured"
+
+    def __init__(self, model: str = "unconfigured"):
         self.model = model
 
     def generate(self, prompt: str, system: str | None = None) -> ModelResponse:
-        return ModelResponse(
-            text='لا يوجد نموذج محلي متصل بعد. تم حفظ الطلب ويمكن توصيل Ollama أو أي مزود محلي لاحقًا.',
-            model=self.model,
-            provider=self.name,
-            confidence=0.1,
+        raise RuntimeError(
+            "No local model runtime is configured. Configure Ollama or an OpenAI-compatible local endpoint before execution."
         )
