@@ -261,7 +261,7 @@ async def test_finalization_requires_live_health_and_release_evidence(
     assert checks["release-security"]["status"] == "passed"
     assert checks["release-backup"]["status"] == "failed"
     assert checks["release-backup"]["category"] == "reliability"
-    assert snapshot["program"]["current_batch"] == "29G"
+    assert snapshot["program"]["current_batch"] == "29H"
     assert snapshot["program"]["models_providers_batch"] == "29J"
     assert snapshot["program"]["completion"] < 100
 

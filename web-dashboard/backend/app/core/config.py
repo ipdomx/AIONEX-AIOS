@@ -99,6 +99,17 @@ class Settings(BaseSettings):
         validation_alias="BACKUP_MIN_FREE_BYTES",
     )
 
+    OPERATIONS_OBSERVER_INTERVAL_SECONDS: int = Field(
+        default=30,
+        ge=10,
+        le=3600,
+        validation_alias="OPERATIONS_OBSERVER_INTERVAL_SECONDS",
+    )
+    OPERATIONS_OBSERVER_HEALTH_FILE: str = Field(
+        default="/tmp/aionex-operations-observer-health.json",
+        validation_alias="OPERATIONS_OBSERVER_HEALTH_FILE",
+    )
+
     PORTAL_ASSET_ROOT: str = Field(
         default="/var/lib/aionex/portal-assets",
         validation_alias="PORTAL_ASSET_ROOT",

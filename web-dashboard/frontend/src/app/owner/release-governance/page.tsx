@@ -124,8 +124,8 @@ export default function OwnerReleaseGovernancePage() {
             Release Authority & Quality Gates
           </h1>
           <p className="mt-2 text-sm text-white/45">
-            Review quality-gate evidence and persist the Owner decision for the
-            current build. This registry does not execute a deployment.
+            Review quality-gate evidence, Owner approval, and retained live
+            deployment and rollback evidence for the current production build.
           </p>
         </div>
         <button
@@ -187,6 +187,50 @@ export default function OwnerReleaseGovernancePage() {
                   Release decisions are locked.
                 </div>
               )}
+              <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-xs text-white/45">
+                  <div className="font-medium text-white">
+                    Deployment evidence
+                  </div>
+                  {item.deploymentEvidence ? (
+                    <div className="mt-2 space-y-1">
+                      <div>
+                        Commit: {item.deploymentEvidence.commit.slice(0, 12)}
+                      </div>
+                      <div>
+                        Validated:{" "}
+                        {item.deploymentEvidence.validated ? "yes" : "no"}
+                      </div>
+                      <div>{item.deploymentEvidence.recordedAt}</div>
+                    </div>
+                  ) : (
+                    <div className="mt-2">
+                      No validated deployment evidence recorded yet.
+                    </div>
+                  )}
+                </div>
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-xs text-white/45">
+                  <div className="font-medium text-white">
+                    Rollback evidence
+                  </div>
+                  {item.rollbackEvidence ? (
+                    <div className="mt-2 space-y-1">
+                      <div>
+                        Commit: {item.rollbackEvidence.commit.slice(0, 12)}
+                      </div>
+                      <div>
+                        Validated:{" "}
+                        {item.rollbackEvidence.validated ? "yes" : "no"}
+                      </div>
+                      <div>{item.rollbackEvidence.recordedAt}</div>
+                    </div>
+                  ) : (
+                    <div className="mt-2">
+                      No validated rollback drill evidence recorded yet.
+                    </div>
+                  )}
+                </div>
+              </div>
               <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
                 {item.gates.map((gate) => (
                   <div

@@ -79,6 +79,7 @@ OWNER_API_CONTRACT = {
     ("PATCH", "/api/v1/owner/licenses/{license_id}"),
     ("GET", "/api/v1/owner/releases"),
     ("POST", "/api/v1/owner/releases/{candidate_id}/decision"),
+    ("POST", "/api/v1/owner/releases/{candidate_id}/evidence"),
     ("GET", "/api/v1/owner/finalization"),
     ("GET", "/api/v1/owner/free-tier"),
     ("PATCH", "/api/v1/owner/free-tier"),
@@ -161,6 +162,13 @@ OWNER_MUTATION_REQUESTS = {
     ("POST", "/api/v1/owner/releases/{candidate_id}/decision"): {
         "decision": "approve",
         "note": "",
+    },
+    ("POST", "/api/v1/owner/releases/{candidate_id}/evidence"): {
+        "event": "deployment",
+        "commit": "0123456789abcdef0123456789abcdef01234567",
+        "image_digests": {},
+        "validated": True,
+        "note": "contract test",
     },
     ("PUT", "/api/v1/owner/portal/draft"): {
         "configuration": default_portal_configuration(),

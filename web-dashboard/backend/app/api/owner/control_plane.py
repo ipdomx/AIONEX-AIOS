@@ -62,6 +62,7 @@ from app.db.models import (
 from app.db.redis import get_redis
 from app.services import communications, work_management
 from app.services import governance as governance_service
+from app.services import operations_assurance
 from app.services import workforce as workforce_service
 from app.services.backup_executor import (
     BackupExecutionError,
@@ -179,6 +180,14 @@ class OwnerNotificationRuleUpdate(BaseModel):
 
 class OwnerReleaseDecision(BaseModel):
     decision: Literal["approve", "reject"]
+    note: str = Field(default="", max_length=2000)
+
+
+class OwnerReleaseEvidence(BaseModel):
+    event: Literal["deployment", "rollback"]
+    commit: str = Field(min_length=7, max_length=64)
+    image_digests: dict[str, str] = Field(default_factory=dict)
+    validated: bool = True
     note: str = Field(default="", max_length=2000)
 
 
@@ -1480,22 +1489,18 @@ async def _system_map_items(session: AsyncSession) -> list[dict[str, Any]]:
         redis_started = perf_counter()
         if await redis.ping():
             redis_health = "healthy"
-            redis_latency = max(
-                1,
-                round((perf_counter() - redis_started) * 1000),
-            )
+            redis_latency = max(1, round((perf_counter() - redis_started) * 1000))
             try:
                 client_info = await redis.info("clients")
                 connected_clients = client_info.get("connected_clients")
                 if isinstance(connected_clients, int):
                     redis_connections = connected_clients
             except Exception:
-                # The health probe remains valid when a restricted Redis account
-                # cannot read INFO; report the metric as unavailable.
                 redis_connections = None
     except Exception:
         redis_health = "offline"
-    return [
+
+    items: list[dict[str, Any]] = [
         {
             "id": "api-runtime",
             "name": socket.gethostname(),
@@ -1505,6 +1510,7 @@ async def _system_map_items(session: AsyncSession) -> list[dict[str, Any]]:
             "latency": None,
             "load": runtime_load,
             "connections": None,
+            "endpoint": None,
         },
         {
             "id": "postgres-primary",
@@ -1515,6 +1521,7 @@ async def _system_map_items(session: AsyncSession) -> list[dict[str, Any]]:
             "latency": database_latency,
             "load": None,
             "connections": database_connections,
+            "endpoint": f"{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}",
         },
         {
             "id": "redis-primary",
@@ -1525,15 +1532,38 @@ async def _system_map_items(session: AsyncSession) -> list[dict[str, Any]]:
             "latency": redis_latency,
             "load": None,
             "connections": redis_connections,
+            "endpoint": "redis:6379",
         },
     ]
+    try:
+        inventory = await operations_assurance.service_inventory(session)
+    except Exception:
+        inventory = []
+    existing = {item["id"] for item in items}
+    for component in inventory:
+        if component["id"] in existing or component["id"] == "backend":
+            continue
+        items.append(
+            {
+                "id": component["id"],
+                "name": component["name"],
+                "kind": component["kind"],
+                "region": os.getenv("AIOS_REGION", "Configured runtime"),
+                "health": component["health"],
+                "latency": component.get("latency_ms"),
+                "load": None,
+                "connections": None,
+                "endpoint": component.get("endpoint"),
+            }
+        )
+    return items
 
 
 async def _health_items(session: AsyncSession) -> list[dict[str, Any]]:
     nodes = await _system_map_items(session)
     nodes_by_id = {node["id"]: node for node in nodes}
-    database = nodes_by_id["postgres-primary"]
-    redis = nodes_by_id["redis-primary"]
+    database = nodes_by_id.get("postgres-primary")
+    redis = nodes_by_id.get("redis-primary")
     active_alerts = int(
         (
             await session.scalar(
@@ -1553,35 +1583,51 @@ async def _health_items(session: AsyncSession) -> list[dict[str, Any]]:
         )
         or 0
     )
+    component_failures = [
+        node for node in nodes if node["id"] != "runtime-node" and node["health"] != "healthy"
+    ]
     return [
         {
             "id": "database",
             "name": "PostgreSQL",
-            "status": database["health"],
-            "detail": f"{database['latency']} ms query latency",
+            "status": database["health"] if database else "unhealthy",
+            "detail": (
+                f"{database['latency']} ms query latency"
+                if database and database.get("latency") is not None
+                else "PostgreSQL probe unavailable"
+            ),
         },
         {
             "id": "redis",
             "name": "Redis",
-            "status": redis["health"],
+            "status": redis["health"] if redis else "unhealthy",
             "detail": (
                 f"{redis['latency']} ms ping latency"
-                if redis["health"] == "healthy"
+                if redis and redis.get("latency") is not None
                 else "Redis ping unavailable"
             ),
         },
         {
             "id": "backend",
             "name": "Owner API",
-            "status": "healthy",
+            "status": nodes_by_id.get("api-runtime", {}).get("health", "unhealthy"),
             "detail": f"AIONEX AIOS {settings.APP_VERSION}",
+        },
+        {
+            "id": "runtime-components",
+            "name": "Runtime components",
+            "status": "healthy" if not component_failures else "degraded",
+            "detail": (
+                f"{len(nodes)-1} component(s) probed, {len(component_failures)} unavailable"
+            ),
         },
         {
             "id": "operations",
             "name": "Operations runtime",
-            "status": "degraded" if critical_alerts else "healthy",
+            "status": "degraded" if critical_alerts or component_failures else "healthy",
             "detail": (
-                f"{active_alerts} active alert(s), " f"{critical_alerts} critical"
+                f"{active_alerts} active alert(s), {critical_alerts} critical, "
+                f"{len(component_failures)} unavailable component(s)"
             ),
         },
     ]
@@ -4402,6 +4448,41 @@ async def releases(
         (str(item["updatedAt"]) for item in gates),
         default=_iso(),
     )
+    if hasattr(session, "scalars"):
+        evidence_rows = list(
+            (
+                await session.scalars(
+                    select(AuditEvent)
+                    .where(
+                        AuditEvent.action.in_({"release.deployment", "release.rollback"}),
+                        AuditEvent.resource_type == "release_candidate",
+                        AuditEvent.resource_id == "current-release",
+                    )
+                    .order_by(AuditEvent.created_at.desc())
+                    .limit(100)
+                )
+            ).all()
+        )
+    else:
+        # Compatibility for pure unit-contract callers that supply a sentinel
+        # instead of a database session; production requests always use SQL.
+        evidence_rows = []
+    latest_evidence: dict[str, dict[str, Any]] = {}
+    for event in evidence_rows:
+        kind = "deployment" if event.action == "release.deployment" else "rollback"
+        if kind in latest_evidence:
+            continue
+        details = dict(event.details or {})
+        latest_evidence[kind] = {
+            "id": event.id,
+            "event": kind,
+            "commit": details.get("commit"),
+            "imageDigests": details.get("image_digests", {}),
+            "validated": bool(details.get("validated")),
+            "note": details.get("note"),
+            "recordedBy": event.user_id or "system",
+            "recordedAt": _iso(event.created_at),
+        }
     return [
         {
             "id": "current-release",
@@ -4412,6 +4493,8 @@ async def releases(
             "closedAt": str(closed_at) if closed_at else None,
             "requestedBy": "Owner readiness registry",
             "createdAt": created_at,
+            "deploymentEvidence": latest_evidence.get("deployment"),
+            "rollbackEvidence": latest_evidence.get("rollback"),
             "gates": [
                 {
                     "id": item["id"],
@@ -4424,6 +4507,58 @@ async def releases(
             ],
         }
     ]
+
+
+@router.post("/releases/{candidate_id}/evidence", status_code=status.HTTP_201_CREATED)
+async def record_release_evidence(
+    candidate_id: str,
+    data: OwnerReleaseEvidence,
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    if candidate_id != "current-release":
+        raise HTTPException(status_code=404, detail="Release candidate not found")
+    commit = data.commit.strip().lower()
+    if not re.fullmatch(r"[0-9a-f]{7,64}", commit):
+        raise HTTPException(status_code=422, detail="Release evidence commit is invalid")
+    image_digests: dict[str, str] = {}
+    for name, digest in data.image_digests.items():
+        clean_name = str(name).strip()
+        clean_digest = str(digest).strip().lower()
+        if not clean_name or len(clean_name) > 120:
+            raise HTTPException(status_code=422, detail="Release image name is invalid")
+        if clean_digest and not re.fullmatch(r"sha256:[0-9a-f]{64}", clean_digest):
+            raise HTTPException(status_code=422, detail="Release image digest is invalid")
+        if clean_digest:
+            image_digests[clean_name] = clean_digest
+    if data.validated is not True:
+        raise HTTPException(status_code=409, detail="Only validated deployment or rollback evidence can be recorded")
+    event = AuditEvent(
+        organization_id=actor.organization_id,
+        user_id=actor.id,
+        action=f"release.{data.event}",
+        resource_type="release_candidate",
+        resource_id=candidate_id,
+        details={
+            "commit": commit,
+            "image_digests": image_digests,
+            "validated": True,
+            "note": data.note.strip() or None,
+            "status": "completed",
+        },
+    )
+    session.add(event)
+    await session.commit()
+    return {
+        "id": event.id,
+        "event": data.event,
+        "commit": commit,
+        "imageDigests": image_digests,
+        "validated": True,
+        "note": data.note.strip() or None,
+        "recordedBy": actor.id,
+        "recordedAt": _iso(event.created_at),
+    }
 
 
 @router.post("/releases/{candidate_id}/decision")

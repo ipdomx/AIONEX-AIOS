@@ -1,91 +1,128 @@
-"""Databases endpoints."""
+"""Live PostgreSQL/Redis inventory and governed database operations."""
 
-from fastapi import APIRouter, Query
-from pydantic import BaseModel
-from typing import List, Optional
+from __future__ import annotations
+
+from app.core.auth import UserRecord, require_super_owner
+from app.db.base import get_db
+from app.db.models import AuditEvent, BackupRecord
+from app.services import operations_assurance
+from app.services.backup_executor import acquire_enqueue_lock
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 
-class DatabaseResponse(BaseModel):
-    id: str
-    name: str
-    type: str
-    host: str
-    port: int
-    status: str
-    size: float
-    connections: int
-    queries_per_second: int
-    slow_queries: int
-    backup_status: str
-    last_backup: Optional[str]
-    created_at: str
+
+async def _rows(session: AsyncSession) -> list[dict]:
+    return [await operations_assurance.database_snapshot(session), await operations_assurance.redis_snapshot()]
 
 
-@router.get("", response_model=List[DatabaseResponse])
+@router.get("")
 async def list_databases(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
-    type: Optional[str] = None,
-    status: Optional[str] = None,
+    type: str | None = None,
+    status: str | None = None,
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
 ):
-    """List all databases."""
-    return [
-        {
-            "id": f"db-{i}",
-            "name": f"db-primary-{i:02d}",
-            "type": "postgresql" if i % 3 == 0 else "mysql" if i % 3 == 1 else "redis",
-            "host": f"10.0.2.{i + 10}",
-            "port": 5432 if i % 3 == 0 else 3306 if i % 3 == 1 else 6379,
-            "status": "connected" if i % 4 != 0 else "error",
-            "size": 1024.5 + i * 100,
-            "connections": 45 + i * 5,
-            "queries_per_second": 1200 + i * 100,
-            "slow_queries": i % 10,
-            "backup_status": "ok" if i % 3 != 0 else "warning",
-            "last_backup": "2024-01-15T02:00:00Z",
-            "created_at": "2024-01-01T00:00:00Z",
-        }
-        for i in range(limit)
-    ]
+    del actor
+    rows = await _rows(session)
+    if type:
+        rows = [row for row in rows if row["type"] == type]
+    if status:
+        rows = [row for row in rows if row["status"] == status]
+    return rows[skip : skip + limit]
+
 
 @router.get("/{db_id}")
-async def get_database(db_id: str):
-    """Get database by ID."""
-    return {
-        "id": db_id,
-        "name": "db-primary-01",
-        "type": "postgresql",
-        "host": "10.0.2.10",
-        "port": 5432,
-        "status": "connected",
-        "size_mb": 2048.5,
-        "connections": 67,
-        "queries_per_second": 1450,
-        "slow_queries": 3,
-        "replication_lag_ms": 12,
-        "backup_status": "ok",
-        "last_backup": "2024-01-15T02:00:00Z",
-        "tables": 45,
-        "indexes": 120,
-        "replication": {"master": "db-primary-01", "replicas": ["db-replica-01", "db-replica-02"]},
-    }
+async def get_database(
+    db_id: str,
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+):
+    del actor
+    row = next((item for item in await _rows(session) if item["id"] == db_id), None)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Database not found")
+    return row
 
-@router.post("/{db_id}/backup")
-async def backup_database(db_id: str):
-    """Trigger database backup."""
-    return {"message": "Backup started", "db_id": db_id, "job_id": "backup-123"}
+
+@router.post("/{db_id}/backup", status_code=202)
+async def backup_database(
+    db_id: str,
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+):
+    if db_id != "postgres-primary":
+        raise HTTPException(status_code=409, detail="Only the governed PostgreSQL data store supports application backup")
+    await acquire_enqueue_lock(session, "backup:platform")
+    active = await session.scalar(
+        select(BackupRecord.id)
+        .where(
+            BackupRecord.scope == "platform",
+            BackupRecord.status.in_({"pending", "running"}),
+        )
+        .limit(1)
+    )
+    if active is not None:
+        raise HTTPException(status_code=409, detail="A platform backup is already queued or running")
+    record = BackupRecord(kind="database", scope="platform", status="pending")
+    session.add(record)
+    await session.flush()
+    session.add(
+        AuditEvent(
+            organization_id=actor.organization_id,
+            user_id=actor.id,
+            action="database.backup.requested",
+            resource_type="backup",
+            resource_id=record.id,
+            details={"database_id": db_id, "scope": "platform"},
+        )
+    )
+    await session.commit()
+    return {"backup_id": record.id, "database_id": db_id, "status": record.status}
+
 
 @router.get("/{db_id}/queries")
-async def get_slow_queries(db_id: str, limit: int = 20):
-    """Get slow queries."""
-    return [
-        {
-            "id": f"query-{i}",
-            "query": f"SELECT * FROM table_{i} WHERE...",
-            "duration_ms": 500 + i * 50,
-            "calls": 100 + i * 10,
-            "avg_time_ms": 450 + i * 20,
-        }
-        for i in range(limit)
-    ]
+async def get_slow_queries(
+    db_id: str,
+    limit: int = Query(20, ge=1, le=100),
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+):
+    del actor
+    if db_id == "redis-primary":
+        return {"database_id": db_id, "supported": False, "reason": "Redis query text is intentionally not collected", "queries": []}
+    if db_id != "postgres-primary":
+        raise HTTPException(status_code=404, detail="Database not found")
+    if session.get_bind().dialect.name != "postgresql":
+        return {"database_id": db_id, "supported": False, "reason": "PostgreSQL runtime statistics unavailable", "queries": []}
+    rows = (
+        await session.execute(
+            text(
+                "SELECT pid, state, wait_event_type, wait_event, "
+                "EXTRACT(EPOCH FROM (clock_timestamp()-query_start))*1000 AS duration_ms "
+                "FROM pg_stat_activity "
+                "WHERE datname=current_database() AND pid<>pg_backend_pid() AND query_start IS NOT NULL "
+                "ORDER BY duration_ms DESC LIMIT :limit"
+            ),
+            {"limit": limit},
+        )
+    ).mappings().all()
+    return {
+        "database_id": db_id,
+        "supported": True,
+        "query_text_collected": False,
+        "queries": [
+            {
+                "pid": int(row["pid"]),
+                "state": row["state"],
+                "wait_event_type": row["wait_event_type"],
+                "wait_event": row["wait_event"],
+                "duration_ms": round(float(row["duration_ms"] or 0.0), 2),
+            }
+            for row in rows
+        ],
+    }

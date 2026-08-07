@@ -97,7 +97,7 @@ Scope:
 
 Status: **complete and verified**. The authoritative evidence is recorded in
 `docs/phase-29/PHASE_29F_PROJECTS_WORKFORCE_KNOWLEDGE_COMPLETION.md`; the next
-active batch is **29G**.
+active batch is **29H**.
 
 Scope:
 
@@ -109,6 +109,8 @@ Scope:
 - Owner and user visibility for all retained evidence.
 
 ## Batch 29G — Operations, observability, security, recovery, and release
+
+**Status: complete and verified.** Evidence: `PHASE_29G_OPERATIONS_SECURITY_RECOVERY_RELEASE_COMPLETION.md`.
 
 Scope:
 
