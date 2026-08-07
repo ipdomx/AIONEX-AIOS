@@ -2,7 +2,7 @@ from app.core.ai_runtime import FINAL_SUPPORTED_PROVIDER_TYPES, AIRuntimeState, 
 
 
 def test_phase29j_supported_provider_types_are_final_contract():
-    assert set(FINAL_SUPPORTED_PROVIDER_TYPES) == {"openai", "anthropic", "gemini", "openrouter", "ollama", "mistral", "cohere", "xai", "deepseek", "groq", "together", "fireworks", "huggingface", "azure_openai", "aws_bedrock"}
+    assert set(FINAL_SUPPORTED_PROVIDER_TYPES) == {"openai", "anthropic", "gemini", "openrouter", "ollama", "mistral", "cohere", "xai", "deepseek", "groq", "together", "fireworks", "huggingface", "azure_openai", "aws_bedrock", "tripo3d", "meshy"}
 
 
 def test_model_catalog_is_truthful_and_provider_scoped():
