@@ -76,7 +76,7 @@ def certify_market_readiness(
             activation_boundary=optional,
         ))
 
-    required_tools = ("blender", "gltf-transform", "git", "gh", "docker", "node", "npm", "python3")
+    required_tools = ("git", "gh", "docker", "node", "npm", "python3")
     for tool in required_tools:
         if not which(tool):
             findings.append(MarketReadinessFinding(
