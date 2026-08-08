@@ -8,6 +8,8 @@ def test_release_validator_is_truthful_and_never_publishes():
     assert 'external_acceptance_status' in s
     assert 'blocked_missing_external_credentials_or_store_configuration' in s
     assert "'store_publication_performed':False" in s
+    assert "'simulated_e2e_status':'complete'" in s
+    assert "'batch6_status':'complete_simulated_e2e'" in s
     assert 'APP_STORE_PRIVATE_KEY' in s and 'GOOGLE_PLAY_SERVICE_ACCOUNT_JSON' in s
 
 def test_release_runbook_has_non_destructive_rollback():

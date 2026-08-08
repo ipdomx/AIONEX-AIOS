@@ -21,3 +21,7 @@ The release validator reports whether the required external credentials are pres
 3. Disable App Store / Google Play mappings from Owner Billing if a store integration must be stopped without affecting Stripe web billing.
 4. Do not delete verified purchase/event records during rollback.
 5. Restore the candidate after validation and reconcile both stores before re-enabling mappings.
+
+
+## Simulated E2E acceptance
+Complete. See `BATCH6_SIMULATED_E2E_ACCEPTANCE.md`. Both App Store and Google Play lifecycle matrices were exercised against a real disposable database using deterministic provider-boundary fakes. Real store sandbox credentials remain unavailable and no claim of a real store transaction is made.

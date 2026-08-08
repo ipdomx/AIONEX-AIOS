@@ -35,8 +35,8 @@ Complete compliant native subscription billing for both mobile stores while pres
 - Keep web Stripe subscriptions interoperable with mobile entitlements without duplicate access grants.
 
 ## Batch 6 — Sandbox acceptance and production release readiness — LOCAL COMPLETE / EXTERNAL SANDBOX BLOCKED
-- Configure external sandbox products/credentials only when supplied/authorized.
-- Run App Store Sandbox and Google Play license-tester end-to-end flows.
+- Configure external sandbox products/credentials only when supplied/authorized; deterministic provider-boundary simulation is used when external credentials are unavailable.
+- Run complete simulated App Store and Google Play end-to-end lifecycle flows against disposable PostgreSQL/Redis; real store sandbox transactions remain an external onboarding check when credentials are supplied.
 - Validate purchase, renewal, cancellation, restore, refund/revocation, upgrade/downgrade and account entitlement sync.
 - Run complete backend/mobile regression suites, migration upgrade/downgrade tests, security checks, release evidence and rollback plan.
 - Production/store publication remains a separate explicit authorization step.
