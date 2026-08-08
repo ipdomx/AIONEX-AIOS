@@ -27,6 +27,7 @@ public final class MainActivity extends Activity {
     private static final String ASSET_HOST = "appassets.aionex.local";
     private static final String OFFLINE_URL = "https://" + ASSET_HOST + "/offline.html";
     private WebView webView;
+    private PlayBillingManager playBilling;
     private boolean showingOfflineFallback;
 
     @Override
@@ -39,6 +40,8 @@ public final class MainActivity extends Activity {
         webView.setBackgroundColor(Color.rgb(3, 5, 10));
         configureWebView(webView);
         setContentView(webView);
+        playBilling = new PlayBillingManager(this, webView);
+        playBilling.start();
         webView.loadUrl(resolveLaunchUrl(getIntent()));
     }
 
@@ -92,9 +95,15 @@ public final class MainActivity extends Activity {
                 Uri uri = request.getUrl();
                 if (!"https".equalsIgnoreCase(uri.getScheme())) return true;
                 String host = uri.getHost();
-                if (PORTAL_HOST.equalsIgnoreCase(host) || ASSET_HOST.equalsIgnoreCase(host)) {
+                if (PORTAL_HOST.equalsIgnoreCase(host)) {
+                    String path = uri.getPath();
+                    if (path != null && (path.contains("/billing") || path.contains("/pricing"))) {
+                        if (playBilling != null) playBilling.openSubscriptionUi();
+                        return true;
+                    }
                     return false;
                 }
+                if (ASSET_HOST.equalsIgnoreCase(host)) return false;
                 startActivity(new Intent(Intent.ACTION_VIEW, uri));
                 return true;
             }
@@ -211,6 +220,10 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (playBilling != null) {
+            playBilling.close();
+            playBilling = null;
+        }
         if (webView != null) {
             webView.loadUrl("about:blank");
             webView.stopLoading();

@@ -17,7 +17,7 @@ Complete compliant native subscription billing for both mobile stores while pres
 - Preserve Stripe/Apple Pay for web/PWA and eligible external web flows only.
 - Add iOS source validation tests on Linux; final signed StoreKit sandbox test remains dependent on Apple/Xcode environment.
 
-## Batch 3 — Google Play Billing client
+## Batch 3 — Google Play Billing client ✅ COMPLETE
 - Add the current Google Play Billing Library, ProductDetails, subscription offer/base-plan handling, purchase flow, restore/query purchases, acknowledgement coordination, and secure token submission to AIOS.
 - Add native subscription UI bridge so the Play-distributed Android app does not route digital subscriptions to Stripe Checkout.
 - Add Android unit/source tests and emulator/device smoke coverage.
