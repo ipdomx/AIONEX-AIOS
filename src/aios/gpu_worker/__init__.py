@@ -1,4 +1,12 @@
-from .runpod import RunPodClient, RunPodPod, RunPodError
-from .controller import HunyuanGPUWorkerController, GPUJobResult
+from .runpod import RunPodClient, RunPodPod, RunPodError, RunPodServerlessClient
+from .controller import HunyuanGPUWorkerController, HunyuanServerlessController, GPUJobResult
 
-__all__ = ["RunPodClient", "RunPodPod", "RunPodError", "HunyuanGPUWorkerController", "GPUJobResult"]
+__all__ = [
+    "RunPodClient",
+    "RunPodPod",
+    "RunPodError",
+    "RunPodServerlessClient",
+    "HunyuanGPUWorkerController",
+    "HunyuanServerlessController",
+    "GPUJobResult",
+]
