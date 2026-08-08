@@ -47,7 +47,8 @@ import {
   type BillingTransaction,
 } from "@/lib/billing-api";
 
-type Tab = "accounts" | "payments" | "commerce" | "licenses" | "stores" | "operations";
+type Tab =
+  "accounts" | "payments" | "commerce" | "licenses" | "stores" | "operations";
 
 const inputClass =
   "glass-input rounded-xl px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-50";
@@ -912,63 +913,164 @@ export default function OwnerBillingPage() {
       {tab === "stores" && (
         <div className="space-y-5">
           <div className="grid gap-4 md:grid-cols-2">
-            {Object.entries(overview.mobile_stores.readiness).map(([store, state]) => (
-              <section key={store} className="glass-card p-5">
-                <h2 className="text-lg font-semibold text-white">{store === "app_store" ? "Apple App Store" : "Google Play"}</h2>
-                <p className={`mt-2 text-sm ${state.configured ? "text-green-300" : "text-amber-200"}`}>
-                  {state.configured ? "Server credentials configured" : "Configuration incomplete"}
-                </p>
-                <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-xs text-white/35">{JSON.stringify(state, null, 2)}</pre>
-              </section>
-            ))}
+            {Object.entries(overview.mobile_stores.readiness).map(
+              ([store, state]) => (
+                <section key={store} className="glass-card p-5">
+                  <h2 className="text-lg font-semibold text-white">
+                    {store === "app_store" ? "Apple App Store" : "Google Play"}
+                  </h2>
+                  <p
+                    className={`mt-2 text-sm ${state.configured ? "text-green-300" : "text-amber-200"}`}
+                  >
+                    {state.configured
+                      ? "Server credentials configured"
+                      : "Configuration incomplete"}
+                  </p>
+                  <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-xs text-white/35">
+                    {JSON.stringify(state, null, 2)}
+                  </pre>
+                </section>
+              ),
+            )}
           </div>
 
           <section className="glass-card p-5">
-            <h2 className="text-lg font-semibold text-white">Plan ↔ store product mapping</h2>
-            <form onSubmit={saveStoreMapping} className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-              <select name="store" required className={inputClass} defaultValue="app_store">
+            <h2 className="text-lg font-semibold text-white">
+              Plan ↔ store product mapping
+            </h2>
+            <form
+              onSubmit={saveStoreMapping}
+              className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-6"
+            >
+              <select
+                name="store"
+                required
+                className={inputClass}
+                defaultValue="app_store"
+              >
                 <option value="app_store">Apple App Store</option>
                 <option value="google_play">Google Play</option>
               </select>
-              <select name="plan_code" required className={inputClass} defaultValue="">
-                <option value="" disabled>Plan</option>
-                {[...new Set(overview.mobile_stores.catalog_options.map((x) => x.plan_code))].map((code) => <option key={code} value={code}>{code}</option>)}
+              <select
+                name="plan_code"
+                required
+                className={inputClass}
+                defaultValue=""
+              >
+                <option value="" disabled>
+                  Plan
+                </option>
+                {[
+                  ...new Set(
+                    overview.mobile_stores.catalog_options.map(
+                      (x) => x.plan_code,
+                    ),
+                  ),
+                ].map((code) => (
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
+                ))}
               </select>
-              <input name="period_code" required className={inputClass} placeholder="Period (monthly)" />
-              <input name="product_id" required className={inputClass} placeholder="Store product ID" />
-              <input name="base_plan_id" className={inputClass} placeholder="Base plan (Google)" />
-              <input name="offer_id" className={inputClass} placeholder="Offer ID (optional)" />
-              <button type="submit" disabled={busy} className={`${buttonClass} md:col-span-2 xl:col-span-6`}>Save mapping</button>
+              <input
+                name="period_code"
+                required
+                className={inputClass}
+                placeholder="Period (monthly)"
+              />
+              <input
+                name="product_id"
+                required
+                className={inputClass}
+                placeholder="Store product ID"
+              />
+              <input
+                name="base_plan_id"
+                className={inputClass}
+                placeholder="Base plan (Google)"
+              />
+              <input
+                name="offer_id"
+                className={inputClass}
+                placeholder="Offer ID (optional)"
+              />
+              <button
+                type="submit"
+                disabled={busy}
+                className={`${buttonClass} md:col-span-2 xl:col-span-6`}
+              >
+                Save mapping
+              </button>
             </form>
           </section>
 
           <section className="glass-card p-5">
-            <h2 className="text-lg font-semibold text-white">Current mappings</h2>
+            <h2 className="text-lg font-semibold text-white">
+              Current mappings
+            </h2>
             <div className="mt-4 space-y-3">
               {overview.mobile_stores.mappings.map((item) => (
-                <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-black/15 p-4">
+                <div
+                  key={item.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-black/15 p-4"
+                >
                   <div>
-                    <p className="font-semibold text-white">{item.store} · {item.plan_code}/{item.period_code}</p>
-                    <p className="mt-1 text-xs text-white/35">{item.product_id}{item.base_plan_id ? ` · base ${item.base_plan_id}` : ""}{item.offer_id ? ` · offer ${item.offer_id}` : ""} · {item.status}</p>
+                    <p className="font-semibold text-white">
+                      {item.store} · {item.plan_code}/{item.period_code}
+                    </p>
+                    <p className="mt-1 text-xs text-white/35">
+                      {item.product_id}
+                      {item.base_plan_id ? ` · base ${item.base_plan_id}` : ""}
+                      {item.offer_id ? ` · offer ${item.offer_id}` : ""} ·{" "}
+                      {item.status}
+                    </p>
                   </div>
-                  <button type="button" disabled={busy} className={buttonClass} onClick={() => void perform(`${item.status === "active" ? "Disabling" : "Enabling"} mapping`, () => setMobileStoreMappingStatus(item.id, item.status !== "active"))}>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className={buttonClass}
+                    onClick={() =>
+                      void perform(
+                        `${item.status === "active" ? "Disabling" : "Enabling"} mapping`,
+                        () =>
+                          setMobileStoreMappingStatus(
+                            item.id,
+                            item.status !== "active",
+                          ),
+                      )
+                    }
+                  >
                     {item.status === "active" ? "Disable" : "Enable"}
                   </button>
                 </div>
               ))}
-              {!overview.mobile_stores.mappings.length && <p className="text-sm text-white/35">No mobile store mappings configured.</p>}
+              {!overview.mobile_stores.mappings.length && (
+                <p className="text-sm text-white/35">
+                  No mobile store mappings configured.
+                </p>
+              )}
             </div>
           </section>
 
           <section className="glass-card p-5">
-            <h2 className="text-lg font-semibold text-white">Readiness diagnostics</h2>
+            <h2 className="text-lg font-semibold text-white">
+              Readiness diagnostics
+            </h2>
             <div className="mt-4 space-y-2">
               {overview.mobile_stores.diagnostics.map((item, index) => (
-                <div key={`${item.code}-${index}`} className={`rounded-xl border p-3 text-sm ${item.severity === "error" ? "border-red-500/20 text-red-300" : "border-amber-500/20 text-amber-200"}`}>
+                <div
+                  key={`${item.code}-${index}`}
+                  className={`rounded-xl border p-3 text-sm ${item.severity === "error" ? "border-red-500/20 text-red-300" : "border-amber-500/20 text-amber-200"}`}
+                >
                   {item.store}: {item.message}
                 </div>
               ))}
-              {!overview.mobile_stores.diagnostics.length && <p className="text-sm text-green-300">All active plan periods are mapped and store server configuration is ready.</p>}
+              {!overview.mobile_stores.diagnostics.length && (
+                <p className="text-sm text-green-300">
+                  All active plan periods are mapped and store server
+                  configuration is ready.
+                </p>
+              )}
             </div>
           </section>
         </div>
