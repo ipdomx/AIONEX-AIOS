@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import hashlib, json, os, re, subprocess
+import hashlib, json, os, subprocess
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 RELEASE=Path(os.getenv('AIOS_MOBILE_RELEASE_DIR','/root/.config/aionex/releases'))
@@ -35,5 +35,11 @@ payload={
  'batch6_status':'complete_simulated_e2e' if (ROOT/'web-dashboard/backend/tests/test_mobile_store_simulated_e2e.py').is_file() else 'incomplete',
  'external_acceptance_status':'ready_to_run' if app_store_ready and google_ready and rtdn_ready else 'blocked_missing_external_credentials_or_store_configuration',
 }
-print(json.dumps(payload,sort_keys=True,indent=2))
+report_path=RELEASE/'AIONEX-AIOS-Mobile-Store-Billing-v1.6.0-readiness.json'
+report_path.parent.mkdir(parents=True, exist_ok=True)
+report_path.write_text(json.dumps(payload,sort_keys=True,indent=2)+'\n', encoding='utf-8')
+report_path.chmod(0o600)
+print(f'RELEASE_READINESS={\"PASS\" if payload[\"local_release_ready\"] else \"FAIL\"}')
+print(f'SIMULATED_E2E={payload[\"simulated_e2e_status\"].upper()}')
+print(f'READINESS_REPORT={report_path}')
 raise SystemExit(0 if payload['local_release_ready'] else 1)
