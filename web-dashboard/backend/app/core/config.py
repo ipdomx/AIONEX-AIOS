@@ -330,6 +330,13 @@ class Settings(BaseSettings):
     AWS_S3_BUCKET: Optional[str] = Field(default=None, validation_alias="AWS_S3_BUCKET")
     AWS_S3_REGION: Optional[str] = Field(default=None, validation_alias="AWS_S3_REGION")
 
+    APP_STORE_BUNDLE_ID: Optional[str] = Field(default=None, validation_alias="APP_STORE_BUNDLE_ID")
+    APP_STORE_ISSUER_ID: Optional[str] = Field(default=None, validation_alias="APP_STORE_ISSUER_ID")
+    APP_STORE_KEY_ID: Optional[str] = Field(default=None, validation_alias="APP_STORE_KEY_ID")
+    APP_STORE_PRIVATE_KEY: Optional[str] = Field(default=None, validation_alias="APP_STORE_PRIVATE_KEY")
+    GOOGLE_PLAY_PACKAGE_NAME: Optional[str] = Field(default=None, validation_alias="GOOGLE_PLAY_PACKAGE_NAME")
+    GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: Optional[str] = Field(default=None, validation_alias="GOOGLE_PLAY_SERVICE_ACCOUNT_JSON")
+
     STRIPE_SECRET_KEY: Optional[str] = Field(
         default=None, validation_alias="STRIPE_SECRET_KEY"
     )
