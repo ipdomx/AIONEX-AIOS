@@ -529,7 +529,11 @@
     "provider": "المزود",
     "status": "الحالة",
     "total": "الإجمالي",
-    "noInvoices": "لم تُصدر أي فواتير بعد."
+    "noInvoices": "لم تُصدر أي فواتير بعد.",
+    "sourceMobileStore": "اشتراك عبر متجر الهاتف",
+    "sourceWeb": "اشتراك عبر الويب",
+    "manageStoreSubscription": "إدارة الاشتراك في المتجر",
+    "restorePurchases": "استعادة المشتريات"
   },
   "notifications": {
     "eyebrow": "مركز الاتصالات",

@@ -529,7 +529,11 @@
     "provider": "Prestataire",
     "status": "État",
     "total": "Total",
-    "noInvoices": "Aucune facture émise."
+    "noInvoices": "Aucune facture émise.",
+    "sourceMobileStore": "Abonnement via boutique mobile",
+    "sourceWeb": "Abonnement Web",
+    "manageStoreSubscription": "Gérer dans la boutique",
+    "restorePurchases": "Restaurer les achats"
   },
   "notifications": {
     "eyebrow": "Centre de communication",

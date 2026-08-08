@@ -330,6 +330,18 @@ class Settings(BaseSettings):
     AWS_S3_BUCKET: Optional[str] = Field(default=None, validation_alias="AWS_S3_BUCKET")
     AWS_S3_REGION: Optional[str] = Field(default=None, validation_alias="AWS_S3_REGION")
 
+    APP_STORE_BUNDLE_ID: Optional[str] = Field(default=None, validation_alias="APP_STORE_BUNDLE_ID")
+    APP_STORE_ISSUER_ID: Optional[str] = Field(default=None, validation_alias="APP_STORE_ISSUER_ID")
+    APP_STORE_KEY_ID: Optional[str] = Field(default=None, validation_alias="APP_STORE_KEY_ID")
+    APP_STORE_PRIVATE_KEY: Optional[str] = Field(default=None, validation_alias="APP_STORE_PRIVATE_KEY")
+    APP_STORE_APPLE_ID: Optional[int] = Field(default=None, validation_alias="APP_STORE_APPLE_ID")
+    APP_STORE_ENVIRONMENT: str = Field(default="sandbox", validation_alias="APP_STORE_ENVIRONMENT")
+    APP_STORE_ROOT_CERTIFICATES_DIR: Optional[str] = Field(default=None, validation_alias="APP_STORE_ROOT_CERTIFICATES_DIR")
+    GOOGLE_PLAY_PACKAGE_NAME: Optional[str] = Field(default=None, validation_alias="GOOGLE_PLAY_PACKAGE_NAME")
+    GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: Optional[str] = Field(default=None, validation_alias="GOOGLE_PLAY_SERVICE_ACCOUNT_JSON")
+    GOOGLE_PLAY_PUBSUB_AUDIENCE: Optional[str] = Field(default=None, validation_alias="GOOGLE_PLAY_PUBSUB_AUDIENCE")
+    GOOGLE_PLAY_PUBSUB_SERVICE_ACCOUNT_EMAIL: Optional[str] = Field(default=None, validation_alias="GOOGLE_PLAY_PUBSUB_SERVICE_ACCOUNT_EMAIL")
+
     STRIPE_SECRET_KEY: Optional[str] = Field(
         default=None, validation_alias="STRIPE_SECRET_KEY"
     )

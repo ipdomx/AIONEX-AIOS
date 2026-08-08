@@ -37,6 +37,7 @@ from app.api.v1.endpoints import (
     locale,
     meetings,
     mobile_delivery,
+    mobile_store_billing,
     monitoring,
     notifications,
     organizations,
@@ -78,6 +79,9 @@ api_router.include_router(
 api_router.include_router(studio.router, prefix="/studio", tags=["Production Studio"])
 api_router.include_router(
     mobile_delivery.router, prefix="/mobile", tags=["Mobile Delivery"]
+)
+api_router.include_router(
+    mobile_store_billing.router, prefix="/billing/mobile-store", tags=["Mobile Store Billing"]
 )
 api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 api_router.include_router(

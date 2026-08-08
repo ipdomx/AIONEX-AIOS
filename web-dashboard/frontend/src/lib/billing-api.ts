@@ -145,6 +145,28 @@ export type BillingReconciliationRun = {
   completed_at: string | null;
 };
 
+
+export type MobileStoreMapping = {
+  id: string;
+  store: "app_store" | "google_play";
+  product_id: string;
+  base_plan_id: string | null;
+  offer_id: string | null;
+  status: string;
+  plan_id: string;
+  plan_code: string | null;
+  price_id: string;
+  period_code: string | null;
+  updated_at: string | null;
+};
+
+export type MobileStoreControl = {
+  readiness: Record<string, { configured: boolean; [key: string]: unknown }>;
+  mappings: MobileStoreMapping[];
+  diagnostics: Array<{ severity: string; store: string; code: string; message: string; plan_code?: string; period_code?: string }>;
+  catalog_options: Array<{ plan_id: string; plan_code: string; price_id: string; period_code: string; currency: string; amount_minor: number | null }>;
+};
+
 export type BillingOverview = {
   catalog: {
     source_version: number;
@@ -180,6 +202,7 @@ export type BillingOverview = {
     usage_charge_minor: number;
   };
   providers: BillingProvider[];
+  mobile_stores: MobileStoreControl;
 };
 
 export function fetchBillingOverview(
@@ -315,4 +338,17 @@ export function reconcileBillingProvider(provider: string): Promise<{
   summary: Record<string, number | boolean>;
 }> {
   return apiClient.post("/billing/owner/reconcile", { provider });
+}
+
+
+export function saveMobileStoreMapping(payload: {
+  store: "app_store" | "google_play"; plan_code: string; period_code: string;
+  product_id: string; base_plan_id?: string | null; offer_id?: string | null;
+  mapping_id?: string | null; active?: boolean;
+}): Promise<MobileStoreMapping> {
+  return apiClient.post<MobileStoreMapping>("/billing/mobile-store/owner/mappings", payload);
+}
+
+export function setMobileStoreMappingStatus(mappingId: string, active: boolean): Promise<{ id: string; store: string; status: string }> {
+  return apiClient.patch(`/billing/mobile-store/owner/mappings/${encodeURIComponent(mappingId)}`, { active });
 }

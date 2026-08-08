@@ -1053,6 +1053,68 @@ class BillingLicense(Base, TimestampMixin):
     license_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
 
 
+class MobileStoreProduct(Base, TimestampMixin):
+    __tablename__ = "mobile_store_products"
+    __table_args__ = (
+        UniqueConstraint("store", "product_id", "base_plan_id", "offer_id", name="uq_mobile_store_product_ref"),
+        Index("ix_mobile_store_products_plan_status", "plan_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    plan_id: Mapped[str] = mapped_column(ForeignKey("billing_plans.id", ondelete="CASCADE"), nullable=False, index=True)
+    price_id: Mapped[str] = mapped_column(ForeignKey("billing_prices.id", ondelete="CASCADE"), nullable=False, index=True)
+    store: Mapped[str] = mapped_column(String(24), nullable=False, index=True)
+    product_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    base_plan_id: Mapped[str | None] = mapped_column(String(255))
+    offer_id: Mapped[str | None] = mapped_column(String(255))
+    status: Mapped[str] = mapped_column(String(32), default="inactive", nullable=False, index=True)
+    store_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class MobileStorePurchase(Base, TimestampMixin):
+    __tablename__ = "mobile_store_purchases"
+    __table_args__ = (
+        UniqueConstraint("store", "external_transaction_id", name="uq_mobile_store_purchase_transaction"),
+        Index("ix_mobile_store_purchases_org_status", "organization_id", "status"),
+        Index("ix_mobile_store_purchases_user_store", "user_id", "store"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    product_id: Mapped[str] = mapped_column(ForeignKey("mobile_store_products.id", ondelete="RESTRICT"), nullable=False, index=True)
+    store: Mapped[str] = mapped_column(String(24), nullable=False, index=True)
+    external_transaction_id: Mapped[str | None] = mapped_column(String(255))
+    original_transaction_id: Mapped[str | None] = mapped_column(String(255), index=True)
+    purchase_token_hash: Mapped[str | None] = mapped_column(String(64), index=True)
+    purchase_token_ciphertext: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), default="pending_verification", nullable=False, index=True)
+    verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    auto_renewing: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    purchased_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    verification_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class MobileStoreEvent(Base, TimestampMixin):
+    __tablename__ = "mobile_store_events"
+    __table_args__ = (
+        UniqueConstraint("store", "external_event_id", name="uq_mobile_store_event_external"),
+        Index("ix_mobile_store_events_status_created", "status", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    store: Mapped[str] = mapped_column(String(24), nullable=False, index=True)
+    external_event_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(160), nullable=False)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="received", nullable=False, index=True)
+    event_payload: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    error: Mapped[str | None] = mapped_column(Text)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class BillingReconciliationRun(Base, TimestampMixin):
     __tablename__ = "billing_reconciliation_runs"
 

@@ -529,7 +529,11 @@
     "provider": "Anbieter",
     "status": "Status",
     "total": "Gesamt",
-    "noInvoices": "Noch keine Rechnungen."
+    "noInvoices": "Noch keine Rechnungen.",
+    "sourceMobileStore": "Mobile-Store-Abonnement",
+    "sourceWeb": "Web-Abonnement",
+    "manageStoreSubscription": "Im Store verwalten",
+    "restorePurchases": "Käufe wiederherstellen"
   },
   "notifications": {
     "eyebrow": "Kommunikationszentrum",
