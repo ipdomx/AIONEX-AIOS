@@ -529,7 +529,11 @@
     "provider": "Provider",
     "status": "Status",
     "total": "Total",
-    "noInvoices": "No invoices have been issued yet."
+    "noInvoices": "No invoices have been issued yet.",
+    "sourceMobileStore": "Mobile store subscription",
+    "sourceWeb": "Web subscription",
+    "manageStoreSubscription": "Manage in store",
+    "restorePurchases": "Restore purchases"
   },
   "notifications": {
     "eyebrow": "Communication center",

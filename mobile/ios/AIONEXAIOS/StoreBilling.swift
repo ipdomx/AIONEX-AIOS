@@ -92,7 +92,7 @@ final class StoreBilling: ObservableObject {
                 guard let self, case .verified(let transaction) = result else { continue }
                 if let record = self.records[transaction.productID] {
                     do {
-                        try await self.api.submit(recordId: record.id, signedTransaction: result.jwsRepresentation)
+                        try await self.api.submit(recordId: record.id, signedTransaction: result.jwsRepresentation, accessToken: self.accessToken)
                         await transaction.finish()
                     } catch { self.lastError = error.localizedDescription }
                 }

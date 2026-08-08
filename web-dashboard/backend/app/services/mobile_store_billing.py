@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.db.models import (
-    BillingAccount, BillingPlan, BillingSubscription, MobileStoreEvent,
+    BillingAccount, BillingPlan, BillingPrice, BillingSubscription, MobileStoreEvent,
     MobileStoreProduct, MobileStorePurchase,
 )
 
@@ -157,21 +157,74 @@ async def _upsert_purchase(session:AsyncSession, *, actor:Any|None, product:Mobi
     purchase.status=normalized["status"]; purchase.verified=True; purchase.auto_renewing=normalized.get("auto_renewing",False); purchase.purchased_at=normalized.get("purchased_at"); purchase.expires_at=normalized.get("expires_at"); purchase.revoked_at=normalized.get("revoked_at"); purchase.verification_metadata={**(purchase.verification_metadata or {}),**normalized.get("metadata",{}),"verified_at":_now().isoformat(),"server_verification_required":True}
     await session.flush(); await _sync_entitlements(session,purchase,product); return purchase
 
-async def _sync_entitlements(session:AsyncSession,purchase:MobileStorePurchase,product:MobileStoreProduct)->None:
-    ref=purchase.original_transaction_id or purchase.purchase_token_hash or purchase.external_transaction_id
-    sub=await session.scalar(select(BillingSubscription).where(BillingSubscription.provider==purchase.store,BillingSubscription.external_reference==ref))
+async def _sync_entitlements(session: AsyncSession, purchase: MobileStorePurchase, product: MobileStoreProduct) -> None:
+    """Recompute one durable account grant from all provider subscriptions.
+
+    Multiple providers may represent the same customer, but entitlements are granted once
+    at account level. A verified active subscription with the furthest period end wins;
+    this preserves a valid Stripe/web subscription while mobile-store state changes.
+    """
+    ref = purchase.original_transaction_id or purchase.purchase_token_hash or purchase.external_transaction_id
+    sub = await session.scalar(select(BillingSubscription).where(
+        BillingSubscription.provider == purchase.store,
+        BillingSubscription.external_reference == ref,
+    ))
     if sub is None:
-        sub=BillingSubscription(organization_id=purchase.organization_id,plan_id=product.plan_id,price_id=product.price_id,provider=purchase.store,external_reference=ref); session.add(sub)
-    sub.plan_id=product.plan_id; sub.price_id=product.price_id; sub.status="active" if purchase.status in ACTIVE_PURCHASE_STATES else purchase.status; sub.cancel_at_period_end=not purchase.auto_renewing; sub.current_period_start=purchase.purchased_at; sub.current_period_end=purchase.expires_at; sub.canceled_at=_now() if purchase.status in {"canceled","expired","revoked"} else None; sub.subscription_metadata={**(sub.subscription_metadata or {}),"source":"mobile_store","purchase_id":purchase.id}
-    account=await session.scalar(select(BillingAccount).where(BillingAccount.organization_id==purchase.organization_id))
-    if purchase.status in ACTIVE_PURCHASE_STATES:
-        plan=await session.get(BillingPlan,product.plan_id)
-        if account is None: account=BillingAccount(organization_id=purchase.organization_id); session.add(account)
-        account.plan_id=product.plan_id; account.status="active"; account.entitlements=list(plan.entitlements if plan else []); account.limits=dict(plan.limits if plan else {}); account.current_period_end=purchase.expires_at
+        sub = BillingSubscription(
+            organization_id=purchase.organization_id, plan_id=product.plan_id,
+            price_id=product.price_id, provider=purchase.store, external_reference=ref,
+        )
+        session.add(sub)
+    sub.plan_id = product.plan_id
+    sub.price_id = product.price_id
+    sub.status = "active" if purchase.status in ACTIVE_PURCHASE_STATES else purchase.status
+    sub.cancel_at_period_end = not purchase.auto_renewing
+    sub.current_period_start = purchase.purchased_at
+    sub.current_period_end = purchase.expires_at
+    sub.canceled_at = _now() if purchase.status in {"canceled", "expired", "revoked"} else None
+    sub.subscription_metadata = {**(sub.subscription_metadata or {}), "source": "mobile_store", "purchase_id": purchase.id}
+    await session.flush()
+
+    account = await session.scalar(select(BillingAccount).where(BillingAccount.organization_id == purchase.organization_id))
+    active = (await session.scalars(
+        select(BillingSubscription).where(
+            BillingSubscription.organization_id == purchase.organization_id,
+            BillingSubscription.status.in_(["active", "trialing", "grace_period"]),
+        )
+    )).all()
+    other_active = [item for item in active if item.id != sub.id]
+    if active:
+        # Prefer the subscription with the latest known period end; stable provider/id tie-breakers
+        # make reconciliation deterministic and prevent duplicate entitlement grants.
+        def rank(item: BillingSubscription):
+            end = item.current_period_end or datetime.max.replace(tzinfo=timezone.utc)
+            if end.tzinfo is None: end = end.replace(tzinfo=timezone.utc)
+            return (end, item.provider, item.id)
+        authoritative = max(active, key=rank)
+        plan = await session.get(BillingPlan, authoritative.plan_id)
+        if account is None:
+            account = BillingAccount(organization_id=purchase.organization_id)
+            session.add(account)
+        account.plan_id = authoritative.plan_id
+        account.status = "active"
+        account.entitlements = list(plan.entitlements if plan else [])
+        account.limits = dict(plan.limits if plan else {})
+        account.current_period_end = authoritative.current_period_end
+        account.provider_customers = {
+            **(account.provider_customers or {}),
+            "entitlement_source": authoritative.provider,
+            "entitlement_subscription_id": authoritative.id,
+        }
     elif account is not None:
-        other_active=await session.scalar(select(BillingSubscription.id).where(BillingSubscription.organization_id==purchase.organization_id,BillingSubscription.id!=sub.id,BillingSubscription.status.in_(["active","trialing","grace_period"])).limit(1))
-        if other_active is None:
-            account.plan_id=None; account.status="inactive"; account.entitlements=[]; account.limits={}; account.current_period_end=purchase.expires_at
+        account.plan_id=None
+        account.status = "inactive"
+        account.entitlements=[]
+        account.limits = {}
+        account.current_period_end = purchase.expires_at
+        account.provider_customers = {
+            k: v for k, v in (account.provider_customers or {}).items()
+            if k not in {"entitlement_source", "entitlement_subscription_id"}
+        }
     await session.flush()
 
 async def submit_purchase_for_verification(session:AsyncSession,*,actor:Any,store:StoreName,product_record_id:str,signed_transaction:str|None=None,purchase_token:str|None=None)->dict[str,Any]:
@@ -285,3 +338,107 @@ async def reconcile_user_store(session:AsyncSession,*,actor:Any,store:StoreName)
 async def subscription_status(session:AsyncSession,*,actor:Any)->dict[str,Any]:
     items=(await session.scalars(select(MobileStorePurchase).where(MobileStorePurchase.organization_id==actor.organization_id,MobileStorePurchase.user_id==actor.id).order_by(MobileStorePurchase.created_at.desc()).limit(50))).all()
     return {"purchases":[{"id":x.id,"store":x.store,"status":x.status,"verified":x.verified,"auto_renewing":x.auto_renewing,"expires_at":x.expires_at,"revoked_at":x.revoked_at} for x in items]}
+
+
+def _store_management_url(store: str) -> str | None:
+    if store == "app_store":
+        return "https://apps.apple.com/account/subscriptions"
+    if store == "google_play":
+        package = quote(settings.GOOGLE_PLAY_PACKAGE_NAME or "net.vipe.aionex", safe="")
+        return f"https://play.google.com/store/account/subscriptions?package={package}"
+    return None
+
+
+def store_source_label(store: str) -> str:
+    return {"app_store": "Apple App Store", "google_play": "Google Play", "stripe": "Stripe"}.get(store, store.replace("_", " ").title())
+
+
+async def owner_store_overview(session: AsyncSession) -> dict[str, Any]:
+    mappings = (await session.scalars(
+        select(MobileStoreProduct).order_by(MobileStoreProduct.store, MobileStoreProduct.created_at)
+    )).all()
+    rows = []
+    mapped_pairs: dict[str, set[tuple[str, str]]] = {"app_store": set(), "google_play": set()}
+    for item in mappings:
+        plan = await session.get(BillingPlan, item.plan_id)
+        price = await session.get(BillingPrice, item.price_id)
+        if item.status == "active" and plan and price:
+            mapped_pairs.setdefault(item.store, set()).add((plan.code, price.period_code))
+        rows.append({
+            "id": item.id, "store": item.store, "product_id": item.product_id,
+            "base_plan_id": item.base_plan_id, "offer_id": item.offer_id, "status": item.status,
+            "plan_id": item.plan_id, "plan_code": plan.code if plan else None,
+            "price_id": item.price_id, "period_code": price.period_code if price else None,
+            "updated_at": item.updated_at.isoformat() if item.updated_at else None,
+        })
+    prices = (await session.execute(
+        select(BillingPrice, BillingPlan).join(BillingPlan, BillingPlan.id == BillingPrice.plan_id)
+        .where(BillingPrice.enabled.is_(True), BillingPlan.status == "active")
+        .order_by(BillingPlan.code, BillingPrice.period_code)
+    )).all()
+    readiness = store_readiness()
+    diagnostics = []
+    for store in ("app_store", "google_play"):
+        if not readiness[store]["configured"]:
+            diagnostics.append({"severity": "error", "store": store, "code": "provider_not_configured", "message": f"{store_source_label(store)} server credentials are incomplete."})
+        if store == "google_play" and readiness[store]["rtdn"] != "active":
+            diagnostics.append({"severity": "warning", "store": store, "code": "rtdn_identity_missing", "message": "Google Play RTDN Pub/Sub identity is not fully configured."})
+        for price, plan in prices:
+            if (plan.code, price.period_code) not in mapped_pairs.get(store, set()):
+                diagnostics.append({"severity": "warning", "store": store, "code": "unmapped_price", "plan_code": plan.code, "period_code": price.period_code, "message": f"{plan.code}/{price.period_code} has no active {store_source_label(store)} mapping."})
+    return {
+        "readiness": readiness,
+        "mappings": rows,
+        "diagnostics": diagnostics,
+        "catalog_options": [{
+            "plan_id": plan.id, "plan_code": plan.code, "price_id": price.id,
+            "period_code": price.period_code, "currency": price.currency,
+            "amount_minor": price.amount_minor,
+        } for price, plan in prices],
+    }
+
+
+async def owner_upsert_store_mapping(
+    session: AsyncSession, *, store: StoreName, plan_code: str, period_code: str,
+    product_id: str, base_plan_id: str | None = None, offer_id: str | None = None,
+    mapping_id: str | None = None, active: bool = True,
+) -> dict[str, Any]:
+    plan = await session.scalar(select(BillingPlan).where(BillingPlan.code == plan_code))
+    if plan is None: raise HTTPException(404, "Billing plan not found")
+    price = await session.scalar(select(BillingPrice).where(
+        BillingPrice.plan_id == plan.id, BillingPrice.period_code == period_code
+    ))
+    if price is None: raise HTTPException(404, "Billing price period not found")
+    product_id = product_id.strip()
+    if not product_id: raise HTTPException(422, "Store product ID is required")
+    item = await session.get(MobileStoreProduct, mapping_id) if mapping_id else None
+    if mapping_id and item is None: raise HTTPException(404, "Mobile store mapping not found")
+    if item is None:
+        item = MobileStoreProduct(plan_id=plan.id, price_id=price.id, store=store, product_id=product_id)
+        session.add(item)
+    elif item.store != store:
+        raise HTTPException(409, "Mapping belongs to a different store")
+    item.plan_id = plan.id; item.price_id = price.id; item.product_id = product_id
+    item.base_plan_id = base_plan_id.strip() if base_plan_id else None
+    item.offer_id = offer_id.strip() if offer_id else None
+    item.status = "active" if active else "inactive"
+    item.store_metadata = {**(item.store_metadata or {}), "managed_by": "owner_control", "updated_at": _now().isoformat()}
+    try:
+        await session.commit()
+    except Exception as exc:
+        await session.rollback()
+        raise HTTPException(409, "Store mapping conflicts with an existing mapping") from exc
+    return {
+        "id": item.id, "store": item.store, "product_id": item.product_id,
+        "base_plan_id": item.base_plan_id, "offer_id": item.offer_id, "status": item.status,
+        "plan_code": plan.code, "period_code": price.period_code,
+    }
+
+
+async def owner_set_store_mapping_status(session: AsyncSession, *, mapping_id: str, active: bool) -> dict[str, Any]:
+    item = await session.get(MobileStoreProduct, mapping_id)
+    if item is None: raise HTTPException(404, "Mobile store mapping not found")
+    item.status = "active" if active else "inactive"
+    item.store_metadata = {**(item.store_metadata or {}), "managed_by": "owner_control", "updated_at": _now().isoformat()}
+    await session.commit()
+    return {"id": item.id, "store": item.store, "status": item.status}

@@ -35,6 +35,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -82,7 +83,7 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
     public void openSubscriptionUi() {
         readAccessToken(token -> {
             if (token == null || token.isEmpty()) {
-                toast("Sign in to AIONEX before subscribing.");
+                toast(copy("signin"));
                 return;
             }
             accessToken = token;
@@ -92,12 +93,12 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
 
     public void restorePurchases(boolean userInitiated) {
         if (!billingClient.isReady()) {
-            if (userInitiated) toast("Google Play Billing is reconnecting. Try again shortly.");
+            if (userInitiated) toast(copy("reconnecting"));
             return;
         }
         readAccessToken(token -> {
             if (token == null || token.isEmpty()) {
-                if (userInitiated) toast("Sign in to AIONEX before restoring purchases.");
+                if (userInitiated) toast(copy("signin"));
                 return;
             }
             accessToken = token;
@@ -106,11 +107,11 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
                     .build();
             billingClient.queryPurchasesAsync(params, (result, purchases) -> {
                 if (result.getResponseCode() != BillingClient.BillingResponseCode.OK) {
-                    if (userInitiated) toast("Unable to query Google Play purchases.");
+                    if (userInitiated) toast(copy("query_failed"));
                     return;
                 }
                 for (Purchase purchase : purchases) processPurchase(purchase);
-                if (userInitiated) toast("Restore submitted for server verification.");
+                if (userInitiated) toast(copy("restore_submitted"));
             });
         });
     }
@@ -132,20 +133,20 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
                 }
                 main.post(() -> { queryProductDetails(products); restorePurchases(false); });
             } catch (Exception error) {
-                toast("Unable to load AIONEX subscription catalogue.");
+                toast(copy("catalog_failed"));
             }
         });
     }
 
     private void queryProductDetails(List<QueryProductDetailsParams.Product> products) {
-        if (!billingClient.isReady()) { toast("Google Play Billing is not ready."); return; }
-        if (products.isEmpty()) { toast("No Google Play subscriptions are configured."); return; }
+        if (!billingClient.isReady()) { toast(copy("not_ready")); return; }
+        if (products.isEmpty()) { toast(copy("none_configured")); return; }
         QueryProductDetailsParams params = QueryProductDetailsParams.newBuilder()
                 .setProductList(products).build();
         billingClient.queryProductDetailsAsync(params, new ProductDetailsResponseListener() {
             @Override public void onProductDetailsResponse(BillingResult result, QueryProductDetailsResult response) {
                 if (result.getResponseCode() != BillingClient.BillingResponseCode.OK) {
-                    toast("Unable to load Google Play subscription details."); return;
+                    toast(copy("details_failed")); return;
                 }
                 details.clear();
                 for (ProductDetails detail : response.getProductDetailsList()) details.put(detail.getProductId(), detail);
@@ -156,17 +157,22 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
 
     private void showProducts() {
         List<ProductDetails> items = new ArrayList<>(details.values());
-        if (items.isEmpty()) { toast("No eligible Google Play subscription offers are available."); return; }
+        if (items.isEmpty()) { toast(copy("none_eligible")); return; }
         String[] labels = new String[items.size() + 1];
         for (int i = 0; i < items.size(); i++) labels[i] = label(items.get(i));
-        labels[items.size()] = "Restore purchases";
+        labels = java.util.Arrays.copyOf(labels, items.size() + 2);
+        labels[items.size()] = copy("restore");
+        labels[items.size() + 1] = copy("manage");
         new AlertDialog.Builder(activity)
-                .setTitle("AIONEX Subscription")
+                .setTitle(copy("title"))
                 .setItems(labels, (dialog, which) -> {
                     if (which == items.size()) restorePurchases(true);
-                    else launch(items.get(which));
+                    else if (which == items.size() + 1) {
+                        android.net.Uri uri = android.net.Uri.parse("https://play.google.com/store/account/subscriptions?package=" + activity.getPackageName().replace(".debug", ""));
+                        activity.startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW, uri));
+                    } else launch(items.get(which));
                 })
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton(copy("cancel"), null)
                 .show();
     }
 
@@ -196,7 +202,7 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
 
     private void launch(ProductDetails detail) {
         ProductDetails.SubscriptionOfferDetails offer = selectOffer(detail);
-        if (offer == null) { toast("No eligible Google Play offer is available."); return; }
+        if (offer == null) { toast(copy("none_eligible")); return; }
         BillingFlowParams.ProductDetailsParams product = BillingFlowParams.ProductDetailsParams.newBuilder()
                 .setProductDetails(detail)
                 .setOfferToken(offer.getOfferToken())
@@ -206,7 +212,7 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
                 .build();
         BillingResult result = billingClient.launchBillingFlow(activity, params);
         if (result.getResponseCode() != BillingClient.BillingResponseCode.OK) {
-            toast("Google Play could not start the subscription flow.");
+            toast(copy("launch_failed"));
         }
     }
 
@@ -214,7 +220,7 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
         if (result.getResponseCode() == BillingClient.BillingResponseCode.OK && purchases != null) {
             for (Purchase purchase : purchases) processPurchase(purchase);
         } else if (result.getResponseCode() != BillingClient.BillingResponseCode.USER_CANCELED) {
-            toast("Google Play purchase did not complete.");
+            toast(copy("purchase_failed"));
         }
     }
 
@@ -249,7 +255,7 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
                 .setPurchaseToken(purchase.getPurchaseToken()).build();
         billingClient.acknowledgePurchase(params, result -> {
             if (result.getResponseCode() != BillingClient.BillingResponseCode.OK) {
-                toast("Purchase verified; Google Play acknowledgement will be retried.");
+                toast(copy("ack_retry"));
             }
         });
     }
@@ -283,6 +289,21 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
         connection.disconnect();
         if (code < 200 || code >= 300) throw new IllegalStateException("AIOS billing HTTP " + code);
         return result.toString();
+    }
+
+    private String copy(String key) {
+        String language = Locale.getDefault().getLanguage();
+        Map<String, String[]> values = new HashMap<>();
+        values.put("en", new String[]{"AIONEX Subscription","Restore purchases","Manage in Google Play","Sign in to AIONEX before subscribing.","Google Play Billing is reconnecting. Try again shortly.","Unable to query Google Play purchases.","Restore submitted for server verification.","Unable to load AIONEX subscription catalogue.","Google Play Billing is not ready.","No Google Play subscriptions are configured.","Unable to load Google Play subscription details.","No eligible Google Play subscription offers are available.","Cancel","Google Play could not start the subscription flow.","Google Play purchase did not complete.","Purchase verified; acknowledgement will be retried."});
+        values.put("ar", new String[]{"اشتراك AIONEX","استعادة المشتريات","إدارة الاشتراك في Google Play","سجّل الدخول إلى AIONEX قبل الاشتراك.","جارٍ إعادة الاتصال بخدمة Google Play.","تعذر الاستعلام عن مشتريات Google Play.","تم إرسال الاستعادة للتحقق من الخادم.","تعذر تحميل كتالوج اشتراكات AIONEX.","خدمة Google Play Billing غير جاهزة.","لا توجد اشتراكات Google Play مهيأة.","تعذر تحميل تفاصيل الاشتراك.","لا توجد عروض اشتراك مؤهلة.","إلغاء","تعذر بدء عملية الاشتراك.","لم تكتمل عملية الشراء.","تم التحقق من الشراء وستتم إعادة محاولة التأكيد."});
+        values.put("fr", new String[]{"Abonnement AIONEX","Restaurer les achats","Gérer dans Google Play","Connectez-vous à AIONEX avant de vous abonner.","Reconnexion à Google Play Billing.","Impossible de consulter les achats Google Play.","Restauration envoyée pour vérification serveur.","Impossible de charger le catalogue AIONEX.","Google Play Billing n’est pas prêt.","Aucun abonnement Google Play configuré.","Impossible de charger les détails.","Aucune offre éligible.","Annuler","Impossible de démarrer l’abonnement.","L’achat n’a pas abouti.","Achat vérifié ; la confirmation sera réessayée."});
+        values.put("de", new String[]{"AIONEX-Abonnement","Käufe wiederherstellen","In Google Play verwalten","Melden Sie sich vor dem Abonnieren bei AIONEX an.","Google Play Billing wird erneut verbunden.","Google-Play-Käufe konnten nicht abgefragt werden.","Wiederherstellung zur Serverprüfung gesendet.","AIONEX-Katalog konnte nicht geladen werden.","Google Play Billing ist nicht bereit.","Keine Google-Play-Abonnements konfiguriert.","Abonnementdetails konnten nicht geladen werden.","Keine geeigneten Angebote verfügbar.","Abbrechen","Abonnement konnte nicht gestartet werden.","Kauf wurde nicht abgeschlossen.","Kauf verifiziert; Bestätigung wird erneut versucht."});
+        values.put("es", new String[]{"Suscripción AIONEX","Restaurar compras","Gestionar en Google Play","Inicia sesión en AIONEX antes de suscribirte.","Reconectando Google Play Billing.","No se pudieron consultar las compras.","Restauración enviada para verificación.","No se pudo cargar el catálogo AIONEX.","Google Play Billing no está listo.","No hay suscripciones configuradas.","No se pudieron cargar los detalles.","No hay ofertas elegibles.","Cancelar","No se pudo iniciar la suscripción.","La compra no se completó.","Compra verificada; se reintentará la confirmación."});
+        values.put("tr", new String[]{"AIONEX Aboneliği","Satın alımları geri yükle","Google Play’de yönet","Abone olmadan önce AIONEX’e giriş yapın.","Google Play Billing yeniden bağlanıyor.","Satın alımlar sorgulanamadı.","Geri yükleme sunucu doğrulamasına gönderildi.","AIONEX kataloğu yüklenemedi.","Google Play Billing hazır değil.","Google Play aboneliği yapılandırılmamış.","Abonelik ayrıntıları yüklenemedi.","Uygun teklif yok.","İptal","Abonelik akışı başlatılamadı.","Satın alma tamamlanmadı.","Satın alma doğrulandı; onay yeniden denenecek."});
+        String[] v = values.getOrDefault(language, values.get("en"));
+        String[] keys = {"title","restore","manage","signin","reconnecting","query_failed","restore_submitted","catalog_failed","not_ready","none_configured","details_failed","none_eligible","cancel","launch_failed","purchase_failed","ack_retry"};
+        for (int i = 0; i < keys.length; i++) if (keys[i].equals(key)) return v[i];
+        return key;
     }
 
     private void toast(String message) { main.post(() -> Toast.makeText(activity, message, Toast.LENGTH_LONG).show()); }

@@ -458,6 +458,9 @@ export interface BillingCatalog {
 export interface BillingSubscriptionSummary {
   id: string;
   provider: string;
+  source: "web" | "mobile_store" | string;
+  provider_label: string;
+  management_url: string | null;
   status: string;
   cancel_at_period_end: boolean;
   current_period_start: string | null;

@@ -529,7 +529,11 @@
     "provider": "Sağlayıcı",
     "status": "Durum",
     "total": "Toplam",
-    "noInvoices": "Henüz fatura yok."
+    "noInvoices": "Henüz fatura yok.",
+    "sourceMobileStore": "Mobil mağaza aboneliği",
+    "sourceWeb": "Web aboneliği",
+    "manageStoreSubscription": "Mağazada yönet",
+    "restorePurchases": "Satın alımları geri yükle"
   },
   "notifications": {
     "eyebrow": "İletişim merkezi",

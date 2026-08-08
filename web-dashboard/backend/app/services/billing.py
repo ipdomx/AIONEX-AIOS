@@ -1799,9 +1799,17 @@ async def billing_summary(session: AsyncSession, actor: UserRecord) -> dict[str,
 
 
 def subscription_snapshot(item: BillingSubscription) -> dict[str, Any]:
+    provider_labels = {"app_store": "Apple App Store", "google_play": "Google Play", "stripe": "Stripe"}
+    management_urls = {
+        "app_store": "https://apps.apple.com/account/subscriptions",
+        "google_play": f"https://play.google.com/store/account/subscriptions?package={settings.GOOGLE_PLAY_PACKAGE_NAME or 'net.vipe.aionex'}",
+    }
     return {
         "id": item.id,
         "provider": item.provider,
+        "source": "mobile_store" if item.provider in {"app_store", "google_play"} else "web",
+        "provider_label": provider_labels.get(item.provider, item.provider.replace("_", " ").title()),
+        "management_url": management_urls.get(item.provider),
         "status": item.status,
         "cancel_at_period_end": item.cancel_at_period_end,
         "current_period_start": (
@@ -2457,6 +2465,7 @@ async def owner_overview(session: AsyncSession) -> dict[str, Any]:
             "usage_charge_minor": sum(item.charge_minor for item in usage_records),
         },
         "providers": provider_readiness(),
+        "mobile_stores": await __import__("app.services.mobile_store_billing", fromlist=["owner_store_overview"]).owner_store_overview(session),
     }
 
 

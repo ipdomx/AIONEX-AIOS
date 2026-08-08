@@ -28,7 +28,7 @@ Complete compliant native subscription billing for both mobile stores while pres
 - Reconcile renewal, cancellation, expiration, grace, billing retry/hold, refund/revocation, upgrade/downgrade and restore states into the existing AIOS billing account and entitlements.
 - Add replay protection, idempotency, audit records and reconciliation jobs.
 
-## Batch 5 — Owner control, catalogue mapping and UX
+## Batch 5 — Owner control, catalogue mapping and UX ✅ COMPLETE
 - Add owner-side mapping between AIOS plans/periods and App Store product IDs / Google Play subscription IDs + base plans/offers.
 - Add readiness diagnostics for missing store configuration.
 - Add localized billing/restore/manage-subscription UI and clear provider/source labels.

@@ -238,6 +238,13 @@ export function BillingClient() {
     setBusy(true);
     setError("");
     try {
+      const nativeManagement = summary?.subscription?.management_url;
+      if (nativeManagement) {
+        const target = new URL(nativeManagement);
+        if (target.protocol !== "https:") throw new Error(t("unsafeCheckout"));
+        window.location.assign(target.toString());
+        return;
+      }
       const result = await createBillingPortalSession();
       const target = new URL(result.url);
       if (target.protocol !== "https:") throw new Error(t("unsafeCheckout"));
@@ -395,7 +402,8 @@ export function BillingClient() {
                 <h2 className="text-xl font-semibold">{t("subscription")}</h2>
                 {summary.subscription ? (
                   <p className="mt-2 text-sm text-white/45">
-                    {summary.subscription.provider} ·{" "}
+                    {summary.subscription.provider_label || summary.subscription.provider} ·{" "}
+                    {t(summary.subscription.source === "mobile_store" ? "sourceMobileStore" : "sourceWeb")} ·{" "}
                     {summary.subscription.status} ·{" "}
                     {t("renews", {
                       date: dateValue(
@@ -412,6 +420,7 @@ export function BillingClient() {
               </div>
               <div className="flex flex-wrap gap-3">
                 {summary.subscription &&
+                  summary.subscription.source !== "mobile_store" &&
                   !summary.subscription.cancel_at_period_end && (
                     <Button
                       variant="secondary"
@@ -430,7 +439,7 @@ export function BillingClient() {
                   disabled={busy}
                   onClick={() => void openBillingPortal()}
                 >
-                  <ExternalLink className="h-4 w-4" /> {t("manageWithProvider")}
+                  <ExternalLink className="h-4 w-4" /> {t(summary.subscription?.source === "mobile_store" ? "manageStoreSubscription" : "manageWithProvider")}
                 </Button>
               </div>
             </div>

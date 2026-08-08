@@ -529,7 +529,11 @@
     "provider": "Proveedor",
     "status": "Estado",
     "total": "Total",
-    "noInvoices": "Aún no hay facturas."
+    "noInvoices": "Aún no hay facturas.",
+    "sourceMobileStore": "Suscripción de tienda móvil",
+    "sourceWeb": "Suscripción web",
+    "manageStoreSubscription": "Gestionar en la tienda",
+    "restorePurchases": "Restaurar compras"
   },
   "notifications": {
     "eyebrow": "Centro de comunicación",
