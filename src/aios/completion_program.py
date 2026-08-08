@@ -453,6 +453,7 @@ MODULE_BATCH: Final[dict[str, str]] = {
     "self_evolution": "29F", "services": "29G", "stable_release": "29G",
     "telegram_bot": "29E", "three_d_web": "30A", "web_dashboard_integration": "29B", "web_integration": "29B",
     "workers": "29F", "workforce_health": "29F",
+    "gpu_worker": "33",
 }
 
 OWNER_PAGE_BATCH: Final[dict[str, str]] = {
