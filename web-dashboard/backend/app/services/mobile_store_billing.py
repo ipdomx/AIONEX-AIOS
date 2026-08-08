@@ -128,6 +128,8 @@ def _normalize_apple(tx: Any, renewal: Any | None=None, event_type: str | None=N
     revoked=_ms(getattr(tx,"revocationDate",None))
     expiry=_ms(getattr(tx,"expiresDate",None))
     status_="revoked" if revoked else ("expired" if expiry and expiry <= _now() else "active")
+    if event_type in {"SUBSCRIBED","DID_RENEW","OFFER_REDEEMED","REFUND_REVERSED"} and not revoked:
+        status_="active" if not expiry or expiry > _now() else "expired"
     if event_type in {"EXPIRED","GRACE_PERIOD_EXPIRED"}: status_="expired"
     if event_type in {"REFUND","REVOKE"}: status_="revoked"
     if event_type=="DID_FAIL_TO_RENEW": status_="grace_period" if renewal and getattr(renewal,"gracePeriodExpiresDate",None) and _ms(renewal.gracePeriodExpiresDate)>_now() else "billing_retry"

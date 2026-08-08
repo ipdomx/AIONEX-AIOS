@@ -34,7 +34,7 @@ Complete compliant native subscription billing for both mobile stores while pres
 - Add localized billing/restore/manage-subscription UI and clear provider/source labels.
 - Keep web Stripe subscriptions interoperable with mobile entitlements without duplicate access grants.
 
-## Batch 6 — Sandbox acceptance and production release readiness
+## Batch 6 — Sandbox acceptance and production release readiness — LOCAL COMPLETE / EXTERNAL SANDBOX BLOCKED
 - Configure external sandbox products/credentials only when supplied/authorized.
 - Run App Store Sandbox and Google Play license-tester end-to-end flows.
 - Validate purchase, renewal, cancellation, restore, refund/revocation, upgrade/downgrade and account entitlement sync.
