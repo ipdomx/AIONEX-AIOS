@@ -31,6 +31,7 @@ struct PortalView: UIViewRepresentable {
     func updateUIView(_ uiView: WKWebView, context: Context) {}
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
+        private static let nativeBillingPaths = ["/billing", "/pricing"]
         weak var webView: WKWebView?
         private var showingOfflineFallback = false
 
@@ -43,7 +44,16 @@ struct PortalView: UIViewRepresentable {
                 decisionHandler(.cancel)
                 return
             }
-            if url.isFileURL || (url.scheme == "https" && url.host == PortalView.portalHost) {
+            if url.isFileURL {
+                decisionHandler(.allow)
+                return
+            }
+            if url.scheme == "https" && url.host == PortalView.portalHost {
+                if Self.nativeBillingPaths.contains(where: { url.path.contains($0) }) {
+                    NotificationCenter.default.post(name: .aionexShowNativeSubscription, object: nil)
+                    decisionHandler(.cancel)
+                    return
+                }
                 decisionHandler(.allow)
                 return
             }
@@ -98,4 +108,8 @@ struct PortalView: UIViewRepresentable {
             webView.loadFileURL(offlineURL, allowingReadAccessTo: offlineURL.deletingLastPathComponent())
         }
     }
+}
+
+extension Notification.Name {
+    static let aionexShowNativeSubscription = Notification.Name("aionexShowNativeSubscription")
 }
