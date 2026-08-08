@@ -39,3 +39,6 @@ isort==5.13.0
 mypy==1.8.0
 ruff==0.2.0
 pre-commit==3.6.0
+
+# Official Apple App Store Server API / Notifications verifier
+app-store-server-library==3.1.2

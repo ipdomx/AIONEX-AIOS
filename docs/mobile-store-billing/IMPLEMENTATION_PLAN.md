@@ -22,7 +22,7 @@ Complete compliant native subscription billing for both mobile stores while pres
 - Add native subscription UI bridge so the Play-distributed Android app does not route digital subscriptions to Stripe Checkout.
 - Add Android unit/source tests and emulator/device smoke coverage.
 
-## Batch 4 — Store server lifecycle
+## Batch 4 — Store server lifecycle ✅ COMPLETE
 - Integrate App Store Server API / signed transaction verification and App Store Server Notifications V2.
 - Integrate Google Play Developer API verification and Real-time Developer Notifications.
 - Reconcile renewal, cancellation, expiration, grace, billing retry/hold, refund/revocation, upgrade/downgrade and restore states into the existing AIOS billing account and entitlements.

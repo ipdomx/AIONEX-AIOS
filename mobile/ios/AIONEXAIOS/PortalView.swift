@@ -50,7 +50,10 @@ struct PortalView: UIViewRepresentable {
             }
             if url.scheme == "https" && url.host == PortalView.portalHost {
                 if Self.nativeBillingPaths.contains(where: { url.path.contains($0) }) {
-                    NotificationCenter.default.post(name: .aionexShowNativeSubscription, object: nil)
+                    webView.evaluateJavaScript("window.localStorage.getItem('aionex.access_token')") { value, _ in
+                        StoreBilling.shared.setAccessToken(value as? String)
+                        NotificationCenter.default.post(name: .aionexShowNativeSubscription, object: nil)
+                    }
                     decisionHandler(.cancel)
                     return
                 }

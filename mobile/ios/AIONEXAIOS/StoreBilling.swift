@@ -27,6 +27,7 @@ final class StoreBilling: ObservableObject {
     private var records: [String: StoreProductRecord] = [:]
     private var listener: Task<Void, Never>?
     private let api = StoreBillingAPI()
+    private var accessToken: String?
 
     private init() {
         listener = listenForTransactions()
@@ -34,11 +35,15 @@ final class StoreBilling: ObservableObject {
 
     deinit { listener?.cancel() }
 
+    func setAccessToken(_ token: String?) {
+        accessToken = token
+    }
+
     func loadProducts() async {
         isLoading = true
         defer { isLoading = false }
         do {
-            let catalogue = try await api.catalogue()
+            let catalogue = try await api.catalogue(accessToken: accessToken)
             records = Dictionary(uniqueKeysWithValues: catalogue.filter(\.active).map { ($0.productId, $0) })
             products = try await Product.products(for: records.keys).sorted { $0.displayPrice < $1.displayPrice }
             lastError = nil
@@ -53,7 +58,7 @@ final class StoreBilling: ObservableObject {
         switch result {
         case .success(let verification):
             let transaction = try verified(verification)
-            try await api.submit(recordId: record.id, signedTransaction: verification.jwsRepresentation)
+            try await api.submit(recordId: record.id, signedTransaction: verification.jwsRepresentation, accessToken: accessToken)
             await transaction.finish()
         case .pending:
             throw StoreBillingError.pending
@@ -69,7 +74,7 @@ final class StoreBilling: ObservableObject {
         for await result in Transaction.currentEntitlements {
             guard case .verified(let transaction) = result,
                   let record = records[transaction.productID] else { continue }
-            try await api.submit(recordId: record.id, signedTransaction: result.jwsRepresentation)
+            try await api.submit(recordId: record.id, signedTransaction: result.jwsRepresentation, accessToken: accessToken)
         }
     }
 
@@ -77,7 +82,7 @@ final class StoreBilling: ObservableObject {
         for await result in Transaction.currentEntitlements {
             guard case .verified(let transaction) = result,
                   let record = records[transaction.productID] else { continue }
-            try? await api.submit(recordId: record.id, signedTransaction: result.jwsRepresentation)
+            try? await api.submit(recordId: record.id, signedTransaction: result.jwsRepresentation, accessToken: accessToken)
         }
     }
 
@@ -119,26 +124,28 @@ enum StoreBillingError: LocalizedError {
 private struct StoreBillingAPI {
     private let base = URL(string: "https://ai.vip-e.net/api/v1/billing/mobile-store")!
 
-    func catalogue() async throws -> [StoreProductRecord] {
-        let data = try await request(path: "catalog/app_store", method: "GET", body: nil)
+    func catalogue(accessToken: String?) async throws -> [StoreProductRecord] {
+        let data = try await request(path: "catalog/app_store", method: "GET", body: nil, accessToken: accessToken)
         return try JSONDecoder().decode([StoreProductRecord].self, from: data)
     }
 
-    func submit(recordId: String, signedTransaction: String) async throws {
+    func submit(recordId: String, signedTransaction: String, accessToken: String?) async throws {
         let body = try JSONSerialization.data(withJSONObject: [
             "store": "app_store",
             "product_record_id": recordId,
             "signed_transaction": signedTransaction
         ])
-        _ = try await request(path: "verify", method: "POST", body: body)
+        _ = try await request(path: "verify", method: "POST", body: body, accessToken: accessToken)
     }
 
-    private func request(path: String, method: String, body: Data?) async throws -> Data {
+    private func request(path: String, method: String, body: Data?, accessToken: String?) async throws -> Data {
         var request = URLRequest(url: base.appendingPathComponent(path))
         request.httpMethod = method
         request.httpBody = body
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        guard let accessToken, !accessToken.isEmpty else { throw StoreBillingError.missingSession }
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         request.httpShouldHandleCookies = true
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {

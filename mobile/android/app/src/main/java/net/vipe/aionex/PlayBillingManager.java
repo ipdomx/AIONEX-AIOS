@@ -235,7 +235,7 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
                         .put("purchase_token", purchase.getPurchaseToken());
                 JSONObject response = new JSONObject(api("verify", "POST", body.toString()));
                 // Acknowledge only after the authoritative AIOS server confirms verification.
-                if (response.optBoolean("verified", false) && !purchase.isAcknowledged()) {
+                if (response.optBoolean("verified", false) && !response.optBoolean("server_acknowledged", false) && !purchase.isAcknowledged()) {
                     main.post(() -> acknowledge(purchase));
                 }
             } catch (Exception ignored) {

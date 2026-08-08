@@ -1087,6 +1087,7 @@ class MobileStorePurchase(Base, TimestampMixin):
     external_transaction_id: Mapped[str | None] = mapped_column(String(255))
     original_transaction_id: Mapped[str | None] = mapped_column(String(255), index=True)
     purchase_token_hash: Mapped[str | None] = mapped_column(String(64), index=True)
+    purchase_token_ciphertext: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(32), default="pending_verification", nullable=False, index=True)
     verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     auto_renewing: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
