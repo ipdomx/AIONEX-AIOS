@@ -20,6 +20,8 @@ Goal: finish the AIONEX AIOS 3D generation platform end-to-end with no known gap
 - Prove automatic scale-to-zero without deleting the endpoint.
 - Add queue purge, cancellation, timeout, retry, and stuck-job recovery acceptance tests.
 - Add explicit cost guardrails and owner alerts.
+- Restrict 3D service access by default to the highest current plan (`business`) plus the `3d.generation` entitlement; all plan/user overrides, limits, and enable/disable controls are Super Owner-managed through `/owner/3d`.
+- Keep Phase 34 work isolated from unrelated parallel conversation/worktree changes; merge only files owned by the active batch.
 
 ### 34C — Full textured/PBR 3D pipeline
 - Move from shape-only GLB acceptance to full texture/PBR generation.

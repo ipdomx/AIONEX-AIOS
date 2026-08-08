@@ -7,6 +7,7 @@ import {
   BarChart3,
   Bell,
   BellRing,
+  Box,
   Building2,
   CheckCircle2,
   ClipboardCheck,
@@ -245,6 +246,13 @@ export const ownerNavigationSections: OwnerNavigationSection[] = [
         description: "Enable, suspend, and govern platform services.",
         href: "/owner/services",
         icon: ToggleRight,
+      },
+      {
+        id: "owner-3d",
+        label: "3D Service Control",
+        description: "Highest-tier 3D access, user overrides, spend ceilings, and recovery limits.",
+        href: "/owner/3d",
+        icon: Box,
       },
       {
         id: "owner-integrations",
