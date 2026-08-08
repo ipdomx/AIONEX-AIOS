@@ -1329,3 +1329,19 @@ async def test_paypal_checkout_webhook_verification_and_refund_use_oauth_value(
             ) in calls
     finally:
         await cleanup(organization.id, [plan_code])
+
+
+def test_provider_readiness_accepts_restricted_stripe_live_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(billing.settings, "PAYMENTS_ENVIRONMENT", "live")
+    monkeypatch.setattr(billing.settings, "STRIPE_SECRET_KEY", "rk_live_phase29d")
+    monkeypatch.setattr(billing.settings, "STRIPE_WEBHOOK_SECRET", "whsec_phase29d")
+
+    stripe = next(
+        item for item in billing.provider_readiness() if item["id"] == "stripe"
+    )
+
+    assert stripe["configured"] is True
+    assert stripe["mode"] == "live"
+    assert stripe["status"] == "ready"

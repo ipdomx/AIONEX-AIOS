@@ -145,8 +145,8 @@ def provider_readiness() -> list[dict[str, Any]]:
     environment = settings.PAYMENTS_ENVIRONMENT.strip().lower()
     stripe_mode = (
         "test"
-        if stripe_key.startswith("sk_test_")
-        else "live" if stripe_key.startswith("sk_live_") else "unknown"
+        if stripe_key.startswith(("sk_test_", "rk_test_"))
+        else "live" if stripe_key.startswith(("sk_live_", "rk_live_")) else "unknown"
     )
     definitions = [
         {

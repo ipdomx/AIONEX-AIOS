@@ -234,3 +234,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# AIONEX local runtime / release evidence (never commit)
+/.deployment-backups/
+/.security-audit-venv/
+/data/
+/releases/
+/tools/
