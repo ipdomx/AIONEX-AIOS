@@ -31,6 +31,8 @@ payload={
  'required_files_missing':missing,'embedded_secret_markers':embedded,
  'sandbox':{'app_store_credentials_ready':app_store_ready,'google_play_credentials_ready':google_ready,'google_play_rtdn_identity_ready':rtdn_ready,'external_e2e_ready':app_store_ready and google_ready and rtdn_ready},
  'artifacts':artifacts,'store_publication_performed':False,
+ 'simulated_e2e_status':'complete' if (ROOT/'web-dashboard/backend/tests/test_mobile_store_simulated_e2e.py').is_file() else 'missing',
+ 'batch6_status':'complete_simulated_e2e' if (ROOT/'web-dashboard/backend/tests/test_mobile_store_simulated_e2e.py').is_file() else 'incomplete',
  'external_acceptance_status':'ready_to_run' if app_store_ready and google_ready and rtdn_ready else 'blocked_missing_external_credentials_or_store_configuration',
 }
 print(json.dumps(payload,sort_keys=True,indent=2))
