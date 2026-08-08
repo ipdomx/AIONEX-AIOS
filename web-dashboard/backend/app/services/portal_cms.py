@@ -961,7 +961,7 @@ def default_portal_configuration() -> dict[str, Any]:
                 )
             ],
             "limits": {},
-            "entitlements": [],
+            "entitlements": ["3d.generation"],
             "cta_label": _localized("Contact sales", "تواصل مع المبيعات"),
             "cta_url": "/contact",
             "checkout_provider": "manual",

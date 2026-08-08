@@ -457,6 +457,7 @@ MODULE_BATCH: Final[dict[str, str]] = {
 }
 
 OWNER_PAGE_BATCH: Final[dict[str, str]] = {
+    "3d": "34B",
     "access": "29C", "approvals": "29E", "approvals-live": "29E", "audit": "29G",
     "billing": "29D", "communications": "29E", "completion": "29A", "compliance": "29G",
     "compliance-runtime": "29G", "costs": "29D", "executive": "29B", "executive-bi": "29B",

@@ -92,7 +92,7 @@ class RunPodClient:
 
 
 class RunPodServerlessClient:
-    """Minimal RunPod queue-endpoint client using the native Serverless v2 API."""
+    """RunPod Serverless v2 client with explicit recovery primitives."""
 
     def __init__(self, api_key: str, endpoint_id: str) -> None:
         if not api_key.strip() or not endpoint_id.strip():
@@ -115,7 +115,8 @@ class RunPodServerlessClient:
         )
         try:
             with urllib.request.urlopen(req, timeout=timeout) as response:
-                return json.loads(response.read().decode())
+                raw = response.read()
+                return json.loads(raw.decode()) if raw else {}
         except urllib.error.HTTPError as exc:
             raise RunPodError(f"RunPod Serverless HTTP {exc.code}") from None
         except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
@@ -123,6 +124,16 @@ class RunPodServerlessClient:
 
     def health(self) -> dict:
         return self._request("GET", "/health", timeout=30)
+
+    def submit(self, payload: dict[str, object], *, ttl_seconds: int | None = None) -> dict:
+        body: dict[str, object] = {"input": payload}
+        if ttl_seconds is not None:
+            body["policy"] = {"ttl": max(10, int(ttl_seconds)) * 1000}
+        result = self._request("POST", "/run", body, timeout=90)
+        job_id = result.get("id")
+        if not job_id:
+            raise RunPodError("RunPod Serverless job did not return an id")
+        return result
 
     def run_sync(self, payload: dict[str, object], *, wait_ms: int = 300000) -> dict:
         wait_ms = max(1000, min(int(wait_ms), 300000))
@@ -141,4 +152,14 @@ class RunPodServerlessClient:
         return {"job_id": str(job_id), "status": status or "IN_QUEUE"}
 
     def status(self, job_id: str) -> dict:
-        return self._request("GET", f"/status/{job_id}", timeout=30)
+        if not job_id.strip():
+            raise ValueError("job_id is required")
+        return self._request("GET", f"/status/{job_id.strip()}", timeout=30)
+
+    def cancel(self, job_id: str) -> dict:
+        if not job_id.strip():
+            raise ValueError("job_id is required")
+        return self._request("POST", f"/cancel/{job_id.strip()}", timeout=30)
+
+    def purge_queue(self) -> dict:
+        return self._request("POST", "/purge-queue", timeout=30)

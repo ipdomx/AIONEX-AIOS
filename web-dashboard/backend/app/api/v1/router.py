@@ -6,6 +6,7 @@ from app.api.owner import (
     control_plane,
     final_platform_integration,
     free_tier,
+    three_d,
     operations_integration,
     platform_integration,
     production_runtime,
@@ -239,6 +240,7 @@ owner_router.include_router(security_integration.router)
 owner_router.include_router(production_runtime.router)
 owner_router.include_router(final_platform_integration.router)
 owner_router.include_router(free_tier.router)
+owner_router.include_router(three_d.router)
 owner_router.include_router(owner_portal.router)
 owner_router.include_router(mobile_delivery.router, prefix="/owner/mobile", tags=["Owner Mobile Delivery"])
 owner_router.include_router(control_plane.router)
