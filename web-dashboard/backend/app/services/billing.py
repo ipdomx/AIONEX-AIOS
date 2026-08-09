@@ -70,6 +70,7 @@ CHECKOUT_PROVIDERS = {"stripe", "paypal", "paddle", "bank_transfer", "manual"}
 EXTERNAL_SUBSCRIPTION_PROVIDERS = {"stripe", "paypal", "paddle"}
 ACTIVE_ACCOUNT_STATUSES = {"active", "trial"}
 ACTIVE_SUBSCRIPTION_STATUSES = {"active", "trialing"}
+THREE_D_BUSINESS_ENTITLEMENT = "3d.generation"
 SENSITIVE_EVENT_KEYS = {
     "number",
     "card_number",
@@ -285,6 +286,10 @@ async def sync_catalog(session: AsyncSession) -> dict[str, Any]:
         seen_codes.add(code)
         limits = dict(raw.get("limits") or {})
         entitlements = list(raw.get("entitlements") or [])
+        # Compatibility for Owner catalogues published before Phase 34D.
+        # The separate Owner 3D policy remains the final allow/deny authority.
+        if code == "business":
+            entitlements = sorted(set(entitlements) | {THREE_D_BUSINESS_ENTITLEMENT})
         if code == "free":
             limits = dict(free_policy["limits"])
             entitlements = sorted(
