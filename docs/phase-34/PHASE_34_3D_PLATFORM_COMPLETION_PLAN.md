@@ -23,13 +23,14 @@ Goal: finish the AIONEX AIOS 3D generation platform end-to-end with no known gap
 - Restrict 3D service access by default to the highest current plan (`business`) plus the `3d.generation` entitlement; all plan/user overrides, limits, and enable/disable controls are Super Owner-managed through `/owner/3d`.
 - Keep Phase 34 work isolated from unrelated parallel conversation/worktree changes; merge only files owned by the active batch.
 
-### 34C — Full textured/PBR 3D pipeline
+### 34C — Full textured/PBR 3D pipeline — COMPLETE
 - Move from shape-only GLB acceptance to full texture/PBR generation.
 - Run Blender post-processing.
 - Run glTF Transform optimization and validation.
 - Add mesh cleanup, material/texture validation, compression policy, and deterministic artifact checks.
 - Measure generation duration and before/after artifact size.
 - Preserve graceful fallback to shape-only only when policy explicitly allows it.
+- Acceptance evidence: `docs/phase-34/PHASE_34C_PBR_ACCEPTANCE.md`; two same-seed live GPU runs produced the same validated non-fallback PBR GLB SHA-256 and the production endpoint scaled to zero.
 
 ### 34D — Product integration in AIOS and ai.vip-e.net
 - Expose authenticated project API for create/status/cancel/download.
