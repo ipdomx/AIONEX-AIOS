@@ -659,12 +659,19 @@ export function getProjectThreeDJob(projectId: string, jobId: string): Promise<T
 export function createProjectThreeDJob(
   projectId: string,
   image: File,
-  values?: { seed?: number; textureSize?: number },
+  values?: {
+    seed?: number;
+    textureSize?: number;
+    termsAccepted?: boolean;
+    termsVersion?: string;
+  },
 ): Promise<ThreeDGenerationJob> {
   const body = new FormData();
   body.set("image", image);
   body.set("seed", String(values?.seed ?? 12345));
   if (values?.textureSize) body.set("texture_size", String(values.textureSize));
+  body.set("third_party_terms_accepted", String(values?.termsAccepted === true));
+  body.set("third_party_terms_version", values?.termsVersion || "");
   const idempotencyKey =
     typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
       ? crypto.randomUUID()

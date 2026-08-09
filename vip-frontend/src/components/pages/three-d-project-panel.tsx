@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Box, Download, LoaderCircle, RefreshCw, RotateCcw, ShieldCheck, Square, Upload } from "lucide-react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
@@ -140,12 +140,14 @@ export function ThreeDProjectPanel({
   canWrite: boolean;
 }) {
   const t = useTranslations("projects");
+  const locale = useLocale();
   const [access, setAccess] = useState<ThreeDAccess | null>(null);
   const [jobs, setJobs] = useState<ThreeDGenerationJob[]>([]);
   const [links, setLinks] = useState<ThreeDArtifactLinks | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [clarificationFile, setClarificationFile] = useState<File | null>(null);
   const [textureSize, setTextureSize] = useState(1024);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -163,7 +165,15 @@ export function ThreeDProjectPanel({
         getProjectThreeDAccess(project.id),
         listProjectThreeDJobs(project.id, 10),
       ]);
-      setAccess(nextAccess);
+      setAccess((current) => {
+        if (
+          current?.third_party_terms_version !== nextAccess.third_party_terms_version ||
+          current?.model_provider !== nextAccess.model_provider
+        ) {
+          setTermsAccepted(false);
+        }
+        return nextAccess;
+      });
       setJobs(nextJobs);
       setTextureSize((current) => Math.min(current, nextAccess.max_texture_size));
       setError("");
@@ -217,10 +227,18 @@ export function ThreeDProjectPanel({
   }
 
   async function generate() {
-    if (!validateClientFile(file) || !file) return;
+    if (!validateClientFile(file) || !file || !access) return;
+    if (!termsAccepted) {
+      setError(t("threeD.termsRequired"));
+      return;
+    }
     setBusy(true);
     try {
-      const job = await createProjectThreeDJob(project.id, file, { textureSize });
+      const job = await createProjectThreeDJob(project.id, file, {
+        textureSize,
+        termsAccepted,
+        termsVersion: access.third_party_terms_version,
+      });
       setJobs((current) => [job, ...current.filter((item) => item.id !== job.id)]);
       setFile(null);
       setLinks(null);
@@ -301,6 +319,22 @@ export function ThreeDProjectPanel({
             <span>{t("threeD.concurrency", { active: access.active_jobs, total: access.max_concurrent_jobs })}</span>
             <span>{t("threeD.inputLimit", { max: access.max_input_megabytes })}</span>
           </div>
+          <div className="mt-3 rounded-xl border border-white/[0.06] bg-black/10 p-3 text-[11px] leading-5 text-white/40">
+            <div>
+              {t("threeD.provider", {
+                model: access.model_disclosure.model,
+                license: access.model_disclosure.license,
+              })}
+            </div>
+            <div>
+              {t("threeD.jurisdiction", {
+                country: access.jurisdiction_country || t("threeD.countryUnknown"),
+              })}
+            </div>
+            {access.model_provider === "hunyuan3d" && (
+              <div>{t("threeD.hunyuanNoAffiliation", { operator: access.model_disclosure.operator })}</div>
+            )}
+          </div>
 
           {latest && (
             <div className="mt-4 rounded-xl bg-black/10 p-4">
@@ -350,7 +384,26 @@ export function ThreeDProjectPanel({
                   {[512, 1024, 2048, 4096].filter((value) => value <= access.max_texture_size).map((value) => <option key={value} value={value} className="bg-ink-900">{value}px</option>)}
                 </select>
               </div>
-              <Button disabled={busy || !file || access.monthly_remaining <= 0} onClick={() => void generate()}>
+              <label className="flex items-start gap-2 text-[11px] leading-5 text-white/45">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={termsAccepted}
+                  onChange={(event) => setTermsAccepted(event.target.checked)}
+                />
+                <span>
+                  {t("threeD.termsConsent")} {" "}
+                  <a
+                    className="text-violet-200 underline underline-offset-2"
+                    href={`/${locale}/legal/terms`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {t("threeD.termsLink")}
+                  </a>
+                </span>
+              </label>
+              <Button disabled={busy || !file || !termsAccepted || access.monthly_remaining <= 0} onClick={() => void generate()}>
                 {busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                 {busy ? t("threeD.submitting") : t("threeD.generate")}
               </Button>

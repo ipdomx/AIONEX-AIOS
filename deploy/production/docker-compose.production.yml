@@ -17,12 +17,14 @@ services:
       FIREBASE_ADMIN_CREDENTIALS_JSON: /run/secrets/aionex/firebase-admin.json
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
+      THREE_D_RUNPOD_SECRET_FILE: /run/secrets/aionex/runpod-gpu.env
     restart: unless-stopped
     expose:
       - "8000"
     volumes:
       - ../..:/workspace:ro
       - ../../web-dashboard/secrets:/run/secrets/aionex:ro
+      - ../../web-dashboard/secrets/RUNPOD_GPU.env:/run/secrets/aionex/runpod-gpu.env:ro
       - backup_data:/var/lib/aionex/backups:ro
       - portal_asset_data:/var/lib/aionex/portal-assets:rw
       - project_execution_data:/var/lib/aionex/project-executions:rw

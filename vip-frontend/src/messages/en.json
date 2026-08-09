@@ -395,7 +395,14 @@
         "completed": "Completed",
         "failed": "Failed",
         "cancelled": "Cancelled"
-      }
+      },
+      "provider": "Model provider: {model} · {license}",
+      "jurisdiction": "Jurisdiction used for routing: {country}",
+      "countryUnknown": "unknown",
+      "hunyuanNoAffiliation": "Operated by {operator}. Tencent is not affiliated with, sponsoring, or endorsing this service.",
+      "termsConsent": "I accept the current third-party 3D model terms and jurisdiction restrictions.",
+      "termsLink": "Review terms",
+      "termsRequired": "Accept the current third-party 3D model terms before generation."
     },
     "execution": {
       "title": "Full governed project cycle",
@@ -485,7 +492,13 @@
     "terms3Title": "Owner-controlled availability",
     "terms3Copy": "Registration availability, quotas, service access, project limits, and other operational controls are enforced by the platform and may change.",
     "terms4Title": "Private support communication",
-    "terms4Copy": "Use the authenticated support channel for suitable requests and never disclose passwords, session tokens, recovery codes, or confidential content."
+    "terms4Copy": "Use the authenticated support channel for suitable requests and never disclose passwords, session tokens, recovery codes, or confidential content.",
+    "terms5Title": "Third-party 3D model service",
+    "terms5Copy": "The 3D interface identifies the configured service operator and model provider before generation. When Tencent Hunyuan 3D 2.1 is selected, use of the service and its outputs is subject to the Tencent Hunyuan 3D 2.1 Community License Agreement and Acceptable Use Policy. Hunyuan is not provided in the European Union, United Kingdom, or South Korea. Hunyuan outputs must not be used to improve any AI model other than Hunyuan 3D 2.1 or its permitted derivatives. Machine-generated content must be identified where the license requires it. Tencent is not affiliated with, sponsoring, or endorsing AIONEX AIOS. When Hunyuan is not licensed or available, AIONEX AIOS may route the request to the MIT-licensed TripoSR fallback.",
+    "terms6Title": "Jurisdiction, sharing, and provider controls",
+    "terms6Copy": "Do not evade country detection, model-provider routing, safety controls, or Owner policy. Do not request, access, display, distribute, or share Hunyuan works or outputs outside the territory permitted by its license. Each 3D generation request requires acceptance of the current third-party model terms version. The complete upstream license copies are available below. For Hunyuan use, the restrictions in Sections 5(a) and 5(b), including the incorporated Acceptable Use Policy, are incorporated into and enforceable under these Terms.",
+    "hunyuanLicense": "Tencent Hunyuan 3D 2.1 license copy",
+    "triposrLicense": "TripoSR MIT license copy"
   },
   "passwordRecovery": {
     "eyebrow": "Secure account recovery",

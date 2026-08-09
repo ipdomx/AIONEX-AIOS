@@ -156,6 +156,7 @@ async def test_project_3d_api_lifecycle_is_tenant_scoped_and_issues_only_signed_
 
     from fastapi import UploadFile
     from starlette.datastructures import Headers
+    from starlette.requests import Request
     from sqlalchemy import select
 
     from app.api.v1.endpoints import three_d_jobs
@@ -237,10 +238,28 @@ async def test_project_3d_api_lifecycle_is_tenant_scoped_and_issues_only_signed_
     async def no_notifications(*_args, **_kwargs):
         return []
 
+    async def fake_provider_route(_session, _actor, _request, _policy):
+        return (
+            "triposr",
+            "AE",
+            "test",
+            {
+                "provider": "triposr",
+                "model": "TripoSR",
+                "operator": "AIONEX AIOS",
+                "license": "MIT",
+                "territory_limited": False,
+                "tencent_affiliation": None,
+                "machine_generated": True,
+                "terms_version": "3d-model-service-2026-08-09",
+            },
+        )
+
     monkeypatch.setattr(three_d_jobs, "ThreeDObjectStore", FakeStore)
     monkeypatch.setattr(three_d_jobs, "access_snapshot", fake_access)
     monkeypatch.setattr(three_d_jobs, "enforce_admission", fake_admission)
     monkeypatch.setattr(three_d_jobs, "notify_job", no_notifications)
+    monkeypatch.setattr(three_d_jobs, "_licensed_provider_route", fake_provider_route)
 
     suffix = uuid_str()
     async with SessionLocal() as session:
@@ -308,8 +327,19 @@ async def test_project_3d_api_lifecycle_is_tenant_scoped_and_issues_only_signed_
             filename="source.png",
             headers=Headers({"content-type": "image/png"}),
         )
+        request = Request(
+            {"type": "http", "method": "POST", "path": "/", "headers": []}
+        )
         created = await three_d_jobs.create_three_d_job(
-            project.id, upload, 12345, 1024, actor, session
+            project.id,
+            request,
+            upload,
+            12345,
+            1024,
+            True,
+            "3d-model-service-2026-08-09",
+            actor,
+            session,
         )
         assert created["status"] == "queued"
         assert created["organization_id"] == organization.id
@@ -352,6 +382,7 @@ async def test_project_3d_api_lifecycle_is_tenant_scoped_and_issues_only_signed_
             )
         )
         assert job is not None
+        job.provider = "triposr"
         job.status = "completed"
         job.stage = "completed"
         job.progress = 100
@@ -375,7 +406,7 @@ async def test_project_3d_api_lifecycle_is_tenant_scoped_and_issues_only_signed_
         await session.commit()
 
         links = await three_d_jobs.get_three_d_artifact_links(
-            project.id, job.id, actor, session
+            project.id, job.id, request, actor, session
         )
         assert links["view_url"].startswith("https://private-storage.invalid/view/")
         assert links["download_url"].startswith(

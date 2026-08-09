@@ -24,7 +24,8 @@ from app.services.three_d_policy import get_three_d_policy
 from app.services.three_d_storage import ThreeDObjectStore
 
 PROVIDER_STATE_DOMAIN = "3d-provider-runtime"
-PROVIDER_STATE_RESOURCE = "runpod"
+PROVIDER_STATE_RESOURCE = "hunyuan3d"
+SUPPORTED_PROVIDER_RESOURCES = {"hunyuan3d", "triposr"}
 
 
 def now() -> datetime:
@@ -48,6 +49,7 @@ def request_fingerprint(
     seed: int,
     texture_size: int,
     compression_policy: str,
+    provider: str = "",
 ) -> str:
     value = ":".join(
         [
@@ -58,6 +60,7 @@ def request_fingerprint(
             str(seed),
             str(texture_size),
             compression_policy.strip().lower(),
+            provider.strip().lower(),
         ]
     )
     return sha256(value.encode()).hexdigest()
@@ -99,12 +102,25 @@ def normalize_trace_id(raw: str | None) -> str:
     return sha256(value.encode()).hexdigest()
 
 
+def _provider_resource(provider: str) -> str:
+    value = provider.strip().lower()
+    if value == "runpod":
+        value = "hunyuan3d"
+    if value not in SUPPORTED_PROVIDER_RESOURCES:
+        raise RuntimeError("Unsupported 3D provider runtime state")
+    return value
+
+
 async def _provider_record(
-    session: AsyncSession, *, lock: bool = False
+    session: AsyncSession,
+    *,
+    provider: str = PROVIDER_STATE_RESOURCE,
+    lock: bool = False,
 ) -> OwnerControlRecord:
+    resource_id = _provider_resource(provider)
     stmt = select(OwnerControlRecord).where(
         OwnerControlRecord.domain == PROVIDER_STATE_DOMAIN,
-        OwnerControlRecord.resource_id == PROVIDER_STATE_RESOURCE,
+        OwnerControlRecord.resource_id == resource_id,
     )
     if lock:
         stmt = stmt.with_for_update()
@@ -115,7 +131,7 @@ async def _provider_record(
             .values(
                 id=uuid_str(),
                 domain=PROVIDER_STATE_DOMAIN,
-                resource_id=PROVIDER_STATE_RESOURCE,
+                resource_id=resource_id,
                 status="closed",
                 enabled=True,
                 payload={
@@ -163,9 +179,12 @@ def _parse_iso(value: object) -> datetime | None:
 
 
 async def provider_circuit_snapshot(
-    session: AsyncSession, *, lock: bool = False
+    session: AsyncSession,
+    *,
+    provider: str = PROVIDER_STATE_RESOURCE,
+    lock: bool = False,
 ) -> dict[str, Any]:
-    record = await _provider_record(session, lock=lock)
+    record = await _provider_record(session, provider=provider, lock=lock)
     payload = _provider_payload(record)
     open_until = _parse_iso(payload["open_until"])
     if payload["state"] == "open" and open_until and open_until <= now():
@@ -177,8 +196,10 @@ async def provider_circuit_snapshot(
     return payload
 
 
-async def assert_provider_available(session: AsyncSession) -> dict[str, Any]:
-    state = await provider_circuit_snapshot(session, lock=True)
+async def assert_provider_available(
+    session: AsyncSession, *, provider: str = PROVIDER_STATE_RESOURCE
+) -> dict[str, Any]:
+    state = await provider_circuit_snapshot(session, provider=provider, lock=True)
     if state["state"] == "open":
         raise HTTPException(
             status_code=503,
@@ -191,8 +212,10 @@ async def assert_provider_available(session: AsyncSession) -> dict[str, Any]:
     return state
 
 
-async def record_provider_success(session: AsyncSession) -> dict[str, Any]:
-    record = await _provider_record(session, lock=True)
+async def record_provider_success(
+    session: AsyncSession, *, provider: str = PROVIDER_STATE_RESOURCE
+) -> dict[str, Any]:
+    record = await _provider_record(session, provider=provider, lock=True)
     payload = _provider_payload(record)
     payload.update(
         {
@@ -211,10 +234,10 @@ async def record_provider_success(session: AsyncSession) -> dict[str, Any]:
 
 
 async def record_provider_failure(
-    session: AsyncSession, *, error_code: str
+    session: AsyncSession, *, error_code: str, provider: str = PROVIDER_STATE_RESOURCE
 ) -> tuple[dict[str, Any], bool]:
     policy = await get_three_d_policy(session)
-    record = await _provider_record(session, lock=True)
+    record = await _provider_record(session, provider=provider, lock=True)
     payload = _provider_payload(record)
     failures = int(payload["consecutive_failures"]) + 1
     opened = failures >= int(policy["provider_failure_threshold"])
@@ -243,9 +266,14 @@ async def record_provider_failure(
 
 
 async def reset_provider_circuit(
-    session: AsyncSession, *, actor_id: str, organization_id: str
+    session: AsyncSession,
+    *,
+    actor_id: str,
+    organization_id: str,
+    provider: str = PROVIDER_STATE_RESOURCE,
 ) -> dict[str, Any]:
-    record = await _provider_record(session, lock=True)
+    resource_id = _provider_resource(provider)
+    record = await _provider_record(session, provider=resource_id, lock=True)
     payload = _provider_payload(record)
     payload.update(
         {
@@ -267,8 +295,8 @@ async def reset_provider_circuit(
             user_id=actor_id,
             action="owner.3d.circuit_reset",
             resource_type="3d_provider_runtime",
-            resource_id=PROVIDER_STATE_RESOURCE,
-            details={"state": "closed"},
+            resource_id=resource_id,
+            details={"state": "closed", "provider": resource_id},
         )
     )
     return payload
@@ -399,8 +427,13 @@ async def maybe_emit_spend_alerts(
 
 
 async def provider_outage_alert(
-    session: AsyncSession, *, organization_id: str, state: dict[str, Any]
+    session: AsyncSession,
+    *,
+    organization_id: str,
+    state: dict[str, Any],
+    provider: str = PROVIDER_STATE_RESOURCE,
 ) -> list[Any]:
+    resource_id = _provider_resource(provider)
     return await communications.notify_audience(
         session,
         organization_id=organization_id,
@@ -411,10 +444,11 @@ async def provider_outage_alert(
         message="AIOS paused new 3D GPU submissions after repeated provider failures. Recovery will be probed automatically.",
         severity="critical",
         source_type="3d_provider_runtime",
-        source_id=PROVIDER_STATE_RESOURCE,
-        correlation_id=f"3d-provider:{state.get('opened_at')}",
-        dedupe_prefix=f"3d-provider-open:{str(state.get('opened_at'))[:16]}",
+        source_id=resource_id,
+        correlation_id=f"3d-provider:{resource_id}:{state.get('opened_at')}",
+        dedupe_prefix=f"3d-provider-open:{resource_id}:{str(state.get('opened_at'))[:16]}",
         payload={
+            "provider": resource_id,
             "state": state.get("state"),
             "open_until": state.get("open_until"),
             "failures": state.get("consecutive_failures"),
@@ -492,7 +526,11 @@ async def cleanup_expired_three_d_data(
 
 async def operations_snapshot(session: AsyncSession) -> dict[str, Any]:
     policy = await get_three_d_policy(session)
-    circuit = await provider_circuit_snapshot(session)
+    provider_circuits = {
+        provider: await provider_circuit_snapshot(session, provider=provider)
+        for provider in sorted(SUPPORTED_PROVIDER_RESOURCES)
+    }
+    circuit = provider_circuits[PROVIDER_STATE_RESOURCE]
     spend = await spend_snapshot(session)
     rows = list((await session.scalars(select(ThreeDGenerationJob))).all())
     completed = [row for row in rows if row.status == "completed"]
@@ -524,6 +562,7 @@ async def operations_snapshot(session: AsyncSession) -> dict[str, Any]:
 
     return {
         "circuit": circuit,
+        "provider_circuits": provider_circuits,
         "spend": {
             **spend,
             "daily_limit_usd": policy["daily_spend_limit_usd"],
@@ -554,13 +593,8 @@ async def operations_snapshot(session: AsyncSession) -> dict[str, Any]:
 async def prometheus_snapshot(session: AsyncSession) -> str:
     snap = await operations_snapshot(session)
     jobs = snap["jobs"]
-    circuit = snap["circuit"]
     spend = snap["spend"]
-    state_value = (
-        0
-        if circuit["state"] == "closed"
-        else 1 if circuit["state"] == "half_open" else 2
-    )
+    provider_circuits = snap["provider_circuits"]
     lines = [
         "# HELP aionex_3d_jobs_total Current durable 3D job count by terminal state.",
         "# TYPE aionex_3d_jobs_total gauge",
@@ -577,7 +611,15 @@ async def prometheus_snapshot(session: AsyncSession) -> str:
         "# TYPE aionex_3d_provider_cold_start_seconds gauge",
         f'aionex_3d_provider_cold_start_seconds {jobs["avg_provider_delay_seconds"]}',
         "# TYPE aionex_3d_provider_circuit_state gauge",
-        f"aionex_3d_provider_circuit_state {state_value}",
+        *[
+            f'aionex_3d_provider_circuit_state{{provider="{provider}"}} '
+            + str(
+                0
+                if state["state"] == "closed"
+                else 1 if state["state"] == "half_open" else 2
+            )
+            for provider, state in provider_circuits.items()
+        ],
         "# TYPE aionex_3d_spend_usd gauge",
         f'aionex_3d_spend_usd{{period="daily"}} {spend["daily_usd"]}',
         f'aionex_3d_spend_usd{{period="monthly"}} {spend["monthly_usd"]}',
