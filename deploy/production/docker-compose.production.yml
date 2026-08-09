@@ -17,6 +17,7 @@ services:
       FIREBASE_ADMIN_CREDENTIALS_JSON: /run/secrets/aionex/firebase-admin.json
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
+      THREE_D_RUNPOD_SECRET_FILE: /run/secrets/aionex/RUNPOD_GPU.env
     restart: unless-stopped
     expose:
       - "8000"

@@ -1,0 +1,4 @@
+Pillow==12.3.0
+msgpack==1.2.1
+soupsieve==2.8.4
+urllib3==2.7.0

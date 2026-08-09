@@ -54,7 +54,10 @@ def test_private_object_storage_and_expiring_links_are_fail_closed():
 
 
 def test_worker_requires_real_pbr_hash_validation_metering_and_notifications():
-    assert 'manifest.get("fallback_used") is not False' in WORKER
+    assert "_manifest_acceptable" in WORKER
+    assert 'manifest.get("fallback_used") is False' in WORKER
+    assert 'manifest.get("fallback_used") is True' in WORKER
+    assert 'manifest.get("fallback_provider") == "triposr"' in WORKER
     assert 'body[:4] != b"glTF"' in WORKER
     assert "sha256(body).hexdigest()" in WORKER
     assert 'metric="3d_generations"' in WORKER
@@ -66,7 +69,7 @@ def test_worker_requires_real_pbr_hash_validation_metering_and_notifications():
         "3d.job.clarification_required",
     ):
         assert event in WORKER
-    assert "self.runpod.cancel" in WORKER
+    assert "client.cancel" in WORKER
     assert "max_queue_seconds" in WORKER and "max_runtime_seconds" in WORKER
 
 

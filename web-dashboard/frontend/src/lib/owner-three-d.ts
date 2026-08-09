@@ -26,6 +26,13 @@ export type OwnerThreeDPolicy = {
   cleanup_interval_seconds: number;
   cleanup_batch_size: number;
   temporary_input_retention_hours: number;
+  hunyuan_license_acknowledged: boolean;
+  hunyuan_commercial_eligibility_attested: boolean;
+  service_provider_legal_name_confirmed: boolean;
+  hunyuan_excluded_country_codes: string[];
+  fallback_enabled: boolean;
+  service_provider_legal_name: string;
+  third_party_terms_version: string;
 };
 
 export type OwnerThreeDOperations = {
@@ -38,6 +45,18 @@ export type OwnerThreeDOperations = {
     last_success_at: string | null;
     last_error_code: string | null;
   };
+  provider_circuits: Record<
+    string,
+    {
+      state: string;
+      available: boolean;
+      consecutive_failures: number;
+      open_until: string | null;
+      last_failure_at: string | null;
+      last_success_at: string | null;
+      last_error_code: string | null;
+    }
+  >;
   spend: {
     daily_usd: number;
     monthly_usd: number;

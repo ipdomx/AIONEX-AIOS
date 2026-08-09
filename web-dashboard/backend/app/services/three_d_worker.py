@@ -63,13 +63,18 @@ def _env_file(path: str) -> dict[str, str]:
     return values
 
 
-def _runpod_client() -> RunPodServerlessClient:
+def _runpod_clients() -> dict[str, RunPodServerlessClient]:
     values = _env_file(settings.THREE_D_RUNPOD_SECRET_FILE)
     key = values.get("RUNPOD_API_KEY", "").strip()
-    endpoint_id = values.get("RUNPOD_ENDPOINT_ID", "").strip()
-    if not key or not endpoint_id:
+    primary_endpoint = values.get("RUNPOD_ENDPOINT_ID", "").strip()
+    fallback_endpoint = values.get("RUNPOD_FALLBACK_ENDPOINT_ID", "").strip()
+    if not key or not primary_endpoint:
         raise ThreeDWorkerError("3D provider credentials are incomplete")
-    return RunPodServerlessClient(key, endpoint_id)
+    primary = RunPodServerlessClient(key, primary_endpoint)
+    clients = {"hunyuan3d": primary, "runpod": primary}
+    if fallback_endpoint:
+        clients["triposr"] = RunPodServerlessClient(key, fallback_endpoint)
+    return clients
 
 
 def _safe_provider_message(state: str) -> str:
@@ -80,19 +85,49 @@ def _safe_provider_message(state: str) -> str:
     return "The 3D provider could not complete this request."
 
 
+def _manifest_acceptable(provider: str, manifest: dict) -> bool:
+    key = provider.strip().lower()
+    if key in {"runpod", "hunyuan3d"}:
+        return (
+            manifest.get("fallback_used") is False
+            and int(manifest.get("pbr_material_count") or 0) >= 1
+            and int(manifest.get("texture_count") or 0) >= 1
+        )
+    if key == "triposr":
+        return (
+            manifest.get("fallback_used") is True
+            and manifest.get("fallback_provider") == "triposr"
+            and str(manifest.get("license") or "").upper() == "MIT"
+            and int(manifest.get("mesh_count") or 0) >= 1
+            and int(manifest.get("material_count") or 0) >= 1
+            and int(manifest.get("texture_count") or 0) >= 1
+        )
+    return False
+
+
 class ThreeDGenerationWorker:
     def __init__(self) -> None:
         self.stop_event = asyncio.Event()
         self.health_path = Path(settings.THREE_D_WORKER_HEALTH_FILE)
         self.cycles = 0
         self.errors = 0
-        self.runpod = _runpod_client()
+        self.runpods = _runpod_clients()
+        self.runpod = self.runpods["hunyuan3d"]  # backward-compatible primary alias
         self.storage = ThreeDObjectStore()
         self.next_cleanup_at = 0.0
         self.circuit_state = "unknown"
         self.last_cleanup_at: str | None = None
         self.last_provider_success_at: str | None = None
         self.last_provider_failure_at: str | None = None
+
+    def _client_for_provider(self, provider: str) -> RunPodServerlessClient:
+        key = provider.strip().lower()
+        if key == "runpod":
+            key = "hunyuan3d"
+        client = self.runpods.get(key)
+        if client is None:
+            raise ThreeDWorkerError(f"3D provider endpoint is not configured: {key}")
+        return client
 
     @property
     def stale_before(self) -> datetime:
@@ -120,11 +155,19 @@ class ThreeDGenerationWorker:
 
     async def preflight(self) -> None:
         await asyncio.to_thread(self.storage.preflight)
-        health = await asyncio.to_thread(self.runpod.health)
-        if not isinstance(health, dict):
-            raise ThreeDWorkerError("3D provider health response is invalid")
         async with SessionLocal() as session:
+            policy = await get_three_d_policy(session)
             await session.execute(select(ThreeDGenerationJob.id).limit(1))
+        required = ["hunyuan3d"]
+        if policy.get("fallback_enabled", True):
+            required.append("triposr")
+        for provider in required:
+            client = self._client_for_provider(provider)
+            health = await asyncio.to_thread(client.health)
+            if not isinstance(health, dict):
+                raise ThreeDWorkerError(
+                    f"3D provider health response is invalid: {provider}"
+                )
 
     async def claim(self) -> tuple[str, str] | None:
         async with SessionLocal() as session:
@@ -394,6 +437,10 @@ class ThreeDGenerationWorker:
             await communications.publish_realtime(item)
 
     async def _complete(self, job_id: str, lease_token: str, status_data: dict) -> None:
+        claimed = await self._load(job_id, lease_token)
+        if claimed is None:
+            return
+        provider = claimed.provider
         output = status_data.get("output")
         if not isinstance(output, dict):
             await self._failed(
@@ -418,12 +465,14 @@ class ThreeDGenerationWorker:
                 )
             return
         manifest = output.get("manifest")
-        if not isinstance(manifest, dict) or manifest.get("fallback_used") is not False:
+        if not isinstance(manifest, dict) or not _manifest_acceptable(
+            provider, manifest
+        ):
             await self._failed(
                 job_id,
                 lease_token,
-                "THREE_D_PBR_REQUIRED",
-                "The full PBR 3D pipeline did not produce an acceptable artifact.",
+                "THREE_D_PROVIDER_ARTIFACT_POLICY",
+                "The selected 3D provider did not produce an artifact that satisfies its licensed output policy.",
                 retryable=True,
             )
             return
@@ -573,7 +622,14 @@ class ThreeDGenerationWorker:
                 "timings": manifest.get("timings") or {},
                 "provider_delay_ms": job.provider_delay_ms,
                 "provider_execution_ms": job.provider_execution_ms,
-                "fallback_used": False,
+                "fallback_used": bool(manifest.get("fallback_used")),
+                "fallback_provider": manifest.get("fallback_provider"),
+                "model_revision": manifest.get("model_revision"),
+                "source_revision": manifest.get("source_revision"),
+                "license": manifest.get("license"),
+                "provider": job.provider,
+                "jurisdiction_country": job.request_options.get("jurisdiction_country"),
+                "terms_version": job.request_options.get("third_party_terms_version"),
             }
             if existing is None:
                 artifact = ThreeDArtifact(
@@ -655,12 +711,15 @@ class ThreeDGenerationWorker:
     ) -> None:
         async with SessionLocal() as session:
             state, opened = await record_provider_failure(
-                session, error_code=error_code
+                session, error_code=error_code, provider=job.provider
             )
             notes = []
             if opened:
                 notes = await provider_outage_alert(
-                    session, organization_id=job.organization_id, state=state
+                    session,
+                    organization_id=job.organization_id,
+                    state=state,
+                    provider=job.provider,
                 )
             await session.commit()
         for item in notes:
@@ -678,7 +737,7 @@ class ThreeDGenerationWorker:
 
     async def _provider_success(self, job: ThreeDGenerationJob) -> None:
         async with SessionLocal() as session:
-            state = await record_provider_success(session)
+            state = await record_provider_success(session, provider=job.provider)
             await session.commit()
         self.circuit_state = str(state.get("state") or "closed")
         self.last_provider_success_at = now().isoformat()
@@ -705,9 +764,12 @@ class ThreeDGenerationWorker:
             finally:
                 self.next_cleanup_at = time.monotonic() + interval
 
-    async def _cancel_provider(self, provider_job_id: str, *, reason: str) -> bool:
+    async def _cancel_provider(
+        self, provider_job_id: str, *, provider: str, reason: str
+    ) -> bool:
         try:
-            await asyncio.to_thread(self.runpod.cancel, provider_job_id)
+            client = self._client_for_provider(provider)
+            await asyncio.to_thread(client.cancel, provider_job_id)
             return True
         except RunPodError as exc:
             logger.warning(
@@ -725,7 +787,9 @@ class ThreeDGenerationWorker:
         if job.status == "cancel_requested":
             if job.provider_job_id:
                 await self._cancel_provider(
-                    job.provider_job_id, reason="job-cancel-requested"
+                    job.provider_job_id,
+                    provider=job.provider,
+                    reason="job-cancel-requested",
                 )
             await self._cancelled(job_id, lease_token)
             return
@@ -736,12 +800,15 @@ class ThreeDGenerationWorker:
         if not policy["enabled"]:
             if job.provider_job_id:
                 await self._cancel_provider(
-                    job.provider_job_id, reason="owner-service-disabled"
+                    job.provider_job_id,
+                    provider=job.provider,
+                    reason="owner-service-disabled",
                 )
             await self._cancelled(job_id, lease_token)
             return
         max_queue = int(policy["max_queue_seconds"])
         max_runtime = int(policy["max_runtime_seconds"])
+        client = self._client_for_provider(job.provider)
         provider_job_id = job.provider_job_id
         if not provider_job_id:
             try:
@@ -766,8 +833,10 @@ class ThreeDGenerationWorker:
                         or policy["compression_policy"]
                     ),
                 }
+                if job.provider == "triposr":
+                    payload["mc_resolution"] = 192
                 result = await asyncio.to_thread(
-                    self.runpod.submit, payload, ttl_seconds=max_runtime + max_queue
+                    client.submit, payload, ttl_seconds=max_runtime + max_queue
                 )
                 provider_job_id = str(result.get("id") or "")
                 if not provider_job_id:
@@ -804,12 +873,14 @@ class ThreeDGenerationWorker:
             max_runtime = int(policy["max_runtime_seconds"])
             if not policy["enabled"]:
                 await self._cancel_provider(
-                    provider_job_id, reason="owner-service-disabled-during-poll"
+                    provider_job_id,
+                    provider=job.provider,
+                    reason="owner-service-disabled-during-poll",
                 )
                 await self._cancelled(job_id, lease_token)
                 return
             try:
-                data = await asyncio.to_thread(self.runpod.status, provider_job_id)
+                data = await asyncio.to_thread(client.status, provider_job_id)
             except RunPodError as exc:
                 logger.warning(
                     "3D provider status failed",
@@ -859,12 +930,16 @@ class ThreeDGenerationWorker:
             )
             if current == "cancel_requested":
                 await self._cancel_provider(
-                    provider_job_id, reason="user-cancel-requested"
+                    provider_job_id,
+                    provider=job.provider,
+                    reason="user-cancel-requested",
                 )
                 await self._cancelled(job_id, lease_token)
                 return
             if state == "IN_QUEUE" and time.monotonic() - queue_started > max_queue:
-                await self._cancel_provider(provider_job_id, reason="queue-timeout")
+                await self._cancel_provider(
+                    provider_job_id, provider=job.provider, reason="queue-timeout"
+                )
                 await self._provider_failure(job, "THREE_D_QUEUE_TIMEOUT")
                 await self._failed(
                     job_id,
@@ -878,7 +953,9 @@ class ThreeDGenerationWorker:
                 running_started is not None
                 and time.monotonic() - running_started > max_runtime
             ):
-                await self._cancel_provider(provider_job_id, reason="runtime-timeout")
+                await self._cancel_provider(
+                    provider_job_id, provider=job.provider, reason="runtime-timeout"
+                )
                 await self._provider_failure(job, "THREE_D_RUNTIME_TIMEOUT")
                 await self._failed(
                     job_id,
@@ -890,7 +967,9 @@ class ThreeDGenerationWorker:
                 return
             if time.monotonic() - poll_started > max_queue + max_runtime + 60:
                 await self._cancel_provider(
-                    provider_job_id, reason="total-provider-timeout"
+                    provider_job_id,
+                    provider=job.provider,
+                    reason="total-provider-timeout",
                 )
                 await self._provider_failure(job, "THREE_D_PROVIDER_TIMEOUT")
                 await self._failed(

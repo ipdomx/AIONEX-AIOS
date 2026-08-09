@@ -45,6 +45,47 @@ DEFAULT_THREE_D_POLICY: dict[str, Any] = {
     "cleanup_interval_seconds": 300,
     "cleanup_batch_size": 100,
     "temporary_input_retention_hours": 24,
+    # Phase 34F licensing / jurisdiction routing. Hunyuan remains fail-closed
+    # until the Super Owner acknowledges eligibility; TripoSR MIT is the
+    # worldwide fallback so the product remains available without routing
+    # restricted users through Hunyuan.
+    "hunyuan_license_acknowledged": False,
+    "hunyuan_commercial_eligibility_attested": False,
+    "service_provider_legal_name_confirmed": False,
+    "hunyuan_excluded_country_codes": [
+        "AT",
+        "BE",
+        "BG",
+        "HR",
+        "CY",
+        "CZ",
+        "DK",
+        "EE",
+        "FI",
+        "FR",
+        "DE",
+        "GR",
+        "HU",
+        "IE",
+        "IT",
+        "LV",
+        "LT",
+        "LU",
+        "MT",
+        "NL",
+        "PL",
+        "PT",
+        "RO",
+        "SK",
+        "SI",
+        "ES",
+        "SE",
+        "GB",
+        "KR",
+    ],
+    "fallback_enabled": True,
+    "service_provider_legal_name": "AIONEX AIOS",
+    "third_party_terms_version": "3d-model-service-2026-08-09",
 }
 
 
@@ -117,11 +158,45 @@ def normalize_three_d_policy(value: dict[str, Any] | None) -> dict[str, Any]:
         "temporary_input_retention_hours": max(
             1, min(int(raw["temporary_input_retention_hours"]), 168)
         ),
+        "hunyuan_license_acknowledged": bool(
+            raw.get("hunyuan_license_acknowledged", False)
+        ),
+        "hunyuan_commercial_eligibility_attested": bool(
+            raw.get("hunyuan_commercial_eligibility_attested", False)
+        ),
+        "service_provider_legal_name_confirmed": bool(
+            raw.get("service_provider_legal_name_confirmed", False)
+        ),
+        "hunyuan_excluded_country_codes": sorted(
+            {
+                *DEFAULT_THREE_D_POLICY["hunyuan_excluded_country_codes"],
+                *(
+                    str(item).strip().upper()
+                    for item in raw.get("hunyuan_excluded_country_codes", [])
+                    if len(str(item).strip()) == 2 and str(item).strip().isalpha()
+                ),
+            }
+        ),
+        "fallback_enabled": bool(raw.get("fallback_enabled", True)),
+        "service_provider_legal_name": str(
+            raw.get("service_provider_legal_name") or "AIONEX AIOS"
+        ).strip()[:200],
+        "third_party_terms_version": str(
+            raw.get("third_party_terms_version") or "3d-model-service-2026-08-09"
+        ).strip()[:120],
     }
     if policy["compression_policy"] not in {"compat", "meshopt"}:
         policy["compression_policy"] = "compat"
     if policy["required_entitlement"] == "":
         policy["required_entitlement"] = THREE_D_ENTITLEMENT
+    if not policy["hunyuan_excluded_country_codes"]:
+        policy["hunyuan_excluded_country_codes"] = list(
+            DEFAULT_THREE_D_POLICY["hunyuan_excluded_country_codes"]
+        )
+    if not policy["service_provider_legal_name"]:
+        policy["service_provider_legal_name"] = "AIONEX AIOS"
+    if not policy["third_party_terms_version"]:
+        policy["third_party_terms_version"] = "3d-model-service-2026-08-09"
     return policy
 
 

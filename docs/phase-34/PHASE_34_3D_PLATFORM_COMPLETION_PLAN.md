@@ -52,12 +52,13 @@ Goal: finish the AIONEX AIOS 3D generation platform end-to-end with no known gap
 - Disaster recovery and rollback procedure.
 - Acceptance evidence: `docs/phase-34/PHASE_34E_SECURITY_OBSERVABILITY_RESILIENCE.md`; durable tracing/idempotency, circuit breaker/outage handling, cleanup/retention, spend controls/alerts, Owner metrics and recovery controls, exact runtime dependency pins, hardened Alpine multi-stage runtime, CycloneDX SBOM and HIGH/CRITICAL vulnerability gate were validated.
 
-### 34F — License, region, and provider-policy gate
+### 34F — License, region, and provider-policy gate — COMPLETE
 - Document exact Hunyuan3D license obligations against the pinned version.
 - Enforce region availability policy where required.
 - Add disclosure/terms text required for third-party model service use.
 - Provide a configured fallback provider/model path for excluded regions or policy failures.
 - Prevent routing to an unavailable/non-permitted provider.
+- Acceptance evidence: `docs/phase-34/PHASE_34F_LICENSE_REGION_PROVIDER_GATE.md`; exact pinned Hunyuan/TripoSR license evidence, mandatory territory routing, user disclosures/terms, Owner attestations, US-only Hunyuan compute, security-clean MIT fallback image, live textured fallback GLB, and scale-to-zero were validated.
 
 ### 34G — Production release and final acceptance
 - Deploy the merged main revision to production.

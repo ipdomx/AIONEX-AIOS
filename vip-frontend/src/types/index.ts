@@ -274,6 +274,21 @@ export interface ThreeDAccess {
   signed_url_ttl_seconds: number;
   owner_managed: true;
   service_enabled: boolean;
+  jurisdiction_country: string | null;
+  jurisdiction_source: string;
+  model_provider: "hunyuan3d" | "triposr" | string;
+  model_disclosure: {
+    provider: string;
+    model: string;
+    operator: string;
+    license: string;
+    territory_limited: boolean;
+    tencent_affiliation: boolean | null;
+    machine_generated: boolean;
+    terms_version: string;
+  };
+  third_party_terms_version: string;
+  third_party_terms_required: boolean;
 }
 
 export interface ThreeDArtifact {
@@ -299,6 +314,13 @@ export interface ThreeDArtifact {
     provider_delay_ms?: number | null;
     provider_execution_ms?: number | null;
     fallback_used?: boolean;
+    fallback_provider?: string | null;
+    model_revision?: string | null;
+    source_revision?: string | null;
+    license?: string | null;
+    provider?: string | null;
+    jurisdiction_country?: string | null;
+    terms_version?: string | null;
   };
   expires_at: string | null;
 }

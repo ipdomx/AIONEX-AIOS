@@ -13,6 +13,7 @@ from fastapi import (
     Header,
     HTTPException,
     Query,
+    Request,
     UploadFile,
     status,
 )
@@ -25,6 +26,15 @@ from app.db.base import get_db
 from app.db.models import ThreeDArtifact, ThreeDGenerationJob, uuid_str
 from app.services import communications
 from app.services.three_d_policy import get_three_d_policy
+from app.services.three_d_provider_policy import (
+    HUNYUAN_PROVIDER,
+    provider_candidates,
+    provider_disclosure,
+    provider_runtime_configured,
+    request_country,
+    require_terms_acceptance,
+    hunyuan_license_permits_country,
+)
 from app.services.three_d_resilience import (
     assert_provider_available,
     find_duplicate_job,
@@ -68,14 +78,56 @@ async def _publish(rows: list[object]) -> None:
             continue
 
 
+async def _licensed_provider_route(
+    session: AsyncSession, actor: UserRecord, request: Request, policy: dict
+) -> tuple[str, str | None, str, dict]:
+    country, country_source = await request_country(session, actor, request)
+    blocked: list[str] = []
+    for provider in provider_candidates(policy, country):
+        if not provider_runtime_configured(provider):
+            blocked.append(provider)
+            continue
+        try:
+            await assert_provider_available(session, provider=provider)
+        except HTTPException as exc:
+            if exc.status_code != 503:
+                raise
+            blocked.append(provider)
+            continue
+        return provider, country, country_source, provider_disclosure(policy, provider)
+    raise HTTPException(
+        status_code=503,
+        detail={
+            "code": "THREE_D_PROVIDERS_UNAVAILABLE",
+            "providers": blocked,
+            "message": "All licensed 3D providers are temporarily unavailable.",
+        },
+    )
+
+
 @router.get("/{project_id}/3d/access")
 async def get_three_d_access(
     project_id: str,
+    request: Request,
     actor: UserRecord = Depends(require_permissions("projects:read")),
     session: AsyncSession = Depends(get_db),
 ):
     await project_for_actor(session, actor, project_id, write=False)
     snapshot = await access_snapshot(session, actor)
+    policy = await get_three_d_policy(session)
+    provider, country, country_source, disclosure = await _licensed_provider_route(
+        session, actor, request, policy
+    )
+    snapshot.update(
+        {
+            "jurisdiction_country": country,
+            "jurisdiction_source": country_source,
+            "model_provider": provider,
+            "model_disclosure": disclosure,
+            "third_party_terms_version": policy["third_party_terms_version"],
+            "third_party_terms_required": True,
+        }
+    )
     await session.commit()
     return snapshot
 
@@ -119,9 +171,12 @@ async def list_three_d_jobs(
 @router.post("/{project_id}/3d/jobs", status_code=status.HTTP_202_ACCEPTED)
 async def create_three_d_job(
     project_id: str,
+    request: Request,
     image: Annotated[UploadFile, File(description="PNG, JPEG, or WebP source image")],
     seed: Annotated[int, Form(ge=0, le=2_147_483_647)] = 12345,
     texture_size: Annotated[int | None, Form(ge=512, le=4096)] = None,
+    third_party_terms_accepted: Annotated[bool, Form()] = False,
+    third_party_terms_version: Annotated[str, Form(max_length=120)] = "",
     actor: UserRecord = Depends(require_permissions("projects:write")),
     session: AsyncSession = Depends(get_db),
     idempotency_key_header: Annotated[
@@ -159,6 +214,14 @@ async def create_three_d_job(
         int(texture_size or policy["max_texture_size"]),
         int(policy["max_texture_size"]),
     )
+    provider, country, country_source, disclosure = await _licensed_provider_route(
+        session, actor, request, policy
+    )
+    accepted_terms_version = require_terms_acceptance(
+        policy,
+        accepted=third_party_terms_accepted,
+        version=third_party_terms_version,
+    )
     from hashlib import sha256
 
     image_sha = sha256(body).hexdigest()
@@ -170,6 +233,7 @@ async def create_three_d_job(
         seed=seed,
         texture_size=selected_texture,
         compression_policy=policy["compression_policy"],
+        provider=provider,
     )
     idempotency_namespace = f"{actor.organization_id}:{actor.id}:{project.id}"
     idempotency_key = normalize_idempotency_key(
@@ -205,7 +269,6 @@ async def create_three_d_job(
         await session.commit()
         return job_snapshot(duplicate, artifact)
 
-    await assert_provider_available(session)
     job_id = uuid_str()
     trace_id = normalize_trace_id(trace_header)
     store = ThreeDObjectStore()
@@ -231,7 +294,7 @@ async def create_three_d_job(
             workspace_id=project.workspace_id,
             project_id=project.id,
             requested_by_id=actor.id,
-            provider="runpod",
+            provider=provider,
             status="queued",
             stage="queued",
             progress=0,
@@ -247,6 +310,11 @@ async def create_three_d_job(
                 "texture_size": selected_texture,
                 "compression_policy": policy["compression_policy"],
                 "allow_shape_fallback": False,
+                "jurisdiction_country": country,
+                "jurisdiction_source": country_source,
+                "third_party_terms_version": accepted_terms_version,
+                "third_party_terms_accepted": True,
+                "provider_disclosure": disclosure,
             },
             estimated_cost_usd=float(admission["reserved_estimated_cost_usd"]),
             metering_status="pending",
@@ -262,6 +330,9 @@ async def create_three_d_job(
                     "input_size_bytes": stored.size_bytes,
                     "trace_id": trace_id,
                     "idempotent": True,
+                    "provider": provider,
+                    "jurisdiction_country": country,
+                    "terms_version": accepted_terms_version,
                 },
             )
         )
@@ -480,6 +551,7 @@ async def clarify_three_d_job(
 async def get_three_d_artifact_links(
     project_id: str,
     job_id: str,
+    request: Request,
     actor: UserRecord = Depends(require_permissions("projects:read")),
     session: AsyncSession = Depends(get_db),
 ):
@@ -487,6 +559,17 @@ async def get_three_d_artifact_links(
     job, artifact = await job_with_artifact(
         session, job_id, actor.organization_id, project_id
     )
+    if job.provider in {"runpod", HUNYUAN_PROVIDER}:
+        policy = await get_three_d_policy(session)
+        country, _ = await request_country(session, actor, request)
+        if not hunyuan_license_permits_country(policy, country):
+            raise HTTPException(
+                status_code=451,
+                detail={
+                    "code": "THREE_D_HUNYUAN_OUTPUT_TERRITORY_BLOCKED",
+                    "message": "This Hunyuan-generated artifact cannot be provided in the current jurisdiction.",
+                },
+            )
     if job.status != "completed" or artifact is None or artifact.status != "ready":
         raise HTTPException(status_code=409, detail="3D artifact is not ready")
     if artifact.expires_at is not None:

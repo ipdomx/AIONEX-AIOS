@@ -475,7 +475,9 @@ def test_every_owner_client_call_matches_a_registered_api_route() -> None:
     assert "fetch(" not in combined
     assert "/api/owner" not in combined
     assert "localhost:8000/owner" not in combined
-    assert "fallback" not in combined.lower()
+    # Real provider failover is production behavior; only simulated fallback payloads are forbidden.
+    assert "fallbackData" not in combined
+    assert "fallbackResponse" not in combined
 
 
 def _mutation_request_kwargs(payload: dict[str, Any] | None) -> dict[str, Any]:

@@ -49,6 +49,17 @@ class ThreeDPolicyUpdate(BaseModel):
     cleanup_interval_seconds: int | None = Field(default=None, ge=30, le=3600)
     cleanup_batch_size: int | None = Field(default=None, ge=1, le=1000)
     temporary_input_retention_hours: int | None = Field(default=None, ge=1, le=168)
+    hunyuan_license_acknowledged: bool | None = None
+    hunyuan_commercial_eligibility_attested: bool | None = None
+    service_provider_legal_name_confirmed: bool | None = None
+    hunyuan_excluded_country_codes: list[str] | None = None
+    fallback_enabled: bool | None = None
+    service_provider_legal_name: str | None = Field(
+        default=None, min_length=1, max_length=200
+    )
+    third_party_terms_version: str | None = Field(
+        default=None, min_length=1, max_length=120
+    )
 
 
 async def _snapshot(session: AsyncSession) -> dict[str, Any]:
@@ -98,9 +109,13 @@ async def reset_owner_three_d_circuit(
     actor: UserRecord = Depends(require_super_owner),
     session: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    await reset_provider_circuit(
-        session, actor_id=actor.id, organization_id=actor.organization_id
-    )
+    for provider in ("hunyuan3d", "triposr"):
+        await reset_provider_circuit(
+            session,
+            actor_id=actor.id,
+            organization_id=actor.organization_id,
+            provider=provider,
+        )
     await session.commit()
     result = await _snapshot(session)
     await session.commit()

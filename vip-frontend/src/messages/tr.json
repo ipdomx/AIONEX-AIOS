@@ -395,7 +395,14 @@
         "completed": "Tamamlandı",
         "failed": "Başarısız",
         "cancelled": "İptal edildi"
-      }
+      },
+      "provider": "Model sağlayıcısı: {model} · {license}",
+      "jurisdiction": "Yönlendirme için kullanılan ülke: {country}",
+      "countryUnknown": "bilinmiyor",
+      "hunyuanNoAffiliation": "Hizmet {operator} tarafından işletilir. Tencent bu hizmetle bağlantılı değildir; sponsor olmaz veya onay vermez.",
+      "termsConsent": "Güncel üçüncü taraf 3D model koşullarını ve bölgesel kısıtlamaları kabul ediyorum.",
+      "termsLink": "Koşulları incele",
+      "termsRequired": "Üretimden önce güncel üçüncü taraf 3D model koşullarını kabul edin."
     },
     "execution": {
       "title": "Tam yönetişimli proje döngüsü",
@@ -485,7 +492,13 @@
     "terms3Title": "Kontrollü kullanılabilirlik",
     "terms3Copy": "Kayıt, kotalar, servis erişimi, proje sınırları ve kontroller platform tarafından uygulanır ve değişebilir.",
     "terms4Title": "Özel destek iletişimi",
-    "terms4Copy": "Kimliği doğrulanmış destek kanalını kullanın; parola, oturum belirteci, kurtarma kodu veya gizli içerik paylaşmayın."
+    "terms4Copy": "Kimliği doğrulanmış destek kanalını kullanın; parola, oturum belirteci, kurtarma kodu veya gizli içerik paylaşmayın.",
+    "terms5Title": "Üçüncü taraf 3D model hizmeti",
+    "terms5Copy": "3D arayüzü, üretimden önce yapılandırılmış hizmet işletmecisini ve model sağlayıcısını gösterir. Tencent Hunyuan 3D 2.1 seçildiğinde hizmet ve çıktıları Tencent Hunyuan 3D 2.1 Community License Agreement ile Acceptable Use Policy hükümlerine tabidir. Hunyuan Avrupa Birliği, Birleşik Krallık veya Güney Kore’de sunulmaz. Hunyuan çıktıları Hunyuan 3D 2.1 veya izin verilen türevleri dışında başka bir yapay zekâ modelini geliştirmek için kullanılamaz. Lisans gerektirdiğinde makine tarafından üretilen içerik açıkça belirtilmelidir. Tencent, AIONEX AIOS ile bağlantılı değildir; sponsoru değildir ve hizmeti onaylamaz. Hunyuan izinli veya erişilebilir değilse AIONEX AIOS isteği MIT lisanslı TripoSR yedeğine yönlendirebilir.",
+    "terms6Title": "Yargı alanı, paylaşım ve sağlayıcı kontrolleri",
+    "terms6Copy": "Ülke algılamasını, model sağlayıcı yönlendirmesini, güvenlik kontrollerini veya Owner politikasını aşmaya çalışmayın. Hunyuan çalışmalarını veya çıktılarını lisansın izin verdiği bölge dışında istemeyin, erişmeyin, görüntülemeyin, dağıtmayın veya paylaşmayın. Her 3D üretim isteği, güncel üçüncü taraf model koşulları sürümünün kabulünü gerektirir. Üst kaynak lisanslarının tam kopyaları aşağıda mevcuttur. Hunyuan kullanımı bakımından, atıf yoluyla dâhil edilen Acceptable Use Policy dâhil Bölüm 5(a) ve 5(b) kısıtlamaları bu Koşullara dâhildir ve bu Koşullar kapsamında bağlayıcı ve uygulanabilirdir.",
+    "hunyuanLicense": "Tencent Hunyuan 3D 2.1 lisans kopyası",
+    "triposrLicense": "TripoSR MIT lisans kopyası"
   },
   "passwordRecovery": {
     "eyebrow": "Güvenli hesap kurtarma",

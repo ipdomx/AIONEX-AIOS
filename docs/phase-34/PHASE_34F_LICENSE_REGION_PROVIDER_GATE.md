@@ -1,0 +1,80 @@
+# Phase 34F — License, Region and Provider Policy Gate
+
+## Release decision
+
+AIONEX AIOS does not treat Hunyuan 3D 2.1 as an unrestricted commercial dependency. Hunyuan routing is fail-closed by default and cannot become eligible until the Super Owner explicitly records all required acknowledgements in the 3D control plane. The production 3D service remains functional through the MIT-licensed TripoSR fallback.
+
+## Pinned license evidence
+
+### Tencent Hunyuan 3D 2.1
+
+- Source revision: `82920d643c0dc2f7bfd7255f45f62d386edfe60c`.
+- License SHA-256: `b79ac5e11ce063b6c6570dbe9686a45a03ba08bd248aa6aa82fb342a23a81c0c`.
+- Exact license copy published with the portal: `/legal/tencent-hunyuan-3d-2.1-license.txt`.
+- The license territory excludes the European Union, United Kingdom and South Korea.
+- The platform therefore treats all EU ISO alpha-2 country codes plus `GB` and `KR` as mandatory exclusions that Owner configuration cannot remove.
+- Unknown jurisdiction is never sufficient for Hunyuan routing.
+- Hunyuan use additionally remains disabled until the Super Owner confirms the operator legal name, acknowledges the license obligations, and attests that the commercial eligibility / separate-license condition is satisfied for the organization.
+- The user disclosure identifies the service operator, Hunyuan model, machine-generated nature of output, the applicable license, and states that Tencent is not affiliated with, sponsoring, or endorsing the service.
+- The platform prevents Hunyuan artifact-link issuance if the current request jurisdiction is no longer permitted.
+
+### TripoSR
+
+- Source repository revision: `107cefdc244c39106fa830359024f6a2f1c78871`.
+- Source license SHA-256: `ade0a66629bdd7e01e46b3296b3851cff0fd27989bca53da470ad6e96ed620fb`.
+- Model snapshot revision: `5b521936b01fbe1890f6f9baed0254ab6351c04a`.
+- Exact MIT license copy published with the portal: `/legal/triposr-mit-license.txt`.
+- The fallback Docker build vendors the pinned source, bakes the pinned model into the image, and emits a textured GLB whose manifest truthfully reports `fallback_used=true`, `fallback_provider=triposr`, and `license=MIT`.
+
+## Jurisdiction enforcement
+
+Country resolution is server-side and fail-closed. The API accepts `CF-IPCountry` only when the complete protected Cloudflare edge header set is present (`CF-Ray` and `CF-Connecting-IP`). Direct/internal requests, incomplete edge headers, unknown codes and anonymous markers are treated as unknown and can route only to the permissive fallback. Registration telemetry remains audit data and cannot unlock Hunyuan.
+
+Provider selection is evaluated before an input object is stored or a GPU job is created. A provider must satisfy all of the following:
+
+1. Model license permits the resolved jurisdiction.
+2. Required Owner attestations are present.
+3. Provider endpoint credentials/configuration exist in the protected RunPod secret file.
+4. The provider circuit breaker is available.
+5. Current third-party 3D terms are explicitly accepted for the request.
+
+When Hunyuan is not permitted, configured, or available, the request routes to TripoSR. If neither provider is permitted/available, the API fails closed and does not submit GPU work.
+
+## Compute-region enforcement
+
+The dedicated Hunyuan Serverless endpoint is restricted through RunPod's endpoint `locations` policy to `US`. Its minimum worker count remains zero. This prevents Hunyuan compute from being scheduled into the license-excluded EU/UK/South-Korea territories. The TripoSR fallback does not inherit the Hunyuan territory restriction because its pinned source/model are MIT-licensed.
+
+
+## Final live fallback acceptance
+
+- Security-clean fallback image: `ipdomx/aionex-triposr@sha256:e07f4558089de625817e58729d192eea6740889a0f17d3029a4b32026c8f0e4f`.
+- Trivy `0.72.0` gate against that immutable image: **0 HIGH / 0 CRITICAL**.
+- Production fallback template: `u4zqw3dd6v`, pinned to the immutable digest above.
+- Production fallback endpoint: `5iyicoj8lvyjjj`, `workersMin=0`, `workersMax=1`, `idleTimeout=5`.
+- Live acceptance job: `3de18c7c-d6a8-4a7c-a305-e7da3f16db2f-u2`, completed with no retry/failure.
+- Live output: `3,184,420` byte GLB, SHA-256 `c6699ab3a10a7e0601ed6df0fcf7b23a2409c060f0e0cd606959ba63bcd4950b`.
+- Manifest truthfully reported MIT TripoSR fallback, one mesh, one material, one PBR material and one embedded texture at `1024x1024`.
+- `gltf-transform inspect` validated glTF 2.0 mesh/material/base-color texture content. Blender `4.0.2` imported the same accepted GLB successfully.
+- After the job, RunPod reported no queued/in-progress/running/unhealthy work; REST returned no active worker object for the retained endpoint, confirming scale-to-zero without deleting it.
+- Production Hunyuan endpoint `5e9d3pr0wcvyjy` remains `workersMin=0`, `workersMax=1`, `idleTimeout=5`; RunPod GraphQL confirms `locations=US`.
+- The protected production secret file contains only the retained Hunyuan and TripoSR endpoint IDs plus the RunPod credential, remains mode `0600`, and is excluded from Git.
+
+## Owner controls
+
+The Super Owner 3D page controls service enablement, eligible plans/users, quotas, spend, retries, cleanup, provider circuits, fallback enablement, Hunyuan license acknowledgement, commercial eligibility attestation, operator legal-name confirmation, mandatory-plus-additional excluded country codes, and the current third-party terms version. Mandatory Hunyuan license exclusions are enforced in backend normalization even if the UI payload attempts to remove them.
+
+## User terms and disclosure
+
+Every new 3D generation requires acceptance of the currently configured third-party model terms version. The project UI displays the selected provider, model, license, jurisdiction used for routing, and Hunyuan non-affiliation disclosure before generation. The public Terms page includes the model-service restrictions and links to complete upstream license copies.
+
+## Acceptance gate
+
+Phase 34F is complete only when:
+
+- unit/integration/static contract tests prove fail-closed territory and terms behavior;
+- Hunyuan endpoint location is verifiably `US` with `workersMin=0`;
+- TripoSR fallback image is rebuilt from pinned inputs, pushed by digest, and deployed to a scale-to-zero Serverless endpoint;
+- live TripoSR inference produces a real textured GLB validated by glTF Transform and Blender;
+- production secret contains both endpoint IDs without exposing credentials;
+- Owner and user frontends build with six complete locales;
+- all repository CI/security checks pass after merge.
