@@ -21,7 +21,7 @@ graphene==3.4.3
 strawberry-graphql[fastapi]==0.323.2
 python-dotenv==1.2.2
 email-validator==2.3.0
-firebase-admin==6.8.0
+firebase-admin==7.5.0
 phonenumbers==9.0.34
 webauthn==2.7.0
 pytz==2024.1
