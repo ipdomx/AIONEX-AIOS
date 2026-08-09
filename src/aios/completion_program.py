@@ -495,7 +495,7 @@ ENDPOINT_BATCH: Final[dict[str, str]] = {
     "permissions": "29C", "portal": "29B", "project_executions": "29F", "projects": "29F",
     "reports": "29F", "roles": "29C", "search": "29B", "security": "29G",
     "servers": "29G", "settings": "29C", "studio": "29H", "support": "29E",
-    "tasks": "29F", "teams": "29C", "users": "29C", "websocket": "29E",
+    "tasks": "29F", "teams": "29C", "three_d_jobs": "34D", "users": "29C", "websocket": "29E",
     "workflows": "29F", "workforce": "29F", "workspaces": "29C",
 }
 

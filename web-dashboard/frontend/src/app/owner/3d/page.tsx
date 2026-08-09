@@ -160,6 +160,30 @@ export default function OwnerThreeDPage() {
           />
         </label>
       </section>
+      <section className="glass-card p-5 space-y-3">
+        <label className="block text-xs text-white/45">
+          GLB compression policy
+          <select
+            className="mt-2 w-full rounded-lg border border-white/10 bg-black/20 p-2 text-white"
+            value={policy.compression_policy}
+            onChange={(e) =>
+              set("compression_policy", e.target.value as "compat" | "meshopt")
+            }
+          >
+            <option value="compat" className="bg-ink-900">
+              Compatibility
+            </option>
+            <option value="meshopt" className="bg-ink-900">
+              Meshopt
+            </option>
+          </select>
+        </label>
+        <p className="text-xs leading-5 text-white/35">
+          Generation quota, image size, texture resolution, artifact retention
+          and signed-link lifetime below are enforced server-side for every
+          user.
+        </p>
+      </section>
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {(
           [
@@ -171,6 +195,11 @@ export default function OwnerThreeDPage() {
             ["daily_spend_limit_usd", "Daily spend ceiling USD", 0.01],
             ["monthly_spend_limit_usd", "Monthly spend ceiling USD", 0.01],
             ["owner_alert_threshold_pct", "Owner alert threshold %", 1],
+            ["monthly_jobs_per_user", "Monthly jobs / user", 1],
+            ["max_input_megabytes", "Max input image MB", 1],
+            ["max_texture_size", "Max texture size", 512],
+            ["artifact_retention_days", "Artifact retention days", 1],
+            ["signed_url_ttl_seconds", "Signed URL lifetime seconds", 60],
           ] as const
         ).map(([key, label, min]) => (
           <label key={key} className="glass-card p-4 text-xs text-white/45">

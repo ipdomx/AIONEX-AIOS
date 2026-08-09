@@ -258,6 +258,100 @@ export interface Project {
   updated_at: string;
 }
 
+
+export interface ThreeDAccess {
+  eligible: boolean;
+  plan_code: string;
+  required_entitlement: string;
+  monthly_quota: number;
+  monthly_used: number;
+  monthly_remaining: number;
+  active_jobs: number;
+  max_concurrent_jobs: number;
+  max_input_megabytes: number;
+  max_texture_size: number;
+  compression_policy: "compat" | "meshopt";
+  signed_url_ttl_seconds: number;
+  owner_managed: true;
+  service_enabled: boolean;
+}
+
+export interface ThreeDArtifact {
+  id: string;
+  filename: string;
+  media_type: "model/gltf-binary" | string;
+  size_bytes: number;
+  sha256: string;
+  status: string;
+  metadata: {
+    pipeline?: string | null;
+    seed?: number | null;
+    mesh_count?: number | null;
+    material_count?: number | null;
+    pbr_material_count?: number | null;
+    texture_count?: number | null;
+    texture_size_limit?: number | null;
+    compression_policy?: string | null;
+    optimization_ratio?: number | null;
+    pre_optimization_bytes?: number | null;
+    post_optimization_bytes?: number | null;
+    timings?: Record<string, number>;
+    provider_delay_ms?: number | null;
+    provider_execution_ms?: number | null;
+    fallback_used?: boolean;
+  };
+  expires_at: string | null;
+}
+
+export type ThreeDJobStatus =
+  | "queued"
+  | "running"
+  | "cancel_requested"
+  | "needs_clarification"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export interface ThreeDGenerationJob {
+  id: string;
+  project_id: string;
+  workspace_id: string;
+  organization_id: string;
+  requested_by_id: string;
+  status: ThreeDJobStatus;
+  stage: string;
+  progress: number;
+  provider: string;
+  provider_job_id: string | null;
+  attempts: number;
+  max_attempts: number;
+  estimated_cost_usd: number;
+  metering_status: string;
+  error_code: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+  started_at: string | null;
+  cancel_requested_at: string | null;
+  cancelled_at: string | null;
+  completed_at: string | null;
+  has_artifact: boolean;
+  artifact: ThreeDArtifact | null;
+}
+
+export interface ThreeDArtifactLinks {
+  job_id: string;
+  artifact_id: string;
+  filename: string;
+  media_type: string;
+  size_bytes: number;
+  sha256: string;
+  view_url: string;
+  download_url: string;
+  expires_in: number;
+  expires_at: string;
+}
+
 export interface ProjectWorkforceResult {
   worker_id: string;
   role: string;

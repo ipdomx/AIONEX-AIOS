@@ -1,6 +1,6 @@
 """Super Owner control surface for 3D access, cost and recovery policy."""
 from __future__ import annotations
-from typing import Any
+from typing import Any, Literal
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +24,12 @@ class ThreeDPolicyUpdate(BaseModel):
     daily_spend_limit_usd: float | None = Field(default=None, gt=0, le=10000)
     monthly_spend_limit_usd: float | None = Field(default=None, gt=0, le=100000)
     owner_alert_threshold_pct: int | None = Field(default=None, ge=1, le=100)
+    monthly_jobs_per_user: int | None = Field(default=None, ge=1, le=1000)
+    max_input_megabytes: int | None = Field(default=None, ge=1, le=50)
+    max_texture_size: int | None = Field(default=None, ge=512, le=4096)
+    artifact_retention_days: int | None = Field(default=None, ge=1, le=365)
+    signed_url_ttl_seconds: int | None = Field(default=None, ge=60, le=3600)
+    compression_policy: Literal["compat", "meshopt"] | None = None
 
 @router.get("")
 async def owner_three_d_policy(actor: UserRecord = Depends(require_super_owner), session: AsyncSession = Depends(get_db)) -> dict[str, Any]:

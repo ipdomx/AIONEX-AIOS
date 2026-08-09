@@ -218,6 +218,35 @@ services:
     security_opt: ["no-new-privileges:true"]
     networks: [aionex-network]
 
+  three-d-worker:
+    image: aionex-aios-backend:local
+    restart: unless-stopped
+    stop_grace_period: 45s
+    command: ["python", "-m", "app.services.three_d_worker"]
+    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      REDIS_URL: redis://redis:6379/0
+      AIOS_REPO_ROOT: /workspace
+      PYTHONPATH: /workspace/src:/app
+      THREE_D_RUNPOD_SECRET_FILE: /run/secrets/aionex/runpod-gpu.env
+    volumes:
+      - ..:/workspace:ro
+      - ./secrets/RUNPOD_GPU.env:/run/secrets/aionex/runpod-gpu.env:ro
+    depends_on:
+      backend: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.services.three_d_worker", "--healthcheck"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 30s
+    security_opt: ["no-new-privileges:true"]
+    networks: [aionex-network]
+
   project-worker:
     profiles: ["ai-execution"]
     image: aionex-aios-backend:local

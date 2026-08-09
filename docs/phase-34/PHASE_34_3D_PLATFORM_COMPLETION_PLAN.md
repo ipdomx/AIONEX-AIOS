@@ -32,7 +32,7 @@ Goal: finish the AIONEX AIOS 3D generation platform end-to-end with no known gap
 - Preserve graceful fallback to shape-only only when policy explicitly allows it.
 - Acceptance evidence: `docs/phase-34/PHASE_34C_PBR_ACCEPTANCE.md`; two same-seed live GPU runs produced the same validated non-fallback PBR GLB SHA-256 and the production endpoint scaled to zero.
 
-### 34D — Product integration in AIOS and ai.vip-e.net
+### 34D — Product integration in AIOS and ai.vip-e.net — COMPLETE
 - Expose authenticated project API for create/status/cancel/download.
 - Connect project/workspace ownership and organization isolation.
 - Persist job/audit state and artifact metadata.
@@ -40,6 +40,7 @@ Goal: finish the AIONEX AIOS 3D generation platform end-to-end with no known gap
 - Add Three.js preview and user-visible progress/error states.
 - Enforce plan quota, concurrency, timeout, and billing/metering.
 - Emit owner and user notifications for clarification, progress, completion, cancellation, and failures.
+- Acceptance evidence: `docs/phase-34/PHASE_34D_PRODUCT_INTEGRATION_ACCEPTANCE.md`; authenticated project integration, durable queue/storage/metering, live RunPod→private S3 PBR generation, signed preview/download, owner-controlled eligibility/limits, and portal UI were validated end-to-end.
 
 ### 34E — Security, observability, cost, and resilience
 - Structured logs, metrics, tracing, health, job duration, cold-start, GPU runtime, success/failure rate.

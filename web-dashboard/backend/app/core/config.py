@@ -231,6 +231,33 @@ class Settings(BaseSettings):
         validation_alias="PROJECT_EXECUTION_HEARTBEAT_SECONDS",
     )
 
+    THREE_D_RUNPOD_SECRET_FILE: str = Field(
+        default="/run/secrets/aionex/runpod-gpu.env",
+        validation_alias="THREE_D_RUNPOD_SECRET_FILE",
+    )
+    THREE_D_WORKER_POLL_SECONDS: int = Field(
+        default=2, ge=1, le=60, validation_alias="THREE_D_WORKER_POLL_SECONDS"
+    )
+    THREE_D_JOB_LEASE_SECONDS: int = Field(
+        default=180, ge=60, le=1800, validation_alias="THREE_D_JOB_LEASE_SECONDS"
+    )
+    THREE_D_WORKER_HEALTH_FILE: str = Field(
+        default="/tmp/aionex-three-d-worker-health.json",
+        validation_alias="THREE_D_WORKER_HEALTH_FILE",
+    )
+    THREE_D_GPU_COST_PER_SECOND_USD: float = Field(
+        default=0.0002,
+        ge=0.0,
+        le=0.01,
+        validation_alias="THREE_D_GPU_COST_PER_SECOND_USD",
+    )
+    THREE_D_MAX_OUTPUT_BYTES: int = Field(
+        default=100 * 1024 * 1024,
+        ge=1024 * 1024,
+        le=500 * 1024 * 1024,
+        validation_alias="THREE_D_MAX_OUTPUT_BYTES",
+    )
+
     STUDIO_ASSET_ROOT: str = Field(
         default="/var/lib/aionex/studio-assets",
         validation_alias="STUDIO_ASSET_ROOT",

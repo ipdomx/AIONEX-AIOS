@@ -14,6 +14,12 @@ export type OwnerThreeDPolicy = {
   daily_spend_limit_usd: number;
   monthly_spend_limit_usd: number;
   owner_alert_threshold_pct: number;
+  monthly_jobs_per_user: number;
+  max_input_megabytes: number;
+  max_texture_size: number;
+  artifact_retention_days: number;
+  signed_url_ttl_seconds: number;
+  compression_policy: "compat" | "meshopt";
 };
 
 export type OwnerThreeDSnapshot = { policy: OwnerThreeDPolicy };
