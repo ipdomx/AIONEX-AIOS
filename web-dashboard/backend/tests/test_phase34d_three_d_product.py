@@ -383,3 +383,15 @@ async def test_project_3d_api_lifecycle_is_tenant_scoped_and_issues_only_signed_
         )
         assert links["expires_in"] == 900
         assert links["sha256"] == "a" * 64
+
+
+def test_billing_sync_backfills_business_3d_entitlement_for_older_published_catalogues():
+    from app.services.billing import THREE_D_BUSINESS_ENTITLEMENT
+
+    source = (ROOT / "app/services/billing.py").read_text()
+    assert THREE_D_BUSINESS_ENTITLEMENT == "3d.generation"
+    assert 'if code == "business":' in source
+    assert (
+        "entitlements = sorted(set(entitlements) | {THREE_D_BUSINESS_ENTITLEMENT})"
+        in source
+    )
