@@ -313,10 +313,10 @@ def test_production_mounts_admin_credential_and_drops_privileges() -> None:
     for compose in (web_compose, deploy_compose):
         assert "/run/secrets/aionex/firebase-admin.json" in compose
         assert "/run/secrets/aionex:ro" in compose
-    assert "gosu" in dockerfile
+    assert "su-exec" in dockerfile
     assert 'ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]' in dockerfile
     assert "install -m 0400 -o aionex -g aionex" in entrypoint
-    assert 'exec gosu aionex "$@"' in entrypoint
+    assert 'exec su-exec aionex "$@"' in entrypoint
     assert "!.gitignore" in secret_ignore
 
     subprocess.run(

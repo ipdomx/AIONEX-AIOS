@@ -1343,16 +1343,14 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
         repository_root / ".github/workflows/final-validation.yml"
     ).read_text(encoding="utf-8")
 
-    assert "FROM python:3.11-slim-bookworm" in dockerfile
-    assert "https://www.postgresql.org/media/keys/ACCC4CF8.asc" in dockerfile
-    assert "B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8" in dockerfile
-    assert (
-        "deb [signed-by=/usr/share/keyrings/postgresql-pgdg.gpg] "
-        "https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" in dockerfile
-    )
-    assert "postgresql-client-16" in dockerfile
+    assert "FROM python:3.11-alpine3.23@sha256:" in dockerfile
+    assert "postgresql16-client" in dockerfile
+    assert "postgresql16-dev" in dockerfile
     assert "postgresql-client-17" not in dockerfile
     assert "apt-key" not in dockerfile
+    assert " AS builder" in dockerfile and " AS test" in dockerfile and " AS runtime" in dockerfile
+    assert "requirements-runtime.txt" in dockerfile
+    assert "setuptools*" in dockerfile and "wheel*" in dockerfile
     assert "install -d -m 0700 -o aionex -g aionex" in dockerfile
     for compose in (primary_compose, deploy_compose):
         assert "backup-worker:" in compose
@@ -1399,10 +1397,12 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
     assert r"\(PostgreSQL\) 16(\.|$)" in validation_workflow
     assert "ps --status running -q backup-worker" in validation_workflow
     assert "-e RUN_LIVE_BACKUP_SMOKE=1" in validation_workflow
-    assert '"${compose_args[@]}" run' in validation_workflow
-    assert "--rm" in validation_workflow
-    assert "--no-deps" in validation_workflow
-    assert "backup-worker \\\n              python -m pytest" in validation_workflow
+    assert "docker build --target test -t aionex-aios-backend:test backend" in validation_workflow
+    assert "aionex-aios-backend:test" in validation_workflow
+    assert "python -m pytest -q" in validation_workflow
+    assert '--network "$worker_network"' in validation_workflow
+    assert '-v "$backup_volume:/var/lib/aionex/backups:rw"' in validation_workflow
+
 
 
 def test_backup_size_schema_supports_archives_larger_than_two_gibibytes() -> None:

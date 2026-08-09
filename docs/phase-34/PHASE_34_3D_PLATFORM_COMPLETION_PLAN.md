@@ -42,7 +42,7 @@ Goal: finish the AIONEX AIOS 3D generation platform end-to-end with no known gap
 - Emit owner and user notifications for clarification, progress, completion, cancellation, and failures.
 - Acceptance evidence: `docs/phase-34/PHASE_34D_PRODUCT_INTEGRATION_ACCEPTANCE.md`; authenticated project integration, durable queue/storage/metering, live RunPod→private S3 PBR generation, signed preview/download, owner-controlled eligibility/limits, and portal UI were validated end-to-end.
 
-### 34E — Security, observability, cost, and resilience
+### 34E — Security, observability, cost, and resilience — COMPLETE
 - Structured logs, metrics, tracing, health, job duration, cold-start, GPU runtime, success/failure rate.
 - Circuit breaker and provider outage handling.
 - Idempotency and duplicate-job protection.
@@ -50,6 +50,7 @@ Goal: finish the AIONEX AIOS 3D generation platform end-to-end with no known gap
 - Daily/monthly spend ceilings, per-user limits, and owner alerts.
 - Image vulnerability scan/SBOM and dependency pinning.
 - Disaster recovery and rollback procedure.
+- Acceptance evidence: `docs/phase-34/PHASE_34E_SECURITY_OBSERVABILITY_RESILIENCE.md`; durable tracing/idempotency, circuit breaker/outage handling, cleanup/retention, spend controls/alerts, Owner metrics and recovery controls, exact runtime dependency pins, hardened Alpine multi-stage runtime, CycloneDX SBOM and HIGH/CRITICAL vulnerability gate were validated.
 
 ### 34F — License, region, and provider-policy gate
 - Document exact Hunyuan3D license obligations against the pinned version.

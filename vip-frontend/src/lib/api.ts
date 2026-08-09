@@ -665,8 +665,13 @@ export function createProjectThreeDJob(
   body.set("image", image);
   body.set("seed", String(values?.seed ?? 12345));
   if (values?.textureSize) body.set("texture_size", String(values.textureSize));
+  const idempotencyKey =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   return request<ThreeDGenerationJob>(`/projects/${encodeURIComponent(projectId)}/3d/jobs`, {
     method: "POST",
+    headers: { "Idempotency-Key": idempotencyKey },
     body,
   });
 }

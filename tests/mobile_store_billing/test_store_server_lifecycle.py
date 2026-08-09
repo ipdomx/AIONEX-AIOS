@@ -3,7 +3,7 @@ ROOT=Path.cwd()
 def read(path): return (ROOT/path).read_text()
 
 def test_official_apple_server_library_is_pinned_and_used():
-    req=read('web-dashboard/backend/requirements.txt')
+    req=read('web-dashboard/backend/requirements-runtime.txt')
     svc=read('web-dashboard/backend/app/services/mobile_store_billing.py')
     assert 'app-store-server-library==3.1.2' in req
     assert 'SignedDataVerifier' in svc

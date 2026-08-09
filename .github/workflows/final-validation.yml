@@ -412,15 +412,28 @@ jobs:
           AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
             "${compose_args[@]}" stop backup-worker
           test -z "$(AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" "${compose_args[@]}" ps --status running -q backup-worker)"
-          AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
-            "${compose_args[@]}" run \
-              --rm \
-              --no-deps \
-              -e RUN_LIVE_BACKUP_SMOKE=1 \
-              -e AIOS_ALLOW_DISPOSABLE_PRODUCTION_TESTS=1 \
-              backup-worker \
-              python -m pytest -q \
-              /workspace/web-dashboard/backend/tests/test_backup_executor.py::test_live_postgres_worker_backup_and_restore_smoke
+          docker build --target test -t aionex-aios-backend:test backend
+          worker_network="$(docker inspect --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{end}}' "$worker_id")"
+          backup_volume="$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/var/lib/aionex/backups"}}{{.Name}}{{end}}{{end}}' "$worker_id")"
+          test -n "$worker_network"
+          test -n "$backup_volume"
+          docker run --rm \
+            --network "$worker_network" \
+            --env-file .env.production \
+            -e ENVIRONMENT=production \
+            -e DEBUG=false \
+            -e POSTGRES_HOST=postgres \
+            -e POSTGRES_PORT=5432 \
+            -e BACKUP_DIR=/var/lib/aionex/backups \
+            -e AIOS_REPO_ROOT=/workspace \
+            -e PYTHONPATH=/workspace/src:/app \
+            -e RUN_LIVE_BACKUP_SMOKE=1 \
+            -e AIOS_ALLOW_DISPOSABLE_PRODUCTION_TESTS=1 \
+            -v "$GITHUB_WORKSPACE:/workspace:ro" \
+            -v "$backup_volume:/var/lib/aionex/backups:rw" \
+            aionex-aios-backend:test \
+            python -m pytest -q \
+            /workspace/web-dashboard/backend/tests/test_backup_executor.py::test_live_postgres_worker_backup_and_restore_smoke
 
   security:
     name: Dependency Security

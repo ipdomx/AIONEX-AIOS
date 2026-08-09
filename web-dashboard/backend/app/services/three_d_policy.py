@@ -39,6 +39,12 @@ DEFAULT_THREE_D_POLICY: dict[str, Any] = {
     "artifact_retention_days": 30,
     "signed_url_ttl_seconds": 900,
     "compression_policy": "compat",
+    "duplicate_window_seconds": 600,
+    "provider_failure_threshold": 3,
+    "provider_circuit_open_seconds": 300,
+    "cleanup_interval_seconds": 300,
+    "cleanup_batch_size": 100,
+    "temporary_input_retention_hours": 24,
 }
 
 
@@ -95,6 +101,22 @@ def normalize_three_d_policy(value: dict[str, Any] | None) -> dict[str, Any]:
         "compression_policy": str(raw.get("compression_policy") or "compat")
         .strip()
         .lower(),
+        "duplicate_window_seconds": max(
+            30, min(int(raw["duplicate_window_seconds"]), 86400)
+        ),
+        "provider_failure_threshold": max(
+            1, min(int(raw["provider_failure_threshold"]), 20)
+        ),
+        "provider_circuit_open_seconds": max(
+            30, min(int(raw["provider_circuit_open_seconds"]), 3600)
+        ),
+        "cleanup_interval_seconds": max(
+            30, min(int(raw["cleanup_interval_seconds"]), 3600)
+        ),
+        "cleanup_batch_size": max(1, min(int(raw["cleanup_batch_size"]), 1000)),
+        "temporary_input_retention_hours": max(
+            1, min(int(raw["temporary_input_retention_hours"]), 168)
+        ),
     }
     if policy["compression_policy"] not in {"compat", "meshopt"}:
         policy["compression_policy"] = "compat"

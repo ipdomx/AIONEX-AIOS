@@ -20,6 +20,7 @@ from app.db.models import (
     ThreeDGenerationJob,
 )
 from app.services import billing, communications
+from app.services.three_d_resilience import assert_provider_available, spend_snapshot
 from app.services.three_d_policy import (
     get_three_d_policy,
     get_three_d_policy_for_update,
@@ -222,6 +223,7 @@ async def access_snapshot(
 async def enforce_admission(
     session: AsyncSession, actor: UserRecord
 ) -> tuple[dict[str, Any], dict[str, Any]]:
+    await assert_provider_available(session)
     snapshot = await access_snapshot(session, actor, lock_policy=True)
     policy = await get_three_d_policy(session)
     if not snapshot["eligible"]:
@@ -261,32 +263,9 @@ async def enforce_admission(
                 "estimated_usd": round(estimated, 6),
             },
         )
-    daily = float(
-        await session.scalar(
-            select(
-                func.coalesce(func.sum(ThreeDGenerationJob.estimated_cost_usd), 0.0)
-            ).where(
-                ThreeDGenerationJob.created_at >= day_start(),
-                ThreeDGenerationJob.status.notin_(
-                    {"cancelled", "failed", "needs_clarification"}
-                ),
-            )
-        )
-        or 0.0
-    )
-    monthly = float(
-        await session.scalar(
-            select(
-                func.coalesce(func.sum(ThreeDGenerationJob.estimated_cost_usd), 0.0)
-            ).where(
-                ThreeDGenerationJob.created_at >= month_start(),
-                ThreeDGenerationJob.status.notin_(
-                    {"cancelled", "failed", "needs_clarification"}
-                ),
-            )
-        )
-        or 0.0
-    )
+    spend = await spend_snapshot(session)
+    daily = float(spend["daily_usd"])
+    monthly = float(spend["monthly_usd"])
     if daily + estimated > float(policy["daily_spend_limit_usd"]):
         raise HTTPException(
             status_code=402, detail={"code": "THREE_D_DAILY_SPEND_BLOCKED"}
@@ -315,6 +294,7 @@ def job_snapshot(
         "progress": job.progress,
         "provider": job.provider,
         "provider_job_id": job.provider_job_id,
+        "trace_id": job.trace_id,
         "attempts": job.attempts,
         "max_attempts": job.max_attempts,
         "estimated_cost_usd": round(float(job.estimated_cost_usd or 0.0), 6),

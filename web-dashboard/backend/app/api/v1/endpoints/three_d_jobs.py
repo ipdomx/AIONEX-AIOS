@@ -10,12 +10,14 @@ from fastapi import (
     Depends,
     File,
     Form,
+    Header,
     HTTPException,
     Query,
     UploadFile,
     status,
 )
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import UserRecord, require_permissions
@@ -23,6 +25,13 @@ from app.db.base import get_db
 from app.db.models import ThreeDArtifact, ThreeDGenerationJob, uuid_str
 from app.services import communications
 from app.services.three_d_policy import get_three_d_policy
+from app.services.three_d_resilience import (
+    assert_provider_available,
+    find_duplicate_job,
+    normalize_idempotency_key,
+    normalize_trace_id,
+    request_fingerprint,
+)
 from app.services.three_d_product import (
     access_snapshot,
     audit_job,
@@ -115,6 +124,12 @@ async def create_three_d_job(
     texture_size: Annotated[int | None, Form(ge=512, le=4096)] = None,
     actor: UserRecord = Depends(require_permissions("projects:write")),
     session: AsyncSession = Depends(get_db),
+    idempotency_key_header: Annotated[
+        str | None, Header(alias="Idempotency-Key", max_length=200)
+    ] = None,
+    trace_header: Annotated[
+        str | None, Header(alias="X-Correlation-ID", max_length=160)
+    ] = None,
 ):
     project = await project_for_actor(session, actor, project_id, write=True)
     initial = await access_snapshot(session, actor)
@@ -139,7 +154,60 @@ async def create_three_d_job(
     content_type = str(image.content_type or "").strip().lower()
     validate_image_payload(content_type, body, max_bytes)
 
+    policy = await get_three_d_policy(session)
+    selected_texture = min(
+        int(texture_size or policy["max_texture_size"]),
+        int(policy["max_texture_size"]),
+    )
+    from hashlib import sha256
+
+    image_sha = sha256(body).hexdigest()
+    fingerprint = request_fingerprint(
+        organization_id=actor.organization_id,
+        user_id=actor.id,
+        project_id=project.id,
+        image_sha256=image_sha,
+        seed=seed,
+        texture_size=selected_texture,
+        compression_policy=policy["compression_policy"],
+    )
+    idempotency_namespace = f"{actor.organization_id}:{actor.id}:{project.id}"
+    idempotency_key = normalize_idempotency_key(
+        idempotency_key_header,
+        fingerprint=fingerprint,
+        namespace=idempotency_namespace,
+        window_seconds=int(policy["duplicate_window_seconds"]),
+    )
+    duplicate = await find_duplicate_job(
+        session,
+        organization_id=actor.organization_id,
+        user_id=actor.id,
+        project_id=project.id,
+        idempotency_key=idempotency_key,
+        fingerprint=fingerprint,
+        window_seconds=int(policy["duplicate_window_seconds"]),
+    )
+    if duplicate is not None:
+        if (
+            duplicate.request_fingerprint
+            and duplicate.request_fingerprint != fingerprint
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "THREE_D_IDEMPOTENCY_CONFLICT",
+                    "message": "The Idempotency-Key was already used for a different 3D request.",
+                },
+            )
+        artifact = await session.scalar(
+            select(ThreeDArtifact).where(ThreeDArtifact.job_id == duplicate.id)
+        )
+        await session.commit()
+        return job_snapshot(duplicate, artifact)
+
+    await assert_provider_available(session)
     job_id = uuid_str()
+    trace_id = normalize_trace_id(trace_header)
     store = ThreeDObjectStore()
     key = store.input_key(
         actor.organization_id, project.id, job_id, image_suffix(content_type)
@@ -152,14 +220,11 @@ async def create_three_d_job(
             "organization_id": actor.organization_id,
             "project_id": project.id,
             "job_id": job_id,
+            "trace_id": trace_id,
         },
     )
     try:
         policy, admission = await enforce_admission(session, actor)
-        selected_texture = min(
-            int(texture_size or policy["max_texture_size"]),
-            int(policy["max_texture_size"]),
-        )
         job = ThreeDGenerationJob(
             id=job_id,
             organization_id=actor.organization_id,
@@ -174,6 +239,9 @@ async def create_three_d_job(
             input_content_type=stored.content_type,
             input_size_bytes=stored.size_bytes,
             input_sha256=stored.sha256,
+            idempotency_key=idempotency_key,
+            request_fingerprint=fingerprint,
+            trace_id=trace_id,
             request_options={
                 "seed": seed,
                 "texture_size": selected_texture,
@@ -190,7 +258,11 @@ async def create_three_d_job(
                 job,
                 "3d.job.queued",
                 actor_id=actor.id,
-                details={"input_size_bytes": stored.size_bytes},
+                details={
+                    "input_size_bytes": stored.size_bytes,
+                    "trace_id": trace_id,
+                    "idempotent": True,
+                },
             )
         )
         notifications = await notify_job(
@@ -203,6 +275,32 @@ async def create_three_d_job(
             actor_id=actor.id,
         )
         await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        store.delete(key)
+        duplicate = await find_duplicate_job(
+            session,
+            organization_id=actor.organization_id,
+            user_id=actor.id,
+            project_id=project.id,
+            idempotency_key=idempotency_key,
+            fingerprint=fingerprint,
+            window_seconds=int(policy["duplicate_window_seconds"]),
+        )
+        if duplicate is None:
+            raise
+        if (
+            duplicate.request_fingerprint
+            and duplicate.request_fingerprint != fingerprint
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail={"code": "THREE_D_IDEMPOTENCY_CONFLICT"},
+            )
+        artifact = await session.scalar(
+            select(ThreeDArtifact).where(ThreeDArtifact.job_id == duplicate.id)
+        )
+        return job_snapshot(duplicate, artifact)
     except Exception:
         await session.rollback()
         store.delete(key)
