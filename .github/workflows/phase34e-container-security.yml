@@ -1,0 +1,40 @@
+name: Phase 34E Container Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend-image-security:
+    name: Backend SBOM and vulnerability gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Build production backend image
+        run: docker build -t aionex-aios-backend:phase34e web-dashboard/backend
+      - name: Prepare artifact directory
+        run: mkdir -p artifacts
+      - name: Generate CycloneDX SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610
+        with:
+          image: aionex-aios-backend:phase34e
+          format: cyclonedx-json
+          output-file: artifacts/aionex-aios-backend.cdx.json
+          artifact-name: phase34e-backend-sbom.cdx.json
+          upload-release-assets: false
+          syft-version: v1.50.0
+      - name: Fail on high or critical image vulnerabilities
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1
+        with:
+          version: v0.72.0
+          image-ref: aionex-aios-backend:phase34e
+          format: table
+          exit-code: "1"
+          severity: CRITICAL,HIGH
+          ignore-unfixed: false

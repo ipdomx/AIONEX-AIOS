@@ -23,6 +23,13 @@ from app.db.base import SessionLocal
 from app.db.models import ThreeDArtifact, ThreeDGenerationJob, uuid_str
 from app.services import billing, communications
 from app.services.three_d_policy import get_three_d_policy
+from app.services.three_d_resilience import (
+    cleanup_expired_three_d_data,
+    maybe_emit_spend_alerts,
+    provider_outage_alert,
+    record_provider_failure,
+    record_provider_success,
+)
 from app.services.three_d_product import (
     audit_job,
     now,
@@ -81,6 +88,11 @@ class ThreeDGenerationWorker:
         self.errors = 0
         self.runpod = _runpod_client()
         self.storage = ThreeDObjectStore()
+        self.next_cleanup_at = 0.0
+        self.circuit_state = "unknown"
+        self.last_cleanup_at: str | None = None
+        self.last_provider_success_at: str | None = None
+        self.last_provider_failure_at: str | None = None
 
     @property
     def stale_before(self) -> datetime:
@@ -95,6 +107,10 @@ class ThreeDGenerationWorker:
             "errors": self.errors,
             "provider_secret_returned": False,
             "object_storage_private": True,
+            "circuit_state": self.circuit_state,
+            "last_cleanup_at": self.last_cleanup_at,
+            "last_provider_success_at": self.last_provider_success_at,
+            "last_provider_failure_at": self.last_provider_failure_at,
         }
         self.health_path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self.health_path.with_name(f".{self.health_path.name}.tmp")
@@ -163,6 +179,13 @@ class ThreeDGenerationWorker:
                 )
             )
             await session.commit()
+            logger.info(
+                "3D job claimed",
+                job_id=job.id,
+                trace_id=job.trace_id,
+                attempt=job.attempts,
+                reclaimed=reclaimed,
+            )
             return job.id, lease_token
 
     async def _load(self, job_id: str, lease_token: str) -> ThreeDGenerationJob | None:
@@ -609,9 +632,78 @@ class ThreeDGenerationWorker:
                 severity="success",
             )
             await session.commit()
+        async with SessionLocal() as spend_session:
+            spend_notes = await maybe_emit_spend_alerts(
+                spend_session, organization_id=organization_id
+            )
+            await spend_session.commit()
         await asyncio.to_thread(self.storage.delete, input_key)
+        for item in [*notes, *spend_notes]:
+            await communications.publish_realtime(item)
+        logger.info(
+            "3D job completed",
+            job_id=job_id,
+            trace_id=job.trace_id,
+            provider_execution_ms=job.provider_execution_ms,
+            provider_delay_ms=job.provider_delay_ms,
+            artifact_bytes=len(body),
+            estimated_cost_usd=job.estimated_cost_usd,
+        )
+
+    async def _provider_failure(
+        self, job: ThreeDGenerationJob, error_code: str
+    ) -> None:
+        async with SessionLocal() as session:
+            state, opened = await record_provider_failure(
+                session, error_code=error_code
+            )
+            notes = []
+            if opened:
+                notes = await provider_outage_alert(
+                    session, organization_id=job.organization_id, state=state
+                )
+            await session.commit()
         for item in notes:
             await communications.publish_realtime(item)
+        self.circuit_state = str(state.get("state") or "unknown")
+        self.last_provider_failure_at = now().isoformat()
+        logger.warning(
+            "3D provider failure recorded",
+            job_id=job.id,
+            trace_id=job.trace_id,
+            error_code=error_code,
+            circuit_state=state.get("state"),
+            consecutive_failures=state.get("consecutive_failures"),
+        )
+
+    async def _provider_success(self, job: ThreeDGenerationJob) -> None:
+        async with SessionLocal() as session:
+            state = await record_provider_success(session)
+            await session.commit()
+        self.circuit_state = str(state.get("state") or "closed")
+        self.last_provider_success_at = now().isoformat()
+        logger.info(
+            "3D provider success recorded",
+            job_id=job.id,
+            trace_id=job.trace_id,
+            circuit_state=state.get("state"),
+        )
+
+    async def _cleanup_if_due(self) -> None:
+        if time.monotonic() < self.next_cleanup_at:
+            return
+        async with SessionLocal() as session:
+            policy = await get_three_d_policy(session)
+            interval = int(policy["cleanup_interval_seconds"])
+            try:
+                result = await cleanup_expired_three_d_data(session, self.storage)
+                self.last_cleanup_at = now().isoformat()
+                logger.info("3D cleanup completed", **result)
+            except Exception as exc:
+                await session.rollback()
+                logger.warning("3D cleanup failed", error_type=type(exc).__name__)
+            finally:
+                self.next_cleanup_at = time.monotonic() + interval
 
     async def _cancel_provider(self, provider_job_id: str, *, reason: str) -> bool:
         try:
@@ -681,7 +773,15 @@ class ThreeDGenerationWorker:
                 if not provider_job_id:
                     raise RunPodError("Provider job id missing")
                 await self._update_provider_job(job_id, lease_token, provider_job_id)
+                logger.info(
+                    "3D job submitted to provider",
+                    job_id=job.id,
+                    trace_id=job.trace_id,
+                    provider_job_id=provider_job_id,
+                )
             except (RunPodError, ThreeDStorageError, OSError) as exc:
+                if isinstance(exc, RunPodError):
+                    await self._provider_failure(job, "THREE_D_SUBMIT_FAILED")
                 logger.warning(
                     "3D submission failed", job_id=job_id, error_type=type(exc).__name__
                 )
@@ -714,8 +814,10 @@ class ThreeDGenerationWorker:
                 logger.warning(
                     "3D provider status failed",
                     job_id=job_id,
+                    trace_id=job.trace_id,
                     error_type=type(exc).__name__,
                 )
+                await self._provider_failure(job, "THREE_D_PROVIDER_STATUS_ERROR")
                 if time.monotonic() - poll_started > max_queue + max_runtime + 60:
                     await self._failed(
                         job_id,
@@ -729,9 +831,12 @@ class ThreeDGenerationWorker:
                 continue
             state = str(data.get("status") or "").upper()
             if state == "COMPLETED":
+                await self._provider_success(job)
                 await self._complete(job_id, lease_token, data)
                 return
             if state in {"FAILED", "TIMED_OUT", "CANCELLED"}:
+                if state != "CANCELLED":
+                    await self._provider_failure(job, f"THREE_D_PROVIDER_{state}")
                 await self._failed(
                     job_id,
                     lease_token,
@@ -760,6 +865,7 @@ class ThreeDGenerationWorker:
                 return
             if state == "IN_QUEUE" and time.monotonic() - queue_started > max_queue:
                 await self._cancel_provider(provider_job_id, reason="queue-timeout")
+                await self._provider_failure(job, "THREE_D_QUEUE_TIMEOUT")
                 await self._failed(
                     job_id,
                     lease_token,
@@ -773,6 +879,7 @@ class ThreeDGenerationWorker:
                 and time.monotonic() - running_started > max_runtime
             ):
                 await self._cancel_provider(provider_job_id, reason="runtime-timeout")
+                await self._provider_failure(job, "THREE_D_RUNTIME_TIMEOUT")
                 await self._failed(
                     job_id,
                     lease_token,
@@ -785,6 +892,7 @@ class ThreeDGenerationWorker:
                 await self._cancel_provider(
                     provider_job_id, reason="total-provider-timeout"
                 )
+                await self._provider_failure(job, "THREE_D_PROVIDER_TIMEOUT")
                 await self._failed(
                     job_id,
                     lease_token,
@@ -796,6 +904,7 @@ class ThreeDGenerationWorker:
             await asyncio.sleep(5)
 
     async def run_once(self) -> bool:
+        await self._cleanup_if_due()
         claim = await self.claim()
         if claim is None:
             return False

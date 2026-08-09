@@ -1,14 +1,27 @@
-"""Super Owner control surface for 3D access, cost and recovery policy."""
+"""Super Owner control surface for 3D access, cost, observability and recovery."""
+
 from __future__ import annotations
+
 from typing import Any, Literal
-from fastapi import APIRouter, Depends
+
+from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.auth import UserRecord, require_super_owner
 from app.db.base import get_db
 from app.db.models import AuditEvent
 from app.services.three_d_policy import get_three_d_policy, update_three_d_policy
+from app.services.three_d_resilience import (
+    cleanup_expired_three_d_data,
+    operations_snapshot,
+    prometheus_snapshot,
+    reset_provider_circuit,
+)
+from app.services.three_d_storage import ThreeDObjectStore
+
 router = APIRouter(prefix="/owner/3d", tags=["owner-3d"])
+
 
 class ThreeDPolicyUpdate(BaseModel):
     enabled: bool | None = None
@@ -30,17 +43,97 @@ class ThreeDPolicyUpdate(BaseModel):
     artifact_retention_days: int | None = Field(default=None, ge=1, le=365)
     signed_url_ttl_seconds: int | None = Field(default=None, ge=60, le=3600)
     compression_policy: Literal["compat", "meshopt"] | None = None
+    duplicate_window_seconds: int | None = Field(default=None, ge=30, le=86400)
+    provider_failure_threshold: int | None = Field(default=None, ge=1, le=20)
+    provider_circuit_open_seconds: int | None = Field(default=None, ge=30, le=3600)
+    cleanup_interval_seconds: int | None = Field(default=None, ge=30, le=3600)
+    cleanup_batch_size: int | None = Field(default=None, ge=1, le=1000)
+    temporary_input_retention_hours: int | None = Field(default=None, ge=1, le=168)
+
+
+async def _snapshot(session: AsyncSession) -> dict[str, Any]:
+    return {
+        "policy": await get_three_d_policy(session),
+        "operations": await operations_snapshot(session),
+    }
+
 
 @router.get("")
-async def owner_three_d_policy(actor: UserRecord = Depends(require_super_owner), session: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+async def owner_three_d_policy(
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
     del actor
-    policy = await get_three_d_policy(session); await session.commit()
-    return {"policy": policy}
+    result = await _snapshot(session)
+    await session.commit()
+    return result
+
 
 @router.patch("")
-async def patch_owner_three_d_policy(data: ThreeDPolicyUpdate, actor: UserRecord = Depends(require_super_owner), session: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+async def patch_owner_three_d_policy(
+    data: ThreeDPolicyUpdate,
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
     updates = data.model_dump(exclude_none=True)
-    policy = await update_three_d_policy(session, updates)
-    session.add(AuditEvent(organization_id=actor.organization_id, user_id=actor.id, action="owner.3d.update", resource_type="3d_service_policy", resource_id="default", details={"fields": sorted(updates)}))
+    await update_three_d_policy(session, updates)
+    session.add(
+        AuditEvent(
+            organization_id=actor.organization_id,
+            user_id=actor.id,
+            action="owner.3d.update",
+            resource_type="3d_service_policy",
+            resource_id="default",
+            details={"fields": sorted(updates)},
+        )
+    )
     await session.commit()
-    return {"policy": policy}
+    result = await _snapshot(session)
+    await session.commit()
+    return result
+
+
+@router.post("/circuit/reset")
+async def reset_owner_three_d_circuit(
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    await reset_provider_circuit(
+        session, actor_id=actor.id, organization_id=actor.organization_id
+    )
+    await session.commit()
+    result = await _snapshot(session)
+    await session.commit()
+    return result
+
+
+@router.post("/cleanup")
+async def run_owner_three_d_cleanup(
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    result = await cleanup_expired_three_d_data(session, ThreeDObjectStore())
+    session.add(
+        AuditEvent(
+            organization_id=actor.organization_id,
+            user_id=actor.id,
+            action="owner.3d.cleanup",
+            resource_type="3d_service_policy",
+            resource_id="default",
+            details=result,
+        )
+    )
+    await session.commit()
+    snapshot = await _snapshot(session)
+    await session.commit()
+    return {**snapshot, "cleanup_result": result}
+
+
+@router.get("/metrics")
+async def owner_three_d_metrics(
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+) -> Response:
+    del actor
+    text = await prometheus_snapshot(session)
+    return Response(content=text, media_type="text/plain; version=0.0.4; charset=utf-8")

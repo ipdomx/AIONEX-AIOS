@@ -2243,7 +2243,9 @@ class ThreeDGenerationJob(Base, TimestampMixin):
         Index("ix_three_d_jobs_org_status_created", "organization_id", "status", "created_at"),
         Index("ix_three_d_jobs_project_created", "project_id", "created_at"),
         Index("ix_three_d_jobs_user_created", "requested_by_id", "created_at"),
+        Index("ix_three_d_jobs_trace", "trace_id"),
         UniqueConstraint("provider", "provider_job_id", name="uq_three_d_jobs_provider_job"),
+        UniqueConstraint("idempotency_key", name="uq_three_d_jobs_idempotency_key"),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
@@ -2260,6 +2262,9 @@ class ThreeDGenerationJob(Base, TimestampMixin):
     input_content_type: Mapped[str] = mapped_column(String(120), nullable=False)
     input_size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
     input_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    idempotency_key: Mapped[str | None] = mapped_column(String(64))
+    request_fingerprint: Mapped[str | None] = mapped_column(String(64), index=True)
+    trace_id: Mapped[str] = mapped_column(String(64), default=uuid_str, nullable=False)
     request_options: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     provider_delay_ms: Mapped[int | None] = mapped_column(BigInteger)
     provider_execution_ms: Mapped[int | None] = mapped_column(BigInteger)

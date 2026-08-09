@@ -10,6 +10,19 @@ const AR: Catalog = {
   "Owner 3D policy saved and audit-logged.":
     "تم حفظ سياسة الأبعاد الثلاثية للمالك وتسجيلها في سجل التدقيق.",
   "3D policy update failed.": "فشل تحديث سياسة الأبعاد الثلاثية.",
+  "3D provider circuit reset and audit-logged.":
+    "تمت إعادة ضبط دائرة مزود الأبعاد الثلاثية وتسجيل العملية في سجل التدقيق.",
+  "3D provider circuit reset failed.":
+    "فشلت إعادة ضبط دائرة مزود الأبعاد الثلاثية.",
+  "3D cleanup failed.": "فشلت عملية تنظيف الأبعاد الثلاثية.",
+  "3D Operations & Resilience": "تشغيل الأبعاد الثلاثية والمرونة",
+  "Reset provider circuit": "إعادة ضبط دائرة المزود",
+  "Run cleanup": "تشغيل التنظيف",
+  "Success rate": "نسبة النجاح",
+  "completed /": "مكتملة /",
+  "GPU runtime": "زمن تشغيل وحدة معالجة الرسومات",
+  "Cold start:": "بدء التشغيل البارد:",
+  "Month: $": "الشهر: $",
   "Owner 3D Control": "تحكم المالك في الأبعاد الثلاثية",
   "3D Access, Spend & Recovery": "صلاحيات الأبعاد الثلاثية والتكلفة والاستعادة",
   "The highest public tier is the default eligibility boundary. The Super Owner can enable or suspend 3D, change eligible plans, grant or deny individual users, and set every GPU cost/recovery limit.":

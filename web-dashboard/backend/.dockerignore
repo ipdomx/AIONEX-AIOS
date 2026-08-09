@@ -27,7 +27,6 @@ env/
 build/
 dist/
 *.egg-info/
-tests/
 node_modules/
 .next/
 

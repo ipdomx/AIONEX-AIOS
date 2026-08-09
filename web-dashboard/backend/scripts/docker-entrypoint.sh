@@ -101,7 +101,7 @@ if [ "$(id -u)" = "0" ]; then
         export AIOS_TELEGRAM_BOT_TOKEN_FILE="$telegram_token_runtime"
     fi
 
-    exec gosu aionex "$@"
+    exec su-exec aionex "$@"
 fi
 
 exec "$@"
