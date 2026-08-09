@@ -28,6 +28,9 @@ import type {
   SupportTicketMessage,
   Project,
   ProjectExecution,
+  ThreeDAccess,
+  ThreeDArtifactLinks,
+  ThreeDGenerationJob,
   RegistrationTelemetry,
   SocialRegistrationPreparation,
   User,
@@ -639,6 +642,56 @@ export function listProjects(): Promise<Project[]> {
 
 export function createProject(payload: CreateProjectPayload): Promise<Project> {
   return jsonRequest<Project>("/projects", "POST", payload);
+}
+
+export function getProjectThreeDAccess(projectId: string): Promise<ThreeDAccess> {
+  return request<ThreeDAccess>(`/projects/${encodeURIComponent(projectId)}/3d/access`);
+}
+
+export function listProjectThreeDJobs(projectId: string, limit = 20): Promise<ThreeDGenerationJob[]> {
+  return request<ThreeDGenerationJob[]>(`/projects/${encodeURIComponent(projectId)}/3d/jobs?limit=${limit}`);
+}
+
+export function getProjectThreeDJob(projectId: string, jobId: string): Promise<ThreeDGenerationJob> {
+  return request<ThreeDGenerationJob>(`/projects/${encodeURIComponent(projectId)}/3d/jobs/${encodeURIComponent(jobId)}`);
+}
+
+export function createProjectThreeDJob(
+  projectId: string,
+  image: File,
+  values?: { seed?: number; textureSize?: number },
+): Promise<ThreeDGenerationJob> {
+  const body = new FormData();
+  body.set("image", image);
+  body.set("seed", String(values?.seed ?? 12345));
+  if (values?.textureSize) body.set("texture_size", String(values.textureSize));
+  return request<ThreeDGenerationJob>(`/projects/${encodeURIComponent(projectId)}/3d/jobs`, {
+    method: "POST",
+    body,
+  });
+}
+
+export function cancelProjectThreeDJob(projectId: string, jobId: string): Promise<ThreeDGenerationJob> {
+  return jsonRequest<ThreeDGenerationJob>(
+    `/projects/${encodeURIComponent(projectId)}/3d/jobs/${encodeURIComponent(jobId)}/cancel`,
+    "POST",
+    {},
+  );
+}
+
+export function clarifyProjectThreeDJob(projectId: string, jobId: string, image: File): Promise<ThreeDGenerationJob> {
+  const body = new FormData();
+  body.set("image", image);
+  return request<ThreeDGenerationJob>(
+    `/projects/${encodeURIComponent(projectId)}/3d/jobs/${encodeURIComponent(jobId)}/clarify`,
+    { method: "POST", body },
+  );
+}
+
+export function getProjectThreeDArtifactLinks(projectId: string, jobId: string): Promise<ThreeDArtifactLinks> {
+  return request<ThreeDArtifactLinks>(
+    `/projects/${encodeURIComponent(projectId)}/3d/jobs/${encodeURIComponent(jobId)}/artifact`,
+  );
 }
 
 export function listProjectExecutions(

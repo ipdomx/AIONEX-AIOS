@@ -29,6 +29,7 @@ import {
 } from "react";
 import { Button } from "@/components/ui/button";
 import { StatusMessage } from "@/components/ui/status-message";
+import { ThreeDProjectPanel } from "@/components/pages/three-d-project-panel";
 import { useAuth } from "@/hooks/use-auth";
 import {
   approveProjectExecution,
@@ -852,6 +853,7 @@ export function ProjectsClient() {
                     </>
                   )}
                 </div>
+                <ThreeDProjectPanel project={project} canWrite={canCreate} />
               </article>
             );
           })}

@@ -2237,6 +2237,69 @@ class ProjectStudioAttachment(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
 
 
+class ThreeDGenerationJob(Base, TimestampMixin):
+    __tablename__ = "three_d_generation_jobs"
+    __table_args__ = (
+        Index("ix_three_d_jobs_org_status_created", "organization_id", "status", "created_at"),
+        Index("ix_three_d_jobs_project_created", "project_id", "created_at"),
+        Index("ix_three_d_jobs_user_created", "requested_by_id", "created_at"),
+        UniqueConstraint("provider", "provider_job_id", name="uq_three_d_jobs_provider_job"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    requested_by_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    provider: Mapped[str] = mapped_column(String(40), default="runpod", nullable=False)
+    provider_job_id: Mapped[str | None] = mapped_column(String(160), index=True)
+    status: Mapped[str] = mapped_column(String(32), default="queued", nullable=False, index=True)
+    stage: Mapped[str] = mapped_column(String(64), default="queued", nullable=False)
+    progress: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    input_object_key: Mapped[str] = mapped_column(Text, nullable=False)
+    input_content_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    input_size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    input_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    request_options: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    provider_delay_ms: Mapped[int | None] = mapped_column(BigInteger)
+    provider_execution_ms: Mapped[int | None] = mapped_column(BigInteger)
+    estimated_cost_usd: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    metering_status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
+    error_code: Mapped[str | None] = mapped_column(String(120))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    lease_token: Mapped[str | None] = mapped_column(String(36))
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    cancel_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ThreeDArtifact(Base, TimestampMixin):
+    __tablename__ = "three_d_artifacts"
+    __table_args__ = (
+        UniqueConstraint("job_id", name="uq_three_d_artifacts_job"),
+        Index("ix_three_d_artifacts_project_created", "project_id", "created_at"),
+        Index("ix_three_d_artifacts_org_status", "organization_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    job_id: Mapped[str] = mapped_column(ForeignKey("three_d_generation_jobs.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    filename: Mapped[str] = mapped_column(String(300), nullable=False)
+    media_type: Mapped[str] = mapped_column(String(120), default="model/gltf-binary", nullable=False)
+    object_key: Mapped[str] = mapped_column(Text, nullable=False)
+    checksum: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="ready", nullable=False, index=True)
+    artifact_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+
+
 class MobileRelease(Base, TimestampMixin):
     __tablename__ = "mobile_releases"
     __table_args__ = (

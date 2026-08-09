@@ -2,7 +2,7 @@
 
 - Template: `dyb5ilmo0l`
 - Image tag: `ipdomx/aionex-hunyuan3d:phase34c-pbr-v11`
-- Image digest: `sha256:6f4298db38f0b39ee36bb563ee6119748f72130836336514d349bc55ef4c569a`
+- Image digest: `sha256:34bd37c577a8c769005a11f94bf4658d0b9f31d52df5c75e2a8f01a5ed8499dc`
 - The RunPod template is pinned to the immutable digest.
 - Active workers / workersMin: `0`
 - Max workers / workersMax: `1`

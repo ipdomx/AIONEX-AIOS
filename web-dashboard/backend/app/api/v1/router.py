@@ -55,6 +55,7 @@ from app.api.v1.endpoints import (
     support,
     tasks,
     teams,
+    three_d_jobs,
     users,
     websocket,
     workflows,
@@ -114,6 +115,11 @@ api_router.include_router(
     prefix="/projects",
     tags=["Projects"],
     dependencies=[Depends(enforce_free_project_request)],
+)
+api_router.include_router(
+    three_d_jobs.router,
+    prefix="/projects",
+    tags=["3D Generation"],
 )
 api_router.include_router(
     ai_agents.router, prefix="/ai/agents", tags=["AI Agents"], dependencies=restricted

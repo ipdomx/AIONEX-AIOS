@@ -32,6 +32,20 @@ if [ "$(id -u)" = "0" ]; then
         export PROJECT_EXECUTION_SECRET_FILE="$project_secret_runtime"
     fi
 
+    three_d_secret_source="${THREE_D_RUNPOD_SECRET_FILE:-}"
+    if [ -n "$three_d_secret_source" ] && [ -f "$three_d_secret_source" ]; then
+        runtime_dir=/run/aionex
+        three_d_secret_runtime="$runtime_dir/runpod-gpu.env"
+        install -d -m 0700 -o aionex -g aionex "$runtime_dir"
+        if [ "$three_d_secret_source" != "$three_d_secret_runtime" ]; then
+            install -m 0400 -o aionex -g aionex "$three_d_secret_source" "$three_d_secret_runtime"
+        else
+            chown aionex:aionex "$three_d_secret_runtime"
+            chmod 0400 "$three_d_secret_runtime"
+        fi
+        export THREE_D_RUNPOD_SECRET_FILE="$three_d_secret_runtime"
+    fi
+
     project_reference_source="${PROJECT_EXECUTION_LOCAL_REFERENCE:-}"
     if [ -n "$project_reference_source" ] && [ -d "$project_reference_source" ]; then
         runtime_dir=/run/aionex

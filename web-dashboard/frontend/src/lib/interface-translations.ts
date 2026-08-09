@@ -4,13 +4,16 @@ type Catalog = Record<string, string>;
 
 const AR: Catalog = {
   "Loading owner 3D policy…": "جارٍ تحميل سياسة الأبعاد الثلاثية للمالك…",
-  "3D access and GPU limits synchronized.": "تمت مزامنة صلاحيات الأبعاد الثلاثية وحدود وحدة معالجة الرسومات.",
+  "3D access and GPU limits synchronized.":
+    "تمت مزامنة صلاحيات الأبعاد الثلاثية وحدود وحدة معالجة الرسومات.",
   "3D policy could not be loaded.": "تعذر تحميل سياسة الأبعاد الثلاثية.",
-  "Owner 3D policy saved and audit-logged.": "تم حفظ سياسة الأبعاد الثلاثية للمالك وتسجيلها في سجل التدقيق.",
+  "Owner 3D policy saved and audit-logged.":
+    "تم حفظ سياسة الأبعاد الثلاثية للمالك وتسجيلها في سجل التدقيق.",
   "3D policy update failed.": "فشل تحديث سياسة الأبعاد الثلاثية.",
   "Owner 3D Control": "تحكم المالك في الأبعاد الثلاثية",
   "3D Access, Spend & Recovery": "صلاحيات الأبعاد الثلاثية والتكلفة والاستعادة",
-  "The highest public tier is the default eligibility boundary. The Super Owner can enable or suspend 3D, change eligible plans, grant or deny individual users, and set every GPU cost/recovery limit.": "أعلى باقة عامة هي حد الأهلية الافتراضي. يستطيع المالك الأعلى تشغيل خدمة الأبعاد الثلاثية أو إيقافها، وتغيير الباقات المؤهلة، والسماح أو الحظر لمستخدمين بعينهم، وضبط جميع حدود تكلفة واستعادة وحدة معالجة الرسومات.",
+  "The highest public tier is the default eligibility boundary. The Super Owner can enable or suspend 3D, change eligible plans, grant or deny individual users, and set every GPU cost/recovery limit.":
+    "أعلى باقة عامة هي حد الأهلية الافتراضي. يستطيع المالك الأعلى تشغيل خدمة الأبعاد الثلاثية أو إيقافها، وتغيير الباقات المؤهلة، والسماح أو الحظر لمستخدمين بعينهم، وضبط جميع حدود تكلفة واستعادة وحدة معالجة الرسومات.",
   "Save policy": "حفظ السياسة",
   "User eligibility": "أهلية المستخدم",
   "3D service enabled": "خدمة الأبعاد الثلاثية مفعلة",
@@ -26,6 +29,16 @@ const AR: Catalog = {
   "Daily spend ceiling USD": "سقف الإنفاق اليومي بالدولار",
   "Monthly spend ceiling USD": "سقف الإنفاق الشهري بالدولار",
   "Owner alert threshold %": "نسبة حد تنبيه المالك",
+  "GLB compression policy": "سياسة ضغط GLB",
+  "Generation quota, image size, texture resolution, artifact retention and signed-link lifetime below are enforced server-side for every user.":
+    "يتم فرض حصة الإنشاء وحجم الصورة ودقة الخامات ومدة الاحتفاظ بالملف وصلاحية الروابط الموقعة أدناه من الخادم على كل مستخدم.",
+  "Monthly jobs / user": "المهام الشهرية لكل مستخدم",
+  "Max input image MB": "الحد الأقصى لحجم صورة الإدخال بالميجابايت",
+  "Max texture size": "الحد الأقصى لدقة الخامات",
+  "Artifact retention days": "أيام الاحتفاظ بالملف",
+  "Signed URL lifetime seconds": "مدة صلاحية الرابط الموقّع بالثواني",
+  Compatibility: "توافق واسع",
+  Meshopt: "ضغط Meshopt",
   "· commit": "· معرّف الالتزام",
   "Mobile Delivery": "تسليم تطبيقات الهاتف",
   "PWA, Android, iOS, signing boundaries, and release artifacts.":
@@ -1176,7 +1189,8 @@ const AR: Catalog = {
   "Offer ID (optional)": "معرّف العرض (اختياري)",
   "Save mapping": "حفظ الربط",
   "Current mappings": "عمليات الربط الحالية",
-  "No mobile store mappings configured.": "لا توجد عمليات ربط لمتاجر الهاتف مضبوطة.",
+  "No mobile store mappings configured.":
+    "لا توجد عمليات ربط لمتاجر الهاتف مضبوطة.",
   "Readiness diagnostics": "تشخيص الجاهزية",
   "All active plan periods are mapped and store server configuration is ready.":
     "جميع فترات الخطط النشطة مربوطة وإعداد خادم المتجر جاهز.",
