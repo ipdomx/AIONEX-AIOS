@@ -1,16 +1,27 @@
 # AIONEX Hunyuan3D RunPod Serverless runtime
 
-Known-good image digest:
-`sha256:e4220d58bbef3fc6ba06cb28f02bda35fcb9a0bd2232de77ab0cdd7f52180cc3`
+Phase 34C known-good production image:
 
-Required RunPod template settings:
-- Container image: the pinned image/digest built from this directory.
+- Tag: `ipdomx/aionex-hunyuan3d:phase34c-pbr-v11`
+- Immutable digest: `sha256:6f4298db38f0b39ee36bb563ee6119748f72130836336514d349bc55ef4c569a`
+
+The production RunPod template must use the immutable digest rather than a mutable tag.
+
+## Pipeline
+
+`image -> Hunyuan3D shape -> Hunyuan3D Paint PBR -> Blender cleanup -> glTF Transform optimize/inspect -> validated GLB`
+
+The worker requires albedo, metallic, and roughness outputs, packs metallic/roughness into the glTF PBR material, verifies mesh/material/texture presence, emits SHA-256 and stage timings, and fails closed when the PBR path fails. Shape-only fallback is permitted only when `allow_shape_fallback=true` is explicitly supplied by governing policy.
+
+## Required RunPod settings
+
+- Container image: pinned digest above.
 - Container disk: 100 GB.
 - Container start command / Docker command override: empty.
 - Docker entrypoint override: empty.
 - `RUNPOD_INIT_TIMEOUT=1800`.
-- Serverless endpoint: min workers 0, max workers 1, GPU count 1, bounded execution timeout.
+- Serverless endpoint: min workers 0, max workers 1, idle timeout 5 seconds, GPU count 1, execution timeout 3600 seconds.
 
-Do not commit API keys, model caches, generated GLBs, runtime logs, or cloned Hunyuan source trees here.
+Do not commit API keys, endpoint IDs, model caches, generated GLBs, runtime logs, or cloned third-party repositories here.
 
-Phase 33 live acceptance produced a valid GLB (`glTF` magic) of 13,147,684 bytes before the test endpoint was deleted to prevent idle spend.
+Phase 34C live acceptance produced a non-fallback textured/PBR GLB of 2,734,648 bytes from a 4,139,332-byte pre-optimization artifact. Two identical seeded acceptance runs produced the same SHA-256: `0a62143b4bd72ecce5ddb5e85bb4a420fcdbe0c11cdff67c56c2428b51a6648e`.
