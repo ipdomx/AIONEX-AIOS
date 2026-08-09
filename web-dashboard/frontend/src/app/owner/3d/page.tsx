@@ -164,11 +164,14 @@ export default function OwnerThreeDPage() {
             <div className="rounded-xl bg-black/20 p-3 text-white/60">
               Provider circuits
               <div className="mt-2 space-y-1 text-white/35">
-                {Object.entries(operations.provider_circuits).map(([provider, state]) => (
-                  <div key={provider}>
-                    <span className="text-white/60">{provider}</span>: {state.state} · failures {state.consecutive_failures}
-                  </div>
-                ))}
+                {Object.entries(operations.provider_circuits).map(
+                  ([provider, state]) => (
+                    <div key={provider}>
+                      <span className="text-white/60">{provider}</span>:{" "}
+                      {state.state} · failures {state.consecutive_failures}
+                    </div>
+                  ),
+                )}
               </div>
             </div>
             <div className="rounded-xl bg-black/20 p-3 text-white/60">
@@ -208,14 +211,19 @@ export default function OwnerThreeDPage() {
           <span className="font-semibold">3D licensing & jurisdiction</span>
         </div>
         <p className="text-xs leading-5 text-white/40">
-          Hunyuan 3D 2.1 is territory-limited. Until license eligibility is acknowledged, AIOS routes generation to the MIT-licensed TripoSR fallback. Users in the EU, United Kingdom, and South Korea are never routed to Hunyuan.
+          Hunyuan 3D 2.1 is territory-limited. Until license eligibility is
+          acknowledged, AIOS routes generation to the MIT-licensed TripoSR
+          fallback. Users in the EU, United Kingdom, and South Korea are never
+          routed to Hunyuan.
         </p>
         <label className="flex items-center justify-between text-sm text-white/70">
           <span>Hunyuan license eligibility acknowledged</span>
           <input
             type="checkbox"
             checked={policy.hunyuan_license_acknowledged}
-            onChange={(e) => set("hunyuan_license_acknowledged", e.target.checked)}
+            onChange={(e) =>
+              set("hunyuan_license_acknowledged", e.target.checked)
+            }
           />
         </label>
         <label className="flex items-center justify-between text-sm text-white/70">
@@ -223,18 +231,24 @@ export default function OwnerThreeDPage() {
           <input
             type="checkbox"
             checked={policy.hunyuan_commercial_eligibility_attested}
-            onChange={(e) => set("hunyuan_commercial_eligibility_attested", e.target.checked)}
+            onChange={(e) =>
+              set("hunyuan_commercial_eligibility_attested", e.target.checked)
+            }
           />
         </label>
         <p className="text-[11px] leading-5 text-white/35">
-          Confirm this only if the Hunyuan Section 4 release-date threshold does not require a separate Tencent license for the operator, or the required written approval has been obtained.
+          Confirm this only if the Hunyuan Section 4 release-date threshold does
+          not require a separate Tencent license for the operator, or the
+          required written approval has been obtained.
         </p>
         <label className="flex items-center justify-between text-sm text-white/70">
           <span>Service provider legal name confirmed</span>
           <input
             type="checkbox"
             checked={policy.service_provider_legal_name_confirmed}
-            onChange={(e) => set("service_provider_legal_name_confirmed", e.target.checked)}
+            onChange={(e) =>
+              set("service_provider_legal_name_confirmed", e.target.checked)
+            }
           />
         </label>
         <label className="flex items-center justify-between text-sm text-white/70">
@@ -254,7 +268,8 @@ export default function OwnerThreeDPage() {
           />
         </label>
         <p className="text-[11px] leading-5 text-white/35">
-          Enter the full legal name and legal entity of the actual service operator, not only a product or brand name, before confirming it.
+          Enter the full legal name and legal entity of the actual service
+          operator, not only a product or brand name, before confirming it.
         </p>
         <label className="block text-xs text-white/45">
           Hunyuan excluded ISO country codes
