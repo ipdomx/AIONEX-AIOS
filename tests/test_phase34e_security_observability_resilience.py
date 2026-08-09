@@ -76,7 +76,7 @@ def test_phase34e_supply_chain_gate_pins_actions_and_emits_sbom():
     assert "anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610" in WORKFLOW
     assert "aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1" in WORKFLOW
     assert "cyclonedx-json" in WORKFLOW
-    assert "version: 0.72.0" in WORKFLOW
+    assert "version: v0.72.0" in WORKFLOW
     assert "CRITICAL,HIGH" in WORKFLOW
     assert 'exit-code: "1"' in WORKFLOW
     requirements = (BACKEND / "requirements-runtime.txt").read_text()

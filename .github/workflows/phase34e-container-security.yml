@@ -32,7 +32,7 @@ jobs:
       - name: Fail on high or critical image vulnerabilities
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1
         with:
-          version: 0.72.0
+          version: v0.72.0
           image-ref: aionex-aios-backend:phase34e
           format: table
           exit-code: "1"
