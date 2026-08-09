@@ -25,6 +25,7 @@ from app.services.three_d_storage import ThreeDObjectStore
 
 PROVIDER_STATE_DOMAIN = "3d-provider-runtime"
 PROVIDER_STATE_RESOURCE = "hunyuan3d"
+LEGACY_PRIMARY_PROVIDER_RESOURCE = "runpod"
 SUPPORTED_PROVIDER_RESOURCES = {"hunyuan3d", "triposr"}
 
 
@@ -104,9 +105,11 @@ def normalize_trace_id(raw: str | None) -> str:
 
 def _provider_resource(provider: str) -> str:
     value = provider.strip().lower()
-    if value == "runpod":
-        value = "hunyuan3d"
-    if value not in SUPPORTED_PROVIDER_RESOURCES:
+    if value in {"runpod", "hunyuan3d"}:
+        # Preserve the Phase 34E durable row instead of silently resetting the
+        # primary circuit during the public provider-name migration.
+        return LEGACY_PRIMARY_PROVIDER_RESOURCE
+    if value != "triposr":
         raise RuntimeError("Unsupported 3D provider runtime state")
     return value
 

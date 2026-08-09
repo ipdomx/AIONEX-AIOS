@@ -1,0 +1,104 @@
+name: Phase 34F TripoSR Container Security
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/phase34f-triposr-container-security.yml"
+      - "infra/runpod/triposr/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/phase34f-triposr-container-security.yml"
+      - "infra/runpod/triposr/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase34f-triposr-security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  triposr-image-source:
+    name: TripoSR source, SBOM and image vulnerability gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - name: Validate pinned, secret-free source inputs
+        run: |
+          python -m compileall -q \
+            infra/runpod/triposr/handler.py \
+            infra/runpod/triposr/vendor/tsr
+          python - <<'PY'
+          from hashlib import sha256
+          from pathlib import Path
+          import re
+
+          root = Path("infra/runpod/triposr")
+          commit = (root / "vendor/UPSTREAM_COMMIT").read_text().strip()
+          assert re.fullmatch(r"[0-9a-f]{40}", commit)
+          assert commit == "107cefdc244c39106fa830359024f6a2f1c78871"
+          assert sha256((root / "vendor/LICENSE").read_bytes()).hexdigest() == (
+              "ade0a66629bdd7e01e46b3296b3851cff0fd27989bca53da470ad6e96ed620fb"
+          )
+
+          requirements = [
+              line.strip()
+              for line in (root / "requirements.txt").read_text().splitlines()
+              if line.strip() and not line.lstrip().startswith("#")
+          ]
+          assert requirements and all("==" in line for line in requirements)
+
+          dockerfile = (root / "Dockerfile").read_text()
+          first_line = dockerfile.splitlines()[0]
+          assert re.fullmatch(r"FROM [^ ]+@sha256:[0-9a-f]{64}", first_line)
+          assert "ENTRYPOINT" in dockerfile
+          assert "secrets." not in dockerfile
+          PY
+      - name: Reclaim runner disk for the pinned CUDA image
+        run: |
+          set -Eeuo pipefail
+          df -h /
+          sudo rm -rf \
+            /usr/local/lib/android \
+            /usr/share/dotnet \
+            /opt/ghc \
+            /usr/local/.ghcup \
+            /usr/share/swift \
+            /usr/local/share/boost
+          docker system prune --all --force
+          available_kb="$(df --output=avail / | tail -n 1)"
+          minimum_kb=$((45 * 1024 * 1024))
+          if (( available_kb < minimum_kb )); then
+            echo "Insufficient runner disk for the 21.1 GB TripoSR image." >&2
+            exit 1
+          fi
+          df -h /
+      - name: Build hardened TripoSR image without GPU or secrets
+        run: docker build --pull -t aionex-aios-triposr:phase34fg infra/runpod/triposr
+      - name: Prepare artifact directory
+        run: mkdir -p artifacts
+      - name: Generate CycloneDX SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610
+        with:
+          image: aionex-aios-triposr:phase34fg
+          format: cyclonedx-json
+          output-file: artifacts/aionex-aios-triposr.cdx.json
+          artifact-name: phase34fg-triposr-sbom.cdx.json
+          upload-release-assets: false
+          syft-version: v1.50.0
+      - name: Fail on high or critical image vulnerabilities
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1
+        with:
+          version: v0.72.0
+          image-ref: aionex-aios-triposr:phase34fg
+          format: table
+          exit-code: "1"
+          severity: CRITICAL,HIGH
+          ignore-unfixed: false

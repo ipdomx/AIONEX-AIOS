@@ -36,12 +36,22 @@ def test_hunyuan_is_fail_closed_and_excluded_regions_are_mandatory():
 
 def test_routing_requires_current_terms_and_never_serves_hunyuan_output_outside_territory():
     assert "provider_candidates(policy, country)" in API
-    assert "provider_runtime_configured(provider)" in API
+    assert "await provider_runtime_configured(provider)" in API
     assert "RUNPOD_HUNYUAN_LOCATION" in POLICY
+    assert "dataCenterIds" in POLICY
+    assert '"Authorization": f"Bearer {api_key}"' in POLICY
+    assert "urllib.parse" not in POLICY
+    assert '"User-Agent": "Mozilla/5.0 (compatible; AIONEX-AIOS/34F)"' in POLICY
     assert "require_terms_acceptance(" in API
     assert "THREE_D_HUNYUAN_OUTPUT_TERRITORY_BLOCKED" in API
     assert 'status_code=451' in API
     assert 'third_party_terms_accepted: Annotated[bool, Form()]' in API
+    clarify = API.split("async def clarify_three_d_job", 1)[1].split(
+        '@router.get("/{project_id}/3d/jobs/{job_id}/artifact")', 1
+    )[0]
+    assert "_licensed_provider_route(" in clarify
+    assert "require_terms_acceptance(" in clarify
+    assert "job.provider = provider" in clarify
 
 
 def test_worldwide_fallback_is_real_pinned_triposr_not_placeholder():
@@ -84,6 +94,7 @@ def test_user_ui_discloses_provider_and_requires_terms_acceptance():
     assert "model_disclosure.model" in TERMS_UI
     assert "hunyuanNoAffiliation" in TERMS_UI
     assert "termsAccepted" in TERMS_UI
+    assert "clarifyProjectThreeDJob(" in TERMS_UI
     assert "third_party_terms_version" in TERMS_UI
     assert "/legal/terms" in TERMS_UI
     assert "terms5" in LEGAL_UI or "[1, 2, 3, 4, 5, 6]" in LEGAL_UI

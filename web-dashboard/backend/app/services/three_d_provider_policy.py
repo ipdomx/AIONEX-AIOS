@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 from pathlib import Path
+import re
+import time
 from typing import Any
+import urllib.error
+import urllib.request
 
 from fastapi import HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +20,23 @@ from app.core.config import settings
 HUNYUAN_PROVIDER = "hunyuan3d"
 TRIPOSR_PROVIDER = "triposr"
 THREE_D_TERMS_VERSION = "3d-model-service-2026-08-09"
+
+_RUNPOD_GRAPHQL_URL = "https://api.runpod.io/graphql"
+_RUNPOD_CONTROL_PLANE_TIMEOUT_SECONDS = 5.0
+_RUNPOD_REGION_CACHE_TTL_SECONDS = 30.0
+_RUNPOD_MAX_CONTROL_PLANE_BYTES = 1_000_000
+_RUNPOD_US_DATACENTER_ID = re.compile(r"US-[A-Z0-9]+(?:-[A-Z0-9]+)+$")
+_RUNPOD_ENDPOINT_REGIONS_QUERY = """
+query AiosEndpointRegions {
+  myself {
+    endpoints {
+      id
+      dataCenterIds
+    }
+  }
+}
+""".strip()
+_runpod_endpoint_region_cache: dict[str, tuple[float, bool]] = {}
 
 # Tencent Hunyuan 3D 2.1 Community License territory excludes the EU, UK and
 # South Korea. Country codes use ISO 3166-1 alpha-2 as supplied by Cloudflare
@@ -76,20 +99,126 @@ def _provider_env() -> dict[str, str]:
     return values
 
 
-def provider_runtime_configured(provider: str) -> bool:
+def _fetch_runpod_endpoint_datacenter_ids(
+    api_key: str, endpoint_id: str
+) -> tuple[str, ...] | None:
+    payload = json.dumps({"query": _RUNPOD_ENDPOINT_REGIONS_QUERY}).encode("utf-8")
+    request = urllib.request.Request(
+        _RUNPOD_GRAPHQL_URL,
+        data=payload,
+        headers={
+            "Accept": "application/json",
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (compatible; AIONEX-AIOS/34F)",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(
+            request, timeout=_RUNPOD_CONTROL_PLANE_TIMEOUT_SECONDS
+        ) as response:
+            raw = response.read(_RUNPOD_MAX_CONTROL_PLANE_BYTES + 1)
+        if len(raw) > _RUNPOD_MAX_CONTROL_PLANE_BYTES:
+            return None
+        document = json.loads(raw.decode("utf-8"))
+    except (
+        urllib.error.HTTPError,
+        urllib.error.URLError,
+        TimeoutError,
+        OSError,
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+    ):
+        return None
+
+    if not isinstance(document, dict) or document.get("errors"):
+        return None
+    data = document.get("data")
+    myself = data.get("myself") if isinstance(data, dict) else None
+    endpoints = myself.get("endpoints") if isinstance(myself, dict) else None
+    if not isinstance(endpoints, list):
+        return None
+    for endpoint in endpoints:
+        if not isinstance(endpoint, dict) or endpoint.get("id") != endpoint_id:
+            continue
+        datacenter_ids = endpoint.get("dataCenterIds")
+        if not isinstance(datacenter_ids, list):
+            return None
+        if any(
+            not isinstance(item, str) or not item.strip() for item in datacenter_ids
+        ):
+            return None
+        return tuple(item.strip() for item in datacenter_ids)
+    return None
+
+
+def _is_us_datacenter_id(value: object) -> bool:
+    normalized = str(value or "").strip().upper()
+    return bool(_RUNPOD_US_DATACENTER_ID.fullmatch(normalized))
+
+
+async def _hunyuan_endpoint_is_us_only(
+    values: dict[str, str], *, bypass_cache: bool = False
+) -> bool:
+    api_key = values.get("RUNPOD_API_KEY", "").strip()
+    endpoint_id = values.get("RUNPOD_ENDPOINT_ID", "").strip()
+    if not api_key or not endpoint_id:
+        return False
+
+    now = time.monotonic()
+    cached = _runpod_endpoint_region_cache.get(endpoint_id)
+    if not bypass_cache and cached is not None and cached[0] > now:
+        return cached[1]
+
+    try:
+        datacenter_ids = await asyncio.wait_for(
+            asyncio.to_thread(
+                _fetch_runpod_endpoint_datacenter_ids, api_key, endpoint_id
+            ),
+            timeout=_RUNPOD_CONTROL_PLANE_TIMEOUT_SECONDS + 1.0,
+        )
+        verified = bool(datacenter_ids) and all(
+            _is_us_datacenter_id(item) for item in datacenter_ids
+        )
+    except Exception:
+        verified = False
+
+    _runpod_endpoint_region_cache[endpoint_id] = (
+        time.monotonic() + _RUNPOD_REGION_CACHE_TTL_SECONDS,
+        verified,
+    )
+    return verified
+
+
+async def provider_runtime_configured(
+    provider: str,
+    *,
+    expected_endpoint_id: str | None = None,
+    bypass_cache: bool = False,
+) -> bool:
     values = _provider_env()
     if not values.get("RUNPOD_API_KEY", "").strip():
         return False
     key = provider.strip().lower()
+    if key not in {HUNYUAN_PROVIDER, TRIPOSR_PROVIDER}:
+        return False
     endpoint_key = (
         "RUNPOD_ENDPOINT_ID"
         if key == HUNYUAN_PROVIDER
         else "RUNPOD_FALLBACK_ENDPOINT_ID"
     )
-    if not values.get(endpoint_key, "").strip():
+    configured_endpoint_id = values.get(endpoint_key, "").strip()
+    if not configured_endpoint_id:
         return False
+    if expected_endpoint_id is not None:
+        expected = expected_endpoint_id.strip()
+        if not expected or expected != configured_endpoint_id:
+            return False
     if key == HUNYUAN_PROVIDER:
-        return values.get("RUNPOD_HUNYUAN_LOCATION", "").strip().upper() == "US"
+        if values.get("RUNPOD_HUNYUAN_LOCATION", "").strip().upper() != "US":
+            return False
+        return await _hunyuan_endpoint_is_us_only(values, bypass_cache=bypass_cache)
     return True
 
 

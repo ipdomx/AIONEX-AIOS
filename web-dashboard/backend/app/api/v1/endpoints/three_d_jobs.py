@@ -84,7 +84,7 @@ async def _licensed_provider_route(
     country, country_source = await request_country(session, actor, request)
     blocked: list[str] = []
     for provider in provider_candidates(policy, country):
-        if not provider_runtime_configured(provider):
+        if not await provider_runtime_configured(provider):
             blocked.append(provider)
             continue
         try:
@@ -450,9 +450,12 @@ async def cancel_three_d_job(
 async def clarify_three_d_job(
     project_id: str,
     job_id: str,
+    request: Request,
     image: Annotated[
         UploadFile, File(description="Replacement PNG, JPEG, or WebP source image")
     ],
+    third_party_terms_accepted: Annotated[bool, Form()] = False,
+    third_party_terms_version: Annotated[str, Form(max_length=120)] = "",
     actor: UserRecord = Depends(require_permissions("projects:write")),
     session: AsyncSession = Depends(get_db),
 ):
@@ -483,6 +486,14 @@ async def clarify_three_d_job(
     body = await image.read(max_bytes + 1)
     content_type = str(image.content_type or "").strip().lower()
     validate_image_payload(content_type, body, max_bytes)
+    provider, country, country_source, disclosure = await _licensed_provider_route(
+        session, actor, request, policy
+    )
+    accepted_terms_version = require_terms_acceptance(
+        policy,
+        accepted=third_party_terms_accepted,
+        version=third_party_terms_version,
+    )
     store = ThreeDObjectStore()
     old_key = job.input_object_key
     new_key = store.input_key(
@@ -503,6 +514,37 @@ async def clarify_three_d_job(
         job.input_content_type = stored.content_type
         job.input_size_bytes = stored.size_bytes
         job.input_sha256 = stored.sha256
+        job.provider = provider
+        request_options = dict(job.request_options or {})
+        selected_texture = min(
+            int(request_options.get("texture_size") or policy["max_texture_size"]),
+            int(policy["max_texture_size"]),
+        )
+        request_options.update(
+            {
+                "texture_size": selected_texture,
+                "compression_policy": str(
+                    request_options.get("compression_policy")
+                    or policy["compression_policy"]
+                ),
+                "jurisdiction_country": country,
+                "jurisdiction_source": country_source,
+                "third_party_terms_version": accepted_terms_version,
+                "third_party_terms_accepted": True,
+                "provider_disclosure": disclosure,
+            }
+        )
+        job.request_options = request_options
+        job.request_fingerprint = request_fingerprint(
+            organization_id=actor.organization_id,
+            user_id=job.requested_by_id,
+            project_id=project.id,
+            image_sha256=stored.sha256,
+            seed=int(request_options.get("seed") or 12345),
+            texture_size=selected_texture,
+            compression_policy=request_options["compression_policy"],
+            provider=provider,
+        )
         job.status = "queued"
         job.stage = "queued"
         job.progress = 0
@@ -523,7 +565,12 @@ async def clarify_three_d_job(
                 job,
                 "3d.job.clarified",
                 actor_id=actor.id,
-                details={"input_size_bytes": stored.size_bytes},
+                details={
+                    "input_size_bytes": stored.size_bytes,
+                    "provider": provider,
+                    "jurisdiction_country": country,
+                    "terms_version": accepted_terms_version,
+                },
             )
         )
         notifications = await notify_job(

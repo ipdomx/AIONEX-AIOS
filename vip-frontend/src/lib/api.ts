@@ -691,9 +691,16 @@ export function cancelProjectThreeDJob(projectId: string, jobId: string): Promis
   );
 }
 
-export function clarifyProjectThreeDJob(projectId: string, jobId: string, image: File): Promise<ThreeDGenerationJob> {
+export function clarifyProjectThreeDJob(
+  projectId: string,
+  jobId: string,
+  image: File,
+  values: { termsAccepted: boolean; termsVersion: string },
+): Promise<ThreeDGenerationJob> {
   const body = new FormData();
   body.set("image", image);
+  body.set("third_party_terms_accepted", String(values.termsAccepted));
+  body.set("third_party_terms_version", values.termsVersion);
   return request<ThreeDGenerationJob>(
     `/projects/${encodeURIComponent(projectId)}/3d/jobs/${encodeURIComponent(jobId)}/clarify`,
     { method: "POST", body },

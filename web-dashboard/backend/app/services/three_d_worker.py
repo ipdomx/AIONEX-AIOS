@@ -14,6 +14,7 @@ import signal
 import time
 from uuid import uuid4
 
+from fastapi import HTTPException
 from sqlalchemy import and_, or_, select
 
 from aios.gpu_worker.runpod import RunPodError, RunPodServerlessClient
@@ -23,9 +24,12 @@ from app.db.base import SessionLocal
 from app.db.models import ThreeDArtifact, ThreeDGenerationJob, uuid_str
 from app.services import billing, communications
 from app.services.three_d_policy import get_three_d_policy
+from app.services.three_d_provider_policy import provider_runtime_configured
 from app.services.three_d_resilience import (
     cleanup_expired_three_d_data,
+    assert_provider_available,
     maybe_emit_spend_alerts,
+    provider_circuit_snapshot,
     provider_outage_alert,
     record_provider_failure,
     record_provider_success,
@@ -68,12 +72,16 @@ def _runpod_clients() -> dict[str, RunPodServerlessClient]:
     key = values.get("RUNPOD_API_KEY", "").strip()
     primary_endpoint = values.get("RUNPOD_ENDPOINT_ID", "").strip()
     fallback_endpoint = values.get("RUNPOD_FALLBACK_ENDPOINT_ID", "").strip()
-    if not key or not primary_endpoint:
+    if not key:
         raise ThreeDWorkerError("3D provider credentials are incomplete")
-    primary = RunPodServerlessClient(key, primary_endpoint)
-    clients = {"hunyuan3d": primary, "runpod": primary}
+    clients: dict[str, RunPodServerlessClient] = {}
+    if primary_endpoint:
+        primary = RunPodServerlessClient(key, primary_endpoint)
+        clients.update({"hunyuan3d": primary, "runpod": primary})
     if fallback_endpoint:
         clients["triposr"] = RunPodServerlessClient(key, fallback_endpoint)
+    if not clients:
+        raise ThreeDWorkerError("No 3D provider endpoint is configured")
     return clients
 
 
@@ -112,7 +120,7 @@ class ThreeDGenerationWorker:
         self.cycles = 0
         self.errors = 0
         self.runpods = _runpod_clients()
-        self.runpod = self.runpods["hunyuan3d"]  # backward-compatible primary alias
+        self.runpod = self.runpods.get("hunyuan3d")  # backward-compatible primary alias
         self.storage = ThreeDObjectStore()
         self.next_cleanup_at = 0.0
         self.circuit_state = "unknown"
@@ -148,29 +156,69 @@ class ThreeDGenerationWorker:
             "last_provider_failure_at": self.last_provider_failure_at,
         }
         self.health_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = self.health_path.with_name(f".{self.health_path.name}.tmp")
-        tmp.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
-        os.chmod(tmp, 0o600)
-        os.replace(tmp, self.health_path)
+        tmp = self.health_path.with_name(
+            f".{self.health_path.name}.{os.getpid()}.{uuid4().hex}.tmp"
+        )
+        try:
+            tmp.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+            os.chmod(tmp, 0o600)
+            os.replace(tmp, self.health_path)
+        finally:
+            try:
+                tmp.unlink(missing_ok=True)
+            except OSError:
+                pass
 
     async def preflight(self) -> None:
         await asyncio.to_thread(self.storage.preflight)
         async with SessionLocal() as session:
             policy = await get_three_d_policy(session)
             await session.execute(select(ThreeDGenerationJob.id).limit(1))
-        required = ["hunyuan3d"]
-        if policy.get("fallback_enabled", True):
-            required.append("triposr")
-        for provider in required:
+        candidates: list[str] = []
+        if "hunyuan3d" in self.runpods:
+            candidates.append("hunyuan3d")
+        if policy.get("fallback_enabled", True) and "triposr" in self.runpods:
+            candidates.append("triposr")
+        if not candidates:
+            raise ThreeDWorkerError("No enabled 3D provider endpoint is configured")
+        healthy: list[str] = []
+        for provider in candidates:
             client = self._client_for_provider(provider)
-            health = await asyncio.to_thread(client.health)
-            if not isinstance(health, dict):
-                raise ThreeDWorkerError(
-                    f"3D provider health response is invalid: {provider}"
+            try:
+                health = await asyncio.to_thread(client.health)
+            except Exception as exc:
+                logger.warning(
+                    "3D provider preflight failed",
+                    provider=provider,
+                    error_type=type(exc).__name__,
                 )
+                continue
+            if isinstance(health, dict):
+                healthy.append(provider)
+            else:
+                logger.warning(
+                    "3D provider preflight response is invalid", provider=provider
+                )
+        if not healthy:
+            raise ThreeDWorkerError("No enabled 3D provider passed preflight")
 
     async def claim(self) -> tuple[str, str] | None:
         async with SessionLocal() as session:
+            blocked_provider_values: set[str] = set()
+            for provider in ("hunyuan3d", "triposr"):
+                state = await provider_circuit_snapshot(session, provider=provider)
+                if state["state"] != "open":
+                    continue
+                blocked_provider_values.add(provider)
+                if provider == "hunyuan3d":
+                    blocked_provider_values.add("runpod")
+            provider_gate = True
+            if blocked_provider_values:
+                provider_gate = or_(
+                    ThreeDGenerationJob.provider_job_id.is_not(None),
+                    ThreeDGenerationJob.status == "cancel_requested",
+                    ThreeDGenerationJob.provider.notin_(blocked_provider_values),
+                )
             job = await session.scalar(
                 select(ThreeDGenerationJob)
                 .where(
@@ -190,6 +238,7 @@ class ThreeDGenerationWorker:
                         ),
                     )
                 )
+                .where(provider_gate)
                 .order_by(ThreeDGenerationJob.created_at)
                 .with_for_update(skip_locked=True)
                 .limit(1)
@@ -764,6 +813,77 @@ class ThreeDGenerationWorker:
             finally:
                 self.next_cleanup_at = time.monotonic() + interval
 
+    async def _defer_for_open_circuit(
+        self, job_id: str, lease_token: str, *, provider: str
+    ) -> None:
+        async with SessionLocal() as session:
+            job = await session.scalar(
+                select(ThreeDGenerationJob)
+                .where(
+                    ThreeDGenerationJob.id == job_id,
+                    ThreeDGenerationJob.lease_token == lease_token,
+                    ThreeDGenerationJob.provider_job_id.is_(None),
+                )
+                .with_for_update()
+            )
+            if job is None:
+                return
+            job.status = "queued"
+            job.stage = "provider_circuit_open"
+            job.progress = 0
+            job.lease_token = None
+            job.attempts = max(0, job.attempts - 1)
+            job.error_code = "THREE_D_PROVIDER_CIRCUIT_OPEN"
+            job.error_message = (
+                "The selected 3D provider is recovering; this job remains queued."
+            )
+            job.version += 1
+            session.add(
+                audit_job(
+                    job,
+                    "3d.job.provider_circuit_deferred",
+                    actor_id=None,
+                    details={"provider": provider},
+                )
+            )
+            await session.commit()
+
+    async def _defer_for_runtime_gate(
+        self, job_id: str, lease_token: str, *, provider: str
+    ) -> None:
+        async with SessionLocal() as session:
+            job = await session.scalar(
+                select(ThreeDGenerationJob)
+                .where(
+                    ThreeDGenerationJob.id == job_id,
+                    ThreeDGenerationJob.lease_token == lease_token,
+                    ThreeDGenerationJob.provider_job_id.is_(None),
+                )
+                .with_for_update()
+            )
+            if job is None:
+                return
+            job.status = "queued"
+            job.stage = "provider_runtime_unverified"
+            job.progress = 0
+            job.lease_token = None
+            job.attempts = max(0, job.attempts - 1)
+            job.error_code = "THREE_D_PROVIDER_RUNTIME_UNVERIFIED"
+            job.error_message = (
+                "The selected 3D provider no longer passes its runtime policy; "
+                "this job remains queued without GPU submission."
+            )
+            job.version += 1
+            session.add(
+                audit_job(
+                    job,
+                    "3d.job.provider_runtime_deferred",
+                    actor_id=None,
+                    details={"provider": provider},
+                )
+            )
+            await session.commit()
+
     async def _cancel_provider(
         self, provider_job_id: str, *, provider: str, reason: str
     ) -> bool:
@@ -812,6 +932,19 @@ class ThreeDGenerationWorker:
         provider_job_id = job.provider_job_id
         if not provider_job_id:
             try:
+                async with SessionLocal() as circuit_session:
+                    await assert_provider_available(
+                        circuit_session, provider=job.provider
+                    )
+                    await circuit_session.commit()
+            except HTTPException as exc:
+                if exc.status_code != 503:
+                    raise
+                await self._defer_for_open_circuit(
+                    job_id, lease_token, provider=job.provider
+                )
+                return
+            try:
                 image = await asyncio.to_thread(
                     self.storage.get_bytes,
                     job.input_object_key,
@@ -835,6 +968,29 @@ class ThreeDGenerationWorker:
                 }
                 if job.provider == "triposr":
                     payload["mc_resolution"] = 192
+                runtime_provider = (
+                    "hunyuan3d" if job.provider == "runpod" else job.provider
+                )
+                if (
+                    runtime_provider == "hunyuan3d"
+                    and not await provider_runtime_configured(
+                        runtime_provider,
+                        expected_endpoint_id=client.endpoint_id,
+                        bypass_cache=True,
+                    )
+                ):
+                    logger.warning(
+                        "3D provider runtime policy failed before submission",
+                        job_id=job_id,
+                        provider=runtime_provider,
+                    )
+                    await self._provider_failure(
+                        job, "THREE_D_PROVIDER_RUNTIME_UNVERIFIED"
+                    )
+                    await self._defer_for_runtime_gate(
+                        job_id, lease_token, provider=job.provider
+                    )
+                    return
                 result = await asyncio.to_thread(
                     client.submit, payload, ttl_seconds=max_runtime + max_queue
                 )
@@ -1015,7 +1171,6 @@ async def healthcheck() -> int:
     try:
         worker = ThreeDGenerationWorker()
         await worker.preflight()
-        worker.write_health("ok")
         return 0
     except Exception:
         logger.exception("3D worker healthcheck failed")
