@@ -37,27 +37,29 @@ Provider selection is evaluated before an input object is stored or a GPU job is
 3. Provider endpoint credentials/configuration exist in the protected RunPod secret file.
 4. The provider circuit breaker is available.
 5. Current third-party 3D terms are explicitly accepted for the request.
+6. For Hunyuan, the RunPod control plane reports a non-empty US-only `dataCenterIds` set for the configured endpoint.
 
-When Hunyuan is not permitted, configured, or available, the request routes to TripoSR. If neither provider is permitted/available, the API fails closed and does not submit GPU work.
+When Hunyuan is not permitted, configured, region-verified, or available, the request routes to TripoSR. If neither provider is permitted/available, the API fails closed and does not submit GPU work.
 
 ## Compute-region enforcement
 
-The dedicated Hunyuan Serverless endpoint is restricted through RunPod's endpoint `locations` policy to `US`. Its minimum worker count remains zero. This prevents Hunyuan compute from being scheduled into the license-excluded EU/UK/South-Korea territories. The TripoSR fallback does not inherit the Hunyuan territory restriction because its pinned source/model are MIT-licensed.
+The dedicated Hunyuan Serverless endpoint is constrained through RunPod GraphQL `dataCenterIds` to 12 US data centers, with no non-US location present. Its minimum worker count remains zero and maximum remains one. The application revalidates the control-plane configuration on a bounded cache and fails Hunyuan closed if the endpoint is missing, the list is empty, any location is non-US, or the control-plane check fails. The TripoSR fallback does not inherit the Hunyuan territory restriction because its pinned source/model are MIT-licensed.
 
+Endpoint, template and job identifiers are operational secrets: they remain only in protected server files and acceptance evidence, never in Git.
 
 ## Final live fallback acceptance
 
 - Security-clean fallback image: `ipdomx/aionex-triposr@sha256:e07f4558089de625817e58729d192eea6740889a0f17d3029a4b32026c8f0e4f`.
 - Trivy `0.72.0` gate against that immutable image: **0 HIGH / 0 CRITICAL**.
-- Production fallback template: `u4zqw3dd6v`, pinned to the immutable digest above.
-- Production fallback endpoint: `5iyicoj8lvyjjj`, `workersMin=0`, `workersMax=1`, `idleTimeout=5`.
-- Live acceptance job: `3de18c7c-d6a8-4a7c-a305-e7da3f16db2f-u2`, completed with no retry/failure.
+- The protected production fallback template is pinned to the immutable digest above.
+- The retained production fallback endpoint is `workersMin=0`, `workersMax=1`, `idleTimeout=5`.
+- Live acceptance completed without retry or failure.
 - Live output: `3,184,420` byte GLB, SHA-256 `c6699ab3a10a7e0601ed6df0fcf7b23a2409c060f0e0cd606959ba63bcd4950b`.
 - Manifest truthfully reported MIT TripoSR fallback, one mesh, one material, one PBR material and one embedded texture at `1024x1024`.
 - `gltf-transform inspect` validated glTF 2.0 mesh/material/base-color texture content. Blender `4.0.2` imported the same accepted GLB successfully.
-- After the job, RunPod reported no queued/in-progress/running/unhealthy work; REST returned no active worker object for the retained endpoint, confirming scale-to-zero without deleting it.
-- Production Hunyuan endpoint `5e9d3pr0wcvyjy` remains `workersMin=0`, `workersMax=1`, `idleTimeout=5`; RunPod GraphQL confirms `locations=US`.
-- The protected production secret file contains only the retained Hunyuan and TripoSR endpoint IDs plus the RunPod credential, remains mode `0600`, and is excluded from Git.
+- After the job, RunPod reported no queued/in-progress/running/unhealthy work, confirming scale-to-zero without deleting the retained endpoint.
+- The replacement Hunyuan production endpoint is `workersMin=0`, `workersMax=1`, `idleTimeout=5`; an independent GraphQL read confirms exactly 12 US `dataCenterIds` and no non-US location.
+- The protected production secret file references only the retained Hunyuan and TripoSR endpoint IDs plus the RunPod credential, remains mode `0600`, and is excluded from Git.
 
 ## Owner controls
 
@@ -72,9 +74,9 @@ Every new 3D generation requires acceptance of the currently configured third-pa
 Phase 34F is complete only when:
 
 - unit/integration/static contract tests prove fail-closed territory and terms behavior;
-- Hunyuan endpoint location is verifiably `US` with `workersMin=0`;
+- Hunyuan endpoint location is control-plane verified as US-only with `workersMin=0`;
 - TripoSR fallback image is rebuilt from pinned inputs, pushed by digest, and deployed to a scale-to-zero Serverless endpoint;
 - live TripoSR inference produces a real textured GLB validated by glTF Transform and Blender;
-- production secret contains both endpoint IDs without exposing credentials;
+- production secret contains both endpoint IDs without exposing credentials or identifiers;
 - Owner and user frontends build with six complete locales;
 - all repository CI/security checks pass after merge.

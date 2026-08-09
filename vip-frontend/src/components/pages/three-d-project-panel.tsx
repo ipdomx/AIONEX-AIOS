@@ -241,6 +241,7 @@ export function ThreeDProjectPanel({
       });
       setJobs((current) => [job, ...current.filter((item) => item.id !== job.id)]);
       setFile(null);
+      setTermsAccepted(false);
       setLinks(null);
       await load(true);
     } catch (cause) {
@@ -264,12 +265,25 @@ export function ThreeDProjectPanel({
   }
 
   async function clarify(job: ThreeDGenerationJob) {
-    if (!validateClientFile(clarificationFile) || !clarificationFile) return;
+    if (!validateClientFile(clarificationFile) || !clarificationFile || !access) return;
+    if (!termsAccepted) {
+      setError(t("threeD.termsRequired"));
+      return;
+    }
     setBusy(true);
     try {
-      const value = await clarifyProjectThreeDJob(project.id, job.id, clarificationFile);
+      const value = await clarifyProjectThreeDJob(
+        project.id,
+        job.id,
+        clarificationFile,
+        {
+          termsAccepted,
+          termsVersion: access.third_party_terms_version,
+        },
+      );
       setJobs((current) => current.map((item) => (item.id === value.id ? value : item)));
       setClarificationFile(null);
+      setTermsAccepted(false);
       await load(true);
     } catch (cause) {
       setError(errorText(cause, t("threeD.clarifyError")));
@@ -359,7 +373,26 @@ export function ThreeDProjectPanel({
               {latest.status === "needs_clarification" && canWrite && (
                 <div className="mt-4 space-y-3">
                   <input type="file" accept="image/png,image/jpeg,image/webp" className="field-control text-xs" onChange={(event) => setClarificationFile(event.target.files?.[0] || null)} />
-                  <Button disabled={busy || !clarificationFile} onClick={() => void clarify(latest)}><RotateCcw className="h-4 w-4" />{t("threeD.submitClarification")}</Button>
+                  <label className="flex items-start gap-2 text-[11px] leading-5 text-white/45">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={termsAccepted}
+                      onChange={(event) => setTermsAccepted(event.target.checked)}
+                    />
+                    <span>
+                      {t("threeD.termsConsent")}{" "}
+                      <a
+                        className="text-violet-200 underline underline-offset-2"
+                        href={`/${locale}/legal/terms`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {t("threeD.termsLink")}
+                      </a>
+                    </span>
+                  </label>
+                  <Button disabled={busy || !clarificationFile || !termsAccepted} onClick={() => void clarify(latest)}><RotateCcw className="h-4 w-4" />{t("threeD.submitClarification")}</Button>
                 </div>
               )}
             </div>
