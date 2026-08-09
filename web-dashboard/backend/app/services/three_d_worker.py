@@ -166,8 +166,11 @@ class ThreeDGenerationWorker:
         finally:
             try:
                 tmp.unlink(missing_ok=True)
-            except OSError:
-                pass
+            except OSError as exc:
+                logger.debug(
+                    "3D worker health temporary file cleanup failed",
+                    error_type=type(exc).__name__,
+                )
 
     async def preflight(self) -> None:
         await asyncio.to_thread(self.storage.preflight)
