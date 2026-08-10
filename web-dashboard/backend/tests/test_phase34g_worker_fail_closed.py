@@ -168,18 +168,24 @@ def test_worker_health_writes_use_unique_atomic_temp_files(tmp_path, monkeypatch
 
 
 @pytest.mark.asyncio
-async def test_compose_healthcheck_does_not_overwrite_main_worker_health(monkeypatch):
-    calls = {"preflight": 0, "write": 0}
+async def test_compose_healthcheck_reads_fresh_worker_owned_evidence(tmp_path, monkeypatch):
+    health_path = tmp_path / "three-d-worker-health.json"
+    monkeypatch.setattr(
+        three_d_worker.settings, "THREE_D_WORKER_HEALTH_FILE", str(health_path)
+    )
+    monkeypatch.setattr(three_d_worker.time, "time", lambda: 1_000.0)
 
-    class ProbeWorker:
-        async def preflight(self):
-            calls["preflight"] += 1
-
-        def write_health(self, _status):
-            calls["write"] += 1
-            raise AssertionError("healthcheck process must not publish worker state")
-
-    monkeypatch.setattr(three_d_worker, "ThreeDGenerationWorker", ProbeWorker)
-
+    health_path.write_text(
+        json.dumps({"status": "ok", "checked_at_epoch": 995.0}), encoding="utf-8"
+    )
     assert await three_d_worker.healthcheck() == 0
-    assert calls == {"preflight": 1, "write": 0}
+
+    health_path.write_text(
+        json.dumps({"status": "ok", "checked_at_epoch": 800.0}), encoding="utf-8"
+    )
+    assert await three_d_worker.healthcheck() == 1
+
+    health_path.write_text(
+        json.dumps({"status": "error", "checked_at_epoch": 995.0}), encoding="utf-8"
+    )
+    assert await three_d_worker.healthcheck() == 1

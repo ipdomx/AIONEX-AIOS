@@ -130,3 +130,17 @@ def test_vip_security_lab_api_is_exposed_only_through_public_user_allowlist():
     assert "security-lab(?:/.*)?" in public
     assert "owner/security-lab" not in public
     assert "X-AIOS-Auth-Channel public" in public
+
+
+def test_three_d_worker_health_probe_is_local_and_non_root():
+    worker = read("web-dashboard/backend/app/services/three_d_worker.py")
+    assert "HEALTH_MAX_AGE_SECONDS = 120" in worker
+    assert 'payload = json.loads(path.read_text(encoding="utf-8"))' in worker
+    assert 'worker.write_health("ok")' in worker
+    for relative in (
+        "web-dashboard/docker-compose.production.yml",
+        "deploy/production/docker-compose.production.yml",
+    ):
+        compose = read(relative)
+        section = compose.split("three-d-worker:", 1)[1].split("project-worker:", 1)[0]
+        assert 'test: ["CMD", "su-exec", "aionex", "python", "-m", "app.services.three_d_worker", "--healthcheck"]' in section

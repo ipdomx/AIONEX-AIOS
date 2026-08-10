@@ -49,6 +49,8 @@ from app.services.three_d_storage import (
 
 logger = get_logger(__name__)
 
+HEALTH_MAX_AGE_SECONDS = 120
+
 
 class ThreeDWorkerError(RuntimeError):
     """Sanitized durable 3D worker failure."""
@@ -1027,6 +1029,10 @@ class ThreeDGenerationWorker:
         poll_started = queue_started
         running_started: float | None = None
         while not self.stop_event.is_set():
+            # Keep worker-owned health evidence fresh while a provider job is
+            # legitimately queued/running. The Docker probe reads this local
+            # evidence instead of repeatedly performing slow external preflights.
+            self.write_health("ok")
             async with SessionLocal() as policy_session:
                 policy = await get_three_d_policy(policy_session)
             max_queue = int(policy["max_queue_seconds"])
@@ -1173,11 +1179,16 @@ class ThreeDGenerationWorker:
 
 async def healthcheck() -> int:
     try:
-        worker = ThreeDGenerationWorker()
-        await worker.preflight()
+        path = Path(settings.THREE_D_WORKER_HEALTH_FILE)
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        checked_at = float(payload.get("checked_at_epoch") or 0.0)
+        age = time.time() - checked_at
+        if payload.get("status") != "ok":
+            return 1
+        if checked_at <= 0 or age < -30 or age > HEALTH_MAX_AGE_SECONDS:
+            return 1
         return 0
-    except Exception:
-        logger.exception("3D worker healthcheck failed")
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
         return 1
 
 
@@ -1198,6 +1209,7 @@ async def run_worker() -> None:
         processed = await worker.run_once()
         if processed:
             continue
+        worker.write_health("ok")
         try:
             await asyncio.wait_for(
                 worker.stop_event.wait(), timeout=settings.THREE_D_WORKER_POLL_SECONDS
