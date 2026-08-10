@@ -2108,6 +2108,177 @@ class Lesson(Base, TimestampMixin):
     promoted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+# Autonomous Security & Learning Fabric — durable security admission, evidence,
+# rule learning, remediation and release-gate state. Security knowledge itself is
+# promoted through the existing verified Knowledge/Learning pipeline above.
+
+class SecurityAccessGrant(Base, TimestampMixin):
+    __tablename__ = "security_access_grants"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "user_id", name="uq_security_grant_org_user"),
+        Index("ix_security_grants_status_expiry", "status", "expires_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    granted_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    level: Mapped[str] = mapped_column(String(32), default="standard", nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False, index=True)
+    profiles: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SecurityTarget(Base, TimestampMixin):
+    __tablename__ = "security_targets"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "origin", name="uq_security_target_org_origin"),
+        Index("ix_security_targets_org_auth", "organization_id", "authorization_status", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id", ondelete="SET NULL"), index=True)
+    created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    verified_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    kind: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    origin: Mapped[str] = mapped_column(String(500), nullable=False)
+    hostname: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    authorization_status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False, index=True)
+    verification_method: Mapped[str] = mapped_column(String(40), nullable=False)
+    challenge_hash: Mapped[str | None] = mapped_column(String(64))
+    active_scan_allowed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False, index=True)
+    target_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SecurityScan(Base, TimestampMixin):
+    __tablename__ = "security_scans"
+    __table_args__ = (
+        Index("ix_security_scans_org_status_created", "organization_id", "status", "created_at"),
+        Index("ix_security_scans_target_created", "target_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id", ondelete="SET NULL"), index=True)
+    target_id: Mapped[str] = mapped_column(ForeignKey("security_targets.id", ondelete="CASCADE"), nullable=False, index=True)
+    requested_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    profile: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), default="queued", nullable=False, index=True)
+    execution_mode: Mapped[str] = mapped_column(String(32), default="passive", nullable=False)
+    tool_plan: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
+    summary: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    error_code: Mapped[str | None] = mapped_column(String(120))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    lease_token: Mapped[str | None] = mapped_column(String(36), index=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=2, nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SecurityFinding(Base, TimestampMixin):
+    __tablename__ = "security_findings"
+    __table_args__ = (
+        UniqueConstraint("scan_id", "fingerprint", name="uq_security_finding_scan_fingerprint"),
+        Index("ix_security_findings_org_state_severity", "organization_id", "state", "severity"),
+        Index("ix_security_findings_target_created", "target_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    scan_id: Mapped[str] = mapped_column(ForeignKey("security_scans.id", ondelete="CASCADE"), nullable=False, index=True)
+    target_id: Mapped[str] = mapped_column(ForeignKey("security_targets.id", ondelete="CASCADE"), nullable=False, index=True)
+    source: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    category: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+    severity: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    confidence: Mapped[float] = mapped_column(Float, default=0.5, nullable=False)
+    state: Mapped[str] = mapped_column(String(32), default="observed", nullable=False, index=True)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    cwe: Mapped[str | None] = mapped_column(String(40))
+    owasp: Mapped[str | None] = mapped_column(String(80))
+    location: Mapped[str | None] = mapped_column(Text)
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    remediation: Mapped[str | None] = mapped_column(Text)
+    verified_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SecurityRule(Base, TimestampMixin):
+    __tablename__ = "security_rules"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "signature", name="uq_security_rule_org_signature"),
+        Index("ix_security_rules_status_trust", "status", "trust_score"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str | None] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    source_finding_id: Mapped[str | None] = mapped_column(ForeignKey("security_findings.id", ondelete="SET NULL"), index=True)
+    created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    rule_type: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(240), nullable=False)
+    signature: Mapped[str] = mapped_column(String(64), nullable=False)
+    detector: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="quarantine", nullable=False, index=True)
+    trust_score: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    validation_passes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    validation_failures: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    promoted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    retired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SecurityRuleValidation(Base):
+    __tablename__ = "security_rule_validations"
+    __table_args__ = (Index("ix_security_rule_validations_rule_created", "rule_id", "created_at"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    rule_id: Mapped[str] = mapped_column(ForeignKey("security_rules.id", ondelete="CASCADE"), nullable=False, index=True)
+    outcome: Mapped[str] = mapped_column(String(32), nullable=False)
+    corpus_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+
+class SecurityRemediation(Base, TimestampMixin):
+    __tablename__ = "security_remediations"
+    __table_args__ = (Index("ix_security_remediations_org_status_created", "organization_id", "status", "created_at"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id", ondelete="SET NULL"), index=True)
+    finding_id: Mapped[str] = mapped_column(ForeignKey("security_findings.id", ondelete="CASCADE"), nullable=False, index=True)
+    requested_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    status: Mapped[str] = mapped_column(String(32), default="planned", nullable=False, index=True)
+    worktree_ref: Mapped[str | None] = mapped_column(Text)
+    plan: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    regression_result: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    retest_scan_id: Mapped[str | None] = mapped_column(ForeignKey("security_scans.id", ondelete="SET NULL"), index=True)
+    verified_fixed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SecurityReleaseGate(Base):
+    __tablename__ = "security_release_gates"
+    __table_args__ = (Index("ix_security_release_gate_project_created", "project_id", "created_at"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id", ondelete="SET NULL"), index=True)
+    scan_id: Mapped[str] = mapped_column(ForeignKey("security_scans.id", ondelete="CASCADE"), nullable=False, index=True)
+    decision: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    policy_snapshot: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    blockers: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
+    created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+
 # Phase 29H — provider-neutral Production Studio and mobile delivery persistence.
 
 class StudioJob(Base, TimestampMixin):
