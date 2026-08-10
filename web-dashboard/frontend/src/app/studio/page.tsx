@@ -370,8 +370,8 @@ export default function StudioPage() {
           <p className="mt-2 max-w-4xl text-sm leading-6 text-white/50">
             Provider-neutral text, image, audio, video, web, code, design, and
             3D jobs with durable assets, revisions, safety evidence, verified
-            downloads, and project attachment. External media providers remain
-            reserved for Phase 29J.
+            downloads, and project attachment. External media providers are governed by the completed provider runtime and
+            remain unavailable unless they are explicitly configured.
           </p>
         </div>
         <button
@@ -522,8 +522,8 @@ export default function StudioPage() {
             <p>✓ Zero external provider requests or cost</p>
           </div>
           <p className="mt-5 text-xs leading-5 text-amber-200/70">
-            No rendered external media is presented as real until a governed
-            provider is activated in Phase 29J.
+            No rendered external media is presented as real unless a governed
+            provider is configured and the execution returns a verified result.
           </p>
         </aside>
       </form>

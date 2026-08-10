@@ -410,7 +410,7 @@ FEATURES: Final[tuple[CompletionFeature, ...]] = (
             "Model discovery, capability routing, policy, budgets, rate limits, tools, streaming, structured output, embeddings, media, local/cloud modes, health, retries, safety, costs and fallback modes are covered by retained tests and UI/API surfaces.",
             "Unconfigured providers remain visibly unconfigured; no secret or unavailable provider is represented as active.",
         ),
-        ("docs/phase-29/PHASE_29J_MODELS_PROVIDERS_FINAL_COMPLETION.md", "src/aios/phase29j.py", "src/aios/providers", "web-dashboard/backend/app/api/v1/endpoints/ai_providers.py", "web-dashboard/frontend/src/app/ai/providers/page.tsx", "web-dashboard/frontend/src/app/ai/models/page.tsx", "tests/test_phase29j_completion.py", "web-dashboard/backend/tests/test_phase29j_models_providers.py"),
+        ("docs/phase-29/PHASE_29J_MODELS_PROVIDERS_FINAL_COMPLETION.md", "docs/phase-29/PHASE_29J_LIVE_ACCEPTANCE_2026-08-10.md", "src/aios/phase29j.py", "src/aios/providers", "web-dashboard/backend/app/services/ai_runtime_service.py", "web-dashboard/backend/app/api/v1/endpoints/ai_providers.py", "web-dashboard/backend/app/api/v1/endpoints/ai_agents.py", "web-dashboard/frontend/src/app/ai/providers/page.tsx", "web-dashboard/frontend/src/app/ai/models/page.tsx", "web-dashboard/frontend/src/app/ai/agents/page.tsx", "tests/test_phase29j_completion.py", "web-dashboard/backend/tests/test_phase29j_models_providers.py", "web-dashboard/backend/tests/test_batch3_ai_runtime.py"),
     ),
 )
 
@@ -429,7 +429,7 @@ BATCHES: Final[tuple[CompletionBatch, ...]] = (
     CompletionBatch("29G", 7, "Operations, observability, security, recovery, and release", "complete", "Prove the complete production operations and assurance plane.", _feature_ids("29G")),
     CompletionBatch("29H", 8, "Production Studio and mobile delivery", "complete", "Finish provider-neutral media production and mobile delivery surfaces.", _feature_ids("29H")),
     CompletionBatch("29I", 9, "Plugins, marketplace, distributed runtime, and integrations", "complete", "Extension, distribution, and non-model enterprise integrations are verified; external credentials remain truthful activation boundaries.", _feature_ids("29I")),
-    CompletionBatch("29J", 10, "Models and providers — final batch", "complete", "Durable agent/provider execution, truthful activation, live provider verification, and Owner action contracts are verified.", _feature_ids("29J")),
+    CompletionBatch("29J", 10, "Models and providers — final batch", "complete", "Durable agent/provider execution, truthful activation, live provider verification, controlled production execution, and Owner action contracts are verified.", _feature_ids("29J")),
 )
 
 

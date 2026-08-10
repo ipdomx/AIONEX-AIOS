@@ -406,7 +406,7 @@
     },
     "execution": {
       "title": "Cycle de projet gouverné complet",
-      "description": "Exécutez le projet avec une gouvernance neutre, une validation déterministe des workflows, les contrôles du personnel, les preuves de l’académie, la conservation des connaissances, la sécurité et la revue de version. L’activation des modèles et fournisseurs reste réservée à la phase 29J.",
+      "description": "Exécutez le projet avec une gouvernance neutre, une validation déterministe des workflows, les contrôles du personnel, les preuves de l’académie, la conservation des connaissances, la sécurité et la revue de version. Les modèles et fournisseurs sont désormais gérés par le runtime gouverné finalisé ; tout fournisseur sans configuration explicite reste clairement indiqué comme non configuré.",
       "confirm": "Démarrer le cycle gouverné complet et neutre vis-à-vis des fournisseurs ? Aucun modèle d’IA ni fournisseur externe ne sera appelé et aucune donnée du projet ne quittera le serveur AIOS.",
       "start": "Exécuter le cycle neutre",
       "starting": "Démarrage…",
@@ -480,7 +480,7 @@
     "privacy2Title": "Sécurité et signaux appareil",
     "privacy2Copy": "Si la politique l’exige, l’interface transmet les signaux disponibles du navigateur, de l’appareil, de langue, fuseau, réseau et référent pour protéger l’identité, appliquer les quotas, auditer et prévenir les abus.",
     "privacy3Title": "Sessions et images de profil",
-    "privacy3Copy": "Les jetons sont conservés dans le stockage du navigateur pour la session. L’image est convertie en Data URL et envoyée via le service protégé, avec formats et limite de 2 Mo imposés par la plateforme.",
+    "privacy3Copy": "Les secrets d’authentification de la session navigateur sont conservés dans des cookies HttpOnly protégés et ne sont pas exposés au JavaScript côté client. L’image de profil envoyée est convertie en Data URL et transmise via le service protégé ; les formats pris en charge et la limite de 2 Mo sont imposés par la plateforme.",
     "privacy4Title": "Canal d’assistance privé",
     "privacy4Copy": "Les demandes authentifiées sont stockées dans la plateforme et transmises aux destinataires autorisés. N’incluez jamais mots de passe, jetons de session ou codes de récupération.",
     "termsTitle": "Conditions d’utilisation",

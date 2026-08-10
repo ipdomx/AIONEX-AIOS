@@ -406,7 +406,7 @@
     },
     "execution": {
       "title": "Vollständiger governance-gesteuerter Projektzyklus",
-      "description": "Führen Sie das Projekt durch anbieterneutrale Governance, deterministische Workflow-Prüfung, Workforce-Kontrollen, Academy-Nachweise, Wissensspeicherung, Sicherheits- und Release-Prüfung. Die Aktivierung von Modellen und Anbietern bleibt Phase 29J vorbehalten.",
+      "description": "Führen Sie das Projekt durch anbieterneutrale Governance, deterministische Workflow-Prüfung, Workforce-Kontrollen, Academy-Nachweise, Wissensspeicherung sowie Sicherheits- und Release-Prüfung. Modelle und Anbieter werden nun über die abgeschlossene, kontrollierte Runtime verwaltet; Anbieter ohne ausdrückliche Konfiguration bleiben sichtbar als nicht konfiguriert gekennzeichnet.",
       "confirm": "Den vollständigen anbieterneutralen Governance-Zyklus starten? Es wird kein KI-Modell oder externer Anbieter aufgerufen und keine Projektdaten verlassen den AIOS-Server.",
       "start": "Anbieterneutralen Zyklus starten",
       "starting": "Wird gestartet…",
@@ -480,7 +480,7 @@
     "privacy2Title": "Sicherheit und Gerätesignale",
     "privacy2Copy": "Wenn vorgeschrieben, sendet die Oberfläche verfügbare Browser-, Geräte-, Sprach-, Zeitzonen-, Netzwerk- und Referrer-Signale zum Identitätsschutz, zur Kontingentdurchsetzung, Auditierung und Missbrauchsabwehr.",
     "privacy3Title": "Sitzungen und Profilbilder",
-    "privacy3Copy": "Authentifizierungstokens liegen für den Sitzungsablauf im Browserspeicher. Profilbilder werden als Data URL über den geschützten Dienst gesendet; Formate und 2-MB-Grenze erzwingt die Plattform.",
+    "privacy3Copy": "Authentifizierungsgeheimnisse der Browsersitzung werden in geschützten HttpOnly-Cookies gehalten und sind für clientseitiges JavaScript nicht zugänglich. Hochgeladene Profilbilder werden in eine Data URL umgewandelt und über den geschützten Dienst gesendet; unterstützte Formate und die 2-MB-Grenze werden von der Plattform erzwungen.",
     "privacy4Title": "Privater Supportkanal",
     "privacy4Copy": "Authentifizierte Supportanfragen werden in der Plattform gespeichert und an autorisierte Empfänger übermittelt. Geben Sie niemals Passwörter, Sitzungstokens oder Wiederherstellungscodes an.",
     "termsTitle": "Nutzungsbedingungen",

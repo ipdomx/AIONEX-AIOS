@@ -406,7 +406,7 @@
     },
     "execution": {
       "title": "Ciclo completo de proyecto gobernado",
-      "description": "Ejecuta el proyecto mediante gobernanza neutral, validación determinista de workflows, controles de personal, evidencia de la academia, retención de conocimiento, seguridad y revisión de lanzamiento. La activación de modelos y proveedores queda reservada para la fase 29J.",
+      "description": "Ejecuta el proyecto mediante gobernanza neutral respecto al proveedor, validación determinista de workflows, controles de personal, evidencia de la academia, retención de conocimiento, seguridad y revisión de lanzamiento. Los modelos y proveedores se gestionan ahora mediante el runtime gobernado ya completado; cualquier proveedor sin configuración explícita permanece visible como no configurado.",
       "confirm": "¿Iniciar el ciclo gobernado completo y neutral respecto a proveedores? No se llamará a ningún modelo de IA ni proveedor externo y ningún dato del proyecto saldrá del servidor AIOS.",
       "start": "Ejecutar ciclo neutral",
       "starting": "Iniciando…",
@@ -480,7 +480,7 @@
     "privacy2Title": "Seguridad y señales del dispositivo",
     "privacy2Copy": "Si la política lo exige, la interfaz envía señales disponibles del navegador, dispositivo, idioma, zona horaria, red y referente para proteger la identidad, aplicar cuotas, auditar y prevenir abusos.",
     "privacy3Title": "Sesiones e imágenes de perfil",
-    "privacy3Copy": "Los tokens se guardan en el navegador para la sesión. La imagen se convierte en Data URL y se envía mediante el servicio protegido; la plataforma impone formatos y límite de 2 MB.",
+    "privacy3Copy": "Los secretos de autenticación de la sesión del navegador se mantienen en cookies HttpOnly protegidas y no se exponen al JavaScript del cliente. Las imágenes de perfil cargadas se convierten en una Data URL y se envían mediante el servicio protegido; la plataforma impone los formatos compatibles y el límite de 2 MB.",
     "privacy4Title": "Canal privado de soporte",
     "privacy4Copy": "Las solicitudes autenticadas se guardan en la plataforma y se entregan a destinatarios autorizados. Nunca incluyas contraseñas, tokens de sesión ni códigos de recuperación.",
     "termsTitle": "Condiciones de uso",

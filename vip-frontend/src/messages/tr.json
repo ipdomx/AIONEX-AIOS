@@ -406,7 +406,7 @@
     },
     "execution": {
       "title": "Tam yönetişimli proje döngüsü",
-      "description": "Projeyi sağlayıcıdan bağımsız yönetişim, deterministik iş akışı doğrulaması, işgücü kontrolleri, akademi kanıtları, bilgi saklama, güvenlik ve sürüm incelemesiyle çalıştırın. Model ve sağlayıcı etkinleştirmesi 29J aşamasına ayrılmıştır.",
+      "description": "Projeyi sağlayıcıdan bağımsız yönetişim, deterministik iş akışı doğrulaması, işgücü kontrolleri, akademi kanıtları, bilgi saklama, güvenlik ve sürüm incelemesiyle çalıştırın. Modeller ve sağlayıcılar artık tamamlanmış yönetişimli çalışma zamanı tarafından yönetilir; açıkça yapılandırılmamış sağlayıcılar görünür biçimde yapılandırılmamış olarak kalır.",
       "confirm": "Tam sağlayıcıdan bağımsız yönetişim döngüsü başlatılsın mı? Hiçbir yapay zekâ modeli veya harici sağlayıcı çağrılmayacak ve proje verileri AIOS sunucusundan çıkmayacaktır.",
       "start": "Sağlayıcıdan bağımsız döngüyü çalıştır",
       "starting": "Başlatılıyor…",
@@ -480,7 +480,7 @@
     "privacy2Title": "Güvenlik ve cihaz sinyalleri",
     "privacy2Copy": "Politika gerektirirse arayüz, kimlik koruma, kota uygulama, denetim ve kötüye kullanım önleme için mevcut tarayıcı, cihaz, dil, saat dilimi, ağ ve yönlendiren sinyallerini gönderir.",
     "privacy3Title": "Oturumlar ve profil görselleri",
-    "privacy3Copy": "Token’lar oturum akışı için tarayıcı depolamasında tutulur. Görsel Data URL’ye çevrilip korumalı hizmet üzerinden gönderilir; biçimler ve 2 MB sınırı platform tarafından uygulanır.",
+    "privacy3Copy": "Tarayıcı oturumunun kimlik doğrulama sırları korumalı HttpOnly çerezlerinde tutulur ve istemci tarafı JavaScript’e açılmaz. Yüklenen profil görselleri Data URL’ye dönüştürülüp korumalı hizmet üzerinden gönderilir; desteklenen biçimler ve 2 MB sınırı platform tarafından uygulanır.",
     "privacy4Title": "Özel destek kanalı",
     "privacy4Copy": "Kimliği doğrulanmış destek talepleri platformda saklanır ve yetkili alıcılara iletilir. Parola, oturum belirteci veya kurtarma kodu eklemeyin.",
     "termsTitle": "Kullanım koşulları",
