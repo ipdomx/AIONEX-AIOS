@@ -70,3 +70,15 @@ def test_phase35_toolchain_and_learning_promotions_are_pinned_and_evidence_gated
     assert '"auto_merge": False' in remediation
     assert '"production_modified": False' in remediation
     assert "requires_security_retest" in remediation
+
+
+def test_security_worker_has_durable_writable_tool_cache():
+    for relative in (
+        "web-dashboard/docker-compose.production.yml",
+        "deploy/production/docker-compose.production.yml",
+    ):
+        compose = read(relative)
+        section = compose.split("security-scan-worker:", 1)[1].split("security-remediation-worker:", 1)[0]
+        assert "read_only: true" in section
+        assert "security_tool_cache_data:/tmp/aionex-security-home:rw" in section
+        assert "security_tool_cache_data:" in compose

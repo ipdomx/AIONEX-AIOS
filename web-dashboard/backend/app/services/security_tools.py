@@ -13,9 +13,11 @@ import json
 import os
 import re
 import shutil
+import tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 
 def _as_dict(value: Any) -> dict[str, Any]:
@@ -713,7 +715,7 @@ def _command_for(tool_id: str, source: Path) -> list[str]:
     if tool_id == "syft":
         return ["syft", f"dir:{source}", "-o", "cyclonedx-json"]
     if tool_id == "grype":
-        return ["grype", f"dir:{source}", "-o", "json", "--check-for-app-update=false"]
+        return ["grype", f"dir:{source}", "-o", "json"]
     if tool_id == "bandit":
         return ["bandit", "-r", str(source), "-f", "json", "-q"]
     if tool_id == "semgrep":
@@ -1033,9 +1035,20 @@ async def run_source_tool(
         except json.JSONDecodeError:
             parsed = None
     normalized = _normalize_source_findings(tool_id, parsed, stdout_text)
+    finding_exit_tools = {"bandit", "osv-scanner", "gitleaks"}
+    no_package_sources = (
+        tool_id == "osv-scanner"
+        and process.returncode == 128
+        and "No package sources found" in stderr_text
+    )
+    completed = (
+        process.returncode == 0
+        or (process.returncode == 1 and tool_id in finding_exit_tools and bool(normalized))
+        or no_package_sources
+    )
     return {
         "tool": tool_id,
-        "status": "completed" if process.returncode in {0, 1} else "failed",
+        "status": "completed" if completed else "failed",
         "exit_code": process.returncode,
         "finding_count": len(normalized),
         "findings": normalized,
@@ -1107,17 +1120,6 @@ def _network_command(tool_id: str, origin: str, hostname: str) -> list[str]:
             "-",
             hostname,
         ]
-    if tool_id == "nikto":
-        return [
-            "nikto",
-            "-h",
-            origin,
-            "-nointeractive",
-            "-Format",
-            "json",
-            "-output",
-            "-",
-        ]
     if tool_id == "testssl":
         return ["testssl.sh", "--quiet", "--warnings", "off", "--color", "0", origin]
     if tool_id == "zap-baseline":
@@ -1144,7 +1146,37 @@ async def run_network_tool(
         return {"tool": tool_id, "status": "scenario_required", "findings": []}
     if shutil.which(spec.adapter) is None:
         return {"tool": tool_id, "status": "unavailable", "findings": []}
-    command = _network_command(tool_id, origin, hostname)
+    if tool_id == "testssl" and urlsplit(origin).scheme.lower() != "https":
+        return {
+            "tool": tool_id,
+            "status": "not_applicable",
+            "reason": "https_required",
+            "findings": [],
+        }
+    nikto_output: Path | None = None
+    if tool_id == "nikto":
+        handle = tempfile.NamedTemporaryFile(
+            prefix="aionex-nikto-", suffix=".json", dir="/tmp", delete=False
+        )
+        handle.close()
+        nikto_output = Path(handle.name)
+        command = [
+            "nikto",
+            "-h",
+            origin,
+            "-nointeractive",
+            "-nocheck",
+            "-ask",
+            "no",
+            "-maxtime",
+            "60s",
+            "-Format",
+            "json",
+            "-output",
+            str(nikto_output),
+        ]
+    else:
+        command = _network_command(tool_id, origin, hostname)
     process = await asyncio.create_subprocess_exec(
         *command,
         stdout=asyncio.subprocess.PIPE,
@@ -1156,12 +1188,60 @@ async def run_network_tool(
     except TimeoutError:
         process.kill()
         await process.communicate()
+        if nikto_output is not None:
+            try:
+                nikto_output.unlink(missing_ok=True)
+            except OSError:
+                nikto_output = None
         return {"tool": tool_id, "status": "timeout", "findings": []}
     stdout_text = redact_tool_output(stdout.decode("utf-8", errors="replace"))[
         :5_000_000
     ]
     stderr_text = redact_tool_output(stderr.decode("utf-8", errors="replace"))[:100_000]
     findings: list[dict[str, Any]] = []
+    if tool_id == "nikto" and nikto_output is not None:
+        try:
+            raw_report = nikto_output.read_text(encoding="utf-8", errors="replace")
+            parsed_report = json.loads(raw_report) if raw_report.strip() else []
+        except (OSError, json.JSONDecodeError):
+            parsed_report = []
+        finally:
+            try:
+                nikto_output.unlink(missing_ok=True)
+            except OSError:
+                nikto_output = None
+        reports = parsed_report if isinstance(parsed_report, list) else []
+        for report in reports:
+            if not isinstance(report, dict):
+                continue
+            for row in report.get("vulnerabilities") or []:
+                if not isinstance(row, dict):
+                    continue
+                nikto_id = str(row.get("id") or "nikto")
+                method = str(row.get("method") or "GET").upper()
+                path = str(row.get("url") or "/")
+                message = str(row.get("msg") or f"Nikto finding {nikto_id}")[:300]
+                lowered = message.lower()
+                if "without the secure" in lowered:
+                    severity = "high"
+                elif "without the httponly" in lowered or "security header missing" in lowered or "header is not set" in lowered:
+                    severity = "medium"
+                elif "outdated" in lowered or "deprecated" in lowered:
+                    severity = "low"
+                else:
+                    severity = "low"
+                location = origin.rstrip("/") + (path if path.startswith("/") else "/" + path)
+                findings.append(
+                    _external_finding(
+                        "nikto",
+                        marker=f"{nikto_id}|{method}|{path}|{message}",
+                        title=message,
+                        severity=severity,
+                        location=location,
+                        evidence={"nikto_id": nikto_id, "method": method},
+                        confidence=0.76,
+                    )
+                )
     if tool_id == "nuclei":
         for line in stdout_text.splitlines():
             try:
@@ -1202,10 +1282,12 @@ async def run_network_tool(
                     "remediation": "Review the matched condition, confirm it against source/runtime evidence, then apply the relevant hardening or patch.",
                 }
             )
+    successful_codes = {0, 1, 2} if tool_id == "zap-baseline" else {0}
     return {
         "tool": tool_id,
-        "status": "completed" if process.returncode in {0, 1, 2} else "failed",
+        "status": "completed" if process.returncode in successful_codes else "failed",
         "exit_code": process.returncode,
+        "finding_count": len(findings),
         "stdout_sha256": hashlib.sha256(stdout).hexdigest(),
         "stderr": stderr_text,
         "findings": findings,

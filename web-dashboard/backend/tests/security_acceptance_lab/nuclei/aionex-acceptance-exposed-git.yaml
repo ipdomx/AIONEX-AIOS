@@ -1,0 +1,21 @@
+id: aionex-acceptance-exposed-git
+
+info:
+  name: AIONEX acceptance exposed Git metadata
+  author: aionex
+  severity: high
+  description: Deterministic lab-only template for the intentionally vulnerable acceptance fixture.
+  tags: aionex,acceptance,exposure
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/.git/config"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: word
+        words:
+          - "repositoryformatversion"

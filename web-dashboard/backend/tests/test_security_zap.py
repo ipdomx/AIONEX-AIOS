@@ -39,3 +39,30 @@ async def test_active_zap_is_clone_only(monkeypatch):
         "https://example.test", execution_mode="passive", active=True
     )
     assert result["status"] == "blocked_requires_clone"
+
+
+@pytest.mark.asyncio
+async def test_active_clone_spiders_before_active_scan(monkeypatch):
+    monkeypatch.setenv("SECURITY_ZAP_URL", "http://security-zap:8080")
+    monkeypatch.setenv("SECURITY_ZAP_API_KEY", "test-key")
+    client = security_zap.ZapClient()
+    calls: list[str] = []
+
+    async def fake_json(path, params=None):
+        calls.append(path)
+        if path == "/JSON/spider/action/scan/":
+            return {"scan": "1"}
+        if path == "/JSON/spider/view/status/":
+            return {"status": "100"}
+        if path == "/JSON/ascan/action/scan/":
+            return {"scan": "2"}
+        if path == "/JSON/ascan/view/status/":
+            return {"status": "100"}
+        if path == "/JSON/core/view/alerts/":
+            return {"alerts": []}
+        return {}
+
+    monkeypatch.setattr(client, "_json", fake_json)
+    result = await client.active_clone("http://fixture:8088", timeout=10)
+    assert result["status"] == "completed"
+    assert calls.index("/JSON/spider/action/scan/") < calls.index("/JSON/ascan/action/scan/")

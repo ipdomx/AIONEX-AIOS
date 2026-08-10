@@ -338,6 +338,7 @@ services:
       - ../..:/workspace:ro
       - security_source_data:/var/lib/aionex/security-sources:ro
       - project_execution_data:/var/lib/aionex/project-executions:ro
+      - security_tool_cache_data:/tmp/aionex-security-home:rw
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
     depends_on:
@@ -490,5 +491,6 @@ volumes:
   portal_asset_data:
   security_source_data:
   security_remediation_data:
+  security_tool_cache_data:
   caddy_data:
   caddy_config:
