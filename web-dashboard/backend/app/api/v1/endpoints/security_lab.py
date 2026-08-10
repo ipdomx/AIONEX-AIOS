@@ -155,3 +155,112 @@ async def cancel_scan(scan_id: str, actor: UserRecord = Depends(get_current_user
         scan.status = "cancelled"; scan.cancelled_at = now(); scan.lease_token = None
         await session.commit(); await session.refresh(scan)
     return security_scanning.scan_snapshot(scan)
+
+class RemediationRequest(BaseModel):
+    finding_id: str = Field(min_length=1, max_length=36)
+
+
+class PatchEvidenceRequest(BaseModel):
+    changed_files: list[str] = Field(min_length=1, max_length=500)
+    tests: list[dict] = Field(min_length=1, max_length=200)
+    patch_digest: str = Field(min_length=64, max_length=64)
+
+
+@router.get("/remediations")
+async def remediations(
+    actor: UserRecord = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    await _require_access(session, actor)
+    from app.db.models import SecurityRemediation
+    from app.services.security_remediation import remediation_snapshot
+    stmt = select(SecurityRemediation).where(SecurityRemediation.organization_id == actor.organization_id)
+    if actor.role != "Super Owner":
+        stmt = stmt.where(SecurityRemediation.requested_by_id == actor.id)
+    rows = list((await session.scalars(stmt.order_by(SecurityRemediation.updated_at.desc()).limit(500))).all())
+    return [remediation_snapshot(item) for item in rows]
+
+
+@router.post("/remediations", status_code=status.HTTP_202_ACCEPTED)
+async def create_remediation(
+    data: RemediationRequest,
+    actor: UserRecord = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    from app.services import security_remediation
+    try:
+        item = await security_remediation.request_remediation(session, actor, finding_id=data.finding_id)
+        await session.commit(); await session.refresh(item)
+        return security_remediation.remediation_snapshot(item)
+    except PermissionError as exc:
+        await session.rollback(); raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except LookupError as exc:
+        await session.rollback(); raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        await session.rollback(); raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/remediations/{remediation_id}/patch-evidence")
+async def submit_patch_evidence(
+    remediation_id: str,
+    data: PatchEvidenceRequest,
+    actor: UserRecord = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    from app.db.models import SecurityRemediation
+    from app.services import security_remediation
+    item = await session.scalar(select(SecurityRemediation).where(SecurityRemediation.id == remediation_id, SecurityRemediation.organization_id == actor.organization_id).with_for_update())
+    if item is None or (actor.role != "Super Owner" and item.requested_by_id != actor.id):
+        raise HTTPException(status_code=404, detail="Security remediation not found")
+    try:
+        await security_remediation.record_patch_evidence(session, actor, item, **data.model_dump())
+        await session.commit(); await session.refresh(item)
+        return security_remediation.remediation_snapshot(item)
+    except PermissionError as exc:
+        await session.rollback(); raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        await session.rollback(); raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/remediations/{remediation_id}/retest", status_code=status.HTTP_202_ACCEPTED)
+async def remediation_retest(
+    remediation_id: str,
+    actor: UserRecord = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    from app.db.models import SecurityRemediation
+    from app.services import security_remediation
+    item = await session.scalar(select(SecurityRemediation).where(SecurityRemediation.id == remediation_id, SecurityRemediation.organization_id == actor.organization_id).with_for_update())
+    if item is None or (actor.role != "Super Owner" and item.requested_by_id != actor.id):
+        raise HTTPException(status_code=404, detail="Security remediation not found")
+    try:
+        scan = await security_remediation.queue_retest(session, actor, item)
+        await session.commit(); await session.refresh(item); await session.refresh(scan)
+        return {"remediation": security_remediation.remediation_snapshot(item), "scan": security_scanning.scan_snapshot(scan)}
+    except PermissionError as exc:
+        await session.rollback(); raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except LookupError as exc:
+        await session.rollback(); raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (ValueError, RuntimeError) as exc:
+        await session.rollback(); raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/remediations/{remediation_id}/finalize")
+async def finalize_remediation(
+    remediation_id: str,
+    actor: UserRecord = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    from app.db.models import SecurityRemediation
+    from app.services import security_remediation
+    item = await session.scalar(select(SecurityRemediation).where(SecurityRemediation.id == remediation_id, SecurityRemediation.organization_id == actor.organization_id).with_for_update())
+    if item is None or (actor.role != "Super Owner" and item.requested_by_id != actor.id):
+        raise HTTPException(status_code=404, detail="Security remediation not found")
+    try:
+        await security_remediation.finalize_retest(session, actor, item)
+        await session.commit(); await session.refresh(item)
+        return security_remediation.remediation_snapshot(item)
+    except LookupError as exc:
+        await session.rollback(); raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        await session.rollback(); raise HTTPException(status_code=409, detail=str(exc)) from exc

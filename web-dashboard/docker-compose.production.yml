@@ -383,6 +383,40 @@ services:
     cap_drop: ["ALL"]
     networks: [aionex-network]
 
+  security-remediation-worker:
+    image: aionex-aios-backend:local
+    restart: unless-stopped
+    mem_limit: 2g
+    cpus: "1.5"
+    pids_limit: 384
+    command: ["python", "-m", "app.services.security_remediation_worker"]
+    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      SECURITY_REMEDIATION_WORKER_POLL_SECONDS: "5"
+      SECURITY_REMEDIATION_WORKER_HEALTH_FILE: /tmp/aionex-security-remediation-worker.json
+      PYTHONPATH: /workspace/src:/app
+    volumes:
+      - ..:/workspace:ro
+      - security_source_data:/var/lib/aionex/security-sources:ro
+      - security_remediation_data:/var/lib/aionex/security-remediations:rw
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    depends_on:
+      backend: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.services.security_remediation_worker", "--healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    networks: [aionex-network]
+
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -469,6 +503,7 @@ volumes:
   mobile_release_data:
   portal_asset_data:
   security_source_data:
+  security_remediation_data:
 
 networks:
   aionex-network:
