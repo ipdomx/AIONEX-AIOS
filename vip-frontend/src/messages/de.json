@@ -25,7 +25,9 @@
     "notificationsTitle": "Benachrichtigungen und Kommunikationspräferenzen",
     "notificationsDescription": "Dauerhafte Benachrichtigungen, Zustellbelege und Kanäle prüfen.",
     "supportTitle": "Supportanfragen",
-    "supportDescription": "Dauerhafte Supportgespräche mit AIONEX erstellen und verfolgen."
+    "supportDescription": "Dauerhafte Supportgespräche mit AIONEX erstellen und verfolgen.",
+    "securityLabTitle": "Security Lab",
+    "securityLabDescription": "Führen Sie vom Eigentümer freigegebene Sicherheitsprüfungen für autorisierte Projektziele aus."
   },
   "nav": {
     "home": "Start",
@@ -45,7 +47,8 @@
     "pricing": "Preise",
     "billing": "Abrechnung",
     "notifications": "Benachrichtigungen",
-    "support": "Support"
+    "support": "Support",
+    "securityLab": "Security Lab"
   },
   "footer": {
     "description": "Ein gesteuertes KI-Betriebssystem zur Koordination von Agenten, Modellen, Projekten und Betriebskontrollen.",
@@ -98,7 +101,9 @@
     "workflow3Copy": "Wenden Sie Qualitäts-, Sicherheits- und Freigabekontrollen vor der Abnahme an.",
     "ctaTitle": "Starten Sie mit den freigegebenen Grenzen",
     "ctaCopy": "Die Registrierung liest Verfügbarkeit, Identitätsregeln und Kontingente direkt aus der Plattformrichtlinie.",
-    "ctaButton": "Registrierung öffnen"
+    "ctaButton": "Registrierung öffnen",
+    "capability5Title": "Adaptive Sicherheitsvalidierung",
+    "capability5Copy": "Kombiniert Quellcode-, Abhängigkeits-, Secret-, API-, TLS-, Container- und autorisierte Laufzeitprüfungen mit Lernen und verifizierter Behebung."
   },
   "about": {
     "eyebrow": "Über das System",
@@ -160,7 +165,8 @@
     "contactSupport": "Support kontaktieren",
     "organization": "Organisation: {name}",
     "manageBilling": "Abrechnung verwalten",
-    "notifications": "Benachrichtigungen"
+    "notifications": "Benachrichtigungen",
+    "securityLab": "Security Lab"
   },
   "auth": {
     "secureAccess": "Sicherer Nutzerzugang",
@@ -668,6 +674,64 @@
       "normal": "Normal",
       "high": "Hoch",
       "urgent": "Dringend"
+    }
+  },
+  "securityLab": {
+    "eyebrow": "AIONEX Security Lab",
+    "title": "Sicherheitsvalidierung für Projekte",
+    "description": "Führen Sie evidenzbasierte Prüfungen für Quellcode, Abhängigkeiten, Secrets, APIs, TLS, Container, Mobile und autorisierte Laufzeit aus. Erweiterte Profile bleiben hinter der Security-Clone-Grenze isoliert.",
+    "refresh": "Aktualisieren",
+    "loadError": "Security-Lab-Daten konnten nicht geladen werden.",
+    "ownerControlled": "Vom Eigentümer gesteuerte Funktion",
+    "ownerControlledCopy": "Nur der Super Owner kann diese Funktion freigeben und die Prüfstufe wählen. Jeder Scan wird serverseitig erneut autorisiert.",
+    "accessLevel": "Zugriffsstufe",
+    "availableEngines": "Verfügbare Engines",
+    "activeScans": "Aktive Scans",
+    "verifiedTargets": "Verifizierte Ziele",
+    "startValidation": "Sicherheitsprüfung starten",
+    "startValidationCopy": "Wählen Sie ein verifiziertes Ziel und ein für Ihr Konto freigegebenes Profil. Advanced und Elite benötigen einen isolierten Clone, wenn die Eigentümerrichtlinie dies verlangt.",
+    "target": "Ziel",
+    "selectTarget": "Verifiziertes Ziel wählen",
+    "profile": "Profil",
+    "queueValidation": "Prüfung einreihen",
+    "scanQueued": "Security-Scan {id} wurde eingereiht.",
+    "scanError": "Der Security-Scan konnte nicht eingereiht werden.",
+    "scanCancelled": "Security-Scan wurde abgebrochen.",
+    "cancelError": "Der Security-Scan konnte nicht abgebrochen werden.",
+    "externalTarget": "Externes autorisiertes Ziel",
+    "externalTargetCopy": "Externe Ziele müssen vor jedem Scan die Eigentumsprüfung bestehen.",
+    "createVerification": "Verifizierung erstellen",
+    "verificationCreated": "Verifizierungs-Challenge erstellt.",
+    "verificationStep": "Verifizierungs-Challenge veröffentlichen",
+    "verificationCopy": "Legen Sie die Challenge exakt unter dem angezeigten Pfad am Ziel ab und führen Sie dann die Verifizierung aus. AIONEX prüft das Ziel vor der Scan-Zulassung erneut.",
+    "verifyNow": "Jetzt verifizieren",
+    "verificationPassed": "Eigentumsprüfung erfolgreich.",
+    "verificationError": "Eigentumsprüfung fehlgeschlagen.",
+    "targetError": "Externes Ziel konnte nicht registriert werden.",
+    "recentScans": "Letzte Scans",
+    "status": "Status",
+    "findings": "Befunde",
+    "severity": "Schweregrad",
+    "actions": "Aktionen",
+    "view": "Anzeigen",
+    "cancel": "Abbrechen",
+    "selectedFindings": "Befunde des ausgewählten Scans",
+    "selectCompletedScan": "Wählen Sie einen abgeschlossenen Scan zur Prüfung der Befunde.",
+    "noFindings": "Für diesen Scan wurden keine Befunde erfasst.",
+    "engineInventory": "Security-Engine-Inventar",
+    "engineInventoryCopy": "Die Verfügbarkeit stammt aus dem dauerhaften Heartbeat des Scan-Workers.",
+    "available": "verfügbar",
+    "unavailable": "optional / nicht verfügbar",
+    "cloneOnly": "nur isolierter Clone",
+    "authorizedRuntime": "autorisierte Laufzeit",
+    "sourcePassive": "Quelle / passiv",
+    "remediations": "Behebungsstatus",
+    "remediationsCopy": "Verifizierte Behebung bleibt evidenzgebunden und wird niemals automatisch in Production gemergt.",
+    "profiles": {
+      "passive": "Passiv",
+      "standard": "Standard",
+      "advanced": "Advanced",
+      "elite": "Elite"
     }
   }
 }

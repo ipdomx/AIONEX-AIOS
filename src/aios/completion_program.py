@@ -483,6 +483,7 @@ VIP_PAGE_BATCH: Final[dict[str, str]] = {
     "[locale]/pricing/page.tsx": "29D", "[locale]/profile/page.tsx": "29C",
     "[locale]/projects/page.tsx": "29F", "[locale]/register/page.tsx": "29C",
     "[locale]/reset-password/page.tsx": "29C",
+    "[locale]/security-lab/page.tsx": "34E",
 }
 
 ENDPOINT_BATCH: Final[dict[str, str]] = {

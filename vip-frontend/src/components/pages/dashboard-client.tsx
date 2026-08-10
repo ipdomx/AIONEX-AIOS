@@ -20,8 +20,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusMessage } from "@/components/ui/status-message";
 import { useAuth } from "@/hooks/use-auth";
-import { getFreeTierStatus, listProjects } from "@/lib/api";
-import type { FreeTierStatus, Project } from "@/types";
+import { getFreeTierStatus, getSecurityLabAccess, listProjects } from "@/lib/api";
+import type { FreeTierStatus, Project, SecurityLabAccess } from "@/types";
 
 const projectStatuses = new Set([
   "planning",
@@ -49,6 +49,7 @@ export function DashboardClient() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [quota, setQuota] = useState<FreeTierStatus | null>(null);
+  const [securityAccess, setSecurityAccess] = useState<SecurityLabAccess | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -60,12 +61,14 @@ export function DashboardClient() {
     setLoading(true);
     setError("");
     try {
-      const [projectItems, quotaStatus] = await Promise.all([
+      const [projectItems, quotaStatus, securityStatus] = await Promise.all([
         listProjects(),
         getFreeTierStatus(),
+        getSecurityLabAccess().catch(() => null),
       ]);
       setProjects(projectItems);
       setQuota(quotaStatus);
+      setSecurityAccess(securityStatus);
     } catch {
       setError(t("loadError"));
     } finally {
@@ -285,6 +288,18 @@ export function DashboardClient() {
                     aria-hidden="true"
                   />
                 </Link>
+                {securityAccess?.enabled && securityAccess.granted && (
+                  <Link
+                    href={`/${locale}/security-lab`}
+                    className="inline-flex min-h-12 items-center justify-between rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold text-white/75 transition hover:bg-white/[0.08] hover:text-white"
+                  >
+                    {t("securityLab")}
+                    <ShieldCheck
+                      className="h-4 w-4 text-electric-200"
+                      aria-hidden="true"
+                    />
+                  </Link>
+                )}
                 <Link
                   href={`/${locale}/profile`}
                   className="inline-flex min-h-12 items-center justify-between rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold text-white/75 transition hover:bg-white/[0.08] hover:text-white"

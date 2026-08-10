@@ -7,18 +7,20 @@ import {
   LifeBuoy,
   LogOut,
   Menu,
+  ShieldCheck,
   UserRound,
   X,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Brand } from "@/components/brand";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
+import { getSecurityLabAccess } from "@/lib/api";
 import { usePortalExperience } from "@/components/portal/portal-experience-provider";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +32,25 @@ export function Navbar() {
   const { isAuthenticated, isLoading, logout } = useAuth();
   const { configuration, text, href: portalHref } = usePortalExperience();
   const [open, setOpen] = useState(false);
+  const [securityLabVisible, setSecurityLabVisible] = useState(false);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setSecurityLabVisible(false);
+      return;
+    }
+    let cancelled = false;
+    void getSecurityLabAccess()
+      .then((access) => {
+        if (!cancelled) setSecurityLabVisible(access.enabled && access.granted);
+      })
+      .catch(() => {
+        if (!cancelled) setSecurityLabVisible(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
 
   const fallbackLinks = [
     { id: "home", href: `/${locale}`, label: t("home"), external: false },
@@ -155,6 +176,15 @@ export function Navbar() {
                 <CreditCard className="h-4 w-4" aria-hidden="true" />
                 {t("billing")}
               </Link>
+              {securityLabVisible && (
+                <Link
+                  href={`/${locale}/security-lab`}
+                  className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/65 hover:text-white"
+                >
+                  <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                  {t("securityLab")}
+                </Link>
+              )}
               <Link
                 href={`/${locale}/notifications`}
                 className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/65 hover:text-white"
@@ -245,6 +275,15 @@ export function Navbar() {
                 >
                   {t("billing")}
                 </Link>
+                {securityLabVisible && (
+                  <Link
+                    href={`/${locale}/security-lab`}
+                    onClick={() => setOpen(false)}
+                    className="rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06]"
+                  >
+                    {t("securityLab")}
+                  </Link>
+                )}
                 <Link
                   href={`/${locale}/notifications`}
                   onClick={() => setOpen(false)}

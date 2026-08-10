@@ -429,7 +429,15 @@ jobs:
               'pg_dump --version | grep -Eq "\(PostgreSQL\) 16(\.|$)"'
           AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
             "${compose_args[@]}" stop backup-worker
-          test -z "$(AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" "${compose_args[@]}" ps --status running -q backup-worker)"
+          worker_stopped=false
+          for _ in $(seq 1 20); do
+            if [[ -z "$(AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" "${compose_args[@]}" ps --status running -q backup-worker)" ]]; then
+              worker_stopped=true
+              break
+            fi
+            sleep 1
+          done
+          test "$worker_stopped" = true
           docker build --target test -t aionex-aios-backend:test backend
           worker_network="$(docker inspect --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{end}}' "$worker_id")"
           backup_volume="$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/var/lib/aionex/backups"}}{{.Name}}{{end}}{{end}}' "$worker_id")"

@@ -25,7 +25,9 @@
     "notificationsTitle": "Notifications and communication preferences",
     "notificationsDescription": "Review durable notifications, delivery receipts, and communication channels.",
     "supportTitle": "Support requests",
-    "supportDescription": "Open and follow durable support conversations with AIONEX."
+    "supportDescription": "Open and follow durable support conversations with AIONEX.",
+    "securityLabTitle": "Security Lab",
+    "securityLabDescription": "Run owner-granted security validation for authorized project targets."
   },
   "nav": {
     "home": "Home",
@@ -45,7 +47,8 @@
     "pricing": "Pricing",
     "billing": "Billing",
     "notifications": "Notifications",
-    "support": "Support"
+    "support": "Support",
+    "securityLab": "Security Lab"
   },
   "footer": {
     "description": "A governed AI operating system for coordinating agents, models, projects, and operational controls.",
@@ -98,7 +101,9 @@
     "workflow3Copy": "Apply quality, security, and approval controls before accepting outcomes.",
     "ctaTitle": "Start with the limits your owner has approved",
     "ctaCopy": "The registration screen reads availability, identity rules, and quotas directly from the live platform policy.",
-    "ctaButton": "Open registration"
+    "ctaButton": "Open registration",
+    "capability5Title": "Adaptive security validation",
+    "capability5Copy": "Combine source, dependency, secret, API, TLS, container, and authorized runtime evidence with learning and verified remediation."
   },
   "about": {
     "eyebrow": "About the system",
@@ -160,7 +165,8 @@
     "contactSupport": "Contact support",
     "organization": "Organization: {name}",
     "manageBilling": "Manage billing",
-    "notifications": "Notifications"
+    "notifications": "Notifications",
+    "securityLab": "Security Lab"
   },
   "auth": {
     "secureAccess": "Secure user access",
@@ -668,6 +674,64 @@
       "normal": "Normal",
       "high": "High",
       "urgent": "Urgent"
+    }
+  },
+  "securityLab": {
+    "eyebrow": "AIONEX Security Lab",
+    "title": "Project security validation",
+    "description": "Run evidence-gated source, dependency, secret, API, TLS, container, mobile, and authorized runtime validation. Advanced profiles remain isolated behind the security-clone boundary.",
+    "refresh": "Refresh",
+    "loadError": "Security Lab data could not be loaded.",
+    "ownerControlled": "Owner-controlled capability",
+    "ownerControlledCopy": "The Super Owner is the only authority that can grant this capability and select its validation level. Every scan is re-authorized by the backend.",
+    "accessLevel": "Access level",
+    "availableEngines": "Available engines",
+    "activeScans": "Active scans",
+    "verifiedTargets": "Verified targets",
+    "startValidation": "Start security validation",
+    "startValidationCopy": "Choose a verified target and one of the profiles granted to your account. Advanced and Elite validation requires an isolated security clone when the owner policy requires it.",
+    "target": "Target",
+    "selectTarget": "Select verified target",
+    "profile": "Profile",
+    "queueValidation": "Queue validation",
+    "scanQueued": "Security scan {id} was queued.",
+    "scanError": "The security scan could not be queued.",
+    "scanCancelled": "Security scan was cancelled.",
+    "cancelError": "The security scan could not be cancelled.",
+    "externalTarget": "External authorized target",
+    "externalTargetCopy": "External targets must complete the ownership verification challenge before any scan can run.",
+    "createVerification": "Create verification",
+    "verificationCreated": "Verification challenge created.",
+    "verificationStep": "Publish the verification challenge",
+    "verificationCopy": "Place the exact challenge at the displayed path on the target, then verify it. AIONEX rechecks the target before admitting scans.",
+    "verifyNow": "Verify now",
+    "verificationPassed": "Target ownership verification passed.",
+    "verificationError": "Target ownership verification failed.",
+    "targetError": "The external target could not be registered.",
+    "recentScans": "Recent scans",
+    "status": "Status",
+    "findings": "Findings",
+    "severity": "Severity",
+    "actions": "Actions",
+    "view": "View",
+    "cancel": "Cancel",
+    "selectedFindings": "Selected scan findings",
+    "selectCompletedScan": "Select a completed scan to review its findings.",
+    "noFindings": "No findings were recorded for this scan.",
+    "engineInventory": "Security engine inventory",
+    "engineInventoryCopy": "Availability comes from the durable scanner-worker capability heartbeat, not from browser assumptions.",
+    "available": "available",
+    "unavailable": "optional / unavailable",
+    "cloneOnly": "isolated clone only",
+    "authorizedRuntime": "authorized runtime",
+    "sourcePassive": "source / passive",
+    "remediations": "Remediation status",
+    "remediationsCopy": "Verified remediation remains evidence-gated and never auto-merges into production.",
+    "profiles": {
+      "passive": "Passive",
+      "standard": "Standard",
+      "advanced": "Advanced",
+      "elite": "Elite"
     }
   }
 }
