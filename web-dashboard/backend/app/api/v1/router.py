@@ -50,6 +50,7 @@ from app.api.v1.endpoints import (
     roles,
     search,
     security,
+    security_lab,
     servers,
     settings,
     studio,
@@ -160,6 +161,9 @@ api_router.include_router(
 )
 api_router.include_router(
     security.router, prefix="/security", tags=["Security"], dependencies=restricted
+)
+api_router.include_router(
+    security_lab.router, prefix="/security-lab", tags=["Security Lab"], dependencies=restricted
 )
 api_router.include_router(
     tasks.router, prefix="/tasks", tags=["Tasks"], dependencies=restricted
