@@ -35,3 +35,21 @@ The final provider catalog API exposes truthful configured/enabled/status state 
 Phase 29J closes product implementation without fabricating third-party credentials. Providers for which the operator has not supplied credentials remain intentionally and visibly unconfigured. This is the final truthful production contract, not missing implementation.
 
 Cloudflare and DNS are unchanged by this batch.
+
+## Post-audit revalidation — 2026-08-10
+
+The full-project constitutional audit reopened 29J after discovering that the dashboard AI runtime still used process-local provider/agent/job dictionaries and synthetic execution. The remediation removed that false-completion state before re-closing this batch.
+
+Revalidation evidence now includes:
+
+- provider, agent and job state persisted through PostgreSQL `AIProvider`, `AIAgent` and `Job` records;
+- provider credentials encrypted at rest and never returned through API responses;
+- agent execution calls the configured provider transport instead of returning a synthetic success string;
+- provider health/test performs a real provider request where that provider supports a safe verification probe;
+- the AI Agents page loads live providers and agents and its create/execute/pause/resume/settings actions are backend-bound;
+- the Owner Operations page loads live organization and role selectors instead of requiring unknown foreign-key IDs;
+- the repository-wide visible-action audit has no known production `href="#"`, empty `onClick`, fake-success, demo-success or hardcoded live-looking AI agent fixture;
+- isolated Owner CRUD smoke covers authenticated create/update/suspend/restore/delete lifecycle;
+- the complete root and backend regression suites plus protected GitHub gates are required before the completion registry can return to 100%.
+
+This closure does not claim that third-party providers without operator credentials are active. Those providers remain explicitly `unconfigured`, which is the required truthful state.
