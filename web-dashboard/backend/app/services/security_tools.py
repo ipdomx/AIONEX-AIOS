@@ -72,6 +72,21 @@ TOOL_CATALOG: tuple[ToolSpec, ...] = (
     ToolSpec("snyk", "dependencies", "snyk", requires_source=True, description="Optional Snyk integration"),
     ToolSpec("clair", "containers", "clairctl", requires_source=True, description="Optional Clair image analysis"),
     ToolSpec("docker-bench", "containers", "docker-bench-security", description="Docker hardening benchmark"),
+    ToolSpec("testssl", "tls", "testssl.sh", active=True, description="TLS protocol/cipher validation"),
+    ToolSpec("zap-baseline", "dast", "zap-baseline.py", active=True, description="OWASP ZAP passive/baseline web scan"),
+    ToolSpec("zap-active", "dast", "zap-full-scan.py", active=True, intrusive=True, requires_clone=True, description="OWASP ZAP active validation on an authorized security clone"),
+    ToolSpec("nuclei", "dast", "nuclei", active=True, description="Template-driven authorized vulnerability validation"),
+    ToolSpec("katana", "attack_surface", "katana", active=True, description="Web attack-surface crawler"),
+    ToolSpec("projectdiscovery-httpx", "attack_surface", "httpx", active=True, description="HTTP service fingerprinting"),
+    ToolSpec("nmap", "infrastructure", "nmap", active=True, description="Bounded service/port discovery"),
+    ToolSpec("nikto", "dast", "nikto", active=True, description="Web server misconfiguration scanner"),
+    ToolSpec("schemathesis", "api", "schemathesis", active=True, description="OpenAPI/GraphQL property-based API testing"),
+    ToolSpec("restler", "api", "restler", active=True, requires_clone=True, description="Stateful REST API fuzzing on authorized clones"),
+    ToolSpec("sqlmap", "dast", "sqlmap", active=True, intrusive=True, requires_clone=True, description="Focused SQL injection validation on authorized clones"),
+    ToolSpec("xsstrike", "dast", "xsstrike", active=True, intrusive=True, requires_clone=True, description="Focused XSS validation on authorized clones"),
+    ToolSpec("commix", "dast", "commix", active=True, intrusive=True, requires_clone=True, description="Focused command-injection validation on authorized clones"),
+    ToolSpec("lynis", "infrastructure", "lynis", active=True, description="Linux hardening audit for managed infrastructure"),
+    ToolSpec("openscap", "infrastructure", "oscap", active=True, description="SCAP compliance validation"),
 )
 
 CATALOG_BY_ID = {item.id: item for item in TOOL_CATALOG}
