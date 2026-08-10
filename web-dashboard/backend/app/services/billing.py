@@ -15,7 +15,7 @@ import math
 import secrets
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
-from typing import Any, Mapping
+from typing import Any, Mapping, overload
 from urllib.parse import urlencode
 
 import httpx
@@ -88,6 +88,14 @@ SENSITIVE_EVENT_KEYS = {
 
 def now() -> datetime:
     return datetime.now(UTC)
+
+
+@overload
+def _as_utc(value: datetime) -> datetime: ...
+
+
+@overload
+def _as_utc(value: None) -> None: ...
 
 
 def _as_utc(value: datetime | None) -> datetime | None:
@@ -297,7 +305,7 @@ async def sync_catalog(session: AsyncSession) -> dict[str, Any]:
                 | {"projects.core", "account.profile", "support.requests"}
             )
         metering = dict(raw.get("metering") or {})
-        public_plan = {
+        public_plan: dict[str, Any] = {
             "code": code,
             "name": raw.get("name") or {"en": code.title()},
             "description": raw.get("description") or {},

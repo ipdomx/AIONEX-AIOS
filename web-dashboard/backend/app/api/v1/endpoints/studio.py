@@ -620,15 +620,16 @@ async def statistics(
     actor: UserRecord = Depends(current_user),
     session: AsyncSession = Depends(get_db),
 ):
-    job_counts = dict(
-        (
-            await session.execute(
-                select(StudioJob.status, func.count(StudioJob.id))
-                .where(StudioJob.organization_id == actor.organization_id)
-                .group_by(StudioJob.status)
-            )
-        ).all()
-    )
+    job_count_rows = (
+        await session.execute(
+            select(StudioJob.status, func.count(StudioJob.id))
+            .where(StudioJob.organization_id == actor.organization_id)
+            .group_by(StudioJob.status)
+        )
+    ).all()
+    job_counts: dict[str, int] = {
+        str(status): int(count) for status, count in job_count_rows
+    }
     asset_count = int(
         await session.scalar(
             select(func.count(StudioAsset.id)).where(

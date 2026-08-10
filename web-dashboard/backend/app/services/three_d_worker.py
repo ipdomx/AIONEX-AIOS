@@ -16,6 +16,7 @@ from uuid import uuid4
 
 from fastapi import HTTPException
 from sqlalchemy import and_, or_, select
+from sqlalchemy.sql.elements import ColumnElement
 
 from aios.gpu_worker.runpod import RunPodError, RunPodServerlessClient
 from app.core.config import settings
@@ -215,7 +216,7 @@ class ThreeDGenerationWorker:
                 blocked_provider_values.add(provider)
                 if provider == "hunyuan3d":
                     blocked_provider_values.add("runpod")
-            provider_gate = True
+            provider_gate: ColumnElement[bool] = ThreeDGenerationJob.id.is_not(None)
             if blocked_provider_values:
                 provider_gate = or_(
                     ThreeDGenerationJob.provider_job_id.is_not(None),

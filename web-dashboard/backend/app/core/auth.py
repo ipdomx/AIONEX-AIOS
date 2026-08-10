@@ -8,14 +8,14 @@ import os
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable
+from typing import Any, Awaitable, Callable
 from urllib.parse import urlsplit
 
 import jwt
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordBearer
 from jwt import InvalidTokenError as JWTError
-from passlib.context import CryptContext
+from passlib.context import CryptContext  # type: ignore[import-untyped]
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,8 +32,15 @@ from app.db.models import (
 )
 from app.db.redis import get_redis
 
-pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+pwd_context = CryptContext(
+    schemes=["argon2", "pbkdf2_sha256"],
+    deprecated=["pbkdf2_sha256"],
+    argon2__type="ID",
+    argon2__memory_cost=65536,
+    argon2__time_cost=3,
+    argon2__parallelism=4,
+)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 logger = get_logger(__name__)
 
 ACTIVE_USER_STATUSES = frozenset({"active", "online"})
@@ -44,6 +51,76 @@ DEFAULT_PUBLIC_PORTAL_ORIGINS = (
     "https://vip-e.net",
     "https://www.vip-e.net",
 )
+
+ACCESS_COOKIE_NAME = "aionex_access"
+REFRESH_COOKIE_NAME = "aionex_refresh"
+_SAFE_COOKIE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+
+
+def _cookie_secure() -> bool:
+    return settings.ENVIRONMENT.strip().lower() in {"production", "prod"} and not settings.DEBUG
+
+
+def attach_browser_session_cookies(response: Response, session_pair: dict[str, Any]) -> None:
+    """Set host-only HttpOnly browser credentials without changing native token responses."""
+    secure = _cookie_secure()
+    response.set_cookie(
+        ACCESS_COOKIE_NAME,
+        str(session_pair["access_token"]),
+        max_age=int(session_pair["expires_in"]),
+        httponly=True,
+        secure=secure,
+        samesite="lax",
+        path="/",
+    )
+    response.set_cookie(
+        REFRESH_COOKIE_NAME,
+        str(session_pair["refresh_token"]),
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        httponly=True,
+        secure=secure,
+        samesite="lax",
+        path="/",
+    )
+
+
+def clear_browser_session_cookies(response: Response) -> None:
+    secure = _cookie_secure()
+    for name in (ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME):
+        response.delete_cookie(
+            name,
+            path="/",
+            secure=secure,
+            httponly=True,
+            samesite="lax",
+        )
+
+
+def _allowed_cookie_origins(user: "UserRecord") -> set[str]:
+    allowed = set(public_portal_origins())
+    if user.role == "Super Owner":
+        control_host = os.getenv("AIOS_CONTROL_HOST", "").strip().lower()
+        if control_host:
+            allowed.add(f"https://{control_host}")
+    return allowed
+
+
+def enforce_cookie_request_origin(request: Request, user: "UserRecord") -> None:
+    """Reject unsafe cookie-authenticated requests without a trusted browser Origin."""
+    if request.method.upper() in _SAFE_COOKIE_METHODS:
+        return
+    origin = _normalized_origin(request.headers.get("origin", ""))
+    if origin is None or origin not in _allowed_cookie_origins(user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Untrusted browser request origin",
+        )
+    fetch_site = request.headers.get("sec-fetch-site", "").strip().lower()
+    if fetch_site and fetch_site not in {"same-origin", "same-site", "none"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cross-site browser request denied",
+        )
 
 
 def _now() -> datetime:
@@ -250,11 +327,23 @@ class AuthService:
         user = await session.scalar(
             select(User).where(User.email == normalized, User.deleted_at.is_(None))
         )
-        if user is None or not pwd_context.verify(password, user.password_hash):
+        if user is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password",
             )
+        verified, replacement_hash = pwd_context.verify_and_update(
+            password, user.password_hash
+        )
+        if not verified:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password",
+            )
+        if replacement_hash:
+            user.password_hash = replacement_hash
+            await session.commit()
+            await session.refresh(user)
         if user.status not in ACTIVE_USER_STATUSES:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -454,10 +543,18 @@ auth_service = AuthService()
 
 async def current_user(
     request: Request,
-    token: str = Depends(oauth2_scheme),
+    token: str | None = Depends(oauth2_scheme),
     session: AsyncSession = Depends(get_db),
 ) -> UserRecord:
-    payload = await auth_service.decode_access_token(token)
+    cookie_token = request.cookies.get(ACCESS_COOKIE_NAME)
+    resolved_token = token or cookie_token
+    if not resolved_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    payload = await auth_service.decode_access_token(resolved_token)
     user = await auth_service.get_user_by_id(session, str(payload["sub"]))
     if int(payload.get("auth_version", 0)) != user.auth_version:
         raise HTTPException(
@@ -465,10 +562,12 @@ async def current_user(
             detail="Session is no longer valid",
         )
     enforce_auth_channel_role(request, user)
+    if token is None and cookie_token is not None:
+        enforce_cookie_request_origin(request, user)
     return user
 
 
-def require_permissions(*required: str) -> Callable[[UserRecord], UserRecord]:
+def require_permissions(*required: str) -> Callable[..., Awaitable[UserRecord]]:
     async def dependency(user: UserRecord = Depends(current_user)) -> UserRecord:
         granted = set(user.permissions)
         if "*" in granted or all(permission in granted for permission in required):

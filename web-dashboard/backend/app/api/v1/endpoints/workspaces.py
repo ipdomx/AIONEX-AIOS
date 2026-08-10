@@ -53,7 +53,7 @@ async def _unique_slug(
 def _serialize(
     workspace: Workspace, project_count: int | None = None
 ) -> dict[str, Any]:
-    item = {
+    item: dict[str, Any] = {
         "id": workspace.id,
         "name": workspace.name,
         "slug": workspace.slug,

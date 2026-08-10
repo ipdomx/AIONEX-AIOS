@@ -9,7 +9,7 @@ import sys
 import traceback
 from typing import Mapping
 
-import asyncpg
+import asyncpg  # type: ignore[import-untyped]
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 

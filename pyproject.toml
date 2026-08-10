@@ -8,7 +8,7 @@ version = "2.2.0b3"
 description = "AIOS Enterprise Engineering Intelligence Platform"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = ["cryptography>=41.0.7,<47"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]

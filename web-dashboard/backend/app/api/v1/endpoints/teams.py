@@ -12,7 +12,7 @@ from app.db.base import get_db
 from app.db.models import AuditEvent, Organization, Team, TeamMembership, User, Workspace
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -223,7 +223,7 @@ async def delete_team(
     team = await _team(session, team_id, actor)
     team.status = "deleted"
     await session.execute(
-        TeamMembership.__table__.delete().where(TeamMembership.team_id == team.id)
+        delete(TeamMembership).where(TeamMembership.team_id == team.id)
     )
     session.add(_audit(actor, team, "team.delete"))
     await session.commit()

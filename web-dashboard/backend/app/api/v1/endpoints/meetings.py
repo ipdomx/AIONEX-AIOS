@@ -436,7 +436,7 @@ async def update_meeting(
     if requested_approval is not None:
         if not _can_approve(actor):
             raise HTTPException(status_code=403, detail="Owner approval required")
-        approval = await session.scalar(
+        approval_to_decide = await session.scalar(
             select(ApprovalRequest)
             .where(
                 ApprovalRequest.organization_id == actor.organization_id,
@@ -446,8 +446,8 @@ async def update_meeting(
             )
             .order_by(ApprovalRequest.created_at.desc())
         )
-        if approval is None:
-            approval, created_notifications = await governance.create_approval_request(
+        if approval_to_decide is None:
+            approval_to_decide, created_notifications = await governance.create_approval_request(
                 session,
                 actor,
                 target_type="meeting",
@@ -456,10 +456,10 @@ async def update_meeting(
                 description=meeting.description,
             )
             notifications.extend(created_notifications)
-        approval, _record, decision_notifications = await governance.decide_approval(
+        approval_to_decide, _record, decision_notifications = await governance.decide_approval(
             session,
             actor,
-            approval,
+            approval_to_decide,
             decision="approved" if requested_approval else "changes_requested",
             reason=approval_reason,
         )

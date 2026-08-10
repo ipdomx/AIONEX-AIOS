@@ -139,6 +139,12 @@ async def _serialize_settings(
         )
     )
     mfa = await mfa_status(session, actor.id)
+    backup_codes_value = mfa.get("backup_codes_remaining", 0)
+    backup_codes_remaining = (
+        int(backup_codes_value)
+        if isinstance(backup_codes_value, (str, int)) and not isinstance(backup_codes_value, bool)
+        else 0
+    )
     return {
         "profile": {
             "id": actor.id,
@@ -154,7 +160,7 @@ async def _serialize_settings(
             "active_sessions": len(sessions),
             "password_min_length": settings.PASSWORD_MIN_LENGTH,
             "mfa_enabled": bool(mfa["enabled"]),
-            "mfa_backup_codes_remaining": int(mfa["backup_codes_remaining"]),
+            "mfa_backup_codes_remaining": backup_codes_remaining,
             "passkey_count": int(passkey_count or 0),
         },
         "free_tier": (

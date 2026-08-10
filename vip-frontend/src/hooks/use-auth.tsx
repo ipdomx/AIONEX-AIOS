@@ -14,7 +14,6 @@ import {
   completeMfaLogin,
   createFirebaseSocialSession,
   getCurrentUser,
-  hasStoredSession,
   login as apiLogin,
   logout as apiLogout,
   registerFree as apiRegisterFree,
@@ -57,10 +56,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const refreshUser = useCallback(async () => {
-    if (!hasStoredSession()) {
-      setUser(null);
-      return null;
-    }
     try {
       const current = await getCurrentUser();
       setUser(current);

@@ -849,19 +849,24 @@ async def _organization_counts(
             .group_by(User.organization_id)
         )
     ).all()
-    return dict(user_rows), dict(active_user_rows), dict(project_rows)
+    return (
+        {str(key): int(value) for key, value in user_rows},
+        {str(key): int(value) for key, value in active_user_rows},
+        {str(key): int(value) for key, value in project_rows},
+    )
 
 
 async def _access_items(session: AsyncSession) -> list[dict[str, Any]]:
-    user_counts = dict(
-        (
-            await session.execute(
-                select(User.role_id, func.count(User.id))
-                .where(User.deleted_at.is_(None))
-                .group_by(User.role_id)
-            )
-        ).all()
-    )
+    user_count_rows = (
+        await session.execute(
+            select(User.role_id, func.count(User.id))
+            .where(User.deleted_at.is_(None))
+            .group_by(User.role_id)
+        )
+    ).all()
+    user_counts: dict[str | None, int] = {
+        role_id: int(count) for role_id, count in user_count_rows
+    }
     rows = (
         await session.execute(
             select(Role, Organization.name)
@@ -944,18 +949,19 @@ async def _billing_items(
 
 
 async def _project_items(session: AsyncSession) -> list[dict[str, Any]]:
-    approval_counts = dict(
-        (
-            await session.execute(
-                select(Meeting.project_id, func.count(Meeting.id))
-                .where(
-                    Meeting.project_id.is_not(None),
-                    Meeting.status.in_(["pending", "pending_approval"]),
-                )
-                .group_by(Meeting.project_id)
+    approval_count_rows = (
+        await session.execute(
+            select(Meeting.project_id, func.count(Meeting.id))
+            .where(
+                Meeting.project_id.is_not(None),
+                Meeting.status.in_(["pending", "pending_approval"]),
             )
-        ).all()
-    )
+            .group_by(Meeting.project_id)
+        )
+    ).all()
+    approval_counts: dict[str | None, int] = {
+        project_id: int(count) for project_id, count in approval_count_rows
+    }
     rows = (
         await session.execute(
             select(Project, Organization.name, User.name)
@@ -1363,8 +1369,8 @@ async def _staff_items(session: AsyncSession) -> list[dict[str, Any]]:
         ).all()
     )
     latest_assessment: dict[str, AcademyAssessment] = {}
-    for assessment in assessments:
-        latest_assessment.setdefault(assessment.worker_id, assessment)
+    for assessment_row in assessments:
+        latest_assessment.setdefault(assessment_row.worker_id, assessment_row)
 
     staff: list[dict[str, Any]] = []
     for item in members:
@@ -2766,26 +2772,28 @@ async def _apply_live_action(
 
     if domain == "notifications":
         if action == "mark-all-read":
-            notifications = (
-                await session.scalars(
-                    select(Notification).where(
-                        Notification.recipient_id == actor.id,
-                        Notification.read_at.is_(None),
+            unread_notifications = list(
+                (
+                    await session.scalars(
+                        select(Notification).where(
+                            Notification.recipient_id == actor.id,
+                            Notification.read_at.is_(None),
+                        )
                     )
-                )
-            ).all()
-            for notification in notifications:
+                ).all()
+            )
+            for notification in unread_notifications:
                 notification.read_at = _now()
-            return {"updated": len(notifications)}
-        notification = await session.get(Notification, resource_id)
-        if notification is None or notification.recipient_id != actor.id:
+            return {"updated": len(unread_notifications)}
+        notification_record = await session.get(Notification, resource_id)
+        if notification_record is None or notification_record.recipient_id != actor.id:
             raise HTTPException(status_code=404, detail="Notification not found")
         if action != "mark-read":
             raise HTTPException(
                 status_code=422, detail="Unsupported notification action"
             )
-        notification.read_at = _now()
-        return {"id": notification.id, "read": True}
+        notification_record.read_at = _now()
+        return {"id": notification_record.id, "read": True}
 
     if domain == "communications":
         record = await _control_record(session, "communications", resource_id)
@@ -3614,20 +3622,20 @@ async def _execute_owner_operation(
                     status_code=409,
                     detail="Organization slug already exists",
                 )
-            organization = Organization(
+            created_organization = Organization(
                 name=name,
                 slug=slug,
                 plan=str(data.payload.get("plan", "enterprise")).lower(),
                 status="active",
             )
-            session.add(organization)
+            session.add(created_organization)
             await session.flush()
-            resource_id = organization.id
+            resource_id = created_organization.id
         else:
-            organization = await session.get(Organization, data.id)
-            if organization is None:
+            existing_organization = await session.get(Organization, data.id)
+            if existing_organization is None:
                 raise HTTPException(status_code=404, detail="Organization not found")
-            if organization.id == actor.organization_id and data.operation in {
+            if existing_organization.id == actor.organization_id and data.operation in {
                 "suspend",
                 "delete",
             }:
@@ -3637,22 +3645,22 @@ async def _execute_owner_operation(
                 )
             if data.operation == "update":
                 if "name" in data.payload:
-                    organization.name = str(data.payload["name"]).strip()
+                    existing_organization.name = str(data.payload["name"]).strip()
                 if "plan" in data.payload:
-                    organization.plan = str(data.payload["plan"]).lower()
+                    existing_organization.plan = str(data.payload["plan"]).lower()
             elif data.operation == "suspend":
-                organization.status = "suspended"
+                existing_organization.status = "suspended"
                 await _revoke_user_sessions(
                     session,
-                    organization_id=organization.id,
+                    organization_id=existing_organization.id,
                 )
             elif data.operation == "restore":
-                organization.status = "active"
+                existing_organization.status = "active"
             elif data.operation == "delete":
-                organization.status = "inactive"
+                existing_organization.status = "inactive"
                 await _revoke_user_sessions(
                     session,
-                    organization_id=organization.id,
+                    organization_id=existing_organization.id,
                 )
 
     elif data.entity == "project":
@@ -3663,8 +3671,8 @@ async def _execute_owner_operation(
             organization_id = str(
                 data.payload.get("organization_id") or actor.organization_id
             )
-            organization = await session.get(Organization, organization_id)
-            if organization is None or organization.status != "active":
+            project_organization = await session.get(Organization, organization_id)
+            if project_organization is None or project_organization.status != "active":
                 raise HTTPException(
                     status_code=404,
                     detail="Active project organization not found",
@@ -3713,7 +3721,7 @@ async def _execute_owner_operation(
                 )
             ):
                 project_slug = f"{project_slug}-{uuid_str()[:8]}"
-            project = Project(
+            created_project = Project(
                 organization_id=organization_id,
                 workspace_id=workspace.id,
                 owner_id=project_owner_id,
@@ -3723,24 +3731,24 @@ async def _execute_owner_operation(
                 status="planning",
                 priority=str(data.payload.get("priority", "medium")),
             )
-            session.add(project)
+            session.add(created_project)
             await session.flush()
-            resource_id = project.id
+            resource_id = created_project.id
         else:
-            project = await session.get(Project, data.id)
-            if project is None:
+            existing_project = await session.get(Project, data.id)
+            if existing_project is None:
                 raise HTTPException(status_code=404, detail="Project not found")
             if data.operation == "update":
                 for field in ("name", "description", "priority", "progress"):
                     if field in data.payload:
-                        setattr(project, field, data.payload[field])
+                        setattr(existing_project, field, data.payload[field])
                 if "name" in data.payload:
                     project_slug = _slug(str(data.payload["name"]))
                     duplicate = await session.scalar(
                         select(Project.id).where(
-                            Project.organization_id == project.organization_id,
+                            Project.organization_id == existing_project.organization_id,
                             Project.slug == project_slug,
-                            Project.id != project.id,
+                            Project.id != existing_project.id,
                         )
                     )
                     if duplicate:
@@ -3748,13 +3756,13 @@ async def _execute_owner_operation(
                             status_code=409,
                             detail="Project slug already exists",
                         )
-                    project.slug = project_slug
+                    existing_project.slug = project_slug
             elif data.operation == "suspend":
-                project.status = "paused"
+                existing_project.status = "paused"
             elif data.operation == "restore":
-                project.status = "active"
+                existing_project.status = "active"
             elif data.operation == "delete":
-                project.status = "deleted"
+                existing_project.status = "deleted"
 
     else:
         if data.operation == "create":
@@ -3770,10 +3778,10 @@ async def _execute_owner_operation(
             email = str(data.payload["email"]).strip().lower()
             if await session.scalar(select(User.id).where(User.email == email)):
                 raise HTTPException(status_code=409, detail="Email already exists")
-            organization = await session.get(
+            user_organization = await session.get(
                 Organization, str(data.payload["organization_id"])
             )
-            if organization is None or organization.status != "active":
+            if user_organization is None or user_organization.status != "active":
                 raise HTTPException(
                     status_code=404,
                     detail="Active user organization not found",
@@ -3781,7 +3789,7 @@ async def _execute_owner_operation(
             role = await _assignable_role(
                 session,
                 role_id=str(data.payload["role_id"]),
-                organization_id=organization.id,
+                organization_id=user_organization.id,
             )
             if len(str(data.payload["password"])) < settings.PASSWORD_MIN_LENGTH:
                 raise HTTPException(
@@ -3793,28 +3801,28 @@ async def _execute_owner_operation(
                 )
             if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
                 raise HTTPException(status_code=422, detail="User email is invalid")
-            user = User(
-                organization_id=organization.id,
+            created_user = User(
+                organization_id=user_organization.id,
                 role_id=role.id,
                 email=email,
                 name=str(data.payload["name"]).strip(),
                 password_hash=pwd_context.hash(str(data.payload["password"])),
                 status="active",
             )
-            session.add(user)
+            session.add(created_user)
             await session.flush()
-            resource_id = user.id
+            resource_id = created_user.id
         else:
-            user = await session.get(User, data.id)
-            if user is None or user.deleted_at is not None:
+            existing_user = await session.get(User, data.id)
+            if existing_user is None or existing_user.deleted_at is not None:
                 raise HTTPException(status_code=404, detail="User not found")
             current_role = (
-                await session.get(Role, user.role_id)
-                if user.role_id is not None
+                await session.get(Role, existing_user.role_id)
+                if existing_user.role_id is not None
                 else None
             )
             if (
-                user.id == actor.id
+                existing_user.id == actor.id
                 or (current_role is not None and current_role.name == "Super Owner")
             ) and data.operation in {"suspend", "delete"}:
                 raise HTTPException(
@@ -3823,24 +3831,24 @@ async def _execute_owner_operation(
                 )
             if data.operation == "update":
                 if "name" in data.payload:
-                    user.name = str(data.payload["name"]).strip()
+                    existing_user.name = str(data.payload["name"]).strip()
                 if "role_id" in data.payload:
                     role = await _assignable_role(
                         session,
                         role_id=str(data.payload["role_id"]),
-                        organization_id=user.organization_id,
-                        current_role_id=user.role_id,
+                        organization_id=existing_user.organization_id,
+                        current_role_id=existing_user.role_id,
                     )
-                    user.role_id = role.id
+                    existing_user.role_id = role.id
             elif data.operation == "suspend":
-                user.status = "suspended"
-                await _revoke_user_sessions(session, user_id=user.id)
+                existing_user.status = "suspended"
+                await _revoke_user_sessions(session, user_id=existing_user.id)
             elif data.operation == "restore":
-                user.status = "active"
+                existing_user.status = "active"
             elif data.operation == "delete":
-                user.status = "inactive"
-                user.deleted_at = _now()
-                await _revoke_user_sessions(session, user_id=user.id)
+                existing_user.status = "inactive"
+                existing_user.deleted_at = _now()
+                await _revoke_user_sessions(session, user_id=existing_user.id)
 
     command.resource_id = resource_id
     result = {"entity": data.entity, "resource_id": resource_id}

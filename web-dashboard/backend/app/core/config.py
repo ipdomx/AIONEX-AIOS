@@ -70,10 +70,20 @@ class Settings(BaseSettings):
         validation_alias="BACKUP_JOB_LEASE_SECONDS",
     )
     BACKUP_WORKER_POLL_SECONDS: int = Field(
-        default=2,
+        default=5,
         ge=1,
         le=60,
         validation_alias="BACKUP_WORKER_POLL_SECONDS",
+    )
+    BACKUP_SCHEDULE_ENABLED: bool = Field(
+        default=False,
+        validation_alias="BACKUP_SCHEDULE_ENABLED",
+    )
+    BACKUP_SCHEDULE_INTERVAL_HOURS: int = Field(
+        default=24,
+        ge=1,
+        le=720,
+        validation_alias="BACKUP_SCHEDULE_INTERVAL_HOURS",
     )
     BACKUP_WORKER_HEARTBEAT_SECONDS: int = Field(
         default=10,

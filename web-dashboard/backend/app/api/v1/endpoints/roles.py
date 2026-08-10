@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -242,7 +242,7 @@ async def update_role(
                 detail="The Super Owner role must retain full platform control",
             )
         await session.execute(
-            RolePermission.__table__.delete().where(RolePermission.role_id == role.id)
+            delete(RolePermission).where(RolePermission.role_id == role.id)
         )
         session.add_all(
             [

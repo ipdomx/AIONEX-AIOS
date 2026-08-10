@@ -20,7 +20,7 @@ from typing import Any
 from app.core.config import settings
 from app.db.models import AuditEvent, MetricSample, OwnerControlRecord, RefreshSession, User
 from app.db.redis import get_redis
-from sqlalchemy import select, text
+from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 HEALTHY = {"healthy", "ready", "ok", "operational"}
@@ -296,7 +296,7 @@ async def record_observation_cycle(session: AsyncSession) -> list[MetricSample]:
     )
     cutoff = now() - timedelta(days=30)
     await session.execute(
-        MetricSample.__table__.delete().where(MetricSample.timestamp < cutoff)
+        delete(MetricSample).where(MetricSample.timestamp < cutoff).execution_options(synchronize_session=False)
     )
     return samples
 

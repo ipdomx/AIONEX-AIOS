@@ -493,3 +493,18 @@ def test_phase29g_has_no_simulated_infrastructure_endpoints() -> None:
         assert "2024-01-01t00:00:00z" not in source
         assert "implement as needed" not in source
         assert "this page is under development" not in source
+
+
+def test_production_backup_schedule_and_resource_limits_are_explicit() -> None:
+    root = Path(__file__).resolve().parents[3]
+    config = (root / "web-dashboard/backend/app/core/config.py").read_text()
+    worker = (root / "web-dashboard/backend/app/services/backup_worker.py").read_text()
+    compose = (root / "web-dashboard/docker-compose.production.yml").read_text()
+    example = (root / "web-dashboard/.env.production.example").read_text()
+    assert "BACKUP_SCHEDULE_ENABLED" in config
+    assert "BACKUP_SCHEDULE_INTERVAL_HOURS" in config
+    assert "_enqueue_scheduled_backup_if_due" in worker
+    assert "BACKUP_SCHEDULE_ENABLED=true" in example
+    assert "BACKUP_SCHEDULE_INTERVAL_HOURS=24" in example
+    assert "mem_limit:" in compose and "pids_limit:" in compose and "cpus:" in compose
+    assert '"--maxmemory", "512mb", "--maxmemory-policy", "noeviction"' in compose

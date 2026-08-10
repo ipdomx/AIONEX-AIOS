@@ -7,10 +7,15 @@ from datetime import UTC, date, datetime
 from typing import Any
 
 from app.core.auth import (
+    ACCESS_COOKIE_NAME,
+    REFRESH_COOKIE_NAME,
     UserRecord,
+    attach_browser_session_cookies,
     auth_service,
+    clear_browser_session_cookies,
     current_user,
     enforce_auth_channel_role,
+    enforce_cookie_request_origin,
     oauth2_scheme,
 )
 from app.db.base import get_db
@@ -38,7 +43,7 @@ from app.services.free_tier import (
     public_free_tier_policy,
     register_free_account,
 )
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select
@@ -126,7 +131,7 @@ class FreeRegisterRequest(BaseModel):
 
 
 class RefreshRequest(BaseModel):
-    refresh_token: str
+    refresh_token: str | None = None
 
 
 class LogoutRequest(BaseModel):
@@ -185,6 +190,7 @@ async def _attach_session_context(
 @router.post("/login", response_model=LoginResponse | MFAChallengeResponse)
 async def login(
     request: Request,
+    http_response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     session: AsyncSession = Depends(get_db),
 ):
@@ -202,6 +208,7 @@ async def login(
         user,
         action="auth.login",
     )
+    attach_browser_session_cookies(http_response, response)
     return response
 
 
@@ -237,6 +244,7 @@ async def get_public_firebase_phone_readiness(
 async def register_free(
     data: FreeRegisterRequest,
     request: Request,
+    http_response: Response,
     session: AsyncSession = Depends(get_db),
 ):
     user = await register_free_account(
@@ -313,6 +321,7 @@ async def register_free(
         user_record,
         action="auth.free_login",
     )
+    attach_browser_session_cookies(http_response, response)
     return response
 
 
@@ -328,33 +337,60 @@ async def get_current_free_tier(
 
 @router.post("/logout")
 async def logout(
+    request: Request,
+    http_response: Response,
     data: LogoutRequest | None = None,
-    token: str = Depends(oauth2_scheme),
+    token: str | None = Depends(oauth2_scheme),
     session: AsyncSession = Depends(get_db),
 ):
-    payload = auth_service._decode_access_token_payload(token)
-    if data is not None and data.refresh_token:
+    cookie_access = request.cookies.get(ACCESS_COOKIE_NAME)
+    cookie_refresh = request.cookies.get(REFRESH_COOKIE_NAME)
+    access_token = token or cookie_access
+    refresh_token = (data.refresh_token if data and data.refresh_token else cookie_refresh)
+    user: UserRecord | None = None
+    user_id: str | None = None
+    if access_token:
+        payload = auth_service._decode_access_token_payload(access_token)
+        user_id = str(payload["sub"])
+        user = await auth_service.get_user_by_id(session, user_id)
+    elif refresh_token:
+        user = await auth_service.get_refresh_user(session, refresh_token)
+        user_id = user.id
+    if token is None and (cookie_access or cookie_refresh) and user is not None:
+        enforce_auth_channel_role(request, user)
+        enforce_cookie_request_origin(request, user)
+    if refresh_token and user_id:
         await auth_service.revoke_refresh_token(
             session,
-            data.refresh_token,
-            user_id=str(payload["sub"]),
+            refresh_token,
+            user_id=user_id,
         )
-    await auth_service.revoke_access_token(token)
+    if access_token:
+        await auth_service.revoke_access_token(access_token)
+    clear_browser_session_cookies(http_response)
     return {"message": "Logged out successfully"}
 
 
 @router.post("/refresh", response_model=LoginResponse)
 async def refresh_token(
-    data: RefreshRequest,
     request: Request,
+    http_response: Response,
+    data: RefreshRequest | None = None,
     session: AsyncSession = Depends(get_db),
 ):
-    user = await auth_service.get_refresh_user(session, data.refresh_token)
+    cookie_refresh = request.cookies.get(REFRESH_COOKIE_NAME)
+    refresh_value = data.refresh_token if data and data.refresh_token else cookie_refresh
+    if not refresh_value:
+        raise HTTPException(status_code=401, detail="Refresh session is required")
+    user = await auth_service.get_refresh_user(session, refresh_value)
     enforce_auth_channel_role(request, user)
-    response = await auth_service.refresh(session, data.refresh_token)
+    if (data is None or not data.refresh_token) and cookie_refresh:
+        enforce_cookie_request_origin(request, user)
+    response = await auth_service.refresh(session, refresh_value)
     await _attach_session_context(
         session, request, response, user, action="auth.refresh"
     )
+    attach_browser_session_cookies(http_response, response)
     return response
 
 
@@ -418,6 +454,7 @@ async def disable_mfa_endpoint(
 async def verify_mfa_challenge(
     data: MFAChallengeVerify,
     request: Request,
+    http_response: Response,
     session: AsyncSession = Depends(get_db),
 ):
     user = await consume_mfa_challenge(
@@ -428,6 +465,7 @@ async def verify_mfa_challenge(
     await _attach_session_context(
         session, request, response, user, action="auth.mfa_login"
     )
+    attach_browser_session_cookies(http_response, response)
     return response
 
 

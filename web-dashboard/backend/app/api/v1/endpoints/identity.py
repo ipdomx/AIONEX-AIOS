@@ -8,6 +8,7 @@ from typing import Any
 
 from app.core.auth import (
     UserRecord,
+    attach_browser_session_cookies,
     auth_service,
     current_user,
     enforce_auth_channel_role,
@@ -140,6 +141,7 @@ async def get_social_configuration():
 async def create_social_session(
     data: FirebaseSocialSessionRequest,
     request: Request,
+    http_response: Response,
     session: AsyncSession = Depends(get_db),
 ):
     identity = await verify_firebase_social_id_token(data.id_token)
@@ -229,6 +231,7 @@ async def create_social_session(
         action="auth.social_login",
         details={"provider": provider},
     )
+    attach_browser_session_cookies(http_response, response)
     return response
 
 
@@ -307,6 +310,7 @@ async def create_passkey_authentication_options():
 async def complete_passkey_authentication(
     data: PasskeyAuthenticationVerifyRequest,
     request: Request,
+    http_response: Response,
     session: AsyncSession = Depends(get_db),
 ):
     row = await verify_authentication(
@@ -325,6 +329,7 @@ async def complete_passkey_authentication(
         action="auth.passkey_login",
         details={"passkey_id": row.id},
     )
+    attach_browser_session_cookies(http_response, response)
     return response
 
 
