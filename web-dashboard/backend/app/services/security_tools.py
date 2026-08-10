@@ -278,3 +278,85 @@ async def run_source_tool(tool_id: str, source: Path, *, timeout: int = 300) -> 
         "stdout_sha256": hashlib.sha256(stdout).hexdigest(),
         "stderr": stderr_text,
     }
+
+
+def _network_command(tool_id: str, origin: str, hostname: str) -> list[str]:
+    """Return fixed, bounded reconnaissance/validation commands for authorized targets."""
+    if tool_id == "nuclei":
+        return ["nuclei", "-u", origin, "-jsonl", "-silent", "-no-color", "-disable-update-check", "-rl", "5", "-c", "2", "-timeout", "5", "-retries", "1"]
+    if tool_id == "katana":
+        return ["katana", "-u", origin, "-jsonl", "-silent", "-d", "2", "-jc", "-fs", "fqdn"]
+    if tool_id == "projectdiscovery-httpx":
+        return ["httpx", "-u", origin, "-json", "-silent", "-no-color", "-follow-redirects", "-maxr", "3"]
+    if tool_id == "nmap":
+        return ["nmap", "-Pn", "-sT", "--top-ports", "100", "--version-light", "-oX", "-", hostname]
+    if tool_id == "nikto":
+        return ["nikto", "-h", origin, "-nointeractive", "-Format", "json", "-output", "-"]
+    if tool_id == "testssl":
+        return ["testssl.sh", "--quiet", "--warnings", "off", "--color", "0", origin]
+    if tool_id == "zap-baseline":
+        return ["zap-baseline.py", "-t", origin, "-I", "-m", "2"]
+    raise ValueError(f"No bounded network adapter for {tool_id}")
+
+
+async def run_network_tool(
+    tool_id: str,
+    *,
+    origin: str,
+    hostname: str,
+    execution_mode: str,
+    timeout: int = 180,
+) -> dict[str, Any]:
+    spec = CATALOG_BY_ID.get(tool_id)
+    if spec is None or not spec.active or spec.requires_source:
+        raise ValueError("Unsupported network tool")
+    if spec.intrusive or spec.requires_clone:
+        if execution_mode != "intrusive_clone":
+            return {"tool": tool_id, "status": "blocked_requires_clone", "findings": []}
+        # Intrusive engines require a focused, finding-specific scenario instead of
+        # blind global execution. The deep-validation planner supplies those cases.
+        return {"tool": tool_id, "status": "scenario_required", "findings": []}
+    if shutil.which(spec.adapter) is None:
+        return {"tool": tool_id, "status": "unavailable", "findings": []}
+    command = _network_command(tool_id, origin, hostname)
+    process = await asyncio.create_subprocess_exec(
+        *command,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        env={**os.environ, "NO_COLOR": "1"},
+    )
+    try:
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
+    except TimeoutError:
+        process.kill(); await process.communicate()
+        return {"tool": tool_id, "status": "timeout", "findings": []}
+    stdout_text = redact_tool_output(stdout.decode("utf-8", errors="replace"))[:5_000_000]
+    stderr_text = redact_tool_output(stderr.decode("utf-8", errors="replace"))[:100_000]
+    findings: list[dict[str, Any]] = []
+    if tool_id == "nuclei":
+        for line in stdout_text.splitlines():
+            try: row = json.loads(line)
+            except json.JSONDecodeError: continue
+            if not isinstance(row, dict): continue
+            info = row.get("info") if isinstance(row.get("info"), dict) else {}
+            severity = str(info.get("severity") or "info").lower()
+            template_id = str(row.get("template-id") or row.get("templateID") or "nuclei")
+            matched = str(row.get("matched-at") or row.get("host") or origin)
+            title = str(info.get("name") or template_id)[:300]
+            findings.append({
+                "source": "nuclei", "category": "template-validation", "title": title,
+                "severity": severity if severity in {"critical","high","medium","low","info"} else "info",
+                "confidence": 0.82, "state": "observed",
+                "fingerprint": hashlib.sha256(f"nuclei|{template_id}|{matched}".encode()).hexdigest(),
+                "cwe": None, "owasp": None, "location": matched,
+                "evidence": {"template_id": template_id, "matcher": row.get("matcher-name")},
+                "remediation": "Review the matched condition, confirm it against source/runtime evidence, then apply the relevant hardening or patch.",
+            })
+    return {
+        "tool": tool_id,
+        "status": "completed" if process.returncode in {0, 1, 2} else "failed",
+        "exit_code": process.returncode,
+        "stdout_sha256": hashlib.sha256(stdout).hexdigest(),
+        "stderr": stderr_text,
+        "findings": findings,
+    }

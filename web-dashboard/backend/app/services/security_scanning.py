@@ -16,6 +16,7 @@ from app.db.models import AuditEvent, SecurityFinding, SecurityScan, SecurityTar
 from app.services import security_fabric, security_tools
 from app.services.security_api_analyzer import analyze_openapi
 from app.services.security_web_scanner import scan_web_origin
+from app.services.security_deep_validation import build_scenario_plan
 
 ACTIVE_SCAN_STATES = {"queued", "running"}
 
@@ -202,6 +203,25 @@ async def execute_scan(session: AsyncSession, scan: SecurityScan) -> SecuritySca
         built_in = security_tools.scan_source_tree(source)
         results.append({key: value for key, value in built_in.items() if key != "findings"})
         all_findings.extend(built_in.get("findings", []))
+    # Optional engines run only through fixed adapters and only after target
+    # authorization. Missing tools are reported as unavailable, never as passes.
+    if security_fabric.PROFILE_RANK.get(scan.profile, 0) >= 1:
+        for tool_id in ("testssl", "katana", "projectdiscovery-httpx", "zap-baseline", "nuclei"):
+            result = await security_tools.run_network_tool(tool_id, origin=target.origin, hostname=target.hostname, execution_mode=scan.execution_mode)
+            results.append({key: value for key, value in result.items() if key != "findings"})
+            all_findings.extend(result.get("findings", []))
+    if security_fabric.PROFILE_RANK.get(scan.profile, 0) >= 2:
+        for tool_id in ("nmap", "nikto", "schemathesis", "restler", "zap-active", "sqlmap", "xsstrike", "commix"):
+            try:
+                result = await security_tools.run_network_tool(tool_id, origin=target.origin, hostname=target.hostname, execution_mode=scan.execution_mode)
+            except ValueError:
+                result = {"tool": tool_id, "status": "scenario_required", "findings": []}
+            results.append({key: value for key, value in result.items() if key != "findings"})
+            all_findings.extend(result.get("findings", []))
+    deep_plan = build_scenario_plan(
+        environment=str((target.target_metadata or {}).get("environment") or "production"),
+        available_roles=list((target.target_metadata or {}).get("security_fixture_roles") or []),
+    ) if scan.profile in {"advanced", "elite"} else None
     seen: set[str] = set()
     for raw in all_findings:
         fingerprint = str(raw.get("fingerprint") or hashlib.sha256(repr(sorted(raw.items())).encode()).hexdigest())
@@ -223,6 +243,7 @@ async def execute_scan(session: AsyncSession, scan: SecurityScan) -> SecuritySca
         "finding_count": len(seen),
         "severity": {key: counts.get(key, 0) for key in ("critical", "high", "medium", "low", "info")},
         "engines": results,
+        "deep_validation": deep_plan,
         "optional_tools": [
             {"id": item["id"], "available": item["available"]}
             for item in scan.tool_plan
