@@ -23,7 +23,7 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.db.base import SessionLocal
 from app.db.models import AIAgent, AIProvider, AuditEvent, Job, User, uuid_str
-from app.services import communications
+from app.services import adaptive_intelligence, communications
 
 logger = get_logger(__name__)
 
@@ -680,6 +680,29 @@ async def run_job(job_id: str) -> None:
                 provider.status = "error"
             action = "ai.job.failed"
         session.add(AuditEvent(organization_id=job.organization_id, user_id=requested_by_id or None, action=action, resource_type="ai_job", resource_id=job.id, details={"agent_id": job.agent_id, "provider_id": provider.id if provider else None, "error": bool(failure)}))
+        response_id = str(result.get("response_id") or "").strip() if failure is None else ""
+        evidence = [f"ai-job:{job.id}"]
+        if response_id:
+            evidence.append(f"provider-response:{response_id}")
+        await adaptive_intelligence.record_system_experience(
+            session,
+            organization_id=job.organization_id,
+            user_id=requested_by_id or None,
+            action="ai.job.learning",
+            context={
+                "agent_id": job.agent_id,
+                "provider_id": provider.id if provider else None,
+                "provider_type": provider.type if provider else None,
+                "model": agent.model if agent else None,
+                "job_status": job.status,
+            },
+            outcome="success" if failure is None else "failure",
+            evidence=evidence,
+            lesson=(
+                "AI execution outcome recorded without storing prompt or model output in "
+                "the adaptive learning event; verification is required before promotion."
+            ),
+        )
         recipient = await session.get(User, requested_by_id) if requested_by_id else None
         notification = None
         if recipient is not None:

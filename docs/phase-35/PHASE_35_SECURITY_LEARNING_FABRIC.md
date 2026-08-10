@@ -21,7 +21,7 @@ Phase 35 adds a durable application-security control plane to AIONEX AIOS. The p
 
 ## Target authorization boundary
 
-- A managed AIONEX deployment is registered by the Super Owner or trusted deployment automation and is bound to a durable project ID.
+- A managed AIONEX deployment is bound to a durable project ID. An entitled user may register only a project they can access and only under Super Owner-approved deployment-domain suffixes; the backend verifies public DNS before admission. The Super Owner retains global policy, entitlement, clone, evidence and release authority.
 - External targets require proof via an HTTP file challenge before scanning.
 - DNS is re-resolved at admission/execution time; a changed address set invalidates the previous authorization and requires re-verification.
 - Loopback, private, link-local and other non-global targets are rejected to prevent SSRF/internal-network scanning.
@@ -32,7 +32,9 @@ Phase 35 adds a durable application-security control plane to AIONEX AIOS. The p
 
 `Observation -> Candidate Knowledge -> Verification -> Corpus/Sandbox -> Trust Score -> Owner Promotion`
 
-Security scan completion is recorded as experience, not truth. Confirmed findings, false positives, successful remediations and failed rules all contribute evidence while preserving provenance and tenant isolation. Promoted Security Genome rules are stored in the existing verified Knowledge/Learning subsystem.
+Security scan completion is recorded as experience, not truth. The same evidence-gated fabric now receives structured experience from project creation, governed project execution success/failure, explicit user knowledge submission, AI-agent execution outcomes, security scans and remediation retests. Raw provider prompts/output and raw exceptions are deliberately excluded from the adaptive event path. Confirmed findings, false positives, successful remediations and failed rules all contribute evidence while preserving provenance and tenant isolation. Promoted Security Genome rules are stored in the existing verified Knowledge/Learning subsystem.
+
+The public VIP portal exposes the Security Lab only after backend entitlement checks. It lets an entitled account bind its own managed AIONEX project to an Owner-approved public deployment domain, choose only profiles granted by the Owner, queue/cancel scans, inspect durable findings, and request remediation only when the autonomous entitlement and Owner policy both permit it. Security-clone creation, rule promotion, finding confirmation and release-gate authority remain Super Owner-only.
 
 ## Tool runtime
 
@@ -43,3 +45,7 @@ The runtime capability heartbeat is durable, so the UI reports what the scanner 
 ## Release rules
 
 A clean scanner output alone cannot approve release. Confirmed policy-blocking findings block. Unverified severe observations require Owner review. Required TLS/header checks, recent backup evidence and recent restore/DR evidence must be present when enabled in Owner policy. Remediation is `Verified Fixed` only after regression evidence passes and the original finding fingerprint is absent from the completed retest.
+
+## Acceptance evidence
+
+The Phase 35 candidate is accepted only when the complete root regression, isolated backend regression/migrations, Ruff, mypy, Owner dashboard Arabic/type/lint/build gates, six-locale VIP static verification, Compose validation, security-tool image validation and the pinned ZAP daemon smoke all pass. A passive ZAP end-to-end check is performed only against an isolated local fixture network; it does not touch production. GitHub protected gates must pass on the pull request and again on merged `main` before the phase is considered closed.

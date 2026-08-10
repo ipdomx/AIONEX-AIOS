@@ -70,3 +70,32 @@ def test_phase35_toolchain_and_learning_promotions_are_pinned_and_evidence_gated
     assert '"auto_merge": False' in remediation
     assert '"production_modified": False' in remediation
     assert "requires_security_retest" in remediation
+
+def test_phase35_public_portal_exposes_only_the_entitlement_gated_user_security_lab():
+    nginx = read("web-dashboard/docker/nginx.conf")
+    assert "security-lab(?:/.*)?" in nginx
+    assert "/owner/security-lab" not in nginx
+    vip_page = read("vip-frontend/src/app/[locale]/security-lab/page.tsx")
+    vip_client = read("vip-frontend/src/components/pages/security-lab-client.tsx")
+    assert "SecurityLabClient" in vip_page
+    assert "getSecurityLabAccess" in vip_client
+    assert "registerSecurityLabManagedTarget" in vip_client
+    assert "requestSecurityLabRemediation" in vip_client
+
+def test_phase35_adaptive_learning_hooks_cover_user_project_execution_and_security_fix_evidence():
+    project_api = read("web-dashboard/backend/app/api/v1/endpoints/projects.py")
+    knowledge_api = read("web-dashboard/backend/app/api/v1/endpoints/knowledge.py")
+    project_worker = read("web-dashboard/backend/app/services/project_execution_worker.py")
+    ai_runtime = read("web-dashboard/backend/app/services/ai_runtime_service.py")
+    remediation = read("web-dashboard/backend/app/services/security_remediation.py")
+
+    assert 'source="project"' in project_api
+    assert 'action="project.created"' in project_api
+    assert 'source="user"' in knowledge_api
+    assert 'action="knowledge.item.submitted"' in knowledge_api
+    assert 'action="project.execution.learning"' in project_worker
+    assert 'action="project.execution.failure_learning"' in project_worker
+    assert 'action="ai.job.learning"' in ai_runtime
+    assert 'action="security.remediation.learning"' in remediation
+    assert "exception content is not promoted" in project_worker
+    assert "without storing prompt or model output" in ai_runtime

@@ -25,7 +25,7 @@ from app.db.models import (
     SecurityTarget,
     uuid_str,
 )
-from app.services import security_fabric, security_scanning
+from app.services import adaptive_intelligence, security_fabric, security_scanning
 
 TERMINAL = {"verified_fixed", "rejected", "failed", "cancelled"}
 
@@ -332,6 +332,21 @@ async def finalize_retest(
                 },
             )
         )
+        await adaptive_intelligence.record_system_experience(
+            session,
+            organization_id=actor.organization_id,
+            user_id=actor.id,
+            action="security.remediation.learning",
+            context={
+                "remediation_id": remediation.id,
+                "finding_fingerprint": finding.fingerprint,
+                "result": "retest_failed",
+            },
+            outcome="failure",
+            evidence=[f"security-retest:{retest.id}", f"finding:{finding.fingerprint}"],
+            project_id=remediation.project_id,
+            lesson="Security fix failed retest; keep the repair pattern quarantined and do not promote it.",
+        )
         return remediation
     remediation.status = "verified_fixed"
     remediation.verified_fixed_at = now()
@@ -352,5 +367,28 @@ async def finalize_retest(
                 "production_modified": False,
             },
         )
+    )
+    await adaptive_intelligence.record_system_experience(
+        session,
+        organization_id=actor.organization_id,
+        user_id=actor.id,
+        action="security.remediation.learning",
+        context={
+            "remediation_id": remediation.id,
+            "finding_fingerprint": finding.fingerprint,
+            "result": "verified_fixed",
+            "patch_digest": dict(remediation.regression_result or {}).get("patch_digest"),
+        },
+        outcome="success",
+        evidence=[
+            f"security-retest:{retest.id}",
+            f"finding:{finding.fingerprint}",
+            f"remediation:{remediation.id}",
+        ],
+        project_id=remediation.project_id,
+        lesson=(
+            "A remediation passed regression and security retest. The repair evidence "
+            "remains quarantined until Security Genome validation and Owner promotion."
+        ),
     )
     return remediation

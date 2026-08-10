@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import UserRecord, require_permissions
 from app.db.base import get_db
 from app.db.models import KnowledgeItem, LearningEvent, Lesson, ScopedMemory
-from app.services import knowledge_learning
+from app.services import adaptive_intelligence, knowledge_learning
 
 router = APIRouter()
 
@@ -238,6 +238,24 @@ async def create_item(
             tags=data.tags,
             provenance=[value.model_dump(mode="json") for value in data.provenance],
             supersedes_id=data.supersedes_id,
+        )
+        await adaptive_intelligence.record_experience(
+            session,
+            actor,
+            source="user",
+            action="knowledge.item.submitted",
+            context={
+                "knowledge_item_id": item.id,
+                "scope_type": item.scope_type,
+                "scope_id": item.scope_id,
+                "namespace": item.namespace,
+                "subject": item.subject,
+                "candidate_confidence": item.confidence,
+            },
+            outcome="success",
+            evidence=[f"knowledge-checksum:{item.checksum}"],
+            lesson=f"Candidate knowledge submitted: {item.subject}"[:4000],
+            project_id=item.project_id,
         )
         await session.commit()
         await session.refresh(item)

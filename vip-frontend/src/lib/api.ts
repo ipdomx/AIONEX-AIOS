@@ -32,6 +32,13 @@ import type {
   ThreeDArtifactLinks,
   ThreeDGenerationJob,
   RegistrationTelemetry,
+  SecurityFinding,
+  SecurityLabAccess,
+  SecurityProfile,
+  SecurityRemediation,
+  SecurityScan,
+  SecurityTarget,
+  SecurityTool,
   SocialRegistrationPreparation,
   User,
   Workspace,
@@ -625,20 +632,104 @@ export function listProjects(): Promise<Project[]> {
   return request<Project[]>("/projects");
 }
 
+export function getSecurityLabAccess(): Promise<SecurityLabAccess> {
+  return request<SecurityLabAccess>("/security-lab/access");
+}
+
+export function listSecurityLabTools(): Promise<SecurityTool[]> {
+  return request<SecurityTool[]>("/security-lab/tools");
+}
+
+export function listSecurityLabTargets(): Promise<SecurityTarget[]> {
+  return request<SecurityTarget[]>("/security-lab/targets");
+}
+
+export function registerSecurityLabManagedTarget(payload: {
+  project_id: string;
+  origin: string;
+  environment: "production" | "staging";
+}): Promise<SecurityTarget> {
+  return jsonRequest<SecurityTarget>(
+    "/security-lab/targets/managed",
+    "POST",
+    payload,
+  );
+}
+
+export function listSecurityLabScans(limit = 100): Promise<SecurityScan[]> {
+  return request<SecurityScan[]>(`/security-lab/scans?limit=${limit}`);
+}
+
+export function createSecurityLabScan(
+  targetId: string,
+  profile: SecurityProfile,
+): Promise<SecurityScan> {
+  return jsonRequest<SecurityScan>("/security-lab/scans", "POST", {
+    target_id: targetId,
+    profile,
+  });
+}
+
+export function cancelSecurityLabScan(scanId: string): Promise<SecurityScan> {
+  return jsonRequest<SecurityScan>(
+    `/security-lab/scans/${encodeURIComponent(scanId)}/cancel`,
+    "POST",
+    {},
+  );
+}
+
+export function listSecurityLabFindings(
+  scanId: string,
+): Promise<SecurityFinding[]> {
+  return request<SecurityFinding[]>(
+    `/security-lab/scans/${encodeURIComponent(scanId)}/findings`,
+  );
+}
+
+export function listSecurityLabRemediations(): Promise<SecurityRemediation[]> {
+  return request<SecurityRemediation[]>("/security-lab/remediations");
+}
+
+export function requestSecurityLabRemediation(
+  findingId: string,
+): Promise<SecurityRemediation> {
+  return jsonRequest<SecurityRemediation>(
+    "/security-lab/remediations",
+    "POST",
+    {
+      finding_id: findingId,
+    },
+  );
+}
+
 export function createProject(payload: CreateProjectPayload): Promise<Project> {
   return jsonRequest<Project>("/projects", "POST", payload);
 }
 
-export function getProjectThreeDAccess(projectId: string): Promise<ThreeDAccess> {
-  return request<ThreeDAccess>(`/projects/${encodeURIComponent(projectId)}/3d/access`);
+export function getProjectThreeDAccess(
+  projectId: string,
+): Promise<ThreeDAccess> {
+  return request<ThreeDAccess>(
+    `/projects/${encodeURIComponent(projectId)}/3d/access`,
+  );
 }
 
-export function listProjectThreeDJobs(projectId: string, limit = 20): Promise<ThreeDGenerationJob[]> {
-  return request<ThreeDGenerationJob[]>(`/projects/${encodeURIComponent(projectId)}/3d/jobs?limit=${limit}`);
+export function listProjectThreeDJobs(
+  projectId: string,
+  limit = 20,
+): Promise<ThreeDGenerationJob[]> {
+  return request<ThreeDGenerationJob[]>(
+    `/projects/${encodeURIComponent(projectId)}/3d/jobs?limit=${limit}`,
+  );
 }
 
-export function getProjectThreeDJob(projectId: string, jobId: string): Promise<ThreeDGenerationJob> {
-  return request<ThreeDGenerationJob>(`/projects/${encodeURIComponent(projectId)}/3d/jobs/${encodeURIComponent(jobId)}`);
+export function getProjectThreeDJob(
+  projectId: string,
+  jobId: string,
+): Promise<ThreeDGenerationJob> {
+  return request<ThreeDGenerationJob>(
+    `/projects/${encodeURIComponent(projectId)}/3d/jobs/${encodeURIComponent(jobId)}`,
+  );
 }
 
 export function createProjectThreeDJob(
@@ -655,20 +746,29 @@ export function createProjectThreeDJob(
   body.set("image", image);
   body.set("seed", String(values?.seed ?? 12345));
   if (values?.textureSize) body.set("texture_size", String(values.textureSize));
-  body.set("third_party_terms_accepted", String(values?.termsAccepted === true));
+  body.set(
+    "third_party_terms_accepted",
+    String(values?.termsAccepted === true),
+  );
   body.set("third_party_terms_version", values?.termsVersion || "");
   const idempotencyKey =
     typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  return request<ThreeDGenerationJob>(`/projects/${encodeURIComponent(projectId)}/3d/jobs`, {
-    method: "POST",
-    headers: { "Idempotency-Key": idempotencyKey },
-    body,
-  });
+  return request<ThreeDGenerationJob>(
+    `/projects/${encodeURIComponent(projectId)}/3d/jobs`,
+    {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body,
+    },
+  );
 }
 
-export function cancelProjectThreeDJob(projectId: string, jobId: string): Promise<ThreeDGenerationJob> {
+export function cancelProjectThreeDJob(
+  projectId: string,
+  jobId: string,
+): Promise<ThreeDGenerationJob> {
   return jsonRequest<ThreeDGenerationJob>(
     `/projects/${encodeURIComponent(projectId)}/3d/jobs/${encodeURIComponent(jobId)}/cancel`,
     "POST",
@@ -692,7 +792,10 @@ export function clarifyProjectThreeDJob(
   );
 }
 
-export function getProjectThreeDArtifactLinks(projectId: string, jobId: string): Promise<ThreeDArtifactLinks> {
+export function getProjectThreeDArtifactLinks(
+  projectId: string,
+  jobId: string,
+): Promise<ThreeDArtifactLinks> {
   return request<ThreeDArtifactLinks>(
     `/projects/${encodeURIComponent(projectId)}/3d/jobs/${encodeURIComponent(jobId)}/artifact`,
   );

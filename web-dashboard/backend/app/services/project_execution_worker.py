@@ -21,6 +21,7 @@ from app.db.models import (
     Project,
     ProjectExecution,
 )
+from app.services import adaptive_intelligence
 from app.services.project_execution import (
     ProjectPlanningRunner,
     sanitized_execution_error,
@@ -388,6 +389,33 @@ class ProjectExecutionWorker:
                     },
                 )
             )
+            await adaptive_intelligence.record_system_experience(
+                session,
+                organization_id=record.organization_id,
+                user_id=record.requested_by_id,
+                action="project.execution.learning",
+                context={
+                    "execution_id": record.id,
+                    "provider": record.provider,
+                    "model": record.model,
+                    "approved": bool(record.approved),
+                    "readiness_score": record.readiness_score,
+                    "phase": summary.get("phase"),
+                    "all_governance_layers_executed": bool(
+                        summary.get("all_governance_layers_executed")
+                    ),
+                },
+                outcome="success" if record.approved else "partial",
+                evidence=[
+                    f"project-execution:{record.id}",
+                    f"project:{record.project_id}",
+                ],
+                project_id=record.project_id,
+                lesson=(
+                    "Governed project execution completed; reusable lessons remain "
+                    "quarantined until evidence verification."
+                ),
+            )
             await session.commit()
 
     async def fail(
@@ -449,6 +477,24 @@ class ProjectExecutionWorker:
                     },
                 )
             )
+            await adaptive_intelligence.record_system_experience(
+                session,
+                organization_id=record.organization_id,
+                user_id=record.requested_by_id,
+                action="project.execution.failure_learning",
+                context={
+                    "execution_id": record.id,
+                    "project_id": record.project_id,
+                    "error_code": code,
+                },
+                outcome="failure",
+                evidence=[f"project-execution:{record.id}", f"error-code:{code}"],
+                project_id=record.project_id,
+                lesson=(
+                    "Project execution failure recorded as quarantined evidence; raw "
+                    "exception content is not promoted into shared knowledge."
+                ),
+            )
             await session.commit()
         logger.error("Project execution failed", execution_id=execution_id, error_code=code)
 
@@ -479,7 +525,7 @@ async def run_worker() -> None:
         try:
             loop.add_signal_handler(signum, stop_event.set)
         except NotImplementedError:
-            pass
+            logger.debug("Signal handlers are unavailable on this runtime", signal=int(signum))
     logger.info("Project execution worker started")
     while not stop_event.is_set():
         processed = await worker.run_once()
@@ -491,7 +537,7 @@ async def run_worker() -> None:
                 timeout=settings.PROJECT_EXECUTION_WORKER_POLL_SECONDS,
             )
         except TimeoutError:
-            pass
+            continue
     logger.info("Project execution worker stopped")
 
 

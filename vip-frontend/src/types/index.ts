@@ -258,7 +258,6 @@ export interface Project {
   updated_at: string;
 }
 
-
 export interface ThreeDAccess {
   eligible: boolean;
   plan_code: string;
@@ -776,4 +775,97 @@ export interface SupportTicket {
   created_at: string;
   updated_at: string;
   messages?: SupportTicketMessage[];
+}
+export type SecurityProfile = "passive" | "standard" | "advanced" | "elite";
+
+export interface SecurityLabAccess {
+  enabled: boolean;
+  granted: boolean;
+  level: "standard" | "advanced" | "elite" | "autonomous" | "owner" | null;
+  profiles: SecurityProfile[];
+  deep_validation_requires_clone: boolean;
+}
+
+export interface SecurityTool {
+  id: string;
+  category: string;
+  adapter: string;
+  builtin: boolean;
+  active: boolean;
+  intrusive: boolean;
+  requires_source: boolean;
+  requires_clone: boolean;
+  description: string;
+  available: boolean;
+  runtime?: Record<string, unknown> | null;
+}
+
+export interface SecurityTarget {
+  id: string;
+  project_id: string | null;
+  kind: "managed_project" | "external_authorized" | "security_clone" | string;
+  origin: string;
+  hostname: string;
+  authorization_status: string;
+  verification_method: string | null;
+  active_scan_allowed: boolean;
+  status: string;
+  metadata: Record<string, unknown>;
+  verified_at: string | null;
+}
+
+export interface SecurityScan {
+  id: string;
+  project_id: string | null;
+  target_id: string;
+  requested_by_id: string;
+  profile: SecurityProfile;
+  status: string;
+  execution_mode: string;
+  tool_plan: Array<Record<string, unknown>>;
+  summary: {
+    finding_count?: number;
+    severity?: Record<string, number>;
+    engines?: Array<Record<string, unknown>>;
+    [key: string]: unknown;
+  };
+  error_code: string | null;
+  error_message: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string | null;
+}
+
+export interface SecurityFinding {
+  id: string;
+  scan_id: string;
+  target_id: string;
+  source: string;
+  category: string;
+  title: string;
+  severity: string;
+  confidence: number;
+  state: string;
+  fingerprint: string;
+  cwe: string | null;
+  owasp: string | null;
+  location: string | null;
+  evidence: Record<string, unknown>;
+  remediation: string | null;
+  verified_at: string | null;
+  resolved_at: string | null;
+}
+
+export interface SecurityRemediation {
+  id: string;
+  project_id: string | null;
+  finding_id: string;
+  requested_by_id: string | null;
+  status: string;
+  plan: Record<string, unknown>;
+  patch_evidence: Record<string, unknown>;
+  regression_result: Record<string, unknown>;
+  retest_scan_id: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 }

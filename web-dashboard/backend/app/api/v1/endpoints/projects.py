@@ -27,7 +27,7 @@ from app.db.models import (
     Workflow,
     Workspace,
 )
-from app.services import work_management
+from app.services import adaptive_intelligence, work_management
 from app.services.billing import enforce_limit
 
 router = APIRouter()
@@ -306,6 +306,23 @@ async def create_project(
             details={"workspace_id": project.workspace_id, "risk": project.risk},
         )
         session.add(_audit(actor, "project.create", project))
+        await adaptive_intelligence.record_experience(
+            session,
+            actor,
+            source="project",
+            action="project.created",
+            context={
+                "project_id": project.id,
+                "workspace_id": project.workspace_id,
+                "priority": project.priority,
+                "risk": project.risk,
+                "tags": list(project.tags or []),
+            },
+            outcome="success",
+            evidence=[f"project:{project.id}", f"workspace:{project.workspace_id}"],
+            lesson=(project.description or project.name)[:4000],
+            project_id=project.id,
+        )
         await session.commit()
     except IntegrityError as exc:
         await session.rollback()
