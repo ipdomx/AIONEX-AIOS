@@ -63,17 +63,17 @@ if [ "$(id -u)" = "0" ]; then
         install -d -m 0700 -o aionex -g aionex "$project_output_root"
     fi
 
-    portal_asset_root="${PORTAL_ASSET_ROOT:-/var/lib/aionex/portal-assets}"
+    portal_asset_root="${PORTAL_ASSET_ROOT-/var/lib/aionex/portal-assets}"
     if [ -n "$portal_asset_root" ]; then
         install -d -m 0750 -o aionex -g aionex "$portal_asset_root"
     fi
 
-    studio_asset_root="${STUDIO_ASSET_ROOT:-/var/lib/aionex/studio-assets}"
+    studio_asset_root="${STUDIO_ASSET_ROOT-/var/lib/aionex/studio-assets}"
     if [ -n "$studio_asset_root" ]; then
         install -d -m 0700 -o aionex -g aionex "$studio_asset_root"
     fi
 
-    mobile_release_root="${MOBILE_RELEASE_ROOT:-/var/lib/aionex/mobile-releases}"
+    mobile_release_root="${MOBILE_RELEASE_ROOT-/var/lib/aionex/mobile-releases}"
     if [ -n "$mobile_release_root" ]; then
         # Readers mount the release store read-only. Preparing ownership is only
         # required when the path is writable; an existing readable read-only
@@ -84,6 +84,12 @@ if [ "$(id -u)" = "0" ]; then
                 exit 1
             fi
         fi
+    fi
+
+
+    security_remediation_root="${SECURITY_REMEDIATION_ROOT:-}"
+    if [ -n "$security_remediation_root" ]; then
+        install -d -m 0700 -o aionex -g aionex "$security_remediation_root"
     fi
 
 

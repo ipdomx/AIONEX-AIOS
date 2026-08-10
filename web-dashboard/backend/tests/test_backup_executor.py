@@ -1402,6 +1402,10 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
             "security_remediation_data:/var/lib/aionex/security-remediations:rw"
             in compose
         )
+        remediation_section = compose.split("security-remediation-worker:", 1)[1].split("security-zap:", 1)[0]
+        assert "SECURITY_REMEDIATION_ROOT: /var/lib/aionex/security-remediations" in remediation_section
+        assert 'PORTAL_ASSET_ROOT: ""' in remediation_section
+        assert 'cap_add: ["CHOWN", "FOWNER", "SETGID", "SETUID"]' in remediation_section
         assert "telegram-worker:" in compose
         assert 'profiles: ["telegram"]' in compose
         assert 'command: ["python", "-m", "app.services.telegram_worker"]' in compose

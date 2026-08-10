@@ -101,3 +101,23 @@ def test_phase35_security_lab_is_exposed_to_entitled_vip_users_in_all_locales():
         messages = read(f"vip-frontend/src/messages/{locale}.json")
         assert '"securityLab"' in messages
         assert '"securityLabTitle"' in messages
+
+
+def test_security_remediation_worker_bootstraps_only_its_writable_volume():
+    entrypoint = read("web-dashboard/backend/scripts/docker-entrypoint.sh")
+    assert 'portal_asset_root="${PORTAL_ASSET_ROOT-/var/lib/aionex/portal-assets}"' in entrypoint
+    assert 'studio_asset_root="${STUDIO_ASSET_ROOT-/var/lib/aionex/studio-assets}"' in entrypoint
+    assert 'mobile_release_root="${MOBILE_RELEASE_ROOT-/var/lib/aionex/mobile-releases}"' in entrypoint
+    assert 'security_remediation_root="${SECURITY_REMEDIATION_ROOT:-}"' in entrypoint
+    for relative in (
+        "web-dashboard/docker-compose.production.yml",
+        "deploy/production/docker-compose.production.yml",
+    ):
+        compose = read(relative)
+        section = compose.split("security-remediation-worker:", 1)[1].split("security-zap:", 1)[0]
+        assert "SECURITY_REMEDIATION_ROOT: /var/lib/aionex/security-remediations" in section
+        assert 'PORTAL_ASSET_ROOT: ""' in section
+        assert 'STUDIO_ASSET_ROOT: ""' in section
+        assert 'MOBILE_RELEASE_ROOT: ""' in section
+        assert 'cap_drop: ["ALL"]' in section
+        assert 'cap_add: ["CHOWN", "FOWNER", "SETGID", "SETUID"]' in section
