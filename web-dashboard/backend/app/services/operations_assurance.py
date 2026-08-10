@@ -20,7 +20,7 @@ from typing import Any
 from app.core.config import settings
 from app.db.models import AuditEvent, MetricSample, OwnerControlRecord, RefreshSession, User
 from app.db.redis import get_redis
-from sqlalchemy import func, select, text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 HEALTHY = {"healthy", "ready", "ok", "operational"}

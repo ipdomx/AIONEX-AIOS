@@ -26,11 +26,11 @@ def test_purchase_tokens_are_hash_indexed_and_encrypted_at_rest():
 
 def test_replay_protection_and_sanitized_event_storage():
     svc=read('web-dashboard/backend/app/services/mobile_store_billing.py')
-    assert 'external_event_id==event_id' in svc
-    assert 'return {"status":"duplicate"' in svc
-    assert 'payload_hash=' in svc
-    assert 'event_payload={' in svc
-    start=svc.index('event_payload={"notification_type"')
+    assert 'MobileStoreEvent.external_event_id == event_id' in svc
+    assert 'return {"status": "duplicate"' in svc
+    assert 'payload_hash=' in ''.join(svc.split())
+    assert 'event_payload={' in ''.join(svc.split())
+    start=svc.index('event_payload={')
     snippet=svc[start:svc.index('\n    if existing:', start)]
     assert 'signed_payload' not in snippet and 'signedTransactionInfo' not in snippet
 
@@ -38,13 +38,13 @@ def test_lifecycle_states_and_entitlement_revocation_are_covered():
     svc=read('web-dashboard/backend/app/services/mobile_store_billing.py')
     for state in ['grace_period','on_hold','paused','expired','revoked','billing_retry']:
         assert state in svc
-    assert 'account.entitlements=[]' in svc
-    assert 'other_active' in svc
-    assert 'account.plan_id=None' in svc
+    assert 'account.entitlements = []' in svc
+    assert 'authoritative = max(active, key=rank)' in svc
+    assert 'account.plan_id = None' in svc
 
 def test_cancelled_google_subscription_keeps_access_until_expiry():
     svc=read('web-dashboard/backend/app/services/mobile_store_billing.py')
-    assert 'status_=="canceled" and expiry and expiry>_now()' in svc
+    assert 'status_ == "canceled" and expiry and expiry > _now()' in svc
 
 def test_mobile_clients_use_authenticated_server_verification():
     ios=read('mobile/ios/AIONEXAIOS/StoreBilling.swift')

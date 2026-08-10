@@ -16,7 +16,6 @@ from app.api.v1.router import api_router
 from app.core.auth import UserRecord, current_user, pwd_context
 from app.db.base import SessionLocal
 from app.db.models import (
-    Alert,
     ApprovalDecision,
     ApprovalRequest,
     AuditEvent,

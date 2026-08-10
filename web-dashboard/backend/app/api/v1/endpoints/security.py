@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
 
 from app.core.auth import UserRecord, require_permissions, require_super_owner
 from app.core.config import settings
@@ -222,7 +221,7 @@ async def get_policies(
             "id": "password-policy",
             "name": "Password Policy",
             "status": "active",
-            "rules": {"minimum_length": 12, "hashing": "argon2-or-bcrypt", "plaintext_storage": False},
+            "rules": {"minimum_length": 12, "hashing": "pbkdf2-sha256", "plaintext_storage": False},
             "source": "enforced-auth-runtime",
         },
         {
