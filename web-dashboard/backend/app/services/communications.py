@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Iterable, Sequence
 
 import httpx
-from app.core.ai_runtime import ai_runtime
+from app.core.ai_runtime import ai_realtime_hub
 from app.core.auth import UserRecord
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -856,7 +856,7 @@ async def create_notification(
 
 async def publish_realtime(notification: Notification) -> None:
     try:
-        await ai_runtime.hub.publish(
+        await ai_realtime_hub.publish(
             notification.organization_id,
             {"type": "notification.created", "notification": notification_snapshot(notification)},
         )

@@ -1,88 +1,128 @@
-"""AI provider management endpoints."""
+"""Durable AI provider management endpoints."""
+from __future__ import annotations
 
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel
 from typing import Optional
 
-from app.core.ai_runtime import FINAL_SUPPORTED_PROVIDER_TYPES, ai_runtime, provider_models
-from app.core.auth import UserRecord, current_user
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.ai_runtime import FINAL_SUPPORTED_PROVIDER_TYPES, provider_models
+from app.core.auth import UserRecord, require_permissions
 from app.core.owner_policy import require_owner_service_allowed
 from app.db.base import get_db
-from sqlalchemy.ext.asyncio import AsyncSession
+from app.services import ai_runtime_service
 
 router = APIRouter()
 
 
 class ProviderCreate(BaseModel):
-    name: str
-    type: str
-    api_key: str
-    base_url: Optional[str] = None
+    name: str = Field(min_length=1, max_length=160)
+    type: str = Field(min_length=1, max_length=64)
+    api_key: str = Field(default="", max_length=8192)
+    base_url: Optional[str] = Field(default=None, max_length=2048)
     organization_id: Optional[str] = None
-    cost_per_1k_tokens: float = 0.0
-    usage_limit: int = 0
+    cost_per_1k_tokens: float = Field(default=0.0, ge=0)
+    usage_limit: int = Field(default=0, ge=0)
 
 
 @router.get("")
-async def list_providers(user: UserRecord = Depends(current_user)):
-    return ai_runtime.list_providers(user.organization_id)
-
-
+async def list_providers(
+    user: UserRecord = Depends(require_permissions("providers:read")),
+    session: AsyncSession = Depends(get_db),
+):
+    return await ai_runtime_service.list_providers(
+        session,
+        user.organization_id,
+        include_environment=user.role == "Super Owner",
+    )
 
 
 @router.get("/catalog/supported")
-async def supported_provider_catalog(user: UserRecord = Depends(current_user)):
-    configured = {item["type"]: item for item in ai_runtime.list_providers(user.organization_id)}
+async def supported_provider_catalog(
+    user: UserRecord = Depends(require_permissions("providers:read")),
+    session: AsyncSession = Depends(get_db),
+):
+    configured = {
+        item["type"]: item
+        for item in await ai_runtime_service.list_providers(
+            session,
+            user.organization_id,
+            include_environment=user.role == "Super Owner",
+        )
+    }
     rows = []
     for provider_type in FINAL_SUPPORTED_PROVIDER_TYPES:
         item = configured.get(provider_type)
-        rows.append({
-            "type": provider_type,
-            "configured": item is not None and item.get("api_key_hint") not in {None, "not-configured"},
-            "enabled": bool(item and item.get("enabled")),
-            "status": item.get("status", "unconfigured") if item else "unconfigured",
-            "models": provider_models(provider_type),
-        })
+        rows.append(
+            {
+                "type": provider_type,
+                "configured": bool(item and item["configured"]),
+                "enabled": bool(item and item["enabled"]),
+                "status": item["status"] if item else "unconfigured",
+                "models": provider_models(provider_type),
+            }
+        )
     return rows
 
 
 @router.post("", status_code=201)
 async def create_provider(
-    data: ProviderCreate, user: UserRecord = Depends(current_user)
+    data: ProviderCreate,
+    user: UserRecord = Depends(require_permissions("providers:write")),
+    session: AsyncSession = Depends(get_db),
 ):
     payload = data.model_dump(exclude={"organization_id"})
-    return ai_runtime.create_provider(payload, user.organization_id)
+    return await ai_runtime_service.create_provider(
+        session, payload, user.organization_id, user.id
+    )
 
 
 @router.get("/{provider_id}")
-async def get_provider(provider_id: str, user: UserRecord = Depends(current_user)):
-    provider = ai_runtime.get_provider(provider_id, user.organization_id)
+async def get_provider(
+    provider_id: str,
+    user: UserRecord = Depends(require_permissions("providers:read")),
+    session: AsyncSession = Depends(get_db),
+):
+    provider = await ai_runtime_service.get_provider(
+        session, provider_id, user.organization_id
+    )
     return {
-        **provider.__dict__,
+        **ai_runtime_service.provider_snapshot(provider),
         "models": provider_models(provider.type),
     }
 
 
 @router.delete("/{provider_id}")
-async def delete_provider(provider_id: str, user: UserRecord = Depends(current_user)):
-    ai_runtime.delete_provider(provider_id, user.organization_id)
+async def delete_provider(
+    provider_id: str,
+    user: UserRecord = Depends(require_permissions("providers:write")),
+    session: AsyncSession = Depends(get_db),
+):
+    await ai_runtime_service.delete_provider(
+        session, provider_id, user.organization_id, user.id
+    )
     return {"message": "Provider removed successfully"}
 
 
 @router.post("/{provider_id}/test")
 async def test_provider(
     provider_id: str,
-    user: UserRecord = Depends(current_user),
+    user: UserRecord = Depends(require_permissions("providers:write")),
     session: AsyncSession = Depends(get_db),
 ):
-    provider = ai_runtime.get_provider(provider_id, user.organization_id)
+    provider = await ai_runtime_service.get_provider(
+        session, provider_id, user.organization_id, lock=True
+    )
     await require_owner_service_allowed(session, provider.type)
-    return {
-        "status": "success" if provider.enabled else "disabled",
-        "latency_ms": provider.latency,
-        "message": (
-            "Provider configuration is available"
-            if provider.enabled
-            else "Provider is disabled"
-        ),
-    }
+    result = await ai_runtime_service.provider_health_probe(provider)
+    config = dict(provider.config or {})
+    config["latency_ms"] = int(float(result.get("latency_ms", 0) or 0))
+    config["last_health_check"] = ai_runtime_service._now().isoformat()
+    provider.config = config
+    if result["status"] == "success":
+        provider.status = "connected"
+    elif result["status"] in {"disabled", "unconfigured"}:
+        provider.status = result["status"]
+    await session.commit()
+    return result

@@ -103,6 +103,7 @@ export interface ProviderSummary {
   last_used?: string | null;
   created_at: string;
   enabled: boolean;
+  configured?: boolean;
 }
 
 export interface JobSummary {
@@ -221,6 +222,15 @@ export const runtimeServices = {
   },
   createAgent(data: Record<string, unknown>) {
     return apiClient.post<AgentSummary>("/ai/agents", data);
+  },
+  updateAgent(agentId: string, data: Record<string, unknown>) {
+    return apiClient.put<AgentSummary>(`/ai/agents/${agentId}`, data);
+  },
+  deleteAgent(agentId: string) {
+    return apiClient.request<{ message: string }>({ method: "DELETE", url: `/ai/agents/${agentId}` });
+  },
+  listAgentJobs(agentId: string, limit = 20) {
+    return apiClient.get<JobSummary[]>(`/ai/agents/${agentId}/tasks`, { params: { limit } });
   },
   executeAgent(agentId: string, prompt: string) {
     return apiClient.post<JobSummary>(`/ai/agents/${agentId}/execute`, {
