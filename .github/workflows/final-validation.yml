@@ -212,7 +212,19 @@ jobs:
           docker compose \
             --env-file .env.production \
             -f docker-compose.production.yml \
-            build backend frontend portal
+            build backend frontend portal security-scan-worker
+      - name: Verify Security Lab toolchain image
+        working-directory: web-dashboard
+        run: |
+          test "$(docker run --rm aionex-aios-security-tools:local id -u)" = "1000"
+          docker run --rm aionex-aios-security-tools:local sh -ceu '
+            for binary in semgrep bandit pip-audit schemathesis nuclei katana pd-httpx trivy osv-scanner syft grype gitleaks trufflehog cosign testssl.sh nmap; do
+              command -v "$binary" >/dev/null
+            done
+            test -f /app/security-rules/semgrep/aionex.yml
+            test -d /opt/nuclei-templates
+            test "$(find /opt/nuclei-templates -type f | wc -l)" -gt 1000
+          '
       - name: Verify legacy DATABASE_URL upgrade preserves PostgreSQL data
         working-directory: web-dashboard
         run: |

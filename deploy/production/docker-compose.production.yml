@@ -407,7 +407,7 @@ services:
     expose: ["8080"]
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=128m
-      - /home/zap/.ZAP:rw,nosuid,size=256m
+      - /home/zap/.ZAP:rw,nosuid,uid=1000,gid=1000,mode=0700,size=256m
     healthcheck:
       test:
         - CMD-SHELL
