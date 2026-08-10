@@ -1,41 +1,42 @@
-"""AI agent orchestration endpoints."""
+"""Durable AI agent orchestration endpoints."""
+from __future__ import annotations
 
-from dataclasses import asdict
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.ai_runtime import ai_runtime
-from app.core.auth import UserRecord, current_user
+from app.core.auth import UserRecord, require_permissions
 from app.core.owner_policy import require_owner_service_allowed
 from app.db.base import get_db
-from sqlalchemy.ext.asyncio import AsyncSession
+from app.services import ai_runtime_service
 
 router = APIRouter()
 
 
 class AgentCreate(BaseModel):
-    name: str
-    role: str
-    department: str
+    name: str = Field(min_length=1, max_length=200)
+    role: str = Field(min_length=1, max_length=120)
+    department: str = Field(min_length=1, max_length=120)
     provider_id: str
-    model: str
-    system_prompt: Optional[str] = None
+    model: str = Field(min_length=1, max_length=160)
+    system_prompt: Optional[str] = Field(default=None, max_length=20000)
     organization_id: Optional[str] = None
     workspace_id: Optional[str] = None
 
 
 class AgentUpdate(BaseModel):
-    name: Optional[str] = None
-    role: Optional[str] = None
+    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    role: Optional[str] = Field(default=None, min_length=1, max_length=120)
     status: Optional[str] = None
-    system_prompt: Optional[str] = None
-    temperature: Optional[float] = None
+    system_prompt: Optional[str] = Field(default=None, max_length=20000)
+    temperature: Optional[float] = Field(default=None, ge=0, le=2)
+    model: Optional[str] = Field(default=None, min_length=1, max_length=160)
 
 
 class AgentExecutionRequest(BaseModel):
-    prompt: str
+    prompt: str = Field(min_length=1, max_length=50000)
 
 
 @router.get("")
@@ -46,61 +47,74 @@ async def list_agents(
     provider: Optional[str] = None,
     role: Optional[str] = None,
     search: Optional[str] = None,
-    user: UserRecord = Depends(current_user),
+    user: UserRecord = Depends(require_permissions("agents:read")),
+    session: AsyncSession = Depends(get_db),
 ):
-    rows = ai_runtime.list_agents(user.organization_id)
-    if status:
-        rows = [row for row in rows if row["status"] == status]
-    if provider:
-        rows = [row for row in rows if row["provider"].lower() == provider.lower()]
-    if role:
-        rows = [row for row in rows if row["role"].lower() == role.lower()]
-    if search:
-        needle = search.lower()
-        rows = [
-            row
-            for row in rows
-            if needle in row["name"].lower() or needle in row["role"].lower()
-        ]
-    return rows[skip : skip + limit]
+    return await ai_runtime_service.list_agents(
+        session,
+        user.organization_id,
+        status=status,
+        provider_name=provider,
+        role=role,
+        search=search,
+        skip=skip,
+        limit=limit,
+    )
 
 
 @router.post("", status_code=201)
 async def create_agent(
     data: AgentCreate,
-    user: UserRecord = Depends(current_user),
+    user: UserRecord = Depends(require_permissions("agents:write")),
     session: AsyncSession = Depends(get_db),
 ):
-    provider = ai_runtime.get_provider(data.provider_id, user.organization_id)
+    provider = await ai_runtime_service.get_provider(
+        session, data.provider_id, user.organization_id
+    )
     await require_owner_service_allowed(session, provider.type)
     payload = data.model_dump(exclude={"organization_id"})
-    return ai_runtime.create_agent(payload, user.organization_id)
+    return await ai_runtime_service.create_agent(
+        session, payload, user.organization_id, user.id
+    )
 
 
 @router.get("/{agent_id}")
-async def get_agent(agent_id: str, user: UserRecord = Depends(current_user)):
-    agent = ai_runtime.get_agent(agent_id, user.organization_id)
-    row = asdict(agent)
-    row["provider"] = (
-        ai_runtime.providers.get(agent.provider_id).name
-        if agent.provider_id in ai_runtime.providers
-        else "Unknown"
+async def get_agent(
+    agent_id: str,
+    user: UserRecord = Depends(require_permissions("agents:read")),
+    session: AsyncSession = Depends(get_db),
+):
+    agent, provider = await ai_runtime_service.get_agent(
+        session, agent_id, user.organization_id
     )
-    return row
+    return ai_runtime_service.agent_snapshot(agent, provider)
 
 
 @router.put("/{agent_id}")
 async def update_agent(
-    agent_id: str, data: AgentUpdate, user: UserRecord = Depends(current_user)
+    agent_id: str,
+    data: AgentUpdate,
+    user: UserRecord = Depends(require_permissions("agents:write")),
+    session: AsyncSession = Depends(get_db),
 ):
-    return ai_runtime.update_agent(
-        agent_id, user.organization_id, data.model_dump(exclude_unset=True)
+    return await ai_runtime_service.update_agent(
+        session,
+        agent_id,
+        user.organization_id,
+        data.model_dump(exclude_unset=True),
+        user.id,
     )
 
 
 @router.delete("/{agent_id}")
-async def delete_agent(agent_id: str, user: UserRecord = Depends(current_user)):
-    ai_runtime.delete_agent(agent_id, user.organization_id)
+async def delete_agent(
+    agent_id: str,
+    user: UserRecord = Depends(require_permissions("agents:write")),
+    session: AsyncSession = Depends(get_db),
+):
+    await ai_runtime_service.delete_agent(
+        session, agent_id, user.organization_id, user.id
+    )
     return {"message": "Agent deleted successfully"}
 
 
@@ -109,32 +123,41 @@ async def execute_agent(
     agent_id: str,
     data: AgentExecutionRequest,
     background_tasks: BackgroundTasks,
-    user: UserRecord = Depends(current_user),
+    user: UserRecord = Depends(require_permissions("agents:write")),
     session: AsyncSession = Depends(get_db),
 ):
-    agent = ai_runtime.get_agent(agent_id, user.organization_id)
-    provider = ai_runtime.get_provider(agent.provider_id, user.organization_id)
+    _, provider = await ai_runtime_service.get_agent(
+        session, agent_id, user.organization_id
+    )
     await require_owner_service_allowed(session, provider.type)
-    job = ai_runtime.create_job(agent_id, user.organization_id, data.prompt)
-    background_tasks.add_task(ai_runtime.run_job, job.id)
-    return asdict(job)
+    job = await ai_runtime_service.create_job(
+        session, agent_id, user.organization_id, data.prompt, user.id
+    )
+    background_tasks.add_task(ai_runtime_service.run_job, job.id)
+    return ai_runtime_service.job_snapshot(job)
 
 
 @router.get("/{agent_id}/tasks")
 async def get_agent_tasks(
-    agent_id: str, limit: int = 20, user: UserRecord = Depends(current_user)
+    agent_id: str,
+    limit: int = Query(20, ge=1, le=100),
+    user: UserRecord = Depends(require_permissions("agents:read")),
+    session: AsyncSession = Depends(get_db),
 ):
-    ai_runtime.get_agent(agent_id, user.organization_id)
-    return [
-        row
-        for row in ai_runtime.list_jobs(user.organization_id, limit=100)
-        if row["agent_id"] == agent_id
-    ][:limit]
+    return await ai_runtime_service.list_agent_jobs(
+        session, agent_id, user.organization_id, limit=limit
+    )
 
 
 @router.get("/{agent_id}/knowledge")
-async def get_agent_knowledge(agent_id: str, user: UserRecord = Depends(current_user)):
-    agent = ai_runtime.get_agent(agent_id, user.organization_id)
+async def get_agent_knowledge(
+    agent_id: str,
+    user: UserRecord = Depends(require_permissions("agents:read")),
+    session: AsyncSession = Depends(get_db),
+):
+    agent, _ = await ai_runtime_service.get_agent(
+        session, agent_id, user.organization_id
+    )
     return {
         "agent_id": agent.id,
         "system_prompt": agent.system_prompt,

@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from app.core.ai_runtime import ai_runtime
+from app.core.ai_runtime import ai_realtime_hub
 from app.core.auth import auth_service
 from app.db.base import SessionLocal
 from app.services.free_tier import FREE_USER_ROLE_NAME
@@ -12,7 +12,7 @@ router = APIRouter()
 
 @router.get("/status")
 async def websocket_status():
-    return {"connected_clients": ai_runtime.hub.connected_count()}
+    return {"connected_clients": ai_realtime_hub.connected_count()}
 
 
 @router.websocket("/connect")
@@ -30,7 +30,7 @@ async def websocket_connect(websocket: WebSocket, token: str):
         return
 
     organization_id = user.organization_id
-    await ai_runtime.hub.connect(organization_id, websocket)
+    await ai_realtime_hub.connect(organization_id, websocket)
     await websocket.send_json(
         {
             "type": "connected",
@@ -44,4 +44,4 @@ async def websocket_connect(websocket: WebSocket, token: str):
             if message == "ping":
                 await websocket.send_json({"type": "pong"})
     except WebSocketDisconnect:
-        await ai_runtime.hub.disconnect(organization_id, websocket)
+        await ai_realtime_hub.disconnect(organization_id, websocket)
