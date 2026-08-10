@@ -1,5 +1,5 @@
 import pytest
-from fastapi import HTTPException
+from fastapi import HTTPException, Request, Response
 from sqlalchemy import select
 
 from app.api.v1.endpoints import auth as auth_endpoints
@@ -87,8 +87,22 @@ async def test_logout_revokes_access_and_refresh_tokens(monkeypatch):
         )
         pair = await auth_service.issue_pair(session, user)
 
+        request = Request(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/api/v1/auth/logout",
+                "query_string": b"",
+                "headers": [],
+                "scheme": "http",
+                "server": ("test", 80),
+                "client": ("127.0.0.1", 1234),
+            }
+        )
         response = await auth_endpoints.logout(
-            auth_endpoints.LogoutRequest(refresh_token=pair["refresh_token"]),
+            request=request,
+            http_response=Response(),
+            data=auth_endpoints.LogoutRequest(refresh_token=pair["refresh_token"]),
             token=pair["access_token"],
             session=session,
         )
@@ -220,3 +234,47 @@ async def test_suspended_super_owner_role_is_rejected():
         finally:
             role.status = original_status
             await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_legacy_pbkdf2_password_is_rehashed_to_argon2id_on_login():
+    from passlib.context import CryptContext
+    from sqlalchemy import select
+
+    from app.core.auth import auth_service, pwd_context
+    from app.db.base import SessionLocal
+    from app.db.models import Organization, Role, User, uuid_str
+
+    legacy = CryptContext(schemes=["pbkdf2_sha256"])
+    password = "Legacy-Rehash-Test-Password-123!"
+    email = f"legacy-rehash-{uuid_str()}@example.com"
+    async with SessionLocal() as session:
+        organization = await session.scalar(select(Organization).order_by(Organization.created_at))
+        role = await session.scalar(select(Role).where(Role.status == "active").order_by(Role.created_at))
+        assert organization is not None and role is not None
+        user = User(
+            organization_id=organization.id,
+            role_id=role.id,
+            email=email,
+            name="Legacy Rehash Test",
+            password_hash=legacy.hash(password),
+            status="active",
+        )
+        session.add(user)
+        await session.commit()
+        user_id = user.id
+
+    try:
+        async with SessionLocal() as session:
+            authenticated = await auth_service.authenticate(session, email, password)
+            assert authenticated.id == user_id
+            stored = await session.get(User, user_id)
+            assert stored is not None
+            assert stored.password_hash.startswith("$argon2id$")
+            assert pwd_context.verify(password, stored.password_hash)
+    finally:
+        async with SessionLocal() as session:
+            stored = await session.get(User, user_id)
+            if stored is not None:
+                await session.delete(stored)
+                await session.commit()

@@ -92,6 +92,12 @@ jobs:
         run: |
           chmod +x scripts/verify_backend.sh
           ./scripts/verify_backend.sh
+      - name: Run backend static quality
+        working-directory: web-dashboard/backend
+        run: |
+          ruff check --no-cache app tests
+          PYTHONPATH="${GITHUB_WORKSPACE}/src:${GITHUB_WORKSPACE}/web-dashboard/backend" \
+            mypy --no-incremental app
       - name: Run backend tests with coverage
         working-directory: web-dashboard/backend
         run: |

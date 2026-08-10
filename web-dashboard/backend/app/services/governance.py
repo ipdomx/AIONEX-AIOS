@@ -288,7 +288,7 @@ async def _apply_target_decision(
     decision: str,
 ) -> None:
     if request.target_type == "meeting":
-        target = await session.scalar(
+        meeting_target = await session.scalar(
             select(Meeting)
             .where(
                 Meeting.id == request.target_id,
@@ -296,19 +296,19 @@ async def _apply_target_decision(
             )
             .with_for_update()
         )
-        if target is None:
+        if meeting_target is None:
             raise LookupError("Approval target meeting not found")
-        target.status = {
+        meeting_target.status = {
             "approved": "scheduled",
             "rejected": "rejected",
             "changes_requested": "changes_requested",
         }[decision]
-        target.approved_by_id = actor.id if decision == "approved" else None
-        target.approved_at = now() if decision == "approved" else None
-        target.version += 1
+        meeting_target.approved_by_id = actor.id if decision == "approved" else None
+        meeting_target.approved_at = now() if decision == "approved" else None
+        meeting_target.version += 1
         return
     if request.target_type == "governance_policy":
-        target = await session.scalar(
+        policy_target = await session.scalar(
             select(GovernancePolicy)
             .where(
                 GovernancePolicy.id == request.target_id,
@@ -316,19 +316,19 @@ async def _apply_target_decision(
             )
             .with_for_update()
         )
-        if target is None:
+        if policy_target is None:
             raise LookupError("Approval target policy not found")
-        target.status = {
+        policy_target.status = {
             "approved": "active",
             "rejected": "rejected",
             "changes_requested": "changes_requested",
         }[decision]
-        target.approved_by_id = actor.id if decision == "approved" else None
-        target.effective_at = now() if decision == "approved" else None
-        target.version += 1
+        policy_target.approved_by_id = actor.id if decision == "approved" else None
+        policy_target.effective_at = now() if decision == "approved" else None
+        policy_target.version += 1
         return
     if request.target_type == "governance_decision":
-        target = await session.scalar(
+        decision_target = await session.scalar(
             select(GovernanceDecision)
             .where(
                 GovernanceDecision.id == request.target_id,
@@ -336,12 +336,12 @@ async def _apply_target_decision(
             )
             .with_for_update()
         )
-        if target is None:
+        if decision_target is None:
             raise LookupError("Approval target governance decision not found")
-        target.status = decision
-        target.decided_by_id = actor.id
-        target.decided_at = now()
-        target.decision = {**target.decision, "owner_decision": decision}
+        decision_target.status = decision
+        decision_target.decided_by_id = actor.id
+        decision_target.decided_at = now()
+        decision_target.decision = {**decision_target.decision, "owner_decision": decision}
         return
     # Generic protected target: retain the immutable decision even when the
     # target is implemented by a later batch.
@@ -821,15 +821,15 @@ async def submit_governance_decision(
     locked.submitted_at = now()
     if locked.body_id:
         body = await session.get(GovernanceBody, locked.body_id)
-        vote_weight = int(
-            await session.scalar(
-                select(func.coalesce(func.sum(GovernanceMembership.voting_weight), 0)).where(
-                    GovernanceMembership.body_id == body.id,
-                    GovernanceMembership.status == "active",
-                )
+        if body is None:
+            raise LookupError("Governance body not found")
+        vote_weight_result = await session.execute(
+            select(func.coalesce(func.sum(GovernanceMembership.voting_weight), 0)).where(
+                GovernanceMembership.body_id == body.id,
+                GovernanceMembership.status == "active",
             )
-            or 0
         )
+        vote_weight = int(vote_weight_result.scalar_one())
         if body.quorum > 1 and vote_weight > 0:
             locked.status = "voting"
             session.add(
@@ -909,6 +909,8 @@ async def cast_vote(
     session.add(record)
     await session.flush()
     body = await session.get(GovernanceBody, locked.body_id)
+    if body is None:
+        raise LookupError("Governance body not found")
     rows = (
         await session.execute(
             select(GovernanceVote.vote, func.sum(GovernanceVote.weight))

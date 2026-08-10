@@ -178,8 +178,8 @@ async def _hunyuan_endpoint_is_us_only(
             ),
             timeout=_RUNPOD_CONTROL_PLANE_TIMEOUT_SECONDS + 1.0,
         )
-        verified = bool(datacenter_ids) and all(
-            _is_us_datacenter_id(item) for item in datacenter_ids
+        verified = datacenter_ids is not None and bool(datacenter_ids) and all(
+            _is_us_datacenter_id(item) for item in (datacenter_ids or ())
         )
     except Exception:
         verified = False

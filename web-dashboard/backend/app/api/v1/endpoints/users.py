@@ -358,14 +358,16 @@ async def update_user(
                 status_code=422,
                 detail="Role does not belong to the user's organization",
             )
-        if _is_super_owner_role(existing_role) and role.id != existing_role.id:
-            raise HTTPException(
-                status_code=422,
-                detail=(
-                    "Super Owner role changes must be managed through the owner "
-                    "control plane"
-                ),
-            )
+        if _is_super_owner_role(existing_role):
+            assert existing_role is not None
+            if role.id != existing_role.id:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        "Super Owner role changes must be managed through the owner "
+                        "control plane"
+                    ),
+                )
         if not _is_super_owner_role(existing_role):
             _reject_super_owner_assignment(role)
         user.role_id = role.id

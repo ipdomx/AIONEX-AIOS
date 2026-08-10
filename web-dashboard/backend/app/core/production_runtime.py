@@ -92,7 +92,8 @@ class ProductionRuntime:
         return event
 
     def security_event(self, event_type: str, risk_score: int, result: str, user_id: str | None = None, ip: str | None = None) -> dict[str, Any]:
-        event = {"id": secrets.token_urlsafe(8), "timestamp": now_iso(), "type": event_type, "risk_score": risk_score, "result": result, "user_id": user_id, "ip": ip, "risk_level": "critical" if risk_score >= 80 else "high" if risk_score >= 60 else "medium" if risk_score >= 30 else "low"}
+        risk_level = "critical" if risk_score >= 80 else "high" if risk_score >= 60 else "medium" if risk_score >= 30 else "low"
+        event: dict[str, Any] = {"id": secrets.token_urlsafe(8), "timestamp": now_iso(), "type": event_type, "risk_score": risk_score, "result": result, "user_id": user_id, "ip": ip, "risk_level": risk_level}
         self.security_events.append(event)
         if risk_score >= 60:
             self.create_alert(f"Security event: {event_type}", f"Risk score {risk_score}", event["risk_level"], "security")

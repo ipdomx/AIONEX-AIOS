@@ -338,19 +338,19 @@ async def ensure_defaults(session: AsyncSession) -> None:
             await session.flush()
         policies[item.code] = item
     for data in DEFAULT_RULES:
-        item = await session.scalar(
+        rule = await session.scalar(
             select(NotificationRule).where(NotificationRule.code == data["code"])
         )
-        if item is None:
+        if rule is None:
             values = dict(data)
             escalation = values.pop("escalation", None)
-            item = NotificationRule(
+            rule = NotificationRule(
                 id=uuid_str(),
                 escalation_policy_id=(policies[escalation].id if escalation else None),
                 system=True,
                 **values,
             )
-            session.add(item)
+            session.add(rule)
     await session.flush()
 
 
@@ -797,7 +797,7 @@ async def create_notification(
 
     for channel in selected:
         state = channel_state(channel)
-        endpoint = endpoint_by_channel.get(channel)
+        selected_endpoint = endpoint_by_channel.get(channel)
         if channel == "in_app":
             delivery_status = "delivered"
             delivered_at = now()
@@ -806,7 +806,7 @@ async def create_notification(
             delivery_status = "unconfigured"
             delivered_at = None
             error_code = "provider_unconfigured"
-        elif endpoint is None:
+        elif selected_endpoint is None:
             delivery_status = "skipped"
             delivered_at = None
             error_code = "recipient_endpoint_missing"
@@ -819,7 +819,7 @@ async def create_notification(
                 id=uuid_str(),
                 organization_id=recipient.organization_id,
                 notification_id=notification.id,
-                endpoint_id=endpoint.id if endpoint else None,
+                endpoint_id=selected_endpoint.id if selected_endpoint else None,
                 channel=channel,
                 status=delivery_status,
                 priority=100 if severity == "critical" else 50,
@@ -830,7 +830,7 @@ async def create_notification(
                 idempotency_key=f"{notification.id}:{channel}",
                 delivery_metadata={
                     "provider_ready_at_queue_time": state["ready"],
-                    "recipient_endpoint_present": endpoint is not None,
+                    "recipient_endpoint_present": selected_endpoint is not None,
                 },
             )
         )
@@ -958,7 +958,10 @@ def _send_email(address: str, notification: Notification) -> str:
     message["From"] = settings.SMTP_USER or "noreply@aionex.local"
     message["To"] = address
     message.set_content(notification.message)
-    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as smtp:
+    smtp_host = settings.SMTP_HOST
+    if not smtp_host:
+        raise ProviderNotConfigured("email-provider-unconfigured")
+    with smtplib.SMTP(smtp_host, settings.SMTP_PORT, timeout=15) as smtp:
         smtp.ehlo()
         if settings.SMTP_TLS:
             smtp.starttls(context=ssl.create_default_context())
@@ -982,8 +985,8 @@ def _send_push(address: str, notification: Notification) -> str:
     if not state["ready"]:
         raise ProviderNotConfigured("push-provider-unconfigured")
     try:
-        import firebase_admin
-        from firebase_admin import credentials, messaging
+        import firebase_admin  # type: ignore[import-untyped]
+        from firebase_admin import credentials, messaging  # type: ignore[import-untyped]
 
         if _firebase_app is None:
             try:

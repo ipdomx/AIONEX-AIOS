@@ -1597,6 +1597,7 @@ class MetricSample(Base):
     __tablename__ = "metric_samples"
     __table_args__ = (
         Index("ix_metric_name_resource_time", "name", "resource", "timestamp"),
+        Index("ix_metric_samples_timestamp", "timestamp"),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)

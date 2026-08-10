@@ -66,14 +66,16 @@ async def readiness(
     platforms = {}
     for platform in ("pwa", "android", "ios"):
         release = latest.get(platform)
+        validations = list(release.get("validations") or []) if release is not None else []
         platforms[platform] = {
             "registered": release is not None,
-            "status": release["status"] if release else "not_built",
-            "version": release["version"] if release else None,
-            "signing_status": release["signing_status"] if release else "unavailable",
-            "publication_status": release["publication_status"] if release else "not_published",
-            "validations_passed": bool(release) and all(
-                item["status"] == "passed" for item in release["validations"]
+            "status": release["status"] if release is not None else "not_built",
+            "version": release["version"] if release is not None else None,
+            "signing_status": release["signing_status"] if release is not None else "unavailable",
+            "publication_status": release["publication_status"] if release is not None else "not_published",
+            "validations_passed": release is not None and all(
+                isinstance(item, dict) and item.get("status") == "passed"
+                for item in validations
             ),
         }
     return {

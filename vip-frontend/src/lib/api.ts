@@ -125,8 +125,10 @@ function storeSession(session: LoginResponse): LoginResponse {
     clearSession();
     throw new Error("Session is not available on this portal");
   }
-  writeStorage(STORAGE_KEYS.access, session.access_token);
-  writeStorage(STORAGE_KEYS.refresh, session.refresh_token);
+  removeStorage(STORAGE_KEYS.access);
+  removeStorage(STORAGE_KEYS.refresh);
+  removeStorage(LEGACY_STORAGE_KEYS.access);
+  removeStorage(LEGACY_STORAGE_KEYS.refresh);
   writeStorage(STORAGE_KEYS.user, JSON.stringify(session.user));
   return session;
 }
@@ -141,9 +143,7 @@ export function clearSession(): void {
 }
 
 export function hasStoredSession(): boolean {
-  return Boolean(
-    readStorage(STORAGE_KEYS.access) && readStorage(STORAGE_KEYS.refresh),
-  );
+  return Boolean(readStorage(STORAGE_KEYS.user));
 }
 
 export function storedUser(): User | null {
@@ -201,17 +201,15 @@ function apiError(response: Response, payload: unknown): ApiError {
 
 async function refreshSession(): Promise<LoginResponse> {
   if (refreshInFlight) return refreshInFlight;
-  const refreshToken = readStorage(STORAGE_KEYS.refresh);
-  if (!refreshToken) throw new ApiError(401, "No refresh session", null, null);
-
   refreshInFlight = (async () => {
     const response = await fetch(`${API_ROOT}/auth/refresh`, {
       method: "POST",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      body: JSON.stringify({ refresh_token: refreshToken }),
+      body: JSON.stringify({}),
     });
     const payload = await responsePayload(response);
     if (!response.ok) {
@@ -232,21 +230,13 @@ async function request<T>(
 ): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
-  const accessToken = readStorage(STORAGE_KEYS.access);
-  if (auth && accessToken)
-    headers.set("Authorization", `Bearer ${accessToken}`);
 
   const response = await fetch(`${API_ROOT}${path}`, {
     credentials: "include",
     ...init,
     headers,
   });
-  if (
-    response.status === 401 &&
-    auth &&
-    retry &&
-    readStorage(STORAGE_KEYS.refresh)
-  ) {
+  if (response.status === 401 && auth && retry) {
     await refreshSession();
     return request<T>(path, { ...init, auth, retry: false });
   }
@@ -261,13 +251,11 @@ async function downloadRequest(
   retry = true,
 ): Promise<{ blob: Blob; filename: string }> {
   const headers = new Headers({ Accept: "application/zip" });
-  const accessToken = readStorage(STORAGE_KEYS.access);
-  if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
   const response = await fetch(`${API_ROOT}${path}`, {
     credentials: "include",
     headers,
   });
-  if (response.status === 401 && retry && readStorage(STORAGE_KEYS.refresh)) {
+  if (response.status === 401 && retry) {
     await refreshSession();
     return downloadRequest(path, false);
   }
@@ -364,11 +352,8 @@ export async function registerFree(
 }
 
 export async function logout(): Promise<void> {
-  const refreshToken = readStorage(STORAGE_KEYS.refresh);
   try {
-    await jsonRequest<unknown>("/auth/logout", "POST", {
-      refresh_token: refreshToken,
-    });
+    await jsonRequest<unknown>("/auth/logout", "POST", {});
   } finally {
     clearSession();
   }

@@ -6,6 +6,9 @@ services:
       args:
         NEXT_PUBLIC_USER_PORTAL_URL: ${AIOS_USER_PORTAL_URL:-https://ai.vip-e.net}
     restart: unless-stopped
+    mem_limit: 1g
+    cpus: "1.5"
+    pids_limit: 256
     environment:
       NEXT_PUBLIC_API_URL: /api/v1
       NEXT_PUBLIC_WS_URL: /ws
@@ -31,6 +34,9 @@ services:
         NEXT_PUBLIC_API_URL: https://api.vip-e.net/api/v1
         AIOS_BACKEND_ORIGIN: https://api.vip-e.net
     restart: unless-stopped
+    mem_limit: 1g
+    cpus: "1.5"
+    pids_limit: 256
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: https://api.vip-e.net/api/v1
@@ -53,6 +59,9 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
+    mem_limit: 4g
+    cpus: "4.0"
+    pids_limit: 768
     env_file: ["${AIOS_ENV_FILE:-.env}"]
     environment:
       ENVIRONMENT: production
@@ -92,6 +101,9 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: "no"
+    mem_limit: 1g
+    cpus: "1.0"
+    pids_limit: 256
     command: ["python", "/app/app/db/postgres_credentials.py"]
     env_file: ["${AIOS_ENV_FILE:-.env}"]
     environment:
@@ -112,6 +124,9 @@ services:
   backup-worker:
     image: aionex-aios-backend:local
     restart: unless-stopped
+    mem_limit: 3g
+    cpus: "2.0"
+    pids_limit: 512
     stop_grace_period: ${BACKUP_JOB_LEASE_SECONDS:-3600}s
     command: ["python", "-m", "app.services.backup_worker"]
     env_file: ["${AIOS_ENV_FILE:-.env}"]
@@ -140,6 +155,9 @@ services:
   communication-worker:
     image: aionex-aios-backend:local
     restart: unless-stopped
+    mem_limit: 2g
+    cpus: "2.0"
+    pids_limit: 384
     command: ["python", "-m", "app.services.communication_worker"]
     env_file: ["${AIOS_ENV_FILE:-.env}"]
     environment:
@@ -169,6 +187,9 @@ services:
   operations-observer:
     image: aionex-aios-backend:local
     restart: unless-stopped
+    mem_limit: 1g
+    cpus: "1.0"
+    pids_limit: 256
     command: ["python", "-m", "app.services.operations_observer"]
     env_file: ["${AIOS_ENV_FILE:-.env}"]
     environment:
@@ -195,6 +216,9 @@ services:
   studio-worker:
     image: aionex-aios-backend:local
     restart: unless-stopped
+    mem_limit: 3g
+    cpus: "2.0"
+    pids_limit: 512
     command: ["python", "-m", "app.services.studio_worker"]
     env_file: ["${AIOS_ENV_FILE:-.env}"]
     environment:
@@ -222,6 +246,9 @@ services:
   three-d-worker:
     image: aionex-aios-backend:local
     restart: unless-stopped
+    mem_limit: 3g
+    cpus: "2.0"
+    pids_limit: 512
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.three_d_worker"]
     env_file: ["${AIOS_ENV_FILE:-.env}"]
@@ -252,6 +279,9 @@ services:
     profiles: ["ai-execution"]
     image: aionex-aios-backend:local
     restart: unless-stopped
+    mem_limit: 4g
+    cpus: "3.0"
+    pids_limit: 768
     command: ["python", "-m", "app.services.project_execution_worker"]
     env_file: ["${AIOS_ENV_FILE:-.env}"]
     environment:
@@ -289,6 +319,9 @@ services:
     profiles: ["telegram"]
     image: aionex-aios-backend:local
     restart: unless-stopped
+    mem_limit: 1g
+    cpus: "1.0"
+    pids_limit: 256
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.telegram_worker"]
     env_file: ["${AIOS_ENV_FILE:-.env}"]
@@ -318,6 +351,9 @@ services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    mem_limit: 8g
+    cpus: "4.0"
+    pids_limit: 768
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
@@ -337,7 +373,10 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes", "--protected-mode", "no"]
+    mem_limit: 1g
+    cpus: "1.0"
+    pids_limit: 256
+    command: ["redis-server", "--appendonly", "yes", "--protected-mode", "no", "--maxmemory", "512mb", "--maxmemory-policy", "noeviction"]
     volumes: ["redis_data:/data"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -350,6 +389,9 @@ services:
   nginx:
     image: nginx:1.27-alpine
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: "1.0"
+    pids_limit: 256
     ports:
       - "127.0.0.1:${AIOS_ORIGIN_PORT:-8080}:8080"
       - "127.0.0.1:${AIOS_CONTROL_PORT:-8081}:8081"
@@ -373,6 +415,9 @@ services:
     image: cloudflare/cloudflared:2026.7.0
     profiles: ["tunnel"]
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: "1.0"
+    pids_limit: 256
     command: ["tunnel", "--no-autoupdate", "run", "--token", "${CLOUDFLARE_TUNNEL_TOKEN:-}"]
     depends_on:
       nginx: {condition: service_healthy}

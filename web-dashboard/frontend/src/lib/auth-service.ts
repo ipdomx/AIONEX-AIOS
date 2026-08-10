@@ -64,8 +64,8 @@ const USER_KEY = "aionex.user";
 
 function saveSession(response: LoginResponse): void {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(ACCESS_TOKEN_KEY, response.access_token);
-  window.localStorage.setItem(REFRESH_TOKEN_KEY, response.refresh_token);
+  window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+  window.localStorage.removeItem(REFRESH_TOKEN_KEY);
   window.localStorage.setItem(USER_KEY, JSON.stringify(response.user));
 }
 
@@ -109,13 +109,7 @@ export const authService = {
 
   async logout(): Promise<void> {
     try {
-      const refreshToken =
-        typeof window === "undefined"
-          ? null
-          : window.localStorage.getItem(REFRESH_TOKEN_KEY);
-      await apiClient.post<{ message: string }>("/auth/logout", {
-        refresh_token: refreshToken,
-      });
+      await apiClient.post<{ message: string }>("/auth/logout", {});
     } finally {
       clearSession();
     }
@@ -126,14 +120,7 @@ export const authService = {
   },
 
   async refresh(): Promise<LoginResponse> {
-    if (typeof window === "undefined") {
-      throw new Error("Refresh requires a browser session");
-    }
-    const refreshToken = window.localStorage.getItem(REFRESH_TOKEN_KEY);
-    if (!refreshToken) throw new Error("No refresh token available");
-    const response = await apiClient.post<LoginResponse>("/auth/refresh", {
-      refresh_token: refreshToken,
-    });
+    const response = await apiClient.post<LoginResponse>("/auth/refresh", {});
     saveSession(response);
     return response;
   },
@@ -151,10 +138,7 @@ export const authService = {
   },
 
   hasAccessToken(): boolean {
-    return (
-      typeof window !== "undefined" &&
-      Boolean(window.localStorage.getItem(ACCESS_TOKEN_KEY))
-    );
+    return typeof window !== "undefined" && Boolean(window.localStorage.getItem(USER_KEY));
   },
 
   clearSession,

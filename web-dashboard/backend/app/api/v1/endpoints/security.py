@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 
 from app.core.auth import UserRecord, require_permissions, require_super_owner
 from app.core.config import settings
@@ -148,7 +150,9 @@ async def get_audit_events(
         .where(
             or_(
                 AuditEvent.organization_id == actor.organization_id,
-                AuditEvent.organization_id.is_(None) if actor.role == "Super Owner" else False,
+                AuditEvent.organization_id.is_(None)
+                if actor.role == "Super Owner"
+                else AuditEvent.organization_id == actor.organization_id,
             )
         )
     )
@@ -216,12 +220,17 @@ async def get_policies(
             )
         ).all()
     )
-    policies = [
+    policies: list[dict[str, Any]] = [
         {
             "id": "password-policy",
             "name": "Password Policy",
             "status": "active",
-            "rules": {"minimum_length": 12, "hashing": "pbkdf2-sha256", "plaintext_storage": False},
+            "rules": {
+                "minimum_length": settings.PASSWORD_MIN_LENGTH,
+                "hashing": "argon2id",
+                "legacy_rehash": "pbkdf2-sha256-on-login",
+                "plaintext_storage": False,
+            },
             "source": "enforced-auth-runtime",
         },
         {

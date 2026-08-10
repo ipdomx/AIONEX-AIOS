@@ -38,22 +38,12 @@ export default function AuthProvider({ children }: PropsWithChildren) {
     let cancelled = false;
 
     async function restoreSession() {
-      const stored = authService.getStoredUser();
-      if (!authService.hasAccessToken()) {
-        if (!cancelled) {
-          setUser(null);
-          setLoading(false);
-        }
-        return;
-      }
-
       try {
         const current = await authService.currentUser();
         if (!cancelled) setUser(current);
       } catch {
         authService.clearSession();
-        if (!cancelled)
-          setUser(stored && authService.hasAccessToken() ? stored : null);
+        if (!cancelled) setUser(null);
       } finally {
         if (!cancelled) setLoading(false);
       }

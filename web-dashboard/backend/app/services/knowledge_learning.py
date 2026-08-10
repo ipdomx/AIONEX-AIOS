@@ -176,38 +176,38 @@ async def validate_scope(
     if not identifier:
         raise ValueError("A scope id is required")
     if normalized == "workspace":
-        item = await session.scalar(
+        workspace = await session.scalar(
             select(Workspace).where(
                 Workspace.id == identifier,
                 Workspace.organization_id == actor.organization_id,
                 Workspace.status != "deleted",
             )
         )
-        if item is None:
+        if workspace is None:
             raise LookupError("Knowledge workspace not found")
-        return normalized, identifier, item.id, None, None
+        return normalized, identifier, workspace.id, None, None
     if normalized == "project":
-        item = await session.scalar(
+        project = await session.scalar(
             select(Project).where(
                 Project.id == identifier,
                 Project.organization_id == actor.organization_id,
                 Project.status != "deleted",
             )
         )
-        if item is None:
+        if project is None:
             raise LookupError("Knowledge project not found")
-        return normalized, identifier, item.workspace_id, item.id, None
+        return normalized, identifier, project.workspace_id, project.id, None
     if normalized == "user":
-        item = await session.scalar(
+        scoped_user = await session.scalar(
             select(User).where(
                 User.id == identifier,
                 User.organization_id == actor.organization_id,
                 User.deleted_at.is_(None),
             )
         )
-        if item is None:
+        if scoped_user is None:
             raise LookupError("Knowledge user not found")
-        if item.id != actor.id and "*" not in actor.permissions and "knowledge:manage" not in actor.permissions:
+        if scoped_user.id != actor.id and "*" not in actor.permissions and "knowledge:manage" not in actor.permissions:
             raise PermissionError("User-scoped knowledge is private")
         return normalized, identifier, None, None, None
     worker = await session.scalar(

@@ -776,6 +776,57 @@ class BackupJobWorker:
             )
             await session.commit()
 
+    async def _enqueue_scheduled_backup_if_due(self) -> bool:
+        """Queue one protected platform backup when the production schedule is due."""
+        if not settings.BACKUP_SCHEDULE_ENABLED:
+            return False
+        async with self._session_factory() as session:
+            await acquire_enqueue_lock(session, "scheduled-platform-backup")
+            active = await session.scalar(
+                select(BackupRecord.id)
+                .where(
+                    BackupRecord.scope == "platform",
+                    BackupRecord.status.in_({"pending", "running"}),
+                )
+                .limit(1)
+            )
+            if active is not None:
+                return False
+            latest = await session.scalar(
+                select(BackupRecord.completed_at)
+                .where(
+                    BackupRecord.scope == "platform",
+                    BackupRecord.status == "completed",
+                    BackupRecord.completed_at.is_not(None),
+                )
+                .order_by(BackupRecord.completed_at.desc())
+                .limit(1)
+            )
+            if latest is not None and _as_utc(latest) > _now() - timedelta(
+                hours=settings.BACKUP_SCHEDULE_INTERVAL_HOURS
+            ):
+                return False
+            record = BackupRecord(
+                kind="scheduled-production",
+                scope="platform",
+                status="pending",
+            )
+            session.add(record)
+            await session.flush()
+            session.add(
+                _system_audit(
+                    "backup.schedule.queued",
+                    "backup",
+                    record.id,
+                    {
+                        "scope": "platform",
+                        "interval_hours": settings.BACKUP_SCHEDULE_INTERVAL_HOURS,
+                    },
+                )
+            )
+            await session.commit()
+            return True
+
     async def run_once(self) -> bool:
         backup = await self.claim_backup()
         if backup is not None:
@@ -804,6 +855,7 @@ class BackupJobWorker:
         if now < self._next_maintenance_at:
             return False
         self._next_maintenance_at = now + MAINTENANCE_INTERVAL_SECONDS
+        await self._enqueue_scheduled_backup_if_due()
         await self._apply_retention(
             current_backup_id=None,
             pressure=False,

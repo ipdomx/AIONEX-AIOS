@@ -1,8 +1,6 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
-const ACCESS_TOKEN_KEY = "aionex.access_token";
-const REFRESH_TOKEN_KEY = "aionex.refresh_token";
 
 export interface ApiErrorShape {
   detail?: string | { message?: string };
@@ -28,13 +26,10 @@ function createCorrelationId(): string {
   return `aionex-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 }
 
-function browserStorage(): Storage | null {
-  return typeof window !== "undefined" ? window.localStorage : null;
-}
 
 class ApiClient {
   private readonly client: AxiosInstance;
-  private refreshPromise: Promise<string | null> | null = null;
+  private refreshPromise: Promise<boolean> | null = null;
 
   constructor() {
     this.client = axios.create({
@@ -45,9 +40,6 @@ class ApiClient {
     });
 
     this.client.interceptors.request.use((config) => {
-      const storage = browserStorage();
-      const token = storage?.getItem(ACCESS_TOKEN_KEY);
-      if (token) config.headers.Authorization = `Bearer ${token}`;
       if (typeof FormData !== "undefined" && config.data instanceof FormData) {
         delete config.headers["Content-Type"];
       }
@@ -67,46 +59,33 @@ class ApiClient {
           !String(original.url).includes("/auth/")
         ) {
           original._retry = true;
-          const token = await this.refreshAccessToken();
-          if (token) {
-            original.headers = {
-              ...(original.headers || {}),
-              Authorization: `Bearer ${token}`,
-            };
-            return this.client.request(original);
-          }
+          const refreshed = await this.refreshAccessToken();
+          if (refreshed) return this.client.request(original);
         }
         return Promise.reject(error);
       },
     );
   }
 
-  private async refreshAccessToken(): Promise<string | null> {
-    const storage = browserStorage();
-    const refreshToken = storage?.getItem(REFRESH_TOKEN_KEY);
-    if (!storage || !refreshToken) return null;
+  private async refreshAccessToken(): Promise<boolean> {
     if (!this.refreshPromise) {
       this.refreshPromise = axios
         .post(
           `${API_BASE_URL}/auth/refresh`,
-          { refresh_token: refreshToken },
-          { headers: { "X-Correlation-ID": createCorrelationId() } },
+          {},
+          {
+            withCredentials: true,
+            headers: { "X-Correlation-ID": createCorrelationId() },
+          },
         )
-        .then((response) => {
-          const accessToken = response.data?.access_token as string | undefined;
-          const nextRefreshToken = response.data?.refresh_token as
-            string | undefined;
-          if (!accessToken) return null;
-          storage.setItem(ACCESS_TOKEN_KEY, accessToken);
-          if (nextRefreshToken)
-            storage.setItem(REFRESH_TOKEN_KEY, nextRefreshToken);
-          return accessToken;
-        })
+        .then(() => true)
         .catch(() => {
-          storage.removeItem(ACCESS_TOKEN_KEY);
-          storage.removeItem(REFRESH_TOKEN_KEY);
-          storage.removeItem("aionex.user");
-          return null;
+          if (typeof window !== "undefined") {
+            window.localStorage.removeItem("aionex.access_token");
+            window.localStorage.removeItem("aionex.refresh_token");
+            window.localStorage.removeItem("aionex.user");
+          }
+          return false;
         })
         .finally(() => {
           this.refreshPromise = null;

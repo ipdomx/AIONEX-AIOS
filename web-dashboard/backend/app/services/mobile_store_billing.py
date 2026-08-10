@@ -235,11 +235,15 @@ async def _google_acknowledge(token: str, product_id: str) -> bool:
 
 
 def _normalize_google(data: dict[str, Any]) -> dict[str, Any]:
-    lines = data.get("lineItems") or []
-    line = max(lines, key=lambda x: x.get("expiryTime", ""), default={})
-    raw_state = data.get("subscriptionState")
+    lines: list[dict[str, Any]] = [
+        item for item in (data.get("lineItems") or []) if isinstance(item, dict)
+    ]
+    line: dict[str, Any] = max(
+        lines, key=lambda item: str(item.get("expiryTime", "")), default={}
+    )
+    raw_state = str(data.get("subscriptionState") or "")
     status_ = GOOGLE_ACTIVE_STATES.get(raw_state, "unknown")
-    expiry = _iso(line.get("expiryTime"))
+    expiry = _iso(str(line.get("expiryTime") or "") or None)
     # Google CANCELED means auto-renew is off; access remains valid through expiry.
     if status_ == "canceled" and expiry and expiry > _now():
         status_ = "active"
@@ -288,11 +292,14 @@ def _normalize_apple(
     if event_type in {"REFUND", "REVOKE"}:
         status_ = "revoked"
     if event_type == "DID_FAIL_TO_RENEW":
+        grace_expiry = (
+            _ms(getattr(renewal, "gracePeriodExpiresDate", None))
+            if renewal is not None
+            else None
+        )
         status_ = (
             "grace_period"
-            if renewal
-            and getattr(renewal, "gracePeriodExpiresDate", None)
-            and _ms(renewal.gracePeriodExpiresDate) > _now()
+            if grace_expiry is not None and grace_expiry > _now()
             else "billing_retry"
         )
     auto = True
@@ -955,11 +962,11 @@ async def owner_store_overview(session: AsyncSession) -> dict[str, Any]:
         "google_play": set(),
     }
     for item in mappings:
-        plan = await session.get(BillingPlan, item.plan_id)
-        price = await session.get(BillingPrice, item.price_id)
-        if item.status == "active" and plan and price:
+        mapping_plan = await session.get(BillingPlan, item.plan_id)
+        mapping_price = await session.get(BillingPrice, item.price_id)
+        if item.status == "active" and mapping_plan and mapping_price:
             mapped_pairs.setdefault(item.store, set()).add(
-                (plan.code, price.period_code)
+                (mapping_plan.code, mapping_price.period_code)
             )
         rows.append(
             {
@@ -970,9 +977,9 @@ async def owner_store_overview(session: AsyncSession) -> dict[str, Any]:
                 "offer_id": item.offer_id,
                 "status": item.status,
                 "plan_id": item.plan_id,
-                "plan_code": plan.code if plan else None,
+                "plan_code": mapping_plan.code if mapping_plan else None,
                 "price_id": item.price_id,
-                "period_code": price.period_code if price else None,
+                "period_code": mapping_price.period_code if mapping_price else None,
                 "updated_at": item.updated_at.isoformat() if item.updated_at else None,
             }
         )
@@ -1005,16 +1012,16 @@ async def owner_store_overview(session: AsyncSession) -> dict[str, Any]:
                     "message": "Google Play RTDN Pub/Sub identity is not fully configured.",
                 }
             )
-        for price, plan in prices:
-            if (plan.code, price.period_code) not in mapped_pairs.get(store, set()):
+        for catalog_price, catalog_plan in prices:
+            if (catalog_plan.code, catalog_price.period_code) not in mapped_pairs.get(store, set()):
                 diagnostics.append(
                     {
                         "severity": "warning",
                         "store": store,
                         "code": "unmapped_price",
-                        "plan_code": plan.code,
-                        "period_code": price.period_code,
-                        "message": f"{plan.code}/{price.period_code} has no active {store_source_label(store)} mapping.",
+                        "plan_code": catalog_plan.code,
+                        "period_code": catalog_price.period_code,
+                        "message": f"{catalog_plan.code}/{catalog_price.period_code} has no active {store_source_label(store)} mapping.",
                     }
                 )
     return {
@@ -1023,14 +1030,14 @@ async def owner_store_overview(session: AsyncSession) -> dict[str, Any]:
         "diagnostics": diagnostics,
         "catalog_options": [
             {
-                "plan_id": plan.id,
-                "plan_code": plan.code,
-                "price_id": price.id,
-                "period_code": price.period_code,
-                "currency": price.currency,
-                "amount_minor": price.amount_minor,
+                "plan_id": catalog_plan.id,
+                "plan_code": catalog_plan.code,
+                "price_id": catalog_price.id,
+                "period_code": catalog_price.period_code,
+                "currency": catalog_price.currency,
+                "amount_minor": catalog_price.amount_minor,
             }
-            for price, plan in prices
+            for catalog_price, catalog_plan in prices
         ],
     }
 

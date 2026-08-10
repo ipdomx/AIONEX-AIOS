@@ -19,6 +19,9 @@ services:
       PYTHONPATH: /workspace/src:/app
       THREE_D_RUNPOD_SECRET_FILE: /run/secrets/aionex/RUNPOD_GPU.env
     restart: unless-stopped
+    mem_limit: 4g
+    cpus: "4.0"
+    pids_limit: 768
     expose:
       - "8000"
     volumes:
@@ -48,6 +51,9 @@ services:
     build:
       context: ../../web-dashboard/backend
     restart: "no"
+    mem_limit: 1g
+    cpus: "1.0"
+    pids_limit: 256
     command: ["python", "/app/app/db/postgres_credentials.py"]
     env_file:
       - ${AIOS_ENV_FILE:-.env.production}
@@ -76,6 +82,9 @@ services:
       PYTHONPATH: /workspace/src:/app
     command: ["python", "-m", "app.services.backup_worker"]
     restart: unless-stopped
+    mem_limit: 3g
+    cpus: "2.0"
+    pids_limit: 512
     volumes:
       - ../..:/workspace:ro
       - backup_data:/var/lib/aionex/backups:rw
@@ -105,6 +114,9 @@ services:
       PYTHONPATH: /workspace/src:/app
     command: ["python", "-m", "app.services.communication_worker"]
     restart: unless-stopped
+    mem_limit: 2g
+    cpus: "2.0"
+    pids_limit: 384
     volumes:
       - ../..:/workspace:ro
       - ../../web-dashboard/secrets:/run/secrets/aionex:ro
@@ -132,6 +144,9 @@ services:
       PYTHONPATH: /workspace/src:/app
     command: ["python", "-m", "app.services.operations_observer"]
     restart: unless-stopped
+    mem_limit: 1g
+    cpus: "1.0"
+    pids_limit: 256
     volumes:
       - ../..:/workspace:ro
     depends_on:
@@ -158,6 +173,9 @@ services:
       PYTHONPATH: /workspace/src:/app
     command: ["python", "-m", "app.services.studio_worker"]
     restart: unless-stopped
+    mem_limit: 3g
+    cpus: "2.0"
+    pids_limit: 512
     volumes:
       - ../..:/workspace:ro
       - studio_asset_data:/var/lib/aionex/studio-assets:rw
@@ -186,6 +204,9 @@ services:
       THREE_D_RUNPOD_SECRET_FILE: /run/secrets/aionex/runpod-gpu.env
     command: ["python", "-m", "app.services.three_d_worker"]
     restart: unless-stopped
+    mem_limit: 3g
+    cpus: "2.0"
+    pids_limit: 512
     stop_grace_period: 45s
     volumes:
       - ../..:/workspace:ro
@@ -221,6 +242,9 @@ services:
       PROJECT_EXECUTION_RESEARCH_MODEL: "gpt-5.4-nano"
     command: ["python", "-m", "app.services.project_execution_worker"]
     restart: unless-stopped
+    mem_limit: 4g
+    cpus: "3.0"
+    pids_limit: 768
     volumes:
       - ../..:/workspace:ro
       - ${AIOS_PROJECT_EXECUTION_SECRET_HOST_FILE:-/root/.config/aionex/phase22c-openai.env}:/run/secrets/aionex/project-openai.env:ro
@@ -243,6 +267,9 @@ services:
       NODE_ENV: production
       AIOS_BACKEND_ORIGIN: http://backend:8000
     restart: unless-stopped
+    mem_limit: 1g
+    cpus: "1.5"
+    pids_limit: 256
     expose:
       - "3000"
     depends_on:
@@ -266,6 +293,9 @@ services:
       AIOS_TELEGRAM_BOT_TOKEN_FILE: /run/secrets/aionex/telegram-bot-token
     command: ["python", "-m", "app.services.telegram_worker"]
     restart: unless-stopped
+    mem_limit: 1g
+    cpus: "1.0"
+    pids_limit: 256
     stop_grace_period: 45s
     volumes:
       - ../..:/workspace:ro
@@ -283,6 +313,9 @@ services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    mem_limit: 8g
+    cpus: "4.0"
+    pids_limit: 768
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
@@ -304,7 +337,10 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
+    mem_limit: 1g
+    cpus: "1.0"
+    pids_limit: 256
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "512mb", "--maxmemory-policy", "noeviction"]
     volumes:
       - redis_data:/data
     healthcheck:
@@ -316,6 +352,9 @@ services:
   proxy:
     image: caddy:2.8-alpine
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: "1.0"
+    pids_limit: 256
     ports:
       - "80:80"
       - "443:443"

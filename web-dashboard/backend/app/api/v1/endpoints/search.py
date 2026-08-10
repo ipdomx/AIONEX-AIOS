@@ -64,7 +64,7 @@ async def global_search(
     results: list[dict[str, Any]] = []
 
     if "project" in selected:
-        rows = list(
+        project_rows = list(
             (
                 await session.scalars(
                     select(Project)
@@ -90,11 +90,11 @@ async def global_search(
                 f"/projects?project={item.id}",
                 status=item.status,
             )
-            for item in rows
+            for item in project_rows
         )
 
     if "task" in selected:
-        rows = list(
+        task_rows = list(
             (
                 await session.scalars(
                     select(Task)
@@ -120,11 +120,11 @@ async def global_search(
                 f"/tasks?task={item.id}",
                 status=item.status,
             )
-            for item in rows
+            for item in task_rows
         )
 
     if "workflow" in selected:
-        rows = list(
+        workflow_rows = list(
             (
                 await session.scalars(
                     select(Workflow)
@@ -150,11 +150,11 @@ async def global_search(
                 f"/workflows?workflow={item.id}",
                 status=item.status,
             )
-            for item in rows
+            for item in workflow_rows
         )
 
     if "report" in selected:
-        rows = list(
+        report_rows = list(
             (
                 await session.scalars(
                     select(Report)
@@ -179,11 +179,11 @@ async def global_search(
                 f"/reports?report={item.id}",
                 status=item.status,
             )
-            for item in rows
+            for item in report_rows
         )
 
     if "knowledge" in selected:
-        rows = list(
+        knowledge_rows = list(
             (
                 await session.scalars(
                     select(KnowledgeItem)
@@ -212,11 +212,11 @@ async def global_search(
                 f"/knowledge?item={item.id}",
                 status=item.status,
             )
-            for item in rows
+            for item in knowledge_rows
         )
 
     if "lesson" in selected:
-        rows = list(
+        lesson_rows = list(
             (
                 await session.scalars(
                     select(Lesson)
@@ -242,13 +242,13 @@ async def global_search(
                 f"/knowledge?lesson={item.id}",
                 status=item.status,
             )
-            for item in rows
+            for item in lesson_rows
         )
 
     if "workforce" in selected and (
         "*" in actor.permissions or "workforce:read" in actor.permissions
     ):
-        rows = list(
+        workforce_rows = list(
             (
                 await session.scalars(
                     select(WorkforceMember)
@@ -274,7 +274,7 @@ async def global_search(
                 f"/owner/staff?member={item.id}",
                 status=item.status,
             )
-            for item in rows
+            for item in workforce_rows
         )
 
     ordered = results[:limit]

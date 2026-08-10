@@ -19,13 +19,13 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-import firebase_admin
+import firebase_admin  # type: ignore[import-untyped]
 import phonenumbers
 from app.core.config import settings
 from fastapi import HTTPException, status
-from firebase_admin import auth as firebase_auth
-from firebase_admin import credentials
-from firebase_admin.exceptions import FirebaseError
+from firebase_admin import auth as firebase_auth  # type: ignore[import-untyped]
+from firebase_admin import credentials  # type: ignore[import-untyped]
+from firebase_admin.exceptions import FirebaseError  # type: ignore[import-untyped]
 from google.auth.transport.requests import AuthorizedSession
 from google.oauth2 import service_account
 from phonenumbers import NumberParseException, PhoneNumberFormat, PhoneNumberType
@@ -459,9 +459,9 @@ def _compat_firebase_app() -> Any:
     import os
     from pathlib import Path
 
-    import firebase_admin
+    import firebase_admin  # type: ignore[import-untyped]
     from fastapi import HTTPException, status
-    from firebase_admin import credentials
+    from firebase_admin import credentials  # type: ignore[import-untyped]
 
     try:
         return firebase_admin.get_app()

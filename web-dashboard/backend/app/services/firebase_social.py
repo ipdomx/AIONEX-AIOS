@@ -20,8 +20,8 @@ from app.services.firebase_phone import (
     firebase_public_configuration,
 )
 from fastapi import HTTPException, status
-from firebase_admin import auth as firebase_auth
-from firebase_admin.exceptions import FirebaseError
+from firebase_admin import auth as firebase_auth  # type: ignore[import-untyped]
+from firebase_admin.exceptions import FirebaseError  # type: ignore[import-untyped]
 
 SOCIAL_PROVIDER_LABELS: dict[str, str] = {
     "google": "Google",
