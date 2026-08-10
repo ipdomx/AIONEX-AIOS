@@ -1,0 +1,36 @@
+rules:
+  - id: aionex.python.subprocess-shell-true
+    message: subprocess with shell=True can turn untrusted input into command execution.
+    severity: ERROR
+    languages: [python]
+    patterns:
+      - pattern: subprocess.$F(..., shell=True, ...)
+  - id: aionex.python.dynamic-eval
+    message: Dynamic eval executes code and must not receive untrusted data.
+    severity: ERROR
+    languages: [python]
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: exec(...)
+  - id: aionex.javascript.child-process-exec
+    message: child_process exec can create command injection when arguments are influenced by users.
+    severity: ERROR
+    languages: [javascript, typescript]
+    pattern-either:
+      - pattern: child_process.exec(...)
+      - pattern: child_process.execSync(...)
+  - id: aionex.javascript.tls-verification-disabled
+    message: TLS certificate verification is disabled.
+    severity: ERROR
+    languages: [javascript, typescript]
+    pattern: process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"
+  - id: aionex.python.requests-verify-false
+    message: TLS verification is disabled for an outbound request.
+    severity: ERROR
+    languages: [python]
+    pattern: requests.$METHOD(..., verify=False, ...)
+  - id: aionex.php.dynamic-eval
+    message: Dynamic eval can execute attacker-controlled PHP.
+    severity: ERROR
+    languages: [php]
+    pattern: eval(...)

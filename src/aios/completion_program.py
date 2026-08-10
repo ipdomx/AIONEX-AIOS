@@ -468,7 +468,7 @@ OWNER_PAGE_BATCH: Final[dict[str, str]] = {
     "platform-integration": "29G", "policies": "29E", "portal": "29B",
     "production-runtime": "29G", "projects": "29F", "realtime": "29G", "recovery": "29G",
     "release": "29G", "release-governance": "29G", "runtime": "29B", "search": "29B",
-    "secrets": "29G", "security-integration": "29G", "services": "29G", "staff": "29F",
+    "secrets": "29G", "security-integration": "29G", "security-lab": "34E", "services": "29G", "staff": "29F",
     "support": "29E", "system-map": "29G", "timeline": "29B",
 }
 
@@ -493,7 +493,7 @@ ENDPOINT_BATCH: Final[dict[str, str]] = {
     "identity": "29C", "incidents": "29E", "integration": "29I", "knowledge": "29F", "locale": "29B", "meetings": "29E",
     "mobile_delivery": "29H", "monitoring": "29G", "notifications": "29E", "organizations": "29C",
     "permissions": "29C", "portal": "29B", "project_executions": "29F", "projects": "29F",
-    "reports": "29F", "roles": "29C", "search": "29B", "security": "29G",
+    "reports": "29F", "roles": "29C", "search": "29B", "security": "29G", "security_lab": "34E",
     "servers": "29G", "settings": "29C", "studio": "29H", "support": "29E",
     "tasks": "29F", "teams": "29C", "three_d_jobs": "34D", "users": "29C", "websocket": "29E",
     "workflows": "29F", "workforce": "29F", "workspaces": "29C",

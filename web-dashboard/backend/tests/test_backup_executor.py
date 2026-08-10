@@ -1348,7 +1348,11 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
     assert "postgresql16-dev" in dockerfile
     assert "postgresql-client-17" not in dockerfile
     assert "apt-key" not in dockerfile
-    assert " AS builder" in dockerfile and " AS test" in dockerfile and " AS runtime" in dockerfile
+    assert (
+        " AS builder" in dockerfile
+        and " AS test" in dockerfile
+        and " AS runtime" in dockerfile
+    )
     assert "requirements-runtime.txt" in dockerfile
     assert "setuptools*" in dockerfile and "wheel*" in dockerfile
     assert "install -d -m 0700 -o aionex -g aionex" in dockerfile
@@ -1357,7 +1361,9 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
         assert "postgres-credential-reconciler:" in compose
         assert "communication-worker:" in compose
         assert "operations-observer:" in compose
-        assert 'command: ["python", "-m", "app.services.operations_observer"]' in compose
+        assert (
+            'command: ["python", "-m", "app.services.operations_observer"]' in compose
+        )
         assert "studio-worker:" in compose
         assert 'command: ["python", "-m", "app.services.studio_worker"]' in compose
         assert "three-d-worker:" in compose
@@ -1369,14 +1375,33 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
             'test: ["CMD", "python", "-m", "app.services.operations_observer", '
             '"--healthcheck"]' in compose
         )
-        assert compose.count("image: aionex-aios-backend:local") == 9
+        assert compose.count("image: aionex-aios-backend:local") == 10
         assert "backup_data:/var/lib/aionex/backups" in compose
         assert 'command: ["python", "-m", "app.services.backup_worker"]' in compose
         assert 'command: ["python", "/app/app/db/postgres_credentials.py"]' in compose
         assert "project-worker:" in compose
         assert 'profiles: ["ai-execution"]' in compose
-        assert 'command: ["python", "-m", "app.services.project_execution_worker"]' in compose
+        assert (
+            'command: ["python", "-m", "app.services.project_execution_worker"]'
+            in compose
+        )
         assert "project_execution_data:/var/lib/aionex/project-executions" in compose
+        assert "security-scan-worker:" in compose
+        assert (
+            'command: ["python", "-m", "app.services.security_scan_worker"]' in compose
+        )
+        assert "security-remediation-worker:" in compose
+        assert (
+            'command: ["python", "-m", "app.services.security_remediation_worker"]'
+            in compose
+        )
+        assert "security-zap:" in compose
+        assert 'profiles: ["security-tools"]' in compose
+        assert "security_source_data:/var/lib/aionex/security-sources:ro" in compose
+        assert (
+            "security_remediation_data:/var/lib/aionex/security-remediations:rw"
+            in compose
+        )
         assert "telegram-worker:" in compose
         assert 'profiles: ["telegram"]' in compose
         assert 'command: ["python", "-m", "app.services.telegram_worker"]' in compose
@@ -1397,12 +1422,14 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
     assert r"\(PostgreSQL\) 16(\.|$)" in validation_workflow
     assert "ps --status running -q backup-worker" in validation_workflow
     assert "-e RUN_LIVE_BACKUP_SMOKE=1" in validation_workflow
-    assert "docker build --target test -t aionex-aios-backend:test backend" in validation_workflow
+    assert (
+        "docker build --target test -t aionex-aios-backend:test backend"
+        in validation_workflow
+    )
     assert "aionex-aios-backend:test" in validation_workflow
     assert "python -m pytest -q" in validation_workflow
     assert '--network "$worker_network"' in validation_workflow
     assert '-v "$backup_volume:/var/lib/aionex/backups:rw"' in validation_workflow
-
 
 
 def test_backup_size_schema_supports_archives_larger_than_two_gibibytes() -> None:

@@ -1,0 +1,43 @@
+# AIONEX Security Lab tool runner. This is isolated from the public/backend runtime.
+FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS builder
+WORKDIR /build
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential libpq-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && python -m venv /opt/venv \
+    && /opt/venv/bin/pip install --no-cache-dir --upgrade pip setuptools wheel
+COPY requirements-runtime.txt .
+RUN /opt/venv/bin/pip install --no-cache-dir -r requirements-runtime.txt \
+    && /opt/venv/bin/pip install --no-cache-dir \
+       semgrep==1.172.0 \
+       bandit==1.9.4 \
+       pip-audit==2.10.1 \
+       schemathesis==4.24.3
+
+FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS runtime
+WORKDIR /app
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       bash bsdextrautils ca-certificates curl jq libio-socket-ssl-perl libnet-ssleay-perl libxml-writer-perl libpq5 nmap openssl perl postgresql-client procps unzip \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /opt/venv /opt/venv
+COPY scripts/install-security-tools.sh /usr/local/sbin/install-security-tools.sh
+RUN /usr/local/sbin/install-security-tools.sh \
+    && rm -f /usr/local/sbin/install-security-tools.sh
+COPY . .
+RUN rm -rf /app/tests \
+    && addgroup --system --gid 1000 aionex \
+    && adduser --system --uid 1000 --gid 1000 --home /home/aionex aionex \
+    && install -d -m 0700 -o aionex -g aionex /var/lib/aionex/security-sources /home/aionex/.cache \
+    && chown -R aionex:aionex /app /opt/venv /opt/testssl /opt/nuclei-templates /opt/nikto
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    AIOS_SEMGREP_RULESET=/app/security-rules/semgrep/aionex.yml \
+    AIOS_NUCLEI_TEMPLATES=/opt/nuclei-templates \
+    SEMGREP_ENABLE_VERSION_CHECK=0 \
+    TRIVY_NO_PROGRESS=true \
+    HOME=/tmp/aionex-security-home
+USER 1000:1000
+ENTRYPOINT []
+CMD ["python", "-m", "app.services.security_scan_worker"]

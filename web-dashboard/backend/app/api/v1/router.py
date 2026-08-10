@@ -11,6 +11,7 @@ from app.api.owner import (
     platform_integration,
     production_runtime,
     security_integration,
+    security_lab as owner_security_lab,
 )
 from app.api.owner import (
     portal as owner_portal,
@@ -49,6 +50,7 @@ from app.api.v1.endpoints import (
     roles,
     search,
     security,
+    security_lab,
     servers,
     settings,
     studio,
@@ -161,6 +163,9 @@ api_router.include_router(
     security.router, prefix="/security", tags=["Security"], dependencies=restricted
 )
 api_router.include_router(
+    security_lab.router, prefix="/security-lab", tags=["Security Lab"], dependencies=restricted
+)
+api_router.include_router(
     tasks.router, prefix="/tasks", tags=["Tasks"], dependencies=restricted
 )
 api_router.include_router(
@@ -247,6 +252,7 @@ owner_router = APIRouter(dependencies=[Depends(require_super_owner)])
 owner_router.include_router(platform_integration.router)
 owner_router.include_router(operations_integration.router)
 owner_router.include_router(security_integration.router)
+owner_router.include_router(owner_security_lab.router)
 owner_router.include_router(production_runtime.router)
 owner_router.include_router(final_platform_integration.router)
 owner_router.include_router(free_tier.router)

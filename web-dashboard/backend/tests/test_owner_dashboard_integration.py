@@ -102,6 +102,22 @@ OWNER_API_CONTRACT = {
     ("POST", "/api/v1/owner/portal/reset-draft"),
     ("POST", "/api/v1/owner/portal/assets"),
     ("DELETE", "/api/v1/owner/portal/assets/{asset_id}"),
+    ("GET", "/api/v1/owner/security-lab"),
+    ("PATCH", "/api/v1/owner/security-lab/policy"),
+    ("POST", "/api/v1/owner/security-lab/grants"),
+    ("POST", "/api/v1/owner/security-lab/grants/{user_id}/revoke"),
+    ("GET", "/api/v1/owner/security-lab/findings"),
+    ("POST", "/api/v1/owner/security-lab/findings/{finding_id}/decision"),
+    ("GET", "/api/v1/owner/security-lab/rules"),
+    ("POST", "/api/v1/owner/security-lab/rules/{rule_id}/validate"),
+    ("POST", "/api/v1/owner/security-lab/rules/{rule_id}/promote"),
+    ("GET", "/api/v1/owner/security-lab/release-gates"),
+    ("POST", "/api/v1/owner/security-lab/release-gates"),
+    ("GET", "/api/v1/owner/security-lab/eligible-users"),
+    ("GET", "/api/v1/owner/security-lab/eligible-projects"),
+    ("POST", "/api/v1/owner/security-lab/managed-targets"),
+    ("POST", "/api/v1/owner/security-lab/clone-targets"),
+    ("GET", "/api/v1/owner/security-lab/scans"),
 }
 
 OWNER_GET_ROUTES = sorted(
@@ -193,6 +209,29 @@ OWNER_MUTATION_REQUESTS = {
     ("POST", "/api/v1/owner/portal/reset-draft"): None,
     ("POST", "/api/v1/owner/portal/assets"): {"__files__": True},
     ("DELETE", "/api/v1/owner/portal/assets/{asset_id}"): None,
+    ("PATCH", "/api/v1/owner/security-lab/policy"): {"enabled": True},
+    ("POST", "/api/v1/owner/security-lab/grants"): {
+        "user_id": "missing-user",
+        "level": "standard",
+    },
+    ("POST", "/api/v1/owner/security-lab/grants/{user_id}/revoke"): None,
+    ("POST", "/api/v1/owner/security-lab/findings/{finding_id}/decision"): {
+        "state": "confirmed",
+    },
+    ("POST", "/api/v1/owner/security-lab/rules/{rule_id}/validate"): None,
+    ("POST", "/api/v1/owner/security-lab/rules/{rule_id}/promote"): None,
+    ("POST", "/api/v1/owner/security-lab/release-gates"): {
+        "scan_id": "missing-scan",
+    },
+    ("POST", "/api/v1/owner/security-lab/managed-targets"): {
+        "project_id": "missing-project",
+        "origin": "https://managed-security.vip-e.net",
+        "environment": "staging",
+    },
+    ("POST", "/api/v1/owner/security-lab/clone-targets"): {
+        "source_target_id": "missing-target",
+        "origin": "https://security-clone.vip-e.net",
+    },
 }
 
 NON_DATA_OWNER_PAGES = {"completion", "search", "costs", "licensing"}
@@ -278,6 +317,8 @@ def _materialize_route(path: str) -> str:
         "approval_id": "missing-approval",
         "control_id": "missing-control",
         "rule_id": "missing-rule",
+        "user_id": "missing-user",
+        "finding_id": "missing-finding",
         "license_id": "missing-license",
         "candidate_id": "missing-release",
         "version": "1",
@@ -315,13 +356,13 @@ def test_owner_navigation_registry_matches_all_owner_pages() -> None:
         f"/owner/{page.parent.relative_to(OWNER_APP).as_posix()}"
         for page in OWNER_APP.glob("*/page.tsx")
     }
-    assert len(page_routes) == 45
+    assert len(page_routes) == 46
 
     registry = (FRONTEND / "src" / "config" / "owner-navigation.ts").read_text()
     registry_routes = re.findall(r'href:\s*"(/owner/[^"]+)"', registry)
 
-    assert len(registry_routes) == 45
-    assert len(set(registry_routes)) == 45
+    assert len(registry_routes) == 46
+    assert len(set(registry_routes)) == 46
     assert set(registry_routes) == page_routes
 
 
