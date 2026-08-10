@@ -1,9 +1,16 @@
 import pytest
-from app.services.security_fabric import host_matches_suffix, normalize_origin, profile_allowed
+from app.services.security_fabric import (
+    host_matches_suffix,
+    normalize_origin,
+    profile_allowed,
+)
 
 
 def test_origin_normalization_and_path_rejection():
-    assert normalize_origin("https://Example.COM/") == ("https://example.com", "example.com")
+    assert normalize_origin("https://Example.COM/") == (
+        "https://example.com",
+        "example.com",
+    )
     with pytest.raises(ValueError):
         normalize_origin("https://example.com/admin")
     with pytest.raises(ValueError):

@@ -5,6 +5,7 @@ No user statement, model output, scan observation, or generated rule becomes tru
 knowledge merely because it was observed. Promotion requires provenance, repeatable
 evidence and an explicit verification boundary.
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -141,6 +142,7 @@ async def record_system_experience(
     is still required before lesson/rule promotion.
     """
     from app.db.models import AuditEvent, uuid_str
+
     fingerprint = knowledge_learning.sha256(knowledge_learning.canonical_json(context))
     item = LearningEvent(
         id=uuid_str(),
@@ -150,7 +152,9 @@ async def record_system_experience(
         action=action.strip(),
         context_fingerprint=fingerprint,
         outcome=outcome,
-        evidence=list(dict.fromkeys(value.strip() for value in evidence if value.strip())),
+        evidence=list(
+            dict.fromkeys(value.strip() for value in evidence if value.strip())
+        ),
         strategy="adaptive-worker-evidence-gated",
         lesson=(lesson or "").strip() or None,
         status="recorded",
@@ -163,7 +167,12 @@ async def record_system_experience(
             action="learning.event.recorded",
             resource_type="learning_event",
             resource_id=item.id,
-            details={"source": "system-worker", "outcome": outcome, "context_fingerprint": fingerprint, "evidence_count": len(item.evidence)},
+            details={
+                "source": "system-worker",
+                "outcome": outcome,
+                "context_fingerprint": fingerprint,
+                "evidence_count": len(item.evidence),
+            },
         )
     )
     await session.flush()

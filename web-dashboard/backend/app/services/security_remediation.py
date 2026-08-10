@@ -4,6 +4,7 @@ The remediation boundary deliberately separates source preparation, patch produc
 regression evidence, and security retesting. No code is ever applied to production
 or merged merely because an AI model proposed a change.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -35,7 +36,9 @@ def now() -> datetime:
 
 def _digest(value: Any) -> str:
     return hashlib.sha256(
-        json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+        json.dumps(
+            value, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        ).encode()
     ).hexdigest()
 
 
@@ -50,13 +53,17 @@ def remediation_snapshot(item: SecurityRemediation) -> dict[str, Any]:
         "plan": item.plan,
         "regression_result": item.regression_result,
         "retest_scan_id": item.retest_scan_id,
-        "verified_fixed_at": item.verified_fixed_at.isoformat() if item.verified_fixed_at else None,
+        "verified_fixed_at": (
+            item.verified_fixed_at.isoformat() if item.verified_fixed_at else None
+        ),
         "created_at": item.created_at.isoformat() if item.created_at else None,
         "updated_at": item.updated_at.isoformat() if item.updated_at else None,
     }
 
 
-def build_remediation_plan(finding: SecurityFinding, target: SecurityTarget) -> dict[str, Any]:
+def build_remediation_plan(
+    finding: SecurityFinding, target: SecurityTarget
+) -> dict[str, Any]:
     return {
         "schema_version": 1,
         "finding": {
@@ -74,10 +81,13 @@ def build_remediation_plan(finding: SecurityFinding, target: SecurityTarget) -> 
             "id": target.id,
             "project_id": target.project_id,
             "kind": target.kind,
-            "environment": str((target.target_metadata or {}).get("environment") or "production"),
+            "environment": str(
+                (target.target_metadata or {}).get("environment") or "production"
+            ),
         },
         "instructions": [
-            finding.remediation or "Apply the smallest project-compatible fix for the confirmed finding.",
+            finding.remediation
+            or "Apply the smallest project-compatible fix for the confirmed finding.",
             "Work only inside the isolated remediation copy.",
             "Preserve public contracts and existing tests unless a security contract intentionally changes.",
             "Add a regression test that fails before the fix and passes after it.",
@@ -100,6 +110,11 @@ async def request_remediation(
     *,
     finding_id: str,
 ) -> SecurityRemediation:
+    policy = await security_fabric.get_policy(session)
+    if not policy.get("auto_remediation_enabled", False):
+        raise PermissionError(
+            "Autonomous remediation is disabled by the Super Owner policy"
+        )
     level = await security_fabric.access_level(session, actor)
     if level not in {"autonomous", "owner"}:
         raise PermissionError("Autonomous remediation is controlled by the Super Owner")
@@ -121,7 +136,9 @@ async def request_remediation(
         )
     )
     if target is None or target.project_id is None or target.kind != "managed_project":
-        raise ValueError("Autonomous remediation is limited to managed AIONEX project targets")
+        raise ValueError(
+            "Autonomous remediation is limited to managed AIONEX project targets"
+        )
     existing = await session.scalar(
         select(SecurityRemediation).where(
             SecurityRemediation.organization_id == actor.organization_id,
@@ -163,19 +180,23 @@ def validate_patch_evidence(
     patch_digest: str,
 ) -> dict[str, Any]:
     normalized_files = sorted(
-        {
-            path.strip().replace("\\", "/")
-            for path in changed_files
-            if path.strip()
-        }
+        {path.strip().replace("\\", "/") for path in changed_files if path.strip()}
     )
     if not normalized_files or len(normalized_files) > 500:
         raise ValueError("A bounded changed-file manifest is required")
     for path in normalized_files:
         parts = Path(path).parts
-        if path.startswith("/") or ".." in parts or any(part in {".git", ".env", "secrets"} for part in parts):
+        if (
+            path.startswith("/")
+            or ".." in parts
+            or any(part in {".git", ".env", "secrets"} for part in parts)
+        ):
             raise ValueError("Patch evidence contains a forbidden path")
-    if not patch_digest or len(patch_digest) != 64 or any(c not in "0123456789abcdef" for c in patch_digest.lower()):
+    if (
+        not patch_digest
+        or len(patch_digest) != 64
+        or any(c not in "0123456789abcdef" for c in patch_digest.lower())
+    ):
         raise ValueError("A SHA-256 patch digest is required")
     normalized_tests = []
     for raw in tests[:200]:
@@ -193,7 +214,11 @@ def validate_patch_evidence(
         "regression_passed": True,
         "production_modified": False,
         "evidence_digest": _digest(
-            {"changed_files": normalized_files, "tests": normalized_tests, "patch_digest": patch_digest.lower()}
+            {
+                "changed_files": normalized_files,
+                "tests": normalized_tests,
+                "patch_digest": patch_digest.lower(),
+            }
         ),
     }
 
@@ -211,7 +236,9 @@ async def record_patch_evidence(
         raise PermissionError("Remediation is not available")
     level = await security_fabric.access_level(session, actor)
     if level not in {"autonomous", "owner"}:
-        raise PermissionError("Autonomous remediation evidence requires Owner-granted access")
+        raise PermissionError(
+            "Autonomous remediation evidence requires Owner-granted access"
+        )
     if remediation.status not in {"worktree_ready", "patch_ready"}:
         raise ValueError("Remediation is not ready for regression evidence")
     result = validate_patch_evidence(
@@ -226,7 +253,10 @@ async def record_patch_evidence(
             action="security.remediation.regression_passed",
             resource_type="security_remediation",
             resource_id=remediation.id,
-            details={"evidence_digest": result["evidence_digest"], "changed_files": len(result["changed_files"])},
+            details={
+                "evidence_digest": result["evidence_digest"],
+                "changed_files": len(result["changed_files"]),
+            },
         )
     )
     return remediation
@@ -280,10 +310,12 @@ async def finalize_retest(
     if retest.status != "completed":
         raise ValueError("Security retest is not complete")
     repeated = await session.scalar(
-        select(SecurityFinding.id).where(
+        select(SecurityFinding.id)
+        .where(
             SecurityFinding.scan_id == retest.id,
             SecurityFinding.fingerprint == finding.fingerprint,
-        ).limit(1)
+        )
+        .limit(1)
     )
     if repeated is not None:
         remediation.status = "retest_failed"
@@ -294,7 +326,10 @@ async def finalize_retest(
                 action="security.remediation.retest_failed",
                 resource_type="security_remediation",
                 resource_id=remediation.id,
-                details={"scan_id": retest.id, "finding_fingerprint": finding.fingerprint},
+                details={
+                    "scan_id": retest.id,
+                    "finding_fingerprint": finding.fingerprint,
+                },
             )
         )
         return remediation
@@ -311,7 +346,11 @@ async def finalize_retest(
             action="security.remediation.verified_fixed",
             resource_type="security_remediation",
             resource_id=remediation.id,
-            details={"scan_id": retest.id, "finding_id": finding.id, "production_modified": False},
+            details={
+                "scan_id": retest.id,
+                "finding_id": finding.id,
+                "production_modified": False,
+            },
         )
     )
     return remediation

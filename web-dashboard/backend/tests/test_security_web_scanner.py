@@ -2,7 +2,9 @@ from app.services.security_web_scanner import analyze_headers, analyze_tls
 
 
 def test_missing_headers_are_reported():
-    findings = analyze_headers("https://example.com", {"x-content-type-options": "nosniff"})
+    findings = analyze_headers(
+        "https://example.com", {"x-content-type-options": "nosniff"}
+    )
     titles = {item["title"] for item in findings}
     assert "Missing strict-transport-security" in titles
     assert "Missing content-security-policy" in titles

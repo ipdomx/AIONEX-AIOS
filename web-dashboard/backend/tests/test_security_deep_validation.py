@@ -1,4 +1,7 @@
-from app.services.security_deep_validation import authorization_matrix, build_scenario_plan
+from app.services.security_deep_validation import (
+    authorization_matrix,
+    build_scenario_plan,
+)
 
 
 def test_deep_validation_is_clone_only():
@@ -8,9 +11,13 @@ def test_deep_validation_is_clone_only():
 
 
 def test_clone_plan_exposes_missing_test_fixtures_instead_of_faking_success():
-    result = build_scenario_plan(environment="security_clone", available_roles=["user", "admin"])
+    result = build_scenario_plan(
+        environment="security_clone", available_roles=["user", "admin"]
+    )
     assert result["admitted"] is True
-    object_matrix = next(item for item in result["scenarios"] if item["id"] == "authz-object-matrix")
+    object_matrix = next(
+        item for item in result["scenarios"] if item["id"] == "authz-object-matrix"
+    )
     assert object_matrix["ready"] is False
     assert "user_a" in object_matrix["missing_roles"]
 

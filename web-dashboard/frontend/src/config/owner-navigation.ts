@@ -250,7 +250,8 @@ export const ownerNavigationSections: OwnerNavigationSection[] = [
       {
         id: "owner-3d",
         label: "3D Service Control",
-        description: "Highest-tier 3D access, user overrides, spend ceilings, and recovery limits.",
+        description:
+          "Highest-tier 3D access, user overrides, spend ceilings, and recovery limits.",
         href: "/owner/3d",
         icon: Box,
       },
@@ -284,6 +285,14 @@ export const ownerNavigationSections: OwnerNavigationSection[] = [
           "Identity, secrets, threat defense, and compliance health.",
         href: "/owner/security-integration",
         icon: Shield,
+      },
+      {
+        id: "owner-security-lab",
+        label: "مختبر الأمان",
+        description:
+          "الصلاحيات الأمنية وفرز الأدلة والتعلّم التكيفي والإصلاح وبوابات الإصدار.",
+        href: "/owner/security-lab",
+        icon: ShieldCheck,
       },
       {
         id: "owner-notifications",

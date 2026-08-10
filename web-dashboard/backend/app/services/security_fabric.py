@@ -1,4 +1,5 @@
 """Admission, target authorization and policy primitives for AIONEX Security Lab."""
+
 from __future__ import annotations
 
 import hashlib
@@ -65,8 +66,16 @@ def normalize_origin(value: str) -> tuple[str, str]:
     parsed = urlsplit(value.strip())
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise ValueError("Security target must be an http(s) origin")
-    if parsed.username or parsed.password or parsed.path not in {"", "/"} or parsed.query or parsed.fragment:
-        raise ValueError("Security target must be an origin without credentials, path, query, or fragment")
+    if (
+        parsed.username
+        or parsed.password
+        or parsed.path not in {"", "/"}
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ValueError(
+            "Security target must be an origin without credentials, path, query, or fragment"
+        )
     hostname = parsed.hostname.lower().rstrip(".")
     default_port = 443 if parsed.scheme == "https" else 80
     port = parsed.port or default_port
@@ -86,7 +95,9 @@ def host_matches_suffix(hostname: str, suffixes: list[str]) -> bool:
 def _assert_global_ip(address: str) -> None:
     ip = ipaddress.ip_address(address)
     if not ip.is_global:
-        raise ValueError("Security targets must resolve only to public routable addresses")
+        raise ValueError(
+            "Security targets must resolve only to public routable addresses"
+        )
 
 
 def assert_public_target(hostname: str) -> list[str]:
@@ -96,10 +107,10 @@ def assert_public_target(hostname: str) -> list[str]:
         return [hostname]
     except ValueError as literal_error:
         try:
-            ipaddress.ip_address(hostname)
+            literal_address = ipaddress.ip_address(hostname)
         except ValueError:
-            pass
-        else:
+            literal_address = None
+        if literal_address is not None:
             raise literal_error
     try:
         infos = socket.getaddrinfo(hostname, None, type=socket.SOCK_STREAM)
@@ -113,7 +124,23 @@ def assert_public_target(hostname: str) -> list[str]:
     return addresses
 
 
-async def get_policy(session: AsyncSession, *, for_update: bool = False) -> dict[str, Any]:
+def assert_target_dns_stable(target: SecurityTarget) -> list[str]:
+    current = assert_public_target(target.hostname)
+    previous = sorted(
+        str(value)
+        for value in (target.target_metadata or {}).get("verified_addresses", [])
+        if str(value)
+    )
+    if previous and sorted(current) != previous:
+        raise ValueError(
+            "Security target DNS changed after authorization; re-verify the target before scanning"
+        )
+    return current
+
+
+async def get_policy(
+    session: AsyncSession, *, for_update: bool = False
+) -> dict[str, Any]:
     stmt = select(OwnerControlRecord).where(
         OwnerControlRecord.domain == POLICY_DOMAIN,
         OwnerControlRecord.resource_id == POLICY_RESOURCE,
@@ -142,18 +169,31 @@ async def get_policy(session: AsyncSession, *, for_update: bool = False) -> dict
     return policy
 
 
-async def update_policy(session: AsyncSession, updates: dict[str, Any]) -> dict[str, Any]:
+async def update_policy(
+    session: AsyncSession, updates: dict[str, Any]
+) -> dict[str, Any]:
     current = await get_policy(session, for_update=True)
-    stmt = select(OwnerControlRecord).where(
-        OwnerControlRecord.domain == POLICY_DOMAIN,
-        OwnerControlRecord.resource_id == POLICY_RESOURCE,
-    ).with_for_update()
+    stmt = (
+        select(OwnerControlRecord)
+        .where(
+            OwnerControlRecord.domain == POLICY_DOMAIN,
+            OwnerControlRecord.resource_id == POLICY_RESOURCE,
+        )
+        .with_for_update()
+    )
     record = await session.scalar(stmt)
     assert record is not None
     merged = {**current, **updates}
     if "release_gate" in updates:
-        merged["release_gate"] = {**current["release_gate"], **dict(updates["release_gate"])}
-    suffixes = [str(value).lower().strip().lstrip(".") for value in merged.get("managed_domain_suffixes", []) if str(value).strip()]
+        merged["release_gate"] = {
+            **current["release_gate"],
+            **dict(updates["release_gate"]),
+        }
+    suffixes = [
+        str(value).lower().strip().lstrip(".")
+        for value in merged.get("managed_domain_suffixes", [])
+        if str(value).strip()
+    ]
     if len(suffixes) > 100:
         raise ValueError("Too many managed domain suffixes")
     merged["managed_domain_suffixes"] = sorted(set(suffixes))
@@ -171,7 +211,10 @@ async def access_level(session: AsyncSession, actor: UserRecord) -> str | None:
             SecurityAccessGrant.organization_id == actor.organization_id,
             SecurityAccessGrant.user_id == actor.id,
             SecurityAccessGrant.status == "active",
-            or_(SecurityAccessGrant.expires_at.is_(None), SecurityAccessGrant.expires_at > now()),
+            or_(
+                SecurityAccessGrant.expires_at.is_(None),
+                SecurityAccessGrant.expires_at > now(),
+            ),
         )
     )
     return grant.level if grant is not None else None
@@ -207,15 +250,21 @@ async def grant_access(
     if user is None:
         raise LookupError("Security Lab user not found")
     grant = await session.scalar(
-        select(SecurityAccessGrant).where(
+        select(SecurityAccessGrant)
+        .where(
             SecurityAccessGrant.organization_id == actor.organization_id,
             SecurityAccessGrant.user_id == user_id,
-        ).with_for_update()
+        )
+        .with_for_update()
     )
-    allowed_profiles = sorted({value for value in (profiles or []) if profile_allowed(level, value)})
+    allowed_profiles = sorted(
+        {value for value in (profiles or []) if profile_allowed(level, value)}
+    )
     if not allowed_profiles:
         max_rank = PROFILE_RANK[LEVEL_MAX_PROFILE[level]]
-        allowed_profiles = [name for name, rank in PROFILE_RANK.items() if rank <= max_rank]
+        allowed_profiles = [
+            name for name, rank in PROFILE_RANK.items() if rank <= max_rank
+        ]
     if grant is None:
         grant = SecurityAccessGrant(
             id=uuid_str(),
@@ -249,14 +298,18 @@ async def grant_access(
     return grant
 
 
-async def revoke_access(session: AsyncSession, actor: UserRecord, user_id: str) -> SecurityAccessGrant:
+async def revoke_access(
+    session: AsyncSession, actor: UserRecord, user_id: str
+) -> SecurityAccessGrant:
     if actor.role != "Super Owner":
         raise PermissionError("Only the Super Owner can revoke Security Lab access")
     grant = await session.scalar(
-        select(SecurityAccessGrant).where(
+        select(SecurityAccessGrant)
+        .where(
             SecurityAccessGrant.organization_id == actor.organization_id,
             SecurityAccessGrant.user_id == user_id,
-        ).with_for_update()
+        )
+        .with_for_update()
     )
     if grant is None:
         raise LookupError("Security Lab grant not found")
@@ -275,7 +328,9 @@ async def revoke_access(session: AsyncSession, actor: UserRecord, user_id: str) 
     return grant
 
 
-async def _project_access(session: AsyncSession, actor: UserRecord, project_id: str) -> Project:
+async def _project_access(
+    session: AsyncSession, actor: UserRecord, project_id: str
+) -> Project:
     project = await session.scalar(
         select(Project).where(
             Project.id == project_id,
@@ -308,18 +363,35 @@ async def register_managed_target(
     origin: str,
     environment: str = "production",
 ) -> SecurityTarget:
+    if actor.role != "Super Owner":
+        raise PermissionError(
+            "Managed AIONEX deployment targets are registered only by the Super Owner or trusted deployment automation"
+        )
     normalized, hostname = normalize_origin(origin)
+    environment = environment.strip().lower() or "production"
+    if environment not in {"production", "staging"}:
+        raise ValueError(
+            "Managed project targets may be production or staging; security clones are provisioned separately by the Super Owner"
+        )
     policy = await get_policy(session)
     if not host_matches_suffix(hostname, list(policy["managed_domain_suffixes"])):
-        raise PermissionError("Managed target hostname is outside Owner-approved deployment domains")
+        raise PermissionError(
+            "Managed target hostname is outside Owner-approved deployment domains"
+        )
     addresses = assert_public_target(hostname)
     project = await _project_access(session, actor, project_id)
     target = await session.scalar(
-        select(SecurityTarget).where(
+        select(SecurityTarget)
+        .where(
             SecurityTarget.organization_id == actor.organization_id,
             SecurityTarget.origin == normalized,
-        ).with_for_update()
+        )
+        .with_for_update()
     )
+    if target is not None and target.kind != "managed_project":
+        raise ValueError(
+            "Target origin is already registered under a different authorization type"
+        )
     if target is None:
         target = SecurityTarget(
             id=uuid_str(),
@@ -346,9 +418,104 @@ async def register_managed_target(
     target.status = "active"
     target.target_metadata = {
         **dict(target.target_metadata or {}),
-        "environment": environment.strip().lower() or "production",
+        "environment": environment,
         "verified_addresses": addresses,
     }
+    await session.flush()
+    return target
+
+
+async def register_security_clone_target(
+    session: AsyncSession,
+    actor: UserRecord,
+    *,
+    source_target_id: str,
+    origin: str,
+) -> SecurityTarget:
+    if actor.role != "Super Owner":
+        raise PermissionError(
+            "Only the Super Owner can register an isolated Security Lab clone target"
+        )
+    source = await session.scalar(
+        select(SecurityTarget).where(
+            SecurityTarget.id == source_target_id,
+            SecurityTarget.organization_id == actor.organization_id,
+            SecurityTarget.kind == "managed_project",
+            SecurityTarget.authorization_status == "verified",
+            SecurityTarget.status == "active",
+        )
+    )
+    if source is None or source.project_id is None:
+        raise LookupError("Managed source target not found")
+    normalized, hostname = normalize_origin(origin)
+    if normalized == source.origin:
+        raise ValueError(
+            "Security clone origin must be different from the managed source target"
+        )
+    policy = await get_policy(session)
+    if not host_matches_suffix(hostname, list(policy["managed_domain_suffixes"])):
+        raise PermissionError(
+            "Security clone hostname is outside Owner-approved deployment domains"
+        )
+    addresses = assert_public_target(hostname)
+    target = await session.scalar(
+        select(SecurityTarget)
+        .where(
+            SecurityTarget.organization_id == actor.organization_id,
+            SecurityTarget.origin == normalized,
+        )
+        .with_for_update()
+    )
+    if target is not None and target.kind != "security_clone":
+        raise ValueError(
+            "Security clone origin is already registered under a different authorization type"
+        )
+    if target is None:
+        target = SecurityTarget(
+            id=uuid_str(),
+            organization_id=actor.organization_id,
+            project_id=source.project_id,
+            created_by_id=actor.id,
+            verified_by_id=actor.id,
+            kind="security_clone",
+            origin=normalized,
+            hostname=hostname,
+            authorization_status="verified",
+            verification_method="owner_managed_clone",
+            active_scan_allowed=True,
+            status="active",
+            target_metadata={},
+            verified_at=now(),
+        )
+        session.add(target)
+    target.project_id = source.project_id
+    target.kind = "security_clone"
+    target.authorization_status = "verified"
+    target.verified_by_id = actor.id
+    target.verified_at = now()
+    target.active_scan_allowed = True
+    target.status = "active"
+    target.revoked_at = None
+    target.target_metadata = {
+        **dict(target.target_metadata or {}),
+        "environment": "security_clone",
+        "source_target_id": source.id,
+        "verified_addresses": addresses,
+    }
+    session.add(
+        AuditEvent(
+            organization_id=actor.organization_id,
+            user_id=actor.id,
+            action="security.clone_target.registered",
+            resource_type="security_target",
+            resource_id=target.id,
+            details={
+                "source_target_id": source.id,
+                "project_id": source.project_id,
+                "hostname": hostname,
+            },
+        )
+    )
     await session.flush()
     return target
 
@@ -364,11 +531,17 @@ async def register_external_target(
     raw_challenge = "aionex-verify-" + secrets.token_urlsafe(32)
     digest = hashlib.sha256(raw_challenge.encode()).hexdigest()
     target = await session.scalar(
-        select(SecurityTarget).where(
+        select(SecurityTarget)
+        .where(
             SecurityTarget.organization_id == actor.organization_id,
             SecurityTarget.origin == normalized,
-        ).with_for_update()
+        )
+        .with_for_update()
     )
+    if target is not None and target.kind != "external_authorized":
+        raise ValueError(
+            "Target origin is already registered as an AIONEX-managed target"
+        )
     if target is None:
         target = SecurityTarget(
             id=uuid_str(),
@@ -391,7 +564,10 @@ async def register_external_target(
         target.active_scan_allowed = False
         target.verified_at = None
         target.revoked_at = None
-        target.target_metadata = {**dict(target.target_metadata or {}), "verified_addresses": addresses}
+        target.target_metadata = {
+            **dict(target.target_metadata or {}),
+            "verified_addresses": addresses,
+        }
     await session.flush()
     return target, raw_challenge
 
@@ -403,14 +579,19 @@ async def verify_external_target(
     *,
     challenge: str,
 ) -> SecurityTarget:
-    if target.organization_id != actor.organization_id or target.kind != "external_authorized":
+    if (
+        target.organization_id != actor.organization_id
+        or target.kind != "external_authorized"
+    ):
         raise PermissionError("External target is not available")
     if target.challenge_hash != hashlib.sha256(challenge.encode()).hexdigest():
         raise ValueError("Verification challenge does not match")
     current_addresses = assert_public_target(target.hostname)
     url = target.origin.rstrip("/") + "/.well-known/aionex-security-verification.txt"
     async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as client:
-        response = await client.get(url, headers={"User-Agent": "AIONEX-Security-Verification/1.0"})
+        response = await client.get(
+            url, headers={"User-Agent": "AIONEX-Security-Verification/1.0"}
+        )
     if response.status_code != 200 or response.text.strip() != challenge:
         raise ValueError("External target verification file was not confirmed")
     policy = await get_policy(session)
@@ -418,7 +599,10 @@ async def verify_external_target(
     target.verified_by_id = actor.id
     target.verified_at = now()
     target.active_scan_allowed = bool(policy["active_on_verified_targets"])
-    target.target_metadata = {**dict(target.target_metadata or {}), "verified_addresses": current_addresses}
+    target.target_metadata = {
+        **dict(target.target_metadata or {}),
+        "verified_addresses": current_addresses,
+    }
     target.challenge_hash = None
     session.add(
         AuditEvent(

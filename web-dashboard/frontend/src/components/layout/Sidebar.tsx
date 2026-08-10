@@ -216,6 +216,12 @@ const baseMainNavSections: NavSection[] = [
         icon: Shield,
         href: "/security/policies",
       },
+      {
+        id: "sec-lab",
+        label: "مختبر الأمان",
+        icon: Shield,
+        href: "/security-lab",
+      },
     ],
   },
   {
