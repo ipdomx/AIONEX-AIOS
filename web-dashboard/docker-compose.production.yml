@@ -405,6 +405,10 @@ services:
       POSTGRES_PORT: "5432"
       SECURITY_REMEDIATION_WORKER_POLL_SECONDS: "5"
       SECURITY_REMEDIATION_WORKER_HEALTH_FILE: /tmp/aionex-security-remediation-worker.json
+      SECURITY_REMEDIATION_ROOT: /var/lib/aionex/security-remediations
+      PORTAL_ASSET_ROOT: ""
+      STUDIO_ASSET_ROOT: ""
+      MOBILE_RELEASE_ROOT: ""
       PYTHONPATH: /workspace/src:/app
     volumes:
       - ..:/workspace:ro
@@ -423,6 +427,7 @@ services:
       start_period: 20s
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
+    cap_add: ["CHOWN", "FOWNER", "SETGID", "SETUID"]
     networks: [aionex-network]
 
   security-zap:
