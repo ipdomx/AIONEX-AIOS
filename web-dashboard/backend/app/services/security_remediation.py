@@ -135,10 +135,35 @@ async def request_remediation(
             SecurityTarget.status == "active",
         )
     )
-    if target is None or target.project_id is None or target.kind != "managed_project":
+    if target is None or target.project_id is None or target.kind not in {
+        "managed_project",
+        "security_clone",
+    }:
         raise ValueError(
-            "Autonomous remediation is limited to managed AIONEX project targets"
+            "Autonomous remediation is limited to managed AIONEX projects and their isolated security clones"
         )
+    if target.kind == "security_clone":
+        source_target_id = str(
+            (target.target_metadata or {}).get("source_target_id") or ""
+        ).strip()
+        source_target = (
+            await session.scalar(
+                select(SecurityTarget).where(
+                    SecurityTarget.id == source_target_id,
+                    SecurityTarget.organization_id == actor.organization_id,
+                    SecurityTarget.project_id == target.project_id,
+                    SecurityTarget.kind == "managed_project",
+                    SecurityTarget.authorization_status == "verified",
+                    SecurityTarget.status == "active",
+                )
+            )
+            if source_target_id
+            else None
+        )
+        if source_target is None:
+            raise ValueError(
+                "Security-clone remediation requires its verified managed-project source target"
+            )
     existing = await session.scalar(
         select(SecurityRemediation).where(
             SecurityRemediation.organization_id == actor.organization_id,

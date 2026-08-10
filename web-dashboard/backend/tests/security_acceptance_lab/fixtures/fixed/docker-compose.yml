@@ -1,0 +1,8 @@
+services:
+  app:
+    image: acceptance-fixture:1.0
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

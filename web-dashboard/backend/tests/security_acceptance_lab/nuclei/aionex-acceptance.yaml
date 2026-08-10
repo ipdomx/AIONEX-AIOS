@@ -1,0 +1,21 @@
+id: aionex-security-acceptance-exposed-git
+
+info:
+  name: AIONEX acceptance exposed Git metadata
+  author: aionex
+  severity: medium
+  tags: aionex,acceptance,exposure
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/.git/config"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: word
+        part: body
+        words:
+          - "repositoryformatversion"

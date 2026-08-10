@@ -11,6 +11,7 @@ import asyncio
 import hashlib
 import os
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -128,9 +129,42 @@ class ZapClient:
         return await self.alerts(origin)
 
     async def active_clone(self, origin: str, *, timeout: int = 300) -> dict[str, Any]:
+        # Active scanning starts from a fresh isolated session, so discover the
+        # target surface in that same session before launching the active engine.
+        # Otherwise only the root URL may be known and parameterized routes can be
+        # skipped even though the earlier passive pass crawled them.
         await self._json(
             "/JSON/core/action/newSession/", {"name": "", "overwrite": "true"}
         )
+        spider = await self._json(
+            "/JSON/spider/action/scan/",
+            {"url": origin, "maxChildren": "100", "subtreeOnly": "true"},
+        )
+        spider_id = str(spider.get("scan") or "")
+        if not spider_id:
+            raise RuntimeError("ZAP active pre-scan spider did not return a scan id")
+        await self._wait_percent(
+            "/JSON/spider/view/status/",
+            scan_id=spider_id,
+            timeout=min(timeout, 120),
+        )
+
+        # Let passive processing settle before the active scan. This also makes
+        # the discovered URL inventory stable enough to target parameterized
+        # same-origin URLs explicitly after the recursive root scan.
+        passive_deadline = asyncio.get_running_loop().time() + min(timeout, 90)
+        while True:
+            payload = await self._json("/JSON/pscan/view/recordsToScan/")
+            try:
+                remaining = int(payload.get("recordsToScan", "0"))
+            except (TypeError, ValueError):
+                remaining = 0
+            if remaining <= 0:
+                break
+            if asyncio.get_running_loop().time() >= passive_deadline:
+                raise TimeoutError("ZAP active pre-scan passive queue timed out")
+            await asyncio.sleep(1.0)
+
         started = await self._json(
             "/JSON/ascan/action/scan/",
             {"url": origin, "recurse": "true", "inScopeOnly": "false"},
@@ -141,6 +175,41 @@ class ZapClient:
         await self._wait_percent(
             "/JSON/ascan/view/status/", scan_id=scan_id, timeout=timeout
         )
+
+        # Some ZAP builds can omit query-bearing URLs from a recursive active
+        # scan even though the spider discovered them. Scan a bounded set of
+        # same-origin parameterized URLs explicitly. This remains clone-only,
+        # uses only URLs ZAP itself discovered, and never expands to another host.
+        discovered = await self._json("/JSON/core/view/urls/", {"baseurl": origin})
+        raw_urls = discovered.get("urls")
+        urls = raw_urls if isinstance(raw_urls, list) else []
+        base = urlsplit(origin)
+        parameterized: list[str] = []
+        for candidate in urls:
+            value = str(candidate or "")
+            parsed = urlsplit(value)
+            if (
+                parsed.scheme == base.scheme
+                and parsed.netloc == base.netloc
+                and parsed.query
+                and value not in parameterized
+            ):
+                parameterized.append(value)
+            if len(parameterized) >= 20:
+                break
+        for url in parameterized:
+            targeted = await self._json(
+                "/JSON/ascan/action/scan/",
+                {"url": url, "recurse": "false", "inScopeOnly": "false"},
+            )
+            targeted_id = str(targeted.get("scan") or "")
+            if not targeted_id:
+                raise RuntimeError("ZAP targeted active scan did not return a scan id")
+            await self._wait_percent(
+                "/JSON/ascan/view/status/",
+                scan_id=targeted_id,
+                timeout=min(timeout, 180),
+            )
         return await self.alerts(origin)
 
     async def alerts(self, origin: str) -> dict[str, Any]:
