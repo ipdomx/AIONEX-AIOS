@@ -17,6 +17,7 @@ from app.services import security_fabric, security_tools
 from app.services.security_api_analyzer import analyze_openapi
 from app.services.security_web_scanner import scan_web_origin
 from app.services.security_deep_validation import build_scenario_plan
+from app.services.security_mobile import scan_mobile_source
 
 ACTIVE_SCAN_STATES = {"queued", "running"}
 
@@ -203,6 +204,9 @@ async def execute_scan(session: AsyncSession, scan: SecurityScan) -> SecuritySca
         built_in = security_tools.scan_source_tree(source)
         results.append({key: value for key, value in built_in.items() if key != "findings"})
         all_findings.extend(built_in.get("findings", []))
+        mobile_result = scan_mobile_source(source)
+        results.append({key: value for key, value in mobile_result.items() if key != "findings"})
+        all_findings.extend(mobile_result.get("findings", []))
     # Optional engines run only through fixed adapters and only after target
     # authorization. Missing tools are reported as unavailable, never as passes.
     if security_fabric.PROFILE_RANK.get(scan.profile, 0) >= 1:

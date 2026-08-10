@@ -87,6 +87,11 @@ TOOL_CATALOG: tuple[ToolSpec, ...] = (
     ToolSpec("commix", "dast", "commix", active=True, intrusive=True, requires_clone=True, description="Focused command-injection validation on authorized clones"),
     ToolSpec("lynis", "infrastructure", "lynis", active=True, description="Linux hardening audit for managed infrastructure"),
     ToolSpec("openscap", "infrastructure", "oscap", active=True, description="SCAP compliance validation"),
+    ToolSpec("mobsf", "mobile", "mobsfscan", requires_source=True, description="Mobile application static security integration"),
+    ToolSpec("jadx", "mobile", "jadx", requires_source=True, description="Android decompilation support for authorized artifacts"),
+    ToolSpec("apkleaks", "mobile", "apkleaks", requires_source=True, description="Android secret/reference discovery"),
+    ToolSpec("dependency-track", "supply_chain", "dependency-track", requires_source=True, description="Dependency-Track SBOM portfolio integration"),
+    ToolSpec("cosign", "supply_chain", "cosign", requires_source=True, description="Artifact signature/provenance verification"),
 )
 
 CATALOG_BY_ID = {item.id: item for item in TOOL_CATALOG}
@@ -96,6 +101,7 @@ _ALLOWED_SOURCE_SUFFIXES = {
     ".cs", ".c", ".cc", ".cpp", ".h", ".hpp", ".sh", ".bash", ".yml", ".yaml", ".json", ".toml",
     ".ini", ".conf", ".xml", ".properties", ".env.example",
 }
+_SPECIAL_SOURCE_NAMES = {"Dockerfile", "Containerfile", "docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml", "AndroidManifest.xml"}
 _MANIFEST_NAMES = {
     "package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "requirements.txt", "requirements-runtime.txt",
     "pyproject.toml", "poetry.lock", "Pipfile.lock", "composer.json", "composer.lock", "Gemfile.lock", "go.mod", "go.sum",
@@ -168,7 +174,7 @@ def scan_source_tree(root: Path, *, max_files: int = 20_000) -> dict[str, Any]:
         if path.name in _MANIFEST_NAMES:
             manifests.append(relative_path.as_posix())
         suffix = path.suffix.lower()
-        if suffix not in _ALLOWED_SOURCE_SUFFIXES and path.name not in _MANIFEST_NAMES:
+        if suffix not in _ALLOWED_SOURCE_SUFFIXES and path.name not in _MANIFEST_NAMES and path.name not in _SPECIAL_SOURCE_NAMES:
             continue
         scanned += 1
         text = _safe_text(path)
@@ -205,6 +211,17 @@ def scan_source_tree(root: Path, *, max_files: int = 20_000) -> dict[str, Any]:
                         "evidence": {"marker": marker, "line": line_no},
                         "remediation": "Replace the risky primitive with a constrained API and validate untrusted inputs before use.",
                     })
+        if path.name in {"Dockerfile", "Containerfile"}:
+            lowered = text.lower()
+            if "user " not in lowered:
+                findings.append({"source":"aionex-source","category":"container-hardening","title":"Container build has no explicit non-root USER","severity":"medium","confidence":0.75,"state":"observed","fingerprint":_fingerprint("container", relative_path.as_posix(), 0, "no-user"),"cwe":"CWE-250","location":relative_path.as_posix(),"evidence":{"marker":"missing-user"},"remediation":"Create an unprivileged runtime user and switch with USER before the final command."})
+            if re.search(r"(?im)^\s*from\s+[^\s:]+:latest(?:\s|$)", text):
+                findings.append({"source":"aionex-source","category":"supply-chain","title":"Container base image uses the mutable latest tag","severity":"medium","confidence":0.95,"state":"observed","fingerprint":_fingerprint("container", relative_path.as_posix(), 0, "latest-tag"),"cwe":"CWE-1104","location":relative_path.as_posix(),"evidence":{"marker":"latest-tag"},"remediation":"Pin the base image to an explicit version and preferably an immutable digest."})
+        if path.name in {"docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"}:
+            lowered = text.lower()
+            for marker, token in (("privileged-container", "privileged: true"), ("host-network", "network_mode: host"), ("docker-socket", "/var/run/docker.sock")):
+                if token in lowered:
+                    findings.append({"source":"aionex-source","category":"container-hardening","title":f"Container configuration exposes {marker}","severity":"high","confidence":0.95,"state":"observed","fingerprint":_fingerprint("compose", relative_path.as_posix(), 0, marker),"cwe":"CWE-250","location":relative_path.as_posix(),"evidence":{"marker":marker},"remediation":"Remove elevated host/container access unless it is strictly required and separately isolated."})
     return {
         "scanner": "aionex-source-v1",
         "files_scanned": scanned,
