@@ -11,6 +11,7 @@ from app.api.owner import (
     platform_integration,
     production_runtime,
     security_integration,
+    security_lab,
 )
 from app.api.owner import (
     portal as owner_portal,
@@ -247,6 +248,7 @@ owner_router = APIRouter(dependencies=[Depends(require_super_owner)])
 owner_router.include_router(platform_integration.router)
 owner_router.include_router(operations_integration.router)
 owner_router.include_router(security_integration.router)
+owner_router.include_router(security_lab.router)
 owner_router.include_router(production_runtime.router)
 owner_router.include_router(final_platform_integration.router)
 owner_router.include_router(free_tier.router)
