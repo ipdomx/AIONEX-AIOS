@@ -73,8 +73,8 @@ export function PortalHome() {
         eyebrow: { ar: t("capabilitiesEyebrow"), en: t("capabilitiesEyebrow") },
         title: { ar: t("capabilitiesTitle"), en: t("capabilitiesTitle") },
         description: { ar: t("capabilitiesCopy"), en: t("capabilitiesCopy") },
-        items: [1, 2, 3, 4].map((number) => ({
-          icon: ["workflow", "brain", "shield", "network"][number - 1],
+        items: [1, 2, 3, 4, 5].map((number) => ({
+          icon: ["workflow", "brain", "shield", "network", "shield"][number - 1],
           title: { ar: t(`capability${number}Title`), en: t(`capability${number}Title`) },
           copy: { ar: t(`capability${number}Copy`), en: t(`capability${number}Copy`) },
         })),

@@ -82,3 +82,22 @@ def test_security_worker_has_durable_writable_tool_cache():
         assert "read_only: true" in section
         assert "security_tool_cache_data:/tmp/aionex-security-home:rw" in section
         assert "security_tool_cache_data:" in compose
+
+
+def test_phase35_security_lab_is_exposed_to_entitled_vip_users_in_all_locales():
+    assert (ROOT / "vip-frontend/src/app/[locale]/security-lab/page.tsx").is_file()
+    client = read("vip-frontend/src/components/pages/security-lab-client.tsx")
+    api = read("vip-frontend/src/lib/api.ts")
+    navbar = read("vip-frontend/src/components/layout/navbar.tsx")
+    dashboard = read("vip-frontend/src/components/pages/dashboard-client.tsx")
+    assert "getSecurityLabAccess" in client
+    assert "createSecurityScan" in client
+    assert "registerExternalSecurityTarget" in client
+    assert '"/security-lab/access"' in api
+    assert '"/security-lab/scans"' in api
+    assert "securityLabVisible" in navbar
+    assert "securityAccess?.enabled && securityAccess.granted" in dashboard
+    for locale in ("ar", "en", "fr", "de", "es", "tr"):
+        messages = read(f"vip-frontend/src/messages/{locale}.json")
+        assert '"securityLab"' in messages
+        assert '"securityLabTitle"' in messages

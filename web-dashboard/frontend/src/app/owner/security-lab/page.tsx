@@ -70,7 +70,9 @@ export default function OwnerSecurityLabPage() {
   const [selectedScan, setSelectedScan] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("جارٍ تحميل مركز تحكم مختبر الأمان…");
+  const [message, setMessage] = useState(
+    "Loading Security Lab control center…",
+  );
 
   async function load(signal?: AbortSignal) {
     setLoading(true);
@@ -110,11 +112,13 @@ export default function OwnerSecurityLabPage() {
         setCloneSourceId(firstManagedTarget.id);
       const completed = scanRows.find((item) => item.status === "completed");
       if (!selectedScan && completed) setSelectedScan(completed.id);
-      setMessage("تمت مزامنة مركز تحكم مختبر الأمان.");
+      setMessage("Security Lab control center synchronized.");
     } catch (error) {
       if (!(error instanceof DOMException && error.name === "AbortError")) {
         setMessage(
-          error instanceof Error ? error.message : "فشلت مزامنة مختبر الأمان.",
+          error instanceof Error
+            ? error.message
+            : "Security Lab synchronization failed.",
         );
       }
     } finally {
@@ -162,10 +166,14 @@ export default function OwnerSecurityLabPage() {
     try {
       const saved = await ownerSecurityLabApi.updatePolicy(policy);
       setPolicy(saved);
-      setMessage("تم حفظ سياسة مختبر الأمان وتسجيلها في سجل التدقيق.");
+      setMessage("Security Lab policy saved and audit-logged.");
       await load();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "فشل تحديث السياسة.");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Security Lab policy update failed.",
+      );
     } finally {
       setBusy(false);
     }
@@ -183,14 +191,14 @@ export default function OwnerSecurityLabPage() {
       setManagedOrigin("");
       setCloneSourceId(created.id);
       setMessage(
-        "تم تسجيل هدف المشروع المُدار وربطه بالمشروع من جهة المالك الأعلى.",
+        "Managed project target registered and bound by the Super Owner.",
       );
       await load();
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
-          : "فشل تسجيل هدف المشروع المُدار.",
+          : "Managed project target registration failed.",
       );
     } finally {
       setBusy(false);
@@ -207,14 +215,14 @@ export default function OwnerSecurityLabPage() {
       );
       setCloneOrigin("");
       setMessage(
-        "تم تسجيل هدف النسخة الأمنية المعزولة وربطه بالمشروع المُدار.",
+        "Isolated security clone target registered and linked to the managed project.",
       );
       await load();
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
-          : "فشل تسجيل النسخة الأمنية المعزولة.",
+          : "Security clone target registration failed.",
       );
     } finally {
       setBusy(false);
@@ -229,11 +237,13 @@ export default function OwnerSecurityLabPage() {
         user_id: selectedUser,
         level: grantLevel,
       });
-      setMessage("تم حفظ صلاحية مختبر الأمان للمستخدم المحدد.");
+      setMessage("Security Lab access saved for the selected user.");
       await load();
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "فشل تحديث الصلاحية.",
+        error instanceof Error
+          ? error.message
+          : "Security Lab access update failed.",
       );
     } finally {
       setBusy(false);
@@ -241,16 +251,17 @@ export default function OwnerSecurityLabPage() {
   }
 
   async function revokeAccess(userId: string) {
-    if (!window.confirm("هل تريد إلغاء صلاحية مختبر الأمان لهذا المستخدم؟"))
-      return;
+    if (!window.confirm("Revoke Security Lab access for this user?")) return;
     setBusy(true);
     try {
       await ownerSecurityLabApi.revoke(userId);
-      setMessage("تم إلغاء صلاحية مختبر الأمان.");
+      setMessage("Security Lab access revoked.");
       await load();
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "فشل إلغاء الصلاحية.",
+        error instanceof Error
+          ? error.message
+          : "Security Lab access revocation failed.",
       );
     } finally {
       setBusy(false);
@@ -264,20 +275,20 @@ export default function OwnerSecurityLabPage() {
     if (
       state === "confirmed" &&
       !window.confirm(
-        "هل تؤكد هذه النتيجة كدليل أمني موثّق؟ قد يتم إنشاء قاعدة مرشحة في الجينوم الأمني.",
+        "Confirm this finding as verified security evidence? A candidate Security Genome rule may be created.",
       )
     )
       return;
     setBusy(true);
     try {
       await ownerSecurityLabApi.decideFinding(item.id, state);
-      setMessage(`تم تسجيل حالة النتيجة: ${state}.`);
+      setMessage(`Security finding state recorded: ${state}.`);
       await load();
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
-          : "فشل تسجيل قرار النتيجة الأمنية.",
+          : "Security finding decision failed.",
       );
     } finally {
       setBusy(false);
@@ -289,12 +300,14 @@ export default function OwnerSecurityLabPage() {
     try {
       await ownerSecurityLabApi.validateRule(ruleId);
       setMessage(
-        "تم التحقق من قاعدة الجينوم الأمني المرشحة مقابل حالات اختبار إيجابية وسلبية.",
+        "Security Genome candidate validated against positive and negative test cases.",
       );
       await load();
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "فشل التحقق من القاعدة.",
+        error instanceof Error
+          ? error.message
+          : "Security rule validation failed.",
       );
     } finally {
       setBusy(false);
@@ -304,7 +317,7 @@ export default function OwnerSecurityLabPage() {
   async function promoteRule(ruleId: string) {
     if (
       !window.confirm(
-        "هل تريد ترقية هذه القاعدة الموثّقة إلى المعرفة الأمنية المعتمدة في المنصة؟",
+        "Promote this validated rule to approved platform security knowledge?",
       )
     )
       return;
@@ -312,12 +325,14 @@ export default function OwnerSecurityLabPage() {
     try {
       await ownerSecurityLabApi.promoteRule(ruleId);
       setMessage(
-        "تمت ترقية قاعدة الجينوم الأمني الموثّقة إلى معرفة المنصة المعتمدة.",
+        "Validated Security Genome rule promoted to approved platform knowledge.",
       );
       await load();
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "فشلت ترقية القاعدة.",
+        error instanceof Error
+          ? error.message
+          : "Security rule promotion failed.",
       );
     } finally {
       setBusy(false);
@@ -329,11 +344,13 @@ export default function OwnerSecurityLabPage() {
     setBusy(true);
     try {
       const gate = await ownerSecurityLabApi.evaluateReleaseGate(selectedScan);
-      setMessage(`قرار بوابة الإصدار الأمني: ${gate.decision}.`);
+      setMessage(`Security release gate decision: ${gate.decision}.`);
       await load();
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "فشل تقييم بوابة الإصدار.",
+        error instanceof Error
+          ? error.message
+          : "Security release gate evaluation failed.",
       );
     } finally {
       setBusy(false);
@@ -351,15 +368,17 @@ export default function OwnerSecurityLabPage() {
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs text-electric-300">
-            <ShieldCheck className="h-3.5 w-3.5" /> سلطة الأمان للمالك الأعلى
+            <ShieldCheck className="h-3.5 w-3.5" /> Super Owner Security
+            Authority
           </div>
           <h1 className="text-3xl font-bold text-white">
-            منظومة الأمان والتعلّم الذاتي
+            Security & Adaptive Learning Fabric
           </h1>
           <p className="mt-2 max-w-5xl text-sm leading-6 text-white/45">
-            تحكّم كامل في الصلاحيات وقبول الأهداف وعمق الفحص والأدلة المؤكدة
-            وترقية الجينوم الأمني وسياسة الإصلاح الذاتي وبوابات الإصدار المبنية
-            على الأدلة. لا تستطيع طلبات العميل تجاوز هذه الضوابط.
+            Full authority over entitlements, target admission, scan depth,
+            confirmed evidence, Security Genome promotion, autonomous
+            remediation policy, and evidence-based release gates. Client
+            requests cannot bypass these controls.
           </p>
         </div>
         <div className="flex gap-2">
@@ -389,45 +408,54 @@ export default function OwnerSecurityLabPage() {
           <div className="mt-3 text-2xl font-bold text-white">
             {activeGrants.length}
           </div>
-          <div className="text-xs text-white/35">الصلاحيات النشطة</div>
+          <div className="text-xs text-white/35">Active grants</div>
         </div>
         <div className="glass-card p-5">
           <ShieldCheck className="h-5 w-5 text-electric-300" />
           <div className="mt-3 text-2xl font-bold text-white">
             {snapshot.targets.length}
           </div>
-          <div className="text-xs text-white/35">الأهداف المسجلة</div>
+          <div className="text-xs text-white/35">Registered targets</div>
         </div>
         <div className="glass-card p-5">
           <XCircle className="h-5 w-5 text-electric-300" />
           <div className="mt-3 text-2xl font-bold text-white">
             {unresolved.length}
           </div>
-          <div className="text-xs text-white/35">الملاحظات غير المحسومة</div>
+          <div className="text-xs text-white/35">Unresolved findings</div>
         </div>
         <div className="glass-card p-5">
           <BrainCircuit className="h-5 w-5 text-electric-300" />
           <div className="mt-3 text-2xl font-bold text-white">
             {promotedRules}
           </div>
-          <div className="text-xs text-white/35">القواعد الأمنية المرقّاة</div>
+          <div className="text-xs text-white/35">Promoted security rules</div>
         </div>
       </div>
 
       <section className="glass-card space-y-4 p-5">
-        <h2 className="font-semibold text-white">سياسة مختبر الأمان العامة</h2>
+        <h2 className="font-semibold text-white">Global Security Lab policy</h2>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {(
             [
-              ["enabled", "مختبر الأمان مفعّل"],
-              ["active_on_verified_targets", "فحص آمن نشط للأهداف الموثقة"],
+              ["enabled", "Security Lab enabled"],
+              [
+                "active_on_verified_targets",
+                "Safe active scanning for verified targets",
+              ],
               [
                 "deep_validation_requires_clone",
-                "الفحص المتقدم والنخبوي يتطلب نسخة أمنية معزولة",
+                "Advanced and Elite validation requires an isolated security clone",
               ],
-              ["learning_enabled", "التعلّم الأمني التكيفي"],
-              ["auto_rule_candidates", "إنشاء قواعد مرشحة من النتائج المؤكدة"],
-              ["auto_remediation_enabled", "السماح بإدارة الإصلاح الذاتي"],
+              ["learning_enabled", "Adaptive security learning"],
+              [
+                "auto_rule_candidates",
+                "Create rule candidates from confirmed findings",
+              ],
+              [
+                "auto_remediation_enabled",
+                "Allow autonomous remediation management",
+              ],
             ] as const
           ).map(([key, label]) => (
             <label
@@ -445,7 +473,7 @@ export default function OwnerSecurityLabPage() {
         </div>
         <div className="grid gap-3 md:grid-cols-3">
           <label className="text-xs text-white/45">
-            نطاقات المشاريع المُدارة
+            Managed project domains
             <input
               className="mt-1 w-full rounded-lg border border-white/10 bg-black/20 p-2 text-white"
               value={policy.managed_domain_suffixes.join(", ")}
@@ -461,7 +489,7 @@ export default function OwnerSecurityLabPage() {
             />
           </label>
           <label className="text-xs text-white/45">
-            أقصى فحوص متزامنة لكل مستخدم
+            Maximum concurrent scans per user
             <input
               type="number"
               min={1}
@@ -477,7 +505,7 @@ export default function OwnerSecurityLabPage() {
             />
           </label>
           <label className="text-xs text-white/45">
-            أقصى مدة للفحص بالثواني
+            Maximum scan duration in seconds
             <input
               type="number"
               min={60}
@@ -498,17 +526,17 @@ export default function OwnerSecurityLabPage() {
             [
               [
                 "block_confirmed_critical",
-                "حظر الإصدار عند وجود ثغرات حرجة مؤكدة",
+                "Block release on confirmed critical findings",
               ],
               [
                 "block_confirmed_high",
-                "حظر الإصدار عند وجود ثغرات عالية مؤكدة",
+                "Block release on confirmed high findings",
               ],
-              ["require_tls", "اشتراط دليل فحص TLS"],
-              ["require_security_headers", "اشتراط دليل فحص ترويسات الأمان"],
+              ["require_tls", "Require TLS validation evidence"],
+              ["require_security_headers", "Require security header evidence"],
               [
                 "require_backup_restore_evidence",
-                "اشتراط دليل نسخ احتياطي واستعادة حديث",
+                "Require recent backup and restore evidence",
               ],
             ] as const
           ).map(([key, label]) => (
@@ -533,7 +561,7 @@ export default function OwnerSecurityLabPage() {
             </label>
           ))}
           <label className="rounded-xl border border-white/[0.06] bg-black/20 p-3 text-xs text-white/60">
-            الحد المسموح للثغرات المتوسطة المؤكدة
+            Allowed confirmed medium findings
             <input
               type="number"
               min={0}
@@ -556,12 +584,12 @@ export default function OwnerSecurityLabPage() {
 
       <section className="glass-card space-y-4 p-5">
         <h2 className="font-semibold text-white">
-          أهداف مشاريع المنصة المُدارة
+          Managed platform project targets
         </h2>
         <p className="text-xs leading-5 text-white/40">
-          يسجل المالك الأعلى فقط عنوان النشر المرتبط بالمشروع. بهذه الطريقة لا
-          يستطيع مستخدم ربط مشروعه بعنوان مشروع آخر حتى لو كان على نفس النطاق
-          العام.
+          {
+            "Only the Super Owner registers the deployment origin bound to a project. A user cannot bind a project to another project's origin even when both share the same parent domain."
+          }
         </p>
         <div className="grid gap-3 lg:grid-cols-[1fr_1fr_180px_auto]">
           <select
@@ -569,7 +597,7 @@ export default function OwnerSecurityLabPage() {
             value={managedProjectId}
             onChange={(event) => setManagedProjectId(event.target.value)}
           >
-            <option value="">اختر المشروع</option>
+            <option value="">Select project</option>
             {projects.map((project) => (
               <option key={project.id} value={project.id}>
                 {project.name} · {project.status}
@@ -591,26 +619,28 @@ export default function OwnerSecurityLabPage() {
               )
             }
           >
-            <option value="production">إنتاج</option>
-            <option value="staging">تجريبي</option>
+            <option value="production">Production</option>
+            <option value="staging">Staging</option>
           </select>
           <button
             className="btn-primary"
             disabled={busy || !managedProjectId || !managedOrigin.trim()}
             onClick={() => void registerManagedTarget()}
           >
-            تسجيل الهدف
+            Register target
           </button>
         </div>
       </section>
 
       <section className="glass-card space-y-4 p-5">
-        <h2 className="font-semibold text-white">نسخ الفحص الأمنية المعزولة</h2>
+        <h2 className="font-semibold text-white">
+          Isolated security scan clones
+        </h2>
         <p className="text-xs leading-5 text-white/40">
-          لا يستطيع المستخدم تحويل هدف إنتاج إلى نسخة أمنية بمجرد تغيير قيمة في
-          الطلب. يسجل المالك الأعلى فقط عنوان نسخة منفصلة منشورة للمشروع، وبعد
-          ذلك يسمح النظام بالفحوص المتقدمة والنخبوية على هذه النسخة دون اعتبار
-          هدف الإنتاج نسخة اختبار.
+          A user cannot turn a production target into a security clone by
+          changing a request value. Only the Super Owner registers a separate
+          deployed clone origin for the project; advanced validation then runs
+          there without treating production as a test target.
         </p>
         <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
           <select
@@ -618,7 +648,7 @@ export default function OwnerSecurityLabPage() {
             value={cloneSourceId}
             onChange={(event) => setCloneSourceId(event.target.value)}
           >
-            <option value="">اختر الهدف المُدار</option>
+            <option value="">Select managed target</option>
             {managedTargets.map((target) => (
               <option key={target.id} value={target.id}>
                 {target.origin}
@@ -636,14 +666,14 @@ export default function OwnerSecurityLabPage() {
             disabled={busy || !cloneSourceId || !cloneOrigin.trim()}
             onClick={() => void registerCloneTarget()}
           >
-            تسجيل النسخة
+            Register clone
           </button>
         </div>
       </section>
 
       <section className="glass-card space-y-4 p-5">
         <h2 className="font-semibold text-white">
-          صلاحيات المستخدمين — للمالك الأعلى فقط
+          User entitlements — Super Owner only
         </h2>
         <div className="grid gap-3 md:grid-cols-[1fr_220px_auto]">
           <select
@@ -651,7 +681,7 @@ export default function OwnerSecurityLabPage() {
             value={selectedUser}
             onChange={(event) => setSelectedUser(event.target.value)}
           >
-            <option value="">اختر المستخدم</option>
+            <option value="">Select user</option>
             {users.map((user) => (
               <option key={user.id} value={user.id}>
                 {user.name} · {user.email} · {user.role}
@@ -665,28 +695,28 @@ export default function OwnerSecurityLabPage() {
               setGrantLevel(event.target.value as SecurityGrantRecord["level"])
             }
           >
-            <option value="standard">قياسي</option>
-            <option value="advanced">متقدم</option>
-            <option value="elite">نخبوي</option>
-            <option value="autonomous">ذاتي</option>
+            <option value="standard">Standard</option>
+            <option value="advanced">Advanced</option>
+            <option value="elite">Elite</option>
+            <option value="autonomous">Autonomous</option>
           </select>
           <button
             className="btn-primary"
             disabled={busy || !selectedUser}
             onClick={() => void grantAccess()}
           >
-            منح / تحديث
+            Grant / update
           </button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-left text-xs">
             <thead className="text-white/35">
               <tr>
-                <th className="p-2">المستخدم</th>
-                <th className="p-2">المستوى</th>
-                <th className="p-2">أنماط الفحص</th>
-                <th className="p-2">الحالة</th>
-                <th className="p-2">الإجراء</th>
+                <th className="p-2">User</th>
+                <th className="p-2">Level</th>
+                <th className="p-2">Scan profiles</th>
+                <th className="p-2">Status</th>
+                <th className="p-2">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.05]">
@@ -707,7 +737,7 @@ export default function OwnerSecurityLabPage() {
                           disabled={busy}
                           onClick={() => void revokeAccess(grant.user_id)}
                         >
-                          إلغاء
+                          Revoke
                         </button>
                       )}
                     </td>
@@ -720,17 +750,17 @@ export default function OwnerSecurityLabPage() {
       </section>
 
       <section className="glass-card p-5">
-        <h2 className="font-semibold text-white">فرز الأدلة الأمنية</h2>
+        <h2 className="font-semibold text-white">Security evidence triage</h2>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[980px] text-left text-xs">
             <thead className="text-white/35">
               <tr>
-                <th className="p-2">الخطورة</th>
-                <th className="p-2">النتيجة</th>
-                <th className="p-2">المصدر</th>
-                <th className="p-2">الثقة</th>
-                <th className="p-2">الحالة</th>
-                <th className="p-2">قرار المالك</th>
+                <th className="p-2">Severity</th>
+                <th className="p-2">Finding</th>
+                <th className="p-2">Source</th>
+                <th className="p-2">Confidence</th>
+                <th className="p-2">Status</th>
+                <th className="p-2">Owner decision</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.05]">
@@ -753,7 +783,7 @@ export default function OwnerSecurityLabPage() {
                         disabled={busy || item.state === "confirmed"}
                         onClick={() => void decideFinding(item, "confirmed")}
                       >
-                        تأكيد
+                        Confirm
                       </button>
                       <button
                         className="rounded border border-white/10 px-2 py-1 text-white/50"
@@ -762,14 +792,14 @@ export default function OwnerSecurityLabPage() {
                           void decideFinding(item, "false_positive")
                         }
                       >
-                        إنذار كاذب
+                        False positive
                       </button>
                       <button
                         className="rounded border border-electric-500/20 px-2 py-1 text-electric-300"
                         disabled={busy || item.state === "resolved"}
                         onClick={() => void decideFinding(item, "resolved")}
                       >
-                        تم الحل
+                        Resolved
                       </button>
                     </div>
                   </td>
@@ -783,12 +813,12 @@ export default function OwnerSecurityLabPage() {
       <section className="glass-card p-5">
         <div className="flex items-center gap-2 text-white">
           <BrainCircuit className="h-5 w-5 text-electric-300" />
-          <h2 className="font-semibold">الجينوم الأمني ومصنع القواعد</h2>
+          <h2 className="font-semibold">Security Genome & Rule Forge</h2>
         </div>
         <p className="mt-2 text-xs leading-5 text-white/40">
-          تبقى القواعد المرشحة في الحجر حتى تنجح اختبارات التحقق الإيجابية
-          والسلبية. لا تُرقّى أي ملاحظة تلقائيًا، وتُحفظ المعرفة المرقّاة مع
-          مصدرها ودليل التحقق.
+          Candidate rules remain quarantined until positive and negative
+          validation passes. No finding is promoted automatically; promoted
+          knowledge retains its provenance and validation evidence.
         </p>
         <div className="mt-4 space-y-2">
           {rules.slice(0, 100).map((rule) => (
@@ -799,9 +829,10 @@ export default function OwnerSecurityLabPage() {
               <div>
                 <div className="text-sm text-white">{rule.name}</div>
                 <div className="mt-1 text-xs text-white/35">
-                  {rule.rule_type} · {rule.status} · ثقة{" "}
+                  {rule.rule_type} · {rule.status} · confidence{" "}
                   {Math.round(rule.trust_score * 100)}% ·{" "}
-                  {rule.validation_passes} نجاح / {rule.validation_failures} فشل
+                  {rule.validation_passes} passed / {rule.validation_failures}{" "}
+                  failed
                 </div>
               </div>
               <div className="flex gap-2">
@@ -810,14 +841,14 @@ export default function OwnerSecurityLabPage() {
                   disabled={busy || rule.status === "promoted"}
                   onClick={() => void validateRule(rule.id)}
                 >
-                  تحقق
+                  Validate
                 </button>
                 <button
                   className="btn-primary"
                   disabled={busy || rule.status !== "validated"}
                   onClick={() => void promoteRule(rule.id)}
                 >
-                  ترقية
+                  Promote
                 </button>
               </div>
             </div>
@@ -828,12 +859,12 @@ export default function OwnerSecurityLabPage() {
       <section className="glass-card space-y-4 p-5">
         <div className="flex items-center gap-2 text-white">
           <CheckCircle2 className="h-5 w-5 text-electric-300" />
-          <h2 className="font-semibold">بوابة الإصدار الأمني</h2>
+          <h2 className="font-semibold">Security release gate</h2>
         </div>
         <p className="text-xs leading-5 text-white/40">
-          يتطلب النجاح اكتمال الأدلة الأمنية، وعدم وجود نتائج مؤكدة تمنعها
-          السياسة، وعدم وجود ملاحظة خطيرة غير محسومة، وتوفر دليل النسخ الاحتياطي
-          والاستعادة المطلوب.
+          A passing decision requires complete security evidence, no
+          policy-blocking confirmed findings, no unresolved severe observations,
+          and the required backup and restore evidence.
         </p>
         <div className="flex flex-col gap-2 md:flex-row">
           <select
@@ -841,12 +872,12 @@ export default function OwnerSecurityLabPage() {
             value={selectedScan}
             onChange={(event) => setSelectedScan(event.target.value)}
           >
-            <option value="">اختر فحصًا مكتملًا</option>
+            <option value="">Select completed scan</option>
             {scans
               .filter((item) => item.status === "completed")
               .map((scan) => (
                 <option key={scan.id} value={scan.id}>
-                  {scan.id.slice(0, 8)} · {scan.profile} · نتائج{" "}
+                  {scan.id.slice(0, 8)} · {scan.profile} · findings{" "}
                   {scan.summary.finding_count ?? 0}
                 </option>
               ))}
@@ -856,7 +887,7 @@ export default function OwnerSecurityLabPage() {
             disabled={busy || !selectedScan}
             onClick={() => void evaluateGate()}
           >
-            تقييم البوابة
+            Evaluate gate
           </button>
         </div>
         <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
@@ -869,7 +900,8 @@ export default function OwnerSecurityLabPage() {
                 {gate.decision}
               </div>
               <div className="mt-1 text-xs text-white/35">
-                scan {gate.scan_id.slice(0, 8)} · موانع {gate.blockers.length}
+                scan {gate.scan_id.slice(0, 8)} · blockers{" "}
+                {gate.blockers.length}
               </div>
               <div className="mt-1 text-[10px] text-white/25">
                 {gate.created_at ?? ""}

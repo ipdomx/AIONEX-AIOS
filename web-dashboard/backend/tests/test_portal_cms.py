@@ -102,7 +102,17 @@ def test_default_configuration_covers_complete_owner_control_surface() -> None:
         "pricing",
         "contact",
     }
-    assert {"home", "about", "pricing", "contact"} <= set(configuration["pages"])
+    assert {"home", "about", "pricing", "contact", "security-lab"} <= set(configuration["pages"])
+    assert configuration["pages"]["security-lab"]["seo"]["noindex"] is True
+    capabilities = next(
+        section
+        for section in configuration["pages"]["home"]["sections"]
+        if section["id"] == "capabilities"
+    )
+    assert any(
+        item["title"]["en"] == "Adaptive security validation"
+        for item in capabilities["content"]["items"]
+    )
     assert configuration["pricing"]["enabled"] is True
     assert configuration["pricing"]["plans"][0]["id"] == "free"
     assert configuration["pricing"]["plans"][1]["enabled"] is False

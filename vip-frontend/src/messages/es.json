@@ -25,7 +25,9 @@
     "notificationsTitle": "Notificaciones y preferencias de comunicación",
     "notificationsDescription": "Revisa notificaciones duraderas, recibos de entrega y canales.",
     "supportTitle": "Solicitudes de soporte",
-    "supportDescription": "Abre y sigue conversaciones de soporte duraderas con AIONEX."
+    "supportDescription": "Abre y sigue conversaciones de soporte duraderas con AIONEX.",
+    "securityLabTitle": "Laboratorio de seguridad",
+    "securityLabDescription": "Ejecuta validaciones de seguridad concedidas por el propietario sobre objetivos autorizados."
   },
   "nav": {
     "home": "Inicio",
@@ -45,7 +47,8 @@
     "pricing": "Precios",
     "billing": "Facturación",
     "notifications": "Notificaciones",
-    "support": "Soporte"
+    "support": "Soporte",
+    "securityLab": "Laboratorio de seguridad"
   },
   "footer": {
     "description": "Un sistema operativo de IA gobernado para coordinar agentes, modelos, proyectos y controles operativos.",
@@ -98,7 +101,9 @@
     "workflow3Copy": "Aplica controles de calidad, seguridad y aprobación antes de aceptar resultados.",
     "ctaTitle": "Empieza con los límites aprobados por el propietario",
     "ctaCopy": "El registro lee disponibilidad, reglas de identidad y cuotas directamente de la política de la plataforma.",
-    "ctaButton": "Abrir registro"
+    "ctaButton": "Abrir registro",
+    "capability5Title": "Validación de seguridad adaptativa",
+    "capability5Copy": "Combina evidencia de código, dependencias, secretos, API, TLS, contenedores y ejecución autorizada con aprendizaje y remediación verificada."
   },
   "about": {
     "eyebrow": "Acerca del sistema",
@@ -160,7 +165,8 @@
     "contactSupport": "Contactar con soporte",
     "organization": "Organización: {name}",
     "manageBilling": "Gestionar facturación",
-    "notifications": "Notificaciones"
+    "notifications": "Notificaciones",
+    "securityLab": "Laboratorio de seguridad"
   },
   "auth": {
     "secureAccess": "Acceso seguro",
@@ -668,6 +674,64 @@
       "normal": "Normal",
       "high": "Alta",
       "urgent": "Urgente"
+    }
+  },
+  "securityLab": {
+    "eyebrow": "AIONEX Security Lab",
+    "title": "Validación de seguridad de proyectos",
+    "description": "Ejecuta validaciones basadas en evidencia para código, dependencias, secretos, API, TLS, contenedores, móvil y ejecución autorizada. Los perfiles avanzados permanecen aislados por el límite del clon de seguridad.",
+    "refresh": "Actualizar",
+    "loadError": "No se pudieron cargar los datos del laboratorio de seguridad.",
+    "ownerControlled": "Capacidad controlada por el propietario",
+    "ownerControlledCopy": "Solo el Super Owner puede conceder esta capacidad y seleccionar el nivel de validación. Cada escaneo se vuelve a autorizar en el servidor.",
+    "accessLevel": "Nivel de acceso",
+    "availableEngines": "Motores disponibles",
+    "activeScans": "Escaneos activos",
+    "verifiedTargets": "Objetivos verificados",
+    "startValidation": "Iniciar validación",
+    "startValidationCopy": "Selecciona un objetivo verificado y un perfil concedido a tu cuenta. Advanced y Elite requieren un clon aislado cuando la política del propietario lo exige.",
+    "target": "Objetivo",
+    "selectTarget": "Seleccionar objetivo verificado",
+    "profile": "Perfil",
+    "queueValidation": "Poner en cola",
+    "scanQueued": "El escaneo {id} se puso en cola.",
+    "scanError": "No se pudo poner el escaneo en cola.",
+    "scanCancelled": "El escaneo fue cancelado.",
+    "cancelError": "No se pudo cancelar el escaneo.",
+    "externalTarget": "Objetivo externo autorizado",
+    "externalTargetCopy": "Los objetivos externos deben superar la verificación de propiedad antes de cualquier escaneo.",
+    "createVerification": "Crear verificación",
+    "verificationCreated": "Desafío de verificación creado.",
+    "verificationStep": "Publica el desafío de verificación",
+    "verificationCopy": "Coloca exactamente el desafío en la ruta mostrada del objetivo y después verifícalo. AIONEX vuelve a comprobar el objetivo antes de admitir escaneos.",
+    "verifyNow": "Verificar ahora",
+    "verificationPassed": "Verificación de propiedad superada.",
+    "verificationError": "Falló la verificación de propiedad.",
+    "targetError": "No se pudo registrar el objetivo externo.",
+    "recentScans": "Escaneos recientes",
+    "status": "Estado",
+    "findings": "Hallazgos",
+    "severity": "Severidad",
+    "actions": "Acciones",
+    "view": "Ver",
+    "cancel": "Cancelar",
+    "selectedFindings": "Hallazgos del escaneo seleccionado",
+    "selectCompletedScan": "Selecciona un escaneo completado para revisar sus hallazgos.",
+    "noFindings": "No se registraron hallazgos para este escaneo.",
+    "engineInventory": "Inventario de motores",
+    "engineInventoryCopy": "La disponibilidad procede del heartbeat persistente del worker de escaneo.",
+    "available": "disponible",
+    "unavailable": "opcional / no disponible",
+    "cloneOnly": "solo clon aislado",
+    "authorizedRuntime": "ejecución autorizada",
+    "sourcePassive": "fuente / pasivo",
+    "remediations": "Estado de remediación",
+    "remediationsCopy": "La remediación verificada sigue ligada a evidencia y nunca se fusiona automáticamente en producción.",
+    "profiles": {
+      "passive": "Pasivo",
+      "standard": "Estándar",
+      "advanced": "Avanzado",
+      "elite": "Elite"
     }
   }
 }

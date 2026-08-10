@@ -26,6 +26,13 @@ import type {
   PortalNotification,
   SupportTicket,
   SupportTicketMessage,
+  SecurityFindingRecord,
+  SecurityLabAccess,
+  SecurityRemediationRecord,
+  SecurityScanRecord,
+  SecurityTargetRecord,
+  SecurityTool,
+  SecurityProfile,
   Project,
   ProjectExecution,
   ThreeDAccess,
@@ -881,6 +888,107 @@ export function replyToSupportRequest(
     `/support/requests/${encodeURIComponent(requestId)}/messages`,
     "POST",
     { message, visibility: "requester" },
+  );
+}
+
+export function getSecurityLabAccess(): Promise<SecurityLabAccess> {
+  return request<SecurityLabAccess>("/security-lab/access");
+}
+
+export function listSecurityTools(): Promise<SecurityTool[]> {
+  return request<SecurityTool[]>("/security-lab/tools");
+}
+
+export function listSecurityTargets(): Promise<SecurityTargetRecord[]> {
+  return request<SecurityTargetRecord[]>("/security-lab/targets");
+}
+
+export function registerExternalSecurityTarget(
+  origin: string,
+): Promise<
+  SecurityTargetRecord & {
+    verification: { method: string; path: string; challenge: string };
+  }
+> {
+  return jsonRequest(
+    "/security-lab/targets/external",
+    "POST",
+    { origin },
+  );
+}
+
+export function verifyExternalSecurityTarget(
+  targetId: string,
+  challenge: string,
+): Promise<SecurityTargetRecord> {
+  return jsonRequest<SecurityTargetRecord>(
+    `/security-lab/targets/${encodeURIComponent(targetId)}/verify`,
+    "POST",
+    { challenge },
+  );
+}
+
+export function listSecurityScans(): Promise<SecurityScanRecord[]> {
+  return request<SecurityScanRecord[]>("/security-lab/scans");
+}
+
+export function createSecurityScan(
+  targetId: string,
+  profile: SecurityProfile,
+): Promise<SecurityScanRecord> {
+  return jsonRequest<SecurityScanRecord>("/security-lab/scans", "POST", {
+    target_id: targetId,
+    profile,
+  });
+}
+
+export function cancelSecurityScan(scanId: string): Promise<SecurityScanRecord> {
+  return jsonRequest<SecurityScanRecord>(
+    `/security-lab/scans/${encodeURIComponent(scanId)}/cancel`,
+    "POST",
+    {},
+  );
+}
+
+export function listSecurityFindings(
+  scanId: string,
+): Promise<SecurityFindingRecord[]> {
+  return request<SecurityFindingRecord[]>(
+    `/security-lab/scans/${encodeURIComponent(scanId)}/findings`,
+  );
+}
+
+export function listSecurityRemediations(): Promise<SecurityRemediationRecord[]> {
+  return request<SecurityRemediationRecord[]>("/security-lab/remediations");
+}
+
+export function requestSecurityRemediation(
+  findingId: string,
+): Promise<SecurityRemediationRecord> {
+  return jsonRequest<SecurityRemediationRecord>(
+    "/security-lab/remediations",
+    "POST",
+    { finding_id: findingId },
+  );
+}
+
+export function queueSecurityRemediationRetest(
+  remediationId: string,
+): Promise<{ remediation: SecurityRemediationRecord; scan: SecurityScanRecord }> {
+  return jsonRequest(
+    `/security-lab/remediations/${encodeURIComponent(remediationId)}/retest`,
+    "POST",
+    {},
+  );
+}
+
+export function finalizeSecurityRemediation(
+  remediationId: string,
+): Promise<SecurityRemediationRecord> {
+  return jsonRequest<SecurityRemediationRecord>(
+    `/security-lab/remediations/${encodeURIComponent(remediationId)}/finalize`,
+    "POST",
+    {},
   );
 }
 

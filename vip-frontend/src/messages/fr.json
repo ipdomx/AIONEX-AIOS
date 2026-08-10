@@ -25,7 +25,9 @@
     "notificationsTitle": "Notifications et préférences de communication",
     "notificationsDescription": "Consultez les notifications durables, les reçus de livraison et les canaux.",
     "supportTitle": "Demandes d’assistance",
-    "supportDescription": "Ouvrez et suivez des conversations d’assistance durables avec AIONEX."
+    "supportDescription": "Ouvrez et suivez des conversations d’assistance durables avec AIONEX.",
+    "securityLabTitle": "Laboratoire de sécurité",
+    "securityLabDescription": "Lancez les validations de sécurité accordées par le propriétaire sur des cibles autorisées."
   },
   "nav": {
     "home": "Accueil",
@@ -45,7 +47,8 @@
     "pricing": "Tarifs",
     "billing": "Facturation",
     "notifications": "Notifications",
-    "support": "Assistance"
+    "support": "Assistance",
+    "securityLab": "Laboratoire sécurité"
   },
   "footer": {
     "description": "Un système d’exploitation IA gouverné pour coordonner agents, modèles, projets et contrôles opérationnels.",
@@ -98,7 +101,9 @@
     "workflow3Copy": "Appliquez les contrôles de qualité, de sécurité et d’approbation avant validation.",
     "ctaTitle": "Commencez avec les limites approuvées par votre propriétaire",
     "ctaCopy": "L’écran d’inscription lit directement la disponibilité, les règles d’identité et les quotas de la plateforme.",
-    "ctaButton": "Ouvrir l’inscription"
+    "ctaButton": "Ouvrir l’inscription",
+    "capability5Title": "Validation de sécurité adaptative",
+    "capability5Copy": "Croisez le code, les dépendances, les secrets, les API, TLS, les conteneurs et les contrôles d’exécution autorisés avec apprentissage et remédiation vérifiée."
   },
   "about": {
     "eyebrow": "À propos du système",
@@ -160,7 +165,8 @@
     "contactSupport": "Contacter l’assistance",
     "organization": "Organisation : {name}",
     "manageBilling": "Gérer la facturation",
-    "notifications": "Notifications"
+    "notifications": "Notifications",
+    "securityLab": "Laboratoire de sécurité"
   },
   "auth": {
     "secureAccess": "Accès utilisateur sécurisé",
@@ -668,6 +674,64 @@
       "normal": "Normale",
       "high": "Élevée",
       "urgent": "Urgente"
+    }
+  },
+  "securityLab": {
+    "eyebrow": "AIONEX Security Lab",
+    "title": "Validation de sécurité des projets",
+    "description": "Exécutez des validations fondées sur des preuves pour le code, les dépendances, les secrets, les API, TLS, les conteneurs, le mobile et l’exécution autorisée. Les profils avancés restent isolés par la limite de clone de sécurité.",
+    "refresh": "Actualiser",
+    "loadError": "Impossible de charger le laboratoire de sécurité.",
+    "ownerControlled": "Capacité contrôlée par le propriétaire",
+    "ownerControlledCopy": "Seul le Super Owner peut accorder cette capacité et choisir le niveau de validation. Chaque scan est réautorisé côté serveur.",
+    "accessLevel": "Niveau d’accès",
+    "availableEngines": "Moteurs disponibles",
+    "activeScans": "Scans actifs",
+    "verifiedTargets": "Cibles vérifiées",
+    "startValidation": "Démarrer la validation",
+    "startValidationCopy": "Choisissez une cible vérifiée et un profil accordé à votre compte. Les profils Advanced et Elite exigent un clone isolé lorsque la politique du propriétaire l’impose.",
+    "target": "Cible",
+    "selectTarget": "Choisir une cible vérifiée",
+    "profile": "Profil",
+    "queueValidation": "Mettre en file",
+    "scanQueued": "Le scan {id} a été mis en file.",
+    "scanError": "Impossible de mettre le scan en file.",
+    "scanCancelled": "Le scan a été annulé.",
+    "cancelError": "Impossible d’annuler le scan.",
+    "externalTarget": "Cible externe autorisée",
+    "externalTargetCopy": "Une cible externe doit réussir la vérification de propriété avant tout scan.",
+    "createVerification": "Créer la vérification",
+    "verificationCreated": "Défi de vérification créé.",
+    "verificationStep": "Publiez le défi de vérification",
+    "verificationCopy": "Placez exactement le défi au chemin affiché sur la cible, puis vérifiez-le. AIONEX revalide la cible avant chaque admission de scan.",
+    "verifyNow": "Vérifier",
+    "verificationPassed": "Vérification de propriété réussie.",
+    "verificationError": "Échec de la vérification de propriété.",
+    "targetError": "Impossible d’enregistrer la cible externe.",
+    "recentScans": "Scans récents",
+    "status": "État",
+    "findings": "Résultats",
+    "severity": "Sévérité",
+    "actions": "Actions",
+    "view": "Voir",
+    "cancel": "Annuler",
+    "selectedFindings": "Résultats du scan sélectionné",
+    "selectCompletedScan": "Sélectionnez un scan terminé pour examiner ses résultats.",
+    "noFindings": "Aucun résultat enregistré pour ce scan.",
+    "engineInventory": "Inventaire des moteurs",
+    "engineInventoryCopy": "La disponibilité provient du heartbeat durable du worker de scan.",
+    "available": "disponible",
+    "unavailable": "optionnel / indisponible",
+    "cloneOnly": "clone isolé uniquement",
+    "authorizedRuntime": "exécution autorisée",
+    "sourcePassive": "source / passif",
+    "remediations": "État des remédiations",
+    "remediationsCopy": "La remédiation vérifiée reste soumise aux preuves et n’est jamais fusionnée automatiquement en production.",
+    "profiles": {
+      "passive": "Passif",
+      "standard": "Standard",
+      "advanced": "Avancé",
+      "elite": "Elite"
     }
   }
 }

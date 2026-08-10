@@ -25,7 +25,9 @@
     "notificationsTitle": "Bildirimler ve iletişim tercihleri",
     "notificationsDescription": "Kalıcı bildirimleri, teslim kayıtlarını ve kanalları inceleyin.",
     "supportTitle": "Destek talepleri",
-    "supportDescription": "AIONEX ile kalıcı destek görüşmeleri açın ve takip edin."
+    "supportDescription": "AIONEX ile kalıcı destek görüşmeleri açın ve takip edin.",
+    "securityLabTitle": "Güvenlik Laboratuvarı",
+    "securityLabDescription": "Sahibin verdiği güvenlik doğrulamalarını yetkili proje hedeflerinde çalıştırın."
   },
   "nav": {
     "home": "Ana sayfa",
@@ -45,7 +47,8 @@
     "pricing": "Fiyatlandırma",
     "billing": "Faturalandırma",
     "notifications": "Bildirimler",
-    "support": "Destek"
+    "support": "Destek",
+    "securityLab": "Güvenlik Laboratuvarı"
   },
   "footer": {
     "description": "Ajanları, modelleri, projeleri ve operasyonel kontrolleri koordine eden yönetişimli bir yapay zekâ işletim sistemi.",
@@ -98,7 +101,9 @@
     "workflow3Copy": "Sonuçları kabul etmeden önce kalite, güvenlik ve onay kontrollerini uygulayın.",
     "ctaTitle": "Sahibinizin onayladığı sınırlarla başlayın",
     "ctaCopy": "Kayıt ekranı kullanılabilirliği, kimlik kurallarını ve kotaları doğrudan platform politikasından okur.",
-    "ctaButton": "Kaydı aç"
+    "ctaButton": "Kaydı aç",
+    "capability5Title": "Uyarlanabilir güvenlik doğrulaması",
+    "capability5Copy": "Kaynak, bağımlılık, gizli bilgi, API, TLS, konteyner ve yetkili çalışma zamanı kanıtlarını öğrenme ve doğrulanmış düzeltmeyle birleştirir."
   },
   "about": {
     "eyebrow": "Sistem hakkında",
@@ -160,7 +165,8 @@
     "contactSupport": "Destekle iletişim",
     "organization": "Kuruluş: {name}",
     "manageBilling": "Faturalandırmayı yönet",
-    "notifications": "Bildirimler"
+    "notifications": "Bildirimler",
+    "securityLab": "Güvenlik Laboratuvarı"
   },
   "auth": {
     "secureAccess": "Güvenli kullanıcı erişimi",
@@ -668,6 +674,64 @@
       "normal": "Normal",
       "high": "Yüksek",
       "urgent": "Acil"
+    }
+  },
+  "securityLab": {
+    "eyebrow": "AIONEX Security Lab",
+    "title": "Proje güvenlik doğrulaması",
+    "description": "Kaynak kodu, bağımlılıklar, gizli bilgiler, API, TLS, konteyner, mobil ve yetkili çalışma zamanı için kanıta dayalı doğrulama çalıştırın. Gelişmiş profiller güvenlik klonu sınırının arkasında izole kalır.",
+    "refresh": "Yenile",
+    "loadError": "Güvenlik Laboratuvarı verileri yüklenemedi.",
+    "ownerControlled": "Sahip kontrollü özellik",
+    "ownerControlledCopy": "Bu özelliği yalnızca Super Owner verebilir ve doğrulama seviyesini seçebilir. Her tarama sunucu tarafında yeniden yetkilendirilir.",
+    "accessLevel": "Erişim seviyesi",
+    "availableEngines": "Kullanılabilir motorlar",
+    "activeScans": "Aktif taramalar",
+    "verifiedTargets": "Doğrulanmış hedefler",
+    "startValidation": "Güvenlik doğrulamasını başlat",
+    "startValidationCopy": "Doğrulanmış bir hedef ve hesabınıza verilmiş bir profil seçin. Sahip politikası gerektiriyorsa Advanced ve Elite için izole güvenlik klonu gerekir.",
+    "target": "Hedef",
+    "selectTarget": "Doğrulanmış hedef seç",
+    "profile": "Profil",
+    "queueValidation": "Doğrulamayı sıraya al",
+    "scanQueued": "Güvenlik taraması {id} sıraya alındı.",
+    "scanError": "Güvenlik taraması sıraya alınamadı.",
+    "scanCancelled": "Güvenlik taraması iptal edildi.",
+    "cancelError": "Güvenlik taraması iptal edilemedi.",
+    "externalTarget": "Harici yetkili hedef",
+    "externalTargetCopy": "Harici hedefler herhangi bir taramadan önce sahiplik doğrulamasını tamamlamalıdır.",
+    "createVerification": "Doğrulama oluştur",
+    "verificationCreated": "Doğrulama isteği oluşturuldu.",
+    "verificationStep": "Doğrulama isteğini yayınlayın",
+    "verificationCopy": "İsteği hedefte gösterilen yola aynen yerleştirin ve sonra doğrulayın. AIONEX tarama kabulünden önce hedefi yeniden kontrol eder.",
+    "verifyNow": "Şimdi doğrula",
+    "verificationPassed": "Hedef sahipliği doğrulandı.",
+    "verificationError": "Hedef sahipliği doğrulanamadı.",
+    "targetError": "Harici hedef kaydedilemedi.",
+    "recentScans": "Son taramalar",
+    "status": "Durum",
+    "findings": "Bulgular",
+    "severity": "Önem",
+    "actions": "İşlemler",
+    "view": "Görüntüle",
+    "cancel": "İptal",
+    "selectedFindings": "Seçili tarama bulguları",
+    "selectCompletedScan": "Bulguları incelemek için tamamlanmış bir tarama seçin.",
+    "noFindings": "Bu tarama için bulgu kaydedilmedi.",
+    "engineInventory": "Güvenlik motoru envanteri",
+    "engineInventoryCopy": "Kullanılabilirlik, tarama worker’ının kalıcı heartbeat bilgisinden gelir.",
+    "available": "kullanılabilir",
+    "unavailable": "isteğe bağlı / kullanılamıyor",
+    "cloneOnly": "yalnızca izole klon",
+    "authorizedRuntime": "yetkili çalışma zamanı",
+    "sourcePassive": "kaynak / pasif",
+    "remediations": "Düzeltme durumu",
+    "remediationsCopy": "Doğrulanmış düzeltme kanıta bağlı kalır ve üretime asla otomatik birleştirilmez.",
+    "profiles": {
+      "passive": "Pasif",
+      "standard": "Standart",
+      "advanced": "Gelişmiş",
+      "elite": "Elite"
     }
   }
 }

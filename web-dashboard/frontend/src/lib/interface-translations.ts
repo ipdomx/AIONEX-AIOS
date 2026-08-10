@@ -3,6 +3,116 @@ import type { SupportedLocale } from "@/lib/locale-engine";
 type Catalog = Record<string, string>;
 
 const AR: Catalog = {
+  "Loading Security Lab control center…": "جارٍ تحميل مركز تحكم مختبر الأمان…",
+  "Security Lab control center synchronized.":
+    "تمت مزامنة مركز تحكم مختبر الأمان.",
+  "Security Lab synchronization failed.": "فشلت مزامنة مختبر الأمان.",
+  "Security Lab policy saved and audit-logged.":
+    "تم حفظ سياسة مختبر الأمان وتسجيلها في سجل التدقيق.",
+  "Security Lab policy update failed.": "فشل تحديث سياسة مختبر الأمان.",
+  "Managed project target registered and bound by the Super Owner.":
+    "تم تسجيل هدف المشروع المُدار وربطه بالمشروع من جهة المالك الأعلى.",
+  "Managed project target registration failed.":
+    "فشل تسجيل هدف المشروع المُدار.",
+  "Isolated security clone target registered and linked to the managed project.":
+    "تم تسجيل هدف النسخة الأمنية المعزولة وربطه بالمشروع المُدار.",
+  "Security clone target registration failed.":
+    "فشل تسجيل النسخة الأمنية المعزولة.",
+  "Security Lab access saved for the selected user.":
+    "تم حفظ صلاحية مختبر الأمان للمستخدم المحدد.",
+  "Security Lab access update failed.": "فشل تحديث صلاحية مختبر الأمان.",
+  "Revoke Security Lab access for this user?":
+    "هل تريد إلغاء صلاحية مختبر الأمان لهذا المستخدم؟",
+  "Security Lab access revoked.": "تم إلغاء صلاحية مختبر الأمان.",
+  "Security Lab access revocation failed.": "فشل إلغاء صلاحية مختبر الأمان.",
+  "Confirm this finding as verified security evidence? A candidate Security Genome rule may be created.":
+    "هل تؤكد هذه النتيجة كدليل أمني موثّق؟ قد يتم إنشاء قاعدة مرشحة في الجينوم الأمني.",
+  "Security finding decision failed.": "فشل تسجيل قرار النتيجة الأمنية.",
+  "Security Genome candidate validated against positive and negative test cases.":
+    "تم التحقق من قاعدة الجينوم الأمني المرشحة مقابل حالات اختبار إيجابية وسلبية.",
+  "Security rule validation failed.": "فشل التحقق من القاعدة الأمنية.",
+  "Promote this validated rule to approved platform security knowledge?":
+    "هل تريد ترقية هذه القاعدة الموثّقة إلى المعرفة الأمنية المعتمدة في المنصة؟",
+  "Validated Security Genome rule promoted to approved platform knowledge.":
+    "تمت ترقية قاعدة الجينوم الأمني الموثّقة إلى معرفة المنصة المعتمدة.",
+  "Security rule promotion failed.": "فشلت ترقية القاعدة الأمنية.",
+  "Security release gate evaluation failed.": "فشل تقييم بوابة الإصدار الأمني.",
+  "Super Owner Security Authority": "سلطة الأمان للمالك الأعلى",
+  "Security & Adaptive Learning Fabric": "منظومة الأمان والتعلّم التكيفي",
+  "Full authority over entitlements, target admission, scan depth, confirmed evidence, Security Genome promotion, autonomous remediation policy, and evidence-based release gates. Client requests cannot bypass these controls.":
+    "تحكم كامل في الصلاحيات وقبول الأهداف وعمق الفحص والأدلة المؤكدة وترقية الجينوم الأمني وسياسة الإصلاح الذاتي وبوابات الإصدار المبنية على الأدلة. لا تستطيع طلبات العميل تجاوز هذه الضوابط.",
+  "Active grants": "الصلاحيات النشطة",
+  "Registered targets": "الأهداف المسجلة",
+  "Unresolved findings": "النتائج غير المحسومة",
+  "Promoted security rules": "القواعد الأمنية المرقّاة",
+  "Global Security Lab policy": "سياسة مختبر الأمان العامة",
+  "Security Lab enabled": "مختبر الأمان مفعّل",
+  "Safe active scanning for verified targets": "فحص آمن نشط للأهداف الموثقة",
+  "Advanced and Elite validation requires an isolated security clone":
+    "الفحص المتقدم والنخبوي يتطلب نسخة أمنية معزولة",
+  "Adaptive security learning": "التعلّم الأمني التكيفي",
+  "Create rule candidates from confirmed findings":
+    "إنشاء قواعد مرشحة من النتائج المؤكدة",
+  "Allow autonomous remediation management": "السماح بإدارة الإصلاح الذاتي",
+  "Managed project domains": "نطاقات المشاريع المُدارة",
+  "Maximum concurrent scans per user": "أقصى فحوص متزامنة لكل مستخدم",
+  "Maximum scan duration in seconds": "أقصى مدة للفحص بالثواني",
+  "Block release on confirmed critical findings":
+    "حظر الإصدار عند وجود ثغرات حرجة مؤكدة",
+  "Block release on confirmed high findings":
+    "حظر الإصدار عند وجود ثغرات عالية مؤكدة",
+  "Require TLS validation evidence": "اشتراط دليل فحص TLS",
+  "Require security header evidence": "اشتراط دليل فحص ترويسات الأمان",
+  "Require recent backup and restore evidence":
+    "اشتراط دليل نسخ احتياطي واستعادة حديث",
+  "Allowed confirmed medium findings": "الحد المسموح للثغرات المتوسطة المؤكدة",
+  "Managed platform project targets": "أهداف مشاريع المنصة المُدارة",
+  "Only the Super Owner registers the deployment origin bound to a project. A user cannot bind a project to another project's origin even when both share the same parent domain.":
+    "يسجل المالك الأعلى فقط عنوان النشر المرتبط بالمشروع. بهذه الطريقة لا يستطيع المستخدم ربط مشروعه بعنوان مشروع آخر حتى لو كان على نفس النطاق العام.",
+  "Select project": "اختر المشروع",
+  Production: "إنتاج",
+  Staging: "تجريبي",
+  "Register target": "تسجيل الهدف",
+  "Isolated security scan clones": "نسخ الفحص الأمنية المعزولة",
+  "A user cannot turn a production target into a security clone by changing a request value. Only the Super Owner registers a separate deployed clone origin for the project; advanced validation then runs there without treating production as a test target.":
+    "لا يستطيع المستخدم تحويل هدف إنتاج إلى نسخة أمنية بمجرد تغيير قيمة في الطلب. يسجل المالك الأعلى فقط عنوان نسخة منفصلة منشورة للمشروع، ثم يسمح النظام بالفحوص المتقدمة على هذه النسخة دون اعتبار هدف الإنتاج نسخة اختبار.",
+  "Select managed target": "اختر الهدف المُدار",
+  "Register clone": "تسجيل النسخة",
+  "User entitlements — Super Owner only":
+    "صلاحيات المستخدمين — للمالك الأعلى فقط",
+  "Select user": "اختر المستخدم",
+  Standard: "قياسي",
+  Advanced: "متقدم",
+  Elite: "نخبوي",
+  Autonomous: "ذاتي",
+  "Grant / update": "منح / تحديث",
+  Level: "المستوى",
+  "Scan profiles": "أنماط الفحص",
+  Action: "الإجراء",
+  Revoke: "إلغاء",
+  "Security evidence triage": "فرز الأدلة الأمنية",
+  Severity: "الخطورة",
+  Finding: "النتيجة",
+  Source: "المصدر",
+  Confidence: "الثقة",
+  "Owner decision": "قرار المالك",
+  Confirm: "تأكيد",
+  "False positive": "إنذار كاذب",
+  Resolved: "تم الحل",
+  "Security Genome & Rule Forge": "الجينوم الأمني ومصنع القواعد",
+  "Candidate rules remain quarantined until positive and negative validation passes. No finding is promoted automatically; promoted knowledge retains its provenance and validation evidence.":
+    "تبقى القواعد المرشحة في الحجر حتى تنجح اختبارات التحقق الإيجابية والسلبية. لا تُرقّى أي ملاحظة تلقائيًا، وتُحفظ المعرفة المرقّاة مع مصدرها ودليل التحقق.",
+  "· confidence": "· الثقة",
+  "passed /": "نجاح /",
+  failed: "فشل",
+  Promote: "ترقية",
+  "Security release gate": "بوابة الإصدار الأمني",
+  "A passing decision requires complete security evidence, no policy-blocking confirmed findings, no unresolved severe observations, and the required backup and restore evidence.":
+    "يتطلب النجاح اكتمال الأدلة الأمنية، وعدم وجود نتائج مؤكدة تمنعها السياسة، وعدم وجود ملاحظة خطيرة غير محسومة، وتوفر دليل النسخ الاحتياطي والاستعادة المطلوب.",
+  "Select completed scan": "اختر فحصًا مكتملًا",
+  "· findings": "· نتائج",
+  "Evaluate gate": "تقييم البوابة",
+  "· blockers": "· موانع",
   "Loading owner 3D policy…": "جارٍ تحميل سياسة الأبعاد الثلاثية للمالك…",
   "3D access and GPU limits synchronized.":
     "تمت مزامنة صلاحيات الأبعاد الثلاثية وحدود وحدة معالجة الرسومات.",
@@ -25,8 +135,10 @@ const AR: Catalog = {
     "أكد هذا فقط إذا كان حد القسم 4 في تاريخ إصدار Hunyuan لا يفرض ترخيصًا منفصلًا من Tencent على مشغل الخدمة، أو إذا تم الحصول على الموافقة الكتابية المطلوبة.",
   "Enter the full legal name and legal entity of the actual service operator, not only a product or brand name, before confirming it.":
     "أدخل الاسم القانوني الكامل والكيان القانوني الفعلي لمشغل الخدمة، وليس اسم المنتج أو العلامة التجارية فقط، قبل تأكيده.",
-  "Hunyuan commercial eligibility attested": "تم الإقرار بالأهلية التجارية لـ Hunyuan",
-  "Service provider legal name confirmed": "تم تأكيد الاسم القانوني لمشغل الخدمة",
+  "Hunyuan commercial eligibility attested":
+    "تم الإقرار بالأهلية التجارية لـ Hunyuan",
+  "Service provider legal name confirmed":
+    "تم تأكيد الاسم القانوني لمشغل الخدمة",
   "Worldwide TripoSR fallback enabled": "البديل العالمي TripoSR مفعّل",
   "Service provider legal name": "الاسم القانوني لمشغل الخدمة",
   "Hunyuan excluded ISO country codes": "رموز ISO للدول المستبعدة من Hunyuan",
@@ -1419,6 +1531,30 @@ function translateArabicPattern(core: string): string | null {
   if (match) return `${match[1]} مستخدم`;
   match = core.match(/^(\d+) records?$/);
   if (match) return `${match[1]} سجل`;
+  match = core.match(/^Security finding state recorded: (.+)\.$/);
+  if (match) {
+    const state =
+      (
+        {
+          confirmed: "مؤكدة",
+          false_positive: "إنذار كاذب",
+          resolved: "تم الحل",
+        } as Record<string, string>
+      )[match[1]] ?? match[1];
+    return `تم تسجيل حالة النتيجة الأمنية: ${state}.`;
+  }
+  match = core.match(/^Security release gate decision: (.+)\.$/);
+  if (match) {
+    const decision =
+      (
+        {
+          passed: "ناجح",
+          blocked: "محظور",
+          review_required: "تتطلب مراجعة",
+        } as Record<string, string>
+      )[match[1]] ?? match[1];
+    return `قرار بوابة الإصدار الأمني: ${decision}.`;
+  }
   return null;
 }
 
