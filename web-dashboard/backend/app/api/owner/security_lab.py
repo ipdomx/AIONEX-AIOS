@@ -123,3 +123,86 @@ async def revoke_grant(
     except LookupError as exc:
         await session.rollback()
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+class FindingDecision(BaseModel):
+    state: Literal["confirmed", "false_positive", "resolved"]
+    note: str | None = Field(default=None, max_length=5000)
+
+
+def rule_snapshot(rule) -> dict[str, Any]:
+    return {"id": rule.id, "source_finding_id": rule.source_finding_id, "rule_type": rule.rule_type, "name": rule.name, "signature": rule.signature, "detector": rule.detector, "status": rule.status, "trust_score": rule.trust_score, "validation_passes": rule.validation_passes, "validation_failures": rule.validation_failures, "promoted_at": rule.promoted_at.isoformat() if rule.promoted_at else None}
+
+
+@router.get("/findings")
+async def owner_findings(
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+):
+    from app.db.models import SecurityFinding
+    from app.services.security_scanning import finding_snapshot
+    rows = list((await session.scalars(select(SecurityFinding).where(SecurityFinding.organization_id == actor.organization_id).order_by(SecurityFinding.created_at.desc()).limit(1000))).all())
+    return [finding_snapshot(item) for item in rows]
+
+
+@router.post("/findings/{finding_id}/decision")
+async def decide_finding(
+    finding_id: str,
+    data: FindingDecision,
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+):
+    from datetime import UTC, datetime
+    from app.db.models import SecurityFinding
+    from app.services import security_rule_forge
+    finding = await session.scalar(select(SecurityFinding).where(SecurityFinding.id == finding_id, SecurityFinding.organization_id == actor.organization_id).with_for_update())
+    if finding is None: raise HTTPException(status_code=404, detail="Security finding not found")
+    finding.state = data.state; finding.verified_by_id = actor.id; finding.verified_at = datetime.now(UTC)
+    if data.state == "resolved": finding.resolved_at = datetime.now(UTC)
+    session.add(AuditEvent(organization_id=actor.organization_id, user_id=actor.id, action=f"security.finding.{data.state}", resource_type="security_finding", resource_id=finding.id, details={"note": data.note}))
+    rule = None
+    policy = await security_fabric.get_policy(session)
+    if data.state == "confirmed" and policy.get("auto_rule_candidates", True):
+        rule = await security_rule_forge.derive_candidate(session, actor, finding)
+    await session.commit()
+    return {"finding_id": finding.id, "state": finding.state, "rule": rule_snapshot(rule) if rule else None}
+
+
+@router.get("/rules")
+async def owner_rules(
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+):
+    from app.db.models import SecurityRule
+    rows = list((await session.scalars(select(SecurityRule).where(SecurityRule.organization_id == actor.organization_id).order_by(SecurityRule.updated_at.desc()).limit(1000))).all())
+    return [rule_snapshot(item) for item in rows]
+
+
+@router.post("/rules/{rule_id}/validate")
+async def validate_rule(
+    rule_id: str,
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+):
+    from app.db.models import SecurityRule
+    from app.services import security_rule_forge
+    rule = await session.scalar(select(SecurityRule).where(SecurityRule.id == rule_id, SecurityRule.organization_id == actor.organization_id).with_for_update())
+    if rule is None: raise HTTPException(status_code=404, detail="Security rule not found")
+    await security_rule_forge.validate_candidate(session, actor, rule)
+    await session.commit(); await session.refresh(rule)
+    return rule_snapshot(rule)
+
+
+@router.post("/rules/{rule_id}/promote")
+async def promote_rule(
+    rule_id: str,
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+):
+    from app.db.models import SecurityRule
+    from app.services import security_rule_forge
+    rule = await session.scalar(select(SecurityRule).where(SecurityRule.id == rule_id, SecurityRule.organization_id == actor.organization_id).with_for_update())
+    if rule is None: raise HTTPException(status_code=404, detail="Security rule not found")
+    try: await security_rule_forge.promote_rule(session, actor, rule)
+    except ValueError as exc: await session.rollback(); raise HTTPException(status_code=409, detail=str(exc)) from exc
+    await session.commit(); await session.refresh(rule)
+    return rule_snapshot(rule)

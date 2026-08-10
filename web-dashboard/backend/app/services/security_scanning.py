@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import UserRecord
 from app.db.models import AuditEvent, SecurityFinding, SecurityScan, SecurityTarget, uuid_str
-from app.services import security_fabric, security_tools
+from app.services import adaptive_intelligence, security_fabric, security_tools
 from app.services.security_api_analyzer import analyze_openapi
 from app.services.security_web_scanner import scan_web_origin
 from app.services.security_deep_validation import build_scenario_plan
@@ -257,6 +257,17 @@ async def execute_scan(session: AsyncSession, scan: SecurityScan) -> SecuritySca
     scan.status = "completed"
     scan.completed_at = now()
     scan.lease_token = None
+    await adaptive_intelligence.record_system_experience(
+        session,
+        organization_id=scan.organization_id,
+        user_id=scan.requested_by_id,
+        action="security.scan.completed",
+        context={"profile": scan.profile, "execution_mode": scan.execution_mode, "target_kind": target.kind, "severity": scan.summary["severity"]},
+        outcome="success",
+        evidence=sorted(seen),
+        project_id=scan.project_id,
+        lesson=f"Security scan completed with {len(seen)} unique findings; evidence remains quarantined until verification.",
+    )
     session.add(AuditEvent(organization_id=scan.organization_id, user_id=scan.requested_by_id, action="security.scan.completed", resource_type="security_scan", resource_id=scan.id, details={"finding_count": len(seen), "severity": scan.summary["severity"]}))
     await session.flush()
     return scan

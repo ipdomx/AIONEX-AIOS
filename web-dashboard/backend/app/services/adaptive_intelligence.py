@@ -121,3 +121,50 @@ async def record_experience(
         error=error,
         lesson=lesson,
     )
+
+
+async def record_system_experience(
+    session: AsyncSession,
+    *,
+    organization_id: str,
+    user_id: str | None,
+    action: str,
+    context: dict[str, Any],
+    outcome: Literal["success", "failure", "partial", "unknown"],
+    evidence: Sequence[str],
+    project_id: str | None = None,
+    lesson: str | None = None,
+) -> LearningEvent:
+    """Record worker-generated evidence without fabricating a UserRecord.
+
+    Worker observations are quarantined exactly like user observations; verification
+    is still required before lesson/rule promotion.
+    """
+    from app.db.models import AuditEvent, uuid_str
+    fingerprint = knowledge_learning.sha256(knowledge_learning.canonical_json(context))
+    item = LearningEvent(
+        id=uuid_str(),
+        organization_id=organization_id,
+        project_id=project_id,
+        created_by_id=user_id,
+        action=action.strip(),
+        context_fingerprint=fingerprint,
+        outcome=outcome,
+        evidence=list(dict.fromkeys(value.strip() for value in evidence if value.strip())),
+        strategy="adaptive-worker-evidence-gated",
+        lesson=(lesson or "").strip() or None,
+        status="recorded",
+    )
+    session.add(item)
+    session.add(
+        AuditEvent(
+            organization_id=organization_id,
+            user_id=user_id,
+            action="learning.event.recorded",
+            resource_type="learning_event",
+            resource_id=item.id,
+            details={"source": "system-worker", "outcome": outcome, "context_fingerprint": fingerprint, "evidence_count": len(item.evidence)},
+        )
+    )
+    await session.flush()
+    return item
