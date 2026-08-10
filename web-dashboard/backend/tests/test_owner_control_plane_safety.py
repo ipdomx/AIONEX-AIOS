@@ -261,9 +261,9 @@ async def test_finalization_requires_live_health_and_release_evidence(
     assert checks["release-security"]["status"] == "passed"
     assert checks["release-backup"]["status"] == "failed"
     assert checks["release-backup"]["category"] == "reliability"
-    assert snapshot["program"]["current_batch"] is None
+    assert snapshot["program"]["current_batch"] == "29J"
     assert snapshot["program"]["models_providers_batch"] == "29J"
-    assert snapshot["program"]["completion"] == 100
+    assert snapshot["program"]["completion"] == 96
 
 
 @pytest.mark.asyncio
@@ -324,7 +324,7 @@ async def test_finalization_recomputes_stale_release_evidence(
     assert checks["release-security"]["status"] == "failed"
     assert snapshot["completion"] < 100
     assert snapshot["program"]["batches"][-1]["batch_id"] == "29J"
-    assert snapshot["program"]["batches"][-1]["status"] == "complete"
+    assert snapshot["program"]["batches"][-1]["status"] == "pending"
 
 
 @pytest.mark.asyncio

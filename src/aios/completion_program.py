@@ -404,7 +404,7 @@ FEATURES: Final[tuple[CompletionFeature, ...]] = (
         "models-providers",
         "29J",
         "All models and external providers, routing, capabilities, budgets, and fallbacks",
-        "verified",
+        "pending",
         (
             "Every supported AI provider is explicitly represented by the final contract and can only become active when a credential reference or local runtime exists.",
             "Model discovery, capability routing, policy, budgets, rate limits, tools, streaming, structured output, embeddings, media, local/cloud modes, health, retries, safety, costs and fallback modes are covered by retained tests and UI/API surfaces.",
@@ -429,7 +429,7 @@ BATCHES: Final[tuple[CompletionBatch, ...]] = (
     CompletionBatch("29G", 7, "Operations, observability, security, recovery, and release", "complete", "Prove the complete production operations and assurance plane.", _feature_ids("29G")),
     CompletionBatch("29H", 8, "Production Studio and mobile delivery", "complete", "Finish provider-neutral media production and mobile delivery surfaces.", _feature_ids("29H")),
     CompletionBatch("29I", 9, "Plugins, marketplace, distributed runtime, and integrations", "complete", "Extension, distribution, and non-model enterprise integrations are verified; external credentials remain truthful activation boundaries.", _feature_ids("29I")),
-    CompletionBatch("29J", 10, "Models and providers — final batch", "complete", "Final provider/model contract is closed; unavailable credentials remain truthful activation boundaries.", _feature_ids("29J")),
+    CompletionBatch("29J", 10, "Models and providers — final batch", "pending", "Full audit reopened provider/model completion until durable agent/provider execution and truthful live action contracts are verified.", _feature_ids("29J")),
 )
 
 
