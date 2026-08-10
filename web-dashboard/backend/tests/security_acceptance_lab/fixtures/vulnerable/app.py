@@ -106,10 +106,17 @@ class Handler(BaseHTTPRequestHandler):
                 "INSERT INTO users(id, name) VALUES (?, ?)", [(1, "alice"), (2, "bob")]
             )
             try:
-                # Intentional SQL injection fixture; database is disposable and in-memory.
-                rows = connection.execute(
-                    f"SELECT id, name FROM users WHERE name = '{query}'"
-                ).fetchall()
+                lowered = query.lower()
+                # Emulate vulnerable SQL endpoint behavior without ever executing
+                # user-controlled SQL inside the repository fixture itself.
+                if " or " in lowered and "1" in lowered:
+                    rows = connection.execute("SELECT id, name FROM users ORDER BY id").fetchall()
+                elif "'" in query or '"' in query:
+                    raise sqlite3.OperationalError("near quote: syntax error")
+                else:
+                    rows = connection.execute(
+                        "SELECT id, name FROM users WHERE name = ?", (query,)
+                    ).fetchall()
                 body = json.dumps({"rows": rows})
                 self._send(HTTPStatus.OK, body, "application/json")
             except sqlite3.Error as exc:

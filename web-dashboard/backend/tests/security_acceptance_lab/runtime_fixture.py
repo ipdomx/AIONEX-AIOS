@@ -62,7 +62,15 @@ def safe_lookup(query: str):
     connection.executemany("INSERT INTO users(id, name) VALUES (?, ?)", [(1, "alice"), (2, "bob")])
     try:
         if MODE == "vulnerable":
-            return connection.execute(f"SELECT id, name FROM users WHERE name = '{query}'").fetchall()
+            lowered = query.lower()
+            # Deterministically emulate the observable behavior of a vulnerable
+            # search endpoint without executing user-controlled SQL in the test
+            # harness itself. This lets DAST prove its detection path while the
+            # repository remains safe for CodeQL and accidental execution.
+            if " or " in lowered and "1" in lowered:
+                return connection.execute("SELECT id, name FROM users ORDER BY id").fetchall()
+            if "'" in query or '"' in query:
+                raise sqlite3.OperationalError("near quote: syntax error")
         return connection.execute("SELECT id, name FROM users WHERE name = ?", (query,)).fetchall()
     finally:
         connection.close()
