@@ -19,9 +19,9 @@ def test_entitlements_only_follow_authoritative_verification():
     service=read('web-dashboard/backend/app/services/mobile_store_billing.py')
     assert 'verify_and_decode_signed_transaction' in service
     assert '_google_get_subscription' in service
-    assert 'purchase.verified=True' in service
+    assert 'purchase.verified = True' in service
     assert 'await _sync_entitlements' in service
-    assert service.index('purchase.verified=True') < service.index('await _sync_entitlements')
+    assert service.index('purchase.verified = True') < service.index('await _sync_entitlements')
 
 def test_mobile_store_secrets_are_server_side_only():
     config=read('web-dashboard/backend/app/core/config.py')

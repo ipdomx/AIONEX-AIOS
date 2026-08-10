@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from app.core.auth import UserRecord, current_user, require_permissions, require_super_owner
+from app.core.auth import UserRecord, current_user, require_super_owner
 from app.db.base import get_db
 from app.db.models import AuditEvent, CommunicationEndpoint, Notification, NotificationDelivery
 from app.services import communications

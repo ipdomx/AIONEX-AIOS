@@ -241,3 +241,8 @@ __marimo__/
 /data/
 /releases/
 /tools/
+
+# Repository-root release bundles and editor/merge remnants belong in external release evidence, not source control.
+/AIONEX-AIOS-*.zip
+/AIONEX-AIOS-*.tar.gz
+/web-dashboard~*

@@ -10,7 +10,6 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
-import json
 import smtplib
 import ssl
 from datetime import UTC, datetime, timedelta
@@ -41,7 +40,7 @@ from app.db.models import (
 )
 from app.services.telegram_worker import TelegramBotAPI, load_bot_token
 from cryptography.fernet import Fernet, InvalidToken
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = get_logger(__name__)

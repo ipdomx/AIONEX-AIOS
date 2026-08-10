@@ -9,7 +9,6 @@ from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import declarative_base
 
 from app.core.logging import get_logger
 from app.db.base import SessionLocal, engine
@@ -17,10 +16,6 @@ from app.db.base import SessionLocal, engine
 logger = get_logger(__name__)
 
 AsyncSessionLocal = SessionLocal
-
-# Retained only for legacy model imports. Runtime tables are defined by
-# app.db.base.Base and must be created exclusively through Alembic.
-Base = declarative_base()
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 

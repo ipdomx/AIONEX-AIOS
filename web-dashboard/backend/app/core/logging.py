@@ -1,7 +1,6 @@
 """Logging configuration."""
 
 import sys
-import logging
 from typing import Any
 
 import structlog
