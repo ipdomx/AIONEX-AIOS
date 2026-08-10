@@ -1,40 +1,36 @@
 # Phase 29J — Models and Providers — Final Completion
 
-Status: **complete and verified**.
+Status: **complete and verified after full-audit revalidation and live production acceptance on 2026-08-10**.
 
 ## Final supported provider contract
 
-The final AI provider catalog is explicit and finite: OpenAI, Anthropic, Gemini, OpenRouter, Ollama, Mistral, Cohere, xAI, DeepSeek, Groq, Together, Fireworks, Hugging Face, Azure OpenAI and AWS Bedrock.
+The final AI provider catalog is explicit and finite: OpenAI, Anthropic, Gemini, OpenRouter, Ollama, Mistral, Cohere, xAI, DeepSeek, Groq, Together, Fireworks, Hugging Face, Azure OpenAI and AWS Bedrock. Product-specific 3D providers remain governed by the dedicated 3D pipeline.
 
-A provider is never considered active merely because its name exists in the catalog. Cloud providers require a protected credential reference/transport; local providers require a local runtime. Missing credentials remain `unconfigured`, and disabled providers remain `disabled`. Raw secrets are not returned by the provider catalog or completion evidence.
+A provider is never considered active merely because its name exists in the catalog. Cloud providers require a protected credential source; local providers require an explicitly configured local runtime. Missing credentials remain `unconfigured`, disabled providers remain `disabled`, and raw secrets are never returned by provider, agent, completion, audit or release-evidence APIs.
+
+## Durable provider and agent execution
+
+The audit found that the former dashboard runtime used process-local provider/agent/job dictionaries and synthetic execution results. That implementation was removed from the production business path.
+
+The final runtime now uses the existing relational `AIProvider`, `AIAgent` and `Job` records as the source of truth. Provider creation stores protected credentials, agent creation is tenant-scoped and tied to a configured/enabled provider, and executions persist queued/running/terminal state, provider result metadata, usage, latency, cost accounting, agent metrics, audit events and notifications.
+
+Provider health tests now contact the configured provider endpoint where a safe verification operation is supported; they no longer report success merely because configuration exists. Agent execution invokes the selected configured provider rather than returning synthetic text.
 
 ## Model and capability surface
 
-The retained provider framework covers discovery and capability declarations for text/reasoning/coding, tools, streaming, structured output, embeddings, vision/image/audio and declared file/media paths. Existing routing contracts enforce task compatibility, project policy, restricted-data locality, cost limits and privacy requirements. Rate limiting, retries, health state, metrics and cost accounting are retained by the provider runtime.
+The retained provider framework covers discovery and capability declarations for text/reasoning/coding, tools, streaming, structured output, embeddings, vision/image/audio and declared file/media paths. Routing contracts retain task compatibility, project policy, restricted-data locality, cost limits, rate limits, retries, health state, metrics and fallback controls.
 
-The final provider catalog API exposes truthful configured/enabled/status state and discovered model contracts. The AI Providers and AI Models dashboard pages now consume that live API rather than hard-coded or placeholder data.
+The AI Providers, AI Models and AI Agents dashboard pages consume live APIs rather than hard-coded provider/agent business data. UI actions create, update, pause/resume, execute and delete durable records and only report success after backend confirmation.
 
-## Routing and fallback
+## Validation and live evidence
 
-- local and cloud providers are represented separately;
-- no-fallback mode fails when the preferred provider is unavailable;
-- fallback mode may select a later eligible active provider;
-- restricted data remains local under the existing policy contract;
-- project allowlists, blocked providers, budgets and per-request maximum cost remain enforced;
-- unhealthy or disabled providers cannot be selected by the routing layer.
+The remediation passed the full backend suite, core regression suite, Ruff, Mypy, Owner frontend type/lint/build, six-locale VIP static verification, CodeQL, dependency security, SBOM/vulnerability gates and Production Docker Build before merge.
 
-## Validation
-
-- Phase 29J final-contract and legacy provider/routing focused tests pass.
-- The complete core AIOS regression suite must pass before merge.
-- The isolated backend suite, frontend production build, CodeQL, dependency security and Production Docker Build are authoritative protected GitHub gates before merge.
-- Final production acceptance must preserve healthy Backend, Frontend, PostgreSQL, Redis, Nginx and workers.
+Controlled production acceptance is documented in `PHASE_29J_LIVE_ACCEPTANCE_2026-08-10.md`. The retained server evidence proves a real configured-provider execution with a durable response identifier, persisted job/metrics/audit/notification records, and absence of the previous synthetic result path. Disposable test records were cleaned after acceptance.
 
 ## External activation boundary
 
-Phase 29J closes product implementation without fabricating third-party credentials. Providers for which the operator has not supplied credentials remain intentionally and visibly unconfigured. This is the final truthful production contract, not missing implementation.
-
-Cloudflare and DNS are unchanged by this batch.
+Phase 29J closes product implementation without fabricating third-party credentials. A provider for which the operator has not supplied a credential or local runtime remains intentionally and visibly unconfigured. This is the final truthful production contract, not missing implementation.
 
 ## Post-audit revalidation — 2026-08-10
 
@@ -50,6 +46,9 @@ Revalidation evidence now includes:
 - the Owner Operations page loads live organization and role selectors instead of requiring unknown foreign-key IDs;
 - the repository-wide visible-action audit has no known production `href="#"`, empty `onClick`, fake-success, demo-success or hardcoded live-looking AI agent fixture;
 - isolated Owner CRUD smoke covers authenticated create/update/suspend/restore/delete lifecycle;
+- controlled production acceptance additionally proved a real configured-provider execution with durable response identifier, metrics, audit and notification evidence;
 - the complete root and backend regression suites plus protected GitHub gates are required before the completion registry can return to 100%.
 
 This closure does not claim that third-party providers without operator credentials are active. Those providers remain explicitly `unconfigured`, which is the required truthful state.
+
+Cloudflare and DNS configuration are unchanged by this closeout.

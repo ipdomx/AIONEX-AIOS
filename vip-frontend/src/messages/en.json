@@ -406,7 +406,7 @@
     },
     "execution": {
       "title": "Full governed project cycle",
-      "description": "Run the project through provider-neutral governance, deterministic workflow validation, workforce controls, academy evidence, knowledge retention, security review, and release review. Model and provider activation remains reserved for Phase 29J.",
+      "description": "Run the project through provider-neutral governance, deterministic workflow validation, workforce controls, academy evidence, knowledge retention, security review, and release review. Models and providers are now managed by the completed governed runtime; any provider without explicit configuration remains visibly unconfigured.",
       "confirm": "Start the complete provider-neutral governed cycle? No AI model or external provider will be called, and no project data will leave the AIOS server.",
       "start": "Run provider-neutral cycle",
       "starting": "Starting…",
@@ -480,7 +480,7 @@
     "privacy2Title": "Security and device signals",
     "privacy2Copy": "When platform policy requires it, the interface sends available browser, device-capability, language, timezone, network-quality, and referrer signals for identity protection, quota enforcement, audit context, and abuse prevention.",
     "privacy3Title": "Sessions and profile images",
-    "privacy3Copy": "Authentication tokens are stored in browser storage for the active session flow. Uploaded profile images are converted to a data URL and sent through the protected service; supported formats and the 2 MB limit are enforced by the platform.",
+    "privacy3Copy": "Browser-session authentication secrets are held in protected HttpOnly cookies and are not exposed to client-side JavaScript. Uploaded profile images are converted to a data URL and sent through the protected service; supported formats and the 2 MB limit are enforced by the platform.",
     "privacy4Title": "Private support channel",
     "privacy4Copy": "Authenticated support requests are stored in the platform and delivered to authorized recipients. Never include passwords, session tokens, recovery codes, or unnecessary personal data.",
     "termsTitle": "Terms of use",

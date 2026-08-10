@@ -81,7 +81,7 @@ def test_every_current_backend_endpoint_is_registered_exactly_once() -> None:
     assert ENDPOINT_BATCH["ai_providers"] == "29J"
 
 
-def test_snapshot_is_truthful_and_reopens_provider_batch_after_audit() -> None:
+def test_snapshot_is_truthful_after_provider_batch_live_closeout() -> None:
     snapshot = completion_program_snapshot()
     assert snapshot["current_batch"] is None
     assert snapshot["models_providers_batch"] == "29J"
