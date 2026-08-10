@@ -29,3 +29,10 @@ def test_privileged_identity_administration_remains_private() -> None:
     for path in ("teams", "users", "roles", "permissions", "organizations"):
         assert f"|{path}" not in public_server
         assert f"/{path}" not in public_server
+
+
+def test_entitled_security_lab_user_routes_are_public_channel_allowlisted() -> None:
+    public_server = NGINX.split("# Public user portal origin.", 1)[0]
+    assert "security-lab(?:/.*)?" in public_server
+    assert "owner/security-lab" not in public_server
+    assert "X-AIOS-Auth-Channel public" in public_server

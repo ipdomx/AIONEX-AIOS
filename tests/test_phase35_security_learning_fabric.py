@@ -122,3 +122,11 @@ def test_security_remediation_worker_bootstraps_only_its_writable_volume():
         assert 'cap_drop: ["ALL"]' in section
         assert 'cap_add: ["CHOWN", "FOWNER", "SETGID", "SETUID"]' in section
         assert 'test: ["CMD", "su-exec", "aionex", "python", "-m", "app.services.security_remediation_worker", "--healthcheck"]' in section
+
+
+def test_vip_security_lab_api_is_exposed_only_through_public_user_allowlist():
+    nginx = read("web-dashboard/docker/nginx.conf")
+    public = nginx.split("# Public user portal origin.", 1)[0]
+    assert "security-lab(?:/.*)?" in public
+    assert "owner/security-lab" not in public
+    assert "X-AIOS-Auth-Channel public" in public
