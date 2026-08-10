@@ -19,7 +19,7 @@ def test_completion_batches_are_ordered_unique_and_models_providers_are_last() -
     assert [batch.sequence for batch in BATCHES] == list(range(1, len(BATCHES) + 1))
     assert len({batch.batch_id for batch in BATCHES}) == len(BATCHES)
     assert BATCHES[-1].batch_id == "29J"
-    assert BATCHES[-1].status == "complete"
+    assert BATCHES[-1].status == "pending"
     assert "Models and providers" in BATCHES[-1].title
 
 
@@ -81,11 +81,11 @@ def test_every_current_backend_endpoint_is_registered_exactly_once() -> None:
     assert ENDPOINT_BATCH["ai_providers"] == "29J"
 
 
-def test_snapshot_is_truthful_and_points_to_next_non_provider_batch() -> None:
+def test_snapshot_is_truthful_and_reopens_provider_batch_after_audit() -> None:
     snapshot = completion_program_snapshot()
-    assert snapshot["current_batch"] is None
+    assert snapshot["current_batch"] == "29J"
     assert snapshot["models_providers_batch"] == "29J"
-    assert snapshot["completion"] == 100
-    assert snapshot["verified_features"] == 26
+    assert snapshot["completion"] == 96
+    assert snapshot["verified_features"] == 25
     assert snapshot["deferred_features"] == 0
     assert len(snapshot["batches"]) == 10
