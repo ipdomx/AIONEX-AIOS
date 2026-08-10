@@ -1406,6 +1406,7 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
         assert "SECURITY_REMEDIATION_ROOT: /var/lib/aionex/security-remediations" in remediation_section
         assert 'PORTAL_ASSET_ROOT: ""' in remediation_section
         assert 'cap_add: ["CHOWN", "FOWNER", "SETGID", "SETUID"]' in remediation_section
+        assert 'test: ["CMD", "su-exec", "aionex", "python", "-m", "app.services.security_remediation_worker", "--healthcheck"]' in remediation_section
         assert "telegram-worker:" in compose
         assert 'profiles: ["telegram"]' in compose
         assert 'command: ["python", "-m", "app.services.telegram_worker"]' in compose

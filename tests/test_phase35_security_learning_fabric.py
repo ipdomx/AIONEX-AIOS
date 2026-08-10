@@ -121,3 +121,4 @@ def test_security_remediation_worker_bootstraps_only_its_writable_volume():
         assert 'MOBILE_RELEASE_ROOT: ""' in section
         assert 'cap_drop: ["ALL"]' in section
         assert 'cap_add: ["CHOWN", "FOWNER", "SETGID", "SETUID"]' in section
+        assert 'test: ["CMD", "su-exec", "aionex", "python", "-m", "app.services.security_remediation_worker", "--healthcheck"]' in section
