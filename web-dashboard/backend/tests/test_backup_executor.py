@@ -1410,7 +1410,7 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
         assert "telegram-worker:" in compose
         assert 'profiles: ["telegram"]' in compose
         assert 'command: ["python", "-m", "app.services.telegram_worker"]' in compose
-        assert "/run/secrets/aionex/telegram-bot-token:ro" in compose
+        assert "/run/operator-secrets/telegram-bot-token:ro" in compose
         assert (
             'test: ["CMD", "python", "-m", "app.services.backup_worker", '
             '"--healthcheck"]' in compose

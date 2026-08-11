@@ -119,5 +119,5 @@ def test_telegram_delivery_is_optional_allowlisted_and_secret_file_based() -> No
     assert "AIOS_TELEGRAM_BOT_TOKEN_FILE" in worker
     assert "not-allowlisted" in worker
     assert 'profiles: ["telegram"]' in compose
-    assert "/run/secrets/aionex/telegram-bot-token:ro" in compose
+    assert "/run/operator-secrets/telegram-bot-token:ro" in compose
     assert "TELEGRAM_BOT_TOKEN=" not in compose
