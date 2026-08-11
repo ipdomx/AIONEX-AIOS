@@ -11,7 +11,8 @@ def test_market_readiness_accepts_truthful_optional_activation_boundaries(monkey
         ROOT,
         running_services=(
             "backup-worker", "communication-worker", "operations-observer",
-            "studio-worker", "project-worker",
+            "studio-worker", "project-worker", "security-scan-worker",
+                "security-remediation-worker", "three-d-worker",
         ),
         configured_env=(),
     )
@@ -25,7 +26,8 @@ def test_market_readiness_has_no_repository_or_backend_blockers():
         ROOT,
         running_services=(
             "backup-worker", "communication-worker", "operations-observer",
-            "studio-worker", "project-worker",
+            "studio-worker", "project-worker", "security-scan-worker",
+                "security-remediation-worker", "three-d-worker",
         ),
         configured_env=("TRIPO_API_KEY", "MESHY_API_KEY"),
     )

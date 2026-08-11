@@ -78,7 +78,9 @@ def certify_market_readiness(
             continue
         optional = row.surface_id in optional_boundaries
         host_tool = row.surface_id in host_tool_boundaries and executable_overrides is None
-        boundary = optional or host_tool
+        # An optional surface may remain intentionally unconfigured, but once it is
+        # configured and reports unavailable it is a real release blocker.
+        boundary = (optional and row.status == "unconfigured") or host_tool
         findings.append(MarketReadinessFinding(
             code="activation-boundary" if boundary else "required-runtime-unavailable",
             severity="info" if boundary else "high",
