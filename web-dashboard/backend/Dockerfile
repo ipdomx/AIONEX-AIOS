@@ -55,3 +55,22 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
 
 ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]
 CMD ["sh", "-c", "alembic upgrade head && python -m app.db.seed && exec python main.py"]
+
+# Dedicated project-worker target. It is the only production image that carries
+# Node/npm and a local Chromium/ChromeDriver pair for real 3D build + browser QA.
+FROM builder AS project-worker-builder
+COPY requirements-project-worker.txt .
+RUN /opt/venv/bin/pip install --no-cache-dir -r requirements-project-worker.txt
+
+FROM runtime AS project-worker
+USER root
+RUN set -eux; \
+    apk add --no-cache nodejs npm chromium chromium-chromedriver ttf-freefont xvfb mesa-gl mesa-egl; \
+    install -d -m 0700 -o aionex -g aionex /var/lib/aionex/project-npm-cache
+COPY --from=project-worker-builder /opt/venv /opt/venv
+RUN rm -rf /opt/venv/lib/python3.11/site-packages/pip* \
+           /opt/venv/lib/python3.11/site-packages/setuptools* \
+           /opt/venv/lib/python3.11/site-packages/wheel* \
+    && rm -f /opt/venv/bin/pip /opt/venv/bin/pip3 /opt/venv/bin/pip3.11
+ENV PROJECT_EXECUTION_NPM_CACHE=/var/lib/aionex/project-npm-cache \
+    CHROME_BIN=/usr/bin/chromium-browser
