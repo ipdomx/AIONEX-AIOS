@@ -38,3 +38,7 @@ The final sanitized receipt SHA-256 is:
 ## Release rule
 
 `configured != tested != connected`. A provider is `connected` only after a real provider execution passes through the production adapter and durable runtime. External account funding, provider entitlement or credentials remain explicit activation boundaries and never receive fake success.
+
+## Anthropic runtime closeout — 2026-08-11
+
+After API billing was funded, the production Anthropic environment provider was exercised through the durable AIOS agent runtime, not by a direct provider-only probe. A disposable agent and durable job were created, the runtime invoked `claude-haiku-4-5-20251001`, the job completed with non-empty output, 22 total tokens were recorded, latency was persisted, and the provider transitioned from the prior external-billing `error` state to `connected`. The disposable job and agent were removed after acceptance; the provider connected state, usage, last-used timestamp, and append-only audit evidence remain durable. No credential or response secret is recorded here.
