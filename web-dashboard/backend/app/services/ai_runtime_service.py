@@ -47,6 +47,9 @@ SUPPORTED_PROVIDER_TYPES = (
     "meshy",
 )
 
+DEDICATED_3D_PROVIDER_TYPES = frozenset({"tripo3d", "meshy"})
+AGENT_RUNTIME_PROVIDER_TYPES = frozenset(SUPPORTED_PROVIDER_TYPES) - DEDICATED_3D_PROVIDER_TYPES
+
 _SERVER_CREDENTIALS: dict[str, tuple[str, str | None]] = {
     "openai": ("OPENAI_API_KEY", "https://api.openai.com"),
     "anthropic": ("ANTHROPIC_API_KEY", "https://api.anthropic.com"),
@@ -320,6 +323,11 @@ async def create_provider(session: AsyncSession, payload: dict[str, Any], organi
     provider_type = str(payload.get("type") or "").strip().lower()
     if provider_type not in SUPPORTED_PROVIDER_TYPES:
         raise HTTPException(status_code=422, detail="Unsupported provider type")
+    if provider_type in DEDICATED_3D_PROVIDER_TYPES:
+        raise HTTPException(
+            status_code=422,
+            detail="3D generation providers are managed through the dedicated 3D pipeline",
+        )
     api_key = str(payload.pop("api_key", "") or "").strip()
     base_url = validate_provider_base_url(provider_type, payload.get("base_url"))
     if provider_type != "ollama" and not api_key:
@@ -398,8 +406,11 @@ async def get_agent(session: AsyncSession, agent_id: str, organization_id: str, 
 
 async def create_agent(session: AsyncSession, payload: dict[str, Any], organization_id: str, actor_id: str) -> dict[str, Any]:
     provider = await get_provider(session, str(payload.get("provider_id")), organization_id)
-    if provider.type in {"tripo3d", "meshy"}:
-        raise HTTPException(status_code=422, detail="3D generation providers are managed through the dedicated 3D pipeline")
+    if provider.type in DEDICATED_3D_PROVIDER_TYPES:
+        raise HTTPException(
+            status_code=422,
+            detail="3D generation providers are managed through the dedicated 3D pipeline",
+        )
     if not provider_configured(provider) or not provider_enabled(provider):
         raise HTTPException(status_code=409, detail="Provider is not configured and enabled")
     name = str(payload.get("name") or "").strip()
@@ -512,6 +523,12 @@ async def _request_json(method: str, url: str, *, headers: dict[str, str], json_
 
 
 async def provider_health_probe(provider: AIProvider) -> dict[str, Any]:
+    if provider.type in DEDICATED_3D_PROVIDER_TYPES:
+        return {
+            "status": "dedicated",
+            "latency_ms": 0,
+            "message": "3D provider health is managed by the dedicated 3D pipeline",
+        }
     if not provider_enabled(provider):
         return {"status": "disabled", "latency_ms": 0, "message": "Provider is disabled"}
     base = validate_provider_base_url(provider.type, provider.base_url)
@@ -539,6 +556,11 @@ async def provider_health_probe(provider: AIProvider) -> dict[str, Any]:
 
 
 async def _execute_provider(provider: AIProvider, agent: AIAgent, prompt: str) -> dict[str, Any]:
+    if provider.type in DEDICATED_3D_PROVIDER_TYPES:
+        raise HTTPException(
+            status_code=422,
+            detail="3D generation providers are managed through the dedicated 3D pipeline",
+        )
     base = validate_provider_base_url(provider.type, provider.base_url)
     credential = provider_credential(provider)
     if provider.type != "ollama" and not credential:
