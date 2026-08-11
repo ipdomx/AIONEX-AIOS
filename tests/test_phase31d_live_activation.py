@@ -61,6 +61,7 @@ def test_telegram_secret_is_mounted_for_runtime_readiness_and_delivery() -> None
         text = (root / rel).read_text(encoding="utf-8")
         mount = "/run/operator-secrets/telegram-bot-token:ro"
         assert text.count(mount) >= 3, rel
+        assert "AIOS_TELEGRAM_BOT_TOKEN_FILE: /run/operator-secrets/telegram-bot-token" in text, rel
 
 
 def test_configured_optional_worker_becomes_blocking_when_unavailable(tmp_path, monkeypatch) -> None:
