@@ -59,7 +59,7 @@ def test_telegram_secret_is_mounted_for_runtime_readiness_and_delivery() -> None
         "deploy/production/docker-compose.production.yml",
     ):
         text = (root / rel).read_text(encoding="utf-8")
-        mount = "/run/secrets/aionex/telegram-bot-token:ro"
+        mount = "/run/operator-secrets/telegram-bot-token:ro"
         assert text.count(mount) >= 3, rel
 
 

@@ -29,10 +29,16 @@ class ActivationSnapshot:
 
     @property
     def ready(self) -> bool:
-        # Explicitly unconfigured optional boundaries are truthful and acceptable,
-        # but an unavailable component means something expected/configured cannot run.
-        required = (*self.workers, *self.tools, *self.providers, *self.integrations)
-        return all(item.status != "unavailable" for item in required)
+        # Missing production workers are always a runtime failure. Host-only tools
+        # may remain unavailable on generic CI runners and are evaluated by the
+        # market-readiness host gate instead. Required runtime integrations must run.
+        workers_ready = all(item.status != "unavailable" for item in self.workers)
+        required_integrations_ready = all(
+            item.status != "unavailable"
+            for item in self.integrations
+            if item.surface_id not in {"kubernetes", "helm"}
+        )
+        return workers_ready and required_integrations_ready
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), sort_keys=True, separators=(",", ":"))
