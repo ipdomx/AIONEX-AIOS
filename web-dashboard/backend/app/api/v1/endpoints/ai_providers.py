@@ -54,12 +54,17 @@ async def supported_provider_catalog(
     rows = []
     for provider_type in FINAL_SUPPORTED_PROVIDER_TYPES:
         item = configured.get(provider_type)
+        contract = ai_runtime_service.provider_runtime_contract(provider_type)
+        catalog_only = provider_type in ai_runtime_service.DEDICATED_3D_PROVIDER_TYPES
         rows.append(
             {
                 "type": provider_type,
-                "configured": bool(item and item["configured"]),
-                "enabled": bool(item and item["enabled"]),
-                "status": item["status"] if item else "unconfigured",
+                "configured": False if catalog_only else bool(item and item["configured"]),
+                "enabled": False if catalog_only else bool(item and item["enabled"]),
+                "status": "catalog-only" if catalog_only else (item["status"] if item else "unconfigured"),
+                "runtime_mode": contract["runtime_mode"],
+                "protocol": contract["protocol"],
+                "reason": contract["reason"],
                 "models": provider_models(provider_type),
             }
         )

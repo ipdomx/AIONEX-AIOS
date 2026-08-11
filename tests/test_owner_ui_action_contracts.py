@@ -69,3 +69,22 @@ def test_explicit_button_controls_are_not_inert() -> None:
             if "onClick=" not in fragment:
                 findings.append(f"{path.relative_to(ROOT)}:{text.count(chr(10), 0, match.start()) + 1}")
     assert findings == []
+
+
+def test_ai_provider_page_exposes_live_create_test_and_delete_controls() -> None:
+    page = (FRONTEND / "app/ai/providers/page.tsx").read_text(encoding="utf-8")
+    services = (FRONTEND / "lib/runtime-services.ts").read_text(encoding="utf-8")
+    for token in (
+        "runtimeServices.listProviders",
+        "runtimeServices.createProvider",
+        "runtimeServices.testProvider",
+        "runtimeServices.deleteProvider",
+        "Add provider",
+        "Test connection",
+        "server-managed",
+        "provider.runtime_mode",
+        "provider.protocol",
+    ):
+        assert token in page
+    assert 'url: `/ai/providers/${providerId}`' in services
+    assert 'method: "DELETE"' in services

@@ -55,5 +55,9 @@ def test_provider_execution_has_no_synthetic_success_path() -> None:
     assert "/v1/responses" in source
     assert "/v1/messages" in source
     assert ":generateContent" in source
-    assert "/api/v1/chat/completions" in source
+    assert 'return f"{base}/api/v1"' in source
+    assert "/v2/chat" in source
+    assert 'return f"{base}/openai/v1"' in source
+    assert "bedrock-runtime" in source
+    assert ".converse(" in source
     assert "/api/chat" in source

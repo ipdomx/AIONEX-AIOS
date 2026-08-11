@@ -5,6 +5,7 @@ process-local by design, but no business state depends on process memory.
 """
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import ipaddress
@@ -13,7 +14,9 @@ from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlsplit
 
+import boto3  # type: ignore[import-untyped]
 import httpx
+from botocore.exceptions import BotoCoreError, ClientError  # type: ignore[import-untyped]
 from cryptography.fernet import Fernet, InvalidToken
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -55,6 +58,34 @@ _SERVER_CREDENTIALS: dict[str, tuple[str, str | None]] = {
     "anthropic": ("ANTHROPIC_API_KEY", "https://api.anthropic.com"),
     "gemini": ("GOOGLE_API_KEY", "https://generativelanguage.googleapis.com"),
     "openrouter": ("OPENROUTER_API_KEY", "https://openrouter.ai"),
+    "mistral": ("MISTRAL_API_KEY", "https://api.mistral.ai"),
+    "cohere": ("COHERE_API_KEY", "https://api.cohere.com"),
+    "xai": ("XAI_API_KEY", "https://api.x.ai"),
+    "deepseek": ("DEEPSEEK_API_KEY", "https://api.deepseek.com"),
+    "groq": ("GROQ_API_KEY", "https://api.groq.com/openai"),
+    "together": ("TOGETHER_API_KEY", "https://api.together.ai"),
+    "fireworks": ("FIREWORKS_API_KEY", "https://api.fireworks.ai/inference"),
+    "huggingface": ("HUGGINGFACE_API_KEY", "https://router.huggingface.co"),
+    "azure_openai": ("AZURE_OPENAI_API_KEY", None),
+}
+
+_OPENAI_COMPATIBLE_PROVIDER_TYPES = frozenset({
+    "mistral", "xai", "deepseek", "groq", "together", "fireworks", "huggingface"
+})
+
+_OFFICIAL_PROVIDER_HOSTS = {
+    "openai": "api.openai.com",
+    "anthropic": "api.anthropic.com",
+    "gemini": "generativelanguage.googleapis.com",
+    "openrouter": "openrouter.ai",
+    "mistral": "api.mistral.ai",
+    "cohere": "api.cohere.com",
+    "xai": "api.x.ai",
+    "deepseek": "api.deepseek.com",
+    "groq": "api.groq.com",
+    "together": "api.together.ai",
+    "fireworks": "api.fireworks.ai",
+    "huggingface": "router.huggingface.co",
 }
 
 _PROVIDER_NAMES = {
@@ -125,8 +156,55 @@ def provider_credential(provider: AIProvider) -> str | None:
 
 
 def _default_base_url(provider_type: str) -> str | None:
+    if provider_type == "azure_openai":
+        endpoint = str(settings.AZURE_OPENAI_ENDPOINT or "").strip().rstrip("/")
+        return endpoint or None
     spec = _SERVER_CREDENTIALS.get(provider_type)
     return spec[1] if spec else None
+
+
+def _aws_bedrock_configured() -> bool:
+    return bool(
+        str(settings.AWS_ACCESS_KEY_ID or "").strip()
+        and str(settings.AWS_SECRET_ACCESS_KEY or "").strip()
+        and str(settings.AWS_BEDROCK_REGION or "").strip()
+    )
+
+
+def provider_runtime_contract(provider_type: str) -> dict[str, str]:
+    if provider_type in DEDICATED_3D_PROVIDER_TYPES:
+        return {
+            "runtime_mode": "catalog_only_3d_connector",
+            "protocol": "not-agent-executable",
+            "reason": "External Tripo3D/Meshy catalog entries are not agent-runtime providers; production 3D execution uses the licensed Hunyuan3D/TripoSR RunPod pipeline.",
+        }
+    if provider_type == "ollama":
+        return {"runtime_mode": "agent", "protocol": "ollama-chat", "reason": "Local Ollama chat runtime."}
+    if provider_type == "openai":
+        protocol = "openai-responses"
+    elif provider_type == "anthropic":
+        protocol = "anthropic-messages"
+    elif provider_type == "gemini":
+        protocol = "gemini-generate-content"
+    elif provider_type == "openrouter":
+        protocol = "openrouter-chat-completions"
+    elif provider_type == "cohere":
+        protocol = "cohere-v2-chat"
+    elif provider_type == "azure_openai":
+        protocol = "azure-openai-v1-chat"
+    elif provider_type == "aws_bedrock":
+        protocol = "aws-bedrock-converse"
+    else:
+        protocol = "openai-compatible-chat"
+    return {"runtime_mode": "agent", "protocol": protocol, "reason": "Executable through the durable AI agent runtime when configured."}
+
+
+def _chat_api_root(provider_type: str, base: str) -> str:
+    if provider_type == "openrouter":
+        return f"{base}/api/v1"
+    if provider_type == "azure_openai":
+        return f"{base}/openai/v1"
+    return f"{base}/v1"
 
 
 def validate_provider_base_url(provider_type: str, base_url: str | None) -> str | None:
@@ -150,22 +228,27 @@ def validate_provider_base_url(provider_type: str, base_url: str | None) -> str 
         return raw
     if parsed.scheme != "https" or not parsed.hostname:
         raise HTTPException(status_code=422, detail="Cloud provider base URL must use HTTPS")
-    # Built-in providers are pinned to their official service host. Generic providers
-    # may use an operator-supplied HTTPS OpenAI-compatible endpoint.
-    official = {
-        "openai": "api.openai.com",
-        "anthropic": "api.anthropic.com",
-        "gemini": "generativelanguage.googleapis.com",
-        "openrouter": "openrouter.ai",
-    }.get(provider_type)
+    official = _OFFICIAL_PROVIDER_HOSTS.get(provider_type)
     if official and parsed.hostname != official:
         raise HTTPException(status_code=422, detail="Built-in provider must use its official API host")
+    if provider_type == "azure_openai" and not (
+        parsed.hostname.endswith(".openai.azure.com")
+        or parsed.hostname.endswith(".services.ai.azure.com")
+        or parsed.hostname.endswith(".cognitiveservices.azure.com")
+    ):
+        raise HTTPException(status_code=422, detail="Azure OpenAI endpoint must use an Azure AI service host")
     return raw
 
 
 def provider_configured(provider: AIProvider) -> bool:
     if provider.type == "ollama":
         return bool(provider.base_url)
+    if provider.type == "aws_bedrock":
+        return (provider.config or {}).get("credential_source") == "environment" and _aws_bedrock_configured()
+    if provider.type == "azure_openai":
+        return provider_credential(provider) is not None and validate_provider_base_url(provider.type, provider.base_url) is not None
+    if provider.type in DEDICATED_3D_PROVIDER_TYPES:
+        return False
     return provider_credential(provider) is not None
 
 
@@ -198,6 +281,7 @@ def provider_snapshot(provider: AIProvider) -> dict[str, Any]:
         "api_key_hint": "configured" if configured else "not-configured",
         "configured": configured,
         "enabled": enabled,
+        "managed_by": "server" if (provider.config or {}).get("credential_source") == "environment" else "database",
         "created_at": provider.created_at.isoformat() if provider.created_at else None,
         **metrics,
     }
@@ -257,9 +341,18 @@ def job_snapshot(job: Job) -> dict[str, Any]:
 
 
 async def ensure_environment_providers(session: AsyncSession, organization_id: str) -> None:
+    configured_specs: list[tuple[str, str | None]] = []
     for provider_type, (setting_name, default_url) in _SERVER_CREDENTIALS.items():
         if not str(getattr(settings, setting_name, None) or "").strip():
             continue
+        resolved_url = _default_base_url(provider_type) or default_url
+        if provider_type == "azure_openai" and not resolved_url:
+            continue
+        configured_specs.append((provider_type, resolved_url))
+    if _aws_bedrock_configured():
+        configured_specs.append(("aws_bedrock", None))
+
+    for provider_type, resolved_url in configured_specs:
         existing = await session.scalar(
             select(AIProvider).where(
                 AIProvider.organization_id == organization_id,
@@ -268,6 +361,8 @@ async def ensure_environment_providers(session: AsyncSession, organization_id: s
             )
         )
         if existing is not None:
+            if resolved_url and existing.base_url != resolved_url:
+                existing.base_url = resolved_url
             continue
         session.add(
             AIProvider(
@@ -276,7 +371,7 @@ async def ensure_environment_providers(session: AsyncSession, organization_id: s
                 type=provider_type,
                 status="configured",
                 encrypted_api_key=None,
-                base_url=default_url,
+                base_url=resolved_url,
                 config={
                     "credential_source": "environment",
                     "enabled": True,
@@ -326,15 +421,22 @@ async def create_provider(session: AsyncSession, payload: dict[str, Any], organi
     if provider_type in DEDICATED_3D_PROVIDER_TYPES:
         raise HTTPException(
             status_code=422,
-            detail="3D generation providers are managed through the dedicated 3D pipeline",
+            detail="Tripo3D/Meshy catalog connectors are not executable through the AI agent runtime; production 3D uses the Hunyuan3D/TripoSR pipeline",
         )
-    api_key = str(payload.pop("api_key", "") or "").strip()
+    api_key = str(payload.get("api_key", "") or "").strip()
     base_url = validate_provider_base_url(provider_type, payload.get("base_url"))
-    if provider_type != "ollama" and not api_key:
+    if provider_type == "aws_bedrock":
+        if api_key or payload.get("base_url"):
+            raise HTTPException(status_code=422, detail="AWS Bedrock uses the server AWS credential chain and region, not a single API key or base URL")
+        if not _aws_bedrock_configured():
+            raise HTTPException(status_code=422, detail="AWS Bedrock server credentials and region are not configured")
+    elif provider_type != "ollama" and not api_key:
         raise HTTPException(status_code=422, detail="Provider credential is required")
     if provider_type == "ollama" and not base_url:
         raise HTTPException(status_code=422, detail="Ollama local runtime URL is required")
-    if provider_type not in {*_SERVER_CREDENTIALS, "ollama"} and not base_url:
+    if provider_type == "azure_openai" and not base_url:
+        raise HTTPException(status_code=422, detail="Azure OpenAI endpoint is required")
+    if provider_type not in {*_SERVER_CREDENTIALS, "ollama", "aws_bedrock"} and not base_url:
         raise HTTPException(status_code=422, detail="Provider HTTPS base URL is required")
     provider = AIProvider(
         id=uuid_str(),
@@ -345,7 +447,7 @@ async def create_provider(session: AsyncSession, payload: dict[str, Any], organi
         encrypted_api_key=encrypt_provider_secret(api_key) if api_key else None,
         base_url=base_url,
         config={
-            "credential_source": "database" if api_key else "environment",
+            "credential_source": "environment" if provider_type == "aws_bedrock" else ("database" if api_key else "environment"),
             "enabled": True,
             "cost_per_1k_tokens": float(payload.get("cost_per_1k_tokens", 0.0) or 0.0),
             "usage_limit": int(payload.get("usage_limit", 0) or 0),
@@ -363,6 +465,11 @@ async def create_provider(session: AsyncSession, payload: dict[str, Any], organi
 
 async def delete_provider(session: AsyncSession, provider_id: str, organization_id: str, actor_id: str) -> None:
     provider = await get_provider(session, provider_id, organization_id, lock=True)
+    if (provider.config or {}).get("credential_source") == "environment":
+        raise HTTPException(
+            status_code=409,
+            detail="Server-managed provider cannot be deleted through the API; remove or rotate its protected server credential instead",
+        )
     assigned = await session.scalar(select(AIAgent.id).where(AIAgent.provider_id == provider.id).limit(1))
     if assigned is not None:
         raise HTTPException(status_code=409, detail="Provider is assigned to an agent")
@@ -409,7 +516,7 @@ async def create_agent(session: AsyncSession, payload: dict[str, Any], organizat
     if provider.type in DEDICATED_3D_PROVIDER_TYPES:
         raise HTTPException(
             status_code=422,
-            detail="3D generation providers are managed through the dedicated 3D pipeline",
+            detail="Tripo3D/Meshy catalog connectors are not executable through the AI agent runtime; production 3D uses the Hunyuan3D/TripoSR pipeline",
         )
     if not provider_configured(provider) or not provider_enabled(provider):
         raise HTTPException(status_code=409, detail="Provider is not configured and enabled")
@@ -525,12 +632,16 @@ async def _request_json(method: str, url: str, *, headers: dict[str, str], json_
 async def provider_health_probe(provider: AIProvider) -> dict[str, Any]:
     if provider.type in DEDICATED_3D_PROVIDER_TYPES:
         return {
-            "status": "dedicated",
+            "status": "catalog_only",
             "latency_ms": 0,
-            "message": "3D provider health is managed by the dedicated 3D pipeline",
+            "message": "Tripo3D/Meshy are catalog connectors only; production 3D health is owned by the Hunyuan3D/TripoSR RunPod pipeline",
         }
     if not provider_enabled(provider):
         return {"status": "disabled", "latency_ms": 0, "message": "Provider is disabled"}
+    if provider.type == "aws_bedrock":
+        if not provider_configured(provider):
+            return {"status": "unconfigured", "latency_ms": 0, "message": "AWS Bedrock credentials or region are not configured"}
+        return {"status": "configured", "latency_ms": 0, "message": "AWS Bedrock credential chain and region are configured; execution is the authoritative live verification"}
     base = validate_provider_base_url(provider.type, provider.base_url)
     credential = provider_credential(provider)
     if provider.type != "ollama" and not credential:
@@ -541,86 +652,161 @@ async def provider_health_probe(provider: AIProvider) -> dict[str, Any]:
         _, latency = await _request_json("GET", f"{base}/v1/models", headers={"Authorization": f"Bearer {credential}", "Accept": "application/json"})
     elif provider.type == "gemini":
         _, latency = await _request_json("GET", f"{base}/v1beta/models", headers={"x-goog-api-key": str(credential), "Accept": "application/json"})
-    elif provider.type == "openrouter":
-        _, latency = await _request_json("GET", f"{base}/api/v1/models", headers={"Authorization": f"Bearer {credential}", "Accept": "application/json"})
     elif provider.type == "ollama":
         _, latency = await _request_json("GET", f"{base}/api/tags", headers={"Accept": "application/json"})
-    elif provider.type == "anthropic":
-        # Anthropic has no zero-cost API-key validation contract that is universally
-        # available. Keep health truthful without billing an inference: configuration
-        # is known, execution remains the authoritative live test.
-        return {"status": "configured", "latency_ms": 0, "message": "Credential configured; execute an agent for live Anthropic verification"}
+    elif provider.type in {"anthropic", "cohere"}:
+        return {"status": "configured", "latency_ms": 0, "message": f"{_PROVIDER_NAMES[provider.type]} credential configured; execution is the authoritative live verification"}
+    elif provider.type == "azure_openai":
+        _, latency = await _request_json("GET", f"{_chat_api_root(provider.type, base)}/models", headers={"api-key": str(credential), "Accept": "application/json"})
     else:
-        _, latency = await _request_json("GET", f"{base}/v1/models", headers={"Authorization": f"Bearer {credential}", "Accept": "application/json"})
+        _, latency = await _request_json("GET", f"{_chat_api_root(provider.type, base)}/models", headers={"Authorization": f"Bearer {credential}", "Accept": "application/json"})
     return {"status": "success", "latency_ms": round(latency, 2), "message": "Provider endpoint verified"}
+
+
+def _execute_bedrock_sync(agent: AIAgent, prompt: str, max_tokens: int) -> dict[str, Any]:
+    region = str(settings.AWS_BEDROCK_REGION or "").strip()
+    if not _aws_bedrock_configured() or not region:
+        raise HTTPException(status_code=503, detail="AWS Bedrock credentials or region are not configured")
+    kwargs: dict[str, Any] = {
+        "region_name": region,
+        "aws_access_key_id": str(settings.AWS_ACCESS_KEY_ID),
+        "aws_secret_access_key": str(settings.AWS_SECRET_ACCESS_KEY),
+    }
+    if settings.AWS_SESSION_TOKEN:
+        kwargs["aws_session_token"] = str(settings.AWS_SESSION_TOKEN)
+    started = time.monotonic()
+    try:
+        client = boto3.client("bedrock-runtime", **kwargs)
+        request: dict[str, Any] = {
+            "modelId": agent.model,
+            "messages": [{"role": "user", "content": [{"text": prompt}]}],
+            "inferenceConfig": {"maxTokens": max_tokens, "temperature": float(agent.temperature)},
+        }
+        if agent.system_prompt:
+            request["system"] = [{"text": agent.system_prompt}]
+        payload = client.converse(**request)
+    except (BotoCoreError, ClientError) as exc:
+        raise HTTPException(status_code=502, detail=f"AWS Bedrock request failed ({type(exc).__name__})") from exc
+    elapsed_ms = (time.monotonic() - started) * 1000
+    output = payload.get("output") or {}
+    message = output.get("message") or {}
+    content = message.get("content") or []
+    text = "".join(str(part.get("text", "")) for part in content if isinstance(part, dict)).strip()
+    raw_usage = payload.get("usage") or {}
+    usage = {
+        "input_tokens": int(raw_usage.get("inputTokens", 0) or 0),
+        "output_tokens": int(raw_usage.get("outputTokens", 0) or 0),
+        "total_tokens": int(raw_usage.get("totalTokens", 0) or 0),
+    }
+    if not usage["total_tokens"]:
+        usage["total_tokens"] = usage["input_tokens"] + usage["output_tokens"]
+    response_metadata = payload.get("ResponseMetadata") or {}
+    return {
+        "text": text,
+        "usage": usage,
+        "model": agent.model,
+        "response_id": response_metadata.get("RequestId"),
+        "latency_ms": elapsed_ms,
+    }
 
 
 async def _execute_provider(provider: AIProvider, agent: AIAgent, prompt: str) -> dict[str, Any]:
     if provider.type in DEDICATED_3D_PROVIDER_TYPES:
         raise HTTPException(
             status_code=422,
-            detail="3D generation providers are managed through the dedicated 3D pipeline",
+            detail="Tripo3D/Meshy catalog connectors are not executable through the AI agent runtime; production 3D uses the Hunyuan3D/TripoSR pipeline",
         )
-    base = validate_provider_base_url(provider.type, provider.base_url)
-    credential = provider_credential(provider)
-    if provider.type != "ollama" and not credential:
-        raise HTTPException(status_code=503, detail="Provider credential is not configured")
-    if not base:
-        raise HTTPException(status_code=503, detail="Provider endpoint is not configured")
     system_prompt = agent.system_prompt or ""
     max_tokens = int((provider.config or {}).get("max_output_tokens", 1024) or 1024)
     max_tokens = max(1, min(max_tokens, 4096))
-    if provider.type == "openai":
-        body: dict[str, Any] = {"model": agent.model, "input": prompt, "max_output_tokens": max_tokens, "store": False}
-        if system_prompt:
-            body["instructions"] = system_prompt
-        payload, latency = await _request_json("POST", f"{base}/v1/responses", headers={"Authorization": f"Bearer {credential}", "Content-Type": "application/json", "Accept": "application/json"}, json_body=body, timeout=60)
-        text = _openai_text(payload)
-        usage = payload.get("usage") or {}
-        model = str(payload.get("model") or agent.model)
-        response_id = payload.get("id")
-    elif provider.type == "anthropic":
-        body = {"model": agent.model, "max_tokens": max_tokens, "messages": [{"role": "user", "content": prompt}]}
-        if system_prompt:
-            body["system"] = system_prompt
-        payload, latency = await _request_json("POST", f"{base}/v1/messages", headers={"x-api-key": str(credential), "anthropic-version": "2023-06-01", "Content-Type": "application/json", "Accept": "application/json"}, json_body=body, timeout=60)
-        text = "".join(str(part.get("text", "")) for part in payload.get("content") or [] if isinstance(part, dict) and part.get("type") == "text").strip()
-        raw_usage = payload.get("usage") or {}
-        usage = {"input_tokens": int(raw_usage.get("input_tokens", 0) or 0), "output_tokens": int(raw_usage.get("output_tokens", 0) or 0)}
-        usage["total_tokens"] = usage["input_tokens"] + usage["output_tokens"]
-        model = str(payload.get("model") or agent.model)
-        response_id = payload.get("id")
-    elif provider.type == "gemini":
-        body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}], "generationConfig": {"maxOutputTokens": max_tokens, "temperature": agent.temperature}}
-        if system_prompt:
-            body["systemInstruction"] = {"parts": [{"text": system_prompt}]}
-        model_path = agent.model if agent.model.startswith("models/") else f"models/{agent.model}"
-        payload, latency = await _request_json("POST", f"{base}/v1beta/{model_path}:generateContent", headers={"x-goog-api-key": str(credential), "Content-Type": "application/json", "Accept": "application/json"}, json_body=body, timeout=60)
-        candidates = payload.get("candidates") or []
-        parts = (((candidates[0] if candidates else {}).get("content") or {}).get("parts") or []) if isinstance(candidates, list) else []
-        text = "".join(str(part.get("text", "")) for part in parts if isinstance(part, dict)).strip()
-        meta = payload.get("usageMetadata") or {}
-        usage = {"input_tokens": int(meta.get("promptTokenCount", 0) or 0), "output_tokens": int(meta.get("candidatesTokenCount", 0) or 0), "total_tokens": int(meta.get("totalTokenCount", 0) or 0)}
-        model = agent.model
-        response_id = payload.get("responseId")
-    elif provider.type == "ollama":
-        body = {"model": agent.model, "stream": False, "messages": ([{"role": "system", "content": system_prompt}] if system_prompt else []) + [{"role": "user", "content": prompt}], "options": {"temperature": agent.temperature, "num_predict": max_tokens}}
-        payload, latency = await _request_json("POST", f"{base}/api/chat", headers={"Content-Type": "application/json"}, json_body=body, timeout=120)
-        text = str((payload.get("message") or {}).get("content") or "").strip()
-        usage = {"input_tokens": int(payload.get("prompt_eval_count", 0) or 0), "output_tokens": int(payload.get("eval_count", 0) or 0)}
-        usage["total_tokens"] = usage["input_tokens"] + usage["output_tokens"]
-        model = str(payload.get("model") or agent.model)
-        response_id = None
+    if provider.type == "aws_bedrock":
+        if not provider_configured(provider):
+            raise HTTPException(status_code=503, detail="AWS Bedrock credentials or region are not configured")
+        bedrock = await asyncio.to_thread(_execute_bedrock_sync, agent, prompt, max_tokens)
+        text = str(bedrock["text"]).strip()
+        usage = dict(bedrock["usage"])
+        model = str(bedrock["model"])
+        response_id = bedrock.get("response_id")
+        latency = float(bedrock["latency_ms"])
     else:
-        path = "/api/v1/chat/completions" if provider.type == "openrouter" else "/v1/chat/completions"
-        messages = ([{"role": "system", "content": system_prompt}] if system_prompt else []) + [{"role": "user", "content": prompt}]
-        body = {"model": agent.model, "messages": messages, "max_tokens": max_tokens, "temperature": agent.temperature}
-        payload, latency = await _request_json("POST", f"{base}{path}", headers={"Authorization": f"Bearer {credential}", "Content-Type": "application/json", "Accept": "application/json"}, json_body=body, timeout=60)
-        choices = payload.get("choices") or []
-        text = str((((choices[0] if choices else {}).get("message") or {}).get("content")) or "").strip()
-        usage = payload.get("usage") or {}
-        model = str(payload.get("model") or agent.model)
-        response_id = payload.get("id")
+        base = validate_provider_base_url(provider.type, provider.base_url)
+        credential = provider_credential(provider)
+        if provider.type != "ollama" and not credential:
+            raise HTTPException(status_code=503, detail="Provider credential is not configured")
+        if not base:
+            raise HTTPException(status_code=503, detail="Provider endpoint is not configured")
+        if provider.type == "openai":
+            body: dict[str, Any] = {"model": agent.model, "input": prompt, "max_output_tokens": max_tokens, "store": False}
+            if system_prompt:
+                body["instructions"] = system_prompt
+            payload, latency = await _request_json("POST", f"{base}/v1/responses", headers={"Authorization": f"Bearer {credential}", "Content-Type": "application/json", "Accept": "application/json"}, json_body=body, timeout=60)
+            text = _openai_text(payload)
+            usage = payload.get("usage") or {}
+            model = str(payload.get("model") or agent.model)
+            response_id = payload.get("id")
+        elif provider.type == "anthropic":
+            body = {"model": agent.model, "max_tokens": max_tokens, "messages": [{"role": "user", "content": prompt}]}
+            if system_prompt:
+                body["system"] = system_prompt
+            payload, latency = await _request_json("POST", f"{base}/v1/messages", headers={"x-api-key": str(credential), "anthropic-version": "2023-06-01", "Content-Type": "application/json", "Accept": "application/json"}, json_body=body, timeout=60)
+            text = "".join(str(part.get("text", "")) for part in payload.get("content") or [] if isinstance(part, dict) and part.get("type") == "text").strip()
+            raw_usage = payload.get("usage") or {}
+            usage = {"input_tokens": int(raw_usage.get("input_tokens", 0) or 0), "output_tokens": int(raw_usage.get("output_tokens", 0) or 0)}
+            usage["total_tokens"] = usage["input_tokens"] + usage["output_tokens"]
+            model = str(payload.get("model") or agent.model)
+            response_id = payload.get("id")
+        elif provider.type == "gemini":
+            body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}], "generationConfig": {"maxOutputTokens": max_tokens, "temperature": agent.temperature}}
+            if system_prompt:
+                body["systemInstruction"] = {"parts": [{"text": system_prompt}]}
+            model_path = agent.model if agent.model.startswith("models/") else f"models/{agent.model}"
+            payload, latency = await _request_json("POST", f"{base}/v1beta/{model_path}:generateContent", headers={"x-goog-api-key": str(credential), "Content-Type": "application/json", "Accept": "application/json"}, json_body=body, timeout=60)
+            candidates = payload.get("candidates") or []
+            parts = (((candidates[0] if candidates else {}).get("content") or {}).get("parts") or []) if isinstance(candidates, list) else []
+            text = "".join(str(part.get("text", "")) for part in parts if isinstance(part, dict)).strip()
+            meta = payload.get("usageMetadata") or {}
+            usage = {"input_tokens": int(meta.get("promptTokenCount", 0) or 0), "output_tokens": int(meta.get("candidatesTokenCount", 0) or 0), "total_tokens": int(meta.get("totalTokenCount", 0) or 0)}
+            model = agent.model
+            response_id = payload.get("responseId")
+        elif provider.type == "ollama":
+            body = {"model": agent.model, "stream": False, "messages": ([{"role": "system", "content": system_prompt}] if system_prompt else []) + [{"role": "user", "content": prompt}], "options": {"temperature": agent.temperature, "num_predict": max_tokens}}
+            payload, latency = await _request_json("POST", f"{base}/api/chat", headers={"Content-Type": "application/json"}, json_body=body, timeout=120)
+            text = str((payload.get("message") or {}).get("content") or "").strip()
+            usage = {"input_tokens": int(payload.get("prompt_eval_count", 0) or 0), "output_tokens": int(payload.get("eval_count", 0) or 0)}
+            usage["total_tokens"] = usage["input_tokens"] + usage["output_tokens"]
+            model = str(payload.get("model") or agent.model)
+            response_id = None
+        elif provider.type == "cohere":
+            messages = ([{"role": "system", "content": system_prompt}] if system_prompt else []) + [{"role": "user", "content": prompt}]
+            body = {"model": agent.model, "messages": messages, "max_tokens": max_tokens, "temperature": agent.temperature, "stream": False}
+            payload, latency = await _request_json("POST", f"{base}/v2/chat", headers={"Authorization": f"Bearer {credential}", "Content-Type": "application/json", "Accept": "application/json"}, json_body=body, timeout=60)
+            message = payload.get("message") or {}
+            content = message.get("content") or []
+            text = "".join(str(part.get("text", "")) for part in content if isinstance(part, dict) and part.get("type") == "text").strip()
+            raw_usage = payload.get("usage") or {}
+            token_usage = raw_usage.get("tokens") or raw_usage.get("billed_units") or {}
+            usage = {"input_tokens": int(token_usage.get("input_tokens", 0) or 0), "output_tokens": int(token_usage.get("output_tokens", 0) or 0)}
+            usage["total_tokens"] = usage["input_tokens"] + usage["output_tokens"]
+            model = agent.model
+            response_id = payload.get("id")
+        elif provider.type == "azure_openai":
+            messages = ([{"role": "system", "content": system_prompt}] if system_prompt else []) + [{"role": "user", "content": prompt}]
+            body = {"model": agent.model, "messages": messages, "max_tokens": max_tokens, "temperature": agent.temperature}
+            payload, latency = await _request_json("POST", f"{_chat_api_root(provider.type, base)}/chat/completions", headers={"api-key": str(credential), "Content-Type": "application/json", "Accept": "application/json"}, json_body=body, timeout=60)
+            choices = payload.get("choices") or []
+            text = str((((choices[0] if choices else {}).get("message") or {}).get("content")) or "").strip()
+            usage = payload.get("usage") or {}
+            model = str(payload.get("model") or agent.model)
+            response_id = payload.get("id") or payload.get("request_id")
+        else:
+            messages = ([{"role": "system", "content": system_prompt}] if system_prompt else []) + [{"role": "user", "content": prompt}]
+            body = {"model": agent.model, "messages": messages, "max_tokens": max_tokens, "temperature": agent.temperature}
+            payload, latency = await _request_json("POST", f"{_chat_api_root(provider.type, base)}/chat/completions", headers={"Authorization": f"Bearer {credential}", "Content-Type": "application/json", "Accept": "application/json"}, json_body=body, timeout=60)
+            choices = payload.get("choices") or []
+            text = str((((choices[0] if choices else {}).get("message") or {}).get("content")) or "").strip()
+            usage = payload.get("usage") or {}
+            model = str(payload.get("model") or agent.model)
+            response_id = payload.get("id")
     if not text:
         raise HTTPException(status_code=502, detail="Provider response contained no text output")
     total_tokens = _usage_total(usage)
