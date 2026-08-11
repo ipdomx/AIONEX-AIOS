@@ -847,7 +847,7 @@ class ThreeDWebDeliveryBuilder:
             else:
                 try:
                     credit_per_asset = max(1.0, float(os.environ.get(
-                        "PROJECT_3D_TRIPO_CREDITS_PER_ASSET", "100"
+                        "PROJECT_3D_TRIPO_CREDITS_PER_ASSET", "40"
                     )))
                     available = TripoTextToModelClient(
                         tripo_key,
