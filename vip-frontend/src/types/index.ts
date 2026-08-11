@@ -562,6 +562,9 @@ export interface ProjectExecutionResult {
     asset_count: number;
     asset_providers: string[];
     autonomous_asset_generation_used: boolean;
+    autonomous_asset_generation_status: string;
+    autonomous_asset_generation_degraded: boolean;
+    autonomous_asset_generation_message?: string | null;
     procedural_fallback_used: boolean;
     bundle_bytes: number;
     asset_bytes: number;

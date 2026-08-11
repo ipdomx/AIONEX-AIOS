@@ -470,6 +470,7 @@
       "threeDResultSummary": "{assets} 3D varlık · Tarayıcı QA {browser} · Performans {performance}",
       "threeDProcedural": "Hazır GLB varlığı yoktu; AIOS bağımsız prosedürel bir 3D dünya oluşturdu. Sonraki sürümü zenginleştirmek için proje 3D modelleri üretin.",
       "threeDProviders": "3D varlıklar şu sağlayıcılardan birleştirildi: {providers}",
+      "threeDAutogenDegraded": "Harici metinden 3D varlık üretimi şu anda kullanılamıyor veya krediyle sınırlı. AIOS, güvenli olmayan ücretli bir görev göndermeden doğrulanmış proje varlıkları ve prosedürel yedeklerle derlemeyi tamamladı.",
       "governanceTitle": "Yönetişim ve konseyler",
       "governanceComplete": "Tüm bilişsel, anayasal, bilgelik, hükümet, araştırma ve bakanlık katmanları çalıştırıldı.",
       "governancePending": "Tam yönetişim kanıtı mevcut değil.",

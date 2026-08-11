@@ -470,6 +470,7 @@
       "threeDResultSummary": "{assets} 3D assets · Browser QA {browser} · Performance {performance}",
       "threeDProcedural": "No ready GLB assets were present, so AIOS built a self-contained procedural 3D world. Generate project 3D models to enrich the next release.",
       "threeDProviders": "3D assets were assembled from: {providers}",
+      "threeDAutogenDegraded": "External text-to-3D asset generation is currently unavailable or credit-limited, so AIOS completed the build with verified project assets and procedural fallbacks without sending an unsafe billable task.",
       "governanceTitle": "Governance and councils",
       "governanceComplete": "All cognitive, constitutional, wisdom, government, research and ministry layers executed.",
       "governancePending": "The complete governance evidence is not available.",

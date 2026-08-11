@@ -470,6 +470,7 @@
       "threeDResultSummary": "{assets} ressources 3D · QA navigateur {browser} · Performance {performance}",
       "threeDProcedural": "Aucun GLB prêt n’était disponible ; AIOS a donc construit un monde 3D procédural autonome. Générez des modèles 3D pour enrichir la prochaine version.",
       "threeDProviders": "Ressources 3D assemblées depuis : {providers}",
+      "threeDAutogenDegraded": "La génération externe d’assets texte-vers-3D est actuellement indisponible ou limitée par le crédit ; AIOS a donc terminé la construction avec les assets vérifiés du projet et des alternatives procédurales, sans lancer de tâche payante non sûre.",
       "governanceTitle": "Gouvernance et conseils",
       "governanceComplete": "Toutes les couches cognitives, constitutionnelles, de sagesse, gouvernementales, de recherche et ministérielles ont été exécutées.",
       "governancePending": "Les preuves de gouvernance complètes ne sont pas disponibles.",

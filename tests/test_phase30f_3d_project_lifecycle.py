@@ -128,3 +128,29 @@ def test_approval_contract_is_truthful() -> None:
         assert "approver" in str(exc)
     else:
         raise AssertionError("approval without approver must fail")
+
+
+def test_lazy_asset_can_exceed_low_power_file_budget_when_runtime_never_loads_it(tmp_path: Path) -> None:
+    # A 7 MiB lazy GLTF is valid for desktop/mobile budgets but intentionally
+    # exceeds the 6 MiB low-power per-asset threshold. The low-power runtime
+    # substitutes a procedural proxy, so the lifecycle must budget only assets
+    # that are actually eligible to load in that profile.
+    payload = '{"asset":{"version":"2.0"},"meshes":[]}' + (" " * (7 * 1024 * 1024))
+    (tmp_path / "world.gltf").write_text(payload, encoding="utf-8")
+    result = ThreeDProjectLifecycle().run(
+        LifecycleInputs(
+            blueprint=_blueprint(True),
+            project_root=tmp_path,
+            browser_runs=_runs(),
+            performance_samples=_samples(),
+            production_build_passed=True,
+            deployment_receipt="deploy",
+            rollback_receipt="rollback",
+            approval=ApprovalDecision(True, "owner"),
+        )
+    )
+    assert result.passed
+    assert not any(
+        item.code == "asset-bytes" and "low_power" in item.message
+        for item in result.remediation
+    )

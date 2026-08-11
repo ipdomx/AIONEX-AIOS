@@ -822,6 +822,11 @@ export function ProjectsClient() {
                                       providers: execution.result.three_d_web.asset_providers.join(", ") || "AIOS",
                                     })}
                               </p>
+                              {execution.result.three_d_web.autonomous_asset_generation_degraded && (
+                                <p className="mt-1 text-amber-200/55">
+                                  {t("execution.threeDAutogenDegraded")}
+                                </p>
+                              )}
                             </div>
                           )}
 
