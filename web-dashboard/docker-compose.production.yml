@@ -77,6 +77,7 @@ services:
     volumes:
       - ..:/workspace:ro
       - ./secrets:/run/secrets/aionex:ro
+      - ${AIOS_TELEGRAM_BOT_TOKEN_HOST_FILE:-/root/.config/aionex/telegram/bot-token}:/run/operator-secrets/telegram-bot-token:ro
       - backup_data:/var/lib/aionex/backups:ro
       - portal_asset_data:/var/lib/aionex/portal-assets:rw
       - project_execution_data:/var/lib/aionex/project-executions:rw
@@ -167,12 +168,13 @@ services:
       POSTGRES_PORT: "5432"
       REDIS_URL: redis://redis:6379/0
       FIREBASE_ADMIN_CREDENTIALS_JSON: /run/secrets/aionex/firebase-admin.json
-      AIOS_TELEGRAM_BOT_TOKEN_FILE: /run/secrets/aionex/telegram-bot-token
+      AIOS_TELEGRAM_BOT_TOKEN_FILE: /run/operator-secrets/telegram-bot-token
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
     volumes:
       - ..:/workspace:ro
       - ./secrets:/run/secrets/aionex:ro
+      - ${AIOS_TELEGRAM_BOT_TOKEN_HOST_FILE:-/root/.config/aionex/telegram/bot-token}:/run/operator-secrets/telegram-bot-token:ro
     depends_on:
       backend: {condition: service_healthy}
     healthcheck:
@@ -333,10 +335,10 @@ services:
       REDIS_URL: redis://redis:6379/0
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
-      AIOS_TELEGRAM_BOT_TOKEN_FILE: /run/secrets/aionex/telegram-bot-token
+      AIOS_TELEGRAM_BOT_TOKEN_FILE: /run/operator-secrets/telegram-bot-token
     volumes:
       - ..:/workspace:ro
-      - ${AIOS_TELEGRAM_BOT_TOKEN_HOST_FILE:-/root/.config/aionex/telegram/bot-token}:/run/secrets/aionex/telegram-bot-token:ro
+      - ${AIOS_TELEGRAM_BOT_TOKEN_HOST_FILE:-/root/.config/aionex/telegram/bot-token}:/run/operator-secrets/telegram-bot-token:ro
     depends_on:
       backend: {condition: service_healthy}
     healthcheck:

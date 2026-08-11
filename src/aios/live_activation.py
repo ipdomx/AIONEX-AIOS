@@ -29,8 +29,16 @@ class ActivationSnapshot:
 
     @property
     def ready(self) -> bool:
-        required = (*self.workers, *self.tools, *self.providers, *self.integrations)
-        return all(item.status in {"ready", "unconfigured", "unavailable"} for item in required)
+        # Missing production workers are always a runtime failure. Host-only tools
+        # may remain unavailable on generic CI runners and are evaluated by the
+        # market-readiness host gate instead. Required runtime integrations must run.
+        workers_ready = all(item.status != "unavailable" for item in self.workers)
+        required_integrations_ready = all(
+            item.status != "unavailable"
+            for item in self.integrations
+            if item.surface_id not in {"kubernetes", "helm"}
+        )
+        return workers_ready and required_integrations_ready
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), sort_keys=True, separators=(",", ":"))
@@ -42,6 +50,9 @@ WORKER_HEALTH_ENV = {
     "operations-observer": "OPERATIONS_OBSERVER_HEALTH_FILE",
     "studio-worker": "STUDIO_WORKER_HEALTH_FILE",
     "project-worker": "PROJECT_WORKER_HEALTH_FILE",
+    "security-scan-worker": "SECURITY_SCAN_WORKER_HEALTH_FILE",
+    "security-remediation-worker": "SECURITY_REMEDIATION_WORKER_HEALTH_FILE",
+    "three-d-worker": "THREE_D_WORKER_HEALTH_FILE",
     "telegram-worker": "AIOS_TELEGRAM_HEALTH_FILE",
 }
 
@@ -53,7 +64,10 @@ def worker_records(*, running_services: Iterable[str], health_files: Mapping[str
     for worker, env_name in WORKER_HEALTH_ENV.items():
         path = health_files.get(worker) or os.environ.get(env_name)
         if worker == "telegram-worker" and worker not in running:
-            token_file = os.environ.get("AIOS_TELEGRAM_BOT_TOKEN_FILE")
+            token_file = (
+                os.environ.get("AIOS_TELEGRAM_BOT_TOKEN_HOST_FILE")
+                or os.environ.get("AIOS_TELEGRAM_BOT_TOKEN_FILE")
+            )
             configured = bool(token_file and Path(token_file).is_file())
             records.append(ActivationRecord(worker, "worker", "unconfigured" if not configured else "unavailable", "Telegram worker is an explicit optional profile and requires a configured bot token before it may run." if not configured else "Telegram credential exists but worker profile is not running.", {"running": False, "credential_configured": configured}))
             continue

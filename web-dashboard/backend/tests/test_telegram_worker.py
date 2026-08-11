@@ -95,7 +95,7 @@ def test_production_compose_keeps_telegram_optional_and_external_secret() -> Non
         assert 'profiles: ["telegram"]' in compose
         assert "app.services.telegram_worker" in compose
         assert "AIOS_TELEGRAM_BOT_TOKEN_HOST_FILE" in compose
-        assert "/run/secrets/aionex/telegram-bot-token:ro" in compose
+        assert "/run/operator-secrets/telegram-bot-token:ro" in compose
         assert "TELEGRAM_BOT_TOKEN=" not in compose
 
 
