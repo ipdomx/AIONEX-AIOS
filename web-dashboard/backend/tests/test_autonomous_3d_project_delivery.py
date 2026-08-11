@@ -59,11 +59,10 @@ def test_tripo_text_to_model_submission_uses_current_bounded_contract(monkeypatc
     assert task_id == "task-123"
     assert len(calls) == 1
     request = calls[0]
-    assert request["url"] == "https://api.tripo3d.ai/v2/openapi/task"
+    assert request["url"] == "https://openapi.tripo3d.ai/v3/generation/text-to-model"
     assert request["json"] == {
-        "type": "text_to_model",
-        "model_version": "P1-20260311",
         "prompt": "a premium product hero object",
+        "model": "P1-20260311",
         "negative_prompt": "text, watermark, background plane, disconnected fragments, excessive polygons",
         "model_seed": 7,
         "face_limit": 6000,
@@ -82,8 +81,8 @@ def test_tripo_polling_accepts_only_documented_success(monkeypatch) -> None:
             "data": {
                 "task_id": "task-123",
                 "status": "success",
-                "output": {"model": "https://cdn.example.test/model.glb"},
-                "consumed_credit": 12,
+                "output": {"model_url": "https://cdn.example.test/model.glb"},
+                "credits_consumed": 12,
             },
         },
     ]
@@ -95,7 +94,7 @@ def test_tripo_polling_accepts_only_documented_success(monkeypatch) -> None:
     monkeypatch.setattr(delivery.time, "sleep", lambda _seconds: None)
     result = delivery.TripoTextToModelClient("server-secret").wait("task-123")
     assert result["status"] == "success"
-    assert result["output"]["model"].endswith("model.glb")
+    assert result["output"]["model_url"].endswith("model.glb")
     assert [item["method"] for item in calls] == ["GET", "GET"]
 
 
@@ -127,7 +126,7 @@ def test_tripo_wallet_preflight_returns_conservative_available_credit(monkeypatc
     assert calls == [
         {
             "method": "GET",
-            "url": "https://api.tripo3d.ai/v2/openapi/user/balance",
+            "url": "https://openapi.tripo3d.ai/v3/account/balance",
             "headers": {
                 "Authorization": "Bearer server-secret",
                 "Accept": "application/json",
@@ -135,3 +134,17 @@ def test_tripo_wallet_preflight_returns_conservative_available_credit(monkeypatc
             },
         }
     ]
+
+
+def test_tripo_v3_adapter_contains_no_retired_v2_routes() -> None:
+    from pathlib import Path
+    source = Path(delivery.__file__).read_text(encoding="utf-8")
+    assert "api.tripo3d.ai/v2" not in source
+    assert "/user/balance" not in source
+    assert '"model_version"' not in source
+    assert 'output.get("model")' not in source
+    assert 'data.get("consumed_credit")' not in source
+    assert 'https://openapi.tripo3d.ai/v3' in source
+    assert '/generation/text-to-model' in source
+    assert '/tasks/{task_id}' in source
+    assert '/account/balance' in source

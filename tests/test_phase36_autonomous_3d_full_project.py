@@ -103,14 +103,17 @@ def test_software_browser_timing_is_evidence_not_fake_device_performance() -> No
 def test_autonomous_text_to_3d_adapter_is_bounded_and_fail_closed() -> None:
     source = (ROOT / "web-dashboard/backend/app/services/three_d_project_delivery.py").read_text()
     for token in (
-        '"type": "text_to_model"',
-        '"model_version": _TRIPO_MODEL_VERSION',
+        '"model": _TRIPO_MODEL_VERSION',
+        '"prompt": _bounded_provider_prompt(prompt)',
         '"face_limit"',
         '"texture": True',
         '"pbr": True',
         "TripoTextToModelClient",
         "_public_https_url",
         "PROJECT_3D_AUTOGEN_ASSET_COUNT",
+        "https://openapi.tripo3d.ai/v3",
+        "/generation/text-to-model",
+        "/account/balance",
         "18 * 1024 * 1024",
         'payload[:4] != b"glTF"',
         'model_payload_suffixes = {".glb", ".gltf"}',

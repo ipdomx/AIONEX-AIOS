@@ -127,7 +127,8 @@ def _load_staged_assets(manifest_path: str | Path | None) -> list[dict[str, Any]
     return assets
 
 
-_TRIPO_BASE_URL = "https://api.tripo3d.ai/v2/openapi"
+_TRIPO_BASE_URL = "https://openapi.tripo3d.ai/v3"
+_TRIPO_API_VERSION = "v3"
 _TRIPO_MODEL_VERSION = "P1-20260311"
 
 
@@ -226,7 +227,7 @@ class TripoTextToModelClient:
                 timeout=httpx.Timeout(15.0, connect=10.0), follow_redirects=False
             ) as client:
                 data = self._payload(
-                    client.get(f"{_TRIPO_BASE_URL}/user/balance", headers=self.headers)
+                    client.get(f"{_TRIPO_BASE_URL}/account/balance", headers=self.headers)
                 )
         except httpx.HTTPError as exc:
             raise ThreeDProjectDeliveryError(
@@ -258,9 +259,8 @@ class TripoTextToModelClient:
 
     def submit(self, prompt: str, *, seed: int, face_limit: int) -> str:
         body = {
-            "type": "text_to_model",
-            "model_version": _TRIPO_MODEL_VERSION,
             "prompt": _bounded_provider_prompt(prompt),
+            "model": _TRIPO_MODEL_VERSION,
             "negative_prompt": "text, watermark, background plane, disconnected fragments, excessive polygons",
             "model_seed": int(seed),
             "face_limit": max(1000, min(int(face_limit), 12000)),
@@ -270,7 +270,7 @@ class TripoTextToModelClient:
         try:
             with httpx.Client(timeout=httpx.Timeout(30.0, connect=10.0), follow_redirects=False) as client:
                 data = self._payload(
-                    client.post(f"{_TRIPO_BASE_URL}/task", headers=self.headers, json=body)
+                    client.post(f"{_TRIPO_BASE_URL}/generation/text-to-model", headers=self.headers, json=body)
                 )
         except httpx.HTTPError as exc:
             raise ThreeDProjectDeliveryError(
@@ -288,7 +288,7 @@ class TripoTextToModelClient:
                 while time.monotonic() < deadline:
                     data = self._payload(
                         client.get(
-                            f"{_TRIPO_BASE_URL}/task/{task_id}", headers=self.headers
+                            f"{_TRIPO_BASE_URL}/tasks/{task_id}", headers=self.headers
                         )
                     )
                     status = str(data.get("status") or "").lower()
@@ -364,10 +364,10 @@ def _autogenerate_tripo_assets(
     for index, task_id in enumerate(task_ids):
         data = client.wait(task_id)
         output = data.get("output")
-        if not isinstance(output, dict) or not str(output.get("model") or "").strip():
-            raise ThreeDProjectDeliveryError("Tripo task completed without a documented model URL")
+        if not isinstance(output, dict) or not str(output.get("model_url") or "").strip():
+            raise ThreeDProjectDeliveryError("Tripo V3 task completed without a documented model URL")
         destination = assets_root / f"tripo-{index+1:02d}.glb"
-        client.download_glb(str(output["model"]), destination)
+        client.download_glb(str(output["model_url"]), destination)
         size = destination.stat().st_size
         total += size
         if total > 18 * 1024 * 1024:
@@ -382,9 +382,10 @@ def _autogenerate_tripo_assets(
                 "sha256": digest,
                 "size_bytes": size,
                 "metadata": {
-                    "model_version": _TRIPO_MODEL_VERSION,
+                    "api_version": _TRIPO_API_VERSION,
+                    "model": _TRIPO_MODEL_VERSION,
                     "generation_mode": "text_to_model",
-                    "consumed_credit": data.get("consumed_credit"),
+                    "credits_consumed": data.get("credits_consumed"),
                 },
             }
         )
@@ -392,10 +393,11 @@ def _autogenerate_tripo_assets(
             {
                 "task_id": task_id,
                 "status": "success",
-                "model_version": _TRIPO_MODEL_VERSION,
+                "api_version": _TRIPO_API_VERSION,
+                "model": _TRIPO_MODEL_VERSION,
                 "sha256": digest,
                 "size_bytes": size,
-                "consumed_credit": data.get("consumed_credit"),
+                "credits_consumed": data.get("credits_consumed"),
             }
         )
     generated_root.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -405,6 +407,7 @@ def _autogenerate_tripo_assets(
             {
                 "schema_version": 1,
                 "provider": "tripo3d",
+                "api_version": _TRIPO_API_VERSION,
                 "mode": "autonomous_text_to_model",
                 "tasks": task_evidence,
                 "total_bytes": total,
@@ -844,7 +847,7 @@ class ThreeDWebDeliveryBuilder:
             else:
                 try:
                     credit_per_asset = max(1.0, float(os.environ.get(
-                        "PROJECT_3D_TRIPO_CREDITS_PER_ASSET", "40"
+                        "PROJECT_3D_TRIPO_CREDITS_PER_ASSET", "100"
                     )))
                     available = TripoTextToModelClient(
                         tripo_key,
