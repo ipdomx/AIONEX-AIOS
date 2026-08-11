@@ -137,7 +137,7 @@ export interface AIProvider {
   id: string;
   name: string;
   slug: string;
-  type: "openai" | "anthropic" | "google" | "openrouter" | "ollama" | "custom";
+  type: "openai" | "anthropic" | "gemini" | "openrouter" | "ollama" | "mistral" | "cohere" | "xai" | "deepseek" | "groq" | "together" | "fireworks" | "huggingface" | "azure_openai" | "aws_bedrock" | "tripo3d" | "meshy";
   status: "connected" | "disconnected" | "error" | "rate_limited";
   apiKey?: string;
   baseUrl?: string;

@@ -104,6 +104,7 @@ export interface ProviderSummary {
   created_at: string;
   enabled: boolean;
   configured?: boolean;
+  managed_by?: "server" | "database";
 }
 
 export interface JobSummary {
@@ -249,6 +250,9 @@ export const runtimeServices = {
       latency_ms: number;
       message: string;
     }>(`/ai/providers/${providerId}/test`);
+  },
+  deleteProvider(providerId: string) {
+    return apiClient.request<{ message: string }>({ method: "DELETE", url: `/ai/providers/${providerId}` });
   },
   listNotifications(unreadOnly = false) {
     return apiClient.get<NotificationSummary[]>("/notifications", {

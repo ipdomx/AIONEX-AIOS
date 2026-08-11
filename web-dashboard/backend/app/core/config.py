@@ -335,6 +335,18 @@ class Settings(BaseSettings):
     OPENROUTER_API_KEY: Optional[str] = Field(
         default=None, validation_alias="OPENROUTER_API_KEY"
     )
+    MISTRAL_API_KEY: Optional[str] = Field(default=None, validation_alias="MISTRAL_API_KEY")
+    COHERE_API_KEY: Optional[str] = Field(default=None, validation_alias="COHERE_API_KEY")
+    XAI_API_KEY: Optional[str] = Field(default=None, validation_alias="XAI_API_KEY")
+    DEEPSEEK_API_KEY: Optional[str] = Field(default=None, validation_alias="DEEPSEEK_API_KEY")
+    GROQ_API_KEY: Optional[str] = Field(default=None, validation_alias="GROQ_API_KEY")
+    TOGETHER_API_KEY: Optional[str] = Field(default=None, validation_alias="TOGETHER_API_KEY")
+    FIREWORKS_API_KEY: Optional[str] = Field(default=None, validation_alias="FIREWORKS_API_KEY")
+    HUGGINGFACE_API_KEY: Optional[str] = Field(default=None, validation_alias=AliasChoices("HUGGINGFACE_API_KEY", "HF_TOKEN"))
+    AZURE_OPENAI_API_KEY: Optional[str] = Field(default=None, validation_alias="AZURE_OPENAI_API_KEY")
+    AZURE_OPENAI_ENDPOINT: Optional[str] = Field(default=None, validation_alias="AZURE_OPENAI_ENDPOINT")
+    AWS_BEDROCK_REGION: Optional[str] = Field(default=None, validation_alias="AWS_BEDROCK_REGION")
+    AWS_SESSION_TOKEN: Optional[str] = Field(default=None, validation_alias="AWS_SESSION_TOKEN")
 
     SENTRY_DSN: Optional[str] = Field(default=None, validation_alias="SENTRY_DSN")
     PROMETHEUS_ENABLED: bool = Field(

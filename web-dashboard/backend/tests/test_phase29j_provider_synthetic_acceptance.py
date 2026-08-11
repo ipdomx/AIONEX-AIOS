@@ -21,20 +21,20 @@ AGENT_PROVIDER_CASES = {
     "gemini": ("https://generativelanguage.googleapis.com", "gemini-synthetic"),
     "openrouter": ("https://openrouter.ai", "router/synthetic"),
     "ollama": ("http://127.0.0.1:11434", "local-synthetic"),
-    "mistral": ("https://synthetic-mistral.invalid", "mistral-synthetic"),
-    "cohere": ("https://synthetic-cohere.invalid", "cohere-synthetic"),
-    "xai": ("https://synthetic-xai.invalid", "xai-synthetic"),
-    "deepseek": ("https://synthetic-deepseek.invalid", "deepseek-synthetic"),
-    "groq": ("https://synthetic-groq.invalid", "groq-synthetic"),
-    "together": ("https://synthetic-together.invalid", "together-synthetic"),
-    "fireworks": ("https://synthetic-fireworks.invalid", "fireworks-synthetic"),
-    "huggingface": ("https://synthetic-huggingface.invalid", "hf-synthetic"),
-    "azure_openai": ("https://synthetic-azure-openai.invalid", "azure-synthetic"),
-    "aws_bedrock": ("https://synthetic-bedrock.invalid", "bedrock-synthetic"),
+    "mistral": ("https://api.mistral.ai", "mistral-synthetic"),
+    "cohere": ("https://api.cohere.com", "command-synthetic"),
+    "xai": ("https://api.x.ai", "grok-synthetic"),
+    "deepseek": ("https://api.deepseek.com", "deepseek-v4-flash"),
+    "groq": ("https://api.groq.com/openai", "groq-synthetic"),
+    "together": ("https://api.together.ai", "together/synthetic"),
+    "fireworks": ("https://api.fireworks.ai/inference", "accounts/fireworks/models/synthetic"),
+    "huggingface": ("https://router.huggingface.co", "org/synthetic:fastest"),
+    "azure_openai": ("https://synthetic-resource.openai.azure.com", "azure-synthetic"),
+    "aws_bedrock": (None, "bedrock-synthetic"),
 }
 
 
-def _provider(provider_type: str, base_url: str) -> Any:
+def _provider(provider_type: str, base_url: str | None) -> Any:
     return SimpleNamespace(
         id=f"provider-{provider_type}",
         organization_id="org-synthetic",
@@ -43,7 +43,12 @@ def _provider(provider_type: str, base_url: str) -> Any:
         status="configured",
         encrypted_api_key=None,
         base_url=base_url,
-        config={"enabled": True, "max_output_tokens": 128, "cost_per_1k_tokens": 0.01},
+        config={
+            "enabled": True,
+            "max_output_tokens": 128,
+            "cost_per_1k_tokens": 0.01,
+            "credential_source": "environment" if provider_type == "aws_bedrock" else "database",
+        },
         created_at=None,
     )
 
@@ -81,6 +86,12 @@ def _payload_for(provider_type: str, model: str) -> dict[str, Any]:
                 "totalTokenCount": 5,
             },
         }
+    if provider_type == "cohere":
+        return {
+            "id": "cohere-synthetic-response",
+            "message": {"role": "assistant", "content": [{"type": "text", "text": "synthetic-ok"}]},
+            "usage": {"tokens": {"input_tokens": 3, "output_tokens": 2}},
+        }
     if provider_type == "ollama":
         return {
             "model": model,
@@ -110,6 +121,18 @@ async def test_every_agent_provider_executes_through_network_free_adapter(
         ai_runtime_service,
         "provider_credential",
         lambda item: None if item.type == "ollama" else "synthetic-secret-never-returned",
+    )
+    monkeypatch.setattr(ai_runtime_service, "_aws_bedrock_configured", lambda: True)
+    monkeypatch.setattr(
+        ai_runtime_service,
+        "_execute_bedrock_sync",
+        lambda _agent, _prompt, _max: {
+            "text": "synthetic-ok",
+            "usage": {"input_tokens": 3, "output_tokens": 2, "total_tokens": 5},
+            "model": model,
+            "response_id": "bedrock-synthetic-response",
+            "latency_ms": 12.5,
+        },
     )
 
     async def fake_request_json(
@@ -144,30 +167,43 @@ async def test_every_agent_provider_executes_through_network_free_adapter(
     assert result["usage"]["total_tokens"] == 5
     assert result["latency_ms"] == 12.5
     assert "synthetic-secret-never-returned" not in repr(result)
+    if provider_type == "aws_bedrock":
+        assert calls == []
+        return
     assert len(calls) == 1
     assert calls[0]["method"] == "POST"
     assert calls[0]["body"] is not None
     if provider_type != "gemini":
         assert calls[0]["body"]["model"] == model
 
-    if provider_type == "openai":
-        assert calls[0]["url"] == "https://api.openai.com/v1/responses"
-        assert calls[0]["body"]["store"] is False
-    elif provider_type == "anthropic":
-        assert calls[0]["url"] == "https://api.anthropic.com/v1/messages"
-        assert calls[0]["headers"]["anthropic-version"] == "2023-06-01"
-    elif provider_type == "gemini":
-        assert calls[0]["url"].endswith(
-            "/v1beta/models/gemini-synthetic:generateContent"
-        )
+    expected_urls = {
+        "openai": "https://api.openai.com/v1/responses",
+        "anthropic": "https://api.anthropic.com/v1/messages",
+        "openrouter": "https://openrouter.ai/api/v1/chat/completions",
+        "ollama": "http://127.0.0.1:11434/api/chat",
+        "mistral": "https://api.mistral.ai/v1/chat/completions",
+        "cohere": "https://api.cohere.com/v2/chat",
+        "xai": "https://api.x.ai/v1/chat/completions",
+        "deepseek": "https://api.deepseek.com/v1/chat/completions",
+        "groq": "https://api.groq.com/openai/v1/chat/completions",
+        "together": "https://api.together.ai/v1/chat/completions",
+        "fireworks": "https://api.fireworks.ai/inference/v1/chat/completions",
+        "huggingface": "https://router.huggingface.co/v1/chat/completions",
+        "azure_openai": "https://synthetic-resource.openai.azure.com/openai/v1/chat/completions",
+    }
+    if provider_type == "gemini":
+        assert calls[0]["url"].endswith("/v1beta/models/gemini-synthetic:generateContent")
         assert "systemInstruction" in calls[0]["body"]
-    elif provider_type == "openrouter":
-        assert calls[0]["url"] == "https://openrouter.ai/api/v1/chat/completions"
-    elif provider_type == "ollama":
-        assert calls[0]["url"] == "http://127.0.0.1:11434/api/chat"
-        assert calls[0]["body"]["stream"] is False
     else:
-        assert calls[0]["url"] == f"{base_url}/v1/chat/completions"
+        assert calls[0]["url"] == expected_urls[provider_type]
+    if provider_type == "openai":
+        assert calls[0]["body"]["store"] is False
+    if provider_type == "anthropic":
+        assert calls[0]["headers"]["anthropic-version"] == "2023-06-01"
+    if provider_type == "ollama":
+        assert calls[0]["body"]["stream"] is False
+    if provider_type == "azure_openai":
+        assert "api-key" in calls[0]["headers"]
 
 
 def test_synthetic_matrix_covers_every_general_agent_provider() -> None:
@@ -192,7 +228,7 @@ async def test_3d_providers_never_fall_through_generic_chat_execution(
             "synthetic",
         )
     assert exc.value.status_code == 422
-    assert "dedicated 3D pipeline" in str(exc.value.detail)
+    assert "not executable through the AI agent runtime" in str(exc.value.detail)
 
 
 @pytest.mark.asyncio
@@ -202,9 +238,9 @@ async def test_3d_health_is_truthfully_delegated(provider_type: str) -> None:
         _provider(provider_type, f"https://{provider_type}.invalid")
     )
     assert result == {
-        "status": "dedicated",
+        "status": "catalog_only",
         "latency_ms": 0,
-        "message": "3D provider health is managed by the dedicated 3D pipeline",
+        "message": "Tripo3D/Meshy are catalog connectors only; production 3D health is owned by the Hunyuan3D/TripoSR RunPod pipeline",
     }
 
 
@@ -240,6 +276,7 @@ async def test_every_agent_provider_health_contract_is_synthetically_exercised(
         "provider_credential",
         lambda item: None if item.type == "ollama" else "synthetic-health-secret",
     )
+    monkeypatch.setattr(ai_runtime_service, "_aws_bedrock_configured", lambda: True)
 
     async def fake_request_json(
         method: str,
@@ -256,7 +293,7 @@ async def test_every_agent_provider_health_contract_is_synthetically_exercised(
     monkeypatch.setattr(ai_runtime_service, "_request_json", fake_request_json)
     result = await ai_runtime_service.provider_health_probe(provider)
 
-    if provider_type == "anthropic":
+    if provider_type in {"anthropic", "cohere", "aws_bedrock"}:
         assert result["status"] == "configured"
         assert result["latency_ms"] == 0
         assert calls == []
@@ -287,4 +324,4 @@ async def test_general_provider_creation_rejects_dedicated_3d_providers(
             "owner-synthetic",
         )
     assert exc.value.status_code == 422
-    assert "dedicated 3D pipeline" in str(exc.value.detail)
+    assert "not executable through the AI agent runtime" in str(exc.value.detail)
