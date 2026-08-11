@@ -74,6 +74,7 @@ services:
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
       THREE_D_RUNPOD_SECRET_FILE: /run/secrets/aionex/RUNPOD_GPU.env
+      AIOS_TELEGRAM_BOT_TOKEN_FILE: /run/operator-secrets/telegram-bot-token
     volumes:
       - ..:/workspace:ro
       - ./secrets:/run/secrets/aionex:ro
