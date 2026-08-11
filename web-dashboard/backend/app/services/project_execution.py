@@ -39,6 +39,7 @@ from aios.full_project_cycle import FullProjectCycle, FullProjectCycleValidation
 from aios.providers import BudgetAccount, CostGovernor, ProviderPolicy
 
 from app.core.config import settings
+from app.services.three_d_project_delivery import ThreeDWebDeliveryBuilder, ThreeDProjectDeliveryError
 
 MODEL_PRICING: dict[str, tuple[float, float]] = {
     "gpt-5-mini": (0.25, 2.00),
@@ -416,6 +417,9 @@ class ProjectPlanningRunner:
         objective: str,
         tenant_id: str = "platform",
         requested_by_id: str = "system",
+        execution_mode: str = "full",
+        project_id: str | None = None,
+        three_d_asset_manifest: str | None = None,
         stage_callback: Callable[[str, int], None] | None = None,
     ) -> dict[str, Any]:
         if not _EXECUTION_ID.fullmatch(job_id):
@@ -428,6 +432,65 @@ class ProjectPlanningRunner:
         def report_stage(stage: str, progress: int) -> None:
             if stage_callback is not None:
                 stage_callback(stage, max(0, min(100, int(progress))))
+
+        def attach_three_d_delivery(summary: dict[str, Any]) -> dict[str, Any]:
+            if execution_mode != "3d_full":
+                if execution_mode not in {"full", "planning"}:
+                    raise ProjectExecutionConfigurationError(
+                        "unsupported project execution mode reached the project worker"
+                    )
+                return summary
+            if not project_id:
+                raise ProjectExecutionConfigurationError(
+                    "3D full-project execution requires a durable project identity"
+                )
+            existing_three_d = summary.get("three_d_web")
+            final_delivery = (
+                Path(str(summary["output_directory"]))
+                / "delivery-package"
+                / "3d-web"
+                / "aionex-3d-lifecycle.json"
+            )
+            if isinstance(existing_three_d, dict) and final_delivery.is_file():
+                return summary
+            report_stage("three_d_web_assembly", 92)
+            three_d = ThreeDWebDeliveryBuilder().build(
+                project_id=project_id,
+                project_name=normalized_project,
+                objective=normalized_objective,
+                execution_root=Path(str(summary["output_directory"])),
+                asset_manifest_path=three_d_asset_manifest,
+            )
+            summary = dict(summary)
+            summary["mode"] = "3d_full"
+            summary["three_d_web"] = three_d
+            delivery = dict(summary.get("delivery_package") or {})
+            delivery["three_d_web"] = three_d.get("delivery_path")
+            delivery["three_d_web_sha256"] = three_d.get("aggregate_sha256")
+            summary["delivery_package"] = delivery
+            release = dict(summary.get("release_review") or {})
+            release["three_d_web"] = {
+                "release_ready": bool(three_d.get("release_ready")),
+                "browser_qa_passed": bool(three_d.get("browser_qa_passed")),
+                "performance_passed": bool(three_d.get("performance_passed")),
+                "asset_count": int(three_d.get("asset_count") or 0),
+            }
+            blockers = list(summary.get("blocking_findings") or [])
+            if not three_d.get("release_ready"):
+                for reason in three_d.get("release_reasons") or [
+                    "3D web release gate did not pass"
+                ]:
+                    item = f"3D web: {reason}"
+                    if item not in blockers:
+                        blockers.append(item)
+                summary["approved"] = False
+                release["approved"] = False
+                release["status"] = "rework_required"
+                release["blocking_findings"] = list(blockers)
+            summary["blocking_findings"] = blockers
+            summary["release_review"] = release
+            report_stage("three_d_web_validated", 99)
+            return summary
 
         job_root = (self.output_root / job_id).resolve(strict=False)
         expected_root = self.output_root.resolve(strict=False)
@@ -453,6 +516,7 @@ class ProjectPlanningRunner:
             summary = _summary_from_full_manifest(
                 full_manifest, planning, recovered=True
             )
+            summary = attach_three_d_delivery(summary)
             _atomic_json(receipt_path, summary)
             return summary
         if (job_root / ".staging-cloud").exists():
@@ -662,6 +726,7 @@ class ProjectPlanningRunner:
         summary = _summary_from_full_manifest(
             Path(final_result["manifest_path"]), planning, recovered=False
         )
+        summary = attach_three_d_delivery(summary)
         _atomic_json(receipt_path, summary)
         return summary
 
@@ -683,6 +748,7 @@ def sanitized_execution_error(exc: BaseException) -> tuple[str, str]:
             ControlledProjectBuildError,
             ControlledResearchError,
             FullProjectCycleValidationError,
+            ThreeDProjectDeliveryError,
         ),
     ):
         return (

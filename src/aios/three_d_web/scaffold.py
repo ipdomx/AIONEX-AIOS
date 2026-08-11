@@ -64,6 +64,7 @@ class ThreeDRuntimeScaffoldBuilder:
         bp = self._blueprint_source(blueprint)
         files = (
             ScaffoldFile("package.json", self._package_json(blueprint)),
+            ScaffoldFile("package-lock.json", self._package_lock(blueprint)),
             ScaffoldFile("tsconfig.json", self._tsconfig()),
             ScaffoldFile("vite.config.ts", self._vite_config()),
             ScaffoldFile("index.html", self._index_html(blueprint.title)),
@@ -73,6 +74,7 @@ class ThreeDRuntimeScaffoldBuilder:
             ScaffoldFile("src/generated/blueprint.ts", bp),
             ScaffoldFile("src/state/worldStore.ts", self._store()),
             ScaffoldFile("src/scene/World.tsx", self._world()),
+            ScaffoldFile("src/scene/RuntimeProbe.tsx", self._runtime_probe()),
             ScaffoldFile("src/scene/Zone.tsx", self._zone()),
             ScaffoldFile("src/scene/AssetModel.tsx", self._asset_model()),
             ScaffoldFile("src/controllers/PlayerController.tsx", self._player_controller()),
@@ -129,6 +131,19 @@ class ThreeDRuntimeScaffoldBuilder:
         return json.dumps(package, indent=2, sort_keys=True) + "\n"
 
     @staticmethod
+    def _package_lock(blueprint: Project3DBlueprint) -> str:
+        template_path = Path(__file__).with_name("runtime-package-lock.json")
+        payload = json.loads(template_path.read_text(encoding="utf-8"))
+        package_name = blueprint.project_id.lower().replace("_", "-")
+        payload["name"] = package_name
+        payload["version"] = "0.1.0"
+        root = payload.get("packages", {}).get("")
+        if isinstance(root, dict):
+            root["name"] = package_name
+            root["version"] = "0.1.0"
+        return json.dumps(payload, indent=2, sort_keys=True) + "\n"
+
+    @staticmethod
     def _tsconfig() -> str:
         return '''{
   "compilerOptions": {
@@ -152,7 +167,7 @@ export default defineConfig({ plugins: [react()], build: { sourcemap: false } })
     @staticmethod
     def _index_html(title: str) -> str:
         safe = title.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
-        return f'''<!doctype html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>{safe}</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>\n'''
+        return f'''<!doctype html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="theme-color" content="#07111f"/><link rel="icon" href="data:,"/><title>{safe}</title></head><body><div id="root"><section style="padding:2rem;color:white;background:#07111f;font-family:system-ui"><h1>{safe}</h1><p>Loading the interactive 3D experience…</p></section></div><noscript><main><h1>{safe}</h1><p>This 3D experience requires JavaScript. Accessible project content remains available from the delivery package.</p></main></noscript><script type="module" src="/src/main.tsx"></script></body></html>\n'''
 
     @staticmethod
     def _main() -> str:
@@ -171,7 +186,7 @@ import { World } from "./scene/World";
 import { ContentOverlay } from "./overlays/ContentOverlay";
 export default function App() {
   return <main className="app-shell">
-    <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 5, 10], fov: 50 }}>
+    <Canvas dpr={1} gl={{ antialias: true, powerPreference: "high-performance" }} camera={{ position: [0, 5, 10], fov: 50 }}>
       <Suspense fallback={null}><World /></Suspense>
     </Canvas>
     <ContentOverlay />
@@ -181,7 +196,7 @@ export default function App() {
 
     @staticmethod
     def _styles() -> str:
-        return '''html,body,#root,.app-shell{width:100%;height:100%;margin:0;overflow:hidden}.app-shell{position:relative;background:#0b1020}.overlay{position:absolute;inset:0;pointer-events:none;color:white;font-family:system-ui,sans-serif}.overlay button,.overlay [data-interactive]{pointer-events:auto}.zone-panel{position:absolute;left:1rem;bottom:1rem;max-width:28rem;padding:1rem;border-radius:1rem;background:rgba(5,10,25,.78);backdrop-filter:blur(12px)}.touch-pad{position:absolute;right:1rem;bottom:1rem;display:grid;grid-template-columns:repeat(3,3rem);gap:.4rem}@media(min-width:768px){.touch-pad{display:none}}
+        return '''html,body,#root,.app-shell{width:100%;height:100%;margin:0;overflow:hidden}.app-shell{position:relative;background:#0b1020}.overlay{position:absolute;inset:0;pointer-events:none;color:white;font-family:system-ui,sans-serif}.overlay button,.overlay [data-interactive]{pointer-events:auto}.brand-panel{position:absolute;left:1rem;top:1rem;display:flex;flex-direction:column;gap:.2rem;padding:.8rem 1rem;border-radius:1rem;background:rgba(5,10,25,.72);backdrop-filter:blur(12px)}.brand-panel span{font-size:.75rem;opacity:.7}.overlay nav{position:absolute;right:1rem;top:1rem;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.45rem;max-width:min(70vw,52rem)}.overlay nav button{border:1px solid rgba(255,255,255,.14);background:rgba(7,17,31,.76);color:white;border-radius:999px;padding:.55rem .8rem}.zone-panel{position:absolute;left:1rem;bottom:1rem;max-width:28rem;padding:1rem;border-radius:1rem;background:rgba(5,10,25,.78);backdrop-filter:blur(12px)}.touch-pad{position:absolute;right:1rem;bottom:1rem;display:grid;grid-template-columns:repeat(3,3rem);gap:.4rem}@media(min-width:768px){.touch-pad{display:none}}
 '''
 
     @staticmethod
@@ -209,7 +224,7 @@ export default function App() {
                 {
                     "id": a.asset_id,
                     "kind": a.kind.value,
-                    "path": "/" + a.path.lstrip("/"),
+                    "path": "/" + (a.path[7:] if a.path.startswith("public/") else a.path).lstrip("/"),
                     "required": a.required,
                     "lazy": a.lazy,
                     "lodGroup": a.lod_group,
@@ -218,7 +233,7 @@ export default function App() {
             ],
         }
         encoded = json.dumps(payload, indent=2, ensure_ascii=False)
-        return f'''export const blueprint = {encoded} as const;\nexport type ZoneId = typeof blueprint.zones[number]["id"];\n'''
+        return f'''export type AssetSpec = {{ id:string; kind:string; path:string; required:boolean; lazy:boolean; lodGroup:string|null }};\nexport type ZoneSpec = {{ id:string; title:string; position:[number,number,number]; radius:number; assetIds:string[]; mobileScale:number; desktopScale:number; interactions:string[] }};\nexport type BlueprintSpec = {{ projectId:string; title:string; objective:string; playerController:string; cameraMode:string; zones:ZoneSpec[]; assets:AssetSpec[] }};\nexport const blueprint: BlueprintSpec = {encoded};\nexport type ZoneId = string;\n'''
 
     @staticmethod
     def _store() -> str:
@@ -239,31 +254,42 @@ export const useWorldStore = create<WorldState>((set) => ({
 
     @staticmethod
     def _world() -> str:
-        return '''import { Environment } from "@react-three/drei";
-import { blueprint } from "../generated/blueprint";
+        return '''import { blueprint } from "../generated/blueprint";
 import { PlayerController } from "../controllers/PlayerController";
 import { CameraController } from "../controllers/CameraController";
 import { ResponsiveControls } from "../controllers/ResponsiveControls";
+import { RuntimeProbe } from "./RuntimeProbe";
 import { Zone } from "./Zone";
 export function World(){return <>
-  <ambientLight intensity={0.7}/><directionalLight castShadow position={[8,14,5]} intensity={1.5}/>
-  <Environment preset="city"/>
+  <color attach="background" args={["#07111f"]}/><fog attach="fog" args={["#07111f",28,120]}/>
+  <ambientLight intensity={0.75}/><hemisphereLight args={["#b9ddff","#0b1726",1.0]}/><directionalLight position={[8,14,5]} intensity={1.5}/>
+  <gridHelper args={[180,90,"#1d4f70","#10283c"]} position={[0,-0.62,0]}/>
   {blueprint.zones.map((zone)=><Zone key={zone.id} zone={zone}/>) }
-  <PlayerController/><CameraController/><ResponsiveControls/>
+  <PlayerController/><CameraController/><ResponsiveControls/><RuntimeProbe/>
 </>}
 '''
 
     @staticmethod
+    def _runtime_probe() -> str:
+        return '''import { useFrame, useThree } from "@react-three/fiber";
+import { useEffect, useRef } from "react";
+declare global { interface Window { __AIOS_3D_READY__?: boolean; __AIOS_3D_METRICS__?: Record<string, number>; } }
+export function RuntimeProbe(){const {gl,camera}=useThree();const frames=useRef<number[]>([]);useEffect(()=>{window.__AIOS_3D_READY__=false;return()=>{window.__AIOS_3D_READY__=false}},[]);useFrame((_,dt)=>{
+ const list=frames.current;list.push(dt);if(list.length>120)list.shift();if(list.length>=45){const avg=list.reduce((a,b)=>a+b,0)/list.length;window.__AIOS_3D_METRICS__={fps:avg>0?1/avg:0,frame_time_ms:avg*1000,draw_calls:gl.info.render.calls,triangles:gl.info.render.triangles,camera_x:camera.position.x,camera_y:camera.position.y,camera_z:camera.position.z};window.__AIOS_3D_READY__=true;}
+});return null}
+'''
+
+    @staticmethod
     def _zone() -> str:
-        return '''import { blueprint } from "../generated/blueprint";
+        return '''import { blueprint, type ZoneSpec } from "../generated/blueprint";
 import { useWorldStore } from "../state/worldStore";
 import { AssetModel } from "./AssetModel";
-type ZoneSpec = typeof blueprint.zones[number];
 export function Zone({zone}:{zone:ZoneSpec}){
   const setActiveZone=useWorldStore(s=>s.setActiveZone);
   const assets=blueprint.assets.filter(a=>zone.assetIds.includes(a.id));
-  return <group position={zone.position} onPointerOver={()=>setActiveZone(zone.id)} onPointerOut={()=>setActiveZone(null)}>
-    {assets.map(a=><AssetModel key={a.id} asset={a} scale={zone.desktopScale}/>) }
+  return <group position={zone.position} userData={{aionexZoneId:zone.id}} onPointerOver={()=>setActiveZone(zone.id)} onPointerOut={()=>setActiveZone(null)}>
+    {assets.length?assets.map(a=><AssetModel key={a.id} asset={a} scale={zone.desktopScale}/>):<mesh><icosahedronGeometry args={[Math.max(0.8,Math.min(2.5,zone.radius/3)),2]}/><meshStandardMaterial color="#38bdf8" metalness={0.25} roughness={0.35}/></mesh>}
+    <mesh rotation={[-Math.PI/2,0,0]} position={[0,-0.6,0]}><circleGeometry args={[zone.radius,48]}/><meshStandardMaterial color="#0f2b3e" transparent opacity={0.55}/></mesh>
   </group>;
 }
 '''
@@ -271,8 +297,7 @@ export function Zone({zone}:{zone:ZoneSpec}){
     @staticmethod
     def _asset_model() -> str:
         return '''import { useGLTF } from "@react-three/drei";
-import { blueprint } from "../generated/blueprint";
-type AssetSpec = typeof blueprint.assets[number];
+import type { AssetSpec } from "../generated/blueprint";
 export function AssetModel({asset,scale=1}:{asset:AssetSpec;scale?:number}){
   if(asset.kind!=="glb"&&asset.kind!=="gltf") return null;
   return <Model path={asset.path} scale={scale}/>;
@@ -323,9 +348,11 @@ export function ResponsiveControls(){const setInput=useWorldStore(s=>s.setInput)
     def _overlay() -> str:
         return '''import { blueprint } from "../generated/blueprint";
 import { useWorldStore } from "../state/worldStore";
-export function ContentOverlay(){const active=useWorldStore(s=>s.activeZone);const setTarget=useWorldStore(s=>s.setTargetZone);const setInput=useWorldStore(s=>s.setInput);const zone=blueprint.zones.find(z=>z.id===active);
+declare global { interface Window { __AIOS_TARGET_ZONE__?: string | null; } }
+export function ContentOverlay(){const active=useWorldStore(s=>s.activeZone);const setTargetStore=useWorldStore(s=>s.setTargetZone);const setInput=useWorldStore(s=>s.setInput);const zone=blueprint.zones.find(z=>z.id===active);
+ const setTarget=(id:string|null)=>{window.__AIOS_TARGET_ZONE__=id;setTargetStore(id)};
  const press=(key:string)=>(e:React.PointerEvent)=>{e.preventDefault();setInput(key,true)}; const release=(key:string)=>()=>setInput(key,false);
- return <div className="overlay" aria-live="polite"><nav data-interactive>{blueprint.zones.map(z=><button key={z.id} onClick={()=>setTarget(z.id)}>{z.title}</button>)}</nav>{zone&&<section className="zone-panel"><h1>{zone.title}</h1><p>{blueprint.objective}</p><button onClick={()=>setTarget(null)}>Manual navigation</button></section>}
- <div className="touch-pad" data-interactive><span/><button onPointerDown={press("ArrowUp")} onPointerUp={release("ArrowUp")}>↑</button><span/><button onPointerDown={press("ArrowLeft")} onPointerUp={release("ArrowLeft")}>←</button><button onPointerDown={press("ArrowDown")} onPointerUp={release("ArrowDown")}>↓</button><button onPointerDown={press("ArrowRight")} onPointerUp={release("ArrowRight")}>→</button></div></div>;
+ return <div className="overlay" aria-live="polite"><header className="brand-panel"><strong>{blueprint.title}</strong><span>{blueprint.zones.length} interactive zones</span></header><nav data-interactive aria-label="3D zones">{blueprint.zones.map(z=><button data-zone-id={z.id} key={z.id} onClick={()=>setTarget(z.id)}>{z.title}</button>)}</nav>{zone&&<section className="zone-panel"><h1>{zone.title}</h1><p>{blueprint.objective}</p><button data-interactive onClick={()=>setTarget(null)}>Manual navigation</button></section>}
+ <div className="touch-pad" data-interactive><span/><button aria-label="Move forward" onPointerDown={press("ArrowUp")} onPointerUp={release("ArrowUp")}>↑</button><span/><button aria-label="Move left" onPointerDown={press("ArrowLeft")} onPointerUp={release("ArrowLeft")}>←</button><button aria-label="Move backward" onPointerDown={press("ArrowDown")} onPointerUp={release("ArrowDown")}>↓</button><button aria-label="Move right" onPointerDown={press("ArrowRight")} onPointerUp={release("ArrowRight")}>→</button></div></div>;
 }
 '''

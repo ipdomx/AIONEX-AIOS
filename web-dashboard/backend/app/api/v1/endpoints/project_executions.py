@@ -24,13 +24,14 @@ from app.core.config import settings
 from app.db.base import get_db
 from app.db.models import AuditEvent, Notification, Project, ProjectExecution
 from app.services.free_tier import consume_assistant_response, consume_user_message
+from app.services.three_d_product import access_snapshot, project_for_actor
 
 router = APIRouter()
 
 
 class ProjectExecutionStart(BaseModel):
     confirm_external_processing: bool = False
-    mode: Literal["full", "planning", "provider_neutral"] = "full"
+    mode: Literal["full", "planning", "provider_neutral", "3d_full"] = "full"
     objective: str | None = Field(default=None, min_length=10, max_length=6000)
 
 
@@ -112,6 +113,7 @@ def _public_result(summary: dict[str, Any] | None) -> dict[str, Any] | None:
         "all_governance_layers_executed",
         "model_claims_used_as_execution_proof",
         "owner_approval",
+        "three_d_web",
     }
     return {key: summary[key] for key in allowed if key in summary}
 
@@ -192,7 +194,37 @@ async def start_project_execution(
                 "to the configured external AI provider"
             ),
         )
-    project = await _project(session, project_id, actor.organization_id)
+    if data.mode == "3d_full":
+        project = await project_for_actor(session, actor, project_id, write=True)
+        access = await access_snapshot(session, actor, lock_policy=True)
+        if not access["eligible"]:
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail={
+                    "code": "THREE_D_ACCESS_NOT_GRANTED",
+                    "message": "Full 3D project generation is controlled by the Super Owner and the eligible plan.",
+                },
+            )
+        if access["monthly_used"] >= access["monthly_quota"]:
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail={
+                    "code": "THREE_D_MONTHLY_QUOTA_REACHED",
+                    "allowed": access["monthly_quota"],
+                    "used": access["monthly_used"],
+                },
+            )
+        if access["active_jobs"] >= access["max_concurrent_jobs"]:
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "code": "THREE_D_CONCURRENCY_LIMIT",
+                    "allowed": access["max_concurrent_jobs"],
+                    "active": access["active_jobs"],
+                },
+            )
+    else:
+        project = await _project(session, project_id, actor.organization_id)
     objective = (data.objective or project.description or project.name).strip()
     if len(objective) < 10:
         raise HTTPException(

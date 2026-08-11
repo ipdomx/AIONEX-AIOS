@@ -60,6 +60,7 @@ class PerformanceSample:
     asset_bytes: int
     bundle_bytes: int
     gpu_memory_mb: int | None = None
+    timing_measurement_authoritative: bool = True
 
     def validate(self) -> None:
         if self.fps < 0 or self.frame_time_ms < 0:
@@ -94,14 +95,22 @@ class PerformanceGate:
         sample.validate()
         budget = self._budgets[sample.profile]
         violations: list[PerformanceViolation] = []
-        lower = (("fps", sample.fps, budget.min_fps),)
-        upper = (
-            ("frame_time_ms", sample.frame_time_ms, budget.max_frame_time_ms),
+        lower = (
+            (("fps", sample.fps, budget.min_fps),)
+            if sample.timing_measurement_authoritative
+            else ()
+        )
+        upper_items = [
             ("draw_calls", sample.draw_calls, budget.max_draw_calls),
             ("triangles", sample.triangles, budget.max_triangles),
             ("asset_bytes", sample.asset_bytes, budget.max_asset_bytes),
             ("bundle_bytes", sample.bundle_bytes, budget.max_bundle_bytes),
-        )
+        ]
+        if sample.timing_measurement_authoritative:
+            upper_items.insert(
+                0, ("frame_time_ms", sample.frame_time_ms, budget.max_frame_time_ms)
+            )
+        upper = tuple(upper_items)
         for metric, actual, limit in lower:
             if actual < limit:
                 violations.append(PerformanceViolation(metric, actual, limit, ">="))

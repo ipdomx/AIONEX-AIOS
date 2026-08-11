@@ -280,7 +280,11 @@ services:
 
   project-worker:
     profiles: ["ai-execution"]
-    image: aionex-aios-backend:local
+    image: aionex-aios-project-worker:local
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: project-worker
     restart: unless-stopped
     mem_limit: 4g
     cpus: "3.0"
@@ -301,11 +305,13 @@ services:
       PROJECT_EXECUTION_BUDGET_CAP_USD: "0.05"
       PROJECT_EXECUTION_WEB_SEARCH_COST_USD: "0.01"
       PROJECT_EXECUTION_RESEARCH_MODEL: "gpt-5.4-nano"
+      PROJECT_EXECUTION_NPM_CACHE: /var/lib/aionex/project-npm-cache
     volumes:
       - ..:/workspace:ro
       - ${AIOS_PROJECT_EXECUTION_SECRET_HOST_FILE:-/root/.config/aionex/phase22c-openai.env}:/run/secrets/aionex/project-openai.env:ro
       - ${AIOS_PHASE22B_REFERENCE_HOST_DIR:-/var/tmp/aionex-phase22b/sandbox-output/local-qwen3-8b}:/run/references/phase22b/local-qwen3-8b:ro
       - project_execution_data:/var/lib/aionex/project-executions
+      - project_npm_cache_data:/var/lib/aionex/project-npm-cache
     depends_on:
       backend: {condition: service_healthy}
     healthcheck:
@@ -550,6 +556,7 @@ volumes:
   redis_data:
   backup_data:
   project_execution_data:
+  project_npm_cache_data:
   studio_asset_data:
   mobile_release_data:
   portal_asset_data:

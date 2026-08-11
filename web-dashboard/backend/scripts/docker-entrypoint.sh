@@ -63,6 +63,11 @@ if [ "$(id -u)" = "0" ]; then
         install -d -m 0700 -o aionex -g aionex "$project_output_root"
     fi
 
+    project_npm_cache="${PROJECT_EXECUTION_NPM_CACHE:-}"
+    if [ -n "$project_npm_cache" ]; then
+        install -d -m 0700 -o aionex -g aionex "$project_npm_cache"
+    fi
+
     portal_asset_root="${PORTAL_ASSET_ROOT-/var/lib/aionex/portal-assets}"
     if [ -n "$portal_asset_root" ]; then
         install -d -m 0750 -o aionex -g aionex "$portal_asset_root"

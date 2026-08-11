@@ -20,11 +20,14 @@ from app.db.models import (
     OwnerControlRecord,
     Project,
     ProjectExecution,
+    ThreeDArtifact,
 )
 from app.services.project_execution import (
     ProjectPlanningRunner,
+    ProjectExecutionConfigurationError,
     sanitized_execution_error,
 )
+from app.services.three_d_storage import ThreeDObjectStore
 from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -153,11 +156,159 @@ class ProjectExecutionWorker:
             record, project_name = row
             return {
                 "job_id": record.id,
+                "project_id": record.project_id,
                 "project_name": project_name,
                 "objective": record.objective,
                 "tenant_id": record.organization_id,
                 "requested_by_id": record.requested_by_id,
+                "execution_mode": record.mode,
             }
+
+    async def prepare_three_d_assets(
+        self,
+        *,
+        execution_id: str,
+        lease_token: str,
+        project_id: str,
+    ) -> str:
+        """Stage immutable project GLBs for a full 3D web build.
+
+        The stage is idempotent and bounded. Source objects remain private in S3; only
+        integrity-verified copies enter the execution evidence volume.
+        """
+        from hashlib import sha256
+        import json
+        import os
+        from pathlib import Path
+
+        root = Path(settings.PROJECT_EXECUTION_OUTPUT_ROOT) / execution_id / "three-d-input"
+        manifest_path = root / "manifest.json"
+        if manifest_path.is_file() and not manifest_path.is_symlink():
+            return str(manifest_path)
+        if root.exists():
+            raise ProjectExecutionConfigurationError(
+                "incomplete 3D asset staging evidence already exists"
+            )
+
+        async with self.session_factory() as session:
+            record = await session.scalar(
+                select(ProjectExecution).where(
+                    ProjectExecution.id == execution_id,
+                    ProjectExecution.status == "running",
+                    ProjectExecution.lease_token == lease_token,
+                    ProjectExecution.project_id == project_id,
+                )
+            )
+            if record is None:
+                raise ProjectExecutionLeaseLost(execution_id)
+            artifacts = list(
+                (
+                    await session.scalars(
+                        select(ThreeDArtifact)
+                        .where(
+                            ThreeDArtifact.organization_id == record.organization_id,
+                            ThreeDArtifact.project_id == project_id,
+                            ThreeDArtifact.status == "ready",
+                            or_(
+                                ThreeDArtifact.expires_at.is_(None),
+                                ThreeDArtifact.expires_at > _now(),
+                            ),
+                        )
+                        .order_by(ThreeDArtifact.created_at.desc())
+                        .limit(24)
+                    )
+                ).all()
+            )
+
+        delivery_cap = 18 * 1024 * 1024
+        per_asset_cap = 6 * 1024 * 1024
+        selected: list[ThreeDArtifact] = []
+        skipped_for_budget = 0
+        selected_bytes = 0
+        for artifact in artifacts:
+            size = int(artifact.size_bytes or 0)
+            if (
+                size <= 0
+                or size > per_asset_cap
+                or selected_bytes + size > delivery_cap
+                or len(selected) >= 6
+            ):
+                skipped_for_budget += 1
+                continue
+            selected.append(artifact)
+            selected_bytes += size
+        root.mkdir(parents=True, mode=0o700)
+        assets_root = root / "assets"
+        assets_root.mkdir(mode=0o700)
+        rows: list[dict[str, Any]] = []
+        if selected:
+            store = ThreeDObjectStore()
+            for index, artifact in enumerate(selected):
+                maximum = min(
+                    int(settings.THREE_D_MAX_OUTPUT_BYTES),
+                    max(int(artifact.size_bytes or 0) + 1, 1024 * 1024),
+                )
+                body = await asyncio.to_thread(
+                    store.get_bytes, artifact.object_key, max_bytes=maximum
+                )
+                digest = sha256(body).hexdigest()
+                if digest != artifact.checksum or len(body) != int(artifact.size_bytes):
+                    raise ProjectExecutionConfigurationError(
+                        "a ready 3D artifact failed staging integrity verification"
+                    )
+                name = f"asset-{index+1:02d}.glb"
+                destination = assets_root / name
+                with destination.open("xb") as stream:
+                    stream.write(body)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                os.chmod(destination, 0o600)
+                metadata = dict(artifact.artifact_metadata or {})
+                rows.append(
+                    {
+                        "artifact_id": artifact.id,
+                        "job_id": artifact.job_id,
+                        "path": f"assets/{name}",
+                        "sha256": digest,
+                        "size_bytes": len(body),
+                        "provider": str(metadata.get("provider") or "unknown"),
+                        "metadata": {
+                            key: metadata.get(key)
+                            for key in (
+                                "mesh_count",
+                                "material_count",
+                                "pbr_material_count",
+                                "texture_count",
+                                "compression_policy",
+                                "fallback_used",
+                                "fallback_provider",
+                                "license",
+                            )
+                            if key in metadata
+                        },
+                    }
+                )
+        manifest = {
+            "schema_version": 1,
+            "execution_id": execution_id,
+            "project_id": project_id,
+            "asset_count": len(rows),
+            "available_asset_count": len(artifacts),
+            "skipped_for_delivery_budget": skipped_for_budget,
+            "delivery_asset_cap_bytes": delivery_cap,
+            "per_asset_cap_bytes": per_asset_cap,
+            "total_bytes": sum(item["size_bytes"] for item in rows),
+            "assets": rows,
+            "procedural_world_allowed_when_empty": True,
+        }
+        temporary = root / ".manifest.json.tmp"
+        temporary.write_text(
+            json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n",
+            encoding="utf-8",
+        )
+        os.chmod(temporary, 0o600)
+        os.replace(temporary, manifest_path)
+        return str(manifest_path)
 
     async def update_stage(
         self,
@@ -207,6 +358,12 @@ class ProjectExecutionWorker:
 
     async def execute_claim(self, execution_id: str, lease_token: str) -> None:
         payload = await self.load_payload(execution_id, lease_token)
+        if payload.get("execution_mode") == "3d_full":
+            payload["three_d_asset_manifest"] = await self.prepare_three_d_assets(
+                execution_id=execution_id,
+                lease_token=lease_token,
+                project_id=payload["project_id"],
+            )
         stop_event = asyncio.Event()
         heartbeat_task = asyncio.create_task(
             self._heartbeat(execution_id, lease_token, stop_event)
@@ -462,7 +619,14 @@ class ProjectExecutionWorker:
 
 async def healthcheck() -> int:
     try:
+        import shutil
+
         ProjectPlanningRunner()
+        for executable in ("node", "npm", "chromedriver"):
+            if not shutil.which(executable):
+                raise RuntimeError(f"project worker executable is unavailable: {executable}")
+        if not (shutil.which("chromium-browser") or shutil.which("chromium")):
+            raise RuntimeError("project worker Chromium runtime is unavailable")
         async with SessionLocal() as session:
             await session.execute(text("SELECT 1"))
         return 0

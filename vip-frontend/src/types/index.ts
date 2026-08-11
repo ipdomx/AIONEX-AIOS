@@ -502,7 +502,7 @@ export interface ProjectWorkforceResult {
 export interface ProjectExecutionResult {
   success: boolean;
   phase?: number | string;
-  mode?: "full" | "planning" | "provider_neutral";
+  mode?: "full" | "planning" | "provider_neutral" | "3d_full";
   status: string;
   provider: string;
   model?: string | null;
@@ -545,6 +545,8 @@ export interface ProjectExecutionResult {
     contains_executable_product?: boolean;
     owner_approval_receipt?: string;
     owner_approval_receipt_sha256?: string;
+    three_d_web?: string;
+    three_d_web_sha256?: string;
   };
   owner_approval?: {
     approved: boolean;
@@ -552,6 +554,24 @@ export interface ProjectExecutionResult {
     approved_at: string;
     receipt: string;
     receipt_sha256: string;
+  };
+  three_d_web?: {
+    mode: "3d_full";
+    runtime: string;
+    production_build_passed: boolean;
+    asset_count: number;
+    asset_providers: string[];
+    autonomous_asset_generation_used: boolean;
+    procedural_fallback_used: boolean;
+    bundle_bytes: number;
+    asset_bytes: number;
+    browser_qa_passed: boolean;
+    performance_passed: boolean;
+    release_ready: boolean;
+    release_reasons: string[];
+    aggregate_sha256: string;
+    build_manifest_sha256: string;
+    delivery_path: string;
   };
   all_governance_layers_executed?: boolean;
   model_claims_used_as_execution_proof?: boolean;
@@ -573,7 +593,7 @@ export interface ProjectExecution {
   workspace_id: string;
   organization_id: string;
   requested_by_id: string;
-  mode: "full" | "planning" | "provider_neutral";
+  mode: "full" | "planning" | "provider_neutral" | "3d_full";
   provider: "openai" | "provider-neutral";
   model?: string | null;
   status: "queued" | "running" | "completed" | "failed";

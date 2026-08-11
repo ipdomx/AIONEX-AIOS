@@ -1375,7 +1375,10 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
             'test: ["CMD", "python", "-m", "app.services.operations_observer", '
             '"--healthcheck"]' in compose
         )
-        assert compose.count("image: aionex-aios-backend:local") == 10
+        assert compose.count("image: aionex-aios-backend:local") == 9
+        assert "image: aionex-aios-project-worker:local" in compose
+        project_section = compose.split("project-worker:", 1)[1].split("studio-worker:", 1)[0]
+        assert "target: project-worker" in project_section
         assert "backup_data:/var/lib/aionex/backups" in compose
         assert 'command: ["python", "-m", "app.services.backup_worker"]' in compose
         assert 'command: ["python", "/app/app/db/postgres_credentials.py"]' in compose

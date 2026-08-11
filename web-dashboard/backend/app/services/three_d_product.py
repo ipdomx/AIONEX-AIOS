@@ -15,6 +15,7 @@ from app.db.models import (
     AuditEvent,
     BillingAccount,
     Project,
+    ProjectExecution,
     ProjectMembership,
     ThreeDArtifact,
     ThreeDGenerationJob,
@@ -178,7 +179,7 @@ async def access_snapshot(
         plan_code=plan_code,
         entitlements=entitlements,
     )
-    monthly_used = int(
+    generation_used = int(
         await session.scalar(
             select(func.count(ThreeDGenerationJob.id)).where(
                 ThreeDGenerationJob.organization_id == actor.organization_id,
@@ -191,7 +192,20 @@ async def access_snapshot(
         )
         or 0
     )
-    active = int(
+    full_project_used = int(
+        await session.scalar(
+            select(func.count(ProjectExecution.id)).where(
+                ProjectExecution.organization_id == actor.organization_id,
+                ProjectExecution.requested_by_id == actor.id,
+                ProjectExecution.mode == "3d_full",
+                ProjectExecution.created_at >= month_start(),
+                ProjectExecution.status.in_({"queued", "running", "completed"}),
+            )
+        )
+        or 0
+    )
+    monthly_used = generation_used + full_project_used
+    active_generation = int(
         await session.scalar(
             select(func.count(ThreeDGenerationJob.id)).where(
                 ThreeDGenerationJob.organization_id == actor.organization_id,
@@ -201,6 +215,18 @@ async def access_snapshot(
         )
         or 0
     )
+    active_full_project = int(
+        await session.scalar(
+            select(func.count(ProjectExecution.id)).where(
+                ProjectExecution.organization_id == actor.organization_id,
+                ProjectExecution.requested_by_id == actor.id,
+                ProjectExecution.mode == "3d_full",
+                ProjectExecution.status.in_({"queued", "running"}),
+            )
+        )
+        or 0
+    )
+    active = active_generation + active_full_project
     quota = _effective_monthly_quota(policy, context)
     return {
         "eligible": allowed,

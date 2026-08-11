@@ -4,6 +4,7 @@ import {
   ArrowUpRight,
   BadgeCheck,
   BrainCircuit,
+  Boxes,
   CircleDollarSign,
   Download,
   FolderKanban,
@@ -241,6 +242,29 @@ export function ProjectsClient() {
       void getFreeTierStatus()
         .then(setQuota)
         .catch(() => undefined);
+    } catch (cause) {
+      setExecutionError(errorText(cause, t("execution.startError")));
+    } finally {
+      setStartingProjectId(null);
+    }
+  }
+
+  async function startThreeDExecution(project: Project) {
+    setExecutionError("");
+    const confirmed = window.confirm(t("execution.threeDConfirm"));
+    if (!confirmed) return;
+    setStartingProjectId(project.id);
+    try {
+      const execution = await startProjectExecution(project.id, "3d_full");
+      setExecutions((current) => ({ ...current, [project.id]: execution }));
+      setProjects((current) =>
+        current.map((item) =>
+          item.id === project.id
+            ? { ...item, status: "planning", progress: Math.max(item.progress, 1) }
+            : item,
+        ),
+      );
+      void getFreeTierStatus().then(setQuota).catch(() => undefined);
     } catch (cause) {
       setExecutionError(errorText(cause, t("execution.startError")));
     } finally {
@@ -628,20 +652,35 @@ export function ProjectsClient() {
                         {t("execution.description")}
                       </p>
                       {canCreate && (
-                        <Button
-                          className="mt-5"
-                          onClick={() => void startExecution(project)}
-                          disabled={startingProjectId === project.id}
-                        >
-                          {startingProjectId === project.id ? (
-                            <LoaderCircle className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <BrainCircuit className="h-4 w-4" />
-                          )}
-                          {startingProjectId === project.id
-                            ? t("execution.starting")
-                            : t("execution.start")}
-                        </Button>
+                        <div className="mt-5 flex flex-wrap gap-2">
+                          <Button
+                            onClick={() => void startExecution(project)}
+                            disabled={startingProjectId === project.id}
+                          >
+                            {startingProjectId === project.id ? (
+                              <LoaderCircle className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <BrainCircuit className="h-4 w-4" />
+                            )}
+                            {startingProjectId === project.id
+                              ? t("execution.starting")
+                              : t("execution.start")}
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            onClick={() => void startThreeDExecution(project)}
+                            disabled={startingProjectId === project.id}
+                          >
+                            {startingProjectId === project.id ? (
+                              <LoaderCircle className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Boxes className="h-4 w-4" />
+                            )}
+                            {startingProjectId === project.id
+                              ? t("execution.threeDStarting")
+                              : t("execution.threeDStart")}
+                          </Button>
+                        </div>
                       )}
                     </>
                   ) : (
@@ -763,6 +802,29 @@ export function ProjectsClient() {
                             </div>
                           </div>
 
+                          {execution.result.three_d_web && (
+                            <div className="rounded-xl border border-cyan-300/15 bg-cyan-300/[0.04] p-4">
+                              <p className="flex items-center gap-2 text-white/70">
+                                <Boxes className="h-4 w-4 text-cyan-300" />
+                                {t("execution.threeDResultTitle")}
+                              </p>
+                              <p className="mt-2 text-white/40">
+                                {t("execution.threeDResultSummary", {
+                                  assets: execution.result.three_d_web.asset_count,
+                                  browser: execution.result.three_d_web.browser_qa_passed ? "PASS" : "FAIL",
+                                  performance: execution.result.three_d_web.performance_passed ? "PASS" : "FAIL",
+                                })}
+                              </p>
+                              <p className="mt-1 text-white/35">
+                                {execution.result.three_d_web.procedural_fallback_used
+                                  ? t("execution.threeDProcedural")
+                                  : t("execution.threeDProviders", {
+                                      providers: execution.result.three_d_web.asset_providers.join(", ") || "AIOS",
+                                    })}
+                              </p>
+                            </div>
+                          )}
+
                           {ownerApprovalPending && (
                             <StatusMessage>
                               {t("execution.ownerApprovalRequired")}
@@ -814,6 +876,16 @@ export function ProjectsClient() {
                                   <Download className="h-4 w-4" />
                                 )}
                                 {t("execution.download")}
+                              </Button>
+                            )}
+                            {canCreate && (
+                              <Button
+                                variant="secondary"
+                                onClick={() => void startThreeDExecution(project)}
+                                disabled={startingProjectId === project.id}
+                              >
+                                <Boxes className="h-4 w-4" />
+                                {t("execution.threeDNewCycle")}
                               </Button>
                             )}
                             {canCreate && (
