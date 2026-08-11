@@ -135,8 +135,20 @@ class ThreeDProjectLifecycle:
             try:
                 for asset in blueprint.assets:
                     metadata.append(self._asset_inspector.inspect(asset, inputs.project_root))
+                metadata_by_id = {item.asset_id: item for item in metadata}
                 for profile in blueprint.performance_profiles:
-                    result = self._asset_gate.evaluate(metadata, profile)
+                    # Low-power runtime deliberately substitutes lightweight procedural
+                    # proxies for lazy GLB/GLTF assets. Only assets that are actually
+                    # eligible to load in that profile count against its transfer/mesh
+                    # budget; desktop/mobile continue to validate the complete package.
+                    profile_metadata = metadata
+                    if profile == PerformanceProfile.LOW_POWER:
+                        profile_metadata = [
+                            metadata_by_id[asset.asset_id]
+                            for asset in blueprint.assets
+                            if not asset.lazy and asset.asset_id in metadata_by_id
+                        ]
+                    result = self._asset_gate.evaluate(profile_metadata, profile)
                     if not result.passed:
                         asset_gate_passed = False
                         for violation in result.violations:

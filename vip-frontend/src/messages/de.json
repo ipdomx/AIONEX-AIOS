@@ -470,6 +470,7 @@
       "threeDResultSummary": "{assets} 3D-Assets · Browser-QA {browser} · Performance {performance}",
       "threeDProcedural": "Es waren keine fertigen GLB-Assets vorhanden. AIOS hat daher eine eigenständige prozedurale 3D-Welt erstellt. Erzeugen Sie 3D-Modelle für die nächste Version.",
       "threeDProviders": "3D-Assets zusammengestellt aus: {providers}",
+      "threeDAutogenDegraded": "Die externe Text-zu-3D-Asset-Erzeugung ist derzeit nicht verfügbar oder durch Guthaben begrenzt. AIOS hat den Build daher mit verifizierten Projekt-Assets und prozeduralen Fallbacks abgeschlossen, ohne einen unsicheren kostenpflichtigen Auftrag zu senden.",
       "governanceTitle": "Governance und Räte",
       "governanceComplete": "Alle kognitiven, verfassungsbezogenen, strategischen, staatlichen, Forschungs- und Ministeriumsebenen wurden ausgeführt.",
       "governancePending": "Vollständige Governance-Nachweise sind nicht verfügbar.",

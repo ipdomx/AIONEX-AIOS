@@ -38,6 +38,7 @@ class RuntimeScaffold:
             "src/main.tsx",
             "src/App.tsx",
             "src/scene/World.tsx",
+            "src/runtime/profile.ts",
             "src/controllers/PlayerController.tsx",
             "src/controllers/CameraController.tsx",
             "src/state/worldStore.ts",
@@ -73,6 +74,7 @@ class ThreeDRuntimeScaffoldBuilder:
             ScaffoldFile("src/styles.css", self._styles()),
             ScaffoldFile("src/generated/blueprint.ts", bp),
             ScaffoldFile("src/state/worldStore.ts", self._store()),
+            ScaffoldFile("src/runtime/profile.ts", self._runtime_profile()),
             ScaffoldFile("src/scene/World.tsx", self._world()),
             ScaffoldFile("src/scene/RuntimeProbe.tsx", self._runtime_probe()),
             ScaffoldFile("src/scene/Zone.tsx", self._zone()),
@@ -253,6 +255,29 @@ export const useWorldStore = create<WorldState>((set) => ({
 '''
 
     @staticmethod
+    def _runtime_profile() -> str:
+        return '''import { useEffect, useState } from "react";
+export type RuntimeProfile = "desktop" | "mobile" | "low_power";
+function detectProfile(): RuntimeProfile {
+  const forced = new URLSearchParams(window.location.search).get("aionex_profile");
+  if (forced === "desktop" || forced === "mobile" || forced === "low_power") return forced;
+  const nav = navigator as Navigator & { deviceMemory?: number };
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || (nav.deviceMemory ?? 8) <= 4) return "low_power";
+  return window.innerWidth < 768 ? "mobile" : "desktop";
+}
+export function useRuntimeProfile(): RuntimeProfile {
+  const [profile, setProfile] = useState<RuntimeProfile>(() => typeof window === "undefined" ? "desktop" : detectProfile());
+  useEffect(() => {
+    const update = () => setProfile(detectProfile());
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  return profile;
+}
+'''
+
+    @staticmethod
     def _world() -> str:
         return '''import { blueprint } from "../generated/blueprint";
 import { PlayerController } from "../controllers/PlayerController";
@@ -282,13 +307,16 @@ export function RuntimeProbe(){const {gl,camera}=useThree();const frames=useRef<
     @staticmethod
     def _zone() -> str:
         return '''import { blueprint, type ZoneSpec } from "../generated/blueprint";
+import { useRuntimeProfile } from "../runtime/profile";
 import { useWorldStore } from "../state/worldStore";
 import { AssetModel } from "./AssetModel";
 export function Zone({zone}:{zone:ZoneSpec}){
   const setActiveZone=useWorldStore(s=>s.setActiveZone);
+  const profile=useRuntimeProfile();
   const assets=blueprint.assets.filter(a=>zone.assetIds.includes(a.id));
-  return <group position={zone.position} userData={{aionexZoneId:zone.id}} onPointerOver={()=>setActiveZone(zone.id)} onPointerOut={()=>setActiveZone(null)}>
-    {assets.length?assets.map(a=><AssetModel key={a.id} asset={a} scale={zone.desktopScale}/>):<mesh><icosahedronGeometry args={[Math.max(0.8,Math.min(2.5,zone.radius/3)),2]}/><meshStandardMaterial color="#38bdf8" metalness={0.25} roughness={0.35}/></mesh>}
+  const scale=profile === "desktop" ? zone.desktopScale : zone.mobileScale;
+  return <group position={zone.position} userData={{aionexZoneId:zone.id,aionexProfile:profile}} onPointerOver={()=>setActiveZone(zone.id)} onPointerOut={()=>setActiveZone(null)}>
+    {assets.length?assets.map(a=><AssetModel key={a.id} asset={a} scale={scale} profile={profile}/>):<mesh><icosahedronGeometry args={[Math.max(0.8,Math.min(2.5,zone.radius/3)),2]}/><meshStandardMaterial color="#38bdf8" metalness={0.25} roughness={0.35}/></mesh>}
     <mesh rotation={[-Math.PI/2,0,0]} position={[0,-0.6,0]}><circleGeometry args={[zone.radius,48]}/><meshStandardMaterial color="#0f2b3e" transparent opacity={0.55}/></mesh>
   </group>;
 }
@@ -298,10 +326,13 @@ export function Zone({zone}:{zone:ZoneSpec}){
     def _asset_model() -> str:
         return '''import { useGLTF } from "@react-three/drei";
 import type { AssetSpec } from "../generated/blueprint";
-export function AssetModel({asset,scale=1}:{asset:AssetSpec;scale?:number}){
+import type { RuntimeProfile } from "../runtime/profile";
+export function AssetModel({asset,scale=1,profile}:{asset:AssetSpec;scale?:number;profile:RuntimeProfile}){
   if(asset.kind!=="glb"&&asset.kind!=="gltf") return null;
+  if(profile==="low_power"&&asset.lazy) return <LowPowerProxy scale={scale}/>;
   return <Model path={asset.path} scale={scale}/>;
 }
+function LowPowerProxy({scale}:{scale:number}){return <mesh scale={Math.max(.5,scale)}><dodecahedronGeometry args={[1.2,1]}/><meshStandardMaterial color="#22d3ee" metalness={0.35} roughness={0.42}/></mesh>}
 function Model({path,scale}:{path:string;scale:number}){const gltf=useGLTF(path);return <primitive object={gltf.scene.clone()} scale={scale}/>}
 '''
 

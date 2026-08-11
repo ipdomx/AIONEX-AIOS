@@ -470,6 +470,7 @@
       "threeDResultSummary": "{assets} recursos 3D · QA del navegador {browser} · Rendimiento {performance}",
       "threeDProcedural": "No había GLB listos, por lo que AIOS creó un mundo 3D procedural autónomo. Genera modelos 3D del proyecto para enriquecer la próxima versión.",
       "threeDProviders": "Recursos 3D ensamblados desde: {providers}",
+      "threeDAutogenDegraded": "La generación externa de recursos de texto a 3D no está disponible o está limitada por crédito; AIOS completó la compilación con recursos verificados del proyecto y alternativas procedurales sin enviar una tarea de pago insegura.",
       "governanceTitle": "Gobernanza y consejos",
       "governanceComplete": "Se ejecutaron todas las capas cognitivas, constitucionales, de sabiduría, gobierno, investigación y ministerios.",
       "governancePending": "La evidencia completa de gobernanza no está disponible.",

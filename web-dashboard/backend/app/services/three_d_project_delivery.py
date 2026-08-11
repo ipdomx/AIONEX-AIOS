@@ -219,6 +219,26 @@ class TripoTextToModelClient:
             "Content-Type": "application/json",
         }
 
+    def available_credits(self) -> float:
+        """Return conservative usable API credits without exposing wallet details."""
+        try:
+            with httpx.Client(
+                timeout=httpx.Timeout(15.0, connect=10.0), follow_redirects=False
+            ) as client:
+                data = self._payload(
+                    client.get(f"{_TRIPO_BASE_URL}/user/balance", headers=self.headers)
+                )
+        except httpx.HTTPError as exc:
+            raise ThreeDProjectDeliveryError(
+                f"Tripo wallet preflight failed ({type(exc).__name__})"
+            ) from exc
+        try:
+            balance = float(data.get("balance") or 0.0)
+            frozen = float(data.get("frozen") or 0.0)
+        except (TypeError, ValueError) as exc:
+            raise ThreeDProjectDeliveryError("Tripo wallet response is invalid") from exc
+        return max(0.0, balance - frozen)
+
     @staticmethod
     def _payload(response: httpx.Response) -> dict[str, Any]:
         if response.status_code >= 400:
@@ -431,7 +451,7 @@ def _browser_qa(
     dist_root: Path,
     evidence_root: Path,
     *,
-    asset_bytes: int,
+    asset_bytes_by_profile: Mapping[PerformanceProfile, int],
     bundle_bytes: int,
 ) -> tuple[tuple[BrowserRunReceipt, ...], tuple[PerformanceSample, ...]]:
     try:
@@ -476,8 +496,8 @@ def _browser_qa(
         if xvfb_process.poll() is not None:
             raise ThreeDProjectDeliveryError("3D browser QA virtual display could not start")
         with _StaticServer(dist_root) as server:
-            target = f"http://127.0.0.1:{server.port}/"
             for profile, viewport_id, width, height, mobile, throttle in profiles:
+                target = f"http://127.0.0.1:{server.port}/?aionex_profile={profile.value}"
                 options = Options()
                 options.binary_location = chromium
                 for flag in (
@@ -553,6 +573,16 @@ def _browser_qa(
                         and math.isfinite(float(value))
                         for value in camera_values
                     )
+                    resource_names = driver.execute_script(
+                        "return performance.getEntriesByType('resource').map((entry)=>entry.name);"
+                    ) or []
+                    loaded_glb_count = sum(
+                        1 for value in resource_names
+                        if str(value).split("?", 1)[0].lower().endswith((".glb", ".gltf"))
+                    )
+                    low_power_streaming_ok = (
+                        profile != PerformanceProfile.LOW_POWER or loaded_glb_count == 0
+                    )
                     logs = driver.get_log("browser")
                     console: list[ConsoleRecord] = []
                     webgl_errors: list[WebGLErrorRecord] = []
@@ -615,6 +645,11 @@ def _browser_qa(
                             camera_ok,
                             ("camera-finite" if camera_ok else "camera-invalid",),
                         ),
+                        ScenarioResult(
+                            "low-power-asset-streaming",
+                            low_power_streaming_ok,
+                            (f"loaded-3d-resources:{loaded_glb_count}",),
+                        ),
                     )
                     receipts.append(
                         BrowserRunReceipt(
@@ -634,11 +669,12 @@ def _browser_qa(
                     frame_ms = max(0.0, float(metrics.get("frame_time_ms") or 0.0))
                     draw_calls = max(0, int(metrics.get("draw_calls") or 0))
                     triangles = max(0, int(metrics.get("triangles") or 0))
+                    profile_asset_bytes = max(0, int(asset_bytes_by_profile.get(profile, 0)))
                     framebuffer_estimate = width * height * 16
                     gpu_memory_estimate_mb = max(
                         1,
                         math.ceil(
-                            (asset_bytes * 1.5 + framebuffer_estimate + bundle_bytes)
+                            (profile_asset_bytes * 1.5 + framebuffer_estimate + bundle_bytes)
                             / (1024 * 1024)
                         ),
                     )
@@ -649,7 +685,7 @@ def _browser_qa(
                             frame_time_ms=frame_ms,
                             draw_calls=draw_calls,
                             triangles=triangles,
-                            asset_bytes=asset_bytes,
+                            asset_bytes=profile_asset_bytes,
                             bundle_bytes=bundle_bytes,
                             gpu_memory_mb=gpu_memory_estimate_mb,
                             timing_measurement_authoritative=False,
@@ -788,6 +824,8 @@ class ThreeDWebDeliveryBuilder:
 
         records = _load_staged_assets(asset_manifest_path)
         autogen_used = False
+        autogen_status = "not_needed"
+        autogen_message: str | None = None
         autogen_enabled = os.environ.get(
             "PROJECT_3D_AUTOGEN_ENABLED", "true"
         ).strip().lower() not in {"0", "false", "no", "off"}
@@ -795,16 +833,56 @@ class ThreeDWebDeliveryBuilder:
             1, min(int(os.environ.get("PROJECT_3D_AUTOGEN_ASSET_COUNT", "4")), 6)
         )
         tripo_key = os.environ.get("TRIPO_API_KEY", "").strip()
-        if autogen_enabled and tripo_key and len(records) < target_asset_count:
-            generated = _autogenerate_tripo_assets(
-                root=root,
-                project_name=project_name,
-                objective=objective,
-                api_key=tripo_key,
-                count=target_asset_count - len(records),
-            )
-            records.extend(generated)
-            autogen_used = bool(generated)
+        missing_asset_count = max(0, target_asset_count - len(records))
+        if autogen_enabled and missing_asset_count:
+            if not tripo_key:
+                autogen_status = "not_configured"
+                autogen_message = (
+                    "External text-to-3D generation is not configured; AIOS continued "
+                    "with verified project assets and lightweight procedural zones."
+                )
+            else:
+                try:
+                    credit_per_asset = max(1.0, float(os.environ.get(
+                        "PROJECT_3D_TRIPO_CREDITS_PER_ASSET", "40"
+                    )))
+                    available = TripoTextToModelClient(
+                        tripo_key,
+                        timeout_seconds=int(os.environ.get(
+                            "PROJECT_3D_AUTOGEN_TIMEOUT_SECONDS", "300"
+                        )),
+                    ).available_credits()
+                    affordable = min(missing_asset_count, int(available // credit_per_asset))
+                    if affordable <= 0:
+                        autogen_status = "insufficient_credit"
+                        autogen_message = (
+                            "External text-to-3D provider credit is currently insufficient; "
+                            "AIOS continued without creating a billable provider task."
+                        )
+                    else:
+                        generated = _autogenerate_tripo_assets(
+                            root=root,
+                            project_name=project_name,
+                            objective=objective,
+                            api_key=tripo_key,
+                            count=affordable,
+                        )
+                        records.extend(generated)
+                        autogen_used = bool(generated)
+                        if affordable < missing_asset_count:
+                            autogen_status = "partial_credit_limited"
+                            autogen_message = (
+                                "AIOS generated the provider-funded assets available within "
+                                "the current wallet balance and used lightweight zones for the remainder."
+                            )
+                        else:
+                            autogen_status = "completed"
+                except ThreeDProjectDeliveryError:
+                    autogen_status = "provider_unavailable"
+                    autogen_message = (
+                        "External text-to-3D generation was unavailable; AIOS continued "
+                        "with verified project assets and lightweight procedural zones."
+                    )
         blueprint = self._blueprint(
             project_id=project_id,
             project_name=project_name,
@@ -863,14 +941,29 @@ class ThreeDWebDeliveryBuilder:
             raise ThreeDProjectDeliveryError("3D production build did not create deployable output")
         shutil.rmtree(delivery_root / "node_modules", ignore_errors=True)
         bundle_files = [path for path in dist.rglob("*") if path.is_file() and not path.is_symlink()]
-        bundle_bytes = sum(path.stat().st_size for path in bundle_files)
+        model_payload_suffixes = {".glb", ".gltf"}
+        runtime_bundle_files = [
+            path for path in bundle_files if path.suffix.lower() not in model_payload_suffixes
+        ]
+        bundle_bytes = sum(path.stat().st_size for path in runtime_bundle_files)
         asset_bytes = sum(int(item["size_bytes"]) for item in copied_assets)
+        lazy_asset_ids = {asset.asset_id for asset in blueprint.assets if asset.lazy}
+        non_lazy_asset_bytes = sum(
+            int(item["size_bytes"])
+            for asset, item in zip(blueprint.assets, copied_assets, strict=True)
+            if asset.asset_id not in lazy_asset_ids
+        )
+        asset_bytes_by_profile = {
+            PerformanceProfile.DESKTOP: asset_bytes,
+            PerformanceProfile.MOBILE: asset_bytes,
+            PerformanceProfile.LOW_POWER: non_lazy_asset_bytes,
+        }
 
         qa_root = delivery_root / "qa"
         browser_runs, performance_samples = _browser_qa(
             dist,
             qa_root,
-            asset_bytes=asset_bytes,
+            asset_bytes_by_profile=asset_bytes_by_profile,
             bundle_bytes=bundle_bytes,
         )
         build_manifest = {
@@ -888,6 +981,12 @@ class ThreeDWebDeliveryBuilder:
                 for path in sorted(bundle_files)
             ],
             "browser_profiles": [sample.profile.value for sample in performance_samples],
+            "profile_asset_bytes": {profile.value: value for profile, value in asset_bytes_by_profile.items()},
+            "runtime_bundle_bytes_excluding_3d_models": bundle_bytes,
+            "model_payload_bytes": asset_bytes,
+            "low_power_lazy_assets_use_procedural_proxies": True,
+            "autonomous_asset_generation_status": autogen_status,
+            "autonomous_asset_generation_degraded": autogen_status not in {"not_needed", "completed"},
             "gpu_memory_values_are_conservative_estimates": True,
             "browser_timing_environment": "software-rendered Chromium under Xvfb; FPS/frame-time are retained as evidence but not used as production-device release thresholds",
             "external_runtime_dependencies": False,
@@ -928,6 +1027,9 @@ class ThreeDWebDeliveryBuilder:
             "asset_count": len(copied_assets),
             "asset_providers": sorted({str(item["provider"]) for item in copied_assets}),
             "autonomous_asset_generation_used": autogen_used,
+            "autonomous_asset_generation_status": autogen_status,
+            "autonomous_asset_generation_degraded": autogen_status not in {"not_needed", "completed"},
+            "autonomous_asset_generation_message": autogen_message,
             "procedural_fallback_used": not copied_assets,
             "bundle_bytes": bundle_bytes,
             "asset_bytes": asset_bytes,

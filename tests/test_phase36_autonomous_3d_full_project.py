@@ -59,6 +59,10 @@ def test_runtime_scaffold_is_locked_self_contained_and_instrumented() -> None:
     files = ThreeDRuntimeScaffoldBuilder().build(blueprint).as_mapping()
     assert "package-lock.json" in files
     assert "src/scene/RuntimeProbe.tsx" in files
+    assert "src/runtime/profile.ts" in files
+    assert "aionex_profile" in files["src/runtime/profile.ts"]
+    assert 'profile==="low_power"&&asset.lazy' in files["src/scene/AssetModel.tsx"]
+    assert "zone.mobileScale" in files["src/scene/Zone.tsx"]
     assert "__AIOS_3D_READY__" in files["src/scene/RuntimeProbe.tsx"]
     assert "__AIOS_3D_METRICS__" in files["src/scene/RuntimeProbe.tsx"]
     assert "Environment preset" not in files["src/scene/World.tsx"]
@@ -109,6 +113,12 @@ def test_autonomous_text_to_3d_adapter_is_bounded_and_fail_closed() -> None:
         "PROJECT_3D_AUTOGEN_ASSET_COUNT",
         "18 * 1024 * 1024",
         'payload[:4] != b"glTF"',
+        'model_payload_suffixes = {".glb", ".gltf"}',
+        'low_power_lazy_assets_use_procedural_proxies',
+        'low-power-asset-streaming',
+        'PROJECT_3D_TRIPO_CREDITS_PER_ASSET',
+        'autonomous_asset_generation_status',
+        'insufficient_credit',
     ):
         assert token in source
     assert "TRIPO_API_KEY" in source
@@ -122,4 +132,7 @@ def test_full_3d_result_is_exposed_without_secret_or_signed_provider_url() -> No
     assert "autonomous_asset_generation_used" in types
     assert "asset_providers" in types
     assert "build_manifest_sha256" in types
+    assert "autonomous_asset_generation_status" in types
+    assert "autonomous_asset_generation_degraded" in types
+    assert "threeDAutogenDegraded" in (ROOT / "vip-frontend/src/components/pages/projects-client.tsx").read_text()
     assert "model_url" not in types

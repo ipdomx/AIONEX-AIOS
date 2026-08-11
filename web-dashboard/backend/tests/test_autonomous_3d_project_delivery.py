@@ -112,3 +112,26 @@ def test_tripo_polling_accepts_only_documented_success(monkeypatch) -> None:
 def test_provider_artifact_url_rejects_non_public_or_unsafe_targets(url: str) -> None:
     with pytest.raises(delivery.ThreeDProjectDeliveryError):
         delivery._public_https_url(url)
+
+
+def test_tripo_wallet_preflight_returns_conservative_available_credit(monkeypatch) -> None:
+    calls: list[dict] = []
+    responses = [{"code": 0, "data": {"balance": 75, "frozen": 15}}]
+    monkeypatch.setattr(
+        delivery.httpx,
+        "Client",
+        lambda **kwargs: _FakeClient(responses, calls, **kwargs),
+    )
+    available = delivery.TripoTextToModelClient("server-secret").available_credits()
+    assert available == 60
+    assert calls == [
+        {
+            "method": "GET",
+            "url": "https://api.tripo3d.ai/v2/openapi/user/balance",
+            "headers": {
+                "Authorization": "Bearer server-secret",
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+            },
+        }
+    ]
