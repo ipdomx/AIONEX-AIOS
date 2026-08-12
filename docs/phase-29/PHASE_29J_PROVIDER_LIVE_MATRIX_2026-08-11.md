@@ -42,3 +42,7 @@ The final sanitized receipt SHA-256 is:
 ## Anthropic runtime closeout — 2026-08-11
 
 After API billing was funded, the production Anthropic environment provider was exercised through the durable AIOS agent runtime, not by a direct provider-only probe. A disposable agent and durable job were created, the runtime invoked `claude-haiku-4-5-20251001`, the job completed with non-empty output, 22 total tokens were recorded, latency was persisted, and the provider transitioned from the prior external-billing `error` state to `connected`. The disposable job and agent were removed after acceptance; the provider connected state, usage, last-used timestamp, and append-only audit evidence remain durable. No credential or response secret is recorded here.
+
+## Mistral runtime closeout — 2026-08-12
+
+The production `MISTRAL_API_KEY` was loaded through the server-managed environment provider path and the Mistral model inventory/health probe succeeded against the official API. A disposable AIOS agent then executed `mistral-small-latest` through the durable `run_job` runtime path, returned the bounded acceptance response, recorded 39 total tokens and persisted latency/last-used state, and transitioned the provider to `connected`. The disposable job and agent were removed after acceptance; provider usage/state and append-only audit evidence remain durable. No credential or response secret is recorded here.
