@@ -27,6 +27,22 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 cd "$work"
 
+download() {
+  local output="$1" url="$2"
+  curl \
+    --fail \
+    --silent \
+    --show-error \
+    --location \
+    --retry 8 \
+    --retry-delay 2 \
+    --retry-all-errors \
+    --connect-timeout 20 \
+    --max-time 180 \
+    --output "$output" \
+    "$url"
+}
+
 verify_asset() {
   local checksums="$1" asset="$2"
   local expected
@@ -38,8 +54,8 @@ verify_asset() {
 install_zip_release() {
   local repo="$1" version="$2" asset="$3" checksum_asset="$4" binary="$5"
   local base="https://github.com/$repo/releases/download/v$version"
-  curl -fsSLo "$asset" "$base/$asset"
-  curl -fsSLo "$checksum_asset" "$base/$checksum_asset"
+  download "$asset" "$base/$asset"
+  download "$checksum_asset" "$base/$checksum_asset"
   verify_asset "$checksum_asset" "$asset"
   unzip -q "$asset" "$binary"
   install -m 0755 "$binary" "/usr/local/bin/$binary"
@@ -48,15 +64,15 @@ install_zip_release() {
 install_tgz_release() {
   local repo="$1" tag="$2" version="$3" asset="$4" checksum_asset="$5" binary="$6"
   local base="https://github.com/$repo/releases/download/$tag"
-  curl -fsSLo "$asset" "$base/$asset"
-  curl -fsSLo "$checksum_asset" "$base/$checksum_asset"
+  download "$asset" "$base/$asset"
+  download "$checksum_asset" "$base/$checksum_asset"
   verify_asset "$checksum_asset" "$asset"
   tar -xzf "$asset" "$binary"
   install -m 0755 "$binary" "/usr/local/bin/$binary"
 }
 
 install_zip_release projectdiscovery/nuclei "$NUCLEI_VERSION" "nuclei_${NUCLEI_VERSION}_linux_amd64.zip" "nuclei_${NUCLEI_VERSION}_checksums.txt" nuclei
-curl -fsSLo nuclei-templates.tar.gz "https://api.github.com/repos/projectdiscovery/nuclei-templates/tarball/v${NUCLEI_TEMPLATES_VERSION}"
+download nuclei-templates.tar.gz "https://api.github.com/repos/projectdiscovery/nuclei-templates/tarball/v${NUCLEI_TEMPLATES_VERSION}"
 printf '%s  %s\n' "$NUCLEI_TEMPLATES_SHA256" nuclei-templates.tar.gz | sha256sum -c -
 mkdir -p /opt/nuclei-templates
 tar -xzf nuclei-templates.tar.gz --strip-components=1 -C /opt/nuclei-templates
@@ -66,16 +82,16 @@ mv /usr/local/bin/httpx /usr/local/bin/pd-httpx
 
 asset="trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
 checksums="trivy_${TRIVY_VERSION}_checksums.txt"
-curl -fsSLo "$asset" "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/$asset"
-curl -fsSLo "$checksums" "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/$checksums"
+download "$asset" "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/$asset"
+download "$checksums" "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/$checksums"
 verify_asset "$checksums" "$asset"
 tar -xzf "$asset" trivy
 install -m 0755 trivy /usr/local/bin/trivy
 
 asset="osv-scanner_linux_amd64"
 checksums="osv-scanner_SHA256SUMS"
-curl -fsSLo "$asset" "https://github.com/google/osv-scanner/releases/download/v${OSV_VERSION}/$asset"
-curl -fsSLo "$checksums" "https://github.com/google/osv-scanner/releases/download/v${OSV_VERSION}/$checksums"
+download "$asset" "https://github.com/google/osv-scanner/releases/download/v${OSV_VERSION}/$asset"
+download "$checksums" "https://github.com/google/osv-scanner/releases/download/v${OSV_VERSION}/$checksums"
 verify_asset "$checksums" "$asset"
 install -m 0755 "$asset" /usr/local/bin/osv-scanner
 
@@ -86,18 +102,18 @@ install_tgz_release trufflesecurity/trufflehog "v${TRUFFLEHOG_VERSION}" "$TRUFFL
 
 asset=cosign-linux-amd64
 checksums=cosign_checksums.txt
-curl -fsSLo "$asset" "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/$asset"
-curl -fsSLo "$checksums" "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/$checksums"
+download "$asset" "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/$asset"
+download "$checksums" "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/$checksums"
 verify_asset "$checksums" "$asset"
 install -m 0755 "$asset" /usr/local/bin/cosign
 
-curl -fsSLo testssl.tar.gz "https://api.github.com/repos/testssl/testssl.sh/tarball/v${TESTSSL_VERSION}"
+download testssl.tar.gz "https://api.github.com/repos/testssl/testssl.sh/tarball/v${TESTSSL_VERSION}"
 printf '%s  %s\n' "$TESTSSL_SHA256" testssl.tar.gz | sha256sum -c -
 mkdir -p /opt/testssl
 tar -xzf testssl.tar.gz --strip-components=1 -C /opt/testssl
 ln -s /opt/testssl/testssl.sh /usr/local/bin/testssl.sh
 
-curl -fsSLo nikto.tar.gz "https://api.github.com/repos/sullo/nikto/tarball/${NIKTO_VERSION}"
+download nikto.tar.gz "https://api.github.com/repos/sullo/nikto/tarball/${NIKTO_VERSION}"
 printf '%s  %s\n' "$NIKTO_SHA256" nikto.tar.gz | sha256sum -c -
 mkdir -p /opt/nikto
 tar -xzf nikto.tar.gz --strip-components=1 -C /opt/nikto
