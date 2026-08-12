@@ -46,3 +46,7 @@ After API billing was funded, the production Anthropic environment provider was 
 ## Mistral runtime closeout — 2026-08-12
 
 The production `MISTRAL_API_KEY` was loaded through the server-managed environment provider path and the Mistral model inventory/health probe succeeded against the official API. A disposable AIOS agent then executed `mistral-small-latest` through the durable `run_job` runtime path, returned the bounded acceptance response, recorded 39 total tokens and persisted latency/last-used state, and transitioned the provider to `connected`. The disposable job and agent were removed after acceptance; provider usage/state and append-only audit evidence remain durable. No credential or response secret is recorded here.
+
+## Cohere runtime closeout — 2026-08-12
+
+The production `COHERE_API_KEY` was loaded through the server-managed environment provider path and the authenticated Cohere model inventory returned 20 available models from the official API. A disposable AIOS agent then executed `command-r7b-12-2024` through the durable `run_job` runtime path, returned the bounded acceptance response, recorded 553 total tokens and persisted latency/last-used state, and transitioned the provider to `connected`. The disposable job and agent were removed after acceptance; provider usage/state and append-only audit evidence remain durable. No credential or response secret is recorded here.
