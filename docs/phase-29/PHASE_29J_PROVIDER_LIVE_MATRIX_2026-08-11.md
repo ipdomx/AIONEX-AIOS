@@ -1,10 +1,10 @@
 # Phase 29J — Credentialed Provider Live Matrix — 2026-08-11
 
-Status: **updated 2026-08-12: twelve production AI providers have completed real durable-runtime live acceptance; Azure OpenAI and AWS Bedrock are credentialed external activation gates awaiting provider quota before their final live jobs.**
+Status: **updated 2026-08-13: thirteen production AI providers have completed real durable-runtime live acceptance, including the private local Ollama runtime; Azure OpenAI and AWS Bedrock remain credentialed external activation gates awaiting provider quota before their final live jobs.**
 
 This record follows the network-free provider acceptance. It does not convert configured providers into `connected` unless a real credentialed execution succeeds. Provider secrets are not retained in this evidence.
 
-## Current live matrix — 2026-08-12
+## Current live matrix — 2026-08-13
 
 | Provider | Current evidence | Result |
 | --- | --- | --- |
@@ -22,7 +22,7 @@ This record follows the network-free provider acceptance. It does not convert co
 | Hugging Face | Durable routed Llama execution completed | **CONNECTED** |
 | Azure OpenAI | Resource key and endpoint authenticate and model inventory is readable; model deployment is blocked only by pending provider quota | **EXTERNAL QUOTA GATE** |
 | AWS Bedrock | Credentials, IAM access and `us-east-1` region are configured; model inventory is readable; text inference quota is currently zero with a quota case open | **EXTERNAL QUOTA GATE** |
-| Ollama | No production local runtime selected | **UNCONFIGURED BY DESIGN** |
+| Ollama | Private Docker-local `gemma3:4b` runtime completed durable AIOS execution with persisted usage; no host/public inference port is exposed | **CONNECTED** |
 
 Remote inventories exposed by gateway providers such as Fireworks, Together AI, Hugging Face and Bedrock are verification/discovery inventories only. They are not automatically imported into the AIOS internal model catalog; direct provider integrations remain preferred when already available.
 
@@ -92,3 +92,9 @@ After the Fireworks account was restored to active billing state, the existing p
 ## Hugging Face runtime closeout — 2026-08-12
 
 The production `HUGGINGFACE_API_KEY` was loaded through the server-managed environment provider path and the official Hugging Face inference router model inventory succeeded, returning 130 remotely available models. Those remote models remain provider inventory only and are not automatically imported into the AIOS internal model catalog. A disposable AIOS agent then executed `meta-llama/Llama-3.1-8B-Instruct` through the durable `run_job` runtime path; the router resolved the live response model as `meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo`, returned the bounded acceptance response, recorded 43 total tokens, persisted latency/last-used state, and transitioned the provider to `connected`. The disposable job and agent were removed after acceptance; provider usage/state and append-only audit evidence remain durable. No credential or response secret is recorded here.
+
+## Ollama private local runtime closeout — 2026-08-13
+
+The production Ollama runtime is now deployed as an opt-in `local-ai` Compose service on the private AIOS Docker network using the pinned official Ollama image digest. The runtime exposes no host or public port, retains its model store in the Compose-managed `ollama_model_data` volume, and is bounded to 8 GiB RAM, 6 CPU on the production host, 512 PIDs, `no-new-privileges`, and `cap_drop=ALL`. The selected production-local model is `gemma3:4b`, with AIOS configured to use an 8K runtime context boundary.
+
+A real Super Owner private-API acceptance created the Ollama provider at `http://ollama:11434`, verified the provider endpoint, created a disposable `gemma3:4b` AIOS agent, and submitted a durable agent execution through the production background runtime. The job completed with the bounded acceptance response, persisted 60 total tokens (50 prompt and 10 completion), recorded approximately 7.5 seconds provider latency, recorded zero provider cost, and transitioned the provider to `connected`. Database verification confirmed one completed task, provider usage/latency persistence, and append-only provider/agent/job audit events. The disposable acceptance agent was removed after validation while the completed durable job and audit evidence were retained; the provider remains `connected`. No local Ollama credential is required or recorded.
