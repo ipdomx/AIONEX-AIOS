@@ -67,3 +67,7 @@ The production `DEEPSEEK_API_KEY` was loaded through the server-managed environm
 
 After API balance was funded, the existing production `DEEPSEEK_API_KEY` was revalidated through the server-managed environment provider path and the prior HTTP 402 `Insufficient Balance` blocker cleared. A disposable AIOS agent then executed `deepseek-v4-flash` through the durable `run_job` runtime path, returned the bounded acceptance response, recorded 128 total tokens and persisted latency/last-used state, and transitioned the provider from `error` to `connected`. A fresh database session confirmed the durable connected state and usage metrics. The disposable job and agent were removed after acceptance; provider usage/state and append-only audit evidence remain durable. No credential or response secret is recorded here.
 
+
+## Groq runtime closeout — 2026-08-12
+
+The production `GROQ_API_KEY` was loaded through the server-managed environment provider path and the authenticated Groq model inventory succeeded against the official API, returning 15 available models. A disposable AIOS agent then executed `llama-3.1-8b-instant` through the durable `run_job` runtime path, returned the bounded acceptance response, recorded 61 total tokens and persisted latency/last-used state, and transitioned the provider to `connected`. The disposable job and agent were removed after acceptance; provider usage/state and append-only audit evidence remain durable. No credential or response secret is recorded here.
