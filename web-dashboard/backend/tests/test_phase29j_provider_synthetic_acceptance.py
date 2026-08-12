@@ -270,6 +270,7 @@ async def test_every_agent_provider_health_contract_is_synthetically_exercised(
     base_url, _model = AGENT_PROVIDER_CASES[provider_type]
     provider = _provider(provider_type, base_url)
     calls: list[str] = []
+    allow_array_calls: list[bool] = []
 
     monkeypatch.setattr(
         ai_runtime_service,
@@ -285,9 +286,11 @@ async def test_every_agent_provider_health_contract_is_synthetically_exercised(
         headers: dict[str, str],
         json_body: dict[str, Any] | None = None,
         timeout: float = 30.0,
+        allow_array: bool = False,
     ) -> tuple[dict[str, Any], float]:
         del method, headers, json_body, timeout
         calls.append(url)
+        allow_array_calls.append(allow_array)
         return {"data": []}, 7.25
 
     monkeypatch.setattr(ai_runtime_service, "_request_json", fake_request_json)
@@ -297,6 +300,7 @@ async def test_every_agent_provider_health_contract_is_synthetically_exercised(
         assert result["status"] == "configured"
         assert result["latency_ms"] == 0
         assert calls == []
+        assert allow_array_calls == []
     else:
         assert result == {
             "status": "success",
@@ -304,6 +308,7 @@ async def test_every_agent_provider_health_contract_is_synthetically_exercised(
             "message": "Provider endpoint verified",
         }
         assert len(calls) == 1
+        assert allow_array_calls == ([True] if provider_type == "together" else [False])
 
 
 @pytest.mark.asyncio

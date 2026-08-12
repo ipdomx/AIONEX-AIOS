@@ -610,7 +610,7 @@ def _openai_text(payload: dict[str, Any]) -> str:
     return "".join(pieces).strip()
 
 
-async def _request_json(method: str, url: str, *, headers: dict[str, str], json_body: dict[str, Any] | None = None, timeout: float = 30.0) -> tuple[dict[str, Any], float]:
+async def _request_json(method: str, url: str, *, headers: dict[str, str], json_body: dict[str, Any] | None = None, timeout: float = 30.0, allow_array: bool = False) -> tuple[Any, float]:
     started = time.monotonic()
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=10.0), follow_redirects=False) as client:
@@ -624,7 +624,7 @@ async def _request_json(method: str, url: str, *, headers: dict[str, str], json_
         payload = response.json()
     except ValueError as exc:
         raise HTTPException(status_code=502, detail="Provider returned invalid JSON") from exc
-    if not isinstance(payload, dict):
+    if not isinstance(payload, dict) and not (allow_array and isinstance(payload, list)):
         raise HTTPException(status_code=502, detail="Provider returned an invalid response object")
     return payload, elapsed_ms
 
@@ -658,6 +658,14 @@ async def provider_health_probe(provider: AIProvider) -> dict[str, Any]:
         return {"status": "configured", "latency_ms": 0, "message": f"{_PROVIDER_NAMES[provider.type]} credential configured; execution is the authoritative live verification"}
     elif provider.type == "azure_openai":
         _, latency = await _request_json("GET", f"{_chat_api_root(provider.type, base)}/models", headers={"api-key": str(credential), "Accept": "application/json"})
+    elif provider.type == "together":
+        # Together's authenticated model inventory is a top-level JSON array.
+        _, latency = await _request_json(
+            "GET",
+            f"{_chat_api_root(provider.type, base)}/models",
+            headers={"Authorization": f"Bearer {credential}", "Accept": "application/json"},
+            allow_array=True,
+        )
     else:
         _, latency = await _request_json("GET", f"{_chat_api_root(provider.type, base)}/models", headers={"Authorization": f"Bearer {credential}", "Accept": "application/json"})
     return {"status": "success", "latency_ms": round(latency, 2), "message": "Provider endpoint verified"}
