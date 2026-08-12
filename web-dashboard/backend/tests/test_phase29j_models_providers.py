@@ -61,3 +61,9 @@ def test_provider_execution_has_no_synthetic_success_path() -> None:
     assert "bedrock-runtime" in source
     assert ".converse(" in source
     assert "/api/chat" in source
+
+
+def test_provider_test_endpoint_restores_configured_state_after_external_gate() -> None:
+    source = (ROOT / "app/api/v1/endpoints/ai_providers.py").read_text(encoding="utf-8")
+    assert 'result["status"] in {"configured", "disabled", "unconfigured"}' in source
+    assert 'provider.status = result["status"]' in source

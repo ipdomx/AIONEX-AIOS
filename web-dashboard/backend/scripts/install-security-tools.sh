@@ -29,18 +29,38 @@ cd "$work"
 
 download() {
   local output="$1" url="$2"
-  curl \
-    --fail \
-    --silent \
-    --show-error \
-    --location \
-    --retry 8 \
-    --retry-delay 2 \
-    --retry-all-errors \
-    --connect-timeout 20 \
-    --max-time 180 \
-    --output "$output" \
-    "$url"
+  local attempt=1 delay=2 max_attempts=8
+
+  while (( attempt <= max_attempts )); do
+    if curl \
+      --fail \
+      --silent \
+      --show-error \
+      --location \
+      --retry 2 \
+      --retry-delay 1 \
+      --retry-all-errors \
+      --connect-timeout 20 \
+      --max-time 120 \
+      --output "$output" \
+      "$url"; then
+      return 0
+    fi
+
+    rm -f "$output"
+    if (( attempt == max_attempts )); then
+      echo "Download failed after ${max_attempts} attempts: ${output}" >&2
+      return 1
+    fi
+
+    echo "Transient download failure for ${output}; retrying in ${delay}s" >&2
+    sleep "$delay"
+    delay=$((delay * 2))
+    if (( delay > 60 )); then
+      delay=60
+    fi
+    attempt=$((attempt + 1))
+  done
 }
 
 verify_asset() {

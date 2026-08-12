@@ -48,6 +48,10 @@ def test_phase35_security_tool_runtime_isolated_from_public_backend():
 
 def test_phase35_toolchain_and_learning_promotions_are_pinned_and_evidence_gated():
     installer = read("web-dashboard/backend/scripts/install-security-tools.sh")
+    assert "max_attempts=8" in installer
+    assert 'sleep "$delay"' in installer
+    assert "if (( delay > 60 ))" in installer
+    assert "--retry-all-errors" in installer
     for version in (
         "NUCLEI_VERSION=3.11.1",
         "KATANA_VERSION=1.7.0",

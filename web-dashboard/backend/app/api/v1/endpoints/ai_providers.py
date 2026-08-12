@@ -127,7 +127,7 @@ async def test_provider(
     provider.config = config
     if result["status"] == "success":
         provider.status = "connected"
-    elif result["status"] in {"disabled", "unconfigured"}:
+    elif result["status"] in {"configured", "disabled", "unconfigured"}:
         provider.status = result["status"]
     await session.commit()
     return result
