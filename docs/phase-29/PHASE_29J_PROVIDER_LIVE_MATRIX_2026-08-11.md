@@ -1,29 +1,34 @@
 # Phase 29J — Credentialed Provider Live Matrix — 2026-08-11
 
-Status: **partial external activation: OpenAI, Gemini and OpenRouter live-passed; direct Anthropic execution is billing-blocked.**
+Status: **updated 2026-08-12: twelve production AI providers have completed real durable-runtime live acceptance; Azure OpenAI and AWS Bedrock are credentialed external activation gates awaiting provider quota before their final live jobs.**
 
 This record follows the network-free provider acceptance. It does not convert configured providers into `connected` unless a real credentialed execution succeeds. Provider secrets are not retained in this evidence.
 
-## Live matrix
+## Current live matrix — 2026-08-12
 
-| Provider | Credential / endpoint proof | Real execution | Result |
-| --- | --- | --- | --- |
-| OpenAI | Current production health probe passes | Previously completed production E2E with durable response/usage evidence | **CONNECTED** |
-| Google Gemini | Model inventory and health probe pass | `gemini-3.1-flash-lite`, real durable runtime execution | **CONNECTED** |
-| OpenRouter | Model inventory and health probe pass | `google/gemma-4-26b-a4b-it:free`, real durable runtime execution | **CONNECTED** |
-| Anthropic / Claude | Credential is valid enough to list the account model inventory | `/v1/messages` reaches Anthropic but is refused by the provider because the account credit balance is too low | **EXTERNAL BILLING BLOCKER** |
+| Provider | Current evidence | Result |
+| --- | --- | --- |
+| OpenAI | Durable production execution and usage persisted | **CONNECTED** |
+| Anthropic / Claude | Durable `claude-haiku-4-5-20251001` execution completed after billing activation | **CONNECTED** |
+| Google Gemini | Durable `gemini-3.1-flash-lite` execution completed | **CONNECTED** |
+| OpenRouter | Durable routed execution completed | **CONNECTED** |
+| Mistral | Durable `mistral-small-latest` execution completed | **CONNECTED** |
+| Cohere | Durable `command-r7b-12-2024` execution completed | **CONNECTED** |
+| xAI / Grok | Durable `grok-4.5` execution completed after API credit activation | **CONNECTED** |
+| DeepSeek | Durable `deepseek-v4-flash` execution completed after balance activation | **CONNECTED** |
+| Groq | Durable `llama-3.1-8b-instant` execution completed | **CONNECTED** |
+| Together AI | Durable `Qwen/Qwen2.5-7B-Instruct-Turbo` execution completed | **CONNECTED** |
+| Fireworks AI | Durable Fireworks-hosted execution completed after account activation | **CONNECTED** |
+| Hugging Face | Durable routed Llama execution completed | **CONNECTED** |
+| Azure OpenAI | Resource key and endpoint authenticate and model inventory is readable; model deployment is blocked only by pending provider quota | **EXTERNAL QUOTA GATE** |
+| AWS Bedrock | Credentials, IAM access and `us-east-1` region are configured; model inventory is readable; text inference quota is currently zero with a quota case open | **EXTERNAL QUOTA GATE** |
+| Ollama | No production local runtime selected | **UNCONFIGURED BY DESIGN** |
 
-The Gemini live execution retained non-zero provider usage and latency and the OpenRouter live execution retained non-zero usage with the selected free route. Temporary acceptance agents/jobs were removed after evidence capture; provider connected state, usage/latency state and append-only audit records remain durable.
+Remote inventories exposed by gateway providers such as Fireworks, Together AI, Hugging Face and Bedrock are verification/discovery inventories only. They are not automatically imported into the AIOS internal model catalog; direct provider integrations remain preferred when already available.
 
-## Anthropic boundary
+## Historical activation notes
 
-The Anthropic key is present and the authenticated model inventory endpoint succeeds. The actual message execution returns an Anthropic `invalid_request_error` stating that the API credit balance is too low. AIOS therefore does not call Anthropic `connected`. This is an operator-owned external billing activation boundary, not a synthetic success and not a reason to substitute an OpenRouter Claude route as proof of direct Anthropic connectivity.
-
-Once Anthropic credit is added, rerun one bounded low-output message through the same durable `run_job` path. Only a completed real job may move the direct Anthropic provider to `connected`.
-
-## Other agent providers
-
-Mistral, Cohere, xAI, DeepSeek, Groq, Together AI, Fireworks AI, Hugging Face and Azure OpenAI do not currently have production credentials. AWS Bedrock has a general AWS credential pair available for other platform uses but no Bedrock region is configured, so it is not activated as a Bedrock runtime. Ollama has no configured production local runtime. These providers stay `unconfigured` and are not claimed live.
+The sections below retain the chronological blocker and closeout evidence. Earlier blocker text is historical evidence and must not be interpreted as the current provider state.
 
 ## Retained operator evidence
 

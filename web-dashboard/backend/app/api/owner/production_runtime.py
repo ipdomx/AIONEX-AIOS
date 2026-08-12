@@ -8,6 +8,7 @@ from typing import Any, Literal
 
 from app.api.owner.control_plane import _health_items, _run_audited_mutation
 from app.core.auth import UserRecord, require_super_owner
+from app.core.config import settings
 from app.db.base import get_db
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -35,6 +36,28 @@ class RuntimeSnapshot(BaseModel):
     public_origin: str
     api_origin: str
     targets: list[RuntimeTarget]
+
+
+def _clean_origin(value: str | None) -> str:
+    raw = str(value or "").strip().rstrip("/")
+    return raw or "Not configured"
+
+
+def _public_origin() -> str:
+    explicit = os.getenv("AIOS_PUBLIC_ORIGIN")
+    if explicit:
+        return _clean_origin(explicit)
+    for candidate in settings.CORS_ORIGINS:
+        value = str(candidate).strip()
+        if value.startswith("https://"):
+            return _clean_origin(value)
+    return "Not configured"
+
+
+def _api_origin() -> str:
+    return _clean_origin(
+        os.getenv("AIOS_API_ORIGIN") or settings.PORTAL_PUBLIC_API_ORIGIN
+    )
 
 
 class RuntimeCommand(BaseModel):
@@ -73,8 +96,8 @@ async def _snapshot(session: AsyncSession) -> RuntimeSnapshot:
     return RuntimeSnapshot(
         generated_at=now,
         completion=completion,
-        public_origin=os.getenv("AIOS_PUBLIC_ORIGIN", "Not configured"),
-        api_origin=os.getenv("AIOS_API_ORIGIN", "Not configured"),
+        public_origin=_public_origin(),
+        api_origin=_api_origin(),
         targets=targets,
     )
 
