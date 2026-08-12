@@ -26,7 +26,7 @@ if [[ -n "$forbidden" ]]; then
 fi
 
 secret_pattern='(-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{30,}|sk-(proj-)?[A-Za-z0-9_-]{32,}|gh[pousr]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|CLOUDFLARE_TUNNEL_TOKEN[[:space:]]*=[[:space:]]*[^[:space:]#]+)'
-secret_hits="$(git grep -nEI "$secret_pattern" -- ':!*.example' ':!*.md' ':!scripts/repository-security-audit.sh' ':!tests/test_cloud_provider_sandbox.py' ':!tests/test_phase29b_cloudflare_portal_activation.py' ':!web-dashboard/backend/tests/test_firebase_phone_auth.py' || true)"
+secret_hits="$(git grep -nEI "$secret_pattern" -- ':!*.example' ':!*.md' ':!scripts/repository-security-audit.sh' ':!scripts/security-audit.py' ':!tests/test_cloud_provider_sandbox.py' ':!tests/test_phase29b_cloudflare_portal_activation.py' ':!web-dashboard/backend/tests/test_firebase_phone_auth.py' || true)"
 if [[ -n "$secret_hits" ]]; then
   fail "Potential committed secret material detected:\n$secret_hits"
 fi

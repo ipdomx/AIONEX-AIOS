@@ -59,6 +59,8 @@ def main() -> int:
             findings.append(f"forbidden credential artifact: {relative}")
         if not path.is_file() or not is_text_candidate(path):
             continue
+        if path.resolve() == SELF:
+            continue
         try:
             text = path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
