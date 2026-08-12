@@ -31,7 +31,7 @@ def default_providers(transports: dict[str, Transport] | None = None) -> tuple[B
     anthropic_caps = (_cap("anthropic", "default", {"coding", "reasoning", "review", "research", "vision"}, vision=True, quality=.94, input_cost=3, output_cost=15, context=200000),)
     gemini_caps = (_cap("gemini", "default", {"coding", "reasoning", "research", "vision", "audio", "files"}, vision=True, audio=True, quality=.9, input_cost=2, output_cost=8),)
     openrouter_caps = (_cap("openrouter", "default", {"coding", "reasoning", "research", "gateway"}, quality=.82, input_cost=1, output_cost=4),)
-    ollama_caps = (_cap("ollama", "default", {"coding", "reasoning", "private", "embedding"}, local=True, quality=.75, latency=.55, privacy=1.0),)
+    ollama_caps = (_cap("ollama", "gemma3:4b", {"coding", "reasoning", "private"}, local=True, tools=False, quality=.75, latency=.55, privacy=1.0, context=8192),)
     providers: list[BaseAIProvider] = [
         OpenAIProvider(openai_caps, transports.get("openai")),
         ClaudeProvider(anthropic_caps, transports.get("anthropic")),

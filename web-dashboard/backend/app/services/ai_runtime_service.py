@@ -217,10 +217,15 @@ def validate_provider_base_url(provider_type: str, base_url: str | None) -> str 
     if provider_type == "ollama":
         if parsed.scheme not in {"http", "https"} or not parsed.hostname:
             raise HTTPException(status_code=422, detail="Ollama base URL is invalid")
+        if parsed.path not in {"", "/"}:
+            raise HTTPException(status_code=422, detail="Ollama base URL must not include an API path")
         try:
             address = ipaddress.ip_address(parsed.hostname)
         except ValueError:
-            if parsed.hostname not in {"localhost", "host.docker.internal"}:
+            if parsed.hostname == "ollama":
+                if parsed.port not in {None, 11434}:
+                    raise HTTPException(status_code=422, detail="Internal Ollama service must use port 11434")
+            elif parsed.hostname not in {"localhost", "host.docker.internal"}:
                 raise HTTPException(status_code=422, detail="Ollama must use an explicit local runtime address")
         else:
             if not (address.is_loopback or address.is_private):

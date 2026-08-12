@@ -20,7 +20,11 @@ def test_phase29j_supported_provider_types_are_final_contract() -> None:
 
 def test_model_catalog_is_truthful_and_provider_scoped() -> None:
     assert provider_models("openai")
-    assert provider_models("ollama")[0]["local"] is True
+    ollama = provider_models("ollama")[0]
+    assert ollama["local"] is True
+    assert ollama["model"] == "gemma3:4b"
+    assert ollama["max_context_tokens"] == 8192
+    assert ollama["supports_tools"] is False
     assert provider_models("does-not-exist") == []
 
 
@@ -67,3 +71,16 @@ def test_provider_test_endpoint_restores_configured_state_after_external_gate() 
     source = (ROOT / "app/api/v1/endpoints/ai_providers.py").read_text(encoding="utf-8")
     assert 'result["status"] in {"configured", "disabled", "unconfigured"}' in source
     assert 'provider.status = result["status"]' in source
+
+
+def test_ollama_internal_compose_service_url_is_allowed_but_arbitrary_hosts_are_not() -> None:
+    from fastapi import HTTPException
+    import pytest
+
+    assert ai_runtime_service.validate_provider_base_url("ollama", "http://ollama:11434") == "http://ollama:11434"
+    with pytest.raises(HTTPException):
+        ai_runtime_service.validate_provider_base_url("ollama", "http://ollama:9999")
+    with pytest.raises(HTTPException):
+        ai_runtime_service.validate_provider_base_url("ollama", "http://example.internal:11434")
+    with pytest.raises(HTTPException):
+        ai_runtime_service.validate_provider_base_url("ollama", "http://ollama:11434/api")
