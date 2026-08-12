@@ -13,16 +13,16 @@ class StripeCheckoutRequest:
     currency: str = "usd"
     quantity: int = 1
     allow_promotion_codes: bool = True
-    enable_apple_pay: bool = True
     enable_google_pay: bool = True
 
 
 class StripeProvider:
     """Stripe checkout adapter.
 
-    Apple Pay and Google Pay are exposed through Stripe's automatic payment
-    methods. The provider deliberately keeps secret keys outside application
-    state and expects them to be supplied by the runtime configuration layer.
+    Google Pay and other eligible Stripe wallet methods may be exposed through
+    Stripe automatic payment methods. Apple Pay is intentionally excluded from
+    this adapter because AIOS treats the requested direct Apple Pay path as an
+    independently activated payment gateway boundary.
     """
 
     name = "stripe"
@@ -49,7 +49,6 @@ class StripeProvider:
             "automatic_payment_methods": {"enabled": True},
             "metadata": {
                 "aios_provider": self.name,
-                "apple_pay_enabled": str(request.enable_apple_pay).lower(),
                 "google_pay_enabled": str(request.enable_google_pay).lower(),
             },
         }

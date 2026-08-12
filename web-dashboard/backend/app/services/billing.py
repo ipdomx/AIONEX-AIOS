@@ -167,7 +167,6 @@ def provider_readiness() -> list[dict[str, Any]]:
                 "subscriptions",
                 "refunds",
                 "webhooks",
-                "apple_pay",
                 "google_pay",
                 "billing_portal",
             ],
@@ -804,7 +803,6 @@ async def _stripe_checkout(
         ("metadata[plan_code]", plan.code),
         ("metadata[price_id]", price.id),
         ("metadata[checkout_id]", checkout.id),
-        ("metadata[apple_pay_enabled]", "true"),
         ("metadata[google_pay_enabled]", "true"),
     ]
     async with httpx.AsyncClient(

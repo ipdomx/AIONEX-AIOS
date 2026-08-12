@@ -6,7 +6,7 @@ from aios.payments.providers.paypal_provider import PayPalOrderRequest, PayPalPr
 from aios.payments.providers.stripe_provider import StripeCheckoutRequest, StripeProvider
 
 
-def test_stripe_checkout_enables_wallets_and_automatic_methods() -> None:
+def test_stripe_checkout_keeps_apple_pay_outside_stripe_adapter() -> None:
     provider = StripeProvider("sk_test", "whsec_test")
     payload = provider.build_checkout_payload(
         StripeCheckoutRequest(
@@ -18,7 +18,7 @@ def test_stripe_checkout_enables_wallets_and_automatic_methods() -> None:
     )
 
     assert payload["automatic_payment_methods"] == {"enabled": True}
-    assert payload["metadata"]["apple_pay_enabled"] == "true"
+    assert "apple_pay_enabled" not in payload["metadata"]
     assert payload["metadata"]["google_pay_enabled"] == "true"
     assert payload["line_items"][0]["quantity"] == 1
 

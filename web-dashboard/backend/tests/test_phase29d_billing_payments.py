@@ -1345,3 +1345,4 @@ def test_provider_readiness_accepts_restricted_stripe_live_key(
     assert stripe["configured"] is True
     assert stripe["mode"] == "live"
     assert stripe["status"] == "ready"
+    assert "apple_pay" not in stripe["capabilities"]
