@@ -205,14 +205,24 @@ jobs:
             --env-file "$GITHUB_WORKSPACE/deploy/production/.env.production.example" \
             -f ../deploy/production/docker-compose.production.yml \
             config --quiet
-      - name: Build production images
+      - name: Build core production images
         working-directory: web-dashboard
         run: |
           AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
           docker compose \
             --env-file .env.production \
             -f docker-compose.production.yml \
-            build backend frontend portal security-scan-worker
+            build backend frontend portal
+      - name: Build Security Lab image without competing network-heavy builds
+        working-directory: web-dashboard
+        env:
+          COMPOSE_PARALLEL_LIMIT: "1"
+        run: |
+          AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
+          docker compose \
+            --env-file .env.production \
+            -f docker-compose.production.yml \
+            build security-scan-worker
       - name: Verify Security Lab toolchain image
         working-directory: web-dashboard
         run: |
