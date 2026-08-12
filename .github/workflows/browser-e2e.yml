@@ -1,0 +1,45 @@
+name: Browser E2E Boundaries
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: browser-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser-boundaries:
+    name: Owner and VIP browser boundaries
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Install frontend dependencies
+        run: |
+          npm ci --prefix web-dashboard/frontend
+          npm ci --prefix vip-frontend
+          npm ci --prefix tests/browser-e2e
+      - name: Build production frontends
+        env:
+          NEXT_PUBLIC_API_URL: /api/v1
+          NEXT_PUBLIC_USER_PORTAL_URL: http://127.0.0.1:3200
+        run: |
+          npm run build --prefix web-dashboard/frontend
+          npm run build --prefix vip-frontend
+      - name: Install Chromium
+        working-directory: tests/browser-e2e
+        run: npx playwright install --with-deps chromium
+      - name: Run browser boundary suite
+        working-directory: tests/browser-e2e
+        run: npm test
