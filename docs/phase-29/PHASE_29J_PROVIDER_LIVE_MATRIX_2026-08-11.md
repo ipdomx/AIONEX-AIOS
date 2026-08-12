@@ -63,3 +63,7 @@ After API credits were added to the xAI team, the existing production `XAI_API_K
 
 The production `DEEPSEEK_API_KEY` was loaded through the server-managed environment provider path and the official DeepSeek model inventory succeeded, returning the account's available `deepseek-v4-flash` and `deepseek-v4-pro` models. A disposable AIOS agent then exercised `deepseek-v4-flash` through the durable `run_job` path; the live execution was rejected with HTTP 402, and a bounded sanitized provider diagnostic reported `Insufficient Balance`. AIOS therefore retains the provider as `error` with zero usage rather than claiming `connected`. The disposable job and agent were removed after acceptance; no credential or response secret is recorded here.
 
+## DeepSeek runtime closeout — 2026-08-12
+
+After API balance was funded, the existing production `DEEPSEEK_API_KEY` was revalidated through the server-managed environment provider path and the prior HTTP 402 `Insufficient Balance` blocker cleared. A disposable AIOS agent then executed `deepseek-v4-flash` through the durable `run_job` runtime path, returned the bounded acceptance response, recorded 128 total tokens and persisted latency/last-used state, and transitioned the provider from `error` to `connected`. A fresh database session confirmed the durable connected state and usage metrics. The disposable job and agent were removed after acceptance; provider usage/state and append-only audit evidence remain durable. No credential or response secret is recorded here.
+
