@@ -86,10 +86,10 @@ def main() -> int:
                 findings.append(("wildcard CORS policy", relative, None))
 
     if findings:
-        print("Security audit failed:", file=sys.stderr)
-        for label, relative, line in sorted(set(findings), key=lambda item: (item[0], str(item[1]), item[2] or 0)):
-            location = f"{relative}:{line}" if line is not None else str(relative)
-            print(f"- {label}: {location}", file=sys.stderr)
+        print(
+            f"Security audit failed with {len(set(findings))} finding(s); details are intentionally not logged.",
+            file=sys.stderr,
+        )
         return 1
     print("Security audit passed: no tracked secret artifacts or forbidden production patterns detected.")
     return 0
