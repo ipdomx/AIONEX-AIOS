@@ -58,3 +58,8 @@ The production `XAI_API_KEY` is now loaded through the server-managed environmen
 ## xAI runtime closeout — 2026-08-12
 
 After API credits were added to the xAI team, the existing production `XAI_API_KEY` was revalidated against the official xAI model inventory and the prior HTTP 403 activation blocker cleared. A disposable AIOS agent then executed `grok-4.5` through the durable `run_job` runtime path, returned the bounded acceptance response, recorded 540 total tokens and persisted latency/last-used state, and transitioned the provider from `error` to `connected`. The disposable job and agent were removed after acceptance; provider usage/state and append-only audit evidence remain durable. No credential or response secret is recorded here.
+
+## DeepSeek external billing blocker — 2026-08-12
+
+The production `DEEPSEEK_API_KEY` was loaded through the server-managed environment provider path and the official DeepSeek model inventory succeeded, returning the account's available `deepseek-v4-flash` and `deepseek-v4-pro` models. A disposable AIOS agent then exercised `deepseek-v4-flash` through the durable `run_job` path; the live execution was rejected with HTTP 402, and a bounded sanitized provider diagnostic reported `Insufficient Balance`. AIOS therefore retains the provider as `error` with zero usage rather than claiming `connected`. The disposable job and agent were removed after acceptance; no credential or response secret is recorded here.
+
