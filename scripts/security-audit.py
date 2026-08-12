@@ -48,15 +48,15 @@ def is_text_candidate(path: Path) -> bool:
 
 
 def main() -> int:
-    findings: list[str] = []
+    findings: list[tuple[str, Path, int | None]] = []
     for path in tracked_files():
         relative = path.relative_to(ROOT)
         if any(part in EXCLUDED_PARTS for part in relative.parts):
             continue
         if path.name in DENY_FILENAMES and not path.name.endswith(".example"):
-            findings.append(f"forbidden tracked file: {relative}")
+            findings.append(("forbidden tracked file", relative, None))
         if path.suffix.lower() in {".pem", ".p12", ".pfx", ".key", ".keystore", ".jks"}:
-            findings.append(f"forbidden credential artifact: {relative}")
+            findings.append(("forbidden credential artifact", relative, None))
         if not path.is_file() or not is_text_candidate(path):
             continue
         if path.resolve() == SELF:
@@ -77,18 +77,19 @@ def main() -> int:
                 window = lowered[max(0, match.start() - 100): match.end() + 100]
                 if any(marker in window for marker in PLACEHOLDER_MARKERS):
                     continue
-                findings.append(f"possible {label}: {relative}:{scan_text.count(chr(10), 0, match.start()) + 1}")
+                findings.append((f"possible {label}", relative, scan_text.count(chr(10), 0, match.start()) + 1))
         if path.name in {"next.config.js", "next.config.mjs", "next.config.ts"} and re.search(r"productionBrowserSourceMaps\s*:\s*true", text):
-            findings.append(f"production browser source maps enabled: {relative}")
+            findings.append(("production browser source maps enabled", relative, None))
         if path.resolve() != SELF:
             compact = text.replace(" ", "")
             if "allow_origins=[\"*\"]" in compact or "allow_origins=['*']" in compact:
-                findings.append(f"wildcard CORS policy: {relative}")
+                findings.append(("wildcard CORS policy", relative, None))
 
     if findings:
         print("Security audit failed:", file=sys.stderr)
-        for finding in sorted(set(findings)):
-            print(f"- {finding}", file=sys.stderr)
+        for label, relative, line in sorted(set(findings), key=lambda item: (item[0], str(item[1]), item[2] or 0)):
+            location = f"{relative}:{line}" if line is not None else str(relative)
+            print(f"- {label}: {location}", file=sys.stderr)
         return 1
     print("Security audit passed: no tracked secret artifacts or forbidden production patterns detected.")
     return 0
