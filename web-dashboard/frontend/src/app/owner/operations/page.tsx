@@ -41,6 +41,7 @@ const operations: OwnerOperation[] = [
   "create",
   "update",
   "suspend",
+  "ban",
   "restore",
   "delete",
 ];
@@ -55,6 +56,7 @@ export default function OwnerOperationsPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [description, setDescription] = useState("");
+  const [banReason, setBanReason] = useState("");
   const [plan, setPlan] = useState("enterprise");
   const [priority, setPriority] = useState("medium");
   const [message, setMessage] = useState(
@@ -87,9 +89,13 @@ export default function OwnerOperationsPage() {
     if (validEntity) setEntity(requestedEntity as OwnerEntityKind);
     if (validOperation) {
       const nextOperation = requestedOperation as OwnerOperation;
-      setOperation(nextOperation);
-      setPlan(nextOperation === "create" ? "enterprise" : "");
-      setPriority(nextOperation === "create" ? "medium" : "");
+      const allowedOperation =
+        nextOperation === "ban" && requestedEntity !== "user"
+          ? "suspend"
+          : nextOperation;
+      setOperation(allowedOperation);
+      setPlan(allowedOperation === "create" ? "enterprise" : "");
+      setPriority(allowedOperation === "create" ? "medium" : "");
     }
     if (requestedId) setRecordId(requestedId);
   }, []);
@@ -158,6 +164,10 @@ export default function OwnerOperationsPage() {
       }
     }
 
+    if (entity === "user" && operation === "ban" && banReason.trim()) {
+      payload.reason = banReason.trim();
+    }
+
     if (operation !== "create" && !recordId.trim()) {
       setMessage("Record ID is required for this operation.");
       return;
@@ -177,9 +187,11 @@ export default function OwnerOperationsPage() {
       return;
     }
     if (
-      ["suspend", "delete"].includes(operation) &&
+      ["suspend", "ban", "delete"].includes(operation) &&
       !window.confirm(
-        `${operation === "delete" ? "Delete" : "Suspend"} this ${entity}? This audited operation changes its live platform state.`,
+        operation === "ban"
+          ? "Permanently ban this user? Existing sessions will be revoked and every known durable identity signal will be blocked from re-registration until the Super Owner restores the account."
+          : `${operation === "delete" ? "Delete" : "Suspend"} this ${entity}? This audited operation changes its live platform state.`,
       )
     ) {
       return;
@@ -198,6 +210,7 @@ export default function OwnerOperationsPage() {
       });
       setMessage(`${result.message} Operation ID: ${result.operationId}`);
       setPassword("");
+      if (operation === "ban") setBanReason("");
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "Owner operation failed.",
@@ -221,9 +234,9 @@ export default function OwnerOperationsPage() {
           Protected Entity Operations
         </h1>
         <p className="mt-2 text-sm text-white/45">
-          Authenticated create, update, suspend, restore and delete requests for
-          owner-managed records. No local-only success is reported when the
-          backend contract is unavailable.
+          Authenticated create, update, suspend, ban, restore and delete
+          requests for owner-managed records. No local-only success is reported
+          when the backend contract is unavailable.
         </p>
       </motion.div>
 
@@ -238,7 +251,11 @@ export default function OwnerOperationsPage() {
               <select
                 value={entity}
                 onChange={(event) => {
-                  setEntity(event.target.value as OwnerEntityKind);
+                  const nextEntity = event.target.value as OwnerEntityKind;
+                  setEntity(nextEntity);
+                  if (operation === "ban" && nextEntity !== "user") {
+                    setOperation("suspend");
+                  }
                   setPlan(operation === "create" ? "enterprise" : "");
                   setPriority(operation === "create" ? "medium" : "");
                 }}
@@ -268,11 +285,13 @@ export default function OwnerOperationsPage() {
                 }}
                 className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
               >
-                {operations.map((item) => (
-                  <option key={item} value={item} className="bg-space-800">
-                    {item}
-                  </option>
-                ))}
+                {operations
+                  .filter((item) => item !== "ban" || entity === "user")
+                  .map((item) => (
+                    <option key={item} value={item} className="bg-space-800">
+                      {item}
+                    </option>
+                  ))}
               </select>
             </label>
           </div>
@@ -472,6 +491,20 @@ export default function OwnerOperationsPage() {
                 </>
               )}
             </>
+          )}
+
+          {entity === "user" && operation === "ban" && (
+            <label className="block space-y-2 text-xs text-white/50">
+              Ban reason
+              <textarea
+                value={banReason}
+                onChange={(event) => setBanReason(event.target.value)}
+                rows={3}
+                maxLength={500}
+                placeholder="Optional audit reason for this permanent account ban"
+                className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
+              />
+            </label>
           )}
 
           <button

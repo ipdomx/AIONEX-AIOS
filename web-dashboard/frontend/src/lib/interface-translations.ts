@@ -3,6 +3,13 @@ import type { SupportedLocale } from "@/lib/locale-engine";
 type Catalog = Record<string, string>;
 
 const AR: Catalog = {
+  "Suspend conversation": "تعليق المحادثة",
+  "Cancel conversation": "إلغاء المحادثة",
+  "Delete conversation": "حذف المحادثة",
+  "Delete this conversation permanently? Its messages will be removed while the owner audit record is retained.":
+    "هل تريد حذف هذه المحادثة نهائيًا؟ ستُحذف الرسائل مع الاحتفاظ بسجل تدقيق المالك.",
+  "Support conversation deleted.": "تم حذف محادثة الدعم.",
+  "Unable to delete the support conversation.": "تعذر حذف محادثة الدعم.",
   "Loading Security Lab control center…": "جارٍ تحميل مركز تحكم مختبر الأمان…",
   "Security Lab control center synchronized.":
     "تمت مزامنة مركز تحكم مختبر الأمان.",

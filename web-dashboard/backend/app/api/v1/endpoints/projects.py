@@ -27,7 +27,8 @@ from app.db.models import (
     Workflow,
     Workspace,
 )
-from app.services import work_management
+from app.services import communications, work_management
+from app.services.lifecycle_alerts import owner_alert_channels
 from app.services.billing import enforce_limit
 
 router = APIRouter()
@@ -306,12 +307,42 @@ async def create_project(
             details={"workspace_id": project.workspace_id, "risk": project.risk},
         )
         session.add(_audit(actor, "project.create", project))
+        notifications = await communications.notify_audience(
+            session,
+            organization_id=actor.organization_id,
+            audience="platform_owner",
+            event_key="project.started",
+            category="project",
+            title="User started a project",
+            message=(
+                f"{actor.name} started project '{project.name}' "
+                f"in organization {actor.organization_name}."
+            ),
+            severity="info",
+            channels=owner_alert_channels(),
+            source_type="project",
+            source_id=project.id,
+            correlation_id=project.id,
+            dedupe_prefix=f"project-started:{project.id}",
+            payload={
+                "project_id": project.id,
+                "project_name": project.name,
+                "organization_id": actor.organization_id,
+                "workspace_id": project.workspace_id,
+                "user_id": actor.id,
+                "status": project.status,
+                "tags": project.tags,
+            },
+            actor_id=actor.id,
+            respect_preferences=False,
+        )
         await session.commit()
     except IntegrityError as exc:
         await session.rollback()
         raise HTTPException(
             status_code=409, detail="A project with this name already exists"
         ) from exc
+    await communications.publish_many(notifications)
     row = await _project_row(session, project.id, actor.organization_id)
     if row is None:
         raise HTTPException(

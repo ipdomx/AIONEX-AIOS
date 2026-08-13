@@ -169,6 +169,11 @@ async def update_request(
     session: AsyncSession = Depends(get_db),
 ):
     ticket = await _ticket(session, actor, request_id, for_update=True)
+    if not _can_manage(actor) and ticket.status in {"suspended", "cancelled"}:
+        raise HTTPException(
+            status_code=409,
+            detail="This conversation is controlled by the platform owner and cannot be reopened",
+        )
     if not _can_manage(actor) and data.status not in {"open", "closed"}:
         raise HTTPException(
             status_code=403, detail="support:manage is required for this status"

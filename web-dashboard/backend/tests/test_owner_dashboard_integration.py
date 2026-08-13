@@ -67,6 +67,7 @@ OWNER_API_CONTRACT = {
         "/api/v1/owner/support/requests/{request_id}/messages",
     ),
     ("PATCH", "/api/v1/owner/support/requests/{request_id}"),
+    ("DELETE", "/api/v1/owner/support/requests/{request_id}"),
     ("GET", "/api/v1/owner/governance/overview"),
     ("GET", "/api/v1/owner/compliance-controls"),
     (
@@ -174,6 +175,7 @@ OWNER_MUTATION_REQUESTS = {
         "status": "in_progress",
         "assigned_to_id": None,
     },
+    ("DELETE", "/api/v1/owner/support/requests/{request_id}"): None,
     (
         "POST",
         "/api/v1/owner/compliance-controls/{control_id}/attest",

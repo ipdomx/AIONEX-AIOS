@@ -13,7 +13,8 @@ export type OwnerProjectStatus =
 export type OwnerOrganizationStatus =
   "active" | "pending" | "suspended" | "restricted" | "inactive";
 
-export type OwnerUserStatus = "active" | "invited" | "suspended" | "inactive";
+export type OwnerUserStatus =
+  "active" | "invited" | "suspended" | "banned" | "inactive";
 
 export type OwnerProject = {
   id: string;

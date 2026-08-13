@@ -739,6 +739,7 @@ async def create_notification(
     dedupe_key: str | None = None,
     payload: dict[str, Any] | None = None,
     actor_id: str | None = None,
+    respect_preferences: bool = True,
 ) -> Notification:
     if severity not in SEVERITY_RANK:
         raise ValueError("Unsupported notification severity")
@@ -755,9 +756,14 @@ async def create_notification(
             return existing
     rule = await _matching_rule(session, recipient.organization_id, normalized_event)
     proposed = list(channels or (rule.channels if rule else ["in_app"]))
-    selected = await _effective_channels(
-        session, recipient.id, normalized_category, severity, proposed
-    )
+    if respect_preferences:
+        selected = await _effective_channels(
+            session, recipient.id, normalized_category, severity, proposed
+        )
+    else:
+        selected = [item for item in dict.fromkeys(proposed) if item in CHANNELS]
+        if "in_app" not in selected:
+            selected.insert(0, "in_app")
     notification = Notification(
         id=uuid_str(),
         organization_id=recipient.organization_id,
@@ -879,7 +885,7 @@ async def audience_users(
         .outerjoin(Role, Role.id == User.role_id)
         .where(User.deleted_at.is_(None), User.status.in_({"active", "online"}))
     )
-    if audience != "owner":
+    if audience not in {"owner", "platform_owner"}:
         statement = statement.where(User.organization_id == organization_id)
     if audience == "owner":
         statement = statement.where(
@@ -889,6 +895,8 @@ async def audience_users(
                 Role.name == "Super Owner",
             ),
         )
+    elif audience == "platform_owner":
+        statement = statement.where(Role.name == "Super Owner")
     elif audience == "workforce":
         statement = statement.where(Role.name.notin_({"Super Owner", "Owner"}))
     elif audience == "user":
@@ -896,7 +904,7 @@ async def audience_users(
         if not ids:
             return []
         statement = statement.where(User.id.in_(ids))
-    elif audience not in {"organization", "all"}:
+    elif audience not in {"organization", "all", "platform_owner"}:
         raise ValueError("Unsupported notification audience")
     return list((await session.scalars(statement.order_by(User.id))).all())
 
@@ -919,6 +927,7 @@ async def notify_audience(
     dedupe_prefix: str | None = None,
     payload: dict[str, Any] | None = None,
     actor_id: str | None = None,
+    respect_preferences: bool = True,
 ) -> list[Notification]:
     users = await audience_users(
         session,
@@ -944,6 +953,7 @@ async def notify_audience(
             dedupe_key=f"{dedupe_prefix}:{user.id}" if dedupe_prefix else None,
             payload=payload,
             actor_id=actor_id,
+            respect_preferences=respect_preferences,
         )
         notifications.append(notification)
     return notifications
@@ -1462,8 +1472,8 @@ async def add_support_message(
     visibility: str = "requester",
     manager: bool = False,
 ) -> tuple[SupportMessage, list[Notification]]:
-    if ticket.status == "closed":
-        raise ValueError("Closed support requests cannot receive messages")
+    if ticket.status in {"closed", "cancelled", "suspended"}:
+        raise ValueError(f"{ticket.status.title()} support requests cannot receive messages")
     entry = SupportMessage(
         id=uuid_str(),
         support_request_id=ticket.id,
@@ -1521,7 +1531,7 @@ async def update_support_status(
     status: str,
     assigned_to_id: str | None = None,
 ) -> SupportRequest:
-    if status not in {"open", "in_progress", "waiting_user", "resolved", "closed"}:
+    if status not in {"open", "in_progress", "waiting_user", "resolved", "closed", "suspended", "cancelled"}:
         raise ValueError("Unsupported support status")
     current = now()
     ticket.status = status
@@ -1529,11 +1539,21 @@ async def update_support_status(
         ticket.assigned_to_id = assigned_to_id
     if status == "resolved":
         ticket.resolved_at = current
-    elif status == "closed":
+    elif status in {"closed", "cancelled"}:
         ticket.closed_at = current
     elif status == "open":
         ticket.resolved_at = None
         ticket.closed_at = None
+    metadata = dict(ticket.request_metadata or {})
+    if status == "suspended":
+        metadata["suspended_at"] = iso(current)
+    elif status == "cancelled":
+        metadata["cancelled_at"] = iso(current)
+    elif status in {"open", "in_progress", "waiting_user", "resolved", "closed"}:
+        metadata.pop("suspended_at", None)
+        if status != "closed":
+            metadata.pop("cancelled_at", None)
+    ticket.request_metadata = metadata
     session.add(
         AuditEvent(
             organization_id=ticket.organization_id,

@@ -35,6 +35,7 @@ from app.db.models import (
     Workspace,
     uuid_str,
 )
+from app.services.account_bans import assert_registration_not_banned
 from app.services.firebase_phone import verify_firebase_phone_id_token
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy import delete, func, select
@@ -859,6 +860,17 @@ async def register_free_account(
     phone_hash = _identity_hmac(normalized_phone)
     network_hash = _identity_hmac(ip_address)
     device_hash = _device_fingerprint(sanitized)
+    firebase_uid = str(phone_assertion.get("firebase_uid") or "").strip()
+    firebase_uid_hash = _identity_hmac(firebase_uid) if firebase_uid else None
+    await assert_registration_not_banned(
+        session,
+        email=normalized_email,
+        username=normalized_username,
+        phone_hash=phone_hash,
+        firebase_uid_hash=firebase_uid_hash,
+        network_hash=network_hash,
+        device_hash=device_hash,
+    )
     await _reserve_identity(
         session,
         domain=FREE_USERNAME_IDENTITY_DOMAIN,
@@ -873,7 +885,6 @@ async def register_free_account(
         user_id=user_id,
         duplicate_detail="Phone number already registered",
     )
-    firebase_uid = str(phone_assertion.get("firebase_uid") or "").strip()
     if firebase_uid:
         await _reserve_identity(
             session,
