@@ -147,17 +147,27 @@ async def test_owner_login_and_protected_entity_crud_e2e(
                 )
                 assert response.status_code == 200, (operation, response.text)
 
-            for operation in ("suspend", "restore", "delete"):
+            for operation, payload in (
+                ("suspend", {}),
+                ("restore", {}),
+                ("ban", {"reason": "Owner E2E permanent ban validation"}),
+                ("restore", {}),
+                ("delete", {}),
+            ):
                 response = await client.post(
                     "/api/v1/owner/operations",
                     json={
                         "entity": "user",
                         "operation": operation,
                         "id": user_id,
-                        "payload": {},
+                        "payload": payload,
                     },
                 )
                 assert response.status_code == 200, (operation, response.text)
+                if operation == "ban":
+                    async with SessionLocal() as session:
+                        banned = await session.get(User, user_id)
+                        assert banned is not None and banned.status == "banned"
 
             for operation in ("suspend", "restore", "delete"):
                 response = await client.post(

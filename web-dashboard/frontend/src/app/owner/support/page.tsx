@@ -5,13 +5,17 @@ import {
   LifeBuoy,
   Loader2,
   MessageSquareText,
+  PauseCircle,
   RefreshCw,
   Send,
+  Trash2,
+  XCircle,
 } from "lucide-react";
 
 import { useLanguageVoice } from "@/components/providers/LanguageVoiceProvider";
 import { translateInterfaceText } from "@/lib/interface-translations";
 import {
+  deleteSupportRequest,
   fetchSupportRequest,
   fetchSupportRequests,
   replyToSupportRequest,
@@ -110,8 +114,38 @@ export default function OwnerSupportPage() {
     }
   }
 
+  async function deleteConversation() {
+    if (!selected) return;
+    if (
+      !window.confirm(
+        t(
+          "Delete this conversation permanently? Its messages will be removed while the owner audit record is retained.",
+        ),
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setMessage("");
+    try {
+      await deleteSupportRequest(selected.id);
+      setSelected(null);
+      setTickets(await fetchSupportRequests());
+      setMessage(t("Support conversation deleted."));
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : t("Unable to delete the support conversation."),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const openCount = tickets.filter(
-    (ticket) => !["resolved", "closed"].includes(ticket.status),
+    (ticket) =>
+      !["resolved", "closed", "cancelled", "suspended"].includes(ticket.status),
   ).length;
 
   return (
@@ -213,6 +247,33 @@ export default function OwnerSupportPage() {
               >
                 {t("Close")}
               </button>
+              <button
+                type="button"
+                disabled={busy || selected.status === "suspended"}
+                onClick={() => void setStatus("suspended")}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-300 disabled:opacity-50"
+              >
+                <PauseCircle className="h-3.5 w-3.5" />
+                {t("Suspend conversation")}
+              </button>
+              <button
+                type="button"
+                disabled={busy || selected.status === "cancelled"}
+                onClick={() => void setStatus("cancelled")}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-orange-500/20 bg-orange-500/10 px-3 py-2 text-xs text-orange-300 disabled:opacity-50"
+              >
+                <XCircle className="h-3.5 w-3.5" />
+                {t("Cancel conversation")}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void deleteConversation()}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300 disabled:opacity-50"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                {t("Delete conversation")}
+              </button>
             </div>
           </div>
 
@@ -233,7 +294,7 @@ export default function OwnerSupportPage() {
             ))}
           </div>
 
-          {selected.status !== "closed" ? (
+          {!["closed", "cancelled", "suspended"].includes(selected.status) ? (
             <div className="mt-6 flex flex-col gap-3 lg:flex-row">
               <textarea
                 value={reply}

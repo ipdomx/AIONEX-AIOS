@@ -21,6 +21,7 @@ from app.db.models import (
     RefreshSession,
     User,
 )
+from app.services.account_bans import assert_social_identity_not_banned
 from app.services.firebase_social import (
     create_social_registration,
     firebase_social_public_configuration,
@@ -145,6 +146,7 @@ async def create_social_session(
     session: AsyncSession = Depends(get_db),
 ):
     identity = await verify_firebase_social_id_token(data.id_token)
+    await assert_social_identity_not_banned(session, identity)
     provider = str(identity["provider"])
     subject = str(identity["subject"])
     row = await session.scalar(
@@ -239,8 +241,12 @@ async def create_social_session(
     "/firebase/social/registration/prepare",
     response_model=SocialRegistrationPreparationResponse,
 )
-async def prepare_social_registration(data: FirebaseSocialSessionRequest):
+async def prepare_social_registration(
+    data: FirebaseSocialSessionRequest,
+    session: AsyncSession = Depends(get_db),
+):
     identity = await verify_firebase_social_id_token(data.id_token)
+    await assert_social_identity_not_banned(session, identity)
     return await create_social_registration(identity)
 
 

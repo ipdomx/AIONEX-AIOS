@@ -145,6 +145,16 @@ export async function updateSupportRequest(
   );
 }
 
+export async function deleteSupportRequest(
+  requestId: string,
+): Promise<{ message: string; request_id: string; deleted_messages: number }> {
+  return apiClient.delete<{
+    message: string;
+    request_id: string;
+    deleted_messages: number;
+  }>(`/owner/support/requests/${encodeURIComponent(requestId)}`);
+}
+
 export async function fetchGovernanceOverview(
   signal?: AbortSignal,
 ): Promise<GovernanceOverview> {
@@ -163,7 +173,14 @@ export async function fetchOwnerSupportTickets(
 
 export async function updateOwnerSupportTicket(
   id: string,
-  status: "open" | "in_progress" | "waiting_user" | "resolved" | "closed",
+  status:
+    | "open"
+    | "in_progress"
+    | "waiting_user"
+    | "resolved"
+    | "closed"
+    | "suspended"
+    | "cancelled",
 ): Promise<SupportTicket> {
   return updateSupportRequest(id, { status });
 }

@@ -62,10 +62,12 @@ function statusClass(status: string): string {
   if (["delivered", "acknowledged", "resolved", "closed"].includes(status)) {
     return "border-green-500/20 bg-green-500/10 text-green-300";
   }
-  if (["dead_letter", "failed", "urgent"].includes(status)) {
+  if (["dead_letter", "failed", "urgent", "cancelled"].includes(status)) {
     return "border-red-500/20 bg-red-500/10 text-red-300";
   }
-  if (["retrying", "waiting_user", "in_progress"].includes(status)) {
+  if (
+    ["retrying", "waiting_user", "in_progress", "suspended"].includes(status)
+  ) {
     return "border-amber-500/20 bg-amber-500/10 text-amber-200";
   }
   return "border-white/10 bg-white/[0.04] text-white/55";
@@ -137,7 +139,12 @@ export default function OwnerCommunicationsPage() {
   );
   const openTickets = useMemo(
     () =>
-      tickets.filter((item) => !["resolved", "closed"].includes(item.status)),
+      tickets.filter(
+        (item) =>
+          !["resolved", "closed", "cancelled", "suspended"].includes(
+            item.status,
+          ),
+      ),
     [tickets],
   );
 
@@ -382,7 +389,9 @@ export default function OwnerCommunicationsPage() {
                 <button
                   disabled={
                     busyId !== null ||
-                    ["resolved", "closed"].includes(ticket.status)
+                    ["resolved", "closed", "cancelled", "suspended"].includes(
+                      ticket.status,
+                    )
                   }
                   onClick={() => void resolve(ticket)}
                   className="inline-flex items-center justify-center gap-2 rounded-xl border border-green-500/20 bg-green-500/10 px-3 py-2 text-xs text-green-300 disabled:cursor-not-allowed disabled:opacity-40"

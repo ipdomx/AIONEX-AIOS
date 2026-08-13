@@ -15,6 +15,8 @@ from app.core.config import settings
 from app.core.logging import get_logger, setup_logging
 from app.db.base import SessionLocal
 from app.db.redis import close_redis, init_redis
+from app.services import communications
+from app.services.lifecycle_alerts import run_account_lifecycle_alerts
 from app.services.operations_assurance import record_observation_cycle
 
 logger = get_logger(__name__)
@@ -26,6 +28,7 @@ class OperationsObserver:
         self.health_path = Path(settings.OPERATIONS_OBSERVER_HEALTH_FILE)
         self.cycles = 0
         self.errors = 0
+        self.last_lifecycle_alert_monotonic = 0.0
 
     async def preflight(self) -> None:
         async with SessionLocal() as session:
@@ -48,9 +51,23 @@ class OperationsObserver:
         os.replace(temporary, self.health_path)
 
     async def run_once(self) -> None:
+        current_monotonic = time.monotonic()
+        run_lifecycle_alerts = (
+            self.last_lifecycle_alert_monotonic <= 0
+            or current_monotonic - self.last_lifecycle_alert_monotonic
+            >= settings.ACCOUNT_LIFECYCLE_ALERT_INTERVAL_SECONDS
+        )
         async with SessionLocal() as session:
             await record_observation_cycle(session)
+            notifications = (
+                await run_account_lifecycle_alerts(session)
+                if run_lifecycle_alerts
+                else []
+            )
             await session.commit()
+        if run_lifecycle_alerts:
+            self.last_lifecycle_alert_monotonic = current_monotonic
+        await communications.publish_many(notifications)
         self.cycles += 1
         self.write_health("running")
 

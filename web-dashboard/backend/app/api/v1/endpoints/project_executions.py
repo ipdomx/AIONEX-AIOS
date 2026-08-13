@@ -23,7 +23,9 @@ from app.core.auth import UserRecord, require_permissions
 from app.core.config import settings
 from app.db.base import get_db
 from app.db.models import AuditEvent, Notification, Project, ProjectExecution
+from app.services import communications
 from app.services.free_tier import consume_assistant_response, consume_user_message
+from app.services.lifecycle_alerts import owner_alert_channels
 from app.services.three_d_product import access_snapshot, project_for_actor
 
 router = APIRouter()
@@ -393,6 +395,38 @@ async def start_project_execution(
                 },
             )
         )
+        notifications = await communications.notify_audience(
+            session,
+            organization_id=actor.organization_id,
+            audience="platform_owner",
+            event_key="project.execution.started",
+            category="project",
+            title="User started project execution",
+            message=(
+                f"{actor.name} started a {data.mode} execution for project "
+                f"'{project.name}' in organization {actor.organization_name}."
+            ),
+            severity="info",
+            channels=owner_alert_channels(),
+            source_type="project_execution",
+            source_id=record.id,
+            correlation_id=record.id,
+            dedupe_prefix=f"project-execution-started:{record.id}",
+            payload={
+                "project_id": project.id,
+                "project_name": project.name,
+                "execution_id": record.id,
+                "requested_mode": data.mode,
+                "effective_mode": record.mode,
+                "provider": record.provider,
+                "organization_id": actor.organization_id,
+                "user_id": actor.id,
+                "external_processing": record.external_processing_confirmed,
+                "status": record.status,
+            },
+            actor_id=actor.id,
+            respect_preferences=False,
+        )
         await session.commit()
     except IntegrityError as exc:
         await session.rollback()
@@ -400,6 +434,7 @@ async def start_project_execution(
             status_code=409,
             detail="A project execution is already queued or running",
         ) from exc
+    await communications.publish_many(notifications)
     await session.refresh(record)
     return serialize_project_execution(record)
 

@@ -2,7 +2,7 @@ import { apiClient } from "@/lib/api-client";
 
 export type OwnerEntityKind = "project" | "organization" | "user";
 export type OwnerOperation =
-  "create" | "update" | "suspend" | "restore" | "delete";
+  "create" | "update" | "suspend" | "ban" | "restore" | "delete";
 
 export type OwnerOperationRequest = {
   entity: OwnerEntityKind;

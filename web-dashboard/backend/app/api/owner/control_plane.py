@@ -60,7 +60,7 @@ from app.db.models import (
     uuid_str,
 )
 from app.db.redis import get_redis
-from app.services import communications, work_management
+from app.services import account_bans, communications, work_management
 from app.services import governance as governance_service
 from app.services import operations_assurance
 from app.services import workforce as workforce_service
@@ -166,7 +166,15 @@ class OwnerSupportMessageCreate(BaseModel):
 
 
 class OwnerSupportStatusUpdate(BaseModel):
-    status: Literal["open", "in_progress", "waiting_user", "resolved", "closed"]
+    status: Literal[
+        "open",
+        "in_progress",
+        "waiting_user",
+        "resolved",
+        "closed",
+        "suspended",
+        "cancelled",
+    ]
     assigned_to_id: str | None = None
 
 
@@ -199,7 +207,7 @@ class OwnerReleaseEvidence(BaseModel):
 
 class OwnerOperationRequest(BaseModel):
     entity: Literal["project", "organization", "user"]
-    operation: Literal["create", "update", "suspend", "restore", "delete"]
+    operation: Literal["create", "update", "suspend", "ban", "restore", "delete"]
     id: str | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
 
@@ -3530,6 +3538,10 @@ async def _execute_owner_operation(
 ) -> dict[str, Any]:
     if data.operation != "create" and not data.id:
         raise HTTPException(status_code=422, detail="Record id is required")
+    if data.operation == "ban" and data.entity != "user":
+        raise HTTPException(
+            status_code=422, detail="Permanent bans are supported only for users"
+        )
     mutable_fields = {
         "organization": {
             "create": {"name", "slug", "plan"},
@@ -3553,6 +3565,7 @@ async def _execute_owner_operation(
                 "organization_id",
             },
             "update": {"name", "role_id"},
+            "ban": {"reason"},
         },
     }
     allowed_fields = mutable_fields[data.entity].get(data.operation, set())
@@ -3564,11 +3577,13 @@ async def _execute_owner_operation(
         )
     if data.operation == "update" and not data.payload:
         raise HTTPException(status_code=422, detail="At least one update is required")
-    if data.operation not in {"create", "update"} and data.payload:
+    if data.operation not in {"create", "update", "ban"} and data.payload:
         raise HTTPException(
             status_code=422,
             detail="This operation does not accept a payload",
         )
+    if "reason" in data.payload and len(str(data.payload["reason"]).strip()) > 500:
+        raise HTTPException(status_code=422, detail="Ban reason is too long")
 
     if "name" in data.payload and len(str(data.payload["name"]).strip()) < 2:
         raise HTTPException(status_code=422, detail="Name is too short")
@@ -3776,6 +3791,7 @@ async def _execute_owner_operation(
                     ),
                 )
             email = str(data.payload["email"]).strip().lower()
+            await account_bans.assert_registration_not_banned(session, email=email)
             if await session.scalar(select(User.id).where(User.email == email)):
                 raise HTTPException(status_code=409, detail="Email already exists")
             user_organization = await session.get(
@@ -3824,7 +3840,7 @@ async def _execute_owner_operation(
             if (
                 existing_user.id == actor.id
                 or (current_role is not None and current_role.name == "Super Owner")
-            ) and data.operation in {"suspend", "delete"}:
+            ) and data.operation in {"suspend", "ban", "delete"}:
                 raise HTTPException(
                     status_code=409,
                     detail="The Super Owner account is protected",
@@ -3843,8 +3859,21 @@ async def _execute_owner_operation(
             elif data.operation == "suspend":
                 existing_user.status = "suspended"
                 await _revoke_user_sessions(session, user_id=existing_user.id)
+            elif data.operation == "ban":
+                reason = str(data.payload.get("reason") or "Super Owner account ban").strip()
+                await account_bans.ban_user(
+                    session,
+                    user=existing_user,
+                    actor_id=actor.id,
+                    reason=reason,
+                )
             elif data.operation == "restore":
-                existing_user.status = "active"
+                if existing_user.status == "banned":
+                    await account_bans.unban_user(
+                        session, user=existing_user, actor_id=actor.id
+                    )
+                else:
+                    existing_user.status = "active"
             elif data.operation == "delete":
                 existing_user.status = "inactive"
                 existing_user.deleted_at = _now()
@@ -4211,11 +4240,96 @@ async def owner_update_support_request(
             status=data.status,
             assigned_to_id=data.assigned_to_id,
         )
+        notifications = await communications.notify_audience(
+            session,
+            organization_id=ticket.organization_id,
+            audience="user",
+            explicit_user_ids=[ticket.requester_id],
+            event_key="support.request.status_changed",
+            category="support",
+            title="Support conversation updated",
+            message=f"Your support conversation '{ticket.subject}' is now {data.status}.",
+            severity=(
+                "warning" if data.status in {"suspended", "cancelled"} else "info"
+            ),
+            channels=["in_app"],
+            source_type="support_request",
+            source_id=ticket.id,
+            correlation_id=ticket.id,
+            dedupe_prefix=(
+                f"support-status:{ticket.id}:{data.status}:{_iso(ticket.updated_at)}"
+            ),
+            actor_id=actor.id,
+        )
         await session.commit()
     except ValueError as exc:
         await session.rollback()
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    await communications.publish_many(notifications)
     return communications.support_snapshot(ticket)
+
+
+@router.delete("/support/requests/{request_id}")
+async def owner_delete_support_request(
+    request_id: str,
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    ticket = await session.scalar(
+        select(SupportRequest)
+        .where(SupportRequest.id == request_id)
+        .with_for_update()
+    )
+    if ticket is None:
+        raise HTTPException(status_code=404, detail="Support request not found")
+    message_count = int(
+        await session.scalar(
+            select(func.count(SupportMessage.id)).where(
+                SupportMessage.support_request_id == ticket.id
+            )
+        )
+        or 0
+    )
+    notifications = await communications.notify_audience(
+        session,
+        organization_id=ticket.organization_id,
+        audience="user",
+        explicit_user_ids=[ticket.requester_id],
+        event_key="support.request.deleted",
+        category="support",
+        title="Support conversation removed",
+        message=f"Your support conversation '{ticket.subject}' was removed by the platform owner.",
+        severity="info",
+        channels=["in_app"],
+        source_type="support_request",
+        source_id=ticket.id,
+        correlation_id=ticket.id,
+        dedupe_prefix=f"support-deleted:{ticket.id}",
+        actor_id=actor.id,
+    )
+    session.add(
+        AuditEvent(
+            organization_id=ticket.organization_id,
+            user_id=actor.id,
+            action="support.request.deleted",
+            resource_type="support_request",
+            resource_id=ticket.id,
+            details={
+                "requester_id": ticket.requester_id,
+                "subject": ticket.subject,
+                "status": ticket.status,
+                "message_count": message_count,
+            },
+        )
+    )
+    await session.delete(ticket)
+    await session.commit()
+    await communications.publish_many(notifications)
+    return {
+        "message": "Support conversation deleted successfully",
+        "request_id": request_id,
+        "deleted_messages": message_count,
+    }
 
 
 @router.get("/governance/overview")

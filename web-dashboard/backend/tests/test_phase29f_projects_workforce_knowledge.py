@@ -20,6 +20,8 @@ from app.db.models import (
     KnowledgeProvenance,
     LearningEvent,
     Lesson,
+    Notification,
+    NotificationDelivery,
     Organization,
     Project,
     ProjectEvent,
@@ -174,11 +176,25 @@ async def test_project_task_workflow_report_and_provider_neutral_execution_cycle
     suffix = uuid4().hex[:10]
     first = await tenant(suffix)
     second = await tenant(f"other-{suffix}")
+    async with SessionLocal() as session:
+        platform_owner = await session.get(User, second.user.id)
+        assert platform_owner is not None and platform_owner.role_id is not None
+        platform_role = await session.get(Role, platform_owner.role_id)
+        assert platform_role is not None
+        platform_role.name = "Super Owner"
+        await session.commit()
     holder = {"actor": first.actor()}
     app = app_with_actor(holder)
     monkeypatch.setattr(
         "app.api.v1.endpoints.project_executions.settings.PROJECT_EXECUTION_OUTPUT_ROOT",
         str(tmp_path / "executions"),
+    )
+    monkeypatch.setattr(
+        "app.api.v1.endpoints.projects.owner_alert_channels", lambda: ["in_app"]
+    )
+    monkeypatch.setattr(
+        "app.api.v1.endpoints.project_executions.owner_alert_channels",
+        lambda: ["in_app"],
     )
     try:
         async with AsyncClient(
@@ -197,6 +213,25 @@ async def test_project_task_workflow_report_and_provider_neutral_execution_cycle
             assert created.status_code == 201, created.text
             project_id = created.json()["id"]
             assert created.json()["risk"] == "high"
+            async with SessionLocal() as session:
+                project_alert = await session.scalar(
+                    select(Notification).where(
+                        Notification.recipient_id == second.user.id,
+                        Notification.event_key == "project.started",
+                        Notification.source_id == project_id,
+                    )
+                )
+                assert project_alert is not None
+                project_alert_channels = set(
+                    (
+                        await session.scalars(
+                            select(NotificationDelivery.channel).where(
+                                NotificationDelivery.notification_id == project_alert.id
+                            )
+                        )
+                    ).all()
+                )
+                assert project_alert_channels == {"in_app"}
             members = await client.get(f"/api/v1/projects/{project_id}/members")
             assert members.status_code == 200, members.text
             assert members.json()[0]["role"] == "owner"
@@ -309,6 +344,28 @@ async def test_project_task_workflow_report_and_provider_neutral_execution_cycle
             assert execution_data["result"]["requests_count"] == 0
             assert execution_data["result"]["production_modified"] is False
             assert execution_data["result"]["model_claims_used_as_execution_proof"] is False
+            async with SessionLocal() as session:
+                execution_alert = await session.scalar(
+                    select(Notification).where(
+                        Notification.recipient_id == second.user.id,
+                        Notification.event_key == "project.execution.started",
+                        Notification.source_id == execution_id,
+                    )
+                )
+                assert execution_alert is not None
+                assert execution_alert.payload["project_id"] == project_id
+                assert execution_alert.payload["requested_mode"] == "provider_neutral"
+                assert execution_alert.payload["effective_mode"] == "provider_neutral"
+                execution_alert_channels = set(
+                    (
+                        await session.scalars(
+                            select(NotificationDelivery.channel).where(
+                                NotificationDelivery.notification_id == execution_alert.id
+                            )
+                        )
+                    ).all()
+                )
+                assert execution_alert_channels == {"in_app"}
             evidence_root = tmp_path / "executions" / execution_id
             assert (evidence_root / "manifest.json").is_file()
             assert (evidence_root / "delivery-package" / "project.json").is_file()

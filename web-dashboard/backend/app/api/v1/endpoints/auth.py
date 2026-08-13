@@ -25,6 +25,7 @@ from app.services.firebase_phone import (
     firebase_public_configuration,
 )
 from app.services.firebase_social import consume_social_registration
+from app.services.account_bans import assert_social_identity_not_banned
 from app.services.account_security import (
     confirm_mfa_setup,
     confirm_password_reset as confirm_password_reset_service,
@@ -266,6 +267,7 @@ async def register_free(
         social_identity = await consume_social_registration(
             data.social_registration_token
         )
+        await assert_social_identity_not_banned(session, social_identity)
         if str(social_identity["email"]).strip().lower() != user.email:
             raise HTTPException(
                 status_code=422,

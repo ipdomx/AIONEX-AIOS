@@ -859,3 +859,115 @@ async def test_notification_and_support_api_are_tenant_scoped(
             assert hidden_ticket.status_code == 404
     finally:
         await cleanup(one.organization.id, two.organization.id)
+
+
+@pytest.mark.asyncio
+async def test_super_owner_can_suspend_cancel_and_delete_one_support_conversation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    suffix = uuid4().hex[:10]
+    customer = await identity(f"moderation-customer-{suffix}")
+    platform = await identity(f"moderation-platform-{suffix}")
+    unconfigure_external_channels(monkeypatch)
+    holder = {
+        "actor": customer.actor(
+            "Manager",
+            ["support:read", "support:write", "notifications:read"],
+        )
+    }
+    app = app_with_actor(holder)
+    ticket_id: str | None = None
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            created = await client.post(
+                "/api/v1/support/requests",
+                json={
+                    "subject": "Moderated conversation",
+                    "message": "This conversation will exercise owner moderation controls.",
+                    "category": "account",
+                    "priority": "normal",
+                },
+            )
+            assert created.status_code == 201, created.text
+            ticket_id = created.json()["id"]
+
+            holder["actor"] = platform.actor("Super Owner", ["*"])
+            suspended = await client.patch(
+                f"/api/v1/owner/support/requests/{ticket_id}",
+                json={"status": "suspended"},
+            )
+            assert suspended.status_code == 200, suspended.text
+            assert suspended.json()["status"] == "suspended"
+
+            holder["actor"] = customer.actor(
+                "Manager",
+                ["support:read", "support:write", "notifications:read"],
+            )
+            blocked_reply = await client.post(
+                f"/api/v1/support/requests/{ticket_id}/messages",
+                json={"message": "Attempt to bypass suspension."},
+            )
+            assert blocked_reply.status_code == 409, blocked_reply.text
+            blocked_reopen = await client.patch(
+                f"/api/v1/support/requests/{ticket_id}",
+                json={"status": "open"},
+            )
+            assert blocked_reopen.status_code == 409, blocked_reopen.text
+
+            holder["actor"] = platform.actor("Super Owner", ["*"])
+            reopened = await client.patch(
+                f"/api/v1/owner/support/requests/{ticket_id}",
+                json={"status": "open"},
+            )
+            assert reopened.status_code == 200, reopened.text
+            cancelled = await client.patch(
+                f"/api/v1/owner/support/requests/{ticket_id}",
+                json={"status": "cancelled"},
+            )
+            assert cancelled.status_code == 200, cancelled.text
+            assert cancelled.json()["status"] == "cancelled"
+
+            deleted = await client.delete(
+                f"/api/v1/owner/support/requests/{ticket_id}"
+            )
+            assert deleted.status_code == 200, deleted.text
+            assert deleted.json()["request_id"] == ticket_id
+            assert deleted.json()["deleted_messages"] == 1
+
+            holder["actor"] = customer.actor(
+                "Manager",
+                ["support:read", "support:write", "notifications:read"],
+            )
+            missing = await client.get(f"/api/v1/support/requests/{ticket_id}")
+            assert missing.status_code == 404
+
+        async with SessionLocal() as session:
+            assert await session.get(SupportRequest, ticket_id) is None
+            assert (
+                await session.scalar(
+                    select(func.count(SupportMessage.id)).where(
+                        SupportMessage.support_request_id == ticket_id
+                    )
+                )
+                == 0
+            )
+            audit = await session.scalar(
+                select(AuditEvent).where(
+                    AuditEvent.action == "support.request.deleted",
+                    AuditEvent.resource_id == ticket_id,
+                )
+            )
+            assert audit is not None
+            assert audit.details["message_count"] == 1
+            requester_alert = await session.scalar(
+                select(Notification).where(
+                    Notification.recipient_id == customer.users["Manager"].id,
+                    Notification.event_key == "support.request.deleted",
+                    Notification.source_id == ticket_id,
+                )
+            )
+            assert requester_alert is not None
+    finally:
+        await cleanup(customer.organization.id, platform.organization.id)

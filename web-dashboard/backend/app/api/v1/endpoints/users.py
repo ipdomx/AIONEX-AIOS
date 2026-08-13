@@ -18,6 +18,7 @@ from app.api.v1.endpoints.permissions import (
 )
 from app.core.auth import UserRecord, pwd_context, require_permissions
 from app.db.base import get_db
+from app.services.account_bans import assert_registration_not_banned
 from app.services.billing import enforce_seat_limit
 from app.db.models import (
     AuditEvent,
@@ -276,6 +277,7 @@ async def create_user(
     await enforce_seat_limit(session, organization.id)
 
     normalized_email = data.email.strip().lower()
+    await assert_registration_not_banned(session, email=normalized_email)
     if (
         await session.scalar(select(User.id).where(User.email == normalized_email))
         is not None
@@ -377,6 +379,16 @@ async def update_user(
             raise HTTPException(status_code=422, detail="User name is required")
         user.name = name
     if data.status is not None:
+        if data.status == "banned":
+            raise HTTPException(
+                status_code=403,
+                detail="Permanent account bans must be managed through the Super Owner control plane",
+            )
+        if user.status == "banned" and data.status in {"active", "online"}:
+            raise HTTPException(
+                status_code=409,
+                detail="A banned account can only be restored through the Super Owner control plane",
+            )
         if _is_super_owner_role(existing_role) and data.status not in {
             "active",
             "online",
