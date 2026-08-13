@@ -15,6 +15,7 @@ from app.core.auth import UserRecord, current_user, pwd_context
 from app.db.base import SessionLocal
 from app.db.models import (
     BillingAccount,
+    CommunicationEndpoint,
     Notification,
     NotificationDelivery,
     NotificationPreference,
@@ -24,7 +25,7 @@ from app.db.models import (
     User,
     Workspace,
 )
-from app.services import lifecycle_alerts
+from app.services import communications, lifecycle_alerts
 from app.api.v1.endpoints import projects as projects_endpoint
 
 
@@ -291,3 +292,62 @@ async def test_subscription_and_storage_alerts_are_deduped_and_force_owner_exter
                     assert count == 1
     finally:
         await cleanup(customer.id, platform.id, [correlation])
+
+@pytest.mark.asyncio
+async def test_single_allowlisted_telegram_identity_auto_binds_only_to_super_owner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    suffix = uuid4().hex[:12]
+    customer, platform, member, owner, _, _ = await create_identity(suffix)
+    try:
+        monkeypatch.setattr(
+            communications.settings,
+            "AIOS_TELEGRAM_ALLOWED_USERS",
+            [123456789],
+        )
+        async with SessionLocal() as session:
+            stored_owner = await session.get(User, owner.id)
+            stored_member = await session.get(User, member.id)
+            assert stored_owner is not None and stored_member is not None
+            endpoint = await communications.ensure_owner_telegram_endpoint(
+                session, stored_owner
+            )
+            assert endpoint is not None
+            assert endpoint.channel == "telegram"
+            assert endpoint.status == "active"
+            assert endpoint.verified_at is not None
+            assert endpoint.address_ciphertext != "123456789"
+            assert endpoint.endpoint_metadata["source"] == "single_owner_allowlist"
+            assert endpoint.endpoint_metadata["masked_address"] != "123456789"
+            assert (
+                await communications.ensure_owner_telegram_endpoint(
+                    session, stored_member
+                )
+            ) is None
+            await session.commit()
+
+        monkeypatch.setattr(
+            communications.settings,
+            "AIOS_TELEGRAM_ALLOWED_USERS",
+            [123456789, 987654321],
+        )
+        async with SessionLocal() as session:
+            another_owner = await session.get(User, owner.id)
+            assert another_owner is not None
+            existing = await session.scalar(
+                select(CommunicationEndpoint).where(
+                    CommunicationEndpoint.user_id == owner.id,
+                    CommunicationEndpoint.channel == "telegram",
+                )
+            )
+            assert existing is not None
+            existing.status = "deleted"
+            await session.flush()
+            assert (
+                await communications.ensure_owner_telegram_endpoint(
+                    session, another_owner
+                )
+            ) is None
+            await session.rollback()
+    finally:
+        await cleanup(customer.id, platform.id, [])
