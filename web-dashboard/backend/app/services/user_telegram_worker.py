@@ -492,7 +492,7 @@ async def async_main() -> int:
         try:
             loop.add_signal_handler(signum, worker.stop_event.set)
         except NotImplementedError:
-            pass
+            continue
     try:
         await worker.run()
     finally:

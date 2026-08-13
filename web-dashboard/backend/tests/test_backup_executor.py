@@ -1356,7 +1356,7 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
     assert "requirements-runtime.txt" in dockerfile
     assert "setuptools*" in dockerfile and "wheel*" in dockerfile
     assert "install -d -m 0700 -o aionex -g aionex" in dockerfile
-    for compose in (primary_compose, deploy_compose):
+    for compose, expected_backend_images in ((primary_compose, 10), (deploy_compose, 9)):
         assert "backup-worker:" in compose
         assert "postgres-credential-reconciler:" in compose
         assert "communication-worker:" in compose
@@ -1375,7 +1375,7 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
             'test: ["CMD", "python", "-m", "app.services.operations_observer", '
             '"--healthcheck"]' in compose
         )
-        assert compose.count("image: aionex-aios-backend:local") == 9
+        assert compose.count("image: aionex-aios-backend:local") == expected_backend_images
         assert "image: aionex-aios-project-worker:local" in compose
         project_section = compose.split("project-worker:", 1)[1].split("studio-worker:", 1)[0]
         assert "target: project-worker" in project_section
