@@ -463,6 +463,59 @@ async def ensure_email_endpoint(
     return endpoint
 
 
+async def ensure_owner_telegram_endpoint(
+    session: AsyncSession, user: User
+) -> CommunicationEndpoint | None:
+    """Bind the single configured owner Telegram identity to the Super Owner.
+
+    The Telegram operations worker already enforces ``AIOS_TELEGRAM_ALLOWED_USERS``.
+    When exactly one Telegram identity is allowlisted, that identity is
+    unambiguous and can safely become the Super Owner's verified notification
+    endpoint. Multiple allowlisted identities remain an explicit configuration
+    boundary and are never guessed. Existing inactive/deleted endpoints are
+    respected rather than silently reactivated.
+    """
+
+    allowed = [str(value).strip() for value in settings.AIOS_TELEGRAM_ALLOWED_USERS]
+    allowed = [value for value in allowed if value]
+    if len(allowed) != 1 or user.role_id is None:
+        return None
+    role = await session.get(Role, user.role_id)
+    if role is None or role.name != "Super Owner":
+        return None
+    address = allowed[0]
+    digest = address_hash(address)
+    endpoint = await session.scalar(
+        select(CommunicationEndpoint).where(
+            CommunicationEndpoint.user_id == user.id,
+            CommunicationEndpoint.channel == "telegram",
+            CommunicationEndpoint.address_hash == digest,
+        )
+    )
+    if endpoint is not None:
+        if endpoint.status == "active" and endpoint.verified_at is not None:
+            return endpoint
+        return None
+    endpoint = CommunicationEndpoint(
+        id=uuid_str(),
+        organization_id=user.organization_id,
+        user_id=user.id,
+        channel="telegram",
+        address_ciphertext=encrypt_address(address),
+        address_hash=digest,
+        label="Owner Telegram",
+        status="active",
+        verified_at=now(),
+        endpoint_metadata={
+            "masked_address": mask_address("telegram", address),
+            "source": "single_owner_allowlist",
+        },
+    )
+    session.add(endpoint)
+    await session.flush()
+    return endpoint
+
+
 async def list_endpoints(
     session: AsyncSession, actor: UserRecord
 ) -> list[CommunicationEndpoint]:
@@ -800,6 +853,10 @@ async def create_notification(
         endpoint_by_channel.setdefault(endpoint.channel, endpoint)
     if "email" in selected and "email" not in endpoint_by_channel:
         endpoint_by_channel["email"] = await ensure_email_endpoint(session, recipient)
+    if "telegram" in selected and "telegram" not in endpoint_by_channel:
+        telegram_endpoint = await ensure_owner_telegram_endpoint(session, recipient)
+        if telegram_endpoint is not None:
+            endpoint_by_channel["telegram"] = telegram_endpoint
 
     for channel in selected:
         state = channel_state(channel)
