@@ -144,18 +144,13 @@ async def get_audit_events(
     actor: UserRecord = Depends(require_permissions("audit:read")),
     session: AsyncSession = Depends(get_db),
 ):
-    statement = (
-        select(AuditEvent, User.name)
-        .outerjoin(User, User.id == AuditEvent.user_id)
-        .where(
-            or_(
-                AuditEvent.organization_id == actor.organization_id,
-                AuditEvent.organization_id.is_(None)
-                if actor.role == "Super Owner"
-                else AuditEvent.organization_id == actor.organization_id,
-            )
-        )
+    statement = select(AuditEvent, User.name).outerjoin(
+        User, User.id == AuditEvent.user_id
     )
+    if actor.role != "Super Owner":
+        statement = statement.where(
+            AuditEvent.organization_id == actor.organization_id
+        )
     if action:
         statement = statement.where(AuditEvent.action == action)
     if actor_name:

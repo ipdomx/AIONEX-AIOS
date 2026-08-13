@@ -408,6 +408,55 @@ async def _ensure_builtin_roles(
     return roles
 
 
+async def _backfill_existing_organization_builtin_roles(
+    session,
+    *,
+    platform_organization_id: str,
+    permission_rows: dict[str, Permission],
+) -> None:
+    """Add newly introduced permissions to existing tenant built-in roles.
+
+    Tenant organizations can predate additions to the permission catalogue. This
+    synchronization is intentionally additive and narrow: it updates only
+    non-deleted roles whose names already match an assignable built-in role. It
+    never creates missing tenant roles, never creates a tenant Super Owner, and
+    never removes tenant-defined permissions.
+    """
+
+    definitions = {definition.name: definition for definition in ASSIGNABLE_BUILTIN_ROLES}
+    roles = list(
+        (
+            await session.scalars(
+                select(Role).where(
+                    Role.organization_id != platform_organization_id,
+                    Role.status != "deleted",
+                    Role.name.in_(tuple(definitions)),
+                )
+            )
+        ).all()
+    )
+    for role in roles:
+        definition = definitions[role.name]
+        role.description = definition.description
+        role.system = True
+        assigned_permission_ids = set(
+            (
+                await session.scalars(
+                    select(RolePermission.permission_id).where(
+                        RolePermission.role_id == role.id
+                    )
+                )
+            ).all()
+        )
+        for code in definition.permissions:
+            permission = permission_rows[code]
+            if permission.id not in assigned_permission_ids:
+                session.add(
+                    RolePermission(role_id=role.id, permission_id=permission.id)
+                )
+                assigned_permission_ids.add(permission.id)
+
+
 async def seed() -> None:
     created_owner = False
     reset_owner_password = False
@@ -441,6 +490,11 @@ async def seed() -> None:
 
         permission_rows = await _ensure_permission_catalogue(session)
         roles = await _ensure_builtin_roles(session, org, permission_rows)
+        await _backfill_existing_organization_builtin_roles(
+            session,
+            platform_organization_id=org.id,
+            permission_rows=permission_rows,
+        )
         role = roles["Super Owner"]
 
         workspace = await session.scalar(
