@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.db.models import (
     BillingAccount,
     OwnerControlRecord,
@@ -33,12 +34,32 @@ def _utc(value: datetime | None) -> datetime | None:
 
 
 def owner_alert_channels() -> list[str]:
+    """Return one durable external Owner channel plus in-app delivery.
+
+    Telegram is preferred when the protected bot has exactly one allowlisted
+    Owner identity, because that identity can be bound deterministically to the
+    Super Owner notification endpoint. Email is the safe fallback because the
+    communications service can derive the account email endpoint automatically.
+    WhatsApp remains available through explicit endpoint configuration, but it is
+    not guessed here. Sending every configured external channel for every alert
+    creates duplicate noise and causes avoidable retries when one provider is
+    temporarily unhealthy.
+    """
+
     readiness = {item["id"]: item for item in communications.channel_readiness()}
-    channels = ["in_app"]
-    for channel in ("email", "telegram", "whatsapp"):
-        if bool((readiness.get(channel) or {}).get("ready")):
-            channels.append(channel)
-    return channels
+    telegram_ready = bool((readiness.get("telegram") or {}).get("ready"))
+    allowed_telegram = [
+        str(value).strip()
+        for value in settings.AIOS_TELEGRAM_ALLOWED_USERS
+        if str(value).strip()
+    ]
+    if telegram_ready and len(allowed_telegram) == 1:
+        return ["in_app", "telegram"]
+    if bool((readiness.get("email") or {}).get("ready")):
+        return ["in_app", "email"]
+    if bool((readiness.get("whatsapp") or {}).get("ready")):
+        return ["in_app", "whatsapp"]
+    return ["in_app"]
 
 
 async def organization_storage_usage_bytes(

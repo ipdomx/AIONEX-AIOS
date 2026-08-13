@@ -351,3 +351,31 @@ async def test_single_allowlisted_telegram_identity_auto_binds_only_to_super_own
             await session.rollback()
     finally:
         await cleanup(customer.id, platform.id, [])
+
+
+def test_owner_alert_channels_prefer_single_allowlisted_telegram_and_fallback_email(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        lifecycle_alerts.communications,
+        "channel_readiness",
+        lambda: [
+            {"id": "in_app", "ready": True},
+            {"id": "email", "ready": True},
+            {"id": "telegram", "ready": True},
+            {"id": "whatsapp", "ready": False},
+        ],
+    )
+    monkeypatch.setattr(
+        lifecycle_alerts.settings,
+        "AIOS_TELEGRAM_ALLOWED_USERS",
+        [123456789],
+    )
+    assert lifecycle_alerts.owner_alert_channels() == ["in_app", "telegram"]
+
+    monkeypatch.setattr(
+        lifecycle_alerts.settings,
+        "AIOS_TELEGRAM_ALLOWED_USERS",
+        [123456789, 987654321],
+    )
+    assert lifecycle_alerts.owner_alert_channels() == ["in_app", "email"]
