@@ -109,6 +109,31 @@ def mask_address(channel: str, address: str) -> str:
     return f"{value[:3]}***{value[-3:]}"
 
 
+
+def _telegram_scope_token_file(scope: str) -> str:
+    if scope == "user":
+        return settings.AIOS_USER_TELEGRAM_BOT_TOKEN_FILE
+    if scope == "owner":
+        return settings.AIOS_TELEGRAM_BOT_TOKEN_FILE
+    raise ValueError("Unsupported Telegram bot scope")
+
+
+def _telegram_scope_ready(scope: str) -> bool:
+    try:
+        load_bot_token(_telegram_scope_token_file(scope))
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+def telegram_scope_state(scope: str) -> dict[str, Any]:
+    ready = _telegram_scope_ready(scope)
+    return {
+        "ready": ready,
+        "reason": "ready" if ready else f"{scope} Telegram bot token is not configured",
+    }
+
+
 def channel_readiness() -> list[dict[str, Any]]:
     """Return truthful deployment readiness without returning any credential."""
 
@@ -121,14 +146,14 @@ def channel_readiness() -> list[dict[str, Any]]:
         and firebase_path.is_file()
         and not firebase_path.is_symlink()
     )
-    telegram_ready = False
-    telegram_reason = "token file is not configured"
-    try:
-        load_bot_token(settings.AIOS_TELEGRAM_BOT_TOKEN_FILE)
-        telegram_ready = True
-        telegram_reason = "ready"
-    except (OSError, ValueError):
-        pass
+    owner_telegram_ready = _telegram_scope_ready("owner")
+    user_telegram_ready = _telegram_scope_ready("user")
+    telegram_ready = owner_telegram_ready or user_telegram_ready
+    telegram_reason = (
+        "ready"
+        if telegram_ready
+        else "owner and user Telegram token files are not configured"
+    )
     whatsapp_ready = bool(
         settings.WHATSAPP_ACCESS_TOKEN
         and settings.WHATSAPP_PHONE_NUMBER_ID
@@ -151,8 +176,14 @@ def channel_readiness() -> list[dict[str, Any]]:
         "telegram": (
             telegram_ready,
             telegram_reason,
-            True,
-            ["delivery_receipt", "retry", "chat_endpoint"],
+            not user_telegram_ready,
+            [
+                "delivery_receipt",
+                "retry",
+                "chat_endpoint",
+                *(["owner_bot"] if owner_telegram_ready else []),
+                *(["user_bot"] if user_telegram_ready else []),
+            ],
         ),
         "whatsapp": (
             whatsapp_ready,
@@ -1090,21 +1121,26 @@ def _send_push(address: str, notification: Notification) -> str:
         raise CommunicationError(name) from exc
 
 
-async def _send_telegram(address: str, notification: Notification) -> str:
-    state = channel_state("telegram")
+async def _send_telegram(
+    address: str,
+    notification: Notification,
+    *,
+    scope: str = "owner",
+) -> str:
+    state = telegram_scope_state(scope)
     if not state["ready"]:
-        raise ProviderNotConfigured("telegram-provider-unconfigured")
+        raise ProviderNotConfigured(f"telegram-{scope}-provider-unconfigured")
     try:
         chat_id = int(address)
     except ValueError as exc:
         raise PermanentDeliveryError("telegram-chat-id-invalid") from exc
-    token = load_bot_token(settings.AIOS_TELEGRAM_BOT_TOKEN_FILE)
+    token = load_bot_token(_telegram_scope_token_file(scope))
     api = TelegramBotAPI(token)
     try:
         await api.send_message(chat_id, f"{notification.title}\n\n{notification.message}")
     finally:
         await api.close()
-    return f"telegram:{notification.id}:{chat_id}"
+    return f"telegram:{scope}:{notification.id}:{chat_id}"
 
 
 async def _send_whatsapp(
@@ -1160,6 +1196,7 @@ async def _dispatch(
     address: str,
     notification: Notification,
     *,
+    telegram_scope: str = "owner",
     whatsapp_transport: httpx.AsyncBaseTransport | None = None,
 ) -> str:
     if channel == "email":
@@ -1167,7 +1204,7 @@ async def _dispatch(
     if channel == "push":
         return await asyncio.to_thread(_send_push, address, notification)
     if channel == "telegram":
-        return await _send_telegram(address, notification)
+        return await _send_telegram(address, notification, scope=telegram_scope)
     if channel == "whatsapp":
         return await _send_whatsapp(
             address, notification, transport=whatsapp_transport
@@ -1203,7 +1240,18 @@ async def process_delivery(
         await session.commit()
         return delivery
     endpoint = await session.get(CommunicationEndpoint, delivery.endpoint_id)
-    state = channel_state(delivery.channel)
+    telegram_scope = "owner"
+    if delivery.channel == "telegram" and endpoint is not None:
+        telegram_scope = str(
+            dict(endpoint.endpoint_metadata or {}).get("bot_scope") or "owner"
+        ).strip().lower()
+        if telegram_scope not in {"owner", "user"}:
+            telegram_scope = "owner"
+    state = (
+        telegram_scope_state(telegram_scope)
+        if delivery.channel == "telegram"
+        else channel_state(delivery.channel)
+    )
     if not state["ready"]:
         delivery.status = "unconfigured"
         delivery.error_code = "provider_unconfigured"
@@ -1236,6 +1284,7 @@ async def process_delivery(
             delivery.channel,
             decrypt_address(endpoint.address_ciphertext),
             notification,
+            telegram_scope=telegram_scope,
             whatsapp_transport=whatsapp_transport,
         )
         completed = now()

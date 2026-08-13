@@ -58,6 +58,7 @@ from app.api.v1.endpoints import (
     tasks,
     teams,
     three_d_jobs,
+    user_telegram,
     users,
     websocket,
     workflows,
@@ -198,6 +199,11 @@ api_router.include_router(
     communications.router,
     prefix="/communications",
     tags=["Communications"],
+)
+api_router.include_router(
+    user_telegram.router,
+    prefix="/telegram",
+    tags=["User Telegram"],
 )
 api_router.include_router(
     incidents.router,

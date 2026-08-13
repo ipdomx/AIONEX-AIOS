@@ -649,7 +649,24 @@
     "verified": "Vérifié",
     "verificationPending": "Vérification en attente",
     "removeEndpoint": "Supprimer le point",
-    "noEndpoints": "Aucun point externe enregistré."
+    "noEndpoints": "Aucun point externe enregistré.",
+    "telegramAccount": {
+      "title": "Compte Telegram",
+      "description": "Associez Telegram à ce compte AIONEX. Les commandes disponibles sont recalculées selon le forfait et les autorisations actuels du compte.",
+      "linked": "Associé",
+      "notLinked": "Non associé",
+      "createLink": "Créer un lien à usage unique",
+      "refresh": "Actualiser le statut",
+      "unlink": "Dissocier Telegram",
+      "inactive": "Le bot utilisateur AIONEX n'est pas encore actif.",
+      "bot": "Bot : @{username}",
+      "oneTimeCode": "Code à usage unique",
+      "expires": "Expire dans 5 minutes et ne peut être utilisé qu’une seule fois.",
+      "openTelegram": "Ouvrir Telegram",
+      "loadError": "Impossible de charger le statut Telegram.",
+      "createError": "Impossible de créer le lien Telegram.",
+      "unlinkError": "Impossible de dissocier Telegram."
+    }
   },
   "support": {
     "eyebrow": "Assistance durable",
