@@ -36,3 +36,9 @@ def test_entitled_security_lab_user_routes_are_public_channel_allowlisted() -> N
     assert "security-lab(?:/.*)?" in public_server
     assert "owner/security-lab" not in public_server
     assert "X-AIOS-Auth-Channel public" in public_server
+
+
+def test_user_telegram_linking_routes_are_public_channel_allowlisted() -> None:
+    public_server = NGINX.split("# Public user portal origin.", 1)[0]
+    assert "telegram/(?:status|link-challenge|link)" in public_server
+    assert "X-AIOS-Auth-Channel public" in public_server
