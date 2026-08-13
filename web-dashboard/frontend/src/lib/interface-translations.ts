@@ -3,6 +3,13 @@ import type { SupportedLocale } from "@/lib/locale-engine";
 type Catalog = Record<string, string>;
 
 const AR: Catalog = {
+  "Permanently ban this user? Existing sessions will be revoked and every known durable identity signal will be blocked from re-registration until the Super Owner restores the account.":
+    "هل تريد حظر هذا المستخدم نهائيًا؟ سيتم إبطال جميع الجلسات الحالية وحظر كل إشارات الهوية الدائمة المعروفة من إعادة التسجيل حتى يقوم المالك الأعلى باستعادة الحساب.",
+  "Authenticated create, update, suspend, ban, restore and delete requests for owner-managed records. No local-only success is reported when the backend contract is unavailable.":
+    "طلبات موثقة لإنشاء السجلات التي يديرها المالك وتحديثها وتعليقها وحظرها واستعادتها وحذفها. لن يتم عرض نجاح محلي فقط إذا كان عقد الخادم الخلفي غير متاح.",
+  "Ban reason": "سبب الحظر",
+  "Optional audit reason for this permanent account ban":
+    "سبب اختياري للتدقيق لهذا الحظر الدائم للحساب",
   "Suspend conversation": "تعليق المحادثة",
   "Cancel conversation": "إلغاء المحادثة",
   "Delete conversation": "حذف المحادثة",
