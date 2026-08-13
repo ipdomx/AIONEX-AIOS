@@ -3,6 +3,27 @@ import type { SupportedLocale } from "@/lib/locale-engine";
 type Catalog = Record<string, string>;
 
 const AR: Catalog = {
+  "Owner Telegram command lock": "قفل أوامر تيليجرام للمالك",
+  "Second-factor authentication is required.": "المصادقة بعامل ثانٍ مطلوبة.",
+  "Generating one-time code…": "جارٍ إنشاء رمز مؤقت…",
+  "One-time code created.": "تم إنشاء رمز مؤقت.",
+  "Owner Telegram commands require a second-factor session.":
+    "تتطلب أوامر تيليجرام الخاصة بالمالك جلسة مصادقة بعامل ثانٍ.",
+  "Generating a protected one-time Telegram code…":
+    "جارٍ إنشاء رمز تيليجرام مؤقت ومحمي…",
+  "One-time code created. Send /auth CODE to the private Owner bot within 5 minutes.":
+    "تم إنشاء رمز مؤقت. أرسل /auth CODE إلى بوت المالك الخاص خلال 5 دقائق.",
+  "Unable to create the Telegram authentication code.":
+    "تعذر إنشاء رمز مصادقة تيليجرام.",
+  "Revoking the Owner Telegram command session…":
+    "جارٍ إلغاء جلسة أوامر تيليجرام الخاصة بالمالك…",
+  "Owner Telegram command session revoked.":
+    "تم إلغاء جلسة أوامر تيليجرام الخاصة بالمالك.",
+  "Unable to revoke the Telegram command session.":
+    "تعذر إلغاء جلسة أوامر تيليجرام.",
+  "Command session active": "جلسة الأوامر نشطة",
+  "Command session locked": "جلسة الأوامر مقفلة",
+  "One-time authentication": "مصادقة لمرة واحدة",
   "Permanently ban this user? Existing sessions will be revoked and every known durable identity signal will be blocked from re-registration until the Super Owner restores the account.":
     "هل تريد حظر هذا المستخدم نهائيًا؟ سيتم إبطال جميع الجلسات الحالية وحظر كل إشارات الهوية الدائمة المعروفة من إعادة التسجيل حتى يقوم المالك الأعلى باستعادة الحساب.",
   "Authenticated create, update, suspend, ban, restore and delete requests for owner-managed records. No local-only success is reported when the backend contract is unavailable.":

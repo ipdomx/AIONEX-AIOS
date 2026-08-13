@@ -26,6 +26,7 @@ from app.db.models import (
     ProjectExecution,
     uuid_str,
 )
+from app.services import owner_telegram_auth
 from sqlalchemy import func, select
 
 logger = get_logger(__name__)
@@ -148,32 +149,103 @@ class TelegramOperationsWorker:
     async def _handle(self, message: TelegramInboundMessage) -> None:
         command = _command_name(message.text)
         if message.chat_type != "private":
-            await self.api.send_message(message.chat_id, "استخدم بوت AIONEX داخل محادثة خاصة فقط.")
+            await self.api.send_message(message.chat_id, "هذا البوت يعمل داخل محادثة خاصة فقط.")
             await self._audit(message, command, "rejected", "non-private-chat")
             return
 
-        if command == "whoami":
-            await self.api.send_message(message.chat_id, f"Telegram user ID: {message.user_id}")
+        if message.user_id not in self.allowed_users:
+            await self.api.send_message(message.chat_id, "غير مصرح لك باستخدام هذا البوت.")
+            await self._audit(message, command, "rejected", "not-allowlisted")
+            return
+
+        if command == "auth":
+            arguments = _command_arguments(message.text)
+            if len(arguments) != 1 or not arguments[0].isdigit():
+                await self.api.send_message(
+                    message.chat_id,
+                    "استخدم /auth متبوعًا بالكود المؤقت الصادر من لوحة المالك.",
+                )
+                await self._audit(message, command, "rejected", "invalid-auth-format")
+                return
+            async with SessionLocal() as session:
+                try:
+                    result = await owner_telegram_auth.authenticate(
+                        session,
+                        telegram_user_id=message.user_id,
+                        chat_id=message.chat_id,
+                        code=arguments[0],
+                    )
+                    await session.commit()
+                except owner_telegram_auth.TelegramOwnerAuthError as exc:
+                    # Failed attempts and lockouts are security evidence and must
+                    # persist even though authentication itself was rejected.
+                    await session.commit()
+                    if exc.code == "locked":
+                        reply = "تم قفل محاولات المصادقة مؤقتًا. حاول لاحقًا."
+                    else:
+                        reply = "رمز المصادقة غير صالح أو انتهت صلاحيته."
+                    await self.api.send_message(message.chat_id, reply)
+                    await self._audit(message, command, "rejected", exc.code)
+                    return
+            minutes = max(1, int(result["expires_in_seconds"]) // 60)
+            await self.api.send_message(
+                message.chat_id,
+                f"تم فتح جلسة أوامر المالك لمدة {minutes} دقيقة.",
+            )
             await self._audit(message, command, "completed", None)
             return
 
-        if message.user_id not in self.allowed_users:
+        async with SessionLocal() as session:
+            try:
+                await owner_telegram_auth.require_active_session(
+                    session,
+                    telegram_user_id=message.user_id,
+                    chat_id=message.chat_id,
+                )
+                authenticated = True
+            except owner_telegram_auth.TelegramOwnerAuthError:
+                authenticated = False
+
+        if command in {"start", "help", ""} and not authenticated:
             await self.api.send_message(
                 message.chat_id,
-                "غير مصرح لك باستخدام أوامر AIOS. استخدم /whoami لمعرفة رقم حسابك.",
+                "بوت المالك مقفل. أنشئ رمزًا مؤقتًا من Owner Communications "
+                "ثم أرسل /auth CODE خلال 5 دقائق.",
             )
-            await self._audit(message, command, "rejected", "not-allowlisted")
+            await self._audit(message, command, "rejected", "second-factor-required")
+            return
+
+        if not authenticated:
+            await self.api.send_message(
+                message.chat_id,
+                "جلسة المالك مقفلة. استخدم رمز المصادقة المؤقت من لوحة المالك.",
+            )
+            await self._audit(message, command, "rejected", "second-factor-required")
+            return
+
+        if command == "logout":
+            async with SessionLocal() as session:
+                await owner_telegram_auth.revoke_telegram_session(
+                    session,
+                    telegram_user_id=message.user_id,
+                )
+                await session.commit()
+            await self.api.send_message(message.chat_id, "تم قفل جلسة أوامر المالك.")
+            await self._audit(message, command, "completed", None)
             return
 
         try:
             if command in {"start", "help", ""}:
                 reply = (
-                    "AIONEX AIOS\n"
+                    "AIONEX AIOS — جلسة المالك موثقة\n"
                     "/status — حالة المشروعات والتنفيذ\n"
                     "/projects — أحدث المشروعات\n"
                     "/executions — أحدث دورات التنفيذ\n"
-                    "/whoami — رقم حساب Telegram"
+                    "/whoami — رقم حساب Telegram\n"
+                    "/logout — قفل جلسة أوامر المالك"
                 )
+            elif command == "whoami":
+                reply = f"Telegram user ID: {message.user_id}"
             elif command == "status":
                 reply = await self._status()
             elif command == "projects":
@@ -389,6 +461,11 @@ def _command_name(text: str) -> str:
     if not first.startswith("/"):
         return ""
     return first[1:].split("@", 1)[0].lower()
+
+
+def _command_arguments(text: str) -> tuple[str, ...]:
+    parts = text.strip().split()
+    return tuple(parts[1:]) if len(parts) > 1 else ()
 
 
 def healthcheck(path: str | Path, *, maximum_age_seconds: float = 120.0) -> int:

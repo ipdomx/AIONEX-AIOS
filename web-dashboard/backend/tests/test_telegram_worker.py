@@ -118,7 +118,7 @@ class _FakeTelegramAPI:
 
 
 @pytest.mark.asyncio
-async def test_worker_exposes_whoami_but_rejects_unlisted_operations(monkeypatch) -> None:
+async def test_worker_hides_identity_and_operations_from_unlisted_users(monkeypatch) -> None:
     from app.core.config import settings
     from app.services.telegram_worker import TelegramInboundMessage, TelegramOperationsWorker
 
@@ -134,19 +134,46 @@ async def test_worker_exposes_whoami_but_rejects_unlisted_operations(monkeypatch
     await worker._handle(TelegramInboundMessage(1, 1001, 1001, "private", "/whoami"))
     await worker._handle(TelegramInboundMessage(2, 1001, 1001, "private", "/status"))
 
-    assert api.messages[0] == (1001, "Telegram user ID: 1001")
+    assert "غير مصرح" in api.messages[0][1]
     assert "غير مصرح" in api.messages[1][1]
-    assert audits == [("whoami", "completed"), ("status", "rejected")]
+    assert "1001" not in api.messages[0][1]
+    assert audits == [("whoami", "rejected"), ("status", "rejected")]
 
 
 @pytest.mark.asyncio
-async def test_allowlisted_status_command_uses_safe_handler(monkeypatch) -> None:
+async def test_allowlisted_status_requires_second_factor_session(monkeypatch) -> None:
     from app.core.config import settings
+    from app.services import owner_telegram_auth
     from app.services.telegram_worker import TelegramInboundMessage, TelegramOperationsWorker
 
     monkeypatch.setattr(settings, "AIOS_TELEGRAM_ALLOWED_USERS", [1001])
     api = _FakeTelegramAPI()
     worker = TelegramOperationsWorker(api)  # type: ignore[arg-type]
+
+    async def no_session(session, *, telegram_user_id, chat_id):
+        raise owner_telegram_auth.TelegramOwnerAuthError("session_required")
+
+    async def fake_audit(message, command, status, reason):
+        return None
+
+    monkeypatch.setattr(owner_telegram_auth, "require_active_session", no_session)
+    monkeypatch.setattr(worker, "_audit", fake_audit)
+    await worker._handle(TelegramInboundMessage(3, 1001, 1001, "private", "/status"))
+    assert "جلسة المالك مقفلة" in api.messages[0][1]
+
+
+@pytest.mark.asyncio
+async def test_allowlisted_authenticated_status_command_uses_safe_handler(monkeypatch) -> None:
+    from app.core.config import settings
+    from app.services import owner_telegram_auth
+    from app.services.telegram_worker import TelegramInboundMessage, TelegramOperationsWorker
+
+    monkeypatch.setattr(settings, "AIOS_TELEGRAM_ALLOWED_USERS", [1001])
+    api = _FakeTelegramAPI()
+    worker = TelegramOperationsWorker(api)  # type: ignore[arg-type]
+
+    async def active_session(session, *, telegram_user_id, chat_id):
+        return "owner-1"
 
     async def fake_status() -> str:
         return "safe-status"
@@ -154,7 +181,35 @@ async def test_allowlisted_status_command_uses_safe_handler(monkeypatch) -> None
     async def fake_audit(message, command, status, reason):
         return None
 
+    monkeypatch.setattr(owner_telegram_auth, "require_active_session", active_session)
     monkeypatch.setattr(worker, "_status", fake_status)
     monkeypatch.setattr(worker, "_audit", fake_audit)
-    await worker._handle(TelegramInboundMessage(3, 1001, 1001, "private", "/status"))
+    await worker._handle(TelegramInboundMessage(4, 1001, 1001, "private", "/status"))
     assert api.messages == [(1001, "safe-status")]
+
+
+@pytest.mark.asyncio
+async def test_allowlisted_auth_command_opens_short_lived_session(monkeypatch) -> None:
+    from app.core.config import settings
+    from app.services import owner_telegram_auth
+    from app.services.telegram_worker import TelegramInboundMessage, TelegramOperationsWorker
+
+    monkeypatch.setattr(settings, "AIOS_TELEGRAM_ALLOWED_USERS", [1001])
+    api = _FakeTelegramAPI()
+    worker = TelegramOperationsWorker(api)  # type: ignore[arg-type]
+    seen: list[tuple[int, int, str]] = []
+
+    async def authenticate(session, *, telegram_user_id, chat_id, code):
+        seen.append((telegram_user_id, chat_id, code))
+        return {"expires_in_seconds": 1800, "expires_at": "2099-01-01T00:00:00+00:00"}
+
+    async def fake_audit(message, command, status, reason):
+        return None
+
+    monkeypatch.setattr(owner_telegram_auth, "authenticate", authenticate)
+    monkeypatch.setattr(worker, "_audit", fake_audit)
+    await worker._handle(
+        TelegramInboundMessage(5, 1001, 1001, "private", "/auth 1234567890")
+    )
+    assert seen == [(1001, 1001, "1234567890")]
+    assert "30" in api.messages[0][1]

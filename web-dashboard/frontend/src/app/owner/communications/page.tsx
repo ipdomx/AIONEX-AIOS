@@ -8,6 +8,8 @@ import {
   Clock3,
   Mail,
   MessageCircle,
+  KeyRound,
+  LockKeyhole,
   RefreshCw,
   RotateCcw,
   Send,
@@ -20,11 +22,15 @@ import { useOwnerResource } from "@/hooks/use-owner-resource";
 import {
   fetchCommunicationDeliveries,
   fetchCommunicationOverview,
+  fetchOwnerTelegramSecurity,
+  createOwnerTelegramChallenge,
+  revokeOwnerTelegramSession,
   fetchOwnerSupportTickets,
   retryCommunicationDelivery,
   updateOwnerSupportTicket,
   type CommunicationDelivery,
   type CommunicationOverview,
+  type OwnerTelegramSecurity,
   type SupportTicket,
 } from "@/lib/owner-communications";
 
@@ -84,6 +90,13 @@ export default function OwnerCommunicationsPage() {
   const [overview, setOverview] = useState<CommunicationOverview | null>(null);
   const [deliveries, setDeliveries] = useState<CommunicationDelivery[]>([]);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [telegramSecurity, setTelegramSecurity] =
+    useState<OwnerTelegramSecurity | null>(null);
+  const [telegramCode, setTelegramCode] = useState<string | null>(null);
+  const [telegramBusy, setTelegramBusy] = useState(false);
+  const [telegramMessage, setTelegramMessage] = useState(
+    "Second-factor authentication is required.",
+  );
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState(
@@ -93,14 +106,17 @@ export default function OwnerCommunicationsPage() {
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     try {
-      const [nextOverview, nextDeliveries, nextTickets] = await Promise.all([
-        fetchCommunicationOverview(signal),
-        fetchCommunicationDeliveries(signal),
-        fetchOwnerSupportTickets(signal),
-      ]);
+      const [nextOverview, nextDeliveries, nextTickets, nextTelegramSecurity] =
+        await Promise.all([
+          fetchCommunicationOverview(signal),
+          fetchCommunicationDeliveries(signal),
+          fetchOwnerSupportTickets(signal),
+          fetchOwnerTelegramSecurity(signal),
+        ]);
       setOverview(nextOverview);
       setDeliveries(nextDeliveries);
       setTickets(nextTickets);
+      setTelegramSecurity(nextTelegramSecurity);
       setMessage(
         "Communication queues, receipts, and support records synchronized.",
       );
@@ -162,6 +178,49 @@ export default function OwnerCommunicationsPage() {
       );
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function generateTelegramCode() {
+    if (telegramBusy) return;
+    setTelegramBusy(true);
+    setTelegramCode(null);
+    setTelegramMessage("Generating one-time code…");
+    try {
+      const challenge = await createOwnerTelegramChallenge();
+      setTelegramCode(challenge.code);
+      setTelegramSecurity(await fetchOwnerTelegramSecurity());
+      setTelegramMessage("One-time code created.");
+    } catch (error) {
+      setTelegramMessage(
+        error instanceof Error
+          ? error.message
+          : "Communication evidence could not be loaded.",
+      );
+    } finally {
+      setTelegramBusy(false);
+    }
+  }
+
+  async function revokeTelegramSession() {
+    if (telegramBusy) return;
+    setTelegramBusy(true);
+    setTelegramCode(null);
+    setTelegramMessage("Loading durable communication evidence…");
+    try {
+      await revokeOwnerTelegramSession();
+      setTelegramSecurity(await fetchOwnerTelegramSecurity());
+      setTelegramMessage(
+        "Communication queues, receipts, and support records synchronized.",
+      );
+    } catch (error) {
+      setTelegramMessage(
+        error instanceof Error
+          ? error.message
+          : "Communication evidence could not be loaded.",
+      );
+    } finally {
+      setTelegramBusy(false);
     }
   }
 
@@ -235,6 +294,82 @@ export default function OwnerCommunicationsPage() {
       <div className="rounded-xl border border-electric-500/20 bg-electric-500/10 px-4 py-3 text-sm text-electric-300">
         {message || channelMessage}
       </div>
+
+      <section className="glass-card p-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="flex gap-3">
+            <div className="rounded-xl border border-electric-500/20 bg-electric-500/10 p-3">
+              <LockKeyhole className="h-5 w-5 text-electric-300" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-white">
+                Owner Telegram command lock
+              </h2>
+              <p className="mt-1 max-w-3xl text-xs leading-relaxed text-white/40">
+                Owner Telegram commands require a second-factor session.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <span
+              className={`rounded-full border px-3 py-1 text-xs ${
+                telegramSecurity?.session_active
+                  ? "border-green-500/20 bg-green-500/10 text-green-300"
+                  : "border-white/10 bg-white/[0.04] text-white/55"
+              }`}
+            >
+              {telegramSecurity?.session_active
+                ? "Command session active"
+                : "Command session locked"}
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_auto_auto] lg:items-end">
+          <div className="rounded-xl border border-white/[0.06] bg-black/15 p-4">
+            <div className="text-[10px] uppercase tracking-wider text-white/30">
+              One-time authentication
+            </div>
+            {telegramCode ? (
+              <div className="mt-2">
+                <div className="font-mono text-2xl font-semibold tracking-[0.25em] text-electric-300">
+                  {telegramCode}
+                </div>
+                <p className="mt-2 text-xs text-white/40">
+                  One-time code created. Send /auth CODE to the private Owner
+                  bot within 5 minutes.
+                </p>
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-white/40">{telegramMessage}</p>
+            )}
+            {telegramSecurity?.session_expires_at ? (
+              <p className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-white/30">
+                <Clock3 className="h-3 w-3" />
+                {dateValue(telegramSecurity.session_expires_at)}
+              </p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            disabled={telegramBusy}
+            onClick={() => void generateTelegramCode()}
+            className="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <KeyRound className="h-4 w-4" />
+            Create
+          </button>
+          <button
+            type="button"
+            disabled={telegramBusy || !telegramSecurity?.session_active}
+            onClick={() => void revokeTelegramSession()}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs text-red-300 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <LockKeyhole className="h-4 w-4" />
+            Revoke
+          </button>
+        </div>
+      </section>
 
       <section>
         <h2 className="mb-3 text-sm font-semibold text-white">
