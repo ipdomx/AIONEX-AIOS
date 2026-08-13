@@ -649,7 +649,24 @@
     "verified": "Doğrulandı",
     "verificationPending": "Doğrulama bekleniyor",
     "removeEndpoint": "Ucu kaldır",
-    "noEndpoints": "Henüz harici uç kaydedilmedi."
+    "noEndpoints": "Henüz harici uç kaydedilmedi.",
+    "telegramAccount": {
+      "title": "Telegram hesabı",
+      "description": "Telegram’ı bu AIONEX hesabına bağlayın. Kullanılabilir bot komutları hesabın güncel planı ve izinlerine göre yeniden hesaplanır.",
+      "linked": "Bağlı",
+      "notLinked": "Bağlı değil",
+      "createLink": "Tek kullanımlık bağlantı oluştur",
+      "refresh": "Durumu yenile",
+      "unlink": "Telegram bağlantısını kaldır",
+      "inactive": "AIONEX kullanıcı botu henüz etkin değil.",
+      "bot": "Bot: @{username}",
+      "oneTimeCode": "Tek kullanımlık kod",
+      "expires": "5 dakika içinde sona erer ve yalnızca bir kez kullanılabilir.",
+      "openTelegram": "Telegram’ı aç",
+      "loadError": "Telegram durumu yüklenemedi.",
+      "createError": "Telegram bağlantısı oluşturulamadı.",
+      "unlinkError": "Telegram bağlantısı kaldırılamadı."
+    }
   },
   "support": {
     "eyebrow": "Kalıcı destek",

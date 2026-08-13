@@ -860,6 +860,25 @@ export interface CommunicationEndpoint {
   updated_at: string;
 }
 
+
+export interface UserTelegramStatus {
+  configured: boolean;
+  linked: boolean;
+  bot_username: string | null;
+  telegram_username: string | null;
+  linked_at: string | null;
+  link_current: boolean;
+  challenge_active: boolean;
+  challenge_expires_at: string | null;
+}
+
+export interface UserTelegramChallenge {
+  code: string;
+  expires_at: string;
+  expires_in_seconds: number;
+  bot_username: string | null;
+  deep_link: string | null;
+}
 export interface NotificationPreference {
   id: string;
   category: string;

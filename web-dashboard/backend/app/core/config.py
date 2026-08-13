@@ -170,6 +170,20 @@ class Settings(BaseSettings):
         default="/tmp/aionex-telegram-worker-health.json",
         validation_alias="AIOS_TELEGRAM_HEALTH_FILE",
     )
+    AIOS_USER_TELEGRAM_BOT_TOKEN_FILE: str = Field(
+        default="/run/secrets/aionex/user-telegram-bot-token",
+        validation_alias="AIOS_USER_TELEGRAM_BOT_TOKEN_FILE",
+    )
+    AIOS_USER_TELEGRAM_LONG_POLL_SECONDS: int = Field(
+        default=25,
+        ge=5,
+        le=50,
+        validation_alias="AIOS_USER_TELEGRAM_LONG_POLL_SECONDS",
+    )
+    AIOS_USER_TELEGRAM_HEALTH_FILE: str = Field(
+        default="/tmp/aionex-user-telegram-worker-health.json",
+        validation_alias="AIOS_USER_TELEGRAM_HEALTH_FILE",
+    )
     COMMUNICATION_WORKER_POLL_SECONDS: int = Field(
         default=2,
         ge=1,

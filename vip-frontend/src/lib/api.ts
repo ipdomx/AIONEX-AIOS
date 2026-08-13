@@ -26,6 +26,8 @@ import type {
   PortalNotification,
   SupportTicket,
   SupportTicketMessage,
+  UserTelegramChallenge,
+  UserTelegramStatus,
   SecurityFindingRecord,
   SecurityLabAccess,
   SecurityRemediationRecord,
@@ -231,7 +233,7 @@ async function refreshSession(): Promise<LoginResponse> {
   return refreshInFlight;
 }
 
-async function request<T>(
+export async function request<T>(
   path: string,
   { auth = true, retry = true, ...init }: ApiRequestOptions = {},
 ): Promise<T> {
@@ -278,7 +280,7 @@ async function downloadRequest(
   };
 }
 
-function jsonRequest<T>(
+export function jsonRequest<T>(
   path: string,
   method: "POST" | "PATCH" | "PUT" | "DELETE",
   body?: unknown,
@@ -1030,4 +1032,16 @@ export function collectRegistrationTelemetry(): RegistrationTelemetry {
     vendor: navigator.vendor,
     webdriver: extendedNavigator.webdriver,
   };
+}
+
+export function getUserTelegramStatus(): Promise<UserTelegramStatus> {
+  return request<UserTelegramStatus>("/telegram/status");
+}
+
+export function createUserTelegramLinkChallenge(): Promise<UserTelegramChallenge> {
+  return jsonRequest<UserTelegramChallenge>("/telegram/link-challenge", "POST", {});
+}
+
+export function revokeUserTelegramLink(): Promise<{ revoked: boolean }> {
+  return request<{ revoked: boolean }>("/telegram/link", { method: "DELETE" });
 }

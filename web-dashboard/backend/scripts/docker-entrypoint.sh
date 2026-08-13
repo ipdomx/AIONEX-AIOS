@@ -91,12 +91,10 @@ if [ "$(id -u)" = "0" ]; then
         fi
     fi
 
-
     security_remediation_root="${SECURITY_REMEDIATION_ROOT:-}"
     if [ -n "$security_remediation_root" ]; then
         install -d -m 0700 -o aionex -g aionex "$security_remediation_root"
     fi
-
 
     telegram_token_source="${AIOS_TELEGRAM_BOT_TOKEN_FILE:-}"
     if [ -n "$telegram_token_source" ] && [ -f "$telegram_token_source" ]; then
@@ -110,6 +108,20 @@ if [ "$(id -u)" = "0" ]; then
             chmod 0400 "$telegram_token_runtime"
         fi
         export AIOS_TELEGRAM_BOT_TOKEN_FILE="$telegram_token_runtime"
+    fi
+
+    user_telegram_token_source="${AIOS_USER_TELEGRAM_BOT_TOKEN_FILE:-}"
+    if [ -n "$user_telegram_token_source" ] && [ -f "$user_telegram_token_source" ]; then
+        runtime_dir=/run/aionex
+        user_telegram_token_runtime="$runtime_dir/user-telegram-bot-token"
+        install -d -m 0700 -o aionex -g aionex "$runtime_dir"
+        if [ "$user_telegram_token_source" != "$user_telegram_token_runtime" ]; then
+            install -m 0400 -o aionex -g aionex "$user_telegram_token_source" "$user_telegram_token_runtime"
+        else
+            chown aionex:aionex "$user_telegram_token_runtime"
+            chmod 0400 "$user_telegram_token_runtime"
+        fi
+        export AIOS_USER_TELEGRAM_BOT_TOKEN_FILE="$user_telegram_token_runtime"
     fi
 
     exec su-exec aionex "$@"

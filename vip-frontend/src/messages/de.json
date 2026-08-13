@@ -649,7 +649,24 @@
     "verified": "Verifiziert",
     "verificationPending": "Prüfung ausstehend",
     "removeEndpoint": "Ziel entfernen",
-    "noEndpoints": "Noch keine externen Ziele registriert."
+    "noEndpoints": "Noch keine externen Ziele registriert.",
+    "telegramAccount": {
+      "title": "Telegram-Konto",
+      "description": "Verknüpfen Sie Telegram mit diesem AIONEX-Konto. Verfügbare Befehle werden anhand des aktuellen Tarifs und der aktuellen Berechtigungen neu bestimmt.",
+      "linked": "Verknüpft",
+      "notLinked": "Nicht verknüpft",
+      "createLink": "Einmal-Link erstellen",
+      "refresh": "Status aktualisieren",
+      "unlink": "Telegram trennen",
+      "inactive": "Der AIONEX-Benutzerbot ist noch nicht aktiv.",
+      "bot": "Bot: @{username}",
+      "oneTimeCode": "Einmalcode",
+      "expires": "Läuft in 5 Minuten ab und kann nur einmal verwendet werden.",
+      "openTelegram": "Telegram öffnen",
+      "loadError": "Telegram-Status konnte nicht geladen werden.",
+      "createError": "Telegram-Verknüpfung konnte nicht erstellt werden.",
+      "unlinkError": "Telegram konnte nicht getrennt werden."
+    }
   },
   "support": {
     "eyebrow": "Dauerhafter Support",

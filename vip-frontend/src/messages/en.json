@@ -649,7 +649,24 @@
     "verified": "Verified",
     "verificationPending": "Verification pending",
     "removeEndpoint": "Remove endpoint",
-    "noEndpoints": "No external endpoints are registered yet."
+    "noEndpoints": "No external endpoints are registered yet.",
+    "telegramAccount": {
+      "title": "Telegram account",
+      "description": "Link Telegram to this AIONEX account. Available bot commands are recalculated from the account's current plan and permissions.",
+      "linked": "Linked",
+      "notLinked": "Not linked",
+      "createLink": "Create one-time link",
+      "refresh": "Refresh status",
+      "unlink": "Unlink Telegram",
+      "inactive": "The AIONEX user bot is not active yet.",
+      "bot": "Bot: @{username}",
+      "oneTimeCode": "One-time code",
+      "expires": "Expires in 5 minutes and can be used once.",
+      "openTelegram": "Open Telegram",
+      "loadError": "Unable to load Telegram status.",
+      "createError": "Unable to create the Telegram link.",
+      "unlinkError": "Unable to unlink Telegram."
+    }
   },
   "support": {
     "eyebrow": "Durable support",

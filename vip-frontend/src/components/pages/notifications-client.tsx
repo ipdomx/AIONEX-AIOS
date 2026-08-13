@@ -19,6 +19,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusMessage } from "@/components/ui/status-message";
+import { TelegramAccountLink } from "@/components/pages/telegram-account-link";
 import { useAuth } from "@/hooks/use-auth";
 import {
   deleteCommunicationEndpoint,
@@ -50,7 +51,6 @@ const channelIcons = {
 const externalChannels: Array<CommunicationEndpoint["channel"]> = [
   "email",
   "push",
-  "telegram",
   "whatsapp",
 ];
 
@@ -410,7 +410,7 @@ export function NotificationsClient() {
               <CardContent>
                 <h2 className="text-xl font-semibold">{t("channelReadiness")}</h2>
                 <div className="mt-5 space-y-3">
-                  {channels.map((channel) => {
+                  {channels.filter((channel) => !channel.owner_only).map((channel) => {
                     const Icon = channelIcons[channel.id];
                     return (
                       <div
@@ -447,7 +447,7 @@ export function NotificationsClient() {
                 <CardContent>
                   <h2 className="text-xl font-semibold">{t("preferences")}</h2>
                   <div className="mt-5 space-y-3">
-                    {channels.map((channel) => (
+                    {channels.filter((channel) => !channel.owner_only).map((channel) => (
                       <label
                         key={channel.id}
                         className="flex items-center justify-between gap-4 rounded-xl border border-white/[0.07] px-4 py-3 text-sm"
@@ -495,6 +495,9 @@ export function NotificationsClient() {
           </div>
         </div>
 
+        <div className="mt-6">
+          <TelegramAccountLink />
+        </div>
         <Card className="mt-6">
           <CardContent>
             <div className="grid gap-6 lg:grid-cols-[.7fr_1.3fr]">

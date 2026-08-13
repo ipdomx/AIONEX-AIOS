@@ -75,10 +75,12 @@ services:
       PYTHONPATH: /workspace/src:/app
       THREE_D_RUNPOD_SECRET_FILE: /run/secrets/aionex/RUNPOD_GPU.env
       AIOS_TELEGRAM_BOT_TOKEN_FILE: /run/operator-secrets/telegram-bot-token
+      AIOS_USER_TELEGRAM_BOT_TOKEN_FILE: /run/operator-secrets/user-telegram-bot-token
     volumes:
       - ..:/workspace:ro
       - ./secrets:/run/secrets/aionex:ro
       - ${AIOS_TELEGRAM_BOT_TOKEN_HOST_FILE:-/root/.config/aionex/telegram/bot-token}:/run/operator-secrets/telegram-bot-token:ro
+      - ${AIOS_USER_TELEGRAM_BOT_TOKEN_HOST_FILE:-/root/.config/aionex/telegram/user-bot-token}:/run/operator-secrets/user-telegram-bot-token:ro
       - backup_data:/var/lib/aionex/backups:ro
       - portal_asset_data:/var/lib/aionex/portal-assets:rw
       - project_execution_data:/var/lib/aionex/project-executions:rw
@@ -170,12 +172,14 @@ services:
       REDIS_URL: redis://redis:6379/0
       FIREBASE_ADMIN_CREDENTIALS_JSON: /run/secrets/aionex/firebase-admin.json
       AIOS_TELEGRAM_BOT_TOKEN_FILE: /run/operator-secrets/telegram-bot-token
+      AIOS_USER_TELEGRAM_BOT_TOKEN_FILE: /run/operator-secrets/user-telegram-bot-token
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
     volumes:
       - ..:/workspace:ro
       - ./secrets:/run/secrets/aionex:ro
       - ${AIOS_TELEGRAM_BOT_TOKEN_HOST_FILE:-/root/.config/aionex/telegram/bot-token}:/run/operator-secrets/telegram-bot-token:ro
+      - ${AIOS_USER_TELEGRAM_BOT_TOKEN_HOST_FILE:-/root/.config/aionex/telegram/user-bot-token}:/run/operator-secrets/user-telegram-bot-token:ro
     depends_on:
       backend: {condition: service_healthy}
     healthcheck:
@@ -350,6 +354,39 @@ services:
       backend: {condition: service_healthy}
     healthcheck:
       test: ["CMD", "python", "-m", "app.services.telegram_worker", "--healthcheck"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 45s
+    security_opt: ["no-new-privileges:true"]
+    networks: [aionex-network]
+
+  user-telegram-worker:
+    profiles: ["telegram-user"]
+    image: aionex-aios-backend:local
+    restart: unless-stopped
+    mem_limit: 1g
+    cpus: "1.0"
+    pids_limit: 256
+    stop_grace_period: 45s
+    command: ["python", "-m", "app.services.user_telegram_worker"]
+    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      REDIS_URL: redis://redis:6379/0
+      AIOS_REPO_ROOT: /workspace
+      PYTHONPATH: /workspace/src:/app
+      AIOS_USER_TELEGRAM_BOT_TOKEN_FILE: /run/operator-secrets/user-telegram-bot-token
+    volumes:
+      - ..:/workspace:ro
+      - ${AIOS_USER_TELEGRAM_BOT_TOKEN_HOST_FILE:-/root/.config/aionex/telegram/user-bot-token}:/run/operator-secrets/user-telegram-bot-token:ro
+    depends_on:
+      backend: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.services.user_telegram_worker", "--healthcheck"]
       interval: 30s
       timeout: 15s
       retries: 3
