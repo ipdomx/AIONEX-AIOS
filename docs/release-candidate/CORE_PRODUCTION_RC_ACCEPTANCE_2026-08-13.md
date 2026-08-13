@@ -1,0 +1,121 @@
+# AIONEX AIOS — Core Production Release Candidate Acceptance — 2026-08-13
+
+Status: **RC_GO**
+
+The core AIONEX AIOS production platform completed a live Release Candidate acceptance against the deployed production stack. No new product feature, payment expansion, Azure quota workaround, or AWS quota workaround was introduced during this acceptance.
+
+## Production baseline
+
+- Production `main` was clean and synchronized with `origin/main` before acceptance.
+- Public site `https://vip-e.net` returned HTTP 200.
+- VIP portal `https://ai.vip-e.net` returned HTTP 200.
+- Private Owner hostname remained behind Cloudflare Access and returned the expected redirect boundary.
+- Backend, PostgreSQL, Redis, Nginx, Portal, Frontend, project worker, communications worker, backup worker, operations observer, security workers, Telegram worker, 3D worker, and private Ollama runtime were running; health-managed services were healthy.
+- The live Production Runtime API reported `completion=100` with database, Redis, backend, runtime-components, and operations all `ready`.
+
+## Tenant and public-channel lifecycle acceptance
+
+A synthetic non-Super-Owner E2E identity was exercised through the public API boundary.
+
+- Public authenticated identity endpoint: HTTP 200.
+- Same non-Super-Owner identity against the private control channel: HTTP 403.
+- Owner-only runtime surface through the public channel: HTTP 404.
+- Workspace creation: HTTP 201.
+- Project creation: HTTP 201.
+- Provider-neutral project execution: HTTP 202, then durable completion at 100% progress with review stage and no execution error.
+- Refresh flow: HTTP 200.
+- Project and workspace cleanup: HTTP 200.
+- Durable audit evidence included workspace creation, project creation, provider-neutral completion, project deletion, and workspace deletion.
+
+The real free-tier boundary was separately validated with a temporary synthetic tenant and then removed completely:
+
+- Free-tier status exposed a one-project limit.
+- Free-account workspace mutation was denied with HTTP 403.
+- First project creation succeeded with HTTP 201.
+- Second project creation was denied at the free limit with HTTP 429.
+- Billing/usage visibility returned HTTP 200.
+- The synthetic free tenant and its temporary project were removed after acceptance.
+
+## AI execution and routing acceptance
+
+Live provider execution was used; no provider success was simulated.
+
+- Core `AIRoutingLayer` selected Groq as the direct route and returned `RC_DIRECT_OK` with approximately 278 ms provider latency.
+- A bounded acceptance harness forced the selected Groq route to fail without changing the durable provider record. The routing layer then failed over to the private Ollama runtime and returned `RC_FALLBACK_OK`; two routes were executed and the failed primary was recorded as failed.
+- Durable AIOS Groq agent execution completed with `RC_DURABLE_GROQ_OK`, 64 tokens, and approximately 216 ms latency.
+- Durable AIOS Ollama execution completed with `RC_DURABLE_OLLAMA_OK`, 52 tokens, and approximately 6.2 s latency on CPU.
+- Temporary acceptance agents were deleted after execution; completed durable jobs and audit evidence remain available.
+- AI job notifications were visible through the Owner notification surface.
+
+Provider truth after acceptance:
+
+- **13 connected:** Anthropic, Cohere, DeepSeek, Fireworks, Gemini, Groq, Hugging Face, Mistral, Ollama, OpenAI, OpenRouter, Together, xAI.
+- **Configured external gates only:** Azure OpenAI and AWS Bedrock.
+- Azure OpenAI and AWS Bedrock remain in `configured`, not `connected`, until their provider-side quotas permit a successful durable live job.
+
+## RC defects found and fixed
+
+Two core authorization/visibility defects were discovered by live acceptance and fixed in PR #301.
+
+### Existing tenant built-in role permission drift
+
+Tenant organizations created before later permissions were added to the platform catalogue could retain stale built-in role assignments. An existing tenant Owner therefore lacked newer notification/communication permissions.
+
+The startup seed path now performs a narrow additive backfill only for existing non-deleted tenant roles whose names already match assignable built-in roles. It:
+
+- does not create missing tenant roles;
+- never creates a tenant Super Owner;
+- does not remove tenant-defined permissions;
+- does not resurrect deleted roles;
+- is idempotent across backend restarts.
+
+Production validation after deployment confirmed the legacy tenant Owner has 58 explicit permissions, including `notifications:read` and `communications:read`, with zero tenant Super Owner roles created. The live notifications endpoint returned HTTP 200 after the fix.
+
+### Super Owner Security Audit scope
+
+The Security Audit endpoint used by the Owner UI was tenant-scoped even for the Super Owner, hiding audit events from other organizations. The endpoint now applies no organization filter for the Super Owner while preserving strict tenant isolation for all other roles.
+
+Production validation confirmed the Super Owner Security Audit endpoint can see the tenant RC audit event and tenant actors remain isolated to their own organization.
+
+PR #301 merged as commit:
+
+`2fe5d8c2bffae4b655b7c261f7cc85cdba18cf92`
+
+## Backup and disaster-recovery acceptance
+
+- Latest completed protected backup had a non-empty checksum and size `3,998,432` bytes.
+- A real disaster-recovery test was queued through the Owner API.
+- The backup worker completed the isolated restore validation.
+- Final DR state: `completed`, `validated=true`, `dry_run=true`, with no restore error.
+- No in-place production restore was performed.
+
+## Final production state
+
+After the RC fix was deployed:
+
+- Production Runtime: **100%**.
+- Database: ready.
+- Redis: ready.
+- Backend: ready.
+- Runtime components: ready.
+- Operations: ready.
+- Active queued/running AI jobs: 0.
+- Active running AI agents: 0.
+- Active DR runs: 0.
+- Active RC projects/workspaces left behind: 0.
+- Git working tree: clean.
+
+All GitHub workflows on the RC fix merge commit completed successfully, including Final Validation, Security Baseline, Phase 34E Container Security, CodeQL, Browser E2E Boundaries, backend tests, frontend build, dependency security, SBOM/vulnerability gate, production Docker build, legacy PostgreSQL compatibility, and backup/restore round-trip validation.
+
+## External gates excluded from Core RC
+
+The following are not Core RC failures and remain explicit external activation work:
+
+- Azure OpenAI provider quota approval and final durable live execution.
+- AWS Bedrock inference quota approval and final durable live execution.
+- Apple App Store and Google Play production account/credential activation before final mobile-store billing acceptance.
+- Commercial paid-plan prices remain Owner-controlled and were intentionally not invented during this RC.
+
+## Decision
+
+**RC_GO** — the core AIONEX AIOS production foundation is ready for feature freeze and controlled pilot/launch-readiness activity. New feature work should remain frozen until external activation gates are completed or a deliberate post-RC change is approved. Any post-RC core change must carry a regression test and pass the full production gate set before deployment.
