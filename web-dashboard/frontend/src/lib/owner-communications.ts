@@ -163,6 +163,49 @@ export async function fetchGovernanceOverview(
   });
 }
 
+export type OwnerTelegramSecurity = {
+  auth_required: boolean;
+  private_chat_required: boolean;
+  allowlist_required: boolean;
+  challenge_ttl_seconds: number;
+  session_ttl_seconds: number;
+  max_failures: number;
+  lockout_seconds: number;
+  challenge_active: boolean;
+  challenge_expires_at: string | null;
+  session_active: boolean;
+  session_expires_at: string | null;
+};
+
+export type OwnerTelegramChallenge = {
+  code: string;
+  expires_at: string;
+  expires_in_seconds: number;
+};
+
+export async function fetchOwnerTelegramSecurity(
+  signal?: AbortSignal,
+): Promise<OwnerTelegramSecurity> {
+  return apiClient.get<OwnerTelegramSecurity>(
+    "/owner/communications/telegram/security",
+    { signal },
+  );
+}
+
+export async function createOwnerTelegramChallenge(): Promise<OwnerTelegramChallenge> {
+  return apiClient.post<OwnerTelegramChallenge>(
+    "/owner/communications/telegram/auth-challenge",
+  );
+}
+
+export async function revokeOwnerTelegramSession(): Promise<{
+  sessions_revoked: number;
+}> {
+  return apiClient.delete<{ sessions_revoked: number }>(
+    "/owner/communications/telegram/session",
+  );
+}
+
 export type SupportTicket = SupportRequest;
 
 export async function fetchOwnerSupportTickets(

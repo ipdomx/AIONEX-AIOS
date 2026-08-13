@@ -21,7 +21,7 @@ from time import perf_counter
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select, text, update
 from sqlalchemy.dialects.postgresql import insert as postgres_insert
@@ -60,7 +60,7 @@ from app.db.models import (
     uuid_str,
 )
 from app.db.redis import get_redis
-from app.services import account_bans, communications, work_management
+from app.services import account_bans, communications, owner_telegram_auth, work_management
 from app.services import governance as governance_service
 from app.services import operations_assurance
 from app.services import workforce as workforce_service
@@ -4083,6 +4083,37 @@ async def decide_owner_approval(
     notifications = list(session.info.pop("phase29e_notifications", []))
     await communications.publish_many(notifications)
     return result
+
+
+@router.get("/communications/telegram/security")
+async def owner_telegram_security(
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    return await owner_telegram_auth.security_snapshot(session, actor)
+
+
+@router.post("/communications/telegram/auth-challenge")
+async def owner_telegram_auth_challenge(
+    response: Response,
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    challenge = await owner_telegram_auth.issue_challenge(session, actor)
+    await session.commit()
+    return challenge
+
+
+@router.delete("/communications/telegram/session")
+async def owner_revoke_telegram_session(
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    changed = await owner_telegram_auth.revoke_owner_sessions(session, actor)
+    await session.commit()
+    return {"sessions_revoked": changed}
 
 
 @router.get("/communications/overview")

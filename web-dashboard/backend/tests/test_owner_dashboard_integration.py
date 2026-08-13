@@ -55,6 +55,9 @@ OWNER_API_CONTRACT = {
     ("GET", "/api/v1/owner/approvals"),
     ("PATCH", "/api/v1/owner/approvals/{approval_id}"),
     ("GET", "/api/v1/owner/communications/overview"),
+    ("GET", "/api/v1/owner/communications/telegram/security"),
+    ("POST", "/api/v1/owner/communications/telegram/auth-challenge"),
+    ("DELETE", "/api/v1/owner/communications/telegram/session"),
     ("GET", "/api/v1/owner/communications/deliveries"),
     (
         "POST",
@@ -167,6 +170,8 @@ OWNER_MUTATION_REQUESTS = {
         "POST",
         "/api/v1/owner/communications/deliveries/{delivery_id}/retry",
     ): None,
+    ("POST", "/api/v1/owner/communications/telegram/auth-challenge"): None,
+    ("DELETE", "/api/v1/owner/communications/telegram/session"): None,
     (
         "POST",
         "/api/v1/owner/support/requests/{request_id}/messages",
