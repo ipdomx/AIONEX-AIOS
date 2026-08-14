@@ -142,7 +142,7 @@ Status: **COMPLETE**
 Campaign/ad-set/ad/creative lifecycle, budget/day caps, approvals, stop-loss rules, A/B experiments, launch simulation, pause/scale/replay decisions. `real_spend_allowed=false` hard gate.
 
 ### GS-09 — First live provider connectors
-Status: **SAFE_FRAMEWORK_COMPLETE_EXTERNAL_GATE**
+Status: **META_SANDBOX_VERIFIED_EXTERNAL_GATES_REMAIN**
 
 Implement provider-specific OAuth/API connectors only where owner credentials/apps and platform approvals are available. Each connector gets separate capability tests and a live no-spend/read-only or sandbox validation before any mutation.
 
@@ -405,3 +405,16 @@ Real human account/provider pilot only after all previous batches are merged and
 - After PR/CI/merge, deployment will use the external operations override to run the validation from inside AIOS and persist `meta/ads_read = sandbox_verified`; no ad creation, budget change, publish/send, or real spend is permitted.
 - PR #330 CI/Core regression exposed a zero-dead `bare-pass` finding in Meta HTTP-error parsing; replaced with explicit fallback to the HTTP status code.
 - Full root Core suite after the fix: 679/679 PASS.
+
+
+### GS-09 Meta sandbox production validation closeout — 2026-08-15
+- PR #330 passed every required GitHub production gate after one zero-dead audit fix; full root Core suite after the fix: 679/679 PASS.
+- PR #330 merged to `main` as `73060bf6630409f9789fdb2192ebd4f550e6bb52`.
+- Production Backend rebuilt from merged `main` with the Meta operations override stored outside Git under `/opt/aionex-ops/`; the repository Compose file remains free of the Meta token mount.
+- Meta sandbox token remains in a root-owned mode-0600 host file outside the repository and is mounted read-only into the Backend. Raw token material is not stored in Git, database payloads, report evidence, or application logs.
+- Live validation executed from inside the production AIOS Backend using Meta Marketing API / Graph API v26.0 against the sandbox ad account only.
+- Validation result: `AIOS_META_SANDBOX_VALIDATION_OK`, provider `meta`, capability `ads_read`, verification state `sandbox_verified`, account `AIONEX-AIOS Sandbox`, currency `AED`, timezone `Asia/Dubai`, account status `1`.
+- Safety evidence confirmed live: `provider_call_allowed=true` for the read-only sandbox GET only, `mutation_allowed=false`, `spend_allowed=false`, `raw_secret_persisted=false`.
+- Durable database verification confirmed `meta/ads_read = sandbox_verified`, credential reference `secretref://file/meta/marketing-api-sandbox-token`, `raw_secret_persisted=False`, `mutation_allowed=False`, and `spend_allowed=False`.
+- No ad creation, budget edit, publish/send, audience upload, account mutation, or real advertising spend occurred.
+- Meta sandbox read-only validation is complete. GS-09 remains externally gated for additional provider-specific validations and for any Meta production/live-write capability beyond this sandbox-read boundary.
