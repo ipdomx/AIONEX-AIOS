@@ -206,5 +206,6 @@ Real human account/provider pilot only after all previous batches are merged and
 - Isolated PostgreSQL migration upgraded through `20260814_0017`; durable brief + expected simulation committed and re-read successfully.
 - Durable simulation evidence: confidence `0.858`; `real_spend_allowed=false` persisted both as a column and inside result payload.
 - No external advertising provider, OAuth credential, audience upload, message sending, publishing, or spend occurred.
+- CI Backend Tests exposed a stale Alembic-head expectation (`20260810_0016`); the contract was updated to shipped head `20260814_0017`, and the affected database + GS-02 tests passed 8/8.
 - CI/core regression found: zero-dead audit rejected a bare `pass` in `GrowthCampaignError`; replaced with a documented exception body.
 - Full root core suite after fix: 675/675 PASS.
