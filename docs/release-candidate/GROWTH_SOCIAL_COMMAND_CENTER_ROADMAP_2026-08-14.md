@@ -127,7 +127,7 @@ Status: **COMPLETE**
 Normalized metrics, experiment/campaign outcomes, failure reason taxonomy, successful-pattern records, recommendations, replay eligibility and anti-repeat rules.
 
 ### GS-06 — Lead intelligence & compliant audience data
-Status: **IN_PROGRESS**
+Status: **COMPLETE**
 
 Source provenance, consent/lawful-basis metadata, dedupe, suppression, retention, imports, provider lead forms, enrichment interface, audience eligibility evaluator. No unauthorized scraping.
 
@@ -304,3 +304,14 @@ Real human account/provider pilot only after all previous batches are merged and
 - Isolated PostgreSQL migration upgraded cleanly through `20260814_0021` after making GS-06 migration idempotent for fresh databases where the consolidated initial schema already materializes current Base metadata; partial presence fails closed.
 - Focused GS-06 + Alembic-head tests: 4/4 PASS; root completion/ingress/roadmap contracts: 21/21 PASS.
 - Full root suite inside the backend test image is not CI-equivalent for older deployment/runtime tests because the image lacks host executables and importable test-package/runtime surfaces; those environmental failures are deferred to the official GitHub Core/Backend gates and are not treated as GS-06 regressions.
+
+
+### GS-06 production closeout — 2026-08-14
+- PR #322 merged to `main` as `d06780c9782b8a889e8859592dd4d56193375b68` after every GitHub production gate passed, including Backend, Core, CodeQL, SBOM, Browser, Production Docker, DB-upgrade preservation and backup/restore smoke.
+- Production migration verified at Alembic head `20260814_0021`; Backend and Nginx healthy.
+- Public ingress verification: `/api/v1/growth-social/leads` returns HTTP 401 from Backend when unauthenticated.
+- Live production acceptance used an isolated temporary tenant and an owner-granted `leads.manage` override to prove owner-controlled feature access.
+- Acceptance proved deterministic dedupe of the same lead across two authorized provenance sources, active lawful-basis eligibility, immediate suppression/opt-out blocking, and retention-expiry blocking.
+- Safety invariants confirmed live: `unauthorized_scraping_allowed=false`, `outbound_outreach_allowed=false`, `live_audience_upload_allowed=false`, and `live_provider_call=false`.
+- All temporary tenant, lead, provenance, consent, suppression, billing, access-override and audit fixtures were removed; cleanup verified.
+- GS-06 accepted. Next batch: **GS-07 — Unified Inbox & CRM workflow foundation**.
