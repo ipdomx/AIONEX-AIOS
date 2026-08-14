@@ -137,7 +137,7 @@ Status: **COMPLETE**
 Conversations/messages/comments/mentions, read state, assignment, notes, sentiment/spam classification, templates, supported auto-replies with approval/policy constraints, simulated provider events.
 
 ### GS-08 — Paid campaign orchestrator (simulation only)
-Status: **PLANNED**
+Status: **IN_PROGRESS**
 
 Campaign/ad-set/ad/creative lifecycle, budget/day caps, approvals, stop-loss rules, A/B experiments, launch simulation, pause/scale/replay decisions. `real_spend_allowed=false` hard gate.
 
@@ -342,3 +342,17 @@ Real human account/provider pilot only after all previous batches are merged and
 - All temporary tenant, lead, thread, message, note, draft, billing, access-override and audit fixtures were removed; cleanup verified.
 - GS-07 accepted. Next batch: **GS-08 — Paid campaign orchestrator (simulation only)**.
 
+### GS-08 execution start — 2026-08-14
+- Worktree: `feature/gs08-paid-campaign-simulation` from clean `origin/main`.
+- Scope: durable campaign/ad-set/ad/creative lifecycle, hard budget/day caps, approval gates, stop-loss policy, deterministic A/B experiment allocation, launch simulation, and explainable pause/scale/replay/hold decisions.
+- Access capability: `ads.manage`, resolved through the existing owner-controlled Growth Social access policy; owner approval remains authoritative.
+- Safety boundary: `real_spend_allowed=false`, `live_provider_call=false`, `live_campaign_mutation=false`, and `automatic_budget_increase_allowed=false` throughout GS-08. No provider credential or real advertising spend is used.
+
+
+### GS-08 local acceptance checkpoint — 2026-08-14
+- Durable GS-08 schema added for paid campaign, ad set, creative, ad, experiment, launch simulation and decision ledger; Alembic head advanced to `20260814_0023`.
+- Static quality: Ruff clean on GS-08 files; Mypy PASS across 160 Backend source files using the project root `PYTHONPATH`.
+- Isolated PostgreSQL migration from zero through `20260814_0023`: PASS.
+- Focused GS-08 workflow + Alembic head contract: 3/3 PASS.
+- Root completion/public-ingress/Growth-Social roadmap contracts: 21/21 PASS.
+- Acceptance proves owner-controlled `ads.manage`, hard total/daily budget caps, campaign approval before simulation, deterministic A/B allocation and launch simulation, stop-loss/hold/scale/iterate decision ledger, with `real_spend_allowed=false`, `live_provider_call=false`, `live_campaign_mutation=false`, `automatic_budget_increase_allowed=false`, and `automatic_execution_allowed=false`.
