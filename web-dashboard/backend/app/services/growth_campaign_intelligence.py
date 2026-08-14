@@ -18,7 +18,7 @@ SCENARIOS = ("conservative", "expected", "upside")
 
 
 class GrowthCampaignError(RuntimeError):
-    pass
+    """Fail-closed GS-02 campaign intelligence error."""
 
 
 @dataclass(frozen=True)
