@@ -142,7 +142,7 @@ Status: **COMPLETE**
 Campaign/ad-set/ad/creative lifecycle, budget/day caps, approvals, stop-loss rules, A/B experiments, launch simulation, pause/scale/replay decisions. `real_spend_allowed=false` hard gate.
 
 ### GS-09 — First live provider connectors
-Status: **IN_PROGRESS_EXTERNAL_GATES**
+Status: **SAFE_FRAMEWORK_COMPLETE_EXTERNAL_GATE**
 
 Implement provider-specific OAuth/API connectors only where owner credentials/apps and platform approvals are available. Each connector gets separate capability tests and a live no-spend/read-only or sandbox validation before any mutation.
 
@@ -382,3 +382,13 @@ Real human account/provider pilot only after all previous batches are merged and
 - Read-only/sandbox validation can become `*_ready` only when a credential reference and platform approval are both present; even then mutation/spend remain disabled until provider-specific external validation occurs.
 - Static quality: Mypy PASS across 162 backend files; focused connector tests 4/4 PASS; completion/public-ingress/Growth Social roadmap contracts 21/21 PASS.
 - External gate remains: actual read-only/sandbox provider validation requires owner-supplied credential references and provider app/account approval. No raw secrets are to be entered into chat, Git, DB payloads, or logs.
+
+
+### GS-09 safe-framework production closeout — 2026-08-14
+- PR #328 merged to `main` as `db15bf3cedce34601159a6402d3af08b2f2bbce2` after every GitHub production gate passed, including Backend, Core, CodeQL, SBOM, Browser boundaries, Production Docker, DB-upgrade preservation, legacy `.env`, and backup/restore smoke.
+- Production Backend rebuilt from `main` and returned healthy. No schema migration was required for the GS-09 safe framework.
+- Nginx was force-recreated to remount the updated public allowlist; `/api/v1/growth-social/provider-connectors/catalog` returned HTTP 401 from Backend when unauthenticated, proving the authenticated application route is reachable.
+- Safe production acceptance executed against production code with zero provider credentials and zero external provider calls.
+- Acceptance proved 11 provider descriptors are registered; raw credential-like values are rejected; contract validation remains `unverified` and performs no provider call; live mutation/spend modes are fail-closed; read-only readiness still requires an opaque credential reference plus platform approval; mutation/spend remain disabled.
+- Acceptance evidence: `GS09_SAFE_PRODUCTION_ACCEPTANCE_OK`, `contract_provider_call_allowed=false`, `contract_verification_state=unverified`, `raw_credentials_rejected=true`, `live_mutation_modes_rejected=true`, `mutation_allowed=false`, `spend_allowed=false`.
+- Internal GS-09 framework work is complete. External gate now blocks only provider-specific read-only/sandbox validation: owner-supplied credential references installed securely on the server plus provider app/account approval. Raw secrets must not be pasted into chat, Git, database payloads, or logs.
