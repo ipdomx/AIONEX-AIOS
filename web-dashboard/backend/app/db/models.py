@@ -1718,6 +1718,84 @@ class GrowthCampaignSimulation(Base, TimestampMixin):
     real_spend_allowed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
 
+class GrowthSocialAccount(Base, TimestampMixin):
+    """Durable managed social account registry. Provider credentials never live here."""
+
+    __tablename__ = "growth_social_accounts"
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id",
+            "provider",
+            "external_account_id",
+            name="uq_growth_social_account_provider_external",
+        ),
+        Index(
+            "ix_growth_social_accounts_org_provider_status",
+            "organization_id",
+            "provider",
+            "status",
+        ),
+        Index("ix_growth_social_accounts_token_expiry", "token_expires_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    created_by_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    workspace_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="SET NULL"), index=True
+    )
+    team_id: Mapped[str | None] = mapped_column(
+        ForeignKey("teams.id", ondelete="SET NULL"), index=True
+    )
+    provider: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    account_kind: Mapped[str] = mapped_column(String(48), nullable=False)
+    external_account_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(240), nullable=False)
+    public_handle: Mapped[str | None] = mapped_column(String(255))
+    credential_ref: Mapped[str | None] = mapped_column(String(320))
+    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
+    health_state: Mapped[str] = mapped_column(String(32), default="unknown", nullable=False)
+    health_reasons: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_health_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    paused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    provider_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    settings: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class GrowthSocialProviderCapability(Base, TimestampMixin):
+    """Provider capability verification state; GS-03 cannot mark capabilities live-verified."""
+
+    __tablename__ = "growth_social_provider_capabilities"
+    __table_args__ = (
+        UniqueConstraint(
+            "provider", "capability", name="uq_growth_social_provider_capability"
+        ),
+        Index(
+            "ix_growth_social_provider_capability_state",
+            "provider",
+            "verification_state",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    capability: Mapped[str] = mapped_column(String(80), nullable=False)
+    verification_state: Mapped[str] = mapped_column(
+        String(32), default="unverified", nullable=False
+    )
+    mutation_class: Mapped[str] = mapped_column(String(24), default="read", nullable=False)
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    simulated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
 class OwnerControlRecord(Base, TimestampMixin):
     """Durable owner-managed configuration for dashboard control surfaces."""
 

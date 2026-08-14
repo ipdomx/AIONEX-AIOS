@@ -112,7 +112,7 @@ Status: **COMPLETE**
 Durable campaign briefs, objectives, market/geography/competitor/audience hypotheses, offers, channels, budget scenarios, confidence/evidence fields, and deterministic simulation output. No provider spend.
 
 ### GS-03 — Social account registry + provider capability matrix
-Status: **PLANNED**
+Status: **IN_PROGRESS**
 
 Multiple accounts/provider, OAuth state/health metadata, token-expiry model, pause, team assignment, capability matrix, connector simulator. No credentials committed.
 
@@ -214,3 +214,23 @@ Real human account/provider pilot only after all previous batches are merged and
 - Public ingress verification: `/api/v1/growth-social/campaigns/briefs` returns HTTP 401 from Backend when unauthenticated, proving the Nginx allowlist reaches the application.
 - Live production simulation with a temporary isolated tenant/user and owner-granted `campaign.research` + `campaign.simulation` completed successfully with confidence `0.905`, reason codes `simulation-only,no-provider-spend`, and `real_spend_allowed=false`; all temporary records were deleted and cleanup verified.
 - GS-02 accepted. Next batch: **GS-03 — Social account registry + provider capability matrix**.
+
+
+### GS-03 implementation checkpoint — 2026-08-14
+- Worktree: `feature/gs03-social-account-registry`.
+- Started only after GS-02 closeout PR #315 merged and `main` returned clean.
+- Managed social accounts are separate from authentication `ExternalIdentity` records.
+- No provider access/refresh token may be stored in the database, logs, repository, API responses, or tests; only opaque external secret references are permitted.
+- Provider capability states remain declarative `unverified`/`simulated` until GS-09 live connector validation; GS-03 makes no claim of live provider API support.
+- Scope: multiple accounts per provider, health/expiry/pause, team assignment, capability matrix, and deterministic connector simulation.
+- No external provider mutation, publishing, messaging, scraping, or advertising spend in GS-03.
+- Durable models/migration `20260814_0018` added for managed social accounts and provider capability verification states.
+- User API surface added for provider matrix, multiple-account registry, pause/resume, disconnect, team assignment, health simulation, and capability simulation.
+- Public API responses expose only `credential_configured`; raw credential references are never returned.
+- Isolated PostgreSQL migration upgraded cleanly through `20260814_0018`.
+- Focused GS-03 + Alembic-head tests: 12/12 PASS.
+- Root completion/ingress/roadmap contracts: 18/18 PASS; full root Core suite: 676/676 PASS.
+- CI-equivalent static quality: Ruff PASS and Mypy PASS across 150 backend source files.
+- Durable integration proved two managed accounts for the same provider, team assignment, pause/resume, 7-day expiry health warning, disconnect with credential-reference clearing, and deterministic capability simulation.
+- Capability simulation can move only `unverified -> simulated`; no GS-03 path can create `verified`, and every simulated result reports `live_verified=false` and `live_provider_call=false`.
+- All registry mutations added in GS-03 are audited.
