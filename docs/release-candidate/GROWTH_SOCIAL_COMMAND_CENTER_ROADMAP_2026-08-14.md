@@ -107,7 +107,7 @@ Acceptance:
 - simulation covers free user granted a feature, paid user denied the same feature, owner override, suspension, and immediate revocation.
 
 ### GS-02 — Campaign intelligence domain + simulation engine
-Status: **IN_PROGRESS**
+Status: **COMPLETE**
 
 Durable campaign briefs, objectives, market/geography/competitor/audience hypotheses, offers, channels, budget scenarios, confidence/evidence fields, and deterministic simulation output. No provider spend.
 
@@ -209,3 +209,8 @@ Real human account/provider pilot only after all previous batches are merged and
 - CI Backend Tests exposed a stale Alembic-head expectation (`20260810_0016`); the contract was updated to shipped head `20260814_0017`, and the affected database + GS-02 tests passed 8/8.
 - CI/core regression found: zero-dead audit rejected a bare `pass` in `GrowthCampaignError`; replaced with a documented exception body.
 - Full root core suite after fix: 675/675 PASS.
+- PR #314 merged to `main` as `881fe85503db05b944f211dba4d59af800f831f7` after all GitHub production gates passed.
+- Production migration verified at Alembic head `20260814_0017`; Backend and Nginx healthy.
+- Public ingress verification: `/api/v1/growth-social/campaigns/briefs` returns HTTP 401 from Backend when unauthenticated, proving the Nginx allowlist reaches the application.
+- Live production simulation with a temporary isolated tenant/user and owner-granted `campaign.research` + `campaign.simulation` completed successfully with confidence `0.905`, reason codes `simulation-only,no-provider-spend`, and `real_spend_allowed=false`; all temporary records were deleted and cleanup verified.
+- GS-02 accepted. Next batch: **GS-03 — Social account registry + provider capability matrix**.
