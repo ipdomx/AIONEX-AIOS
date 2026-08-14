@@ -31,6 +31,7 @@ from app.api.v1.endpoints import (
     firebase_phone,
     governance,
     growth_access,
+    growth_analytics,
     growth_campaigns,
     growth_content,
     growth_social_accounts,
@@ -204,6 +205,7 @@ api_router.include_router(
     tags=["Communications"],
 )
 api_router.include_router(growth_access.router, prefix="/growth-social", tags=["Growth & Social"])
+api_router.include_router(growth_analytics.router, prefix="/growth-social/analytics", tags=["Growth Analytics"])
 api_router.include_router(growth_campaigns.router, prefix="/growth-social/campaigns", tags=["Growth Campaigns"])
 api_router.include_router(growth_content.router, prefix="/growth-social/content", tags=["Growth Content"])
 api_router.include_router(growth_social_accounts.router, prefix="/growth-social", tags=["Growth Social Accounts"])
