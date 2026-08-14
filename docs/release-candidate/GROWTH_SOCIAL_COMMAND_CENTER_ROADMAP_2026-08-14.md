@@ -107,7 +107,7 @@ Acceptance:
 - simulation covers free user granted a feature, paid user denied the same feature, owner override, suspension, and immediate revocation.
 
 ### GS-02 — Campaign intelligence domain + simulation engine
-Status: **PLANNED**
+Status: **IN_PROGRESS**
 
 Durable campaign briefs, objectives, market/geography/competitor/audience hypotheses, offers, channels, budget scenarios, confidence/evidence fields, and deterministic simulation output. No provider spend.
 
@@ -193,3 +193,19 @@ Real human account/provider pilot only after all previous batches are merged and
 - GS-01 remains simulation/control-plane only: no OAuth provider connection, publishing, lead extraction, campaign launch, or real advertising spend was introduced.
 - Real advertising spend remains disabled by roadmap policy and no spend execution path exists in GS-01.
 - Next batch: **GS-02 — Campaign intelligence domain + simulation engine**.
+
+
+### GS-02 implementation checkpoint — 2026-08-14
+- Worktree: `feature/gs02-campaign-intelligence`.
+- Build started only after GS-01 closeout was merged and production ingress verified.
+- Scope: durable campaign intelligence + deterministic simulation only; no external ad-platform credentials and no real spend.
+- Access gates: `campaign.research` and `campaign.simulation` from GS-01.
+- Hard safety invariant: `real_spend_allowed=false`.
+- Core deterministic simulation tests: 13/13 PASS after tightening weak-hypothesis detection.
+- Root completion + public-ingress contracts: 16/16 PASS.
+- Isolated PostgreSQL migration upgraded through `20260814_0017`; durable brief + expected simulation committed and re-read successfully.
+- Durable simulation evidence: confidence `0.858`; `real_spend_allowed=false` persisted both as a column and inside result payload.
+- No external advertising provider, OAuth credential, audience upload, message sending, publishing, or spend occurred.
+- CI Backend Tests exposed a stale Alembic-head expectation (`20260810_0016`); the contract was updated to shipped head `20260814_0017`, and the affected database + GS-02 tests passed 8/8.
+- CI/core regression found: zero-dead audit rejected a bare `pass` in `GrowthCampaignError`; replaced with a documented exception body.
+- Full root core suite after fix: 675/675 PASS.
