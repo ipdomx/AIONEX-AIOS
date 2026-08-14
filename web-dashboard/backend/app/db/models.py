@@ -2044,6 +2044,83 @@ class GrowthLeadSuppression(Base, TimestampMixin):
 
 
 
+class GrowthInboxThread(Base, TimestampMixin):
+    __tablename__ = "growth_inbox_threads"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "provider", "account_id", "external_thread_ref", name="uq_growth_inbox_thread_external"),
+        Index("ix_growth_inbox_threads_org_status_updated", "organization_id", "status", "updated_at"),
+        Index("ix_growth_inbox_threads_org_assignee_updated", "organization_id", "assigned_to_id", "updated_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    account_id: Mapped[str | None] = mapped_column(ForeignKey("growth_social_accounts.id", ondelete="SET NULL"), index=True)
+    lead_id: Mapped[str | None] = mapped_column(ForeignKey("growth_lead_records.id", ondelete="SET NULL"), index=True)
+    provider: Mapped[str] = mapped_column(String(48), nullable=False, index=True)
+    external_thread_ref: Mapped[str] = mapped_column(String(240), nullable=False)
+    thread_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    participant_ref: Mapped[str | None] = mapped_column(String(240))
+    participant_name: Mapped[str | None] = mapped_column(String(240))
+    status: Mapped[str] = mapped_column(String(32), default="open", nullable=False, index=True)
+    unread_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    starred: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    assigned_to_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    sentiment: Mapped[str] = mapped_column(String(24), default="neutral", nullable=False)
+    spam_score: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    tags: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    metadata_json: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class GrowthInboxMessage(Base, TimestampMixin):
+    __tablename__ = "growth_inbox_messages"
+    __table_args__ = (
+        UniqueConstraint("thread_id", "external_message_ref", name="uq_growth_inbox_message_external"),
+        Index("ix_growth_inbox_messages_thread_created", "thread_id", "created_at"),
+        Index("ix_growth_inbox_messages_org_direction_created", "organization_id", "direction", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    thread_id: Mapped[str] = mapped_column(ForeignKey("growth_inbox_threads.id", ondelete="CASCADE"), nullable=False, index=True)
+    external_message_ref: Mapped[str] = mapped_column(String(240), nullable=False)
+    direction: Mapped[str] = mapped_column(String(16), nullable=False)
+    message_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    author_ref: Mapped[str | None] = mapped_column(String(240))
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    attachments: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
+    sentiment: Mapped[str] = mapped_column(String(24), default="neutral", nullable=False)
+    spam_score: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    provider_event: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    simulated: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
+class GrowthInboxNote(Base, TimestampMixin):
+    __tablename__ = "growth_inbox_notes"
+    __table_args__ = (Index("ix_growth_inbox_notes_thread_created", "thread_id", "created_at"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    thread_id: Mapped[str] = mapped_column(ForeignKey("growth_inbox_threads.id", ondelete="CASCADE"), nullable=False, index=True)
+    author_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class GrowthQuickReplyDraft(Base, TimestampMixin):
+    __tablename__ = "growth_quick_reply_drafts"
+    __table_args__ = (Index("ix_growth_quick_replies_thread_status_created", "thread_id", "status", "created_at"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    thread_id: Mapped[str] = mapped_column(ForeignKey("growth_inbox_threads.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    template_key: Mapped[str | None] = mapped_column(String(120))
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False)
+    ai_suggested: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    approval_required: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    external_send_allowed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+
 class OwnerControlRecord(Base, TimestampMixin):
     """Durable owner-managed configuration for dashboard control surfaces."""
 
