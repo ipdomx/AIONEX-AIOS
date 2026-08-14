@@ -1974,6 +1974,76 @@ class GrowthOptimizationRecommendation(Base, TimestampMixin):
     auto_replay_allowed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
 
+class GrowthLeadRecord(Base, TimestampMixin):
+    __tablename__ = "growth_lead_records"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "dedupe_fingerprint", name="uq_growth_lead_org_fingerprint"),
+        Index("ix_growth_leads_org_status_created", "organization_id", "status", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    display_name: Mapped[str | None] = mapped_column(String(240))
+    email_normalized: Mapped[str | None] = mapped_column(String(320), index=True)
+    phone_normalized: Mapped[str | None] = mapped_column(String(64), index=True)
+    company_name: Mapped[str | None] = mapped_column(String(240))
+    country_code: Mapped[str | None] = mapped_column(String(2))
+    dedupe_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False, index=True)
+    retention_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    attributes: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class GrowthLeadProvenance(Base, TimestampMixin):
+    __tablename__ = "growth_lead_provenance"
+    __table_args__ = (Index("ix_growth_lead_provenance_lead_created", "lead_id", "created_at"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    lead_id: Mapped[str] = mapped_column(ForeignKey("growth_lead_records.id", ondelete="CASCADE"), nullable=False, index=True)
+    source_type: Mapped[str] = mapped_column(String(48), nullable=False, index=True)
+    source_ref: Mapped[str | None] = mapped_column(String(500))
+    collection_method: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class GrowthLeadConsent(Base, TimestampMixin):
+    __tablename__ = "growth_lead_consents"
+    __table_args__ = (
+        Index("ix_growth_lead_consents_lead_status", "lead_id", "status"),
+        UniqueConstraint("lead_id", "purpose", "lawful_basis", name="uq_growth_lead_consent_basis"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    lead_id: Mapped[str] = mapped_column(ForeignKey("growth_lead_records.id", ondelete="CASCADE"), nullable=False, index=True)
+    purpose: Mapped[str] = mapped_column(String(80), nullable=False)
+    lawful_basis: Mapped[str] = mapped_column(String(48), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False, index=True)
+    captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class GrowthLeadSuppression(Base, TimestampMixin):
+    __tablename__ = "growth_lead_suppressions"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "lead_id", "channel", name="uq_growth_lead_suppression_channel"),
+        Index("ix_growth_lead_suppressions_org_channel", "organization_id", "channel"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    lead_id: Mapped[str] = mapped_column(ForeignKey("growth_lead_records.id", ondelete="CASCADE"), nullable=False, index=True)
+    channel: Mapped[str] = mapped_column(String(32), nullable=False)
+    reason: Mapped[str] = mapped_column(String(120), nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    suppressed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+
+
 class OwnerControlRecord(Base, TimestampMixin):
     """Durable owner-managed configuration for dashboard control surfaces."""
 
