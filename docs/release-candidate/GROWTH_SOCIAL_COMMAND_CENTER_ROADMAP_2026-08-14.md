@@ -127,7 +127,7 @@ Status: **COMPLETE**
 Normalized metrics, experiment/campaign outcomes, failure reason taxonomy, successful-pattern records, recommendations, replay eligibility and anti-repeat rules.
 
 ### GS-06 — Lead intelligence & compliant audience data
-Status: **PLANNED**
+Status: **IN_PROGRESS**
 
 Source provenance, consent/lawful-basis metadata, dedupe, suppression, retention, imports, provider lead forms, enrichment interface, audience eligibility evaluator. No unauthorized scraping.
 
@@ -293,3 +293,14 @@ Real human account/provider pilot only after all previous batches are merged and
 - `auto_replay_allowed=false` and `auto_optimization_allowed=false` were confirmed in live acceptance; no provider call or live campaign mutation occurred.
 - All temporary acceptance records were removed and cleanup verified.
 - GS-05 accepted. Next batch: **GS-06 — Lead intelligence & compliant audience data**.
+
+
+### GS-06 implementation checkpoint — 2026-08-14
+- Worktree: `feature/gs06-lead-intelligence`.
+- Scope: provenance, consent/lawful basis, suppression, dedupe, retention and audience eligibility only.
+- No unauthorized scraping, no outbound messaging, no audience upload, and no live provider call.
+- Access gate: `leads.manage` from GS-01; owner deny remains authoritative.
+- Static quality: Ruff PASS; Mypy PASS across 156 backend source files with CI-equivalent PYTHONPATH.
+- Isolated PostgreSQL migration upgraded cleanly through `20260814_0021` after making GS-06 migration idempotent for fresh databases where the consolidated initial schema already materializes current Base metadata; partial presence fails closed.
+- Focused GS-06 + Alembic-head tests: 4/4 PASS; root completion/ingress/roadmap contracts: 21/21 PASS.
+- Full root suite inside the backend test image is not CI-equivalent for older deployment/runtime tests because the image lacks host executables and importable test-package/runtime surfaces; those environmental failures are deferred to the official GitHub Core/Backend gates and are not treated as GS-06 regressions.
