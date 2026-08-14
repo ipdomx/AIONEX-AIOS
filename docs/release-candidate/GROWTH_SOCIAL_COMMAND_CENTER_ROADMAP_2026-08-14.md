@@ -132,7 +132,7 @@ Status: **COMPLETE**
 Source provenance, consent/lawful-basis metadata, dedupe, suppression, retention, imports, provider lead forms, enrichment interface, audience eligibility evaluator. No unauthorized scraping.
 
 ### GS-07 — Unified inbox & CRM workflow
-Status: **PLANNED**
+Status: **IN_PROGRESS**
 
 Conversations/messages/comments/mentions, read state, assignment, notes, sentiment/spam classification, templates, supported auto-replies with approval/policy constraints, simulated provider events.
 
@@ -315,3 +315,19 @@ Real human account/provider pilot only after all previous batches are merged and
 - Safety invariants confirmed live: `unauthorized_scraping_allowed=false`, `outbound_outreach_allowed=false`, `live_audience_upload_allowed=false`, and `live_provider_call=false`.
 - All temporary tenant, lead, provenance, consent, suppression, billing, access-override and audit fixtures were removed; cleanup verified.
 - GS-06 accepted. Next batch: **GS-07 — Unified Inbox & CRM workflow foundation**.
+
+
+### GS-07 execution start — 2026-08-14
+- Worktree: `feature/gs07-unified-inbox` from clean `origin/main`.
+- Scope: durable normalized inbox threads/messages, read/unread, star, assignment, internal notes, quick-reply drafts, search/filter, CRM lead linking, sentiment/spam tags and deterministic inbound simulation.
+- Access capability: `inbox.manage`, resolved through existing owner-controlled Growth Social access policy.
+- Safety boundary: no external send, block, mute, moderation action, webhook/provider mutation or live provider call in GS-07.
+
+
+### GS-07 pre-merge validation — 2026-08-14
+- Durable schema added for normalized inbox threads, messages, internal notes and quick-reply drafts; migration `20260814_0022` upgrades successfully from a fresh isolated PostgreSQL database.
+- Owner-controlled capability: `inbox.manage`; live external actions remain disabled.
+- Static quality: Ruff PASS and Mypy PASS across 158 backend source files.
+- Focused GS-07 workflow + Alembic head tests: 4/4 PASS.
+- Root completion/ingress/roadmap contracts: 21/21 PASS after registering `growth_inbox` in `ENDPOINT_BATCH`.
+- Safety invariants: live provider calls, external sends, block, mute and moderation actions are all disabled in GS-07.
