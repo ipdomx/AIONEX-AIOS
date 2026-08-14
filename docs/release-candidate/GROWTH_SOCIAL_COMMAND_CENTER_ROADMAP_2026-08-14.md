@@ -117,7 +117,7 @@ Status: **COMPLETE**
 Multiple accounts/provider, OAuth state/health metadata, token-expiry model, pause, team assignment, capability matrix, connector simulator. No credentials committed.
 
 ### GS-04 — Content operations foundation
-Status: **IN_PROGRESS**
+Status: **COMPLETE**
 
 Drafts, platform variants, media references, approvals, scheduler, queue, recycle, UTM generation, preview contracts, simulated publishing adapters.
 
@@ -258,3 +258,10 @@ Real human account/provider pilot only after all previous batches are merged and
 - Focused GS-04/Alembic/route-quality tests: 10/10 PASS; root completion/ingress/roadmap contracts: 19/19 PASS; full root Core suite: 677/677 PASS.
 - Durable acceptance proves Draft -> Variant -> Preview/UTM -> Approval -> Priority Schedule -> simulated publish -> daily recurrence -> manual recycle, plus approval reset after edit and blocked simulation when the target account is paused.
 - Every simulation records `simulation-only`, `no-provider-call`, `live-publish-disabled`; no path in GS-04 can set `live_publish_allowed=true`.
+- PR #318 merged to `main` as `5ae52bd37267d0fe5d86758fac335c06cc9226aa` after every GitHub production gate passed.
+- Production migration verified at Alembic head `20260814_0019`; Backend and Nginx healthy.
+- Public ingress verification: `/api/v1/growth-social/content` and `/api/v1/growth-social/content/queue` both return HTTP 401 from Backend when unauthenticated.
+- Live production acceptance with an isolated temporary tenant/social account proved approval enforcement, deterministic preview/UTM, priority schedule, simulated publish success, daily recurrence, and manual recycle.
+- Live acceptance explicitly reported `live_publish_allowed=false`, `live_provider_call=false`; all temporary records were removed and cleanup verified.
+- Provider capability matrix was restored after acceptance to the GS-03 baseline: `verified=0`, `simulated=0`, `unverified=88`.
+- GS-04 accepted. Next batch: **GS-05 — Analytics & learning ledger**.
