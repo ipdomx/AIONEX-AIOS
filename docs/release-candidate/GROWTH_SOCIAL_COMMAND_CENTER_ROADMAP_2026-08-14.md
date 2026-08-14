@@ -122,7 +122,7 @@ Status: **COMPLETE**
 Drafts, platform variants, media references, approvals, scheduler, queue, recycle, UTM generation, preview contracts, simulated publishing adapters.
 
 ### GS-05 — Analytics & learning ledger
-Status: **IN_PROGRESS**
+Status: **COMPLETE**
 
 Normalized metrics, experiment/campaign outcomes, failure reason taxonomy, successful-pattern records, recommendations, replay eligibility and anti-repeat rules.
 
@@ -283,3 +283,13 @@ Real human account/provider pilot only after all previous batches are merged and
 - CI-equivalent static quality: Ruff PASS and Mypy PASS across 154 backend source files.
 - Isolated PostgreSQL migration upgraded cleanly through `20260814_0020`.
 - Focused GS-05/Alembic/route-quality tests: 9/9 PASS; root completion/ingress/roadmap contracts: 20/20 PASS; full root Core suite: 678/678 PASS.
+
+
+### GS-05 production closeout — 2026-08-14
+- PR #320 merged to `main` as `bab408053732bb6f75c0dcf50f3f5272344115e6` after every GitHub production gate passed.
+- Production migration verified at Alembic head `20260814_0020`; Backend and Nginx healthy.
+- Public ingress verification: `/api/v1/growth-social/analytics/observations` and `/api/v1/growth-social/analytics/recommendations` return HTTP 401 from Backend when unauthenticated.
+- Live production acceptance with an isolated temporary tenant proved evidence-backed success -> `replay_candidate`, first failure -> `iterate`, and repeated identical failure -> `avoid` with `repeat-failure-blocked`.
+- `auto_replay_allowed=false` and `auto_optimization_allowed=false` were confirmed in live acceptance; no provider call or live campaign mutation occurred.
+- All temporary acceptance records were removed and cleanup verified.
+- GS-05 accepted. Next batch: **GS-06 — Lead intelligence & compliant audience data**.
