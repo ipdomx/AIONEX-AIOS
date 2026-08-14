@@ -440,3 +440,14 @@ Real human account/provider pilot only after all previous batches are merged and
 - Durable database verification confirmed `meta/ads_read = read_only_verified`; prior `gs09_meta_sandbox` evidence remains preserved; owned credential reference is `secretref://file/meta/marketing-api-token`; `raw_secret_persisted=False`; `mutation_allowed=False`; `spend_allowed=False`.
 - No ad creation, campaign mutation, budget edit, audience upload, publish/send, or real advertising spend occurred.
 - Meta owned-assets read-only validation is complete. GS-09 remains externally gated only for broader Meta third-party/business access, any Meta live-write capability, and additional provider-specific validations.
+
+
+### GS-09 Telegram read-only implementation checkpoint — 2026-08-15
+- Started from clean `origin/main` after Meta sandbox and owned-assets read-only validations were merged and production-verified.
+- Scope: Telegram `account.read` validation only for the existing owner/admin bot and user bot credentials already installed outside Git as root-owned mode-0600 files and already mounted read-only into the Backend.
+- Validation endpoint: Telegram Bot API `getMe` only. No `sendMessage`, webhook mutation, chat moderation, membership changes, or other provider mutation will be invoked.
+- Evidence will be identity-minimized: only credential-count/verified-count and safety flags are persisted; bot IDs, usernames, display names, raw Bot API responses, token material, and token-bearing request URLs are never stored or printed.
+- Hard invariants: `mutation_allowed=false`, `send_allowed=false`, `spend_allowed=false`, `raw_secret_persisted=false`.
+
+- Telegram read-only static/focused acceptance: Black PASS, Ruff PASS, adapter Mypy PASS, focused tests 4/4 PASS; full root Core suite 679/679 PASS.
+- Unit acceptance proved only `getMe` is called for both installed bot credentials, no `sendMessage` or mutation endpoint is used, and bot IDs/usernames/token material are absent from evidence/output.
