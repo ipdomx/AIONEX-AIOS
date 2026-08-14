@@ -94,7 +94,7 @@ No batch may be skipped, silently combined, or marked complete without evidence.
 ## 6. Build batches
 
 ### GS-01 — Growth access-control foundation
-Status: **IN_PROGRESS**
+Status: **COMPLETE**
 
 Build durable owner-controlled Growth/Social service access. Reuse current User/Role/Billing/OwnerControl/Audit foundations. Add a canonical capability catalogue and effective-access resolver supporting global module grant/deny, service-specific overrides, limits, approval requirements, and plan/role composition.
 
@@ -181,3 +181,15 @@ Real human account/provider pilot only after all previous batches are merged and
 - Deterministic simulation proves free-user grant, paid entitlement, owner deny, immediate revocation, and zero-spend limit.
 - Local focused tests: 6/6 Growth access tests PASS; roadmap/completion contracts: 9/9 PASS.
 - No provider OAuth, publishing, lead extraction, or real advertising spend introduced.
+
+
+### GS-01 completion — 2026-08-14
+- PR #310 merged to `main` as `7c01cd815c7beee1ab7f191686e66fc5f998e326`.
+- All required GitHub gates passed, including Backend Tests, Core Owner / Release / Web Contracts, Policy/Resilience, Frontend Build, Owner/VIP browser boundaries, CodeQL, Dependency Security, SBOM/vulnerability gate, and Production Docker Build.
+- Post-merge deployment rebuilt the production backend from `main`; backend returned healthy.
+- Live ingress validation found the authenticated Growth/Social access snapshot was initially blocked by the public Nginx allowlist (HTTP 404).
+- The ingress defect was fixed in PR #311 and merged as `9aaff9a`; regression coverage now allows only `/api/v1/growth-social/access` on the public channel while keeping `/api/v1/owner/growth-social/*` private.
+- Post-fix live check: unauthenticated `/api/v1/growth-social/access` returns HTTP 401 from the backend, proving the route reaches application auth; unlisted owner surfaces remain outside the public allowlist.
+- GS-01 remains simulation/control-plane only: no OAuth provider connection, publishing, lead extraction, campaign launch, or real advertising spend was introduced.
+- Real advertising spend remains disabled by roadmap policy and no spend execution path exists in GS-01.
+- Next batch: **GS-02 — Campaign intelligence domain + simulation engine**.
