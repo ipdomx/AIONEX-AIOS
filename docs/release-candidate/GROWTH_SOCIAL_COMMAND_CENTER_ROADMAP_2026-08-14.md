@@ -142,7 +142,7 @@ Status: **COMPLETE**
 Campaign/ad-set/ad/creative lifecycle, budget/day caps, approvals, stop-loss rules, A/B experiments, launch simulation, pause/scale/replay decisions. `real_spend_allowed=false` hard gate.
 
 ### GS-09 — First live provider connectors
-Status: **META_SANDBOX_VERIFIED_EXTERNAL_GATES_REMAIN**
+Status: **META_OWNED_READ_ONLY_VERIFIED_EXTERNAL_GATES_REMAIN**
 
 Implement provider-specific OAuth/API connectors only where owner credentials/apps and platform approvals are available. Each connector gets separate capability tests and a live no-spend/read-only or sandbox validation before any mutation.
 
@@ -428,3 +428,15 @@ Real human account/provider pilot only after all previous batches are merged and
 - Hard invariants: `provider_call_allowed=true` only for the read-only GET; `mutation_allowed=false`; `spend_allowed=false`; credential stored only as opaque `secretref://file/meta/marketing-api-token`.
 - Static quality: Black PASS, Ruff PASS, adapter Mypy PASS; focused owned-assets tests 4/4 PASS; full root Core suite 679/679 PASS.
 - After PR/CI/merge, production validation will run from inside AIOS using the external operations override and, if successful, promote `meta/ads_read` to `read_only_verified` for scope `owned_assets` while preserving the prior sandbox evidence.
+
+
+### GS-09 Meta owned-assets production read-only closeout — 2026-08-15
+- PR #332 passed every required GitHub production gate and merged to `main` as `f73391f97c1f7253f64ca8eef59c541bd8f63231`.
+- Production Backend rebuilt from merged `main` using both Meta operations overrides stored outside Git; repository Compose remains free of Meta token mounts.
+- Meta general token remains outside the repository in a root-owned mode-0600 host file and is mounted read-only only for the production validation process. Raw token material is not stored in Git, database payloads, report evidence, or logs.
+- Live validation executed from inside the production AIOS Backend using Meta Graph API v26.0 against `/me/adaccounts?fields=id,account_status&limit=100` only.
+- Validation result: `AIOS_META_OWNED_READ_ONLY_VALIDATION_OK`, provider `meta`, capability `ads_read`, scope `owned_assets`, verification state `read_only_verified`, 2 accessible ad accounts, 1 active account, and no pagination truncation.
+- Identity minimization confirmed: account names, account IDs, paging URLs, campaign details, budgets, creatives, audiences, and provider response bodies are not persisted or printed by the validator.
+- Durable database verification confirmed `meta/ads_read = read_only_verified`; prior `gs09_meta_sandbox` evidence remains preserved; owned credential reference is `secretref://file/meta/marketing-api-token`; `raw_secret_persisted=False`; `mutation_allowed=False`; `spend_allowed=False`.
+- No ad creation, campaign mutation, budget edit, audience upload, publish/send, or real advertising spend occurred.
+- Meta owned-assets read-only validation is complete. GS-09 remains externally gated only for broader Meta third-party/business access, any Meta live-write capability, and additional provider-specific validations.
