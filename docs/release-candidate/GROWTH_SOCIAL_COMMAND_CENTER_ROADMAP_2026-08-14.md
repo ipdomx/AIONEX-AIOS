@@ -403,3 +403,5 @@ Real human account/provider pilot only after all previous batches are merged and
 - Added internal `growth_meta_connector` adapter for Meta sandbox `ads_read` validation. The adapter reads only an allowlisted secret-file path, calls only the sandbox ad-account GET endpoint, redacts provider errors, never persists raw token material, and hard-codes mutation/spend evidence to false.
 - Added unit coverage for read-only request shape, token redaction, secret-path allowlist, invalid account IDs, and malformed API versions. Focused Meta tests: 4/4 PASS; Black/Ruff PASS; adapter Mypy PASS.
 - After PR/CI/merge, deployment will use the external operations override to run the validation from inside AIOS and persist `meta/ads_read = sandbox_verified`; no ad creation, budget change, publish/send, or real spend is permitted.
+- PR #330 CI/Core regression exposed a zero-dead `bare-pass` finding in Meta HTTP-error parsing; replaced with explicit fallback to the HTTP status code.
+- Full root Core suite after the fix: 679/679 PASS.
