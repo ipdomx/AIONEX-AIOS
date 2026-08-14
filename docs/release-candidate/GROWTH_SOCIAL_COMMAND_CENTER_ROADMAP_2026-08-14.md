@@ -142,7 +142,7 @@ Status: **COMPLETE**
 Campaign/ad-set/ad/creative lifecycle, budget/day caps, approvals, stop-loss rules, A/B experiments, launch simulation, pause/scale/replay decisions. `real_spend_allowed=false` hard gate.
 
 ### GS-09 — First live provider connectors
-Status: **META_OWNED_READ_ONLY_VERIFIED_EXTERNAL_GATES_REMAIN**
+Status: **META_AND_TELEGRAM_READ_ONLY_VERIFIED_EXTERNAL_GATES_REMAIN**
 
 Implement provider-specific OAuth/API connectors only where owner credentials/apps and platform approvals are available. Each connector gets separate capability tests and a live no-spend/read-only or sandbox validation before any mutation.
 
@@ -451,3 +451,15 @@ Real human account/provider pilot only after all previous batches are merged and
 
 - Telegram read-only static/focused acceptance: Black PASS, Ruff PASS, adapter Mypy PASS, focused tests 4/4 PASS; full root Core suite 679/679 PASS.
 - Unit acceptance proved only `getMe` is called for both installed bot credentials, no `sendMessage` or mutation endpoint is used, and bot IDs/usernames/token material are absent from evidence/output.
+
+
+### GS-09 Telegram production read-only closeout — 2026-08-15
+- PR #334 passed every required GitHub production gate and merged to `main` as `2eb80dcbf1972b5494e899f158073d0e51603271`.
+- Production Backend rebuilt from merged `main` while preserving the existing Meta operations overrides; Telegram bot token mounts remain part of the production Compose base and point to root-owned mode-0600 host files outside Git.
+- Live validation executed from inside the production AIOS Backend using Telegram Bot API `getMe` only for the existing owner/admin bot and user bot credentials.
+- Validation result: `AIOS_TELEGRAM_READ_ONLY_VALIDATION_OK`, provider `telegram`, capability `account.read`, scope `owner_bots`, verification state `read_only_verified`, `bot_credentials_count=2`, `verified_bot_count=2`.
+- Safety evidence confirmed live: `provider_call_allowed=true` only for the two `getMe` reads; `mutation_allowed=false`, `send_allowed=false`, `spend_allowed=false`, `raw_secret_persisted=false`.
+- Identity minimization confirmed: bot IDs, usernames, display names, raw Bot API responses, token material, and token-bearing request URLs are not persisted or printed.
+- Durable database verification confirmed `telegram/account.read = read_only_verified`, `credential_refs_count=2`, `raw_secret_persisted=False`, `verified_bot_count=2`, `mutation_allowed=False`, `send_allowed=False`, and `spend_allowed=False`.
+- No message send, webhook mutation, chat moderation, membership change, provider write, or advertising spend occurred.
+- Meta and Telegram now have production read-only validation evidence. GS-09 remains externally gated for additional providers and any write/spend/publish/send capability.
