@@ -65,7 +65,7 @@ def _redacted_meta_error(exc: HTTPError) -> MetaSandboxValidationError:
         if isinstance(meta_error, dict) and meta_error.get("code") is not None:
             code = meta_error["code"]
     except (ValueError, OSError):
-        pass
+        code = exc.code
     return MetaSandboxValidationError(f"meta-api-error-{code}")
 
 
