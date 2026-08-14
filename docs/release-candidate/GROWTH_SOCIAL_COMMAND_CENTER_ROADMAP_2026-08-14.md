@@ -418,3 +418,13 @@ Real human account/provider pilot only after all previous batches are merged and
 - Durable database verification confirmed `meta/ads_read = sandbox_verified`, credential reference `secretref://file/meta/marketing-api-sandbox-token`, `raw_secret_persisted=False`, `mutation_allowed=False`, and `spend_allowed=False`.
 - No ad creation, budget edit, publish/send, audience upload, account mutation, or real advertising spend occurred.
 - Meta sandbox read-only validation is complete. GS-09 remains externally gated for additional provider-specific validations and for any Meta production/live-write capability beyond this sandbox-read boundary.
+
+
+### GS-09 Meta owned-assets read-only implementation checkpoint — 2026-08-15
+- Added a separate internal Meta owned-assets `ads_read` validator using the existing general Meta token stored outside Git in a root-only mode-0600 host file.
+- Operations wiring remains outside the repository in `/opt/aionex-ops/meta-owned-readonly-compose.override.yml`; repository Compose remains unchanged.
+- The validator requests only `/me/adaccounts?fields=id,account_status&limit=100` on Meta Graph API v26.0 and never requests names, campaign data, budgets, creatives, audiences, or write scopes.
+- Durable evidence is identity-minimized: only account count, active-account count, truncation flag, API version, scope=`owned_assets`, and safety flags are recorded. Account IDs, account names, paging URLs, raw token material, and provider response bodies are not persisted or printed.
+- Hard invariants: `provider_call_allowed=true` only for the read-only GET; `mutation_allowed=false`; `spend_allowed=false`; credential stored only as opaque `secretref://file/meta/marketing-api-token`.
+- Static quality: Black PASS, Ruff PASS, adapter Mypy PASS; focused owned-assets tests 4/4 PASS; full root Core suite 679/679 PASS.
+- After PR/CI/merge, production validation will run from inside AIOS using the external operations override and, if successful, promote `meta/ads_read` to `read_only_verified` for scope `owned_assets` while preserving the prior sandbox evidence.
