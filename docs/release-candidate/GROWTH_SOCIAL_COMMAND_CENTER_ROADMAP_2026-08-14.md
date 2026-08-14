@@ -132,7 +132,7 @@ Status: **COMPLETE**
 Source provenance, consent/lawful-basis metadata, dedupe, suppression, retention, imports, provider lead forms, enrichment interface, audience eligibility evaluator. No unauthorized scraping.
 
 ### GS-07 — Unified inbox & CRM workflow
-Status: **IN_PROGRESS**
+Status: **COMPLETE**
 
 Conversations/messages/comments/mentions, read state, assignment, notes, sentiment/spam classification, templates, supported auto-replies with approval/policy constraints, simulated provider events.
 
@@ -331,3 +331,14 @@ Real human account/provider pilot only after all previous batches are merged and
 - Focused GS-07 workflow + Alembic head tests: 4/4 PASS.
 - Root completion/ingress/roadmap contracts: 21/21 PASS after registering `growth_inbox` in `ENDPOINT_BATCH`.
 - Safety invariants: live provider calls, external sends, block, mute and moderation actions are all disabled in GS-07.
+
+### GS-07 production closeout — 2026-08-14
+- PR #324 merged to `main` as `a0a5aeddb810d0338b21f2bfb06f9baa758effb5` after every GitHub production gate passed, including Backend, Core, CodeQL, SBOM, Browser boundaries, Production Docker, DB-upgrade preservation, legacy `.env`, and backup/restore smoke.
+- Production migration verified at Alembic head `20260814_0022`; Backend healthy.
+- Nginx was force-recreated to remount the updated public allowlist; `/api/v1/growth-social/inbox` then returned HTTP 401 from Backend when unauthenticated, proving the public ingress reaches the authenticated application route.
+- Live production acceptance used an isolated temporary tenant plus an owner-granted `inbox.manage` override and no external provider credentials.
+- Acceptance proved deterministic simulated inbound normalization and dedupe, CRM lead linking, read/star/assignment/internal-note workflow, and quick-reply generation as an approval-required draft only.
+- Safety invariants confirmed live: `external_send_allowed=false`, `live_provider_call=false`, `live_block_allowed=false`, `live_mute_allowed=false`, and `live_moderation_allowed=false`.
+- All temporary tenant, lead, thread, message, note, draft, billing, access-override and audit fixtures were removed; cleanup verified.
+- GS-07 accepted. Next batch: **GS-08 — Paid campaign orchestrator (simulation only)**.
+
