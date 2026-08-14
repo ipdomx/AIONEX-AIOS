@@ -117,7 +117,7 @@ Status: **COMPLETE**
 Multiple accounts/provider, OAuth state/health metadata, token-expiry model, pause, team assignment, capability matrix, connector simulator. No credentials committed.
 
 ### GS-04 — Content operations foundation
-Status: **PLANNED**
+Status: **IN_PROGRESS**
 
 Drafts, platform variants, media references, approvals, scheduler, queue, recycle, UTM generation, preview contracts, simulated publishing adapters.
 
@@ -241,3 +241,20 @@ Real human account/provider pilot only after all previous batches are merged and
 - Live acceptance explicitly reported `live_verified=false`, `live_provider_call=false`, and `credential_value_exposed=false`; the temporary tenant/account/audit fixtures were removed and cleanup verified.
 - Production capability matrix baseline now contains 88 rows (11 providers x 8 declarative capabilities): `unverified=88`, `simulated=0`, `verified=0`. Live verification remains reserved for GS-09.
 - GS-03 accepted. Next batch: **GS-04 — Content operations foundation**.
+
+
+### GS-04 implementation checkpoint — 2026-08-14
+- Worktree: `feature/gs04-content-operations`.
+- Started only after GS-03 closeout PR #317 merged and `main` returned clean.
+- Access gate: GS-01 `content.publish`; owner deny/approval requirements remain authoritative.
+- Scope: drafts, provider/account variants, opaque media references, approval workflow, scheduler/priority queue, recycle, deterministic UTM generation, provider-neutral previews, and simulated publishing adapters.
+- No provider network call, live post creation/edit/delete, DM, comment reply, media upload, scraping, or advertising spend in GS-04.
+- Hard invariant: `live_publish_allowed=false`.
+- Durable models/migration `20260814_0019` added for content items, provider/account variants, schedules/priority queue, and publish simulations.
+- Deterministic content engine includes opaque media refs, UTM generation, provider-neutral preview, approval invalidation after edits, recurrence/recycle, cancellation, and simulated due-queue processing.
+- Owner-controlled `content.publish` access is re-read for every operation; `approval_required` from GS-01 blocks scheduling until an Owner/Admin/Super Owner approves.
+- CI-equivalent static quality: Ruff PASS and Mypy PASS across 152 backend source files.
+- Isolated PostgreSQL migration upgraded cleanly through `20260814_0019`.
+- Focused GS-04/Alembic/route-quality tests: 10/10 PASS; root completion/ingress/roadmap contracts: 19/19 PASS; full root Core suite: 677/677 PASS.
+- Durable acceptance proves Draft -> Variant -> Preview/UTM -> Approval -> Priority Schedule -> simulated publish -> daily recurrence -> manual recycle, plus approval reset after edit and blocked simulation when the target account is paused.
+- Every simulation records `simulation-only`, `no-provider-call`, `live-publish-disabled`; no path in GS-04 can set `live_publish_allowed=true`.

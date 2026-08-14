@@ -490,7 +490,7 @@ ENDPOINT_BATCH: Final[dict[str, str]] = {
     "academy": "29F", "ai_agents": "29J", "ai_providers": "29J", "auth": "29C", "backups": "29G",
     "billing": "29D", "mobile_store_billing": "29D", "communications": "29E",
     "capabilities": "29A", "containers": "29G", "dashboard": "29B", "databases": "29G",
-    "final_integration": "29G", "firebase_phone": "29C", "governance": "29E", "growth_access": "GS-01", "growth_campaigns": "GS-02", "growth_social_accounts": "GS-03",
+    "final_integration": "29G", "firebase_phone": "29C", "governance": "29E", "growth_access": "GS-01", "growth_campaigns": "GS-02", "growth_social_accounts": "GS-03", "growth_content": "GS-04",
     "identity": "29C", "incidents": "29E", "integration": "29I", "knowledge": "29F", "locale": "29B", "meetings": "29E",
     "mobile_delivery": "29H", "monitoring": "29G", "notifications": "29E", "organizations": "29C",
     "permissions": "29C", "portal": "29B", "project_executions": "29F", "projects": "29F",

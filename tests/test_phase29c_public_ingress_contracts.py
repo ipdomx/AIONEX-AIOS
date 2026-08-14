@@ -65,3 +65,10 @@ def test_growth_social_account_registry_routes_are_public_channel_allowlisted() 
     assert "growth-social/providers(?:/.*)?" in public_server
     assert "owner/growth-social" not in public_server
     assert "X-AIOS-Auth-Channel public" in public_server
+
+
+def test_growth_content_operations_routes_are_public_channel_allowlisted() -> None:
+    public_server = NGINX.split("# Public user portal origin.", 1)[0]
+    assert "growth-social/content(?:/.*)?" in public_server
+    assert "owner/growth-social" not in public_server
+    assert "X-AIOS-Auth-Channel public" in public_server

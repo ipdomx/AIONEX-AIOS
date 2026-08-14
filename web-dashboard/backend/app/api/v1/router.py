@@ -32,6 +32,7 @@ from app.api.v1.endpoints import (
     governance,
     growth_access,
     growth_campaigns,
+    growth_content,
     growth_social_accounts,
     identity,
     incidents,
@@ -204,6 +205,7 @@ api_router.include_router(
 )
 api_router.include_router(growth_access.router, prefix="/growth-social", tags=["Growth & Social"])
 api_router.include_router(growth_campaigns.router, prefix="/growth-social/campaigns", tags=["Growth Campaigns"])
+api_router.include_router(growth_content.router, prefix="/growth-social/content", tags=["Growth Content"])
 api_router.include_router(growth_social_accounts.router, prefix="/growth-social", tags=["Growth Social Accounts"])
 api_router.include_router(
     user_telegram.router,

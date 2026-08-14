@@ -1796,6 +1796,104 @@ class GrowthSocialProviderCapability(Base, TimestampMixin):
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
 
+class GrowthContentItem(Base, TimestampMixin):
+    __tablename__ = "growth_content_items"
+    __table_args__ = (
+        Index("ix_growth_content_items_org_status_created", "organization_id", "status", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id", ondelete="SET NULL"), index=True)
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    base_text: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    link_url: Mapped[str | None] = mapped_column(Text)
+    media_refs: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    tags: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False, index=True)
+    approval_status: Mapped[str] = mapped_column(String(32), default="not_requested", nullable=False)
+    approved_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approval_note: Mapped[str | None] = mapped_column(Text)
+    recycle_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    content_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class GrowthContentVariant(Base, TimestampMixin):
+    __tablename__ = "growth_content_variants"
+    __table_args__ = (
+        UniqueConstraint("content_id", "provider", "account_id", name="uq_growth_content_variant_target"),
+        Index("ix_growth_content_variants_content_provider", "content_id", "provider"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    content_id: Mapped[str] = mapped_column(ForeignKey("growth_content_items.id", ondelete="CASCADE"), nullable=False, index=True)
+    account_id: Mapped[str | None] = mapped_column(ForeignKey("growth_social_accounts.id", ondelete="SET NULL"), index=True)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    text: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    link_url: Mapped[str | None] = mapped_column(Text)
+    media_refs: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    hashtags: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    mentions: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    platform_overrides: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="ready", nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class GrowthContentSchedule(Base, TimestampMixin):
+    __tablename__ = "growth_content_schedules"
+    __table_args__ = (
+        Index("ix_growth_content_schedules_due", "status", "scheduled_for", "priority"),
+        Index("ix_growth_content_schedules_content_created", "content_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    content_id: Mapped[str] = mapped_column(ForeignKey("growth_content_items.id", ondelete="CASCADE"), nullable=False, index=True)
+    variant_id: Mapped[str] = mapped_column(ForeignKey("growth_content_variants.id", ondelete="CASCADE"), nullable=False, index=True)
+    account_id: Mapped[str] = mapped_column(ForeignKey("growth_social_accounts.id", ondelete="RESTRICT"), nullable=False, index=True)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    scheduled_for: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    timezone: Mapped[str] = mapped_column(String(80), default="UTC", nullable=False)
+    recurrence: Mapped[str] = mapped_column(String(32), default="none", nullable=False)
+    priority: Mapped[int] = mapped_column(Integer, default=50, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="queued", nullable=False, index=True)
+    approval_required: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    recycle_of_schedule_id: Mapped[str | None] = mapped_column(ForeignKey("growth_content_schedules.id", ondelete="SET NULL"), index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    simulated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class GrowthContentPublishSimulation(Base, TimestampMixin):
+    __tablename__ = "growth_content_publish_simulations"
+    __table_args__ = (
+        Index("ix_growth_content_publish_schedule_created", "schedule_id", "created_at"),
+        Index("ix_growth_content_publish_org_status", "organization_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    schedule_id: Mapped[str] = mapped_column(ForeignKey("growth_content_schedules.id", ondelete="CASCADE"), nullable=False, index=True)
+    content_id: Mapped[str] = mapped_column(ForeignKey("growth_content_items.id", ondelete="CASCADE"), nullable=False, index=True)
+    variant_id: Mapped[str] = mapped_column(ForeignKey("growth_content_variants.id", ondelete="CASCADE"), nullable=False, index=True)
+    account_id: Mapped[str] = mapped_column(ForeignKey("growth_social_accounts.id", ondelete="RESTRICT"), nullable=False, index=True)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    preview: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    reason_codes: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    utm_url: Mapped[str | None] = mapped_column(Text)
+    live_publish_allowed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    simulated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+
 class OwnerControlRecord(Base, TimestampMixin):
     """Durable owner-managed configuration for dashboard control surfaces."""
 
