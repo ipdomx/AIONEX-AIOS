@@ -39,6 +39,7 @@ export function clearOwnerGrowthAccess(input: {
   subject_id: string;
   capability: string;
 }): Promise<{ cleared: boolean }> {
-  const params = new URLSearchParams(input);
-  return apiClient.delete<{ cleared: boolean }>(`/owner/growth-social/access?${params.toString()}`);
+  return apiClient.delete<{ cleared: boolean }>("/owner/growth-social/access", {
+    params: input,
+  });
 }
