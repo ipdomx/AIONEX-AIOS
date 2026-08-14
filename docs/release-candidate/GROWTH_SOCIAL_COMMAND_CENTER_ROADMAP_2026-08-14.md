@@ -137,7 +137,7 @@ Status: **COMPLETE**
 Conversations/messages/comments/mentions, read state, assignment, notes, sentiment/spam classification, templates, supported auto-replies with approval/policy constraints, simulated provider events.
 
 ### GS-08 — Paid campaign orchestrator (simulation only)
-Status: **IN_PROGRESS**
+Status: **COMPLETE**
 
 Campaign/ad-set/ad/creative lifecycle, budget/day caps, approvals, stop-loss rules, A/B experiments, launch simulation, pause/scale/replay decisions. `real_spend_allowed=false` hard gate.
 
@@ -356,3 +356,13 @@ Real human account/provider pilot only after all previous batches are merged and
 - Focused GS-08 workflow + Alembic head contract: 3/3 PASS.
 - Root completion/public-ingress/Growth-Social roadmap contracts: 21/21 PASS.
 - Acceptance proves owner-controlled `ads.manage`, hard total/daily budget caps, campaign approval before simulation, deterministic A/B allocation and launch simulation, stop-loss/hold/scale/iterate decision ledger, with `real_spend_allowed=false`, `live_provider_call=false`, `live_campaign_mutation=false`, `automatic_budget_increase_allowed=false`, and `automatic_execution_allowed=false`.
+
+### GS-08 production closeout — 2026-08-14
+- PR #326 merged to `main` as `47e659bad98e583ccf80448b14cac6198b2dafb3` after every GitHub production gate passed, including Backend, Core, CodeQL, SBOM, Browser boundaries, Production Docker, DB-upgrade preservation, legacy `.env`, and backup/restore smoke.
+- Production migration verified at Alembic head `20260814_0023`; Backend healthy.
+- Nginx was force-recreated to remount the updated public allowlist; `/api/v1/growth-social/paid-campaigns` returned HTTP 401 from Backend when unauthenticated, proving the authenticated application route is reachable.
+- Live production acceptance used an isolated temporary tenant plus an owner-granted `ads.manage` override and no provider credentials.
+- Acceptance proved campaign approval is mandatory before simulation, hard total/daily budget caps, deterministic A/B allocation and repeatable launch simulation, and an explainable `scale_candidate` decision that remains manual-only.
+- Safety invariants confirmed live: `real_spend_allowed=false`, `live_provider_call=false`, `live_campaign_mutation=false`, `automatic_budget_increase_allowed=false`, and `automatic_execution_allowed=false`. No real advertising spend or provider mutation occurred.
+- All temporary campaign/ad-set/creative/ad/experiment/simulation/decision/billing/access-override/user/organization/audit fixtures were removed; cleanup verified.
+- GS-08 accepted. Next batch: **GS-09 — First live provider connectors**, subject to provider credentials/app approvals and no-spend/read-only or sandbox validation before any mutation.
