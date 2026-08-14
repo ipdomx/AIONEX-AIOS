@@ -184,6 +184,7 @@ OWNER_MUTATION_REQUESTS = {
         "assigned_to_id": None,
     },
     ("DELETE", "/api/v1/owner/support/requests/{request_id}"): None,
+    ("DELETE", "/api/v1/owner/growth-social/access"): None,
     (
         "POST",
         "/api/v1/owner/compliance-controls/{control_id}/attest",
