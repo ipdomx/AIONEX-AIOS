@@ -392,3 +392,14 @@ Real human account/provider pilot only after all previous batches are merged and
 - Acceptance proved 11 provider descriptors are registered; raw credential-like values are rejected; contract validation remains `unverified` and performs no provider call; live mutation/spend modes are fail-closed; read-only readiness still requires an opaque credential reference plus platform approval; mutation/spend remain disabled.
 - Acceptance evidence: `GS09_SAFE_PRODUCTION_ACCEPTANCE_OK`, `contract_provider_call_allowed=false`, `contract_verification_state=unverified`, `raw_credentials_rejected=true`, `live_mutation_modes_rejected=true`, `mutation_allowed=false`, `spend_allowed=false`.
 - Internal GS-09 framework work is complete. External gate now blocks only provider-specific read-only/sandbox validation: owner-supplied credential references installed securely on the server plus provider app/account approval. Raw secrets must not be pasted into chat, Git, database payloads, or logs.
+
+
+### GS-09 Meta sandbox validation checkpoint — 2026-08-15
+- Meta Marketing API app `AIONEX-AIOS` configured in development access with `ads_read` available for testing.
+- Sandbox ad account `AIONEX-AIOS Sandbox` created with AED currency and Asia/Dubai timezone; no real spend occurred.
+- User token and sandbox token are stored outside the repository under root-only files; raw token values were never added to Git, database payloads, logs, or chat.
+- Direct server-side read-only verification against Meta Graph/Marketing API v26.0 succeeded for the sandbox account (`META_SANDBOX_READ_OK`), confirming account name, AED currency, Asia/Dubai timezone, and active account status.
+- The Meta sandbox token is mounted into the production Backend only through an operations override outside Git; the repository Compose file remains unchanged from `origin/main`.
+- Added internal `growth_meta_connector` adapter for Meta sandbox `ads_read` validation. The adapter reads only an allowlisted secret-file path, calls only the sandbox ad-account GET endpoint, redacts provider errors, never persists raw token material, and hard-codes mutation/spend evidence to false.
+- Added unit coverage for read-only request shape, token redaction, secret-path allowlist, invalid account IDs, and malformed API versions. Focused Meta tests: 4/4 PASS; Black/Ruff PASS; adapter Mypy PASS.
+- After PR/CI/merge, deployment will use the external operations override to run the validation from inside AIOS and persist `meta/ads_read = sandbox_verified`; no ad creation, budget change, publish/send, or real spend is permitted.
