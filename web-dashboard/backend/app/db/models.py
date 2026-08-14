@@ -1894,6 +1894,86 @@ class GrowthContentPublishSimulation(Base, TimestampMixin):
     simulated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 
 
+class GrowthPerformanceObservation(Base, TimestampMixin):
+    __tablename__ = "growth_performance_observations"
+    __table_args__ = (
+        Index("ix_growth_observations_org_subject_period", "organization_id", "subject_type", "subject_id", "period_end"),
+        Index("ix_growth_observations_org_source_created", "organization_id", "source", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    recorded_by_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    subject_type: Mapped[str] = mapped_column(String(48), nullable=False)
+    subject_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    provider: Mapped[str | None] = mapped_column(String(40), index=True)
+    source: Mapped[str] = mapped_column(String(32), nullable=False)
+    period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    currency: Mapped[str] = mapped_column(String(3), default="USD", nullable=False)
+    impressions: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    reach: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    engagements: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    clicks: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    conversions: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    spend_minor: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    revenue_minor: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    followers_delta: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    extra_metrics: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    evidence: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
+    context: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    sample_quality: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+
+
+class GrowthLearningEntry(Base, TimestampMixin):
+    __tablename__ = "growth_learning_entries"
+    __table_args__ = (
+        UniqueConstraint("observation_id", name="uq_growth_learning_observation"),
+        Index("ix_growth_learning_org_fingerprint_created", "organization_id", "fingerprint", "created_at"),
+        Index("ix_growth_learning_org_outcome_created", "organization_id", "outcome", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    observation_id: Mapped[str] = mapped_column(ForeignKey("growth_performance_observations.id", ondelete="CASCADE"), nullable=False, index=True)
+    subject_type: Mapped[str] = mapped_column(String(48), nullable=False)
+    subject_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    outcome: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    score: Mapped[float] = mapped_column(Float, nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    reason_codes: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    normalized_metrics: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    context: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    occurrence_index: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    success_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    failure_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class GrowthOptimizationRecommendation(Base, TimestampMixin):
+    __tablename__ = "growth_optimization_recommendations"
+    __table_args__ = (
+        UniqueConstraint("learning_entry_id", name="uq_growth_recommendation_learning"),
+        Index("ix_growth_recommendations_org_action_created", "organization_id", "action", "created_at"),
+        Index("ix_growth_recommendations_org_eligible_created", "organization_id", "replay_eligible", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    learning_entry_id: Mapped[str] = mapped_column(ForeignKey("growth_learning_entries.id", ondelete="CASCADE"), nullable=False, index=True)
+    subject_type: Mapped[str] = mapped_column(String(48), nullable=False)
+    subject_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    action: Mapped[str] = mapped_column(String(32), nullable=False)
+    replay_eligible: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    reason_codes: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
+    auto_optimization_allowed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    auto_replay_allowed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+
 class OwnerControlRecord(Base, TimestampMixin):
     """Durable owner-managed configuration for dashboard control surfaces."""
 

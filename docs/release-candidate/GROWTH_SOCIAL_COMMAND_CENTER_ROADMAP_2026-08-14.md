@@ -122,7 +122,7 @@ Status: **COMPLETE**
 Drafts, platform variants, media references, approvals, scheduler, queue, recycle, UTM generation, preview contracts, simulated publishing adapters.
 
 ### GS-05 — Analytics & learning ledger
-Status: **PLANNED**
+Status: **IN_PROGRESS**
 
 Normalized metrics, experiment/campaign outcomes, failure reason taxonomy, successful-pattern records, recommendations, replay eligibility and anti-repeat rules.
 
@@ -265,3 +265,21 @@ Real human account/provider pilot only after all previous batches are merged and
 - Live acceptance explicitly reported `live_publish_allowed=false`, `live_provider_call=false`; all temporary records were removed and cleanup verified.
 - Provider capability matrix was restored after acceptance to the GS-03 baseline: `verified=0`, `simulated=0`, `unverified=88`.
 - GS-04 accepted. Next batch: **GS-05 — Analytics & learning ledger**.
+
+
+### GS-05 implementation checkpoint — 2026-08-14
+- Worktree: `feature/gs05-analytics-learning`.
+- Started only after GS-04 closeout PR #319 merged and `main` returned clean.
+- Access gate: GS-01 `analytics.read`; owner deny remains authoritative.
+- Scope: normalized observations, deterministic outcome classification, failure-reason taxonomy, success/failure pattern ledger, evidence-bound recommendations, replay eligibility, and repeated-failure anti-repeat blocking.
+- No provider analytics fetch, campaign mutation, live replay, budget change, or external network call in GS-05.
+- Recommendations are advisory only; `auto_optimization_allowed=false` and `auto_replay_allowed=false`.
+- Durable models/migration `20260814_0020` added for normalized performance observations, learning entries, and optimization recommendations.
+- Deterministic normalization calculates CTR, engagement rate, conversion rate, CPC, CPA, and ROAS from non-negative input metrics; context/evidence reject sensitive credential fields.
+- Failure taxonomy and target-aware classifier produce `success`, `failure`, or `inconclusive` with explainable reason codes.
+- Pattern fingerprints remember successful/failing conditions; a successful evidence-rich pattern becomes `replay_candidate` only, first failure becomes `iterate`, and the same failure repeated twice becomes `avoid` with `repeat-failure-blocked`.
+- Analysis is idempotent per observation; successful/failure counts and pattern summaries are durable.
+- `auto_optimization_allowed=false` and `auto_replay_allowed=false` are persisted on every recommendation; GS-05 cannot mutate campaigns or replay content.
+- CI-equivalent static quality: Ruff PASS and Mypy PASS across 154 backend source files.
+- Isolated PostgreSQL migration upgraded cleanly through `20260814_0020`.
+- Focused GS-05/Alembic/route-quality tests: 9/9 PASS; root completion/ingress/roadmap contracts: 20/20 PASS; full root Core suite: 678/678 PASS.
