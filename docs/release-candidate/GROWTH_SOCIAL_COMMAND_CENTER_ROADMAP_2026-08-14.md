@@ -142,7 +142,7 @@ Status: **COMPLETE**
 Campaign/ad-set/ad/creative lifecycle, budget/day caps, approvals, stop-loss rules, A/B experiments, launch simulation, pause/scale/replay decisions. `real_spend_allowed=false` hard gate.
 
 ### GS-09 — First live provider connectors
-Status: **PLANNED_EXTERNAL_GATES**
+Status: **IN_PROGRESS_EXTERNAL_GATES**
 
 Implement provider-specific OAuth/API connectors only where owner credentials/apps and platform approvals are available. Each connector gets separate capability tests and a live no-spend/read-only or sandbox validation before any mutation.
 
@@ -366,3 +366,19 @@ Real human account/provider pilot only after all previous batches are merged and
 - Safety invariants confirmed live: `real_spend_allowed=false`, `live_provider_call=false`, `live_campaign_mutation=false`, `automatic_budget_increase_allowed=false`, and `automatic_execution_allowed=false`. No real advertising spend or provider mutation occurred.
 - All temporary campaign/ad-set/creative/ad/experiment/simulation/decision/billing/access-override/user/organization/audit fixtures were removed; cleanup verified.
 - GS-08 accepted. Next batch: **GS-09 — First live provider connectors**, subject to provider credentials/app approvals and no-spend/read-only or sandbox validation before any mutation.
+
+
+### GS-09 execution start — 2026-08-14
+- Worktree: `feature/gs09-provider-connectors` from clean `origin/main`.
+- Scope now: provider connector framework, adapter contracts, capability verification state machine, read-only/sandbox validation harness, credential-reference handling, provider health probes, and audit evidence.
+- Live activation remains gated: no raw credentials in Git/DB/logs, no provider mutation, no real spend, no external publish/send, and no capability may become `live_verified` without owner credentials/app approval plus a successful provider-specific validation.
+- First provider adapters will remain `configured=false` / `verification_state=unverified` unless real provider credentials and approvals are supplied later.
+
+
+### GS-09 safe-framework validation — 2026-08-14
+- Provider connector catalog/framework implemented for supported Growth Social providers.
+- Raw credential material is rejected; only opaque credential references are accepted by contract.
+- Live write/spend/publish/send modes are fail-closed. Contract validation performs zero provider calls and never marks a capability live-verified.
+- Read-only/sandbox validation can become `*_ready` only when a credential reference and platform approval are both present; even then mutation/spend remain disabled until provider-specific external validation occurs.
+- Static quality: Mypy PASS across 162 backend files; focused connector tests 4/4 PASS; completion/public-ingress/Growth Social roadmap contracts 21/21 PASS.
+- External gate remains: actual read-only/sandbox provider validation requires owner-supplied credential references and provider app/account approval. No raw secrets are to be entered into chat, Git, DB payloads, or logs.
