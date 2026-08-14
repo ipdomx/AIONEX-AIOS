@@ -24,14 +24,21 @@ export type GrowthAccessDecision = {
   limits: Record<string, unknown>;
 };
 
-export function fetchOwnerGrowthCapabilities(): Promise<GrowthCapabilityDefinition[]> {
-  return apiClient.get<GrowthCapabilityDefinition[]>("/owner/growth-social/capabilities");
+export function fetchOwnerGrowthCapabilities(): Promise<
+  GrowthCapabilityDefinition[]
+> {
+  return apiClient.get<GrowthCapabilityDefinition[]>(
+    "/owner/growth-social/capabilities",
+  );
 }
 
 export function setOwnerGrowthAccess(
   input: GrowthAccessOverrideInput,
 ): Promise<GrowthAccessDecision> {
-  return apiClient.put<GrowthAccessDecision>("/owner/growth-social/access", input);
+  return apiClient.put<GrowthAccessDecision>(
+    "/owner/growth-social/access",
+    input,
+  );
 }
 
 export function clearOwnerGrowthAccess(input: {
