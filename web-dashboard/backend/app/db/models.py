@@ -1668,6 +1668,56 @@ class DisasterRecoveryRun(Base, TimestampMixin):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class GrowthCampaignBrief(Base, TimestampMixin):
+    __tablename__ = "growth_campaign_briefs"
+    __table_args__ = (
+        Index("ix_growth_campaign_briefs_org_status_created", "organization_id", "status", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id", ondelete="SET NULL"), index=True)
+    name: Mapped[str] = mapped_column(String(240), nullable=False)
+    objective: Mapped[str] = mapped_column(String(80), nullable=False)
+    product_summary: Mapped[str] = mapped_column(Text, nullable=False)
+    target_markets: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    audience_hypotheses: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
+    competitor_hypotheses: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
+    offer_hypotheses: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
+    channel_hypotheses: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
+    budget_minor: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), default="USD", nullable=False)
+    evidence: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class GrowthCampaignSimulation(Base, TimestampMixin):
+    __tablename__ = "growth_campaign_simulations"
+    __table_args__ = (
+        Index("ix_growth_campaign_simulations_brief_created", "brief_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    brief_id: Mapped[str] = mapped_column(ForeignKey("growth_campaign_briefs.id", ondelete="CASCADE"), nullable=False, index=True)
+    requested_by_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    scenario: Mapped[str] = mapped_column(String(32), nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    estimated_reach_min: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    estimated_reach_max: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    estimated_clicks_min: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    estimated_clicks_max: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    estimated_conversions_min: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    estimated_conversions_max: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    estimated_cpa_minor: Mapped[int | None] = mapped_column(BigInteger)
+    reason_codes: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    assumptions: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    result: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    real_spend_allowed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+
 class OwnerControlRecord(Base, TimestampMixin):
     """Durable owner-managed configuration for dashboard control surfaces."""
 

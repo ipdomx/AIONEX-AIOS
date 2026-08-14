@@ -31,6 +31,7 @@ from app.api.v1.endpoints import (
     firebase_phone,
     governance,
     growth_access,
+    growth_campaigns,
     identity,
     incidents,
     integration,
@@ -201,6 +202,7 @@ api_router.include_router(
     tags=["Communications"],
 )
 api_router.include_router(growth_access.router, prefix="/growth-social", tags=["Growth & Social"])
+api_router.include_router(growth_campaigns.router, prefix="/growth-social/campaigns", tags=["Growth Campaigns"])
 api_router.include_router(
     user_telegram.router,
     prefix="/telegram",
