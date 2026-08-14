@@ -1718,6 +1718,151 @@ class GrowthCampaignSimulation(Base, TimestampMixin):
     real_spend_allowed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
 
+class GrowthPaidCampaign(Base, TimestampMixin):
+    __tablename__ = "growth_paid_campaigns"
+    __table_args__ = (
+        Index("ix_growth_paid_campaigns_org_status_created", "organization_id", "status", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    brief_id: Mapped[str | None] = mapped_column(ForeignKey("growth_campaign_briefs.id", ondelete="SET NULL"), index=True)
+    name: Mapped[str] = mapped_column(String(240), nullable=False)
+    objective: Mapped[str] = mapped_column(String(80), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), default="USD", nullable=False)
+    total_budget_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    daily_budget_cap_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    simulated_spend_minor: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False, index=True)
+    approval_status: Mapped[str] = mapped_column(String(32), default="not_requested", nullable=False)
+    approved_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    stop_loss_policy: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    campaign_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    real_spend_allowed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    live_provider_call: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    live_campaign_mutation: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    automatic_budget_increase_allowed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class GrowthPaidAdSet(Base, TimestampMixin):
+    __tablename__ = "growth_paid_ad_sets"
+    __table_args__ = (
+        Index("ix_growth_paid_ad_sets_campaign_status", "campaign_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("growth_paid_campaigns.id", ondelete="CASCADE"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(240), nullable=False)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    audience: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    placements: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    bid_strategy: Mapped[str] = mapped_column(String(48), default="lowest_cost", nullable=False)
+    daily_budget_cap_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    simulated_spend_minor: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False, index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class GrowthPaidCreative(Base, TimestampMixin):
+    __tablename__ = "growth_paid_creatives"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("growth_paid_campaigns.id", ondelete="CASCADE"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(240), nullable=False)
+    format: Mapped[str] = mapped_column(String(40), nullable=False)
+    headline: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+    body: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    media_refs: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    destination_url: Mapped[str | None] = mapped_column(Text)
+    utm: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    approval_status: Mapped[str] = mapped_column(String(32), default="not_requested", nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class GrowthPaidAd(Base, TimestampMixin):
+    __tablename__ = "growth_paid_ads"
+    __table_args__ = (
+        UniqueConstraint("ad_set_id", "creative_id", name="uq_growth_paid_ad_target_creative"),
+        Index("ix_growth_paid_ads_campaign_status", "campaign_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("growth_paid_campaigns.id", ondelete="CASCADE"), nullable=False, index=True)
+    ad_set_id: Mapped[str] = mapped_column(ForeignKey("growth_paid_ad_sets.id", ondelete="CASCADE"), nullable=False, index=True)
+    creative_id: Mapped[str] = mapped_column(ForeignKey("growth_paid_creatives.id", ondelete="CASCADE"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(240), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False, index=True)
+    simulated_impressions: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    simulated_clicks: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    simulated_conversions: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    simulated_spend_minor: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    simulated_revenue_minor: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class GrowthPaidExperiment(Base, TimestampMixin):
+    __tablename__ = "growth_paid_experiments"
+    __table_args__ = (
+        Index("ix_growth_paid_experiments_campaign_status", "campaign_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("growth_paid_campaigns.id", ondelete="CASCADE"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(240), nullable=False)
+    hypothesis: Mapped[str] = mapped_column(Text, nullable=False)
+    variant_ad_ids: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    allocation: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    primary_metric: Mapped[str] = mapped_column(String(48), default="conversion_rate", nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False)
+    result: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class GrowthPaidLaunchSimulation(Base, TimestampMixin):
+    __tablename__ = "growth_paid_launch_simulations"
+    __table_args__ = (
+        Index("ix_growth_paid_launch_simulations_campaign_created", "campaign_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("growth_paid_campaigns.id", ondelete="CASCADE"), nullable=False, index=True)
+    requested_by_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    seed: Mapped[str] = mapped_column(String(64), nullable=False)
+    simulated_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    simulated_spend_minor: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    result: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    reason_codes: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    real_spend_allowed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    live_provider_call: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    live_campaign_mutation: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+
+class GrowthPaidDecision(Base, TimestampMixin):
+    __tablename__ = "growth_paid_decisions"
+    __table_args__ = (
+        Index("ix_growth_paid_decisions_campaign_created", "campaign_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("growth_paid_campaigns.id", ondelete="CASCADE"), nullable=False, index=True)
+    simulation_id: Mapped[str] = mapped_column(ForeignKey("growth_paid_launch_simulations.id", ondelete="CASCADE"), nullable=False, index=True)
+    action: Mapped[str] = mapped_column(String(32), nullable=False)
+    reason_codes: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    metrics: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    approval_required: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    automatic_execution_allowed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    real_spend_allowed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+
 class GrowthSocialAccount(Base, TimestampMixin):
     """Durable managed social account registry. Provider credentials never live here."""
 
