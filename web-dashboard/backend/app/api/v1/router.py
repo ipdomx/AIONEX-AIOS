@@ -37,6 +37,7 @@ from app.api.v1.endpoints import (
     growth_leads,
     growth_inbox,
     growth_paid_campaigns,
+    growth_provider_connectors,
     growth_social_accounts,
     identity,
     incidents,
@@ -214,6 +215,7 @@ api_router.include_router(growth_content.router, prefix="/growth-social/content"
 api_router.include_router(growth_leads.router, prefix="/growth-social/leads", tags=["Growth Leads"])
 api_router.include_router(growth_inbox.router, prefix="/growth-social/inbox", tags=["Growth Inbox"])
 api_router.include_router(growth_paid_campaigns.router, prefix="/growth-social/paid-campaigns", tags=["Growth Paid Campaigns"])
+api_router.include_router(growth_provider_connectors.router, prefix="/growth-social", tags=["Growth Provider Connectors"])
 api_router.include_router(growth_social_accounts.router, prefix="/growth-social", tags=["Growth Social Accounts"])
 api_router.include_router(
     user_telegram.router,
