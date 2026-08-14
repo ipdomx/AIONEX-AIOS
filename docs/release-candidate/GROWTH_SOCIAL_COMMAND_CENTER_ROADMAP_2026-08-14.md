@@ -112,7 +112,7 @@ Status: **COMPLETE**
 Durable campaign briefs, objectives, market/geography/competitor/audience hypotheses, offers, channels, budget scenarios, confidence/evidence fields, and deterministic simulation output. No provider spend.
 
 ### GS-03 — Social account registry + provider capability matrix
-Status: **IN_PROGRESS**
+Status: **COMPLETE**
 
 Multiple accounts/provider, OAuth state/health metadata, token-expiry model, pause, team assignment, capability matrix, connector simulator. No credentials committed.
 
@@ -234,3 +234,10 @@ Real human account/provider pilot only after all previous batches are merged and
 - Durable integration proved two managed accounts for the same provider, team assignment, pause/resume, 7-day expiry health warning, disconnect with credential-reference clearing, and deterministic capability simulation.
 - Capability simulation can move only `unverified -> simulated`; no GS-03 path can create `verified`, and every simulated result reports `live_verified=false` and `live_provider_call=false`.
 - All registry mutations added in GS-03 are audited.
+- PR #316 merged to `main` as `69f1f5e71c9c0a25b97d953797261fa88cfa6585` after every GitHub production gate passed.
+- Production migration verified at Alembic head `20260814_0018`; Backend and Nginx healthy after rollout/remount.
+- Public ingress verification: `/api/v1/growth-social/accounts` and `/api/v1/growth-social/providers/capabilities` both return HTTP 401 from Backend when unauthenticated, proving the Nginx allowlist reaches the application.
+- Live production acceptance with a temporary isolated tenant/user proved two managed accounts on the same provider, team assignment, 7-day expiry health warning, pause/resume, and deterministic `content.publish` capability simulation.
+- Live acceptance explicitly reported `live_verified=false`, `live_provider_call=false`, and `credential_value_exposed=false`; the temporary tenant/account/audit fixtures were removed and cleanup verified.
+- Production capability matrix baseline now contains 88 rows (11 providers x 8 declarative capabilities): `unverified=88`, `simulated=0`, `verified=0`. Live verification remains reserved for GS-09.
+- GS-03 accepted. Next batch: **GS-04 — Content operations foundation**.
