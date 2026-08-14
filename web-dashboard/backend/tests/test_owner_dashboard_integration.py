@@ -71,6 +71,9 @@ OWNER_API_CONTRACT = {
     ),
     ("PATCH", "/api/v1/owner/support/requests/{request_id}"),
     ("DELETE", "/api/v1/owner/support/requests/{request_id}"),
+    ("GET", "/api/v1/owner/growth-social/capabilities"),
+    ("PUT", "/api/v1/owner/growth-social/access"),
+    ("DELETE", "/api/v1/owner/growth-social/access"),
     ("GET", "/api/v1/owner/governance/overview"),
     ("GET", "/api/v1/owner/compliance-controls"),
     (
@@ -181,6 +184,7 @@ OWNER_MUTATION_REQUESTS = {
         "assigned_to_id": None,
     },
     ("DELETE", "/api/v1/owner/support/requests/{request_id}"): None,
+    ("DELETE", "/api/v1/owner/growth-social/access"): None,
     (
         "POST",
         "/api/v1/owner/compliance-controls/{control_id}/attest",
@@ -207,6 +211,14 @@ OWNER_MUTATION_REQUESTS = {
         "image_digests": {},
         "validated": True,
         "note": "contract test",
+    },
+    ("PUT", "/api/v1/owner/growth-social/access"): {
+        "scope": "user",
+        "subject_id": "user-1",
+        "capability": "campaign.research",
+        "allowed": True,
+        "approval_required": False,
+        "limits": {},
     },
     ("PUT", "/api/v1/owner/portal/draft"): {
         "configuration": default_portal_configuration(),

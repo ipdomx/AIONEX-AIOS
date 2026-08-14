@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends
 
 from app.api.owner import (
+    growth_access as owner_growth_access,
     control_plane,
     final_platform_integration,
     free_tier,
@@ -13,9 +14,7 @@ from app.api.owner import (
     security_integration,
     security_lab as owner_security_lab,
 )
-from app.api.owner import (
-    portal as owner_portal,
-)
+from app.api.owner import portal as owner_portal
 from app.api.v1.endpoints import (
     academy,
     ai_agents,
@@ -31,6 +30,7 @@ from app.api.v1.endpoints import (
     final_integration,
     firebase_phone,
     governance,
+    growth_access,
     identity,
     incidents,
     integration,
@@ -200,6 +200,7 @@ api_router.include_router(
     prefix="/communications",
     tags=["Communications"],
 )
+api_router.include_router(growth_access.router, prefix="/growth-social", tags=["Growth & Social"])
 api_router.include_router(
     user_telegram.router,
     prefix="/telegram",
@@ -266,4 +267,5 @@ owner_router.include_router(three_d.router)
 owner_router.include_router(owner_portal.router)
 owner_router.include_router(mobile_delivery.router, prefix="/owner/mobile", tags=["Owner Mobile Delivery"])
 owner_router.include_router(control_plane.router)
+owner_router.include_router(owner_growth_access.router)
 api_router.include_router(owner_router)
