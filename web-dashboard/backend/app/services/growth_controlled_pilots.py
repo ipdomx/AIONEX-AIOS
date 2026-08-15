@@ -38,6 +38,8 @@ READ_ONLY_STATES = {
 }
 LIVE_SPEND_CAPABILITY = "ads.manage"
 LIVE_WRITE_VERIFICATION_STATE = "live_write_verified"
+NO_SPEND_WRITE_APPROVAL_EVIDENCE_KEY = "owner_approved_no_spend_write_test"
+NO_SPEND_WRITE_APPROVAL_SCOPE = "single-paused-campaign-create-read-delete"
 DEFAULT_EXPIRY_HOURS = 24
 MAX_EXPIRY_DAYS = 7
 MAX_MONEY_MINOR = 9_000_000_000_000_000_000
@@ -653,6 +655,64 @@ async def readiness(
         "real_spend_allowed": False,
         "automatic_execution_allowed": False,
     }
+
+
+async def authorize_no_spend_write_validation(
+    session: AsyncSession,
+    actor: UserRecord,
+    pilot_id: str,
+    *,
+    reference: str,
+) -> GrowthControlledPilot:
+    row = await _pilot(session, actor, pilot_id, lock=True)
+    if (
+        row.mode != "live_spend"
+        or row.provider != "meta"
+        or row.provider_scope != "managed_ad_account"
+        or not row.scope_ref
+    ):
+        raise GrowthControlledPilotError(
+            "no-spend-write-authorization-only-for-live-meta-managed-account"
+        )
+    if (
+        row.status in {"armed", "completed", "revoked"}
+        or row.launch_authorized
+        or row.live_provider_mutation_allowed
+        or row.real_spend_allowed
+    ):
+        raise GrowthControlledPilotError("no-spend-write-pilot-must-be-prelaunch")
+    clean_reference = _safe_reference(reference, max_length=500, required=True)
+    evidence = dict(row.evidence or {})
+    evidence[NO_SPEND_WRITE_APPROVAL_EVIDENCE_KEY] = {
+        "approved": True,
+        "scope": NO_SPEND_WRITE_APPROVAL_SCOPE,
+        "reference": clean_reference,
+        "approved_by": actor.id,
+        "approved_at": _now().isoformat(),
+        "consumed": False,
+        "completed": False,
+        "provider_call_executed": False,
+        "spend_executed": False,
+        "real_spend_minor": 0,
+    }
+    row.evidence = evidence
+    row.live_provider_mutation_allowed = False
+    row.real_spend_allowed = False
+    row.version += 1
+    await _audit(
+        session,
+        actor,
+        "growth.pilot.no_spend_write_validation_authorized",
+        row,
+        {
+            "approval_scope": NO_SPEND_WRITE_APPROVAL_SCOPE,
+            "approval_reference": clean_reference,
+            "provider_call_executed": False,
+            "spend_executed": False,
+        },
+    )
+    await session.flush()
+    return row
 
 
 async def authorize_launch(
