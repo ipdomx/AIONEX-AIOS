@@ -152,7 +152,7 @@ Status: **COMPLETE**
 CRM/email/cloud/sheets/webhooks/report exports, richer team workflows, scheduled reporting, PDF/Excel generation, white-label/custom-domain foundations where compatible with the current platform architecture.
 
 ### GS-11 — Full-system synthetic acceptance
-Status: **IMPLEMENTED_VALIDATED_AWAITING_PR_CI_MERGE**
+Status: **COMPLETE**
 
 A complete synthetic journey from owner entitlement grant → account connection simulator → research → plan → content → campaign simulation → inbox/lead events → analytics → failure learning → successful replay recommendation → revocation. No real spend.
 
@@ -547,3 +547,19 @@ Real human account/provider pilot only after all previous batches are merged and
 - Disposable GS-11 PostgreSQL/Redis containers and isolated Docker network were deleted after validation. No production database, live provider credential, provider mutation, external message, custom-domain activation, audience upload, or advertising spend was touched.
 - GS-11 is not complete yet because GitHub CI, merge, production deployment of the runner, and a production-transaction rollback acceptance are still pending.
 - Next action: open the GS-11 PR, require all GitHub gates, merge only when green, deploy the Backend code without schema migration, run the synthetic acceptance inside a production transaction and rollback, update this report, then stop at the GS-12 explicit owner approval gate.
+
+
+### GS-11 production closeout — 2026-08-15
+- PR #338 passed every required GitHub production gate and merged to `main` as `8b1c763731b55e580092834baa79fdd89bcca9c8`.
+- Production `main` was fast-forwarded to the merge commit using the existing deploy key; no Git remote configuration was changed.
+- GS-11 introduced no schema migration and no public endpoint. The production Backend image alone was rebuilt and force-recreated with the exact existing Compose stack plus the Meta sandbox and Meta owned-readonly overrides.
+- Backend returned healthy after rollout, Alembic remained `20260815_0024 (head)`, and Meta/Telegram secret mounts remained present and outside Git.
+- Production acceptance executed the complete GS-11 runner inside one database transaction using two temporary synthetic organizations. No commit was issued; the session was rolled back after the result was produced.
+- Live synthetic result: `GS11_SYNTHETIC_ACCEPTANCE_OK`; all 13 Growth/Social capabilities were owner-granted then owner-revoked, and immediate revocation was enforced.
+- Tenant isolation was confirmed across the two synthetic organizations. Campaign and paid-launch simulations were deterministic; content publish remained simulated; paid decision was advisory `scale_candidate` only.
+- Lead/inbox/analytics acceptance confirmed lawful-basis eligibility, simulated inbox ingestion, manual failure learning (`iterate`), and successful `replay_candidate` with `replay_eligible=true` while automatic replay/optimization remained disabled.
+- GS-10 integration/team/report acceptance inside the same transaction confirmed no external delivery, no team mutation, aggregate-only reporting, and deterministic JSON/CSV/XLSX/PDF artifacts.
+- Live safety invariants confirmed: `live_provider_call=false`, `live_publish_allowed=false`, `external_send_allowed=false`, `live_audience_upload_allowed=false`, `live_campaign_mutation=false`, `real_spend_allowed=false`, and `automatic_execution_allowed=false`.
+- Privacy invariants confirmed: `raw_credentials_exported=false` and `lead_contact_pii_exported=false`.
+- Transaction cleanup verified after rollback: `synthetic_organizations_remaining=0`; no synthetic tenant, user, billing, override, campaign, lead, inbox, analytics, integration, team, or report fixtures were committed to production.
+- GS-11 is accepted complete. The next roadmap item is **GS-12 — Controlled live pilot gate**, which remains blocked until explicit owner approval plus provider/legal/budget prerequisites.
