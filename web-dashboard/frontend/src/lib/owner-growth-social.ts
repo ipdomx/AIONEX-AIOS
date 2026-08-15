@@ -80,6 +80,41 @@ export function clearOwnerGrowthAccess(input: {
   });
 }
 
+export type GrowthMetaOwnedTarget = {
+  scope_ref: string;
+  name: string;
+  active: boolean;
+  currency: string | null;
+  timezone_name: string | null;
+};
+
+export type GrowthMetaTargetDiscovery = {
+  provider: "meta";
+  validation_mode: string;
+  graph_api_version: string;
+  accounts: GrowthMetaOwnedTarget[];
+  account_count: number;
+  active_account_count: number;
+  result_page_truncated: boolean;
+  permissions: {
+    ads_read: boolean;
+    ads_management: boolean;
+    business_management: boolean;
+  };
+  owned_token_write_ready: boolean;
+  provider_call_allowed: boolean;
+  provider_write_executed: boolean;
+  provider_spend_executed: boolean;
+  raw_account_ids_returned: boolean;
+  raw_secret_returned: boolean;
+};
+
+export function fetchOwnerGrowthMetaTargets(): Promise<GrowthMetaTargetDiscovery> {
+  return apiClient.get<GrowthMetaTargetDiscovery>(
+    "/owner/growth-social/meta-targets",
+  );
+}
+
 export type GrowthControlledPilot = {
   id: string;
   organization_id: string | null;

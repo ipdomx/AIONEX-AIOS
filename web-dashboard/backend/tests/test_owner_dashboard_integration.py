@@ -73,6 +73,7 @@ OWNER_API_CONTRACT = {
     ("DELETE", "/api/v1/owner/support/requests/{request_id}"),
     ("GET", "/api/v1/owner/growth-social/capabilities"),
     ("GET", "/api/v1/owner/growth-social/access"),
+    ("GET", "/api/v1/owner/growth-social/meta-targets"),
     ("PUT", "/api/v1/owner/growth-social/access"),
     ("DELETE", "/api/v1/owner/growth-social/access"),
     ("GET", "/api/v1/owner/growth-social/pilots"),
@@ -794,6 +795,8 @@ def test_growth_social_pilot_console_is_private_fail_closed_and_translated() -> 
 
     for marker in (
         "fetchOwnerGrowthPilots",
+        "fetchOwnerGrowthMetaTargets",
+        "fetchOwnerRuntimeSnapshot",
         "fetchOwnerGrowthPilotReadiness",
         "createOwnerGrowthPilot",
         "configureOwnerGrowthPilot",
@@ -818,9 +821,14 @@ def test_growth_social_pilot_console_is_private_fail_closed_and_translated() -> 
     assert "'daily_budget'" not in console
     assert '"lifetime_budget"' not in console
     assert "'lifetime_budget'" not in console
+    assert "Select active Meta account" in console
+    assert "Raw account IDs and credentials" in console
+    assert "never returned to this console" in console
+    assert "ads_management" in console
     assert "components/owner" in arabic_check
 
     for path in (
+        "/owner/growth-social/meta-targets",
         "/owner/growth-social/pilots",
         "/owner/growth-social/pilots/${pilotId}/readiness",
         "/owner/growth-social/pilots/${pilotId}/controls",
