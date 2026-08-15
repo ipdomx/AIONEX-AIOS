@@ -618,3 +618,11 @@ Real human account/provider pilot only after all previous batches are merged and
 - Focused Meta sandbox-write + existing Meta read-only tests: 10/10 PASS. Ruff PASS and Mypy PASS across 171 Backend source files.
 - Full Backend regression from fresh isolated PostgreSQL + Redis: `567 passed, 1 skipped, 0 failed`; Alembic remains `20260815_0025`.
 - No external sandbox mutation has been executed yet in this checkpoint. Next action: PR/CI/merge/deploy this validator, then run exactly one confirmed sandbox PAUSED create/read/delete cycle and verify durable `meta/ads.manage = sandbox_write_verified` while all live-spend gates remain false.
+
+
+### GS-12 Meta sandbox write first-live-attempt finding — 2026-08-15
+- PR #341 passed all GitHub production gates, merged as `e958b743eb14c72cf19aa9967584e6da6967009e`, and the Backend was rebuilt/recreated healthy with Alembic still `20260815_0025`.
+- The first confirmed sandbox write validation was rejected by Meta before Campaign creation with API error code 100 / subcode 4834011; therefore no Campaign object was created and no cleanup/spend was required.
+- A single safe diagnostic using the same PAUSED payload (with automatic delete if it unexpectedly succeeded) returned Meta's requirement: `is_adset_budget_sharing_enabled` must be explicitly True/False when campaign budget is not used. The diagnostic was also rejected before creation.
+- Fix: send `is_adset_budget_sharing_enabled=false`. This is a boolean budget-sharing disable flag, not a budget amount; no `daily_budget`, `lifetime_budget`, spend cap, ad set, ad, audience, or creative field is introduced.
+- Next action: test/review/merge/deploy this minimal request-shape fix, then retry exactly one confirmed PAUSED sandbox create/read/delete cycle.
