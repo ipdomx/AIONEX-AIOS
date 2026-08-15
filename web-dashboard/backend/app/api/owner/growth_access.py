@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -10,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import UserRecord, require_super_owner
 from app.db.base import get_db
-from app.services import growth_access
+from app.services import growth_access, growth_meta_target_discovery
 
 router = APIRouter(prefix="/owner/growth-social", tags=["Owner Growth & Social"])
 
@@ -27,6 +28,16 @@ class OverrideInput(BaseModel):
 @router.get("/capabilities")
 async def capabilities(_actor: UserRecord = Depends(require_super_owner)):
     return [{"id": key, **value} for key, value in growth_access.CAPABILITIES.items()]
+
+
+@router.get("/meta-targets")
+async def meta_targets(_actor: UserRecord = Depends(require_super_owner)):
+    try:
+        return await asyncio.to_thread(
+            growth_meta_target_discovery.probe_meta_owned_targets_read_only
+        )
+    except growth_meta_target_discovery.MetaTargetDiscoveryError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @router.get("/access")

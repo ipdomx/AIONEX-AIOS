@@ -14,6 +14,7 @@ import {
   Rocket,
   Save,
   ShieldCheck,
+  Target,
   XCircle,
 } from "lucide-react";
 
@@ -26,12 +27,18 @@ import {
   configureOwnerGrowthPilot,
   createOwnerGrowthPilot,
   disarmOwnerGrowthPilot,
+  fetchOwnerGrowthMetaTargets,
   fetchOwnerGrowthPilotReadiness,
   fetchOwnerGrowthPilots,
   type GrowthControlledPilot,
+  type GrowthMetaTargetDiscovery,
   type GrowthPilotReadiness,
   validateOwnerGrowthPilotReadOnly,
 } from "@/lib/owner-growth-social";
+import {
+  fetchOwnerRuntimeSnapshot,
+  type OwnerOrganization,
+} from "@/lib/owner-runtime";
 
 type CreateForm = {
   organizationId: string;
@@ -184,6 +191,47 @@ export function GrowthSocialPilotConsole() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [createForm, setCreateForm] = useState<CreateForm>(EMPTY_CREATE);
   const [controls, setControls] = useState<ControlsForm>(EMPTY_CONTROLS);
+  const [metaDiscovery, setMetaDiscovery] =
+    useState<GrowthMetaTargetDiscovery | null>(null);
+  const [organizations, setOrganizations] = useState<OwnerOrganization[]>([]);
+  const [discoveryLoading, setDiscoveryLoading] = useState(false);
+  const [discoveryAttempted, setDiscoveryAttempted] = useState(false);
+  const [discoveryMessage, setDiscoveryMessage] = useState(
+    "Meta target discovery has not been loaded yet.",
+  );
+
+  const loadDiscovery = useCallback(async () => {
+    setDiscoveryAttempted(true);
+    setDiscoveryLoading(true);
+    const [metaResult, runtimeResult] = await Promise.allSettled([
+      fetchOwnerGrowthMetaTargets(),
+      fetchOwnerRuntimeSnapshot(),
+    ]);
+    if (metaResult.status === "fulfilled") {
+      setMetaDiscovery(metaResult.value);
+      setDiscoveryMessage(
+        `Discovered ${metaResult.value.account_count} owned Meta accounts; ${metaResult.value.active_account_count} active.`,
+      );
+    } else {
+      setMetaDiscovery(null);
+      setDiscoveryMessage(messageFromError(metaResult.reason));
+    }
+    if (runtimeResult.status === "fulfilled") {
+      setOrganizations(
+        runtimeResult.value.organizations.filter(
+          (organization) => organization.status === "active",
+        ),
+      );
+    } else {
+      setOrganizations([]);
+      if (metaResult.status === "fulfilled") {
+        setDiscoveryMessage(
+          "Meta targets loaded, but active AIOS organizations could not be loaded.",
+        );
+      }
+    }
+    setDiscoveryLoading(false);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -219,6 +267,16 @@ export function GrowthSocialPilotConsole() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (
+      createForm.mode === "live_spend" &&
+      !discoveryAttempted &&
+      !discoveryLoading
+    ) {
+      void loadDiscovery();
+    }
+  }, [createForm.mode, discoveryAttempted, discoveryLoading, loadDiscovery]);
+
   const selectedPilot = useMemo(
     () => pilots.find((pilot) => pilot.id === selectedId) ?? null,
     [pilots, selectedId],
@@ -250,6 +308,10 @@ export function GrowthSocialPilotConsole() {
   const readOnlyPilots = pilots.filter(
     (pilot) => pilot.mode === "read_only",
   ).length;
+  const selectedMetaTarget =
+    metaDiscovery?.accounts.find(
+      (account) => account.scope_ref === createForm.scopeRef,
+    ) ?? null;
 
   async function runPilotAction(
     pilot: GrowthControlledPilot,
@@ -289,9 +351,28 @@ export function GrowthSocialPilotConsole() {
       return;
     }
     if (createForm.mode === "live_spend") {
-      if (!createForm.organizationId.trim() || !createForm.scopeRef.trim()) {
+      const organization = organizations.find(
+        (item) =>
+          item.id === createForm.organizationId && item.status === "active",
+      );
+      const target = metaDiscovery?.accounts.find(
+        (item) => item.scope_ref === createForm.scopeRef,
+      );
+      if (!organization) {
         setMessage(
-          "Live-spend pilots require organization and managed ad-account references.",
+          "Select an active AIOS organization for the live-spend pilot.",
+        );
+        return;
+      }
+      if (!target?.active) {
+        setMessage(
+          "Select an active discovered Meta ad account for the live-spend pilot.",
+        );
+        return;
+      }
+      if (metaDiscovery?.result_page_truncated) {
+        setMessage(
+          "Meta target discovery is truncated; resolve the account inventory before creating a live-spend pilot.",
         );
         return;
       }
@@ -375,6 +456,8 @@ export function GrowthSocialPilotConsole() {
           mode,
           provider: "meta",
           providerScope: "managed_ad_account",
+          organizationId: "",
+          scopeRef: "",
         };
       }
       const provider = current.provider;
@@ -382,6 +465,7 @@ export function GrowthSocialPilotConsole() {
         ...current,
         mode,
         providerScope: provider === "telegram" ? "owner_bots" : "owned_assets",
+        organizationId: "",
         scopeRef: "",
       };
     });
@@ -398,6 +482,7 @@ export function GrowthSocialPilotConsole() {
           : current.mode === "live_spend"
             ? "managed_ad_account"
             : "owned_assets",
+      organizationId: provider === "telegram" ? "" : current.organizationId,
       scopeRef: provider === "telegram" ? "" : current.scopeRef,
     }));
   }
@@ -582,34 +667,133 @@ export function GrowthSocialPilotConsole() {
               className="glass-input w-full rounded-xl px-3 py-2 text-white outline-none"
             />
           </label>
-          <label className="space-y-1 text-xs text-white/45 xl:col-span-2">
-            <span>Organization ID</span>
-            <input
-              value={createForm.organizationId}
-              onChange={(event) =>
-                setCreateForm((current) => ({
-                  ...current,
-                  organizationId: event.target.value,
-                }))
-              }
-              placeholder="Required for live spend"
-              className="glass-input w-full rounded-xl px-3 py-2 text-white outline-none"
-            />
-          </label>
-          <label className="space-y-1 text-xs text-white/45 xl:col-span-2">
-            <span>Opaque managed account reference</span>
-            <input
-              value={createForm.scopeRef}
-              onChange={(event) =>
-                setCreateForm((current) => ({
-                  ...current,
-                  scopeRef: event.target.value,
-                }))
-              }
-              placeholder="Never paste access tokens or raw credentials"
-              className="glass-input w-full rounded-xl px-3 py-2 text-white outline-none"
-            />
-          </label>
+          {createForm.mode === "live_spend" ? (
+            <>
+              <label className="space-y-1 text-xs text-white/45 xl:col-span-2">
+                <span>AIOS organization</span>
+                <select
+                  value={createForm.organizationId}
+                  onChange={(event) =>
+                    setCreateForm((current) => ({
+                      ...current,
+                      organizationId: event.target.value,
+                    }))
+                  }
+                  className="glass-input w-full rounded-xl px-3 py-2 text-white outline-none"
+                >
+                  <option className="bg-space-800" value="">
+                    Select active organization
+                  </option>
+                  {organizations.map((organization) => (
+                    <option
+                      className="bg-space-800"
+                      key={organization.id}
+                      value={organization.id}
+                    >
+                      {organization.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="space-y-1 text-xs text-white/45 xl:col-span-2">
+                <span>Discovered managed Meta account</span>
+                <select
+                  value={createForm.scopeRef}
+                  onChange={(event) =>
+                    setCreateForm((current) => ({
+                      ...current,
+                      scopeRef: event.target.value,
+                    }))
+                  }
+                  className="glass-input w-full rounded-xl px-3 py-2 text-white outline-none"
+                >
+                  <option className="bg-space-800" value="">
+                    Select active Meta account
+                  </option>
+                  {metaDiscovery?.accounts.map((account) => (
+                    <option
+                      className="bg-space-800"
+                      disabled={!account.active}
+                      key={account.scope_ref}
+                      value={account.scope_ref}
+                    >
+                      {account.name} · {account.currency ?? "—"} ·{" "}
+                      {account.timezone_name ?? "—"} ·{" "}
+                      {account.active ? "Active" : "Inactive"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-xs leading-5 text-white/45 md:col-span-2 xl:col-span-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div className="flex items-start gap-2">
+                    <Target className="mt-0.5 h-4 w-4 shrink-0 text-electric-300" />
+                    <div>
+                      <div className="font-medium text-white/70">
+                        Read-only Meta target discovery
+                      </div>
+                      <div className="mt-1 text-white/35">
+                        {discoveryMessage} Raw account IDs and credentials are
+                        never returned to this console.
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void loadDiscovery()}
+                    disabled={discoveryLoading}
+                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-1.5 text-[11px] text-white/60 disabled:opacity-50"
+                  >
+                    <RefreshCw
+                      className={`h-3 w-3 ${discoveryLoading ? "animate-spin" : ""}`}
+                    />
+                    Refresh Meta targets
+                  </button>
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  <div>
+                    ads_read:{" "}
+                    {String(metaDiscovery?.permissions.ads_read ?? false)}
+                  </div>
+                  <div
+                    className={
+                      metaDiscovery?.permissions.ads_management
+                        ? "text-green-300"
+                        : "text-orange-300"
+                    }
+                  >
+                    ads_management:{" "}
+                    {String(metaDiscovery?.permissions.ads_management ?? false)}
+                  </div>
+                  <div>
+                    Active targets: {metaDiscovery?.active_account_count ?? 0}
+                  </div>
+                </div>
+                {metaDiscovery?.result_page_truncated ? (
+                  <div className="mt-2 text-orange-300">
+                    Meta returned a truncated account inventory. Live-spend
+                    pilot creation is blocked until the full target list is
+                    resolved.
+                  </div>
+                ) : null}
+                {selectedMetaTarget ? (
+                  <div className="mt-2 text-electric-300">
+                    Selected target: {selectedMetaTarget.name} ·{" "}
+                    {selectedMetaTarget.currency ?? "—"} ·{" "}
+                    {selectedMetaTarget.timezone_name ?? "—"}
+                  </div>
+                ) : null}
+                {!metaDiscovery?.permissions.ads_management ? (
+                  <div className="mt-2 text-orange-300">
+                    The current owned Meta token is read-only. You may prepare a
+                    fail-closed pilot record after selecting the target, but
+                    live owned-account write validation remains blocked until
+                    ads_management is granted.
+                  </div>
+                ) : null}
+              </div>
+            </>
+          ) : null}
           <label className="space-y-1 text-xs text-white/45 md:col-span-2 xl:col-span-4">
             <span>Owner approval reference</span>
             <input

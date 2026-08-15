@@ -3,6 +3,28 @@ import type { SupportedLocale } from "@/lib/locale-engine";
 type Catalog = Record<string, string>;
 
 const AR: Catalog = {
+  "Select an active AIOS organization for the live-spend pilot.":
+    "اختر مؤسسة AIOS نشطة لتجربة الإنفاق الفعلي.",
+  "Select an active discovered Meta ad account for the live-spend pilot.":
+    "اختر حساب إعلانات Meta نشطًا من الحسابات المكتشفة لتجربة الإنفاق الفعلي.",
+  "Meta target discovery is truncated; resolve the account inventory before creating a live-spend pilot.":
+    "قائمة أهداف Meta غير مكتملة؛ أكمل حصر الحسابات قبل إنشاء تجربة إنفاق فعلي.",
+  "AIOS organization": "مؤسسة AIOS",
+  "Select active organization": "اختر مؤسسة نشطة",
+  "Discovered managed Meta account": "حساب Meta مُدار مكتشف",
+  "Select active Meta account": "اختر حساب Meta نشطًا",
+  "Read-only Meta target discovery": "اكتشاف أهداف Meta للقراءة فقط",
+  "Meta targets loaded, but active AIOS organizations could not be loaded.":
+    "تم تحميل أهداف Meta، لكن تعذر تحميل مؤسسات AIOS النشطة.",
+  "Raw account IDs and credentials are never returned to this console.":
+    "لا تُعاد معرفات الحسابات الخام أو بيانات الاعتماد إلى هذه اللوحة مطلقًا.",
+  "Refresh Meta targets": "تحديث أهداف Meta",
+  "Active targets:": "الأهداف النشطة:",
+  "Meta returned a truncated account inventory. Live-spend pilot creation is blocked until the full target list is resolved.":
+    "أعادت Meta قائمة حسابات غير مكتملة. إنشاء تجربة إنفاق فعلي محظور حتى اكتمال قائمة الأهداف.",
+  "Selected target:": "الهدف المحدد:",
+  "The current owned Meta token is read-only. You may prepare a fail-closed pilot record after selecting the target, but live owned-account write validation remains blocked until ads_management is granted.":
+    "رمز Meta المملوك الحالي للقراءة فقط. يمكنك تجهيز سجل تجربة مغلق افتراضيًا بعد تحديد الهدف، لكن التحقق من الكتابة الحية على الحساب المملوك يظل محظورًا حتى منح ads_management.",
   "Owner request failed": "فشل طلب المالك",
   "Loading Growth & Social access authority…":
     "جارٍ تحميل سلطة صلاحيات النمو والشبكات الاجتماعية للمالك…",
@@ -1744,7 +1766,12 @@ function catalogFor(locale: SupportedLocale): Catalog | null {
 }
 
 function translateArabicPattern(core: string): string | null {
-  let match = core.match(/^Synchronized (\d+) controlled pilots\.$/);
+  let match = core.match(
+    /^Discovered (\d+) owned Meta accounts; (\d+) active\.$/,
+  );
+  if (match)
+    return `تم اكتشاف ${match[1]} من حسابات Meta المملوكة؛ ${match[2]} نشط.`;
+  match = core.match(/^Synchronized (\d+) controlled pilots\.$/);
   if (match) return `تمت مزامنة ${match[1]} تجربة مضبوطة.`;
   match = core.match(/^(\d+)\/(\d+) safety gates$/);
   if (match) return `${match[1]}/${match[2]} بوابات أمان`;
