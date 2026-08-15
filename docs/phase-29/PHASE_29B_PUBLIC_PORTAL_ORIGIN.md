@@ -140,3 +140,22 @@ Verified result:
 - mobile navigation checks: `6`, all passed.
 
 Static regression tests require the configured About branch to retain its visible `h1` and prohibit restoration of the insufficient-contrast Facebook color.
+
+## 2026-08-15 operational routing correction — shared-hosting route remains active
+
+Later production evidence supersedes the earlier assumption that a Cloudflare API credential is required to publish routine `ai.vip-e.net` frontend updates. The active user portal remains the existing cPanel/shared-hosting document root and has an already-configured SSH deployment route from the AIOS server.
+
+Current routine deployment source of truth:
+
+- SSH alias: `aionex-cpanel-ai-vip`;
+- account: `ipdom3m7` on `ipdomx.com:22`;
+- user-portal document root: `/home2/ipdom3m7/ai.vip-e.net`;
+- public-site document root: `/home2/ipdom3m7/vip-e.net`;
+- SSH private-key path: `/root/.ssh/aionex_cpanel_ai_vip_e_net_ed25519`, root-owned mode `0600`; key material must never be read, printed, copied, or committed;
+- remote backups: `/home2/ipdom3m7/.aionex-deploy-backups/`.
+
+Routine portal updates are: static verification/build -> remote backup -> rsync from `vip-frontend/out/` -> exact SHA-256 manifest parity -> live HTTP acceptance. They preserve `cgi-bin/` and `.well-known/acme-challenge/` and make **no DNS or Cloudflare Tunnel changes**.
+
+The server-managed `nginx:8082` portal origin remains a valid alternate/staging architecture, but it must not replace the active shared-hosting route implicitly. Moving `ai.vip-e.net` from shared hosting to the Tunnel is a separate infrastructure migration requiring explicit Owner approval and its own rollback evidence.
+
+See `docs/operations/AI-VIP-SHARED-HOSTING-DEPLOYMENT.md` for the durable operational procedure and the 2026-08-15 campaign-advisor deployment evidence.
