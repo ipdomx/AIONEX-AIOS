@@ -157,7 +157,7 @@ Status: **COMPLETE**
 A complete synthetic journey from owner entitlement grant → account connection simulator → research → plan → content → campaign simulation → inbox/lead events → analytics → failure learning → successful replay recommendation → revocation. No real spend.
 
 ### GS-12 — Controlled live pilot gate
-Status: **IN_PROGRESS_OWNER_CONSOLE_PRODUCTION_VERIFIED_EXTERNAL_LIVE_SPEND_GATES_REMAIN**
+Status: **IN_PROGRESS_ACCESS_AUTHORITY_CONSOLE_VALIDATED_AWAITING_PR_CI_DEPLOYMENT_EXTERNAL_LIVE_SPEND_GATES_REMAIN**
 
 Real human account/provider pilot only after all previous batches are merged and green. Real advertising spend remains disabled until explicit owner approval, provider credentials, legal/policy prerequisites, and defined budget/stop-loss controls are present.
 
