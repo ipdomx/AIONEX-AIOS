@@ -8,6 +8,7 @@ const scanRoots = [
   "app/settings",
   "components/layout",
   "components/accessibility",
+  "components/owner",
 ].map((value) => path.join(sourceRoot, value));
 const translatedSource = path.join(sourceRoot, "lib/interface-translations.ts");
 const displayPropertyNames = new Set([

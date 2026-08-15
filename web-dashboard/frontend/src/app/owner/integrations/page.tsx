@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { useOwnerResource } from "@/hooks/use-owner-resource";
+import { GrowthSocialPilotConsole } from "@/components/owner/GrowthSocialPilotConsole";
 
 type Integration = {
   id: string;
@@ -134,6 +135,8 @@ export default function OwnerIntegrationsPage() {
           {items.filter((item) => item.enabled).length} services enabled
         </div>
       </motion.div>
+
+      <GrowthSocialPilotConsole />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {summaryCards.map((card) => {

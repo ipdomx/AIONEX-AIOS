@@ -3,6 +3,125 @@ import type { SupportedLocale } from "@/lib/locale-engine";
 type Catalog = Record<string, string>;
 
 const AR: Catalog = {
+  "Not set": "غير محدد",
+  "Live spend gate": "بوابة الإنفاق الفعلي",
+  "Read only": "للقراءة فقط",
+  "Readiness not loaded": "لم تُحمّل حالة الجاهزية",
+  "Applying Owner-controlled pilot operation…":
+    "جارٍ تنفيذ عملية تجربة مضبوطة من المالك…",
+  "Pilot readiness refreshed.": "تم تحديث جاهزية التجربة.",
+  "Owner approval reference is required.": "مرجع موافقة المالك مطلوب.",
+  "Live-spend pilots require organization and managed ad-account references.":
+    "تتطلب تجارب الإنفاق الفعلي مرجع المؤسسة ومرجع الحساب الإعلاني المُدار.",
+  "Create this live-spend pilot record? Creation does not authorize launch or spend; every safety gate remains fail-closed.":
+    "هل تريد إنشاء سجل تجربة إنفاق فعلي؟ الإنشاء لا يعتمد الإطلاق أو الصرف، وتبقى كل بوابات الأمان مغلقة افتراضيًا.",
+  "Controlled pilot created with spend disabled.":
+    "تم إنشاء التجربة المضبوطة مع إبقاء الصرف معطلًا.",
+  "Pilot controls saved. Any previous launch authorization was reset.":
+    "تم حفظ ضوابط التجربة وإلغاء أي اعتماد إطلاق سابق.",
+  "Growth & Social Controlled Pilots":
+    "تجارب النمو والتواصل الاجتماعي المضبوطة",
+  "GS-12 Owner Safety Console": "لوحة أمان المالك GS-12",
+  "Inspect provider readiness, validate read-only pilots, configure explicit live-spend controls, authorize launch, and emergency-disarm without bypassing backend safety gates.":
+    "راجع جاهزية المزود، وتحقق من تجارب القراءة فقط، واضبط حدود الإنفاق الفعلي الصريحة، واعتمد الإطلاق أو ألغِ التسليح طارئًا دون تجاوز بوابات أمان الخادم.",
+  "Refresh pilot state": "تحديث حالة التجارب",
+  "Controlled pilots": "التجارب المضبوطة",
+  "Read-only pilots": "تجارب القراءة فقط",
+  "Live-spend pilot records": "سجلات تجارب الإنفاق الفعلي",
+  "Spend-enabled pilots": "تجارب مفعّل لها الصرف",
+  "Attention: at least one pilot is spend-enabled. Verify its expiry, budget and stop-loss gates immediately.":
+    "تنبيه: توجد تجربة واحدة على الأقل مفعّل لها الصرف. تحقق فورًا من الانتهاء والميزانية وبوابات إيقاف الخسارة.",
+  "Fail-closed: no controlled pilot currently authorizes real advertising spend.":
+    "إغلاق آمن افتراضيًا: لا توجد تجربة مضبوطة تسمح حاليًا بإنفاق إعلاني حقيقي.",
+  "Create controlled pilot record": "إنشاء سجل تجربة مضبوطة",
+  "Creating a record never authorizes launch or spend. Live-spend records require explicit organization and managed ad-account references and remain blocked until every server-side gate is green.":
+    "إنشاء السجل لا يعتمد الإطلاق أو الصرف مطلقًا. تتطلب سجلات الإنفاق الفعلي مرجعًا صريحًا للمؤسسة والحساب الإعلاني المُدار، وتظل محظورة حتى تصبح كل بوابات الخادم خضراء.",
+  "Pilot mode": "وضع التجربة",
+  "Provider scope": "نطاق المزود",
+  "Owner bots": "بوتات المالك",
+  "Managed ad account": "حساب إعلاني مُدار",
+  "Owned assets": "الأصول المملوكة",
+  Sandbox: "بيئة Sandbox",
+  "Organization ID": "معرّف المؤسسة",
+  "Required for live spend": "مطلوب للإنفاق الفعلي",
+  "Opaque managed account reference": "مرجع مبهم للحساب المُدار",
+  "Never paste access tokens or raw credentials":
+    "لا تلصق رموز الوصول أو بيانات الاعتماد الخام مطلقًا",
+  "Owner approval reference": "مرجع موافقة المالك",
+  "Audit reference only — never credential material":
+    "مرجع تدقيق فقط — وليس مادة اعتماد سرية مطلقًا",
+  "Create fail-closed pilot": "إنشاء تجربة مغلقة آمنًا افتراضيًا",
+  "Loading controlled pilots…": "جارٍ تحميل التجارب المضبوطة…",
+  "Loading controlled pilot state…": "جارٍ تحميل حالة التجارب المضبوطة…",
+  "No controlled pilots are registered.": "لا توجد تجارب مضبوطة مسجلة.",
+  "· Expires": "· تنتهي",
+  "Refresh gates": "تحديث البوابات",
+  "Validate read only": "التحقق من القراءة فقط",
+  "Select a pilot to inspect Owner controls.":
+    "اختر تجربة لمراجعة ضوابط المالك.",
+  "Selected pilot": "التجربة المحددة",
+  "Explicit spend controls": "ضوابط الإنفاق الصريحة",
+  "Legal and policy review acknowledged":
+    "تم الإقرار بالمراجعة القانونية والسياسات",
+  "Legal/policy audit reference": "مرجع تدقيق قانوني/سياسات",
+  "Budget fields use integer minor units only. The console rejects values outside JavaScript safe-integer precision before sending them.":
+    "حقول الميزانية تستخدم الوحدات النقدية الصغرى الصحيحة فقط. ترفض اللوحة القيم التي تتجاوز دقة الأعداد الصحيحة الآمنة في JavaScript قبل إرسالها.",
+  "Maximum total budget": "الحد الأقصى للميزانية الإجمالية",
+  "Maximum daily budget": "الحد الأقصى للميزانية اليومية",
+  "Maximum CPA": "الحد الأقصى لتكلفة الاكتساب CPA",
+  "Minimum ROAS": "الحد الأدنى للعائد على الإنفاق ROAS",
+  "Save controls and reset launch authorization":
+    "حفظ الضوابط وإعادة تعيين اعتماد الإطلاق",
+  "Authorize launch for this pilot? Authorization alone does not execute a provider call or spend, and the backend will reject it unless every pre-launch gate is green.":
+    "هل تريد اعتماد إطلاق هذه التجربة؟ الاعتماد وحده لا ينفذ اتصالًا بالمزود ولا صرفًا، وسيقوم الخادم برفضه ما لم تكن كل بوابات ما قبل الإطلاق خضراء.",
+  "Authorize launch gate": "اعتماد بوابة الإطلاق",
+  "Pilot cannot be armed while safety gates are blocked.":
+    "لا يمكن تسليح التجربة بينما توجد بوابات أمان محظورة.",
+  "Live-spend arming cancelled because the confirmation phrase did not match.":
+    "تم إلغاء تسليح الإنفاق الفعلي لأن عبارة التأكيد غير مطابقة.",
+  "Pilot armed under server runtime guard. No provider action was executed by this button.":
+    "تم تسليح التجربة تحت حارس التشغيل على الخادم. لم ينفذ هذا الزر أي إجراء لدى المزود.",
+  "Read-only pilot armed with mutation and spend disabled.":
+    "تم تسليح تجربة القراءة فقط مع تعطيل التعديل والصرف.",
+  "Arm runtime-guarded live pilot": "تسليح تجربة حية محمية بحارس التشغيل",
+  "Arm read-only pilot": "تسليح تجربة القراءة فقط",
+  "Emergency disarm": "إلغاء التسليح طارئًا",
+  "Real spend allowed:": "السماح بالصرف الحقيقي:",
+  "Live mutation allowed:": "السماح بالتعديل الحي:",
+  "Automatic execution allowed:": "السماح بالتنفيذ التلقائي:",
+  "Owner approval": "موافقة المالك",
+  "Provider verification": "التحقق من المزود",
+  "Execution adapter": "موصل التنفيذ",
+  "Legal policy": "السياسة القانونية",
+  "Budget controls": "ضوابط الميزانية",
+  "Stop-loss controls": "ضوابط إيقاف الخسارة",
+  "Pilot expiry": "انتهاء التجربة",
+  "Launch authorization": "اعتماد الإطلاق",
+  "Read-only armed": "القراءة فقط مسلّحة",
+  "Read-only validated": "تم التحقق من القراءة فقط",
+  "Live pilot armed": "التجربة الحية مسلّحة",
+  Disarmed: "غير مسلّحة",
+  "Auto-disarmed": "تم إلغاء التسليح تلقائيًا",
+  "Launch authorized": "تم اعتماد الإطلاق",
+  "Owner approved": "معتمدة من المالك",
+  "Controls configured": "تم ضبط عناصر التحكم",
+  "Owner Growth pilot operation failed.":
+    "فشلت عملية تجربة النمو الخاصة بالمالك.",
+  "Live read-only validation completed without provider mutation.":
+    "اكتمل التحقق الحي للقراءة فقط دون تعديل لدى المزود.",
+  "Launch authorization recorded. Provider spend has not been executed.":
+    "تم تسجيل اعتماد الإطلاق دون تنفيذ أي إنفاق لدى المزود.",
+  "Pilot disarmed and launch/spend authorization cleared.":
+    "تم إلغاء تسليح التجربة ومسح اعتماد الإطلاق والصرف.",
+  "Budget control must be a positive integer.":
+    "يجب أن تكون قيمة ضبط الميزانية عددًا صحيحًا موجبًا.",
+  "Budget control exceeds the safe Owner console integer range.":
+    "تتجاوز قيمة ضبط الميزانية نطاق الأعداد الصحيحة الآمن في لوحة المالك.",
+  "Minimum ROAS must be a positive finite number.":
+    "يجب أن يكون الحد الأدنى لـ ROAS رقمًا موجبًا ومحدودًا.",
+  "Type ARM LIVE SPEND to arm this pilot. Arming still does not create an ad; all future provider execution must pass the runtime guard.":
+    "اكتب ARM LIVE SPEND لتسليح هذه التجربة. التسليح لا ينشئ إعلانًا، ويجب أن يمر أي تنفيذ لاحق لدى المزود عبر حارس التشغيل.",
+  "Disarm reason for the audit log:": "سبب إلغاء التسليح لسجل التدقيق:",
   "Owner Telegram command lock": "قفل أوامر تيليجرام للمالك",
   "Second-factor authentication is required.": "المصادقة بعامل ثانٍ مطلوبة.",
   "Generating one-time code…": "جارٍ إنشاء رمز مؤقت…",
@@ -1550,7 +1669,11 @@ function catalogFor(locale: SupportedLocale): Catalog | null {
 }
 
 function translateArabicPattern(core: string): string | null {
-  let match = core.match(/^Synchronized (\d+) records\.$/);
+  let match = core.match(/^Synchronized (\d+) controlled pilots\.$/);
+  if (match) return `تمت مزامنة ${match[1]} تجربة مضبوطة.`;
+  match = core.match(/^(\d+)\/(\d+) safety gates$/);
+  if (match) return `${match[1]}/${match[2]} بوابات أمان`;
+  match = core.match(/^Synchronized (\d+) records\.$/);
   if (match) return `تمت مزامنة ${match[1]} سجلًا.`;
   match = core.match(/^Revoke (\d+) session\(s\)$/);
   if (match) return `تسجيل الخروج من ${match[1]} جلسة أخرى`;

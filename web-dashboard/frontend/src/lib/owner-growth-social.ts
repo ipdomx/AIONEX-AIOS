@@ -61,13 +61,16 @@ export type GrowthControlledPilot = {
   capability: string;
   status: string;
   owner_approved: boolean;
+  owner_approval_reference: string | null;
   legal_policy_acknowledged: boolean;
+  legal_policy_reference: string | null;
   currency: string | null;
   max_total_budget_minor: number | null;
   max_daily_budget_minor: number | null;
   max_cpa_minor: number | null;
   min_roas: number | null;
   launch_authorized: boolean;
+  expires_at: string | null;
   live_provider_mutation_allowed: boolean;
   real_spend_allowed: boolean;
   automatic_execution_allowed: boolean;
