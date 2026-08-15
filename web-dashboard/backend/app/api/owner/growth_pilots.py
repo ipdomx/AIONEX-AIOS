@@ -39,6 +39,10 @@ class PilotControlsInput(BaseModel):
     expires_at: datetime | None = None
 
 
+class PilotNoSpendWriteApprovalInput(BaseModel):
+    reference: str = Field(min_length=1, max_length=500)
+
+
 class PilotDisarmInput(BaseModel):
     reason: str = Field(default="owner-disarm", min_length=1, max_length=240)
 
@@ -126,6 +130,28 @@ async def validate_read_only_pilot(
 ):
     try:
         row = await pilots.validate_read_only_live(session, actor, pilot_id)
+        await session.commit()
+        await session.refresh(row)
+        return pilots.public_pilot(row)
+    except pilots.GrowthControlledPilotError as exc:
+        await session.rollback()
+        raise _error(exc) from exc
+
+
+@router.post("/{pilot_id}/authorize-no-spend-write-validation")
+async def authorize_no_spend_write_validation(
+    pilot_id: str,
+    data: PilotNoSpendWriteApprovalInput,
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+):
+    try:
+        row = await pilots.authorize_no_spend_write_validation(
+            session,
+            actor,
+            pilot_id,
+            reference=data.reference,
+        )
         await session.commit()
         await session.refresh(row)
         return pilots.public_pilot(row)

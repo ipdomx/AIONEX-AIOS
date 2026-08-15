@@ -218,6 +218,16 @@ export function validateOwnerGrowthPilotReadOnly(
   );
 }
 
+export function authorizeOwnerGrowthPilotNoSpendWriteValidation(
+  pilotId: string,
+  reference: string,
+): Promise<GrowthControlledPilot> {
+  return apiClient.post(
+    `/owner/growth-social/pilots/${pilotId}/authorize-no-spend-write-validation`,
+    { reference },
+  );
+}
+
 export function authorizeOwnerGrowthPilotLaunch(
   pilotId: string,
 ): Promise<GrowthControlledPilot> {
