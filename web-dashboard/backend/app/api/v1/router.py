@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from app.api.owner import (
     growth_access as owner_growth_access,
     growth_pilots as owner_growth_pilots,
+    growth_paid_campaigns as owner_growth_paid_campaigns,
     control_plane,
     final_platform_integration,
     free_tier,
@@ -288,4 +289,5 @@ owner_router.include_router(mobile_delivery.router, prefix="/owner/mobile", tags
 owner_router.include_router(control_plane.router)
 owner_router.include_router(owner_growth_access.router)
 owner_router.include_router(owner_growth_pilots.router)
+owner_router.include_router(owner_growth_paid_campaigns.router)
 api_router.include_router(owner_router)

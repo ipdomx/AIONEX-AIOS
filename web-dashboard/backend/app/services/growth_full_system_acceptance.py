@@ -302,7 +302,7 @@ async def run_synthetic_acceptance(
             "variant_ad_ids": [ad_b.id, ad_a.id],
         },
     )
-    await paid.approve_campaign(session, actor, paid_campaign.id)
+    await paid.approve_campaign(session, owner, paid_campaign.id)
     paid_sim_1, paid_decision_1 = await paid.simulate_launch(
         session, actor, paid_campaign.id, days=3
     )

@@ -76,6 +76,8 @@ OWNER_API_CONTRACT = {
     ("GET", "/api/v1/owner/growth-social/meta-targets"),
     ("PUT", "/api/v1/owner/growth-social/access"),
     ("DELETE", "/api/v1/owner/growth-social/access"),
+    ("GET", "/api/v1/owner/growth-social/paid-campaigns"),
+    ("POST", "/api/v1/owner/growth-social/paid-campaigns/{campaign_id}/approve"),
     ("GET", "/api/v1/owner/growth-social/pilots"),
     ("POST", "/api/v1/owner/growth-social/pilots"),
     ("GET", "/api/v1/owner/growth-social/pilots/{pilot_id}/readiness"),
@@ -195,6 +197,7 @@ OWNER_MUTATION_REQUESTS = {
     },
     ("DELETE", "/api/v1/owner/support/requests/{request_id}"): None,
     ("DELETE", "/api/v1/owner/growth-social/access"): None,
+    ("POST", "/api/v1/owner/growth-social/paid-campaigns/{campaign_id}/approve"): None,
     ("POST", "/api/v1/owner/growth-social/pilots"): {
         "provider": "meta",
         "provider_scope": "owned_assets",
@@ -830,6 +833,7 @@ def test_growth_social_pilot_console_is_private_fail_closed_and_translated() -> 
     for path in (
         "/owner/growth-social/meta-targets",
         "/owner/growth-social/pilots",
+        "/owner/growth-social/paid-campaigns",
         "/owner/growth-social/pilots/${pilotId}/readiness",
         "/owner/growth-social/pilots/${pilotId}/controls",
         "/owner/growth-social/pilots/${pilotId}/validate-read-only",
