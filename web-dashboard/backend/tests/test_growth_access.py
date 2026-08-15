@@ -102,3 +102,70 @@ async def test_plan_entitlement_applies_without_override(monkeypatch):
     decision = await growth_access.effective_access(_FakeSession(), _actor(), "analytics.read")  # type: ignore[arg-type]
     assert decision.allowed is True
     assert decision.source == "plan-entitlement"
+
+
+@pytest.mark.asyncio
+async def test_owner_grant_with_unsafe_legacy_limits_fails_closed_without_reflection(
+    monkeypatch,
+):
+    async def billing_context(*_args, **_kwargs):
+        return {"account": SimpleNamespace(status="active"), "entitlements": []}
+
+    async def override(_session, scope, subject_id, capability):
+        if scope == "user":
+            return SimpleNamespace(
+                enabled=True,
+                payload={
+                    "allowed": True,
+                    "approval_required": False,
+                    "limits": {"access_token": "legacy-secret-must-not-return"},
+                },
+            )
+        return None
+
+    monkeypatch.setattr(growth_access.billing, "billing_context", billing_context)
+    monkeypatch.setattr(growth_access, "_override", override)
+    decision = await growth_access.effective_access(
+        _FakeSession(), _actor(), "ads.manage"
+    )  # type: ignore[arg-type]
+
+    assert decision.allowed is False
+    assert decision.source == "owner-override"
+    assert decision.reason == "owner-override-invalid-limits"
+    assert decision.approval_required is True
+    assert decision.limits == {}
+    assert "legacy-secret-must-not-return" not in repr(decision.as_dict())
+
+
+@pytest.mark.asyncio
+async def test_owner_deny_with_unsafe_legacy_limits_stays_denied_without_reflection(
+    monkeypatch,
+):
+    async def billing_context(*_args, **_kwargs):
+        return {
+            "account": SimpleNamespace(status="active"),
+            "entitlements": ["growth.ads.manage"],
+        }
+
+    async def override(_session, scope, subject_id, capability):
+        if scope == "user":
+            return SimpleNamespace(
+                enabled=True,
+                payload={
+                    "allowed": False,
+                    "approval_required": False,
+                    "limits": {"secret": "legacy-deny-secret-must-not-return"},
+                },
+            )
+        return None
+
+    monkeypatch.setattr(growth_access.billing, "billing_context", billing_context)
+    monkeypatch.setattr(growth_access, "_override", override)
+    decision = await growth_access.effective_access(
+        _FakeSession(), _actor(), "ads.manage"
+    )  # type: ignore[arg-type]
+
+    assert decision.allowed is False
+    assert decision.reason == "owner-deny"
+    assert decision.limits == {}
+    assert "legacy-deny-secret-must-not-return" not in repr(decision.as_dict())

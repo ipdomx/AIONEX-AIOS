@@ -235,6 +235,19 @@ async def effective_access(
     if chosen is not None:
         payload = dict(chosen.payload or {})
         allowed = bool(chosen.enabled and payload.get("allowed", True))
+        try:
+            safe_limits = _safe_limits(payload.get("limits") or {})
+        except ValueError:
+            if allowed:
+                return GrowthAccessDecision(
+                    capability,
+                    False,
+                    "owner-override",
+                    "owner-override-invalid-limits",
+                    True,
+                    {},
+                )
+            safe_limits = {}
         return GrowthAccessDecision(
             capability,
             allowed,
@@ -245,7 +258,7 @@ async def effective_access(
                     "approval_required", definition.get("approval_default", False)
                 )
             ),
-            dict(payload.get("limits") or {}),
+            safe_limits,
         )
 
     entitlements = set(str(item) for item in (context.get("entitlements") or []))

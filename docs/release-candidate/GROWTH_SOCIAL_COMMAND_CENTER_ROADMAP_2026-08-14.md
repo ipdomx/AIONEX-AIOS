@@ -157,7 +157,7 @@ Status: **COMPLETE**
 A complete synthetic journey from owner entitlement grant → account connection simulator → research → plan → content → campaign simulation → inbox/lead events → analytics → failure learning → successful replay recommendation → revocation. No real spend.
 
 ### GS-12 — Controlled live pilot gate
-Status: **IN_PROGRESS_ACCESS_AUTHORITY_CONSOLE_AWAITING_FINAL_PR_CI_OWNED_VALIDATOR_MERGED_EXTERNAL_LIVE_SPEND_GATES_REMAIN**
+Status: **IN_PROGRESS_INTERNAL_EFFECTIVE_ACCESS_HARDENING_AWAITING_PR_CI_EXTERNAL_LIVE_SPEND_GATES_REMAIN**
 
 Real human account/provider pilot only after all previous batches are merged and green. Real advertising spend remains disabled until explicit owner approval, provider credentials, legal/policy prerequisites, and defined budget/stop-loss controls are present.
 
@@ -718,3 +718,26 @@ Real human account/provider pilot only after all previous batches are merged and
 - Focused scope-binding + owned-validator tests: `14 passed`; Growth/Social regression: `85 passed`. Static quality: Black/Ruff PASS and Mypy PASS across `172` Backend source files. Full Backend regression from a brand-new isolated PostgreSQL + Redis environment: `580 passed, 1 skipped, 0 failed` at Alembic `20260815_0026`. Root AIOS Core suite: `680 passed`; roadmap/public-ingress contracts: `14 passed`.
 - No real Meta owned-account provider call or mutation was executed in this checkpoint. Production currently lacks the required target env/pilot binding and the installed owned token still lacks `ads_management`, so live execution of this validator remains externally blocked and must not be attempted yet.
 - Next action: PR/CI/merge/deploy this prebuilt validator and scope-binding hardening. After deployment, safe readiness may verify the CLI fails closed with no target configured; actual PAUSED create/read/delete remains blocked until the Owner supplies/approves the exact target account/tenant/legal context and a securely installed owned Meta credential with `ads_management`.
+
+### GS-12 Owner Growth/Social access authority production closeout — 2026-08-15
+- PR #349 passed all required GitHub production gates on the latest base and merged to `main` as `a495508c41e29cc4658660d1135231b834f43f76`. The green gates included Core Owner / Release / Web Contracts, Backend Tests, Frontend Build, Owner/VIP browser boundaries, Policy/Resilience, CodeQL, dependency/security hygiene, SBOM/vulnerability checks and Production Docker Build including backup/restore smoke.
+- Production `main` was synchronized to the merge commit. Backend and Frontend images were rebuilt/recreated using the existing Meta sandbox + owned-readonly Compose overrides. No schema migration or Nginx/Operations Observer recreation was required; Alembic remains `20260815_0026 (head)`.
+- Backend and Frontend returned healthy. The live Backend contains `list_owner_overrides()` and `_safe_limits()`; the deployed Next bundle contains the `Growth & Social Owner Authority` console.
+- Live private/public boundary acceptance succeeded: private `/owner/access` returns HTTP 200; private `GET /api/v1/owner/growth-social/access` returns HTTP 401 unauthenticated; public page and public Owner API both return HTTP 404.
+- Read-only service acceptance against production found zero current Growth/Social owner overrides, zero malformed/redacted records, and explicitly returned `provider_write_executed=false`, `provider_spend_executed=false`, `raw_credentials_returned=false`. No override mutation was performed for acceptance.
+- No provider credential change, provider call, Meta owned-account mutation, ad/ad-set creation, audience upload, budget edit, publish/send, automatic execution or advertising spend occurred during rollout or acceptance.
+
+### GS-12 Meta owned no-spend validator deployed fail-closed preflight — 2026-08-15
+- PR #350 is included in production `main` before/with the #349 deployment. The CLI-only Meta owned-account no-spend write validator and scope-binding readiness hardening are therefore present in the live Backend; no execution route was exposed.
+- A confirmed fail-closed preflight was run with no approved live target. The validator stopped at target-account validation with `meta-owned-write-account-id-invalid` before token reading, pilot mutation, or any Meta provider request.
+- Independent post-preflight verification remained unchanged: `meta/ads.manage = sandbox_write_verified`, `mutation_allowed=false`, `spend_allowed=false`, `execution_adapter_verified=false`, zero `live_spend` pilots and zero spend-enabled pilots.
+- Therefore actual PAUSED create/read/delete validation remains externally blocked until the exact managed-ad-account target/tenant/legal context and securely installed owned Meta credential with `ads_management` are supplied/approved.
+
+### GS-12 effective-access legacy-limit hardening checkpoint — 2026-08-15
+- Post-deployment review found one final internal data-safety gap: the new Owner override listing already redacts unsafe legacy `limits`, but the user-facing `effective_access()` path could still reflect pre-hardening legacy limits directly if such a record existed. Production currently has zero Growth/Social overrides, so no live data was exposed.
+- Hardened `effective_access()` to pass every owner-override `limits` object through the same bounded secret-aware `_safe_limits()` validator before returning it.
+- If an otherwise-allowed legacy Owner grant contains unsafe limits, access now fails closed with `allowed=false`, reason `owner-override-invalid-limits`, `approval_required=true`, and `limits={}`. No unsafe value is reflected to the caller.
+- If an Owner deny contains unsafe legacy limits, deny precedence remains unchanged (`owner-deny`) while its returned limits are forced to `{}`; a malformed deny can never accidentally become a grant.
+- Focused access tests: `7 passed`, including explicit non-reflection checks for token/secret-like legacy values. Backend static quality: Ruff PASS and Mypy PASS across `172` source files. Growth/Social regression on fresh isolated PostgreSQL + Redis at Alembic `20260815_0026`: `91 passed`.
+- A later Full Backend run reused the already-populated Growth/Social test database and produced three unrelated state-contamination failures (seat limit already consumed and duplicate mobile-store/Stripe events). A fresh-database rerun command was blocked by the tool safety layer before execution; therefore no full local result is claimed here. GitHub Backend/Core/Production Docker gates are mandatory before merge and remain the authoritative final regression.
+- No schema migration, provider call, owner override mutation, real spend or production runtime change has been made by this hardening branch. Next action: PR/CI/merge this minimal hardening, deploy Backend only, run a rollback-only synthetic legacy-limit acceptance, then reassess whether any safe internal work remains before the external GS-12 live target/credential/legal/budget gates.
