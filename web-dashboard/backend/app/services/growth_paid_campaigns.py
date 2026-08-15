@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from datetime import datetime, timezone
 from typing import Any
 
@@ -25,6 +26,9 @@ from app.services import growth_access
 class GrowthPaidCampaignError(Exception):
     """GS-08 validation/access error."""
 
+
+MAX_MONEY_MINOR = 9_000_000_000_000_000_000
+MAX_ROAS = 1_000_000.0
 
 SAFE_PROVIDERS = {
     "facebook",
@@ -59,18 +63,27 @@ async def _require(session: AsyncSession, actor: UserRecord) -> None:
 def _safe_budget(total: int, daily: int) -> None:
     if total <= 0 or daily <= 0:
         raise GrowthPaidCampaignError("budget-must-be-positive")
+    if total > MAX_MONEY_MINOR or daily > MAX_MONEY_MINOR:
+        raise GrowthPaidCampaignError("budget-too-large")
     if daily > total:
         raise GrowthPaidCampaignError("daily-cap-exceeds-total-budget")
 
 
 def _safe_policy(policy: dict[str, Any]) -> dict[str, Any]:
-    out = {
-        "max_cpa_minor": max(0, int(policy.get("max_cpa_minor", 0))),
-        "min_roas": max(0.0, float(policy.get("min_roas", 0.0))),
-        "max_daily_spend_minor": max(0, int(policy.get("max_daily_spend_minor", 0))),
-        "max_total_spend_minor": max(0, int(policy.get("max_total_spend_minor", 0))),
+    max_cpa = max(0, int(policy.get("max_cpa_minor", 0)))
+    max_daily = max(0, int(policy.get("max_daily_spend_minor", 0)))
+    max_total = max(0, int(policy.get("max_total_spend_minor", 0)))
+    min_roas = float(policy.get("min_roas", 0.0))
+    if any(value > MAX_MONEY_MINOR for value in (max_cpa, max_daily, max_total)):
+        raise GrowthPaidCampaignError("stop-loss-money-too-large")
+    if not math.isfinite(min_roas) or min_roas < 0 or min_roas > MAX_ROAS:
+        raise GrowthPaidCampaignError("min-roas-invalid")
+    return {
+        "max_cpa_minor": max_cpa,
+        "min_roas": min_roas,
+        "max_daily_spend_minor": max_daily,
+        "max_total_spend_minor": max_total,
     }
-    return out
 
 
 def _budget_assessment(
@@ -108,6 +121,9 @@ def _budget_assessment(
         "user_min_roas": min_roas or None,
         "owner_approval_required": True,
         "advisory_only": True,
+        "analysis_basis": "synthetic_prelaunch_v2",
+        "real_performance_data_used": False,
+        "guaranteed_results": False,
         "budget_mutated": False,
         "automatic_execution_allowed": False,
     }
@@ -142,6 +158,100 @@ async def create_campaign(
     session.add(row)
     await session.flush()
     return row
+
+
+async def prepare_and_simulate_campaign(
+    session: AsyncSession, actor: UserRecord, payload: dict[str, Any]
+) -> dict[str, Any]:
+    """Atomically prepare one paid campaign and run advisory-only AIOS simulation."""
+    total = int(payload["total_budget_minor"])
+    daily = int(payload["daily_budget_cap_minor"])
+    max_cpa = int(payload.get("max_cpa_minor") or 0)
+    min_roas = float(payload.get("min_roas") or 0.0)
+    campaign = await create_campaign(
+        session,
+        actor,
+        {
+            "name": payload["campaign_name"],
+            "objective": payload["objective"],
+            "currency": payload.get("currency", "USD"),
+            "total_budget_minor": total,
+            "daily_budget_cap_minor": daily,
+            "stop_loss_policy": {
+                "max_cpa_minor": max_cpa,
+                "min_roas": min_roas,
+            },
+            "metadata": {
+                "prepared_by": "user-campaign-advisor",
+                "aios_advice_only": True,
+                "budget_mutation_allowed": False,
+            },
+        },
+    )
+    if max_cpa and max_cpa > total:
+        raise GrowthPaidCampaignError("max-cpa-exceeds-total-budget")
+
+    countries = [
+        str(item).strip().upper() for item in payload.get("target_countries", [])
+    ]
+    if not countries or any(len(item) != 2 or not item.isalpha() for item in countries):
+        raise GrowthPaidCampaignError("target-countries-invalid")
+    placements = [
+        str(item).strip().lower()
+        for item in payload.get("placements", [])
+        if str(item).strip()
+    ]
+    if not placements:
+        placements = ["feed"]
+
+    ad_set = await add_ad_set(
+        session,
+        actor,
+        campaign.id,
+        {
+            "name": payload.get("ad_set_name") or f"{campaign.name} Ad Set",
+            "provider": payload.get("provider", "instagram"),
+            "audience": {"countries": countries},
+            "placements": placements,
+            "bid_strategy": payload.get("bid_strategy", "lowest_cost"),
+            "daily_budget_cap_minor": daily,
+        },
+    )
+    creative = await add_creative(
+        session,
+        actor,
+        campaign.id,
+        {
+            "name": payload.get("creative_name") or f"{campaign.name} Creative",
+            "format": payload.get("creative_format", "image"),
+            "headline": payload.get("headline", ""),
+            "body": payload.get("body", ""),
+            "destination_url": payload.get("destination_url"),
+            "utm": dict(payload.get("utm") or {}),
+            "approved": False,
+        },
+    )
+    ad = await add_ad(
+        session,
+        actor,
+        campaign.id,
+        {
+            "name": payload.get("ad_name") or f"{campaign.name} Ad",
+            "ad_set_id": ad_set.id,
+            "creative_id": creative.id,
+        },
+    )
+    simulation, decision = await simulate_launch(
+        session, actor, campaign.id, days=int(payload.get("days") or 3)
+    )
+    return {
+        "campaign": campaign,
+        "ad_set": ad_set,
+        "creative": creative,
+        "ad": ad,
+        "simulation": simulation,
+        "decision": decision,
+    }
 
 
 async def approve_campaign(
@@ -298,12 +408,35 @@ async def simulate_launch(
     if not ads:
         raise GrowthPaidCampaignError("campaign-has-no-ads")
     days = max(1, min(int(days), 30))
+    configuration_ads: list[dict[str, Any]] = []
+    for ad in ads:
+        ad_set = await session.get(GrowthPaidAdSet, ad.ad_set_id)
+        creative = await session.get(GrowthPaidCreative, ad.creative_id)
+        configuration_ads.append(
+            {
+                "provider": ad_set.provider if ad_set else "unknown",
+                "audience": dict(ad_set.audience or {}) if ad_set else {},
+                "placements": sorted(ad_set.placements or []) if ad_set else [],
+                "bid_strategy": ad_set.bid_strategy if ad_set else "",
+                "adset_daily_budget_minor": (
+                    ad_set.daily_budget_cap_minor if ad_set else 0
+                ),
+                "creative_format": creative.format if creative else "",
+                "headline": creative.headline if creative else "",
+                "body": creative.body if creative else "",
+                "has_destination_url": bool(creative and creative.destination_url),
+            }
+        )
     seed = _seed(
         {
-            "campaign": campaign.id,
-            "version": campaign.version,
+            "analysis_basis": "synthetic_prelaunch_v2",
+            "objective": campaign.objective,
+            "currency": campaign.currency,
+            "total_budget_minor": campaign.total_budget_minor,
+            "daily_budget_cap_minor": campaign.daily_budget_cap_minor,
+            "stop_loss_policy": dict(campaign.stop_loss_policy or {}),
             "days": days,
-            "ads": [a.id for a in ads],
+            "ads": configuration_ads,
         }
     )
     total_cap = min(campaign.total_budget_minor, campaign.daily_budget_cap_minor * days)
@@ -328,6 +461,11 @@ async def simulate_launch(
         "conversion_rate": round(conv_rate, 4),
         "cpa_minor": cpa,
         "roas": roas,
+        "analysis_basis": "synthetic_prelaunch_v2",
+        "real_performance_data_used": False,
+        "guaranteed_results": False,
+        "provider_call_executed": False,
+        "real_spend_executed": False,
     }
     # AIOS advises on the user's chosen budget; it never rewrites it automatically.
     policy = campaign.stop_loss_policy or {}

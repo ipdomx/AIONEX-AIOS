@@ -57,6 +57,29 @@ class ExperimentRequest(BaseModel):
     primary_metric: str = "conversion_rate"
 
 
+class CampaignPreparationRequest(BaseModel):
+    campaign_name: str = Field(min_length=1, max_length=240)
+    objective: str = Field(min_length=1, max_length=80)
+    currency: str = Field(default="USD", min_length=3, max_length=3)
+    total_budget_minor: int = Field(gt=0)
+    daily_budget_cap_minor: int = Field(gt=0)
+    max_cpa_minor: int | None = Field(default=None, gt=0)
+    min_roas: float | None = Field(default=None, gt=0)
+    provider: str = Field(default="instagram", min_length=1, max_length=40)
+    target_countries: list[str] = Field(min_length=1, max_length=25)
+    placements: list[str] = Field(default_factory=lambda: ["feed"])
+    bid_strategy: str = Field(default="lowest_cost", min_length=1, max_length=48)
+    ad_set_name: str | None = Field(default=None, max_length=240)
+    creative_name: str | None = Field(default=None, max_length=240)
+    creative_format: str = Field(default="image", min_length=1, max_length=40)
+    headline: str = Field(default="", max_length=300)
+    body: str = Field(default="", max_length=4000)
+    destination_url: str | None = Field(default=None, max_length=2048)
+    utm: dict = Field(default_factory=dict)
+    ad_name: str | None = Field(default=None, max_length=240)
+    days: int = Field(default=3, ge=1, le=30)
+
+
 def _status(exc: Exception) -> int:
     text = str(exc)
     if text.startswith("access-denied:"):
@@ -64,6 +87,42 @@ def _status(exc: Exception) -> int:
     if text.endswith("not-found"):
         return 404
     return 400
+
+
+@router.post("/prepare-and-simulate", status_code=201)
+async def prepare_and_simulate_campaign(
+    request: CampaignPreparationRequest,
+    actor: UserRecord = Depends(current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    try:
+        result = await paid.prepare_and_simulate_campaign(
+            session, actor, request.model_dump()
+        )
+        await session.commit()
+        campaign = result["campaign"]
+        decision = result["decision"]
+        simulation = result["simulation"]
+        return {
+            "campaign": paid.public_campaign(campaign),
+            "ad_set_id": result["ad_set"].id,
+            "creative_id": result["creative"].id,
+            "ad_id": result["ad"].id,
+            "simulation_id": simulation.id,
+            "decision": decision.action,
+            "reason_codes": decision.reason_codes,
+            "metrics": decision.metrics,
+            "budget_assessment": decision.metrics.get("budget_assessment", {}),
+            "owner_approval_required": True,
+            "aios_advice_only": True,
+            "automatic_execution_allowed": False,
+            "real_spend_allowed": False,
+            "live_provider_call": False,
+            "live_campaign_mutation": False,
+        }
+    except paid.GrowthPaidCampaignError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=_status(exc), detail=str(exc)) from exc
 
 
 @router.get("")
@@ -92,21 +151,6 @@ async def create_campaign(
 ):
     try:
         row = await paid.create_campaign(session, actor, request.model_dump())
-        await session.commit()
-    except paid.GrowthPaidCampaignError as exc:
-        await session.rollback()
-        raise HTTPException(status_code=_status(exc), detail=str(exc)) from exc
-    return paid.public_campaign(row)
-
-
-@router.post("/{campaign_id}/approve")
-async def approve_campaign(
-    campaign_id: str,
-    actor: UserRecord = Depends(current_user),
-    session: AsyncSession = Depends(get_db),
-):
-    try:
-        row = await paid.approve_campaign(session, actor, campaign_id)
         await session.commit()
     except paid.GrowthPaidCampaignError as exc:
         await session.rollback()

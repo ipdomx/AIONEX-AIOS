@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import select
 
 from app.core.auth import UserRecord
 from app.db.base import SessionLocal
@@ -209,3 +210,167 @@ async def test_access_denied_fail_closed(monkeypatch) -> None:
                     "daily_budget_cap_minor": 100,
                 },
             )
+
+
+@pytest.mark.asyncio
+async def test_prepare_and_simulate_campaign_is_advisory_and_atomic(
+    monkeypatch,
+) -> None:
+    suffix = uuid4().hex[:10]
+    org_id = f"gs08-prepare-org-{suffix}"
+    user_id = f"gs08-prepare-user-{suffix}"
+    email = f"gs08-prepare-{suffix}@example.invalid"
+
+    async def allow(_session, _actor, _capability):
+        return SimpleNamespace(allowed=True, reason="test-owner-grant")
+
+    monkeypatch.setattr(paid.growth_access, "effective_access", allow)
+    actor = _actor(org_id, user_id, email)
+
+    async with SessionLocal() as session:
+        session.add(
+            Organization(
+                id=org_id,
+                name="GS08 Prepare",
+                slug=f"gs08-prepare-{suffix}",
+                plan="test",
+                status="active",
+            )
+        )
+        await session.flush()
+        session.add(
+            User(
+                id=user_id,
+                organization_id=org_id,
+                email=email,
+                name="GS08 Prepare",
+                password_hash="unused",
+                status="active",
+                auth_version=1,
+            )
+        )
+        await session.flush()
+
+        result = await paid.prepare_and_simulate_campaign(
+            session,
+            actor,
+            {
+                "campaign_name": "Atomic Campaign",
+                "objective": "sales",
+                "currency": "EUR",
+                "total_budget_minor": 120000,
+                "daily_budget_cap_minor": 20000,
+                "max_cpa_minor": 10000,
+                "min_roas": 1.5,
+                "provider": "instagram",
+                "target_countries": ["AE"],
+                "placements": ["feed", "stories"],
+                "headline": "Atomic",
+                "body": "Advisory only",
+                "destination_url": "https://example.invalid/landing",
+                "days": 3,
+            },
+        )
+        campaign = result["campaign"]
+        decision = result["decision"]
+        assessment = decision.metrics["budget_assessment"]
+        assert campaign.total_budget_minor == 120000
+        assert campaign.daily_budget_cap_minor == 20000
+        assert campaign.approval_status == "pending_owner"
+        assert campaign.status == "awaiting_owner_approval"
+        assert campaign.real_spend_allowed is False
+        assert campaign.live_provider_call is False
+        assert campaign.live_campaign_mutation is False
+        assert campaign.automatic_budget_increase_allowed is False
+        assert result["ad_set"].status == "draft"
+        assert result["creative"].approval_status == "not_requested"
+        assert result["ad"].status == "ready"
+        assert assessment["advisory_only"] is True
+        assert assessment["budget_mutated"] is False
+        assert assessment["owner_approval_required"] is True
+        assert assessment["analysis_basis"] == "synthetic_prelaunch_v2"
+        assert assessment["real_performance_data_used"] is False
+        assert assessment["guaranteed_results"] is False
+        assert assessment["user_total_budget_minor"] == 120000
+        assert assessment["user_daily_budget_minor"] == 20000
+        assert decision.metrics["provider_call_executed"] is False
+        assert decision.metrics["real_spend_executed"] is False
+        await session.rollback()
+
+    async with SessionLocal() as session:
+        from app.db.models import GrowthPaidCampaign
+
+        rows = (
+            await session.scalars(
+                select(GrowthPaidCampaign).where(
+                    GrowthPaidCampaign.organization_id == org_id,
+                    GrowthPaidCampaign.name == "Atomic Campaign",
+                )
+            )
+        ).all()
+        assert rows == []
+
+
+@pytest.mark.asyncio
+async def test_prepare_campaign_rejects_invalid_target_before_commit(
+    monkeypatch,
+) -> None:
+    suffix = uuid4().hex[:10]
+    org_id = f"gs08-invalid-org-{suffix}"
+    user_id = f"gs08-invalid-user-{suffix}"
+    email = f"gs08-invalid-{suffix}@example.invalid"
+
+    async def allow(_session, _actor, _capability):
+        return SimpleNamespace(allowed=True, reason="test-owner-grant")
+
+    monkeypatch.setattr(paid.growth_access, "effective_access", allow)
+    actor = _actor(org_id, user_id, email)
+
+    async with SessionLocal() as session:
+        session.add(
+            Organization(
+                id=org_id,
+                name="GS08 Invalid",
+                slug=f"gs08-invalid-{suffix}",
+                plan="test",
+                status="active",
+            )
+        )
+        await session.flush()
+        session.add(
+            User(
+                id=user_id,
+                organization_id=org_id,
+                email=email,
+                name="GS08 Invalid",
+                password_hash="unused",
+                status="active",
+                auth_version=1,
+            )
+        )
+        await session.flush()
+        with pytest.raises(
+            paid.GrowthPaidCampaignError, match="target-countries-invalid"
+        ):
+            await paid.prepare_and_simulate_campaign(
+                session,
+                actor,
+                {
+                    "campaign_name": "Invalid Atomic Campaign",
+                    "objective": "sales",
+                    "currency": "EUR",
+                    "total_budget_minor": 10000,
+                    "daily_budget_cap_minor": 1000,
+                    "provider": "instagram",
+                    "target_countries": ["NOT-A-COUNTRY"],
+                },
+            )
+        await session.rollback()
+
+
+def test_paid_campaign_numeric_limits_are_technical_not_product_caps() -> None:
+    paid._safe_budget(100_00, 10_00)
+    with pytest.raises(paid.GrowthPaidCampaignError, match="budget-too-large"):
+        paid._safe_budget(paid.MAX_MONEY_MINOR + 1, 1)
+    with pytest.raises(paid.GrowthPaidCampaignError, match="min-roas-invalid"):
+        paid._safe_policy({"min_roas": float("inf")})
