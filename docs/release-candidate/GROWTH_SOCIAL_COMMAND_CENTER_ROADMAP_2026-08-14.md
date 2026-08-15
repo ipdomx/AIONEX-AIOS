@@ -157,7 +157,7 @@ Status: **COMPLETE**
 A complete synthetic journey from owner entitlement grant → account connection simulator → research → plan → content → campaign simulation → inbox/lead events → analytics → failure learning → successful replay recommendation → revocation. No real spend.
 
 ### GS-12 — Controlled live pilot gate
-Status: **IN_PROGRESS_READ_ONLY_PILOTS_ARMED_SANDBOX_WRITE_VALIDATION**
+Status: **IN_PROGRESS_LIVE_READ_ONLY_AND_SANDBOX_WRITE_VERIFIED_LIVE_SPEND_GATES_REMAIN**
 
 Real human account/provider pilot only after all previous batches are merged and green. Real advertising spend remains disabled until explicit owner approval, provider credentials, legal/policy prerequisites, and defined budget/stop-loss controls are present.
 
@@ -626,3 +626,16 @@ Real human account/provider pilot only after all previous batches are merged and
 - A single safe diagnostic using the same PAUSED payload (with automatic delete if it unexpectedly succeeded) returned Meta's requirement: `is_adset_budget_sharing_enabled` must be explicitly True/False when campaign budget is not used. The diagnostic was also rejected before creation.
 - Fix: send `is_adset_budget_sharing_enabled=false`. This is a boolean budget-sharing disable flag, not a budget amount; no `daily_budget`, `lifetime_budget`, spend cap, ad set, ad, audience, or creative field is introduced.
 - Next action: test/review/merge/deploy this minimal request-shape fix, then retry exactly one confirmed PAUSED sandbox create/read/delete cycle.
+
+
+### GS-12 Meta sandbox write production validation checkpoint — 2026-08-15
+- PR #342 passed every GitHub production gate and merged as `7392ab48270507c840e2c3ef34f6dc57abf6170a`; the Backend was rebuilt/recreated healthy with Alembic unchanged at `20260815_0025 (head)`.
+- The corrected, explicitly confirmed sandbox write validation completed successfully: one Meta Sandbox Campaign was created with `status=PAUSED`, read back as PAUSED with objective `OUTCOME_TRAFFIC`, then deleted immediately.
+- No Ad Set or Ad was created, no campaign/ad-set budget was configured, and `real_spend_minor=0`. The required Meta boolean `is_adset_budget_sharing_enabled=false` only disables budget sharing and does not define a spend amount.
+- Durable provider evidence now records `meta/ads.manage = sandbox_write_verified`, mutation class `write`, `sandbox_mutation_verified=true`, and `sandbox_execution_adapter_verified=true`. It deliberately keeps `execution_adapter_verified=false`, `mutation_allowed=false`, and `spend_allowed=false`, so this evidence cannot arm a live-spend pilot.
+- Independent post-validation verification found zero visible Campaigns whose names start with the GS-12 sandbox validation prefix, confirming cleanup; no external Campaign ID is stored in durable evidence.
+- The three real read-only controlled pilots (Meta owned assets, Meta sandbox, Telegram owner bots) remain `read_only_armed` with `live_provider_mutation_allowed=false`, `real_spend_allowed=false`, and no launch authorization.
+- The owned Meta token currently grants `ads_read` but not `ads_management`; only the sandbox token has `ads_management`. Therefore no real/owned Meta account write operation is possible with current live credentials.
+- GS-12 live-spend remains fail-closed. Remaining gates are: (1) explicit target AIOS organization/tenant and target Meta managed-ad-account opaque reference; (2) a securely installed owned/live Meta credential with `ads_management` and provider/app approval; (3) live write adapter verification against that authorized target without spend; (4) legal/policy acknowledgement reference; (5) explicit currency, maximum total budget, maximum daily budget, maximum CPA and minimum ROAS stop-loss values; and (6) a separate per-pilot launch authorization after readiness is green.
+- No real advertising spend, live-owned-account mutation, audience upload, publish/send, budget edit, or automatic execution has occurred.
+- Next action is blocked on owner-supplied live-spend target/controls and the owned Meta `ads_management` credential/app approval. All safe no-spend framework, read-only live pilot, and sandbox write-path work is complete.
