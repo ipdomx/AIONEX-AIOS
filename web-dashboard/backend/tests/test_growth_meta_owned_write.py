@@ -384,9 +384,15 @@ async def test_live_write_scope_binding_and_owned_validator_record_safe_evidence
                 pilot_id,
                 require_launch_authorization=False,
             )
-            assert readiness["provider_gate"] is False
+            assert readiness["provider_gate"] is True
+            assert readiness["execution_adapter_gate"] is False
             assert (
-                "provider-write-capability-unverified" in readiness["blocked_reasons"]
+                "provider-write-capability-unverified"
+                not in readiness["blocked_reasons"]
+            )
+            assert (
+                "provider-live-execution-adapter-unverified"
+                in readiness["blocked_reasons"]
             )
 
             audit = await session.scalar(

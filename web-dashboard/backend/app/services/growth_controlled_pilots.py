@@ -453,7 +453,7 @@ async def _evaluate_live_spend_readiness(
         and provider_row.mutation_class == "write"
         and provider_row.verification_state == LIVE_WRITE_VERIFICATION_STATE
         and provider_evidence.get("mutation_allowed") is True
-        and provider_evidence.get("spend_allowed") is True
+        and provider_evidence.get("live_no_spend_write_verified") is True
     )
     provider_binding_gate = bool(
         provider_capability_gate
@@ -469,6 +469,9 @@ async def _evaluate_live_spend_readiness(
     execution_adapter_gate = bool(
         provider_binding_gate
         and provider_evidence.get("execution_adapter_verified") is True
+        and provider_evidence.get("execution_adapter_scope_ref") == row.scope_ref
+        and provider_evidence.get("execution_adapter_organization_id")
+        == row.organization_id
     )
     if not execution_adapter_gate:
         reasons.append("provider-live-execution-adapter-unverified")

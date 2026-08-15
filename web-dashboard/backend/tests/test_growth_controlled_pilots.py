@@ -292,7 +292,8 @@ async def test_live_spend_pilot_fails_closed_until_every_gate_is_verified() -> N
         capability.mutation_class = "write"
         capability.evidence = {
             "mutation_allowed": True,
-            "spend_allowed": True,
+            "spend_allowed": False,
+            "live_no_spend_write_verified": True,
             "execution_adapter_verified": False,
             "live_scope_ref": "accountref://different-account",
             "live_organization_id": org_id,
@@ -309,7 +310,8 @@ async def test_live_spend_pilot_fails_closed_until_every_gate_is_verified() -> N
 
         capability.evidence = {
             "mutation_allowed": True,
-            "spend_allowed": True,
+            "spend_allowed": False,
+            "live_no_spend_write_verified": True,
             "execution_adapter_verified": False,
             "live_scope_ref": pilot.scope_ref,
             "live_organization_id": org_id,
@@ -329,8 +331,11 @@ async def test_live_spend_pilot_fails_closed_until_every_gate_is_verified() -> N
 
         capability.evidence = {
             "mutation_allowed": True,
-            "spend_allowed": True,
+            "spend_allowed": False,
+            "live_no_spend_write_verified": True,
             "execution_adapter_verified": True,
+            "execution_adapter_scope_ref": pilot.scope_ref,
+            "execution_adapter_organization_id": org_id,
             "live_scope_ref": pilot.scope_ref,
             "live_organization_id": org_id,
         }
@@ -415,8 +420,11 @@ async def _ready_live_pilot(session, owner: UserRecord, org_id: str, scope_ref: 
         mutation_class="write",
         evidence={
             "mutation_allowed": True,
-            "spend_allowed": True,
+            "spend_allowed": False,
+            "live_no_spend_write_verified": True,
             "execution_adapter_verified": True,
+            "execution_adapter_scope_ref": scope_ref,
+            "execution_adapter_organization_id": org_id,
             "live_scope_ref": scope_ref,
             "live_organization_id": org_id,
         },
