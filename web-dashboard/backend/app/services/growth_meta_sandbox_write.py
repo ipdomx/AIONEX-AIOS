@@ -110,6 +110,7 @@ def _create_paused_campaign(
         "objective": META_OBJECTIVE,
         "status": META_STATUS,
         "special_ad_categories": "[]",
+        "is_adset_budget_sharing_enabled": "false",
     }
     request = Request(
         f"https://graph.facebook.com/{api_version}/act_{account_id}/campaigns",

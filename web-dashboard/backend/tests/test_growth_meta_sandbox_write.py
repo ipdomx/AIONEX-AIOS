@@ -69,14 +69,24 @@ def test_sandbox_write_creates_only_paused_campaign_without_budget_then_deletes(
                 "objective",
                 "status",
                 "special_ad_categories",
+                "is_adset_budget_sharing_enabled",
             }
             assert form["objective"] == ["OUTCOME_TRAFFIC"]
             assert form["status"] == ["PAUSED"]
             assert form["special_ad_categories"] == ["[]"]
-            assert not any("budget" in key.lower() for key in form)
-            assert not any(
-                "adset" in key.lower() or "ad_set" in key.lower() for key in form
-            )
+            assert form["is_adset_budget_sharing_enabled"] == ["false"]
+            forbidden_budget_fields = {
+                "daily_budget",
+                "lifetime_budget",
+                "budget",
+                "budget_remaining",
+                "spend_cap",
+            }
+            assert forbidden_budget_fields.isdisjoint(form)
+            adset_named_fields = {
+                key for key in form if "adset" in key.lower() or "ad_set" in key.lower()
+            }
+            assert adset_named_fields == {"is_adset_budget_sharing_enabled"}
             return _response({"id": CAMPAIGN_ID})
         if method == "GET" and url.startswith(
             f"https://graph.facebook.com/v26.0/{CAMPAIGN_ID}?fields="
