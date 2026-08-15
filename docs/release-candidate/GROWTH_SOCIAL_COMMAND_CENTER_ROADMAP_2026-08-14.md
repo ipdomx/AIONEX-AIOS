@@ -157,7 +157,7 @@ Status: **COMPLETE**
 A complete synthetic journey from owner entitlement grant → account connection simulator → research → plan → content → campaign simulation → inbox/lead events → analytics → failure learning → successful replay recommendation → revocation. No real spend.
 
 ### GS-12 — Controlled live pilot gate
-Status: **BLOCKED_UNTIL_EXPLICIT_OWNER_APPROVAL**
+Status: **IN_PROGRESS_FRAMEWORK_VALIDATED_AWAITING_PR_CI_DEPLOYMENT**
 
 Real human account/provider pilot only after all previous batches are merged and green. Real advertising spend remains disabled until explicit owner approval, provider credentials, legal/policy prerequisites, and defined budget/stop-loss controls are present.
 
@@ -563,3 +563,34 @@ Real human account/provider pilot only after all previous batches are merged and
 - Privacy invariants confirmed: `raw_credentials_exported=false` and `lead_contact_pii_exported=false`.
 - Transaction cleanup verified after rollback: `synthetic_organizations_remaining=0`; no synthetic tenant, user, billing, override, campaign, lead, inbox, analytics, integration, team, or report fixtures were committed to production.
 - GS-11 is accepted complete. The next roadmap item is **GS-12 — Controlled live pilot gate**, which remains blocked until explicit owner approval plus provider/legal/budget prerequisites.
+
+
+### GS-12 execution start — 2026-08-15
+- Owner explicitly approved starting GS-12 in chat on 2026-08-15. This approval opens controlled-pilot implementation/readiness work; it does not by itself define or authorize a real advertising spend amount.
+- Worktree: `feature/gs12-controlled-live-pilot` from clean `main` at `d892ff89a6f1ae70ad3b2043b42c2944ee9ad569`.
+- Production preflight confirms `meta/ads_read = read_only_verified` and `telegram/account.read = read_only_verified`; their durable evidence keeps `mutation_allowed=false`, `spend_allowed=false`, and `send_allowed=false`.
+- Required credential mounts for existing Meta sandbox/owned-read-only and Telegram bot validations are present in the production Backend; no raw credential value was read or printed.
+- GS-12 will add a fail-closed controlled-pilot state machine with explicit owner approval, provider/account scope, legal/policy acknowledgement, maximum total/daily budget, stop-loss rules, expiry, and separate launch authorization.
+- Real provider write/spend/publish/send remains disabled until all pilot gates are satisfied and an explicit budget/launch authorization exists. Missing budget or legal/policy acknowledgement must block launch.
+- Initial live work is limited to read-only provider revalidation and readiness evidence; no ad creation, budget edit, audience upload, publish/send, or spend is permitted during this checkpoint.
+
+
+### GS-12 pre-merge validation checkpoint — 2026-08-15
+- Owner phase-start approval is recorded. No real-spend amount or per-pilot launch authorization has been inferred from that approval.
+- Live read-only provider revalidation succeeded before implementation: Meta owned assets returned 2 accessible ad accounts / 1 active with `mutation_allowed=false` and `spend_allowed=false`; Meta sandbox returned active AED / Asia-Dubai sandbox evidence with no mutation/spend; Telegram validated both installed bot credentials with `send_allowed=false`, `mutation_allowed=false`, and `spend_allowed=false`. No raw secret value was read or printed.
+- Added durable `GrowthControlledPilot` persistence and Alembic `20260815_0025`, with owner approval, optional tenant scope, provider/mode/scope, legal acknowledgement, total/daily budget, CPA/ROAS stop-loss, expiry, separate launch authorization, arm/disarm timestamps, and hard `live_provider_mutation_allowed` / `real_spend_allowed` flags.
+- Added fail-closed state machine service and Super-Owner-only API for pilot list/create, readiness, controls, read-only live validation, launch authorization, arm, and emergency disarm. No provider-write/spend execution endpoint was added.
+- Provider scopes are allowlisted: Meta read-only = `owned_assets` / `sandbox`; Telegram read-only = `owner_bots`; Meta live-spend = `managed_ad_account` with a required opaque scope reference. Unknown scopes fail closed.
+- Meta read-only readiness is scope-aware and accepts the preserved owned/sandbox evidence even when the single durable `meta/ads_read` state reflects the most recently revalidated scope. Telegram requires `account.read = read_only_verified`.
+- Live-spend readiness requires every gate: Super Owner approval, active organization, non-expired pilot, Meta `ads.manage = live_write_verified`, `mutation_allowed=true`, `spend_allowed=true`, `execution_adapter_verified=true`, legal/policy acknowledgement with reference, currency + total/daily budget, CPA + ROAS stop-loss, and separate launch authorization. Any control change invalidates launch authorization and clears live mutation/spend flags.
+- `authorize-launch` never executes a provider call and still leaves live mutation/spend false; only `arm` can set those flags after all gates pass. `disarm` always clears launch authorization and both live flags. Current production has no `meta/ads.manage` write verification or verified execution adapter, so live spend remains blocked even if budget/legal were later configured.
+- Financial controls reject non-positive/overflow minor-unit values, non-finite or extreme ROAS thresholds, daily budget above total budget, and max CPA above total budget. Every pilot/readiness response fixes `automatic_execution_allowed=false`; GS-12 remains manual-authorization only.
+- Owner frontend API client was extended for all GS-12 owner routes; no new public user route or Nginx allowlist entry was introduced.
+- Static quality: Black PASS on GS-12 files; Ruff PASS across Backend `app/tests`; Mypy PASS across 170 Backend source files.
+- Isolated PostgreSQL migration from empty schema reached `20260815_0025 (head)`; migration reversal drill `0025 -> 0024 -> 0025` PASS; focused GS-12 tests after roundtrip: 4/4 PASS.
+- Focused GS-12 + Owner API/Alembic contracts: 32/32 PASS before final scope tightening; final GS-12 + Owner contracts: 18/18 PASS. Growth/Social regression after tightening: 69/69 PASS.
+- Full Backend regression from a clean isolated PostgreSQL + Redis environment: `561 passed, 1 skipped, 0 failed`.
+- Frontend CI-equivalent checks PASS: Owner Arabic coverage 753 strings / 5 approved technical tokens, TypeScript PASS, owner client lint PASS, Prettier PASS, and Next.js production build PASS with 86/86 static pages.
+- Root AIOS core suite under Python 3.12: `680 passed`.
+- No ad creation, campaign/budget mutation, audience upload, publish/send, provider write, or real advertising spend occurred.
+- Next action: open the GS-12 implementation PR, require all GitHub gates, merge only when green, deploy migration/backend, then create short-expiry read-only controlled pilots for Meta owned assets, Meta sandbox, and Telegram owner bots and execute live read-only validation through the new pilot gate. Live-spend remains blocked until explicit tenant/account target, legal/policy reference, budget/stop-loss values, provider write verification/execution-adapter evidence, and per-pilot launch authorization exist.
