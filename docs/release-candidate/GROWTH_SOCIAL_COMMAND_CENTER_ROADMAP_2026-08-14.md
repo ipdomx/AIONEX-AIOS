@@ -157,7 +157,7 @@ Status: **COMPLETE**
 A complete synthetic journey from owner entitlement grant → account connection simulator → research → plan → content → campaign simulation → inbox/lead events → analytics → failure learning → successful replay recommendation → revocation. No real spend.
 
 ### GS-12 — Controlled live pilot gate
-Status: **IN_PROGRESS_FRAMEWORK_VALIDATED_AWAITING_PR_CI_DEPLOYMENT**
+Status: **IN_PROGRESS_READ_ONLY_PILOTS_ARMED_SANDBOX_WRITE_VALIDATION**
 
 Real human account/provider pilot only after all previous batches are merged and green. Real advertising spend remains disabled until explicit owner approval, provider credentials, legal/policy prerequisites, and defined budget/stop-loss controls are present.
 
@@ -594,3 +594,27 @@ Real human account/provider pilot only after all previous batches are merged and
 - Root AIOS core suite under Python 3.12: `680 passed`.
 - No ad creation, campaign/budget mutation, audience upload, publish/send, provider write, or real advertising spend occurred.
 - Next action: open the GS-12 implementation PR, require all GitHub gates, merge only when green, deploy migration/backend, then create short-expiry read-only controlled pilots for Meta owned assets, Meta sandbox, and Telegram owner bots and execute live read-only validation through the new pilot gate. Live-spend remains blocked until explicit tenant/account target, legal/policy reference, budget/stop-loss values, provider write verification/execution-adapter evidence, and per-pilot launch authorization exist.
+
+
+### GS-12 framework deployment + read-only pilot checkpoint — 2026-08-15
+- PR #340 passed all GitHub production gates and merged to `main` as `87907090f65658750c3709b9ed16c4c0e6f1dd52`.
+- Production `main` was fast-forwarded to the merge commit. Backend and Frontend images were rebuilt with the existing Meta sandbox/owned-readonly overrides.
+- Production Alembic was upgraded in a one-off Backend container before live replacement and reached `20260815_0025 (head)`. Backend and Frontend were then force-recreated and returned healthy; Nginx did not require recreation.
+- Meta/Telegram secret mount destinations remained present after rollout; no raw secret value was printed or persisted.
+- Owner pilot API boundary verified: public origin returns HTTP 404 for `/api/v1/owner/growth-social/pilots`, while private origin returns HTTP 401 unauthenticated, proving the route exists only behind the private owner channel.
+- Three short-expiry real read-only controlled pilots were created through the new GS-12 gate and live-validated: Meta `owned_assets`, Meta `sandbox`, and Telegram `owner_bots`. All three reached `read_only_armed`; each keeps `live_provider_mutation_allowed=false`, `real_spend_allowed=false`, `automatic_execution_allowed=false`, and raw-secret persistence false.
+- Current production has no durable `meta/ads.manage` capability row, so live-spend arming is impossible.
+- A read-only Meta permissions check found the owned token grants `ads_read` but not `ads_management`; the sandbox token grants `ads_management` (plus Page management/read permissions) and is suitable for a no-spend sandbox write-path validation.
+- Next safe checkpoint: implement a sandbox-only Meta write validator that can create only a `PAUSED` sandbox Campaign with no ad set/ad/budget, verify it remains paused, and delete it immediately. The validator must require sandbox identity, `ads_management`, and an explicit one-run confirmation and must never mark live-spend ready.
+
+
+### GS-12 Meta sandbox write-adapter pre-merge checkpoint — 2026-08-15
+- Added internal CLI-only `growth_meta_sandbox_write` validator; no public/owner API route and no schema migration were added in this checkpoint.
+- The validator requires both an explicit CLI flag and one-run `AIOS_GS12_META_SANDBOX_WRITE_VALIDATION=confirm-paused-create-delete`; accidental execution without confirmation fails before any provider call.
+- Before mutation it reuses the existing sandbox read-only identity probe and requires the returned account name to explicitly contain `Sandbox`; it then reads token permissions and requires granted `ads_management`.
+- The only allowed write sequence is fixed: create one Campaign with `status=PAUSED`, objective `OUTCOME_TRAFFIC`, and empty special-ad categories; read it back to prove PAUSED/objective; then DELETE it immediately. The create request contains no budget, ad set, ad, audience, creative, bid, schedule, or spend field.
+- If read-back fails, cleanup is still attempted; if cleanup fails, `campaign-cleanup-failed` takes precedence so a possible residual sandbox Campaign cannot be silently hidden. External Campaign IDs and raw token material are never returned or persisted in validation evidence.
+- Successful durable evidence will create/update `meta/ads.manage` as `sandbox_write_verified`, mutation class `write`, with `sandbox_mutation_verified=true` and `sandbox_execution_adapter_verified=true`, but deliberately keeps `mutation_allowed=false`, `spend_allowed=false`, and `execution_adapter_verified=false`. Therefore it cannot satisfy the GS-12 live-spend gate (`live_write_verified` is still required).
+- Focused Meta sandbox-write + existing Meta read-only tests: 10/10 PASS. Ruff PASS and Mypy PASS across 171 Backend source files.
+- Full Backend regression from fresh isolated PostgreSQL + Redis: `567 passed, 1 skipped, 0 failed`; Alembic remains `20260815_0025`.
+- No external sandbox mutation has been executed yet in this checkpoint. Next action: PR/CI/merge/deploy this validator, then run exactly one confirmed sandbox PAUSED create/read/delete cycle and verify durable `meta/ads.manage = sandbox_write_verified` while all live-spend gates remain false.
