@@ -157,7 +157,7 @@ Status: **COMPLETE**
 A complete synthetic journey from owner entitlement grant → account connection simulator → research → plan → content → campaign simulation → inbox/lead events → analytics → failure learning → successful replay recommendation → revocation. No real spend.
 
 ### GS-12 — Controlled live pilot gate
-Status: **IN_PROGRESS_RUNTIME_HARDENED_LIVE_SPEND_EXTERNAL_GATES_REMAIN**
+Status: **IN_PROGRESS_RUNTIME_GUARD_PRODUCTION_VERIFIED_EXTERNAL_LIVE_SPEND_GATES_REMAIN**
 
 Real human account/provider pilot only after all previous batches are merged and green. Real advertising spend remains disabled until explicit owner approval, provider credentials, legal/policy prerequisites, and defined budget/stop-loss controls are present.
 
@@ -653,3 +653,17 @@ Real human account/provider pilot only after all previous batches are merged and
 - Backend static quality: Black PASS on changed files, Ruff PASS across `app/tests`, Mypy PASS across 171 Backend source files. Full Backend regression from a brand-new PostgreSQL + Redis environment: `573 passed, 1 skipped, 0 failed`. Root AIOS Core suite: `680 passed`.
 - No production schema or container has been changed by this hardening branch yet. No live Meta owned-account mutation, budget edit, audience upload, publish/send, automatic execution, or real advertising spend occurred. Existing three read-only pilots remain the only production pilots and all keep mutation/spend false.
 - Next safe action: PR/CI/merge this runtime hardening, deploy migration `0026` plus Backend/Operations Observer, verify all current read-only pilots remain fail-closed, then run a rollback-only production transaction proving an armed synthetic live-spend row auto-disarms when expiry/provider state is invalidated. After that, GS-12 remains blocked only on the already documented external live target/credential/legal/budget/launch gates.
+
+### GS-12 runtime guard production closeout — 2026-08-15
+- PR #344 passed every GitHub production gate and merged to `main` as `405370ec81ff0a79784c555d777c20ede1597fe6`.
+- Production `main` is synchronized to that merge commit. Production Alembic is `20260815_0026 (head)`.
+- Backend and Operations Observer are running the same current `aionex-aios-backend:local` image digest. The live Backend exposes `runtime_authorization()` and `reconcile_runtime_pilots()`, and the Observer source contains the periodic GS-12 reconciliation hook. Observer health is `healthy`; no GS-12/runtime-guard cycle error was found in the recent production log window.
+- Production currently contains exactly three controlled pilots, all `read_only`; there are zero `live_spend` pilots and zero pilots with `real_spend_allowed=true`.
+- A rollback-only production database drill created a temporary organization/user and two temporary live-spend pilot rows inside one uncommitted transaction. Provider capability evidence was also elevated only inside that transaction; no provider call was executed.
+- Runtime-authorization drill: the first temporary pilot was armed only inside the transaction, then its expiry was invalidated. `runtime_authorization()` returned `authorized=false`, reported `pilot-expired`, changed the row to `auto_disarmed`, and cleared both `live_provider_mutation_allowed` and `real_spend_allowed`.
+- Background-reconciliation drill: a second temporary pilot was armed only inside the transaction, then Meta provider-write evidence was invalidated. `reconcile_runtime_pilots()` checked one eligible row and auto-disarmed it, clearing both live mutation and spend flags.
+- The entire production drill was rolled back. Independent verification found zero synthetic organizations and zero synthetic pilot rows remaining; durable `meta/ads.manage` returned unchanged to `sandbox_write_verified` with `mutation_allowed=false`, `spend_allowed=false`, and `execution_adapter_verified=false`.
+- The PostgreSQL unique partial index plus per-account advisory lock remain the hard concurrency invariant preventing two simultaneously spend-enabled pilots for the same provider/account. Stored allow booleans are non-authoritative; every future live mutation/spend adapter must call `runtime_authorization()` in the same transaction before executing a provider action.
+- No real Meta owned-account mutation, campaign/ad-set budget edit, audience upload, publish/send, automatic execution, or advertising spend occurred.
+- Remaining GS-12 external gates are unchanged: explicit AIOS tenant + managed-ad-account reference, securely installed owned/live Meta `ads_management` credential with provider/app approval, no-spend live write verification against that authorized target, legal/policy acknowledgement reference, explicit currency/total/daily/CPA/ROAS controls, and a separate per-pilot launch authorization after readiness is green.
+- Next safe internal work: add a real Owner dashboard console for Growth/Social access and controlled pilots so the already-shipped owner APIs can be inspected/configured/disarmed without CLI work. This UI must not add or bypass any live-spend capability.
