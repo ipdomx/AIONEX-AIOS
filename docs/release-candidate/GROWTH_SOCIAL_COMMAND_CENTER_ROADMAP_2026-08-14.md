@@ -157,7 +157,7 @@ Status: **COMPLETE**
 A complete synthetic journey from owner entitlement grant → account connection simulator → research → plan → content → campaign simulation → inbox/lead events → analytics → failure learning → successful replay recommendation → revocation. No real spend.
 
 ### GS-12 — Controlled live pilot gate
-Status: **IN_PROGRESS_OWNED_NO_SPEND_VALIDATOR_VALIDATED_AWAITING_PR_CI_EXTERNAL_GATES_REMAIN**
+Status: **IN_PROGRESS_OWNED_NO_SPEND_VALIDATOR_DEPLOYED_FAIL_CLOSED_EXTERNAL_GATES_REMAIN**
 
 Real human account/provider pilot only after all previous batches are merged and green. Real advertising spend remains disabled until explicit owner approval, provider credentials, legal/policy prerequisites, and defined budget/stop-loss controls are present.
 
@@ -703,3 +703,14 @@ Real human account/provider pilot only after all previous batches are merged and
 - Focused scope-binding + owned-validator tests: `14 passed`; Growth/Social regression: `85 passed`. Static quality: Black/Ruff PASS and Mypy PASS across `172` Backend source files. Full Backend regression from a brand-new isolated PostgreSQL + Redis environment: `580 passed, 1 skipped, 0 failed` at Alembic `20260815_0026`. Root AIOS Core suite: `680 passed`; roadmap/public-ingress contracts: `14 passed`.
 - No real Meta owned-account provider call or mutation was executed in this checkpoint. Production currently lacks the required target env/pilot binding and the installed owned token still lacks `ads_management`, so live execution of this validator remains externally blocked and must not be attempted yet.
 - Next action: PR/CI/merge/deploy this prebuilt validator and scope-binding hardening. After deployment, safe readiness may verify the CLI fails closed with no target configured; actual PAUSED create/read/delete remains blocked until the Owner supplies/approves the exact target account/tenant/legal context and a securely installed owned Meta credential with `ads_management`.
+
+### GS-12 Meta owned-account no-spend validator production deployment closeout — 2026-08-15
+- PR #350 passed every GitHub production gate and merged to `main` as `edb4c9ceb79f5c572a0b0b5d4fffbd5bbed2bd0b`. Production `main` is synchronized to that merge commit.
+- Backend was rebuilt/recreated with the existing Meta sandbox/owned-readonly overrides, and Operations Observer was recreated on the same new Backend image because GS-12 runtime provider readiness was scope-binding hardened. Both returned `healthy`; Alembic remains `20260815_0026 (head)` with no new schema migration.
+- The deployed Backend contains the new CLI-only owned-account validator and the stricter organization/account binding checks for future `live_write_verified` evidence. No new HTTP provider-execution endpoint or public route exists.
+- Production fail-closed validation was executed with the one-run confirmation set but with `AIOS_META_OWNED_WRITE_AD_ACCOUNT_ID` deliberately absent. The validator stopped immediately with `meta-owned-write-account-id-invalid`; a test guard proved `provider_call_invoked=false` and `token_read_invoked=false`. No credential file was opened and no Meta request was attempted.
+- Post-deploy durable state is unchanged: exactly three controlled pilots exist, all `read_only_armed`, with `launch_authorized=false`, `live_provider_mutation_allowed=false`, and `real_spend_allowed=false`. There are zero live-spend pilots.
+- Durable `meta/ads.manage` remains `sandbox_write_verified`, mutation class `write`, with `mutation_allowed=false`, `spend_allowed=false`, and `execution_adapter_verified=false`; no `live_scope_ref` or `live_organization_id` is present. Therefore the stricter scope-bound live provider gate cannot become ready accidentally.
+- No live Meta owned-account target was configured, no owned credential was read, no provider mutation occurred, no campaign/ad-set/ad or audience was created, no budget was edited, and no advertising spend occurred.
+- All currently identifiable safe framework/UI/read-only/sandbox/no-spend-validator/runtime-guard work is now deployed. Remaining GS-12 work requires external Owner inputs/approvals: exact AIOS tenant, exact Meta managed-ad-account target, securely installed owned/live `ads_management` credential/app approval, legal/policy reference, explicit budget/stop-loss values, then the controlled no-spend owned write validation and later a separate launch authorization.
+- Next action is a full project review for any additional preparatory work that can be completed without those external inputs. Any newly found safe gap must be implemented before declaring the project externally blocked.
