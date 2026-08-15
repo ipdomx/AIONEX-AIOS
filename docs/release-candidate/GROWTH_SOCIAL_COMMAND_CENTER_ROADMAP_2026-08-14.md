@@ -157,7 +157,7 @@ Status: **COMPLETE**
 A complete synthetic journey from owner entitlement grant → account connection simulator → research → plan → content → campaign simulation → inbox/lead events → analytics → failure learning → successful replay recommendation → revocation. No real spend.
 
 ### GS-12 — Controlled live pilot gate
-Status: **IN_PROGRESS_RUNTIME_GUARD_PRODUCTION_VERIFIED_EXTERNAL_LIVE_SPEND_GATES_REMAIN**
+Status: **IN_PROGRESS_OWNER_CONSOLE_VALIDATED_AWAITING_PR_CI_DEPLOYMENT_EXTERNAL_LIVE_SPEND_GATES_REMAIN**
 
 Real human account/provider pilot only after all previous batches are merged and green. Real advertising spend remains disabled until explicit owner approval, provider credentials, legal/policy prerequisites, and defined budget/stop-loss controls are present.
 
@@ -667,3 +667,17 @@ Real human account/provider pilot only after all previous batches are merged and
 - No real Meta owned-account mutation, campaign/ad-set budget edit, audience upload, publish/send, automatic execution, or advertising spend occurred.
 - Remaining GS-12 external gates are unchanged: explicit AIOS tenant + managed-ad-account reference, securely installed owned/live Meta `ads_management` credential with provider/app approval, no-spend live write verification against that authorized target, legal/policy acknowledgement reference, explicit currency/total/daily/CPA/ROAS controls, and a separate per-pilot launch authorization after readiness is green.
 - Next safe internal work: add a real Owner dashboard console for Growth/Social access and controlled pilots so the already-shipped owner APIs can be inspected/configured/disarmed without CLI work. This UI must not add or bypass any live-spend capability.
+
+### GS-12 Owner controlled-pilot console pre-merge checkpoint — 2026-08-15
+- Added a real Super-Owner UI console inside the existing private `/owner/integrations` page; no new public route, Nginx allowlist entry, provider execution route, schema migration, or spend capability was introduced.
+- The console uses only the existing authenticated Owner Growth/Social client. It has no direct `fetch`, Meta Graph URL, Bearer token, or provider credential handling. A source contract enforces this boundary.
+- The console lists every controlled pilot, shows read-only/live-spend/spend-enabled counts, refreshes current server readiness, displays all ten safety gates and blocked reason codes, and clearly warns if any pilot ever becomes spend-enabled.
+- Read-only controls support live read-only validation, readiness refresh, safe arm and emergency disarm through the existing owner API.
+- Live-spend controls expose explicit organization/account references, legal/policy acknowledgement, ISO currency, integer minor-unit total/daily/CPA limits, ROAS stop-loss, expiry, launch authorization and arm/disarm. No budget or target is pre-filled; client-side numeric parsing rejects non-positive or JavaScript-unsafe integer values before sending them.
+- Live-spend arm is disabled unless `ready_to_arm=true`; when it becomes available, the Super Owner must still type the exact phrase `ARM LIVE SPEND`. The button itself does not execute a provider call, create an ad or spend; backend `arm` plus runtime authorization remain authoritative.
+- Direct launch authorization has a separate confirmation and remains subject to all backend pre-launch gates. Any controls save continues to reset previous launch authorization server-side. Emergency disarm records an explicit audit reason.
+- Extended Owner Arabic coverage to scan `components/owner` as a first-class source root. Added Arabic translations for the complete GS-12 console, safety confirmations, status labels and gate labels. Arabic coverage now passes with `813` translatable UI strings and `5` approved technical tokens.
+- Frontend CI-equivalent checks PASS: TypeScript PASS, targeted Owner lint PASS, Prettier PASS, Arabic coverage PASS, and Next.js production build PASS with `86/86` static pages. `/owner/integrations` builds successfully with the new console.
+- Full `test_owner_dashboard_integration.py` against isolated PostgreSQL + Redis: `15 passed, 0 failed`; the new fail-closed source contract is included.
+- No provider credential, real owned-account mutation, ad/ad-set creation, audience upload, budget edit, publish/send, automatic execution, or advertising spend occurred. Existing production runtime gates remain unchanged and fail-closed.
+- Next action: PR/CI/merge this Owner console, rebuild/recreate Frontend only, verify the private owner page and live API data render correctly while public owner access remains blocked, then close all remaining safe internal GS-12 work pending external live target/credential/legal/budget inputs.
