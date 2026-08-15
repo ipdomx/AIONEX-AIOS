@@ -157,7 +157,7 @@ Status: **COMPLETE**
 A complete synthetic journey from owner entitlement grant → account connection simulator → research → plan → content → campaign simulation → inbox/lead events → analytics → failure learning → successful replay recommendation → revocation. No real spend.
 
 ### GS-12 — Controlled live pilot gate
-Status: **IN_PROGRESS_OWNER_CONSOLE_VALIDATED_AWAITING_PR_CI_DEPLOYMENT_EXTERNAL_LIVE_SPEND_GATES_REMAIN**
+Status: **IN_PROGRESS_OWNER_CONSOLE_PRODUCTION_VERIFIED_EXTERNAL_LIVE_SPEND_GATES_REMAIN**
 
 Real human account/provider pilot only after all previous batches are merged and green. Real advertising spend remains disabled until explicit owner approval, provider credentials, legal/policy prerequisites, and defined budget/stop-loss controls are present.
 
@@ -681,3 +681,12 @@ Real human account/provider pilot only after all previous batches are merged and
 - Full `test_owner_dashboard_integration.py` against isolated PostgreSQL + Redis: `15 passed, 0 failed`; the new fail-closed source contract is included.
 - No provider credential, real owned-account mutation, ad/ad-set creation, audience upload, budget edit, publish/send, automatic execution, or advertising spend occurred. Existing production runtime gates remain unchanged and fail-closed.
 - Next action: PR/CI/merge this Owner console, rebuild/recreate Frontend only, verify the private owner page and live API data render correctly while public owner access remains blocked, then close all remaining safe internal GS-12 work pending external live target/credential/legal/budget inputs.
+
+### GS-12 Owner controlled-pilot console production closeout — 2026-08-15
+- PR #347 passed every GitHub production gate and merged to `main` as `0de75d3eac8a2f3c9fd3c394c005ebdce4fd78d1`.
+- Production `main` was synchronized to that merge commit. Only the Frontend image was rebuilt/recreated; Backend, Operations Observer, Nginx and production schema were not changed by this UI deployment.
+- Frontend rebuilt successfully with `86/86` static pages and returned `healthy` after recreation. `/owner/integrations` now contains the GS-12 controlled-pilot console in the deployed build, including both the English `GS-12 Owner Safety Console` marker and its Arabic translation.
+- Live boundary acceptance: private origin `/owner/integrations` returns HTTP 200; public origin returns HTTP 404. The private owner pilot API returns HTTP 401 unauthenticated while the public origin returns HTTP 404. No Owner API was exposed to the public channel.
+- Post-deploy safe state remains unchanged: exactly three pilots exist and all are `read_only_armed` (Meta owned assets, Meta sandbox, Telegram owner bots); every pilot has `launch_authorized=false`, `live_provider_mutation_allowed=false`, and `real_spend_allowed=false`.
+- No provider call, campaign/ad-set/ad creation, budget mutation, audience upload, publish/send, automatic execution, or real advertising spend occurred during the UI rollout or acceptance.
+- All safe Owner-console work is complete. The next safe internal task is to prebuild a CLI-only Meta owned-account no-spend write validator so live `ads_management` verification can later be executed as a single PAUSED create/read/delete cycle after the external target and credential are supplied. The validator must not unlock spend or create an execution route.
