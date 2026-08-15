@@ -818,6 +818,10 @@
     "recommendDecrease": "Budget senken oder Kampagne überarbeiten",
     "recommendHold": "Budget beibehalten und messen",
     "recommendRework": "Vor einer Erhöhung überarbeiten",
-    "simulationDisclaimer": "Nur eine synthetische Schätzung vor dem Start. Es werden noch keine echten Kampagnendaten verwendet und Ergebnisse werden nicht garantiert. AIOS aktualisiert die Empfehlung später mit realen Messwerten."
+    "simulationDisclaimer": "Nur eine synthetische Schätzung vor dem Start. Es werden noch keine echten Kampagnendaten verwendet und Ergebnisse werden nicht garantiert. AIOS aktualisiert die Empfehlung später mit realen Messwerten.",
+    "selectCurrency": "Währung wählen",
+    "selectProvider": "Plattform wählen",
+    "currencyRequired": "Wählen Sie die Kampagnenwährung.",
+    "providerRequired": "Wählen Sie die Werbeplattform."
   }
 }

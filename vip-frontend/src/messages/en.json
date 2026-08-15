@@ -818,6 +818,10 @@
     "recommendDecrease": "Reduce the budget or rework the campaign",
     "recommendHold": "Keep the budget and measure",
     "recommendRework": "Rework before increasing the budget",
-    "simulationDisclaimer": "Pre-launch synthetic estimate only. It does not use actual campaign performance data and cannot guarantee results. AIOS updates advice later as real metrics become available."
+    "simulationDisclaimer": "Pre-launch synthetic estimate only. It does not use actual campaign performance data and cannot guarantee results. AIOS updates advice later as real metrics become available.",
+    "selectCurrency": "Select currency",
+    "selectProvider": "Select platform",
+    "currencyRequired": "Select the campaign currency.",
+    "providerRequired": "Select the advertising platform."
   }
 }

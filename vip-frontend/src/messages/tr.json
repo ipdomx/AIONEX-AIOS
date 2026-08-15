@@ -818,6 +818,10 @@
     "recommendDecrease": "Bütçeyi azaltın veya kampanyayı yeniden çalışın",
     "recommendHold": "Bütçeyi koruyun ve ölçün",
     "recommendRework": "Bütçeyi artırmadan önce yeniden çalışın",
-    "simulationDisclaimer": "Yalnızca lansman öncesi sentetik tahmindir. Gerçek kampanya performans verilerini henüz kullanmaz ve sonuç garantisi vermez. AIOS gerçek metrikler geldikçe öneriyi günceller."
+    "simulationDisclaimer": "Yalnızca lansman öncesi sentetik tahmindir. Gerçek kampanya performans verilerini henüz kullanmaz ve sonuç garantisi vermez. AIOS gerçek metrikler geldikçe öneriyi günceller.",
+    "selectCurrency": "Para birimi seçin",
+    "selectProvider": "Platform seçin",
+    "currencyRequired": "Kampanya para birimini seçin.",
+    "providerRequired": "Reklam platformunu seçin."
   }
 }

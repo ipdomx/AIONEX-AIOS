@@ -5,6 +5,7 @@ import json
 import math
 from datetime import datetime, timezone
 from typing import Any
+from urllib.parse import urlparse
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -84,6 +85,20 @@ def _safe_policy(policy: dict[str, Any]) -> dict[str, Any]:
         "max_daily_spend_minor": max_daily,
         "max_total_spend_minor": max_total,
     }
+
+
+def _safe_destination_url(value: object) -> str | None:
+    clean = str(value or "").strip()
+    if not clean:
+        return None
+    if len(clean) > 2048:
+        raise GrowthPaidCampaignError("destination-url-too-long")
+    parsed = urlparse(clean)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise GrowthPaidCampaignError("destination-url-invalid")
+    if parsed.username or parsed.password:
+        raise GrowthPaidCampaignError("destination-url-credentials-forbidden")
+    return clean
 
 
 def _budget_assessment(
@@ -226,7 +241,7 @@ async def prepare_and_simulate_campaign(
             "format": payload.get("creative_format", "image"),
             "headline": payload.get("headline", ""),
             "body": payload.get("body", ""),
-            "destination_url": payload.get("destination_url"),
+            "destination_url": _safe_destination_url(payload.get("destination_url")),
             "utm": dict(payload.get("utm") or {}),
             "approved": False,
         },
@@ -325,7 +340,7 @@ async def add_creative(
         headline=str(payload.get("headline", "")),
         body=str(payload.get("body", "")),
         media_refs=list(payload.get("media_refs") or []),
-        destination_url=payload.get("destination_url"),
+        destination_url=_safe_destination_url(payload.get("destination_url")),
         utm=dict(payload.get("utm") or {}),
         approval_status="approved" if payload.get("approved") else "not_requested",
         status="ready",

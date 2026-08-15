@@ -374,3 +374,16 @@ def test_paid_campaign_numeric_limits_are_technical_not_product_caps() -> None:
         paid._safe_budget(paid.MAX_MONEY_MINOR + 1, 1)
     with pytest.raises(paid.GrowthPaidCampaignError, match="min-roas-invalid"):
         paid._safe_policy({"min_roas": float("inf")})
+
+
+def test_paid_campaign_destination_url_is_http_only_and_has_no_credentials() -> None:
+    assert (
+        paid._safe_destination_url("https://example.invalid/path")
+        == "https://example.invalid/path"
+    )
+    with pytest.raises(paid.GrowthPaidCampaignError, match="destination-url-invalid"):
+        paid._safe_destination_url("javascript:alert(1)")
+    with pytest.raises(
+        paid.GrowthPaidCampaignError, match="destination-url-credentials-forbidden"
+    ):
+        paid._safe_destination_url("https://user:pass@example.invalid/path")

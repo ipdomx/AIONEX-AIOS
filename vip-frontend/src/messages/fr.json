@@ -818,6 +818,10 @@
     "recommendDecrease": "Réduire le budget ou retravailler la campagne",
     "recommendHold": "Conserver le budget et mesurer",
     "recommendRework": "Retravailler avant d’augmenter le budget",
-    "simulationDisclaimer": "Estimation synthétique avant lancement uniquement. Elle n’utilise pas encore de performances réelles et ne garantit aucun résultat. AIOS actualise ensuite ses conseils avec les métriques réelles."
+    "simulationDisclaimer": "Estimation synthétique avant lancement uniquement. Elle n’utilise pas encore de performances réelles et ne garantit aucun résultat. AIOS actualise ensuite ses conseils avec les métriques réelles.",
+    "selectCurrency": "Choisir la devise",
+    "selectProvider": "Choisir la plateforme",
+    "currencyRequired": "Choisissez la devise de la campagne.",
+    "providerRequired": "Choisissez la plateforme publicitaire."
   }
 }

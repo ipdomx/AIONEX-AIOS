@@ -64,12 +64,12 @@ export function CampaignsClient() {
 
   const [name, setName] = useState("");
   const [objective, setObjective] = useState("sales");
-  const [currency, setCurrency] = useState("EUR");
+  const [currency, setCurrency] = useState("");
   const [totalBudget, setTotalBudget] = useState("");
   const [dailyBudget, setDailyBudget] = useState("");
   const [maxCpa, setMaxCpa] = useState("");
   const [minRoas, setMinRoas] = useState("");
-  const [provider, setProvider] = useState("instagram");
+  const [provider, setProvider] = useState("");
   const [countries, setCountries] = useState("");
   const [placements, setPlacements] = useState("feed");
   const [headline, setHeadline] = useState("");
@@ -126,6 +126,14 @@ export function CampaignsClient() {
     const roas = minRoas.trim() ? Number(minRoas) : 0;
     if (!name.trim() || !total || !daily || daily > total) {
       setError(t("invalidBudget"));
+      return;
+    }
+    if (!currency) {
+      setError(t("currencyRequired"));
+      return;
+    }
+    if (!provider) {
+      setError(t("providerRequired"));
       return;
     }
     if (maxCpa.trim() && !cpa) {
@@ -257,7 +265,10 @@ export function CampaignsClient() {
           <label className="space-y-2">
             <span className="text-xs text-white/50">{t("currency")}</span>
             <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none">
-              {['EUR','USD','AED','GBP'].map((item) => <option key={item} className="bg-ink-900" value={item}>{item}</option>)}
+              <option className="bg-ink-900" value="">{t("selectCurrency")}</option>
+              {["EUR", "USD", "AED", "GBP"].map((item) => (
+                <option key={item} className="bg-ink-900" value={item}>{item}</option>
+              ))}
             </select>
           </label>
 
@@ -281,6 +292,7 @@ export function CampaignsClient() {
           <label className="space-y-2">
             <span className="text-xs text-white/50">{t("provider")}</span>
             <select value={provider} onChange={(e) => setProvider(e.target.value)} className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none">
+              <option className="bg-ink-900" value="">{t("selectProvider")}</option>
               <option className="bg-ink-900" value="instagram">Instagram</option>
               <option className="bg-ink-900" value="facebook">Facebook</option>
               <option className="bg-ink-900" value="tiktok">TikTok</option>
