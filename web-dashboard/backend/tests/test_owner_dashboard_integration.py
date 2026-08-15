@@ -72,6 +72,7 @@ OWNER_API_CONTRACT = {
     ("PATCH", "/api/v1/owner/support/requests/{request_id}"),
     ("DELETE", "/api/v1/owner/support/requests/{request_id}"),
     ("GET", "/api/v1/owner/growth-social/capabilities"),
+    ("GET", "/api/v1/owner/growth-social/access"),
     ("PUT", "/api/v1/owner/growth-social/access"),
     ("DELETE", "/api/v1/owner/growth-social/access"),
     ("GET", "/api/v1/owner/growth-social/pilots"),
@@ -512,6 +513,45 @@ def test_every_owner_button_has_an_explicit_handler() -> None:
     assert not failures, "Owner buttons without handlers: " + ", ".join(failures)
 
 
+def test_growth_social_access_console_is_private_and_provider_neutral() -> None:
+    dashboard_root = Path(__file__).resolve().parents[2]
+    console = (
+        dashboard_root
+        / "frontend"
+        / "src"
+        / "components"
+        / "owner"
+        / "GrowthSocialAccessConsole.tsx"
+    ).read_text(encoding="utf-8")
+    access_page = (OWNER_APP / "access" / "page.tsx").read_text(encoding="utf-8")
+    growth_client = (OWNER_CLIENTS / "owner-growth-social.ts").read_text(
+        encoding="utf-8"
+    )
+
+    assert "GrowthSocialAccessConsole" in access_page
+    assert "@/components/owner/GrowthSocialAccessConsole" in access_page
+    for marker in (
+        "fetchOwnerGrowthCapabilities",
+        "fetchOwnerGrowthAccessOverrides",
+        "setOwnerGrowthAccess",
+        "clearOwnerGrowthAccess",
+        "fetchOwnerRuntimeSnapshot",
+        "ads.manage",
+        "live-pilot gate",
+    ):
+        assert marker in console
+
+    assert 'from "@/lib/owner-growth-social"' in console
+    assert 'from "@/lib/owner-runtime"' in console
+    assert "apiClient" not in console
+    assert "fetch(" not in console
+    assert "graph.facebook.com" not in console
+    assert "Bearer " not in console
+    assert "access_token=" not in console
+    assert '"/owner/growth-social/access"' in growth_client
+    assert "provider mutation or real advertising spend" in console
+
+
 def test_billing_selector_uses_the_published_backend_catalogue() -> None:
     billing_page = (OWNER_APP / "billing" / "page.tsx").read_text()
     billing_client = (OWNER_CLIENTS / "billing-api.ts").read_text()
@@ -739,8 +779,12 @@ def test_growth_social_pilot_console_is_private_fail_closed_and_translated() -> 
         / "owner"
         / "GrowthSocialPilotConsole.tsx"
     ).read_text(encoding="utf-8")
-    integrations_page = (OWNER_APP / "integrations" / "page.tsx").read_text(encoding="utf-8")
-    growth_client = (OWNER_CLIENTS / "owner-growth-social.ts").read_text(encoding="utf-8")
+    integrations_page = (OWNER_APP / "integrations" / "page.tsx").read_text(
+        encoding="utf-8"
+    )
+    growth_client = (OWNER_CLIENTS / "owner-growth-social.ts").read_text(
+        encoding="utf-8"
+    )
     arabic_check = (
         dashboard_root / "frontend" / "scripts" / "check-owner-arabic-coverage.mjs"
     ).read_text(encoding="utf-8")

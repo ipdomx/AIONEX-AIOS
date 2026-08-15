@@ -3,6 +3,81 @@ import type { SupportedLocale } from "@/lib/locale-engine";
 type Catalog = Record<string, string>;
 
 const AR: Catalog = {
+  "Owner request failed": "فشل طلب المالك",
+  "Loading Growth & Social access authority…":
+    "جارٍ تحميل سلطة صلاحيات النمو والشبكات الاجتماعية للمالك…",
+  "Growth & Social Owner access synchronized.":
+    "تمت مزامنة صلاحيات المالك للنمو والشبكات الاجتماعية.",
+  "Existing Owner override loaded for editing.":
+    "تم تحميل تجاوز المالك الحالي للتعديل.",
+  "Select a target and capability first.": "اختر الهدف والصلاحية أولًا.",
+  "A missing subject override can only be cleared.":
+    "يمكن فقط مسح تجاوز مرتبط بهدف مفقود.",
+  "Redacted legacy limits cannot be overwritten from the console; clear this override instead.":
+    "لا يمكن استبدال الحدود القديمة المحجوبة من لوحة التحكم؛ امسح هذا التجاوز بدلًا من ذلك.",
+  "Limits JSON must be 4096 bytes or less.":
+    "يجب ألا يتجاوز JSON الخاص بالحدود 4096 بايت.",
+  "Limits must be a JSON object.": "يجب أن تكون الحدود كائن JSON.",
+  "Grant the AIOS ads.manage application capability? This does not authorize Meta provider mutation or real advertising spend; every GS-12 live-pilot gate remains separate and fail-closed.":
+    "هل تريد منح صلاحية التطبيق ads.manage في AIOS؟ هذا لا يصرح بتعديل مزود Meta أو الإنفاق الإعلاني الحقيقي؛ تظل جميع بوابات التجربة الحية GS-12 مستقلة ومغلقة افتراضيًا.",
+  "Save this Owner capability grant?": "حفظ منح صلاحية المالك هذه؟",
+  "Save this Owner capability deny? Owner deny takes precedence over plan entitlement.":
+    "حفظ رفض صلاحية المالك هذه؟ رفض المالك له الأولوية على استحقاق الخطة.",
+  "Saving Owner Growth & Social access override…":
+    "جارٍ حفظ تجاوز صلاحيات النمو والشبكات الاجتماعية للمالك…",
+  "Owner capability grant saved. Provider mutation and spend remain separately gated.":
+    "تم حفظ منح صلاحية المالك. يظل تعديل المزود والصرف محكومين ببوابات مستقلة.",
+  "Owner capability deny saved and takes precedence immediately.":
+    "تم حفظ رفض صلاحية المالك ويأخذ الأولوية فورًا.",
+  "Clear this Owner override? The capability will fall back to any remaining user/organization override or plan entitlement.":
+    "هل تريد مسح تجاوز المالك هذا؟ ستعود الصلاحية إلى أي تجاوز متبقٍ للمستخدم أو المؤسسة أو إلى استحقاق الخطة.",
+  "Clearing Owner Growth & Social access override…":
+    "جارٍ مسح تجاوز صلاحيات النمو والشبكات الاجتماعية للمالك…",
+  "Owner capability override cleared.": "تم مسح تجاوز صلاحية المالك.",
+  "Growth & Social Owner Authority": "سلطة المالك للنمو والشبكات الاجتماعية",
+  "Capability Grants, Denies & Approval Gates":
+    "منح الصلاحيات ورفضها وبوابات الموافقة",
+  "Control Growth & Social capabilities per user or organization independently of plan defaults. User overrides take precedence over organization overrides, and Owner deny takes precedence over plan entitlement.":
+    "تحكم في صلاحيات النمو والشبكات الاجتماعية لكل مستخدم أو مؤسسة بشكل مستقل عن افتراضات الخطة. تجاوزات المستخدم لها الأولوية على تجاوزات المؤسسة، ورفض المالك له الأولوية على استحقاق الخطة.",
+  "Refresh access authority": "تحديث سلطة الصلاحيات",
+  "Application access is not live-spend authorization":
+    "صلاحية التطبيق ليست تصريحًا بالإنفاق الحي",
+  "Granting ads.manage only enables the AIOS application capability. It cannot bypass Meta credential verification, GS-12 legal/budget/stop-loss gates, launch authorization, runtime authorization, or the automatic disarm watchdog.":
+    "منح ads.manage يفعّل فقط صلاحية التطبيق داخل AIOS. لا يمكنه تجاوز التحقق من بيانات اعتماد Meta أو بوابات GS-12 القانونية والميزانية وإيقاف الخسارة أو اعتماد الإطلاق أو تفويض التشغيل أو مراقب إلغاء التسليح التلقائي.",
+  "Owner grants": "منح المالك",
+  "Owner denies": "رفض المالك",
+  "Approval-gated": "مقيد بالموافقة",
+  "Managed targets": "الأهداف المُدارة",
+  "Some legacy override records are malformed and were hidden from this console. Review server audit records before cleanup.":
+    "بعض سجلات التجاوز القديمة غير سليمة وتم إخفاؤها من هذه اللوحة. راجع سجلات تدقيق الخادم قبل التنظيف.",
+  "Edit Owner override": "تعديل تجاوز المالك",
+  "Create Owner override": "إنشاء تجاوز للمالك",
+  "Targets come from the live Owner runtime snapshot. Raw credential material is rejected by the backend and must never be placed in limits.":
+    "تأتي الأهداف من لقطة تشغيل المالك الحية. يرفض الخادم الخلفي بيانات الاعتماد الخام ويجب عدم وضعها مطلقًا داخل الحدود.",
+  "New override": "تجاوز جديد",
+  "Target scope": "نطاق الهدف",
+  Target: "الهدف",
+  "Missing target": "هدف مفقود",
+  "Growth & Social capability": "صلاحية النمو والشبكات الاجتماعية",
+  "· approval by default": "· موافقة افتراضيًا",
+  "Require approval for this capability": "اشتراط الموافقة لهذه الصلاحية",
+  "The capability can be granted while still requiring an explicit approval workflow before its protected action.":
+    "يمكن منح الصلاحية مع استمرار اشتراط مسار موافقة صريح قبل تنفيذ الإجراء المحمي.",
+  "Capability limits JSON": "JSON حدود الصلاحية",
+  "Maximum 4096 bytes. Token, password, secret, API key, authorization and credential fields are rejected server-side.":
+    "الحد الأقصى 4096 بايت. يرفض الخادم حقول التوكن وكلمة المرور والسر ومفتاح API والتفويض وبيانات الاعتماد.",
+  "This legacy record contains unsafe or invalid limits and is redacted. Clear the override instead of overwriting it from the console.":
+    "يحتوي هذا السجل القديم على حدود غير آمنة أو غير صالحة وتم حجبها. امسح التجاوز بدلًا من استبداله من لوحة التحكم.",
+  "Save Owner override": "حفظ تجاوز المالك",
+  "Current Owner overrides": "تجاوزات المالك الحالية",
+  "These records supersede plan defaults for their exact user or organization capability.":
+    "تحل هذه السجلات محل افتراضات الخطة للصلاحية المحددة للمستخدم أو المؤسسة.",
+  "Loading access overrides…": "جارٍ تحميل تجاوزات الصلاحيات…",
+  "No Growth & Social Owner overrides are registered.":
+    "لا توجد تجاوزات مسجلة للمالك في النمو والشبكات الاجتماعية.",
+  "Approval required": "الموافقة مطلوبة",
+  "App capability only — live provider spend remains controlled by GS-12.":
+    "صلاحية تطبيق فقط — يظل إنفاق المزود الحي خاضعًا لتحكم GS-12.",
   "Not set": "غير محدد",
   "Live spend gate": "بوابة الإنفاق الفعلي",
   "Read only": "للقراءة فقط",

@@ -24,12 +24,41 @@ export type GrowthAccessDecision = {
   limits: Record<string, unknown>;
 };
 
+export type GrowthAccessOverride = {
+  record_id: string;
+  scope: "user" | "organization";
+  subject_id: string;
+  subject_name: string | null;
+  subject_detail: string | null;
+  subject_status: string;
+  capability: string;
+  allowed: boolean;
+  approval_required: boolean;
+  limits: Record<string, unknown>;
+  limits_redacted: boolean;
+  record_enabled: boolean;
+  version: number;
+  updated_at: string | null;
+};
+
+export type GrowthAccessOverrideList = {
+  items: GrowthAccessOverride[];
+  invalid_records: number;
+  provider_write_executed: boolean;
+  provider_spend_executed: boolean;
+  raw_credentials_returned: boolean;
+};
+
 export function fetchOwnerGrowthCapabilities(): Promise<
   GrowthCapabilityDefinition[]
 > {
   return apiClient.get<GrowthCapabilityDefinition[]>(
     "/owner/growth-social/capabilities",
   );
+}
+
+export function fetchOwnerGrowthAccessOverrides(): Promise<GrowthAccessOverrideList> {
+  return apiClient.get<GrowthAccessOverrideList>("/owner/growth-social/access");
 }
 
 export function setOwnerGrowthAccess(
