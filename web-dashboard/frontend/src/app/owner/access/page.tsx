@@ -11,6 +11,7 @@ import {
   Users,
 } from "lucide-react";
 
+import { GrowthSocialAccessConsole } from "@/components/owner/GrowthSocialAccessConsole";
 import { useOwnerResource } from "@/hooks/use-owner-resource";
 
 type OwnerRole = {
@@ -202,6 +203,9 @@ export default function OwnerAccessPage() {
             ))}
           </div>
         )}
+      </div>
+      <div className="border-t border-white/[0.06] pt-6">
+        <GrowthSocialAccessConsole />
       </div>
     </div>
   );

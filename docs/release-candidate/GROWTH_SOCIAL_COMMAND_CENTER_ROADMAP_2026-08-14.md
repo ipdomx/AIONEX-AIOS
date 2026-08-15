@@ -157,7 +157,7 @@ Status: **COMPLETE**
 A complete synthetic journey from owner entitlement grant → account connection simulator → research → plan → content → campaign simulation → inbox/lead events → analytics → failure learning → successful replay recommendation → revocation. No real spend.
 
 ### GS-12 — Controlled live pilot gate
-Status: **IN_PROGRESS_OWNER_CONSOLE_VALIDATED_AWAITING_PR_CI_DEPLOYMENT_EXTERNAL_LIVE_SPEND_GATES_REMAIN**
+Status: **IN_PROGRESS_OWNER_CONSOLE_PRODUCTION_VERIFIED_EXTERNAL_LIVE_SPEND_GATES_REMAIN**
 
 Real human account/provider pilot only after all previous batches are merged and green. Real advertising spend remains disabled until explicit owner approval, provider credentials, legal/policy prerequisites, and defined budget/stop-loss controls are present.
 
@@ -681,3 +681,28 @@ Real human account/provider pilot only after all previous batches are merged and
 - Full `test_owner_dashboard_integration.py` against isolated PostgreSQL + Redis: `15 passed, 0 failed`; the new fail-closed source contract is included.
 - No provider credential, real owned-account mutation, ad/ad-set creation, audience upload, budget edit, publish/send, automatic execution, or advertising spend occurred. Existing production runtime gates remain unchanged and fail-closed.
 - Next action: PR/CI/merge this Owner console, rebuild/recreate Frontend only, verify the private owner page and live API data render correctly while public owner access remains blocked, then close all remaining safe internal GS-12 work pending external live target/credential/legal/budget inputs.
+
+### GS-12 Owner controlled-pilot console production closeout — 2026-08-15
+- PR #347 passed every GitHub production gate and merged to `main` as `0de75d3eac8a2f3c9fd3c394c005ebdce4fd78d1`.
+- Production `main` was synchronized to that merge commit. Only the Frontend image was rebuilt/recreated; Backend, Operations Observer, Nginx and production schema were not changed by this UI deployment.
+- Frontend rebuilt successfully with `86/86` static pages and returned `healthy` after recreation. `/owner/integrations` now contains the GS-12 controlled-pilot console in the deployed build, including both the English `GS-12 Owner Safety Console` marker and its Arabic translation.
+- Live boundary acceptance: private origin `/owner/integrations` returns HTTP 200; public origin returns HTTP 404. The private owner pilot API returns HTTP 401 unauthenticated while the public origin returns HTTP 404. No Owner API was exposed to the public channel.
+- Post-deploy safe state remains unchanged: exactly three pilots exist and all are `read_only_armed` (Meta owned assets, Meta sandbox, Telegram owner bots); every pilot has `launch_authorized=false`, `live_provider_mutation_allowed=false`, and `real_spend_allowed=false`.
+- No provider call, campaign/ad-set/ad creation, budget mutation, audience upload, publish/send, automatic execution, or real advertising spend occurred during the UI rollout or acceptance.
+- All safe Owner-console work is complete. The next safe internal task is to prebuild a CLI-only Meta owned-account no-spend write validator so live `ads_management` verification can later be executed as a single PAUSED create/read/delete cycle after the external target and credential are supplied. The validator must not unlock spend or create an execution route.
+
+### GS-12 Owner Growth/Social access authority pre-merge checkpoint — 2026-08-15
+- Added a read-only Super-Owner API snapshot for current Growth/Social overrides at `GET /api/v1/owner/growth-social/access`. It returns only validated override metadata, resolved user/organization labels/status, sanitized limits and explicit `provider_write_executed=false`, `provider_spend_executed=false`, `raw_credentials_returned=false` safety flags.
+- Hardened override writes before exposing them in the UI: the service now requires a Super Owner, validates that grant/deny targets actually exist, rejects ambiguous subject identifiers, caps nested limits size/depth/item counts, rejects non-finite/oversized values, and refuses token/secret/password/API-key/authorization/credential material in limit keys or values.
+- Legacy override reads fail closed: malformed records are counted but hidden; unsafe legacy limits are returned as `{}` with `limits_redacted=true` so raw credential-like material is never reflected back to the Owner UI. Redacted records can be cleared but cannot be silently overwritten from the console.
+- Added a private `GrowthSocialAccessConsole` inside the existing `/owner/access` page. The console loads the live Owner runtime user/organization snapshot, so the operator selects real targets instead of manually entering UUIDs; it supports per-target Grant/Deny, approval-required gating, bounded JSON capability limits, edit and clear.
+- The console states and enforces the separation between AIOS application capability access and GS-12 provider/spend authorization. Granting `ads.manage` does not create a pilot, does not call Meta, and cannot bypass credential/provider verification, legal/budget/stop-loss/launch/runtime gates or the automatic disarm watchdog.
+- Owner deny precedence remains unchanged: user override > organization override > plan entitlement, with Owner deny taking precedence over the selected plan entitlement at the matching scope.
+- Added Owner API/client/source contracts for the new read endpoint and console. The console uses only authenticated Owner clients and has no direct `fetch`, Meta Graph URL, Bearer token or access-token handling.
+- Extended the Owner Arabic coverage gate to inspect literal strings passed through `t()` and `translateInterfaceText()` in addition to visible JSX/confirm text. Added the complete Arabic catalogue for the access console and dangerous confirmation prompts. Arabic coverage now passes with `881` translatable UI strings and `5` approved technical tokens.
+- Backend static quality: Ruff PASS across `app/tests`; Mypy PASS across `171` Backend source files. Focused Growth access + Owner/API/Alembic contracts on isolated PostgreSQL/Redis: `40 passed, 0 failed`.
+- Full Backend regression from a brand-new PostgreSQL + Redis environment at Alembic `20260815_0026 (head)`: `579 passed, 1 skipped, 0 failed`.
+- Frontend CI-equivalent checks PASS: Arabic coverage PASS, TypeScript PASS, targeted Owner lint PASS, Prettier PASS, and Next.js production build PASS with `86/86` static pages; `/owner/access` builds with the new access authority console.
+- A local root-Core attempt through the generic pytest wrapper lacked the worktree editable-install/PYTHONPATH contract and stopped during collection on three unrelated root imports; no Core test executed or failed. The required GitHub `Core Owner / Release / Web Contracts` job remains the authoritative gate before merge.
+- No schema migration, provider credential change, provider call, owned-account mutation, ad/ad-set creation, audience upload, budget edit, publish/send, automatic execution or advertising spend was introduced or executed.
+- Next action: PR/CI/merge this access authority console, rebuild/recreate Backend and Frontend only, verify private Owner page/API boundaries and current override safety state, then reassess whether any internal no-spend work remains before the external GS-12 target/credential/legal/budget gates.

@@ -153,7 +153,15 @@ function collectVisibleStrings() {
           : ts.isPropertyAccessExpression(node.expression)
             ? node.expression.name.text
             : "";
-        if (["setMessage", "confirm", "alert"].includes(callName)) {
+        if (
+          [
+            "setMessage",
+            "confirm",
+            "alert",
+            "t",
+            "translateInterfaceText",
+          ].includes(callName)
+        ) {
           for (const argument of node.arguments) {
             if (
               ts.isStringLiteral(argument) ||
