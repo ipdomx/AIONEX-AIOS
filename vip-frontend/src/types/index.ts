@@ -920,3 +920,76 @@ export interface SupportTicket {
   updated_at: string;
   messages?: SupportTicketMessage[];
 }
+
+export interface PaidCampaignBudgetAssessment {
+  recommendation: string;
+  rationale: string;
+  user_total_budget_minor: number;
+  user_daily_budget_minor: number;
+  observed_cpa_minor: number | null;
+  observed_roas: number;
+  user_max_cpa_minor: number | null;
+  user_min_roas: number | null;
+  owner_approval_required: boolean;
+  advisory_only: boolean;
+  analysis_basis: string;
+  real_performance_data_used: boolean;
+  guaranteed_results: boolean;
+  budget_mutated: boolean;
+  automatic_execution_allowed: boolean;
+}
+
+export interface PaidCampaign {
+  id: string;
+  name: string;
+  objective: string;
+  status: string;
+  approval_status: string;
+  owner_approval_required: boolean;
+  aios_advice_only: boolean;
+  user_budget_preserved: boolean;
+  currency: string;
+  total_budget_minor: number;
+  daily_budget_cap_minor: number;
+  simulated_spend_minor: number;
+  real_spend_allowed: boolean;
+  live_provider_call: boolean;
+  live_campaign_mutation: boolean;
+  automatic_budget_increase_allowed: boolean;
+}
+
+export interface PaidCampaignPreparationInput {
+  campaign_name: string;
+  objective: string;
+  currency: string;
+  total_budget_minor: number;
+  daily_budget_cap_minor: number;
+  max_cpa_minor?: number | null;
+  min_roas?: number | null;
+  provider: string;
+  target_countries: string[];
+  placements: string[];
+  bid_strategy?: string;
+  headline?: string;
+  body?: string;
+  destination_url?: string | null;
+  days?: number;
+}
+
+export interface PaidCampaignPreparationResult {
+  campaign: PaidCampaign;
+  ad_set_id: string;
+  creative_id: string;
+  ad_id: string;
+  simulation_id: string;
+  decision: string;
+  reason_codes: string[];
+  metrics: Record<string, unknown>;
+  budget_assessment: PaidCampaignBudgetAssessment;
+  owner_approval_required: true;
+  aios_advice_only: true;
+  automatic_execution_allowed: false;
+  real_spend_allowed: false;
+  live_provider_call: false;
+  live_campaign_mutation: false;
+}

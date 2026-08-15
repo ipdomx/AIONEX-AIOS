@@ -5,6 +5,7 @@ import {
   CreditCard,
   LayoutDashboard,
   LifeBuoy,
+  Megaphone,
   LogOut,
   Menu,
   ShieldCheck,
@@ -170,6 +171,13 @@ export function Navbar() {
                 {t("projects")}
               </Link>
               <Link
+                href={`/${locale}/campaigns`}
+                className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/65 hover:text-white"
+              >
+                <Megaphone className="h-4 w-4" aria-hidden="true" />
+                {t("campaigns")}
+              </Link>
+              <Link
                 href={`/${locale}/billing`}
                 className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/65 hover:text-white"
               >
@@ -267,6 +275,13 @@ export function Navbar() {
                   className="rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06]"
                 >
                   {t("projects")}
+                </Link>
+                <Link
+                  href={`/${locale}/campaigns`}
+                  onClick={() => setOpen(false)}
+                  className="rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06]"
+                >
+                  {t("campaigns")}
                 </Link>
                 <Link
                   href={`/${locale}/billing`}

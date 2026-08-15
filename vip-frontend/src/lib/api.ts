@@ -23,6 +23,9 @@ import type {
   CommunicationChannelReadiness,
   CommunicationEndpoint,
   NotificationPreference,
+  PaidCampaign,
+  PaidCampaignPreparationInput,
+  PaidCampaignPreparationResult,
   PortalNotification,
   SupportTicket,
   SupportTicketMessage,
@@ -1044,4 +1047,20 @@ export function createUserTelegramLinkChallenge(): Promise<UserTelegramChallenge
 
 export function revokeUserTelegramLink(): Promise<{ revoked: boolean }> {
   return request<{ revoked: boolean }>("/telegram/link", { method: "DELETE" });
+}
+
+export function listPaidCampaigns(): Promise<PaidCampaign[]> {
+  return request<{ items: PaidCampaign[] }>("/growth-social/paid-campaigns").then(
+    (response) => response.items,
+  );
+}
+
+export function prepareAndSimulatePaidCampaign(
+  input: PaidCampaignPreparationInput,
+): Promise<PaidCampaignPreparationResult> {
+  return jsonRequest<PaidCampaignPreparationResult>(
+    "/growth-social/paid-campaigns/prepare-and-simulate",
+    "POST",
+    input,
+  );
 }

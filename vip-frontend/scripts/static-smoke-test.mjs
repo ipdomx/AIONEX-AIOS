@@ -9,6 +9,7 @@ const localizedRoutes = [
   "about",
   "contact",
   "dashboard",
+  "campaigns",
   "login",
   "register",
   "profile",
