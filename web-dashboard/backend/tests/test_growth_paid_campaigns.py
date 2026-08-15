@@ -11,12 +11,12 @@ from app.db.models import Organization, User
 from app.services import growth_paid_campaigns as paid
 
 
-def _actor(org_id: str, user_id: str, email: str) -> UserRecord:
+def _actor(org_id: str, user_id: str, email: str, role: str = "User") -> UserRecord:
     return UserRecord(
         id=user_id,
         email=email,
         name="GS08 Test",
-        role="User",
+        role=role,
         password_hash="unused",
         organization_id=org_id,
         organization_name="GS08",
@@ -94,6 +94,9 @@ async def test_paid_campaign_simulation_hard_gates_and_budget_caps(monkeypatch) 
         assert public["live_provider_call"] is False
         assert public["live_campaign_mutation"] is False
         assert public["automatic_budget_increase_allowed"] is False
+        assert public["owner_approval_required"] is True
+        assert public["aios_advice_only"] is True
+        assert public["user_budget_preserved"] is True
 
         adset = await paid.add_ad_set(
             session,
@@ -140,12 +143,29 @@ async def test_paid_campaign_simulation_hard_gates_and_budget_caps(monkeypatch) 
         assert list(exp.allocation) == sorted([a1.id, a2.id])
         assert abs(sum(exp.allocation.values()) - 1.0) < 0.00001
 
-        with pytest.raises(
-            paid.GrowthPaidCampaignError, match="campaign-approval-required"
-        ):
-            await paid.simulate_launch(session, actor, campaign.id, days=3)
+        # AIOS analyzes the user's chosen budget before owner approval and only advises.
+        preapproval_sim, preapproval_decision = await paid.simulate_launch(
+            session, actor, campaign.id, days=3
+        )
+        assert preapproval_sim.real_spend_allowed is False
+        assert preapproval_decision.approval_required is True
+        assert preapproval_decision.automatic_execution_allowed is False
+        assert campaign.total_budget_minor == 100000
+        assert campaign.daily_budget_cap_minor == 25000
+        assessment = preapproval_decision.metrics["budget_assessment"]
+        assert assessment["advisory_only"] is True
+        assert assessment["budget_mutated"] is False
+        assert assessment["owner_approval_required"] is True
+        assert assessment["user_total_budget_minor"] == 100000
+        assert assessment["user_daily_budget_minor"] == 25000
 
-        await paid.approve_campaign(session, actor, campaign.id)
+        with pytest.raises(
+            paid.GrowthPaidCampaignError, match="super-owner-approval-required"
+        ):
+            await paid.approve_campaign(session, actor, campaign.id)
+
+        owner = _actor(org_id, user_id, email, role="Super Owner")
+        await paid.approve_campaign(session, owner, campaign.id)
         sim1, dec1 = await paid.simulate_launch(session, actor, campaign.id, days=3)
         sim2, dec2 = await paid.simulate_launch(session, actor, campaign.id, days=3)
         assert sim1.seed == sim2.seed

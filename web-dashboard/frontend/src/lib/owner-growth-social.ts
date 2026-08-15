@@ -250,3 +250,44 @@ export function disarmOwnerGrowthPilot(
     reason,
   });
 }
+
+export type OwnerGrowthPaidCampaign = {
+  id: string;
+  name: string;
+  objective: string;
+  status: string;
+  approval_status: string;
+  owner_approval_required: boolean;
+  aios_advice_only: boolean;
+  user_budget_preserved: boolean;
+  currency: string;
+  total_budget_minor: number;
+  daily_budget_cap_minor: number;
+  simulated_spend_minor: number;
+  organization_name?: string;
+  created_by_name?: string;
+  created_at?: string | null;
+  approved_at?: string | null;
+  latest_budget_assessment?: Record<string, unknown>;
+  real_spend_allowed: false;
+  live_provider_call: false;
+  live_campaign_mutation: false;
+  automatic_budget_increase_allowed: false;
+};
+
+export function fetchOwnerGrowthPaidCampaigns(): Promise<{
+  items: OwnerGrowthPaidCampaign[];
+  owner_approval_required: true;
+  automatic_execution_allowed: false;
+  real_spend_allowed: false;
+}> {
+  return apiClient.get("/owner/growth-social/paid-campaigns");
+}
+
+export function approveOwnerGrowthPaidCampaign(
+  campaignId: string,
+): Promise<OwnerGrowthPaidCampaign> {
+  return apiClient.post(
+    `/owner/growth-social/paid-campaigns/${campaignId}/approve`,
+  );
+}

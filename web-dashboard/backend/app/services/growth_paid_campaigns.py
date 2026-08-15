@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import UserRecord
 from app.db.models import (
+    AuditEvent,
     GrowthPaidAd,
     GrowthPaidAdSet,
     GrowthPaidCampaign,
@@ -72,6 +73,46 @@ def _safe_policy(policy: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def _budget_assessment(
+    campaign: GrowthPaidCampaign, metrics: dict[str, Any], action: str
+) -> dict[str, Any]:
+    """Advisory-only assessment of the user's chosen budget. Never mutates it."""
+    cpa = metrics.get("cpa_minor")
+    roas = float(metrics.get("roas") or 0.0)
+    conversions = int(metrics.get("conversions") or 0)
+    policy = dict(campaign.stop_loss_policy or {})
+    max_cpa = int(policy.get("max_cpa_minor") or 0)
+    min_roas = float(policy.get("min_roas") or 0.0)
+
+    if action == "pause":
+        recommendation = "decrease_or_rework"
+        rationale = "simulated-performance-below-user-thresholds"
+    elif action == "scale_candidate":
+        recommendation = "increase_candidate"
+        rationale = "simulated-positive-unit-economics"
+    elif conversions > 0:
+        recommendation = "keep_and_measure"
+        rationale = "results-present-but-confidence-insufficient-to-scale"
+    else:
+        recommendation = "rework_before_increase"
+        rationale = "no-simulated-conversions"
+
+    return {
+        "recommendation": recommendation,
+        "rationale": rationale,
+        "user_total_budget_minor": campaign.total_budget_minor,
+        "user_daily_budget_minor": campaign.daily_budget_cap_minor,
+        "observed_cpa_minor": cpa,
+        "observed_roas": roas,
+        "user_max_cpa_minor": max_cpa or None,
+        "user_min_roas": min_roas or None,
+        "owner_approval_required": True,
+        "advisory_only": True,
+        "budget_mutated": False,
+        "automatic_execution_allowed": False,
+    }
+
+
 async def create_campaign(
     session: AsyncSession, actor: UserRecord, payload: dict[str, Any]
 ) -> GrowthPaidCampaign:
@@ -106,12 +147,29 @@ async def create_campaign(
 async def approve_campaign(
     session: AsyncSession, actor: UserRecord, campaign_id: str
 ) -> GrowthPaidCampaign:
-    await _require(session, actor)
-    row = await _campaign(session, actor, campaign_id)
+    if actor.role != "Super Owner":
+        raise GrowthPaidCampaignError("super-owner-approval-required")
+    row = await session.get(GrowthPaidCampaign, campaign_id)
+    if row is None:
+        raise GrowthPaidCampaignError("campaign-not-found")
     row.approval_status = "approved"
     row.approved_by_id = actor.id
     row.approved_at = _now()
     row.status = "approved"
+    session.add(
+        AuditEvent(
+            organization_id=row.organization_id,
+            user_id=actor.id,
+            action="growth.paid_campaign.owner_approved",
+            resource_type="growth_paid_campaign",
+            resource_id=row.id,
+            details={
+                "owner_approval_required": True,
+                "user_budget_preserved": True,
+                "automatic_execution_allowed": False,
+            },
+        )
+    )
     await session.flush()
     return row
 
@@ -228,8 +286,8 @@ async def simulate_launch(
 ) -> tuple[GrowthPaidLaunchSimulation, GrowthPaidDecision]:
     await _require(session, actor)
     campaign = await _campaign(session, actor, campaign_id)
-    if campaign.approval_status != "approved":
-        raise GrowthPaidCampaignError("campaign-approval-required")
+    # Simulation/advice is intentionally available before owner approval.
+    # Approval is a launch gate, not a prerequisite for AIOS analysis.
     ads = (
         await session.scalars(
             select(GrowthPaidAd)
@@ -260,7 +318,7 @@ async def simulate_launch(
     revenue = conversions * (5000 + (int(seed[10:12], 16) % 5000))
     cpa = int(simulated_spend / conversions) if conversions else None
     roas = round(revenue / simulated_spend, 4) if simulated_spend else 0.0
-    metrics = {
+    metrics: dict[str, Any] = {
         "impressions": impressions,
         "clicks": clicks,
         "conversions": conversions,
@@ -271,6 +329,7 @@ async def simulate_launch(
         "cpa_minor": cpa,
         "roas": roas,
     }
+    # AIOS advises on the user's chosen budget; it never rewrites it automatically.
     policy = campaign.stop_loss_policy or {}
     reasons: list[str] = []
     stop = False
@@ -298,6 +357,10 @@ async def simulate_launch(
     else:
         action = "iterate"
         reasons.append("no-conversions")
+    metrics["budget_assessment"] = _budget_assessment(campaign, metrics, action)
+    campaign_metadata = dict(campaign.campaign_metadata or {})
+    campaign_metadata["latest_budget_assessment"] = metrics["budget_assessment"]
+    campaign.campaign_metadata = campaign_metadata
     sim = GrowthPaidLaunchSimulation(
         organization_id=actor.organization_id,
         campaign_id=campaign.id,
@@ -326,6 +389,9 @@ async def simulate_launch(
     )
     session.add(decision)
     campaign.simulated_spend_minor = simulated_spend
+    if campaign.approval_status != "approved":
+        campaign.approval_status = "pending_owner"
+        campaign.status = "awaiting_owner_approval"
     await session.flush()
     return sim, decision
 
@@ -346,6 +412,9 @@ def public_campaign(row: GrowthPaidCampaign) -> dict[str, Any]:
         "objective": row.objective,
         "status": row.status,
         "approval_status": row.approval_status,
+        "owner_approval_required": True,
+        "aios_advice_only": True,
+        "user_budget_preserved": True,
         "currency": row.currency,
         "total_budget_minor": row.total_budget_minor,
         "daily_budget_cap_minor": row.daily_budget_cap_minor,
