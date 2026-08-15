@@ -294,6 +294,25 @@ async def test_live_spend_pilot_fails_closed_until_every_gate_is_verified() -> N
             "mutation_allowed": True,
             "spend_allowed": True,
             "execution_adapter_verified": False,
+            "live_scope_ref": "accountref://different-account",
+            "live_organization_id": org_id,
+        }
+        await session.flush()
+        wrong_scope = await pilots.readiness(
+            session,
+            owner,
+            pilot.id,
+            require_launch_authorization=False,
+        )
+        assert wrong_scope["provider_gate"] is False
+        assert "provider-write-scope-binding-mismatch" in wrong_scope["blocked_reasons"]
+
+        capability.evidence = {
+            "mutation_allowed": True,
+            "spend_allowed": True,
+            "execution_adapter_verified": False,
+            "live_scope_ref": pilot.scope_ref,
+            "live_organization_id": org_id,
         }
         await session.flush()
         prelaunch = await pilots.readiness(
@@ -312,6 +331,8 @@ async def test_live_spend_pilot_fails_closed_until_every_gate_is_verified() -> N
             "mutation_allowed": True,
             "spend_allowed": True,
             "execution_adapter_verified": True,
+            "live_scope_ref": pilot.scope_ref,
+            "live_organization_id": org_id,
         }
         await session.flush()
         authorized = await pilots.authorize_launch(session, owner, pilot.id)
@@ -396,6 +417,8 @@ async def _ready_live_pilot(session, owner: UserRecord, org_id: str, scope_ref: 
             "mutation_allowed": True,
             "spend_allowed": True,
             "execution_adapter_verified": True,
+            "live_scope_ref": scope_ref,
+            "live_organization_id": org_id,
         },
     )
     pilot = await pilots.create_pilot(
