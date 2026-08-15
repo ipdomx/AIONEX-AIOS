@@ -74,6 +74,14 @@ OWNER_API_CONTRACT = {
     ("GET", "/api/v1/owner/growth-social/capabilities"),
     ("PUT", "/api/v1/owner/growth-social/access"),
     ("DELETE", "/api/v1/owner/growth-social/access"),
+    ("GET", "/api/v1/owner/growth-social/pilots"),
+    ("POST", "/api/v1/owner/growth-social/pilots"),
+    ("GET", "/api/v1/owner/growth-social/pilots/{pilot_id}/readiness"),
+    ("PATCH", "/api/v1/owner/growth-social/pilots/{pilot_id}/controls"),
+    ("POST", "/api/v1/owner/growth-social/pilots/{pilot_id}/validate-read-only"),
+    ("POST", "/api/v1/owner/growth-social/pilots/{pilot_id}/authorize-launch"),
+    ("POST", "/api/v1/owner/growth-social/pilots/{pilot_id}/arm"),
+    ("POST", "/api/v1/owner/growth-social/pilots/{pilot_id}/disarm"),
     ("GET", "/api/v1/owner/governance/overview"),
     ("GET", "/api/v1/owner/compliance-controls"),
     (
@@ -185,6 +193,21 @@ OWNER_MUTATION_REQUESTS = {
     },
     ("DELETE", "/api/v1/owner/support/requests/{request_id}"): None,
     ("DELETE", "/api/v1/owner/growth-social/access"): None,
+    ("POST", "/api/v1/owner/growth-social/pilots"): {
+        "provider": "meta",
+        "provider_scope": "owned_assets",
+        "mode": "read_only",
+        "owner_approval_reference": "contract-test",
+    },
+    ("PATCH", "/api/v1/owner/growth-social/pilots/{pilot_id}/controls"): {
+        "legal_policy_acknowledged": False,
+    },
+    ("POST", "/api/v1/owner/growth-social/pilots/{pilot_id}/validate-read-only"): None,
+    ("POST", "/api/v1/owner/growth-social/pilots/{pilot_id}/authorize-launch"): None,
+    ("POST", "/api/v1/owner/growth-social/pilots/{pilot_id}/arm"): None,
+    ("POST", "/api/v1/owner/growth-social/pilots/{pilot_id}/disarm"): {
+        "reason": "contract-test",
+    },
     (
         "POST",
         "/api/v1/owner/compliance-controls/{control_id}/attest",

@@ -3312,3 +3312,72 @@ class GrowthReportRun(Base, TimestampMixin):
         DateTime(timezone=True), default=datetime.utcnow, nullable=False
     )
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+
+class GrowthControlledPilot(Base, TimestampMixin):
+    """Fail-closed GS-12 controlled live-pilot gate and authorization record."""
+
+    __tablename__ = "growth_controlled_pilots"
+    __table_args__ = (
+        Index(
+            "ix_growth_controlled_pilots_org_provider_status",
+            "organization_id",
+            "provider",
+            "status",
+        ),
+        Index("ix_growth_controlled_pilots_expires_at", "expires_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str | None] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    created_by_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    provider: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    provider_scope: Mapped[str] = mapped_column(String(80), nullable=False)
+    scope_ref: Mapped[str | None] = mapped_column(String(255))
+    mode: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    capability: Mapped[str] = mapped_column(String(80), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False, index=True)
+
+    owner_approved_by_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    owner_approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    owner_approval_reference: Mapped[str | None] = mapped_column(String(240))
+
+    legal_policy_acknowledged: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    legal_policy_reference: Mapped[str | None] = mapped_column(String(500))
+    legal_acknowledged_by_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    legal_acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    currency: Mapped[str | None] = mapped_column(String(3))
+    max_total_budget_minor: Mapped[int | None] = mapped_column(BigInteger)
+    max_daily_budget_minor: Mapped[int | None] = mapped_column(BigInteger)
+    max_cpa_minor: Mapped[int | None] = mapped_column(BigInteger)
+    min_roas: Mapped[float | None] = mapped_column(Float)
+
+    launch_authorized: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    launch_authorized_by_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    launch_authorized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    armed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    disarmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    live_provider_mutation_allowed: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    real_spend_allowed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    blocked_reasons: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
