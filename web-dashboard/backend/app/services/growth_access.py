@@ -26,6 +26,9 @@ CAPABILITIES: dict[str, dict[str, Any]] = {
     "ads.manage": {"default_entitlements": ["growth.ads.manage"], "approval_default": True},
     "automations.manage": {"default_entitlements": ["growth.automations.manage"], "approval_default": True},
     "exports.create": {"default_entitlements": ["growth.exports.create"]},
+    "integrations.manage": {"default_entitlements": ["growth.integrations.manage"], "approval_default": True},
+    "teams.manage": {"default_entitlements": ["growth.teams.manage"]},
+    "reports.manage": {"default_entitlements": ["growth.reports.manage"]},
 }
 
 

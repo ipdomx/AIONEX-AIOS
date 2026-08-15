@@ -3130,3 +3130,185 @@ class MobileValidationRun(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     evidence: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class GrowthIntegrationConnection(Base, TimestampMixin):
+    """Provider-neutral GS-10 integration configuration with opaque credentials only."""
+
+    __tablename__ = "growth_integration_connections"
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id",
+            "integration_type",
+            "name",
+            name="uq_growth_integration_org_type_name",
+        ),
+        Index(
+            "ix_growth_integrations_org_type_status",
+            "organization_id",
+            "integration_type",
+            "status",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    created_by_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    integration_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    provider: Mapped[str] = mapped_column(String(80), nullable=False)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    credential_ref: Mapped[str | None] = mapped_column(String(320))
+    status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False)
+    config: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    capabilities: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    last_simulated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    external_delivery_allowed: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    live_provider_call: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class GrowthTeamAssignment(Base, TimestampMixin):
+    """Tenant-scoped workflow role assignment for Growth & Social resources."""
+
+    __tablename__ = "growth_team_assignments"
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id",
+            "user_id",
+            "scope_type",
+            "scope_id",
+            name="uq_growth_team_assignment_scope",
+        ),
+        Index(
+            "ix_growth_team_assignments_org_scope_active",
+            "organization_id",
+            "scope_type",
+            "active",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    team_id: Mapped[str | None] = mapped_column(
+        ForeignKey("teams.id", ondelete="SET NULL"), index=True
+    )
+    created_by_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    scope_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    scope_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    role_key: Mapped[str] = mapped_column(String(32), nullable=False)
+    permissions: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    approval_required: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class GrowthReportDefinition(Base, TimestampMixin):
+    """Durable scheduled report definition; delivery remains disabled in GS-10."""
+
+    __tablename__ = "growth_report_definitions"
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id", "name", name="uq_growth_report_definition_org_name"
+        ),
+        Index(
+            "ix_growth_report_definitions_org_schedule_active",
+            "organization_id",
+            "schedule_kind",
+            "active",
+        ),
+        Index("ix_growth_report_definitions_next_run", "next_run_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    created_by_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(180), nullable=False)
+    report_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    formats: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    filters: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    schedule_kind: Mapped[str] = mapped_column(
+        String(24), default="manual", nullable=False
+    )
+    timezone_name: Mapped[str] = mapped_column(
+        String(80), default="UTC", nullable=False
+    )
+    next_run_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), index=True
+    )
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    brand_name: Mapped[str | None] = mapped_column(String(180))
+    custom_domain: Mapped[str | None] = mapped_column(String(253))
+    branding: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    external_delivery_allowed: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class GrowthReportRun(Base, TimestampMixin):
+    """GS-10 report snapshot and deterministic artifact manifest."""
+
+    __tablename__ = "growth_report_runs"
+    __table_args__ = (
+        Index(
+            "ix_growth_report_runs_org_status_created",
+            "organization_id",
+            "status",
+            "created_at",
+        ),
+        Index(
+            "ix_growth_report_runs_definition_created",
+            "report_definition_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    report_definition_id: Mapped[str] = mapped_column(
+        ForeignKey("growth_report_definitions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    triggered_by_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    status: Mapped[str] = mapped_column(String(32), default="completed", nullable=False)
+    period_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    data_snapshot: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    summary: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    artifact_manifest: Mapped[list[dict]] = mapped_column(
+        JSON, default=list, nullable=False
+    )
+    simulated: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    external_delivery_allowed: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    generated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+    )
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)

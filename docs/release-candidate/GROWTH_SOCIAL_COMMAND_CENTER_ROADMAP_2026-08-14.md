@@ -147,7 +147,7 @@ Status: **META_AND_TELEGRAM_READ_ONLY_VERIFIED_EXTERNAL_GATES_REMAIN**
 Implement provider-specific OAuth/API connectors only where owner credentials/apps and platform approvals are available. Each connector gets separate capability tests and a live no-spend/read-only or sandbox validation before any mutation.
 
 ### GS-10 — Advanced integrations, exports, teams and reports
-Status: **PLANNED**
+Status: **IMPLEMENTED_VALIDATED_AWAITING_PR_CI_MERGE_DEPLOYMENT**
 
 CRM/email/cloud/sheets/webhooks/report exports, richer team workflows, scheduled reporting, PDF/Excel generation, white-label/custom-domain foundations where compatible with the current platform architecture.
 
@@ -463,3 +463,47 @@ Real human account/provider pilot only after all previous batches are merged and
 - Durable database verification confirmed `telegram/account.read = read_only_verified`, `credential_refs_count=2`, `raw_secret_persisted=False`, `verified_bot_count=2`, `mutation_allowed=False`, `send_allowed=False`, and `spend_allowed=False`.
 - No message send, webhook mutation, chat moderation, membership change, provider write, or advertising spend occurred.
 - Meta and Telegram now have production read-only validation evidence. GS-09 remains externally gated for additional providers and any write/spend/publish/send capability.
+
+
+### GS-10 execution start — 2026-08-15
+- Worktree: `feature/gs10-advanced-integrations` from clean `main` at `043ac9e96c651ed19b9cd164975a41269c1de8ab`.
+- Scope: provider-neutral integration registry, safe webhook destinations, richer team assignments, durable report definitions/runs, scheduled reports, and deterministic export artifacts.
+- Initial export targets: JSON/CSV plus generated XLSX/PDF artifacts where runtime libraries permit; exports contain only tenant-scoped normalized data and never credential material.
+- External CRM/email/cloud/sheets/webhook delivery remains disabled by default in GS-10; validation is simulation/local-generation first with no outbound provider mutation or message send.
+- Existing owner Growth/Social access controls remain authoritative; no user may self-enable an owner-blocked integration/export/report capability.
+- GS-09 external provider gates remain recorded and are not falsely marked complete.
+
+
+### GS-10 implementation checkpoint — 2026-08-15
+- Added the provider-neutral GS-10 persistence models `GrowthIntegrationConnection`, `GrowthTeamAssignment`, `GrowthReportDefinition`, and `GrowthReportRun`.
+- Durable Alembic migration `20260815_0024` materializes those four GS-10 model contracts; it is idempotent when all four tables already exist and fails closed on partial schema presence.
+- Added owner-controlled capabilities `integrations.manage`, `teams.manage`, and `reports.manage`; existing `exports.create` and `automations.manage` remain required for export generation and scheduled-report simulation.
+- Integration registry rejects raw secret fields and unsafe webhook targets, stores only opaque credential references, and keeps `external_delivery_allowed=false` and `live_provider_call=false`; CRM/email/cloud/sheets/webhook actions are simulation-only in GS-10.
+- Team workflow supports tenant-scoped assignment/upsert and deterministic routing recommendation only; `assignment_applied=false` and `external_mutation_allowed=false` during simulation.
+- Report engine generates deterministic local JSON, CSV, XLSX, and PDF artifacts with SHA-256 manifests. Snapshots are aggregate-only, export no raw credentials or lead contact PII, and keep `real_spend_allowed=false`, `message_send_allowed=false`, and `external_delivery_allowed=false`.
+- Scheduled-report processing is simulated only; custom-domain/white-label configuration remains a candidate preview with `domain_verification_state=unverified` and `live_domain_allowed=false`.
+- Public authenticated routes are limited to `/growth-social/integrations`, `/growth-social/team-assignments`, `/growth-social/reports`, and `/growth-social/report-runs`; owner surfaces remain outside the public allowlist.
+- Isolated PostgreSQL upgraded from a clean database through `20260815_0024` successfully.
+- Final focused GS-10 + Alembic-head + backend-route acceptance: 4/4 PASS. Black/Ruff PASS on GS-10 files; Mypy PASS on the GS-10 service/API.
+- Root completion/public-ingress/roadmap contracts: 22/22 PASS. Full root Core suite: 680/680 PASS.
+- No external webhook/email/CRM/cloud/sheets delivery, provider mutation, message send, domain activation, or advertising spend occurred.
+
+
+### GS-10 pre-merge validation checkpoint — 2026-08-15
+- Implementation scope completed in isolated worktree `feature/gs10-advanced-integrations` from base `043ac9e96c651ed19b9cd164975a41269c1de8ab`.
+- Added owner-controlled Growth capabilities: `integrations.manage`, `teams.manage`, and `reports.manage`; report generation/download continues to require `exports.create`, and scheduled report simulation additionally requires `automations.manage`.
+- Added provider-neutral integration registry for webhook/CRM/email/cloud/sheets foundations. Raw token/secret/password/API-key style fields are rejected; only opaque credential references are accepted. Webhooks require HTTPS and reject embedded credentials, query/fragment material, localhost/private/literal non-public IP destinations.
+- All GS-10 integrations remain simulation-only: `external_delivery_allowed=false`, `live_provider_call=false`, `message_send_allowed=false`, `real_spend_allowed=false`. No external CRM/email/cloud/sheets/webhook mutation or message send was executed.
+- Added tenant-scoped team assignment/upsert/list/routing simulation with audited owner-controlled capability gates; routing simulation never applies an external mutation.
+- Added durable report definitions/runs with manual/daily/weekly/monthly scheduling foundations, timezone validation, white-label branding preview, and custom-domain candidate validation. Custom domains remain `unverified` and `live_domain_allowed=false`.
+- Added deterministic local JSON/CSV/XLSX/PDF artifact generation. XLSX ZIP metadata is fixed for reproducible bytes/SHA-256; report download re-renders and verifies the stored SHA-256 before returning the artifact.
+- Report content is aggregate-only by default. Raw credentials and lead contact PII are not exported by GS-10 report snapshots.
+- Public user-channel routes are scoped to `/api/v1/growth-social/integrations`, `/api/v1/growth-social/team-assignments`, `/api/v1/growth-social/reports`, and `/api/v1/growth-social/report-runs`; owner Growth control remains private. Completion-program endpoint ownership maps `growth_advanced_integrations` to `GS-10`.
+- Alembic migration `20260815_0024` adds durable integration/team/report definition/report run tables and is the shipped head. Clean isolated PostgreSQL migration from an empty database reached `20260815_0024 (head)`.
+- Migration reversal drill PASS: `20260815_0024 -> 20260814_0023 -> 20260815_0024`; focused GS-10 tests after the round trip: `3 passed`.
+- Backend static/verification gates PASS: Ruff PASS; Mypy `167 source files` PASS; `scripts/verify_backend.sh` PASS using the project venv.
+- Full Backend regression on isolated PostgreSQL + Redis: `556 passed, 1 skipped, 0 failed`. Growth/Social focused regression earlier in the batch: `63 passed, 0 failed`.
+- Root Growth roadmap + public-ingress contracts after final diff cleanup: `14 passed, 0 failed`.
+- Disposable PostgreSQL/Redis containers and their isolated Docker network were removed after validation. No production database, provider credential, live provider mutation, message send, or advertising spend was touched by these tests.
+- GS-10 is not marked complete yet because PR CI, merge, production migration/deploy, and live no-mutation ingress acceptance are still pending.
+- PR #336 is open on commit `2a3d74c`; next action is to require all GitHub gates, merge only after green, deploy/migrate production, run live read/auth/no-mutation acceptance, update this report, then begin GS-11.
