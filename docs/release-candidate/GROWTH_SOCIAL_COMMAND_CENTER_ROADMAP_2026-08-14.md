@@ -152,7 +152,7 @@ Status: **COMPLETE**
 CRM/email/cloud/sheets/webhooks/report exports, richer team workflows, scheduled reporting, PDF/Excel generation, white-label/custom-domain foundations where compatible with the current platform architecture.
 
 ### GS-11 — Full-system synthetic acceptance
-Status: **PLANNED**
+Status: **IMPLEMENTED_VALIDATED_AWAITING_PR_CI_MERGE**
 
 A complete synthetic journey from owner entitlement grant → account connection simulator → research → plan → content → campaign simulation → inbox/lead events → analytics → failure learning → successful replay recommendation → revocation. No real spend.
 
@@ -522,3 +522,28 @@ Real human account/provider pilot only after all previous batches are merged and
 - No external webhook/email/CRM/cloud/sheets delivery, provider mutation, message send, custom-domain activation, or advertising spend occurred during deployment or live acceptance.
 - GS-10 is accepted complete. GS-09 remains separately gated for additional provider credentials/approvals and any write/spend/publish/send capability.
 - Next batch after this closeout is merged: **GS-11 — Full-system synthetic acceptance**.
+
+
+### GS-11 execution start — 2026-08-15
+- Worktree: `feature/gs11-full-system-synthetic` from clean `main` at `513d9c4`.
+- Scope: one deterministic synthetic journey across owner Growth access grant/revocation, account connector simulation, campaign intelligence, content operations, paid campaign simulation, compliant lead/inbox events, analytics learning/replay recommendation, GS-10 report generation, and final immediate access revocation.
+- The runner must use only simulated/local provider behavior; no provider mutation, outbound message send, custom-domain activation, audience upload, or real advertising spend is allowed.
+- Acceptance must prove tenant isolation, owner deny/revocation precedence, deterministic replayable outputs, aggregate-only reporting, and cleanup/rollback of all synthetic fixtures.
+- Existing GS-09 Meta/Telegram read-only production evidence is not invoked by GS-11; this batch remains fully synthetic.
+
+
+### GS-11 pre-merge validation checkpoint — 2026-08-15
+- Added internal service `growth_full_system_acceptance` with no public endpoint and no new schema migration. The caller owns the transaction and must roll it back after synthetic acceptance.
+- The synthetic journey proves initial owner-controlled denial, grant of every Growth/Social capability, Reddit account registration/health/capability simulation with an opaque synthetic credential reference, deterministic campaign intelligence, approved content scheduling with simulated publish only, and deterministic paid campaign/A-B launch simulation.
+- Tenant isolation is explicitly exercised with a second synthetic organization that is granted `campaign.simulation` and still receives `brief-not-found` when attempting to access the first tenant's campaign brief.
+- Lead path proves first-party consented provenance, active lawful basis, social eligibility, no unauthorized scraping, no outbound outreach, no live audience upload, and no provider call.
+- Inbox path proves simulated inbound event ingestion, lead linking, read-state handling, and an AI-suggested quick-reply draft with `external_send_allowed=false`.
+- Analytics path records a high-quality failure that yields manual `iterate`, then a high-quality successful pattern that yields `replay_candidate` with `replay_eligible=true` while `auto_replay_allowed=false` and `auto_optimization_allowed=false`.
+- GS-10 integration/report path is exercised locally: webhook integration simulation performs no provider call or external delivery; team routing recommends only and applies no mutation; executive report generates JSON/CSV/XLSX/PDF artifacts with aggregate-only privacy flags and no raw credentials/lead contact PII.
+- Final owner revocation denies every Growth/Social capability immediately and a subsequent campaign read is rejected with `access-denied:owner-deny`. The entire synthetic transaction is rolled back and both synthetic organizations are verified absent afterward.
+- Focused GS-11 full journey: `1 passed`. Growth/Social regression: `65 passed`. Root roadmap/public-ingress contracts: `14 passed`.
+- Backend static quality: Black PASS for GS-11 files, Ruff PASS for `app tests`, and Mypy PASS across `168 source files`.
+- Full Backend suite from a clean isolated PostgreSQL schema and Redis: `557 passed, 1 skipped, 0 failed`; Alembic remained at shipped head `20260815_0024`.
+- Disposable GS-11 PostgreSQL/Redis containers and isolated Docker network were deleted after validation. No production database, live provider credential, provider mutation, external message, custom-domain activation, audience upload, or advertising spend was touched.
+- GS-11 is not complete yet because GitHub CI, merge, production deployment of the runner, and a production-transaction rollback acceptance are still pending.
+- Next action: open the GS-11 PR, require all GitHub gates, merge only when green, deploy the Backend code without schema migration, run the synthetic acceptance inside a production transaction and rollback, update this report, then stop at the GS-12 explicit owner approval gate.
