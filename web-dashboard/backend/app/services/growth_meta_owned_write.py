@@ -23,6 +23,7 @@ from app.db.models import (
     GrowthSocialProviderCapability,
     Organization,
 )
+from app.services import growth_controlled_pilots as pilots
 from app.services import growth_meta_owned_connector as meta_owned
 
 META_PROVIDER = "meta"
@@ -303,13 +304,20 @@ async def _lock_and_validate_pilot(
         )
     if not row.owner_approved_at or not row.owner_approved_by_id:
         raise MetaOwnedWriteValidationError("meta-owned-write-owner-approval-missing")
+    approval = dict(
+        (row.evidence or {}).get(pilots.NO_SPEND_WRITE_APPROVAL_EVIDENCE_KEY) or {}
+    )
     if not (
-        row.legal_policy_acknowledged
-        and row.legal_policy_reference
-        and row.legal_acknowledged_at
-        and row.legal_acknowledged_by_id
+        approval.get("approved") is True
+        and approval.get("scope") == pilots.NO_SPEND_WRITE_APPROVAL_SCOPE
     ):
-        raise MetaOwnedWriteValidationError("meta-owned-write-legal-policy-missing")
+        raise MetaOwnedWriteValidationError(
+            "meta-owned-write-no-spend-approval-missing"
+        )
+    if approval.get("consumed") is True or approval.get("completed") is True:
+        raise MetaOwnedWriteValidationError(
+            "meta-owned-write-no-spend-approval-consumed"
+        )
     expiry = row.expires_at
     if expiry is None:
         raise MetaOwnedWriteValidationError("meta-owned-write-pilot-expiry-missing")
@@ -326,6 +334,49 @@ async def _lock_and_validate_pilot(
     if row.status in {"armed", "completed", "revoked"}:
         raise MetaOwnedWriteValidationError("meta-owned-write-pilot-status-invalid")
     return row
+
+
+async def _consume_no_spend_approval(
+    session: AsyncSession, pilot: GrowthControlledPilot
+) -> None:
+    evidence = dict(pilot.evidence or {})
+    approval = dict(evidence.get(pilots.NO_SPEND_WRITE_APPROVAL_EVIDENCE_KEY) or {})
+    approval.update(
+        {
+            "consumed": True,
+            "consumed_at": datetime.now(timezone.utc).isoformat(),
+            "completed": False,
+            "provider_call_executed": False,
+            "spend_executed": False,
+            "real_spend_minor": 0,
+        }
+    )
+    evidence[pilots.NO_SPEND_WRITE_APPROVAL_EVIDENCE_KEY] = approval
+    pilot.evidence = evidence
+    pilot.live_provider_mutation_allowed = False
+    pilot.real_spend_allowed = False
+    pilot.version += 1
+    session.add(
+        AuditEvent(
+            organization_id=pilot.organization_id,
+            user_id=approval.get("approved_by"),
+            action="growth.pilot.no_spend_write_validation_started",
+            resource_type="growth_controlled_pilot",
+            resource_id=pilot.id,
+            details={
+                "provider": META_PROVIDER,
+                "approval_scope": pilots.NO_SPEND_WRITE_APPROVAL_SCOPE,
+                "approval_consumed": True,
+                "provider_call_executed": False,
+                "spend_executed": False,
+                "real_spend_minor": 0,
+            },
+        )
+    )
+    await session.flush()
+    # Persist the single-use consumption before any credential read/provider call.
+    # A failed remote attempt therefore cannot silently reuse the same approval.
+    await session.commit()
 
 
 def _provider_write_cycle(
@@ -421,6 +472,10 @@ async def validate_and_record(
                 pilot_id,
                 expected_scope_ref=scope_ref,
             )
+            durable_pilot_id = pilot.id
+            durable_organization_id = pilot.organization_id
+            await _consume_no_spend_approval(session, pilot)
+
             token = meta_owned._read_token(token_file)
             result = _provider_write_cycle(
                 account_id=account_id,
@@ -428,6 +483,21 @@ async def validate_and_record(
                 token=token,
                 opener=opener,
             )
+
+            reloaded_pilot = await session.scalar(
+                select(GrowthControlledPilot)
+                .where(GrowthControlledPilot.id == durable_pilot_id)
+                .with_for_update()
+            )
+            if (
+                reloaded_pilot is None
+                or reloaded_pilot.organization_id != durable_organization_id
+                or reloaded_pilot.scope_ref != scope_ref
+            ):
+                raise MetaOwnedWriteValidationError(
+                    "meta-owned-write-pilot-changed-during-validation"
+                )
+            pilot = reloaded_pilot
 
             capability = await session.scalar(
                 select(GrowthSocialProviderCapability)
@@ -481,6 +551,20 @@ async def validate_and_record(
             capability.version = int(capability.version or 0) + 1
 
             pilot_evidence = dict(pilot.evidence or {})
+            approval = dict(
+                pilot_evidence.get(pilots.NO_SPEND_WRITE_APPROVAL_EVIDENCE_KEY) or {}
+            )
+            approval.update(
+                {
+                    "consumed": True,
+                    "completed": True,
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                    "provider_call_executed": True,
+                    "spend_executed": False,
+                    "real_spend_minor": 0,
+                }
+            )
+            pilot_evidence[pilots.NO_SPEND_WRITE_APPROVAL_EVIDENCE_KEY] = approval
             pilot_evidence["live_no_spend_write_validation"] = {
                 "scope_ref": scope_ref,
                 "verified": True,

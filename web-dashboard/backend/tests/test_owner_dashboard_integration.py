@@ -83,6 +83,10 @@ OWNER_API_CONTRACT = {
     ("GET", "/api/v1/owner/growth-social/pilots/{pilot_id}/readiness"),
     ("PATCH", "/api/v1/owner/growth-social/pilots/{pilot_id}/controls"),
     ("POST", "/api/v1/owner/growth-social/pilots/{pilot_id}/validate-read-only"),
+    (
+        "POST",
+        "/api/v1/owner/growth-social/pilots/{pilot_id}/authorize-no-spend-write-validation",
+    ),
     ("POST", "/api/v1/owner/growth-social/pilots/{pilot_id}/authorize-launch"),
     ("POST", "/api/v1/owner/growth-social/pilots/{pilot_id}/arm"),
     ("POST", "/api/v1/owner/growth-social/pilots/{pilot_id}/disarm"),
@@ -208,6 +212,10 @@ OWNER_MUTATION_REQUESTS = {
         "legal_policy_acknowledged": False,
     },
     ("POST", "/api/v1/owner/growth-social/pilots/{pilot_id}/validate-read-only"): None,
+    (
+        "POST",
+        "/api/v1/owner/growth-social/pilots/{pilot_id}/authorize-no-spend-write-validation",
+    ): {"reference": "approvalref://contract-no-spend-write"},
     ("POST", "/api/v1/owner/growth-social/pilots/{pilot_id}/authorize-launch"): None,
     ("POST", "/api/v1/owner/growth-social/pilots/{pilot_id}/arm"): None,
     ("POST", "/api/v1/owner/growth-social/pilots/{pilot_id}/disarm"): {

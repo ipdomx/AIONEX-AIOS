@@ -325,15 +325,23 @@ async def test_live_write_scope_binding_and_owned_validator_record_safe_evidence
                     "owner_approval_reference": "gs12-owned-write-test",
                 },
             )
-            await pilots.configure_controls(
+            assert pilot.legal_policy_acknowledged is False
+            with pytest.raises(
+                owned_write.MetaOwnedWriteValidationError,
+                match="meta-owned-write-no-spend-approval-missing",
+            ):
+                await owned_write._lock_and_validate_pilot(
+                    session,
+                    pilot.id,
+                    expected_scope_ref=scope_ref,
+                )
+            await pilots.authorize_no_spend_write_validation(
                 session,
                 actor,
                 pilot.id,
-                {
-                    "legal_policy_acknowledged": True,
-                    "legal_policy_reference": "policyref://gs12-owned-write-reviewed",
-                },
+                reference="approvalref://gs12-owned-write-single-test",
             )
+            assert pilot.legal_policy_acknowledged is False
             pilot_id = pilot.id
             await session.commit()
 
@@ -373,10 +381,29 @@ async def test_live_write_scope_binding_and_owned_validator_record_safe_evidence
             assert pilot is not None
             assert pilot.live_provider_mutation_allowed is False
             assert pilot.real_spend_allowed is False
+            approval = dict(pilot.evidence[pilots.NO_SPEND_WRITE_APPROVAL_EVIDENCE_KEY])
+            assert approval["approved"] is True
+            assert approval["scope"] == pilots.NO_SPEND_WRITE_APPROVAL_SCOPE
+            assert approval["consumed"] is True
+            assert approval["completed"] is True
+            assert approval["provider_call_executed"] is True
+            assert approval["spend_executed"] is False
+            assert approval["real_spend_minor"] == 0
+            assert pilot.legal_policy_acknowledged is False
             assert (
                 pilot.evidence["live_no_spend_write_validation"]["campaign_deleted"]
                 is True
             )
+
+            with pytest.raises(
+                owned_write.MetaOwnedWriteValidationError,
+                match="meta-owned-write-no-spend-approval-consumed",
+            ):
+                await owned_write._lock_and_validate_pilot(
+                    session,
+                    pilot_id,
+                    expected_scope_ref=scope_ref,
+                )
 
             readiness = await pilots.readiness(
                 session,
@@ -394,6 +421,17 @@ async def test_live_write_scope_binding_and_owned_validator_record_safe_evidence
                 "provider-live-execution-adapter-unverified"
                 in readiness["blocked_reasons"]
             )
+
+            started_audit = await session.scalar(
+                select(AuditEvent).where(
+                    AuditEvent.action
+                    == "growth.pilot.no_spend_write_validation_started",
+                    AuditEvent.resource_id == pilot_id,
+                )
+            )
+            assert started_audit is not None
+            assert started_audit.details["approval_consumed"] is True
+            assert started_audit.details["spend_executed"] is False
 
             audit = await session.scalar(
                 select(AuditEvent).where(
@@ -430,4 +468,132 @@ async def test_live_write_scope_binding_and_owned_validator_record_safe_evidence
                         capability.version = capability_before["version"]
                     else:
                         await session.delete(capability)
+                await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_no_spend_write_approval_is_single_use_even_when_token_read_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    suffix = uuid4().hex[:10]
+    org_id = f"gs12-owned-write-fail-{suffix}"
+    owner_id = f"gs12-owned-write-owner-{suffix}"
+    scope_ref = owned_write.opaque_scope_ref(ACCOUNT_ID)
+    actor = UserRecord(
+        id=owner_id,
+        email=f"owner-{suffix}@example.invalid",
+        name="GS12 Owned Write Owner",
+        role="Super Owner",
+        password_hash="unused",
+        organization_id=org_id,
+        organization_name="GS12 Owned Write Failure",
+        organization_plan="test",
+        permissions=["*"],
+        status="active",
+        auth_version=1,
+    )
+    pilot_id: str | None = None
+
+    monkeypatch.setenv(
+        owned_write.meta_owned.META_TOKEN_FILE_ENV,
+        "/run/operator-secrets/meta-owned-test",
+    )
+    monkeypatch.setenv(owned_write.META_TARGET_ACCOUNT_ID_ENV, ACCOUNT_ID)
+    monkeypatch.setenv(
+        owned_write.meta_owned.META_GRAPH_API_VERSION_ENV,
+        "v26.0",
+    )
+    monkeypatch.setenv(owned_write.META_CONFIRM_ENV, owned_write.META_CONFIRM_VALUE)
+
+    try:
+        async with SessionLocal() as session:
+            session.add(
+                Organization(
+                    id=org_id,
+                    name="GS12 Owned Write Failure",
+                    slug=f"gs12-owned-write-fail-{suffix}",
+                    plan="test",
+                    status="active",
+                )
+            )
+            await session.flush()
+            session.add(
+                User(
+                    id=owner_id,
+                    organization_id=org_id,
+                    email=actor.email,
+                    name=actor.name,
+                    password_hash="unused",
+                    status="active",
+                    auth_version=1,
+                )
+            )
+            await session.flush()
+            pilot = await pilots.create_pilot(
+                session,
+                actor,
+                {
+                    "organization_id": org_id,
+                    "provider": "meta",
+                    "provider_scope": "managed_ad_account",
+                    "scope_ref": scope_ref,
+                    "mode": "live_spend",
+                    "owner_approval_reference": "gs12-owned-write-failure-test",
+                },
+            )
+            await pilots.authorize_no_spend_write_validation(
+                session,
+                actor,
+                pilot.id,
+                reference="approvalref://single-use-token-read-failure",
+            )
+            pilot_id = pilot.id
+            await session.commit()
+
+        monkeypatch.setattr(
+            owned_write.meta_owned,
+            "_read_token",
+            lambda _path: (_ for _ in ()).throw(
+                owned_write.MetaOwnedWriteValidationError("test-token-read-failed")
+            ),
+        )
+        with pytest.raises(
+            owned_write.MetaOwnedWriteValidationError,
+            match="test-token-read-failed",
+        ):
+            await owned_write.validate_and_record(pilot_id)
+
+        async with SessionLocal() as session:
+            pilot = await session.get(pilots.GrowthControlledPilot, pilot_id)
+            assert pilot is not None
+            approval = dict(pilot.evidence[pilots.NO_SPEND_WRITE_APPROVAL_EVIDENCE_KEY])
+            assert approval["approved"] is True
+            assert approval["consumed"] is True
+            assert approval["completed"] is False
+            assert approval["provider_call_executed"] is False
+            assert approval["spend_executed"] is False
+            assert pilot.legal_policy_acknowledged is False
+            assert pilot.real_spend_allowed is False
+
+        monkeypatch.setattr(
+            owned_write.meta_owned,
+            "_read_token",
+            lambda _path: (_ for _ in ()).throw(
+                AssertionError("consumed approval must fail before token read")
+            ),
+        )
+        with pytest.raises(
+            owned_write.MetaOwnedWriteValidationError,
+            match="meta-owned-write-no-spend-approval-consumed",
+        ):
+            await owned_write.validate_and_record(pilot_id)
+    finally:
+        if pilot_id is not None:
+            async with SessionLocal() as session:
+                await session.execute(
+                    delete(AuditEvent).where(AuditEvent.resource_id == pilot_id)
+                )
+                organization = await session.get(Organization, org_id)
+                if organization is not None:
+                    await session.delete(organization)
                 await session.commit()
