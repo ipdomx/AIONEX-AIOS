@@ -16,6 +16,7 @@ from app.core.logging import get_logger, setup_logging
 from app.db.base import SessionLocal
 from app.db.redis import close_redis, init_redis
 from app.services import communications
+from app.services.growth_controlled_pilots import reconcile_runtime_pilots
 from app.services.lifecycle_alerts import run_account_lifecycle_alerts
 from app.services.operations_assurance import record_observation_cycle
 
@@ -57,6 +58,13 @@ class OperationsObserver:
             or current_monotonic - self.last_lifecycle_alert_monotonic
             >= settings.ACCOUNT_LIFECYCLE_ALERT_INTERVAL_SECONDS
         )
+        # Commit GS-12 safety reconciliation independently before unrelated
+        # observability/lifecycle work. A later alerting failure must never roll
+        # back an auto-disarm that protects provider mutation/spend.
+        async with SessionLocal() as session:
+            pilot_runtime = await reconcile_runtime_pilots(session)
+            await session.commit()
+
         async with SessionLocal() as session:
             await record_observation_cycle(session)
             notifications = (
@@ -67,6 +75,11 @@ class OperationsObserver:
             await session.commit()
         if run_lifecycle_alerts:
             self.last_lifecycle_alert_monotonic = current_monotonic
+        if pilot_runtime["auto_disarmed"]:
+            logger.warning(
+                "GS-12 runtime guard auto-disarmed controlled pilots",
+                auto_disarmed=pilot_runtime["auto_disarmed"],
+            )
         await communications.publish_many(notifications)
         self.cycles += 1
         self.write_health("running")

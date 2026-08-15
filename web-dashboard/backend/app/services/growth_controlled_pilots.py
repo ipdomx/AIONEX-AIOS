@@ -8,7 +8,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import UserRecord
@@ -390,6 +390,134 @@ async def _provider_capability(
     )
 
 
+async def _evaluate_live_spend_readiness(
+    session: AsyncSession,
+    row: GrowthControlledPilot,
+    *,
+    require_launch_authorization: bool = True,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Evaluate every live-spend gate from current durable state.
+
+    This function is intentionally actor-independent so background runtime guards and
+    future provider execution adapters can reuse exactly the same fail-closed rules.
+    """
+
+    current = now or _now()
+    reasons: list[str] = []
+
+    owner_gate = bool(row.owner_approved_at and row.owner_approved_by_id)
+    if not owner_gate:
+        reasons.append("owner-approval-missing")
+
+    expiry_gate = False
+    if row.expires_at is None:
+        reasons.append("pilot-expiry-missing")
+    else:
+        expiry = (
+            row.expires_at
+            if row.expires_at.tzinfo
+            else row.expires_at.replace(tzinfo=timezone.utc)
+        )
+        expiry_gate = expiry > current
+        if not expiry_gate:
+            reasons.append("pilot-expired")
+
+    organization_gate = False
+    if row.organization_id:
+        organization_gate = bool(
+            await session.scalar(
+                select(Organization.id).where(
+                    Organization.id == row.organization_id,
+                    Organization.status == "active",
+                )
+            )
+        )
+    if not organization_gate:
+        reasons.append("organization-inactive-or-missing")
+
+    provider_scope_gate = bool(
+        row.provider == "meta"
+        and row.provider_scope
+        in SUPPORTED_SCOPES.get((row.provider, "live_spend"), set())
+        and row.scope_ref
+    )
+    if not provider_scope_gate:
+        reasons.append("provider-scope-unsupported")
+
+    provider_row = await _provider_capability(session, row)
+    provider_state = provider_row.verification_state if provider_row else "missing"
+    provider_evidence = dict(provider_row.evidence or {}) if provider_row else {}
+    provider_gate = bool(
+        provider_row
+        and provider_row.mutation_class == "write"
+        and provider_row.verification_state == LIVE_WRITE_VERIFICATION_STATE
+        and provider_evidence.get("mutation_allowed") is True
+        and provider_evidence.get("spend_allowed") is True
+    )
+    if not provider_gate:
+        reasons.append("provider-write-capability-unverified")
+
+    execution_adapter_gate = bool(
+        provider_evidence.get("execution_adapter_verified") is True
+    )
+    if not execution_adapter_gate:
+        reasons.append("provider-live-execution-adapter-unverified")
+
+    legal_gate = bool(
+        row.legal_policy_acknowledged
+        and row.legal_policy_reference
+        and row.legal_acknowledged_at
+        and row.legal_acknowledged_by_id
+    )
+    if not legal_gate:
+        reasons.append("legal-policy-acknowledgement-missing")
+
+    currency_valid = bool(row.currency and re.fullmatch(r"[A-Z]{3}", row.currency))
+    budget_gate = bool(
+        currency_valid
+        and row.max_total_budget_minor
+        and row.max_daily_budget_minor
+        and 0
+        < row.max_daily_budget_minor
+        <= row.max_total_budget_minor
+        <= MAX_MONEY_MINOR
+    )
+    if not budget_gate:
+        reasons.append("budget-controls-missing")
+
+    stop_loss_gate = bool(
+        row.max_cpa_minor
+        and row.min_roas
+        and 0 < row.max_cpa_minor <= (row.max_total_budget_minor or 0)
+        and math.isfinite(float(row.min_roas))
+        and 0 < float(row.min_roas) <= MAX_ROAS
+    )
+    if not stop_loss_gate:
+        reasons.append("stop-loss-controls-missing")
+
+    launch_gate = bool(row.launch_authorized)
+    if require_launch_authorization and not launch_gate:
+        reasons.append("launch-authorization-missing")
+
+    effective_reasons = list(dict.fromkeys(reasons))
+    return {
+        "provider_verification_state": provider_state,
+        "owner_gate": owner_gate,
+        "organization_gate": organization_gate,
+        "provider_scope_gate": provider_scope_gate,
+        "provider_gate": provider_gate,
+        "execution_adapter_gate": execution_adapter_gate,
+        "legal_gate": legal_gate,
+        "budget_gate": budget_gate,
+        "stop_loss_gate": stop_loss_gate,
+        "expiry_gate": expiry_gate,
+        "launch_gate": launch_gate,
+        "ready_to_arm": not effective_reasons,
+        "blocked_reasons": effective_reasons,
+    }
+
+
 async def readiness(
     session: AsyncSession,
     actor: UserRecord,
@@ -398,9 +526,26 @@ async def readiness(
     require_launch_authorization: bool = True,
 ) -> dict[str, Any]:
     row = await _pilot(session, actor, pilot_id)
+
+    if row.mode == "live_spend":
+        result = await _evaluate_live_spend_readiness(
+            session,
+            row,
+            require_launch_authorization=require_launch_authorization,
+        )
+        return {
+            "pilot_id": row.id,
+            "mode": row.mode,
+            "provider": row.provider,
+            "capability": row.capability,
+            **result,
+            "live_provider_mutation_allowed": bool(row.live_provider_mutation_allowed),
+            "real_spend_allowed": bool(row.real_spend_allowed),
+            "automatic_execution_allowed": False,
+        }
+
     reasons: list[str] = []
     now = _now()
-
     owner_gate = bool(row.owner_approved_at and row.owner_approved_by_id)
     if not owner_gate:
         reasons.append("owner-approval-missing")
@@ -431,105 +576,49 @@ async def readiness(
         )
         if not organization_gate:
             reasons.append("organization-inactive-or-missing")
-    elif row.mode == "live_spend":
-        organization_gate = False
-        reasons.append("live-spend-organization-required")
 
     provider_scope_gate = row.provider_scope in SUPPORTED_SCOPES.get(
         (row.provider, row.mode), set()
     )
     if not provider_scope_gate:
         reasons.append("provider-scope-unsupported")
-    if row.mode == "live_spend" and not row.scope_ref:
-        provider_scope_gate = False
-        reasons.append("live-spend-scope-reference-required")
 
     provider_row = await _provider_capability(session, row)
-    provider_gate = False
-    execution_adapter_gate = row.mode == "read_only"
     provider_state = provider_row.verification_state if provider_row else "missing"
     provider_evidence = dict(provider_row.evidence or {}) if provider_row else {}
-
-    if row.mode == "read_only":
-        scope_evidence_gate = False
-        if row.provider == "meta" and row.provider_scope == "owned_assets":
-            scope_evidence_gate = bool(
-                provider_row
-                and (
-                    provider_row.verification_state == "read_only_verified"
-                    or provider_evidence.get("gs09_meta_owned_read_only")
-                )
-            )
-        elif row.provider == "meta" and row.provider_scope == "sandbox":
-            scope_evidence_gate = bool(
-                provider_row
-                and (
-                    provider_row.verification_state == "sandbox_verified"
-                    or provider_evidence.get("gs09_meta_sandbox")
-                )
-            )
-        elif row.provider == "telegram" and row.provider_scope == "owner_bots":
-            scope_evidence_gate = bool(
-                provider_row and provider_row.verification_state == "read_only_verified"
-            )
-        provider_gate = bool(
-            provider_scope_gate
-            and scope_evidence_gate
-            and provider_row
-            and provider_row.mutation_class == "read"
-            and provider_row.verification_state in READ_ONLY_STATES[row.provider]
-        )
-        if not provider_gate:
-            reasons.append("provider-read-only-capability-unverified")
-    else:
-        provider_gate = bool(
+    scope_evidence_gate = False
+    if row.provider == "meta" and row.provider_scope == "owned_assets":
+        scope_evidence_gate = bool(
             provider_row
-            and provider_row.mutation_class == "write"
-            and provider_row.verification_state == LIVE_WRITE_VERIFICATION_STATE
-            and provider_evidence.get("mutation_allowed") is True
-            and provider_evidence.get("spend_allowed") is True
+            and (
+                provider_row.verification_state == "read_only_verified"
+                or provider_evidence.get("gs09_meta_owned_read_only")
+            )
         )
-        if not provider_gate:
-            reasons.append("provider-write-capability-unverified")
-        execution_adapter_gate = bool(
-            provider_evidence.get("execution_adapter_verified") is True
+    elif row.provider == "meta" and row.provider_scope == "sandbox":
+        scope_evidence_gate = bool(
+            provider_row
+            and (
+                provider_row.verification_state == "sandbox_verified"
+                or provider_evidence.get("gs09_meta_sandbox")
+            )
         )
-        if not execution_adapter_gate:
-            reasons.append("provider-live-execution-adapter-unverified")
+    elif row.provider == "telegram" and row.provider_scope == "owner_bots":
+        scope_evidence_gate = bool(
+            provider_row and provider_row.verification_state == "read_only_verified"
+        )
 
-    legal_gate = row.mode == "read_only" or bool(
-        row.legal_policy_acknowledged
-        and row.legal_policy_reference
-        and row.legal_acknowledged_at
-        and row.legal_acknowledged_by_id
+    provider_gate = bool(
+        provider_scope_gate
+        and scope_evidence_gate
+        and provider_row
+        and provider_row.mutation_class == "read"
+        and provider_row.verification_state in READ_ONLY_STATES[row.provider]
     )
-    if not legal_gate:
-        reasons.append("legal-policy-acknowledgement-missing")
-
-    budget_gate = row.mode == "read_only" or bool(
-        row.currency
-        and row.max_total_budget_minor
-        and row.max_daily_budget_minor
-        and row.max_daily_budget_minor <= row.max_total_budget_minor
-    )
-    if not budget_gate:
-        reasons.append("budget-controls-missing")
-
-    stop_loss_gate = row.mode == "read_only" or bool(
-        row.max_cpa_minor
-        and row.min_roas
-        and row.max_cpa_minor > 0
-        and row.min_roas > 0
-    )
-    if not stop_loss_gate:
-        reasons.append("stop-loss-controls-missing")
-
-    launch_gate = row.mode == "read_only" or bool(row.launch_authorized)
-    if row.mode == "live_spend" and require_launch_authorization and not launch_gate:
-        reasons.append("launch-authorization-missing")
+    if not provider_gate:
+        reasons.append("provider-read-only-capability-unverified")
 
     effective_reasons = list(dict.fromkeys(reasons))
-    ready = not effective_reasons
     return {
         "pilot_id": row.id,
         "mode": row.mode,
@@ -540,16 +629,16 @@ async def readiness(
         "organization_gate": organization_gate,
         "provider_scope_gate": provider_scope_gate,
         "provider_gate": provider_gate,
-        "execution_adapter_gate": execution_adapter_gate,
-        "legal_gate": legal_gate,
-        "budget_gate": budget_gate,
-        "stop_loss_gate": stop_loss_gate,
+        "execution_adapter_gate": True,
+        "legal_gate": True,
+        "budget_gate": True,
+        "stop_loss_gate": True,
         "expiry_gate": expiry_gate,
-        "launch_gate": launch_gate,
-        "ready_to_arm": ready,
+        "launch_gate": True,
+        "ready_to_arm": not effective_reasons,
         "blocked_reasons": effective_reasons,
-        "live_provider_mutation_allowed": bool(row.live_provider_mutation_allowed),
-        "real_spend_allowed": bool(row.real_spend_allowed),
+        "live_provider_mutation_allowed": False,
+        "real_spend_allowed": False,
         "automatic_execution_allowed": False,
     }
 
@@ -610,6 +699,34 @@ async def arm_pilot(
         row.live_provider_mutation_allowed = False
         row.real_spend_allowed = False
     else:
+        await _acquire_live_scope_lock(session, row)
+        # Re-evaluate after acquiring the per-provider-scope transaction lock so
+        # concurrent arm requests cannot race past changed readiness state.
+        locked_check = await _evaluate_live_spend_readiness(
+            session, row, require_launch_authorization=True
+        )
+        if locked_check["blocked_reasons"]:
+            row.blocked_reasons = list(locked_check["blocked_reasons"])
+            row.live_provider_mutation_allowed = False
+            row.real_spend_allowed = False
+            await session.flush()
+            raise GrowthControlledPilotError(
+                "pilot-not-ready:" + ",".join(locked_check["blocked_reasons"])
+            )
+        conflict = await session.scalar(
+            select(GrowthControlledPilot.id).where(
+                GrowthControlledPilot.id != row.id,
+                GrowthControlledPilot.provider == row.provider,
+                GrowthControlledPilot.scope_ref == row.scope_ref,
+                GrowthControlledPilot.real_spend_allowed.is_(True),
+            )
+        )
+        if conflict is not None:
+            row.blocked_reasons = ["pilot-scope-already-armed"]
+            row.live_provider_mutation_allowed = False
+            row.real_spend_allowed = False
+            await session.flush()
+            raise GrowthControlledPilotError("pilot-scope-already-armed")
         row.status = "armed"
         row.live_provider_mutation_allowed = True
         row.real_spend_allowed = True
@@ -655,6 +772,154 @@ async def disarm_pilot(
     )
     await session.flush()
     return row
+
+
+async def _acquire_live_scope_lock(
+    session: AsyncSession, row: GrowthControlledPilot
+) -> None:
+    if not row.scope_ref:
+        raise GrowthControlledPilotError("live-spend-scope-reference-required")
+    lock_key = f"gs12-live-scope:{row.provider}:{row.scope_ref}"
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+        {"key": lock_key},
+    )
+
+
+async def _auto_disarm_runtime(
+    session: AsyncSession,
+    row: GrowthControlledPilot,
+    reasons: list[str],
+) -> None:
+    clean_reasons = list(dict.fromkeys(reasons)) or ["runtime-guard-failed"]
+    row.status = "auto_disarmed"
+    row.disarmed_at = _now()
+    row.armed_at = None
+    row.launch_authorized = False
+    row.launch_authorized_by_id = None
+    row.launch_authorized_at = None
+    row.live_provider_mutation_allowed = False
+    row.real_spend_allowed = False
+    row.blocked_reasons = [f"runtime-guard:{item}" for item in clean_reasons]
+    row.version += 1
+    session.add(
+        AuditEvent(
+            organization_id=row.organization_id,
+            user_id=None,
+            action="growth.pilot.runtime_auto_disarmed",
+            resource_type="growth_controlled_pilot",
+            resource_id=row.id,
+            details={
+                "provider": row.provider,
+                "pilot_mode": row.mode,
+                "reasons": clean_reasons,
+                "live_provider_mutation_allowed": False,
+                "real_spend_allowed": False,
+                "automatic_execution_allowed": False,
+            },
+        )
+    )
+
+
+async def runtime_authorization(
+    session: AsyncSession,
+    pilot_id: str,
+    *,
+    provider: str,
+    scope_ref: str,
+) -> dict[str, Any]:
+    """Fail closed before every future live provider mutation/spend action.
+
+    Provider execution code must call this guard inside the same transaction before
+    a live action. Stored booleans alone are never authoritative.
+    """
+
+    row = await session.scalar(
+        select(GrowthControlledPilot)
+        .where(GrowthControlledPilot.id == pilot_id)
+        .with_for_update()
+    )
+    if row is None:
+        raise GrowthControlledPilotError("pilot-not-found")
+    if row.mode != "live_spend":
+        return {
+            "authorized": False,
+            "blocked_reasons": ["runtime-mode-not-live-spend"],
+            "automatic_execution_allowed": False,
+        }
+    if row.provider != provider or row.scope_ref != scope_ref:
+        return {
+            "authorized": False,
+            "blocked_reasons": ["provider-scope-mismatch"],
+            "automatic_execution_allowed": False,
+        }
+    if (
+        row.status != "armed"
+        or not row.live_provider_mutation_allowed
+        or not row.real_spend_allowed
+    ):
+        return {
+            "authorized": False,
+            "blocked_reasons": ["pilot-not-armed"],
+            "automatic_execution_allowed": False,
+        }
+
+    check = await _evaluate_live_spend_readiness(
+        session, row, require_launch_authorization=True
+    )
+    if check["blocked_reasons"]:
+        await _auto_disarm_runtime(session, row, list(check["blocked_reasons"]))
+        await session.flush()
+        return {
+            "authorized": False,
+            "blocked_reasons": list(check["blocked_reasons"]),
+            "auto_disarmed": True,
+            "automatic_execution_allowed": False,
+        }
+
+    return {
+        "authorized": True,
+        "pilot_id": row.id,
+        "provider": row.provider,
+        "scope_ref": row.scope_ref,
+        "currency": row.currency,
+        "max_total_budget_minor": row.max_total_budget_minor,
+        "max_daily_budget_minor": row.max_daily_budget_minor,
+        "max_cpa_minor": row.max_cpa_minor,
+        "min_roas": row.min_roas,
+        "expires_at": row.expires_at,
+        "automatic_execution_allowed": False,
+    }
+
+
+async def reconcile_runtime_pilots(session: AsyncSession) -> dict[str, int]:
+    """Auto-disarm stale/invalid live pilots as a periodic defense in depth."""
+
+    rows = list(
+        await session.scalars(
+            select(GrowthControlledPilot)
+            .where(
+                GrowthControlledPilot.mode == "live_spend",
+                or_(
+                    GrowthControlledPilot.status.in_(["armed", "launch_authorized"]),
+                    GrowthControlledPilot.launch_authorized.is_(True),
+                    GrowthControlledPilot.live_provider_mutation_allowed.is_(True),
+                    GrowthControlledPilot.real_spend_allowed.is_(True),
+                ),
+            )
+            .with_for_update(skip_locked=True)
+        )
+    )
+    auto_disarmed = 0
+    for row in rows:
+        check = await _evaluate_live_spend_readiness(
+            session, row, require_launch_authorization=True
+        )
+        if check["blocked_reasons"]:
+            await _auto_disarm_runtime(session, row, list(check["blocked_reasons"]))
+            auto_disarmed += 1
+    await session.flush()
+    return {"checked": len(rows), "auto_disarmed": auto_disarmed}
 
 
 def _safe_validation_evidence(
