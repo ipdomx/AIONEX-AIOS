@@ -79,7 +79,9 @@ async def identity(suffix: str) -> Identity:
 
 async def cleanup(organization_id: str) -> None:
     async with SessionLocal() as session:
-        await session.execute(delete(Organization).where(Organization.id == organization_id))
+        await session.execute(
+            delete(Organization).where(Organization.id == organization_id)
+        )
         await session.commit()
 
 
@@ -258,7 +260,9 @@ async def test_security_event_session_revocation_traces_and_topology(
 
             sessions = await client.get("/api/v1/security/sessions")
             assert sessions.status_code == 200, sessions.text
-            assert any(item["id"] == refresh_id and item["active"] for item in sessions.json())
+            assert any(
+                item["id"] == refresh_id and item["active"] for item in sessions.json()
+            )
             revoked = await client.delete(f"/api/v1/security/sessions/{refresh_id}")
             assert revoked.status_code == 200, revoked.text
 
@@ -344,11 +348,18 @@ async def test_runtime_controls_fail_closed_and_maintenance_is_audited(
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test"
         ) as client:
-            restart = await client.post("/api/v1/infrastructure/containers/backend/restart")
+            restart = await client.post(
+                "/api/v1/infrastructure/containers/backend/restart"
+            )
             assert restart.status_code == 409, restart.text
-            assert restart.json()["detail"]["code"] == "DIRECT_RUNTIME_CONTROL_NOT_DELEGATED"
+            assert (
+                restart.json()["detail"]["code"]
+                == "DIRECT_RUNTIME_CONTROL_NOT_DELEGATED"
+            )
 
-            reboot = await client.post("/api/v1/infrastructure/servers/runtime-node/reboot")
+            reboot = await client.post(
+                "/api/v1/infrastructure/servers/runtime-node/reboot"
+            )
             assert reboot.status_code == 409, reboot.text
 
             maintenance = await client.post(
@@ -442,7 +453,9 @@ async def test_release_deployment_and_rollback_evidence_is_append_only() -> None
                 await session.scalar(
                     select(func.count(AuditEvent.id)).where(
                         AuditEvent.organization_id == data.organization.id,
-                        AuditEvent.action.in_({"release.deployment", "release.rollback"}),
+                        AuditEvent.action.in_(
+                            {"release.deployment", "release.rollback"}
+                        ),
                     )
                 )
                 or 0
@@ -508,3 +521,53 @@ def test_production_backup_schedule_and_resource_limits_are_explicit() -> None:
     assert "BACKUP_SCHEDULE_INTERVAL_HOURS=24" in example
     assert "mem_limit:" in compose and "pids_limit:" in compose and "cpus:" in compose
     assert '"--maxmemory", "512mb", "--maxmemory-policy", "noeviction"' in compose
+
+
+def test_operations_observer_runs_gs12_runtime_reconciliation() -> None:
+    root = Path(__file__).resolve().parents[3]
+    source = (
+        root / "web-dashboard/backend/app/services/operations_observer.py"
+    ).read_text(encoding="utf-8")
+    assert "reconcile_runtime_pilots" in source
+    assert "pilot_runtime = await reconcile_runtime_pilots(session)" in source
+    assert source.index(
+        "pilot_runtime = await reconcile_runtime_pilots(session)"
+    ) < source.index(
+        "await record_observation_cycle(session)", source.index("async def run_once")
+    )
+    assert 'pilot_runtime["auto_disarmed"]' in source
+
+
+@pytest.mark.asyncio
+async def test_operations_observer_run_once_reconciles_gs12_runtime(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    events: list[str] = []
+
+    async def observe(_session):
+        events.append("observe")
+        return {}
+
+    async def reconcile(_session):
+        events.append("reconcile")
+        return {"checked": 1, "auto_disarmed": 1}
+
+    async def lifecycle(_session):
+        events.append("lifecycle")
+        return []
+
+    async def publish(_notifications):
+        events.append("publish")
+
+    monkeypatch.setattr(operations_observer, "record_observation_cycle", observe)
+    monkeypatch.setattr(operations_observer, "reconcile_runtime_pilots", reconcile)
+    monkeypatch.setattr(operations_observer, "run_account_lifecycle_alerts", lifecycle)
+    monkeypatch.setattr(operations_observer.communications, "publish_many", publish)
+
+    observer = operations_observer.OperationsObserver()
+    observer.health_path = tmp_path / "observer-health.json"
+    await observer.run_once()
+
+    assert events == ["reconcile", "observe", "lifecycle", "publish"]
+    assert observer.cycles == 1
+    assert observer.health_path.exists()

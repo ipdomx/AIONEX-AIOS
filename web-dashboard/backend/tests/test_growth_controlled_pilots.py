@@ -4,6 +4,7 @@ from uuid import uuid4
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app.core.auth import UserRecord
 from app.db.base import SessionLocal
@@ -382,3 +383,243 @@ def test_control_validation_rejects_secret_material_and_unsafe_expiry() -> None:
         pilots.GrowthControlledPilotError, match="min-roas-must-be-positive-and-finite"
     ):
         pilots._positive_float_or_none(float("inf"), "min-roas")
+
+
+async def _ready_live_pilot(session, owner: UserRecord, org_id: str, scope_ref: str):
+    capability = await _capability(
+        session,
+        "meta",
+        "ads.manage",
+        state="live_write_verified",
+        mutation_class="write",
+        evidence={
+            "mutation_allowed": True,
+            "spend_allowed": True,
+            "execution_adapter_verified": True,
+        },
+    )
+    pilot = await pilots.create_pilot(
+        session,
+        owner,
+        {
+            "organization_id": org_id,
+            "provider": "meta",
+            "provider_scope": "managed_ad_account",
+            "scope_ref": scope_ref,
+            "mode": "live_spend",
+            "owner_approval_reference": "gs12-runtime-hardening-approval",
+        },
+    )
+    await pilots.configure_controls(
+        session,
+        owner,
+        pilot.id,
+        {
+            "legal_policy_acknowledged": True,
+            "legal_policy_reference": "policyref://gs12-runtime-hardening",
+            "currency": "AED",
+            "max_total_budget_minor": 10000,
+            "max_daily_budget_minor": 2000,
+            "max_cpa_minor": 2500,
+            "min_roas": 1.25,
+        },
+    )
+    await pilots.authorize_launch(session, owner, pilot.id)
+    return pilot, capability
+
+
+@pytest.mark.asyncio
+async def test_runtime_authorization_auto_disarms_expired_armed_pilot() -> None:
+    suffix = uuid4().hex[:10]
+    org_id = f"gs12-runtime-org-{suffix}"
+    owner_id = f"gs12-runtime-owner-{suffix}"
+    owner = _actor(org_id, owner_id, f"runtime-{suffix}@example.invalid")
+    scope_ref = f"accountref://runtime-{suffix}"
+
+    async with SessionLocal() as session:
+        session.add(
+            Organization(
+                id=org_id,
+                name="GS12 Runtime Guard",
+                slug=f"gs12-runtime-{suffix}",
+                plan="test",
+                status="active",
+            )
+        )
+        await session.flush()
+        session.add(
+            User(
+                id=owner_id,
+                organization_id=org_id,
+                email=owner.email,
+                name=owner.name,
+                password_hash="unused",
+                status="active",
+                auth_version=1,
+            )
+        )
+        await session.flush()
+        pilot, _ = await _ready_live_pilot(session, owner, org_id, scope_ref)
+        armed = await pilots.arm_pilot(session, owner, pilot.id)
+        assert armed.real_spend_allowed is True
+        armed.expires_at = pilots._now() - pilots.timedelta(seconds=1)
+        await session.flush()
+
+        authorization = await pilots.runtime_authorization(
+            session,
+            pilot.id,
+            provider="meta",
+            scope_ref=scope_ref,
+        )
+        assert authorization["authorized"] is False
+        assert authorization["auto_disarmed"] is True
+        assert "pilot-expired" in authorization["blocked_reasons"]
+        assert pilot.status == "auto_disarmed"
+        assert pilot.launch_authorized is False
+        assert pilot.live_provider_mutation_allowed is False
+        assert pilot.real_spend_allowed is False
+        await session.rollback()
+
+
+@pytest.mark.asyncio
+async def test_runtime_reconciliation_auto_disarms_when_provider_gate_is_revoked() -> (
+    None
+):
+    suffix = uuid4().hex[:10]
+    org_id = f"gs12-reconcile-org-{suffix}"
+    owner_id = f"gs12-reconcile-owner-{suffix}"
+    owner = _actor(org_id, owner_id, f"reconcile-{suffix}@example.invalid")
+    scope_ref = f"accountref://reconcile-{suffix}"
+
+    async with SessionLocal() as session:
+        session.add(
+            Organization(
+                id=org_id,
+                name="GS12 Reconcile Guard",
+                slug=f"gs12-reconcile-{suffix}",
+                plan="test",
+                status="active",
+            )
+        )
+        await session.flush()
+        session.add(
+            User(
+                id=owner_id,
+                organization_id=org_id,
+                email=owner.email,
+                name=owner.name,
+                password_hash="unused",
+                status="active",
+                auth_version=1,
+            )
+        )
+        await session.flush()
+        pilot, capability = await _ready_live_pilot(session, owner, org_id, scope_ref)
+        await pilots.arm_pilot(session, owner, pilot.id)
+        capability.verification_state = "sandbox_write_verified"
+        capability.evidence = {
+            "mutation_allowed": False,
+            "spend_allowed": False,
+            "execution_adapter_verified": False,
+        }
+        await session.flush()
+
+        result = await pilots.reconcile_runtime_pilots(session)
+        assert result == {"checked": 1, "auto_disarmed": 1}
+        assert pilot.status == "auto_disarmed"
+        assert pilot.launch_authorized is False
+        assert pilot.live_provider_mutation_allowed is False
+        assert pilot.real_spend_allowed is False
+        assert any(
+            item.startswith("runtime-guard:provider-write-capability-unverified")
+            for item in pilot.blocked_reasons
+        )
+        await session.rollback()
+
+
+@pytest.mark.asyncio
+async def test_only_one_live_spend_pilot_can_arm_for_same_provider_scope() -> None:
+    suffix = uuid4().hex[:10]
+    org_id = f"gs12-single-scope-org-{suffix}"
+    owner_id = f"gs12-single-scope-owner-{suffix}"
+    owner = _actor(org_id, owner_id, f"single-{suffix}@example.invalid")
+    scope_ref = f"accountref://single-{suffix}"
+
+    async with SessionLocal() as session:
+        session.add(
+            Organization(
+                id=org_id,
+                name="GS12 Single Scope",
+                slug=f"gs12-single-{suffix}",
+                plan="test",
+                status="active",
+            )
+        )
+        await session.flush()
+        session.add(
+            User(
+                id=owner_id,
+                organization_id=org_id,
+                email=owner.email,
+                name=owner.name,
+                password_hash="unused",
+                status="active",
+                auth_version=1,
+            )
+        )
+        await session.flush()
+        first, _ = await _ready_live_pilot(session, owner, org_id, scope_ref)
+        second, _ = await _ready_live_pilot(session, owner, org_id, scope_ref)
+        await pilots.arm_pilot(session, owner, first.id)
+
+        with pytest.raises(
+            pilots.GrowthControlledPilotError, match="pilot-scope-already-armed"
+        ):
+            await pilots.arm_pilot(session, owner, second.id)
+        assert first.real_spend_allowed is True
+        assert second.real_spend_allowed is False
+        assert second.live_provider_mutation_allowed is False
+        await session.rollback()
+
+
+@pytest.mark.asyncio
+async def test_database_rejects_two_live_flags_for_same_provider_scope() -> None:
+    suffix = uuid4().hex[:10]
+    org_id = f"gs12-db-scope-org-{suffix}"
+    owner_id = f"gs12-db-scope-owner-{suffix}"
+    owner = _actor(org_id, owner_id, f"db-scope-{suffix}@example.invalid")
+    scope_ref = f"accountref://db-scope-{suffix}"
+
+    async with SessionLocal() as session:
+        session.add(
+            Organization(
+                id=org_id,
+                name="GS12 DB Scope Invariant",
+                slug=f"gs12-db-scope-{suffix}",
+                plan="test",
+                status="active",
+            )
+        )
+        await session.flush()
+        session.add(
+            User(
+                id=owner_id,
+                organization_id=org_id,
+                email=owner.email,
+                name=owner.name,
+                password_hash="unused",
+                status="active",
+                auth_version=1,
+            )
+        )
+        await session.flush()
+        first, _ = await _ready_live_pilot(session, owner, org_id, scope_ref)
+        second, _ = await _ready_live_pilot(session, owner, org_id, scope_ref)
+
+        first.real_spend_allowed = True
+        await session.flush()
+        with pytest.raises(IntegrityError):
+            async with session.begin_nested():
+                second.real_spend_allowed = True
+                await session.flush()
+        await session.rollback()

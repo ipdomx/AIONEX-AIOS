@@ -3327,6 +3327,13 @@ class GrowthControlledPilot(Base, TimestampMixin):
             "status",
         ),
         Index("ix_growth_controlled_pilots_expires_at", "expires_at"),
+        Index(
+            "uq_growth_controlled_pilots_live_scope",
+            "provider",
+            "scope_ref",
+            unique=True,
+            postgresql_where=text("real_spend_allowed IS TRUE"),
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
