@@ -147,7 +147,7 @@ Status: **META_AND_TELEGRAM_READ_ONLY_VERIFIED_EXTERNAL_GATES_REMAIN**
 Implement provider-specific OAuth/API connectors only where owner credentials/apps and platform approvals are available. Each connector gets separate capability tests and a live no-spend/read-only or sandbox validation before any mutation.
 
 ### GS-10 — Advanced integrations, exports, teams and reports
-Status: **IMPLEMENTED_VALIDATED_AWAITING_PR_CI_MERGE_DEPLOYMENT**
+Status: **COMPLETE**
 
 CRM/email/cloud/sheets/webhooks/report exports, richer team workflows, scheduled reporting, PDF/Excel generation, white-label/custom-domain foundations where compatible with the current platform architecture.
 
@@ -507,3 +507,18 @@ Real human account/provider pilot only after all previous batches are merged and
 - Disposable PostgreSQL/Redis containers and their isolated Docker network were removed after validation. No production database, provider credential, live provider mutation, message send, or advertising spend was touched by these tests.
 - GS-10 is not marked complete yet because PR CI, merge, production migration/deploy, and live no-mutation ingress acceptance are still pending.
 - PR #336 is open on commit `2a3d74c`; next action is to require all GitHub gates, merge only after green, deploy/migrate production, run live read/auth/no-mutation acceptance, update this report, then begin GS-11.
+
+
+### GS-10 production closeout — 2026-08-15
+- PR #336 passed every required GitHub production gate and merged to `main` as `60f5a532750ae4eebcd2f21b52fbf324828bb2a9`.
+- Production `main` was fast-forwarded to the merge commit using the existing deploy key; no Git remote configuration was changed.
+- The production Backend image was rebuilt using the exact existing Compose stack plus `/opt/aionex-ops/meta-sandbox-compose.override.yml` and `/opt/aionex-ops/meta-owned-readonly-compose.override.yml`; Meta and Telegram secret mounts remained present and outside Git.
+- Production Alembic advanced from `20260814_0023` to `20260815_0024 (head)` in a one-off Backend container before the live Backend was replaced.
+- Backend and Nginx were force-recreated only after the migration succeeded; both returned healthy, and the Backend still reports Alembic `20260815_0024 (head)`.
+- Public ingress acceptance: unauthenticated `/api/v1/growth-social/integrations`, `/api/v1/growth-social/team-assignments`, `/api/v1/growth-social/reports`, and `/api/v1/growth-social/report-runs/<id>` each return HTTP 401 from the application, proving the Nginx allowlist reaches authenticated GS-10 routes.
+- Public-owner boundary acceptance: `/api/v1/owner/growth-social/capabilities` returns HTTP 404 on the public origin, preserving the private owner boundary.
+- Deployed runtime no-mutation acceptance returned `AIOS_GS10_LIVE_NO_MUTATION_OK`. Deterministic JSON/CSV/XLSX/PDF generation succeeded twice byte-for-byte with stable SHA-256 values; private/loopback webhook targets and raw secret fields were rejected.
+- Live safety invariants confirmed: `external_delivery_allowed=false`, `live_provider_call=false`, `message_send_allowed=false`, `real_spend_allowed=false`, `raw_credentials_exported=false`, and `lead_contact_pii_exported=false`.
+- No external webhook/email/CRM/cloud/sheets delivery, provider mutation, message send, custom-domain activation, or advertising spend occurred during deployment or live acceptance.
+- GS-10 is accepted complete. GS-09 remains separately gated for additional provider credentials/approvals and any write/spend/publish/send capability.
+- Next batch after this closeout is merged: **GS-11 — Full-system synthetic acceptance**.
