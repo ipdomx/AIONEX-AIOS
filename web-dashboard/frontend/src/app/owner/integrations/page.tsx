@@ -19,6 +19,7 @@ import {
 
 import { useOwnerResource } from "@/hooks/use-owner-resource";
 import { GrowthSocialPilotConsole } from "@/components/owner/GrowthSocialPilotConsole";
+import { GrowthPaidCampaignApprovalConsole } from "@/components/owner/GrowthPaidCampaignApprovalConsole";
 
 type Integration = {
   id: string;
@@ -137,6 +138,7 @@ export default function OwnerIntegrationsPage() {
       </motion.div>
 
       <GrowthSocialPilotConsole />
+      <GrowthPaidCampaignApprovalConsole />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {summaryCards.map((card) => {

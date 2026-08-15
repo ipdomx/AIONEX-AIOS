@@ -850,3 +850,44 @@ def test_growth_social_pilot_console_is_private_fail_closed_and_translated() -> 
         "/owner/growth-social/pilots/${pilotId}/disarm",
     ):
         assert path in growth_client
+
+
+def test_growth_paid_campaign_owner_approval_console_is_private_and_advisory_only() -> (
+    None
+):
+    dashboard_root = Path(__file__).resolve().parents[2]
+    console = (
+        dashboard_root
+        / "frontend"
+        / "src"
+        / "components"
+        / "owner"
+        / "GrowthPaidCampaignApprovalConsole.tsx"
+    ).read_text(encoding="utf-8")
+    integrations_page = (OWNER_APP / "integrations" / "page.tsx").read_text(
+        encoding="utf-8"
+    )
+    growth_client = (OWNER_CLIENTS / "owner-growth-social.ts").read_text(
+        encoding="utf-8"
+    )
+
+    assert "GrowthPaidCampaignApprovalConsole" in integrations_page
+    assert "@/components/owner/GrowthPaidCampaignApprovalConsole" in integrations_page
+    for marker in (
+        "fetchOwnerGrowthPaidCampaigns",
+        "approveOwnerGrowthPaidCampaign",
+        "AIOS analyzes the user's chosen campaign values",
+        "Approval preserves the user's budget",
+        "Approve campaign",
+    ):
+        assert marker in console
+
+    assert 'from "@/lib/owner-growth-social"' in console
+    assert "apiClient" not in console
+    assert "fetch(" not in console
+    assert "graph.facebook.com" not in console
+    assert "Bearer " not in console
+    assert "access_token=" not in console
+    assert "automatic_execution_allowed" not in console
+    assert '"/owner/growth-social/paid-campaigns"' in growth_client
+    assert "/owner/growth-social/paid-campaigns/${campaignId}/approve" in growth_client

@@ -3,6 +3,12 @@ import type { SupportedLocale } from "@/lib/locale-engine";
 type Catalog = Record<string, string>;
 
 const AR: Catalog = {
+  "Unable to load paid campaigns.": "تعذر تحميل الحملات المدفوعة.",
+  "Recording Super Owner campaign approval…":
+    "جارٍ تسجيل موافقة المالك الأعلى على الحملة…",
+  "Campaign approved by Super Owner. Budget remains unchanged and launch is still separate.":
+    "تم اعتماد الحملة من المالك الأعلى. بقيت الميزانية دون تغيير ويظل الإطلاق خطوة منفصلة.",
+  "Campaign approval failed.": "فشل اعتماد الحملة.",
   "Select an active AIOS organization for the live-spend pilot.":
     "اختر مؤسسة AIOS نشطة لتجربة الإنفاق الفعلي.",
   "Select an active discovered Meta ad account for the live-spend pilot.":
