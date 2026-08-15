@@ -448,18 +448,27 @@ async def _evaluate_live_spend_readiness(
     provider_row = await _provider_capability(session, row)
     provider_state = provider_row.verification_state if provider_row else "missing"
     provider_evidence = dict(provider_row.evidence or {}) if provider_row else {}
-    provider_gate = bool(
+    provider_capability_gate = bool(
         provider_row
         and provider_row.mutation_class == "write"
         and provider_row.verification_state == LIVE_WRITE_VERIFICATION_STATE
         and provider_evidence.get("mutation_allowed") is True
         and provider_evidence.get("spend_allowed") is True
     )
-    if not provider_gate:
+    provider_binding_gate = bool(
+        provider_capability_gate
+        and provider_evidence.get("live_scope_ref") == row.scope_ref
+        and provider_evidence.get("live_organization_id") == row.organization_id
+    )
+    provider_gate = provider_capability_gate and provider_binding_gate
+    if not provider_capability_gate:
         reasons.append("provider-write-capability-unverified")
+    elif not provider_binding_gate:
+        reasons.append("provider-write-scope-binding-mismatch")
 
     execution_adapter_gate = bool(
-        provider_evidence.get("execution_adapter_verified") is True
+        provider_binding_gate
+        and provider_evidence.get("execution_adapter_verified") is True
     )
     if not execution_adapter_gate:
         reasons.append("provider-live-execution-adapter-unverified")
