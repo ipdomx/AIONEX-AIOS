@@ -157,7 +157,7 @@ Status: **COMPLETE**
 A complete synthetic journey from owner entitlement grant → account connection simulator → research → plan → content → campaign simulation → inbox/lead events → analytics → failure learning → successful replay recommendation → revocation. No real spend.
 
 ### GS-12 — Controlled live pilot gate
-Status: **IN_PROGRESS_LIVE_WRITE_VERIFIED_EXECUTION_ADAPTER_AWAITING_PR_CI_EXTERNAL_BUDGET_LAUNCH_GATES_REMAIN**
+Status: **IN_PROGRESS_PROVIDER_ADAPTER_LEGAL_GREEN_AWAITING_EXPLICIT_BUDGET_STOP_LOSS_AND_LAUNCH**
 
 Real human account/provider pilot only after all previous batches are merged and green. Real advertising spend remains disabled until explicit owner approval, provider credentials, legal/policy prerequisites, and defined budget/stop-loss controls are present.
 
@@ -823,3 +823,11 @@ Real human account/provider pilot only after all previous batches are merged and
 - Root AIOS Core suite: `680 passed, 0 failed`. The Core zero-dead/market-readiness gate initially found one `bare pass` in the new redacted-error fallback; it was replaced with explicit fallback assignment and the entire Core suite then passed.
 - No production schema/container/provider execution was changed by this branch yet. The only real provider mutation remains the separately owner-approved no-spend `Sell Save` PAUSED create/read/delete validation already completed with `real_spend_minor=0`. No budget, CPA, ROAS or launch authorization has been configured.
 - Next action: PR/CI/merge this readiness correction and live execution adapter, deploy Backend only, run the scope-bound adapter dry-run verifier against the existing production pilot (no provider call), confirm provider + adapter + legal gates are green while spend remains disabled, then request explicit Owner monetary/stop-loss inputs before any budget/launch step.
+
+### GS-12 guarded live adapter production closeout — 2026-08-15
+- PR #358 passed every required GitHub gate and merged to `main` as `e8b7758247b9569c7a1545fd05c25c55f0145766`, including Full Backend, Core, Frontend, Browser boundaries, CodeQL, dependency/secret/SBOM checks and Production Docker backup/restore smoke.
+- Production `main` is synchronized to the merge commit. Backend only was rebuilt/recreated with the existing Meta sandbox + owned credential overrides; no schema migration, Frontend, Nginx or Observer change was required. Backend returned healthy; Alembic remains `20260815_0026 (head)`.
+- The scope-bound production adapter dry-run verifier succeeded on the selected `AIONEX Corp` / `Sell Save` pilot with `execution_adapter_verified=true`, exact scope/org binding, `provider_call_executed=false`, `spend_executed=false`, and provider `spend_allowed=false`. No Meta request was made by the dry-run.
+- Durable readiness now correctly separates gates: provider live-write gate=true from the already completed PAUSED create/read/delete proof; execution-adapter gate=true; legal/policy gate=true after re-persisting the Owner's explicit approval. The remaining blocked gates are only `budget-controls-missing` and `stop-loss-controls-missing` when launch authorization is intentionally excluded.
+- The pilot remains fail-closed: `launch_authorized=false`, `live_provider_mutation_allowed=false`, `real_spend_allowed=false`, and automatic execution remains disabled.
+- No budget, CPA, ROAS, launch authorization, ad set, ad, audience, publish/send or real spend was created by this closeout. The next external input is explicit Owner monetary/stop-loss controls in the Meta account currency EUR; launch authorization must remain a separate later confirmation after those controls are validated.
