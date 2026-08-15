@@ -157,7 +157,7 @@ Status: **COMPLETE**
 A complete synthetic journey from owner entitlement grant → account connection simulator → research → plan → content → campaign simulation → inbox/lead events → analytics → failure learning → successful replay recommendation → revocation. No real spend.
 
 ### GS-12 — Controlled live pilot gate
-Status: **BLOCKED_ON_EXTERNAL_LIVE_TARGET_CREDENTIAL_LEGAL_BUDGET_AND_LAUNCH_APPROVAL**
+Status: **IN_PROGRESS_INTERNAL_EFFECTIVE_ACCESS_HARDENING_AWAITING_PR_CI_EXTERNAL_LIVE_SPEND_GATES_REMAIN**
 
 Real human account/provider pilot only after all previous batches are merged and green. Real advertising spend remains disabled until explicit owner approval, provider credentials, legal/policy prerequisites, and defined budget/stop-loss controls are present.
 
@@ -741,3 +741,13 @@ Real human account/provider pilot only after all previous batches are merged and
 - Phase-start approval previously given by the Owner is not interpreted as real-spend authorization and does not supply any missing budget/legal/target value. No default monetary amount is invented.
 - Until those external inputs exist, `real_spend_allowed=false`, automatic execution remains disabled, no live owned-account write validation is executed, and no real advertising spend is permitted.
 - Safe restart point for the next session/input: read this roadmap, verify production remains at Alembic `20260815_0026`, verify the three read-only pilots and runtime guard are healthy, then continue only from the first newly satisfied external GS-12 gate without repeating completed phases.
+
+### GS-12 effective-access legacy-limit hardening checkpoint — 2026-08-15
+- A final post-closeout data-safety review found one narrow internal gap: Owner override listing already redacts unsafe legacy `limits`, but the user-facing `effective_access()` path could still reflect pre-hardening legacy limits directly if such a historical record existed. Production currently has zero Growth/Social overrides, so no live data was exposed.
+- Hardened `effective_access()` to pass all returned Owner-override limits through the same bounded secret-aware `_safe_limits()` validator used by the Owner control plane.
+- If an otherwise-allowed legacy Owner grant contains unsafe limits, access now fails closed with `allowed=false`, reason `owner-override-invalid-limits`, `approval_required=true`, and `limits={}`. No unsafe value is returned.
+- If an Owner deny contains unsafe legacy limits, deny precedence remains unchanged (`owner-deny`) while returned limits are forced to `{}`; malformed deny data can never accidentally promote access.
+- Focused effective-access tests: `7 passed`, including explicit non-reflection checks for token/secret-like legacy values. Black PASS on changed files; Ruff PASS and Mypy PASS across `172` Backend source files.
+- Growth/Social regression on fresh isolated PostgreSQL + Redis at Alembic `20260815_0026`: `91 passed`.
+- A Full Backend run performed after those 91 tests reused the already-populated database and produced three unrelated state-contamination failures (seat limit already consumed and duplicate mobile-store/Stripe events). A separate fresh-database rerun command was blocked by the tool safety layer before execution, so no fresh full-local result is claimed. GitHub Backend/Core/Production Docker gates are mandatory and authoritative before merge.
+- No schema migration, provider call, Owner override mutation, real spend, or production runtime change has been made by this branch. Next action: merge latest `main`, run CI, deploy Backend only after all gates are green, then execute a rollback-only synthetic legacy-limit acceptance and restore the roadmap to the external-gates-only blocked state if successful.
