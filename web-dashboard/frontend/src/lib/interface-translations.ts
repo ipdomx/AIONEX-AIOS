@@ -3,6 +3,21 @@ import type { SupportedLocale } from "@/lib/locale-engine";
 type Catalog = Record<string, string>;
 
 const AR: Catalog = {
+  "Loading current live-plan and execution state…":
+    "جارٍ تحميل حالة الخطة الحية والتنفيذ الحالية…",
+  "Live-plan sources and execution state refreshed.":
+    "تم تحديث مصادر الخطة الحية وحالة التنفيذ.",
+  "Selected pilot runtime limits": "حدود تشغيل التجربة المحددة",
+  "Pilot status": "حالة التجربة",
+  Expires: "تنتهي",
+  "Total cap": "الحد الإجمالي",
+  "Daily cap": "الحد اليومي",
+  "Max CPA": "أقصى CPA",
+  "Min ROAS": "أدنى ROAS",
+  "Provider mutation": "تعديل المزود",
+  "Real spend gate": "بوابة الإنفاق الحقيقي",
+  "Manual review required. The uncertain provider operation will not be retried automatically, and the pilot safety guard must be reviewed before any further execution.":
+    "المراجعة اليدوية مطلوبة. لن تتم إعادة محاولة عملية المزود غير المؤكدة تلقائيًا، ويجب مراجعة حارس أمان التجربة قبل أي تنفيذ إضافي.",
   "Unable to load paid campaigns.": "تعذر تحميل الحملات المدفوعة.",
   "Recording Super Owner campaign approval…":
     "جارٍ تسجيل موافقة المالك الأعلى على الحملة…",
