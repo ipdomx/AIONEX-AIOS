@@ -8,6 +8,7 @@ import hashlib
 import hmac
 import secrets
 import smtplib
+import ssl
 import struct
 import time
 from datetime import UTC, datetime, timedelta
@@ -125,10 +126,19 @@ def _deliver_password_reset(email: str, raw_token: str) -> None:
         f"{reset_url}\n\n"
         "If you did not request this, no action is required."
     )
-    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as smtp:
+    tls_context = ssl.create_default_context()
+    smtp_client: smtplib.SMTP | smtplib.SMTP_SSL
+    if settings.SMTP_SSL:
+        smtp_client = smtplib.SMTP_SSL(
+            settings.SMTP_HOST, settings.SMTP_PORT, timeout=10, context=tls_context
+        )
+    else:
+        smtp_client = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10)
+
+    with smtp_client as smtp:
         smtp.ehlo()
-        if settings.SMTP_TLS:
-            smtp.starttls()
+        if settings.SMTP_TLS and not settings.SMTP_SSL:
+            smtp.starttls(context=tls_context)
             smtp.ehlo()
         if settings.SMTP_USER:
             if not settings.SMTP_PASSWORD:
