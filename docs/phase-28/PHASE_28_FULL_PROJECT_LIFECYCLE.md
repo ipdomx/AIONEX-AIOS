@@ -227,10 +227,12 @@ The provider is still forbidden from returning executable source. Its implementa
 response is a strict schema-v3 product specification containing bounded branding,
 architecture, features and a validated `domain_blueprint` with safe roles, entities,
 field types and workflows. AIOS validates identifiers, duplicate/reserved fields,
-counts, lengths and exact keys before source generation. Deterministic AIOS modules then
-turn that reviewed blueprint into typed domain models, SQL, API resources and client
-views. This prevents the old generic-CRUD problem without allowing model text to become
-arbitrary code.
+counts, lengths and exact keys before source generation. `PROJECT_PROFILE.json` also binds
+the canonical `DOMAIN_BLUEPRINT.json` with a SHA-256 digest and entity/workflow counts;
+pre-delivery validation fails closed if that blueprint is missing, malformed or changed.
+Deterministic AIOS modules then turn the reviewed blueprint into typed domain models,
+SQL, API resources and client views. This prevents the old generic-CRUD problem without
+allowing model text to become arbitrary code.
 
 Every universal package carries a `domain` target plus the targets inferred from the
 idea. The current registry covers:

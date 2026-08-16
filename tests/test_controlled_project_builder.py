@@ -185,6 +185,7 @@ def test_builder_creates_tested_executable_prototype_and_verified_archive(
     assert {"index.html", "styles.css", "app.js", "server.py", "README.md", "PROJECT_PROFILE.json", "SECURITY.md", "targets"}.issubset(root_files)
     profile = json.loads((source / "PROJECT_PROFILE.json").read_text(encoding="utf-8"))
     assert set(profile["targets"]) == {"web", "api", "domain", "cli"}
+    assert len(profile["domain_blueprint_sha256"]) == 64
     assert (source / "targets/web-next/package.json").is_file()
     assert (source / "targets/api/app.py").is_file()
     assert (source / "targets/cli/main.py").is_file()
@@ -503,3 +504,33 @@ def test_universal_auth_target_is_memory_hard_expiring_and_api_integrated(tmp_pa
     auth["logout_token"](token)
     with pytest.raises(ValueError, match="invalid session"):
         auth["authenticate_token"](token)
+
+
+def test_universal_builder_rejects_tampered_domain_blueprint_integrity(tmp_path: Path) -> None:
+    result = ControlledProjectBuilder(
+        FakeTransport(_specification()),  # type: ignore[arg-type]
+        model="gpt-5-mini",
+        input_cost_per_million=0.25,
+        output_cost_per_million=2.0,
+        remaining_budget_usd=0.01,
+    ).execute(
+        execution_id="domain-integrity",
+        project="Domain Integrity",
+        objective="Build a governed web API for project records",
+        planning_directory=_planning(tmp_path / "planning"),
+        output_root=tmp_path / "output",
+    )
+    source = result.output_directory / "source"
+    clean = ControlledProjectBuilder._test_universal_source(source, "Domain Integrity")
+    assert clean["passed"] is True
+    assert clean["checks"]["domain_blueprint_integrity"] is True
+
+    blueprint_path = source / "DOMAIN_BLUEPRINT.json"
+    blueprint = json.loads(blueprint_path.read_text(encoding="utf-8"))
+    blueprint["roles"].append("tampered-role")
+    blueprint_path.write_text(json.dumps(blueprint, sort_keys=True) + "\n", encoding="utf-8")
+
+    tampered = ControlledProjectBuilder._test_universal_source(source, "Domain Integrity")
+    assert tampered["passed"] is False
+    assert tampered["checks"]["domain_blueprint_integrity"] is False
+    assert any("domain blueprint digest" in item for item in tampered["findings"])
