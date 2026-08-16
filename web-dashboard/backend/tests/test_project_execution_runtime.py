@@ -1241,10 +1241,17 @@ async def test_owner_approval_cannot_hide_other_release_blockers(
 
 
 @pytest.mark.asyncio
-async def test_provider_neutral_execution_is_snapshot_only_and_never_claims_governance() -> None:
+async def test_provider_neutral_execution_is_snapshot_only_and_never_claims_governance(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     suffix = uuid4().hex[:12]
     organization, user, _, project = await _create_project_tenant(suffix)
     actor = _actor(user.id, organization.id, organization.name)
+    monkeypatch.setattr(
+        "app.api.v1.endpoints.project_executions.settings.PROJECT_EXECUTION_OUTPUT_ROOT",
+        str(tmp_path / "executions"),
+    )
     app = FastAPI()
     app.include_router(api_router, prefix="/api/v1")
     app.dependency_overrides[current_user] = lambda: actor
