@@ -116,3 +116,9 @@ The Growth/Social roadmap already contains the full pre-merge and production clo
 - `main` and `origin/main`: clean and synchronized at `ff51566dfeba38be8b1df1a6bf07eeed4a47a124` at deployment time.
 - Production project-execution behavior now defaults to the full governed cycle.
 - No new project cycle was started as part of deployment acceptance; the next real user project test is a separate product test initiated explicitly by the user.
+
+## Post-deployment Owner scope expansion — Phase 36 — 2026-08-17
+
+After this deployment closeout, the Owner expanded the product contract to require a minimum 1000-concurrent-user architecture, distributed/non-singleton project execution, full creative image/video/audio/music/render workflows, course generation, healthcare/professional assistance, universal sector packs and one unified governed Studio. The authoritative implementation and reporting contract is now `docs/phase-36/PHASE_36_UNIVERSAL_CAPABILITY_SCALE_MASTER_ROADMAP.md`.
+
+This does not invalidate the production evidence in this closeout; it means the prior release is a stable baseline rather than the final product boundary. All future Phase 36 batches, changes and material problems must be recorded in the Phase 36 live report before they can be treated as complete.
