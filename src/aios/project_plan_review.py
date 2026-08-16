@@ -11,6 +11,7 @@ from .government import GovernanceCase, GovernmentRuntime
 from .intelligence import Strategy, WisdomEngine
 from .ministries import MinistryAssignment, build_default_ministry_registry
 from .organization import EngineeringOrganization
+from .project_archetypes import infer_application_type
 
 
 class GovernedPlanReviewError(ValueError):
@@ -192,6 +193,13 @@ class GovernedProjectPlanReviewer:
             )
         )
         blockers = list(chief.blocking_findings)
+        application_type = infer_application_type(objective, "web_application")
+        supported_build_types = {"realtime_communications", "web_application"}
+        if application_type not in supported_build_types:
+            blockers.append(
+                f"AIOS implementation builder does not yet support {application_type}; "
+                "return the plan for a supported builder before implementation"
+            )
         if wisdom.selected is None or wisdom.selected.name != "implement-reviewed-plan":
             blockers.append("wisdom council requires plan rework before implementation")
         if government["verdict"] != "approved":
@@ -217,6 +225,7 @@ class GovernedProjectPlanReviewer:
             "objective_sha256": hashlib.sha256(objective.encode("utf-8")).hexdigest(),
             "planning_manifest_sha256": plan_digest,
             "approved": approved,
+            "application_type": application_type,
             "readiness_score": chief.readiness_score,
             "blocking_findings": blockers,
             "rework_plan": rework,
