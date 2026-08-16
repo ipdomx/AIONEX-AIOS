@@ -834,6 +834,13 @@
     "selectCurrency": "Seleccionar moneda",
     "selectProvider": "Seleccionar plataforma",
     "currencyRequired": "Selecciona la moneda de la campaña.",
-    "providerRequired": "Selecciona la plataforma publicitaria."
+    "providerRequired": "Selecciona la plataforma publicitaria.",
+    "adAccount": "Cuenta publicitaria vinculada",
+    "linkedProvider": "Plataforma vinculada",
+    "accountCurrency": "Moneda de la cuenta publicitaria",
+    "accountRequired": "Selecciona una cuenta publicitaria vinculada.",
+    "objectiveLiveReady": "Lista para la ruta en vivo de Meta",
+    "objectiveAnalysisOnly": "Solo análisis",
+    "objectiveSupportNote": "Tráfico está disponible actualmente en la ruta en vivo de Meta. Ventas, clientes potenciales y reconocimiento siguen siendo solo análisis/simulación."
   }
 }

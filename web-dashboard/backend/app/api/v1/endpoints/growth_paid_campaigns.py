@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -19,9 +21,9 @@ router = APIRouter()
 
 class CampaignRequest(BaseModel):
     name: str = Field(min_length=1, max_length=240)
-    objective: str = Field(min_length=1, max_length=80)
+    objective: Literal["sales", "leads", "traffic", "awareness"]
+    social_account_id: str = Field(min_length=1, max_length=36)
     brief_id: str | None = None
-    currency: str = "USD"
     total_budget_minor: int = Field(gt=0)
     daily_budget_cap_minor: int = Field(gt=0)
     stop_loss_policy: dict = Field(default_factory=dict)
@@ -30,7 +32,6 @@ class CampaignRequest(BaseModel):
 
 class AdSetRequest(BaseModel):
     name: str
-    provider: str
     audience: dict = Field(default_factory=dict)
     placements: list[str] = Field(default_factory=list)
     bid_strategy: str = "lowest_cost"
@@ -63,13 +64,12 @@ class ExperimentRequest(BaseModel):
 
 class CampaignPreparationRequest(BaseModel):
     campaign_name: str = Field(min_length=1, max_length=240)
-    objective: str = Field(min_length=1, max_length=80)
-    currency: str = Field(default="USD", min_length=3, max_length=3)
+    objective: Literal["sales", "leads", "traffic", "awareness"]
+    social_account_id: str = Field(min_length=1, max_length=36)
     total_budget_minor: int = Field(gt=0)
     daily_budget_cap_minor: int = Field(gt=0)
     max_cpa_minor: int | None = Field(default=None, gt=0)
     min_roas: float | None = Field(default=None, gt=0)
-    provider: str = Field(default="instagram", min_length=1, max_length=40)
     target_countries: list[str] = Field(min_length=1, max_length=25)
     placements: list[str] = Field(default_factory=lambda: ["feed"])
     bid_strategy: str = Field(default="lowest_cost", min_length=1, max_length=48)
@@ -130,7 +130,7 @@ def _user_campaign_payload(
 
 def _status(exc: Exception) -> int:
     text = str(exc)
-    if text.startswith("access-denied:"):
+    if text.startswith("access-denied:") or text.startswith("campaigns-unavailable:"):
         return 403
     if text.endswith("not-found"):
         return 404
@@ -144,9 +144,18 @@ async def prepare_and_simulate_campaign(
     session: AsyncSession = Depends(get_db),
 ):
     try:
-        result = await paid.prepare_and_simulate_campaign(
-            session, actor, request.model_dump()
+        binding = await paid.resolve_linked_ad_account(
+            session, actor, request.social_account_id
         )
+        payload = request.model_dump(exclude={"social_account_id"})
+        payload.update(
+            {
+                "linked_ad_account_id": binding["id"],
+                "provider": binding["provider"],
+                "currency": binding["currency"],
+            }
+        )
+        result = await paid.prepare_and_simulate_campaign(session, actor, payload)
         await session.commit()
         campaign = result["campaign"]
         decision = result["decision"]
@@ -173,14 +182,22 @@ async def prepare_and_simulate_campaign(
         raise HTTPException(status_code=_status(exc), detail=str(exc)) from exc
 
 
+@router.get("/readiness")
+async def paid_campaign_readiness(
+    actor: UserRecord = Depends(current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    return await paid.campaign_readiness(session, actor)
+
+
 @router.get("")
 async def list_campaigns(
     actor: UserRecord = Depends(current_user), session: AsyncSession = Depends(get_db)
 ):
-    try:
-        await paid._require(session, actor)
-    except paid.GrowthPaidCampaignError as exc:
-        raise HTTPException(status_code=_status(exc), detail=str(exc)) from exc
+    readiness = await paid.campaign_readiness(session, actor)
+    if not readiness["campaigns_visible"]:
+        detail = f"campaigns-unavailable:{readiness['reason']}"
+        raise HTTPException(status_code=403, detail=detail)
     rows = (
         await session.scalars(
             select(GrowthPaidCampaign)
@@ -212,7 +229,21 @@ async def create_campaign(
     session: AsyncSession = Depends(get_db),
 ):
     try:
-        row = await paid.create_campaign(session, actor, request.model_dump())
+        binding = await paid.resolve_linked_ad_account(
+            session, actor, request.social_account_id
+        )
+        payload = request.model_dump(exclude={"social_account_id"})
+        metadata = dict(payload.get("metadata") or {})
+        metadata.update(
+            {
+                "linked_ad_account_id": binding["id"],
+                "linked_ad_account_provider": binding["provider"],
+                "linked_ad_account_currency": binding["currency"],
+            }
+        )
+        payload["metadata"] = metadata
+        payload["currency"] = binding["currency"]
+        row = await paid.create_campaign(session, actor, payload)
         await session.commit()
     except paid.GrowthPaidCampaignError as exc:
         await session.rollback()

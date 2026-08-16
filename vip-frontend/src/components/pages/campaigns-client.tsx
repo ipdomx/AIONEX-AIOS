@@ -19,13 +19,16 @@ import { Button } from "@/components/ui/button";
 import { StatusMessage } from "@/components/ui/status-message";
 import { useAuth } from "@/hooks/use-auth";
 import {
+  getPaidCampaignReadiness,
   listPaidCampaigns,
   prepareAndSimulatePaidCampaign,
 } from "@/lib/api";
 import type {
   PaidCampaign,
+  PaidCampaignAdAccount,
   PaidCampaignBudgetAssessment,
   PaidCampaignPreparationResult,
+  PaidCampaignReadiness,
 } from "@/types";
 
 function errorText(cause: unknown, fallback: string): string {
@@ -76,15 +79,15 @@ export function CampaignsClient() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<PaidCampaignPreparationResult | null>(null);
+  const [readiness, setReadiness] = useState<PaidCampaignReadiness | null>(null);
+  const [linkedAccountId, setLinkedAccountId] = useState("");
 
   const [name, setName] = useState("");
-  const [objective, setObjective] = useState("sales");
-  const [currency, setCurrency] = useState("");
+  const [objective, setObjective] = useState("traffic");
   const [totalBudget, setTotalBudget] = useState("");
   const [dailyBudget, setDailyBudget] = useState("");
   const [maxCpa, setMaxCpa] = useState("");
   const [minRoas, setMinRoas] = useState("");
-  const [provider, setProvider] = useState("");
   const [countries, setCountries] = useState("");
   const [placements, setPlacements] = useState("feed");
   const [headline, setHeadline] = useState("");
@@ -100,17 +103,38 @@ export function CampaignsClient() {
     setLoading(true);
     setError("");
     try {
+      const access = await getPaidCampaignReadiness();
+      setReadiness(access);
+      if (!access.campaigns_visible) {
+        setCampaigns([]);
+        setResult(null);
+        router.replace(`/${locale}/dashboard`);
+        return;
+      }
+      setLinkedAccountId((current) =>
+        access.linked_ad_accounts.some((item) => item.id === current)
+          ? current
+          : (access.linked_ad_accounts[0]?.id ?? ""),
+      );
       setCampaigns(await listPaidCampaigns());
     } catch (cause) {
       setError(errorText(cause, t("loadError")));
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, t]);
+  }, [isAuthenticated, locale, router, t]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  const selectedAccount = useMemo<PaidCampaignAdAccount | null>(
+    () =>
+      readiness?.linked_ad_accounts.find((item) => item.id === linkedAccountId) ??
+      readiness?.linked_ad_accounts[0] ??
+      null,
+    [linkedAccountId, readiness],
+  );
 
   const pendingCount = useMemo(
     () => campaigns.filter((item) => item.approval_status !== "approved").length,
@@ -143,12 +167,8 @@ export function CampaignsClient() {
       setError(t("invalidBudget"));
       return;
     }
-    if (!currency) {
-      setError(t("currencyRequired"));
-      return;
-    }
-    if (!provider) {
-      setError(t("providerRequired"));
+    if (!selectedAccount) {
+      setError(t("accountRequired"));
       return;
     }
     if (maxCpa.trim() && !cpa) {
@@ -178,12 +198,11 @@ export function CampaignsClient() {
       const prepared = await prepareAndSimulatePaidCampaign({
         campaign_name: name.trim(),
         objective,
-        currency,
+        social_account_id: selectedAccount.id,
         total_budget_minor: total,
         daily_budget_cap_minor: daily,
         max_cpa_minor: cpa || null,
         min_roas: roas || null,
-        provider,
         target_countries: targetCountries,
         placements: placementList.length ? placementList : ["feed"],
         headline: headline.trim(),
@@ -200,7 +219,7 @@ export function CampaignsClient() {
     }
   }
 
-  if (isLoading || !isAuthenticated) {
+  if (isLoading || !isAuthenticated || (loading && readiness === null)) {
     return (
       <div className="page-shell py-16">
         <div className="glass-card p-8 text-center text-white/55">
@@ -210,6 +229,8 @@ export function CampaignsClient() {
       </div>
     );
   }
+
+  if (!readiness?.campaigns_visible) return null;
 
   return (
     <div className="page-shell space-y-6 py-10">
@@ -271,21 +292,38 @@ export function CampaignsClient() {
           <label className="space-y-2">
             <span className="text-xs text-white/50">{t("objective")}</span>
             <select value={objective} onChange={(e) => setObjective(e.target.value)} className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none">
-              <option className="bg-ink-900" value="sales">{t("objectiveSales")}</option>
-              <option className="bg-ink-900" value="leads">{t("objectiveLeads")}</option>
-              <option className="bg-ink-900" value="traffic">{t("objectiveTraffic")}</option>
-              <option className="bg-ink-900" value="awareness">{t("objectiveAwareness")}</option>
+              {[
+                ["sales", "objectiveSales"],
+                ["leads", "objectiveLeads"],
+                ["traffic", "objectiveTraffic"],
+                ["awareness", "objectiveAwareness"],
+              ].map(([value, label]) => {
+                const liveReady = selectedAccount?.live_objectives.includes(value);
+                return (
+                  <option key={value} className="bg-ink-900" value={value}>
+                    {t(label)} — {liveReady ? t("objectiveLiveReady") : t("objectiveAnalysisOnly")}
+                  </option>
+                );
+              })}
             </select>
+            <span className="block text-[11px] leading-5 text-white/35">{t("objectiveSupportNote")}</span>
           </label>
           <label className="space-y-2">
-            <span className="text-xs text-white/50">{t("currency")}</span>
-            <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none">
-              <option className="bg-ink-900" value="">{t("selectCurrency")}</option>
-              {["EUR", "USD", "AED", "GBP"].map((item) => (
-                <option key={item} className="bg-ink-900" value={item}>{item}</option>
+            <span className="text-xs text-white/50">{t("adAccount")}</span>
+            <select value={selectedAccount?.id ?? ""} onChange={(e) => setLinkedAccountId(e.target.value)} className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none">
+              {readiness?.linked_ad_accounts.map((account) => (
+                <option key={account.id} className="bg-ink-900" value={account.id}>{account.display_name} · {account.provider}</option>
               ))}
             </select>
           </label>
+          <div className="space-y-2">
+            <span className="text-xs text-white/50">{t("linkedProvider")}</span>
+            <div className="glass-input min-h-[48px] w-full rounded-xl px-4 py-3 text-sm text-white/75">{selectedAccount?.provider ?? "—"}</div>
+          </div>
+          <div className="space-y-2">
+            <span className="text-xs text-white/50">{t("accountCurrency")}</span>
+            <div className="glass-input min-h-[48px] w-full rounded-xl px-4 py-3 text-sm font-semibold text-white/75">{selectedAccount?.currency ?? "—"}</div>
+          </div>
 
           <label className="space-y-2">
             <span className="text-xs text-white/50">{t("totalBudget")}</span>
@@ -304,16 +342,6 @@ export function CampaignsClient() {
             <input inputMode="decimal" value={minRoas} onChange={(e) => setMinRoas(e.target.value)} className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none" />
           </label>
 
-          <label className="space-y-2">
-            <span className="text-xs text-white/50">{t("provider")}</span>
-            <select value={provider} onChange={(e) => setProvider(e.target.value)} className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none">
-              <option className="bg-ink-900" value="">{t("selectProvider")}</option>
-              <option className="bg-ink-900" value="instagram">Instagram</option>
-              <option className="bg-ink-900" value="facebook">Facebook</option>
-              <option className="bg-ink-900" value="tiktok">TikTok</option>
-              <option className="bg-ink-900" value="youtube">YouTube</option>
-            </select>
-          </label>
           <label className="space-y-2">
             <span className="text-xs text-white/50">{t("countries")}</span>
             <input value={countries} onChange={(e) => setCountries(e.target.value)} className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none" placeholder="AE,SA" />

@@ -32,6 +32,10 @@ def test_paid_campaign_user_api_has_atomic_advisor_but_no_user_approval_route() 
         "POST",
         "/api/v1/growth-social/paid-campaigns/prepare-and-simulate",
     ) in routes
+    assert (
+        "GET",
+        "/api/v1/growth-social/paid-campaigns/readiness",
+    ) in routes
     assert not any(
         path.startswith("/api/v1/growth-social/paid-campaigns/")
         and path.endswith("/approve")
@@ -109,3 +113,18 @@ def test_user_paid_campaign_api_exposes_no_live_execution_mutation_route() -> No
         and "/live-execution" in path
         for _, path in routes
     )
+
+
+def test_user_paid_campaign_requests_bind_to_linked_ad_account() -> None:
+    from app.api.v1.endpoints.growth_paid_campaigns import (
+        AdSetRequest,
+        CampaignPreparationRequest,
+        CampaignRequest,
+    )
+
+    assert "social_account_id" in CampaignPreparationRequest.model_fields
+    assert "currency" not in CampaignPreparationRequest.model_fields
+    assert "provider" not in CampaignPreparationRequest.model_fields
+    assert "social_account_id" in CampaignRequest.model_fields
+    assert "currency" not in CampaignRequest.model_fields
+    assert "provider" not in AdSetRequest.model_fields

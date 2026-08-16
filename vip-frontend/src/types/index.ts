@@ -971,15 +971,33 @@ export interface PaidCampaign {
   automatic_execution_allowed: false;
 }
 
+export interface PaidCampaignAdAccount {
+  id: string;
+  provider: string;
+  display_name: string;
+  currency: string;
+  live_objectives: string[];
+}
+
+export interface PaidCampaignReadiness {
+  ads_manage_allowed: boolean;
+  social_accounts_allowed: boolean;
+  linked_ad_accounts: PaidCampaignAdAccount[];
+  campaigns_visible: boolean;
+  reason: string;
+  live_provider_mutation_allowed: false;
+  automatic_execution_allowed: false;
+  objectives: Record<string, "live-meta-ready" | "analysis-only">;
+}
+
 export interface PaidCampaignPreparationInput {
   campaign_name: string;
   objective: string;
-  currency: string;
+  social_account_id: string;
   total_budget_minor: number;
   daily_budget_cap_minor: number;
   max_cpa_minor?: number | null;
   min_roas?: number | null;
-  provider: string;
   target_countries: string[];
   placements: string[];
   bid_strategy?: string;

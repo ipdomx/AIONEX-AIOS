@@ -26,6 +26,7 @@ import type {
   PaidCampaign,
   PaidCampaignPreparationInput,
   PaidCampaignPreparationResult,
+  PaidCampaignReadiness,
   PortalNotification,
   SupportTicket,
   SupportTicketMessage,
@@ -1047,6 +1048,12 @@ export function createUserTelegramLinkChallenge(): Promise<UserTelegramChallenge
 
 export function revokeUserTelegramLink(): Promise<{ revoked: boolean }> {
   return request<{ revoked: boolean }>("/telegram/link", { method: "DELETE" });
+}
+
+export function getPaidCampaignReadiness(): Promise<PaidCampaignReadiness> {
+  return request<PaidCampaignReadiness>(
+    "/growth-social/paid-campaigns/readiness",
+  );
 }
 
 export function listPaidCampaigns(): Promise<PaidCampaign[]> {

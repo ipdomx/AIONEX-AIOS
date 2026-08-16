@@ -49,6 +49,7 @@ CAPABILITIES: dict[str, str] = {
 }
 
 ACCOUNT_KINDS: tuple[str, ...] = (
+    "ad_account",
     "profile",
     "page",
     "group",

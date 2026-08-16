@@ -834,6 +834,13 @@
     "selectCurrency": "Währung wählen",
     "selectProvider": "Plattform wählen",
     "currencyRequired": "Wählen Sie die Kampagnenwährung.",
-    "providerRequired": "Wählen Sie die Werbeplattform."
+    "providerRequired": "Wählen Sie die Werbeplattform.",
+    "adAccount": "Verknüpftes Werbekonto",
+    "linkedProvider": "Verknüpfte Plattform",
+    "accountCurrency": "Währung des Werbekontos",
+    "accountRequired": "Wählen Sie ein verknüpftes Werbekonto aus.",
+    "objectiveLiveReady": "Für Meta-Live-Pfad bereit",
+    "objectiveAnalysisOnly": "Nur Analyse",
+    "objectiveSupportNote": "Traffic wird derzeit im Meta-Live-Pfad unterstützt. Verkäufe, Leads und Bekanntheit bleiben bis zur Live-Unterstützung Analyse/Simulation."
   }
 }

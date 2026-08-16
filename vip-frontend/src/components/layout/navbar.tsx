@@ -21,7 +21,7 @@ import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
-import { getSecurityLabAccess } from "@/lib/api";
+import { getPaidCampaignReadiness, getSecurityLabAccess } from "@/lib/api";
 import { usePortalExperience } from "@/components/portal/portal-experience-provider";
 import { cn } from "@/lib/utils";
 
@@ -34,10 +34,12 @@ export function Navbar() {
   const { configuration, text, href: portalHref } = usePortalExperience();
   const [open, setOpen] = useState(false);
   const [securityLabVisible, setSecurityLabVisible] = useState(false);
+  const [campaignsVisible, setCampaignsVisible] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
       setSecurityLabVisible(false);
+      setCampaignsVisible(false);
       return;
     }
     let cancelled = false;
@@ -47,6 +49,13 @@ export function Navbar() {
       })
       .catch(() => {
         if (!cancelled) setSecurityLabVisible(false);
+      });
+    void getPaidCampaignReadiness()
+      .then((access) => {
+        if (!cancelled) setCampaignsVisible(access.campaigns_visible);
+      })
+      .catch(() => {
+        if (!cancelled) setCampaignsVisible(false);
       });
     return () => {
       cancelled = true;
@@ -170,13 +179,15 @@ export function Navbar() {
               >
                 {t("projects")}
               </Link>
-              <Link
-                href={`/${locale}/campaigns`}
-                className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/65 hover:text-white"
-              >
-                <Megaphone className="h-4 w-4" aria-hidden="true" />
-                {t("campaigns")}
-              </Link>
+              {campaignsVisible && (
+                <Link
+                  href={`/${locale}/campaigns`}
+                  className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/65 hover:text-white"
+                >
+                  <Megaphone className="h-4 w-4" aria-hidden="true" />
+                  {t("campaigns")}
+                </Link>
+              )}
               <Link
                 href={`/${locale}/billing`}
                 className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/65 hover:text-white"
@@ -276,13 +287,15 @@ export function Navbar() {
                 >
                   {t("projects")}
                 </Link>
-                <Link
-                  href={`/${locale}/campaigns`}
-                  onClick={() => setOpen(false)}
-                  className="rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06]"
-                >
-                  {t("campaigns")}
-                </Link>
+                {campaignsVisible && (
+                  <Link
+                    href={`/${locale}/campaigns`}
+                    onClick={() => setOpen(false)}
+                    className="rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06]"
+                  >
+                    {t("campaigns")}
+                  </Link>
+                )}
                 <Link
                   href={`/${locale}/billing`}
                   onClick={() => setOpen(false)}

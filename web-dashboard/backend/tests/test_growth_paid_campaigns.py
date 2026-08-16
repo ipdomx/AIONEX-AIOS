@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from app.core.auth import UserRecord
 from app.db.base import SessionLocal
-from app.db.models import Organization, User
+from app.db.models import GrowthSocialAccount, Organization, User
 from app.services import growth_paid_campaigns as paid
 
 
@@ -387,3 +387,121 @@ def test_paid_campaign_destination_url_is_http_only_and_has_no_credentials() -> 
         paid.GrowthPaidCampaignError, match="destination-url-credentials-forbidden"
     ):
         paid._safe_destination_url("https://user:pass@example.invalid/path")
+
+
+@pytest.mark.asyncio
+async def test_campaign_readiness_requires_linked_ad_account_and_derives_currency(
+    monkeypatch,
+) -> None:
+    suffix = uuid4().hex[:10]
+    org_id = f"gs08-ready-org-{suffix}"
+    user_id = f"gs08-ready-user-{suffix}"
+    email = f"gs08-ready-{suffix}@example.invalid"
+
+    async def allow(_session, _actor, _capability):
+        return SimpleNamespace(allowed=True, reason="test-owner-grant")
+
+    monkeypatch.setattr(paid.growth_access, "effective_access", allow)
+    actor = _actor(org_id, user_id, email)
+
+    async with SessionLocal() as session:
+        session.add(
+            Organization(
+                id=org_id,
+                name="GS08 Ready",
+                slug=f"gs08-ready-{suffix}",
+                plan="test",
+                status="active",
+            )
+        )
+        session.add(
+            User(
+                id=user_id,
+                organization_id=org_id,
+                email=email,
+                name="GS08 Ready",
+                password_hash="unused",
+                status="active",
+                auth_version=1,
+            )
+        )
+        await session.flush()
+
+        empty = await paid.campaign_readiness(session, actor)
+        assert empty["campaigns_visible"] is False
+        assert empty["reason"] == "no-linked-ad-account"
+
+        page = GrowthSocialAccount(
+            organization_id=org_id,
+            created_by_id=user_id,
+            provider="facebook",
+            account_kind="page",
+            external_account_id=f"page-{suffix}",
+            display_name="Page is not an ad account",
+            credential_ref="file:/run/operator-secrets/social/page-test",
+            status="active",
+            health_state="healthy",
+            health_reasons=[],
+            provider_metadata={"currency": "USD"},
+            settings={},
+        )
+        session.add(page)
+        await session.flush()
+        still_empty = await paid.campaign_readiness(session, actor)
+        assert still_empty["campaigns_visible"] is False
+        assert still_empty["reason"] == "no-linked-ad-account"
+
+        ad_account = GrowthSocialAccount(
+            organization_id=org_id,
+            created_by_id=user_id,
+            provider="facebook",
+            account_kind="ad_account",
+            external_account_id=f"act-{suffix}",
+            display_name="Meta Ads UAE",
+            credential_ref="file:/run/operator-secrets/social/meta-ad-test",
+            status="active",
+            health_state="healthy",
+            health_reasons=[],
+            provider_metadata={"currency": "eur"},
+            settings={},
+        )
+        session.add(ad_account)
+        await session.flush()
+
+        ready = await paid.campaign_readiness(session, actor)
+        assert ready["campaigns_visible"] is True
+        assert ready["reason"] == "ready"
+        assert ready["linked_ad_accounts"] == [
+            {
+                "id": ad_account.id,
+                "provider": "facebook",
+                "display_name": "Meta Ads UAE",
+                "currency": "EUR",
+                "live_objectives": ["traffic"],
+            }
+        ]
+        assert ready["objectives"]["traffic"] == "live-meta-ready"
+        assert ready["objectives"]["sales"] == "analysis-only"
+
+        binding = await paid.resolve_linked_ad_account(session, actor, ad_account.id)
+        assert binding["provider"] == "facebook"
+        assert binding["currency"] == "EUR"
+        assert binding["live_objectives"] == ["traffic"]
+        await session.rollback()
+
+
+@pytest.mark.asyncio
+async def test_campaign_readiness_denied_is_safe_and_non_throwing(monkeypatch) -> None:
+    actor = _actor("org-denied", "user-denied", "denied@example.invalid")
+
+    async def deny(_session, _actor, capability):
+        return SimpleNamespace(
+            allowed=False, reason="not-entitled", capability=capability
+        )
+
+    monkeypatch.setattr(paid.growth_access, "effective_access", deny)
+    async with SessionLocal() as session:
+        result = await paid.campaign_readiness(session, actor)
+    assert result["campaigns_visible"] is False
+    assert result["linked_ad_accounts"] == []
+    assert result["reason"] == "ads-manage-not-entitled"
