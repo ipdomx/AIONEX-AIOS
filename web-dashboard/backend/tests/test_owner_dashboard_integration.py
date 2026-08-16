@@ -91,6 +91,18 @@ OWNER_API_CONTRACT = {
         "GET",
         "/api/v1/owner/growth-social/paid-campaigns/{campaign_id}/live-plan/validate",
     ),
+    (
+        "GET",
+        "/api/v1/owner/growth-social/paid-campaigns/{campaign_id}/live-execution",
+    ),
+    (
+        "POST",
+        "/api/v1/owner/growth-social/paid-campaigns/{campaign_id}/live-execution/prepare",
+    ),
+    (
+        "POST",
+        "/api/v1/owner/growth-social/paid-campaigns/{campaign_id}/live-execution/{execution_id}/execute-paused",
+    ),
     ("GET", "/api/v1/owner/growth-social/pilots"),
     ("POST", "/api/v1/owner/growth-social/pilots"),
     ("GET", "/api/v1/owner/growth-social/pilots/{pilot_id}/readiness"),
@@ -228,6 +240,17 @@ OWNER_MUTATION_REQUESTS = {
     ): {
         "pilot_id": "missing-pilot",
         "creative_identity_ref": "pageref://meta/sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    },
+    (
+        "POST",
+        "/api/v1/owner/growth-social/paid-campaigns/{campaign_id}/live-execution/prepare",
+    ): None,
+    (
+        "POST",
+        "/api/v1/owner/growth-social/paid-campaigns/{campaign_id}/live-execution/{execution_id}/execute-paused",
+    ): {
+        "plan_digest": "a" * 64,
+        "confirmation": "EXECUTE PAUSED META PLAN",
     },
     ("POST", "/api/v1/owner/growth-social/pilots"): {
         "provider": "meta",
@@ -936,5 +959,17 @@ def test_growth_paid_campaign_owner_approval_console_is_private_and_advisory_onl
     )
     assert (
         "/owner/growth-social/paid-campaigns/${campaignId}/live-plan/validate"
+        in growth_client
+    )
+    assert (
+        "/owner/growth-social/paid-campaigns/${campaignId}/live-execution"
+        in growth_client
+    )
+    assert (
+        "/owner/growth-social/paid-campaigns/${campaignId}/live-execution/prepare"
+        in growth_client
+    )
+    assert (
+        "/owner/growth-social/paid-campaigns/${campaignId}/live-execution/${executionId}/execute-paused"
         in growth_client
     )

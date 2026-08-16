@@ -1646,6 +1646,38 @@ const AR: Catalog = {
   "Stored live plan no longer matches the campaign and cannot be used.":
     "لم تعد خطة التشغيل الحي المحفوظة مطابقة للحملة ولا يمكن استخدامها.",
   "Live-plan validation failed.": "فشل التحقق من خطة التشغيل الحي.",
+  "Prepare the durable PAUSED execution journal only? This does not call Meta or spend money.":
+    "هل تريد تجهيز سجل تنفيذ PAUSED المتين فقط؟ لن يستدعي هذا Meta ولن ينفق أموالًا.",
+  "Preparing the fail-closed PAUSED execution journal…":
+    "جارٍ تجهيز سجل تنفيذ PAUSED المغلق آمنًا افتراضيًا…",
+  "Execution journal prepared. No provider call occurred and every deliverable Campaign/Ad Set/Ad starts PAUSED.":
+    "تم تجهيز سجل التنفيذ. لم يحدث استدعاء للمزود وكل حملة ومجموعة إعلان وإعلان قابل للتشغيل يبدأ بحالة PAUSED.",
+  "Live execution journal preparation failed.": "فشل تجهيز سجل التنفيذ الحي.",
+  "Refreshing controlled live execution state…":
+    "جارٍ تحديث حالة التنفيذ الحي المضبوط…",
+  "Controlled live execution state refreshed.":
+    "تم تحديث حالة التنفيذ الحي المضبوط.",
+  "Unable to load live execution state.": "تعذر تحميل حالة التنفيذ الحي.",
+  "Type the exact PAUSED execution confirmation before continuing.":
+    "اكتب عبارة تأكيد تنفيذ PAUSED المطابقة تمامًا قبل المتابعة.",
+  "Create the approved Meta Campaign, Ad Set, Creative and Ad as PAUSED objects now? This performs provider writes but does not activate delivery or authorize automatic execution.":
+    "هل تريد إنشاء حملة Meta ومجموعة الإعلان والمادة الإبداعية والإعلان المعتمدة الآن كعناصر PAUSED؟ ينفذ ذلك عمليات كتابة لدى المزود لكنه لا يفعّل العرض ولا يسمح بالتنفيذ التلقائي.",
+  "Executing the digest-bound PAUSED Meta graph under runtime authorization…":
+    "جارٍ تنفيذ مخطط Meta بحالة PAUSED والمرتبط بالبصمة تحت تفويض وقت التشغيل…",
+  "PAUSED Meta graph completed. No activation or automatic execution was performed.":
+    "اكتمل مخطط Meta بحالة PAUSED. لم يحدث تفعيل أو تنفيذ تلقائي.",
+  "PAUSED Meta execution requires manual review.":
+    "يتطلب تنفيذ Meta بحالة PAUSED مراجعة يدوية.",
+  "Controlled PAUSED Meta execution": "تنفيذ Meta مضبوط بحالة PAUSED",
+  "Execution is Owner-only and digest-bound. Every provider write is runtime-authorized and every deliverable Campaign, Ad Set and Ad starts PAUSED. Ambiguous provider results are never blindly retried and force manual review plus pilot disarm.":
+    "التنفيذ متاح للمالك فقط ومرتبط بالبصمة. كل كتابة لدى المزود تخضع لتفويض وقت التشغيل وكل حملة ومجموعة إعلان وإعلان قابل للتشغيل يبدأ PAUSED. النتائج الملتبسة لا يُعاد إرسالها عشوائيًا وتفرض مراجعة يدوية مع إلغاء تسليح التجربة.",
+  "Prepare PAUSED execution journal": "تجهيز سجل تنفيذ PAUSED",
+  "Refresh execution state": "تحديث حالة التنفيذ",
+  "Provider writes": "عمليات كتابة المزود",
+  "Manual review": "مراجعة يدوية",
+  "Type exactly: EXECUTE PAUSED META PLAN":
+    "اكتب بالضبط: EXECUTE PAUSED META PLAN",
+  "Execute PAUSED Meta graph": "تنفيذ مخطط Meta بحالة PAUSED",
 };
 
 const FR: Catalog = {

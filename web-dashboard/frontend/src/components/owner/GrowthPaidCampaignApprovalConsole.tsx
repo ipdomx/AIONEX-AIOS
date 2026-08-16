@@ -15,14 +15,18 @@ import { translateInterfaceText } from "@/lib/interface-translations";
 import {
   approveOwnerGrowthPaidCampaign,
   evaluateOwnerGrowthPaidCampaignLivePlan,
+  executeOwnerGrowthPaidCampaignPausedGraph,
   fetchOwnerGrowthMetaPages,
+  fetchOwnerGrowthPaidCampaignLiveExecution,
   fetchOwnerGrowthPaidCampaigns,
   fetchOwnerGrowthPilots,
+  prepareOwnerGrowthPaidCampaignLiveExecution,
   prepareOwnerGrowthPaidCampaignLivePlan,
   validateOwnerGrowthPaidCampaignLivePlan,
   type GrowthControlledPilot,
   type GrowthMetaPage,
   type OwnerGrowthPaidCampaign,
+  type OwnerGrowthPaidLiveExecution,
   type OwnerGrowthPaidLivePlan,
 } from "@/lib/owner-growth-social";
 
@@ -62,6 +66,12 @@ export function GrowthPaidCampaignApprovalConsole() {
   >({});
   const [planResults, setPlanResults] = useState<
     Record<string, OwnerGrowthPaidLivePlan>
+  >({});
+  const [executionResults, setExecutionResults] = useState<
+    Record<string, OwnerGrowthPaidLiveExecution>
+  >({});
+  const [executionConfirmations, setExecutionConfirmations] = useState<
+    Record<string, string>
   >({});
 
   const load = useCallback(async () => {
@@ -234,6 +244,95 @@ export function GrowthPaidCampaignApprovalConsole() {
     }
   }
 
+  async function prepareExecution(item: OwnerGrowthPaidCampaign) {
+    const confirmed = window.confirm(
+      tr(
+        "Prepare the durable PAUSED execution journal only? This does not call Meta or spend money.",
+      ),
+    );
+    if (!confirmed) return;
+    setBusyId(item.id);
+    setMessage("Preparing the fail-closed PAUSED execution journal…");
+    try {
+      const result = await prepareOwnerGrowthPaidCampaignLiveExecution(item.id);
+      setExecutionResults((current) => ({ ...current, [item.id]: result }));
+      setMessage(
+        "Execution journal prepared. No provider call occurred and every deliverable Campaign/Ad Set/Ad starts PAUSED.",
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Live execution journal preparation failed.",
+      );
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function refreshExecution(item: OwnerGrowthPaidCampaign) {
+    setBusyId(item.id);
+    setMessage("Refreshing controlled live execution state…");
+    try {
+      const result = await fetchOwnerGrowthPaidCampaignLiveExecution(item.id);
+      setExecutionResults((current) => ({ ...current, [item.id]: result }));
+      setMessage("Controlled live execution state refreshed.");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to load live execution state.",
+      );
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function executePausedGraph(item: OwnerGrowthPaidCampaign) {
+    const execution = executionResults[item.id];
+    const confirmation = executionConfirmations[item.id] ?? "";
+    if (!execution || confirmation !== "EXECUTE PAUSED META PLAN") {
+      setMessage(
+        "Type the exact PAUSED execution confirmation before continuing.",
+      );
+      return;
+    }
+    const confirmed = window.confirm(
+      tr(
+        "Create the approved Meta Campaign, Ad Set, Creative and Ad as PAUSED objects now? This performs provider writes but does not activate delivery or authorize automatic execution.",
+      ),
+    );
+    if (!confirmed) return;
+    setBusyId(item.id);
+    setMessage(
+      "Executing the digest-bound PAUSED Meta graph under runtime authorization…",
+    );
+    try {
+      const result = await executeOwnerGrowthPaidCampaignPausedGraph(
+        item.id,
+        execution.id,
+        {
+          plan_digest: execution.plan_digest,
+          confirmation,
+        },
+      );
+      setExecutionResults((current) => ({ ...current, [item.id]: result }));
+      setExecutionConfirmations((current) => ({ ...current, [item.id]: "" }));
+      setMessage(
+        "PAUSED Meta graph completed. No activation or automatic execution was performed.",
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "PAUSED Meta execution requires manual review.",
+      );
+      void refreshExecution(item);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function validatePlan(item: OwnerGrowthPaidCampaign) {
     setBusyId(item.id);
     setMessage("Revalidating the stored live-plan digest…");
@@ -334,6 +433,8 @@ export function GrowthPaidCampaignApprovalConsole() {
               pageRef: "",
             };
             const planResult = planResults[item.id];
+            const executionResult = executionResults[item.id];
+            const executionConfirmation = executionConfirmations[item.id] ?? "";
             return (
               <article
                 key={item.id}
@@ -657,6 +758,102 @@ export function GrowthPaidCampaignApprovalConsole() {
                         </div>
                       </div>
                     ) : null}
+                    <div className="mt-4 rounded-xl border border-orange-500/20 bg-orange-500/[0.04] p-4">
+                      <div className="text-xs font-semibold text-orange-200">
+                        {tr("Controlled PAUSED Meta execution")}
+                      </div>
+                      <div className="mt-1 text-[11px] leading-5 text-white/40">
+                        {tr(
+                          "Execution is Owner-only and digest-bound. Every provider write is runtime-authorized and every deliverable Campaign, Ad Set and Ad starts PAUSED. Ambiguous provider results are never blindly retried and force manual review plus pilot disarm.",
+                        )}
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={busyId !== null || !planResult?.plan_valid}
+                          onClick={() => void prepareExecution(item)}
+                          className="rounded-lg border border-orange-400/20 px-3 py-2 text-xs text-orange-200 disabled:opacity-40"
+                        >
+                          {tr("Prepare PAUSED execution journal")}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busyId !== null}
+                          onClick={() => void refreshExecution(item)}
+                          className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/55 disabled:opacity-40"
+                        >
+                          {tr("Refresh execution state")}
+                        </button>
+                      </div>
+                      {executionResult ? (
+                        <div className="mt-3 rounded-lg border border-white/[0.06] bg-black/10 p-3">
+                          <div className="flex flex-wrap gap-3 text-[11px] text-white/50">
+                            <span>
+                              {tr("Status")}:{" "}
+                              {technicalText(executionResult.status)}
+                            </span>
+                            <span>
+                              {tr("Provider writes")}:{" "}
+                              {executionResult.provider_write_calls_completed}
+                            </span>
+                            <span>
+                              {tr("Spend")}:{" "}
+                              {String(executionResult.spend_executed)}
+                            </span>
+                            <span>
+                              {tr("Manual review")}:{" "}
+                              {String(executionResult.manual_review_required)}
+                            </span>
+                          </div>
+                          <div className="mt-3 space-y-1">
+                            {executionResult.steps.map((step) => (
+                              <div
+                                key={step.step_key}
+                                className="text-[11px] text-white/40"
+                              >
+                                {step.step_order + 1}.{" "}
+                                {technicalText(step.resource_kind)} ·{" "}
+                                {technicalText(step.status)}
+                                {step.provider_object_ref
+                                  ? ` · ${step.provider_object_ref.slice(0, 34)}…`
+                                  : ""}
+                              </div>
+                            ))}
+                          </div>
+                          {executionResult.status === "prepared" ||
+                          executionResult.status === "authorized" ? (
+                            <div className="mt-4 space-y-2">
+                              <label className="block text-[11px] text-orange-200/80">
+                                {tr("Type exactly: EXECUTE PAUSED META PLAN")}
+                                <input
+                                  value={executionConfirmation}
+                                  onChange={(event) =>
+                                    setExecutionConfirmations((current) => ({
+                                      ...current,
+                                      [item.id]: event.target.value,
+                                    }))
+                                  }
+                                  autoComplete="off"
+                                  className="mt-1 w-full rounded-lg border border-orange-500/20 bg-ink-950 px-3 py-2 font-mono text-xs text-white"
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                disabled={
+                                  busyId !== null ||
+                                  executionConfirmation !==
+                                    "EXECUTE PAUSED META PLAN"
+                                }
+                                onClick={() => void executePausedGraph(item)}
+                                className="rounded-lg bg-orange-500/15 px-3 py-2 text-xs font-semibold text-orange-100 disabled:opacity-40"
+                              >
+                                {tr("Execute PAUSED Meta graph")}
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 ) : null}
               </article>

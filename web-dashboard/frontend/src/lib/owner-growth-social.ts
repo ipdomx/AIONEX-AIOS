@@ -409,3 +409,61 @@ export function validateOwnerGrowthPaidCampaignLivePlan(
     `/owner/growth-social/paid-campaigns/${campaignId}/live-plan/validate`,
   );
 }
+
+export type OwnerGrowthPaidLiveExecutionStep = {
+  step_key: string;
+  step_order: number;
+  resource_kind: string;
+  operation: string;
+  status: string;
+  attempt_count: number;
+  provider_object_ref: string | null;
+  manual_review_required: boolean;
+  last_error_code: string | null;
+};
+
+export type OwnerGrowthPaidLiveExecution = {
+  id: string;
+  campaign_id: string;
+  pilot_id: string;
+  provider: "meta";
+  scope_ref: string;
+  creative_identity_ref: string;
+  plan_version: string;
+  plan_digest: string;
+  status: string;
+  authorized: boolean;
+  manual_review_required: boolean;
+  provider_write_calls_completed: number;
+  spend_executed: false;
+  automatic_execution_allowed: false;
+  raw_provider_object_ids_returned: false;
+  steps: OwnerGrowthPaidLiveExecutionStep[];
+};
+
+export function fetchOwnerGrowthPaidCampaignLiveExecution(
+  campaignId: string,
+): Promise<OwnerGrowthPaidLiveExecution> {
+  return apiClient.get(
+    `/owner/growth-social/paid-campaigns/${campaignId}/live-execution`,
+  );
+}
+
+export function prepareOwnerGrowthPaidCampaignLiveExecution(
+  campaignId: string,
+): Promise<OwnerGrowthPaidLiveExecution> {
+  return apiClient.post(
+    `/owner/growth-social/paid-campaigns/${campaignId}/live-execution/prepare`,
+  );
+}
+
+export function executeOwnerGrowthPaidCampaignPausedGraph(
+  campaignId: string,
+  executionId: string,
+  input: { plan_digest: string; confirmation: string },
+): Promise<OwnerGrowthPaidLiveExecution> {
+  return apiClient.post(
+    `/owner/growth-social/paid-campaigns/${campaignId}/live-execution/${executionId}/execute-paused`,
+    input,
+  );
+}

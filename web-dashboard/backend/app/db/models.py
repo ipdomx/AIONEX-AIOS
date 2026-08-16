@@ -1807,6 +1807,117 @@ class GrowthPaidAd(Base, TimestampMixin):
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
 
+class GrowthPaidLiveExecution(Base, TimestampMixin):
+    __tablename__ = "growth_paid_live_executions"
+    __table_args__ = (
+        UniqueConstraint(
+            "campaign_id",
+            "plan_digest",
+            name="uq_growth_paid_live_execution_campaign_plan",
+        ),
+        Index(
+            "ix_growth_paid_live_executions_org_status_created",
+            "organization_id",
+            "status",
+            "created_at",
+        ),
+        Index(
+            "ix_growth_paid_live_executions_pilot_status",
+            "pilot_id",
+            "status",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    campaign_id: Mapped[str] = mapped_column(
+        ForeignKey("growth_paid_campaigns.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    pilot_id: Mapped[str] = mapped_column(
+        ForeignKey("growth_controlled_pilots.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    provider: Mapped[str] = mapped_column(String(40), default="meta", nullable=False)
+    scope_ref: Mapped[str] = mapped_column(String(255), nullable=False)
+    creative_identity_ref: Mapped[str] = mapped_column(String(96), nullable=False)
+    plan_version: Mapped[str] = mapped_column(String(80), nullable=False)
+    plan_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32), default="prepared", nullable=False, index=True
+    )
+    authorized_by_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    authorized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    manual_review_required: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    provider_call_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    spend_executed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    automatic_execution_allowed: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class GrowthPaidLiveExecutionStep(Base, TimestampMixin):
+    __tablename__ = "growth_paid_live_execution_steps"
+    __table_args__ = (
+        UniqueConstraint(
+            "execution_id",
+            "step_key",
+            name="uq_growth_paid_live_execution_step_key",
+        ),
+        UniqueConstraint(
+            "execution_id",
+            "step_order",
+            name="uq_growth_paid_live_execution_step_order",
+        ),
+        Index(
+            "ix_growth_paid_live_execution_steps_execution_status_order",
+            "execution_id",
+            "status",
+            "step_order",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    execution_id: Mapped[str] = mapped_column(
+        ForeignKey("growth_paid_live_executions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    step_key: Mapped[str] = mapped_column(String(100), nullable=False)
+    step_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    resource_kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    resource_id: Mapped[str | None] = mapped_column(String(36))
+    operation: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32), default="pending", nullable=False, index=True
+    )
+    request_digest: Mapped[str | None] = mapped_column(String(64))
+    provider_object_id: Mapped[str | None] = mapped_column(String(64))
+    provider_object_ref: Mapped[str | None] = mapped_column(String(96))
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    provider_call_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
+    provider_call_completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
+    last_error_code: Mapped[str | None] = mapped_column(String(160))
+    manual_review_required: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+
+
 class GrowthPaidExperiment(Base, TimestampMixin):
     __tablename__ = "growth_paid_experiments"
     __table_args__ = (
