@@ -535,6 +535,8 @@
     "resetting": "Wird aktualisiert…",
     "mismatch": "Die Passwörter stimmen nicht überein.",
     "invalidToken": "Der Link ist ungültig oder abgelaufen.",
+    "resetError": "Das Passwort konnte gerade nicht aktualisiert werden. Bitte erneut versuchen.",
+    "samePassword": "Das neue Passwort muss sich vom aktuellen Passwort unterscheiden.",
     "resetSuccess": "Das Passwort wurde aktualisiert. Sie können sich anmelden.",
     "backToLogin": "Zurück zur Anmeldung"
   },

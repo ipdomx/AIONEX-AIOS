@@ -535,6 +535,8 @@
     "resetting": "Actualizando…",
     "mismatch": "Las contraseñas no coinciden.",
     "invalidToken": "El enlace no es válido o ha caducado.",
+    "resetError": "No se pudo actualizar la contraseña ahora. Inténtalo de nuevo.",
+    "samePassword": "La nueva contraseña debe ser diferente de la contraseña actual.",
     "resetSuccess": "La contraseña fue actualizada. Ya puedes iniciar sesión.",
     "backToLogin": "Volver a iniciar sesión"
   },

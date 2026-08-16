@@ -535,6 +535,8 @@
     "resetting": "Güncelleniyor…",
     "mismatch": "Şifreler eşleşmiyor.",
     "invalidToken": "Kurtarma bağlantısı geçersiz veya süresi dolmuş.",
+    "resetError": "Şifre şu anda güncellenemedi. Lütfen tekrar deneyin.",
+    "samePassword": "Yeni şifre mevcut şifrenizden farklı olmalıdır.",
     "resetSuccess": "Şifre güncellendi. Şimdi giriş yapabilirsiniz.",
     "backToLogin": "Girişe dön"
   },

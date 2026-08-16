@@ -7,7 +7,7 @@ import { useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { StatusMessage } from "@/components/ui/status-message";
-import { confirmPasswordReset } from "@/lib/api";
+import { ApiError, confirmPasswordReset } from "@/lib/api";
 
 export function ResetPasswordClient() {
   const t = useTranslations("passwordRecovery");
@@ -20,7 +20,8 @@ export function ResetPasswordClient() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const password = String(form.get("password") || "");
     const confirmation = String(form.get("confirmation") || "");
     setError("");
@@ -36,10 +37,19 @@ export function ResetPasswordClient() {
     setBusy(true);
     try {
       await confirmPasswordReset(token, password);
-      event.currentTarget.reset();
+      formElement.reset();
+      if (typeof window !== "undefined") {
+        window.history.replaceState(null, "", window.location.pathname);
+      }
       setSuccess(t("resetSuccess"));
-    } catch {
-      setError(t("invalidToken"));
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 400) {
+        setError(t("invalidToken"));
+      } else if (cause instanceof ApiError && cause.status === 409) {
+        setError(t("samePassword"));
+      } else {
+        setError(t("resetError"));
+      }
     } finally {
       setBusy(false);
     }
@@ -92,7 +102,7 @@ export function ResetPasswordClient() {
               type="submit"
               size="lg"
               className="w-full"
-              disabled={busy || !token}
+              disabled={busy || !token || Boolean(success)}
             >
               {busy ? (
                 <LoaderCircle className="h-4 w-4 animate-spin" />
