@@ -118,7 +118,9 @@ def _deliver_password_reset(email: str, raw_token: str) -> None:
     reset_url = f"{settings.PASSWORD_RESET_URL_BASE}?token={quote(raw_token, safe='')}"
     message = EmailMessage()
     message["Subject"] = "Reset your AIONEX AIOS password"
-    message["From"] = settings.SMTP_USER or "noreply@aionex.local"
+    message["From"] = (
+        settings.SMTP_FROM_EMAIL or settings.SMTP_USER or "noreply@aionex.local"
+    )
     message["To"] = email
     message.set_content(
         "A password reset was requested for your AIONEX AIOS account.\n\n"

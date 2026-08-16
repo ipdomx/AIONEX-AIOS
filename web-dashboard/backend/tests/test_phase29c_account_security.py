@@ -305,6 +305,7 @@ def test_password_reset_delivery_supports_implicit_ssl_and_starttls(
 
         def send_message(self, message):
             calls.append(("send", message["To"]))
+            calls.append(("from", message["From"]))
             return {}
 
     class _SMTP(_SMTPBase):
@@ -316,7 +317,10 @@ def test_password_reset_delivery_supports_implicit_ssl_and_starttls(
     monkeypatch.setattr(account_security.smtplib, "SMTP", _SMTP)
     monkeypatch.setattr(account_security.smtplib, "SMTP_SSL", _SMTPSSL)
     monkeypatch.setattr(account_security.settings, "SMTP_HOST", "mail.example.invalid")
-    monkeypatch.setattr(account_security.settings, "SMTP_USER", "sender@example.invalid")
+    monkeypatch.setattr(account_security.settings, "SMTP_USER", "resend")
+    monkeypatch.setattr(
+        account_security.settings, "SMTP_FROM_EMAIL", "sender@example.invalid"
+    )
     monkeypatch.setattr(account_security.settings, "SMTP_PASSWORD", "test-password")
     monkeypatch.setattr(account_security.settings, "SMTP_PORT", 465)
     monkeypatch.setattr(account_security.settings, "SMTP_SSL", True)
@@ -324,8 +328,9 @@ def test_password_reset_delivery_supports_implicit_ssl_and_starttls(
 
     account_security._deliver_password_reset("person@example.invalid", "token-value")
     assert ("starttls", True) not in calls
-    assert ("login", "sender@example.invalid") in calls
+    assert ("login", "resend") in calls
     assert ("send", "person@example.invalid") in calls
+    assert ("from", "sender@example.invalid") in calls
     ssl_init = next(value for name, value in calls if name == "init")
     assert ssl_init[0][:2] == ("mail.example.invalid", 465)
     assert "context" in ssl_init[1]
