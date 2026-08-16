@@ -1138,6 +1138,14 @@ class FullProjectCycle:
             "",
             *([f"- {item}" for item in release.get("rework_plan") or []] or ["- None"]),
             "",
+            "## Built targets",
+            "",
+            *([f"- `{item}`" for item in ((implementation or {}).get("project_profile") or {}).get("targets", [])] or ["- Dedicated governed runtime or planning-only delivery"]),
+            "",
+            "## External activation gates",
+            "",
+            *([f"- {item}" for item in (implementation or {}).get("activation_gates", [])] or ["- None within the proven local build scope"]),
+            "",
         ]
         cls._atomic_write_text(package_dir / "README.md", "\n".join(overview))
         files.append(
@@ -1257,10 +1265,12 @@ class FullProjectCycle:
             "source_type": "validated-engineering-delivery-package",
             "contains_executable_product": implementation is not None,
             "executable_scope": (
-                str(implementation.get("executable_scope") or "controlled-full-stack-web-prototype")
+                str(implementation.get("executable_scope") or "universal-multi-target-project-source")
                 if implementation is not None
                 else None
             ),
+            "project_profile": dict(implementation.get("project_profile") or {}) if implementation is not None else {},
+            "activation_gates": list(implementation.get("activation_gates") or []) if implementation is not None else [],
             "executable_files": executable_files,
             "claim_boundary": (
                 "This package contains tested executable source and governed evidence within the proven implementation scope. "
@@ -1281,6 +1291,8 @@ class FullProjectCycle:
             "files_count": len(files) + 1,
             "contains_executable_product": implementation is not None,
             "executable_scope": package_manifest["executable_scope"],
+            "project_profile": package_manifest["project_profile"],
+            "activation_gates": package_manifest["activation_gates"],
         }
 
     @classmethod
@@ -1425,10 +1437,14 @@ class FullProjectCycle:
             raise FullProjectCycleValidationError(
                 "implementation rollback archive is invalid"
             )
-        application_type = str(manifest.get("application_type") or "web_application")
+        application_type = str(manifest.get("application_type") or "universal_application")
         test_checks = dict((manifest.get("tests") or {}).get("checks") or {})
+        project_profile = dict(manifest.get("project_profile") or {})
+        profile_targets = set(project_profile.get("targets") or [])
+        profile_capabilities = set(project_profile.get("capabilities") or [])
         capabilities = {
-            "authentication": bool(test_checks.get("member_authentication")),
+            "authentication": bool(test_checks.get("member_authentication"))
+            or "authentication" in profile_capabilities,
             "member_directory": bool(test_checks.get("member_directory")),
             "realtime_communications": bool(test_checks.get("webrtc_runtime_present"))
             and bool(test_checks.get("signaling_round_trip")),
@@ -1437,10 +1453,12 @@ class FullProjectCycle:
                 test_checks.get("sqlite_persistence")
                 or test_checks.get("api_create_read_delete")
             ),
-            "native_mobile": False,
-            "payments": False,
+            "native_mobile": "mobile" in profile_targets,
+            "payments": "commerce" in profile_targets,
             "production_deployment": False,
-            "external_integration": False,
+            "external_integration": bool(
+                profile_targets.intersection({"bot", "ai", "browser_extension"})
+            ),
             "public_realtime_relay": False,
         }
         return {
@@ -1463,8 +1481,10 @@ class FullProjectCycle:
             "executable_scope": (
                 "realtime-communications-web-application"
                 if application_type == "realtime_communications"
-                else "controlled-full-stack-web-prototype"
+                else "universal-multi-target-project-source"
             ),
+            "project_profile": project_profile,
+            "activation_gates": list(project_profile.get("external_gates") or []),
             "capabilities": capabilities,
             "production_modified": False,
             "fallback_used": False,
