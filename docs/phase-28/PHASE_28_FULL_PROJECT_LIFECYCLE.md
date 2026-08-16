@@ -301,3 +301,12 @@ primitives, invalid JSON/TOML, syntax errors, unsafe identifiers, and target/fil
 count/size violations. The local governed preview remains loopback-only and no successful
 source build by itself claims production deployment, store publication, live payment,
 external provider activation or hardware validation.
+
+## Universal governed project builder — production closeout — 2026-08-17
+
+- Final production source for this rollout is `ff51566dfeba38be8b1df1a6bf07eeed4a47a124`, incorporating PR #382 (real full-cycle default and plan gate), PR #384 (Universal Governed Project Builder), and PR #385 (Domain Blueprint SHA-256/count integrity binding).
+- Backend, Project Worker and the alternate Portal container were rebuilt and recreated from final `main`; all are healthy. No Alembic migration was needed and production remains at `20260816_0027 (head)`.
+- The active VIP shared-hosting portal was rebuilt/verified and deployed with backup `/home2/ipdom3m7/.aionex-deploy-backups/20260816T212433Z-ai-vip-before-universal-project-builder`; post-deploy package-owned SHA-256 parity is `296/296` exact.
+- Live `/en/projects/` and `/ar/projects/` return HTTP `200` and expose the new full governed project-cycle wording. The public project API remains HTTP `401` unauthenticated.
+- Owner Frontend required no rebuild because this deployment contains zero Owner frontend file changes; its private/public/Cloudflare Access boundaries remained healthy.
+- Production acceptance created no project execution, campaign, provider mutation or advertising spend. The complete cross-component deployment and paid-campaign state is recorded in `docs/release-candidate/AIONEX_PRODUCTION_DEPLOYMENT_CLOSEOUT_2026-08-17.md`.
