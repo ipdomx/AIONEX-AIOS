@@ -615,7 +615,7 @@ def test_runner_executes_planning_prototype_and_full_governance_without_network(
     monkeypatch.setattr(settings, "PROJECT_EXECUTION_BUDGET_CAP_USD", 0.05)
 
     specification = {
-        "schema_version": 2,
+        "schema_version": 3,
         "application_type": "web_application",
         "title": "Governed Project Workspace",
         "tagline": "A transparent workflow for controlled project delivery.",
@@ -642,6 +642,27 @@ def test_runner_executes_planning_prototype_and_full_governance_without_network(
             "data": "SQLite persistence",
             "realtime": "No realtime runtime requested",
             "deployment": "Local governed delivery package only",
+        },
+        "domain_blueprint": {
+            "roles": ["member", "operator"],
+            "entities": [
+                {
+                    "name": "project_record",
+                    "label": "Project record",
+                    "fields": [
+                        {"name": "title", "type": "string", "required": True},
+                        {"name": "notes", "type": "text", "required": False},
+                        {"name": "active", "type": "boolean", "required": True},
+                    ],
+                }
+            ],
+            "workflows": [
+                {
+                    "name": "Create project record",
+                    "trigger": "member submits a valid record",
+                    "steps": ["validate input", "persist record", "return governed result"],
+                }
+            ],
         },
         "sections": [
             {

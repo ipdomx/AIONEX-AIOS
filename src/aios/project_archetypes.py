@@ -6,10 +6,33 @@ from typing import Any, Mapping
 
 
 REALTIME_TERMS = (
-    "webrtc", "video call", "voice call", "audio call", "calling", "conference",
-    "realtime communication", "real-time communication", "مكالم", "اتصال", "اتصالات",
-    "صوت", "فيديو", "محادثة صوت", "محادثة فيديو",
+    "webrtc",
+    "video call",
+    "voice call",
+    "audio call",
+    "calling app",
+    "video conference",
+    "voice conference",
+    "realtime communication",
+    "real-time communication",
+    "مكالم",
+    "محادثة صوت",
+    "محادثة فيديو",
+    "اتصال صوتي",
+    "اتصال مرئي",
 )
+
+
+def is_realtime_objective(objective: str) -> bool:
+    lowered = objective.casefold()
+    if any(term.casefold() in lowered for term in REALTIME_TERMS):
+        return True
+    arabic_communication = any(term in lowered for term in ("اتصال", "اتصالات", "محادثة"))
+    arabic_media = any(term in lowered for term in ("صوت", "فيديو", "صوره", "صورة"))
+    english_communication = any(term in lowered for term in ("call", "calling", "conference", "communication"))
+    english_media = any(term in lowered for term in ("audio", "voice", "video"))
+    return (arabic_communication and arabic_media) or (english_communication and english_media)
+
 MOBILE_TERMS = (
     "mobile app", "android", "ios", "تطبيق موبايل", "تطبيق هاتف",
     "اندرويد", "أندرويد", "ايفون", "آيفون",
@@ -18,14 +41,15 @@ API_TERMS = ("api service", "backend api", "rest api", "خدمة api", "واجه
 
 
 def infer_application_type(objective: str, declared: str) -> str:
-    lowered = objective.lower()
-    if any(term in lowered for term in REALTIME_TERMS):
+    """Select the governed implementation family without rejecting valid project ideas.
+
+    Realtime communications keeps its dedicated hardened runtime. Every other legal,
+    buildable project is routed to the universal capability composer, which can emit
+    multiple targets (web/API/mobile/desktop/AI/data/bots/etc.) in one delivery.
+    """
+    if is_realtime_objective(objective):
         return "realtime_communications"
-    if any(term in lowered for term in MOBILE_TERMS):
-        return "mobile_application"
-    if any(term in lowered for term in API_TERMS):
-        return "api_service"
-    return declared
+    return "universal_application"
 
 
 def render_realtime_communications(
@@ -165,7 +189,7 @@ USERNAME=re.compile(r"^[A-Za-z0-9_.-]{3,40}$")
 SIGNAL_TYPES={"offer","answer","ice","hangup"}
 
 def _hash_password(password:str,salt:bytes)->str:
-    return hashlib.pbkdf2_hmac("sha256",password.encode("utf-8"),salt,200_000).hex()
+    return hashlib.scrypt(password.encode("utf-8"),salt=salt,n=2**15,r=8,p=1,maxmem=64*1024*1024,dklen=32).hex()
 
 def initialize(database_path:Path)->None:
     with sqlite3.connect(database_path) as db:
@@ -288,7 +312,7 @@ This delivery is a functional governed **realtime communications web application
 
 ## Implemented runtime
 
-- Local member registration and password authentication using PBKDF2-SHA256 + per-user salts.
+- Local member registration and password authentication using memory-hard scrypt + per-user salts.
 - HttpOnly same-site sessions and CSRF protection for authenticated mutations.
 - Member directory and same-origin signaling queue backed by SQLite.
 - Browser-native WebRTC audio/video (`getUserMedia` + `RTCPeerConnection`).

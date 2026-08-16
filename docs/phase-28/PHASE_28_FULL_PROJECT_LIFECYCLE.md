@@ -198,7 +198,7 @@ If any plan gate fails, implementation does not start. The execution returns `re
 
 The first specialized production archetype is `realtime_communications`, added specifically because the live acceptance case requested registered-member high-quality voice/video calling. Its delivery implements and tests:
 
-- member registration and PBKDF2-SHA256 password authentication;
+- member registration and memory-hard scrypt password authentication;
 - HttpOnly SameSite sessions and CSRF validation;
 - member directory and SQLite persistence;
 - offer/answer/ICE/hangup same-origin signaling;
@@ -207,8 +207,95 @@ The first specialized production archetype is `realtime_communications`, added s
 - deterministic SVG logo and web-app manifest; and
 - fail-closed ICE configuration with no hidden third-party relay or credential.
 
-Public-internet WebRTC is **not** claimed complete merely because local runtime tests pass. The final release remains blocked until audited HTTPS and STUN/TURN infrastructure exist and are accepted. Other application types continue to use their currently proven implementation scope until a specialized archetype exists; the release scope checker blocks capabilities that have not been executed and evidenced.
+Public-internet WebRTC is **not** claimed complete merely because local runtime tests pass. The final release remains blocked until audited HTTPS and STUN/TURN infrastructure exist and are accepted. Non-realtime projects route through the universal modular composer described below; project types are not rejected because a named builder is absent. The release scope checker still blocks only capabilities or activation steps that have not been executed and evidenced.
 
 ### Delivery-package correction
 
 The final project download now carries executable source directly under `delivery-package/source/`, the governed `plan-review.json`, department evidence, deterministic test/rollback artifacts, and the nested rollback archive. This replaces the confusing situation where executable files were only nested inside a second ZIP and ensures the downloaded package exposes exactly what AIOS actually built and reviewed.
+
+## Universal modular project builder — 2026-08-16
+
+The governed project cycle no longer treats a legal/buildable project family as an
+`unsupported builder`. After the six-department plan gate, realtime calling keeps its
+hardened WebRTC archetype and every other project routes through a deterministic
+capability composer. The composer can combine multiple targets in one delivery instead
+of forcing the idea into a single application type.
+
+### Domain Blueprint v3
+
+The provider is still forbidden from returning executable source. Its implementation
+response is a strict schema-v3 product specification containing bounded branding,
+architecture, features and a validated `domain_blueprint` with safe roles, entities,
+field types and workflows. AIOS validates identifiers, duplicate/reserved fields,
+counts, lengths and exact keys before source generation. Deterministic AIOS modules then
+turn that reviewed blueprint into typed domain models, SQL, API resources and client
+views. This prevents the old generic-CRUD problem without allowing model text to become
+arbitrary code.
+
+Every universal package carries a `domain` target plus the targets inferred from the
+idea. The current registry covers:
+
+- web/SaaS/portals and responsive PWAs;
+- REST/domain APIs and serverless functions;
+- Android/iOS mobile applications;
+- Windows/macOS/Linux desktop source;
+- browser extensions;
+- member accounts/authentication and session boundaries;
+- Telegram/WhatsApp/Discord-style bot/messaging adapters;
+- AI/RAG/agent applications with local fallback boundaries;
+- data/ETL/analytics pipelines and relational databases/migrations;
+- e-commerce/catalog/cart/order/subscription domains;
+- 2D games, WebGL/3D and WebXR/AR/VR source;
+- IoT/firmware plus simulation, and robotics/ROS 2 adapter boundaries;
+- cloud/container/IaC baselines;
+- Solidity smart contracts;
+- reusable SDK/library packages;
+- editable media/storyboard/vector production packages; and
+- CLI/automation/operator tooling.
+
+An idea that does not match a named family still receives a governed domain + web/API +
+CLI baseline rather than an unsupported response. New families can be added as composer
+modules without changing the governance cycle.
+
+### Current validated technology baselines
+
+- web: Next.js `16.2.11`, React `19.2.3`, ESLint 9; production lint/type/build verified in a no-secret constrained Node 24 container;
+- API: FastAPI `0.141.1`, Uvicorn `0.52.0`, Pydantic `2.13.4`; health/domain CRUD and the protected auth flow verified in a constrained Python 3.14.6 container;
+- mobile: Expo SDK `57.0.9`, React Native `0.86.2`, React `19.2.3`; `expo-doctor` passes `21/21` checks; the removed `newArchEnabled` compatibility flag is rejected;
+- desktop: Tauri `2.11.5` with `tauri-build 2.6.3`, explicit `core:default` capability and self-only CSP; Cargo metadata verified with Rust/Cargo `1.97.1`;
+- browser extension: Manifest V3, no host permissions and no remotely hosted code;
+- smart contract: Solidity `0.8.36` pinned exactly; the generated contract compiles with the official `solc` npm distribution and high-risk primitives are rejected;
+- IoT: C17 source compiles with warnings promoted to errors and is paired with a Python simulator;
+- database/domain SQL: executed successfully against disposable PostgreSQL 16;
+- Python library, serverless, robotics, AI/data/commerce and CLI targets: import/execution smokes pass without production secrets.
+
+### Integrated authentication
+
+When the idea requests accounts/members/login, the universal API adds real local
+registration/login/session routes. Passwords use stdlib `scrypt` with per-password salts;
+session tokens are random, only their SHA-256 hashes are persisted, they expire, and
+logout revokes them. Domain CRUD becomes authentication-protected. Identity federation,
+MFA, email verification and recovery may later attach through governed provider/config
+activation gates without embedding credentials in generated source.
+
+### Activation gates are not unsupported builders
+
+`PROJECT_PROFILE.json` records selected targets, proven local capabilities, exact
+technology defaults and external activation gates. AIOS builds all source it can prove
+locally, then stops only at the external action that cannot be truthfully fabricated.
+Examples include Apple/Google store signing, platform code signing, live payment or AI
+provider credentials, messaging-provider credentials, public STUN/TURN, blockchain
+wallet/RPC deployment authority, cloud/IaC apply credentials, generated 3D assets, XR or
+robotics device validation, and physical hardware validation. These gates do not make
+the project type unsupported and do not erase already-built source.
+
+### Fail-closed generation security
+
+Model output is structured data only; deterministic reviewed AIOS modules emit
+executable source. Generated packages reject install lifecycle scripts, shell/network
+bootstrap commands, dangerous Python execution/network primitives, broad browser host
+permissions, remote or over-broad Tauri capabilities, unsafe CSP, high-risk Solidity
+primitives, invalid JSON/TOML, syntax errors, unsafe identifiers, and target/file
+count/size violations. The local governed preview remains loopback-only and no successful
+source build by itself claims production deployment, store publication, live payment,
+external provider activation or hardware validation.

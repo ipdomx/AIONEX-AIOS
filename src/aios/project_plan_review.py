@@ -194,12 +194,9 @@ class GovernedProjectPlanReviewer:
         )
         blockers = list(chief.blocking_findings)
         application_type = infer_application_type(objective, "web_application")
-        supported_build_types = {"realtime_communications", "web_application"}
+        supported_build_types = {"realtime_communications", "universal_application"}
         if application_type not in supported_build_types:
-            blockers.append(
-                f"AIOS implementation builder does not yet support {application_type}; "
-                "return the plan for a supported builder before implementation"
-            )
+            blockers.append("project implementation routing is internally inconsistent")
         if wisdom.selected is None or wisdom.selected.name != "implement-reviewed-plan":
             blockers.append("wisdom council requires plan rework before implementation")
         if government["verdict"] != "approved":
