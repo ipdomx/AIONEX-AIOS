@@ -45,13 +45,19 @@
   }
 
   html {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
     scroll-behavior: smooth;
     background: var(--page);
   }
 
   body {
+    width: 100%;
+    max-width: 100%;
     min-height: 100vh;
     margin: 0;
+    overflow-x: hidden;
     background:
       radial-gradient(circle at 12% 12%, rgba(32, 204, 244, 0.08), transparent 28rem),
       radial-gradient(circle at 88% 10%, rgba(139, 92, 246, 0.1), transparent 30rem),
@@ -105,10 +111,14 @@
   .page-shell {
     width: 100%;
     max-width: var(--portal-max-width);
+    min-width: 0;
     @apply mx-auto px-4 sm:px-6 lg:px-8;
   }
 
   .site-frame {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     background: transparent;
     color: var(--text);
   }
@@ -284,6 +294,16 @@ html.light .field-control,
 html.light input,
 html.light textarea,
 html.light select { color: #09111e; }
+
+/* iOS Safari zooms focused form controls whose computed font size is below 16px.
+   Keep mobile controls at 16px while preserving the compact desktop typography. */
+@media (max-width: 639px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *,
