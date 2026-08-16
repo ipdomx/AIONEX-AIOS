@@ -20,6 +20,7 @@ from app.services import growth_social_accounts as social
 
 
 def test_raw_credentials_are_rejected_and_external_refs_are_accepted() -> None:
+    assert "ad_account" in social.ACCOUNT_KINDS
     with pytest.raises(
         social.GrowthSocialAccountError, match="credential-value-rejected"
     ):

@@ -834,6 +834,13 @@
     "selectCurrency": "Para birimi seçin",
     "selectProvider": "Platform seçin",
     "currencyRequired": "Kampanya para birimini seçin.",
-    "providerRequired": "Reklam platformunu seçin."
+    "providerRequired": "Reklam platformunu seçin.",
+    "adAccount": "Bağlı reklam hesabı",
+    "linkedProvider": "Bağlı platform",
+    "accountCurrency": "Reklam hesabı para birimi",
+    "accountRequired": "Bağlı bir reklam hesabı seçin.",
+    "objectiveLiveReady": "Meta canlı yoluna hazır",
+    "objectiveAnalysisOnly": "Yalnızca analiz",
+    "objectiveSupportNote": "Trafik şu anda Meta canlı yolunda desteklenir. Satış, potansiyel müşteri ve farkındalık canlı destek tamamlanana kadar yalnızca analiz/simülasyondur."
   }
 }

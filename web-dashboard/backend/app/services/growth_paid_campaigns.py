@@ -21,6 +21,7 @@ from app.db.models import (
     GrowthPaidDecision,
     GrowthPaidExperiment,
     GrowthPaidLaunchSimulation,
+    GrowthSocialAccount,
 )
 from app.services import growth_access
 
@@ -31,6 +32,12 @@ class GrowthPaidCampaignError(Exception):
 
 MAX_MONEY_MINOR = 9_000_000_000_000_000_000
 MAX_ROAS = 1_000_000.0
+
+AD_ACCOUNT_KIND = "ad_account"
+LIVE_META_PROVIDERS = {"facebook", "instagram"}
+LIVE_READY_OBJECTIVES = {"traffic"}
+ANALYSIS_ONLY_OBJECTIVES = {"sales", "leads", "awareness"}
+SUPPORTED_OBJECTIVES = LIVE_READY_OBJECTIVES | ANALYSIS_ONLY_OBJECTIVES
 
 SAFE_PROVIDERS = {
     "facebook",
@@ -103,6 +110,130 @@ async def _require(session: AsyncSession, actor: UserRecord) -> None:
     decision = await growth_access.effective_access(session, actor, "ads.manage")
     if not decision.allowed:
         raise GrowthPaidCampaignError(f"access-denied:{decision.reason}")
+
+
+def _linked_account_currency(row: GrowthSocialAccount) -> str | None:
+    for source in (row.provider_metadata or {}, row.settings or {}):
+        raw = str(source.get("currency") or "").strip().upper()
+        if re.fullmatch(r"[A-Z]{3}", raw):
+            return raw
+    return None
+
+
+def _linked_account_public(row: GrowthSocialAccount) -> dict[str, Any]:
+    provider = str(row.provider or "").strip().lower()
+    return {
+        "id": row.id,
+        "provider": provider,
+        "display_name": row.display_name,
+        "currency": _linked_account_currency(row),
+        "live_objectives": (
+            sorted(LIVE_READY_OBJECTIVES) if provider in LIVE_META_PROVIDERS else []
+        ),
+    }
+
+
+def _linked_account_is_ready(row: GrowthSocialAccount, *, now: datetime) -> bool:
+    if row.account_kind != AD_ACCOUNT_KIND or row.status != "active":
+        return False
+    if not row.credential_ref or str(row.provider or "").lower() not in SAFE_PROVIDERS:
+        return False
+    if row.token_expires_at is not None and row.token_expires_at <= now:
+        return False
+    return _linked_account_currency(row) is not None
+
+
+async def campaign_readiness(
+    session: AsyncSession, actor: UserRecord
+) -> dict[str, Any]:
+    ads = await growth_access.effective_access(session, actor, "ads.manage")
+    social = await growth_access.effective_access(session, actor, "social.accounts")
+    base = {
+        "ads_manage_allowed": bool(ads.allowed),
+        "social_accounts_allowed": bool(social.allowed),
+        "linked_ad_accounts": [],
+        "campaigns_visible": False,
+        "live_provider_mutation_allowed": False,
+        "automatic_execution_allowed": False,
+        "objectives": {
+            objective: (
+                "live-meta-ready"
+                if objective in LIVE_READY_OBJECTIVES
+                else "analysis-only"
+            )
+            for objective in sorted(SUPPORTED_OBJECTIVES)
+        },
+    }
+    if not ads.allowed:
+        return {**base, "reason": f"ads-manage-{ads.reason}"}
+    if not social.allowed:
+        return {**base, "reason": f"social-accounts-{social.reason}"}
+
+    rows = list(
+        await session.scalars(
+            select(GrowthSocialAccount)
+            .where(
+                GrowthSocialAccount.organization_id == actor.organization_id,
+                GrowthSocialAccount.account_kind == AD_ACCOUNT_KIND,
+            )
+            .order_by(
+                GrowthSocialAccount.provider, GrowthSocialAccount.created_at.desc()
+            )
+        )
+    )
+    now = _now()
+    ready = [row for row in rows if _linked_account_is_ready(row, now=now)]
+    accounts = [_linked_account_public(row) for row in ready]
+    if not rows:
+        reason = "no-linked-ad-account"
+    elif not ready:
+        reason = "linked-ad-account-not-ready"
+    else:
+        reason = "ready"
+    return {
+        **base,
+        "linked_ad_accounts": accounts,
+        "campaigns_visible": bool(accounts),
+        "reason": reason,
+    }
+
+
+async def resolve_linked_ad_account(
+    session: AsyncSession, actor: UserRecord, account_id: str
+) -> dict[str, Any]:
+    await _require(session, actor)
+    social = await growth_access.effective_access(session, actor, "social.accounts")
+    if not social.allowed:
+        raise GrowthPaidCampaignError(f"access-denied:{social.reason}")
+    row = await session.scalar(
+        select(GrowthSocialAccount).where(
+            GrowthSocialAccount.id == str(account_id or "").strip(),
+            GrowthSocialAccount.organization_id == actor.organization_id,
+        )
+    )
+    if row is None or row.account_kind != AD_ACCOUNT_KIND:
+        raise GrowthPaidCampaignError("linked-ad-account-not-found")
+    if row.status != "active":
+        raise GrowthPaidCampaignError("linked-ad-account-not-active")
+    if not row.credential_ref:
+        raise GrowthPaidCampaignError("linked-ad-account-not-authenticated")
+    if row.token_expires_at is not None and row.token_expires_at <= _now():
+        raise GrowthPaidCampaignError("linked-ad-account-credential-expired")
+    provider = str(row.provider or "").strip().lower()
+    if provider not in SAFE_PROVIDERS:
+        raise GrowthPaidCampaignError("linked-ad-account-provider-unsupported")
+    currency = _linked_account_currency(row)
+    if currency is None:
+        raise GrowthPaidCampaignError("linked-ad-account-currency-unavailable")
+    return {
+        "id": row.id,
+        "provider": provider,
+        "display_name": row.display_name,
+        "currency": currency,
+        "live_objectives": (
+            sorted(LIVE_READY_OBJECTIVES) if provider in LIVE_META_PROVIDERS else []
+        ),
+    }
 
 
 def _safe_budget(total: int, daily: int) -> None:
@@ -246,6 +377,15 @@ async def prepare_and_simulate_campaign(
                 "prepared_by": "user-campaign-advisor",
                 "aios_advice_only": True,
                 "budget_mutation_allowed": False,
+                **(
+                    {
+                        "linked_ad_account_id": str(payload["linked_ad_account_id"]),
+                        "linked_ad_account_provider": str(payload["provider"]),
+                        "linked_ad_account_currency": str(payload["currency"]),
+                    }
+                    if payload.get("linked_ad_account_id")
+                    else {}
+                ),
             },
         },
     )
@@ -364,9 +504,19 @@ async def add_ad_set(
 ) -> GrowthPaidAdSet:
     await _require(session, actor)
     campaign = await _campaign(session, actor, campaign_id)
-    provider = str(payload["provider"]).lower()
+    bound_provider = (
+        str(
+            dict(campaign.campaign_metadata or {}).get("linked_ad_account_provider")
+            or ""
+        )
+        .strip()
+        .lower()
+    )
+    provider = str(payload.get("provider") or bound_provider).strip().lower()
     if provider not in SAFE_PROVIDERS:
         raise GrowthPaidCampaignError("unsupported-provider")
+    if bound_provider and provider != bound_provider:
+        raise GrowthPaidCampaignError("linked-ad-account-provider-mismatch")
     daily = int(payload["daily_budget_cap_minor"])
     if daily <= 0 or daily > campaign.daily_budget_cap_minor:
         raise GrowthPaidCampaignError("adset-daily-cap-invalid")

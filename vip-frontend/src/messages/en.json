@@ -834,6 +834,13 @@
     "selectCurrency": "Select currency",
     "selectProvider": "Select platform",
     "currencyRequired": "Select the campaign currency.",
-    "providerRequired": "Select the advertising platform."
+    "providerRequired": "Select the advertising platform.",
+    "adAccount": "Linked advertising account",
+    "linkedProvider": "Linked platform",
+    "accountCurrency": "Advertising account currency",
+    "accountRequired": "Select a linked advertising account.",
+    "objectiveLiveReady": "Meta live-path ready",
+    "objectiveAnalysisOnly": "Analysis only",
+    "objectiveSupportNote": "Traffic is currently supported by the Meta live path. Sales, leads and awareness remain analysis/simulation only until live support is completed."
   }
 }

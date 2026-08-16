@@ -56,3 +56,80 @@ test("VIP public mobile pages do not create root horizontal overflow", async ({ 
     expect(layout.bodyScrollWidth, path).toBeLessThanOrEqual(layout.bodyWidth + 1);
   }
 });
+
+async function allowVipSession(page: Page) {
+  await page.route("**/api/v1/auth/me", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: "user-campaign-test",
+        email: "campaign@example.invalid",
+        name: "Campaign User",
+        role: "User",
+        status: "active",
+        permissions: [],
+        organization: { id: "org-campaign-test", name: "Campaign Test", plan: "pro" },
+      }),
+    });
+  });
+}
+
+test("campaign navigation stays hidden until an advertising account is ready", async ({ page }) => {
+  await allowVipSession(page);
+  await page.route("**/api/v1/growth-social/paid-campaigns/readiness", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ads_manage_allowed: false,
+        social_accounts_allowed: false,
+        linked_ad_accounts: [],
+        campaigns_visible: false,
+        reason: "ads-manage-not-entitled",
+        live_provider_mutation_allowed: false,
+        automatic_execution_allowed: false,
+        objectives: { traffic: "live-meta-ready", sales: "analysis-only", leads: "analysis-only", awareness: "analysis-only" },
+      }),
+    });
+  });
+  await page.goto("/en/dashboard");
+  await expect(page.getByRole("link", { name: "Campaigns" })).toHaveCount(0);
+  await page.goto("/en/campaigns");
+  await expect(page).toHaveURL(/\/en\/dashboard$/);
+});
+
+test("campaign form derives provider and currency from the linked advertising account", async ({ page }) => {
+  await allowVipSession(page);
+  await page.route("**/api/v1/growth-social/paid-campaigns/readiness", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ads_manage_allowed: true,
+        social_accounts_allowed: true,
+        linked_ad_accounts: [{ id: "ad-account-1", provider: "facebook", display_name: "Meta Ads UAE", currency: "EUR", live_objectives: ["traffic"] }],
+        campaigns_visible: true,
+        reason: "ready",
+        live_provider_mutation_allowed: false,
+        automatic_execution_allowed: false,
+        objectives: { traffic: "live-meta-ready", sales: "analysis-only", leads: "analysis-only", awareness: "analysis-only" },
+      }),
+    });
+  });
+  await page.route("**/api/v1/growth-social/paid-campaigns", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) });
+      return;
+    }
+    await route.continue();
+  });
+  await page.goto("/en/campaigns");
+  await expect(page.locator('select:has(option[value="ad-account-1"])')).toHaveValue("ad-account-1");
+  await expect(page.locator('option[value="ad-account-1"]')).toContainText("Meta Ads UAE · facebook");
+  await expect(page.getByText("Advertising account currency")).toBeVisible();
+  await expect(page.getByText("EUR", { exact: true })).toBeVisible();
+  await expect(page.locator('option[value="USD"]')).toHaveCount(0);
+  await expect(page.locator('option[value="traffic"]')).toContainText("Meta live-path ready");
+  await expect(page.locator('option[value="sales"]')).toContainText("Analysis only");
+});

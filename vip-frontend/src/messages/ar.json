@@ -834,6 +834,13 @@
     "selectCurrency": "اختر العملة",
     "selectProvider": "اختر المنصة",
     "currencyRequired": "اختر عملة الحملة.",
-    "providerRequired": "اختر منصة الإعلان."
+    "providerRequired": "اختر منصة الإعلان.",
+    "adAccount": "الحساب الإعلاني المرتبط",
+    "linkedProvider": "المنصة المرتبطة",
+    "accountCurrency": "عملة الحساب الإعلاني",
+    "accountRequired": "اختر حسابًا إعلانيًا مرتبطًا.",
+    "objectiveLiveReady": "جاهز للمسار الحي على Meta",
+    "objectiveAnalysisOnly": "تحليل فقط",
+    "objectiveSupportNote": "الزيارات مدعومة حاليًا في مسار Meta الحي. المبيعات والعملاء المحتملون والوعي متاحة للتحليل والمحاكاة فقط حتى يكتمل دعمها الحي."
   }
 }

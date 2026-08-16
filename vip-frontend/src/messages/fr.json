@@ -834,6 +834,13 @@
     "selectCurrency": "Choisir la devise",
     "selectProvider": "Choisir la plateforme",
     "currencyRequired": "Choisissez la devise de la campagne.",
-    "providerRequired": "Choisissez la plateforme publicitaire."
+    "providerRequired": "Choisissez la plateforme publicitaire.",
+    "adAccount": "Compte publicitaire lié",
+    "linkedProvider": "Plateforme liée",
+    "accountCurrency": "Devise du compte publicitaire",
+    "accountRequired": "Sélectionnez un compte publicitaire lié.",
+    "objectiveLiveReady": "Prêt pour le parcours Meta en direct",
+    "objectiveAnalysisOnly": "Analyse uniquement",
+    "objectiveSupportNote": "Le trafic est actuellement pris en charge par le parcours Meta en direct. Ventes, prospects et notoriété restent limités à l’analyse/simulation."
   }
 }
