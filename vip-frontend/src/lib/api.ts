@@ -27,6 +27,7 @@ import type {
   PaidCampaignPreparationInput,
   PaidCampaignPreparationResult,
   PaidCampaignReadiness,
+  Phase36ProgramSnapshot,
   PortalNotification,
   SupportTicket,
   SupportTicketMessage,
@@ -709,6 +710,13 @@ export function getProjectThreeDArtifactLinks(projectId: string, jobId: string):
   return request<ThreeDArtifactLinks>(
     `/projects/${encodeURIComponent(projectId)}/3d/jobs/${encodeURIComponent(jobId)}/artifact`,
   );
+}
+
+export function getPhase36Capabilities(): Promise<Phase36ProgramSnapshot> {
+  return request<Phase36ProgramSnapshot>("/capabilities/phase36", {
+    auth: false,
+    retry: false,
+  });
 }
 
 export function listProjectExecutions(

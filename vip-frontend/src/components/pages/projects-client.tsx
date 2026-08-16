@@ -37,6 +37,7 @@ import {
   createProject,
   downloadProjectExecution,
   getFreeTierStatus,
+  getPhase36Capabilities,
   listProjectExecutions,
   listProjects,
   listWorkspaces,
@@ -44,6 +45,7 @@ import {
 } from "@/lib/api";
 import type {
   FreeTierStatus,
+  Phase36ProgramSnapshot,
   Project,
   ProjectExecution,
   Workspace,
@@ -70,6 +72,7 @@ export function ProjectsClient() {
     Record<string, ProjectExecution | null>
   >({});
   const [quota, setQuota] = useState<FreeTierStatus | null>(null);
+  const [phase36, setPhase36] = useState<Phase36ProgramSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [executionError, setExecutionError] = useState("");
@@ -128,15 +131,17 @@ export function ProjectsClient() {
     setLoading(true);
     setError("");
     try {
-      const [nextProjects, nextWorkspaces, nextQuota] = await Promise.all([
+      const [nextProjects, nextWorkspaces, nextQuota, nextPhase36] = await Promise.all([
         listProjects(),
         listWorkspaces(),
         getFreeTierStatus(),
+        getPhase36Capabilities(),
       ]);
       const nextExecutions = await fetchLatestExecutions(nextProjects);
       setProjects(nextProjects);
       setWorkspaces(nextWorkspaces);
       setQuota(nextQuota);
+      setPhase36(nextPhase36);
       setExecutions(nextExecutions);
     } catch (cause) {
       setError(errorText(cause, t("loadError")));
@@ -417,6 +422,22 @@ export function ProjectsClient() {
             )}
           </div>
         </div>
+
+        {phase36 && (
+          <div className="glass-panel mt-8 rounded-3xl p-5 sm:p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-electric-200">{t("phase36Title")}</p>
+                <p className="mt-2 max-w-3xl text-sm leading-relaxed text-white/45">{t("phase36Description")}</p>
+              </div>
+              <div className="grid min-w-[260px] grid-cols-3 gap-2 text-center text-xs">
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3"><div className="text-base font-semibold text-white">{phase36.current_batch ?? "—"}</div><div className="mt-1 text-[10px] text-white/35">{t("phase36CurrentBatch")}</div></div>
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3"><div className="text-base font-semibold text-white">{phase36.minimum_concurrent_users.toLocaleString()}</div><div className="mt-1 text-[10px] text-white/35">{t("phase36MinScale")}</div></div>
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3"><div className="text-base font-semibold text-white">{phase36.production_ready_capabilities}/{phase36.total_capabilities}</div><div className="mt-1 text-[10px] text-white/35">{t("phase36ProductionReady")}</div></div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {quota?.free_tier && quota.limits && quota.usage && quota.remaining && (
           <div className="mt-10 grid gap-4 sm:grid-cols-3">

@@ -133,3 +133,81 @@ test("campaign form derives provider and currency from the linked advertising ac
   await expect(page.locator('option[value="traffic"]')).toContainText("Meta live-path ready");
   await expect(page.locator('option[value="sales"]')).toContainText("Analysis only");
 });
+
+test("projects surface shows the truthful Phase 36 expansion contract", async ({ page }) => {
+  await allowVipSession(page);
+  await page.route("**/api/v1/projects", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+  });
+  await page.route("**/api/v1/workspaces", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+  });
+  await page.route("**/api/v1/auth/free-tier", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ plan: "pro", free_tier: false }),
+    });
+  });
+  await page.route("**/api/v1/capabilities/phase36", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        program: "Phase 36 — Universal Capability, Creative Media & 1000+ User Scale",
+        authoritative: true,
+        minimum_concurrent_users: 1000,
+        current_batch: "36B",
+        total_capabilities: 54,
+        production_ready_capabilities: 1,
+        completion: 1.85,
+        maturity_order: [
+          "specified",
+          "source_built",
+          "locally_executed",
+          "provider_connected",
+          "runtime_verified",
+          "scaled",
+          "production_ready",
+        ],
+        maturity_counts: {
+          specified: 20,
+          source_built: 17,
+          locally_executed: 10,
+          provider_connected: 2,
+          runtime_verified: 4,
+          scaled: 0,
+          production_ready: 1,
+        },
+        batches: [],
+      }),
+    });
+  });
+  await page.route("**/api/v1/growth-social/paid-campaigns/readiness", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ads_manage_allowed: false,
+        social_accounts_allowed: false,
+        linked_ad_accounts: [],
+        campaigns_visible: false,
+        reason: "ads-manage-not-entitled",
+        live_provider_mutation_allowed: false,
+        automatic_execution_allowed: false,
+        objectives: {},
+      }),
+    });
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/en/projects");
+  await expect(page.getByText("Phase 36 expansion status")).toBeVisible();
+  await expect(page.getByText("36B", { exact: true })).toBeVisible();
+  await expect(page.getByText("1,000", { exact: true })).toBeVisible();
+  await expect(page.getByText("1/54", { exact: true })).toBeVisible();
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+  );
+  expect(overflow).toBe(false);
+});

@@ -490,7 +490,12 @@
       "approvalError": "The final Owner approval could not be recorded.",
       "ownerApprovalRequired": "Every executed evidence gate passed. Final release is waiting only for the Organization Owner's explicit approval.",
       "ownerApproved": "The Organization Owner approved the retained evidence package. The final archive includes the signed approval receipt."
-    }
+    },
+    "phase36Title": "Phase 36 expansion status",
+    "phase36Description": "The current product contract is expanding toward distributed 1000+ user scale and full creative, media, education, healthcare and sector capabilities. Maturity is evidence-based and unfinished capabilities are shown truthfully.",
+    "phase36CurrentBatch": "Current batch",
+    "phase36MinScale": "Minimum concurrent users",
+    "phase36ProductionReady": "Production ready"
   },
   "legal": {
     "effective": "Current technical notice",

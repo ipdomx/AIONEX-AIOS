@@ -28,6 +28,7 @@ from sqlalchemy.dialects.postgresql import insert as postgres_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aios.completion_program import completion_program_snapshot
+from aios.phase36_program import phase36_program_snapshot
 from app.core.auth import UserRecord, pwd_context, require_super_owner
 from app.core.config import settings
 from app.db.base import SessionLocal, get_db
@@ -4835,4 +4836,5 @@ async def finalization(
         "completion": completion,
         "checks": checks,
         "program": completion_program_snapshot(),
+        "phase36": phase36_program_snapshot(),
     }

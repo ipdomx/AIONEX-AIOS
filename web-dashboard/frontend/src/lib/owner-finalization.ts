@@ -52,11 +52,81 @@ export const EMPTY_OWNER_COMPLETION_PROGRAM: OwnerCompletionProgram = {
   batches: [],
 };
 
+export type Phase36Maturity =
+  | "specified"
+  | "source_built"
+  | "locally_executed"
+  | "provider_connected"
+  | "runtime_verified"
+  | "scaled"
+  | "production_ready";
+
+export type OwnerPhase36Capability = {
+  capability_id: string;
+  category: string;
+  title: string;
+  owner_batch: string;
+  maturity: Phase36Maturity;
+  evidence: string[];
+  external_gates: string[];
+};
+
+export type OwnerPhase36Batch = {
+  batch_id: string;
+  sequence: number;
+  title: string;
+  status: "complete" | "in_progress" | "planned";
+  capabilities: OwnerPhase36Capability[];
+};
+
+export type OwnerPhase36Program = {
+  program: string;
+  authoritative: boolean;
+  minimum_concurrent_users: number;
+  current_batch: string | null;
+  total_capabilities: number;
+  production_ready_capabilities: number;
+  completion: number;
+  maturity_order: Phase36Maturity[];
+  maturity_counts: Record<Phase36Maturity, number>;
+  batches: OwnerPhase36Batch[];
+};
+
+export const EMPTY_OWNER_PHASE36_PROGRAM: OwnerPhase36Program = {
+  program: "Phase 36 — Universal Capability, Creative Media & 1000+ User Scale",
+  authoritative: true,
+  minimum_concurrent_users: 1000,
+  current_batch: "36B",
+  total_capabilities: 0,
+  production_ready_capabilities: 0,
+  completion: 0,
+  maturity_order: [
+    "specified",
+    "source_built",
+    "locally_executed",
+    "provider_connected",
+    "runtime_verified",
+    "scaled",
+    "production_ready",
+  ],
+  maturity_counts: {
+    specified: 0,
+    source_built: 0,
+    locally_executed: 0,
+    provider_connected: 0,
+    runtime_verified: 0,
+    scaled: 0,
+    production_ready: 0,
+  },
+  batches: [],
+};
+
 export type OwnerFinalizationSnapshot = {
   generatedAt: string;
   completion: number;
   checks: OwnerFinalizationCheck[];
   program: OwnerCompletionProgram;
+  phase36: OwnerPhase36Program;
 };
 
 export async function fetchOwnerFinalizationSnapshot(

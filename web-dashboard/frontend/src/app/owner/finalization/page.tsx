@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import {
   EMPTY_OWNER_COMPLETION_PROGRAM,
+  EMPTY_OWNER_PHASE36_PROGRAM,
   fetchOwnerFinalizationSnapshot,
   type OwnerFinalizationSnapshot,
 } from "@/lib/owner-finalization";
@@ -21,6 +22,7 @@ const emptySnapshot: OwnerFinalizationSnapshot = {
   completion: 0,
   checks: [],
   program: EMPTY_OWNER_COMPLETION_PROGRAM,
+  phase36: EMPTY_OWNER_PHASE36_PROGRAM,
 };
 
 const statusClass: Record<"passed" | "warning" | "failed", string> = {

@@ -16,6 +16,7 @@ import {
 import { ownerNavigationSections } from "@/config/owner-navigation";
 import {
   EMPTY_OWNER_COMPLETION_PROGRAM,
+  EMPTY_OWNER_PHASE36_PROGRAM,
   fetchOwnerFinalizationSnapshot,
   type OwnerCompletionBatch,
   type OwnerFinalizationSnapshot,
@@ -26,6 +27,7 @@ const emptySnapshot: OwnerFinalizationSnapshot = {
   completion: 0,
   checks: [],
   program: EMPTY_OWNER_COMPLETION_PROGRAM,
+  phase36: EMPTY_OWNER_PHASE36_PROGRAM,
 };
 
 const batchClass: Record<OwnerCompletionBatch["status"], string> = {
@@ -45,7 +47,7 @@ export default function OwnerCompletionPage() {
       const result = await fetchOwnerFinalizationSnapshot(signal);
       setSnapshot(result);
       setMessage(
-        `Runtime readiness ${result.completion}% · completion program ${result.program.completion}%.`,
+        `Runtime readiness ${result.completion}% · Phase 36 current batch ${result.phase36.current_batch ?? "complete"}.`,
       );
     } catch (error) {
       if (!(error instanceof DOMException && error.name === "AbortError")) {
@@ -88,13 +90,13 @@ export default function OwnerCompletionPage() {
             <ShieldCheck className="mt-1 h-7 w-7 flex-shrink-0 text-electric-300" />
             <div>
               <h1 className="text-2xl font-bold text-white">
-                Platform Completion Program
+                Platform Completion & Phase 36 Expansion
               </h1>
               <p className="mt-1 max-w-4xl text-sm leading-relaxed text-white/45">
-                Evidence-backed inventory of every AIOS module, Owner page,
-                public portal page, backend endpoint, and completion batch. AI
-                models and providers are deliberately reserved for the final
-                batch.
+                Phase 29 remains historical completion evidence for its original
+                scope. Phase 36 is now the authoritative expansion contract for
+                1000+ user scale, distributed project execution, creative media,
+                education, healthcare, and universal sector capabilities.
               </p>
             </div>
           </div>
@@ -121,25 +123,30 @@ export default function OwnerCompletionPage() {
         <div className="glass-card p-5">
           <Layers3 className="h-5 w-5 text-electric-300" />
           <div className="mt-4 text-3xl font-bold text-white">
-            {snapshot.program.completion}%
+            {snapshot.phase36.completion}%
           </div>
           <div className="mt-1 text-xs text-white/40">
-            Full platform completion
+            Phase 36 production-ready capabilities
           </div>
         </div>
         <div className="glass-card p-5">
           <CheckCircle2 className="h-5 w-5 text-green-300" />
           <div className="mt-4 text-3xl font-bold text-white">
-            {counts.complete}/{snapshot.program.batches.length || 10}
+            {snapshot.phase36.production_ready_capabilities}/
+            {snapshot.phase36.total_capabilities || 0}
           </div>
-          <div className="mt-1 text-xs text-white/40">Batches closed</div>
+          <div className="mt-1 text-xs text-white/40">
+            Capabilities production-ready
+          </div>
         </div>
         <div className="glass-card p-5">
           <Clock3 className="h-5 w-5 text-orange-300" />
           <div className="mt-4 text-3xl font-bold text-white">
-            {snapshot.program.current_batch || "—"}
+            {snapshot.phase36.current_batch || "—"}
           </div>
-          <div className="mt-1 text-xs text-white/40">Current batch</div>
+          <div className="mt-1 text-xs text-white/40">
+            Current Phase 36 batch
+          </div>
         </div>
       </section>
 
@@ -178,11 +185,75 @@ export default function OwnerCompletionPage() {
         <p className="mt-3 text-xs text-electric-300">{message}</p>
       </section>
 
+      <section className="glass-card p-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-electric-300">
+              Authoritative current product contract
+            </p>
+            <h2 className="mt-2 text-lg font-semibold text-white">
+              {snapshot.phase36.program}
+            </h2>
+            <p className="mt-2 max-w-4xl text-xs leading-relaxed text-white/45">
+              Minimum design target:{" "}
+              {snapshot.phase36.minimum_concurrent_users.toLocaleString()}{" "}
+              concurrent users. Maturity is evidence-based; source-built does
+              not mean rendered, scaled, or production-ready.
+            </p>
+          </div>
+          <div className="rounded-xl border border-electric-400/20 bg-electric-400/10 px-4 py-3 text-xs text-electric-200">
+            Current: {snapshot.phase36.current_batch ?? "All batches closed"}
+          </div>
+        </div>
+        <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+          {snapshot.phase36.maturity_order.map((maturity) => (
+            <div
+              key={maturity}
+              className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3"
+            >
+              <div className="text-lg font-semibold text-white">
+                {snapshot.phase36.maturity_counts[maturity]}
+              </div>
+              <div className="mt-1 break-words text-[10px] text-white/35">
+                {maturity.replaceAll("_", " ")}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-5 space-y-3">
+          {snapshot.phase36.batches.map((batch) => (
+            <details
+              key={batch.batch_id}
+              className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4"
+            >
+              <summary className="cursor-pointer text-sm font-medium text-white/75">
+                {batch.batch_id} · {batch.title} · {batch.status}
+              </summary>
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                {batch.capabilities.map((capability) => (
+                  <div
+                    key={capability.capability_id}
+                    className="rounded-lg border border-white/[0.05] p-3 text-xs"
+                  >
+                    <div className="font-medium text-white/65">
+                      {capability.title}
+                    </div>
+                    <div className="mt-1 text-white/30">
+                      {capability.maturity.replaceAll("_", " ")}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </details>
+          ))}
+        </div>
+      </section>
+
       <section className="space-y-3">
         <div className="flex items-center gap-2">
           <Layers3 className="h-4 w-4 text-electric-300" />
           <h2 className="text-sm font-semibold text-white">
-            Completion batches
+            Historical Phase 29 completion batches
           </h2>
         </div>
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
