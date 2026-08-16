@@ -17,6 +17,7 @@ from app.db.base import SessionLocal
 from app.db.redis import close_redis, init_redis
 from app.services import communications
 from app.services.growth_controlled_pilots import reconcile_runtime_pilots
+from app.services.growth_paid_live_execution import reconcile_stale_live_executions
 from app.services.lifecycle_alerts import run_account_lifecycle_alerts
 from app.services.operations_assurance import record_observation_cycle
 
@@ -63,6 +64,7 @@ class OperationsObserver:
         # back an auto-disarm that protects provider mutation/spend.
         async with SessionLocal() as session:
             pilot_runtime = await reconcile_runtime_pilots(session)
+            live_execution_runtime = await reconcile_stale_live_executions(session)
             await session.commit()
 
         async with SessionLocal() as session:
@@ -79,6 +81,12 @@ class OperationsObserver:
             logger.warning(
                 "GS-12 runtime guard auto-disarmed controlled pilots",
                 auto_disarmed=pilot_runtime["auto_disarmed"],
+            )
+        if live_execution_runtime["executions_marked_manual_review"]:
+            logger.warning(
+                "GS-12 live execution reconciliation requires manual review",
+                executions=live_execution_runtime["executions_marked_manual_review"],
+                pilots_auto_disarmed=live_execution_runtime["pilots_auto_disarmed"],
             )
         await communications.publish_many(notifications)
         self.cycles += 1

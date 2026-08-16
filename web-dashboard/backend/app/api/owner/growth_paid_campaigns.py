@@ -19,6 +19,7 @@ from app.db.models import (
 )
 from app.services import growth_paid_campaigns as paid
 from app.services import growth_paid_live_plan as live_plan
+from app.services import growth_paid_live_execution as live_execution
 
 router = APIRouter(
     prefix="/owner/growth-social/paid-campaigns",
@@ -36,11 +37,30 @@ class LivePlanPrepareInput(BaseModel):
     creative_identity_ref: str = Field(min_length=1, max_length=96)
 
 
+class LiveExecutionRunInput(BaseModel):
+    plan_digest: str = Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
+    confirmation: str = Field(min_length=1, max_length=80)
+
+
 def _plan_error(exc: live_plan.GrowthPaidLivePlanError) -> HTTPException:
     message = str(exc)
     if message in {"campaign-not-found", "pilot-not-found"}:
         return HTTPException(status_code=404, detail=message)
     if message.startswith("live-plan-not-compilable:"):
+        return HTTPException(status_code=409, detail=message)
+    return HTTPException(status_code=422, detail=message)
+
+
+def _execution_error(exc: live_execution.GrowthPaidLiveExecutionError) -> HTTPException:
+    message = str(exc)
+    if message in {"campaign-not-found", "pilot-not-found", "live-execution-not-found"}:
+        return HTTPException(status_code=404, detail=message)
+    if (
+        "manual-review" in message
+        or "runtime-authorization-denied" in message
+        or "prepared-live-plan" in message
+        or "binding" in message
+    ):
         return HTTPException(status_code=409, detail=message)
     return HTTPException(status_code=422, detail=message)
 
@@ -260,3 +280,52 @@ async def validate_paid_campaign_live_plan(
         return await live_plan.validate_prepared_plan(session, actor, campaign_id)
     except live_plan.GrowthPaidLivePlanError as exc:
         raise _plan_error(exc) from exc
+
+
+@router.get("/{campaign_id}/live-execution")
+async def get_paid_campaign_live_execution(
+    campaign_id: str,
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+):
+    try:
+        return await live_execution.get_execution(session, actor, campaign_id)
+    except live_execution.GrowthPaidLiveExecutionError as exc:
+        raise _execution_error(exc) from exc
+
+
+@router.post("/{campaign_id}/live-execution/prepare")
+async def prepare_paid_campaign_live_execution(
+    campaign_id: str,
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+):
+    try:
+        result = await live_execution.prepare_execution(session, actor, campaign_id)
+        await session.commit()
+        return result
+    except live_execution.GrowthPaidLiveExecutionError as exc:
+        await session.rollback()
+        raise _execution_error(exc) from exc
+
+
+@router.post("/{campaign_id}/live-execution/{execution_id}/execute-paused")
+async def execute_paid_campaign_paused_graph(
+    campaign_id: str,
+    execution_id: str,
+    data: LiveExecutionRunInput,
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+):
+    try:
+        return await live_execution.execute_paused_plan(
+            session,
+            actor,
+            campaign_id,
+            execution_id,
+            plan_digest=data.plan_digest,
+            confirmation=data.confirmation,
+        )
+    except live_execution.GrowthPaidLiveExecutionError as exc:
+        await session.rollback()
+        raise _execution_error(exc) from exc

@@ -154,3 +154,101 @@ def test_target_discovery_redacts_meta_http_errors(
     ) as exc_info:
         discovery.probe_meta_owned_targets_read_only(opener=opener)
     assert SECRET not in str(exc_info.value)
+
+
+def test_scope_resolver_returns_raw_id_only_internally_and_requires_ads_management(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _configure(monkeypatch)
+    scope_ref = discovery.opaque_scope_ref(ACCOUNT_ACTIVE)
+
+    def opener(request, timeout=20):
+        if "/me/adaccounts?" in request.full_url:
+            return _response(
+                {
+                    "data": [
+                        {
+                            "id": f"act_{ACCOUNT_ACTIVE}",
+                            "name": "Active Account",
+                            "account_status": 1,
+                            "currency": "EUR",
+                            "timezone_name": "Asia/Nicosia",
+                        }
+                    ],
+                    "paging": {},
+                }
+            )
+        if request.full_url.endswith("/me/permissions"):
+            return _response(
+                {"data": [{"permission": "ads_management", "status": "granted"}]}
+            )
+        raise AssertionError("unexpected request")
+
+    raw_id, metadata = discovery.resolve_scope_ref_to_raw_id(scope_ref, opener=opener)
+    assert raw_id == ACCOUNT_ACTIVE
+    assert metadata == {
+        "currency": "EUR",
+        "timezone_name": "Asia/Nicosia",
+        "ads_management": True,
+        "provider_write_executed": False,
+        "provider_spend_executed": False,
+    }
+    assert ACCOUNT_ACTIVE not in json.dumps(metadata, sort_keys=True)
+    assert SECRET not in json.dumps(metadata, sort_keys=True)
+
+
+def test_scope_resolver_fails_closed_on_missing_permission_or_truncated_inventory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _configure(monkeypatch)
+    scope_ref = discovery.opaque_scope_ref(ACCOUNT_ACTIVE)
+
+    def no_permission(request, timeout=20):
+        if "/me/adaccounts?" in request.full_url:
+            return _response(
+                {
+                    "data": [
+                        {
+                            "id": f"act_{ACCOUNT_ACTIVE}",
+                            "name": "Active",
+                            "account_status": 1,
+                            "currency": "EUR",
+                            "timezone_name": "Asia/Nicosia",
+                        }
+                    ],
+                    "paging": {},
+                }
+            )
+        return _response({"data": [{"permission": "ads_read", "status": "granted"}]})
+
+    with pytest.raises(
+        discovery.MetaTargetDiscoveryError,
+        match="meta-target-ads-management-required",
+    ):
+        discovery.resolve_scope_ref_to_raw_id(scope_ref, opener=no_permission)
+
+    def truncated(request, timeout=20):
+        if "/me/adaccounts?" in request.full_url:
+            return _response(
+                {
+                    "data": [
+                        {
+                            "id": f"act_{ACCOUNT_ACTIVE}",
+                            "name": "Active",
+                            "account_status": 1,
+                            "currency": "EUR",
+                            "timezone_name": "Asia/Nicosia",
+                        }
+                    ],
+                    "paging": {"next": "https://graph.facebook.com/private-next"},
+                }
+            )
+        return _response(
+            {"data": [{"permission": "ads_management", "status": "granted"}]}
+        )
+
+    with pytest.raises(
+        discovery.MetaTargetDiscoveryError,
+        match="meta-target-scope-account-list-truncated",
+    ):
+        discovery.resolve_scope_ref_to_raw_id(scope_ref, opener=truncated)

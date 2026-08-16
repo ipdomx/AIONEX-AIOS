@@ -76,6 +76,87 @@ def _account_item(raw: object) -> dict[str, Any] | None:
     }
 
 
+def resolve_scope_ref_to_raw_id(
+    scope_ref: str,
+    opener: Callable[..., BinaryIO] = urlopen,
+) -> tuple[str, dict[str, Any]]:
+    """Resolve one opaque managed-ad-account ref in memory without exposing the raw ID."""
+
+    clean_ref = str(scope_ref or "").strip().lower()
+    if not clean_ref.startswith("accountref://meta/sha256/") or len(clean_ref) != 89:
+        raise MetaTargetDiscoveryError("meta-target-scope-reference-invalid")
+
+    token_file, api_version = owned._safe_config()
+    token = owned._read_token(token_file)
+    try:
+        accounts_request = Request(
+            f"https://graph.facebook.com/{api_version}/me/adaccounts?"
+            + urlencode(
+                {
+                    "fields": "id,name,account_status,currency,timezone_name",
+                    "limit": str(MAX_TARGETS),
+                }
+            ),
+            headers={"Authorization": f"Bearer {token}"},
+            method="GET",
+        )
+        accounts_payload = _request_json(
+            accounts_request, action="scope-resolve", opener=opener
+        )
+        permissions_request = Request(
+            f"https://graph.facebook.com/{api_version}/me/permissions",
+            headers={"Authorization": f"Bearer {token}"},
+            method="GET",
+        )
+        permissions_payload = _request_json(
+            permissions_request, action="scope-permissions", opener=opener
+        )
+    finally:
+        token = ""
+
+    raw_accounts = accounts_payload.get("data")
+    if not isinstance(raw_accounts, list):
+        raise MetaTargetDiscoveryError("meta-target-scope-account-list-invalid")
+    paging = accounts_payload.get("paging")
+    if isinstance(paging, dict) and paging.get("next"):
+        raise MetaTargetDiscoveryError("meta-target-scope-account-list-truncated")
+    raw_permissions = permissions_payload.get("data")
+    if not isinstance(raw_permissions, list):
+        raise MetaTargetDiscoveryError("meta-target-scope-permission-list-invalid")
+    granted = {
+        str(item.get("permission"))
+        for item in raw_permissions
+        if isinstance(item, dict)
+        and item.get("status") == "granted"
+        and item.get("permission")
+    }
+    if "ads_management" not in granted:
+        raise MetaTargetDiscoveryError("meta-target-ads-management-required")
+
+    for raw in raw_accounts:
+        if not isinstance(raw, dict):
+            continue
+        raw_id = str(raw.get("id") or "").removeprefix("act_")
+        if not raw_id.isdigit() or not (6 <= len(raw_id) <= 32):
+            continue
+        if opaque_scope_ref(raw_id) != clean_ref:
+            continue
+        if raw.get("account_status") != 1:
+            raise MetaTargetDiscoveryError("meta-target-scope-account-inactive")
+        currency = _safe_text(raw.get("currency"), max_length=3).upper()
+        timezone_name = _safe_text(raw.get("timezone_name"), max_length=100)
+        if len(currency) != 3 or not currency.isalpha() or not timezone_name:
+            raise MetaTargetDiscoveryError("meta-target-scope-metadata-invalid")
+        return raw_id, {
+            "currency": currency,
+            "timezone_name": timezone_name,
+            "ads_management": True,
+            "provider_write_executed": False,
+            "provider_spend_executed": False,
+        }
+    raise MetaTargetDiscoveryError("meta-target-scope-reference-not-found")
+
+
 def probe_meta_owned_targets_read_only(
     opener: Callable[..., BinaryIO] = urlopen,
 ) -> dict[str, Any]:
