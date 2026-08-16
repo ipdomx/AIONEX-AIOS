@@ -9,6 +9,7 @@ import os
 import re
 import shutil
 import tempfile
+import tomllib
 import threading
 import time
 import zipfile
@@ -29,6 +30,7 @@ from .providers import (
 )
 from .providers.adapters import OpenAIProvider
 from .project_archetypes import infer_application_type, render_realtime_communications
+from .universal_project_builder import augment_universal_project
 
 
 _EXECUTION_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
@@ -228,6 +230,10 @@ class ControlledProjectBuilder:
                 for path in sorted(source.rglob("*"))
                 if path.is_file()
             }
+            project_profile: dict[str, Any] = {}
+            profile_path = source / "PROJECT_PROFILE.json"
+            if profile_path.is_file():
+                project_profile = json.loads(profile_path.read_text(encoding="utf-8"))
             manifest = {
                 "schema_version": 1,
                 "mode": "controlled-full-stack-prototype",
@@ -239,10 +245,11 @@ class ControlledProjectBuilder:
                 "provider_role": "structured architecture and product specification only",
                 "application_type": spec["application_type"],
                 "executable_source_origin": (
-                    "deterministic reviewed AIONEX archetype"
+                    "deterministic reviewed AIONEX realtime archetype"
                     if spec["application_type"] == "realtime_communications"
-                    else "deterministic reviewed templates"
+                    else "deterministic reviewed AIONEX universal capability composer"
                 ),
+                "project_profile": project_profile,
                 "files": hashes,
                 "specification": spec,
                 "planning": planning_summary,
@@ -393,7 +400,9 @@ class ControlledProjectBuilder:
             "Convert the approved six-department plan into one structured application specification. "
             "Choose the application_type that matches the requested product. For voice/video/member calling "
             "use realtime_communications. Honor user branding and requested colors using six-digit hex values. "
-            "Describe architecture truthfully, including backend/data/realtime boundaries. Do not write code, "
+            "Describe architecture truthfully, including backend/data/realtime boundaries. Derive a bounded "
+            "domain_blueprint with roles, entities, typed fields, and workflows from the approved plan so AIOS "
+            "can generate project-specific source without accepting arbitrary model code. Do not write code, "
             "HTML, URLs, credentials, deployment claims, test claims, or keys. Return exactly the JSON schema.\n"
             f"Department planning summaries: {compact}"
         )
@@ -444,6 +453,77 @@ class ControlledProjectBuilder:
                 "deployment": {"type": "string"},
             },
         }
+        field = {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["name", "type", "required"],
+            "properties": {
+                "name": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,39}$"},
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "string", "text", "integer", "number", "boolean",
+                        "datetime", "email", "url",
+                    ],
+                },
+                "required": {"type": "boolean"},
+            },
+        }
+        entity = {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["name", "label", "fields"],
+            "properties": {
+                "name": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,39}$"},
+                "label": {"type": "string"},
+                "fields": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 12,
+                    "items": field,
+                },
+            },
+        }
+        workflow = {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["name", "trigger", "steps"],
+            "properties": {
+                "name": {"type": "string"},
+                "trigger": {"type": "string"},
+                "steps": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 8,
+                    "items": {"type": "string"},
+                },
+            },
+        }
+        domain_blueprint = {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["roles", "entities", "workflows"],
+            "properties": {
+                "roles": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 8,
+                    "items": {"type": "string"},
+                },
+                "entities": {
+                    "type": "array",
+                    "minItems": 0,
+                    "maxItems": 12,
+                    "items": entity,
+                },
+                "workflows": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 12,
+                    "items": workflow,
+                },
+            },
+        }
         return {
             "type": "object",
             "additionalProperties": False,
@@ -457,17 +537,19 @@ class ControlledProjectBuilder:
                 "features",
                 "brand",
                 "architecture",
+                "domain_blueprint",
                 "sections",
                 "primary_action",
                 "secondary_action",
                 "limitations",
             ],
             "properties": {
-                "schema_version": {"type": "integer", "enum": [2]},
+                "schema_version": {"type": "integer", "enum": [3]},
                 "application_type": {
                     "type": "string",
                     "enum": [
                         "realtime_communications",
+                        "universal_application",
                         "web_application",
                         "mobile_application",
                         "api_service",
@@ -480,6 +562,7 @@ class ControlledProjectBuilder:
                 "features": {"type": "array", "items": {"type": "string"}},
                 "brand": brand,
                 "architecture": architecture,
+                "domain_blueprint": domain_blueprint,
                 "sections": {"type": "array", "items": section},
                 "primary_action": {"type": "string"},
                 "secondary_action": {"type": "string"},
@@ -500,13 +583,14 @@ class ControlledProjectBuilder:
             raise ControlledProjectBuildError(
                 "implementation specification keys are invalid"
             )
-        if payload["schema_version"] != 2:
+        if payload["schema_version"] != 3:
             raise ControlledProjectBuildError(
                 "implementation specification version is invalid"
             )
         application_type = str(payload.get("application_type") or "")
         if application_type not in {
             "realtime_communications",
+            "universal_application",
             "web_application",
             "mobile_application",
             "api_service",
@@ -553,6 +637,100 @@ class ControlledProjectBuilder:
             architecture[name] = cls._normalize_text(
                 architecture[name], f"architecture.{name}", 3, 240
             )
+        domain = payload["domain_blueprint"]
+        if not isinstance(domain, dict) or set(domain) != {"roles", "entities", "workflows"}:
+            raise ControlledProjectBuildError("domain blueprint schema is invalid")
+        roles = domain["roles"]
+        if not isinstance(roles, list) or not 1 <= len(roles) <= 8:
+            raise ControlledProjectBuildError("domain roles must contain one to eight items")
+        normalized_roles = [
+            cls._normalize_text(value, f"domain.roles[{index}]", 2, 60)
+            for index, value in enumerate(roles)
+        ]
+        if len({value.casefold() for value in normalized_roles}) != len(normalized_roles):
+            raise ControlledProjectBuildError("domain roles are duplicated")
+        entities = domain["entities"]
+        if not isinstance(entities, list) or len(entities) > 12:
+            raise ControlledProjectBuildError("domain entities exceed the reviewed limit")
+        normalized_entities: list[dict[str, Any]] = []
+        entity_names: set[str] = set()
+        reserved_fields = {"id", "created_at", "updated_at"}
+        allowed_field_types = {
+            "string", "text", "integer", "number", "boolean",
+            "datetime", "email", "url",
+        }
+        for entity_index, entity in enumerate(entities):
+            if not isinstance(entity, dict) or set(entity) != {"name", "label", "fields"}:
+                raise ControlledProjectBuildError("domain entity schema is invalid")
+            name = str(entity["name"]).strip()
+            if not re.fullmatch(r"[a-z][a-z0-9_]{0,39}", name) or name in entity_names:
+                raise ControlledProjectBuildError("domain entity identifier is invalid or duplicated")
+            entity_names.add(name)
+            fields = entity["fields"]
+            if not isinstance(fields, list) or not 1 <= len(fields) <= 12:
+                raise ControlledProjectBuildError("domain entity fields are invalid")
+            normalized_fields: list[dict[str, Any]] = []
+            field_names: set[str] = set()
+            for field_index, field in enumerate(fields):
+                if not isinstance(field, dict) or set(field) != {"name", "type", "required"}:
+                    raise ControlledProjectBuildError("domain field schema is invalid")
+                field_name = str(field["name"]).strip()
+                field_type = str(field["type"]).strip()
+                if (
+                    not re.fullmatch(r"[a-z][a-z0-9_]{0,39}", field_name)
+                    or field_name in field_names
+                    or field_name in reserved_fields
+                ):
+                    raise ControlledProjectBuildError("domain field identifier is invalid or duplicated")
+                if field_type not in allowed_field_types or not isinstance(field["required"], bool):
+                    raise ControlledProjectBuildError("domain field type is invalid")
+                field_names.add(field_name)
+                normalized_fields.append(
+                    {"name": field_name, "type": field_type, "required": field["required"]}
+                )
+            normalized_entities.append(
+                {
+                    "name": name,
+                    "label": cls._normalize_text(
+                        entity["label"], f"domain.entities[{entity_index}].label", 2, 80
+                    ),
+                    "fields": normalized_fields,
+                }
+            )
+        workflows = domain["workflows"]
+        if not isinstance(workflows, list) or not 1 <= len(workflows) <= 12:
+            raise ControlledProjectBuildError("domain workflows must contain one to twelve items")
+        normalized_workflows: list[dict[str, Any]] = []
+        workflow_names: set[str] = set()
+        for workflow_index, workflow in enumerate(workflows):
+            if not isinstance(workflow, dict) or set(workflow) != {"name", "trigger", "steps"}:
+                raise ControlledProjectBuildError("domain workflow schema is invalid")
+            workflow_name = cls._normalize_text(
+                workflow["name"], f"domain.workflows[{workflow_index}].name", 2, 80
+            )
+            if workflow_name.casefold() in workflow_names:
+                raise ControlledProjectBuildError("domain workflow names are duplicated")
+            workflow_names.add(workflow_name.casefold())
+            steps = workflow["steps"]
+            if not isinstance(steps, list) or not 1 <= len(steps) <= 8:
+                raise ControlledProjectBuildError("domain workflow steps are invalid")
+            normalized_workflows.append(
+                {
+                    "name": workflow_name,
+                    "trigger": cls._normalize_text(
+                        workflow["trigger"], f"domain.workflows[{workflow_index}].trigger", 2, 120
+                    ),
+                    "steps": [
+                        cls._normalize_text(
+                            step, f"domain.workflows[{workflow_index}].steps[{step_index}]", 3, 180
+                        )
+                        for step_index, step in enumerate(steps)
+                    ],
+                }
+            )
+        domain["roles"] = normalized_roles
+        domain["entities"] = normalized_entities
+        domain["workflows"] = normalized_workflows
         features = payload["features"]
         limitations = payload["limitations"]
         if not isinstance(features, list) or len(features) < 3:
@@ -644,6 +822,19 @@ class ControlledProjectBuilder:
     ) -> dict[str, str]:
         if spec.get("application_type") == "realtime_communications":
             return render_realtime_communications(project, objective, spec, planning)
+        base = cls._render_generic_files(project, objective, spec, planning)
+        if spec.get("application_type") == "universal_application":
+            return augment_universal_project(base, project, objective, spec, planning)
+        return base
+
+    @classmethod
+    def _render_generic_files(
+        cls,
+        project: str,
+        objective: str,
+        spec: Mapping[str, Any],
+        planning: Mapping[str, Any],
+    ) -> dict[str, str]:
         safe_json = json.dumps(spec, ensure_ascii=False).replace("<", "\\u003c").replace(
             ">", "\\u003e"
         )
@@ -913,10 +1104,14 @@ This artifact is an executable full-stack prototype. It is not represented as a 
     ) -> dict[str, Any]:
         if spec.get("application_type") == "realtime_communications":
             return cls._test_realtime_source(source, project)
+        if spec.get("application_type") == "universal_application":
+            return cls._test_universal_source(source, project)
         return cls._test_generic_source(source, project)
 
     @classmethod
-    def _test_generic_source(cls, source: Path, project: str) -> dict[str, Any]:
+    def _test_generic_source(
+        cls, source: Path, project: str, *, allow_additional: bool = False
+    ) -> dict[str, Any]:
         required = {"index.html", "styles.css", "app.js", "server.py", "README.md"}
         actual = {
             str(path.relative_to(source))
@@ -924,8 +1119,9 @@ This artifact is an executable full-stack prototype. It is not represented as a 
             if path.is_file()
         }
         findings: list[str] = []
-        if actual != required:
-            findings.append("source file set does not match the fixed allow-list")
+        file_set_ok = required.issubset(actual) if allow_additional else actual == required
+        if not file_set_ok:
+            findings.append("source file set does not match the reviewed allow-list")
         for relative in sorted(actual):
             path = source / relative
             if path.stat().st_size <= 0 or path.stat().st_size > 200_000:
@@ -1003,7 +1199,7 @@ This artifact is an executable full-stack prototype. It is not represented as a 
         return {
             "passed": not findings,
             "checks": {
-                "fixed_file_allowlist": actual == required,
+                "fixed_file_allowlist": file_set_ok,
                 "html_structure": required_ids.issubset(parser.ids),
                 "local_assets_only": not external_scripts,
                 "javascript_static_safety": not any(
@@ -1023,6 +1219,207 @@ This artifact is an executable full-stack prototype. It is not represented as a 
                 "security_headers": api_checks["security_headers"],
             },
             "findings": findings,
+        }
+
+    @classmethod
+    def _test_universal_source(cls, source: Path, project: str) -> dict[str, Any]:
+        base = cls._test_generic_source(source, project, allow_additional=True)
+        findings = list(base["findings"])
+        try:
+            profile = json.loads((source / "PROJECT_PROFILE.json").read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            profile = {}
+            findings.append("universal project profile is missing or invalid")
+        try:
+            domain_blueprint = json.loads((source / "DOMAIN_BLUEPRINT.json").read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            domain_blueprint = {}
+            findings.append("universal domain blueprint is missing or invalid")
+        if domain_blueprint:
+            if set(domain_blueprint) != {"roles", "entities", "workflows"}:
+                findings.append("universal domain blueprint keys are invalid")
+            if int(profile.get("domain_entities") or -1) != len(domain_blueprint.get("entities") or []):
+                findings.append("universal domain entity count does not match the project profile")
+            if int(profile.get("domain_workflows") or -1) != len(domain_blueprint.get("workflows") or []):
+                findings.append("universal domain workflow count does not match the project profile")
+        if not (source / "SECURITY.md").is_file():
+            findings.append("universal security boundary is missing")
+        targets = set(profile.get("targets") or [])
+        expected = {
+            "domain": "targets/domain/schema.sql",
+            "web": "targets/web-next/package.json",
+            "api": "targets/api/app.py",
+            "auth": "targets/auth/service.py",
+            "mobile": "targets/mobile-expo/app.json",
+            "desktop": "targets/desktop-tauri/src-tauri/Cargo.toml",
+            "browser_extension": "targets/browser-extension/manifest.json",
+            "bot": "targets/bot/bot.py",
+            "ai": "targets/ai/service.py",
+            "data": "targets/data/pipeline.py",
+            "commerce": "targets/commerce/domain.py",
+            "game": "targets/game/game.js",
+            "three_d": "targets/three-d/scene.js",
+            "iot": "targets/iot/firmware/main.c",
+            "database": "targets/database/migrations/001_initial.sql",
+            "infrastructure": "targets/infrastructure/compose.yaml",
+            "smart_contract": "targets/smart-contract/contracts/ValueStore.sol",
+            "serverless": "targets/serverless/handler.py",
+            "library": "targets/library/pyproject.toml",
+            "xr": "targets/xr/xr.js",
+            "robotics": "targets/robotics/simulator.py",
+            "media": "targets/media/storyboard.json",
+            "cli": "targets/cli/main.py",
+        }
+        for target in targets:
+            required_file = expected.get(str(target))
+            if required_file and not (source / required_file).is_file():
+                findings.append(f"universal target is incomplete: {target}")
+        if "cli" not in targets or not (source / expected["cli"]).is_file():
+            findings.append("universal operator CLI is missing")
+        target_files = [path for path in source.rglob("*") if path.is_file()]
+        if len(target_files) > 160:
+            findings.append("universal source exceeds the reviewed file-count limit")
+        for path in target_files:
+            if path.stat().st_size <= 0 or path.stat().st_size > 400_000:
+                findings.append(f"universal target file size is invalid: {path.relative_to(source)}")
+        dangerous_python = (
+            "subprocess",
+            "os.system",
+            "eval(",
+            "exec(",
+            "socket.",
+            "import socket",
+            "requests.",
+            "import requests",
+            "urllib.request",
+        )
+        for path in source.rglob("*.py"):
+            text = path.read_text(encoding="utf-8")
+            try:
+                compile(text, str(path.relative_to(source)), "exec")
+            except SyntaxError as exc:
+                findings.append(f"python target syntax error: {path.relative_to(source)}:{exc.lineno}")
+            if any(token in text for token in dangerous_python):
+                findings.append(f"dangerous Python primitive in generated target: {path.relative_to(source)}")
+        for package_path in source.rglob("package.json"):
+            package = json.loads(package_path.read_text(encoding="utf-8"))
+            scripts = dict(package.get("scripts") or {})
+            if any(name in scripts for name in ("preinstall", "install", "postinstall", "prepare")):
+                findings.append(f"package lifecycle install script is forbidden: {package_path.relative_to(source)}")
+            if any(re.search(r"(?i)\b(curl|wget|powershell|bash\s+-c|sh\s+-c)\b", str(command)) for command in scripts.values()):
+                findings.append(f"network or shell bootstrap script is forbidden: {package_path.relative_to(source)}")
+        for path in source.rglob("*.json"):
+            try:
+                json.loads(path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                findings.append(f"invalid JSON target: {path.relative_to(source)}")
+        extension_manifest = source / "targets/browser-extension/manifest.json"
+        if extension_manifest.is_file():
+            manifest = json.loads(extension_manifest.read_text(encoding="utf-8"))
+            if manifest.get("manifest_version") != 3:
+                findings.append("browser extension is not Manifest V3")
+            if manifest.get("host_permissions") or manifest.get("optional_host_permissions"):
+                findings.append("browser extension requests host access without a reviewed need")
+            if set(manifest.get("permissions") or []) - {"storage"}:
+                findings.append("browser extension requests permissions outside the minimal allow-list")
+            csp = str((manifest.get("content_security_policy") or {}).get("extension_pages") or "")
+            if "'unsafe-eval'" in csp or "http:" in csp or "https:" in csp:
+                findings.append("browser extension CSP permits unsafe or remote code")
+        tauri_capability = source / "targets/desktop-tauri/src-tauri/capabilities/default.json"
+        tauri_config = source / "targets/desktop-tauri/src-tauri/tauri.conf.json"
+        if tauri_capability.is_file():
+            capability = json.loads(tauri_capability.read_text(encoding="utf-8"))
+            if set(capability.get("permissions") or []) != {"core:default"}:
+                findings.append("desktop target requests Tauri capabilities outside the minimal allow-list")
+            if capability.get("remote"):
+                findings.append("desktop target enables remote Tauri capability URLs")
+        if tauri_config.is_file():
+            tauri = json.loads(tauri_config.read_text(encoding="utf-8"))
+            csp = str(((tauri.get("app") or {}).get("security") or {}).get("csp") or "")
+            if "http:" in csp or "https:" in csp or "'unsafe-eval'" in csp:
+                findings.append("desktop target CSP permits unsafe or remote code")
+            if not (source / "targets/desktop-tauri/src-tauri/build.rs").is_file():
+                findings.append("desktop target is missing the Tauri build script")
+        database_schema = source / "targets/database/migrations/001_initial.sql"
+        if database_schema.is_file():
+            sql = database_schema.read_text(encoding="utf-8").casefold()
+            if "create table" not in sql or "primary key" not in sql or "begin;" not in sql or "commit;" not in sql:
+                findings.append("database target is missing transactional schema guarantees")
+        infra_dockerfile = source / "targets/infrastructure/Dockerfile"
+        infra_compose = source / "targets/infrastructure/compose.yaml"
+        if infra_dockerfile.is_file():
+            dockerfile = infra_dockerfile.read_text(encoding="utf-8")
+            if "USER app" not in dockerfile or ":latest" in dockerfile:
+                findings.append("infrastructure container target is not least-privilege and version-bounded")
+        if infra_compose.is_file():
+            compose = infra_compose.read_text(encoding="utf-8")
+            for required_control in ("read_only: true", 'cap_drop: ["ALL"]', "no-new-privileges:true", "pids_limit:", "mem_limit:"):
+                if required_control not in compose:
+                    findings.append(f"infrastructure compose is missing security control: {required_control}")
+        solidity_path = source / "targets/smart-contract/contracts/ValueStore.sol"
+        if solidity_path.is_file():
+            solidity = solidity_path.read_text(encoding="utf-8")
+            if "pragma solidity 0.8.36;" not in solidity or "contract " not in solidity:
+                findings.append("smart-contract target is not pinned to the reviewed Solidity release")
+            if any(token in solidity for token in ("delegatecall", "selfdestruct", "tx.origin")):
+                findings.append("smart-contract target contains a forbidden high-risk primitive")
+        for toml_path in source.rglob("*.toml"):
+            try:
+                tomllib.loads(toml_path.read_text(encoding="utf-8"))
+            except tomllib.TOMLDecodeError:
+                findings.append(f"invalid TOML target: {toml_path.relative_to(source)}")
+        xr_path = source / "targets/xr/xr.js"
+        if xr_path.is_file() and "navigator.xr" not in xr_path.read_text(encoding="utf-8"):
+            findings.append("XR target does not expose a WebXR capability check")
+        robotics_path = source / "targets/robotics/simulator.py"
+        if robotics_path.is_file() and not (source / "targets/robotics/ros2_adapter.py").is_file():
+            findings.append("robotics target is missing the bounded ROS 2 adapter")
+        media_storyboard = source / "targets/media/storyboard.json"
+        if media_storyboard.is_file():
+            media = json.loads(media_storyboard.read_text(encoding="utf-8"))
+            if media.get("format") != "editable-storyboard" or len(media.get("scenes") or []) < 3:
+                findings.append("media target is missing an editable multi-scene production plan")
+        mobile_manifest = source / "targets/mobile-expo/app.json"
+        if mobile_manifest.is_file():
+            mobile = json.loads(mobile_manifest.read_text(encoding="utf-8"))
+            expo_config = mobile.get("expo") or {}
+            if "newArchEnabled" in expo_config:
+                findings.append("mobile target carries the removed Expo newArchEnabled compatibility flag")
+        profile_gates = profile.get("external_gates")
+        if not isinstance(profile_gates, list):
+            findings.append("external activation gates are not explicit")
+        return {
+            "passed": not findings,
+            "checks": {
+                **dict(base["checks"]),
+                "universal_profile": bool(profile),
+                "domain_blueprint": bool(domain_blueprint),
+                "target_composition": not any(item.startswith("universal target") for item in findings),
+                "all_python_targets_compile": not any(item.startswith("python target syntax") for item in findings),
+                "all_json_targets_valid": not any(item.startswith("invalid JSON") for item in findings),
+                "all_toml_targets_valid": not any(item.startswith("invalid TOML") for item in findings),
+                "external_gates_explicit": isinstance(profile_gates, list),
+                "generated_target_security": not any(
+                    item.startswith((
+                        "dangerous Python primitive",
+                        "package lifecycle",
+                        "network or shell bootstrap",
+                        "browser extension requests",
+                        "browser extension CSP",
+                        "desktop target requests",
+                        "desktop target enables",
+                        "desktop target CSP",
+                        "infrastructure container",
+                        "infrastructure compose",
+                        "smart-contract target",
+                    ))
+                    for item in findings
+                ),
+                "no_unsupported_builder_state": True,
+            },
+            "findings": findings,
+            "targets": sorted(targets),
+            "external_gates": list(profile_gates or []),
         }
 
     @classmethod
@@ -1472,16 +1869,31 @@ This artifact is an executable full-stack prototype. It is not represented as a 
     @staticmethod
     def _report(manifest: Mapping[str, Any]) -> str:
         tests = manifest["tests"]
-        return (
-            "# Controlled Full-Stack Project Prototype\n\n"
-            f"- Project: `{manifest['project']}`\n"
-            f"- Provider model: `{manifest['model']}`\n"
-            f"- Provider role: `{manifest['provider_role']}`\n"
-            f"- Executable source origin: `{manifest['executable_source_origin']}`\n"
-            f"- Tests passed: `{str(tests['passed']).lower()}`\n"
-            f"- Rollback tested: `{str(manifest.get('rollback_tested', False)).lower()}`\n"
-            f"- Cost: `${manifest['calculated_cost']:.10f}`\n"
-            "- Fallback used: `false`\n"
-            "- Production modified: `false`\n"
-            "- Raw prompt/response/header stored: `false`\n"
-        )
+        profile = dict(manifest.get("project_profile") or {})
+        targets = list(profile.get("targets") or [])
+        gates = list(profile.get("external_gates") or [])
+        lines = [
+            "# Controlled Governed Project Build",
+            "",
+            f"- Project: `{manifest['project']}`",
+            f"- Application type: `{manifest.get('application_type')}`",
+            f"- Provider model: `{manifest['model']}`",
+            f"- Provider role: `{manifest['provider_role']}`",
+            f"- Executable source origin: `{manifest['executable_source_origin']}`",
+            f"- Tests passed: `{str(tests['passed']).lower()}`",
+            f"- Rollback tested: `{str(manifest.get('rollback_tested', False)).lower()}`",
+            f"- Cost: `${manifest['calculated_cost']:.10f}`",
+            "- Fallback used: `false`",
+            "- Production modified: `false`",
+            "- Raw prompt/response/header stored: `false`",
+            "",
+            "## Built targets",
+            "",
+            *([f"- `{item}`" for item in targets] or ["- Dedicated realtime target"]),
+            "",
+            "## External activation gates",
+            "",
+            *([f"- {item}" for item in gates] or ["- None for the local governed build"]),
+            "",
+        ]
+        return "\n".join(lines)

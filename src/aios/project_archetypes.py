@@ -6,10 +6,33 @@ from typing import Any, Mapping
 
 
 REALTIME_TERMS = (
-    "webrtc", "video call", "voice call", "audio call", "calling", "conference",
-    "realtime communication", "real-time communication", "مكالم", "اتصال", "اتصالات",
-    "صوت", "فيديو", "محادثة صوت", "محادثة فيديو",
+    "webrtc",
+    "video call",
+    "voice call",
+    "audio call",
+    "calling app",
+    "video conference",
+    "voice conference",
+    "realtime communication",
+    "real-time communication",
+    "مكالم",
+    "محادثة صوت",
+    "محادثة فيديو",
+    "اتصال صوتي",
+    "اتصال مرئي",
 )
+
+
+def is_realtime_objective(objective: str) -> bool:
+    lowered = objective.casefold()
+    if any(term.casefold() in lowered for term in REALTIME_TERMS):
+        return True
+    arabic_communication = any(term in lowered for term in ("اتصال", "اتصالات", "محادثة"))
+    arabic_media = any(term in lowered for term in ("صوت", "فيديو", "صوره", "صورة"))
+    english_communication = any(term in lowered for term in ("call", "calling", "conference", "communication"))
+    english_media = any(term in lowered for term in ("audio", "voice", "video"))
+    return (arabic_communication and arabic_media) or (english_communication and english_media)
+
 MOBILE_TERMS = (
     "mobile app", "android", "ios", "تطبيق موبايل", "تطبيق هاتف",
     "اندرويد", "أندرويد", "ايفون", "آيفون",
@@ -18,14 +41,15 @@ API_TERMS = ("api service", "backend api", "rest api", "خدمة api", "واجه
 
 
 def infer_application_type(objective: str, declared: str) -> str:
-    lowered = objective.lower()
-    if any(term in lowered for term in REALTIME_TERMS):
+    """Select the governed implementation family without rejecting valid project ideas.
+
+    Realtime communications keeps its dedicated hardened runtime. Every other legal,
+    buildable project is routed to the universal capability composer, which can emit
+    multiple targets (web/API/mobile/desktop/AI/data/bots/etc.) in one delivery.
+    """
+    if is_realtime_objective(objective):
         return "realtime_communications"
-    if any(term in lowered for term in MOBILE_TERMS):
-        return "mobile_application"
-    if any(term in lowered for term in API_TERMS):
-        return "api_service"
-    return declared
+    return "universal_application"
 
 
 def render_realtime_communications(

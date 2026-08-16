@@ -279,7 +279,7 @@ def test_full_cycle_approves_tested_prototype_and_activates_workforce(
     assert result["blocking_findings"] == []
     assert result["delivery_package"]["contains_executable_product"] is True
     assert result["delivery_package"]["executable_scope"] == (
-        "controlled-full-stack-web-prototype"
+        "universal-multi-target-project-source"
     )
     assert all(worker["employment_state"] == "active" for worker in result["workforce"])
     assert all(worker["failure_count"] == 0 for worker in result["workforce"])

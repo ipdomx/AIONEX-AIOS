@@ -207,8 +207,75 @@ The first specialized production archetype is `realtime_communications`, added s
 - deterministic SVG logo and web-app manifest; and
 - fail-closed ICE configuration with no hidden third-party relay or credential.
 
-Public-internet WebRTC is **not** claimed complete merely because local runtime tests pass. The final release remains blocked until audited HTTPS and STUN/TURN infrastructure exist and are accepted. Other application types continue to use their currently proven implementation scope until a specialized archetype exists; the release scope checker blocks capabilities that have not been executed and evidenced.
+Public-internet WebRTC is **not** claimed complete merely because local runtime tests pass. The final release remains blocked until audited HTTPS and STUN/TURN infrastructure exist and are accepted. Non-realtime application families enter the Universal Modular Builder, which composes reviewed deterministic targets from the approved domain blueprint and keeps only external activation requirements as explicit gates.
 
 ### Delivery-package correction
 
 The final project download now carries executable source directly under `delivery-package/source/`, the governed `plan-review.json`, department evidence, deterministic test/rollback artifacts, and the nested rollback archive. This replaces the confusing situation where executable files were only nested inside a second ZIP and ensures the downloaded package exposes exactly what AIOS actually built and reviewed.
+
+## Universal modular project builder — 2026-08-16
+
+The governed project cycle no longer treats mobile, API, desktop, browser-extension,
+bot, AI/RAG, data/analytics, commerce, game, 3D, IoT/firmware, CLI/automation, or
+mixed projects as unsupported builder families. After the six-department plan gate,
+AIOS routes every non-realtime legal/buildable idea through a deterministic capability
+composer. Realtime voice/video keeps its hardened WebRTC archetype.
+
+The universal composer always produces a tested loopback-only functional preview plus
+one or more target source trees selected from the objective. Targets can be combined in
+one delivery, so a project may contain web + API + Android/iOS + desktop + AI + bot +
+data + commerce + 3D + IoT simultaneously. Unknown but legal/buildable ideas fall back
+to a governed web/API/CLI baseline instead of an `unsupported builder` response.
+
+Current target baselines are intentionally capability-scoped and secret-free:
+
+- web: Next.js 16.2.11 / React 19.2.3 target plus the dependency-free governed local preview;
+- API: FastAPI 0.141.1 / Uvicorn 0.52.1 / Pydantic 2.13.4 domain-driven service boundary;
+- mobile: Expo SDK 57 / React Native 0.86 / React 19.2.3; New Architecture is mandatory in this SDK generation and the removed `newArchEnabled` compatibility flag is not emitted;
+- desktop: Tauri 2.11.1 with explicit minimal capabilities and CSP;
+- browser extension: Manifest V3 with no host permissions or remotely hosted code;
+- AI/RAG: local deterministic retrieval baseline, with cloud models behind AIOS provider secrets;
+- bot/messaging: dry-run transport by default; provider credentials remain server-side activation gates;
+- data: deterministic typed ingestion/transformation baseline;
+- commerce: catalog/cart/order domain with live charging disabled until payment activation;
+- 2D/game and 3D: local canvas/WebGL baselines; governed 3D assets can enter through the existing 3D pipeline;
+- IoT/firmware: C source plus a simulator, with physical hardware validation retained as a gate;
+- CLI/automation: local operator command surface included in every universal package.
+
+`PROJECT_PROFILE.json` records the selected targets, proven local capabilities, technology
+defaults, and external activation gates. Store signing, platform signing, live payment
+credentials, cloud AI credentials, messaging credentials, generated 3D assets, public
+WebRTC relay infrastructure, and physical hardware validation are represented as gates,
+not as unsupported project types. AIOS builds all source it can prove locally and stops
+only at the exact external capability that cannot be truthfully fabricated.
+
+Security remains fail-closed: model output is a bounded structured product specification,
+not executable code. Executable target source is emitted from reviewed deterministic
+AIOS modules. Generated packages reject install lifecycle scripts, shell/network bootstrap
+scripts, broad browser host permissions, remote/over-broad Tauri capabilities, unsafe
+CSP, dangerous Python execution/network primitives, embedded credentials, invalid JSON,
+syntax errors, and target/file-count/size violations. No production deployment or secret
+mutation is implied by a successful source build.
+
+### Schema-v3 domain-driven composition
+
+The implementation specification is now schema version `3`. In addition to product copy,
+architecture, branding and UI sections, the bounded model response must provide a strict
+`domain_blueprint` containing roles, validated entity identifiers/typed fields, and named
+workflows with bounded steps. Identifiers are restricted to safe lower-case snake-style
+names; reserved storage fields and duplicate names are rejected before source generation.
+The provider still cannot return executable code.
+
+`DOMAIN_BLUEPRINT.json` is retained in every universal delivery. The same approved blueprint
+drives typed domain models, SQL, the FastAPI resource boundary, Next.js and Expo views,
+serverless workflow names, and the generated library contract. This removes the previous
+fixed `Item`/generic-skeleton behavior: source structure is deterministic, while business
+entities and workflows come from the reviewed project plan.
+
+The capability registry also covers database/migrations, hardened container/Compose and
+cloud/IaC source, Solidity smart contracts, serverless functions, SDK/libraries, WebXR,
+robotics/ROS2 simulation boundaries, and editable media/storyboard packages. These join
+the existing web, API, mobile, desktop, extension, bot, AI/RAG, data, commerce, game, 3D,
+IoT and CLI targets. No legal/buildable family is rejected because a named builder is
+missing; external signing, cloud credentials, chain/RPC deployment, physical hardware,
+XR hardware, provider credentials and store publication remain truthful activation gates.

@@ -82,15 +82,15 @@ def test_governed_plan_review_rejects_incomplete_department_before_build(tmp_pat
     assert result.payload["implementation_started"] is False
 
 
-def test_governed_plan_review_blocks_unsupported_mobile_builder_before_implementation(tmp_path: Path) -> None:
+def test_governed_plan_review_routes_mobile_and_hybrid_projects_to_universal_builder(tmp_path: Path) -> None:
     result = GovernedProjectPlanReviewer().review(
         project="Mobile Demo",
-        objective="Build a native iOS and Android mobile app for registered members",
+        objective="Build a native iOS and Android mobile app with an API and AI assistant for registered members",
         planning_directory=_planning(tmp_path / "planning"),
         output_root=tmp_path / "evidence",
         requested_by_id="user-1",
     )
-    assert result.approved is False
-    assert result.payload["application_type"] == "mobile_application"
-    assert any("does not yet support mobile_application" in item for item in result.blocking_findings)
+    assert result.approved is True
+    assert result.payload["application_type"] == "universal_application"
+    assert not any("support" in item.casefold() for item in result.blocking_findings)
     assert result.payload["implementation_started"] is False
