@@ -379,6 +379,7 @@ class Settings(BaseSettings):
     SMTP_USER: Optional[str] = Field(default=None, validation_alias="SMTP_USER")
     SMTP_PASSWORD: Optional[str] = Field(default=None, validation_alias="SMTP_PASSWORD")
     SMTP_TLS: bool = Field(default=True, validation_alias="SMTP_TLS")
+    SMTP_SSL: bool = Field(default=False, validation_alias="SMTP_SSL")
     WHATSAPP_ACCESS_TOKEN: Optional[str] = Field(
         default=None, validation_alias="WHATSAPP_ACCESS_TOKEN"
     )

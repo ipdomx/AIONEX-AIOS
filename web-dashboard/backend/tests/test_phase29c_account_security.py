@@ -276,3 +276,65 @@ def test_phase29c_frontends_do_not_restore_identity_placeholders() -> None:
     ).read_text(encoding="utf-8")
     assert "HTTP_501_NOT_IMPLEMENTED" not in canonical_auth
     assert "HTTP_501_NOT_IMPLEMENTED" not in compatibility_auth
+
+
+
+def test_password_reset_delivery_supports_implicit_ssl_and_starttls(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, object]] = []
+
+    class _SMTPBase:
+        def __init__(self, *args, **kwargs):
+            calls.append(("init", (args, sorted(kwargs))))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def ehlo(self):
+            calls.append(("ehlo", None))
+
+        def starttls(self, *, context=None):
+            calls.append(("starttls", context is not None))
+
+        def login(self, username, password):
+            calls.append(("login", username))
+
+        def send_message(self, message):
+            calls.append(("send", message["To"]))
+            return {}
+
+    class _SMTP(_SMTPBase):
+        pass
+
+    class _SMTPSSL(_SMTPBase):
+        pass
+
+    monkeypatch.setattr(account_security.smtplib, "SMTP", _SMTP)
+    monkeypatch.setattr(account_security.smtplib, "SMTP_SSL", _SMTPSSL)
+    monkeypatch.setattr(account_security.settings, "SMTP_HOST", "mail.example.invalid")
+    monkeypatch.setattr(account_security.settings, "SMTP_USER", "sender@example.invalid")
+    monkeypatch.setattr(account_security.settings, "SMTP_PASSWORD", "test-password")
+    monkeypatch.setattr(account_security.settings, "SMTP_PORT", 465)
+    monkeypatch.setattr(account_security.settings, "SMTP_SSL", True)
+    monkeypatch.setattr(account_security.settings, "SMTP_TLS", False)
+
+    account_security._deliver_password_reset("person@example.invalid", "token-value")
+    assert ("starttls", True) not in calls
+    assert ("login", "sender@example.invalid") in calls
+    assert ("send", "person@example.invalid") in calls
+    ssl_init = next(value for name, value in calls if name == "init")
+    assert ssl_init[0][:2] == ("mail.example.invalid", 465)
+    assert "context" in ssl_init[1]
+
+    calls.clear()
+    monkeypatch.setattr(account_security.settings, "SMTP_PORT", 587)
+    monkeypatch.setattr(account_security.settings, "SMTP_SSL", False)
+    monkeypatch.setattr(account_security.settings, "SMTP_TLS", True)
+
+    account_security._deliver_password_reset("person@example.invalid", "token-value")
+    assert ("starttls", True) in calls
+    assert ("send", "person@example.invalid") in calls
