@@ -157,7 +157,7 @@ Status: **COMPLETE**
 A complete synthetic journey from owner entitlement grant → account connection simulator → research → plan → content → campaign simulation → inbox/lead events → analytics → failure learning → successful replay recommendation → revocation. No real spend.
 
 ### GS-12 — Controlled live pilot gate
-Status: **IN_PROGRESS_USER_CAMPAIGN_ADVISOR_AWAITING_PR_CI_LIVE_LEGAL_AND_LAUNCH_GATES_REMAIN**
+Status: **READY_FOR_OWNER_LIVE_LEGAL_AND_LAUNCH_DECISION**
 
 Real human account/provider pilot only after all previous batches are merged and green. Real advertising spend remains disabled until explicit owner approval, provider credentials, legal/policy prerequisites, and defined budget/stop-loss controls are present.
 
@@ -895,3 +895,12 @@ Real human account/provider pilot only after all previous batches are merged and
 - CI-equivalent Full Backend from fresh PostgreSQL 16 + Redis at Alembic `20260815_0026`: `614 passed, 1 skipped, 0 failed`. Root AIOS Core suite using the exact GitHub Python 3.12 editable-install workflow: `680 passed, 0 failed`.
 - Owner frontend gates: Arabic coverage `908` translatable strings / `5` approved technical tokens, TypeScript PASS, lint PASS, Prettier PASS, and Next.js production build PASS with `86/86` static pages.
 - No schema migration, live legal acknowledgement, launch authorization, provider mutation, audience upload, budget spend, automatic execution, or real advertising spend occurred. Next action: PR/CI/merge/deploy Backend + Owner Frontend, then run private/public boundary checks, live read-only Page discovery, and a rollback-only production campaign-to-pilot plan drill before continuing to the next safe internal GS-12 gap.
+
+### GS-12 current live-gate verification — 2026-08-16
+- Revalidated production from current `main` after all previously documented GS-12 internal work. Backend and Operations Observer are healthy; Alembic remains `20260815_0026`.
+- The production GS-12 readiness evaluator was executed read-only against the exact controlled Meta live-spend pilot. Current gates: owner=true, organization=true, provider-scope=true, provider-write=true, execution-adapter=true, budget=true, stop-loss=true, expiry=true; legal=false and launch=false.
+- Exact current blockers are only `legal-policy-acknowledgement-missing` and `launch-authorization-missing`. `ready_to_arm=false`, `live_provider_mutation_allowed=false`, and `real_spend_allowed=false` remain fail-closed.
+- Pilot monetary controls remain the explicitly configured pilot-only values: EUR total cap 2000 minor, daily cap 500 minor, max CPA 300 minor, minimum ROAS 1.5. These are not global campaign limits.
+- Production boundary/live checks remain healthy: `/en/campaigns/` and `/ar/campaigns/` return HTTP 200, unauthenticated public paid-campaign API returns 401, and the private Owner surface redirects through Cloudflare Access as expected.
+- No credential was read, no Meta request was made, no provider mutation occurred, no launch was authorized, and no advertising spend occurred during this verification.
+- Internal GS-12 implementation work is complete at this point. The next action is an explicit Super Owner decision on the separate live-advertising legal/policy acknowledgement. Only after that gate is explicitly acknowledged may launch authorization be considered; launch authorization is itself a separate explicit action and does not occur implicitly from a general instruction to continue.
