@@ -51,6 +51,71 @@ class EngineeringOrganization:
         deliverable.status = WorkStatus.COMPLETE if approved else WorkStatus.REWORK
         return DepartmentDecision(deliverable.department, approved, round(score, 4), tuple(dict.fromkeys(findings)), tuple(dict.fromkeys(required)), manager.worker_id)
 
+    def plan_review(self, deliverable: Deliverable) -> DepartmentDecision:
+        """Review an engineering plan before implementation evidence can exist.
+
+        This gate deliberately does not require executed tests or a post-build security
+        scan. It verifies that the department has a complete, schema-valid plan, an
+        implementation sequence, explicit risks, and full acceptance coverage.
+        """
+        manager = self.workforce.best_match(
+            deliverable.department,
+            (deliverable.department.lower(),),
+            RoleLevel.MANAGER,
+        )
+        findings: list[str] = list(deliverable.defects)
+        required: list[str] = []
+        if deliverable.completeness < 1.0:
+            findings.append('planning acceptance criteria are incomplete')
+            required.append('cover every department planning acceptance criterion')
+        if not deliverable.evidence.get('plan_schema_valid', False):
+            findings.append('planning artifact schema is invalid')
+            required.append('produce a schema-valid department plan')
+        if not deliverable.evidence.get('implementation_plan_complete', False):
+            findings.append('implementation sequence is incomplete')
+            required.append('define at least two concrete implementation steps')
+        if not deliverable.evidence.get('risks_documented', False):
+            findings.append('implementation risks are not documented')
+            required.append('document at least one implementation risk and mitigation')
+        score = max(0.0, min(1.0, deliverable.completeness - 0.15 * len(set(findings))))
+        approved = score >= 0.9 and not findings
+        deliverable.status = WorkStatus.REVIEW if approved else WorkStatus.REWORK
+        return DepartmentDecision(
+            deliverable.department,
+            approved,
+            round(score, 4),
+            tuple(dict.fromkeys(findings)),
+            tuple(dict.fromkeys(required)),
+            manager.worker_id,
+        )
+
+    def chief_plan_review(self, blueprint: ProjectBlueprint) -> ChiefReview:
+        decisions = tuple(self.plan_review(d) for d in blueprint.deliverables)
+        blocking = tuple(
+            f'{decision.department}: {finding}'
+            for decision in decisions
+            for finding in decision.findings
+        )
+        approved = all(decision.approved for decision in decisions) and bool(decisions)
+        readiness = (
+            round(sum(decision.score for decision in decisions) / len(decisions), 4)
+            if decisions
+            else 0.0
+        )
+        rework = tuple(
+            f'{decision.department}: {action}'
+            for decision in decisions
+            for action in decision.required_actions
+        )
+        rationale = (
+            'All departments supplied a complete implementation plan and may enter the build sandbox.'
+            if approved
+            else 'Implementation is withheld until the Chief Project Engineer accepts every department plan.'
+        )
+        return ChiefReview(
+            blueprint.project, approved, readiness, decisions, blocking, rework, rationale
+        )
+
     def chief_review(self, blueprint: ProjectBlueprint) -> ChiefReview:
         decisions = tuple(self.department_review(d) for d in blueprint.deliverables)
         blocking = tuple(f'{d.department}: {finding}' for d in decisions for finding in d.findings)

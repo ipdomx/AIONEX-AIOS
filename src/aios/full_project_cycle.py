@@ -256,6 +256,7 @@ class FullProjectCycle:
         planning_directory: str | Path,
         implementation_directory: str | Path | None = None,
         research_evidence: Mapping[str, Any] | None = None,
+        plan_review_evidence: Mapping[str, Any] | None = None,
         output_root: str | Path = DEFAULT_OUTPUT_ROOT,
         tenant_id: str = "platform",
         requested_by_id: str = "system",
@@ -277,6 +278,16 @@ class FullProjectCycle:
 
         source = Path(planning_directory).resolve(strict=True)
         manifest, artifacts = self._validate_planning_source(source)
+        planning_manifest_sha256 = self._sha256(source / "manifest.json")
+        if plan_review_evidence is not None:
+            if (
+                plan_review_evidence.get("approved") is not True
+                or str(plan_review_evidence.get("planning_manifest_sha256") or "")
+                != planning_manifest_sha256
+            ):
+                raise FullProjectCycleValidationError(
+                    "pre-implementation plan review evidence is missing approval or does not bind the planning manifest"
+                )
         implementation = (
             self._validate_implementation_source(
                 Path(implementation_directory).resolve(strict=True),
@@ -300,7 +311,11 @@ class FullProjectCycle:
                 "tenant_id": tenant_id,
                 "requested_by_id": requested_by_id,
                 "external_processing_authorized": bool(external_processing_authorized),
-                "planning_manifest_sha256": self._sha256(source / "manifest.json"),
+                "planning_manifest_sha256": planning_manifest_sha256,
+                "pre_implementation_plan_approved": bool(
+                    plan_review_evidence is not None
+                    and plan_review_evidence.get("approved") is True
+                ),
                 "planning_provider": manifest["provider"],
                 "planning_model": manifest["model"],
                 "department_count": len(artifacts),
@@ -322,7 +337,7 @@ class FullProjectCycle:
                     "external_processing_authorized": external_processing_authorized,
                 },
             )
-            cognitive_payload = {
+            cognitive_payload: dict[str, Any] = {
                 "status": cognitive.status.value,
                 "score": cognitive.score,
                 "confidence": cognitive.confidence,
@@ -359,7 +374,7 @@ class FullProjectCycle:
                 destructive=False,
                 security_sensitive=self._security_sensitive(selected_objective),
             )
-            constitution_payload = {
+            constitution_payload: dict[str, Any] = {
                 "allowed": constitution.allowed,
                 "requires_human_approval": constitution.requires_human_approval,
                 "violations": list(constitution.violations),
@@ -505,7 +520,7 @@ class FullProjectCycle:
                     ),
                 )
             )
-            wisdom_payload = {
+            wisdom_payload: dict[str, Any] = {
                 "selected": wisdom.selected.name if wisdom.selected else None,
                 "ranking": [list(item) for item in wisdom.ranking],
                 "confidence": wisdom.confidence,
@@ -607,7 +622,7 @@ class FullProjectCycle:
                     }
                 )
             chief = organization.chief_review(blueprint)
-            engineering_payload = {
+            engineering_payload: dict[str, Any] = {
                 "approved": chief.approved,
                 "readiness_score": chief.readiness_score,
                 "blocking_findings": list(chief.blocking_findings),
@@ -637,7 +652,7 @@ class FullProjectCycle:
                 security_target,
                 authorization=True,
             )
-            security_payload = {
+            security_payload: dict[str, Any] = {
                 "authorized": security.authorized,
                 "risk_score": security.risk.score,
                 "risk_level": security.risk.grade,
@@ -687,7 +702,7 @@ class FullProjectCycle:
                         for item in security.findings
                     ),
                 }
-            integration_payload = MasterOrchestrator(
+            integration_payload: dict[str, Any] = MasterOrchestrator(
                 organization
             ).delivery_review(integration_artifacts)
 
@@ -751,6 +766,7 @@ class FullProjectCycle:
                 artifacts,
                 release_payload,
                 implementation=implementation,
+                plan_review=plan_review_evidence,
             )
             duration = round(time.monotonic() - started, 6)
             final_manifest = {
@@ -777,6 +793,7 @@ class FullProjectCycle:
                 "release_review": release_payload,
                 "delivery_package": package,
                 "implementation": implementation,
+                "plan_review": dict(plan_review_evidence) if plan_review_evidence is not None else None,
                 "source_planning": {
                     "directory": str(source),
                     "manifest_sha256": intake["planning_manifest_sha256"],
@@ -814,6 +831,10 @@ class FullProjectCycle:
                     "fallback_used": False,
                     "production_modified": False,
                     "source_planning_modified": False,
+                    "pre_implementation_plan_approved": bool(
+                        plan_review_evidence is not None
+                        and plan_review_evidence.get("approved") is True
+                    ),
                 },
             }
             self._atomic_write_text(
@@ -835,6 +856,7 @@ class FullProjectCycle:
                 "readiness_score": engineering_payload["readiness_score"],
                 "blocking_findings": release_payload["blocking_findings"],
                 "rework_plan": release_payload["rework_plan"],
+                "plan_review": dict(plan_review_evidence) if plan_review_evidence is not None else None,
                 "governance": {
                     "cognitive_status": cognitive_payload["status"],
                     "councils_verdict": government_payload["verdict"],
@@ -1001,7 +1023,6 @@ class FullProjectCycle:
                     "artifact_sha256": artifact["sha256"],
                 },
             )
-            model_output = artifact["model_output"]
             tests_passed = bool(executed_tests_passed)
             security_required = department in {"Backend", "Security", "DevOps"}
             security_reviewed = bool(executed_security_reviewed)
@@ -1092,6 +1113,7 @@ class FullProjectCycle:
         release: Mapping[str, Any],
         *,
         implementation: Mapping[str, Any] | None,
+        plan_review: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         package_dir = staging / "delivery-package"
         package_dir.mkdir(mode=0o700)
@@ -1107,6 +1129,14 @@ class FullProjectCycle:
             "",
             f"- Status: `{release['status']}`",
             f"- Approved: `{str(release['approved']).lower()}`",
+            "",
+            "## Blocking findings",
+            "",
+            *([f"- {item}" for item in release.get("blocking_findings") or []] or ["- None"]),
+            "",
+            "## Rework plan",
+            "",
+            *([f"- {item}" for item in release.get("rework_plan") or []] or ["- None"]),
             "",
         ]
         cls._atomic_write_text(package_dir / "README.md", "\n".join(overview))
@@ -1160,11 +1190,46 @@ class FullProjectCycle:
             files.append(
                 {"path": f"delivery-package/{path.name}", "sha256": cls._sha256(path)}
             )
+        if plan_review is not None:
+            plan_review_path = package_dir / "plan-review.json"
+            cls._atomic_write_text(
+                plan_review_path, cls._canonical_json(dict(plan_review))
+            )
+            files.append(
+                {
+                    "path": "delivery-package/plan-review.json",
+                    "sha256": cls._sha256(plan_review_path),
+                }
+            )
+
         executable_files: list[dict[str, str]] = []
         if implementation is not None:
             implementation_root = Path(
                 str(implementation["output_directory"])
             ).resolve(strict=True)
+            source_root = (implementation_root / "source").resolve(strict=True)
+            if implementation_root not in source_root.parents or not source_root.is_dir():
+                raise FullProjectCycleValidationError(
+                    "implementation source directory is unsafe or unavailable"
+                )
+            for source_file in sorted(source_root.rglob("*")):
+                if not source_file.is_file() or source_file.is_symlink():
+                    continue
+                resolved = source_file.resolve(strict=True)
+                if source_root not in resolved.parents:
+                    raise FullProjectCycleValidationError(
+                        "implementation source file escapes the source root"
+                    )
+                relative = resolved.relative_to(source_root)
+                destination_file = package_dir / "source" / relative
+                destination_file.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+                shutil.copy2(resolved, destination_file)
+                record = {
+                    "path": f"delivery-package/source/{relative.as_posix()}",
+                    "sha256": cls._sha256(destination_file),
+                }
+                files.append(record)
+                executable_files.append(record)
             for name in (
                 "project-prototype.zip",
                 "manifest.json",
@@ -1192,14 +1257,14 @@ class FullProjectCycle:
             "source_type": "validated-engineering-delivery-package",
             "contains_executable_product": implementation is not None,
             "executable_scope": (
-                "controlled-full-stack-web-prototype"
+                str(implementation.get("executable_scope") or "controlled-full-stack-web-prototype")
                 if implementation is not None
                 else None
             ),
             "executable_files": executable_files,
             "claim_boundary": (
-                "This package contains a tested functional prototype and governed evidence. "
-                "It is not represented as a deployed production backend or completed external integration."
+                "This package contains tested executable source and governed evidence within the proven implementation scope. "
+                "It is not represented as deployed production infrastructure or as an unproven external integration."
                 if implementation is not None
                 else "This package contains governed implementation specifications and evidence. "
                 "It is not represented as deployed executable product source."
@@ -1360,6 +1425,24 @@ class FullProjectCycle:
             raise FullProjectCycleValidationError(
                 "implementation rollback archive is invalid"
             )
+        application_type = str(manifest.get("application_type") or "web_application")
+        test_checks = dict((manifest.get("tests") or {}).get("checks") or {})
+        capabilities = {
+            "authentication": bool(test_checks.get("member_authentication")),
+            "member_directory": bool(test_checks.get("member_directory")),
+            "realtime_communications": bool(test_checks.get("webrtc_runtime_present"))
+            and bool(test_checks.get("signaling_round_trip")),
+            "csrf": bool(test_checks.get("csrf_enforced")),
+            "persistence": bool(
+                test_checks.get("sqlite_persistence")
+                or test_checks.get("api_create_read_delete")
+            ),
+            "native_mobile": False,
+            "payments": False,
+            "production_deployment": False,
+            "external_integration": False,
+            "public_realtime_relay": False,
+        }
         return {
             "output_directory": str(directory),
             "source_directory": str(source),
@@ -1368,6 +1451,7 @@ class FullProjectCycle:
             "archive_path": str(archive),
             "archive_sha256": cls._sha256(archive),
             "mode": manifest["mode"],
+            "application_type": application_type,
             "tests_passed": True,
             "rollback_tested": True,
             "requests_count": int(manifest.get("requests_count") or 1),
@@ -1376,7 +1460,12 @@ class FullProjectCycle:
             "total_tokens": int(manifest.get("total_tokens") or 0),
             "calculated_cost": float(manifest.get("calculated_cost") or 0.0),
             "total_duration": float(manifest.get("total_duration") or 0.0),
-            "executable_scope": "controlled-full-stack-web-prototype",
+            "executable_scope": (
+                "realtime-communications-web-application"
+                if application_type == "realtime_communications"
+                else "controlled-full-stack-web-prototype"
+            ),
+            "capabilities": capabilities,
             "production_modified": False,
             "fallback_used": False,
         }
@@ -1388,49 +1477,53 @@ class FullProjectCycle:
         if implementation is None:
             return ["executable implementation evidence is missing"]
         lowered = objective.lower()
-        capability_terms = {
+        capabilities = dict(implementation.get("capabilities") or {})
+        requested = {
             "production-deployment": (
-                "production deployment",
-                "production backend",
-                "hosted production",
-                "public deployment",
-                "نشر إنتاجي",
-                "استضافة إنتاجية",
+                "production deployment", "production backend", "hosted production",
+                "public deployment", "نشر إنتاجي", "استضافة إنتاجية",
             ),
             "authentication": (
-                "login",
-                "authentication",
-                "account",
-                "password",
-                "تسجيل دخول",
-                "حساب",
-                "كلمة مرور",
+                "login", "authentication", "account", "password",
+                "تسجيل دخول", "حساب", "كلمة مرور", "مسجلين", "الأعضاء المسجلين",
             ),
             "payments": ("payment", "billing", "checkout", "دفع", "فوترة"),
             "native-mobile": (
-                "mobile app",
-                "android",
-                "ios",
-                "تطبيق موبايل",
-                "أندرويد",
+                "mobile app", "android", "ios", "تطبيق موبايل", "تطبيق هاتف",
+                "أندرويد", "اندرويد", "آيفون", "ايفون",
             ),
             "external-integration": (
-                "third-party integration",
-                "webhook",
-                "external integration",
-                "تكامل خارجي",
-                "طرف ثالث",
+                "third-party integration", "webhook", "external integration",
+                "تكامل خارجي", "طرف ثالث",
+            ),
+            "realtime-communications": (
+                "webrtc", "video call", "voice call", "audio call", "calling",
+                "مكالم", "اتصال", "اتصالات", "صوت", "فيديو",
             ),
         }
-        blockers = []
-        for capability, terms in capability_terms.items():
+        capability_map = {
+            "production-deployment": "production_deployment",
+            "authentication": "authentication",
+            "payments": "payments",
+            "native-mobile": "native_mobile",
+            "external-integration": "external_integration",
+            "realtime-communications": "realtime_communications",
+        }
+        blockers: list[str] = []
+        for capability, terms in requested.items():
             if any(
                 FullProjectCycle._contains_requested_term(lowered, term)
                 for term in terms
-            ):
+            ) and not bool(capabilities.get(capability_map[capability])):
                 blockers.append(
-                    f"prototype scope does not prove requested {capability} runtime capability"
+                    f"implementation scope does not prove requested {capability} runtime capability"
                 )
+        if implementation.get("application_type") == "realtime_communications" and not bool(
+            capabilities.get("public_realtime_relay")
+        ):
+            blockers.append(
+                "realtime application requires audited HTTPS and STUN/TURN relay configuration before public-internet release"
+            )
         return blockers
 
     @staticmethod
