@@ -51,6 +51,21 @@ function amount(value: number, currency: string): string {
   }
 }
 
+const DELIVERY_STAGES = [
+  ["aios_analysis", "stageAnalysis"],
+  ["awaiting_owner", "stageAwaitingOwner"],
+  ["owner_approved", "stageOwnerApproved"],
+  ["live_plan_ready", "stageLivePlan"],
+  ["provider_preparation", "stageProviderPreparing"],
+  ["paused_on_meta", "stagePausedMeta"],
+] as const;
+
+function deliveryProgress(stage: PaidCampaign["delivery_stage"]): number {
+  if (stage === "manual_review") return 4;
+  const index = DELIVERY_STAGES.findIndex(([key]) => key === stage);
+  return Math.max(0, index);
+}
+
 export function CampaignsClient() {
   const t = useTranslations("campaigns");
   const locale = useLocale();
@@ -387,6 +402,40 @@ export function CampaignsClient() {
                 <span className={`rounded-full border px-2.5 py-1 text-[11px] ${campaign.approval_status === "approved" ? "border-green-500/20 bg-green-500/10 text-green-300" : "border-orange-500/20 bg-orange-500/10 text-orange-300"}`}>
                   {campaign.approval_status === "approved" ? t("approved") : t("awaitingOwner")}
                 </span>
+              </div>
+              <div className="mt-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                <div className="text-xs font-semibold text-white/70">{t("deliveryTitle")}</div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                  {DELIVERY_STAGES.map(([key, label], index) => {
+                    const reached = index <= deliveryProgress(campaign.delivery_stage);
+                    const current = campaign.delivery_stage === key;
+                    return (
+                      <div
+                        key={key}
+                        className={`rounded-lg border px-3 py-2 text-[11px] ${
+                          current
+                            ? "border-electric-400/30 bg-electric-500/10 text-electric-100"
+                            : reached
+                              ? "border-green-500/15 bg-green-500/[0.05] text-green-200/80"
+                              : "border-white/[0.05] text-white/25"
+                        }`}
+                      >
+                        <span className="mr-1.5 font-mono text-[10px]">{index + 1}</span>
+                        {t(label)}
+                      </div>
+                    );
+                  })}
+                </div>
+                {campaign.delivery_stage === "paused_on_meta" ? (
+                  <div className="mt-3 rounded-lg border border-green-500/20 bg-green-500/[0.06] p-3 text-xs leading-5 text-green-200/80">
+                    {t("pausedMetaNote")}
+                  </div>
+                ) : null}
+                {campaign.manual_review_required ? (
+                  <div className="mt-3 rounded-lg border border-red-500/25 bg-red-500/[0.07] p-3 text-xs leading-5 text-red-200">
+                    {t("manualReviewNote")}
+                  </div>
+                ) : null}
               </div>
               <div className="mt-3 text-xs text-white/35">{t("noAutoSpend")}</div>
             </article>

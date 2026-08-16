@@ -162,11 +162,22 @@ export function GrowthPaidCampaignApprovalConsole() {
       return;
     }
     setLivePanelId(item.id);
-    if (liveDataLoaded) return;
     setBusyId(item.id);
-    setMessage("Loading fail-closed live-plan sources…");
+    setMessage("Loading current live-plan and execution state…");
     try {
       await loadLiveSources();
+      try {
+        const execution = await fetchOwnerGrowthPaidCampaignLiveExecution(
+          item.id,
+        );
+        setExecutionResults((current) => ({
+          ...current,
+          [item.id]: execution,
+        }));
+      } catch {
+        // No execution journal exists yet; this is a normal pre-execution state.
+      }
+      setMessage("Live-plan sources and execution state refreshed.");
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -432,6 +443,9 @@ export function GrowthPaidCampaignApprovalConsole() {
               pilotId: "",
               pageRef: "",
             };
+            const selectedPilot = candidatePilots.find(
+              (pilot) => pilot.id === planInput.pilotId,
+            );
             const planResult = planResults[item.id];
             const executionResult = executionResults[item.id];
             const executionConfirmation = executionConfirmations[item.id] ?? "";
@@ -662,6 +676,71 @@ export function GrowthPaidCampaignApprovalConsole() {
                       </label>
                     </div>
 
+                    {selectedPilot ? (
+                      <div className="mt-3 rounded-xl border border-white/[0.06] bg-black/10 p-3">
+                        <div className="text-[10px] uppercase tracking-wider text-white/30">
+                          {tr("Selected pilot runtime limits")}
+                        </div>
+                        <div className="mt-2 grid gap-2 text-[11px] text-white/55 sm:grid-cols-2 xl:grid-cols-4">
+                          <div>
+                            {tr("Pilot status")}:{" "}
+                            {technicalText(selectedPilot.status)}
+                          </div>
+                          <div>
+                            {tr("Expires")}:{" "}
+                            {selectedPilot.expires_at
+                              ? new Date(
+                                  selectedPilot.expires_at,
+                                ).toLocaleString()
+                              : "—"}
+                          </div>
+                          <div>
+                            {tr("Total cap")}:{" "}
+                            {selectedPilot.max_total_budget_minor &&
+                            selectedPilot.currency
+                              ? minorAmount(
+                                  selectedPilot.max_total_budget_minor,
+                                  selectedPilot.currency,
+                                )
+                              : "—"}
+                          </div>
+                          <div>
+                            {tr("Daily cap")}:{" "}
+                            {selectedPilot.max_daily_budget_minor &&
+                            selectedPilot.currency
+                              ? minorAmount(
+                                  selectedPilot.max_daily_budget_minor,
+                                  selectedPilot.currency,
+                                )
+                              : "—"}
+                          </div>
+                          <div>
+                            {tr("Max CPA")}:{" "}
+                            {selectedPilot.max_cpa_minor &&
+                            selectedPilot.currency
+                              ? minorAmount(
+                                  selectedPilot.max_cpa_minor,
+                                  selectedPilot.currency,
+                                )
+                              : "—"}
+                          </div>
+                          <div>
+                            {tr("Min ROAS")}: {selectedPilot.min_roas ?? "—"}
+                          </div>
+                          <div>
+                            {tr("Provider mutation")}:{" "}
+                            {String(
+                              selectedPilot.live_provider_mutation_allowed,
+                            )}
+                          </div>
+                          <div>
+                            {tr("Real spend gate")}:{" "}
+                            {String(selectedPilot.real_spend_allowed)}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
                     {liveDataLoaded && candidatePilots.length === 0 ? (
                       <div className="mt-3 text-xs text-orange-200/75">
                         {tr(
@@ -805,6 +884,13 @@ export function GrowthPaidCampaignApprovalConsole() {
                               {String(executionResult.manual_review_required)}
                             </span>
                           </div>
+                          {executionResult.manual_review_required ? (
+                            <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/[0.08] p-3 text-xs font-medium text-red-200">
+                              {tr(
+                                "Manual review required. The uncertain provider operation will not be retried automatically, and the pilot safety guard must be reviewed before any further execution.",
+                              )}
+                            </div>
+                          ) : null}
                           <div className="mt-3 space-y-1">
                             {executionResult.steps.map((step) => (
                               <div

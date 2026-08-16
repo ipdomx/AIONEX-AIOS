@@ -956,6 +956,19 @@ export interface PaidCampaign {
   live_provider_call: boolean;
   live_campaign_mutation: boolean;
   automatic_budget_increase_allowed: boolean;
+  delivery_stage:
+    | "aios_analysis"
+    | "awaiting_owner"
+    | "owner_approved"
+    | "live_plan_ready"
+    | "provider_preparation"
+    | "paused_on_meta"
+    | "manual_review";
+  live_plan_prepared: boolean;
+  provider_prepared: boolean;
+  manual_review_required: boolean;
+  spend_executed: boolean;
+  automatic_execution_allowed: false;
 }
 
 export interface PaidCampaignPreparationInput {
