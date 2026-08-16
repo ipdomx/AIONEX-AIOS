@@ -1622,6 +1622,30 @@ const AR: Catalog = {
   "Unable to send the reply.": "تعذر إرسال الرد.",
   "Support request status updated.": "تم تحديث حالة طلب الدعم.",
   "Unable to update the support request.": "تعذر تحديث طلب الدعم.",
+  "Loading fail-closed live-plan sources…":
+    "جارٍ تحميل مصادر خطة التشغيل الحي المغلقة افتراضيًا…",
+  "Unable to load live-plan sources.": "تعذر تحميل مصادر خطة التشغيل الحي.",
+  "Select a controlled live-spend pilot before evaluating.":
+    "اختر تجربة صرف حي مضبوطة قبل التقييم.",
+  "Evaluating the campaign-to-pilot live plan without provider writes…":
+    "جارٍ تقييم خطة الربط بين الحملة والتجربة الحية دون أي كتابة لدى المزود…",
+  "Live plan is statically compilable. Launch and spend remain separate.":
+    "خطة التشغيل الحي قابلة للتجهيز مبدئيًا. يظل الإطلاق والصرف خطوتين منفصلتين.",
+  "Live-plan evaluation failed.": "فشل تقييم خطة التشغيل الحي.",
+  "Select both the controlled pilot and Meta Page before preparing.":
+    "اختر التجربة المضبوطة وصفحة Meta معًا قبل تجهيز الخطة.",
+  "Preparing digest-bound live plan without provider calls…":
+    "جارٍ تجهيز خطة تشغيل حي مرتبطة ببصمة دون أي اتصال بالمزود…",
+  "Live plan digest prepared. Runtime authorization and launch remain mandatory and separate.":
+    "تم تجهيز بصمة خطة التشغيل الحي. يظل تفويض وقت التشغيل والإطلاق إلزاميين ومنفصلين.",
+  "Live-plan preparation failed.": "فشل تجهيز خطة التشغيل الحي.",
+  "Revalidating the stored live-plan digest…":
+    "جارٍ إعادة التحقق من بصمة خطة التشغيل الحي المحفوظة…",
+  "Stored live plan still matches the approved campaign configuration.":
+    "ما زالت خطة التشغيل الحي المحفوظة مطابقة لإعدادات الحملة المعتمدة.",
+  "Stored live plan no longer matches the campaign and cannot be used.":
+    "لم تعد خطة التشغيل الحي المحفوظة مطابقة للحملة ولا يمكن استخدامها.",
+  "Live-plan validation failed.": "فشل التحقق من خطة التشغيل الحي.",
 };
 
 const FR: Catalog = {
@@ -1779,6 +1803,13 @@ function translateArabicPattern(core: string): string | null {
     return `تم اكتشاف ${match[1]} من حسابات Meta المملوكة؛ ${match[2]} نشط.`;
   match = core.match(/^Synchronized (\d+) controlled pilots\.$/);
   if (match) return `تمت مزامنة ${match[1]} تجربة مضبوطة.`;
+  match = core.match(
+    /^Loaded (\d+) controlled pilots and (\d+) Meta advertising Pages\.$/,
+  );
+  if (match)
+    return `تم تحميل ${match[1]} تجربة مضبوطة و${match[2]} صفحة Meta صالحة للإعلانات.`;
+  match = core.match(/^Live plan remains blocked by (\d+) gate\(s\)\.$/);
+  if (match) return `لا تزال خطة التشغيل الحي محظورة بواسطة ${match[1]} بوابة.`;
   match = core.match(/^(\d+)\/(\d+) safety gates$/);
   if (match) return `${match[1]}/${match[2]} بوابات أمان`;
   match = core.match(/^Synchronized (\d+) records\.$/);

@@ -11,7 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import UserRecord, require_super_owner
 from app.db.base import get_db
-from app.services import growth_access, growth_meta_target_discovery
+from app.services import (
+    growth_access,
+    growth_meta_page_discovery,
+    growth_meta_target_discovery,
+)
 
 router = APIRouter(prefix="/owner/growth-social", tags=["Owner Growth & Social"])
 
@@ -37,6 +41,16 @@ async def meta_targets(_actor: UserRecord = Depends(require_super_owner)):
             growth_meta_target_discovery.probe_meta_owned_targets_read_only
         )
     except growth_meta_target_discovery.MetaTargetDiscoveryError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.get("/meta-pages")
+async def meta_pages(_actor: UserRecord = Depends(require_super_owner)):
+    try:
+        return await asyncio.to_thread(
+            growth_meta_page_discovery.probe_meta_pages_read_only
+        )
+    except growth_meta_page_discovery.MetaPageDiscoveryError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 

@@ -3,11 +3,12 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlparse
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import UserRecord
@@ -42,6 +43,49 @@ SAFE_PROVIDERS = {
     "pinterest",
     "reddit",
 }
+
+MAX_CAMPAIGN_JSON_BYTES = 16_384
+_SENSITIVE_JSON_KEY = re.compile(
+    r"(?:^|_)(?:token|secret|password|authorization|api_key|apikey|private_key|credential)(?:$|_)",
+    re.IGNORECASE,
+)
+
+
+def _safe_campaign_json(value: Any, label: str) -> Any:
+    def walk(item: Any, depth: int = 0) -> None:
+        if depth > 5:
+            raise GrowthPaidCampaignError(f"{label}-too-deep")
+        if isinstance(item, dict):
+            if len(item) > 100:
+                raise GrowthPaidCampaignError(f"{label}-too-many-items")
+            for key, nested in item.items():
+                if (
+                    not isinstance(key, str)
+                    or not key
+                    or _SENSITIVE_JSON_KEY.search(key)
+                ):
+                    raise GrowthPaidCampaignError("credential-material-forbidden")
+                walk(nested, depth + 1)
+            return
+        if isinstance(item, list):
+            if len(item) > 200:
+                raise GrowthPaidCampaignError(f"{label}-too-many-items")
+            for nested in item:
+                walk(nested, depth + 1)
+            return
+        if item is None or isinstance(item, (str, bool, int)):
+            if isinstance(item, str) and len(item) > 4000:
+                raise GrowthPaidCampaignError(f"{label}-string-too-long")
+            return
+        if isinstance(item, float) and math.isfinite(item):
+            return
+        raise GrowthPaidCampaignError(f"{label}-unsupported-value")
+
+    walk(value)
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
+    if len(encoded.encode("utf-8")) > MAX_CAMPAIGN_JSON_BYTES:
+        raise GrowthPaidCampaignError(f"{label}-too-large")
+    return value
 
 
 def _now() -> datetime:
@@ -164,7 +208,9 @@ async def create_campaign(
         status="draft",
         approval_status="not_requested",
         stop_loss_policy=_safe_policy(dict(payload.get("stop_loss_policy") or {})),
-        campaign_metadata=dict(payload.get("metadata") or {}),
+        campaign_metadata=_safe_campaign_json(
+            dict(payload.get("metadata") or {}), "metadata"
+        ),
         real_spend_allowed=False,
         live_provider_call=False,
         live_campaign_mutation=False,
@@ -299,6 +345,20 @@ async def approve_campaign(
     return row
 
 
+def _touch_campaign_configuration(campaign: GrowthPaidCampaign) -> None:
+    """Invalidate stale Owner approval/live plan whenever campaign inputs change."""
+    campaign.version = int(campaign.version or 0) + 1
+    metadata = dict(campaign.campaign_metadata or {})
+    if "live_execution_plan" in metadata:
+        metadata.pop("live_execution_plan", None)
+        campaign.campaign_metadata = metadata
+    if campaign.approval_status == "approved":
+        campaign.approval_status = "pending_owner"
+        campaign.approved_by_id = None
+        campaign.approved_at = None
+        campaign.status = "awaiting_owner_approval"
+
+
 async def add_ad_set(
     session: AsyncSession, actor: UserRecord, campaign_id: str, payload: dict[str, Any]
 ) -> GrowthPaidAdSet:
@@ -310,19 +370,38 @@ async def add_ad_set(
     daily = int(payload["daily_budget_cap_minor"])
     if daily <= 0 or daily > campaign.daily_budget_cap_minor:
         raise GrowthPaidCampaignError("adset-daily-cap-invalid")
+    existing_daily = int(
+        await session.scalar(
+            select(
+                func.coalesce(func.sum(GrowthPaidAdSet.daily_budget_cap_minor), 0)
+            ).where(GrowthPaidAdSet.campaign_id == campaign.id)
+        )
+        or 0
+    )
+    if existing_daily + daily > campaign.daily_budget_cap_minor:
+        raise GrowthPaidCampaignError("adset-aggregate-daily-cap-exceeds-campaign")
+    audience = _safe_campaign_json(dict(payload.get("audience") or {}), "audience")
+    placements = [
+        str(item).strip().lower()
+        for item in (payload.get("placements") or [])
+        if str(item).strip()
+    ]
+    if len(placements) > 100 or any(len(item) > 80 for item in placements):
+        raise GrowthPaidCampaignError("placements-invalid")
     row = GrowthPaidAdSet(
         organization_id=actor.organization_id,
         campaign_id=campaign.id,
         name=str(payload["name"]).strip(),
         provider=provider,
-        audience=dict(payload.get("audience") or {}),
-        placements=list(payload.get("placements") or []),
+        audience=audience,
+        placements=placements,
         bid_strategy=str(payload.get("bid_strategy", "lowest_cost")),
         daily_budget_cap_minor=daily,
         simulated_spend_minor=0,
         status="draft",
     )
     session.add(row)
+    _touch_campaign_configuration(campaign)
     await session.flush()
     return row
 
@@ -341,11 +420,12 @@ async def add_creative(
         body=str(payload.get("body", "")),
         media_refs=list(payload.get("media_refs") or []),
         destination_url=_safe_destination_url(payload.get("destination_url")),
-        utm=dict(payload.get("utm") or {}),
-        approval_status="approved" if payload.get("approved") else "not_requested",
+        utm=_safe_campaign_json(dict(payload.get("utm") or {}), "utm"),
+        approval_status="not_requested",
         status="ready",
     )
     session.add(row)
+    _touch_campaign_configuration(campaign)
     await session.flush()
     return row
 
@@ -373,6 +453,7 @@ async def add_ad(
         status="ready",
     )
     session.add(row)
+    _touch_campaign_configuration(campaign)
     await session.flush()
     return row
 
@@ -402,6 +483,7 @@ async def create_experiment(
         result={},
     )
     session.add(row)
+    _touch_campaign_configuration(campaign)
     await session.flush()
     return row
 

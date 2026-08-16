@@ -74,10 +74,23 @@ OWNER_API_CONTRACT = {
     ("GET", "/api/v1/owner/growth-social/capabilities"),
     ("GET", "/api/v1/owner/growth-social/access"),
     ("GET", "/api/v1/owner/growth-social/meta-targets"),
+    ("GET", "/api/v1/owner/growth-social/meta-pages"),
     ("PUT", "/api/v1/owner/growth-social/access"),
     ("DELETE", "/api/v1/owner/growth-social/access"),
     ("GET", "/api/v1/owner/growth-social/paid-campaigns"),
     ("POST", "/api/v1/owner/growth-social/paid-campaigns/{campaign_id}/approve"),
+    (
+        "POST",
+        "/api/v1/owner/growth-social/paid-campaigns/{campaign_id}/live-plan/evaluate",
+    ),
+    (
+        "POST",
+        "/api/v1/owner/growth-social/paid-campaigns/{campaign_id}/live-plan/prepare",
+    ),
+    (
+        "GET",
+        "/api/v1/owner/growth-social/paid-campaigns/{campaign_id}/live-plan/validate",
+    ),
     ("GET", "/api/v1/owner/growth-social/pilots"),
     ("POST", "/api/v1/owner/growth-social/pilots"),
     ("GET", "/api/v1/owner/growth-social/pilots/{pilot_id}/readiness"),
@@ -202,6 +215,20 @@ OWNER_MUTATION_REQUESTS = {
     ("DELETE", "/api/v1/owner/support/requests/{request_id}"): None,
     ("DELETE", "/api/v1/owner/growth-social/access"): None,
     ("POST", "/api/v1/owner/growth-social/paid-campaigns/{campaign_id}/approve"): None,
+    (
+        "POST",
+        "/api/v1/owner/growth-social/paid-campaigns/{campaign_id}/live-plan/evaluate",
+    ): {
+        "pilot_id": "missing-pilot",
+        "creative_identity_ref": None,
+    },
+    (
+        "POST",
+        "/api/v1/owner/growth-social/paid-campaigns/{campaign_id}/live-plan/prepare",
+    ): {
+        "pilot_id": "missing-pilot",
+        "creative_identity_ref": "pageref://meta/sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    },
     ("POST", "/api/v1/owner/growth-social/pilots"): {
         "provider": "meta",
         "provider_scope": "owned_assets",
@@ -840,6 +867,7 @@ def test_growth_social_pilot_console_is_private_fail_closed_and_translated() -> 
 
     for path in (
         "/owner/growth-social/meta-targets",
+        "/owner/growth-social/meta-pages",
         "/owner/growth-social/pilots",
         "/owner/growth-social/paid-campaigns",
         "/owner/growth-social/pilots/${pilotId}/readiness",
@@ -876,7 +904,14 @@ def test_growth_paid_campaign_owner_approval_console_is_private_and_advisory_onl
     for marker in (
         "fetchOwnerGrowthPaidCampaigns",
         "approveOwnerGrowthPaidCampaign",
+        "fetchOwnerGrowthPilots",
+        "fetchOwnerGrowthMetaPages",
+        "evaluateOwnerGrowthPaidCampaignLivePlan",
+        "prepareOwnerGrowthPaidCampaignLivePlan",
+        "validateOwnerGrowthPaidCampaignLivePlan",
         "AIOS analyzes the user's chosen campaign values",
+        "Fail-closed live-plan preparation",
+        "This prepares and validates an internal plan only",
         "Approval preserves the user's budget",
         "Approve campaign",
     ):
@@ -891,3 +926,15 @@ def test_growth_paid_campaign_owner_approval_console_is_private_and_advisory_onl
     assert "automatic_execution_allowed" not in console
     assert '"/owner/growth-social/paid-campaigns"' in growth_client
     assert "/owner/growth-social/paid-campaigns/${campaignId}/approve" in growth_client
+    assert (
+        "/owner/growth-social/paid-campaigns/${campaignId}/live-plan/evaluate"
+        in growth_client
+    )
+    assert (
+        "/owner/growth-social/paid-campaigns/${campaignId}/live-plan/prepare"
+        in growth_client
+    )
+    assert (
+        "/owner/growth-social/paid-campaigns/${campaignId}/live-plan/validate"
+        in growth_client
+    )
