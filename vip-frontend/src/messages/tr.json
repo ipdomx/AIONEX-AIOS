@@ -490,7 +490,12 @@
       "approvalError": "Nihai sahip onayı kaydedilemedi.",
       "ownerApprovalRequired": "Çalıştırılan tüm kanıt kapıları geçti. Nihai sürüm yalnızca kuruluş sahibinin açık onayını bekliyor.",
       "ownerApproved": "Kuruluş sahibi saklanan kanıt paketini onayladı. Nihai arşiv imzalı onay makbuzunu içerir."
-    }
+    },
+    "phase36Title": "Faz 36 genişleme durumu",
+    "phase36Description": "Mevcut ürün kapsamı 1000+ kullanıcı için dağıtık çalışmaya ve tam yaratıcı medya, eğitim, sağlık ve sektör yeteneklerine genişletiliyor. Olgunluk kanıta dayanır ve eksik yetenekler açıkça gösterilir.",
+    "phase36CurrentBatch": "Geçerli parti",
+    "phase36MinScale": "En az eşzamanlı kullanıcı",
+    "phase36ProductionReady": "Üretime hazır"
   },
   "legal": {
     "effective": "Güncel teknik bildirim",

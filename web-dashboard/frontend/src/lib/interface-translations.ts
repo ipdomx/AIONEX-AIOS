@@ -577,6 +577,17 @@ const AR: Catalog = {
   Completed: "مكتمل",
   "Completion Inventory": "جرد الاكتمال",
   "Platform Completion Program": "برنامج إكمال المنصة",
+  "Platform Completion & Phase 36 Expansion": "إكمال المنصة وتوسعة المرحلة 36",
+  "Phase 29 remains historical completion evidence for its original scope. Phase 36 is now the authoritative expansion contract for 1000+ user scale, distributed project execution, creative media, education, healthcare, and universal sector capabilities.":
+    "تظل المرحلة 29 دليلاً تاريخيًا على اكتمال نطاقها الأصلي. وأصبحت المرحلة 36 الآن عقد التوسعة المعتمد للتشغيل الموزع لأكثر من 1000 مستخدم وتنفيذ المشاريع والوسائط الإبداعية والتعليم والرعاية الصحية وقدرات القطاعات الشاملة.",
+  "Phase 36 production-ready capabilities": "قدرات المرحلة 36 الجاهزة للإنتاج",
+  "Capabilities production-ready": "قدرات جاهزة للإنتاج",
+  "Current Phase 36 batch": "دفعة المرحلة 36 الحالية",
+  "Authoritative current product contract": "عقد المنتج الحالي المعتمد",
+  "Minimum design target:": "الحد الأدنى المستهدف للتصميم:",
+  "concurrent users. Maturity is evidence-based; source-built does not mean rendered, scaled, or production-ready.":
+    "مستخدمين متزامنين. تعتمد حالة النضج على الأدلة؛ ووجود المصدر لا يعني أنه مُنتج نهائيًا أو قابل للتوسع أو جاهز للإنتاج.",
+  "Historical Phase 29 completion batches": "دفعات اكتمال المرحلة 29 التاريخية",
   "Evidence-backed inventory of every AIOS module, Owner page, public portal page, backend endpoint, and completion batch. AI models and providers are deliberately reserved for the final batch.":
     "جرد قائم على الأدلة لكل وحدة في AIOS وصفحة للمالك وصفحة في البوابة العامة ونقطة نهاية خلفية ودفعة إكمال، مع حجز نماذج ومزودي الذكاء الاصطناعي للدفعة الأخيرة عمدًا.",
   "Refresh evidence": "تحديث الأدلة",

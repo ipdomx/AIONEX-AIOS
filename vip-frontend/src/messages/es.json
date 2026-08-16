@@ -490,7 +490,12 @@
       "approvalError": "No se pudo registrar la aprobación final del propietario.",
       "ownerApprovalRequired": "Todas las puertas de evidencia ejecutadas se superaron. La versión final solo espera la aprobación explícita del propietario de la organización.",
       "ownerApproved": "El propietario de la organización aprobó el paquete de evidencias. El archivo final incluye el recibo de aprobación firmado."
-    }
+    },
+    "phase36Title": "Estado de expansión de la Fase 36",
+    "phase36Description": "El contrato actual del producto se amplía hacia ejecución distribuida para más de 1000 usuarios y capacidades completas de creación, medios, educación, salud y sectores. La madurez se basa en evidencia y lo incompleto se muestra claramente.",
+    "phase36CurrentBatch": "Lote actual",
+    "phase36MinScale": "Usuarios concurrentes mínimos",
+    "phase36ProductionReady": "Listo para producción"
   },
   "legal": {
     "effective": "Aviso técnico actual",

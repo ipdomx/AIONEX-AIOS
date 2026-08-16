@@ -486,3 +486,40 @@ Append entries below in chronological order. Do not delete historical problems a
 - Resolution plan: Phase 36 created as the new authoritative expansion contract. Batch 36B connects the live Project path to Phase 23/24 distributed runtime; 36D–36I close real rendered media; 36N certifies 1000+ concurrency.
 - Regression prevention: capability/maturity registry and mandatory report receipt are required in 36A; final completeness now depends on Phase 36 rather than historical Phase 29 closure alone.
 - Production mutation in this entry: none.
+
+## 12. Batch 36A implementation record — 2026-08-17
+
+### 36A start / implementation scope
+
+- Baseline: Phase 36 roadmap merged in PR #387; production remains the stable pre-36 implementation baseline.
+- Gap: no machine-readable Phase 36 maturity registry, no CI-enforced reporting receipt, and Owner Completion still presented historical Phase 29 completion without the new authoritative expansion state.
+- Implementation: add a Phase 36 capability registry with seven evidence-based maturity states and ownership across 36A–36N; expose the same non-secret snapshot through the public capability API and Owner finalization API; show the authoritative Phase 36 state in Owner Completion and the user Projects page; add a standard reporting receipt and GitHub CI guard.
+- Technology review: 36A introduces no new production runtime dependency. It uses the repository's existing Python/FastAPI/Next.js stack and standard-library registry/checker logic. Runtime/tool versions remain governed by the technology-refresh snapshot above and must be rechecked from official upstream sources by each implementation batch.
+- Security/cost: snapshot contains product metadata only, no tenant data, provider account IDs or credentials. The reporting checker inspects Git path names only. No provider call, GPU work or billable operation is added by 36A.
+- Rollback: revert the 36A commit/PR; no schema migration or data transformation is involved.
+- Acceptance target: registry ownership is exhaustive and unique; maturity values are ordered and truthful; 1000-user minimum is machine-readable; current batch becomes 36B after 36A closure; Phase 36-owned code changes cannot pass CI without roadmap/receipt/exemption evidence; Owner/User surfaces consume the same snapshot.
+
+### P36-0002 — Owner finalization snapshot type regression during 36A — 2026-08-17
+
+- Batch: 36A.
+- Environment: development worktree, Owner frontend TypeScript/build gate.
+- Symptom: `OwnerFinalizationSnapshot` gained the required `phase36` field, but `/owner/finalization` retained an old empty-state initializer without that field; TypeScript and the production Next.js build failed before merge.
+- User impact: none; the defect was caught before PR/merge/deployment.
+- Detection/reproduction: `npm run type-check` and `npm run build` reported TS2741 at `src/app/owner/finalization/page.tsx`.
+- Root cause: two Owner pages instantiate the same snapshot type; the first implementation updated `/owner/completion` but missed the second initializer.
+- Why prior safeguards missed it: focused source editing did not enumerate every construction site before the full TypeScript gate.
+- Fix: import/use `EMPTY_OWNER_PHASE36_PROGRAM` in the second initializer.
+- Security/tenant review: no API authorization, tenant data or secret handling changed.
+- Regression prevention: full Owner TypeScript/build remains mandatory before 36A PR; future shared-type changes must grep all literal initializers.
+- Rollout/rollback: no production rollout occurred; no rollback required.
+- Residual risk: none after the complete frontend gate passes.
+
+### 36A pre-merge validation closeout — 2026-08-17
+
+- Machine-readable registry currently contains `54` first-class capabilities owned exactly once across batches `36A` through `36N`; the 36A governance/reporting capability is marked `production_ready` for the 36A release and the next implementation batch is `36B`.
+- Core Phase 36 + historical completion contracts: `15 passed`; final full AIOS Core: `720 passed`.
+- Backend Phase 36 public snapshot contract: `1 passed`; Ruff PASS; Mypy PASS across `178` backend source files; fresh PostgreSQL 16 + Redis Full Backend at Alembic `20260816_0027`: `629 passed, 1 skipped, 0 failed`.
+- Owner frontend: Arabic coverage `922` strings / `5` technical tokens, TypeScript/lint/Prettier PASS, production build `86/86`, dependency audit `0 vulnerabilities`.
+- VIP frontend: six-locale integrity PASS, TypeScript/lint PASS, static build `115/115`, smoke `94`, dependency audit `0 vulnerabilities`.
+- Browser E2E: `10/10 passed`, including the new mobile Phase 36 status surface, Owner boundary tests, campaign readiness/account-derived-currency contracts and RTL/mobile overflow regression tests.
+- Problems found during 36A are retained in the permanent ledger/receipt; no problem was silently discarded. No database migration, provider call, GPU task, paid campaign action or advertising spend was performed by 36A validation.

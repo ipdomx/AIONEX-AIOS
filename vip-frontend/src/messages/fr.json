@@ -490,7 +490,12 @@
       "approvalError": "L’approbation finale du propriétaire n’a pas pu être enregistrée.",
       "ownerApprovalRequired": "Toutes les étapes de preuve exécutées ont réussi. La version finale attend uniquement l’approbation explicite du propriétaire de l’organisation.",
       "ownerApproved": "Le propriétaire de l’organisation a approuvé le dossier de preuves. L’archive finale contient le reçu d’approbation signé."
-    }
+    },
+    "phase36Title": "État de l’extension Phase 36",
+    "phase36Description": "Le contrat produit actuel évolue vers une exécution distribuée pour 1000+ utilisateurs et des capacités complètes de création, médias, éducation, santé et secteurs. La maturité est fondée sur des preuves et les capacités incomplètes restent visibles.",
+    "phase36CurrentBatch": "Lot actuel",
+    "phase36MinScale": "Utilisateurs simultanés minimum",
+    "phase36ProductionReady": "Prêt pour la production"
   },
   "legal": {
     "effective": "Avis technique actuel",

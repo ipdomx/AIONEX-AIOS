@@ -490,7 +490,12 @@
       "approvalError": "Die endgültige Owner-Freigabe konnte nicht gespeichert werden.",
       "ownerApprovalRequired": "Alle ausgeführten Nachweis-Gates wurden bestanden. Die finale Freigabe wartet nur noch auf die ausdrückliche Zustimmung des Organisationsinhabers.",
       "ownerApproved": "Der Organisationsinhaber hat das Nachweispaket freigegeben. Das finale Archiv enthält den signierten Freigabebeleg."
-    }
+    },
+    "phase36Title": "Status der Phase-36-Erweiterung",
+    "phase36Description": "Der aktuelle Produktumfang wird auf verteilten Betrieb für 1000+ Nutzer sowie vollständige Kreativ-, Medien-, Bildungs-, Gesundheits- und Branchenfunktionen erweitert. Reifegrade beruhen auf Nachweisen; Unfertiges bleibt sichtbar.",
+    "phase36CurrentBatch": "Aktueller Batch",
+    "phase36MinScale": "Mindestens gleichzeitige Nutzer",
+    "phase36ProductionReady": "Produktionsbereit"
   },
   "legal": {
     "effective": "Aktueller technischer Hinweis",

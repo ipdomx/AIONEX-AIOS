@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from app.api.v1.endpoints import studio
 from app.services.programming_languages import programming_language_manifest
+from aios.phase36_program import phase36_program_snapshot
 from fastapi import APIRouter
 
 router = APIRouter()
@@ -21,3 +22,9 @@ async def programming_languages() -> dict[str, object]:
             "Execution requires an isolated runner configured for the selected language."
         ),
     }
+
+
+@router.get("/phase36")
+async def phase36_capabilities() -> dict[str, object]:
+    """Public, non-secret product maturity snapshot for the current expansion contract."""
+    return phase36_program_snapshot()
