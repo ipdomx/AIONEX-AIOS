@@ -167,3 +167,48 @@ All six digital workers were evaluated and retained as active with promotion-rev
 The completed normal-user portal is version `1.6.0`. Its verified direct-document-root archive is `AIONEX-AIOS-vip-frontend-v1.6.0-static-2026-08-06.zip` with SHA-256 `a3f2801e8bbfa603b5167710a251bdd5089cebd61d9a5638bfdd565371b55e1e`. The archive contains `198` files, no unsafe paths, no duplicate names, and no hash mismatches.
 
 The current server has no authenticated shared-hosting deployment credential for the separate `ai.vip-e.net` document root. The release is therefore published as a verified artifact; replacing the older hosted static shell is the remaining external hosting activation step and does not affect the already active full-lifecycle API and worker.
+
+## Governed real-project execution correction — 2026-08-16
+
+A live normal-user project attempt exposed two contract gaps that are corrected by the `fix/real-full-project-cycle` batch:
+
+1. the VIP client had defaulted normal project execution to `provider_neutral`, which intentionally invokes no model and therefore could only retain a project snapshot; and
+2. the provider-backed implementation stage used one generic CRUD-oriented web prototype template even when the approved objective described a materially different application type.
+
+The corrected normal-user path defaults explicitly to `full` with external-processing confirmation and preserves `provider_neutral` only as an explicit zero-provider **snapshot** mode. A provider-neutral snapshot now reports readiness `0`, does not move the durable project to 100%, does not enter review, cannot be Owner-approved as a release, and truthfully reports cognition/government/engineering/security/integration/release as `not_executed`.
+
+### Pre-implementation plan gate
+
+Provider-backed project execution now has a durable gate between six-department planning and source generation. The retained Architecture, Backend, Frontend, Security, Quality, and DevOps artifacts must have:
+
+- valid retained hashes and schemas;
+- full planning acceptance coverage;
+- at least two concrete implementation steps per department;
+- documented risks and mitigations;
+- active ministry assignment;
+- Chief Project Engineer plan approval;
+- Wisdom Council selection of the reviewed implementation path; and
+- Government approval for implementation progression.
+
+If any plan gate fails, implementation does not start. The execution returns `rework_required` with `PLAN_REVIEW.json`, blocking findings, and a rework plan instead of creating source that was never approved.
+
+### Application-aware implementation
+
+`ControlledProjectBuilder` retains the safety rule that model output is structured specification rather than arbitrary executable code. Its strict specification is now application-aware and includes application type, architecture, brand colors, and logo concept. AIOS then selects a reviewed deterministic archetype whose executable behavior is testable.
+
+The first specialized production archetype is `realtime_communications`, added specifically because the live acceptance case requested registered-member high-quality voice/video calling. Its delivery implements and tests:
+
+- member registration and PBKDF2-SHA256 password authentication;
+- HttpOnly SameSite sessions and CSRF validation;
+- member directory and SQLite persistence;
+- offer/answer/ICE/hangup same-origin signaling;
+- browser-native `getUserMedia` and `RTCPeerConnection` audio/video flow;
+- responsive branding from the structured color specification;
+- deterministic SVG logo and web-app manifest; and
+- fail-closed ICE configuration with no hidden third-party relay or credential.
+
+Public-internet WebRTC is **not** claimed complete merely because local runtime tests pass. The final release remains blocked until audited HTTPS and STUN/TURN infrastructure exist and are accepted. Other application types continue to use their currently proven implementation scope until a specialized archetype exists; the release scope checker blocks capabilities that have not been executed and evidenced.
+
+### Delivery-package correction
+
+The final project download now carries executable source directly under `delivery-package/source/`, the governed `plan-review.json`, department evidence, deterministic test/rollback artifacts, and the nested rollback archive. This replaces the confusing situation where executable files were only nested inside a second ZIP and ensures the downloaded package exposes exactly what AIOS actually built and reviewed.

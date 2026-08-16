@@ -731,7 +731,7 @@ export function getProjectExecution(
 
 export function startProjectExecution(
   projectId: string,
-  mode: "provider_neutral" | "full" | "3d_full" = "provider_neutral",
+  mode: "provider_neutral" | "full" | "3d_full" = "full",
 ): Promise<ProjectExecution> {
   return jsonRequest<ProjectExecution>(
     `/projects/${encodeURIComponent(projectId)}/executions`,

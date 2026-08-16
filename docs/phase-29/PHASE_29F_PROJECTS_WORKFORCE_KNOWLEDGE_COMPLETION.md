@@ -122,3 +122,18 @@ Final verified counts and deployment evidence are recorded in the merged pull re
 ## Deployment rule
 
 Phase 29F may update the live backend and private Owner dashboard after backup and migration validation. It does not change Cloudflare DNS and does not link `ai.vip-e.net` to the server. The final static portal package remains deferred until Phase 29J, in accordance with the established project release rule.
+
+## Post-Phase 29F execution-contract correction — 2026-08-16
+
+The historical Phase 29F provider-neutral execution path remains available for an explicit no-provider snapshot, but it is **no longer the default normal-user project execution mode**. The earlier statements in this document that provider-neutral execution is the user-portal default and can be Owner-approved as a release are superseded by this correction.
+
+Current contract:
+
+- normal user `Run full governed project cycle` starts `mode=full` and explicitly confirms external AI processing inside the fixed project budget;
+- `provider_neutral` creates only a checksum-protected project snapshot, invokes no model/provider, and never claims that governance, engineering, security, tests, integration, or release review ran;
+- provider-neutral snapshots cannot be promoted to an approved release through the Owner approval endpoint;
+- full execution must pass the new pre-implementation six-department/Chief Engineer/Wisdom/Government/ministry plan gate before source generation;
+- source generation is application-aware within reviewed archetypes, starting with a functional realtime-communications archetype; and
+- downloaded full-cycle packages expose the built source directly together with plan-review and release evidence.
+
+This correction does not remove the original Phase 29F deterministic workflow/report/workforce/knowledge capability. It narrows provider-neutral claims to their actual evidence boundary and makes the full governed path the normal project-building contract.

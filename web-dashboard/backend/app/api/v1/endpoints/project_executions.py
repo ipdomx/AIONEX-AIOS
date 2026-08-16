@@ -114,6 +114,10 @@ def _public_result(summary: dict[str, Any] | None) -> dict[str, Any] | None:
         "delivery_package",
         "all_governance_layers_executed",
         "model_claims_used_as_execution_proof",
+        "claim_boundary",
+        "cycle_stage",
+        "application_type",
+        "implementation_capabilities",
         "owner_approval",
         "three_d_web",
     }
@@ -266,7 +270,7 @@ async def start_project_execution(
         mode="provider_neutral" if provider_neutral else ("full" if data.mode == "planning" else data.mode),
         provider="provider-neutral" if provider_neutral else "openai",
         status="completed" if provider_neutral else "queued",
-        stage="review" if provider_neutral else "queued",
+        stage="snapshot" if provider_neutral else "queued",
         progress=100 if provider_neutral else 0,
         objective=objective,
         external_processing_confirmed=not provider_neutral,
@@ -274,7 +278,7 @@ async def start_project_execution(
         result_summary={},
         attempts=1 if provider_neutral else 0,
         max_attempts=1,
-        review_status="pending" if provider_neutral else "not_requested",
+        review_status="not_requested",
         rework_count=0,
         version=1,
     )
@@ -317,7 +321,7 @@ async def start_project_execution(
                         "size_bytes": project_path.stat().st_size,
                     }
                 ],
-                "all_governance_layers_executed": True,
+                "all_governance_layers_executed": False,
                 "model_claims_used_as_execution_proof": False,
                 "production_modified": False,
             }
@@ -326,14 +330,14 @@ async def start_project_execution(
             os.chmod(manifest_path, 0o600)
             record.evidence_path = str(evidence_root)
             record.completed_at = datetime.now(UTC)
-            record.readiness_score = 1.0
+            record.readiness_score = 0.0
             record.approved = False
             record.result_summary = {
                 "success": True,
-                "status": "review",
+                "status": "snapshot",
                 "provider": "provider-neutral",
                 "model": None,
-                "artifacts_count": 2,
+                "artifacts_count": 1,
                 "requests_count": 0,
                 "retries_count": 0,
                 "input_tokens": 0,
@@ -342,38 +346,40 @@ async def start_project_execution(
                 "calculated_cost": 0.0,
                 "budget_cap": 0.0,
                 "approved": False,
-                "readiness_score": 1.0,
-                "blocking_findings": ["owner approval is required"],
+                "readiness_score": 0.0,
+                "blocking_findings": [],
                 "rework_plan": [],
                 "fallback_used": False,
                 "production_modified": False,
-                "phase": "29F",
+                "phase": "provider-neutral-snapshot",
                 "mode": "provider_neutral",
-                "governance": {"government": {"owner_approved": False}},
+                "governance": {"status": "not_executed"},
                 "workforce": [],
-                "engineering_review": {"status": "verified"},
-                "security_review": {"status": "verified"},
-                "integration_review": {"status": "verified"},
+                "engineering_review": {"status": "not_executed"},
+                "security_review": {"status": "not_executed"},
+                "integration_review": {"status": "not_executed"},
                 "release_review": {
-                    "status": "pending_owner_approval",
+                    "status": "not_executed",
                     "approved": False,
-                    "owner_approval_required": True,
-                    "blocking_findings": ["owner approval is required"],
+                    "owner_approval_required": False,
+                    "blocking_findings": [],
                 },
                 "delivery_package": {
                     "root": "delivery-package",
-                    "manifest": "manifest.json",
+                    "manifest": "project.json",
                 },
-                "all_governance_layers_executed": True,
+                "all_governance_layers_executed": False,
                 "model_claims_used_as_execution_proof": False,
+                "claim_boundary": (
+                    "This is a provider-neutral project snapshot only. No AIOS governance, "
+                    "engineering, security, implementation, testing, or release review ran."
+                ),
             }
-            project.status = "review"
-            project.review_status = "pending"
-            project.progress = 100
         else:
             project.status = "planning"
             project.progress = max(project.progress, 1)
-        project.version += 1
+        if not provider_neutral:
+            project.version += 1
         session.add(
             AuditEvent(
                 organization_id=actor.organization_id,

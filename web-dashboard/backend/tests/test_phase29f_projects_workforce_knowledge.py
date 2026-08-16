@@ -377,9 +377,17 @@ async def test_project_task_workflow_report_and_provider_neutral_execution_cycle
                     "note": "Provider-neutral evidence approved.",
                 },
             )
-            assert approval.status_code == 200, approval.text
-            assert approval.json()["approved"] is True
-            assert approval.json()["review_status"] == "approved"
+            assert approval.status_code == 409, approval.text
+            assert approval.json()["detail"] == (
+                "Execution evidence still contains non-Owner release blockers"
+            )
+            execution_after = await client.get(
+                f"/api/v1/projects/{project_id}/executions/{execution_id}"
+            )
+            assert execution_after.status_code == 200
+            assert execution_after.json()["approved"] is False
+            assert execution_after.json()["review_status"] == "not_requested"
+            assert execution_after.json()["result"]["all_governance_layers_executed"] is False
             archive = await client.get(
                 f"/api/v1/projects/{project_id}/executions/{execution_id}/download"
             )

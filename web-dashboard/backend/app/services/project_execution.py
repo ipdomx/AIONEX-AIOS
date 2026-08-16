@@ -36,6 +36,10 @@ from aios.controlled_research import (
     ControlledWebResearch,
 )
 from aios.full_project_cycle import FullProjectCycle, FullProjectCycleValidationError
+from aios.project_plan_review import (
+    GovernedPlanReviewError,
+    GovernedProjectPlanReviewer,
+)
 from aios.providers import BudgetAccount, CostGovernor, ProviderPolicy
 
 from app.core.config import settings
@@ -261,6 +265,7 @@ def _summary_from_full_manifest(
     release = manifest.get("release_review") or {}
     source = manifest.get("source_planning") or {}
     implementation = manifest.get("implementation") or {}
+    plan_review = manifest.get("plan_review") or {}
     external_research = manifest.get("external_research") or {}
     implementation_requests = int(implementation.get("requests_count") or 0)
     research_requests = int(external_research.get("request_count") or 0)
@@ -321,7 +326,10 @@ def _summary_from_full_manifest(
         "integration_review": manifest.get("integration_review"),
         "release_review": release,
         "delivery_package": manifest.get("delivery_package"),
+        "plan_review": plan_review or None,
         "implementation": implementation or None,
+        "application_type": implementation.get("application_type"),
+        "implementation_capabilities": implementation.get("capabilities") or {},
         "external_research": external_research or None,
         "web_search_calls": int(external_research.get("search_calls") or 0),
         "comparison": planning.get("comparison") or {},
@@ -656,6 +664,94 @@ class ProjectPlanningRunner:
             )
             report_stage("provider_execution_completed", 52)
 
+        report_stage("governed_plan_review", 54)
+        plan_review = GovernedProjectPlanReviewer().review(
+            project=normalized_project,
+            objective=normalized_objective,
+            planning_directory=Path(str(planning["output_directory"])),
+            output_root=job_root / "governance-plan",
+            requested_by_id=requested_by_id,
+        )
+        if not plan_review.approved:
+            review_root = job_root / "plan-review-rework"
+            package_root = review_root / "delivery-package"
+            package_root.mkdir(parents=True, exist_ok=True, mode=0o700)
+            review_copy = package_root / "PLAN_REVIEW.json"
+            _atomic_json(review_copy, plan_review.payload)
+            readme = package_root / "README.md"
+            readme.write_text(
+                "# AIONEX Governed Project Plan Review\n\n"
+                "Implementation did not start because the reviewed engineering plan did not pass every pre-build gate.\n\n"
+                "## Blocking findings\n"
+                + "\n".join(f"- {item}" for item in plan_review.blocking_findings)
+                + "\n\n## Rework plan\n"
+                + "\n".join(f"- {item}" for item in plan_review.rework_plan)
+                + "\n",
+                encoding="utf-8",
+            )
+            os.chmod(readme, 0o600)
+            review_manifest = {
+                "schema_version": 1,
+                "mode": "governed-plan-rework-delivery",
+                "project": normalized_project,
+                "planning_manifest": str(planning.get("manifest_path") or ""),
+                "plan_review_manifest": str(plan_review.manifest_path),
+                "blocking_findings": list(plan_review.blocking_findings),
+                "rework_plan": list(plan_review.rework_plan),
+                "implementation_started": False,
+                "production_modified": False,
+            }
+            _atomic_json(review_root / "manifest.json", review_manifest)
+            summary = {
+                "success": True,
+                "status": "rework_required",
+                "execution_id": job_id,
+                "output_directory": str(review_root),
+                "manifest_path": str(review_root / "manifest.json"),
+                "approved": False,
+                "readiness_score": plan_review.readiness_score,
+                "blocking_findings": list(plan_review.blocking_findings),
+                "rework_plan": list(plan_review.rework_plan),
+                "plan_review": plan_review.payload,
+                "implementation": None,
+                "provider": str(planning.get("provider") or "openai"),
+                "model": str(planning.get("model") or "") or None,
+                "requests_count": int(planning.get("requests_count") or 0)
+                + int(research_evidence.get("request_count") or 0),
+                "retries_count": int(planning.get("retries_count") or 0),
+                "input_tokens": int(planning.get("input_tokens") or 0)
+                + int(research_evidence.get("input_tokens") or 0),
+                "output_tokens": int(planning.get("output_tokens") or 0)
+                + int(research_evidence.get("output_tokens") or 0),
+                "total_tokens": int(planning.get("total_tokens") or 0)
+                + int(research_evidence.get("total_tokens") or 0),
+                "calculated_cost": float(planning.get("calculated_cost") or 0.0)
+                + float(research_evidence.get("calculated_cost") or 0.0),
+                "budget_cap": self.budget_cap,
+                "fallback_used": False,
+                "production_modified": False,
+                "phase": 28,
+                "cycle_stage": "governed-plan-review",
+                "mode": execution_mode,
+                "release_review": {
+                    "status": "rework_required",
+                    "approved": False,
+                    "owner_approval_required": False,
+                    "blocking_findings": list(plan_review.blocking_findings),
+                    "rework_plan": list(plan_review.rework_plan),
+                },
+                "delivery_package": {
+                    "root": "delivery-package",
+                    "manifest": "PLAN_REVIEW.json",
+                },
+                "all_governance_layers_executed": False,
+                "model_claims_used_as_execution_proof": False,
+            }
+            _atomic_json(receipt_path, summary)
+            report_stage("plan_rework_required", 60)
+            return summary
+
+        report_stage("plan_approved_for_implementation", 58)
         if implementation_manifest.is_file():
             implementation_result = ControlledProjectBuilder.load_result(
                 implementation_directory
@@ -715,6 +811,7 @@ class ProjectPlanningRunner:
             planning_directory=Path(str(planning["output_directory"])),
             implementation_directory=implementation_result.output_directory,
             research_evidence=research_evidence,
+            plan_review_evidence=plan_review.payload,
             output_root=job_root / "full-cycle",
             tenant_id=tenant_id,
             requested_by_id=requested_by_id,
@@ -748,6 +845,7 @@ def sanitized_execution_error(exc: BaseException) -> tuple[str, str]:
             ControlledProjectBuildError,
             ControlledResearchError,
             FullProjectCycleValidationError,
+            GovernedPlanReviewError,
             ThreeDProjectDeliveryError,
         ),
     ):

@@ -615,7 +615,8 @@ def test_runner_executes_planning_prototype_and_full_governance_without_network(
     monkeypatch.setattr(settings, "PROJECT_EXECUTION_BUDGET_CAP_USD", 0.05)
 
     specification = {
-        "schema_version": 1,
+        "schema_version": 2,
+        "application_type": "web_application",
         "title": "Governed Project Workspace",
         "tagline": "A transparent workflow for controlled project delivery.",
         "summary": (
@@ -628,6 +629,20 @@ def test_runner_executes_planning_prototype_and_full_governance_without_network(
             "Visible governed workflow",
             "Evidence and release boundaries",
         ],
+        "brand": {
+            "primary": "#E11D48",
+            "secondary": "#0EA5E9",
+            "accent": "#F8FAFC",
+            "surface": "#050816",
+            "logo_concept": "A geometric governed project mark",
+        },
+        "architecture": {
+            "frontend": "Responsive browser interface",
+            "backend": "Local Python application API",
+            "data": "SQLite persistence",
+            "realtime": "No realtime runtime requested",
+            "deployment": "Local governed delivery package only",
+        },
         "sections": [
             {
                 "id": "overview",
@@ -884,6 +899,8 @@ def test_runner_executes_planning_prototype_and_full_governance_without_network(
     assert (output_root / "full-cycle-job" / "execution-receipt.json").is_file()
     assert any(stage == "cognitive_review" for stage, _ in stages)
     assert any(stage == "external_research" for stage, _ in stages)
+    assert any(stage == "governed_plan_review" for stage, _ in stages)
+    assert any(stage == "plan_approved_for_implementation" for stage, _ in stages)
     assert any(stage == "implementation_tests" for stage, _ in stages)
     assert any(stage == "release_review" for stage, _ in stages)
 
@@ -1221,3 +1238,183 @@ async def test_owner_approval_cannot_hide_other_release_blockers(
         assert not (evidence_root / "owner-approval.json").exists()
     finally:
         await _cleanup(organization.id)
+
+
+@pytest.mark.asyncio
+async def test_provider_neutral_execution_is_snapshot_only_and_never_claims_governance() -> None:
+    suffix = uuid4().hex[:12]
+    organization, user, _, project = await _create_project_tenant(suffix)
+    actor = _actor(user.id, organization.id, organization.name)
+    app = FastAPI()
+    app.include_router(api_router, prefix="/api/v1")
+    app.dependency_overrides[current_user] = lambda: actor
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+        ) as client:
+            response = await client.post(
+                f"/api/v1/projects/{project.id}/executions",
+                json={"mode": "provider_neutral", "confirm_external_processing": False},
+            )
+            assert response.status_code == 202, response.text
+            execution = response.json()
+            assert execution["status"] == "completed"
+            assert execution["stage"] == "snapshot"
+            assert execution["mode"] == "provider_neutral"
+            assert execution["provider"] == "provider-neutral"
+            assert execution["readiness_score"] == 0.0
+            loaded = await client.get(
+                f"/api/v1/projects/{project.id}/executions/{execution['id']}"
+            )
+            assert loaded.status_code == 200
+            result = loaded.json()["result"]
+            assert result["status"] == "snapshot"
+            assert result["all_governance_layers_executed"] is False
+            assert result["engineering_review"]["status"] == "not_executed"
+            assert result["security_review"]["status"] == "not_executed"
+            assert result["integration_review"]["status"] == "not_executed"
+            assert result["release_review"]["status"] == "not_executed"
+            assert "snapshot only" in result["claim_boundary"]
+        async with SessionLocal() as session:
+            durable_project = await session.get(Project, project.id)
+            assert durable_project is not None
+            assert durable_project.progress == 0
+            assert durable_project.status == "planning"
+            assert durable_project.review_status == "not_requested"
+    finally:
+        await _cleanup(organization.id)
+
+
+def test_project_runner_withholds_implementation_when_governed_plan_requires_rework(
+    tmp_path, monkeypatch
+) -> None:
+    from types import SimpleNamespace
+
+    import app.services.project_execution as project_execution_module
+
+    output_root = tmp_path / "output"
+    local_reference = tmp_path / "local"
+    local_reference.mkdir()
+    (local_reference / "manifest.json").write_text("{}", encoding="utf-8")
+
+    monkeypatch.setattr(settings, "PROJECT_EXECUTION_OUTPUT_ROOT", str(output_root))
+    monkeypatch.setattr(
+        settings, "PROJECT_EXECUTION_LOCAL_REFERENCE", str(local_reference)
+    )
+    monkeypatch.setattr(settings, "PROJECT_EXECUTION_BUDGET_CAP_USD", 0.05)
+
+    job_root = output_root / "plan-rework-job"
+    research = job_root / "research"
+    research.mkdir(parents=True)
+    (research / "manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "mode": "controlled-web-research",
+                "provider": "openai",
+                "model": "gpt-5.4-nano",
+                "request_count": 1,
+                "search_calls": 1,
+                "fallback_used": False,
+                "production_modified": False,
+                "sources": [
+                    {"url": "https://standards.example.org/a", "domain": "standards.example.org"},
+                    {"url": "https://guidance.example.net/b", "domain": "guidance.example.net"},
+                ],
+                "verified_facts": [
+                    {"claim": "Retained evidence is required.", "confidence": 0.95},
+                    {"claim": "Unsafe implementation must be withheld.", "confidence": 0.94},
+                ],
+                "recommended_constraints": ["Rework incomplete plans before implementation."],
+                "input_tokens": 10,
+                "output_tokens": 10,
+                "total_tokens": 20,
+                "calculated_cost": 0.001,
+            }
+        ),
+        encoding="utf-8",
+    )
+    cloud = job_root / "cloud"
+    cloud.mkdir()
+    (cloud / "manifest.json").write_text(
+        json.dumps(
+            {
+                "provider": "openai",
+                "model": "gpt-5-mini",
+                "execution_id": "cloud",
+                "fallback_used": False,
+                "production_modified": False,
+                "artifacts": [],
+                "requests_count": 6,
+                "retries_count": 0,
+                "input_tokens": 60,
+                "output_tokens": 90,
+                "total_tokens": 150,
+                "calculated_cost": 0.002,
+                "budget_cap": 0.05,
+                "total_duration": 1.0,
+                "review": {
+                    "approved": False,
+                    "readiness_score": 0.5,
+                    "blocking_findings": ["Backend plan incomplete"],
+                    "rework_plan": ["Complete Backend implementation sequence"],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    plan_manifest = job_root / "governance-plan" / "plan-review" / "manifest.json"
+
+    class ReworkReviewer:
+        def review(self, **kwargs):
+            plan_manifest.parent.mkdir(parents=True, exist_ok=True)
+            plan_manifest.write_text("{}", encoding="utf-8")
+            return SimpleNamespace(
+                approved=False,
+                readiness_score=0.5,
+                blocking_findings=("Backend: implementation sequence is incomplete",),
+                rework_plan=("Backend: define concrete implementation steps",),
+                manifest_path=plan_manifest,
+                payload={
+                    "approved": False,
+                    "implementation_started": False,
+                    "chief_engineer": {"approved": False},
+                    "government": {"verdict": "approved"},
+                },
+            )
+
+    class ForbiddenBuilder:
+        MAX_INPUT_TOKENS = 4096
+        MAX_OUTPUT_TOKENS = 3000
+
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("implementation builder must not start after plan rework")
+
+        @classmethod
+        def load_result(cls, *args, **kwargs):
+            raise AssertionError("implementation evidence must not load after plan rework")
+
+    runner = ProjectPlanningRunner()
+    monkeypatch.setattr(project_execution_module, "GovernedProjectPlanReviewer", ReworkReviewer)
+    monkeypatch.setattr(project_execution_module, "ControlledProjectBuilder", ForbiddenBuilder)
+
+    stages = []
+    result = runner.run(
+        job_id="plan-rework-job",
+        project_name="Governed Demo",
+        objective="Build a governed realtime member communications application.",
+        requested_by_id="user-1",
+        stage_callback=lambda stage, progress: stages.append((stage, progress)),
+    )
+
+    assert result["status"] == "rework_required"
+    assert result["approved"] is False
+    assert result["implementation"] is None
+    assert result["all_governance_layers_executed"] is False
+    assert result["plan_review"]["implementation_started"] is False
+    assert any(stage == "governed_plan_review" for stage, _ in stages)
+    assert any(stage == "plan_rework_required" for stage, _ in stages)
+    assert not any(stage == "implementation_generation" for stage, _ in stages)
+    assert (job_root / "plan-review-rework" / "delivery-package" / "PLAN_REVIEW.json").is_file()

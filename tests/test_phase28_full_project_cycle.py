@@ -255,6 +255,15 @@ def test_full_cycle_approves_tested_prototype_and_activates_workforce(
 ) -> None:
     planning = _write_planning(tmp_path / "planning")
     implementation = _write_implementation(tmp_path, planning)
+    planning_digest = hashlib.sha256((planning / "manifest.json").read_bytes()).hexdigest()
+    plan_review = {
+        "approved": True,
+        "planning_manifest_sha256": planning_digest,
+        "readiness_score": 1.0,
+        "blocking_findings": [],
+        "rework_plan": [],
+        "implementation_started": False,
+    }
     result = FullProjectCycle().execute(
         execution_id="cycle-implementation",
         project="Demo Project",
@@ -262,6 +271,7 @@ def test_full_cycle_approves_tested_prototype_and_activates_workforce(
         planning_directory=planning,
         implementation_directory=implementation,
         research_evidence=_research_evidence(),
+        plan_review_evidence=plan_review,
         output_root=tmp_path / "cycles",
     )
 
@@ -276,6 +286,13 @@ def test_full_cycle_approves_tested_prototype_and_activates_workforce(
     package = Path(result["output_directory"]) / "delivery-package"
     assert (package / "prototype-project-prototype.zip").is_file()
     assert (package / "prototype-TEST_REPORT.json").is_file()
+    assert (package / "plan-review.json").is_file()
+    assert (package / "source" / "index.html").is_file()
+    assert (package / "source" / "server.py").is_file()
+    packaged_review = json.loads((package / "plan-review.json").read_text(encoding="utf-8"))
+    assert packaged_review["approved"] is True
+    manifest = json.loads(Path(result["manifest_path"]).read_text(encoding="utf-8"))
+    assert manifest["proof"]["pre_implementation_plan_approved"] is True
 
 
 def test_full_cycle_withholds_backend_claim_beyond_prototype_scope(
@@ -348,3 +365,32 @@ def test_full_cycle_respects_explicitly_excluded_runtime_capabilities(
     assert result["approved"] is True
     assert result["blocking_findings"] == []
     assert result["governance"]["owner_approval_required"] is False
+
+
+def test_realtime_release_requires_runtime_proof_and_public_relay_gate() -> None:
+    objective = (
+        "تطبيق اتصالات بين الأعضاء المسجلين صوت وصوره بجوده عاليه "
+        "مع مكالمات WebRTC حقيقية"
+    )
+    implementation = {
+        "application_type": "realtime_communications",
+        "tests_passed": True,
+        "capabilities": {
+            "authentication": True,
+            "realtime_communications": True,
+            "public_realtime_relay": False,
+        },
+    }
+    assert FullProjectCycle._implementation_scope_blockers(objective, implementation) == [
+        "realtime application requires audited HTTPS and STUN/TURN relay configuration before public-internet release"
+    ]
+
+    implementation["capabilities"] = {
+        "authentication": False,
+        "realtime_communications": False,
+        "public_realtime_relay": False,
+    }
+    blockers = FullProjectCycle._implementation_scope_blockers(objective, implementation)
+    assert any("authentication runtime capability" in item for item in blockers)
+    assert any("realtime-communications runtime capability" in item for item in blockers)
+    assert any("STUN/TURN" in item for item in blockers)

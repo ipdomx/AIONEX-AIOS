@@ -216,14 +216,14 @@ export function ProjectsClient() {
     setExecutionError("");
     const confirmed = window.confirm(
       t("execution.confirm", {
-        provider: "AIOS provider-neutral runtime",
-        budget: "0.00",
+        provider: "AIOS governed AI runtime",
+        budget: "0.05",
       }),
     );
     if (!confirmed) return;
     setStartingProjectId(project.id);
     try {
-      const execution = await startProjectExecution(project.id);
+      const execution = await startProjectExecution(project.id, "full");
       setExecutions((current) => ({
         ...current,
         [project.id]: execution,
@@ -351,6 +351,9 @@ export function ProjectsClient() {
       "external_research",
       "provider_execution",
       "provider_execution_completed",
+      "governed_plan_review",
+      "plan_approved_for_implementation",
+      "plan_rework_required",
       "implementation_specification",
       "implementation_generation",
       "implementation_tests",

@@ -170,10 +170,10 @@ def test_normal_user_portal_has_complete_localized_full_cycle_contract() -> None
     page = (
         ROOT / "vip-frontend/src/components/pages/projects-client.tsx"
     ).read_text(encoding="utf-8")
-    assert 'mode: "provider_neutral" | "full" | "3d_full" = "provider_neutral"' in api
+    assert 'mode: "provider_neutral" | "full" | "3d_full" = "full"' in api
     assert 'confirm_external_processing: mode === "full" || mode === "3d_full"' in api
-    assert 'provider: "AIOS provider-neutral runtime"' in page
-    assert 'budget: "0.00"' in page
+    assert 'provider: "AIOS governed AI runtime"' in page
+    assert 'budget: "0.05"' in page
     assert "downloadProjectExecution" in api
     assert "approveProjectExecution" in api
     assert "approveExecution" in page
