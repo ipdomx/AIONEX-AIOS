@@ -925,3 +925,11 @@ Real human account/provider pilot only after all previous batches are merged and
 - Exact remaining blocker is now only `launch-authorization-missing`; `ready_to_arm=false` remains fail-closed.
 - No Meta provider request, campaign/ad-set/ad creation, audience upload, budget mutation, automatic execution, or advertising spend occurred while recording this acknowledgement.
 - Next permissible gate is a **separate explicit Super Owner Launch Authorization decision**. It must not be inferred from this legal/policy acknowledgement or from a generic instruction to continue.
+
+### GS-12 explicit Launch Authorization — 2026-08-16
+- The Super Owner explicitly approved the **GS-12 Launch Authorization gate only** in chat after the separate live-advertising legal/policy acknowledgement had already been recorded and verified.
+- The authorization was applied through the normal `authorize_launch()` service on controlled Meta live-spend pilot `e847c879-d233-4d14-8cb3-0ca32e07ce99` only after a pre-authorization readiness evaluation confirmed no blockers when launch authorization itself was excluded.
+- The service set `launch_authorized=true` and status `launch_authorized` while deliberately keeping `live_provider_mutation_allowed=false`, `real_spend_allowed=false`, and `automatic_execution_allowed=false`.
+- Immediate production readiness after authorization is fully green: owner=true, organization=true, provider-scope=true, provider-write=true, execution-adapter=true, legal=true, budget=true, stop-loss=true, expiry=true, launch=true; `blocked_reasons=[]` and `ready_to_arm=true`.
+- No Meta provider request, campaign/ad-set/ad creation, audience upload, budget mutation, automatic execution, or advertising spend occurred while recording Launch Authorization.
+- **Arm remains a separate high-impact step.** Until an explicit Arm instruction is given, the pilot remains unable to mutate the provider or spend and `real_spend_allowed=false` remains authoritative.
