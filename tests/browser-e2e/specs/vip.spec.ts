@@ -29,6 +29,30 @@ test("Arabic login keeps the RTL boundary and mobile layout", async ({ page }) =
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/ar/login");
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
-  expect(overflow).toBe(false);
+  const layout = await page.evaluate(() => ({
+    documentOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+    bodyOverflow: document.body.scrollWidth > document.body.clientWidth + 1,
+    emailFontSize: Number.parseFloat(getComputedStyle(document.querySelector<HTMLInputElement>("#login-email")!).fontSize),
+    passwordFontSize: Number.parseFloat(getComputedStyle(document.querySelector<HTMLInputElement>("#login-password")!).fontSize),
+  }));
+  expect(layout.documentOverflow).toBe(false);
+  expect(layout.bodyOverflow).toBe(false);
+  expect(layout.emailFontSize).toBeGreaterThanOrEqual(16);
+  expect(layout.passwordFontSize).toBeGreaterThanOrEqual(16);
+});
+
+test("VIP public mobile pages do not create root horizontal overflow", async ({ page }) => {
+  await denyVipSession(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const path of ["/ar/login", "/ar/forgot-password", "/ar/about", "/ar/pricing", "/en/login", "/en/forgot-password", "/en/about", "/en/pricing"]) {
+    await page.goto(path);
+    const layout = await page.evaluate(() => ({
+      documentWidth: document.documentElement.clientWidth,
+      documentScrollWidth: document.documentElement.scrollWidth,
+      bodyWidth: document.body.clientWidth,
+      bodyScrollWidth: document.body.scrollWidth,
+    }));
+    expect(layout.documentScrollWidth, path).toBeLessThanOrEqual(layout.documentWidth + 1);
+    expect(layout.bodyScrollWidth, path).toBeLessThanOrEqual(layout.bodyWidth + 1);
+  }
 });
