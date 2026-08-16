@@ -933,3 +933,14 @@ Real human account/provider pilot only after all previous batches are merged and
 - Immediate production readiness after authorization is fully green: owner=true, organization=true, provider-scope=true, provider-write=true, execution-adapter=true, legal=true, budget=true, stop-loss=true, expiry=true, launch=true; `blocked_reasons=[]` and `ready_to_arm=true`.
 - No Meta provider request, campaign/ad-set/ad creation, audience upload, budget mutation, automatic execution, or advertising spend occurred while recording Launch Authorization.
 - **Arm remains a separate high-impact step.** Until an explicit Arm instruction is given, the pilot remains unable to mutate the provider or spend and `real_spend_allowed=false` remains authoritative.
+
+
+### GS-12 controlled Meta pilot armed — 2026-08-16
+- The Super Owner explicitly approved **Arm** for the existing GS-12 controlled Meta live-spend pilot `e847c879-d233-4d14-8cb3-0ca32e07ce99` after the separate legal/policy acknowledgement and Launch Authorization gates had already been recorded.
+- Immediately before arming, production readiness was re-evaluated from durable state and every gate was green: owner, organization, provider scope, live-write verification, execution adapter, legal/policy, budget, stop-loss, expiry and launch; `blocked_reasons=[]` and `ready_to_arm=true`.
+- The normal `arm_pilot()` path acquired the per-provider/account transaction lock, re-evaluated readiness after the lock and found no conflicting spend-enabled pilot for the same Meta account scope.
+- The pilot is now `status=armed`, `launch_authorized=true`, `live_provider_mutation_allowed=true`, and `real_spend_allowed=true`. `automatic_execution_allowed=false` remains binding.
+- Arm itself executed **no Meta provider request and no advertising spend**. The durable `growth.pilot.armed` audit record explicitly records `provider_call_executed=false`.
+- A post-arm check after an Operations Observer cycle confirmed the pilot remained armed with no blockers, the armed audit record was present, and the Operations Observer remained healthy.
+- This state authorizes only bounded runtime execution through the existing GS-12 safeguards. Every actual provider mutation must still pass same-transaction `runtime_authorization()` and the approved/digest-bound campaign-plan controls; no automatic campaign execution exists.
+- No campaign/ad-set/ad was created at Meta, no audience was uploaded, no budget was spent, and no automatic execution occurred during this Arm action.
