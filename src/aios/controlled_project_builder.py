@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import hmac
 import html
 import importlib.util
 import json
@@ -1230,6 +1231,27 @@ This artifact is an executable full-stack prototype. It is not represented as a 
         except (OSError, json.JSONDecodeError):
             profile = {}
             findings.append("universal project profile is missing or invalid")
+        domain_blueprint_path = source / "DOMAIN_BLUEPRINT.json"
+        try:
+            domain_payload = domain_blueprint_path.read_text(encoding="utf-8")
+            domain_blueprint = json.loads(domain_payload)
+        except (OSError, json.JSONDecodeError):
+            domain_payload = ""
+            domain_blueprint = {}
+            findings.append("universal domain blueprint is missing or invalid")
+        if domain_blueprint:
+            if set(domain_blueprint) != {"roles", "entities", "workflows"}:
+                findings.append("universal domain blueprint keys are invalid")
+            if int(profile.get("domain_entities") or -1) != len(domain_blueprint.get("entities") or []):
+                findings.append("universal domain entity count does not match the project profile")
+            if int(profile.get("domain_workflows") or -1) != len(domain_blueprint.get("workflows") or []):
+                findings.append("universal domain workflow count does not match the project profile")
+            expected_domain_digest = str(profile.get("domain_blueprint_sha256") or "")
+            actual_domain_digest = hashlib.sha256(domain_payload.encode("utf-8")).hexdigest()
+            if not re.fullmatch(r"[0-9a-f]{64}", expected_domain_digest) or not hmac.compare_digest(
+                expected_domain_digest, actual_domain_digest
+            ):
+                findings.append("universal domain blueprint digest does not match the project profile")
         if not (source / "SECURITY.md").is_file():
             findings.append("universal security boundary is missing")
         targets = set(profile.get("targets") or [])
@@ -1386,6 +1408,8 @@ This artifact is an executable full-stack prototype. It is not represented as a 
             "checks": {
                 **dict(base["checks"]),
                 "universal_profile": bool(profile),
+                "domain_blueprint_integrity": bool(domain_blueprint)
+                and not any(item.startswith("universal domain") for item in findings),
                 "target_composition": not any(item.startswith("universal target") for item in findings),
                 "all_python_targets_compile": not any(item.startswith("python target syntax") for item in findings),
                 "all_json_targets_valid": not any(item.startswith("invalid JSON") for item in findings),

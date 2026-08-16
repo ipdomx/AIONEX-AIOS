@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from dataclasses import dataclass
@@ -424,8 +425,10 @@ def augment_universal_project(
 ) -> dict[str, str]:
     profile = infer_project_profile(objective)
     domain = dict(spec["domain_blueprint"])
+    domain_payload = _json(domain)
+    domain_digest = hashlib.sha256(domain_payload.encode("utf-8")).hexdigest()
     files = dict(base_files)
-    files["DOMAIN_BLUEPRINT.json"] = _json(domain)
+    files["DOMAIN_BLUEPRINT.json"] = domain_payload
     files["PROJECT_PROFILE.json"] = _json(
         {
             "schema_version": 1,
@@ -439,6 +442,7 @@ def augment_universal_project(
             "production_claim": False,
             "domain_entities": len(domain.get("entities") or []),
             "domain_workflows": len(domain.get("workflows") or []),
+            "domain_blueprint_sha256": domain_digest,
         }
     )
     files["SECURITY.md"] = (
