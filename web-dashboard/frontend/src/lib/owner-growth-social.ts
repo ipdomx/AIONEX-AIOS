@@ -115,6 +115,40 @@ export function fetchOwnerGrowthMetaTargets(): Promise<GrowthMetaTargetDiscovery
   );
 }
 
+export type GrowthMetaPage = {
+  page_ref: string;
+  name: string;
+  tasks: string[];
+  advertise_ready: boolean;
+};
+
+export type GrowthMetaPageDiscovery = {
+  provider: "meta";
+  validation_mode: string;
+  graph_api_version: string;
+  pages: GrowthMetaPage[];
+  page_count: number;
+  advertise_ready_page_count: number;
+  result_page_truncated: boolean;
+  permissions: {
+    pages_show_list: boolean;
+    pages_read_engagement: boolean;
+    pages_manage_ads: boolean;
+    business_management: boolean;
+  };
+  provider_call_allowed: boolean;
+  provider_write_executed: false;
+  provider_spend_executed: false;
+  raw_page_ids_returned: false;
+  raw_secret_returned: false;
+};
+
+export function fetchOwnerGrowthMetaPages(): Promise<GrowthMetaPageDiscovery> {
+  return apiClient.get<GrowthMetaPageDiscovery>(
+    "/owner/growth-social/meta-pages",
+  );
+}
+
 export type GrowthControlledPilot = {
   id: string;
   organization_id: string | null;
@@ -264,11 +298,29 @@ export type OwnerGrowthPaidCampaign = {
   total_budget_minor: number;
   daily_budget_cap_minor: number;
   simulated_spend_minor: number;
+  organization_id: string;
   organization_name?: string;
   created_by_name?: string;
   created_at?: string | null;
   approved_at?: string | null;
   latest_budget_assessment?: Record<string, unknown>;
+  configuration_summary?: {
+    providers: string[];
+    target_countries: string[];
+    placements: string[];
+    ad_set_count: number;
+    creative_count: number;
+    ad_count: number;
+    creatives: Array<{
+      format: string;
+      headline: string;
+      body: string;
+      destination_url: string | null;
+    }>;
+    truncated: boolean;
+    raw_provider_ids_returned: false;
+    raw_credentials_returned: false;
+  };
   real_spend_allowed: false;
   live_provider_call: false;
   live_campaign_mutation: false;
@@ -289,5 +341,71 @@ export function approveOwnerGrowthPaidCampaign(
 ): Promise<OwnerGrowthPaidCampaign> {
   return apiClient.post(
     `/owner/growth-social/paid-campaigns/${campaignId}/approve`,
+  );
+}
+
+export type OwnerGrowthPaidLivePlan = {
+  campaign_id: string;
+  pilot_id: string;
+  plan_version: string;
+  plan_compilable: boolean;
+  blocked_reasons: string[];
+  owner_approval_gate: boolean;
+  organization_gate: boolean;
+  pilot_scope_gate: boolean;
+  provider_gate: boolean;
+  execution_adapter_gate: boolean;
+  currency_gate: boolean;
+  budget_gate: boolean;
+  stop_loss_gate: boolean;
+  objective_gate: boolean;
+  components_gate: boolean;
+  meta_provider_gate: boolean;
+  aggregate_budget_gate: boolean;
+  reference_gate: boolean;
+  destination_gate: boolean;
+  creative_identity_gate: boolean;
+  creative_identity_ref?: string | null;
+  effective_stop_loss: Record<string, unknown>;
+  aggregate_adset_daily_budget_minor: number;
+  operation_count: number;
+  live_legal_gate: boolean;
+  launch_gate: boolean;
+  runtime_authorization_required: true;
+  live_execution_authorized: false;
+  provider_call_executed: false;
+  spend_executed: false;
+  automatic_execution_allowed: false;
+  plan_digest?: string;
+  plan_persisted?: boolean;
+  plan_valid?: boolean;
+  plan_digest_matches?: boolean;
+};
+
+export function evaluateOwnerGrowthPaidCampaignLivePlan(
+  campaignId: string,
+  input: { pilot_id: string; creative_identity_ref?: string | null },
+): Promise<OwnerGrowthPaidLivePlan> {
+  return apiClient.post(
+    `/owner/growth-social/paid-campaigns/${campaignId}/live-plan/evaluate`,
+    input,
+  );
+}
+
+export function prepareOwnerGrowthPaidCampaignLivePlan(
+  campaignId: string,
+  input: { pilot_id: string; creative_identity_ref: string },
+): Promise<OwnerGrowthPaidLivePlan> {
+  return apiClient.post(
+    `/owner/growth-social/paid-campaigns/${campaignId}/live-plan/prepare`,
+    input,
+  );
+}
+
+export function validateOwnerGrowthPaidCampaignLivePlan(
+  campaignId: string,
+): Promise<OwnerGrowthPaidLivePlan> {
+  return apiClient.get(
+    `/owner/growth-social/paid-campaigns/${campaignId}/live-plan/validate`,
   );
 }
