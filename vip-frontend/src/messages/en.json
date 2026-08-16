@@ -535,6 +535,8 @@
     "resetting": "Updating…",
     "mismatch": "The passwords do not match.",
     "invalidToken": "The recovery link is invalid or expired.",
+    "resetError": "The password could not be updated right now. Please try again.",
+    "samePassword": "Your new password must be different from your current password.",
     "resetSuccess": "Your password was updated. You can sign in now.",
     "backToLogin": "Back to sign in"
   },

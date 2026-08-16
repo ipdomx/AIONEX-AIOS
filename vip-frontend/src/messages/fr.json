@@ -535,6 +535,8 @@
     "resetting": "Mise à jour…",
     "mismatch": "Les mots de passe ne correspondent pas.",
     "invalidToken": "Le lien est invalide ou expiré.",
+    "resetError": "Le mot de passe ne peut pas être mis à jour pour le moment. Réessayez.",
+    "samePassword": "Le nouveau mot de passe doit être différent du mot de passe actuel.",
     "resetSuccess": "Le mot de passe a été mis à jour. Vous pouvez vous connecter.",
     "backToLogin": "Retour à la connexion"
   },
