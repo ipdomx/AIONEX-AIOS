@@ -170,3 +170,9 @@ AIONEX AIOS reaches 100% only when:
 - every supported external integration is activated and healthy, or deliberately removed from the supported product contract;
 - GitHub, production, Owner Dashboard, and user portal all report the same release state;
 - no untracked product file, placeholder runtime, simulated production result, stale deployed frontend, or undocumented manual activation remains.
+
+## Post-closure scope expansion — Phase 36
+
+Phase 29 remains the historical completion record for the product contract that existed when 29A–29J closed. On 2026-08-17 the Owner explicitly expanded the required product boundary to include 1000+ concurrent-user scale, live distributed project execution, full rendered Creative Media, audio/music/song production, complete course generation, healthcare/professional assistance and universal sector packs.
+
+Accordingly, “Phase 29 complete” must not be interpreted as “the newly expanded product scope is final”. The current authoritative expansion roadmap and completion definition is `docs/phase-36/PHASE_36_UNIVERSAL_CAPABILITY_SCALE_MASTER_ROADMAP.md`.
