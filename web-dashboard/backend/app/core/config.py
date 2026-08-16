@@ -377,6 +377,9 @@ class Settings(BaseSettings):
     SMTP_HOST: Optional[str] = Field(default=None, validation_alias="SMTP_HOST")
     SMTP_PORT: int = Field(default=587, validation_alias="SMTP_PORT")
     SMTP_USER: Optional[str] = Field(default=None, validation_alias="SMTP_USER")
+    SMTP_FROM_EMAIL: Optional[str] = Field(
+        default=None, validation_alias="SMTP_FROM_EMAIL"
+    )
     SMTP_PASSWORD: Optional[str] = Field(default=None, validation_alias="SMTP_PASSWORD")
     SMTP_TLS: bool = Field(default=True, validation_alias="SMTP_TLS")
     SMTP_SSL: bool = Field(default=False, validation_alias="SMTP_SSL")
