@@ -85,7 +85,7 @@ def _validated_model(
         "input_cost_per_million": input_cost,
         "output_cost_per_million": output_cost,
         "requests_per_minute": 10000,
-        "concurrent_requests": 4,
+        "concurrent_requests": 6,
         "circuit_failure_threshold": 5,
         "circuit_failure_window_seconds": 60,
         "circuit_open_seconds": 30,
@@ -319,7 +319,7 @@ async def test_launch100_users_complete_isolated_projects_under_bounded_workers(
                 worker_id=f"launch100-worker-{suffix}-{index}",
                 capacity=1,
             )
-            for index in range(4)
+            for index in range(6)
         ]
 
         async def drain(worker: ProjectExecutionWorker) -> int:
@@ -385,7 +385,7 @@ async def test_launch100_users_complete_isolated_projects_under_bounded_workers(
             assert p95 < 60.0
             print(
                 "LAUNCH100_ACCEPTANCE "
-                f"users=100 workers=4 elapsed={elapsed:.3f}s "
+                f"users=100 workers=6 elapsed={elapsed:.3f}s "
                 f"p50={p50:.3f}s p95={p95:.3f}s max={max_seconds:.3f}s "
                 "free=50 paid=40 override=10"
             )
