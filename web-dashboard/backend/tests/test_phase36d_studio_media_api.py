@@ -243,3 +243,29 @@ async def test_studio_media_graph_api_is_tenant_scoped_prompt_free_and_revision_
             ).status_code == 404
     finally:
         await cleanup(first.organization.id, second.organization.id)
+
+
+def test_media_hardware_adapter_requires_operator_allowlist(monkeypatch: pytest.MonkeyPatch) -> None:
+    from fastapi import HTTPException
+    from app.api.v1.endpoints import studio as studio_api
+
+    request = studio_api.MediaGraphNodeRequest(
+        key="hardware-scene",
+        node_type="scene",
+        media_type="video/mp4",
+        parameters={
+            "operation": "render_scene",
+            "output_profile": "video-mp4-h264",
+            "hardware_adapter": "vaapi",
+        },
+    )
+    monkeypatch.setattr(studio_api.settings, "MEDIA_HARDWARE_ADAPTER_ALLOWLIST", "software")
+    with pytest.raises(HTTPException, match="operator policy") as denied:
+        studio_api._media_node_spec(request)
+    assert denied.value.status_code == 422
+
+    monkeypatch.setattr(
+        studio_api.settings, "MEDIA_HARDWARE_ADAPTER_ALLOWLIST", "software,vaapi"
+    )
+    allowed = studio_api._media_node_spec(request)
+    assert allowed.parameters["hardware_adapter"] == "vaapi"

@@ -107,3 +107,15 @@ def test_local_media_storage_is_private_atomic_and_path_safe(tmp_path: Path, mon
     store.delete(stored.key)
     with pytest.raises(MediaStorageError, match="unavailable"):
         store.get_bytes(stored.key, max_bytes=1024)
+
+
+def test_media_hardware_adapter_policy_is_operator_gated(monkeypatch) -> None:
+    from app.api.v1.endpoints import studio
+
+    monkeypatch.setattr(studio.settings, "MEDIA_HARDWARE_ADAPTER_ALLOWLIST", "software")
+    assert studio._media_hardware_adapter_allowed("software")
+    assert not studio._media_hardware_adapter_allowed("vaapi")
+    assert not studio._media_hardware_adapter_allowed("qsv")
+    monkeypatch.setattr(studio.settings, "MEDIA_HARDWARE_ADAPTER_ALLOWLIST", "software,vaapi,qsv")
+    assert studio._media_hardware_adapter_allowed("vaapi")
+    assert studio._media_hardware_adapter_allowed("qsv")
