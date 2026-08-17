@@ -37,6 +37,8 @@ class MediaObjectStore(Protocol):
 
     def delete(self, key: str) -> None: ...
 
+    def preflight(self) -> None: ...
+
     def presigned_get(
         self,
         key: str,
@@ -105,6 +107,33 @@ class LocalMediaObjectStore:
             self._path(key).unlink(missing_ok=True)
         except OSError:
             return
+
+    def verified_path(self, key: str, *, checksum: str, size_bytes: int) -> Path:
+        path = self._path(key)
+        try:
+            stat = path.stat()
+            if stat.st_size != int(size_bytes):
+                raise MediaStorageError("media object size verification failed")
+            digest = sha256()
+            with path.open("rb") as handle:
+                for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                    digest.update(chunk)
+        except FileNotFoundError as exc:
+            raise MediaStorageError("media object is unavailable") from exc
+        except OSError:
+            raise MediaStorageError("media object verification failed") from None
+        if digest.hexdigest() != checksum:
+            raise MediaStorageError("media object checksum verification failed")
+        return path
+
+    def preflight(self) -> None:
+        probe = self.root / ".media-storage-preflight"
+        try:
+            probe.write_bytes(b"ok")
+            os.chmod(probe, 0o600)
+            probe.unlink()
+        except OSError:
+            raise MediaStorageError("media storage root is not writable") from None
 
     def presigned_get(
         self,
@@ -194,6 +223,14 @@ class S3CompatibleMediaObjectStore:
         except (BotoCoreError, ClientError, OSError):
             return
 
+    def preflight(self) -> None:
+        try:
+            self.client.head_bucket(Bucket=self.bucket)
+        except (BotoCoreError, ClientError, OSError) as exc:
+            raise MediaStorageError(
+                f"media object storage preflight failed: {type(exc).__name__}"
+            ) from None
+
     def presigned_get(
         self,
         key: str,
@@ -225,10 +262,17 @@ class S3CompatibleMediaObjectStore:
             raise MediaStorageError("media signed URL creation failed") from None
 
 
-def media_object_store() -> MediaObjectStore:
-    storage_type = settings.MEDIA_STORAGE_TYPE.strip().lower()
-    if storage_type == "local":
+def media_object_store_for_backend(storage_type: str) -> MediaObjectStore:
+    selected = storage_type.strip().lower()
+    if selected == "local":
         return LocalMediaObjectStore()
-    if storage_type in {"s3", "r2", "s3-compatible"}:
+    if selected in {"s3", "r2", "s3-compatible"}:
         return S3CompatibleMediaObjectStore()
     raise MediaStorageError("unsupported media storage backend")
+
+
+def media_object_store() -> MediaObjectStore:
+    storage_type = settings.MEDIA_STORAGE_TYPE.strip().lower()
+    if storage_type in {"", "inherit"}:
+        storage_type = settings.STORAGE_TYPE.strip().lower()
+    return media_object_store_for_backend(storage_type)

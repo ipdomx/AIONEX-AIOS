@@ -258,6 +258,117 @@ def _topological_order(
     return tuple(result)
 
 
+
+def media_graph_from_universal_storyboard(
+    storyboard: dict[str, Any],
+    *,
+    output_profile_id: str = "video-mp4-h264",
+    width: int = 1280,
+    height: int = 720,
+    fps: int = 30,
+) -> MediaGraphSpec:
+    """Convert the Universal Builder editable storyboard into an executable media DAG."""
+    if storyboard.get("format") != "editable-storyboard":
+        raise MediaGraphError("universal media storyboard format is unsupported")
+    scenes = storyboard.get("scenes")
+    if not isinstance(scenes, list) or not 1 <= len(scenes) <= 100:
+        raise MediaGraphError("universal media storyboard scenes are invalid")
+    profile = output_profile(output_profile_id)
+    if profile.asset_kind != "video":
+        raise MediaGraphError("universal media storyboard requires a video output profile")
+    if width < 64 or width > 7680 or height < 64 or height > 4320 or width % 2 or height % 2:
+        raise MediaGraphError("universal media storyboard dimensions are invalid")
+    if fps < 1 or fps > 120:
+        raise MediaGraphError("universal media storyboard frame rate is invalid")
+
+    nodes: list[MediaNodeSpec] = []
+    edges: list[MediaEdgeSpec] = []
+    seen_ids: set[str] = set()
+    for index, raw in enumerate(scenes, start=1):
+        if not isinstance(raw, dict):
+            raise MediaGraphError("universal media storyboard scene is invalid")
+        scene_id = str(raw.get("id") or "").strip()
+        if not scene_id or scene_id in seen_ids:
+            raise MediaGraphError("universal media storyboard scene ids must be unique")
+        seen_ids.add(scene_id)
+        raw_duration = raw.get("duration_seconds")
+        if raw_duration is None:
+            raise MediaGraphError("universal media storyboard duration is invalid")
+        try:
+            duration = float(raw_duration)
+        except (TypeError, ValueError):
+            raise MediaGraphError("universal media storyboard duration is invalid") from None
+        if not 0.1 <= duration <= 60.0:
+            raise MediaGraphError("universal media storyboard duration is outside the allowed range")
+        digest = hashlib.sha256(scene_id.encode("utf-8")).hexdigest()
+        safe = "-".join(filter(None, "".join(ch.lower() if ch.isalnum() else "-" for ch in scene_id).split("-")))[:80]
+        key = f"scene-{index:03d}-{safe or digest[:12]}"
+        purpose = str(raw.get("purpose") or "scene").strip()[:160]
+        nodes.append(
+            MediaNodeSpec(
+                key=key,
+                node_type="scene",
+                media_type=profile.media_type,
+                parameters={
+                    "operation": "render_scene",
+                    "output_profile": output_profile_id,
+                    "width": width,
+                    "height": height,
+                    "fps": fps,
+                    "duration_seconds": duration,
+                    "color": f"#{digest[:6]}",
+                    "tone_hz": 220 + (int(digest[6:10], 16) % 660),
+                    "hardware_adapter": "software",
+                },
+                prompt_metadata={"purpose": purpose},
+                provenance=(
+                    {
+                        "type": "universal-builder-storyboard-scene",
+                        "storyboard_scene_id": scene_id,
+                        "storyboard_schema_version": storyboard.get("schema_version"),
+                    },
+                ),
+                scene_metadata={"id": scene_id, "purpose": purpose, "index": index},
+                timeline_metadata={"duration_seconds": duration, "ordinal": index - 1},
+            )
+        )
+        edges.append(MediaEdgeSpec(parent=key, child="assembly", ordinal=index - 1))
+
+    nodes.append(
+        MediaNodeSpec(
+            key="assembly",
+            node_type="assembly",
+            media_type=profile.media_type,
+            parameters={
+                "operation": "assemble",
+                "output_profile": output_profile_id,
+                "hardware_adapter": "software",
+            },
+            provenance=(
+                {
+                    "type": "universal-builder-storyboard-assembly",
+                    "project": storyboard.get("project"),
+                },
+            ),
+            timeline_metadata={"scene_count": len(scenes)},
+        )
+    )
+    return MediaGraphSpec(
+        title=str(storyboard.get("title") or storyboard.get("project") or "Universal media project")[:240],
+        asset_kind="video",
+        nodes=tuple(nodes),
+        edges=tuple(edges),
+        output_profile=output_profile_id,
+        provenance=(
+            {
+                "type": "universal-builder-media-target",
+                "project": storyboard.get("project"),
+                "schema_version": storyboard.get("schema_version"),
+            },
+        ),
+    )
+
+
 def output_profile(profile_id: str) -> MediaOutputProfile:
     try:
         return OUTPUT_PROFILES[profile_id]

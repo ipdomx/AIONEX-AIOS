@@ -225,6 +225,39 @@ jobs:
             --env-file .env.production \
             -f docker-compose.production.yml \
             build backend frontend portal
+      - name: Build and verify FFmpeg 9 media worker
+        working-directory: web-dashboard
+        env:
+          COMPOSE_PARALLEL_LIMIT: "1"
+        run: |
+          mkdir -p diagnostics
+          AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
+          docker compose \
+            --profile media-execution \
+            --env-file .env.production \
+            -f docker-compose.production.yml \
+            build media-worker
+          docker run --rm \
+            -e ENVIRONMENT=test \
+            -e DEBUG=false \
+            -e SECRET_KEY=phase36d-ci-media-worker-secret-key-with-at-least-32-characters \
+            -e MEDIA_STORAGE_TYPE=local \
+            -e MEDIA_STORAGE_ROOT=/tmp/aionex-media-assets \
+            -e PYTHONPATH=/app \
+            aionex-aios-media-worker:local \
+            python /app/scripts/verify_media_worker.py \
+            > diagnostics/media-worker-smoke.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          payload = json.loads(Path("diagnostics/media-worker-smoke.json").read_text())
+          assert payload["preflight"]["version"] == "9.0"
+          assert payload["final"]["size_bytes"] > 0
+          assert payload["av1"]["size_bytes"] > 0
+          assert payload["image"]["size_bytes"] > 0
+          assert payload["audio"]["size_bytes"] > 0
+          print("PHASE36D_MEDIA_WORKER_SMOKE_OK")
+          PY
       - name: Build Security Lab image without competing network-heavy builds
         working-directory: web-dashboard
         env:

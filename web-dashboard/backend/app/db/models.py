@@ -3419,6 +3419,10 @@ class MediaRenderStep(Base, TimestampMixin):
     attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     max_attempts: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
     lease_token: Mapped[str | None] = mapped_column(String(36))
+    lease_owner: Mapped[str | None] = mapped_column(String(160), index=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    fencing_token: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    available_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     idempotency_key: Mapped[str] = mapped_column(String(160), nullable=False)
     input_checksums: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     output_checksum: Mapped[str | None] = mapped_column(String(64), index=True)
@@ -3428,7 +3432,6 @@ class MediaRenderStep(Base, TimestampMixin):
     error_message: Mapped[str | None] = mapped_column(Text)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-
 
 class ThreeDGenerationJob(Base, TimestampMixin):
     __tablename__ = "three_d_generation_jobs"

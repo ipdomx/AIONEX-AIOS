@@ -88,7 +88,7 @@ def test_phase36d_schema_contract_is_durable_and_tenant_scoped() -> None:
     assert {"organization_id", "project_id", "idempotency_key", "graph_checksum", "rights_metadata", "provenance"} <= set(graphs.c.keys())
     assert {"graph_id", "organization_id", "logical_key", "revision", "checksum", "scene_metadata", "timeline_metadata", "provenance"} <= set(nodes.c.keys())
     assert {"graph_id", "parent_node_id", "child_node_id", "dependency_type", "ordinal"} <= set(edges.c.keys())
-    assert {"graph_id", "target_node_id", "operation", "engine_version", "hardware_adapter", "input_checksums", "output_checksum", "idempotency_key"} <= set(steps.c.keys())
+    assert {"graph_id", "target_node_id", "operation", "engine_version", "hardware_adapter", "input_checksums", "output_checksum", "idempotency_key", "lease_owner", "lease_expires_at", "fencing_token", "available_at"} <= set(steps.c.keys())
 
 
 def test_local_media_storage_is_private_atomic_and_path_safe(tmp_path: Path, monkeypatch) -> None:
