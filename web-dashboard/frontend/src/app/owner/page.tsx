@@ -20,6 +20,7 @@ const requestedCoverage = [
   { label: "Policies", href: "/owner/policies" },
   { label: "Services", href: "/owner/services" },
   { label: "AI Providers", href: "/owner/platform-integration" },
+  { label: "Project AI", href: "/owner/project-ai" },
   { label: "Notifications", href: "/owner/notifications" },
   { label: "Security", href: "/owner/security-integration" },
   { label: "Integrations", href: "/owner/integrations" },

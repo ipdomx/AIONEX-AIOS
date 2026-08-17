@@ -150,6 +150,8 @@ class ValidatedProviderModel:
 class ProjectAIProviderPolicy:
     allowed_providers: frozenset[str]
     blocked_providers: frozenset[str] = frozenset()
+    allowed_provider_models: frozenset[str] = frozenset()
+    provider_scope_organization_id: str | None = None
     offline_only: bool = False
     privacy_mode: bool = False
     max_total_estimated_cost_usd: float | None = None
@@ -165,6 +167,17 @@ class ProjectAIProviderPolicy:
             raise ValueError("allowed_providers must be explicit and non-empty")
         if allowed & blocked:
             raise ValueError("a provider cannot be both allowed and blocked")
+        allowed_models = frozenset(
+            _required(item, "allowed provider model").lower()
+            for item in self.allowed_provider_models
+        )
+        for item in allowed_models:
+            if ":" not in item or item.startswith(":") or item.endswith(":"):
+                raise ValueError("allowed_provider_models entries must be provider:model")
+            provider_name, _model = item.split(":", 1)
+            if provider_name not in allowed:
+                raise ValueError("allowed provider model references a provider outside allowed_providers")
+        provider_scope = (self.provider_scope_organization_id or "").strip() or None
         if (
             self.max_total_estimated_cost_usd is not None
             and self.max_total_estimated_cost_usd < 0
@@ -172,6 +185,8 @@ class ProjectAIProviderPolicy:
             raise ValueError("max_total_estimated_cost_usd must be non-negative")
         object.__setattr__(self, "allowed_providers", allowed)
         object.__setattr__(self, "blocked_providers", blocked)
+        object.__setattr__(self, "allowed_provider_models", allowed_models)
+        object.__setattr__(self, "provider_scope_organization_id", provider_scope)
 
 
 PROJECT_AI_ROLES = frozenset({"planner", "researcher", "coder", "reviewer", "media"})

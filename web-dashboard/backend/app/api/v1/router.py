@@ -6,6 +6,7 @@ from app.api.owner import (
     growth_access as owner_growth_access,
     growth_pilots as owner_growth_pilots,
     growth_paid_campaigns as owner_growth_paid_campaigns,
+    project_ai as owner_project_ai,
     control_plane,
     final_platform_integration,
     free_tier,
@@ -290,4 +291,5 @@ owner_router.include_router(control_plane.router)
 owner_router.include_router(owner_growth_access.router)
 owner_router.include_router(owner_growth_pilots.router)
 owner_router.include_router(owner_growth_paid_campaigns.router)
+owner_router.include_router(owner_project_ai.router)
 api_router.include_router(owner_router)
