@@ -299,18 +299,22 @@ Scope:
 Exit gate:
 - a project can create a real rendered media asset, revise one scene without redoing unrelated work, assemble final output and retain provenance/evidence.
 
-Current 36D evidence checkpoint (source/test):
+36D source/test evidence checkpoint (historical pre-activation):
 - durable media DAG + revisions/provenance/object-store abstraction are `locally_executed`;
 - dedicated FFmpeg 9.0 worker renders H.264/AAC, AV1/Opus, PNG and PCM WAV with FFprobe QA;
 - VAAPI + oneVPL/QSV are compiled hardware adapters while activation remains operator/device gated;
 - disposable PostgreSQL + real FFmpeg exit-gate acceptance proves partial scene re-render, final assembly, fencing/recovery and unaffected-node reuse;
-- Production activation remains the final boundary before `runtime_verified`/batch closure.
+- Production activation was the final boundary before `runtime_verified`/batch closure and is satisfied by the closure evidence immediately below.
 
 36D closure status — 2026-08-17T22:44:31Z:
 - protected source/hardening is merged; Production Backend and one non-root Media Worker are healthy on Alembic `0031`; real inherited S3 preflight/round-trip passed;
 - real Production two-scene render/assembly plus one-scene partial revision passed with unaffected-scene checksum reuse, Studio revision materialization, provenance and fenced durable execution;
 - canary DB rows and S3 objects were removed, active Project/Media work returned to zero, `/ready` is `20/20` HTTP 200, and public/private ingress boundaries remain healthy;
 - `creative-asset-graph`, `media-render-transcode`, and `object-storage-media` are `runtime_verified`; **36D=complete, 36E=in_progress, current_batch=36E**. Full evidence is retained in `docs/phase-36/receipts/36D-2026-08-17-media-orchestrator.md`.
+
+
+Post-closeout runtime refresh — 2026-08-17T23:08Z:
+- merged source and live API remain aligned at `main@12e7d01`; Backend reports `current_batch=36E`; one non-root Media Worker is healthy on the latest rebuilt image; Alembic remains `0031`; all synthetic Media/Studio canary rows and objects remain cleaned. Runtime refresh details are retained in the 36D receipt.
 
 ### Batch 36E — Image, design, branding, infographic & prompt factory
 

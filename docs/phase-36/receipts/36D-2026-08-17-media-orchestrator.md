@@ -1,9 +1,9 @@
 # Phase 36D — Universal Creative Asset Graph & Media Orchestrator
 
 Date: 2026-08-17
-Status: **IN PROGRESS — final source candidate validated; Production activation pending**
+Status: **COMPLETE — Production exit gate passed; Batch 36E is current**
 
-## Baseline
+## Baseline (historical starting state)
 
 - Phase 36C is protected/merged/activated complete; authoritative `current_batch=36D` on Production.
 - Production Studio already has durable `StudioJob`, `StudioAsset`, `StudioAssetRevision`, safety review, project attachment and a lease/retry worker. It currently generates deterministic provider-neutral ZIP/source packages rather than a unified rendered-media DAG.
@@ -41,7 +41,7 @@ Status: **IN PROGRESS — final source candidate validated; Production activatio
 - `boto3==1.43.72` full runtime requirements resolution dry-run: PASS.
 - Disposable PostgreSQL 16 migration proof: `0029 -> 0030` PASS, all four media tables present; `0030 -> 0029` PASS with media tables removed; second `0029 -> 0030` PASS. Disposable database removed afterward.
 
-## Remaining before 36D can close
+## Historical remaining gates before 36D closure (all satisfied)
 
 1. Persist/reload complete graph specifications and create render-step plans from existing Studio jobs/assets.
 2. Build isolated **FFmpeg 9.0** media-worker image and verify actual binary/version plus software and available hardware-acceleration adapters.
@@ -53,7 +53,7 @@ Status: **IN PROGRESS — final source candidate validated; Production activatio
 8. Execute the 36D exit gate: create a real rendered asset, revise one scene without redoing unrelated work, reassemble final output and retain provenance/evidence.
 9. Only after protected CI, migration backup/restore and production activation evidence may 36D transition to `complete` and 36E begin.
 
-## Safe point
+## Historical foundation safe point
 
 Foundation checkpoint 1 is source-only on `phase36d/media-orchestrator`. No Production schema, container, worker, media provider, object or user data was changed. Production remains on Alembic `0029`, Phase36D `in_progress`.
 
@@ -85,7 +85,7 @@ Foundation checkpoint 1 is source-only on `phase36d/media-orchestrator`. No Prod
 - Real FFmpeg 9 image smoke: H.264/AAC final MP4, AV1/Opus WebM, PNG and PCM-s16le WAV all rendered and FFprobe-validated. Evidence `/opt/AIOS/.deployment-backups/phase36d-premerge/ffmpeg9-real-render-smoke.json`, SHA-256 `f091ec6faa7df145193dcf6614d1f9c5173bb97745efe2321e2f698daffe0f18`.
 - Production remains unmodified at this checkpoint: database still Alembic 0029 and no Media Worker service is activated yet.
 
-### Remaining production gates before 36D closure
+### Historical production gates before 36D closure (all satisfied)
 
 1. Protected PR for the execution layer must pass all CI including the permanent FFmpeg 9 real-render gate.
 2. Fresh Production backup + isolated restore smoke before schema mutation.
@@ -142,3 +142,10 @@ Foundation checkpoint 1 is source-only on `phase36d/media-orchestrator`. No Prod
 - Canary cleanup is complete: organization rows=`0`, media graph rows=`0`, media step rows=`0`, S3 `media/` prefix key count=`0`; five canary media objects were deleted. ProjectExecution active=`0`, MediaRenderStep active=`0`.
 - Post-activation health: Backend/Media Worker/PostgreSQL/Redis are healthy; Backend `/ready` returned `20/20` HTTP 200; Backend and Media Worker critical/traceback/panic/fatal log hits=`0`; public site=`200`, user portal=`200`, Owner host=`302` to Cloudflare Access.
 - **Batch 36D is complete.** `creative-asset-graph`, `media-render-transcode`, and `object-storage-media` are raised to `runtime_verified`. Batch `36E` becomes `in_progress` and authoritative `current_batch=36E`. This closure starts no 36E provider/image generation work by itself.
+
+## Post-closeout runtime refresh — 2026-08-17T23:08Z
+
+- `/opt/AIOS` and `origin/main` are aligned at `12e7d01eb0b0d55d375d7a8cca1a3f577af57226` (merged Phase 36D closure PR #425). The live Backend Phase36 API returns HTTP `200`, `current_batch=36E`, `36D=complete`, and `36E=in_progress`.
+- Media Worker was rebuilt from the current merged source and is healthy on image `sha256:ce1da82944892dab19548bd5c1cffb22e768beedcb862704cd10f5934ad806d1`, running as UID/GID `1000:1000`. Production Alembic remains `20260817_0031`; active ProjectExecutions=`0`, active MediaRenderSteps=`0`, MediaAssetGraphs=`0`, and synthetic canary organizations/Studio assets remain fully cleaned.
+- A targeted `docker compose up media-worker` reconciled the PostgreSQL dependency container once. The persistent database volume was retained; immediate verification proved Alembic `0031`, AI providers `15`, Backend HTTP `200`, zero active Project/Media work, and no data loss. Backend/Media Worker/PostgreSQL critical-log hits remained `0`. Operator follow-up: use `--no-deps` for targeted worker-only restarts when dependency recreation is not desired.
+- This refresh changes no Phase 36 maturity or batch state; it only records the current healthy runtime after the already-merged 36D closure.
