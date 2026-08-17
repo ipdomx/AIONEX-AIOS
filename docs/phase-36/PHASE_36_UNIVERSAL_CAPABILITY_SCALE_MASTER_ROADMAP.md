@@ -681,7 +681,7 @@ Append entries below in chronological order. Do not delete historical problems a
 - Fix: update the Backend endpoint contract to assert `current_batch=36C`, `36B=complete`, and `36C=in_progress` while retaining the existing non-secret snapshot assertions.
 - Regression prevention: every future Phase36 batch transition must update and run both root governance tests and the Backend public capability snapshot contract before push.
 - Production/security boundary: test/report-only correction; no runtime implementation, production service, schema, secret, provider call or user workload is changed.
-- Local fix evidence: focused Backend public capability contract `1/1 PASS` in the retained Phase36B backend test image; root Phase36 and reporting gates are rerun on the same change set. PR #393 must still rerun every required protected check before merge.
+- Fix evidence: focused Backend public capability contract `1/1 PASS` in the retained Phase36B backend test image; root Phase36/reporting gates passed, and PR #393 subsequently passed every required protected check and merged as `fc589766adb677d2a9510344997fc948cae1a030`.
 
 ## 14. Batch 36C baseline / implementation record — 2026-08-17
 
@@ -728,6 +728,13 @@ Append entries below in chronological order. Do not delete historical problems a
 - Required fix: construct a validated runtime capability snapshot from approved provider/model configuration and provider-specific model evidence; preserve deterministic test fixtures separately from live metadata; route only against validated models.
 - Regression prevention: no `default` placeholder may be treated as live evidence; stale/unavailable models are excluded; cost/limits are versioned/auditable; provider-specific contract tests cover supported wire protocols before live routing.
 
+### 36C protected baseline merge checkpoint — 2026-08-17
+
+- Baseline PR #394 merged into `main` as `918c846fd18838c7cbd77d1f3e3d5d2d4b4385ee` after all required protected checks passed: Backend Tests, Production Docker Build, Browser boundaries, Frontend Build, CodeQL, repository secret/hygiene, SBOM, Dependency Security, Core contracts and Phase 36 Reporting.
+- Fresh baseline evidence retained: provider/routing `21/21 PASS`; Phase 29J provider/model/synthetic contracts `45/45 PASS`; Phase 29F tenant-scoped knowledge/memory `4/4 PASS` on disposable PostgreSQL 16; Phase 36 root `15/15 PASS`; staged/commit reporting and secret/diff checks PASS.
+- Production boundary remains unchanged by the baseline: zero live provider calls/spend, zero schema mutations, zero service restarts, and no ProjectExecution job was created. Provider inventory remains 13 connected + 2 configured AI providers; Azure OpenAI/AWS Bedrock are not claimed connected.
+- Maturity remains unchanged: `multi-provider-project-routing=source_built`, `tenant-agent-memory-isolation=source_built`, Batch 36C=`in_progress`.
+
 ### 36C next safe transition
 
-Baseline/inventory/technology/security review is complete. Create a protected baseline commit/PR with receipt `P36-R-36C-20260817`; after it is green and merged, begin implementation from the tenant-safe route-plan contract. Do not make a live provider request or production mutation as part of the baseline transition.
+The baseline/inventory/technology/security gate is now merged and closed. Stop here as a safe checkpoint. On resumption, create a fresh implementation branch from merged `main` and begin with the tenant-safe durable route-plan contract plus deterministic fake-provider execution; do not make a live provider request or production mutation until routing/isolation/audit/fallback/budget/rate-limit regressions are green and the permanent report is updated.
