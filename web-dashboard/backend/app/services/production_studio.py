@@ -19,6 +19,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from aios.design_factory import (
+    BrandKit,
+    DesignRequest,
+    build_design_plan,
+    editable_svg_template,
+    prompt_pack_markdown,
+)
 from app.core.config import settings
 from app.db.models import (
     ProjectStudioAttachment,
@@ -244,9 +251,32 @@ The story closes with a memorable next step.
 
 
 def _image_files(spec: StudioSpec) -> dict[str, str]:
-    title = spec.title.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#020617"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient></defs><rect width="1600" height="900" fill="url(#g)"/><circle cx="1250" cy="180" r="280" fill="#38bdf8" opacity=".22"/><text x="110" y="400" fill="white" font-family="Arial,sans-serif" font-size="92" font-weight="700">{title}</text><text x="115" y="485" fill="white" opacity=".72" font-family="Arial,sans-serif" font-size="34">Editable AIONEX AIOS visual</text></svg>"""
-    return {"visual.svg": svg, "prompt-pack.md": f"# Image prompt pack\n\n{spec.brief}\n\nStyle: {spec.style}\nLanguage: {spec.language}\n"}
+    request = DesignRequest(
+        title=spec.title,
+        brief=spec.brief,
+        use_case="experimental-graphic",
+        preset_id="visual-landscape",
+        style=spec.style,
+        language=spec.language,
+        target_audience=spec.target or "general",
+        brand=BrandKit(spec.title[:120]),
+    )
+    plan = build_design_plan(request)
+    return {
+        "visual.svg": editable_svg_template(plan),
+        "design-plan.json": json.dumps(plan.public_snapshot(), ensure_ascii=False, indent=2),
+        "prompt-pack.md": prompt_pack_markdown(plan),
+        "export-presets.json": json.dumps(
+            {
+                "editable": plan.editable_source,
+                "raster": list(plan.raster_exports),
+                "width": plan.preset.width,
+                "height": plan.preset.height,
+                "render_status": plan.render_status,
+            },
+            indent=2,
+        ),
+    }
 
 
 def _strategy_files(spec: StudioSpec) -> dict[str, str]:
