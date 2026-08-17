@@ -1116,3 +1116,11 @@ Create an explicit reviewed initial model policy from the fresh inventories and 
 
 - First Production Media Worker activation exposed a least-privilege startup conflict: `cap_drop: ALL` prevented the generic root entrypoint from chowning unrelated runtime roots. The media volume/temp paths themselves were already private and UID 1000 writable; real S3 preflight passed from a Compose-equivalent UID 1000 one-shot.
 - Corrective candidate runs only Media Worker as `1000:1000`, retains `cap_drop: ALL` + `no-new-privileges`, adds a two-Compose regression contract, and leaves the Production worker stopped until protected merge. Migration 0031 and Backend remain healthy; active Project/Studio/Media queues remain zero.
+
+### 36D protected closure merge + registry activation — 2026-08-17T23:06Z
+
+- Protected closure PR #425 merged into `main` as `12e7d01eb0b0d55d375d7a8cca1a3f577af57226` after every required check passed, including Backend Tests, Production Docker Build with FFmpeg 9 media-worker smoke, CodeQL, SBOM, Browser boundaries, Secrets, Core contracts, Frontend, Dependency Security and Phase36 Reporting.
+- `/opt/AIOS` fast-forwarded cleanly from `5989a00a9c00248771ecd076d5377a1533ba8c6a` to `12e7d01eb0b0d55d375d7a8cca1a3f577af57226`. PR #425 is registry/report/test-only, so no database migration, image rebuild or Media Worker restart was required for this final registry activation.
+- Backend alone was restarted to reload the authoritative Phase36 registry. The live public capability endpoint then returned `current_batch=36E`, `36D=complete`, `36E=in_progress`; `creative-asset-graph`, `media-render-transcode`, and `object-storage-media` each report `runtime_verified`.
+- Final safety snapshot after reload: ProjectExecution active=`0`, MediaRenderStep active=`0`, MediaAssetGraph rows=`0`; Backend, Media Worker, PostgreSQL and Redis are healthy; Media Worker remains non-root (`1000:1000`); Backend `/ready`=`20/20` HTTP 200; Backend/Media critical-log hits=`0`; public=`200`, user portal=`200`, Owner=`302` to Cloudflare Access.
+- This is the final 36D safe point. No 36E image/provider generation work is started by this merge/reload action.
