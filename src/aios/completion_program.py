@@ -466,7 +466,7 @@ OWNER_PAGE_BATCH: Final[dict[str, str]] = {
     "licensing": "29D", "mobile-delivery": "29H", "notification-runtime": "29E", "notifications": "29E",
     "operations": "29C", "operations-integration": "29G", "organizations": "29C",
     "platform-integration": "29G", "policies": "29E", "portal": "29B",
-    "production-runtime": "29G", "projects": "29F", "realtime": "29G", "recovery": "29G",
+    "production-runtime": "29G", "project-ai": "36C", "projects": "29F", "realtime": "29G", "recovery": "29G",
     "release": "29G", "release-governance": "29G", "runtime": "29B", "search": "29B",
     "secrets": "29G", "security-integration": "29G", "security-lab": "34E", "services": "29G", "staff": "29F",
     "support": "29E", "system-map": "29G", "timeline": "29B",
