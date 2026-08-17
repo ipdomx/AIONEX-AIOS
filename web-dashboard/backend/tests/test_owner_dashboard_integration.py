@@ -492,13 +492,13 @@ def test_owner_navigation_registry_matches_all_owner_pages() -> None:
         f"/owner/{page.parent.relative_to(OWNER_APP).as_posix()}"
         for page in OWNER_APP.glob("*/page.tsx")
     }
-    assert len(page_routes) == 46
+    assert len(page_routes) == 47
 
     registry = (FRONTEND / "src" / "config" / "owner-navigation.ts").read_text()
     registry_routes = re.findall(r'href:\s*"(/owner/[^"]+)"', registry)
 
-    assert len(registry_routes) == 46
-    assert len(set(registry_routes)) == 46
+    assert len(registry_routes) == 47
+    assert len(set(registry_routes)) == 47
     assert set(registry_routes) == page_routes
 
 
