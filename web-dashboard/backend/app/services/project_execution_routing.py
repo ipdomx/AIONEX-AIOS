@@ -435,18 +435,33 @@ class ProjectAIRoutePlanner:
                 raise ProjectAIRoutingError(
                     f"no eligible validated provider route for task {task.task_id}"
                 )
+            affordable = ranked
+            if provider_policy.max_total_estimated_cost_usd is not None:
+                remaining_budget = max(
+                    0.0,
+                    float(provider_policy.max_total_estimated_cost_usd) - total_cost,
+                )
+                affordable = tuple(
+                    item
+                    for item in ranked
+                    if float(item.estimated_cost) <= remaining_budget + 1e-12
+                )
+                if not affordable:
+                    raise ProjectAIRoutingError(
+                        "project AI route plan exceeds tenant budget ceiling"
+                    )
             candidate_count = 1 + (task.max_fallbacks if task.allow_failover else 0)
             candidates = tuple(
                 self._candidate(item.provider, item.model, item.score, item.estimated_cost, item.reasons)
-                for item in ranked[:candidate_count]
+                for item in affordable[:candidate_count]
             )
             primary = candidates[0]
             fallbacks = candidates[1:]
             total_cost += primary.estimated_cost_usd
             if (
                 provider_policy.max_total_estimated_cost_usd is not None
-                and total_cost > provider_policy.max_total_estimated_cost_usd
-            ):
+                and total_cost > float(provider_policy.max_total_estimated_cost_usd) + 1e-12
+            ):  # defensive: affordability filtering above should make this unreachable
                 raise ProjectAIRoutingError("project AI route plan exceeds tenant budget ceiling")
             planned.append(
                 ProjectAITaskPlan(

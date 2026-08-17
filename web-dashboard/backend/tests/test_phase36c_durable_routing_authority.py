@@ -612,6 +612,45 @@ async def test_durable_authorities_share_concurrency_budget_and_idempotent_final
 
 
 @pytest.mark.asyncio
+async def test_durable_plan_clamps_owner_budget_to_execution_budget() -> None:
+    suffix = uuid4().hex[:8]
+    scope, org_id, _ = await _seed_scope(
+        suffix,
+        budget_cap_usd=0.002,
+        providers=(
+            (
+                "anthropic",
+                "claude-affordable",
+                _validated_model(
+                    "claude-affordable",
+                    output_cost_per_million=1.0,
+                ),
+                "connected",
+            ),
+        ),
+    )
+    policy = ProjectAIProviderPolicy(
+        allowed_providers=frozenset({"anthropic"}),
+        max_total_estimated_cost_usd=1.0,
+    )
+    try:
+        async with SessionLocal() as session:
+            plan = await DurableProjectAIRouteStore(session).create_plan(
+                scope,
+                (_task("code", priority=("anthropic",), max_tokens=1000),),
+                policy,
+            )
+            budget = await session.get(ProjectAIExecutionBudget, scope.execution_id)
+            assert budget is not None
+            assert budget.limit_microusd == 2000
+            assert plan.policy["max_total_estimated_cost_usd"] == 0.002
+            assert plan.total_primary_estimated_microusd <= budget.limit_microusd
+            await session.commit()
+    finally:
+        await _cleanup_org(org_id)
+
+
+@pytest.mark.asyncio
 async def test_failed_primary_spend_can_block_fallback_before_provider_execution() -> None:
     suffix = uuid4().hex[:8]
     scope, org_id, _ = await _seed_scope(
