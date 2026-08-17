@@ -162,6 +162,11 @@ class Settings(BaseSettings):
         default=True,
         validation_alias="PROJECT_EXECUTION_ENABLED",
     )
+    PROJECT_EXECUTION_RUNNER_MODE: str = Field(
+        default="legacy",
+        pattern=r"^(legacy|phase36c)$",
+        validation_alias="PROJECT_EXECUTION_RUNNER_MODE",
+    )
 
     AIOS_TELEGRAM_BOT_TOKEN_FILE: str = Field(
         default="/run/secrets/aionex/telegram-bot-token",

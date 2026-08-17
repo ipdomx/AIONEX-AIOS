@@ -9,7 +9,7 @@ import sys
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Protocol
 from uuid import uuid4
 
 from app.core.config import settings
@@ -137,16 +137,61 @@ class ProjectExecutionLeaseLost(RuntimeError):
     """The durable execution lease was reclaimed or cancelled."""
 
 
+class ProjectExecutionRunner(Protocol):
+    """Synchronous runner contract consumed by the durable Project Worker."""
+
+    def run(
+        self,
+        *,
+        job_id: str,
+        project_name: str,
+        objective: str,
+        tenant_id: str = "platform",
+        requested_by_id: str = "system",
+        execution_mode: str = "full",
+        project_id: str | None = None,
+        three_d_asset_manifest: str | None = None,
+        stage_callback: Callable[[str, int], None] | None = None,
+    ) -> dict[str, Any]: ...
+
+
+def resolve_project_execution_runner(
+    *,
+    mode: str | None = None,
+    phase36c_runner: ProjectExecutionRunner | None = None,
+) -> ProjectExecutionRunner:
+    """Select the ProjectExecution runner with a fail-closed Phase 36C opt-in.
+
+    Production currently ships only the legacy runner.  A Phase 36C runner must be
+    supplied explicitly by a later activation layer after validated provider/model
+    evidence exists.  This keeps rollback to the existing runner immediate and
+    prevents an environment-only switch from silently enabling provider execution.
+    """
+
+    selected = (mode or settings.PROJECT_EXECUTION_RUNNER_MODE).strip().lower()
+    if selected == "legacy":
+        return ProjectPlanningRunner()
+    if selected == "phase36c":
+        if phase36c_runner is None:
+            raise ProjectExecutionConfigurationError(
+                "phase36c ProjectExecution runner requires explicit validated runtime injection"
+            )
+        return phase36c_runner
+    raise ProjectExecutionConfigurationError(
+        f"unsupported ProjectExecution runner mode: {selected or 'empty'}"
+    )
+
+
 class ProjectExecutionWorker:
     def __init__(
         self,
         *,
-        runner: ProjectPlanningRunner | None = None,
+        runner: ProjectExecutionRunner | None = None,
         session_factory: SessionFactory = SessionLocal,
         worker_id: str | None = None,
         capacity: int | None = None,
     ) -> None:
-        self.runner = runner or ProjectPlanningRunner()
+        self.runner: ProjectExecutionRunner = runner or resolve_project_execution_runner()
         self.session_factory = session_factory
         configured_worker_id = (worker_id or settings.PROJECT_EXECUTION_WORKER_ID).strip()
         self.worker_id = configured_worker_id or f"project-worker:{socket.gethostname()}"
@@ -990,7 +1035,7 @@ async def healthcheck() -> int:
     try:
         import shutil
 
-        ProjectPlanningRunner()
+        resolve_project_execution_runner()
         for executable in ("node", "npm", "chromedriver"):
             if not shutil.which(executable):
                 raise RuntimeError(f"project worker executable is unavailable: {executable}")

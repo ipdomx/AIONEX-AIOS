@@ -829,3 +829,17 @@ Source integration is merged and Production remains stable on the previous accep
 ### 36C production activation gate 2 — next safe boundary
 
 Implement the production runner selector as an explicit opt-in with a fail-closed multi-provider mode and immediate rollback to the existing `ProjectPlanningRunner`. Test default-off behavior, missing/invalid configuration, schema compatibility, and deterministic injected-provider selection without live provider calls. Merge and protect that source boundary before applying migration `0029`.
+
+### 36C production activation gate 2 — explicit runner / rollback boundary — 2026-08-17
+
+- Gate 1 evidence is protected through backup/restore PR #404 merged as `11651979c9779305d300c2bdf385419512d1ae1d`; Production remains healthy on Alembic `0028` with zero active ProjectExecution jobs.
+- Added `PROJECT_EXECUTION_RUNNER_MODE` with allowed modes `legacy|phase36c` and default `legacy`. Both Production Compose sources pin `PROJECT_EXECUTION_RUNNER_MODE: legacy` explicitly, so an env-file-only change cannot silently activate multi-provider execution.
+- `resolve_project_execution_runner()` preserves `ProjectPlanningRunner` for `legacy`, rejects unknown modes, and fails closed for `phase36c` unless a validated runner is explicitly injected by a later activation layer. `ProjectExecutionWorker` and its healthcheck use this selector when no runner is injected; deterministic tests may continue to inject the Phase36C runner directly without changing Production defaults.
+- Rollback boundary: the live/default runner remains the existing legacy OpenAI path; rollback is the explicit `legacy` selection and requires no schema downgrade. Gate 2 itself does not restart services, modify the Production env file, query the new `0029` tables from Production, or call a provider.
+- P36-0013: an older integration test asserted the literal source text `runner or ProjectPlanningRunner()`. Gate 2 replaced that implementation with a selector while preserving behavior, so the stale text assertion failed once. It was corrected to assert the selector-based legacy boundary; no runtime code was reverted to satisfy the obsolete source string.
+- Verification: runner-selector `5/5 PASS`; unified selector + Phase36B worker + route-plan/durable/integration/legacy ProjectExecution regression `48/48 PASS`; Backend Ruff PASS; Mypy `182` source files PASS; both Production Compose sources parse; fresh Full Backend at Alembic `0029` `667 passed, 1 skipped, 0 failed` in `110.84s`. Disposable route/task/attempt/budget/active-execution counts clean to zero and PostgreSQL/Redis critical log hits are zero.
+- Production boundary remains unchanged after tests: live schema `0028`, Backend/two Project Workers/PostgreSQL/Redis healthy, active ProjectExecution jobs `0`.
+
+### 36C production activation gate 2 — next safe transition
+
+Gate 2 is open as PR #405; merge it only after every protected check is green. After merge, re-confirm the fresh backup artifact/checksum and zero active jobs, then apply migration `0029` only. Keep the Production runner pinned to `legacy` during schema migration and post-migration acceptance. Provider-specific model evidence and live provider activation remain separate later gates.
