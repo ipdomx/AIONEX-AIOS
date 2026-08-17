@@ -345,3 +345,20 @@ def test_phase36d_render_schema_includes_expiry_fencing_and_retry_fields() -> No
         "max_attempts",
         "idempotency_key",
     } <= columns
+
+
+def test_media_worker_compose_runs_nonroot_without_readding_linux_capabilities() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[3]
+    for relative in (
+        "web-dashboard/docker-compose.production.yml",
+        "deploy/production/docker-compose.production.yml",
+    ):
+        source = (root / relative).read_text(encoding="utf-8")
+        start = source.index("  media-worker:")
+        tail = source.index("\n  three-d-worker:", start)
+        block = source[start:tail]
+        assert 'user: "1000:1000"' in block
+        assert 'cap_drop: ["ALL"]' in block
+        assert 'no-new-privileges:true' in block
