@@ -38,6 +38,7 @@ OWNER_API_CONTRACT = {
     ("GET", "/api/v1/owner/security-integration"),
     ("POST", "/api/v1/owner/security-integration/{target_id}/command"),
     ("GET", "/api/v1/owner/production-runtime"),
+    ("GET", "/api/v1/owner/production-runtime/project-execution-fabric"),
     ("POST", "/api/v1/owner/production-runtime/command"),
     ("GET", "/api/v1/owner/final-platform-integration"),
     ("POST", "/api/v1/owner/final-platform-integration/command"),

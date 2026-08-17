@@ -21,12 +21,35 @@ export interface ProductionRuntimeSnapshot {
   targets: ProductionRuntimeTarget[];
 }
 
+export interface ProjectExecutionFabricSnapshot {
+  captured_at: string;
+  queued: number;
+  running: number;
+  retry_queued: number;
+  dead_lettered: number;
+  oldest_queue_wait_seconds: number;
+  queue_by_resource_class: Record<string, number>;
+  workers_online: number;
+  worker_capacity: number;
+  worker_active_slots: number;
+  worker_saturation: number;
+}
+
 export async function fetchProductionRuntime(
   signal?: AbortSignal,
 ): Promise<ProductionRuntimeSnapshot> {
   return apiClient.get<ProductionRuntimeSnapshot>("/owner/production-runtime", {
     signal,
   });
+}
+
+export async function fetchProjectExecutionFabric(
+  signal?: AbortSignal,
+): Promise<ProjectExecutionFabricSnapshot> {
+  return apiClient.get<ProjectExecutionFabricSnapshot>(
+    "/owner/production-runtime/project-execution-fabric",
+    { signal },
+  );
 }
 
 export async function runProductionRuntimeCommand(

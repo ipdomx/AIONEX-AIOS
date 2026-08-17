@@ -1382,6 +1382,13 @@ const AR: Catalog = {
   "Production runtime command failed.": "فشل أمر تشغيل الإنتاج.",
   "Production runtime synchronization failed.": "فشلت مزامنة تشغيل الإنتاج.",
   "Production runtime synchronized.": "تمت مزامنة تشغيل الإنتاج.",
+  "Production runtime and project execution fabric synchronized.":
+    "تمت مزامنة تشغيل الإنتاج ونسيج تنفيذ المشروعات.",
+  "Distributed project execution fabric": "نسيج تنفيذ المشروعات الموزع",
+  "PostgreSQL durable queue, worker membership, retries and saturation.":
+    "قائمة انتظار دائمة عبر PostgreSQL، وعضوية العمال، وإعادات المحاولة، ومؤشرات التشبع.",
+  "Active slots:": "الفتحات النشطة:",
+  "Oldest wait:": "أقدم مدة انتظار:",
   "Protected assets": "الملفات المحمية",
   "Protected Entity Operations": "عمليات الكيانات المحمية",
   "Protected Meeting Approval Workflow": "مسار موافقة الاجتماعات المحمي",

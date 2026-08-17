@@ -1,4 +1,4 @@
-"""Single-server project execution API, worker, migration, and safety contracts."""
+"""Project execution API, worker, migration, and safety contracts."""
 
 from __future__ import annotations
 
@@ -157,6 +157,13 @@ def test_project_execution_table_and_compose_worker_contracts() -> None:
     assert "/run/references/phase22b/local-qwen3-8b:ro" in compose
     assert "project_execution_data:/var/lib/aionex/project-executions" in compose
     assert "project_execution_data:/var/lib/aionex/project-executions:rw" in compose
+
+    worker_requirements = (
+        ROOT / "web-dashboard/backend/requirements-project-worker.txt"
+    ).read_text(encoding="utf-8")
+    dockerfile = (ROOT / "web-dashboard/backend/Dockerfile").read_text(encoding="utf-8")
+    assert "selenium==4.46.0" in worker_requirements
+    assert "pip check" in dockerfile
 
 
 @pytest.mark.asyncio

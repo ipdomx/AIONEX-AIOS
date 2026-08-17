@@ -8,23 +8,41 @@ logger = get_logger(__name__)
 redis_client: aioredis.Redis | None = None
 
 
+async def _close_client(client: aioredis.Redis) -> None:
+    """Close Redis across redis-py 5.x and newer client APIs."""
+    closer = getattr(client, "aclose", None)
+    if closer is None:
+        closer = client.close
+    await closer()
+
+
 async def init_redis():
-    """Initialize Redis connection."""
+    """Initialize one event-loop-owned Redis client."""
     global redis_client
-    redis_client = aioredis.from_url(
+    if redis_client is not None:
+        await _close_client(redis_client)
+        redis_client = None
+    client = aioredis.from_url(
         settings.REDIS_URL,
         decode_responses=True,
         max_connections=settings.REDIS_POOL_SIZE,
     )
-    await redis_client.ping()
+    try:
+        await client.ping()
+    except BaseException:
+        await _close_client(client)
+        raise
+    redis_client = client
     logger.info("Redis connected")
 
 
 async def close_redis():
-    """Close Redis connection."""
+    """Close Redis and clear the global reference before its event loop exits."""
     global redis_client
-    if redis_client:
-        await redis_client.close()
+    client = redis_client
+    redis_client = None
+    if client is not None:
+        await _close_client(client)
         logger.info("Redis disconnected")
 
 

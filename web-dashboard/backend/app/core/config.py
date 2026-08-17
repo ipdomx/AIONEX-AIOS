@@ -36,9 +36,20 @@ class Settings(BaseSettings):
         default="postgres", validation_alias="POSTGRES_PASSWORD"
     )
     POSTGRES_DB: str = Field(default="aionex", validation_alias="POSTGRES_DB")
-    DATABASE_POOL_SIZE: int = Field(default=20, validation_alias="DATABASE_POOL_SIZE")
+    DATABASE_POOL_SIZE: int = Field(
+        default=20, ge=1, le=100, validation_alias="DATABASE_POOL_SIZE"
+    )
     DATABASE_MAX_OVERFLOW: int = Field(
-        default=10, validation_alias="DATABASE_MAX_OVERFLOW"
+        default=10, ge=0, le=100, validation_alias="DATABASE_MAX_OVERFLOW"
+    )
+    DATABASE_POOLING_ENABLED: bool = Field(
+        default=False, validation_alias="DATABASE_POOLING_ENABLED"
+    )
+    DATABASE_POOL_TIMEOUT_SECONDS: int = Field(
+        default=5, ge=1, le=60, validation_alias="DATABASE_POOL_TIMEOUT_SECONDS"
+    )
+    DATABASE_POOL_CONNECTION_BUDGET: int = Field(
+        default=60, ge=10, le=1000, validation_alias="DATABASE_POOL_CONNECTION_BUDGET"
     )
     DATABASE_ECHO: bool = Field(default=False, validation_alias="DATABASE_ECHO")
     BACKUP_DIR: str = Field(
@@ -260,6 +271,83 @@ class Settings(BaseSettings):
         le=60,
         validation_alias="PROJECT_EXECUTION_HEARTBEAT_SECONDS",
     )
+    PROJECT_EXECUTION_ADMISSION_CONCURRENCY: int = Field(
+        default=8,
+        ge=1,
+        le=32,
+        validation_alias="PROJECT_EXECUTION_ADMISSION_CONCURRENCY",
+    )
+    PROJECT_EXECUTION_ADMISSION_GLOBAL_LIMIT: int = Field(
+        default=24,
+        ge=1,
+        le=64,
+        validation_alias="PROJECT_EXECUTION_ADMISSION_GLOBAL_LIMIT",
+    )
+    PROJECT_EXECUTION_ADMISSION_WAIT_SECONDS: int = Field(
+        default=30,
+        ge=1,
+        le=120,
+        validation_alias="PROJECT_EXECUTION_ADMISSION_WAIT_SECONDS",
+    )
+    PROJECT_EXECUTION_ADMISSION_LEASE_SECONDS: int = Field(
+        default=120,
+        ge=30,
+        le=600,
+        validation_alias="PROJECT_EXECUTION_ADMISSION_LEASE_SECONDS",
+    )
+    PROJECT_EXECUTION_ADMISSION_RETRY_MILLISECONDS: int = Field(
+        default=25,
+        ge=5,
+        le=1000,
+        validation_alias="PROJECT_EXECUTION_ADMISSION_RETRY_MILLISECONDS",
+    )
+    PROJECT_EXECUTION_ADMISSION_REDIS_KEY: str = Field(
+        default="aionex:project-execution:admission:v1",
+        min_length=8,
+        max_length=160,
+        validation_alias="PROJECT_EXECUTION_ADMISSION_REDIS_KEY",
+    )
+    PROJECT_EXECUTION_WORKER_CAPACITY: int = Field(
+        default=1,
+        ge=1,
+        le=16,
+        validation_alias="PROJECT_EXECUTION_WORKER_CAPACITY",
+    )
+    PROJECT_EXECUTION_MAX_ATTEMPTS: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        validation_alias="PROJECT_EXECUTION_MAX_ATTEMPTS",
+    )
+    PROJECT_EXECUTION_RETRY_BASE_SECONDS: int = Field(
+        default=5,
+        ge=1,
+        le=300,
+        validation_alias="PROJECT_EXECUTION_RETRY_BASE_SECONDS",
+    )
+    PROJECT_EXECUTION_TENANT_ACTIVE_LIMIT: int = Field(
+        default=2,
+        ge=1,
+        le=32,
+        validation_alias="PROJECT_EXECUTION_TENANT_ACTIVE_LIMIT",
+    )
+    PROJECT_EXECUTION_RESOURCE_CLASSES: str = Field(
+        default="project-build-cpu",
+        min_length=1,
+        max_length=512,
+        validation_alias="PROJECT_EXECUTION_RESOURCE_CLASSES",
+    )
+    PROJECT_EXECUTION_WORKER_ID: str = Field(
+        default="",
+        max_length=160,
+        validation_alias="PROJECT_EXECUTION_WORKER_ID",
+    )
+    PROJECT_EXECUTION_WORKER_STALE_SECONDS: int = Field(
+        default=90,
+        ge=30,
+        le=900,
+        validation_alias="PROJECT_EXECUTION_WORKER_STALE_SECONDS",
+    )
 
     THREE_D_RUNPOD_SECRET_FILE: str = Field(
         default="/run/secrets/aionex/runpod-gpu.env",
@@ -319,7 +407,9 @@ class Settings(BaseSettings):
     REDIS_URL: str = Field(
         default="redis://localhost:6379/0", validation_alias="REDIS_URL"
     )
-    REDIS_POOL_SIZE: int = Field(default=10, validation_alias="REDIS_POOL_SIZE")
+    REDIS_POOL_SIZE: int = Field(
+        default=10, ge=3, le=1000, validation_alias="REDIS_POOL_SIZE"
+    )
 
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
         default=30, validation_alias="ACCESS_TOKEN_EXPIRE_MINUTES"
@@ -569,7 +659,13 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def resolve_database_url(self) -> "Settings":
-        """Build one encoded URL from the same credentials used by PostgreSQL."""
+        """Build one encoded URL and enforce shared runtime capacity invariants."""
+        redis_admission_ceiling = max(1, self.REDIS_POOL_SIZE - 2)
+        if self.PROJECT_EXECUTION_ADMISSION_CONCURRENCY > redis_admission_ceiling:
+            raise ValueError(
+                "PROJECT_EXECUTION_ADMISSION_CONCURRENCY must leave at least two "
+                "Redis connections available for authentication and runtime services"
+            )
         minimum_lease = (
             max(
                 self.BACKUP_TIMEOUT_SECONDS,
@@ -583,6 +679,15 @@ class Settings(BaseSettings):
                 "BACKUP_JOB_LEASE_SECONDS must exceed the longest backup "
                 "operation and cleanup timeout"
             )
+        if self.DATABASE_POOLING_ENABLED:
+            api_pool_ceiling = self.WORKERS * (
+                self.DATABASE_POOL_SIZE + self.DATABASE_MAX_OVERFLOW
+            )
+            if api_pool_ceiling > self.DATABASE_POOL_CONNECTION_BUDGET:
+                raise ValueError(
+                    "API database pool ceiling exceeds "
+                    "DATABASE_POOL_CONNECTION_BUDGET"
+                )
         if self.DATABASE_URL.strip():
             self.DATABASE_URL = self.DATABASE_URL.strip()
             return self
