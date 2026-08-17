@@ -622,6 +622,164 @@ class ProjectExecutionWorkerNode(Base, TimestampMixin):
     )
 
 
+class ProjectAIRoutePlanRecord(Base, TimestampMixin):
+    """Durable prompt-free Project AI route plan for one execution version."""
+
+    __tablename__ = "project_ai_route_plans"
+    __table_args__ = (
+        UniqueConstraint(
+            "execution_id",
+            "plan_version",
+            name="uq_project_ai_route_plan_execution_version",
+        ),
+        Index(
+            "ix_project_ai_route_plans_org_status_created",
+            "organization_id",
+            "status",
+            "created_at",
+        ),
+        Index(
+            "ix_project_ai_route_plans_project_created",
+            "project_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    execution_id: Mapped[str] = mapped_column(
+        ForeignKey("project_executions.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    plan_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="planned", nullable=False, index=True)
+    policy: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    total_primary_estimated_microusd: Mapped[int] = mapped_column(
+        BigInteger, default=0, nullable=False
+    )
+
+
+class ProjectAIRouteTaskRecord(Base, TimestampMixin):
+    """Prompt-free durable task route and validated candidate snapshot."""
+
+    __tablename__ = "project_ai_route_tasks"
+    __table_args__ = (
+        UniqueConstraint("plan_id", "task_id", name="uq_project_ai_route_task_plan_task"),
+        Index(
+            "ix_project_ai_route_tasks_org_status",
+            "organization_id",
+            "status",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    plan_id: Mapped[str] = mapped_column(
+        ForeignKey("project_ai_route_plans.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    task_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    role: Mapped[str] = mapped_column(String(64), nullable=False)
+    task: Mapped[str] = mapped_column(String(80), nullable=False)
+    primary_provider_id: Mapped[str] = mapped_column(
+        ForeignKey("ai_providers.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    primary_provider_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    primary_model: Mapped[str] = mapped_column(String(160), nullable=False)
+    candidates: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
+    estimated_microusd: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="planned", nullable=False, index=True)
+    selected_provider_id: Mapped[str | None] = mapped_column(
+        ForeignKey("ai_providers.id", ondelete="RESTRICT"), index=True
+    )
+    selected_provider_type: Mapped[str | None] = mapped_column(String(64))
+    selected_model: Mapped[str | None] = mapped_column(String(160))
+    evidence_ref: Mapped[str | None] = mapped_column(Text)
+
+
+class ProjectAIRouteAttemptRecord(Base, TimestampMixin):
+    """Durable provider-attempt accounting/evidence without prompts or credentials."""
+
+    __tablename__ = "project_ai_route_attempts"
+    __table_args__ = (
+        UniqueConstraint(
+            "task_route_id",
+            "attempt_index",
+            name="uq_project_ai_route_attempt_task_index",
+        ),
+        Index(
+            "ix_project_ai_route_attempts_org_status_created",
+            "organization_id",
+            "status",
+            "created_at",
+        ),
+        Index(
+            "ix_project_ai_route_attempts_provider_status",
+            "provider_id",
+            "status",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    task_route_id: Mapped[str] = mapped_column(
+        ForeignKey("project_ai_route_tasks.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    execution_id: Mapped[str] = mapped_column(
+        ForeignKey("project_executions.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    provider_id: Mapped[str] = mapped_column(
+        ForeignKey("ai_providers.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    provider_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    model: Mapped[str] = mapped_column(String(160), nullable=False)
+    attempt_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="reserved", nullable=False, index=True)
+    fallback_used: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    estimated_microusd: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    reserved_microusd: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    actual_microusd: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    latency_ms: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    error_code: Mapped[str | None] = mapped_column(String(120))
+    evidence_ref: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ProjectAIExecutionBudget(Base, TimestampMixin):
+    """Durable micro-USD reservation/spend authority shared by Project Workers."""
+
+    __tablename__ = "project_ai_execution_budgets"
+    __table_args__ = (
+        Index("ix_project_ai_execution_budgets_org", "organization_id"),
+    )
+
+    execution_id: Mapped[str] = mapped_column(
+        ForeignKey("project_executions.id", ondelete="CASCADE"), primary_key=True
+    )
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    limit_microusd: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    reserved_microusd: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    spent_microusd: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+
+
 class BillingPlan(Base, TimestampMixin):
     __tablename__ = "billing_plans"
 
