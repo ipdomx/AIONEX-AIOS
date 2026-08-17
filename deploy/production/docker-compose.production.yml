@@ -204,6 +204,7 @@ services:
   media-worker:
     profiles: ["media-execution"]
     image: aionex-aios-media-worker:local
+    user: "1000:1000"
     build:
       context: ../../web-dashboard/backend
       dockerfile: Dockerfile
