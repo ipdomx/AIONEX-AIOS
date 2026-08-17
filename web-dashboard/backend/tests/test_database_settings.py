@@ -15,6 +15,49 @@ from app.db.migration import render_alembic_config_url
 VALID_SECRET = "database-settings-test-secret-key-123456789"
 
 
+
+def test_project_execution_admission_reserves_redis_headroom() -> None:
+    with pytest.raises(
+        ValueError,
+        match="PROJECT_EXECUTION_ADMISSION_CONCURRENCY must leave at least two Redis connections",
+    ):
+        Settings(
+            _env_file=None,
+            SECRET_KEY=VALID_SECRET,
+            REDIS_POOL_SIZE=10,
+            PROJECT_EXECUTION_ADMISSION_CONCURRENCY=9,
+        )
+
+def test_database_pool_connection_budget_rejects_unsafe_api_ceiling() -> None:
+    with pytest.raises(ValueError, match="API database pool ceiling exceeds"):
+        Settings(
+            _env_file=None,
+            SECRET_KEY=VALID_SECRET,
+            DATABASE_POOLING_ENABLED=True,
+            WORKERS=4,
+            DATABASE_POOL_SIZE=12,
+            DATABASE_MAX_OVERFLOW=6,
+            DATABASE_POOL_CONNECTION_BUDGET=60,
+        )
+
+
+def test_database_pool_connection_budget_accepts_production_shape() -> None:
+    configured = Settings(
+        _env_file=None,
+        SECRET_KEY=VALID_SECRET,
+        DATABASE_POOLING_ENABLED=True,
+        WORKERS=4,
+        DATABASE_POOL_SIZE=12,
+        DATABASE_MAX_OVERFLOW=2,
+        DATABASE_POOL_CONNECTION_BUDGET=60,
+        REDIS_POOL_SIZE=18,
+        PROJECT_EXECUTION_ADMISSION_CONCURRENCY=14,
+    )
+    assert configured.DATABASE_POOL_SIZE == 12
+    assert configured.DATABASE_MAX_OVERFLOW == 2
+    assert configured.REDIS_POOL_SIZE == 18
+
+
 def test_database_url_is_derived_from_postgres_credentials() -> None:
     settings = Settings(
         _env_file=None,
@@ -286,7 +329,7 @@ class _FakeAsyncEngine:
 
 def test_backend_exposes_the_shipped_alembic_head() -> None:
     database.expected_alembic_heads.cache_clear()
-    assert database.expected_alembic_heads() == frozenset({"20260816_0027"})
+    assert database.expected_alembic_heads() == frozenset({"20260817_0028"})
 
 
 @pytest.mark.asyncio

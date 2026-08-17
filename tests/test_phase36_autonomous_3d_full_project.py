@@ -39,7 +39,7 @@ def test_dedicated_project_worker_contains_real_build_and_browser_runtime() -> N
     assert "FROM runtime AS project-worker" in dockerfile
     for token in ("nodejs", "npm", "chromium", "chromium-chromedriver", "xvfb", "mesa-gl"):
         assert token in dockerfile
-    assert "selenium==4.35.0" in requirements
+    assert "selenium==4.46.0" in requirements
     assert 'project_npm_cache="${PROJECT_EXECUTION_NPM_CACHE:-}"' in entrypoint
     assert 'install -d -m 0700 -o aionex -g aionex "$project_npm_cache"' in entrypoint
     for text in (compose, deploy):

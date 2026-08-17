@@ -60,7 +60,8 @@ CMD ["sh", "-c", "alembic upgrade head && python -m app.db.seed && exec python m
 # Node/npm and a local Chromium/ChromeDriver pair for real 3D build + browser QA.
 FROM builder AS project-worker-builder
 COPY requirements-project-worker.txt .
-RUN /opt/venv/bin/pip install --no-cache-dir -r requirements-project-worker.txt
+RUN /opt/venv/bin/pip install --no-cache-dir -r requirements-project-worker.txt \
+    && /opt/venv/bin/pip check
 
 FROM runtime AS project-worker
 USER root

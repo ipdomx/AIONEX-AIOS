@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import signal
+import socket
 import sys
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
@@ -20,6 +21,7 @@ from app.db.models import (
     OwnerControlRecord,
     Project,
     ProjectExecution,
+    ProjectExecutionWorkerNode,
     ThreeDArtifact,
 )
 from app.services.project_execution import (
@@ -30,6 +32,7 @@ from app.services.project_execution import (
 from app.services.three_d_storage import ThreeDObjectStore
 from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 logger = get_logger(__name__)
 SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
@@ -37,6 +40,97 @@ SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
 
 def _now() -> datetime:
     return datetime.now(UTC)
+
+
+async def project_execution_fabric_snapshot(session: AsyncSession) -> dict[str, Any]:
+    """Return non-sensitive queue and worker saturation metrics."""
+    now = _now()
+    worker_cutoff = now - timedelta(
+        seconds=settings.PROJECT_EXECUTION_WORKER_STALE_SECONDS
+    )
+    queued = int(
+        await session.scalar(
+            select(func.count(ProjectExecution.id)).where(
+                ProjectExecution.status == "queued"
+            )
+        )
+        or 0
+    )
+    running = int(
+        await session.scalar(
+            select(func.count(ProjectExecution.id)).where(
+                ProjectExecution.status == "running"
+            )
+        )
+        or 0
+    )
+    retry_queued = int(
+        await session.scalar(
+            select(func.count(ProjectExecution.id)).where(
+                ProjectExecution.status == "queued",
+                ProjectExecution.stage == "retry_queued",
+            )
+        )
+        or 0
+    )
+    dead_lettered = int(
+        await session.scalar(
+            select(func.count(ProjectExecution.id)).where(
+                ProjectExecution.stage == "dead_lettered"
+            )
+        )
+        or 0
+    )
+    oldest = await session.scalar(
+        select(func.min(ProjectExecution.created_at)).where(
+            ProjectExecution.status == "queued"
+        )
+    )
+    queue_rows = (
+        await session.execute(
+            select(
+                ProjectExecution.resource_class,
+                func.count(ProjectExecution.id),
+            )
+            .where(ProjectExecution.status == "queued")
+            .group_by(ProjectExecution.resource_class)
+        )
+    ).all()
+    worker_rows = list(
+        (
+            await session.scalars(
+                select(ProjectExecutionWorkerNode).where(
+                    ProjectExecutionWorkerNode.status.in_(["online", "draining"]),
+                    ProjectExecutionWorkerNode.last_heartbeat_at >= worker_cutoff,
+                )
+            )
+        ).all()
+    )
+    if oldest is None:
+        oldest_wait = 0.0
+    else:
+        if oldest.tzinfo is None:
+            oldest = oldest.replace(tzinfo=UTC)
+        oldest_wait = max(0.0, (now - oldest).total_seconds())
+    total_capacity = sum(max(0, int(row.capacity)) for row in worker_rows)
+    active_slots = sum(max(0, int(row.active_count)) for row in worker_rows)
+    return {
+        "captured_at": now.isoformat(),
+        "queued": queued,
+        "running": running,
+        "retry_queued": retry_queued,
+        "dead_lettered": dead_lettered,
+        "oldest_queue_wait_seconds": round(oldest_wait, 3),
+        "queue_by_resource_class": {
+            str(resource_class): int(count) for resource_class, count in queue_rows
+        },
+        "workers_online": len(worker_rows),
+        "worker_capacity": total_capacity,
+        "worker_active_slots": active_slots,
+        "worker_saturation": (
+            round(active_slots / total_capacity, 4) if total_capacity else 0.0
+        ),
+    }
 
 
 class ProjectExecutionLeaseLost(RuntimeError):
@@ -49,9 +143,25 @@ class ProjectExecutionWorker:
         *,
         runner: ProjectPlanningRunner | None = None,
         session_factory: SessionFactory = SessionLocal,
+        worker_id: str | None = None,
+        capacity: int | None = None,
     ) -> None:
         self.runner = runner or ProjectPlanningRunner()
         self.session_factory = session_factory
+        configured_worker_id = (worker_id or settings.PROJECT_EXECUTION_WORKER_ID).strip()
+        self.worker_id = configured_worker_id or f"project-worker:{socket.gethostname()}"
+        self.capacity = int(capacity or settings.PROJECT_EXECUTION_WORKER_CAPACITY)
+        if not 1 <= self.capacity <= 16:
+            raise ValueError("project worker capacity must be between 1 and 16")
+        self.resource_classes = tuple(
+            sorted(
+                {
+                    item.strip()
+                    for item in settings.PROJECT_EXECUTION_RESOURCE_CLASSES.split(",")
+                    if item.strip()
+                }
+            )
+        ) or ("project-build-cpu",)
 
     @property
     def stale_before(self) -> datetime:
@@ -68,41 +178,210 @@ class ProjectExecutionWorker:
     def _database_timestamp(self, session: AsyncSession) -> Any:
         return func.now() if self._uses_postgresql(session) else _now()
 
-    async def claim(self) -> tuple[str, str] | None:
+    async def register_worker(self, *, active_count: int = 0, status: str = "online") -> None:
+        """Persist worker membership without storing project payloads or provider secrets."""
+        now = _now()
         async with self.session_factory() as session:
-            timestamp = self._database_timestamp(session)
-            stale_before = (
-                func.now() - timedelta(seconds=settings.PROJECT_EXECUTION_JOB_LEASE_SECONDS)
-                if self._uses_postgresql(session)
-                else self.stale_before
+            row = await session.scalar(
+                select(ProjectExecutionWorkerNode)
+                .where(ProjectExecutionWorkerNode.id == self.worker_id)
+                .with_for_update()
+            )
+            if row is None:
+                session.add(
+                    ProjectExecutionWorkerNode(
+                        id=self.worker_id,
+                        resource_classes=list(self.resource_classes),
+                        capacity=self.capacity,
+                        active_count=max(0, int(active_count)),
+                        status=status,
+                        started_at=now,
+                        last_heartbeat_at=now,
+                    )
+                )
+            else:
+                row.resource_classes = list(self.resource_classes)
+                row.capacity = self.capacity
+                row.active_count = max(0, int(active_count))
+                row.status = status
+                row.last_heartbeat_at = now
+            await session.commit()
+
+    async def mark_worker_stopped(self) -> None:
+        async with self.session_factory() as session:
+            row = await session.scalar(
+                select(ProjectExecutionWorkerNode)
+                .where(ProjectExecutionWorkerNode.id == self.worker_id)
+                .with_for_update()
+            )
+            if row is not None:
+                row.status = "stopped"
+                row.active_count = 0
+                row.last_heartbeat_at = _now()
+                await session.commit()
+
+    async def reap_exhausted_leases(self, *, limit: int = 16) -> int:
+        """Move expired leases with no retry budget into a durable dead-letter state."""
+        now = _now()
+        stale_before = now - timedelta(
+            seconds=settings.PROJECT_EXECUTION_JOB_LEASE_SECONDS
+        )
+        async with self.session_factory() as session:
+            records = list(
+                (
+                    await session.scalars(
+                        select(ProjectExecution)
+                        .where(
+                            ProjectExecution.status == "running",
+                            ProjectExecution.attempts >= ProjectExecution.max_attempts,
+                            or_(
+                                ProjectExecution.lease_expires_at < now,
+                                and_(
+                                    ProjectExecution.lease_expires_at.is_(None),
+                                    ProjectExecution.updated_at < stale_before,
+                                ),
+                            ),
+                        )
+                        .order_by(ProjectExecution.created_at)
+                        .with_for_update(skip_locked=True)
+                        .limit(max(1, min(100, int(limit))))
+                    )
+                ).all()
+            )
+            for record in records:
+                previous_owner = record.lease_owner
+                record.status = "failed"
+                record.stage = "dead_lettered"
+                record.error_code = record.error_code or "worker_lease_exhausted"
+                record.error_message = (
+                    record.error_message
+                    or "Project execution stopped after the durable retry budget was exhausted."
+                )
+                record.dead_lettered_at = now
+                record.completed_at = now
+                record.lease_token = None
+                record.lease_owner = None
+                record.lease_expires_at = None
+                project = await session.scalar(
+                    select(Project).where(Project.id == record.project_id).with_for_update()
+                )
+                if project is not None:
+                    project.status = "planning"
+                session.add(
+                    Notification(
+                        organization_id=record.organization_id,
+                        recipient_id=record.requested_by_id,
+                        type="project.execution.failed",
+                        title="Full governed project cycle stopped safely",
+                        message=record.error_message,
+                        severity="error",
+                        payload={
+                            "project_id": record.project_id,
+                            "execution_id": record.id,
+                            "error_code": record.error_code,
+                            "dead_lettered": True,
+                        },
+                    )
+                )
+                session.add(
+                    AuditEvent(
+                        organization_id=record.organization_id,
+                        user_id=None,
+                        action="project.execution.dead_lettered",
+                        resource_type="project_execution",
+                        resource_id=record.id,
+                        details={
+                            "project_id": record.project_id,
+                            "attempts": record.attempts,
+                            "max_attempts": record.max_attempts,
+                            "previous_lease_owner": previous_owner,
+                            "fencing_token": record.fencing_token,
+                            "production_modified": False,
+                        },
+                    )
+                )
+            if records:
+                await session.commit()
+            return len(records)
+
+    async def claim(self) -> tuple[str, str] | None:
+        """Fairly claim one eligible job with explicit expiry and a fencing generation."""
+        await self.reap_exhausted_leases()
+        now = _now()
+        stale_before = now - timedelta(
+            seconds=settings.PROJECT_EXECUTION_JOB_LEASE_SECONDS
+        )
+        lease_until = now + timedelta(
+            seconds=settings.PROJECT_EXECUTION_JOB_LEASE_SECONDS
+        )
+        async with self.session_factory() as session:
+            active = aliased(ProjectExecution)
+            active_count = (
+                select(func.count(active.id))
+                .where(
+                    active.organization_id == ProjectExecution.organization_id,
+                    active.status == "running",
+                    or_(
+                        active.lease_expires_at > now,
+                        and_(
+                            active.lease_expires_at.is_(None),
+                            active.updated_at >= stale_before,
+                        ),
+                    ),
+                )
+                .correlate(ProjectExecution)
+                .scalar_subquery()
+            )
+            eligible_queued = and_(
+                ProjectExecution.status == "queued",
+                ProjectExecution.attempts < ProjectExecution.max_attempts,
+                or_(
+                    ProjectExecution.available_at.is_(None),
+                    ProjectExecution.available_at <= now,
+                ),
+                active_count < int(settings.PROJECT_EXECUTION_TENANT_ACTIVE_LIMIT),
+            )
+            eligible_recovery = and_(
+                ProjectExecution.status == "running",
+                ProjectExecution.attempts < ProjectExecution.max_attempts,
+                or_(
+                    ProjectExecution.lease_expires_at < now,
+                    and_(
+                        ProjectExecution.lease_expires_at.is_(None),
+                        ProjectExecution.updated_at < stale_before,
+                    ),
+                ),
             )
             record = await session.scalar(
                 select(ProjectExecution)
                 .where(
-                    or_(
-                        ProjectExecution.status == "queued",
-                        and_(
-                            ProjectExecution.status == "running",
-                            ProjectExecution.updated_at < stale_before,
-                        ),
-                    )
+                    ProjectExecution.resource_class.in_(self.resource_classes),
+                    or_(eligible_queued, eligible_recovery),
                 )
-                .order_by(ProjectExecution.created_at)
+                .order_by(
+                    active_count.asc(),
+                    ProjectExecution.priority_rank.desc(),
+                    ProjectExecution.created_at.asc(),
+                )
                 .with_for_update(skip_locked=True)
                 .limit(1)
             )
             if record is None:
                 return None
             reclaimed = record.status == "running"
-            lease_token = str(uuid4())
-            if not reclaimed:
-                record.attempts += 1
+            previous_owner = record.lease_owner
+            lease_token = uuid4().hex
+            record.attempts += 1
+            record.fencing_token += 1
             record.status = "running"
-            record.stage = "intake"
+            record.stage = "recovered" if reclaimed else "intake"
             record.progress = max(record.progress, 2)
             record.lease_token = lease_token
-            record.started_at = record.started_at or _now()
-            record.updated_at = timestamp
+            record.lease_owner = self.worker_id
+            record.lease_expires_at = lease_until
+            record.available_at = None
+            record.started_at = record.started_at or now
+            record.updated_at = self._database_timestamp(session)
             project = await session.scalar(
                 select(Project).where(Project.id == record.project_id).with_for_update()
             )
@@ -116,7 +395,15 @@ class ProjectExecutionWorker:
                     action="project.execution.worker_claimed",
                     resource_type="project_execution",
                     resource_id=record.id,
-                    details={"reclaimed": reclaimed, "attempts": record.attempts},
+                    details={
+                        "reclaimed": reclaimed,
+                        "previous_lease_owner": previous_owner,
+                        "lease_owner": self.worker_id,
+                        "attempts": record.attempts,
+                        "max_attempts": record.max_attempts,
+                        "fencing_token": record.fencing_token,
+                        "resource_class": record.resource_class,
+                    },
                 )
             )
             await session.commit()
@@ -130,12 +417,17 @@ class ProjectExecutionWorker:
                     ProjectExecution.id == execution_id,
                     ProjectExecution.status == "running",
                     ProjectExecution.lease_token == lease_token,
+                    ProjectExecution.lease_owner == self.worker_id,
                 )
                 .with_for_update()
             )
             if record is None:
                 raise ProjectExecutionLeaseLost(execution_id)
+            now = _now()
             record.updated_at = self._database_timestamp(session)
+            record.lease_expires_at = now + timedelta(
+                seconds=settings.PROJECT_EXECUTION_JOB_LEASE_SECONDS
+            )
             await session.commit()
 
     async def load_payload(self, execution_id: str, lease_token: str) -> dict[str, str]:
@@ -148,6 +440,7 @@ class ProjectExecutionWorker:
                         ProjectExecution.id == execution_id,
                         ProjectExecution.status == "running",
                         ProjectExecution.lease_token == lease_token,
+                    ProjectExecution.lease_owner == self.worker_id,
                     )
                 )
             ).one_or_none()
@@ -196,6 +489,7 @@ class ProjectExecutionWorker:
                     ProjectExecution.id == execution_id,
                     ProjectExecution.status == "running",
                     ProjectExecution.lease_token == lease_token,
+                    ProjectExecution.lease_owner == self.worker_id,
                     ProjectExecution.project_id == project_id,
                 )
             )
@@ -324,6 +618,7 @@ class ProjectExecutionWorker:
                     ProjectExecution.id == execution_id,
                     ProjectExecution.status == "running",
                     ProjectExecution.lease_token == lease_token,
+                    ProjectExecution.lease_owner == self.worker_id,
                 )
                 .with_for_update()
             )
@@ -422,6 +717,7 @@ class ProjectExecutionWorker:
                     ProjectExecution.id == execution_id,
                     ProjectExecution.status == "running",
                     ProjectExecution.lease_token == lease_token,
+                    ProjectExecution.lease_owner == self.worker_id,
                 )
                 .with_for_update()
             )
@@ -444,6 +740,9 @@ class ProjectExecutionWorker:
             record.error_code = None
             record.error_message = None
             record.lease_token = None
+            record.lease_owner = None
+            record.lease_expires_at = None
+            record.available_at = None
             record.completed_at = _now()
             project = await session.scalar(
                 select(Project).where(Project.id == record.project_id).with_for_update()
@@ -554,6 +853,13 @@ class ProjectExecutionWorker:
         exc: BaseException,
     ) -> None:
         code, message = sanitized_execution_error(exc)
+        transient_codes = {
+            "provider_incomplete",
+            "provider_quota",
+            "provider_transport",
+            "network_or_timeout",
+            "execution_failed",
+        }
         async with self.session_factory() as session:
             record = await session.scalar(
                 select(ProjectExecution)
@@ -561,20 +867,68 @@ class ProjectExecutionWorker:
                     ProjectExecution.id == execution_id,
                     ProjectExecution.status == "running",
                     ProjectExecution.lease_token == lease_token,
+                    ProjectExecution.lease_owner == self.worker_id,
                 )
                 .with_for_update()
             )
             if record is None:
                 return
-            record.status = "failed"
-            record.stage = "failed"
+            now = _now()
+            can_retry = code in transient_codes and record.attempts < record.max_attempts
             record.error_code = code
             record.error_message = message
             record.lease_token = None
-            record.completed_at = _now()
+            record.lease_owner = None
+            record.lease_expires_at = None
             project = await session.scalar(
                 select(Project).where(Project.id == record.project_id).with_for_update()
             )
+            if can_retry:
+                delay = min(
+                    300,
+                    int(settings.PROJECT_EXECUTION_RETRY_BASE_SECONDS)
+                    * (2 ** max(0, record.attempts - 1)),
+                )
+                record.status = "queued"
+                record.stage = "retry_queued"
+                record.available_at = now + timedelta(seconds=delay)
+                record.completed_at = None
+                if project is not None:
+                    project.status = "planning"
+                session.add(
+                    AuditEvent(
+                        organization_id=record.organization_id,
+                        user_id=None,
+                        action="project.execution.retry_scheduled",
+                        resource_type="project_execution",
+                        resource_id=record.id,
+                        details={
+                            "project_id": record.project_id,
+                            "error_code": code,
+                            "attempts": record.attempts,
+                            "max_attempts": record.max_attempts,
+                            "retry_delay_seconds": delay,
+                            "fencing_token": record.fencing_token,
+                            "production_modified": False,
+                        },
+                    )
+                )
+                await session.commit()
+                logger.warning(
+                    "Project execution retry scheduled",
+                    execution_id=execution_id,
+                    error_code=code,
+                    attempts=record.attempts,
+                    max_attempts=record.max_attempts,
+                    retry_delay_seconds=delay,
+                )
+                return
+
+            record.status = "failed"
+            record.stage = "dead_lettered"
+            record.available_at = None
+            record.dead_lettered_at = now
+            record.completed_at = now
             if project is not None:
                 project.status = "planning"
             session.add(
@@ -589,6 +943,7 @@ class ProjectExecutionWorker:
                         "project_id": record.project_id,
                         "execution_id": record.id,
                         "error_code": code,
+                        "dead_lettered": True,
                     },
                 )
             )
@@ -596,18 +951,29 @@ class ProjectExecutionWorker:
                 AuditEvent(
                     organization_id=record.organization_id,
                     user_id=None,
-                    action="project.execution.failed",
+                    action="project.execution.dead_lettered",
                     resource_type="project_execution",
                     resource_id=record.id,
                     details={
                         "project_id": record.project_id,
                         "error_code": code,
+                        "attempts": record.attempts,
+                        "max_attempts": record.max_attempts,
+                        "fencing_token": record.fencing_token,
                         "production_modified": False,
                     },
                 )
             )
             await session.commit()
-        logger.error("Project execution failed", execution_id=execution_id, error_code=code)
+        logger.error(
+            "Project execution dead-lettered",
+            execution_id=execution_id,
+            error_code=code,
+        )
+
+    async def fabric_snapshot(self) -> dict[str, Any]:
+        async with self.session_factory() as session:
+            return await project_execution_fabric_snapshot(session)
 
     async def run_once(self) -> bool:
         claim = await self.claim()
@@ -644,19 +1010,73 @@ async def run_worker() -> None:
             loop.add_signal_handler(signum, stop_event.set)
         except NotImplementedError:
             pass
-    logger.info("Project execution worker started")
-    while not stop_event.is_set():
-        processed = await worker.run_once()
-        if processed:
-            continue
-        try:
-            await asyncio.wait_for(
-                stop_event.wait(),
+    active: set[asyncio.Task[None]] = set()
+    await worker.register_worker(active_count=0, status="online")
+    logger.info(
+        "Project execution worker started",
+        worker_id=worker.worker_id,
+        capacity=worker.capacity,
+        resource_classes=list(worker.resource_classes),
+    )
+    try:
+        while not stop_event.is_set():
+            while len(active) < worker.capacity and not stop_event.is_set():
+                claim = await worker.claim()
+                if claim is None:
+                    break
+                active.add(asyncio.create_task(worker.execute_claim(*claim)))
+
+            await worker.register_worker(active_count=len(active), status="online")
+            if not active:
+                try:
+                    await asyncio.wait_for(
+                        stop_event.wait(),
+                        timeout=settings.PROJECT_EXECUTION_WORKER_POLL_SECONDS,
+                    )
+                except TimeoutError:
+                    pass
+                continue
+
+            stop_wait = asyncio.create_task(stop_event.wait())
+            done, _ = await asyncio.wait(
+                {*active, stop_wait},
                 timeout=settings.PROJECT_EXECUTION_WORKER_POLL_SECONDS,
+                return_when=asyncio.FIRST_COMPLETED,
             )
-        except TimeoutError:
-            pass
-    logger.info("Project execution worker stopped")
+            if stop_wait not in done:
+                stop_wait.cancel()
+                await asyncio.gather(stop_wait, return_exceptions=True)
+            completed_active = {task for task in active if task.done()}
+            active.difference_update(completed_active)
+            for task in completed_active:
+                error = task.exception()
+                if error is not None:
+                    logger.error(
+                        "Project execution task escaped worker guard",
+                        worker_id=worker.worker_id,
+                        error_type=type(error).__name__,
+                    )
+            if stop_event.is_set():
+                break
+    finally:
+        if active:
+            await worker.register_worker(active_count=len(active), status="draining")
+            grace_seconds = min(30, max(5, settings.PROJECT_EXECUTION_HEARTBEAT_SECONDS * 2))
+            drained, pending = await asyncio.wait(active, timeout=grace_seconds)
+            for task in drained:
+                error = task.exception()
+                if error is not None:
+                    logger.error(
+                        "Project execution task failed during drain",
+                        worker_id=worker.worker_id,
+                        error_type=type(error).__name__,
+                    )
+            for task in pending:
+                task.cancel()
+            if pending:
+                await asyncio.gather(*pending, return_exceptions=True)
+        await worker.mark_worker_stopped()
+    logger.info("Project execution worker stopped", worker_id=worker.worker_id)
 
 
 def main() -> int:

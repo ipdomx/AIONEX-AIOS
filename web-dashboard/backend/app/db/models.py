@@ -506,7 +506,7 @@ class Job(Base, TimestampMixin):
 
 
 class ProjectExecution(Base, TimestampMixin):
-    """Durable single-server project planning execution requested by a user."""
+    """Durable PostgreSQL-backed project execution requested by a user."""
 
     __tablename__ = "project_executions"
     __table_args__ = (
@@ -520,6 +520,19 @@ class ProjectExecution(Base, TimestampMixin):
             "ix_project_executions_project_created",
             "project_id",
             "created_at",
+        ),
+        Index(
+            "ix_project_executions_dispatch_queue",
+            "status",
+            "resource_class",
+            "priority_rank",
+            "available_at",
+            "created_at",
+        ),
+        Index(
+            "ix_project_executions_lease_recovery",
+            "status",
+            "lease_expires_at",
         ),
         Index(
             "uq_project_executions_active_project",
@@ -568,6 +581,15 @@ class ProjectExecution(Base, TimestampMixin):
     error_code: Mapped[str | None] = mapped_column(String(120))
     error_message: Mapped[str | None] = mapped_column(Text)
     lease_token: Mapped[str | None] = mapped_column(String(36))
+    lease_owner: Mapped[str | None] = mapped_column(String(160), index=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    fencing_token: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    resource_class: Mapped[str] = mapped_column(
+        String(64), default="project-build-cpu", nullable=False, index=True
+    )
+    priority_rank: Mapped[int] = mapped_column(Integer, default=100, nullable=False)
+    available_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    dead_lettered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     max_attempts: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     review_status: Mapped[str] = mapped_column(String(32), default="not_requested", nullable=False)
@@ -577,6 +599,27 @@ class ProjectExecution(Base, TimestampMixin):
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ProjectExecutionWorkerNode(Base, TimestampMixin):
+    """Durable live project-worker membership and saturation heartbeat."""
+
+    __tablename__ = "project_execution_workers"
+    __table_args__ = (
+        Index("ix_project_execution_workers_status_heartbeat", "status", "last_heartbeat_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(160), primary_key=True)
+    resource_classes: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    capacity: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    active_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="online", nullable=False, index=True)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+    )
+    last_heartbeat_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, nullable=False, index=True
+    )
 
 
 class BillingPlan(Base, TimestampMixin):

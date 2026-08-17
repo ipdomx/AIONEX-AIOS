@@ -26,9 +26,38 @@ from app.db.models import AuditEvent, Notification, Project, ProjectExecution
 from app.services import communications
 from app.services.free_tier import consume_assistant_response, consume_user_message
 from app.services.lifecycle_alerts import owner_alert_channels
+from app.services.project_execution_admission import (
+    ProjectExecutionAdmissionTimeout,
+    ProjectExecutionAdmissionUnavailable,
+    project_execution_admission_slot,
+)
 from app.services.three_d_product import access_snapshot, project_for_actor
 
 router = APIRouter()
+
+
+async def _project_execution_admission_guard():
+    try:
+        async with project_execution_admission_slot():
+            yield
+    except ProjectExecutionAdmissionTimeout as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": "PROJECT_EXECUTION_ADMISSION_SATURATED",
+                "message": "Project execution admission is busy; retry shortly.",
+            },
+            headers={"Retry-After": "1"},
+        ) from exc
+    except ProjectExecutionAdmissionUnavailable as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": "PROJECT_EXECUTION_ADMISSION_UNAVAILABLE",
+                "message": "Project execution admission is temporarily unavailable.",
+            },
+            headers={"Retry-After": "1"},
+        ) from exc
 
 
 class ProjectExecutionStart(BaseModel):
@@ -187,6 +216,7 @@ async def start_project_execution(
     project_id: str,
     data: ProjectExecutionStart,
     actor: UserRecord = Depends(require_permissions("projects:write")),
+    _admission: None = Depends(_project_execution_admission_guard),
     session: AsyncSession = Depends(get_db),
 ):
     if not settings.PROJECT_EXECUTION_ENABLED:
@@ -276,8 +306,14 @@ async def start_project_execution(
         external_processing_confirmed=not provider_neutral,
         budget_cap_usd=0.0 if provider_neutral else float(settings.PROJECT_EXECUTION_BUDGET_CAP_USD),
         result_summary={},
+        resource_class="project-build-cpu",
+        priority_rank={"critical": 400, "high": 300, "medium": 200, "low": 100}.get(
+            str(project.priority or "medium").lower(), 200
+        ),
         attempts=1 if provider_neutral else 0,
-        max_attempts=1,
+        max_attempts=(
+            1 if provider_neutral else int(settings.PROJECT_EXECUTION_MAX_ATTEMPTS)
+        ),
         review_status="not_requested",
         rework_count=0,
         version=1,

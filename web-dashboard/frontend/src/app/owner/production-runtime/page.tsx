@@ -13,7 +13,9 @@ import {
 } from "lucide-react";
 import {
   fetchProductionRuntime,
+  fetchProjectExecutionFabric,
   runProductionRuntimeCommand,
+  type ProjectExecutionFabricSnapshot,
   type ProductionRuntimeAction,
   type ProductionRuntimeSnapshot,
   type ProductionRuntimeTarget,
@@ -25,6 +27,20 @@ const emptySnapshot: ProductionRuntimeSnapshot = {
   public_origin: "",
   api_origin: "",
   targets: [],
+};
+
+const emptyFabric: ProjectExecutionFabricSnapshot = {
+  captured_at: "",
+  queued: 0,
+  running: 0,
+  retry_queued: 0,
+  dead_lettered: 0,
+  oldest_queue_wait_seconds: 0,
+  queue_by_resource_class: {},
+  workers_online: 0,
+  worker_capacity: 0,
+  worker_active_slots: 0,
+  worker_saturation: 0,
 };
 
 const statusClass: Record<ProductionRuntimeTarget["status"], string> = {
@@ -42,6 +58,8 @@ const summaryCards = [
 export default function OwnerProductionRuntimePage() {
   const [snapshot, setSnapshot] =
     useState<ProductionRuntimeSnapshot>(emptySnapshot);
+  const [fabric, setFabric] =
+    useState<ProjectExecutionFabricSnapshot>(emptyFabric);
   const [loading, setLoading] = useState(true);
   const [actingTarget, setActingTarget] = useState<string | null>(null);
   const [message, setMessage] = useState("Validating production runtime...");
@@ -51,11 +69,28 @@ export default function OwnerProductionRuntimePage() {
     setLoading(true);
     try {
       const data = await fetchProductionRuntime(signal);
+      if (signal?.aborted) return;
       setSnapshot(data);
-      setMessage("Production runtime synchronized.");
+
+      try {
+        const fabricData = await fetchProjectExecutionFabric(signal);
+        if (signal?.aborted) return;
+        setFabric(fabricData);
+        setMessage(
+          "Production runtime and project execution fabric synchronized.",
+        );
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
+        setFabric(emptyFabric);
+        setMessage(
+          "Production runtime synchronized; project execution fabric is temporarily unavailable.",
+        );
+      }
     } catch (error) {
       if (!(error instanceof DOMException && error.name === "AbortError")) {
         setSnapshot(emptySnapshot);
+        setFabric(emptyFabric);
         setMessage("Production runtime synchronization failed.");
       }
     } finally {
@@ -166,6 +201,54 @@ export default function OwnerProductionRuntimePage() {
             <div className="mt-1 text-xs text-white/40">{label}</div>
           </div>
         ))}
+      </div>
+
+      <div className="glass-card p-5">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="text-sm font-semibold text-white">
+              Distributed project execution fabric
+            </div>
+            <div className="mt-1 text-xs text-white/40">
+              PostgreSQL durable queue, worker membership, retries and
+              saturation.
+            </div>
+          </div>
+          <div className="text-xs text-white/40">
+            {fabric.captured_at || "Not loaded"}
+          </div>
+        </div>
+        <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          {[
+            ["Queued", fabric.queued],
+            ["Running", fabric.running],
+            ["Retry queued", fabric.retry_queued],
+            ["Dead-letter", fabric.dead_lettered],
+            ["Workers", fabric.workers_online],
+            ["Saturation", `${Math.round(fabric.worker_saturation * 100)}%`],
+          ].map(([label, value]) => (
+            <div
+              key={String(label)}
+              className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3"
+            >
+              <div className="text-lg font-semibold text-white">{value}</div>
+              <div className="mt-1 text-[11px] text-white/35">{label}</div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-white/40">
+          <span>Capacity: {fabric.worker_capacity}</span>
+          <span>Active slots: {fabric.worker_active_slots}</span>
+          <span>
+            Oldest wait: {Math.round(fabric.oldest_queue_wait_seconds)}s
+          </span>
+          <span>
+            Queues:{" "}
+            {Object.entries(fabric.queue_by_resource_class)
+              .map(([name, count]) => `${name}=${count}`)
+              .join(", ") || "empty"}
+          </span>
+        </div>
       </div>
 
       <div className="glass-card p-4 text-xs text-electric-300">{message}</div>

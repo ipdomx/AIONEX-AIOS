@@ -1,0 +1,186 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aionex-project-worker
+  labels:
+    app.kubernetes.io/name: aionex-project-worker
+    app.kubernetes.io/part-of: aionex-aios
+    aionex.io/phase: "36b"
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: aionex-project-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: aionex-project-worker
+        app.kubernetes.io/part-of: aionex-aios
+    spec:
+      terminationGracePeriodSeconds: 45
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: aionex-project-worker
+      containers:
+        - name: project-worker
+          # Replace with the immutable image digest produced by the protected build.
+          image: registry.example.invalid/aionex/project-worker@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "app.services.project_execution_worker"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: ENVIRONMENT
+              value: production
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: aionex-project-worker-runtime
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: aionex-project-worker-runtime
+                  key: redis-url
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aionex-project-worker-runtime
+                  key: secret-key
+            - name: PROJECT_EXECUTION_ENABLED
+              value: "true"
+            - name: PROJECT_EXECUTION_OUTPUT_ROOT
+              value: /var/lib/aionex/project-executions
+            - name: PROJECT_EXECUTION_LOCAL_REFERENCE
+              value: /run/references/phase22b/local-qwen3-8b
+            - name: PROJECT_EXECUTION_SECRET_FILE
+              value: /run/secrets/aionex/project-openai.env
+            - name: PROJECT_EXECUTION_NPM_CACHE
+              value: /var/lib/aionex/project-npm-cache
+            - name: PROJECT_EXECUTION_WORKER_CAPACITY
+              value: "2"
+            - name: PROJECT_EXECUTION_MAX_ATTEMPTS
+              value: "3"
+            - name: PROJECT_EXECUTION_RETRY_BASE_SECONDS
+              value: "5"
+            - name: PROJECT_EXECUTION_TENANT_ACTIVE_LIMIT
+              value: "2"
+            - name: PROJECT_EXECUTION_RESOURCE_CLASSES
+              value: project-build-cpu
+            - name: PROJECT_EXECUTION_WORKER_STALE_SECONDS
+              value: "90"
+          resources:
+            requests:
+              cpu: "1"
+              memory: 2Gi
+            limits:
+              cpu: "3"
+              memory: 4Gi
+          startupProbe:
+            exec:
+              command: ["python", "-m", "app.services.project_execution_worker", "--healthcheck"]
+            periodSeconds: 10
+            failureThreshold: 18
+            timeoutSeconds: 8
+          livenessProbe:
+            exec:
+              command: ["python", "-m", "app.services.project_execution_worker", "--healthcheck"]
+            periodSeconds: 30
+            failureThreshold: 3
+            timeoutSeconds: 8
+          readinessProbe:
+            exec:
+              command: ["python", "-m", "app.services.project_execution_worker", "--healthcheck"]
+            periodSeconds: 15
+            failureThreshold: 2
+            timeoutSeconds: 8
+          volumeMounts:
+            - name: execution-evidence
+              mountPath: /var/lib/aionex/project-executions
+            - name: local-reference
+              mountPath: /run/references/phase22b/local-qwen3-8b
+              readOnly: true
+            - name: provider-secret
+              mountPath: /run/secrets/aionex
+              readOnly: true
+            - name: npm-cache
+              mountPath: /var/lib/aionex/project-npm-cache
+            - name: tmp
+              mountPath: /tmp
+            - name: dshm
+              mountPath: /dev/shm
+      volumes:
+        # Both PVCs are intentionally external gates. They MUST provide ReadWriteMany
+        # semantics before replicas are activated across physical hosts.
+        - name: execution-evidence
+          persistentVolumeClaim:
+            claimName: aionex-project-execution-rwx
+        - name: local-reference
+          persistentVolumeClaim:
+            claimName: aionex-project-reference-rwx
+        - name: provider-secret
+          secret:
+            secretName: aionex-project-provider-secret
+            defaultMode: 0440
+        - name: npm-cache
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 512Mi
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: aionex-project-worker
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: aionex-project-worker
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: aionex-project-worker
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: aionex-project-worker
+  minReplicas: 2
+  maxReplicas: 16
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

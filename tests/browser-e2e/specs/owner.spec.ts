@@ -45,10 +45,66 @@ test("authenticated Super Owner can render the production runtime contract", asy
       }),
     });
   });
+  await page.route("**/api/v1/owner/production-runtime/project-execution-fabric", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        captured_at: new Date().toISOString(),
+        queued: 4,
+        running: 2,
+        retry_queued: 1,
+        dead_lettered: 0,
+        oldest_queue_wait_seconds: 3.2,
+        queue_by_resource_class: { "project-build-cpu": 4 },
+        workers_online: 2,
+        worker_capacity: 4,
+        worker_active_slots: 2,
+        worker_saturation: 0.5,
+      }),
+    });
+  });
   await page.goto("/owner/production-runtime");
   await expect(page.getByRole("main").getByText("Production Runtime", { exact: true })).toBeVisible();
   await expect(page.getByText("Public origin: https://vip-e.net", { exact: true })).toBeVisible();
   await expect(page.getByText("API origin: https://api.vip-e.net", { exact: true })).toBeVisible();
+  await expect(page.getByText("Distributed project execution fabric", { exact: true })).toBeVisible();
+  await expect(page.getByText("50%", { exact: true })).toBeVisible();
+});
+
+test("core production runtime remains visible when fabric metrics are unavailable", async ({ page }) => {
+  await page.route("**/api/v1/auth/me", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(ownerUser) });
+  });
+  await page.route("**/api/v1/owner/production-runtime/project-execution-fabric", async (route) => {
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "temporarily unavailable" }),
+    });
+  });
+  await page.route("**/api/v1/owner/production-runtime", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        generated_at: new Date().toISOString(),
+        completion: 100,
+        public_origin: "https://vip-e.net",
+        api_origin: "https://api.vip-e.net",
+        targets: [
+          { id: "database", name: "PostgreSQL", category: "runtime", status: "ready", readiness: 100, details: "ready", last_checked_at: new Date().toISOString() },
+        ],
+      }),
+    });
+  });
+
+  await page.goto("/owner/production-runtime");
+  await expect(page.getByText("Public origin: https://vip-e.net", { exact: true })).toBeVisible();
+  await expect(page.getByText("API origin: https://api.vip-e.net", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Production runtime synchronized; project execution fabric is temporarily unavailable.", { exact: true }),
+  ).toBeVisible();
 });
 
 test("owner login gate remains usable on a phone viewport", async ({ page }) => {

@@ -14,6 +14,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services.project_execution_worker import project_execution_fabric_snapshot
+
 router = APIRouter(
     prefix="/owner/production-runtime",
     tags=["owner-production-runtime"],
@@ -36,6 +38,20 @@ class RuntimeSnapshot(BaseModel):
     public_origin: str
     api_origin: str
     targets: list[RuntimeTarget]
+
+
+class ProjectExecutionFabricSnapshot(BaseModel):
+    captured_at: str
+    queued: int = Field(ge=0)
+    running: int = Field(ge=0)
+    retry_queued: int = Field(ge=0)
+    dead_lettered: int = Field(ge=0)
+    oldest_queue_wait_seconds: float = Field(ge=0)
+    queue_by_resource_class: dict[str, int]
+    workers_online: int = Field(ge=0)
+    worker_capacity: int = Field(ge=0)
+    worker_active_slots: int = Field(ge=0)
+    worker_saturation: float = Field(ge=0)
 
 
 def _clean_origin(value: str | None) -> str:
@@ -108,6 +124,15 @@ async def get_runtime_snapshot(
     session: AsyncSession = Depends(get_db),
 ) -> RuntimeSnapshot:
     return await _snapshot(session)
+
+
+@router.get("/project-execution-fabric", response_model=ProjectExecutionFabricSnapshot)
+async def get_project_execution_fabric(
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+) -> ProjectExecutionFabricSnapshot:
+    snapshot = await project_execution_fabric_snapshot(session)
+    return ProjectExecutionFabricSnapshot.model_validate(snapshot)
 
 
 @router.post("/command", response_model=RuntimeSnapshot)

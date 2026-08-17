@@ -523,3 +523,112 @@ Append entries below in chronological order. Do not delete historical problems a
 - VIP frontend: six-locale integrity PASS, TypeScript/lint PASS, static build `115/115`, smoke `94`, dependency audit `0 vulnerabilities`.
 - Browser E2E: `10/10 passed`, including the new mobile Phase 36 status surface, Owner boundary tests, campaign readiness/account-derived-currency contracts and RTL/mobile overflow regression tests.
 - Problems found during 36A are retained in the permanent ledger/receipt; no problem was silently discarded. No database migration, provider call, GPU task, paid campaign action or advertising spend was performed by 36A validation.
+
+
+## 13. Batch 36B implementation record — 2026-08-17
+
+### 36B start / implementation scope
+
+- Baseline: Phase 36A merged as PR #388 at merge commit `c8332d225c335825fe7af6c0dd47d490b133c0e9`; all protected Phase 36A checks were green, including Production Docker. Phase 36B starts from that merged `main` baseline on `feature/phase36b-distributed-project-execution`.
+- Product gap: the live PostgreSQL `ProjectExecutionWorker` had `SKIP LOCKED` and a heartbeat but each process executed only one project at a time, stale ownership relied on `updated_at`, failures were terminal, and no durable worker membership/capacity/DLQ/saturation view existed.
+- Implementation in progress: explicit lease owner/expiry and fencing generation, worker membership/capacity, concurrent worker slots, resource classes, tenant-aware fair claiming, bounded retries, durable dead-letter state, queue metrics, Owner runtime visibility, Compose multi-worker profile and Kubernetes scale template.
+- Production boundary: no production schema, service, container, provider budget, live user workload or public endpoint has been mutated during development. All current execution evidence is isolated/source-test evidence.
+- Rollback boundary: do not apply migration `20260817_0028` to production until protected validation is complete. Source rollback remains a branch reset/revert; a schema downgrade is tested only in disposable PostgreSQL.
+
+### P36-0003 — 1000-admission harness exceeded PostgreSQL connection capacity — 2026-08-17
+
+- Batch: 36B.
+- Environment: disposable PostgreSQL 16.14 test database during full backend regression.
+- Symptom: the first 1000-admission implementation could open enough concurrent `NullPool` sessions to hit PostgreSQL `max_connections=100`; server logs recorded `sorry, too many clients already`, followed by deadlocks between still-running `project_executions` inserts and test cleanup deletes. A later project-worker regression then consumed leftover synthetic work and appeared to fail independently.
+- User impact: none; production was not changed. The finding proves the original synthetic admission test did not yet model safe API backpressure strongly enough and therefore could not be used as final 1000-user evidence.
+- Detection/reproduction: full backend run reported `2 failed, 633 passed, 1 skipped`; PostgreSQL server log correlated the failure with connection exhaustion and insert/delete deadlocks. Re-running the two affected tests in a fresh disposable database passed, confirming the second failure was contamination from the first test cleanup.
+- Root cause: the backend intentionally uses SQLAlchemy `NullPool` for async compatibility, while the synthetic test launched many independent sessions; a test-only semaphore was too permissive in the context of the full suite and did not represent a product-level admission guard.
+- Why prior safeguards missed it: focused 36B tests ran against a quieter database and passed; they did not include full-suite residual connection pressure. Historical project execution was single-worker and had no 1000-admission requirement.
+- Fix plan: add an explicit bounded project-execution admission guard at the application path, strengthen the 1000-admission acceptance to exercise that bounded path, lower disposable-test database concurrency below the server connection ceiling, add an actual worker-process kill/recovery test, then rerun focused and full backend gates on a fresh database.
+- Security/tenant review: the guard must not merge tenant state, expose payloads or change authorization; it only bounds concurrent admission work.
+- Regression prevention: retain PostgreSQL connection-capacity evidence and require the 1000-admission test to finish with zero lost/duplicate jobs and zero database connection-exhaustion/deadlock evidence.
+- Rollout/rollback: no production rollout occurred; no rollback required.
+- Residual risk: **closed for the Phase 36B source/isolated acceptance boundary.** The product-level local+Redis admission guard is in place; the final fresh backend run completed `641 passed, 1 skipped, 0 failed` with zero PostgreSQL connection-exhaustion/deadlock evidence and zero leftover test-database connections. Production rollout remains separately gated.
+
+
+### P36-0004 — Distributed admission waiter storm exhausted the Redis client pool — 2026-08-17
+
+- Batch: 36B.
+- Environment: disposable Redis/PostgreSQL Phase 36B acceptance environment; production untouched.
+- Symptom: after adding the cross-replica Redis admission lease, the 1000-submission acceptance could exhaust the Redis client pool when the test configured more per-process admission contenders than Redis connections. The first failing contender cancelled the aggregate test, leaving database inserts unwinding while cleanup started.
+- User impact: none in production; the failure was caught before PR/deployment. It exposed a real configuration invariant that must be enforced rather than relying on operator discipline.
+- Detection/reproduction: Redis raised `Too many connections` from the admission Lua `EVAL`; the test then showed cancelled async tasks during teardown.
+- Root cause: the distributed limiter bounded lease ownership but the configured local contender count could exceed the Redis connection pool used to acquire/retry leases. The acceptance test deliberately configured local concurrency `24` with a Redis pool of `16`, violating the safe relationship.
+- Why prior safeguards missed it: the initial focused run used the local-only admission guard. The first distributed-Redis iteration added a global lease but had not yet encoded a configuration invariant between local admission capacity and the Redis pool.
+- Fix: keep the two-tier order `local semaphore -> Redis global lease -> PostgreSQL`, enforce a fail-fast settings invariant that the Redis pool has headroom above local admission concurrency, make the 1000-submission test use a production-valid capacity, and always cancel/await all admission tasks before Redis/database cleanup.
+- Security/tenant review: Redis stores only opaque random lease IDs and expiry scores; no tenant, project, provider or secret data is introduced. Redis failure remains fail-closed in production.
+- Regression prevention: settings validation plus the 1000-task acceptance must prove no Redis pool exhaustion, no PostgreSQL connection exhaustion/deadlock, an empty admission lease set after completion, and zero leaked async tasks/connections.
+- Rollout/rollback: no production rollout occurred; no rollback required.
+- Residual risk: **closed for the Phase 36B source/isolated acceptance boundary.** Configuration now requires Redis pool headroom above local admission capacity; the corrected 1000-job multi-process run left the Redis admission ZSET empty, and the final backend suite passed without Redis/PostgreSQL exhaustion. Production rollout remains separately gated.
+
+
+### P36-0005 — Production API database pool settings were configured but not active — 2026-08-17
+
+- Batch: 36B.
+- Environment: source/runtime architecture review plus disposable Phase 36B latency test; production unchanged.
+- Symptom: after eliminating connection exhaustion and deadlocks, 1000 durable admissions completed successfully but measured `p50=14.195s`, `p95=27.143s`, `p99=28.270s`, `max=28.512s` in the single-process acceptance environment.
+- User impact: no production outage; the measured latency is too high to treat the initial enqueue SLO as achieved.
+- Detection/reproduction: the 1000-admission acceptance prints retained percentile evidence. Review of `app/db/base.py` showed SQLAlchemy forced `NullPool` even though `DATABASE_POOL_SIZE` and `DATABASE_MAX_OVERFLOW` have long existed in configuration. Each short admission transaction therefore paid a fresh PostgreSQL connection cost.
+- Root cause: a historical compatibility fix made `NullPool` global. The later production-scale configuration retained pool-size settings but never re-enabled a bounded pool for the API process.
+- Why prior safeguards missed it: historical workloads prioritized cross-event-loop test compatibility and single-worker correctness; no prior phase measured 1000 near-simultaneous durable admissions.
+- Fix plan: keep `NullPool` as the safe default for workers/tests, enable a bounded SQLAlchemy async queue pool only for production API containers, enforce a per-process/worker connection budget, and benchmark the exact Phase 36B admission path before adopting the change.
+- Security/tenant review: pooling changes connection reuse only; session/transaction boundaries remain request scoped and tenant authorization is unchanged. Pool pre-ping remains enabled.
+- Regression prevention: configuration validation must reject API pool settings that exceed the declared connection budget; full backend remains on isolated NullPool unless a test explicitly requests production-pool behavior.
+- Rollout/rollback: source-only until protected validation. Rollback is disabling API pooling; no schema change is required.
+- Residual risk: **pooling defect closed; latency target remains explicitly open.** API-only bounded pooling plus four-process admission reduced measured p95 from `27.143s` to a best retained `1.024s` (`p50=0.822s`, `p99=1.061s`) with zero database deadlocks/exhaustion. This is 24ms above the Phase 36 initial `<=1s` enqueue target, so the target is not claimed as passed and remains a mandatory scale/certification item rather than increasing the 60-connection API budget unsafely.
+
+
+### 36B pre-merge acceptance snapshot — 2026-08-17
+
+- Live-path architecture implemented on the feature branch: PostgreSQL `SKIP LOCKED`, explicit lease owner/expiry, monotonic fencing generation, durable worker membership, bounded retry and dead-letter state, tenant-aware scheduling, resource classes, concurrent worker capacity, queue/wait/saturation metrics, Owner visibility, local+Redis cross-replica admission backpressure, Compose multi-worker assets and Kubernetes scale template.
+- API database connection behavior: production API only uses bounded async SQLAlchemy pooling; non-API workers/tests retain `NullPool`. Candidate production bounds are 4 API workers x (`12` pool + `2` overflow) = maximum `56` pooled API connections, below the declared budget `60`, leaving at least `44` of the current PostgreSQL `max_connections=100` outside the API pool ceiling. Project admission additionally caps local contenders at `14` per API worker and distributed admission ownership at `48`; Redis pool is `18` per API process and configuration rejects insufficient headroom.
+- Technology refresh: SQLAlchemy `2.0.51`, Alembic `1.18.5`, Selenium `4.46.0`; current production PostgreSQL is `16.14`; Kubernetes scale template reviewed against the active 1.36 line (`1.36.2` latest published patch at review time). Official sources: `https://docs.sqlalchemy.org/en/20/`, `https://alembic.sqlalchemy.org/en/latest/changelog.html`, `https://www.selenium.dev/downloads/`, `https://www.postgresql.org/docs/16/release-16-14.html`, `https://kubernetes.io/releases/`, `https://docs.docker.com/reference/compose-file/services/`.
+- Worker/process evidence: two fake-provider live project workflows overlap concurrently; stale completion after lease recovery is rejected; an actual child worker is killed with `SIGKILL`, another worker recovers the expired lease, rotates the fencing generation and completes exactly once; bounded transient failures enter retry then DLQ.
+- 1000-admission evidence: four independent child API processes schedule 1000 tenant-scoped durable admissions against one PostgreSQL/Redis authority. `1000/1000` unique execution IDs and `1000/1000` distinct tenants persist queued with attempts `0`; admission lease set returns empty; no PostgreSQL `too many clients`, deadlock, PANIC/FATAL or leftover DB connections are observed. Best retained candidate latency at the conservative 56-API-connection ceiling: `p50=0.822s`, `p95=1.024s`, `p99=1.061s`. Functional 36B admission gate passes; the initial p95 `<=1s` target remains truthfully open for final scale certification.
+- Fresh complete backend from zero migration through `20260817_0028`: `641 passed, 1 skipped, 0 failed` in `99.68s`.
+- Complete AIOS core suite: `721 passed` in `27.44s`.
+- Backend quality: dependency `pip check` PASS; Ruff PASS; Mypy PASS across `179` source files; backend verification PASS.
+- Migration rollback evidence: `20260817_0028 -> 20260816_0027 -> 20260817_0028`; worker table/fencing column absent after downgrade and restored after upgrade.
+- Project Worker candidate: healthcheck PASS under the real Compose mount/PYTHONPATH contract; SQLAlchemy `2.0.51`, Alembic `1.18.5`, Selenium `4.46.0`, Node `24.18.1`, npm `11.11.0`, Chromium/ChromeDriver `149.0.7827.53`.
+- Owner frontend: TypeScript PASS; Arabic coverage `927` translatable strings / `5` approved technical tokens; lint PASS; production build `86/86` pages; dependency audit `0 vulnerabilities`.
+- VIP frontend regression: TypeScript PASS; lint PASS; production build `115/115` pages; dependency audit `0 vulnerabilities`.
+- Repository security: fail-closed secret/production audit PASS; repository hygiene audit PASS; merge-marker scan PASS; `git diff --check` PASS; Phase 36 reporting invariant PASS.
+- Production mutation during this evidence run: **none**. Migration `0028`, new API pooling and distributed project workers have not yet been applied to production.
+- Remaining external/rollout gates: protected GitHub PR checks; production backup/deploy/rollback/live acceptance; real multi-host worker activation still requires proven RWX/shared evidence storage (or the Phase 36D object-store backend) and actual cluster hosts/capacity.
+
+### P36-0006 — Owner production-runtime UI coupled core readiness to optional fabric metrics — 2026-08-17
+
+- Batch: 36B.
+- Environment: protected GitHub Browser E2E for PR #389; production untouched.
+- Symptom: the authenticated Owner production-runtime test could not find the retained `Public origin` contract after the new project-execution-fabric request failed to resolve the CI-only `backend` hostname. The suite result was `9 passed, 1 failed`.
+- User impact: no production mutation occurred, but the UI implementation could have hidden otherwise valid production-runtime readiness data during a rolling deployment or transient failure of only the new fabric metrics endpoint.
+- Detection/reproduction: PR #389 Browser E2E run `31986864145`, job `95263272121`; Next proxy logged `EAI_AGAIN backend` for `/owner/production-runtime/project-execution-fabric`, and the Owner test timed out waiting for `Public origin: https://vip-e.net`.
+- Root cause: the Owner page loaded the established production-runtime snapshot and the new supplemental fabric snapshot in one `Promise.all`. Failure of either request reset both snapshots.
+- Why prior safeguards missed it: local frontend type/lint/build gates verify compile-time integrity, while the pre-36B browser fixture mocked only the established production-runtime endpoint. The new secondary runtime dependency had no degraded-path browser contract yet.
+- Fix: make the established production-runtime snapshot the required request and load fabric metrics as an independently degradable secondary request. Extend Browser E2E to mock and assert the fabric card, and add a separate `503` fabric regression proving core production-runtime origins remain visible.
+- Security/tenant review: both endpoints remain Super Owner protected; no authorization is relaxed. The change only prevents a supplemental metrics outage from erasing already-authorized core readiness data.
+- Regression prevention: Browser E2E must pass both the normal fabric rendering path and the degraded-fabric/core-runtime-preservation path.
+- Rollout/rollback: no production rollout occurred; fix remains on PR #389.
+- Residual risk: local regression is closed with `11/11` Browser E2E PASS, including normal fabric rendering and degraded-fabric/core-runtime preservation. The protected GitHub rerun remains required before merge.
+- Local fix evidence: Owner TypeScript PASS; lint PASS; Arabic coverage `927/5`; production build `86/86`; Browser E2E `11/11 passed` in `8.4s`.
+
+### P36-0007 — Owner degraded-fabric fix missed the dedicated Prettier gate — 2026-08-17
+
+- Batch: 36B.
+- Environment: protected GitHub Final Validation for PR #389; production untouched.
+- Symptom: `Frontend Build` failed after the P36-0006 resilience fix even though TypeScript, lint, local production build and Browser E2E passed.
+- User impact: none; protected CI correctly blocked merge before production.
+- Detection/reproduction: PR #389 Final Validation rerun reported `Frontend Build` failure; the exact workflow-equivalent local command `npx prettier --check ...` identified only `src/app/owner/production-runtime/page.tsx` as unformatted.
+- Root cause: the P36-0006 local verification reran type-check, Arabic coverage, lint, build and Browser E2E, but omitted the separate Prettier check that Final Validation enforces.
+- Why prior safeguards missed it: formatting is not enforced by the Next lint/build commands, so all functional gates could pass while the dedicated formatting gate still failed.
+- Fix: format the touched Owner runtime page with the repository Prettier version and rerun the exact CI formatting command plus type/lint/build/browser regression.
+- Security/tenant review: formatting-only correction; no authorization, tenant, runtime or data behavior changes.
+- Regression prevention: after any Owner UI edit in Phase 36, include the Final Validation Prettier command in the local pre-push gate, not only lint/type/build.
+- Rollout/rollback: no production rollout occurred; fix remains on PR #389.
+- Residual risk: local formatting/functional regression is closed: exact CI-equivalent Arabic/type/lint/Prettier/build gates PASS and Browser E2E `11/11` PASS after formatting. The protected Frontend Build rerun remains required before merge.
+- Local fix evidence: Prettier exact CI command PASS; Owner Arabic `927/5`; TypeScript PASS; targeted lint PASS; production build `86/86`; Browser E2E `11/11 passed` in `8.2s`.

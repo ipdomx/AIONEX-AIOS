@@ -20,7 +20,8 @@ def test_phase36_batches_are_complete_registry_and_36a_closes_first() -> None:
     ]
     assert [batch.sequence for batch in BATCHES] == list(range(1, 15))
     assert BATCHES[0].status == "complete"
-    assert all(batch.status == "planned" for batch in BATCHES[1:])
+    assert BATCHES[1].status == "in_progress"
+    assert all(batch.status == "planned" for batch in BATCHES[2:])
 
 
 def test_every_phase36_capability_has_unique_owner_and_valid_maturity() -> None:
@@ -139,3 +140,22 @@ def test_phase36_reporting_docs_and_surfaces_exist() -> None:
     assert '"phase36": phase36_program_snapshot()' in owner_source
     assert "snapshot.phase36" in owner_ui
     assert "getPhase36Capabilities" in user_ui
+
+
+def test_phase36b_distributed_worker_scale_assets_are_explicitly_gated() -> None:
+    compose_override = (
+        ROOT / "deploy/phase36b/docker-compose.project-worker-scale.yml"
+    ).read_text(encoding="utf-8")
+    cluster_manifest = (
+        ROOT / "deploy/phase36b/kubernetes/project-worker.yaml"
+    ).read_text(encoding="utf-8")
+    receipt = (
+        ROOT / "docs/phase-36/receipts/36B-2026-08-17-distributed-project-execution.md"
+    ).read_text(encoding="utf-8")
+    assert "PROJECT_EXECUTION_WORKER_CAPACITY" in compose_override
+    assert "replicas: 2" in compose_override
+    assert "kind: Deployment" in cluster_manifest
+    assert "kind: HorizontalPodAutoscaler" in cluster_manifest
+    assert "aionex-project-execution-rwx" in cluster_manifest
+    assert "registry.example.invalid" in cluster_manifest
+    assert "External activation gates remaining" in receipt
