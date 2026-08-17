@@ -21,6 +21,15 @@ from app.services.provider_model_evidence import (
 )
 
 
+from app.services.project_ai_live_runtime import launch_policy_tasks
+from app.services.project_execution_routing import (
+    ProjectAIProviderPolicy,
+    ProjectAIRoutePlanner,
+    ProjectAIScope,
+    ValidatedProviderModel,
+)
+
+
 def _inventory(provider: str, model_ids: tuple[str, ...]) -> ProviderModelInventoryEvidence:
     return ProviderModelInventoryEvidence(
         provider_id=f"provider-{provider}",
@@ -108,3 +117,59 @@ def test_openai_current_family_requires_credential_inventory_before_validation()
     for choice in OPENAI_DESIRED_CURRENT:
         with pytest.raises(ProviderModelEvidenceError, match="absent"):
             build_validated_model_from_inventory(absent, choice.spec)
+
+
+def test_paid_launch_policy_builds_full_project_plan_inside_execution_budget() -> None:
+    choices = tuple(
+        item for item in LAUNCH_ENABLED_MODELS if item.access_class == "paid"
+    )
+    models = tuple(
+        ValidatedProviderModel(
+            provider=choice.provider_type,
+            model=choice.model,
+            tasks=choice.spec.tasks,
+            evidence_ref=f"test:{choice.provider_type}:{choice.model}",
+            languages=choice.spec.languages,
+            supports_tools=choice.spec.supports_tools,
+            supports_vision=choice.spec.supports_vision,
+            supports_audio=choice.spec.supports_audio,
+            local=choice.spec.local,
+            max_context_tokens=choice.spec.max_context_tokens,
+            quality_score=choice.spec.quality_score,
+            latency_score=choice.spec.latency_score,
+            privacy_score=choice.spec.privacy_score,
+            input_cost_per_million=choice.spec.input_cost_per_million,
+            output_cost_per_million=choice.spec.output_cost_per_million,
+        )
+        for choice in choices
+    )
+    policy = ProjectAIProviderPolicy(
+        allowed_providers=frozenset(choice.provider_type for choice in choices),
+        allowed_provider_models=frozenset(
+            f"{choice.provider_type}:{choice.model}" for choice in choices
+        ),
+        max_fallbacks=1,
+        max_total_estimated_cost_usd=0.05,
+    )
+    tasks = launch_policy_tasks(
+        "Paid Launch Project",
+        "Build the complete paid launch project safely.",
+        policy,
+    )
+    plan = ProjectAIRoutePlanner(models).plan(
+        ProjectAIScope(
+            organization_id="org",
+            workspace_id="workspace",
+            project_id="project",
+            execution_id="execution",
+        ),
+        tasks,
+        policy,
+    )
+    assert len(plan.tasks) == 4
+    assert plan.total_primary_estimated_cost_usd <= 0.05
+    assert all(
+        f"{task.primary.provider}:{task.primary.model}"
+        in policy.allowed_provider_models
+        for task in plan.tasks
+    )

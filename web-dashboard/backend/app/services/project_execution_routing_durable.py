@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from decimal import Decimal, ROUND_CEILING, ROUND_HALF_UP
 from typing import Any
@@ -312,12 +312,25 @@ class DurableProjectAIRouteStore:
         now: datetime | None = None,
     ) -> ProjectAIRoutePlanRecord:
         current = now or datetime.now(UTC)
+        execution = await self.session.get(ProjectExecution, scope.execution_id)
+        if execution is None:
+            raise ProjectAIDurableRoutingError("ProjectExecution disappeared")
+        budget_limit = float(execution.budget_cap_usd)
+        if provider_policy.max_total_estimated_cost_usd is not None:
+            budget_limit = min(
+                budget_limit,
+                float(provider_policy.max_total_estimated_cost_usd),
+            )
+        effective_policy = replace(
+            provider_policy,
+            max_total_estimated_cost_usd=budget_limit,
+        )
         resolver = DurableProjectAIResolver(self.session)
-        models = await resolver.resolve(scope, provider_policy, now=current)
+        models = await resolver.resolve(scope, effective_policy, now=current)
         planner = ProjectAIRoutePlanner(tuple(item.route_model for item in models))
-        plan = planner.plan(scope, tasks, provider_policy)
+        plan = planner.plan(scope, tasks, effective_policy)
         by_key = {item.key: item for item in models}
-        fingerprint = self._fingerprint(plan, provider_policy, by_key)
+        fingerprint = self._fingerprint(plan, effective_policy, by_key)
 
         latest = await self.session.scalar(
             select(ProjectAIRoutePlanRecord)
@@ -337,15 +350,6 @@ class DurableProjectAIRouteStore:
         else:
             version = 1
 
-        execution = await self.session.get(ProjectExecution, scope.execution_id)
-        if execution is None:  # pragma: no cover - resolver already proves this
-            raise ProjectAIDurableRoutingError("ProjectExecution disappeared")
-        budget_limit = float(execution.budget_cap_usd)
-        if provider_policy.max_total_estimated_cost_usd is not None:
-            budget_limit = min(
-                budget_limit,
-                float(provider_policy.max_total_estimated_cost_usd),
-            )
         limit_microusd = usd_to_microusd(budget_limit)
         total_estimated = usd_to_microusd(
             plan.total_primary_estimated_cost_usd, reserve=True
@@ -361,7 +365,7 @@ class DurableProjectAIRouteStore:
             execution_id=scope.execution_id,
             plan_version=version,
             status="planned",
-            policy=self._policy_evidence(provider_policy),
+            policy=self._policy_evidence(effective_policy),
             evidence={**plan.evidence(), "plan_fingerprint": fingerprint},
             total_primary_estimated_microusd=total_estimated,
         )

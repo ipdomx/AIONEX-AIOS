@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from aios.providers import DataSensitivity, ModelResponse
+from aios.providers import DataSensitivity, ModelResponse, OptimizationMode
 from app.services.project_execution_routing import (
     ProjectAIProviderPolicy,
     ProjectAIRoutePlanner,
@@ -245,6 +245,56 @@ def test_tenant_provider_allowlist_and_budget_ceiling_fail_closed() -> None:
                 max_total_estimated_cost_usd=0.0,
             ),
         )
+
+
+def test_budget_ceiling_selects_highest_ranked_affordable_route() -> None:
+    planner = ProjectAIRoutePlanner(
+        (
+            model(
+                "openai",
+                "gpt-expensive",
+                {"coding"},
+                quality=0.99,
+                latency=0.95,
+                input_cost=20.0,
+                output_cost=100.0,
+            ),
+            model(
+                "anthropic",
+                "claude-affordable",
+                {"coding"},
+                quality=0.70,
+                latency=0.70,
+                input_cost=0.5,
+                output_cost=1.0,
+            ),
+        )
+    )
+    task = coding_task(
+        optimization=OptimizationMode.QUALITY,
+        max_tokens=1000,
+        allow_failover=False,
+        provider_priority=("openai", "anthropic"),
+    )
+    unbounded = planner.plan(
+        scope(),
+        (task,),
+        ProjectAIProviderPolicy(
+            allowed_providers=frozenset({"openai", "anthropic"})
+        ),
+    )
+    assert unbounded.tasks[0].primary.provider == "openai"
+
+    bounded = planner.plan(
+        scope(),
+        (task,),
+        ProjectAIProviderPolicy(
+            allowed_providers=frozenset({"openai", "anthropic"}),
+            max_total_estimated_cost_usd=0.005,
+        ),
+    )
+    assert bounded.tasks[0].primary.provider == "anthropic"
+    assert bounded.total_primary_estimated_cost_usd <= 0.005
 
 
 def test_duplicate_task_ids_are_rejected_before_routing() -> None:
