@@ -55,7 +55,7 @@ class LocalMediaObjectStore:
         try:
             os.chmod(self.root, 0o700)
         except OSError:
-            pass
+            raise MediaStorageError("unable to secure media storage root") from None
 
     def _path(self, key: str) -> Path:
         normalized = key.strip().lstrip("/")

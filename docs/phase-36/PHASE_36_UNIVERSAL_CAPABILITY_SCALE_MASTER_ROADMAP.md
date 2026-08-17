@@ -1071,3 +1071,8 @@ Create an explicit reviewed initial model policy from the fresh inventories and 
 - Alembic `20260817_0030` adds `media_asset_graphs`, `media_asset_nodes`, `media_asset_edges`, and `media_render_steps`. Disposable PostgreSQL 16 proved `0029 -> 0030 -> 0029 -> 0030`; focused media tests `5/5 PASS`, Ruff PASS, Mypy PASS, requirements dry-run PASS, `git diff --check` PASS.
 - Maturity remains truthful: all three 36D capabilities stay `specified` and Batch 36D stays `in_progress` until a real FFmpeg 9.0 render worker, resumable step execution, object-storage evidence and the complete scene-revision/final-assembly exit gate are proven.
 - Safe point: foundation is source-only; Production stays Alembic `0029` with no new media tables or media runtime enabled.
+
+### 36D PR #419 CI correction — 2026-08-17T19:23:00Z
+
+- Initial protected CI exposed two source-contract regressions only: the repository zero-dead/market-readiness audit rejected a `bare pass` around local media-root permission hardening, and the Backend Alembic-head contract still expected `20260817_0029` after migration `0030` was introduced. No provider, storage, database or Production runtime failure was involved.
+- The local object-store constructor now fails closed with sanitized `MediaStorageError` if private-root permissions cannot be hardened instead of silently continuing. The Backend head contract now truthfully expects `20260817_0030`. Focused root zero-dead/market-readiness is `5/5 PASS`; Backend Alembic-head + Phase36D foundation is `6/6 PASS`; Ruff PASS. Production remains untouched on Alembic `0029` pending protected merge/deployment.

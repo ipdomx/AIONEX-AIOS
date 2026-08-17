@@ -56,3 +56,8 @@ Status: **IN PROGRESS — foundation checkpoint 1**
 ## Safe point
 
 Foundation checkpoint 1 is source-only on `phase36d/media-orchestrator`. No Production schema, container, worker, media provider, object or user data was changed. Production remains on Alembic `0029`, Phase36D `in_progress`.
+
+### 36D PR #419 CI correction — 2026-08-17T19:23:00Z
+
+- Initial protected CI exposed two source-contract regressions only: the repository zero-dead/market-readiness audit rejected a `bare pass` around local media-root permission hardening, and the Backend Alembic-head contract still expected `20260817_0029` after migration `0030` was introduced. No provider, storage, database or Production runtime failure was involved.
+- The local object-store constructor now fails closed with sanitized `MediaStorageError` if private-root permissions cannot be hardened instead of silently continuing. The Backend head contract now truthfully expects `20260817_0030`. Focused root zero-dead/market-readiness is `5/5 PASS`; Backend Alembic-head + Phase36D foundation is `6/6 PASS`; Ruff PASS. Production remains untouched on Alembic `0029` pending protected merge/deployment.
