@@ -1110,3 +1110,10 @@ Create an explicit reviewed initial model policy from the fresh inventories and 
 
 - First Production Media Worker activation exposed a least-privilege startup conflict: `cap_drop: ALL` prevented the generic root entrypoint from chowning unrelated runtime roots. The media volume/temp paths themselves were already private and UID 1000 writable; real S3 preflight passed from a Compose-equivalent UID 1000 one-shot.
 - Corrective candidate runs only Media Worker as `1000:1000`, retains `cap_drop: ALL` + `no-new-privileges`, adds a two-Compose regression contract, and leaves the Production worker stopped until protected merge. Migration 0031 and Backend remain healthy; active Project/Studio/Media queues remain zero.
+
+
+### 36D final Production closure / transition to 36E — 2026-08-17T22:42Z
+
+- 36D is closed after protected source/hardening merges, verified Production backup/restore, Alembic `0031`, real inherited-S3 preflight, healthy non-root FFmpeg 9 Media Worker, real V1/V2 partial-render/assembly canary, Studio revision materialization, fencing/reclaim drill, complete object/row cleanup and post-canary health. Full evidence and SHA-256 receipts are recorded in `docs/phase-36/receipts/36D-2026-08-17-media-orchestrator.md`.
+- The three owned 36D capabilities are `runtime_verified`; no `scaled` or `production_ready` maturity is claimed. Hardware acceleration remains operator/device gated; software rendering is the currently armed Production path.
+- Program transition: `36D=complete`, `36E=in_progress`, authoritative `current_batch=36E`. Do not reopen 36D unless a regression is proven.
