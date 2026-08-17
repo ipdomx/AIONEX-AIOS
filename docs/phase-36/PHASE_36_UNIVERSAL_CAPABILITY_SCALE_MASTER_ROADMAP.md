@@ -738,3 +738,15 @@ Append entries below in chronological order. Do not delete historical problems a
 ### 36C next safe transition
 
 The baseline/inventory/technology/security gate is now merged and closed. Stop here as a safe checkpoint. On resumption, create a fresh implementation branch from merged `main` and begin with the tenant-safe durable route-plan contract plus deterministic fake-provider execution; do not make a live provider request or production mutation until routing/isolation/audit/fallback/budget/rate-limit regressions are green and the permanent report is updated.
+
+### 36C route-plan foundation checkpoint — 2026-08-17
+
+- Source baseline: implementation branch starts from merged `main` `6704b5fba7b7fefa967b96d227993930f2cf4769` after protected baseline PRs #394/#395. Production remains untouched and had zero active ProjectExecution jobs before isolated development.
+- New contract: `project_execution_routing.py` introduces immutable organization/workspace/project/execution scope, explicit tenant provider allow/deny policy, validated non-placeholder model capabilities, role/task route plans, bounded approved fallbacks, tenant budget ceilings and prompt-free audit evidence.
+- P36-0012 prevention is enforced at construction: `model=default` is rejected as live runtime evidence. Route candidates carry explicit provider/model plus evidence references; test fixtures use named synthetic runtime models rather than catalog aliases.
+- Privacy/isolation behavior: restricted Project AI tasks route only to validated local capabilities; remote providers are not emitted as fallbacks. Route evidence contains scope, task/role, provider/model, cost/score/reasons/evidence reference but excludes prompt and system prompt content.
+- Deterministic acceptance adapter: execution accepts only explicitly injected transports, makes no network/provider call by default, proves primary failure -> approved fallback with exact attempted routes, and proves no-fallback policy fails closed. It is not the production durable provider resolver.
+- Verification: new focused contract `7/7 PASS`; legacy provider/routing plus new contract `27/27 PASS`; focused Ruff PASS; Mypy PASS for the new service. Historical baseline evidence remains `21/21`, `45/45`, `4/4`, and Phase36 `15/15`.
+- Maturity truthfulness: `multi-provider-project-routing` and `tenant-agent-memory-isolation` remain `source_built`. P36-0010 remains open for durable tenant resolution/shared distributed rate-budget-circuit state; P36-0011 remains open until ProjectExecution actually consumes the route plan; P36-0012 is only partially closed because live provider-specific model validation is still required.
+- Production boundary: no schema migration, provider secret read, live provider call/spend, ProjectExecution job, service restart or production mutation occurs in this checkpoint.
+- Next safe transition after protected merge: durable organization-scoped provider/model resolution + persistent route/audit evidence + shared quota/circuit/budget coordination, still using deterministic fake providers before any live-provider acceptance.
