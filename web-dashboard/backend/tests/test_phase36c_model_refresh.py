@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
+from urllib.parse import urlsplit
 
 import pytest
 from fastapi import HTTPException
@@ -79,13 +80,15 @@ async def _cleanup(org_id: str) -> None:
 
 
 def _inventory_payload(url: str):
-    if "openai.com" in url:
+    parsed = urlsplit(url)
+    hostname = (parsed.hostname or "").lower()
+    if hostname == "api.openai.com":
         return {"data": [{"id": "gpt-5.6-sol"}, {"id": "gpt-5.6-terra"}, {"id": "gpt-5.6-luna"}]}
-    if "mistral.ai" in url:
+    if hostname == "api.mistral.ai":
         return {"data": [{"id": "mistral-medium-3-5"}]}
-    if "deepseek.com" in url:
+    if hostname == "api.deepseek.com":
         return {"data": [{"id": "deepseek-v4-pro"}]}
-    if "/api/tags" in url:
+    if parsed.path.rstrip("/") == "/api/tags":
         return {"models": [{"name": "gemma3:4b"}]}
     raise AssertionError(url)
 
