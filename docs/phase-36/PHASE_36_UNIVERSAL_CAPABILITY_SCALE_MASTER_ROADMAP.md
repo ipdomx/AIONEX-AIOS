@@ -883,3 +883,12 @@ Keep Production runner mode `legacy`. Inventory provider records without reading
 ### 36C provider-evidence next safe transition
 
 Provider-model evidence source is open as PR #407; merge it only after every protected check is green. After merge, keep the runner on `legacy` and probe inventory-capable providers one at a time with read-only model-list requests. Persist a model only when it is present in fresh inventory and an explicit reviewed capability/pricing/rate policy exists. Anthropic/Cohere/AWS Bedrock require bounded execution receipts rather than inventory claims. Live ProjectExecution activation remains blocked.
+
+### 36C pre-live provider inventory checkpoint — 2026-08-17
+
+- Provider-model evidence PR #407 merged into `main` as `36fcee5e001ccfc08123f1b0a6f97627229b81ef` after all protected checks passed. No live provider request occurred before this checkpoint.
+- Production guard immediately after merge: Backend/two Project Workers/PostgreSQL/Redis healthy, Alembic `0029`, both Workers runner mode `legacy`, active ProjectExecution jobs `0`, providers with any `validated_models` `0`.
+- Allowed next action is inventory-only and one provider at a time. Connected inventory-capable providers: OpenAI, Gemini, OpenRouter, Ollama, Mistral, xAI, DeepSeek, Groq, Together, Fireworks and Hugging Face. Azure OpenAI is configured rather than connected and will not be probed at this gate.
+- Anthropic, Cohere and AWS Bedrock remain execution-evidence providers and must not be represented as model-inventory validated. No live execution belongs to this inventory gate.
+- Inventory responses may be used to prove model existence only. No model is persisted to `validated_models` until a separate explicit reviewed `ProviderModelValidationSpec` supplies tasks, capabilities, pricing, rate/concurrency limits and evidence TTL. Static catalogue aliases/scores remain prohibited as live proof.
+- Runner activation remains blocked: keep `PROJECT_EXECUTION_RUNNER_MODE=legacy`; no ProjectExecution is allowed onto the Phase36C runner during inventory probing.
