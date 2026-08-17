@@ -383,6 +383,7 @@ def test_production_compose_preserves_postgres_credential_contract() -> None:
     restore_script = (
         repository_root / "deploy" / "production" / "restore.sh"
     ).read_text()
+    recovery_script = (dashboard_root / "scripts" / "recover-postgres-login.sh").read_text()
     reconcile_script = (
         dashboard_root / "scripts" / "reconcile-postgres-credentials.sh"
     ).read_text()
@@ -416,8 +417,12 @@ def test_production_compose_preserves_postgres_credential_contract() -> None:
     assert 'DATABASE_URL: ""' not in compose
     assert "postgresql+asyncpg://${POSTGRES_USER}" not in compose
     assert "POSTGRES_HOST: postgres" in compose
-    assert "pg_isready --host 127.0.0.1 --port 5432 --quiet" in compose
-    assert "pg_isready --host 127.0.0.1 --port 5432 --quiet" in development_compose
+    postgres_healthcheck = (
+        'pg_isready --host 127.0.0.1 --port 5432 '
+        '--username "$$POSTGRES_USER" --dbname "$$POSTGRES_DB" --quiet'
+    )
+    assert postgres_healthcheck in compose
+    assert postgres_healthcheck in development_compose
     assert 'DATABASE_URL: "${DATABASE_URL:-}"' in development_compose
     assert "--host 127.0.0.1" in compose
     assert "http://localhost:8000/ready" in compose
@@ -428,7 +433,12 @@ def test_production_compose_preserves_postgres_credential_contract() -> None:
     assert "pg_advisory_xact_lock" in alembic_environment
     assert 'DATABASE_URL: ""' not in deployment_compose
     assert "POSTGRES_HOST: postgres" in deployment_compose
-    assert "pg_isready --host 127.0.0.1 --port 5432 --quiet" in deployment_compose
+    assert postgres_healthcheck in deployment_compose
+    assert 'pg_isready --host 127.0.0.1 --port 5432 --quiet' not in compose
+    assert 'pg_isready --host 127.0.0.1 --port 5432 --quiet' not in development_compose
+    assert 'pg_isready --host 127.0.0.1 --port 5432 --quiet' not in deployment_compose
+    assert '--username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" --quiet' in recovery_script
+    assert '--username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --quiet' in reconcile_script
     for backend in (
         dashboard_backend,
         dashboard_worker,

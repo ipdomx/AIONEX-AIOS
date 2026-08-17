@@ -64,7 +64,7 @@ postgres_id="$(compose ps -q postgres)"
 
 ready=false
 for ((attempt = 1; attempt <= 30; attempt++)); do
-  if compose exec -T postgres pg_isready --host 127.0.0.1 --port 5432 --quiet; then
+  if compose exec -T postgres pg_isready --host 127.0.0.1 --port 5432 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" --quiet; then
     ready=true
     break
   fi

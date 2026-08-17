@@ -71,6 +71,14 @@ def test_phase36_taxonomy_covers_owner_required_product_families() -> None:
     } <= ids
 
 
+def test_phase36b_maturity_matches_production_activation_evidence() -> None:
+    capabilities = {item.capability_id: item for item in CAPABILITIES}
+    assert capabilities["distributed-project-execution"].maturity == "runtime_verified"
+    assert capabilities["thousand-user-admission"].maturity == "locally_executed"
+    assert capabilities["horizontal-worker-scaling"].maturity == "runtime_verified"
+    assert BATCHES[1].status == "in_progress"
+
+
 def test_phase36_snapshot_is_truthful_and_phase29_is_not_current_finality() -> None:
     snapshot = phase36_program_snapshot()
     assert snapshot["authoritative"] is True

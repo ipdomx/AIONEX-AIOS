@@ -117,7 +117,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "pg_isready --host 127.0.0.1 --port 5432 --quiet",
+          'pg_isready --host 127.0.0.1 --port 5432 --username "$$POSTGRES_USER" --dbname "$$POSTGRES_DB" --quiet',
         ]
       interval: 5s
       timeout: 5s
