@@ -868,3 +868,18 @@ Gate 2 is open as PR #405; merge it only after every protected check is green. A
 ### 36C production activation gate 3 — next safe transition
 
 Keep Production runner mode `legacy`. Inventory provider records without reading credentials; determine which connected providers already have current explicit non-placeholder `validated_models` evidence. Add/verify provider-specific model evidence and real invocation adapters/error mapping under protected tests. Only then perform tightly bounded live-provider acceptance before considering a `phase36c` runner switch.
+
+### P36-0014 — Production provider rows have no validated model evidence
+
+- Batch: 36C provider-evidence gate.
+- Production inventory, non-secret: all 15 AI provider rows currently report zero `validated_models`; 13 remain connected and Azure OpenAI/AWS Bedrock configured. Provider credentials are server/environment sourced and were not read or printed by this inventory.
+- Root cause: the Phase29J runtime can probe authenticated model inventories for supported providers, but its historical `provider_health_probe()` retains only endpoint status/latency and discards model IDs. Anthropic, Cohere and AWS Bedrock intentionally use execution as authoritative live verification instead of claiming a model-listing proof.
+- Risk if ignored: enabling the Phase36C runner would fail closed because `DurableProjectAIResolver` correctly requires current explicit validated-model evidence; manufacturing entries from the static capability catalogue would create false model/pricing/capability claims.
+- Source fix: `provider_model_evidence.py` introduces provider-specific inventory parsing/probing, explicit inventory and execution evidence types, reviewed `ProviderModelValidationSpec`, stale/future/default rejection, bounded TTL and tenant-scoped idempotent persistence. Static catalogue aliases/scores are never transformed into live evidence automatically.
+- Security boundary: tests inject the inventory requester and synthetic credential resolution; no real network/provider call occurs. Durable evidence contains provider/model/evidence/policy/capability/rate/cost metadata only, never credential values or prompts.
+- Verification: focused `6/6 PASS`; evidence/routing/durable/integration/runner/Phase29J regression `39/39 PASS`; Backend Ruff PASS; Mypy `183` source files PASS; fresh Full Backend at `0029` `673 passed, 1 skipped, 0 failed` in `110.26s`; disposable Project-AI rows cleaned to zero and PostgreSQL/Redis critical logs were zero.
+- Status: **source gate implemented, live evidence still absent**. Production remains `PROJECT_EXECUTION_RUNNER_MODE=legacy`; all 15 provider rows still have zero validated models and no live provider request/spend has been performed by this gate.
+
+### 36C provider-evidence next safe transition
+
+Protect and merge this source gate first. After merge, keep the runner on `legacy` and probe inventory-capable providers one at a time with read-only model-list requests. Persist a model only when it is present in fresh inventory and an explicit reviewed capability/pricing/rate policy exists. Anthropic/Cohere/AWS Bedrock require bounded execution receipts rather than inventory claims. Live ProjectExecution activation remains blocked.
