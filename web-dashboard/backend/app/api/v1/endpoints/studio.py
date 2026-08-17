@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import hashlib
 from typing import Any, Literal
 
 from app.core.auth import UserRecord, current_user
+from app.core.config import settings
 from app.db.base import get_db
 from app.db.models import (
     AuditEvent,
+    MediaAssetGraph,
+    MediaAssetNode,
     Project,
     ProjectEvent,
     ProjectStudioAttachment,
@@ -20,10 +24,18 @@ from app.db.models import (
     uuid_str,
 )
 from app.services import production_studio
+from app.services import media_graph_runtime
+from app.services.media_orchestrator import MediaEdgeSpec, MediaGraphSpec, MediaNodeSpec, output_profile
+from app.services.media_storage import (
+    LocalMediaObjectStore,
+    MediaStorageError,
+    media_object_store,
+    media_object_store_for_backend,
+)
 from app.services.production_studio import DEPARTMENTS
 from app.services.studio_worker import StudioWorker
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -81,6 +93,41 @@ class StudioRevisionRequest(BaseModel):
 
 class StudioAttachmentRequest(BaseModel):
     project_id: str
+
+class MediaGraphNodeRequest(BaseModel):
+    key: str = Field(min_length=1, max_length=160)
+    node_type: str = Field(min_length=1, max_length=40)
+    media_type: str | None = Field(default=None, max_length=120)
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    prompt_metadata: dict[str, Any] = Field(default_factory=dict)
+    rights_metadata: dict[str, Any] = Field(default_factory=dict)
+    provenance: list[dict[str, Any]] = Field(default_factory=list, max_length=100)
+    scene_metadata: dict[str, Any] = Field(default_factory=dict)
+    timeline_metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class MediaGraphEdgeRequest(BaseModel):
+    parent: str = Field(min_length=1, max_length=160)
+    child: str = Field(min_length=1, max_length=160)
+    dependency_type: str = Field(default="input", min_length=1, max_length=40)
+    ordinal: int = Field(default=0, ge=0, le=10000)
+
+
+class MediaGraphCreateRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=240)
+    asset_kind: Literal["image", "audio", "video", "animation", "3d", "mixed"] = "video"
+    output_profile: str = Field(default="video-mp4-h264", min_length=1, max_length=80)
+    idempotency_key: str = Field(min_length=8, max_length=160)
+    nodes: list[MediaGraphNodeRequest] = Field(min_length=1, max_length=100)
+    edges: list[MediaGraphEdgeRequest] = Field(default_factory=list, max_length=300)
+    rights_metadata: dict[str, Any] = Field(default_factory=dict)
+    provenance: list[dict[str, Any]] = Field(default_factory=list, max_length=100)
+
+
+class MediaGraphRevisionRequest(BaseModel):
+    idempotency_key: str = Field(min_length=8, max_length=160)
+    node_parameter_updates: dict[str, dict[str, Any]] = Field(min_length=1, max_length=100)
+
 
 
 async def _validate_scope(
@@ -394,6 +441,7 @@ async def download_asset(
     path = asset.storage_path
     checksum = asset.checksum
     size_bytes = asset.size_bytes
+    revision_metadata: dict[str, Any] = dict(asset.asset_metadata or {})
     if revision is not None:
         item = await session.scalar(
             select(StudioAssetRevision).where(
@@ -409,6 +457,48 @@ async def download_asset(
         path = item.storage_path
         checksum = item.checksum
         size_bytes = item.size_bytes
+        revision_metadata = dict(item.revision_metadata or {})
+    media_output = revision_metadata.get("media_graph_output")
+    if isinstance(media_output, dict):
+        storage_backend = str(media_output.get("storage_backend") or "").strip().lower()
+        storage_key = str(media_output.get("storage_key") or path).strip()
+        if not storage_backend or not storage_key:
+            raise HTTPException(status_code=409, detail="Rendered media storage metadata is incomplete")
+        try:
+            store = media_object_store_for_backend(storage_backend)
+            if isinstance(store, LocalMediaObjectStore):
+                verified = store.verified_path(
+                    storage_key, checksum=checksum, size_bytes=size_bytes
+                )
+                return FileResponse(
+                    verified,
+                    media_type=media_type,
+                    filename=filename,
+                    headers={
+                        "Cache-Control": "private, no-store",
+                        "X-AIONEX-Checksum-SHA256": checksum,
+                        "X-AIONEX-Media-Graph": str(media_output.get("graph_id") or ""),
+                    },
+                )
+            url = store.presigned_get(
+                storage_key,
+                filename=filename,
+                content_type=media_type,
+                expires_seconds=900,
+                inline=False,
+            )
+        except MediaStorageError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        if not url:
+            raise HTTPException(status_code=409, detail="Rendered media download is unavailable")
+        return RedirectResponse(
+            url=url,
+            status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+            headers={
+                "Cache-Control": "private, no-store",
+                "X-AIONEX-Checksum-SHA256": checksum,
+            },
+        )
     try:
         verified = production_studio.verify_artifact(path, checksum, size_bytes)
     except (FileNotFoundError, ValueError) as exc:
@@ -708,3 +798,245 @@ class _DatabaseContext:
 
 def get_db_context() -> _DatabaseContext:
     return _DatabaseContext()
+
+_ALLOWED_MEDIA_OPERATIONS = frozenset({"render_scene", "assemble", "transcode", "render_image", "render_audio"})
+
+
+def _media_node_spec(data: MediaGraphNodeRequest) -> MediaNodeSpec:
+    parameters = dict(data.parameters)
+    operation = str(parameters.get("operation") or "").strip().lower()
+    if operation and operation not in _ALLOWED_MEDIA_OPERATIONS:
+        raise HTTPException(status_code=422, detail="Unsupported media render operation")
+    hardware = str(parameters.get("hardware_adapter") or "software").strip().lower()
+    if hardware != "software":
+        raise HTTPException(status_code=422, detail="Hardware media adapter requires an operator-governed policy")
+    profile_id = str(parameters.get("output_profile") or "").strip()
+    if profile_id:
+        try:
+            output_profile(profile_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="Unknown media output profile") from exc
+    return MediaNodeSpec(
+        key=data.key,
+        node_type=data.node_type,
+        media_type=data.media_type,
+        parameters=parameters,
+        prompt_metadata=dict(data.prompt_metadata),
+        rights_metadata=dict(data.rights_metadata),
+        provenance=tuple(data.provenance),
+        scene_metadata=dict(data.scene_metadata),
+        timeline_metadata=dict(data.timeline_metadata),
+    )
+
+
+async def _media_graph_or_404(
+    session: AsyncSession, actor: UserRecord, graph_id: str, *, lock: bool = False
+) -> MediaAssetGraph:
+    statement = select(MediaAssetGraph).where(
+        MediaAssetGraph.id == graph_id,
+        MediaAssetGraph.organization_id == actor.organization_id,
+    )
+    if lock:
+        statement = statement.with_for_update()
+    graph = await session.scalar(statement)
+    if graph is None:
+        raise HTTPException(status_code=404, detail="Media graph not found")
+    return graph
+
+
+@router.post("/assets/{asset_id}/media-graphs", status_code=status.HTTP_202_ACCEPTED)
+async def create_asset_media_graph(
+    asset_id: str,
+    data: MediaGraphCreateRequest,
+    actor: UserRecord = Depends(current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    asset = await _asset_or_404(session, actor, asset_id)
+    original = await session.get(StudioJob, asset.job_id)
+    if original is None or original.organization_id != actor.organization_id:
+        raise HTTPException(status_code=409, detail="Original Studio job is unavailable")
+    try:
+        spec = MediaGraphSpec(
+            title=data.title or asset.title,
+            asset_kind=data.asset_kind,
+            nodes=tuple(_media_node_spec(item) for item in data.nodes),
+            edges=tuple(
+                MediaEdgeSpec(
+                    parent=item.parent,
+                    child=item.child,
+                    dependency_type=item.dependency_type,
+                    ordinal=item.ordinal,
+                )
+                for item in data.edges
+            ),
+            output_profile=data.output_profile,
+            rights_metadata=dict(data.rights_metadata),
+            provenance=tuple(data.provenance),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    graph = await media_graph_runtime.create_media_graph(
+        session,
+        scope=media_graph_runtime.MediaGraphScope(
+            organization_id=actor.organization_id,
+            created_by_id=actor.id,
+            workspace_id=original.workspace_id,
+            project_id=asset.project_id or original.project_id,
+            studio_job_id=original.id,
+            studio_asset_id=asset.id,
+        ),
+        spec=spec,
+        idempotency_key=data.idempotency_key,
+    )
+    session.add(
+        AuditEvent(
+            organization_id=actor.organization_id,
+            user_id=actor.id,
+            action="media.graph.created",
+            resource_type="media_asset_graph",
+            resource_id=graph.id,
+            details={
+                "studio_asset_id": asset.id,
+                "graph_version": graph.graph_version,
+                "output_profile": graph.output_profile,
+                "node_count": len(spec.nodes),
+            },
+        )
+    )
+    await session.commit()
+    await session.refresh(graph)
+    return await media_graph_runtime.media_graph_snapshot(session, graph)
+
+
+@router.get("/assets/{asset_id}/media-graphs")
+async def list_asset_media_graphs(
+    asset_id: str,
+    actor: UserRecord = Depends(current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    await _asset_or_404(session, actor, asset_id)
+    graphs = list(
+        (
+            await session.scalars(
+                select(MediaAssetGraph)
+                .where(
+                    MediaAssetGraph.studio_asset_id == asset_id,
+                    MediaAssetGraph.organization_id == actor.organization_id,
+                )
+                .order_by(MediaAssetGraph.graph_version.desc(), MediaAssetGraph.created_at.desc())
+            )
+        ).all()
+    )
+    return [await media_graph_runtime.media_graph_snapshot(session, item) for item in graphs]
+
+
+@router.get("/media-graphs/{graph_id}")
+async def get_media_graph(
+    graph_id: str,
+    actor: UserRecord = Depends(current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    return await media_graph_runtime.media_graph_snapshot(
+        session, await _media_graph_or_404(session, actor, graph_id)
+    )
+
+
+@router.post("/media-graphs/{graph_id}/revisions", status_code=status.HTTP_202_ACCEPTED)
+async def revise_media_graph(
+    graph_id: str,
+    data: MediaGraphRevisionRequest,
+    actor: UserRecord = Depends(current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    graph = await _media_graph_or_404(session, actor, graph_id)
+    if graph.status != "completed":
+        raise HTTPException(status_code=409, detail="Only completed media graphs can be revised")
+    for update in data.node_parameter_updates.values():
+        operation = str(update.get("operation") or "").strip().lower()
+        if operation and operation not in _ALLOWED_MEDIA_OPERATIONS:
+            raise HTTPException(status_code=422, detail="Unsupported media render operation")
+        hardware = str(update.get("hardware_adapter") or "software").strip().lower()
+        if hardware != "software":
+            raise HTTPException(status_code=422, detail="Hardware media adapter requires an operator-governed policy")
+    try:
+        revised, affected = await media_graph_runtime.create_partial_media_revision(
+            session,
+            graph=graph,
+            created_by_id=actor.id,
+            node_parameter_updates=data.node_parameter_updates,
+            idempotency_key=data.idempotency_key,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    session.add(
+        AuditEvent(
+            organization_id=actor.organization_id,
+            user_id=actor.id,
+            action="media.graph.revised",
+            resource_type="media_asset_graph",
+            resource_id=revised.id,
+            details={"source_graph_id": graph.id, "affected_nodes": list(affected)},
+        )
+    )
+    await session.commit()
+    await session.refresh(revised)
+    return await media_graph_runtime.media_graph_snapshot(session, revised)
+
+
+@router.get("/media-graphs/{graph_id}/output")
+async def get_media_graph_output(
+    graph_id: str,
+    actor: UserRecord = Depends(current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    graph = await _media_graph_or_404(session, actor, graph_id)
+    if graph.status != "completed":
+        raise HTTPException(status_code=409, detail="Media graph is not completed")
+    final_node_id = str((graph.graph_metadata or {}).get("final_node_id") or "")
+    node = await session.scalar(
+        select(MediaAssetNode).where(
+            MediaAssetNode.graph_id == graph.id,
+            MediaAssetNode.organization_id == actor.organization_id,
+            MediaAssetNode.id == final_node_id,
+            MediaAssetNode.status == "completed",
+        )
+    )
+    if node is None or not node.storage_key or not node.checksum or not node.media_type:
+        raise HTTPException(status_code=409, detail="Rendered media output is unavailable")
+    store = media_object_store()
+    profile = output_profile(graph.output_profile)
+    filename = f"{production_studio.slug(graph.title)}-v{graph.graph_version}.{profile.extension}"
+    try:
+        url = store.presigned_get(
+            node.storage_key,
+            filename=filename,
+            content_type=node.media_type,
+            expires_seconds=900,
+            inline=False,
+        )
+        if url:
+            return {
+                "mode": "presigned",
+                "url": url,
+                "filename": filename,
+                "media_type": node.media_type,
+                "checksum": node.checksum,
+                "size_bytes": node.size_bytes,
+            }
+        body = store.get_bytes(
+            node.storage_key,
+            max_bytes=min(settings.MEDIA_MAX_OBJECT_BYTES, 256 * 1024 * 1024),
+        )
+    except MediaStorageError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if hashlib.sha256(body).hexdigest() != node.checksum:
+        raise HTTPException(status_code=409, detail="Rendered media checksum verification failed")
+    return Response(
+        content=body,
+        media_type=node.media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-AIONEX-Checksum-SHA256": node.checksum,
+            "Cache-Control": "private, no-store",
+        },
+    )

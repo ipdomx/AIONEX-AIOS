@@ -431,7 +431,7 @@ class Settings(BaseSettings):
         validation_alias="STUDIO_WORKER_HEALTH_FILE",
     )
     MEDIA_STORAGE_TYPE: str = Field(
-        default="local", validation_alias="MEDIA_STORAGE_TYPE"
+        default="inherit", validation_alias="MEDIA_STORAGE_TYPE"
     )
     MEDIA_STORAGE_ROOT: str = Field(
         default="/var/lib/aionex/media-assets",
@@ -460,6 +460,37 @@ class Settings(BaseSettings):
     )
     MEDIA_FFMPEG_TARGET_VERSION: str = Field(
         default="9.0", validation_alias="MEDIA_FFMPEG_TARGET_VERSION"
+    )
+    MEDIA_FFMPEG_BINARY: str = Field(
+        default="/opt/ffmpeg/bin/ffmpeg", validation_alias="MEDIA_FFMPEG_BINARY"
+    )
+    MEDIA_FFPROBE_BINARY: str = Field(
+        default="/opt/ffmpeg/bin/ffprobe", validation_alias="MEDIA_FFPROBE_BINARY"
+    )
+    MEDIA_RENDER_WORKER_ID: str = Field(
+        default="", validation_alias="MEDIA_RENDER_WORKER_ID"
+    )
+    MEDIA_RENDER_POLL_SECONDS: int = Field(
+        default=2, ge=1, le=60, validation_alias="MEDIA_RENDER_POLL_SECONDS"
+    )
+    MEDIA_RENDER_LEASE_SECONDS: int = Field(
+        default=300, ge=30, le=3600, validation_alias="MEDIA_RENDER_LEASE_SECONDS"
+    )
+    MEDIA_RENDER_TIMEOUT_SECONDS: int = Field(
+        default=900, ge=10, le=7200, validation_alias="MEDIA_RENDER_TIMEOUT_SECONDS"
+    )
+    MEDIA_RENDER_TEMP_ROOT: str = Field(
+        default="/tmp/aionex-media-render", validation_alias="MEDIA_RENDER_TEMP_ROOT"
+    )
+    MEDIA_RENDER_WORKER_HEALTH_FILE: str = Field(
+        default="/tmp/aionex-media-render-worker-health.json",
+        validation_alias="MEDIA_RENDER_WORKER_HEALTH_FILE",
+    )
+    MEDIA_HARDWARE_ADAPTER_ALLOWLIST: str = Field(
+        default="software", validation_alias="MEDIA_HARDWARE_ADAPTER_ALLOWLIST"
+    )
+    MEDIA_RENDER_DRM_DEVICE: str = Field(
+        default="/dev/dri/renderD128", validation_alias="MEDIA_RENDER_DRM_DEVICE"
     )
     MOBILE_RELEASE_ROOT: str = Field(
         default="/var/lib/aionex/mobile-releases",

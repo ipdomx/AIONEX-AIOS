@@ -78,6 +78,11 @@ if [ "$(id -u)" = "0" ]; then
         install -d -m 0700 -o aionex -g aionex "$studio_asset_root"
     fi
 
+    media_storage_root="${MEDIA_STORAGE_ROOT-/var/lib/aionex/media-assets}"
+    if [ -n "$media_storage_root" ]; then
+        install -d -m 0700 -o aionex -g aionex "$media_storage_root"
+    fi
+
     mobile_release_root="${MOBILE_RELEASE_ROOT-/var/lib/aionex/mobile-releases}"
     if [ -n "$mobile_release_root" ]; then
         # Readers mount the release store read-only. Preparing ownership is only
