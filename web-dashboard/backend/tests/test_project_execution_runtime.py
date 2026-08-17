@@ -8,12 +8,13 @@ from uuid import uuid4
 import zipfile
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete, select
 from starlette.requests import Request
 
 from app.api.v1.router import api_router
+from app.api.v1.endpoints.project_executions import ProjectExecutionStart, start_project_execution
 from app.core.auth import UserRecord, current_user
 from app.core.config import settings
 from app.db.base import Base, SessionLocal
@@ -157,6 +158,9 @@ def test_project_execution_table_and_compose_worker_contracts() -> None:
     assert "/run/references/phase22b/local-qwen3-8b:ro" in compose
     assert "project_execution_data:/var/lib/aionex/project-executions" in compose
     assert "project_execution_data:/var/lib/aionex/project-executions:rw" in compose
+    assert 'PROJECT_EXECUTION_LEGACY_MODEL: "gpt-5.6-luna"' in compose
+    assert 'PROJECT_EXECUTION_RESEARCH_MODEL: "gpt-5.6-luna"' in compose
+    assert "gpt-5.4-nano" not in compose
 
     worker_requirements = (
         ROOT / "web-dashboard/backend/requirements-project-worker.txt"
@@ -286,6 +290,37 @@ async def test_project_execution_api_requires_consent_is_durable_and_tenant_scop
 
 
 @pytest.mark.asyncio
+async def test_free_project_execution_fails_closed_until_local_phase36c_runtime_is_armed(
+    monkeypatch,
+) -> None:
+    actor = UserRecord(
+        id="free-project-ai-user",
+        email="free-project-ai@example.com",
+        name="Free Project AI User",
+        role=free_tier.FREE_USER_ROLE_NAME,
+        password_hash="unused",
+        organization_id="free-project-ai-org",
+        organization_name="Free Project AI Org",
+        organization_plan=free_tier.FREE_PLAN_NAME,
+        permissions=["projects:read", "projects:write"],
+    )
+    monkeypatch.setattr(settings, "PROJECT_EXECUTION_RUNNER_MODE", "legacy")
+    monkeypatch.setattr(settings, "PROJECT_AI_LIVE_RUNTIME_ENABLED", False)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await start_project_execution(
+            "not-read-before-guard",
+            ProjectExecutionStart(confirm_external_processing=True),
+            actor=actor,
+            _admission=None,
+            session=object(),  # type: ignore[arg-type]
+        )
+
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.detail["code"] == "FREE_PROJECT_AI_REQUIRES_LIVE_LOCAL_RUNTIME"
+
+
+@pytest.mark.asyncio
 async def test_free_project_guard_only_counts_collection_creation(monkeypatch) -> None:
     actor = UserRecord(
         id="free-user",
@@ -333,12 +368,12 @@ def test_external_project_secret_is_strict_and_redacted(tmp_path) -> None:
     secret = tmp_path / "project-openai.env"
     secret.write_text(
         "OPENAI_API_KEY=test-provider-key-not-real\n"
-        "AIOS_PHASE22C_MODEL=gpt-5-mini\n",
+        "AIOS_PHASE22C_MODEL=gpt-5.6-luna\n",
         encoding="utf-8",
     )
     secret.chmod(0o600)
     loaded = load_project_provider_secret(secret)
-    assert loaded.model == "gpt-5-mini"
+    assert loaded.model == "gpt-5.6-luna"
     assert "sk-proj" not in repr(loaded)
 
     secret.chmod(0o644)
@@ -609,7 +644,7 @@ def test_runner_executes_planning_prototype_and_full_governance_without_network(
     secret = tmp_path / "secret.env"
     secret.write_text(
         "OPENAI_API_KEY=[REDACTED]\n"
-        "AIOS_PHASE22C_MODEL=gpt-5-mini\n",
+        "AIOS_PHASE22C_MODEL=gpt-5.6-luna\n",
         encoding="utf-8",
     )
     secret.chmod(0o600)
@@ -699,7 +734,7 @@ def test_runner_executes_planning_prototype_and_full_governance_without_network(
     class FakeOfficialTransport:
         def __init__(self, api_key, **kwargs):
             assert api_key
-            self.model = "gpt-5-mini"
+            self.model = "gpt-5.6-luna"
 
         async def validate_model(self, model):
             return {"id": model, "object": "model", "owned_by": "test"}
@@ -727,7 +762,7 @@ def test_runner_executes_planning_prototype_and_full_governance_without_network(
             second = "https://guidance.example.net/latest"
             return {
                 "provider": "openai",
-                "model": "gpt-5-mini",
+                "model": "gpt-5.6-luna",
                 "research_question": "Which current constraints affect the project?",
                 "summary": "Independent current evidence supports controlled delivery.",
                 "verified_facts": [
@@ -830,7 +865,7 @@ def test_runner_executes_planning_prototype_and_full_governance_without_network(
                     "project": project,
                     "objective": objective,
                     "provider": "openai",
-                    "model": "gpt-5-mini",
+                    "model": "gpt-5.6-luna",
                     "department": deliverable.department,
                     "model_output": model_output,
                     "schema_valid": True,
@@ -856,7 +891,7 @@ def test_runner_executes_planning_prototype_and_full_governance_without_network(
             manifest = {
                 "schema_version": 1,
                 "provider": "openai",
-                "model": "gpt-5-mini",
+                "model": "gpt-5.6-luna",
                 "execution_id": execution_id,
                 "fallback_used": False,
                 "production_modified": False,
@@ -884,7 +919,7 @@ def test_runner_executes_planning_prototype_and_full_governance_without_network(
         project_execution_module,
         "load_project_provider_secret",
         lambda _path: project_execution_module.ProjectProviderSecret(
-            api_key="test-key-not-a-secret", model="gpt-5-mini"
+            api_key="test-key-not-a-secret", model="gpt-5.6-luna"
         ),
     )
     monkeypatch.setattr(
@@ -954,10 +989,11 @@ def test_project_runner_uses_separate_web_search_capable_research_model(
 ) -> None:
     import app.services.project_execution as project_execution_module
 
+    monkeypatch.setattr(settings, "PROJECT_EXECUTION_LEGACY_MODEL", "gpt-5.6-luna")
     monkeypatch.setattr(
         settings,
         "PROJECT_EXECUTION_RESEARCH_MODEL",
-        "gpt-5.4-nano",
+        "gpt-5.6-luna",
     )
     monkeypatch.setattr(settings, "PROJECT_EXECUTION_BUDGET_CAP_USD", 0.05)
     monkeypatch.setattr(
@@ -968,15 +1004,29 @@ def test_project_runner_uses_separate_web_search_capable_research_model(
 
     runner = ProjectPlanningRunner()
 
-    assert runner.research_model == "gpt-5.4-nano"
+    assert runner.research_model == "gpt-5.6-luna"
+    assert project_execution_module.MODEL_PRICING["gpt-5.6-luna"] == (0.20, 1.20)
     assert project_execution_module.RESEARCH_MODEL_PRICING[runner.research_model] == (
         0.20,
-        1.25,
+        1.20,
     )
-    planning = 6 * ((4096 * 0.25) + (1200 * 2.00)) / 1_000_000
-    research = 0.01 + ((16_384 * 0.20) + (3000 * 1.25)) / 1_000_000
-    implementation = ((4096 * 0.25) + (3000 * 2.00)) / 1_000_000
+    planning = 6 * ((4096 * 0.20) + (1200 * 1.20)) / 1_000_000
+    research = 0.01 + ((16_384 * 0.20) + (3000 * 1.20)) / 1_000_000
+    implementation = ((4096 * 0.20) + (3000 * 1.20)) / 1_000_000
+    assert runner.budget_cap == pytest.approx(0.05)
     assert planning + research + implementation < runner.budget_cap
+
+
+def test_project_runner_rejects_stale_legacy_planning_model_before_provider_use(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(settings, "PROJECT_EXECUTION_LEGACY_MODEL", "gpt-5-mini")
+
+    with pytest.raises(
+        ProjectExecutionConfigurationError,
+        match="legacy project execution model is not in the current-model allowlist",
+    ):
+        ProjectPlanningRunner()
 
 
 def test_project_runner_rejects_unknown_research_model_before_provider_use(

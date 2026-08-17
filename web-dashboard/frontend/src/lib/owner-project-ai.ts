@@ -126,3 +126,19 @@ export function updateProjectAIProviderFinance(
     updates,
   );
 }
+
+export type ProjectAIModelRefreshResult = {
+  validated: string[];
+  unavailable: string[];
+  probe_failures: string[];
+  revoked: string[];
+  observed_at: string;
+  ttl_seconds: number;
+};
+
+export function refreshProjectAIModelEvidence(): Promise<ProjectAIModelRefreshResult> {
+  return apiClient.post<ProjectAIModelRefreshResult>(
+    "/owner/project-ai/models/refresh",
+    {},
+  );
+}

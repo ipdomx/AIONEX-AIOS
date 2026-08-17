@@ -168,6 +168,7 @@ OWNER_API_CONTRACT = {
     ("POST", "/api/v1/owner/security-lab/clone-targets"),
     ("GET", "/api/v1/owner/security-lab/scans"),
     ("GET", "/api/v1/owner/project-ai/access"),
+    ("POST", "/api/v1/owner/project-ai/models/refresh"),
     ("PUT", "/api/v1/owner/project-ai/access/plans/{access_class}"),
     ("PUT", "/api/v1/owner/project-ai/access/users/{user_id}"),
     ("DELETE", "/api/v1/owner/project-ai/access/users/{user_id}"),
@@ -180,6 +181,7 @@ OWNER_GET_ROUTES = sorted(
     path for method, path in OWNER_API_CONTRACT if method == "GET"
 )
 OWNER_MUTATION_REQUESTS = {
+    ("POST", "/api/v1/owner/project-ai/models/refresh"): None,
     ("PUT", "/api/v1/owner/project-ai/access/plans/{access_class}"): {
         "access_class": "paid",
         "enabled": True,

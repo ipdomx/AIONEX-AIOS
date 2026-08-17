@@ -16,6 +16,7 @@ import {
   clearProjectAIUserPolicy,
   fetchProjectAIAccess,
   fetchProjectAIProviderFinance,
+  refreshProjectAIModelEvidence,
   updateProjectAIPlanPolicy,
   updateProjectAIProviderFinance,
   updateProjectAIUserPolicy,
@@ -234,6 +235,23 @@ export default function OwnerProjectAIPage() {
     }
   }
 
+  async function refreshModelEvidence() {
+    setSaving("models:refresh");
+    try {
+      const result = await refreshProjectAIModelEvidence();
+      setMessage(
+        `Model evidence refreshed: ${result.validated.length} validated, ${result.unavailable.length} unavailable, ${result.probe_failures.length} probe failures.`,
+      );
+      await load();
+    } catch {
+      setMessage(
+        "Model evidence refresh failed; existing unexpired evidence was not replaced by a transient failure.",
+      );
+    } finally {
+      setSaving(null);
+    }
+  }
+
   async function saveFinance(providerId: string) {
     const draft = financeDrafts[providerId];
     if (!draft) return;
@@ -367,14 +385,28 @@ export default function OwnerProjectAIPage() {
               credentials.
             </p>
           </div>
-          <button
-            className="btn-primary"
-            disabled={loading || saving !== null}
-            onClick={() => void load()}
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />{" "}
-            Refresh
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              className="rounded-xl border border-white/[0.08] px-4 py-2.5 text-xs text-white/70"
+              disabled={loading || saving !== null}
+              onClick={() => void load()}
+            >
+              <RefreshCw
+                className={`mr-2 inline h-4 w-4 ${loading ? "animate-spin" : ""}`}
+              />
+              Refresh
+            </button>
+            <button
+              className="btn-primary"
+              disabled={loading || saving !== null}
+              onClick={() => void refreshModelEvidence()}
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${saving === "models:refresh" ? "animate-spin" : ""}`}
+              />
+              Refresh model evidence
+            </button>
+          </div>
         </div>
       </header>
 

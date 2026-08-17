@@ -152,6 +152,7 @@ class ProjectAIProviderPolicy:
     blocked_providers: frozenset[str] = frozenset()
     allowed_provider_models: frozenset[str] = frozenset()
     provider_scope_organization_id: str | None = None
+    max_fallbacks: int = 1
     offline_only: bool = False
     privacy_mode: bool = False
     max_total_estimated_cost_usd: float | None = None
@@ -178,6 +179,8 @@ class ProjectAIProviderPolicy:
             if provider_name not in allowed:
                 raise ValueError("allowed provider model references a provider outside allowed_providers")
         provider_scope = (self.provider_scope_organization_id or "").strip() or None
+        if not 0 <= int(self.max_fallbacks) <= 4:
+            raise ValueError("max_fallbacks must be between 0 and 4")
         if (
             self.max_total_estimated_cost_usd is not None
             and self.max_total_estimated_cost_usd < 0

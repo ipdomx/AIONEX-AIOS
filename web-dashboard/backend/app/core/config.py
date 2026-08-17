@@ -167,6 +167,20 @@ class Settings(BaseSettings):
         pattern=r"^(legacy|phase36c)$",
         validation_alias="PROJECT_EXECUTION_RUNNER_MODE",
     )
+    PROJECT_AI_LIVE_RUNTIME_ENABLED: bool = Field(
+        default=False,
+        validation_alias="PROJECT_AI_LIVE_RUNTIME_ENABLED",
+    )
+    PROJECT_AI_MODEL_REFRESH_ENABLED: bool = Field(
+        default=False,
+        validation_alias="PROJECT_AI_MODEL_REFRESH_ENABLED",
+    )
+    PROJECT_AI_MODEL_REFRESH_INTERVAL_SECONDS: int = Field(
+        default=14_400,
+        ge=900,
+        le=86_400,
+        validation_alias="PROJECT_AI_MODEL_REFRESH_INTERVAL_SECONDS",
+    )
     PROJECT_AI_PLATFORM_PROVIDER_ORGANIZATION_ID: str = Field(
         default="aionex-org",
         min_length=1,
@@ -252,6 +266,12 @@ class Settings(BaseSettings):
         le=0.05,
         validation_alias="PROJECT_EXECUTION_BUDGET_CAP_USD",
     )
+    PROJECT_EXECUTION_LEGACY_MODEL: str = Field(
+        default="gpt-5.6-luna",
+        min_length=1,
+        max_length=160,
+        validation_alias="PROJECT_EXECUTION_LEGACY_MODEL",
+    )
     PROJECT_EXECUTION_WEB_SEARCH_COST_USD: float = Field(
         default=0.01,
         ge=0.001,
@@ -259,7 +279,7 @@ class Settings(BaseSettings):
         validation_alias="PROJECT_EXECUTION_WEB_SEARCH_COST_USD",
     )
     PROJECT_EXECUTION_RESEARCH_MODEL: str = Field(
-        default="gpt-5.4-nano",
+        default="gpt-5.6-luna",
         min_length=1,
         max_length=160,
         validation_alias="PROJECT_EXECUTION_RESEARCH_MODEL",

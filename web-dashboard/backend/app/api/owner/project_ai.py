@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import UserRecord, require_super_owner
 from app.db.base import get_db
 from app.db.models import AuditEvent
+from app.services import communications
+from app.services.project_ai_model_refresh import refresh_launch_model_evidence
 from app.services.provider_credit_alerts import (
     ProviderCreditPolicyError,
     configure_provider_credit,
@@ -173,3 +175,14 @@ async def owner_set_project_ai_provider_finance(
     ))
     await session.commit()
     return snapshot.public()
+
+@router.post("/models/refresh")
+async def owner_refresh_project_ai_models(
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    result = await refresh_launch_model_evidence(session, actor_id=actor.id)
+    notifications = list(result.pop("notifications", []))
+    await session.commit()
+    await communications.publish_many(notifications)
+    return result
