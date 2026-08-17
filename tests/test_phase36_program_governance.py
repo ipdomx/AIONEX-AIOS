@@ -20,8 +20,9 @@ def test_phase36_batches_are_complete_registry_and_36a_closes_first() -> None:
     ]
     assert [batch.sequence for batch in BATCHES] == list(range(1, 15))
     assert BATCHES[0].status == "complete"
-    assert BATCHES[1].status == "in_progress"
-    assert all(batch.status == "planned" for batch in BATCHES[2:])
+    assert BATCHES[1].status == "complete"
+    assert BATCHES[2].status == "in_progress"
+    assert all(batch.status == "planned" for batch in BATCHES[3:])
 
 
 def test_every_phase36_capability_has_unique_owner_and_valid_maturity() -> None:
@@ -76,14 +77,18 @@ def test_phase36b_maturity_matches_production_activation_evidence() -> None:
     assert capabilities["distributed-project-execution"].maturity == "runtime_verified"
     assert capabilities["thousand-user-admission"].maturity == "locally_executed"
     assert capabilities["horizontal-worker-scaling"].maturity == "runtime_verified"
-    assert BATCHES[1].status == "in_progress"
+    assert BATCHES[1].status == "complete"
+    assert BATCHES[2].status == "in_progress"
 
 
 def test_phase36_snapshot_is_truthful_and_phase29_is_not_current_finality() -> None:
     snapshot = phase36_program_snapshot()
     assert snapshot["authoritative"] is True
     assert snapshot["minimum_concurrent_users"] == 1000
-    assert snapshot["current_batch"] == "36B"
+    assert snapshot["current_batch"] == "36C"
+    batch_statuses = {batch["batch_id"]: batch["status"] for batch in snapshot["batches"]}
+    assert batch_statuses["36B"] == "complete"
+    assert batch_statuses["36C"] == "in_progress"
     assert snapshot["total_capabilities"] == len(CAPABILITIES)
     assert snapshot["production_ready_capabilities"] < snapshot["total_capabilities"]
     assert snapshot["completion"] < 100

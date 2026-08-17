@@ -118,8 +118,8 @@ CAPABILITIES: Final[tuple[Phase36Capability, ...]] = (
 
 BATCHES: Final[tuple[Phase36Batch, ...]] = (
     Phase36Batch("36A", 1, "Program governance, registry and reporting invariant", "complete"),
-    Phase36Batch("36B", 2, "Live distributed project execution and 1000-user admission", "in_progress"),
-    Phase36Batch("36C", 3, "Multi-provider/model/agent execution pools", "planned"),
+    Phase36Batch("36B", 2, "Live distributed project execution and 1000-user admission", "complete"),
+    Phase36Batch("36C", 3, "Multi-provider/model/agent execution pools", "in_progress"),
     Phase36Batch("36D", 4, "Universal Creative Asset Graph and Media Orchestrator", "planned"),
     Phase36Batch("36E", 5, "Image, design, branding, infographic and prompt factory", "planned"),
     Phase36Batch("36F", 6, "Video, cinema, motion graphics and advertising factory", "planned"),
