@@ -319,6 +319,7 @@ services:
       PROJECT_EXECUTION_RESEARCH_MODEL: "gpt-5.4-nano"
       PROJECT_EXECUTION_RUNNER_MODE: legacy
       PROJECT_AI_LIVE_RUNTIME_ENABLED: "false"
+      PROJECT_AI_MODEL_REFRESH_ENABLED: "false"
       PROJECT_EXECUTION_NPM_CACHE: /var/lib/aionex/project-npm-cache
     volumes:
       - ..:/workspace:ro

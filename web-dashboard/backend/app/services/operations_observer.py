@@ -19,6 +19,7 @@ from app.services import communications
 from app.services.growth_controlled_pilots import reconcile_runtime_pilots
 from app.services.growth_paid_live_execution import reconcile_stale_live_executions
 from app.services.lifecycle_alerts import run_account_lifecycle_alerts
+from app.services.project_ai_model_refresh import refresh_launch_model_evidence
 from app.services.provider_credit_alerts import run_provider_credit_alerts
 from app.services.operations_assurance import record_observation_cycle
 
@@ -32,6 +33,7 @@ class OperationsObserver:
         self.cycles = 0
         self.errors = 0
         self.last_lifecycle_alert_monotonic = 0.0
+        self.last_project_ai_model_refresh_monotonic = 0.0
 
     async def preflight(self) -> None:
         async with SessionLocal() as session:
@@ -60,6 +62,11 @@ class OperationsObserver:
             or current_monotonic - self.last_lifecycle_alert_monotonic
             >= settings.ACCOUNT_LIFECYCLE_ALERT_INTERVAL_SECONDS
         )
+        run_model_refresh = bool(settings.PROJECT_AI_MODEL_REFRESH_ENABLED) and (
+            self.last_project_ai_model_refresh_monotonic <= 0
+            or current_monotonic - self.last_project_ai_model_refresh_monotonic
+            >= settings.PROJECT_AI_MODEL_REFRESH_INTERVAL_SECONDS
+        )
         # Commit GS-12 safety reconciliation independently before unrelated
         # observability/lifecycle work. A later alerting failure must never roll
         # back an auto-disarm that protects provider mutation/spend.
@@ -67,6 +74,14 @@ class OperationsObserver:
             pilot_runtime = await reconcile_runtime_pilots(session)
             live_execution_runtime = await reconcile_stale_live_executions(session)
             await session.commit()
+
+        if run_model_refresh:
+            async with SessionLocal() as session:
+                refresh_result = await refresh_launch_model_evidence(session)
+                model_notifications = list(refresh_result.pop("notifications", []))
+                await session.commit()
+            await communications.publish_many(model_notifications)
+            self.last_project_ai_model_refresh_monotonic = current_monotonic
 
         async with SessionLocal() as session:
             await record_observation_cycle(session)
