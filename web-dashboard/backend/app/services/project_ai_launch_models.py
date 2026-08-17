@@ -13,7 +13,7 @@ from typing import Final
 
 from app.services.provider_model_evidence import ProviderModelValidationSpec
 
-LAUNCH_MODEL_POLICY_VERSION: Final[str] = "phase36c-launch100-model-policy-v1"
+LAUNCH_MODEL_POLICY_VERSION: Final[str] = "phase36c-launch100-model-policy-v2"
 
 
 @dataclass(frozen=True, slots=True)
@@ -183,8 +183,8 @@ OPENAI_DESIRED_CURRENT = (
             quality_score=0.85,
             latency_score=0.70,
             privacy_score=0.50,
-            input_cost_per_million=2.50,
-            output_cost_per_million=15.0,
+            input_cost_per_million=2.0,
+            output_cost_per_million=12.0,
             requests_per_minute=60,
             concurrent_requests=4,
             circuit_failure_threshold=3,
@@ -214,8 +214,8 @@ OPENAI_DESIRED_CURRENT = (
             quality_score=0.78,
             latency_score=0.80,
             privacy_score=0.50,
-            input_cost_per_million=1.0,
-            output_cost_per_million=6.0,
+            input_cost_per_million=0.20,
+            output_cost_per_million=1.20,
             requests_per_minute=60,
             concurrent_requests=4,
             circuit_failure_threshold=3,

@@ -46,12 +46,10 @@ from app.core.config import settings
 from app.services.three_d_project_delivery import ThreeDWebDeliveryBuilder, ThreeDProjectDeliveryError
 
 MODEL_PRICING: dict[str, tuple[float, float]] = {
-    "gpt-5-mini": (0.25, 2.00),
-    "gpt-5-mini-2025-08-07": (0.25, 2.00),
+    "gpt-5.6-luna": (0.20, 1.20),
 }
 RESEARCH_MODEL_PRICING: dict[str, tuple[float, float]] = {
-    "gpt-5.4-nano": (0.20, 1.25),
-    "gpt-5.4-nano-2026-03-17": (0.20, 1.25),
+    "gpt-5.6-luna": (0.20, 1.20),
 }
 _EXECUTION_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 
@@ -394,7 +392,11 @@ class ProjectPlanningRunner:
             raise ProjectExecutionConfigurationError(
                 "project research model is not in the fixed allowlist"
             )
-        planning_model = "gpt-5-mini"
+        planning_model = settings.PROJECT_EXECUTION_LEGACY_MODEL.strip()
+        if planning_model not in MODEL_PRICING:
+            raise ProjectExecutionConfigurationError(
+                "legacy project execution model is not in the current-model allowlist"
+            )
         planning_prices = MODEL_PRICING[planning_model]
         research_prices = RESEARCH_MODEL_PRICING[self.research_model]
         planning_worst_case = 6 * (

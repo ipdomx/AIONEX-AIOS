@@ -8,6 +8,7 @@ import pytest
 from app.services.project_ai_launch_models import (
     FREE_OLLAMA_GEMMA3,
     LAUNCH_ENABLED_MODELS,
+    LAUNCH_MODEL_POLICY_VERSION,
     OPENAI_DESIRED_CURRENT,
     PAID_DEEPSEEK_V4_PRO,
     PAID_MISTRAL_MEDIUM_35,
@@ -60,6 +61,14 @@ def test_reviewed_specs_match_current_provider_capability_and_pricing_policy() -
     assert PAID_DEEPSEEK_V4_PRO.spec.output_cost_per_million == 0.87
     assert FREE_OLLAMA_GEMMA3.spec.max_context_tokens == 128_000
     assert FREE_OLLAMA_GEMMA3.spec.supports_tools is False
+    assert LAUNCH_MODEL_POLICY_VERSION == "phase36c-launch100-model-policy-v2"
+    openai = {item.model: item for item in OPENAI_DESIRED_CURRENT}
+    assert openai["gpt-5.6-sol"].spec.input_cost_per_million == 5.0
+    assert openai["gpt-5.6-sol"].spec.output_cost_per_million == 30.0
+    assert openai["gpt-5.6-terra"].spec.input_cost_per_million == 2.0
+    assert openai["gpt-5.6-terra"].spec.output_cost_per_million == 12.0
+    assert openai["gpt-5.6-luna"].spec.input_cost_per_million == 0.20
+    assert openai["gpt-5.6-luna"].spec.output_cost_per_million == 1.20
 
 
 def test_fresh_inventory_can_validate_launch_models_but_absent_model_fails_closed() -> None:

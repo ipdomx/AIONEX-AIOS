@@ -222,6 +222,28 @@ async def start_project_execution(
     if not settings.PROJECT_EXECUTION_ENABLED:
         raise HTTPException(status_code=503, detail="Project execution is disabled")
     provider_neutral = data.mode == "provider_neutral"
+    free_consumer = (
+        actor.organization_plan.strip().lower() == "free"
+        or actor.role.strip().lower() == "free user"
+    )
+    if (
+        not provider_neutral
+        and free_consumer
+        and (
+            settings.PROJECT_EXECUTION_RUNNER_MODE != "phase36c"
+            or not settings.PROJECT_AI_LIVE_RUNTIME_ENABLED
+        )
+    ):
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "FREE_PROJECT_AI_REQUIRES_LIVE_LOCAL_RUNTIME",
+                "message": (
+                    "Free project generation remains paused until the local/free "
+                    "Phase 36C runtime is explicitly armed."
+                ),
+            },
+        )
     if not provider_neutral and data.confirm_external_processing is not True:
         raise HTTPException(
             status_code=422,
