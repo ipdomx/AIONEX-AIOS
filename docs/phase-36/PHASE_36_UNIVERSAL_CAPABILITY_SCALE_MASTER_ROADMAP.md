@@ -808,3 +808,11 @@ Protected source merge first. After merge, stop before Production activation. Th
 ### 36C pre-production activation safe stop
 
 Source integration is merged and Production remains stable on the previous accepted runtime. Stop here before any activation. On resumption, first establish a fresh Production backup plus restore smoke and explicit rollback/runner-selection boundary; only after those gates may migration `0029` and controlled provider-specific live acceptance be considered.
+
+### 36C integration merge-evidence protected closeout — 2026-08-17
+
+- Merge-evidence PR #402 merged into `main` as `91fe417956c047dd68958d3400d89230abc1f434` after every required protected check passed, including Backend Tests, Production Docker Build, Browser boundaries, Frontend Build, CodeQL, repository secret/hygiene, SBOM, Dependency Security, Core contracts and Phase 36 Reporting.
+- Final read-only Production safety snapshot after the source/report merges: Backend, both same-host Project Workers, PostgreSQL and Redis are healthy; Production Alembic remains `20260817_0028`; active ProjectExecution jobs are `0`; the running Backend still reports `current_batch=36C`.
+- Capability maturity remains deliberately bounded at `multi-provider-project-routing=locally_executed` and `tenant-agent-memory-isolation=locally_executed`. No `runtime_verified` claim is made because migration `0029` and the deterministic multi-provider runner are not activated in Production.
+- No backup, migration, build, service restart, provider credential read, live provider request or provider spend is performed in this checkpoint.
+- Safe handoff: begin the next session from merged `main` only after recording this checkpoint branch. First establish a fresh Production backup plus disposable restore smoke and an explicit opt-in runner/rollback boundary. Do not apply migration `0029` or make a live provider call before those gates are green and reported.
