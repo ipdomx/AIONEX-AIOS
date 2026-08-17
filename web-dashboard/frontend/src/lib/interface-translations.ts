@@ -1384,6 +1384,8 @@ const AR: Catalog = {
   "Production runtime synchronized.": "تمت مزامنة تشغيل الإنتاج.",
   "Production runtime and project execution fabric synchronized.":
     "تمت مزامنة تشغيل الإنتاج ونسيج تنفيذ المشروعات.",
+  "Production runtime synchronized; project execution fabric is temporarily unavailable.":
+    "تمت مزامنة تشغيل الإنتاج، بينما نسيج تنفيذ المشروعات غير متاح مؤقتًا.",
   "Distributed project execution fabric": "نسيج تنفيذ المشروعات الموزع",
   "PostgreSQL durable queue, worker membership, retries and saturation.":
     "قائمة انتظار دائمة عبر PostgreSQL، وعضوية العمال، وإعادات المحاولة، ومؤشرات التشبع.",

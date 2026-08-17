@@ -595,8 +595,24 @@ Append entries below in chronological order. Do not delete historical problems a
 - Backend quality: dependency `pip check` PASS; Ruff PASS; Mypy PASS across `179` source files; backend verification PASS.
 - Migration rollback evidence: `20260817_0028 -> 20260816_0027 -> 20260817_0028`; worker table/fencing column absent after downgrade and restored after upgrade.
 - Project Worker candidate: healthcheck PASS under the real Compose mount/PYTHONPATH contract; SQLAlchemy `2.0.51`, Alembic `1.18.5`, Selenium `4.46.0`, Node `24.18.1`, npm `11.11.0`, Chromium/ChromeDriver `149.0.7827.53`.
-- Owner frontend: TypeScript PASS; Arabic coverage `926` translatable strings / `5` approved technical tokens; lint PASS; production build `86/86` pages; dependency audit `0 vulnerabilities`.
+- Owner frontend: TypeScript PASS; Arabic coverage `927` translatable strings / `5` approved technical tokens; lint PASS; production build `86/86` pages; dependency audit `0 vulnerabilities`.
 - VIP frontend regression: TypeScript PASS; lint PASS; production build `115/115` pages; dependency audit `0 vulnerabilities`.
 - Repository security: fail-closed secret/production audit PASS; repository hygiene audit PASS; merge-marker scan PASS; `git diff --check` PASS; Phase 36 reporting invariant PASS.
 - Production mutation during this evidence run: **none**. Migration `0028`, new API pooling and distributed project workers have not yet been applied to production.
 - Remaining external/rollout gates: protected GitHub PR checks; production backup/deploy/rollback/live acceptance; real multi-host worker activation still requires proven RWX/shared evidence storage (or the Phase 36D object-store backend) and actual cluster hosts/capacity.
+
+### P36-0006 — Owner production-runtime UI coupled core readiness to optional fabric metrics — 2026-08-17
+
+- Batch: 36B.
+- Environment: protected GitHub Browser E2E for PR #389; production untouched.
+- Symptom: the authenticated Owner production-runtime test could not find the retained `Public origin` contract after the new project-execution-fabric request failed to resolve the CI-only `backend` hostname. The suite result was `9 passed, 1 failed`.
+- User impact: no production mutation occurred, but the UI implementation could have hidden otherwise valid production-runtime readiness data during a rolling deployment or transient failure of only the new fabric metrics endpoint.
+- Detection/reproduction: PR #389 Browser E2E run `31986864145`, job `95263272121`; Next proxy logged `EAI_AGAIN backend` for `/owner/production-runtime/project-execution-fabric`, and the Owner test timed out waiting for `Public origin: https://vip-e.net`.
+- Root cause: the Owner page loaded the established production-runtime snapshot and the new supplemental fabric snapshot in one `Promise.all`. Failure of either request reset both snapshots.
+- Why prior safeguards missed it: local frontend type/lint/build gates verify compile-time integrity, while the pre-36B browser fixture mocked only the established production-runtime endpoint. The new secondary runtime dependency had no degraded-path browser contract yet.
+- Fix: make the established production-runtime snapshot the required request and load fabric metrics as an independently degradable secondary request. Extend Browser E2E to mock and assert the fabric card, and add a separate `503` fabric regression proving core production-runtime origins remain visible.
+- Security/tenant review: both endpoints remain Super Owner protected; no authorization is relaxed. The change only prevents a supplemental metrics outage from erasing already-authorized core readiness data.
+- Regression prevention: Browser E2E must pass both the normal fabric rendering path and the degraded-fabric/core-runtime-preservation path.
+- Rollout/rollback: no production rollout occurred; fix remains on PR #389.
+- Residual risk: local regression is closed with `11/11` Browser E2E PASS, including normal fabric rendering and degraded-fabric/core-runtime preservation. The protected GitHub rerun remains required before merge.
+- Local fix evidence: Owner TypeScript PASS; lint PASS; Arabic coverage `927/5`; production build `86/86`; Browser E2E `11/11 passed` in `8.4s`.

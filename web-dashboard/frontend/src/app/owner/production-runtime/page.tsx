@@ -68,15 +68,24 @@ export default function OwnerProductionRuntimePage() {
   async function load(signal?: AbortSignal) {
     setLoading(true);
     try {
-      const [data, fabricData] = await Promise.all([
-        fetchProductionRuntime(signal),
-        fetchProjectExecutionFabric(signal),
-      ]);
+      const data = await fetchProductionRuntime(signal);
+      if (signal?.aborted) return;
       setSnapshot(data);
-      setFabric(fabricData);
-      setMessage(
-        "Production runtime and project execution fabric synchronized.",
-      );
+
+      try {
+        const fabricData = await fetchProjectExecutionFabric(signal);
+        if (signal?.aborted) return;
+        setFabric(fabricData);
+        setMessage(
+          "Production runtime and project execution fabric synchronized.",
+        );
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setFabric(emptyFabric);
+        setMessage(
+          "Production runtime synchronized; project execution fabric is temporarily unavailable.",
+        );
+      }
     } catch (error) {
       if (!(error instanceof DOMException && error.name === "AbortError")) {
         setSnapshot(emptySnapshot);
