@@ -409,7 +409,7 @@ class ReleasingInvoker(RecordingInvoker):
 
 def test_default_project_worker_remains_on_the_existing_planning_runner() -> None:
     source = (ROOT / "app/services/project_execution_worker.py").read_text()
-    assert "runner or ProjectPlanningRunner()" in source
+    assert "runner or resolve_project_execution_runner()" in source
     assert "DeterministicProjectAIIntegrationRunner" not in source
 
 
