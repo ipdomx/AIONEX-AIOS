@@ -773,6 +773,8 @@ The baseline/inventory/technology/security gate is now merged and closed. Stop h
 - P36-0012 status: **closed for source routing authority / live evidence pending**; placeholder/static catalog models are not accepted by the durable resolver, but real provider-specific validated model evidence must still be populated and live-verified before production routing.
 - Maturity remains truthful: `multi-provider-project-routing=source_built` and `tenant-agent-memory-isolation=source_built`; no `locally_executed` maturity is claimed until ProjectExecution itself consumes this authority in an integrated deterministic cycle.
 
-### 36C durable-authority next safe transition
+### 36C durable-authority protected merge / next safe transition
 
-Durable-authority PR #398 is open; protected source merge first and only after every required check is green. After merge, implement the organization-scoped memory adapter and connect ProjectExecution to the durable route authority behind a rollback-compatible feature boundary using deterministic fake providers only. Before any production migration or live provider request, create a fresh backup/restore gate and prove integrated two-Worker isolation/fallback/budget behavior.
+- Durable-authority PR #398 merged into `main` as `789b63c215f4ceeb613d13f08b707e9465536d39` after every required protected check passed, including Backend Tests, Production Docker Build, Browser boundaries, Frontend Build, CodeQL, repository secret/hygiene, SBOM, Dependency Security, Core contracts and Phase 36 Reporting.
+- Production remains unchanged by this merge: schema `0029` is source-only/disposable evidence; live Production remains on schema `0028`, the accepted OpenAI ProjectExecution path remains active, and no provider call/spend or service restart is performed.
+- Next safe implementation boundary: organization-scoped memory adapter + rollback-compatible ProjectExecution integration with deterministic fake providers. Before any production migration or live provider request, create a fresh backup/restore gate and prove integrated two-Worker tenant isolation, fallback, shared budget and failure behavior.
