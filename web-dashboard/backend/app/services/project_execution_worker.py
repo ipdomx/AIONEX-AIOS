@@ -172,11 +172,15 @@ def resolve_project_execution_runner(
     if selected == "legacy":
         return ProjectPlanningRunner()
     if selected == "phase36c":
-        if phase36c_runner is None:
+        if phase36c_runner is not None:
+            return phase36c_runner
+        if not settings.PROJECT_AI_LIVE_RUNTIME_ENABLED:
             raise ProjectExecutionConfigurationError(
-                "phase36c ProjectExecution runner requires explicit validated runtime injection"
+                "phase36c ProjectExecution runner requires the live-runtime arm gate"
             )
-        return phase36c_runner
+        from app.services.project_ai_live_runtime import build_live_project_ai_runner
+
+        return build_live_project_ai_runner()
     raise ProjectExecutionConfigurationError(
         f"unsupported ProjectExecution runner mode: {selected or 'empty'}"
     )

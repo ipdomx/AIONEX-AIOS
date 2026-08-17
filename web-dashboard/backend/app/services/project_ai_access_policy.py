@@ -196,6 +196,7 @@ async def resolve_project_ai_access(
         allowed_providers=providers,
         allowed_provider_models=model_keys,
         provider_scope_organization_id=settings.PROJECT_AI_PLATFORM_PROVIDER_ORGANIZATION_ID,
+        max_fallbacks=int(selected["max_fallbacks"]),
         offline_only=bool(selected["offline_only"]),
         privacy_mode=bool(selected["privacy_mode"]),
         max_total_estimated_cost_usd=float(selected["max_project_cost_usd"]),

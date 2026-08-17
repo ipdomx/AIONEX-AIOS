@@ -256,6 +256,7 @@ services:
       PROJECT_EXECUTION_WEB_SEARCH_COST_USD: "0.01"
       PROJECT_EXECUTION_RESEARCH_MODEL: "gpt-5.4-nano"
       PROJECT_EXECUTION_RUNNER_MODE: legacy
+      PROJECT_AI_LIVE_RUNTIME_ENABLED: "false"
       PROJECT_EXECUTION_NPM_CACHE: /var/lib/aionex/project-npm-cache
     command: ["python", "-m", "app.services.project_execution_worker"]
     restart: unless-stopped

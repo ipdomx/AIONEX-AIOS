@@ -62,6 +62,7 @@ class ProjectAIInvocation:
     provider_id: str
     provider: str
     model: str
+    evidence_ref: str
     prompt: str = field(repr=False)
     system_prompt: str = field(default="", repr=False)
     memory: tuple[dict[str, Any], ...] = ()
@@ -105,9 +106,16 @@ class ProjectAIInvocationFailure(RuntimeError):
 
 
 ProjectAIInvoker = Callable[[ProjectAIInvocation], Awaitable[ProjectAIInvocationResult]]
-ProjectAIPolicyResolver = Callable[[ProjectAIScope], ProjectAIProviderPolicy]
+ProjectAIPolicyResolver = Callable[
+    [ProjectAIScope],
+    ProjectAIProviderPolicy | Awaitable[ProjectAIProviderPolicy],
+]
 ProjectAITaskFactory = Callable[
     [str, str],
+    tuple[ProjectAITaskSpec, ...],
+]
+ProjectAIPolicyTaskFactory = Callable[
+    [str, str, ProjectAIProviderPolicy],
     tuple[ProjectAITaskSpec, ...],
 ]
 
@@ -344,19 +352,23 @@ class DeterministicProjectAIIntegrationRunner:
         session_factory: async_sessionmaker[AsyncSession],
         redis_url: str,
         policy_resolver: ProjectAIPolicyResolver,
-        invokers: Mapping[tuple[str, str], ProjectAIInvoker],
+        invokers: Mapping[tuple[str, str], ProjectAIInvoker] | None = None,
+        default_invoker: ProjectAIInvoker | None = None,
         task_factory: ProjectAITaskFactory = default_project_ai_tasks,
+        policy_task_factory: ProjectAIPolicyTaskFactory | None = None,
         redis_key_prefix: str = "aionex:project-ai:integration:v1",
     ) -> None:
         self.session_factory = session_factory
         self.redis_url = str(redis_url or "").strip()
         self.policy_resolver = policy_resolver
-        self.invokers = dict(invokers)
+        self.invokers = dict(invokers or {})
+        self.default_invoker = default_invoker
         self.task_factory = task_factory
+        self.policy_task_factory = policy_task_factory
         self.redis_key_prefix = str(redis_key_prefix or "").strip()
         if not self.redis_url or not self.redis_key_prefix:
             raise ValueError("deterministic Project AI Redis configuration is required")
-        if not self.invokers:
+        if not self.invokers and self.default_invoker is None:
             raise ValueError("at least one deterministic Project AI invoker is required")
 
     def run(
@@ -415,10 +427,19 @@ class DeterministicProjectAIIntegrationRunner:
             requested_by_id=requested_by_id,
             project_id=project_id,
         )
-        tasks = self.task_factory(project_name, objective)
+        resolved_policy = self.policy_resolver(scope)
+        policy = (
+            resolved_policy
+            if isinstance(resolved_policy, ProjectAIProviderPolicy)
+            else await resolved_policy
+        )
+        tasks = (
+            self.policy_task_factory(project_name, objective, policy)
+            if self.policy_task_factory is not None
+            else self.task_factory(project_name, objective)
+        )
         if not tasks:
             raise ProjectAIIntegrationError("deterministic Project AI task graph is empty")
-        policy = self.policy_resolver(scope)
         memory = ProjectAIProjectMemoryAdapter(self.session_factory)
         await memory.verify_scope(scope, requested_by_id=requested_by_id)
 
@@ -483,7 +504,9 @@ class DeterministicProjectAIIntegrationRunner:
                             f"no approved route is currently available for task {spec.task_id}"
                         ) from exc
 
-                    invoker = self.invokers.get((permit.provider_type, permit.model))
+                    invoker = self.invokers.get(
+                        (permit.provider_type, permit.model)
+                    ) or self.default_invoker
                     requests_count += 1
                     invocation = ProjectAIInvocation(
                         scope=scope,
@@ -493,6 +516,9 @@ class DeterministicProjectAIIntegrationRunner:
                         provider_id=permit.provider_id,
                         provider=permit.provider_type,
                         model=permit.model,
+                        evidence_ref=str(
+                            route.candidates[candidate_index].get("evidence_ref") or ""
+                        ),
                         prompt=spec.prompt,
                         system_prompt=spec.system_prompt,
                         memory=remembered,

@@ -918,6 +918,14 @@ Create an explicit reviewed initial model policy from the fresh inventories and 
 - Test findings before final Full Backend rerun: Launch/finance focused contracts pass, Owner route contract was updated, and a Launch test fixture that left a queued `ProjectExecution` polluted later Worker tests. The fixture was converted to completed evidence state; focused rerun on a fresh disposable DB proved the old Worker tests and Launch/finance contracts pass. Final fresh Full Backend rerun remains required before this foundation is protected/merged.
 - Maturity remains unchanged at `locally_executed`; Production remains Alembic `0029`, Project Workers remain `legacy`, and no multi-provider ProjectExecution activation is claimed.
 
+### 36C Launch-100 PR #409 correction / current-model policy checkpoint — 2026-08-17
+
+- PR #409 exposed one stale Owner navigation source contract after `/owner/project-ai` increased Owner pages from 46 to 47. The contract was corrected and passes locally.
+- Fresh isolated Full Backend after the correction: `691 passed, 1 skipped, 0 failed` in `177.46s`.
+- Current launch-model evidence now combines reviewed official policy with credential-specific inventory existence: OpenAI GPT-5.6 Sol/Terra/Luna, Mistral Medium 3.5 and DeepSeek V4 Pro are present in retained live inventories. Static aliases/history remain prohibited as routing evidence.
+- Focused launch-model/access/integration/navigation regression: `19/19 PASS`; model-policy tests `4/4 PASS`; focused Ruff/Mypy PASS.
+- Production remains untouched by this checkpoint: Alembic `0029`, Project Workers `legacy`; no validated-model persistence and no Phase36C runner activation.
+
 ### 36C Launch-100 remaining gates
 
 1. Protect/merge Launch access, Owner policy and provider-finance source after fresh Full Backend + frontend/owner UI gates.

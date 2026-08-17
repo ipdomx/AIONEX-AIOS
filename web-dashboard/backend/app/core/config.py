@@ -167,6 +167,10 @@ class Settings(BaseSettings):
         pattern=r"^(legacy|phase36c)$",
         validation_alias="PROJECT_EXECUTION_RUNNER_MODE",
     )
+    PROJECT_AI_LIVE_RUNTIME_ENABLED: bool = Field(
+        default=False,
+        validation_alias="PROJECT_AI_LIVE_RUNTIME_ENABLED",
+    )
     PROJECT_AI_PLATFORM_PROVIDER_ORGANIZATION_ID: str = Field(
         default="aionex-org",
         min_length=1,

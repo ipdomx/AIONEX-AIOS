@@ -32,11 +32,12 @@ def test_runner_selector_defaults_to_legacy_and_worker_uses_it(monkeypatch) -> N
     assert isinstance(worker.runner, ProjectPlanningRunner)
 
 
-def test_phase36c_mode_fails_closed_without_explicit_runtime_injection(monkeypatch) -> None:
+def test_phase36c_mode_fails_closed_without_live_runtime_arm(monkeypatch) -> None:
     monkeypatch.setattr(settings, "PROJECT_EXECUTION_RUNNER_MODE", "phase36c")
-    with pytest.raises(ProjectExecutionConfigurationError, match="explicit validated runtime injection"):
+    monkeypatch.setattr(settings, "PROJECT_AI_LIVE_RUNTIME_ENABLED", False)
+    with pytest.raises(ProjectExecutionConfigurationError, match="live-runtime arm gate"):
         resolve_project_execution_runner()
-    with pytest.raises(ProjectExecutionConfigurationError, match="explicit validated runtime injection"):
+    with pytest.raises(ProjectExecutionConfigurationError, match="live-runtime arm gate"):
         ProjectExecutionWorker()
 
 
@@ -61,3 +62,4 @@ def test_production_compose_pins_legacy_runner_in_both_sources() -> None:
         text = (ROOT / relative).read_text(encoding="utf-8")
         assert "PROJECT_EXECUTION_RUNNER_MODE: legacy" in text
         assert "PROJECT_EXECUTION_RUNNER_MODE: phase36c" not in text
+        assert 'PROJECT_AI_LIVE_RUNTIME_ENABLED: "false"' in text
