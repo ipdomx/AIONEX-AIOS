@@ -252,6 +252,9 @@ jobs:
           from pathlib import Path
           payload = json.loads(Path("diagnostics/media-worker-smoke.json").read_text())
           assert payload["preflight"]["version"] == "9.0"
+          compiled = set(payload["preflight"]["compiled_hardware_adapters"])
+          assert {"vaapi", "qsv"} <= compiled
+          assert payload["preflight"]["hardware_adapters"] == ["software"]
           assert payload["final"]["size_bytes"] > 0
           assert payload["av1"]["size_bytes"] > 0
           assert payload["image"]["size_bytes"] > 0

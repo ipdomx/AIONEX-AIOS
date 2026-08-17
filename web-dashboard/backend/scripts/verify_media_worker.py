@@ -110,8 +110,11 @@ def main() -> int:
         if not any(
             item.get("codec_type") == "video" and item.get("codec_name") == "av1"
             for item in av1_streams
+        ) or not any(
+            item.get("codec_type") == "audio" and item.get("codec_name") == "opus"
+            for item in av1_streams
         ):
-            raise RuntimeError("AV1 render is not probeable as AV1")
+            raise RuntimeError("AV1 WebM render is not AV1/Opus")
         if not any(
             item.get("codec_type") == "video" and item.get("codec_name") == "png"
             for item in image_streams
