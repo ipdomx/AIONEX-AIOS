@@ -3,6 +3,55 @@ import type { SupportedLocale } from "@/lib/locale-engine";
 type Catalog = Record<string, string>;
 
 const AR: Catalog = {
+  "Project AI": "ذكاء المشروعات",
+  "Project AI launch policy synchronized.":
+    "تمت مزامنة سياسة إطلاق ذكاء المشروعات.",
+  "Project AI launch policy synchronization failed.":
+    "فشلت مزامنة سياسة إطلاق ذكاء المشروعات.",
+  "Project AI plan policy update failed.":
+    "فشل تحديث سياسة خطة ذكاء المشروعات.",
+  "User Project AI override saved.": "تم حفظ تجاوز ذكاء المشروعات للمستخدم.",
+  "User Project AI override update failed.":
+    "فشل تحديث تجاوز ذكاء المشروعات للمستخدم.",
+  "User override cleared; plan default restored.":
+    "تم مسح تجاوز المستخدم واستعادة الإعداد الافتراضي للخطة.",
+  "User override could not be cleared.": "تعذر مسح تجاوز المستخدم.",
+  "Provider credit policy saved and monitoring baseline reset.":
+    "تم حفظ سياسة رصيد المزود وإعادة ضبط خط أساس المراقبة.",
+  "Provider credit policy update failed.": "فشل تحديث سياسة رصيد المزود.",
+  "Free users": "المستخدمون المجانيون",
+  "Paid users": "المستخدمون المدفوعون",
+  "Local/free providers only. External provider spend stays blocked.":
+    "المزودون المحليون/المجانيون فقط. يظل الإنفاق على المزودات الخارجية محظورًا.",
+  "Only Owner-approved models with current validated evidence can route.":
+    "لا يمكن التوجيه إلا إلى النماذج التي اعتمدها المالك ولها دليل تحقق حالي.",
+  "No validated": "لا يوجد نموذج متحقق",
+  "model is available yet. Routing remains fail-closed.":
+    "متاح حتى الآن. يظل التوجيه مغلقًا افتراضيًا.",
+  "Awaiting fresh provider evidence:": "بانتظار دليل حديث من المزود:",
+  "Maximum project provider cost (USD)":
+    "الحد الأقصى لتكلفة مزود المشروع (دولار)",
+  "Project AI Launch Control": "تحكم إطلاق ذكاء المشروعات",
+  "100-user launch routing": "توجيه إطلاق 100 مستخدم",
+  "Control Free/Paid provider access, user overrides, validated models, and provider credit alerts without exposing provider credentials.":
+    "تحكم في وصول المجاني والمدفوع وتجاوزات المستخدمين والنماذج المتحققة وتنبيهات رصيد المزود دون كشف بيانات اعتماد المزود.",
+  "Launch admission target": "هدف قبول الإطلاق",
+  "Platform providers": "مزودو المنصة",
+  "Validated models": "النماذج المتحققة",
+  "Credit monitors configured": "مراقبات الرصيد المضبوطة",
+  "User override": "تجاوز المستخدم",
+  "Access class": "فئة الوصول",
+  "Save override": "حفظ التجاوز",
+  "Use plan default": "استخدام افتراضي الخطة",
+  "Owner override active": "تجاوز المالك نشط",
+  "Plan default": "افتراضي الخطة",
+  "Provider credit monitoring": "مراقبة رصيد المزود",
+  "Record funded credit and alert thresholds. Actual Project-AI spend is deducted from the recorded baseline.":
+    "سجل الرصيد الممول وحدود التنبيه. يُخصم الإنفاق الفعلي لذكاء المشروعات من خط الأساس المسجل.",
+  "validated models ·": "نماذج متحققة ·",
+  "estimated remaining": "المتبقي التقديري",
+  "Save credit policy": "حفظ سياسة الرصيد",
+  "Project AI policy saved.": "تم حفظ سياسة ذكاء المشروعات.",
   "Loading current live-plan and execution state…":
     "جارٍ تحميل حالة الخطة الحية والتنفيذ الحالية…",
   "Live-plan sources and execution state refreshed.":

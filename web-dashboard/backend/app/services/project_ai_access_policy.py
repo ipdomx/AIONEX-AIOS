@@ -347,6 +347,42 @@ async def project_ai_access_owner_snapshot(session: AsyncSession) -> dict[str, A
             )
         ).all()
     )
+    overrides_by_user = {
+        row.resource_id: _normalize_payload(dict(row.payload or {})) for row in overrides
+    }
+    user_rows = list(
+        (
+            await session.execute(
+                select(User, Organization.name, Organization.plan, BillingPlan.code)
+                .join(Organization, Organization.id == User.organization_id)
+                .outerjoin(
+                    BillingAccount, BillingAccount.organization_id == User.organization_id
+                )
+                .outerjoin(BillingPlan, BillingPlan.id == BillingAccount.plan_id)
+                .where(
+                    User.deleted_at.is_(None),
+                    User.status.in_({"active", "online"}),
+                )
+                .order_by(User.email.asc(), User.id.asc())
+                .limit(1000)
+            )
+        ).all()
+    )
+    users: list[dict[str, Any]] = []
+    for user, organization_name, organization_plan, billing_plan_code in user_rows:
+        plan_code = str(billing_plan_code or organization_plan or "").strip().lower()
+        users.append(
+            {
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "organization_id": user.organization_id,
+                "organization_name": organization_name,
+                "plan": plan_code,
+                "access_class": PLAN_FREE if plan_code == PLAN_FREE else PLAN_PAID,
+                "override_active": user.id in overrides_by_user,
+            }
+        )
     return {
         "platform_provider_organization_id": platform_org_id,
         "plan_policies": {
@@ -354,8 +390,9 @@ async def project_ai_access_owner_snapshot(session: AsyncSession) -> dict[str, A
             PLAN_PAID: await get_plan_policy(session, PLAN_PAID),
         },
         "user_overrides": [
-            {"user_id": row.resource_id, "policy": _normalize_payload(dict(row.payload or {}))}
-            for row in overrides
+            {"user_id": user_id, "policy": policy}
+            for user_id, policy in sorted(overrides_by_user.items())
         ],
+        "users": users,
         "providers": provider_rows,
     }

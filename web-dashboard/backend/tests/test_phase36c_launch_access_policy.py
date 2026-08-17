@@ -15,6 +15,7 @@ from app.services.project_ai_access_policy import (
     ProjectAIAccessPolicyError,
     default_plan_policy,
     resolve_project_ai_access,
+    project_ai_access_owner_snapshot,
 )
 
 
@@ -342,3 +343,24 @@ def test_owner_project_ai_policy_routes_are_materialized_in_public_api_router() 
         ("PUT", "/api/v1/owner/project-ai/providers/{provider_id}/finance"),
     }
     assert expected <= routes
+
+@pytest.mark.asyncio
+async def test_owner_snapshot_lists_safe_managed_users_without_credentials() -> None:
+    org_id, user_id = await _seed_consumer(plan_code="free")
+    async with SessionLocal() as session:
+        snapshot = await project_ai_access_owner_snapshot(session)
+    user = next(item for item in snapshot["users"] if item["id"] == user_id)
+    assert user["organization_id"] == org_id
+    assert user["access_class"] == "free"
+    assert set(user) == {
+        "id",
+        "name",
+        "email",
+        "organization_id",
+        "organization_name",
+        "plan",
+        "access_class",
+        "override_active",
+    }
+    assert "password_hash" not in user
+    assert "credential" not in user

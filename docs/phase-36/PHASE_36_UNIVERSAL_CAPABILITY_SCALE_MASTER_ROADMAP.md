@@ -927,3 +927,11 @@ Create an explicit reviewed initial model policy from the fresh inventories and 
 5. Prove Owner provider credit/low-balance alerts end-to-end through the configured Owner notification channels and prove 402/429/billing failures generate deduped escalation.
 6. Prove Launch-100 with at least 100 isolated user/tenant project submissions, no loss/duplication, fair queueing, correct Free/Paid/User routing policy, bounded provider concurrency/budget/circuit behavior and no cross-tenant memory/provider access.
 7. Execute controlled Production Phase36C canary, then two-Worker live route/fallback/memory acceptance. Only after these are green may `PROJECT_EXECUTION_RUNNER_MODE=phase36c` be considered for the launch population and maturity advance to `runtime_verified`.
+
+### 36C Launch-100 Owner control UI checkpoint — 2026-08-17
+
+- Owner Project-AI snapshot now includes up to 1000 active managed users with only safe display fields: user id/name/email, organization id/name, effective plan/access class and override-active flag. Password hashes, provider credentials and secret fields are never returned.
+- New Owner page `/owner/project-ai` is wired into Owner navigation and the Owner dashboard. It controls Free/Paid plan policy, per-user override, safe validated model selection and provider funded-credit/low/critical thresholds. The UI does not accept arbitrary live model IDs; selection is limited to backend-returned validated models, while desired-but-not-yet-validated policy entries are shown as awaiting evidence.
+- Frontend verification: TypeScript PASS, ESLint PASS, Owner Arabic coverage PASS with `963` translatable strings and `5` approved technical tokens, Prettier PASS, production Next.js build PASS with `87/87` static pages including `/owner/project-ai`.
+- Backend/UI contract verification after safe-user snapshot: Launch/finance contracts `13/13 PASS`; Owner route registration and client-to-route coverage PASS.
+- Production remains untouched by this UI checkpoint: Alembic `0029`, Project Workers remain `legacy`; no provider-model evidence persistence, runner activation or provider spend occurs.

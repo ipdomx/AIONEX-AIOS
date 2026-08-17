@@ -272,6 +272,14 @@ export const ownerNavigationSections: OwnerNavigationSection[] = [
         icon: Network,
       },
       {
+        id: "owner-project-ai",
+        label: "Project AI Launch",
+        description:
+          "Free/paid provider policy, user overrides, model evidence, and provider credit alerts.",
+        href: "/owner/project-ai",
+        icon: UserCog,
+      },
+      {
         id: "owner-secrets",
         label: "Secrets & Keys",
         description: "Masked credentials, rotation, revocation, and scope.",
