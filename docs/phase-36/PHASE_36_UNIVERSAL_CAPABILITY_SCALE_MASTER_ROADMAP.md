@@ -659,3 +659,26 @@ Append entries below in chronological order. Do not delete historical problems a
 - Security review: no credential value is added to source; Compose expands existing required environment variables inside the container.
 - Regression prevention: production Compose tests must assert explicit user/database healthcheck arguments and reject the root-default form.
 - Production rollback/activation boundary: no PostgreSQL runtime change is required for this source correction during the current 36B activation; production data/schema/services remain at the already-verified Phase 36B state.
+
+### 36B final closure — 2026-08-17
+
+- Protected closeout: PR #391 merged into `main` as `30881343e78ccfa4887df32417a4bda85a19af55`; all required checks passed, including Backend Tests, Production Docker Build, Browser boundaries, Frontend Build, CodeQL, repository secret/hygiene, SBOM, dependency security and Phase 36 reporting.
+- Production acceptance retained: Alembic `20260817_0028`; Backend healthy with bounded async pool `12+2` under budget `60`; Redis admission `18/14/48`; two same-host healthy Project Worker replicas with aggregate capacity `4`; live queue/retry/DLQ/running all `0`; Worker stop/rejoin drill passed; API `/ready` `20/20` HTTP 200 with `p95=0.1457s`.
+- Data/rollback evidence retained: fresh pre-activation backup SHA-256 PASS and disposable restore smoke PASS; one pre-existing project execution remained `completed`; no active project execution was interrupted during migration/rebuild/scale.
+- Maturity boundary remains truthful: `distributed-project-execution=runtime_verified`, `horizontal-worker-scaling=runtime_verified`, `thousand-user-admission=locally_executed`. No `scaled` or `production_ready` maturity is claimed without the corresponding multi-host/final-certification evidence.
+- External gate retained: real multi-host Project Worker activation still requires RWX/shared evidence storage or an object-store evidence backend plus actual hosts/capacity; broad mixed-workload 1000+ chaos/DR certification remains owned by 36N.
+- Program transition: Batch `36B` is now `complete`; Batch `36C` becomes `in_progress` and the authoritative `current_batch` is `36C`. This closure update starts no Phase 36C runtime development.
+- Safe handoff: begin 36C only from merged `main` after its own baseline/inventory/technology/security review; do not repeat the completed 36B backup, migration, rebuild, scale or load gates unless a future regression or rollback requires them.
+
+### P36-0009 — Backend Phase 36 public contract retained the previous current batch — 2026-08-17
+
+- Batch: 36B final status closure; production runtime untouched.
+- Environment: protected Backend Tests on final status-only PR #393.
+- Symptom: Backend Tests failed after the registry truthfully moved `36B` to `complete` and `36C` to `in_progress`; `web-dashboard/backend/tests/test_phase36_program_capabilities.py` still asserted `current_batch == "36B"`.
+- User impact: none; the endpoint implementation already consumes the authoritative shared Phase36 snapshot, and protected CI blocked the bookkeeping merge before an inconsistent contract test could enter `main`.
+- Root cause: the root Phase36 governance test and Backend public endpoint contract are separate regression layers; the closure update advanced the root governance expectations but missed the duplicate Backend endpoint expectation.
+- Why prior safeguards missed it: local closure validation ran all root `tests/test_phase36*.py` (`15/15 PASS`) but did not include the Backend-specific public capability contract.
+- Fix: update the Backend endpoint contract to assert `current_batch=36C`, `36B=complete`, and `36C=in_progress` while retaining the existing non-secret snapshot assertions.
+- Regression prevention: every future Phase36 batch transition must update and run both root governance tests and the Backend public capability snapshot contract before push.
+- Production/security boundary: test/report-only correction; no runtime implementation, production service, schema, secret, provider call or user workload is changed.
+- Local fix evidence: focused Backend public capability contract `1/1 PASS` in the retained Phase36B backend test image; root Phase36 and reporting gates are rerun on the same change set. PR #393 must still rerun every required protected check before merge.
