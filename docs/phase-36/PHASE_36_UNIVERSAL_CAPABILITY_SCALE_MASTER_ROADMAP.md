@@ -816,3 +816,16 @@ Source integration is merged and Production remains stable on the previous accep
 - Capability maturity remains deliberately bounded at `multi-provider-project-routing=locally_executed` and `tenant-agent-memory-isolation=locally_executed`. No `runtime_verified` claim is made because migration `0029` and the deterministic multi-provider runner are not activated in Production.
 - No backup, migration, build, service restart, provider credential read, live provider request or provider spend is performed in this checkpoint.
 - Safe handoff: begin the next session from merged `main` only after recording this checkpoint branch. First establish a fresh Production backup plus disposable restore smoke and an explicit opt-in runner/rollback boundary. Do not apply migration `0029` or make a live provider call before those gates are green and reported.
+
+### 36C production activation gate 1 — backup / restore — 2026-08-17
+
+- Pre-production checkpoint PR #403 merged into `main` as `3f49e3e9889542afb02598cb6178288191db8024` after all protected checks passed. Production still ran the accepted legacy ProjectPlanningRunner path on Alembic `20260817_0028`, with Backend/two Project Workers/PostgreSQL/Redis healthy and active ProjectExecution jobs `0`.
+- Fresh backup created outside Git at `/opt/AIOS/.deployment-backups/phase36c-production-activation/aios-20260817T115113Z.tar.gz`, size `6885750` bytes, SHA-256 `bb75913df3c38962e698fd46c886260ed8cdfaf2b0a3806b5e7d498042d8da3`. The plaintext SQL was removed by the backup script after archive creation.
+- Backup verification: sidecar checksum matched, archive paths were safe, and exactly one `aios-*.sql` entry was present.
+- Disposable restore smoke: restored into fresh PostgreSQL 16 without touching Production. Restored state matched the pre-migration Production snapshot exactly: Alembic `0028`, ProjectExecutions `1`, AI providers `15`, backup records `13`, organizations `2`. Disposable restore infrastructure was removed after verification.
+- Production remained unchanged after the smoke: schema `0028`, active ProjectExecution jobs `0`, and all core services healthy. No provider credential was read and no live provider request/spend occurred.
+- Gate result: **PASS**. Migration `0029` remains blocked until an explicit opt-in production runner/rollback boundary is merged and protected while the legacy OpenAI runner remains default.
+
+### 36C production activation gate 2 — next safe boundary
+
+Implement the production runner selector as an explicit opt-in with a fail-closed multi-provider mode and immediate rollback to the existing `ProjectPlanningRunner`. Test default-off behavior, missing/invalid configuration, schema compatibility, and deterministic injected-provider selection without live provider calls. Merge and protect that source boundary before applying migration `0029`.
