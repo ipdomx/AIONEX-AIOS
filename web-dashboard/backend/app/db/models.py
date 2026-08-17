@@ -3319,6 +3319,117 @@ class ProjectStudioAttachment(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
 
 
+# Phase 36D — Universal Creative Asset Graph and Media Orchestrator.
+
+class MediaAssetGraph(Base, TimestampMixin):
+    __tablename__ = "media_asset_graphs"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "idempotency_key", name="uq_media_graph_org_idempotency"),
+        Index("ix_media_graphs_org_status_created", "organization_id", "status", "created_at"),
+        Index("ix_media_graphs_project_created", "project_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    workspace_id: Mapped[str | None] = mapped_column(ForeignKey("workspaces.id", ondelete="SET NULL"), index=True)
+    project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id", ondelete="SET NULL"), index=True)
+    studio_job_id: Mapped[str | None] = mapped_column(ForeignKey("studio_jobs.id", ondelete="SET NULL"), index=True)
+    studio_asset_id: Mapped[str | None] = mapped_column(ForeignKey("studio_assets.id", ondelete="SET NULL"), index=True)
+    created_by_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    asset_kind: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    output_profile: Mapped[str] = mapped_column(String(80), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="planned", nullable=False, index=True)
+    graph_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    graph_checksum: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    graph_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    rights_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    provenance: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
+
+
+class MediaAssetNode(Base, TimestampMixin):
+    __tablename__ = "media_asset_nodes"
+    __table_args__ = (
+        UniqueConstraint("graph_id", "logical_key", "revision", name="uq_media_node_graph_key_revision"),
+        UniqueConstraint("graph_id", "idempotency_key", name="uq_media_node_graph_idempotency"),
+        Index("ix_media_nodes_graph_status", "graph_id", "status"),
+        Index("ix_media_nodes_org_status", "organization_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    graph_id: Mapped[str] = mapped_column(ForeignKey("media_asset_graphs.id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    logical_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    node_type: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    media_type: Mapped[str | None] = mapped_column(String(120))
+    status: Mapped[str] = mapped_column(String(32), default="planned", nullable=False, index=True)
+    storage_backend: Mapped[str | None] = mapped_column(String(32))
+    storage_key: Mapped[str | None] = mapped_column(Text)
+    checksum: Mapped[str | None] = mapped_column(String(64), index=True)
+    size_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    idempotency_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    source_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    prompt_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    rights_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    provenance: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
+    scene_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    timeline_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    operation_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class MediaAssetEdge(Base, TimestampMixin):
+    __tablename__ = "media_asset_edges"
+    __table_args__ = (
+        UniqueConstraint("graph_id", "parent_node_id", "child_node_id", "dependency_type", name="uq_media_edge_dependency"),
+        Index("ix_media_edges_graph_ordinal", "graph_id", "ordinal"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    graph_id: Mapped[str] = mapped_column(ForeignKey("media_asset_graphs.id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    parent_node_id: Mapped[str] = mapped_column(ForeignKey("media_asset_nodes.id", ondelete="CASCADE"), nullable=False, index=True)
+    child_node_id: Mapped[str] = mapped_column(ForeignKey("media_asset_nodes.id", ondelete="CASCADE"), nullable=False, index=True)
+    dependency_type: Mapped[str] = mapped_column(String(40), default="input", nullable=False)
+    ordinal: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+
+class MediaRenderStep(Base, TimestampMixin):
+    __tablename__ = "media_render_steps"
+    __table_args__ = (
+        UniqueConstraint("graph_id", "step_key", name="uq_media_render_step_graph_key"),
+        UniqueConstraint("graph_id", "idempotency_key", name="uq_media_render_step_graph_idempotency"),
+        Index("ix_media_render_steps_org_status_created", "organization_id", "status", "created_at"),
+        Index("ix_media_render_steps_graph_status", "graph_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    graph_id: Mapped[str] = mapped_column(ForeignKey("media_asset_graphs.id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    target_node_id: Mapped[str] = mapped_column(ForeignKey("media_asset_nodes.id", ondelete="CASCADE"), nullable=False, index=True)
+    step_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    operation: Mapped[str] = mapped_column(String(60), nullable=False, index=True)
+    output_profile: Mapped[str] = mapped_column(String(80), nullable=False)
+    engine: Mapped[str] = mapped_column(String(60), default="ffmpeg", nullable=False)
+    engine_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    hardware_adapter: Mapped[str] = mapped_column(String(40), default="software", nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="planned", nullable=False, index=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
+    lease_token: Mapped[str | None] = mapped_column(String(36))
+    idempotency_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    input_checksums: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    output_checksum: Mapped[str | None] = mapped_column(String(64), index=True)
+    command_hash: Mapped[str | None] = mapped_column(String(64))
+    result_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    error_code: Mapped[str | None] = mapped_column(String(120))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class ThreeDGenerationJob(Base, TimestampMixin):
     __tablename__ = "three_d_generation_jobs"
     __table_args__ = (
