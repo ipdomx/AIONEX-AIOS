@@ -10,10 +10,11 @@ async def test_phase36_public_capability_snapshot_is_truthful_and_non_secret() -
     payload = await phase36_capabilities()
     assert payload["authoritative"] is True
     assert payload["minimum_concurrent_users"] == 1000
-    assert payload["current_batch"] == "36C"
+    assert payload["current_batch"] == "36D"
     batch_statuses = {batch["batch_id"]: batch["status"] for batch in payload["batches"]}
     assert batch_statuses["36B"] == "complete"
-    assert batch_statuses["36C"] == "in_progress"
+    assert batch_statuses["36C"] == "complete"
+    assert batch_statuses["36D"] == "in_progress"
     assert payload["completion"] < 100
     assert payload["production_ready_capabilities"] < payload["total_capabilities"]
     rendered = repr(payload).lower()
