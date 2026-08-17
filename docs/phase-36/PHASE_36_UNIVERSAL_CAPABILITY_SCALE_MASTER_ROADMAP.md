@@ -892,3 +892,17 @@ Provider-model evidence source is open as PR #407; merge it only after every pro
 - Anthropic, Cohere and AWS Bedrock remain execution-evidence providers and must not be represented as model-inventory validated. No live execution belongs to this inventory gate.
 - Inventory responses may be used to prove model existence only. No model is persisted to `validated_models` until a separate explicit reviewed `ProviderModelValidationSpec` supplies tasks, capabilities, pricing, rate/concurrency limits and evidence TTL. Static catalogue aliases/scores remain prohibited as live proof.
 - Runner activation remains blocked: keep `PROJECT_EXECUTION_RUNNER_MODE=legacy`; no ProjectExecution is allowed onto the Phase36C runner during inventory probing.
+
+### 36C live provider inventory evidence — 2026-08-17
+
+- Preconditions: provider-evidence PR #407 merged as `36fcee5e001ccfc08123f1b0a6f97627229b81ef`; Production healthy on Alembic `0029`; two Project Workers explicitly `legacy`; active ProjectExecution jobs `0`; persisted validated-model providers `0`.
+- Inventory-only probes were executed sequentially and never as generation/jobs. No provider row was written, no prompt was sent and no execution/spend was requested. Evidence JSON is retained outside Git at `/opt/AIOS/.deployment-backups/phase36c-provider-inventory/`.
+- Successful current inventory counts: OpenAI `124`, Gemini `50`, OpenRouter `414`, Ollama `1` (`gemma3:4b`), Mistral `55`, xAI `12`, DeepSeek `2`, Groq `13`, Together `281`, Fireworks `24`, Hugging Face `136`. Gemini returned 50 models and explicitly no further page indicator in the live response.
+- Aggregate inventory evidence SHA-256: `71d04d52ce62f0e12d0489dca14d75ca4c03874214b7785ed3b826ec63b1b3cb`. Per-provider evidence refs and file hashes are retained in `inventory-summary.json` outside Git.
+- Intentional exclusions: Anthropic, Cohere and AWS Bedrock require bounded execution evidence instead of an inventory claim; Azure OpenAI is configured but not connected and was not probed.
+- Drift evidence already observed: historical completed Groq job model `llama-3.1-8b-instant` is not in the current Groq model inventory, proving historical jobs/static catalogues cannot be used as current routing evidence.
+- Post-probe Production guard: active ProjectExecution jobs `0`, both Workers `legacy`, providers with persisted `validated_models` `0`. Inventory proves model existence only and does not itself authorize routing.
+
+### 36C validated-model policy next safe transition
+
+Create an explicit reviewed initial model policy from the fresh inventories and authoritative provider capability/pricing/rate documentation. Use conservative limits and keep policy metadata separate from inventory proof. Persist only models that satisfy both fresh existence evidence and the reviewed policy. Do not switch Production runner mode; bounded provider invocation acceptance remains required after persistence and before Phase36C runtime activation.
