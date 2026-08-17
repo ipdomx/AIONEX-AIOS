@@ -299,6 +299,13 @@ Scope:
 Exit gate:
 - a project can create a real rendered media asset, revise one scene without redoing unrelated work, assemble final output and retain provenance/evidence.
 
+Current 36D evidence checkpoint (source/test):
+- durable media DAG + revisions/provenance/object-store abstraction are `locally_executed`;
+- dedicated FFmpeg 9.0 worker renders H.264/AAC, AV1/Opus, PNG and PCM WAV with FFprobe QA;
+- VAAPI + oneVPL/QSV are compiled hardware adapters while activation remains operator/device gated;
+- disposable PostgreSQL + real FFmpeg exit-gate acceptance proves partial scene re-render, final assembly, fencing/recovery and unaffected-node reuse;
+- Production activation remains the final boundary before `runtime_verified`/batch closure.
+
 ### Batch 36E — Image, design, branding, infographic & prompt factory
 
 Scope:

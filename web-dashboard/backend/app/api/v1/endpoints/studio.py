@@ -802,14 +802,23 @@ def get_db_context() -> _DatabaseContext:
 _ALLOWED_MEDIA_OPERATIONS = frozenset({"render_scene", "assemble", "transcode", "render_image", "render_audio"})
 
 
+def _media_hardware_adapter_allowed(adapter: str) -> bool:
+    allowed = {
+        item.strip().lower()
+        for item in settings.MEDIA_HARDWARE_ADAPTER_ALLOWLIST.split(",")
+        if item.strip()
+    } or {"software"}
+    return adapter in allowed
+
+
 def _media_node_spec(data: MediaGraphNodeRequest) -> MediaNodeSpec:
     parameters = dict(data.parameters)
     operation = str(parameters.get("operation") or "").strip().lower()
     if operation and operation not in _ALLOWED_MEDIA_OPERATIONS:
         raise HTTPException(status_code=422, detail="Unsupported media render operation")
     hardware = str(parameters.get("hardware_adapter") or "software").strip().lower()
-    if hardware != "software":
-        raise HTTPException(status_code=422, detail="Hardware media adapter requires an operator-governed policy")
+    if not _media_hardware_adapter_allowed(hardware):
+        raise HTTPException(status_code=422, detail="Hardware media adapter is not enabled by operator policy")
     profile_id = str(parameters.get("output_profile") or "").strip()
     if profile_id:
         try:
@@ -956,8 +965,8 @@ async def revise_media_graph(
         if operation and operation not in _ALLOWED_MEDIA_OPERATIONS:
             raise HTTPException(status_code=422, detail="Unsupported media render operation")
         hardware = str(update.get("hardware_adapter") or "software").strip().lower()
-        if hardware != "software":
-            raise HTTPException(status_code=422, detail="Hardware media adapter requires an operator-governed policy")
+        if not _media_hardware_adapter_allowed(hardware):
+            raise HTTPException(status_code=422, detail="Hardware media adapter is not enabled by operator policy")
     try:
         revised, affected = await media_graph_runtime.create_partial_media_revision(
             session,
