@@ -1,2 +1,2 @@
 # Browser QA dependency used only by the dedicated project-worker image.
-selenium==4.46.0
+selenium==4.47.0
