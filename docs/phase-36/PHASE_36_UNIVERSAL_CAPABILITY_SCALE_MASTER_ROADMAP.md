@@ -842,4 +842,4 @@ Implement the production runner selector as an explicit opt-in with a fail-close
 
 ### 36C production activation gate 2 — next safe transition
 
-Protect and merge this source boundary first. After merge, re-confirm the fresh backup artifact/checksum and zero active jobs, then apply migration `0029` only. Keep the Production runner pinned to `legacy` during schema migration and post-migration acceptance. Provider-specific model evidence and live provider activation remain separate later gates.
+Gate 2 is open as PR #405; merge it only after every protected check is green. After merge, re-confirm the fresh backup artifact/checksum and zero active jobs, then apply migration `0029` only. Keep the Production runner pinned to `legacy` during schema migration and post-migration acceptance. Provider-specific model evidence and live provider activation remain separate later gates.
