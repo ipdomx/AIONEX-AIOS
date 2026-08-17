@@ -98,7 +98,7 @@ compose up -d --no-deps postgres
 ready=false
 for ((attempt = 1; attempt <= 30; attempt++)); do
   if compose exec -T postgres sh -ceu \
-    'pg_isready --host 127.0.0.1 --port 5432 --quiet'
+    'pg_isready --host 127.0.0.1 --port 5432 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --quiet'
   then
     ready=true
     break

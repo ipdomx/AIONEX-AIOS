@@ -580,7 +580,7 @@ Append entries below in chronological order. Do not delete historical problems a
 - Security/tenant review: pooling changes connection reuse only; session/transaction boundaries remain request scoped and tenant authorization is unchanged. Pool pre-ping remains enabled.
 - Regression prevention: configuration validation must reject API pool settings that exceed the declared connection budget; full backend remains on isolated NullPool unless a test explicitly requests production-pool behavior.
 - Rollout/rollback: source-only until protected validation. Rollback is disabling API pooling; no schema change is required.
-- Residual risk: **pooling defect closed; latency target remains explicitly open.** API-only bounded pooling plus four-process admission reduced measured p95 from `27.143s` to a best retained `1.024s` (`p50=0.822s`, `p99=1.061s`) with zero database deadlocks/exhaustion. This is 24ms above the Phase 36 initial `<=1s` enqueue target, so the target is not claimed as passed and remains a mandatory scale/certification item rather than increasing the 60-connection API budget unsafely.
+- Residual risk: **closed for the Phase 36B source/isolated boundary.** API-only bounded pooling plus four-process admission reduced measured p95 from `27.143s` to `0.990s` (`p50=0.804s`, `p99=1.005s`, `max=1.009s`) with zero database deadlocks/exhaustion. The `<=1s` Phase 36B enqueue target passes without increasing the declared 60-connection API budget. Broader mixed-workload scale remains owned by 36N.
 
 
 ### 36B pre-merge acceptance snapshot — 2026-08-17
@@ -589,9 +589,9 @@ Append entries below in chronological order. Do not delete historical problems a
 - API database connection behavior: production API only uses bounded async SQLAlchemy pooling; non-API workers/tests retain `NullPool`. Candidate production bounds are 4 API workers x (`12` pool + `2` overflow) = maximum `56` pooled API connections, below the declared budget `60`, leaving at least `44` of the current PostgreSQL `max_connections=100` outside the API pool ceiling. Project admission additionally caps local contenders at `14` per API worker and distributed admission ownership at `48`; Redis pool is `18` per API process and configuration rejects insufficient headroom.
 - Technology refresh: SQLAlchemy `2.0.51`, Alembic `1.18.5`, Selenium `4.46.0`; current production PostgreSQL is `16.14`; Kubernetes scale template reviewed against the active 1.36 line (`1.36.2` latest published patch at review time). Official sources: `https://docs.sqlalchemy.org/en/20/`, `https://alembic.sqlalchemy.org/en/latest/changelog.html`, `https://www.selenium.dev/downloads/`, `https://www.postgresql.org/docs/16/release-16-14.html`, `https://kubernetes.io/releases/`, `https://docs.docker.com/reference/compose-file/services/`.
 - Worker/process evidence: two fake-provider live project workflows overlap concurrently; stale completion after lease recovery is rejected; an actual child worker is killed with `SIGKILL`, another worker recovers the expired lease, rotates the fencing generation and completes exactly once; bounded transient failures enter retry then DLQ.
-- 1000-admission evidence: four independent child API processes schedule 1000 tenant-scoped durable admissions against one PostgreSQL/Redis authority. `1000/1000` unique execution IDs and `1000/1000` distinct tenants persist queued with attempts `0`; admission lease set returns empty; no PostgreSQL `too many clients`, deadlock, PANIC/FATAL or leftover DB connections are observed. Best retained candidate latency at the conservative 56-API-connection ceiling: `p50=0.822s`, `p95=1.024s`, `p99=1.061s`. Functional 36B admission gate passes; the initial p95 `<=1s` target remains truthfully open for final scale certification.
-- Fresh complete backend from zero migration through `20260817_0028`: `641 passed, 1 skipped, 0 failed` in `99.68s`.
-- Complete AIOS core suite: `721 passed` in `27.44s`.
+- 1000-admission evidence: four independent child API processes schedule 1000 tenant-scoped durable admissions against one PostgreSQL/Redis authority using the exact pre-merge production shape (`12+2` per-process DB pool, budget `60`, Redis pool `18`, local admission `14`, global limit `48`). `1000/1000` unique execution IDs and `1000/1000` distinct tenants persist queued with attempts `0`; admission lease set returns empty; no PostgreSQL `too many clients`, deadlock, PANIC/FATAL or leftover DB connections are observed. Final retained latency: `p50=0.804s`, `p95=0.990s`, `p99=1.005s`, `max=1.009s`; the functional gate and Phase 36B p95 `<=1s` target both pass.
+- Fresh complete backend from zero migration through `20260817_0028`: `641 passed, 1 skipped, 0 failed` in `100.26s`.
+- Complete AIOS core suite: `721 passed` in `27.07s`.
 - Backend quality: dependency `pip check` PASS; Ruff PASS; Mypy PASS across `179` source files; backend verification PASS.
 - Migration rollback evidence: `20260817_0028 -> 20260816_0027 -> 20260817_0028`; worker table/fencing column absent after downgrade and restored after upgrade.
 - Project Worker candidate: healthcheck PASS under the real Compose mount/PYTHONPATH contract; SQLAlchemy `2.0.51`, Alembic `1.18.5`, Selenium `4.46.0`, Node `24.18.1`, npm `11.11.0`, Chromium/ChromeDriver `149.0.7827.53`.
@@ -614,8 +614,8 @@ Append entries below in chronological order. Do not delete historical problems a
 - Security/tenant review: both endpoints remain Super Owner protected; no authorization is relaxed. The change only prevents a supplemental metrics outage from erasing already-authorized core readiness data.
 - Regression prevention: Browser E2E must pass both the normal fabric rendering path and the degraded-fabric/core-runtime-preservation path.
 - Rollout/rollback: no production rollout occurred; fix remains on PR #389.
-- Residual risk: local regression is closed with `11/11` Browser E2E PASS, including normal fabric rendering and degraded-fabric/core-runtime preservation. The protected GitHub rerun remains required before merge.
-- Local fix evidence: Owner TypeScript PASS; lint PASS; Arabic coverage `927/5`; production build `86/86`; Browser E2E `11/11 passed` in `8.4s`.
+- Residual risk: **closed.** Local Browser E2E is `11/11` PASS including the degraded-fabric/core-runtime preservation path, and the protected PR #389 `Owner and VIP browser boundaries` rerun is PASS.
+- Fix evidence: Owner TypeScript PASS; lint PASS; Arabic coverage `927/5`; production build `86/86`; local Browser E2E `11/11` PASS; protected `Owner and VIP browser boundaries` PASS.
 
 ### P36-0007 — Owner degraded-fabric fix missed the dedicated Prettier gate — 2026-08-17
 
@@ -630,5 +630,32 @@ Append entries below in chronological order. Do not delete historical problems a
 - Security/tenant review: formatting-only correction; no authorization, tenant, runtime or data behavior changes.
 - Regression prevention: after any Owner UI edit in Phase 36, include the Final Validation Prettier command in the local pre-push gate, not only lint/type/build.
 - Rollout/rollback: no production rollout occurred; fix remains on PR #389.
-- Residual risk: local formatting/functional regression is closed: exact CI-equivalent Arabic/type/lint/Prettier/build gates PASS and Browser E2E `11/11` PASS after formatting. The protected Frontend Build rerun remains required before merge.
-- Local fix evidence: Prettier exact CI command PASS; Owner Arabic `927/5`; TypeScript PASS; targeted lint PASS; production build `86/86`; Browser E2E `11/11 passed` in `8.2s`.
+- Residual risk: **closed.** Exact CI-equivalent Arabic/type/lint/Prettier/build gates PASS, Browser E2E `11/11` PASS after formatting, and the protected PR #389 `Frontend Build` rerun is PASS.
+- Fix evidence: Prettier exact CI command PASS; Owner Arabic `927/5`; TypeScript PASS; targeted lint PASS; production build `86/86`; Browser E2E `11/11` PASS; protected `Frontend Build` PASS.
+
+### 36B post-merge production activation checkpoint — 2026-08-17
+
+- Merge evidence: PR #389 merged into `main` as `061f63dd47093cc3049a0feda8bb6667aeac9f46` after every required protected check passed, including Backend Tests, Production Docker, Browser boundaries, Frontend Build, CodeQL, secret/hygiene, SBOM, dependency security and Phase 36 reporting.
+- Safe production boundary at checkpoint creation: source is merged, but production migration `20260817_0028`, API pooling changes and distributed project-worker replica activation have **not yet** been applied.
+- Final isolated evidence before production: Full Backend `641 passed, 1 skipped, 0 failed` in `100.26s`; AIOS Core `721/721` in `27.07s`; exact four-process 1000 admission `1000/1000` with `p95=0.990s`; Owner Browser `11/11`; migration downgrade/upgrade and real SIGKILL recovery pass.
+- Maturity truthfulness after production activation: `distributed-project-execution=runtime_verified`, `horizontal-worker-scaling=runtime_verified`, `thousand-user-admission=locally_executed`; Batch 36B remains `in_progress` until this source/report closeout is merged. Real multi-host/RWX scaling is not claimed.
+- Rollback anchor: pre-36B main is `c8332d225c335825fe7af6c0dd47d490b133c0e9`; production activation must create a fresh data backup before mutation and must not claim real multi-host scaling without RWX/object-store evidence plus actual hosts.
+- Production backup gate: fresh archive `/opt/AIOS/.deployment-backups/phase36b-production-activation/aios-20260817T023406Z.tar.gz` created before schema/service mutation; SHA-256 PASS. Restore smoke into disposable PostgreSQL PASS with Alembic `20260816_0027`, one retained project execution and 12 backup records. No active project execution existed at the production baseline.
+- Production migration gate: merged candidate applied `20260816_0027 -> 20260817_0028` successfully. Post-migration evidence: `project_execution_workers` present, `fencing_token` present, retained project executions `1 completed`, active executions `0`, Backend ready PASS and pre-rebuild Project Worker health PASS.
+- Controlled rebuild gate: pre-36B Backend/Project Worker image IDs retained under rollback tags `aionex-aios-backend:pre-phase36b-20260817T023406Z` and `aionex-aios-project-worker:pre-phase36b-20260817T023406Z`. New Backend recreated alone and reached healthy/ready; new Project Worker recreated alone with Phase36B override and reached healthy. Worker registry now reports `1 online`, total capacity `2`, active `0`; no active execution was interrupted.
+- Same-host scale/live gate: Project Worker scaled to two healthy replicas on the same host; durable registry reports `2 online`, aggregate capacity `4`, active `0`; live fabric queues/retries/DLQ/running all `0`. API `/ready` passed `20/20` with `p95=0.1457s`; public/user/owner ingress returned HTTP 200. Idle Worker2 stop/rejoin degraded capacity from 4 to 2 while Worker1 remained healthy and restored capacity to 4 after rejoin; active project jobs remained `0`.
+- Next safe transition: same-host scale/live acceptance + P36-0008 source fix are complete -> final Phase36/production-hardening/security/diff gates -> protected production-activation PR -> merge only when green -> final merge-SHA/status closure before 36C.
+
+### P36-0008 — PostgreSQL healthcheck generated root-role authentication noise — 2026-08-17
+
+- Batch: 36B production activation review; defect predates the 36B deployment.
+- Environment: production PostgreSQL container logs and production Compose source.
+- Symptom: PostgreSQL logged `FATAL: role "root" does not exist` every 10 seconds while Docker still reported the database healthy.
+- Detection: activation log review found the pattern after deployment; a pre-activation 10-minute window already contained 59 identical entries, proving it was not introduced by Phase 36B.
+- Root cause: PostgreSQL healthcheck used `pg_isready --host 127.0.0.1 --port 5432 --quiet` without `--username`/`--dbname`; `pg_isready` therefore attempted the container execution user (`root`).
+- Impact/severity: low operational/logging noise only; database health, application queries, backup/restore, migration and connection capacity were unaffected. No user-facing outage.
+- Resolution: source fixed across dashboard production Compose, deployment production Compose, development Compose and PostgreSQL recovery/reconcile readiness probes. All probes now pass the configured user/database and no credential value is committed. The already-healthy production PostgreSQL container is intentionally not recreated solely to remove low-severity historic log noise; the corrected healthcheck becomes active on the next controlled PostgreSQL recreate/maintenance.
+- Fix evidence: all three Compose configs parse successfully; `recover-postgres-login.sh` and `reconcile-postgres-credentials.sh` pass `bash -n`; backend database settings/credential regressions `53/53 PASS`; source regression rejects the bare root-default `pg_isready` form.
+- Security review: no credential value is added to source; Compose expands existing required environment variables inside the container.
+- Regression prevention: production Compose tests must assert explicit user/database healthcheck arguments and reject the root-default form.
+- Production rollback/activation boundary: no PostgreSQL runtime change is required for this source correction during the current 36B activation; production data/schema/services remain at the already-verified Phase 36B state.

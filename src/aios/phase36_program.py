@@ -47,9 +47,9 @@ class Phase36Batch:
 CAPABILITIES: Final[tuple[Phase36Capability, ...]] = (
     # Program / scale foundation.
     Phase36Capability("program-registry", "program", "Capability maturity registry and reporting invariant", "36A", "production_ready", ("docs/phase-36/PHASE_36_UNIVERSAL_CAPABILITY_SCALE_MASTER_ROADMAP.md",)),
-    Phase36Capability("distributed-project-execution", "scale", "Distributed live project execution", "36B", "locally_executed", ("docs/phase-23/PHASE_23_DISTRIBUTED_EXECUTION_FABRIC.md", "docs/phase-36/receipts/36B-2026-08-17-distributed-project-execution.md")),
-    Phase36Capability("thousand-user-admission", "scale", "1000+ concurrent authenticated user and workflow admission", "36B", "specified"),
-    Phase36Capability("horizontal-worker-scaling", "scale", "Horizontal CPU/GPU/provider worker scaling", "36B", "source_built", ("docs/phase-29/PHASE_29I_PLUGINS_DISTRIBUTED_INTEGRATIONS_COMPLETION.md",)),
+    Phase36Capability("distributed-project-execution", "scale", "Distributed live project execution", "36B", "runtime_verified", ("docs/phase-23/PHASE_23_DISTRIBUTED_EXECUTION_FABRIC.md", "docs/phase-36/receipts/36B-2026-08-17-distributed-project-execution.md")),
+    Phase36Capability("thousand-user-admission", "scale", "1000+ concurrent authenticated user and workflow admission", "36B", "locally_executed", ("docs/phase-36/receipts/36B-2026-08-17-distributed-project-execution.md",)),
+    Phase36Capability("horizontal-worker-scaling", "scale", "Horizontal CPU/GPU/provider worker scaling", "36B", "runtime_verified", ("docs/phase-29/PHASE_29I_PLUGINS_DISTRIBUTED_INTEGRATIONS_COMPLETION.md", "docs/phase-36/receipts/36B-2026-08-17-distributed-project-execution.md")),
     Phase36Capability("multi-provider-project-routing", "ai", "Multi-provider/model project execution pools", "36C", "source_built", ("docs/phase-29/PHASE_29J_MODELS_PROVIDERS_FINAL_COMPLETION.md",)),
     Phase36Capability("tenant-agent-memory-isolation", "ai", "Tenant/project-scoped agent and model memory isolation", "36C", "source_built"),
 
