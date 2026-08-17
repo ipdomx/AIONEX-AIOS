@@ -796,3 +796,15 @@ The baseline/inventory/technology/security gate is now merged and closed. Stop h
 ### 36C integration-foundation next safe transition
 
 Protected source merge first. After merge, stop before Production activation. The next transition requires a fresh production backup with restore smoke, explicit opt-in runner/feature control, controlled application of migration `0029`, provider-specific validated model evidence and bounded live acceptance. No live provider call or Production migration belongs to this integration-source PR.
+
+### 36C deterministic ProjectExecution integration protected merge — 2026-08-17
+
+- PR #401 merged into `main` as `451e2e40fd0d5bb790c884077090dac126bef8d9`; post-merge verification then confirmed every required protected check passed: Backend Tests, Production Docker Build, Browser boundaries, Frontend Build, CodeQL, repository secret/hygiene, SBOM, Dependency Security, Core contracts and Phase 36 Reporting.
+- Protected source now contains organization/project-scoped Project AI memory, the deterministic injected ProjectExecution integration runner, Worker provider-summary persistence, durable routing authority/migration `0029`, shared Redis provider coordination and the local two-Worker integration regressions.
+- Production boundary is deliberately unchanged: the live default runner remains `ProjectPlanningRunner`, Production Alembic remains `20260817_0028`, no provider credential/live provider request/provider spend was used by the integration phase, and no production service was rebuilt/restarted for PR #401.
+- Retained maturity is `multi-provider-project-routing=locally_executed` and `tenant-agent-memory-isolation=locally_executed`; `runtime_verified` is not claimed because the opt-in Production path has not been activated.
+- P36-0011 remains a Production activation gate only: the deterministic/local ProjectExecution path is proven, but switching the live default path still requires backup/restore, feature/runner rollback control, migration `0029`, current provider model evidence and bounded live acceptance.
+
+### 36C pre-production activation safe stop
+
+Source integration is merged and Production remains stable on the previous accepted runtime. Stop here before any activation. On resumption, first establish a fresh Production backup plus restore smoke and explicit rollback/runner-selection boundary; only after those gates may migration `0029` and controlled provider-specific live acceptance be considered.
