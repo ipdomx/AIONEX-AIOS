@@ -81,10 +81,12 @@ def test_phase36b_maturity_matches_production_activation_evidence() -> None:
     assert BATCHES[2].status == "in_progress"
 
 
-def test_phase36c_maturity_matches_deterministic_project_integration_evidence() -> None:
+def test_phase36c_maturity_matches_live_provider_acceptance_evidence() -> None:
     capabilities = {item.capability_id: item for item in CAPABILITIES}
-    assert capabilities["multi-provider-project-routing"].maturity == "locally_executed"
-    assert capabilities["tenant-agent-memory-isolation"].maturity == "locally_executed"
+    routing = capabilities["multi-provider-project-routing"]
+    assert routing.maturity == "runtime_verified"
+    assert routing.external_gates == ("owner-provider-funded-credit-thresholds",)
+    assert capabilities["tenant-agent-memory-isolation"].maturity == "runtime_verified"
     assert BATCHES[2].status == "in_progress"
 
 
