@@ -682,3 +682,52 @@ Append entries below in chronological order. Do not delete historical problems a
 - Regression prevention: every future Phase36 batch transition must update and run both root governance tests and the Backend public capability snapshot contract before push.
 - Production/security boundary: test/report-only correction; no runtime implementation, production service, schema, secret, provider call or user workload is changed.
 - Local fix evidence: focused Backend public capability contract `1/1 PASS` in the retained Phase36B backend test image; root Phase36 and reporting gates are rerun on the same change set. PR #393 must still rerun every required protected check before merge.
+
+## 14. Batch 36C baseline / implementation record — 2026-08-17
+
+### 36C baseline inventory
+
+- Start point: Phase 36B is fully closed; PR #393 merged as `fc589766adb677d2a9510344997fc948cae1a030`; production remains healthy on the accepted Phase 36B runtime with two same-host Project Workers and zero active ProjectExecution jobs at the 36C inventory checkpoint.
+- Provider production state, non-secret: 15 AI provider rows exist; 13 are `connected`, while Azure OpenAI and AWS Bedrock are `configured`. No durable `ai_agents` rows currently exist. The final Backend catalog additionally contains Tripo3D/Meshy as catalog-only 3D connector types; they are outside the 36C AI execution pool.
+- Reusable foundation: `MultiModelPlatform`, `ModelRouter`, `AIRoutingLayer`, provider health, failover, queueing, rate limiter, retry manager, cost governor, prompt firewall, audit journal, provider/model catalog, durable `AIProvider`/`AIAgent` models and organization-scoped `ScopedMemory` already exist and have historical tests. 36C must integrate these capabilities rather than create a second provider framework.
+- Live Project Cycle gap: `project_execution.py` remains OpenAI-specific (28 OpenAI literals, eight allowed-OpenAI endpoint references and fixed `gpt-5-mini` planning model); therefore concurrent distributed Project Workers cannot yet select independent provider/model plans by role/task.
+- Memory boundary: production `ScopedMemory` keys by `organization_id + scope_type + scope_id` and validates project/workspace/user/worker ownership. Legacy `src/aios/memory.py` is project-only and is not acceptable as the production agent-memory authority for 36C.
+- Technology review: current primary REST protocols remain supported by official provider documentation. Gemini `generateContent` remains available, while Google's current API reference recommends Interactions for new agentic workflows; migration, if any, must be evidence-driven and backward-compatible. No dependency/protocol change is made in this baseline.
+- Maturity remains truthful: `multi-provider-project-routing=source_built` and `tenant-agent-memory-isolation=source_built`; 36C remains `in_progress`. No maturity is raised by inventory alone.
+- Safe implementation sequence: tenant-safe route-plan contract -> durable audit/evidence schema if required -> fake-provider adapter and role plans -> distributed rate/budget/health coordination -> failure/fallback/isolation tests -> provider-specific model capability validation -> protected PR -> controlled live provider acceptance -> production rollout/closure.
+
+### P36-0010 — Existing provider integration is not a production multi-tenant/distributed boundary
+
+- Batch: 36C.
+- Environment: source architecture/security inventory; production untouched.
+- Symptom: `AIWorkItem` carries project/actor but no organization identifier, while routing health/metrics/cost and provider rate-limit state are process-local. Directly wiring this object into the two distributed Project Workers could make tenant authorization implicit and quota/failure state inconsistent across workers.
+- User impact: none; 36C runtime integration has not started.
+- Root cause: the provider routing integration was built as a reusable subsystem before the durable multi-tenant ProjectExecution production path existed.
+- Why prior safeguards missed it: Phase 7/29 provider tests validated routing/provider behavior and Phase 29F validated tenant-scoped memory independently; no prior acceptance gate required their direct use from distributed ProjectExecution.
+- Required fix: make organization/project/execution/task scope explicit and immutable; resolve provider records inside that tenant boundary; persist route/audit evidence; coordinate rate/budget/health state through a shared authority; fail closed when tenant/provider/locality policy cannot be proven.
+- Regression prevention: cross-tenant route/memory/provider-ID tests; two-worker shared quota/circuit state tests; raw credential/provider-secret scans; fallback-denied tests for restricted/local policy.
+- Production boundary: no provider calls, secrets, DB writes, schema changes or service restarts in this finding.
+
+### P36-0011 — Production ProjectExecution remains hard-wired to OpenAI
+
+- Batch: 36C.
+- Environment: source inventory; production untouched.
+- Symptom: ProjectExecution loads one provider secret contract, validates OpenAI models/endpoints, uses a fixed `gpt-5-mini` planning model and defaults evidence provider fields to OpenAI instead of selecting from the durable provider catalog.
+- User impact: current projects cannot obtain independent planner/researcher/coder/reviewer provider plans even though the provider subsystem supports routing and production has 13 connected AI providers.
+- Root cause: the governed Project Cycle reached production in Phase 22 with a deliberately narrow OpenAI execution path; later provider completion did not rewrite the live Project Cycle.
+- Required fix: insert a 36C route-plan/role execution layer ahead of provider calls while retaining current OpenAI path as a rollback-compatible provider adapter until parity is proven.
+- Regression prevention: deterministic multi-provider role plan, per-project provider-policy isolation, provider outage with approved fallback, no-fallback policy, local-only route, exact provider/model/cost evidence and concurrent projects choosing different plans.
+
+### P36-0012 — Static catalog model aliases and scores are not authoritative live routing evidence
+
+- Batch: 36C.
+- Environment: provider catalog/technology inventory; production untouched.
+- Symptom: many provider capabilities use model=`default` plus static cost/quality/latency/privacy values. This is adequate for historical routing tests but cannot truthfully prove that a specific current provider model exists, is enabled for the account, has the assumed price/context/capability or satisfies live policy.
+- User impact: none yet because ProjectExecution does not consume this catalog. Using it unchanged in 36C could select a placeholder or make inaccurate cost/quality decisions.
+- Root cause: the catalog was designed as a provider-independent capability abstraction, while durable provider runtime/model validation evolved separately.
+- Required fix: construct a validated runtime capability snapshot from approved provider/model configuration and provider-specific model evidence; preserve deterministic test fixtures separately from live metadata; route only against validated models.
+- Regression prevention: no `default` placeholder may be treated as live evidence; stale/unavailable models are excluded; cost/limits are versioned/auditable; provider-specific contract tests cover supported wire protocols before live routing.
+
+### 36C next safe transition
+
+Baseline/inventory/technology/security review is complete. Create a protected baseline commit/PR with receipt `P36-R-36C-20260817`; after it is green and merged, begin implementation from the tenant-safe route-plan contract. Do not make a live provider request or production mutation as part of the baseline transition.
