@@ -616,3 +616,19 @@ Append entries below in chronological order. Do not delete historical problems a
 - Rollout/rollback: no production rollout occurred; fix remains on PR #389.
 - Residual risk: local regression is closed with `11/11` Browser E2E PASS, including normal fabric rendering and degraded-fabric/core-runtime preservation. The protected GitHub rerun remains required before merge.
 - Local fix evidence: Owner TypeScript PASS; lint PASS; Arabic coverage `927/5`; production build `86/86`; Browser E2E `11/11 passed` in `8.4s`.
+
+### P36-0007 — Owner degraded-fabric fix missed the dedicated Prettier gate — 2026-08-17
+
+- Batch: 36B.
+- Environment: protected GitHub Final Validation for PR #389; production untouched.
+- Symptom: `Frontend Build` failed after the P36-0006 resilience fix even though TypeScript, lint, local production build and Browser E2E passed.
+- User impact: none; protected CI correctly blocked merge before production.
+- Detection/reproduction: PR #389 Final Validation rerun reported `Frontend Build` failure; the exact workflow-equivalent local command `npx prettier --check ...` identified only `src/app/owner/production-runtime/page.tsx` as unformatted.
+- Root cause: the P36-0006 local verification reran type-check, Arabic coverage, lint, build and Browser E2E, but omitted the separate Prettier check that Final Validation enforces.
+- Why prior safeguards missed it: formatting is not enforced by the Next lint/build commands, so all functional gates could pass while the dedicated formatting gate still failed.
+- Fix: format the touched Owner runtime page with the repository Prettier version and rerun the exact CI formatting command plus type/lint/build/browser regression.
+- Security/tenant review: formatting-only correction; no authorization, tenant, runtime or data behavior changes.
+- Regression prevention: after any Owner UI edit in Phase 36, include the Final Validation Prettier command in the local pre-push gate, not only lint/type/build.
+- Rollout/rollback: no production rollout occurred; fix remains on PR #389.
+- Residual risk: local formatting/functional regression is closed: exact CI-equivalent Arabic/type/lint/Prettier/build gates PASS and Browser E2E `11/11` PASS after formatting. The protected Frontend Build rerun remains required before merge.
+- Local fix evidence: Prettier exact CI command PASS; Owner Arabic `927/5`; TypeScript PASS; targeted lint PASS; production build `86/86`; Browser E2E `11/11 passed` in `8.2s`.

@@ -80,7 +80,8 @@ export default function OwnerProductionRuntimePage() {
           "Production runtime and project execution fabric synchronized.",
         );
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setFabric(emptyFabric);
         setMessage(
           "Production runtime synchronized; project execution fabric is temporarily unavailable.",
