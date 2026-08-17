@@ -882,4 +882,4 @@ Keep Production runner mode `legacy`. Inventory provider records without reading
 
 ### 36C provider-evidence next safe transition
 
-Protect and merge this source gate first. After merge, keep the runner on `legacy` and probe inventory-capable providers one at a time with read-only model-list requests. Persist a model only when it is present in fresh inventory and an explicit reviewed capability/pricing/rate policy exists. Anthropic/Cohere/AWS Bedrock require bounded execution receipts rather than inventory claims. Live ProjectExecution activation remains blocked.
+Provider-model evidence source is open as PR #407; merge it only after every protected check is green. After merge, keep the runner on `legacy` and probe inventory-capable providers one at a time with read-only model-list requests. Persist a model only when it is present in fresh inventory and an explicit reviewed capability/pricing/rate policy exists. Anthropic/Cohere/AWS Bedrock require bounded execution receipts rather than inventory claims. Live ProjectExecution activation remains blocked.
