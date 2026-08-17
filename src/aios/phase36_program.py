@@ -50,8 +50,8 @@ CAPABILITIES: Final[tuple[Phase36Capability, ...]] = (
     Phase36Capability("distributed-project-execution", "scale", "Distributed live project execution", "36B", "runtime_verified", ("docs/phase-23/PHASE_23_DISTRIBUTED_EXECUTION_FABRIC.md", "docs/phase-36/receipts/36B-2026-08-17-distributed-project-execution.md")),
     Phase36Capability("thousand-user-admission", "scale", "1000+ concurrent authenticated user and workflow admission", "36B", "locally_executed", ("docs/phase-36/receipts/36B-2026-08-17-distributed-project-execution.md",)),
     Phase36Capability("horizontal-worker-scaling", "scale", "Horizontal CPU/GPU/provider worker scaling", "36B", "runtime_verified", ("docs/phase-29/PHASE_29I_PLUGINS_DISTRIBUTED_INTEGRATIONS_COMPLETION.md", "docs/phase-36/receipts/36B-2026-08-17-distributed-project-execution.md")),
-    Phase36Capability("multi-provider-project-routing", "ai", "Multi-provider/model project execution pools", "36C", "source_built", ("docs/phase-29/PHASE_29J_MODELS_PROVIDERS_FINAL_COMPLETION.md",)),
-    Phase36Capability("tenant-agent-memory-isolation", "ai", "Tenant/project-scoped agent and model memory isolation", "36C", "source_built"),
+    Phase36Capability("multi-provider-project-routing", "ai", "Multi-provider/model project execution pools", "36C", "locally_executed", ("docs/phase-29/PHASE_29J_MODELS_PROVIDERS_FINAL_COMPLETION.md", "docs/phase-36/receipts/36C-2026-08-17-multi-provider-execution-baseline.md")),
+    Phase36Capability("tenant-agent-memory-isolation", "ai", "Tenant/project-scoped agent and model memory isolation", "36C", "locally_executed", ("docs/phase-36/receipts/36C-2026-08-17-multi-provider-execution-baseline.md",)),
 
     # Software / application engineering.
     Phase36Capability("web-saas-pwa", "software", "Websites, SaaS, portals and PWAs", "36C", "locally_executed", ("docs/phase-28/PHASE_28_FULL_PROJECT_LIFECYCLE.md",)),

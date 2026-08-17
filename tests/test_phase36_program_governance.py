@@ -81,6 +81,13 @@ def test_phase36b_maturity_matches_production_activation_evidence() -> None:
     assert BATCHES[2].status == "in_progress"
 
 
+def test_phase36c_maturity_matches_deterministic_project_integration_evidence() -> None:
+    capabilities = {item.capability_id: item for item in CAPABILITIES}
+    assert capabilities["multi-provider-project-routing"].maturity == "locally_executed"
+    assert capabilities["tenant-agent-memory-isolation"].maturity == "locally_executed"
+    assert BATCHES[2].status == "in_progress"
+
+
 def test_phase36_snapshot_is_truthful_and_phase29_is_not_current_finality() -> None:
     snapshot = phase36_program_snapshot()
     assert snapshot["authoritative"] is True

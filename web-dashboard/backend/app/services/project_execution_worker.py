@@ -726,6 +726,9 @@ class ProjectExecutionWorker:
             record.status = "completed"
             record.stage = "approved" if summary.get("approved") is True else "rework_required"
             record.progress = 100
+            summary_provider = str(summary.get("provider") or "").strip()
+            if summary_provider:
+                record.provider = summary_provider[:64]
             record.model = str(summary.get("model") or "") or None
             record.calculated_cost_usd = float(summary.get("calculated_cost") or 0.0)
             record.requests_count = int(summary.get("requests_count") or 0)
