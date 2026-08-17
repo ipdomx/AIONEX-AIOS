@@ -27,6 +27,8 @@ from app.core.logging import get_logger
 from app.db.base import SessionLocal
 from app.db.models import AIAgent, AIProvider, AuditEvent, Job, User, uuid_str
 from app.services import communications
+from app.services.provider_credit_alerts import notify_provider_billing_failure
+from app.services.project_execution_routing_durable import usd_to_microusd
 
 logger = get_logger(__name__)
 
@@ -854,11 +856,13 @@ async def run_job(job_id: str) -> None:
         requested_by_id = str((job.payload or {}).get("requested_by_id") or "")
         prompt = str((job.payload or {}).get("prompt") or "")
 
+    failure_status_code: int | None = None
     try:
         result = await _execute_provider(provider, agent, prompt)
         failure: str | None = None
     except Exception as exc:
         result = {}
+        failure_status_code = exc.status_code if isinstance(exc, HTTPException) else None
         failure = exc.detail if isinstance(exc, HTTPException) else f"Provider execution failed ({type(exc).__name__})"
 
     async with SessionLocal() as session:
@@ -885,6 +889,9 @@ async def run_job(job_id: str) -> None:
                 config["usage_today"] = int(config.get("usage_today", 0) or 0) + int((result.get("usage") or {}).get("total_tokens", 0) or 0)
                 config["latency_ms"] = int(float(result.get("latency_ms", 0) or 0))
                 config["last_used"] = _now().isoformat()
+                config["runtime_spend_microusd"] = int(
+                    config.get("runtime_spend_microusd", 0) or 0
+                ) + usd_to_microusd(float(result.get("cost", 0.0) or 0.0))
                 provider.config = config
                 provider.status = "connected"
             action = "ai.job.completed"
@@ -918,9 +925,29 @@ async def run_job(job_id: str) -> None:
                 dedupe_key=f"ai-job:{job.id}:{job.status}",
                 actor_id=requested_by_id,
             )
+        owner_finance_notifications = []
+        if failure is not None and provider is not None:
+            normalized_failure = str(failure).lower()
+            billing_failure = bool(
+                failure_status_code == 402
+                or any(marker in normalized_failure for marker in (
+                    "insufficient_quota", "billing", "credit", "payment"
+                ))
+            )
+            quota_failure = failure_status_code == 429
+            if billing_failure or quota_failure:
+                owner_finance_notifications = await notify_provider_billing_failure(
+                    session,
+                    provider_id=provider.id,
+                    failure_code=(
+                        "billing_required" if billing_failure else "provider_quota"
+                    ),
+                    critical=billing_failure,
+                )
         await session.commit()
         if notification is not None:
             await communications.publish_realtime(notification)
+        await communications.publish_many(owner_finance_notifications)
 
 
 async def list_agent_jobs(session: AsyncSession, agent_id: str, organization_id: str, limit: int = 20) -> list[dict[str, Any]]:

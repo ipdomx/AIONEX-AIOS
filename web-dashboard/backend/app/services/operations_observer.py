@@ -19,6 +19,7 @@ from app.services import communications
 from app.services.growth_controlled_pilots import reconcile_runtime_pilots
 from app.services.growth_paid_live_execution import reconcile_stale_live_executions
 from app.services.lifecycle_alerts import run_account_lifecycle_alerts
+from app.services.provider_credit_alerts import run_provider_credit_alerts
 from app.services.operations_assurance import record_observation_cycle
 
 logger = get_logger(__name__)
@@ -74,6 +75,8 @@ class OperationsObserver:
                 if run_lifecycle_alerts
                 else []
             )
+            if run_lifecycle_alerts:
+                notifications.extend(await run_provider_credit_alerts(session))
             await session.commit()
         if run_lifecycle_alerts:
             self.last_lifecycle_alert_monotonic = current_monotonic

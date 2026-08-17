@@ -167,12 +167,40 @@ OWNER_API_CONTRACT = {
     ("POST", "/api/v1/owner/security-lab/managed-targets"),
     ("POST", "/api/v1/owner/security-lab/clone-targets"),
     ("GET", "/api/v1/owner/security-lab/scans"),
+    ("GET", "/api/v1/owner/project-ai/access"),
+    ("PUT", "/api/v1/owner/project-ai/access/plans/{access_class}"),
+    ("PUT", "/api/v1/owner/project-ai/access/users/{user_id}"),
+    ("DELETE", "/api/v1/owner/project-ai/access/users/{user_id}"),
+    ("GET", "/api/v1/owner/project-ai/providers/{provider_id}/finance"),
+    ("PUT", "/api/v1/owner/project-ai/providers/{provider_id}/finance"),
+
 }
 
 OWNER_GET_ROUTES = sorted(
     path for method, path in OWNER_API_CONTRACT if method == "GET"
 )
 OWNER_MUTATION_REQUESTS = {
+    ("PUT", "/api/v1/owner/project-ai/access/plans/{access_class}"): {
+        "access_class": "paid",
+        "enabled": True,
+        "allowed_provider_models": [],
+        "max_project_cost_usd": 1.0,
+        "max_fallbacks": 1,
+    },
+    ("PUT", "/api/v1/owner/project-ai/access/users/{user_id}"): {
+        "access_class": "paid",
+        "enabled": True,
+        "allowed_provider_models": [],
+        "max_project_cost_usd": 1.0,
+        "max_fallbacks": 0,
+    },
+    ("DELETE", "/api/v1/owner/project-ai/access/users/{user_id}"): None,
+    ("PUT", "/api/v1/owner/project-ai/providers/{provider_id}/finance"): {
+        "funded_credit_usd": 10.0,
+        "low_balance_threshold_usd": 3.0,
+        "critical_balance_threshold_usd": 1.0,
+        "enabled": True,
+    },
     ("POST", "/api/v1/owner/platform-integration/command"): {
         "action": "validate",
         "target_id": "missing-target",
@@ -318,6 +346,8 @@ OWNER_MUTATION_REQUESTS = {
     ("PATCH", "/api/v1/owner/security-lab/policy"): {"enabled": True},
     ("POST", "/api/v1/owner/security-lab/grants"): {
         "user_id": "missing-user",
+        "access_class": "paid",
+        "provider_id": "missing-provider",
         "level": "standard",
     },
     ("POST", "/api/v1/owner/security-lab/grants/{user_id}/revoke"): None,

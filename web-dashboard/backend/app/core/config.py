@@ -167,6 +167,12 @@ class Settings(BaseSettings):
         pattern=r"^(legacy|phase36c)$",
         validation_alias="PROJECT_EXECUTION_RUNNER_MODE",
     )
+    PROJECT_AI_PLATFORM_PROVIDER_ORGANIZATION_ID: str = Field(
+        default="aionex-org",
+        min_length=1,
+        max_length=160,
+        validation_alias="PROJECT_AI_PLATFORM_PROVIDER_ORGANIZATION_ID",
+    )
 
     AIOS_TELEGRAM_BOT_TOKEN_FILE: str = Field(
         default="/run/secrets/aionex/telegram-bot-token",

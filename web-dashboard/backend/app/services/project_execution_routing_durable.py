@@ -190,7 +190,11 @@ class DurableProjectAIResolver:
                 await self.session.scalars(
                     select(AIProvider)
                     .where(
-                        AIProvider.organization_id == scope.organization_id,
+                        AIProvider.organization_id
+                        == (
+                            provider_policy.provider_scope_organization_id
+                            or scope.organization_id
+                        ),
                         AIProvider.status == "connected",
                     )
                     .order_by(AIProvider.type.asc(), AIProvider.id.asc())
@@ -216,6 +220,10 @@ class DurableProjectAIResolver:
                 item = self._parse_model(provider, raw, current)
                 if item is None:
                     continue
+                if provider_policy.allowed_provider_models:
+                    route_key = f"{item.provider_type}:{item.route_model.model}".lower()
+                    if route_key not in provider_policy.allowed_provider_models:
+                        continue
                 if item.key in seen:
                     raise ProjectAIDurableRoutingError(
                         "multiple connected provider records claim the same validated model"
@@ -434,6 +442,8 @@ class DurableProjectAIRouteStore:
         return {
             "allowed_providers": sorted(policy.allowed_providers),
             "blocked_providers": sorted(policy.blocked_providers),
+            "allowed_provider_models": sorted(policy.allowed_provider_models),
+            "provider_scope_organization_id": policy.provider_scope_organization_id,
             "offline_only": policy.offline_only,
             "privacy_mode": policy.privacy_mode,
             "max_total_estimated_cost_usd": policy.max_total_estimated_cost_usd,
