@@ -430,6 +430,37 @@ class Settings(BaseSettings):
         default="/tmp/aionex-studio-worker-health.json",
         validation_alias="STUDIO_WORKER_HEALTH_FILE",
     )
+    MEDIA_STORAGE_TYPE: str = Field(
+        default="local", validation_alias="MEDIA_STORAGE_TYPE"
+    )
+    MEDIA_STORAGE_ROOT: str = Field(
+        default="/var/lib/aionex/media-assets",
+        validation_alias="MEDIA_STORAGE_ROOT",
+    )
+    MEDIA_MAX_OBJECT_BYTES: int = Field(
+        default=2 * 1024 * 1024 * 1024,
+        ge=1024 * 1024,
+        le=50 * 1024 * 1024 * 1024,
+        validation_alias="MEDIA_MAX_OBJECT_BYTES",
+    )
+    MEDIA_S3_BUCKET: Optional[str] = Field(
+        default=None, validation_alias="MEDIA_S3_BUCKET"
+    )
+    MEDIA_S3_REGION: Optional[str] = Field(
+        default=None, validation_alias="MEDIA_S3_REGION"
+    )
+    MEDIA_S3_ENDPOINT_URL: Optional[str] = Field(
+        default=None, validation_alias="MEDIA_S3_ENDPOINT_URL"
+    )
+    MEDIA_S3_ACCESS_KEY_ID: Optional[str] = Field(
+        default=None, validation_alias="MEDIA_S3_ACCESS_KEY_ID"
+    )
+    MEDIA_S3_SECRET_ACCESS_KEY: Optional[str] = Field(
+        default=None, validation_alias="MEDIA_S3_SECRET_ACCESS_KEY"
+    )
+    MEDIA_FFMPEG_TARGET_VERSION: str = Field(
+        default="9.0", validation_alias="MEDIA_FFMPEG_TARGET_VERSION"
+    )
     MOBILE_RELEASE_ROOT: str = Field(
         default="/var/lib/aionex/mobile-releases",
         validation_alias="MOBILE_RELEASE_ROOT",
