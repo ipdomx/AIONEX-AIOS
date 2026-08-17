@@ -843,3 +843,12 @@ Implement the production runner selector as an explicit opt-in with a fail-close
 ### 36C production activation gate 2 — next safe transition
 
 Gate 2 is open as PR #405; merge it only after every protected check is green. After merge, re-confirm the fresh backup artifact/checksum and zero active jobs, then apply migration `0029` only. Keep the Production runner pinned to `legacy` during schema migration and post-migration acceptance. Provider-specific model evidence and live provider activation remain separate later gates.
+
+### 36C pre-migration Production checkpoint — 2026-08-17
+
+- Gate 2 PR #405 merged into `main` as `c01ce06770bac00897673664e47dbd406201eeaf` after all protected checks passed. Production remained healthy on Alembic `0028` with zero active ProjectExecution jobs.
+- Fresh backup gate remains valid: `/opt/AIOS/.deployment-backups/phase36c-production-activation/aios-20260817T115113Z.tar.gz`; SHA-256 re-verification PASS. Disposable restore smoke previously matched Production exactly.
+- Pre-change rollback images are pinned: `aionex-aios-backend:pre-phase36c-20260817T115113Z` -> `sha256:9eaf7b862d52a1733274481316bcb63fac922fccecc4239ebf9cae6bf7c70ebb`; `aionex-aios-project-worker:pre-phase36c-20260817T115113Z` -> `sha256:f0dd66a7790614499fd14674e936a4ce6c118c4b1c332586be17942d8475d531`.
+- Candidate images built from merged main: Backend `sha256:438bf7817b7740aa5ee97aba256979da834a16669c95639dbec03a5af26b7797`; Project Worker `sha256:73e54cb8053e8cdefb5af91edbb966bef99a23a23d6048891921a46e1c4c43fc`. Running containers still use the rollback image IDs at this checkpoint.
+- One-off validation: Backend candidate ships Alembic head `0029` and reads Production current `0028`; Project Worker candidate reads `PROJECT_EXECUTION_RUNNER_MODE=legacy` and its healthcheck exits `0` against the current Production dependencies.
+- Migration safety boundary: apply only `0028 -> 0029`, then immediately recreate Backend and both Project Workers on the candidate images. Keep runner mode pinned `legacy`; do not populate validated models, switch runner mode, call a live provider, or spend provider budget in this migration gate.
