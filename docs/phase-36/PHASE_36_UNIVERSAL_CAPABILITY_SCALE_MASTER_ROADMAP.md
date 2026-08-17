@@ -306,6 +306,12 @@ Current 36D evidence checkpoint (source/test):
 - disposable PostgreSQL + real FFmpeg exit-gate acceptance proves partial scene re-render, final assembly, fencing/recovery and unaffected-node reuse;
 - Production activation remains the final boundary before `runtime_verified`/batch closure.
 
+36D closure status — 2026-08-17T22:44:31Z:
+- protected source/hardening is merged; Production Backend and one non-root Media Worker are healthy on Alembic `0031`; real inherited S3 preflight/round-trip passed;
+- real Production two-scene render/assembly plus one-scene partial revision passed with unaffected-scene checksum reuse, Studio revision materialization, provenance and fenced durable execution;
+- canary DB rows and S3 objects were removed, active Project/Media work returned to zero, `/ready` is `20/20` HTTP 200, and public/private ingress boundaries remain healthy;
+- `creative-asset-graph`, `media-render-transcode`, and `object-storage-media` are `runtime_verified`; **36D=complete, 36E=in_progress, current_batch=36E**. Full evidence is retained in `docs/phase-36/receipts/36D-2026-08-17-media-orchestrator.md`.
+
 ### Batch 36E — Image, design, branding, infographic & prompt factory
 
 Scope:

@@ -65,9 +65,9 @@ CAPABILITIES: Final[tuple[Phase36Capability, ...]] = (
     Phase36Capability("iot-robotics-contracts", "software", "IoT/firmware simulation, robotics and smart contracts", "36C", "locally_executed", (), ("physical-device-or-chain-deployment-authority",)),
 
     # Creative/media graph and image/design.
-    Phase36Capability("creative-asset-graph", "media", "Durable creative asset DAG, revisions and provenance", "36D", "locally_executed", ("docs/phase-36/receipts/36D-2026-08-17-media-orchestrator.md",)),
-    Phase36Capability("media-render-transcode", "media", "Real render/transcode and resumable assembly", "36D", "locally_executed", ("docs/phase-36/receipts/36D-2026-08-17-media-orchestrator.md",)),
-    Phase36Capability("object-storage-media", "media", "Scale object storage for media/artifacts", "36D", "locally_executed", ("docs/phase-36/receipts/36D-2026-08-17-media-orchestrator.md",)),
+    Phase36Capability("creative-asset-graph", "media", "Durable creative asset DAG, revisions and provenance", "36D", "runtime_verified", ("docs/phase-36/receipts/36D-2026-08-17-media-orchestrator.md",)),
+    Phase36Capability("media-render-transcode", "media", "Real render/transcode and resumable assembly", "36D", "runtime_verified", ("docs/phase-36/receipts/36D-2026-08-17-media-orchestrator.md",)),
+    Phase36Capability("object-storage-media", "media", "Scale object storage for media/artifacts", "36D", "runtime_verified", ("docs/phase-36/receipts/36D-2026-08-17-media-orchestrator.md",)),
     Phase36Capability("prompt-factory", "design", "Prompt generation, refinement and reusable packs", "36E", "locally_executed", ("docs/phase-29/PHASE_29H_PRODUCTION_STUDIO_MOBILE_DELIVERY_COMPLETION.md",)),
     Phase36Capability("image-generation-editing", "design", "Image generation, editing, variants and upscale workflows", "36E", "source_built"),
     Phase36Capability("logo-branding", "design", "Logo systems, branding and brand kits", "36E", "source_built"),
@@ -120,8 +120,8 @@ BATCHES: Final[tuple[Phase36Batch, ...]] = (
     Phase36Batch("36A", 1, "Program governance, registry and reporting invariant", "complete"),
     Phase36Batch("36B", 2, "Live distributed project execution and 1000-user admission", "complete"),
     Phase36Batch("36C", 3, "Multi-provider/model/agent execution pools", "complete"),
-    Phase36Batch("36D", 4, "Universal Creative Asset Graph and Media Orchestrator", "in_progress"),
-    Phase36Batch("36E", 5, "Image, design, branding, infographic and prompt factory", "planned"),
+    Phase36Batch("36D", 4, "Universal Creative Asset Graph and Media Orchestrator", "complete"),
+    Phase36Batch("36E", 5, "Image, design, branding, infographic and prompt factory", "in_progress"),
     Phase36Batch("36F", 6, "Video, cinema, motion graphics and advertising factory", "planned"),
     Phase36Batch("36G", 7, "Audio, voice, music, songs and podcast factory", "planned"),
     Phase36Batch("36H", 8, "Realtime communication, streaming and interactive media scale", "planned"),
