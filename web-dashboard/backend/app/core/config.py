@@ -492,6 +492,25 @@ class Settings(BaseSettings):
     MEDIA_RENDER_DRM_DEVICE: str = Field(
         default="/dev/dri/renderD128", validation_alias="MEDIA_RENDER_DRM_DEVICE"
     )
+    DESIGN_IMAGE_LIVE_ENABLED: bool = Field(
+        default=False, validation_alias="DESIGN_IMAGE_LIVE_ENABLED"
+    )
+    DESIGN_IMAGE_WORKER_ID: str = Field(
+        default="", validation_alias="DESIGN_IMAGE_WORKER_ID"
+    )
+    DESIGN_IMAGE_POLL_SECONDS: int = Field(
+        default=2, ge=1, le=60, validation_alias="DESIGN_IMAGE_POLL_SECONDS"
+    )
+    DESIGN_IMAGE_LEASE_SECONDS: int = Field(
+        default=300, ge=30, le=3600, validation_alias="DESIGN_IMAGE_LEASE_SECONDS"
+    )
+    DESIGN_IMAGE_PROVIDER_TIMEOUT_SECONDS: int = Field(
+        default=180, ge=10, le=900, validation_alias="DESIGN_IMAGE_PROVIDER_TIMEOUT_SECONDS"
+    )
+    DESIGN_IMAGE_WORKER_HEALTH_FILE: str = Field(
+        default="/tmp/aionex-design-image-worker-health.json",
+        validation_alias="DESIGN_IMAGE_WORKER_HEALTH_FILE",
+    )
     MOBILE_RELEASE_ROOT: str = Field(
         default="/var/lib/aionex/mobile-releases",
         validation_alias="MOBILE_RELEASE_ROOT",

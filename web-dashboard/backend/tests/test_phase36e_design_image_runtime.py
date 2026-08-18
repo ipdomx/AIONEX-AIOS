@@ -11,6 +11,7 @@ from sqlalchemy import delete, func, select
 
 from app.db.base import SessionLocal
 from app.db.models import (
+    AIProvider,
     AuditEvent,
     DesignImageExecution,
     MediaAssetGraph,
@@ -24,6 +25,10 @@ from app.db.models import (
     User,
     Workspace,
 )
+from app.core.config import settings
+from app.services.ai_runtime_service import encrypt_provider_secret
+from app.services.design_image_providers import ProviderImageResult
+from app.services.design_image_worker import DesignImageWorker
 from app.services.design_image_runtime import (
     DesignImageExecutionAuthority,
     DesignImageExecutionError,
@@ -377,3 +382,103 @@ def test_design_image_schema_has_explicit_arm_fencing_cost_and_output_evidence()
         "provider", "model", "operation", "prompt_sha256", "estimated_cost_usd", "actual_cost_usd",
         "output_storage_key", "output_checksum", "usage_metadata", "provider_response_metadata",
     } <= columns
+
+
+class _FakeLiveAdapter:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def invoke(self, request, *, credential: str, base_url: str):
+        self.calls += 1
+        assert request.provider == "openai"
+        assert request.model == "gpt-image-2"
+        assert request.operation == "generate"
+        assert "precise blue geometric brand visual" in request.prompt
+        assert credential == "fake-provider-credential"
+        assert base_url == "https://api.openai.com"
+        return ProviderImageResult(
+            body=_PNG_1X1,
+            content_type="image/png",
+            request_id="fake-live-request",
+            metadata={"status": "success"},
+            usage={"images": 1},
+            actual_cost_usd=0.001,
+        )
+
+
+@pytest.mark.asyncio
+async def test_design_image_worker_loads_platform_provider_and_completes_durable_job(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scope = await seed_scope("worker-db")
+    platform_id = settings.PROJECT_AI_PLATFORM_PROVIDER_ORGANIZATION_ID
+    created_platform = False
+    store = LocalMediaObjectStore(tmp_path / "objects")
+    try:
+        async with SessionLocal() as session:
+            platform = await session.get(Organization, platform_id)
+            if platform is None:
+                platform = Organization(
+                    id=platform_id,
+                    name="AIONEX Platform Providers",
+                    slug=f"p36e-platform-{uuid4().hex[:8]}",
+                    plan="enterprise",
+                    status="active",
+                )
+                session.add(platform)
+                await session.flush()
+                created_platform = True
+            session.add(
+                AIProvider(
+                    organization_id=platform_id,
+                    name="OpenAI",
+                    type="openai",
+                    status="connected",
+                    encrypted_api_key=encrypt_provider_secret("fake-provider-credential"),
+                    base_url=None,
+                    config={"enabled": True},
+                )
+            )
+            await session.commit()
+
+        graph_id, target_id = await create_image_graph(scope)
+        execution_id = await create_execution(scope, graph_id, target_id)
+        async with SessionLocal() as session:
+            await arm_design_image_execution(
+                session, execution_id=execution_id, organization_id=scope.org.id
+            )
+            await session.commit()
+
+        monkeypatch.setattr(settings, "DESIGN_IMAGE_LIVE_ENABLED", True)
+        monkeypatch.setattr(
+            settings, "DESIGN_IMAGE_WORKER_HEALTH_FILE", str(tmp_path / "worker-health.json")
+        )
+        adapter = _FakeLiveAdapter()
+        authority = DesignImageExecutionAuthority(
+            store=store, worker_id="p36e-worker-db", lease_seconds=30
+        )
+        worker = DesignImageWorker(
+            authority=authority,
+            store=store,
+            adapters={"openai": adapter},
+            worker_id="p36e-worker-db",
+        )
+        assert await worker.run_once() is True
+        assert adapter.calls == 1
+        async with SessionLocal() as session:
+            row = await session.get(DesignImageExecution, execution_id)
+            node = await session.get(MediaAssetNode, target_id)
+            asset = await session.get(StudioAsset, scope.asset.id)
+            assert row is not None and row.status == "completed"
+            assert row.provider_request_id == "fake-live-request"
+            assert row.actual_cost_usd == pytest.approx(0.001)
+            assert node is not None and node.status == "completed"
+            assert asset is not None and asset.current_revision == 2
+    finally:
+        await cleanup_scope(scope)
+        if created_platform:
+            async with SessionLocal() as session:
+                platform = await session.get(Organization, platform_id)
+                if platform is not None:
+                    await session.delete(platform)
+                    await session.commit()
