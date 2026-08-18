@@ -43,7 +43,8 @@ class ProviderImageResult:
     request_id: str | None
     metadata: dict[str, Any]
     usage: dict[str, Any]
-    actual_cost_usd: float = 0.0
+    actual_cost_usd: float | None = None
+    cost_basis: str = "unknown"
 
 
 class ProviderImageFailure(RuntimeError):
@@ -55,6 +56,79 @@ class ProviderImageFailure(RuntimeError):
 
 class ProviderImageAdapter(Protocol):
     async def invoke(self, request: ProviderImageRequest, *, credential: str, base_url: str) -> ProviderImageResult: ...
+
+
+
+
+_OPENAI_TEXT_INPUT_PER_M = 5.0
+_OPENAI_IMAGE_INPUT_PER_M = 8.0
+_OPENAI_IMAGE_OUTPUT_PER_M = 30.0
+_GEMINI_RATES: dict[str, tuple[float, float, float]] = {
+    "gemini-3.1-flash-image": (0.50, 3.0, 60.0),
+    "gemini-3.1-flash-lite-image": (0.25, 1.50, 30.0),
+    "gemini-3-pro-image": (2.0, 12.0, 120.0),
+}
+_FIREWORKS_SCHNELL_PER_STEP = 0.00035
+_FIREWORKS_KONTEXT_PER_IMAGE = {"flux-kontext-pro": 0.04, "flux-kontext-max": 0.08}
+
+
+def _as_nonnegative_int(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int) and value >= 0:
+        return value
+    if isinstance(value, float) and value >= 0 and value.is_integer():
+        return int(value)
+    return None
+
+
+def _modality_tokens(usage: dict[str, Any], field: str, modality: str) -> int | None:
+    rows = usage.get(field)
+    if not isinstance(rows, list):
+        return None
+    total = 0
+    found = False
+    for row in rows:
+        if not isinstance(row, dict) or str(row.get("modality") or "").lower() != modality:
+            continue
+        tokens = _as_nonnegative_int(row.get("tokens"))
+        if tokens is None:
+            return None
+        total += tokens
+        found = True
+    return total if found else 0
+
+
+def _openai_actual_cost(usage: dict[str, Any], request: ProviderImageRequest) -> float | None:
+    output_tokens = _as_nonnegative_int(usage.get("output_tokens"))
+    if output_tokens is None:
+        return None
+    details = usage.get("input_tokens_details")
+    if isinstance(details, dict):
+        text_tokens = _as_nonnegative_int(details.get("text_tokens"))
+        image_tokens = _as_nonnegative_int(details.get("image_tokens"))
+        if text_tokens is not None and image_tokens is not None:
+            return round((text_tokens * _OPENAI_TEXT_INPUT_PER_M + image_tokens * _OPENAI_IMAGE_INPUT_PER_M + output_tokens * _OPENAI_IMAGE_OUTPUT_PER_M) / 1_000_000, 9)
+    if request.references:
+        return None
+    input_tokens = _as_nonnegative_int(usage.get("input_tokens"))
+    if input_tokens is None:
+        return None
+    return round((input_tokens * _OPENAI_TEXT_INPUT_PER_M + output_tokens * _OPENAI_IMAGE_OUTPUT_PER_M) / 1_000_000, 9)
+
+
+def _gemini_actual_cost(usage: dict[str, Any], model: str) -> float | None:
+    rates = _GEMINI_RATES.get(model)
+    if rates is None:
+        return None
+    input_rate, text_output_rate, image_output_rate = rates
+    total_input = _as_nonnegative_int(usage.get("total_input_tokens"))
+    image_output = _modality_tokens(usage, "output_tokens_by_modality", "image")
+    text_output = _modality_tokens(usage, "output_tokens_by_modality", "text")
+    thought_tokens = _as_nonnegative_int(usage.get("total_thought_tokens")) or 0
+    if total_input is None or image_output is None or text_output is None:
+        return None
+    return round((total_input * input_rate + (text_output + thought_tokens) * text_output_rate + image_output * image_output_rate) / 1_000_000, 9)
 
 
 def _error_for_status(status: int) -> ProviderImageFailure:
@@ -157,12 +231,16 @@ class OpenAIImageAdapter:
             raw_usage = parsed_payload.get("usage")
             usage: dict[str, Any] = raw_usage if isinstance(raw_usage, dict) else {}
             request_id = response.headers.get("x-request-id") or parsed_payload.get("id")
+            actual_cost = _openai_actual_cost(usage, request)
+            cost_basis = "official_provider_usage" if actual_cost is not None else "unknown"
             return ProviderImageResult(
                 body=body,
                 content_type=_content_type(request.output_format),
                 request_id=str(request_id) if request_id else None,
                 metadata={"size": parsed_payload.get("size"), "quality": parsed_payload.get("quality"), "background": parsed_payload.get("background")},
-                usage=usage,
+                usage={**usage, "cost_basis": cost_basis},
+                actual_cost_usd=actual_cost,
+                cost_basis=cost_basis,
             )
         except ProviderImageFailure:
             raise
@@ -224,12 +302,16 @@ class GeminiImageAdapter:
                 raise ProviderImageFailure("provider_response", retryable=False)
             encoded, mime = image
             usage = data.get("usage") if isinstance(data.get("usage"), dict) else {}
+            actual_cost = _gemini_actual_cost(usage, request.model)
+            cost_basis = "official_provider_usage" if actual_cost is not None else "unknown"
             return ProviderImageResult(
                 body=_decode_b64(encoded),
                 content_type=mime,
                 request_id=str(data.get("id")) if data.get("id") else None,
                 metadata={"model": data.get("model"), "status": data.get("status")},
-                usage=usage,
+                usage={**usage, "cost_basis": cost_basis},
+                actual_cost_usd=actual_cost,
+                cost_basis=cost_basis,
             )
         except ProviderImageFailure:
             raise
@@ -283,22 +365,29 @@ class FireworksImageAdapter:
         try:
             async with httpx.AsyncClient(transport=self.transport, timeout=self.timeout_seconds, follow_redirects=False) as client:
                 if request.model == "flux-1-schnell-fp8":
+                    raw_steps = (request.options or {}).get("num_inference_steps", 4)
+                    steps = _as_nonnegative_int(raw_steps)
+                    if steps is None or not 1 <= steps <= 8:
+                        raise ProviderImageFailure("provider_request", retryable=False)
                     response = await client.post(
                         f"{root}/v1/workflows/accounts/fireworks/models/flux-1-schnell-fp8/text_to_image",
                         headers={**headers, "Accept": _content_type(request.output_format)},
-                        json={"prompt": request.prompt, "aspect_ratio": request.aspect_ratio},
+                        json={"prompt": request.prompt, "aspect_ratio": request.aspect_ratio, "num_inference_steps": steps},
                     )
                     if response.status_code >= 400:
                         raise _error_for_status(response.status_code)
                     finish = response.headers.get("finish-reason")
                     if finish and finish.upper() != "SUCCESS":
                         raise ProviderImageFailure("provider_content_filtered", retryable=False)
+                    actual_cost = round(steps * _FIREWORKS_SCHNELL_PER_STEP, 9)
                     return ProviderImageResult(
                         body=response.content,
                         content_type=response.headers.get("content-type", _content_type(request.output_format)).split(";", 1)[0],
                         request_id=response.headers.get("x-request-id"),
                         metadata={"seed": response.headers.get("seed"), "finish_reason": finish},
-                        usage={},
+                        usage={"num_inference_steps": steps, "unit_price_usd": _FIREWORKS_SCHNELL_PER_STEP, "cost_basis": "official_fixed_step"},
+                        actual_cost_usd=actual_cost,
+                        cost_basis="official_fixed_step",
                     )
                 input_image = None
                 if request.references:
@@ -321,12 +410,17 @@ class FireworksImageAdapter:
                     result = await self._json(client, poll_url, headers=headers, payload={"id": request_id})
                     status = str(result.get("status") or "")
                     if status == "Ready":
+                        unit_price = _FIREWORKS_KONTEXT_PER_IMAGE.get(request.model)
+                        if unit_price is None:
+                            raise ProviderImageFailure("provider_request", retryable=False)
                         return ProviderImageResult(
                             body=self._kontext_result(result),
                             content_type=_content_type(request.output_format),
                             request_id=request_id,
                             metadata={"status": status, "progress": result.get("progress"), "details": result.get("details")},
-                            usage={},
+                            usage={"images": 1, "unit_price_usd": unit_price, "cost_basis": "official_fixed_image"},
+                            actual_cost_usd=unit_price,
+                            cost_basis="official_fixed_image",
                         )
                     if status in {"Request Moderated", "Content Moderated"}:
                         raise ProviderImageFailure("provider_content_filtered", retryable=False)

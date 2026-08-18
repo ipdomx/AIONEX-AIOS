@@ -84,3 +84,19 @@ Checkpoint 2B adds the actual HTTP provider adapters + image worker behind the e
 - Production Compose now defines a separate `image-execution` profile for `design-image-worker`, running non-root as `1000:1000`, with `cap_drop: ALL`, `no-new-privileges`, inherited governed storage, and `DESIGN_IMAGE_LIVE_ENABLED=false`. Merely deploying the source cannot arm provider image spend.
 - End-to-end source acceptance on disposable PostgreSQL 16 at Alembic `0032` uses the real durable authority + real worker + real platform-provider lookup + LocalMediaObjectStore + a Fake Provider Adapter. The full 2A/2B focused suite is **22/22 PASS** and proves planned→arm→claim→provider-result→raster validation→Media node→Studio revision, plus fencing/retry and public evidence boundaries.
 - 2B remains source/test-only. Actual provider pricing/accounting validation, live OpenAI/Gemini/Fireworks requests, Production migration/worker activation and user-facing provider generation remain blocked for the next controlled live-acceptance checkpoint.
+
+## Checkpoint 3A — Truthful image cost accounting before live acceptance
+
+- Production infrastructure is already staged safely from merged PR #432: Alembic `20260818_0032`, Backend and one non-root Design Image Worker are healthy, real inherited S3 preflight passes, and the worker remains `DESIGN_IMAGE_LIVE_ENABLED=false` with zero image rows/active work. No live provider image call has occurred.
+- Live acceptance was deliberately blocked before the first paid image request because `ProviderImageResult.actual_cost_usd` previously defaulted to `0.0`, which could falsely represent a paid provider call as free when a provider response omitted directly billable usage.
+- Added forward-only Alembic `20260818_0033`: `actual_cost_usd` becomes nullable and a bounded `cost_basis` is persisted. Unknown actual cost is represented as SQL `NULL`, never synthetic `$0`. Downgrade safely restores the 0032 non-null contract.
+- Fireworks accounting is deterministic from the current official price contract: Schnell explicitly sends a bounded `num_inference_steps` and records fixed step pricing; Kontext Pro/Max record fixed per-image pricing.
+- Gemini accounting consumes Interactions `usage` modality breakdown and applies the current official input/text-output/image-output token rates for the three launch image models.
+- GPT Image 2 accounting uses returned provider usage when enough token detail is present; generation without image inputs can price from text-input + image-output token counts, while edit/reference calls without modality detail keep actual cost `NULL` rather than guessing.
+- Provider evidence now carries one of the governed cost bases: `official_provider_usage`, `official_fixed_step`, `official_fixed_image`, or `unknown`. Unsupported basis strings are rejected.
+- Fresh PostgreSQL 16 reached Alembic `0033`; focused image authority/provider/worker accounting tests are `23/23 PASS`. Recovery `0033 -> 0032 -> 0033` PASS: `cost_basis` disappears/reappears and `actual_cost_usd` changes `NOT NULL -> NULLABLE` exactly as designed. Ruff/Mypy/compile PASS.
+- This checkpoint is source/test-only. Production remains on `0032`, persistent Design Image Worker remains live-disabled, and OpenAI/Gemini/Fireworks image spend remains zero for Phase36E until this source change passes protected CI and a fresh Production backup/restore gate.
+
+### Next safe gate
+
+Merge protected truthful-cost source, take a fresh Production backup/restore, migrate `0032 -> 0033`, redeploy Backend/Image Worker still live-disabled, then run one bounded provider generation at a time with evidence and cleanup.
