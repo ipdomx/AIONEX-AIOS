@@ -6,6 +6,7 @@ from aios.design_factory import (
     BrandKit,
     DesignFactoryError,
     DesignRequest,
+    IMAGE_PROVIDER_CAPABILITIES,
     build_design_plan,
     editable_svg_template,
 )
@@ -94,3 +95,10 @@ def test_openai_image_adapter_default_tracks_live_gpt_image_2_inventory() -> Non
     from aios.providers.adapters.openai import OpenAIProvider
 
     assert inspect.signature(OpenAIProvider.image).parameters["model"].default == "gpt-image-2"
+
+
+def test_gemini_flash_lite_declares_only_live_supported_jpeg_output() -> None:
+    by_model = {item.model: item for item in IMAGE_PROVIDER_CAPABILITIES if item.provider == "gemini"}
+    assert by_model["gemini-3.1-flash-lite-image"].output_formats == frozenset({"jpeg"})
+    assert {"png", "jpeg"} <= by_model["gemini-3.1-flash-image"].output_formats
+    assert {"png", "jpeg"} <= by_model["gemini-3-pro-image"].output_formats

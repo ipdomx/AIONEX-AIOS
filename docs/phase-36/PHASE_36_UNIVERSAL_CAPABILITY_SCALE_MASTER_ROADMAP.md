@@ -338,6 +338,7 @@ Current 36E foundation checkpoint — 2026-08-18:
 - Fresh PostgreSQL 16 + 2A authority tests are `5/5 PASS`; migration `0032 -> 0031 -> 0032` PASS. The next boundary is provider HTTP adapters/worker under the same explicit arm gate; 36E remains `in_progress`.
 - Checkpoint 2B adds hardened OpenAI/Gemini/Fireworks image HTTP adapters plus a separate non-root `image-execution` worker profile that is live-disabled by default. Fake-HTTP/provider plus real durable-worker DB integration is `22/22 PASS`; no live image provider request/spend is claimed yet.
 - Checkpoint 3A hardens provider billing evidence before the first paid image call: Alembic `20260818_0033` makes unknown actual cost nullable and records a governed cost basis; Fireworks fixed/step pricing and Gemini/OpenAI usage-based pricing paths are locally verified. Focused accounting/runtime suite is `23/23 PASS`, migration `0033 -> 0032 -> 0033` PASS; Production remains live-disabled pending protected merge/deploy.
+- Live checkpoint 3B1: Fireworks Schnell is currently inaccessible on the configured account (provider model access gate); Gemini 3.1 Flash Lite live contract proved 1K + JPEG-only, and source now rejects unsupported output formats before arm/spend. No successful live image output is claimed yet.
 
 ### Batch 36F — Video, cinema, motion graphics & advertising factory
 

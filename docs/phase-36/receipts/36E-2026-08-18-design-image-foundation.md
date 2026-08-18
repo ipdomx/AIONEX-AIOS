@@ -100,3 +100,14 @@ Checkpoint 2B adds the actual HTTP provider adapters + image worker behind the e
 ### Next safe gate
 
 Merge protected truthful-cost source, take a fresh Production backup/restore, migrate `0032 -> 0033`, redeploy Backend/Image Worker still live-disabled, then run one bounded provider generation at a time with evidence and cleanup.
+
+## Checkpoint 3B1 — First live-provider truth findings and Gemini format hardening
+
+- Protected truthful-cost PR #433 merged as `e693dfe2d6c32c3b5af124ef20b1f409f77526bf`; Production is aligned at Alembic `20260818_0033`, Backend/Image Worker/PostgreSQL/Redis are healthy, the persistent Design Image Worker remains `DESIGN_IMAGE_LIVE_ENABLED=false`, and active Design/Image/Project work is zero.
+- Fresh Production backup `/opt/AIOS/.deployment-backups/phase36e-live-acceptance/aios-20260818T103716Z.tar.gz` was created from the current 0033 state and restored successfully on isolated PostgreSQL 16.
+- Production S3 preflight and bounded put/get/SHA-256/delete round-trip passed from the Design Image Worker.
+- Fireworks Schnell live acceptance did **not** render an image. The official endpoint returned `404` / `Model not found, inaccessible, and/or not deployed` for `flux-1-schnell-fp8`; no Studio revision or S3 image object was produced. This is recorded as a provider-model access gate, not a balance failure.
+- Gemini 3.1 Flash Lite live acceptance exposed a provider contract mismatch before image output: the API rejected `image/png` for `response_format.mime_type` and accepted only `image/jpeg` for this model. A prior 512px canary attempt was also invalid because Flash Lite supports 1K only. No successful Gemini image output was produced before this fix.
+- Source hardening adds explicit provider/model output-format capabilities. `gemini-3.1-flash-lite-image` is now JPEG-only; unsupported format requests fail before execution arming/spend. Current Gemini Flash/Pro and OpenAI/Fireworks formats remain separately declared rather than assumed globally.
+- Verification: Design Factory `8/8 PASS`; Gemini pre-spend output-format guard `1/1 PASS`; Ruff/Mypy PASS on touched source.
+- Phase36E remains `in_progress`; no maturity is raised by failed provider canaries. The next protected step is merge this format guard, redeploy source without changing the persistent live-disabled flag, then retry one bounded Gemini Flash Lite JPEG generation before attempting OpenAI.

@@ -372,6 +372,61 @@ async def test_random_bytes_cannot_be_committed_as_final_image(tmp_path: Path) -
         await cleanup_scope(scope)
 
 
+
+@pytest.mark.asyncio
+async def test_gemini_flash_lite_rejects_png_before_spend_and_accepts_jpeg() -> None:
+    scope = await seed_scope("gemini-format")
+    try:
+        graph_id, target_id = await create_image_graph(scope)
+        async with SessionLocal() as session:
+            with pytest.raises(DesignImageExecutionError, match="output format is unsupported by provider model"):
+                await create_design_image_execution(
+                    session,
+                    spec=DesignImageExecutionSpec(
+                        organization_id=scope.org.id,
+                        requested_by_id=scope.user.id,
+                        workspace_id=scope.workspace.id,
+                        project_id=scope.project.id,
+                        studio_job_id=scope.job.id,
+                        studio_asset_id=scope.asset.id,
+                        graph_id=graph_id,
+                        target_node_id=target_id,
+                        provider="gemini",
+                        model="gemini-3.1-flash-lite-image",
+                        operation="generate",
+                        prompt="Create a clean blue geometric brand visual.",
+                        idempotency_key=f"gemini-png-{uuid4()}",
+                        request_options={"aspect_ratio": "1:1", "image_size": "1K"},
+                        output_format="png",
+                        estimated_cost_usd=0.0,
+                    ),
+                )
+            row = await create_design_image_execution(
+                session,
+                spec=DesignImageExecutionSpec(
+                    organization_id=scope.org.id,
+                    requested_by_id=scope.user.id,
+                    workspace_id=scope.workspace.id,
+                    project_id=scope.project.id,
+                    studio_job_id=scope.job.id,
+                    studio_asset_id=scope.asset.id,
+                    graph_id=graph_id,
+                    target_node_id=target_id,
+                    provider="gemini",
+                    model="gemini-3.1-flash-lite-image",
+                    operation="generate",
+                    prompt="Create a clean blue geometric brand visual.",
+                    idempotency_key=f"gemini-jpeg-{uuid4()}",
+                    request_options={"aspect_ratio": "1:1", "image_size": "1K"},
+                    output_format="jpeg",
+                    estimated_cost_usd=0.0,
+                ),
+            )
+            assert row.status == "planned" and row.output_format == "jpeg" and row.armed_at is None
+            await session.rollback()
+    finally:
+        await cleanup_scope(scope)
+
 def test_design_image_schema_has_explicit_arm_fencing_cost_and_output_evidence() -> None:
     from app.db.base import Base
     import app.db.models  # noqa: F401
