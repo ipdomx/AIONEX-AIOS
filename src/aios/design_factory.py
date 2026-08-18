@@ -90,6 +90,7 @@ class ImageProviderCapability:
     max_resolution: int
     supports_transparency: bool = False
     supports_multiple_references: bool = False
+    output_formats: frozenset[str] = frozenset({"png", "jpeg", "webp"})
     quality_score: float = 0.5
     latency_score: float = 0.5
     cost_score: float = 0.5
@@ -104,6 +105,7 @@ IMAGE_PROVIDER_CAPABILITIES: Final[tuple[ImageProviderCapability, ...]] = (
         2048,
         supports_transparency=True,
         supports_multiple_references=True,
+        output_formats=frozenset({"png", "jpeg", "webp"}),
         quality_score=0.98,
         latency_score=0.82,
         cost_score=0.72,
@@ -114,6 +116,7 @@ IMAGE_PROVIDER_CAPABILITIES: Final[tuple[ImageProviderCapability, ...]] = (
         frozenset({"generate", "edit", "variation"}),
         4096,
         supports_multiple_references=True,
+        output_formats=frozenset({"png", "jpeg"}),
         quality_score=0.97,
         latency_score=0.91,
         cost_score=0.86,
@@ -124,6 +127,7 @@ IMAGE_PROVIDER_CAPABILITIES: Final[tuple[ImageProviderCapability, ...]] = (
         frozenset({"generate", "edit", "variation"}),
         1024,
         supports_multiple_references=True,
+        output_formats=frozenset({"jpeg"}),
         quality_score=0.88,
         latency_score=0.98,
         cost_score=0.98,
@@ -134,6 +138,7 @@ IMAGE_PROVIDER_CAPABILITIES: Final[tuple[ImageProviderCapability, ...]] = (
         frozenset({"generate", "edit", "variation"}),
         4096,
         supports_multiple_references=True,
+        output_formats=frozenset({"png", "jpeg"}),
         quality_score=0.995,
         latency_score=0.66,
         cost_score=0.48,
@@ -144,6 +149,7 @@ IMAGE_PROVIDER_CAPABILITIES: Final[tuple[ImageProviderCapability, ...]] = (
         frozenset({"generate", "edit", "variation"}),
         2048,
         supports_multiple_references=False,
+        output_formats=frozenset({"png", "jpeg"}),
         quality_score=0.91,
         latency_score=0.80,
         cost_score=0.77,
@@ -154,6 +160,7 @@ IMAGE_PROVIDER_CAPABILITIES: Final[tuple[ImageProviderCapability, ...]] = (
         frozenset({"generate", "edit", "variation"}),
         2048,
         supports_multiple_references=False,
+        output_formats=frozenset({"png", "jpeg"}),
         quality_score=0.95,
         latency_score=0.66,
         cost_score=0.58,
@@ -163,6 +170,7 @@ IMAGE_PROVIDER_CAPABILITIES: Final[tuple[ImageProviderCapability, ...]] = (
         "flux-1-schnell-fp8",
         frozenset({"generate"}),
         2048,
+        output_formats=frozenset({"png", "jpeg"}),
         quality_score=0.83,
         latency_score=0.97,
         cost_score=0.94,
