@@ -302,7 +302,14 @@ async def test_reclaimed_design_image_lease_rejects_stale_worker_and_materialize
                 "signed_url": "https://should-not-persist.example/token",
                 "prompt": "must-not-persist",
             },
-            usage_metadata={"images": 1, "api_token": "must-not-persist"},
+            usage_metadata={
+                "images": 1,
+                "input_tokens": 42,
+                "output_tokens": 100,
+                "input_tokens_details": {"text_tokens": 42, "image_tokens": 0},
+                "api_token": "must-not-persist",
+                "access_token": "must-not-persist",
+            },
             actual_cost_usd=0.015,
         )
         assert result["status"] == "completed"
@@ -329,6 +336,10 @@ async def test_reclaimed_design_image_lease_rejects_stale_worker_and_materialize
             assert "signed_url" not in row.provider_response_metadata
             assert "prompt" not in row.provider_response_metadata
             assert "api_token" not in row.usage_metadata
+            assert "access_token" not in row.usage_metadata
+            assert row.usage_metadata["input_tokens"] == 42
+            assert row.usage_metadata["output_tokens"] == 100
+            assert row.usage_metadata["input_tokens_details"] == {"text_tokens": 42, "image_tokens": 0}
             assert any(item.get("type") == "provider-image" for item in node.provenance)
             assert asset is not None and asset.current_revision == 2 and asset.media_type == "image/png"
             assert revisions == 1 and audits == 1

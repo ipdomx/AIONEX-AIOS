@@ -144,9 +144,23 @@ def _capability(provider: str, model: str, operation: str):
 
 
 _SENSITIVE_METADATA_FRAGMENTS = (
-    "api_key", "apikey", "authorization", "credential", "secret", "token",
+    "api_key", "apikey", "authorization", "credential", "secret",
     "prompt", "b64", "base64", "image_data", "signed_url", "presigned",
 )
+_SENSITIVE_TOKEN_KEYS = frozenset({
+    "token", "api_token", "access_token", "refresh_token", "id_token",
+    "auth_token", "bearer_token", "session_token", "credential_token",
+})
+
+
+def _metadata_key_is_sensitive(key: str) -> bool:
+    lowered = key.lower()
+    return (
+        any(fragment in lowered for fragment in _SENSITIVE_METADATA_FRAGMENTS)
+        or lowered in _SENSITIVE_TOKEN_KEYS
+        or lowered.endswith("_token")
+        or lowered.startswith("token_")
+    )
 
 
 def _safe_metadata(payload: dict[str, Any]) -> dict[str, Any]:
@@ -154,8 +168,7 @@ def _safe_metadata(payload: dict[str, Any]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for raw_key, raw_value in list(payload.items())[:64]:
         key = str(raw_key)[:120]
-        lowered = key.lower()
-        if any(fragment in lowered for fragment in _SENSITIVE_METADATA_FRAGMENTS):
+        if _metadata_key_is_sensitive(key):
             continue
         if raw_value is None or isinstance(raw_value, (bool, int, float)):
             result[key] = raw_value
