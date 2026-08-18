@@ -111,6 +111,14 @@ Merge protected truthful-cost source, take a fresh Production backup/restore, mi
 - Live evidence exposed one audit-quality gap: the metadata sanitizer dropped benign token-count fields because it treated every key containing `token` as secret. The sanitizer now preserves usage counters such as `input_tokens`, `output_tokens`, modality token counts and nested token details while still removing exact credential token keys (`api_token`, `access_token`, bearer/session/auth/refresh/id tokens), authorization, secrets, prompts, base64 and signed URLs. Focused durable runtime tests are `7/7 PASS` on disposable PostgreSQL 16 at Alembic `0033`; no new migration is required.
 - Phase36E remains `in_progress`. One launch provider (OpenAI GPT Image 2) is live-proven. Fireworks and Gemini remain explicitly gated by current provider-side model/quota authority and are not represented as live-ready.
 
+## Checkpoint 3B1 — Provider output-format hardening
+
+- Gemini 3.1 Flash Lite live acceptance proved two provider-native constraints: the supported image size is 1K and the accepted output MIME is JPEG, not PNG. The bounded JPEG retry then reached the external provider quota gate (`429 too_many_requests`, image free-tier quota limit `0`), so no successful Gemini raster is claimed.
+- The design capability matrix now declares output formats per provider/model. `gemini-3.1-flash-lite-image` is JPEG-only; Gemini Flash/Pro and OpenAI/Fireworks launch models keep their separately declared supported formats instead of inheriting one global assumption.
+- `DesignImageExecution` validation now rejects an unsupported provider/model output format before row creation, arming, provider request or spend.
+- Verification on the hardening branch: Design Factory `8/8 PASS`; focused Gemini pre-spend format guard `1/1 PASS`; Ruff and Mypy PASS on touched source. No new migration is required.
+- The persistent Design Image Worker remains `DESIGN_IMAGE_LIVE_ENABLED=false`. Gemini is not retried again while the current quota gate remains unchanged, and Fireworks Schnell remains blocked by current model deployment/access.
+
 ### Next safe gate
 
-Protect and deploy the usage-evidence hardening, then prove OpenAI edit/reference input through the same durable/S3/Studio path. Provider-native output constraints and provider availability evidence must feed the final 36E routing policy before user-facing live arming.
+Protect and deploy the provider-format guard without globally arming the persistent image worker. Continue Stage 3 using the already live-proven OpenAI route and preserve Fireworks/Gemini as explicit external gates; provider availability and output-format truth must feed the Stage 4 routing policy before user-facing live arming.

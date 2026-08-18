@@ -190,9 +190,11 @@ def _safe_metadata(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _validate_spec(spec: DesignImageExecutionSpec) -> None:
-    _capability(spec.provider, spec.model, spec.operation)
+    capability = _capability(spec.provider, spec.model, spec.operation)
     if spec.output_format not in _ALLOWED_OUTPUT_FORMATS:
         raise DesignImageExecutionError("design image output format is unsupported")
+    if spec.output_format not in capability.output_formats:
+        raise DesignImageExecutionError("design image output format is unsupported by provider model")
     if not 1 <= spec.max_attempts <= 5:
         raise DesignImageExecutionError("design image retry limit is outside the allowed range")
     if not 1 <= len(spec.prompt.strip()) <= 12_000:
