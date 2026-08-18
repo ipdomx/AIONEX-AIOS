@@ -261,6 +261,40 @@ jobs:
           assert payload["audio"]["size_bytes"] > 0
           print("PHASE36D_MEDIA_WORKER_SMOKE_OK")
           PY
+      - name: Build and verify Sharp 0.35.3 image derivative worker
+        working-directory: web-dashboard
+        env:
+          COMPOSE_PARALLEL_LIMIT: "1"
+        run: |
+          mkdir -p diagnostics
+          AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
+          docker compose \
+            --profile image-execution \
+            --env-file .env.production \
+            -f docker-compose.production.yml \
+            build design-image-derivative-worker
+          docker run --rm \
+            -e ENVIRONMENT=test \
+            -e DEBUG=false \
+            -e SECRET_KEY=phase36e-ci-sharp-worker-secret-key-with-at-least-32-characters \
+            -e MEDIA_STORAGE_TYPE=local \
+            -e MEDIA_STORAGE_ROOT=/tmp/aionex-media-assets \
+            -e PYTHONPATH=/app \
+            aionex-aios-image-derivative-worker:local \
+            python /app/scripts/verify_design_image_derivatives.py \
+            > diagnostics/design-image-derivative-worker-smoke.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          payload = json.loads(Path("diagnostics/design-image-derivative-worker-smoke.json").read_text())
+          assert payload["preflight"]["engine"] == "sharp"
+          assert payload["preflight"]["engine_version"] == "0.35.3"
+          assert payload["preflight"]["node_version"].startswith("24.")
+          assert {item["format"] for item in payload["outputs"]} == {"png", "webp", "jpeg"}
+          assert all(item["width"] == 96 and item["height"] == 64 for item in payload["outputs"])
+          assert all(item["size_bytes"] > 0 and len(item["sha256"]) == 64 for item in payload["outputs"])
+          print("PHASE36E_SHARP_DERIVATIVE_SMOKE_OK")
+          PY
       - name: Build Security Lab image without competing network-heavy builds
         working-directory: web-dashboard
         env:

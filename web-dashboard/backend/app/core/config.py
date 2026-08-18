@@ -525,6 +525,22 @@ class Settings(BaseSettings):
         default="/tmp/aionex-image-derivatives",
         validation_alias="DESIGN_IMAGE_SHARP_TEMP_ROOT",
     )
+    DESIGN_IMAGE_DERIVATIVE_ENABLED: bool = Field(
+        default=False, validation_alias="DESIGN_IMAGE_DERIVATIVE_ENABLED"
+    )
+    DESIGN_IMAGE_DERIVATIVE_WORKER_ID: str = Field(
+        default="", validation_alias="DESIGN_IMAGE_DERIVATIVE_WORKER_ID"
+    )
+    DESIGN_IMAGE_DERIVATIVE_POLL_SECONDS: int = Field(
+        default=2, ge=1, le=60, validation_alias="DESIGN_IMAGE_DERIVATIVE_POLL_SECONDS"
+    )
+    DESIGN_IMAGE_DERIVATIVE_LEASE_SECONDS: int = Field(
+        default=180, ge=30, le=3600, validation_alias="DESIGN_IMAGE_DERIVATIVE_LEASE_SECONDS"
+    )
+    DESIGN_IMAGE_DERIVATIVE_WORKER_HEALTH_FILE: str = Field(
+        default="/tmp/aionex-design-image-derivative-worker-health.json",
+        validation_alias="DESIGN_IMAGE_DERIVATIVE_WORKER_HEALTH_FILE",
+    )
     MOBILE_RELEASE_ROOT: str = Field(
         default="/var/lib/aionex/mobile-releases",
         validation_alias="MOBILE_RELEASE_ROOT",

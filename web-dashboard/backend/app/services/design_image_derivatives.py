@@ -16,9 +16,9 @@ from pathlib import Path
 from typing import Any
 
 from app.core.config import settings
-from app.services.design_image_runtime import DesignImageExecutionError, _inspect_raster
+from app.services.image_raster_validation import ImageRasterValidationError, inspect_raster
+from app.services.media_orchestrator import SHARP_TARGET_VERSION
 
-SHARP_TARGET_VERSION = "0.35.3"
 _ALLOWED_FORMATS = frozenset({"png", "jpeg", "webp"})
 _ALLOWED_FITS = frozenset({"cover", "contain"})
 _ALLOWED_POSITIONS = frozenset({"centre", "center", "north", "south", "east", "west"})
@@ -156,8 +156,8 @@ class SharpDerivativeRuntime:
         if digest != source_checksum:
             raise DesignImageDerivativeError("derivative source checksum verification failed")
         try:
-            _inspect_raster(source_body, source_format)
-        except DesignImageExecutionError as exc:
+            inspect_raster(source_body, source_format)
+        except ImageRasterValidationError as exc:
             raise DesignImageDerivativeError("derivative source raster verification failed") from exc
         self.temp_root.mkdir(parents=True, exist_ok=True, mode=0o700)
         try:
@@ -218,8 +218,8 @@ class SharpDerivativeRuntime:
             if not output_body or len(output_body) > int(settings.MEDIA_MAX_OBJECT_BYTES):
                 raise DesignImageDerivativeError("derivative output size is outside the governed range")
             try:
-                width, height = _inspect_raster(output_body, spec.output_format)
-            except DesignImageExecutionError as exc:
+                width, height = inspect_raster(output_body, spec.output_format)
+            except ImageRasterValidationError as exc:
                 raise DesignImageDerivativeError("Sharp derivative output raster verification failed") from exc
             if width != spec.width or height != spec.height:
                 raise DesignImageDerivativeError("Sharp derivative output dimensions do not match the plan")

@@ -66,7 +66,7 @@ def test_sharp_runtime_verifies_receipt_output_dimensions_and_hashes(
                     {
                         "engine": "sharp",
                         "engine_version": "0.35.3",
-                        "libvips_version": "8.17.3",
+                        "libvips_version": "8.18.3",
                     }
                 ),
                 stderr="",
@@ -126,3 +126,50 @@ def test_sharp_runtime_fails_closed_on_version_or_receipt_mismatch(
     )
     with pytest.raises(DesignImageDerivativeError, match="Node 24"):
         runtime.preflight()
+
+
+def test_sharp_runtime_subprocess_environment_excludes_application_secrets(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    script = tmp_path / "derivative.mjs"
+    script.write_text("// test", encoding="utf-8")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://sensitive")
+    monkeypatch.setenv("OPENAI_API_KEY", "sensitive-provider-key")
+    monkeypatch.setenv("SECRET_KEY", "sensitive-app-key")
+    captured_envs: list[dict[str, str]] = []
+
+    def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        env = kwargs.get("env")
+        assert isinstance(env, dict)
+        captured_envs.append({str(k): str(v) for k, v in env.items()})
+        if command[1] == "--version":
+            return subprocess.CompletedProcess(command, 0, stdout="v24.18.1\n", stderr="")
+        assert command[-1] == "--probe"
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=json.dumps(
+                {
+                    "engine": "sharp",
+                    "engine_version": "0.35.3",
+                    "libvips_version": "8.18.3",
+                }
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    runtime = SharpDerivativeRuntime(
+        node_binary="node",
+        script_path=script,
+        temp_root=tmp_path / "work",
+    )
+    evidence = runtime.preflight()
+    assert evidence["engine_version"] == "0.35.3"
+    assert len(captured_envs) == 2
+    for env in captured_envs:
+        assert env["HOME"] == "/tmp"
+        assert env["NO_COLOR"] == "1"
+        assert "DATABASE_URL" not in env
+        assert "OPENAI_API_KEY" not in env
+        assert "SECRET_KEY" not in env

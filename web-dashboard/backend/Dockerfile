@@ -101,11 +101,23 @@ RUN set -eux; \
 FROM runtime AS media-worker
 USER root
 RUN set -eux; \
-    apk add --no-cache x264-libs opus libSvtAv1Enc zlib libva libvpl libdrm nodejs npm; \
-    install -d -m 0700 -o aionex -g aionex \
-      /var/lib/aionex/media-assets /tmp/aionex-media-render /tmp/aionex-image-derivatives; \
-    install -d -m 0755 /opt/aionex-image-tools
+    apk add --no-cache x264-libs opus libSvtAv1Enc zlib libva libvpl libdrm; \
+    install -d -m 0700 -o aionex -g aionex /var/lib/aionex/media-assets /tmp/aionex-media-render
 COPY --from=ffmpeg-builder /opt/ffmpeg /opt/ffmpeg
+ENV MEDIA_FFMPEG_BINARY=/opt/ffmpeg/bin/ffmpeg \
+    MEDIA_FFPROBE_BINARY=/opt/ffmpeg/bin/ffprobe \
+    MEDIA_FFMPEG_TARGET_VERSION=9.0
+RUN /opt/ffmpeg/bin/ffmpeg -version | grep -q '^ffmpeg version 9\.0' \
+    && /opt/ffmpeg/bin/ffprobe -version | grep -q '^ffprobe version 9\.0'
+
+# Phase 36E — isolated local Sharp derivative worker. It has no provider client
+# or credential-specific dependency and validates the exact pinned runtime at build time.
+FROM runtime AS image-derivative-worker
+USER root
+RUN set -eux; \
+    apk add --no-cache nodejs npm; \
+    install -d -m 0700 -o aionex -g aionex /var/lib/aionex/media-assets /tmp/aionex-image-derivatives; \
+    install -d -m 0755 /opt/aionex-image-tools
 COPY image_tools/package.json image_tools/package-lock.json /opt/aionex-image-tools/
 RUN set -eux; \
     cd /opt/aionex-image-tools; \
@@ -113,17 +125,13 @@ RUN set -eux; \
     npm cache clean --force; \
     apk del npm
 COPY image_tools/derivative.mjs /opt/aionex-image-tools/derivative.mjs
-ENV MEDIA_FFMPEG_BINARY=/opt/ffmpeg/bin/ffmpeg \
-    MEDIA_FFPROBE_BINARY=/opt/ffmpeg/bin/ffprobe \
-    MEDIA_FFMPEG_TARGET_VERSION=9.0 \
-    DESIGN_IMAGE_SHARP_NODE_BINARY=/usr/bin/node \
+ENV DESIGN_IMAGE_SHARP_NODE_BINARY=/usr/bin/node \
     DESIGN_IMAGE_SHARP_SCRIPT=/opt/aionex-image-tools/derivative.mjs \
     DESIGN_IMAGE_SHARP_TEMP_ROOT=/tmp/aionex-image-derivatives
 RUN set -eux; \
-    /opt/ffmpeg/bin/ffmpeg -version | grep -q '^ffmpeg version 9\.0'; \
-    /opt/ffmpeg/bin/ffprobe -version | grep -q '^ffprobe version 9\.0'; \
+    node --version | grep -Eq '^v24\.'; \
+    node /opt/aionex-image-tools/derivative.mjs --probe | grep -q '"engine_version":"0.35.3"'; \
     cd /opt/aionex-image-tools; \
-    node -e "import('sharp').then(({default:s})=>{if(s.versions.sharp!=='0.35.3')process.exit(1)})"; \
     node -e "import('sharp').then(async({default:s})=>{await s({create:{width:32,height:24,channels:4,background:{r:10,g:50,b:160,alpha:1}}}).png().toFile('/tmp/aionex-sharp-source.png')})"; \
     node /opt/aionex-image-tools/derivative.mjs --input /tmp/aionex-sharp-source.png --output /tmp/aionex-sharp-output.webp --width 96 --height 64 --format webp --fit cover --position centre | grep -q '"engine_version":"0.35.3"'; \
     node -e "import('sharp').then(async({default:s})=>{const m=await s('/tmp/aionex-sharp-output.webp').metadata();if(m.width!==96||m.height!==64||m.format!=='webp')process.exit(1)})"; \
