@@ -515,6 +515,69 @@ async def download_asset(
     )
 
 
+@router.get("/assets/{asset_id}/editable-source")
+async def download_editable_source(
+    asset_id: str,
+    actor: UserRecord = Depends(current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    asset = await _asset_or_404(session, actor, asset_id)
+    pipeline = (asset.asset_metadata or {}).get("design_image_pipeline_output")
+    editable = pipeline.get("editable_source") if isinstance(pipeline, dict) else None
+    if not isinstance(editable, dict):
+        raise HTTPException(status_code=409, detail="Editable design source is unavailable")
+    storage_backend = str(editable.get("storage_backend") or "").strip().lower()
+    storage_key = str(editable.get("storage_key") or "").strip()
+    checksum = str(editable.get("checksum") or "").strip().lower()
+    media_type = str(editable.get("media_type") or "").strip().lower()
+    try:
+        size_bytes = int(editable.get("size_bytes") or 0)
+    except (TypeError, ValueError):
+        size_bytes = 0
+    if (
+        not storage_backend
+        or not storage_key
+        or len(checksum) != 64
+        or media_type != "image/svg+xml"
+        or size_bytes <= 0
+    ):
+        raise HTTPException(status_code=409, detail="Editable design source metadata is invalid")
+    filename = f"{production_studio.slug(asset.title)}-editable-v{asset.current_revision}.svg"
+    try:
+        store = media_object_store_for_backend(storage_backend)
+        if isinstance(store, LocalMediaObjectStore):
+            verified = store.verified_path(storage_key, checksum=checksum, size_bytes=size_bytes)
+            return FileResponse(
+                verified,
+                media_type=media_type,
+                filename=filename,
+                headers={
+                    "Cache-Control": "private, no-store",
+                    "X-AIONEX-Checksum-SHA256": checksum,
+                    "X-AIONEX-Editable-Schema": str(editable.get("schema") or ""),
+                },
+            )
+        url = store.presigned_get(
+            storage_key,
+            filename=filename,
+            content_type=media_type,
+            expires_seconds=900,
+            inline=False,
+        )
+    except MediaStorageError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not url:
+        raise HTTPException(status_code=409, detail="Editable design source download is unavailable")
+    return RedirectResponse(
+        url=url,
+        status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+        headers={
+            "Cache-Control": "private, no-store",
+            "X-AIONEX-Checksum-SHA256": checksum,
+        },
+    )
+
+
 @router.get("/assets/{asset_id}/revisions")
 async def list_revisions(
     asset_id: str,
