@@ -1,7 +1,7 @@
 # Phase 36E — Image, design, branding, infographic & prompt factory
 
 Date: 2026-08-18
-Status: **IN PROGRESS — Stage 4 durable routed derivative integration; OpenAI generation/edit live-proven; Gemini/Fireworks remain externally gated**
+Status: **IN PROGRESS — Stage 4C operation truth hardening; OpenAI generation/edit/inpaint live-proven; GPT Image 2 background-remove/transparency unsupported; Gemini/Fireworks remain externally gated**
 
 ## Baseline
 
@@ -197,3 +197,22 @@ Run the corrected PR #438 protected matrix and require all checks green. After m
 ### Next safe gate
 
 Begin Stage 4C from merged/deployed `main@7afe037`. Keep both persistent image/derivative execution flags false. First prove OpenAI `inpaint` and `background-remove` one operation at a time through bounded one-shot canaries with governed S3 inputs/masks, truthful usage/cost evidence and complete cleanup. Do not retry Gemini/Fireworks while their external gates are unchanged. After operation acceptance, prove the required design families and editable-source/responsive export exit gate before any Phase36E closure transition.
+
+
+## Checkpoint 4C1 — OpenAI inpaint live acceptance and GPT Image 2 operation-truth correction
+
+- Stage 4C began only after Stage 4B Production evidence was protected and merged. Persistent Production flags stayed `DESIGN_IMAGE_LIVE_ENABLED=false` and `DESIGN_IMAGE_DERIVATIVE_ENABLED=false`; active Design Image and Media queues were zero before each provider canary. Gemini and Fireworks were not retried because their external quota/model-access gates were unchanged.
+- **OpenAI GPT Image 2 inpaint PASS.** A bounded one-shot Production canary created a synthetic `1024x1024` governed reference PNG plus a same-size PNG mask with an alpha channel inside the existing S3/Media DAG boundary. The durable execution used operation `inpaint`, `max_attempts=1`, `quality=low`, and only temporarily enabled image live execution inside the one-shot process.
+- Inpaint completed through the real OpenAI adapter -> durable `DesignImageExecution` authority -> governed S3 parent/mask reads -> provider edit request -> raster validation -> output S3 write -> Media DAG completion -> one Studio revision. Runtime was about `21.902s`; actual provider cost was `$0.014257` with `cost_basis=official_provider_usage`; output size was `772734` bytes; provider request evidence was recorded; output checksum verification passed and the final raster differed from the synthetic reference.
+- Inpaint evidence SHA-256: `f981e250160ceeb5f0250050c3608304270859675779ce1f180346cb0c7fa630`. Cleanup PASS removed the synthetic organization/graph/execution rows and attempted deletion of all three synthetic S3 objects (reference, mask, output) with no cleanup errors. Persistent Design Image Worker remained Healthy and live-disabled afterward; active Design Image/Media rows returned to zero.
+- A separate bounded `background-remove` canary was then attempted exactly once. It failed quickly with sanitized `provider_request`; no durable provider request ID was retained, `actual_cost_usd` remained `NULL`, Studio stayed at revision `1`, graph/node remained planned, and cleanup returned synthetic DB rows to zero. Evidence SHA-256: `e3b09e6a4791775f7d8acccad2375ee95b399f833de6ea81dd1802a054ec911a`. No retry was performed.
+- The failed canary plus current provider contract review exposed a capability-truth error in the launch matrix: GPT Image 2 had been advertising `background-remove` and transparent-background support even though that contract is not supported for this model. This is treated as a source defect, not as a reason to spend again.
+- Stage 4C source hardening removes `background-remove` from GPT Image 2 operations and sets `supports_transparency=false`. Provider prompt compilation now validates the complete capability contract rather than operation membership alone, so transparent designs cannot silently compile against a non-transparent provider.
+- Durable execution validation additionally rejects GPT Image 2 `request_options.background=transparent` **before row creation**. Direct `background-remove` execution already fails the governed provider/model/operation matrix before row creation. The OpenAI adapter retains a final defense-in-depth guard that rejects either unsupported contract before making HTTP, and it no longer rewrites `background-remove` into a transparent edit request.
+- The trusted runtime-evidence contract is advanced only for the proven operation: OpenAI GPT Image 2 can now be represented as `ready` for `generate`, `edit`, and `inpaint` in PNG when the caller supplies the retained operator/runtime evidence. `background-remove` remains unavailable rather than being promoted by static capability or by user input.
+- Source verification on disposable infrastructure: Design Factory `15/15 PASS`; provider-adapter suite `11/11 PASS`; durable Design Image runtime `10/10 PASS` on fresh PostgreSQL 16 at Alembic `20260818_0033`; Ruff PASS; Mypy PASS; Python compile and `git diff --check` PASS. The new durable regression test proves unsupported background-remove/transparency attempts leave `DesignImageExecution` row count unchanged. No schema migration is required.
+- Production remains on the already accepted Stage 4B deployment while this correction is source-only. The persistent Design Image and Derivative Workers remain disabled for unattended execution.
+
+### Next safe gate
+
+Protect and merge the Stage 4C operation-truth correction, then deploy only the affected Backend/Design Image runtime with persistent execution still disabled and verify the new pre-row/pre-HTTP guards in Production without provider spend. After that, Stage 4 should move to the remaining required design-family evidence: logo/brand-system, poster/advertisement, product mockup, infographic/diagram, experimental graphics, and editable-source + responsive-export completion. Do not retry GPT Image 2 background removal, Gemini, or Fireworks while their current capability/external gates remain unchanged.
