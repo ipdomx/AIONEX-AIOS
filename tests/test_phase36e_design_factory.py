@@ -158,7 +158,7 @@ def stage4c_runtime_evidence() -> tuple[ProviderRuntimeEvidence, ...]:
             provider="openai",
             model="gpt-image-2",
             state="ready",
-            proven_operations=frozenset({"generate", "edit", "inpaint"}),
+            proven_operations=frozenset({"generate", "edit", "inpaint", "variation"}),
             verified_output_formats=frozenset({"png"}),
             reason="bounded production generation, reference edit and mask edit accepted",
         ),
@@ -166,7 +166,7 @@ def stage4c_runtime_evidence() -> tuple[ProviderRuntimeEvidence, ...]:
     )
 
 
-def test_stage4c_inpaint_route_is_live_proven_without_promoting_background_remove() -> None:
+def test_stage4c_inpaint_and_variation_routes_are_live_proven_without_promoting_background_remove() -> None:
     decision = route_live_provider(
         request(operation="inpaint", reference_count=1),
         output_format="png",
@@ -175,6 +175,14 @@ def test_stage4c_inpaint_route_is_live_proven_without_promoting_background_remov
     assert decision.provider == "openai"
     assert decision.model == "gpt-image-2"
     assert decision.operation == "inpaint"
+    variation = route_live_provider(
+        request(operation="variation", reference_count=1),
+        output_format="png",
+        evidence=stage4c_runtime_evidence(),
+    )
+    assert variation.provider == "openai"
+    assert variation.model == "gpt-image-2"
+    assert variation.operation == "variation"
     with pytest.raises(DesignFactoryError, match="no live-proven"):
         route_live_provider(
             request(operation="background-remove", reference_count=1),
