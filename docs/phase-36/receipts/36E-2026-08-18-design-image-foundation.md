@@ -131,6 +131,16 @@ Merge protected truthful-cost source, take a fresh Production backup/restore, mi
 - Current post-deploy state: Alembic `20260818_0033`; Design Image rows total/active=`0/0`; Media active=`0`; Backend and Design Image Worker healthy; persistent Design Image Worker live flag remains `false`. A pre-existing Project is in `review` at 100% and was not modified by this deployment.
 - **Phase36E Stage 3 is complete. Stage 4 remains open.** Batch 36E itself remains `in_progress`; Stage 4 must finish provider-aware routing, inpaint/background/derivatives, branding/logo/infographic/diagram/experimental design outputs, editable source plus responsive export pipeline, final Production canary and closure.
 
-### Stage 4 safe entry
+## Checkpoint 4A — Fail-closed live routing and responsive export contract
 
-Do not globally arm the persistent image worker. Stage 4 should use the live evidence above to build provider-availability/output-format routing, use OpenAI as the currently live-proven provider, retain Fireworks/Gemini external gates, and prove design-family outputs and derivatives before the final 36E closure transition.
+- Added an explicit `ProviderRuntimeEvidence` contract that separates static capability from current live readiness. A provider/model can enter a live route only when operator/runtime evidence is `ready` and proves the exact requested operation plus provider output format. Missing, unknown, disabled or external-gate evidence never promotes a provider to live-ready.
+- Added deterministic `route_live_provider(...)` selection over the existing quality/latency/cost ranking. The live route remains fail-closed for an unproven operation or output format even when the model capability matrix says the provider could theoretically support it. This means Stage 3 evidence can route OpenAI GPT Image 2 generation/edit in verified PNG form while inpaint/background-removal remain blocked until separately proven. Fireworks/Gemini external gates remain external gates rather than fallback candidates.
+- Live routing can intentionally produce a bounded provider source raster for a larger governed design preset and mark `requires_resampling=true`; this prevents a high-resolution final export requirement from forcing selection of an externally gated provider when an already live-proven source route plus deterministic derivative stage is appropriate.
+- Added governed `responsive_raster_exports(...)` planning over existing named presets only. Derivative filenames, dimensions, formats and cover-fit intent are deterministic; transparent-background requests never schedule JPEG derivatives. No derivative plan is represented as rendered output.
+- Provider prompt packs now record a provider-native output format for Gemini and Fireworks too. Gemini Flash Lite therefore compiles to JPEG rather than inheriting an implicit PNG assumption.
+- Focused Design Factory suite is `14/14 PASS`; Python compile and `git diff --check` PASS. No database migration, provider request, S3 write or Production live-arm is introduced by this checkpoint.
+- The persistent Design Image Worker remains `DESIGN_IMAGE_LIVE_ENABLED=false`. Stage 4A is source/test-only and does not retry the unchanged Gemini quota gate or Fireworks model-access gate.
+
+### Next safe gate
+
+Protect and merge Stage 4A, then integrate the fail-closed route into the durable image execution entry path and implement the governed Sharp derivative worker using the already pinned `sharp 0.35.3`. Prove derivative integrity locally before any new one-shot provider canary; inpaint/background-removal remain unarmed until their own bounded acceptance evidence exists.

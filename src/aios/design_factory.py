@@ -6,7 +6,7 @@ import html
 import json
 import re
 from dataclasses import asdict, dataclass, field
-from typing import Any, Final
+from typing import Any, Final, Iterable
 
 
 class DesignFactoryError(ValueError):
@@ -95,6 +95,63 @@ class ImageProviderCapability:
     latency_score: float = 0.5
     cost_score: float = 0.5
     stable: bool = True
+
+
+_ALLOWED_RUNTIME_STATES: Final[frozenset[str]] = frozenset(
+    {"ready", "external_gate", "disabled", "unknown"}
+)
+_ALLOWED_RASTER_FORMATS: Final[frozenset[str]] = frozenset({"png", "jpeg", "webp"})
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderRuntimeEvidence:
+    """Operator/runtime evidence used by live routing; capability alone never means live-ready."""
+
+    provider: str
+    model: str
+    state: str
+    proven_operations: frozenset[str] = frozenset()
+    verified_output_formats: frozenset[str] = frozenset()
+    reason: str = ""
+
+    def __post_init__(self) -> None:
+        if self.state not in _ALLOWED_RUNTIME_STATES:
+            raise DesignFactoryError("provider runtime evidence state is invalid")
+        if any(item not in _ALLOWED_OPERATIONS for item in self.proven_operations):
+            raise DesignFactoryError("provider runtime evidence operation is invalid")
+        if any(item not in _ALLOWED_RASTER_FORMATS for item in self.verified_output_formats):
+            raise DesignFactoryError("provider runtime evidence output format is invalid")
+        if len(self.reason) > 500:
+            raise DesignFactoryError("provider runtime evidence reason is too long")
+        if self.state == "ready" and (not self.proven_operations or not self.verified_output_formats):
+            raise DesignFactoryError("ready provider runtime evidence requires proven operations and output formats")
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderRouteDecision:
+    provider: str
+    model: str
+    operation: str
+    provider_output_format: str
+    target_preset_id: str
+    requires_resampling: bool
+    evidence_state: str
+    evidence_reason: str
+
+
+@dataclass(frozen=True, slots=True)
+class RasterExportSpec:
+    preset_id: str
+    width: int
+    height: int
+    output_format: str
+    fit: str = "cover"
+    position: str = "centre"
+
+    @property
+    def filename(self) -> str:
+        suffix = "jpg" if self.output_format == "jpeg" else self.output_format
+        return f"{self.preset_id}-{self.width}x{self.height}.{suffix}"
 
 
 IMAGE_PROVIDER_CAPABILITIES: Final[tuple[ImageProviderCapability, ...]] = (
@@ -261,26 +318,139 @@ class DesignPlan:
         }
 
 
+def _provider_score(item: ImageProviderCapability) -> tuple[float, str]:
+    return (
+        item.quality_score * 0.55 + item.latency_score * 0.25 + item.cost_score * 0.20,
+        item.model,
+    )
+
+
+def _capability_matches_request(
+    item: ImageProviderCapability,
+    request: DesignRequest,
+    *,
+    require_direct_target_resolution: bool,
+) -> bool:
+    if request.operation not in item.operations:
+        return False
+    if request.transparent_background and not item.supports_transparency:
+        return False
+    if request.reference_count > 1 and not item.supports_multiple_references:
+        return False
+    if require_direct_target_resolution:
+        preset = DESIGN_PRESETS[request.preset_id]
+        minimum_resolution = max(preset.width, preset.height)
+        if item.max_resolution < min(minimum_resolution, 4096):
+            return False
+    return True
+
+
 def provider_candidates(request: DesignRequest) -> tuple[ImageProviderCapability, ...]:
-    minimum_resolution = max(DESIGN_PRESETS[request.preset_id].width, DESIGN_PRESETS[request.preset_id].height)
     candidates = [
         item
         for item in IMAGE_PROVIDER_CAPABILITIES
-        if request.operation in item.operations
-        and item.max_resolution >= min(minimum_resolution, 4096)
-        and (not request.transparent_background or item.supports_transparency)
-        and (request.reference_count <= 1 or item.supports_multiple_references)
+        if _capability_matches_request(item, request, require_direct_target_resolution=True)
     ]
-    candidates.sort(
-        key=lambda item: (
-            item.quality_score * 0.55 + item.latency_score * 0.25 + item.cost_score * 0.20,
-            item.model,
-        ),
-        reverse=True,
-    )
+    candidates.sort(key=_provider_score, reverse=True)
     if not candidates:
         raise DesignFactoryError("no launch image provider satisfies this design request")
     return tuple(candidates)
+
+
+def default_provider_output_format(capability: ImageProviderCapability) -> str:
+    """Choose a deterministic provider-native raster format without inventing support."""
+    for preferred in ("png", "jpeg", "webp"):
+        if preferred in capability.output_formats:
+            return preferred
+    raise DesignFactoryError("provider declares no governed raster output format")
+
+
+def route_live_provider(
+    request: DesignRequest,
+    *,
+    output_format: str,
+    evidence: Iterable[ProviderRuntimeEvidence],
+) -> ProviderRouteDecision:
+    """Select only a capability that current explicit runtime evidence proves live-ready.
+
+    The live router intentionally differs from planning: a provider may create a bounded
+    source raster that is later transformed into a larger governed export preset. Runtime
+    evidence must still prove the exact operation and provider output format before spend.
+    """
+    if output_format not in _ALLOWED_RASTER_FORMATS:
+        raise DesignFactoryError("live image route output format is invalid")
+    evidence_by_key: dict[tuple[str, str], ProviderRuntimeEvidence] = {}
+    for item in evidence:
+        key = (item.provider, item.model)
+        if key in evidence_by_key:
+            raise DesignFactoryError("duplicate provider runtime evidence")
+        evidence_by_key[key] = item
+
+    candidates: list[tuple[ImageProviderCapability, ProviderRuntimeEvidence]] = []
+    for capability in IMAGE_PROVIDER_CAPABILITIES:
+        if not _capability_matches_request(
+            capability, request, require_direct_target_resolution=False
+        ):
+            continue
+        if output_format not in capability.output_formats:
+            continue
+        runtime = evidence_by_key.get((capability.provider, capability.model))
+        if runtime is None or runtime.state != "ready":
+            continue
+        if request.operation not in runtime.proven_operations:
+            continue
+        if output_format not in runtime.verified_output_formats:
+            continue
+        candidates.append((capability, runtime))
+
+    candidates.sort(key=lambda pair: _provider_score(pair[0]), reverse=True)
+    if not candidates:
+        raise DesignFactoryError("no live-proven image provider route satisfies this design request")
+    capability, runtime = candidates[0]
+    preset = DESIGN_PRESETS[request.preset_id]
+    return ProviderRouteDecision(
+        provider=capability.provider,
+        model=capability.model,
+        operation=request.operation,
+        provider_output_format=output_format,
+        target_preset_id=preset.preset_id,
+        requires_resampling=max(preset.width, preset.height) > capability.max_resolution,
+        evidence_state=runtime.state,
+        evidence_reason=runtime.reason,
+    )
+
+
+def responsive_raster_exports(
+    request: DesignRequest,
+    *,
+    derivative_preset_ids: Iterable[str] = (),
+) -> tuple[RasterExportSpec, ...]:
+    """Plan governed responsive derivatives; no returned item is represented as rendered."""
+    preset_ids = [request.preset_id]
+    for preset_id in derivative_preset_ids:
+        if preset_id not in DESIGN_PRESETS:
+            raise DesignFactoryError("responsive derivative preset is unknown")
+        if preset_id not in preset_ids:
+            preset_ids.append(preset_id)
+    exports: list[RasterExportSpec] = []
+    for preset_id in preset_ids:
+        preset = DESIGN_PRESETS[preset_id]
+        for output_format in preset.raster_exports:
+            if output_format not in _ALLOWED_RASTER_FORMATS:
+                raise DesignFactoryError("responsive derivative output format is invalid")
+            if request.transparent_background and output_format == "jpeg":
+                continue
+            exports.append(
+                RasterExportSpec(
+                    preset_id=preset.preset_id,
+                    width=preset.width,
+                    height=preset.height,
+                    output_format=output_format,
+                )
+            )
+    if not exports:
+        raise DesignFactoryError("responsive derivative plan has no raster outputs")
+    return tuple(exports)
 
 
 def _base_prompt(request: DesignRequest, preset: DesignPreset) -> str:
@@ -324,11 +494,13 @@ def compile_provider_prompt(
         )
         negative = None
     elif capability.provider == "gemini":
+        settings["output_format"] = default_provider_output_format(capability)
         settings["image_size"] = "4K" if capability.max_resolution >= 4096 else "1K"
         if negative:
             prompt += f" Explicit exclusions: {negative}."
             negative = None
     elif capability.provider == "fireworks":
+        settings["output_format"] = default_provider_output_format(capability)
         settings["response_format"] = "binary"
     else:  # pragma: no cover - launch matrix is closed above
         raise DesignFactoryError("unsupported launch image provider")
