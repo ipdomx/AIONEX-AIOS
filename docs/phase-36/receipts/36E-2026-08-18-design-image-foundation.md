@@ -119,6 +119,18 @@ Merge protected truthful-cost source, take a fresh Production backup/restore, mi
 - Verification on the hardening branch: Design Factory `8/8 PASS`; focused Gemini pre-spend format guard `1/1 PASS`; Ruff and Mypy PASS on touched source. No new migration is required.
 - The persistent Design Image Worker remains `DESIGN_IMAGE_LIVE_ENABLED=false`. Gemini is not retried again while the current quota gate remains unchanged, and Fireworks Schnell remains blocked by current model deployment/access.
 
-### Next safe gate
+## Checkpoint 3C — Stage 3 live image fabric closure
 
-Protect and deploy the provider-format guard without globally arming the persistent image worker. Continue Stage 3 using the already live-proven OpenAI route and preserve Fireworks/Gemini as explicit external gates; provider availability and output-format truth must feed the Stage 4 routing policy before user-facing live arming.
+- Protected usage-evidence PR #435 merged as `fe5f3b4af310830e68f91ae10351e3c658a69ddb`.
+- Provider-format PR #434 merged as `236372e658787e9a97f7f0c4721f9ddf83854e6d`. Production source was fast-forwarded to that commit; Backend and the non-root Design Image Worker were rebuilt/recreated from the Production compose file with `--no-deps`. The persistent worker remains `DESIGN_IMAGE_LIVE_ENABLED=false`.
+- Deployed runtime verification confirms `gemini-3.1-flash-lite-image` exposes `jpeg` only and the pre-spend provider-format guard is active. Backend `/ready` is healthy; Backend and Design Image Worker healthchecks are healthy; recent critical-log hits are zero.
+- **OpenAI GPT Image 2 edit/reference acceptance PASS.** A synthetic `1024x1024` PNG was stored temporarily in inherited Production S3 and referenced through a completed parent `MediaAssetNode`. A one-shot GPT Image 2 `edit` execution completed through the real provider adapter, durable authority, reference-object read, output raster validation, S3 write, Media DAG completion and Studio revision materialization.
+- Edit runtime latency was about `20.62s`; actual provider cost was `$0.014912` with `cost_basis=official_provider_usage`. Persisted usage retained `input_tokens=1192`, `output_tokens=196`, and image/text input token detail keys while credential-like token fields remained redacted. Final output size was `1143998` bytes; provider request ID and checksum evidence were present.
+- Edit evidence SHA-256: `9ff1e82c55aedac21b21a78e2340e5c39211298278bcda77de10780caea87259`. The synthetic source object, generated output object and all synthetic organization/image-execution/media-graph rows were removed after evidence collection.
+- Provider truth at Stage 3 close: OpenAI GPT Image 2 is live-proven for generation and reference-image editing. Fireworks `flux-1-schnell-fp8` remains provider-side inaccessible/not deployed for the current credential. Gemini `gemini-3.1-flash-lite-image` remains provider-side quota-gated for the current API key; its native 1K/JPEG contract is now enforced before spend. Neither gated provider is represented as Production-live-ready.
+- Current post-deploy state: Alembic `20260818_0033`; Design Image rows total/active=`0/0`; Media active=`0`; Backend and Design Image Worker healthy; persistent Design Image Worker live flag remains `false`. A pre-existing Project is in `review` at 100% and was not modified by this deployment.
+- **Phase36E Stage 3 is complete. Stage 4 remains open.** Batch 36E itself remains `in_progress`; Stage 4 must finish provider-aware routing, inpaint/background/derivatives, branding/logo/infographic/diagram/experimental design outputs, editable source plus responsive export pipeline, final Production canary and closure.
+
+### Stage 4 safe entry
+
+Do not globally arm the persistent image worker. Stage 4 should use the live evidence above to build provider-availability/output-format routing, use OpenAI as the currently live-proven provider, retain Fireworks/Gemini external gates, and prove design-family outputs and derivatives before the final 36E closure transition.
