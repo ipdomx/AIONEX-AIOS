@@ -14,6 +14,7 @@ from app.db.models import (
 )
 from app.services.media_orchestrator import (
     FFMPEG_TARGET_VERSION,
+    SHARP_TARGET_VERSION,
     MediaEdgeSpec,
     MediaGraphError,
     MediaGraphSpec,
@@ -38,11 +39,21 @@ def _stable_idempotency(*parts: str) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
-def _operation_for(node: MediaNodeSpec) -> tuple[str | None, str | None, str]:
+def _operation_for(
+    node: MediaNodeSpec,
+) -> tuple[str | None, str | None, str, str, str]:
     operation = str(node.parameters.get("operation") or "").strip().lower() or None
     profile = str(node.parameters.get("output_profile") or "").strip() or None
     hardware = str(node.parameters.get("hardware_adapter") or "software").strip().lower()
-    return operation, profile, hardware
+    engine = str(node.parameters.get("engine") or "ffmpeg").strip().lower()
+    if engine == "ffmpeg":
+        version = FFMPEG_TARGET_VERSION
+    elif engine == "sharp" and operation == "design-image-derivative":
+        version = SHARP_TARGET_VERSION
+        hardware = "software"
+    else:
+        raise MediaGraphError("media execution engine/operation is unsupported")
+    return operation, profile, hardware, engine, version
 
 
 async def create_media_graph(
@@ -149,7 +160,7 @@ async def create_media_graph(
     for node in spec.nodes:
         if node.key in reused:
             continue
-        operation, profile_id, hardware = _operation_for(node)
+        operation, profile_id, hardware, engine, engine_version = _operation_for(node)
         if operation is None:
             continue
         selected_profile = profile_id or spec.output_profile
@@ -162,8 +173,8 @@ async def create_media_graph(
                 step_key=f"{node.key}:r{node.revision}:{operation}",
                 operation=operation,
                 output_profile=selected_profile,
-                engine="ffmpeg",
-                engine_version=FFMPEG_TARGET_VERSION,
+                engine=engine,
+                engine_version=engine_version,
                 hardware_adapter=hardware,
                 status="planned",
                 attempts=0,

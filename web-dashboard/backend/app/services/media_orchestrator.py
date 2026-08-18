@@ -8,6 +8,7 @@ from typing import Any, Iterable
 
 MEDIA_GRAPH_SCHEMA_VERSION = "36D.1"
 FFMPEG_TARGET_VERSION = "9.0"
+SHARP_TARGET_VERSION = "0.35.3"
 
 
 class MediaGraphError(ValueError):

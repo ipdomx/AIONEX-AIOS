@@ -9,6 +9,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import delete, func, select
 
+from aios.design_factory import DESIGN_PRESETS, DesignPreset, DesignRequest, ProviderRuntimeEvidence
 from app.db.base import SessionLocal
 from app.db.models import (
     AIProvider,
@@ -28,6 +29,9 @@ from app.db.models import (
 from app.core.config import settings
 from app.services.ai_runtime_service import encrypt_provider_secret
 from app.services.design_image_providers import ProviderImageResult
+from app.services.design_image_derivative_worker import DesignImageDerivativeWorker
+from app.services.design_image_derivatives import SharpDerivativeResult
+from app.services.design_image_pipeline import create_routed_design_image_pipeline
 from app.services.design_image_worker import DesignImageWorker
 from app.services.design_image_runtime import (
     DesignImageExecutionAuthority,
@@ -39,6 +43,7 @@ from app.services.design_image_runtime import (
 )
 from app.services.media_graph_runtime import MediaGraphScope, create_media_graph, media_graph_snapshot
 from app.services.media_orchestrator import MediaEdgeSpec, MediaGraphSpec, MediaNodeSpec
+from app.services.media_render_worker import MediaRenderWorker
 from app.services.media_storage import LocalMediaObjectStore
 
 _PNG_1X1 = base64.b64decode(
@@ -583,3 +588,174 @@ async def test_design_image_worker_loads_platform_provider_and_completes_durable
                 if platform is not None:
                     await session.delete(platform)
                     await session.commit()
+
+
+class _FakeSharpDerivativeRuntime:
+    def preflight(self) -> dict[str, str]:
+        return {"engine": "sharp", "engine_version": "0.35.3", "node_version": "24.19.0"}
+
+    def render(self, *, source_body: bytes, source_format: str, source_checksum: str, spec):
+        assert source_body == _PNG_1X1
+        assert source_format == "png"
+        assert source_checksum == __import__("hashlib").sha256(_PNG_1X1).hexdigest()
+        assert spec.width == 1 and spec.height == 1 and spec.output_format == "png"
+        checksum = __import__("hashlib").sha256(_PNG_1X1).hexdigest()
+        return SharpDerivativeResult(
+            body=_PNG_1X1,
+            content_type="image/png",
+            width=1,
+            height=1,
+            output_format="png",
+            sha256=checksum,
+            size_bytes=len(_PNG_1X1),
+            input_sha256=checksum,
+            command_hash=__import__("hashlib").sha256(b"phase36e-fake-sharp-command").hexdigest(),
+            engine_version="0.35.3",
+            metadata={
+                "engine": "sharp",
+                "engine_version": "0.35.3",
+                "output_format": "png",
+                "output_width": 1,
+                "output_height": 1,
+                "fit": "cover",
+                "position": "centre",
+            },
+        )
+
+
+@pytest.mark.asyncio
+async def test_routed_pipeline_stays_no_spend_until_arm_and_sharp_worker_owns_only_sharp_steps(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scope = await seed_scope("routed-pipeline")
+    store = LocalMediaObjectStore(tmp_path / "objects")
+    original = DESIGN_PRESETS["social-square"]
+    monkeypatch.setitem(
+        DESIGN_PRESETS,
+        "social-square",
+        DesignPreset("social-square", 1, 1, "1:1", "social", ("png",)),
+    )
+    monkeypatch.setattr(settings, "DESIGN_IMAGE_DERIVATIVE_ENABLED", True)
+    monkeypatch.setattr(
+        settings,
+        "DESIGN_IMAGE_DERIVATIVE_WORKER_HEALTH_FILE",
+        str(tmp_path / "derivative-health.json"),
+    )
+    try:
+        request = DesignRequest(
+            title="AIONEX routed visual",
+            brief="Create one governed social visual for the durable Phase 36E pipeline acceptance.",
+            use_case="social-post",
+            preset_id="social-square",
+            operation="generate",
+        )
+        evidence = (
+            ProviderRuntimeEvidence(
+                provider="openai",
+                model="gpt-image-2",
+                state="ready",
+                proven_operations=frozenset({"generate", "edit"}),
+                verified_output_formats=frozenset({"png"}),
+                reason="Stage 3 bounded canary passed",
+            ),
+        )
+        async with SessionLocal() as session:
+            pipeline = await create_routed_design_image_pipeline(
+                session,
+                scope=MediaGraphScope(
+                    organization_id=scope.org.id,
+                    created_by_id=scope.user.id,
+                    workspace_id=scope.workspace.id,
+                    project_id=scope.project.id,
+                    studio_job_id=scope.job.id,
+                    studio_asset_id=scope.asset.id,
+                ),
+                request=request,
+                runtime_evidence=evidence,
+                provider_output_format="png",
+                idempotency_key="phase36e-routed-pipeline-test",
+                estimated_cost_usd=0.01,
+            )
+            row = await session.get(DesignImageExecution, pipeline.execution_id)
+            steps = list(
+                (
+                    await session.scalars(
+                        select(MediaRenderStep).where(MediaRenderStep.graph_id == pipeline.graph_id)
+                    )
+                ).all()
+            )
+            assert row is not None and row.status == "planned" and row.armed_at is None
+            assert pipeline.route.provider == "openai" and pipeline.route.model == "gpt-image-2"
+            assert len(steps) == 1
+            assert steps[0].engine == "sharp"
+            assert steps[0].engine_version == "0.35.3"
+            assert steps[0].operation == "design-image-derivative"
+            await session.commit()
+
+        authority = DesignImageExecutionAuthority(store=store, worker_id="route-provider", lease_seconds=30)
+        assert await authority.claim() is None
+        async with SessionLocal() as session:
+            await arm_design_image_execution(
+                session,
+                execution_id=pipeline.execution_id,
+                organization_id=scope.org.id,
+            )
+            await session.commit()
+        claim = await authority.claim()
+        assert claim is not None
+        await authority.complete_bytes(
+            claim,
+            body=_PNG_1X1,
+            content_type="image/png",
+            provider_request_id="phase36e-route-provider-request",
+            provider_response_metadata={"status": "success"},
+            usage_metadata={"images": 1, "cost_basis": "official_provider_usage"},
+            actual_cost_usd=0.001,
+            cost_basis="official_provider_usage",
+        )
+
+        ffmpeg_worker = MediaRenderWorker(store=store, worker_id="ffmpeg-engine-filter-test")
+        assert await ffmpeg_worker.claim() is None
+
+        async with SessionLocal() as session:
+            graph = await session.get(MediaAssetGraph, pipeline.graph_id)
+            asset = await session.get(StudioAsset, scope.asset.id)
+            assert graph is not None and graph.status != "completed"
+            assert asset is not None and asset.current_revision == 1
+
+        derivative_worker = DesignImageDerivativeWorker(
+            store=store,
+            runtime=_FakeSharpDerivativeRuntime(),
+            worker_id="sharp-engine-filter-test",
+        )
+        assert await derivative_worker.run_once() is True
+        assert await derivative_worker.run_once() is False
+
+        async with SessionLocal() as session:
+            graph = await session.get(MediaAssetGraph, pipeline.graph_id)
+            asset = await session.get(StudioAsset, scope.asset.id)
+            revision_count = int(
+                await session.scalar(
+                    select(func.count(StudioAssetRevision.id)).where(
+                        StudioAssetRevision.asset_id == scope.asset.id
+                    )
+                )
+                or 0
+            )
+            primary = await session.get(MediaAssetNode, pipeline.primary_derivative_node_id)
+            assert graph is not None and graph.status == "completed"
+            assert primary is not None and primary.status == "completed"
+            assert primary.media_type == "image/png" and primary.checksum
+            assert asset is not None and asset.current_revision == 2
+            output = (asset.asset_metadata or {}).get("design_image_pipeline_output")
+            assert isinstance(output, dict)
+            assert output["graph_id"] == pipeline.graph_id
+            assert output["route"]["provider"] == "openai"
+            assert len(output["derivatives"]) == 1
+            assert revision_count == 1
+            public = await media_graph_snapshot(session, graph)
+            assert "compiled_prompt" not in repr(public)
+            assert request.brief not in repr(public)
+    finally:
+        DESIGN_PRESETS["social-square"] = original
+        await cleanup_scope(scope)

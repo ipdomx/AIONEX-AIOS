@@ -336,6 +336,48 @@ services:
     cap_drop: ["ALL"]
     networks: [aionex-network]
 
+  design-image-derivative-worker:
+    profiles: ["image-execution"]
+    image: aionex-aios-image-derivative-worker:local
+    user: "1000:1000"
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: image-derivative-worker
+    restart: unless-stopped
+    mem_limit: 2g
+    cpus: "2.0"
+    pids_limit: 384
+    stop_grace_period: 45s
+    command: ["python", "-m", "app.services.design_image_derivative_worker"]
+    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      MEDIA_STORAGE_TYPE: inherit
+      DESIGN_IMAGE_DERIVATIVE_ENABLED: "false"
+      DESIGN_IMAGE_SHARP_NODE_BINARY: /usr/bin/node
+      DESIGN_IMAGE_SHARP_SCRIPT: /opt/aionex-image-tools/derivative.mjs
+      DESIGN_IMAGE_SHARP_TEMP_ROOT: /tmp/aionex-image-derivatives
+      AIOS_REPO_ROOT: /workspace
+      PYTHONPATH: /workspace/src:/app
+    volumes:
+      - ..:/workspace:ro
+      - media_asset_data:/var/lib/aionex/media-assets:rw
+    depends_on:
+      backend: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.services.design_image_derivative_worker", "--healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    networks: [aionex-network]
+
   three-d-worker:
     image: aionex-aios-backend:local
     restart: unless-stopped

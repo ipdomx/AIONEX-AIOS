@@ -147,6 +147,7 @@ class MediaRenderWorker:
                     await session.scalars(
                         select(MediaRenderStep)
                         .where(
+                            MediaRenderStep.engine == "ffmpeg",
                             MediaRenderStep.status == "running",
                             MediaRenderStep.attempts >= MediaRenderStep.max_attempts,
                             MediaRenderStep.lease_expires_at < now,
@@ -206,6 +207,7 @@ class MediaRenderWorker:
                 .scalar_subquery()
             )
             queued = and_(
+                MediaRenderStep.engine == "ffmpeg",
                 MediaRenderStep.status.in_(("planned", "retry_queued")),
                 MediaRenderStep.attempts < MediaRenderStep.max_attempts,
                 blocked_dependencies == 0,
@@ -215,6 +217,7 @@ class MediaRenderWorker:
                 ),
             )
             recovery = and_(
+                MediaRenderStep.engine == "ffmpeg",
                 MediaRenderStep.status == "running",
                 MediaRenderStep.attempts < MediaRenderStep.max_attempts,
                 blocked_dependencies == 0,
