@@ -114,3 +114,17 @@ Merge protected truthful-cost source, take a fresh Production backup/restore, mi
 ### Next safe gate
 
 Protect and deploy the usage-evidence hardening, then prove OpenAI edit/reference input through the same durable/S3/Studio path. Provider-native output constraints and provider availability evidence must feed the final 36E routing policy before user-facing live arming.
+
+## Checkpoint 3C — Stage 3 live image fabric closure
+
+- Protected usage-evidence PR #435 merged as `fe5f3b4af310830e68f91ae10351e3c658a69ddb`. Production remains on Alembic `20260818_0033`; Backend and non-root Design Image Worker were rebuilt/restarted with `--no-deps`, and the persistent worker remains `DESIGN_IMAGE_LIVE_ENABLED=false`.
+- **OpenAI GPT Image 2 edit/reference acceptance PASS.** A synthetic `1024x1024` PNG was stored temporarily in inherited Production S3 and referenced through a completed parent `MediaAssetNode`. A one-shot GPT Image 2 `edit` execution completed through the real provider adapter, durable authority, reference-object read, output raster validation, S3 write, Media DAG completion and Studio revision materialization.
+- Edit runtime latency was about `20.62s`; actual provider cost was `$0.014912` with `cost_basis=official_provider_usage`. Persisted usage retained `input_tokens=1192`, `output_tokens=196`, and image/text input token detail keys while credential-like token fields remained redacted. Final output size was `1143998` bytes; provider request ID and checksum evidence were present.
+- Edit evidence SHA-256: `9ff1e82c55aedac21b21a78e2340e5c39211298278bcda77de10780caea87259`. The synthetic source object, generated output object and all synthetic organization/image-execution/media-graph rows were removed after evidence collection.
+- Stage 3 provider truth is explicit: OpenAI GPT Image 2 is live-proven for generation and reference-image editing. Fireworks `flux-1-schnell-fp8` remains provider-side inaccessible/not deployed for the current credential. Gemini `gemini-3.1-flash-lite-image` remains provider-side gated because the current API key reports image free-tier request/token quota limit `0`; the live API additionally proved this route's native image MIME is JPEG. Neither gated provider is represented as Production-live-ready.
+- Final Stage 3 health proof: Alembic `0033`; image rows/active=`0/0`, Project active=`0`, Media active=`0`; Backend, Design Image Worker, Media Worker, PostgreSQL and Redis all healthy; Backend `/ready`=`20/20` HTTP 200; Backend/Image Worker critical-log hits=`0`; persistent Design Image Worker live flag remains `false`.
+- **Phase36E Stage 3/4 is complete.** The provider execution fabric, truthful cost/accounting evidence, S3/DAG/Studio integration and bounded live OpenAI generation/edit paths are proven. Batch 36E itself remains `in_progress`; Stage 4 must finish provider-aware routing, inpaint/background/derivatives, branding/logo/infographic/diagram/experimental design outputs, editable source plus responsive export pipeline, final Production canary and closure.
+
+### Stage 4 safe entry
+
+Do not globally arm the persistent image worker. Stage 4 should build provider-availability/output-format policy from the live evidence above, use OpenAI as the currently live-proven provider, retain Fireworks/Gemini external gates, then prove design-family outputs and derivatives before the final 36E closure transition.
