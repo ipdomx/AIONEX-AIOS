@@ -38,7 +38,7 @@ async def test_openai_generate_uses_images_generation_and_b64_result() -> None:
         return httpx.Response(
             200,
             headers={"x-request-id": "req-openai"},
-            json={"data": [{"b64_json": base64.b64encode(b"openai-png").decode()}], "usage": {"total_tokens": 9}},
+            json={"data": [{"b64_json": base64.b64encode(b"openai-png").decode()}], "usage": {"input_tokens": 100, "output_tokens": 200, "total_tokens": 300}},
         )
 
     result = await OpenAIImageAdapter(transport=httpx.MockTransport(handler)).invoke(
@@ -46,7 +46,9 @@ async def test_openai_generate_uses_images_generation_and_b64_result() -> None:
     )
     assert result.body == b"openai-png"
     assert result.request_id == "req-openai"
-    assert result.usage["total_tokens"] == 9
+    assert result.usage["total_tokens"] == 300
+    assert result.actual_cost_usd == pytest.approx(0.0065)
+    assert result.cost_basis == "official_provider_usage"
 
 
 @pytest.mark.asyncio
@@ -68,6 +70,8 @@ async def test_openai_edit_is_multipart_and_requires_reference() -> None:
         base_url="https://api.openai.com",
     )
     assert result.body == b"edited"
+    assert result.actual_cost_usd is None
+    assert result.cost_basis == "unknown"
 
 
 @pytest.mark.asyncio
@@ -83,7 +87,18 @@ async def test_gemini_uses_interactions_and_inline_reference() -> None:
         assert base64.b64decode(payload["input"][0]["data"]) == b"gem-ref"
         return httpx.Response(
             200,
-            json={"id": "gem-1", "output_image": {"data": base64.b64encode(b"gemini").decode(), "mime_type": "image/png"}},
+            json={
+                "id": "gem-1",
+                "output_image": {"data": base64.b64encode(b"gemini").decode(), "mime_type": "image/png"},
+                "usage": {
+                    "total_input_tokens": 100,
+                    "output_tokens_by_modality": [
+                        {"modality": "image", "tokens": 1120},
+                        {"modality": "text", "tokens": 10},
+                    ],
+                    "total_thought_tokens": 20,
+                },
+            },
         )
 
     result = await GeminiImageAdapter(transport=httpx.MockTransport(handler)).invoke(
@@ -93,12 +108,16 @@ async def test_gemini_uses_interactions_and_inline_reference() -> None:
     )
     assert result.body == b"gemini"
     assert result.request_id == "gem-1"
+    assert result.actual_cost_usd == pytest.approx(0.06734)
+    assert result.cost_basis == "official_provider_usage"
 
 
 @pytest.mark.asyncio
 async def test_fireworks_schnell_returns_binary_image() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path.endswith("/flux-1-schnell-fp8/text_to_image")
+        payload = json.loads(request.content)
+        assert payload["num_inference_steps"] == 4
         return httpx.Response(200, headers={"content-type": "image/png", "finish-reason": "SUCCESS", "seed": "42"}, content=b"fw")
 
     result = await FireworksImageAdapter(transport=httpx.MockTransport(handler)).invoke(
@@ -106,6 +125,8 @@ async def test_fireworks_schnell_returns_binary_image() -> None:
     )
     assert result.body == b"fw"
     assert result.metadata["seed"] == "42"
+    assert result.actual_cost_usd == pytest.approx(0.0014)
+    assert result.cost_basis == "official_fixed_step"
 
 
 @pytest.mark.asyncio
@@ -131,6 +152,8 @@ async def test_fireworks_kontext_async_poll_is_bounded() -> None:
     assert result.body == b"kontext"
     assert result.request_id == "fw-job"
     assert polls == 2
+    assert result.actual_cost_usd == pytest.approx(0.04)
+    assert result.cost_basis == "official_fixed_image"
 
 
 @pytest.mark.asyncio

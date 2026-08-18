@@ -33,6 +33,7 @@ SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
 _ALLOWED_OUTPUT_FORMATS = frozenset({"png", "jpeg", "webp"})
 _CONTENT_TYPES = {"png": "image/png", "jpeg": "image/jpeg", "webp": "image/webp"}
 _SUFFIXES = {"png": ".png", "jpeg": ".jpg", "webp": ".webp"}
+_ALLOWED_COST_BASES = frozenset({"unknown", "official_provider_usage", "official_fixed_step", "official_fixed_image"})
 
 
 class DesignImageExecutionError(RuntimeError):
@@ -267,7 +268,8 @@ async def create_design_image_execution(
         provider_response_metadata={},
         usage_metadata={},
         estimated_cost_usd=float(spec.estimated_cost_usd),
-        actual_cost_usd=0.0,
+        actual_cost_usd=None,
+        cost_basis="unknown",
     )
     session.add(row)
     await session.flush()
@@ -432,12 +434,16 @@ class DesignImageExecutionAuthority:
         provider_request_id: str | None,
         provider_response_metadata: dict[str, Any],
         usage_metadata: dict[str, Any],
-        actual_cost_usd: float,
+        actual_cost_usd: float | None,
+        cost_basis: str = "unknown",
     ) -> dict[str, Any]:
         if not body:
             raise DesignImageExecutionError("design image provider returned an empty image")
-        if actual_cost_usd < 0 or actual_cost_usd > 100:
+        if actual_cost_usd is not None and (actual_cost_usd < 0 or actual_cost_usd > 100):
             raise DesignImageExecutionError("design image actual cost is outside the allowed range")
+        safe_cost_basis = cost_basis.strip()[:64] or "unknown"
+        if safe_cost_basis not in _ALLOWED_COST_BASES:
+            raise DesignImageExecutionError("design image cost basis is unsupported")
         async with self.session_factory() as session:
             row = await session.get(DesignImageExecution, claim.execution_id)
             row = self._require_owned(row, claim)
@@ -470,6 +476,7 @@ class DesignImageExecutionAuthority:
                 ),
                 usage_metadata=_safe_metadata(usage_metadata),
                 actual_cost_usd=actual_cost_usd,
+                cost_basis=safe_cost_basis,
             )
         except Exception:
             await asyncio.to_thread(self.store.delete, stored.key)
@@ -487,7 +494,8 @@ class DesignImageExecutionAuthority:
         provider_request_id: str | None,
         provider_response_metadata: dict[str, Any],
         usage_metadata: dict[str, Any],
-        actual_cost_usd: float,
+        actual_cost_usd: float | None,
+        cost_basis: str,
     ) -> dict[str, Any]:
         completed = _now()
         async with self.session_factory() as session:
@@ -540,7 +548,8 @@ class DesignImageExecutionAuthority:
             row.provider_request_id = provider_request_id
             row.provider_response_metadata = dict(provider_response_metadata)
             row.usage_metadata = dict(usage_metadata)
-            row.actual_cost_usd = float(actual_cost_usd)
+            row.actual_cost_usd = float(actual_cost_usd) if actual_cost_usd is not None else None
+            row.cost_basis = cost_basis
             row.output_storage_backend = storage_backend
             row.output_storage_key = storage_key
             row.output_checksum = checksum
@@ -594,7 +603,8 @@ class DesignImageExecutionAuthority:
                         "operation": row.operation,
                         "prompt_sha256": row.prompt_sha256,
                         "usage": dict(usage_metadata),
-                        "actual_cost_usd": float(actual_cost_usd),
+                        "actual_cost_usd": float(actual_cost_usd) if actual_cost_usd is not None else None,
+                        "cost_basis": cost_basis,
                     }
                     revision = StudioAssetRevision(
                         id=uuid_str(),

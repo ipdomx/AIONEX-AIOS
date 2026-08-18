@@ -213,6 +213,7 @@ class DesignImageWorker:
                 provider_response_metadata=result.metadata,
                 usage_metadata=result.usage,
                 actual_cost_usd=result.actual_cost_usd,
+                cost_basis=result.cost_basis,
             )
             self.write_health("healthy")
             return True

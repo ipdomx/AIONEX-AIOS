@@ -380,8 +380,41 @@ def test_design_image_schema_has_explicit_arm_fencing_cost_and_output_evidence()
     assert {
         "status", "armed_at", "lease_token", "lease_owner", "lease_expires_at", "fencing_token",
         "provider", "model", "operation", "prompt_sha256", "estimated_cost_usd", "actual_cost_usd",
-        "output_storage_key", "output_checksum", "usage_metadata", "provider_response_metadata",
+        "output_storage_key", "output_checksum", "usage_metadata", "provider_response_metadata", "cost_basis",
     } <= columns
+
+
+@pytest.mark.asyncio
+async def test_unknown_actual_cost_is_persisted_as_null_not_zero(tmp_path: Path) -> None:
+    scope = await seed_scope("unknown-cost")
+    try:
+        graph_id, target_id = await create_image_graph(scope)
+        execution_id = await create_execution(scope, graph_id, target_id)
+        async with SessionLocal() as session:
+            await arm_design_image_execution(session, execution_id=execution_id, organization_id=scope.org.id)
+            await session.commit()
+        authority = DesignImageExecutionAuthority(
+            store=LocalMediaObjectStore(tmp_path / "objects"), worker_id="unknown-cost-worker"
+        )
+        claim = await authority.claim()
+        assert claim is not None
+        await authority.complete_bytes(
+            claim,
+            body=_PNG_1X1,
+            content_type="image/png",
+            provider_request_id="unknown-cost-request",
+            provider_response_metadata={},
+            usage_metadata={"cost_basis": "unknown"},
+            actual_cost_usd=None,
+            cost_basis="unknown",
+        )
+        async with SessionLocal() as session:
+            row = await session.get(DesignImageExecution, execution_id)
+            assert row is not None
+            assert row.actual_cost_usd is None
+            assert row.cost_basis == "unknown"
+    finally:
+        await cleanup_scope(scope)
 
 
 class _FakeLiveAdapter:
@@ -403,6 +436,7 @@ class _FakeLiveAdapter:
             metadata={"status": "success"},
             usage={"images": 1},
             actual_cost_usd=0.001,
+            cost_basis="official_provider_usage",
         )
 
 
@@ -472,6 +506,7 @@ async def test_design_image_worker_loads_platform_provider_and_completes_durable
             assert row is not None and row.status == "completed"
             assert row.provider_request_id == "fake-live-request"
             assert row.actual_cost_usd == pytest.approx(0.001)
+            assert row.cost_basis == "official_provider_usage"
             assert node is not None and node.status == "completed"
             assert asset is not None and asset.current_revision == 2
     finally:
