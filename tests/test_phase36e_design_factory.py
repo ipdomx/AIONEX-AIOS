@@ -7,8 +7,11 @@ from aios.design_factory import (
     DesignFactoryError,
     DesignRequest,
     IMAGE_PROVIDER_CAPABILITIES,
+    ProviderRuntimeEvidence,
     build_design_plan,
     editable_svg_template,
+    responsive_raster_exports,
+    route_live_provider,
 )
 
 
@@ -102,3 +105,105 @@ def test_gemini_flash_lite_declares_only_live_supported_jpeg_output() -> None:
     assert by_model["gemini-3.1-flash-lite-image"].output_formats == frozenset({"jpeg"})
     assert {"png", "jpeg"} <= by_model["gemini-3.1-flash-image"].output_formats
     assert {"png", "jpeg"} <= by_model["gemini-3-pro-image"].output_formats
+
+
+def stage3_runtime_evidence() -> tuple[ProviderRuntimeEvidence, ...]:
+    return (
+        ProviderRuntimeEvidence(
+            provider="openai",
+            model="gpt-image-2",
+            state="ready",
+            proven_operations=frozenset({"generate", "edit"}),
+            verified_output_formats=frozenset({"png"}),
+            reason="bounded production generation and reference edit accepted",
+        ),
+        ProviderRuntimeEvidence(
+            provider="gemini",
+            model="gemini-3.1-flash-lite-image",
+            state="external_gate",
+            reason="provider quota gate",
+        ),
+        ProviderRuntimeEvidence(
+            provider="fireworks",
+            model="flux-1-schnell-fp8",
+            state="external_gate",
+            reason="configured model unavailable for current credential",
+        ),
+    )
+
+
+def test_stage4_live_route_requires_explicit_runtime_evidence() -> None:
+    decision = route_live_provider(
+        request(transparent_background=False),
+        output_format="png",
+        evidence=stage3_runtime_evidence(),
+    )
+    assert decision.provider == "openai"
+    assert decision.model == "gpt-image-2"
+    assert decision.evidence_state == "ready"
+
+
+def test_stage4_live_route_does_not_promote_unproven_operations_or_formats() -> None:
+    with pytest.raises(DesignFactoryError, match="no live-proven"):
+        route_live_provider(
+            request(operation="inpaint", reference_count=1, transparent_background=False),
+            output_format="png",
+            evidence=stage3_runtime_evidence(),
+        )
+    with pytest.raises(DesignFactoryError, match="no live-proven"):
+        route_live_provider(
+            request(transparent_background=False),
+            output_format="jpeg",
+            evidence=stage3_runtime_evidence(),
+        )
+
+
+def test_stage4_high_resolution_export_can_route_through_bounded_source_raster() -> None:
+    decision = route_live_provider(
+        request(
+            use_case="infographic",
+            preset_id="infographic-portrait",
+            transparent_background=False,
+        ),
+        output_format="png",
+        evidence=stage3_runtime_evidence(),
+    )
+    assert decision.provider == "openai"
+    assert decision.requires_resampling is True
+    assert decision.target_preset_id == "infographic-portrait"
+
+
+def test_stage4_responsive_derivative_plan_is_governed_and_alpha_safe() -> None:
+    exports = responsive_raster_exports(
+        request(transparent_background=True),
+        derivative_preset_ids=("social-square", "social-portrait", "story-vertical"),
+    )
+    assert exports
+    assert all(item.output_format != "jpeg" for item in exports)
+    assert len({item.filename for item in exports}) == len(exports)
+    assert {item.preset_id for item in exports} == {
+        "logo-square",
+        "social-square",
+        "social-portrait",
+        "story-vertical",
+    }
+
+
+def test_provider_prompt_pack_declares_provider_native_output_format() -> None:
+    plan = build_design_plan(request(transparent_background=False))
+    by_model = {item.model: item for item in plan.compiled_prompts}
+    assert by_model["gemini-3.1-flash-lite-image"].settings["output_format"] == "jpeg"
+    assert by_model["gemini-3.1-flash-image"].settings["output_format"] == "png"
+    assert by_model["flux-kontext-pro"].settings["output_format"] == "png"
+
+
+def test_ready_runtime_evidence_cannot_be_empty_or_duplicated() -> None:
+    with pytest.raises(DesignFactoryError, match="requires proven"):
+        ProviderRuntimeEvidence(provider="openai", model="gpt-image-2", state="ready")
+    duplicate = stage3_runtime_evidence()[0]
+    with pytest.raises(DesignFactoryError, match="duplicate"):
+        route_live_provider(
+            request(transparent_background=False),
+            output_format="png",
+            evidence=(duplicate, duplicate),
+        )
