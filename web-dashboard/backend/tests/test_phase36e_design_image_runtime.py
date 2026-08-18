@@ -443,6 +443,80 @@ async def test_gemini_flash_lite_rejects_png_before_spend_and_accepts_jpeg() -> 
     finally:
         await cleanup_scope(scope)
 
+@pytest.mark.asyncio
+async def test_gpt_image_2_background_remove_and_transparency_reject_before_row_creation() -> None:
+    scope = await seed_scope("openai-stage4c-contract")
+    try:
+        graph_id, target_id = await create_image_graph(scope)
+        async with SessionLocal() as session:
+            before = int(
+                await session.scalar(
+                    select(func.count(DesignImageExecution.id)).where(
+                        DesignImageExecution.organization_id == scope.org.id
+                    )
+                )
+                or 0
+            )
+            with pytest.raises(DesignImageExecutionError, match="governed image launch matrix"):
+                await create_design_image_execution(
+                    session,
+                    spec=DesignImageExecutionSpec(
+                        organization_id=scope.org.id,
+                        requested_by_id=scope.user.id,
+                        workspace_id=scope.workspace.id,
+                        project_id=scope.project.id,
+                        studio_job_id=scope.job.id,
+                        studio_asset_id=scope.asset.id,
+                        graph_id=graph_id,
+                        target_node_id=target_id,
+                        provider="openai",
+                        model="gpt-image-2",
+                        operation="background-remove",
+                        prompt="Remove the background from the governed reference image.",
+                        idempotency_key=f"openai-bg-remove-{uuid4()}",
+                        request_options={"size": "1024x1024", "quality": "low"},
+                        output_format="png",
+                    ),
+                )
+            with pytest.raises(DesignImageExecutionError, match="transparent background is unsupported"):
+                await create_design_image_execution(
+                    session,
+                    spec=DesignImageExecutionSpec(
+                        organization_id=scope.org.id,
+                        requested_by_id=scope.user.id,
+                        workspace_id=scope.workspace.id,
+                        project_id=scope.project.id,
+                        studio_job_id=scope.job.id,
+                        studio_asset_id=scope.asset.id,
+                        graph_id=graph_id,
+                        target_node_id=target_id,
+                        provider="openai",
+                        model="gpt-image-2",
+                        operation="generate",
+                        prompt="Create a governed raster with a transparent background.",
+                        idempotency_key=f"openai-transparent-{uuid4()}",
+                        request_options={
+                            "size": "1024x1024",
+                            "quality": "low",
+                            "background": "transparent",
+                        },
+                        output_format="png",
+                    ),
+                )
+            after = int(
+                await session.scalar(
+                    select(func.count(DesignImageExecution.id)).where(
+                        DesignImageExecution.organization_id == scope.org.id
+                    )
+                )
+                or 0
+            )
+            assert after == before
+            await session.rollback()
+    finally:
+        await cleanup_scope(scope)
+
+
 def test_design_image_schema_has_explicit_arm_fencing_cost_and_output_evidence() -> None:
     from app.db.base import Base
     import app.db.models  # noqa: F401

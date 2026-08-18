@@ -139,6 +139,14 @@ def _safe_metadata(payload: dict[str, Any]) -> dict[str, Any]:
 
 def _validate_spec(spec: DesignImageExecutionSpec) -> None:
     capability = _capability(spec.provider, spec.model, spec.operation)
+    if (
+        spec.provider == "openai"
+        and spec.model == "gpt-image-2"
+        and str((spec.request_options or {}).get("background") or "auto").strip().lower() == "transparent"
+    ):
+        raise DesignImageExecutionError(
+            "transparent background is unsupported by provider model"
+        )
     if spec.output_format not in _ALLOWED_OUTPUT_FORMATS:
         raise DesignImageExecutionError("design image output format is unsupported")
     if spec.output_format not in capability.output_formats:

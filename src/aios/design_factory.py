@@ -158,9 +158,9 @@ IMAGE_PROVIDER_CAPABILITIES: Final[tuple[ImageProviderCapability, ...]] = (
     ImageProviderCapability(
         "openai",
         "gpt-image-2",
-        frozenset({"generate", "edit", "variation", "inpaint", "background-remove"}),
+        frozenset({"generate", "edit", "variation", "inpaint"}),
         2048,
-        supports_transparency=True,
+        supports_transparency=False,
         supports_multiple_references=True,
         output_formats=frozenset({"png", "jpeg", "webp"}),
         quality_score=0.98,
@@ -472,8 +472,10 @@ def _base_prompt(request: DesignRequest, preset: DesignPreset) -> str:
 def compile_provider_prompt(
     request: DesignRequest, capability: ImageProviderCapability
 ) -> CompiledDesignPrompt:
-    if request.operation not in capability.operations:
-        raise DesignFactoryError("provider does not support the requested design operation")
+    if not _capability_matches_request(
+        capability, request, require_direct_target_resolution=False
+    ):
+        raise DesignFactoryError("provider does not support the requested design contract")
     preset = DESIGN_PRESETS[request.preset_id]
     base = _base_prompt(request, preset)
     negative = ", ".join(request.negative_constraints) or None
