@@ -302,6 +302,20 @@ async def create_routed_design_image_pipeline(
                 "requires_resampling": route.requires_resampling,
                 "evidence_state": route.evidence_state,
             },
+            "editable_contract": {
+                "schema": "36E.editable.v1",
+                "title": request.title,
+                "use_case": request.use_case,
+                "preset_id": request.preset_id,
+                "width": exports[0].width,
+                "height": exports[0].height,
+                "brand": {
+                    "name": request.brand.name,
+                    "palette": list(request.brand.palette),
+                    "fonts": list(request.brand.fonts),
+                },
+                "exact_text": list(request.exact_text),
+            },
         },
     }
 

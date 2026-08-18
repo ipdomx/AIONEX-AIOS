@@ -2,11 +2,15 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
+from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete, func, select
 
 from aios.design_factory import DESIGN_PRESETS, DesignPreset, DesignRequest, ProviderRuntimeEvidence
@@ -26,11 +30,17 @@ from app.db.models import (
     User,
     Workspace,
 )
+from app.api.v1.router import api_router
+from app.core.auth import UserRecord, current_user
 from app.core.config import settings
 from app.services.ai_runtime_service import encrypt_provider_secret
 from app.services.design_image_providers import ProviderImageResult
 from app.services.design_image_derivative_worker import DesignImageDerivativeWorker
-from app.services.design_image_derivatives import SharpDerivativeResult
+from app.services.design_image_derivatives import (
+    DesignImageDerivativeError,
+    SharpDerivativeResult,
+    SharpDerivativeSpec,
+)
 from app.services.design_image_pipeline import create_routed_design_image_pipeline
 from app.services.design_image_worker import DesignImageWorker
 from app.services.design_image_runtime import (
@@ -698,6 +708,67 @@ class _FakeSharpDerivativeRuntime:
 
 
 @pytest.mark.asyncio
+async def test_derivative_worker_cleans_editable_and_raster_if_finalization_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = LocalMediaObjectStore(tmp_path / "cleanup-objects")
+    source = store.put_bytes("source.png", _PNG_1X1, "image/png")
+    worker = DesignImageDerivativeWorker(
+        store=store,
+        runtime=_FakeSharpDerivativeRuntime(),
+        worker_id="stage4d-cleanup-worker",
+    )
+    step = SimpleNamespace(organization_id="org", graph_id="graph")
+    target = SimpleNamespace(
+        id="target", logical_key="derivative-00", revision=1, media_type="image/png"
+    )
+    parent = SimpleNamespace(
+        storage_key=source.key, checksum=source.sha256, media_type="image/png"
+    )
+    spec = SharpDerivativeSpec(width=1, height=1, output_format="png")
+
+    async def fake_load(_claim):
+        return step, target, parent, spec
+
+    async def fake_renew(_claim) -> None:
+        return None
+
+    async def fake_prepare(_claim, **_kwargs):
+        editable = store.put_bytes("editable.svg", b"<svg/>", "image/svg+xml")
+        return editable.key, {
+            "schema": "36E.editable.v1",
+            "media_type": "image/svg+xml",
+            "storage_backend": editable.backend,
+            "storage_key": editable.key,
+            "checksum": editable.sha256,
+            "size_bytes": editable.size_bytes,
+            "base_raster_checksum": source.sha256,
+        }
+
+    async def fake_complete(_claim, **_kwargs) -> None:
+        raise DesignImageDerivativeError("forced finalization failure")
+
+    async def fake_fail(_claim, *, code: str, message: str) -> None:
+        assert code == "DESIGN_IMAGE_DERIVATIVE_FAILED"
+        assert "forced finalization failure" in message
+
+    monkeypatch.setattr(worker, "_load_execution", fake_load)
+    monkeypatch.setattr(worker, "renew", fake_renew)
+    monkeypatch.setattr(worker, "_prepare_editable_source_for_completion", fake_prepare)
+    monkeypatch.setattr(worker, "_complete", fake_complete)
+    monkeypatch.setattr(worker, "_fail", fake_fail)
+
+    claim = SimpleNamespace(step_id="step", lease_token="lease", fencing_token=1)
+    await worker.execute(claim)  # type: ignore[arg-type]
+    remaining = sorted(
+        str(item.relative_to(store.root))
+        for item in store.root.rglob("*")
+        if item.is_file()
+    )
+    assert remaining == ["source.png"]
+
+
+@pytest.mark.asyncio
 async def test_routed_pipeline_stays_no_spend_until_arm_and_sharp_worker_owns_only_sharp_steps(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -826,10 +897,63 @@ async def test_routed_pipeline_stays_no_spend_until_arm_and_sharp_worker_owns_on
             assert output["graph_id"] == pipeline.graph_id
             assert output["route"]["provider"] == "openai"
             assert len(output["derivatives"]) == 1
+            editable = output.get("editable_source")
+            assert isinstance(editable, dict)
+            assert editable["schema"] == "36E.editable.v1"
+            assert editable["media_type"] == "image/svg+xml"
+            editable_body = store.get_bytes(editable["storage_key"], max_bytes=1024 * 1024)
+            assert hashlib.sha256(editable_body).hexdigest() == editable["checksum"]
+            editable_text = editable_body.decode("utf-8")
+            assert 'data-aionex-status="rendered-editable"' in editable_text
+            assert primary.checksum in editable_text
             assert revision_count == 1
+            editable_audits = int(
+                await session.scalar(
+                    select(func.count(AuditEvent.id)).where(
+                        AuditEvent.organization_id == scope.org.id,
+                        AuditEvent.action == "design.image.editable_source.materialized",
+                        AuditEvent.resource_id == graph.id,
+                    )
+                )
+                or 0
+            )
+            assert editable_audits == 1
             public = await media_graph_snapshot(session, graph)
             assert "compiled_prompt" not in repr(public)
             assert request.brief not in repr(public)
+            assert editable["storage_key"] not in repr(public)
+
+        monkeypatch.setattr(settings, "MEDIA_STORAGE_ROOT", str(tmp_path / "objects"))
+        app = FastAPI()
+        app.include_router(api_router, prefix="/api/v1")
+        actor = UserRecord(
+            id=scope.user.id,
+            email=scope.user.email,
+            name=scope.user.name,
+            role="Owner",
+            password_hash=scope.user.password_hash,
+            organization_id=scope.org.id,
+            organization_name=scope.org.name,
+            organization_plan=scope.org.plan,
+            permissions=["*"],
+        )
+        app.dependency_overrides[current_user] = lambda: actor
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            asset_response = await client.get(f"/api/v1/studio/assets/{scope.asset.id}")
+            assert asset_response.status_code == 200, asset_response.text
+            assert "storage_key" not in asset_response.text
+            assert "storage_path" not in asset_response.json()["metadata"]
+            revisions_response = await client.get(f"/api/v1/studio/assets/{scope.asset.id}/revisions")
+            assert revisions_response.status_code == 200, revisions_response.text
+            assert "storage_key" not in revisions_response.text
+            response = await client.get(
+                f"/api/v1/studio/assets/{scope.asset.id}/editable-source"
+            )
+        assert response.status_code == 200, response.text
+        assert response.headers["content-type"].startswith("image/svg+xml")
+        assert response.headers["x-aionex-checksum-sha256"] == editable["checksum"]
+        assert response.headers["x-aionex-editable-schema"] == "36E.editable.v1"
+        assert response.content == editable_body
     finally:
         DESIGN_PRESETS["social-square"] = original
         await cleanup_scope(scope)

@@ -442,6 +442,19 @@ def job_snapshot(item: StudioJob) -> dict[str, Any]:
     }
 
 
+def _public_asset_metadata(value: Any) -> Any:
+    """Return Studio metadata without physical storage locators."""
+    if isinstance(value, dict):
+        return {
+            key: _public_asset_metadata(item)
+            for key, item in value.items()
+            if key not in {"storage_key", "storage_path"}
+        }
+    if isinstance(value, list):
+        return [_public_asset_metadata(item) for item in value]
+    return value
+
+
 def asset_snapshot(item: StudioAsset, *, attached_projects: list[str] | None = None) -> dict[str, Any]:
     return {
         "id": item.id,
@@ -458,7 +471,7 @@ def asset_snapshot(item: StudioAsset, *, attached_projects: list[str] | None = N
         "size_bytes": item.size_bytes,
         "status": item.status,
         "current_revision": item.current_revision,
-        "metadata": item.asset_metadata,
+        "metadata": _public_asset_metadata(item.asset_metadata),
         "attached_project_ids": attached_projects or [],
         "archived_at": iso(item.archived_at),
         "created_at": iso(item.created_at),
@@ -478,7 +491,7 @@ def revision_snapshot(item: StudioAssetRevision) -> dict[str, Any]:
         "checksum": item.checksum,
         "size_bytes": item.size_bytes,
         "change_note": item.change_note,
-        "metadata": item.revision_metadata,
+        "metadata": _public_asset_metadata(item.revision_metadata),
         "status": item.status,
         "created_at": iso(item.created_at),
         "updated_at": iso(item.updated_at),

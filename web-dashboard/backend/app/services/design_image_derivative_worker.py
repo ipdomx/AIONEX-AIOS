@@ -31,6 +31,10 @@ from app.db.models import (
     StudioAssetRevision,
     uuid_str,
 )
+from app.services.design_editable_source import (
+    DesignEditableSourceError,
+    build_rendered_editable_svg,
+)
 from app.services.design_image_derivatives import (
     DesignImageDerivativeError,
     SharpDerivativeRuntime,
@@ -369,6 +373,156 @@ class DesignImageDerivativeWorker:
             )
             await session.commit()
 
+    async def _materialize_editable_source(
+        self,
+        claim: DerivativeClaim,
+        *,
+        graph_id: str,
+        organization_id: str,
+        graph_version: int,
+        pipeline: dict[str, Any],
+        raster_body: bytes,
+        raster_media_type: str,
+        raster_checksum: str,
+    ) -> tuple[str, dict[str, Any]]:
+        contract = pipeline.get("editable_contract")
+        if not isinstance(contract, dict):
+            raise DesignImageDerivativeError("image derivative editable-source contract is unavailable")
+        build_task = asyncio.create_task(
+            asyncio.to_thread(
+                build_rendered_editable_svg,
+                contract=contract,
+                raster_body=raster_body,
+                raster_media_type=raster_media_type,
+                raster_checksum=raster_checksum,
+            )
+        )
+        try:
+            rendered = await self._await_with_renewal(build_task, claim)
+        except DesignEditableSourceError as exc:
+            raise DesignImageDerivativeError(str(exc)) from exc
+        if rendered.size_bytes > int(settings.MEDIA_MAX_OBJECT_BYTES):
+            raise DesignImageDerivativeError("editable source exceeds the governed media-object limit")
+        key = (
+            f"media/{organization_id}/{graph_id}/editable/"
+            f"v{graph_version}-{rendered.checksum[:16]}.svg"
+        )
+        upload_task = asyncio.create_task(
+            asyncio.to_thread(
+                self.store.put_bytes,
+                key,
+                rendered.body,
+                rendered.media_type,
+                metadata={
+                    "graph-id": graph_id,
+                    "base-raster-sha256": raster_checksum,
+                    "editable-schema": rendered.schema,
+                },
+            )
+        )
+        stored = await self._await_with_renewal(upload_task, claim)
+        if stored.sha256 != rendered.checksum or stored.size_bytes != rendered.size_bytes:
+            await asyncio.to_thread(self.store.delete, key)
+            raise DesignImageDerivativeError("editable source storage verification failed")
+        return key, {
+            "schema": rendered.schema,
+            "media_type": rendered.media_type,
+            "storage_backend": stored.backend,
+            "storage_key": stored.key,
+            "checksum": stored.sha256,
+            "size_bytes": stored.size_bytes,
+            "base_raster_checksum": raster_checksum,
+        }
+
+    async def _prepare_editable_source_for_completion(
+        self,
+        claim: DerivativeClaim,
+        *,
+        step: MediaRenderStep,
+        target: MediaAssetNode,
+        result_body: bytes,
+        result_content_type: str,
+        result_checksum: str,
+    ) -> tuple[str, dict[str, Any]] | None:
+        primary_storage_key: str | None = None
+        raster_body: bytes | None = None
+        async with SessionLocal() as session:
+            live_step = await session.scalar(
+                select(MediaRenderStep).where(
+                    MediaRenderStep.id == claim.step_id,
+                    MediaRenderStep.engine == "sharp",
+                    MediaRenderStep.status == "running",
+                    MediaRenderStep.lease_token == claim.lease_token,
+                    MediaRenderStep.lease_owner == self.worker_id,
+                    MediaRenderStep.fencing_token == claim.fencing_token,
+                )
+            )
+            if live_step is None:
+                raise DesignImageDerivativeLeaseLost(claim.step_id)
+            graph = await session.get(MediaAssetGraph, live_step.graph_id)
+            if graph is None or graph.organization_id != live_step.organization_id:
+                raise DesignImageDerivativeLeaseLost(claim.step_id)
+            pipeline = (graph.graph_metadata or {}).get("design_image_pipeline")
+            if not isinstance(pipeline, dict):
+                raise DesignImageDerivativeError("image derivative graph lacks pipeline authority")
+            other_incomplete = int(
+                await session.scalar(
+                    select(func.count(MediaAssetNode.id)).where(
+                        MediaAssetNode.graph_id == graph.id,
+                        MediaAssetNode.id != target.id,
+                        MediaAssetNode.status != "completed",
+                    )
+                )
+                or 0
+            )
+            if other_incomplete != 0:
+                return None
+            primary_id = str(pipeline.get("primary_derivative_node_id") or "")
+            if primary_id == target.id:
+                raster_body = result_body
+                raster_media_type = result_content_type
+                raster_checksum = result_checksum
+            else:
+                primary = await session.get(MediaAssetNode, primary_id)
+                if (
+                    primary is None
+                    or primary.graph_id != graph.id
+                    or primary.organization_id != graph.organization_id
+                    or primary.status != "completed"
+                    or not primary.storage_key
+                    or not primary.checksum
+                    or not primary.media_type
+                ):
+                    raise DesignImageDerivativeError("image derivative editable-source raster is unavailable")
+                primary_storage_key = primary.storage_key
+                raster_media_type = primary.media_type
+                raster_checksum = primary.checksum
+            graph_id = graph.id
+            organization_id = graph.organization_id
+            graph_version = int(graph.graph_version)
+            pipeline_copy = dict(pipeline)
+
+        if raster_body is None:
+            assert primary_storage_key is not None
+            load_task = asyncio.create_task(
+                asyncio.to_thread(
+                    self.store.get_bytes,
+                    primary_storage_key,
+                    max_bytes=min(int(settings.MEDIA_MAX_OBJECT_BYTES), 32 * 1024 * 1024),
+                )
+            )
+            raster_body = await self._await_with_renewal(load_task, claim)
+        return await self._materialize_editable_source(
+            claim,
+            graph_id=graph_id,
+            organization_id=organization_id,
+            graph_version=graph_version,
+            pipeline=pipeline_copy,
+            raster_body=raster_body,
+            raster_media_type=raster_media_type,
+            raster_checksum=raster_checksum,
+        )
+
     async def _complete(
         self,
         claim: DerivativeClaim,
@@ -381,6 +535,7 @@ class DesignImageDerivativeWorker:
         input_checksum: str,
         command_hash: str,
         content_type: str,
+        editable_source: dict[str, Any] | None,
     ) -> None:
         async with SessionLocal() as session:
             step = await session.scalar(
@@ -457,6 +612,10 @@ class DesignImageDerivativeWorker:
                 )
                 or 0
             )
+            if incomplete_nodes != 0 and editable_source is not None:
+                raise DesignImageDerivativeError(
+                    "image derivative editable source was prepared before the graph was final"
+                )
             if incomplete_nodes == 0:
                 pipeline = (graph.graph_metadata or {}).get("design_image_pipeline")
                 if not isinstance(pipeline, dict):
@@ -525,6 +684,22 @@ class DesignImageDerivativeWorker:
                             f"{slug(graph.title)}-design-v{graph.graph_version}."
                             f"{_SUFFIXES.get(output_format, 'bin')}"
                         )
+                        if editable_source is None:
+                            raise DesignImageDerivativeError(
+                                "image derivative editable source was not materialized before finalization"
+                            )
+                        if (
+                            editable_source.get("base_raster_checksum") != primary.checksum
+                            or editable_source.get("media_type") != "image/svg+xml"
+                            or not editable_source.get("storage_key")
+                            or not editable_source.get("checksum")
+                        ):
+                            raise DesignImageDerivativeError("image derivative editable-source evidence is invalid")
+                        graph.graph_metadata = {
+                            **(graph.graph_metadata or {}),
+                            "editable_source_checksum": editable_source["checksum"],
+                            "editable_source_size_bytes": editable_source["size_bytes"],
+                        }
                         metadata = {
                             "graph_id": graph.id,
                             "graph_version": graph.graph_version,
@@ -535,6 +710,7 @@ class DesignImageDerivativeWorker:
                             "engine_version": SHARP_TARGET_VERSION,
                             "route": route,
                             "derivatives": manifest,
+                            "editable_source": editable_source,
                         }
                         revision_number = int(asset.current_revision) + 1
                         revision = StudioAssetRevision(
@@ -564,6 +740,21 @@ class DesignImageDerivativeWorker:
                             **(asset.asset_metadata or {}),
                             "design_image_pipeline_output": metadata,
                         }
+                        session.add(
+                            AuditEvent(
+                                organization_id=graph.organization_id,
+                                user_id=None,
+                                action="design.image.editable_source.materialized",
+                                resource_type="media_asset_graph",
+                                resource_id=graph.id,
+                                details={
+                                    "checksum": editable_source["checksum"],
+                                    "size_bytes": editable_source["size_bytes"],
+                                    "schema": editable_source["schema"],
+                                    "base_raster_checksum": primary.checksum,
+                                },
+                            )
+                        )
             session.add(
                 AuditEvent(
                     organization_id=step.organization_id,
@@ -585,6 +776,7 @@ class DesignImageDerivativeWorker:
 
     async def execute(self, claim: DerivativeClaim) -> None:
         output_key: str | None = None
+        editable_cleanup_key: str | None = None
         try:
             step, target, parent, spec = await self._load_execution(claim)
             assert parent.storage_key and parent.checksum and parent.media_type
@@ -641,6 +833,18 @@ class DesignImageDerivativeWorker:
                 )
             )
             stored = await self._await_with_renewal(upload_task, claim)
+            prepared = await self._prepare_editable_source_for_completion(
+                claim,
+                step=step,
+                target=target,
+                result_body=result.body,
+                result_content_type=result.content_type,
+                result_checksum=result.sha256,
+            )
+            editable_source: dict[str, Any] | None = None
+            if prepared is not None:
+                editable_cleanup_key, editable_source = prepared
+            await self.renew(claim)
             await self._complete(
                 claim,
                 stored_key=stored.key,
@@ -651,12 +855,18 @@ class DesignImageDerivativeWorker:
                 input_checksum=result.input_sha256,
                 command_hash=result.command_hash,
                 content_type=result.content_type,
+                editable_source=editable_source,
             )
+            editable_cleanup_key = None
         except DesignImageDerivativeLeaseLost:
+            if editable_cleanup_key:
+                await asyncio.to_thread(self.store.delete, editable_cleanup_key)
             if output_key:
                 await asyncio.to_thread(self.store.delete, output_key)
             raise
         except (DesignImageDerivativeError, MediaStorageError, OSError, ValueError) as exc:
+            if editable_cleanup_key:
+                await asyncio.to_thread(self.store.delete, editable_cleanup_key)
             if output_key:
                 await asyncio.to_thread(self.store.delete, output_key)
             logger.error(
