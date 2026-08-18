@@ -26,7 +26,7 @@ class OpenAIProvider(ImplementedProvider):
             raise RuntimeError("openai raw transport is not configured")
         return await self._raw_transport({"operation": "embeddings", "model": model, "input": inputs})
 
-    async def image(self, prompt: str, model: str = "gpt-image-1") -> dict[str, Any]:
+    async def image(self, prompt: str, model: str = "gpt-image-2") -> dict[str, Any]:
         if self._raw_transport is None:
             raise RuntimeError("openai raw transport is not configured")
         return await self._raw_transport({"operation": "image", "model": model, "prompt": prompt})

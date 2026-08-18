@@ -329,6 +329,12 @@ Scope:
 Exit gate:
 - user request -> governed prompt/design plan -> generated editable/final assets -> revision -> export, with no placeholder pretending to be rendered output.
 
+Current 36E foundation checkpoint — 2026-08-18:
+- live provider inventories and current official documentation select OpenAI `gpt-image-2`, Gemini `gemini-3.1-flash-image` / `gemini-3.1-flash-lite-image` / `gemini-3-pro-image`, and Fireworks FLUX Image API as the initial launch pool; deprecated Imagen is not targeted;
+- provider-neutral `DesignPlan` / `BrandKit` / responsive preset / prompt compiler foundation is locally verified, and Production Studio Image output now emits a governed design plan plus an editable SVG explicitly marked as a template;
+- no template/prompt artifact is promoted as a rendered/final image; real provider execution, edits, derivatives and Production evidence remain required before any 36E maturity/closure transition;
+- full checkpoint evidence is retained in `docs/phase-36/receipts/36E-2026-08-18-design-image-foundation.md`.
+
 ### Batch 36F — Video, cinema, motion graphics & advertising factory
 
 Scope:

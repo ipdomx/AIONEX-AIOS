@@ -65,10 +65,20 @@ def test_video_artifact_contains_editable_production_pipeline():
     assert "00:00:00,000" in files["production/subtitles.srt"]
 
 
-def test_image_artifact_is_editable_vector_not_fake_binary_media():
+def test_image_artifact_is_governed_design_plan_and_template_not_fake_final_media():
     files = _department_files(request("image"))
     assert files["visual.svg"].startswith("<svg")
-    assert "prompt pack" in files["prompt-pack.md"].lower()
+    assert 'data-aionex-status="template"' in files["visual.svg"]
+    plan = json.loads(files["design-plan.json"])
+    assert plan["render_status"] == "planned"
+    models = {item["model"] for item in plan["provider_candidates"]}
+    assert "gpt-image-2" in models
+    assert "gemini-3.1-flash-image" in models
+    assert not any("imagen" in item for item in models)
+    assert "not a rendered/final asset" in files["prompt-pack.md"]
+    exports = json.loads(files["export-presets.json"])
+    assert exports["editable"] == "svg"
+    assert {"png", "webp", "jpeg"} <= set(exports["raster"])
 
 
 def test_code_artifact_supports_multiple_language_choices():
