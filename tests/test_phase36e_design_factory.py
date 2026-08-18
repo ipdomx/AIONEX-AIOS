@@ -25,7 +25,7 @@ def request(**overrides) -> DesignRequest:
         "target_audience": "technology founders",
         "exact_text": ("AIONEX",),
         "negative_constraints": ("illegible text", "watermark", "visual clutter"),
-        "transparent_background": True,
+        "transparent_background": False,
         "brand": BrandKit("AIONEX", primary="#1d4ed8", secondary="#020617", accent="#38bdf8"),
     }
     payload.update(overrides)
@@ -55,12 +55,31 @@ def test_launch_provider_matrix_uses_current_models_and_excludes_deprecated_imag
     assert not any(model == "gpt-image-1" for model in models)
 
 
-def test_transparent_logo_routes_only_to_capability_that_declares_transparency() -> None:
-    plan = build_design_plan(request(transparent_background=True))
-    assert [item.provider for item in plan.provider_candidates] == ["openai"]
-    prompt = plan.compiled_prompts[0]
-    assert prompt.model == "gpt-image-2"
-    assert prompt.settings["background"] == "transparent"
+def test_gpt_image_2_does_not_claim_transparency_or_background_remove() -> None:
+    openai = next(
+        item
+        for item in IMAGE_PROVIDER_CAPABILITIES
+        if item.provider == "openai" and item.model == "gpt-image-2"
+    )
+    assert openai.supports_transparency is False
+    assert "background-remove" not in openai.operations
+    with pytest.raises(DesignFactoryError, match="no launch image provider"):
+        build_design_plan(request(transparent_background=True))
+    with pytest.raises(DesignFactoryError, match="no live-proven"):
+        route_live_provider(
+            request(operation="background-remove", reference_count=1),
+            output_format="png",
+            evidence=(
+                ProviderRuntimeEvidence(
+                    provider="openai",
+                    model="gpt-image-2",
+                    state="ready",
+                    proven_operations=frozenset({"generate", "edit", "inpaint"}),
+                    verified_output_formats=frozenset({"png"}),
+                    reason="bounded production evidence",
+                ),
+            ),
+        )
 
 
 def test_high_resolution_poster_keeps_current_4k_gemini_candidates() -> None:
@@ -130,6 +149,46 @@ def stage3_runtime_evidence() -> tuple[ProviderRuntimeEvidence, ...]:
             reason="configured model unavailable for current credential",
         ),
     )
+
+
+
+def stage4c_runtime_evidence() -> tuple[ProviderRuntimeEvidence, ...]:
+    return (
+        ProviderRuntimeEvidence(
+            provider="openai",
+            model="gpt-image-2",
+            state="ready",
+            proven_operations=frozenset({"generate", "edit", "inpaint", "variation"}),
+            verified_output_formats=frozenset({"png"}),
+            reason="bounded production generation, reference edit and mask edit accepted",
+        ),
+        *stage3_runtime_evidence()[1:],
+    )
+
+
+def test_stage4c_inpaint_and_variation_routes_are_live_proven_without_promoting_background_remove() -> None:
+    decision = route_live_provider(
+        request(operation="inpaint", reference_count=1),
+        output_format="png",
+        evidence=stage4c_runtime_evidence(),
+    )
+    assert decision.provider == "openai"
+    assert decision.model == "gpt-image-2"
+    assert decision.operation == "inpaint"
+    variation = route_live_provider(
+        request(operation="variation", reference_count=1),
+        output_format="png",
+        evidence=stage4c_runtime_evidence(),
+    )
+    assert variation.provider == "openai"
+    assert variation.model == "gpt-image-2"
+    assert variation.operation == "variation"
+    with pytest.raises(DesignFactoryError, match="no live-proven"):
+        route_live_provider(
+            request(operation="background-remove", reference_count=1),
+            output_format="png",
+            evidence=stage4c_runtime_evidence(),
+        )
 
 
 def test_stage4_live_route_requires_explicit_runtime_evidence() -> None:

@@ -75,6 +75,78 @@ async def test_openai_edit_is_multipart_and_requires_reference() -> None:
 
 
 @pytest.mark.asyncio
+async def test_openai_inpaint_sends_reference_and_mask_without_transparent_background() -> None:
+    reference = ProviderImageInput(b"ref-png", "image/png")
+    mask = ProviderImageInput(b"mask-png", "image/png", role="mask")
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/v1/images/edits"
+        body = await request.aread()
+        assert b"ref-png" in body
+        assert b"mask-png" in body
+        assert b'name="mask"' in body
+        assert b'transparent' not in body
+        return httpx.Response(
+            200,
+            headers={"x-request-id": "req-inpaint"},
+            json={"data": [{"b64_json": base64.b64encode(b"inpainted").decode()}]},
+        )
+
+    request = req("openai", "gpt-image-2", "inpaint", refs=(reference,))
+    request = ProviderImageRequest(
+        provider=request.provider,
+        model=request.model,
+        operation=request.operation,
+        prompt=request.prompt,
+        output_format=request.output_format,
+        aspect_ratio=request.aspect_ratio,
+        references=request.references,
+        mask=mask,
+    )
+    result = await OpenAIImageAdapter(transport=httpx.MockTransport(handler)).invoke(
+        request, credential="test", base_url="https://api.openai.com"
+    )
+    assert result.body == b"inpainted"
+    assert result.request_id == "req-inpaint"
+
+
+@pytest.mark.asyncio
+async def test_openai_gpt_image_2_background_remove_and_transparency_fail_before_http() -> None:
+    calls = 0
+
+    async def handler(_: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(500)
+
+    adapter = OpenAIImageAdapter(transport=httpx.MockTransport(handler))
+    reference = ProviderImageInput(b"ref", "image/png")
+    with pytest.raises(ProviderImageFailure) as caught:
+        await adapter.invoke(
+            req("openai", "gpt-image-2", "background-remove", refs=(reference,)),
+            credential="test",
+            base_url="https://api.openai.com",
+        )
+    assert caught.value.code == "provider_operation_unsupported"
+    assert caught.value.retryable is False
+
+    transparent = req("openai", "gpt-image-2")
+    transparent = ProviderImageRequest(
+        provider=transparent.provider,
+        model=transparent.model,
+        operation=transparent.operation,
+        prompt=transparent.prompt,
+        output_format=transparent.output_format,
+        aspect_ratio=transparent.aspect_ratio,
+        background="transparent",
+    )
+    with pytest.raises(ProviderImageFailure) as caught_transparent:
+        await adapter.invoke(transparent, credential="test", base_url="https://api.openai.com")
+    assert caught_transparent.value.code == "provider_operation_unsupported"
+    assert calls == 0
+
+
+@pytest.mark.asyncio
 async def test_gemini_uses_interactions_and_inline_reference() -> None:
     reference = ProviderImageInput(b"gem-ref", "image/png")
 

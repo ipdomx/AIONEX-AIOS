@@ -178,6 +178,10 @@ class OpenAIImageAdapter:
         self.timeout_seconds = timeout_seconds
 
     async def invoke(self, request: ProviderImageRequest, *, credential: str, base_url: str) -> ProviderImageResult:
+        if request.model == "gpt-image-2" and (
+            request.operation == "background-remove" or request.background == "transparent"
+        ):
+            raise ProviderImageFailure("provider_operation_unsupported", retryable=False)
         headers = {"Authorization": f"Bearer {credential}", "Accept": "application/json"}
         root = base_url.rstrip("/")
         try:
@@ -201,7 +205,7 @@ class OpenAIImageAdapter:
                         "prompt": request.prompt,
                         "size": _openai_size(request),
                         "quality": request.quality,
-                        "background": "transparent" if request.operation == "background-remove" else request.background,
+                        "background": request.background,
                         "output_format": request.output_format,
                     }
                     files: list[tuple[str, tuple[str, bytes, str]]] = []
