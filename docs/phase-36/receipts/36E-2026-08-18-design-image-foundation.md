@@ -1,7 +1,7 @@
 # Phase 36E — Image, design, branding, infographic & prompt factory
 
 Date: 2026-08-18
-Status: **IN PROGRESS — latest-provider design foundation checkpoint**
+Status: **IN PROGRESS — provider worker source checkpoint; live acceptance pending**
 
 ## Baseline
 
@@ -72,3 +72,15 @@ Checkpoint 1 is source/test-only. Phase36E remains `in_progress`; no maturity is
 ### Next safe gate
 
 Checkpoint 2B adds the actual HTTP provider adapters + image worker behind the explicit arm boundary, with fake-provider/error mapping tests first. Only after those pass may bounded live provider acceptance be attempted.
+
+
+## Checkpoint 2B — HTTP provider adapters and fail-closed image worker (no live provider spend)
+
+- Added provider-specific HTTP adapters for the current launch pool: OpenAI GPT Image 2 generation/edit, Gemini 3.1 Interactions image generation/edit, Fireworks FLUX Schnell synchronous generation and FLUX Kontext asynchronous create/poll workflows.
+- Adapter tests use `httpx.MockTransport` only. Protected request-shape/error-mapping verification covers OpenAI generate/edit, Gemini inline image references, Fireworks Schnell binary output, Fireworks Kontext bounded polling, and sanitized 401/402/429/5xx mappings. No provider endpoint is contacted by these tests.
+- Added `DesignImageWorker` behind `DESIGN_IMAGE_LIVE_ENABLED=false` by default. When disabled, it never claims a durable image execution. The worker resolves exactly one connected/enabled provider from the existing Platform Provider Organization, obtains credentials only through the established encrypted/environment provider authority, and validates the official provider base URL boundary.
+- Reference/mask inputs come only from completed parent nodes in the existing Media DAG and are read through the governed MediaObjectStore. User-supplied arbitrary remote URLs are not used as execution inputs.
+- Worker retry behavior is evidence-based: rate-limit/transport/service failures remain retryable; authentication, billing, policy/input and unsupported-provider failures are permanent so the durable authority does not retry unsafe/non-recoverable requests.
+- Production Compose now defines a separate `image-execution` profile for `design-image-worker`, running non-root as `1000:1000`, with `cap_drop: ALL`, `no-new-privileges`, inherited governed storage, and `DESIGN_IMAGE_LIVE_ENABLED=false`. Merely deploying the source cannot arm provider image spend.
+- End-to-end source acceptance on disposable PostgreSQL 16 at Alembic `0032` uses the real durable authority + real worker + real platform-provider lookup + LocalMediaObjectStore + a Fake Provider Adapter. The full 2A/2B focused suite is **22/22 PASS** and proves planned→arm→claim→provider-result→raster validation→Media node→Studio revision, plus fencing/retry and public evidence boundaries.
+- 2B remains source/test-only. Actual provider pricing/accounting validation, live OpenAI/Gemini/Fireworks requests, Production migration/worker activation and user-facing provider generation remain blocked for the next controlled live-acceptance checkpoint.

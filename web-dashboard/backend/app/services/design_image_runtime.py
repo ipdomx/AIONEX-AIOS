@@ -397,7 +397,9 @@ class DesignImageExecutionAuthority:
         assert row is not None
         return row
 
-    async def fail(self, claim: DesignImageClaim, *, code: str, message: str) -> None:
+    async def fail(
+        self, claim: DesignImageClaim, *, code: str, message: str, permanent: bool = False
+    ) -> None:
         safe_code = code.strip()[:120] or "design_image_failure"
         safe_message = message.strip()[:1000] or "Design image execution failed"
         async with self.session_factory() as session:
@@ -407,7 +409,9 @@ class DesignImageExecutionAuthority:
                 .with_for_update()
             )
             row = self._require_owned(row, claim)
-            exhausted = int(row.attempts) >= int(row.max_attempts)
+            exhausted = permanent or int(row.attempts) >= int(row.max_attempts)
+            if permanent:
+                row.attempts = row.max_attempts
             row.status = "failed" if exhausted else "queued"
             row.error_code = safe_code
             row.error_message = safe_message
