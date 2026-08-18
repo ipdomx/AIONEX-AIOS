@@ -58,6 +58,19 @@ def test_sharp_runtime_verifies_receipt_output_dimensions_and_hashes(
         del kwargs
         if command[1] == "--version":
             return subprocess.CompletedProcess(command, 0, stdout="v24.18.1\n", stderr="")
+        if command[-1] == "--probe":
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                stdout=json.dumps(
+                    {
+                        "engine": "sharp",
+                        "engine_version": "0.35.3",
+                        "libvips_version": "8.17.3",
+                    }
+                ),
+                stderr="",
+            )
         output = Path(command[command.index("--output") + 1])
         width = int(command[command.index("--width") + 1])
         height = int(command[command.index("--height") + 1])
