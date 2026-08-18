@@ -334,6 +334,8 @@ Current 36E foundation checkpoint — 2026-08-18:
 - provider-neutral `DesignPlan` / `BrandKit` / responsive preset / prompt compiler foundation is locally verified, and Production Studio Image output now emits a governed design plan plus an editable SVG explicitly marked as a template;
 - no template/prompt artifact is promoted as a rendered/final image; real provider execution, edits, derivatives and Production evidence remain required before any 36E maturity/closure transition;
 - full checkpoint evidence is retained in `docs/phase-36/receipts/36E-2026-08-18-design-image-foundation.md`.
+- Checkpoint 2A adds a durable `DesignImageExecution` authority at Alembic `20260818_0032`: explicit arm-before-spend, provider/model/operation allowlisting, DAG dependency gating, lease/fencing/retry, raster-envelope validation, S3/checksum/evidence and Studio revision materialization are locally proven without any provider request.
+- Fresh PostgreSQL 16 + 2A authority tests are `5/5 PASS`; migration `0032 -> 0031 -> 0032` PASS. The next boundary is provider HTTP adapters/worker under the same explicit arm gate; 36E remains `in_progress`.
 
 ### Batch 36F — Video, cinema, motion graphics & advertising factory
 

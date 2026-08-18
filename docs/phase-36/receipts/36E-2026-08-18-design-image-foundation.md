@@ -55,3 +55,20 @@ Status: **IN PROGRESS — latest-provider design foundation checkpoint**
 ## Safe point
 
 Checkpoint 1 is source/test-only. Phase36E remains `in_progress`; no maturity is raised solely by planning/template code. Production remains on the already-accepted Phase36D runtime and Media Worker.
+
+## Checkpoint 2A — Durable image execution authority (no live provider spend)
+
+- Foundation PR #430 merged to `main` as `e46644aeea6cfec44f8b74123c6d4be2473bd677` after every protected gate passed.
+- Added Alembic `20260818_0032` and durable `DesignImageExecution` authority bound to the existing Phase36D Media DAG / Studio / S3 model rather than creating a second asset store.
+- Execution creation is fail-closed: new rows start `planned`; only an explicit `arm_design_image_execution()` transition may make them claimable. Creating a user design request alone cannot trigger provider spend.
+- Provider/model/operation is validated against the Phase36E launch matrix from `src/aios/design_factory.py`; arbitrary provider/model strings are rejected.
+- Provider-image nodes intentionally omit FFmpeg `operation`, so Phase36D Media Worker creates no `MediaRenderStep` and cannot claim image-provider work.
+- Durable execution supports tenant-scoped idempotency, parent-node dependency gating, lease renewal, reclaim/fencing, retries, provider request IDs, bounded usage/cost evidence, output checksum/storage metadata and AuditEvent evidence.
+- Provider responses are sanitized before persistence: prompt/base64/token/credential/signed-URL style fields are removed from evidence. Raw provider output must pass a fail-closed PNG/JPEG/WebP envelope+dimension validator before it can be stored or materialized as final.
+- Storage writes/deletes are moved off the async event loop. Successful completion writes the existing `MediaAssetNode`, completes a one-node graph when ready, and materializes a real `StudioAssetRevision` with checksum/provider/model/cost evidence.
+- Fresh PostgreSQL 16 install reached Alembic `0032`; focused authority tests `5/5 PASS`. Migration recovery `0032 -> 0031 -> 0032` PASS and the table was proven absent/present across the round-trip. Disposable databases were removed afterward. Ruff/Mypy/compile PASS.
+- No OpenAI/Gemini/Fireworks image generation/edit request, provider spend, Production schema mutation, Production service restart or user asset mutation occurred in checkpoint 2A.
+
+### Next safe gate
+
+Checkpoint 2B adds the actual HTTP provider adapters + image worker behind the explicit arm boundary, with fake-provider/error mapping tests first. Only after those pass may bounded live provider acceptance be attempted.
