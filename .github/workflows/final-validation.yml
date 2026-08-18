@@ -536,9 +536,16 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-          cache-dependency-path: web-dashboard/frontend/package-lock.json
+          cache-dependency-path: |
+            web-dashboard/frontend/package-lock.json
+            web-dashboard/backend/image_tools/package-lock.json
       - name: Audit frontend dependencies
         working-directory: web-dashboard/frontend
         run: |
           npm ci
+          npm audit --omit=dev
+      - name: Audit governed image derivative dependencies
+        working-directory: web-dashboard/backend/image_tools
+        run: |
+          npm ci --ignore-scripts
           npm audit --omit=dev

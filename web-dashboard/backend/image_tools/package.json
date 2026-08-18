@@ -1,0 +1,12 @@
+{
+  "name": "aionex-design-image-tools",
+  "version": "36.4.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "dependencies": {
+    "sharp": "0.35.3"
+  }
+}

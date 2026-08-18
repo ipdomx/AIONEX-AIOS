@@ -511,6 +511,20 @@ class Settings(BaseSettings):
         default="/tmp/aionex-design-image-worker-health.json",
         validation_alias="DESIGN_IMAGE_WORKER_HEALTH_FILE",
     )
+    DESIGN_IMAGE_SHARP_NODE_BINARY: str = Field(
+        default="/usr/bin/node", validation_alias="DESIGN_IMAGE_SHARP_NODE_BINARY"
+    )
+    DESIGN_IMAGE_SHARP_SCRIPT: str = Field(
+        default="/opt/aionex-image-tools/derivative.mjs",
+        validation_alias="DESIGN_IMAGE_SHARP_SCRIPT",
+    )
+    DESIGN_IMAGE_SHARP_TIMEOUT_SECONDS: int = Field(
+        default=120, ge=5, le=600, validation_alias="DESIGN_IMAGE_SHARP_TIMEOUT_SECONDS"
+    )
+    DESIGN_IMAGE_SHARP_TEMP_ROOT: str = Field(
+        default="/tmp/aionex-image-derivatives",
+        validation_alias="DESIGN_IMAGE_SHARP_TEMP_ROOT",
+    )
     MOBILE_RELEASE_ROOT: str = Field(
         default="/var/lib/aionex/mobile-releases",
         validation_alias="MOBILE_RELEASE_ROOT",
