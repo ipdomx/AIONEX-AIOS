@@ -124,6 +124,22 @@ def test_phase36e_maturity_matches_production_design_exit_evidence() -> None:
     assert BATCHES[5].status == "in_progress"
 
 
+def test_phase36f_maturity_matches_video_foundation_and_durable_authority() -> None:
+    capabilities = {item.capability_id: item for item in CAPABILITIES}
+    receipt = "docs/phase-36/receipts/36F-2026-08-19-video-factory.md"
+    for capability_id in (
+        "text-image-logo-to-video",
+        "long-form-ad-video",
+        "video-continuity-resume",
+        "video-final-export",
+    ):
+        capability = capabilities[capability_id]
+        assert capability.maturity == "source_built"
+        assert receipt in capability.evidence
+    assert capabilities["cinema-motion-vfx"].maturity == "specified"
+    assert BATCHES[5].status == "in_progress"
+
+
 def test_phase36_snapshot_is_truthful_and_phase29_is_not_current_finality() -> None:
     snapshot = phase36_program_snapshot()
     assert snapshot["authoritative"] is True

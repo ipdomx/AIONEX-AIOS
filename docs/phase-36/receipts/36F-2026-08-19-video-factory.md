@@ -1,7 +1,7 @@
 # Phase 36F — Video, cinema, motion graphics & advertising factory
 
 Date: 2026-08-19
-Status: **IN PROGRESS — Stage 1 governed VideoPlan/continuity foundation; no live video generation or provider spend yet**
+Status: **IN PROGRESS — Stage 1 deployed; Stage 2 durable VideoExecution authority is source/test candidate; no live video generation or provider spend yet**
 
 ## Baseline
 
@@ -37,10 +37,30 @@ Status: **IN PROGRESS — Stage 1 governed VideoPlan/continuity foundation; no l
 - `git diff --check`: PASS.
 - No database schema/data mutation, provider video-generation request, video-provider spend, Production S3 write, service restart or worker activation was performed by Stage 36F1.
 
+## Stage 1 protected merge and Production deployment
+
+- Protected PR #446 (`Phase 36F Stage 1 governed video planning foundation`) passed Backend Tests, Production Docker Build, Browser boundaries, CodeQL, SBOM/vulnerability, Frontend, Core contracts, Dependency Security, repository hygiene and Phase36 Reporting. It merged into `main` as `6792872f5abb41432e39d7435b8baa15607862cf`.
+- Pre-deploy Production gate was clean: Backend Healthy; `current_batch=36F`; persistent Design Image/Derivative flags false; active Design Image / Media Render / Project Execution queues `0/0/0`. Backend rollback image `sha256:45577b26ef1aecb79728d79277f51e2573af4e48b5e4fd290989673e53fe7119` was retained as `aionex-aios-backend:rollback-phase36f-stage1-20260819T203104Z`.
+- Production source fast-forwarded to merged `main@6792872`. No database migration was required. Backend-only image `sha256:3491404f71499d94df4cd75f8af9331fe4d36a711a73a54be26e33801740579f` was built from the merge. A no-network predeploy smoke on that exact image proved four planned scenes, `36F.continuity.v1`, `provider_calls=0`, `spend=0`, and Studio archive truth (`provider=None`, `external_requests=0`, `external_cost_usd=0`).
+- Only Backend was recreated. It returned Healthy, `/ready` HTTP 200, `current_batch=36F`, `video_render_status=planned`, four governed scenes and continuity schema `36F.continuity.v1`; image/derivative flags remained false, active queues stayed `0/0/0`, and recent Backend critical log hits were zero. No image/media/provider worker was restarted.
+- Final Stage 1 Production evidence retains Alembic `20260818_0033`, `/ready` `20/20` with p50 `2.67ms`, p95 `2.96ms`, max `9.91ms`, public/portal HTTP 200 and Owner Access HTTP 302. Video generation requests during deployment remained `0`; spend remained `$0.00`. Sanitized evidence: `.deployment-backups/phase36f-stage1/stage1-production-deploy.json`, SHA-256 `ef0b5077176d34a8329137e6c5d9565d38e1cddc81a45771b3a32d14f4c55ea8`.
+
+## Stage 2 — durable multi-scene VideoExecution authority (source/test candidate)
+
+- Added Alembic `20260819_0034` with tenant-scoped `video_executions` and `video_scene_executions`. Parent rows retain plan checksum, continuity ID, safe scene/hash metadata, provider/model/operation, cost truth and final assembly evidence; scene rows retain ordinal, prompt SHA only, async provider job ID/state, retry/lease/fencing, sanitized usage/cost and governed output evidence. Raw compiled prompts are not copied into parent operational metadata.
+- Stage 2 reuses the Phase36D Media DAG rather than adding another graph. Provider scenes are `provider-video` nodes with **no FFmpeg render step**; one existing 36D FFmpeg `assemble` step is the only MediaRenderStep and remains dependency-blocked until all provider scene nodes complete.
+- `create_video_execution()` is idempotent and creates only `planned` parent/scene rows. `arm_video_execution()` is the explicit spend boundary and changes fresh scenes to `queued`; no scene may be claimed before arm. Scene claims are sequential by continuity order, use lease expiry + monotonically increasing fencing tokens, and preserve an already-submitted provider job ID across worker lease recovery so a replacement worker can poll rather than blindly resubmit.
+- `record_provider_request()` stores bounded sanitized operational metadata. Secret/prompt/token-like keys are dropped. Scene completion accepts governed `video/mp4`, writes through the existing MediaObjectStore, binds the output checksum to the provider-scene node and records provider/model/request/prompt-hash/fencing provenance. Parent actual cost is reported only when **every** completed scene has truthful actual-cost evidence; one unknown scene leaves parent total/cost basis unknown rather than under-reporting spend.
+- Exhausted/permanent scene failure sets the parent failed. `resume_failed_video_execution()` requeues and resets **failed scenes only**, keeps completed scene checksums/objects intact, leaves later queued scenes intact and increments the parent resume counter. This is the durable prerequisite for the 36F exit requirement to recover after worker failure without re-rendering successful scenes.
+- After all provider scenes complete, parent status becomes `scenes_completed`; it does not become final merely because provider clips exist. `finalize_assembled_execution()` requires the existing Media graph and `assembly` node to be completed with storage/checksum/size evidence before the parent becomes `completed`. Final video authority therefore remains tied to the 36D FFmpeg assembly instead of claiming scene clips are a final film.
+- Migration round-trip on disposable PostgreSQL 16 PASS: empty DB -> `0034`; both new tables present (`34` parent columns / `39` scene columns); downgrade to `0033` removes both; re-upgrade to `0034` succeeds. Disposable resources were removed.
+- Verification: Stage 2 authority `5/5 PASS`; Studio/36D/Alembic regression `21/21 PASS`; Phase36 registry + VideoFactory `19/19 PASS`; Ruff PASS; focused Mypy PASS; Python compile and `git diff --check` PASS. Registry truth advances only `video-continuity-resume` from `specified` to `source_built`; no 36F capability is promoted to `runtime_verified`, and `cinema-motion-vfx` remains `specified`.
+- Stage 2 remains source/test-only at this checkpoint: Production stays Alembic `0033`; there is no Video provider worker, no live arm, no provider video request, no Video S3 object and no video-provider spend.
+
 ## Remaining before 36F can close
 
-1. **Stage 36F2 — durable asynchronous video execution authority.** Add a dedicated video execution record/worker rather than overloading `DesignImageExecution`; explicit arm-before-spend, idempotency, provider job ID/state, polling, retry/fencing, usage/cost, governed input references, download/checksum/S3 completion and cleanup. Reuse the existing Media DAG provider-source scene nodes.
-2. Implement exact provider adapters against the accepted live launch paths (initially OpenAI Sora and selected Gemini/Veo paths) with sanitized provider errors and operation-specific capability truth. Model inventory alone must never make a provider route ready.
+1. **Stage 36F3 — exact provider adapters + worker.** Implement the accepted live launch paths (initially OpenAI Sora and selected Gemini/Veo paths) on top of the protected VideoExecution/Scene authority, including async submit/poll/download, lease renewal, bounded retry, provider-specific error sanitization and operation-specific capability truth. Model inventory alone must never make a provider route ready.
+2. Protect/merge/deploy Migration `0034` and the authority first, with a fresh Production backup/restore and persistent Video provider execution disabled by default. Only after deployed no-spend authority evidence may any provider canary be armed.
 3. Connect completed provider clips to the existing Phase 36D scene graph, subtitles/narration/audio inputs and FFmpeg final assembly. Preserve one Studio asset/revision authority rather than introducing a parallel video asset store.
 4. Add motion/compositing contracts: transitions, kinetic typography, overlays/effect graph, captions/subtitles, narration/music/sound and ad/explainer/product/social/cinematic schemas.
 5. Expand governed exports beyond the existing H.264 MP4 / AV1 WebM baseline: MOV and H.265/ProRes only when shipped FFmpeg codec/legal/runtime evidence is explicit; add 1080p/1440p/4K profiles without claiming unsupported provider source resolution.
@@ -50,4 +70,4 @@ Status: **IN PROGRESS — Stage 1 governed VideoPlan/continuity foundation; no l
 
 ## Safe point
 
-Stage 36F1 is source/test-only. Production remains on the accepted Phase 36E-closeout runtime with 36F current but no unattended video-provider execution. The next safe implementation boundary is the dedicated durable asynchronous VideoExecution authority; no live generation should be attempted before that authority is protected by tests and CI.
+Stage 36F1 is merged and deployed with no provider execution. Stage 36F2 is a source/test-only durable authority candidate on Migration `0034`; Production remains at `0033` with no Video provider worker or live arm. The next safe boundary is protected CI for Stage 2, then backup/restore + controlled `0033 -> 0034` deployment with Video execution disabled, and only afterward Stage 36F3 provider adapters/worker and bounded live canaries.

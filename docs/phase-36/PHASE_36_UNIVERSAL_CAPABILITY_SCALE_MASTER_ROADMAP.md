@@ -385,11 +385,10 @@ Exit gate:
 - a logo + brief can produce a real multi-scene advertisement, not only a storyboard/render plan;
 - long-form project can resume after worker failure and re-render only failed scenes.
 
-Current 36F Stage 1 checkpoint — 2026-08-19:
-- Phase 36E activation evidence is merged (`main@5ed6157`) and Production truthfully reports `current_batch=36F`; existing Phase 36D Media DAG/S3/FFmpeg 9 infrastructure is reused rather than duplicated.
-- Added governed `36F.video-plan.v1` planning/continuity contracts and conservative provider compilation for current credential-visible Sora 2/Pro plus Gemini Omni/Veo models. Static/model-inventory visibility never implies live video readiness; Fireworks is not claimed as a video generator in this checkpoint.
-- Production Studio Video now emits a deterministic four-scene VideoPlan, `36F.continuity.v1`, governed shot list/subtitles/provider prompts and an explicitly planned FFmpeg handoff while retaining `provider=None`, `external_requests=0`, `external_cost_usd=0`. VideoFactory `7/7` and Studio/36D regression `16/16` PASS; Ruff/Mypy/compile/diff PASS. No migration/provider video request/spend/Production mutation. Full evidence: `docs/phase-36/receipts/36F-2026-08-19-video-factory.md`.
-- Next: dedicated durable async VideoExecution authority + exact provider adapters; only then bounded live scene generation and the real multi-scene advertisement/resume exit gate.
+Current 36F checkpoints — 2026-08-19:
+- **Stage 1 merged/deployed:** PR #446 merged as `6792872f5abb41432e39d7435b8baa15607862cf`. Governed `36F.video-plan.v1` + `36F.continuity.v1` are now present in Production Studio Video while archive truth remains provider-neutral/planned. Backend-only rollout image `sha256:3491404f...40579f` is Healthy; Alembic remains `0033`; queues zero; persistent image flags false; no Video provider request/spend. Sanitized deployment evidence SHA-256 `ef0b5077176d34a8329137e6c5d9565d38e1cddc81a45771b3a32d14f4c55ea8`.
+- **Stage 2 source/test candidate:** Alembic `20260819_0034` adds tenant-scoped parent `video_executions` and per-scene `video_scene_executions`. Explicit arm-before-spend, idempotency, sequential continuity claims, async provider-job retention, lease/fencing, sanitized metadata, truthful cost aggregation, failed-scene-only resume and assembly-gated finalization are implemented on the existing Phase36D Media DAG. Migration `0034 -> 0033 -> 0034` PASS; authority `5/5`, Studio/36D/Alembic regression `21/21`, registry/VideoFactory `19/19`, Ruff/Mypy/compile/diff PASS. `video-continuity-resume` is only `source_built`; no 36F capability is runtime-verified yet.
+- Stage 2 is **not deployed**: Production stays `0033`, no Video worker/arm/provider call exists. Next safe gate is protected CI -> fresh backup/restore -> controlled `0034` deployment with execution disabled -> exact provider adapters/worker -> bounded live scene canaries -> real multi-scene advertisement/resume exit evidence. Full evidence: `docs/phase-36/receipts/36F-2026-08-19-video-factory.md`.
 
 
 ### Batch 36G — Audio, voice, music, songs & podcast factory

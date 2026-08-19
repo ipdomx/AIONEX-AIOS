@@ -3507,6 +3507,133 @@ class DesignImageExecution(Base, TimestampMixin):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
+class VideoExecution(Base, TimestampMixin):
+    __tablename__ = "video_executions"
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id", "idempotency_key", name="uq_video_execution_org_idempotency"
+        ),
+        Index(
+            "ix_video_executions_org_status_created",
+            "organization_id", "status", "created_at",
+        ),
+        Index("ix_video_executions_graph_status", "graph_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    workspace_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="SET NULL"), index=True
+    )
+    project_id: Mapped[str | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), index=True
+    )
+    studio_job_id: Mapped[str | None] = mapped_column(
+        ForeignKey("studio_jobs.id", ondelete="SET NULL"), index=True
+    )
+    studio_asset_id: Mapped[str | None] = mapped_column(
+        ForeignKey("studio_assets.id", ondelete="SET NULL"), index=True
+    )
+    graph_id: Mapped[str] = mapped_column(
+        ForeignKey("media_asset_graphs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    requested_by_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    provider: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    model: Mapped[str] = mapped_column(String(160), nullable=False)
+    operation: Mapped[str] = mapped_column(String(40), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="planned", nullable=False, index=True)
+    idempotency_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    plan_sha256: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    continuity_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    plan_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    request_options: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    scene_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    resume_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    estimated_cost_usd: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    actual_cost_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
+    cost_basis: Mapped[str] = mapped_column(String(64), default="unknown", nullable=False)
+    final_storage_backend: Mapped[str | None] = mapped_column(String(32))
+    final_storage_key: Mapped[str | None] = mapped_column(Text)
+    final_checksum: Mapped[str | None] = mapped_column(String(64), index=True)
+    final_size_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    final_media_type: Mapped[str | None] = mapped_column(String(120))
+    error_code: Mapped[str | None] = mapped_column(String(120))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    armed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class VideoSceneExecution(Base, TimestampMixin):
+    __tablename__ = "video_scene_executions"
+    __table_args__ = (
+        UniqueConstraint(
+            "video_execution_id", "scene_key", name="uq_video_scene_execution_scene"
+        ),
+        UniqueConstraint(
+            "organization_id", "idempotency_key", name="uq_video_scene_execution_org_idempotency"
+        ),
+        Index(
+            "ix_video_scene_executions_claim",
+            "status", "available_at", "created_at",
+        ),
+        Index(
+            "ix_video_scene_executions_execution_status_scene",
+            "video_execution_id", "status", "scene_index",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    video_execution_id: Mapped[str] = mapped_column(
+        ForeignKey("video_executions.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    graph_id: Mapped[str] = mapped_column(
+        ForeignKey("media_asset_graphs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    target_node_id: Mapped[str] = mapped_column(
+        ForeignKey("media_asset_nodes.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    scene_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    scene_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    model: Mapped[str] = mapped_column(String(160), nullable=False)
+    operation: Mapped[str] = mapped_column(String(40), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="planned", nullable=False, index=True)
+    idempotency_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    prompt_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    request_options: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
+    lease_token: Mapped[str | None] = mapped_column(String(36))
+    lease_owner: Mapped[str | None] = mapped_column(String(160), index=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    fencing_token: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    available_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    provider_request_id: Mapped[str | None] = mapped_column(String(200), index=True)
+    provider_status: Mapped[str] = mapped_column(String(40), default="not_submitted", nullable=False)
+    provider_response_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    usage_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    estimated_cost_usd: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    actual_cost_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
+    cost_basis: Mapped[str] = mapped_column(String(64), default="unknown", nullable=False)
+    output_storage_backend: Mapped[str | None] = mapped_column(String(32))
+    output_storage_key: Mapped[str | None] = mapped_column(Text)
+    output_checksum: Mapped[str | None] = mapped_column(String(64), index=True)
+    output_size_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    output_media_type: Mapped[str | None] = mapped_column(String(120))
+    error_code: Mapped[str | None] = mapped_column(String(120))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class ThreeDGenerationJob(Base, TimestampMixin):
     __tablename__ = "three_d_generation_jobs"
     __table_args__ = (

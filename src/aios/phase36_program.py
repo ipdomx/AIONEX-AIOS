@@ -75,11 +75,11 @@ CAPABILITIES: Final[tuple[Phase36Capability, ...]] = (
     Phase36Capability("editable-design-exports", "design", "Editable vector/raster source and export profiles", "36E", "runtime_verified", ("docs/phase-36/receipts/36E-2026-08-18-design-image-foundation.md",)),
 
     # Video/cinema/motion.
-    Phase36Capability("text-image-logo-to-video", "video", "Text/image/logo-to-video generation", "36F", "source_built"),
-    Phase36Capability("long-form-ad-video", "video", "Long-form advertising and multi-scene video", "36F", "source_built"),
+    Phase36Capability("text-image-logo-to-video", "video", "Text/image/logo-to-video generation", "36F", "source_built", ("docs/phase-36/receipts/36F-2026-08-19-video-factory.md",)),
+    Phase36Capability("long-form-ad-video", "video", "Long-form advertising and multi-scene video", "36F", "source_built", ("docs/phase-36/receipts/36F-2026-08-19-video-factory.md",)),
     Phase36Capability("cinema-motion-vfx", "video", "Cinema, motion graphics, compositing and VFX", "36F", "specified"),
-    Phase36Capability("video-continuity-resume", "video", "Scene continuity, resumable rendering and partial regeneration", "36F", "specified"),
-    Phase36Capability("video-final-export", "video", "1080p/1440p/4K and governed final video exports", "36F", "source_built"),
+    Phase36Capability("video-continuity-resume", "video", "Scene continuity, resumable rendering and partial regeneration", "36F", "source_built", ("docs/phase-36/receipts/36F-2026-08-19-video-factory.md",)),
+    Phase36Capability("video-final-export", "video", "1080p/1440p/4K and governed final video exports", "36F", "source_built", ("docs/phase-36/receipts/36D-2026-08-17-media-orchestrator.md", "docs/phase-36/receipts/36F-2026-08-19-video-factory.md")),
 
     # Audio/music.
     Phase36Capability("stt-tts-dubbing", "audio", "Speech recognition, speech synthesis, dubbing and alignment", "36G", "source_built"),
