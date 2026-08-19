@@ -26,6 +26,7 @@ from aios.design_factory import (
     editable_svg_template,
     prompt_pack_markdown,
 )
+from aios.video_factory import VideoRequest, build_video_plan
 from app.core.config import settings
 from app.db.models import (
     ProjectStudioAttachment,
@@ -42,7 +43,7 @@ DEPARTMENTS: tuple[dict[str, object], ...] = (
     {"id": "ui-ux", "name": "UI/UX Studio", "asset_type": "design", "outputs": ["design system", "wireframe", "prototype brief"]},
     {"id": "three-d", "name": "3D & Three.js Studio", "asset_type": "3d", "outputs": ["Three.js source", "GLTF-ready structure", "ZIP"]},
     {"id": "audio", "name": "Audio Studio", "asset_type": "audio", "outputs": ["script", "SSML", "cue sheet", "mix plan"]},
-    {"id": "video", "name": "Video Studio", "asset_type": "video", "outputs": ["script", "shot list", "subtitles", "render plan"]},
+    {"id": "video", "name": "Video Studio", "asset_type": "video", "outputs": ["script", "shot list", "subtitles", "video plan", "continuity manifest", "render plan"]},
     {"id": "animation", "name": "Animation Studio", "asset_type": "animation", "outputs": ["storyboard", "timing sheet", "scene plan"]},
     {"id": "advertising", "name": "Advertising Studio", "asset_type": "campaign", "outputs": ["campaign brief", "ad variants", "CTA plan"]},
     {"id": "documentary", "name": "Documentary Studio", "asset_type": "documentary", "outputs": ["research outline", "narration", "evidence checklist"]},
@@ -218,35 +219,100 @@ def _audio_files(spec: StudioSpec) -> dict[str, str]:
 
 
 def _video_files(spec: StudioSpec) -> dict[str, str]:
+    request = VideoRequest(
+        title=spec.title,
+        brief=spec.brief,
+        operation="text-to-video",
+        use_case="cinematic",
+        aspect_ratio="16:9",
+        resolution="720p",
+        language=spec.language,
+        style=spec.style,
+        target_audience=spec.target or "general",
+        brand_name=spec.title[:120],
+    )
+    plan = build_video_plan(request)
     shots = [
-        {"shot": 1, "duration_seconds": 4, "visual": "Opening establishing shot", "audio": "Music rise"},
-        {"shot": 2, "duration_seconds": 7, "visual": spec.brief[:240], "audio": "Primary narration"},
-        {"shot": 3, "duration_seconds": 6, "visual": "Detail and proof sequence", "audio": "Narration with natural sound"},
-        {"shot": 4, "duration_seconds": 5, "visual": "Resolution and call to action", "audio": "Music resolve"},
+        {
+            "shot": index,
+            "scene_id": scene.scene_id,
+            "duration_seconds": scene.duration_seconds,
+            "purpose": scene.purpose,
+            "transition": scene.transition,
+            "reference_role": scene.reference_role,
+            "provider": compiled.provider,
+            "model": compiled.model,
+            "render_status": plan.render_status,
+        }
+        for index, (scene, compiled) in enumerate(zip(plan.scenes, plan.compiled_scenes, strict=True), start=1)
     ]
-    srt = """1
-00:00:00,000 --> 00:00:04,000
-A new story begins.
 
-2
-00:00:04,000 --> 00:00:11,000
-The central idea is introduced with clarity and purpose.
+    def srt_timestamp(total_seconds: int) -> str:
+        hours, remainder = divmod(total_seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d},000"
 
-3
-00:00:11,000 --> 00:00:17,000
-Evidence, detail and human context build trust.
+    cursor = 0
+    subtitle_blocks: list[str] = []
+    for index, scene in enumerate(plan.scenes, start=1):
+        start_at = cursor
+        cursor += scene.duration_seconds
+        text = (scene.narration or scene.purpose).strip()
+        subtitle_blocks.append(
+            f"{index}\n{srt_timestamp(start_at)} --> {srt_timestamp(cursor)}\n{text}"
+        )
+    srt = "\n\n".join(subtitle_blocks) + "\n"
 
-4
-00:00:17,000 --> 00:00:22,000
-The story closes with a memorable next step.
-"""
-    render = "#!/usr/bin/env bash\nset -euo pipefail\n# Replace shot files with approved generated or filmed media.\nffmpeg -f concat -safe 0 -i inputs.txt -vf subtitles=subtitles.srt -c:v libx264 -c:a aac -movflags +faststart final.mp4\n"
+    prompts = [
+        f"# Governed provider prompts — {spec.title}",
+        "",
+        f"Video plan: `{plan.checksum}`",
+        f"Continuity: `{plan.continuity_id}`",
+        f"Render status: **{plan.render_status}** (provider execution has not occurred)",
+        "",
+    ]
+    for item in plan.compiled_scenes:
+        prompts.extend(
+            [
+                f"## {item.scene_id} — {item.provider} / {item.model}",
+                "",
+                item.prompt,
+                "",
+                f"Settings: `{json.dumps(item.settings, sort_keys=True)}`",
+                "",
+            ]
+        )
+
+    continuity = {
+        "schema": "36F.continuity.v1",
+        "continuity_id": plan.continuity_id,
+        "video_plan_checksum": plan.checksum,
+        "render_status": plan.render_status,
+        "scene_order": [scene.scene_id for scene in plan.scenes],
+        "rules": [
+            "Preserve identity/product details across adjacent scenes.",
+            "Preserve wardrobe/material/brand color continuity unless a revision explicitly changes it.",
+            "Re-render only changed/failed scenes plus downstream assembly dependencies.",
+            "A provider-visible model inventory is not live execution evidence.",
+        ],
+    }
+    render = (
+        "#!/usr/bin/env bash\n"
+        "set -euo pipefail\n"
+        "# PLANNED ONLY: Stage 36F1 does not generate provider video clips.\n"
+        "# Replace shot files only with governed completed provider/filmed scene nodes.\n"
+        "ffmpeg -f concat -safe 0 -i inputs.txt -vf subtitles=subtitles.srt "
+        "-c:v libx264 -c:a aac -movflags +faststart final.mp4\n"
+    )
+    inputs = "".join(f"file 'shot-{index:02d}.mp4'\n" for index in range(1, len(plan.scenes) + 1))
     return {
+        "production/video-plan.json": json.dumps(plan.public_snapshot(), ensure_ascii=False, indent=2),
+        "production/continuity-manifest.json": json.dumps(continuity, ensure_ascii=False, indent=2),
         "production/shot-list.json": json.dumps(shots, ensure_ascii=False, indent=2),
         "production/subtitles.srt": srt,
         "production/render.sh": render,
-        "production/inputs.txt": "file 'shot-01.mp4'\nfile 'shot-02.mp4'\nfile 'shot-03.mp4'\nfile 'shot-04.mp4'\n",
-        "production/provider-prompts.md": f"# Provider prompts\n\nStyle: {spec.style}\n\nAudience: {spec.target or 'general'}\n\nBrief: {spec.brief}\n",
+        "production/inputs.txt": inputs,
+        "production/provider-prompts.md": "\n".join(prompts),
     }
 
 
