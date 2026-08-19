@@ -96,7 +96,7 @@ export const EMPTY_OWNER_PHASE36_PROGRAM: OwnerPhase36Program = {
   program: "Phase 36 — Universal Capability, Creative Media & 1000+ User Scale",
   authoritative: true,
   minimum_concurrent_users: 1000,
-  current_batch: "36B",
+  current_batch: null,
   total_capabilities: 0,
   production_ready_capabilities: 0,
   completion: 0,

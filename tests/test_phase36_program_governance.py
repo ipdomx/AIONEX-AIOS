@@ -23,8 +23,9 @@ def test_phase36_batches_are_complete_registry_and_36a_closes_first() -> None:
     assert BATCHES[1].status == "complete"
     assert BATCHES[2].status == "complete"
     assert BATCHES[3].status == "complete"
-    assert BATCHES[4].status == "in_progress"
-    assert all(batch.status == "planned" for batch in BATCHES[5:])
+    assert BATCHES[4].status == "complete"
+    assert BATCHES[5].status == "in_progress"
+    assert all(batch.status == "planned" for batch in BATCHES[6:])
 
 
 def test_every_phase36_capability_has_unique_owner_and_valid_maturity() -> None:
@@ -82,7 +83,8 @@ def test_phase36b_maturity_matches_production_activation_evidence() -> None:
     assert BATCHES[1].status == "complete"
     assert BATCHES[2].status == "complete"
     assert BATCHES[3].status == "complete"
-    assert BATCHES[4].status == "in_progress"
+    assert BATCHES[4].status == "complete"
+    assert BATCHES[5].status == "in_progress"
 
 
 def test_phase36c_maturity_matches_live_provider_acceptance_evidence() -> None:
@@ -106,16 +108,33 @@ def test_phase36c_maturity_matches_live_provider_acceptance_evidence() -> None:
     }
 
 
+def test_phase36e_maturity_matches_production_design_exit_evidence() -> None:
+    capabilities = {item.capability_id: item for item in CAPABILITIES}
+    for capability_id in (
+        "prompt-factory",
+        "image-generation-editing",
+        "logo-branding",
+        "infographic-experimental-graphics",
+        "editable-design-exports",
+    ):
+        capability = capabilities[capability_id]
+        assert capability.maturity == "runtime_verified"
+        assert "docs/phase-36/receipts/36E-2026-08-18-design-image-foundation.md" in capability.evidence
+    assert BATCHES[4].status == "complete"
+    assert BATCHES[5].status == "in_progress"
+
+
 def test_phase36_snapshot_is_truthful_and_phase29_is_not_current_finality() -> None:
     snapshot = phase36_program_snapshot()
     assert snapshot["authoritative"] is True
     assert snapshot["minimum_concurrent_users"] == 1000
-    assert snapshot["current_batch"] == "36E"
+    assert snapshot["current_batch"] == "36F"
     batch_statuses = {batch["batch_id"]: batch["status"] for batch in snapshot["batches"]}
     assert batch_statuses["36B"] == "complete"
     assert batch_statuses["36C"] == "complete"
     assert batch_statuses["36D"] == "complete"
-    assert batch_statuses["36E"] == "in_progress"
+    assert batch_statuses["36E"] == "complete"
+    assert batch_statuses["36F"] == "in_progress"
     assert snapshot["total_capabilities"] == len(CAPABILITIES)
     assert snapshot["production_ready_capabilities"] < snapshot["total_capabilities"]
     assert snapshot["completion"] < 100

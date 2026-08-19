@@ -37,9 +37,28 @@ jobs:
         run: |
           npm run build --prefix web-dashboard/frontend
           npm run build --prefix vip-frontend
-      - name: Install Chromium
+      - name: Resolve Chromium runtime
         working-directory: tests/browser-e2e
-        run: npx playwright install --with-deps chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          for binary in google-chrome-stable google-chrome chromium chromium-browser; do
+            if command -v "$binary" >/dev/null 2>&1; then
+              browser_path="$(command -v "$binary")"
+              "$browser_path" --version
+              echo "PLAYWRIGHT_CHROMIUM_EXECUTABLE=$browser_path" >> "$GITHUB_ENV"
+              exit 0
+            fi
+          done
+          for attempt in 1 2; do
+            if timeout 300s npx playwright install chromium; then
+              exit 0
+            fi
+            echo "::warning::Playwright Chromium install attempt $attempt failed or timed out."
+            sleep 5
+          done
+          echo "::error::No usable Chromium runtime was available."
+          exit 1
       - name: Run browser boundary suite
         working-directory: tests/browser-e2e
         run: npm test

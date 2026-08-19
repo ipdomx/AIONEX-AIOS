@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const chromiumExecutable = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE?.trim();
+
 export default defineConfig({
   testDir: "./specs",
   timeout: 30_000,
@@ -11,6 +13,7 @@ export default defineConfig({
     headless: true,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
+    launchOptions: chromiumExecutable ? { executablePath: chromiumExecutable } : {},
   },
   webServer: [
     {
