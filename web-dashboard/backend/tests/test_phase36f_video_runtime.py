@@ -282,7 +282,7 @@ async def test_video_execution_is_planned_idempotent_and_fail_closed_until_arm(t
             assert row.provider_job_id is None and row.actual_cost_usd is None
             await session.commit()
         claim = await authority.claim()
-        assert claim is not None and claim.execution_id == execution_id and claim.fencing_token == 1
+        assert claim is not None and claim.execution_id == execution_id and claim.fencing_token == 1 and claim.mode == "submit"
         async with SessionLocal() as session:
             row = await session.get(VideoExecution, execution_id)
             assert row is not None
@@ -304,7 +304,8 @@ async def test_provider_job_survives_requeue_and_poll_does_not_resubmit(tmp_path
             store=LocalMediaObjectStore(tmp_path / "objects"), worker_id="video-worker-a"
         )
         submission = await authority.claim()
-        assert submission is not None
+        assert submission is not None and submission.mode == "submit"
+        await authority.mark_submission_started(submission)
         await authority.record_provider_job(
             submission,
             provider_job_id="video-job-123",
@@ -319,7 +320,7 @@ async def test_provider_job_survives_requeue_and_poll_does_not_resubmit(tmp_path
         )
         await make_available(execution_id)
         poll_claim = await authority.claim()
-        assert poll_claim is not None and poll_claim.fencing_token == 2
+        assert poll_claim is not None and poll_claim.fencing_token == 2 and poll_claim.mode == "poll" and poll_claim.provider_job_id == "video-job-123"
         async with SessionLocal() as session:
             row = await session.get(VideoExecution, execution_id)
             assert row is not None
@@ -348,6 +349,88 @@ async def test_provider_job_survives_requeue_and_poll_does_not_resubmit(tmp_path
 
 
 @pytest.mark.asyncio
+async def test_crash_after_submission_marker_reclaims_as_reconcile_not_resubmit(tmp_path: Path) -> None:
+    scope = await seed_scope("ambiguous-submit")
+    store = LocalMediaObjectStore(tmp_path / "objects")
+    worker_a = VideoExecutionAuthority(store=store, worker_id="video-worker-a", lease_seconds=30)
+    worker_b = VideoExecutionAuthority(store=store, worker_id="video-worker-b", lease_seconds=30)
+    try:
+        graph_id, scene_id, _ = await create_video_graph(scope)
+        execution_id = await create_execution(scope, graph_id, scene_id, max_attempts=1, max_polls=3)
+        async with SessionLocal() as session:
+            await arm_video_execution(session, execution_id=execution_id, organization_id=scope.org.id)
+            await session.commit()
+        submit = await worker_a.claim()
+        assert submit is not None and submit.mode == "submit"
+        await worker_a.mark_submission_started(submit)
+        async with SessionLocal() as session:
+            row = await session.get(VideoExecution, execution_id)
+            assert row is not None
+            assert row.provider_state == "submitting" and row.provider_job_id is None
+            assert row.attempts == 1 and row.poll_count == 0
+            row.lease_expires_at = datetime.now(UTC) - timedelta(seconds=1)
+            await session.commit()
+        reconcile = await worker_b.claim()
+        assert reconcile is not None
+        assert reconcile.mode == "reconcile" and reconcile.provider_job_id is None
+        async with SessionLocal() as session:
+            row = await session.get(VideoExecution, execution_id)
+            assert row is not None
+            assert row.attempts == 1 and row.poll_count == 1
+            assert row.provider_state == "submitting"
+        # A reconciler may adopt the uniquely discovered provider job; it must not issue a second submit.
+        await worker_b.record_provider_job(
+            reconcile,
+            provider_job_id="video-job-reconciled",
+            provider_state="in_progress",
+            provider_response_metadata={"reconciled": True},
+            poll_after_seconds=1,
+        )
+        async with SessionLocal() as session:
+            row = await session.get(VideoExecution, execution_id)
+            assert row is not None
+            assert row.provider_job_id == "video-job-reconciled"
+            assert row.attempts == 1 and row.poll_count == 1
+            assert row.status == "queued"
+    finally:
+        await cleanup_scope(scope)
+
+
+@pytest.mark.asyncio
+async def test_definitive_submission_rejection_can_reopen_only_bounded_submit_budget(tmp_path: Path) -> None:
+    scope = await seed_scope("definitive-reject")
+    authority = VideoExecutionAuthority(
+        store=LocalMediaObjectStore(tmp_path / "objects"), worker_id="video-worker-a"
+    )
+    try:
+        graph_id, scene_id, _ = await create_video_graph(scope)
+        execution_id = await create_execution(scope, graph_id, scene_id, max_attempts=2)
+        async with SessionLocal() as session:
+            await arm_video_execution(session, execution_id=execution_id, organization_id=scope.org.id)
+            await session.commit()
+        first = await authority.claim()
+        assert first is not None and first.mode == "submit"
+        await authority.mark_submission_started(first)
+        await authority.fail(
+            first,
+            code="provider_rejected_before_job",
+            message="Provider definitively rejected the request before creating a job",
+            submission_safe_to_retry=True,
+            retry_after_seconds=1,
+        )
+        await make_available(execution_id)
+        second = await authority.claim()
+        assert second is not None and second.mode == "submit"
+        async with SessionLocal() as session:
+            row = await session.get(VideoExecution, execution_id)
+            assert row is not None
+            assert row.attempts == 2 and row.poll_count == 0
+            assert row.provider_state == "not_started" and row.provider_job_id is None
+    finally:
+        await cleanup_scope(scope)
+
+
+@pytest.mark.asyncio
 async def test_reclaimed_video_lease_rejects_stale_worker_without_duplicate_submission(tmp_path: Path) -> None:
     scope = await seed_scope("fencing")
     store = LocalMediaObjectStore(tmp_path / "objects")
@@ -361,6 +444,7 @@ async def test_reclaimed_video_lease_rejects_stale_worker_without_duplicate_subm
             await session.commit()
         first = await worker_a.claim()
         assert first is not None and first.fencing_token == 1
+        await worker_a.mark_submission_started(first)
         await worker_a.record_provider_job(
             first,
             provider_job_id="video-job-fenced",
@@ -409,6 +493,7 @@ async def test_completed_provider_scene_unblocks_only_downstream_assembly_and_hi
             await session.commit()
         submit = await authority.claim()
         assert submit is not None
+        await authority.mark_submission_started(submit)
         await authority.record_provider_job(
             submit,
             provider_job_id="video-job-complete",
@@ -492,6 +577,7 @@ async def test_invalid_mp4_is_rejected_before_storage_commit(tmp_path: Path) -> 
             await session.commit()
         submit = await authority.claim()
         assert submit is not None
+        await authority.mark_submission_started(submit)
         await authority.record_provider_job(
             submit,
             provider_job_id="video-job-invalid",

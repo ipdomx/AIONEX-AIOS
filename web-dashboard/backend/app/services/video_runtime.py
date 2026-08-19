@@ -48,6 +48,8 @@ class VideoClaim:
     execution_id: str
     lease_token: str
     fencing_token: int
+    mode: str
+    provider_job_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -311,10 +313,14 @@ class VideoExecutionAuthority:
         async with self.session_factory() as session:
             submission_exhausted = and_(
                 VideoExecution.provider_job_id.is_(None),
+                VideoExecution.provider_state != "submitting",
                 VideoExecution.attempts >= VideoExecution.max_attempts,
             )
             polling_exhausted = and_(
-                VideoExecution.provider_job_id.is_not(None),
+                or_(
+                    VideoExecution.provider_job_id.is_not(None),
+                    VideoExecution.provider_state == "submitting",
+                ),
                 VideoExecution.poll_count >= VideoExecution.max_polls,
             )
             rows = list(
@@ -383,7 +389,13 @@ class VideoExecutionAuthority:
             )
             submission_budget = and_(
                 VideoExecution.provider_job_id.is_(None),
+                VideoExecution.provider_state != "submitting",
                 VideoExecution.attempts < VideoExecution.max_attempts,
+            )
+            reconciliation_budget = and_(
+                VideoExecution.provider_job_id.is_(None),
+                VideoExecution.provider_state == "submitting",
+                VideoExecution.poll_count < VideoExecution.max_polls,
             )
             poll_budget = and_(
                 VideoExecution.provider_job_id.is_not(None),
@@ -402,7 +414,7 @@ class VideoExecutionAuthority:
                 select(VideoExecution)
                 .where(
                     or_(ready, recovery),
-                    or_(submission_budget, poll_budget),
+                    or_(submission_budget, reconciliation_budget, poll_budget),
                     ~blocked_parent,
                 )
                 .order_by(VideoExecution.created_at, VideoExecution.id)
@@ -412,9 +424,15 @@ class VideoExecutionAuthority:
             if row is None:
                 return None
             if row.provider_job_id:
+                mode = "poll"
+                row.poll_count = int(row.poll_count) + 1
+                row.last_polled_at = now
+            elif row.provider_state == "submitting":
+                mode = "reconcile"
                 row.poll_count = int(row.poll_count) + 1
                 row.last_polled_at = now
             else:
+                mode = "submit"
                 row.attempts = int(row.attempts) + 1
             row.status = "running"
             row.fencing_token = int(row.fencing_token) + 1
@@ -426,7 +444,31 @@ class VideoExecutionAuthority:
             row.error_code = None
             row.error_message = None
             await session.commit()
-            return VideoClaim(row.id, str(row.lease_token), int(row.fencing_token))
+            return VideoClaim(
+                row.id,
+                str(row.lease_token),
+                int(row.fencing_token),
+                mode,
+                row.provider_job_id,
+            )
+
+    async def mark_submission_started(self, claim: VideoClaim) -> None:
+        if claim.mode != "submit":
+            raise VideoExecutionError("only a submit claim may start provider submission")
+        async with self.session_factory() as session:
+            row = await session.scalar(
+                select(VideoExecution)
+                .where(VideoExecution.id == claim.execution_id)
+                .with_for_update()
+            )
+            row = self._require_owned(row, claim)
+            if row.provider_job_id:
+                raise VideoExecutionError("video provider job is already recorded")
+            if row.provider_state != "not_started":
+                raise VideoExecutionError("video provider submission state is not fresh")
+            row.provider_state = "submitting"
+            row.provider_submitted_at = row.provider_submitted_at or _now()
+            await session.commit()
 
     def _owns(self, row: VideoExecution | None, claim: VideoClaim) -> bool:
         return bool(
@@ -464,6 +506,8 @@ class VideoExecutionAuthority:
         progress: int | None = None,
         poll_after_seconds: int = 5,
     ) -> None:
+        if claim.mode not in {"submit", "reconcile"}:
+            raise VideoExecutionError("provider job identity may be recorded only by submit/reconcile claims")
         job_id = provider_job_id.strip()
         if not 1 <= len(job_id) <= 240:
             raise VideoExecutionError("video provider job id is invalid")
@@ -480,6 +524,8 @@ class VideoExecutionAuthority:
             row = self._require_owned(row, claim)
             if row.provider_job_id and row.provider_job_id != job_id:
                 raise VideoExecutionError("video provider job identity cannot change")
+            if not row.provider_job_id and row.provider_state != "submitting":
+                raise VideoExecutionError("video provider submission was not durably marked before HTTP")
             row.provider_job_id = job_id
             row.provider_state = provider_state
             row.provider_progress = progress
@@ -497,6 +543,8 @@ class VideoExecutionAuthority:
         progress: int | None = None,
         poll_after_seconds: int = 5,
     ) -> None:
+        if claim.mode != "poll":
+            raise VideoExecutionError("provider pending state may be recorded only by a poll claim")
         if provider_state not in _PENDING_PROVIDER_STATES:
             raise VideoExecutionError("video provider poll state is not pending")
         if progress is not None and not 0 <= progress <= 99:
@@ -536,6 +584,7 @@ class VideoExecutionAuthority:
         message: str,
         permanent: bool = False,
         retry_after_seconds: int = 5,
+        submission_safe_to_retry: bool = False,
     ) -> None:
         safe_code = code.strip()[:120] or "video_execution_failure"
         safe_message = message.strip()[:1000] or "Video provider execution failed"
@@ -546,9 +595,20 @@ class VideoExecutionAuthority:
                 .with_for_update()
             )
             row = self._require_owned(row, claim)
+            if submission_safe_to_retry:
+                if claim.mode != "submit":
+                    raise VideoExecutionError("only a submit claim may reopen a definitive submission retry")
+                if row.provider_job_id or row.provider_state != "submitting":
+                    raise VideoExecutionError(
+                        "submission retry may be reopened only after a definitively rejected fresh submission"
+                    )
+                row.provider_state = "not_started"
             exhausted = permanent or (
-                (not row.provider_job_id and row.attempts >= row.max_attempts)
-                or (bool(row.provider_job_id) and row.poll_count >= row.max_polls)
+                (not row.provider_job_id and row.provider_state != "submitting" and row.attempts >= row.max_attempts)
+                or (
+                    (bool(row.provider_job_id) or row.provider_state == "submitting")
+                    and row.poll_count >= row.max_polls
+                )
             )
             row.error_code = safe_code
             row.error_message = safe_message
@@ -578,6 +638,8 @@ class VideoExecutionAuthority:
         actual_cost_usd: float | None,
         cost_basis: str = "unknown",
     ) -> dict[str, Any]:
+        if claim.mode != "poll":
+            raise VideoExecutionError("video completion requires a poll claim")
         if actual_cost_usd is not None and (actual_cost_usd < 0 or actual_cost_usd > 1_000):
             raise VideoExecutionError("video actual cost is outside the allowed range")
         safe_cost_basis = cost_basis.strip()[:64] or "unknown"

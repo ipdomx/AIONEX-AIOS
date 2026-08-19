@@ -393,7 +393,7 @@ Current 36F Stage 1 checkpoint — 2026-08-19:
 
 
 - Checkpoint 36F-1B: protected PR #446 merged as `6792872f5abb41432e39d7435b8baa15607862cf`; Backend-only Production activation proved `36F.video-plan.v1` remains planned/provider-neutral with zero external video requests/spend, while existing Media/Image/Derivative workers stayed healthy/unchanged. Deployment evidence SHA-256 `8d273b2346be71a964bea2e26b7f1382334a91de43a7ec8d60b019c54658713d`.
-- Checkpoint 36F-2A candidate adds Alembic `0034` + dedicated durable async `VideoExecution` authority: explicit arm, idempotency, separate submit/poll budgets, immutable provider job ID, lease/fencing/recovery, sanitized usage/cost/output evidence and MP4 scene-node completion through the existing Media DAG. Disposable PostgreSQL `0034 -> 0033 -> 0034` PASS; Video/Alembic `10 PASS`; combined affected regression `18/18 PASS`; no provider video HTTP/spend/Production migration. Next is protected merge/deploy of 0034, then exact provider adapters + live-disabled worker/pipeline.
+- Checkpoint 36F-2A candidate adds Alembic `0034` + dedicated durable async `VideoExecution` authority: explicit arm, idempotency, durable `submitting -> reconcile` crash ambiguity state, separate submit/observation budgets, immutable provider job ID, lease/fencing/recovery, sanitized usage/cost/output evidence and MP4 scene-node completion through the existing Media DAG. Disposable PostgreSQL `0034 -> 0033 -> 0034` PASS; final combined affected regression `20/20 PASS`; no provider video HTTP/spend/Production migration. Next is protected merge/deploy of 0034, then exact provider adapters + live-disabled worker/pipeline with provider-specific reconciliation.
 
 ### Batch 36G — Audio, voice, music, songs & podcast factory
 
