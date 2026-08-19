@@ -385,6 +385,13 @@ Exit gate:
 - a logo + brief can produce a real multi-scene advertisement, not only a storyboard/render plan;
 - long-form project can resume after worker failure and re-render only failed scenes.
 
+Current 36F Stage 1 checkpoint — 2026-08-19:
+- Phase 36E activation evidence is merged (`main@5ed6157`) and Production truthfully reports `current_batch=36F`; existing Phase 36D Media DAG/S3/FFmpeg 9 infrastructure is reused rather than duplicated.
+- Added governed `36F.video-plan.v1` planning/continuity contracts and conservative provider compilation for current credential-visible Sora 2/Pro plus Gemini Omni/Veo models. Static/model-inventory visibility never implies live video readiness; Fireworks is not claimed as a video generator in this checkpoint.
+- Production Studio Video now emits a deterministic four-scene VideoPlan, `36F.continuity.v1`, governed shot list/subtitles/provider prompts and an explicitly planned FFmpeg handoff while retaining `provider=None`, `external_requests=0`, `external_cost_usd=0`. VideoFactory `7/7` and Studio/36D regression `16/16` PASS; Ruff/Mypy/compile/diff PASS. No migration/provider video request/spend/Production mutation. Full evidence: `docs/phase-36/receipts/36F-2026-08-19-video-factory.md`.
+- Next: dedicated durable async VideoExecution authority + exact provider adapters; only then bounded live scene generation and the real multi-scene advertisement/resume exit gate.
+
+
 ### Batch 36G — Audio, voice, music, songs & podcast factory
 
 Scope:

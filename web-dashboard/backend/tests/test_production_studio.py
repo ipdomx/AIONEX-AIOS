@@ -2,6 +2,7 @@ import io
 import json
 import zipfile
 
+from app.services import production_studio
 from app.api.v1.endpoints.studio import (
     DEPARTMENTS,
     StudioRequest,
@@ -57,12 +58,47 @@ def test_threejs_artifact_contains_live_scene_and_asset_contract():
     assert "GLB/GLTF" in files["assets/README.md"]
 
 
-def test_video_artifact_contains_editable_production_pipeline():
+def test_video_artifact_contains_governed_planned_video_pipeline():
     files = _department_files(request("video"))
+    assert {
+        "production/video-plan.json",
+        "production/continuity-manifest.json",
+        "production/shot-list.json",
+        "production/provider-prompts.md",
+        "production/render.sh",
+        "production/subtitles.srt",
+    } <= files.keys()
+    plan = json.loads(files["production/video-plan.json"])
+    continuity = json.loads(files["production/continuity-manifest.json"])
     shots = json.loads(files["production/shot-list.json"])
-    assert len(shots) >= 4
+    assert plan["schema"] == "36F.video-plan.v1"
+    assert plan["render_status"] == "planned"
+    assert len(plan["scenes"]) == len(shots) == 4
+    assert continuity["schema"] == "36F.continuity.v1"
+    assert continuity["continuity_id"] == plan["continuity_id"]
+    assert continuity["video_plan_checksum"] == plan["checksum"]
+    assert continuity["render_status"] == "planned"
+    assert [item["scene_id"] for item in shots] == continuity["scene_order"]
+    assert all(item["render_status"] == "planned" for item in shots)
+    assert "PLANNED ONLY" in files["production/render.sh"]
     assert "ffmpeg" in files["production/render.sh"]
     assert "00:00:00,000" in files["production/subtitles.srt"]
+    assert "provider execution has not occurred" in files["production/provider-prompts.md"]
+
+
+def test_video_archive_remains_provider_neutral_until_durable_video_execution_exists():
+    data = request("video")
+    artifact = production_studio.build_archive(data, job_id="phase36f-plan-only", revision_number=1)
+    assert artifact.manifest["provider_mode"] == "provider_neutral"
+    assert artifact.manifest["provider"] is None
+    assert artifact.manifest["model"] is None
+    assert artifact.manifest["external_requests"] == 0
+    assert artifact.manifest["external_cost_usd"] == 0
+    with zipfile.ZipFile(io.BytesIO(artifact.content)) as bundle:
+        plan = json.loads(bundle.read("production/video-plan.json"))
+        continuity = json.loads(bundle.read("production/continuity-manifest.json"))
+    assert plan["render_status"] == "planned"
+    assert continuity["render_status"] == "planned"
 
 
 def test_image_artifact_is_governed_design_plan_and_template_not_fake_final_media():
