@@ -39,7 +39,7 @@ jobs:
           npm run build --prefix vip-frontend
       - name: Install Chromium
         working-directory: tests/browser-e2e
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
       - name: Run browser boundary suite
         working-directory: tests/browser-e2e
         run: npm test
