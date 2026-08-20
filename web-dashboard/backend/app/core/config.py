@@ -541,6 +541,40 @@ class Settings(BaseSettings):
         default="/tmp/aionex-design-image-derivative-worker-health.json",
         validation_alias="DESIGN_IMAGE_DERIVATIVE_WORKER_HEALTH_FILE",
     )
+    VIDEO_EXECUTION_LIVE_ENABLED: bool = Field(
+        default=False, validation_alias="VIDEO_EXECUTION_LIVE_ENABLED"
+    )
+    VIDEO_EXECUTION_WORKER_ID: str = Field(
+        default="", validation_alias="VIDEO_EXECUTION_WORKER_ID"
+    )
+    VIDEO_EXECUTION_POLL_SECONDS: int = Field(
+        default=5, ge=1, le=60, validation_alias="VIDEO_EXECUTION_POLL_SECONDS"
+    )
+    VIDEO_EXECUTION_LEASE_SECONDS: int = Field(
+        default=300, ge=30, le=3600, validation_alias="VIDEO_EXECUTION_LEASE_SECONDS"
+    )
+    VIDEO_EXECUTION_PROVIDER_TIMEOUT_SECONDS: int = Field(
+        default=60, ge=10, le=300, validation_alias="VIDEO_EXECUTION_PROVIDER_TIMEOUT_SECONDS"
+    )
+    VIDEO_EXECUTION_DOWNLOAD_TIMEOUT_SECONDS: int = Field(
+        default=180, ge=30, le=900, validation_alias="VIDEO_EXECUTION_DOWNLOAD_TIMEOUT_SECONDS"
+    )
+    VIDEO_EXECUTION_MAX_PROVIDER_BYTES: int = Field(
+        default=268_435_456, ge=1_048_576, le=1_073_741_824, validation_alias="VIDEO_EXECUTION_MAX_PROVIDER_BYTES"
+    )
+    VIDEO_EXECUTION_RECONCILE_WINDOW_SECONDS: int = Field(
+        default=180, ge=30, le=1800, validation_alias="VIDEO_EXECUTION_RECONCILE_WINDOW_SECONDS"
+    )
+    VIDEO_EXECUTION_WORKER_HEALTH_FILE: str = Field(
+        default="/tmp/aionex-video-execution-worker-health.json",
+        validation_alias="VIDEO_EXECUTION_WORKER_HEALTH_FILE",
+    )
+    VIDEO_EXECUTION_TEMP_ROOT: str = Field(
+        default="/tmp/aionex-video-provider", validation_alias="VIDEO_EXECUTION_TEMP_ROOT"
+    )
+    VIDEO_EXECUTION_FFPROBE_TIMEOUT_SECONDS: int = Field(
+        default=30, ge=5, le=120, validation_alias="VIDEO_EXECUTION_FFPROBE_TIMEOUT_SECONDS"
+    )
     MOBILE_RELEASE_ROOT: str = Field(
         default="/var/lib/aionex/mobile-releases",
         validation_alias="MOBILE_RELEASE_ROOT",

@@ -636,3 +636,86 @@ def test_video_execution_schema_has_async_job_fencing_poll_and_cost_evidence() -
         "usage_metadata",
         "provider_response_metadata",
     } <= columns
+
+
+@pytest.mark.asyncio
+async def test_completed_job_returned_from_submit_is_persisted_then_reclaimed_as_poll(tmp_path: Path) -> None:
+    scope = await seed_scope("submit-completed")
+    authority = VideoExecutionAuthority(
+        store=LocalMediaObjectStore(tmp_path / "objects"), worker_id="video-worker-a"
+    )
+    try:
+        graph_id, scene_id, _ = await create_video_graph(scope)
+        execution_id = await create_execution(scope, graph_id, scene_id)
+        async with SessionLocal() as session:
+            await arm_video_execution(
+                session, execution_id=execution_id, organization_id=scope.org.id
+            )
+            await session.commit()
+        submit = await authority.claim()
+        assert submit is not None and submit.mode == "submit"
+        await authority.mark_submission_started(submit)
+        await authority.record_provider_job(
+            submit,
+            provider_job_id="video-job-immediate-complete",
+            provider_state="completed",
+            progress=100,
+            provider_response_metadata={"status": "completed"},
+            poll_after_seconds=1,
+        )
+        await make_available(execution_id)
+        poll = await authority.claim()
+        assert poll is not None
+        assert poll.mode == "poll"
+        assert poll.provider_job_id == "video-job-immediate-complete"
+        async with SessionLocal() as session:
+            row = await session.get(VideoExecution, execution_id)
+            assert row is not None
+            assert row.provider_job_id == "video-job-immediate-complete"
+            assert row.provider_state == "completed"
+            assert row.provider_progress == 100
+            assert row.attempts == 1 and row.poll_count == 1
+    finally:
+        await cleanup_scope(scope)
+
+
+@pytest.mark.asyncio
+async def test_terminal_provider_job_failure_persists_identity_and_sanitized_metadata(tmp_path: Path) -> None:
+    scope = await seed_scope("job-failed")
+    authority = VideoExecutionAuthority(
+        store=LocalMediaObjectStore(tmp_path / "objects"), worker_id="video-worker-a"
+    )
+    try:
+        graph_id, scene_id, _ = await create_video_graph(scope)
+        execution_id = await create_execution(scope, graph_id, scene_id)
+        async with SessionLocal() as session:
+            await arm_video_execution(
+                session, execution_id=execution_id, organization_id=scope.org.id
+            )
+            await session.commit()
+        submit = await authority.claim()
+        assert submit is not None and submit.mode == "submit"
+        await authority.mark_submission_started(submit)
+        await authority.record_provider_job_failure(
+            submit,
+            provider_job_id="video-job-terminal-failure",
+            code="content_policy",
+            message="Video provider job failed",
+            provider_response_metadata={
+                "status": "failed",
+                "error_code": "content_policy",
+                "prompt": "must-not-persist",
+                "api_token": "must-not-persist",
+            },
+        )
+        async with SessionLocal() as session:
+            row = await session.get(VideoExecution, execution_id)
+            assert row is not None
+            assert row.status == "failed"
+            assert row.provider_job_id == "video-job-terminal-failure"
+            assert row.provider_state == "failed"
+            assert row.error_code == "content_policy"
+            assert "prompt" not in row.provider_response_metadata
+            assert "api_token" not in row.provider_response_metadata
+    finally:
+        await cleanup_scope(scope)

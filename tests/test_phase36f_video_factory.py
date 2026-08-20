@@ -8,6 +8,7 @@ from aios.video_factory import (
     VideoRequest,
     VideoRuntimeEvidence,
     build_video_plan,
+    build_video_plan_for_provider,
     runtime_ready_provider,
 )
 
@@ -100,6 +101,16 @@ def test_reference_operations_are_fail_closed_and_text_to_video_cannot_smuggle_r
         request(reference_count=1)
     with pytest.raises(VideoFactoryError, match="exactly one"):
         request(operation="image-to-video", reference_count=2)
+
+
+def test_runtime_selected_provider_changes_plan_checksum_and_compiled_model() -> None:
+    req = request()
+    standard = build_video_plan_for_provider(req, provider="openai", model="sora-2")
+    pro = build_video_plan_for_provider(req, provider="openai", model="sora-2-pro")
+    assert standard.checksum != pro.checksum
+    assert standard.continuity_id != pro.continuity_id
+    assert {row.model for row in standard.compiled_scenes} == {"sora-2"}
+    assert {row.model for row in pro.compiled_scenes} == {"sora-2-pro"}
 
 
 def test_inventory_visibility_never_means_live_ready() -> None:

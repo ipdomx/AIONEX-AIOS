@@ -30,6 +30,7 @@ _ALLOWED_OUTPUT_FORMATS = frozenset({"mp4"})
 _CONTENT_TYPES = {"mp4": "video/mp4"}
 _SUFFIXES = {"mp4": ".mp4"}
 _PENDING_PROVIDER_STATES = frozenset({"queued", "in_progress"})
+_JOB_RECORD_STATES = frozenset({"queued", "in_progress", "completed"})
 _ALLOWED_COST_BASES = frozenset(
     {"unknown", "official_provider_usage", "official_fixed_second", "official_fixed_video"}
 )
@@ -511,10 +512,12 @@ class VideoExecutionAuthority:
         job_id = provider_job_id.strip()
         if not 1 <= len(job_id) <= 240:
             raise VideoExecutionError("video provider job id is invalid")
-        if provider_state not in _PENDING_PROVIDER_STATES:
-            raise VideoExecutionError("video provider job state is not pending")
-        if progress is not None and not 0 <= progress <= 99:
-            raise VideoExecutionError("video provider progress is outside the pending range")
+        if provider_state not in _JOB_RECORD_STATES:
+            raise VideoExecutionError("video provider job state is unsupported")
+        if progress is not None:
+            upper = 100 if provider_state == "completed" else 99
+            if not 0 <= progress <= upper:
+                raise VideoExecutionError("video provider progress is outside the allowed range")
         async with self.session_factory() as session:
             row = await session.scalar(
                 select(VideoExecution)
@@ -532,6 +535,67 @@ class VideoExecutionAuthority:
             row.provider_submitted_at = row.provider_submitted_at or _now()
             row.provider_response_metadata = _safe_metadata(provider_response_metadata)
             self._requeue(row, poll_after_seconds=poll_after_seconds)
+            await session.commit()
+
+    async def record_provider_job_failure(
+        self,
+        claim: VideoClaim,
+        *,
+        provider_job_id: str,
+        code: str,
+        message: str,
+        provider_response_metadata: dict[str, Any],
+    ) -> None:
+        if claim.mode not in {"submit", "reconcile", "poll"}:
+            raise VideoExecutionError("video provider failure claim mode is invalid")
+        job_id = provider_job_id.strip()
+        if not 1 <= len(job_id) <= 240:
+            raise VideoExecutionError("video provider job id is invalid")
+        safe_code = code.strip()[:120] or "provider_job_failed"
+        safe_message = message.strip()[:1000] or "Video provider job failed"
+        async with self.session_factory() as session:
+            row = await session.scalar(
+                select(VideoExecution)
+                .where(VideoExecution.id == claim.execution_id)
+                .with_for_update()
+            )
+            row = self._require_owned(row, claim)
+            if row.provider_job_id and row.provider_job_id != job_id:
+                raise VideoExecutionError("video provider job identity cannot change")
+            if not row.provider_job_id and row.provider_state != "submitting":
+                raise VideoExecutionError("video provider submission was not durably marked before HTTP")
+            row.provider_job_id = job_id
+            row.provider_state = "failed"
+            row.provider_progress = None
+            row.provider_submitted_at = row.provider_submitted_at or _now()
+            row.provider_response_metadata = {
+                **(row.provider_response_metadata or {}),
+                **_safe_metadata(provider_response_metadata),
+            }
+            row.status = "failed"
+            row.error_code = safe_code
+            row.error_message = safe_message
+            row.lease_token = None
+            row.lease_owner = None
+            row.lease_expires_at = None
+            row.available_at = None
+            row.completed_at = _now()
+            session.add(
+                AuditEvent(
+                    organization_id=row.organization_id,
+                    user_id=row.requested_by_id,
+                    action="video.provider.failed",
+                    resource_type="video_execution",
+                    resource_id=row.id,
+                    details={
+                        "scene_key": row.scene_key,
+                        "provider": row.provider,
+                        "model": row.model,
+                        "provider_job_id": job_id,
+                        "error_code": safe_code,
+                    },
+                )
+            )
             await session.commit()
 
     async def record_poll_pending(

@@ -423,10 +423,15 @@ def compile_scene(request: VideoRequest, scene: VideoScene, capability: VideoPro
     )
 
 
-def build_video_plan(request: VideoRequest) -> VideoPlan:
-    scenes = request.scenes or default_ad_scenes(request)
-    candidates = provider_candidates(request, scenes)
-    selected = candidates[0]
+def _build_video_plan_with_provider(
+    request: VideoRequest,
+    *,
+    scenes: tuple[VideoScene, ...],
+    candidates: tuple[VideoProviderCapability, ...],
+    selected: VideoProviderCapability,
+) -> VideoPlan:
+    if selected not in candidates:
+        raise VideoFactoryError("selected video provider is outside the request capability set")
     canonical = {
         "request": asdict(request),
         "scenes": [asdict(item) for item in scenes],
@@ -464,6 +469,29 @@ def build_video_plan(request: VideoRequest) -> VideoPlan:
         continuity_id=continuity_id,
         render_status="planned",
         checksum=checksum,
+    )
+
+
+def build_video_plan(request: VideoRequest) -> VideoPlan:
+    scenes = request.scenes or default_ad_scenes(request)
+    candidates = provider_candidates(request, scenes)
+    return _build_video_plan_with_provider(
+        request, scenes=scenes, candidates=candidates, selected=candidates[0]
+    )
+
+
+def build_video_plan_for_provider(
+    request: VideoRequest, *, provider: str, model: str
+) -> VideoPlan:
+    scenes = request.scenes or default_ad_scenes(request)
+    candidates = provider_candidates(request, scenes)
+    selected = next(
+        (item for item in candidates if item.provider == provider and item.model == model), None
+    )
+    if selected is None:
+        raise VideoFactoryError("selected runtime video provider does not support the request")
+    return _build_video_plan_with_provider(
+        request, scenes=scenes, candidates=candidates, selected=selected
     )
 
 
