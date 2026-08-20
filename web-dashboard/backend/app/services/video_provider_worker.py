@@ -346,7 +346,7 @@ class VideoProviderWorker:
             try:
                 path.unlink(missing_ok=True)
             except OSError:
-                pass
+                logger.warning("video provider temporary file cleanup failed")
 
     async def _poll(self, claim: VideoClaim, loaded: LoadedVideoExecution) -> None:
         job_id = claim.provider_job_id
