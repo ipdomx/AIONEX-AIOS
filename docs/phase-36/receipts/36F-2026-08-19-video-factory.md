@@ -1,7 +1,7 @@
 # Phase 36F — Video, cinema, motion graphics & advertising factory
 
 Date: 2026-08-19
-Status: **IN PROGRESS — Stage 1 deployed; Stage 2A durable async authority deployed; Stage 2B exact Sora pipeline/worker merged and Production-deployed hard-disabled with zero spend**
+Status: **IN PROGRESS — Stage 1 deployed; Stage 2A/2B durable Sora authority/worker deployed hard-disabled; Stage 3A Sora 2 text-to-video live canary PASS with bounded $0.40 spend**
 
 ## Baseline
 
@@ -85,6 +85,17 @@ Stage 36F1 is source/test-only. Production remains on the accepted Phase 36E-clo
 - Post-deploy DB evidence remains `video_executions total=0 / active=0 / completed=0 / failed=0`; therefore no provider Video request was issued and observed Video spend remains `$0.00`. Sanitized disabled-deployment evidence: `.deployment-backups/phase36f-stage2b-deploy/stage2b-disabled-production-evidence.json`, SHA-256 `307d3daad9e8bff97ff7d001268754ce6ffe3fe93fb8df2d61badc5e1c7b0a3c`.
 
 
+## Checkpoint 3A — Bounded Sora 2 text-to-video live acceptance
+
+- Owner approval was recorded before spend. The Production worker itself remained hard-disabled; a separate one-shot process alone received `VIDEO_EXECUTION_LIVE_ENABLED=true`, a distinct worker ID and isolated health/temp paths.
+- The governed Stage 2B pipeline created four planned scenes, but **only `opening` was armed**. Pre-arm guards required `sora-2`, `text-to-video`, `4s`, `1280x720`, expected cost exactly `$0.40`, and set `max_attempts=1`; the other three scene executions stayed planned with zero attempts and were never claimable.
+- Provider submission occurred exactly once. Durable provider job identity was recorded immediately, after which every cycle was poll-only (`attempts=1`, final `poll_count=10`); the job progressed `queued -> in_progress -> completed` without resubmission.
+- Completion passed the shipped FFmpeg/FFprobe governed QA before durable completion and object-store write. Accepted output evidence before cleanup: `video/mp4`, size `2,574,163` bytes, SHA-256 `8755efccc8d2b15882a1d66094a9d8eb0574ea261ce2210db12dc9dcec4ef34f`; actual cost `$0.40`, basis `official_fixed_second`.
+- Cleanup deleted and verified the single stored video object and removed the complete synthetic tenant graph/executions. Post-cleanup counts were VideoExecution `0`, Media nodes `0`, Media graphs `0`; global VideoExecution remained `0/0` total/active. The current adapter has no external provider-job delete operation, so no claim is made that the provider account's historical job record was deleted.
+- Post-health: Backend/Media/Image/Derivative/Video workers Healthy; persistent Video worker remained `VIDEO_EXECUTION_LIVE_ENABLED=false`; Alembic stayed `20260819_0034`; `/ready` `20/20` PASS (p50 `3.44ms`, p95 `5.04ms`, max `10.83ms`); public/portal HTTP `200/200`, Owner Access `302`; critical log hits `0`.
+- Sanitized evidence: `.deployment-backups/phase36f-stage3-sora-canary/stage3a-sora-canary-evidence.json`, SHA-256 `d73501faf33853a6345df4f16ec5972960b8a65c0696d6778b0ad790546aa0f4`. Provider generation requests in this checkpoint: `1`; observed spend: `$0.40`. Evidence retains only a provider-job hash, never the raw job ID, prompt, credential or signed URL.
+- This proves the **Sora 2 text-to-video route only**. The aggregate `text-image-logo-to-video` capability remains `source_built` rather than `runtime_verified` until its governed image/logo/reference routes receive separate accepted live evidence.
+
 ### Next safe gate
 
-Stage 2B protected CI and disabled Production deployment are complete with zero VideoExecution rows, zero worker cycles and `$0.00` observed Video spend. The next gate is a **separately owner-approved, one-shot, cost-capped Sora text-to-video canary**; until that approval the worker remains hard-disabled. Image/logo/reference routes and Gemini/Veo remain separate later gates; inventory visibility alone remains insufficient.
+Stage 3A is complete and cleaned. The next gate is **Stage 3B: governed Sora input-reference transport plus separate image-to-video/logo-to-video acceptance**, still one operation at a time and with explicit cost caps. Gemini/Veo remain separate later gates. After provider-route acceptance, Phase 36F must still prove the authoritative multi-scene advertisement + worker-failure/resume + final FFmpeg assembly exit gate before 36F can close.
