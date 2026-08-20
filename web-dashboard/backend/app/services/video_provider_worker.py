@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import os
 import socket
@@ -23,7 +24,7 @@ from sqlalchemy import select
 from app.core.config import settings
 from app.core.logging import get_logger, setup_logging
 from app.db.base import SessionLocal
-from app.db.models import AIProvider, MediaAssetNode, VideoExecution
+from app.db.models import AIProvider, MediaAssetEdge, MediaAssetNode, VideoExecution
 from app.services.ai_runtime_service import (
     provider_credential,
     provider_enabled,
@@ -34,6 +35,7 @@ from app.services.media_storage import MediaObjectStore, media_object_store
 from app.services.video_providers import (
     OpenAIVideoAdapter,
     ProviderVideoFailure,
+    ProviderVideoInput,
     ProviderVideoJob,
     ProviderVideoRequest,
     openai_sora_fixed_cost,
@@ -41,6 +43,10 @@ from app.services.video_providers import (
 from app.services.video_runtime import VideoClaim, VideoExecutionAuthority
 
 logger = get_logger(__name__)
+
+_VIDEO_REFERENCE_CONTENT_TYPES = frozenset({"image/png", "image/jpeg", "image/webp"})
+_VIDEO_REFERENCE_MAX_BYTES = 20 * 1024 * 1024
+_VIDEO_REFERENCE_SUFFIXES = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,25 +203,54 @@ class VideoProviderWorker:
                 raise ProviderVideoFailure("execution_prompt", retryable=False)
             if row.provider != "openai" or row.model not in {"sora-2", "sora-2-pro"}:
                 raise ProviderVideoFailure("provider_adapter_unavailable", retryable=False)
-            if row.operation != "text-to-video":
+            if row.operation not in {"text-to-video", "image-to-video", "logo-to-video", "reference-to-video"}:
                 raise ProviderVideoFailure("provider_operation_unsupported", retryable=False)
             options = dict(row.request_options or {})
-            if int(options.get("reference_count") or 0) != 0:
-                raise ProviderVideoFailure("provider_input_unsupported", retryable=False)
+            reference_count = int(options.get("reference_count") or 0)
+            reference_meta: tuple[str, str, int, str] | None = None
+            if row.operation == "text-to-video":
+                if reference_count != 0:
+                    raise ProviderVideoFailure("provider_input_unsupported", retryable=False)
+            else:
+                if reference_count != 1:
+                    raise ProviderVideoFailure("provider_input_missing", retryable=False)
+                parents = list(
+                    (
+                        await session.scalars(
+                            select(MediaAssetNode)
+                            .join(MediaAssetEdge, MediaAssetEdge.parent_node_id == MediaAssetNode.id)
+                            .where(
+                                MediaAssetEdge.child_node_id == row.target_node_id,
+                                MediaAssetEdge.organization_id == row.organization_id,
+                                MediaAssetNode.organization_id == row.organization_id,
+                            )
+                            .order_by(MediaAssetEdge.ordinal, MediaAssetNode.id)
+                        )
+                    ).all()
+                )
+                references = [
+                    node
+                    for node in parents
+                    if node.node_type == "image"
+                    and node.status == "completed"
+                    and node.storage_key
+                    and node.checksum
+                    and node.size_bytes
+                    and node.media_type in _VIDEO_REFERENCE_CONTENT_TYPES
+                ]
+                if len(references) != 1:
+                    raise ProviderVideoFailure("provider_input_scope", retryable=False)
+                reference_row = references[0]
+                if int(reference_row.size_bytes or 0) <= 0 or int(reference_row.size_bytes or 0) > _VIDEO_REFERENCE_MAX_BYTES:
+                    raise ProviderVideoFailure("provider_input_invalid", retryable=False)
+                reference_meta = (
+                    str(reference_row.storage_key),
+                    str(reference_row.checksum),
+                    int(reference_row.size_bytes),
+                    str(reference_row.media_type),
+                )
             seconds = int(options.get("seconds") or 0)
             size = str(options.get("size") or "").strip()
-            request = ProviderVideoRequest(
-                provider=row.provider,
-                model=row.model,
-                operation=row.operation,
-                prompt=prompt,
-                seconds=seconds,
-                size=size,
-                reference=None,
-                options=options,
-            )
-            # Cost table is a launch-boundary check too; fail before provider HTTP if unknown.
-            openai_sora_fixed_cost(request)
             providers = list(
                 (
                     await session.scalars(
@@ -238,6 +273,38 @@ class VideoProviderWorker:
             if not credential or not base_url:
                 raise ProviderVideoFailure("provider_unconfigured", retryable=False)
             submitted_at = row.provider_submitted_at
+            provider = row.provider
+            model = row.model
+            operation = row.operation
+
+        reference: ProviderVideoInput | None = None
+        if reference_meta is not None:
+            storage_key, checksum, expected_size, media_type = reference_meta
+            try:
+                body = await asyncio.to_thread(
+                    self.store.get_bytes, storage_key, max_bytes=_VIDEO_REFERENCE_MAX_BYTES
+                )
+            except Exception as exc:
+                raise ProviderVideoFailure("provider_input_unavailable", retryable=False) from exc
+            if len(body) != expected_size or hashlib.sha256(body).hexdigest() != checksum:
+                raise ProviderVideoFailure("provider_input_integrity", retryable=False)
+            reference = ProviderVideoInput(
+                body=body,
+                content_type=media_type,
+                filename=f"reference{_VIDEO_REFERENCE_SUFFIXES[media_type]}",
+            )
+        request = ProviderVideoRequest(
+            provider=provider,
+            model=model,
+            operation=operation,
+            prompt=prompt,
+            seconds=seconds,
+            size=size,
+            reference=reference,
+            options=options,
+        )
+        # Cost table is a launch-boundary check too; fail before provider HTTP if unknown.
+        openai_sora_fixed_cost(request)
         return LoadedVideoExecution(
             request=request,
             credential=credential,
