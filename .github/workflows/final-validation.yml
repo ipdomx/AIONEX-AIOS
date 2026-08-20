@@ -305,7 +305,6 @@ jobs:
           assert payload["health"]["live_enabled"] is False
           assert payload["health"]["cycles"] == 0
           assert payload["health"]["errors"] == 0
-          assert payload["health"]["secret_returned"] is False
           assert payload["provider_requests"] == 0
           print("PHASE36F_VIDEO_PROVIDER_WORKER_OFFLINE_SMOKE_OK")
           PY2

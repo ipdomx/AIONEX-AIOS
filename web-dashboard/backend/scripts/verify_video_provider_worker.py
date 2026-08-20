@@ -23,6 +23,8 @@ def main() -> int:
     health = json.loads(Path(settings.VIDEO_EXECUTION_WORKER_HEALTH_FILE).read_text(encoding="utf-8"))
     if health.get("status") != "disabled" or health.get("live_enabled") is not False:
         raise RuntimeError("video provider worker did not remain disabled")
+    if health.get("secret_returned") is not False:
+        raise RuntimeError("video provider worker health secret boundary failed")
     print(json.dumps({
         "preflight": {"engine": preflight.get("engine"), "version": preflight.get("version")},
         "health": {
@@ -30,7 +32,6 @@ def main() -> int:
             "live_enabled": health.get("live_enabled"),
             "cycles": health.get("cycles"),
             "errors": health.get("errors"),
-            "secret_returned": health.get("secret_returned"),
         },
         "provider_requests": 0,
     }, sort_keys=True))
