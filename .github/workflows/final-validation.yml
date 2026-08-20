@@ -270,6 +270,45 @@ jobs:
           assert payload["audio"]["size_bytes"] > 0
           print("PHASE36D_MEDIA_WORKER_SMOKE_OK")
           PY
+      - name: Build and verify live-disabled video provider worker
+        working-directory: web-dashboard
+        env:
+          COMPOSE_PARALLEL_LIMIT: "1"
+        run: |
+          mkdir -p diagnostics
+          AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
+          docker compose \
+            --profile video-execution \
+            --env-file .env.production \
+            -f docker-compose.production.yml \
+            build video-provider-worker
+          docker run --rm --network none \
+            -v "$GITHUB_WORKSPACE:/workspace:ro" \
+            -e ENVIRONMENT=test \
+            -e DEBUG=false \
+            -e SECRET_KEY=phase36f-ci-video-worker-secret-key-with-at-least-32-characters \
+            -e MEDIA_STORAGE_TYPE=local \
+            -e MEDIA_STORAGE_ROOT=/tmp/aionex-video-media \
+            -e VIDEO_EXECUTION_LIVE_ENABLED=false \
+            -e VIDEO_EXECUTION_WORKER_HEALTH_FILE=/tmp/aionex-video-health.json \
+            -e VIDEO_EXECUTION_TEMP_ROOT=/tmp/aionex-video-temp \
+            -e PYTHONPATH=/workspace/src:/app \
+            aionex-aios-video-provider-worker:local \
+            python /app/scripts/verify_video_provider_worker.py \
+            > diagnostics/video-provider-worker-smoke.json
+          python - <<'PY2'
+          import json
+          from pathlib import Path
+          payload = json.loads(Path("diagnostics/video-provider-worker-smoke.json").read_text())
+          assert payload["preflight"] == {"engine": "ffmpeg", "version": "9.0"}
+          assert payload["health"]["status"] == "disabled"
+          assert payload["health"]["live_enabled"] is False
+          assert payload["health"]["cycles"] == 0
+          assert payload["health"]["errors"] == 0
+          assert payload["health"]["secret_returned"] is False
+          assert payload["provider_requests"] == 0
+          print("PHASE36F_VIDEO_PROVIDER_WORKER_OFFLINE_SMOKE_OK")
+          PY2
       - name: Build and verify Sharp 0.35.3 image derivative worker
         working-directory: web-dashboard
         env:

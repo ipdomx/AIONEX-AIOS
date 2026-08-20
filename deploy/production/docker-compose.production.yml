@@ -242,6 +242,48 @@ services:
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
 
+  video-provider-worker:
+    profiles: ["video-execution"]
+    image: aionex-aios-video-provider-worker:local
+    user: "1000:1000"
+    build:
+      context: ../../web-dashboard/backend
+      dockerfile: Dockerfile
+      target: media-worker
+    restart: unless-stopped
+    mem_limit: 4g
+    cpus: "3.0"
+    pids_limit: 768
+    stop_grace_period: 60s
+    command: ["python", "-m", "app.services.video_provider_worker"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      MEDIA_STORAGE_TYPE: inherit
+      MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
+      MEDIA_FFMPEG_BINARY: /opt/ffmpeg/bin/ffmpeg
+      MEDIA_FFPROBE_BINARY: /opt/ffmpeg/bin/ffprobe
+      MEDIA_FFMPEG_TARGET_VERSION: "9.0"
+      VIDEO_EXECUTION_LIVE_ENABLED: "false"
+      AIOS_REPO_ROOT: /workspace
+      PYTHONPATH: /workspace/src:/app
+    volumes:
+      - ../..:/workspace:ro
+      - media_asset_data:/var/lib/aionex/media-assets:rw
+    depends_on:
+      backend: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.services.video_provider_worker", "--healthcheck"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
   design-image-worker:
     profiles: ["image-execution"]
     image: aionex-aios-backend:local
