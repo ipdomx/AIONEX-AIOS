@@ -33,6 +33,7 @@ _ALLOWED_COST_BASES = frozenset(
 )
 _VIDEO_CONTENT_TYPE = "video/mp4"
 _VIDEO_SUFFIX = ".mp4"
+_PENDING_PROVIDER_STATES = frozenset({"queued", "in_progress", "processing"})
 
 
 class VideoExecutionError(RuntimeError):
@@ -49,6 +50,8 @@ class VideoSceneClaim:
     video_execution_id: str
     lease_token: str
     fencing_token: int
+    mode: str
+    provider_request_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,6 +66,7 @@ class VideoExecutionSpec:
     studio_asset_id: str | None = None
     estimated_cost_usd: float = 0.0
     max_attempts: int = 3
+    max_polls: int = 360
 
 
 def _now() -> datetime:
@@ -159,6 +163,8 @@ def _validate_spec(spec: VideoExecutionSpec) -> None:
         raise VideoExecutionError("video resolution is unsupported by provider model")
     if not 1 <= spec.max_attempts <= 5:
         raise VideoExecutionError("video scene retry limit is outside the allowed range")
+    if not 1 <= spec.max_polls <= 10_000:
+        raise VideoExecutionError("video scene poll limit is outside the allowed range")
     if not 8 <= len(spec.idempotency_key.strip()) <= 160:
         raise VideoExecutionError("video execution idempotency key is invalid")
     if spec.estimated_cost_usd < 0 or spec.estimated_cost_usd > 500:
@@ -384,8 +390,11 @@ async def create_video_execution(
                 },
                 attempts=0,
                 max_attempts=spec.max_attempts,
+                poll_count=0,
+                max_polls=spec.max_polls,
                 fencing_token=0,
-                provider_status="not_submitted",
+                provider_state="not_started",
+                provider_progress=None,
                 provider_response_metadata={},
                 usage_metadata={},
                 estimated_cost_usd=scene_estimate,
@@ -501,7 +510,11 @@ async def resume_failed_video_execution(
         scene.lease_expires_at = None
         scene.available_at = None
         scene.provider_request_id = None
-        scene.provider_status = "not_submitted"
+        scene.provider_state = "not_started"
+        scene.provider_progress = None
+        scene.poll_count = 0
+        scene.provider_submitted_at = None
+        scene.last_polled_at = None
         scene.provider_response_metadata = {}
         scene.usage_metadata = {}
         scene.actual_cost_usd = None
@@ -548,7 +561,95 @@ class VideoSceneExecutionAuthority:
         self.worker_id = worker_id
         self.lease_seconds = lease_seconds
 
+    async def reap_exhausted(self) -> int:
+        """Dead-letter scenes whose bounded submit/reconcile/poll budget is exhausted."""
+        now = _now()
+        async with self.session_factory() as session:
+            submission_exhausted = and_(
+                VideoSceneExecution.provider_request_id.is_(None),
+                VideoSceneExecution.provider_state != "submitting",
+                VideoSceneExecution.attempts >= VideoSceneExecution.max_attempts,
+            )
+            polling_exhausted = and_(
+                or_(
+                    VideoSceneExecution.provider_request_id.is_not(None),
+                    VideoSceneExecution.provider_state == "submitting",
+                ),
+                VideoSceneExecution.poll_count >= VideoSceneExecution.max_polls,
+            )
+            rows = list(
+                (
+                    await session.scalars(
+                        select(VideoSceneExecution)
+                        .where(
+                            VideoSceneExecution.status.in_(("queued", "running")),
+                            or_(submission_exhausted, polling_exhausted),
+                            or_(
+                                VideoSceneExecution.status == "queued",
+                                VideoSceneExecution.lease_expires_at.is_(None),
+                                VideoSceneExecution.lease_expires_at <= now,
+                            ),
+                        )
+                        .with_for_update(skip_locked=True)
+                    )
+                ).all()
+            )
+            parent_ids = {row.video_execution_id for row in rows}
+            parents: dict[str, VideoExecution] = {}
+            for parent_id in parent_ids:
+                parent = await session.scalar(
+                    select(VideoExecution)
+                    .where(VideoExecution.id == parent_id)
+                    .with_for_update()
+                )
+                if parent is not None:
+                    parents[parent_id] = parent
+            for row in rows:
+                code = (
+                    "video_scene_poll_exhausted"
+                    if row.provider_request_id or row.provider_state == "submitting"
+                    else "video_scene_submission_exhausted"
+                )
+                row.status = "failed"
+                row.error_code = code
+                row.error_message = "Video scene exhausted its bounded submit/reconcile/poll budget"
+                row.lease_token = None
+                row.lease_owner = None
+                row.lease_expires_at = None
+                row.available_at = None
+                row.completed_at = now
+                if row.provider_request_id:
+                    row.provider_state = "failed"
+                parent = parents.get(row.video_execution_id)
+                if parent is not None:
+                    parent.status = "failed"
+                    parent.error_code = code
+                    parent.error_message = row.error_message
+                    parent.completed_at = now
+                session.add(
+                    AuditEvent(
+                        organization_id=row.organization_id,
+                        user_id=None,
+                        action="video.scene.dead_lettered",
+                        resource_type="video_scene_execution",
+                        resource_id=row.id,
+                        details={
+                            "video_execution_id": row.video_execution_id,
+                            "scene_key": row.scene_key,
+                            "provider": row.provider,
+                            "model": row.model,
+                            "provider_job_recorded": bool(row.provider_request_id),
+                            "attempts": row.attempts,
+                            "poll_count": row.poll_count,
+                        },
+                    )
+                )
+            if rows:
+                await session.commit()
+            return len(rows)
+
     async def claim(self) -> VideoSceneClaim | None:
+        await self.reap_exhausted()
         now = _now()
         prior = aliased(VideoSceneExecution)
         parent_alias = aliased(VideoExecution)
@@ -561,27 +662,40 @@ class VideoSceneExecutionAuthority:
             )
             .exists()
         )
+        submission_budget = and_(
+            VideoSceneExecution.provider_request_id.is_(None),
+            VideoSceneExecution.provider_state != "submitting",
+            VideoSceneExecution.attempts < VideoSceneExecution.max_attempts,
+        )
+        reconciliation_budget = and_(
+            VideoSceneExecution.provider_request_id.is_(None),
+            VideoSceneExecution.provider_state == "submitting",
+            VideoSceneExecution.poll_count < VideoSceneExecution.max_polls,
+        )
+        poll_budget = and_(
+            VideoSceneExecution.provider_request_id.is_not(None),
+            VideoSceneExecution.poll_count < VideoSceneExecution.max_polls,
+        )
+        ready = and_(
+            VideoSceneExecution.status == "queued",
+            or_(
+                VideoSceneExecution.available_at.is_(None),
+                VideoSceneExecution.available_at <= now,
+            ),
+        )
+        recovery = and_(
+            VideoSceneExecution.status == "running",
+            VideoSceneExecution.lease_expires_at.is_not(None),
+            VideoSceneExecution.lease_expires_at <= now,
+        )
         async with self.session_factory() as session:
             row = await session.scalar(
                 select(VideoSceneExecution)
                 .join(parent_alias, parent_alias.id == VideoSceneExecution.video_execution_id)
                 .where(
                     parent_alias.status.in_(("queued", "running")),
-                    VideoSceneExecution.attempts < VideoSceneExecution.max_attempts,
-                    or_(
-                        and_(
-                            VideoSceneExecution.status == "queued",
-                            or_(
-                                VideoSceneExecution.available_at.is_(None),
-                                VideoSceneExecution.available_at <= now,
-                            ),
-                        ),
-                        and_(
-                            VideoSceneExecution.status == "running",
-                            VideoSceneExecution.lease_expires_at.is_not(None),
-                            VideoSceneExecution.lease_expires_at <= now,
-                        ),
-                    ),
+                    or_(ready, recovery),
+                    or_(submission_budget, reconciliation_budget, poll_budget),
                     ~blocked_prior,
                 )
                 .order_by(VideoSceneExecution.created_at, VideoSceneExecution.scene_index)
@@ -597,8 +711,18 @@ class VideoSceneExecutionAuthority:
             )
             if parent is None or parent.status not in {"queued", "running"}:
                 return None
+            if row.provider_request_id:
+                mode = "poll"
+                row.poll_count = int(row.poll_count) + 1
+                row.last_polled_at = now
+            elif row.provider_state == "submitting":
+                mode = "reconcile"
+                row.poll_count = int(row.poll_count) + 1
+                row.last_polled_at = now
+            else:
+                mode = "submit"
+                row.attempts = int(row.attempts) + 1
             row.status = "running"
-            row.attempts = int(row.attempts) + 1
             row.fencing_token = int(row.fencing_token) + 1
             row.lease_token = str(uuid4())
             row.lease_owner = self.worker_id
@@ -615,6 +739,8 @@ class VideoSceneExecutionAuthority:
                 video_execution_id=row.video_execution_id,
                 lease_token=str(row.lease_token),
                 fencing_token=int(row.fencing_token),
+                mode=mode,
+                provider_request_id=row.provider_request_id,
             )
 
     def _owns(self, row: VideoSceneExecution | None, claim: VideoSceneClaim) -> bool:
@@ -645,16 +771,54 @@ class VideoSceneExecutionAuthority:
             row.lease_expires_at = _now() + timedelta(seconds=self.lease_seconds)
             await session.commit()
 
+    async def mark_submission_started(self, claim: VideoSceneClaim) -> None:
+        """Durably mark the ambiguous submit window before provider HTTP is attempted."""
+        if claim.mode != "submit":
+            raise VideoExecutionError("only a submit claim may start video provider submission")
+        async with self.session_factory() as session:
+            row = await session.scalar(
+                select(VideoSceneExecution)
+                .where(VideoSceneExecution.id == claim.scene_execution_id)
+                .with_for_update()
+            )
+            row = self._require_owned(row, claim)
+            if row.provider_request_id:
+                raise VideoExecutionError("video scene provider job is already recorded")
+            if row.provider_state != "not_started":
+                raise VideoExecutionError("video scene provider submission state is not fresh")
+            row.provider_state = "submitting"
+            row.provider_submitted_at = row.provider_submitted_at or _now()
+            await session.commit()
+
+    def _requeue(self, row: VideoSceneExecution, *, poll_after_seconds: int) -> None:
+        delay = max(1, min(int(poll_after_seconds), 300))
+        row.status = "queued"
+        row.available_at = _now() + timedelta(seconds=delay)
+        row.lease_token = None
+        row.lease_owner = None
+        row.lease_expires_at = None
+
     async def record_provider_request(
         self,
         claim: VideoSceneClaim,
         *,
         provider_request_id: str,
+        provider_state: str = "queued",
         provider_response_metadata: dict[str, Any] | None = None,
+        progress: int | None = None,
+        poll_after_seconds: int = 5,
     ) -> None:
+        if claim.mode not in {"submit", "reconcile"}:
+            raise VideoExecutionError(
+                "provider job identity may be recorded only by submit/reconcile claims"
+            )
         request_id = provider_request_id.strip()
-        if not 1 <= len(request_id) <= 200:
+        if not 1 <= len(request_id) <= 240:
             raise VideoExecutionError("video provider request id is invalid")
+        if provider_state not in _PENDING_PROVIDER_STATES:
+            raise VideoExecutionError("video provider job state is not pending")
+        if progress is not None and not 0 <= progress <= 99:
+            raise VideoExecutionError("video provider progress is outside the pending range")
         async with self.session_factory() as session:
             row = await session.scalar(
                 select(VideoSceneExecution)
@@ -663,10 +827,51 @@ class VideoSceneExecutionAuthority:
             )
             row = self._require_owned(row, claim)
             if row.provider_request_id and row.provider_request_id != request_id:
-                raise VideoExecutionError("video scene already records a different provider request")
+                raise VideoExecutionError("video scene provider job identity cannot change")
+            if not row.provider_request_id and row.provider_state != "submitting":
+                raise VideoExecutionError(
+                    "video provider submission was not durably marked before HTTP"
+                )
             row.provider_request_id = request_id
-            row.provider_status = "submitted"
+            row.provider_state = provider_state
+            row.provider_progress = progress
+            row.provider_submitted_at = row.provider_submitted_at or _now()
             row.provider_response_metadata = _safe_metadata(provider_response_metadata or {})
+            self._requeue(row, poll_after_seconds=poll_after_seconds)
+            await session.commit()
+
+    async def record_poll_pending(
+        self,
+        claim: VideoSceneClaim,
+        *,
+        provider_state: str,
+        provider_response_metadata: dict[str, Any],
+        progress: int | None = None,
+        poll_after_seconds: int = 5,
+    ) -> None:
+        if claim.mode != "poll":
+            raise VideoExecutionError("provider pending state may be recorded only by a poll claim")
+        if provider_state not in _PENDING_PROVIDER_STATES:
+            raise VideoExecutionError("video provider poll state is not pending")
+        if progress is not None and not 0 <= progress <= 99:
+            raise VideoExecutionError("video provider progress is outside the pending range")
+        async with self.session_factory() as session:
+            row = await session.scalar(
+                select(VideoSceneExecution)
+                .where(VideoSceneExecution.id == claim.scene_execution_id)
+                .with_for_update()
+            )
+            row = self._require_owned(row, claim)
+            if not row.provider_request_id:
+                raise VideoExecutionError("video provider job must be recorded before polling")
+            row.provider_state = provider_state
+            row.provider_progress = progress
+            row.last_polled_at = _now()
+            row.provider_response_metadata = {
+                **(row.provider_response_metadata or {}),
+                **_safe_metadata(provider_response_metadata),
+            }
+            self._requeue(row, poll_after_seconds=poll_after_seconds)
             await session.commit()
 
     async def fail(
@@ -676,6 +881,8 @@ class VideoSceneExecutionAuthority:
         code: str,
         message: str,
         permanent: bool = False,
+        retry_after_seconds: int = 5,
+        submission_safe_to_retry: bool = False,
     ) -> None:
         safe_code = code.strip()[:120] or "video_scene_failure"
         safe_message = message.strip()[:1000] or "Video scene execution failed"
@@ -693,27 +900,47 @@ class VideoSceneExecutionAuthority:
             )
             if parent is None:
                 raise VideoExecutionError("video execution disappeared")
-            exhausted = permanent or int(row.attempts) >= int(row.max_attempts)
-            if permanent:
-                row.attempts = row.max_attempts
-            row.status = "failed" if exhausted else "queued"
+            if submission_safe_to_retry:
+                if claim.mode != "submit":
+                    raise VideoExecutionError(
+                        "only a submit claim may reopen a definitive scene submission retry"
+                    )
+                if row.provider_request_id or row.provider_state != "submitting":
+                    raise VideoExecutionError(
+                        "submission retry may be reopened only after a definitively rejected fresh submission"
+                    )
+                row.provider_state = "not_started"
+            exhausted = permanent or (
+                (
+                    not row.provider_request_id
+                    and row.provider_state != "submitting"
+                    and row.attempts >= row.max_attempts
+                )
+                or (
+                    (bool(row.provider_request_id) or row.provider_state == "submitting")
+                    and row.poll_count >= row.max_polls
+                )
+            )
             row.error_code = safe_code
             row.error_message = safe_message
-            row.lease_token = None
-            row.lease_owner = None
-            row.lease_expires_at = None
-            row.available_at = None if exhausted else _now() + timedelta(seconds=min(300, 2 ** row.attempts))
             if exhausted:
-                row.provider_status = "failed"
+                row.status = "failed"
+                if row.provider_request_id:
+                    row.provider_state = "failed"
                 row.completed_at = _now()
+                row.available_at = None
                 parent.status = "failed"
                 parent.error_code = safe_code
                 parent.error_message = safe_message
                 parent.completed_at = _now()
             else:
-                row.provider_request_id = None
-                row.provider_status = "not_submitted"
-                row.provider_response_metadata = {}
+                row.status = "queued"
+                row.available_at = _now() + timedelta(
+                    seconds=max(1, min(int(retry_after_seconds), 300))
+                )
+            row.lease_token = None
+            row.lease_owner = None
+            row.lease_expires_at = None
             await session.commit()
 
     @staticmethod
@@ -727,12 +954,13 @@ class VideoSceneExecutionAuthority:
         *,
         body: bytes,
         content_type: str,
-        provider_request_id: str | None,
         provider_response_metadata: dict[str, Any],
         usage_metadata: dict[str, Any],
         actual_cost_usd: float | None,
         cost_basis: str = "unknown",
     ) -> dict[str, Any]:
+        if claim.mode != "poll":
+            raise VideoExecutionError("video scene completion requires a poll claim")
         if content_type != _VIDEO_CONTENT_TYPE:
             raise VideoExecutionError("video scene content type must be video/mp4")
         self._inspect_mp4(body)
@@ -744,6 +972,8 @@ class VideoSceneExecutionAuthority:
         async with self.session_factory() as session:
             row = await session.get(VideoSceneExecution, claim.scene_execution_id)
             row = self._require_owned(row, claim)
+            if not row.provider_request_id:
+                raise VideoExecutionError("video provider job is missing at scene completion")
             key = (
                 f"media/{row.organization_id}/video/{row.graph_id}/{row.target_node_id}/"
                 f"f{claim.fencing_token}{_VIDEO_SUFFIX}"
@@ -767,7 +997,6 @@ class VideoSceneExecutionAuthority:
                 checksum=stored.sha256,
                 size_bytes=stored.size_bytes,
                 content_type=content_type,
-                provider_request_id=provider_request_id,
                 provider_response_metadata=_safe_metadata(provider_response_metadata),
                 usage_metadata=_safe_metadata(usage_metadata),
                 actual_cost_usd=actual_cost_usd,
@@ -786,7 +1015,6 @@ class VideoSceneExecutionAuthority:
         checksum: str,
         size_bytes: int,
         content_type: str,
-        provider_request_id: str | None,
         provider_response_metadata: dict[str, Any],
         usage_metadata: dict[str, Any],
         actual_cost_usd: float | None,
@@ -831,7 +1059,7 @@ class VideoSceneExecutionAuthority:
                     "provider": row.provider,
                     "model": row.model,
                     "operation": row.operation,
-                    "provider_request_id": provider_request_id,
+                    "provider_request_id": row.provider_request_id,
                     "prompt_sha256": row.prompt_sha256,
                     "output_checksum": checksum,
                     "fencing_token": claim.fencing_token,
@@ -839,8 +1067,8 @@ class VideoSceneExecutionAuthority:
                 },
             ]
             row.status = "completed"
-            row.provider_request_id = provider_request_id or row.provider_request_id
-            row.provider_status = "completed"
+            row.provider_state = "completed"
+            row.provider_progress = 100
             row.provider_response_metadata = dict(provider_response_metadata)
             row.usage_metadata = dict(usage_metadata)
             row.actual_cost_usd = float(actual_cost_usd) if actual_cost_usd is not None else None
@@ -851,6 +1079,7 @@ class VideoSceneExecutionAuthority:
             row.output_size_bytes = size_bytes
             row.output_media_type = content_type
             row.completed_at = completed
+            row.last_polled_at = completed
             row.lease_token = None
             row.lease_owner = None
             row.lease_expires_at = None

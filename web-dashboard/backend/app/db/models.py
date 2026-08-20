@@ -3577,6 +3577,9 @@ class VideoSceneExecution(Base, TimestampMixin):
         UniqueConstraint(
             "organization_id", "idempotency_key", name="uq_video_scene_execution_org_idempotency"
         ),
+        UniqueConstraint(
+            "provider", "provider_request_id", name="uq_video_scene_execution_provider_job"
+        ),
         Index(
             "ix_video_scene_executions_claim",
             "status", "available_at", "created_at",
@@ -3611,13 +3614,16 @@ class VideoSceneExecution(Base, TimestampMixin):
     request_options: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     max_attempts: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
+    poll_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    max_polls: Mapped[int] = mapped_column(Integer, default=360, nullable=False)
     lease_token: Mapped[str | None] = mapped_column(String(36))
     lease_owner: Mapped[str | None] = mapped_column(String(160), index=True)
     lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     fencing_token: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     available_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
-    provider_request_id: Mapped[str | None] = mapped_column(String(200), index=True)
-    provider_status: Mapped[str] = mapped_column(String(40), default="not_submitted", nullable=False)
+    provider_request_id: Mapped[str | None] = mapped_column(String(240), index=True)
+    provider_state: Mapped[str] = mapped_column(String(40), default="not_started", nullable=False, index=True)
+    provider_progress: Mapped[int | None] = mapped_column(Integer)
     provider_response_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     usage_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     estimated_cost_usd: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
@@ -3630,6 +3636,8 @@ class VideoSceneExecution(Base, TimestampMixin):
     output_media_type: Mapped[str | None] = mapped_column(String(120))
     error_code: Mapped[str | None] = mapped_column(String(120))
     error_message: Mapped[str | None] = mapped_column(Text)
+    provider_submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_polled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

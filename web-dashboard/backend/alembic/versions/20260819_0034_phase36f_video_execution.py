@@ -91,13 +91,16 @@ def upgrade() -> None:
             sa.Column("request_options", sa.JSON(), nullable=False, server_default=sa.text("'{}'::json")),
             sa.Column("attempts", sa.Integer(), nullable=False, server_default="0"),
             sa.Column("max_attempts", sa.Integer(), nullable=False, server_default="3"),
+            sa.Column("poll_count", sa.Integer(), nullable=False, server_default="0"),
+            sa.Column("max_polls", sa.Integer(), nullable=False, server_default="360"),
             sa.Column("lease_token", sa.String(36)),
             sa.Column("lease_owner", sa.String(160)),
             sa.Column("lease_expires_at", sa.DateTime(timezone=True)),
             sa.Column("fencing_token", sa.Integer(), nullable=False, server_default="0"),
             sa.Column("available_at", sa.DateTime(timezone=True)),
-            sa.Column("provider_request_id", sa.String(200)),
-            sa.Column("provider_status", sa.String(40), nullable=False, server_default="not_submitted"),
+            sa.Column("provider_request_id", sa.String(240)),
+            sa.Column("provider_state", sa.String(40), nullable=False, server_default="not_started"),
+            sa.Column("provider_progress", sa.Integer()),
             sa.Column("provider_response_metadata", sa.JSON(), nullable=False, server_default=sa.text("'{}'::json")),
             sa.Column("usage_metadata", sa.JSON(), nullable=False, server_default=sa.text("'{}'::json")),
             sa.Column("estimated_cost_usd", sa.Float(), nullable=False, server_default="0"),
@@ -110,6 +113,8 @@ def upgrade() -> None:
             sa.Column("output_media_type", sa.String(120)),
             sa.Column("error_code", sa.String(120)),
             sa.Column("error_message", sa.Text()),
+            sa.Column("provider_submitted_at", sa.DateTime(timezone=True)),
+            sa.Column("last_polled_at", sa.DateTime(timezone=True)),
             sa.Column("started_at", sa.DateTime(timezone=True)),
             sa.Column("completed_at", sa.DateTime(timezone=True)),
             sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
@@ -119,6 +124,9 @@ def upgrade() -> None:
             ),
             sa.UniqueConstraint(
                 "organization_id", "idempotency_key", name="uq_video_scene_execution_org_idempotency"
+            ),
+            sa.UniqueConstraint(
+                "provider", "provider_request_id", name="uq_video_scene_execution_provider_job"
             ),
         )
 
@@ -154,6 +162,8 @@ def upgrade() -> None:
         ("ix_video_scene_executions_lease_expires_at", ["lease_expires_at"]),
         ("ix_video_scene_executions_available_at", ["available_at"]),
         ("ix_video_scene_executions_provider_request_id", ["provider_request_id"]),
+        ("ix_video_scene_executions_provider_state", ["provider_state"]),
+        ("ix_video_scene_executions_provider_state_lookup", ["provider", "provider_state"]),
         ("ix_video_scene_executions_output_checksum", ["output_checksum"]),
         ("ix_video_scene_executions_claim", ["status", "available_at", "created_at"]),
         ("ix_video_scene_executions_execution_status_scene", ["video_execution_id", "status", "scene_index"]),
