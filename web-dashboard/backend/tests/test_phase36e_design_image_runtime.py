@@ -602,6 +602,7 @@ async def test_design_image_worker_loads_platform_provider_and_completes_durable
     scope = await seed_scope("worker-db")
     platform_id = settings.PROJECT_AI_PLATFORM_PROVIDER_ORGANIZATION_ID
     created_platform = False
+    provider_id: str | None = None
     store = LocalMediaObjectStore(tmp_path / "objects")
     try:
         async with SessionLocal() as session:
@@ -617,17 +618,18 @@ async def test_design_image_worker_loads_platform_provider_and_completes_durable
                 session.add(platform)
                 await session.flush()
                 created_platform = True
-            session.add(
-                AIProvider(
-                    organization_id=platform_id,
-                    name="OpenAI",
-                    type="openai",
-                    status="connected",
-                    encrypted_api_key=encrypt_provider_secret("fake-provider-credential"),
-                    base_url=None,
-                    config={"enabled": True},
-                )
+            provider = AIProvider(
+                organization_id=platform_id,
+                name="OpenAI",
+                type="openai",
+                status="connected",
+                encrypted_api_key=encrypt_provider_secret("fake-provider-credential"),
+                base_url=None,
+                config={"enabled": True},
             )
+            session.add(provider)
+            await session.flush()
+            provider_id = provider.id
             await session.commit()
 
         graph_id, target_id = await create_image_graph(scope)
@@ -666,12 +668,17 @@ async def test_design_image_worker_loads_platform_provider_and_completes_durable
             assert asset is not None and asset.current_revision == 2
     finally:
         await cleanup_scope(scope)
-        if created_platform:
-            async with SessionLocal() as session:
+        async with SessionLocal() as session:
+            if provider_id is not None:
+                provider = await session.get(AIProvider, provider_id)
+                if provider is not None:
+                    await session.delete(provider)
+                    await session.flush()
+            if created_platform:
                 platform = await session.get(Organization, platform_id)
                 if platform is not None:
                     await session.delete(platform)
-                    await session.commit()
+            await session.commit()
 
 
 class _FakeSharpDerivativeRuntime:

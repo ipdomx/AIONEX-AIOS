@@ -1,7 +1,7 @@
 # Phase 36F — Video, cinema, motion graphics & advertising factory
 
 Date: 2026-08-19
-Status: **IN PROGRESS — Stage 1 deployed; Stage 2A/2B durable Sora authority/worker deployed hard-disabled; Stage 3A Sora 2 text-to-video live canary PASS with bounded $0.40 spend**
+Status: **IN PROGRESS — Stage 1 deployed; Stage 2A/2B durable Sora authority/worker deployed hard-disabled; Stage 3A text-to-video live PASS; Stage 3B governed reference transport source/test candidate**
 
 ## Baseline
 
@@ -96,6 +96,16 @@ Stage 36F1 is source/test-only. Production remains on the accepted Phase 36E-clo
 - Sanitized evidence: `.deployment-backups/phase36f-stage3-sora-canary/stage3a-sora-canary-evidence.json`, SHA-256 `d73501faf33853a6345df4f16ec5972960b8a65c0696d6778b0ad790546aa0f4`. Provider generation requests in this checkpoint: `1`; observed spend: `$0.40`. Evidence retains only a provider-job hash, never the raw job ID, prompt, credential or signed URL.
 - This proves the **Sora 2 text-to-video route only**. The aggregate `text-image-logo-to-video` capability remains `source_built` rather than `runtime_verified` until its governed image/logo/reference routes receive separate accepted live evidence.
 
+## Checkpoint 3B candidate — governed Sora image/logo/reference inputs
+
+- Extended the routed video pipeline to accept exactly one tenant-owned completed image reference for `image-to-video`, `logo-to-video` and `reference-to-video`. `text-to-video` remains reference-free and any other operation remains fail-closed.
+- Reference material is represented as a reused completed `MediaAssetNode` inside the new Video DAG, with one dependency edge into each provider scene. Pipeline fingerprinting includes the source node identity and checksum so a caller cannot reuse the same idempotency key with different reference content.
+- The Video Provider Worker resolves the reference only from the tenant-scoped DAG and MediaObjectStore; no external URL, signed URL or base64 reference is accepted from request metadata. Before provider HTTP it verifies completed status, media type, bounded size, storage presence, exact byte length and SHA-256 integrity.
+- Worker transport builds the existing OpenAI `input_reference` multipart only after storage integrity passes. Ambiguous reference submission remains deliberately unreconcilable in this stage and therefore fail-closed; no blind second paid submission path was added.
+- Tenant-isolation regression proves a reference from another organization is rejected before any VideoExecution is created. Storage-corruption regression proves altered bytes are rejected as `provider_input_integrity` before adapter submit.
+- Verification: Provider/Worker/VideoFactory `27/27 PASS`; Video Pipeline + VideoExecution authority + Phase36D Media DAG `23/23 PASS`; Ruff PASS; focused Mypy PASS; Python compile and `git diff --check` PASS. No migration, Production service change, provider video request or spend occurred in Stage 3B source/test work.
+- This checkpoint does **not** promote image/logo/reference operations to runtime-verified. Separate one-shot, cost-capped live acceptance remains required after protected CI and disabled deployment.
+
 ### Next safe gate
 
-Stage 3A is complete and cleaned. The next gate is **Stage 3B: governed Sora input-reference transport plus separate image-to-video/logo-to-video acceptance**, still one operation at a time and with explicit cost caps. Gemini/Veo remain separate later gates. After provider-route acceptance, Phase 36F must still prove the authoritative multi-scene advertisement + worker-failure/resume + final FFmpeg assembly exit gate before 36F can close.
+Stage 3A is complete and cleaned. Stage 3B reference transport is now a source/test candidate; the next gate is protected merge plus disabled Production deployment, followed by separate one-shot image-to-video and logo-to-video live acceptance with explicit cost caps. Gemini/Veo remain separate later gates. After provider-route acceptance, Phase 36F must still prove the authoritative multi-scene advertisement + worker-failure/resume + final FFmpeg assembly exit gate before 36F can close.

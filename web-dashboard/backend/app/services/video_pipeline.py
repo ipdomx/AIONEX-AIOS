@@ -20,6 +20,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
+_VIDEO_REFERENCE_CONTENT_TYPES = frozenset({"image/png", "image/jpeg", "image/webp"})
+_REFERENCE_OPERATIONS = frozenset({"image-to-video", "logo-to-video", "reference-to-video"})
+
+
 class VideoPipelineError(RuntimeError):
     """A live-routable VideoPlan cannot be materialized safely."""
 
@@ -35,6 +39,31 @@ class RoutedVideoPipeline:
     video_plan_checksum: str
     continuity_id: str
     estimated_cost_usd: float
+    reference_node_id: str | None = None
+
+
+async def _load_video_reference_input(
+    session: AsyncSession, *, organization_id: str, node_id: str
+) -> MediaAssetNode:
+    row = await session.scalar(
+        select(MediaAssetNode).where(
+            MediaAssetNode.id == node_id,
+            MediaAssetNode.organization_id == organization_id,
+        )
+    )
+    if (
+        row is None
+        or row.status != "completed"
+        or not row.storage_key
+        or not row.checksum
+        or not row.media_type
+        or row.media_type not in _VIDEO_REFERENCE_CONTENT_TYPES
+        or not row.size_bytes
+        or row.size_bytes <= 0
+        or row.size_bytes > 20 * 1024 * 1024
+    ):
+        raise VideoPipelineError("video reference input is unavailable")
+    return row
 
 
 async def create_routed_video_pipeline(
@@ -44,12 +73,22 @@ async def create_routed_video_pipeline(
     request: VideoRequest,
     runtime_evidence: tuple[VideoRuntimeEvidence, ...],
     idempotency_key: str,
+    reference_node_id: str | None = None,
 ) -> RoutedVideoPipeline:
     """Create planned provider scene executions; never arm/spend."""
-    if request.operation != "text-to-video" or request.reference_count != 0:
-        raise VideoPipelineError(
-            "Stage 36F2B durable pipeline currently accepts text-to-video only; governed references are a later gate"
+    reference_id = str(reference_node_id or "").strip() or None
+    reference_source: MediaAssetNode | None = None
+    if request.operation == "text-to-video":
+        if request.reference_count != 0 or reference_id is not None:
+            raise VideoPipelineError("text-to-video pipeline cannot carry a reference input")
+    elif request.operation in _REFERENCE_OPERATIONS:
+        if request.reference_count != 1 or reference_id is None:
+            raise VideoPipelineError("reference video pipeline requires exactly one governed input")
+        reference_source = await _load_video_reference_input(
+            session, organization_id=scope.organization_id, node_id=reference_id
         )
+    else:
+        raise VideoPipelineError("Stage 36F3B pipeline operation is not yet accepted")
     try:
         route = runtime_ready_provider(request, evidence=runtime_evidence)
     except VideoFactoryError as exc:
@@ -111,6 +150,23 @@ async def create_routed_video_pipeline(
                 },
             )
         )
+    reference_spec: MediaNodeSpec | None = None
+    reusable_nodes: dict[str, MediaAssetNode] = {}
+    if reference_source is not None:
+        reference_spec = MediaNodeSpec(
+            key="reference-00",
+            node_type="image",
+            media_type=reference_source.media_type,
+            provenance=(
+                {
+                    "type": "phase36f-governed-video-reference",
+                    "source_node_id": reference_source.id,
+                    "checksum": reference_source.checksum,
+                },
+            ),
+        )
+        reusable_nodes["reference-00"] = reference_source
+
     assembly = MediaNodeSpec(
         key="assembly",
         node_type="assembly",
@@ -123,15 +179,21 @@ async def create_routed_video_pipeline(
         scene_metadata={"continuity_id": plan.continuity_id},
         timeline_metadata={"scene_count": len(scene_specs)},
     )
-    edges = tuple(
+    edges_list = [
         MediaEdgeSpec(node.key, "assembly", ordinal=index)
         for index, node in enumerate(scene_specs)
-    )
+    ]
+    if reference_spec is not None:
+        edges_list.extend(
+            MediaEdgeSpec("reference-00", node.key, ordinal=index)
+            for index, node in enumerate(scene_specs)
+        )
+    graph_nodes = [*([reference_spec] if reference_spec is not None else []), *scene_specs, assembly]
     graph_spec = MediaGraphSpec(
         title=request.title,
         asset_kind="video",
-        nodes=tuple([*scene_specs, assembly]),
-        edges=edges,
+        nodes=tuple(graph_nodes),
+        edges=tuple(edges_list),
         output_profile="video-mp4-h264",
         provenance=(
             {
@@ -141,17 +203,22 @@ async def create_routed_video_pipeline(
                 "provider": route.provider,
                 "model": route.model,
                 "render_status": "planned",
+                "reference_count": request.reference_count,
             },
         ),
     )
+    reference_fingerprint = (
+        f"{reference_source.id}:{reference_source.checksum}" if reference_source is not None else "none"
+    )
     fingerprint = hashlib.sha256(
-        f"{scope.organization_id}:{idempotency_key}:{plan.checksum}:{route.provider}:{route.model}".encode()
+        f"{scope.organization_id}:{idempotency_key}:{plan.checksum}:{route.provider}:{route.model}:{reference_fingerprint}".encode()
     ).hexdigest()
     graph = await create_media_graph(
         session,
         scope=scope,
         spec=graph_spec,
         idempotency_key=f"p36f-graph-{fingerprint[:48]}",
+        reuse_nodes=reusable_nodes,
     )
     nodes = list(
         (
@@ -174,7 +241,7 @@ async def create_routed_video_pipeline(
         if node is None:
             raise VideoPipelineError("video provider scene node was not materialized")
         settings = dict(compiled.settings)
-        settings["reference_count"] = 0
+        settings["reference_count"] = request.reference_count
         execution = await create_video_execution(
             session,
             spec=VideoExecutionSpec(
@@ -212,4 +279,5 @@ async def create_routed_video_pipeline(
         video_plan_checksum=plan.checksum,
         continuity_id=plan.continuity_id,
         estimated_cost_usd=round(total_estimated, 9),
+        reference_node_id=(by_key["reference-00"].id if reference_source is not None else None),
     )
