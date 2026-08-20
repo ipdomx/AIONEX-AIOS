@@ -241,12 +241,13 @@ class VideoProviderWorker:
                 if len(references) != 1:
                     raise ProviderVideoFailure("provider_input_scope", retryable=False)
                 reference_row = references[0]
-                if int(reference_row.size_bytes or 0) <= 0 or int(reference_row.size_bytes or 0) > _VIDEO_REFERENCE_MAX_BYTES:
+                reference_size = int(reference_row.size_bytes or 0)
+                if reference_size <= 0 or reference_size > _VIDEO_REFERENCE_MAX_BYTES:
                     raise ProviderVideoFailure("provider_input_invalid", retryable=False)
                 reference_meta = (
                     str(reference_row.storage_key),
                     str(reference_row.checksum),
-                    int(reference_row.size_bytes),
+                    reference_size,
                     str(reference_row.media_type),
                 )
             seconds = int(options.get("seconds") or 0)
@@ -267,13 +268,13 @@ class VideoProviderWorker:
             )
             if len(providers) != 1 or not provider_enabled(providers[0]):
                 raise ProviderVideoFailure("provider_authority", retryable=False)
-            provider = providers[0]
-            credential = provider_credential(provider)
-            base_url = validate_provider_base_url(provider.type, provider.base_url)
+            provider_row = providers[0]
+            credential = provider_credential(provider_row)
+            base_url = validate_provider_base_url(provider_row.type, provider_row.base_url)
             if not credential or not base_url:
                 raise ProviderVideoFailure("provider_unconfigured", retryable=False)
             submitted_at = row.provider_submitted_at
-            provider = row.provider
+            provider_name = row.provider
             model = row.model
             operation = row.operation
 
@@ -294,7 +295,7 @@ class VideoProviderWorker:
                 filename=f"reference{_VIDEO_REFERENCE_SUFFIXES[media_type]}",
             )
         request = ProviderVideoRequest(
-            provider=provider,
+            provider=provider_name,
             model=model,
             operation=operation,
             prompt=prompt,
