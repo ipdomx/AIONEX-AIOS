@@ -82,11 +82,11 @@ CAPABILITIES: Final[tuple[Phase36Capability, ...]] = (
     Phase36Capability("video-final-export", "video", "1080p/1440p/4K and governed final video exports", "36F", "source_built", ("docs/phase-36/receipts/36F-2026-08-19-video-factory.md",)),
 
     # Audio/music.
-    Phase36Capability("stt-tts-dubbing", "audio", "Speech recognition, speech synthesis, dubbing and alignment", "36G", "source_built"),
-    Phase36Capability("voice-transformation", "audio", "Consent-governed voice transformation", "36G", "specified", (), ("voice-rights-and-consent-evidence",)),
-    Phase36Capability("audio-cleanup-master", "audio", "Audio cleanup, SFX, mixing and mastering", "36G", "source_built"),
-    Phase36Capability("song-production", "audio", "Lyrics, composition, instruments, vocals, stems, mix and master", "36G", "specified"),
-    Phase36Capability("podcast-jingle-narration", "audio", "Podcasts, jingles, narration and multi-speaker production", "36G", "source_built"),
+    Phase36Capability("stt-tts-dubbing", "audio", "Speech recognition, speech synthesis, dubbing and alignment", "36G", "source_built", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",)),
+    Phase36Capability("voice-transformation", "audio", "Consent-governed voice transformation", "36G", "specified", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",), ("voice-rights-and-consent-evidence",)),
+    Phase36Capability("audio-cleanup-master", "audio", "Audio cleanup, SFX, mixing and mastering", "36G", "source_built", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",)),
+    Phase36Capability("song-production", "audio", "Lyrics, composition, instruments, vocals, stems, mix and master", "36G", "specified", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",)),
+    Phase36Capability("podcast-jingle-narration", "audio", "Podcasts, jingles, narration and multi-speaker production", "36G", "source_built", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",)),
 
     # Realtime and 2D/3D/XR.
     Phase36Capability("realtime-chat-calling", "realtime", "Realtime chat and 1:1/group voice-video calling", "36H", "source_built", ("docs/phase-28/PHASE_28_FULL_PROJECT_LIFECYCLE.md",), ("public-stun-turn-and-sfu-capacity",)),
@@ -139,6 +139,7 @@ EXEMPTION_PREFIX: Final[str] = "docs/phase-36/exemptions/"
 
 PHASE36_OWNED_PREFIXES: Final[tuple[str, ...]] = (
     "src/aios/phase36_",
+    "src/aios/audio_factory.py",
     "src/aios/execution_fabric/",
     "src/aios/cluster_runtime/",
     "src/aios/multi_host_runtime/",

@@ -19,6 +19,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from aios.audio_factory import (
+    AudioRequest,
+    build_audio_plan,
+    cue_sheet_payload,
+    mix_plan_markdown,
+    ssml_template,
+)
 from aios.design_factory import (
     BrandKit,
     DesignRequest,
@@ -42,7 +49,7 @@ DEPARTMENTS: tuple[dict[str, object], ...] = (
     {"id": "code", "name": "Code Studio", "asset_type": "code", "outputs": ["source", "tests", "README", "ZIP"]},
     {"id": "ui-ux", "name": "UI/UX Studio", "asset_type": "design", "outputs": ["design system", "wireframe", "prototype brief"]},
     {"id": "three-d", "name": "3D & Three.js Studio", "asset_type": "3d", "outputs": ["Three.js source", "GLTF-ready structure", "ZIP"]},
-    {"id": "audio", "name": "Audio Studio", "asset_type": "audio", "outputs": ["script", "SSML", "cue sheet", "mix plan"]},
+    {"id": "audio", "name": "Audio Studio", "asset_type": "audio", "outputs": ["script", "SSML", "audio plan", "task graph", "QA contract", "rights manifest", "cue sheet", "mix plan"]},
     {"id": "video", "name": "Video Studio", "asset_type": "video", "outputs": ["script", "shot list", "subtitles", "video plan", "continuity manifest", "render plan"]},
     {"id": "animation", "name": "Animation Studio", "asset_type": "animation", "outputs": ["storyboard", "timing sheet", "scene plan"]},
     {"id": "advertising", "name": "Advertising Studio", "asset_type": "campaign", "outputs": ["campaign brief", "ad variants", "CTA plan"]},
@@ -203,18 +210,82 @@ function frame(){{resize();object.rotation.x+=.004;object.rotation.y+=.008;rende
 
 
 def _audio_files(spec: StudioSpec) -> dict[str, str]:
-    ssml = f"""<speak xml:lang="{spec.language}"><prosody rate="medium" pitch="medium">{spec.brief}</prosody></speak>"""
-    cues = [
-        {"cue": 1, "time": "00:00", "role": "intro", "direction": "Establish tone and identity"},
-        {"cue": 2, "time": "00:08", "role": "narration", "direction": spec.brief[:240]},
-        {"cue": 3, "time": "00:35", "role": "transition", "direction": "Short musical transition"},
-        {"cue": 4, "time": "00:42", "role": "close", "direction": "Resolve and state next action"},
-    ]
+    request = AudioRequest(
+        title=spec.title,
+        brief=spec.brief,
+        operation="narration",
+        use_case="general",
+        language=spec.language,
+        purpose=spec.target or "general",
+        script=spec.brief,
+        speaker_count=1,
+        voice_mode="stock",
+        source_count=0,
+        output_profile_id="wav-pcm-48k-stereo",
+    )
+    plan = build_audio_plan(request)
+    snapshot = plan.public_snapshot()
+    rights_manifest = {
+        "schema": "36G.audio-rights-manifest.v1",
+        "plan_checksum": plan.checksum,
+        "voice_operation_enabled": request.operation in {"voice-transform", "voice-clone"},
+        "rights": snapshot["rights"],
+        "external_gates": snapshot["external_gates"],
+    }
+    mix_notes = (
+        mix_plan_markdown(plan)
+        + f"\nStudio style: {spec.style}\nStudio target: {spec.target or 'general'}\n"
+    )
     return {
         "audio/narration.txt": spec.brief + "\n",
-        "audio/narration.ssml": ssml,
-        "audio/cue-sheet.json": json.dumps(cues, ensure_ascii=False, indent=2),
-        "audio/mix-notes.md": f"# Mix notes\n\nStyle: {spec.style}\nTarget: {spec.target or 'general'}\n\nNo synthetic voice or music file is claimed without a configured provider.\n",
+        "audio/narration.ssml": ssml_template(plan),
+        "audio/audio-plan.json": json.dumps(snapshot, ensure_ascii=False, sort_keys=True, indent=2),
+        "audio/task-graph.json": json.dumps(
+            {
+                "schema": "36G.audio-task-graph.v1",
+                "plan_checksum": plan.checksum,
+                "plan_status": plan.plan_status,
+                "render_status": plan.render_status,
+                "tasks": snapshot["tasks"],
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+            indent=2,
+        ),
+        "audio/provider-inventory.json": json.dumps(
+            {
+                "schema": "36G.audio-provider-inventory.v1",
+                "plan_checksum": plan.checksum,
+                "runtime_ready": False,
+                "providers": snapshot["provider_inventory"],
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+            indent=2,
+        ),
+        "audio/qa-contract.json": json.dumps(
+            {
+                "schema": "36G.audio-qa-contract.v1",
+                "plan_checksum": plan.checksum,
+                **snapshot["qa_contract"],
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+            indent=2,
+        ),
+        "audio/rights-manifest.json": json.dumps(
+            rights_manifest,
+            ensure_ascii=False,
+            sort_keys=True,
+            indent=2,
+        ),
+        "audio/cue-sheet.json": json.dumps(
+            cue_sheet_payload(plan),
+            ensure_ascii=False,
+            sort_keys=True,
+            indent=2,
+        ),
+        "audio/mix-notes.md": mix_notes,
     }
 
 

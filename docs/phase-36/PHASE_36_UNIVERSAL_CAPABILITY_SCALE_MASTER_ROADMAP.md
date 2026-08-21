@@ -425,6 +425,23 @@ Scope:
 - podcast/narration/jingle workflows;
 - waveform/loudness/format QA and multi-format export.
 
+#### Stage 1 — provider-neutral AudioFactory, rights gate and QA contract (2026-08-21)
+
+- Added deterministic `36G.audio-plan.v1` planning for transcription, speech, dubbing, narration, podcast, jingle, song, cleanup/master, voice transformation and voice cloning. Composite projects compile into topologically ordered task DAGs rather than opaque provider calls.
+- Added official-source OpenAI/Gemini audio capability inventory, but every provider/model remains `inventory_visible`; exact operation-specific `AudioRuntimeEvidence` is required before routing. No music, vocal, SFX, voice-transform or voice-clone provider route is invented, and no provider price is guessed.
+- Added hash-only voice rights evidence with operation/purpose scope, issuance/expiry/revocation and optional provider identity-verification reference. Voice transformation fails without valid rights; clone rejects licensed-performer-only evidence and remains blocked by provider identity/runtime gates even when consent exists.
+- Added granular WAV/AAC/Opus output profiles and waveform/EBU R128/silence/clipping/loudness QA policy without claiming that Stage 1 executed those analyses. Only the prior Phase 36D stereo WAV path remains `runtime_verified`; additional audio profiles stay `source_built`.
+- Audio Studio now packages narration text/SSML, audio plan, task graph, provider inventory, QA contract, rights manifest, cue sheet and mix notes. It creates no fake rendered audio, external request or cost.
+- Final Stage 1 source evidence: AudioFactory `12/12`, combined Audio/Video/Phase36 `33/33`, complete AIOS Core `761/761`, Backend-focused Studio/Phase36 `12/12`, Ruff PASS and Mypy PASS across `207` source files. Full Backend on disposable PostgreSQL 16 + Redis 7 at Alembic `0034` completed `799 passed, 2 warnings, 0 failed` with `65.06%` coverage and zero database/cache critical hits; retained metadata SHA-256 `0a7471c2b2b8135afc7270ad5dd997cde72489df02fc7399b6703c975eb8cfbe`. Receipt: `docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md`.
+- No maturity transition is claimed: 36G remains `in_progress`; STT/TTS/cleanup/podcast capabilities remain `source_built`, while voice transformation and song production remain `specified`.
+
+##### P36-0018 — Stage 1 isolated Backend harness contract was stale
+
+- Older image/read-only-mount assumptions and a login shell that reset `/opt/venv/bin` caused pre-test harness failures (`compileall` read-only writes, missing current runtime dependency, then `alembic: not found`). No application test, Production service, schema, provider call or user workload failed.
+- The corrected gate built the current Dockerfile `test` target, copied source to a writable temporary repository, set the venv PATH explicitly, used fresh PostgreSQL/Redis, retained hashed evidence and removed all disposable resources. Final Backend result was `799/799 PASS`; this exact harness shape is now the required regression boundary for later Phase36 batches.
+
+Next safe gate: local provider-neutral AudioExecution/Media DAG using deterministic WAV fixtures and FFmpeg 9.0 cleanup/resample/align/mix/master plus waveform, EBU R128, silence and clipping evidence. Stage 2 must remain provider spend `$0.00`; provider STT/TTS is deferred to a separately bounded later gate.
+
 Exit gate:
 - complete user-defined song/audio production can reach final rendered files with separated evidence for lyrics/composition/vocals/stems/mix/master.
 

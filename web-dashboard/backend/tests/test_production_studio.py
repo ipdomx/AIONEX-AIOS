@@ -58,6 +58,54 @@ def test_threejs_artifact_contains_live_scene_and_asset_contract():
     assert "GLB/GLTF" in files["assets/README.md"]
 
 
+def test_audio_artifact_is_governed_plan_rights_and_qa_not_fake_rendered_audio():
+    files = _department_files(request("audio"))
+    assert {
+        "audio/narration.txt",
+        "audio/narration.ssml",
+        "audio/audio-plan.json",
+        "audio/task-graph.json",
+        "audio/provider-inventory.json",
+        "audio/qa-contract.json",
+        "audio/rights-manifest.json",
+        "audio/cue-sheet.json",
+        "audio/mix-notes.md",
+    } <= files.keys()
+    assert not any(path.endswith((".wav", ".mp3", ".m4a", ".webm")) for path in files)
+    plan = json.loads(files["audio/audio-plan.json"])
+    tasks = json.loads(files["audio/task-graph.json"])
+    providers = json.loads(files["audio/provider-inventory.json"])
+    qa = json.loads(files["audio/qa-contract.json"])
+    rights = json.loads(files["audio/rights-manifest.json"])
+    cues = json.loads(files["audio/cue-sheet.json"])
+    assert plan["schema"] == "36G.audio-plan.v1"
+    assert plan["plan_status"] == "planned"
+    assert plan["render_status"] == "not_started"
+    assert plan["external_requests"] == 0
+    assert plan["external_cost_usd"] == 0.0
+    assert plan["estimated_external_cost_usd"] is None
+    assert [item["operation"] for item in tasks["tasks"]] == [
+        "script",
+        "synthesize-speech",
+        "cleanup",
+        "master",
+        "qa",
+        "package",
+    ]
+    assert providers["runtime_ready"] is False
+    assert providers["providers"]
+    assert {item["inventory_state"] for item in providers["providers"]} == {
+        "inventory_visible"
+    }
+    assert qa["output_profile_id"] == "wav-pcm-48k-stereo"
+    assert qa["require_ebur128_scan"] is True
+    assert rights["voice_operation_enabled"] is False
+    assert rights["rights"]["required"] is False
+    assert cues["render_status"] == "not_started"
+    assert "no rendered audio is claimed" in files["audio/mix-notes.md"]
+    assert "External provider requests: **0**" in files["audio/mix-notes.md"]
+
+
 def test_video_artifact_contains_governed_planned_video_pipeline():
     files = _department_files(request("video"))
     assert {
