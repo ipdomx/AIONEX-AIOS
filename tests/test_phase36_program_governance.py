@@ -183,6 +183,13 @@ def test_phase36_snapshot_is_truthful_and_phase29_is_not_current_finality() -> N
 def test_phase36_reporting_invariant_requires_evidence_for_owned_changes() -> None:
     owned = ["src/aios/full_project_cycle.py"]
     assert phase36_reporting_violation(owned) == tuple(owned)
+    audio_owned = [
+        "src/aios/audio_factory.py",
+        "web-dashboard/backend/app/services/audio_pipeline.py",
+        "web-dashboard/backend/app/services/media_ffmpeg.py",
+        "web-dashboard/backend/scripts/verify_media_worker.py",
+    ]
+    assert phase36_reporting_violation(audio_owned) == tuple(sorted(audio_owned))
     assert phase36_reporting_violation(
         [*owned, "docs/phase-36/receipts/36B-example.md"]
     ) == ()

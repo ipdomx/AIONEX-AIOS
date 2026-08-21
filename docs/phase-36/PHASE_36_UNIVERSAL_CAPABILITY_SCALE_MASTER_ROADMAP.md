@@ -451,7 +451,20 @@ Scope:
 - After the canary had completed, checkpointed and cleaned its database/file scope, the final generic count loop referenced nonexistent `Organization.organization_id` and exited non-zero. Independent database/storage checks proved cleanup `0/0/0`, no active Studio job and no remaining artifact; the persistent worker stayed Healthy with errors `0`, and no provider call/spend occurred.
 - The external script now uses `Organization.id` for the root row and `organization_id` for child models. The canary was not rerun. Validated-before-cleanup checkpointing plus independent database/file absence verification is now mandatory for later destructive canaries.
 
-Next safe gate: local provider-neutral AudioExecution/Media DAG using deterministic WAV fixtures and FFmpeg 9.0 cleanup/resample/align/mix/master plus waveform, EBU R128, silence and clipping evidence. Stage 2 must remain provider spend `$0.00`; provider STT/TTS is deferred to a separately bounded later gate.
+#### Stage 2 — local provider-neutral audio runtime candidate
+
+- Reused the Phase36D Media DAG/object-store/lease/fencing/Studio revision authority with no new schema. A `cleanup-master` AudioPlan now compiles only local operations: per-source cleanup/alignment, bounded mix, loudness master, waveform and final export; provider tasks remain blocked outside this path.
+- Added governed 48 kHz WAV stereo/mono, AAC/M4A `192 kbps` and Opus/WebM `128 kbps` profiles with exact FFprobe codec/container/rate/channel QA. Master/export emits `36G.audio-qa.v1` from FFmpeg `loudnorm`, `silencedetect` and `astats`; waveform uses `showwavespic`.
+- Disposable PostgreSQL/Redis affected regression is `38/38 PASS`, including tenant isolation, idempotency, stale-worker fencing, Studio materialization and partial revision that reuses the unaffected audio branch. Complete Core is `761/761`; full Backend on fresh PostgreSQL/Redis is `809 passed, 2 warnings, 0 failed` with `64.92%` coverage and zero database/cache critical hits; Ruff/Mypy (`208` files)/compile/YAML/diff PASS. Full Backend metadata SHA-256 `4467245702debe58af52928b2142dbab36d48c5f638f471f5f9ca45e8571bb45`.
+- Real `--network none` Media Worker image `sha256:ddb231abc5ff1797c4b7f76835db162b2108e1b23ea2c927cc135554e463ba26` executed the complete chain. Integrated loudness was master `-15.97`, WAV stereo/mono `-16.04`, AAC/Opus `-16.05 LUFS`; all strict QA passed with provider requests/spend `0 / $0.00`. Smoke evidence SHA-256 `afec9c6930d612a04dcd6de9ac10fd2667d6d089ef89fd3090ef3a95b7d0e7e1`.
+- Source truth remains bounded: Production Media Worker is unchanged and `audio-cleanup-master` remains `source_built` until protected merge/deploy and a persistent-worker Production canary complete with cleanup evidence.
+
+##### P36-0020 — Mono loudness normalization preceded final channel conversion
+
+- Real candidate smoke rejected mono WAV at roughly `-19 LUFS` while the requested target was `-16`. The path normalized stereo first and downmixed afterward; the final mono signal therefore lost about `3 LU`.
+- The fix converts to final rate/channel layout before `loudnorm`, then encodes. The `1.5 LU` tolerance was not weakened. Real rerun passed mono at `-16.04 LUFS` and added a mandatory no-network four-format Docker regression. Production/provider state was untouched.
+
+Next safe gate: protected Stage 2 merge, Media Worker-only Production rollout, local no-provider DAG + partial-revision canary, complete object/database cleanup, then a separate maturity closeout. Provider STT/TTS remains deferred and voice/song gates remain closed.
 
 Exit gate:
 - complete user-defined song/audio production can reach final rendered files with separated evidence for lyrics/composition/vocals/stems/mix/master.

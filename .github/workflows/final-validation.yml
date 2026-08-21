@@ -246,7 +246,7 @@ jobs:
             --env-file .env.production \
             -f docker-compose.production.yml \
             build media-worker
-          docker run --rm \
+          docker run --rm --network none \
             -e ENVIRONMENT=test \
             -e DEBUG=false \
             -e SECRET_KEY=phase36d-ci-media-worker-secret-key-with-at-least-32-characters \
@@ -268,7 +268,24 @@ jobs:
           assert payload["av1"]["size_bytes"] > 0
           assert payload["image"]["size_bytes"] > 0
           assert payload["audio"]["size_bytes"] > 0
+          audio = payload["phase36g_audio"]
+          assert audio["provider_requests"] == 0
+          assert audio["provider_spend_usd"] == 0.0
+          assert audio["master"]["qa"]["audio_analysis"]["passed"] is True
+          assert audio["waveform"]["size_bytes"] > 0
+          assert set(audio["exports"]) == {
+              "audio-wav-pcm",
+              "audio-wav-pcm-mono",
+              "audio-m4a-aac",
+              "audio-webm-opus",
+          }
+          assert all(
+              item["size_bytes"] > 0
+              and item["qa"]["audio_analysis"]["passed"] is True
+              for item in audio["exports"].values()
+          )
           print("PHASE36D_MEDIA_WORKER_SMOKE_OK")
+          print("PHASE36G_AUDIO_RUNTIME_SMOKE_OK")
           PY
       - name: Build and verify live-disabled video provider worker
         working-directory: web-dashboard
