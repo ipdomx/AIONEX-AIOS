@@ -75,10 +75,10 @@ CAPABILITIES: Final[tuple[Phase36Capability, ...]] = (
     Phase36Capability("editable-design-exports", "design", "Editable vector/raster source and export profiles", "36E", "runtime_verified", ("docs/phase-36/receipts/36E-2026-08-18-design-image-foundation.md",)),
 
     # Video/cinema/motion.
-    Phase36Capability("text-image-logo-to-video", "video", "Text/image/logo-to-video generation", "36F", "source_built", ("docs/phase-36/receipts/36F-2026-08-19-video-factory.md",)),
-    Phase36Capability("long-form-ad-video", "video", "Long-form advertising and multi-scene video", "36F", "source_built", ("docs/phase-36/receipts/36F-2026-08-19-video-factory.md",)),
+    Phase36Capability("text-image-logo-to-video", "video", "Text/image/logo-to-video generation", "36F", "runtime_verified", ("docs/phase-36/receipts/36F-2026-08-19-video-factory.md",)),
+    Phase36Capability("long-form-ad-video", "video", "Long-form advertising and multi-scene video", "36F", "runtime_verified", ("docs/phase-36/receipts/36F-2026-08-19-video-factory.md",)),
     Phase36Capability("cinema-motion-vfx", "video", "Cinema, motion graphics, compositing and VFX", "36F", "specified"),
-    Phase36Capability("video-continuity-resume", "video", "Scene continuity, resumable rendering and partial regeneration", "36F", "source_built", ("docs/phase-36/receipts/36F-2026-08-19-video-factory.md",)),
+    Phase36Capability("video-continuity-resume", "video", "Scene continuity, resumable rendering and partial regeneration", "36F", "runtime_verified", ("docs/phase-36/receipts/36F-2026-08-19-video-factory.md",)),
     Phase36Capability("video-final-export", "video", "1080p/1440p/4K and governed final video exports", "36F", "source_built", ("docs/phase-36/receipts/36F-2026-08-19-video-factory.md",)),
 
     # Audio/music.
@@ -122,8 +122,8 @@ BATCHES: Final[tuple[Phase36Batch, ...]] = (
     Phase36Batch("36C", 3, "Multi-provider/model/agent execution pools", "complete"),
     Phase36Batch("36D", 4, "Universal Creative Asset Graph and Media Orchestrator", "complete"),
     Phase36Batch("36E", 5, "Image, design, branding, infographic and prompt factory", "complete"),
-    Phase36Batch("36F", 6, "Video, cinema, motion graphics and advertising factory", "in_progress"),
-    Phase36Batch("36G", 7, "Audio, voice, music, songs and podcast factory", "planned"),
+    Phase36Batch("36F", 6, "Video, cinema, motion graphics and advertising factory", "complete"),
+    Phase36Batch("36G", 7, "Audio, voice, music, songs and podcast factory", "in_progress"),
     Phase36Batch("36H", 8, "Realtime communication, streaming and interactive media scale", "planned"),
     Phase36Batch("36I", 9, "2D/3D/XR/game/VFX production expansion", "planned"),
     Phase36Batch("36J", 10, "Education and complete course factory", "planned"),

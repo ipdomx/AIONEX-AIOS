@@ -157,10 +157,10 @@ test("projects surface shows the truthful Phase 36 expansion contract", async ({
         program: "Phase 36 — Universal Capability, Creative Media & 1000+ User Scale",
         authoritative: true,
         minimum_concurrent_users: 1000,
-        current_batch: "36F",
+        current_batch: "36G",
         total_capabilities: 54,
         production_ready_capabilities: 1,
-        completion: 1.85,
+        completion: 2,
         maturity_order: [
           "specified",
           "source_built",
@@ -171,11 +171,11 @@ test("projects surface shows the truthful Phase 36 expansion contract", async ({
           "production_ready",
         ],
         maturity_counts: {
-          specified: 20,
-          source_built: 17,
-          locally_executed: 10,
-          provider_connected: 2,
-          runtime_verified: 4,
+          specified: 8,
+          source_built: 15,
+          locally_executed: 13,
+          provider_connected: 0,
+          runtime_verified: 17,
           scaled: 0,
           production_ready: 1,
         },
@@ -203,7 +203,7 @@ test("projects surface shows the truthful Phase 36 expansion contract", async ({
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/en/projects");
   await expect(page.getByText("Phase 36 expansion status")).toBeVisible();
-  await expect(page.getByText("36F", { exact: true })).toBeVisible();
+  await expect(page.getByText("36G", { exact: true })).toBeVisible();
   await expect(page.getByText("1,000", { exact: true })).toBeVisible();
   await expect(page.getByText("1/54", { exact: true })).toBeVisible();
   const overflow = await page.evaluate(
