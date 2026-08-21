@@ -1,7 +1,7 @@
 # Phase 36F — Video, cinema, motion graphics & advertising factory
 
 Date: 2026-08-19
-Status: **CLOSEOUT CANDIDATE — all 36F exit evidence PASS; this protected change marks 36F complete and opens 36G after Production registry activation**
+Status: **COMPLETE — protected PR #459 merged and Production registry activated; 36F=complete, 36G=in_progress, current_batch=36G**
 
 ## Baseline
 
@@ -176,3 +176,18 @@ Stage 3C text-to-video multi-scene acceptance, same-job crash recovery, final FF
 ### Next safe gate after protected closeout
 
 Phase 36G Stage 1: provider-neutral audio/voice/music planning, inventory and rights/consent contracts. It must remain no-spend and must not enable voice cloning/transformation without explicit consent and rights evidence.
+
+## Protected merge and Production closeout activation — 2026-08-21
+
+- Closeout PR #459 passed every protected gate: Phase36 Reporting, complete Core suite, Backend Tests, Frontend Build, Production Docker Build, Owner/VIP Browser boundaries, CodeQL Python/JavaScript, Backend SBOM/vulnerability, Dependency Security and repository secret/hygiene. Head `4ba390818b0951d744fee885876663bdb7627422` merged at `2026-08-21T16:42:23Z` as `a28a437c77e85362220ea0d069a79c21aa0a1504`.
+- Production source advanced by **fast-forward only** from `ee6dd4da8fc72ee73a2037a78a241cc2d4329906` to the protected merge. No reset/force, migration, image build/rebuild, frontend/portal/worker restart, provider submission or provider spend occurred.
+- Before controlled reload, the checked-out source truth reported `36F=complete / 36G=in_progress`, while the actual long-running Backend HTTP endpoint still truthfully exposed its cached pre-activation `36F=in_progress / 36G=planned`. A Backend-only restart then reloaded the merged registry. The Backend container ID and image remained unchanged; only its `StartedAt` advanced from `2026-08-21T13:52:24.933535914Z` to `2026-08-21T16:45:18.183808922Z`.
+- Actual Backend HTTP now reports `current_batch=36G`, `36F=complete`, `36G=in_progress`, and exactly one in-progress batch (`36G`). Maturity counts are `specified=8`, `source_built=15`, `locally_executed=13`, `provider_connected=0`, `runtime_verified=17`, `scaled=0`, `production_ready=1`.
+- Frontend, Portal, Nginx, Media, Image, Derivative, Video and PostgreSQL container IDs/start times remained unchanged and all services stayed Healthy. Alembic remained `20260819_0034`; Video total/active, Media active and Design active queues remained `0/0/0/0`.
+- The persistent Video worker remained `VIDEO_EXECUTION_LIVE_ENABLED=false`, health=`disabled`, FFmpeg `9.0`, cycles/errors `0/0`, `secret_returned=false`. Backend readiness passed `20/20`; Backend critical log hits after restart were `0`; no recovery one-shot process remained.
+- A read-only post-activation provider list confirmed `0` jobs created since the Stage 3D recovery began; the newest provider job remained the pre-existing `2026-08-21T13:35:59Z` job. Therefore Production activation added `0` provider submissions and `$0.00` provider spend.
+- Sanitized activation evidence: `.deployment-backups/phase36f-closeout-activation/phase36f-closeout-production-activation-evidence.json`, SHA-256 `3349d614deb45f775fc59013e51f44e83ddd233ecd153c0682e14be51c7174bc`.
+
+### Activated next safe gate
+
+Phase 36G is now the authoritative current batch. Stage 1 must begin with provider-neutral audio/voice/music inventory, planning and rights/consent contracts, remain no-spend, and keep voice transformation/cloning unavailable without explicit consent and rights evidence.
