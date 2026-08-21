@@ -1,7 +1,7 @@
 # Phase 36F — Video, cinema, motion graphics & advertising factory
 
 Date: 2026-08-19
-Status: **IN PROGRESS — Stage 1 deployed; Stage 2A/2B durable Sora authority/worker deployed hard-disabled; Stage 3A/3B Sora single-scene routes live-accepted; Stage 3C real text-to-video multi-scene + same-job crash recovery + final assembly PASS; logo + brief exit acceptance pending**
+Status: **CLOSEOUT CANDIDATE — all 36F exit evidence PASS; this protected change marks 36F complete and opens 36G after Production registry activation**
 
 ## Baseline
 
@@ -145,3 +145,34 @@ Stage 36F1 is source/test-only. Production remains on the accepted Phase 36E-clo
 ### Next safe gate
 
 Stage 3C text-to-video multi-scene acceptance, same-job crash recovery, final FFmpeg assembly and cleanup are complete. The next safe gate is a separate bounded **logo + brief -> real multi-scene advertisement** Production acceptance using the already live-accepted single-reference `logo-to-video` route, one explicit total cap, final assembly/Studio revision and full cleanup. No additional crash or artificial paid failure is required because same-job worker recovery and selective terminal-scene replacement are already independently proven. Support for 2–3 simultaneous references and Gemini/Veo remain separate later gates.
+
+## Checkpoint 3D — recovered pre-existing logo + brief multi-scene exit acceptance
+
+- The prior one-shot had already completed exactly four governed `sora-2` provider jobs, but its terminal result artifact and attempted closeout files were empty. Because no retained artifact proved final assembly/cleanup, 36F correctly remained `in_progress`; the exact low-level reason the terminal evidence was lost is unknown and is not guessed.
+- A read-only provider inventory found the exact four jobs in the original creation window. A freshly reconstructed deterministic logo + brief pipeline reproduced four unique compiled-prompt SHA-256 values, and every value matched exactly one completed provider job with the expected model, size and `4s/8s/8s/4s` duration. Only 16-character provider-job hashes were retained.
+- Recovery used a dedicated adapter whose `submit()` and `reconcile()` methods hard-fail. It performed only one list, read-only retrievals and four completed-content downloads. Result: `new_provider_submissions=0`, `new_provider_reconciliations=0`, recovery provider spend `$0.00`; historical provider requests/cost remained `4 / $2.40`.
+- The four outputs passed FFmpeg/ffprobe 9.0 and completed the existing tenant-scoped Media DAG. Output evidence before cleanup:
+  - `opening`: `3,241,238` bytes; SHA-256 `433b23d20b6ba5ccec3fce93dca7ed1fd2629a026679f4a599bbc487857972a4`; `$0.40`.
+  - `value`: `3,844,734` bytes; SHA-256 `f4454cb597bb58a08f606ac966f24d9cb533ff09118d653f817908d967f1042b`; `$0.80`.
+  - `proof`: `3,923,319` bytes; SHA-256 `a185ec1e7654c131b597004217e2f0165b6fce10833acf53acdddedc76f7ebf4`; `$0.80`.
+  - `close`: `2,075,726` bytes; SHA-256 `649874ac55f2ae278bacb99806fd9c31bc1eaf772f19044b28061331e304cf8a`; `$0.40`.
+- Phase 36D FFmpeg assembly then completed the real advertisement at `4,342,119` bytes, SHA-256 `ddb064ae9abf7679a12978301da62130c50c431546c306f699ba4780c1c80b18`; Media graph and project snapshot became `completed`, and Studio advanced to revision `2` with one revision row.
+- Evidence durability was corrected operationally: an atomic `validated-before-cleanup` checkpoint was written before cleanup. Cleanup deleted/verified `6/6` objects and returned synthetic VideoExecution/Media graph/node/Studio/organization rows to zero. Seven prior zero-byte pseudo-closeout artifacts were removed so they cannot be mistaken for evidence.
+- Post-health: Backend, Media, Image, Derivative, Video and PostgreSQL services Healthy; persistent Video worker remained `VIDEO_EXECUTION_LIVE_ENABLED=false`, `status=disabled`, FFmpeg `9.0`, cycles/errors `0/0`, `secret_returned=false`; `/ready` `20/20`; critical log hits `0`; read-only provider recheck found zero jobs created during or after recovery.
+- Sanitized server evidence:
+  - `.deployment-backups/phase36f-stage3d-logo-multiscene/stage3d-logo-brief-recovered-checkpoint.json` — SHA-256 `99f4f6517a21f86cff2433b13c62b29d529ca54adabf020f904f517b85a32da6`.
+  - `.deployment-backups/phase36f-stage3d-logo-multiscene/stage3d-logo-brief-recovered-live-evidence.json` — SHA-256 `18bc5397dcec56e22e4a71fc7ba3f4cb50a2225e3bd13a32d624484142ed2aa3`.
+  - `.deployment-backups/phase36f-stage3d-logo-multiscene/stage3d-logo-brief-recovered-post-health-evidence.json` — SHA-256 `fee4e4581e579391045b45355553a8b36d046569c007b3080a663f3553feeb41`.
+  - Recovery script SHA-256 `0211274f64b3b082eeb90fd7ce669a71d487f92957edc3b71799ad64594e0ae2`.
+
+## Phase 36F closeout decision
+
+- **Exit clause 1 PASS:** logo + brief produced a real four-scene advertisement, final FFmpeg assembly and Studio revision—not a storyboard or planned render handoff.
+- **Exit clause 2 PASS:** Stage 3C already proved durable same-provider-job worker recovery and selective replacement of only a failed scene while unaffected completed scenes were preserved before final assembly.
+- The authoritative registry transition in this closeout marks `36F=complete`, `36G=in_progress`, and `current_batch=36G`. Exactly one Phase 36 batch remains `in_progress`.
+- Truthful residual limits remain visible in capability maturity: generation/multi-scene/continuity become `runtime_verified`; high-resolution final exports remain `source_built`; cinema/motion/VFX remains `specified`; 2–3 simultaneous references and Gemini/Veo remain unaccepted.
+- No migration, service restart, image rebuild, provider submission or provider spend is part of this source closeout candidate.
+
+### Next safe gate after protected closeout
+
+Phase 36G Stage 1: provider-neutral audio/voice/music planning, inventory and rights/consent contracts. It must remain no-spend and must not enable voice cloning/transformation without explicit consent and rights evidence.
