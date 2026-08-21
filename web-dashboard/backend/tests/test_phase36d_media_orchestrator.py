@@ -75,9 +75,32 @@ def test_media_graph_rejects_cycle_and_unknown_profile() -> None:
 
 def test_output_profile_registry_targets_ffmpeg_9_and_real_formats() -> None:
     assert FFMPEG_TARGET_VERSION == "9.0"
-    assert {"video-mp4-h264", "video-webm-av1", "audio-wav-pcm", "image-png-lossless"} <= set(OUTPUT_PROFILES)
+    assert {
+        "video-mp4-h264",
+        "video-webm-av1",
+        "audio-wav-pcm",
+        "audio-wav-pcm-mono",
+        "audio-m4a-aac",
+        "audio-webm-opus",
+        "image-png-lossless",
+    } <= set(OUTPUT_PROFILES)
     assert output_profile("video-mp4-h264").media_type == "video/mp4"
     assert output_profile("video-webm-av1").video_codec == "libsvtav1"
+    assert output_profile("audio-wav-pcm").channels == 2
+    assert output_profile("audio-wav-pcm-mono").channels == 1
+    assert output_profile("audio-m4a-aac").audio_codec == "aac"
+    assert output_profile("audio-m4a-aac").bitrate_kbps == 192
+    assert output_profile("audio-webm-opus").audio_codec == "libopus"
+    assert output_profile("audio-webm-opus").bitrate_kbps == 128
+    assert all(
+        output_profile(profile_id).sample_rate_hz == 48_000
+        for profile_id in (
+            "audio-wav-pcm",
+            "audio-wav-pcm-mono",
+            "audio-m4a-aac",
+            "audio-webm-opus",
+        )
+    )
 
 
 def test_phase36d_schema_contract_is_durable_and_tenant_scoped() -> None:

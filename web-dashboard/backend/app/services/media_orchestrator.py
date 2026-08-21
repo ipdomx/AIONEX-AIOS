@@ -26,6 +26,8 @@ class MediaOutputProfile:
     audio_codec: str | None = None
     pixel_format: str | None = None
     sample_rate_hz: int | None = None
+    channels: int | None = None
+    bitrate_kbps: int | None = None
     ffmpeg_args: tuple[str, ...] = ()
 
 
@@ -46,7 +48,40 @@ OUTPUT_PROFILES: dict[str, MediaOutputProfile] = {
         container="wav",
         audio_codec="pcm_s16le",
         sample_rate_hz=48_000,
-        ffmpeg_args=("-ar", "48000", "-ac", "2"),
+        channels=2,
+    ),
+    "audio-wav-pcm-mono": MediaOutputProfile(
+        profile_id="audio-wav-pcm-mono",
+        asset_kind="audio",
+        extension="wav",
+        media_type="audio/wav",
+        container="wav",
+        audio_codec="pcm_s16le",
+        sample_rate_hz=48_000,
+        channels=1,
+    ),
+    "audio-m4a-aac": MediaOutputProfile(
+        profile_id="audio-m4a-aac",
+        asset_kind="audio",
+        extension="m4a",
+        media_type="audio/mp4",
+        container="mp4",
+        audio_codec="aac",
+        sample_rate_hz=48_000,
+        channels=2,
+        bitrate_kbps=192,
+        ffmpeg_args=("-movflags", "+faststart"),
+    ),
+    "audio-webm-opus": MediaOutputProfile(
+        profile_id="audio-webm-opus",
+        asset_kind="audio",
+        extension="webm",
+        media_type="audio/webm",
+        container="webm",
+        audio_codec="libopus",
+        sample_rate_hz=48_000,
+        channels=2,
+        bitrate_kbps=128,
     ),
     "video-mp4-h264": MediaOutputProfile(
         profile_id="video-mp4-h264",

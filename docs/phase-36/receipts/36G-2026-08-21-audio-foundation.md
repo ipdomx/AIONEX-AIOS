@@ -1,7 +1,7 @@
 # Phase 36G — Audio, Voice, Music, Songs & Podcast Factory
 
 Date: 2026-08-21
-Status: **IN PROGRESS — Stage 1 merged, Production-activated and no-spend Audio Studio canary accepted; Stage 2 local audio runtime pending**
+Status: **IN PROGRESS — Stage 1 Production-accepted; Stage 2 local audio runtime source/isolated candidate complete, protected merge/deploy pending**
 
 ## Truth boundary
 
@@ -195,6 +195,82 @@ No Production service, schema, data row, provider credential, provider request o
 - Regression prevention: future destructive canaries must write a validated-before-cleanup checkpoint, use model-specific cleanup predicates, and independently verify both database and object/file absence before declaring PASS.
 - Final result: deployment and canary remain PASS; the script failure was confined to the post-cleanup verifier and is explicitly retained in the final evidence.
 
+## Stage 2 — local provider-neutral audio runtime candidate
+
+Stage 2 reuses the existing Phase 36D `MediaAssetGraph`, `MediaAssetNode`, `MediaRenderStep`, object-storage, lease/fencing and Studio revision authorities. It adds **no new database table or migration** and does not create a second audio job system.
+
+### Local AudioPlan → Media DAG bridge
+
+`app.services.audio_pipeline` accepts only the Stage 1 `cleanup-master` operation. Provider-dependent tasks such as STT, TTS, dubbing, composition, vocals, SFX, voice transformation and voice cloning cannot enter this local path.
+
+Each tenant-scoped source is required to be:
+
+- completed;
+- owned by the same organization;
+- a governed audio media type;
+- backed by an existing storage backend/key;
+- accompanied by exact size and SHA-256 evidence.
+
+A one-to-eight-source project becomes the deterministic graph:
+
+`governed source → cleanup → alignment → mix → master → waveform + final export`
+
+For multiple sources each source receives independent cleanup/alignment nodes. The final export depends on both the completed master and the PNG waveform evidence, while the master is ordinal `0`, so Studio materializes the governed audio output rather than the QA image.
+
+The idempotency fingerprint binds the AudioPlan checksum, graph checksum, source node identities/checksums, offsets and gains. Reusing the same key with a changed source, offset or gain fails closed.
+
+### FFmpeg 9 local execution
+
+The shipped FFmpeg runtime now verifies the exact local audio filter surface before accepting work:
+
+- `highpass` / `lowpass` cleanup;
+- `aresample` and channel-layout normalization;
+- `adelay` alignment;
+- `amix` plus bounded limiter;
+- `loudnorm` / EBU R128 analysis;
+- `silencedetect`;
+- `astats` clipping/sample-peak evidence;
+- `showwavespic` waveform generation.
+
+New governed output profiles are:
+
+- 48 kHz stereo PCM WAV;
+- 48 kHz mono PCM WAV;
+- 48 kHz stereo AAC/M4A at `192 kbps`;
+- 48 kHz stereo Opus/WebM at `128 kbps`.
+
+Codec, container, sample rate and channel count are checked with FFprobe. Final master/export QA emits `36G.audio-qa.v1` with integrated LUFS, true peak, loudness range, sample peak, silence count/duration and clipping status. Raw FFmpeg logs are not retained in graph/public evidence.
+
+### Isolated integration and real-image evidence
+
+- Disposable PostgreSQL 16 + Redis 7 at Alembic `20260819_0034`: new audio runtime plus affected Phase36D/36F regression **`38/38 PASS`**; PostgreSQL/Redis critical hits `0/0`.
+- The tests prove full DAG completion, one Studio revision, exact profile mapping, tenant isolation, source/timeline idempotency, stale-worker fencing, and a partial revision that changes only `align-001` plus downstream `mix/master/waveform/export` while preserving the unaffected `align-002` checksum/provenance.
+- Ruff: PASS across the complete Backend app/tests/scripts surface.
+- Mypy: PASS across `208` Backend source files.
+- Complete AIOS Core: `761/761 PASS` in `31.30s`.
+- Fresh current-source Backend test image: `sha256:0a1a9e1aa3521d3f13241b2df56b7f0c515136f115403c50d5818a3e604720ad`; build-log SHA-256 `2aa14cc9b458bb0882b4c45dddb27f602ed4e43256a9553984ee2a095d8df1c0`.
+- Full Backend on a second fresh PostgreSQL 16 + Redis 7 environment: **`809 passed, 2 warnings, 0 failed`** in `307.09s`; coverage `64.92%`; PostgreSQL/Redis critical hits `0/0`; disposable containers/network removed.
+- Full Backend log SHA-256 `fd6a6396b1ca8a756f369f5329eb46b262ef62f3acbcad7440333fad74ca7f90`; metadata SHA-256 `4467245702debe58af52928b2142dbab36d48c5f638f471f5f9ca45e8571bb45`, status=`pass`.
+- Workflow YAML, Python compile and `git diff --check`: PASS.
+- A real `--network none` Media Worker image built as `sha256:ddb231abc5ff1797c4b7f76835db162b2108e1b23ea2c927cc135554e463ba26` executed two WAV sources through cleanup, delayed alignment, mix, master, waveform and all four exports.
+- Real measured integrated loudness: master `-15.97 LUFS`, stereo WAV `-16.04`, mono WAV `-16.04`, AAC `-16.05`, Opus `-16.05`; all remained inside the unchanged `1.5 LU` tolerance, passed true-peak/LRA/clipping/silence checks and retained `provider_requests=0 / provider_spend_usd=$0.00`.
+- Final real-image build log SHA-256: `e4deec3c32fb15fe3e990bd95a9c0681ad2c29f8e414b62dfdc2f2c157d6a4e3`.
+- Final real-image smoke evidence SHA-256: `afec9c6930d612a04dcd6de9ac10fd2667d6d089ef89fd3090ef3a95b7d0e7e1`.
+
+This is source/isolated evidence only. The persistent Production Media Worker is unchanged, `audio-cleanup-master` remains `source_built`, and no output profile is promoted by this checkpoint alone.
+
+## P36-0020 — Mono export loudness normalization ran before channel downmix
+
+- Batch/environment: Phase 36G Stage 2 real FFmpeg 9 candidate-image smoke; Production untouched.
+- Symptom: stereo WAV, AAC and Opus exports stayed near the `-16 LUFS` target, but the mono WAV measured approximately `-18.97` to `-19.04 LUFS` and the strict `1.5 LU` gate rejected it.
+- User impact: none. The failure occurred in an isolated `--network none` candidate container before protected merge/deployment; no provider request, provider spend, Production asset or user job existed.
+- Detection/evidence: the real image smoke failed closed at `audio master failed governed QA: integrated_loudness`. A diagnostic with a temporarily wider measurement window confirmed that the mono-only deviation was about `3 LU`, while all other formats remained near target.
+- Root cause: `audio_export` applied `loudnorm` to the stereo master and only then converted the output to mono. Downmix changed perceived integrated loudness after normalization, so the final encoded signal no longer met the requested target.
+- Why prior tests missed it: FakeFFmpeg integration tests validate scheduling, fencing, provenance and profile contracts; they do not model channel-dependent EBU R128 behavior. Historical Phase36D runtime evidence covered stereo WAV only.
+- Fix: convert/resample to the final channel layout first, then run `loudnorm` on that final-layout signal, resample once more and encode. The QA tolerance was **not widened** and remains `1.5 LU`.
+- Regression prevention: Production Docker CI now runs the complete Stage 2 audio chain inside the real Media Worker with `--network none` and requires WAV stereo/mono, AAC and Opus to pass `36G.audio-qa.v1` independently.
+- Final result: real rerun passed with mono `-16.04 LUFS`; all four formats passed codec/container/rate/channels/loudness/peak/LRA/clipping/silence checks with zero provider activity.
+
 ## External and legal gates retained
 
 - no voice transformation or cloning without valid rights/consent evidence;
@@ -203,15 +279,14 @@ No Production service, schema, data row, provider credential, provider request o
 - no paid provider execution without official pricing, exact request cap, explicit operator approval and cleanup evidence;
 - no maturity promotion from capability inventory alone.
 
-## Next safe gate — Stage 2
+## Next safe gate — Stage 2 protected merge and Production acceptance
 
-Build a local, provider-neutral AudioExecution/Media DAG path before any paid provider route:
+1. complete fresh Core/Backend/security/reporting gates;
+2. protected PR and Production Docker smoke;
+3. retain the current Production Media Worker rollback image;
+4. rebuild/recreate the Media Worker only, with no migration or provider credential;
+5. run one bounded Production local-audio DAG through the persistent worker;
+6. prove waveform, `36G.audio-qa.v1`, Studio revision, selective downstream-only revision and full database/object cleanup;
+7. only after that evidence may `audio-cleanup-master` advance to `runtime_verified` in a separate status closeout.
 
-1. deterministic local WAV fixtures and tenant-scoped graph nodes;
-2. FFmpeg 9.0 cleanup, resample, align, mix and master primitives;
-3. waveform, EBU R128, silence and clipping evidence;
-4. crash-safe retry/idempotency and selective failed-step regeneration;
-5. final WAV/AAC/Opus artifact materialization and Studio revision;
-6. bounded cleanup with all synthetic rows/objects returned to zero.
-
-Stage 2 must remain provider-spend `$0.00`. Only after that local path passes should a separately reviewed Stage 3 consider one bounded STT/TTS provider route. Voice transformation/cloning and song/music-provider execution remain later consent/legal/provider gates.
+Stage 2 remains provider-spend `$0.00`. Stage 3 may later consider one separately cost-capped STT/TTS provider route. Voice transformation/cloning and song/music-provider execution remain later consent/legal/provider gates.
