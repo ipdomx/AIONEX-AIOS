@@ -440,6 +440,17 @@ Scope:
 - Older image/read-only-mount assumptions and a login shell that reset `/opt/venv/bin` caused pre-test harness failures (`compileall` read-only writes, missing current runtime dependency, then `alembic: not found`). No application test, Production service, schema, provider call or user workload failed.
 - The corrected gate built the current Dockerfile `test` target, copied source to a writable temporary repository, set the venv PATH explicitly, used fresh PostgreSQL/Redis, retained hashed evidence and removed all disposable resources. Final Backend result was `799/799 PASS`; this exact harness shape is now the required regression boundary for later Phase36 batches.
 
+##### Stage 1 protected merge and Production activation
+
+- PR #461 passed all protected gates and merged as `d4d038ebd20f9389b5c9563a803ea6043b6c5f18`. Production fast-forwarded from `5ddbc08ec304582d30f549c3c6a1edc5e0ad8531` with no migration; Backend and Studio Worker alone were recreated on image `sha256:7a821d47a07a2f00178fa2dc9e62e29090b3242d86234e50c2af6a5a48c588eb`, while every other checked service identity remained unchanged/Healthy.
+- Offline candidate smoke and real Production dependency preflight both proved the source-only boundary before deployment. A persistent-worker canary then completed one audio Studio job in one attempt, produced a `6,983`-byte governed ZIP (`ce445daf...85ed4`) with six tasks/five inventory-only providers, zero external requests/spend and no fake rendered audio, then cleaned all synthetic rows/files to zero. Studio Worker cycles/errors became `1/0`; `/ready` remained `20/20`.
+- Final canary evidence SHA-256 `7f304e0467783421c71175ac8fae3b90b290d0b383023526ebc348bbf16fdc5c`; consolidated activation evidence SHA-256 `c00a8d957532afbca3887324e4b41faf73fb7db17c001eded63f4b1dd30f14f6`. Stage 1 is deployed, but 36G remains `in_progress` and no capability maturity is raised by plan/source execution alone.
+
+##### P36-0019 — Production canary post-cleanup verifier used the wrong Organization scope column
+
+- After the canary had completed, checkpointed and cleaned its database/file scope, the final generic count loop referenced nonexistent `Organization.organization_id` and exited non-zero. Independent database/storage checks proved cleanup `0/0/0`, no active Studio job and no remaining artifact; the persistent worker stayed Healthy with errors `0`, and no provider call/spend occurred.
+- The external script now uses `Organization.id` for the root row and `organization_id` for child models. The canary was not rerun. Validated-before-cleanup checkpointing plus independent database/file absence verification is now mandatory for later destructive canaries.
+
 Next safe gate: local provider-neutral AudioExecution/Media DAG using deterministic WAV fixtures and FFmpeg 9.0 cleanup/resample/align/mix/master plus waveform, EBU R128, silence and clipping evidence. Stage 2 must remain provider spend `$0.00`; provider STT/TTS is deferred to a separately bounded later gate.
 
 Exit gate:
