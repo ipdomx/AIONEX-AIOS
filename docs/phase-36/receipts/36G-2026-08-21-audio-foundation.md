@@ -1,7 +1,7 @@
 # Phase 36G — Audio, Voice, Music, Songs & Podcast Factory
 
 Date: 2026-08-21
-Status: **IN PROGRESS — Stage 1 provider-neutral planning, rights/consent and QA foundation complete; no external audio execution or spend**
+Status: **IN PROGRESS — Stage 1 merged, Production-activated and no-spend Audio Studio canary accepted; Stage 2 local audio runtime pending**
 
 ## Truth boundary
 
@@ -163,6 +163,37 @@ No Production service, schema, data row, provider credential, provider request o
 - Fix: build the current `web-dashboard/backend/Dockerfile --target test`; copy the current Worktree to a writable temporary repository; set `PATH=/opt/venv/bin:/usr/local/bin:/usr/bin:/bin` explicitly; run fresh PostgreSQL/Redis services; hash retained logs/metadata; and remove every disposable resource after completion.
 - Regression prevention: future Phase36 full Backend gates must use the current Dockerfile test target, a writable temporary source copy, explicit venv PATH, fresh isolated data services, retained log hash and post-run resource cleanup assertion.
 - Final result: corrected harness completed `799/799` Backend tests with `65.06%` coverage and zero PostgreSQL/Redis critical hits.
+
+## Protected merge and Production activation — 2026-08-21
+
+- Protected PR #461 passed every required gate: complete Core contracts, Backend Tests, Frontend Build, Production Docker Build, Owner/VIP Browser boundaries, CodeQL Python/JavaScript, Backend SBOM/vulnerability, Dependency Security, repository secret/hygiene and Phase36 Reporting. Head `d9eee3e29440c00bec0f7ef2bafb46180691e888` merged as `d4d038ebd20f9389b5c9563a803ea6043b6c5f18`.
+- Production source advanced by fast-forward only from `5ddbc08ec304582d30f549c3c6a1edc5e0ad8531` to the protected merge. No schema migration occurred; Alembic remained `20260819_0034`.
+- A new Backend image was built as `sha256:7a821d47a07a2f00178fa2dc9e62e29090b3242d86234e50c2af6a5a48c588eb`. The existing Backend image `sha256:d8cbc6c9134d62534381558b345979c37601df218a6240be1ed36a174f749a11` was retained under a rollback tag.
+- The long-running Studio Worker used an old image whose image metadata had already been pruned from Docker. Its exact merged root filesystem was exported before mutation, hashed, and imported as rollback image `sha256:e8dad6b56c0318d7671b10323e6bd8df208298f09a5166ec98e1a9726e0efadb`. RootFS archive SHA-256: `82220e26bb93baa7155c38c092eba7d83e06c12f56688b48f30aee9cf0e78429`; retained container configuration SHA-256: `7e7765f146aab57534cf2e11751130a0f9b5a18cad5a44e6326ef1201ca26cce`.
+- Candidate validation occurred before service recreation. A `--network none` smoke generated the governed Audio Studio source package with `36G.audio-plan.v1`, six tasks, five inventory-only provider rows, no rendered audio and `external_requests=0 / external_cost_usd=$0.00`. A Compose-equivalent Studio Worker preflight passed against the real Production database and asset volume while active Studio jobs remained zero.
+- Backend was recreated first and reached Healthy with `/ready` `20/20`. Studio Worker was recreated second on the same candidate image and reached Healthy. Frontend, Portal, Nginx, PostgreSQL, Redis, Media, Image, Derivative and Video service identities/start times remained unchanged.
+- Post-deploy state: `current_batch=36G`, `36G=in_progress`, Alembic `0034`, active Studio/Project/Video/Media/Design queues `0/0/0/0/0`; public/portal returned HTTP `200/200`, Owner remained protected by HTTP `302`, and recent Backend/Studio critical log hits were `0/0`.
+
+## Production Audio Studio no-spend canary
+
+- One isolated synthetic `audio` Studio job was queued and processed by the **persistent Production Studio Worker**, not by a test-only worker. It completed in exactly one attempt with safety status `passed` and one Studio revision.
+- The generated ZIP was `6,983` bytes, SHA-256 `ce445daf4c35611a939b39004ef2f9a93529682e5ed976a887e176574a785ed4`. It contained the nine governed source artifacts plus the manifest, six deterministic tasks and five provider entries all marked `inventory_visible`.
+- The canary proved `provider_mode=provider_neutral`, `external_requests=0`, `external_cost_usd=$0.00`, `estimated_external_cost_usd=null`, `render_status=not_started`, no voice-rights requirement for stock narration and no `.wav/.mp3/.m4a/.webm` pretending to be rendered output.
+- Cleanup removed the synthetic database scope and archive. Independent verification returned synthetic organizations/jobs/assets `0/0/0`, global active Studio jobs `0`, and matching artifact files `0`. Studio Worker health after processing was `running/healthy`, cycles/errors `1/0`, `secret_returned=false`; readiness remained `20/20`.
+- Sanitized canary evidence: `.deployment-backups/phase36g-stage1-deploy/stage1-audio-studio-canary-evidence.json`, SHA-256 `7f304e0467783421c71175ac8fae3b90b290d0b383023526ebc348bbf16fdc5c`.
+- Consolidated activation evidence: `.deployment-backups/phase36g-stage1-deploy/phase36g-stage1-production-activation-evidence.json`, SHA-256 `c00a8d957532afbca3887324e4b41faf73fb7db17c001eded63f4b1dd30f14f6`.
+- Rollback-boundary metadata SHA-256: `57edbc793f32749ef8587139483c24ed23f215b10ae0e7a2645fb6708b226677`.
+
+## P36-0019 — Canary cleanup verifier referenced the Organization model with the wrong scope column
+
+- Batch/environment: Phase 36G Stage 1 Production no-spend canary, after successful asset validation.
+- Symptom: the canary process exited non-zero during its final verification loop because it tried `Organization.organization_id`; the Organization table is keyed by `Organization.id`.
+- User impact: none. The Studio job had already completed, the pre-cleanup checkpoint had already been atomically written, and database/file cleanup had already committed before the faulty verification expression ran. No provider request or spend occurred.
+- Root cause: a generic post-cleanup count loop assumed every scoped model exposes `organization_id`; `Organization` is the single root model and instead requires `id == synthetic_org_id`.
+- Detection/evidence: the retained checkpoint proved the completed ZIP/manifest/plan before cleanup. Direct independent queries then proved synthetic organizations/jobs/assets `0/0/0`, active Studio jobs `0`, and no matching artifact file. Studio Worker remained Healthy with errors `0`.
+- Fix: the external canary script now selects `Organization.id` for the root model and `model.organization_id` for all tenant-scoped child models. The job/provider operation was **not rerun**.
+- Regression prevention: future destructive canaries must write a validated-before-cleanup checkpoint, use model-specific cleanup predicates, and independently verify both database and object/file absence before declaring PASS.
+- Final result: deployment and canary remain PASS; the script failure was confined to the post-cleanup verifier and is explicitly retained in the final evidence.
 
 ## External and legal gates retained
 
