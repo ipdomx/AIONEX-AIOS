@@ -457,14 +457,22 @@ Scope:
 - Added governed 48 kHz WAV stereo/mono, AAC/M4A `192 kbps` and Opus/WebM `128 kbps` profiles with exact FFprobe codec/container/rate/channel QA. Master/export emits `36G.audio-qa.v1` from FFmpeg `loudnorm`, `silencedetect` and `astats`; waveform uses `showwavespic`.
 - Disposable PostgreSQL/Redis affected regression is `38/38 PASS`, including tenant isolation, idempotency, stale-worker fencing, Studio materialization and partial revision that reuses the unaffected audio branch. Complete Core is `761/761`; full Backend on fresh PostgreSQL/Redis is `809 passed, 2 warnings, 0 failed` with `64.92%` coverage and zero database/cache critical hits; Ruff/Mypy (`208` files)/compile/YAML/diff PASS. Full Backend metadata SHA-256 `4467245702debe58af52928b2142dbab36d48c5f638f471f5f9ca45e8571bb45`.
 - Real `--network none` Media Worker image `sha256:ddb231abc5ff1797c4b7f76835db162b2108e1b23ea2c927cc135554e463ba26` executed the complete chain. Integrated loudness was master `-15.97`, WAV stereo/mono `-16.04`, AAC/Opus `-16.05 LUFS`; all strict QA passed with provider requests/spend `0 / $0.00`. Smoke evidence SHA-256 `afec9c6930d612a04dcd6de9ac10fd2667d6d089ef89fd3090ef3a95b7d0e7e1`.
-- Source truth remains bounded: Production Media Worker is unchanged and `audio-cleanup-master` remains `source_built` until protected merge/deploy and a persistent-worker Production canary complete with cleanup evidence.
+- At this candidate checkpoint no maturity advanced; the subsequent protected Production deployment, persistent-worker canary and granular `runtime_verified` decision are recorded below.
 
 ##### P36-0020 — Mono loudness normalization preceded final channel conversion
 
 - Real candidate smoke rejected mono WAV at roughly `-19 LUFS` while the requested target was `-16`. The path normalized stereo first and downmixed afterward; the final mono signal therefore lost about `3 LU`.
 - The fix converts to final rate/channel layout before `loudnorm`, then encodes. The `1.5 LU` tolerance was not weakened. Real rerun passed mono at `-16.04 LUFS` and added a mandatory no-network four-format Docker regression. Production/provider state was untouched.
 
-Next safe gate: protected Stage 2 merge, Media Worker-only Production rollout, local no-provider DAG + partial-revision canary, complete object/database cleanup, then a separate maturity closeout. Provider STT/TTS remains deferred and voice/song gates remain closed.
+##### Stage 2 protected merge, Production activation and maturity closeout
+
+- PR #463 passed every protected gate and merged as `998fab35cee414d495050c352ff43667c2cff3ae`. Production fast-forwarded from `b636105914c709ecb8aca105e2fe4314fc49ed2f` with Alembic unchanged at `20260819_0034`.
+- The prior Media Worker image `75704791...` was retained for rollback; the exact merged image `cd0551d4...` passed Production DB/object-volume preflight and a second no-network four-format smoke before Media Worker-only recreation. All non-target service identities remained unchanged/Healthy.
+- The persistent Production Worker completed real WAV stereo/mono, AAC/M4A and Opus/WebM outputs at `48 kHz` and `-16.00 LUFS`, generated PNG waveforms, passed `36G.audio-qa.v1`, recovered an expired lease with fencing `1 → 2`, and selectively reran only `align-001/mix/master/waveform/export` while reusing `align-002` unchanged.
+- Studio reached revision `3`; cleanup deleted/verified `45/45` objects and all synthetic rows, queues returned to zero, Worker cycles/errors were `43/0`, readiness passed `20/20`, and provider requests/spend remained `0 / $0.00`. Consolidated evidence SHA-256 `76bf194dca4bff3328d91c439d1809c91d62e92005073b2f96730d7b884d3f29`.
+- Only `audio-cleanup-master` advances to `runtime_verified`. STT/TTS/podcast remain `source_built`; song and voice transformation remain `specified`; 36G remains `in_progress`.
+
+Next safe gate: a separately bounded Stage 3 STT or stock-voice TTS acceptance with free preflight, official price cap and explicit operator approval. Music/vocals and voice transformation/clone remain closed legal/provider gates.
 
 Exit gate:
 - complete user-defined song/audio production can reach final rendered files with separated evidence for lyrics/composition/vocals/stems/mix/master.

@@ -1,7 +1,8 @@
 # Phase 36G — Audio, Voice, Music, Songs & Podcast Factory
 
 Date: 2026-08-21
-Status: **IN PROGRESS — Stage 1 Production-accepted; Stage 2 local audio runtime source/isolated candidate complete, protected merge/deploy pending**
+Updated: 2026-08-22
+Status: **IN PROGRESS — Stage 2 local cleanup/mix/master/export runtime Production-accepted; provider STT/TTS, music/vocals and voice transformation/clone remain gated**
 
 ## Truth boundary
 
@@ -12,9 +13,9 @@ Stage 1 performs no provider request, reads no provider credential and estimates
 The Phase 36 registry remains truthful:
 
 - `36G=in_progress` and `current_batch=36G`;
-- `stt-tts-dubbing`, `audio-cleanup-master`, and `podcast-jingle-narration` remain `source_built`;
+- `audio-cleanup-master` is `runtime_verified` by the protected Stage 2 Production acceptance; `stt-tts-dubbing` and `podcast-jingle-narration` remain `source_built`;
 - `voice-transformation` and `song-production` remain `specified`;
-- no 36G capability is promoted to `provider_connected`, `runtime_verified`, `scaled`, or `production_ready` by this source-only checkpoint.
+- no other 36G capability is promoted to `provider_connected`, `runtime_verified`, `scaled`, or `production_ready`; Phase 36G remains `in_progress`.
 
 ## Implemented governed audio factory
 
@@ -257,7 +258,7 @@ Codec, container, sample rate and channel count are checked with FFprobe. Final 
 - Final real-image build log SHA-256: `e4deec3c32fb15fe3e990bd95a9c0681ad2c29f8e414b62dfdc2f2c157d6a4e3`.
 - Final real-image smoke evidence SHA-256: `afec9c6930d612a04dcd6de9ac10fd2667d6d089ef89fd3090ef3a95b7d0e7e1`.
 
-This is source/isolated evidence only. The persistent Production Media Worker is unchanged, `audio-cleanup-master` remains `source_built`, and no output profile is promoted by this checkpoint alone.
+This candidate evidence alone did not promote maturity; the later protected Production acceptance and granular promotion decision are documented below.
 
 ## P36-0020 — Mono export loudness normalization ran before channel downmix
 
@@ -279,14 +280,55 @@ This is source/isolated evidence only. The persistent Production Media Worker is
 - no paid provider execution without official pricing, exact request cap, explicit operator approval and cleanup evidence;
 - no maturity promotion from capability inventory alone.
 
-## Next safe gate — Stage 2 protected merge and Production acceptance
+## Stage 2 protected merge and Production activation — 2026-08-22
 
-1. complete fresh Core/Backend/security/reporting gates;
-2. protected PR and Production Docker smoke;
-3. retain the current Production Media Worker rollback image;
-4. rebuild/recreate the Media Worker only, with no migration or provider credential;
-5. run one bounded Production local-audio DAG through the persistent worker;
-6. prove waveform, `36G.audio-qa.v1`, Studio revision, selective downstream-only revision and full database/object cleanup;
-7. only after that evidence may `audio-cleanup-master` advance to `runtime_verified` in a separate status closeout.
+- Protected PR #463 passed every required gate: Core, Backend, Frontend, Production Docker, the FFmpeg 9 four-format no-network audio smoke, Owner/VIP browser boundaries, CodeQL Python/JavaScript, Backend SBOM/vulnerability, Dependency Security, repository secret/hygiene and Phase36 Reporting. Head `a45ac64f4c8f6e848b54385f240eb07d30b3611b` merged as `998fab35cee414d495050c352ff43667c2cff3ae`.
+- Production source advanced by fast-forward only from `b636105914c709ecb8aca105e2fe4314fc49ed2f` to the protected merge. No migration was introduced; Alembic remained `20260819_0034`.
+- The prior Media Worker image `sha256:75704791b57e2743a39ec74e9132fc181caa060e37a4104585cbbd2764afcf3d` was retained as `aionex-aios-media-worker:rollback-phase36g-stage2-20260821T234531Z`. The merged candidate was built as `sha256:cd0551d4606dab2f4c189ec374fca02f7f60340c46f20c61e09cb5c06670a3a9`.
+- A Compose-equivalent candidate preflight touched the real Production database/object volume read-only except for the storage writability probe, called no claim path, and kept active Media steps `0 → 0`. It proved FFmpeg `9.0`, software-only operator policy, the governed encoders and all required Stage 2 audio filters.
+- The exact merged candidate then passed a second `--network none` smoke. WAV stereo/mono, AAC/M4A and Opus/WebM plus a `1200×320` PNG waveform passed codec/container/rate/channel and `36G.audio-qa.v1` checks. Measured integrated loudness remained master `-15.97`, WAV stereo/mono `-16.04`, AAC/Opus `-16.05 LUFS`; provider requests/spend stayed `0 / $0.00`.
+- Only `web-dashboard-media-worker-1` was recreated. It moved from container `645073d9...` / old image `75704791...` to container `00603ac0...` / candidate image `cd0551d4...` and reached Healthy. Backend, Studio Worker, PostgreSQL, Redis, Image, Derivative, Video, Frontend, Portal and Nginx identities/start times remained unchanged.
 
-Stage 2 remains provider-spend `$0.00`. Stage 3 may later consider one separately cost-capped STT/TTS provider route. Voice transformation/cloning and song/music-provider execution remain later consent/legal/provider gates.
+## Stage 2 persistent Production Worker canary
+
+- One synthetic tenant scope supplied two real governed WAV fixtures to four independent local DAGs. The persistent Production Media Worker—not a test worker—produced:
+  - stereo PCM WAV: `432,078` bytes, `48 kHz`, 2 channels, `-16.00 LUFS`;
+  - mono PCM WAV: `216,078` bytes, `48 kHz`, 1 channel, `-16.00 LUFS`;
+  - AAC/M4A: `55,832` bytes, `48 kHz`, 2 channels, `-16.00 LUFS`;
+  - Opus/WebM: `40,142` bytes, `48 kHz`, 2 channels, `-16.00 LUFS`.
+- Every output and master passed loudness, true-peak, LRA, clipping and silence evidence under `36G.audio-qa.v1`; every graph also produced a real PNG waveform and advanced its bound Studio asset to revision `2`.
+- Durable crash recovery was exercised without provider work: a synthetic first step was committed as an expired `running` lease owned by a simulated crashed worker. The persistent worker reclaimed the same step with `attempts=2`, fencing `1 → 2`, replaced the stale owner and completed the graph; all unaffected steps remained single-attempt.
+- A partial revision changed only `align-001` offset. The affected set was exactly `align-001 → mix → master → waveform → export`; `align-002` was reused with the identical checksum and `reused-render` provenance. The final export checksum changed and Studio advanced from revision `2` to `3`.
+- A validated-before-cleanup checkpoint was written before deletion. Cleanup deleted and independently verified missing `45/45` object keys, removed every synthetic Organization/User/Studio/Media/Provider row and returned global active Media steps to `0`.
+- Post-canary Worker health was `running/healthy`, FFmpeg `9.0`, cycles/errors `43/0`, `secret_returned=false`. All queues were `0`, `/ready` passed `20/20`, public/portal returned `200/200`, Owner remained protected by `302`, and Backend/Studio/Media critical-log hits were `0/0/0`.
+
+### Stage 2 evidence
+
+- Candidate preflight SHA-256: `2b21eed3f3f958491bac32b6059b5f5c9ffc5bcdcb29d05f03c1292636e9d15b`.
+- Merged-candidate no-network smoke SHA-256: `45d164c153acd4565100fd3c051f99a90ed1f6624d73e085f9022e0abcfc9894`.
+- Media Worker recreation evidence SHA-256: `c7add66bde52c6fa860af4f78dee9e82e2f34ad43a8eedf0d6d0f64e4c682523`.
+- Validated-before-cleanup canary checkpoint SHA-256: `60ea4986750fe220f75beb9f0f826e3bd395707ee636fe2a225ee04af040e016`.
+- Final sanitized canary evidence SHA-256: `162b8d0bb83bb2d1119994c98e1037b30afaf8020a853bc85c02c70cef88cd43`.
+- Consolidated Production activation evidence: `.deployment-backups/phase36g-stage2-deploy/phase36g-stage2-production-activation-evidence.json`, SHA-256 `76bf194dca4bff3328d91c439d1809c91d62e92005073b2f96730d7b884d3f29`.
+
+## P36-0021 — Production preflight wrapper initially used the wrong interpolation file and host Python alias
+
+- The first wrapper attempt stopped before creating a container because Compose interpolation used `.env`, which intentionally lacks required Production values. A corrected run used `.env.production`; its in-container preflight passed, but the wrapper then exited while formatting the already-written evidence because the host exposes `python3`, not `python`.
+- No claim, database mutation, service restart, provider request or spend occurred in either wrapper failure. The valid preflight file was parsed and verified instead of repeating work.
+- The permanent rule is: Production Compose probes must pass both `--env-file .env.production` and the absolute `AIOS_ENV_FILE`, and host evidence tooling must call `python3` explicitly.
+
+## Stage 2 maturity decision
+
+Only `audio-cleanup-master` advances from `source_built` to `runtime_verified`. This decision is supported by protected source, exact merged-image smoke, persistent-worker execution, crash recovery, selective partial revision, final Studio materialization and complete cleanup evidence.
+
+The following claims do **not** advance:
+
+- `stt-tts-dubbing` remains `source_built` because no provider STT/TTS execution has been accepted;
+- `podcast-jingle-narration` remains `source_built` because no complete provider-rendered narration/podcast/jingle reached final audio;
+- `song-production` and `voice-transformation` remain `specified`;
+- voice cloning/transformation remains blocked by consent, rights, provider identity and exact runtime evidence;
+- Phase 36G remains `in_progress`.
+
+## Next safe gate — Stage 3
+
+Stage 3 may evaluate one separately bounded STT or stock-voice TTS route only after free preflight, official pricing/cost cap, exact operation-specific runtime evidence and explicit operator approval. Music/vocal generation, voice transformation and voice cloning remain later legal/rights/provider gates and must not be bundled into that first provider acceptance.

@@ -142,13 +142,13 @@ def test_phase36f_maturity_matches_live_video_exit_evidence_without_overclaiming
     assert BATCHES[6].status == "in_progress"
 
 
-def test_phase36g_stage1_evidence_is_attached_without_overclaiming_maturity() -> None:
+def test_phase36g_stage2_promotes_only_local_cleanup_master_without_overclaiming() -> None:
     capabilities = {item.capability_id: item for item in CAPABILITIES}
     receipt = "docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md"
     expected = {
         "stt-tts-dubbing": "source_built",
         "voice-transformation": "specified",
-        "audio-cleanup-master": "source_built",
+        "audio-cleanup-master": "runtime_verified",
         "song-production": "specified",
         "podcast-jingle-narration": "source_built",
     }
