@@ -374,6 +374,43 @@ services:
     cap_drop: ["ALL"]
     networks: [aionex-network]
 
+
+  audio-dubbing-worker:
+    profiles: ["audio-execution"]
+    image: aionex-aios-backend:local
+    user: "1000:1000"
+    restart: unless-stopped
+    mem_limit: 2g
+    cpus: "1.5"
+    pids_limit: 256
+    stop_grace_period: 45s
+    command: ["python", "-m", "app.services.audio_dubbing_worker"]
+    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      MEDIA_STORAGE_TYPE: inherit
+      MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
+      AUDIO_DUBBING_LIVE_ENABLED: "false"
+      AIOS_REPO_ROOT: /workspace
+      PYTHONPATH: /workspace/src:/app
+    volumes:
+      - ..:/workspace:ro
+      - media_asset_data:/var/lib/aionex/media-assets:rw
+    depends_on:
+      backend: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.services.audio_dubbing_worker", "--healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    networks: [aionex-network]
+
   video-provider-worker:
     profiles: ["video-execution"]
     image: aionex-aios-video-provider-worker:local

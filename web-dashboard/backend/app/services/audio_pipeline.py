@@ -40,12 +40,15 @@ class LocalAudioSourceBinding:
     node: MediaAssetNode
     offset_ms: int = 0
     gain_db: float = 0.0
+    target_duration_ms: int | None = None
 
     def __post_init__(self) -> None:
         if not 0 <= self.offset_ms <= 60_000:
             raise AudioPipelineError("audio source offset is outside the allowed range")
         if not -24.0 <= float(self.gain_db) <= 24.0:
             raise AudioPipelineError("audio source gain is outside the allowed range")
+        if self.target_duration_ms is not None and not 250 <= int(self.target_duration_ms) <= 300_000:
+            raise AudioPipelineError("audio source target duration is outside the allowed range")
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,11 +184,16 @@ def build_local_audio_graph_spec(
                         "output_profile": _INTERNAL_AUDIO_PROFILE,
                         "offset_ms": binding.offset_ms,
                         "gain_db": round(float(binding.gain_db), 3),
+                        "target_duration_ms": binding.target_duration_ms,
+                        "timing_fit_mode": (
+                            "pad-to-window" if binding.target_duration_ms is not None else "none"
+                        ),
                         "hardware_adapter": "software",
                     },
                     timeline_metadata={
                         "ordinal": index - 1,
                         "offset_ms": binding.offset_ms,
+                        "target_duration_ms": binding.target_duration_ms,
                     },
                 ),
             ]

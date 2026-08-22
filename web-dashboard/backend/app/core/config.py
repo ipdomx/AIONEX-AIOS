@@ -603,6 +603,34 @@ class Settings(BaseSettings):
         default="/tmp/aionex-audio-transcript-worker-health.json",
         validation_alias="AUDIO_TRANSCRIPT_WORKER_HEALTH_FILE",
     )
+    AUDIO_DUBBING_LIVE_ENABLED: bool = Field(
+        default=False, validation_alias="AUDIO_DUBBING_LIVE_ENABLED"
+    )
+    AUDIO_DUBBING_WORKER_ID: str = Field(
+        default="", validation_alias="AUDIO_DUBBING_WORKER_ID"
+    )
+    AUDIO_DUBBING_POLL_SECONDS: int = Field(
+        default=3, ge=1, le=60, validation_alias="AUDIO_DUBBING_POLL_SECONDS"
+    )
+    AUDIO_DUBBING_LEASE_SECONDS: int = Field(
+        default=300, ge=30, le=3600, validation_alias="AUDIO_DUBBING_LEASE_SECONDS"
+    )
+    AUDIO_DUBBING_PROVIDER_TIMEOUT_SECONDS: int = Field(
+        default=120,
+        ge=10,
+        le=300,
+        validation_alias="AUDIO_DUBBING_PROVIDER_TIMEOUT_SECONDS",
+    )
+    AUDIO_DUBBING_MAX_TRANSCRIPT_BYTES: int = Field(
+        default=33_554_432,
+        ge=1_048_576,
+        le=134_217_728,
+        validation_alias="AUDIO_DUBBING_MAX_TRANSCRIPT_BYTES",
+    )
+    AUDIO_DUBBING_WORKER_HEALTH_FILE: str = Field(
+        default="/tmp/aionex-audio-dubbing-worker-health.json",
+        validation_alias="AUDIO_DUBBING_WORKER_HEALTH_FILE",
+    )
     VIDEO_EXECUTION_LIVE_ENABLED: bool = Field(
         default=False, validation_alias="VIDEO_EXECUTION_LIVE_ENABLED"
     )

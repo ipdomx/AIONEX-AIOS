@@ -654,7 +654,28 @@ class FFmpegRuntime:
             gain_db = self._bounded_float(metadata, "gain_db", 0.0, -24.0, 24.0)
             rate = profile.sample_rate_hz or 48_000
             layout = "mono" if profile.channels == 1 else "stereo"
+            target_duration_ms_raw = metadata.get("target_duration_ms")
+            target_duration_ms = (
+                None
+                if target_duration_ms_raw in {None, "", 0}
+                else self._bounded_int(
+                    metadata, "target_duration_ms", 1_000, 250, 300_000
+                )
+            )
+            timing_fit_mode = str(metadata.get("timing_fit_mode") or "none").strip()
+            if timing_fit_mode not in {"none", "pad-to-window"}:
+                raise MediaFFmpegError("audio timing fit mode is unsupported")
+            if timing_fit_mode == "pad-to-window" and target_duration_ms is None:
+                raise MediaFFmpegError("audio timing fit requires a target duration")
             filters = [f"volume={gain_db:.3f}dB"]
+            if target_duration_ms is not None:
+                target_seconds = target_duration_ms / 1_000.0
+                filters.extend(
+                    [
+                        f"apad=pad_dur={target_seconds:.3f}",
+                        f"atrim=duration={target_seconds:.3f}",
+                    ]
+                )
             if offset_ms:
                 filters.append(f"adelay={offset_ms}:all=1")
             filters.extend([f"aresample={rate}", f"aformat=channel_layouts={layout}"])
