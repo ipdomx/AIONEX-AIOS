@@ -11,6 +11,8 @@ from app.services.audio_speech_providers import (
     OpenAIStockSpeechAdapter,
     ProviderSpeechFailure,
     ProviderSpeechRequest,
+    canonical_wav_from_pcm,
+    inspect_pcm_s16le,
     inspect_pcm_wav,
 )
 
@@ -30,6 +32,10 @@ def wav_bytes(
     return output.getvalue()
 
 
+def pcm_bytes(*, frames: int = 24_000, channels: int = 1) -> bytes:
+    return b"\x00\x00" * frames * channels
+
+
 def request(**overrides) -> ProviderSpeechRequest:
     payload = {
         "provider": "openai",
@@ -47,9 +53,11 @@ def request(**overrides) -> ProviderSpeechRequest:
 
 
 @pytest.mark.asyncio
-async def test_openai_stock_speech_uses_exact_endpoint_payload_and_returns_bounded_wav() -> None:
+async def test_openai_stock_speech_uses_exact_endpoint_payload_and_returns_bounded_wav() -> (
+    None
+):
     observed: dict[str, object] = {}
-    body = wav_bytes()
+    body = pcm_bytes()
 
     def handler(req: httpx.Request) -> httpx.Response:
         observed["method"] = req.method
@@ -78,17 +86,24 @@ async def test_openai_stock_speech_uses_exact_endpoint_payload_and_returns_bound
         "model": "gpt-4o-mini-tts-2025-12-15",
         "input": "Welcome to AIONEX.",
         "voice": "marin",
-        "response_format": "wav",
+        "response_format": "pcm",
         "speed": 1.0,
         "stream_format": "audio",
         "instructions": "Speak clearly and warmly.",
     }
-    assert result.body == body
+    assert result.body == canonical_wav_from_pcm(body)
     assert result.content_type == "audio/wav"
     assert result.request_id == "req-stock-tts"
     assert result.metadata["duration_seconds"] == pytest.approx(1.0)
     assert result.metadata["sample_rate_hz"] == 24_000
     assert result.metadata["channels"] == 1
+    assert result.metadata["provider_response_format"] == "pcm"
+    assert result.metadata["canonical_output_format"] == "wav"
+    assert result.metadata["provider_pcm_size_bytes"] == len(body)
+    with wave.open(io.BytesIO(result.body), "rb") as reader:
+        assert reader.getnframes() == 24_000
+        assert reader.getframerate() == 24_000
+        assert reader.getnchannels() == 1
     assert result.actual_cost_usd is None
     assert result.cost_basis == "official_rate_cap"
     assert result.usage["provider_usage_reported"] is False
@@ -118,7 +133,7 @@ async def test_stock_speech_rejects_unpinned_custom_or_invalid_requests_before_h
     def handler(_: httpx.Request) -> httpx.Response:
         nonlocal calls
         calls += 1
-        return httpx.Response(200, content=wav_bytes())
+        return httpx.Response(200, content=pcm_bytes())
 
     adapter = OpenAIStockSpeechAdapter(transport=httpx.MockTransport(handler))
     with pytest.raises(ProviderSpeechFailure):
@@ -158,7 +173,9 @@ async def test_rate_limit_is_definitive_and_bounded_resubmit_safe() -> None:
 
 
 @pytest.mark.asyncio
-async def test_server_error_and_transport_failure_are_ambiguous_not_auto_retryable() -> None:
+async def test_server_error_and_transport_failure_are_ambiguous_not_auto_retryable() -> (
+    None
+):
     server = OpenAIStockSpeechAdapter(
         transport=httpx.MockTransport(lambda _: httpx.Response(503, json={"error": {}}))
     )
@@ -203,3 +220,31 @@ def test_wav_inspector_rejects_invalid_provider_audio(body: bytes) -> None:
 def test_wav_inspector_enforces_duration_cap() -> None:
     with pytest.raises(ProviderSpeechFailure, match="failed"):
         inspect_pcm_wav(wav_bytes(frames=48_000), max_duration_seconds=1.0)
+
+
+def test_raw_pcm_inspector_uses_actual_bytes_and_enforces_duration_cap() -> None:
+    evidence = inspect_pcm_s16le(pcm_bytes(frames=24_000), max_duration_seconds=2.0)
+    assert evidence == {
+        "container": "pcm",
+        "codec": "pcm_s16le",
+        "channels": 1,
+        "sample_width_bytes": 2,
+        "sample_rate_hz": 24_000,
+        "frame_count": 24_000,
+        "duration_seconds": 1.0,
+        "provider_response_format": "pcm",
+    }
+    with pytest.raises(ProviderSpeechFailure):
+        inspect_pcm_s16le(b"\x00", max_duration_seconds=2.0)
+    with pytest.raises(ProviderSpeechFailure):
+        inspect_pcm_s16le(pcm_bytes(frames=48_000), max_duration_seconds=1.0)
+
+
+def test_pcm_wrapper_produces_canonical_finite_wav() -> None:
+    raw = pcm_bytes(frames=12_000)
+    wrapped = canonical_wav_from_pcm(raw)
+    evidence = inspect_pcm_wav(wrapped, max_duration_seconds=1.0)
+    assert evidence["duration_seconds"] == pytest.approx(0.5)
+    assert evidence["sample_rate_hz"] == 24_000
+    assert evidence["channels"] == 1
+    assert len(wrapped) == len(raw) + 44

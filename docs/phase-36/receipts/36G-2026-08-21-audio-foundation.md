@@ -2,7 +2,7 @@
 
 Date: 2026-08-21
 Updated: 2026-08-22
-Status: **IN PROGRESS — Stage 2 Production-accepted; Stage 3 pinned stock-voice TTS source/isolated candidate under protected validation, with zero billable generation so far**
+Status: **IN PROGRESS — Stage 2 Production-accepted; Stage 3 source/deployment accepted disabled, with the first live stock-voice attempt rejected locally and a PCM transport correction under protected validation**
 
 ## Truth boundary
 
@@ -367,7 +367,7 @@ The Owner explicitly approved proceeding from the Stage 2 safe checkpoint on 202
 ### Official route and free credential/model preflight
 
 - Provider/model: OpenAI `gpt-4o-mini-tts-2025-12-15`, pinned snapshot only.
-- Provider operation: `POST /v1/audio/speech`, stock voice, WAV response.
+- Provider operation: `POST /v1/audio/speech`, stock voice. The corrected transport requests the provider’s documented raw 24 kHz signed 16-bit mono PCM, validates duration from the actual byte count, and wraps a canonical finite-length WAV locally before durable completion.
 - Initial accepted voice set is restricted to provider built-in stock voices; the first canary is planned for `marin`. No voice sample, custom voice ID, cloned identity or rights claim is accepted by this route.
 - Official pricing evidence recorded for the gate is `$0.60 / 1M` text-input tokens and `$12.00 / 1M` audio-output tokens. The synchronous Speech endpoint does not return exact per-request usage/cost in the current contract, so the durable execution must retain `actual_cost_usd=null` unless the provider later returns authoritative usage. The bounded gate is therefore expressed truthfully as one request, a short input, a maximum output duration and a conservative `$0.05` operator cap — never as fabricated exact billing.
 - Credential-specific free model lookup returned HTTP `200` and exact model ID match. Total free lookup requests were `2`; billable speech-generation requests remained `0`, provider spend remained `$0.00`, and no credential/header was retained. Sanitized preflight SHA-256: `9c2ea19a39c4ad1fd3aab731012acbfe14a2132000082e5e8edb79fefbaa809a`.
@@ -393,7 +393,7 @@ A governed `speech` or `narration` plan compiles to:
 
 `pinned stock speech -> local cleanup -> local mastering -> waveform -> governed final export`
 
-The provider node has no FFmpeg render step. After one provider WAV completes, the already Production-accepted Media Worker performs cleanup, `-16 LUFS` mastering, `36G.audio-qa.v1`, a real PNG waveform and the selected final WAV/AAC/Opus export. Music and generated SFX are rejected before graph creation. The pipeline requires one stock voice/speaker, zero source audio and no voice transformation/clone path.
+The provider node has no FFmpeg render step. After provider PCM is validated and wrapped into a canonical governed WAV, the already Production-accepted Media Worker performs cleanup, `-16 LUFS` mastering, `36G.audio-qa.v1`, a real PNG waveform and the selected final WAV/AAC/Opus export. Music and generated SFX are rejected before graph creation. The pipeline requires one stock voice/speaker, zero source audio and no voice transformation/clone path.
 
 A permanent `audio-speech-worker` service is included under the explicit `audio-execution` Compose profile, non-root, all Linux capabilities dropped, `no-new-privileges`, and `AUDIO_SPEECH_LIVE_ENABLED=false`. Production deployment must start in this disabled state; live acceptance will use a separate one-shot execution while the persistent worker stays hard-disabled.
 
@@ -437,14 +437,22 @@ No Production source, service, schema or data row was changed by this source wor
 - Runtime logic, migration, provider transport and database tests did not fail. The contract was updated from `11/10` to `12/11` and now also asserts the new worker profile, command, non-root user, `live=false`, dropped capabilities and `no-new-privileges` boundary.
 - The focused contract passed, and the retained complete rerun finished `841/841 PASS` with the same `65.21%` coverage and zero database/cache critical hits.
 
-## Next safe gate — Stage 3A protected disabled deployment
+## P36-0027 — streamed provider WAV exposed an indeterminate duration header
 
-1. complete migration round-trip, complete Core/Backend/static/security/reporting gates and real Docker offline smoke;
-2. merge only after every protected check is green;
-3. create and verify a fresh Production backup/restore before Alembic `0035`;
-4. deploy Backend plus the hard-disabled `audio-speech-worker`, with all existing provider/media workers unchanged where possible;
-5. prove `audio_speech_executions=0`, live flag false, queues zero and no provider spend;
-6. only then run one separately evidenced one-shot stock-voice WAV canary with `max_attempts=1`, short input, `20s` duration cap and `$0.05` operator cap;
-7. finish through the persistent local Media Worker, validate QA/Studio revision, then delete and independently verify every synthetic row/object.
+- Protected PR #467 merged as `2cafe0243a81e51c6502655fd33bf93eb57c8b90`. A pre-`0035` PostgreSQL dump/restore passed, Production migrated `0034 -> 0035`, Backend was recreated and the new permanent Audio Speech Worker started hard-disabled with cycles/errors `0/0`; all non-target services remained unchanged and provider activity stayed zero during deployment.
+- The first real one-shot used the pinned model, built-in `marin` voice, a short synthetic input, `max_attempts=1`, a `20s` duration cap and a `$0.05` approved upper bound. Exactly one provider HTTP invocation occurred. The provider response passed RIFF/WAVE parsing but its streamed header reported a duration outside the strict cap, so the adapter rejected it as `provider_audio_duration` before object storage, Media execution or Studio revision.
+- Exact provider billing was not returned and is therefore not fabricated; `actual_cost_usd` remains unknown and the approved upper bound is `$0.05`. No provider request ID or output object was committed. The failed synthetic scope was checkpointed, then deleted; Audio/Media active counts returned to zero and the permanent worker remained disabled.
+- The correction does not weaken the duration gate. It requests the provider’s documented headerless PCM contract (`24 kHz`, signed `16-bit`, mono), derives duration from the actual byte length, and only then wraps those validated samples into a canonical finite WAV. This avoids trusting a streaming RIFF length placeholder while preserving the same governed WAV/local-mastering contract.
+- Regression coverage requires the exact provider payload to request `pcm`, rejects odd/truncated or over-duration PCM before completion, and proves the local wrapper emits a finite WAV accepted by the existing WAV inspector. The correction passed provider/worker tests `22/22`, disposable PostgreSQL/Redis Audio regression `44/44` with critical hits `0/0`, complete Core `761/761`, and complete Backend `842 passed, 1 skipped, 2 warnings, 0 failed` with `65.10%` coverage and database/cache critical hits `0/0`. Retained Backend log SHA-256 `998bfcb7e937177545d3ef8f6c16cff8c16b152803920a557d9e2c4d7387c4e2`; metadata SHA-256 `30db43901919b7aa60db26d2596c050d87a5b6b5b6c9feaddd698d3750a228bc`. No second live request is permitted until this correction passes protected CI and is deployed disabled.
+- Sanitized failed-canary evidence SHA-256: `1d8ab0fe00f38dc370f9b2590924d823f409c611e18f674aaf650c19fbcce673`; cleanup/incident evidence SHA-256: `0594a12676d82adb72dfd48d3e003280820fd01ce21c1103fd47e94b9872c859`.
+
+## Next safe gate — P36-0027 correction and second bounded stock-voice canary
+
+1. merge the PCM transport correction only after every protected CI gate is green;
+2. rebuild/recreate Backend and the permanently hard-disabled `audio-speech-worker` only; Alembic remains `0035` and no provider request is allowed during deployment;
+3. prove `audio_speech_executions=0`, active Media/Studio queues zero, live flag false and all non-target service identities unchanged;
+4. run one **new**, separately evidenced one-shot with `max_attempts=1`, short synthetic input, `20s` duration cap and the same `$0.05` approved upper bound; this is not an automatic retry of the failed execution;
+5. require provider PCM byte-length validation, canonical WAV wrapping, the persistent local Media Worker, `36G.audio-qa.v1`, waveform and Studio revision before acceptance;
+6. checkpoint before cleanup, then delete and independently verify every synthetic row/object and return all queues to zero.
 
 No 36G maturity changes at this source checkpoint. Even after a successful stock TTS canary, the aggregate `stt-tts-dubbing` capability must not become `runtime_verified` until its broader STT/dubbing scope is separately evidenced or split into truthful granular capabilities.
