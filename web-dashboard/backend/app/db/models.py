@@ -3790,12 +3790,12 @@ class AudioDubbingExecution(Base, TimestampMixin):
     output_profile_id: Mapped[str] = mapped_column(String(80), nullable=False)
     attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     max_attempts: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
-    lease_token: [REDACTED] | None] = mapped_column(String(36))
+    lease_token: Mapped[str | None] = mapped_column(String(36))
     lease_owner: Mapped[str | None] = mapped_column(String(160), index=True)
     lease_expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), index=True
     )
-    fencing_token: [REDACTED] = mapped_column(Integer, default=0, nullable=False)
+    fencing_token: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     available_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     provider_request_id: Mapped[str | None] = mapped_column(String(200), index=True)
     provider_response_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)

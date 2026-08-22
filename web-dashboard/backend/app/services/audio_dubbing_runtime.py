@@ -71,8 +71,8 @@ class AudioDubbingLeaseLost(AudioDubbingExecutionError):
 @dataclass(frozen=True, slots=True)
 class AudioDubbingClaim:
     execution_id: str
-    lease_token: [REDACTED]
-    fencing_token: [REDACTED]
+    lease_token: str
+    fencing_token: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -271,7 +271,7 @@ async def create_audio_dubbing_execution(
         output_profile_id=spec.output_profile_id,
         attempts=0,
         max_attempts=1,
-        fencing_token=[REDACTED]
+        fencing_token=0,
         provider_response_metadata={},
         usage_metadata={},
         estimated_translation_cost_usd=spec.estimated_translation_cost_usd,
@@ -351,7 +351,7 @@ class AudioDubbingExecutionAuthority:
             row is not None
             and row.status == "running"
             and row.lease_owner == self.worker_id
-            and row.lease_token =[REDACTED] claim.lease_token
+            and row.lease_token == claim.lease_token
             and int(row.fencing_token) == claim.fencing_token
         ):
             raise AudioDubbingLeaseLost(claim.execution_id)
@@ -396,15 +396,15 @@ class AudioDubbingExecutionAuthority:
                 row.error_message = (
                     "Translation provider outcome is ambiguous; automatic resubmission is forbidden"
                 )
-                row.lease_token = [REDACTED]
+                row.lease_token = None
                 row.lease_owner = None
                 row.lease_expires_at = None
                 row.completed_at = now
                 await session.commit()
                 return None
             row.status = "running"
-            row.fencing_token = [REDACTED] + 1
-            row.lease_token = [REDACTED]
+            row.fencing_token = int(row.fencing_token) + 1
+            row.lease_token = str(uuid4())
             row.lease_owner = self.worker_id
             row.lease_expires_at = now + timedelta(seconds=self.lease_seconds)
             row.available_at = None
@@ -459,7 +459,7 @@ class AudioDubbingExecutionAuthority:
                 row.completed_at = _now()
             row.error_code = code.strip()[:120] or "dubbing_translation_failure"
             row.error_message = message.strip()[:1_000] or "Dubbing translation failed"
-            row.lease_token = [REDACTED]
+            row.lease_token = None
             row.lease_owner = None
             row.lease_expires_at = None
             await session.commit()
@@ -572,7 +572,7 @@ class AudioDubbingExecutionAuthority:
                     )
                 )
                 row.translation_completed_at = completed
-                row.lease_token = [REDACTED]
+                row.lease_token = None
                 row.lease_owner = None
                 row.lease_expires_at = None
                 row.available_at = None

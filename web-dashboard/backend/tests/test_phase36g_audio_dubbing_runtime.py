@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import io
 import json
 import wave
@@ -20,7 +19,6 @@ from app.db.models import (
     AudioSpeechExecution,
     MediaAssetGraph,
     MediaAssetNode,
-    MediaRenderStep,
     Organization,
     StudioAsset,
     StudioAssetRevision,
@@ -46,7 +44,7 @@ from app.services.audio_dubbing_runtime import (
 )
 from app.services.media_graph_runtime import MediaGraphScope
 from app.services.media_storage import LocalMediaObjectStore
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, select
 
 
 RUNTIME_EVIDENCE = "c" * 64
@@ -405,7 +403,7 @@ async def test_dubbing_execution_is_idempotent_unarmed_and_exact_cost_gated(
             assert row.status == "queued" and row.armed_at is not None
             await session.commit()
         claim = await authority.claim()
-        assert claim is not None and claim.fencing_token =[REDACTED] 1
+        assert claim is not None and claim.fencing_token == 1
         await authority.mark_submission_started(claim)
         async with SessionLocal() as session:
             row = await session.get(AudioDubbingExecution, first.execution_id)
@@ -438,21 +436,21 @@ async def test_expired_pre_submit_dubbing_lease_is_reclaimed_and_fences_stale_wo
             store=store, worker_id="worker-b", lease_seconds=30
         )
         stale = await worker_a.claim()
-        assert stale is not None and stale.fencing_token =[REDACTED] 1
+        assert stale is not None and stale.fencing_token == 1
         async with SessionLocal() as session:
             row = await session.get(AudioDubbingExecution, result.execution_id)
             assert row is not None
             row.lease_expires_at = datetime.now(UTC) - timedelta(seconds=1)
             await session.commit()
         current = await worker_b.claim()
-        assert current is not None and current.fencing_token =[REDACTED] 2
+        assert current is not None and current.fencing_token == 2
         with pytest.raises(AudioDubbingLeaseLost):
             await worker_a.mark_submission_started(stale)
         await worker_b.mark_submission_started(current)
         async with SessionLocal() as session:
             row = await session.get(AudioDubbingExecution, result.execution_id)
             assert row is not None and row.attempts == 1
-            assert row.lease_owner == "worker-b" and row.fencing_token =[REDACTED] 2
+            assert row.lease_owner == "worker-b" and row.fencing_token == 2
     finally:
         await cleanup(scope)
 
@@ -670,24 +668,24 @@ async def test_completed_segment_speech_opens_timing_fit_final_graph_and_finishe
             row = await session.get(AudioDubbingExecution, execution_id)
             assert row is not None and row.status == "rendering"
             assert row.final_graph_id == graph_id
-            align_steps = list(
+            align_nodes = list(
                 (
                     await session.scalars(
-                        select(MediaRenderStep).where(
-                            MediaRenderStep.graph_id == graph_id,
-                            MediaRenderStep.operation == "audio_align",
+                        select(MediaAssetNode).where(
+                            MediaAssetNode.graph_id == graph_id,
+                            MediaAssetNode.node_type == "audio-alignment",
                         )
                     )
                 ).all()
             )
-            assert len(align_steps) == 2
+            assert len(align_nodes) == 2
             targets = sorted(
                 int(item.operation_metadata["target_duration_ms"])
-                for item in align_steps
+                for item in align_nodes
             )
             assert targets == [2_000, 2_500]
             assert {
-                item.operation_metadata["timing_fit_mode"] for item in align_steps
+                item.operation_metadata["timing_fit_mode"] for item in align_nodes
             } == {"pad-to-window"}
             graph = await session.get(MediaAssetGraph, graph_id)
             final = await session.scalar(
@@ -767,7 +765,7 @@ async def test_overlong_stock_speech_blocks_final_timing_fit_without_truncation(
                 checksum=str(row.translation_checksum),
                 size_bytes=int(row.translation_size_bytes or 0),
             )
-            entries = await create_dubbing_speech_pipelines_from_private(
+            await create_dubbing_speech_pipelines_from_private(
                 session,
                 execution_id=execution_id,
                 organization_id=scope.org_id,
@@ -812,6 +810,8 @@ async def test_overlong_stock_speech_blocks_final_timing_fit_without_truncation(
                 )
                 == "speech_completed"
             )
+            await session.commit()
+        async with SessionLocal() as session:
             with pytest.raises(AudioDubbingPipelineError, match="timing window"):
                 await create_dubbing_final_pipeline(
                     session,

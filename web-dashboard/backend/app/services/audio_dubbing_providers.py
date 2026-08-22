@@ -273,9 +273,9 @@ class OpenAIDubbingTranslationAdapter:
 
     @staticmethod
     def _headers(credential: str) -> dict[str, str]:
-        token = [REDACTED]
+        token = credential.strip()
         if not token:
-            [REDACTED] ProviderDubbingTranslationFailure(
+            raise ProviderDubbingTranslationFailure(
                 "provider_unconfigured", retryable=False
             )
         return {
@@ -398,7 +398,8 @@ class OpenAIDubbingTranslationAdapter:
             raise ProviderDubbingTranslationFailure(
                 "provider_response", retryable=False
             )
-        usage = payload.get("usage") if isinstance(payload.get("usage"), dict) else {}
+        raw_usage = payload.get("usage")
+        usage: dict[str, Any] = raw_usage if isinstance(raw_usage, dict) else {}
         input_tokens = usage.get("input_tokens")
         output_tokens = usage.get("output_tokens")
         actual_cost: float | None = None

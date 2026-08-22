@@ -303,7 +303,7 @@ async def create_dubbing_speech_pipelines_from_private(
                 title=f"Dubbing segment {ordinal + 1}",
                 brief="Governed stock-voice segment for final dubbing mix.",
                 operation="narration",
-                use_case="dubbing",
+                use_case="localization",
                 language=row.target_language,
                 purpose="phase36g-complete-stock-voice-dubbing",
                 script=translated_text,
@@ -476,7 +476,7 @@ async def create_dubbing_final_pipeline(
             title="Governed complete stock-voice dubbing",
             brief="Align translated stock-voice segments and create the final mastered dub.",
             operation="cleanup-master",
-            use_case="dubbing",
+            use_case="localization",
             language=row.target_language,
             purpose="phase36g-complete-stock-voice-dubbing",
             source_count=len(bindings),
@@ -549,11 +549,13 @@ async def finalize_dubbing_execution(
     row.final_output_storage_key = final.storage_key
     row.final_output_checksum = final.checksum
     row.final_output_size_bytes = final.size_bytes
-    row.final_output_duration_seconds = (
-        float(final.timeline_metadata.get("duration_seconds"))
+    duration_value = (
+        final.timeline_metadata.get("duration_seconds")
         if isinstance(final.timeline_metadata, dict)
-        and final.timeline_metadata.get("duration_seconds") is not None
         else None
+    )
+    row.final_output_duration_seconds = (
+        float(duration_value) if isinstance(duration_value, (int, float)) else None
     )
     speech_costs: list[float] = []
     speech_actual_known = True
@@ -649,7 +651,7 @@ async def replace_failed_dubbing_segment(
             title=f"Replacement dubbing segment {segment_id}",
             brief="Replace only one definitively failed stock-voice segment.",
             operation="narration",
-            use_case="dubbing",
+            use_case="localization",
             language=row.target_language,
             purpose="phase36g-dubbing-selective-recovery",
             script=translations[segment_id],
