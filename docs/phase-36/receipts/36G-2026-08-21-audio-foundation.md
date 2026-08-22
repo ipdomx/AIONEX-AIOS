@@ -2,7 +2,7 @@
 
 Date: 2026-08-21
 Updated: 2026-08-22
-Status: **IN PROGRESS — Stage 2 local cleanup/mix/master/export runtime Production-accepted; provider STT/TTS, music/vocals and voice transformation/clone remain gated**
+Status: **IN PROGRESS — Stage 2 Production-accepted; Stage 3 pinned stock-voice TTS source/isolated candidate under protected validation, with zero billable generation so far**
 
 ## Truth boundary
 
@@ -359,3 +359,92 @@ The following claims do **not** advance:
 ## Next safe gate — Stage 3
 
 Stage 3 may evaluate one separately bounded STT or stock-voice TTS route only after free preflight, official pricing/cost cap, exact operation-specific runtime evidence and explicit operator approval. Music/vocal generation, voice transformation and voice cloning remain later legal/rights/provider gates and must not be bundled into that first provider acceptance.
+
+## Stage 3A — pinned OpenAI stock-voice TTS source and isolated candidate
+
+The Owner explicitly approved proceeding from the Stage 2 safe checkpoint on 2026-08-22. Stage 3A deliberately selects **one stock-voice TTS route only**. It does not bundle STT, dubbing, multi-speaker speech, music, generated SFX, custom voices, voice transformation or voice cloning.
+
+### Official route and free credential/model preflight
+
+- Provider/model: OpenAI `gpt-4o-mini-tts-2025-12-15`, pinned snapshot only.
+- Provider operation: `POST /v1/audio/speech`, stock voice, WAV response.
+- Initial accepted voice set is restricted to provider built-in stock voices; the first canary is planned for `marin`. No voice sample, custom voice ID, cloned identity or rights claim is accepted by this route.
+- Official pricing evidence recorded for the gate is `$0.60 / 1M` text-input tokens and `$12.00 / 1M` audio-output tokens. The synchronous Speech endpoint does not return exact per-request usage/cost in the current contract, so the durable execution must retain `actual_cost_usd=null` unless the provider later returns authoritative usage. The bounded gate is therefore expressed truthfully as one request, a short input, a maximum output duration and a conservative `$0.05` operator cap — never as fabricated exact billing.
+- Credential-specific free model lookup returned HTTP `200` and exact model ID match. Total free lookup requests were `2`; billable speech-generation requests remained `0`, provider spend remained `$0.00`, and no credential/header was retained. Sanitized preflight SHA-256: `9c2ea19a39c4ad1fd3aab731012acbfe14a2132000082e5e8edb79fefbaa809a`.
+
+### Source-first execution authority
+
+Stage 3A adds Alembic `20260822_0035` and one tenant-scoped `audio_speech_executions` authority rather than reusing the generic project runner or inventing a second media store. The authority records:
+
+- explicit `planned -> queued` arm before provider spend;
+- exact Owner-approved maximum cost matching the durable cap;
+- one pinned provider/model/operation and built-in stock voice;
+- input and instruction SHA-256 plus character count, while the public snapshot returns no source text;
+- bounded attempts, lease owner/expiry and fencing token;
+- durable `provider_state=not_started -> submitting` **before HTTP**;
+- provider request identity only in protected persistence, exposed publicly as a boolean/hash rather than raw ID;
+- sanitized provider/usage metadata, output checksum/size/duration and truthful unknown-vs-known actual cost.
+
+The Speech endpoint is synchronous and exposes no durable provider job ID that can be reconciled after an uncertain network outcome. Consequently an expired lease in `submitting` is marked `ambiguous/failed`; automatic resubmission is forbidden. Only a definitive pre-creation response such as HTTP `429` can be considered safe for a bounded retry, and the first live canary remains `max_attempts=1` regardless.
+
+### Provider speech plus accepted local audio chain
+
+A governed `speech` or `narration` plan compiles to:
+
+`pinned stock speech -> local cleanup -> local mastering -> waveform -> governed final export`
+
+The provider node has no FFmpeg render step. After one provider WAV completes, the already Production-accepted Media Worker performs cleanup, `-16 LUFS` mastering, `36G.audio-qa.v1`, a real PNG waveform and the selected final WAV/AAC/Opus export. Music and generated SFX are rejected before graph creation. The pipeline requires one stock voice/speaker, zero source audio and no voice transformation/clone path.
+
+A permanent `audio-speech-worker` service is included under the explicit `audio-execution` Compose profile, non-root, all Linux capabilities dropped, `no-new-privileges`, and `AUDIO_SPEECH_LIVE_ENABLED=false`. Production deployment must start in this disabled state; live acceptance will use a separate one-shot execution while the persistent worker stays hard-disabled.
+
+### Isolated verification completed
+
+- provider transport and disabled/live worker contracts: `20/20 PASS` under `--network none`;
+- AudioFactory inventory/planning regression: `12/12 PASS`;
+- durable authority/pipeline/Studio/local-media tests: `12/12 PASS`;
+- affected Audio/Media/Video regression on disposable PostgreSQL 16 + Redis 7: `58/58 PASS`;
+- Alembic clean round-trip `0035 -> 0034 -> 0035`: PASS; the table appeared, disappeared and reappeared exactly, with PostgreSQL critical hits `0`. Evidence SHA-256 `104ee589361b71291edba849b16aa69bb42ae59e4e42f7cbbacd416cf169ae9c`;
+- complete AIOS Core suite: `761/761 PASS` in `31.99s`;
+- complete Backend on fresh writable source + PostgreSQL 16 + Redis 7: **`841 passed, 2 warnings, 0 failed`** in `308.05s`, coverage `65.21%`, database/cache critical hits `0/0`;
+- complete Backend log SHA-256 `d145403decbbf4c3fde866ccf05e396dad8b081648d7ac5c4dcd136128ab4c62`; metadata SHA-256 `d9a1b6d1a0f8d02caa11fd9c8861ca958bdc6baae6725bed8f968b112b2582a5`;
+- full Backend Ruff PASS and Mypy PASS across `212` source files;
+- both Production Compose manifests and workflow YAML: PASS;
+- real current-source Backend runtime image `sha256:90b0830de52c03054e50585c786be174efc0895d4df0662c09112f13fc4bd65e` passed the stock-speech disabled smoke under `--network none` with cycles/errors `0/0`, no credential read and zero provider requests/spend;
+- runtime-image build log SHA-256 `9b628466596b7fdef07891be2d8d3faf27d51726e6187f3d5baeb6be9174bc65`; offline-worker evidence SHA-256 `0e02ef2469f82e7978240d95d74f40b19337415f7c2ba98c23c5660a58fe59fa`;
+- fresh Backend test image `sha256:6ca8d1404fe016b931dca22c97f0e5c0fd84d74e53f5d7f9770e79b4d97715d4`; build-log SHA-256 `77101cce4430c21991ee47ae8d9db195e010dab93812b5751a3815aed590ac2a`.
+
+No Production source, service, schema or data row was changed by this source work. Billable TTS requests and provider spend remain `0 / $0.00`.
+
+## P36-0023 — first free model preflight wrote to a host-only path inside the container
+
+- The first free authenticated `GET /v1/models/{model}` reached its HTTP step, but the wrapper then attempted to create the evidence file at a host path that was not mounted inside the Backend container.
+- No speech generation endpoint was called; billable generation requests, database writes, service restarts and provider spend all remained zero. No credential or authorization header was returned.
+- The corrected wrapper emits sanitized JSON to stdout and redirects it into a mode-`0600` Host evidence file. The free model lookup was repeated once, so the truthful free-preflight request count is `2`.
+- Permanent rule: container probes may write only mounted paths or stdout; host-only evidence paths are forbidden inside containers.
+- Sanitized incident evidence SHA-256: `796be2b1f7e596a0c735e146cd49c790104da32ddd9a2c6ca7ff87fc1cdb3c16`.
+
+
+
+## P36-0024 — disposable PostgreSQL readiness probe raced database creation
+
+- The first migration round-trip did complete `0035 -> 0034 -> 0035`, but the broad log gate found one `FATAL: database "aionex_test" does not exist` emitted while the official PostgreSQL image was still creating the requested `POSTGRES_DB`.
+- This occurred in a disposable test container before application migration traffic. Production was untouched, the final database/table state was correct, and no provider request or spend occurred.
+- The retained round-trip waits for the image's `PostgreSQL init process complete` marker before the first database-specific readiness probe. The clean rerun passed with critical hits `0`.
+
+## P36-0025 — first full Backend run retained a stale exact Compose image count
+
+- The first complete Backend run reached `840 passed` and failed one static deployment contract because adding `audio-speech-worker` increased the number of `aionex-aios-backend:local` services by one in each Production Compose manifest.
+- Runtime logic, migration, provider transport and database tests did not fail. The contract was updated from `11/10` to `12/11` and now also asserts the new worker profile, command, non-root user, `live=false`, dropped capabilities and `no-new-privileges` boundary.
+- The focused contract passed, and the retained complete rerun finished `841/841 PASS` with the same `65.21%` coverage and zero database/cache critical hits.
+
+## Next safe gate — Stage 3A protected disabled deployment
+
+1. complete migration round-trip, complete Core/Backend/static/security/reporting gates and real Docker offline smoke;
+2. merge only after every protected check is green;
+3. create and verify a fresh Production backup/restore before Alembic `0035`;
+4. deploy Backend plus the hard-disabled `audio-speech-worker`, with all existing provider/media workers unchanged where possible;
+5. prove `audio_speech_executions=0`, live flag false, queues zero and no provider spend;
+6. only then run one separately evidenced one-shot stock-voice WAV canary with `max_attempts=1`, short input, `20s` duration cap and `$0.05` operator cap;
+7. finish through the persistent local Media Worker, validate QA/Studio revision, then delete and independently verify every synthetic row/object.
+
+No 36G maturity changes at this source checkpoint. Even after a successful stock TTS canary, the aggregate `stt-tts-dubbing` capability must not become `runtime_verified` until its broader STT/dubbing scope is separately evidenced or split into truthful granular capabilities.
