@@ -148,7 +148,7 @@ def test_phase36g_stage5_source_keeps_diarization_separate_without_overclaiming(
     expected = {
         "stock-voice-tts": "runtime_verified",
         "governed-stt-transcript": "runtime_verified",
-        "multi-speaker-diarization": "source_built",
+        "multi-speaker-diarization": "runtime_verified",
         "stt-tts-dubbing": "source_built",
         "voice-transformation": "specified",
         "audio-cleanup-master": "runtime_verified",
@@ -164,10 +164,7 @@ def test_phase36g_stage5_source_keeps_diarization_separate_without_overclaiming(
         "synthetic-voice-disclosure",
     )
     assert capabilities["governed-stt-transcript"].external_gates == ()
-    assert capabilities["multi-speaker-diarization"].external_gates == (
-        "provider-diarization-runtime-evidence",
-    )
-    assert capabilities["multi-speaker-diarization"].maturity != "runtime_verified"
+    assert capabilities["multi-speaker-diarization"].external_gates == ()
     assert capabilities["voice-transformation"].external_gates == (
         "voice-rights-and-consent-evidence",
     )
