@@ -34,6 +34,9 @@ _OPENAI_STOCK_VOICES = frozenset(
 )
 _OPENAI_TEXT_INPUT_USD_PER_MILLION_TOKENS = 0.60
 _OPENAI_AUDIO_OUTPUT_USD_PER_MILLION_TOKENS = 12.00
+_OPENAI_PCM_SAMPLE_RATE_HZ = 24_000
+_OPENAI_PCM_CHANNELS = 1
+_OPENAI_PCM_SAMPLE_WIDTH_BYTES = 2
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,7 +91,8 @@ class ProviderSpeechAdapter(Protocol):
         *,
         credential: str,
         base_url: str,
-    ) -> ProviderSpeechResult: ...
+    ) -> ProviderSpeechResult:
+        ...
 
 
 def inspect_pcm_wav(body: bytes, *, max_duration_seconds: float) -> dict[str, Any]:
@@ -124,6 +128,38 @@ def inspect_pcm_wav(body: bytes, *, max_duration_seconds: float) -> dict[str, An
         "frame_count": frame_count,
         "duration_seconds": round(duration, 6),
     }
+
+
+def inspect_pcm_s16le(body: bytes, *, max_duration_seconds: float) -> dict[str, Any]:
+    """Validate the provider's documented raw 24 kHz signed 16-bit mono PCM."""
+    frame_width = _OPENAI_PCM_CHANNELS * _OPENAI_PCM_SAMPLE_WIDTH_BYTES
+    if not body or len(body) % frame_width != 0:
+        raise ProviderSpeechFailure("provider_audio_invalid", retryable=False)
+    frame_count = len(body) // frame_width
+    duration = frame_count / _OPENAI_PCM_SAMPLE_RATE_HZ
+    if frame_count <= 0 or duration <= 0 or duration > float(max_duration_seconds):
+        raise ProviderSpeechFailure("provider_audio_duration", retryable=False)
+    return {
+        "container": "pcm",
+        "codec": "pcm_s16le",
+        "channels": _OPENAI_PCM_CHANNELS,
+        "sample_width_bytes": _OPENAI_PCM_SAMPLE_WIDTH_BYTES,
+        "sample_rate_hz": _OPENAI_PCM_SAMPLE_RATE_HZ,
+        "frame_count": frame_count,
+        "duration_seconds": round(duration, 6),
+        "provider_response_format": "pcm",
+    }
+
+
+def canonical_wav_from_pcm(body: bytes) -> bytes:
+    """Wrap validated provider PCM in a canonical finite-length WAV container."""
+    output = io.BytesIO()
+    with wave.open(output, "wb") as writer:
+        writer.setnchannels(_OPENAI_PCM_CHANNELS)
+        writer.setsampwidth(_OPENAI_PCM_SAMPLE_WIDTH_BYTES)
+        writer.setframerate(_OPENAI_PCM_SAMPLE_RATE_HZ)
+        writer.writeframes(body)
+    return output.getvalue()
 
 
 def _safe_error_metadata(response: httpx.Response) -> dict[str, Any]:
@@ -203,11 +239,15 @@ class OpenAIStockSpeechAdapter:
             or request.model not in _OPENAI_STOCK_TTS_MODELS
             or request.operation != "synthesize-speech"
         ):
-            raise ProviderSpeechFailure("provider_operation_unsupported", retryable=False)
+            raise ProviderSpeechFailure(
+                "provider_operation_unsupported", retryable=False
+            )
         if not 1 <= len(request.input_text) <= 4_096:
             raise ProviderSpeechFailure("provider_input_invalid", retryable=False)
         if len(request.instructions) > 4_096:
-            raise ProviderSpeechFailure("provider_instructions_invalid", retryable=False)
+            raise ProviderSpeechFailure(
+                "provider_instructions_invalid", retryable=False
+            )
         if request.voice not in _OPENAI_STOCK_VOICES:
             raise ProviderSpeechFailure("provider_voice_unsupported", retryable=False)
         if request.response_format != "wav":
@@ -215,7 +255,9 @@ class OpenAIStockSpeechAdapter:
         if not 0.25 <= float(request.speed) <= 4.0:
             raise ProviderSpeechFailure("provider_speed_invalid", retryable=False)
         if not 1.0 <= float(request.max_duration_seconds) <= 300.0:
-            raise ProviderSpeechFailure("provider_duration_cap_invalid", retryable=False)
+            raise ProviderSpeechFailure(
+                "provider_duration_cap_invalid", retryable=False
+            )
 
     @staticmethod
     def _headers(credential: str) -> dict[str, str]:
@@ -224,7 +266,7 @@ class OpenAIStockSpeechAdapter:
             raise ProviderSpeechFailure("provider_unconfigured", retryable=False)
         return {
             "Authorization": f"Bearer {token}",
-            "Accept": "audio/wav",
+            "Accept": "application/octet-stream",
             "Content-Type": "application/json",
         }
 
@@ -240,7 +282,9 @@ class OpenAIStockSpeechAdapter:
             "model": request.model,
             "input": request.input_text,
             "voice": request.voice,
-            "response_format": request.response_format,
+            # Raw PCM has no streamed RIFF length placeholder. The adapter wraps it
+            # into a canonical finite WAV only after byte-length duration validation.
+            "response_format": "pcm",
             "speed": float(request.speed),
             "stream_format": "audio",
         }
@@ -265,10 +309,15 @@ class OpenAIStockSpeechAdapter:
             ) from exc
         if response.status_code >= 400:
             raise _failure_for_response(response)
-        body = bytes(response.content)
-        if not body or len(body) > self.max_content_bytes:
+        provider_pcm = bytes(response.content)
+        if not provider_pcm or len(provider_pcm) > self.max_content_bytes:
             raise ProviderSpeechFailure("provider_audio_size", retryable=False)
-        audio = inspect_pcm_wav(
+        audio = inspect_pcm_s16le(
+            provider_pcm,
+            max_duration_seconds=float(request.max_duration_seconds),
+        )
+        body = canonical_wav_from_pcm(provider_pcm)
+        canonical = inspect_pcm_wav(
             body,
             max_duration_seconds=float(request.max_duration_seconds),
         )
@@ -291,7 +340,10 @@ class OpenAIStockSpeechAdapter:
             content_type="audio/wav",
             request_id=request_id,
             metadata={
-                **audio,
+                **canonical,
+                "provider_response_format": audio["provider_response_format"],
+                "provider_pcm_size_bytes": len(provider_pcm),
+                "canonical_output_format": request.response_format,
                 "model": request.model,
                 "voice": request.voice,
                 "response_format": request.response_format,
