@@ -147,6 +147,7 @@ def test_phase36g_stage3_promotes_only_proven_audio_slices_without_overclaiming(
     receipt = "docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md"
     expected = {
         "stock-voice-tts": "runtime_verified",
+        "governed-stt-transcript": "source_built",
         "stt-tts-dubbing": "source_built",
         "voice-transformation": "specified",
         "audio-cleanup-master": "runtime_verified",
@@ -160,6 +161,9 @@ def test_phase36g_stage3_promotes_only_proven_audio_slices_without_overclaiming(
         assert receipt in capability.evidence
     assert capabilities["stock-voice-tts"].external_gates == (
         "synthetic-voice-disclosure",
+    )
+    assert capabilities["governed-stt-transcript"].external_gates == (
+        "provider-transcription-runtime-evidence",
     )
     assert capabilities["voice-transformation"].external_gates == (
         "voice-rights-and-consent-evidence",

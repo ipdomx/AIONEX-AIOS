@@ -569,6 +569,40 @@ class Settings(BaseSettings):
         default="/tmp/aionex-audio-speech-worker-health.json",
         validation_alias="AUDIO_SPEECH_WORKER_HEALTH_FILE",
     )
+    AUDIO_TRANSCRIPT_LIVE_ENABLED: bool = Field(
+        default=False, validation_alias="AUDIO_TRANSCRIPT_LIVE_ENABLED"
+    )
+    AUDIO_TRANSCRIPT_WORKER_ID: str = Field(
+        default="", validation_alias="AUDIO_TRANSCRIPT_WORKER_ID"
+    )
+    AUDIO_TRANSCRIPT_POLL_SECONDS: int = Field(
+        default=3, ge=1, le=60, validation_alias="AUDIO_TRANSCRIPT_POLL_SECONDS"
+    )
+    AUDIO_TRANSCRIPT_LEASE_SECONDS: int = Field(
+        default=300, ge=30, le=3600, validation_alias="AUDIO_TRANSCRIPT_LEASE_SECONDS"
+    )
+    AUDIO_TRANSCRIPT_PROVIDER_TIMEOUT_SECONDS: int = Field(
+        default=120,
+        ge=10,
+        le=600,
+        validation_alias="AUDIO_TRANSCRIPT_PROVIDER_TIMEOUT_SECONDS",
+    )
+    AUDIO_TRANSCRIPT_MAX_SOURCE_BYTES: int = Field(
+        default=20_971_520,
+        ge=1_048_576,
+        le=26_214_400,
+        validation_alias="AUDIO_TRANSCRIPT_MAX_SOURCE_BYTES",
+    )
+    AUDIO_TRANSCRIPT_MAX_DURATION_SECONDS: int = Field(
+        default=600,
+        ge=1,
+        le=3600,
+        validation_alias="AUDIO_TRANSCRIPT_MAX_DURATION_SECONDS",
+    )
+    AUDIO_TRANSCRIPT_WORKER_HEALTH_FILE: str = Field(
+        default="/tmp/aionex-audio-transcript-worker-health.json",
+        validation_alias="AUDIO_TRANSCRIPT_WORKER_HEALTH_FILE",
+    )
     VIDEO_EXECUTION_LIVE_ENABLED: bool = Field(
         default=False, validation_alias="VIDEO_EXECUTION_LIVE_ENABLED"
     )

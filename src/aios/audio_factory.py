@@ -226,6 +226,19 @@ class AudioProviderCapability:
 AUDIO_PROVIDER_CAPABILITIES: Final[tuple[AudioProviderCapability, ...]] = (
     AudioProviderCapability(
         provider="openai",
+        model="gpt-4o-mini-transcribe-2025-12-15",
+        operations=frozenset({"transcribe"}),
+        input_modalities=frozenset({"audio"}),
+        output_modalities=frozenset({"text"}),
+        official_source=(
+            "https://developers.openai.com/api/docs/models/"
+            "gpt-4o-mini-transcribe"
+        ),
+        evidence_date="2026-08-22",
+        execution_modes=frozenset({"batch"}),
+    ),
+    AudioProviderCapability(
+        provider="openai",
         model="gpt-4o-mini-tts-2025-12-15",
         operations=frozenset({"synthesize-speech"}),
         input_modalities=frozenset({"text"}),

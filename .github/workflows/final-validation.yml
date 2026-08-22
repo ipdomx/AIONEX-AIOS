@@ -322,6 +322,42 @@ jobs:
           assert payload["credential_read"] is False
           print("PHASE36G_STOCK_SPEECH_WORKER_OFFLINE_SMOKE_OK")
           PY
+      - name: Verify live-disabled governed transcript worker
+        working-directory: web-dashboard
+        run: |
+          mkdir -p diagnostics
+          docker run --rm --network none \
+            -v "$GITHUB_WORKSPACE:/workspace:ro" \
+            -e ENVIRONMENT=test \
+            -e DEBUG=false \
+            -e SECRET_KEY=phase36g-ci-transcript-secret-key-with-at-least-32-characters \
+            -e MEDIA_STORAGE_TYPE=local \
+            -e MEDIA_STORAGE_ROOT=/tmp/aionex-transcript-media \
+            -e AUDIO_TRANSCRIPT_LIVE_ENABLED=false \
+            -e AUDIO_TRANSCRIPT_WORKER_HEALTH_FILE=/tmp/aionex-audio-transcript-health.json \
+            -e PYTHONPATH=/workspace/src:/app \
+            aionex-aios-backend:local \
+            python /app/scripts/verify_audio_transcript_worker.py \
+            > diagnostics/audio-transcript-worker-smoke.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          payload = json.loads(
+              Path("diagnostics/audio-transcript-worker-smoke.json").read_text()
+          )
+          assert payload["status"] == "pass"
+          assert payload["worker_health"]["status"] == "disabled"
+          assert payload["worker_health"]["live_enabled"] is False
+          assert payload["worker_health"]["cycles"] == 0
+          assert payload["worker_health"]["errors"] == 0
+          assert payload["model"] == "gpt-4o-mini-transcribe-2025-12-15"
+          assert payload["response_format"] == "json"
+          assert payload["provider_transcription_requests"] == 0
+          assert payload["provider_spend_usd"] == 0.0
+          assert payload["credential_read"] is False
+          assert payload["secret_returned"] is False
+          print("PHASE36G_TRANSCRIPT_WORKER_OFFLINE_SMOKE_OK")
+          PY
       - name: Build and verify live-disabled video provider worker
         working-directory: web-dashboard
         env:
