@@ -82,6 +82,7 @@ CAPABILITIES: Final[tuple[Phase36Capability, ...]] = (
     Phase36Capability("video-final-export", "video", "1080p/1440p/4K and governed final video exports", "36F", "source_built", ("docs/phase-36/receipts/36F-2026-08-19-video-factory.md",)),
 
     # Audio/music.
+    Phase36Capability("stock-voice-tts", "audio", "Pinned stock-voice text-to-speech with governed local mastering and export", "36G", "runtime_verified", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",), ("synthetic-voice-disclosure",)),
     Phase36Capability("stt-tts-dubbing", "audio", "Speech recognition, speech synthesis, dubbing and alignment", "36G", "source_built", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",)),
     Phase36Capability("voice-transformation", "audio", "Consent-governed voice transformation", "36G", "specified", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",), ("voice-rights-and-consent-evidence",)),
     Phase36Capability("audio-cleanup-master", "audio", "Audio cleanup, alignment, mixing, mastering and governed local export", "36G", "runtime_verified", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",)),

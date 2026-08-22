@@ -23,6 +23,11 @@ async def test_phase36_public_capability_snapshot_is_truthful_and_non_secret() -
         for batch in payload["batches"]
         for item in batch["capabilities"]
     }
+    assert capabilities["stock-voice-tts"]["maturity"] == "runtime_verified"
+    assert capabilities["stock-voice-tts"]["external_gates"] == (
+        "synthetic-voice-disclosure",
+    )
+    assert "stock-voice" in capabilities["stock-voice-tts"]["title"].lower()
     assert capabilities["audio-cleanup-master"]["maturity"] == "runtime_verified"
     assert "SFX" not in capabilities["audio-cleanup-master"]["title"]
     assert capabilities["stt-tts-dubbing"]["maturity"] == "source_built"

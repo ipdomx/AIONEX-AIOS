@@ -2,18 +2,18 @@
 
 Date: 2026-08-21
 Updated: 2026-08-22
-Status: **IN PROGRESS — Stage 2 Production-accepted; Stage 3 source/deployment accepted disabled, with the first live stock-voice attempt rejected locally and a PCM transport correction under protected validation**
+Status: **IN PROGRESS — Stage 3 pinned stock-voice TTS Production-accepted; STT/dubbing, podcast/jingle, music/vocals and voice transformation/clone remain gated**
 
 ## Truth boundary
 
-This checkpoint creates a deterministic source/planning contract. It does **not** claim that speech, transcription, dubbing, music, vocals, SFX, a transformed voice or a cloned voice has been rendered by an external provider.
+This checkpoint now separately claims one pinned built-in stock-voice text-to-speech route after protected Production acceptance. It does **not** claim provider STT, complete dubbing, podcasts/jingles, music, vocals, generated SFX, a transformed voice or a cloned voice.
 
 Stage 1 performs no provider request, reads no provider credential and estimates no provider cost. Every generated Studio package remains `provider_neutral`, records `external_requests=0`, `external_cost_usd=0`, `estimated_external_cost_usd=null`, and exposes `render_status=not_started`.
 
 The Phase 36 registry remains truthful:
 
 - `36G=in_progress` and `current_batch=36G`;
-- `audio-cleanup-master` is `runtime_verified` by the protected Stage 2 Production acceptance; `stt-tts-dubbing` and `podcast-jingle-narration` remain `source_built`;
+- `audio-cleanup-master` and the granular `stock-voice-tts` slice are `runtime_verified`; the broader `stt-tts-dubbing` and `podcast-jingle-narration` capabilities remain `source_built`;
 - `voice-transformation` and `song-production` remain `specified`;
 - no other 36G capability is promoted to `provider_connected`, `runtime_verified`, `scaled`, or `production_ready`; Phase 36G remains `in_progress`.
 
@@ -446,13 +446,36 @@ No Production source, service, schema or data row was changed by this source wor
 - Regression coverage requires the exact provider payload to request `pcm`, rejects odd/truncated or over-duration PCM before completion, and proves the local wrapper emits a finite WAV accepted by the existing WAV inspector. The correction passed provider/worker tests `22/22`, disposable PostgreSQL/Redis Audio regression `44/44` with critical hits `0/0`, complete Core `761/761`, and complete Backend `842 passed, 1 skipped, 2 warnings, 0 failed` with `65.10%` coverage and database/cache critical hits `0/0`. Retained Backend log SHA-256 `998bfcb7e937177545d3ef8f6c16cff8c16b152803920a557d9e2c4d7387c4e2`; metadata SHA-256 `30db43901919b7aa60db26d2596c050d87a5b6b5b6c9feaddd698d3750a228bc`. No second live request is permitted until this correction passes protected CI and is deployed disabled.
 - Sanitized failed-canary evidence SHA-256: `1d8ab0fe00f38dc370f9b2590924d823f409c611e18f674aaf650c19fbcce673`; cleanup/incident evidence SHA-256: `0594a12676d82adb72dfd48d3e003280820fd01ce21c1103fd47e94b9872c859`.
 
-## Next safe gate — P36-0027 correction and second bounded stock-voice canary
+## Stage 3B — corrected PCM transport and live Production acceptance
 
-1. merge the PCM transport correction only after every protected CI gate is green;
-2. rebuild/recreate Backend and the permanently hard-disabled `audio-speech-worker` only; Alembic remains `0035` and no provider request is allowed during deployment;
-3. prove `audio_speech_executions=0`, active Media/Studio queues zero, live flag false and all non-target service identities unchanged;
-4. run one **new**, separately evidenced one-shot with `max_attempts=1`, short synthetic input, `20s` duration cap and the same `$0.05` approved upper bound; this is not an automatic retry of the failed execution;
-5. require provider PCM byte-length validation, canonical WAV wrapping, the persistent local Media Worker, `36G.audio-qa.v1`, waveform and Studio revision before acceptance;
-6. checkpoint before cleanup, then delete and independently verify every synthetic row/object and return all queues to zero.
+- Protected PR #468 passed every required gate and merged as `887ec9f289bab85b1794514c6a33763d69f69b62`. Alembic stayed `20260822_0035`; the prior Backend image `7a45406a...` was retained as `aionex-aios-backend:rollback-phase36g-stage3-pcm-20260822T125832Z`, while Backend and the permanently hard-disabled Audio Speech Worker alone moved to image `sha256:fc3f1aa90e47a9fe7e0033520eec8db04ac0b7fa03b04e374973c4a2036c6c54`. Studio, Media, PostgreSQL, Redis, Image, Derivative, Video, Frontend, Portal and Nginx identities remained unchanged. Offline PCM-to-canonical-WAV smoke and read-only Production preflight both passed with zero provider requests/spend. Consolidated PCM activation evidence SHA-256: `a449eb3314b0aad84ab9a5dba2944a9b8efe34b3f7a56340daaac8153be7faab`.
+- The final pre-canary gate proved Alembic `0035`, `audio_speech_executions=0`, every active queue zero, one persistent Audio Speech Worker only, `live_enabled=false`, cycles/errors `0/0`, and direct Backend readiness `200`. Pre-canary evidence SHA-256: `ee4102c6263da6dd937bacf520133e59f48bdcebbb9887a40fd25029c27cb153`.
+- One new separately armed execution used pinned `gpt-4o-mini-tts-2025-12-15`, built-in `marin`, a 65-character synthetic input, `max_attempts=1`, a `20s` duration cap and the same `$0.05` approved upper bound. It made exactly one provider audio request. The provider returned validated 24 kHz signed 16-bit mono PCM, which was wrapped into a finite `271,244`-byte WAV (`5.65s`, SHA-256 `8367e159a016595254782aa1bb955a78da00271353ca24e13cc00293db80b460`). No duplicate submission occurred.
+- The existing persistent Media Worker completed cleanup, mastering, waveform and final export. The governed output was a `1,084,878`-byte 48 kHz stereo PCM WAV (`5.65s`, SHA-256 `af5af55282ce9f04980f09ed34467f868451a1784881fa1469b716c1c566db52`); the PNG waveform was `6,047` bytes, SHA-256 `d92d2678bcfa40b594b9eb26a452e5726bbf161eb7568d172d3ca26559af34bd`. Master/export passed `36G.audio-qa.v1` at `-16.61 / -16.77 LUFS`, and Studio advanced exactly `1 -> 2`.
+- A validated-before-cleanup checkpoint was written first. Cleanup then deleted and independently verified missing `5/5` objects, removed every synthetic Organization/User/Studio/Media/AudioSpeech row, returned `audio_speech_executions=0` and every queue to zero, and removed the one-shot container. The persistent worker stayed `disabled`, cycles/errors `0/0`; readiness passed `30/30`, public/portal returned `200/200`, Owner stayed protected by `302`, and Backend/Media/Audio/Studio critical-log hits were `0/0/0/0`.
+- Exact provider usage/billing was not returned, so `actual_cost_usd` truthfully remains `null`. The successful request is bounded only by its approved `$0.05` upper limit. Checkpoint SHA-256: `2916e882f90767a5162115e7028c838de8a53c9720274fcb611d74106a754f48`; live-result SHA-256: `7364676ec6a187c2ad0098610ff1849d817b533451832c3a75f76d72fb0d17a`; corrected consolidated acceptance SHA-256: `0cdbf4baafda5d16938fb6eb473ab6064befc8a3cbe933e3b394dbb471986ebf`.
 
-No 36G maturity changes at this source checkpoint. Even after a successful stock TTS canary, the aggregate `stt-tts-dubbing` capability must not become `runtime_verified` until its broader STT/dubbing scope is separately evidenced or split into truthful granular capabilities.
+## Stage 3 total provider accounting
+
+Stage 3 crossed the provider audio boundary exactly twice: the P36-0027 response rejected before storage and the later successful PCM acceptance. Each execution used `max_attempts=1`; there were no automatic retries or duplicate submissions. Exact cost is unavailable for both requests and is not fabricated. The combined approved upper bound is therefore `$0.10`, not a claimed bill. Aggregate provider-accounting evidence SHA-256: `63990878badaea35e3bdf0c4bcb405c85cac2f4efb393bd8f969872efc080623`.
+
+## P36-0026 — root-only canary script was unreadable to the non-root one-shot
+
+- The first wrapper for the corrected canary mounted a root-owned mode-`0600` script into a service that runs as UID `1000`; Python never opened the script.
+- No application code ran, no row was created, and the provider boundary was not crossed. Audio/Media remained zero and the permanent worker stayed disabled with cycles/errors `0/0`.
+- The corrected wrapper mounted a dedicated UID-1000 read-only script file and a separate writable evidence directory. Incident evidence SHA-256: `3f8daf5f703a35bb4dfee0cfbc5f7b13ace3ddfe79ae1a58fabfbed24b6af30f`.
+
+## P36-0028 — first consolidated acceptance wrapper hard-coded the pre-correction commit
+
+- Immutable precheck, checkpoint and live-result files all recorded the correct PR #468 source `887ec9f...`, and both running containers exposed the PCM transport. The first host consolidation wrapper nevertheless wrote literal `2cafe024...` metadata.
+- No provider request, service restart, schema change or data mutation occurred during correction. The original file was retained by hash and the consolidated evidence was rebuilt from immutable inputs. Incident evidence SHA-256: `eb0386c81f966f93b344aba123a56776648488824409afb691655aefe92fb3fb`.
+
+## Stage 3 maturity decision
+
+Only the newly split `stock-voice-tts` capability advances to `runtime_verified`, with a mandatory `synthetic-voice-disclosure` gate. This claim is bounded to the pinned built-in stock voice, provider PCM validation, canonical WAV wrapping, the accepted local cleanup/mastering/export chain, Studio materialization and complete cleanup evidence.
+
+The broader `stt-tts-dubbing` capability remains `source_built`: no provider STT or complete dubbing execution has been accepted. `podcast-jingle-narration` remains `source_built`; `song-production` and `voice-transformation` remain `specified`; generated SFX, custom voices, voice transformation and voice cloning remain outside the Stage 3 claim. Phase 36G remains `in_progress`.
+
+## Next safe gate — Stage 4 governed STT and dubbing foundation
+
+Stage 4 may build provider-neutral transcript, segment/timestamp, diarization and caption contracts first, then evaluate one separately bounded STT provider/model only after authenticated free preflight, official duration/format/pricing review, one explicit request cap and complete cleanup. Dubbing remains blocked until transcription, translation, per-segment stock speech, alignment and final local mastering each have separate evidence. Music/vocals/SFX and voice transformation/clone remain later legal/provider gates.

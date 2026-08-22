@@ -142,10 +142,11 @@ def test_phase36f_maturity_matches_live_video_exit_evidence_without_overclaiming
     assert BATCHES[6].status == "in_progress"
 
 
-def test_phase36g_stage2_promotes_only_local_cleanup_master_without_overclaiming() -> None:
+def test_phase36g_stage3_promotes_only_proven_audio_slices_without_overclaiming() -> None:
     capabilities = {item.capability_id: item for item in CAPABILITIES}
     receipt = "docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md"
     expected = {
+        "stock-voice-tts": "runtime_verified",
         "stt-tts-dubbing": "source_built",
         "voice-transformation": "specified",
         "audio-cleanup-master": "runtime_verified",
@@ -154,11 +155,20 @@ def test_phase36g_stage2_promotes_only_local_cleanup_master_without_overclaiming
     }
     for capability_id, maturity in expected.items():
         capability = capabilities[capability_id]
+        assert capability.owner_batch == "36G"
         assert capability.maturity == maturity
         assert receipt in capability.evidence
+    assert capabilities["stock-voice-tts"].external_gates == (
+        "synthetic-voice-disclosure",
+    )
     assert capabilities["voice-transformation"].external_gates == (
         "voice-rights-and-consent-evidence",
     )
+    assert "SFX" not in capabilities["audio-cleanup-master"].title
+    assert capabilities["stt-tts-dubbing"].maturity != "runtime_verified"
+    assert capabilities["podcast-jingle-narration"].maturity != "runtime_verified"
+    assert capabilities["song-production"].maturity != "runtime_verified"
+    assert capabilities["voice-transformation"].maturity != "runtime_verified"
     assert BATCHES[6].status == "in_progress"
 
 
