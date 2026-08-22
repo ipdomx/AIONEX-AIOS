@@ -83,7 +83,7 @@ CAPABILITIES: Final[tuple[Phase36Capability, ...]] = (
 
     # Audio/music.
     Phase36Capability("stock-voice-tts", "audio", "Pinned stock-voice text-to-speech with governed local mastering and export", "36G", "runtime_verified", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",), ("synthetic-voice-disclosure",)),
-    Phase36Capability("governed-stt-transcript", "audio", "Pinned single-speaker STT with private transcript and governed WebVTT/SRT captions", "36G", "source_built", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",), ("provider-transcription-runtime-evidence",)),
+    Phase36Capability("governed-stt-transcript", "audio", "Pinned single-speaker STT with private transcript and governed WebVTT/SRT captions", "36G", "runtime_verified", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",)),
     Phase36Capability("stt-tts-dubbing", "audio", "Speech recognition, speech synthesis, dubbing and alignment", "36G", "source_built", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",)),
     Phase36Capability("voice-transformation", "audio", "Consent-governed voice transformation", "36G", "specified", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",), ("voice-rights-and-consent-evidence",)),
     Phase36Capability("audio-cleanup-master", "audio", "Audio cleanup, alignment, mixing, mastering and governed local export", "36G", "runtime_verified", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",)),
