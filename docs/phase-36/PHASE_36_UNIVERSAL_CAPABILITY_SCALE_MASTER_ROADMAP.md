@@ -470,7 +470,7 @@ Scope:
 - The prior Media Worker image `75704791...` was retained for rollback; the exact merged image `cd0551d4...` passed Production DB/object-volume preflight and a second no-network four-format smoke before Media Worker-only recreation. All non-target service identities remained unchanged/Healthy.
 - The persistent Production Worker completed real WAV stereo/mono, AAC/M4A and Opus/WebM outputs at `48 kHz` and `-16.00 LUFS`, generated PNG waveforms, passed `36G.audio-qa.v1`, recovered an expired lease with fencing `1 → 2`, and selectively reran only `align-001/mix/master/waveform/export` while reusing `align-002` unchanged.
 - Studio reached revision `3`; cleanup deleted/verified `45/45` objects and all synthetic rows, queues returned to zero, Worker cycles/errors were `43/0`, readiness passed `20/20`, and provider requests/spend remained `0 / $0.00`. Consolidated evidence SHA-256 `76bf194dca4bff3328d91c439d1809c91d62e92005073b2f96730d7b884d3f29`.
-- Only `audio-cleanup-master` advances to `runtime_verified`. STT/TTS/podcast remain `source_built`; song and voice transformation remain `specified`; 36G remains `in_progress`.
+- Only `audio-cleanup-master` advances to `runtime_verified`, and that claim is bounded to cleanup/alignment/mixing/mastering/local export; generated SFX is explicitly excluded. STT/TTS/podcast remain `source_built`; song and voice transformation remain `specified`; 36G remains `in_progress`.
 
 Next safe gate: a separately bounded Stage 3 STT or stock-voice TTS acceptance with free preflight, official price cap and explicit operator approval. Music/vocals and voice transformation/clone remain closed legal/provider gates.
 

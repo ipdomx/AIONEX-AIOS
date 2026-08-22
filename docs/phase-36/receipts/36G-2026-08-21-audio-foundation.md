@@ -320,6 +320,7 @@ This candidate evidence alone did not promote maturity; the later protected Prod
 ## Stage 2 maturity decision
 
 Only `audio-cleanup-master` advances from `source_built` to `runtime_verified`. This decision is supported by protected source, exact merged-image smoke, persistent-worker execution, crash recovery, selective partial revision, final Studio materialization and complete cleanup evidence.
+The capability title is deliberately bounded to cleanup, alignment, mixing, mastering and governed local export; generated SFX remains outside this runtime-verified claim and stays a later provider gate.
 
 The following claims do **not** advance:
 

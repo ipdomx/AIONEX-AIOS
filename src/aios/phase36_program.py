@@ -84,7 +84,7 @@ CAPABILITIES: Final[tuple[Phase36Capability, ...]] = (
     # Audio/music.
     Phase36Capability("stt-tts-dubbing", "audio", "Speech recognition, speech synthesis, dubbing and alignment", "36G", "source_built", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",)),
     Phase36Capability("voice-transformation", "audio", "Consent-governed voice transformation", "36G", "specified", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",), ("voice-rights-and-consent-evidence",)),
-    Phase36Capability("audio-cleanup-master", "audio", "Audio cleanup, SFX, mixing and mastering", "36G", "runtime_verified", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",)),
+    Phase36Capability("audio-cleanup-master", "audio", "Audio cleanup, alignment, mixing, mastering and governed local export", "36G", "runtime_verified", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",)),
     Phase36Capability("song-production", "audio", "Lyrics, composition, instruments, vocals, stems, mix and master", "36G", "specified", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",)),
     Phase36Capability("podcast-jingle-narration", "audio", "Podcasts, jingles, narration and multi-speaker production", "36G", "source_built", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",)),
 

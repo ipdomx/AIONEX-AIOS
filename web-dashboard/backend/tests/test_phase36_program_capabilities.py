@@ -24,6 +24,7 @@ async def test_phase36_public_capability_snapshot_is_truthful_and_non_secret() -
         for item in batch["capabilities"]
     }
     assert capabilities["audio-cleanup-master"]["maturity"] == "runtime_verified"
+    assert "SFX" not in capabilities["audio-cleanup-master"]["title"]
     assert capabilities["stt-tts-dubbing"]["maturity"] == "source_built"
     assert capabilities["podcast-jingle-narration"]["maturity"] == "source_built"
     assert capabilities["song-production"]["maturity"] == "specified"
