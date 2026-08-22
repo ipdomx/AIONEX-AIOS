@@ -500,7 +500,14 @@ Scope:
 - One local `15.999s` two-voice PCM fixture used one `max_attempts=1` diarization request under `$0.01`. The provider result yielded `5` segments and two pseudonymous speakers, generated private transcript/WebVTT/SRT/manifest and Studio revision `2`, then deleted/verified `5/5` objects and all synthetic rows. Exact cost remains unknown; estimate `$0.0015999`. Consolidated evidence SHA-256 `519fac003f132e8c565c7a503664fdd88429ce58a4328e0cd725f6ad8ba9c7af`.
 - Only granular `multi-speaker-diarization` advances to `runtime_verified`. Single-speaker STT remains separately bounded; aggregate dubbing and podcast remain `source_built`, song/voice transformation remain `specified`, and 36G stays `in_progress`.
 
-Next safe gate: complete stock-voice dubbing—private translation, per-segment bounded TTS, timing fit/alignment, selective recovery, final mix/master and full cleanup—without custom/known-person voice claims.
+##### Stage 6A — source-first complete stock-voice dubbing candidate
+
+- Added Alembic `20260823_0037` and a durable `audio_dubbing_executions` authority for private `gpt-5.6-luna` structured translation, per-segment accepted stock TTS, aggregate cost gating, lease/fencing/ambiguity safety, timing-fit, selective failed-segment replacement, final local mix/master and Studio evidence. Custom/known-person voice, transformation and cloning fail closed.
+- Timing-fit pads short speech to the exact source window, never time-stretches, and rejects overlong speech before final assembly so unaffected completed segments remain reusable. The permanent `audio-dubbing-worker` is hard-disabled by default.
+- Final source evidence: targeted PostgreSQL/Redis `30/30`, affected regression `131/131`, Alembic `0037 -> 0036 -> 0037`, real FFmpeg 9 no-network padding smoke, Core `771/771`, Backend `914 passed` at `65.74%`, full changed-root/Backend Ruff, Mypy across `220` files, and Python 3.11 AST across `20` changed files. PostgreSQL/Redis critical hits were `0/0`; translation/speech requests and spend remained `0 / 0 / $0.00`. Backend evidence SHA-256 `1fa9f86413c916fb37116ddfcf90b2fb58479790674d962fa0b7828ccae77770`; static evidence SHA-256 `42825cc76af95f90cb8e1d1bbfb45e1b7575863f9c8129c1080251ad7fbb236e`.
+- Only granular `complete-stock-voice-dubbing=source_built` is added. Production remains on Stage 5/Alembic `0036`; aggregate dubbing remains `source_built`, and music/vocals/SFX/voice transformation/clone remain separate gates.
+
+Next safe gate: protected merge, backup/restore, Alembic `0037`, hard-disabled Backend/Dubbing-Worker activation, then one aggregate-capped synthetic complete-dubbing canary with private translation, per-segment stock TTS, exact timing-fit, selective recovery, final local QA/Studio revision and full cleanup.
 
 Exit gate:
 - complete user-defined song/audio production can reach final rendered files with separated evidence for lyrics/composition/vocals/stems/mix/master.

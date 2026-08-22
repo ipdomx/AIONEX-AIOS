@@ -87,6 +87,7 @@ def test_narration_plan_is_deterministic_provider_neutral_and_never_claims_rende
 
 def test_provider_inventory_is_official_visibility_only_and_invents_no_music_or_clone_route() -> None:
     models = {(item.provider, item.model) for item in AUDIO_PROVIDER_CAPABILITIES}
+    assert ("openai", "gpt-5.6-luna") in models
     assert ("openai", "gpt-4o-mini-tts-2025-12-15") in models
     assert ("openai", "gpt-4o-mini-transcribe-2025-12-15") in models
     assert ("openai", "gpt-4o-transcribe-diarize") in models
@@ -102,7 +103,7 @@ def test_provider_inventory_is_official_visibility_only_and_invents_no_music_or_
     plan = build_audio_plan(request())
     snapshot = plan.public_snapshot()
     inventory = snapshot["provider_inventory"]
-    assert len(inventory) == 8
+    assert len(inventory) == 9
     assert {item["inventory_state"] for item in inventory} == {"inventory_visible"}
     realtime = next(item for item in inventory if item["model"] == "gpt-realtime-1.5")
     assert realtime["execution_modes"] == ["realtime"]
