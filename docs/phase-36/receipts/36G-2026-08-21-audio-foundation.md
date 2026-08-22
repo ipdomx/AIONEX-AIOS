@@ -330,6 +330,32 @@ The following claims do **not** advance:
 - voice cloning/transformation remains blocked by consent, rights, provider identity and exact runtime evidence;
 - Phase 36G remains `in_progress`.
 
+## Stage 2 maturity-status protected merge and Backend activation — 2026-08-22
+
+- Protected PR #464 passed every required gate and merged head `d614dc173eea3189f5ff3fddecdd76fe5bb3e80a` as `c5f07e5c2fcddd187ef5563749e3b70fd8a221d7` at `2026-08-22T00:54:25Z`.
+- Production source advanced by fast-forward only from `998fab35cee414d495050c352ff43667c2cff3ae` to the protected merge. The delta was limited to the Phase36 registry/tests and Stage 2 receipt/roadmap; no migration was present and Alembic remained `20260819_0034`.
+- The previous Backend image `sha256:7a821d47a07a2f00178fa2dc9e62e29090b3242d86234e50c2af6a5a48c588eb` was retained as `aionex-aios-backend:rollback-phase36g-stage2-status-20260822T005526Z`. The protected source built Backend image `sha256:90f278da05003f19a657e521967432b0f39f50571509e6d7f06d101ea92455e7`.
+- A candidate smoke ran with `--network none` and proved the exact granular registry plus all four local audio-profile mappings. A second candidate preflight against the real Production database remained read-only, kept every active queue `0 → 0`, and observed Alembic `0034`.
+- Only `web-dashboard-backend-1` was recreated. It moved from container `cce877de...` to `84b1093f...` and reached Healthy. Studio Worker, Media Worker, PostgreSQL, Redis, Image, Derivative, Video, Frontend, Portal and Nginx identities/start times remained unchanged.
+- The live Backend function and direct HTTP endpoint `/api/v1/capabilities/phase36` now both report `audio-cleanup-master=runtime_verified`, while STT/TTS and podcast remain `source_built`, song and voice transformation remain `specified`, and `36G=in_progress/current_batch=36G`.
+- Direct Backend HTTP returned `200 application/json`. The existing public Nginx boundary returned `404` for the same capability path; this activation deliberately did not widen ingress exposure.
+- Post-activation: queues `0/0/0/0/0`, Media Worker unchanged/Healthy with FFmpeg `9.0`, cycles/errors `43/0`, readiness `30/30`, public/portal `200/200`, Owner `302`, and Backend/Studio/Media critical-log hits `0/0/0`. No provider request or spend occurred.
+- Final sanitized activation evidence: `.deployment-backups/phase36g-stage2-status-activation/phase36g-stage2-status-production-activation-evidence.json`, SHA-256 `98b36ed7a771485ca91dbbf1ada91d3ca659f697525cd19a86d5e747696e2d8c`.
+
+## P36-0022 — Offline Backend smoke omitted Docker stdin attachment
+
+- The first `--network none` Backend smoke launched `python -` without Docker `-i`; therefore the script received no source, exited without executing the assertions and produced an empty output file. The subsequent JSON formatter—not product code—reported the failure.
+- No network, database connection, service restart, provider operation or Production mutation occurred. The empty artifact was removed and the exact same candidate smoke was rerun with `docker run -i`, producing valid evidence SHA-256 `805d089b4910c46622ae757d8f7bca36d0d991375802f49586ede158aa4d8231`.
+- Future heredoc-driven Docker probes must attach stdin explicitly and reject empty evidence before parsing.
+
+## PR #465 truth-boundary correction activation — 2026-08-22
+
+- While PR #466 was being rebased, protected PR #465 had already merged as `a9bd80c7acb414f39e4f1307d304cf28657f9839` and Production had already fast-forwarded to it. The existing Backend container ID remained `84b1093f...`; its `StartedAt` advanced to `2026-08-22T01:27:40.84899332Z` on the same image `90f278da...`.
+- The correction narrows the runtime-verified title to **audio cleanup, alignment, mixing, mastering and governed local export**. Generated SFX is explicitly excluded and remains a later provider gate.
+- Independent verification found the corrected title and `runtime_verified` maturity at direct Backend HTTP `200`, with the public Nginx capability path still intentionally `404`. Alembic remained `0034`, all queues were zero, readiness passed `30/30`, non-Backend service identities were unchanged, critical-log hits were zero and provider activity remained `0 / $0.00`.
+- Because the protected correction was already active and Healthy when observed, no duplicate restart or deployment was performed by this closeout flow.
+- Sanitized observed-activation evidence: `.deployment-backups/phase36g-stage2-truth-boundary-activation/phase36g-stage2-truth-boundary-observed-activation.json`, SHA-256 `65a699eb93d8491029b9684382c2adf6637f6d7df76847b239676aa0e2d48e10`.
+
 ## Next safe gate — Stage 3
 
 Stage 3 may evaluate one separately bounded STT or stock-voice TTS route only after free preflight, official pricing/cost cap, exact operation-specific runtime evidence and explicit operator approval. Music/vocal generation, voice transformation and voice cloning remain later legal/rights/provider gates and must not be bundled into that first provider acceptance.
