@@ -2,7 +2,7 @@
 
 Date: 2026-08-21
 Updated: 2026-08-22
-Status: **IN PROGRESS — Stage 3 pinned stock-voice TTS Production-accepted; STT/dubbing, podcast/jingle, music/vocals and voice transformation/clone remain gated**
+Status: **IN PROGRESS — Stage 3 stock-voice TTS Production-accepted; Stage 4 governed single-speaker STT/transcript/caption source candidate under protected validation, with no STT provider request yet**
 
 ## Truth boundary
 
@@ -13,7 +13,7 @@ Stage 1 performs no provider request, reads no provider credential and estimates
 The Phase 36 registry remains truthful:
 
 - `36G=in_progress` and `current_batch=36G`;
-- `audio-cleanup-master` and the granular `stock-voice-tts` slice are `runtime_verified`; the broader `stt-tts-dubbing` and `podcast-jingle-narration` capabilities remain `source_built`;
+- `audio-cleanup-master` and the granular `stock-voice-tts` slice are `runtime_verified`; the new `governed-stt-transcript` slice, broader `stt-tts-dubbing`, and `podcast-jingle-narration` capabilities remain `source_built`;
 - `voice-transformation` and `song-production` remain `specified`;
 - no other 36G capability is promoted to `provider_connected`, `runtime_verified`, `scaled`, or `production_ready`; Phase 36G remains `in_progress`.
 
@@ -476,6 +476,58 @@ Only the newly split `stock-voice-tts` capability advances to `runtime_verified`
 
 The broader `stt-tts-dubbing` capability remains `source_built`: no provider STT or complete dubbing execution has been accepted. `podcast-jingle-narration` remains `source_built`; `song-production` and `voice-transformation` remain `specified`; generated SFX, custom voices, voice transformation and voice cloning remain outside the Stage 3 claim. Phase 36G remains `in_progress`.
 
-## Next safe gate — Stage 4 governed STT and dubbing foundation
+## Stage 4A — governed single-speaker STT, captions and dubbing contracts
 
-Stage 4 may build provider-neutral transcript, segment/timestamp, diarization and caption contracts first, then evaluate one separately bounded STT provider/model only after authenticated free preflight, official duration/format/pricing review, one explicit request cap and complete cleanup. Dubbing remains blocked until transcription, translation, per-segment stock speech, alignment and final local mastering each have separate evidence. Music/vocals/SFX and voice transformation/clone remain later legal/provider gates.
+Stage 4A deliberately separates one narrow single-speaker STT runtime from broader diarization and dubbing claims. The launch candidate pins OpenAI `gpt-4o-mini-transcribe-2025-12-15`, accepts only a checksum-verified finite PCM WAV (`audio/wav` or `audio/x-wav`), limits the source to `20 MiB / 10 minutes`, uses `response_format=json`, and permits exactly one attempt after an exact Owner cost-cap arm.
+
+The official pricing record is preserved as an **estimated** `$0.003 / audio minute`, alongside `$1.25 / 1M` audio-input tokens and `$5.00 / 1M` text-output tokens. The endpoint does not provide authoritative per-request usage in the accepted contract, so `actual_cost_usd` remains `null` unless provider usage evidence is returned; the durable record stores the estimated duration cost and separately approved maximum.
+
+New provider-neutral contracts add:
+
+- hash-bound governed source evidence with no public storage locator;
+- private transcript documents and hash-only public snapshots;
+- pseudonymous `speaker-NNN` keys rather than real speaker identities;
+- deterministic WebVTT/SRT plus a hash-only caption manifest;
+- a provider-neutral dubbing plan that preserves segment timing and speaker scope but remains blocked on translation evidence, per-segment stock TTS, timing fit/alignment, and final local mastering.
+
+Alembic `20260822_0036` adds tenant-scoped `audio_transcript_executions` with arm-before-request, source checksum/size/duration/rate/channel evidence, one-attempt budget, lease/fencing, durable `provider_state=submitting` before HTTP, ambiguity-to-`needs_review`, private transcript package metadata, Studio revision evidence, and hash-only public output fields. An expired lease before submission may be reclaimed without consuming an attempt; an expired `submitting` lease is never resubmitted automatically.
+
+The `audio-transcript-worker` is profile-gated under `audio-execution`, non-root, capability-dropped, `no-new-privileges`, and hard-disabled by `AUDIO_TRANSCRIPT_LIVE_ENABLED=false`. The Worker validates source size, SHA-256, finite PCM WAV duration/sample-rate/channel evidence **before reading a provider credential**, then revalidates the same envelope inside the exact transport.
+
+The new granular registry claim is `governed-stt-transcript=source_built` with external gate `provider-transcription-runtime-evidence`. No STT maturity advance, provider request, credential read, Production migration, service restart, or provider spend is claimed by this source checkpoint.
+
+### Stage 4A isolated verification completed
+
+- Authenticated free model lookup for `gpt-4o-mini-transcribe-2025-12-15` returned HTTP `200` with an exact model-ID match. It made one free metadata request, zero transcription requests, and `$0.00` provider spend; sanitized evidence SHA-256 `c73a19dfbad6b25aef52360da9207c08bdb23df1f6eacec34dac19108489f6ba`.
+- Root transcript/AudioFactory/governance contracts passed `35/35`; complete AIOS Core passed `771/771` in `30.40s`. Core log SHA-256 `1285ac77614f9581cfef607b0cc2f1368131f94af6f445a44d3933d30987e79e`; metadata SHA-256 `23e52f4bba79a1f493851c2b7bb5befb03036b0b33cf4c46d8d12fb55a94fcbb`.
+- Provider/Worker/Compose/registry/head contracts passed `26/26`; durable transcript authority passed `27/27`; affected Audio/Media regression passed `89/89` with PostgreSQL/Redis critical hits `0/0`. Affected-regression log SHA-256 `2cdea5adec209dfe5ec8545324f9c676bb979e6a25fbc0102811395e367aa607`; metadata SHA-256 `0a34f1fb0490ce3811afe588212f73568046dc073c4a42a8fceba5af44ddef32`.
+- Alembic clean round-trip `0036 -> 0035 -> 0036` proved the transcript table appeared, disappeared, and reappeared with row count zero and PostgreSQL critical hits `0`; evidence SHA-256 `11ebac8a67fb3517be89d30257796face6f302ed858a2d48715f47489aa5492a`.
+- Complete Backend validation passed `871 passed, 1 skipped, 2 warnings, 0 failed` in `310.41s` with `65.36%` coverage, full verify script, Ruff, Mypy, PostgreSQL/Redis critical hits `0/0`. Backend log SHA-256 `e7ccb8c2d63500c6571ad975788c64adfa62a57a8d4001716ff1eba1d0e97f1e`; metadata SHA-256 `195df859cd0db4b5dcd1cf6dcd74f43370032f8c870d56d3a148cb22d0729c80`.
+- Exact Backend test image `sha256:e66758499d79395b521d58d4d16cd4476937e3d353f0e5147c77a10db940a484` built successfully; build-log SHA-256 `d3a29e97f55336ce4824b668e6c026fb6894ab08a9d6bc915399d0fddfdafff0`.
+- Exact Production candidate image `sha256:2fc8df776a3afa3a93266133ce4039dfb96a4feb46d75e17b6a49e78b8785a1a` passed the Worker smoke under `--network none` with `live_enabled=false`, cycles/errors `0/0`, no credential read and zero transcription requests/spend. Build-log SHA-256 `9c540fd99cbeebc0e8363b27d096e3ac4e507bb6635511b0069dc927f269e0be`; offline-smoke SHA-256 `96a7bce71d6cb085974fdd6f0569a79eabd8b00b5cfef3f075bcf51ce27372d8`; candidate metadata SHA-256 `da4b03d76013131bfa76c79dc5696e2c8c6c1d779889ff153bf4ed14477a83f4`.
+- Both Production Compose manifests, workflow YAML, focused/full Ruff/Mypy, AST parse, repository secret/security audits, Phase36 reporting and `git diff --check` are required to pass again after the final staged commit. Production remains on Alembic `0035`; no Stage 4 source has been deployed and no transcription request has been sent.
+
+## P36-0029 — Docker evidence probes omitted stdin attachment after successful tests
+
+- The first retained affected-regression run completed `89/89`, but its post-test JSON probes used `python -` without `docker run -i`; the evidence formatter received empty strings and stopped after the tests.
+- No code test failed, no Production resource was touched, and provider activity remained zero. The retained rerun attached stdin explicitly, repeated the regression and migration round-trip cleanly, and produced the evidence hashes above. Incident evidence SHA-256 `7520978923461beab1bae8f710a1dd1153b3cc6e8ba6a8b2499505ef0ed84c63`.
+
+## P36-0030 — Core zero-dead gate found a hidden rollback cleanup failure count
+
+- The first complete Core run reached `768 passed` and failed three repository-readiness checks because transcript-package rollback used a bare `pass` when object deletion failed.
+- The fix preserves the original exception, counts failed cleanup deletions, and attaches only the sanitized count as an exception note. Focused readiness tests passed `5/5`, then complete Core passed `771/771`. No provider or Production boundary was crossed. Incident evidence SHA-256 `6075c6bafabbaca12f077fd9cddc0d50b40d4558bc28f19a4a9005ec2bb9cbe9`.
+
+## P36-0031 — first candidate Worker smoke omitted the Production source mount
+
+- The Production image built successfully, but the first offline smoke omitted `/workspace/src` and the Compose-equivalent `PYTHONPATH`; import stopped before the Worker ran. The empty artifact was deleted.
+- The exact same image was rerun with the Production read-only source mount and passed under `--network none`. No credential, provider request, service restart, schema change, or spend occurred. Incident evidence SHA-256 `cdc3796c1de9810393f3709850b054f8e0a7fa6320bc78601a10a4475f60a79e`.
+
+## Next safe gate — Stage 4A protected disabled deployment and one bounded STT canary
+
+1. finish clean Alembic round-trip, complete Core/Backend/static/security/reporting gates and exact-image no-network Worker smoke;
+2. merge only after every protected CI gate is green;
+3. create and restore-verify a fresh Production backup before Alembic `0036`;
+4. deploy Backend plus the hard-disabled `audio-transcript-worker`, proving zero transcript rows/queues and zero provider activity;
+5. perform one authenticated free model lookup for the pinned snapshot, then one separately armed short synthetic WAV transcription with `max_attempts=1` and an explicit cost cap;
+6. require private transcript, WebVTT, SRT, manifest, Studio revision, checkpoint-before-cleanup, and independently verified deletion of every synthetic row/object;
+7. promote only `governed-stt-transcript` if the live path passes. Multi-speaker diarization and complete dubbing remain separate later gates.

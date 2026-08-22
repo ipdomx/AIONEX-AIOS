@@ -1356,7 +1356,7 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
     assert "requirements-runtime.txt" in dockerfile
     assert "setuptools*" in dockerfile and "wheel*" in dockerfile
     assert "install -d -m 0700 -o aionex -g aionex" in dockerfile
-    for compose, expected_backend_images in ((primary_compose, 12), (deploy_compose, 11)):
+    for compose, expected_backend_images in ((primary_compose, 13), (deploy_compose, 12)):
         assert "backup-worker:" in compose
         assert "postgres-credential-reconciler:" in compose
         assert "communication-worker:" in compose
@@ -1376,6 +1376,19 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
         assert 'user: "1000:1000"' in audio_section
         assert 'cap_drop: ["ALL"]' in audio_section
         assert 'no-new-privileges:true' in audio_section
+        assert "audio-transcript-worker:" in compose
+        transcript_section = compose.split("audio-transcript-worker:", 1)[1].split(
+            "video-provider-worker:", 1
+        )[0]
+        assert 'profiles: ["audio-execution"]' in transcript_section
+        assert (
+            'command: ["python", "-m", "app.services.audio_transcript_worker"]'
+            in transcript_section
+        )
+        assert 'AUDIO_TRANSCRIPT_LIVE_ENABLED: "false"' in transcript_section
+        assert 'user: "1000:1000"' in transcript_section
+        assert 'cap_drop: ["ALL"]' in transcript_section
+        assert 'no-new-privileges:true' in transcript_section
         assert "three-d-worker:" in compose
         assert 'command: ["python", "-m", "app.services.three_d_worker"]' in compose
         assert "/run/secrets/aionex/runpod-gpu.env:ro" in compose
