@@ -37,6 +37,7 @@ from app.db.models import (
     StudioAssetRevision,
     uuid_str,
 )
+from app.services.audio_transcript_providers import ProviderDiarizedSegmentResult
 from app.services.media_storage import MediaObjectStore, media_object_store
 from app.services.production_studio import slug
 from sqlalchemy import and_, or_, select
@@ -99,6 +100,7 @@ class AudioTranscriptExecutionSpec:
     project_id: str | None = None
     studio_job_id: str | None = None
     studio_asset_id: str | None = None
+    operation: str = "transcribe"
     response_format: str = "json"
     estimated_cost_usd: float = 0.0
     max_cost_usd: float = 0.0
@@ -115,7 +117,21 @@ def _sha256_text(value: str) -> str:
 
 def _metadata_key_is_sensitive(key: str) -> bool:
     lowered = key.lower()
-    return any(fragment in lowered for fragment in _SENSITIVE_METADATA_FRAGMENTS)
+    if any(fragment in lowered for fragment in _SENSITIVE_METADATA_FRAGMENTS):
+        return True
+    if lowered in {
+        "segments",
+        "speaker",
+        "speaker_label",
+        "speaker_labels",
+        "raw_speaker",
+        "raw_speaker_label",
+        "raw_speaker_labels",
+    }:
+        return True
+    return lowered.endswith("_speaker_label") or lowered.endswith(
+        "_speaker_labels"
+    )
 
 
 def _safe_metadata(payload: dict[str, Any]) -> dict[str, Any]:
@@ -144,12 +160,15 @@ def _safe_metadata(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _validate_spec(spec: AudioTranscriptExecutionSpec) -> None:
-    if spec.provider != "openai" or spec.model != "gpt-4o-mini-transcribe-2025-12-15":
+    launch_matrix = {
+        ("transcribe", "openai", "gpt-4o-mini-transcribe-2025-12-15", "json"),
+        ("diarize", "openai", "gpt-4o-transcribe-diarize", "diarized_json"),
+    }
+    route = (spec.operation, spec.provider, spec.model, spec.response_format)
+    if route not in launch_matrix:
         raise AudioTranscriptExecutionError(
-            "provider/model is outside the governed transcript launch matrix"
+            "operation/provider/model/format is outside the governed transcript launch matrix"
         )
-    if spec.response_format != "json":
-        raise AudioTranscriptExecutionError("transcript response format is unsupported")
     if spec.source_media_type not in _ALLOWED_MEDIA_TYPES:
         raise AudioTranscriptExecutionError(
             "transcript source media type is unsupported"
@@ -197,6 +216,20 @@ async def create_audio_transcript_execution(
         )
     )
     if existing is not None:
+        if (
+            existing.operation != spec.operation
+            or existing.provider != spec.provider
+            or existing.model != spec.model
+            or existing.response_format != spec.response_format
+            or existing.graph_id != spec.graph_id
+            or existing.target_node_id != spec.target_node_id
+            or existing.source_checksum != spec.source_checksum
+            or existing.language != spec.language
+            or abs(float(existing.max_cost_usd) - float(spec.max_cost_usd)) > 1e-9
+        ):
+            raise AudioTranscriptExecutionError(
+                "transcript execution idempotency key conflicts with another request"
+            )
         return existing
     graph = await session.scalar(
         select(MediaAssetGraph).where(
@@ -231,7 +264,7 @@ async def create_audio_transcript_execution(
         graph_id=spec.graph_id,
         target_node_id=spec.target_node_id,
         requested_by_id=spec.requested_by_id,
-        operation="transcribe",
+        operation=spec.operation,
         provider=spec.provider,
         model=spec.model,
         status="planned",
@@ -260,6 +293,7 @@ async def create_audio_transcript_execution(
     target.operation_metadata = {
         **(target.operation_metadata or {}),
         "executor": "audio-transcript-provider",
+        "operation": spec.operation,
         "provider": spec.provider,
         "model": spec.model,
         "source_sha256": spec.source_checksum,
@@ -357,7 +391,7 @@ class AudioTranscriptExecutionAuthority:
             row = await session.scalar(
                 select(AudioTranscriptExecution)
                 .where(
-                    AudioTranscriptExecution.operation == "transcribe",
+                    AudioTranscriptExecution.operation.in_(("transcribe", "diarize")),
                     or_(
                         and_(
                             AudioTranscriptExecution.status == "queued",
@@ -494,27 +528,18 @@ class AudioTranscriptExecutionAuthority:
         ).strip()
         if not 1 <= len(normalized) <= 2_000_000 or "\x00" in normalized:
             raise AudioTranscriptExecutionError("provider transcript text is invalid")
-        if actual_cost_usd is not None:
-            raise AudioTranscriptExecutionError(
-                "transcript actual cost must remain unknown without authoritative usage"
-            )
-        if cost_basis not in _ALLOWED_COST_BASES:
-            raise AudioTranscriptExecutionError("transcript cost basis is unsupported")
-
         async with self.session_factory() as session:
             row = await session.get(AudioTranscriptExecution, claim.execution_id)
             row = self._require_owned(row, claim)
-            source = GovernedAudioSource(
-                source_sha256=row.source_checksum,
-                locator_sha256=_sha256_text(
-                    f"{row.source_storage_backend}:{row.source_storage_key}"
-                ),
-                size_bytes=int(row.source_size_bytes),
-                media_type=row.source_media_type,
-                duration_ms=int(row.source_duration_ms),
-                sample_rate_hz=int(row.source_sample_rate_hz),
-                channels=int(row.source_channels),
-            )
+            if (
+                row.operation != "transcribe"
+                or row.model != "gpt-4o-mini-transcribe-2025-12-15"
+                or row.response_format != "json"
+            ):
+                raise AudioTranscriptExecutionError(
+                    "single-speaker completion does not match the durable execution route"
+                )
+            source = self._governed_source(row)
             document = TranscriptDocument(
                 source=source,
                 language=row.language,
@@ -531,6 +556,146 @@ class AudioTranscriptExecutionAuthority:
                 ),
                 diarization_enabled=False,
             )
+        return await self._complete_document(
+            claim,
+            document=document,
+            provider_request_id=provider_request_id,
+            provider_response_metadata=provider_response_metadata,
+            usage_metadata=usage_metadata,
+            actual_cost_usd=actual_cost_usd,
+            cost_basis=cost_basis,
+        )
+
+    async def complete_diarization(
+        self,
+        claim: AudioTranscriptClaim,
+        *,
+        segments: tuple[ProviderDiarizedSegmentResult, ...],
+        provider_request_id: str | None,
+        provider_response_metadata: dict[str, Any],
+        usage_metadata: dict[str, Any],
+        actual_cost_usd: float | None,
+        cost_basis: str,
+    ) -> dict[str, Any]:
+        if not 2 <= len(segments) <= 5_000:
+            raise AudioTranscriptExecutionError(
+                "provider diarization segment count is invalid"
+            )
+        async with self.session_factory() as session:
+            row = await session.get(AudioTranscriptExecution, claim.execution_id)
+            row = self._require_owned(row, claim)
+            if (
+                row.operation != "diarize"
+                or row.model != "gpt-4o-transcribe-diarize"
+                or row.response_format != "diarized_json"
+            ):
+                raise AudioTranscriptExecutionError(
+                    "diarization completion does not match the durable execution route"
+                )
+            source = self._governed_source(row)
+            speaker_map: dict[str, str] = {}
+            provider_segment_ids: set[str] = set()
+            normalized_segments: list[TranscriptSegment] = []
+            for ordinal, segment in enumerate(segments, start=1):
+                raw_label = segment.speaker_label.strip()
+                if (
+                    not raw_label
+                    or len(raw_label) > 80
+                    or "\x00" in raw_label
+                    or segment.provider_segment_id in provider_segment_ids
+                ):
+                    raise AudioTranscriptExecutionError(
+                        "provider diarization identity evidence is invalid"
+                    )
+                provider_segment_ids.add(segment.provider_segment_id)
+                if raw_label not in speaker_map:
+                    speaker_map[raw_label] = f"speaker-{len(speaker_map) + 1:03d}"
+                start_ms = round(float(segment.start_seconds) * 1_000)
+                end_ms = round(float(segment.end_seconds) * 1_000)
+                if end_ms <= start_ms:
+                    raise AudioTranscriptExecutionError(
+                        "provider diarization timing collapses after normalization"
+                    )
+                normalized_segments.append(
+                    TranscriptSegment(
+                        segment_id=f"segment-{ordinal:03d}",
+                        speaker_key=speaker_map[raw_label],
+                        start_ms=start_ms,
+                        end_ms=end_ms,
+                        text=segment.text,
+                        language=row.language,
+                        confidence=None,
+                    )
+                )
+            if not 2 <= len(speaker_map) <= 32:
+                raise AudioTranscriptExecutionError(
+                    "provider result does not prove multi-speaker diarization"
+                )
+            document = TranscriptDocument(
+                source=source,
+                language=row.language,
+                segments=tuple(normalized_segments),
+                diarization_enabled=True,
+            )
+        return await self._complete_document(
+            claim,
+            document=document,
+            provider_request_id=provider_request_id,
+            provider_response_metadata={
+                **provider_response_metadata,
+                "pseudonymous_speaker_count": len(document.speaker_keys),
+                "raw_speaker_labels_returned": False,
+            },
+            usage_metadata=usage_metadata,
+            actual_cost_usd=actual_cost_usd,
+            cost_basis=cost_basis,
+        )
+
+    @staticmethod
+    def _governed_source(row: AudioTranscriptExecution) -> GovernedAudioSource:
+        return GovernedAudioSource(
+            source_sha256=row.source_checksum,
+            locator_sha256=_sha256_text(
+                f"{row.source_storage_backend}:{row.source_storage_key}"
+            ),
+            size_bytes=int(row.source_size_bytes),
+            media_type=row.source_media_type,
+            duration_ms=int(row.source_duration_ms),
+            sample_rate_hz=int(row.source_sample_rate_hz),
+            channels=int(row.source_channels),
+        )
+
+    async def _complete_document(
+        self,
+        claim: AudioTranscriptClaim,
+        *,
+        document: TranscriptDocument,
+        provider_request_id: str | None,
+        provider_response_metadata: dict[str, Any],
+        usage_metadata: dict[str, Any],
+        actual_cost_usd: float | None,
+        cost_basis: str,
+    ) -> dict[str, Any]:
+        if actual_cost_usd is not None:
+            raise AudioTranscriptExecutionError(
+                "transcript actual cost must remain unknown without an account invoice"
+            )
+        if cost_basis not in _ALLOWED_COST_BASES:
+            raise AudioTranscriptExecutionError(
+                "transcript cost basis is unsupported"
+            )
+        transcript_text = "\n".join(segment.text for segment in document.segments)
+        if not 1 <= len(transcript_text) <= 2_000_000:
+            raise AudioTranscriptExecutionError("provider transcript text is invalid")
+
+        async with self.session_factory() as session:
+            row = await session.get(AudioTranscriptExecution, claim.execution_id)
+            row = self._require_owned(row, claim)
+            expected_diarization = row.operation == "diarize"
+            if document.diarization_enabled is not expected_diarization:
+                raise AudioTranscriptExecutionError(
+                    "transcript document does not match the durable operation"
+                )
             graph_id = row.graph_id
             organization_id = row.organization_id
             target_node_id = row.target_node_id
@@ -546,9 +711,10 @@ class AudioTranscriptExecutionAuthority:
         ).encode("utf-8")
         webvtt = render_webvtt(document).encode("utf-8")
         srt = render_srt(document).encode("utf-8")
+        manifest_payload = caption_manifest(document)
         manifest = (
             json.dumps(
-                caption_manifest(document),
+                manifest_payload,
                 indent=2,
                 sort_keys=True,
                 ensure_ascii=False,
@@ -567,7 +733,9 @@ class AudioTranscriptExecutionAuthority:
             archive.writestr("captions/captions.srt", srt)
             archive.writestr("captions/manifest.json", manifest)
         package = package_buffer.getvalue()
-        base = f"media/{organization_id}/transcript/{graph_id}/f{claim.fencing_token}"
+        base = (
+            f"media/{organization_id}/transcript/{graph_id}/f{claim.fencing_token}"
+        )
         outputs = (
             (f"{base}/private-transcript.json", private_json, "application/json"),
             (f"{base}/captions.vtt", webvtt, "text/vtt"),
@@ -643,6 +811,7 @@ class AudioTranscriptExecutionAuthority:
                         "output_checksum": package_object.sha256,
                         "fencing_token": claim.fencing_token,
                         "completed_at": completed.isoformat(),
+                        "raw_speaker_labels_returned": False,
                     },
                 ]
                 row.status = "completed"
@@ -659,8 +828,8 @@ class AudioTranscriptExecutionAuthority:
                 row.output_checksum = package_object.sha256
                 row.output_size_bytes = package_object.size_bytes
                 row.transcript_checksum = document.checksum
-                row.transcript_text_sha256 = _sha256_text(normalized)
-                row.transcript_characters = len(normalized)
+                row.transcript_text_sha256 = _sha256_text(transcript_text)
+                row.transcript_characters = len(transcript_text)
                 row.segment_count = len(document.segments)
                 row.speaker_count = len(document.speaker_keys)
                 row.transcript_language = document.language
@@ -677,8 +846,10 @@ class AudioTranscriptExecutionAuthority:
                     "completed_at": completed.isoformat(),
                     "final_node_id": target.id,
                     "final_checksum": package_object.sha256,
+                    "operation": row.operation,
                     "transcript": public_document,
-                    "caption_manifest": caption_manifest(document),
+                    "caption_manifest": manifest_payload,
+                    "raw_speaker_labels_returned": False,
                 }
                 completion: dict[str, Any] = {}
                 if graph.studio_asset_id:
@@ -705,14 +876,16 @@ class AudioTranscriptExecutionAuthority:
                             "execution_id_hash": _sha256_text(row.id),
                             "provider": row.provider,
                             "model": row.model,
+                            "operation": row.operation,
                             "source_sha256": row.source_checksum,
                             "transcript_checksum": document.checksum,
                             "transcript_text_sha256": row.transcript_text_sha256,
                             "segment_count": row.segment_count,
                             "speaker_count": row.speaker_count,
                             "language": row.transcript_language,
-                            "caption_manifest": caption_manifest(document),
+                            "caption_manifest": manifest_payload,
                             "raw_transcript_returned": False,
+                            "raw_speaker_labels_returned": False,
                             "storage_locator_returned": False,
                         }
                     }
@@ -729,7 +902,8 @@ class AudioTranscriptExecutionAuthority:
                         checksum=package_object.sha256,
                         size_bytes=package_object.size_bytes,
                         change_note=(
-                            f"Phase 36G governed transcript graph v{graph.graph_version}"
+                            f"Phase 36G governed {row.operation} graph "
+                            f"v{graph.graph_version}"
                         ),
                         revision_metadata=revision_metadata,
                         status="active",
@@ -758,7 +932,11 @@ class AudioTranscriptExecutionAuthority:
                     AuditEvent(
                         organization_id=organization_id,
                         user_id=None,
-                        action="audio.transcript.completed",
+                        action=(
+                            "audio.transcript.completed"
+                            if row.operation == "transcribe"
+                            else "audio.diarize.completed"
+                        ),
                         resource_type="audio_transcript_execution",
                         resource_id=row.id,
                         details={
@@ -766,10 +944,14 @@ class AudioTranscriptExecutionAuthority:
                             "target_node_id": target.id,
                             "provider": row.provider,
                             "model": row.model,
+                            "operation": row.operation,
                             "source_sha256": row.source_checksum,
                             "transcript_checksum": document.checksum,
                             "output_checksum": package_object.sha256,
+                            "segment_count": len(document.segments),
+                            "speaker_count": len(document.speaker_keys),
                             "fencing_token": claim.fencing_token,
+                            "raw_speaker_labels_returned": False,
                         },
                     )
                 )
@@ -778,9 +960,12 @@ class AudioTranscriptExecutionAuthority:
                     "execution_id": row.id,
                     "graph_id": graph.id,
                     "target_node_id": target.id,
+                    "operation": row.operation,
                     "status": row.status,
                     "transcript_checksum": document.checksum,
                     "output_checksum": package_object.sha256,
+                    "segment_count": len(document.segments),
+                    "speaker_count": len(document.speaker_keys),
                     "stored_object_keys": [item.key for item in stored],
                     **completion,
                 }

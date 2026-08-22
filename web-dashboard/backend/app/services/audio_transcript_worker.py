@@ -1,4 +1,4 @@
-"""Fail-closed Phase 36G persistent speech-to-text worker."""
+"""Fail-closed Phase 36G persistent transcription and diarization worker."""
 from __future__ import annotations
 
 import argparse
@@ -36,6 +36,13 @@ from app.services.media_storage import MediaObjectStore, media_object_store
 from sqlalchemy import select
 
 logger = get_logger(__name__)
+
+_TRANSCRIBE_MODEL = "gpt-4o-mini-transcribe-2025-12-15"
+_DIARIZE_MODEL = "gpt-4o-transcribe-diarize"
+_LAUNCH_MATRIX = {
+    ("transcribe", "openai", _TRANSCRIBE_MODEL, "json"),
+    ("diarize", "openai", _DIARIZE_MODEL, "diarized_json"),
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,9 +90,14 @@ class AudioTranscriptWorker:
             "cycles": self.cycles,
             "errors": self.errors,
             "providers": sorted(self.adapters),
-            "model": "gpt-4o-mini-transcribe-2025-12-15",
+            "model": _TRANSCRIBE_MODEL,
+            "models": [_DIARIZE_MODEL, _TRANSCRIBE_MODEL],
+            "operations": ["diarize", "transcribe"],
+            "diarization_model": _DIARIZE_MODEL,
             "max_attempts": 1,
             "raw_transcript_returned": False,
+            "raw_speaker_labels_returned": False,
+            "known_speaker_references_enabled": False,
             "secret_returned": False,
         }
         self.health_path.parent.mkdir(parents=True, exist_ok=True)
@@ -105,13 +117,12 @@ class AudioTranscriptWorker:
     ) -> LoadedTranscriptExecution:
         async with SessionLocal() as session:
             row = await session.get(AudioTranscriptExecution, claim.execution_id)
-            if (
-                row is None
-                or row.status != "running"
-                or row.operation != "transcribe"
-                or row.provider != "openai"
-                or row.model != "gpt-4o-mini-transcribe-2025-12-15"
-            ):
+            if row is None or row.status != "running":
+                raise ProviderTranscriptFailure(
+                    "execution_unavailable", retryable=False
+                )
+            route = (row.operation, row.provider, row.model, row.response_format)
+            if route not in _LAUNCH_MATRIX:
                 raise ProviderTranscriptFailure(
                     "execution_unavailable", retryable=False
                 )
@@ -124,6 +135,7 @@ class AudioTranscriptWorker:
             ):
                 raise ProviderTranscriptFailure("execution_scope", retryable=False)
             provider_type = row.provider
+            operation = row.operation
             model = row.model
             source_key = row.source_storage_key
             source_checksum = row.source_checksum
@@ -171,7 +183,9 @@ class AudioTranscriptWorker:
                 ).all()
             )
             if len(providers) != 1 or not provider_enabled(providers[0]):
-                raise ProviderTranscriptFailure("provider_authority", retryable=False)
+                raise ProviderTranscriptFailure(
+                    "provider_authority", retryable=False
+                )
             credential = provider_credential(providers[0])
             base_url = validate_provider_base_url(
                 providers[0].type,
@@ -191,7 +205,9 @@ class AudioTranscriptWorker:
                 source_sha256=source_checksum,
                 duration_ms=duration_ms,
                 language=language,
+                operation=operation,
                 response_format=response_format,
+                chunking_strategy="auto" if operation == "diarize" else None,
                 prompt=None,
                 max_source_bytes=int(settings.AUDIO_TRANSCRIPT_MAX_SOURCE_BYTES),
                 max_duration_seconds=int(
@@ -224,15 +240,34 @@ class AudioTranscriptWorker:
                 credential=loaded.credential,
                 base_url=loaded.base_url,
             )
-            await self.authority.complete_text(
-                claim,
-                text=result.text,
-                provider_request_id=result.request_id,
-                provider_response_metadata=result.metadata,
-                usage_metadata=result.usage,
-                actual_cost_usd=result.actual_cost_usd,
-                cost_basis=result.cost_basis,
-            )
+            if loaded.request.operation == "diarize":
+                if not result.segments:
+                    raise ProviderTranscriptFailure(
+                        "provider_diarization_invalid", retryable=False
+                    )
+                await self.authority.complete_diarization(
+                    claim,
+                    segments=result.segments,
+                    provider_request_id=result.request_id,
+                    provider_response_metadata=result.metadata,
+                    usage_metadata=result.usage,
+                    actual_cost_usd=result.actual_cost_usd,
+                    cost_basis=result.cost_basis,
+                )
+            else:
+                if result.segments:
+                    raise ProviderTranscriptFailure(
+                        "provider_response", retryable=False
+                    )
+                await self.authority.complete_text(
+                    claim,
+                    text=result.text,
+                    provider_request_id=result.request_id,
+                    provider_response_metadata=result.metadata,
+                    usage_metadata=result.usage,
+                    actual_cost_usd=result.actual_cost_usd,
+                    cost_basis=result.cost_basis,
+                )
             self.write_health("healthy")
             return True
         except ProviderTranscriptFailure as exc:

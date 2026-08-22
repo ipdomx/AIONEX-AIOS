@@ -7,6 +7,7 @@ import pytest
 
 from app.core.config import settings
 from app.services.audio_transcript_providers import (
+    ProviderDiarizedSegmentResult,
     ProviderTranscriptFailure,
     ProviderTranscriptRequest,
     ProviderTranscriptResult,
@@ -24,6 +25,7 @@ class FakeAuthority:
         self.claim_calls = 0
         self.marked: list[AudioTranscriptClaim] = []
         self.completed: list[dict] = []
+        self.diarized: list[dict] = []
         self.failed: list[dict] = []
 
     async def claim(self):
@@ -35,6 +37,10 @@ class FakeAuthority:
 
     async def complete_text(self, claim, **kwargs):
         self.completed.append({"claim": claim, **kwargs})
+        return {"status": "completed"}
+
+    async def complete_diarization(self, claim, **kwargs):
+        self.diarized.append({"claim": claim, **kwargs})
         return {"status": "completed"}
 
     async def fail(
@@ -71,7 +77,10 @@ class FakeAdapter:
         self.calls += 1
         assert credential == "credential"
         assert base_url == "https://api.openai.com"
-        assert request.model == "gpt-4o-mini-transcribe-2025-12-15"
+        assert request.model in {
+            "gpt-4o-mini-transcribe-2025-12-15",
+            "gpt-4o-transcribe-diarize",
+        }
         if self.failure is not None:
             raise self.failure
         assert self.result is not None
@@ -88,16 +97,24 @@ class StubWorker(AudioTranscriptWorker):
         return self.loaded
 
 
-def loaded() -> LoadedTranscriptExecution:
+def loaded(*, operation: str = "transcribe") -> LoadedTranscriptExecution:
+    diarize = operation == "diarize"
     return LoadedTranscriptExecution(
         request=ProviderTranscriptRequest(
             provider="openai",
-            model="gpt-4o-mini-transcribe-2025-12-15",
+            model=(
+                "gpt-4o-transcribe-diarize"
+                if diarize
+                else "gpt-4o-mini-transcribe-2025-12-15"
+            ),
             audio=b"RIFF" + b"\x00" * 128,
             media_type="audio/wav",
             source_sha256="a" * 64,
             duration_ms=5_000,
             language="en-US",
+            operation=operation,
+            response_format="diarized_json" if diarize else "json",
+            chunking_strategy="auto" if diarize else None,
         ),
         credential="credential",
         base_url="https://api.openai.com",
@@ -130,6 +147,10 @@ async def test_transcript_worker_is_fail_closed_when_live_disabled(
     assert payload["cycles"] == 0
     assert payload["errors"] == 0
     assert payload["raw_transcript_returned"] is False
+    assert payload["raw_speaker_labels_returned"] is False
+    assert payload["known_speaker_references_enabled"] is False
+    assert payload["operations"] == ["diarize", "transcribe"]
+    assert payload["diarization_model"] == "gpt-4o-transcribe-diarize"
     assert payload["secret_returned"] is False
 
 
@@ -175,6 +196,73 @@ async def test_transcript_worker_completes_one_fake_provider_result(
     assert payload["status"] == "healthy"
     assert payload["cycles"] == 1
     assert payload["errors"] == 0
+
+
+@pytest.mark.asyncio
+async def test_transcript_worker_completes_one_fake_diarization_result(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "AUDIO_TRANSCRIPT_LIVE_ENABLED", True)
+    monkeypatch.setattr(
+        settings,
+        "AUDIO_TRANSCRIPT_WORKER_HEALTH_FILE",
+        str(tmp_path / "health.json"),
+    )
+    authority = FakeAuthority()
+    segments = (
+        ProviderDiarizedSegmentResult(
+            provider_segment_id="seg-a",
+            speaker_label="provider-alpha",
+            start_seconds=0.0,
+            end_seconds=2.0,
+            text="First speaker.",
+        ),
+        ProviderDiarizedSegmentResult(
+            provider_segment_id="seg-b",
+            speaker_label="provider-beta",
+            start_seconds=2.0,
+            end_seconds=5.0,
+            text="Second speaker.",
+        ),
+    )
+    adapter = FakeAdapter(
+        ProviderTranscriptResult(
+            text="First speaker. Second speaker.",
+            language="en-US",
+            request_id="req-diarize-1",
+            metadata={
+                "operation": "diarize",
+                "segment_count": 2,
+                "speaker_count": 2,
+                "raw_speaker_labels_returned": False,
+            },
+            usage={
+                "estimated_cost_usd": 0.0005,
+                "actual_cost_known": False,
+            },
+            segments=segments,
+            actual_cost_usd=None,
+            cost_basis="official_estimated_per_minute",
+        )
+    )
+    worker = StubWorker(
+        loaded=loaded(operation="diarize"),
+        authority=authority,  # type: ignore[arg-type]
+        store=LocalMediaObjectStore(tmp_path / "objects"),
+        adapters={"openai": adapter},  # type: ignore[dict-item]
+    )
+    assert await worker.run_once() is True
+    assert authority.marked == [AudioTranscriptClaim("exec-1", "lease-1", 1)]
+    assert authority.completed == []
+    assert len(authority.diarized) == 1
+    assert authority.diarized[0]["segments"] == segments
+    assert authority.diarized[0]["provider_request_id"] == "req-diarize-1"
+    assert authority.failed == []
+    payload = json.loads((tmp_path / "health.json").read_text())
+    assert payload["status"] == "healthy"
+    assert payload["cycles"] == 1 and payload["errors"] == 0
+    assert payload["raw_speaker_labels_returned"] is False
 
 
 @pytest.mark.asyncio
@@ -233,6 +321,7 @@ async def test_transcript_worker_maps_failure_boundary_without_raw_provider_cont
     )
     assert await worker.run_once() is True
     assert authority.completed == []
+    assert authority.diarized == []
     assert authority.failed[0]["code"] == failure.code
     assert authority.failed[0]["ambiguous"] is ambiguous
     assert authority.failed[0]["safe_to_resubmit"] is safe

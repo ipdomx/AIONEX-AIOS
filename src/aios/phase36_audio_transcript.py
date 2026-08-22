@@ -252,6 +252,10 @@ class TranscriptDocument:
             raise TranscriptContractError(
                 "multi-speaker transcript requires diarization evidence"
             )
+        if self.diarization_enabled and len(speakers) < 2:
+            raise TranscriptContractError(
+                "diarized transcript requires at least two pseudonymous speakers"
+            )
 
     @property
     def checksum(self) -> str:
@@ -335,7 +339,10 @@ def caption_manifest(document: TranscriptDocument) -> dict[str, Any]:
         "srt_sha256": _sha256_text(srt),
         "srt_size_bytes": len(srt.encode("utf-8")),
         "segment_count": len(document.segments),
+        "speaker_count": len(document.speaker_keys),
+        "diarization_enabled": document.diarization_enabled,
         "raw_caption_text_returned": False,
+        "raw_speaker_labels_returned": False,
     }
 
 

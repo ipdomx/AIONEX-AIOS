@@ -2,18 +2,18 @@
 
 Date: 2026-08-21
 Updated: 2026-08-22
-Status: **IN PROGRESS — Stage 4 pinned single-speaker STT/transcript/captions Production-accepted; multi-speaker diarization, complete dubbing, podcast/jingle, music/vocals and voice transformation/clone remain gated**
+Status: **IN PROGRESS — Stage 4 single-speaker STT Production-accepted; Stage 5 multi-speaker diarization source candidate under protected validation with zero diarization requests/spend**
 
 ## Truth boundary
 
-This checkpoint now separately claims the Production-accepted pinned built-in stock-voice TTS route and one pinned single-speaker STT route with private transcript plus governed WebVTT/SRT. It does **not** claim multi-speaker diarization, complete dubbing, podcasts/jingles, music, vocals, generated SFX, a transformed voice or a cloned voice.
+This checkpoint separately claims the Production-accepted pinned stock-voice TTS and single-speaker STT routes. Stage 5 adds source-tested multi-speaker diarization contracts only; it does **not** yet claim live diarization, complete dubbing, podcasts/jingles, music, vocals, generated SFX, a transformed voice or a cloned voice.
 
 Stage 1 performs no provider request, reads no provider credential and estimates no provider cost. Every generated Studio package remains `provider_neutral`, records `external_requests=0`, `external_cost_usd=0`, `estimated_external_cost_usd=null`, and exposes `render_status=not_started`.
 
 The Phase 36 registry remains truthful:
 
 - `36G=in_progress` and `current_batch=36G`;
-- `audio-cleanup-master`, granular `stock-voice-tts`, and granular single-speaker `governed-stt-transcript` are `runtime_verified`; broader `stt-tts-dubbing` and `podcast-jingle-narration` remain `source_built`;
+- `audio-cleanup-master`, granular `stock-voice-tts`, and granular single-speaker `governed-stt-transcript` are `runtime_verified`; new `multi-speaker-diarization`, broader `stt-tts-dubbing`, and `podcast-jingle-narration` remain `source_built`;
 - `voice-transformation` and `song-production` remain `specified`;
 - no other 36G capability is promoted to `provider_connected`, `runtime_verified`, `scaled`, or `production_ready`; Phase 36G remains `in_progress`.
 
@@ -547,6 +547,52 @@ Only the bounded `governed-stt-transcript` slice advances from `source_built` to
 
 The broader `stt-tts-dubbing` capability remains `source_built`; multi-speaker diarization and complete dubbing are not included. `podcast-jingle-narration` remains `source_built`; `song-production` and `voice-transformation` remain `specified`. Phase 36G remains `in_progress`.
 
-## Next safe gate — Stage 5 multi-speaker diarization
+## Stage 5A — source-first pseudonymous multi-speaker diarization
 
-Stage 5 must add a separate granular `multi-speaker-diarization` capability, exact diarization model/format routing and pseudonymous speaker normalization without widening the accepted single-speaker claim. It requires source/full validation, a disabled Production activation, one short local two-speaker synthetic fixture, one `max_attempts=1` request under an explicit cap, checkpoint-before-cleanup and complete deletion evidence. Complete dubbing remains a later translation + per-segment stock-TTS + timing-fit + final-master gate.
+Stage 5A reuses the existing `audio_transcript_executions` table, Media DAG, Object Store, Studio revision, arm/cost/lease/fencing and ambiguity authorities. There is no Migration after Alembic `20260822_0036` and no second transcript table.
+
+The launch matrix is explicit and operation-separated:
+
+- single-speaker: `transcribe + gpt-4o-mini-transcribe-2025-12-15 + json`;
+- multi-speaker: `diarize + gpt-4o-transcribe-diarize + diarized_json + chunking_strategy=auto`.
+
+Any operation/model/format/chunking mismatch is rejected before HTTP. The diarization route accepts only checksum-verified finite PCM WAV, one attempt, and an exact Owner maximum. The provider’s raw speaker labels and raw segment IDs exist only in the in-memory response. Durable completion remaps first-seen speakers to `speaker-001`, `speaker-002`, etc., creates new local `segment-NNN` IDs, and rejects fewer than two speakers, duplicate provider segment IDs, overlaps, invalid/over-duration timing or timing that collapses after millisecond normalization.
+
+The private package contains pseudonymous timed segments, WebVTT, SRT and a hash-only manifest. Public/Studio/Audit/provider metadata exposes only counts, hashes, timings and pseudonymous keys. Defense-in-depth sanitization deletes raw `speaker`, `speaker_label`, raw-speaker and raw `segments` metadata keys while retaining `speaker_count`, `pseudonymous_speaker_count`, and explicit false redaction booleans.
+
+The new granular capability is `multi-speaker-diarization=source_built` with gate `provider-diarization-runtime-evidence`. The accepted `governed-stt-transcript=runtime_verified` claim remains single-speaker and is not widened.
+
+### Stage 5A isolated verification
+
+- Root AudioFactory/Transcript/Phase36 contracts: `35/35 PASS`; Provider/Worker/registry contracts: `34/34 PASS`.
+- Disposable PostgreSQL 16 + Redis 7 affected regression: `84/84 PASS`, Alembic `0036`, transcript rows returned to `0`, critical hits `0/0`, and all disposable resources were removed. Log SHA-256 `6bc3e5ad9e217b3e110ecb27a7fd01e4eedf8e163d257f7790e7f0e2d8e687af`; metadata SHA-256 `805fb664a4b553c5d1234e6d1a8c0507feb231b752744dbcf45a7b1db26c1ff7`.
+- Complete AIOS Core: `771/771 PASS`; log SHA-256 `e46b69b36f9d4a50b895c1967e1cad906008c389623ff84106cc82f3d77603a5`, metadata SHA-256 `11cb156f845578fb6cac672b479743c601e10b86ce264ae2ce7c53853ba7720c`.
+- Fresh Backend test image `sha256:4c87a9dd749dbb0b9894d556de34a06e9f0861193f3c1cee7c3e454cafdc5725` built from the current source. Complete Backend: `883 passed, 1 skipped, 2 warnings, 0 failed`, coverage `65.47%`, PostgreSQL/Redis critical hits `0/0`; log SHA-256 `60cf378ae23a19f521e2b5db3e52bb40d83012ad49e607420af7d8998e418a15`, metadata SHA-256 `65dcf2a05be4ae0ed3e35bcc96aca24ec29cd5d434d1a6192e08bfd5938fa43a`.
+- Full Backend Ruff PASS and Mypy PASS across `216` source files. Exact Runtime image `sha256:87c5287a457d6b15bcd2e20495e45275c212bb8a4df57fc83de78a33cde58694` passed the Transcript Worker smoke under `--network none`: operations `diarize/transcribe` visible, Worker disabled, cycles/errors `0/0`, no credential read, raw-speaker return false and provider requests/spend `0 / $0.00`. Build-log SHA-256 `aff342183608ccd41a0931bafe53931c949337789e80acf9810c7cb458beec87`; smoke SHA-256 `ddce0875c7e31552e941e15e7e60c362a59c4b1a7a0e3954ff2013f9833e5a6b`; candidate evidence SHA-256 `404c5dc465736f242f9a5f16f59f908ba242668b00f2485be80b24a6c8c0bd34`.
+- Migration delta is `0`; Production remains on the accepted Stage 4 source/schema with both audio workers hard-disabled, no Stage 5 provider request and `$0.00` Stage 5 spend.
+
+## P36-0037 — raw speaker metadata defense-in-depth
+
+- An isolated completion test intentionally supplied unsafe `raw_speaker_label` and raw `segments` metadata. The current Adapter did not expose these values, but the generic sanitizer would have persisted them if a future Adapter did.
+- The sanitizer now treats raw speaker-label and raw-segment keys as sensitive while retaining only safe pseudonymous counts and false redaction flags. The complete PostgreSQL rerun passed `84/84`. Incident evidence SHA-256 `cdc6c6b110fadb65cf2c66977c5f2aaee8a84c58aad14b0a15aca6d91de4ebe0`.
+
+## P36-0038 — literal redaction placeholders entered source assembly
+
+- Test collection found two literal redaction placeholders in the rewritten credential-header function and one lease reset line. Python stopped before application execution, database access or HTTP.
+- The original semantics were restored (`credential.strip()`, explicit `raise`, `lease_token=None`), all changed runtime modules compiled, and a focused scan confirmed no placeholder remains in the Stage 5 runtime files. Incident evidence SHA-256 `1ff4f339a14ee71001b4d505b36c1f59d62b1a6cda60a75a52724493b8b05eef`.
+
+## P36-0039 — MCP returned 502 after the full Backend suite had completed
+
+- The long full-suite command finished on the server, wrote evidence, removed PostgreSQL/Redis and the writable source copy, then the MCP return channel emitted HTTP `502`.
+- The existing result was inspected and retained; no rerun occurred. It proves `883 passed, 1 skipped`, `65.47%` coverage and zero residual resources. Incident evidence SHA-256 `ec9c174615c78c3e9e79f60add9560cb3ccae701b77a7dd74a3cb89060bb6c18`.
+
+## Next safe gate — Stage 5 protected disabled deployment and bounded live diarization
+
+1. pass final reporting/security/workflow/diff gates and protected CI;
+2. deploy only Backend and the permanently hard-disabled Transcript Worker, with Alembic unchanged at `0036` and zero provider activity;
+3. prove the exact diarization model by authenticated free lookup;
+4. create a short local two-speaker synthetic WAV without a TTS provider request;
+5. arm one `max_attempts=1` diarization under an explicit cap, require at least two pseudonymous speakers, private transcript, WebVTT/SRT, Studio revision and no raw speaker label persistence;
+6. checkpoint before cleanup, delete/verify every synthetic object/row and promote only `multi-speaker-diarization` if the live result passes.
+
+Complete dubbing remains a later translation + per-segment stock-TTS + timing-fit + alignment/mix/master gate. Music/vocals/SFX and voice transformation/clone remain separately gated.

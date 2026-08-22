@@ -69,6 +69,10 @@ async def main() -> None:
         assert health["errors"] == 0
         assert health["secret_returned"] is False
         assert health["raw_transcript_returned"] is False
+        assert health["raw_speaker_labels_returned"] is False
+        assert health["known_speaker_references_enabled"] is False
+        assert health["operations"] == ["diarize", "transcribe"]
+        assert health["diarization_model"] == "gpt-4o-transcribe-diarize"
         assert required <= columns
         estimate, pricing = estimate_openai_transcription_cost(5_000)
         request = ProviderTranscriptRequest(
@@ -81,8 +85,30 @@ async def main() -> None:
             language="en-US",
         )
         assert request.response_format == "json"
+        assert request.operation == "transcribe"
         assert estimate == 0.00025
         assert pricing["estimated_price_per_minute_usd"] == 0.003
+        diarize_estimate, diarize_pricing = estimate_openai_transcription_cost(
+            5_000,
+            model="gpt-4o-transcribe-diarize",
+        )
+        diarize = ProviderTranscriptRequest(
+            provider="openai",
+            model="gpt-4o-transcribe-diarize",
+            audio=b"RIFF-governed-placeholder",
+            media_type="audio/wav",
+            source_sha256="b" * 64,
+            duration_ms=5_000,
+            language="en-US",
+            operation="diarize",
+            response_format="diarized_json",
+            chunking_strategy="auto",
+        )
+        assert diarize.operation == "diarize"
+        assert diarize.response_format == "diarized_json"
+        assert diarize.chunking_strategy == "auto"
+        assert diarize_estimate == 0.0005
+        assert diarize_pricing["estimated_price_per_minute_usd"] == 0.006
         print(
             json.dumps(
                 {
@@ -91,7 +117,11 @@ async def main() -> None:
                     "worker_health": health,
                     "model": request.model,
                     "response_format": request.response_format,
+                    "diarization_model": diarize.model,
+                    "diarization_response_format": diarize.response_format,
+                    "diarization_chunking_strategy": diarize.chunking_strategy,
                     "estimated_cost_usd_for_5s": estimate,
+                    "estimated_diarization_cost_usd_for_5s": diarize_estimate,
                     "required_schema_columns": sorted(required),
                     "provider_transcription_requests": 0,
                     "provider_spend_usd": 0.0,

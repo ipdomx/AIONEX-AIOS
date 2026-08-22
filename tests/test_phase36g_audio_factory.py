@@ -89,6 +89,7 @@ def test_provider_inventory_is_official_visibility_only_and_invents_no_music_or_
     models = {(item.provider, item.model) for item in AUDIO_PROVIDER_CAPABILITIES}
     assert ("openai", "gpt-4o-mini-tts-2025-12-15") in models
     assert ("openai", "gpt-4o-mini-transcribe-2025-12-15") in models
+    assert ("openai", "gpt-4o-transcribe-diarize") in models
     assert ("openai", "gpt-audio") in models
     assert ("openai", "gpt-realtime-1.5") in models
     assert ("gemini", "gemini-3.7-flash") in models
@@ -101,7 +102,7 @@ def test_provider_inventory_is_official_visibility_only_and_invents_no_music_or_
     plan = build_audio_plan(request())
     snapshot = plan.public_snapshot()
     inventory = snapshot["provider_inventory"]
-    assert len(inventory) == 7
+    assert len(inventory) == 8
     assert {item["inventory_state"] for item in inventory} == {"inventory_visible"}
     realtime = next(item for item in inventory if item["model"] == "gpt-realtime-1.5")
     assert realtime["execution_modes"] == ["realtime"]
@@ -130,6 +131,22 @@ def test_provider_inventory_is_official_visibility_only_and_invents_no_music_or_
         "gpt-4o-mini-transcribe-2025-12-15",
     ) in transcript_candidates
 
+    diarization_plan = build_audio_plan(
+        request(
+            operation="transcription",
+            use_case="podcast",
+            script="",
+            voice_mode="none",
+            source_count=1,
+            speaker_count=2,
+        )
+    )
+    diarization_candidates = {
+        (item.provider, item.model)
+        for item in dict(diarization_plan.task_provider_candidates)["diarization"]
+    }
+    assert ("openai", "gpt-4o-transcribe-diarize") in diarization_candidates
+
 
 def test_multispeaker_transcription_has_ordered_analysis_transcript_diarization_and_no_fake_render() -> None:
     plan = build_audio_plan(
@@ -153,7 +170,8 @@ def test_multispeaker_transcription_has_ordered_analysis_transcript_diarization_
     candidates = dict(plan.task_provider_candidates)
     assert {item.provider for item in candidates["transcript"]} == {"openai", "gemini"}
     assert [(item.provider, item.model) for item in candidates["diarization"]] == [
-        ("gemini", "gemini-3.7-flash")
+        ("openai", "gpt-4o-transcribe-diarize"),
+        ("gemini", "gemini-3.7-flash"),
     ]
     assert plan.plan_status == "planned"
     assert plan.render_status == "not_started"
