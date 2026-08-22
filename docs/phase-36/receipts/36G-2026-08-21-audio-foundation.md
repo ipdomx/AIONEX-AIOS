@@ -586,13 +586,34 @@ The new granular capability is `multi-speaker-diarization=source_built` with gat
 - The long full-suite command finished on the server, wrote evidence, removed PostgreSQL/Redis and the writable source copy, then the MCP return channel emitted HTTP `502`.
 - The existing result was inspected and retained; no rerun occurred. It proves `883 passed, 1 skipped`, `65.47%` coverage and zero residual resources. Incident evidence SHA-256 `ec9c174615c78c3e9e79f60add9560cb3ccae701b77a7dd74a3cb89060bb6c18`.
 
-## Next safe gate — Stage 5 protected disabled deployment and bounded live diarization
+## Stage 5B — protected disabled deployment and live Production acceptance
 
-1. pass final reporting/security/workflow/diff gates and protected CI;
-2. deploy only Backend and the permanently hard-disabled Transcript Worker, with Alembic unchanged at `0036` and zero provider activity;
-3. prove the exact diarization model by authenticated free lookup;
-4. create a short local two-speaker synthetic WAV without a TTS provider request;
-5. arm one `max_attempts=1` diarization under an explicit cap, require at least two pseudonymous speakers, private transcript, WebVTT/SRT, Studio revision and no raw speaker label persistence;
-6. checkpoint before cleanup, delete/verify every synthetic object/row and promote only `multi-speaker-diarization` if the live result passes.
+- Protected PR #472 passed every required gate and merged head `9dcb2e9cef2cb187256820c0c2b0af143cce4f77` as `d490f9a2f098ed17e9e106921ca4d537ea5aac22`. There was no Migration; Alembic remained `20260822_0036`. A rollback tag retained the prior Backend image `sha256:203a9ed8d4cd51cc0959f1634b5f566988da803c836249d8aa4fcc193d7a0fb2`.
+- Exact merged source built image `sha256:eaa3484530d60d0ca7f8ff14ba69c0b68fd1ebfdd74c715c559d3a0728b24eb3`. Its no-network Transcript Worker smoke exposed only `transcribe/diarize`, remained disabled with cycles/errors `0/0`, returned no raw speaker labels, read no credential and made zero provider requests. Candidate evidence SHA-256: `2d44ad3671c2c180ce611ff5aeda98fcc43f69ba3dbae6a6be5d67f0cf1141a4`.
+- Candidate Production preflight observed Alembic `0036`, zero Transcript rows and every active queue zero, with `live_enabled=false`, no Claim, no credential read and no provider request. Only Backend and the permanent Transcript Worker were recreated; Speech, Media, Studio, PostgreSQL, Redis, Image, Video, Frontend, Portal and Nginx identities remained unchanged. Disabled Production evidence SHA-256: `47f645f3e7b36df4ec1febfce6db3d6ae3ec2fc7fcdec6f7a48f0651649f05e2`.
+- A fresh authenticated model lookup returned HTTP `200` and exact `gpt-4o-transcribe-diarize` identity with zero diarization requests/spend. A local `15.999s` two-voice synthetic PCM WAV was then armed with `operation=diarize`, `response_format=diarized_json`, `chunking_strategy=auto`, `max_attempts=1`, estimate `$0.0015999` and exact Owner cap `$0.01`.
+- Exactly one provider diarization request completed. Actual cost remains truthfully `null` because authoritative per-request usage was not returned. There was no retry or duplicate submission. The result contained `5` timed segments and exactly two locally pseudonymized speakers: `speaker-001` and `speaker-002`; all five fixture keywords matched.
+- The private governed package was `1,922` bytes with SHA-256 `8415998eea382c6f372db08d0e70f52ee065e6663c93a75fa774254883b9d79b`, contained private transcript, WebVTT, SRT and hash-only manifest, and materialized Studio revision `2`. Raw provider speaker labels, raw provider segment IDs, transcript text and storage locators were absent from public/Studio evidence; known-speaker references were not used.
+- A validated-before-cleanup checkpoint was written first. Cleanup deleted and independently verified missing `5/5` objects, removed every synthetic Organization/User/Studio/Media/Transcript row, returned Transcript total/active and every active queue to zero, removed the one-shot container, kept both permanent audio workers disabled, and passed readiness `10/10` with zero critical Backend/Transcript hits. Checkpoint SHA-256: `13097526415a45e9ea0f55bb69cdad0d6843ef424168716fe8a8f6c6c779b41b`; live result SHA-256: `ae9317a9e2f40b16d5763a02c77dce2fd1bdcd4a71e3fa3a939de7c51309c1ad`; consolidated acceptance SHA-256: `519fac003f132e8c565c7a503664fdd88429ce58a4328e0cd725f6ad8ba9c7af`.
 
-Complete dubbing remains a later translation + per-segment stock-TTS + timing-fit + alignment/mix/master gate. Music/vocals/SFX and voice transformation/clone remain separately gated.
+## P36-0040 through P36-0045 — deployment/canary wrappers stopped safely
+
+- P36-0040: a service-identity template assumed every container had a Health object. Collection was repeated through Docker inspect JSON before any build/restart/request. Evidence SHA-256 `92eb3a2401ca9ade9291746057b44208319512e91bddc06f46994f7fd555035d`.
+- P36-0041/P36-0043: build and recreation wrappers changed directory before teeing repository-relative logs. The build and target recreations completed, but no operation was repeated; immutable image IDs, pre/post service identities, DB state and readiness were used instead. Evidence SHA-256 values: `a82ca7f43fae9967dc80bd8535b25aee2ce165a8917a9297447581e0b5e4e108` and `442b25190f5381f91f93003dc699fee5fb3a93259cf58700078d6e0202f78a90`.
+- P36-0042: the offline wrapper expected a generic request counter although the successful smoke emitted `provider_transcription_requests=0`; the existing result was validated without rebuilding. Evidence SHA-256 `facb6547dfa2ea0d19bf9d56aa9315555b0dbb2d84f60cb6ebfa75c08d58cf2d`.
+- P36-0044: the first pre-boundary DB probe contained a syntax error; it stopped before container creation, DB access, credential read or provider request. Evidence SHA-256 `2e6f5caca235c5ccc74af55522cc90a35221998b9957fd8ae2331b66ab2287c4`.
+- P36-0045: final host consolidation used `Path.relative_to` on an already relative path after successful checkpoint, cleanup and post-canary validation. Only the consolidated JSON was rebuilt from immutable hashes; no provider request or service change occurred. Evidence SHA-256 `a8dd9e4f8718819141140dd93d279370243f24fc5841caf0cc12a2d3732e2d3c`.
+
+## Stage 5 maturity decision
+
+Only the bounded `multi-speaker-diarization` slice advances from `source_built` to `runtime_verified`. The claim is restricted to pinned multi-speaker diarization, transient raw provider labels remapped to pseudonymous `speaker-NNN`, private timed transcript, governed WebVTT/SRT, hash-only public evidence, one-attempt ambiguity safety, Studio materialization and complete cleanup.
+
+The broader `stt-tts-dubbing` capability remains `source_built`: translation, per-segment stock speech, timing-fit, alignment, mix/master and final dubbed output have not yet been accepted together. `podcast-jingle-narration` remains `source_built`; `song-production` and `voice-transformation` remain `specified`. Known-speaker identification, voice transformation and voice cloning are outside this claim. Phase 36G remains `in_progress`.
+
+## Next safe gate — Stage 6 complete stock-voice dubbing
+
+1. select one bounded translation route and retain source/target text privately with hash-only public evidence;
+2. reuse the accepted stock-voice TTS authority per segment with an explicit aggregate cost cap and no custom/known-person voice;
+3. prove timing fit, alignment, selective segment recovery, final local mix/master, captions and Studio revision;
+4. checkpoint before cleanup and independently delete every synthetic object/row;
+5. promote only a granular complete-dubbing capability if the complete rendered output passes. Music/vocals/SFX and voice transformation/clone remain separate gates.

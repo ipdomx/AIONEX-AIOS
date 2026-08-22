@@ -492,13 +492,15 @@ Scope:
 - A post-provider validator used the wrong caption-manifest redaction key; no retry occurred. The existing completed result was recovered and validated with zero additional provider requests. Consolidated acceptance evidence SHA-256: `8f26ac69d503f42ac01e1abbb85cc9f6fc44d18adc854d3ee144925746e427e3`.
 - Only granular `governed-stt-transcript` advances to `runtime_verified`. Aggregate STT/TTS/dubbing and podcast remain `source_built`; multi-speaker diarization, dubbing completion, music/vocals/SFX and voice transformation/clone remain separate gates. Phase 36G stays `in_progress`.
 
-##### Stage 5A — source-first multi-speaker diarization candidate
+##### Stage 5A/5B — multi-speaker diarization source, protected activation and live acceptance
 
-- Adds exact `diarize + gpt-4o-transcribe-diarize + diarized_json + chunking_strategy=auto` routing on the existing `audio_transcript_executions` authority; no Migration after `0036` and no parallel table. Raw provider labels are transient and are normalized before persistence to `speaker-NNN`; invalid/overlapping/one-speaker output fails closed.
-- Adds separate `multi-speaker-diarization=source_built` with provider-runtime gate; the accepted single-speaker `governed-stt-transcript` claim is not widened. Dubbing remains unproven.
-- Source evidence: root `35/35`, Provider/Worker `34/34`, PostgreSQL/Redis `84/84`, Core `771/771`, Backend `883 passed, 1 skipped` at `65.47%`, full Ruff/Mypy (`216` files), exact Runtime image no-network disabled smoke PASS. PostgreSQL/Redis critical hits `0/0`; Stage 5 provider requests/spend `0 / $0.00`. Runtime metadata SHA-256 `805fb664a4b553c5d1234e6d1a8c0507feb231b752744dbcf45a7b1db26c1ff7`; Backend metadata SHA-256 `65dcf2a05be4ae0ed3e35bcc96aca24ec29cd5d434d1a6192e08bfd5938fa43a`; image candidate evidence SHA-256 `404c5dc465736f242f9a5f16f59f908ba242668b00f2485be80b24a6c8c0bd34`.
+- Added exact `diarize + gpt-4o-transcribe-diarize + diarized_json + chunking_strategy=auto` routing on the existing `audio_transcript_executions` authority; no Migration after `0036` and no parallel table. Raw provider labels are transient and normalized before persistence to `speaker-NNN`; invalid/overlapping/one-speaker output fails closed.
+- Source evidence passed root `35/35`, Provider/Worker `34/34`, PostgreSQL/Redis `84/84`, Core `771/771`, Backend `883 passed, 1 skipped` at `65.47%`, full Ruff/Mypy (`216` files), and exact Runtime no-network disabled smoke. Protected PR #472 merged as `d490f9a2f098ed17e9e106921ca4d537ea5aac22`.
+- Production stayed on Alembic `0036`; only Backend and the hard-disabled Transcript Worker moved to exact merged image `eaa34845...24eb3`. Candidate and disabled gates kept every queue zero and provider activity `0 / $0.00`.
+- One local `15.999s` two-voice PCM fixture used one `max_attempts=1` diarization request under `$0.01`. The provider result yielded `5` segments and two pseudonymous speakers, generated private transcript/WebVTT/SRT/manifest and Studio revision `2`, then deleted/verified `5/5` objects and all synthetic rows. Exact cost remains unknown; estimate `$0.0015999`. Consolidated evidence SHA-256 `519fac003f132e8c565c7a503664fdd88429ce58a4328e0cd725f6ad8ba9c7af`.
+- Only granular `multi-speaker-diarization` advances to `runtime_verified`. Single-speaker STT remains separately bounded; aggregate dubbing and podcast remain `source_built`, song/voice transformation remain `specified`, and 36G stays `in_progress`.
 
-Next safe gate: protected merge, Backend/Transcript-Worker disabled activation on unchanged Alembic `0036`, then one bounded local two-speaker diarization canary with complete cleanup; no widening to dubbing.
+Next safe gate: complete stock-voice dubbing—private translation, per-segment bounded TTS, timing fit/alignment, selective recovery, final mix/master and full cleanup—without custom/known-person voice claims.
 
 Exit gate:
 - complete user-defined song/audio production can reach final rendered files with separated evidence for lyrics/composition/vocals/stems/mix/master.
