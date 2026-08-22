@@ -503,11 +503,11 @@ Scope:
 ##### Stage 6A — source-first complete stock-voice dubbing candidate
 
 - Added Alembic `20260823_0037` and a durable `audio_dubbing_executions` authority for private `gpt-5.6-luna` structured translation, per-segment accepted stock TTS, aggregate cost gating, lease/fencing/ambiguity safety, timing-fit, selective failed-segment replacement, final local mix/master and Studio evidence. Custom/known-person voice, transformation and cloning fail closed.
-- Timing-fit pads short speech to the exact source window, never time-stretches, and rejects overlong speech before final assembly so unaffected completed segments remain reusable. The permanent `audio-dubbing-worker` is hard-disabled by default.
+- Timing-fit pads short speech to the exact source window, never time-stretches, and rejects overlong speech before final assembly so unaffected completed segments remain reusable. The permanent `audio-dubbing-worker` is hard-disabled by default, and the exact Stage 6 FFmpeg 9 Media Worker is a required deployment target because it owns the new governed `apad + atrim` execution.
 - Final source evidence: targeted PostgreSQL/Redis `30/30`, affected regression `131/131`, Alembic `0037 -> 0036 -> 0037`, real FFmpeg 9 no-network padding smoke, Core `771/771`, Backend `914 passed` at `65.74%`, full changed-root/Backend Ruff, Mypy across `220` files, and Python 3.11 AST across `20` changed files. PostgreSQL/Redis critical hits were `0/0`; translation/speech requests and spend remained `0 / 0 / $0.00`. Backend evidence SHA-256 `1fa9f86413c916fb37116ddfcf90b2fb58479790674d962fa0b7828ccae77770`; static evidence SHA-256 `42825cc76af95f90cb8e1d1bbfb45e1b7575863f9c8129c1080251ad7fbb236e`.
 - Only granular `complete-stock-voice-dubbing=source_built` is added. Production remains on Stage 5/Alembic `0036`; aggregate dubbing remains `source_built`, and music/vocals/SFX/voice transformation/clone remain separate gates.
 
-Next safe gate: protected merge, backup/restore, Alembic `0037`, hard-disabled Backend/Dubbing-Worker activation, then one aggregate-capped synthetic complete-dubbing canary with private translation, per-segment stock TTS, exact timing-fit, selective recovery, final local QA/Studio revision and full cleanup.
+Next safe gate: protected merge, backup/restore, Alembic `0037`, exact Backend/FFmpeg-9-Media-Worker plus hard-disabled Dubbing-Worker activation, then one aggregate-capped synthetic complete-dubbing canary with private translation, per-segment stock TTS, exact timing-fit, selective recovery, final local QA/Studio revision and full cleanup.
 
 Exit gate:
 - complete user-defined song/audio production can reach final rendered files with separated evidence for lyrics/composition/vocals/stems/mix/master.

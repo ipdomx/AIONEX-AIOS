@@ -626,7 +626,7 @@ The durable authority records planned/armed/running/submitting/ambiguous/complet
 
 After translation completion, Stage 6 creates one stock-speech pipeline per segment. Shorter speech is padded to the exact source timing window; it is never time-stretched. Speech longer than its source timing window is rejected before final assembly, preserving the completed unaffected segments for selective replacement of the failed segment only. Final assembly reuses local cleanup, alignment, mix, mastering, waveform/export QA, and Studio revision authorities.
 
-The permanent `audio-dubbing-worker` is profile-gated, non-root, capability-dropped, `no-new-privileges`, and hard-disabled by `AUDIO_DUBBING_LIVE_ENABLED=false`. Source validation and disabled-worker verification perform no credential read, provider request, or spend.
+The permanent `audio-dubbing-worker` is profile-gated, non-root, capability-dropped, `no-new-privileges`, and hard-disabled by `AUDIO_DUBBING_LIVE_ENABLED=false`. The exact Stage 6 FFmpeg 9 Media Worker is also required at deployment because timing-fit adds governed `apad + atrim` handling inside `audio_align`. Source validation and disabled-worker verification perform no credential read, provider request, or spend.
 
 ### Stage 6A isolated verification completed
 
@@ -656,7 +656,7 @@ Only the granular `complete-stock-voice-dubbing` capability is added at `source_
 
 1. commit the final fixes/report, pass protected CI, and merge only if every required gate is green;
 2. take and restore-verify a fresh Production backup before Alembic `0037`;
-3. deploy Backend plus the permanent hard-disabled `audio-dubbing-worker`, proving zero dubbing rows/queues and zero provider activity;
+3. deploy Backend, the exact FFmpeg 9 Media Worker, and the permanent hard-disabled `audio-dubbing-worker`, proving zero dubbing rows/queues and zero provider activity while all non-target service identities remain unchanged;
 4. perform authenticated free model preflights, then one explicitly capped private translation and one `max_attempts=1` stock-speech request per synthetic segment;
 5. require exact timing-fit, no time stretch/truncation, selective failed-segment replacement, final local mix/master/QA, Studio revision, checkpoint-before-cleanup, and independently verified deletion of every synthetic row/object;
 6. promote only `complete-stock-voice-dubbing` if the complete rendered Production result passes. Music/vocals/SFX and voice transformation/clone remain separate gates.
