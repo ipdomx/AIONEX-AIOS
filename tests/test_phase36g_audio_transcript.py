@@ -148,6 +148,22 @@ def test_transcript_rejects_real_names_bad_hashes_overlap_and_unproven_multispea
         )
     with pytest.raises(TranscriptContractError, match="requires diarization"):
         transcript(diarization_enabled=False)
+    with pytest.raises(TranscriptContractError, match="at least two"):
+        TranscriptDocument(
+            source=source(),
+            language="en-US",
+            segments=(
+                TranscriptSegment(
+                    segment_id="segment-001",
+                    speaker_key="speaker-001",
+                    start_ms=0,
+                    end_ms=1_000,
+                    text="A single speaker cannot prove diarization.",
+                    language="en-US",
+                ),
+            ),
+            diarization_enabled=True,
+        )
 
 
 def test_transcript_rejects_segments_past_source_duration() -> None:
@@ -186,6 +202,9 @@ def test_caption_manifest_returns_only_hashes_sizes_and_counts() -> None:
     manifest = caption_manifest(transcript())
     assert manifest["schema"] == "36G.caption-manifest.v1"
     assert manifest["segment_count"] == 2
+    assert manifest["speaker_count"] == 2
+    assert manifest["diarization_enabled"] is True
+    assert manifest["raw_speaker_labels_returned"] is False
     assert len(manifest["webvtt_sha256"]) == 64
     assert len(manifest["srt_sha256"]) == 64
     assert manifest["webvtt_size_bytes"] > 0

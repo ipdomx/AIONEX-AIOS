@@ -1,12 +1,15 @@
-"""Phase 36G exact provider transports for governed speech-to-text.
+"""Phase 36G exact provider transports for governed transcription and diarization.
 
 Durable state, tenancy, arm-before-request, ambiguity handling, private storage and
 public redaction live outside this module. The synchronous transport never retries.
+Raw provider speaker labels exist only in the in-memory result and must be
+pseudonymized before durable completion.
 """
 from __future__ import annotations
 
 import hashlib
 import io
+import math
 import re
 import wave
 from dataclasses import dataclass
@@ -14,14 +17,36 @@ from typing import Any
 
 import httpx
 
-_OPENAI_MODEL = "gpt-4o-mini-transcribe-2025-12-15"
-_OPENAI_TRANSCRIPTION_PER_MINUTE_USD = 0.003
-_OPENAI_AUDIO_INPUT_USD_PER_MILLION_TOKENS = 1.25
-_OPENAI_TEXT_OUTPUT_USD_PER_MILLION_TOKENS = 5.00
+_OPENAI_TRANSCRIBE_MODEL = "gpt-4o-mini-transcribe-2025-12-15"
+_OPENAI_DIARIZE_MODEL = "gpt-4o-transcribe-diarize"
+_OPENAI_ESTIMATED_PER_MINUTE_USD = {
+    _OPENAI_TRANSCRIBE_MODEL: 0.003,
+    _OPENAI_DIARIZE_MODEL: 0.006,
+}
+_OPENAI_INPUT_USD_PER_MILLION_TOKENS = {
+    _OPENAI_TRANSCRIBE_MODEL: 1.25,
+    _OPENAI_DIARIZE_MODEL: 2.50,
+}
+_OPENAI_OUTPUT_USD_PER_MILLION_TOKENS = {
+    _OPENAI_TRANSCRIBE_MODEL: 5.00,
+    _OPENAI_DIARIZE_MODEL: 10.00,
+}
 _OPENAI_PRICING_SOURCE = "https://developers.openai.com/api/docs/pricing"
+_OPENAI_DIARIZE_MODEL_SOURCE = (
+    "https://developers.openai.com/api/docs/models/gpt-4o-transcribe-diarize"
+)
+_OPENAI_TRANSCRIPTION_API_SOURCE = (
+    "https://developers.openai.com/api/reference/resources/audio/"
+    "subresources/transcriptions/methods/create"
+)
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
+_SAFE_PROVIDER_SEGMENT_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$")
 _ALLOWED_MEDIA_TYPES = frozenset({"audio/wav", "audio/x-wav"})
 _SUFFIXES = {"audio/wav": ".wav", "audio/x-wav": ".wav"}
+_MAX_PROVIDER_SEGMENTS = 5_000
+_MAX_PROVIDER_SPEAKERS = 32
+_MAX_SEGMENT_TEXT = 8_000
+_TIMELINE_TOLERANCE_SECONDS = 0.250
 
 
 def inspect_governed_wav(
@@ -72,10 +97,21 @@ class ProviderTranscriptRequest:
     source_sha256: str
     duration_ms: int
     language: str
+    operation: str = "transcribe"
     response_format: str = "json"
+    chunking_strategy: str | None = None
     prompt: str | None = None
     max_source_bytes: int = 20_971_520
     max_duration_seconds: int = 600
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderDiarizedSegmentResult:
+    provider_segment_id: str
+    speaker_label: str
+    start_seconds: float
+    end_seconds: float
+    text: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +121,7 @@ class ProviderTranscriptResult:
     request_id: str | None
     metadata: dict[str, Any]
     usage: dict[str, Any]
+    segments: tuple[ProviderDiarizedSegmentResult, ...] = ()
     actual_cost_usd: float | None = None
     cost_basis: str = "official_estimated_per_minute"
 
@@ -112,27 +149,49 @@ class ProviderTranscriptFailure(RuntimeError):
 
 def estimate_openai_transcription_cost(
     duration_ms: int,
+    *,
+    model: str = _OPENAI_TRANSCRIBE_MODEL,
 ) -> tuple[float, dict[str, Any]]:
-    if not 1 <= int(duration_ms) <= 3_600_000:
+    rate = _OPENAI_ESTIMATED_PER_MINUTE_USD.get(model)
+    if rate is None or not 1 <= int(duration_ms) <= 3_600_000:
         raise ProviderTranscriptFailure("provider_pricing_unknown", retryable=False)
     minutes = float(duration_ms) / 60_000.0
-    estimate = round(minutes * _OPENAI_TRANSCRIPTION_PER_MINUTE_USD, 9)
+    estimate = round(minutes * rate, 9)
+    pricing_basis = (
+        "official_published_per_minute_estimate"
+        if model == _OPENAI_TRANSCRIBE_MODEL
+        else "official_model_rate_equivalent_estimate"
+    )
+    note = (
+        "The provider publishes an estimated per-minute cost, while this endpoint "
+        "may return token or duration usage but not an account invoice."
+    )
+    if model == _OPENAI_DIARIZE_MODEL:
+        note = (
+            "The diarization model publishes the same $2.50 input / $10.00 output "
+            "token rates as gpt-4o-transcribe; the $0.006/minute value is retained "
+            "as a conservative rate-equivalent estimate, not a fabricated bill."
+        )
     return estimate, {
-        "pricing_revision": "2026-08-22",
+        "pricing_revision": "2026-08-23",
         "pricing_source": _OPENAI_PRICING_SOURCE,
-        "pricing_unit": "audio_minute_estimate",
-        "estimated_price_per_minute_usd": _OPENAI_TRANSCRIPTION_PER_MINUTE_USD,
-        "audio_input_usd_per_million_tokens": (
-            _OPENAI_AUDIO_INPUT_USD_PER_MILLION_TOKENS
+        "model_source": (
+            _OPENAI_DIARIZE_MODEL_SOURCE
+            if model == _OPENAI_DIARIZE_MODEL
+            else _OPENAI_PRICING_SOURCE
         ),
-        "text_output_usd_per_million_tokens": (
-            _OPENAI_TEXT_OUTPUT_USD_PER_MILLION_TOKENS
+        "api_source": _OPENAI_TRANSCRIPTION_API_SOURCE,
+        "pricing_basis": pricing_basis,
+        "pricing_unit": "audio_minute_estimate",
+        "estimated_price_per_minute_usd": rate,
+        "input_usd_per_million_tokens": (
+            _OPENAI_INPUT_USD_PER_MILLION_TOKENS[model]
+        ),
+        "output_usd_per_million_tokens": (
+            _OPENAI_OUTPUT_USD_PER_MILLION_TOKENS[model]
         ),
         "duration_ms": int(duration_ms),
-        "billing_note": (
-            "The provider publishes an estimated per-minute cost, while this "
-            "endpoint does not return authoritative per-request usage."
-        ),
+        "billing_note": note,
     }
 
 
@@ -203,6 +262,167 @@ def _failure_for_response(response: httpx.Response) -> ProviderTranscriptFailure
     )
 
 
+def _normalized_text(value: Any, *, maximum: int = 2_000_000) -> str:
+    if not isinstance(value, str):
+        raise ProviderTranscriptFailure("provider_response", retryable=False)
+    normalized = "\n".join(
+        line.rstrip() for line in value.replace("\r\n", "\n").split("\n")
+    ).strip()
+    if not 1 <= len(normalized) <= maximum or "\x00" in normalized:
+        raise ProviderTranscriptFailure("provider_response", retryable=False)
+    return normalized
+
+
+def _finite_number(value: Any) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    result = float(value)
+    return result if math.isfinite(result) else None
+
+
+def _positive_int(value: Any) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        return None
+    return value
+
+
+def _diarized_segments(
+    payload: dict[str, Any],
+    *,
+    source_duration_seconds: float,
+) -> tuple[ProviderDiarizedSegmentResult, ...]:
+    raw_segments = payload.get("segments")
+    if not isinstance(raw_segments, list) or not 2 <= len(raw_segments) <= _MAX_PROVIDER_SEGMENTS:
+        raise ProviderTranscriptFailure("provider_response", retryable=False)
+    rows: list[ProviderDiarizedSegmentResult] = []
+    provider_ids: set[str] = set()
+    raw_speakers: set[str] = set()
+    previous_end = 0.0
+    for raw in raw_segments:
+        if not isinstance(raw, dict):
+            raise ProviderTranscriptFailure("provider_response", retryable=False)
+        segment_type = raw.get("type")
+        if segment_type is not None and segment_type != "transcript.text.segment":
+            raise ProviderTranscriptFailure("provider_response", retryable=False)
+        provider_segment_id = raw.get("id")
+        speaker = raw.get("speaker")
+        if (
+            not isinstance(provider_segment_id, str)
+            or not _SAFE_PROVIDER_SEGMENT_ID.fullmatch(provider_segment_id)
+            or provider_segment_id in provider_ids
+        ):
+            raise ProviderTranscriptFailure("provider_response", retryable=False)
+        if (
+            not isinstance(speaker, str)
+            or not 1 <= len(speaker.strip()) <= 80
+            or "\x00" in speaker
+        ):
+            raise ProviderTranscriptFailure("provider_response", retryable=False)
+        start = _finite_number(raw.get("start"))
+        end = _finite_number(raw.get("end"))
+        if (
+            start is None
+            or end is None
+            or start < 0
+            or end <= start
+            or start + 1e-9 < previous_end
+            or end > source_duration_seconds + _TIMELINE_TOLERANCE_SECONDS
+        ):
+            raise ProviderTranscriptFailure("provider_response", retryable=False)
+        label = speaker.strip()
+        rows.append(
+            ProviderDiarizedSegmentResult(
+                provider_segment_id=provider_segment_id,
+                speaker_label=label,
+                start_seconds=start,
+                end_seconds=end,
+                text=_normalized_text(raw.get("text"), maximum=_MAX_SEGMENT_TEXT),
+            )
+        )
+        provider_ids.add(provider_segment_id)
+        raw_speakers.add(label)
+        previous_end = end
+    if not 2 <= len(raw_speakers) <= _MAX_PROVIDER_SPEAKERS:
+        raise ProviderTranscriptFailure("provider_diarization_invalid", retryable=False)
+    return tuple(rows)
+
+
+def _safe_usage(
+    payload: dict[str, Any],
+    *,
+    request: ProviderTranscriptRequest,
+    estimate: float,
+    pricing: dict[str, Any],
+) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        **pricing,
+        "estimated_cost_usd": estimate,
+        "actual_cost_known": False,
+    }
+    raw = payload.get("usage")
+    if not isinstance(raw, dict):
+        result["provider_usage_reported"] = False
+        return result
+    usage_type = raw.get("type")
+    if usage_type == "duration":
+        seconds = _finite_number(raw.get("seconds"))
+        if (
+            seconds is None
+            or seconds <= 0
+            or seconds > request.duration_ms / 1_000 + _TIMELINE_TOLERANCE_SECONDS
+        ):
+            raise ProviderTranscriptFailure("provider_response", retryable=False)
+        result.update(
+            {
+                "provider_usage_reported": True,
+                "provider_usage_type": "duration",
+                "provider_usage_seconds": seconds,
+                "observed_cost_estimate_usd": round(
+                    seconds
+                    / 60.0
+                    * _OPENAI_ESTIMATED_PER_MINUTE_USD[request.model],
+                    9,
+                ),
+            }
+        )
+        return result
+    if usage_type == "tokens":
+        input_tokens = _positive_int(raw.get("input_tokens"))
+        output_tokens = _positive_int(raw.get("output_tokens"))
+        total_tokens = _positive_int(raw.get("total_tokens"))
+        if input_tokens is None or output_tokens is None or total_tokens is None:
+            raise ProviderTranscriptFailure("provider_response", retryable=False)
+        details = raw.get("input_token_details")
+        audio_tokens = None
+        text_tokens = None
+        if isinstance(details, dict):
+            audio_tokens = _positive_int(details.get("audio_tokens"))
+            text_tokens = _positive_int(details.get("text_tokens"))
+        observed = round(
+            input_tokens
+            * _OPENAI_INPUT_USD_PER_MILLION_TOKENS[request.model]
+            / 1_000_000
+            + output_tokens
+            * _OPENAI_OUTPUT_USD_PER_MILLION_TOKENS[request.model]
+            / 1_000_000,
+            9,
+        )
+        result.update(
+            {
+                "provider_usage_reported": True,
+                "provider_usage_type": "tokens",
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "total_tokens": total_tokens,
+                "audio_input_tokens": audio_tokens,
+                "text_input_tokens": text_tokens,
+                "observed_cost_estimate_usd": observed,
+            }
+        )
+        return result
+    raise ProviderTranscriptFailure("provider_response", retryable=False)
+
+
 class OpenAITranscriptAdapter:
     def __init__(
         self,
@@ -215,11 +435,25 @@ class OpenAITranscriptAdapter:
 
     @staticmethod
     def _validate_request(request: ProviderTranscriptRequest) -> None:
-        if request.provider != "openai" or request.model != _OPENAI_MODEL:
+        if request.provider != "openai":
             raise ProviderTranscriptFailure(
                 "provider_operation_unsupported", retryable=False
             )
-        if request.response_format != "json":
+        launch_matrix = {
+            ("transcribe", _OPENAI_TRANSCRIBE_MODEL, "json", None),
+            ("diarize", _OPENAI_DIARIZE_MODEL, "diarized_json", "auto"),
+        }
+        route = (
+            request.operation,
+            request.model,
+            request.response_format,
+            request.chunking_strategy,
+        )
+        if route not in launch_matrix:
+            raise ProviderTranscriptFailure(
+                "provider_operation_unsupported", retryable=False
+            )
+        if request.operation == "diarize" and request.prompt is not None:
             raise ProviderTranscriptFailure("provider_input_invalid", retryable=False)
         if request.media_type not in _ALLOWED_MEDIA_TYPES:
             raise ProviderTranscriptFailure("provider_input_invalid", retryable=False)
@@ -261,6 +495,8 @@ class OpenAITranscriptAdapter:
             "response_format": request.response_format,
             "language": request.language.split("-", 1)[0].lower(),
         }
+        if request.chunking_strategy is not None:
+            data["chunking_strategy"] = request.chunking_strategy
         if request.prompt:
             data["prompt"] = request.prompt
         filename = f"governed-source{_SUFFIXES[request.media_type]}"
@@ -292,20 +528,46 @@ class OpenAITranscriptAdapter:
             ) from exc
         if not isinstance(payload, dict):
             raise ProviderTranscriptFailure("provider_response", retryable=False)
-        text = payload.get("text")
-        if not isinstance(text, str):
-            raise ProviderTranscriptFailure("provider_response", retryable=False)
-        normalized = "\n".join(
-            line.rstrip() for line in text.replace("\r\n", "\n").split("\n")
-        ).strip()
-        if not 1 <= len(normalized) <= 2_000_000 or "\x00" in normalized:
-            raise ProviderTranscriptFailure("provider_response", retryable=False)
+
         audio = inspect_governed_wav(
             request.audio,
             max_duration_seconds=request.max_duration_seconds,
         )
+        source_duration_seconds = int(audio["duration_ms"]) / 1_000.0
+        segments: tuple[ProviderDiarizedSegmentResult, ...] = ()
+        speaker_count = 1
+        if request.operation == "diarize":
+            segments = _diarized_segments(
+                payload,
+                source_duration_seconds=source_duration_seconds,
+            )
+            speaker_count = len({item.speaker_label for item in segments})
+            raw_text = payload.get("text")
+            normalized = (
+                _normalized_text(raw_text)
+                if isinstance(raw_text, str) and raw_text.strip()
+                else "\n".join(item.text for item in segments)
+            )
+            reported_duration = _finite_number(payload.get("duration"))
+            if (
+                reported_duration is not None
+                and abs(reported_duration - source_duration_seconds)
+                > _TIMELINE_TOLERANCE_SECONDS
+            ):
+                raise ProviderTranscriptFailure("provider_response", retryable=False)
+        else:
+            normalized = _normalized_text(payload.get("text"))
+            reported_duration = None
+
         estimate, pricing = estimate_openai_transcription_cost(
-            int(audio["duration_ms"])
+            int(audio["duration_ms"]),
+            model=request.model,
+        )
+        usage = _safe_usage(
+            payload,
+            request=request,
+            estimate=estimate,
+            pricing=pricing,
         )
         request_id = response.headers.get("x-request-id")
         return ProviderTranscriptResult(
@@ -314,15 +576,18 @@ class OpenAITranscriptAdapter:
             request_id=request_id,
             metadata={
                 "model": request.model,
+                "operation": request.operation,
                 "response_format": request.response_format,
+                "chunking_strategy": request.chunking_strategy,
                 "source_bytes": len(request.audio),
+                "provider_reported_duration_seconds": reported_duration,
+                "segment_count": len(segments) if segments else 1,
+                "speaker_count": speaker_count,
+                "raw_speaker_labels_returned": False,
                 **audio,
             },
-            usage={
-                **pricing,
-                "estimated_cost_usd": estimate,
-                "actual_cost_known": False,
-            },
+            usage=usage,
+            segments=segments,
             actual_cost_usd=None,
             cost_basis="official_estimated_per_minute",
         )

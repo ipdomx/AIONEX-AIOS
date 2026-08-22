@@ -142,12 +142,13 @@ def test_phase36f_maturity_matches_live_video_exit_evidence_without_overclaiming
     assert BATCHES[6].status == "in_progress"
 
 
-def test_phase36g_stage4_promotes_only_proven_audio_slices_without_overclaiming() -> None:
+def test_phase36g_stage5_source_keeps_diarization_separate_without_overclaiming() -> None:
     capabilities = {item.capability_id: item for item in CAPABILITIES}
     receipt = "docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md"
     expected = {
         "stock-voice-tts": "runtime_verified",
         "governed-stt-transcript": "runtime_verified",
+        "multi-speaker-diarization": "source_built",
         "stt-tts-dubbing": "source_built",
         "voice-transformation": "specified",
         "audio-cleanup-master": "runtime_verified",
@@ -163,6 +164,10 @@ def test_phase36g_stage4_promotes_only_proven_audio_slices_without_overclaiming(
         "synthetic-voice-disclosure",
     )
     assert capabilities["governed-stt-transcript"].external_gates == ()
+    assert capabilities["multi-speaker-diarization"].external_gates == (
+        "provider-diarization-runtime-evidence",
+    )
+    assert capabilities["multi-speaker-diarization"].maturity != "runtime_verified"
     assert capabilities["voice-transformation"].external_gates == (
         "voice-rights-and-consent-evidence",
     )

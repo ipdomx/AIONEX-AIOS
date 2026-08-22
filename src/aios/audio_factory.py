@@ -239,6 +239,21 @@ AUDIO_PROVIDER_CAPABILITIES: Final[tuple[AudioProviderCapability, ...]] = (
     ),
     AudioProviderCapability(
         provider="openai",
+        model="gpt-4o-transcribe-diarize",
+        operations=frozenset({"transcribe", "diarize"}),
+        input_modalities=frozenset({"audio"}),
+        output_modalities=frozenset({"text"}),
+        official_source=(
+            "https://developers.openai.com/api/docs/models/"
+            "gpt-4o-transcribe-diarize"
+        ),
+        evidence_date="2026-08-23",
+        execution_modes=frozenset({"batch", "streaming"}),
+        streaming=True,
+        speaker_diarization=True,
+    ),
+    AudioProviderCapability(
+        provider="openai",
         model="gpt-4o-mini-tts-2025-12-15",
         operations=frozenset({"synthesize-speech"}),
         input_modalities=frozenset({"text"}),

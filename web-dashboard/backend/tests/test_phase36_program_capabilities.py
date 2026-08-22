@@ -30,6 +30,10 @@ async def test_phase36_public_capability_snapshot_is_truthful_and_non_secret() -
     assert "stock-voice" in capabilities["stock-voice-tts"]["title"].lower()
     assert capabilities["governed-stt-transcript"]["maturity"] == "runtime_verified"
     assert capabilities["governed-stt-transcript"]["external_gates"] == ()
+    assert capabilities["multi-speaker-diarization"]["maturity"] == "source_built"
+    assert capabilities["multi-speaker-diarization"]["external_gates"] == (
+        "provider-diarization-runtime-evidence",
+    )
     assert capabilities["audio-cleanup-master"]["maturity"] == "runtime_verified"
     assert "SFX" not in capabilities["audio-cleanup-master"]["title"]
     assert capabilities["stt-tts-dubbing"]["maturity"] == "source_built"

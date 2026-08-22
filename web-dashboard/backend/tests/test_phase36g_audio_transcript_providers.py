@@ -41,12 +41,26 @@ def request(**overrides) -> ProviderTranscriptRequest:
         "source_sha256": hashlib.sha256(audio).hexdigest(),
         "duration_ms": 5_000,
         "language": "en-US",
+        "operation": "transcribe",
         "response_format": "json",
+        "chunking_strategy": None,
         "max_source_bytes": 20_971_520,
         "max_duration_seconds": 600,
     }
     payload.update(overrides)
     return ProviderTranscriptRequest(**payload)
+
+
+def diarize_request(**overrides) -> ProviderTranscriptRequest:
+    payload = {
+        "operation": "diarize",
+        "model": "gpt-4o-transcribe-diarize",
+        "response_format": "diarized_json",
+        "chunking_strategy": "auto",
+        "prompt": None,
+    }
+    payload.update(overrides)
+    return request(**payload)
 
 
 @pytest.mark.asyncio
@@ -63,7 +77,19 @@ async def test_openai_transcript_adapter_returns_private_text_and_truthful_unkno
                 "content-type": "application/json",
                 "x-request-id": "req-transcript-1",
             },
-            json={"text": "  Governed transcript output.  "},
+            json={
+                "text": "  Governed transcript output.  ",
+                "usage": {
+                    "type": "tokens",
+                    "input_tokens": 100,
+                    "output_tokens": 20,
+                    "total_tokens": 120,
+                    "input_token_details": {
+                        "audio_tokens": 100,
+                        "text_tokens": 0,
+                    },
+                },
+            },
         )
 
     adapter = OpenAITranscriptAdapter(transport=httpx.MockTransport(handler))
@@ -75,10 +101,14 @@ async def test_openai_transcript_adapter_returns_private_text_and_truthful_unkno
     assert result.text == "Governed transcript output."
     assert result.language == "en-US"
     assert result.request_id == "req-transcript-1"
+    assert result.segments == ()
     assert result.actual_cost_usd is None
     assert result.cost_basis == "official_estimated_per_minute"
     assert result.usage["estimated_cost_usd"] == pytest.approx(0.00025)
     assert result.usage["actual_cost_known"] is False
+    assert result.usage["provider_usage_type"] == "tokens"
+    assert result.usage["audio_input_tokens"] == 100
+    assert result.usage["observed_cost_estimate_usd"] == pytest.approx(0.000225)
     assert len(seen) == 1
     assert seen[0].url == httpx.URL("https://api.openai.com/v1/audio/transcriptions")
     assert seen[0].headers["authorization"] == "Bearer credential"
@@ -86,6 +116,88 @@ async def test_openai_transcript_adapter_returns_private_text_and_truthful_unkno
     assert b"gpt-4o-mini-transcribe-2025-12-15" in body
     assert b"governed-source.wav" in body
     assert b"en" in body
+    assert b"chunking_strategy" not in body
+
+
+@pytest.mark.asyncio
+async def test_openai_diarization_uses_exact_route_and_keeps_raw_labels_transient() -> None:
+    seen: list[httpx.Request] = []
+
+    async def handler(http_request: httpx.Request) -> httpx.Response:
+        seen.append(http_request)
+        return httpx.Response(
+            200,
+            headers={"x-request-id": "req-diarize-1"},
+            json={
+                "task": "transcribe",
+                "duration": 5.0,
+                "text": "First speaker. Second speaker. First again.",
+                "segments": [
+                    {
+                        "type": "transcript.text.segment",
+                        "id": "seg_001",
+                        "start": 0.0,
+                        "end": 1.5,
+                        "text": "First speaker.",
+                        "speaker": "provider-speaker-alpha",
+                    },
+                    {
+                        "type": "transcript.text.segment",
+                        "id": "seg_002",
+                        "start": 1.5,
+                        "end": 3.2,
+                        "text": "Second speaker.",
+                        "speaker": "provider-speaker-beta",
+                    },
+                    {
+                        "type": "transcript.text.segment",
+                        "id": "seg_003",
+                        "start": 3.2,
+                        "end": 5.0,
+                        "text": "First again.",
+                        "speaker": "provider-speaker-alpha",
+                    },
+                ],
+                "usage": {"type": "duration", "seconds": 5.0},
+            },
+        )
+
+    adapter = OpenAITranscriptAdapter(transport=httpx.MockTransport(handler))
+    result = await adapter.invoke(
+        diarize_request(),
+        credential="credential",
+        base_url="https://api.openai.com",
+    )
+    assert result.request_id == "req-diarize-1"
+    assert result.text == "First speaker. Second speaker. First again."
+    assert [item.provider_segment_id for item in result.segments] == [
+        "seg_001",
+        "seg_002",
+        "seg_003",
+    ]
+    assert [item.speaker_label for item in result.segments] == [
+        "provider-speaker-alpha",
+        "provider-speaker-beta",
+        "provider-speaker-alpha",
+    ]
+    assert result.metadata["operation"] == "diarize"
+    assert result.metadata["response_format"] == "diarized_json"
+    assert result.metadata["chunking_strategy"] == "auto"
+    assert result.metadata["segment_count"] == 3
+    assert result.metadata["speaker_count"] == 2
+    assert result.metadata["raw_speaker_labels_returned"] is False
+    assert "provider-speaker-alpha" not in repr(result.metadata)
+    assert "provider-speaker-beta" not in repr(result.usage)
+    assert result.usage["provider_usage_type"] == "duration"
+    assert result.usage["provider_usage_seconds"] == pytest.approx(5.0)
+    assert result.usage["observed_cost_estimate_usd"] == pytest.approx(0.0005)
+    assert result.actual_cost_usd is None
+    assert len(seen) == 1
+    body = seen[0].content
+    assert b"gpt-4o-transcribe-diarize" in body
+    assert b"diarized_json" in body
+    assert b"chunking_strategy" in body and b"auto" in body
+    assert b"prompt" not in body
 
 
 @pytest.mark.asyncio
@@ -170,6 +282,11 @@ async def test_openai_transcript_network_failure_is_ambiguous_and_never_retried(
         request(duration_ms=4_000),
         request(audio=b"RIFF" + b"\x00" * 128),
         request(source_sha256="bad"),
+        diarize_request(model="gpt-4o-mini-transcribe-2025-12-15"),
+        diarize_request(response_format="json"),
+        diarize_request(chunking_strategy=None),
+        diarize_request(prompt="unsupported diarization prompt"),
+        request(operation="diarize"),
     ],
 )
 async def test_openai_transcript_request_validation_fails_before_http(
@@ -192,21 +309,110 @@ async def test_openai_transcript_request_validation_fails_before_http(
     assert calls == 0
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "segments",
+    [
+        [
+            {
+                "type": "transcript.text.segment",
+                "id": "seg_001",
+                "start": 0.0,
+                "end": 2.5,
+                "text": "Only one speaker.",
+                "speaker": "A",
+            },
+            {
+                "type": "transcript.text.segment",
+                "id": "seg_002",
+                "start": 2.5,
+                "end": 5.0,
+                "text": "Still one speaker.",
+                "speaker": "A",
+            },
+        ],
+        [
+            {
+                "type": "transcript.text.segment",
+                "id": "seg_001",
+                "start": 0.0,
+                "end": 3.0,
+                "text": "Overlap one.",
+                "speaker": "A",
+            },
+            {
+                "type": "transcript.text.segment",
+                "id": "seg_002",
+                "start": 2.0,
+                "end": 4.0,
+                "text": "Overlap two.",
+                "speaker": "B",
+            },
+        ],
+        [
+            {
+                "type": "transcript.text.segment",
+                "id": "seg_001",
+                "start": 0.0,
+                "end": 2.5,
+                "text": "First.",
+                "speaker": "A",
+            },
+            {
+                "type": "transcript.text.segment",
+                "id": "seg_002",
+                "start": 2.5,
+                "end": 5.5,
+                "text": "Past source duration.",
+                "speaker": "B",
+            },
+        ],
+    ],
+)
+async def test_diarization_rejects_unproven_or_invalid_segments(segments: list[dict]) -> None:
+    adapter = OpenAITranscriptAdapter(
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(
+                200,
+                json={
+                    "task": "transcribe",
+                    "duration": 5.0,
+                    "text": "unsafe",
+                    "segments": segments,
+                    "usage": {"type": "duration", "seconds": 5.0},
+                },
+            )
+        )
+    )
+    with pytest.raises(ProviderTranscriptFailure):
+        await adapter.invoke(
+            diarize_request(),
+            credential="credential",
+            base_url="https://api.openai.com",
+        )
+
+
 def test_openai_transcript_pricing_is_duration_bounded_not_fabricated_usage() -> None:
     estimate, evidence = estimate_openai_transcription_cost(60_000)
     assert estimate == pytest.approx(0.003)
-    assert evidence == {
-        "pricing_revision": "2026-08-22",
-        "pricing_source": "https://developers.openai.com/api/docs/pricing",
-        "pricing_unit": "audio_minute_estimate",
-        "estimated_price_per_minute_usd": 0.003,
-        "audio_input_usd_per_million_tokens": 1.25,
-        "text_output_usd_per_million_tokens": 5.0,
-        "duration_ms": 60_000,
-        "billing_note": (
-            "The provider publishes an estimated per-minute cost, while this "
-            "endpoint does not return authoritative per-request usage."
-        ),
-    }
+    assert evidence["pricing_revision"] == "2026-08-23"
+    assert evidence["pricing_basis"] == "official_published_per_minute_estimate"
+    assert evidence["estimated_price_per_minute_usd"] == 0.003
+    assert evidence["input_usd_per_million_tokens"] == 1.25
+    assert evidence["output_usd_per_million_tokens"] == 5.0
+    diarize_estimate, diarize_evidence = estimate_openai_transcription_cost(
+        60_000,
+        model="gpt-4o-transcribe-diarize",
+    )
+    assert diarize_estimate == pytest.approx(0.006)
+    assert (
+        diarize_evidence["pricing_basis"]
+        == "official_model_rate_equivalent_estimate"
+    )
+    assert diarize_evidence["input_usd_per_million_tokens"] == 2.5
+    assert diarize_evidence["output_usd_per_million_tokens"] == 10.0
+    assert "not a fabricated bill" in diarize_evidence["billing_note"]
     with pytest.raises(ProviderTranscriptFailure, match="Transcript provider"):
         estimate_openai_transcription_cost(0)
+    with pytest.raises(ProviderTranscriptFailure, match="Transcript provider"):
+        estimate_openai_transcription_cost(60_000, model="invented")

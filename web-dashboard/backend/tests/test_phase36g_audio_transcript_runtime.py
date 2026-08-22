@@ -26,6 +26,7 @@ from app.services.audio_transcript_pipeline import (
     AudioTranscriptPipelineError,
     create_audio_transcript_pipeline,
 )
+from app.services.audio_transcript_providers import ProviderDiarizedSegmentResult
 from app.services.audio_transcript_runtime import (
     AudioTranscriptExecutionAuthority,
     AudioTranscriptExecutionError,
@@ -204,7 +205,12 @@ async def cleanup_scope(scope: Scope) -> None:
         await session.commit()
 
 
-async def create_pipeline(scope: Scope, *, key: str | None = None):
+async def create_pipeline(
+    scope: Scope,
+    *,
+    key: str | None = None,
+    operation: str = "transcribe",
+):
     async with SessionLocal() as session:
         pipeline = await create_audio_transcript_pipeline(
             session,
@@ -216,6 +222,7 @@ async def create_pipeline(scope: Scope, *, key: str | None = None):
             ),
             source_node_id=scope.source_node_id,
             language="en-US",
+            operation=operation,
             idempotency_key=key or f"transcript-pipeline-{uuid4()}",
             max_cost_usd=0.01,
             source_duration_ms=5_000,
@@ -526,6 +533,237 @@ async def test_completed_transcript_creates_private_package_captions_studio_revi
     finally:
         await cleanup_scope(scope)
 
+
+
+@pytest.mark.asyncio
+async def test_completed_diarization_pseudonymizes_provider_labels_and_materializes_timed_captions(
+    tmp_path: Path,
+) -> None:
+    store = LocalMediaObjectStore(tmp_path / "objects")
+    scope = await seed_scope("diarization-complete", store)
+    raw_labels = ("provider-alpha-private", "provider-beta-private")
+    try:
+        pipeline = await create_pipeline(scope, operation="diarize")
+        assert pipeline.operation == "diarize"
+        assert pipeline.model == "gpt-4o-transcribe-diarize"
+        assert pipeline.response_format == "diarized_json"
+        assert pipeline.estimated_cost_usd == pytest.approx(0.0005)
+        async with SessionLocal() as session:
+            row = await arm_audio_transcript_execution(
+                session,
+                execution_id=pipeline.execution_id,
+                organization_id=scope.org.id,
+                approved_max_cost_usd=0.01,
+            )
+            assert row.operation == "diarize"
+            await session.commit()
+        authority = AudioTranscriptExecutionAuthority(
+            store=store, worker_id="diarization-worker-a", lease_seconds=30
+        )
+        claim = await authority.claim()
+        assert claim is not None
+        await authority.mark_submission_started(claim)
+        result = await authority.complete_diarization(
+            claim,
+            segments=(
+                ProviderDiarizedSegmentResult(
+                    provider_segment_id="provider-segment-a",
+                    speaker_label=raw_labels[0],
+                    start_seconds=0.0,
+                    end_seconds=1.5,
+                    text="First governed speaker.",
+                ),
+                ProviderDiarizedSegmentResult(
+                    provider_segment_id="provider-segment-b",
+                    speaker_label=raw_labels[1],
+                    start_seconds=1.5,
+                    end_seconds=3.2,
+                    text="Second governed speaker.",
+                ),
+                ProviderDiarizedSegmentResult(
+                    provider_segment_id="provider-segment-c",
+                    speaker_label=raw_labels[0],
+                    start_seconds=3.2,
+                    end_seconds=5.0,
+                    text="First speaker returns.",
+                ),
+            ),
+            provider_request_id="req-private-diarization",
+            provider_response_metadata={
+                "duration_ms": 5_000,
+                "raw_speaker_label": raw_labels[0],
+                "segments": [{"speaker": raw_labels[1]}],
+                "raw_speaker_labels_returned": False,
+            },
+            usage_metadata={
+                "provider_usage_type": "duration",
+                "provider_usage_seconds": 5.0,
+                "estimated_cost_usd": 0.0005,
+                "actual_cost_known": False,
+            },
+            actual_cost_usd=None,
+            cost_basis="official_estimated_per_minute",
+        )
+        assert result["status"] == "completed"
+        assert result["operation"] == "diarize"
+        assert result["segment_count"] == 3
+        assert result["speaker_count"] == 2
+        package_key = next(
+            key for key in result["stored_object_keys"] if key.endswith(".zip")
+        )
+        package_path = store.root / package_key
+        with zipfile.ZipFile(package_path) as archive:
+            private_body = archive.read("transcript/private-transcript.json").decode(
+                "utf-8"
+            )
+            private = json.loads(private_body)
+            webvtt = archive.read("captions/captions.vtt").decode("utf-8")
+            srt = archive.read("captions/captions.srt").decode("utf-8")
+            manifest = json.loads(
+                archive.read("captions/manifest.json").decode("utf-8")
+            )
+        assert [item["speaker_key"] for item in private["segments"]] == [
+            "speaker-001",
+            "speaker-002",
+            "speaker-001",
+        ]
+        assert [item["segment_id"] for item in private["segments"]] == [
+            "segment-001",
+            "segment-002",
+            "segment-003",
+        ]
+        assert private["diarization_enabled"] is True
+        assert "00:00:00.000 --> 00:00:01.500" in webvtt
+        assert "00:00:01,500 --> 00:00:03,200" in srt
+        assert "[speaker-001]" in webvtt and "[speaker-002]" in webvtt
+        assert manifest["diarization_enabled"] is True
+        assert manifest["speaker_count"] == 2
+        assert manifest["segment_count"] == 3
+        assert manifest["raw_speaker_labels_returned"] is False
+        combined = repr(
+            {
+                "private": private,
+                "webvtt": webvtt,
+                "srt": srt,
+                "manifest": manifest,
+            }
+        )
+        for raw_label in raw_labels:
+            assert raw_label not in combined
+
+        async with SessionLocal() as session:
+            row = await session.get(AudioTranscriptExecution, pipeline.execution_id)
+            graph = await session.get(MediaAssetGraph, pipeline.graph_id)
+            asset = await session.get(StudioAsset, scope.asset.id)
+            revision_count = int(
+                await session.scalar(
+                    select(func.count())
+                    .select_from(StudioAssetRevision)
+                    .where(StudioAssetRevision.asset_id == scope.asset.id)
+                )
+                or 0
+            )
+            assert row is not None and row.status == "completed"
+            assert row.operation == "diarize"
+            assert row.model == "gpt-4o-transcribe-diarize"
+            assert row.response_format == "diarized_json"
+            assert row.attempts == 1 and row.max_attempts == 1
+            assert row.segment_count == 3 and row.speaker_count == 2
+            assert row.actual_cost_usd is None
+            assert row.provider_response_metadata["pseudonymous_speaker_count"] == 2
+            persisted = repr(
+                {
+                    "provider": row.provider_response_metadata,
+                    "usage": row.usage_metadata,
+                    "graph": graph.graph_metadata if graph else None,
+                    "asset": asset.asset_metadata if asset else None,
+                }
+            )
+            for raw_label in raw_labels:
+                assert raw_label not in persisted
+            assert graph is not None and graph.status == "completed"
+            assert graph.graph_metadata["operation"] == "diarize"
+            assert (
+                graph.graph_metadata["transcript"]["speaker_keys"]
+                == ["speaker-001", "speaker-002"]
+            )
+            assert graph.graph_metadata["raw_speaker_labels_returned"] is False
+            assert asset is not None and asset.current_revision == 2
+            assert revision_count == 2
+            public = await audio_transcript_execution_snapshot(
+                session,
+                execution_id=pipeline.execution_id,
+                organization_id=scope.org.id,
+            )
+            rendered = repr(public)
+            assert public["operation"] == "diarize"
+            assert public["transcript"]["segment_count"] == 3
+            assert public["transcript"]["speaker_count"] == 2
+            assert public["raw_transcript_returned"] is False
+            for forbidden in (*raw_labels, "req-private-diarization", package_key):
+                assert forbidden not in rendered
+    finally:
+        await cleanup_scope(scope)
+
+
+@pytest.mark.asyncio
+async def test_diarization_completion_rejects_single_speaker_without_persisting_output(
+    tmp_path: Path,
+) -> None:
+    store = LocalMediaObjectStore(tmp_path / "objects")
+    scope = await seed_scope("diarization-one-speaker", store)
+    try:
+        pipeline = await create_pipeline(scope, operation="diarize")
+        async with SessionLocal() as session:
+            await arm_audio_transcript_execution(
+                session,
+                execution_id=pipeline.execution_id,
+                organization_id=scope.org.id,
+                approved_max_cost_usd=0.01,
+            )
+            await session.commit()
+        authority = AudioTranscriptExecutionAuthority(
+            store=store, worker_id="diarization-worker-a", lease_seconds=30
+        )
+        claim = await authority.claim()
+        assert claim is not None
+        await authority.mark_submission_started(claim)
+        with pytest.raises(
+            AudioTranscriptExecutionError, match="does not prove multi-speaker"
+        ):
+            await authority.complete_diarization(
+                claim,
+                segments=(
+                    ProviderDiarizedSegmentResult(
+                        provider_segment_id="provider-segment-a",
+                        speaker_label="same-provider-speaker",
+                        start_seconds=0.0,
+                        end_seconds=2.0,
+                        text="One speaker.",
+                    ),
+                    ProviderDiarizedSegmentResult(
+                        provider_segment_id="provider-segment-b",
+                        speaker_label="same-provider-speaker",
+                        start_seconds=2.0,
+                        end_seconds=5.0,
+                        text="Still one speaker.",
+                    ),
+                ),
+                provider_request_id="req-one-speaker",
+                provider_response_metadata={},
+                usage_metadata={},
+                actual_cost_usd=None,
+                cost_basis="official_estimated_per_minute",
+            )
+        async with SessionLocal() as session:
+            row = await session.get(AudioTranscriptExecution, pipeline.execution_id)
+            target = await session.get(MediaAssetNode, pipeline.target_node_id)
+            assert row is not None and row.status == "running"
+            assert row.provider_state == "submitting" and row.attempts == 1
+            assert target is not None and target.status == "planned"
+            assert target.storage_key is None and target.checksum is None
+    finally:
+        await cleanup_scope(scope)
 
 def test_audio_transcript_schema_has_source_fencing_ambiguity_cost_and_hash_fields() -> (
     None
