@@ -2,18 +2,18 @@
 
 Date: 2026-08-21
 Updated: 2026-08-22
-Status: **IN PROGRESS — Stage 3 stock-voice TTS Production-accepted; Stage 4 governed single-speaker STT/transcript/caption source candidate under protected validation, with no STT provider request yet**
+Status: **IN PROGRESS — Stage 4 pinned single-speaker STT/transcript/captions Production-accepted; multi-speaker diarization, complete dubbing, podcast/jingle, music/vocals and voice transformation/clone remain gated**
 
 ## Truth boundary
 
-This checkpoint now separately claims one pinned built-in stock-voice text-to-speech route after protected Production acceptance. It does **not** claim provider STT, complete dubbing, podcasts/jingles, music, vocals, generated SFX, a transformed voice or a cloned voice.
+This checkpoint now separately claims the Production-accepted pinned built-in stock-voice TTS route and one pinned single-speaker STT route with private transcript plus governed WebVTT/SRT. It does **not** claim multi-speaker diarization, complete dubbing, podcasts/jingles, music, vocals, generated SFX, a transformed voice or a cloned voice.
 
 Stage 1 performs no provider request, reads no provider credential and estimates no provider cost. Every generated Studio package remains `provider_neutral`, records `external_requests=0`, `external_cost_usd=0`, `estimated_external_cost_usd=null`, and exposes `render_status=not_started`.
 
 The Phase 36 registry remains truthful:
 
 - `36G=in_progress` and `current_batch=36G`;
-- `audio-cleanup-master` and the granular `stock-voice-tts` slice are `runtime_verified`; the new `governed-stt-transcript` slice, broader `stt-tts-dubbing`, and `podcast-jingle-narration` capabilities remain `source_built`;
+- `audio-cleanup-master`, granular `stock-voice-tts`, and granular single-speaker `governed-stt-transcript` are `runtime_verified`; broader `stt-tts-dubbing` and `podcast-jingle-narration` remain `source_built`;
 - `voice-transformation` and `song-production` remain `specified`;
 - no other 36G capability is promoted to `provider_connected`, `runtime_verified`, `scaled`, or `production_ready`; Phase 36G remains `in_progress`.
 
@@ -522,12 +522,31 @@ The new granular registry claim is `governed-stt-transcript=source_built` with e
 - The Production image built successfully, but the first offline smoke omitted `/workspace/src` and the Compose-equivalent `PYTHONPATH`; import stopped before the Worker ran. The empty artifact was deleted.
 - The exact same image was rerun with the Production read-only source mount and passed under `--network none`. No credential, provider request, service restart, schema change, or spend occurred. Incident evidence SHA-256 `cdc3796c1de9810393f3709850b054f8e0a7fa6320bc78601a10a4475f60a79e`.
 
-## Next safe gate — Stage 4A protected disabled deployment and one bounded STT canary
+## Stage 4B — protected disabled deployment and single-speaker STT Production acceptance
 
-1. finish clean Alembic round-trip, complete Core/Backend/static/security/reporting gates and exact-image no-network Worker smoke;
-2. merge only after every protected CI gate is green;
-3. create and restore-verify a fresh Production backup before Alembic `0036`;
-4. deploy Backend plus the hard-disabled `audio-transcript-worker`, proving zero transcript rows/queues and zero provider activity;
-5. perform one authenticated free model lookup for the pinned snapshot, then one separately armed short synthetic WAV transcription with `max_attempts=1` and an explicit cost cap;
-6. require private transcript, WebVTT, SRT, manifest, Studio revision, checkpoint-before-cleanup, and independently verified deletion of every synthetic row/object;
-7. promote only `governed-stt-transcript` if the live path passes. Multi-speaker diarization and complete dubbing remain separate later gates.
+- Protected PR #470 passed every required CI gate and merged head `1d2b0f3744f75d110cbc82a36944d89182119823` as `7138a9f4882dc48d219d3a9a8343f6cc27170cfe`. The pre-`0036` dump SHA-256 is `59767090bf9bb0745140e5d9c449b754cd80a55ab03fe38de421fd47bf7647dd`; an actual restore reproduced Alembic `0035`, two organizations, fifteen provider rows and no transcript table, then the temporary database was deleted. Consolidated predeploy evidence SHA-256: `a17a3a55691ed18447f9023a5facf7d71a269960e3580b62b446aec8a8365807`.
+- The exact protected source built Backend image `sha256:203a9ed8d4cd51cc0959f1634b5f566988da803c836249d8aa4fcc193d7a0fb2`; its no-network Transcript Worker smoke passed disabled with cycles/errors `0/0`, no credential read and zero transcription requests/spend. Production preflight observed Alembic `0035`, zero active queues and no transcript table without modifying the database.
+- Production migrated `0035 -> 0036`; the transcript table appeared with zero rows. Backend alone was recreated on the protected image and the permanent `audio-transcript-worker` was started hard-disabled. Speech, Media, Studio, PostgreSQL, Redis, Image, Video, Frontend, Portal and Nginx identities remained unchanged. Migration evidence SHA-256: `1afbe9793a401c687bf025fe408d6d72f853957980085c0a562f9d533a566a26`; recreation evidence SHA-256: `e3330d0bb40f91009d0e74173d1d7fe383bc90db1b66c53bc034b1b4fed0386d`; disabled Production evidence SHA-256: `9750fd1c9b0002494e478e3e38597a7cea9862e7fa4579761620324355ff1333`.
+- A fresh authenticated free model lookup returned HTTP `200` and exact `gpt-4o-mini-transcribe-2025-12-15` identity with zero transcription requests/spend. One local `5.24449s` synthetic PCM WAV was then armed with `max_attempts=1`, estimate `$0.0002622` and exact Owner cap `$0.005`. Exactly one provider transcription request completed; there was no automatic retry or duplicate submission. Actual cost remains truthfully `null` because authoritative per-request usage was not returned.
+- The accepted private transcript contains one segment and one pseudonymous speaker, with 64 characters and text SHA-256 `8bf08cd92dcbd71e467f4168e18d588afed487b163ad2286156efd74ffdb22d0`. All three fixture keywords matched. The governed package is `1,503` bytes with SHA-256 `308efb6f8c438ae564736b6c86dd64ce6e19052048eb65b0d6c78ceee5a5295c`, contains the private transcript, WebVTT, SRT and hash-only manifest, and materialized Studio revision `2`.
+- A validated-before-cleanup checkpoint was written. Cleanup deleted and independently verified missing `5/5` objects, removed every synthetic Organization/User/Studio/Media/Transcript row, returned transcript total/active and every other active queue to zero, removed all one-shot containers, kept both permanent audio workers disabled, and passed readiness `10/10` with zero critical Backend/Transcript/Media hits. Consolidated Production acceptance evidence SHA-256: `8f26ac69d503f42ac01e1abbb85cc9f6fc44d18adc854d3ee144925746e427e3`.
+
+## P36-0032 and P36-0033 — deployment evidence wrappers failed before mutation
+
+- The first restore post-check lost SQL string quotes inside a nested shell command after a successful restore. The same immutable dump was reused, the restore was repeated and verified, and the temporary database was deleted; Production and provider activity were unchanged. Incident SHA-256: `b45db5b55834b5ae5b6fcf84d0425c3a152596a10b71f23e21357d61db423d0e`.
+- The first direct candidate preflight consumed the raw env-file `CORS_ORIGINS` shape instead of the normalized Compose JSON value and stopped before application import or database connection. The empty artifact was removed and the corrected read-only preflight passed. Incident SHA-256: `4377100528b606708e55fc43d7a4fb0c18c009ab24938b5b1405302ddef66f9b`.
+
+## P36-0034 — live validator checked the transcript field name in the caption manifest
+
+- The provider execution, durable transcript package and Studio revision had already completed successfully in one attempt. The host canary then checked `raw_transcript_returned` inside the caption manifest, while the governed caption contract intentionally exposes `raw_caption_text_returned`.
+- No retry was permitted or performed. The preserved completed row/package was revalidated by hashes, the correct manifest field, all fixture keywords, WebVTT/SRT content, public redaction and Studio revision. A recovery checkpoint was written before deleting the same existing result. Additional provider requests during recovery were `0`; incident evidence SHA-256: `8fba43170552af88bb6bc66b80c7c930b753c2a900743369e8dd6f6b868bee51`.
+
+## Stage 4 maturity decision
+
+Only the bounded `governed-stt-transcript` slice advances from `source_built` to `runtime_verified`. The claim is restricted to pinned single-speaker STT, a private transcript, pseudonymous `speaker-001`, governed WebVTT/SRT, hash-only public evidence, one-attempt ambiguity safety, Studio materialization and complete cleanup.
+
+The broader `stt-tts-dubbing` capability remains `source_built`; multi-speaker diarization and complete dubbing are not included. `podcast-jingle-narration` remains `source_built`; `song-production` and `voice-transformation` remain `specified`. Phase 36G remains `in_progress`.
+
+## Next safe gate — Stage 5 multi-speaker diarization
+
+Stage 5 must add a separate granular `multi-speaker-diarization` capability, exact diarization model/format routing and pseudonymous speaker normalization without widening the accepted single-speaker claim. It requires source/full validation, a disabled Production activation, one short local two-speaker synthetic fixture, one `max_attempts=1` request under an explicit cap, checkpoint-before-cleanup and complete deletion evidence. Complete dubbing remains a later translation + per-segment stock-TTS + timing-fit + final-master gate.
