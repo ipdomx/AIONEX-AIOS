@@ -172,10 +172,10 @@ test("projects surface shows the truthful Phase 36 expansion contract", async ({
         ],
         maturity_counts: {
           specified: 8,
-          source_built: 16,
+          source_built: 15,
           locally_executed: 13,
           provider_connected: 0,
-          runtime_verified: 22,
+          runtime_verified: 23,
           scaled: 0,
           production_ready: 1,
         },
