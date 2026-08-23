@@ -1426,6 +1426,11 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
         assert "/run/secrets/aionex/runpod-open-song.env:ro" in song_section
         assert 'cap_drop: ["ALL"]' in song_section
         assert 'cap_add: ["CHOWN", "FOWNER", "SETGID", "SETUID"]' in song_section
+        assert (
+            'test: ["CMD", "su-exec", "aionex", "python", "-m", '
+            '"app.services.audio_song_worker", "--healthcheck"]'
+            in song_section
+        )
         assert 'no-new-privileges:true' in song_section
         assert "three-d-worker:" in compose
         assert 'command: ["python", "-m", "app.services.three_d_worker"]' in compose
