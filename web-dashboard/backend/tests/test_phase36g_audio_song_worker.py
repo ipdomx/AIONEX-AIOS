@@ -540,8 +540,17 @@ def test_production_compose_keeps_song_worker_hard_disabled_and_non_root_runtime
         assert "runpod-open-song.env:ro" in block
         assert "media_asset_data:/var/lib/aionex/media-assets:rw" in block
         assert 'user: "1000:1000"' not in block
+        assert 'cap_drop: ["ALL"]' in block
+        assert 'cap_add: ["CHOWN", "FOWNER", "SETGID", "SETUID"]' in block
     entrypoint = (
         root / "web-dashboard/backend/scripts/docker-entrypoint.sh"
     ).read_text(encoding="utf-8")
     assert 'audio_song_secret_source="${AUDIO_SONG_RUNPOD_SECRET_FILE:-}"' in entrypoint
     assert 'install -m 0400 -o aionex -g aionex' in entrypoint
+    audio_start = entrypoint.index('audio_song_secret_source="${AUDIO_SONG_RUNPOD_SECRET_FILE:-}"')
+    audio_end = entrypoint.index('project_reference_source=', audio_start)
+    audio_block = entrypoint[audio_start:audio_end]
+    assert 'install -d -m 0700 -o root -g root "$runtime_dir"' in audio_block
+    assert 'chown aionex:aionex "$runtime_dir"' in audio_block
+    assert 'chmod 0700 "$runtime_dir"' in audio_block
+    assert 'DAC_OVERRIDE' not in block

@@ -50,13 +50,18 @@ if [ "$(id -u)" = "0" ]; then
     if [ -n "$audio_song_secret_source" ] && [ -f "$audio_song_secret_source" ]; then
         runtime_dir=/run/aionex
         audio_song_secret_runtime="$runtime_dir/runpod-open-song.env"
-        install -d -m 0700 -o aionex -g aionex "$runtime_dir"
+        # Keep the directory root-owned while copying. With the worker's minimal
+        # capability set, root intentionally has no DAC_OVERRIDE after the
+        # directory is handed to aionex.
+        install -d -m 0700 -o root -g root "$runtime_dir"
         if [ "$audio_song_secret_source" != "$audio_song_secret_runtime" ]; then
             install -m 0400 -o aionex -g aionex "$audio_song_secret_source" "$audio_song_secret_runtime"
         else
             chown aionex:aionex "$audio_song_secret_runtime"
             chmod 0400 "$audio_song_secret_runtime"
         fi
+        chown aionex:aionex "$runtime_dir"
+        chmod 0700 "$runtime_dir"
         export AUDIO_SONG_RUNPOD_SECRET_FILE="$audio_song_secret_runtime"
     fi
 
