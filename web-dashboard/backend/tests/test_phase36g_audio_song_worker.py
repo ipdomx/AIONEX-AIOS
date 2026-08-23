@@ -536,6 +536,9 @@ def test_production_compose_keeps_song_worker_hard_disabled_and_non_root_runtime
         block = source[start : source.index("  video-provider-worker:", start)]
         assert 'profiles: ["audio-execution"]' in block
         assert 'AUDIO_SONG_LIVE_ENABLED: "false"' in block
+        assert 'AUDIO_SONG_ENTRYPOINT_SECRET_BOOTSTRAP_ONLY: "true"' in block
+        assert 'MEDIA_STORAGE_TYPE: local' in block
+        assert 'MEDIA_STORAGE_TYPE: inherit' not in block
         assert "app.services.audio_song_worker" in block
         assert "runpod-open-song.env:ro" in block
         assert "media_asset_data:/var/lib/aionex/media-assets:rw" in block
@@ -553,4 +556,8 @@ def test_production_compose_keeps_song_worker_hard_disabled_and_non_root_runtime
     assert 'install -d -m 0700 -o root -g root "$runtime_dir"' in audio_block
     assert 'chown aionex:aionex "$runtime_dir"' in audio_block
     assert 'chmod 0700 "$runtime_dir"' in audio_block
+    early_drop = 'if [ "${AUDIO_SONG_ENTRYPOINT_SECRET_BOOTSTRAP_ONLY:-false}" = "true" ]; then'
+    assert early_drop in audio_block
+    assert entrypoint.index(early_drop, audio_start) < entrypoint.index('project_reference_source=', audio_start)
+    assert 'exec su-exec aionex "$@"' in audio_block
     assert 'DAC_OVERRIDE' not in block

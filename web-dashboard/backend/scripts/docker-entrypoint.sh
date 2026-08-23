@@ -65,6 +65,10 @@ if [ "$(id -u)" = "0" ]; then
         export AUDIO_SONG_RUNPOD_SECRET_FILE="$audio_song_secret_runtime"
     fi
 
+    if [ "${AUDIO_SONG_ENTRYPOINT_SECRET_BOOTSTRAP_ONLY:-false}" = "true" ]; then
+        exec su-exec aionex "$@"
+    fi
+
     project_reference_source="${PROJECT_EXECUTION_LOCAL_REFERENCE:-}"
     if [ -n "$project_reference_source" ] && [ -d "$project_reference_source" ]; then
         runtime_dir=/run/aionex
