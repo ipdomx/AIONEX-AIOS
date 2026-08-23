@@ -85,7 +85,7 @@ def test_narration_plan_is_deterministic_provider_neutral_and_never_claims_rende
         assert forbidden not in rendered
 
 
-def test_provider_inventory_is_official_visibility_only_and_invents_no_music_or_clone_route() -> None:
+def test_provider_inventory_includes_preview_lyria_routes_without_inventing_clone_support() -> None:
     models = {(item.provider, item.model) for item in AUDIO_PROVIDER_CAPABILITIES}
     assert ("openai", "gpt-5.6-luna") in models
     assert ("openai", "gpt-4o-mini-tts-2025-12-15") in models
@@ -96,14 +96,18 @@ def test_provider_inventory_is_official_visibility_only_and_invents_no_music_or_
     assert ("gemini", "gemini-3.7-flash") in models
     assert ("gemini", "gemini-2.5-flash-preview-tts") in models
     assert ("gemini", "gemini-2.5-pro-preview-tts") in models
+    assert ("gemini", "lyria-3-clip-preview") in models
+    assert ("gemini", "lyria-3-pro-preview") in models
     assert all(item.official_source.startswith("https://") for item in AUDIO_PROVIDER_CAPABILITIES)
-    assert not any("compose-music" in item.operations for item in AUDIO_PROVIDER_CAPABILITIES)
-    assert not any("generate-vocals" in item.operations for item in AUDIO_PROVIDER_CAPABILITIES)
+    music = [item for item in AUDIO_PROVIDER_CAPABILITIES if "compose-music" in item.operations]
+    assert {item.model for item in music} == {"lyria-3-clip-preview", "lyria-3-pro-preview"}
+    assert all(item.preview for item in music)
+    assert all("generate-vocals" in item.operations for item in music)
     assert not any("voice-clone" in item.operations for item in AUDIO_PROVIDER_CAPABILITIES)
     plan = build_audio_plan(request())
     snapshot = plan.public_snapshot()
     inventory = snapshot["provider_inventory"]
-    assert len(inventory) == 9
+    assert len(inventory) == 11
     assert {item["inventory_state"] for item in inventory} == {"inventory_visible"}
     realtime = next(item for item in inventory if item["model"] == "gpt-realtime-1.5")
     assert realtime["execution_modes"] == ["realtime"]
@@ -212,7 +216,7 @@ def test_dubbing_requires_source_and_target_language_and_builds_alignment_mix_ma
     assert alignment.depends_on == ("speech", "ingest")
 
 
-def test_song_and_jingle_remain_truthful_external_gates_without_generation_providers() -> None:
+def test_song_and_jingle_route_only_music_and_vocals_to_preview_lyria() -> None:
     for operation in ("song", "jingle"):
         plan = build_audio_plan(
             request(
@@ -224,12 +228,21 @@ def test_song_and_jingle_remain_truthful_external_gates_without_generation_provi
         )
         assert plan.plan_status == "external_gate"
         assert plan.render_status == "not_started"
-        assert "provider-runtime:compose-music" in plan.external_gates
-        assert "provider-runtime:generate-vocals" in plan.external_gates
+        assert "provider-runtime:compose-music" not in plan.external_gates
+        assert "provider-runtime:generate-vocals" not in plan.external_gates
         assert "provider-runtime:generate-sfx" in plan.external_gates
+        candidates = dict(plan.task_provider_candidates)
+        assert {item.model for item in candidates["music"]} == {
+            "lyria-3-clip-preview",
+            "lyria-3-pro-preview",
+        }
+        assert {item.model for item in candidates["vocals"]} == {
+            "lyria-3-clip-preview",
+            "lyria-3-pro-preview",
+        }
         snapshot = plan.public_snapshot()
         gated = {item["operation"] for item in snapshot["tasks"] if item["state"] == "external_gate"}
-        assert {"compose-music", "generate-vocals", "generate-sfx"} <= gated
+        assert gated == {"generate-sfx"}
 
 
 def test_voice_operation_requires_valid_scoped_rights_and_never_accepts_raw_permission_claims() -> None:

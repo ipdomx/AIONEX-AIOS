@@ -158,7 +158,7 @@ test("projects surface shows the truthful Phase 36 expansion contract", async ({
         authoritative: true,
         minimum_concurrent_users: 1000,
         current_batch: "36G",
-        total_capabilities: 54,
+        total_capabilities: 55,
         production_ready_capabilities: 1,
         completion: 2,
         maturity_order: [
@@ -172,7 +172,7 @@ test("projects surface shows the truthful Phase 36 expansion contract", async ({
         ],
         maturity_counts: {
           specified: 8,
-          source_built: 14,
+          source_built: 15,
           locally_executed: 13,
           provider_connected: 0,
           runtime_verified: 18,
@@ -205,7 +205,7 @@ test("projects surface shows the truthful Phase 36 expansion contract", async ({
   await expect(page.getByText("Phase 36 expansion status")).toBeVisible();
   await expect(page.getByText("36G", { exact: true })).toBeVisible();
   await expect(page.getByText("1,000", { exact: true })).toBeVisible();
-  await expect(page.getByText("1/54", { exact: true })).toBeVisible();
+  await expect(page.getByText("1/55", { exact: true })).toBeVisible();
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
   );

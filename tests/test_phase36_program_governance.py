@@ -153,6 +153,7 @@ def test_phase36g_stage5_source_keeps_diarization_separate_without_overclaiming(
         "stt-tts-dubbing": "source_built",
         "voice-transformation": "specified",
         "audio-cleanup-master": "runtime_verified",
+        "lyria-3-music-generation": "source_built",
         "song-production": "specified",
         "podcast-jingle-narration": "source_built",
     }
@@ -169,6 +170,11 @@ def test_phase36g_stage5_source_keeps_diarization_separate_without_overclaiming(
     assert capabilities["complete-stock-voice-dubbing"].external_gates == ()
     assert capabilities["voice-transformation"].external_gates == (
         "voice-rights-and-consent-evidence",
+    )
+    assert capabilities["lyria-3-music-generation"].external_gates == (
+        "valid-paid-gemini-credential",
+        "lyria-preview-runtime-evidence",
+        "music-rights-and-synthid-disclosure",
     )
     assert "SFX" not in capabilities["audio-cleanup-master"].title
     assert capabilities["stt-tts-dubbing"].maturity != "runtime_verified"

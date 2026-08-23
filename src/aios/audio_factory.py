@@ -339,6 +339,34 @@ AUDIO_PROVIDER_CAPABILITIES: Final[tuple[AudioProviderCapability, ...]] = (
         multi_speaker_tts=True,
         preview=True,
     ),
+    AudioProviderCapability(
+        provider="gemini",
+        model="lyria-3-clip-preview",
+        operations=frozenset({"compose-music", "generate-vocals"}),
+        input_modalities=frozenset({"text"}),
+        output_modalities=frozenset({"audio"}),
+        official_source=(
+            "https://ai.google.dev/gemini-api/docs/generate-content/"
+            "music-generation"
+        ),
+        evidence_date="2026-08-23",
+        execution_modes=frozenset({"batch"}),
+        preview=True,
+    ),
+    AudioProviderCapability(
+        provider="gemini",
+        model="lyria-3-pro-preview",
+        operations=frozenset({"compose-music", "generate-vocals"}),
+        input_modalities=frozenset({"text"}),
+        output_modalities=frozenset({"audio"}),
+        official_source=(
+            "https://ai.google.dev/gemini-api/docs/generate-content/"
+            "music-generation"
+        ),
+        evidence_date="2026-08-23",
+        execution_modes=frozenset({"batch"}),
+        preview=True,
+    ),
 )
 
 
