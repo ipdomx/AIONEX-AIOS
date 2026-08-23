@@ -367,6 +367,28 @@ AUDIO_PROVIDER_CAPABILITIES: Final[tuple[AudioProviderCapability, ...]] = (
         execution_modes=frozenset({"batch"}),
         preview=True,
     ),
+    AudioProviderCapability(
+        provider="replicate",
+        model="google/lyria-3",
+        operations=frozenset({"compose-music", "generate-vocals"}),
+        input_modalities=frozenset({"text"}),
+        output_modalities=frozenset({"audio"}),
+        official_source="https://replicate.com/google/lyria-3",
+        evidence_date="2026-08-23",
+        execution_modes=frozenset({"batch"}),
+        preview=True,
+    ),
+    AudioProviderCapability(
+        provider="replicate",
+        model="google/lyria-3-pro",
+        operations=frozenset({"compose-music", "generate-vocals"}),
+        input_modalities=frozenset({"text"}),
+        output_modalities=frozenset({"audio"}),
+        official_source="https://replicate.com/google/lyria-3-pro",
+        evidence_date="2026-08-23",
+        execution_modes=frozenset({"batch"}),
+        preview=True,
+    ),
 )
 
 

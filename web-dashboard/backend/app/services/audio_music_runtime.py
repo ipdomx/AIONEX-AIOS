@@ -1,8 +1,8 @@
-"""Durable one-attempt authority for low-cost Gemini Lyria 3 music generation.
+"""Durable one-attempt authority for low-cost governed Lyria 3 generation.
 
-Lyria generation is synchronous and has no durable provider job identifier. The
-submission marker is therefore persisted before HTTP. Any expired lease after
-that marker is classified as ambiguous and can never be automatically retried.
+Direct Gemini remains a synchronous fail-closed fallback. The default Replicate
+route persists its Prediction ID before polling, so a crash resumes the same paid
+job and can never create a second prediction for the same execution.
 """
 from __future__ import annotations
 
@@ -33,9 +33,11 @@ from app.services.audio_music_providers import ProviderMusicFailure, inspect_mp3
 from app.services.media_storage import MediaObjectStore, media_object_store
 
 SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
-_MODEL_ROUTE = {
-    "draft": ("lyria-3-clip-preview", 0.04),
-    "final": ("lyria-3-pro-preview", 0.08),
+_PROVIDER_MODEL_ROUTES = {
+    ("replicate", "draft"): ("google/lyria-3", 0.04),
+    ("replicate", "final"): ("google/lyria-3-pro", 0.08),
+    ("gemini", "draft"): ("lyria-3-clip-preview", 0.04),
+    ("gemini", "final"): ("lyria-3-pro-preview", 0.08),
 }
 _ALLOWED_COST_BASES = frozenset({"official_fixed_request"})
 _MUSIC_MONTHLY_CAP_USD = 0.40
@@ -51,6 +53,8 @@ _SENSITIVE_METADATA_FRAGMENTS = (
     "lyrics",
     "signed_url",
     "presigned",
+    "output_url",
+    "prediction_url",
 )
 
 
@@ -155,9 +159,9 @@ def _validate_sha(value: str | None, label: str, *, required: bool) -> None:
 
 
 def _validate_spec(spec: AudioMusicExecutionSpec) -> tuple[str, float]:
-    if spec.provider != "gemini" or spec.operation != "generate-music":
-        raise AudioMusicExecutionError("music provider/operation is outside the launch matrix")
-    route = _MODEL_ROUTE.get(spec.tier)
+    if spec.operation != "generate-music":
+        raise AudioMusicExecutionError("music operation is outside the launch matrix")
+    route = _PROVIDER_MODEL_ROUTES.get((spec.provider, spec.tier))
     if route is None or route[0] != spec.model:
         raise AudioMusicExecutionError("music tier/model is outside the launch matrix")
     if spec.output_format != "mp3" or spec.max_attempts != 1:
@@ -499,39 +503,51 @@ class AudioMusicExecutionAuthority:
                 )
                 .exists()
             )
-            row = await session.scalar(
-                select(AudioMusicExecution)
-                .where(
-                    AudioMusicExecution.provider_state == "not_started",
-                    or_(
-                        and_(
-                            AudioMusicExecution.status == "queued",
-                            AudioMusicExecution.attempts
-                            < AudioMusicExecution.max_attempts,
-                            or_(
-                                AudioMusicExecution.available_at.is_(None),
-                                AudioMusicExecution.available_at <= now,
-                            ),
-                        ),
-                        and_(
-                            AudioMusicExecution.status == "running",
-                            AudioMusicExecution.attempts
-                            <= AudioMusicExecution.max_attempts,
-                            AudioMusicExecution.lease_expires_at.is_not(None),
-                            AudioMusicExecution.lease_expires_at <= now,
+            fresh_or_reclaimable = and_(
+                AudioMusicExecution.provider_state == "not_started",
+                or_(
+                    and_(
+                        AudioMusicExecution.status == "queued",
+                        AudioMusicExecution.attempts < AudioMusicExecution.max_attempts,
+                        or_(
+                            AudioMusicExecution.available_at.is_(None),
+                            AudioMusicExecution.available_at <= now,
                         ),
                     ),
-                    ~blocked_parent,
-                )
+                    and_(
+                        AudioMusicExecution.status == "running",
+                        AudioMusicExecution.attempts <= AudioMusicExecution.max_attempts,
+                        AudioMusicExecution.lease_expires_at.is_not(None),
+                        AudioMusicExecution.lease_expires_at <= now,
+                    ),
+                ),
+            )
+            submitted_poll = and_(
+                AudioMusicExecution.status == "running",
+                AudioMusicExecution.provider_state == "submitted",
+                AudioMusicExecution.provider_request_id.is_not(None),
+                or_(
+                    AudioMusicExecution.available_at.is_(None),
+                    AudioMusicExecution.available_at <= now,
+                ),
+                or_(
+                    AudioMusicExecution.lease_owner.is_(None),
+                    AudioMusicExecution.lease_expires_at.is_(None),
+                    AudioMusicExecution.lease_expires_at <= now,
+                ),
+            )
+            row = await session.scalar(
+                select(AudioMusicExecution)
+                .where(or_(fresh_or_reclaimable, submitted_poll), ~blocked_parent)
                 .order_by(AudioMusicExecution.created_at, AudioMusicExecution.id)
                 .with_for_update(skip_locked=True)
                 .limit(1)
             )
             if row is None:
                 return None
-            reclaim = row.status == "running"
+            initial_claim = row.provider_state == "not_started" and row.status == "queued"
             row.status = "running"
-            if not reclaim:
+            if initial_claim:
                 row.attempts = int(row.attempts) + 1
             row.fencing_token = int(row.fencing_token) + 1
             row.lease_token = str(uuid4())
@@ -573,6 +589,82 @@ class AudioMusicExecutionAuthority:
             row.provider_state = "submitting"
             row.provider_submitted_at = row.provider_submitted_at or _now()
             await session.commit()
+
+    async def mark_submitted(
+        self,
+        claim: AudioMusicClaim,
+        *,
+        provider_request_id: str,
+        provider_response_metadata: dict[str, Any],
+    ) -> None:
+        job_id = provider_request_id.strip()
+        if not job_id or len(job_id) > 200:
+            raise AudioMusicExecutionError("music provider job ID is invalid")
+        async with self.session_factory() as session:
+            row = await session.scalar(
+                select(AudioMusicExecution)
+                .where(AudioMusicExecution.id == claim.execution_id)
+                .with_for_update()
+            )
+            row = self._require_owned(row, claim)
+            if row.provider != "replicate":
+                raise AudioMusicExecutionError("durable music job IDs are Replicate-only")
+            if row.provider_state != "submitting" or row.provider_request_id:
+                raise AudioMusicExecutionError("music provider job cannot be recorded")
+            row.provider_state = "submitted"
+            row.provider_request_id = job_id
+            row.provider_response_metadata = _safe_metadata(
+                {**provider_response_metadata, "poll_count": 0}
+            )
+            row.lease_token = None
+            row.lease_owner = None
+            row.lease_expires_at = None
+            row.available_at = _now()
+            await session.commit()
+
+    async def mark_poll_pending(
+        self,
+        claim: AudioMusicClaim,
+        *,
+        provider_response_metadata: dict[str, Any],
+        delay_seconds: int,
+        max_polls: int,
+    ) -> int:
+        delay = max(1, min(60, int(delay_seconds)))
+        ceiling = max(1, min(2_000, int(max_polls)))
+        async with self.session_factory() as session:
+            row = await session.scalar(
+                select(AudioMusicExecution)
+                .where(AudioMusicExecution.id == claim.execution_id)
+                .with_for_update()
+            )
+            row = self._require_owned(row, claim)
+            if (
+                row.provider != "replicate"
+                or row.provider_state != "submitted"
+                or not row.provider_request_id
+            ):
+                raise AudioMusicExecutionError(
+                    "music polling requires a durable Replicate prediction"
+                )
+            current = int((row.provider_response_metadata or {}).get("poll_count") or 0)
+            count = current + 1
+            if count > ceiling:
+                raise AudioMusicExecutionError("music provider poll limit exhausted")
+            row.provider_response_metadata = _safe_metadata(
+                {
+                    **dict(row.provider_response_metadata or {}),
+                    **provider_response_metadata,
+                    "poll_count": count,
+                    "max_polls": ceiling,
+                }
+            )
+            row.lease_token = None
+            row.lease_owner = None
+            row.lease_expires_at = None
+            row.available_at = _now() + timedelta(seconds=delay)
+            await session.commit()
+            return count
 
     async def fail(
         self,
@@ -623,8 +715,11 @@ class AudioMusicExecutionAuthority:
         async with self.session_factory() as session:
             row = await session.get(AudioMusicExecution, claim.execution_id)
             row = self._require_owned(row, claim)
-            if row.provider_state != "submitting":
+            allowed_states = {"submitting"} if row.provider == "gemini" else {"submitted"}
+            if row.provider_state not in allowed_states:
                 raise AudioMusicExecutionError("music completion requires a submitted request")
+            if row.provider_request_id and provider_request_id != row.provider_request_id:
+                raise AudioMusicExecutionError("music completion provider job does not match")
             if content_type != "audio/mpeg" or row.output_format != "mp3":
                 raise AudioMusicExecutionError("music content type is invalid")
             try:
@@ -634,7 +729,10 @@ class AudioMusicExecutionAuthority:
                 )
             except ProviderMusicFailure as exc:
                 raise AudioMusicExecutionError("music MP3 validation failed") from exc
-            expected = _MODEL_ROUTE[row.tier][1]
+            route = _PROVIDER_MODEL_ROUTES.get((row.provider, row.tier))
+            if route is None or route[0] != row.model:
+                raise AudioMusicExecutionError("music provider/model route changed before completion")
+            expected = route[1]
             actual = round(float(actual_cost_usd), 9)
             if actual != expected or actual > round(float(row.max_cost_usd), 9):
                 raise AudioMusicExecutionError("music actual cost does not match approved fixed price")
@@ -892,6 +990,11 @@ async def audio_music_execution_snapshot(
         "returned_text_sha256": row.returned_text_sha256,
         "returned_text_characters": row.returned_text_characters,
         "provider_request_recorded": bool(row.provider_request_id),
+        "provider_job_sha256": (
+            hashlib.sha256(row.provider_request_id.encode("utf-8")).hexdigest()
+            if row.provider_request_id
+            else None
+        ),
         "provider_response_metadata": _safe_metadata(
             dict(row.provider_response_metadata or {})
         ),

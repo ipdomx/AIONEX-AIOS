@@ -369,11 +369,16 @@ services:
       MEDIA_STORAGE_TYPE: inherit
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
       AUDIO_MUSIC_LIVE_ENABLED: "false"
+      AUDIO_MUSIC_REPLICATE_TOKEN_FILE: /run/operator-secrets/replicate-api-token
+      AUDIO_MUSIC_REPLICATE_BASE_URL: https://api.replicate.com
+      AUDIO_MUSIC_REPLICATE_POLL_SECONDS: "2"
+      AUDIO_MUSIC_REPLICATE_MAX_POLLS: "180"
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
     volumes:
       - ..:/workspace:ro
       - media_asset_data:/var/lib/aionex/media-assets:rw
+      - ${AUDIO_MUSIC_REPLICATE_TOKEN_HOST_FILE:-/opt/aionex-runtime-secrets/replicate-api-token}:/run/operator-secrets/replicate-api-token:ro
     depends_on:
       backend: {condition: service_healthy}
     healthcheck:

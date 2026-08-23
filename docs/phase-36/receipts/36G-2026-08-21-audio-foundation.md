@@ -2,11 +2,11 @@
 
 Date: 2026-08-21
 Updated: 2026-08-23
-Status: **IN PROGRESS — Stages 1–6 Production-accepted; Stage 7 source and disabled Production activation complete, live Lyria acceptance blocked by generation quota**
+Status: **IN PROGRESS — Stages 1–6 Production-accepted; Stage 7 direct Gemini authority deployed but quota-blocked; durable Replicate fallback source verified and awaiting protected merge/deployment**
 
 ## Truth boundary
 
-This checkpoint separately claims the Production-accepted pinned stock-voice TTS, single-speaker STT, pseudonymous multi-speaker diarization, and complete bounded stock-voice dubbing routes. Stage 7 source and its hard-disabled Production authority are deployed at Alembic `20260823_0038`, but no Lyria audio has been accepted: the valid Gemini key can read the exact Clip/Pro models and run `countTokens`, while every bounded Clip generation attempt was rejected by Provider quota before an output existed. Podcasts/jingles, accepted live music generation, dedicated SFX, stems, transformed voice and cloned voice remain outside the accepted claim.
+This checkpoint separately claims the Production-accepted pinned stock-voice TTS, single-speaker STT, pseudonymous multi-speaker diarization, and complete bounded stock-voice dubbing routes. Stage 7 direct Gemini source and its hard-disabled Production authority are deployed at Alembic `20260823_0038`, but no Lyria audio has been accepted: the valid Gemini key can read the exact Clip/Pro models and run `countTokens`, while every bounded Clip generation attempt was rejected by Provider quota before an output existed. A durable Replicate fallback for the official Google Lyria models is now source-verified in an isolated Worktree only; it has not been merged, deployed, armed, or used for a paid Prediction. Podcasts/jingles, accepted live music generation, dedicated SFX, stems, transformed voice and cloned voice remain outside the accepted claim.
 
 Stage 1 performs no provider request, reads no provider credential and estimates no provider cost. Every generated Studio package remains `provider_neutral`, records `external_requests=0`, `external_cost_usd=0`, `estimated_external_cost_usd=null`, and exposes `render_status=not_started`.
 
@@ -14,7 +14,7 @@ The Phase 36 registry remains truthful:
 
 - `36G=in_progress` and `current_batch=36G`;
 - `audio-cleanup-master`, granular `stock-voice-tts`, granular single-speaker `governed-stt-transcript`, granular `multi-speaker-diarization`, and granular `complete-stock-voice-dubbing` are `runtime_verified`; broader `stt-tts-dubbing` and `podcast-jingle-narration` remain `source_built`;
-- granular `lyria-3-music-generation` is `source_built` behind paid-credential, preview-runtime, rights and SynthID gates; `voice-transformation` and broad `song-production` remain `specified`;
+- granular `lyria-3-music-generation` remains `source_built`; the current candidate replaces the blocked default Gemini generation gate with an authenticated Replicate credential plus durable Prediction-runtime evidence, while rights and SynthID disclosure remain mandatory. Production continues to expose the prior quota-blocked Gemini route until protected merge/deployment; `voice-transformation` and broad `song-production` remain `specified`;
 - no other 36G capability is promoted to `provider_connected`, `runtime_verified`, `scaled`, or `production_ready`; Phase 36G remains `in_progress`.
 
 ## Implemented governed audio factory
@@ -733,10 +733,48 @@ Only granular `lyria-3-music-generation=source_built` is added with gates `valid
 
 `lyria-3-music-generation` remains `source_built`. A valid key, model visibility, hard-disabled durable authority and local FFmpeg path do not constitute runtime acceptance when the Provider has produced no audio. `song-production` remains `specified`; preview Lyria models remain ineligible for `production_ready`.
 
+## Stage 7C — durable Replicate fallback source checkpoint
+
+The existing Replicate account/token was authenticated without generation and exposes the official Google models `google/lyria-3` and `google/lyria-3-pro`. The bounded launch mapping is unchanged economically: Draft uses one `google/lyria-3` Prediction at the fixed `$0.04` request cap; Final uses one `google/lyria-3-pro` Prediction at `$0.08` only after the same user owns a completed governed Draft checksum and supplies separate final-approval evidence. Replicate model-contract evidence SHA-256 is `7e069894dd685bfe0ffe5f57b318e2a76c7310d912b4f91b3cff5a1fadcbef7f`; authenticated no-generation preflight SHA-256 is `0c31bf1021034f9883acb8d866bdbf58d237a24504b668fa16491337d607153e`.
+
+The fallback reuses Alembic `20260823_0038`; no new table or migration is introduced. Its safety contract is stronger than the original synchronous path:
+
+- submit exactly one Replicate Prediction and persist its ID in `audio_music_executions.provider_request_id` before any later Poll;
+- release the lease after durable ID persistence; a new worker/fencing generation reclaims the same row and polls the same Prediction without incrementing `attempts` or issuing another POST;
+- an ambiguous failure before a durable Prediction ID becomes `ambiguous/needs_review` and can never be automatically resubmitted;
+- transient Poll/download failures may retry only the same recorded Prediction, under the bounded poll ceiling; terminal `failed`, `canceled`, or `aborted` states fail the execution without a new generation;
+- only HTTPS output URLs on `replicate.delivery` or its subdomains are accepted, and the Replicate bearer token is never sent to the delivery host;
+- the MP3 is signature/size checked before private object storage, then enters the existing governed local cleanup/master/waveform/export path;
+- public snapshots expose only a SHA-256 of the Prediction ID, never the raw ID, output URL, prompt, lyrics, credential, or authorization header.
+
+The permanent Worker remains hard-disabled by default and non-root. Replicate credentials are read only after an armed claim from a private regular mode-`0600` file mounted read-only at `/run/operator-secrets/replicate-api-token`; symlinks, broad permissions, unexpected ownership, whitespace-bearing values, and non-official base URLs fail closed. The candidate does not read this secret while disabled.
+
+### Stage 7C isolated verification completed
+
+- Music/Audio/Phase36 root contracts: `36/36 PASS`.
+- Provider/Worker/public-capability contracts inside the exact Backend dependency image with `--network none`: `24/24 PASS`.
+- Disposable PostgreSQL 16 + Redis 7 durable runtime: `34/34 PASS`, Alembic `0038`, Prediction-ID persistence/reclaim/fencing proven, `attempts=1`, Music rows returned to `0`, database/cache critical hits `0/0`, provider generation requests `0`, spend `$0.00`; evidence SHA-256 `d14d37731d00bfa110110d211e8a255dc5c963d28c988fa8db04cbe11b7766ce`.
+- Complete AIOS Core: `782/782 PASS`; evidence SHA-256 `1097ace4f224ddd6dbd01b39410cbdf953c82908d80a17d889166b6b8894486e`.
+- Complete Backend: `946 passed, 1 skipped, 2 warnings, 0 failed` in `331.45s`, coverage `65.98%`, Alembic `0038`, Music rows `0`, PostgreSQL/Redis critical hits `0/0`; evidence SHA-256 `2ba6e88e47db8202134c91e07b353843e600db7b6cf2835d8f1d5152236dab8e`.
+- Changed-root and full Backend Ruff, Mypy across `224` source files, Python AST, workflow YAML, both Production Compose manifests, `git diff --check`, and accidental redaction-placeholder scan passed; evidence SHA-256 `e6120a37243ba3ef72e3d4a9b5b14773b20dc9566a4eb153e7cf4cd7c14bebd0`.
+- Every Stage 7C source gate records `production_modified=false`, Provider generation requests `0`, and Provider spend `$0.00`; all disposable containers/networks and writable source copies were removed.
+
+## P36-0084 through P36-0087 — Stage 7C source and validation incidents stopped safely
+
+- **P36-0084:** the direct Gemini quota parser was strengthened to retain only sanitized `QuotaFailure`/status/retry metadata. The parser change itself performed no Provider request or spend.
+- **P36-0085:** review found the first Replicate prototype held the Prediction ID only in process memory while polling. Before any live Prediction, the design was corrected to persist the ID durably, release/reclaim leases with fencing, and resume the same job without a second POST.
+- **P36-0086:** a tool-output redaction token was accidentally copied literally into one Adapter line and one test expectation. No network call occurred; the focused no-network test caught it, the literals were removed, and all changed Music source/test files passed an explicit zero-placeholder scan.
+- **P36-0087:** the first Core wrapper and one Compose interpolation attempt used incomplete validation environments; application code was not implicated. Core was rerun through the established writable complete-repository harness and passed `782/782`. During Full Backend the MCP response channel returned `502` after the server process had completed; retained logs, database postcheck, zero residual resources and hashes proved PASS, so the suite was not repeated.
+
+## Stage 7C maturity decision
+
+`lyria-3-music-generation` remains `source_built`. Durable Replicate source, authenticated model visibility, fixed-cost governance and isolated crash-recovery tests do not equal live music acceptance. No preview model is promoted to `runtime_verified` or `production_ready`; broad `song-production` remains `specified`.
+
 ## Next safe gates
 
-1. externally enable a paid Gemini API tier with non-zero Lyria generation quota, **or** have a Google Cloud administrator enable `aiplatform.googleapis.com` and grant the existing service identity the required Vertex/Service Usage permissions;
-2. after a fresh read-only preflight, run exactly one instrumental `$0.04` Clip request—no automatic retry—and require local QA, Studio revision, checkpoint-before-cleanup and zero residual rows/objects;
-3. validate `$0.08` Pro only after the same user owns an accepted governed Draft checksum and supplies a separate final approval;
-4. continue provider-independent podcast/narration and local audio work while the external music quota gate remains open;
-5. vocals, stems, dedicated SFX, voice transformation and cloning remain separate truth/rights gates; preview models can never become `production_ready`.
+1. protect the Stage 7C source in a PR and merge only after Backend, Production Docker Build, CodeQL, SBOM, browser, dependency, reporting and repository-security gates are all green;
+2. update Production by fast-forward, retain rollback images, and recreate only Backend plus the permanent Music Worker while keeping `AUDIO_MUSIC_LIVE_ENABLED=false`; no schema migration is needed beyond existing `0038`;
+3. run an authenticated no-generation Replicate account/model preflight from the deployed image and prove zero rows/queues/requests/spend;
+4. run exactly one instrumental `$0.04` Draft Prediction, persist its ID, prove same-job Poll/recovery, local QA, Studio revision, checkpoint-before-cleanup and zero residual rows/objects;
+5. validate the `$0.08` Pro route only after that same user owns the accepted Draft checksum and supplies a separate final approval;
+6. direct Gemini remains an optional quota-blocked fallback; vocals, stems, dedicated SFX, voice transformation and cloning remain separate truth/rights gates, and preview models can never become `production_ready`.

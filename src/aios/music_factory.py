@@ -1,9 +1,11 @@
 """Phase 36G Stage 7 governed low-cost music-generation contracts.
 
 The contract deliberately separates a cheap 30-second draft from a full-song final
-request.  It performs no network call and exposes only hashes in its public
-snapshot.  Lyria 3 remains a preview provider route and can never become
-``production_ready`` from this module alone.
+request. It performs no network call and exposes only hashes in its public
+snapshot. Replicate-hosted official Google Lyria is the default because the
+existing account exposes the same fixed price without the direct Gemini free-tier
+quota. Lyria 3 remains preview-gated and can never become ``production_ready``
+from this module alone.
 """
 from __future__ import annotations
 
@@ -47,6 +49,7 @@ _ALLOWED_OUTPUT_PROFILES: Final[frozenset[str]] = frozenset(
 @dataclass(frozen=True, slots=True)
 class LyriaCostRoute:
     tier: str
+    provider: str
     model: str
     fixed_cost_usd: float
     nominal_duration_seconds: int | None
@@ -58,13 +61,20 @@ class LyriaCostRoute:
     def __post_init__(self) -> None:
         if self.tier not in _ALLOWED_TIERS:
             raise MusicFactoryError("music tier is invalid")
-        if not self.model.startswith("lyria-3-"):
-            raise MusicFactoryError("music model is outside the Lyria 3 launch route")
+        allowed = {
+            ("replicate", "google/lyria-3"),
+            ("replicate", "google/lyria-3-pro"),
+            ("gemini", "lyria-3-clip-preview"),
+            ("gemini", "lyria-3-pro-preview"),
+        }
+        if (self.provider, self.model) not in allowed:
+            raise MusicFactoryError("music provider/model is outside the Lyria 3 launch route")
         if self.fixed_cost_usd not in {0.04, 0.08}:
             raise MusicFactoryError("music fixed cost is outside the approved launch pricing")
         if self.provider_output_media_type != "audio/mpeg":
             raise MusicFactoryError("Lyria provider output must be MP3")
-        if self.provider_sample_rate_hz != 44_100 or self.provider_channels != 2:
+        expected_sample_rate = 48_000 if self.provider == "replicate" else 44_100
+        if self.provider_sample_rate_hz != expected_sample_rate or self.provider_channels != 2:
             raise MusicFactoryError("Lyria provider audio profile is invalid")
         if not self.preview:
             raise MusicFactoryError("Stage 7 launch models must remain preview-gated")
@@ -73,15 +83,19 @@ class LyriaCostRoute:
 LYRIA_COST_ROUTES: Final[dict[str, LyriaCostRoute]] = {
     "draft": LyriaCostRoute(
         tier="draft",
-        model="lyria-3-clip-preview",
+        provider="replicate",
+        model="google/lyria-3",
         fixed_cost_usd=0.04,
         nominal_duration_seconds=30,
+        provider_sample_rate_hz=48_000,
     ),
     "final": LyriaCostRoute(
         tier="final",
-        model="lyria-3-pro-preview",
+        provider="replicate",
+        model="google/lyria-3-pro",
         fixed_cost_usd=0.08,
         nominal_duration_seconds=None,
+        provider_sample_rate_hz=48_000,
     ),
 }
 
@@ -264,7 +278,7 @@ class MusicPlan:
             "checksum": self.checksum,
             "plan_status": self.plan_status,
             "render_status": self.render_status,
-            "provider": "gemini",
+            "provider": self.route.provider,
             "model": self.route.model,
             "tier": self.route.tier,
             "preview_model": True,
@@ -320,8 +334,8 @@ def build_music_plan(
         "route": asdict(route),
         "policy": asdict(policy),
         "external_gates": (
-            "valid-paid-gemini-credential",
-            "lyria-preview-runtime-evidence",
+            "valid-replicate-credential",
+            "replicate-lyria-runtime-evidence",
             "music-rights-and-synthid-disclosure",
         ),
     }

@@ -649,6 +649,26 @@ class Settings(BaseSettings):
         le=900,
         validation_alias="AUDIO_MUSIC_PROVIDER_TIMEOUT_SECONDS",
     )
+    AUDIO_MUSIC_REPLICATE_TOKEN_FILE: str = Field(
+        default="/run/operator-secrets/replicate-api-token",
+        validation_alias="AUDIO_MUSIC_REPLICATE_TOKEN_FILE",
+    )
+    AUDIO_MUSIC_REPLICATE_BASE_URL: str = Field(
+        default="https://api.replicate.com",
+        validation_alias="AUDIO_MUSIC_REPLICATE_BASE_URL",
+    )
+    AUDIO_MUSIC_REPLICATE_POLL_SECONDS: float = Field(
+        default=2.0,
+        ge=0.0,
+        le=30.0,
+        validation_alias="AUDIO_MUSIC_REPLICATE_POLL_SECONDS",
+    )
+    AUDIO_MUSIC_REPLICATE_MAX_POLLS: int = Field(
+        default=180,
+        ge=1,
+        le=600,
+        validation_alias="AUDIO_MUSIC_REPLICATE_MAX_POLLS",
+    )
     AUDIO_MUSIC_MAX_PROVIDER_BYTES: int = Field(
         default=67_108_864,
         ge=1_048_576,

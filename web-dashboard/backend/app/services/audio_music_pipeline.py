@@ -1,4 +1,4 @@
-"""Stage 7 Lyria 3 MusicPlan to provider source + local FFmpeg Media DAG."""
+"""Stage 7 provider-neutral Lyria MusicPlan to source + local FFmpeg DAG."""
 from __future__ import annotations
 
 import hashlib
@@ -30,8 +30,8 @@ _OUTPUT_MEDIA_TYPES = {
 }
 _INTERNAL_AUDIO_PROFILE = "audio-wav-pcm"
 _EXPECTED_GATES = {
-    "valid-paid-gemini-credential",
-    "lyria-preview-runtime-evidence",
+    "valid-replicate-credential",
+    "replicate-lyria-runtime-evidence",
     "music-rights-and-synthid-disclosure",
 }
 
@@ -51,6 +51,7 @@ class MusicPipelineResult:
     waveform_node_id: str
     output_profile: str
     tier: str
+    provider: str
     model: str
     fixed_cost_usd: float
     provider_requests: int = 0
@@ -65,6 +66,7 @@ class MusicPipelineResult:
             "music_execution_id": self.music_execution_id,
             "output_profile": self.output_profile,
             "tier": self.tier,
+            "provider": self.provider,
             "model": self.model,
             "preview_model": True,
             "fixed_cost_usd": self.fixed_cost_usd,
@@ -100,8 +102,14 @@ def build_lyria_music_graph_spec(
         raise AudioMusicPipelineError("music external gates are incomplete")
     if plan.request.output_profile_id not in _AUDIO_PROFILE_MAP:
         raise AudioMusicPipelineError("music output profile has no Media mapping")
-    if plan.route.model not in {"lyria-3-clip-preview", "lyria-3-pro-preview"}:
-        raise AudioMusicPipelineError("music model is outside the Lyria launch route")
+    allowed_routes = {
+        ("replicate", "google/lyria-3"),
+        ("replicate", "google/lyria-3-pro"),
+        ("gemini", "lyria-3-clip-preview"),
+        ("gemini", "lyria-3-pro-preview"),
+    }
+    if (plan.route.provider, plan.route.model) not in allowed_routes:
+        raise AudioMusicPipelineError("music provider/model is outside the Lyria launch route")
     prompt_sha = hashlib.sha256(plan.request.prompt.encode("utf-8")).hexdigest()
     lyrics_sha = (
         hashlib.sha256(plan.request.lyrics.encode("utf-8")).hexdigest()
@@ -116,7 +124,7 @@ def build_lyria_music_graph_spec(
             node_type="provider-music",
             media_type="audio/mpeg",
             prompt_metadata={
-                "provider": "gemini",
+                "provider": plan.route.provider,
                 "model": plan.route.model,
                 "operation": "generate-music",
                 "tier": plan.route.tier,
@@ -135,7 +143,7 @@ def build_lyria_music_graph_spec(
             provenance=(
                 {
                     "type": "phase36g-lyria-provider-node",
-                    "provider": "gemini",
+                    "provider": plan.route.provider,
                     "model": plan.route.model,
                     "tier": plan.route.tier,
                     "prompt_sha256": prompt_sha,
@@ -240,7 +248,7 @@ def build_lyria_music_graph_spec(
             {
                 "type": "phase36g-lyria-music-pipeline",
                 "music_plan_checksum": plan.checksum,
-                "provider": "gemini",
+                "provider": plan.route.provider,
                 "model": plan.route.model,
                 "tier": plan.route.tier,
                 "fixed_cost_usd": plan.route.fixed_cost_usd,
@@ -260,7 +268,7 @@ def _pipeline_fingerprint(
     payload = {
         "music_plan_checksum": plan.checksum,
         "graph_checksum": spec.checksum,
-        "provider": "gemini",
+        "provider": plan.route.provider,
         "model": plan.route.model,
         "tier": plan.route.tier,
         "fixed_cost_usd": plan.route.fixed_cost_usd,
@@ -303,6 +311,7 @@ async def _result_for(
         waveform_node_id=waveform.id,
         output_profile=graph.output_profile,
         tier=execution.tier,
+        provider=execution.provider,
         model=execution.model,
         fixed_cost_usd=float(execution.max_cost_usd),
     )
@@ -385,14 +394,14 @@ async def create_lyria_music_pipeline(
             == runtime_evidence_sha256,
             AudioMusicExecution.pricing_evidence_sha256
             == pricing_evidence_sha256,
-            AudioMusicExecution.provider == "gemini",
+            AudioMusicExecution.provider == plan.route.provider,
             AudioMusicExecution.model == plan.route.model,
             AudioMusicExecution.tier == plan.route.tier,
             AudioMusicExecution.status.in_(
                 ("planned", "queued", "running", "completed")
             ),
             AudioMusicExecution.provider_state.in_(
-                ("not_started", "submitting", "completed")
+                ("not_started", "submitting", "submitted", "completed")
             ),
         )
         .order_by(AudioMusicExecution.created_at, AudioMusicExecution.id)
@@ -445,7 +454,7 @@ async def create_lyria_music_pipeline(
             rights_basis=plan.request.rights.basis,
             rights_evidence_sha256=plan.request.rights.evidence_sha256,
             tier=plan.route.tier,
-            provider="gemini",
+            provider=plan.route.provider,
             model=plan.route.model,
             idempotency_key=hashlib.sha256(f"{key}:music".encode("utf-8")).hexdigest(),
             request_options={
@@ -472,6 +481,7 @@ async def create_lyria_music_pipeline(
         "music_pipeline_fingerprint": fingerprint,
         "music_execution_id": execution.id,
         "tier": plan.route.tier,
+        "provider": plan.route.provider,
         "model": plan.route.model,
         "fixed_cost_usd": plan.route.fixed_cost_usd,
         "runtime_evidence_sha256": runtime_evidence_sha256,

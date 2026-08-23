@@ -172,8 +172,8 @@ def test_phase36g_stage5_source_keeps_diarization_separate_without_overclaiming(
         "voice-rights-and-consent-evidence",
     )
     assert capabilities["lyria-3-music-generation"].external_gates == (
-        "valid-paid-gemini-credential",
-        "lyria-preview-runtime-evidence",
+        "valid-replicate-credential",
+        "replicate-lyria-runtime-evidence",
         "music-rights-and-synthid-disclosure",
     )
     assert "SFX" not in capabilities["audio-cleanup-master"].title

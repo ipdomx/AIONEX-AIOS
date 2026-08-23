@@ -100,14 +100,19 @@ def test_provider_inventory_includes_preview_lyria_routes_without_inventing_clon
     assert ("gemini", "lyria-3-pro-preview") in models
     assert all(item.official_source.startswith("https://") for item in AUDIO_PROVIDER_CAPABILITIES)
     music = [item for item in AUDIO_PROVIDER_CAPABILITIES if "compose-music" in item.operations]
-    assert {item.model for item in music} == {"lyria-3-clip-preview", "lyria-3-pro-preview"}
+    assert {(item.provider, item.model) for item in music} == {
+        ("gemini", "lyria-3-clip-preview"),
+        ("gemini", "lyria-3-pro-preview"),
+        ("replicate", "google/lyria-3"),
+        ("replicate", "google/lyria-3-pro"),
+    }
     assert all(item.preview for item in music)
     assert all("generate-vocals" in item.operations for item in music)
     assert not any("voice-clone" in item.operations for item in AUDIO_PROVIDER_CAPABILITIES)
     plan = build_audio_plan(request())
     snapshot = plan.public_snapshot()
     inventory = snapshot["provider_inventory"]
-    assert len(inventory) == 11
+    assert len(inventory) == 13
     assert {item["inventory_state"] for item in inventory} == {"inventory_visible"}
     realtime = next(item for item in inventory if item["model"] == "gpt-realtime-1.5")
     assert realtime["execution_modes"] == ["realtime"]
@@ -232,14 +237,14 @@ def test_song_and_jingle_route_only_music_and_vocals_to_preview_lyria() -> None:
         assert "provider-runtime:generate-vocals" not in plan.external_gates
         assert "provider-runtime:generate-sfx" in plan.external_gates
         candidates = dict(plan.task_provider_candidates)
-        assert {item.model for item in candidates["music"]} == {
-            "lyria-3-clip-preview",
-            "lyria-3-pro-preview",
+        expected_music_routes = {
+            ("gemini", "lyria-3-clip-preview"),
+            ("gemini", "lyria-3-pro-preview"),
+            ("replicate", "google/lyria-3"),
+            ("replicate", "google/lyria-3-pro"),
         }
-        assert {item.model for item in candidates["vocals"]} == {
-            "lyria-3-clip-preview",
-            "lyria-3-pro-preview",
-        }
+        assert {(item.provider, item.model) for item in candidates["music"]} == expected_music_routes
+        assert {(item.provider, item.model) for item in candidates["vocals"]} == expected_music_routes
         snapshot = plan.public_snapshot()
         gated = {item["operation"] for item in snapshot["tasks"] if item["state"] == "external_gate"}
         assert gated == {"generate-sfx"}

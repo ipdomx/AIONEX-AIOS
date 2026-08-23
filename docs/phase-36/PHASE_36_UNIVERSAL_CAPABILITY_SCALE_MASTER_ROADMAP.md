@@ -529,7 +529,16 @@ Scope:
 - The valid Gemini credential passed exact Lyria Clip/Pro model lookup and free `countTokens`. Three separately invoked one-attempt Clip acceptance requests then returned definitive `429 RESOURCE_EXHAUSTED / provider_rate_limited` before any MP3/output existed; no automatic retry occurred and actual cost remained unreported. The final synthetic failure scope was fully removed, leaving Music/Media active queues at zero.
 - Vertex fallback is not currently operable: `aiplatform.googleapis.com` is disabled in the available service-account project and that identity lacks Service Usage permission; the Firebase Web key is service-blocked. `lyria-3-music-generation` therefore remains `source_built`, and broad `song-production` remains `specified`.
 
-Next safe gate: enable non-zero paid Lyria quota in Gemini API or enable/authorize Vertex AI, then run exactly one `$0.04` instrumental Clip acceptance before any separately approved `$0.08` same-user Pro final. Provider-independent podcast/narration work may continue in parallel. Preview models can never be promoted to `production_ready`.
+##### Stage 7C — durable Replicate fallback source checkpoint
+
+- The existing Replicate credential passes authenticated no-generation account/model probes and exposes official `google/lyria-3` and `google/lyria-3-pro`. The low-cost policy stays Draft `$0.04`, Final `$0.08`, monthly reservation `$0.40`, one attempt, no automatic resubmit, same-user/same-plan reuse, and Final only from a completed same-user Draft plus separate approval.
+- Replicate becomes the candidate default while the authenticated direct Gemini route remains available as an optional quota-blocked fallback. The provider output contract is MP3, 48 kHz stereo, SynthID disclosure required; no stems, dedicated SFX, identity voice, transformation or clone is claimed.
+- Existing Alembic `0038` now stores a durable Replicate Prediction ID before polling. Lease release/reclaim and fencing let another Worker poll the same paid job with `attempts=1`; pre-ID ambiguity stops for review, and post-ID Poll/download recovery can act only on that same Prediction. Raw IDs/URLs/prompts/lyrics/secrets never enter public evidence.
+- The Worker is hard-disabled by default, non-root, and reads a private read-only mode-`0600` token file only after an armed claim. Only `api.replicate.com` and `replicate.delivery` are accepted at their respective boundaries, and the bearer token is never sent to the delivery host.
+- Source evidence: root contracts `36/36`; no-network Provider/Worker/public contracts `24/24`; PostgreSQL/Redis durable runtime `34/34` with rows/critical hits `0/0`; Core `782/782`; Backend `946 passed, 1 skipped` at `65.98%`; Ruff/Mypy (`224` files), AST, YAML, Compose, diff and redaction scans PASS. Evidence SHA-256 values: focused `d14d37731d00bfa110110d211e8a255dc5c963d28c988fa8db04cbe11b7766ce`, Core `1097ace4f224ddd6dbd01b39410cbdf953c82908d80a17d889166b6b8894486e`, Backend `2ba6e88e47db8202134c91e07b353843e600db7b6cf2835d8f1d5152236dab8e`, static `e6120a37243ba3ef72e3d4a9b5b14773b20dc9566a4eb153e7cf4cd7c14bebd0`.
+- Production remains unchanged by Stage 7C source work: direct Gemini authority stays deployed/hard-disabled at Alembic `0038`, all Music/Media queues are zero, and Replicate generation requests/spend remain `0 / $0.00`. `lyria-3-music-generation` remains `source_built`; `song-production` remains `specified`.
+
+Next safe gate: protect/merge Stage 7C, deploy Backend plus a still-disabled Music Worker only, run a free Replicate preflight, then one `$0.04` Draft Prediction with durable same-job recovery, local QA, Studio revision and complete cleanup. Pro remains a separate `$0.08` same-user-approved gate. Preview models can never be promoted to `production_ready`.
 
 
 Exit gate:
@@ -1297,3 +1306,22 @@ Create an explicit reviewed initial model policy from the fresh inventories and 
 
 - First Production Media Worker activation exposed a least-privilege startup conflict: `cap_drop: ALL` prevented the generic root entrypoint from chowning unrelated runtime roots. The media volume/temp paths themselves were already private and UID 1000 writable; real S3 preflight passed from a Compose-equivalent UID 1000 one-shot.
 - Corrective candidate runs only Media Worker as `1000:1000`, retains `cap_drop: ALL` + `no-new-privileges`, adds a two-Compose regression contract, and leaves the Production worker stopped until protected merge. Migration 0031 and Backend remain healthy; active Project/Studio/Media queues remain zero.
+
+### P36-0084 — Stage 7 quota-detail evidence parser hardening — 2026-08-23
+
+- The direct Gemini canary’s sanitized failure evidence was expanded to preserve only stable quota/status/retry fields. No generation request or spend was caused by the parser change, and raw Provider bodies remained excluded.
+
+### P36-0085 — Replicate Prediction ID was initially process-local during Poll — 2026-08-23
+
+- Source review before any live Replicate Prediction found that the first fallback prototype submitted only once but kept the returned Prediction ID inside the Worker process until completion. A crash could not safely continue the existing job.
+- The existing `audio_music_executions.provider_request_id`, lease, availability and fencing fields now persist the Prediction before Poll. A replacement Worker reclaims the same row, advances fencing, retains `attempts=1`, and polls the same ID without a second POST. No migration, Production mutation, Provider request or spend occurred while correcting the design.
+
+### P36-0086 — Tool redaction marker entered two changed files and was caught offline — 2026-08-23
+
+- A rendered tool response substituted `[REDACTED]` into one credential-normalization line and one Compose assertion. The no-network Provider tests failed before HTTP, identifying the literal immediately.
+- Both literals were removed, the code was restored to `credential.strip()` and the Compose test to the real read-only suffix, then all changed Music code/tests passed an explicit zero-placeholder scan plus Ruff/Mypy/AST. No secret was exposed and no Provider boundary was crossed.
+
+### P36-0087 — Validation harness environment and MCP return-channel failures — 2026-08-23
+
+- The first Core and Compose validation attempts used an incomplete image/PYTHONPATH or interpolation environment and stopped before relevant application assertions. They were rerun using the established complete writable-repository and Production-env-name harnesses.
+- Full Core passed `782/782`. Full Backend completed `946 passed, 1 skipped` at `65.98%`; the MCP channel returned `502` only after server completion. Existing logs, Alembic/database postcheck, hashes, zero residual resources and PostgreSQL/Redis critical-hit counts proved PASS, so the expensive suite was not repeated.

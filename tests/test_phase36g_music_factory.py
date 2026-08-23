@@ -44,9 +44,16 @@ def test_draft_is_the_default_cheapest_route() -> None:
         )
     )
     public = plan.public_snapshot()
-    assert plan.route.model == "lyria-3-clip-preview"
+    assert plan.route.provider == "replicate"
+    assert plan.route.model == "google/lyria-3"
     assert plan.route.fixed_cost_usd == 0.04
     assert plan.max_cost_usd == 0.04
+    assert public["provider"] == "replicate"
+    assert public["external_gates"] == [
+        "valid-replicate-credential",
+        "replicate-lyria-runtime-evidence",
+        "music-rights-and-synthid-disclosure",
+    ]
     assert public["default_low_cost_route"] is True
     assert public["max_attempts"] == 1
     assert public["automatic_retry"] is False
@@ -69,7 +76,8 @@ def test_full_song_requires_prior_draft_and_explicit_approval() -> None:
         prior_draft_checksum=DRAFT_HASH,
     )
     plan = build_music_plan(request)
-    assert plan.route.model == "lyria-3-pro-preview"
+    assert plan.route.provider == "replicate"
+    assert plan.route.model == "google/lyria-3-pro"
     assert plan.route.fixed_cost_usd == 0.08
     assert plan.max_cost_usd == 0.08
     assert plan.public_snapshot()["prior_draft_checksum_present"] is True

@@ -40,8 +40,8 @@ async def test_phase36_public_capability_snapshot_is_truthful_and_non_secret() -
     assert capabilities["podcast-jingle-narration"]["maturity"] == "source_built"
     assert capabilities["lyria-3-music-generation"]["maturity"] == "source_built"
     assert capabilities["lyria-3-music-generation"]["external_gates"] == (
-        "valid-paid-gemini-credential",
-        "lyria-preview-runtime-evidence",
+        "valid-replicate-credential",
+        "replicate-lyria-runtime-evidence",
         "music-rights-and-synthid-disclosure",
     )
     assert capabilities["song-production"]["maturity"] == "specified"
