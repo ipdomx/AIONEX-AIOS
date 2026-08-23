@@ -1,19 +1,19 @@
 # Phase 36G — Audio, Voice, Music, Songs & Podcast Factory
 
 Date: 2026-08-21
-Updated: 2026-08-22
-Status: **IN PROGRESS — Stage 4 single-speaker STT Production-accepted; Stage 5 multi-speaker diarization source candidate under protected validation with zero diarization requests/spend**
+Updated: 2026-08-23
+Status: **IN PROGRESS — Stages 1–5 Production-accepted; Stage 6 complete stock-voice dubbing source candidate validated with zero provider requests/spend**
 
 ## Truth boundary
 
-This checkpoint separately claims the Production-accepted pinned stock-voice TTS and single-speaker STT routes. Stage 5 adds source-tested multi-speaker diarization contracts only; it does **not** yet claim live diarization, complete dubbing, podcasts/jingles, music, vocals, generated SFX, a transformed voice or a cloned voice.
+This checkpoint separately claims the Production-accepted pinned stock-voice TTS, single-speaker STT, and pseudonymous multi-speaker diarization routes. Stage 6 adds a source-tested complete stock-voice dubbing candidate only; it does **not** yet claim live translation, a rendered Production dub, podcasts/jingles, music, vocals, generated SFX, a transformed voice or a cloned voice.
 
 Stage 1 performs no provider request, reads no provider credential and estimates no provider cost. Every generated Studio package remains `provider_neutral`, records `external_requests=0`, `external_cost_usd=0`, `estimated_external_cost_usd=null`, and exposes `render_status=not_started`.
 
 The Phase 36 registry remains truthful:
 
 - `36G=in_progress` and `current_batch=36G`;
-- `audio-cleanup-master`, granular `stock-voice-tts`, and granular single-speaker `governed-stt-transcript` are `runtime_verified`; new `multi-speaker-diarization`, broader `stt-tts-dubbing`, and `podcast-jingle-narration` remain `source_built`;
+- `audio-cleanup-master`, granular `stock-voice-tts`, granular single-speaker `governed-stt-transcript`, and granular `multi-speaker-diarization` are `runtime_verified`; new `complete-stock-voice-dubbing`, broader `stt-tts-dubbing`, and `podcast-jingle-narration` remain `source_built`;
 - `voice-transformation` and `song-production` remain `specified`;
 - no other 36G capability is promoted to `provider_connected`, `runtime_verified`, `scaled`, or `production_ready`; Phase 36G remains `in_progress`.
 
@@ -610,10 +610,53 @@ Only the bounded `multi-speaker-diarization` slice advances from `source_built` 
 
 The broader `stt-tts-dubbing` capability remains `source_built`: translation, per-segment stock speech, timing-fit, alignment, mix/master and final dubbed output have not yet been accepted together. `podcast-jingle-narration` remains `source_built`; `song-production` and `voice-transformation` remain `specified`. Known-speaker identification, voice transformation and voice cloning are outside this claim. Phase 36G remains `in_progress`.
 
-## Next safe gate — Stage 6 complete stock-voice dubbing
+## Stage 6A — source-first complete stock-voice dubbing runtime candidate
 
-1. select one bounded translation route and retain source/target text privately with hash-only public evidence;
-2. reuse the accepted stock-voice TTS authority per segment with an explicit aggregate cost cap and no custom/known-person voice;
-3. prove timing fit, alignment, selective segment recovery, final local mix/master, captions and Studio revision;
-4. checkpoint before cleanup and independently delete every synthetic object/row;
-5. promote only a granular complete-dubbing capability if the complete rendered output passes. Music/vocals/SFX and voice transformation/clone remain separate gates.
+Stage 6A composes the already accepted private transcript, pseudonymous speaker, stock-speech, FFmpeg 9 Media DAG, and Studio authorities rather than creating a parallel media system. It introduces one dedicated durable orchestration authority, `audio_dubbing_executions`, through Alembic `20260823_0037`.
+
+The bounded launch route is explicit:
+
+- private segment translation uses OpenAI `gpt-5.6-luna` structured output, preserving one translated segment for every private source segment;
+- translation source/target text remains private; public evidence retains only checksums, character counts, languages, segment/speaker counts, cost evidence, and false redaction flags;
+- every segment is bound to an already accepted built-in stock voice and a separate `max_attempts=1` speech execution;
+- a single aggregate Owner cap must cover the translation cap plus all segment speech caps before the orchestration can be armed;
+- custom voices, known-speaker identification, voice transformation, and voice cloning fail closed.
+
+The durable authority records planned/armed/running/submitting/ambiguous/completed state, lease expiry and fencing, one translation attempt, private translation object evidence, per-segment speech pipeline evidence, final Media graph/Studio revision, and truthful actual-cost-known flags. An expired lease before translation submission may be reclaimed without consuming a second attempt; an expired `submitting` lease becomes ambiguous and cannot be automatically resubmitted.
+
+After translation completion, Stage 6 creates one stock-speech pipeline per segment. Shorter speech is padded to the exact source timing window; it is never time-stretched. Speech longer than its source timing window is rejected before final assembly, preserving the completed unaffected segments for selective replacement of the failed segment only. Final assembly reuses local cleanup, alignment, mix, mastering, waveform/export QA, and Studio revision authorities.
+
+The permanent `audio-dubbing-worker` is profile-gated, non-root, capability-dropped, `no-new-privileges`, and hard-disabled by `AUDIO_DUBBING_LIVE_ENABLED=false`. The exact Stage 6 FFmpeg 9 Media Worker is also required at deployment because timing-fit adds governed `apad + atrim` handling inside `audio_align`. Source validation and disabled-worker verification perform no credential read, provider request, or spend.
+
+### Stage 6A isolated verification completed
+
+- Dubbing provider/worker/runtime focused tests passed `30/30` on fresh disposable PostgreSQL 16 and Redis 7; `audio_dubbing_executions` returned to `0`, critical hits were `0/0`, and all resources were removed. Final targeted evidence SHA-256: `f111023b51291eb2acd784f70dc6c4b965c53c4ceca67302b9f12d36d113a63c`.
+- The wider Dubbing/Speech/Transcript/Media/Studio regression passed `131/131` with PostgreSQL/Redis critical hits `0/0` and zero provider activity. Evidence SHA-256: `20f27feda373e81c1fde45a9f37ca714270eb972e3ef2606942acb8f5be41265`.
+- Alembic round-trip `0037 -> 0036 -> 0037` proved the dubbing table appeared, disappeared, and reappeared with zero rows. Evidence SHA-256: `7917a31b0151dd97aa92c7400d1abd689639505f86fba68782ab66b79697b053`.
+- A real FFmpeg 9 `--network none` timing-fit smoke padded a `1.000s` 48 kHz source to exactly `2.000s`, preserved the spoken first second, produced zero-RMS padding, used no time stretch, and allowed no spoken-word truncation. Evidence SHA-256: `87e8a38d5b968cbdf1e2133deb72cbb0c8f857fc87c7320578de2f780a352cb5`.
+- Complete AIOS Core passed `771/771`; evidence SHA-256 `97717912dcd19801811bc79231b9c77f677fda7d9c4c100cf711eb34cc0ed6c3`.
+- Complete Backend passed `914 passed, 2 warnings, 0 failed` with `65.74%` coverage, Alembic `0037`, zero residual dubbing rows, and independently retained PostgreSQL/Redis logs with critical hits `0/0`. Retained metadata SHA-256: `1fa9f86413c916fb37116ddfcf90b2fb58479790674d962fa0b7828ccae77770`; Backend log SHA-256: `8b72b3148d511903cfa172b82e1c30b237a6f4c10e2bea763af389babef8edad`.
+- Final Ruff passed for the changed root files and complete Backend `app/tests`; Mypy passed across `220` Backend source files; Python 3.11 AST parsing passed across all `20` changed Python files. Evidence SHA-256: `42825cc76af95f90cb8e1d1bbfb45e1b7575863f9c8129c1080251ad7fbb236e`.
+- Final diff/reporting/security/workflow/Compose/governance/capability gates passed with no Stage 6 redaction placeholder in runtime code. Evidence SHA-256: `92340eef63fb31e9a97dbe3108b8291f8c81c47f4978bb565dde8a7e5c88cc22`.
+- Every retained Stage 6 source gate records translation requests `0`, speech requests `0`, provider spend `$0.00`, and `production_modified=false`.
+
+## P36-0047 through P36-0055 — source-validation wrappers stopped safely
+
+- P36-0047 corrected a Core wrapper `PYTHONPATH`; P36-0048 corrected a writable repository-layout assumption for the full Backend suite; neither crossed a provider or Production boundary.
+- P36-0049 narrowed the static wrapper from unrelated legacy root files to the complete Backend scope plus exact Stage 6 changed root files.
+- P36-0050 proved prior `backend-test` tags had used the default Runtime stage and built the exact Dockerfile `target=test` image instead. P36-0051 used a non-login shell so the image's `/opt/venv/bin` remained visible. P36-0052 supplied the changed-file list from the host because the minimal Test image intentionally contains no Git binary.
+- P36-0053/P36-0054 supplied explicit config-only PostgreSQL interpolation values and the existing absolute Production env-file path to validate Worktree Compose manifests without starting services or copying secrets. P36-0055 changed an unreachable capability-test URL from a non-test database name to `aionex_test` after the test safety guard stopped before collection or connection.
+- Incident evidence SHA-256 values for P36-0050 through P36-0055 are `1b5c84386497cebb932c1f457479127d128e17e4ca692f348bd5d899c3639642`, `4fe74e07805c8619d96243de3c51d332c72762e33379c4ef5d045cb10265d4`, `bc99e538cb7f98a6d74991bbfd8fc5e147e1f1edcabf546e0fc71f163bc7244b`, `b20ccefbe4dd0e245c24721d78d8956ca5d96f68aff65773bfea25891f43dbec`, `571877e2316364b857b12a58ee610b5ee16ee1d1a83a5ee1687619633205f77a`, and `78bbc133cb7f9e2f148fe54beaeebafdaa66f62de5c2d2234a1e23dc9028bd9d`. None modified Production or crossed a provider boundary.
+
+## Stage 6A maturity decision
+
+Only the granular `complete-stock-voice-dubbing` capability is added at `source_built` with gate `translation-and-segment-speech-runtime-evidence`. No live translation or speech request has been performed for Stage 6, and neither `complete-stock-voice-dubbing` nor the broader `stt-tts-dubbing` capability advances to `runtime_verified` from source evidence.
+
+## Next safe gate — Stage 6 protected deployment and bounded live acceptance
+
+1. commit the final fixes/report, pass protected CI, and merge only if every required gate is green;
+2. take and restore-verify a fresh Production backup before Alembic `0037`;
+3. deploy Backend, the exact FFmpeg 9 Media Worker, and the permanent hard-disabled `audio-dubbing-worker`, proving zero dubbing rows/queues and zero provider activity while all non-target service identities remain unchanged;
+4. perform authenticated free model preflights, then one explicitly capped private translation and one `max_attempts=1` stock-speech request per synthetic segment;
+5. require exact timing-fit, no time stretch/truncation, selective failed-segment replacement, final local mix/master/QA, Studio revision, checkpoint-before-cleanup, and independently verified deletion of every synthetic row/object;
+6. promote only `complete-stock-voice-dubbing` if the complete rendered Production result passes. Music/vocals/SFX and voice transformation/clone remain separate gates.

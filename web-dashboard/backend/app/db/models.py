@@ -3727,6 +3727,111 @@ class AudioTranscriptExecution(Base, TimestampMixin):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class AudioDubbingExecution(Base, TimestampMixin):
+    __tablename__ = "audio_dubbing_executions"
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id",
+            "idempotency_key",
+            name="uq_audio_dubbing_execution_org_idempotency",
+        ),
+        Index(
+            "ix_audio_dubbing_executions_org_status_created",
+            "organization_id",
+            "status",
+            "created_at",
+        ),
+        Index(
+            "ix_audio_dubbing_executions_claim",
+            "status",
+            "available_at",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    workspace_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="SET NULL"), index=True
+    )
+    project_id: Mapped[str | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), index=True
+    )
+    studio_job_id: Mapped[str | None] = mapped_column(
+        ForeignKey("studio_jobs.id", ondelete="SET NULL"), index=True
+    )
+    studio_asset_id: Mapped[str | None] = mapped_column(
+        ForeignKey("studio_assets.id", ondelete="SET NULL"), index=True
+    )
+    requested_by_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    status: Mapped[str] = mapped_column(
+        String(40), default="planned", nullable=False, index=True
+    )
+    provider_state: Mapped[str] = mapped_column(
+        String(40), default="not_started", nullable=False, index=True
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    model: Mapped[str] = mapped_column(String(160), nullable=False)
+    source_transcript_storage_backend: Mapped[str] = mapped_column(String(32), nullable=False)
+    source_transcript_storage_key: Mapped[str] = mapped_column(Text, nullable=False)
+    source_transcript_object_checksum: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_transcript_object_size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    source_transcript_checksum: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    source_language: Mapped[str] = mapped_column(String(32), nullable=False)
+    target_language: Mapped[str] = mapped_column(String(32), nullable=False)
+    segment_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    speaker_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    voice_bindings: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    output_profile_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    lease_token: Mapped[str | None] = mapped_column(String(36))
+    lease_owner: Mapped[str | None] = mapped_column(String(160), index=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), index=True
+    )
+    fencing_token: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    available_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    provider_request_id: Mapped[str | None] = mapped_column(String(200), index=True)
+    provider_response_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    usage_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    estimated_translation_cost_usd: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    max_translation_cost_usd: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    actual_translation_cost_usd: Mapped[float | None] = mapped_column(Float)
+    speech_cost_upper_bound_usd: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    max_total_cost_usd: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    actual_total_cost_usd: Mapped[float | None] = mapped_column(Float)
+    cost_basis: Mapped[str] = mapped_column(String(80), default="unknown", nullable=False)
+    translation_storage_backend: Mapped[str | None] = mapped_column(String(32))
+    translation_storage_key: Mapped[str | None] = mapped_column(Text)
+    translation_checksum: Mapped[str | None] = mapped_column(String(64), index=True)
+    translation_size_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    translation_text_sha256: Mapped[str | None] = mapped_column(String(64))
+    speech_pipelines: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    replacement_history: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    final_graph_id: Mapped[str | None] = mapped_column(
+        ForeignKey("media_asset_graphs.id", ondelete="SET NULL"), index=True
+    )
+    final_output_storage_backend: Mapped[str | None] = mapped_column(String(32))
+    final_output_storage_key: Mapped[str | None] = mapped_column(Text)
+    final_output_checksum: Mapped[str | None] = mapped_column(String(64), index=True)
+    final_output_size_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    final_output_duration_seconds: Mapped[float | None] = mapped_column(Float)
+    error_code: Mapped[str | None] = mapped_column(String(120))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    armed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    provider_submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    translation_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    speech_armed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    render_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class VideoExecution(Base, TimestampMixin):
     __tablename__ = "video_executions"
     __table_args__ = (

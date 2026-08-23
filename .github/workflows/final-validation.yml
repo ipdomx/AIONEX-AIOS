@@ -363,6 +363,41 @@ jobs:
           assert payload["secret_returned"] is False
           print("PHASE36G_TRANSCRIPT_WORKER_OFFLINE_SMOKE_OK")
           PY
+      - name: Verify live-disabled stock-voice dubbing worker
+        working-directory: web-dashboard
+        run: |
+          mkdir -p diagnostics
+          docker run --rm --network none \
+            -v "$GITHUB_WORKSPACE:/workspace:ro" \
+            -e ENVIRONMENT=test \
+            -e DEBUG=false \
+            -e SECRET_KEY=phase36g-ci-dubbing-worker-secret-key-with-at-least-32-characters \
+            -e MEDIA_STORAGE_TYPE=local \
+            -e MEDIA_STORAGE_ROOT=/tmp/aionex-dubbing-media \
+            -e AUDIO_DUBBING_LIVE_ENABLED=false \
+            -e AUDIO_DUBBING_WORKER_HEALTH_FILE=/tmp/aionex-audio-dubbing-health.json \
+            -e PYTHONPATH=/workspace/src:/app \
+            aionex-aios-backend:local \
+            python /app/scripts/verify_audio_dubbing_worker.py \
+            > diagnostics/audio-dubbing-worker-smoke.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          payload = json.loads(Path("diagnostics/audio-dubbing-worker-smoke.json").read_text())
+          assert payload["status"] == "pass"
+          assert payload["worker_health"]["status"] == "disabled"
+          assert payload["worker_health"]["live_enabled"] is False
+          assert payload["worker_health"]["cycles"] == 0
+          assert payload["worker_health"]["errors"] == 0
+          assert payload["translation_model"] == "gpt-5.6-luna"
+          assert payload["speech_model"] == "gpt-4o-mini-tts-2025-12-15"
+          assert payload["provider_translation_requests"] == 0
+          assert payload["provider_speech_requests"] == 0
+          assert payload["provider_spend_usd"] == 0.0
+          assert payload["credential_read"] is False
+          assert payload["raw_translation_returned"] is False
+          print("PHASE36G_DUBBING_WORKER_OFFLINE_SMOKE_OK")
+          PY
       - name: Build and verify live-disabled video provider worker
         working-directory: web-dashboard
         env:
