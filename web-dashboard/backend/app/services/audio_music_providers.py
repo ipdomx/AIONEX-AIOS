@@ -10,6 +10,7 @@ import base64
 import hashlib
 from dataclasses import dataclass
 from typing import Any, Protocol
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -30,6 +31,21 @@ class ProviderMusicRequest:
     instrumental_only: bool
     lyrics: str
     output_format: str = "mp3"
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderMusicSubmission:
+    prediction_id: str
+    status: str
+    metadata: dict[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderMusicPoll:
+    prediction_id: str
+    status: str
+    output_url: str | None
+    metadata: dict[str, Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -330,14 +346,261 @@ class GeminiLyriaMusicAdapter:
         )
 
 
+
+_REPLICATE_MODELS = {
+    "lyria-3-clip-preview": ("google", "lyria-3", 0.04),
+    "lyria-3-pro-preview": ("google", "lyria-3-pro", 0.08),
+}
+_REPLICATE_PENDING = frozenset({"starting", "processing"})
+_REPLICATE_TERMINAL = frozenset({"succeeded", "failed", "canceled"})
+
+
+class ReplicateLyriaMusicAdapter:
+    """Durable asynchronous Replicate route for the official Google Lyria models."""
+
+    def __init__(
+        self,
+        *,
+        transport: httpx.AsyncBaseTransport | None = None,
+        timeout_seconds: float = 60.0,
+        max_content_bytes: int = 67_108_864,
+    ) -> None:
+        self.transport = transport
+        self.timeout_seconds = float(timeout_seconds)
+        self.max_content_bytes = int(max_content_bytes)
+
+    @staticmethod
+    def _headers(credential: str) -> dict[str, str]:
+        token = credential.strip()
+        if not token:
+            raise ProviderMusicFailure("provider_unconfigured", retryable=False)
+        return {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+
+    @staticmethod
+    def _route(request: ProviderMusicRequest) -> tuple[str, str, float]:
+        if request.provider != "replicate" or request.operation != "generate-music":
+            raise ProviderMusicFailure("provider_operation_unsupported", retryable=False)
+        route = _REPLICATE_MODELS.get(request.model)
+        if route is None:
+            raise ProviderMusicFailure("provider_model_unsupported", retryable=False)
+        expected_model = "lyria-3-clip-preview" if request.tier == "draft" else "lyria-3-pro-preview"
+        if request.model != expected_model or request.output_format != "mp3":
+            raise ProviderMusicFailure("provider_model_unsupported", retryable=False)
+        if not 8 <= len(request.prompt.strip()) <= 32_000 or "\x00" in request.prompt:
+            raise ProviderMusicFailure("provider_prompt_invalid", retryable=False)
+        if request.instrumental_only:
+            if request.lyrics.strip():
+                raise ProviderMusicFailure("provider_lyrics_invalid", retryable=False)
+        elif not 1 <= len(request.lyrics.strip()) <= 20_000:
+            raise ProviderMusicFailure("provider_lyrics_invalid", retryable=False)
+        return route
+
+    @staticmethod
+    def _prompt(request: ProviderMusicRequest) -> str:
+        parts = [request.prompt.strip()]
+        if request.instrumental_only:
+            parts.append("Instrumental only, no vocals.")
+        else:
+            parts.extend((
+                "Use only these original, licensed, or public-domain lyrics:",
+                request.lyrics.strip(),
+            ))
+        return "\n\n".join(parts)
+
+    @staticmethod
+    def _prediction(payload: Any) -> tuple[str, str, str | None, dict[str, Any]]:
+        if not isinstance(payload, dict):
+            raise ProviderMusicFailure("provider_response", retryable=False)
+        prediction_id = str(payload.get("id") or "").strip()
+        status = str(payload.get("status") or "").strip().lower()
+        if not prediction_id or status not in (_REPLICATE_PENDING | _REPLICATE_TERMINAL):
+            raise ProviderMusicFailure("provider_response", retryable=False)
+        raw_output = payload.get("output")
+        output_url: str | None = None
+        if isinstance(raw_output, str) and raw_output.strip():
+            output_url = raw_output.strip()
+        elif isinstance(raw_output, list):
+            candidates = [str(item).strip() for item in raw_output if isinstance(item, str) and str(item).strip()]
+            if len(candidates) == 1:
+                output_url = candidates[0]
+            elif len(candidates) > 1:
+                raise ProviderMusicFailure("provider_audio_multiple", retryable=False)
+        raw_metrics = payload.get("metrics")
+        metrics: dict[str, Any] = raw_metrics if isinstance(raw_metrics, dict) else {}
+        metadata = {
+            "status": status,
+            "poll_count": 0,
+            "predict_time_seconds": metrics.get("predict_time"),
+            "total_time_seconds": metrics.get("total_time"),
+            "output_url_recorded": bool(output_url),
+            "raw_output_url_returned": False,
+        }
+        return prediction_id, status, output_url, metadata
+
+    async def submit(
+        self,
+        request: ProviderMusicRequest,
+        *,
+        credential: str,
+        base_url: str,
+    ) -> ProviderMusicSubmission:
+        owner, name, _fixed_cost = self._route(request)
+        payload = {"input": {"prompt": self._prompt(request)}}
+        try:
+            async with httpx.AsyncClient(
+                transport=self.transport,
+                timeout=self.timeout_seconds,
+                follow_redirects=False,
+            ) as client:
+                response = await client.post(
+                    f"{base_url.rstrip('/')}/v1/models/{owner}/{name}/predictions",
+                    headers=self._headers(credential),
+                    json=payload,
+                )
+        except (httpx.TimeoutException, httpx.NetworkError) as exc:
+            raise ProviderMusicFailure(
+                "provider_submission_ambiguous",
+                retryable=False,
+                ambiguous_submission=True,
+            ) from exc
+        if response.status_code >= 400:
+            raise _failure_for_response(response)
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise ProviderMusicFailure(
+                "provider_submission_ambiguous", retryable=False, ambiguous_submission=True
+            ) from exc
+        prediction_id, status, _output_url, metadata = self._prediction(data)
+        return ProviderMusicSubmission(
+            prediction_id=prediction_id,
+            status=status,
+            metadata={**metadata, "replicate_model": f"{owner}/{name}"},
+        )
+
+    async def poll(
+        self,
+        prediction_id: str,
+        *,
+        credential: str,
+        base_url: str,
+    ) -> ProviderMusicPoll:
+        job_id = prediction_id.strip()
+        if not job_id or len(job_id) > 200:
+            raise ProviderMusicFailure("provider_job_invalid", retryable=False)
+        try:
+            async with httpx.AsyncClient(
+                transport=self.transport,
+                timeout=self.timeout_seconds,
+                follow_redirects=False,
+            ) as client:
+                response = await client.get(
+                    f"{base_url.rstrip('/')}/v1/predictions/{job_id}",
+                    headers=self._headers(credential),
+                )
+        except (httpx.TimeoutException, httpx.NetworkError) as exc:
+            raise ProviderMusicFailure(
+                "provider_poll_network",
+                retryable=True,
+                safe_to_resubmit=False,
+            ) from exc
+        if response.status_code >= 400:
+            failure = _failure_for_response(response)
+            if response.status_code >= 500:
+                failure.ambiguous_submission = False
+                failure.retryable = True
+            raise failure
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise ProviderMusicFailure("provider_poll_response", retryable=True) from exc
+        returned_id, status, output_url, metadata = self._prediction(data)
+        if returned_id != job_id:
+            raise ProviderMusicFailure("provider_job_mismatch", retryable=False)
+        return ProviderMusicPoll(
+            prediction_id=job_id,
+            status=status,
+            output_url=output_url,
+            metadata=metadata,
+        )
+
+    async def download(
+        self,
+        request: ProviderMusicRequest,
+        *,
+        prediction_id: str,
+        output_url: str,
+        credential: str,
+    ) -> ProviderMusicResult:
+        _owner, _name, fixed_cost = self._route(request)
+        parsed = urlsplit(output_url.strip())
+        host = (parsed.hostname or "").lower()
+        if parsed.scheme != "https" or not (host == "replicate.delivery" or host.endswith(".replicate.delivery")):
+            raise ProviderMusicFailure("provider_output_url_invalid", retryable=False)
+        try:
+            async with httpx.AsyncClient(
+                transport=self.transport,
+                timeout=max(self.timeout_seconds, 120.0),
+                follow_redirects=False,
+            ) as client:
+                response = await client.get(
+                    output_url,
+                    headers={"Accept": "audio/mpeg"},
+                )
+        except (httpx.TimeoutException, httpx.NetworkError) as exc:
+            raise ProviderMusicFailure("provider_output_download", retryable=True) from exc
+        if response.status_code >= 400:
+            raise ProviderMusicFailure(
+                "provider_output_download", retryable=response.status_code >= 500, http_status=response.status_code
+            )
+        body = bytes(response.content)
+        inspect_mp3_bytes(body, max_content_bytes=self.max_content_bytes)
+        return ProviderMusicResult(
+            body=body,
+            content_type="audio/mpeg",
+            request_id=prediction_id,
+            metadata={
+                "model": request.model,
+                "tier": request.tier,
+                "preview_model": True,
+                "provider_output_format": "mp3",
+                "provider_sample_rate_hz": 44_100,
+                "provider_channels": 2,
+                "nominal_duration_seconds": 30 if request.tier == "draft" else None,
+                "returned_text_sha256": None,
+                "returned_text_characters": 0,
+                "raw_returned_text_returned": False,
+                "instrumental_only": request.instrumental_only,
+                "synthid_watermark_expected": True,
+                "output_url_recorded": True,
+                "raw_output_url_returned": False,
+            },
+            usage={
+                "provider_usage_reported": False,
+                "official_fixed_request_usd": fixed_cost,
+                "pricing_revision": "2026-08-23",
+                "preview_model": True,
+                "billing_route": "replicate-official-google-model",
+            },
+            actual_cost_usd=fixed_cost,
+        )
+
 def default_music_adapters(
     *,
     timeout_seconds: float = 180.0,
     max_content_bytes: int = 67_108_864,
-) -> dict[str, ProviderMusicAdapter]:
+) -> dict[str, Any]:
     return {
         "gemini": GeminiLyriaMusicAdapter(
             timeout_seconds=timeout_seconds,
             max_content_bytes=max_content_bytes,
-        )
+        ),
+        "replicate": ReplicateLyriaMusicAdapter(
+            timeout_seconds=min(timeout_seconds, 60.0),
+            max_content_bytes=max_content_bytes,
+        ),
     }

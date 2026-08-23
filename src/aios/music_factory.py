@@ -264,7 +264,7 @@ class MusicPlan:
             "checksum": self.checksum,
             "plan_status": self.plan_status,
             "render_status": self.render_status,
-            "provider": "gemini",
+            "provider": "replicate",
             "model": self.route.model,
             "tier": self.route.tier,
             "preview_model": True,
@@ -320,7 +320,7 @@ def build_music_plan(
         "route": asdict(route),
         "policy": asdict(policy),
         "external_gates": (
-            "valid-paid-gemini-credential",
+            "valid-replicate-credential",
             "lyria-preview-runtime-evidence",
             "music-rights-and-synthid-disclosure",
         ),

@@ -529,7 +529,15 @@ Scope:
 - The valid Gemini credential passed exact Lyria Clip/Pro model lookup and free `countTokens`. Three separately invoked one-attempt Clip acceptance requests then returned definitive `429 RESOURCE_EXHAUSTED / provider_rate_limited` before any MP3/output existed; no automatic retry occurred and actual cost remained unreported. The final synthetic failure scope was fully removed, leaving Music/Media active queues at zero.
 - Vertex fallback is not currently operable: `aiplatform.googleapis.com` is disabled in the available service-account project and that identity lacks Service Usage permission; the Firebase Web key is service-blocked. `lyria-3-music-generation` therefore remains `source_built`, and broad `song-production` remains `specified`.
 
-Next safe gate: enable non-zero paid Lyria quota in Gemini API or enable/authorize Vertex AI, then run exactly one `$0.04` instrumental Clip acceptance before any separately approved `$0.08` same-user Pro final. Provider-independent podcast/narration work may continue in parallel. Preview models can never be promoted to `production_ready`.
+##### Stage 7C — same-price durable Replicate Lyria fallback candidate
+
+- Replicate authentication and exact official Google model contracts passed read-only for `google/lyria-3` and `google/lyria-3-pro`; generation/spend remained `0 / $0.00`. Internal Clip/Pro pricing remains `$0.04/$0.08`, so the fallback does not increase the user price.
+- The default music execution route becomes Replicate only for Lyria. Gemini remains intact for its native audio/STT/TTS inventory and may be reconsidered after quota returns; there is no automatic cross-provider fallback after a paid boundary.
+- Replicate submit is one-attempt and asynchronous: Prediction ID is durably persisted before polling, crashes/restarts/poll errors resume the same Prediction, and pre-ID ambiguous submission is never automatically resubmitted. Same-user same-plan reuse includes submitted Predictions, preventing duplicate paid generations across idempotency keys.
+- Output download is restricted to HTTPS `replicate.delivery` and never receives the Replicate bearer token. Rights/SynthID/named-artist restrictions and the `$0.40` monthly reservation / `10` draft / `3` final limits remain unchanged.
+- Verification: root contracts `36/36`, no-network Provider/Worker `23/23`, PostgreSQL/Redis affected regression `54/54`, Core `782/782`, Backend `945 passed` at `66.07%`, Ruff/Mypy/AST PASS. No provider generation or Production mutation occurred. Consolidated source evidence SHA-256 `78349892066e047ff58ebe60a10a99dcbf0ca76731e2a7f6d4db7caec0beea3b`.
+
+Next safe gate: protected merge -> hard-disabled Backend/Music-Worker activation -> free Replicate preflight -> exactly one `$0.04` `google/lyria-3` instrumental Clip -> local QA/Studio/cleanup. Pro remains a separate `$0.08` gate after an accepted same-user Draft. Preview models can never be promoted to `production_ready`.
 
 
 Exit gate:

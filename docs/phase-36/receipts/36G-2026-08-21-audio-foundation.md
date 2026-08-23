@@ -2,7 +2,7 @@
 
 Date: 2026-08-21
 Updated: 2026-08-23
-Status: **IN PROGRESS — Stages 1–6 Production-accepted; Stage 7 source and disabled Production activation complete, live Lyria acceptance blocked by generation quota**
+Status: **IN PROGRESS — Stages 1–6 Production-accepted; Stage 7 direct Gemini route quota-blocked, durable same-price Replicate Lyria fallback source candidate validated with zero new generation/spend**
 
 ## Truth boundary
 
@@ -733,10 +733,25 @@ Only granular `lyria-3-music-generation=source_built` is added with gates `valid
 
 `lyria-3-music-generation` remains `source_built`. A valid key, model visibility, hard-disabled durable authority and local FFmpeg path do not constitute runtime acceptance when the Provider has produced no audio. `song-production` remains `specified`; preview Lyria models remain ineligible for `production_ready`.
 
+## Stage 7C — durable same-price Replicate Lyria fallback candidate
+
+The direct Gemini API route remains authenticated but quota-blocked. The selected fallback is Replicate's official Google Lyria models: `google/lyria-3` for the existing internal `lyria-3-clip-preview` draft route and `google/lyria-3-pro` for `lyria-3-pro-preview`. Authenticated read-only probes returned HTTP `200` for the Replicate account and both exact model contracts with zero generation requests/spend. Auth evidence SHA-256: `0c31bf1021034f9883acb8d866bdbf58d237a24504b668fa16491337d607153e`; model-contract evidence SHA-256: `7e069894dd685bfe0ffe5f57b318e2a76c7310d912b4f91b3cff5a1fadcbef7f`.
+
+The fallback does **not** loosen the user cost policy: Clip remains exactly `$0.04`, Pro remains `$0.08`, the monthly reservation ceiling remains `$0.40`, at most `10` drafts / `3` finals are armable per user per calendar month, and `max_attempts=1`. The same user + same plan reuses an existing planned/queued/running/submitted/completed execution even across a different idempotency key. Pro still requires a completed same-user governed Draft checksum plus explicit final approval.
+
+Replicate generation is asynchronous. Stage 7C submits exactly once, persists the Prediction ID durably before any poll, and after that ID exists only polls the same Prediction. Worker restart, transient poll failure, or delayed output cannot create a second paid prediction. Only a pre-ID ambiguous submit may become `ambiguous`, and it is never automatically resubmitted or switched to Gemini. Automatic cross-provider fallback is forbidden after a paid boundary.
+
+The output URL is accepted only from HTTPS `replicate.delivery`; the Replicate bearer token is never sent to the output CDN. Public evidence exposes only the hashed Prediction ID and redacted output metadata. Gemini remains in the general audio inventory for its native STT/TTS/analysis capabilities; Replicate is added only for the Lyria music routes. Named-artist/person imitation remains blocked, SynthID disclosure remains mandatory, and lyric rights remain original/licensed/public-domain only.
+
+Source validation after the safety corrections: Music/Audio/Phase36 contracts `36/36`; no-network Provider/Worker/Compose `23/23`; affected PostgreSQL/Redis `54/54` with zero Music rows; Complete Core `782/782`; Complete Backend `945 passed, 2 warnings` at `66.07%`; Ruff/Mypy (`224` files), AST and diff gates PASS. The two retained PostgreSQL log matches are classified rather than hidden: one expected disposable-server bootstrap shutdown and one expected uniqueness violation exercised by a passing Growth test. No unexpected application database failure was observed. Consolidated Stage 7C source evidence SHA-256: `78349892066e047ff58ebe60a10a99dcbf0ca76731e2a7f6d4db7caec0beea3b`. Provider generation requests/spend remained `0 / $0.00`; Production was not modified by this source candidate.
+
+`lyria-3-music-generation` remains `source_built` until a protected merge, hard-disabled Production activation, fresh free Replicate preflight and one real `$0.04` instrumental Clip produce accepted audio plus local QA/Studio evidence.
+
 ## Next safe gates
 
-1. externally enable a paid Gemini API tier with non-zero Lyria generation quota, **or** have a Google Cloud administrator enable `aiplatform.googleapis.com` and grant the existing service identity the required Vertex/Service Usage permissions;
-2. after a fresh read-only preflight, run exactly one instrumental `$0.04` Clip request—no automatic retry—and require local QA, Studio revision, checkpoint-before-cleanup and zero residual rows/objects;
-3. validate `$0.08` Pro only after the same user owns an accepted governed Draft checksum and supplies a separate final approval;
-4. continue provider-independent podcast/narration and local audio work while the external music quota gate remains open;
-5. vocals, stems, dedicated SFX, voice transformation and cloning remain separate truth/rights gates; preview models can never become `production_ready`.
+1. protect/merge the Replicate fallback source candidate, then deploy Backend/Music Worker hard-disabled with the real Replicate token and zero Music rows/requests;
+2. repeat the authenticated account/model preflight with zero generation, then run exactly one Replicate `google/lyria-3` instrumental Clip at the existing `$0.04` cap—one submit only, durable Prediction ID, poll-only recovery;
+3. require MP3 validation, local FFmpeg cleanup/master/waveform/export QA, Studio revision, checkpoint-before-cleanup and independently verified zero residual rows/objects;
+4. validate `$0.08` `google/lyria-3-pro` only after the same user owns the accepted governed Draft checksum and supplies separate final approval;
+5. direct Gemini may be reconsidered only after non-zero quota is proven; never automatically submit both providers for the same user request;
+6. vocals, stems, dedicated SFX, voice transformation and cloning remain separate truth/rights gates; preview models can never become `production_ready`.

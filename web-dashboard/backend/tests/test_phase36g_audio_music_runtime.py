@@ -626,3 +626,79 @@ def test_audio_music_schema_has_cost_rights_fencing_and_redaction_evidence() -> 
         "output_checksum",
         "returned_text_sha256",
     } <= columns
+
+
+@pytest.mark.asyncio
+async def test_replicate_prediction_id_is_durable_and_reclaimed_for_poll_without_resubmit(
+    tmp_path: Path,
+) -> None:
+    scope = await seed_scope("replicate-resume")
+    store = LocalMediaObjectStore(tmp_path / "objects")
+    worker_a = AudioMusicExecutionAuthority(
+        store=store,
+        worker_id="music-worker-a",
+        lease_seconds=30,
+    )
+    worker_b = AudioMusicExecutionAuthority(
+        store=store,
+        worker_id="music-worker-b",
+        lease_seconds=30,
+    )
+    try:
+        async with SessionLocal() as session:
+            result = await create_lyria_music_pipeline(
+                session,
+                scope=MediaGraphScope(scope.org_id, scope.user_id),
+                plan=plan(),
+                idempotency_key=f"replicate-resume-{scope.org_id}",
+                runtime_evidence_sha256=RUNTIME_EVIDENCE,
+                pricing_evidence_sha256=PRICING_EVIDENCE,
+            )
+            await arm_audio_music_execution(
+                session,
+                execution_id=result.music_execution_id,
+                organization_id=scope.org_id,
+                approved_max_cost_usd=0.04,
+            )
+            await session.commit()
+        first = await worker_a.claim()
+        assert first is not None and first.fencing_token == 1
+        await worker_a.mark_submission_started(first)
+        await worker_a.mark_submitted(
+            first,
+            provider_request_id="prediction-001",
+            provider_response_metadata={"status": "starting"},
+        )
+        second = await worker_b.claim()
+        assert second is not None and second.fencing_token == 2
+        async with SessionLocal() as session:
+            row = await session.get(AudioMusicExecution, result.music_execution_id)
+            assert row is not None
+            assert row.provider == "replicate"
+            assert row.provider_state == "submitted"
+            assert row.provider_request_id == "prediction-001"
+            assert row.attempts == 1
+            public = await audio_music_execution_snapshot(
+                session,
+                execution_id=row.id,
+                organization_id=scope.org_id,
+            )
+            assert public["provider_request_recorded"] is True
+            assert public["provider_job_sha256"]
+            assert "prediction-001" not in repr(public)
+        count = await worker_b.mark_poll_pending(
+            second,
+            provider_response_metadata={"status": "processing"},
+            delay_seconds=1,
+            max_polls=20,
+        )
+        assert count == 1
+        async with SessionLocal() as session:
+            row = await session.get(AudioMusicExecution, result.music_execution_id)
+            assert row is not None
+            assert row.provider_request_id == "prediction-001"
+            assert row.attempts == 1
+            assert row.lease_owner is None and row.lease_token is None
+            assert row.provider_response_metadata["poll_count"] == 1
+    finally:
+        await cleanup(scope)
