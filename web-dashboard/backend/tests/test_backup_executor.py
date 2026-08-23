@@ -1419,6 +1419,9 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
             in song_section
         )
         assert 'AUDIO_SONG_LIVE_ENABLED: "false"' in song_section
+        assert 'AUDIO_SONG_ENTRYPOINT_SECRET_BOOTSTRAP_ONLY: "true"' in song_section
+        assert 'MEDIA_STORAGE_TYPE: local' in song_section
+        assert 'MEDIA_STORAGE_TYPE: inherit' not in song_section
         assert 'user: "1000:1000"' not in song_section
         assert "/run/secrets/aionex/runpod-open-song.env:ro" in song_section
         assert 'cap_drop: ["ALL"]' in song_section

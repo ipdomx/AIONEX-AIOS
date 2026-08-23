@@ -400,9 +400,10 @@ services:
       DEBUG: "false"
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
-      MEDIA_STORAGE_TYPE: inherit
+      MEDIA_STORAGE_TYPE: local
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
       AUDIO_SONG_LIVE_ENABLED: "false"
+      AUDIO_SONG_ENTRYPOINT_SECRET_BOOTSTRAP_ONLY: "true"
       AUDIO_SONG_RUNPOD_SECRET_FILE: /run/secrets/aionex/runpod-open-song.env
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app

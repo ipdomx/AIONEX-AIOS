@@ -105,7 +105,9 @@ def test_entrypoint_copies_telegram_token_before_privilege_drop() -> None:
         repository / "web-dashboard/backend/scripts/docker-entrypoint.sh"
     ).read_text(encoding="utf-8")
     telegram_copy = entrypoint.index("telegram_token_source=")
-    privilege_drop = entrypoint.index('exec su-exec aionex "$@"')
+    # The audio-song worker has an earlier conditional minimal-bootstrap drop.
+    # Telegram must remain before the final shared privilege drop.
+    privilege_drop = entrypoint.rindex('exec su-exec aionex "$@"')
     assert telegram_copy < privilege_drop
     assert "install -m 0400 -o aionex -g aionex" in entrypoint
 
