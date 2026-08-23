@@ -3434,6 +3434,197 @@ class MediaRenderStep(Base, TimestampMixin):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class AudioSongExecution(Base, TimestampMixin):
+    __tablename__ = "audio_song_executions"
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id",
+            "idempotency_key",
+            name="uq_audio_song_execution_org_idempotency",
+        ),
+        Index(
+            "ix_audio_song_execution_claim",
+            "status",
+            "provider_state",
+            "available_at",
+            "lease_expires_at",
+            "created_at",
+        ),
+        Index(
+            "ix_audio_song_execution_scope",
+            "organization_id",
+            "requested_by_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    workspace_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    project_id: Mapped[str | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    studio_job_id: Mapped[str | None] = mapped_column(
+        ForeignKey("studio_jobs.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    studio_asset_id: Mapped[str | None] = mapped_column(
+        ForeignKey("studio_assets.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    graph_id: Mapped[str] = mapped_column(
+        ForeignKey("media_asset_graphs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    target_node_id: Mapped[str] = mapped_column(
+        ForeignKey("media_asset_nodes.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    requested_by_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+
+    operation: Mapped[str] = mapped_column(
+        String(40), default="generate-open-song", nullable=False
+    )
+    route_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    model: Mapped[str] = mapped_column(String(160), nullable=False)
+    model_revision: Mapped[str] = mapped_column(String(64), nullable=False)
+    language_model: Mapped[str] = mapped_column(String(160), nullable=False)
+    language_model_revision: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_commit: Mapped[str] = mapped_column(String(64), nullable=False)
+    base_container_image_repository: Mapped[str | None] = mapped_column(
+        String(240), nullable=True
+    )
+    base_container_image_index_digest: Mapped[str | None] = mapped_column(
+        String(71), nullable=True
+    )
+    base_container_image_digest: Mapped[str | None] = mapped_column(
+        String(71), nullable=True
+    )
+    endpoint_id_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    image_sbom_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    handler_source_sha256: Mapped[str | None] = mapped_column(
+        String(64), nullable=True
+    )
+    container_image_repository: Mapped[str | None] = mapped_column(
+        String(240), nullable=True
+    )
+    container_image_index_digest: Mapped[str | None] = mapped_column(
+        String(71), nullable=True
+    )
+    container_image_digest: Mapped[str | None] = mapped_column(
+        String(71), nullable=True
+    )
+    separation_model: Mapped[str] = mapped_column(String(80), nullable=False)
+    separation_revision: Mapped[str] = mapped_column(String(64), nullable=False)
+    separation_source_commit: Mapped[str] = mapped_column(String(64), nullable=False)
+    separation_checkpoint_sha256: Mapped[str] = mapped_column(
+        String(64), nullable=False
+    )
+    status: Mapped[str] = mapped_column(
+        String(32), default="planned", nullable=False, index=True
+    )
+    provider_state: Mapped[str] = mapped_column(
+        String(40), default="not_started", nullable=False, index=True
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    plan_checksum: Mapped[str] = mapped_column(String(64), nullable=False)
+    runtime_evidence_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    pricing_evidence_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    license_evidence_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+
+    title_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    title_characters: Mapped[int] = mapped_column(Integer, nullable=False)
+    concept_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    concept_characters: Mapped[int] = mapped_column(Integer, nullable=False)
+    lyrics_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    lyrics_characters: Mapped[int] = mapped_column(Integer, nullable=False)
+    language: Mapped[str] = mapped_column(String(24), nullable=False)
+    duration_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
+    bpm: Mapped[int] = mapped_column(Integer, nullable=False)
+    musical_key: Mapped[str] = mapped_column(String(16), nullable=False)
+    time_signature: Mapped[int] = mapped_column(Integer, nullable=False)
+    seed: Mapped[int] = mapped_column(Integer, nullable=False)
+    output_profile_id: Mapped[str] = mapped_column(String(80), nullable=False)
+
+    rights_basis: Mapped[str] = mapped_column(String(32), nullable=False)
+    rights_evidence_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    commercial_use_authorized: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    provider_terms_accepted: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    ai_generated_disclosure_required: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False
+    )
+
+    estimated_cost_usd: Mapped[float] = mapped_column(
+        Float, default=0.0, nullable=False
+    )
+    max_cost_usd: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    actual_cost_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
+    cost_basis: Mapped[str] = mapped_column(String(80), nullable=False)
+    rate_usd_per_second: Mapped[float] = mapped_column(
+        Float, default=0.0, nullable=False
+    )
+    max_billed_seconds: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    actual_billed_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    actual_cost_known: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+
+    max_attempts: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    polls: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    fencing_token: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    lease_owner: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    lease_token: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    available_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+
+    provider_job_id: Mapped[str | None] = mapped_column(String(240), nullable=True)
+    provider_job_id_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    provider_submitted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    provider_completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    provider_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    error_code: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    error_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
+    full_song_storage_key: Mapped[str | None] = mapped_column(String(900), nullable=True)
+    full_song_checksum: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    full_song_size_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    full_song_duration_seconds: Mapped[float | None] = mapped_column(
+        Float, nullable=True
+    )
+    full_song_media_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    stem_manifest: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    stem_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    final_output_storage_key: Mapped[str | None] = mapped_column(
+        String(900), nullable=True
+    )
+    final_output_checksum: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    final_output_size_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    final_output_duration_seconds: Mapped[float | None] = mapped_column(
+        Float, nullable=True
+    )
+    final_audio_qa: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    studio_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
 class DesignImageExecution(Base, TimestampMixin):
     __tablename__ = "design_image_executions"
     __table_args__ = (

@@ -676,6 +676,46 @@ class Settings(BaseSettings):
     AUDIO_MUSIC_MAX_POLLS: int = Field(
         default=200, ge=10, le=2_000, validation_alias="AUDIO_MUSIC_MAX_POLLS"
     )
+    AUDIO_SONG_LIVE_ENABLED: bool = Field(
+        default=False, validation_alias="AUDIO_SONG_LIVE_ENABLED"
+    )
+    AUDIO_SONG_WORKER_ID: str = Field(
+        default="", max_length=160, validation_alias="AUDIO_SONG_WORKER_ID"
+    )
+    AUDIO_SONG_POLL_SECONDS: int = Field(
+        default=5, ge=1, le=60, validation_alias="AUDIO_SONG_POLL_SECONDS"
+    )
+    AUDIO_SONG_LEASE_SECONDS: int = Field(
+        default=300, ge=30, le=3_600, validation_alias="AUDIO_SONG_LEASE_SECONDS"
+    )
+    AUDIO_SONG_PROVIDER_TIMEOUT_SECONDS: int = Field(
+        default=90, ge=10, le=300, validation_alias="AUDIO_SONG_PROVIDER_TIMEOUT_SECONDS"
+    )
+    AUDIO_SONG_PROVIDER_POLL_TIMEOUT_SECONDS: int = Field(
+        default=30, ge=5, le=120,
+        validation_alias="AUDIO_SONG_PROVIDER_POLL_TIMEOUT_SECONDS",
+    )
+    AUDIO_SONG_DOWNLOAD_TIMEOUT_SECONDS: int = Field(
+        default=180, ge=10, le=600,
+        validation_alias="AUDIO_SONG_DOWNLOAD_TIMEOUT_SECONDS",
+    )
+    AUDIO_SONG_MAX_PROVIDER_BYTES: int = Field(
+        default=268_435_456,
+        ge=1_048_576,
+        le=536_870_912,
+        validation_alias="AUDIO_SONG_MAX_PROVIDER_BYTES",
+    )
+    AUDIO_SONG_MAX_POLLS: int = Field(
+        default=240, ge=10, le=2_000, validation_alias="AUDIO_SONG_MAX_POLLS"
+    )
+    AUDIO_SONG_WORKER_HEALTH_FILE: str = Field(
+        default="/tmp/aionex-audio-song-worker-health.json",
+        validation_alias="AUDIO_SONG_WORKER_HEALTH_FILE",
+    )
+    AUDIO_SONG_RUNPOD_SECRET_FILE: str = Field(
+        default="/run/secrets/aionex/runpod-gpu.env",
+        validation_alias="AUDIO_SONG_RUNPOD_SECRET_FILE",
+    )
     VIDEO_EXECUTION_LIVE_ENABLED: bool = Field(
         default=False, validation_alias="VIDEO_EXECUTION_LIVE_ENABLED"
     )

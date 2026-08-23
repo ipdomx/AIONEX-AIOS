@@ -552,7 +552,16 @@ Scope:
 - Checkpoint preceded cleanup; `5/5` objects and every synthetic row were deleted/verified, all queues returned zero, readiness passed `10/10`, permanent Music Worker stayed disabled, and consolidated evidence SHA-256 is `b560bdec8a21ac6c13f84855d3e6382001a3b5b91b0d9fbda359ce31663a87b6`.
 - Only granular `stable-audio-instrumental-generation` advances to `runtime_verified`. The remaining `5` Stability credits cannot fund a second request, so funding remains an external gate. Lyria remains quota/billing-blocked; broad songs/vocals/stems/SFX remain incomplete.
 
-Next safe gate: merge/activate the granular maturity decision, then complete the universal provider execution matrix and GPU-backed open-weight image/edit/video candidates without claiming blocked providers as routable.
+
+##### Stage 8 — open-weight full-song source candidate
+
+- Added a rights-governed ACE-Step full-song plan, four pinned Demucs `htdemucs` stems, FFmpeg mix/master/waveform/export and a dedicated Alembic `20260823_0039` `audio_song_executions` authority. Private title/concept/lyrics remain hash-only outside the provider node; named-person imitation, known-person voice, transformation and clone fail closed.
+- The RunPod Worker is profile-gated and hard-disabled, submits once, persists Job identity before polling, resumes only that Job, enforces immutable handler-image/SBOM/source/Endpoint bindings, validates allowlisted 48 kHz stereo WAV artifacts and measures actual GPU-second cost under the `$0.20` operator cap. The official ACE-Step Space remains acceptance-only.
+- Supply chain is pinned to ACE-Step source/base image/base+Turbo+4B model revisions and Demucs source/checkpoint evidence. The upstream ACE-Step image cannot be mislabeled as the AIONEX handler image; the handler requires its own immutable digest and SBOM before arming.
+- Immutable staged-tree snapshot `1a364b2b4e046860c96ad9c55309a10aa5e71556` passed root `78/78`, focused Backend `60 passed, 1 CI-only skip`, full Backend `978 passed, 1 skipped`, Alembic `0039 -> 0038 -> 0039`, Ruff/Mypy/AST/diff/Compose, zero residual Song/Media/Studio rows and a real FFmpeg 9 synthetic-boundary acceptance producing separated lyrics/composition-vocals/stems/mix/master/final hashes, QA PASS and Studio revision `2` with zero Provider/GPU spend. Frozen gate SHA-256 `a381571850e61671aafdf6680d8aa62e1d6763a7957d1c2e61d7c0ea06522270`.
+- One explicit Turbo official-Space generation request ended as `GPU task aborted`, returned no audio, cost `$0.00`, and was not retried. XL-Turbo is inventory-visible only; an invalid concurrent XL revision was rejected and current official revision was verified read-only without generation. Consequently `song-production` advances only to `source_built` behind `ace-step-open-song-runtime-acceptance`; Phase 36G remains `in_progress` and Production is unchanged.
+
+Next safe gate: protect and merge the Stage 8 source candidate through CI, then perform a separate hard-disabled Backend/Migration/Worker activation with backup/restore evidence and zero GPU submission; do not claim blocked providers as routable.
 
 
 Exit gate:

@@ -46,6 +46,20 @@ if [ "$(id -u)" = "0" ]; then
         export THREE_D_RUNPOD_SECRET_FILE="$three_d_secret_runtime"
     fi
 
+    audio_song_secret_source="${AUDIO_SONG_RUNPOD_SECRET_FILE:-}"
+    if [ -n "$audio_song_secret_source" ] && [ -f "$audio_song_secret_source" ]; then
+        runtime_dir=/run/aionex
+        audio_song_secret_runtime="$runtime_dir/runpod-open-song.env"
+        install -d -m 0700 -o aionex -g aionex "$runtime_dir"
+        if [ "$audio_song_secret_source" != "$audio_song_secret_runtime" ]; then
+            install -m 0400 -o aionex -g aionex "$audio_song_secret_source" "$audio_song_secret_runtime"
+        else
+            chown aionex:aionex "$audio_song_secret_runtime"
+            chmod 0400 "$audio_song_secret_runtime"
+        fi
+        export AUDIO_SONG_RUNPOD_SECRET_FILE="$audio_song_secret_runtime"
+    fi
+
     project_reference_source="${PROJECT_EXECUTION_LOCAL_REFERENCE:-}"
     if [ -n "$project_reference_source" ] && [ -d "$project_reference_source" ]; then
         runtime_dir=/run/aionex
