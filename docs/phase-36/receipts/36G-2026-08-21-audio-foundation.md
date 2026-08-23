@@ -6,7 +6,7 @@ Status: **IN PROGRESS — Stages 1–6 Production-accepted; Stage 7 low-cost Lyr
 
 ## Truth boundary
 
-This checkpoint separately claims the Production-accepted pinned stock-voice TTS, single-speaker STT, pseudonymous multi-speaker diarization, and complete bounded stock-voice dubbing routes. Stage 6 now has live evidence for private translation, two one-attempt stock-speech segments, exact timing-fit, final local mix/master, Studio revision and complete cleanup. Podcasts/jingles, music, vocals, generated SFX, transformed voice and cloned voice remain outside this claim.
+This checkpoint separately claims the Production-accepted pinned stock-voice TTS, single-speaker STT, pseudonymous multi-speaker diarization, and complete bounded stock-voice dubbing routes. Stage 7 adds a source-tested low-cost Lyria 3 music candidate only; it has not been merged, migrated, deployed, or used for a music generation request in Production. Podcasts/jingles, live music generation, dedicated SFX, stems, transformed voice and cloned voice remain outside the accepted claim.
 
 Stage 1 performs no provider request, reads no provider credential and estimates no provider cost. Every generated Studio package remains `provider_neutral`, records `external_requests=0`, `external_cost_usd=0`, `estimated_external_cost_usd=null`, and exposes `render_status=not_started`.
 
@@ -14,7 +14,7 @@ The Phase 36 registry remains truthful:
 
 - `36G=in_progress` and `current_batch=36G`;
 - `audio-cleanup-master`, granular `stock-voice-tts`, granular single-speaker `governed-stt-transcript`, granular `multi-speaker-diarization`, and granular `complete-stock-voice-dubbing` are `runtime_verified`; broader `stt-tts-dubbing` and `podcast-jingle-narration` remain `source_built`;
-- `voice-transformation` and `song-production` remain `specified`;
+- granular `lyria-3-music-generation` is `source_built` behind paid-credential, preview-runtime, rights and SynthID gates; `voice-transformation` and broad `song-production` remain `specified`;
 - no other 36G capability is promoted to `provider_connected`, `runtime_verified`, `scaled`, or `production_ready`; Phase 36G remains `in_progress`.
 
 ## Implemented governed audio factory
@@ -680,9 +680,45 @@ The deployment wrappers failed closed on optional Docker Health fields, the host
 
 Only the granular `complete-stock-voice-dubbing` capability advances to `runtime_verified`. The claim remains bounded to private segment translation, built-in stock voices, exact one-attempt provider boundaries, timing-fit without time stretch/truncation, final local mix/master and complete cleanup. The broader `stt-tts-dubbing` capability remains `source_built`; custom/known-person voices, voice transformation and cloning are excluded.
 
+## Stage 7A — source-first low-cost Lyria music runtime candidate
+
+Google Gemini Lyria 3 is selected as the bounded music route. The default user path is `lyria-3-clip-preview` at the fixed `$0.04` draft price. `lyria-3-pro-preview` at `$0.08` is forbidden until the same user owns a completed governed draft checksum and supplies a separate final-generation approval hash.
+
+The cost policy is enforced before Provider claim:
+
+- one attempt per request and no automatic retry;
+- draft-first by default;
+- exact request caps `$0.04` draft / `$0.08` final;
+- per-user monthly reservation cap `$0.40`;
+- at most `10` draft requests and `3` final requests per user per calendar month;
+- the same user and same plan reuse the existing execution/output across different idempotency keys instead of buying a duplicate generation;
+- a row lock protects the monthly reservation calculation from concurrent overspend.
+
+The `audio_music_executions` authority is introduced by Alembic `20260823_0038`. It persists provider/tier/model, plan/runtime/pricing hashes, rights basis, one-attempt lease/fencing/submission state, fixed cost, MP3 output evidence and ambiguity state. The synchronous Provider boundary persists `submitting` before HTTP; any expired post-submit lease becomes failed/ambiguous and cannot be automatically resubmitted.
+
+The Provider transport is exact to `gemini + generate-music + lyria-3-clip-preview/lyria-3-pro-preview + MP3`. The returned MP3 is size/signature validated and then enters the accepted local FFmpeg path: cleanup, `-14 LUFS` master, waveform and governed WAV/AAC/Opus export. Public snapshots expose hashes and cost policy only; raw prompt, lyrics, Provider text, credential and request ID are withheld.
+
+Rights controls require commercial authorization and Provider terms acceptance, reject named-artist/person imitation language, require original/licensed/public-domain lyric evidence for vocal requests, and make SynthID disclosure mandatory. The current source claim does not assert stems, dedicated SFX, voice identity, voice transformation, clone, or production-ready status for preview models.
+
+### Stage 7A isolated verification completed
+
+- Music/Audio/Phase36 contracts passed `36/36`; Provider/Worker/Compose contracts passed `17/17`.
+- Disposable PostgreSQL 16 + Redis 7 focused runtime passed `26/26`, returned `audio_music_executions` to zero, recorded database/cache critical hits `0/0`, music requests `0`, spend `$0.00`; evidence SHA-256 `f2e2fa13c8f81110caef3ddaf226d94727325e9c8be5ff589c622b745e1b6f64`.
+- Alembic round-trip `0038 -> 0037 -> 0038` passed with zero rows and zero Provider activity; evidence SHA-256 `11fce9af76f20c29fc62dcdd2102877e058f4435a85c8b56b7badea859361dc5`.
+- Complete AIOS Core passed `782/782`; evidence SHA-256 `17c7001f77cc2a5003b6d62de644b25e4e7aa3625a048d788baa715dece22cc9`.
+- Complete Backend passed `938 passed, 2 warnings, 0 failed` at `66.03%` coverage, Alembic `0038`, zero residual Music rows, PostgreSQL/Redis critical hits `0/0`; evidence SHA-256 `76974454532a47fda2b59d7167262d9b42b6a8f93f03470704d115a0fb9b264d`.
+- Ruff, Mypy across `224` Backend source files, Python AST, Phase36 reporting, workflow YAML, both Production Compose manifests and security audits passed; evidence SHA-256 `cda31709a2d87bcdb97f5f8763e07e7850c2012c0894e1b2165875e5cc0d5999`.
+- Every Stage 7 source gate records music generation requests `0`, spend `$0.00`, and `production_modified=false`.
+
+## Stage 7A maturity decision
+
+Only granular `lyria-3-music-generation=source_built` is added with gates `valid-paid-gemini-credential`, `lyria-preview-runtime-evidence`, and `music-rights-and-synthid-disclosure`. No preview model advances to `runtime_verified` or `production_ready` from source evidence.
+
 ## Next safe gates
 
-1. Stage 7 proceeds source-first with Google Lyria 3 as the selected low-cost music route: `lyria-3-clip-preview` is the default 30-second draft tier at `$0.04/request`, while `lyria-3-pro-preview` is allowed only for an explicitly approved final full song at `$0.08/request`.
-2. Deploy the Stage 7 authority and Worker hard-disabled after protected CI, apply Alembic `0038` only after backup/restore, and run zero-spend Production preflight before any Lyria generation.
-3. Accept one `$0.04` instrumental draft first; Pro remains separately gated by a completed draft checksum and explicit final approval.
-4. Music vocals, stems, dedicated SFX, voice transformation and cloning remain separate truth/rights gates; no preview model may be promoted to `production_ready`.
+1. pass protected CI and merge Stage 7 source only after all Backend/Docker/CodeQL/SBOM/browser/security gates are green;
+2. backup and restore-verify Production before Alembic `0038`;
+3. activate Backend and a permanent hard-disabled `audio-music-worker` only, proving zero rows/queues/requests/spend;
+4. run one instrumental `$0.04` Clip draft, local QA, Studio revision, checkpoint and complete cleanup;
+5. validate Pro separately only from the accepted same-user draft checksum under a new explicit `$0.08` approval;
+6. music vocals, stems, dedicated SFX, voice transformation and cloning remain separate truth/rights gates; preview models can never become `production_ready`.

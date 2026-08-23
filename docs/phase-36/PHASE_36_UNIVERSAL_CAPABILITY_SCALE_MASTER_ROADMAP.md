@@ -519,7 +519,15 @@ Scope:
 - The final 48 kHz stereo WAV is `14.5s`, `2,784,078` bytes, SHA-256 `79a5059ad5287a2a6a286bbb4547871e41500e571a7c97c634f96a10828978dc`; `36G.audio-qa.v1` passed at `-16.03 LUFS`, Studio revision reached `2`, and cleanup deleted/verified `21/21` objects with every queue zero. Consolidated evidence SHA-256: `9cd9536fe7b756c8d70108e518eb9972f49631b89e681871472f177c90d20d08`.
 - Only `complete-stock-voice-dubbing` advances to `runtime_verified`. The broader aggregate remains `source_built`; custom/known-person voice, transformation and clone remain excluded.
 
-Next safe gate: merge and deploy the hard-disabled Stage 7 Lyria authority on Alembic `0038`, retain `$0.04` draft-first routing and `$0.40` monthly user cap, then accept one bounded instrumental Clip before any separately approved `$0.08` Pro final. Preview models can never be promoted to `production_ready`.
+##### Stage 7A — source-first low-cost Lyria music candidate
+
+- Added granular `lyria-3-music-generation=source_built`, Alembic `20260823_0038`, durable one-attempt music authority, hard-disabled Worker, exact Gemini Lyria Clip/Pro transport and local FFmpeg cleanup/master/waveform/export.
+- Default routing is `$0.04` Clip draft; `$0.08` Pro requires a completed same-user governed draft checksum and separate approval. The platform enforces `$0.40` monthly reservation, maximum `10` drafts / `3` finals per user, duplicate same-plan reuse, row-locked admission and no automatic retry.
+- Named-artist/person imitation is rejected; commercial authorization, Provider terms and SynthID disclosure are mandatory. Vocal lyrics require original/licensed/public-domain rights evidence. Stems, dedicated SFX, identity voice, transformation and clone are not claimed.
+- Source evidence passed contracts `36/36` and Provider/Worker `17/17`, PostgreSQL/Redis `26/26`, Alembic `0038 -> 0037 -> 0038`, Core `782/782`, Backend `938 passed` at `66.03%`, Ruff/Mypy (`224` files), AST, reporting, Compose, YAML and security. Music requests/spend remained `0 / $0.00`. Backend evidence SHA-256 `76974454532a47fda2b59d7167262d9b42b6a8f93f03470704d115a0fb9b264d`; static evidence SHA-256 `cda31709a2d87bcdb97f5f8763e07e7850c2012c0894e1b2165875e5cc0d5999`.
+- Production remains on Alembic `0037`; Stage 7 is not deployed and no music generation has occurred.
+
+Next safe gate: protected Stage 7 merge, backup/restore, Alembic `0038`, hard-disabled Worker activation, then one `$0.04` instrumental Clip acceptance before any separately approved `$0.08` same-user Pro final. Preview models can never be promoted to `production_ready`.
 
 
 Exit gate:
