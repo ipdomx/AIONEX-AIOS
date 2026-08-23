@@ -510,10 +510,17 @@ Scope:
 ##### Stage 6B — disabled Production activation and external credential stop
 
 - Protected PR #474 merged as `2937f63f0b38b585e411bc38960d229b229dd9f6`. Backup/restore passed, Alembic advanced to `20260823_0037`, exact Backend/FFmpeg-9-Media-Worker and a hard-disabled Dubbing Worker became healthy, every active queue remained zero, readiness passed `10/10`, and provider generation/spend remained `0 / $0.00`.
-- Free authenticated lookups returned `invalid_api_key` for the pinned OpenAI translation and stock-speech models. No live Dubbing Canary ran and no maturity advanced; final safe-checkpoint SHA-256 is `cb97f660916b32fc12e5d003855e1721c41486d53226d279862b695ce239b347`.
-- Stage 7 selects Google Lyria 3 for the lowest-cost governed user path: `$0.04` 30-second Clip drafts by default, `$0.08` Pro full songs only after explicit final approval. The current Gemini key also failed free inventory lookup with `API_KEY_INVALID`, so source-first implementation may continue but generation remains hard-blocked.
+- The first free lookup used placeholder values from the active service `.env`; no generation request occurred. The valid existing Production keys were later identified without exposing them.
 
-Next safe gates: rotate the external provider credentials without exposing them; complete the existing bounded Stage 6 live acceptance; build Stage 7 source-first Lyria contracts, durable cost authority, hard-disabled Worker and local audio QA; never promote preview music models to `production_ready`.
+##### Stage 6C — complete stock-voice dubbing Production acceptance
+
+- Only the existing OpenAI/Gemini key bindings were corrected. Free exact model lookups passed with zero generation/spend.
+- One private translation request and two one-attempt stock-speech requests completed under a `$0.045` aggregate cap. Recovery reused the durable translation with zero additional translation requests after a stale external validator observed the already advanced `speech_running` state.
+- The final 48 kHz stereo WAV is `14.5s`, `2,784,078` bytes, SHA-256 `79a5059ad5287a2a6a286bbb4547871e41500e571a7c97c634f96a10828978dc`; `36G.audio-qa.v1` passed at `-16.03 LUFS`, Studio revision reached `2`, and cleanup deleted/verified `21/21` objects with every queue zero. Consolidated evidence SHA-256: `9cd9536fe7b756c8d70108e518eb9972f49631b89e681871472f177c90d20d08`.
+- Only `complete-stock-voice-dubbing` advances to `runtime_verified`. The broader aggregate remains `source_built`; custom/known-person voice, transformation and clone remain excluded.
+
+Next safe gate: merge and deploy the hard-disabled Stage 7 Lyria authority on Alembic `0038`, retain `$0.04` draft-first routing and `$0.40` monthly user cap, then accept one bounded instrumental Clip before any separately approved `$0.08` Pro final. Preview models can never be promoted to `production_ready`.
+
 
 Exit gate:
 - complete user-defined song/audio production can reach final rendered files with separated evidence for lyrics/composition/vocals/stems/mix/master.
