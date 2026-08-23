@@ -759,16 +759,34 @@ Stage 7D source reuses the existing Alembic `20260823_0038` `audio_music_executi
 
 Current source verification before protected PR: Stable Audio plan contracts `8/8`; Provider transport `19/19` including exact `$0.20` success accounting, terminal `402/429` without retry, and ambiguous network/5xx without resubmit; Worker contracts `8/8`; disposable PostgreSQL 16 + Redis 7 affected Music regression `40/40`, `audio_music_executions=0`, critical hits `0/0`. The database test proves two `$0.20` reservations reach the retained `$0.40` monthly user ceiling and a third request is rejected before Claim. Focused PostgreSQL/Redis evidence SHA-256: `6f96d56630162f31e2dba040571665b84a238e1043493985a6772adb56cf69dc`. Full Backend then completed `953 passed, 1 skipped, 2 warnings, 0 failed` at `66.05%` coverage with Music rows `0`, PostgreSQL/Redis critical hits `0/0`, and disposable resources removed; Backend evidence SHA-256: `e151414a4e4ab6426f6c2dec9e35d28abf9b030a2aecef157388cc5171be3045`. Core verification accounted for all `790` tests without masking environment differences: the Alpine image passed `783` with seven harness-only legacy failures, then Phase 28 reran `9/9` in a corrected writable namespace and the three OpenSSL-dependent Phase24 tests passed `3/3` on the host executable; consolidated Core evidence SHA-256: `499a5c9ae00a60d1a98dc6bd75e9483843c46478f5ef887cb1ab56710831b01e`. Final Ruff/Backend Mypy across `225` source files, changed-file AST, diff, Phase36 reporting, workflow YAML, repository security and secret-hygiene gates passed; static evidence SHA-256: `eb22c72b09ce39ea7657bfd6586f21c0718dad4ef5468bcf834cf0a78f27752b`. Every Stage 7D source/preflight gate records generation requests `0`, spend `$0.00`, and `production_modified=false`.
 
-Stage 7D is **not** runtime-accepted yet. The existing Production Music Worker stays hard-disabled and no Stability generation has been sent.
+## Stage 7D — protected deployment and bounded Production acceptance
+
+- Protected PR #481 passed Backend, Production Docker, Browser, CodeQL Python/JavaScript, SBOM/vulnerability, dependency, reporting and repository-secret gates. Head `029295c34bc1f59347de9d69442deabdf2d86374` merged as `2de1283cc3b3b7350110509ac164cbcad87e1c41`.
+- No Migration was introduced; Alembic remained `20260823_0038`. Backend image `sha256:308ea4577ab9c8ea3c194a0db6bf0963d267706be169bfd08e48e7ee38c56c55` passed no-network Disabled smoke and Production DB/Object-Storage preflight before Backend and Music Worker alone were recreated. The prior image remains tagged for rollback; all `26` non-target service identities were unchanged. Disabled activation evidence SHA-256: `98b6b630803dbc91d60eed0e22293705ce32518fa249c97ce0bbb8eb1853d080`.
+- The corrected mode-`0600` service environment was verified against the authoritative Production provider file without exposing values. Backend held every authoritative provider binding; Music Worker held the exact Stability/Replicate/OpenAI/Google bindings, stayed `healthy/disabled`, and made zero activation requests. Key/worker evidence SHA-256: `6094f662e576916bd00484a865b4903ce4abd9550452d55274ae4271c1d8b8b1`.
+- A fresh read-only Stability account/balance preflight returned `25` credits (`$0.25`) with zero generation/spend. Exactly one `max_attempts=1` Stable Audio 2.5 request was then armed at the explicit `$0.20` cap; no retry and no cross-provider fallback occurred.
+- The Provider returned a `496,998`-byte MP3 with SHA-256 `3a81f4d0bebdf4a0ed49c8ac4e75c3d1059ca7ddfd137d527924ae0fc79ddffd`. The persistent FFmpeg 9 Media Worker produced a `30.0s`, 48 kHz stereo PCM WAV of `5,760,078` bytes, SHA-256 `0e0455bee193fd253bbb64a9171cb17d8d6d8a4d6b343ece345b50aff9d35ed7`, plus a real PNG waveform and Studio revision `2`.
+- `36G.audio-qa.v1` passed at `-14.46 LUFS`, `-2.29 dBTP`, LRA `13.5 LU`, no clipping. The checkpoint was written before cleanup; cleanup deleted and verified missing `5/5` objects, removed every synthetic Organization/User/Studio/Media/Music row, returned all active queues to zero, removed the one-shot container and passed readiness `10/10`. Final acceptance evidence SHA-256: `b560bdec8a21ac6c13f84855d3e6382001a3b5b91b0d9fbda359ce31663a87b6`.
+- Post-acceptance balance was `5` credits (`$0.05`), so the route is runtime-proven but externally funding-gated before another user request. The permanent Music Worker remains hard-disabled and recent Backend/Music/Media critical-log hits were `0/0/0`.
+
+## P36-0089 through P36-0092 — deployment/canary wrappers stopped safely
+
+- P36-0089 replaced a Go template that assumed every Docker container had a Health map; it stopped before image tagging or recreation.
+- P36-0090/P36-0091 corrected use of the container name and default development Compose file to the exact Production service/file declared in container labels. Neither stopped invocation recreated a service.
+- P36-0092 added an explicit User flush before the synthetic StudioJob. The first canary transaction rolled back at the foreign-key boundary with Provider requests/spend `0 / $0.00` and zero residual rows; rerun was allowed only because no Provider boundary was crossed.
+
+## Stage 7D maturity decision
+
+Only `stable-audio-instrumental-generation` advances to `runtime_verified`. The claim is bounded to a 30-second instrumental Stable Audio 2.5 draft, one paid attempt, exact `$0.20` cap, local FFmpeg cleanup/master/waveform/export, AI-generated disclosure, Studio materialization and complete cleanup. `funded-stability-credential` remains a live external gate because only `5` credits remain. Lyria, broad song production, vocals, stems and dedicated SFX do not advance.
 
 ## Next safe gates
 
-1. finish complete Core/Backend/static/reporting/security validation for Stage 7D and protect it in a dedicated PR;
-2. after protected merge, recreate only Backend/Music Worker if required while keeping `AUDIO_MUSIC_LIVE_ENABLED=false`, and repeat Stability account/balance preflight with zero generation;
-3. run exactly one `$0.20` 30-second instrumental Stable Audio 2.5 request, require MP3 validation, local FFmpeg cleanup/master/waveform/export QA, Studio revision, checkpoint-before-cleanup and independently verified zero residual rows/objects;
-4. do not send a second Stability request unless the first acceptance fails **before** the Provider boundary or the Owner later replenishes credits and a new explicit request is justified; no automatic retry/cross-provider fallback is allowed;
-5. Lyria direct/Replicate remain lower-price preferred routes only after their quota/billing gates are externally restored; never submit multiple providers for one user request;
-6. vocals, stems, dedicated SFX, voice transformation and cloning remain separate rights/runtime gates.
+1. merge the granular Stage 7D maturity closeout and activate the registry through a Backend-only recreation with zero provider work;
+2. keep Lyria direct disabled until Google paid quota is non-zero and keep Replicate disabled until its billing account is funded; never submit both automatically;
+3. fund Stability by at least `20` credits before exposing another Stable Audio user request; the current `5` credits are insufficient;
+4. complete the universal provider execution matrix so every registered provider is either runtime-accepted on an economic model or explicitly non-routable behind a precise deployment/quota/billing gate;
+5. add open-weight image/edit/video candidates only through the existing GPU authority with hard-disabled endpoints, license/model evidence, cost ceilings and real runtime acceptance;
+6. full songs with vocals/stems, dedicated SFX, voice transformation and cloning remain separate truth/rights gates.
 
 ## P36-0085 — Browser login assertion became ambiguous after passkey support
 

@@ -545,7 +545,14 @@ Scope:
 - Focused validation: Stable Audio Factory `8/8`, Provider `19/19`, Worker `8/8`, disposable PostgreSQL/Redis Music regression `40/40`, rows `0`, critical hits `0/0`. Two Stability reservations exhaust the retained `$0.40` monthly user cap; a third is rejected pre-Claim. Preflight SHA-256 `f8ddbdda4ae394e485337166b4df452bc2c28b513a5109c9cb7cc66d0ab7ad3f`; DB evidence SHA-256 `6f96d56630162f31e2dba040571665b84a238e1043493985a6772adb56cf69dc`. Full Backend is `953 passed, 1 skipped` at `66.05%`, Backend evidence `e151414a4e4ab6426f6c2dec9e35d28abf9b030a2aecef157388cc5171be3045`; Core functional coverage is all `790` tests through the documented split harness, evidence `499a5c9ae00a60d1a98dc6bd75e9483843c46478f5ef887cb1ab56710831b01e`; final static/security evidence `eb22c72b09ce39ea7657bfd6586f21c0718dad4ef5468bcf834cf0a78f27752b`.
 - Production remains hard-disabled for music; Stage 7D has made zero generation requests and spent `$0.00`.
 
-Next safe gate: complete full source gates -> protected Stage 7D PR -> disabled activation -> fresh Stability balance preflight -> exactly one `$0.20` instrumental acceptance with local QA/Studio/checkpoint/cleanup. Lyria/Replicate stay preferred lower-price routes only when their external quota/billing gates are restored.
+##### Stage 7D — protected Stable Audio Production acceptance
+
+- Protected PR #481 merged as `2de1283cc3b3b7350110509ac164cbcad87e1c41`; Alembic stayed `0038`. Candidate Backend image `308ea457...` passed offline and Production preflight before Backend/Music Worker-only recreation; non-target identities remained unchanged and the permanent Music Worker stayed disabled.
+- One one-attempt `$0.20` Stable Audio 2.5 instrumental request completed. Provider MP3 SHA-256 `3a81f4d0...ddffd`; final 30-second 48 kHz stereo WAV SHA-256 `0e0455be...35ed7`, `5,760,078` bytes; QA passed at `-14.46 LUFS / -2.29 dBTP`; Studio revision `2`.
+- Checkpoint preceded cleanup; `5/5` objects and every synthetic row were deleted/verified, all queues returned zero, readiness passed `10/10`, permanent Music Worker stayed disabled, and consolidated evidence SHA-256 is `b560bdec8a21ac6c13f84855d3e6382001a3b5b91b0d9fbda359ce31663a87b6`.
+- Only granular `stable-audio-instrumental-generation` advances to `runtime_verified`. The remaining `5` Stability credits cannot fund a second request, so funding remains an external gate. Lyria remains quota/billing-blocked; broad songs/vocals/stems/SFX remain incomplete.
+
+Next safe gate: merge/activate the granular maturity decision, then complete the universal provider execution matrix and GPU-backed open-weight image/edit/video candidates without claiming blocked providers as routable.
 
 
 Exit gate:
