@@ -66,6 +66,10 @@ if [ "$(id -u)" = "0" ]; then
     fi
 
     if [ "${AUDIO_SONG_ENTRYPOINT_SECRET_BOOTSTRAP_ONLY:-false}" = "true" ]; then
+        media_storage_root="${MEDIA_STORAGE_ROOT-/var/lib/aionex/media-assets}"
+        if [ -n "$media_storage_root" ]; then
+            install -d -m 0700 -o aionex -g aionex "$media_storage_root"
+        fi
         exec su-exec aionex "$@"
     fi
 

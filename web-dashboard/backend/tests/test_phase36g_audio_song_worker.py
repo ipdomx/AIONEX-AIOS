@@ -559,5 +559,7 @@ def test_production_compose_keeps_song_worker_hard_disabled_and_non_root_runtime
     early_drop = 'if [ "${AUDIO_SONG_ENTRYPOINT_SECRET_BOOTSTRAP_ONLY:-false}" = "true" ]; then'
     assert early_drop in audio_block
     assert entrypoint.index(early_drop, audio_start) < entrypoint.index('project_reference_source=', audio_start)
+    assert 'media_storage_root="${MEDIA_STORAGE_ROOT-/var/lib/aionex/media-assets}"' in audio_block
+    assert 'install -d -m 0700 -o aionex -g aionex "$media_storage_root"' in audio_block
     assert 'exec su-exec aionex "$@"' in audio_block
     assert 'DAC_OVERRIDE' not in block
