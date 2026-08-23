@@ -545,6 +545,11 @@ def test_production_compose_keeps_song_worker_hard_disabled_and_non_root_runtime
         assert 'user: "1000:1000"' not in block
         assert 'cap_drop: ["ALL"]' in block
         assert 'cap_add: ["CHOWN", "FOWNER", "SETGID", "SETUID"]' in block
+        assert (
+            'test: ["CMD", "su-exec", "aionex", "python", "-m", '
+            '"app.services.audio_song_worker", "--healthcheck"]'
+            in block
+        )
     entrypoint = (
         root / "web-dashboard/backend/scripts/docker-entrypoint.sh"
     ).read_text(encoding="utf-8")
