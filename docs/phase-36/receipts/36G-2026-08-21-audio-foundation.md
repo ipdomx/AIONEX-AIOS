@@ -2,11 +2,11 @@
 
 Date: 2026-08-21
 Updated: 2026-08-23
-Status: **IN PROGRESS — Stages 1–6 Production-accepted; Stage 7 low-cost Lyria source candidate remains outside Production**
+Status: **IN PROGRESS — Stages 1–6 Production-accepted; Stage 7 source and disabled Production activation complete, live Lyria acceptance blocked by generation quota**
 
 ## Truth boundary
 
-This checkpoint separately claims the Production-accepted pinned stock-voice TTS, single-speaker STT, pseudonymous multi-speaker diarization, and complete bounded stock-voice dubbing routes. Stage 7 adds a source-tested low-cost Lyria 3 music candidate only; it has not been merged, migrated, deployed, or used for a music generation request in Production. Podcasts/jingles, live music generation, dedicated SFX, stems, transformed voice and cloned voice remain outside the accepted claim.
+This checkpoint separately claims the Production-accepted pinned stock-voice TTS, single-speaker STT, pseudonymous multi-speaker diarization, and complete bounded stock-voice dubbing routes. Stage 7 source and its hard-disabled Production authority are deployed at Alembic `20260823_0038`, but no Lyria audio has been accepted: the valid Gemini key can read the exact Clip/Pro models and run `countTokens`, while every bounded Clip generation attempt was rejected by Provider quota before an output existed. Podcasts/jingles, accepted live music generation, dedicated SFX, stems, transformed voice and cloned voice remain outside the accepted claim.
 
 Stage 1 performs no provider request, reads no provider credential and estimates no provider cost. Every generated Studio package remains `provider_neutral`, records `external_requests=0`, `external_cost_usd=0`, `estimated_external_cost_usd=null`, and exposes `render_status=not_started`.
 
@@ -714,11 +714,29 @@ Rights controls require commercial authorization and Provider terms acceptance, 
 
 Only granular `lyria-3-music-generation=source_built` is added with gates `valid-paid-gemini-credential`, `lyria-preview-runtime-evidence`, and `music-rights-and-synthid-disclosure`. No preview model advances to `runtime_verified` or `production_ready` from source evidence.
 
+## Stage 7B — protected merge, disabled Production activation and quota stop
+
+- Protected PR #477 merged head `673c244a9e7a9c702e53063ebb6a68e79fbd5f16` as `092314b8ba05e63809e6c258aac3e80502ec2d7d`. A fresh custom-format PostgreSQL backup was restore-verified before Alembic advanced from `0037` to `0038`.
+- Backend and the permanent `audio-music-worker` alone moved to image `sha256:cda3f7e60a3ec9396e87b3f3774e53c3b30eb1f1b812283f01e624ae1fd050f8`. The worker remained hard-disabled with zero cycles/errors, and non-target Production service identities were unchanged. Disabled activation evidence SHA-256: `25222956b4bb28f55ea13c7052cd834b2eec632dc23eb272f4a9ade996e069b6`.
+- The authoritative Production Gemini key passed the exact read-only model lookup for `lyria-3-clip-preview` and `lyria-3-pro-preview`, and `countTokens` succeeded without a generation request. Post-deploy preflight evidence SHA-256: `efbf6104da3dcc7d797fe5c7614c580e817d9f437480b66a00a8730b972a7ea6`.
+- Three separately invoked, one-attempt `$0.04` Clip acceptance attempts were observed during the bounded live window. Each crossed the synchronous Provider boundary once and ended definitively as `429 RESOURCE_EXHAUSTED / provider_rate_limited`; no automatic retry occurred, no MP3 or downstream rendered output was created, and authoritative actual cost remained `null`. The first two failure evidence SHA-256 values are `71642e3df584356e998fa6c0aa2a878e601d089d05dc53594b03518786c68b54` and `de57af0d8580dfa5d38d81e58c278bf1f926177a31f4e4478555e0f09c8b51cc`.
+- The final failed synthetic scope contained one failed Music execution and four unstarted downstream Media steps. Direct database audit proved it was the Stage 7 canary tenant only; cleanup removed its Organization/User/Studio/Media/Music rows, returned Music and Media active queues to zero, touched no Production user scope, and added no Provider request or spend. Cleanup evidence SHA-256: `d2c23b223d60468e7302ae7d46a00702b83beba209db05183f8d760eacce2b64`.
+- The existing service-account route obtained an OAuth token, but Vertex `countTokens` stopped at `SERVICE_DISABLED` for `aiplatform.googleapis.com`; the same account lacks Service Usage permission to enable it. The Firebase Web key is explicitly blocked from the Generative Language service. The active Gemini API route remains authenticated and model-visible, so the remaining blocker is generation quota/paid-tier availability rather than key validity. Consolidated external-route evidence SHA-256: `7b41b63a0f652e3ba6dfae8463432d799bedfb367f4578124e467b5aa06c6864`.
+
+## P36-0081 through P36-0083 — Lyria quota and cleanup incidents stopped safely
+
+- **P36-0081:** the first valid one-attempt Clip request returned `provider_rate_limited`; the canary wrote failure evidence and did not retry.
+- **P36-0082:** the external canary evidence was strengthened to preserve only sanitized Provider failure code/status/boolean flags and quota metadata; the change itself performed no Provider request.
+- **P36-0083:** a later separately invoked Clip attempt left a failed synthetic graph with four planned local steps. It was discovered by direct database audit and deleted only after exact tenant/failure verification; all global Music/Media queues returned to zero.
+
+## Stage 7B maturity decision
+
+`lyria-3-music-generation` remains `source_built`. A valid key, model visibility, hard-disabled durable authority and local FFmpeg path do not constitute runtime acceptance when the Provider has produced no audio. `song-production` remains `specified`; preview Lyria models remain ineligible for `production_ready`.
+
 ## Next safe gates
 
-1. pass protected CI and merge Stage 7 source only after all Backend/Docker/CodeQL/SBOM/browser/security gates are green;
-2. backup and restore-verify Production before Alembic `0038`;
-3. activate Backend and a permanent hard-disabled `audio-music-worker` only, proving zero rows/queues/requests/spend;
-4. run one instrumental `$0.04` Clip draft, local QA, Studio revision, checkpoint and complete cleanup;
-5. validate Pro separately only from the accepted same-user draft checksum under a new explicit `$0.08` approval;
-6. music vocals, stems, dedicated SFX, voice transformation and cloning remain separate truth/rights gates; preview models can never become `production_ready`.
+1. externally enable a paid Gemini API tier with non-zero Lyria generation quota, **or** have a Google Cloud administrator enable `aiplatform.googleapis.com` and grant the existing service identity the required Vertex/Service Usage permissions;
+2. after a fresh read-only preflight, run exactly one instrumental `$0.04` Clip request—no automatic retry—and require local QA, Studio revision, checkpoint-before-cleanup and zero residual rows/objects;
+3. validate `$0.08` Pro only after the same user owns an accepted governed Draft checksum and supplies a separate final approval;
+4. continue provider-independent podcast/narration and local audio work while the external music quota gate remains open;
+5. vocals, stems, dedicated SFX, voice transformation and cloning remain separate truth/rights gates; preview models can never become `production_ready`.
