@@ -2,11 +2,11 @@
 
 Date: 2026-08-21
 Updated: 2026-08-23
-Status: **IN PROGRESS — Stages 1–5 Production-accepted; Stage 6 complete stock-voice dubbing source candidate validated with zero provider requests/spend**
+Status: **IN PROGRESS — Stages 1–5 Production-accepted; Stage 6 deployed hard-disabled on Alembic 0037, live acceptance blocked by invalid external credentials with zero generation requests/spend**
 
 ## Truth boundary
 
-This checkpoint separately claims the Production-accepted pinned stock-voice TTS, single-speaker STT, and pseudonymous multi-speaker diarization routes. Stage 6 adds a source-tested complete stock-voice dubbing candidate only; it does **not** yet claim live translation, a rendered Production dub, podcasts/jingles, music, vocals, generated SFX, a transformed voice or a cloned voice.
+This checkpoint separately claims the Production-accepted pinned stock-voice TTS, single-speaker STT, and pseudonymous multi-speaker diarization routes. Stage 6 is now source-merged and deployed hard-disabled with its durable schema and FFmpeg timing-fit path, but it does **not** claim live translation or a rendered Production dub because authenticated model lookups stopped at invalid external credentials before any generation request. Podcasts/jingles, music, vocals, generated SFX, transformed voice and cloned voice remain outside this claim.
 
 Stage 1 performs no provider request, reads no provider credential and estimates no provider cost. Every generated Studio package remains `provider_neutral`, records `external_requests=0`, `external_cost_usd=0`, `estimated_external_cost_usd=null`, and exposes `render_status=not_started`.
 
@@ -652,11 +652,24 @@ The permanent `audio-dubbing-worker` is profile-gated, non-root, capability-drop
 
 Only the granular `complete-stock-voice-dubbing` capability is added at `source_built` with gate `translation-and-segment-speech-runtime-evidence`. No live translation or speech request has been performed for Stage 6, and neither `complete-stock-voice-dubbing` nor the broader `stt-tts-dubbing` capability advances to `runtime_verified` from source evidence.
 
-## Next safe gate — Stage 6 protected deployment and bounded live acceptance
+## Stage 6B — protected disabled Production activation and credential gate
 
-1. commit the final fixes/report, pass protected CI, and merge only if every required gate is green;
-2. take and restore-verify a fresh Production backup before Alembic `0037`;
-3. deploy Backend, the exact FFmpeg 9 Media Worker, and the permanent hard-disabled `audio-dubbing-worker`, proving zero dubbing rows/queues and zero provider activity while all non-target service identities remain unchanged;
-4. perform authenticated free model preflights, then one explicitly capped private translation and one `max_attempts=1` stock-speech request per synthetic segment;
-5. require exact timing-fit, no time stretch/truncation, selective failed-segment replacement, final local mix/master/QA, Studio revision, checkpoint-before-cleanup, and independently verified deletion of every synthetic row/object;
-6. promote only `complete-stock-voice-dubbing` if the complete rendered Production result passes. Music/vocals/SFX and voice transformation/clone remain separate gates.
+- Protected PR #474 passed every required gate and merged head `8a5bf88f685ce2f16bb5814d2bd1d07c07f90171` as `2937f63f0b38b585e411bc38960d229b229dd9f6`.
+- A fresh `11,296,431`-byte PostgreSQL custom-format backup was created and restored into isolated PostgreSQL 16. The restore proved Alembic `20260822_0036`, zero Speech/Transcript rows, and no Dubbing table before migration. Backup/restore evidence SHA-256: `e23d0cbc6d748bcca43d2d532f15fd5569dcb5da66b61b2c9ccd38aeed08b9b8`; dump SHA-256: `f8548b85be6f2b842f4dbf0fe546482fbb71bd091e5c6d9f1c3a9b718155d0ce`.
+- Exact merged candidates were built as Backend `sha256:873225af7f532c0bc33dfc5a4bdb0c3e8a63c027320f820194c6f9db163c0fba` and Media Worker `sha256:0c479fdd91045e30dc7dab295d7b130e899c497428c55fb0d2ce8de58042a841`. Network-none disabled Dubbing smoke and real FFmpeg 9 timing-fit smoke passed with zero credentials, requests or spend. Candidate evidence SHA-256: `277b611f51027bc88c3e07c576986212d5980ca38a5b9843331c96e10e35da86`.
+- Alembic `20260823_0037` was applied from the exact candidate. Candidate Production DB/Object Storage preflight proved zero Dubbing rows, every audio/media queue zero, no Claim and no credential read. Migration/preflight evidence SHA-256: `f34a761a96380bcaa41b0092f9a841088f495b6603f7f6401a6aaf3fd0d11b39`.
+- Backend, the exact FFmpeg 9 Media Worker and the permanent `audio-dubbing-worker` alone were activated. The Dubbing Worker is `healthy/disabled`, `cycles=0`, `errors=0`, stock-voice-only, and returns no transcript, translation or secret. Non-target Production service identities remained unchanged; readiness passed `10/10`; public/portal/owner ingress returned `200/200/302`; all active queues remained zero. Disabled activation evidence SHA-256: `0ff2612a7c4023efd116435bf9c6f00766aac0c08f8ec119d11359b6175c1c71`.
+- P36-0065 restored the previously accepted non-secret `AIOS_ALLOWED_HOSTS` and `AIOS_CONTROL_HOST` policy into the mode-`0600` untracked service environment after the first recreated Backend correctly failed closed with `/ready=503`. The corrected Backend is healthy; no provider boundary was crossed.
+- A free authenticated lookup then returned `401 invalid_api_key` for both pinned OpenAI translation and stock-speech models. No translation request, speech request, automatic retry or spend occurred. Sanitized diagnostic evidence SHA-256: `a9d04c4bb61f28c35cc72ea6fcfd9d41bb0fbea8751d231d613db126c9d979b6`.
+- The granular `complete-stock-voice-dubbing` capability therefore remains `source_built`; `stt-tts-dubbing` remains `source_built`. Final safe-checkpoint SHA-256: `cb97f660916b32fc12e5d003855e1721c41486d53226d279862b695ce239b347`.
+
+## P36-0056 through P36-0068 — deployment and credential wrappers stopped safely
+
+The deployment wrappers failed closed on optional Docker Health fields, the host `python3` name, PostgreSQL initialization handoff, Compose interpolation, hardened image PATH/settings, non-root evidence-file mode, capability snapshot shape, and missing/invalid provider credentials. No stopped wrapper repeated a migration, rebuilt an already accepted candidate unnecessarily, restarted a non-target service, or crossed a provider generation boundary. The only operational correction was P36-0065's restoration of an already approved non-secret host policy.
+
+## Next safe gates
+
+1. Stage 6 live acceptance may resume only after a valid OpenAI credential passes exact free lookups for `gpt-5.6-luna` and `gpt-4o-mini-tts-2025-12-15`; the existing one-attempt aggregate-capped Canary must not be retried automatically after any ambiguous provider submission.
+2. Stage 7 proceeds source-first with Google Lyria 3 as the selected low-cost music route: `lyria-3-clip-preview` is the default 30-second draft tier at `$0.04/request`, while `lyria-3-pro-preview` is allowed only for an explicitly approved final full song at `$0.08/request`.
+3. The current Gemini credential returned `API_KEY_INVALID` during free inventory lookup, so Stage 7 may build contracts, durable authority, cost policy, disabled Worker and local QA, but no Lyria generation may occur until a valid paid-tier credential passes authenticated model inventory.
+4. Music, vocals, dedicated SFX, voice transformation and cloning remain separate truth/rights gates; no preview model may be promoted to `production_ready`.
