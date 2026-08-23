@@ -1,4 +1,9 @@
-"""Fail-closed hard-disabled-by-default Gemini Lyria 3 worker."""
+"""Fail-closed hard-disabled-by-default Google Lyria music worker.
+
+The default Replicate route is asynchronous: submit once, persist Prediction ID,
+then poll that same durable job. A worker restart can never create a second paid
+prediction for the same execution.
+"""
 from __future__ import annotations
 
 import argparse
@@ -10,6 +15,7 @@ import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import select
 
@@ -23,7 +29,6 @@ from app.services.ai_runtime_service import (
     validate_provider_base_url,
 )
 from app.services.audio_music_providers import (
-    ProviderMusicAdapter,
     ProviderMusicFailure,
     ProviderMusicRequest,
     default_music_adapters,
@@ -36,6 +41,8 @@ from app.services.audio_music_runtime import (
 from app.services.media_storage import MediaObjectStore, media_object_store
 
 logger = get_logger(__name__)
+_PENDING_REPLICATE = frozenset({"starting", "processing"})
+_TERMINAL_REPLICATE = frozenset({"succeeded", "failed", "canceled"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +50,8 @@ class LoadedMusicExecution:
     request: ProviderMusicRequest
     credential: str
     base_url: str
+    provider_state: str
+    provider_request_id: str | None
 
 
 def _now() -> datetime:
@@ -55,7 +64,7 @@ class AudioMusicWorker:
         *,
         authority: AudioMusicExecutionAuthority | None = None,
         store: MediaObjectStore | None = None,
-        adapters: dict[str, ProviderMusicAdapter] | None = None,
+        adapters: dict[str, Any] | None = None,
         worker_id: str | None = None,
     ) -> None:
         configured = (worker_id or settings.AUDIO_MUSIC_WORKER_ID).strip()
@@ -85,6 +94,9 @@ class AudioMusicWorker:
             "cycles": self.cycles,
             "errors": self.errors,
             "providers": sorted(self.adapters),
+            "default_provider": "replicate",
+            "automatic_cross_provider_fallback_enabled": False,
+            "durable_prediction_resume": True,
             "models": ["lyria-3-clip-preview", "lyria-3-pro-preview"],
             "default_tier": "draft",
             "draft_fixed_cost_usd": 0.04,
@@ -100,6 +112,8 @@ class AudioMusicWorker:
             "raw_prompt_returned": False,
             "raw_lyrics_returned": False,
             "raw_provider_text_returned": False,
+            "provider_job_id_returned": False,
+            "provider_output_url_returned": False,
             "secret_returned": False,
         }
         self.health_path.parent.mkdir(parents=True, exist_ok=True)
@@ -116,7 +130,11 @@ class AudioMusicWorker:
     async def _load_execution(self, claim: AudioMusicClaim) -> LoadedMusicExecution:
         async with SessionLocal() as session:
             row = await session.get(AudioMusicExecution, claim.execution_id)
-            if row is None or row.status != "running" or row.provider_state != "not_started":
+            if (
+                row is None
+                or row.status != "running"
+                or row.provider_state not in {"not_started", "submitted"}
+            ):
                 raise ProviderMusicFailure("execution_unavailable", retryable=False)
             target = await session.get(MediaAssetNode, row.target_node_id)
             if (
@@ -134,27 +152,33 @@ class AudioMusicWorker:
                 raise ProviderMusicFailure("execution_input", retryable=False)
             if row.lyrics_sha256 and str(music.get("lyrics_sha256") or "") != row.lyrics_sha256:
                 raise ProviderMusicFailure("execution_input", retryable=False)
-            providers = list(
-                (
-                    await session.scalars(
-                        select(AIProvider)
-                        .where(
-                            AIProvider.organization_id
-                            == settings.PROJECT_AI_PLATFORM_PROVIDER_ORGANIZATION_ID,
-                            AIProvider.type == row.provider,
-                            AIProvider.status == "connected",
+            if row.provider == "replicate":
+                credential = str(settings.REPLICATE_API_TOKEN or "").strip()
+                base_url = str(settings.AUDIO_MUSIC_REPLICATE_BASE_URL or "").strip().rstrip("/")
+                if not credential or base_url != "https://api.replicate.com":
+                    raise ProviderMusicFailure("provider_unconfigured", retryable=False)
+            else:
+                providers = list(
+                    (
+                        await session.scalars(
+                            select(AIProvider)
+                            .where(
+                                AIProvider.organization_id
+                                == settings.PROJECT_AI_PLATFORM_PROVIDER_ORGANIZATION_ID,
+                                AIProvider.type == row.provider,
+                                AIProvider.status == "connected",
+                            )
+                            .order_by(AIProvider.id)
                         )
-                        .order_by(AIProvider.id)
-                    )
-                ).all()
-            )
-            if len(providers) != 1 or not provider_enabled(providers[0]):
-                raise ProviderMusicFailure("provider_authority", retryable=False)
-            provider = providers[0]
-            credential = provider_credential(provider)
-            base_url = validate_provider_base_url(provider.type, provider.base_url)
-            if not credential or not base_url:
-                raise ProviderMusicFailure("provider_unconfigured", retryable=False)
+                    ).all()
+                )
+                if len(providers) != 1 or not provider_enabled(providers[0]):
+                    raise ProviderMusicFailure("provider_authority", retryable=False)
+                provider = providers[0]
+                credential = provider_credential(provider) or ""
+                base_url = validate_provider_base_url(provider.type, provider.base_url) or ""
+                if not credential or not base_url:
+                    raise ProviderMusicFailure("provider_unconfigured", retryable=False)
             request = ProviderMusicRequest(
                 provider=row.provider,
                 model=row.model,
@@ -165,11 +189,79 @@ class AudioMusicWorker:
                 lyrics=lyrics,
                 output_format=row.output_format,
             )
+            provider_state = row.provider_state
+            provider_request_id = row.provider_request_id
         return LoadedMusicExecution(
             request=request,
             credential=credential,
             base_url=base_url,
+            provider_state=provider_state,
+            provider_request_id=provider_request_id,
         )
+
+    async def _run_replicate(
+        self,
+        claim: AudioMusicClaim,
+        loaded: LoadedMusicExecution,
+        adapter: Any,
+    ) -> bool:
+        if loaded.provider_state == "not_started":
+            await self.authority.mark_submission_started(claim)
+            submission = await adapter.submit(
+                loaded.request,
+                credential=loaded.credential,
+                base_url=loaded.base_url,
+            )
+            await self.authority.mark_submitted(
+                claim,
+                provider_request_id=submission.prediction_id,
+                provider_response_metadata=submission.metadata,
+            )
+            return True
+
+        job_id = str(loaded.provider_request_id or "").strip()
+        if not job_id:
+            raise ProviderMusicFailure("provider_job_invalid", retryable=False)
+        poll = await adapter.poll(
+            job_id,
+            credential=loaded.credential,
+            base_url=loaded.base_url,
+        )
+        if poll.status in _PENDING_REPLICATE:
+            await self.authority.mark_poll_pending(
+                claim,
+                provider_response_metadata=poll.metadata,
+                delay_seconds=int(settings.AUDIO_MUSIC_POLL_SECONDS),
+                max_polls=int(settings.AUDIO_MUSIC_MAX_POLLS),
+            )
+            return True
+        if poll.status in {"failed", "canceled"}:
+            await self.authority.fail(
+                claim,
+                code=f"provider_prediction_{poll.status}",
+                message="Replicate Lyria prediction reached a terminal failure",
+                ambiguous_submission=False,
+            )
+            return True
+        if poll.status != "succeeded" or not poll.output_url:
+            raise ProviderMusicFailure("provider_poll_response", retryable=True)
+        result = await adapter.download(
+            loaded.request,
+            prediction_id=job_id,
+            output_url=poll.output_url,
+            credential=loaded.credential,
+        )
+        await self.authority.complete_bytes(
+            claim,
+            body=result.body,
+            content_type=result.content_type,
+            provider_request_id=job_id,
+            provider_response_metadata={**result.metadata, **poll.metadata},
+            usage_metadata=result.usage,
+            actual_cost_usd=result.actual_cost_usd,
+            cost_basis=result.cost_basis,
+        )
+        return True
 
     async def run_once(self) -> bool:
         if not settings.AUDIO_MUSIC_LIVE_ENABLED:
@@ -180,14 +272,18 @@ class AudioMusicWorker:
             self.write_health("healthy")
             return False
         self.cycles += 1
+        loaded: LoadedMusicExecution | None = None
         submission_started = False
         try:
             loaded = await self._load_execution(claim)
             adapter = self.adapters.get(loaded.request.provider)
             if adapter is None:
-                raise ProviderMusicFailure(
-                    "provider_adapter_unavailable", retryable=False
-                )
+                raise ProviderMusicFailure("provider_adapter_unavailable", retryable=False)
+            if loaded.request.provider == "replicate":
+                submission_started = loaded.provider_state == "not_started"
+                worked = await self._run_replicate(claim, loaded, adapter)
+                self.write_health("healthy")
+                return worked
             await self.authority.mark_submission_started(claim)
             submission_started = True
             result = await adapter.invoke(
@@ -209,13 +305,42 @@ class AudioMusicWorker:
             return True
         except ProviderMusicFailure as exc:
             self.errors += 1
+            if (
+                loaded is not None
+                and loaded.request.provider == "replicate"
+                and loaded.provider_state == "submitted"
+                and loaded.provider_request_id
+                and exc.retryable
+                and not exc.ambiguous_submission
+            ):
+                try:
+                    await self.authority.mark_poll_pending(
+                        claim,
+                        provider_response_metadata={
+                            "poll_error_code": exc.code,
+                            "poll_error_retryable": True,
+                        },
+                        delay_seconds=int(settings.AUDIO_MUSIC_POLL_SECONDS),
+                        max_polls=int(settings.AUDIO_MUSIC_MAX_POLLS),
+                    )
+                    self.write_health("degraded")
+                    return True
+                except AudioMusicExecutionError:
+                    await self.authority.fail(
+                        claim,
+                        code="provider_poll_exhausted",
+                        message="Replicate Lyria polling exceeded its bounded limit",
+                        ambiguous_submission=False,
+                    )
+                    self.write_health("degraded")
+                    return True
             await self.authority.fail(
                 claim,
                 code=exc.code,
                 message="Lyria music provider execution failed",
-                ambiguous_submission=bool(exc.ambiguous_submission),
+                ambiguous_submission=bool(exc.ambiguous_submission or (submission_started and loaded is None)),
             )
-            self.write_health("degraded")
+            self.write_health("needs_review" if exc.ambiguous_submission else "degraded")
             return True
         except AudioMusicExecutionError:
             self.errors += 1
@@ -233,13 +358,17 @@ class AudioMusicWorker:
                 "audio music worker cycle failed",
                 extra={"execution_id": claim.execution_id},
             )
+            ambiguous = bool(
+                submission_started
+                and (loaded is None or loaded.provider_state == "not_started")
+            )
             await self.authority.fail(
                 claim,
                 code="audio_music_worker_error",
                 message="Music worker execution failed",
-                ambiguous_submission=submission_started,
+                ambiguous_submission=ambiguous,
             )
-            self.write_health("degraded")
+            self.write_health("needs_review" if ambiguous else "degraded")
             return True
 
     async def run_forever(self) -> None:
@@ -256,7 +385,7 @@ def healthcheck() -> int:
         payload = json.loads(path.read_text(encoding="utf-8"))
         age = time.time() - float(payload["checked_at_epoch"])
         status = str(payload.get("status") or "")
-        return 0 if status in {"healthy", "disabled", "degraded"} and age <= 120 else 1
+        return 0 if status in {"healthy", "disabled", "degraded", "needs_review"} and age <= 120 else 1
     except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
         return 1
 

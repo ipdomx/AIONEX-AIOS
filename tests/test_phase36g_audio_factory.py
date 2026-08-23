@@ -97,7 +97,9 @@ def test_provider_inventory_includes_preview_lyria_routes_without_inventing_clon
     assert ("gemini", "gemini-2.5-flash-preview-tts") in models
     assert ("gemini", "gemini-2.5-pro-preview-tts") in models
     assert ("gemini", "lyria-3-clip-preview") in models
+    assert ("replicate", "lyria-3-clip-preview") in models
     assert ("gemini", "lyria-3-pro-preview") in models
+    assert ("replicate", "lyria-3-pro-preview") in models
     assert all(item.official_source.startswith("https://") for item in AUDIO_PROVIDER_CAPABILITIES)
     music = [item for item in AUDIO_PROVIDER_CAPABILITIES if "compose-music" in item.operations]
     assert {item.model for item in music} == {"lyria-3-clip-preview", "lyria-3-pro-preview"}
@@ -107,7 +109,7 @@ def test_provider_inventory_includes_preview_lyria_routes_without_inventing_clon
     plan = build_audio_plan(request())
     snapshot = plan.public_snapshot()
     inventory = snapshot["provider_inventory"]
-    assert len(inventory) == 11
+    assert len(inventory) == 13
     assert {item["inventory_state"] for item in inventory} == {"inventory_visible"}
     realtime = next(item for item in inventory if item["model"] == "gpt-realtime-1.5")
     assert realtime["execution_modes"] == ["realtime"]

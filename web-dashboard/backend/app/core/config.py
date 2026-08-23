@@ -659,6 +659,16 @@ class Settings(BaseSettings):
         default="/tmp/aionex-audio-music-worker-health.json",
         validation_alias="AUDIO_MUSIC_WORKER_HEALTH_FILE",
     )
+    REPLICATE_API_TOKEN: Optional[str] = Field(
+        default=None, validation_alias="REPLICATE_API_TOKEN"
+    )
+    AUDIO_MUSIC_REPLICATE_BASE_URL: str = Field(
+        default="https://api.replicate.com",
+        validation_alias="AUDIO_MUSIC_REPLICATE_BASE_URL",
+    )
+    AUDIO_MUSIC_MAX_POLLS: int = Field(
+        default=200, ge=10, le=2_000, validation_alias="AUDIO_MUSIC_MAX_POLLS"
+    )
     VIDEO_EXECUTION_LIVE_ENABLED: bool = Field(
         default=False, validation_alias="VIDEO_EXECUTION_LIVE_ENABLED"
     )
