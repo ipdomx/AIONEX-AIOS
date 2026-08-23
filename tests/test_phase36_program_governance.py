@@ -155,7 +155,7 @@ def test_phase36g_stage5_source_keeps_diarization_separate_without_overclaiming(
         "audio-cleanup-master": "runtime_verified",
         "lyria-3-music-generation": "source_built",
         "stable-audio-instrumental-generation": "runtime_verified",
-        "song-production": "specified",
+        "song-production": "source_built",
         "podcast-jingle-narration": "source_built",
     }
     for capability_id, maturity in expected.items():
@@ -179,6 +179,10 @@ def test_phase36g_stage5_source_keeps_diarization_separate_without_overclaiming(
     )
     assert capabilities["stable-audio-instrumental-generation"].external_gates == (
         "funded-stability-credential",
+        "music-rights-and-ai-generated-disclosure",
+    )
+    assert capabilities["song-production"].external_gates == (
+        "ace-step-open-song-runtime-acceptance",
         "music-rights-and-ai-generated-disclosure",
     )
     assert "SFX" not in capabilities["audio-cleanup-master"].title
