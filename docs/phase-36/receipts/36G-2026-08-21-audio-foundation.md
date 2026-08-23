@@ -795,3 +795,10 @@ Only `stable-audio-instrumental-generation` advances to `runtime_verified`. The 
 - Root cause: the assertion did not require an exact accessible-name match after the passkey button became part of the live login surface.
 - Fix: use `exact: true` for the primary `Sign in` button. No UI, authentication behavior, provider route, schema, service, or Production data changed.
 - Regression prevention: login boundary assertions with overlapping accessible names must use exact matching. Provider requests/spend caused by this correction: `0 / $0.00`.
+
+## Stage 7D closeout activation — 2026-08-23
+
+- Protected closeout PR #482 passed every required gate and merged head `c30d34c384db9f642f85a7ef8e1856b0ec3201a5` as `d2dadeb2c6fc59762935bc0b0c6dffe1cb136ceb`.
+- Production source advanced by fast-forward only. Backend alone was recreated once on the already accepted image; the image identity stayed unchanged, Music Worker and all other `27` checked services retained their exact identities, and no provider request or spend occurred.
+- The live module snapshot and direct Backend HTTP API now both expose `stable-audio-instrumental-generation=runtime_verified` with only `funded-stability-credential` and `music-rights-and-ai-generated-disclosure` remaining. `36G` correctly remains `in_progress`.
+- Readiness passed `10/10`. Activation evidence SHA-256: `033d05471fce517e8333ac88a55a0c78916d548de99acb79657a0860fa47e7c4`.

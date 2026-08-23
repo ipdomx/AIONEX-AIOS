@@ -1324,3 +1324,7 @@ Create an explicit reviewed initial model policy from the fresh inventories and 
 ##### P36-0085 — exact login-button browser assertion
 
 - Stage 7D CI found one test-only ambiguity: `Sign in` also matched `Sign in with a passkey`. The assertion now uses exact accessible-name matching. The interface and Production were unchanged; provider requests/spend were `0 / $0.00`.
+
+##### Stage 7D closeout activation
+
+- PR #482 merged as `d2dadeb2c6fc59762935bc0b0c6dffe1cb136ceb`. Backend-only recreation activated the granular Stable Audio maturity decision on the unchanged accepted image; all non-target identities were unchanged, readiness passed `10/10`, and provider activity remained `0 / $0.00`. Activation evidence SHA-256 `033d05471fce517e8333ac88a55a0c78916d548de99acb79657a0860fa47e7c4`.
