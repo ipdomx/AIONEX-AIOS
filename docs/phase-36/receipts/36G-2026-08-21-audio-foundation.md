@@ -769,3 +769,11 @@ Stage 7D is **not** runtime-accepted yet. The existing Production Music Worker s
 4. do not send a second Stability request unless the first acceptance fails **before** the Provider boundary or the Owner later replenishes credits and a new explicit request is justified; no automatic retry/cross-provider fallback is allowed;
 5. Lyria direct/Replicate remain lower-price preferred routes only after their quota/billing gates are externally restored; never submit multiple providers for one user request;
 6. vocals, stems, dedicated SFX, voice transformation and cloning remain separate rights/runtime gates.
+
+## P36-0085 — Browser login assertion became ambiguous after passkey support
+
+- Stage/environment: Stage 7D protected PR browser boundary gate; Production untouched.
+- Symptom: Playwright `getByRole("button", {name: "Sign in"})` matched both the primary submit button and the existing `Sign in with a passkey` button, causing strict-mode failure while all ten other browser cases passed.
+- Root cause: the assertion did not require an exact accessible-name match after the passkey button became part of the live login surface.
+- Fix: use `exact: true` for the primary `Sign in` button. No UI, authentication behavior, provider route, schema, service, or Production data changed.
+- Regression prevention: login boundary assertions with overlapping accessible names must use exact matching. Provider requests/spend caused by this correction: `0 / $0.00`.

@@ -1313,3 +1313,7 @@ Create an explicit reviewed initial model policy from the fresh inventories and 
 
 - First Production Media Worker activation exposed a least-privilege startup conflict: `cap_drop: ALL` prevented the generic root entrypoint from chowning unrelated runtime roots. The media volume/temp paths themselves were already private and UID 1000 writable; real S3 preflight passed from a Compose-equivalent UID 1000 one-shot.
 - Corrective candidate runs only Media Worker as `1000:1000`, retains `cap_drop: ALL` + `no-new-privileges`, adds a two-Compose regression contract, and leaves the Production worker stopped until protected merge. Migration 0031 and Backend remain healthy; active Project/Studio/Media queues remain zero.
+
+##### P36-0085 — exact login-button browser assertion
+
+- Stage 7D CI found one test-only ambiguity: `Sign in` also matched `Sign in with a passkey`. The assertion now uses exact accessible-name matching. The interface and Production were unchanged; provider requests/spend were `0 / $0.00`.
