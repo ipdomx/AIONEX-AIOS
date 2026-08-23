@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import json
 import os
 from pathlib import Path
 import wave
@@ -306,6 +307,34 @@ async def test_worker_is_hard_disabled_without_loading_provider(tmp_path: Path) 
     payload = (tmp_path / "health.json").read_text(encoding="utf-8")
     assert '"status": "disabled"' in payload
     assert '"secret_returned": false' in payload
+
+
+def test_health_file_never_persists_runtime_binding_values(tmp_path: Path) -> None:
+    configured = secrets()
+    instance = AudioSongWorker(
+        adapter=FakeAdapter(),  # type: ignore[arg-type]
+        store=LocalMediaObjectStore(tmp_path / "objects"),
+        secrets=configured,
+        live_enabled=False,
+        health_path=tmp_path / "health.json",
+    )
+    instance.write_health("disabled")
+    raw = (tmp_path / "health.json").read_text(encoding="utf-8")
+    payload = json.loads(raw)
+    assert payload["runtime_binding_loaded"] is True
+    assert payload["runtime_binding_returned"] is False
+    assert "runtime_binding" not in payload
+    for private_value in (
+        configured.api_key,
+        configured.endpoint_id,
+        configured.endpoint_id_sha256,
+        configured.runtime_image_repository,
+        configured.runtime_image_index_digest,
+        configured.runtime_image_digest,
+        configured.image_sbom_sha256,
+        configured.handler_source_sha256,
+    ):
+        assert private_value not in raw
 
 
 @pytest.mark.asyncio

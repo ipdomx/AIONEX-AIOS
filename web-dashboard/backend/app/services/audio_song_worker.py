@@ -305,9 +305,6 @@ class AudioSongWorker:
         return self._adapter
 
     def write_health(self, status: str) -> None:
-        secrets_snapshot: dict[str, Any] | None = None
-        if self._secrets is not None:
-            secrets_snapshot = self._secrets.public_snapshot()
         payload = {
             "status": status,
             "worker_id": self.worker_id,
@@ -329,7 +326,8 @@ class AudioSongWorker:
             "raw_concept_returned": False,
             "raw_lyrics_returned": False,
             "secret_returned": False,
-            "runtime_binding": secrets_snapshot,
+            "runtime_binding_loaded": self._secrets is not None,
+            "runtime_binding_returned": False,
         }
         self.health_path.parent.mkdir(parents=True, exist_ok=True)
         temporary = self.health_path.with_name(
