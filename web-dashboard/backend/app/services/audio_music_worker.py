@@ -157,6 +157,11 @@ class AudioMusicWorker:
                 base_url = str(settings.AUDIO_MUSIC_REPLICATE_BASE_URL or "").strip().rstrip("/")
                 if not credential or base_url != "https://api.replicate.com":
                     raise ProviderMusicFailure("provider_unconfigured", retryable=False)
+            elif row.provider == "stability":
+                credential = str(settings.STABILITY_API_KEY or "").strip()
+                base_url = str(settings.AUDIO_MUSIC_STABILITY_BASE_URL or "").strip().rstrip("/")
+                if not credential or base_url != "https://api.stability.ai":
+                    raise ProviderMusicFailure("provider_unconfigured", retryable=False)
             else:
                 providers = list(
                     (
@@ -337,7 +342,7 @@ class AudioMusicWorker:
             await self.authority.fail(
                 claim,
                 code=exc.code,
-                message="Lyria music provider execution failed",
+                message="Governed music provider execution failed",
                 ambiguous_submission=bool(exc.ambiguous_submission or (submission_started and loaded is None)),
             )
             self.write_health("needs_review" if exc.ambiguous_submission else "degraded")
@@ -347,7 +352,7 @@ class AudioMusicWorker:
             await self.authority.fail(
                 claim,
                 code="music_result_rejected",
-                message="Lyria result failed the governed completion contract",
+                message="Music result failed the governed completion contract",
                 ambiguous_submission=False,
             )
             self.write_health("degraded")

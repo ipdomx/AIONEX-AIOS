@@ -14,7 +14,7 @@ The Phase 36 registry remains truthful:
 
 - `36G=in_progress` and `current_batch=36G`;
 - `audio-cleanup-master`, granular `stock-voice-tts`, granular single-speaker `governed-stt-transcript`, granular `multi-speaker-diarization`, and granular `complete-stock-voice-dubbing` are `runtime_verified`; broader `stt-tts-dubbing` and `podcast-jingle-narration` remain `source_built`;
-- granular `lyria-3-music-generation` is `source_built` behind paid-credential, preview-runtime, rights and SynthID gates; `voice-transformation` and broad `song-production` remain `specified`;
+- granular `lyria-3-music-generation` and `stable-audio-instrumental-generation` are `source_built` behind provider/runtime/rights disclosure gates; `voice-transformation` and broad `song-production` remain `specified`;
 - no other 36G capability is promoted to `provider_connected`, `runtime_verified`, `scaled`, or `production_ready`; Phase 36G remains `in_progress`.
 
 ## Implemented governed audio factory
@@ -747,11 +747,33 @@ Source validation after the safety corrections: Music/Audio/Phase36 contracts `3
 
 `lyria-3-music-generation` remains `source_built` until a protected merge, hard-disabled Production activation, fresh free Replicate preflight and one real `$0.04` instrumental Clip produce accepted audio plus local QA/Studio evidence.
 
+## Stage 7D — Stability Stable Audio 2.5 funded fallback candidate
+
+Protected PR #479 merged the durable Replicate fallback as `eabdd3bed520314edcdd9e32c755f5b7bcd53fc5`. A fresh authenticated Replicate preflight proved the account and `google/lyria-3`/`google/lyria-3-pro` model visibility, but the one explicitly bounded Clip prediction attempt returned HTTP `402` **before a Prediction was created**. `prediction_created=false`, output was absent, actual cost remained `null`, there was no retry, and the consolidated checkpoint returned Music/Media/Speech/Transcript/Dubbing active queues to zero with no pending provider cost. Replicate therefore remains a dormant lower-price route until its billing account is funded; it is not retried automatically.
+
+The next already-configured provider is Stability AI. Official Stability documentation records Stable Audio 2.5 text-to-audio at `20` credits per successful generation, `1 credit = $0.01`, failed generations are not charged, output supports MP3/WAV, and the model supports up to three minutes of 44.1 kHz stereo audio. The current Stage 7D route is intentionally narrower: one **30-second instrumental MP3** Draft at `$0.20`, `max_attempts=1`, no automatic retry or cross-provider fallback, no vocal-generation claim, and the existing `$0.40` monthly user ceiling allows at most two successful Stability generations per user per month. Official sources: `https://platform.stability.ai/pricing`, `https://platform.stability.ai/docs/api-reference`, and `https://stability.ai/license`.
+
+Authenticated read-only Stability preflight passed `GET /v1/user/account` and `GET /v1/user/balance` with generation requests/spend `0 / $0.00`. The account had exactly `25` credits (`$0.25`), sufficient for **one** Stable Audio 2.5 acceptance request without an Owner top-up. Preflight evidence SHA-256: `f8ddbdda4ae394e485337166b4df452bc2c28b513a5109c9cb7cc66d0ab7ad3f`.
+
+Stage 7D source reuses the existing Alembic `20260823_0038` `audio_music_executions` authority and the accepted local FFmpeg Media DAG; no Migration or parallel job table is introduced. The granular `stable-audio-instrumental-generation=source_built` capability is separate from Lyria. Rights require explicit commercial authorization, Provider terms acceptance and AI-generated disclosure; named-person/style imitation is rejected. `preview_model=false` and `synthid_disclosure_required=false` are persisted truthfully rather than inheriting Lyria metadata.
+
+Current source verification before protected PR: Stable Audio plan contracts `8/8`; Provider transport `19/19` including exact `$0.20` success accounting, terminal `402/429` without retry, and ambiguous network/5xx without resubmit; Worker contracts `8/8`; disposable PostgreSQL 16 + Redis 7 affected Music regression `40/40`, `audio_music_executions=0`, critical hits `0/0`. The database test proves two `$0.20` reservations reach the retained `$0.40` monthly user ceiling and a third request is rejected before Claim. Focused PostgreSQL/Redis evidence SHA-256: `6f96d56630162f31e2dba040571665b84a238e1043493985a6772adb56cf69dc`. Full Backend then completed `953 passed, 1 skipped, 2 warnings, 0 failed` at `66.05%` coverage with Music rows `0`, PostgreSQL/Redis critical hits `0/0`, and disposable resources removed; Backend evidence SHA-256: `e151414a4e4ab6426f6c2dec9e35d28abf9b030a2aecef157388cc5171be3045`. Core verification accounted for all `790` tests without masking environment differences: the Alpine image passed `783` with seven harness-only legacy failures, then Phase 28 reran `9/9` in a corrected writable namespace and the three OpenSSL-dependent Phase24 tests passed `3/3` on the host executable; consolidated Core evidence SHA-256: `499a5c9ae00a60d1a98dc6bd75e9483843c46478f5ef887cb1ab56710831b01e`. Final Ruff/Backend Mypy across `225` source files, changed-file AST, diff, Phase36 reporting, workflow YAML, repository security and secret-hygiene gates passed; static evidence SHA-256: `eb22c72b09ce39ea7657bfd6586f21c0718dad4ef5468bcf834cf0a78f27752b`. Every Stage 7D source/preflight gate records generation requests `0`, spend `$0.00`, and `production_modified=false`.
+
+Stage 7D is **not** runtime-accepted yet. The existing Production Music Worker stays hard-disabled and no Stability generation has been sent.
+
 ## Next safe gates
 
-1. protect/merge the Replicate fallback source candidate, then deploy Backend/Music Worker hard-disabled with the real Replicate token and zero Music rows/requests;
-2. repeat the authenticated account/model preflight with zero generation, then run exactly one Replicate `google/lyria-3` instrumental Clip at the existing `$0.04` cap—one submit only, durable Prediction ID, poll-only recovery;
-3. require MP3 validation, local FFmpeg cleanup/master/waveform/export QA, Studio revision, checkpoint-before-cleanup and independently verified zero residual rows/objects;
-4. validate `$0.08` `google/lyria-3-pro` only after the same user owns the accepted governed Draft checksum and supplies separate final approval;
-5. direct Gemini may be reconsidered only after non-zero quota is proven; never automatically submit both providers for the same user request;
-6. vocals, stems, dedicated SFX, voice transformation and cloning remain separate truth/rights gates; preview models can never become `production_ready`.
+1. finish complete Core/Backend/static/reporting/security validation for Stage 7D and protect it in a dedicated PR;
+2. after protected merge, recreate only Backend/Music Worker if required while keeping `AUDIO_MUSIC_LIVE_ENABLED=false`, and repeat Stability account/balance preflight with zero generation;
+3. run exactly one `$0.20` 30-second instrumental Stable Audio 2.5 request, require MP3 validation, local FFmpeg cleanup/master/waveform/export QA, Studio revision, checkpoint-before-cleanup and independently verified zero residual rows/objects;
+4. do not send a second Stability request unless the first acceptance fails **before** the Provider boundary or the Owner later replenishes credits and a new explicit request is justified; no automatic retry/cross-provider fallback is allowed;
+5. Lyria direct/Replicate remain lower-price preferred routes only after their quota/billing gates are externally restored; never submit multiple providers for one user request;
+6. vocals, stems, dedicated SFX, voice transformation and cloning remain separate rights/runtime gates.
+
+## P36-0085 — Browser login assertion became ambiguous after passkey support
+
+- Stage/environment: Stage 7D protected PR browser boundary gate; Production untouched.
+- Symptom: Playwright `getByRole("button", {name: "Sign in"})` matched both the primary submit button and the existing `Sign in with a passkey` button, causing strict-mode failure while all ten other browser cases passed.
+- Root cause: the assertion did not require an exact accessible-name match after the passkey button became part of the live login surface.
+- Fix: use `exact: true` for the primary `Sign in` button. No UI, authentication behavior, provider route, schema, service, or Production data changed.
+- Regression prevention: login boundary assertions with overlapping accessible names must use exact matching. Provider requests/spend caused by this correction: `0 / $0.00`.
