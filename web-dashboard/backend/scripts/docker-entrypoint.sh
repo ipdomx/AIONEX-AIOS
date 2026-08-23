@@ -68,7 +68,19 @@ if [ "$(id -u)" = "0" ]; then
     if [ "${AUDIO_SONG_ENTRYPOINT_SECRET_BOOTSTRAP_ONLY:-false}" = "true" ]; then
         media_storage_root="${MEDIA_STORAGE_ROOT-/var/lib/aionex/media-assets}"
         if [ -n "$media_storage_root" ]; then
-            install -d -m 0700 -o aionex -g aionex "$media_storage_root"
+            if [ -e "$media_storage_root" ]; then
+                if [ ! -d "$media_storage_root" ] || [ -L "$media_storage_root" ]; then
+                    echo "Audio song media storage root is unsafe" >&2
+                    exit 1
+                fi
+                media_storage_meta="$(stat -c '%a:%u:%g' "$media_storage_root")"
+                if [ "$media_storage_meta" != "700:1000:1000" ]; then
+                    chown aionex:aionex "$media_storage_root"
+                    chmod 0700 "$media_storage_root"
+                fi
+            else
+                install -d -m 0700 -o aionex -g aionex "$media_storage_root"
+            fi
         fi
         exec su-exec aionex "$@"
     fi

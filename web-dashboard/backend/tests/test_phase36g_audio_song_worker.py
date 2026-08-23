@@ -560,6 +560,11 @@ def test_production_compose_keeps_song_worker_hard_disabled_and_non_root_runtime
     assert early_drop in audio_block
     assert entrypoint.index(early_drop, audio_start) < entrypoint.index('project_reference_source=', audio_start)
     assert 'media_storage_root="${MEDIA_STORAGE_ROOT-/var/lib/aionex/media-assets}"' in audio_block
+    assert 'if [ ! -d "$media_storage_root" ] || [ -L "$media_storage_root" ]; then' in audio_block
+    assert "media_storage_meta=\"$(stat -c '%a:%u:%g' \"$media_storage_root\")\"" in audio_block
+    assert 'if [ "$media_storage_meta" != "700:1000:1000" ]; then' in audio_block
+    assert 'chown aionex:aionex "$media_storage_root"' in audio_block
+    assert 'chmod 0700 "$media_storage_root"' in audio_block
     assert 'install -d -m 0700 -o aionex -g aionex "$media_storage_root"' in audio_block
     assert 'exec su-exec aionex "$@"' in audio_block
     assert 'DAC_OVERRIDE' not in block
