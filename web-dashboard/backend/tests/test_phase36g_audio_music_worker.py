@@ -376,3 +376,104 @@ def test_audio_music_worker_compose_is_fail_closed_nonroot_and_profiled() -> Non
         assert 'app.services.audio_music_worker' in block
         assert 'security_opt: ["no-new-privileges:true"]' in block
         assert 'cap_drop: ["ALL"]' in block
+
+
+STABILITY_REQUEST = ProviderMusicRequest(
+    provider="stability",
+    model="stable-audio-2.5",
+    operation="generate-music",
+    tier="draft",
+    prompt="Original governed instrumental music with a clean ending.",
+    instrumental_only=True,
+    lyrics="",
+)
+
+
+class FakeStabilityAdapter:
+    def __init__(self, failure: ProviderMusicFailure | None = None) -> None:
+        self.failure = failure
+        self.calls = 0
+
+    async def invoke(self, request, *, credential: str, base_url: str):
+        self.calls += 1
+        assert request == STABILITY_REQUEST
+        assert credential == "stability-secret-token"
+        assert base_url == "https://api.stability.ai"
+        if self.failure is not None:
+            raise self.failure
+        return ProviderMusicResult(
+            body=MP3,
+            content_type="audio/mpeg",
+            request_id="stable-req-1",
+            metadata={
+                "provider": "stability",
+                "model": "stable-audio-2.5",
+                "preview_model": False,
+                "ai_generated_disclosure_required": True,
+            },
+            usage={
+                "official_credits_per_success": 20,
+                "official_credit_usd": 0.01,
+                "official_fixed_request_usd": 0.20,
+            },
+            actual_cost_usd=0.20,
+        )
+
+
+def loaded_stability() -> LoadedMusicExecution:
+    return LoadedMusicExecution(
+        request=STABILITY_REQUEST,
+        credential="stability-secret-token",
+        base_url="https://api.stability.ai",
+        provider_state="not_started",
+        provider_request_id=None,
+    )
+
+
+@pytest.mark.asyncio
+async def test_stability_worker_submits_exactly_once_and_completes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "AUDIO_MUSIC_LIVE_ENABLED", True)
+    monkeypatch.setattr(settings, "AUDIO_MUSIC_WORKER_HEALTH_FILE", str(tmp_path / "health.json"))
+    authority = FakeAuthority(AudioMusicClaim("stable-exec-1", "lease-1", 1))
+    adapter = FakeStabilityAdapter()
+    worker = StubMusicWorker(
+        loaded=loaded_stability(),
+        authority=authority,  # type: ignore[arg-type]
+        store=LocalMediaObjectStore(tmp_path / "objects"),
+        adapters={"stability": adapter},
+        worker_id="music-stability",
+    )
+    assert await worker.run_once() is True
+    assert adapter.calls == 1
+    assert authority.submission_started == ["stable-exec-1"]
+    assert len(authority.completed) == 1
+    assert authority.completed[0]["actual_cost_usd"] == 0.20
+    assert authority.failed == []
+
+
+@pytest.mark.asyncio
+async def test_stability_worker_ambiguous_failure_never_retries(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "AUDIO_MUSIC_LIVE_ENABLED", True)
+    monkeypatch.setattr(settings, "AUDIO_MUSIC_WORKER_HEALTH_FILE", str(tmp_path / "health.json"))
+    authority = FakeAuthority(AudioMusicClaim("stable-exec-2", "lease-2", 1))
+    adapter = FakeStabilityAdapter(
+        ProviderMusicFailure(
+            "provider_submission_ambiguous",
+            retryable=False,
+            ambiguous_submission=True,
+        )
+    )
+    worker = StubMusicWorker(
+        loaded=loaded_stability(),
+        authority=authority,  # type: ignore[arg-type]
+        store=LocalMediaObjectStore(tmp_path / "objects"),
+        adapters={"stability": adapter},
+        worker_id="music-stability-ambiguous",
+    )
+    assert await worker.run_once() is True
+    assert adapter.calls == 1
+    assert authority.completed == []
+    assert len(authority.failed) == 1
+    assert authority.failed[0]["ambiguous_submission"] is True
+    health = json.loads((tmp_path / "health.json").read_text())
+    assert health["status"] == "needs_review"

@@ -376,3 +376,141 @@ async def test_replicate_output_url_is_restricted_to_delivery_host() -> None:
             credential="replicate-token",
         )
     assert captured.value.code == "provider_output_url_invalid"
+
+
+@pytest.mark.asyncio
+async def test_stability_audio_25_success_is_fixed_twenty_cents() -> None:
+    from app.services.audio_music_providers import StabilityStableAudioMusicAdapter
+
+    calls = 0
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        assert req.method == "POST"
+        assert req.url == "https://api.stability.ai/v2beta/audio/stable-audio-2/text-to-audio"
+        assert req.headers.get("authorization") == "Bearer stability-secret-token"
+        assert req.headers.get("accept") == "audio/*"
+        body = req.content.decode("latin-1", errors="ignore")
+        assert "stable-audio-2.5" in body
+        assert "Instrumental only, no vocals." in body
+        return httpx.Response(
+            200,
+            headers={"content-type": "audio/mpeg", "x-request-id": "stable-req-1"},
+            content=MP3_BYTES,
+        )
+
+    adapter = StabilityStableAudioMusicAdapter(transport=httpx.MockTransport(handler))
+    result = await adapter.invoke(
+        ProviderMusicRequest(
+            provider="stability",
+            model="stable-audio-2.5",
+            operation="generate-music",
+            tier="draft",
+            prompt="Original cinematic instrumental music with a clean ending.",
+            instrumental_only=True,
+            lyrics="",
+        ),
+        credential="stability-secret-token",
+        base_url="https://api.stability.ai",
+    )
+    assert calls == 1
+    assert result.actual_cost_usd == 0.20
+    assert result.request_id == "stable-req-1"
+    assert result.metadata["preview_model"] is False
+    assert result.metadata["ai_generated_disclosure_required"] is True
+    assert result.metadata["synthid_watermark_expected"] is False
+    assert result.usage["official_credits_per_success"] == 20
+    assert result.usage["official_credit_usd"] == 0.01
+    assert "stability-secret-token" not in repr(result.metadata)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "status,expected",
+    [(402, "provider_billing"), (429, "provider_rate_limited")],
+)
+async def test_stability_terminal_http_errors_never_retry(status: int, expected: str) -> None:
+    from app.services.audio_music_providers import StabilityStableAudioMusicAdapter
+
+    calls = 0
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(status, json={"error": {"status": "blocked", "code": status}})
+
+    adapter = StabilityStableAudioMusicAdapter(transport=httpx.MockTransport(handler))
+    request = ProviderMusicRequest(
+        provider="stability",
+        model="stable-audio-2.5",
+        operation="generate-music",
+        tier="draft",
+        prompt="Original instrumental music with a clean ending.",
+        instrumental_only=True,
+        lyrics="",
+    )
+    with pytest.raises(ProviderMusicFailure) as captured:
+        await adapter.invoke(
+            request,
+            credential="stability-secret-token",
+            base_url="https://api.stability.ai",
+        )
+    assert calls == 1
+    assert captured.value.code == expected
+    assert captured.value.retryable is False
+    assert captured.value.safe_to_resubmit is False
+    assert captured.value.ambiguous_submission is False
+
+
+@pytest.mark.asyncio
+async def test_stability_network_or_server_failure_is_ambiguous_and_not_resubmitted() -> None:
+    from app.services.audio_music_providers import StabilityStableAudioMusicAdapter
+
+    request = ProviderMusicRequest(
+        provider="stability",
+        model="stable-audio-2.5",
+        operation="generate-music",
+        tier="draft",
+        prompt="Original instrumental music with a clean ending.",
+        instrumental_only=True,
+        lyrics="",
+    )
+
+    network_calls = 0
+
+    def network(req: httpx.Request) -> httpx.Response:
+        nonlocal network_calls
+        network_calls += 1
+        raise httpx.ReadTimeout("timeout", request=req)
+
+    adapter = StabilityStableAudioMusicAdapter(transport=httpx.MockTransport(network))
+    with pytest.raises(ProviderMusicFailure) as network_error:
+        await adapter.invoke(
+            request,
+            credential="stability-secret-token",
+            base_url="https://api.stability.ai",
+        )
+    assert network_calls == 1
+    assert network_error.value.code == "provider_submission_ambiguous"
+    assert network_error.value.ambiguous_submission is True
+    assert network_error.value.safe_to_resubmit is False
+
+    server_calls = 0
+
+    def server(_: httpx.Request) -> httpx.Response:
+        nonlocal server_calls
+        server_calls += 1
+        return httpx.Response(503, json={"error": {"status": "UNAVAILABLE"}})
+
+    adapter = StabilityStableAudioMusicAdapter(transport=httpx.MockTransport(server))
+    with pytest.raises(ProviderMusicFailure) as server_error:
+        await adapter.invoke(
+            request,
+            credential="stability-secret-token",
+            base_url="https://api.stability.ai",
+        )
+    assert server_calls == 1
+    assert server_error.value.code == "provider_submission_ambiguous"
+    assert server_error.value.ambiguous_submission is True
+    assert server_error.value.safe_to_resubmit is False

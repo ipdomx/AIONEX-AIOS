@@ -537,7 +537,15 @@ Scope:
 - Output download is restricted to HTTPS `replicate.delivery` and never receives the Replicate bearer token. Rights/SynthID/named-artist restrictions and the `$0.40` monthly reservation / `10` draft / `3` final limits remain unchanged.
 - Verification: root contracts `36/36`, no-network Provider/Worker `23/23`, PostgreSQL/Redis affected regression `54/54`, Core `782/782`, Backend `945 passed` at `66.07%`, Ruff/Mypy/AST PASS. No provider generation or Production mutation occurred. Consolidated source evidence SHA-256 `78349892066e047ff58ebe60a10a99dcbf0ca76731e2a7f6d4db7caec0beea3b`.
 
-Next safe gate: protected merge -> hard-disabled Backend/Music-Worker activation -> free Replicate preflight -> exactly one `$0.04` `google/lyria-3` instrumental Clip -> local QA/Studio/cleanup. Pro remains a separate `$0.08` gate after an accepted same-user Draft. Preview models can never be promoted to `production_ready`.
+##### Stage 7D — Stability Stable Audio 2.5 funded fallback candidate
+
+- PR #479 merged the Replicate safety route, but its one bounded live prediction attempt stopped at HTTP `402` before Prediction creation, with no output, no retry, no pending cost and zero active Music/Media queues. Replicate remains lower-price but externally billing-blocked.
+- Stability authenticated account/balance preflight passed with `25` credits (`$0.25`) and zero generation/spend. Official API pricing is `20` credits = `$0.20` per successful Stable Audio 2.5 generation; failed generations are not charged.
+- Stage 7D reuses `audio_music_executions`/Media DAG with no migration. It adds a separate source-built `stable-audio-instrumental-generation` route: 30-second instrumental draft, one attempt, `$0.20` cap, no automatic retry/cross-provider fallback, truthful non-preview/non-SynthID metadata, commercial-rights/terms/AI-generated disclosure gates.
+- Focused validation: Stable Audio Factory `8/8`, Provider `19/19`, Worker `8/8`, disposable PostgreSQL/Redis Music regression `40/40`, rows `0`, critical hits `0/0`. Two Stability reservations exhaust the retained `$0.40` monthly user cap; a third is rejected pre-Claim. Preflight SHA-256 `f8ddbdda4ae394e485337166b4df452bc2c28b513a5109c9cb7cc66d0ab7ad3f`; DB evidence SHA-256 `6f96d56630162f31e2dba040571665b84a238e1043493985a6772adb56cf69dc`. Full Backend is `953 passed, 1 skipped` at `66.05%`, Backend evidence `e151414a4e4ab6426f6c2dec9e35d28abf9b030a2aecef157388cc5171be3045`; Core functional coverage is all `790` tests through the documented split harness, evidence `499a5c9ae00a60d1a98dc6bd75e9483843c46478f5ef887cb1ab56710831b01e`; final static/security evidence `eb22c72b09ce39ea7657bfd6586f21c0718dad4ef5468bcf834cf0a78f27752b`.
+- Production remains hard-disabled for music; Stage 7D has made zero generation requests and spent `$0.00`.
+
+Next safe gate: complete full source gates -> protected Stage 7D PR -> disabled activation -> fresh Stability balance preflight -> exactly one `$0.20` instrumental acceptance with local QA/Studio/checkpoint/cleanup. Lyria/Replicate stay preferred lower-price routes only when their external quota/billing gates are restored.
 
 
 Exit gate:

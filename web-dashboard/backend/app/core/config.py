@@ -666,6 +666,13 @@ class Settings(BaseSettings):
         default="https://api.replicate.com",
         validation_alias="AUDIO_MUSIC_REPLICATE_BASE_URL",
     )
+    STABILITY_API_KEY: str | None = Field(
+        default=None, validation_alias="STABILITY_API_KEY"
+    )
+    AUDIO_MUSIC_STABILITY_BASE_URL: str = Field(
+        default="https://api.stability.ai",
+        validation_alias="AUDIO_MUSIC_STABILITY_BASE_URL",
+    )
     AUDIO_MUSIC_MAX_POLLS: int = Field(
         default=200, ge=10, le=2_000, validation_alias="AUDIO_MUSIC_MAX_POLLS"
     )

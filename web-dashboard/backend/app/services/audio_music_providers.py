@@ -589,6 +589,152 @@ class ReplicateLyriaMusicAdapter:
             actual_cost_usd=fixed_cost,
         )
 
+
+
+class StabilityStableAudioMusicAdapter:
+    """Synchronous one-attempt Stable Audio 2.5 text-to-audio transport."""
+
+    _MODEL = "stable-audio-2.5"
+    _FIXED_COST_USD = 0.20
+    _CREDITS_PER_SUCCESS = 20
+    _CREDIT_USD = 0.01
+    _DURATION_SECONDS = 30
+
+    def __init__(
+        self,
+        *,
+        transport: httpx.AsyncBaseTransport | None = None,
+        timeout_seconds: float = 240.0,
+        max_content_bytes: int = 67_108_864,
+    ) -> None:
+        self.transport = transport
+        self.timeout_seconds = float(timeout_seconds)
+        self.max_content_bytes = int(max_content_bytes)
+
+    @staticmethod
+    def _headers(credential: str) -> dict[str, str]:
+        token = credential.strip()
+        if not token:
+            raise ProviderMusicFailure("provider_unconfigured", retryable=False)
+        return {
+            "Authorization": f"Bearer {token}",
+            "Accept": "audio/*",
+            "stability-client-id": "AIONEX",
+            "stability-client-version": "36G-stage7d",
+        }
+
+    @classmethod
+    def _validate_request(cls, request: ProviderMusicRequest) -> None:
+        if request.provider != "stability" or request.operation != "generate-music":
+            raise ProviderMusicFailure("provider_operation_unsupported", retryable=False)
+        if request.model != cls._MODEL or request.tier != "draft":
+            raise ProviderMusicFailure("provider_model_unsupported", retryable=False)
+        if request.output_format != "mp3":
+            raise ProviderMusicFailure("provider_format_unsupported", retryable=False)
+        if not 8 <= len(request.prompt.strip()) <= 10_000 or "\x00" in request.prompt:
+            raise ProviderMusicFailure("provider_prompt_invalid", retryable=False)
+        if not request.instrumental_only or request.lyrics.strip():
+            raise ProviderMusicFailure("provider_lyrics_invalid", retryable=False)
+
+    async def invoke(
+        self,
+        request: ProviderMusicRequest,
+        *,
+        credential: str,
+        base_url: str,
+    ) -> ProviderMusicResult:
+        self._validate_request(request)
+        root = base_url.rstrip("/")
+        if root != "https://api.stability.ai":
+            raise ProviderMusicFailure("provider_base_url_invalid", retryable=False)
+        data = {
+            "prompt": request.prompt.strip() + "\n\nInstrumental only, no vocals.",
+            "output_format": "mp3",
+            "duration": str(self._DURATION_SECONDS),
+            "model": self._MODEL,
+        }
+        # A dummy empty multipart file mirrors Stability's official text-to-audio
+        # request shape and lets httpx own the multipart Content-Type boundary.
+        files = {"none": ("", b"")}
+        try:
+            async with httpx.AsyncClient(
+                transport=self.transport,
+                timeout=self.timeout_seconds,
+                follow_redirects=False,
+            ) as client:
+                response = await client.post(
+                    f"{root}/v2beta/audio/stable-audio-2/text-to-audio",
+                    headers=self._headers(credential),
+                    data=data,
+                    files=files,
+                )
+        except (httpx.TimeoutException, httpx.NetworkError) as exc:
+            raise ProviderMusicFailure(
+                "provider_submission_ambiguous",
+                retryable=False,
+                ambiguous_submission=True,
+            ) from exc
+        if response.status_code >= 400:
+            # Stability documents billing only for successful generations.
+            # Every HTTP error remains terminal for this user request; 5xx is
+            # conservatively ambiguous because the synchronous POST crossed the
+            # provider boundary and must never be auto-resubmitted.
+            if response.status_code >= 500:
+                raise ProviderMusicFailure(
+                    "provider_submission_ambiguous",
+                    retryable=False,
+                    ambiguous_submission=True,
+                    http_status=response.status_code,
+                    metadata=_safe_error_metadata(response),
+                )
+            failure = _failure_for_response(response)
+            failure.retryable = False
+            failure.safe_to_resubmit = False
+            failure.ambiguous_submission = False
+            raise failure
+        content_type = str(response.headers.get("content-type") or "").split(";", 1)[0].strip().lower()
+        if content_type not in {"audio/mpeg", "audio/mp3", "application/octet-stream"}:
+            raise ProviderMusicFailure("provider_audio_type", retryable=False)
+        body = bytes(response.content)
+        inspected = inspect_mp3_bytes(body, max_content_bytes=self.max_content_bytes)
+        request_id = (
+            response.headers.get("x-request-id")
+            or response.headers.get("x-stability-request-id")
+        )
+        return ProviderMusicResult(
+            body=body,
+            content_type="audio/mpeg",
+            request_id=request_id,
+            metadata={
+                "provider": "stability",
+                "model": self._MODEL,
+                "tier": "draft",
+                "preview_model": False,
+                "provider_output_format": "mp3",
+                "provider_sample_rate_hz": 44_100,
+                "provider_channels": 2,
+                "nominal_duration_seconds": self._DURATION_SECONDS,
+                "returned_text_sha256": None,
+                "returned_text_characters": 0,
+                "raw_returned_text_returned": False,
+                "instrumental_only": True,
+                "ai_generated_disclosure_required": True,
+                "synthid_watermark_expected": False,
+                **inspected,
+            },
+            usage={
+                "provider_usage_reported": False,
+                "official_credits_per_success": self._CREDITS_PER_SUCCESS,
+                "official_credit_usd": self._CREDIT_USD,
+                "official_fixed_request_usd": self._FIXED_COST_USD,
+                "failed_generations_charged": False,
+                "pricing_revision": "2026-08-23",
+                "preview_model": False,
+                "billing_route": "stability-stable-audio-2.5",
+            },
+            actual_cost_usd=self._FIXED_COST_USD,
+        )
+
 def default_music_adapters(
     *,
     timeout_seconds: float = 180.0,
@@ -601,6 +747,10 @@ def default_music_adapters(
         ),
         "replicate": ReplicateLyriaMusicAdapter(
             timeout_seconds=min(timeout_seconds, 60.0),
+            max_content_bytes=max_content_bytes,
+        ),
+        "stability": StabilityStableAudioMusicAdapter(
+            timeout_seconds=max(timeout_seconds, 240.0),
             max_content_bytes=max_content_bytes,
         ),
     }

@@ -44,6 +44,12 @@ async def test_phase36_public_capability_snapshot_is_truthful_and_non_secret() -
         "lyria-preview-runtime-evidence",
         "music-rights-and-synthid-disclosure",
     )
+    assert capabilities["stable-audio-instrumental-generation"]["maturity"] == "source_built"
+    assert capabilities["stable-audio-instrumental-generation"]["external_gates"] == (
+        "funded-stability-credential",
+        "stable-audio-2.5-runtime-evidence",
+        "music-rights-and-ai-generated-disclosure",
+    )
     assert capabilities["song-production"]["maturity"] == "specified"
     assert capabilities["voice-transformation"]["maturity"] == "specified"
     assert payload["completion"] < 100

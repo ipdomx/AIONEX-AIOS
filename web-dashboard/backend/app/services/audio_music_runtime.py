@@ -33,9 +33,12 @@ from app.services.audio_music_providers import ProviderMusicFailure, inspect_mp3
 from app.services.media_storage import MediaObjectStore, media_object_store
 
 SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
-_MODEL_ROUTE = {
-    "draft": ("lyria-3-clip-preview", 0.04),
-    "final": ("lyria-3-pro-preview", 0.08),
+_MODEL_ROUTES = {
+    ("gemini", "draft"): ("lyria-3-clip-preview", 0.04),
+    ("gemini", "final"): ("lyria-3-pro-preview", 0.08),
+    ("replicate", "draft"): ("lyria-3-clip-preview", 0.04),
+    ("replicate", "final"): ("lyria-3-pro-preview", 0.08),
+    ("stability", "draft"): ("stable-audio-2.5", 0.20),
 }
 _ALLOWED_COST_BASES = frozenset({"official_fixed_request"})
 _MUSIC_MONTHLY_CAP_USD = 0.40
@@ -102,6 +105,9 @@ class AudioMusicExecutionSpec:
     operation: str = "generate-music"
     output_format: str = "mp3"
     max_attempts: int = 1
+    preview_model: bool = True
+    synthid_disclosure_required: bool = True
+    ai_generated_disclosure_required: bool = True
 
 
 def _now() -> datetime:
@@ -157,11 +163,18 @@ def _validate_sha(value: str | None, label: str, *, required: bool) -> None:
 
 
 def _validate_spec(spec: AudioMusicExecutionSpec) -> tuple[str, float]:
-    if spec.provider not in {"gemini", "replicate"} or spec.operation != "generate-music":
+    if spec.operation != "generate-music":
         raise AudioMusicExecutionError("music provider/operation is outside the launch matrix")
-    route = _MODEL_ROUTE.get(spec.tier)
+    route = _MODEL_ROUTES.get((spec.provider, spec.tier))
     if route is None or route[0] != spec.model:
-        raise AudioMusicExecutionError("music tier/model is outside the launch matrix")
+        raise AudioMusicExecutionError("music provider/tier/model is outside the launch matrix")
+    if spec.provider == "stability":
+        if not spec.instrumental_only or spec.lyrics.strip():
+            raise AudioMusicExecutionError("Stage 7D Stability route is instrumental only")
+        if spec.preview_model or spec.synthid_disclosure_required:
+            raise AudioMusicExecutionError("Stable Audio 2.5 truth metadata is invalid")
+        if not spec.ai_generated_disclosure_required:
+            raise AudioMusicExecutionError("Stable Audio AI-generated disclosure is required")
     if spec.output_format != "mp3" or spec.max_attempts != 1:
         raise AudioMusicExecutionError("music output or attempt limit is invalid")
     if not 8 <= len(spec.idempotency_key.strip()) <= 160:
@@ -272,8 +285,9 @@ async def create_audio_music_execution(
         "rights_evidence_sha256": spec.rights_evidence_sha256,
         "instrumental_only": spec.instrumental_only,
         "named_artist_imitation": False,
-        "preview_model": True,
-        "synthid_disclosure_required": True,
+        "preview_model": bool(spec.preview_model),
+        "synthid_disclosure_required": bool(spec.synthid_disclosure_required),
+        "ai_generated_disclosure_required": bool(spec.ai_generated_disclosure_required),
     }
     row = AudioMusicExecution(
         id=uuid_str(),
@@ -305,8 +319,8 @@ async def create_audio_music_execution(
         final_generation_approved=spec.final_generation_approved,
         final_approval_evidence_sha256=spec.final_approval_evidence_sha256,
         prior_draft_checksum=spec.prior_draft_checksum,
-        preview_model=True,
-        synthid_disclosure_required=True,
+        preview_model=bool(spec.preview_model),
+        synthid_disclosure_required=bool(spec.synthid_disclosure_required),
         request_options=dict(spec.request_options),
         output_format=spec.output_format,
         attempts=0,
@@ -713,7 +727,10 @@ class AudioMusicExecutionAuthority:
                 )
             except ProviderMusicFailure as exc:
                 raise AudioMusicExecutionError("music MP3 validation failed") from exc
-            expected = _MODEL_ROUTE[row.tier][1]
+            route = _MODEL_ROUTES.get((row.provider, row.tier))
+            if route is None or route[0] != row.model:
+                raise AudioMusicExecutionError("music completion route is unsupported")
+            expected = route[1]
             actual = round(float(actual_cost_usd), 9)
             if actual != expected or actual > round(float(row.max_cost_usd), 9):
                 raise AudioMusicExecutionError("music actual cost does not match approved fixed price")
@@ -809,7 +826,7 @@ class AudioMusicExecutionAuthority:
             target.provenance = [
                 *(target.provenance or []),
                 {
-                    "type": "provider-lyria-music",
+                    "type": "provider-governed-music",
                     "provider": row.provider,
                     "model": row.model,
                     "tier": row.tier,
@@ -818,7 +835,11 @@ class AudioMusicExecutionAuthority:
                     "lyrics_sha256": row.lyrics_sha256,
                     "output_checksum": checksum,
                     "fencing_token": claim.fencing_token,
-                    "preview_model": True,
+                    "preview_model": bool(row.preview_model),
+                    "synthid_disclosure_required": bool(row.synthid_disclosure_required),
+                    "ai_generated_disclosure_required": bool(
+                        (row.request_options or {}).get("ai_generated_disclosure_required", True)
+                    ),
                     "completed_at": completed.isoformat(),
                 },
             ]
@@ -872,8 +893,11 @@ class AudioMusicExecutionAuthority:
                     "lyrics_sha256": row.lyrics_sha256,
                     "output_checksum": checksum,
                     "fixed_cost_usd": float(actual_cost_usd),
-                    "preview_model": True,
-                    "synthid_disclosure_required": True,
+                    "preview_model": bool(row.preview_model),
+                    "synthid_disclosure_required": bool(row.synthid_disclosure_required),
+                    "ai_generated_disclosure_required": bool(
+                        (row.request_options or {}).get("ai_generated_disclosure_required", True)
+                    ),
                 },
             }
             session.add(
