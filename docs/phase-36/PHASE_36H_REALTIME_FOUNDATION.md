@@ -173,3 +173,13 @@ Part 1 has no migration and no production activation. Rollback is a source rever
 - Regression evidence: zero-dead + market-readiness + Phase 36 governance focused set passes `18/18`; backend capability + Part 1 passes `6/6`; Ruff and focused Mypy pass.
 - Rollout/rollback: fix is source-only on PR #491; no production rollout occurred.
 - Residual risk: the refreshed protected CI run remains authoritative before merge.
+
+## 11. Part 2A — Durable admission schema
+
+Status: **source and isolated migration verified; protected PR/merge pending**.
+
+Part 2A adds Alembic `20260824_0040` and four durable tenant-scoped authorities: `realtime_tenant_quotas`, `realtime_rooms`, `realtime_participants`, and `realtime_admission_grants`. Admission credentials remain hash-only, grants are bounded and single-use, and room/participant/grant relations use composite `(resource_id, organization_id)` foreign keys so PostgreSQL—not only service code—rejects cross-tenant links.
+
+A disposable PostgreSQL 18 acceptance passed `0040 -> 0039 -> 0040`, with table presence `4 -> 0 -> 4`, supporting unique constraints `3 -> 0 -> 3`, ten actively rejected invalid tenant/bounds cases, zero accepted cross-tenant links, and no raw admission credential persistence. Evidence SHA-256: `8b2ae400e54b3322d012074f0ff49dcf97fb41a4edb575f59977fa4e939e6ed1`.
+
+Part 2A does not implement the admission service, presence leases, quota counters, API routes, SFU/TURN/recording integration, production migration, production restart, provider request, or load certification. Those boundaries remain fail-closed. The detailed receipt is `docs/phase-36/receipts/36H-2026-08-24-realtime-admission-schema.md`.
