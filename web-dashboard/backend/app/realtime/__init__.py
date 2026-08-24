@@ -8,6 +8,17 @@ from app.realtime.admission import (
 )
 from app.realtime.backplane import RedisRealtimeBackplane, RealtimeBackplane
 from app.realtime.hub import DistributedRealtimeHub
+from app.realtime.media_policy import (
+    AdaptiveMediaProfile,
+    AdaptiveQualityDecision,
+    CallMediaPlan,
+    ParticipantMediaAuthority,
+    RealtimeMediaPolicy,
+    RealtimeMediaPolicyError,
+    RealtimeQualityObservation,
+    TrackPublicationPlan,
+    TrackSource,
+)
 from app.realtime.sfu import (
     LiveKitCandidateAdapter,
     LiveKitCandidateConfig,
@@ -19,6 +30,15 @@ from app.realtime.sfu import (
 )
 
 __all__ = [
+    "AdaptiveMediaProfile",
+    "AdaptiveQualityDecision",
+    "CallMediaPlan",
+    "ParticipantMediaAuthority",
+    "RealtimeMediaPolicy",
+    "RealtimeMediaPolicyError",
+    "RealtimeQualityObservation",
+    "TrackPublicationPlan",
+    "TrackSource",
     "AdmissionGrantResult",
     "DistributedRealtimeHub",
     "PresenceLeaseResult",

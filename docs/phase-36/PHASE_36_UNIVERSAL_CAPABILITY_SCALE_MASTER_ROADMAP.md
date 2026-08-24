@@ -594,6 +594,8 @@ Implementation ledger — 2026-08-24 / Part 2A source candidate:
 - Disposable PostgreSQL 18 acceptance passed `0040 -> 0039 -> 0040`: realtime tables `4 -> 0 -> 4`, supporting unique constraints `3 -> 0 -> 3`, ten invalid tenant/bounds cases rejected, zero cross-tenant links accepted. Evidence SHA-256 `8b2ae400e54b3322d012074f0ff49dcf97fb41a4edb575f59977fa4e939e6ed1`.
 - Focused Backend regression `30/30`, Ruff, focused Mypy, Alembic-head discovery and diff checks pass. This remains source-only: no production migration, service restart, admission API, SFU/TURN/recording activation, provider request, spend, or 1000-user claim occurred.
 
+- Part 4 source adds deterministic 1:1/group call, microphone/camera/screen-share track policy, q/h/f simulcast ladders, adaptive-stream/dynacast flags, and packet-loss/jitter/RTT/bitrate hysteresis decisions; recording and all live provider/network mutation remain disabled.
+
 Exit gate:
 - concurrent realtime load tests, failover and recovery pass at the defined scale profile; no single-process signaling bottleneck.
 

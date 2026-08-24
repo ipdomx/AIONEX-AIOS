@@ -95,8 +95,8 @@ CAPABILITIES: Final[tuple[Phase36Capability, ...]] = (
     Phase36Capability("podcast-jingle-narration", "audio", "Podcasts, jingles, narration and multi-speaker production", "36G", "source_built", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",)),
 
     # Realtime and 2D/3D/XR.
-    Phase36Capability("realtime-chat-calling", "realtime", "Realtime chat and 1:1/group voice-video calling", "36H", "source_built", ("docs/phase-28/PHASE_28_FULL_PROJECT_LIFECYCLE.md", "docs/phase-36/receipts/36H-2026-08-24-realtime-foundation.md", "docs/phase-36/receipts/36H-2026-08-24-sfu-turn-source.md"), ("public-stun-turn-and-sfu-capacity",)),
-    Phase36Capability("realtime-streaming-recording", "realtime", "Streaming, screen share and recording", "36H", "specified", ("docs/phase-36/receipts/36H-2026-08-24-realtime-foundation.md",)),
+    Phase36Capability("realtime-chat-calling", "realtime", "Realtime chat and 1:1/group voice-video calling", "36H", "source_built", ("docs/phase-28/PHASE_28_FULL_PROJECT_LIFECYCLE.md", "docs/phase-36/receipts/36H-2026-08-24-realtime-foundation.md", "docs/phase-36/receipts/36H-2026-08-24-sfu-turn-source.md", "docs/phase-36/receipts/36H-2026-08-24-realtime-media-policy.md"), ("public-stun-turn-and-sfu-capacity",)),
+    Phase36Capability("realtime-streaming-recording", "realtime", "Streaming, screen share and recording", "36H", "specified", ("docs/phase-36/receipts/36H-2026-08-24-realtime-foundation.md", "docs/phase-36/receipts/36H-2026-08-24-realtime-media-policy.md")),
     Phase36Capability("two-d-animation-games", "3d-xr", "2D animation and game production", "36I", "locally_executed"),
     Phase36Capability("three-d-production", "3d-xr", "3D assets, materials, animation, scenes and environments", "36I", "runtime_verified", ("docs/phase-34/PHASE_34G_PRODUCTION_E2E_COMPLETION.md",)),
     Phase36Capability("xr-ar-vr", "3d-xr", "WebXR, AR and VR experiences", "36I", "locally_executed", (), ("xr-device-validation",)),
