@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from typing import Any
 
 import pytest
@@ -160,3 +162,73 @@ async def test_stale_last_socket_is_removed_and_tenant_subscription_is_released(
     assert hub.connected_count("tenant-a") == 0
     assert backplane.unsubscribe_calls == ["tenant-a"]
     await hub.stop()
+
+
+@pytest.mark.asyncio
+async def test_redis_backplane_waits_for_first_subscription_before_listening(monkeypatch) -> None:
+    from app.db import redis as redis_module
+    from app.realtime.backplane import RedisRealtimeBackplane
+
+    class FakePubSub:
+        def __init__(self) -> None:
+            self.channels: set[str] = set()
+            self.get_message_calls = 0
+            self.closed = False
+
+        async def subscribe(self, channel: str) -> None:
+            self.channels.add(channel)
+
+        async def unsubscribe(self, *channels: str) -> None:
+            for channel in channels:
+                self.channels.discard(channel)
+
+        async def get_message(self, **_kwargs):
+            self.get_message_calls += 1
+            if not self.channels:
+                raise RuntimeError("listener started before subscription")
+            await asyncio.sleep(0.01)
+            return None
+
+        async def aclose(self) -> None:
+            self.closed = True
+
+    class FakeRedis:
+        def __init__(self) -> None:
+            self.pubsub_instance = FakePubSub()
+
+        def pubsub(self, **_kwargs):
+            return self.pubsub_instance
+
+        async def publish(self, _channel: str, _payload: str) -> int:
+            return 1
+
+    fake = FakeRedis()
+
+    async def fake_get_redis():
+        return fake
+
+    monkeypatch.setattr(redis_module, "get_redis", fake_get_redis)
+    delivered: list[tuple[str, dict]] = []
+
+    async def deliver(tenant: str, event: dict) -> None:
+        delivered.append((tenant, event))
+
+    backplane = RedisRealtimeBackplane()
+    await backplane.start(deliver)
+    assert backplane.started is True
+    await asyncio.sleep(0.02)
+    assert fake.pubsub_instance.get_message_calls == 0
+
+    await backplane.subscribe("tenant-a")
+    await asyncio.sleep(0.03)
+    assert fake.pubsub_instance.get_message_calls > 0
+
+    await backplane.unsubscribe("tenant-a")
+    calls_after_unsubscribe = fake.pubsub_instance.get_message_calls
+    await asyncio.sleep(0.03)
+    assert fake.pubsub_instance.get_message_calls == calls_after_unsubscribe
+    assert backplane.started is True
+
+    await backplane.stop()
+    assert backplane.started is False
+    assert fake.pubsub_instance.closed is True

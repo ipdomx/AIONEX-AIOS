@@ -163,3 +163,55 @@ def test_part6a_fails_closed_on_leak_or_media_activation() -> None:
     assert result["passed"] is False
     assert result["checks"]["no_cross_tenant_leaks"] is False
     assert result["checks"]["live_media_remained_disabled"] is False
+
+
+def test_part6b_evaluator_is_fail_closed() -> None:
+    from app.realtime.scale import RealtimeScaleRuntimeEvidence, evaluate_part6b
+
+    passing = RealtimeScaleRuntimeEvidence(
+        requested_admissions=1000,
+        admitted_grants=1000,
+        consumed_grants=1000,
+        connected_participants=1000,
+        admission_rejections=0,
+        tenant_count=10,
+        room_count=10,
+        node_failures=1,
+        failed_node_participants=250,
+        reaped_presences=250,
+        recovered_presences=250,
+        stale_redis_subscribers=0,
+        redis_delivered_events=1000,
+        redis_cross_tenant_leaks=0,
+        redis_duplicate_deliveries=0,
+        redis_failed_deliveries=0,
+        p95_admission_ms=50.0,
+        p95_redis_delivery_ms=25.0,
+    )
+    assert evaluate_part6b(passing)["passed"] is True
+
+    failing = RealtimeScaleRuntimeEvidence(
+        requested_admissions=1000,
+        admitted_grants=999,
+        consumed_grants=999,
+        connected_participants=999,
+        admission_rejections=1,
+        tenant_count=10,
+        room_count=10,
+        node_failures=1,
+        failed_node_participants=250,
+        reaped_presences=249,
+        recovered_presences=249,
+        stale_redis_subscribers=1,
+        redis_delivered_events=999,
+        redis_cross_tenant_leaks=1,
+        redis_duplicate_deliveries=1,
+        redis_failed_deliveries=1,
+        p95_admission_ms=2500.0,
+        p95_redis_delivery_ms=750.0,
+        live_media_activated=True,
+        production_mutated=True,
+    )
+    result = evaluate_part6b(failing)
+    assert result["passed"] is False
+    assert result["claims"]["production_ready"] is False
