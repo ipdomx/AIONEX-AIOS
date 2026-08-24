@@ -585,6 +585,7 @@ Implementation ledger — 2026-08-24 / Part 1 started:
 - Reporting truth correction: previously claimed `phase36g-final-closeout` artifacts are absent on the server and authoritative 36G reports still show the external live gate. 36H work proceeds independently without relabeling 36G song production as runtime-verified.
 - Part 2A merged as PR #492 with durable tenant quotas/rooms/participants/hash-only admission grants and Alembic `0040`; production remains on `0039`.
 - Part 2B source adds transactional per-tenant room/admission backpressure, single-use HMAC-derived/hash-only grants, and durable presence lease/fencing via Alembic `0041`; isolated two-session admission serialization and `0041 -> 0040 -> 0041` migration round-trip pass. Production route wiring, migrations, SFU/TURN/recording and scale claims remain disabled.
+- Part 3 source adds a provider-neutral SFU contract plus fail-closed LiveKit `v1.13.5` / Coturn `4.17.2` candidates using immutable Linux/amd64 image digests. Compose is profile-gated/internal-only with no host ports; Kubernetes candidates are `replicas: 0` with no Services and default-deny ingress/egress. No provider call, production migration, route rewire, media port, firewall/DNS/tunnel change, Egress/recording activation or scale claim occurred.
 
 Implementation ledger — 2026-08-24 / Part 2A source candidate:
 - Added Alembic `20260824_0040` and durable `realtime_tenant_quotas`, `realtime_rooms`, `realtime_participants`, and `realtime_admission_grants` authorities.
