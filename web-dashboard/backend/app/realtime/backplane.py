@@ -112,10 +112,7 @@ class RedisRealtimeBackplane:
             await pubsub.unsubscribe(*channels)
         if listener is not None:
             listener.cancel()
-            try:
-                await listener
-            except asyncio.CancelledError:
-                pass
+            await asyncio.gather(listener, return_exceptions=True)
         if pubsub is not None:
             closer = getattr(pubsub, "aclose", None) or getattr(pubsub, "close", None)
             if closer is not None:

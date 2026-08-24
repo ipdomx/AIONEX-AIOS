@@ -159,3 +159,17 @@ Part 1 has no migration and no production activation. Rollback is a source rever
 - Regression evidence: focused Mypy for `phase36_program.py` passes; Phase 36 governance tests pass `13/13`; backend capability + Part 1 tests pass `6/6`.
 - Rollout/rollback: source-only; revert the status extension if the program model is redesigned.
 - Residual risk: the 32 unchanged-module Mypy findings remain existing technical debt outside this Part 1 scope and are not claimed resolved.
+
+### 36H-P1-004 — First protected CI run found two Part 1 regressions
+
+- Date/time: 2026-08-24T09:10Z.
+- Environment/component: protected PR #491; root zero-dead/market-readiness audit and VIP browser boundary test.
+- Visible symptom/user impact: `Core Owner / Release / Web Contracts` failed because `RedisRealtimeBackplane.stop()` used a bare `pass` in `CancelledError` handling, which violates the repository zero-dead-code audit. `Owner and VIP browser boundaries` failed because the mocked `current_batch` was updated to `36H` while one visible assertion still expected `36G`. Production was not deployed or changed.
+- Detection/reproduction: protected GitHub Actions PR checks plus a local full root-suite reproduction for the zero-dead finding.
+- Root cause: Part 1 changed the batch lifecycle label and added cancellation handling but did not update the corresponding browser assertion or account for the repository's explicit bare-pass prohibition.
+- Why existing checks did not prevent it: the initial focused test set did not include the browser spec or the root zero-dead/market-readiness audits.
+- Fix: updated the VIP assertion to `36H`; replaced the cancellation `try/except/pass` with `asyncio.gather(..., return_exceptions=True)`.
+- Security/tenant review: no tenant/security boundary weakened; the distributed transport remains dormant and production-unwired.
+- Regression evidence: zero-dead + market-readiness + Phase 36 governance focused set passes `18/18`; backend capability + Part 1 passes `6/6`; Ruff and focused Mypy pass.
+- Rollout/rollback: fix is source-only on PR #491; no production rollout occurred.
+- Residual risk: the refreshed protected CI run remains authoritative before merge.

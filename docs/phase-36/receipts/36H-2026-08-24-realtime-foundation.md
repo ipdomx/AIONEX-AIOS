@@ -46,3 +46,7 @@ Source-only revert. There is no migration, production activation, provider job, 
 ## Validation note
 
 A broad Mypy invocation initially reported 33 errors across 17 files. Exactly one was on the new Part 1 registry change (`external_gate` missing from `BatchStatus`) and was fixed. The other 32 findings are in unchanged modules outside this Part 1 changed surface and are **not** claimed fixed. Focused Mypy on the Part 1 registry and realtime source now passes.
+
+## Protected CI correction
+
+The first PR #491 run found two Part 1 regressions: the root zero-dead audit rejected a bare `pass` in cancellation handling, and the VIP browser test still asserted visible batch `36G` after its mock moved to `36H`. Both were fixed before merge. Regression set: zero-dead + market-readiness + Phase 36 governance `18/18` PASS; backend capability + Part 1 `6/6` PASS; Ruff/Mypy PASS. No production deployment occurred during the failed run.
