@@ -93,6 +93,8 @@ Implement explicit-consent recording via Egress, bounded storage/retention, arti
 
 ### 36H.6 — Scale, failover, recovery and production gate
 
+Part 6A adds an isolated deterministic 1,000-client distributed-backplane acceptance harness. It exercises four hubs, ten tenant scopes, cross-node fanout, one node loss, reconnection to a surviving node, stale-subscription cleanup, fail-closed evidence evaluation and an explicit no-live-media/no-production-mutation claim boundary. This is websocket/backplane source acceptance only; it is not live media scale or production readiness.
+
 Run 1000-user admission/WebSocket load, concurrent realtime media scale profile, node loss/draining/recovery, TURN failure paths, recording failover and tenant-isolation tests. Only after evidence passes may 36H be raised to `scaled`/`production_ready`.
 
 ## 7. Part 1 acceptance
