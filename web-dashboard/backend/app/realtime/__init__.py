@@ -54,3 +54,13 @@ __all__ = [
     "SFURoomPlan",
     "TurnServerReference",
 ]
+
+from app.realtime.recording import (
+    ParticipantRecordingConsent,
+    RecordingAuthority,
+    RecordingPlan,
+    RecordingPolicy,
+    RecordingPolicyError,
+    RecordingRuntimeDisabledError,
+    StudioRecordingIngestionPlan,
+)
