@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from app.core.ai_runtime import ai_realtime_hub
+from app.realtime.runtime import realtime_event_runtime
 from app.core.auth import auth_service
 from app.db.base import SessionLocal
 from app.services.free_tier import FREE_USER_ROLE_NAME
@@ -12,7 +12,7 @@ router = APIRouter()
 
 @router.get("/status")
 async def websocket_status():
-    return {"connected_clients": ai_realtime_hub.connected_count()}
+    return {"connected_clients": realtime_event_runtime.connected_count()}
 
 
 @router.websocket("/connect")
@@ -30,18 +30,25 @@ async def websocket_connect(websocket: WebSocket, token: str):
         return
 
     organization_id = user.organization_id
-    await ai_realtime_hub.connect(organization_id, websocket)
-    await websocket.send_json(
-        {
-            "type": "connected",
-            "organization_id": organization_id,
-            "user_id": user.id,
-        }
-    )
     try:
+        await realtime_event_runtime.connect(organization_id, websocket)
+    except Exception:
+        await websocket.close(code=1013)
+        return
+
+    try:
+        await websocket.send_json(
+            {
+                "type": "connected",
+                "organization_id": organization_id,
+                "user_id": user.id,
+            }
+        )
         while True:
             message = await websocket.receive_text()
             if message == "ping":
                 await websocket.send_json({"type": "pong"})
     except WebSocketDisconnect:
-        await ai_realtime_hub.disconnect(organization_id, websocket)
+        return
+    finally:
+        await realtime_event_runtime.disconnect(organization_id, websocket)
