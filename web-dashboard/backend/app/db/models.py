@@ -4821,6 +4821,10 @@ class RealtimeParticipant(Base, TimestampMixin):
             "connection_count >= 0",
             name="ck_realtime_participant_connection_count",
         ),
+        CheckConstraint(
+            "presence_fencing_token >= 0",
+            name="ck_realtime_participant_presence_fencing_token",
+        ),
         Index(
             "ix_realtime_participants_org_room_status",
             "organization_id",
@@ -4832,6 +4836,12 @@ class RealtimeParticipant(Base, TimestampMixin):
             "organization_id",
             "user_id",
             "status",
+        ),
+        Index(
+            "ix_realtime_participants_presence_lease",
+            "organization_id",
+            "status",
+            "presence_lease_expires_at",
         ),
     )
 
@@ -4854,6 +4864,12 @@ class RealtimeParticipant(Base, TimestampMixin):
     hidden: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     node_id: Mapped[str | None] = mapped_column(String(160), index=True)
     connection_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    presence_fencing_token: Mapped[int] = mapped_column(
+        BigInteger, default=0, nullable=False
+    )
+    presence_lease_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), index=True
+    )
     capabilities: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     joined_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_seen_at: Mapped[datetime | None] = mapped_column(

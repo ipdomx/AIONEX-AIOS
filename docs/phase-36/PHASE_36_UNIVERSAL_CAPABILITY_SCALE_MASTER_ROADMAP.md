@@ -583,6 +583,8 @@ Implementation ledger — 2026-08-24 / Part 1 started:
 - LiveKit is the first provider-neutral SFU/signaling adapter candidate, but `v1.13.5` is not yet an approved production pin because a current upstream high-room-churn leak report requires bounded soak evidence before selection.
 - Part 1 is source-only/dormant: build a tenant-scoped distributed Redis backplane and deterministic multi-node fanout tests. No SFU/TURN/recording activation, firewall change, service restart, migration, provider request or paid spend is allowed.
 - Reporting truth correction: previously claimed `phase36g-final-closeout` artifacts are absent on the server and authoritative 36G reports still show the external live gate. 36H work proceeds independently without relabeling 36G song production as runtime-verified.
+- Part 2A merged as PR #492 with durable tenant quotas/rooms/participants/hash-only admission grants and Alembic `0040`; production remains on `0039`.
+- Part 2B source adds transactional per-tenant room/admission backpressure, single-use HMAC-derived/hash-only grants, and durable presence lease/fencing via Alembic `0041`; isolated two-session admission serialization and `0041 -> 0040 -> 0041` migration round-trip pass. Production route wiring, migrations, SFU/TURN/recording and scale claims remain disabled.
 
 Implementation ledger — 2026-08-24 / Part 2A source candidate:
 - Added Alembic `20260824_0040` and durable `realtime_tenant_quotas`, `realtime_rooms`, `realtime_participants`, and `realtime_admission_grants` authorities.
