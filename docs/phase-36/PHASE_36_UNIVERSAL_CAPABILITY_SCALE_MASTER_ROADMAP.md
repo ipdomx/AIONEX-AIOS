@@ -1353,3 +1353,5 @@ Create an explicit reviewed initial model policy from the fresh inventories and 
 ##### P36-0085 — exact login-button browser assertion
 
 - Stage 7D CI found one test-only ambiguity: `Sign in` also matched `Sign in with a passkey`. The assertion now uses exact accessible-name matching. The interface and Production were unchanged; provider requests/spend were `0 / $0.00`.
+
+- 2026-08-24 — 36H.5 source-only recording authority completed: explicit all-participant consent, bounded retention, hash-only provenance, disabled Egress and Creative Studio ingestion plans; no runtime/media-port/production activation.

@@ -327,3 +327,9 @@ Quality policy is pure and network-free: packet loss, jitter, RTT and available 
 Validation: Part 4 + Part 3 tests `22/22 PASS`; Phase 36 governance/zero-dead/market-readiness `18/18 PASS`; capability snapshot `1/1 PASS`; Ruff and focused Mypy PASS. Two validation-environment mistakes were recorded: an initially too-short synthetic test secret, and a root-cwd capability invocation that inherited the legacy root Telegram dotenv value. Both stopped before any production mutation and were rerun correctly.
 
 Not completed by Part 4: no production migrations `0040/0041`, signaling route rewire, LiveKit/Coturn runtime, provider credential acceptance, public media ports, real audio/video/screen packets, live adaptive bitrate application, Egress/recording, Creative Studio ingestion, 1000-user load, failover or recovery certification.
+
+### Part 5 source completion — recording and Studio integration
+
+Part 5 adds a pure `RecordingAuthority` requiring explicit consent from every active participant before producing any Egress plan. Consent evidence is deterministic and hash-only, retention is bounded, recording identity is opaque, and the Creative Studio ingestion plan preserves provenance and retention. Both Egress and Studio mutations remain hard-disabled. `realtime-streaming-recording` is now `source_built`, not runtime verified.
+
+Not completed by Part 5: no Egress/LiveKit/Coturn runtime, recording artifact, provider credential acceptance, Studio row mutation, production migration, restart, public media ports, retention deletion runtime, failover, 1000-user scale, or recovery certification.
