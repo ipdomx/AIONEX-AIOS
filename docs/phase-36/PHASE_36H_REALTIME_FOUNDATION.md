@@ -176,10 +176,108 @@ Part 1 has no migration and no production activation. Rollback is a source rever
 
 ## 11. Part 2A — Durable admission schema
 
-Status: **source and isolated migration verified; protected PR/merge pending**.
+Status: **merged as PR #492; source/schema verified; production migration intentionally not applied**.
 
 Part 2A adds Alembic `20260824_0040` and four durable tenant-scoped authorities: `realtime_tenant_quotas`, `realtime_rooms`, `realtime_participants`, and `realtime_admission_grants`. Admission credentials remain hash-only, grants are bounded and single-use, and room/participant/grant relations use composite `(resource_id, organization_id)` foreign keys so PostgreSQL—not only service code—rejects cross-tenant links.
 
 A disposable PostgreSQL 18 acceptance passed `0040 -> 0039 -> 0040`, with table presence `4 -> 0 -> 4`, supporting unique constraints `3 -> 0 -> 3`, ten actively rejected invalid tenant/bounds cases, zero accepted cross-tenant links, and no raw admission credential persistence. Evidence SHA-256: `8b2ae400e54b3322d012074f0ff49dcf97fb41a4edb575f59977fa4e939e6ed1`.
 
 Part 2A does not implement the admission service, presence leases, quota counters, API routes, SFU/TURN/recording integration, production migration, production restart, provider request, or load certification. Those boundaries remain fail-closed. The detailed receipt is `docs/phase-36/receipts/36H-2026-08-24-realtime-admission-schema.md`.
+
+## 12. Part 2B — Transactional admission, backpressure and presence fencing
+
+Status: **source implemented and isolated runtime verified; production remains unwired and unmigrated**.
+
+Part 2B adds `app.realtime.admission.RealtimeAdmissionAuthority`, using the tenant quota row as the database serialization boundary so independent API nodes make one consistent room/admission decision without a process-local lock. Room creation is idempotent and bounded by tenant room/participant policy. Admission enforces per-tenant and per-room participant limits, publisher and screen-share limits, and a durable rolling-window admission-rate limit before creating a short-lived single-use grant.
+
+The internal grant bearer value is deterministic HMAC authority material derived from the grant UUID and the existing application secret; PostgreSQL stores only its SHA-256 digest. An idempotent retry can therefore reproduce the still-valid grant without persisting raw credential material. Consumption is row-locked, tenant-scoped, expiry/revocation checked, and single-use. No provider token, SFU room identifier, or external request is created in Part 2B.
+
+Alembic `20260824_0041` extends `realtime_participants` with `presence_fencing_token` and `presence_lease_expires_at`. Presence claim, heartbeat, release and stale-lease reaping require the current node/fencing token. A live lease blocks takeover by another node; an expired lease can be taken over only with a strictly newer fencing token, so stale heartbeats/releases fail closed. The existing room fencing token also has an atomic row-locked advancement operation for future provider ownership.
+
+Isolated PostgreSQL 18 validation passed `0041 -> 0040 -> 0041`; both presence columns, the non-negative fencing check, and both presence indexes disappear on downgrade and return on upgrade. Focused 36H/backend tests pass `15/15`; Phase 36 governance + zero-dead + market-readiness tests pass `18/18`; Ruff and focused Mypy pass. A two-session concurrency test demonstrates that the per-tenant quota lock serializes simultaneous admission attempts: with capacity one, exactly one request is accepted and the other receives participant backpressure.
+
+Not completed in Part 2B: no production migration `0040/0041`, no public/user realtime admission API rewire, no LiveKit/SFU/TURN/STUN/Egress activation, no screen-share media path, no provider credentials, no firewall/DNS/tunnel change, no service restart, no provider request/spend, and no 1000-user or failover certification. Those remain later 36H gates.
+
+### 36H-P2B-001 — Repository-root dotenv polluted the first schema validation
+
+- Date/time: 2026-08-24T12:21Z.
+- Environment/component: local source validation only; Backend Settings loading.
+- Symptom/impact: the first schema pytest collection raised a Pydantic Settings error before tests ran; production was unaffected.
+- Detection/reproduction: running Backend pytest from `/opt/AIOS` caused Settings to load the repository-root `.env`, whose legacy Telegram allow-list value is not valid JSON for the current `List[int]` field.
+- Root cause: Settings resolves `.env` relative to process working directory; the validation command used the repository root instead of the Backend directory.
+- Why prior tests did not prevent it: CI and normal Backend validation execute with explicit environment/service settings and do not depend on that root dotenv value.
+- Fix: reran the tests from `web-dashboard/backend` with explicit `ENVIRONMENT=test`, synthetic `SECRET_KEY`, and disposable test `DATABASE_URL`.
+- Security/tenant review: no production secret was read or copied and no tenant record was accessed.
+- Regression evidence: schema tests passed `5/5`; later combined 36H tests passed.
+- Rollout/rollback: validation-only; no rollout or rollback required.
+- Residual risk: the legacy root dotenv value remains unrelated configuration debt and is not modified in 36H.2B.
+
+### 36H-P2B-002 — First disposable PostgreSQL port was already occupied
+
+- Date/time: 2026-08-24T12:23Z.
+- Environment/component: isolated PostgreSQL 18 test container startup.
+- Symptom/impact: Docker rejected `127.0.0.1:55441` before the disposable container could start; production was unaffected.
+- Detection/reproduction: Docker returned a host-port bind conflict; `ss` confirmed an existing listener on 55441.
+- Root cause: the chosen local test port was already allocated by an unrelated process/environment.
+- Why prior checks did not prevent it: no fixed exclusive port reservation exists for disposable developer test databases.
+- Fix: used unused loopback port `55491`; the PostgreSQL 18 container then started and all migration/runtime tests passed.
+- Security/tenant review: binding remained loopback-only; no firewall, production Docker network, or production database changed.
+- Regression evidence: `0041 -> 0040 -> 0041` passed and the test container was removed after evidence capture.
+- Rollout/rollback: test-only; container removal completed.
+- Residual risk: future disposable tests should probe/select an unused loopback port before start.
+
+### 36H-P2B-003 — One closing Ruff command used repository-relative paths from Backend cwd
+
+- Date/time: 2026-08-24T12:38Z.
+- Environment/component: final local static validation only.
+- Symptom/impact: Ruff returned four `E902 No such file or directory` findings without inspecting source; no product/runtime impact.
+- Detection/reproduction: the command ran from `web-dashboard/backend` while still passing paths prefixed with `web-dashboard/backend/`.
+- Root cause: command working directory and path convention were inconsistent.
+- Why prior checks did not prevent it: earlier Ruff commands had run from repository root.
+- Fix: reran from Backend with Backend-relative paths.
+- Security/tenant review: no runtime interaction.
+- Regression evidence: corrected Ruff PASS, focused Mypy PASS, static migration/schema tests `2/2` PASS, Alembic head `20260824_0041`.
+- Rollout/rollback: validation-only.
+- Residual risk: none beyond normal command-cwd discipline.
+
+### 36H-P2B-004 — Protected Backend CI retained the previous Alembic-head expectation
+
+- Date/time: 2026-08-24T12:41Z.
+- Environment/component: protected PR #493 Backend Tests.
+- Symptom/impact: Backend CI reported `1 failed, 95 passed`; production was not deployed or changed.
+- Detection/reproduction: `tests/test_database_settings.py::test_backend_exposes_the_shipped_alembic_head` expected `20260824_0040` while Alembic correctly exposed new head `20260824_0041`.
+- Root cause: Part 2B added a new linear migration but the explicit shipped-head regression assertion was not updated in the first commit.
+- Why prior focused tests did not prevent it: the Part 2B focused set covered the new migration and service but did not include `test_database_settings.py`.
+- Fix: update the explicit expected shipped head to `20260824_0041` and add that test to the local closing gate.
+- Security/tenant review: test-only correction; schema/runtime policy is unchanged.
+- Regression evidence: targeted database-settings test passes locally; refreshed protected CI is required before merge.
+- Rollout/rollback: no rollout occurred; PR remains unmerged until refreshed CI is green.
+- Residual risk: none beyond normal future migration-head maintenance, now included in the Part 2B closing gate.
+
+### 36H-P2B-005 — First CI-incident report append used Backend cwd
+
+- Date/time: 2026-08-24T12:44Z.
+- Environment/component: reporting command only.
+- Symptom/impact: the first command that attempted to append the PR #493 incident could not find repository-root `docs/` and `.deployment-backups/` paths because its working directory was `web-dashboard/backend`. The targeted code test in the same invocation still passed.
+- Detection/reproduction: shell/path errors were emitted before the targeted pytest result.
+- Root cause: report paths were repository-relative while the command cwd was Backend.
+- Why prior checks did not prevent it: report writes and Backend tests were grouped into one command with different path roots.
+- Fix: repeat report writes from `/opt/AIOS`; keep Backend-only validation commands separate.
+- Security/tenant review: no runtime or tenant data access.
+- Regression evidence: report files updated from project root and hashes regenerated before the next commit.
+- Rollout/rollback: reporting-only; no rollout.
+- Residual risk: none.
+
+### 36H-P2B-006 — Closing reporting checker was invoked from Backend cwd
+
+- Date/time: 2026-08-24T12:46Z.
+- Environment/component: local validation orchestration only.
+- Symptom/impact: `scripts/check_phase36_reporting.py` was not found because the command cwd was `web-dashboard/backend`; `set -e` stopped the grouped command before its targeted pytest step.
+- Detection/reproduction: shell returned file-not-found for the repository-root reporting checker.
+- Root cause: repository-root and Backend-only validation were grouped under the Backend working directory after the previous path issue.
+- Why prior correction did not prevent it: the report-write path issue was fixed, but this separate grouped validation command still retained Backend cwd.
+- Fix: permanently separated the commands: reporting + `git diff --check` from `/opt/AIOS`, Backend pytest from `/opt/AIOS/web-dashboard/backend`.
+- Security/tenant review: no runtime access.
+- Regression evidence: reporting invariant PASS for 9 changed paths; shipped Alembic-head test PASS `1/1` from Backend cwd.
+- Rollout/rollback: validation-only.
+- Residual risk: none.
