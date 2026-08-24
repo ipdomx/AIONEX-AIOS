@@ -78,10 +78,11 @@ class RedisRealtimeBackplane:
         self._deliver: RealtimeDelivery | None = None
         self._channel_tenants: dict[str, str] = {}
         self._lock = asyncio.Lock()
+        self._started = False
 
     @property
     def started(self) -> bool:
-        return self._listener is not None and not self._listener.done()
+        return self._started
 
     async def start(self, deliver: RealtimeDelivery) -> None:
         async with self._lock:
@@ -94,9 +95,8 @@ class RedisRealtimeBackplane:
             self._redis = redis
             self._pubsub = pubsub
             self._deliver = deliver
-            self._listener = asyncio.create_task(
-                self._listen(), name="aionex-realtime-redis-listener"
-            )
+            self._listener = None
+            self._started = True
 
     async def stop(self) -> None:
         async with self._lock:
@@ -108,6 +108,7 @@ class RedisRealtimeBackplane:
             self._redis = None
             self._deliver = None
             self._channel_tenants.clear()
+            self._started = False
         if pubsub is not None and channels:
             await pubsub.unsubscribe(*channels)
         if listener is not None:
@@ -129,20 +130,35 @@ class RedisRealtimeBackplane:
             if existing is not None:
                 if existing != tenant_id:
                     raise RuntimeError("tenant channel collision")
-                return
-            await self._pubsub.subscribe(channel)
-            self._channel_tenants[channel] = tenant_id
+            else:
+                await self._pubsub.subscribe(channel)
+                self._channel_tenants[channel] = tenant_id
+            if self._listener is None or self._listener.done():
+                self._listener = asyncio.create_task(
+                    self._listen(), name="aionex-realtime-redis-listener"
+                )
 
     async def unsubscribe(self, tenant_id: str) -> None:
         channel = tenant_channel(tenant_id, prefix=self._channel_prefix)
+        listener: asyncio.Task[None] | None = None
+        pubsub: Any | None = None
         async with self._lock:
-            if self._pubsub is None:
+            pubsub = self._pubsub
+            if pubsub is None:
                 self._channel_tenants.pop(channel, None)
                 return
             if channel not in self._channel_tenants:
                 return
-            await self._pubsub.unsubscribe(channel)
+            last_subscription = len(self._channel_tenants) == 1
             self._channel_tenants.pop(channel, None)
+            if last_subscription:
+                listener = self._listener
+                self._listener = None
+        if listener is not None:
+            listener.cancel()
+            await asyncio.gather(listener, return_exceptions=True)
+        if pubsub is not None:
+            await pubsub.unsubscribe(channel)
 
     async def publish(self, tenant_id: str, event: RealtimeEvent) -> None:
         payload = encode_event(event, max_bytes=self._max_event_bytes)

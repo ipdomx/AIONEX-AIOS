@@ -335,3 +335,13 @@ Not completed by Part 4: no production migrations `0040/0041`, signaling route r
 Part 5 adds a pure `RecordingAuthority` requiring explicit consent from every active participant before producing any Egress plan. Consent evidence is deterministic and hash-only, retention is bounded, recording identity is opaque, and the Creative Studio ingestion plan preserves provenance and retention. Both Egress and Studio mutations remain hard-disabled. `realtime-streaming-recording` is now `source_built`, not runtime verified.
 
 Not completed by Part 5: no Egress/LiveKit/Coturn runtime, recording artifact, provider credential acceptance, Studio row mutation, production migration, restart, public media ports, retention deletion runtime, failover, 1000-user scale, or recovery certification.
+
+## 15. Part 6B — Real PostgreSQL/Redis admission and failover acceptance
+
+Status: **isolated runtime acceptance passed; live media and production remain disabled**.
+
+Part 6B ran 1,000 real durable admissions across ten tenant scopes against disposable PostgreSQL 16 at Alembic `20260824_0041`, consumed all 1,000 single-use grants, claimed 1,000 presence leases, expired the 250 leases owned by a simulated failed node, reaped exactly 250 stale presences and reclaimed all 250 behind newer fencing tokens. The same acceptance used four real `RedisRealtimeBackplane` hubs and 1,000 local probe sockets: all 1,000 tenant events were delivered with zero cross-tenant leaks, duplicates or failures, one hub was stopped, affected sockets were reconnected to a survivor, and Redis `PUBSUB NUMSUB` showed zero stale subscribers.
+
+Attempt 1 exposed and fixed a real backplane lifecycle defect: the listener was previously created before the first Redis subscription and could terminate immediately. The listener now starts only after a successful first subscription and is cancelled when the last subscription is removed. Attempt 2 passed with admission p95 `75.61021901201457 ms` and Redis delivery p95 `10.796058923006058 ms`. The disposable data and containers were removed after acceptance.
+
+This is not LiveKit/TURN/Egress scale evidence and does not authorize production migration or media-port activation. Detailed receipt: `docs/phase-36/receipts/36H-2026-08-24-scale-part6b.md`.
