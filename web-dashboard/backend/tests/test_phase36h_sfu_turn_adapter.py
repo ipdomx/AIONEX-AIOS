@@ -118,6 +118,8 @@ def test_candidate_images_are_immutable_and_profiles_open_no_ports() -> None:
     assert "profiles: [\"phase36h-realtime-source-only\"]" in compose
     assert "ports:" not in compose
     assert "internal: true" in compose
+    assert 'cap_drop: ["ALL"]' in compose
+    assert 'cap_add: ["NET_BIND_SERVICE"]' in compose
     assert kubernetes.count("replicas: 0") == 2
     assert "kind: Service" not in kubernetes
     assert 'aionex.io/activation: "disabled"' in kubernetes
