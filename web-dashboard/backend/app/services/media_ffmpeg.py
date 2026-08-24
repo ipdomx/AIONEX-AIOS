@@ -16,6 +16,7 @@ _COLOR_RE = re.compile(r"^(?:#[0-9a-fA-F]{6}|[a-zA-Z]{1,20})$")
 _LOUDNORM_JSON_RE = re.compile(r'\{\s*"input_i".*?\}', re.DOTALL)
 _METRIC_RE = re.compile(r"[-+]?(?:\d+(?:\.\d+)?|\.\d+)")
 _AUDIO_CODEC_NAMES = {"libopus": "opus", "pcm_s16le": "pcm_s16le", "aac": "aac"}
+_REQUIRED_VIDEO_FILTERS = ("chromakey", "overlay")
 _REQUIRED_AUDIO_FILTERS = (
     "adelay",
     "amix",
@@ -115,6 +116,13 @@ class FFmpegRuntime:
         if missing_encoders:
             raise MediaFFmpegError("FFmpeg runtime is missing required governed encoders")
         filters = self._run([self.ffmpeg_binary, "-hide_banner", "-filters"]).stdout
+        missing_video_filters = [
+            name
+            for name in _REQUIRED_VIDEO_FILTERS
+            if re.search(rf"\b{re.escape(name)}\b", filters or "") is None
+        ]
+        if missing_video_filters:
+            raise MediaFFmpegError("FFmpeg runtime is missing required governed video filters")
         missing_filters = [
             name
             for name in _REQUIRED_AUDIO_FILTERS
@@ -126,6 +134,7 @@ class FFmpegRuntime:
             "engine": "ffmpeg",
             "version": target,
             "required_encoders": list(required_encoders),
+            "required_video_filters": list(_REQUIRED_VIDEO_FILTERS),
             "required_audio_filters": list(_REQUIRED_AUDIO_FILTERS),
             "hardware_adapters": list(self.hardware_adapters()),
             "compiled_hardware_adapters": list(self.compiled_hardware_adapters()),
@@ -571,6 +580,33 @@ class FFmpegRuntime:
                 "-i",
                 f"sine=frequency={tone}:sample_rate=48000:duration={duration:.3f}",
                 "-shortest",
+                *self._video_encoder_args(profile, adapter),
+            ]
+        elif op == "vfx_composite":
+            if profile.asset_kind != "video" or len(input_paths) != 2:
+                raise MediaFFmpegError("vfx_composite requires background and foreground video inputs")
+            width = self._bounded_int(metadata, "width", 1280, 64, 7680)
+            height = self._bounded_int(metadata, "height", 720, 64, 4320)
+            if width % 2 or height % 2:
+                raise MediaFFmpegError("video dimensions must be even")
+            overlay_x = self._bounded_int(metadata, "overlay_x", 0, 0, width - 1)
+            overlay_y = self._bounded_int(metadata, "overlay_y", 0, 0, height - 1)
+            similarity = self._bounded_float(metadata, "chroma_similarity", 0.12, 0.01, 0.5)
+            blend = self._bounded_float(metadata, "chroma_blend", 0.04, 0.0, 0.5)
+            key = str(metadata.get("chroma_key", "#00ff00")).strip()
+            if not _COLOR_RE.fullmatch(key):
+                raise MediaFFmpegError("VFX chroma key color is invalid")
+            ffmpeg_key = "0x" + key[1:] if key.startswith("#") else key
+            command += ["-i", str(input_paths[0]), "-i", str(input_paths[1])]
+            command += [
+                "-filter_complex",
+                (
+                    f"[1:v]chromakey={ffmpeg_key}:{similarity:.3f}:{blend:.3f}[fg];"
+                    f"[0:v][fg]overlay=x={overlay_x}:y={overlay_y}:format=auto[v]"
+                ),
+                "-map",
+                "[v]",
+                "-an",
                 *self._video_encoder_args(profile, adapter),
             ]
         elif op == "assemble":
