@@ -315,3 +315,15 @@ Focused source/static tests pass `16/16` on a disposable PostgreSQL test environ
 - Residual risk: none; the port is not part of production configuration.
 
 Not completed by Part 3: no production migration `0040/0041`, no production API/WebSocket route rewiring, no LiveKit or Coturn runtime process, no provider credential validation, no public STUN/TURN/SFU capacity, no host media ports, no firewall/DNS/tunnel change, no Egress/recording, no 1:1/group media call runtime, no screen share, no adaptive bitrate/simulcast/dynacast, and no 1000-user realtime/failover/recovery certification.
+
+## 14. Part 4 — Calls, screen share and adaptive media policy
+
+Status: **source implemented and locally verified; runtime media remains disabled**.
+
+Part 4 adds a deterministic `RealtimeMediaPolicy` over the Part 2 admission authority and Part 3 `SFURoomPlan`. It classifies one-to-one/group calls, requires exact admission permission parity for publish/subscribe/screen-share, creates bounded microphone/camera/screen publication plans, enables policy-level adaptive-stream/dynacast flags, and defines q/h/f simulcast ladders. Every plan keeps `provider_mutation_allowed=false` from the SFU candidate and `recording_enabled=false`.
+
+Quality policy is pure and network-free: packet loss, jitter, RTT and available outgoing bitrate can request a one-layer downshift; recovery requires stricter hysteresis thresholds and restores only one layer per decision. No live track, provider room or network path is mutated by this source batch.
+
+Validation: Part 4 + Part 3 tests `22/22 PASS`; Phase 36 governance/zero-dead/market-readiness `18/18 PASS`; capability snapshot `1/1 PASS`; Ruff and focused Mypy PASS. Two validation-environment mistakes were recorded: an initially too-short synthetic test secret, and a root-cwd capability invocation that inherited the legacy root Telegram dotenv value. Both stopped before any production mutation and were rerun correctly.
+
+Not completed by Part 4: no production migrations `0040/0041`, signaling route rewire, LiveKit/Coturn runtime, provider credential acceptance, public media ports, real audio/video/screen packets, live adaptive bitrate application, Egress/recording, Creative Studio ingestion, 1000-user load, failover or recovery certification.
