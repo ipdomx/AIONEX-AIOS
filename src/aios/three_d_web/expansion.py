@@ -238,7 +238,7 @@ def probe_blender(executable: str = "blender", *, timeout_seconds: int = 15) -> 
     if result.returncode != 0:
         raise InteractiveFoundationError("Blender version preflight failed")
     first_line = (result.stdout or "").splitlines()[0] if result.stdout else ""
-    match = re.fullmatch(r"Blender\s+(\d+\.\d+\.\d+)", first_line.strip())
+    match = re.fullmatch(r"Blender\s+(\d+\.\d+\.\d+)(?:\s+LTS)?", first_line.strip())
     if match is None:
         raise InteractiveFoundationError("Blender version output is not recognized")
     return RendererProbe(executable=executable, version=match.group(1))
