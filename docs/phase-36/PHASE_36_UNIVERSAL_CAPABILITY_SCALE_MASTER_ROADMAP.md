@@ -612,10 +612,11 @@ Scope:
 Implementation ledger — 2026-08-25 / Part 1:
 - 36H local work is preserved as `external_gate`; 36I is now the active local batch. The existing Cloudflare tunnel to `https://ai.vip-e.net` is recorded as HTTPS/WebGL/WebXR secure-context delivery evidence only, not as direct UDP/TURN certification.
 - Reused the completed Phase 30/34 3D stack and added deterministic production-family contracts for 2D animation, 2D games, 3D scenes, WebXR AR/VR and VFX compositing.
-- Technology baseline selects Blender `5.2 LTS` for production evaluation and Three.js `r185` / npm `0.185.0` as the latest closed stable baseline observed. Host Blender `4.0.2` fails closed; portal Three.js `0.180.0` is retained until a protected migration gate.
+- Technology baseline selects Blender `5.2 LTS` for production evaluation and Three.js `r185` with the current patch `0.185.1` as the protected stable baseline. Host Blender `4.0.2` fails closed; portal Three.js migration is handled by the protected 36I.4 gate.
 - New foundation `6/6 PASS`; affected Phase30/36 3D regression `39/39 PASS`; focused Ruff/Mypy/compile/diff checks PASS. No Production/provider/GPU/network mutation occurred.
 - 36I.2 merged as PR #503: deterministic 2D animation/game runtimes executed in Chromium with governed artifact manifests; Animation/Game browser evidence passed with zero external requests and zero provider/GPU spend.
 - 36I.3 local runtime acceptance uses the official Blender `5.2.0 LTS` Linux x64 artifact (SHA-256 `96f6c181...51c48`) from an isolated runtime directory without replacing host Blender `4.0.2`. It generated a real GLB with two PBR materials, one embedded texture, one keyframed animation and an environment scene; AIONEX inspection and a Three.js r180 Chromium/WebGL load both passed. Evidence: `docs/phase-36/receipts/36I-2026-08-25-blender-3d-expansion.md`.
+- 36I.4 migrates portal/generated-runtime Three.js to `0.185.1`, adds fail-closed WebXR session controls, proves generated production build and local Chromium/WebGL readiness, and proves `https://ai.vip-e.net` is a secure context through the existing application tunnel. Server Chromium has no immersive AR/VR runtime, so physical XR device acceptance remains an explicit external gate. Evidence: `docs/phase-36/receipts/36I-2026-08-25-webxr-delivery.md`.
 - 36I.3 remains non-production: existing Phase 34 production-verified 3D remains authoritative; Three.js `0.180.0` is not upgraded here, XR device acceptance and VFX runtime remain pending, and no Production/provider/network mutation occurred.
 
 Exit gate:
