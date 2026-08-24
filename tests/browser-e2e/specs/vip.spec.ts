@@ -204,9 +204,9 @@ test("projects surface shows the truthful Phase 36 expansion contract", async ({
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/en/projects");
   await expect(page.getByText("Phase 36 expansion status")).toBeVisible();
-  await expect(page.getByText("36G", { exact: true })).toBeVisible();
+  await expect(page.getByText("36H", { exact: true })).toBeVisible();
   await expect(page.getByText("1,000", { exact: true })).toBeVisible();
-  await expect(page.getByText("1/60", { exact: true })).toBeVisible();
+  await expect(page.getByText("1/63", { exact: true })).toBeVisible();
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
   );

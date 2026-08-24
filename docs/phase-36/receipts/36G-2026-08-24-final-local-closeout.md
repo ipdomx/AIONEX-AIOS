@@ -80,6 +80,10 @@ Before the registry transition:
 - `audio_song_executions` total/active rows were `0/0`;
 - the final Space attempt caused no Production mutation, GPU Job or pending provider cost.
 
+## P36-0097 — Browser fixture retained the prior current batch
+
+The first protected Browser run passed ten of eleven boundaries and failed only the Phase 36 projects assertion: its mocked API had already moved to `current_batch=36H` and `total_capabilities=63`, while the final visible-text assertions still expected `36G` and `1/60`. The correction updates only those two truthful fixture assertions to `36H` and `1/63`; no browser route, retry, authentication, layout or production behavior is weakened. The other ten browser boundaries had already passed, and the failing run caused no provider request or Production mutation.
+
 ## Transition contract
 
 After protected merge and Backend registry activation:
