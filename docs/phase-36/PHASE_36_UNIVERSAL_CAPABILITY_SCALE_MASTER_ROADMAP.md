@@ -577,6 +577,13 @@ Scope:
 - scalable WebSocket/realtime admission and tenant isolation;
 - media recording/processing integration with Creative Studio.
 
+Implementation ledger — 2026-08-24 / Part 1 started:
+- Actual starting gap revalidated: `AIRealtimeHub` and the legacy WebSocket manager are process-local; no production SFU/signaling/TURN/STUN/recording scale architecture exists and no 1000-user realtime acceptance has been produced.
+- Latest-stable technology review recorded in `docs/phase-36/PHASE_36H_REALTIME_FOUNDATION.md`: LiveKit server latest observed `v1.13.5`, LiveKit Egress `v1.13.0`, Coturn `4.17.2`, Grafana k6 `v2.2.0`, OpenTelemetry Collector `v0.159.0`.
+- LiveKit is the first provider-neutral SFU/signaling adapter candidate, but `v1.13.5` is not yet an approved production pin because a current upstream high-room-churn leak report requires bounded soak evidence before selection.
+- Part 1 is source-only/dormant: build a tenant-scoped distributed Redis backplane and deterministic multi-node fanout tests. No SFU/TURN/recording activation, firewall change, service restart, migration, provider request or paid spend is allowed.
+- Reporting truth correction: previously claimed `phase36g-final-closeout` artifacts are absent on the server and authoritative 36G reports still show the external live gate. 36H work proceeds independently without relabeling 36G song production as runtime-verified.
+
 Exit gate:
 - concurrent realtime load tests, failover and recovery pass at the defined scale profile; no single-process signaling bottleneck.
 

@@ -1,0 +1,161 @@
+# Phase 36H — Realtime communication, streaming & interactive media scale
+
+Status: **IN PROGRESS — Part 1 foundation**
+
+Started: 2026-08-24
+
+## 1. Objective
+
+Replace the current process-local realtime/WebSocket prototype with a provider-neutral production architecture that can scale horizontally, preserve tenant isolation, support WebRTC rooms/calls/screen share/recording, and produce deterministic load/failover evidence for the Phase 36 minimum 1000-concurrent-user profile.
+
+Part 1 is deliberately source-only and dormant. It builds the distributed tenant-scoped transport contract and architecture evidence without activating an SFU, TURN service, recording service, opening firewall ports, restarting production, or making paid provider requests.
+
+## 2. Actual starting state
+
+- `app.core.ai_runtime.AIRealtimeHub` stores WebSocket membership in a Python dictionary inside one API process.
+- `app.websocket.manager.ConnectionManager` is also process-local and singleton-shaped.
+- The existing `/realtime/connect` route authenticates users and scopes them to `organization_id`, but event fanout does not cross API replicas.
+- No production AIOS SFU/signaling cluster is currently implemented.
+- No production TURN/STUN adapter is currently implemented for Phase 36H.
+- No Phase 36H recording/egress adapter is currently implemented.
+- No 1000-user realtime load/failover acceptance has been produced.
+
+This is the exact gap Batch 36H must close; the current process-local hub cannot be accepted as the final architecture.
+
+## 3. Technology refresh — 2026-08-24
+
+Official upstream review:
+
+- LiveKit server latest observed release: `v1.13.5` — https://github.com/livekit/livekit/releases
+- LiveKit distributed architecture: Redis-backed multi-node routing and native connection draining — https://docs.livekit.io/transport/self-hosting/distributed/
+- LiveKit production deployment/TURN guidance — https://docs.livekit.io/transport/self-hosting/deployment/
+- LiveKit SFU architecture and horizontal scaling — https://docs.livekit.io/reference/internals/livekit-sfu/
+- LiveKit adaptive stream/simulcast behavior — https://docs.livekit.io/transport/media/subscribe/
+- LiveKit egress latest observed release: `v1.13.0` — https://github.com/livekit/egress/releases
+- LiveKit self-hosted egress architecture — https://docs.livekit.io/transport/self-hosting/egress/
+- Coturn latest observed release: `4.17.2` — https://github.com/coturn/coturn/releases
+- Grafana k6 latest docs line observed: `v2.2.x`, release `v2.2.0` — https://grafana.com/docs/k6/latest/release-notes/
+- OpenTelemetry Collector latest observed release: `v0.159.0` — https://github.com/open-telemetry/opentelemetry-collector-releases/releases
+
+### Pin decision
+
+LiveKit is the first SFU/signaling adapter candidate because its documented distributed mode uses Redis for room state/message routing, supports multi-node routing/draining, provides embedded TURN options, exposes Prometheus metrics, and has a separate egress service for recording. AIOS will not couple its durable room/admission policy to LiveKit-specific identifiers; the provider is behind an adapter boundary.
+
+`v1.13.5` is **not yet approved as the production pin**. An open upstream high-room-churn goroutine/RSS growth report exists against that release. Part 1 therefore keeps the adapter version-selectable. A bounded lab soak and regression profile must decide whether the first production candidate is `v1.13.4`, `v1.13.5`, or a later fixed stable release. No production server is activated in Part 1.
+
+Coturn `4.17.2` is retained as an external TURN fallback candidate. LiveKit embedded TURN remains a candidate as well. The final selection requires abuse-resistance, private-peer restrictions, rate-limit and failover tests.
+
+## 4. Target architecture
+
+`Client -> AIOS authenticated realtime admission -> durable room/session policy -> SFU adapter -> LiveKit cluster`
+
+Supporting paths:
+
+- Redis-backed tenant-scoped AIOS realtime event backplane for API replicas.
+- Redis-backed LiveKit distributed mode for SFU node coordination.
+- Explicit TURN/STUN adapter boundary; embedded LiveKit TURN and Coturn are independently selectable.
+- Separate recording adapter to LiveKit Egress; recordings enter Creative Studio through governed artifact ingestion, never by bypassing storage/tenant policy.
+- OpenTelemetry/Prometheus metrics for admission latency, active rooms/participants, reconnects, packet loss/jitter/RTT, bitrate, TURN usage, recording queue and failure state.
+- k6 plus protocol-specific realtime load tooling for the 1000-user admission/WebSocket profile; media-node capacity is measured separately from API admission.
+
+## 5. Security, privacy and abuse controls
+
+- Tenant identity is mandatory on every admission, room, participant, event and recording boundary.
+- Realtime event channels use a one-way tenant channel digest rather than exposing raw tenant IDs in Redis channel names.
+- Room access credentials must be short-lived, least-privilege and never persisted in reports/logs.
+- Recording is disabled unless explicit policy/consent state permits it.
+- TURN must deny arbitrary relay abuse and unsafe private-network peer access.
+- Admission quotas/backpressure are enforced before expensive SFU/recording allocation.
+- No cross-tenant broadcast primitive is permitted in the production adapter.
+- No paid provider call or external media activation is authorized by Part 1.
+
+## 6. Part breakdown
+
+### 36H.1 — Distributed realtime foundation
+
+Build and test a dormant tenant-scoped Redis backplane and multi-node local fanout hub. Document architecture, technology review, risks and rollback. No production activation.
+
+### 36H.2 — Durable rooms, presence and admission
+
+Add durable room/session/participant policy state, idempotent room creation, presence leases, per-tenant quotas/backpressure, short-lived join grants and audit evidence.
+
+### 36H.3 — SFU/signaling + TURN/STUN adapter
+
+Implement the provider-neutral SFU contract and LiveKit candidate adapter; build disabled Compose/Kubernetes-compatible profiles; validate network boundaries and secrets without opening production media ports by default.
+
+### 36H.4 — Calls, screen share and adaptive media quality
+
+Wire 1:1/group calls, screen share, track policy, adaptive stream/simulcast/dynacast profiles and realtime quality metrics.
+
+### 36H.5 — Recording and Creative Studio integration
+
+Implement explicit-consent recording via Egress, bounded storage/retention, artifact provenance and Creative Studio ingestion.
+
+### 36H.6 — Scale, failover, recovery and production gate
+
+Run 1000-user admission/WebSocket load, concurrent realtime media scale profile, node loss/draining/recovery, TURN failure paths, recording failover and tenant-isolation tests. Only after evidence passes may 36H be raised to `scaled`/`production_ready`.
+
+## 7. Part 1 acceptance
+
+Part 1 passes only when:
+
+1. a provider-neutral distributed realtime backplane contract exists;
+2. tenant-scoped channel derivation does not expose raw tenant IDs;
+3. two simulated API nodes subscribed to the same tenant receive the same event;
+4. a different tenant receives no event;
+5. first-client subscribe / last-client unsubscribe behavior is deterministic;
+6. oversized/non-object events fail closed;
+7. current production routes/services remain untouched and no provider request occurs;
+8. project reports state both completed and not-completed work.
+
+## 8. Rollback
+
+Part 1 has no migration and no production activation. Rollback is a source revert. It must not require database restore, service restart, firewall rollback, TURN/SFU cleanup or provider cancellation.
+
+## 9. Carried gates from 36G
+
+36G provider/runtime gates remain truthful and independent. The absence of previously claimed `phase36g-final-closeout` artifacts was rechecked at the start of 36H and recorded in the project report. Phase 36H may progress on non-provider-gated work, but this does not convert 36G song production to `runtime_verified`.
+
+## 10. Part 1 incident/change ledger
+
+### 36H-P1-001 — Phase 36G closeout reporting discrepancy
+
+- Date/time: 2026-08-24T09:03Z.
+- Environment/component: production project reporting state on `/opt/AIOS`; Phase 36 registry and `.deployment-backups` reports.
+- Visible symptom/user impact: a prior completion statement described final 36G closeout artifacts and a transition to 36H, but those named artifacts were absent and the authoritative registry/reports still identified 36G as `in_progress` behind the external live-song gate.
+- Detection/reproduction: direct file existence checks for the three claimed closeout paths plus reads of `phase36-current-report/current.json`, `phase36-universal-provider-activation/current.json`, and `src/aios/phase36_program.py`.
+- Root cause: the prior completion statement was not backed by corresponding server-side artifact/registry mutations. No deeper server mutation failure is asserted because no evidence proves one.
+- Why existing checks did not prevent it: project tests validate repository state, but a conversational completion statement can still be wrong if server state is not re-read immediately before reporting.
+- Fix: re-established server state as source of truth; preserved 36G capability maturity; introduced batch status `external_gate` for 36G and made 36H the sole `in_progress` batch; updated external project reports.
+- Security/tenant review: no tenant data, credential, provider request or production route changed.
+- Regression evidence: Phase 36 governance/capability tests now assert `36G=external_gate`, `36H=in_progress`, and `current_batch=36H`.
+- Rollout/rollback: source/reporting only; revert the registry/report changes if evidence changes.
+- Residual risk: 36G external live acceptance remains unresolved and must not be represented as runtime-verified.
+
+### 36H-P1-002 — Initial local pytest invocation used the wrong interpreter/environment
+
+- Date/time: 2026-08-24T09:10Z.
+- Environment/component: development validation only.
+- Visible symptom/user impact: first pytest invocation could not import SQLAlchemy; a subsequent invocation using the existing backend validation venv reached Settings validation without a test `SECRET_KEY`. Production was unaffected.
+- Detection/reproduction: focused test command failed during collection before executing tests.
+- Root cause: the generic tool interpreter did not contain backend dependencies; the backend venv requires an explicit non-production test secret for tests importing Settings.
+- Why existing checks did not prevent it: the generic test runner is not bound to the project-specific validation venv.
+- Fix: used `/tmp/aionex-p36c-backend-venv/bin/python`; tests that import Settings run with `ENVIRONMENT=test` and a disposable test-only `SECRET_KEY`.
+- Security/tenant review: no production secret was read or reused; the test secret is synthetic and non-production.
+- Regression evidence: focused Part 1 tests pass `5/5`; combined capability + Part 1 tests pass `6/6`; root Phase 36 governance tests pass `13/13`.
+- Rollout/rollback: validation-only; no production change.
+- Residual risk: full CI remains the authoritative environment-wide validation after PR creation.
+
+### 36H-P1-003 — New batch status required a registry type-contract extension
+
+- Date/time: 2026-08-24T09:09Z.
+- Environment/component: source validation; `src/aios/phase36_program.py`.
+- Visible symptom/user impact: broad Mypy validation rejected the new `external_gate` value because `BatchStatus` previously allowed only `complete`, `in_progress`, and `planned`. No production impact.
+- Detection/reproduction: Mypy reported one Part 1 error at the 36G batch declaration. The same broad invocation also surfaced 32 type errors in unchanged legacy modules outside the Part 1 changed surface; those were not modified or represented as fixed.
+- Root cause: the registry had no explicit state for a batch whose local work can stop while an external runtime/authority gate remains open.
+- Why existing checks did not prevent it: previous batches had only used the original three-state lifecycle.
+- Fix: extended `BatchStatus` with `external_gate`; retained `current_batch` selection as the sole batch with `status == in_progress`.
+- Security/tenant review: reporting/type-only change; no runtime tenant data path changed.
+- Regression evidence: focused Mypy for `phase36_program.py` passes; Phase 36 governance tests pass `13/13`; backend capability + Part 1 tests pass `6/6`.
+- Rollout/rollback: source-only; revert the status extension if the program model is redesigned.
+- Residual risk: the 32 unchanged-module Mypy findings remain existing technical debt outside this Part 1 scope and are not claimed resolved.

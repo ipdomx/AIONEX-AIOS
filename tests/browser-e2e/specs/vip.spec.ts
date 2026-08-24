@@ -157,7 +157,7 @@ test("projects surface shows the truthful Phase 36 expansion contract", async ({
         program: "Phase 36 — Universal Capability, Creative Media & 1000+ User Scale",
         authoritative: true,
         minimum_concurrent_users: 1000,
-        current_batch: "36G",
+        current_batch: "36H",
         total_capabilities: 60,
         production_ready_capabilities: 1,
         completion: 2,
