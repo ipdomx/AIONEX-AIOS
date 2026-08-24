@@ -107,3 +107,27 @@ __all__ += [
     "RemediationRecommendation",
     "ThreeDProjectLifecycle",
 ]
+
+from .expansion import (
+    BLENDER_PRODUCTION_BASELINE,
+    THREE_JS_PRODUCTION_BASELINE,
+    DeliveryBoundary,
+    InteractiveFoundationError,
+    InteractiveProductionPlan,
+    InteractiveProductionPlanner,
+    InteractiveTarget,
+    RendererProbe,
+    probe_blender,
+)
+
+__all__ += [
+    "BLENDER_PRODUCTION_BASELINE",
+    "THREE_JS_PRODUCTION_BASELINE",
+    "DeliveryBoundary",
+    "InteractiveFoundationError",
+    "InteractiveProductionPlan",
+    "InteractiveProductionPlanner",
+    "InteractiveTarget",
+    "RendererProbe",
+    "probe_blender",
+]
