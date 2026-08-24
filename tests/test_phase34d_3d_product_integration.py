@@ -123,8 +123,8 @@ def test_portal_has_real_threejs_preview_poll_cancel_clarify_and_download():
     ):
         assert token in PANEL
     package = json.loads((ROOT / "vip-frontend/package.json").read_text())
-    assert package["dependencies"]["three"] == "0.180.0"
-    assert package["devDependencies"]["@types/three"] == "0.180.0"
+    assert package["dependencies"]["three"] == "0.185.1"
+    assert package["devDependencies"]["@types/three"] == "0.185.4"
 
 
 def test_all_portal_locales_have_identical_3d_user_contract():

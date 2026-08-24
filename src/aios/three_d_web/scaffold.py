@@ -43,6 +43,8 @@ class RuntimeScaffold:
             "src/controllers/CameraController.tsx",
             "src/state/worldStore.ts",
             "src/overlays/ContentOverlay.tsx",
+            "src/xr/WebXRBridge.tsx",
+            "src/xr/XRControls.tsx",
             "src/generated/blueprint.ts",
         }
         missing = required - seen
@@ -83,6 +85,8 @@ class ThreeDRuntimeScaffoldBuilder:
             ScaffoldFile("src/controllers/CameraController.tsx", self._camera_controller()),
             ScaffoldFile("src/controllers/ResponsiveControls.tsx", self._responsive_controls()),
             ScaffoldFile("src/overlays/ContentOverlay.tsx", self._overlay()),
+            ScaffoldFile("src/xr/WebXRBridge.tsx", self._webxr_bridge()),
+            ScaffoldFile("src/xr/XRControls.tsx", self._xr_controls()),
         )
         scaffold = RuntimeScaffold(project_id=blueprint.project_id, files=files)
         scaffold.validate()
@@ -118,13 +122,13 @@ class ThreeDRuntimeScaffoldBuilder:
                 "@react-three/fiber": "^9.3.0",
                 "react": "^19.1.1",
                 "react-dom": "^19.1.1",
-                "three": "^0.179.1",
+                "three": "0.185.1",
                 "zustand": "^5.0.8",
             },
             "devDependencies": {
                 "@types/react": "^19.1.10",
                 "@types/react-dom": "^19.1.7",
-                "@types/three": "^0.179.0",
+                "@types/three": "0.185.4",
                 "@vitejs/plugin-react": "^5.0.2",
                 "typescript": "^5.9.2",
                 "vite": "^7.1.3",
@@ -186,14 +190,48 @@ createRoot(document.getElementById("root")!).render(<StrictMode><App /></StrictM
 import { Suspense } from "react";
 import { World } from "./scene/World";
 import { ContentOverlay } from "./overlays/ContentOverlay";
+import { XRControls } from "./xr/XRControls";
 export default function App() {
   return <main className="app-shell">
     <Canvas dpr={1} gl={{ antialias: true, powerPreference: "high-performance" }} camera={{ position: [0, 5, 10], fov: 50 }}>
       <Suspense fallback={null}><World /></Suspense>
     </Canvas>
     <ContentOverlay />
+    <XRControls />
   </main>;
 }
+'''
+
+
+    @staticmethod
+    def _webxr_bridge() -> str:
+        return '''import { useThree } from "@react-three/fiber";
+import { useEffect } from "react";
+type XRMode = "immersive-ar" | "immersive-vr";
+type XRState = { secureContext:boolean; apiAvailable:boolean; arSupported:boolean; vrSupported:boolean; activeMode:XRMode|null; lastError:string|null };
+type XRSessionLike = { addEventListener:(type:string, cb:()=>void, options?:{once?:boolean})=>void; end:()=>Promise<void> };
+type XRSystemLike = { isSessionSupported:(mode:XRMode)=>Promise<boolean>; requestSession:(mode:XRMode, init:Record<string,unknown>)=>Promise<XRSessionLike> };
+declare global { interface Window { __AIOS_XR_STATE__?:XRState; __AIOS_XR_REQUEST__?:(mode:XRMode)=>Promise<boolean>; __AIOS_XR_END__?:()=>Promise<boolean>; } }
+function safeMessage(value:unknown){return value instanceof Error ? value.name : "xr-session-error"}
+export function WebXRBridge(){const {gl}=useThree();useEffect(()=>{
+  let alive=true; const nav=navigator as Navigator & {xr?:XRSystemLike}; gl.xr.enabled=true;
+  const state:XRState={secureContext:window.isSecureContext,apiAvailable:Boolean(nav.xr),arSupported:false,vrSupported:false,activeMode:null,lastError:null}; window.__AIOS_XR_STATE__=state;
+  const publish=()=>{window.__AIOS_XR_STATE__={...state}};
+  const detect=async()=>{if(!state.secureContext||!nav.xr){publish();return}try{const [ar,vr]=await Promise.all([nav.xr.isSessionSupported("immersive-ar"),nav.xr.isSessionSupported("immersive-vr")]);if(!alive)return;state.arSupported=ar;state.vrSupported=vr;publish()}catch(e){state.lastError=safeMessage(e);publish()}};
+  window.__AIOS_XR_REQUEST__=async(mode)=>{if(!window.isSecureContext||!nav.xr){state.lastError="xr-unavailable";publish();return false}const supported=mode==="immersive-ar"?state.arSupported:state.vrSupported;if(!supported){state.lastError="xr-mode-unsupported";publish();return false}try{const session=await nav.xr.requestSession(mode,{requiredFeatures:["local-floor"],optionalFeatures:["bounded-floor","hand-tracking","layers"]});await gl.xr.setSession(session as never);state.activeMode=mode;state.lastError=null;session.addEventListener("end",()=>{state.activeMode=null;publish()},{once:true});publish();return true}catch(e){state.lastError=safeMessage(e);publish();return false}};
+  window.__AIOS_XR_END__=async()=>{const session=gl.xr.getSession() as unknown as XRSessionLike|null;if(!session)return false;await session.end();return true}; void detect();
+  return()=>{alive=false;delete window.__AIOS_XR_REQUEST__;delete window.__AIOS_XR_END__;window.__AIOS_XR_STATE__=undefined;gl.xr.enabled=false};
+},[gl]);return null}
+'''
+
+    @staticmethod
+    def _xr_controls() -> str:
+        return '''import { useEffect, useState } from "react";
+type XRMode = "immersive-ar" | "immersive-vr";
+type XRState = { secureContext:boolean; apiAvailable:boolean; arSupported:boolean; vrSupported:boolean; activeMode:XRMode|null; lastError:string|null };
+declare global { interface Window { __AIOS_XR_STATE__?:XRState; __AIOS_XR_REQUEST__?:(mode:XRMode)=>Promise<boolean>; __AIOS_XR_END__?:()=>Promise<boolean>; } }
+const EMPTY:XRState={secureContext:false,apiAvailable:false,arSupported:false,vrSupported:false,activeMode:null,lastError:null};
+export function XRControls(){const [state,setState]=useState<XRState>(EMPTY);useEffect(()=>{const id=window.setInterval(()=>setState(window.__AIOS_XR_STATE__?{...window.__AIOS_XR_STATE__}:EMPTY),250);return()=>clearInterval(id)},[]);const request=(mode:XRMode)=>void window.__AIOS_XR_REQUEST__?.(mode);if(!state.secureContext)return <div data-aionex-xr="blocked">XR requires HTTPS secure context</div>;if(!state.apiAvailable||(!state.arSupported&&!state.vrSupported))return <div data-aionex-xr="device-required">XR device/runtime required</div>;return <div data-aionex-xr="ready">{state.arSupported&&<button onClick={()=>request("immersive-ar")}>Enter AR</button>}{state.vrSupported&&<button onClick={()=>request("immersive-vr")}>Enter VR</button>}{state.activeMode&&<button onClick={()=>void window.__AIOS_XR_END__?.()}>Exit XR</button>}</div>}
 '''
 
     @staticmethod
@@ -284,13 +322,14 @@ import { PlayerController } from "../controllers/PlayerController";
 import { CameraController } from "../controllers/CameraController";
 import { ResponsiveControls } from "../controllers/ResponsiveControls";
 import { RuntimeProbe } from "./RuntimeProbe";
+import { WebXRBridge } from "../xr/WebXRBridge";
 import { Zone } from "./Zone";
 export function World(){return <>
   <color attach="background" args={["#07111f"]}/><fog attach="fog" args={["#07111f",28,120]}/>
   <ambientLight intensity={0.75}/><hemisphereLight args={["#b9ddff","#0b1726",1.0]}/><directionalLight position={[8,14,5]} intensity={1.5}/>
   <gridHelper args={[180,90,"#1d4f70","#10283c"]} position={[0,-0.62,0]}/>
   {blueprint.zones.map((zone)=><Zone key={zone.id} zone={zone}/>) }
-  <PlayerController/><CameraController/><ResponsiveControls/><RuntimeProbe/>
+  <PlayerController/><CameraController/><ResponsiveControls/><RuntimeProbe/><WebXRBridge/>
 </>}
 '''
 

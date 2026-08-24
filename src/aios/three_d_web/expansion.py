@@ -16,7 +16,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 BLENDER_PRODUCTION_BASELINE = "5.2.0"
-THREE_JS_PRODUCTION_BASELINE = "0.185.0"
+THREE_JS_PRODUCTION_BASELINE = "0.185.1"
 
 
 class InteractiveFoundationError(ValueError):
