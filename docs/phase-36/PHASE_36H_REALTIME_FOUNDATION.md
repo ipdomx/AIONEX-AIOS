@@ -281,3 +281,37 @@ Not completed in Part 2B: no production migration `0040/0041`, no public/user re
 - Regression evidence: reporting invariant PASS for 9 changed paths; shipped Alembic-head test PASS `1/1` from Backend cwd.
 - Rollout/rollback: validation-only.
 - Residual risk: none.
+
+## 13. Part 3 — SFU/signaling + TURN/STUN source candidate
+
+Status: **source candidate validated locally; protected PR pending; production unchanged**.
+
+Part 3 adds a provider-neutral `SFUAdapter` contract and a fail-closed `LiveKitCandidateAdapter`. The adapter performs no network request, has no LiveKit SDK dependency, rejects raw API/TURN secrets in configuration, derives opaque deterministic provider room identities from tenant + room IDs, and refuses provider mutation even when the candidate flag is enabled. Runtime provider calls therefore cannot occur accidentally in this source-only batch.
+
+The technology review was refreshed on 2026-08-24 from official upstream sources. LiveKit Server `v1.13.5`, LiveKit Egress `v1.13.0`, and Coturn `4.17.2` were recorded with Linux/amd64 manifest digests. Coturn `4.17.2` includes the current outgoing-UDP-TTL fix. Egress remains explicitly out of scope for Part 3 and is not activated. OpenTelemetry Collector remains `v0.159.0`; k6 `2.2.0` is reserved for the later scale gate.
+
+A separate Compose candidate file is profile-gated, internal-network-only, has no `ports:` mappings, and runs only help/preflight commands. Kubernetes candidate Deployments have `replicas: 0`, no Service objects, no service-account token, dropped Linux capabilities, read-only roots, and a default-deny ingress/egress NetworkPolicy. These files are not referenced by the production Compose stack.
+
+Focused source/static tests pass `16/16` on a disposable PostgreSQL test environment kept at Alembic `0041`; Ruff, focused Mypy, Compose config parsing, YAML parsing and `git diff --check` pass. The disposable database container was deleted after validation.
+
+### 36H-P3-001 — Combined local test command omitted the isolated PostgreSQL dependency
+
+- Environment/component: Part 3 local validation only.
+- Symptom: the three pre-existing 36H.2B admission tests attempted `localhost:5432` and failed before their assertions because no disposable database was running.
+- Root cause: the first combined validation command included database-backed 2B tests without provisioning their documented isolated PostgreSQL fixture.
+- Why prior checks did not prevent it: the new 36H.3 tests themselves are database-free; the broader regression set was added manually to the same command.
+- Fix: created a disposable PostgreSQL 18 container on a free loopback-only port, migrated it to Alembic `0041`, reran the combined suite successfully, and removed the container.
+- Security/tenant review: no production database, credential, route or service was touched.
+- Regression evidence: combined Part 1/2B/3 set passes `16/16`.
+- Residual risk: none for Part 3 source; full protected CI remains authoritative.
+
+### 36H-P3-002 — Preferred disposable database port was already allocated
+
+- Environment/component: local validation harness only.
+- Symptom: loopback port `55442` was already in use, so no test container was started on it.
+- Root cause: an unrelated local process already owned that port.
+- Fix: left the owner untouched, selected free loopback port `55443`, completed the isolated tests, then removed the Part 3 container.
+- Security/tenant review: no existing process/container was stopped or modified.
+- Residual risk: none; the port is not part of production configuration.
+
+Not completed by Part 3: no production migration `0040/0041`, no production API/WebSocket route rewiring, no LiveKit or Coturn runtime process, no provider credential validation, no public STUN/TURN/SFU capacity, no host media ports, no firewall/DNS/tunnel change, no Egress/recording, no 1:1/group media call runtime, no screen share, no adaptive bitrate/simulcast/dynacast, and no 1000-user realtime/failover/recovery certification.
