@@ -9,9 +9,11 @@ from sqlalchemy import (
     JSON,
     BigInteger,
     Boolean,
+    CheckConstraint,
     DateTime,
     Float,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     String,
@@ -95,7 +97,10 @@ class RolePermission(Base):
 
 class User(Base, TimestampMixin):
     __tablename__ = "users"
-    __table_args__ = (Index("ix_users_org_status", "organization_id", "status"),)
+    __table_args__ = (
+        UniqueConstraint("id", "organization_id", name="uq_users_id_org"),
+        Index("ix_users_org_status", "organization_id", "status"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
     organization_id: Mapped[str] = mapped_column(
@@ -232,6 +237,7 @@ class UserMFA(Base, TimestampMixin):
 class Workspace(Base, TimestampMixin):
     __tablename__ = "workspaces"
     __table_args__ = (
+        UniqueConstraint("id", "organization_id", name="uq_workspace_id_org"),
         UniqueConstraint("organization_id", "slug", name="uq_workspace_org_slug"),
     )
 
@@ -287,6 +293,7 @@ class TeamMembership(Base, TimestampMixin):
 class Project(Base, TimestampMixin):
     __tablename__ = "projects"
     __table_args__ = (
+        UniqueConstraint("id", "organization_id", name="uq_project_id_org"),
         UniqueConstraint("organization_id", "slug", name="uq_project_org_slug"),
         Index(
             "ix_projects_org_status_priority", "organization_id", "status", "priority"
@@ -4606,4 +4613,342 @@ class GrowthControlledPilot(Base, TimestampMixin):
     real_spend_allowed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     evidence: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     blocked_reasons: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+class RealtimeTenantQuota(Base, TimestampMixin):
+    """Durable fail-closed admission limits for one realtime tenant."""
+
+    __tablename__ = "realtime_tenant_quotas"
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id", name="uq_realtime_tenant_quota_organization"
+        ),
+        CheckConstraint(
+            "max_concurrent_rooms BETWEEN 1 AND 10000",
+            name="ck_realtime_quota_room_limit",
+        ),
+        CheckConstraint(
+            "max_participants_per_room BETWEEN 1 AND 10000",
+            name="ck_realtime_quota_room_participant_limit",
+        ),
+        CheckConstraint(
+            "max_concurrent_participants BETWEEN 1 AND 100000",
+            name="ck_realtime_quota_tenant_participant_limit",
+        ),
+        CheckConstraint(
+            "max_publishers_per_room BETWEEN 0 AND 10000",
+            name="ck_realtime_quota_publisher_limit",
+        ),
+        CheckConstraint(
+            "max_screen_shares_per_room BETWEEN 0 AND 1000",
+            name="ck_realtime_quota_screen_share_limit",
+        ),
+        CheckConstraint(
+            "max_concurrent_recordings BETWEEN 0 AND 1000",
+            name="ck_realtime_quota_recording_limit",
+        ),
+        CheckConstraint(
+            "admission_window_seconds BETWEEN 1 AND 3600",
+            name="ck_realtime_quota_admission_window",
+        ),
+        CheckConstraint(
+            "max_admissions_per_window BETWEEN 1 AND 100000",
+            name="ck_realtime_quota_admission_rate",
+        ),
+        CheckConstraint(
+            "grant_ttl_seconds BETWEEN 5 AND 300",
+            name="ck_realtime_quota_grant_ttl",
+        ),
+        Index(
+            "ix_realtime_tenant_quotas_enabled",
+            "organization_id",
+            "enabled",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    max_concurrent_rooms: Mapped[int] = mapped_column(
+        Integer, default=25, nullable=False
+    )
+    max_participants_per_room: Mapped[int] = mapped_column(
+        Integer, default=100, nullable=False
+    )
+    max_concurrent_participants: Mapped[int] = mapped_column(
+        Integer, default=250, nullable=False
+    )
+    max_publishers_per_room: Mapped[int] = mapped_column(
+        Integer, default=25, nullable=False
+    )
+    max_screen_shares_per_room: Mapped[int] = mapped_column(
+        Integer, default=4, nullable=False
+    )
+    max_concurrent_recordings: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False
+    )
+    admission_window_seconds: Mapped[int] = mapped_column(
+        Integer, default=60, nullable=False
+    )
+    max_admissions_per_window: Mapped[int] = mapped_column(
+        Integer, default=300, nullable=False
+    )
+    grant_ttl_seconds: Mapped[int] = mapped_column(Integer, default=60, nullable=False)
+    policy: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class RealtimeRoom(Base, TimestampMixin):
+    """Tenant-scoped durable room authority before any SFU allocation."""
+
+    __tablename__ = "realtime_rooms"
+    __table_args__ = (
+        UniqueConstraint("id", "organization_id", name="uq_realtime_room_id_org"),
+        UniqueConstraint(
+            "organization_id", "room_key", name="uq_realtime_room_org_key"
+        ),
+        UniqueConstraint(
+            "organization_id",
+            "idempotency_key",
+            name="uq_realtime_room_org_idempotency",
+        ),
+        ForeignKeyConstraint(
+            ["workspace_id", "organization_id"],
+            ["workspaces.id", "workspaces.organization_id"],
+            name="fk_realtime_room_workspace_tenant",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["project_id", "organization_id"],
+            ["projects.id", "projects.organization_id"],
+            name="fk_realtime_room_project_tenant",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["created_by_id", "organization_id"],
+            ["users.id", "users.organization_id"],
+            name="fk_realtime_room_creator_tenant",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint(
+            "max_participants BETWEEN 1 AND 10000",
+            name="ck_realtime_room_participant_limit",
+        ),
+        CheckConstraint("fencing_token >= 0", name="ck_realtime_room_fencing_token"),
+        Index(
+            "ix_realtime_rooms_org_status_updated",
+            "organization_id",
+            "status",
+            "updated_at",
+        ),
+        Index(
+            "ix_realtime_rooms_org_workspace",
+            "organization_id",
+            "workspace_id",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    workspace_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    project_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    created_by_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    room_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    room_type: Mapped[str] = mapped_column(
+        String(32), default="meeting", nullable=False
+    )
+    media_mode: Mapped[str] = mapped_column(
+        String(32), default="audio_video", nullable=False
+    )
+    status: Mapped[str] = mapped_column(
+        String(32), default="planned", nullable=False, index=True
+    )
+    provider_adapter: Mapped[str] = mapped_column(
+        String(40), default="unassigned", nullable=False
+    )
+    provider_room_id_sha256: Mapped[str | None] = mapped_column(String(64))
+    max_participants: Mapped[int] = mapped_column(Integer, default=50, nullable=False)
+    allow_screen_share: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False
+    )
+    recording_policy: Mapped[str] = mapped_column(
+        String(32), default="disabled", nullable=False
+    )
+    encryption_policy: Mapped[str] = mapped_column(
+        String(40), default="transport_required", nullable=False
+    )
+    admission_policy: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    fencing_token: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), index=True
+    )
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class RealtimeParticipant(Base, TimestampMixin):
+    """Durable participant/session record tied to a room and tenant."""
+
+    __tablename__ = "realtime_participants"
+    __table_args__ = (
+        UniqueConstraint(
+            "id", "organization_id", name="uq_realtime_participant_id_org"
+        ),
+        UniqueConstraint(
+            "organization_id",
+            "room_id",
+            "participant_key",
+            name="uq_realtime_participant_org_room_key",
+        ),
+        ForeignKeyConstraint(
+            ["room_id", "organization_id"],
+            ["realtime_rooms.id", "realtime_rooms.organization_id"],
+            name="fk_realtime_participant_room_tenant",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["user_id", "organization_id"],
+            ["users.id", "users.organization_id"],
+            name="fk_realtime_participant_user_tenant",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint(
+            "connection_count >= 0",
+            name="ck_realtime_participant_connection_count",
+        ),
+        Index(
+            "ix_realtime_participants_org_room_status",
+            "organization_id",
+            "room_id",
+            "status",
+        ),
+        Index(
+            "ix_realtime_participants_org_user_status",
+            "organization_id",
+            "user_id",
+            "status",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    room_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    participant_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    role: Mapped[str] = mapped_column(String(32), default="attendee", nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32), default="admitted", nullable=False, index=True
+    )
+    can_publish: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    can_subscribe: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    can_screen_share: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    hidden: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    node_id: Mapped[str | None] = mapped_column(String(160), index=True)
+    connection_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    capabilities: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    joined_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_seen_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), index=True
+    )
+    left_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class RealtimeAdmissionGrant(Base, TimestampMixin):
+    """Hash-only, short-lived, single-use realtime admission authority."""
+
+    __tablename__ = "realtime_admission_grants"
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id",
+            "idempotency_key",
+            name="uq_realtime_grant_org_idempotency",
+        ),
+        UniqueConstraint("grant_digest_sha256", name="uq_realtime_grant_digest"),
+        ForeignKeyConstraint(
+            ["room_id", "organization_id"],
+            ["realtime_rooms.id", "realtime_rooms.organization_id"],
+            name="fk_realtime_grant_room_tenant",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["participant_id", "organization_id"],
+            ["realtime_participants.id", "realtime_participants.organization_id"],
+            name="fk_realtime_grant_participant_tenant",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["user_id", "organization_id"],
+            ["users.id", "users.organization_id"],
+            name="fk_realtime_grant_user_tenant",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["issued_by_id", "organization_id"],
+            ["users.id", "users.organization_id"],
+            name="fk_realtime_grant_issuer_tenant",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint(
+            "expires_at > issued_at", name="ck_realtime_grant_expiry_after_issue"
+        ),
+        Index(
+            "ix_realtime_grants_org_status_expires",
+            "organization_id",
+            "status",
+            "expires_at",
+        ),
+        Index(
+            "ix_realtime_grants_org_room_status",
+            "organization_id",
+            "room_id",
+            "status",
+        ),
+        Index(
+            "ix_realtime_grants_org_user_status",
+            "organization_id",
+            "user_id",
+            "status",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    room_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    participant_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    issued_by_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    idempotency_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    grant_digest_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    provider_token_jti_sha256: Mapped[str | None] = mapped_column(String(64))
+    provider_adapter: Mapped[str] = mapped_column(
+        String(40), default="unassigned", nullable=False
+    )
+    role: Mapped[str] = mapped_column(String(32), default="attendee", nullable=False)
+    permissions: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32), default="issued", nullable=False, index=True
+    )
+    single_use: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    issued_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    consumed_by_node: Mapped[str | None] = mapped_column(String(160))
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)

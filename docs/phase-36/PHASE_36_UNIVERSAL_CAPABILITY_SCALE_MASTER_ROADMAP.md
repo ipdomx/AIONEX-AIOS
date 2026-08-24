@@ -584,6 +584,13 @@ Implementation ledger — 2026-08-24 / Part 1 started:
 - Part 1 is source-only/dormant: build a tenant-scoped distributed Redis backplane and deterministic multi-node fanout tests. No SFU/TURN/recording activation, firewall change, service restart, migration, provider request or paid spend is allowed.
 - Reporting truth correction: previously claimed `phase36g-final-closeout` artifacts are absent on the server and authoritative 36G reports still show the external live gate. 36H work proceeds independently without relabeling 36G song production as runtime-verified.
 
+Implementation ledger — 2026-08-24 / Part 2A source candidate:
+- Added Alembic `20260824_0040` and durable `realtime_tenant_quotas`, `realtime_rooms`, `realtime_participants`, and `realtime_admission_grants` authorities.
+- Admission grants persist SHA-256 digests only, use bounded TTL/single-use state, and do not persist raw join/provider credentials.
+- PostgreSQL composite `(id, organization_id)` constraints now enforce room-to-workspace/project/creator, participant-to-room/user, and grant-to-room/participant/user/issuer tenant identity.
+- Disposable PostgreSQL 18 acceptance passed `0040 -> 0039 -> 0040`: realtime tables `4 -> 0 -> 4`, supporting unique constraints `3 -> 0 -> 3`, ten invalid tenant/bounds cases rejected, zero cross-tenant links accepted. Evidence SHA-256 `8b2ae400e54b3322d012074f0ff49dcf97fb41a4edb575f59977fa4e939e6ed1`.
+- Focused Backend regression `30/30`, Ruff, focused Mypy, Alembic-head discovery and diff checks pass. This remains source-only: no production migration, service restart, admission API, SFU/TURN/recording activation, provider request, spend, or 1000-user claim occurred.
+
 Exit gate:
 - concurrent realtime load tests, failover and recovery pass at the defined scale profile; no single-process signaling bottleneck.
 

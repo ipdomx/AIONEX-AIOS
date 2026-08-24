@@ -509,7 +509,7 @@ async def main() -> None:
                 {
                     "status": "pass",
                     "observed_at": datetime.now(UTC).isoformat(),
-                    "alembic_expected": "20260823_0039",
+                    "alembic_expected": "20260824_0040",
                     "ffmpeg": preflight,
                     "processed_render_steps": processed,
                     "graph_status": graph.status,
