@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import subprocess
+
 import pytest
 
 from aios.three_d_web.expansion import (
@@ -10,6 +12,7 @@ from aios.three_d_web.expansion import (
     InteractiveProductionPlanner,
     InteractiveTarget,
     RendererProbe,
+    probe_blender,
 )
 
 
@@ -74,3 +77,16 @@ def test_renderer_baseline_is_fail_closed_for_old_blender() -> None:
     assert old.production_approved is False
     assert current.production_approved is True
     assert old.snapshot()["network_used"] is False
+
+
+def test_probe_accepts_official_blender_lts_suffix(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=args[0], returncode=0, stdout="Blender 5.2.0 LTS\n", stderr=""
+        ),
+    )
+    probe = probe_blender("/opt/blender/blender")
+    assert probe.version == "5.2.0"
+    assert probe.production_approved is True
