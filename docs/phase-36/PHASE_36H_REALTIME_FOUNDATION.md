@@ -239,3 +239,45 @@ Not completed in Part 2B: no production migration `0040/0041`, no public/user re
 - Regression evidence: corrected Ruff PASS, focused Mypy PASS, static migration/schema tests `2/2` PASS, Alembic head `20260824_0041`.
 - Rollout/rollback: validation-only.
 - Residual risk: none beyond normal command-cwd discipline.
+
+### 36H-P2B-004 — Protected Backend CI retained the previous Alembic-head expectation
+
+- Date/time: 2026-08-24T12:41Z.
+- Environment/component: protected PR #493 Backend Tests.
+- Symptom/impact: Backend CI reported `1 failed, 95 passed`; production was not deployed or changed.
+- Detection/reproduction: `tests/test_database_settings.py::test_backend_exposes_the_shipped_alembic_head` expected `20260824_0040` while Alembic correctly exposed new head `20260824_0041`.
+- Root cause: Part 2B added a new linear migration but the explicit shipped-head regression assertion was not updated in the first commit.
+- Why prior focused tests did not prevent it: the Part 2B focused set covered the new migration and service but did not include `test_database_settings.py`.
+- Fix: update the explicit expected shipped head to `20260824_0041` and add that test to the local closing gate.
+- Security/tenant review: test-only correction; schema/runtime policy is unchanged.
+- Regression evidence: targeted database-settings test passes locally; refreshed protected CI is required before merge.
+- Rollout/rollback: no rollout occurred; PR remains unmerged until refreshed CI is green.
+- Residual risk: none beyond normal future migration-head maintenance, now included in the Part 2B closing gate.
+
+### 36H-P2B-005 — First CI-incident report append used Backend cwd
+
+- Date/time: 2026-08-24T12:44Z.
+- Environment/component: reporting command only.
+- Symptom/impact: the first command that attempted to append the PR #493 incident could not find repository-root `docs/` and `.deployment-backups/` paths because its working directory was `web-dashboard/backend`. The targeted code test in the same invocation still passed.
+- Detection/reproduction: shell/path errors were emitted before the targeted pytest result.
+- Root cause: report paths were repository-relative while the command cwd was Backend.
+- Why prior checks did not prevent it: report writes and Backend tests were grouped into one command with different path roots.
+- Fix: repeat report writes from `/opt/AIOS`; keep Backend-only validation commands separate.
+- Security/tenant review: no runtime or tenant data access.
+- Regression evidence: report files updated from project root and hashes regenerated before the next commit.
+- Rollout/rollback: reporting-only; no rollout.
+- Residual risk: none.
+
+### 36H-P2B-006 — Closing reporting checker was invoked from Backend cwd
+
+- Date/time: 2026-08-24T12:46Z.
+- Environment/component: local validation orchestration only.
+- Symptom/impact: `scripts/check_phase36_reporting.py` was not found because the command cwd was `web-dashboard/backend`; `set -e` stopped the grouped command before its targeted pytest step.
+- Detection/reproduction: shell returned file-not-found for the repository-root reporting checker.
+- Root cause: repository-root and Backend-only validation were grouped under the Backend working directory after the previous path issue.
+- Why prior correction did not prevent it: the report-write path issue was fixed, but this separate grouped validation command still retained Backend cwd.
+- Fix: permanently separated the commands: reporting + `git diff --check` from `/opt/AIOS`, Backend pytest from `/opt/AIOS/web-dashboard/backend`.
+- Security/tenant review: no runtime access.
+- Regression evidence: reporting invariant PASS for 9 changed paths; shipped Alembic-head test PASS `1/1` from Backend cwd.
+- Rollout/rollback: validation-only.
+- Residual risk: none.

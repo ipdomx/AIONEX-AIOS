@@ -43,3 +43,6 @@ Status: source implemented; isolated PostgreSQL runtime verified; production unc
 - Provider requests: 0. GPU jobs: 0. Provider spend: $0.00.
 - No 1000-user realtime load, media failover or recovery certification claim.
 - A closing Ruff command initially used repository-relative paths while its working directory was already `web-dashboard/backend`, producing only path-not-found errors. It was rerun with Backend-relative paths and passed; no source/runtime failure occurred.
+- First protected PR #493 Backend run exposed one stale regression assertion: `test_backend_exposes_the_shipped_alembic_head` still expected `0040`. The migration itself had already succeeded in CI; the assertion was corrected to `0041` and added to the local closing gate before rerunning protected CI.
+- The first command that attempted to append that CI incident used Backend cwd with repository-root report paths; those report writes failed and were immediately rerun from `/opt/AIOS`. The targeted Alembic-head regression test in that invocation passed; production was unaffected.
+- A subsequent grouped closing command still invoked the repository-root reporting checker from Backend cwd and stopped before pytest. The commands were then permanently separated by cwd: reporting/diff from `/opt/AIOS`, Backend test from `web-dashboard/backend`; both passed.
