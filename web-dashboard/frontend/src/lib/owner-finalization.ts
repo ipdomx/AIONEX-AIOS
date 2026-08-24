@@ -75,8 +75,12 @@ export type OwnerPhase36Batch = {
   batch_id: string;
   sequence: number;
   title: string;
-  status: "complete" | "in_progress" | "planned";
+  status: "complete" | "external_gate" | "in_progress" | "planned";
   capabilities: OwnerPhase36Capability[];
+  local_closeout_complete: boolean;
+  blocking_external_gates: string[];
+  unresolved_capabilities: string[];
+  ungated_unresolved_capabilities: string[];
 };
 
 export type OwnerPhase36Program = {
@@ -84,6 +88,7 @@ export type OwnerPhase36Program = {
   authoritative: boolean;
   minimum_concurrent_users: number;
   current_batch: string | null;
+  external_gate_batches: string[];
   total_capabilities: number;
   production_ready_capabilities: number;
   completion: number;
@@ -97,6 +102,7 @@ export const EMPTY_OWNER_PHASE36_PROGRAM: OwnerPhase36Program = {
   authoritative: true,
   minimum_concurrent_users: 1000,
   current_batch: null,
+  external_gate_batches: [],
   total_capabilities: 0,
   production_ready_capabilities: 0,
   completion: 0,

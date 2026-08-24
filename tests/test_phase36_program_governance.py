@@ -20,9 +20,11 @@ def test_phase36_batches_are_complete_registry_and_36a_closes_first() -> None:
     ]
     assert [batch.sequence for batch in BATCHES] == list(range(1, 15))
     assert all(batch.status == "complete" for batch in BATCHES[:6])
-    assert BATCHES[6].status == "in_progress"
-    assert all(batch.status == "planned" for batch in BATCHES[7:])
-    assert [batch.batch_id for batch in BATCHES if batch.status == "in_progress"] == ["36G"]
+    assert BATCHES[6].status == "external_gate"
+    assert BATCHES[7].status == "in_progress"
+    assert all(batch.status == "planned" for batch in BATCHES[8:])
+    assert [batch.batch_id for batch in BATCHES if batch.status == "external_gate"] == ["36G"]
+    assert [batch.batch_id for batch in BATCHES if batch.status == "in_progress"] == ["36H"]
 
 
 def test_every_phase36_capability_has_unique_owner_and_valid_maturity() -> None:
@@ -82,7 +84,7 @@ def test_phase36b_maturity_matches_production_activation_evidence() -> None:
     assert BATCHES[3].status == "complete"
     assert BATCHES[4].status == "complete"
     assert BATCHES[5].status == "complete"
-    assert BATCHES[6].status == "in_progress"
+    assert BATCHES[6].status == "external_gate"
 
 
 def test_phase36c_maturity_matches_live_provider_acceptance_evidence() -> None:
@@ -120,7 +122,7 @@ def test_phase36e_maturity_matches_production_design_exit_evidence() -> None:
         assert "docs/phase-36/receipts/36E-2026-08-18-design-image-foundation.md" in capability.evidence
     assert BATCHES[4].status == "complete"
     assert BATCHES[5].status == "complete"
-    assert BATCHES[6].status == "in_progress"
+    assert BATCHES[6].status == "external_gate"
 
 
 def test_phase36f_maturity_matches_live_video_exit_evidence_without_overclaiming() -> None:
@@ -139,10 +141,10 @@ def test_phase36f_maturity_matches_live_video_exit_evidence_without_overclaiming
     assert receipt in final_export.evidence
     assert capabilities["cinema-motion-vfx"].maturity == "specified"
     assert BATCHES[5].status == "complete"
-    assert BATCHES[6].status == "in_progress"
+    assert BATCHES[6].status == "external_gate"
 
 
-def test_phase36g_stage5_source_keeps_diarization_separate_without_overclaiming() -> None:
+def test_phase36g_final_local_closeout_is_explicit_without_overclaiming() -> None:
     capabilities = {item.capability_id: item for item in CAPABILITIES}
     receipt = "docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md"
     expected = {
@@ -150,11 +152,14 @@ def test_phase36g_stage5_source_keeps_diarization_separate_without_overclaiming(
         "governed-stt-transcript": "runtime_verified",
         "multi-speaker-diarization": "runtime_verified",
         "complete-stock-voice-dubbing": "runtime_verified",
+        "stock-voice-narration": "runtime_verified",
         "stt-tts-dubbing": "source_built",
         "voice-transformation": "specified",
+        "voice-cloning": "specified",
         "audio-cleanup-master": "runtime_verified",
         "lyria-3-music-generation": "source_built",
         "stable-audio-instrumental-generation": "runtime_verified",
+        "dedicated-sfx-generation": "specified",
         "song-production": "source_built",
         "podcast-jingle-narration": "source_built",
     }
@@ -169,42 +174,68 @@ def test_phase36g_stage5_source_keeps_diarization_separate_without_overclaiming(
     assert capabilities["governed-stt-transcript"].external_gates == ()
     assert capabilities["multi-speaker-diarization"].external_gates == ()
     assert capabilities["complete-stock-voice-dubbing"].external_gates == ()
+    assert capabilities["stt-tts-dubbing"].external_gates == (
+        "broad-stt-tts-dubbing-aggregate-runtime-acceptance",
+    )
     assert capabilities["voice-transformation"].external_gates == (
         "voice-rights-and-consent-evidence",
+        "voice-transformation-provider-runtime-acceptance",
+    )
+    assert capabilities["voice-cloning"].external_gates == (
+        "self-or-provider-verified-voice-rights",
+        "provider-identity-verification",
+        "voice-clone-provider-runtime-acceptance",
     )
     assert capabilities["lyria-3-music-generation"].external_gates == (
-        "valid-replicate-credential",
-        "lyria-preview-runtime-evidence",
+        "replicate-positive-billing-or-gemini-paid-generation-quota",
+        "lyria-runtime-audio-acceptance",
         "music-rights-and-synthid-disclosure",
     )
     assert capabilities["stable-audio-instrumental-generation"].external_gates == (
-        "funded-stability-credential",
+        "stability-balance-at-least-20-credits",
         "music-rights-and-ai-generated-disclosure",
     )
+    assert capabilities["dedicated-sfx-generation"].external_gates == (
+        "dedicated-sfx-provider-runtime-acceptance",
+        "commercial-sfx-rights-and-ai-disclosure",
+    )
     assert capabilities["song-production"].external_gates == (
+        "ace-step-zerogpu-quota-or-funded-runpod-open-song-endpoint",
         "ace-step-open-song-runtime-acceptance",
         "music-rights-and-ai-generated-disclosure",
+    )
+    assert capabilities["podcast-jingle-narration"].external_gates == (
+        "multi-speaker-podcast-runtime-acceptance",
+        "jingle-music-vocal-runtime-acceptance",
+        "dedicated-sfx-runtime-acceptance",
     )
     assert "SFX" not in capabilities["audio-cleanup-master"].title
     assert capabilities["stt-tts-dubbing"].maturity != "runtime_verified"
     assert capabilities["podcast-jingle-narration"].maturity != "runtime_verified"
     assert capabilities["song-production"].maturity != "runtime_verified"
     assert capabilities["voice-transformation"].maturity != "runtime_verified"
-    assert BATCHES[6].status == "in_progress"
+    assert BATCHES[6].status == "external_gate"
 
 
 def test_phase36_snapshot_is_truthful_and_phase29_is_not_current_finality() -> None:
     snapshot = phase36_program_snapshot()
     assert snapshot["authoritative"] is True
     assert snapshot["minimum_concurrent_users"] == 1000
-    assert snapshot["current_batch"] == "36G"
+    assert snapshot["current_batch"] == "36H"
     batch_statuses = {batch["batch_id"]: batch["status"] for batch in snapshot["batches"]}
     assert batch_statuses["36B"] == "complete"
     assert batch_statuses["36C"] == "complete"
     assert batch_statuses["36D"] == "complete"
     assert batch_statuses["36E"] == "complete"
     assert batch_statuses["36F"] == "complete"
-    assert batch_statuses["36G"] == "in_progress"
+    assert batch_statuses["36G"] == "external_gate"
+    assert batch_statuses["36H"] == "in_progress"
+    assert snapshot["external_gate_batches"] == ["36G"]
+    phase36g = next(batch for batch in snapshot["batches"] if batch["batch_id"] == "36G")
+    assert phase36g["local_closeout_complete"] is True
+    assert phase36g["ungated_unresolved_capabilities"] == []
+    assert "song-production" in phase36g["unresolved_capabilities"]
+    assert "ace-step-open-song-runtime-acceptance" in phase36g["blocking_external_gates"]
     assert snapshot["total_capabilities"] == len(CAPABILITIES)
     assert snapshot["production_ready_capabilities"] < snapshot["total_capabilities"]
     assert snapshot["completion"] < 100

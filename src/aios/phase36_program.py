@@ -12,7 +12,7 @@ Maturity = Literal[
     "scaled",
     "production_ready",
 ]
-BatchStatus = Literal["complete", "in_progress", "planned"]
+BatchStatus = Literal["complete", "external_gate", "in_progress", "planned"]
 
 MATURITY_ORDER: Final[tuple[Maturity, ...]] = (
     "specified",
@@ -86,13 +86,16 @@ CAPABILITIES: Final[tuple[Phase36Capability, ...]] = (
     Phase36Capability("governed-stt-transcript", "audio", "Pinned single-speaker STT with private transcript and governed WebVTT/SRT captions", "36G", "runtime_verified", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",)),
     Phase36Capability("multi-speaker-diarization", "audio", "Pseudonymous multi-speaker diarization with governed timed captions", "36G", "runtime_verified", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",)),
     Phase36Capability("complete-stock-voice-dubbing", "audio", "Private translation, per-segment stock TTS, timing-fit alignment and final local master", "36G", "runtime_verified", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",)),
-    Phase36Capability("stt-tts-dubbing", "audio", "Speech recognition, speech synthesis, dubbing and alignment", "36G", "source_built", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",)),
-    Phase36Capability("voice-transformation", "audio", "Consent-governed voice transformation", "36G", "specified", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",), ("voice-rights-and-consent-evidence",)),
+    Phase36Capability("stock-voice-narration", "audio", "Single-speaker stock-voice narration with governed local mastering and export", "36G", "runtime_verified", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md", "docs/phase-36/receipts/36G-2026-08-24-final-local-closeout.md"), ("synthetic-voice-disclosure",)),
+    Phase36Capability("stt-tts-dubbing", "audio", "Broad multilingual STT, TTS, dubbing and alignment aggregate", "36G", "source_built", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md", "docs/phase-36/receipts/36G-2026-08-24-final-local-closeout.md"), ("broad-stt-tts-dubbing-aggregate-runtime-acceptance",)),
+    Phase36Capability("voice-transformation", "audio", "Consent-governed voice transformation", "36G", "specified", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md", "docs/phase-36/receipts/36G-2026-08-24-final-local-closeout.md"), ("voice-rights-and-consent-evidence", "voice-transformation-provider-runtime-acceptance")),
+    Phase36Capability("voice-cloning", "audio", "Self-owned or provider-verified consent-governed voice cloning", "36G", "specified", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md", "docs/phase-36/receipts/36G-2026-08-24-final-local-closeout.md"), ("self-or-provider-verified-voice-rights", "provider-identity-verification", "voice-clone-provider-runtime-acceptance")),
     Phase36Capability("audio-cleanup-master", "audio", "Audio cleanup, alignment, mixing, mastering and governed local export", "36G", "runtime_verified", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",)),
-    Phase36Capability("lyria-3-music-generation", "audio", "Low-cost Google Lyria 3 Clip drafts and explicitly approved Pro full songs through durable Replicate predictions with governed local mastering", "36G", "source_built", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",), ("valid-replicate-credential", "lyria-preview-runtime-evidence", "music-rights-and-synthid-disclosure")),
-    Phase36Capability("stable-audio-instrumental-generation", "audio", "Bounded Stability Stable Audio 2.5 instrumental drafts with governed local mastering", "36G", "runtime_verified", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",), ("funded-stability-credential", "music-rights-and-ai-generated-disclosure")),
-    Phase36Capability("song-production", "audio", "Governed lyrics, ACE-Step composition and synthetic vocals, four Demucs stems, FFmpeg mix, master and final export", "36G", "source_built", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",), ("ace-step-open-song-runtime-acceptance", "music-rights-and-ai-generated-disclosure")),
-    Phase36Capability("podcast-jingle-narration", "audio", "Podcasts, jingles, narration and multi-speaker production", "36G", "source_built", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",)),
+    Phase36Capability("lyria-3-music-generation", "audio", "Low-cost Google Lyria 3 Clip drafts and explicitly approved Pro full songs through durable Replicate predictions with governed local mastering", "36G", "source_built", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md", "docs/phase-36/receipts/36G-2026-08-24-final-local-closeout.md"), ("replicate-positive-billing-or-gemini-paid-generation-quota", "lyria-runtime-audio-acceptance", "music-rights-and-synthid-disclosure")),
+    Phase36Capability("stable-audio-instrumental-generation", "audio", "Bounded Stability Stable Audio 2.5 instrumental drafts with governed local mastering", "36G", "runtime_verified", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",), ("stability-balance-at-least-20-credits", "music-rights-and-ai-generated-disclosure")),
+    Phase36Capability("dedicated-sfx-generation", "audio", "Dedicated governed sound-effect generation and local QA/export", "36G", "specified", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md", "docs/phase-36/receipts/36G-2026-08-24-final-local-closeout.md"), ("dedicated-sfx-provider-runtime-acceptance", "commercial-sfx-rights-and-ai-disclosure")),
+    Phase36Capability("song-production", "audio", "Governed lyrics, ACE-Step composition and synthetic vocals, four Demucs stems, FFmpeg mix, master and final export", "36G", "source_built", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md", "docs/phase-36/receipts/36G-2026-08-24-final-local-closeout.md"), ("ace-step-zerogpu-quota-or-funded-runpod-open-song-endpoint", "ace-step-open-song-runtime-acceptance", "music-rights-and-ai-generated-disclosure")),
+    Phase36Capability("podcast-jingle-narration", "audio", "Podcasts, jingles, narration and multi-speaker production", "36G", "source_built", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md", "docs/phase-36/receipts/36G-2026-08-24-final-local-closeout.md"), ("multi-speaker-podcast-runtime-acceptance", "jingle-music-vocal-runtime-acceptance", "dedicated-sfx-runtime-acceptance")),
 
     # Realtime and 2D/3D/XR.
     Phase36Capability("realtime-chat-calling", "realtime", "Realtime chat and 1:1/group voice-video calling", "36H", "source_built", ("docs/phase-28/PHASE_28_FULL_PROJECT_LIFECYCLE.md",), ("public-stun-turn-and-sfu-capacity",)),
@@ -129,8 +132,8 @@ BATCHES: Final[tuple[Phase36Batch, ...]] = (
     Phase36Batch("36D", 4, "Universal Creative Asset Graph and Media Orchestrator", "complete"),
     Phase36Batch("36E", 5, "Image, design, branding, infographic and prompt factory", "complete"),
     Phase36Batch("36F", 6, "Video, cinema, motion graphics and advertising factory", "complete"),
-    Phase36Batch("36G", 7, "Audio, voice, music, songs and podcast factory", "in_progress"),
-    Phase36Batch("36H", 8, "Realtime communication, streaming and interactive media scale", "planned"),
+    Phase36Batch("36G", 7, "Audio, voice, music, songs and podcast factory", "external_gate"),
+    Phase36Batch("36H", 8, "Realtime communication, streaming and interactive media scale", "in_progress"),
     Phase36Batch("36I", 9, "2D/3D/XR/game/VFX production expansion", "planned"),
     Phase36Batch("36J", 10, "Education and complete course factory", "planned"),
     Phase36Batch("36K", 11, "Healthcare/professional and high-stakes controls", "planned"),
@@ -182,15 +185,46 @@ def phase36_program_snapshot() -> dict[str, object]:
         counts[capability.maturity] += 1
     highest = MATURITY_ORDER[-1]
     production_ready = counts[highest]
+    runtime_verified_index = MATURITY_ORDER.index("runtime_verified")
     batches = []
     for batch in BATCHES:
         capabilities = [item for item in CAPABILITIES if item.owner_batch == batch.batch_id]
-        batches.append({**asdict(batch), "capabilities": [asdict(item) for item in capabilities]})
+        unresolved = [
+            item for item in capabilities
+            if MATURITY_ORDER.index(item.maturity) < runtime_verified_index
+        ]
+        blocking_external_gates = sorted(
+            {gate for item in capabilities for gate in item.external_gates}
+        )
+        ungated_unresolved = sorted(
+            item.capability_id for item in unresolved if not item.external_gates
+        )
+        batches.append(
+            {
+                **asdict(batch),
+                "capabilities": [asdict(item) for item in capabilities],
+                "local_closeout_complete": batch.status in {
+                    "complete",
+                    "external_gate",
+                },
+                "blocking_external_gates": blocking_external_gates,
+                "unresolved_capabilities": sorted(
+                    item.capability_id for item in unresolved
+                ),
+                "ungated_unresolved_capabilities": ungated_unresolved,
+            }
+        )
     return {
         "program": "Phase 36 — Universal Capability, Creative Media & 1000+ User Scale",
         "authoritative": True,
         "minimum_concurrent_users": 1000,
-        "current_batch": next((batch.batch_id for batch in BATCHES if batch.status != "complete"), None),
+        "current_batch": next(
+            (batch.batch_id for batch in BATCHES if batch.status == "in_progress"),
+            None,
+        ),
+        "external_gate_batches": [
+            batch.batch_id for batch in BATCHES if batch.status == "external_gate"
+        ],
         "total_capabilities": len(CAPABILITIES),
         "production_ready_capabilities": production_ready,
         "completion": round(100 * production_ready / max(1, len(CAPABILITIES))),

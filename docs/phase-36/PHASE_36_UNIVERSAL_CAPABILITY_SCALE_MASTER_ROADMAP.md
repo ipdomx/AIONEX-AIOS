@@ -562,11 +562,20 @@ Scope:
 - Three official-Space requests were separately invoked: one Turbo request ended `GPU task aborted`; one unauthenticated XL request was ZeroGPU-quota-blocked; one authenticated XL request ended `GPU task aborted`. All returned no audio, reported `$0.00`, and were not retried or cross-routed. The XL records carried a non-resolving revision and current official revision was verified read-only, so no XL runtime acceptance is claimed. Consequently `song-production` advances only to `source_built` behind `ace-step-open-song-runtime-acceptance`; Phase 36G remains `in_progress`.
 - Protected PR #484 merged the source as `6396aa3018bb3547be5cd46d76edbf37b97d4374` after all `13` checks passed. Production remains on pre-Stage-8 source/schema with no Worker activation, migration, restart or GPU submission.
 
-Next safe gate: perform a separate hard-disabled Backend/Migration/Worker activation with fresh backup/restore evidence, exact image identities, zero active queues and zero GPU submission; do not claim blocked providers as routable.
+##### Stage 9 — final local closeout and external-gate transfer
+
+- The Stage 8 source, Alembic `0039`, Backend and hard-disabled Audio Song Worker are merged and active; the Worker is Healthy/disabled with zero cycles/errors and no Song rows or pending cost.
+- All remaining local Phase 36G work is classified. The public registry now exposes per-batch `local_closeout_complete`, `blocking_external_gates`, `unresolved_capabilities` and `ungated_unresolved_capabilities`; 36G has no ungated unresolved capability.
+- Single-speaker stock-voice narration is recorded separately as `runtime_verified`. Broad STT/TTS/dubbing, voice transformation/clone, Lyria, dedicated SFX, complete songs and podcast/jingle aggregates remain below runtime acceptance behind exact funding/quota/rights/provider gates rather than ambiguous status.
+- The final read-only RunPod check found balance `-$0.0120109142`, fixed spend `$0.019/hour` and no open-song Endpoint. No paid Endpoint, template, worker or GPU Job was created.
+- The official ACE-Step Space was reachable and revision-pinned. One fresh authenticated Turbo attempt, separately authorized and bounded to one 15-second request, ended `AppError / gpu_quota_unavailable`, returned no audio, cost `$0.00`, and was not retried or cross-routed.
+- The truthful scheduling transition is `36G=external_gate`, `36H=in_progress`, `current_batch=36H`, and `external_gate_batches=[36G]`. This does not promote `song-production` or claim the 36G exit gate passed. Full evidence: `docs/phase-36/receipts/36G-2026-08-24-final-local-closeout.md`.
+
+Next safe gate: continue Phase 36H development without touching 36G unless a named external gate becomes available or a regression is proven.
 
 
 Exit gate:
-- complete user-defined song/audio production can reach final rendered files with separated evidence for lyrics/composition/vocals/stems/mix/master.
+- complete user-defined song/audio production can reach final rendered files with separated evidence for lyrics/composition/vocals/stems/mix/master. This remains an external gate and is not claimed complete.
 
 ### Batch 36H — Realtime communication, streaming & interactive media scale
 

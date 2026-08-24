@@ -522,8 +522,12 @@ export interface Phase36Batch {
   batch_id: string;
   sequence: number;
   title: string;
-  status: "complete" | "in_progress" | "planned";
+  status: "complete" | "external_gate" | "in_progress" | "planned";
   capabilities: Phase36Capability[];
+  local_closeout_complete: boolean;
+  blocking_external_gates: string[];
+  unresolved_capabilities: string[];
+  ungated_unresolved_capabilities: string[];
 }
 
 export interface Phase36ProgramSnapshot {
@@ -531,6 +535,7 @@ export interface Phase36ProgramSnapshot {
   authoritative: boolean;
   minimum_concurrent_users: number;
   current_batch: string | null;
+  external_gate_batches: string[];
   total_capabilities: number;
   production_ready_capabilities: number;
   completion: number;
