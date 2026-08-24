@@ -12,7 +12,7 @@ Maturity = Literal[
     "scaled",
     "production_ready",
 ]
-BatchStatus = Literal["complete", "in_progress", "planned"]
+BatchStatus = Literal["complete", "external_gate", "in_progress", "planned"]
 
 MATURITY_ORDER: Final[tuple[Maturity, ...]] = (
     "specified",
@@ -95,8 +95,8 @@ CAPABILITIES: Final[tuple[Phase36Capability, ...]] = (
     Phase36Capability("podcast-jingle-narration", "audio", "Podcasts, jingles, narration and multi-speaker production", "36G", "source_built", ("docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",)),
 
     # Realtime and 2D/3D/XR.
-    Phase36Capability("realtime-chat-calling", "realtime", "Realtime chat and 1:1/group voice-video calling", "36H", "source_built", ("docs/phase-28/PHASE_28_FULL_PROJECT_LIFECYCLE.md",), ("public-stun-turn-and-sfu-capacity",)),
-    Phase36Capability("realtime-streaming-recording", "realtime", "Streaming, screen share and recording", "36H", "specified"),
+    Phase36Capability("realtime-chat-calling", "realtime", "Realtime chat and 1:1/group voice-video calling", "36H", "source_built", ("docs/phase-28/PHASE_28_FULL_PROJECT_LIFECYCLE.md", "docs/phase-36/receipts/36H-2026-08-24-realtime-foundation.md"), ("public-stun-turn-and-sfu-capacity",)),
+    Phase36Capability("realtime-streaming-recording", "realtime", "Streaming, screen share and recording", "36H", "specified", ("docs/phase-36/receipts/36H-2026-08-24-realtime-foundation.md",)),
     Phase36Capability("two-d-animation-games", "3d-xr", "2D animation and game production", "36I", "locally_executed"),
     Phase36Capability("three-d-production", "3d-xr", "3D assets, materials, animation, scenes and environments", "36I", "runtime_verified", ("docs/phase-34/PHASE_34G_PRODUCTION_E2E_COMPLETION.md",)),
     Phase36Capability("xr-ar-vr", "3d-xr", "WebXR, AR and VR experiences", "36I", "locally_executed", (), ("xr-device-validation",)),
@@ -129,8 +129,8 @@ BATCHES: Final[tuple[Phase36Batch, ...]] = (
     Phase36Batch("36D", 4, "Universal Creative Asset Graph and Media Orchestrator", "complete"),
     Phase36Batch("36E", 5, "Image, design, branding, infographic and prompt factory", "complete"),
     Phase36Batch("36F", 6, "Video, cinema, motion graphics and advertising factory", "complete"),
-    Phase36Batch("36G", 7, "Audio, voice, music, songs and podcast factory", "in_progress"),
-    Phase36Batch("36H", 8, "Realtime communication, streaming and interactive media scale", "planned"),
+    Phase36Batch("36G", 7, "Audio, voice, music, songs and podcast factory", "external_gate"),
+    Phase36Batch("36H", 8, "Realtime communication, streaming and interactive media scale", "in_progress"),
     Phase36Batch("36I", 9, "2D/3D/XR/game/VFX production expansion", "planned"),
     Phase36Batch("36J", 10, "Education and complete course factory", "planned"),
     Phase36Batch("36K", 11, "Healthcare/professional and high-stakes controls", "planned"),
@@ -156,6 +156,7 @@ PHASE36_OWNED_PREFIXES: Final[tuple[str, ...]] = (
     "src/aios/providers/",
     "src/aios/three_d_web/",
     "web-dashboard/backend/app/services/project_execution",
+    "web-dashboard/backend/app/realtime/",
     "web-dashboard/backend/app/services/audio_",
     "web-dashboard/backend/app/services/media_",
     "web-dashboard/backend/app/services/production_studio.py",
@@ -190,7 +191,7 @@ def phase36_program_snapshot() -> dict[str, object]:
         "program": "Phase 36 — Universal Capability, Creative Media & 1000+ User Scale",
         "authoritative": True,
         "minimum_concurrent_users": 1000,
-        "current_batch": next((batch.batch_id for batch in BATCHES if batch.status != "complete"), None),
+        "current_batch": next((batch.batch_id for batch in BATCHES if batch.status == "in_progress"), None),
         "total_capabilities": len(CAPABILITIES),
         "production_ready_capabilities": production_ready,
         "completion": round(100 * production_ready / max(1, len(CAPABILITIES))),
