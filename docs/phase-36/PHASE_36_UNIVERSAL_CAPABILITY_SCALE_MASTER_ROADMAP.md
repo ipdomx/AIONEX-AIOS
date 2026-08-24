@@ -609,6 +609,12 @@ Scope:
 - compositing/VFX integration with video;
 - LOD, compression, device/performance QA.
 
+Implementation ledger — 2026-08-25 / Part 1:
+- 36H local work is preserved as `external_gate`; 36I is now the active local batch. The existing Cloudflare tunnel to `https://ai.vip-e.net` is recorded as HTTPS/WebGL/WebXR secure-context delivery evidence only, not as direct UDP/TURN certification.
+- Reused the completed Phase 30/34 3D stack and added deterministic production-family contracts for 2D animation, 2D games, 3D scenes, WebXR AR/VR and VFX compositing.
+- Technology baseline selects Blender `5.2 LTS` for production evaluation and Three.js `r185` / npm `0.185.0` as the latest closed stable baseline observed. Host Blender `4.0.2` fails closed; portal Three.js `0.180.0` is retained until a protected migration gate.
+- New foundation `6/6 PASS`; affected Phase30/36 3D regression `39/39 PASS`; focused Ruff/Mypy/compile/diff checks PASS. No Production/provider/GPU/network mutation occurred.
+
 Exit gate:
 - generated assets are actually renderable/previewable and integrated into final interactive/video outputs with performance evidence.
 

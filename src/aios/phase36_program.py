@@ -97,9 +97,9 @@ CAPABILITIES: Final[tuple[Phase36Capability, ...]] = (
     # Realtime and 2D/3D/XR.
     Phase36Capability("realtime-chat-calling", "realtime", "Realtime chat and 1:1/group voice-video calling", "36H", "source_built", ("docs/phase-28/PHASE_28_FULL_PROJECT_LIFECYCLE.md", "docs/phase-36/receipts/36H-2026-08-24-realtime-foundation.md", "docs/phase-36/receipts/36H-2026-08-24-sfu-turn-source.md", "docs/phase-36/receipts/36H-2026-08-24-realtime-media-policy.md", "docs/phase-36/receipts/36H-2026-08-24-scale-part6b.md", "docs/phase-36/receipts/36H-2026-08-24-resilience-part6c.md"), ("public-stun-turn-and-sfu-capacity",)),
     Phase36Capability("realtime-streaming-recording", "realtime", "Streaming, screen share and recording", "36H", "source_built", ("docs/phase-36/receipts/36H-2026-08-24-realtime-foundation.md", "docs/phase-36/receipts/36H-2026-08-24-realtime-media-policy.md", "docs/phase-36/receipts/36H-2026-08-24-realtime-recording-source.md", "docs/phase-36/receipts/36H-2026-08-24-resilience-part6c.md"), ("explicit-consent-egress-runtime-acceptance", "recording-retention-and-studio-ingestion-runtime-evidence")),
-    Phase36Capability("two-d-animation-games", "3d-xr", "2D animation and game production", "36I", "locally_executed"),
+    Phase36Capability("two-d-animation-games", "3d-xr", "2D animation and game production", "36I", "locally_executed", ("docs/phase-30/PHASE_30_3D_WEB_CREATION_PROGRAM.md", "docs/phase-36/receipts/36I-2026-08-25-interactive-foundation.md")),
     Phase36Capability("three-d-production", "3d-xr", "3D assets, materials, animation, scenes and environments", "36I", "runtime_verified", ("docs/phase-34/PHASE_34G_PRODUCTION_E2E_COMPLETION.md",)),
-    Phase36Capability("xr-ar-vr", "3d-xr", "WebXR, AR and VR experiences", "36I", "locally_executed", (), ("xr-device-validation",)),
+    Phase36Capability("xr-ar-vr", "3d-xr", "WebXR, AR and VR experiences", "36I", "locally_executed", ("docs/phase-30/PHASE_30_3D_WEB_CREATION_PROGRAM.md", "docs/phase-36/receipts/36I-2026-08-25-interactive-foundation.md"), ("xr-device-validation",)),
 
     # Education / high-stakes / sector packs.
     Phase36Capability("course-factory", "education", "Complete multilingual course/curriculum factory", "36J", "source_built"),
@@ -130,8 +130,8 @@ BATCHES: Final[tuple[Phase36Batch, ...]] = (
     Phase36Batch("36E", 5, "Image, design, branding, infographic and prompt factory", "complete"),
     Phase36Batch("36F", 6, "Video, cinema, motion graphics and advertising factory", "complete"),
     Phase36Batch("36G", 7, "Audio, voice, music, songs and podcast factory", "external_gate"),
-    Phase36Batch("36H", 8, "Realtime communication, streaming and interactive media scale", "in_progress"),
-    Phase36Batch("36I", 9, "2D/3D/XR/game/VFX production expansion", "planned"),
+    Phase36Batch("36H", 8, "Realtime communication, streaming and interactive media scale", "external_gate"),
+    Phase36Batch("36I", 9, "2D/3D/XR/game/VFX production expansion", "in_progress"),
     Phase36Batch("36J", 10, "Education and complete course factory", "planned"),
     Phase36Batch("36K", 11, "Healthcare/professional and high-stakes controls", "planned"),
     Phase36Batch("36L", 12, "Universal business/institution/government sector packs", "planned"),
