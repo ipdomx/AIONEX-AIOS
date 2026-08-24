@@ -24,6 +24,7 @@ Status: source foundation + bounded local preflight PASS; 36I remains in progres
 - Ruff focused: PASS.
 - Mypy focused with imported legacy modules skipped: PASS. A first direct Mypy invocation traversed unrelated pre-existing root modules and reported existing typing debt; no new 36I error was present, so the retained focused invocation isolates this module.
 - Python compile and `git diff --check`: PASS.
+- First protected Backend CI run stopped after `475` passes on one stale public-capability assertion that still expected `36H`; the public snapshot correctly returned `36I`. The assertion was updated to `36H=external_gate` / `36I=in_progress` and added to the closing gate before CI rerun. No Production change occurred.
 - Host Blender probe: `4.0.2`, `production_approved=false`, `network_used=false`.
 
 ## Not completed / not claimed
