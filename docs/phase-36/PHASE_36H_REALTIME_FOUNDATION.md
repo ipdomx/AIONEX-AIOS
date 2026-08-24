@@ -345,3 +345,9 @@ Part 6B ran 1,000 real durable admissions across ten tenant scopes against dispo
 Attempt 1 exposed and fixed a real backplane lifecycle defect: the listener was previously created before the first Redis subscription and could terminate immediately. The listener now starts only after a successful first subscription and is cancelled when the last subscription is removed. Attempt 2 passed with admission p95 `75.61021901201457 ms` and Redis delivery p95 `10.796058923006058 ms`. The disposable data and containers were removed after acceptance.
 
 This is not LiveKit/TURN/Egress scale evidence and does not authorize production migration or media-port activation. Detailed receipt: `docs/phase-36/receipts/36H-2026-08-24-scale-part6b.md`.
+
+## 16. Part 6C — TURN/recording failure paths and activation prerequisites
+
+Part 6C adds provider-network-free resilience evidence contracts. TURN fallback passes only when a relay is required, one later TURN/TURNS path succeeds after retryable failures, raw credentials stay out of evidence, and authentication failure is never bypassed by trying a different path. Recording failover passes only when a failed worker publishes zero artifacts, one recovery attempt publishes exactly one artifact, and consent digest, recording identity, retention and provenance remain invariant.
+
+The read-only live-media prerequisite check is intentionally fail-closed. Source contracts are safe, but production remains on Alembic `0039`, no candidate media ports are listening, LiveKit/Coturn/Egress are not running, and provider credentials/public TURN reachability/SFU soak/recording runtime acceptance are not proven. Therefore Part 6C source acceptance can pass while `production_activation_ready=false`.
