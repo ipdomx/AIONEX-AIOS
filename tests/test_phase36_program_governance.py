@@ -22,9 +22,10 @@ def test_phase36_batches_are_complete_registry_and_36a_closes_first() -> None:
     assert all(batch.status == "complete" for batch in BATCHES[:6])
     assert BATCHES[6].status == "external_gate"
     assert BATCHES[7].status == "external_gate"
-    assert BATCHES[8].status == "in_progress"
-    assert all(batch.status == "planned" for batch in BATCHES[9:])
-    assert [batch.batch_id for batch in BATCHES if batch.status == "in_progress"] == ["36I"]
+    assert BATCHES[8].status == "external_gate"
+    assert BATCHES[9].status == "in_progress"
+    assert all(batch.status == "planned" for batch in BATCHES[10:])
+    assert [batch.batch_id for batch in BATCHES if batch.status == "in_progress"] == ["36J"]
 
 
 def test_every_phase36_capability_has_unique_owner_and_valid_maturity() -> None:
@@ -139,7 +140,9 @@ def test_phase36f_maturity_matches_live_video_exit_evidence_without_overclaiming
     final_export = capabilities["video-final-export"]
     assert final_export.maturity == "source_built"
     assert receipt in final_export.evidence
-    assert capabilities["cinema-motion-vfx"].maturity == "specified"
+    vfx = capabilities["cinema-motion-vfx"]
+    assert vfx.maturity == "locally_executed"
+    assert "docs/phase-36/receipts/36I-2026-08-25-final-vfx-exit.md" in vfx.evidence
     assert BATCHES[5].status == "complete"
     assert BATCHES[6].status == "external_gate"
 
@@ -199,7 +202,7 @@ def test_phase36_snapshot_is_truthful_and_phase29_is_not_current_finality() -> N
     snapshot = phase36_program_snapshot()
     assert snapshot["authoritative"] is True
     assert snapshot["minimum_concurrent_users"] == 1000
-    assert snapshot["current_batch"] == "36I"
+    assert snapshot["current_batch"] == "36J"
     batch_statuses = {batch["batch_id"]: batch["status"] for batch in snapshot["batches"]}
     assert batch_statuses["36B"] == "complete"
     assert batch_statuses["36C"] == "complete"
@@ -208,7 +211,8 @@ def test_phase36_snapshot_is_truthful_and_phase29_is_not_current_finality() -> N
     assert batch_statuses["36F"] == "complete"
     assert batch_statuses["36G"] == "external_gate"
     assert batch_statuses["36H"] == "external_gate"
-    assert batch_statuses["36I"] == "in_progress"
+    assert batch_statuses["36I"] == "external_gate"
+    assert batch_statuses["36J"] == "in_progress"
     assert snapshot["total_capabilities"] == len(CAPABILITIES)
     assert snapshot["production_ready_capabilities"] < snapshot["total_capabilities"]
     assert snapshot["completion"] < 100
