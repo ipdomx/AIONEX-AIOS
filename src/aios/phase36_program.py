@@ -102,8 +102,8 @@ CAPABILITIES: Final[tuple[Phase36Capability, ...]] = (
     Phase36Capability("xr-ar-vr", "3d-xr", "WebXR, AR and VR experiences", "36I", "locally_executed", ("docs/phase-30/PHASE_30_3D_WEB_CREATION_PROGRAM.md", "docs/phase-36/receipts/36I-2026-08-25-interactive-foundation.md", "docs/phase-36/receipts/36I-2026-08-25-webxr-delivery.md"), ("xr-device-validation",)),
 
     # Education / high-stakes / sector packs.
-    Phase36Capability("course-factory", "education", "Complete multilingual course/curriculum factory", "36J", "source_built"),
-    Phase36Capability("learning-assessment-certification", "education", "Learner progress, assessment, certification and analytics", "36J", "runtime_verified", ("docs/phase-29/PHASE_29F_PROJECTS_WORKFORCE_KNOWLEDGE_COMPLETION.md",)),
+    Phase36Capability("course-factory", "education", "Complete multilingual course/curriculum factory", "36J", "locally_executed", ("docs/phase-36/receipts/36J-2026-08-25-complete-course-factory.md",)),
+    Phase36Capability("learning-assessment-certification", "education", "Learner progress, assessment, certification and analytics", "36J", "runtime_verified", ("docs/phase-29/PHASE_29F_PROJECTS_WORKFORCE_KNOWLEDGE_COMPLETION.md", "docs/phase-36/receipts/36J-2026-08-25-complete-course-factory.md")),
     Phase36Capability("healthcare-administration", "healthcare", "Clinic/hospital/medical administration systems", "36K", "source_built"),
     Phase36Capability("professional-evidence-assistance", "healthcare", "Evidence-grounded professional assistance", "36K", "specified", (), ("sector-evidence-and-human-review",)),
     Phase36Capability("high-stakes-human-review", "healthcare", "Human review and regulated-data controls", "36K", "specified"),

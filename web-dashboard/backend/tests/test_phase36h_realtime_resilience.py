@@ -82,7 +82,7 @@ def test_recording_failover_preserves_consent_retention_provenance_and_one_artif
 
 def test_live_media_prerequisites_are_source_safe_but_production_blocked() -> None:
     evidence = LiveMediaPrerequisiteEvidence(
-        source_db_head="20260824_0041",
+        source_db_head="20260825_0042",
         production_db_revision="20260823_0039",
         source_images_digest_bound=True,
         secret_references_only=True,
@@ -122,7 +122,7 @@ def test_part6c_passes_isolated_failure_gates_but_never_claims_production_ready(
         studio_ingestion_plans=1,
     )
     prereq = LiveMediaPrerequisiteEvidence(
-        source_db_head="20260824_0041",
+        source_db_head="20260825_0042",
         production_db_revision="20260823_0039",
         source_images_digest_bound=True,
         secret_references_only=True,

@@ -93,6 +93,7 @@ services:
       - portal_asset_data:/var/lib/aionex/portal-assets:rw
       - project_execution_data:/var/lib/aionex/project-executions:rw
       - studio_asset_data:/var/lib/aionex/studio-assets:rw
+      - course_package_data:/var/lib/aionex/course-packages:ro
       - mobile_release_data:/var/lib/aionex/mobile-releases:ro
     depends_on:
       postgres: {condition: service_healthy}
@@ -258,6 +259,46 @@ services:
     security_opt: ["no-new-privileges:true"]
     networks: [aionex-network]
 
+
+
+  academy-course-worker:
+    profiles: ["academy-execution"]
+    image: aionex-aios-media-worker:local
+    user: "1000:1000"
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: media-worker
+    restart: unless-stopped
+    mem_limit: 2g
+    cpus: "2.0"
+    pids_limit: 384
+    stop_grace_period: 30s
+    command: ["python", "-m", "app.services.academy_course_worker"]
+    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      ACADEMY_COURSE_WORKER_ENABLED: "true"
+      ACADEMY_COURSE_PACKAGE_ROOT: /var/lib/aionex/course-packages
+      AIOS_REPO_ROOT: /workspace
+      PYTHONPATH: /workspace/src:/app
+    volumes:
+      - ..:/workspace:ro
+      - course_package_data:/var/lib/aionex/course-packages:rw
+    depends_on:
+      postgres: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.services.academy_course_worker", "--healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    networks: [aionex-network]
 
   media-worker:
     profiles: ["media-execution"]
@@ -1001,6 +1042,7 @@ volumes:
   security_remediation_data:
   security_tool_cache_data:
   ollama_model_data:
+  course_package_data:
 
 networks:
   aionex-network:

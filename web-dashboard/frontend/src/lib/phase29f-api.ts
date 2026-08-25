@@ -205,6 +205,31 @@ export type AcademyCourse = {
   updated_at: string;
 };
 
+export type AcademyCoursePackage = {
+  id: string;
+  course_id: string;
+  status: string;
+  version: number;
+  lesson_count: number;
+  request: { domain?: string; audience?: string; locales?: string[] };
+  curriculum: {
+    learning_outcomes?: string[];
+    lessons?: Array<{ key: string }>;
+  };
+  citations: Array<Record<string, unknown>>;
+  review: Record<string, unknown>;
+  archive_sha256?: string | null;
+  manifest_sha256?: string | null;
+  archive_bytes: number;
+  download_ready: boolean;
+  site_ready: boolean;
+  error_code?: string | null;
+  completed_at?: string | null;
+  reviewed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type AcademyEnrollment = {
   id: string;
   course_id: string;
@@ -437,6 +462,24 @@ export const phase29fApi = {
     return apiClient.post<WorkforceIncident>(
       `/workforce/incidents/${encodeURIComponent(incidentId)}/resolve`,
       { note },
+    );
+  },
+
+  listCoursePackages(courseId: string) {
+    return apiClient.get<AcademyCoursePackage[]>(
+      `/academy/courses/${encodeURIComponent(courseId)}/packages`,
+    );
+  },
+  createCoursePackage(courseId: string, payload: Record<string, unknown>) {
+    return apiClient.post<AcademyCoursePackage>(
+      `/academy/courses/${encodeURIComponent(courseId)}/packages`,
+      payload,
+    );
+  },
+  reviewCoursePackage(packageId: string, approved: boolean, notes = "") {
+    return apiClient.post<AcademyCoursePackage>(
+      `/academy/packages/${encodeURIComponent(packageId)}/review`,
+      { approved, notes },
     );
   },
   listCourses() {
