@@ -14,7 +14,12 @@ from app.db.models import Organization, OwnerControlRecord, User
 from app.services import studio_governance
 
 
-def actor(*, plan: str = "enterprise", org: str | None = None) -> UserRecord:
+def actor(
+    *,
+    plan: str = "enterprise",
+    org: str | None = None,
+    permissions: list[str] | None = None,
+) -> UserRecord:
     suffix = uuid4().hex[:8]
     return UserRecord(
         id=f"studio-user-{suffix}",
@@ -25,7 +30,7 @@ def actor(*, plan: str = "enterprise", org: str | None = None) -> UserRecord:
         organization_id=org or f"studio-org-{suffix}",
         organization_name="Studio Org",
         organization_plan=plan,
-        permissions=["*"],
+        permissions=list(permissions if permissions is not None else ["*"]),
     )
 
 
@@ -49,6 +54,19 @@ def test_catalog_covers_unified_product_families_and_departments_once() -> None:
         for department in item.departments
     ]
     assert len(departments) == len(set(departments)) == 12
+
+
+def test_course_family_requires_read_permission_but_not_write_permission_to_be_discoverable() -> (
+    None
+):
+    definition = next(
+        item
+        for item in studio_governance.CAPABILITIES
+        if item.capability_id == "courses"
+    )
+    assert definition.launch_surface == "academy"
+    assert definition.supported_plans == ("starter", "professional", "enterprise")
+    assert definition.required_permissions == ("academy:read",)
 
 
 def test_provider_neutral_policy_rejects_external_cost_or_unknown_plan() -> None:
@@ -178,6 +196,38 @@ async def test_user_catalog_applies_plan_eligibility_without_writing_defaults() 
             )
         )
         await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_course_factory_user_catalog_requires_academy_read_permission() -> (
+    None
+):
+    organization_id = f"studio-org-{uuid4().hex[:8]}"
+    denied = actor(
+        plan="enterprise",
+        org=organization_id,
+        permissions=["projects:read", "projects:write"],
+    )
+    allowed = actor(
+        plan="enterprise",
+        org=organization_id,
+        permissions=["academy:read"],
+    )
+    async with SessionLocal() as session:
+        denied_catalog = await studio_governance.user_catalog(session, denied)
+        denied_courses = next(
+            item for item in denied_catalog if item["capability_id"] == "courses"
+        )
+        assert denied_courses["available"] is False
+        assert denied_courses["availability_reason"] == "permission_required"
+        assert denied_courses["required_permissions"] == ["academy:read"]
+
+        allowed_catalog = await studio_governance.user_catalog(session, allowed)
+        allowed_courses = next(
+            item for item in allowed_catalog if item["capability_id"] == "courses"
+        )
+        assert allowed_courses["available"] is True
+        assert allowed_courses["availability_reason"] == "available"
 
 
 def test_phase36m_routes_are_registered() -> None:

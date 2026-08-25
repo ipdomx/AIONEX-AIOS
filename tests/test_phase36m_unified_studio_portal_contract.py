@@ -18,7 +18,7 @@ def test_user_studio_is_a_first_class_authenticated_portal_surface() -> None:
 
     assert "StudioClient" in page
     assert '`/${locale}/studio`' in navbar
-    assert "projects|studio|campaigns" in frame
+    assert "projects|studio|academy|campaigns|profile" in frame
     assert 't("openStudio")' in projects
     for contract in (
         "getStudioHub",
@@ -98,3 +98,100 @@ def test_owner_can_govern_studio_without_source_or_environment_edits() -> None:
     ):
         assert control in page
     assert "updateOwnerStudioCapability" in page
+
+
+def test_academy_is_a_real_six_locale_user_surface_not_a_dead_studio_redirect() -> None:
+    page = (VIP / "src/app/[locale]/academy/page.tsx").read_text(encoding="utf-8")
+    client = (VIP / "src/components/pages/academy-client.tsx").read_text(encoding="utf-8")
+    api = (VIP / "src/lib/academy-api.ts").read_text(encoding="utf-8")
+    studio = (VIP / "src/components/pages/studio-client.tsx").read_text(encoding="utf-8")
+
+    assert "AcademyClient" in page
+    assert '`/${locale}/academy`' in studio
+    for contract in (
+        "listAcademyCourses",
+        "createAcademyCourse",
+        "listAcademyCoursePackages",
+        "createAcademyCoursePackage",
+        "reviewAcademyCoursePackage",
+        "downloadAcademyCoursePackage",
+    ):
+        assert contract in api or contract in client
+    assert 'permissions.has("academy:read")' in client
+    assert 'permissions.has("academy:write")' in client
+    assert 'permissions.has("academy:assess")' in client
+    assert 'organization.plan' in client
+    assert 'supportedLocales = ["ar", "en", "fr", "de", "es", "tr"]' in client
+
+    baseline_keys: set[str] | None = None
+    for locale in ("ar", "en", "fr", "de", "es", "tr"):
+        payload = json.loads((VIP / f"src/messages/{locale}.json").read_text(encoding="utf-8"))
+        assert payload["meta"]["academyTitle"]
+        assert payload["meta"]["academyDescription"]
+        keys = set(payload["academyUser"])
+        assert len(keys) >= 45
+        if baseline_keys is None:
+            baseline_keys = keys
+        else:
+            assert keys == baseline_keys
+
+
+def test_specialized_36m_launch_surfaces_are_truthful_and_fail_closed() -> None:
+    service = (BACKEND / "app/services/studio_governance.py").read_text(encoding="utf-8")
+    studio_api = (BACKEND / "app/api/v1/endpoints/studio.py").read_text(encoding="utf-8")
+    client = (VIP / "src/components/pages/studio-client.tsx").read_text(encoding="utf-8")
+    owner_types = (OWNER / "src/lib/owner-studio-governance.ts").read_text(encoding="utf-8")
+    owner_page = (OWNER / "src/app/owner/studio-governance/page.tsx").read_text(encoding="utf-8")
+
+    assert '"music-song"' in service
+    assert 'runtime_launchable=False' in service
+    assert 'activation_reason="external_activation_required"' in service
+    assert 'supported_plans=("starter", "professional", "enterprise")' in service
+    assert 'required_permissions=("academy:read",)' in service
+    assert 'availability_reason = "permission_required"' in service
+    assert '@router.get("/sector-packs")' in studio_api
+    assert "REFERENCE_SECTOR_PACKS" in studio_api
+    assert "createSectorProject" in client
+    assert '"domain-blueprint-v3"' in client
+    assert 'supported_plans: string[]' in owner_types
+    assert 'runtime_launchable: boolean' in owner_types
+    assert 'disabled={!supported}' in owner_page
+
+
+def test_course_factory_has_a_real_permission_gated_vip_academy_surface() -> None:
+    page = (VIP / "src/app/[locale]/academy/page.tsx").read_text(encoding="utf-8")
+    client = (VIP / "src/components/pages/academy-client.tsx").read_text(encoding="utf-8")
+    api = (VIP / "src/lib/academy-api.ts").read_text(encoding="utf-8")
+    frame = (VIP / "src/components/layout/site-frame.tsx").read_text(encoding="utf-8")
+    governance = (BACKEND / "app/services/studio_governance.py").read_text(encoding="utf-8")
+
+    assert "AcademyClient" in page
+    assert "|academy|" in frame
+    assert "required_permissions" in governance
+    assert "academy:read" in governance
+    assert 'permissions.has("academy:write")' in client
+    assert 'availability_reason = "permission_required"' in governance
+    for contract in (
+        "listAcademyCourses",
+        "createAcademyCourse",
+        "listAcademyCoursePackages",
+        "createAcademyCoursePackage",
+        "reviewAcademyCoursePackage",
+        "downloadAcademyCoursePackage",
+    ):
+        assert contract in api
+        assert contract in client
+
+    baseline_keys: set[str] | None = None
+    for locale in ("ar", "en", "fr", "de", "es", "tr"):
+        payload = json.loads(
+            (VIP / f"src/messages/{locale}.json").read_text(encoding="utf-8")
+        )
+        assert payload["meta"]["academyTitle"]
+        assert payload["meta"]["academyDescription"]
+        assert payload["studio"]["availability"]["permission"]
+        keys = set(payload["academyUser"])
+        if baseline_keys is None:
+            baseline_keys = keys
+        else:
+            assert keys == baseline_keys

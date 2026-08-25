@@ -29,6 +29,9 @@ const AR: Catalog = {
   "Max attempts": "أقصى عدد محاولات",
   "Moderation": "الإشراف",
   "External gates:": "البوابات الخارجية:",
+  "This capability runtime does not support this plan.": "بيئة تشغيل هذه القدرة لا تدعم هذه الخطة.",
+  "Runtime launch: gated (": "تشغيل البيئة: محكوم ببوابة (",
+  "Required user permissions:": "صلاحيات المستخدم المطلوبة:",
   "Professional Review": "المراجعة المهنية",
   "Refresh model evidence": "تحديث دليل النماذج",
   "Model evidence refresh failed; existing unexpired evidence was not replaced by a transient failure.":

@@ -342,6 +342,7 @@ export function StudioClient() {
   function capabilityUnavailableMessage(reason: string | undefined): string {
     if (reason === "external_activation_required") return t("availability.externalActivation");
     if (reason === "plan_not_supported" || reason === "plan_not_eligible") return t("availability.plan");
+    if (reason === "permission_required") return t("availability.permission");
     return t("availability.owner");
   }
 

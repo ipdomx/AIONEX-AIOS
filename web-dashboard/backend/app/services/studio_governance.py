@@ -48,6 +48,7 @@ class CapabilityDefinition:
     departments: tuple[str, ...]
     phase36_capability_ids: tuple[str, ...]
     supported_plans: tuple[str, ...] = ("free", "starter", "professional", "enterprise")
+    required_permissions: tuple[str, ...] = ()
     runtime_launchable: bool = True
     activation_reason: str | None = None
     default_daily_job_limit: int = 50
@@ -151,6 +152,7 @@ CAPABILITIES: tuple[CapabilityDefinition, ...] = (
         (),
         ("course-factory", "learning-assessment-certification"),
         supported_plans=("starter", "professional", "enterprise"),
+        required_permissions=("academy:read",),
     ),
     CapabilityDefinition(
         "sector-solutions",
@@ -348,6 +350,7 @@ async def owner_catalog(session: AsyncSession) -> list[dict[str, Any]]:
                 "departments": list(definition.departments),
                 "phase36_capability_ids": list(definition.phase36_capability_ids),
                 "supported_plans": list(definition.supported_plans),
+                "required_permissions": list(definition.required_permissions),
                 "runtime_launchable": definition.runtime_launchable,
                 "activation_reason": definition.activation_reason,
                 "maturities": maturities,
@@ -372,8 +375,16 @@ async def user_catalog(
             availability_reason = "plan_not_supported"
         elif plan not in set(policy["eligible_plans"]):
             availability_reason = "plan_not_eligible"
+        elif (
+            item["required_permissions"]
+            and "*" not in set(actor.permissions)
+            and not set(item["required_permissions"]).issubset(set(actor.permissions))
+        ):
+            availability_reason = "permission_required"
         elif not item["runtime_launchable"]:
-            availability_reason = item["activation_reason"] or "external_activation_required"
+            availability_reason = (
+                item["activation_reason"] or "external_activation_required"
+            )
         else:
             availability_reason = "available"
         result.append(

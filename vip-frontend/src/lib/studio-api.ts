@@ -25,6 +25,7 @@ export type StudioHubCapability = {
   departments: string[];
   phase36_capability_ids: string[];
   supported_plans: string[];
+  required_permissions: string[];
   runtime_launchable: boolean;
   activation_reason: string | null;
   maturities: string[];

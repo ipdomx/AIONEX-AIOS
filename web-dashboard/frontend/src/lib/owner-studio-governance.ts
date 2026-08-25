@@ -19,6 +19,10 @@ export type OwnerStudioCapability = {
   launch_surface: string;
   departments: string[];
   phase36_capability_ids: string[];
+  supported_plans: string[];
+  required_permissions: string[];
+  runtime_launchable: boolean;
+  activation_reason: string | null;
   maturities: string[];
   external_gates: string[];
   policy: OwnerStudioPolicy;

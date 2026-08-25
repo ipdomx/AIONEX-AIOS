@@ -1,7 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshCw, Save, ShieldCheck, SlidersHorizontal, Sparkles } from "lucide-react";
+import {
+  RefreshCw,
+  Save,
+  ShieldCheck,
+  SlidersHorizontal,
+  Sparkles,
+} from "lucide-react";
 
 import {
   fetchOwnerStudioGovernance,
@@ -145,17 +151,23 @@ export default function OwnerStudioGovernancePage() {
       <section className="grid gap-4 sm:grid-cols-3">
         <div className="glass-card p-5">
           <Sparkles className="h-5 w-5 text-electric-300" />
-          <div className="mt-3 text-3xl font-bold text-white">{items.length}</div>
+          <div className="mt-3 text-3xl font-bold text-white">
+            {items.length}
+          </div>
           <div className="mt-1 text-xs text-white/40">Capability families</div>
         </div>
         <div className="glass-card p-5">
           <ShieldCheck className="h-5 w-5 text-green-300" />
-          <div className="mt-3 text-3xl font-bold text-white">{enabledCount}</div>
+          <div className="mt-3 text-3xl font-bold text-white">
+            {enabledCount}
+          </div>
           <div className="mt-1 text-xs text-white/40">Enabled families</div>
         </div>
         <div className="glass-card p-5">
           <SlidersHorizontal className="h-5 w-5 text-violet-300" />
-          <div className="mt-3 text-lg font-bold text-white">Provider-neutral</div>
+          <div className="mt-3 text-lg font-bold text-white">
+            Provider-neutral
+          </div>
           <div className="mt-1 text-xs text-white/40">Provider mode</div>
         </div>
       </section>
@@ -164,17 +176,25 @@ export default function OwnerStudioGovernancePage() {
 
       <section className="grid gap-4 xl:grid-cols-2">
         {items.map((item) => (
-          <article key={item.capability_id} className="glass-card space-y-5 p-5">
+          <article
+            key={item.capability_id}
+            className="glass-card space-y-5 p-5"
+          >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-lg font-semibold text-white">{item.title}</h2>
+                  <h2 className="text-lg font-semibold text-white">
+                    {item.title}
+                  </h2>
                   <span className="rounded-full border border-white/[0.08] px-2.5 py-1 text-[10px] text-white/40">
-                    {item.policy_source === "owner" ? "Owner override" : "Default policy"}
+                    {item.policy_source === "owner"
+                      ? "Owner override"
+                      : "Default policy"}
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-white/35">
-                  Launch surface: {item.launch_surface} · Maturity: {item.maturities.join(", ") || "specified"}
+                  Launch surface: {item.launch_surface} · Maturity:{" "}
+                  {item.maturities.join(", ") || "specified"}
                 </p>
               </div>
               <label className="flex items-center gap-2 text-xs text-white/55">
@@ -183,27 +203,51 @@ export default function OwnerStudioGovernancePage() {
                   type="checkbox"
                   checked={item.policy.enabled}
                   onChange={(event) =>
-                    setPolicy(item.capability_id, "enabled", event.target.checked)
+                    setPolicy(
+                      item.capability_id,
+                      "enabled",
+                      event.target.checked,
+                    )
                   }
                 />
               </label>
             </div>
 
             <div>
-              <div className="text-xs font-medium text-white/60">Eligible plans</div>
+              <div className="text-xs font-medium text-white/60">
+                Eligible plans
+              </div>
               <div className="mt-2 flex flex-wrap gap-3">
-                {planCodes.map((plan) => (
-                  <label key={plan} className="flex items-center gap-2 text-xs text-white/45">
-                    <input
-                      type="checkbox"
-                      checked={item.policy.eligible_plans.includes(plan)}
-                      onChange={(event) =>
-                        togglePlan(item.capability_id, plan, event.target.checked)
+                {planCodes.map((plan) => {
+                  const supported = item.supported_plans.includes(plan);
+                  return (
+                    <label
+                      key={plan}
+                      className={`flex items-center gap-2 text-xs ${supported ? "text-white/45" : "text-white/20"}`}
+                      title={
+                        supported
+                          ? undefined
+                          : "This capability runtime does not support this plan."
                       }
-                    />
-                    {plan}
-                  </label>
-                ))}
+                    >
+                      <input
+                        type="checkbox"
+                        disabled={!supported}
+                        checked={
+                          supported && item.policy.eligible_plans.includes(plan)
+                        }
+                        onChange={(event) =>
+                          togglePlan(
+                            item.capability_id,
+                            plan,
+                            event.target.checked,
+                          )
+                        }
+                      />
+                      {plan}
+                    </label>
+                  );
+                })}
               </div>
             </div>
 
@@ -217,7 +261,11 @@ export default function OwnerStudioGovernancePage() {
                   className="mt-1 w-full rounded-lg border border-white/10 bg-black/20 p-2 text-white"
                   value={item.policy.daily_job_limit}
                   onChange={(event) =>
-                    setPolicy(item.capability_id, "daily_job_limit", Number(event.target.value))
+                    setPolicy(
+                      item.capability_id,
+                      "daily_job_limit",
+                      Number(event.target.value),
+                    )
                   }
                 />
               </label>
@@ -230,7 +278,11 @@ export default function OwnerStudioGovernancePage() {
                   className="mt-1 w-full rounded-lg border border-white/10 bg-black/20 p-2 text-white"
                   value={item.policy.max_concurrent_jobs}
                   onChange={(event) =>
-                    setPolicy(item.capability_id, "max_concurrent_jobs", Number(event.target.value))
+                    setPolicy(
+                      item.capability_id,
+                      "max_concurrent_jobs",
+                      Number(event.target.value),
+                    )
                   }
                 />
               </label>
@@ -243,7 +295,11 @@ export default function OwnerStudioGovernancePage() {
                   className="mt-1 w-full rounded-lg border border-white/10 bg-black/20 p-2 text-white"
                   value={item.policy.max_attempts}
                   onChange={(event) =>
-                    setPolicy(item.capability_id, "max_attempts", Number(event.target.value))
+                    setPolicy(
+                      item.capability_id,
+                      "max_attempts",
+                      Number(event.target.value),
+                    )
                   }
                 />
               </label>
@@ -259,7 +315,8 @@ export default function OwnerStudioGovernancePage() {
                     setPolicy(
                       item.capability_id,
                       "moderation_mode",
-                      event.target.value as OwnerStudioPolicy["moderation_mode"],
+                      event.target
+                        .value as OwnerStudioPolicy["moderation_mode"],
                     )
                   }
                 >
@@ -269,13 +326,33 @@ export default function OwnerStudioGovernancePage() {
               </label>
               <div className="rounded-xl border border-white/[0.06] bg-black/10 p-3 text-xs text-white/45">
                 <div>Provider mode: {item.policy.provider_mode}</div>
-                <div className="mt-1">External cost ceiling: ${item.policy.max_cost_usd.toFixed(2)}</div>
+                <div className="mt-1">
+                  External cost ceiling: ${item.policy.max_cost_usd.toFixed(2)}
+                </div>
               </div>
             </div>
 
             {item.external_gates.length > 0 && (
               <div className="rounded-xl border border-orange-500/15 bg-orange-500/5 p-3 text-[11px] leading-5 text-orange-200/70">
                 External gates: {item.external_gates.join(" · ")}
+              </div>
+            )}
+
+            {(!item.runtime_launchable ||
+              item.required_permissions.length > 0) && (
+              <div className="rounded-xl border border-white/[0.06] bg-black/10 p-3 text-[11px] leading-5 text-white/40">
+                {!item.runtime_launchable && (
+                  <div>
+                    Runtime launch: gated (
+                    {item.activation_reason || "external activation required"})
+                  </div>
+                )}
+                {item.required_permissions.length > 0 && (
+                  <div>
+                    Required user permissions:{" "}
+                    {item.required_permissions.join(" · ")}
+                  </div>
+                )}
               </div>
             )}
 
