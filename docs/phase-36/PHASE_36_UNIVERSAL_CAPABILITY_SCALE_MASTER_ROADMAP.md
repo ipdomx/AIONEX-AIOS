@@ -1390,3 +1390,9 @@ Implementation ledger — 2026-08-25 / 36K local high-stakes authority:
 - Added Alembic `0043` durable professional evidence cases and versioned human review decisions, pseudonymous subject references, checksum-bound citations, retention/residency templates, and audit evidence.
 - Isolated PostgreSQL acceptance passed `0043→0042→0043`, cross-tenant workspace rejection, human review lifecycle, and cleanup. Frontend `/professional` build passed.
 - `professional-evidence-assistance` and `high-stakes-human-review` advance only to `locally_executed` pending the protected PR and Production canary. Compliance templates are not certifications.
+
+Implementation ledger — 2026-08-25 / 36K Production closeout:
+- Protected PR #510 passed and Production migrated to Alembic `0043` after a verified pre-migration backup.
+- Exact merged Backend/Owner Frontend deployed healthy with non-target service identities unchanged.
+- Bounded Production high-stakes canary proved pseudonymous subject persistence, two-source checksum provenance, append-only human review versioning, audit events, fail-closed autonomous decision policy, closure, and complete synthetic cleanup.
+- `professional-evidence-assistance` and `high-stakes-human-review` are `runtime_verified`; 36K closes `complete` without claiming diagnosis/prescription/treatment autonomy or legal compliance certification. 36L becomes the active local batch.
