@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -314,10 +314,11 @@ async def _policy_records(session: AsyncSession) -> dict[str, OwnerControlRecord
 async def owner_catalog(session: AsyncSession) -> list[dict[str, Any]]:
     records = await _policy_records(session)
     phase = phase36_program_snapshot()
+    phase_batches = cast(list[dict[str, Any]], phase["batches"])
     phase_caps = {
         item["capability_id"]: item
-        for batch in phase["batches"]
-        for item in batch["capabilities"]
+        for batch in phase_batches
+        for item in cast(list[dict[str, Any]], batch["capabilities"])
     }
     result: list[dict[str, Any]] = []
     for definition in CAPABILITIES:
