@@ -15,6 +15,7 @@ import {
   phase29fApi,
   type AcademyCertification,
   type AcademyCourse,
+  type AcademyCoursePackage,
   type AcademyEnrollment,
   type WorkforceMember,
 } from "@/lib/phase29f-api";
@@ -27,6 +28,7 @@ const buttonClass =
 export default function AcademyPage() {
   const [courses, setCourses] = useState<AcademyCourse[]>([]);
   const [members, setMembers] = useState<WorkforceMember[]>([]);
+  const [packages, setPackages] = useState<AcademyCoursePackage[]>([]);
   const [enrollments, setEnrollments] = useState<AcademyEnrollment[]>([]);
   const [certifications, setCertifications] = useState<AcademyCertification[]>(
     [],
@@ -46,10 +48,16 @@ export default function AcademyPage() {
           phase29fApi.listEnrollments({ limit: 200 }),
           phase29fApi.listCertifications({ limit: 200 }),
         ]);
+      const packageRows = (
+        await Promise.all(
+          courseRows.map((course) => phase29fApi.listCoursePackages(course.id)),
+        )
+      ).flat();
       setCourses(courseRows);
       setMembers(memberRows);
       setEnrollments(enrollmentRows);
       setCertifications(certificationRows);
+      setPackages(packageRows);
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -87,6 +95,69 @@ export default function AcademyPage() {
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "Course creation failed.",
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function createPackage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const values = new FormData(form);
+    const courseId = String(values.get("course_id") || "");
+    setBusy("package-create");
+    try {
+      await phase29fApi.createCoursePackage(courseId, {
+        idempotency_key: `academy-${courseId}-${Date.now()}`,
+        domain: String(values.get("domain") || "").trim(),
+        audience: String(values.get("audience") || "").trim(),
+        locales: ["ar", "en", "fr", "de", "es", "tr"],
+        module_count: 2,
+        lessons_per_module: 2,
+        citations: [
+          {
+            citation_id: "academy-course-source",
+            title: "Academy course source",
+            uri: "internal://aionex/academy",
+          },
+        ],
+      });
+      setMessage(
+        "Complete course package queued for local governed generation.",
+      );
+      form.reset();
+      await load();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Course package generation failed.",
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function reviewPackage(packageId: string, approved: boolean) {
+    setBusy(packageId);
+    try {
+      await phase29fApi.reviewCoursePackage(
+        packageId,
+        approved,
+        approved
+          ? "Academy review approved."
+          : "Academy review requested rework.",
+      );
+      setMessage(
+        approved
+          ? "Course package approved."
+          : "Course package rejected for rework.",
+      );
+      await load();
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Course review failed.",
       );
     } finally {
       setBusy(null);
@@ -303,6 +374,131 @@ export default function AcademyPage() {
         </div>
       ) : (
         <>
+          <section className="glass-card p-5">
+            <div className="grid gap-5 xl:grid-cols-[0.9fr_1.6fr]">
+              <form
+                onSubmit={createPackage}
+                className="grid content-start gap-3"
+              >
+                <div>
+                  <h2 className="font-semibold text-white">
+                    Complete course factory
+                  </h2>
+                  <p className="mt-1 text-xs text-white/35">
+                    Build curriculum, lessons, tests, answer keys, adaptive
+                    paths, citations, six locales, and offline media locally.
+                  </p>
+                </div>
+                <select
+                  name="course_id"
+                  required
+                  defaultValue=""
+                  className={inputClass}
+                >
+                  <option value="" disabled>
+                    Select academy course
+                  </option>
+                  {courses
+                    .filter((course) => course.status === "active")
+                    .map((course) => (
+                      <option key={course.id} value={course.id}>
+                        {course.title}
+                      </option>
+                    ))}
+                </select>
+                <input
+                  name="domain"
+                  required
+                  minLength={2}
+                  placeholder="Course domain"
+                  className={inputClass}
+                />
+                <input
+                  name="audience"
+                  required
+                  minLength={2}
+                  placeholder="Target learners"
+                  className={inputClass}
+                />
+                <button
+                  className={buttonClass}
+                  disabled={busy === "package-create"}
+                >
+                  <BookOpenCheck className="h-4 w-4" /> Generate complete
+                  package
+                </button>
+              </form>
+              <div className="space-y-3">
+                <h2 className="font-semibold text-white">Review & delivery</h2>
+                {packages.length === 0 ? (
+                  <p className="text-sm text-white/35">
+                    No generated course packages yet.
+                  </p>
+                ) : (
+                  packages.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-xl border border-white/[0.06] bg-black/15 p-4"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-white">
+                            {courseName(item.course_id)} · v{item.version}
+                          </p>
+                          <p className="mt-1 text-xs text-white/35">
+                            {item.status} · {item.lesson_count} lessons ·{" "}
+                            {(item.request.locales || []).length} locales ·{" "}
+                            {(item.archive_bytes / 1024).toFixed(1)} KB
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {item.status === "review_pending" && (
+                            <>
+                              <button
+                                className={buttonClass}
+                                disabled={busy === item.id}
+                                onClick={() =>
+                                  void reviewPackage(item.id, true)
+                                }
+                              >
+                                Approve
+                              </button>
+                              <button
+                                className={buttonClass}
+                                disabled={busy === item.id}
+                                onClick={() =>
+                                  void reviewPackage(item.id, false)
+                                }
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
+                          {item.site_ready && (
+                            <a
+                              className={buttonClass}
+                              href={`/api/v1/academy/packages/${encodeURIComponent(item.id)}/teacher/answer-key`}
+                            >
+                              Answer key
+                            </a>
+                          )}
+                          {item.download_ready && (
+                            <a
+                              className={buttonClass}
+                              href={`/api/v1/academy/packages/${encodeURIComponent(item.id)}/download`}
+                            >
+                              Learner ZIP
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </section>
+
           <section className="glass-card p-5">
             <h2 className="font-semibold text-white">Course catalogue</h2>
             <div className="mt-4 grid gap-4 xl:grid-cols-2">

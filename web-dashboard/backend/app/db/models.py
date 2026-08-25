@@ -2911,6 +2911,67 @@ class AcademyCertification(Base, TimestampMixin):
     certification_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
 
 
+class AcademyCoursePackage(Base, TimestampMixin):
+    __tablename__ = "academy_course_packages"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "idempotency_key", name="uq_academy_course_package_org_idempotency"),
+        UniqueConstraint("course_id", "version", name="uq_academy_course_package_version"),
+        CheckConstraint("version >= 1", name="ck_academy_course_package_version"),
+        CheckConstraint("lesson_count >= 0 AND lesson_count <= 32", name="ck_academy_course_package_lessons"),
+        CheckConstraint("archive_bytes >= 0", name="ck_academy_course_package_bytes"),
+        Index("ix_academy_course_packages_org_status_created", "organization_id", "status", "created_at"),
+        Index("ix_academy_course_packages_course_version", "course_id", "version"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    course_id: Mapped[str] = mapped_column(ForeignKey("academy_courses.id", ondelete="CASCADE"), nullable=False, index=True)
+    requested_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    reviewed_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    idempotency_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="queued", nullable=False, index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    lesson_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    request_payload: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    curriculum: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    citations: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
+    review: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    site_relpath: Mapped[str | None] = mapped_column(Text)
+    archive_relpath: Mapped[str | None] = mapped_column(Text)
+    archive_sha256: Mapped[str | None] = mapped_column(String(64))
+    manifest_sha256: Mapped[str | None] = mapped_column(String(64))
+    archive_bytes: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    error_code: Mapped[str | None] = mapped_column(String(120))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AcademyLessonProgress(Base, TimestampMixin):
+    __tablename__ = "academy_lesson_progress"
+    __table_args__ = (
+        UniqueConstraint("enrollment_id", "package_id", "lesson_key", name="uq_academy_lesson_progress_lesson"),
+        CheckConstraint("progress_percent >= 0 AND progress_percent <= 100", name="ck_academy_lesson_progress_percent"),
+        CheckConstraint("score IS NULL OR (score >= 0 AND score <= 100)", name="ck_academy_lesson_progress_score"),
+        CheckConstraint("attempts >= 0", name="ck_academy_lesson_progress_attempts"),
+        Index("ix_academy_lesson_progress_org_status", "organization_id", "status"),
+        Index("ix_academy_lesson_progress_enrollment", "enrollment_id", "updated_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    enrollment_id: Mapped[str] = mapped_column(ForeignKey("academy_enrollments.id", ondelete="CASCADE"), nullable=False, index=True)
+    package_id: Mapped[str] = mapped_column(ForeignKey("academy_course_packages.id", ondelete="CASCADE"), nullable=False, index=True)
+    lesson_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    locale: Mapped[str] = mapped_column(String(8), default="en", nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="not_started", nullable=False, index=True)
+    progress_percent: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    score: Mapped[float | None] = mapped_column(Float)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    position: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class KnowledgeItem(Base, TimestampMixin):
     __tablename__ = "knowledge_items"
     __table_args__ = (

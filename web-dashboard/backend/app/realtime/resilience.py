@@ -238,9 +238,17 @@ class LiveMediaPrerequisiteEvidence:
             raise RealtimeResilienceEvidenceError("public media port count must be non-negative")
 
 
+def _includes_realtime_schema(revision: str) -> bool:
+    try:
+        sequence = int(revision.rsplit("_", 1)[1])
+    except (IndexError, ValueError):
+        return False
+    return sequence >= 41
+
+
 def evaluate_live_media_prerequisites(evidence: LiveMediaPrerequisiteEvidence) -> dict[str, object]:
     source_checks = {
-        "source_schema_available": evidence.source_db_head == "20260824_0041",
+        "source_schema_available": _includes_realtime_schema(evidence.source_db_head),
         "immutable_images_bound": evidence.source_images_digest_bound,
         "secret_references_only": evidence.secret_references_only,
         "disabled_compose_profile": evidence.disabled_compose_profile,
@@ -248,7 +256,7 @@ def evaluate_live_media_prerequisites(evidence: LiveMediaPrerequisiteEvidence) -
         "production_remained_unchanged": not evidence.production_mutated,
     }
     runtime_checks = {
-        "production_schema_applied": evidence.production_db_revision == "20260824_0041",
+        "production_schema_applied": _includes_realtime_schema(evidence.production_db_revision),
         "public_media_ports_available": evidence.public_media_ports_open > 0,
         "livekit_running": evidence.livekit_running,
         "coturn_running": evidence.coturn_running,

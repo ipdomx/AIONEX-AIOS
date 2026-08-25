@@ -632,6 +632,12 @@ Scope:
 - learner progress, grading, certificates and analytics;
 - online/mobile/offline package export and localization.
 
+Implementation ledger — 2026-08-25 / complete-course factory candidate:
+- Added a provider-neutral complete course-package factory with curriculum/outcomes, lessons, exercises, tests, teacher answer keys, adaptive paths, citations, six localized HTML tracks, local SVG/WAV/FFmpeg-9 MP4 assets, interactive quiz state, mobile manifest, analytics schema, deterministic manifest and offline ZIP.
+- Added durable Alembic 0042 course-package/version/review and lesson-progress authority, a profile-gated non-root Academy Course Worker, protected online/download API surfaces, and Academy generation/review UI. Existing Phase29F grading/certification is reused.
+- Isolated PostgreSQL/FFmpeg/Chromium acceptance passed: 0042->0041->0042; v1 rejected after favicon 404; v2 later revoked after final review found teacher answer-key material in the learner ZIP; sanitized v3 ZIP 119510 bytes contains zero private/answer-key entries, Browser/localization/media PASS with zero external requests/errors, 4/4 new lesson progress records completed, assessment 94 PASS and a new certification issued. Provider requests/spend remained 0/$0.00.
+- This checkpoint is locally executed only. Production migration/worker/API/UI canary and cleanup remain required before 36J closes. Evidence: docs/phase-36/receipts/36J-2026-08-25-complete-course-factory.md.
+
 Exit gate:
 - one request can produce and deliver a complete governed course package, not only an outline.
 
