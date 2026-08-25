@@ -2972,6 +2972,107 @@ class AcademyLessonProgress(Base, TimestampMixin):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class ProfessionalEvidenceCase(Base, TimestampMixin):
+    __tablename__ = "professional_evidence_cases"
+    __table_args__ = (
+        UniqueConstraint("id", "organization_id", name="uq_professional_case_id_org"),
+        CheckConstraint(
+            "case_mode IN ('administrative','education','professional_assistance','clinical_high_stakes')",
+            name="ck_professional_case_mode",
+        ),
+        CheckConstraint(
+            "status IN ('pending_review','approved','rejected','closed')",
+            name="ck_professional_case_status",
+        ),
+        CheckConstraint(
+            "autonomous_decision_allowed = false",
+            name="ck_professional_case_no_autonomous_decision",
+        ),
+        CheckConstraint("review_version >= 1", name="ck_professional_case_review_version"),
+        Index(
+            "ix_professional_cases_org_status_created",
+            "organization_id",
+            "status",
+            "created_at",
+        ),
+        Index(
+            "ix_professional_cases_org_mode_retention",
+            "organization_id",
+            "case_mode",
+            "retention_until",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    workspace_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="SET NULL"), index=True
+    )
+    created_by_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    case_mode: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    purpose: Mapped[str] = mapped_column(Text, nullable=False)
+    subject_ref_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    request_summary: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32), default="pending_review", nullable=False, index=True
+    )
+    residency_profile: Mapped[str] = mapped_column(String(120), nullable=False)
+    retention_until: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    citations: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
+    assistance: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    evidence_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    human_review_required: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False
+    )
+    autonomous_decision_allowed: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    review_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ProfessionalReviewDecision(Base):
+    __tablename__ = "professional_review_decisions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["case_id", "organization_id"],
+            ["professional_evidence_cases.id", "professional_evidence_cases.organization_id"],
+            ondelete="CASCADE",
+            name="fk_professional_review_case_org",
+        ),
+        CheckConstraint(
+            "decision IN ('approved','rejected','changes_requested')",
+            name="ck_professional_review_decision",
+        ),
+        CheckConstraint("review_version >= 1", name="ck_professional_review_version"),
+        UniqueConstraint(
+            "case_id", "review_version", name="uq_professional_review_case_version"
+        ),
+        Index(
+            "ix_professional_review_org_created",
+            "organization_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    case_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    reviewer_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    decision: Mapped[str] = mapped_column(String(32), nullable=False)
+    rationale: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    review_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    decision_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, nullable=False, index=True
+    )
+
+
 class KnowledgeItem(Base, TimestampMixin):
     __tablename__ = "knowledge_items"
     __table_args__ = (

@@ -1384,3 +1384,9 @@ Implementation ledger — 2026-08-25 / 36I Part 5 final exit:
 - Generated real desktop/mobile/low-power GLB variants from the existing runtime-verified Phase 34 PBR artifact using glTF Transform 4.4.2 + Meshopt; triangle counts are 40000/26000/14000 and all variants are checksum-addressed.
 - Executed desktop/mobile/low-power Chromium profiles with zero external requests/errors. SwiftShader timing is explicitly non-authoritative; structural draw-call/triangle/asset/bundle budgets pass.
 - 36I local exit gate is PASS. Physical `xr-device-validation` remains external; 36I therefore closes as `external_gate` rather than claiming a headset runtime session. 36J becomes the active local batch.
+
+Implementation ledger — 2026-08-25 / 36K local high-stakes authority:
+- Added a non-diagnostic healthcare administration blueprint and fail-closed professional evidence policy; autonomous diagnosis/prescription/treatment/disposition are explicitly excluded.
+- Added Alembic `0043` durable professional evidence cases and versioned human review decisions, pseudonymous subject references, checksum-bound citations, retention/residency templates, and audit evidence.
+- Isolated PostgreSQL acceptance passed `0043→0042→0043`, cross-tenant workspace rejection, human review lifecycle, and cleanup. Frontend `/professional` build passed.
+- `professional-evidence-assistance` and `high-stakes-human-review` advance only to `locally_executed` pending the protected PR and Production canary. Compliance templates are not certifications.

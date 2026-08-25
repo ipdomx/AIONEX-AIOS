@@ -56,6 +56,7 @@ from app.api.v1.endpoints import (
     organizations,
     permissions,
     portal,
+    professional,
     project_executions,
     projects,
     reports,
@@ -195,6 +196,9 @@ api_router.include_router(
 )
 api_router.include_router(
     academy.router, prefix="/academy", tags=["Academy"], dependencies=restricted
+)
+api_router.include_router(
+    professional.router, prefix="/professional", tags=["Professional Evidence"], dependencies=restricted
 )
 api_router.include_router(
     dashboard.router, prefix="/dashboard", tags=["Dashboard"], dependencies=restricted

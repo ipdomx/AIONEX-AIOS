@@ -63,3 +63,18 @@ async def test_phase36_public_capability_snapshot_is_truthful_and_non_secret() -
     rendered = repr(payload).lower()
     for forbidden in ("api_key", "password", "authorization", "credential_value"):
         assert forbidden not in rendered
+
+
+@pytest.mark.asyncio
+async def test_phase36k_public_snapshot_preserves_human_review_gate() -> None:
+    payload = await phase36_capabilities()
+    capabilities = {
+        item["capability_id"]: item
+        for batch in payload["batches"]
+        for item in batch["capabilities"]
+    }
+    assert capabilities["professional-evidence-assistance"]["maturity"] == "locally_executed"
+    assert capabilities["high-stakes-human-review"]["maturity"] == "locally_executed"
+    assert capabilities["professional-evidence-assistance"]["external_gates"] == (
+        "sector-evidence-and-human-review",
+    )

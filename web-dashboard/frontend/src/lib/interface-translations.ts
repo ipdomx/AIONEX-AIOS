@@ -3,6 +3,7 @@ import type { SupportedLocale } from "@/lib/locale-engine";
 type Catalog = Record<string, string>;
 
 const AR: Catalog = {
+  "Professional Review": "المراجعة المهنية",
   "Refresh model evidence": "تحديث دليل النماذج",
   "Model evidence refresh failed; existing unexpired evidence was not replaced by a transient failure.":
     "فشل تحديث دليل النماذج؛ لم يتم استبدال الدليل الحالي غير المنتهي بسبب عطل مؤقت.",
