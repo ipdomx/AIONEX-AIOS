@@ -52,8 +52,14 @@ def test_course_worker_is_local_ffmpeg_provider_free_and_profile_gated() -> None
     end = compose.index("\n  media-worker:", start)
     block = compose[start:end]
     assert 'profiles: ["academy-execution"]' in block
-    assert 'user: "1000:1000"' in block
+    assert 'user: "0:0"' in block
+    assert 'ACADEMY_COURSE_ENTRYPOINT_BOOTSTRAP_ONLY: "true"' in block
     assert 'cap_drop: ["ALL"]' in block
+    assert 'cap_add: ["CHOWN", "FOWNER", "SETGID", "SETUID"]' in block
+    assert (
+        'su-exec", "aionex", "python", "-m", "app.services.academy_course_worker"'
+        in block
+    )
     assert "no-new-privileges:true" in block
     assert "course_package_data:/var/lib/aionex/course-packages:rw" in block
     assert "ports:" not in block
@@ -78,3 +84,15 @@ def test_teacher_answer_key_is_not_in_learner_package_or_public_site_contract() 
             + 500
         ]
     )
+
+
+def test_course_worker_entrypoint_normalizes_private_volume_then_drops_privileges() -> (
+    None
+):
+    entrypoint = (
+        ROOT / "web-dashboard/backend/scripts/docker-entrypoint.sh"
+    ).read_text(encoding="utf-8")
+    assert "ACADEMY_COURSE_ENTRYPOINT_BOOTSTRAP_ONLY" in entrypoint
+    assert 'course_package_meta="$(stat -c' in entrypoint
+    assert 'course_package_meta" != "700:1000:1000"' in entrypoint
+    assert 'exec su-exec aionex "$@"' in entrypoint
