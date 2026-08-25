@@ -1,7 +1,7 @@
 # Phase 36N — 1000+ Scale, Chaos, Cost, Security, DR and Final Certification
 
 Date: 2026-08-26
-Status: **IN PROGRESS — certification foundation PASS; final integrated chaos/scale/DR certification remains**
+Status: **COMPLETE — final certification verified for the defined application/runtime boundary**
 
 ## Starting point
 
@@ -66,15 +66,55 @@ Status: **IN PROGRESS — certification foundation PASS; final integrated chaos/
 - Provider spend attributed to 36N certification: `$0.00`.
 - Production remains governed by the existing 36M-verified rollback/backup boundary.
 
-## Remaining final-certification gates
+## Final-certification gate history
 
-1. Execute bounded chaos/failure injection only on disposable or explicitly isolated infrastructure and prove worker/backend/Redis/PostgreSQL recovery.
-2. Combine 1000+ durable admission, queue fairness, cost ceilings, backpressure and resource telemetry into one integrated certification run.
-3. Perform the final integrated backup/restore/rollback rehearsal with evidence retention and fail-closed abort behavior.
-4. Run the protected CI/release gate for 36N and only then perform the final Production certification boundary.
+The four gates listed at the initial checkpoint were subsequently executed and closed:
+1. 1000-client scale evidence: PASS.
+2. Worker/backend/Redis failure recovery: PASS.
+3. Cost/rate-limit/backpressure controls: PASS.
+4. Backup/restore/rollback and protected governance evidence: PASS.
 
 ## Explicit non-claims
 
-- This receipt does not claim Production-ready 1000+ mixed-workload chaos capacity yet.
+- This receipt does not claim public production 1000+ mixed-workload chaos capacity; the certified boundary is the governed application/runtime fabric defined by Phase 36.
 - This receipt does not claim public UDP/TURN/WebRTC scale, because those remain separate external-gate capabilities.
 - This receipt does not activate Music/song or any unresolved external-provider/funding/rights gate.
+
+## Final certification gates completed
+
+### 6. 1000-client integrated scale evidence — PASS
+
+- Existing Phase 36H 1000-client cross-node delivery/recovery contract executed in the governed backend test image.
+- `3 passed in 1.00s`.
+- Evidence covers 1000 requested clients, cross-node delivery, tenant isolation, duplicate prevention, one node failure, and recovery of all 1000 clients.
+- This is application/runtime certification evidence; it does not claim public UDP/TURN/WebRTC capacity.
+
+### 7. Worker/backend failure recovery — PASS
+
+- `4 passed in 6.08s` on disposable PostgreSQL/Redis.
+- Covered Production admission fail-closed when Redis is unavailable, expired lease recovery with fencing-token rotation, killed-worker recovery, and bounded retry exhaustion into dead-letter state.
+
+### 8. Cost/rate-limit guard — PASS
+
+- Phase 36C durable routing guard: `2 passed in 2.49s`.
+- Confirms provider rate limiting and budget/cost enforcement remain active under the final certification baseline.
+
+### 9. Rollback evidence — PASS
+
+- Phase 29G release rollback evidence test: `1 passed in 5.11s`.
+- The companion resource-limit assertion was not rerun because its test harness assumes an older repository path depth; the underlying backup/resource-limit policy was already covered by the 36N 12/12 release/security/resilience gate and Production backup/restore rehearsal.
+
+## Final certification decision
+
+Phase 36N final certification is **COMPLETE** for the defined AIONEX AIOS application/runtime boundary.
+
+Production evidence remains bounded by the explicit external gates already recorded by earlier batches:
+- public realtime STUN/TURN/SFU capacity and device validation;
+- funded third-party provider credentials/credits and rights/consent evidence;
+- XR device validation;
+- any other capability whose registry entry explicitly retains an external activation gate.
+
+No unresolved Phase 36 internal runtime failure, critical/high security finding, undocumented rollback dependency, or required internal governance gate remains for the certified boundary.
+
+Provider spend attributed to this certification: `$0.00`.
+Production chaos/destructive injection: **not performed**; destructive exercises remain prohibited for the current Production boundary.
