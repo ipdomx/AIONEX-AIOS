@@ -26,9 +26,9 @@ def test_phase36_batches_are_complete_registry_and_36a_closes_first() -> None:
     assert BATCHES[9].status == "complete"
     assert BATCHES[10].status == "complete"
     assert BATCHES[11].status == "complete"
-    assert BATCHES[12].status == "in_progress"
-    assert BATCHES[13].status == "planned"
-    assert [batch.batch_id for batch in BATCHES if batch.status == "in_progress"] == ["36M"]
+    assert BATCHES[12].status == "complete"
+    assert BATCHES[13].status == "in_progress"
+    assert [batch.batch_id for batch in BATCHES if batch.status == "in_progress"] == ["36N"]
 
 
 def test_every_phase36_capability_has_unique_owner_and_valid_maturity() -> None:
@@ -205,7 +205,7 @@ def test_phase36_snapshot_is_truthful_and_phase29_is_not_current_finality() -> N
     snapshot = phase36_program_snapshot()
     assert snapshot["authoritative"] is True
     assert snapshot["minimum_concurrent_users"] == 1000
-    assert snapshot["current_batch"] == "36M"
+    assert snapshot["current_batch"] == "36N"
     batch_statuses = {batch["batch_id"]: batch["status"] for batch in snapshot["batches"]}
     assert batch_statuses["36B"] == "complete"
     assert batch_statuses["36C"] == "complete"
@@ -339,4 +339,19 @@ def test_phase36l_reference_sector_packs_are_locally_executed_without_authority_
         assert capability.maturity == "locally_executed"
         assert receipt in capability.evidence
     assert BATCHES[11].status == "complete"
-    assert BATCHES[12].status == "in_progress"
+    assert BATCHES[12].status == "complete"
+
+
+def test_phase36m_unified_studio_is_locally_executed_and_advances_to_36n() -> None:
+    capabilities = {item.capability_id: item for item in CAPABILITIES}
+    receipt = "docs/phase-36/receipts/36M-2026-08-25-unified-studio.md"
+    for capability_id in (
+        "unified-user-creative-studio",
+        "owner-capability-governance",
+        "six-locale-mobile-ux",
+    ):
+        capability = capabilities[capability_id]
+        assert capability.maturity == "locally_executed"
+        assert receipt in capability.evidence
+    assert BATCHES[12].status == "complete"
+    assert BATCHES[13].status == "in_progress"

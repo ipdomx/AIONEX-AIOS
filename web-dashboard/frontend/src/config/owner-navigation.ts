@@ -280,6 +280,14 @@ export const ownerNavigationSections: OwnerNavigationSection[] = [
         icon: UserCog,
       },
       {
+        id: "owner-studio-governance",
+        label: "Studio Governance",
+        description:
+          "Capability enablement, plan quotas, concurrency, moderation, and retry limits.",
+        href: "/owner/studio-governance",
+        icon: ToggleRight,
+      },
+      {
         id: "owner-secrets",
         label: "Secrets & Keys",
         description: "Masked credentials, rotation, revocation, and scope.",

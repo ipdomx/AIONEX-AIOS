@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   Archive,
@@ -374,15 +375,21 @@ export default function StudioPage() {
             remain unavailable unless they are explicitly configured.
           </p>
         </div>
-        <button
-          type="button"
-          disabled={loading}
-          onClick={() => void load()}
-          className="btn-primary disabled:opacity-50"
-        >
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          Refresh Studio
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/owner/studio-governance" className="btn-secondary">
+            <ShieldCheck className="h-4 w-4" />
+            Capability governance
+          </Link>
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => void load()}
+            className="btn-primary disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Refresh Studio
+          </button>
+        </div>
       </div>
 
       <div className="glass-card p-4 text-xs text-electric-300">{message}</div>

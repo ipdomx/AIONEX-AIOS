@@ -6,6 +6,8 @@ from datetime import UTC, datetime
 import hashlib
 from typing import Any, Literal
 
+from aios.sector_packs import REFERENCE_SECTOR_PACKS
+
 from app.core.auth import UserRecord, current_user
 from app.core.config import settings
 from app.db.base import get_db
@@ -23,7 +25,7 @@ from app.db.models import (
     Workspace,
     uuid_str,
 )
-from app.services import production_studio
+from app.services import production_studio, studio_governance
 from app.services import media_graph_runtime
 from app.services.media_orchestrator import MediaEdgeSpec, MediaGraphSpec, MediaNodeSpec, output_profile
 from app.services.media_storage import (
@@ -177,6 +179,13 @@ async def _enqueue_job(
         workspace_id=data.workspace_id,
         project_id=data.project_id,
     )
+    try:
+        admission = await studio_governance.admit_studio_job(
+            session, actor, data.department
+        )
+    except studio_governance.StudioGovernanceError as exc:
+        raise HTTPException(status_code=exc.http_status, detail=str(exc)) from exc
+    policy = admission["policy"]
     job = StudioJob(
         id=uuid_str(),
         organization_id=actor.organization_id,
@@ -204,8 +213,12 @@ async def _enqueue_job(
             "external_requests": 0,
             "external_tokens": 0,
             "external_cost_usd": 0,
+            "studio_capability_id": admission["capability_id"],
+            "studio_policy_version": policy["version"],
+            "studio_policy_source": admission["policy_source"],
+            "moderation_mode": policy["moderation_mode"],
         },
-        max_attempts=3,
+        max_attempts=int(policy["max_attempts"]),
     )
     session.add(job)
     session.add(
@@ -272,6 +285,54 @@ async def _asset_snapshot(
         ).all()
     )
     return production_studio.asset_snapshot(item, attached_projects=project_ids)
+
+
+@router.get("/hub")
+async def studio_hub(
+    actor: UserRecord = Depends(current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    return await studio_governance.hub_snapshot(session, actor)
+
+
+@router.get("/sector-packs")
+async def sector_packs(
+    actor: UserRecord = Depends(current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    capability = next(
+        item
+        for item in await studio_governance.user_catalog(session, actor)
+        if item["capability_id"] == "sector-solutions"
+    )
+    return {
+        "capability": capability,
+        "packs": [
+            {
+                "key": pack.key,
+                "title": pack.title,
+                "objective": pack.objective,
+                "audience": pack.audience,
+                "roles": list(pack.roles),
+                "entity_count": len(pack.entities),
+                "workflow_count": len(pack.workflows),
+                "workflows": [item.name for item in pack.workflows],
+                "safety_boundaries": list(pack.safety_boundaries),
+                "external_gates": list(pack.external_gates),
+                "domain_blueprint": pack.domain_blueprint(),
+            }
+            for pack in REFERENCE_SECTOR_PACKS
+        ],
+        "custom_composer": {
+            "capability_id": "custom-domain-composer",
+            "schema_version": 3,
+            "launch_surface": "projects",
+            "description": (
+                "Create an unlisted lawful sector as a normal project; the governed Project "
+                "runtime composes Domain Blueprint v3 without a sector-specific code fork."
+            ),
+        },
+    }
 
 
 @router.get("/departments")

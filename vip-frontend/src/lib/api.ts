@@ -260,7 +260,7 @@ export async function request<T>(
   return payload as T;
 }
 
-async function downloadRequest(
+export async function downloadAuthenticated(
   path: string,
   retry = true,
 ): Promise<{ blob: Blob; filename: string }> {
@@ -271,7 +271,7 @@ async function downloadRequest(
   });
   if (response.status === 401 && retry) {
     await refreshSession();
-    return downloadRequest(path, false);
+    return downloadAuthenticated(path, false);
   }
   if (!response.ok) {
     const payload = await responsePayload(response);
@@ -770,7 +770,7 @@ export function downloadProjectExecution(
   projectId: string,
   executionId: string,
 ): Promise<{ blob: Blob; filename: string }> {
-  return downloadRequest(
+  return downloadAuthenticated(
     `/projects/${encodeURIComponent(projectId)}/executions/${encodeURIComponent(executionId)}/download`,
   );
 }

@@ -469,11 +469,13 @@ OWNER_PAGE_BATCH: Final[dict[str, str]] = {
     "production-runtime": "29G", "project-ai": "36C", "projects": "29F", "realtime": "29G", "recovery": "29G",
     "release": "29G", "release-governance": "29G", "runtime": "29B", "search": "29B",
     "secrets": "29G", "security-integration": "29G", "security-lab": "34E", "services": "29G", "staff": "29F",
+    "studio-governance": "36M",
     "support": "29E", "system-map": "29G", "timeline": "29B",
 }
 
 VIP_PAGE_BATCH: Final[dict[str, str]] = {
     "(root)/page.tsx": "29B", "[locale]/about/page.tsx": "29B",
+    "[locale]/academy/page.tsx": "36J",
     "[locale]/billing/page.tsx": "29D",
     "[locale]/campaigns/page.tsx": "GS-12",
     "[locale]/contact/page.tsx": "29E", "[locale]/dashboard/page.tsx": "29F",
@@ -485,6 +487,7 @@ VIP_PAGE_BATCH: Final[dict[str, str]] = {
     "[locale]/projects/page.tsx": "29F", "[locale]/register/page.tsx": "29C",
     "[locale]/reset-password/page.tsx": "29C",
     "[locale]/security-lab/page.tsx": "34E",
+    "[locale]/studio/page.tsx": "36M",
 }
 
 ENDPOINT_BATCH: Final[dict[str, str]] = {
