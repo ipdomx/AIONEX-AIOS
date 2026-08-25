@@ -1,7 +1,7 @@
 # Phase 36M — Unified User/Owner Creative and Project Studio
 
 Date: 2026-08-25
-Status: enhanced local exit gate PASS; protected PR #513 update and Production deployment/acceptance pending
+Status: **COMPLETE — protected PR #513 merged; Production Runtime Verified; 36N is now the authoritative current batch**
 
 ## Implemented
 
@@ -66,10 +66,18 @@ Status: enhanced local exit gate PASS; protected PR #513 update and Production d
 - Browser acceptance exposed a static-export trailing-slash assertion and a strict locator collision; both test harness issues were corrected. The current browser gate is green.
 - The production backend image intentionally does not ship `pytest`; therefore the post-refinement backend gate was executed as direct runtime acceptance in that exact image against disposable PostgreSQL rather than falsely claiming a pytest run. The disposable database, network and temporary acceptance script were removed after the PASS.
 
-## Explicit non-claims
+## Production Runtime Verification
 
-- No Production migration, Production application-data mutation, service restart or deployment occurred in this enhanced local gate.
-- No provider credential or paid provider was activated; provider requests=0, GPU jobs=0, provider spend=$0.00.
-- Existing external gates from 36G/36H/36I remain unchanged.
-- Music/song remains intentionally gated until its external activation requirements are independently satisfied.
-- The protected PR must merge and a separate Production deployment/acceptance gate must pass before 36M may be described as Production-verified.
+- Protected PR #513 merged to `main` as `167cb03f15c4dee4b861b9442ae7e17fa98274f3`. All required CI gates passed, including Backend Tests, Browser E2E Boundaries, CodeQL, dependency/security gates, Owner/VIP builds, Phase 36 Reporting Invariant, and Production Docker Build with legacy `DATABASE_URL` preservation and backup/restore smoke.
+- Production deployment fast-forwarded `/opt/AIOS` to `main@167cb03f15c4dee4b861b9442ae7e17fa98274f3`. Pre-deploy rollback evidence retained under `/opt/AIOS/.deployment-backups/phase36m-production/20260825T161519Z/`, including the PostgreSQL dump `pre-36m-production.dump` (12,979,788 bytes; SHA-256 `f6f08b3516cc48da6df9c039871de6fd0078020235b1cd0b87e72fd1864a8b1b`) and rollback image identities.
+- New production images were built and activated for Backend, Owner Frontend and Portal; all three services returned Healthy with zero restart anomalies. PostgreSQL stayed on Alembic `20260825_0043`; no schema migration was introduced by 36M.
+- The public VIP static release was generated from the merged 36M source with `npm run verify:static`: 127 static pages and 94/94 static smoke URLs PASS. It was backed up and synchronized to the existing `ai.vip-e.net` document root through the established SSH deployment route. Remote backup: `/home2/ipdom3m7/.aionex-deploy-backups/20260825T175604Z-phase36m-unified-studio/ai-vip-before-phase36m.tar.gz`.
+- Checksum-only `rsync -rcn --delete` returned zero content differences after publication. The eight critical Studio/Academy route artifacts across representative locales were present on the remote document root.
+- External Cloudflare edge acceptance PASS: all `6 locales × (Studio + Academy)` returned HTTP 200; `/en/` and `/ar/` returned HTTP 200. Response `Last-Modified` reflects the new release timestamp, with `cf-cache-status: DYNAMIC`.
+- Public boundary acceptance remains healthy: `api.vip-e.net/api/v1/portal/published` returned HTTP 200 and `gabarot.vip-e.net/owner/studio-governance` returned the expected Cloudflare Access HTTP 302. No Cloudflare DNS/Tunnel mutation was performed.
+- The existing external activation gates remain unchanged. Music/song is still intentionally visible-but-gated, and no provider credentials, paid provider calls, GPU jobs, or provider spend were introduced by 36M.
+
+## Final non-claims
+
+- 36M does not certify direct UDP/TURN/WebRTC capability; that remains an external 36H gate.
+- 36M does not activate Music/song or other external-provider rights/funding gates.

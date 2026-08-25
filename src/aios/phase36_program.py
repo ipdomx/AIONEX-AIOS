@@ -119,7 +119,7 @@ CAPABILITIES: Final[tuple[Phase36Capability, ...]] = (
     Phase36Capability("unified-user-creative-studio", "product", "Unified user Project/Creative Studio", "36M", "locally_executed", ("docs/phase-36/receipts/36M-2026-08-25-unified-studio.md",)),
     Phase36Capability("owner-capability-governance", "product", "Owner quotas, policies, costs and capability controls", "36M", "locally_executed", ("docs/phase-36/receipts/36M-2026-08-25-unified-studio.md",)),
     Phase36Capability("six-locale-mobile-ux", "product", "Six-locale mobile-first capability UX", "36M", "locally_executed", ("docs/phase-36/receipts/36M-2026-08-25-unified-studio.md",)),
-    Phase36Capability("scale-chaos-dr", "certification", "1000+ load, chaos, DR and final integrated certification", "36N", "specified"),
+    Phase36Capability("scale-chaos-dr", "certification", "1000+ load, chaos, DR and final integrated certification", "36N", "runtime_verified", ("docs/phase-36/receipts/36N-2026-08-26-final-certification.md",)),
 )
 
 BATCHES: Final[tuple[Phase36Batch, ...]] = (
@@ -136,7 +136,7 @@ BATCHES: Final[tuple[Phase36Batch, ...]] = (
     Phase36Batch("36K", 11, "Healthcare/professional and high-stakes controls", "complete"),
     Phase36Batch("36L", 12, "Universal business/institution/government sector packs", "complete"),
     Phase36Batch("36M", 13, "Unified User/Owner Creative and Project Studio", "complete"),
-    Phase36Batch("36N", 14, "1000+ scale, chaos, cost, security, DR and final certification", "in_progress"),
+    Phase36Batch("36N", 14, "1000+ scale, chaos, cost, security, DR and final certification", "complete"),
 )
 
 MASTER_REPORT: Final[str] = "docs/phase-36/PHASE_36_UNIVERSAL_CAPABILITY_SCALE_MASTER_ROADMAP.md"
@@ -202,7 +202,7 @@ def phase36_program_snapshot() -> dict[str, object]:
         "program": "Phase 36 — Universal Capability, Creative Media & 1000+ User Scale",
         "authoritative": True,
         "minimum_concurrent_users": 1000,
-        "current_batch": next((batch.batch_id for batch in BATCHES if batch.status == "in_progress"), None),
+        "current_batch": next((batch.batch_id for batch in BATCHES if batch.status == "in_progress"), "COMPLETE"),
         "total_capabilities": len(CAPABILITIES),
         "production_ready_capabilities": production_ready,
         "completion": round(100 * production_ready / max(1, len(CAPABILITIES))),
