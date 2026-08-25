@@ -118,3 +118,11 @@ No unresolved Phase 36 internal runtime failure, critical/high security finding,
 
 Provider spend attributed to this certification: `$0.00`.
 Production chaos/destructive injection: **not performed**; destructive exercises remain prohibited for the current Production boundary.
+
+## Final consolidated release report
+
+The roadmap-required final consolidated release report is retained at:
+
+`docs/phase-36/PHASE_36_FINAL_CONSOLIDATED_RELEASE_REPORT_2026-08-26.md`
+
+Final protected closeout PR #514 merged as `9d08a2a2ddd43e5b30c832b4dcdab935876d301b`; Production was rebuilt from that merge for the Backend-only runtime delta and verified with `current_batch=COMPLETE`, `36N=complete`, `scale-chaos-dr=runtime_verified`, Alembic `20260825_0043`, and all final external acceptance checks passing. Final server evidence is retained at `/opt/AIOS/.deployment-backups/phase36n-final-production/20260825T210707Z/` with summary SHA-256 `4762ab7a8bdf0d2925d3c4829bbf7547c2aea7e9bf8af3e112e9887e4bca1b49`.
