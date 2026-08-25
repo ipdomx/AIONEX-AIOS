@@ -10,7 +10,7 @@ async def test_phase36_public_capability_snapshot_is_truthful_and_non_secret() -
     payload = await phase36_capabilities()
     assert payload["authoritative"] is True
     assert payload["minimum_concurrent_users"] == 1000
-    assert payload["current_batch"] == "36J"
+    assert payload["current_batch"] == "36K"
     batch_statuses = {batch["batch_id"]: batch["status"] for batch in payload["batches"]}
     assert batch_statuses["36B"] == "complete"
     assert batch_statuses["36C"] == "complete"
@@ -20,7 +20,7 @@ async def test_phase36_public_capability_snapshot_is_truthful_and_non_secret() -
     assert batch_statuses["36G"] == "external_gate"
     assert batch_statuses["36H"] == "external_gate"
     assert batch_statuses["36I"] == "external_gate"
-    assert batch_statuses["36J"] == "in_progress"
+    assert batch_statuses["36J"] == "complete"
     capabilities = {
         item["capability_id"]: item
         for batch in payload["batches"]

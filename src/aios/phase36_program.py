@@ -102,7 +102,7 @@ CAPABILITIES: Final[tuple[Phase36Capability, ...]] = (
     Phase36Capability("xr-ar-vr", "3d-xr", "WebXR, AR and VR experiences", "36I", "locally_executed", ("docs/phase-30/PHASE_30_3D_WEB_CREATION_PROGRAM.md", "docs/phase-36/receipts/36I-2026-08-25-interactive-foundation.md", "docs/phase-36/receipts/36I-2026-08-25-webxr-delivery.md"), ("xr-device-validation",)),
 
     # Education / high-stakes / sector packs.
-    Phase36Capability("course-factory", "education", "Complete multilingual course/curriculum factory", "36J", "locally_executed", ("docs/phase-36/receipts/36J-2026-08-25-complete-course-factory.md",)),
+    Phase36Capability("course-factory", "education", "Complete multilingual course/curriculum factory", "36J", "runtime_verified", ("docs/phase-36/receipts/36J-2026-08-25-complete-course-factory.md",)),
     Phase36Capability("learning-assessment-certification", "education", "Learner progress, assessment, certification and analytics", "36J", "runtime_verified", ("docs/phase-29/PHASE_29F_PROJECTS_WORKFORCE_KNOWLEDGE_COMPLETION.md", "docs/phase-36/receipts/36J-2026-08-25-complete-course-factory.md")),
     Phase36Capability("healthcare-administration", "healthcare", "Clinic/hospital/medical administration systems", "36K", "source_built"),
     Phase36Capability("professional-evidence-assistance", "healthcare", "Evidence-grounded professional assistance", "36K", "specified", (), ("sector-evidence-and-human-review",)),
@@ -132,8 +132,8 @@ BATCHES: Final[tuple[Phase36Batch, ...]] = (
     Phase36Batch("36G", 7, "Audio, voice, music, songs and podcast factory", "external_gate"),
     Phase36Batch("36H", 8, "Realtime communication, streaming and interactive media scale", "external_gate"),
     Phase36Batch("36I", 9, "2D/3D/XR/game/VFX production expansion", "external_gate"),
-    Phase36Batch("36J", 10, "Education and complete course factory", "in_progress"),
-    Phase36Batch("36K", 11, "Healthcare/professional and high-stakes controls", "planned"),
+    Phase36Batch("36J", 10, "Education and complete course factory", "complete"),
+    Phase36Batch("36K", 11, "Healthcare/professional and high-stakes controls", "in_progress"),
     Phase36Batch("36L", 12, "Universal business/institution/government sector packs", "planned"),
     Phase36Batch("36M", 13, "Unified User/Owner Creative and Project Studio", "planned"),
     Phase36Batch("36N", 14, "1000+ scale, chaos, cost, security, DR and final certification", "planned"),

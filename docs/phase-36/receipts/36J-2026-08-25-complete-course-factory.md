@@ -52,3 +52,14 @@ Evidence root: `/opt/AIOS/.deployment-backups/phase36j-acceptance/20260825T06200
 At this source checkpoint, `course-factory` advances only to `locally_executed`. Production migration 0042, Backend/UI deployment, Academy Course Worker activation and one clean Production synthetic canary are still required before `runtime_verified` and before Batch 36J can close.
 
 No Production database, Production course rows, provider credentials, DNS, firewall, tunnel, external provider, GPU job or paid service was mutated by the isolated acceptance.
+## Final production closeout — 2026-08-25
+
+- Protected implementation PR #507 and volume-bootstrap hotfix PR #508 both passed required CI and were merged.
+- Production schema is Alembic `20260825_0042`; pre-0042 dump restore manifest remains retained under the deployment-backup evidence tree.
+- Backend, Owner Frontend and the dedicated Academy Course Worker were deployed from the merged source tree; the existing Media Worker was not recreated.
+- One isolated synthetic Production canary generated a six-locale, four-lesson complete course package with SVG/WAV/MP4/interactive content, citations, adaptive paths and private teacher answer-key/review material. Learner ZIP path traversal/privacy checks passed, and an offline Chromium run passed with 0 external requests and 0 console errors.
+- The canary package was approved, all 4 lessons completed, assessment score 92 passed, certification was issued, and analytics reported 4/4 completed lessons.
+- All synthetic database rows and course-volume files were deleted after evidence capture; `academy_course_packages` and `academy_lesson_progress` returned to zero rows.
+- No external provider request, GPU job, provider spend, DNS/Firewall/Tunnel mutation, or unrelated Media Worker recreation occurred.
+
+Result: `course-factory = runtime_verified`; Batch `36J = complete`; active local batch advances to `36K`.
