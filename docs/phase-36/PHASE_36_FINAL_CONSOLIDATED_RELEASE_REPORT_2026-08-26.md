@@ -23,9 +23,9 @@ Total first-class capabilities: **60**.
 | Maturity | Count | Meaning in this report |
 | --- | ---: | --- |
 | `production_ready` | 1 | Highest registry maturity with Production-ready evidence |
-| `runtime_verified` | 30 | Runtime behavior verified within its declared boundary |
+| `runtime_verified` | 31 | Runtime behavior verified within its declared boundary |
 | `locally_executed` | 22 | Executed locally/isolated with retained evidence |
-| `source_built` | 6 | Source/runtime path built but not promoted beyond its recorded evidence boundary |
+| `source_built` | 5 | Source/runtime path built but not promoted beyond its recorded evidence boundary |
 | `specified` | 1 | Contract specified; external prerequisite remains |
 | `provider_connected` | 0 | No capability remains only at this transient maturity |
 | `scaled` | 0 | Scale evidence is recorded through the final `scale-chaos-dr` runtime certification rather than a separate permanent maturity promotion |
@@ -65,8 +65,8 @@ The following capability gates remain external by contract and are **not** repre
 | `stock-voice-tts` | `runtime_verified` | synthetic-voice-disclosure |
 | `stt-tts-dubbing` | `runtime_verified` | synthetic-voice-disclosure |
 | `voice-transformation` | `specified` | voice-rights-and-consent-evidence |
-| `lyria-3-music-generation` | `source_built` | valid-replicate-credential; lyria-preview-runtime-evidence; music-rights-and-synthid-disclosure |
-| `stable-audio-instrumental-generation` | `runtime_verified` | funded-stability-credential; music-rights-and-ai-generated-disclosure |
+| `lyria-3-music-generation` | `runtime_verified` | music-rights-and-synthid-disclosure |
+| `stable-audio-instrumental-generation` | `runtime_verified` | music-rights-and-ai-generated-disclosure |
 | `song-production` | `source_built` | ace-step-open-song-runtime-acceptance; music-rights-and-ai-generated-disclosure |
 | `podcast-jingle-narration` | `source_built` | provider-rendered-podcast-jingle-runtime-evidence; synthetic-voice-disclosure; music-rights-and-ai-generated-disclosure |
 | `realtime-chat-calling` | `source_built` | public-stun-turn-and-sfu-capacity |
@@ -88,6 +88,11 @@ A post-closeout consistency audit found four broad capability entries that were 
 - a governance regression now rejects any final `specified` or `source_built` capability that has no explicit external activation gate.
 
 After this reconciliation, every remaining `specified`/`source_built` capability has an explicit external gate; there is no silent source-only internal remainder.
+
+
+## 4B. Funded music-provider activation — 2026-08-26
+
+Post-closeout activation verified the existing funded Replicate and Stability accounts without reopening Phase 36. Replicate Lyria 3 completed one bounded `$0.04` Draft and the complete local cleanup/master/waveform/export DAG; Stability Stable Audio 2.5 completed one bounded `$0.20` generation with no retry. The corresponding credential/funding/runtime gates were removed from the registry, while music-rights/SynthID/AI-generated disclosure requirements remain explicit. Evidence: `docs/phase-36/receipts/36G-2026-08-26-funded-music-provider-activation.md`.
 
 ## 5. Phase 36N final certification evidence
 
