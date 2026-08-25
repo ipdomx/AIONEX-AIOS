@@ -10,7 +10,7 @@ async def test_phase36_public_capability_snapshot_is_truthful_and_non_secret() -
     payload = await phase36_capabilities()
     assert payload["authoritative"] is True
     assert payload["minimum_concurrent_users"] == 1000
-    assert payload["current_batch"] == "36L"
+    assert payload["current_batch"] == "36M"
     batch_statuses = {batch["batch_id"]: batch["status"] for batch in payload["batches"]}
     assert batch_statuses["36B"] == "complete"
     assert batch_statuses["36C"] == "complete"
@@ -21,6 +21,9 @@ async def test_phase36_public_capability_snapshot_is_truthful_and_non_secret() -
     assert batch_statuses["36H"] == "external_gate"
     assert batch_statuses["36I"] == "external_gate"
     assert batch_statuses["36J"] == "complete"
+    assert batch_statuses["36K"] == "complete"
+    assert batch_statuses["36L"] == "complete"
+    assert batch_statuses["36M"] == "in_progress"
     capabilities = {
         item["capability_id"]: item
         for batch in payload["batches"]
@@ -78,3 +81,13 @@ async def test_phase36k_public_snapshot_preserves_human_review_gate() -> None:
     assert capabilities["professional-evidence-assistance"]["external_gates"] == (
         "sector-evidence-and-human-review",
     )
+
+
+@pytest.mark.asyncio
+async def test_phase36l_public_sector_maturity_is_exposed_without_external_claims() -> None:
+    payload = await phase36_capabilities()
+    capabilities = {item["capability_id"]: item for batch in payload["batches"] for item in batch["capabilities"]}
+    assert capabilities["retail-supermarket"]["maturity"] == "locally_executed"
+    assert capabilities["pharmacy"]["maturity"] == "locally_executed"
+    assert capabilities["government-public-service"]["maturity"] == "locally_executed"
+    assert capabilities["custom-domain-composer"]["maturity"] == "locally_executed"

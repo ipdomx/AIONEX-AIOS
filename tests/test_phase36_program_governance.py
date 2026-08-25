@@ -25,9 +25,10 @@ def test_phase36_batches_are_complete_registry_and_36a_closes_first() -> None:
     assert BATCHES[8].status == "external_gate"
     assert BATCHES[9].status == "complete"
     assert BATCHES[10].status == "complete"
-    assert BATCHES[11].status == "in_progress"
-    assert all(batch.status == "planned" for batch in BATCHES[12:])
-    assert [batch.batch_id for batch in BATCHES if batch.status == "in_progress"] == ["36L"]
+    assert BATCHES[11].status == "complete"
+    assert BATCHES[12].status == "in_progress"
+    assert BATCHES[13].status == "planned"
+    assert [batch.batch_id for batch in BATCHES if batch.status == "in_progress"] == ["36M"]
 
 
 def test_every_phase36_capability_has_unique_owner_and_valid_maturity() -> None:
@@ -204,7 +205,7 @@ def test_phase36_snapshot_is_truthful_and_phase29_is_not_current_finality() -> N
     snapshot = phase36_program_snapshot()
     assert snapshot["authoritative"] is True
     assert snapshot["minimum_concurrent_users"] == 1000
-    assert snapshot["current_batch"] == "36L"
+    assert snapshot["current_batch"] == "36M"
     batch_statuses = {batch["batch_id"]: batch["status"] for batch in snapshot["batches"]}
     assert batch_statuses["36B"] == "complete"
     assert batch_statuses["36C"] == "complete"
@@ -319,4 +320,23 @@ def test_phase36k_high_stakes_controls_are_locally_executed_without_compliance_o
         "sector-evidence-and-human-review",
     )
     assert BATCHES[10].status == "complete"
-    assert BATCHES[11].status == "in_progress"
+    assert BATCHES[11].status == "complete"
+
+
+def test_phase36l_reference_sector_packs_are_locally_executed_without_authority_overclaim() -> None:
+    capabilities = {item.capability_id: item for item in CAPABILITIES}
+    receipt = "docs/phase-36/receipts/36L-2026-08-25-sector-packs.md"
+    for capability_id in (
+        "retail-supermarket",
+        "restaurant-hospitality",
+        "pharmacy",
+        "school-university",
+        "government-public-service",
+        "logistics-industry-realestate-professional",
+        "custom-domain-composer",
+    ):
+        capability = capabilities[capability_id]
+        assert capability.maturity == "locally_executed"
+        assert receipt in capability.evidence
+    assert BATCHES[11].status == "complete"
+    assert BATCHES[12].status == "in_progress"
