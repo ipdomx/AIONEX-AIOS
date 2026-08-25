@@ -10,7 +10,7 @@ async def test_phase36_public_capability_snapshot_is_truthful_and_non_secret() -
     payload = await phase36_capabilities()
     assert payload["authoritative"] is True
     assert payload["minimum_concurrent_users"] == 1000
-    assert payload["current_batch"] == "36K"
+    assert payload["current_batch"] == "36L"
     batch_statuses = {batch["batch_id"]: batch["status"] for batch in payload["batches"]}
     assert batch_statuses["36B"] == "complete"
     assert batch_statuses["36C"] == "complete"
@@ -73,8 +73,8 @@ async def test_phase36k_public_snapshot_preserves_human_review_gate() -> None:
         for batch in payload["batches"]
         for item in batch["capabilities"]
     }
-    assert capabilities["professional-evidence-assistance"]["maturity"] == "locally_executed"
-    assert capabilities["high-stakes-human-review"]["maturity"] == "locally_executed"
+    assert capabilities["professional-evidence-assistance"]["maturity"] == "runtime_verified"
+    assert capabilities["high-stakes-human-review"]["maturity"] == "runtime_verified"
     assert capabilities["professional-evidence-assistance"]["external_gates"] == (
         "sector-evidence-and-human-review",
     )

@@ -24,9 +24,10 @@ def test_phase36_batches_are_complete_registry_and_36a_closes_first() -> None:
     assert BATCHES[7].status == "external_gate"
     assert BATCHES[8].status == "external_gate"
     assert BATCHES[9].status == "complete"
-    assert BATCHES[10].status == "in_progress"
-    assert all(batch.status == "planned" for batch in BATCHES[11:])
-    assert [batch.batch_id for batch in BATCHES if batch.status == "in_progress"] == ["36K"]
+    assert BATCHES[10].status == "complete"
+    assert BATCHES[11].status == "in_progress"
+    assert all(batch.status == "planned" for batch in BATCHES[12:])
+    assert [batch.batch_id for batch in BATCHES if batch.status == "in_progress"] == ["36L"]
 
 
 def test_every_phase36_capability_has_unique_owner_and_valid_maturity() -> None:
@@ -203,7 +204,7 @@ def test_phase36_snapshot_is_truthful_and_phase29_is_not_current_finality() -> N
     snapshot = phase36_program_snapshot()
     assert snapshot["authoritative"] is True
     assert snapshot["minimum_concurrent_users"] == 1000
-    assert snapshot["current_batch"] == "36K"
+    assert snapshot["current_batch"] == "36L"
     batch_statuses = {batch["batch_id"]: batch["status"] for batch in snapshot["batches"]}
     assert batch_statuses["36B"] == "complete"
     assert batch_statuses["36C"] == "complete"
@@ -310,11 +311,12 @@ def test_phase36k_high_stakes_controls_are_locally_executed_without_compliance_o
     capabilities = {item.capability_id: item for item in CAPABILITIES}
     receipt = "docs/phase-36/receipts/36K-2026-08-25-high-stakes-controls.md"
     assert capabilities["healthcare-administration"].maturity == "source_built"
-    assert capabilities["professional-evidence-assistance"].maturity == "locally_executed"
-    assert capabilities["high-stakes-human-review"].maturity == "locally_executed"
+    assert capabilities["professional-evidence-assistance"].maturity == "runtime_verified"
+    assert capabilities["high-stakes-human-review"].maturity == "runtime_verified"
     assert receipt in capabilities["professional-evidence-assistance"].evidence
     assert receipt in capabilities["high-stakes-human-review"].evidence
     assert capabilities["professional-evidence-assistance"].external_gates == (
         "sector-evidence-and-human-review",
     )
-    assert BATCHES[10].status == "in_progress"
+    assert BATCHES[10].status == "complete"
+    assert BATCHES[11].status == "in_progress"

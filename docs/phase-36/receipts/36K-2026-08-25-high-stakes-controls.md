@@ -29,3 +29,13 @@ Status: local runtime acceptance passed; production gate pending
 - No HIPAA/GDPR/national compliance certification is claimed; adapters require local legal validation.
 - No provider request, GPU job, external clinical API, or production data mutation occurred in this source/local-runtime gate.
 - Production remains on Alembic `20260825_0042` until the protected PR and separate deployment gate pass.
+
+## Production closeout
+
+- Protected PR #510 merged after all required checks passed, including Backend Tests and Production Docker Build/Backup-Restore.
+- Pre-`0043` Production backup was created and its restore manifest verified before migration.
+- Production advanced `20260825_0042 -> 20260825_0043`; both professional tables were present and empty before the synthetic canary.
+- Exact merged Backend and Owner Frontend images were deployed; non-target Academy Course Worker, Media Worker, PostgreSQL, Redis, Nginx and Cloudflared identities were preserved.
+- One bounded synthetic `clinical_high_stakes` Production canary passed: subject reference pseudonymized before persistence, zero raw-reference leaks, two checksum-bound citations, `changes_requested -> approved` human-review versions `1 -> 2`, evidence digest preserved, four audit events, autonomous decision false, then case closed.
+- Synthetic organization/case/review/audit rows were removed by tenant cascade; final professional case/review counts returned to zero.
+- `professional-evidence-assistance` and `high-stakes-human-review` are therefore `runtime_verified`. Healthcare administration remains `source_built`; no clinical autonomy or jurisdictional compliance certification is claimed.
