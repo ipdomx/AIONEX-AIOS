@@ -112,6 +112,12 @@ const baseMainNavSections: NavSection[] = [
   },
   { id: "workforce", label: "Workforce", icon: Users, href: "/workforce" },
   { id: "academy", label: "Academy", icon: GraduationCap, href: "/academy" },
+  {
+    id: "professional",
+    label: "Professional Review",
+    icon: Shield,
+    href: "/professional",
+  },
   { id: "knowledge", label: "Knowledge", icon: BookOpen, href: "/knowledge" },
   {
     id: "infrastructure",

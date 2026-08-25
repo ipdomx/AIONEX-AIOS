@@ -304,3 +304,17 @@ def test_phase36b_distributed_worker_scale_assets_are_explicitly_gated() -> None
     assert "aionex-project-execution-rwx" in cluster_manifest
     assert "registry.example.invalid" in cluster_manifest
     assert "External activation gates remaining" in receipt
+
+
+def test_phase36k_high_stakes_controls_are_locally_executed_without_compliance_overclaim() -> None:
+    capabilities = {item.capability_id: item for item in CAPABILITIES}
+    receipt = "docs/phase-36/receipts/36K-2026-08-25-high-stakes-controls.md"
+    assert capabilities["healthcare-administration"].maturity == "source_built"
+    assert capabilities["professional-evidence-assistance"].maturity == "locally_executed"
+    assert capabilities["high-stakes-human-review"].maturity == "locally_executed"
+    assert receipt in capabilities["professional-evidence-assistance"].evidence
+    assert receipt in capabilities["high-stakes-human-review"].evidence
+    assert capabilities["professional-evidence-assistance"].external_gates == (
+        "sector-evidence-and-human-review",
+    )
+    assert BATCHES[10].status == "in_progress"

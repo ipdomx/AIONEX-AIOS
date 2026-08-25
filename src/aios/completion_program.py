@@ -494,7 +494,7 @@ ENDPOINT_BATCH: Final[dict[str, str]] = {
     "final_integration": "29G", "firebase_phone": "29C", "governance": "29E", "growth_access": "GS-01", "growth_campaigns": "GS-02", "growth_social_accounts": "GS-03", "growth_content": "GS-04", "growth_analytics": "GS-05", "growth_leads": "GS-06", "growth_inbox": "GS-07", "growth_paid_campaigns": "GS-08", "growth_provider_connectors": "GS-09", "growth_advanced_integrations": "GS-10",
     "identity": "29C", "incidents": "29E", "integration": "29I", "knowledge": "29F", "locale": "29B", "meetings": "29E",
     "mobile_delivery": "29H", "monitoring": "29G", "notifications": "29E", "organizations": "29C",
-    "permissions": "29C", "portal": "29B", "project_executions": "29F", "projects": "29F",
+    "permissions": "29C", "portal": "29B", "professional": "29F", "project_executions": "29F", "projects": "29F",
     "reports": "29F", "roles": "29C", "search": "29B", "security": "29G", "security_lab": "34E",
     "servers": "29G", "settings": "29C", "studio": "29H", "support": "29E",
     "tasks": "29F", "teams": "29C", "three_d_jobs": "34D", "user_telegram": "29E", "users": "29C", "websocket": "29E",
