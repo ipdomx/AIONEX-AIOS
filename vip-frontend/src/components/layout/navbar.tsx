@@ -9,6 +9,7 @@ import {
   LogOut,
   Menu,
   ShieldCheck,
+  Sparkles,
   UserRound,
   X,
 } from "lucide-react";
@@ -179,6 +180,13 @@ export function Navbar() {
               >
                 {t("projects")}
               </Link>
+              <Link
+                href={`/${locale}/studio`}
+                className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/65 hover:text-white"
+              >
+                <Sparkles className="h-4 w-4" aria-hidden="true" />
+                {t("studio")}
+              </Link>
               {campaignsVisible && (
                 <Link
                   href={`/${locale}/campaigns`}
@@ -286,6 +294,13 @@ export function Navbar() {
                   className="rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06]"
                 >
                   {t("projects")}
+                </Link>
+                <Link
+                  href={`/${locale}/studio`}
+                  onClick={() => setOpen(false)}
+                  className="rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06]"
+                >
+                  {t("studio")}
                 </Link>
                 {campaignsVisible && (
                   <Link

@@ -174,6 +174,8 @@ OWNER_API_CONTRACT = {
     ("DELETE", "/api/v1/owner/project-ai/access/users/{user_id}"),
     ("GET", "/api/v1/owner/project-ai/providers/{provider_id}/finance"),
     ("PUT", "/api/v1/owner/project-ai/providers/{provider_id}/finance"),
+    ("GET", "/api/v1/owner/studio-governance"),
+    ("PATCH", "/api/v1/owner/studio-governance/{capability_id}"),
 
 }
 
@@ -202,6 +204,16 @@ OWNER_MUTATION_REQUESTS = {
         "low_balance_threshold_usd": 3.0,
         "critical_balance_threshold_usd": 1.0,
         "enabled": True,
+    },
+    ("PATCH", "/api/v1/owner/studio-governance/{capability_id}"): {
+        "enabled": True,
+        "eligible_plans": ["free", "starter", "professional", "enterprise"],
+        "daily_job_limit": 50,
+        "max_concurrent_jobs": 4,
+        "max_attempts": 3,
+        "max_cost_usd": 0.0,
+        "provider_mode": "provider_neutral",
+        "moderation_mode": "standard",
     },
     ("POST", "/api/v1/owner/platform-integration/command"): {
         "action": "validate",
@@ -494,13 +506,13 @@ def test_owner_navigation_registry_matches_all_owner_pages() -> None:
         f"/owner/{page.parent.relative_to(OWNER_APP).as_posix()}"
         for page in OWNER_APP.glob("*/page.tsx")
     }
-    assert len(page_routes) == 47
+    assert len(page_routes) == 48
 
     registry = (FRONTEND / "src" / "config" / "owner-navigation.ts").read_text()
     registry_routes = re.findall(r'href:\s*"(/owner/[^"]+)"', registry)
 
-    assert len(registry_routes) == 47
-    assert len(set(registry_routes)) == 47
+    assert len(registry_routes) == 48
+    assert len(set(registry_routes)) == 48
     assert set(registry_routes) == page_routes
 
 

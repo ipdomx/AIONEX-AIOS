@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 
 async function denyVipSession(page: Page) {
@@ -210,4 +212,306 @@ test("projects surface shows the truthful Phase 36 expansion contract", async ({
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
   );
   expect(overflow).toBe(false);
+});
+
+async function mockPhase36MStudio(page: Page) {
+  await allowVipSession(page);
+  await page.route("**/api/v1/portal/published", async (route) => {
+    const localized = { ar: "", en: "", fr: "", de: "", es: "", tr: "" };
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configuration: {
+          schema_version: 1,
+          branding: {
+            site_name: "AIONEX AIOS",
+            short_name: "AIONEX",
+            wordmark_suffix: "AIOS",
+            logo_url: "",
+            icon_url: "",
+            favicon_url: "",
+            logo_alt: localized,
+            tagline: localized,
+          },
+          theme: {
+            default_mode: "dark",
+            page_color: "#03050A",
+            page_deep_color: "#02040A",
+            surface_color: "#0A1020",
+            text_color: "#FFFFFF",
+            muted_color: "#94A3B8",
+            primary_color: "#38BDF8",
+            secondary_color: "#8B5CF6",
+            success_color: "#22C55E",
+            warning_color: "#F59E0B",
+            danger_color: "#EF4444",
+            heading_font_family: "system-ui",
+            body_font_family: "system-ui",
+            arabic_font_family: "system-ui",
+            heading_font_url: "",
+            body_font_url: "",
+            arabic_font_url: "",
+            radius_px: 16,
+            page_max_width_px: 1280,
+            section_spacing_px: 64,
+            logo_size_px: 42,
+            button_style: "rounded",
+            background_grid: false,
+            background_glow: false,
+            background_image_url: "",
+            background_image_position: "center",
+            background_image_opacity: 0,
+          },
+          navigation: [],
+          pages: {},
+          pricing: {
+            enabled: false,
+            show_tax_note: false,
+            default_currency: "USD",
+            default_period: "monthly",
+            heading: localized,
+            description: localized,
+            tax_note: localized,
+            plans: [],
+            faq: [],
+          },
+          footer: {
+            enabled: false,
+            description: localized,
+            security_note: localized,
+            copyright_text: localized,
+            columns: [],
+          },
+          announcement: {
+            enabled: false,
+            severity: "info",
+            message: localized,
+            link_label: localized,
+            link_url: "",
+            dismissible: true,
+          },
+          contact: {
+            support_email: "",
+            sales_email: "",
+            phone: "",
+            whatsapp_url: "",
+            address: localized,
+            social_links: {},
+          },
+          translation_overrides: {},
+          custom_metadata: {},
+        },
+        publication: { version: 0, published_at: new Date().toISOString(), published_by: "phase36m-e2e" },
+      }),
+    });
+  });
+  await page.route("**/index.txt**", async (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    const locale = pathname.split("/").filter(Boolean)[0] || "en";
+    const artifact = resolve(process.cwd(), "../../vip-frontend/out", locale, "index.txt");
+    await route.fulfill({
+      status: 200,
+      contentType: "text/x-component",
+      body: readFileSync(artifact, "utf8"),
+    });
+  });
+  await page.route("**/api/v1/security-lab/access", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        enabled: false,
+        granted: false,
+        level: null,
+        profiles: [],
+        deep_validation_requires_clone: true,
+      }),
+    });
+  });
+  await page.route("**/api/v1/growth-social/paid-campaigns/readiness", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ads_manage_allowed: false,
+        social_accounts_allowed: false,
+        linked_ad_accounts: [],
+        campaigns_visible: false,
+        reason: "not-configured",
+        live_provider_mutation_allowed: false,
+        automatic_execution_allowed: false,
+        objectives: {},
+      }),
+    });
+  });
+  await page.route("**/api/v1/studio/hub", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        generated_at: new Date().toISOString(),
+        provider_mode: "provider_neutral",
+        jobs: { completed: 1 },
+        active_assets: 1,
+        capabilities: [
+          {
+            capability_id: "design-image",
+            title: "Design, Image & Brand",
+            category: "creative",
+            launch_surface: "studio",
+            departments: ["ui-ux", "image", "branding"],
+            phase36_capability_ids: ["image-generation-editing"],
+            maturities: ["runtime_verified"],
+            external_gates: [],
+            policy_source: "owner",
+            available: true,
+            organization_plan: "enterprise",
+            policy: {
+              enabled: true,
+              eligible_plans: ["enterprise"],
+              daily_job_limit: 20,
+              max_concurrent_jobs: 3,
+              max_attempts: 2,
+              max_cost_usd: 0,
+              provider_mode: "provider_neutral",
+              moderation_mode: "strict",
+              version: 3,
+            },
+          },
+          {
+            capability_id: "music-song",
+            title: "Music & Song",
+            category: "creative",
+            launch_surface: "projects",
+            departments: [],
+            phase36_capability_ids: ["song-production"],
+            maturities: ["source_built"],
+            external_gates: ["ace-step-open-song-runtime-acceptance"],
+            policy_source: "owner",
+            available: false,
+            organization_plan: "enterprise",
+            policy: {
+              enabled: false,
+              eligible_plans: ["enterprise"],
+              daily_job_limit: 5,
+              max_concurrent_jobs: 1,
+              max_attempts: 1,
+              max_cost_usd: 0,
+              provider_mode: "provider_neutral",
+              moderation_mode: "strict",
+              version: 1,
+            },
+          },
+        ],
+      }),
+    });
+  });
+  await page.route("**/api/v1/studio/departments", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        count: 3,
+        provider_mode: "provider_neutral",
+        provider_activation_batch: "29J",
+        departments: [
+          { id: "text", name: "Text Studio", asset_type: "text", outputs: ["manuscript", "export"] },
+          { id: "image", name: "Image Studio", asset_type: "image", outputs: ["editable SVG", "prompt pack"] },
+          { id: "branding", name: "Branding Studio", asset_type: "branding", outputs: ["brand strategy", "identity tokens", "usage guide"] },
+        ],
+      }),
+    });
+  });
+  await page.route("**/api/v1/projects**", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+  });
+  await page.route("**/api/v1/studio/jobs**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "studio-job-e2e",
+          project_id: null,
+          revision_of_asset_id: null,
+          department: "branding",
+          output_kind: "branding",
+          title: "Governed Brand Kit",
+          brief: "Create a governed brand kit",
+          language: "en",
+          style: "modern",
+          target: null,
+          programming_language: null,
+          change_note: null,
+          provider_mode: "provider_neutral",
+          provider: null,
+          model: null,
+          status: "completed",
+          progress: 100,
+          safety_status: "passed",
+          safety_findings: [],
+          request_metadata: { external_cost_usd: 0, studio_capability_id: "design-image" },
+          result_metadata: { external_cost_usd: 0 },
+          error_code: null,
+          error_message: null,
+          attempts: 1,
+          max_attempts: 2,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/v1/studio/assets**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "studio-asset-e2e",
+          job_id: "studio-job-e2e",
+          project_id: null,
+          department: "branding",
+          asset_type: "branding",
+          title: "Governed Brand Kit",
+          filename: "governed-brand-kit.zip",
+          media_type: "application/zip",
+          checksum: "a".repeat(64),
+          size_bytes: 2048,
+          status: "active",
+          current_revision: 2,
+          metadata: {},
+          attached_project_ids: [],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ]),
+    });
+  });
+}
+
+test("Phase 36M unified Studio is mobile-safe in all six locales and surfaces governed runtime evidence", async ({ page }) => {
+  await mockPhase36MStudio(page);
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const locale of ["ar", "en", "fr", "de", "es", "tr"]) {
+    await page.goto(`/${locale}/studio`);
+    await expect(page.locator("html")).toHaveAttribute("lang", locale);
+    if (locale === "ar") await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+    await expect(page.getByText("Governed Brand Kit", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("$0.000000", { exact: true })).toBeVisible();
+    await expect(page.getByText("passed", { exact: true })).toBeVisible();
+    await expect(page.getByText("r2", { exact: true })).toBeVisible();
+    const layout = await page.evaluate(() => ({
+      documentOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+      bodyOverflow: document.body.scrollWidth > document.body.clientWidth + 1,
+    }));
+    expect(layout.documentOverflow, locale).toBe(false);
+    expect(layout.bodyOverflow, locale).toBe(false);
+  }
+  expect(consoleErrors).toEqual([]);
 });

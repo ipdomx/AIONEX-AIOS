@@ -116,9 +116,9 @@ CAPABILITIES: Final[tuple[Phase36Capability, ...]] = (
     Phase36Capability("custom-domain-composer", "sectors", "Unlisted lawful sector through Domain Blueprint v3", "36L", "locally_executed", ("docs/phase-28/PHASE_28_FULL_PROJECT_LIFECYCLE.md", "docs/phase-36/receipts/36L-2026-08-25-sector-packs.md")),
 
     # Product UX and final certification.
-    Phase36Capability("unified-user-creative-studio", "product", "Unified user Project/Creative Studio", "36M", "specified"),
-    Phase36Capability("owner-capability-governance", "product", "Owner quotas, policies, costs and capability controls", "36M", "source_built"),
-    Phase36Capability("six-locale-mobile-ux", "product", "Six-locale mobile-first capability UX", "36M", "source_built"),
+    Phase36Capability("unified-user-creative-studio", "product", "Unified user Project/Creative Studio", "36M", "locally_executed", ("docs/phase-36/receipts/36M-2026-08-25-unified-studio.md",)),
+    Phase36Capability("owner-capability-governance", "product", "Owner quotas, policies, costs and capability controls", "36M", "locally_executed", ("docs/phase-36/receipts/36M-2026-08-25-unified-studio.md",)),
+    Phase36Capability("six-locale-mobile-ux", "product", "Six-locale mobile-first capability UX", "36M", "locally_executed", ("docs/phase-36/receipts/36M-2026-08-25-unified-studio.md",)),
     Phase36Capability("scale-chaos-dr", "certification", "1000+ load, chaos, DR and final integrated certification", "36N", "specified"),
 )
 
@@ -135,8 +135,8 @@ BATCHES: Final[tuple[Phase36Batch, ...]] = (
     Phase36Batch("36J", 10, "Education and complete course factory", "complete"),
     Phase36Batch("36K", 11, "Healthcare/professional and high-stakes controls", "complete"),
     Phase36Batch("36L", 12, "Universal business/institution/government sector packs", "complete"),
-    Phase36Batch("36M", 13, "Unified User/Owner Creative and Project Studio", "in_progress"),
-    Phase36Batch("36N", 14, "1000+ scale, chaos, cost, security, DR and final certification", "planned"),
+    Phase36Batch("36M", 13, "Unified User/Owner Creative and Project Studio", "complete"),
+    Phase36Batch("36N", 14, "1000+ scale, chaos, cost, security, DR and final certification", "in_progress"),
 )
 
 MASTER_REPORT: Final[str] = "docs/phase-36/PHASE_36_UNIVERSAL_CAPABILITY_SCALE_MASTER_ROADMAP.md"
@@ -166,6 +166,12 @@ PHASE36_OWNED_PREFIXES: Final[tuple[str, ...]] = (
     "web-dashboard/backend/app/services/media_",
     "web-dashboard/backend/app/services/production_studio.py",
     "web-dashboard/backend/app/services/studio_worker.py",
+    "web-dashboard/backend/app/services/studio_governance.py",
+    "web-dashboard/backend/app/api/owner/studio_governance.py",
+    "web-dashboard/frontend/src/app/owner/studio-governance/",
+    "vip-frontend/src/app/[locale]/studio/",
+    "vip-frontend/src/components/pages/studio-client.tsx",
+    "vip-frontend/src/lib/studio-api.ts",
     "web-dashboard/backend/scripts/verify_media_worker.py",
     "web-dashboard/backend/app/api/v1/endpoints/studio.py",
     "web-dashboard/backend/app/api/v1/endpoints/capabilities.py",

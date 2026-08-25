@@ -16,6 +16,7 @@ from app.api.owner import (
     production_runtime,
     security_integration,
     security_lab as owner_security_lab,
+    studio_governance as owner_studio_governance,
 )
 from app.api.owner import portal as owner_portal
 from app.api.v1.endpoints import (
@@ -296,4 +297,5 @@ owner_router.include_router(owner_growth_access.router)
 owner_router.include_router(owner_growth_pilots.router)
 owner_router.include_router(owner_growth_paid_campaigns.router)
 owner_router.include_router(owner_project_ai.router)
+owner_router.include_router(owner_studio_governance.router)
 api_router.include_router(owner_router)

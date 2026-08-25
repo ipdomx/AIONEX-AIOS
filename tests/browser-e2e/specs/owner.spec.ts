@@ -115,3 +115,52 @@ test("owner login gate remains usable on a phone viewport", async ({ page }) => 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
   expect(overflow).toBe(false);
 });
+
+test("Phase 36M Studio governance renders centrally controlled capabilities on mobile", async ({ page }) => {
+  await page.route("**/api/v1/auth/me", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(ownerUser) });
+  });
+  await page.route("**/api/v1/owner/studio-governance", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        provider_activation: "disabled-in-36m1",
+        capabilities: [
+          {
+            capability_id: "design-image",
+            title: "Design, Image & Brand",
+            category: "creative",
+            launch_surface: "studio",
+            departments: ["ui-ux", "image", "branding"],
+            phase36_capability_ids: ["image-generation-editing", "logo-branding"],
+            maturities: ["runtime_verified", "runtime_verified"],
+            external_gates: [],
+            policy_source: "owner",
+            policy: {
+              enabled: true,
+              eligible_plans: ["free", "starter", "professional", "enterprise"],
+              daily_job_limit: 50,
+              max_concurrent_jobs: 4,
+              max_attempts: 3,
+              max_cost_usd: 0,
+              provider_mode: "provider_neutral",
+              moderation_mode: "strict",
+              version: 2,
+            },
+          },
+        ],
+      }),
+    });
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/owner/studio-governance");
+  await expect(page.getByRole("heading", { name: "Studio Governance", exact: true })).toBeVisible();
+  await expect(page.getByText("Design, Image & Brand", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save policy" })).toBeVisible();
+  await expect(page.getByText("Provider-neutral", { exact: true })).toBeVisible();
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+  );
+  expect(overflow).toBe(false);
+});

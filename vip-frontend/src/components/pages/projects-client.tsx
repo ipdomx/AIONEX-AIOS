@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
+  Sparkles,
   Tags,
   Timer,
 } from "lucide-react";
@@ -401,6 +402,13 @@ export function ProjectsClient() {
             <p className="section-copy mt-5">{t("description")}</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => router.push(`/${locale}/studio`)}
+            >
+              <Sparkles className="h-4 w-4" />
+              {t("openStudio")}
+            </Button>
             <Button
               variant="secondary"
               onClick={() => void load()}
