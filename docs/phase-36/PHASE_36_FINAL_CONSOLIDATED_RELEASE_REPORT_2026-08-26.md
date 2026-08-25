@@ -23,9 +23,9 @@ Total first-class capabilities: **60**.
 | Maturity | Count | Meaning in this report |
 | --- | ---: | --- |
 | `production_ready` | 1 | Highest registry maturity with Production-ready evidence |
-| `runtime_verified` | 28 | Runtime behavior verified within its declared boundary |
+| `runtime_verified` | 30 | Runtime behavior verified within its declared boundary |
 | `locally_executed` | 22 | Executed locally/isolated with retained evidence |
-| `source_built` | 8 | Source/runtime path built but not promoted beyond its recorded evidence boundary |
+| `source_built` | 6 | Source/runtime path built but not promoted beyond its recorded evidence boundary |
 | `specified` | 1 | Contract specified; external prerequisite remains |
 | `provider_connected` | 0 | No capability remains only at this transient maturity |
 | `scaled` | 0 | Scale evidence is recorded through the final `scale-chaos-dr` runtime certification rather than a separate permanent maturity promotion |
@@ -63,16 +63,31 @@ The following capability gates remain external by contract and are **not** repre
 | `commerce-apps` | `locally_executed` | live-payment-provider-credential |
 | `iot-robotics-contracts` | `locally_executed` | physical-device-or-chain-deployment-authority |
 | `stock-voice-tts` | `runtime_verified` | synthetic-voice-disclosure |
+| `stt-tts-dubbing` | `runtime_verified` | synthetic-voice-disclosure |
 | `voice-transformation` | `specified` | voice-rights-and-consent-evidence |
 | `lyria-3-music-generation` | `source_built` | valid-replicate-credential; lyria-preview-runtime-evidence; music-rights-and-synthid-disclosure |
 | `stable-audio-instrumental-generation` | `runtime_verified` | funded-stability-credential; music-rights-and-ai-generated-disclosure |
 | `song-production` | `source_built` | ace-step-open-song-runtime-acceptance; music-rights-and-ai-generated-disclosure |
+| `podcast-jingle-narration` | `source_built` | provider-rendered-podcast-jingle-runtime-evidence; synthetic-voice-disclosure; music-rights-and-ai-generated-disclosure |
 | `realtime-chat-calling` | `source_built` | public-stun-turn-and-sfu-capacity |
 | `realtime-streaming-recording` | `source_built` | explicit-consent-egress-runtime-acceptance; recording-retention-and-studio-ingestion-runtime-evidence |
 | `xr-ar-vr` | `locally_executed` | xr-device-validation |
+| `healthcare-administration` | `source_built` | jurisdictional-healthcare-compliance-certification |
 | `professional-evidence-assistance` | `runtime_verified` | sector-evidence-and-human-review |
 
 These gates require an external provider/account, legal/consent evidence, store/code-signing authority, public media infrastructure/capacity, physical/device validation, or equivalent authority outside the current internal certification boundary.
+
+## 4A. Final capability-registry reconciliation
+
+A post-closeout consistency audit found four broad capability entries that were still `source_built` without an explicit activation reason. The internal inconsistency was resolved without widening any provider or legal claim:
+
+- `video-final-export` advanced to `runtime_verified` after the governed FFmpeg 9 Media Runtime rendered and QA-validated 1920×1080, 2560×1440 and 3840×2160 H.264/AAC outputs in a network-isolated disposable container;
+- `stt-tts-dubbing` advanced to `runtime_verified` within the already accepted stock-voice/pseudonymous-speaker scope because its TTS, STT, diarization, complete stock-voice dubbing and alignment components are individually runtime verified; `synthetic-voice-disclosure` remains explicit;
+- `podcast-jingle-narration` remains `source_built`, now with explicit provider-rendered, synthetic-voice and music-rights activation gates;
+- `healthcare-administration` remains `source_built`, now with explicit `jurisdictional-healthcare-compliance-certification`;
+- a governance regression now rejects any final `specified` or `source_built` capability that has no explicit external activation gate.
+
+After this reconciliation, every remaining `specified`/`source_built` capability has an explicit external gate; there is no silent source-only internal remainder.
 
 ## 5. Phase 36N final certification evidence
 

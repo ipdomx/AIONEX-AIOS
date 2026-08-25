@@ -43,8 +43,15 @@ async def test_phase36_public_capability_snapshot_is_truthful_and_non_secret() -
     assert "SFX" not in capabilities["audio-cleanup-master"]["title"]
     assert capabilities["complete-stock-voice-dubbing"]["maturity"] == "runtime_verified"
     assert capabilities["complete-stock-voice-dubbing"]["external_gates"] == ()
-    assert capabilities["stt-tts-dubbing"]["maturity"] == "source_built"
+    assert capabilities["video-final-export"]["maturity"] == "runtime_verified"
+    assert capabilities["stt-tts-dubbing"]["maturity"] == "runtime_verified"
+    assert capabilities["stt-tts-dubbing"]["external_gates"] == ("synthetic-voice-disclosure",)
     assert capabilities["podcast-jingle-narration"]["maturity"] == "source_built"
+    assert capabilities["podcast-jingle-narration"]["external_gates"] == (
+        "provider-rendered-podcast-jingle-runtime-evidence",
+        "synthetic-voice-disclosure",
+        "music-rights-and-ai-generated-disclosure",
+    )
     assert capabilities["lyria-3-music-generation"]["maturity"] == "source_built"
     assert capabilities["lyria-3-music-generation"]["external_gates"] == (
         "valid-replicate-credential",
@@ -77,6 +84,10 @@ async def test_phase36k_public_snapshot_preserves_human_review_gate() -> None:
         for batch in payload["batches"]
         for item in batch["capabilities"]
     }
+    assert capabilities["healthcare-administration"]["maturity"] == "source_built"
+    assert capabilities["healthcare-administration"]["external_gates"] == (
+        "jurisdictional-healthcare-compliance-certification",
+    )
     assert capabilities["professional-evidence-assistance"]["maturity"] == "runtime_verified"
     assert capabilities["high-stakes-human-review"]["maturity"] == "runtime_verified"
     assert capabilities["professional-evidence-assistance"]["external_gates"] == (
