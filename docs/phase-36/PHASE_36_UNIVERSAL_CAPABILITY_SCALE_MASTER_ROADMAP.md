@@ -1396,3 +1396,13 @@ Implementation ledger — 2026-08-25 / 36K Production closeout:
 - Exact merged Backend/Owner Frontend deployed healthy with non-target service identities unchanged.
 - Bounded Production high-stakes canary proved pseudonymous subject persistence, two-source checksum provenance, append-only human review versioning, audit events, fail-closed autonomous decision policy, closure, and complete synthetic cleanup.
 - `professional-evidence-assistance` and `high-stakes-human-review` are `runtime_verified`; 36K closes `complete` without claiming diagnosis/prescription/treatment autonomy or legal compliance certification. 36L becomes the active local batch.
+
+### P36-0021 — Final registry retained source-built capabilities without explicit activation reasons — 2026-08-26
+
+- Batch: final cross-batch reconciliation after 36N closeout.
+- Environment: registry/report audit plus disposable network-isolated Media Worker acceptance.
+- Symptom: `video-final-export`, `stt-tts-dubbing`, `podcast-jingle-narration`, and `healthcare-administration` were still below `runtime_verified` without an explicit external gate, making the final report truthful but leaving an ambiguous internal-versus-external completion boundary.
+- Root cause: historical batch receipts intentionally preserved conservative maturity while granular runtime slices were accepted later; the broad registry entries were never reconciled at final closeout. High-resolution final-export profiles also lacked direct 1080p/1440p/4K runtime evidence, while podcast/jingle and healthcare legal/provider prerequisites were described in prose but not encoded as gates.
+- Fix: the governed FFmpeg 9 Media Runtime rendered and QA-validated 1080p, 1440p, and 4K H.264/AAC final outputs with network disabled and zero provider spend; `video-final-export` advanced to `runtime_verified`. The accepted stock-voice TTS, STT, diarization and complete stock-voice dubbing evidence was reconciled into `stt-tts-dubbing=runtime_verified` with synthetic-voice disclosure retained. Podcast/jingle and healthcare administration kept conservative source maturity but gained explicit external activation gates. A regression now requires every final `specified`/`source_built` capability to have an external gate.
+- Safety: no Production data mutation, provider request, paid generation, Cloudflare/Tunnel change, or destructive Production chaos occurred.
+- Evidence: `docs/phase-36/receipts/36F-2026-08-26-final-export-runtime.md`, `docs/phase-36/receipts/36G-2026-08-26-broad-audio-reconciliation.md`, and `docs/phase-36/receipts/36K-2026-08-26-healthcare-activation-boundary.md`.

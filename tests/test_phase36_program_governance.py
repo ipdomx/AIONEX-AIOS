@@ -43,6 +43,16 @@ def test_every_phase36_capability_has_unique_owner_and_valid_maturity() -> None:
         assert capability.title
 
 
+
+def test_final_source_only_capabilities_have_explicit_external_activation_gates() -> None:
+    unresolved = [
+        capability.capability_id
+        for capability in CAPABILITIES
+        if capability.maturity in {"specified", "source_built"}
+        and not capability.external_gates
+    ]
+    assert unresolved == []
+
 def test_phase36_taxonomy_covers_owner_required_product_families() -> None:
     categories = {item.category for item in CAPABILITIES}
     assert {
@@ -141,8 +151,9 @@ def test_phase36f_maturity_matches_live_video_exit_evidence_without_overclaiming
         assert capability.maturity == "runtime_verified"
         assert receipt in capability.evidence
     final_export = capabilities["video-final-export"]
-    assert final_export.maturity == "source_built"
+    assert final_export.maturity == "runtime_verified"
     assert receipt in final_export.evidence
+    assert "docs/phase-36/receipts/36F-2026-08-26-final-export-runtime.md" in final_export.evidence
     vfx = capabilities["cinema-motion-vfx"]
     assert vfx.maturity == "locally_executed"
     assert "docs/phase-36/receipts/36I-2026-08-25-final-vfx-exit.md" in vfx.evidence
@@ -158,7 +169,7 @@ def test_phase36g_stage5_source_keeps_diarization_separate_without_overclaiming(
         "governed-stt-transcript": "runtime_verified",
         "multi-speaker-diarization": "runtime_verified",
         "complete-stock-voice-dubbing": "runtime_verified",
-        "stt-tts-dubbing": "source_built",
+        "stt-tts-dubbing": "runtime_verified",
         "voice-transformation": "specified",
         "audio-cleanup-master": "runtime_verified",
         "lyria-3-music-generation": "source_built",
@@ -194,8 +205,14 @@ def test_phase36g_stage5_source_keeps_diarization_separate_without_overclaiming(
         "music-rights-and-ai-generated-disclosure",
     )
     assert "SFX" not in capabilities["audio-cleanup-master"].title
-    assert capabilities["stt-tts-dubbing"].maturity != "runtime_verified"
+    assert capabilities["stt-tts-dubbing"].maturity == "runtime_verified"
+    assert capabilities["stt-tts-dubbing"].external_gates == ("synthetic-voice-disclosure",)
     assert capabilities["podcast-jingle-narration"].maturity != "runtime_verified"
+    assert capabilities["podcast-jingle-narration"].external_gates == (
+        "provider-rendered-podcast-jingle-runtime-evidence",
+        "synthetic-voice-disclosure",
+        "music-rights-and-ai-generated-disclosure",
+    )
     assert capabilities["song-production"].maturity != "runtime_verified"
     assert capabilities["voice-transformation"].maturity != "runtime_verified"
     assert BATCHES[6].status == "external_gate"
@@ -312,6 +329,10 @@ def test_phase36k_high_stakes_controls_are_locally_executed_without_compliance_o
     capabilities = {item.capability_id: item for item in CAPABILITIES}
     receipt = "docs/phase-36/receipts/36K-2026-08-25-high-stakes-controls.md"
     assert capabilities["healthcare-administration"].maturity == "source_built"
+    assert receipt in capabilities["healthcare-administration"].evidence
+    assert capabilities["healthcare-administration"].external_gates == (
+        "jurisdictional-healthcare-compliance-certification",
+    )
     assert capabilities["professional-evidence-assistance"].maturity == "runtime_verified"
     assert capabilities["high-stakes-human-review"].maturity == "runtime_verified"
     assert receipt in capabilities["professional-evidence-assistance"].evidence
