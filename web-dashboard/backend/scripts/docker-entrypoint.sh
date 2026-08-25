@@ -85,6 +85,28 @@ if [ "$(id -u)" = "0" ]; then
         exec su-exec aionex "$@"
     fi
 
+    if [ "${ACADEMY_COURSE_ENTRYPOINT_BOOTSTRAP_ONLY:-false}" = "true" ]; then
+        course_package_root="${ACADEMY_COURSE_PACKAGE_ROOT:-/var/lib/aionex/course-packages}"
+        if [ -z "$course_package_root" ]; then
+            echo "Academy course package root is required" >&2
+            exit 1
+        fi
+        if [ -e "$course_package_root" ]; then
+            if [ ! -d "$course_package_root" ] || [ -L "$course_package_root" ]; then
+                echo "Academy course package root is unsafe" >&2
+                exit 1
+            fi
+            course_package_meta="$(stat -c '%a:%u:%g' "$course_package_root")"
+            if [ "$course_package_meta" != "700:1000:1000" ]; then
+                chown aionex:aionex "$course_package_root"
+                chmod 0700 "$course_package_root"
+            fi
+        else
+            install -d -m 0700 -o aionex -g aionex "$course_package_root"
+        fi
+        exec su-exec aionex "$@"
+    fi
+
     project_reference_source="${PROJECT_EXECUTION_LOCAL_REFERENCE:-}"
     if [ -n "$project_reference_source" ] && [ -d "$project_reference_source" ]; then
         runtime_dir=/run/aionex

@@ -264,7 +264,7 @@ services:
   academy-course-worker:
     profiles: ["academy-execution"]
     image: aionex-aios-media-worker:local
-    user: "1000:1000"
+    user: "0:0"
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -282,6 +282,7 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
       ACADEMY_COURSE_WORKER_ENABLED: "true"
+      ACADEMY_COURSE_ENTRYPOINT_BOOTSTRAP_ONLY: "true"
       ACADEMY_COURSE_PACKAGE_ROOT: /var/lib/aionex/course-packages
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
@@ -291,12 +292,13 @@ services:
     depends_on:
       postgres: {condition: service_healthy}
     healthcheck:
-      test: ["CMD", "python", "-m", "app.services.academy_course_worker", "--healthcheck"]
+      test: ["CMD", "su-exec", "aionex", "python", "-m", "app.services.academy_course_worker", "--healthcheck"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 20s
     cap_drop: ["ALL"]
+    cap_add: ["CHOWN", "FOWNER", "SETGID", "SETUID"]
     security_opt: ["no-new-privileges:true"]
     networks: [aionex-network]
 

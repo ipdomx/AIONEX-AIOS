@@ -43,6 +43,9 @@ Evidence root: `/opt/AIOS/.deployment-backups/phase36j-acceptance/20260825T06200
 9. Phase 36H realtime prerequisite logic was exact-head fragile at 0041. It now treats later linear schema revisions as containing the realtime schema so 0042 does not falsely reopen the old gate.
 10. Final delivery review found teacher answer-key material in the learner ZIP. v2 was revoked; v3 excludes all private teacher files from the learner manifest/ZIP/site and exposes the answer key only to `academy:assess`.
 11. First protected PR #507 Core run rejected a bare `pass` in the new exception class under zero-dead policy; it was replaced by a descriptive class body and the full Core suite passed `840/840`.
+12. Post-merge Production preflight found a fresh named course volume would be root-owned while the worker was configured to start directly as UID 1000. Before worker activation, a follow-up source correction added an idempotent root bootstrap with only CHOWN/FOWNER/SETGID/SETUID, normalized the private volume to 0700:1000:1000, dropped to aionex before Python, and moved the Docker healthcheck to the aionex identity.
+13. Fresh-volume runtime proof passed on candidate image `sha256:cbea5689fa0a163194aab1c950ab05f2d45d7cc302fa0b146223088815306a8e`: initial volume `755:0:0` became `700:1000:1000`, command identity became uid/gid 1000, write succeeded, and a second bootstrap preserved the exact inode/mtime metadata. No network was available during either run.
+14. One local full-Core validation command stepped two directories up from `web-dashboard` and accidentally collected neighboring worktrees, failing before project tests because those unrelated trees lacked Backend dependencies. It was rerun from the exact hotfix root and passed `840/840`; no source or Production state changed from the harness mistake.
 
 ## Truth boundary before Production activation
 
