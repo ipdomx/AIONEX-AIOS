@@ -18,6 +18,7 @@ _ARTIFACT_ID_RE = re.compile(r"^[0-9a-f]{48}$")
 _TOKEN_RE = re.compile(r"^(?P<expiry>[0-9]{10}):(?P<signature>[0-9a-f]{64})$")
 _ACTIONS = frozenset({"put", "get", "delete"})
 _DOMAIN = "aionex.audio-song-artifact.v1"
+_STORAGE_DOMAIN = "aionex.audio-song-artifact.storage.v1"
 
 
 class AudioSongArtifactBridgeError(ValueError):
@@ -117,13 +118,26 @@ def bearer_token(authorization: str | None) -> str:
     return token
 
 
-def artifact_path(root: str | Path, artifact_id: str) -> Path:
+def artifact_storage_name(artifact_id: str, *, secret: str) -> str:
+    """Derive a filesystem-only name that never embeds request path text."""
     safe_id = validate_artifact_id(artifact_id)
+    if len(secret) < 32:
+        raise AudioSongArtifactBridgeError("artifact signing secret is invalid")
+    digest = hmac.new(
+        secret.encode("utf-8"),
+        f"{_STORAGE_DOMAIN}|{safe_id}".encode("ascii"),
+        hashlib.sha256,
+    ).hexdigest()
+    return f"{digest}.wav"
+
+
+def artifact_path(root: str | Path, artifact_id: str, *, secret: str) -> Path:
+    storage_name = artifact_storage_name(artifact_id, secret=secret)
     base = Path(root)
     if base.is_symlink():
         raise AudioSongArtifactBridgeError("artifact root is unsafe")
     resolved = base.resolve(strict=False)
-    return resolved / f"{safe_id}.wav"
+    return resolved / storage_name
 
 
 def purge_stale_artifacts(
@@ -145,7 +159,7 @@ def purge_stale_artifacts(
     for candidate in base.iterdir():
         if candidate.is_symlink() or not candidate.is_file():
             continue
-        if candidate.name.endswith(".tmp") or re.fullmatch(r"[0-9a-f]{48}\.wav", candidate.name):
+        if candidate.name.endswith(".tmp") or re.fullmatch(r"[0-9a-f]{64}\.wav", candidate.name):
             try:
                 if now - candidate.stat().st_mtime > max_age:
                     candidate.unlink()

@@ -84,7 +84,7 @@ async def upload_audio_song_artifact(
     _authorize(authorization, "put", artifact_id)
     root = _root()
     try:
-        final_path = artifact_path(root, artifact_id)
+        final_path = artifact_path(root, artifact_id, secret=settings.SECRET_KEY)
     except AudioSongArtifactBridgeError as exc:
         raise HTTPException(status_code=404, detail="Not found") from exc
     if final_path.exists():
@@ -113,7 +113,7 @@ async def upload_audio_song_artifact(
     if content_type not in {"audio/wav", "audio/x-wav", "application/octet-stream"}:
         raise HTTPException(status_code=415, detail="Unsupported media type")
 
-    temporary = root / f".{artifact_id}.{secrets.token_hex(8)}.tmp"
+    temporary = root / f".{final_path.stem}.{secrets.token_hex(8)}.tmp"
     total = 0
     digest = hashlib.sha256()
     try:
@@ -153,7 +153,7 @@ async def download_audio_song_artifact(
     _authorize(authorization, "get", artifact_id)
     root = _root()
     try:
-        path = artifact_path(root, artifact_id)
+        path = artifact_path(root, artifact_id, secret=settings.SECRET_KEY)
     except AudioSongArtifactBridgeError as exc:
         raise HTTPException(status_code=404, detail="Not found") from exc
     if not path.is_file() or path.is_symlink():
@@ -177,7 +177,7 @@ async def delete_audio_song_artifact(
     _authorize(authorization, "delete", artifact_id)
     root = _root()
     try:
-        path = artifact_path(root, artifact_id)
+        path = artifact_path(root, artifact_id, secret=settings.SECRET_KEY)
     except AudioSongArtifactBridgeError as exc:
         raise HTTPException(status_code=404, detail="Not found") from exc
     if path.is_symlink():

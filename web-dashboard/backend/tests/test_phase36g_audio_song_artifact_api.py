@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 from app.api.v1.endpoints import audio_song_artifacts
 from app.core.config import settings
-from app.services.audio_song_artifact_bridge import issue_artifact_token
+from app.services.audio_song_artifact_bridge import artifact_path, issue_artifact_token
 
 SECRET = "phase36g-artifact-api-test-secret-that-is-long-enough"
 ARTIFACT_ID = "d" * 48
@@ -75,4 +75,4 @@ def test_bridge_api_is_write_once_hash_checked_and_cleanup_capable(tmp_path: Pat
         headers={"Authorization": f"Bearer {_token('delete')}"},
     )
     assert deleted.status_code == 204
-    assert not (tmp_path / f"{ARTIFACT_ID}.wav").exists()
+    assert not artifact_path(tmp_path, ARTIFACT_ID, secret=SECRET).exists()

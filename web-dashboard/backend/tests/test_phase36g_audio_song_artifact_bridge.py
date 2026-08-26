@@ -7,6 +7,7 @@ import pytest
 from app.services.audio_song_artifact_bridge import (
     AudioSongArtifactBridgeError,
     artifact_path,
+    artifact_storage_name,
     artifact_url,
     bearer_token,
     issue_artifact_token,
@@ -39,17 +40,20 @@ def test_tokens_are_action_scoped_expiring_and_not_path_bearing() -> None:
 
 def test_public_url_and_storage_path_are_strict() -> None:
     assert artifact_url("https://api.vip-e.net", ARTIFACT_ID).endswith(ARTIFACT_ID)
-    assert artifact_path("/tmp/aionex-bridge", ARTIFACT_ID).name == f"{ARTIFACT_ID}.wav"
+    storage_name = artifact_storage_name(ARTIFACT_ID, secret=SECRET)
+    assert len(storage_name) == 68 and storage_name.endswith(".wav")
+    assert ARTIFACT_ID not in storage_name
+    assert artifact_path("/tmp/aionex-bridge", ARTIFACT_ID, secret=SECRET).name == storage_name
     for unsafe in ("../escape", "A" * 48, "a" * 47, "a" * 49):
         with pytest.raises(AudioSongArtifactBridgeError):
-            artifact_path("/tmp/aionex-bridge", unsafe)
+            artifact_path("/tmp/aionex-bridge", unsafe, secret=SECRET)
     with pytest.raises(AudioSongArtifactBridgeError):
         artifact_url("http://api.vip-e.net", ARTIFACT_ID)
 
 
 def test_stale_purge_only_removes_bridge_artifacts(tmp_path: Path) -> None:
-    old = tmp_path / f"{'b' * 48}.wav"
-    keep = tmp_path / f"{'c' * 48}.wav"
+    old = tmp_path / f"{'b' * 64}.wav"
+    keep = tmp_path / f"{'c' * 64}.wav"
     unrelated = tmp_path / "keep.txt"
     old.write_bytes(b"old")
     keep.write_bytes(b"new")
