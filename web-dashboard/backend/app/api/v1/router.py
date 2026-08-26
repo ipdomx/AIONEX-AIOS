@@ -24,6 +24,7 @@ from app.api.v1.endpoints import (
     ai_agents,
     ai_providers,
     auth,
+    audio_song_artifacts,
     backups,
     billing,
     capabilities,
@@ -90,6 +91,11 @@ api_router = APIRouter()
 restricted = [Depends(require_non_free_user)]
 
 api_router.include_router(locale.router, prefix="/locale", tags=["Locale"])
+api_router.include_router(
+    audio_song_artifacts.router,
+    prefix="/audio-song-artifacts",
+    tags=["Open Song Artifact Ingress"],
+)
 api_router.include_router(portal.router, prefix="/portal", tags=["Public Portal"])
 api_router.include_router(
     capabilities.router, prefix="/capabilities", tags=["Capabilities"]

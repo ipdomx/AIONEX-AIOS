@@ -25,6 +25,7 @@ FROM python:3.11-alpine3.23@sha256:f73754c398b259dfbbe482361dca8b464dea57da74efe
 
 WORKDIR /app
 RUN set -eux; \
+    apk upgrade --no-cache sqlite-libs; \
     apk add --no-cache ca-certificates curl bash su-exec postgresql16-client libpq libgcc libstdc++; \
     rm -rf /usr/local/lib/python3.11/ensurepip \
            /usr/local/lib/python3.11/site-packages/pip* \

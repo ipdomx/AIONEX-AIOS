@@ -6,7 +6,6 @@ job reconciliation, final mix/master, Studio materialization, and public evidenc
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -287,96 +286,90 @@ class AceStepLocalService:
         return canonical_path
 
 
-class S3ArtifactPublisher:
-    """Publish private artifacts and return short-lived HTTPS GET URLs."""
+class AionexArtifactBridgePublisher:
+    """Upload artifacts only to bounded, one-time AIONEX ingress grants."""
 
-    def __init__(self) -> None:
-        try:
-            import boto3  # type: ignore[import-untyped]
-            from botocore.config import Config  # type: ignore[import-untyped]
-        except ImportError as exc:
-            raise OpenSongHandlerRuntimeError("artifact publisher is unavailable") from exc
-        self.bucket = _required_env("AIONEX_ARTIFACT_S3_BUCKET", maximum=255)
-        self.region = _required_env("AIONEX_ARTIFACT_S3_REGION", maximum=100)
-        access_key = _required_env("AIONEX_ARTIFACT_S3_ACCESS_KEY_ID", maximum=512)
-        secret_key = _required_env("AIONEX_ARTIFACT_S3_SECRET_ACCESS_KEY", maximum=1_024)
-        endpoint = str(os.getenv("AIONEX_ARTIFACT_S3_ENDPOINT_URL") or "").strip() or None
-        self.prefix = str(
-            os.getenv("AIONEX_ARTIFACT_PREFIX") or "aionex/open-song"
-        ).strip("/")
-        self.ttl_seconds = _positive_int(
-            "AIONEX_ARTIFACT_URL_TTL_SECONDS", 1_800, 300, 3_600
-        )
-        hosts = {
-            item.strip().lower().rstrip(".")
-            for item in _required_env(
-                "AIONEX_ARTIFACT_ALLOWED_HOSTS", maximum=4_096
-            ).split(",")
-            if item.strip()
-        }
-        if not hosts or any(not _HOST_RE.fullmatch(item) for item in hosts):
-            raise OpenSongHandlerRuntimeError("artifact host allowlist is invalid")
-        self.allowed_hosts = frozenset(hosts)
-        self.client = boto3.client(
-            "s3",
-            endpoint_url=endpoint,
-            region_name=self.region,
-            aws_access_key_id=access_key,
-            aws_secret_access_key=secret_key,
-            config=Config(
-                signature_version="s3v4",
-                retries={"max_attempts": 1, "mode": "standard"},
-            ),
-        )
+    _ARTIFACT_ID_RE = re.compile(r"^[0-9a-f]{48}$")
+    _TOKEN_RE = re.compile(r"^[0-9]{10}:[0-9a-f]{64}$")
+    _LOGICAL_KEYS = ("full_song", *REQUIRED_STEMS)
 
-    def publish(self, path: Path, *, job_scope: str, logical_key: str) -> dict[str, Any]:
+    def __init__(self, raw_input: Mapping[str, Any]) -> None:
+        bridge = raw_input.get("artifact_bridge")
+        if not isinstance(bridge, Mapping):
+            raise OpenSongHandlerRuntimeError("artifact bridge is missing")
+        if bridge.get("schema") != "aionex.open-song-artifact-bridge.v1":
+            raise OpenSongHandlerRuntimeError("artifact bridge schema is invalid")
+        artifacts = bridge.get("artifacts")
+        if not isinstance(artifacts, Mapping) or set(artifacts) != set(self._LOGICAL_KEYS):
+            raise OpenSongHandlerRuntimeError("artifact bridge targets are incomplete")
+        expected_host = _required_env(
+            "AIONEX_ARTIFACT_BRIDGE_ALLOWED_HOST", maximum=253
+        ).lower().rstrip(".")
+        if not _HOST_RE.fullmatch(expected_host):
+            raise OpenSongHandlerRuntimeError("artifact bridge host is invalid")
+        targets: dict[str, tuple[str, str, str]] = {}
+        for logical_key in self._LOGICAL_KEYS:
+            raw = artifacts.get(logical_key)
+            if not isinstance(raw, Mapping) or set(raw) != {
+                "artifact_id", "upload_url", "upload_token"
+            }:
+                raise OpenSongHandlerRuntimeError("artifact bridge target is invalid")
+            artifact_id = str(raw.get("artifact_id") or "").strip()
+            upload_url = str(raw.get("upload_url") or "").strip()
+            upload_token = str(raw.get("upload_token") or "").strip()
+            if not self._ARTIFACT_ID_RE.fullmatch(artifact_id):
+                raise OpenSongHandlerRuntimeError("artifact identifier is invalid")
+            if not self._TOKEN_RE.fullmatch(upload_token):
+                raise OpenSongHandlerRuntimeError("artifact upload grant is invalid")
+            parsed = urlsplit(upload_url)
+            if (
+                parsed.scheme != "https"
+                or (parsed.hostname or "").lower().rstrip(".") != expected_host
+                or parsed.port not in {None, 443}
+                or parsed.username is not None
+                or parsed.password is not None
+                or parsed.query
+                or parsed.fragment
+                or parsed.path != f"/api/v1/audio-song-artifacts/{artifact_id}"
+            ):
+                raise OpenSongHandlerRuntimeError("artifact upload URL is invalid")
+            targets[logical_key] = (artifact_id, upload_url, upload_token)
+        self.targets = targets
+
+    def publish(self, path: Path, *, logical_key: str) -> dict[str, Any]:
+        if logical_key not in self.targets:
+            raise OpenSongHandlerRuntimeError("artifact logical key is invalid")
         evidence = inspect_wav(path)
-        key = (
-            f"{self.prefix}/{job_scope}/{logical_key}/"
-            f"{evidence.sha256[:24]}.wav"
+        artifact_id, upload_url, upload_token = self.targets[logical_key]
+        body = path.read_bytes()
+        if len(body) != evidence.size_bytes:
+            raise OpenSongHandlerRuntimeError("artifact evidence changed before upload")
+        request = urllib.request.Request(
+            upload_url,
+            data=body,
+            headers={
+                "Authorization": f"Bearer {upload_token}",
+                "Content-Type": "audio/wav",
+                "Accept": "application/json",
+                "X-AIONEX-Artifact-SHA256": evidence.sha256,
+                "X-AIONEX-Artifact-Size": str(evidence.size_bytes),
+            },
+            method="PUT",
         )
+        opener = urllib.request.build_opener(_NoRedirect())
         try:
-            self.client.put_object(
-                Bucket=self.bucket,
-                Key=key,
-                Body=path.read_bytes(),
-                ContentType="audio/wav",
-                ServerSideEncryption="AES256",
-                Metadata={
-                    "sha256": evidence.sha256,
-                    "lifecycle-required": "true",
-                    "ai-generated": "true",
-                },
-            )
-            url = str(
-                self.client.generate_presigned_url(
-                    "get_object",
-                    Params={"Bucket": self.bucket, "Key": key},
-                    ExpiresIn=self.ttl_seconds,
-                )
-            )
-        except Exception as exc:
-            raise OpenSongHandlerRuntimeError("artifact publication failed") from exc
-        parsed = urlsplit(url)
-        host = (parsed.hostname or "").lower().rstrip(".")
-        if (
-            parsed.scheme != "https"
-            or host not in self.allowed_hosts
-            or parsed.username is not None
-            or parsed.password is not None
-        ):
-            raise OpenSongHandlerRuntimeError("artifact URL is outside the allowlist")
-        return {"url": url, **evidence.public_snapshot()}
+            with opener.open(request, timeout=180) as response:
+                status = int(getattr(response, "status", 0))
+                response.read(65_536)
+        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+            raise OpenSongHandlerRuntimeError("artifact bridge upload failed") from exc
+        if status != 201:
+            raise OpenSongHandlerRuntimeError("artifact bridge upload failed")
+        return {"artifact_id": artifact_id, **evidence.public_snapshot()}
 
 
 _service = AceStepLocalService()
 
-
-def _safe_job_scope(value: object) -> str:
-    job_id = str(value or "").strip()
-    if _JOB_ID_RE.fullmatch(job_id):
-        return hashlib.sha256(job_id.encode("utf-8")).hexdigest()[:32]
-    return secrets.token_hex(16)
 
 
 def _separate(song: Path, workdir: Path) -> dict[str, Path]:
@@ -413,8 +406,7 @@ def handler(event: Mapping[str, Any]) -> dict[str, Any]:
             raw_input,
             expected_image_digest=image_digest,
         )
-        publisher = S3ArtifactPublisher()
-        job_scope = _safe_job_scope(event.get("id"))
+        publisher = AionexArtifactBridgePublisher(raw_input)
         with tempfile.TemporaryDirectory(prefix="aionex-open-song-") as temporary:
             root = Path(temporary)
             root.chmod(0o700)
@@ -428,11 +420,11 @@ def handler(event: Mapping[str, Any]) -> dict[str, Any]:
             ):
                 raise OpenSongHandlerRuntimeError("stem durations are inconsistent")
             published_song = publisher.publish(
-                full_song, job_scope=job_scope, logical_key="song"
+                full_song, logical_key="full_song"
             )
             published_stems = {
                 stem: publisher.publish(
-                    stems[stem], job_scope=job_scope, logical_key=f"stem-{stem}"
+                    stems[stem], logical_key=stem
                 )
                 for stem in REQUIRED_STEMS
             }

@@ -93,6 +93,7 @@ services:
       - portal_asset_data:/var/lib/aionex/portal-assets:rw
       - project_execution_data:/var/lib/aionex/project-executions:rw
       - studio_asset_data:/var/lib/aionex/studio-assets:rw
+      - audio_song_ingress_data:/var/lib/aionex/audio-song-provider-ingress:rw
       - course_package_data:/var/lib/aionex/course-packages:ro
       - mobile_release_data:/var/lib/aionex/mobile-releases:ro
     depends_on:
@@ -1037,6 +1038,7 @@ volumes:
   project_execution_data:
   project_npm_cache_data:
   studio_asset_data:
+  audio_song_ingress_data:
   media_asset_data:
   mobile_release_data:
   portal_asset_data:

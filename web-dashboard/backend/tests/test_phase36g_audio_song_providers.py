@@ -274,3 +274,70 @@ def test_request_rejects_wrong_route_or_unpinned_image() -> None:
     with pytest.raises(AudioSongProviderFailure) as image_error:
         ProviderOpenSongRequest(**values)
     assert image_error.value.code == "provider_input_invalid"
+
+
+@pytest.mark.asyncio
+async def test_bridge_submission_download_and_cleanup_keep_tokens_ephemeral() -> None:
+    bridge_host = "api.vip-e.net"
+    bridge_secret = "phase36g-provider-bridge-secret-that-is-long-enough"
+    body = b"RIFF" + b"bridge-audio" * 64
+    observed: dict[str, object] = {}
+
+    def handler(http_request: httpx.Request) -> httpx.Response:
+        if http_request.url.host == "api.runpod.ai" and http_request.method == "POST":
+            document = json.loads(http_request.content)
+            bridge = document["input"]["artifact_bridge"]
+            observed["bridge"] = bridge
+            assert bridge["schema"] == "aionex.open-song-artifact-bridge.v1"
+            assert set(bridge["artifacts"]) == {
+                "full_song", "vocals", "drums", "bass", "other"
+            }
+            for target in bridge["artifacts"].values():
+                assert target["upload_url"].startswith(
+                    f"https://{bridge_host}/api/v1/audio-song-artifacts/"
+                )
+                assert target["upload_token"] not in target["upload_url"]
+            return httpx.Response(200, json={"id": "bridge-job-1", "status": "IN_QUEUE"})
+        assert http_request.url.host == bridge_host
+        assert "authorization" in http_request.headers
+        if http_request.method == "GET":
+            return httpx.Response(
+                200,
+                content=body,
+                headers={
+                    "content-type": "audio/wav",
+                    "content-length": str(len(body)),
+                },
+            )
+        if http_request.method == "DELETE":
+            return httpx.Response(204)
+        raise AssertionError("unexpected request")
+
+    transport = httpx.MockTransport(handler)
+    runtime = RunPodOpenSongAdapter(
+        transport=transport,
+        allowed_artifact_hosts={bridge_host},
+        artifact_bridge_origin=f"https://{bridge_host}",
+        artifact_bridge_secret=bridge_secret,
+        artifact_bridge_ttl_seconds=600,
+    )
+    job = await runtime.submit(request(), credential=CREDENTIAL, endpoint_id=ENDPOINT_ID)
+    assert job.job_id == "bridge-job-1"
+    bridge = observed["bridge"]
+    assert isinstance(bridge, dict)
+    artifact_id = bridge["artifacts"]["full_song"]["artifact_id"]
+    declared = ProviderAudioArtifact(
+        url=None,
+        artifact_id=artifact_id,
+        sha256=hashlib.sha256(body).hexdigest(),
+        size_bytes=len(body),
+        media_type="audio/wav",
+        duration_seconds=30.0,
+        sample_rate_hz=48_000,
+        channels=2,
+    )
+    downloaded = await runtime.download(declared)
+    assert downloaded.sha256 == hashlib.sha256(body).hexdigest()
+    assert await runtime.cleanup(declared) is True
+    assert "upload_token" not in declared.public_snapshot()
+    assert "artifact_id" not in declared.public_snapshot()

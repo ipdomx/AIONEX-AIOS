@@ -491,7 +491,7 @@ VIP_PAGE_BATCH: Final[dict[str, str]] = {
 }
 
 ENDPOINT_BATCH: Final[dict[str, str]] = {
-    "academy": "29F", "ai_agents": "29J", "ai_providers": "29J", "auth": "29C", "backups": "29G",
+    "academy": "29F", "ai_agents": "29J", "ai_providers": "29J", "audio_song_artifacts": "36G", "auth": "29C", "backups": "29G",
     "billing": "29D", "mobile_store_billing": "29D", "communications": "29E",
     "capabilities": "29A", "containers": "29G", "dashboard": "29B", "databases": "29G",
     "final_integration": "29G", "firebase_phone": "29C", "governance": "29E", "growth_access": "GS-01", "growth_campaigns": "GS-02", "growth_social_accounts": "GS-03", "growth_content": "GS-04", "growth_analytics": "GS-05", "growth_leads": "GS-06", "growth_inbox": "GS-07", "growth_paid_campaigns": "GS-08", "growth_provider_connectors": "GS-09", "growth_advanced_integrations": "GS-10",
