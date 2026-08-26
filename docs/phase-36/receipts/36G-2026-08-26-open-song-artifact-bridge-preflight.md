@@ -51,3 +51,7 @@ Protected CI must merge the bridge first. Then the Backend/Nginx bridge can be d
 ## Public ingress method compatibility follow-up
 
 Production preflight after PR #518 deployment proved the signed artifact bridge itself reaches `201` through the internal Nginx path, while Cloudflare rejects `PUT` before origin with `403`. Read-only method reachability showed `POST`, `GET`, and `DELETE` reach origin without any Cloudflare or tunnel mutation. The upload transport is therefore constrained to HTTPS `POST`; the HMAC grant scope remains the existing bounded `put` action. Runtime Open Song acceptance remains pending until the new transport passes protected CI, production deployment, and a full RunPod song/stem execution.
+
+## Final GPU build verification reconciliation
+
+The first final-image build after PR #519 reached the immutable ACE-Step and Demucs runtime verification stage and failed closed because `verify_runtime.py` still imported and asserted the retired `boto3==1.43.72` S3 dependency even though the Open Song handler and requirements had already moved to the AIONEX artifact bridge. No RunPod endpoint or GPU job was created by that failure. The stale verifier was removed and the handler contract test now requires the verifier itself to remain free of `boto3` while retaining exact `demucs==4.0.1` and `runpod==1.11.0` pins. Runtime acceptance remains pending until the rebuilt image passes supply-chain gates and the bounded RunPod execution completes.
