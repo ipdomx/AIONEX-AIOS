@@ -27,3 +27,7 @@ The AIONEX provider transport already preserves the RunPod `error` field as boun
 - No provider generation request was made while validating this change.
 - Production Cloudflare/Tunnel configuration was not changed.
 - `.worktrees/` remains intentionally untouched.
+
+## CI download resilience
+
+The first same-SHA Production Docker Build did not fail a media assertion or source contract. The GitHub runner received `curl: (35) Recv failure: Connection reset by peer` while downloading the detached FFmpeg 9.0 signature from `ffmpeg.org`. The media-worker Dockerfile now uses bounded curl retries (`5`, all transient errors, 20-second connect timeout) for the FFmpeg source, detached signature, and signing-key downloads. The pinned SHA-256, exact signing fingerprint, and GPG signature verification remain mandatory and unchanged.
