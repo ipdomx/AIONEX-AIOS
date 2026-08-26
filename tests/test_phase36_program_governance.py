@@ -172,7 +172,7 @@ def test_phase36g_stage5_source_keeps_diarization_separate_without_overclaiming(
         "stt-tts-dubbing": "runtime_verified",
         "voice-transformation": "specified",
         "audio-cleanup-master": "runtime_verified",
-        "lyria-3-music-generation": "source_built",
+        "lyria-3-music-generation": "runtime_verified",
         "stable-audio-instrumental-generation": "runtime_verified",
         "song-production": "source_built",
         "podcast-jingle-narration": "source_built",
@@ -192,12 +192,9 @@ def test_phase36g_stage5_source_keeps_diarization_separate_without_overclaiming(
         "voice-rights-and-consent-evidence",
     )
     assert capabilities["lyria-3-music-generation"].external_gates == (
-        "valid-replicate-credential",
-        "lyria-preview-runtime-evidence",
         "music-rights-and-synthid-disclosure",
     )
     assert capabilities["stable-audio-instrumental-generation"].external_gates == (
-        "funded-stability-credential",
         "music-rights-and-ai-generated-disclosure",
     )
     assert capabilities["song-production"].external_gates == (

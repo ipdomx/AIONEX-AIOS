@@ -52,15 +52,12 @@ async def test_phase36_public_capability_snapshot_is_truthful_and_non_secret() -
         "synthetic-voice-disclosure",
         "music-rights-and-ai-generated-disclosure",
     )
-    assert capabilities["lyria-3-music-generation"]["maturity"] == "source_built"
+    assert capabilities["lyria-3-music-generation"]["maturity"] == "runtime_verified"
     assert capabilities["lyria-3-music-generation"]["external_gates"] == (
-        "valid-replicate-credential",
-        "lyria-preview-runtime-evidence",
         "music-rights-and-synthid-disclosure",
     )
     assert capabilities["stable-audio-instrumental-generation"]["maturity"] == "runtime_verified"
     assert capabilities["stable-audio-instrumental-generation"]["external_gates"] == (
-        "funded-stability-credential",
         "music-rights-and-ai-generated-disclosure",
     )
     assert capabilities["song-production"]["maturity"] == "source_built"
