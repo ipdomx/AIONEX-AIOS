@@ -75,7 +75,7 @@ def _validate_wav(path: Path) -> None:
         raise HTTPException(status_code=422, detail="Invalid WAV artifact")
 
 
-@router.put("/{artifact_id}", status_code=status.HTTP_201_CREATED)
+@router.post("/{artifact_id}", status_code=status.HTTP_201_CREATED)
 async def upload_audio_song_artifact(
     artifact_id: str,
     request: Request,

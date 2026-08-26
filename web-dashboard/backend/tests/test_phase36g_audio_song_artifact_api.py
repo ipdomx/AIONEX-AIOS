@@ -51,10 +51,10 @@ def test_bridge_api_is_write_once_hash_checked_and_cleanup_capable(tmp_path: Pat
         "X-AIONEX-Artifact-SHA256": digest,
         "X-AIONEX-Artifact-Size": str(len(body)),
     }
-    response = client.put(f"/api/v1/audio-song-artifacts/{ARTIFACT_ID}", content=body, headers=headers)
+    response = client.post(f"/api/v1/audio-song-artifacts/{ARTIFACT_ID}", content=body, headers=headers)
     assert response.status_code == 201
     assert response.json()["sha256"] == digest
-    assert client.put(f"/api/v1/audio-song-artifacts/{ARTIFACT_ID}", content=body, headers=headers).status_code == 409
+    assert client.post(f"/api/v1/audio-song-artifacts/{ARTIFACT_ID}", content=body, headers=headers).status_code == 409
 
     download = client.get(
         f"/api/v1/audio-song-artifacts/{ARTIFACT_ID}",
