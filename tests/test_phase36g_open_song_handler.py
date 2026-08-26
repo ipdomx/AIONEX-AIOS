@@ -222,6 +222,10 @@ def test_dockerfile_is_immutable_offline_nonroot_and_model_baked() -> None:
     assert "S3ArtifactPublisher" not in handler_source
     assert "AionexArtifactBridgePublisher" in handler_source
     assert "AIONEX_ARTIFACT_S3_" not in handler_source
+    verify_source = (HANDLER_ROOT / "verify_runtime.py").read_text(encoding="utf-8")
+    assert "boto3" not in verify_source
+    assert 'version("demucs") == "4.0.1"' in verify_source
+    assert 'version("runpod") == "1.11.0"' in verify_source
 
 def test_artifact_bridge_publisher_keeps_grant_out_of_url_and_result(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
