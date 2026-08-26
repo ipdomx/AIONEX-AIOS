@@ -265,6 +265,7 @@ def test_artifact_bridge_publisher_keeps_grant_out_of_url_and_result(
     result = publisher.publish(wav_file(tmp_path), logical_key="full_song")
     request = observed["request"]
     assert request.full_url == target["upload_url"]
+    assert request.get_method() == "POST"
     assert upload_token not in request.full_url
     assert request.get_header("Authorization") == f"Bearer {upload_token}"
     assert result["artifact_id"] == artifact_id

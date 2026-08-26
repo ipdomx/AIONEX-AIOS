@@ -354,7 +354,7 @@ class AionexArtifactBridgePublisher:
                 "X-AIONEX-Artifact-SHA256": evidence.sha256,
                 "X-AIONEX-Artifact-Size": str(evidence.size_bytes),
             },
-            method="PUT",
+            method="POST",
         )
         opener = urllib.request.build_opener(_NoRedirect())
         try:

@@ -47,3 +47,7 @@ Source commit containing the bridge implementation before this receipt: `b3590ca
 ## Next gate
 
 Protected CI must merge the bridge first. Then the Backend/Nginx bridge can be deployed without Cloudflare mutation, the final GPU image can be rebuilt from the merged source, a new SBOM and vulnerability report can be generated, the immutable image can be pushed and bound to a scale-to-zero RunPod Endpoint, and exactly one bounded Open Song acceptance can be executed with no automatic retry or cross-provider fallback.
+
+## Public ingress method compatibility follow-up
+
+Production preflight after PR #518 deployment proved the signed artifact bridge itself reaches `201` through the internal Nginx path, while Cloudflare rejects `PUT` before origin with `403`. Read-only method reachability showed `POST`, `GET`, and `DELETE` reach origin without any Cloudflare or tunnel mutation. The upload transport is therefore constrained to HTTPS `POST`; the HMAC grant scope remains the existing bounded `put` action. Runtime Open Song acceptance remains pending until the new transport passes protected CI, production deployment, and a full RunPod song/stem execution.
