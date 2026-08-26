@@ -6,6 +6,7 @@ opaque random identifiers and cannot encode filesystem paths or tenant data.
 from __future__ import annotations
 
 import hashlib
+from contextlib import suppress
 import hmac
 import os
 from pathlib import Path
@@ -159,8 +160,6 @@ def ensure_artifact_root(root: str | Path) -> Path:
     if base.exists() and (not base.is_dir() or base.is_symlink()):
         raise AudioSongArtifactBridgeError("artifact root is unsafe")
     base.mkdir(parents=True, exist_ok=True, mode=0o700)
-    try:
+    with suppress(PermissionError):
         os.chmod(base, 0o700)
-    except PermissionError:
-        pass
     return base.resolve()

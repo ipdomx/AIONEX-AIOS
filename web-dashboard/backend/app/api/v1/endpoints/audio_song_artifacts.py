@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+from contextlib import suppress
 import os
 from pathlib import Path
 import secrets
@@ -140,10 +141,8 @@ async def upload_audio_song_artifact(
             "size_bytes": declared_size,
         }
     finally:
-        try:
+        with suppress(FileNotFoundError):
             temporary.unlink()
-        except FileNotFoundError:
-            pass
 
 
 @router.get("/{artifact_id}")
@@ -181,10 +180,8 @@ async def delete_audio_song_artifact(
         path = artifact_path(root, artifact_id)
     except AudioSongArtifactBridgeError as exc:
         raise HTTPException(status_code=404, detail="Not found") from exc
-    try:
-        if path.is_symlink():
-            raise HTTPException(status_code=404, detail="Not found")
+    if path.is_symlink():
+        raise HTTPException(status_code=404, detail="Not found")
+    with suppress(FileNotFoundError):
         path.unlink()
-    except FileNotFoundError:
-        pass
     return Response(status_code=status.HTTP_204_NO_CONTENT)
