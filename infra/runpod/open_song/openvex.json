@@ -1,0 +1,93 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://aionex.local/vex/open-song-runtime-2026-08-26-v1",
+  "author": "AIONEX AIOS Security Gate",
+  "timestamp": "2026-08-26T16:44:00Z",
+  "version": 1,
+  "statements": [
+    {
+      "vulnerability": {"name": "CVE-2022-42919"},
+      "products": [{"@id": "pkg:deb/ubuntu/libpython3.11@3.11.15-1%2Bjammy1?arch=amd64&distro=ubuntu-22.04"}],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "NVD affected CPython ranges stop before Python 3.11; this runtime package is Python 3.11.15."
+    },
+    {
+      "vulnerability": {"name": "CVE-2022-42919"},
+      "products": [{"@id": "pkg:deb/ubuntu/libpython3.11-minimal@3.11.15-1%2Bjammy1?arch=amd64&distro=ubuntu-22.04"}],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "NVD affected CPython ranges stop before Python 3.11; this runtime package is Python 3.11.15."
+    },
+    {
+      "vulnerability": {"name": "CVE-2022-42919"},
+      "products": [{"@id": "pkg:deb/ubuntu/libpython3.11-stdlib@3.11.15-1%2Bjammy1?arch=amd64&distro=ubuntu-22.04"}],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "NVD affected CPython ranges stop before Python 3.11; this runtime package is Python 3.11.15."
+    },
+    {
+      "vulnerability": {"name": "CVE-2022-42919"},
+      "products": [{"@id": "pkg:deb/ubuntu/python3.11@3.11.15-1%2Bjammy1?arch=amd64&distro=ubuntu-22.04"}],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "NVD affected CPython ranges stop before Python 3.11; this runtime package is Python 3.11.15."
+    },
+    {
+      "vulnerability": {"name": "CVE-2022-42919"},
+      "products": [{"@id": "pkg:deb/ubuntu/python3.11-minimal@3.11.15-1%2Bjammy1?arch=amd64&distro=ubuntu-22.04"}],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "NVD affected CPython ranges stop before Python 3.11; this runtime package is Python 3.11.15."
+    },
+    {
+      "vulnerability": {"name": "CVE-2022-42919"},
+      "products": [{"@id": "pkg:deb/ubuntu/python3.11-venv@3.11.15-1%2Bjammy1?arch=amd64&distro=ubuntu-22.04"}],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "NVD affected CPython ranges stop before Python 3.11; this runtime package is Python 3.11.15."
+    },
+    {
+      "vulnerability": {"name": "CVE-2026-31253"},
+      "products": [{"@id": "pkg:pypi/flash-attn@2.8.3%2Bcu128torch2.10"}],
+      "status": "not_affected",
+      "justification": "vulnerable_code_cannot_be_controlled_by_adversary",
+      "impact_statement": "The serverless contract accepts no checkpoint or model path from users; ACE-Step and LM checkpoints are baked and revision-pinned, and runtime model loading is offline."
+    },
+    {
+      "vulnerability": {"name": "CVE-2026-28414"},
+      "products": [{"@id": "pkg:pypi/gradio@6.2.0"}],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "The image is Linux amd64 and launches only the acestep-api server; the Gradio UI and Space loader are not launched by the RunPod handler."
+    },
+    {
+      "vulnerability": {"name": "CVE-2026-28416"},
+      "products": [{"@id": "pkg:pypi/gradio@6.2.0"}],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "The RunPod handler launches acestep-api only; Gradio Space loading is not in the execution path and no Gradio UI listener is exposed."
+    },
+    {
+      "vulnerability": {"name": "CVE-2026-48545"},
+      "products": [{"@id": "pkg:pypi/gradio@6.2.0"}],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "The RunPod handler launches acestep-api only; Gradio cookie and session handling are not in the execution path."
+    },
+    {
+      "vulnerability": {"name": "CVE-2026-4372"},
+      "products": [{"@id": "pkg:pypi/transformers@4.57.6"}],
+      "status": "not_affected",
+      "justification": "vulnerable_code_cannot_be_controlled_by_adversary",
+      "impact_statement": "Runtime is HF_HUB_OFFLINE=1 and TRANSFORMERS_OFFLINE=1 with exact baked model revisions; request schema exposes no repository path, model path, or trust_remote_code control."
+    },
+    {
+      "vulnerability": {"name": "CVE-2026-5241"},
+      "products": [{"@id": "pkg:pypi/transformers@4.57.6"}],
+      "status": "not_affected",
+      "justification": "vulnerable_code_cannot_be_controlled_by_adversary",
+      "impact_statement": "Runtime is offline with exact baked model revisions and no user-controlled trust_remote_code or model repository input."
+    }
+  ]
+}
