@@ -139,6 +139,11 @@ if [ "$(id -u)" = "0" ]; then
         install -d -m 0700 -o aionex -g aionex "$studio_asset_root"
     fi
 
+    audio_song_ingress_root="${AUDIO_SONG_ARTIFACT_BRIDGE_ROOT-/var/lib/aionex/audio-song-provider-ingress}"
+    if [ -n "$audio_song_ingress_root" ]; then
+        install -d -m 0700 -o aionex -g aionex "$audio_song_ingress_root"
+    fi
+
     media_storage_root="${MEDIA_STORAGE_ROOT-/var/lib/aionex/media-assets}"
     if [ -n "$media_storage_root" ]; then
         install -d -m 0700 -o aionex -g aionex "$media_storage_root"

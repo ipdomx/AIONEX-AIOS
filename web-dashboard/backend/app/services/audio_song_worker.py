@@ -301,6 +301,11 @@ class AudioSongWorker:
                 ),
                 max_content_bytes=int(settings.AUDIO_SONG_MAX_PROVIDER_BYTES),
                 allowed_artifact_hosts=secrets.artifact_hosts,
+                artifact_bridge_origin=settings.PORTAL_PUBLIC_API_ORIGIN,
+                artifact_bridge_secret=settings.SECRET_KEY,
+                artifact_bridge_ttl_seconds=int(
+                    settings.AUDIO_SONG_ARTIFACT_TOKEN_TTL_SECONDS
+                ),
             )
         return self._adapter
 
@@ -713,6 +718,18 @@ class AudioSongWorker:
                     },
                 )
                 await session.commit()
+            cleanup = getattr(self._runtime_adapter(), "cleanup", None)
+            if callable(cleanup):
+                artifacts = [result.full_song, *(result.stems[stem] for stem in _REQUIRED_STEMS)]
+                cleanup_results = await asyncio.gather(
+                    *(cleanup(artifact) for artifact in artifacts),
+                    return_exceptions=True,
+                )
+                if not all(item is True for item in cleanup_results):
+                    logger.warning(
+                        "Open-song artifact ingress cleanup deferred to TTL purge",
+                        extra={"execution_id": loaded.claim.execution_id},
+                    )
         except Exception:
             for item in stored:
                 await asyncio.to_thread(self.store.delete, item.key)

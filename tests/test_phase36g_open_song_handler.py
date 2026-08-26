@@ -25,6 +25,14 @@ assert SPEC is not None and SPEC.loader is not None
 contract = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = contract
 SPEC.loader.exec_module(contract)
+sys.modules["contract"] = contract
+HANDLER_SPEC = importlib.util.spec_from_file_location(
+    "aionex_open_song_handler_runtime", HANDLER_ROOT / "handler.py"
+)
+assert HANDLER_SPEC is not None and HANDLER_SPEC.loader is not None
+handler_runtime = importlib.util.module_from_spec(HANDLER_SPEC)
+sys.modules[HANDLER_SPEC.name] = handler_runtime
+HANDLER_SPEC.loader.exec_module(handler_runtime)
 
 HANDLER_IMAGE_DIGEST = "sha256:" + "8" * 64
 
@@ -175,7 +183,7 @@ def test_ace_step_response_parsing_is_exact_and_hash_safe() -> None:
 
 def test_provider_result_contains_exact_four_stems_without_private_text() -> None:
     artifact = {
-        "url": "https://assets.example.test/object.wav?signature=private",
+        "artifact_id": "a" * 48,
         "sha256": "1" * 64,
         "size_bytes": 192_044,
         "media_type": "audio/wav",
@@ -207,7 +215,77 @@ def test_dockerfile_is_immutable_offline_nonroot_and_model_baked() -> None:
     assert 'ENTRYPOINT ["/app/.venv/bin/python", "/opt/aionex-open-song/handler.py"]' in dockerfile
     requirements = (HANDLER_ROOT / "requirements.txt").read_text(encoding="utf-8")
     assert requirements.splitlines() == [
-        "boto3==1.43.72",
         "demucs==4.0.1",
         "runpod==1.11.0",
     ]
+    handler_source = (HANDLER_ROOT / "handler.py").read_text(encoding="utf-8")
+    assert "S3ArtifactPublisher" not in handler_source
+    assert "AionexArtifactBridgePublisher" in handler_source
+    assert "AIONEX_ARTIFACT_S3_" not in handler_source
+
+def test_artifact_bridge_publisher_keeps_grant_out_of_url_and_result(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    artifact_id = "e" * 48
+    upload_token = "1800000600:" + "f" * 64
+    target = {
+        "artifact_id": artifact_id,
+        "upload_url": f"https://api.vip-e.net/api/v1/audio-song-artifacts/{artifact_id}",
+        "upload_token": upload_token,
+    }
+    raw = payload()
+    raw["artifact_bridge"] = {
+        "schema": "aionex.open-song-artifact-bridge.v1",
+        "artifacts": {key: dict(target) for key in ("full_song", "vocals", "drums", "bass", "other")},
+    }
+    monkeypatch.setenv("AIONEX_ARTIFACT_BRIDGE_ALLOWED_HOST", "api.vip-e.net")
+    observed: dict[str, object] = {}
+
+    class Response:
+        status = 201
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self, maximum: int) -> bytes:
+            assert maximum == 65_536
+            return b"{}"
+
+    class Opener:
+        def open(self, request, timeout: int):
+            observed["request"] = request
+            observed["timeout"] = timeout
+            return Response()
+
+    monkeypatch.setattr(handler_runtime.urllib.request, "build_opener", lambda *_: Opener())
+    publisher = handler_runtime.AionexArtifactBridgePublisher(raw)
+    result = publisher.publish(wav_file(tmp_path), logical_key="full_song")
+    request = observed["request"]
+    assert request.full_url == target["upload_url"]
+    assert upload_token not in request.full_url
+    assert request.get_header("Authorization") == f"Bearer {upload_token}"
+    assert result["artifact_id"] == artifact_id
+    assert "url" not in result
+    assert "upload_token" not in result
+
+
+def test_artifact_bridge_rejects_host_drift(monkeypatch: pytest.MonkeyPatch) -> None:
+    artifact_id = "e" * 48
+    raw = payload()
+    raw["artifact_bridge"] = {
+        "schema": "aionex.open-song-artifact-bridge.v1",
+        "artifacts": {
+            key: {
+                "artifact_id": artifact_id,
+                "upload_url": f"https://evil.example/api/v1/audio-song-artifacts/{artifact_id}",
+                "upload_token": "1800000600:" + "f" * 64,
+            }
+            for key in ("full_song", "vocals", "drums", "bass", "other")
+        },
+    }
+    monkeypatch.setenv("AIONEX_ARTIFACT_BRIDGE_ALLOWED_HOST", "api.vip-e.net")
+    with pytest.raises(handler_runtime.OpenSongHandlerRuntimeError, match="upload URL"):
+        handler_runtime.AionexArtifactBridgePublisher(raw)

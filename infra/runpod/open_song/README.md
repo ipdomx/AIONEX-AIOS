@@ -22,20 +22,13 @@ The built image digest, generated SBOM digest, and handler-source digest must be
 ## Required runtime environment
 
 - `AIONEX_HANDLER_IMAGE_DIGEST`
-- `AIONEX_ARTIFACT_S3_BUCKET`
-- `AIONEX_ARTIFACT_S3_REGION`
-- `AIONEX_ARTIFACT_S3_ACCESS_KEY_ID`
-- `AIONEX_ARTIFACT_S3_SECRET_ACCESS_KEY`
-- `AIONEX_ARTIFACT_ALLOWED_HOSTS`
+- `AIONEX_ARTIFACT_BRIDGE_ALLOWED_HOST` — Production value is the AIONEX public API host.
 
 Optional:
 
-- `AIONEX_ARTIFACT_S3_ENDPOINT_URL`
-- `AIONEX_ARTIFACT_PREFIX`
-- `AIONEX_ARTIFACT_URL_TTL_SECONDS` (`300..3600`)
 - bounded ACE-Step/Demucs timeout values documented in `handler.py`.
 
-The artifact bucket must enforce lifecycle deletion. The handler creates private objects with AES-256 server-side encryption and returns short-lived HTTPS presigned GET URLs. No provider credential is sent to those URLs.
+The Backend supplies five short-lived, action-scoped upload grants inside the RunPod request: one for the full song and one for each required stem. Grants use HTTPS plus an `Authorization` header; tokens are never placed in URLs or persisted in the durable song execution. The handler returns only opaque artifact IDs and public audio evidence. The Backend creates fresh GET/DELETE grants, verifies the downloaded bytes, persists them to the durable Media store, then removes ingress copies. Stale ingress artifacts are TTL-purged as a fallback. No AWS/S3 credential is present in the GPU handler.
 
 ## Build
 

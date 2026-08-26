@@ -716,6 +716,28 @@ class Settings(BaseSettings):
         default="/run/secrets/aionex/runpod-gpu.env",
         validation_alias="AUDIO_SONG_RUNPOD_SECRET_FILE",
     )
+    AUDIO_SONG_ARTIFACT_BRIDGE_ROOT: str = Field(
+        default="/var/lib/aionex/audio-song-provider-ingress",
+        validation_alias="AUDIO_SONG_ARTIFACT_BRIDGE_ROOT",
+    )
+    AUDIO_SONG_ARTIFACT_BRIDGE_MAX_BYTES: int = Field(
+        default=50_331_648,
+        ge=1_048_576,
+        le=67_108_864,
+        validation_alias="AUDIO_SONG_ARTIFACT_BRIDGE_MAX_BYTES",
+    )
+    AUDIO_SONG_ARTIFACT_TOKEN_TTL_SECONDS: int = Field(
+        default=1_800,
+        ge=300,
+        le=3_600,
+        validation_alias="AUDIO_SONG_ARTIFACT_TOKEN_TTL_SECONDS",
+    )
+    AUDIO_SONG_ARTIFACT_RETENTION_SECONDS: int = Field(
+        default=3_600,
+        ge=300,
+        le=86_400,
+        validation_alias="AUDIO_SONG_ARTIFACT_RETENTION_SECONDS",
+    )
     VIDEO_EXECUTION_LIVE_ENABLED: bool = Field(
         default=False, validation_alias="VIDEO_EXECUTION_LIVE_ENABLED"
     )

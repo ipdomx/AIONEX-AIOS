@@ -11,11 +11,20 @@ import hashlib
 import ipaddress
 import math
 import re
+import secrets as pysecrets
 from dataclasses import dataclass
 from typing import Any, Mapping
 from urllib.parse import urlsplit
 
 import httpx
+
+from app.services.audio_song_artifact_bridge import (
+    AudioSongArtifactBridgeError,
+    artifact_url,
+    issue_artifact_token,
+    validate_artifact_id,
+    validate_public_origin,
+)
 
 _RUNPOD_API_ROOT = "https://api.runpod.ai/v2"
 _RUNPOD_STATES = frozenset(
@@ -191,13 +200,14 @@ class ProviderOpenSongRequest:
 
 @dataclass(frozen=True, slots=True)
 class ProviderAudioArtifact:
-    url: str
+    url: str | None
     sha256: str
     size_bytes: int
     media_type: str
     duration_seconds: float
     sample_rate_hz: int
     channels: int
+    artifact_id: str | None = None
 
     def __post_init__(self) -> None:
         if not _SHA256_RE.fullmatch(self.sha256):
@@ -210,7 +220,19 @@ class ProviderAudioArtifact:
             raise AudioSongProviderFailure("provider_result_invalid", retryable=False)
         if int(self.sample_rate_hz) != 48_000 or int(self.channels) != 2:
             raise AudioSongProviderFailure("provider_result_invalid", retryable=False)
-        _validate_artifact_url(self.url, allowed_hosts=None)
+        has_url = bool(str(self.url or "").strip())
+        has_id = bool(str(self.artifact_id or "").strip())
+        if has_url == has_id:
+            raise AudioSongProviderFailure("provider_result_invalid", retryable=False)
+        if has_url:
+            _validate_artifact_url(str(self.url), allowed_hosts=None)
+        else:
+            try:
+                validate_artifact_id(str(self.artifact_id))
+            except AudioSongArtifactBridgeError as exc:
+                raise AudioSongProviderFailure(
+                    "provider_result_invalid", retryable=False
+                ) from exc
 
     def public_snapshot(self) -> dict[str, Any]:
         return {
@@ -463,7 +485,8 @@ def _validate_artifact_url(
 def _parse_artifact(value: Any) -> ProviderAudioArtifact:
     if not isinstance(value, dict):
         raise AudioSongProviderFailure("provider_result_invalid", retryable=False)
-    url = str(value.get("url") or "").strip()
+    url_value = str(value.get("url") or "").strip()
+    artifact_id_value = str(value.get("artifact_id") or "").strip()
     checksum = str(value.get("sha256") or "").strip().lower()
     media_type = str(value.get("media_type") or "").split(";", 1)[0].strip().lower()
     size = _parse_int(value.get("size_bytes"))
@@ -478,7 +501,8 @@ def _parse_artifact(value: Any) -> ProviderAudioArtifact:
     ):
         raise AudioSongProviderFailure("provider_result_invalid", retryable=False)
     return ProviderAudioArtifact(
-        url=url,
+        url=url_value or None,
+        artifact_id=artifact_id_value or None,
         sha256=checksum,
         size_bytes=int(size),
         media_type=media_type,
@@ -558,6 +582,9 @@ class RunPodOpenSongAdapter:
         download_timeout_seconds: float = 180.0,
         max_content_bytes: int = 256 * 1024 * 1024,
         allowed_artifact_hosts: frozenset[str] | set[str] | tuple[str, ...] = (),
+        artifact_bridge_origin: str | None = None,
+        artifact_bridge_secret: str | None = None,
+        artifact_bridge_ttl_seconds: int = 1_800,
     ) -> None:
         hosts = frozenset(
             host.strip().lower().rstrip(".")
@@ -576,6 +603,41 @@ class RunPodOpenSongAdapter:
         )
         self.max_content_bytes = max(1_048_576, min(int(max_content_bytes), 536_870_912))
         self.allowed_artifact_hosts = hosts
+        self.artifact_bridge_origin: str | None = None
+        self.artifact_bridge_secret: str | None = None
+        self.artifact_bridge_ttl_seconds = int(artifact_bridge_ttl_seconds)
+        if artifact_bridge_origin is not None or artifact_bridge_secret is not None:
+            try:
+                origin = validate_public_origin(str(artifact_bridge_origin or ""))
+            except AudioSongArtifactBridgeError as exc:
+                raise AudioSongProviderFailure("provider_unconfigured", retryable=False) from exc
+            parsed_host = (urlsplit(origin).hostname or "").lower().rstrip(".")
+            secret = str(artifact_bridge_secret or "")
+            if parsed_host not in hosts or len(secret) < 32 or not 300 <= self.artifact_bridge_ttl_seconds <= 3_600:
+                raise AudioSongProviderFailure("provider_unconfigured", retryable=False)
+            self.artifact_bridge_origin = origin
+            self.artifact_bridge_secret = secret
+
+    def _artifact_bridge_payload(self) -> dict[str, Any] | None:
+        if self.artifact_bridge_origin is None or self.artifact_bridge_secret is None:
+            return None
+        targets: dict[str, dict[str, str]] = {}
+        for logical_key in ("full_song", *_REQUIRED_STEMS):
+            artifact_id = pysecrets.token_hex(24)
+            targets[logical_key] = {
+                "artifact_id": artifact_id,
+                "upload_url": artifact_url(self.artifact_bridge_origin, artifact_id),
+                "upload_token": issue_artifact_token(
+                    "put",
+                    artifact_id,
+                    secret=self.artifact_bridge_secret,
+                    ttl_seconds=self.artifact_bridge_ttl_seconds,
+                ),
+            }
+        return {
+            "schema": "aionex.open-song-artifact-bridge.v1",
+            "artifacts": targets,
+        }
 
     @staticmethod
     def _headers(credential: str) -> dict[str, str]:
@@ -599,10 +661,14 @@ class RunPodOpenSongAdapter:
                 timeout=self.timeout_seconds,
                 follow_redirects=False,
             ) as client:
+                provider_payload = request.provider_payload()
+                bridge_payload = self._artifact_bridge_payload()
+                if bridge_payload is not None:
+                    provider_payload["artifact_bridge"] = bridge_payload
                 response = await client.post(
                     f"{_RUNPOD_API_ROOT}/{endpoint}/run",
                     headers=self._headers(credential),
-                    json={"input": request.provider_payload()},
+                    json={"input": provider_payload},
                 )
         except (httpx.TimeoutException, httpx.NetworkError) as exc:
             raise AudioSongProviderFailure(
@@ -657,10 +723,22 @@ class RunPodOpenSongAdapter:
         self,
         artifact: ProviderAudioArtifact,
     ) -> ProviderDownloadedArtifact:
-        url = _validate_artifact_url(
-            artifact.url,
-            allowed_hosts=self.allowed_artifact_hosts,
-        )
+        headers = {"Accept": "audio/wav"}
+        if artifact.artifact_id is not None:
+            if self.artifact_bridge_origin is None or self.artifact_bridge_secret is None:
+                raise AudioSongProviderFailure("provider_unconfigured", retryable=False)
+            url = artifact_url(self.artifact_bridge_origin, artifact.artifact_id)
+            headers["Authorization"] = "Bearer " + issue_artifact_token(
+                "get",
+                artifact.artifact_id,
+                secret=self.artifact_bridge_secret,
+                ttl_seconds=self.artifact_bridge_ttl_seconds,
+            )
+        else:
+            url = _validate_artifact_url(
+                str(artifact.url or ""),
+                allowed_hosts=self.allowed_artifact_hosts,
+            )
         declared_limit = min(artifact.size_bytes, self.max_content_bytes)
         if artifact.size_bytes > self.max_content_bytes:
             raise AudioSongProviderFailure(
@@ -677,7 +755,7 @@ class RunPodOpenSongAdapter:
                 async with client.stream(
                     "GET",
                     url,
-                    headers={"Accept": "audio/wav"},
+                    headers=headers,
                 ) as response:
                     if response.status_code >= 400:
                         await response.aread()
@@ -721,3 +799,29 @@ class RunPodOpenSongAdapter:
             media_type="audio/wav",
             sha256=digest,
         )
+    async def cleanup(self, artifact: ProviderAudioArtifact) -> bool:
+        """Best-effort cleanup after the durable media copy is committed."""
+        if artifact.artifact_id is None:
+            return True
+        if self.artifact_bridge_origin is None or self.artifact_bridge_secret is None:
+            return False
+        url = artifact_url(self.artifact_bridge_origin, artifact.artifact_id)
+        token = issue_artifact_token(
+            "delete",
+            artifact.artifact_id,
+            secret=self.artifact_bridge_secret,
+            ttl_seconds=self.artifact_bridge_ttl_seconds,
+        )
+        try:
+            async with httpx.AsyncClient(
+                transport=self.transport,
+                timeout=min(self.poll_timeout_seconds, 30.0),
+                follow_redirects=False,
+            ) as client:
+                response = await client.delete(
+                    url,
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+        except (httpx.TimeoutException, httpx.NetworkError):
+            return False
+        return response.status_code in {204, 404}
