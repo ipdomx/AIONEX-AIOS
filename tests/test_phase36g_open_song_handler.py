@@ -333,3 +333,23 @@ def test_artifact_bridge_rejects_host_drift(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setenv("AIONEX_ARTIFACT_BRIDGE_ALLOWED_HOST", "api.vip-e.net")
     with pytest.raises(handler_runtime.OpenSongHandlerRuntimeError, match="upload URL"):
         handler_runtime.AionexArtifactBridgePublisher(raw)
+
+
+def test_handler_failure_codes_are_stage_specific_and_sanitized() -> None:
+    cases = {
+        "ACE-Step API exited during startup": "acestep_api_startup_exit",
+        "ACE-Step generation failed": "acestep_generation_failed",
+        "ACE-Step canonicalization failed": "acestep_canonicalization_failed",
+        "Demucs separation failed": "demucs_separation_failed",
+        "artifact bridge upload failed": "artifact_upload_failed",
+    }
+    for message, expected in cases.items():
+        exc = handler_runtime.OpenSongHandlerRuntimeError(message)
+        assert handler_runtime._safe_failure_code(exc) == expected
+        assert message not in expected
+    assert handler_runtime._safe_failure_code(
+        contract.OpenSongHandlerContractError("title is invalid")
+    ) == "contract_invalid"
+    assert handler_runtime._safe_failure_code(
+        handler_runtime.OpenSongHandlerRuntimeError("unmapped internal detail")
+    ) == "runtime_unclassified"
