@@ -226,6 +226,45 @@ def test_dockerfile_is_immutable_offline_nonroot_and_model_baked() -> None:
     assert "boto3" not in verify_source
     assert 'version("demucs") == "4.0.1"' in verify_source
     assert 'version("runpod") == "1.11.0"' in verify_source
+    assert 'version("diffusers") == "0.38.0"' in verify_source
+    assert 'version("orjson") == "3.11.6"' in verify_source
+    assert 'version("pillow") == "12.3.0"' in verify_source
+    assert 'version("python-multipart") == "0.0.30"' in verify_source
+    assert 'version("starlette") == "1.3.1"' in verify_source
+    assert 'shutil.which("uv") is None' in verify_source
+    assert "linux-libc-dev" in dockerfile
+    assert "apt-get purge -y" in dockerfile
+    assert "diffusers==0.38.0" in dockerfile
+    assert "pillow==12.3.0" in dockerfile
+    assert "python-multipart==0.0.30" in dockerfile
+    assert "starlette==1.3.1" in dockerfile
+    assert "rm -f /usr/bin/uv /usr/bin/uvx" in dockerfile
+
+def test_open_song_vex_is_package_scoped_and_exact() -> None:
+    document = json.loads((HANDLER_ROOT / "openvex.json").read_text(encoding="utf-8"))
+    assert document["@context"] == "https://openvex.dev/ns/v0.2.0"
+    statements = document["statements"]
+    assert len(statements) == 12
+    expected_counts = {
+        "CVE-2022-42919": 6,
+        "CVE-2026-31253": 1,
+        "CVE-2026-28414": 1,
+        "CVE-2026-28416": 1,
+        "CVE-2026-48545": 1,
+        "CVE-2026-4372": 1,
+        "CVE-2026-5241": 1,
+    }
+    observed: dict[str, int] = {}
+    for statement in statements:
+        vulnerability = statement["vulnerability"]["name"]
+        observed[vulnerability] = observed.get(vulnerability, 0) + 1
+        assert statement["status"] == "not_affected"
+        assert len(statement["impact_statement"]) >= 40
+        assert len(statement["products"]) == 1
+        product = statement["products"][0]["@id"]
+        assert product.startswith("pkg:") and "@" in product and "*" not in product
+    assert observed == expected_counts
+
 
 def test_artifact_bridge_publisher_keeps_grant_out_of_url_and_result(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch

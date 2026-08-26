@@ -53,6 +53,35 @@ RUN set -eux; \
       /opt/aionex-demucs-models/955717e8-8726e21a.th | sha256sum -c -; \
     test "$(stat -c %s /opt/aionex-demucs-models/955717e8-8726e21a.th)" = "84141911"
 
+# Remove build-only packages and patch runtime dependencies before the final image.
+# ACE-Step 1.5 keeps transformers<4.58 and gradio==6.2.0; exploitability of
+# their remaining scanner findings is captured by the package-scoped OpenVEX.
+RUN set -eux; \
+    export DEBIAN_FRONTEND=noninteractive; \
+    apt-get update; \
+    apt-get install -y --only-upgrade \
+      libssl3 openssl \
+      gnupg2 gnupg gnupg-l10n gnupg-utils \
+      gpg gpg-agent gpg-wks-client gpg-wks-server gpgconf gpgsm gpgv dirmngr; \
+    apt-get purge -y \
+      build-essential g++ g++-11 \
+      libc6-dev libexpat1-dev libpython3.11-dev libssl-dev \
+      libstdc++-11-dev linux-libc-dev python3.11-dev; \
+    /usr/bin/uv pip install --python /app/.venv/bin/python --no-cache \
+      diffusers==0.38.0 \
+      orjson==3.11.6 \
+      pillow==12.3.0 \
+      python-multipart==0.0.30 \
+      starlette==1.3.1; \
+    /usr/bin/uv pip uninstall --python /app/.venv/bin/python \
+      setuptools wheel jaraco.context; \
+    rm -f /usr/bin/uv /usr/bin/uvx; \
+    rm -rf /var/lib/apt/lists/* /root/.cache /tmp/*; \
+    ! dpkg-query -W linux-libc-dev >/dev/null 2>&1; \
+    ! dpkg-query -W python3.11-dev >/dev/null 2>&1; \
+    ! command -v uv; \
+    ! command -v uvx
+
 COPY contract.py handler.py verify_runtime.py /opt/aionex-open-song/
 
 ENV PATH=/app/.venv/bin:${PATH} \
