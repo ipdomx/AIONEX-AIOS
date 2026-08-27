@@ -673,6 +673,54 @@ async def test_official_space_acceptance_route_is_zero_cost_and_image_free() -> 
 
 
 @pytest.mark.asyncio
+async def test_claim_can_be_scoped_to_exact_runpod_endpoint_binding() -> None:
+    scope = await seed_scope("endpoint-claim")
+    result = await persist_pipeline(
+        scope,
+        route_id="runpod-flex-a40",
+        key=f"open-song-endpoint-claim-{scope.organization_id}",
+    )
+    try:
+        async with SessionLocal() as session:
+            await arm_audio_song_execution(
+                session,
+                execution_id=result.execution_id,
+                organization_id=scope.organization_id,
+                approved_max_cost_usd=0.20,
+                monthly_user_cap_usd=0.40,
+                provider_balance_usd=1.0,
+                balance_evidence_sha256=BALANCE_EVIDENCE,
+            )
+            wrong = await claim_audio_song_execution(
+                session,
+                worker_id="audio-song-secondary",
+                lease_seconds=60,
+                allowed_route_ids={"runpod-flex-a40"},
+                endpoint_id_sha256="1" * 64,
+            )
+            assert wrong is None
+            row = await session.get(AudioSongExecution, result.execution_id)
+            assert row is not None
+            assert row.status == "queued"
+            assert row.attempts == 0
+
+            right = await claim_audio_song_execution(
+                session,
+                worker_id="audio-song-primary",
+                lease_seconds=60,
+                allowed_route_ids={"runpod-flex-a40"},
+                endpoint_id_sha256=RUNTIME_ENDPOINT_HASH,
+            )
+            assert right is not None
+            assert right.id == result.execution_id
+            assert right.attempts == 1
+            assert right.lease_owner == "audio-song-primary"
+            await session.rollback()
+    finally:
+        await cleanup(scope)
+
+
+@pytest.mark.asyncio
 async def test_durable_poll_deferral_prevents_hot_loop_and_preserves_attempt() -> None:
     scope = await seed_scope("defer")
     result = await persist_pipeline(

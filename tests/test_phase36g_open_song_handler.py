@@ -211,6 +211,16 @@ def test_dockerfile_is_immutable_offline_nonroot_and_model_baked() -> None:
     assert DEMUCS_CHECKPOINT_SHA256 in dockerfile
     assert "HF_HUB_OFFLINE=1" in dockerfile
     assert "TRANSFORMERS_OFFLINE=1" in dockerfile
+    assert "ACESTEP_PROJECT_ROOT=/app" in dockerfile
+    assert "ACESTEP_CHECKPOINTS_DIR=/app/checkpoints" in dockerfile
+    assert "ACESTEP_TMPDIR=/tmp/aionex-open-song/acestep-tmp" in dockerfile
+    assert "TRITON_CACHE_DIR=/tmp/aionex-open-song/triton" in dockerfile
+    assert "TORCHINDUCTOR_CACHE_DIR=/tmp/aionex-open-song/torchinductor" in dockerfile
+    assert "XDG_CACHE_HOME=/tmp/aionex-open-song/xdg-cache" in dockerfile
+    assert "HF_HOME=/tmp/aionex-open-song/hf-cache" in dockerfile
+    assert "MPLCONFIGDIR=/tmp/aionex-open-song/matplotlib" in dockerfile
+    assert "install -d -m 0700 -o aionex-song -g aionex-song /app/.cache/acestep" in dockerfile
+    assert "aionex-song:aionex-song:700" in dockerfile
     assert "USER aionex-song:aionex-song" in dockerfile
     assert 'ENTRYPOINT ["/app/.venv/bin/python", "/opt/aionex-open-song/handler.py"]' in dockerfile
     requirements = (HANDLER_ROOT / "requirements.txt").read_text(encoding="utf-8")

@@ -91,6 +91,12 @@ ENV PATH=/app/.venv/bin:${PATH} \
     ACESTEP_CONFIG_PATH=acestep-v15-base \
     ACESTEP_LM_MODEL_PATH=acestep-5Hz-lm-4B \
     ACESTEP_LLM_BACKEND=pt \
+    ACESTEP_TMPDIR=/tmp/aionex-open-song/acestep-tmp \
+    TRITON_CACHE_DIR=/tmp/aionex-open-song/triton \
+    TORCHINDUCTOR_CACHE_DIR=/tmp/aionex-open-song/torchinductor \
+    XDG_CACHE_HOME=/tmp/aionex-open-song/xdg-cache \
+    HF_HOME=/tmp/aionex-open-song/hf-cache \
+    MPLCONFIGDIR=/tmp/aionex-open-song/matplotlib \
     HF_HUB_OFFLINE=1 \
     TRANSFORMERS_OFFLINE=1 \
     TOKENIZERS_PARALLELISM=false \
@@ -107,7 +113,19 @@ RUN set -eux; \
       --home-dir /home/aionex-song --shell /usr/sbin/nologin aionex-song; \
     chown -R root:root /opt/aionex-open-song /opt/aionex-demucs-models /app/checkpoints; \
     chmod -R go-w /opt/aionex-open-song /opt/aionex-demucs-models /app/checkpoints; \
-    install -d -m 0700 -o aionex-song -g aionex-song /tmp/aionex-open-song
+    install -d -m 0755 -o root -g root /app/.cache; \
+    install -d -m 0700 -o aionex-song -g aionex-song /app/.cache/acestep; \
+    install -d -m 0700 -o aionex-song -g aionex-song \
+      /tmp/aionex-open-song \
+      /tmp/aionex-open-song/acestep-tmp \
+      /tmp/aionex-open-song/triton \
+      /tmp/aionex-open-song/torchinductor \
+      /tmp/aionex-open-song/xdg-cache \
+      /tmp/aionex-open-song/hf-cache \
+      /tmp/aionex-open-song/matplotlib; \
+    test "$(stat -c '%U:%G:%a' /app/.cache/acestep)" = "aionex-song:aionex-song:700"; \
+    test "$(stat -c '%U:%G:%a' /tmp/aionex-open-song)" = "aionex-song:aionex-song:700"; \
+    test "$(stat -c '%U:%G' /app/checkpoints)" = "root:root"
 
 WORKDIR /opt/aionex-open-song
 USER aionex-song:aionex-song
