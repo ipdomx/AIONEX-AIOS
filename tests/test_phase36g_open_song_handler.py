@@ -397,6 +397,11 @@ def test_handler_uses_current_ace_step_eager_init_environment_contract() -> None
     assert "02a95f2293dc0cd82ff5046816503668f8339157ba0b18715e061f3142999f8f" in patch_source
     assert "Required Qwen3 text encoder is unavailable" in patch_source
     assert "Required official VAE is unavailable" in patch_source
+    demucs_patch = (HANDLER_ROOT / "patch_demucs_runtime.py").read_text(encoding="utf-8")
+    assert "37375543dad61a7dc549caf6f165c0500d903313159c70cf893d47718194b865" in demucs_patch
+    assert "weights_only=False" in demucs_patch
+    assert "patch_demucs_runtime.py" in dockerfile
+    assert "LocalRepo(Path('/opt/aionex-demucs-models')).get_model('955717e8')" in dockerfile
 
 
 def test_handler_failure_codes_are_stage_specific_and_sanitized() -> None:
