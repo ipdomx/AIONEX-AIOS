@@ -18,3 +18,24 @@
 - Live acceptance and before/after metrics: Before repair, one real provider submission failed with `open_song_handler_failed:acestep_generation_failed`, attempts=1, retried=0, and DB residue=0. New-image acceptance is pending in this receipt revision and will be updated before merge.
 - External activation gates remaining: Second RunPod account cannot be armed until an independent secondary API key/endpoint is actually configured; no key is fabricated or copied from the primary account.
 - Next action: Complete fresh SBOM, activate the candidate binding with production worker still disabled, run exactly one governed Full Song acceptance, record stems/master/export result and cleanup, then update this receipt and merge only with green protected checks.
+
+## Live acceptance v5 finding — required shared ACE-Step components
+
+- The fresh candidate SBOM completed successfully as CycloneDX 1.7 with `12196` components; SHA-256 `50d5e4daf2ed7b6e8558315ef444f8f6ce58f25a5ef96de25ac650d1735b12d9`.
+- The production audio-song worker was recreated alone, returned Healthy, remained `AUDIO_SONG_LIVE_ENABLED=false`, and read the candidate Endpoint hash, image digest `sha256:2927309bdb0829197bd20d07caf36ba7eae137f704e090bd3cd8bdc60e81defd`, handler SHA and fresh SBOM SHA exactly.
+- Acceptance v5 made exactly one RunPod submission. Terminal evidence: `attempts=1`, `retried=0`, `open_song_handler_failed:acestep_api_startup_exit`; RunPod failed jobs became `1`, with no second submission. The live balance before submission was `$9.9588565024`. Synthetic cleanup returned Organization/AudioSongExecution/MediaGraph rows to zero.
+- Root cause is now narrower than the earlier cache/readiness findings. The handler image baked the selected `acestep-v15-base` DiT and `acestep-5Hz-lm-4B`, but did not bake the official VAE and `Qwen3-Embedding-0.6B` text encoder from the ACE-Step main model bundle. Eager initialization therefore exposed the missing shared-model prerequisite before generation.
+- The pinned ACE-Step 1.5 generic precheck additionally requires the unused default Turbo DiT and 1.7B LM whenever any main-model component is absent. That contract is broader than this selected Base + 4B runtime and would force a runtime network download, which AIONEX intentionally forbids.
+- Remediation pins `ACE-Step/Ace-Step1.5` revision `19671f406d603126926c1b7e2adc169acbcade22`, bakes only `vae/*` and `Qwen3-Embedding-0.6B/*`, and applies a build-time patch only after verifying upstream `init_service_downloads.py` SHA-256 `02a95f2293dc0cd82ff5046816503668f8339157ba0b18715e061f3142999f8f`. The patch makes the precheck fail closed on the selected DiT plus actually required VAE/text encoder instead of downloading unused defaults.
+- Regression coverage remains one-attempt/no-retry and adds exact main-model revision, shared-component and upstream-patch assertions. Focused Open Song tests after the remediation are `30/30 PASS`; a new immutable runtime image/live acceptance remains required before merge.
+- Owner directive: the secondary RunPod account/failover activation is explicitly deferred until all other project work is complete. No primary key may be copied into the secondary binding; this is not an internal completion blocker for the primary Full Song repair.
+
+## Shared-component image candidate — offline verification
+
+- Full runtime build completed successfully as local image `sha256:d5457ad92cf6a3a926f6bacac75a4adec5b75369f34830fa1b497afc30739c15` (`18,834,408,953` bytes).
+- Exact main-model revision is pinned to `ACE-Step/Ace-Step1.5@19671f406d603126926c1b7e2adc169acbcade22`; only the required official VAE and `Qwen3-Embedding-0.6B` shared components are baked in addition to the already pinned Base DiT and 4B LM.
+- Real `--network none` image verification PASS: runtime identity `aionex-song` uid/gid `999:999`; official VAE weight `337,431,388` bytes; Qwen text-encoder weight `1,191,586,416` bytes; ACE-Step cache `aionex-song:aionex-song:0700`; checkpoints remain `root:root:0755`.
+- Runtime environment remains exact: `ACESTEP_CONFIG_PATH=acestep-v15-base`, `ACESTEP_LM_MODEL_PATH=acestep-5Hz-lm-4B`, `ACESTEP_LM_BACKEND=pt`, `ACESTEP_NO_INIT=false`, `ACESTEP_INIT_LLM=true`.
+- The patched ACE-Step initialization module contains no `check_main_model_exists`, `ensure_main_model`, or generic main-bundle auto-download path; it still requires the selected DiT and the exact shared VAE/text-encoder components. Runtime network download remains forbidden.
+- Handler source SHA-256 remains `a37e47f58940927f53f0393dfc0030d8ecf30363bd4ada23a57d419e37032347`.
+- No provider submission occurred during build/offline verification. The next paid boundary remains exactly one new Full Song acceptance after immutable registry push, fresh SBOM and candidate Endpoint readiness.

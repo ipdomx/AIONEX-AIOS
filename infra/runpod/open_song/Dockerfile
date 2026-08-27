@@ -2,7 +2,7 @@
 # A small source-only target validates Docker parsing without pulling GPU layers.
 FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS source-contract
 WORKDIR /source
-COPY contract.py handler.py prepare_models.py verify_runtime.py /source/
+COPY contract.py handler.py prepare_models.py patch_acestep_runtime.py verify_runtime.py /source/
 RUN python -m compileall -q /source
 
 # The runtime image is pinned to the audited linux/amd64 manifest, not a tag.
@@ -12,6 +12,7 @@ USER root
 
 ARG ACE_STEP_SOURCE_COMMIT=dce621408bee8c31b4fcf4811682eb9359e1bc94
 ARG ACE_STEP_MODEL_REVISION=e432212fec32b8965a14ffa57ae653438d6abd14
+ARG ACE_STEP_MAIN_MODEL_REVISION=19671f406d603126926c1b7e2adc169acbcade22
 ARG ACE_STEP_LM_REVISION=0a3ec94b557aea7d508da38b31cfe7341f6ff737
 ARG DEMUCS_SOURCE_COMMIT=ef66d254cd6d558e207eeff2c4b8d053db2e77dd
 ARG DEMUCS_CHECKPOINT_URL=https://dl.fbaipublicfiles.com/demucs/hybrid_transformer/955717e8-8726e21a.th
@@ -23,6 +24,7 @@ LABEL org.opencontainers.image.title="AIONEX Open Song Handler" \
       org.opencontainers.image.source="https://github.com/ipdomx/AIONEX-AIOS" \
       ai.aionex.ace-step.source-commit="${ACE_STEP_SOURCE_COMMIT}" \
       ai.aionex.ace-step.model-revision="${ACE_STEP_MODEL_REVISION}" \
+      ai.aionex.ace-step.main-model-revision="${ACE_STEP_MAIN_MODEL_REVISION}" \
       ai.aionex.ace-step.language-model-revision="${ACE_STEP_LM_REVISION}" \
       ai.aionex.demucs.source-commit="${DEMUCS_SOURCE_COMMIT}" \
       ai.aionex.demucs.checkpoint-sha256="${DEMUCS_CHECKPOINT_SHA256}"
@@ -37,13 +39,16 @@ RUN set -eux; \
     rm -f /tmp/aionex-open-song-requirements.txt
 
 # Bake exact model revisions. Runtime is offline and cannot silently refresh.
-COPY prepare_models.py /tmp/aionex-prepare-open-song-models.py
+COPY prepare_models.py patch_acestep_runtime.py /tmp/
 RUN set -eux; \
-    /app/.venv/bin/python /tmp/aionex-prepare-open-song-models.py; \
+    /app/.venv/bin/python /tmp/prepare_models.py; \
+    /app/.venv/bin/python /tmp/patch_acestep_runtime.py; \
     cp -f /app/acestep/models/base/*.py /app/checkpoints/acestep-v15-base/; \
     test -d /app/checkpoints/acestep-v15-base; \
     test -d /app/checkpoints/acestep-5Hz-lm-4B; \
-    rm -f /tmp/aionex-prepare-open-song-models.py
+    test -f /app/checkpoints/vae/diffusion_pytorch_model.safetensors; \
+    test -f /app/checkpoints/Qwen3-Embedding-0.6B/model.safetensors; \
+    rm -f /tmp/prepare_models.py /tmp/patch_acestep_runtime.py
 
 RUN set -eux; \
     install -d -m 0755 /opt/aionex-demucs-models /opt/aionex-open-song; \

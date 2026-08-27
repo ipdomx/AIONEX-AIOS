@@ -1,6 +1,7 @@
 """Build-only import and supply-chain verification."""
 from importlib.metadata import PackageNotFoundError, version
 import shutil
+from pathlib import Path
 
 import demucs
 import runpod
@@ -31,3 +32,14 @@ for removed in ("setuptools", "wheel"):
         raise AssertionError(f"{removed} must not remain in the runtime image")
 assert shutil.which("uv") is None and shutil.which("uvx") is None
 assert demucs is not None and runpod is not None and acestep.api_server is not None
+checkpoints = Path("/app/checkpoints")
+assert (checkpoints / "vae" / "diffusion_pytorch_model.safetensors").is_file()
+assert (checkpoints / "Qwen3-Embedding-0.6B" / "model.safetensors").is_file()
+assert (checkpoints / "acestep-v15-base" / "model.safetensors").is_file()
+assert (checkpoints / "acestep-5Hz-lm-4B" / "model.safetensors.index.json").is_file()
+patched_precheck = Path(
+    "/app/acestep/core/generation/handler/init_service_downloads.py"
+).read_text(encoding="utf-8")
+assert "Required Qwen3 text encoder is unavailable" in patched_precheck
+assert "Required official VAE is unavailable" in patched_precheck
+assert "Main model not found, starting auto-download" not in patched_precheck
