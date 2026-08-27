@@ -60,9 +60,8 @@ async def test_phase36_public_capability_snapshot_is_truthful_and_non_secret() -
     assert capabilities["stable-audio-instrumental-generation"]["external_gates"] == (
         "music-rights-and-ai-generated-disclosure",
     )
-    assert capabilities["song-production"]["maturity"] == "source_built"
+    assert capabilities["song-production"]["maturity"] == "runtime_verified"
     assert capabilities["song-production"]["external_gates"] == (
-        "ace-step-open-song-runtime-acceptance",
         "music-rights-and-ai-generated-disclosure",
     )
     assert capabilities["voice-transformation"]["maturity"] == "specified"

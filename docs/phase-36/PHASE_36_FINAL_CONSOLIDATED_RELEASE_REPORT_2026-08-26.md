@@ -67,7 +67,7 @@ The following capability gates remain external by contract and are **not** repre
 | `voice-transformation` | `specified` | voice-rights-and-consent-evidence |
 | `lyria-3-music-generation` | `runtime_verified` | music-rights-and-synthid-disclosure |
 | `stable-audio-instrumental-generation` | `runtime_verified` | music-rights-and-ai-generated-disclosure |
-| `song-production` | `source_built` | ace-step-open-song-runtime-acceptance; music-rights-and-ai-generated-disclosure |
+| `song-production` | `runtime_verified` | music-rights-and-ai-generated-disclosure |
 | `podcast-jingle-narration` | `source_built` | provider-rendered-podcast-jingle-runtime-evidence; synthetic-voice-disclosure; music-rights-and-ai-generated-disclosure |
 | `realtime-chat-calling` | `source_built` | public-stun-turn-and-sfu-capacity |
 | `realtime-streaming-recording` | `source_built` | explicit-consent-egress-runtime-acceptance; recording-retention-and-studio-ingestion-runtime-evidence |
@@ -195,3 +195,20 @@ In particular, it does not claim:
 There is no remaining Phase 36 internal batch in progress and no known unresolved internal critical/high security finding or required internal release gate within the certified application/runtime boundary.
 
 Future work on the listed external activation gates is activation work requiring the stated external authority/evidence; it is not unfinished Phase 36 internal implementation.
+
+## 10. Post-closeout Phase 36G Open Song runtime verification — 2026-08-27
+
+The previously external `ace-step-open-song-runtime-acceptance` gate has now been satisfied by a bounded real RunPod acceptance and is removed from `song-production`. The remaining `music-rights-and-ai-generated-disclosure` gate is a policy/evidence activation gate and is not an internal runtime defect.
+
+Accepted immutable runtime identity:
+
+- source commit: `f8259d5`;
+- image: `ipdomx/aionex-open-song@sha256:6b6ce10bda3adc378fff230b307ac1ce9f86aaf21d82cd6e1f9c9b9f2a19ea34`;
+- handler SHA-256: `15f8b34e8f45ce3f156cd2d0e00df532acd3803e5bdff4370ab670e634652a37`;
+- package-equivalent CycloneDX evidence SHA-256: `ea9d47313f92ed7af3eb643182b372c18d1d2eea8291af8f63f15e9c30395f11`.
+
+Real acceptance v8 passed with exactly one provider submission and no retry: `attempts=1`, `retried=0`, provider state `completed`, four stems, Full Song, FFmpeg mix, master, export and waveform all completed. The final 30-second WAV passed audio QA at `-14.03 LUFS`, `-1.1 dBTP`, loudness range `5.4 LU`, no clipping. Studio advanced to revision `2`; actual RunPod billed time was `76.0 s`, actual cost `$0.02584`, and post-test Organization/AudioSongExecution/MediaGraph residue was `0`.
+
+Persistent acceptance evidence SHA-256: `ad01ab9ed9c694b5ac9f5dfa5b5caec968b60b6a16300d8c64ae1cd985f632c5`. RunPod endpoint evidence after acceptance reported `completed=1`, `failed=0`, `inProgress=0`, `inQueue=0`, `retried=0`. Production `audio-song-worker` remained hard-disabled (`AUDIO_SONG_LIVE_ENABLED=false`) throughout the explicit acceptance.
+
+Accordingly, `song-production` advances from `source_built` to `runtime_verified`. This does not expand any music-rights, artist-imitation, consent, or AI-generated-disclosure claim.

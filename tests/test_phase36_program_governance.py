@@ -174,7 +174,7 @@ def test_phase36g_stage5_source_keeps_diarization_separate_without_overclaiming(
         "audio-cleanup-master": "runtime_verified",
         "lyria-3-music-generation": "runtime_verified",
         "stable-audio-instrumental-generation": "runtime_verified",
-        "song-production": "source_built",
+        "song-production": "runtime_verified",
         "podcast-jingle-narration": "source_built",
     }
     for capability_id, maturity in expected.items():
@@ -198,9 +198,9 @@ def test_phase36g_stage5_source_keeps_diarization_separate_without_overclaiming(
         "music-rights-and-ai-generated-disclosure",
     )
     assert capabilities["song-production"].external_gates == (
-        "ace-step-open-song-runtime-acceptance",
         "music-rights-and-ai-generated-disclosure",
     )
+    assert "docs/phase-36/receipts/36G-2026-08-27-open-song-eager-init.md" in capabilities["song-production"].evidence
     assert "SFX" not in capabilities["audio-cleanup-master"].title
     assert capabilities["stt-tts-dubbing"].maturity == "runtime_verified"
     assert capabilities["stt-tts-dubbing"].external_gates == ("synthetic-voice-disclosure",)
@@ -210,7 +210,7 @@ def test_phase36g_stage5_source_keeps_diarization_separate_without_overclaiming(
         "synthetic-voice-disclosure",
         "music-rights-and-ai-generated-disclosure",
     )
-    assert capabilities["song-production"].maturity != "runtime_verified"
+    assert capabilities["song-production"].maturity == "runtime_verified"
     assert capabilities["voice-transformation"].maturity != "runtime_verified"
     assert BATCHES[6].status == "external_gate"
 
