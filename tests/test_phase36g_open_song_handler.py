@@ -345,6 +345,47 @@ def test_artifact_bridge_rejects_host_drift(monkeypatch: pytest.MonkeyPatch) -> 
         handler_runtime.AionexArtifactBridgePublisher(raw)
 
 
+def test_ace_step_health_requires_exact_initialized_model_pair() -> None:
+    ready = {
+        "code": 200,
+        "error": None,
+        "data": {
+            "status": "ok",
+            "service": "ACE-Step API",
+            "models_initialized": True,
+            "llm_initialized": True,
+            "loaded_model": "acestep-v15-base",
+            "loaded_lm_model": "acestep-5Hz-lm-4B",
+        },
+    }
+    assert handler_runtime._ace_step_health_ready(ready) is True
+    for key in ("models_initialized", "llm_initialized"):
+        value = json.loads(json.dumps(ready))
+        value["data"][key] = False
+        assert handler_runtime._ace_step_health_ready(value) is False
+    wrong_model = json.loads(json.dumps(ready))
+    wrong_model["data"]["loaded_model"] = "acestep-v15-turbo"
+    assert handler_runtime._ace_step_health_ready(wrong_model) is False
+    wrong_lm = json.loads(json.dumps(ready))
+    wrong_lm["data"]["loaded_lm_model"] = "acestep-5Hz-lm-1.7B"
+    assert handler_runtime._ace_step_health_ready(wrong_lm) is False
+    assert handler_runtime._ace_step_health_ready({"code": 200, "data": {"status": "ok"}}) is False
+
+
+def test_handler_uses_current_ace_step_eager_init_environment_contract() -> None:
+    source = (HANDLER_ROOT / "handler.py").read_text(encoding="utf-8")
+    dockerfile = (HANDLER_ROOT / "Dockerfile").read_text(encoding="utf-8")
+    assert '"ACESTEP_LM_BACKEND": "pt"' in source
+    assert '"ACESTEP_NO_INIT": "false"' in source
+    assert '"ACESTEP_INIT_LLM": "true"' in source
+    assert "ACESTEP_LLM_BACKEND" not in source
+    assert "ACESTEP_INIT_SERVICE" not in source
+    assert "ACESTEP_LM_BACKEND=pt" in dockerfile
+    assert "ACESTEP_NO_INIT=false" in dockerfile
+    assert "ACESTEP_INIT_LLM=true" in dockerfile
+    assert "ACESTEP_LLM_BACKEND" not in dockerfile
+
+
 def test_handler_failure_codes_are_stage_specific_and_sanitized() -> None:
     cases = {
         "ACE-Step API exited during startup": "acestep_api_startup_exit",

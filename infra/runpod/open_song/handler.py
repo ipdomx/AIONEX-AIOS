@@ -167,6 +167,23 @@ def _run_command(
         raise OpenSongHandlerRuntimeError(failure_message)
 
 
+def _ace_step_health_ready(document: Mapping[str, Any]) -> bool:
+    """Require the exact ACE-Step model pair before accepting localhost readiness."""
+    if document.get("code") != 200 or document.get("error") not in {None, ""}:
+        return False
+    data = document.get("data")
+    if not isinstance(data, Mapping):
+        return False
+    return (
+        data.get("status") == "ok"
+        and data.get("service") == "ACE-Step API"
+        and data.get("models_initialized") is True
+        and data.get("llm_initialized") is True
+        and data.get("loaded_model") == "acestep-v15-base"
+        and data.get("loaded_lm_model") == "acestep-5Hz-lm-4B"
+    )
+
+
 class AceStepLocalService:
     """One private localhost ACE-Step API process per warm RunPod worker."""
 
@@ -190,7 +207,7 @@ class AceStepLocalService:
                 timeout_seconds=5,
                 max_bytes=100_000,
             )
-            return bool(document)
+            return _ace_step_health_ready(document)
         except OpenSongHandlerRuntimeError:
             return False
 
@@ -209,8 +226,9 @@ class AceStepLocalService:
                 "ACESTEP_QUEUE_MAXSIZE": "1",
                 "ACESTEP_CONFIG_PATH": "acestep-v15-base",
                 "ACESTEP_LM_MODEL_PATH": "acestep-5Hz-lm-4B",
-                "ACESTEP_LLM_BACKEND": "pt",
-                "ACESTEP_INIT_SERVICE": "true",
+                "ACESTEP_LM_BACKEND": "pt",
+                "ACESTEP_NO_INIT": "false",
+                "ACESTEP_INIT_LLM": "true",
                 "ACESTEP_CHECKPOINTS_DIR": "/app/checkpoints",
                 "ACESTEP_PROJECT_ROOT": "/app",
                 "HF_HUB_OFFLINE": "1",
