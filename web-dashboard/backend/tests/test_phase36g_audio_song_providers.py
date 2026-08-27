@@ -341,3 +341,27 @@ async def test_bridge_submission_download_and_cleanup_keep_tokens_ephemeral() ->
     assert await runtime.cleanup(declared) is True
     assert "upload_token" not in declared.public_snapshot()
     assert "artifact_id" not in declared.public_snapshot()
+
+
+@pytest.mark.asyncio
+async def test_poll_failed_job_preserves_only_sanitized_handler_error_code() -> None:
+    def handler(http_request: httpx.Request) -> httpx.Response:
+        assert http_request.url.path == f"/v2/{ENDPOINT_ID}/status/stage8-job-failed"
+        return httpx.Response(
+            200,
+            json={
+                "id": "stage8-job-failed",
+                "status": "FAILED",
+                "executionTime": 12_345,
+                "error": "open_song_handler_failed:acestep_api_startup_exit",
+            },
+        )
+
+    job = await adapter(handler).retrieve(
+        "stage8-job-failed", credential=CREDENTIAL, endpoint_id=ENDPOINT_ID
+    )
+    assert job.state == "FAILED"
+    assert job.result is None
+    assert job.metadata["error_type"] == "open_song_handler_failed:acestep_api_startup_exit"
+    assert job.metadata["executiontime"] == 12_345
+    assert "credential" not in repr(job.metadata).lower()

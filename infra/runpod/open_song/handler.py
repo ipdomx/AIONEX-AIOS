@@ -145,7 +145,12 @@ def _download_local_audio(
     return body
 
 
-def _run_command(command: list[str], *, timeout_seconds: int) -> None:
+def _run_command(
+    command: list[str],
+    *,
+    timeout_seconds: int,
+    failure_message: str = "isolated audio command failed",
+) -> None:
     try:
         completed = subprocess.run(
             command,
@@ -157,9 +162,9 @@ def _run_command(command: list[str], *, timeout_seconds: int) -> None:
             env={**os.environ, "PYTHONUNBUFFERED": "1"},
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        raise OpenSongHandlerRuntimeError("isolated audio command failed") from exc
+        raise OpenSongHandlerRuntimeError(failure_message) from exc
     if completed.returncode != 0:
-        raise OpenSongHandlerRuntimeError("isolated audio command was rejected")
+        raise OpenSongHandlerRuntimeError(failure_message)
 
 
 class AceStepLocalService:
@@ -280,7 +285,9 @@ class AceStepLocalService:
         raw_path.write_bytes(provider_body)
         canonical_path = workdir / "song.wav"
         _run_command(
-            canonicalize_command(raw_path, canonical_path), timeout_seconds=180
+            canonicalize_command(raw_path, canonical_path),
+            timeout_seconds=180,
+            failure_message="ACE-Step canonicalization failed",
         )
         inspect_wav(canonical_path)
         return canonical_path
@@ -371,6 +378,48 @@ class AionexArtifactBridgePublisher:
 _service = AceStepLocalService()
 
 
+_SAFE_RUNTIME_FAILURE_CODES = {
+    "ACE-Step API could not start": "acestep_api_start_failed",
+    "ACE-Step API exited during startup": "acestep_api_startup_exit",
+    "ACE-Step API startup timed out": "acestep_api_startup_timeout",
+    "local ACE-Step request failed": "acestep_api_request_failed",
+    "local ACE-Step response is invalid": "acestep_api_response_invalid",
+    "local ACE-Step response is oversized": "acestep_api_response_oversized",
+    "ACE-Step generation failed": "acestep_generation_failed",
+    "ACE-Step generation timed out": "acestep_generation_timeout",
+    "ACE-Step audio download failed": "acestep_audio_download_failed",
+    "ACE-Step audio size is invalid": "acestep_audio_invalid",
+    "ACE-Step output locator escaped localhost": "acestep_output_locator_invalid",
+    "ACE-Step canonicalization failed": "acestep_canonicalization_failed",
+    "Demucs separation failed": "demucs_separation_failed",
+    "Demucs stem result is incomplete": "demucs_stems_incomplete",
+    "Demucs stem canonicalization failed": "demucs_canonicalization_failed",
+    "stem durations are inconsistent": "demucs_duration_mismatch",
+    "artifact bridge is missing": "artifact_bridge_missing",
+    "artifact bridge schema is invalid": "artifact_bridge_schema_invalid",
+    "artifact bridge targets are incomplete": "artifact_bridge_targets_incomplete",
+    "artifact bridge target is invalid": "artifact_bridge_target_invalid",
+    "artifact bridge host is invalid": "artifact_bridge_host_invalid",
+    "artifact identifier is invalid": "artifact_id_invalid",
+    "artifact upload grant is invalid": "artifact_grant_invalid",
+    "artifact upload URL is invalid": "artifact_upload_url_invalid",
+    "artifact bridge upload failed": "artifact_upload_failed",
+    "artifact evidence changed before upload": "artifact_evidence_changed",
+}
+
+
+def _safe_failure_code(exc: Exception) -> str:
+    if isinstance(exc, OpenSongHandlerContractError):
+        return "contract_invalid"
+    message = str(exc)
+    if message in _SAFE_RUNTIME_FAILURE_CODES:
+        return _SAFE_RUNTIME_FAILURE_CODES[message]
+    if message.startswith("AIONEX_") and (
+        message.endswith(" is invalid") or message.endswith(" is unavailable")
+    ):
+        return "runtime_environment_invalid"
+    return "runtime_unclassified"
+
 
 def _separate(song: Path, workdir: Path) -> dict[str, Path]:
     demucs_root = workdir / "demucs"
@@ -379,6 +428,7 @@ def _separate(song: Path, workdir: Path) -> dict[str, Path]:
         timeout_seconds=_positive_int(
             "AIONEX_DEMUCS_TIMEOUT_SECONDS", 600, 60, 1_800
         ),
+        failure_message="Demucs separation failed",
     )
     canonical_root = workdir / "canonical-stems"
     canonical_root.mkdir(mode=0o700)
@@ -389,7 +439,9 @@ def _separate(song: Path, workdir: Path) -> dict[str, Path]:
             raise OpenSongHandlerRuntimeError("Demucs stem result is incomplete")
         target = canonical_root / f"{stem}.wav"
         _run_command(
-            canonicalize_command(candidates[0], target), timeout_seconds=180
+            canonicalize_command(candidates[0], target),
+            timeout_seconds=180,
+            failure_message="Demucs stem canonicalization failed",
         )
         inspect_wav(target)
         result[stem] = target
@@ -434,9 +486,12 @@ def handler(event: Mapping[str, Any]) -> dict[str, Any]:
                 stems=published_stems,
             )
     except (OpenSongHandlerContractError, OpenSongHandlerRuntimeError) as exc:
-        raise RuntimeError(f"open_song_handler_failed:{type(exc).__name__}") from None
+        code = _safe_failure_code(exc)
+        print(json.dumps({"event": "open_song_failure", "error_code": code}), flush=True)
+        return {"error": f"open_song_handler_failed:{code}"}
     except Exception:
-        raise RuntimeError("open_song_handler_failed:unexpected") from None
+        print(json.dumps({"event": "open_song_failure", "error_code": "unexpected"}), flush=True)
+        return {"error": "open_song_handler_failed:unexpected"}
 
 
 def main() -> None:

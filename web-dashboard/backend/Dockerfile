@@ -68,9 +68,9 @@ RUN set -eux; \
     apk add --no-cache build-base curl gnupg xz nasm pkgconf x264-dev opus-dev svt-av1-dev zlib-dev libva-dev libvpl-dev; \
     mkdir -p /build/ffmpeg /opt/ffmpeg; \
     cd /build/ffmpeg; \
-    curl -fsSLo ffmpeg.tar.xz "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz"; \
-    curl -fsSLo ffmpeg.tar.xz.asc "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz.asc"; \
-    curl -fsSLo ffmpeg-devel.asc "https://ffmpeg.org/ffmpeg-devel.asc"; \
+    curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 20 -o ffmpeg.tar.xz "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz"; \
+    curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 20 -o ffmpeg.tar.xz.asc "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz.asc"; \
+    curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 20 -o ffmpeg-devel.asc "https://ffmpeg.org/ffmpeg-devel.asc"; \
     printf '%s  %s\n' "$FFMPEG_SHA256" ffmpeg.tar.xz | sha256sum -c -; \
     GNUPGHOME=/tmp/ffmpeg-gnupg; export GNUPGHOME; \
     mkdir -m 0700 "$GNUPGHOME"; \
