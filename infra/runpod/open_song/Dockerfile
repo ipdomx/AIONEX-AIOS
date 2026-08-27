@@ -107,6 +107,9 @@ RUN set -eux; \
       --home-dir /home/aionex-song --shell /usr/sbin/nologin aionex-song; \
     chown -R root:root /opt/aionex-open-song /opt/aionex-demucs-models /app/checkpoints; \
     chmod -R go-w /opt/aionex-open-song /opt/aionex-demucs-models /app/checkpoints; \
+    chmod -R a+rX /app/checkpoints; \
+    test -r /app/checkpoints/acestep-v15-base/config.json; \
+    test -r /app/checkpoints/acestep-5Hz-lm-4B/config.json; \
     install -d -m 0700 -o aionex-song -g aionex-song /tmp/aionex-open-song
 
 WORKDIR /opt/aionex-open-song
