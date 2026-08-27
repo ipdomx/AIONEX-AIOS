@@ -1356,7 +1356,7 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
     assert "requirements-runtime.txt" in dockerfile
     assert "setuptools*" in dockerfile and "wheel*" in dockerfile
     assert "install -d -m 0700 -o aionex -g aionex" in dockerfile
-    for compose, expected_backend_images in ((primary_compose, 16), (deploy_compose, 15)):
+    for compose, expected_backend_images in ((primary_compose, 17), (deploy_compose, 16)):
         assert "backup-worker:" in compose
         assert "postgres-credential-reconciler:" in compose
         assert "communication-worker:" in compose
@@ -1411,6 +1411,9 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
         assert 'no-new-privileges:true' in music_section
         assert "audio-song-worker:" in compose
         song_section = compose.split("audio-song-worker:", 1)[1].split(
+            "audio-song-worker-secondary:", 1
+        )[0]
+        secondary_song_section = compose.split("audio-song-worker-secondary:", 1)[1].split(
             "video-provider-worker:", 1
         )[0]
         assert 'profiles: ["audio-execution"]' in song_section
@@ -1432,6 +1435,16 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
             in song_section
         )
         assert 'no-new-privileges:true' in song_section
+        assert 'profiles: ["audio-execution-secondary"]' in secondary_song_section
+        assert 'AUDIO_SONG_LIVE_ENABLED: "false"' in secondary_song_section
+        assert 'AUDIO_SONG_WORKER_ID: audio-song-secondary' in secondary_song_section
+        assert 'AUDIO_SONG_ENTRYPOINT_SECRET_BOOTSTRAP_ONLY: "true"' in secondary_song_section
+        assert 'MEDIA_STORAGE_TYPE: local' in secondary_song_section
+        assert 'RUNPOD_GPU_SECONDARY.env' in secondary_song_section
+        assert '/run/secrets/aionex/runpod-open-song-secondary.env:ro' in secondary_song_section
+        assert 'cap_drop: ["ALL"]' in secondary_song_section
+        assert 'cap_add: ["CHOWN", "FOWNER", "SETGID", "SETUID"]' in secondary_song_section
+        assert 'no-new-privileges:true' in secondary_song_section
         assert "three-d-worker:" in compose
         assert 'command: ["python", "-m", "app.services.three_d_worker"]' in compose
         assert "/run/secrets/aionex/runpod-gpu.env:ro" in compose
