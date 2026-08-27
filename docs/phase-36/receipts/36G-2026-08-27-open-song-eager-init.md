@@ -39,3 +39,14 @@
 - The patched ACE-Step initialization module contains no `check_main_model_exists`, `ensure_main_model`, or generic main-bundle auto-download path; it still requires the selected DiT and the exact shared VAE/text-encoder components. Runtime network download remains forbidden.
 - Handler source SHA-256 remains `a37e47f58940927f53f0393dfc0030d8ecf30363bd4ada23a57d419e37032347`.
 - No provider submission occurred during build/offline verification. The next paid boundary remains exactly one new Full Song acceptance after immutable registry push, fresh SBOM and candidate Endpoint readiness.
+
+## Registry-layer optimization before final candidate
+
+- The first shared-component image was functionally correct but combined the already-existing Base DiT + 4B LM with VAE/Qwen in one new `14.8 GB` Docker layer. It was not promoted to a new RunPod candidate.
+- The registry push and its in-progress SBOM scan were stopped before candidate creation; no provider submission or Production execution occurred from that image.
+- The Dockerfile was split so the historical Base+4B layer is byte-for-byte cache-reused (`9ca71df7c64e`, approximately `13.2 GB`) and only the required VAE/Qwen + verified ACE-Step precheck patch are added in a new layer. The completed build-step writable delta is `1,545,519,104` bytes before Docker layer compression/commit.
+- This is a packaging/deployment optimization only: pinned model revisions, strict eager readiness, offline runtime policy, non-root identity, selected Base+4B runtime and VAE/Qwen functional requirements are unchanged.
+
+- Optimized full runtime image completed as local `sha256:d331c97b910ff7be39b1e291bd2b1a7d26438b70ce83065cbb4a4ff9881d5c28` (`18,834,391,023` bytes). Docker history confirms the Base+4B layer `9ca71df7c64e` is reused and the new VAE/Qwen+patch layer is `1.55 GB` uncompressed.
+- Network-isolated runtime verification on the optimized image PASS: uid/gid `999:999`, VAE `337,431,388` bytes, Qwen encoder `1,191,586,416` bytes, Base DiT `4,787,825,604` bytes, cache `aionex-song:aionex-song:0700`, checkpoints `root:root:0755`, eager Base+4B environment exact, and patched offline precheck present.
+- Focused Open Song tests remain `30/30 PASS`; Phase 36 reporting invariant and `git diff --check` PASS after the layer split.

@@ -386,10 +386,13 @@ def test_handler_uses_current_ace_step_eager_init_environment_contract() -> None
     assert "ACESTEP_LLM_BACKEND" not in dockerfile
     assert "ACE_STEP_MAIN_MODEL_REVISION=19671f406d603126926c1b7e2adc169acbcade22" in dockerfile
     assert "patch_acestep_runtime.py" in dockerfile
-    prepare = (HANDLER_ROOT / "prepare_models.py").read_text(encoding="utf-8")
-    assert "19671f406d603126926c1b7e2adc169acbcade22" in prepare
-    assert '"vae/*"' in prepare
-    assert '"Qwen3-Embedding-0.6B/*"' in prepare
+    selected_prepare = (HANDLER_ROOT / "prepare_models.py").read_text(encoding="utf-8")
+    shared_prepare = (HANDLER_ROOT / "prepare_shared_models.py").read_text(encoding="utf-8")
+    assert "19671f406d603126926c1b7e2adc169acbcade22" in shared_prepare
+    assert '"vae/*"' in shared_prepare
+    assert '"Qwen3-Embedding-0.6B/*"' in shared_prepare
+    assert "ACE-Step/Ace-Step1.5" not in selected_prepare
+    assert "prepare_shared_models.py" in dockerfile
     patch_source = (HANDLER_ROOT / "patch_acestep_runtime.py").read_text(encoding="utf-8")
     assert "02a95f2293dc0cd82ff5046816503668f8339157ba0b18715e061f3142999f8f" in patch_source
     assert "Required Qwen3 text encoder is unavailable" in patch_source
