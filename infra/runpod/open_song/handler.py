@@ -35,6 +35,7 @@ from contract import (
 _MAX_HTTP_BYTES = 536_870_912
 _JOB_ID_RE = re.compile(r"^[A-Za-z0-9._:-]{4,240}$")
 _HOST_RE = re.compile(r"^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$")
+_ARTIFACT_BRIDGE_USER_AGENT = "AIONEX-AIOS/OpenSong-ArtifactBridge/1.0"
 
 
 class OpenSongHandlerRuntimeError(RuntimeError):
@@ -376,6 +377,7 @@ class AionexArtifactBridgePublisher:
                 "Authorization": f"Bearer {upload_token}",
                 "Content-Type": "audio/wav",
                 "Accept": "application/json",
+                "User-Agent": _ARTIFACT_BRIDGE_USER_AGENT,
                 "X-AIONEX-Artifact-SHA256": evidence.sha256,
                 "X-AIONEX-Artifact-Size": str(evidence.size_bytes),
             },

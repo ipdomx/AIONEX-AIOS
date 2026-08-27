@@ -231,6 +231,8 @@ def test_dockerfile_is_immutable_offline_nonroot_and_model_baked() -> None:
     handler_source = (HANDLER_ROOT / "handler.py").read_text(encoding="utf-8")
     assert "S3ArtifactPublisher" not in handler_source
     assert "AionexArtifactBridgePublisher" in handler_source
+    assert "AIONEX-AIOS/OpenSong-ArtifactBridge/1.0" in handler_source
+    assert "Python-urllib" not in handler_source
     assert "AIONEX_ARTIFACT_S3_" not in handler_source
     verify_source = (HANDLER_ROOT / "verify_runtime.py").read_text(encoding="utf-8")
     assert "boto3" not in verify_source

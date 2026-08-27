@@ -62,3 +62,17 @@
 - A real no-network CPU inference smoke test on the repaired image loaded `HTDemucs` and produced exactly four WAV stems: `vocals`, `drums`, `bass`, and `other`.
 - Package-equivalence against the prior candidate is exact: 466 dpkg packages share SHA-256 `934b88589fe13cbcaf7fca36deb392079c4b7604c26744ab990d68b7ea7ae8a7`; 190 Python-distribution inventory rows share SHA-256 `f230cae5eadd0e3e849be47ae5197a92b2340f86988a3197a20d82801c620638`; both diffs are zero bytes. The change is runtime source patching only, not a dependency change.
 - A new immutable registry digest/candidate and exactly one subsequent bounded Full Song acceptance are still required before `song-production` can advance to `runtime_verified`.
+
+## Live acceptance v7 — Cloudflare Browser Integrity / urllib finding
+
+- Candidate `aionex-open-song-92ca084` reached Ready/idle with zero queued or in-progress jobs before acceptance. Production `audio-song-worker` remained Healthy and `AUDIO_SONG_LIVE_ENABLED=false`.
+- Acceptance v7 made exactly one RunPod submission. Terminal evidence: `attempts=1`, `retried=0`, provider failure code `open_song_handler_failed:artifact_upload_failed`; live RunPod balance before submission was `$9.9132192505`. Cleanup returned Organization/AudioSongExecution/MediaGraph residue to zero. No second submission was made.
+- This result proves the real pipeline advanced through ACE-Step eager initialization, Full Song generation, canonicalization and Demucs four-stem separation to the final Artifact Bridge upload boundary.
+- Signing-secret parity was verified without disclosure: `audio-song-worker` and `backend` share the same `SECRET_KEY` SHA-256 `e15c32d17b600d0ea3c1e637ac05be8290090b5f4e5a34b58347bcf94838c00f` and both use `https://api.vip-e.net` as the public API origin. Artifact token TTL is the configured 1,800 seconds, so expiry is not the cause.
+- An authenticated Artifact Bridge smoke test through the public origin using httpx PASS: PUT `201`, GET `200` with identical body SHA-256, DELETE `204`.
+- Reproducing the handler's exact `urllib.request` transport through the same public origin failed with Cloudflare HTTP `403`, Error `1010`, stating that the browser signature was blocked. This isolates the failure before the AIONEX Backend and explains the sanitized RunPod `artifact_upload_failed` result.
+- Adding the explicit bounded handler User-Agent `AIONEX-AIOS/OpenSong-ArtifactBridge/1.0` to the same urllib request immediately changed the smoke test to PUT `201` and DELETE `204`. No WAF bypass, Cloudflare policy relaxation, secret change or API route change is required.
+- Remediation changes only the Artifact Bridge request header and adds regression coverage forbidding implicit `Python-urllib` transport identity. Focused Open Song tests remain `30/30 PASS`; Phase 36 reporting invariant and source-contract build PASS.
+- Repaired local image is `sha256:6b6ce10bda3adc378fff230b307ac1ce9f86aaf21d82cd6e1f9c9b9f2a19ea34`; handler SHA-256 is `15f8b34e8f45ce3f156cd2d0e00df532acd3803e5bdff4370ab670e634652a37`.
+- Package-equivalence against the Demucs-fixed predecessor is exact: 466 dpkg packages share SHA-256 `934b88589fe13cbcaf7fca36deb392079c4b7604c26744ab990d68b7ea7ae8a7`; 189 Python-distribution rows share SHA-256 `ccec871935d8c4d49793042a4b14d862940d0fcdb01099e3e57b1c95ba6b0d78`; both diffs are zero bytes.
+- Exactly one subsequent governed Full Song acceptance is required. Secondary RunPod account activation remains explicitly deferred and is outside this chapter closure.
