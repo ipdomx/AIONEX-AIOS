@@ -533,7 +533,11 @@ def test_production_compose_keeps_song_worker_hard_disabled_and_non_root_runtime
     ):
         source = (root / relative).read_text(encoding="utf-8")
         start = source.index("  audio-song-worker:")
-        block = source[start : source.index("  video-provider-worker:", start)]
+        secondary_start = source.index("  audio-song-worker-secondary:", start)
+        block = source[start:secondary_start]
+        secondary_block = source[
+            secondary_start : source.index("  video-provider-worker:", secondary_start)
+        ]
         assert 'profiles: ["audio-execution"]' in block
         assert 'AUDIO_SONG_LIVE_ENABLED: "false"' in block
         assert 'AUDIO_SONG_ENTRYPOINT_SECRET_BOOTSTRAP_ONLY: "true"' in block
@@ -550,6 +554,20 @@ def test_production_compose_keeps_song_worker_hard_disabled_and_non_root_runtime
             '"app.services.audio_song_worker", "--healthcheck"]'
             in block
         )
+        assert 'DAC_OVERRIDE' not in block
+        assert 'profiles: ["audio-execution-secondary"]' in secondary_block
+        assert 'AUDIO_SONG_LIVE_ENABLED: "false"' in secondary_block
+        assert 'AUDIO_SONG_WORKER_ID: audio-song-secondary' in secondary_block
+        assert 'AUDIO_SONG_ENTRYPOINT_SECRET_BOOTSTRAP_ONLY: "true"' in secondary_block
+        assert 'MEDIA_STORAGE_TYPE: local' in secondary_block
+        assert 'MEDIA_STORAGE_TYPE: inherit' not in secondary_block
+        assert "app.services.audio_song_worker" in secondary_block
+        assert "RUNPOD_GPU_SECONDARY.env" in secondary_block
+        assert "runpod-open-song-secondary.env:ro" in secondary_block
+        assert "media_asset_data:/var/lib/aionex/media-assets:rw" in secondary_block
+        assert 'cap_drop: ["ALL"]' in secondary_block
+        assert 'cap_add: ["CHOWN", "FOWNER", "SETGID", "SETUID"]' in secondary_block
+        assert 'DAC_OVERRIDE' not in secondary_block
     entrypoint = (
         root / "web-dashboard/backend/scripts/docker-entrypoint.sh"
     ).read_text(encoding="utf-8")

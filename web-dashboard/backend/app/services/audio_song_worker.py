@@ -360,6 +360,7 @@ class AudioSongWorker:
             self._runtime_adapter()
 
     async def _claim(self) -> AudioSongClaim | None:
+        secrets = self._runtime_secrets()
         async with SessionLocal() as session:
             await recover_expired_audio_song_executions(session)
             row = await claim_audio_song_execution(
@@ -367,6 +368,7 @@ class AudioSongWorker:
                 worker_id=self.worker_id,
                 lease_seconds=self.lease_seconds,
                 allowed_route_ids={"runpod-flex-a40"},
+                endpoint_id_sha256=secrets.endpoint_id_sha256,
             )
             if row is None:
                 await session.commit()

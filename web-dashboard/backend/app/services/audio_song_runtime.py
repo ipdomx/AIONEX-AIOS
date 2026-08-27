@@ -672,6 +672,7 @@ def _claim_query(
     *,
     current: datetime,
     allowed_route_ids: frozenset[str] | None = None,
+    endpoint_id_sha256: str | None = None,
 ) -> Select[tuple[AudioSongExecution]]:
     query = select(AudioSongExecution).where(
         AudioSongExecution.status == "queued",
@@ -685,6 +686,10 @@ def _claim_query(
     )
     if allowed_route_ids is not None:
         query = query.where(AudioSongExecution.route_id.in_(allowed_route_ids))
+    if endpoint_id_sha256 is not None:
+        query = query.where(
+            AudioSongExecution.endpoint_id_sha256 == endpoint_id_sha256
+        )
     return (
         query.order_by(AudioSongExecution.created_at, AudioSongExecution.id)
         .with_for_update(skip_locked=True)
@@ -698,6 +703,7 @@ async def claim_audio_song_execution(
     worker_id: str,
     lease_seconds: int,
     allowed_route_ids: Iterable[str] | None = None,
+    endpoint_id_sha256: str | None = None,
     current: datetime | None = None,
 ) -> AudioSongExecution | None:
     now = current or _now()
@@ -712,8 +718,17 @@ async def claim_audio_song_execution(
             raise AudioSongExecutionError(
                 "open-song worker route allowlist cannot be empty"
             )
+    endpoint_hash = (
+        _hash(endpoint_id_sha256, label="song endpoint")
+        if endpoint_id_sha256 is not None
+        else None
+    )
     row = await session.scalar(
-        _claim_query(current=now, allowed_route_ids=routes)
+        _claim_query(
+            current=now,
+            allowed_route_ids=routes,
+            endpoint_id_sha256=endpoint_hash,
+        )
     )
     if row is None:
         return None
