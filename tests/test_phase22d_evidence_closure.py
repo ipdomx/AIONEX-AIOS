@@ -81,7 +81,6 @@ api_key='[REDACTED]'
 '''
     (root / 'src/aios/cloud_provider_sandbox.py').write_text(source, encoding='utf-8')
     (root / 'src/aios/local_model_sandbox.py').write_text('VALUE = 1\n', encoding='utf-8')
-    (root / 'src/aios/offline_execution.py').write_text('VALUE = 1\n', encoding='utf-8')
     (root / 'src/aios/organization/__init__.py').write_text('VALUE = 1\n', encoding='utf-8')
     (root / 'src/aios/providers/__init__.py').write_text('VALUE = 1\n', encoding='utf-8')
     (root / 'docs/phase-22c/README.md').write_text('safe evidence\n', encoding='utf-8')

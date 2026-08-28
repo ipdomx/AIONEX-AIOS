@@ -20,7 +20,6 @@ DEFAULT_EXECUTION_ID = 'phase22d-evidence-closure'
 CONTROLLED_TEST_TARGETS = (
     'tests/test_cloud_provider_sandbox.py',
     'tests/test_local_model_sandbox.py',
-    'tests/test_offline_execution.py',
     'tests/test_engineering_organization.py',
     'tests/test_phase7_ai_providers.py',
     'tests/test_phase7_part2_provider_implementations.py',
@@ -296,7 +295,6 @@ class EvidenceClosure:
         tracked_hits = self._credential_hits([
             self.project_root / 'src/aios/cloud_provider_sandbox.py',
             self.project_root / 'src/aios/local_model_sandbox.py',
-            self.project_root / 'src/aios/offline_execution.py',
             self.project_root / 'src/aios/organization',
             self.project_root / 'src/aios/providers',
             self.project_root / 'docs/phase-22c',
@@ -308,7 +306,6 @@ class EvidenceClosure:
         compile_paths = [
             self.project_root / 'src/aios/cloud_provider_sandbox.py',
             self.project_root / 'src/aios/local_model_sandbox.py',
-            self.project_root / 'src/aios/offline_execution.py',
             *(self.project_root / 'src/aios/organization').glob('*.py'),
             *(self.project_root / 'src/aios/providers').rglob('*.py'),
         ]

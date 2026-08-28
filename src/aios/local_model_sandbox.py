@@ -17,7 +17,6 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import ProxyHandler, Request, build_opener
 
-from .offline_execution import OfflineExecutionResult
 from .organization import EngineeringOrganization
 from .providers import DataSensitivity, ModelCapability, ModelRequest
 from .providers.adapters import OllamaProvider
@@ -374,8 +373,6 @@ class LocalModelSandbox:
         project: str,
         objective: str,
         output_root: str | Path,
-        offline_result: OfflineExecutionResult,
-        offline_run_metrics: Mapping[str, Any] | None = None,
     ) -> LocalModelExecutionResult:
         try:
             asyncio.get_running_loop()
@@ -386,8 +383,6 @@ class LocalModelSandbox:
                     project=project,
                     objective=objective,
                     output_root=output_root,
-                    offline_result=offline_result,
-                    offline_run_metrics=offline_run_metrics,
                 )
             )
         raise RuntimeError("LocalModelSandbox.execute cannot run inside an active event loop")
@@ -399,8 +394,6 @@ class LocalModelSandbox:
         project: str,
         objective: str,
         output_root: str | Path,
-        offline_result: OfflineExecutionResult,
-        offline_run_metrics: Mapping[str, Any] | None,
     ) -> LocalModelExecutionResult:
         root = self._prepare_root(output_root)
         safe_id = self._validate_execution_id(execution_id)
@@ -410,9 +403,6 @@ class LocalModelSandbox:
             raise FileExistsError(f"local model execution already exists: {safe_id}")
         if staging.exists():
             raise FileExistsError(f"local model staging already exists: {safe_id}")
-        if not offline_result.output_directory.is_dir():
-            raise FileNotFoundError("offline comparison execution is missing")
-
         staging.mkdir(mode=0o700)
         monitor_started = False
         started = time.monotonic()
@@ -549,9 +539,7 @@ class LocalModelSandbox:
             report_path = staging / "REPORT.md"
             self._atomic_write_text(report_path, self._report(manifest))
 
-            comparison = self._comparison(
-                offline_result=offline_result,
-                offline_run_metrics=dict(offline_run_metrics or {}),
+            comparison = self._execution_assessment(
                 local_manifest=manifest,
                 local_artifacts=artifact_payloads,
             )
@@ -872,37 +860,16 @@ class LocalModelSandbox:
         }
 
     @classmethod
-    def _comparison(
+    def _execution_assessment(
         cls,
         *,
-        offline_result: OfflineExecutionResult,
-        offline_run_metrics: dict[str, Any],
         local_manifest: dict[str, Any],
         local_artifacts: list[dict[str, Any]],
     ) -> dict[str, Any]:
-        offline_manifest = json.loads(offline_result.manifest_path.read_text(encoding="utf-8"))
-        offline_artifacts = [
-            json.loads((offline_result.output_directory / item["path"]).read_text(encoding="utf-8"))
-            for item in offline_manifest["artifacts"]
-        ]
-        offline_quality = cls._quality_metrics(offline_artifacts, local=False)
-        local_quality = cls._quality_metrics(local_artifacts, local=True)
-        offline_summary = {
-            "artifact_count": len(offline_artifacts),
-            "valid_json": True,
-            "acceptance_coverage": 1.0,
-            "approved": offline_result.approved,
-            "readiness_score": offline_result.readiness_score,
-            "blocking_findings": list(offline_result.blocking_findings),
-            "rework_plan": list(offline_result.rework_plan),
-            "total_duration": float(offline_run_metrics.get("total_duration", 0.0)),
-            "prompt_eval_count": 0,
-            "eval_count": 0,
-            "tokens_per_second": 0.0,
-            "errors": [],
-            "quality": offline_quality,
-        }
+        quality = cls._quality_metrics(local_artifacts, local=True)
         local_summary = {
+            "provider": "ollama",
+            "model": local_manifest["model"],
             "artifact_count": len(local_artifacts),
             "valid_json": local_manifest["schema_validation"]["all_valid"],
             "acceptance_coverage": local_manifest["acceptance_coverage"]["overall"],
@@ -917,31 +884,19 @@ class LocalModelSandbox:
             "peak_cpu_percent": local_manifest["peak_cpu_percent"],
             "peak_memory_bytes": local_manifest["peak_memory_bytes"],
             "errors": [error for item in local_manifest["artifacts"] for error in item["errors"]],
-            "quality": local_quality,
+            "quality": quality,
+            "truthful_evidence": "real local Qwen execution; no synthetic baseline",
         }
-        quality_delta = round(local_quality["quality_score"] - offline_quality["quality_score"], 4)
         return {
-            "schema_version": 1,
+            "schema_version": 2,
+            "assessment_mode": "real-local-execution",
             "project": local_manifest["project"],
             "objective": local_manifest["objective"],
-            "offline_mock": offline_summary,
             "local_model": local_summary,
-            "delta": {
-                "artifact_count": local_summary["artifact_count"] - offline_summary["artifact_count"],
-                "readiness_score": round(
-                    local_summary["readiness_score"] - offline_summary["readiness_score"], 4
-                ),
-                "total_duration": round(local_summary["total_duration"] - offline_summary["total_duration"], 6),
-                "quality_score": quality_delta,
-            },
-            "assessment": (
-                "local-model artifacts are richer by the documented deterministic quality heuristic"
-                if quality_delta > 0
-                else "offline-mock artifacts equal or exceed the local model under the documented deterministic heuristic"
-            ),
             "quality_method": (
-                "Deterministic structural heuristic only: schema validity, acceptance coverage, department keyword "
-                "specialization, actionable steps, risk/mitigation clarity, technical evidence density, and pairwise repetition."
+                "Deterministic structural heuristic over real local execution evidence only: schema validity, "
+                "acceptance coverage, department specialization, actionable steps, risk/mitigation clarity, "
+                "technical evidence density, and pairwise repetition."
             ),
         }
 
@@ -1107,21 +1062,19 @@ class LocalModelSandbox:
 
     @staticmethod
     def _comparison_report(comparison: dict[str, Any]) -> str:
-        offline = comparison["offline_mock"]
         local = comparison["local_model"]
         return (
-            "# Offline Mock vs Local Model Comparison\n\n"
-            "| Metric | Offline Mock | Local qwen3:8b |\n"
-            "|---|---:|---:|\n"
-            f"| Artifacts | {offline['artifact_count']} | {local['artifact_count']} |\n"
-            f"| Acceptance coverage | {offline['acceptance_coverage']} | {local['acceptance_coverage']} |\n"
-            f"| Quality heuristic | {offline['quality']['quality_score']} | {local['quality']['quality_score']} |\n"
-            f"| Pairwise repetition | {offline['quality']['pairwise_repetition']} | {local['quality']['pairwise_repetition']} |\n"
-            f"| Total duration (s) | {offline['total_duration']} | {local['total_duration']} |\n"
-            f"| Generated tokens | {offline['eval_count']} | {local['eval_count']} |\n"
-            f"| Tokens/s | {offline['tokens_per_second']} | {local['tokens_per_second']} |\n"
-            f"| Readiness score | {offline['readiness_score']} | {local['readiness_score']} |\n"
-            f"| Approved | {offline['approved']} | {local['approved']} |\n\n"
-            f"Assessment: {comparison['assessment']}\n\n"
+            "# Phase 22B Real Local Model Assessment\n\n"
+            f"- Provider: `{local['provider']}`\n"
+            f"- Model: `{local['model']}`\n"
+            f"- Artifacts: `{local['artifact_count']}`\n"
+            f"- Acceptance coverage: `{local['acceptance_coverage']}`\n"
+            f"- Quality heuristic: `{local['quality']['quality_score']}`\n"
+            f"- Pairwise repetition: `{local['quality']['pairwise_repetition']}`\n"
+            f"- Total duration: `{local['total_duration']} seconds`\n"
+            f"- Generated tokens: `{local['eval_count']}`\n"
+            f"- Tokens/s: `{local['tokens_per_second']}`\n"
+            f"- Readiness score: `{local['readiness_score']}`\n"
+            f"- Approved: `{local['approved']}`\n\n"
             f"Method: {comparison['quality_method']}\n"
         )
