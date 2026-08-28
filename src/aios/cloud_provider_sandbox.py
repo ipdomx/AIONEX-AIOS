@@ -18,7 +18,6 @@ from urllib.parse import quote, urlsplit
 from urllib.request import ProxyHandler, Request, build_opener
 
 from .local_model_sandbox import LocalModelSandbox, SandboxValidationError
-from .offline_execution import OfflineExecutionResult
 from .organization import EngineeringOrganization
 from .providers import BudgetAccount, CostGovernor, DataSensitivity, ModelCapability, ModelRequest, ProviderPolicy
 from .providers.adapters import OpenAIProvider
@@ -577,9 +576,7 @@ class CloudProviderSandbox:
         project: str,
         objective: str,
         output_root: str | Path,
-        offline_result: OfflineExecutionResult,
         local_result_directory: str | Path,
-        offline_run_metrics: Mapping[str, Any] | None = None,
     ) -> CloudProviderExecutionResult:
         try:
             asyncio.get_running_loop()
@@ -590,9 +587,7 @@ class CloudProviderSandbox:
                     project=project,
                     objective=objective,
                     output_root=output_root,
-                    offline_result=offline_result,
                     local_result_directory=local_result_directory,
-                    offline_run_metrics=offline_run_metrics,
                 )
             )
         raise RuntimeError("CloudProviderSandbox.execute cannot run inside an active event loop")
@@ -604,9 +599,7 @@ class CloudProviderSandbox:
         project: str,
         objective: str,
         output_root: str | Path,
-        offline_result: OfflineExecutionResult,
         local_result_directory: str | Path,
-        offline_run_metrics: Mapping[str, Any] | None,
     ) -> CloudProviderExecutionResult:
         root = self._prepare_root(output_root)
         safe_id = self._validate_execution_id(execution_id)
@@ -616,8 +609,6 @@ class CloudProviderSandbox:
             raise FileExistsError(f"cloud execution already exists: {safe_id}")
         if staging.exists():
             raise FileExistsError(f"cloud execution staging already exists: {safe_id}")
-        if not offline_result.output_directory.is_dir():
-            raise FileNotFoundError("offline comparison execution is missing")
         local_directory = Path(local_result_directory).resolve(strict=True)
         if not local_directory.is_dir() or not (local_directory / "manifest.json").is_file():
             raise FileNotFoundError("local-model comparison execution is missing")
@@ -791,9 +782,7 @@ class CloudProviderSandbox:
             report_path = staging / "REPORT.md"
             self._atomic_write_text(report_path, self._report(manifest))
 
-            comparison = self._comparison(
-                offline_result=offline_result,
-                offline_run_metrics=dict(offline_run_metrics or {}),
+            comparison = self._real_only_comparison(
                 local_directory=local_directory,
                 cloud_manifest=manifest,
                 cloud_artifacts=artifact_payloads,
@@ -1071,46 +1060,20 @@ class CloudProviderSandbox:
         }
 
     @classmethod
-    def _comparison(
+    def _real_only_comparison(
         cls,
         *,
-        offline_result: OfflineExecutionResult,
-        offline_run_metrics: dict[str, Any],
         local_directory: Path,
         cloud_manifest: dict[str, Any],
         cloud_artifacts: list[dict[str, Any]],
     ) -> dict[str, Any]:
-        offline_manifest = json.loads(offline_result.manifest_path.read_text(encoding="utf-8"))
-        offline_artifacts = [
-            json.loads((offline_result.output_directory / item["path"]).read_text(encoding="utf-8"))
-            for item in offline_manifest["artifacts"]
-        ]
         local_manifest = json.loads((local_directory / "manifest.json").read_text(encoding="utf-8"))
         local_artifacts = [
             json.loads((local_directory / item["path"]).read_text(encoding="utf-8"))
             for item in local_manifest["artifacts"]
         ]
-        offline_quality = LocalModelSandbox._quality_metrics(offline_artifacts, local=False)
         local_quality = LocalModelSandbox._quality_metrics(local_artifacts, local=True)
         cloud_quality = LocalModelSandbox._quality_metrics(cloud_artifacts, local=True)
-        offline = {
-            "provider": "offline-mock",
-            "artifact_count": len(offline_artifacts),
-            "valid_json": True,
-            "acceptance_coverage": 1.0,
-            "approved": offline_result.approved,
-            "readiness_score": offline_result.readiness_score,
-            "blocking_findings": list(offline_result.blocking_findings),
-            "rework_plan": list(offline_result.rework_plan),
-            "total_duration": float(offline_run_metrics.get("total_duration", 0.0)),
-            "input_tokens": 0,
-            "output_tokens": 0,
-            "calculated_cost": 0.0,
-            "errors": [],
-            "quality": offline_quality,
-            "truthful_evidence": "synthetic gates are explicitly marked as mock evidence",
-            "value_per_cost": None,
-        }
         local = {
             "provider": "ollama",
             "model": local_manifest.get("model"),
@@ -1127,7 +1090,7 @@ class CloudProviderSandbox:
             "calculated_cost": 0.0,
             "errors": [error for item in local_manifest["artifacts"] for error in item["errors"]],
             "quality": local_quality,
-            "truthful_evidence": "did not claim unexecuted tests or security review",
+            "truthful_evidence": "retained local Qwen execution evidence",
             "value_per_cost": None,
         }
         cloud_cost = float(cloud_manifest["calculated_cost"])
@@ -1148,25 +1111,24 @@ class CloudProviderSandbox:
             "reported_cost": cloud_manifest["reported_cost"],
             "errors": [error for item in cloud_manifest["artifacts"] for error in item["errors"]],
             "quality": cloud_quality,
-            "truthful_evidence": "model booleans are passed unchanged to EngineeringOrganization",
+            "truthful_evidence": "live OpenAI execution evidence",
             "value_per_cost": round(cloud_quality["quality_score"] / cloud_cost, 4) if cloud_cost else None,
         }
         return {
-            "schema_version": 1,
+            "schema_version": 2,
+            "comparison_mode": "real-only",
             "project": cloud_manifest["project"],
             "objective": cloud_manifest["objective"],
-            "offline_mock": offline,
             "local_qwen3_8b": local,
             "openai": cloud,
             "quality_method": (
-                "Deterministic structural heuristic: schema validity, acceptance coverage, department specialization, "
-                "actionability, risk clarity, technical evidence density, and pairwise repetition."
+                "Deterministic structural heuristic over two real execution evidence sets: schema validity, "
+                "acceptance coverage, department specialization, actionability, risk clarity, technical evidence density, "
+                "and pairwise repetition."
             ),
             "value_method": "quality heuristic divided by calculated token cost when cost is non-zero",
             "winner_by_quality": max(
-                (("offline_mock", offline_quality["quality_score"]),
-                 ("local_qwen3_8b", local_quality["quality_score"]),
-                 ("openai", cloud_quality["quality_score"])),
+                (("local_qwen3_8b", local_quality["quality_score"]), ("openai", cloud_quality["quality_score"])),
                 key=lambda item: item[1],
             )[0],
         }
@@ -1259,23 +1221,22 @@ class CloudProviderSandbox:
 
     @staticmethod
     def _comparison_report(comparison: dict[str, Any]) -> str:
-        offline = comparison["offline_mock"]
         local = comparison["local_qwen3_8b"]
         cloud = comparison["openai"]
         return (
-            "# Phase 22C Three-Way Comparison\n\n"
-            "| Metric | Offline Mock | qwen3:8b | OpenAI |\n"
-            "|---|---:|---:|---:|\n"
-            f"| Artifacts | {offline['artifact_count']} | {local['artifact_count']} | {cloud['artifact_count']} |\n"
-            f"| Acceptance coverage | {offline['acceptance_coverage']} | {local['acceptance_coverage']} | {cloud['acceptance_coverage']} |\n"
-            f"| Quality heuristic | {offline['quality']['quality_score']} | {local['quality']['quality_score']} | {cloud['quality']['quality_score']} |\n"
-            f"| Pairwise repetition | {offline['quality']['pairwise_repetition']} | {local['quality']['pairwise_repetition']} | {cloud['quality']['pairwise_repetition']} |\n"
-            f"| Total duration (s) | {offline['total_duration']} | {local['total_duration']} | {cloud['total_duration']} |\n"
-            f"| Input tokens | {offline['input_tokens']} | {local['input_tokens']} | {cloud['input_tokens']} |\n"
-            f"| Output tokens | {offline['output_tokens']} | {local['output_tokens']} | {cloud['output_tokens']} |\n"
-            f"| Calculated cost (USD) | {offline['calculated_cost']} | {local['calculated_cost']} | {cloud['calculated_cost']} |\n"
-            f"| Readiness | {offline['readiness_score']} | {local['readiness_score']} | {cloud['readiness_score']} |\n"
-            f"| Approved | {offline['approved']} | {local['approved']} | {cloud['approved']} |\n\n"
+            "# Phase 22C Real-Only Comparison\n\n"
+            "| Metric | qwen3:8b | OpenAI |\n"
+            "|---|---:|---:|\n"
+            f"| Artifacts | {local['artifact_count']} | {cloud['artifact_count']} |\n"
+            f"| Acceptance coverage | {local['acceptance_coverage']} | {cloud['acceptance_coverage']} |\n"
+            f"| Quality heuristic | {local['quality']['quality_score']} | {cloud['quality']['quality_score']} |\n"
+            f"| Pairwise repetition | {local['quality']['pairwise_repetition']} | {cloud['quality']['pairwise_repetition']} |\n"
+            f"| Total duration (s) | {local['total_duration']} | {cloud['total_duration']} |\n"
+            f"| Input tokens | {local['input_tokens']} | {cloud['input_tokens']} |\n"
+            f"| Output tokens | {local['output_tokens']} | {cloud['output_tokens']} |\n"
+            f"| Calculated cost (USD) | {local['calculated_cost']} | {cloud['calculated_cost']} |\n"
+            f"| Readiness | {local['readiness_score']} | {cloud['readiness_score']} |\n"
+            f"| Approved | {local['approved']} | {cloud['approved']} |\n\n"
             f"Winner by documented quality heuristic: `{comparison['winner_by_quality']}`\n\n"
             f"Method: {comparison['quality_method']}\n\n"
             f"Value method: {comparison['value_method']}\n"

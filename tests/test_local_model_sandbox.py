@@ -18,7 +18,6 @@ from aios.local_model_sandbox import (
     OllamaLocalHTTPTransport,
     SandboxValidationError,
 )
-from aios.offline_execution import OfflineMockExecutor
 from aios.providers.adapters import OllamaProvider
 
 
@@ -149,14 +148,6 @@ class FakeResourceMonitor:
         ]
 
 
-def offline_execution(tmp_path):
-    return OfflineMockExecutor().execute(
-        execution_id="offline",
-        project="AIONEX-AIOS",
-        objective="Compare isolated local execution",
-        output_root=tmp_path / "offline-root",
-    )
-
 
 def make_sandbox(transport=None, monitor=None, **kwargs):
     return LocalModelSandbox(
@@ -170,17 +161,14 @@ def make_sandbox(transport=None, monitor=None, **kwargs):
 
 
 def execute_success(tmp_path, *, transport=None, monitor=None):
-    offline = offline_execution(tmp_path)
     sandbox = make_sandbox(transport=transport, monitor=monitor)
     result = sandbox.execute(
         execution_id="local",
         project="AIONEX-AIOS",
-        objective="Compare isolated local execution",
+        objective="Run isolated local execution",
         output_root=tmp_path / "local-root",
-        offline_result=offline,
-        offline_run_metrics={"total_duration": 0.01},
     )
-    return sandbox, result, offline
+    return sandbox, result
 
 
 def test_loopback_transport_is_allowed_and_normalizes_ollama_response():
@@ -285,7 +273,7 @@ def test_transport_serializes_requests():
 
 
 def test_complete_cycle_creates_six_valid_artifacts_and_comparison(tmp_path):
-    sandbox, result, _ = execute_success(tmp_path)
+    sandbox, result = execute_success(tmp_path)
     assert isinstance(sandbox.provider, OllamaProvider)
     assert result.approved is True
     assert result.readiness_score == 1.0
@@ -332,10 +320,10 @@ def test_complete_cycle_creates_six_valid_artifacts_and_comparison(tmp_path):
         assert payload["department"] == record["department"]
 
     comparison = json.loads(result.comparison_path.read_text(encoding="utf-8"))
-    assert comparison["offline_mock"]["artifact_count"] == 6
-    assert comparison["offline_mock"]["quality"]["acceptance_coverage"] == 1.0
-    assert comparison["offline_mock"]["quality"]["technical_evidence_density"] == 1.0
+    assert comparison["schema_version"] == 2
+    assert comparison["assessment_mode"] == "real-local-execution"
     assert comparison["local_model"]["artifact_count"] == 6
+    assert comparison["local_model"]["provider"] == "ollama"
     assert comparison["local_model"]["quality"]["technical_evidence_density"] == 1.0
     assert "deterministic" in comparison["quality_method"].lower()
 
@@ -345,13 +333,12 @@ def test_unit_execution_performs_no_network_with_fake_transport(tmp_path, monkey
         raise AssertionError("network access attempted")
 
     monkeypatch.setattr(socket, "create_connection", blocked)
-    _, result, _ = execute_success(tmp_path)
+    _, result = execute_success(tmp_path)
     assert result.manifest_path.exists()
 
 
 @pytest.mark.parametrize("mode", ("invalid-json", "missing-key", "missing-criterion", "extra-key"))
 def test_invalid_model_outputs_are_rejected_and_staging_is_cleaned(tmp_path, mode):
-    offline = offline_execution(tmp_path)
     sandbox = make_sandbox(FakeRawTransport(mode=mode))
     root = tmp_path / "local-root"
     with pytest.raises(RuntimeError, match="failed after 2 attempts"):
@@ -360,7 +347,6 @@ def test_invalid_model_outputs_are_rejected_and_staging_is_cleaned(tmp_path, mod
             project="p",
             objective="o",
             output_root=root,
-            offline_result=offline,
         )
     assert not (root / "failed").exists()
     assert not (root / ".staging-failed").exists()
@@ -376,7 +362,6 @@ def test_parser_strictly_rejects_incomplete_schema():
 
 @pytest.mark.parametrize("execution_id", ("../escape", "nested/path", "/absolute", "..", ".", "a\\b"))
 def test_path_traversal_is_rejected(tmp_path, execution_id):
-    offline = offline_execution(tmp_path)
     root = tmp_path / "local-root"
     with pytest.raises(ValueError):
         make_sandbox().execute(
@@ -384,13 +369,11 @@ def test_path_traversal_is_rejected(tmp_path, execution_id):
             project="p",
             objective="o",
             output_root=root,
-            offline_result=offline,
         )
     assert not any(root.iterdir()) if root.exists() else True
 
 
 def test_output_root_must_be_absolute(tmp_path, monkeypatch):
-    offline = offline_execution(tmp_path)
     monkeypatch.chdir(tmp_path)
     with pytest.raises(ValueError, match="absolute"):
         make_sandbox().execute(
@@ -398,13 +381,12 @@ def test_output_root_must_be_absolute(tmp_path, monkeypatch):
             project="p",
             objective="o",
             output_root=Path("relative"),
-            offline_result=offline,
         )
     assert not (tmp_path / "relative").exists()
 
 
 def test_existing_execution_is_never_replaced(tmp_path):
-    sandbox, result, offline = execute_success(tmp_path)
+    sandbox, result = execute_success(tmp_path)
     before = {
         path.relative_to(result.output_directory): path.read_bytes()
         for path in result.output_directory.rglob("*")
@@ -416,7 +398,6 @@ def test_existing_execution_is_never_replaced(tmp_path):
             project="second",
             objective="second",
             output_root=tmp_path / "local-root",
-            offline_result=offline,
         )
     after = {
         path.relative_to(result.output_directory): path.read_bytes()
@@ -427,7 +408,6 @@ def test_existing_execution_is_never_replaced(tmp_path):
 
 
 def test_staging_is_cleaned_when_atomic_write_fails(tmp_path, monkeypatch):
-    offline = offline_execution(tmp_path)
     sandbox = make_sandbox()
     original = sandbox._atomic_write_text
     calls = 0
@@ -447,7 +427,6 @@ def test_staging_is_cleaned_when_atomic_write_fails(tmp_path, monkeypatch):
             project="p",
             objective="o",
             output_root=root,
-            offline_result=offline,
         )
     assert not (root / "atomic-failure").exists()
     assert not (root / ".staging-atomic-failure").exists()
@@ -458,7 +437,7 @@ def test_no_file_outside_output_root_is_modified(tmp_path):
     sentinel = tmp_path / "sentinel.txt"
     sentinel.write_text("unchanged", encoding="utf-8")
     before = sentinel.stat().st_mtime_ns, sentinel.read_bytes()
-    _, result, _ = execute_success(tmp_path)
+    _, result = execute_success(tmp_path)
     after = sentinel.stat().st_mtime_ns, sentinel.read_bytes()
     assert after == before
     assert all(result.output_directory in path.parents for path in result.artifact_paths)
@@ -472,13 +451,13 @@ def test_provider_environment_keys_are_not_read(tmp_path, monkeypatch):
         raise AssertionError("provider environment key lookup attempted")
 
     monkeypatch.setattr(os, "getenv", forbidden_getenv)
-    _, result, _ = execute_success(tmp_path)
+    _, result = execute_success(tmp_path)
     assert result.approved is True
 
 
 def test_false_model_evidence_flows_to_engineering_review_without_fabrication(tmp_path):
     transport = FakeRawTransport(tests_passed=False, security_reviewed=False)
-    _, result, _ = execute_success(tmp_path, transport=transport)
+    _, result = execute_success(tmp_path, transport=transport)
     assert result.approved is False
     assert result.readiness_score < 1.0
     assert any("tests have not passed" in item for item in result.blocking_findings)

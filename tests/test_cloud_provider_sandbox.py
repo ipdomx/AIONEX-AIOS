@@ -24,7 +24,6 @@ from aios.cloud_provider_sandbox import (
     SecretConfigurationError,
     load_phase22c_secret,
 )
-from aios.offline_execution import OfflineMockExecutor
 from aios.organization import EngineeringOrganization
 from aios.providers import BudgetAccount, CostGovernor, ProviderPolicy
 from aios.providers.adapters import OpenAIProvider
@@ -132,14 +131,6 @@ class FakeRawTransport:
             self.active -= 1
 
 
-def create_offline(tmp_path):
-    return OfflineMockExecutor().execute(
-        execution_id="offline",
-        project="AIONEX-AIOS",
-        objective="Compare controlled cloud execution",
-        output_root=tmp_path / "offline-root",
-    )
-
 
 def create_local_reference(tmp_path):
     root = tmp_path / "local-reference"
@@ -216,7 +207,6 @@ def make_sandbox(transport=None, *, budget=1.0, governor=None, account=None, pol
 
 
 def execute_success(tmp_path, *, transport=None, sandbox=None):
-    offline = create_offline(tmp_path)
     local = create_local_reference(tmp_path)
     active_sandbox = sandbox or make_sandbox(transport)
     result = active_sandbox.execute(
@@ -224,11 +214,9 @@ def execute_success(tmp_path, *, transport=None, sandbox=None):
         project="AIONEX-AIOS",
         objective="Compare controlled cloud execution",
         output_root=tmp_path / "cloud-root",
-        offline_result=offline,
         local_result_directory=local,
-        offline_run_metrics={"total_duration": 0.01},
     )
-    return active_sandbox, result, offline, local
+    return active_sandbox, result, local
 
 
 def responses_payload():
@@ -524,7 +512,6 @@ def test_secret_loader_rejects_unknown_or_duplicate_variables(tmp_path, monkeypa
 def test_run_stops_before_first_request_when_budget_cannot_cover_six_requests(tmp_path):
     transport = FakeRawTransport()
     sandbox = make_sandbox(transport, account=BudgetAccount(0.001), governor=CostGovernor())
-    offline = create_offline(tmp_path)
     local = create_local_reference(tmp_path)
     root = tmp_path / "cloud-root"
     with pytest.raises(CloudBudgetExceeded, match="six worst-case requests"):
@@ -533,7 +520,6 @@ def test_run_stops_before_first_request_when_budget_cannot_cover_six_requests(tm
             project="AIONEX-AIOS",
             objective="Compare controlled cloud execution",
             output_root=root,
-            offline_result=offline,
             local_result_directory=local,
         )
     assert transport.calls == []
@@ -543,7 +529,6 @@ def test_run_stops_before_first_request_when_budget_cannot_cover_six_requests(tm
 def test_accumulated_actual_cost_stops_before_budget_exceed(tmp_path):
     transport = FakeRawTransport(cost=0.2)
     sandbox = make_sandbox(transport)
-    offline = create_offline(tmp_path)
     local = create_local_reference(tmp_path)
     root = tmp_path / "cloud-root"
     with pytest.raises(CloudBudgetExceeded, match="remaining departments"):
@@ -552,7 +537,6 @@ def test_accumulated_actual_cost_stops_before_budget_exceed(tmp_path):
             project="AIONEX-AIOS",
             objective="Compare controlled cloud execution",
             output_root=root,
-            offline_result=offline,
             local_result_directory=local,
         )
     assert len(transport.calls) == 5
@@ -563,7 +547,7 @@ def test_accumulated_actual_cost_stops_before_budget_exceed(tmp_path):
 
 def test_complete_cycle_creates_six_artifacts_manifest_reports_and_three_way_comparison(tmp_path):
     transport = FakeRawTransport(cost=0.001)
-    sandbox, result, _, _ = execute_success(tmp_path, transport=transport)
+    sandbox, result, _ = execute_success(tmp_path, transport=transport)
     assert isinstance(sandbox.provider, OpenAIProvider)
     assert result.approved is True
     assert result.readiness_score == 1.0
@@ -608,8 +592,9 @@ def test_complete_cycle_creates_six_artifacts_manifest_reports_and_three_way_com
         assert API_KEY not in path.read_text(encoding="utf-8")
 
     comparison = json.loads(result.comparison_path.read_text(encoding="utf-8"))
-    assert set(comparison) >= {"offline_mock", "local_qwen3_8b", "openai"}
-    assert comparison["offline_mock"]["artifact_count"] == 6
+    assert comparison["schema_version"] == 2
+    assert comparison["comparison_mode"] == "real-only"
+    assert "offline_mock" not in comparison
     assert comparison["local_qwen3_8b"]["artifact_count"] == 6
     assert comparison["openai"]["artifact_count"] == 6
     assert comparison["openai"]["calculated_cost"] == pytest.approx(0.006)
@@ -618,19 +603,48 @@ def test_complete_cycle_creates_six_artifacts_manifest_reports_and_three_way_com
     assert result.comparison_report_path.is_file()
 
 
+def test_production_project_runner_has_no_offline_mock_dependency() -> None:
+    source = Path("web-dashboard/backend/app/services/project_execution.py").read_text(encoding="utf-8")
+    assert "OfflineMockExecutor" not in source
+    assert "offline_mock_readiness" not in source
+    assert 'job_root / "offline"' not in source
+    assert "offline_result" not in source
+
+
+def test_real_only_cycle_uses_only_real_local_and_cloud_evidence(tmp_path):
+    transport = FakeRawTransport(cost=0.001)
+    local = create_local_reference(tmp_path)
+    sandbox = make_sandbox(transport)
+    result = sandbox.execute(
+        execution_id="cloud-real-only",
+        project="AIONEX-AIOS",
+        objective="Compare real local and cloud execution evidence",
+        output_root=tmp_path / "cloud-real-only-root",
+        local_result_directory=local,
+    )
+    comparison = json.loads(result.comparison_path.read_text(encoding="utf-8"))
+    assert comparison["schema_version"] == 2
+    assert comparison["comparison_mode"] == "real-only"
+    assert "offline_mock" not in comparison
+    assert comparison["local_qwen3_8b"]["provider"] == "ollama"
+    assert comparison["openai"]["provider"] == "openai"
+    report = result.comparison_report_path.read_text(encoding="utf-8")
+    assert "Real-Only Comparison" in report
+    assert "Offline Mock" not in report
+
+
 def test_unit_cycle_uses_no_network_with_fake_transport(tmp_path, monkeypatch):
     def blocked(*args, **kwargs):
         raise AssertionError("network access attempted")
 
     monkeypatch.setattr(socket, "create_connection", blocked)
-    _, result, _, _ = execute_success(tmp_path)
+    _, result, _ = execute_success(tmp_path)
     assert result.manifest_path.is_file()
 
 
 @pytest.mark.parametrize("mode", ("invalid-json", "missing-key", "missing-criterion", "extra-key"))
 def test_invalid_outputs_fail_and_staging_is_cleaned(tmp_path, mode):
     transport = FakeRawTransport(mode=mode)
-    offline = create_offline(tmp_path)
     local = create_local_reference(tmp_path)
     sandbox = make_sandbox(transport)
     root = tmp_path / "cloud-root"
@@ -640,7 +654,6 @@ def test_invalid_outputs_fail_and_staging_is_cleaned(tmp_path, mode):
             project="AIONEX-AIOS",
             objective="Compare controlled cloud execution",
             output_root=root,
-            offline_result=offline,
             local_result_directory=local,
         )
     assert not (root / "failed").exists()
@@ -651,7 +664,7 @@ def test_invalid_outputs_fail_and_staging_is_cleaned(tmp_path, mode):
 
 def test_false_model_evidence_flows_to_engineering_review_without_fabrication(tmp_path):
     transport = FakeRawTransport(tests_passed=False, security_reviewed=False)
-    _, result, _, _ = execute_success(tmp_path, transport=transport)
+    _, result, _ = execute_success(tmp_path, transport=transport)
     assert result.approved is False
     assert result.readiness_score == 0.82
     assert any("tests have not passed" in item for item in result.blocking_findings)
@@ -661,7 +674,6 @@ def test_false_model_evidence_flows_to_engineering_review_without_fabrication(tm
 
 @pytest.mark.parametrize("execution_id", ("../escape", "nested/path", "/absolute", "..", ".", "a\\b"))
 def test_path_traversal_is_rejected(tmp_path, execution_id):
-    offline = create_offline(tmp_path)
     local = create_local_reference(tmp_path)
     root = tmp_path / "cloud-root"
     with pytest.raises(ValueError):
@@ -670,14 +682,12 @@ def test_path_traversal_is_rejected(tmp_path, execution_id):
             project="p",
             objective="o",
             output_root=root,
-            offline_result=offline,
             local_result_directory=local,
         )
     assert not any(root.iterdir()) if root.exists() else True
 
 
 def test_output_root_must_be_absolute(tmp_path, monkeypatch):
-    offline = create_offline(tmp_path)
     local = create_local_reference(tmp_path)
     monkeypatch.chdir(tmp_path)
     with pytest.raises(ValueError, match="absolute"):
@@ -686,14 +696,13 @@ def test_output_root_must_be_absolute(tmp_path, monkeypatch):
             project="p",
             objective="o",
             output_root=Path("relative"),
-            offline_result=offline,
             local_result_directory=local,
         )
     assert not (tmp_path / "relative").exists()
 
 
 def test_existing_execution_is_never_replaced(tmp_path):
-    sandbox, result, offline, local = execute_success(tmp_path)
+    sandbox, result, local = execute_success(tmp_path)
     before = {
         path.relative_to(result.output_directory): path.read_bytes()
         for path in result.output_directory.rglob("*")
@@ -705,7 +714,6 @@ def test_existing_execution_is_never_replaced(tmp_path):
             project="second",
             objective="second",
             output_root=tmp_path / "cloud-root",
-            offline_result=offline,
             local_result_directory=local,
         )
     after = {
@@ -717,7 +725,6 @@ def test_existing_execution_is_never_replaced(tmp_path):
 
 
 def test_atomic_write_failure_cleans_staging(tmp_path, monkeypatch):
-    offline = create_offline(tmp_path)
     local = create_local_reference(tmp_path)
     sandbox = make_sandbox()
     original = sandbox._atomic_write_text
@@ -738,7 +745,6 @@ def test_atomic_write_failure_cleans_staging(tmp_path, monkeypatch):
             project="AIONEX-AIOS",
             objective="Compare controlled cloud execution",
             output_root=root,
-            offline_result=offline,
             local_result_directory=local,
         )
     assert not (root / "atomic-failure").exists()
@@ -750,7 +756,7 @@ def test_no_file_outside_output_root_is_modified(tmp_path):
     sentinel = tmp_path / "sentinel.txt"
     sentinel.write_text("unchanged", encoding="utf-8")
     before = sentinel.stat().st_mtime_ns, sentinel.read_bytes()
-    _, result, _, _ = execute_success(tmp_path)
+    _, result, _ = execute_success(tmp_path)
     after = sentinel.stat().st_mtime_ns, sentinel.read_bytes()
     assert after == before
     assert all(result.output_directory in path.parents for path in result.artifact_paths)
@@ -759,7 +765,7 @@ def test_no_file_outside_output_root_is_modified(tmp_path):
 def test_no_fallback_provider_is_constructed_or_used(tmp_path):
     policy = ProviderPolicy()
     sandbox = make_sandbox(policy=policy)
-    sandbox, result, _, _ = execute_success(tmp_path, sandbox=sandbox)
+    sandbox, result, _ = execute_success(tmp_path, sandbox=sandbox)
     assert sandbox.provider.name == "openai"
     assert set(policy.allowed_by_project["AIONEX-AIOS"]) == {"openai"}
     manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
@@ -804,7 +810,7 @@ def test_executor_source_contains_no_shell_or_subprocess_calls_and_no_cloud_fall
 
 
 def test_manifest_and_reports_never_contain_authorization_or_secret(tmp_path):
-    _, result, _, _ = execute_success(tmp_path)
+    _, result, _ = execute_success(tmp_path)
     for path in result.output_directory.rglob("*"):
         if path.is_file():
             text = path.read_text(encoding="utf-8")

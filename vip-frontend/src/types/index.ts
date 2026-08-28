@@ -621,7 +621,6 @@ export interface ProjectExecutionResult {
   comparison?: {
     available?: boolean;
     winner_by_quality?: string | null;
-    offline_mock_readiness?: number | null;
     local_model_readiness?: number | null;
     openai_readiness?: number | null;
   };

@@ -7,7 +7,6 @@ import json
 import os
 import re
 import stat
-import time
 from dataclasses import dataclass
 from pathlib import Path
 from collections.abc import Callable
@@ -22,10 +21,6 @@ from aios.cloud_provider_sandbox import (
     CloudSandboxValidationError,
     OpenAIOfficialHTTPTransport,
     OpenAITransportError,
-)
-from aios.offline_execution import (
-    OfflineExecutionResult,
-    OfflineMockExecutor,
 )
 from aios.controlled_project_builder import (
     ControlledProjectBuildError,
@@ -133,7 +128,6 @@ def _safe_comparison(path: Path) -> dict[str, Any]:
     return {
         "available": True,
         "winner_by_quality": payload.get("winner_by_quality"),
-        "offline_mock_readiness": (payload.get("offline_mock") or {}).get("readiness_score"),
         "local_model_readiness": (payload.get("local_qwen3_8b") or {}).get("readiness_score"),
         "openai_readiness": (payload.get("openai") or {}).get("readiness_score"),
     }
@@ -344,26 +338,6 @@ def _summary_from_full_manifest(
         "secret_returned": False,
     }
 
-
-def _load_offline_result(directory: Path) -> OfflineExecutionResult:
-    manifest_path = directory / "manifest.json"
-    try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ProjectExecutionAlreadyStarted("existing offline reference is invalid") from exc
-    review = manifest.get("review") or {}
-    artifacts = manifest.get("artifacts") or []
-    return OfflineExecutionResult(
-        execution_id=str(manifest.get("execution_id") or "offline"),
-        output_directory=directory,
-        manifest_path=manifest_path,
-        report_path=directory / "REPORT.md",
-        artifact_paths=tuple(directory / str(item["path"]) for item in artifacts),
-        approved=bool(review.get("approved")),
-        readiness_score=float(review.get("readiness_score") or 0.0),
-        blocking_findings=tuple(str(item) for item in review.get("blocking_findings") or []),
-        rework_plan=tuple(str(item) for item in review.get("rework_plan") or []),
-    )
 
 
 class ProjectPlanningRunner:
@@ -614,20 +588,6 @@ class ProjectPlanningRunner:
         else:
             secret = load_project_provider_secret(self.secret_path)
             pricing = MODEL_PRICING[secret.model]
-            offline_directory = job_root / "offline"
-            if offline_directory.is_dir():
-                offline_result = _load_offline_result(offline_directory)
-                offline_duration = 0.0
-            else:
-                offline_started = time.monotonic()
-                offline_result = OfflineMockExecutor().execute(
-                    execution_id="offline",
-                    project=normalized_project,
-                    objective=normalized_objective,
-                    output_root=job_root,
-                )
-                offline_duration = time.monotonic() - offline_started
-
             report_stage("provider_execution", 36)
             transport = OpenAIOfficialHTTPTransport(
                 secret.api_key,
@@ -657,9 +617,7 @@ class ProjectPlanningRunner:
                 project=normalized_project,
                 objective=governed_planning_objective,
                 output_root=job_root,
-                offline_result=offline_result,
                 local_result_directory=self.local_reference,
-                offline_run_metrics={"total_duration": offline_duration},
             )
             planning = _summary_from_manifest(
                 result.manifest_path, recovered=False

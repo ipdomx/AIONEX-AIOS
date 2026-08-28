@@ -38,7 +38,6 @@ _ALLOWED_ABSTRACT_FILES = {
 }
 
 _ALLOWED_SIMULATION_FILES = {
-    "src/aios/offline_execution.py",
     "src/aios/cloud_provider_sandbox.py",
     "src/aios/local_model_sandbox.py",
     "src/aios/cluster_runtime/cycle.py",
