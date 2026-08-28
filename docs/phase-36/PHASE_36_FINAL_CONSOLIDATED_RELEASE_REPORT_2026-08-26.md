@@ -212,3 +212,17 @@ Real acceptance v8 passed with exactly one provider submission and no retry: `at
 Persistent acceptance evidence SHA-256: `ad01ab9ed9c694b5ac9f5dfa5b5caec968b60b6a16300d8c64ae1cd985f632c5`. RunPod endpoint evidence after acceptance reported `completed=1`, `failed=0`, `inProgress=0`, `inQueue=0`, `retried=0`. Production `audio-song-worker` remained hard-disabled (`AUDIO_SONG_LIVE_ENABLED=false`) throughout the explicit acceptance.
 
 Accordingly, `song-production` advances from `source_built` to `runtime_verified`. This does not expand any music-rights, artist-imitation, consent, or AI-generated-disclosure claim.
+
+## 11. Post-closeout Open Song Production reconciliation — 2026-08-28
+
+PR #525 completed the previously external ACE-Step Open Song runtime acceptance and merged normally after all protected checks passed. Merge commit: `ccd6b2d5e06ac9b0d0768ea74a12999589bfb5fc`.
+
+Acceptance v8 passed the real bounded RunPod chain with one submission and no retry: Full Song generation, exactly four Demucs stems, mix, master, final export, waveform, Studio revision `2`, and final audio QA all completed. Actual provider cost was `$0.02584`; cleanup residue returned to zero. The accepted Open Song image digest is `sha256:6b6ce10bda3adc378fff230b307ac1ce9f86aaf21d82cd6e1f9c9b9f2a19ea34` and acceptance evidence SHA-256 is `ad01ab9ed9c694b5ac9f5dfa5b5caec968b60b6a16300d8c64ae1cd985f632c5`.
+
+The merged registry therefore reports `song-production=runtime_verified`. `ace-step-open-song-runtime-acceptance` has been satisfied and removed from the capability's external gates. `music-rights-and-ai-generated-disclosure` remains an explicit external evidence gate.
+
+Production source was advanced to the merge commit and only the Backend was rebuilt/recreated so the live capability snapshot matches merged source. Activated Backend image ID: `sha256:b3301bc448b41a50841ff876fbde84fc59a49b86fcc6f980f6b7b94845abe1c0`; retained rollback tag: `aionex-aios-backend:rollback-phase36g-final-20260828T050232Z`. Post-activation Backend health is `healthy`, restart count `0`, Alembic remains `20260825_0043 (head)`, and critical/traceback/fatal/unhandled-exception matches in the activation window are `0`.
+
+The production audio-song worker remains `healthy`, restart count `0`, and `AUDIO_SONG_LIVE_ENABLED=false`. RunPod records `completed=1`, `failed=0`, `inProgress=0`, `inQueue=0`, `retried=0`; no additional GPU job was submitted for this Production activation. Final activation evidence is recorded in `docs/phase-36/receipts/36G-2026-08-28-open-song-final-production-activation.md` and server evidence directory `/opt/AIOS/.deployment-backups/phase36g-open-song-final-activation/20260828T050232Z/`.
+
+This reconciliation does not change the Phase 36 conclusion: internal implementation is closed, while listed rights/disclosure or other external-authority gates remain external by contract.
