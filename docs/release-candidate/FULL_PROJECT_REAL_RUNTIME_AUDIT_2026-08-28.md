@@ -13,7 +13,7 @@
 - tracked-secret / forbidden-pattern security audit: PASS.
 - VIP portal integrity: 96 ملف، 6 لغات مكتملة، ولا simulated-data markers.
 - Production DB fixture scan: 1,499 عمودًا نصيًا، دون demo/test/mock/fake/dummy/placeholder rows.
-- Active production secret/env scan: 26 ملفًا، دون placeholder secret values.
+- Active production secret/env scan النهائي: 27 ملفًا، دون placeholder secret values أو secret-permission findings فعلية.
 
 ## إزالة الـ mock من مسار الإنتاج
 
@@ -52,7 +52,7 @@
 - إبقاء كل worktree يحتوي commit فريدًا أو bytes محلية تختلف عن main.
 - إزالة anonymous/dangling Docker volumes غير المرتبطة بأي container.
 - إزالة 67 Docker tag من test/source-contract/candidate فقط بعد إثبات عدم استخدامها.
-- عدم حذف dangling image الوحيدة لأنها مستخدمة فعليًا بواسطة containers حية.
+- أزيلت صورة WebGL/3D test dangling بعد حذف 4 test containers قديمة ثبت أنها المستخدم الوحيد لها؛ الحالة النهائية `0` dangling images.
 - إزالة host `node_modules`, `.next`, pytest/mypy/compile caches غير mounted وقابلة لإعادة البناء.
 - إزالة Trivy/Nuclei/tool caches المكررة، مع الاحتفاظ بالتقارير النهائية.
 - الاحتفاظ بتقرير Security Acceptance النهائي PASS، SHA-256:
@@ -75,6 +75,19 @@
 - الـLIVE feature gates غير المفعلة؛ هي activation boundaries حقيقية وليست mock outputs.
 - أي external/funded/legal activation gate يحتاج صلاحية أو رصيدًا أو اعتمادًا خارجيًا.
 
-## بوابة الإغلاق
+## الإغلاق التشغيلي النهائي
 
-لا تُعتبر هذه المراجعة production-complete إلا بعد مرور protected CI، دمج التغيير في `main`، تحديث صور الخدمات المتأثرة، وإعادة التحقق من Production runtime والصحة بعد النشر.
+- PR #527 merged: `dc0bb27113ab20a9a46859625b3cfad013190e55`، وجميع protected checks PASS.
+- Backend Production image: `sha256:1c17dc4238f633f307e6c025d43971d039324d177dc9fcbc0ecd6cfcfe371e8a`.
+- Project Worker Production image (replicaين): `sha256:af4e35a8a4cb48888ea15593bdd3c9833bf65b8084bf1e75393dccbd45f6c59e`.
+- rollback images قبل التفعيل محفوظة للـBackend والـProject Worker.
+- العمليات الثلاث أثبتت real-only runtime contract وعدم وجود/إمكانية استيراد `aios.offline_execution`.
+- Alembic: `20260825_0043 (head)` بلا تغيير.
+- الحالة النهائية للخادم: 73 running containers، 0 unhealthy، 0 stopped، 0 restarting، 0 dangling images.
+- بقيت volume واحدة غير مرتبطة `aionex-ollama-phase22b-models` لأنها retained model asset موثقة، وليست orphan بلا قيمة.
+- Production DB: 1499 text columns scanned، 0 suspicious rows.
+- Active secrets/env: 27 files، 0 placeholder values، 0 actual secret permission findings.
+- القرص: قرابة 63% مستخدم وأكثر من 316GB متاحة.
+- Final server-state evidence SHA-256: `dddcc8d350caff5a3791fdaa9bb70820752b8167182c84f86ecbe29316f5e5cf`.
+
+**الحالة: المراجعة والتنظيف وreal-runtime remediation مكتملة Production-complete.**
