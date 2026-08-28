@@ -2,7 +2,7 @@
 # A small source-only target validates Docker parsing without pulling GPU layers.
 FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS source-contract
 WORKDIR /source
-COPY contract.py handler.py prepare_models.py verify_runtime.py /source/
+COPY contract.py handler.py prepare_models.py prepare_shared_models.py patch_acestep_runtime.py patch_demucs_runtime.py verify_runtime.py /source/
 RUN python -m compileall -q /source
 
 # The runtime image is pinned to the audited linux/amd64 manifest, not a tag.
@@ -36,7 +36,8 @@ RUN set -eux; \
       -r /tmp/aionex-open-song-requirements.txt; \
     rm -f /tmp/aionex-open-song-requirements.txt
 
-# Bake exact model revisions. Runtime is offline and cannot silently refresh.
+# Keep the selected Base DiT + 4B LM in the same long-lived cache layer used by
+# prior Open Song candidates. Runtime is offline and cannot silently refresh.
 COPY prepare_models.py /tmp/aionex-prepare-open-song-models.py
 RUN set -eux; \
     /app/.venv/bin/python /tmp/aionex-prepare-open-song-models.py; \
@@ -45,13 +46,30 @@ RUN set -eux; \
     test -d /app/checkpoints/acestep-5Hz-lm-4B; \
     rm -f /tmp/aionex-prepare-open-song-models.py
 
+# Add only the shared components required by the selected runtime and narrow
+# ACE-Step's generic main-bundle precheck. This separate layer preserves the
+# immutable Base+4B cache layer and limits the new registry upload.
+ARG ACE_STEP_MAIN_MODEL_REVISION=19671f406d603126926c1b7e2adc169acbcade22
+LABEL ai.aionex.ace-step.main-model-revision="${ACE_STEP_MAIN_MODEL_REVISION}"
+COPY prepare_shared_models.py patch_acestep_runtime.py /tmp/
+RUN set -eux; \
+    /app/.venv/bin/python /tmp/prepare_shared_models.py; \
+    /app/.venv/bin/python /tmp/patch_acestep_runtime.py; \
+    test -f /app/checkpoints/vae/diffusion_pytorch_model.safetensors; \
+    test -f /app/checkpoints/Qwen3-Embedding-0.6B/model.safetensors; \
+    rm -f /tmp/prepare_shared_models.py /tmp/patch_acestep_runtime.py
+
+COPY patch_demucs_runtime.py /tmp/patch_demucs_runtime.py
 RUN set -eux; \
     install -d -m 0755 /opt/aionex-demucs-models /opt/aionex-open-song; \
     curl -fsSLo /opt/aionex-demucs-models/955717e8-8726e21a.th \
       "${DEMUCS_CHECKPOINT_URL}"; \
     printf '%s  %s\n' "${DEMUCS_CHECKPOINT_SHA256}" \
       /opt/aionex-demucs-models/955717e8-8726e21a.th | sha256sum -c -; \
-    test "$(stat -c %s /opt/aionex-demucs-models/955717e8-8726e21a.th)" = "84141911"
+    test "$(stat -c %s /opt/aionex-demucs-models/955717e8-8726e21a.th)" = "84141911"; \
+    /app/.venv/bin/python /tmp/patch_demucs_runtime.py; \
+    /app/.venv/bin/python -c "from pathlib import Path; from demucs.repo import LocalRepo; LocalRepo(Path('/opt/aionex-demucs-models')).get_model('955717e8')"; \
+    rm -f /tmp/patch_demucs_runtime.py
 
 # Remove build-only packages and patch runtime dependencies before the final image.
 # ACE-Step 1.5 keeps transformers<4.58 and gradio==6.2.0; exploitability of
@@ -90,7 +108,9 @@ ENV PATH=/app/.venv/bin:${PATH} \
     ACESTEP_CHECKPOINTS_DIR=/app/checkpoints \
     ACESTEP_CONFIG_PATH=acestep-v15-base \
     ACESTEP_LM_MODEL_PATH=acestep-5Hz-lm-4B \
-    ACESTEP_LLM_BACKEND=pt \
+    ACESTEP_LM_BACKEND=pt \
+    ACESTEP_NO_INIT=false \
+    ACESTEP_INIT_LLM=true \
     ACESTEP_TMPDIR=/tmp/aionex-open-song/acestep-tmp \
     TRITON_CACHE_DIR=/tmp/aionex-open-song/triton \
     TORCHINDUCTOR_CACHE_DIR=/tmp/aionex-open-song/torchinductor \

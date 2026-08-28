@@ -231,6 +231,8 @@ def test_dockerfile_is_immutable_offline_nonroot_and_model_baked() -> None:
     handler_source = (HANDLER_ROOT / "handler.py").read_text(encoding="utf-8")
     assert "S3ArtifactPublisher" not in handler_source
     assert "AionexArtifactBridgePublisher" in handler_source
+    assert "AIONEX-AIOS/OpenSong-ArtifactBridge/1.0" in handler_source
+    assert "Python-urllib" not in handler_source
     assert "AIONEX_ARTIFACT_S3_" not in handler_source
     verify_source = (HANDLER_ROOT / "verify_runtime.py").read_text(encoding="utf-8")
     assert "boto3" not in verify_source
@@ -343,6 +345,65 @@ def test_artifact_bridge_rejects_host_drift(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setenv("AIONEX_ARTIFACT_BRIDGE_ALLOWED_HOST", "api.vip-e.net")
     with pytest.raises(handler_runtime.OpenSongHandlerRuntimeError, match="upload URL"):
         handler_runtime.AionexArtifactBridgePublisher(raw)
+
+
+def test_ace_step_health_requires_exact_initialized_model_pair() -> None:
+    ready = {
+        "code": 200,
+        "error": None,
+        "data": {
+            "status": "ok",
+            "service": "ACE-Step API",
+            "models_initialized": True,
+            "llm_initialized": True,
+            "loaded_model": "acestep-v15-base",
+            "loaded_lm_model": "acestep-5Hz-lm-4B",
+        },
+    }
+    assert handler_runtime._ace_step_health_ready(ready) is True
+    for key in ("models_initialized", "llm_initialized"):
+        value = json.loads(json.dumps(ready))
+        value["data"][key] = False
+        assert handler_runtime._ace_step_health_ready(value) is False
+    wrong_model = json.loads(json.dumps(ready))
+    wrong_model["data"]["loaded_model"] = "acestep-v15-turbo"
+    assert handler_runtime._ace_step_health_ready(wrong_model) is False
+    wrong_lm = json.loads(json.dumps(ready))
+    wrong_lm["data"]["loaded_lm_model"] = "acestep-5Hz-lm-1.7B"
+    assert handler_runtime._ace_step_health_ready(wrong_lm) is False
+    assert handler_runtime._ace_step_health_ready({"code": 200, "data": {"status": "ok"}}) is False
+
+
+def test_handler_uses_current_ace_step_eager_init_environment_contract() -> None:
+    source = (HANDLER_ROOT / "handler.py").read_text(encoding="utf-8")
+    dockerfile = (HANDLER_ROOT / "Dockerfile").read_text(encoding="utf-8")
+    assert '"ACESTEP_LM_BACKEND": "pt"' in source
+    assert '"ACESTEP_NO_INIT": "false"' in source
+    assert '"ACESTEP_INIT_LLM": "true"' in source
+    assert "ACESTEP_LLM_BACKEND" not in source
+    assert "ACESTEP_INIT_SERVICE" not in source
+    assert "ACESTEP_LM_BACKEND=pt" in dockerfile
+    assert "ACESTEP_NO_INIT=false" in dockerfile
+    assert "ACESTEP_INIT_LLM=true" in dockerfile
+    assert "ACESTEP_LLM_BACKEND" not in dockerfile
+    assert "ACE_STEP_MAIN_MODEL_REVISION=19671f406d603126926c1b7e2adc169acbcade22" in dockerfile
+    assert "patch_acestep_runtime.py" in dockerfile
+    selected_prepare = (HANDLER_ROOT / "prepare_models.py").read_text(encoding="utf-8")
+    shared_prepare = (HANDLER_ROOT / "prepare_shared_models.py").read_text(encoding="utf-8")
+    assert "19671f406d603126926c1b7e2adc169acbcade22" in shared_prepare
+    assert '"vae/*"' in shared_prepare
+    assert '"Qwen3-Embedding-0.6B/*"' in shared_prepare
+    assert "ACE-Step/Ace-Step1.5" not in selected_prepare
+    assert "prepare_shared_models.py" in dockerfile
+    patch_source = (HANDLER_ROOT / "patch_acestep_runtime.py").read_text(encoding="utf-8")
+    assert "02a95f2293dc0cd82ff5046816503668f8339157ba0b18715e061f3142999f8f" in patch_source
+    assert "Required Qwen3 text encoder is unavailable" in patch_source
+    assert "Required official VAE is unavailable" in patch_source
+    demucs_patch = (HANDLER_ROOT / "patch_demucs_runtime.py").read_text(encoding="utf-8")
+    assert "37375543dad61a7dc549caf6f165c0500d903313159c70cf893d47718194b865" in demucs_patch
+    assert "weights_only=False" in demucs_patch
+    assert "patch_demucs_runtime.py" in dockerfile
+    assert "LocalRepo(Path('/opt/aionex-demucs-models')).get_model('955717e8')" in dockerfile
 
 
 def test_handler_failure_codes_are_stage_specific_and_sanitized() -> None:
