@@ -1,6 +1,6 @@
 # AIONEX AIOS Dashboard — Frontend Dockerfile
 
-FROM node:24-alpine AS base
+FROM node:24-alpine@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf AS base
 
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
@@ -25,6 +25,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 ENV AIOS_BACKEND_ORIGIN=http://backend:8000
+
+RUN apk upgrade --no-cache \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 RUN addgroup --system --gid 1001 nodejs \
     && adduser --system --uid 1001 nextjs

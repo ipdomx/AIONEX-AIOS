@@ -418,6 +418,27 @@ class DesignImageExecutionAuthority:
         async with self.session_factory() as session:
             row = await session.get(DesignImageExecution, claim.execution_id)
             row = self._require_owned(row, claim)
+            options = dict(row.request_options or {})
+            if options.get("approval_mode") == "explicit-user-cap":
+                raw_approved_cap = options.get("approved_max_cost_usd")
+                try:
+                    approved_cap = float(raw_approved_cap) if raw_approved_cap is not None else 0.0
+                except (TypeError, ValueError) as exc:
+                    raise DesignImageExecutionError(
+                        "design image explicit user cost approval is invalid"
+                    ) from exc
+                if approved_cap <= 0 or approved_cap > 100:
+                    raise DesignImageExecutionError(
+                        "design image explicit user cost approval is outside the allowed range"
+                    )
+                if actual_cost_usd is None:
+                    raise DesignImageExecutionError(
+                        "design image provider did not return authoritative cost for the explicit user cap"
+                    )
+                if float(actual_cost_usd) > approved_cap + 1e-9:
+                    raise DesignImageExecutionError(
+                        "design image actual cost exceeded the explicit user cap"
+                    )
             output_format = row.output_format
             if _CONTENT_TYPES[output_format] != content_type:
                 raise DesignImageExecutionError("design image content type does not match the governed output format")

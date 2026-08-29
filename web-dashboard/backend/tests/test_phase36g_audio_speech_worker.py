@@ -286,7 +286,7 @@ async def test_unexpected_failure_after_submission_is_ambiguous_and_never_auto_r
     assert authority.failed[0]["ambiguous_submission"] is True
 
 
-def test_audio_speech_worker_compose_is_fail_closed_nonroot_and_profile_gated() -> None:
+def test_audio_speech_worker_compose_is_governed_live_nonroot_and_profile_gated() -> None:
     root = Path(__file__).resolve().parents[3]
     for relative in (
         "web-dashboard/docker-compose.production.yml",
@@ -298,7 +298,7 @@ def test_audio_speech_worker_compose_is_fail_closed_nonroot_and_profile_gated() 
         block = source[start:tail]
         assert 'profiles: ["audio-execution"]' in block
         assert 'user: "1000:1000"' in block
-        assert 'AUDIO_SPEECH_LIVE_ENABLED: "false"' in block
+        assert 'AUDIO_SPEECH_LIVE_ENABLED: "true"' in block
         assert 'cap_drop: ["ALL"]' in block
         assert 'no-new-privileges:true' in block
         assert 'app.services.audio_speech_worker' in block

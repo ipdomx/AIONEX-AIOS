@@ -360,7 +360,7 @@ async def test_ambiguous_submit_stops_without_automatic_retry(
     assert authority.submitted == []
 
 
-def test_audio_music_worker_compose_is_fail_closed_nonroot_and_profiled() -> None:
+def test_audio_music_worker_compose_is_governed_live_nonroot_and_profiled() -> None:
     root = Path(__file__).resolve().parents[3]
     for path in (
         root / "web-dashboard" / "docker-compose.production.yml",
@@ -372,7 +372,7 @@ def test_audio_music_worker_compose_is_fail_closed_nonroot_and_profiled() -> Non
         block = source[start:end]
         assert 'profiles: ["audio-execution"]' in block
         assert 'user: "1000:1000"' in block
-        assert 'AUDIO_MUSIC_LIVE_ENABLED: "false"' in block
+        assert 'AUDIO_MUSIC_LIVE_ENABLED: "true"' in block
         assert 'app.services.audio_music_worker' in block
         assert 'security_opt: ["no-new-privileges:true"]' in block
         assert 'cap_drop: ["ALL"]' in block

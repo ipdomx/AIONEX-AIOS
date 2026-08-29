@@ -964,3 +964,96 @@ async def test_routed_pipeline_stays_no_spend_until_arm_and_sharp_worker_owns_on
     finally:
         DESIGN_PRESETS["social-square"] = original
         await cleanup_scope(scope)
+
+@pytest.mark.asyncio
+async def test_explicit_user_image_cap_rejects_unknown_provider_cost_before_storage(tmp_path: Path) -> None:
+    scope = await seed_scope("explicit-cap-unknown")
+    store = LocalMediaObjectStore(tmp_path / "objects")
+    try:
+        graph_id, target_id = await create_image_graph(scope)
+        execution_id = await create_execution(scope, graph_id, target_id)
+        async with SessionLocal() as session:
+            row = await session.get(DesignImageExecution, execution_id)
+            assert row is not None
+            row.max_attempts = 1
+            row.request_options = {
+                **(row.request_options or {}),
+                "approval_mode": "explicit-user-cap",
+                "approved_max_cost_usd": 0.05,
+            }
+            await arm_design_image_execution(
+                session, execution_id=execution_id, organization_id=scope.org.id
+            )
+            await session.commit()
+        authority = DesignImageExecutionAuthority(store=store, worker_id="explicit-cap-unknown")
+        claim = await authority.claim()
+        assert claim is not None
+        with pytest.raises(
+            DesignImageExecutionError,
+            match="did not return authoritative cost",
+        ):
+            await authority.complete_bytes(
+                claim,
+                body=_PNG_1X1,
+                content_type="image/png",
+                provider_request_id="explicit-cap-unknown-request",
+                provider_response_metadata={},
+                usage_metadata={"cost_basis": "unknown"},
+                actual_cost_usd=None,
+                cost_basis="unknown",
+            )
+        assert not any((tmp_path / "objects").rglob("*.png"))
+        async with SessionLocal() as session:
+            row = await session.get(DesignImageExecution, execution_id)
+            assert row is not None and row.status == "running"
+            assert row.actual_cost_usd is None
+            assert row.output_storage_key is None
+    finally:
+        await cleanup_scope(scope)
+
+
+@pytest.mark.asyncio
+async def test_explicit_user_image_cap_rejects_actual_cost_above_approval_before_storage(tmp_path: Path) -> None:
+    scope = await seed_scope("explicit-cap-exceeded")
+    store = LocalMediaObjectStore(tmp_path / "objects")
+    try:
+        graph_id, target_id = await create_image_graph(scope)
+        execution_id = await create_execution(scope, graph_id, target_id)
+        async with SessionLocal() as session:
+            row = await session.get(DesignImageExecution, execution_id)
+            assert row is not None
+            row.max_attempts = 1
+            row.request_options = {
+                **(row.request_options or {}),
+                "approval_mode": "explicit-user-cap",
+                "approved_max_cost_usd": 0.01,
+            }
+            await arm_design_image_execution(
+                session, execution_id=execution_id, organization_id=scope.org.id
+            )
+            await session.commit()
+        authority = DesignImageExecutionAuthority(store=store, worker_id="explicit-cap-exceeded")
+        claim = await authority.claim()
+        assert claim is not None
+        with pytest.raises(
+            DesignImageExecutionError,
+            match="actual cost exceeded the explicit user cap",
+        ):
+            await authority.complete_bytes(
+                claim,
+                body=_PNG_1X1,
+                content_type="image/png",
+                provider_request_id="explicit-cap-exceeded-request",
+                provider_response_metadata={},
+                usage_metadata={"cost_basis": "official_provider_usage"},
+                actual_cost_usd=0.02,
+                cost_basis="official_provider_usage",
+            )
+        assert not any((tmp_path / "objects").rglob("*.png"))
+        async with SessionLocal() as session:
+            row = await session.get(DesignImageExecution, execution_id)
+            assert row is not None and row.status == "running"
+            assert row.actual_cost_usd is None
+            assert row.output_storage_key is None
+    finally:
+        await cleanup_scope(scope)

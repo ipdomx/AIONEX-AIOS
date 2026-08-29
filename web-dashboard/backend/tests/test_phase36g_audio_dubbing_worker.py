@@ -224,7 +224,7 @@ async def test_dubbing_worker_advances_orchestration_when_no_translation_claim(
     assert payload["status"] == "healthy"
 
 
-def test_audio_dubbing_worker_compose_is_fail_closed_nonroot_and_profiled() -> None:
+def test_audio_dubbing_worker_compose_is_governed_live_nonroot_and_profiled() -> None:
     root = Path(__file__).resolve().parents[3]
     for relative in (
         "web-dashboard/docker-compose.production.yml",
@@ -237,7 +237,7 @@ def test_audio_dubbing_worker_compose_is_fail_closed_nonroot_and_profiled() -> N
         assert 'profiles: ["audio-execution"]' in block
         assert "image: aionex-aios-backend:local" in block
         assert 'user: "1000:1000"' in block
-        assert 'AUDIO_DUBBING_LIVE_ENABLED: "false"' in block
+        assert 'AUDIO_DUBBING_LIVE_ENABLED: "true"' in block
         assert 'cap_drop: ["ALL"]' in block
         assert "no-new-privileges:true" in block
         assert "app.services.audio_dubbing_worker" in block

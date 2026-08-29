@@ -508,7 +508,7 @@ def test_secret_file_is_private_bounded_and_never_returned(tmp_path: Path) -> No
         _read_secret_file(str(source))
 
 
-def test_production_compose_keeps_song_worker_hard_disabled_and_non_root_runtime() -> None:
+def test_production_compose_activates_primary_song_worker_and_keeps_secondary_disabled() -> None:
     candidates = [
         Path(os.environ.get("AIOS_REPO_ROOT", "")),
         Path("/workspace"),
@@ -539,7 +539,7 @@ def test_production_compose_keeps_song_worker_hard_disabled_and_non_root_runtime
             secondary_start : source.index("  video-provider-worker:", secondary_start)
         ]
         assert 'profiles: ["audio-execution"]' in block
-        assert 'AUDIO_SONG_LIVE_ENABLED: "false"' in block
+        assert 'AUDIO_SONG_LIVE_ENABLED: "true"' in block
         assert 'AUDIO_SONG_ENTRYPOINT_SECRET_BOOTSTRAP_ONLY: "true"' in block
         assert 'MEDIA_STORAGE_TYPE: local' in block
         assert 'MEDIA_STORAGE_TYPE: inherit' not in block
@@ -591,3 +591,85 @@ def test_production_compose_keeps_song_worker_hard_disabled_and_non_root_runtime
     assert 'install -d -m 0700 -o aionex -g aionex "$media_storage_root"' in audio_block
     assert 'exec su-exec aionex "$@"' in audio_block
     assert 'DAC_OVERRIDE' not in block
+
+
+async def persist_user_approved_unarmed(scope: Scope, key: str):
+    async with SessionLocal() as session:
+        result = await create_open_song_pipeline(
+            session,
+            scope=MediaGraphScope(scope.organization_id, scope.user_id),
+            plan=song_plan(),
+            idempotency_key=key,
+            runtime_evidence_sha256=RUNTIME_EVIDENCE,
+            pricing_evidence_sha256=PRICING_EVIDENCE,
+            license_evidence_sha256=LICENSE_EVIDENCE,
+            runtime_binding=runtime_binding(),
+        )
+        row = await session.get(AudioSongExecution, result.execution_id)
+        assert row is not None
+        row.provider_metadata = {
+            **(row.provider_metadata or {}),
+            "user_cost_approved": True,
+            "approved_max_cost_usd": 0.20,
+            "monthly_user_cap_usd": 0.40,
+            "balance_check_delegated_to_secret_worker": True,
+        }
+        await session.commit()
+        return result
+
+
+@pytest.mark.asyncio
+async def test_secret_worker_arms_only_after_live_balance_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scope = await seed_scope("balance-arm")
+    try:
+        result = await persist_user_approved_unarmed(
+            scope, f"p36g-song-worker-balance-arm-{uuid4().hex}"
+        )
+        instance = worker(tmp_path, FakeAdapter())
+
+        async def current_balance():
+            return 1.0, BALANCE_EVIDENCE
+
+        monkeypatch.setattr(instance, "_provider_balance_usd", current_balance)
+        assert await instance._arm_one_user_approved() is True
+        async with SessionLocal() as session:
+            row = await session.get(AudioSongExecution, result.execution_id)
+            assert row is not None
+            assert row.status == "queued"
+            assert row.attempts == 0
+            assert row.provider_metadata["balance_checked_by_secret_worker"] is True
+            assert row.provider_metadata["provider_balance_sufficient_at_arm"] is True
+            assert row.provider_job_id is None
+    finally:
+        await cleanup(scope)
+
+
+@pytest.mark.asyncio
+async def test_secret_worker_refuses_insufficient_balance_without_submission(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scope = await seed_scope("balance-low")
+    try:
+        result = await persist_user_approved_unarmed(
+            scope, f"p36g-song-worker-balance-low-{uuid4().hex}"
+        )
+        adapter = FakeAdapter()
+        instance = worker(tmp_path, adapter)
+
+        async def insufficient_balance():
+            return 0.01, BALANCE_EVIDENCE
+
+        monkeypatch.setattr(instance, "_provider_balance_usd", insufficient_balance)
+        assert await instance._arm_one_user_approved() is False
+        assert adapter.submit_calls == 0
+        async with SessionLocal() as session:
+            row = await session.get(AudioSongExecution, result.execution_id)
+            assert row is not None
+            assert row.status == "planned"
+            assert row.attempts == 0
+            assert row.provider_job_id is None
+            assert row.provider_metadata["last_balance_check_sufficient"] is False
+    finally:
+        await cleanup(scope)

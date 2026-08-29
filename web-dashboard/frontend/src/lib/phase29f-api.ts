@@ -400,7 +400,7 @@ export const phase29fApi = {
   },
   generateReport(reportId: string) {
     return apiClient.post<ReportRecord>(
-      `/reports/${encodeURIComponent(reportId)}/generate`,
+      `/reports/${encodeURIComponent(reportId)}/regenerate`,
     );
   },
   downloadReport(reportId: string) {
