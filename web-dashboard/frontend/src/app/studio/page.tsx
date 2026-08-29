@@ -376,6 +376,10 @@ export default function StudioPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link href="/studio/live-media" className="btn-primary">
+            <Sparkles className="h-4 w-4" />
+            Live Media
+          </Link>
           <Link href="/owner/studio-governance" className="btn-secondary">
             <ShieldCheck className="h-4 w-4" />
             Capability governance

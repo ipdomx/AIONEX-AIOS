@@ -13,6 +13,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, replace
 import hashlib
 import json
+
+import httpx
 import os
 from pathlib import Path
 import re
@@ -25,7 +27,7 @@ from sqlalchemy import select
 from app.core.config import settings
 from app.core.logging import get_logger, setup_logging
 from app.db.base import SessionLocal
-from app.db.models import AudioSongExecution, MediaAssetNode
+from app.db.models import AuditEvent, AudioSongExecution, MediaAssetNode, uuid_str
 from app.services.audio_song_providers import (
     AudioSongProviderFailure,
     ProviderAudioArtifact,
@@ -45,6 +47,7 @@ from app.services.audio_song_runtime import (
     record_audio_song_provider_job,
     record_audio_song_provider_poll,
     recover_expired_audio_song_executions,
+    arm_audio_song_execution,
 )
 from app.services.audio_speech_providers import inspect_pcm_wav
 from app.services.media_storage import (
@@ -280,6 +283,7 @@ class AudioSongWorker:
         self.errors = 0
         self.last_success_at: str | None = None
         self.last_error_code: str | None = None
+        self._next_balance_check_at = 0.0
 
     def _runtime_secrets(self) -> OpenSongWorkerSecrets:
         if self._secrets is None:
@@ -358,6 +362,152 @@ class AudioSongWorker:
         if self.live_enabled:
             self._runtime_secrets()
             self._runtime_adapter()
+
+    async def _provider_balance_usd(self) -> tuple[float, str]:
+        """Read current primary RunPod balance without returning/logging the credential."""
+        secrets = self._runtime_secrets()
+        try:
+            async with httpx.AsyncClient(
+                timeout=httpx.Timeout(15.0, connect=8.0), follow_redirects=False
+            ) as client:
+                response = await client.post(
+                    "https://api.runpod.io/graphql",
+                    params={"api_key": secrets.api_key},
+                    json={"query": "query Myself { myself { clientBalance } }"},
+                    headers={"Accept": "application/json", "User-Agent": "AIONEX-AIOS/OpenSong-Balance/1.0"},
+                )
+        except (httpx.TimeoutException, httpx.NetworkError) as exc:
+            raise AudioSongWorkerError("open-song RunPod balance probe failed") from exc
+        if response.status_code != 200:
+            raise AudioSongWorkerError("open-song RunPod balance probe failed")
+        try:
+            payload = response.json()
+            balance = float(payload["data"]["myself"]["clientBalance"])
+        except (ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
+            raise AudioSongWorkerError("open-song RunPod balance evidence is invalid") from exc
+        if balance < 0 or balance > 1_000_000:
+            raise AudioSongWorkerError("open-song RunPod balance evidence is outside bounds")
+        canonical = json.dumps(
+            {"source": "runpod-graphql-myself-clientBalance", "balance_usd": round(balance, 9)},
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        return balance, hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+    async def _arm_one_user_approved(self) -> bool:
+        """Convert one explicit user-approved planned song into a claimable row.
+
+        The API process intentionally has no RunPod secret.  Only this secret-bearing
+        worker can perform the live balance check required by the durable arm guard.
+        """
+        if time.monotonic() < self._next_balance_check_at:
+            return False
+        secrets = self._runtime_secrets()
+        async with SessionLocal() as session:
+            rows = list(
+                (
+                    await session.scalars(
+                        select(AudioSongExecution)
+                        .where(
+                            AudioSongExecution.status == "planned",
+                            AudioSongExecution.route_id == "runpod-flex-a40",
+                            AudioSongExecution.provider == "runpod",
+                            AudioSongExecution.endpoint_id_sha256 == secrets.endpoint_id_sha256,
+                        )
+                        .order_by(AudioSongExecution.created_at, AudioSongExecution.id)
+                        .limit(20)
+                    )
+                ).all()
+            )
+            candidate = next(
+                (
+                    row
+                    for row in rows
+                    if bool((row.provider_metadata or {}).get("user_cost_approved"))
+                ),
+                None,
+            )
+            if candidate is None:
+                return False
+            candidate_id = candidate.id
+
+        balance, evidence_sha256 = await self._provider_balance_usd()
+        async with SessionLocal() as session:
+            row = await session.scalar(
+                select(AudioSongExecution)
+                .where(
+                    AudioSongExecution.id == candidate_id,
+                    AudioSongExecution.status == "planned",
+                    AudioSongExecution.endpoint_id_sha256 == secrets.endpoint_id_sha256,
+                )
+                .with_for_update()
+            )
+            if row is None:
+                return False
+            metadata = dict(row.provider_metadata or {})
+            if not bool(metadata.get("user_cost_approved")):
+                return False
+            raw_approved = metadata.get("approved_max_cost_usd")
+            raw_monthly = metadata.get("monthly_user_cap_usd")
+            try:
+                approved = float(raw_approved) if raw_approved is not None else 0.0
+                monthly = float(raw_monthly) if raw_monthly is not None else 0.0
+            except (TypeError, ValueError) as exc:
+                raise AudioSongWorkerError("open-song user approval metadata is invalid") from exc
+            if abs(approved - float(row.max_cost_usd)) > 1e-9 or monthly <= 0:
+                raise AudioSongWorkerError("open-song user approval does not match durable cost bounds")
+            if balance + 1e-9 < approved:
+                metadata["last_balance_check_sufficient"] = False
+                metadata["last_balance_check_sha256"] = evidence_sha256
+                row.provider_metadata = metadata
+                session.add(
+                    AuditEvent(
+                        id=uuid_str(),
+                        organization_id=row.organization_id,
+                        user_id=row.requested_by_id,
+                        action="audio.song.balance_insufficient",
+                        resource_type="audio_song_execution",
+                        resource_id=row.id,
+                        details={"approved_max_cost_usd": approved, "credential_returned": False},
+                    )
+                )
+                await session.commit()
+                self._next_balance_check_at = time.monotonic() + 60.0
+                self.last_error_code = "open_song_balance_insufficient"
+                return False
+            armed = await arm_audio_song_execution(
+                session,
+                execution_id=row.id,
+                organization_id=row.organization_id,
+                approved_max_cost_usd=approved,
+                monthly_user_cap_usd=monthly,
+                provider_balance_usd=balance,
+                balance_evidence_sha256=evidence_sha256,
+            )
+            armed.provider_metadata = {
+                **(armed.provider_metadata or {}),
+                "user_cost_approved": True,
+                "balance_checked_by_secret_worker": True,
+            }
+            session.add(
+                AuditEvent(
+                    id=uuid_str(),
+                    organization_id=armed.organization_id,
+                    user_id=armed.requested_by_id,
+                    action="audio.song.armed_after_balance_check",
+                    resource_type="audio_song_execution",
+                    resource_id=armed.id,
+                    details={
+                        "approved_max_cost_usd": approved,
+                        "monthly_user_cap_usd": monthly,
+                        "balance_sufficient": True,
+                        "credential_returned": False,
+                        "endpoint_id_returned": False,
+                    },
+                )
+            )
+            await session.commit()
+            return True
 
     async def _claim(self) -> AudioSongClaim | None:
         secrets = self._runtime_secrets()
@@ -770,6 +920,7 @@ class AudioSongWorker:
         if not self.live_enabled:
             self.write_health("disabled")
             return False
+        await self._arm_one_user_approved()
         claim = await self._claim()
         if claim is None:
             self.write_health("healthy")

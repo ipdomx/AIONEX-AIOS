@@ -331,7 +331,7 @@ async def test_transcript_worker_maps_failure_boundary_without_raw_provider_cont
     assert payload["errors"] == 1
 
 
-def test_audio_transcript_worker_compose_is_fail_closed_nonroot_and_profiled() -> None:
+def test_audio_transcript_worker_compose_is_governed_live_nonroot_and_profiled() -> None:
     root = Path(__file__).resolve().parents[3]
     for relative in (
         "web-dashboard/docker-compose.production.yml",
@@ -344,7 +344,7 @@ def test_audio_transcript_worker_compose_is_fail_closed_nonroot_and_profiled() -
         assert 'profiles: ["audio-execution"]' in block
         assert "image: aionex-aios-backend:local" in block
         assert 'user: "1000:1000"' in block
-        assert 'AUDIO_TRANSCRIPT_LIVE_ENABLED: "false"' in block
+        assert 'AUDIO_TRANSCRIPT_LIVE_ENABLED: "true"' in block
         assert 'cap_drop: ["ALL"]' in block
         assert "no-new-privileges:true" in block
         assert "app.services.audio_transcript_worker" in block

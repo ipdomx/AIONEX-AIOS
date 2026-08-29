@@ -156,7 +156,7 @@ async def test_worker_maps_retryability_to_durable_failure(
     assert "credential" not in authority.failed[0]["message"]
 
 
-def test_design_image_worker_compose_is_fail_closed_and_nonroot() -> None:
+def test_design_image_worker_compose_is_governed_live_and_nonroot() -> None:
     root = Path(__file__).resolve().parents[3]
     for relative in (
         "web-dashboard/docker-compose.production.yml",
@@ -168,7 +168,7 @@ def test_design_image_worker_compose_is_fail_closed_and_nonroot() -> None:
         block = source[start:tail]
         assert 'profiles: ["image-execution"]' in block
         assert 'user: "1000:1000"' in block
-        assert 'DESIGN_IMAGE_LIVE_ENABLED: "false"' in block
+        assert 'DESIGN_IMAGE_LIVE_ENABLED: "true"' in block
         assert 'cap_drop: ["ALL"]' in block
         assert 'no-new-privileges:true' in block
         assert 'app.services.design_image_worker' in block

@@ -50,6 +50,7 @@ from app.api.v1.endpoints import (
     integration,
     knowledge,
     locale,
+    live_media,
     meetings,
     mobile_delivery,
     mobile_store_billing,
@@ -101,6 +102,7 @@ api_router.include_router(
     capabilities.router, prefix="/capabilities", tags=["Capabilities"]
 )
 api_router.include_router(studio.router, prefix="/studio", tags=["Production Studio"])
+api_router.include_router(live_media.router, prefix="/studio/live-media", tags=["Live Media Studio"])
 api_router.include_router(
     mobile_delivery.router, prefix="/mobile", tags=["Mobile Delivery"]
 )

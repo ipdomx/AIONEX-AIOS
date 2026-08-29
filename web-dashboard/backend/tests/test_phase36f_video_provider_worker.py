@@ -352,7 +352,7 @@ async def test_failed_terminal_job_records_identity_and_sanitized_failure(
     assert authority.completed == []
 
 
-def test_video_provider_worker_compose_is_live_disabled_nonroot_and_ffmpeg_backed() -> (
+def test_video_provider_worker_compose_is_governed_live_nonroot_and_ffmpeg_backed() -> (
     None
 ):
     root = Path(__file__).resolve().parents[3]
@@ -368,7 +368,7 @@ def test_video_provider_worker_compose_is_live_disabled_nonroot_and_ffmpeg_backe
         assert "image: aionex-aios-video-provider-worker:local" in block
         assert "target: media-worker" in block
         assert 'user: "1000:1000"' in block
-        assert 'VIDEO_EXECUTION_LIVE_ENABLED: "false"' in block
+        assert 'VIDEO_EXECUTION_LIVE_ENABLED: "true"' in block
         assert "MEDIA_FFMPEG_BINARY: /opt/ffmpeg/bin/ffmpeg" in block
         assert "MEDIA_FFPROBE_BINARY: /opt/ffmpeg/bin/ffprobe" in block
         assert "app.services.video_provider_worker" in block
