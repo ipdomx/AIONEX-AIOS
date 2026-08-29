@@ -9,6 +9,11 @@ services:
     mem_limit: 1g
     cpus: "1.5"
     pids_limit: 256
+    read_only: true
+    cap_drop: ["ALL"]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,uid=1001,gid=1001,mode=0700,size=64m
+      - /app/.next/cache:rw,noexec,nosuid,uid=1001,gid=1001,mode=0700,size=128m
     environment:
       NEXT_PUBLIC_API_URL: /api/v1
       NEXT_PUBLIC_WS_URL: /ws
@@ -37,6 +42,11 @@ services:
     mem_limit: 1g
     cpus: "1.5"
     pids_limit: 256
+    read_only: true
+    cap_drop: ["ALL"]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,uid=1001,gid=1001,mode=0700,size=64m
+      - /app/.next/cache:rw,noexec,nosuid,uid=1001,gid=1001,mode=0700,size=128m
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: https://api.vip-e.net/api/v1
@@ -363,7 +373,7 @@ services:
       POSTGRES_PORT: "5432"
       MEDIA_STORAGE_TYPE: inherit
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
-      AUDIO_SPEECH_LIVE_ENABLED: "false"
+      AUDIO_SPEECH_LIVE_ENABLED: "true"
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
     volumes:
@@ -400,7 +410,7 @@ services:
       POSTGRES_PORT: "5432"
       MEDIA_STORAGE_TYPE: inherit
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
-      AUDIO_TRANSCRIPT_LIVE_ENABLED: "false"
+      AUDIO_TRANSCRIPT_LIVE_ENABLED: "true"
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
     volumes:
@@ -437,7 +447,7 @@ services:
       POSTGRES_PORT: "5432"
       MEDIA_STORAGE_TYPE: inherit
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
-      AUDIO_DUBBING_LIVE_ENABLED: "false"
+      AUDIO_DUBBING_LIVE_ENABLED: "true"
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
     volumes:
@@ -474,7 +484,7 @@ services:
       POSTGRES_PORT: "5432"
       MEDIA_STORAGE_TYPE: inherit
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
-      AUDIO_MUSIC_LIVE_ENABLED: "false"
+      AUDIO_MUSIC_LIVE_ENABLED: "true"
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
     volumes:
@@ -509,7 +519,7 @@ services:
       POSTGRES_PORT: "5432"
       MEDIA_STORAGE_TYPE: local
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
-      AUDIO_SONG_LIVE_ENABLED: "false"
+      AUDIO_SONG_LIVE_ENABLED: "true"
       AUDIO_SONG_ENTRYPOINT_SECRET_BOOTSTRAP_ONLY: "true"
       AUDIO_SONG_RUNPOD_SECRET_FILE: /run/secrets/aionex/runpod-open-song.env
       AIOS_REPO_ROOT: /workspace
@@ -596,7 +606,7 @@ services:
       MEDIA_FFMPEG_BINARY: /opt/ffmpeg/bin/ffmpeg
       MEDIA_FFPROBE_BINARY: /opt/ffmpeg/bin/ffprobe
       MEDIA_FFMPEG_TARGET_VERSION: "9.0"
-      VIDEO_EXECUTION_LIVE_ENABLED: "false"
+      VIDEO_EXECUTION_LIVE_ENABLED: "true"
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
     volumes:
@@ -631,7 +641,7 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
       MEDIA_STORAGE_TYPE: inherit
-      DESIGN_IMAGE_LIVE_ENABLED: "false"
+      DESIGN_IMAGE_LIVE_ENABLED: "true"
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
     volumes:
@@ -670,7 +680,7 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
       MEDIA_STORAGE_TYPE: inherit
-      DESIGN_IMAGE_DERIVATIVE_ENABLED: "false"
+      DESIGN_IMAGE_DERIVATIVE_ENABLED: "true"
       DESIGN_IMAGE_SHARP_NODE_BINARY: /usr/bin/node
       DESIGN_IMAGE_SHARP_SCRIPT: /opt/aionex-image-tools/derivative.mjs
       DESIGN_IMAGE_SHARP_TEMP_ROOT: /tmp/aionex-image-derivatives
@@ -941,6 +951,7 @@ services:
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=128m
       - /home/zap/.ZAP:rw,nosuid,uid=1000,gid=1000,mode=0700,size=256m
+      - /home/zap/.java:rw,nosuid,uid=1000,gid=1000,mode=0700,size=16m
     healthcheck:
       test:
         - CMD-SHELL
@@ -957,7 +968,11 @@ services:
     networks: [aionex-network]
 
   postgres:
-    image: postgres:16-alpine
+    image: aionex-aios-postgres:16-hardened
+    build:
+      context: ./docker
+      dockerfile: postgres.Dockerfile
+    user: "70:70"
     restart: unless-stopped
     mem_limit: 8g
     cpus: "4.0"
@@ -979,7 +994,7 @@ services:
     networks: [aionex-network]
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf
     restart: unless-stopped
     mem_limit: 1g
     cpus: "1.0"
@@ -1033,7 +1048,16 @@ services:
     networks: [aionex-network]
 
   nginx:
-    image: nginx:1.27-alpine
+    image: aionex-aios-nginx:hardened
+    build:
+      context: ./docker
+      dockerfile: nginx.Dockerfile
+    user: "101:101"
+    read_only: true
+    entrypoint: ["nginx", "-g", "daemon off;"]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,uid=101,gid=101,mode=0700,size=32m
+      - /var/cache/nginx:rw,noexec,nosuid,uid=101,gid=101,mode=0700,size=64m
     restart: unless-stopped
     mem_limit: 512m
     cpus: "1.0"
@@ -1058,12 +1082,16 @@ services:
     networks: [aionex-network]
 
   cloudflared:
-    image: cloudflare/cloudflared:2026.7.0
+    image: cloudflare/cloudflared:2026.7.0@sha256:5e49861633763e8933475477c20bae6039ed47f32c1d267a34babc347f28f0df
     profiles: ["tunnel"]
     restart: unless-stopped
     mem_limit: 512m
     cpus: "1.0"
     pids_limit: 256
+    read_only: true
+    cap_drop: ["ALL"]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,uid=65532,gid=65532,mode=0700,size=32m
     command: ["tunnel", "--no-autoupdate", "run", "--token", "${CLOUDFLARE_TUNNEL_TOKEN:-}"]
     depends_on:
       nginx: {condition: service_healthy}
