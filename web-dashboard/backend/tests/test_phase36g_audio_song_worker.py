@@ -539,7 +539,7 @@ def test_production_compose_activates_primary_song_worker_and_keeps_secondary_di
             secondary_start : source.index("  video-provider-worker:", secondary_start)
         ]
         assert 'profiles: ["audio-execution"]' in block
-        assert 'AUDIO_SONG_LIVE_ENABLED: "true"' in block
+        assert 'AUDIO_SONG_LIVE_ENABLED: "false"' in block
         assert 'AUDIO_SONG_ENTRYPOINT_SECRET_BOOTSTRAP_ONLY: "true"' in block
         assert 'MEDIA_STORAGE_TYPE: local' in block
         assert 'MEDIA_STORAGE_TYPE: inherit' not in block

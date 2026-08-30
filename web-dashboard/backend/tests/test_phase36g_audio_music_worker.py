@@ -372,7 +372,7 @@ def test_audio_music_worker_compose_is_governed_live_nonroot_and_profiled() -> N
         block = source[start:end]
         assert 'profiles: ["audio-execution"]' in block
         assert 'user: "1000:1000"' in block
-        assert 'AUDIO_MUSIC_LIVE_ENABLED: "true"' in block
+        assert 'AUDIO_MUSIC_LIVE_ENABLED: "false"' in block
         assert 'app.services.audio_music_worker' in block
         assert 'security_opt: ["no-new-privileges:true"]' in block
         assert 'cap_drop: ["ALL"]' in block
