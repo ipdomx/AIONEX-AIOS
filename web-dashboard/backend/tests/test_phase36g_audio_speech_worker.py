@@ -298,7 +298,7 @@ def test_audio_speech_worker_compose_is_governed_live_nonroot_and_profile_gated(
         block = source[start:tail]
         assert 'profiles: ["audio-execution"]' in block
         assert 'user: "1000:1000"' in block
-        assert 'AUDIO_SPEECH_LIVE_ENABLED: "true"' in block
+        assert 'AUDIO_SPEECH_LIVE_ENABLED: "false"' in block
         assert 'cap_drop: ["ALL"]' in block
         assert 'no-new-privileges:true' in block
         assert 'app.services.audio_speech_worker' in block

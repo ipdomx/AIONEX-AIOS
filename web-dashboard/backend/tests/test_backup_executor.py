@@ -1372,7 +1372,7 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
         )[0]
         assert 'profiles: ["audio-execution"]' in audio_section
         assert 'command: ["python", "-m", "app.services.audio_speech_worker"]' in audio_section
-        assert 'AUDIO_SPEECH_LIVE_ENABLED: "true"' in audio_section
+        assert 'AUDIO_SPEECH_LIVE_ENABLED: "false"' in audio_section
         assert 'user: "1000:1000"' in audio_section
         assert 'cap_drop: ["ALL"]' in audio_section
         assert 'no-new-privileges:true' in audio_section
@@ -1385,7 +1385,7 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
             'command: ["python", "-m", "app.services.audio_transcript_worker"]'
             in transcript_section
         )
-        assert 'AUDIO_TRANSCRIPT_LIVE_ENABLED: "true"' in transcript_section
+        assert 'AUDIO_TRANSCRIPT_LIVE_ENABLED: "false"' in transcript_section
         assert 'user: "1000:1000"' in transcript_section
         assert 'cap_drop: ["ALL"]' in transcript_section
         assert 'no-new-privileges:true' in transcript_section
@@ -1395,7 +1395,7 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
         )[0]
         assert 'profiles: ["audio-execution"]' in dubbing_section
         assert 'command: ["python", "-m", "app.services.audio_dubbing_worker"]' in dubbing_section
-        assert 'AUDIO_DUBBING_LIVE_ENABLED: "true"' in dubbing_section
+        assert 'AUDIO_DUBBING_LIVE_ENABLED: "false"' in dubbing_section
         assert 'user: "1000:1000"' in dubbing_section
         assert 'cap_drop: ["ALL"]' in dubbing_section
         assert 'no-new-privileges:true' in dubbing_section
@@ -1405,7 +1405,7 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
         )[0]
         assert 'profiles: ["audio-execution"]' in music_section
         assert 'command: ["python", "-m", "app.services.audio_music_worker"]' in music_section
-        assert 'AUDIO_MUSIC_LIVE_ENABLED: "true"' in music_section
+        assert 'AUDIO_MUSIC_LIVE_ENABLED: "false"' in music_section
         assert 'user: "1000:1000"' in music_section
         assert 'cap_drop: ["ALL"]' in music_section
         assert 'no-new-privileges:true' in music_section
@@ -1421,7 +1421,7 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
             'command: ["python", "-m", "app.services.audio_song_worker"]'
             in song_section
         )
-        assert 'AUDIO_SONG_LIVE_ENABLED: "true"' in song_section
+        assert 'AUDIO_SONG_LIVE_ENABLED: "false"' in song_section
         assert 'AUDIO_SONG_ENTRYPOINT_SECRET_BOOTSTRAP_ONLY: "true"' in song_section
         assert 'MEDIA_STORAGE_TYPE: local' in song_section
         assert 'MEDIA_STORAGE_TYPE: inherit' not in song_section
