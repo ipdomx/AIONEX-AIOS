@@ -17,7 +17,7 @@ from typing import Any, Literal
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aios.audio_factory import AudioRequest, AudioSegment, build_audio_plan
@@ -100,6 +100,15 @@ _REPO_ROOT = Path(os.environ.get("AIOS_REPO_ROOT", "/workspace"))
 _OPEN_SONG_EVIDENCE_ROOT = _REPO_ROOT / ".deployment-backups/phase36g-open-song-main-components-live/20260827T165247Z"
 _OPEN_SONG_BINDING = _OPEN_SONG_EVIDENCE_ROOT / "runpod-private-binding-acceptance.json"
 _OPEN_SONG_ACCEPTANCE = _OPEN_SONG_EVIDENCE_ROOT / "real-open-song-acceptance-v8.json"
+_OPEN_SONG_SECONDARY_EVIDENCE_ROOT = Path(
+    os.environ.get(
+        "AUDIO_SONG_SECONDARY_EVIDENCE_ROOT",
+        str(_REPO_ROOT / ".deployment-backups/phase36g-open-song-secondary-live/current"),
+    )
+)
+_OPEN_SONG_SECONDARY_BINDING = _OPEN_SONG_SECONDARY_EVIDENCE_ROOT / "runpod-private-binding-acceptance.json"
+_OPEN_SONG_SECONDARY_ACCEPTANCE = _OPEN_SONG_SECONDARY_EVIDENCE_ROOT / "real-open-song-acceptance.json"
+_OPEN_SONG_ACTIVE_STATUSES = ("planned", "queued", "running", "rendering")
 _RECEIPTS = {
     "image": "docs/phase-36/receipts/36E-2026-08-18-design-image-foundation.md",
     "video": "docs/phase-36/receipts/36F-2026-08-19-video-factory.md",
@@ -664,9 +673,12 @@ async def create_live_music(data: MusicLiveRequest, actor: UserRecord = Depends(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-def _open_song_binding_and_evidence() -> tuple[OpenSongRuntimeBinding, dict[str, str]]:
-    binding = _load_json_evidence(_OPEN_SONG_BINDING)
-    accepted = _load_json_evidence(_OPEN_SONG_ACCEPTANCE)
+def _open_song_binding_from_evidence(
+    binding_path: Path,
+    acceptance_path: Path,
+) -> tuple[OpenSongRuntimeBinding, dict[str, str]]:
+    binding = _load_json_evidence(binding_path)
+    accepted = _load_json_evidence(acceptance_path)
     endpoint = str(binding.get("endpoint_id") or "").strip()
     digest = str(binding.get("image_digest") or "").strip().lower()
     repository = str(binding.get("image_repository") or "").strip().lower()
@@ -690,11 +702,71 @@ def _open_song_binding_and_evidence() -> tuple[OpenSongRuntimeBinding, dict[str,
     }
 
 
+def _open_song_binding_and_evidence() -> tuple[OpenSongRuntimeBinding, dict[str, str]]:
+    return _open_song_binding_from_evidence(_OPEN_SONG_BINDING, _OPEN_SONG_ACCEPTANCE)
+
+
+def _secondary_open_song_binding_and_evidence() -> tuple[OpenSongRuntimeBinding, dict[str, str]] | None:
+    binding_exists = _OPEN_SONG_SECONDARY_BINDING.is_file()
+    acceptance_exists = _OPEN_SONG_SECONDARY_ACCEPTANCE.is_file()
+    if not binding_exists and not acceptance_exists:
+        return None
+    if binding_exists != acceptance_exists:
+        raise HTTPException(status_code=503, detail="Secondary Open Song runtime evidence is incomplete")
+    return _open_song_binding_from_evidence(
+        _OPEN_SONG_SECONDARY_BINDING,
+        _OPEN_SONG_SECONDARY_ACCEPTANCE,
+    )
+
+
+async def _select_open_song_binding_and_evidence(
+    session: AsyncSession,
+    *,
+    routing_key: str,
+) -> tuple[OpenSongRuntimeBinding, dict[str, str]]:
+    candidates = [_open_song_binding_and_evidence()]
+    secondary = _secondary_open_song_binding_and_evidence()
+    if secondary is not None:
+        if secondary[0].endpoint_id_sha256 == candidates[0][0].endpoint_id_sha256:
+            raise HTTPException(status_code=503, detail="Open Song account pool contains a duplicate endpoint")
+        candidates.append(secondary)
+    if len(candidates) == 1:
+        return candidates[0]
+
+    endpoint_hashes = [item[0].endpoint_id_sha256 for item in candidates]
+    counts = {endpoint_hash: 0 for endpoint_hash in endpoint_hashes}
+    rows = (
+        await session.execute(
+            select(
+                AudioSongExecution.endpoint_id_sha256,
+                func.count(AudioSongExecution.id),
+            )
+            .where(
+                AudioSongExecution.endpoint_id_sha256.in_(endpoint_hashes),
+                AudioSongExecution.status.in_(_OPEN_SONG_ACTIVE_STATUSES),
+            )
+            .group_by(AudioSongExecution.endpoint_id_sha256)
+        )
+    ).all()
+    for endpoint_hash, active_count in rows:
+        if endpoint_hash in counts:
+            counts[endpoint_hash] = int(active_count or 0)
+
+    def rank(item: tuple[OpenSongRuntimeBinding, dict[str, str]]) -> tuple[int, str]:
+        endpoint_hash = item[0].endpoint_id_sha256
+        tie_break = hashlib.sha256(f"{routing_key}:{endpoint_hash}".encode()).hexdigest()
+        return counts[endpoint_hash], tie_break
+
+    return min(candidates, key=rank)
+
+
 @router.post("/song", status_code=202)
 async def create_live_song(data: SongLiveRequest, actor: UserRecord = Depends(require_non_free_user), session: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     if not (data.commercial_use_authorized and data.provider_terms_accepted and data.ai_generated_disclosure_accepted):
         raise HTTPException(status_code=422, detail="Commercial use, provider terms, and AI disclosure acceptance are required")
-    binding, evidence = _open_song_binding_and_evidence()
+    binding, evidence = await _select_open_song_binding_and_evidence(
+        session, routing_key=data.idempotency_key
+    )
     scope = await _scope(session, actor, project_id=data.project_id, workspace_id=data.workspace_id)
     rights = OpenSongRightsEvidence(basis=data.rights_basis, commercial_use_authorized=True, provider_terms_accepted=True, ai_generated_disclosure_accepted=True, evidence_sha256=data.rights_evidence_sha256)
     try:
