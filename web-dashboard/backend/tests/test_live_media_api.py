@@ -306,6 +306,7 @@ async def test_live_open_song_records_approval_but_secret_worker_must_arm(monkey
         "_open_song_binding_and_evidence",
         lambda: (binding, {"runtime": "5" * 64, "pricing": "6" * 64, "license": "7" * 64}),
     )
+    monkeypatch.setattr(live_media, "_secondary_open_song_binding_and_evidence", lambda: None)
     try:
         async with AsyncClient(transport=ASGITransport(app=_app(actor)), base_url="http://test") as client:
             response = await client.post(
@@ -341,6 +342,69 @@ async def test_live_open_song_records_approval_but_secret_worker_must_arm(monkey
             assert row.provider_job_id is None
             assert row.provider_metadata["user_cost_approved"] is True
             assert row.provider_metadata["balance_check_delegated_to_secret_worker"] is True
+    finally:
+        await _cleanup(org.id)
+
+
+@pytest.mark.asyncio
+async def test_live_open_song_pool_routes_new_requests_to_least_active_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+    org, _user, actor = await _actor("song-pool")
+    common = {
+        "route_id": "runpod-flex-a40",
+        "container_image_repository": "ipdomx/aionex-open-song",
+        "container_image_index_digest": "sha256:" + "2" * 64,
+        "container_image_digest": "sha256:" + "2" * 64,
+        "image_sbom_sha256": "3" * 64,
+        "handler_source_sha256": "4" * 64,
+    }
+    primary = OpenSongRuntimeBinding(endpoint_id_sha256="1" * 64, **common)
+    secondary = OpenSongRuntimeBinding(endpoint_id_sha256="9" * 64, **common)
+    evidence = {"runtime": "5" * 64, "pricing": "6" * 64, "license": "7" * 64}
+    monkeypatch.setattr(live_media, "_open_song_binding_and_evidence", lambda: (primary, evidence))
+    monkeypatch.setattr(live_media, "_secondary_open_song_binding_and_evidence", lambda: (secondary, evidence))
+
+    def payload(suffix: str) -> dict[str, object]:
+        return {
+            "title": "Original governed pool song",
+            "concept": "Original cinematic electronic pop with synthetic vocals and a clean resolved ending.",
+            "lyrics": "[Verse]\nWe make a new horizon in the morning light.\n[Chorus]\nOriginal voices carry through the night.",
+            "language": "en",
+            "duration_seconds": 30,
+            "bpm": 104,
+            "musical_key": "Am",
+            "rights_basis": "original",
+            "rights_evidence_sha256": "8" * 64,
+            "commercial_use_authorized": True,
+            "provider_terms_accepted": True,
+            "ai_generated_disclosure_accepted": True,
+            "approved_max_cost_usd": 0.20,
+            "monthly_user_cap_usd": 0.40,
+            "idempotency_key": f"live-song-pool-{suffix}-{uuid4().hex}",
+        }
+
+    try:
+        async with AsyncClient(transport=ASGITransport(app=_app(actor)), base_url="http://test") as client:
+            first = await client.post("/api/v1/studio/live-media/song", json=payload("one"))
+            second = await client.post("/api/v1/studio/live-media/song", json=payload("two"))
+        assert first.status_code == 202, first.text
+        assert second.status_code == 202, second.text
+        assert first.json()["endpoint_id_returned"] is False
+        assert second.json()["endpoint_id_returned"] is False
+        async with SessionLocal() as session:
+            rows = list(
+                (
+                    await session.scalars(
+                        select(AudioSongExecution)
+                        .where(AudioSongExecution.organization_id == org.id)
+                        .order_by(AudioSongExecution.created_at, AudioSongExecution.id)
+                    )
+                ).all()
+            )
+            assert len(rows) == 2
+            assert {row.endpoint_id_sha256 for row in rows} == {"1" * 64, "9" * 64}
+            assert all(row.status == "planned" for row in rows)
+            assert all(row.attempts == 0 for row in rows)
+            assert all(row.provider_job_id is None for row in rows)
     finally:
         await _cleanup(org.id)
 
