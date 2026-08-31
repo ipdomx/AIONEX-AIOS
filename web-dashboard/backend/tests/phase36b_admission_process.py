@@ -7,12 +7,6 @@ import json
 import os
 import sys
 import time
-from pathlib import Path
-
-BACKEND_ROOT = Path(__file__).resolve().parents[1]
-if str(BACKEND_ROOT) not in sys.path:
-    sys.path.insert(0, str(BACKEND_ROOT))
-
 from app.db.base import SessionLocal, engine
 from app.db.models import ProjectExecution
 from app.db.redis import close_redis, init_redis
