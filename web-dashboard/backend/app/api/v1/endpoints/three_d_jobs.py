@@ -20,8 +20,10 @@ from fastapi import (
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi.responses import FileResponse
 
 from app.core.auth import UserRecord, require_permissions
+from app.core.config import settings
 from app.db.base import get_db
 from app.db.models import ThreeDArtifact, ThreeDGenerationJob, uuid_str
 from app.services import communications
@@ -54,7 +56,14 @@ from app.services.three_d_product import (
     project_for_actor,
     validate_image_payload,
 )
-from app.services.three_d_storage import GLB_MEDIA_TYPE, ThreeDObjectStore
+from app.services.three_d_storage import (
+    GLB_MEDIA_TYPE,
+    ThreeDObjectStore,
+    ThreeDStorageError,
+    issue_local_artifact_token,
+    local_artifact_url,
+    verify_local_artifact_token,
+)
 
 router = APIRouter()
 
@@ -594,6 +603,67 @@ async def clarify_three_d_job(
     return job_snapshot(job, artifact)
 
 
+@router.get("/3d/artifacts/local")
+async def download_local_three_d_artifact(
+    token: str = Query(min_length=80, max_length=2048),
+    session: AsyncSession = Depends(get_db),
+):
+    try:
+        grant = verify_local_artifact_token(token, secret=settings.SECRET_KEY)
+    except ThreeDStorageError as exc:
+        raise HTTPException(status_code=404, detail="3D artifact link is invalid") from exc
+    job = await session.scalar(
+        select(ThreeDGenerationJob).where(
+            ThreeDGenerationJob.id == grant.job_id,
+            ThreeDGenerationJob.project_id == grant.project_id,
+        )
+    )
+    artifact = await session.scalar(
+        select(ThreeDArtifact).where(
+            ThreeDArtifact.id == grant.artifact_id,
+            ThreeDArtifact.job_id == grant.job_id,
+            ThreeDArtifact.project_id == grant.project_id,
+        )
+    )
+    if (
+        job is None
+        or artifact is None
+        or job.provider != "triposr"
+        or job.status != "completed"
+        or artifact.status != "ready"
+        or artifact.media_type != GLB_MEDIA_TYPE
+    ):
+        raise HTTPException(status_code=404, detail="3D artifact is unavailable")
+    if artifact.expires_at is not None:
+        expires_at = artifact.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=now().tzinfo)
+        if expires_at <= now():
+            raise HTTPException(status_code=410, detail="3D artifact retention period has expired")
+    try:
+        store = ThreeDObjectStore()
+        if not store.is_local:
+            raise ThreeDStorageError("3D local storage is not active")
+        path = store.verified_local_path(
+            artifact.object_key,
+            checksum=artifact.checksum,
+            size_bytes=artifact.size_bytes,
+        )
+    except ThreeDStorageError as exc:
+        raise HTTPException(status_code=409, detail="3D artifact storage verification failed") from exc
+    return FileResponse(
+        path,
+        media_type=GLB_MEDIA_TYPE,
+        filename=artifact.filename,
+        content_disposition_type="inline" if grant.inline else "attachment",
+        headers={
+            "Cache-Control": "private, no-store, max-age=0",
+            "X-Content-Type-Options": "nosniff",
+            "X-AIONEX-Checksum-SHA256": artifact.checksum,
+        },
+    )
+
+
 @router.get("/{project_id}/3d/jobs/{job_id}/artifact")
 async def get_three_d_artifact_links(
     project_id: str,
@@ -634,20 +704,47 @@ async def get_three_d_artifact_links(
         )
     ttl = int(policy["signed_url_ttl_seconds"])
     store = ThreeDObjectStore()
-    view_url = store.presigned_get(
-        artifact.object_key,
-        filename=artifact.filename,
-        content_type=GLB_MEDIA_TYPE,
-        expires_seconds=ttl,
-        inline=True,
-    )
-    download_url = store.presigned_get(
-        artifact.object_key,
-        filename=artifact.filename,
-        content_type=GLB_MEDIA_TYPE,
-        expires_seconds=ttl,
-        inline=False,
-    )
+    if bool(getattr(store, "is_local", False)):
+        if job.provider != "triposr":
+            raise HTTPException(
+                status_code=409,
+                detail="Local 3D artifact delivery is restricted to the approved TripoSR fallback",
+            )
+        view_token = issue_local_artifact_token(
+            project_id=project_id,
+            job_id=job.id,
+            artifact_id=artifact.id,
+            inline=True,
+            secret=settings.SECRET_KEY,
+            ttl_seconds=ttl,
+        )
+        download_token = issue_local_artifact_token(
+            project_id=project_id,
+            job_id=job.id,
+            artifact_id=artifact.id,
+            inline=False,
+            secret=settings.SECRET_KEY,
+            ttl_seconds=ttl,
+        )
+        view_url = local_artifact_url(settings.PORTAL_PUBLIC_API_ORIGIN, view_token)
+        download_url = local_artifact_url(
+            settings.PORTAL_PUBLIC_API_ORIGIN, download_token
+        )
+    else:
+        view_url = store.presigned_get(
+            artifact.object_key,
+            filename=artifact.filename,
+            content_type=GLB_MEDIA_TYPE,
+            expires_seconds=ttl,
+            inline=True,
+        )
+        download_url = store.presigned_get(
+            artifact.object_key,
+            filename=artifact.filename,
+            content_type=GLB_MEDIA_TYPE,
+            expires_seconds=ttl,
+            inline=False,
+        )
     session.add(
         audit_job(
             job,
