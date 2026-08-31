@@ -1,0 +1,113 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://aionex.local/vex/hunyuan3d-runtime-2026-08-31-v1",
+  "author": "AIONEX AIOS Security Gate",
+  "timestamp": "2026-08-31T02:27:56Z",
+  "version": 1,
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "GHSA-6v7p-g79w-8964"
+      },
+      "products": [
+        {
+          "@id": "pkg:pypi/msgpack@1.1.2"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "Trivy reports msgpack 1.1.2 only from inherited SBOM metadata with no filesystem package path. The final runtime filesystem contains msgpack 1.2.1, which fixes this advisory."
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-47273"
+      },
+      "products": [
+        {
+          "@id": "pkg:pypi/setuptools@70.3.0"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "Trivy reports setuptools 70.3.0 only from inherited SBOM metadata with no filesystem package path. The final runtime filesystem contains setuptools 80.10.2, newer than the fixed 78.1.1 release."
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2024-8019"
+      },
+      "products": [
+        {
+          "@id": "pkg:pypi/pytorch-lightning@1.9.5"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "The advisory is in LightningApp's Windows /api/v1/upload_file/ path. This image is Ubuntu Linux and launches only the RunPod serverless handler; no LightningApp HTTP service or upload endpoint is started."
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2024-8020"
+      },
+      "products": [
+        {
+          "@id": "pkg:pypi/pytorch-lightning@1.9.5"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "The vulnerable /api/v1/state endpoint belongs to LightningApp. The production entrypoint is /opt/handler.py under RunPod serverless and never starts LightningApp or its state API."
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-31221"
+      },
+      "products": [
+        {
+          "@id": "pkg:pypi/pytorch-lightning@1.9.5"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "The only load_from_checkpoint() call in the baked Hunyuan source tree is in hy3dpaint/train.py. The RunPod inference handler does not execute the training program and accepts no checkpoint or model path from requests."
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-32434"
+      },
+      "products": [
+        {
+          "@id": "pkg:pypi/torch@2.5.1%2Bcu124"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_cannot_be_controlled_by_adversary",
+      "impact_statement": "The serverless request contract accepts an image and bounded scalar options only; it exposes no model/checkpoint path. Shape and paint assets are baked into the immutable image under fixed /models paths, so an adversary cannot supply the malicious torch model required by this advisory."
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-4372"
+      },
+      "products": [
+        {
+          "@id": "pkg:pypi/transformers@4.48.0"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_cannot_be_controlled_by_adversary",
+      "impact_statement": "Model roots are fixed to baked local /models paths and the request schema has no repository, config, trust_remote_code, or model selector. Runtime sets HF_HUB_OFFLINE=1 and TRANSFORMERS_OFFLINE=1, preventing attacker-controlled Hub repository loading."
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-5241"
+      },
+      "products": [
+        {
+          "@id": "pkg:pypi/transformers@4.48.0"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_cannot_be_controlled_by_adversary",
+      "impact_statement": "The LightGlue remote-model attack requires an attacker-controlled repository/config. Hunyuan inference uses fixed baked local model roots, exposes no model repository input, and runs Hugging Face/Transformers in offline mode."
+    }
+  ]
+}
