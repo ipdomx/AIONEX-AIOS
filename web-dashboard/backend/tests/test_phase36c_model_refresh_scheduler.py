@@ -94,3 +94,11 @@ def test_production_operations_observer_keeps_model_evidence_fresh_without_armin
 
     dashboard_compose = (repo_root / "web-dashboard/docker-compose.production.yml").read_text(encoding="utf-8")
     assert 'PROJECT_AI_LIVE_RUNTIME_ENABLED: "false"' in dashboard_compose
+
+    for relative in (
+        "web-dashboard/docker-compose.production.yml",
+        "deploy/production/docker-compose.production.yml",
+    ):
+        compose = (repo_root / relative).read_text(encoding="utf-8")
+        assert "${AIOS_ENV_FILE:-.env}" not in compose
+        assert "${AIOS_ENV_FILE:-.env.production}" in compose

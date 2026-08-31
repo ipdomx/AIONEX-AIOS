@@ -361,7 +361,7 @@ services:
     pids_limit: 256
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.audio_music_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -395,7 +395,7 @@ services:
     pids_limit: 256
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.audio_song_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -433,7 +433,7 @@ services:
     pids_limit: 256
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.audio_song_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
