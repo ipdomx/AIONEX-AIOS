@@ -153,6 +153,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
+      PROJECT_AI_MODEL_REFRESH_ENABLED: "true"
     command: ["python", "-m", "app.services.operations_observer"]
     restart: unless-stopped
     mem_limit: 1g
@@ -360,7 +361,7 @@ services:
     pids_limit: 256
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.audio_music_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -394,7 +395,7 @@ services:
     pids_limit: 256
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.audio_song_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -432,7 +433,7 @@ services:
     pids_limit: 256
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.audio_song_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"

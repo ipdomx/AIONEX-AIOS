@@ -72,7 +72,7 @@ services:
     mem_limit: 4g
     cpus: "4.0"
     pids_limit: 768
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -129,7 +129,7 @@ services:
     cpus: "1.0"
     pids_limit: 256
     command: ["python", "/app/app/db/postgres_credentials.py"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
@@ -153,7 +153,7 @@ services:
     pids_limit: 512
     stop_grace_period: ${BACKUP_JOB_LEASE_SECONDS:-3600}s
     command: ["python", "-m", "app.services.backup_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -183,7 +183,7 @@ services:
     cpus: "2.0"
     pids_limit: 384
     command: ["python", "-m", "app.services.communication_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -218,7 +218,7 @@ services:
     cpus: "1.0"
     pids_limit: 256
     command: ["python", "-m", "app.services.operations_observer"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -227,6 +227,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
+      PROJECT_AI_MODEL_REFRESH_ENABLED: "true"
     volumes:
       - ..:/workspace:ro
     depends_on:
@@ -247,7 +248,7 @@ services:
     cpus: "2.0"
     pids_limit: 512
     command: ["python", "-m", "app.services.studio_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -286,7 +287,7 @@ services:
     pids_limit: 384
     stop_grace_period: 30s
     command: ["python", "-m", "app.services.academy_course_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -327,7 +328,7 @@ services:
     pids_limit: 768
     stop_grace_period: 60s
     command: ["python", "-m", "app.services.media_render_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -365,7 +366,7 @@ services:
     pids_limit: 256
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.audio_speech_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -402,7 +403,7 @@ services:
     pids_limit: 256
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.audio_transcript_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -439,7 +440,7 @@ services:
     pids_limit: 256
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.audio_dubbing_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -476,7 +477,7 @@ services:
     pids_limit: 256
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.audio_music_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -511,7 +512,7 @@ services:
     pids_limit: 256
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.audio_song_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -550,7 +551,7 @@ services:
     pids_limit: 256
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.audio_song_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -595,7 +596,7 @@ services:
     pids_limit: 768
     stop_grace_period: 60s
     command: ["python", "-m", "app.services.video_provider_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -634,7 +635,7 @@ services:
     pids_limit: 384
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.design_image_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -673,7 +674,7 @@ services:
     pids_limit: 384
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.design_image_derivative_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -709,7 +710,7 @@ services:
     pids_limit: 512
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.three_d_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -745,7 +746,7 @@ services:
     cpus: "3.0"
     pids_limit: 768
     command: ["python", "-m", "app.services.project_execution_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -792,7 +793,7 @@ services:
     pids_limit: 256
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.telegram_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -825,7 +826,7 @@ services:
     pids_limit: 256
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.user_telegram_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -873,7 +874,7 @@ services:
     pids_limit: 384
     read_only: true
     command: ["python", "-m", "app.services.security_scan_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -913,7 +914,7 @@ services:
     cpus: "1.5"
     pids_limit: 384
     command: ["python", "-m", "app.services.security_remediation_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
