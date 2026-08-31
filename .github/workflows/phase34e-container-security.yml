@@ -21,7 +21,7 @@ jobs:
       - name: Prepare artifact directory
         run: mkdir -p artifacts
       - name: Generate CycloneDX SBOM
-        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26
         with:
           image: aionex-aios-backend:phase34e
           format: cyclonedx-json
@@ -30,7 +30,7 @@ jobs:
           upload-release-assets: false
           syft-version: v1.50.0
       - name: Fail on high or critical image vulnerabilities
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
           version: v0.72.0
           image-ref: aionex-aios-backend:phase34e
