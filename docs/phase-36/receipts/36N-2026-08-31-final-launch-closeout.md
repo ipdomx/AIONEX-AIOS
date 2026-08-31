@@ -51,3 +51,33 @@ Before this change is merged and deployed: Backend, Owner frontend, Nginx, Postg
 ## Deployment boundary
 
 This receipt certifies the source candidate and pre-deploy gates. Protected CI, merge identity, selective Owner publication, shared-hosting backup/rsync checksum parity, live HTTP acceptance, and final cleanup are recorded in the post-deploy continuation once completed.
+
+## Post-deploy continuation — protected merge and live publication
+
+Protected PR #535 merged to `main` as `519958354d8a95111b9958393fe23ce653de6fff` after every required check passed. The final `Production Docker Build` completed successfully in `20m59s`, including core images, FFmpeg 9 media worker, live-disabled speech/transcript/dubbing/music/video workers, Sharp derivative worker, Security Lab image/toolchain, legacy `DATABASE_URL` data-preservation, legacy `.env` upgrade, and backup/restore round-trip.
+
+The AIOS server working tree was then updated to the exact merged main SHA over an authenticated HTTPS fetch without changing the persistent Git remote configuration.
+
+### Owner selective deployment
+
+Only the Owner frontend service was rebuilt/recreated. Backend, Nginx, PostgreSQL, Redis and all workers were intentionally left running.
+
+The previously running Owner image had already been pruned from the local image store, so a direct Docker tag/commit could not provide a safe rollback anchor. Before mutation, the exact pre-change source `8e010082dcf88e761dc6e74f990a6b514dc7e18a` was checked out in a temporary worktree and rebuilt with the same Dockerfile and `NEXT_PUBLIC_USER_PORTAL_URL=https://ai.vip-e.net`. That rollback image is retained as `aionex-aios-frontend:rollback-final-launch-20260831T102031Z`, image ID `sha256:b4844784b62e137b87599e8d64296340883cbb0836e4e1548cb0c9df251515fd`.
+
+The merged Owner image built successfully as `sha256:240a2cb8215d094c2a85074ad29110137a50262b3f63250390c5b3d2cf6a07b1` and is also retained as `aionex-aios-frontend:release-519958354d8a`. `web-dashboard-frontend-1` alone was recreated; it reached `healthy` with restart count `0`. Direct private-origin HTTP checks returned `200` for `/`, `/infrastructure/containers`, `/infrastructure/databases` and `/infrastructure/servers`; API `/ready` remained `200`.
+
+### `ai.vip-e.net` shared-hosting publication
+
+The merged VIP source was re-verified immediately before publication: integrity `96` files / `6` complete locales / no simulated-data markers, TypeScript PASS, ESLint PASS, static build `127` pages, static smoke `94` URLs.
+
+Before rsync, the live shared-hosting document root was archived to `/home2/ipdom3m7/.aionex-deploy-backups/20260831T102031Z-final-launch-closeout/ai-vip-before-final-launch-closeout.tar.gz` (5,762,222 bytes; SHA-256 `85603fcee39274257b21cfafc9973a0edae3d250f72486d325ce938b118629ea`, mode `0600`). Publication used the established `aionex-cpanel-ai-vip` SSH route, `--delete`, and explicit preservation of `.well-known/acme-challenge/` plus hosting-owned `cgi-bin/` if present. `.well-known/assetlinks.json` remains present.
+
+Post-publication checksum-only rsync parity returned exactly `0` difference lines. Live external HTTP acceptance returned `200` for all six locale roots (`ar`, `de`, `en`, `es`, `fr`, `tr`) and each locale's `login`, `projects`, `studio` and `academy` routes. Public `/`, `robots.txt`, `sitemap.xml` and `.well-known/assetlinks.json` all return `200`. Each of the six live locale-root HTML responses matched the local deployed `index.html` SHA-256 exactly.
+
+External boundaries remain correct: `https://api.vip-e.net/ready` returns `200`; `https://gabarot.vip-e.net/` returns the expected Cloudflare Access `302`. No Cloudflare DNS or Tunnel mutation was made.
+
+### Final production and cleanup state
+
+All `29` running `web-dashboard` Production containers were checked after publication: `bad=0`, every health-labeled container is `healthy`, and all restart counts are `0`; `cloudflared` is running without a Docker healthcheck as before. Disposable audit PostgreSQL/Redis, Trivy containers and the audit network were removed. No audit/Trivy containers remain. The pinned hardened Hunyuan candidate and Owner rollback image are intentionally retained. Root filesystem usage after cleanup is approximately `39%`, with about `513 GB` free.
+
+No paid GPU/provider generation was used, Production databases were never used for the test suites, and `HUNYUAN_RUNTIME_SECURITY_APPROVED` remains `False` pending a separate GPU functional/PBR acceptance. TripoSR remains the approved 3D fallback. External legal/store/realtime/provider gates remain explicit and are not represented as completed by this deployment.
