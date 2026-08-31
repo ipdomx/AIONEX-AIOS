@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "date": "2026-08-31",
-  "scope": "final launch closeout source and runtime pre-deploy evidence",
+  "scope": "final launch closeout source, security, merge and live deployment evidence",
   "base_main_sha": "8e010082dcf88e761dc6e74f990a6b514dc7e18a",
   "hunyuan3d": {
     "source_candidate": "aionex-hunyuan3d:pinned-release-20260831",
@@ -64,7 +64,21 @@
     "typescript": "PASS",
     "eslint": "PASS",
     "arabic_coverage": "PASS (991 translatable strings; 5 approved technical tokens)",
-    "production_build": "PASS (90 static pages)"
+    "production_build": "PASS (90 static pages)",
+    "live_deployment": {
+      "image_id": "sha256:240a2cb8215d094c2a85074ad29110137a50262b3f63250390c5b3d2cf6a07b1",
+      "release_tag": "aionex-aios-frontend:release-519958354d8a",
+      "rollback_image_id": "sha256:b4844784b62e137b87599e8d64296340883cbb0836e4e1548cb0c9df251515fd",
+      "rollback_tag": "aionex-aios-frontend:rollback-final-launch-20260831T102031Z",
+      "container_health": "healthy",
+      "restart_count": 0,
+      "local_owner_routes": {
+        "/": 200,
+        "/infrastructure/containers": 200,
+        "/infrastructure/databases": 200,
+        "/infrastructure/servers": 200
+      }
+    }
   },
   "vip_frontend": {
     "deployment_route": "SSH alias aionex-cpanel-ai-vip to /home2/ipdom3m7/ai.vip-e.net",
@@ -75,11 +89,47 @@
     "static_build": "PASS (127 pages)",
     "static_smoke": "PASS (94 URLs)",
     "predeploy_rsync_dry_run_change_lines": 495,
-    "remote_free_space": "approximately 724 GB"
+    "remote_free_space": "approximately 724 GB",
+    "live_deployment": {
+      "remote_backup": "/home2/ipdom3m7/.aionex-deploy-backups/20260831T102031Z-final-launch-closeout/ai-vip-before-final-launch-closeout.tar.gz",
+      "remote_backup_sha256": "85603fcee39274257b21cfafc9973a0edae3d250f72486d325ce938b118629ea",
+      "remote_backup_size_bytes": 5762222,
+      "rsync_checksum_difference_lines": 0,
+      "locales": [
+        "ar",
+        "de",
+        "en",
+        "es",
+        "fr",
+        "tr"
+      ],
+      "live_matrix": "PASS (6 locales x root/login/projects/studio/academy = HTTP 200)",
+      "root_static_contracts": "PASS (root, robots.txt, sitemap.xml, assetlinks.json = HTTP 200)",
+      "live_html_sha256_parity": "PASS for all six locale root pages"
+    }
   },
   "production_invariants": {
     "paid_gpu_generation_used_for_this_closeout": false,
     "cloudflare_dns_mutated": false,
     "production_database_used_for_tests": false
+  },
+  "merged_main_sha": "519958354d8a95111b9958393fe23ce653de6fff",
+  "pull_request": {
+    "number": 535,
+    "head_sha": "19baf768e4c857d00cf6038cc5deebc0d4afe943",
+    "merge_sha": "519958354d8a95111b9958393fe23ce653de6fff",
+    "required_checks": "PASS",
+    "production_docker_build": "PASS (20m59s)"
+  },
+  "production_postdeploy": {
+    "api_ready_http": 200,
+    "owner_cloudflare_access_http": 302,
+    "production_containers_checked": 29,
+    "bad_containers": 0,
+    "restart_anomalies": 0,
+    "audit_trivy_containers_remaining": 0,
+    "audit_network_remaining": false,
+    "root_filesystem_free": "approximately 513 GB",
+    "root_filesystem_used_percent": 39
   }
 }
