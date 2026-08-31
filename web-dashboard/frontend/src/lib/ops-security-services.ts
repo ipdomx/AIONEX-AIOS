@@ -22,7 +22,7 @@ export const opsSecurityServices = {
   policies() { return apiClient.get<PolicyRow[]>("/security/policies"); },
   sessions() { return apiClient.get<SessionRow[]>("/security/sessions"); },
   terminateSession(id:string) { return apiClient.delete<{message:string;session_id:string;revoked_at:string}>(`/security/sessions/${id}`); },
-  containers() { return apiClient.get<RuntimeContainer[]>("/containers"); },
-  databases() { return apiClient.get<DatabaseRow[]>("/databases"); },
-  servers() { return apiClient.get<ServerRow[]>("/servers"); },
+  containers() { return apiClient.get<RuntimeContainer[]>("/infrastructure/containers"); },
+  databases() { return apiClient.get<DatabaseRow[]>("/infrastructure/databases"); },
+  servers() { return apiClient.get<ServerRow[]>("/infrastructure/servers"); },
 };
