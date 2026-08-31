@@ -33,6 +33,7 @@ def test_gateway_enforces_headers_limits_and_private_docs():
         "X-Robots-Tag",
         "X-Frame-Options",
         "X-Content-Type-Options",
+        "Strict-Transport-Security",
         "client_max_body_size",
         "openapi\\.json",
         "listen 8080",

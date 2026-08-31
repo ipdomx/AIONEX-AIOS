@@ -710,7 +710,7 @@ def _command_for(tool_id: str, source: Path) -> list[str]:
             "--report-format",
             "json",
             "--report-path",
-            "-",
+            "/dev/stdout",
         ]
     if tool_id == "syft":
         return ["syft", f"dir:{source}", "-o", "cyclonedx-json"]
@@ -1024,17 +1024,18 @@ async def run_source_tool(
         process.kill()
         await process.communicate()
         return {"tool": tool_id, "status": "timeout", "findings": []}
-    stdout_text = redact_tool_output(stdout.decode("utf-8", errors="replace"))[
-        :5_000_000
-    ]
-    stderr_text = redact_tool_output(stderr.decode("utf-8", errors="replace"))[:100_000]
+    # Parse the complete tool output before any bounded diagnostic handling. Large
+    # Bandit/Trivy/Gitleaks reports can legitimately exceed diagnostic limits;
+    # parsing a truncated JSON stream would silently lose findings.
+    raw_stdout_text = stdout.decode("utf-8", errors="replace")
     parsed: Any = None
     if tool_id != "trufflehog":
         try:
-            parsed = json.loads(stdout_text) if stdout_text.strip() else None
+            parsed = json.loads(raw_stdout_text) if raw_stdout_text.strip() else None
         except json.JSONDecodeError:
             parsed = None
-    normalized = _normalize_source_findings(tool_id, parsed, stdout_text)
+    normalized = _normalize_source_findings(tool_id, parsed, raw_stdout_text)
+    stderr_text = redact_tool_output(stderr.decode("utf-8", errors="replace"))[:100_000]
     finding_exit_tools = {"bandit", "osv-scanner", "gitleaks"}
     no_package_sources = (
         tool_id == "osv-scanner"

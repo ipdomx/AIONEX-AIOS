@@ -12,7 +12,10 @@ ZAP="aionex-security-acceptance-zap-${RUN_TOKEN}"
 TLS="aionex-security-acceptance-tls-${RUN_TOKEN}"
 RUNNER="aionex-security-acceptance-runner-${RUN_TOKEN}"
 PROJECT_ID="security-acceptance-lab-project"
-ZAP_KEY="aionex-acceptance-zap-key"
+ZAP_KEY="$(openssl rand -hex 32)"
+TEST_SECRET_KEY="$(openssl rand -hex 32)"
+PG_PASSWORD="$(openssl rand -hex 24)"
+OWNER_PASSWORD="$(openssl rand -base64 24 | tr -d '\n')"
 STATE_ROOT="/root/.config/aionex/releases/security-acceptance-${TIMESTAMP}"
 SOURCE_ROOT="${STATE_ROOT}/security-sources"
 REPORT_ROOT="${STATE_ROOT}/report"
@@ -31,9 +34,9 @@ cleanup() {
 trap cleanup EXIT
 
 cleanup
-mkdir -p "$SOURCE_ROOT" "$REPORT_ROOT" "$TOOL_CACHE" "$TLS_ROOT"
-chown 1000:1000 "$STATE_ROOT" "$SOURCE_ROOT" "$REPORT_ROOT" "$TOOL_CACHE" "$TLS_ROOT"
-chmod 700 "$STATE_ROOT" "$SOURCE_ROOT" "$REPORT_ROOT" "$TOOL_CACHE" "$TLS_ROOT"
+mkdir -p "$SOURCE_ROOT" "$REPORT_ROOT" "$TOOL_CACHE" "$TOOL_CACHE/tmp" "$TLS_ROOT"
+chown -R 1000:1000 "$STATE_ROOT" "$SOURCE_ROOT" "$REPORT_ROOT" "$TOOL_CACHE" "$TLS_ROOT"
+chmod 700 "$STATE_ROOT" "$SOURCE_ROOT" "$REPORT_ROOT" "$TOOL_CACHE" "$TOOL_CACHE/tmp" "$TLS_ROOT"
 openssl req -x509 -newkey rsa:2048 -nodes -days 2 \
   -keyout "$TLS_ROOT/key.pem" -out "$TLS_ROOT/cert.pem" \
   -subj "/CN=${TLS}" -addext "subjectAltName=DNS:${TLS}" >/dev/null 2>&1
@@ -49,7 +52,7 @@ docker network create "$NETWORK" >/dev/null
 
 docker run -d --name "$PG" --network "$NETWORK" \
   -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=acceptance-postgres-password \
+  -e POSTGRES_PASSWORD="$PG_PASSWORD" \
   -e POSTGRES_DB=aionex_acceptance \
   postgres:16-alpine >/dev/null
 
@@ -75,18 +78,20 @@ done
 docker exec "$TLS" sh -c "printf '\n' | openssl s_client -connect 127.0.0.1:8443 -servername '$TLS' >/dev/null 2>&1"
 
 docker run -d --name "$ZAP" --network "$NETWORK" \
-  --tmpfs /home/zap/.ZAP:rw,nosuid,uid=1000,gid=1000,mode=0700,size=256m \
+  --read-only --memory 3g --cpus 1.5 \
+  --tmpfs /tmp:rw,noexec,nosuid,size=128m \
+  --tmpfs /home/zap/.ZAP:rw,nosuid,uid=1000,gid=1000,mode=0700,size=1g \
+  --tmpfs /home/zap/.java:rw,nosuid,uid=1000,gid=1000,mode=0700,size=16m \
+  --tmpfs /home/zap/.mozilla:rw,nosuid,uid=1000,gid=1000,mode=0700,size=128m \
+  -e ZAP_KEY="$ZAP_KEY" \
   zaproxy/zap-stable:2.17.0 \
-  zap.sh -daemon -host 0.0.0.0 -port 8080 \
-  -config "api.key=${ZAP_KEY}" \
-  -config 'api.addrs.addr.name=.*' \
-  -config api.addrs.addr.regex=true >/dev/null
+  sh -ceu 'printf "%s\n" "-Xmx1024m" > /home/zap/.ZAP/.ZAP_JVM.properties; exec zap.sh -daemon -host 0.0.0.0 -port 8080 -config "api.key=$ZAP_KEY" -config "api.addrs.addr.name=.*" -config api.addrs.addr.regex=true -silent -notel' >/dev/null
 
 for _ in $(seq 1 60); do
-  if docker exec "$PG" pg_isready -U postgres -d aionex_acceptance >/dev/null 2>&1; then break; fi
+  if docker exec "$PG" psql -U postgres -d aionex_acceptance -Atqc 'SELECT 1' 2>/dev/null | grep -qx '1'; then break; fi
   sleep 1
 done
-docker exec "$PG" pg_isready -U postgres -d aionex_acceptance >/dev/null
+test "$(docker exec "$PG" psql -U postgres -d aionex_acceptance -Atqc 'SELECT 1')" = "1"
 
 for _ in $(seq 1 30); do
   if docker exec "$REDIS" redis-cli ping 2>/dev/null | grep -q PONG; then break; fi
@@ -109,17 +114,17 @@ docker exec "$ZAP" sh -c "wget -qO- 'http://127.0.0.1:8080/JSON/core/view/versio
 COMMON_ENV=(
   -e ENVIRONMENT=test
   -e DEBUG=false
-  -e SECRET_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-  -e DATABASE_URL=postgresql+asyncpg://postgres:acceptance-postgres-password@${PG}:5432/aionex_acceptance
+  -e SECRET_KEY="$TEST_SECRET_KEY"
+  -e DATABASE_URL=postgresql+asyncpg://postgres:${PG_PASSWORD}@${PG}:5432/aionex_acceptance
   -e POSTGRES_HOST=${PG}
   -e POSTGRES_PORT=5432
   -e POSTGRES_USER=postgres
-  -e POSTGRES_PASSWORD=acceptance-postgres-password
+  -e POSTGRES_PASSWORD="$PG_PASSWORD"
   -e POSTGRES_DB=aionex_acceptance
   -e REDIS_URL=redis://${REDIS}:6379/0
   -e AIOS_BOOTSTRAP_OWNER_EMAIL=acceptance-owner@aionex.local
-  -e AIOS_BOOTSTRAP_OWNER_PASSWORD=Acceptance-Owner-Password-2026-Strong!
-  -e AIOS_BOOTSTRAP_RESET_OWNER_PASSWORD=true
+  -e AIOS_BOOTSTRAP_OWNER_PASSWORD="$OWNER_PASSWORD"
+  -e AIOS_BOOTSTRAP_RESET_OWNER_PASSWORD="$OWNER_PASSWORD"
   -e AIOS_SEMGREP_RULESET=/app/security-rules/semgrep/aionex.yml
   -e AIOS_NUCLEI_TEMPLATES=/workspace/web-dashboard/backend/tests/security_acceptance_lab/nuclei
   -e SECURITY_ZAP_URL=http://${ZAP}:8080
@@ -134,6 +139,7 @@ COMMON_ENV=(
   -e AIONEX_ACCEPTANCE_REPORT=/var/lib/aionex/security-acceptance/report.json
   -e PYTHONPATH=/workspace/src:/workspace/web-dashboard/backend:/app
   -e HOME=/tmp/aionex-security-home
+  -e TMPDIR=/tmp/aionex-security-home/tmp
 )
 COMMON_MOUNTS=(
   -v "$ROOT:/workspace:ro"

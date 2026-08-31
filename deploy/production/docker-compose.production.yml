@@ -221,7 +221,7 @@ services:
       DEBUG: "false"
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
-      MEDIA_STORAGE_TYPE: inherit
+      MEDIA_STORAGE_TYPE: local
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
       MEDIA_FFMPEG_BINARY: /opt/ffmpeg/bin/ffmpeg
       MEDIA_FFPROBE_BINARY: /opt/ffmpeg/bin/ffprobe
@@ -258,7 +258,7 @@ services:
       DEBUG: "false"
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
-      MEDIA_STORAGE_TYPE: inherit
+      MEDIA_STORAGE_TYPE: local
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
       AUDIO_SPEECH_LIVE_ENABLED: "false"
       AIOS_REPO_ROOT: /workspace
@@ -294,7 +294,7 @@ services:
       DEBUG: "false"
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
-      MEDIA_STORAGE_TYPE: inherit
+      MEDIA_STORAGE_TYPE: local
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
       AUDIO_TRANSCRIPT_LIVE_ENABLED: "false"
       AIOS_REPO_ROOT: /workspace
@@ -330,7 +330,7 @@ services:
       DEBUG: "false"
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
-      MEDIA_STORAGE_TYPE: inherit
+      MEDIA_STORAGE_TYPE: local
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
       AUDIO_DUBBING_LIVE_ENABLED: "false"
       AIOS_REPO_ROOT: /workspace
@@ -366,7 +366,7 @@ services:
       DEBUG: "false"
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
-      MEDIA_STORAGE_TYPE: inherit
+      MEDIA_STORAGE_TYPE: local
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
       AUDIO_MUSIC_LIVE_ENABLED: "false"
       AIOS_REPO_ROOT: /workspace
@@ -482,7 +482,7 @@ services:
       DEBUG: "false"
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
-      MEDIA_STORAGE_TYPE: inherit
+      MEDIA_STORAGE_TYPE: local
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
       MEDIA_FFMPEG_BINARY: /opt/ffmpeg/bin/ffmpeg
       MEDIA_FFPROBE_BINARY: /opt/ffmpeg/bin/ffprobe
@@ -520,7 +520,7 @@ services:
       DEBUG: "false"
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
-      MEDIA_STORAGE_TYPE: inherit
+      MEDIA_STORAGE_TYPE: local
       DESIGN_IMAGE_LIVE_ENABLED: "false"
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
@@ -558,7 +558,7 @@ services:
       DEBUG: "false"
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
-      MEDIA_STORAGE_TYPE: inherit
+      MEDIA_STORAGE_TYPE: local
       DESIGN_IMAGE_DERIVATIVE_ENABLED: "false"
       DESIGN_IMAGE_SHARP_NODE_BINARY: /usr/bin/node
       DESIGN_IMAGE_SHARP_SCRIPT: /opt/aionex-image-tools/derivative.mjs
@@ -710,6 +710,19 @@ services:
       retries: 3
       start_period: 45s
 
+  security-tool-cache-init:
+    image: aionex-aios-security-tools:local
+    user: "0:0"
+    command: ["sh", "-ceu", "mkdir -p /tmp/aionex-security-home/tmp && chown -R 1000:1000 /tmp/aionex-security-home"]
+    read_only: true
+    restart: "no"
+    volumes:
+      - security_tool_cache_data:/tmp/aionex-security-home:rw
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    cap_add: ["CHOWN", "DAC_OVERRIDE"]
+    network_mode: "none"
+
   security-scan-worker:
     image: aionex-aios-security-tools:local
     build:
@@ -725,8 +738,9 @@ services:
       SECURITY_SCAN_WORKER_POLL_SECONDS: "5"
       SECURITY_SCAN_JOB_LEASE_SECONDS: "1800"
       SECURITY_SCAN_WORKER_HEALTH_FILE: /tmp/aionex-security-scan-worker.json
-      SECURITY_ZAP_URL: ${SECURITY_ZAP_URL:-}
+      SECURITY_ZAP_URL: ${SECURITY_ZAP_URL:-http://security-zap:8080}
       SECURITY_ZAP_API_KEY: ${SECURITY_ZAP_API_KEY:-}
+      TMPDIR: /tmp/aionex-security-home/tmp
       PYTHONPATH: /workspace/src:/app
     command: ["python", "-m", "app.services.security_scan_worker"]
     restart: unless-stopped
@@ -744,6 +758,8 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+      security-tool-cache-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-m", "app.services.security_scan_worker", "--healthcheck"]
       interval: 30s
@@ -798,7 +814,7 @@ services:
     profiles: ["security-tools"]
     image: zaproxy/zap-stable:2.17.0@sha256:781a2bdaea47324e7bab583e2263f21d257b0aee61ed51521a5be45f5f5081ef
     restart: unless-stopped
-    mem_limit: 2g
+    mem_limit: 3g
     cpus: "1.5"
     pids_limit: 384
     read_only: true
@@ -809,11 +825,14 @@ services:
       - -ceu
       - |
         test -n "$$SECURITY_ZAP_API_KEY"
-        exec zap.sh -daemon -host 0.0.0.0 -port 8080 -config "api.key=$$SECURITY_ZAP_API_KEY" -config 'api.addrs.addr.name=.*' -config api.addrs.addr.regex=true -config connection.timeoutInSecs=10
+        printf '%s\n' '-Xmx1024m' > /home/zap/.ZAP/.ZAP_JVM.properties
+        exec zap.sh -daemon -host 0.0.0.0 -port 8080 -config "api.key=$$SECURITY_ZAP_API_KEY" -config 'api.addrs.addr.name=.*' -config api.addrs.addr.regex=true -config connection.timeoutInSecs=10 -silent -notel
     expose: ["8080"]
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=128m
-      - /home/zap/.ZAP:rw,nosuid,uid=1000,gid=1000,mode=0700,size=256m
+      - /home/zap/.ZAP:rw,nosuid,uid=1000,gid=1000,mode=0700,size=1g
+      - /home/zap/.java:rw,nosuid,uid=1000,gid=1000,mode=0700,size=16m
+      - /home/zap/.mozilla:rw,nosuid,uid=1000,gid=1000,mode=0700,size=128m
     healthcheck:
       test:
         - CMD-SHELL

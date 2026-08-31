@@ -574,9 +574,13 @@ async def test_one_thousand_concurrent_tenant_jobs_are_durably_admitted_without_
             await session.commit()
 
         child = Path(__file__).with_name("phase36b_admission_process.py")
+        backend_root = str(Path(__file__).resolve().parents[1])
         start_epoch = time.time() + 1.5
         for shard in range(shards):
             environment = os.environ.copy()
+            environment["PYTHONPATH"] = os.pathsep.join(
+                part for part in (backend_root, environment.get("PYTHONPATH", "")) if part
+            )
             environment.update(
                 {
                     "DATABASE_POOLING_ENABLED": "true",

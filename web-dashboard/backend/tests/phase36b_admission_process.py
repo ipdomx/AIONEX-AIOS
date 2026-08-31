@@ -7,7 +7,6 @@ import json
 import os
 import sys
 import time
-
 from app.db.base import SessionLocal, engine
 from app.db.models import ProjectExecution
 from app.db.redis import close_redis, init_redis

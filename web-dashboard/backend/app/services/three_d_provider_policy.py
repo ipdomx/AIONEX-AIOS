@@ -21,6 +21,18 @@ HUNYUAN_PROVIDER = "hunyuan3d"
 TRIPOSR_PROVIDER = "triposr"
 THREE_D_TERMS_VERSION = "3d-model-service-2026-08-09"
 
+# Security quarantine for the currently deployed Hunyuan v11 runtime. The exact
+# production digest was re-audited during the 2026-08-30 pre-launch closeout and
+# its installed Python inventory contains unresolved high-impact advisories across
+# the GPU/model stack.  This constant is deliberately source-controlled rather
+# than Owner-configurable: legal/commercial attestations must never be able to
+# bypass a technical security gate.  A later GPU rebuild must earn a fresh
+# security + functional acceptance before this can become True.
+HUNYUAN_RUNTIME_SECURITY_APPROVED = False
+HUNYUAN_QUARANTINED_IMAGE_DIGEST = (
+    "sha256:34bd37c577a8c769005a11f94bf4658d0b9f31d52df5c75e2a8f01a5ed8499dc"
+)
+
 _RUNPOD_GRAPHQL_URL = "https://api.runpod.io/graphql"
 _RUNPOD_CONTROL_PLANE_TIMEOUT_SECONDS = 5.0
 _RUNPOD_REGION_CACHE_TTL_SECONDS = 30.0
@@ -202,6 +214,8 @@ async def provider_runtime_configured(
         return False
     key = provider.strip().lower()
     if key not in {HUNYUAN_PROVIDER, TRIPOSR_PROVIDER}:
+        return False
+    if key == HUNYUAN_PROVIDER and not HUNYUAN_RUNTIME_SECURITY_APPROVED:
         return False
     endpoint_key = (
         "RUNPOD_ENDPOINT_ID"

@@ -199,3 +199,41 @@ async def test_osv_empty_source_is_completed_without_false_failure(monkeypatch, 
     assert result["status"] == "completed"
     assert result["exit_code"] == 128
     assert result["finding_count"] == 0
+
+
+def test_gitleaks_reports_json_to_stdout(tmp_path: Path):
+    command = security_tools._command_for("gitleaks", tmp_path)
+    assert command[-2:] == ["--report-path", "/dev/stdout"]
+
+
+@pytest.mark.asyncio
+async def test_source_tool_parses_large_json_before_diagnostic_truncation(monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(security_tools.shutil, "which", lambda _name: "/usr/bin/bandit")
+    monkeypatch.setattr(security_tools, "_command_for", lambda _tool, _source: ["bandit"])
+
+    class FakeProcess:
+        returncode = 1
+
+        async def communicate(self):
+            payload = {
+                "results": [{
+                    "test_id": "B307",
+                    "filename": "app.py",
+                    "line_number": 4,
+                    "issue_text": "x" * 5_100_000,
+                    "issue_severity": "HIGH",
+                    "issue_confidence": "HIGH",
+                }]
+            }
+            return json.dumps(payload).encode(), b""
+
+        def kill(self):
+            self.returncode = -9
+
+    async def fake_exec(*_args, **_kwargs):
+        return FakeProcess()
+
+    monkeypatch.setattr(security_tools.asyncio, "create_subprocess_exec", fake_exec)
+    result = await security_tools.run_source_tool("bandit", tmp_path)
+    assert result["status"] == "completed"
+    assert result["finding_count"] == 1
