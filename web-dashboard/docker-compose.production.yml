@@ -227,6 +227,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
+      PROJECT_AI_MODEL_REFRESH_ENABLED: "true"
     volumes:
       - ..:/workspace:ro
     depends_on:

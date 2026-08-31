@@ -153,6 +153,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
+      PROJECT_AI_MODEL_REFRESH_ENABLED: "true"
     command: ["python", "-m", "app.services.operations_observer"]
     restart: unless-stopped
     mem_limit: 1g
