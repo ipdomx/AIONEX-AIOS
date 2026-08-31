@@ -102,6 +102,7 @@ async def test_hunyuan_runtime_drift_bypasses_cache_and_never_submits_provider_j
     worker._provider_failure = provider_failure
     worker._defer_for_runtime_gate = defer
 
+    monkeypatch.setattr(three_d_provider_policy, "HUNYUAN_RUNTIME_SECURITY_APPROVED", True)
     monkeypatch.setattr(three_d_worker, "SessionLocal", Session)
     monkeypatch.setattr(three_d_worker, "get_three_d_policy", policy)
     monkeypatch.setattr(three_d_worker, "assert_provider_available", available)

@@ -77,7 +77,7 @@ RUN set -eux; \
 RUN set -eux; \
     export DEBIAN_FRONTEND=noninteractive; \
     apt-get update; \
-    apt-get install -y --only-upgrade \
+    apt-get install -y --no-install-recommends --only-upgrade \
       libssl3 openssl \
       gnupg2 gnupg gnupg-l10n gnupg-utils \
       gpg gpg-agent gpg-wks-client gpg-wks-server gpgconf gpgsm gpgv dirmngr; \

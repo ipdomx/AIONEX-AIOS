@@ -294,11 +294,23 @@ async def test_every_agent_provider_health_contract_is_synthetically_exercised(
         return {"data": []}, 7.25
 
     monkeypatch.setattr(ai_runtime_service, "_request_json", fake_request_json)
+
+    class FakeStsClient:
+        def get_caller_identity(self) -> dict[str, str]:
+            return {"Account": "000000000000"}
+
+    monkeypatch.setattr(ai_runtime_service.boto3, "client", lambda *_args, **_kwargs: FakeStsClient())
     result = await ai_runtime_service.provider_health_probe(provider)
 
-    if provider_type in {"anthropic", "cohere", "aws_bedrock"}:
+    if provider_type in {"anthropic", "cohere"}:
         assert result["status"] == "configured"
         assert result["latency_ms"] == 0
+        assert calls == []
+        assert allow_array_calls == []
+    elif provider_type == "aws_bedrock":
+        assert result["status"] == "success"
+        assert result["latency_ms"] >= 0
+        assert "AWS credential identity verified" in result["message"]
         assert calls == []
         assert allow_array_calls == []
     else:
@@ -330,3 +342,22 @@ async def test_general_provider_creation_rejects_dedicated_3d_providers(
         )
     assert exc.value.status_code == 422
     assert "not executable through the AI agent runtime" in str(exc.value.detail)
+
+
+@pytest.mark.asyncio
+async def test_aws_health_rejects_invalid_identity_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    provider = _provider("aws_bedrock", None)
+    monkeypatch.setattr(ai_runtime_service, "_aws_bedrock_configured", lambda: True)
+
+    class InvalidStsClient:
+        def get_caller_identity(self) -> dict[str, str]:
+            raise ai_runtime_service.ClientError(
+                {"Error": {"Code": "InvalidClientTokenId", "Message": "invalid"}},
+                "GetCallerIdentity",
+            )
+
+    monkeypatch.setattr(ai_runtime_service.boto3, "client", lambda *_args, **_kwargs: InvalidStsClient())
+    with pytest.raises(HTTPException) as exc:
+        await ai_runtime_service.provider_health_probe(provider)
+    assert exc.value.status_code == 502
+    assert "AWS credential identity validation failed" in str(exc.value.detail)

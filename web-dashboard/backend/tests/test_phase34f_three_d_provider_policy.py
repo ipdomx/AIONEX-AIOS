@@ -182,6 +182,7 @@ async def test_hunyuan_runtime_verifies_us_datacenters_and_uses_short_cache(
 ):
     from app.services import three_d_provider_policy as provider_policy
 
+    monkeypatch.setattr(provider_policy, "HUNYUAN_RUNTIME_SECURITY_APPROVED", True)
     provider_policy._runpod_endpoint_region_cache.clear()
     monkeypatch.setattr(
         provider_policy,
@@ -231,6 +232,7 @@ async def test_hunyuan_runtime_fails_closed_for_missing_empty_or_non_us_regions(
 ):
     from app.services import three_d_provider_policy as provider_policy
 
+    monkeypatch.setattr(provider_policy, "HUNYUAN_RUNTIME_SECURITY_APPROVED", True)
     provider_policy._runpod_endpoint_region_cache.clear()
     monkeypatch.setattr(
         provider_policy,
@@ -255,6 +257,7 @@ async def test_hunyuan_control_plane_error_blocks_primary_but_not_triposr(
 ):
     from app.services import three_d_provider_policy as provider_policy
 
+    monkeypatch.setattr(provider_policy, "HUNYUAN_RUNTIME_SECURITY_APPROVED", True)
     provider_policy._runpod_endpoint_region_cache.clear()
     monkeypatch.setattr(
         provider_policy,
@@ -274,6 +277,23 @@ async def test_hunyuan_control_plane_error_blocks_primary_but_not_triposr(
     assert not await provider_policy.provider_runtime_configured("hunyuan3d")
     assert await provider_policy.provider_runtime_configured("triposr")
 
+
+@pytest.mark.asyncio
+async def test_hunyuan_runtime_is_technically_quarantined_by_default(monkeypatch):
+    from app.services import three_d_provider_policy as provider_policy
+
+    assert provider_policy.HUNYUAN_RUNTIME_SECURITY_APPROVED is False
+    assert provider_policy.HUNYUAN_QUARANTINED_IMAGE_DIGEST.startswith("sha256:")
+    monkeypatch.setattr(
+        provider_policy,
+        "_provider_env",
+        lambda: {
+            "RUNPOD_API_KEY": "test-key",
+            "RUNPOD_ENDPOINT_ID": "primary-test-endpoint",
+            "RUNPOD_HUNYUAN_LOCATION": "US",
+        },
+    )
+    assert not await provider_policy.provider_runtime_configured("hunyuan3d")
 
 def test_worker_clients_allow_fallback_without_primary_endpoint(monkeypatch):
     from app.services import three_d_worker

@@ -1,0 +1,172 @@
+{
+  "batch2_validation": {
+    "aios_core_pytest": {
+      "failed": 0,
+      "passed": 849
+    },
+    "backend_pytest": {
+      "failed": 0,
+      "passed": 1080,
+      "skipped": 1
+    },
+    "compose_config": {
+      "deploy_production": "PASS",
+      "web_dashboard": "PASS"
+    },
+    "owner_frontend": {
+      "approved_technical_tokens": 5,
+      "arabic_strings": 991,
+      "build": "PASS",
+      "lint": "PASS",
+      "npm_runtime_audit": {
+        "critical": 0,
+        "high": 0
+      },
+      "production_routes": 90,
+      "typecheck": "PASS"
+    },
+    "vip_frontend": {
+      "build": "PASS",
+      "integrity_files": 96,
+      "lint": "PASS",
+      "locales": 6,
+      "npm_runtime_audit": {
+        "critical": 0,
+        "high": 0
+      },
+      "static_routes": 127,
+      "static_smoke_urls": 94,
+      "typecheck": "PASS"
+    }
+  },
+  "generated_at": "2026-08-31T00:57:25Z",
+  "raw_evidence_root": ".deployment-backups/phase36n-comprehensive-closeout/20260831T005725Z",
+  "scans": {
+    "hunyuan3d_v11": {
+      "active_hunyuan_venv_high_critical_count": 35,
+      "active_hunyuan_venv_packages": [
+        {
+          "finding_count": 1,
+          "package": "pytorch-lightning",
+          "severity": "CRITICAL",
+          "version": "1.9.5"
+        },
+        {
+          "finding_count": 1,
+          "package": "torch",
+          "severity": "CRITICAL",
+          "version": "2.5.1+cu124"
+        },
+        {
+          "finding_count": 4,
+          "package": "cryptography",
+          "severity": "HIGH",
+          "version": "45.0.7"
+        },
+        {
+          "finding_count": 2,
+          "package": "diffusers",
+          "severity": "HIGH",
+          "version": "0.30.0"
+        },
+        {
+          "finding_count": 3,
+          "package": "gradio",
+          "severity": "HIGH",
+          "version": "5.33.0"
+        },
+        {
+          "finding_count": 13,
+          "package": "pillow",
+          "severity": "HIGH",
+          "version": "11.3.0"
+        },
+        {
+          "finding_count": 1,
+          "package": "protobuf",
+          "severity": "HIGH",
+          "version": "4.25.9"
+        },
+        {
+          "finding_count": 2,
+          "package": "pytorch-lightning",
+          "severity": "HIGH",
+          "version": "1.9.5"
+        },
+        {
+          "finding_count": 3,
+          "package": "starlette",
+          "severity": "HIGH",
+          "version": "0.46.2"
+        },
+        {
+          "finding_count": 5,
+          "package": "transformers",
+          "severity": "HIGH",
+          "version": "4.46.0"
+        }
+      ],
+      "bytes": 42114455,
+      "decision": "QUARANTINED_FAIL_CLOSED",
+      "high_critical_count": 623,
+      "severity_counts": {
+        "CRITICAL": 33,
+        "HIGH": 590,
+        "LOW": 814,
+        "MEDIUM": 6210
+      },
+      "sha256": "5d392578b584d94adaaf995b5f1de8d5e0afb7ef6457b29183e04d7b388a6d06",
+      "unique_high_critical_ids": 591
+    },
+    "hunyuan3d_v4": {
+      "bytes": 42046611,
+      "high_critical_count": 623,
+      "severity_counts": {
+        "CRITICAL": 33,
+        "HIGH": 590,
+        "LOW": 814,
+        "MEDIUM": 6209
+      },
+      "sha256": "20bade60c28862050dcda6cc5bf57cf9c2232d27c5309f4e5298d892f02a411e",
+      "unique_high_critical_ids": 591
+    },
+    "open_song": {
+      "bytes": 5278337,
+      "decision": "APPROVED_WITH_SOURCE_CONTROLLED_OPENVEX_ALL_HIGH_IDS_COVERED",
+      "high_critical_count": 12,
+      "severity_counts": {
+        "HIGH": 12,
+        "LOW": 151,
+        "MEDIUM": 923
+      },
+      "sha256": "babc568d8dcd79d3d04627933101758282f25065e4fc5b685cdc54eb7d219aa6",
+      "unique_high_critical_ids": 7
+    },
+    "triposr": {
+      "bytes": 783706,
+      "decision": "APPROVED_NO_HIGH_CRITICAL",
+      "high_critical_count": 0,
+      "severity_counts": {
+        "LOW": 32,
+        "MEDIUM": 31
+      },
+      "sha256": "f378668bea1d8a7c36feae007cd73e23d49019df953c85fff2d653641769714a",
+      "unique_high_critical_ids": 0
+    }
+  },
+  "schema_version": 1,
+  "security_lab": {
+    "behavioral_validation": "PASS",
+    "external_target_used": false,
+    "final_release_gate": "passed",
+    "learning": "promoted",
+    "production_modified": false,
+    "remediation": "verified_fixed",
+    "repeatable": true,
+    "required_detection_coverage": 1.0,
+    "sha256": "3a4e1ca2a8b1b8641881f88d6988d0e648fdd995d2127376497cce0af3357151",
+    "status": "PASS",
+    "unexpected_engine_failures": [],
+    "vulnerable_findings": 138
+  }
+}

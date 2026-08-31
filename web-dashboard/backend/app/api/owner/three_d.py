@@ -12,6 +12,10 @@ from app.core.auth import UserRecord, require_super_owner
 from app.db.base import get_db
 from app.db.models import AuditEvent
 from app.services.three_d_policy import get_three_d_policy, update_three_d_policy
+from app.services.three_d_provider_policy import (
+    HUNYUAN_QUARANTINED_IMAGE_DIGEST,
+    HUNYUAN_RUNTIME_SECURITY_APPROVED,
+)
 from app.services.three_d_resilience import (
     cleanup_expired_three_d_data,
     operations_snapshot,
@@ -66,6 +70,16 @@ async def _snapshot(session: AsyncSession) -> dict[str, Any]:
     return {
         "policy": await get_three_d_policy(session),
         "operations": await operations_snapshot(session),
+        "runtime_security": {
+            "hunyuan3d": {
+                "approved": HUNYUAN_RUNTIME_SECURITY_APPROVED,
+                "quarantined_image_digest": HUNYUAN_QUARANTINED_IMAGE_DIGEST,
+                "activation_requires_new_gpu_security_acceptance": (
+                    not HUNYUAN_RUNTIME_SECURITY_APPROVED
+                ),
+            },
+            "triposr": {"approved": True},
+        },
     }
 
 

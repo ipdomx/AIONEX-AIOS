@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -120,8 +120,18 @@ async def test_provider(
         session, provider_id, user.organization_id, lock=True
     )
     await require_owner_service_allowed(session, provider.type)
-    result = await ai_runtime_service.provider_health_probe(provider)
+    try:
+        result = await ai_runtime_service.provider_health_probe(provider)
+    except HTTPException:
+        config = dict(provider.config or {})
+        config["last_health_check"] = ai_runtime_service._now().isoformat()
+        config["last_health_status"] = "error"
+        provider.config = config
+        provider.status = "error"
+        await session.commit()
+        raise
     config = dict(provider.config or {})
+    config["last_health_status"] = str(result.get("status") or "unknown")
     config["latency_ms"] = int(float(result.get("latency_ms", 0) or 0))
     config["last_health_check"] = ai_runtime_service._now().isoformat()
     provider.config = config

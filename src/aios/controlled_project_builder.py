@@ -1599,6 +1599,9 @@ This artifact is an executable full-stack prototype. It is not represented as a 
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()
             base = f"http://127.0.0.1:{server.server_address[1]}"
+            test_password = "Aa1!" + hashlib.sha256(
+                f"{module_name}|{time.monotonic_ns()}".encode("utf-8")
+            ).hexdigest()[:28]
 
             def post(path: str, payload: Mapping[str, Any], headers: Mapping[str, str] | None = None):
                 request = Request(
@@ -1622,14 +1625,14 @@ This artifact is an executable full-stack prototype. It is not represented as a 
                 for username in ("alice", "bob"):
                     with post(
                         "/api/register",
-                        {"username": username, "password": "StrongPassphrase-123"},
+                        {"username": username, "password": test_password},
                     ) as response:
                         flags["registration"] = flags["registration"] or response.status == 201
                 sessions: dict[str, tuple[str, str, int]] = {}
                 for username in ("alice", "bob"):
                     with post(
                         "/api/login",
-                        {"username": username, "password": "StrongPassphrase-123"},
+                        {"username": username, "password": test_password},
                     ) as response:
                         payload = json.loads(response.read().decode("utf-8"))
                         cookie = str(response.headers.get("Set-Cookie") or "").split(";", 1)[0]

@@ -648,7 +648,30 @@ async def provider_health_probe(provider: AIProvider) -> dict[str, Any]:
     if provider.type == "aws_bedrock":
         if not provider_configured(provider):
             return {"status": "unconfigured", "latency_ms": 0, "message": "AWS Bedrock credentials or region are not configured"}
-        return {"status": "configured", "latency_ms": 0, "message": "AWS Bedrock credential chain and region are configured; execution is the authoritative live verification"}
+        kwargs: dict[str, Any] = {
+            "region_name": str(settings.AWS_BEDROCK_REGION or "").strip(),
+            "aws_access_key_id": str(settings.AWS_ACCESS_KEY_ID),
+            "aws_secret_access_key": str(settings.AWS_SECRET_ACCESS_KEY),
+        }
+        if settings.AWS_SESSION_TOKEN:
+            kwargs["aws_session_token"] = str(settings.AWS_SESSION_TOKEN)
+        started = time.monotonic()
+        try:
+            identity = await asyncio.to_thread(
+                boto3.client("sts", **kwargs).get_caller_identity
+            )
+        except (BotoCoreError, ClientError) as exc:
+            raise HTTPException(
+                status_code=502,
+                detail=f"AWS credential identity validation failed ({type(exc).__name__})",
+            ) from exc
+        if not str(identity.get("Account") or "").strip():
+            raise HTTPException(status_code=502, detail="AWS credential identity validation returned no account")
+        return {
+            "status": "success",
+            "latency_ms": round((time.monotonic() - started) * 1000, 2),
+            "message": "AWS credential identity verified; Bedrock execution remains the authoritative model-access verification",
+        }
     base = validate_provider_base_url(provider.type, provider.base_url)
     credential = provider_credential(provider)
     if provider.type != "ollama" and not credential:

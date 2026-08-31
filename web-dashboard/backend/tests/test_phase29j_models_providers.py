@@ -71,6 +71,8 @@ def test_provider_test_endpoint_restores_configured_state_after_external_gate() 
     source = (ROOT / "app/api/v1/endpoints/ai_providers.py").read_text(encoding="utf-8")
     assert 'result["status"] in {"configured", "disabled", "unconfigured"}' in source
     assert 'provider.status = result["status"]' in source
+    assert 'provider.status = "error"' in source
+    assert 'config["last_health_status"] = "error"' in source
 
 
 def test_ollama_internal_compose_service_url_is_allowed_but_arbitrary_hosts_are_not() -> None:
