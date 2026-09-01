@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+from contextlib import suppress
 from dataclasses import dataclass
 from hashlib import sha256
 import hmac
@@ -318,10 +319,8 @@ class ThreeDObjectStore:
                 os.chmod(destination, 0o600)
             except OSError as exc:
                 if temporary is not None:
-                    try:
+                    with suppress(OSError):
                         temporary.unlink(missing_ok=True)
-                    except OSError:
-                        pass
                 raise ThreeDStorageError("3D object upload failed: OSError") from exc
             return StoredObject(
                 key=key,
@@ -471,10 +470,8 @@ class ThreeDObjectStore:
                     os.fsync(stream.fileno())
                 probe.unlink()
             except OSError as exc:
-                try:
+                with suppress(OSError):
                     probe.unlink(missing_ok=True)
-                except OSError:
-                    pass
                 raise ThreeDStorageError("3D local storage root is not writable") from exc
             return
         try:
