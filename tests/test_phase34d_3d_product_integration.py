@@ -44,10 +44,19 @@ def test_durable_jobs_artifacts_audit_and_migration_are_present():
 
 
 def test_private_object_storage_and_expiring_links_are_fail_closed():
+    # S3 remains encrypted and time-bounded when explicitly selected.
     assert 'ServerSideEncryption="AES256"' in STORAGE
     assert "generate_presigned_url" in STORAGE
     assert "ExpiresIn=ttl" in STORAGE
-    assert 'settings.STORAGE_TYPE.strip().lower() != "s3"' in STORAGE
+    # Local 3D storage is a separate, explicit backend with private paths and
+    # short-lived HMAC grants; unsupported backends fail closed.
+    assert "THREE_D_STORAGE_TYPE" in STORAGE
+    assert "THREE_D_STORAGE_ROOT" in STORAGE
+    assert "issue_local_artifact_token" in STORAGE
+    assert "verify_local_artifact_token" in STORAGE
+    assert "hmac.compare_digest" in STORAGE
+    assert 'if storage_type != "s3":' in STORAGE
+    assert 'raise ThreeDStorageError("3D object storage is not configured")' in STORAGE
     assert "input_object_key" not in VIP_API
     assert '"view_url"' in API and '"download_url"' in API
     assert 'if not policy["eligible"]' in API

@@ -139,6 +139,16 @@ if [ "$(id -u)" = "0" ]; then
         install -d -m 0700 -o aionex -g aionex "$studio_asset_root"
     fi
 
+    three_d_storage_root="${THREE_D_STORAGE_ROOT-/var/lib/aionex/three-d-assets}"
+    if [ -n "$three_d_storage_root" ]; then
+        if ! install -d -m 0700 -o aionex -g aionex "$three_d_storage_root" 2>/dev/null; then
+            if [ ! -d "$three_d_storage_root" ] || [ ! -r "$three_d_storage_root" ] || [ -L "$three_d_storage_root" ]; then
+                echo "Unable to prepare private 3D storage root" >&2
+                exit 1
+            fi
+        fi
+    fi
+
     audio_song_ingress_root="${AUDIO_SONG_ARTIFACT_BRIDGE_ROOT-/var/lib/aionex/audio-song-provider-ingress}"
     if [ -n "$audio_song_ingress_root" ]; then
         install -d -m 0700 -o aionex -g aionex "$audio_song_ingress_root"

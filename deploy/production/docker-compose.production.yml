@@ -26,6 +26,7 @@ services:
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
       THREE_D_RUNPOD_SECRET_FILE: /run/secrets/aionex/RUNPOD_GPU.env
+      THREE_D_STORAGE_TYPE: local
       AIOS_TELEGRAM_BOT_TOKEN_FILE: /run/operator-secrets/telegram-bot-token
     restart: unless-stopped
     mem_limit: 4g
@@ -41,6 +42,7 @@ services:
       - portal_asset_data:/var/lib/aionex/portal-assets:rw
       - project_execution_data:/var/lib/aionex/project-executions:rw
       - studio_asset_data:/var/lib/aionex/studio-assets:rw
+      - three_d_asset_data:/var/lib/aionex/three-d-assets:rw
       - mobile_release_data:/var/lib/aionex/mobile-releases:ro
     depends_on:
       postgres:
@@ -587,6 +589,7 @@ services:
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
+      THREE_D_STORAGE_TYPE: local
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
       REDIS_URL: redis://redis:6379/0
@@ -602,6 +605,7 @@ services:
     volumes:
       - ../..:/workspace:ro
       - ../../web-dashboard/secrets/RUNPOD_GPU.env:/run/secrets/aionex/runpod-gpu.env:ro
+      - three_d_asset_data:/var/lib/aionex/three-d-assets:rw
     depends_on:
       backend:
         condition: service_healthy
@@ -624,6 +628,7 @@ services:
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
+      THREE_D_STORAGE_TYPE: local
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
       REDIS_URL: redis://redis:6379/0
@@ -651,6 +656,7 @@ services:
       - ${AIOS_PHASE22B_REFERENCE_HOST_DIR:-/var/tmp/aionex-phase22b/sandbox-output/local-qwen3-8b}:/run/references/phase22b/local-qwen3-8b:ro
       - project_execution_data:/var/lib/aionex/project-executions
       - project_npm_cache_data:/var/lib/aionex/project-npm-cache
+      - three_d_asset_data:/var/lib/aionex/three-d-assets:ro
     depends_on:
       backend:
         condition: service_healthy
@@ -954,6 +960,7 @@ volumes:
   project_execution_data:
   project_npm_cache_data:
   studio_asset_data:
+  three_d_asset_data:
   media_asset_data:
   mobile_release_data:
   portal_asset_data:
