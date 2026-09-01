@@ -25,6 +25,10 @@ from app.services.backup_executor import (
     get_backup_executor,
     restore_scratch_database_name,
 )
+from app.services.three_d_asset_backup import (
+    ThreeDAssetSnapshot,
+    ThreeDAssetSnapshotExecutor,
+)
 from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -64,6 +68,7 @@ class ClaimedJob:
     lease_token: str
     reclaimed: bool
     stale_scratch_databases: tuple[str, ...] = ()
+    backup_scope: str | None = None
 
 
 def _as_utc(value: datetime | None) -> datetime:
@@ -143,9 +148,11 @@ class BackupJobWorker:
         self,
         *,
         executor: BackupExecutor | None = None,
+        three_d_executor: ThreeDAssetSnapshotExecutor | None = None,
         session_factory: SessionFactory = SessionLocal,
     ) -> None:
         self._executor = executor or get_backup_executor()
+        self._three_d_executor = three_d_executor or ThreeDAssetSnapshotExecutor()
         self._session_factory = session_factory
         self._next_maintenance_at = 0.0
 
@@ -204,7 +211,12 @@ class BackupJobWorker:
                 )
             )
             await session.commit()
-            return ClaimedJob(record.id, lease_token, reclaimed)
+            return ClaimedJob(
+                record.id,
+                lease_token,
+                reclaimed,
+                backup_scope=record.scope,
+            )
 
     async def claim_restore_validation(self) -> ClaimedJob | None:
         """Claim one durable restore-validation or DR-drill job."""
@@ -350,6 +362,26 @@ class BackupJobWorker:
                 )
             )
 
+    async def _snapshot_evidence_for_backup(
+        self,
+        session: AsyncSession,
+        backup_id: str,
+    ) -> dict[str, Any] | None:
+        event = await session.scalar(
+            select(AuditEvent)
+            .where(
+                AuditEvent.action == "backup.worker.completed",
+                AuditEvent.resource_type == "backup",
+                AuditEvent.resource_id == backup_id,
+            )
+            .order_by(AuditEvent.created_at.desc())
+            .limit(1)
+        )
+        if event is None:
+            return None
+        evidence = (event.details or {}).get("three_d_snapshot")
+        return evidence if isinstance(evidence, dict) else None
+
     async def _delete_expired_artifact(
         self,
         backup_id: str,
@@ -406,6 +438,7 @@ class BackupJobWorker:
 
         if not location:
             return
+        await asyncio.to_thread(self._three_d_executor.delete_snapshot, location)
         await asyncio.to_thread(self._executor.delete_artifact, location)
         async with self._session_factory() as session:
             record = await session.scalar(
@@ -479,6 +512,14 @@ class BackupJobWorker:
             settings.BACKUP_JOB_LEASE_SECONDS,
             active_attempts,
         )
+        await asyncio.to_thread(
+            self._three_d_executor.cleanup_stale_partials,
+            settings.BACKUP_JOB_LEASE_SECONDS,
+        )
+        await asyncio.to_thread(
+            self._three_d_executor.cleanup_orphan_snapshots,
+            settings.BACKUP_JOB_LEASE_SECONDS,
+        )
         for record in expired:
             await self._delete_expired_artifact(
                 record.id,
@@ -518,13 +559,20 @@ class BackupJobWorker:
             ):
                 break
 
-    async def _ensure_capacity(self, backup_id: str) -> None:
+    async def _ensure_capacity(
+        self,
+        backup_id: str,
+        *,
+        extra_required_bytes: int = 0,
+    ) -> None:
         await self._apply_retention(
             current_backup_id=backup_id,
             pressure=False,
         )
         required_free_bytes = (
-            await self._database_size_bytes() + settings.BACKUP_MIN_FREE_BYTES
+            await self._database_size_bytes()
+            + max(0, extra_required_bytes)
+            + settings.BACKUP_MIN_FREE_BYTES
         )
         free_bytes = await asyncio.to_thread(self._executor.available_bytes)
         if free_bytes < required_free_bytes:
@@ -541,28 +589,76 @@ class BackupJobWorker:
                 status_code=507,
             )
 
+    async def _cleanup_uncommitted_backup(self, database_location: str) -> None:
+        try:
+            await asyncio.to_thread(
+                self._three_d_executor.delete_snapshot,
+                database_location,
+            )
+        finally:
+            await asyncio.to_thread(self._executor.delete_artifact, database_location)
+
     async def execute_backup(self, claim: ClaimedJob) -> None:
+        artifact = None
+        snapshot: ThreeDAssetSnapshot | None = None
+        scope = claim.backup_scope or "platform"
+        snapshot_required = scope == "platform" and self._three_d_executor.enabled
         try:
             if claim.reclaimed:
                 await asyncio.to_thread(
                     self._executor.cleanup_backup_partials,
                     claim.id,
                 )
-            await self._ensure_capacity(claim.id)
+                await asyncio.to_thread(
+                    self._three_d_executor.cleanup_backup_partials,
+                    claim.id,
+                )
+            if snapshot_required:
+                extra_required_bytes = await asyncio.to_thread(
+                    self._three_d_executor.estimated_snapshot_bytes
+                )
+                await self._ensure_capacity(
+                    claim.id,
+                    extra_required_bytes=extra_required_bytes,
+                )
+            else:
+                await self._ensure_capacity(claim.id)
             artifact = await self._executor.create_backup(
                 claim.id,
                 claim.lease_token,
             )
+            if snapshot_required:
+                snapshot = await asyncio.to_thread(
+                    self._three_d_executor.create_snapshot,
+                    artifact.location,
+                )
+                if snapshot is None:
+                    raise BackupExecutionError(
+                        "3D asset backup",
+                        "The required 3D asset snapshot was not created",
+                    )
         except asyncio.CancelledError:
+            if artifact is not None:
+                await self._cleanup_uncommitted_backup(artifact.location)
             raise
         except BackupExecutionError as exc:
+            if artifact is not None:
+                try:
+                    await self._cleanup_uncommitted_backup(artifact.location)
+                except BackupExecutionError:
+                    logger.exception("Failed to clean an uncommitted backup artifact")
             await self._finish_backup_failure(claim, exc)
             return
         except Exception:
+            if artifact is not None:
+                try:
+                    await self._cleanup_uncommitted_backup(artifact.location)
+                except BackupExecutionError:
+                    logger.exception("Failed to clean an uncommitted backup artifact")
             await self._finish_backup_failure(
                 claim,
                 BackupExecutionError(
-                    "PostgreSQL backup",
+                    "platform backup",
                     "PostgreSQL backup failed unexpectedly",
                 ),
             )
@@ -579,10 +675,7 @@ class BackupJobWorker:
                 .with_for_update()
             )
             if record is None:
-                await asyncio.to_thread(
-                    self._executor.delete_artifact,
-                    artifact.location,
-                )
+                await self._cleanup_uncommitted_backup(artifact.location)
                 return
             record.status = "completed"
             record.lease_token = None
@@ -590,6 +683,16 @@ class BackupJobWorker:
             record.checksum = artifact.checksum
             record.size_bytes = artifact.size_bytes
             record.completed_at = _now()
+            snapshot_evidence: dict[str, Any] = {"required": snapshot_required}
+            if snapshot is not None:
+                snapshot_evidence.update(
+                    {
+                        "checksum": snapshot.checksum,
+                        "size_bytes": snapshot.size_bytes,
+                        "file_count": snapshot.file_count,
+                        "payload_bytes": snapshot.payload_bytes,
+                    }
+                )
             session.add(
                 _system_audit(
                     "backup.worker.completed",
@@ -597,8 +700,10 @@ class BackupJobWorker:
                     claim.id,
                     {
                         "status": "completed",
+                        "scope": record.scope,
                         "checksum": artifact.checksum,
                         "size_bytes": artifact.size_bytes,
+                        "three_d_snapshot": snapshot_evidence,
                     },
                 )
             )
@@ -641,6 +746,9 @@ class BackupJobWorker:
     async def execute_restore_validation(self, claim: ClaimedJob) -> None:
         backup: BackupRecord | None = None
         operation = "restore validation"
+        snapshot_required = False
+        snapshot_evidence: dict[str, Any] | None = None
+        snapshot_validation: ThreeDAssetSnapshot | None = None
         try:
             async with self._session_factory() as session:
                 run = await session.scalar(
@@ -664,11 +772,48 @@ class BackupJobWorker:
                     if backup_id
                     else None
                 )
+                if backup is not None:
+                    snapshot_required = (
+                        backup.scope == "platform" and self._three_d_executor.enabled
+                    )
+                    if snapshot_required:
+                        snapshot_evidence = await self._snapshot_evidence_for_backup(
+                            session, backup.id
+                        )
             if backup is None or not backup.location or not backup.checksum:
                 raise BackupExecutionError(
                     "restore validation",
                     "The selected completed backup has no protected artifact",
                     status_code=409,
+                )
+            if snapshot_required:
+                if (
+                    snapshot_evidence is None
+                    or snapshot_evidence.get("required") is not True
+                ):
+                    raise BackupExecutionError(
+                        "3D asset restore validation",
+                        "The selected platform backup has no durable 3D snapshot evidence",
+                        status_code=409,
+                    )
+                try:
+                    expected_snapshot_checksum = str(snapshot_evidence["checksum"])
+                    expected_snapshot_size = int(snapshot_evidence["size_bytes"])
+                    expected_snapshot_files = int(snapshot_evidence["file_count"])
+                    expected_snapshot_payload = int(snapshot_evidence["payload_bytes"])
+                except (KeyError, TypeError, ValueError) as exc:
+                    raise BackupExecutionError(
+                        "3D asset restore validation",
+                        "The durable 3D snapshot evidence is incomplete",
+                        status_code=409,
+                    ) from exc
+                snapshot_validation = await asyncio.to_thread(
+                    self._three_d_executor.validate_snapshot,
+                    backup.location,
+                    expected_checksum=expected_snapshot_checksum,
+                    expected_size_bytes=expected_snapshot_size,
+                    expected_file_count=expected_snapshot_files,
+                    expected_payload_bytes=expected_snapshot_payload,
                 )
             validation = await self._executor.validate_restore(
                 backup.location,
@@ -707,28 +852,44 @@ class BackupJobWorker:
             )
             if run is None:
                 return
-            run.status = "completed"
+            three_d_validated = not snapshot_required or snapshot_validation is not None
+            overall_validated = validation.restored and three_d_validated
+            run.status = "completed" if overall_validated else "failed"
             run.lease_token = None
             run.completed_at = _now()
             details = dict(run.details or {})
             details.pop(RESTORE_SCRATCH_DATABASES_KEY, None)
-            run.details = {
+            validation_details: dict[str, Any] = {
                 **details,
-                "validated": validation.restored,
+                "validated": overall_validated,
                 "checksum": validation.checksum,
                 "size_bytes": validation.size_bytes,
+                "three_d_snapshot_required": snapshot_required,
+                "three_d_snapshot_validated": three_d_validated,
             }
+            if snapshot_validation is not None:
+                validation_details.update(
+                    {
+                        "three_d_snapshot_checksum": snapshot_validation.checksum,
+                        "three_d_snapshot_size_bytes": snapshot_validation.size_bytes,
+                        "three_d_snapshot_file_count": snapshot_validation.file_count,
+                        "three_d_snapshot_payload_bytes": snapshot_validation.payload_bytes,
+                    }
+                )
+            run.details = validation_details
             session.add(
                 _system_audit(
                     "dr.worker.completed",
                     "disaster_recovery_run",
                     claim.id,
                     {
-                        "status": "completed",
+                        "status": run.status,
                         "operation": run.operation,
                         "backup_id": backup.id,
                         "checksum": validation.checksum,
                         "size_bytes": validation.size_bytes,
+                        "three_d_snapshot_required": snapshot_required,
+                        "three_d_snapshot_validated": three_d_validated,
                     },
                 )
             )
@@ -925,8 +1086,12 @@ class BackupJobWorker:
             raise RuntimeError("Backup worker database schema is not current")
 
         self._executor.verify_storage()
+        self._three_d_executor.verify_source()
         if not require_heartbeat:
             self._executor.cleanup_stale_partials(
+                settings.BACKUP_JOB_LEASE_SECONDS,
+            )
+            self._three_d_executor.cleanup_stale_partials(
                 settings.BACKUP_JOB_LEASE_SECONDS,
             )
         if require_heartbeat:

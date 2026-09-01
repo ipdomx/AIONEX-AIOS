@@ -56,6 +56,9 @@ class Settings(BaseSettings):
         default="/var/lib/aionex/backups",
         validation_alias="BACKUP_DIR",
     )
+    BACKUP_THREE_D_ASSETS_ENABLED: bool = Field(
+        default=False, validation_alias="BACKUP_THREE_D_ASSETS_ENABLED"
+    )
     BACKUP_TIMEOUT_SECONDS: int = Field(
         default=900,
         ge=30,

@@ -2343,6 +2343,7 @@ async def _validate_release_gate(
         completed_backup = await session.scalar(
             select(BackupRecord)
             .where(
+                BackupRecord.scope == "platform",
                 BackupRecord.status == "completed",
                 BackupRecord.completed_at.is_not(None),
                 BackupRecord.completed_at >= cutoff,
@@ -2382,6 +2383,11 @@ async def _validate_release_gate(
                     continue
                 if details.get("size_bytes") != completed_backup.size_bytes:
                     continue
+                if settings.BACKUP_THREE_D_ASSETS_ENABLED and (
+                    details.get("three_d_snapshot_required") is not True
+                    or details.get("three_d_snapshot_validated") is not True
+                ):
+                    continue
                 recovery_run = candidate
                 break
         passed = (
@@ -2415,6 +2421,12 @@ async def _validate_release_gate(
             "recoveryRunId": recovery_run.id if recovery_run is not None else None,
             "recoveryOperation": (
                 recovery_run.operation if recovery_run is not None else None
+            ),
+            "threeDAssetRecoveryRequired": settings.BACKUP_THREE_D_ASSETS_ENABLED,
+            "threeDAssetRecoveryValidated": (
+                (recovery_run.details or {}).get("three_d_snapshot_validated") is True
+                if recovery_run is not None
+                else False
             ),
         }
     else:

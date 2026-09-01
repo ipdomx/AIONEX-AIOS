@@ -32,6 +32,7 @@ from app.services.backup_worker import (
     RESTORE_SCRATCH_DATABASES_KEY,
     retention_candidate_ids,
 )
+from app.services.three_d_asset_backup import ThreeDAssetSnapshot
 from sqlalchemy import BigInteger, delete
 
 
@@ -1598,3 +1599,230 @@ async def test_live_postgres_worker_backup_and_restore_smoke() -> None:
             await session.commit()
         if artifact_path is not None:
             artifact_path.unlink(missing_ok=True)
+
+
+class FakeThreeDCompanion:
+    enabled = True
+
+    def __init__(self) -> None:
+        self.created_for: list[str] = []
+        self.validated_for: list[str] = []
+
+    def estimated_snapshot_bytes(self) -> int:
+        return 4096
+
+    def create_snapshot(self, database_location: str) -> ThreeDAssetSnapshot:
+        self.created_for.append(database_location)
+        return ThreeDAssetSnapshot(
+            location="/protected/backup.three-d.tar",
+            checksum="d" * 64,
+            size_bytes=2048,
+            file_count=2,
+            payload_bytes=1536,
+        )
+
+    def validate_snapshot(
+        self,
+        database_location: str,
+        *,
+        expected_checksum: str | None = None,
+        expected_size_bytes: int | None = None,
+        expected_file_count: int | None = None,
+        expected_payload_bytes: int | None = None,
+    ) -> ThreeDAssetSnapshot:
+        self.validated_for.append(database_location)
+        assert expected_checksum == "d" * 64
+        assert expected_size_bytes == 2048
+        assert expected_file_count == 2
+        assert expected_payload_bytes == 1536
+        return ThreeDAssetSnapshot(
+            location="/protected/backup.three-d.tar",
+            checksum="d" * 64,
+            size_bytes=2048,
+            file_count=2,
+            payload_bytes=1536,
+        )
+
+    def delete_snapshot(self, _database_location: str) -> bool:
+        return True
+
+    def cleanup_backup_partials(self, _backup_id: str) -> int:
+        return 0
+
+    def cleanup_stale_partials(self, _maximum_age_seconds: int) -> int:
+        return 0
+
+    def cleanup_orphan_snapshots(self, _maximum_age_seconds: int) -> int:
+        return 0
+
+    def verify_source(self) -> None:
+        return None
+
+
+class FakePlatformBackupExecutor:
+    def __init__(self) -> None:
+        self.deleted: list[str] = []
+
+    async def create_backup(
+        self,
+        _backup_id: str,
+        _attempt_token: str
+    ) -> BackupArtifact:
+        return BackupArtifact(
+            location="/protected/backup.dump",
+            checksum="c" * 64,
+            size_bytes=1024,
+        )
+
+    def delete_artifact(self, location: str) -> bool:
+        self.deleted.append(location)
+        return True
+
+
+@pytest.mark.asyncio
+async def test_platform_backup_persists_durable_three_d_companion_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    record = BackupRecord(
+        id="platform-three-d-backup",
+        kind="on-demand",
+        scope="platform",
+        status="running",
+        lease_token="platform-lease",
+    )
+    finish_session = FakeSession([record])
+    three_d = FakeThreeDCompanion()
+    worker = BackupJobWorker(
+        executor=FakePlatformBackupExecutor(),  # type: ignore[arg-type]
+        three_d_executor=three_d,  # type: ignore[arg-type]
+        session_factory=FakeSessionFactory([finish_session]),  # type: ignore[arg-type]
+    )
+    captured_capacity: dict[str, int] = {}
+
+    async def skip_capacity(
+        _backup_id: str, *, extra_required_bytes: int = 0
+    ) -> None:
+        captured_capacity["extra"] = extra_required_bytes
+
+    monkeypatch.setattr(worker, "_ensure_capacity", skip_capacity)
+    await worker.execute_backup(
+        ClaimedJob(
+            record.id,
+            "platform-lease",
+            reclaimed=False,
+            backup_scope="platform",
+        )
+    )
+
+    assert record.status == "completed"
+    assert captured_capacity["extra"] == 4096
+    assert three_d.created_for == ["/protected/backup.dump"]
+    audit = next(
+        item
+        for item in finish_session.added
+        if isinstance(item, AuditEvent) and item.action == "backup.worker.completed"
+    )
+    evidence = audit.details["three_d_snapshot"]
+    assert evidence == {
+        "required": True,
+        "checksum": "d" * 64,
+        "size_bytes": 2048,
+        "file_count": 2,
+        "payload_bytes": 1536,
+    }
+
+
+@pytest.mark.asyncio
+async def test_platform_restore_requires_three_d_companion_evidence() -> None:
+    backup = BackupRecord(
+        id="platform-backup-without-three-d-evidence",
+        kind="on-demand",
+        scope="platform",
+        status="completed",
+        location="/protected/restore.dump",
+        checksum="b" * 64,
+        size_bytes=512,
+    )
+    run = DisasterRecoveryRun(
+        id="restore-missing-three-d-evidence",
+        operation="restore_validation",
+        status="running",
+        details={"backup_id": backup.id},
+        lease_token="restore-three-d-missing",
+    )
+    load_session = FakeSession([run, backup, None])
+    failure_session = FakeSession([run])
+    worker = BackupJobWorker(
+        executor=RestoreExecutor(),  # type: ignore[arg-type]
+        three_d_executor=FakeThreeDCompanion(),  # type: ignore[arg-type]
+        session_factory=FakeSessionFactory(  # type: ignore[arg-type]
+            [load_session, failure_session]
+        ),
+    )
+
+    await worker.execute_restore_validation(
+        ClaimedJob(run.id, "restore-three-d-missing", reclaimed=False)
+    )
+
+    assert run.status == "failed"
+    assert run.details["validated"] is False
+    assert "3D snapshot evidence" in run.details["reason"]
+
+
+@pytest.mark.asyncio
+async def test_platform_restore_validates_database_and_three_d_companion() -> None:
+    backup = BackupRecord(
+        id="platform-backup-with-three-d-evidence",
+        kind="on-demand",
+        scope="platform",
+        status="completed",
+        location="/protected/restore.dump",
+        checksum="b" * 64,
+        size_bytes=512,
+    )
+    evidence_event = AuditEvent(
+        action="backup.worker.completed",
+        resource_type="backup",
+        resource_id=backup.id,
+        details={
+            "three_d_snapshot": {
+                "required": True,
+                "checksum": "d" * 64,
+                "size_bytes": 2048,
+                "file_count": 2,
+                "payload_bytes": 1536,
+            }
+        },
+    )
+    run = DisasterRecoveryRun(
+        id="restore-job-1",
+        operation="restore_validation",
+        status="running",
+        details={"backup_id": backup.id},
+        lease_token="restore-three-d-success",
+    )
+    load_session = FakeSession([run, backup, evidence_event])
+    finish_session = FakeSession([run])
+    three_d = FakeThreeDCompanion()
+    executor = RestoreExecutor()
+    worker = BackupJobWorker(
+        executor=executor,  # type: ignore[arg-type]
+        three_d_executor=three_d,  # type: ignore[arg-type]
+        session_factory=FakeSessionFactory(  # type: ignore[arg-type]
+            [load_session, finish_session]
+        ),
+    )
+
+    await worker.execute_restore_validation(
+        ClaimedJob(run.id, "restore-three-d-success", reclaimed=False)
+    )
+
+    assert run.status == "completed"
+    assert run.details["validated"] is True
+    assert run.details["three_d_snapshot_required"] is True
+    assert run.details["three_d_snapshot_validated"] is True
+    assert run.details["three_d_snapshot_checksum"] == "d" * 64
+    assert run.details["three_d_snapshot_size_bytes"] == 2048
+    assert run.details["three_d_snapshot_file_count"] == 2
+    assert run.details["three_d_snapshot_payload_bytes"] == 1536
+    assert three_d.validated_for == [backup.location]

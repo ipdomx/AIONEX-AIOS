@@ -88,6 +88,7 @@ services:
       PROJECT_EXECUTION_ADMISSION_CONCURRENCY: "14"
       PROJECT_EXECUTION_ADMISSION_GLOBAL_LIMIT: "48"
       BACKUP_DIR: /var/lib/aionex/backups
+      BACKUP_THREE_D_ASSETS_ENABLED: "true"
       FIREBASE_ADMIN_CREDENTIALS_JSON: /run/secrets/aionex/firebase-admin.json
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
@@ -162,11 +163,14 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
       BACKUP_DIR: /var/lib/aionex/backups
+      BACKUP_THREE_D_ASSETS_ENABLED: "true"
+      THREE_D_STORAGE_ROOT: /var/lib/aionex/three-d-assets
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
     volumes:
       - ..:/workspace:ro
       - backup_data:/var/lib/aionex/backups:rw
+      - three_d_asset_data:/var/lib/aionex/three-d-assets:ro
     depends_on:
       backend: {condition: service_healthy}
     healthcheck:
