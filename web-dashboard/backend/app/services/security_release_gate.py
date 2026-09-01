@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import UserRecord
+from app.core.config import settings
 from app.db.models import (
     AuditEvent,
     BackupRecord,
@@ -169,33 +170,54 @@ async def operational_assurance(
 ) -> dict[str, bool]:
     cutoff = now() - timedelta(hours=max(1, min(hours, 168)))
     backup = await session.scalar(
-        select(BackupRecord.id)
-        .where(BackupRecord.status == "completed", BackupRecord.completed_at >= cutoff)
+        select(BackupRecord)
+        .where(
+            BackupRecord.scope == "platform",
+            BackupRecord.status == "completed",
+            BackupRecord.completed_at >= cutoff,
+        )
         .order_by(BackupRecord.completed_at.desc())
         .limit(1)
     )
-    restore = await session.scalar(
-        select(DisasterRecoveryRun.id)
-        .where(
-            DisasterRecoveryRun.status == "completed",
-            DisasterRecoveryRun.completed_at >= cutoff,
-            DisasterRecoveryRun.operation.in_(
-                {
-                    "restore",
-                    "restore_test",
-                    "drill",
-                    "restore_verify",
-                    "restore_validation",
-                    "test",
-                }
-            ),
-        )
-        .order_by(DisasterRecoveryRun.completed_at.desc())
-        .limit(1)
-    )
+    restore_ready = False
+    if backup is not None:
+        restores = (
+            await session.scalars(
+                select(DisasterRecoveryRun)
+                .where(
+                    DisasterRecoveryRun.status == "completed",
+                    DisasterRecoveryRun.completed_at >= cutoff,
+                    DisasterRecoveryRun.operation.in_(
+                        {
+                            "restore",
+                            "restore_test",
+                            "drill",
+                            "restore_verify",
+                            "restore_validation",
+                            "test",
+                        }
+                    ),
+                )
+                .order_by(DisasterRecoveryRun.completed_at.desc())
+                .limit(100)
+            )
+        ).all()
+        for restore in restores:
+            details = restore.details or {}
+            if details.get("backup_id") != backup.id:
+                continue
+            if details.get("validated") is not True:
+                continue
+            if settings.BACKUP_THREE_D_ASSETS_ENABLED and (
+                details.get("three_d_snapshot_required") is not True
+                or details.get("three_d_snapshot_validated") is not True
+            ):
+                continue
+            restore_ready = True
+            break
     return {
         "recent_backup": backup is not None,
-        "recent_dr_restore": restore is not None,
+        "recent_dr_restore": restore_ready,
     }
 
 

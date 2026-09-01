@@ -9,6 +9,7 @@ from app.api.owner.control_plane import (
     _run_audited_mutation,
 )
 from app.core.auth import UserRecord, require_super_owner
+from app.core.config import settings
 from app.db.base import get_db
 from app.db.models import BackupRecord, DisasterRecoveryRun
 from app.services.backup_executor import acquire_enqueue_lock
@@ -43,11 +44,43 @@ class OperationsCommand(BaseModel):
     action: Literal["validate", "recover"]
 
 
+async def _restore_evidence_ready(
+    session: AsyncSession, backup: BackupRecord | None
+) -> bool:
+    if backup is None:
+        return False
+    runs = (
+        await session.scalars(
+            select(DisasterRecoveryRun)
+            .where(
+                DisasterRecoveryRun.status == "completed",
+                DisasterRecoveryRun.operation.in_({"restore_validation", "test"}),
+            )
+            .order_by(DisasterRecoveryRun.completed_at.desc())
+            .limit(100)
+        )
+    ).all()
+    for run in runs:
+        details = run.details or {}
+        if details.get("backup_id") != backup.id:
+            continue
+        if details.get("validated") is not True:
+            continue
+        if settings.BACKUP_THREE_D_ASSETS_ENABLED and (
+            details.get("three_d_snapshot_required") is not True
+            or details.get("three_d_snapshot_validated") is not True
+        ):
+            continue
+        return True
+    return False
+
+
 async def _snapshot(session: AsyncSession) -> OperationsSnapshot:
     health = await _health_items(session)
     latest_backup = await session.scalar(
         select(BackupRecord)
         .where(
+            BackupRecord.scope == "platform",
             BackupRecord.status == "completed",
             BackupRecord.location.is_not(None),
             BackupRecord.checksum.is_not(None),
@@ -57,10 +90,12 @@ async def _snapshot(session: AsyncSession) -> OperationsSnapshot:
         .order_by(BackupRecord.completed_at.desc())
         .limit(1)
     )
-    backup_ready = await _backup_artifact_ready(
+    artifact_ready = await _backup_artifact_ready(
         latest_backup,
         verify_checksum=False,
     )
+    restore_ready = await _restore_evidence_ready(session, latest_backup)
+    backup_ready = artifact_ready and restore_ready
     now = datetime.now(UTC).isoformat()
     targets = [
         OperationsTarget(
@@ -94,10 +129,13 @@ async def _snapshot(session: AsyncSession) -> OperationsSnapshot:
             status="healthy" if backup_ready else "degraded",
             readiness=100 if backup_ready else 50,
             details=(
-                "The latest completed backup artifact is available."
+                "The latest platform backup and restore evidence are verified."
                 if backup_ready
                 else (
-                    "No completed backup artifact passed live storage " "verification."
+                    "No completed platform backup artifact passed live storage "
+                    "verification."
+                    if not artifact_ready
+                    else "The latest platform backup has no matching validated restore evidence."
                 )
             ),
             last_checked_at=now,
@@ -163,6 +201,7 @@ async def run_operations_command(
             backup = await session.scalar(
                 select(BackupRecord)
                 .where(
+                    BackupRecord.scope == "platform",
                     BackupRecord.status == "completed",
                     BackupRecord.location.is_not(None),
                     BackupRecord.checksum.is_not(None),
