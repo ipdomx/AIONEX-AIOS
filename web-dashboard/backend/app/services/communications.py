@@ -1059,10 +1059,18 @@ def _send_email(address: str, notification: Notification) -> str:
     smtp_host = settings.SMTP_HOST
     if not smtp_host:
         raise ProviderNotConfigured("email-provider-unconfigured")
-    with smtplib.SMTP(smtp_host, settings.SMTP_PORT, timeout=15) as smtp:
+    tls_context = ssl.create_default_context()
+    smtp_client: smtplib.SMTP | smtplib.SMTP_SSL
+    if settings.SMTP_SSL:
+        smtp_client = smtplib.SMTP_SSL(
+            smtp_host, settings.SMTP_PORT, timeout=15, context=tls_context
+        )
+    else:
+        smtp_client = smtplib.SMTP(smtp_host, settings.SMTP_PORT, timeout=15)
+    with smtp_client as smtp:
         smtp.ehlo()
-        if settings.SMTP_TLS:
-            smtp.starttls(context=ssl.create_default_context())
+        if settings.SMTP_TLS and not settings.SMTP_SSL:
+            smtp.starttls(context=tls_context)
             smtp.ehlo()
         if settings.SMTP_USER:
             if not settings.SMTP_PASSWORD:

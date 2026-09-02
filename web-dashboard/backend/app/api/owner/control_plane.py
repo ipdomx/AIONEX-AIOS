@@ -819,10 +819,20 @@ def _send_owner_test_email(recipient: str) -> dict[str, Any]:
         "The AIONEX Owner email notification channel is configured and reachable."
     )
 
-    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as smtp:
+    tls_context = ssl.create_default_context()
+    smtp_client: smtplib.SMTP | smtplib.SMTP_SSL
+    if settings.SMTP_SSL:
+        smtp_client = smtplib.SMTP_SSL(
+            settings.SMTP_HOST, settings.SMTP_PORT, timeout=10, context=tls_context
+        )
+    else:
+        smtp_client = smtplib.SMTP(
+            settings.SMTP_HOST, settings.SMTP_PORT, timeout=10
+        )
+    with smtp_client as smtp:
         smtp.ehlo()
-        if settings.SMTP_TLS:
-            smtp.starttls(context=ssl.create_default_context())
+        if settings.SMTP_TLS and not settings.SMTP_SSL:
+            smtp.starttls(context=tls_context)
             smtp.ehlo()
         if settings.SMTP_USER:
             if not settings.SMTP_PASSWORD:
