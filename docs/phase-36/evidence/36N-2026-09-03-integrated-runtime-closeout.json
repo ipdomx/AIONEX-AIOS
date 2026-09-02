@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-03T04:03:31+08:00",
+  "finalMainSha": "b37a68e50272314ff840db08217792ae1ecbbfee",
+  "protectedPullRequests": {
+    "539": {
+      "mergeSha": "9a106d368305d1b673c18b3bb7e17e6c8742e493",
+      "checksPassed": 16,
+      "checksTotal": 16
+    },
+    "540": {
+      "mergeSha": "b37a68e50272314ff840db08217792ae1ecbbfee",
+      "checksPassed": 12,
+      "checksTotal": 12
+    }
+  },
+  "runtime": {
+    "backendImage": "sha256:4c25cb9e6e85123e437418113ebe7815525cbbda6d24f7f05e0143d8a9e9f274",
+    "rollbackBackendImage": "sha256:0b1fa532f5e2d4bdc66169345f166744b155d0087dcc09253b28c22387a8be92",
+    "backendTagDrift": 0,
+    "projectWorkers": 2,
+    "operationsReadiness": 100,
+    "badContainers": 0,
+    "runningContainers": 33
+  },
+  "disasterRecovery": {
+    "backupId": "417a4e61-e056-41df-a30e-b4a368177edd",
+    "backupStatus": "completed",
+    "databaseArchiveSizeBytes": 17673783,
+    "databaseArchiveSha256": "e1e198fdda556d0cac8be000d0fcf1a39bb993f7cf9498fd61f8912038ab2690",
+    "threeDSnapshotRequired": true,
+    "threeDSnapshotSha256": "4f972bd6abdcc1f3b049979da5c852cc519e5dd695856d7a82d338a4b683da22",
+    "restoreRunId": "7014ccd5-904a-4720-b985-4990a0c25d89",
+    "restoreStatus": "completed",
+    "validated": true,
+    "threeDSnapshotValidated": true,
+    "scratchDatabasesRemaining": 0
+  },
+  "smtp": {
+    "implicitTls": true,
+    "liveAuthenticationNoopCode": 250,
+    "messageSentForAcceptance": false
+  },
+  "testEvidence": {
+    "corePassed": 849,
+    "backendPassed": 1097,
+    "backendSkipped": 1,
+    "backendFailed": 0,
+    "mypySourceFiles": 247
+  },
+  "safety": {
+    "paidGpuGenerationUsed": false,
+    "hunyuanSecurityApproved": false,
+    "hunyuanRuntimeConfigured": false,
+    "triposrConfigured": true,
+    "cloudflareDnsOrTunnelMutation": false
+  }
+}
