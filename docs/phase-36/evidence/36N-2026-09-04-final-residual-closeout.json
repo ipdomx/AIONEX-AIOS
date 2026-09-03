@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "recordedAtUtc": "2026-09-03T19:48:16Z",
+  "certifiedRuntimeSourceSha": "59295a41c310a1c5487a06b686c26178bec33673",
+  "decision": "INTERNAL_CLOSEOUT_COMPLETE_EXTERNAL_GATES_RETAINED",
+  "repository": {
+    "workingTreeCleanBeforeReceipt": true,
+    "openPullRequestsBeforeReceipt": 0,
+    "protectedPullRequests": {
+      "542": "2f722ebb184eb30346c0cf22fdf856acff869de7",
+      "543": "7db9fde112e58d660c4eb614a420795bed09b7b1",
+      "544": "bed8b2cf618eefc0a95af5fc6ac212fdf8b9a803",
+      "545": "59295a41c310a1c5487a06b686c26178bec33673"
+    }
+  },
+  "runtime": {
+    "productionContainersRunning": 30,
+    "nonRunningContainers": 0,
+    "healthOrRestartProblems": 0,
+    "backendTagDrift": 0,
+    "projectWorkerCount": 2,
+    "backendImage": "sha256:4c25cb9e6e85123e437418113ebe7815525cbbda6d24f7f05e0143d8a9e9f274",
+    "projectWorkerImage": "sha256:0415716849768be72d94459232bda4c81c84dcfb64281f4c0949e9e71b2a6807",
+    "ownerFrontendImage": "sha256:587c62a14268b388d0503f1442ab0f4d6f559110d5e98bbd42fd8081183a7eb6",
+    "operationsReadiness": 100,
+    "operationalQueuesActive": 0,
+    "auditTestContainers": 0,
+    "auditTestNetworks": 0
+  },
+  "disasterRecovery": {
+    "latestPlatformBackupId": "a8c4ab57-764e-4287-90a8-7e006e55c8aa",
+    "backupStatus": "completed",
+    "databaseArchiveSha256": "8fe45770b43e9914be01794234336c4feda5890a961df470df2a82a436d5e862",
+    "databaseArchiveSizeBytes": 18320784,
+    "threeDSnapshotRequired": true,
+    "threeDSnapshotSha256": "4f972bd6abdcc1f3b049979da5c852cc519e5dd695856d7a82d338a4b683da22",
+    "threeDSnapshotSizeBytes": 10240,
+    "threeDSnapshotFileCount": 0,
+    "threeDSnapshotPayloadBytes": 0,
+    "matchingRestoreValidationId": "23edef32-6791-4863-8ea8-94af7997b216",
+    "restoreStatus": "completed",
+    "validated": true,
+    "threeDSnapshotValidated": true,
+    "scratchDatabasesRemaining": 0
+  },
+  "threeD": {
+    "storageType": "local",
+    "backupProtectionEnabled": true,
+    "triposrConfigured": true,
+    "triposrSecurityImage": "sha256:66d8a17e74377a0335bf7fda22847afe4ee7ae30431eb6f09f6c99c03389f440",
+    "triposrHighCriticalUnresolved": 0,
+    "hunyuanConfigured": false,
+    "hunyuanSecurityApproved": false,
+    "paidGpuGenerationUsedForThisCloseout": false
+  },
+  "payments": {
+    "environment": "live",
+    "validatorPassesCurrentProductionEnvironment": true,
+    "readyProviders": ["stripe", "mada", "manual"],
+    "unconfiguredProviders": ["paypal", "paddle", "paymob", "fawry", "stc_pay", "bank_transfer"],
+    "storesCardData": false,
+    "googlePayViaStripe": true,
+    "directApplePay": "external_activation_boundary",
+    "directApplePayRequiredEvidence": [
+      "apple-merchant-id",
+      "verified-domain-association",
+      "payment-processing-certificate",
+      "approved-non-stripe-settlement-processor-and-adapter"
+    ]
+  },
+  "aiProviders": {
+    "connected": 14,
+    "error": 1,
+    "errorProvider": "AWS Bedrock",
+    "validatedLaunchModels": 6,
+    "operationsObserverModelRefreshEnabled": true,
+    "projectAILiveRuntimeEnabled": false
+  },
+  "communications": {
+    "smtpImplicitTlsAuthenticationNoop": 250,
+    "messageSentForAcceptance": false,
+    "historicalDeadLetterDeliveriesRetainedForAudit": 9,
+    "unconfiguredPushDeliveriesRetained": 11
+  },
+  "phase36": {
+    "currentBatch": "COMPLETE",
+    "externalGateBatches": ["36G", "36H", "36I"],
+    "ungatedUnresolvedCapabilities": 0,
+    "externalGates": [
+      "explicit-consent-egress-runtime-acceptance",
+      "jurisdictional-healthcare-compliance-certification",
+      "live-payment-provider-credential",
+      "music-rights-and-ai-generated-disclosure",
+      "music-rights-and-synthid-disclosure",
+      "owner-provider-funded-credit-thresholds",
+      "physical-device-or-chain-deployment-authority",
+      "platform-code-signing",
+      "provider-rendered-podcast-jingle-runtime-evidence",
+      "public-stun-turn-and-sfu-capacity",
+      "recording-retention-and-studio-ingestion-runtime-evidence",
+      "sector-evidence-and-human-review",
+      "store-signing-and-publication",
+      "synthetic-voice-disclosure",
+      "voice-rights-and-consent-evidence",
+      "xr-device-validation"
+    ]
+  },
+  "securityAndBoundaries": {
+    "apiReadyHttp": 200,
+    "portalLocaleRootsHttp": 200,
+    "ownerCloudflareAccessBoundaryHttp": 302,
+    "ufwActive": true,
+    "sshRateLimited": true,
+    "fail2banActive": true,
+    "failedSystemdUnits": 0,
+    "diskUsePercent": 41
+  }
+}
