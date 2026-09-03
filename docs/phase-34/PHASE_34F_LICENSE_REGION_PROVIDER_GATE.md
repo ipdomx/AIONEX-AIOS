@@ -80,3 +80,12 @@ Phase 34F is complete only when:
 - production secret contains both endpoint IDs without exposing credentials or identifiers;
 - Owner and user frontends build with six complete locales;
 - all repository CI/security checks pass after merge.
+
+
+## 2026-09-03 TripoSR supply-chain refresh
+
+- A refreshed Trivy gate detected `CVE-2026-9856` as HIGH in `transformers==5.5.4`; the advisory reports the fixed line at `5.10.0`.
+- `5.10.0` is yanked upstream, so the image now pins the minimal non-yanked fixed release `transformers==5.10.1`.
+- The image build now runs `pip check` and imports `ViTModel` from the exact API used by vendored TripoSR before model baking.
+- Container-security actions are updated to the current Dependabot-proposed immutable SHAs, with matching contract assertions.
+- Production provider activation is unchanged; this maintenance does not trigger a GPU/provider request or spend.

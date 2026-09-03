@@ -61,7 +61,7 @@ def test_worldwide_fallback_is_real_pinned_triposr_not_placeholder():
     assert "scikit-image==0.26.0" in (ROOT / "infra/runpod/triposr/requirements.txt").read_text()
     requirements = (ROOT / "infra/runpod/triposr/requirements.txt").read_text()
     assert "numpy==2.3.5" in requirements
-    assert "transformers==5.5.4" in requirements
+    assert "transformers==5.10.1" in requirements
     assert "runpod==1.11.0" in requirements
     assert "f205d5d8e640a89a2b8ef0369670dfc37cc07fc2" in TRIPOSR_DOCKER
     assert "/models/dino-vitb16" in TRIPOSR_DOCKER
