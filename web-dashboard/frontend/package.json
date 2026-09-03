@@ -7,8 +7,9 @@
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "next lint",
-    "type-check": "tsc --noEmit",
-    "check:owner-arabic": "node scripts/check-owner-arabic-coverage.mjs"
+    "type-check": "npm run check:api-contracts && tsc --noEmit",
+    "check:owner-arabic": "node scripts/check-owner-arabic-coverage.mjs",
+    "check:api-contracts": "node scripts/check-api-contracts.mjs"
   },
   "dependencies": {
     "@apollo/client": "^3.9.0",

@@ -62,3 +62,43 @@ async def test_model_refresh_scheduler_is_disabled_by_default_and_interval_bound
     await observer.run_once()
     assert calls == ["refresh"]
     assert observer.last_project_ai_model_refresh_monotonic == first_refresh
+
+def _compose_service_block(compose: str, service: str) -> str:
+    lines = compose.splitlines()
+    marker = f"  {service}:"
+    try:
+        start = lines.index(marker)
+    except ValueError as exc:
+        raise AssertionError(f"compose service {service!r} is missing") from exc
+    end = len(lines)
+    for index in range(start + 1, len(lines)):
+        line = lines[index]
+        if line.startswith("  ") and not line.startswith("    ") and line.strip():
+            end = index
+            break
+    return "\n".join(lines[start + 1 : end])
+
+
+def test_production_operations_observer_keeps_model_evidence_fresh_without_arming_live_runtime() -> None:
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parents[3]
+    for relative in (
+        "web-dashboard/docker-compose.production.yml",
+        "deploy/production/docker-compose.production.yml",
+    ):
+        compose = (repo_root / relative).read_text(encoding="utf-8")
+        observer = _compose_service_block(compose, "operations-observer")
+        assert 'PROJECT_AI_MODEL_REFRESH_ENABLED: "true"' in observer
+        assert 'PROJECT_AI_LIVE_RUNTIME_ENABLED: "true"' not in observer
+
+    dashboard_compose = (repo_root / "web-dashboard/docker-compose.production.yml").read_text(encoding="utf-8")
+    assert 'PROJECT_AI_LIVE_RUNTIME_ENABLED: "false"' in dashboard_compose
+
+    for relative in (
+        "web-dashboard/docker-compose.production.yml",
+        "deploy/production/docker-compose.production.yml",
+    ):
+        compose = (repo_root / relative).read_text(encoding="utf-8")
+        assert "${AIOS_ENV_FILE:-.env}" not in compose
+        assert "${AIOS_ENV_FILE:-.env.production}" in compose
