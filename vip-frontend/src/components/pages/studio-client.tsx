@@ -2,7 +2,9 @@
 
 import {
   Archive,
+  BadgeCheck,
   Box,
+  CircleAlert,
   Code2,
   Download,
   FileText,
@@ -148,6 +150,20 @@ export function StudioClient() {
       for (const item of capability.departments) result[item] = capability.available;
     }
     return result;
+  }, [hub]);
+  const capabilityReadiness = useMemo(() => {
+    const capabilities = hub?.capabilities || [];
+    const externalGates = new Set(
+      capabilities.flatMap((capability) => capability.external_gates),
+    );
+    return {
+      available: capabilities.filter((capability) => capability.available).length,
+      external: capabilities.filter(
+        (capability) =>
+          capability.availability_reason === "external_activation_required",
+      ).length,
+      externalGates: externalGates.size,
+    };
   }, [hub]);
 
   const load = useCallback(async (quiet = false) => {
@@ -467,6 +483,36 @@ export function StudioClient() {
         </div>
       </div>
 
+      <div className="glass-panel mt-5 rounded-3xl p-5 sm:p-6">
+        <div className="flex items-start gap-3">
+          <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-electric-200" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold">{t("readinessTitle")}</p>
+            <p className="mt-1 text-xs leading-6 text-white/45">{t("readinessCopy")}</p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-green-500/15 bg-green-500/5 p-3">
+                <div className="flex items-center gap-2 text-green-200">
+                  <BadgeCheck className="h-4 w-4" />
+                  <span className="text-lg font-semibold">{capabilityReadiness.available}</span>
+                </div>
+                <p className="mt-1 text-[11px] text-white/40">{t("readinessAvailable")}</p>
+              </div>
+              <div className="rounded-2xl border border-amber-500/15 bg-amber-500/5 p-3">
+                <div className="flex items-center gap-2 text-amber-200">
+                  <CircleAlert className="h-4 w-4" />
+                  <span className="text-lg font-semibold">{capabilityReadiness.external}</span>
+                </div>
+                <p className="mt-1 text-[11px] text-white/40">{t("readinessExternal")}</p>
+              </div>
+              <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3">
+                <div className="text-lg font-semibold text-white">{capabilityReadiness.externalGates}</div>
+                <p className="mt-1 text-[11px] text-white/40">{t("readinessGates")}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="mt-8">
         <div className="flex items-end justify-between gap-4">
           <div>
@@ -510,6 +556,22 @@ export function StudioClient() {
               >
                 <Sparkles className="h-4 w-4 text-electric-200" />
                 <div className="mt-3 text-sm font-semibold">{t(`families.${preset.key}`)}</div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {available ? (
+                    <span className="rounded-full border border-green-500/20 bg-green-500/10 px-2 py-0.5 text-[9px] font-medium text-green-200">
+                      {t("readyBadge")}
+                    </span>
+                  ) : capability?.availability_reason === "external_activation_required" ? (
+                    <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[9px] font-medium text-amber-200">
+                      {t("externalGateBadge")}
+                    </span>
+                  ) : null}
+                  {(capability?.external_gates.length ?? 0) > 0 && (
+                    <span className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[9px] text-white/35">
+                      {capability?.external_gates.length} {t("readinessGates")}
+                    </span>
+                  )}
+                </div>
               </button>
             );
           })}

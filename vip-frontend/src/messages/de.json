@@ -944,7 +944,14 @@
     "customSectorObjective": "Ziel",
     "customSectorCreate": "Eigenes Branchenprojekt erstellen",
     "sectorProjectCreated": "Projekt „{name}“ wurde aus der gesteuerten Branchenspezifikation erstellt.",
-    "sectorProjectError": "Das Branchenprojekt konnte nicht erstellt werden."
+    "sectorProjectError": "Das Branchenprojekt konnte nicht erstellt werden.",
+    "readinessTitle": "Aktivierungsstatus der Funktionen",
+    "readinessCopy": "Die Verfügbarkeit stammt aus dem live verwalteten Studio-Katalog. Funktionen, die noch Anbieter-, Rechte-, Geräte-, Rechts-, Finanz- oder Infrastruktur-Nachweise benötigen, bleiben sichtbar nicht verfügbar.",
+    "readinessAvailable": "Jetzt für Ihr Konto verfügbar",
+    "readinessExternal": "Wartet auf externe Aktivierung",
+    "readinessGates": "externe Sperren",
+    "readyBadge": "Bereit",
+    "externalGateBadge": "Externe Aktivierung"
   },
   "academyUser": {
     "loadError": "Academy-Daten konnten nicht geladen werden.",

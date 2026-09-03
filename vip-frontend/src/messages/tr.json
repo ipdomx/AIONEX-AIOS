@@ -944,7 +944,14 @@
     "customSectorObjective": "Amaç",
     "customSectorCreate": "Özel sektör projesi oluştur",
     "sectorProjectCreated": "“{name}” projesi yönetilen sektör şartnamesinden oluşturuldu.",
-    "sectorProjectError": "Sektör projesi oluşturulamadı."
+    "sectorProjectError": "Sektör projesi oluşturulamadı.",
+    "readinessTitle": "Yetenek etkinleştirme durumu",
+    "readinessCopy": "Kullanılabilirlik canlı ve yönetişimli Studio kataloğundan gelir. Sağlayıcı, hak, cihaz, hukuk, finans veya altyapı kanıtı gereken yetenekler hazırmış gibi gösterilmek yerine açıkça kullanılamaz kalır.",
+    "readinessAvailable": "Hesabınızda şu anda kullanılabilir",
+    "readinessExternal": "Harici etkinleştirme bekliyor",
+    "readinessGates": "harici kapı",
+    "readyBadge": "Hazır",
+    "externalGateBadge": "Harici etkinleştirme"
   },
   "academyUser": {
     "loadError": "Academy verileri yüklenemedi.",

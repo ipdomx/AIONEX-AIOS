@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends
 
 from app.api.owner import (
+    external_activation as owner_external_activation,
     growth_access as owner_growth_access,
     growth_pilots as owner_growth_pilots,
     growth_paid_campaigns as owner_growth_paid_campaigns,
@@ -305,5 +306,6 @@ owner_router.include_router(owner_growth_access.router)
 owner_router.include_router(owner_growth_pilots.router)
 owner_router.include_router(owner_growth_paid_campaigns.router)
 owner_router.include_router(owner_project_ai.router)
+owner_router.include_router(owner_external_activation.router)
 owner_router.include_router(owner_studio_governance.router)
 api_router.include_router(owner_router)

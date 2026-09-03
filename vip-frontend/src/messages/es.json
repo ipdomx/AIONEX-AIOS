@@ -944,7 +944,14 @@
     "customSectorObjective": "Objetivo",
     "customSectorCreate": "Crear proyecto sectorial",
     "sectorProjectCreated": "El proyecto «{name}» se creó desde la especificación sectorial gobernada.",
-    "sectorProjectError": "No se pudo crear el proyecto sectorial."
+    "sectorProjectError": "No se pudo crear el proyecto sectorial.",
+    "readinessTitle": "Estado de activación de capacidades",
+    "readinessCopy": "La disponibilidad procede del catálogo Studio gobernado en vivo. Las capacidades que aún requieren pruebas de proveedor, derechos, dispositivo, legales, financieras o de infraestructura permanecen claramente no disponibles.",
+    "readinessAvailable": "Disponibles para tu cuenta",
+    "readinessExternal": "Esperando activación externa",
+    "readinessGates": "puertas externas",
+    "readyBadge": "Listo",
+    "externalGateBadge": "Activación externa"
   },
   "academyUser": {
     "loadError": "No se pudieron cargar los datos de Academy.",
