@@ -27,7 +27,7 @@ The published Owner Portal pricing configuration is synchronized into the billin
 
 - Online checkout supports Stripe, PayPal and Paddle only when the required sandbox or live credentials and provider price references are configured.
 - External provider activation and live sandbox credential proof, including Paymob, Fawry, STC Pay and any additional hosted adapter, remain explicitly registered in final provider batch 29J as requested; 29D does not advertise an unproven local checkout.
-- Stripe exposes Apple Pay and Google Pay through automatic payment methods.
+- Stripe exposes Google Pay and other eligible Stripe payment methods through automatic payment methods. Direct Apple Pay is deliberately excluded from the Stripe adapter and remains a separate activation boundary.
 - Manual invoice and configured bank-transfer checkout return non-secret payment instructions and require Owner settlement before access activates.
 - Idempotency keys protect checkout, wallet, usage and refund writes.
 - Coupon reservations are counted once and released when checkout fails or expires.

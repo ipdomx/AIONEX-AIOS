@@ -10,71 +10,126 @@ fi
 
 read_value() {
   local key="$1"
-  grep -E "^${key}=" "$ENV_FILE" | tail -n1 | cut -d= -f2-
-}
-
-require_non_empty() {
-  local key="$1"
   local value
-  value="$(read_value "$key")"
-  if [[ -z "$value" ]]; then
-    echo "Missing required value: $key" >&2
-    exit 1
-  fi
+  value="$(awk -v wanted="$key" '
+    index($0, "#") == 1 { next }
+    {
+      pos = index($0, "=")
+      if (pos == 0) next
+      key = substr($0, 1, pos - 1)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", key)
+      if (key == wanted) result = substr($0, pos + 1)
+    }
+    END { print result }
+  ' "$ENV_FILE")"
+  value="${value#\"}"; value="${value%\"}"
+  value="${value#\'}"; value="${value%\'}"
+  printf '%s' "$value"
 }
 
-require_bool() {
-  local key="$1"
-  local value
+value_or_default() {
+  local key="$1" default="$2" value
   value="$(read_value "$key")"
-  if [[ "$value" != "true" && "$value" != "false" ]]; then
-    echo "$key must be true or false" >&2
-    exit 1
-  fi
+  printf '%s' "${value:-$default}"
 }
 
-require_non_empty PAYMENTS_ENV
-require_non_empty PAYMENTS_DEFAULT_CURRENCY
-require_non_empty PAYMENTS_PUBLIC_ORIGIN
-require_non_empty PAYMENTS_API_ORIGIN
-require_bool PAYMENTS_REQUIRE_HTTPS
-require_bool PAYMENTS_ALLOW_TEST_KEYS
-require_bool PAYMENTS_AUDIT_LOG_ENABLED
-require_bool PAYMENTS_IDEMPOTENCY_ENABLED
-
-if [[ "$(read_value PAYMENTS_REQUIRE_HTTPS)" == "true" ]]; then
-  [[ "$(read_value PAYMENTS_PUBLIC_ORIGIN)" == https://* ]] || { echo "PAYMENTS_PUBLIC_ORIGIN must use HTTPS" >&2; exit 1; }
-  [[ "$(read_value PAYMENTS_API_ORIGIN)" == https://* ]] || { echo "PAYMENTS_API_ORIGIN must use HTTPS" >&2; exit 1; }
-fi
-
-validate_provider() {
-  local enabled_key="$1"
+require_all_or_none() {
+  local label="$1"
   shift
-  require_bool "$enabled_key"
-  if [[ "$(read_value "$enabled_key")" == "true" ]]; then
-    local key
+  local key value any=false missing=()
+  for key in "$@"; do
+    value="$(read_value "$key")"
+    [[ -n "$value" ]] && any=true
+  done
+  if [[ "$any" == true ]]; then
     for key in "$@"; do
-      require_non_empty "$key"
+      value="$(read_value "$key")"
+      [[ -z "$value" ]] && missing+=("$key")
     done
   fi
+  if ((${#missing[@]})); then
+    echo "$label configuration is incomplete; missing: ${missing[*]}" >&2
+    exit 1
+  fi
 }
 
-validate_provider STRIPE_ENABLED STRIPE_SECRET_KEY STRIPE_PUBLISHABLE_KEY STRIPE_WEBHOOK_SECRET
-validate_provider PAYPAL_ENABLED PAYPAL_CLIENT_ID PAYPAL_CLIENT_SECRET PAYPAL_WEBHOOK_ID
-validate_provider PADDLE_ENABLED PADDLE_API_KEY PADDLE_CLIENT_TOKEN PADDLE_WEBHOOK_SECRET
-validate_provider PAYMOB_ENABLED PAYMOB_API_KEY PAYMOB_HMAC_SECRET
-validate_provider FAWRY_ENABLED FAWRY_MERCHANT_CODE FAWRY_SECURITY_KEY
-validate_provider STC_PAY_ENABLED STC_PAY_MERCHANT_ID STC_PAY_SECRET
-validate_provider MADA_ENABLED MADA_MERCHANT_ID MADA_SECRET
-validate_provider BANK_TRANSFER_ENABLED BANK_TRANSFER_ACCOUNT_NAME BANK_TRANSFER_IBAN BANK_TRANSFER_BANK_NAME
+validate_optional_bool() {
+  local key="$1" value
+  value="$(read_value "$key")"
+  [[ -z "$value" ]] && return 0
+  if [[ "$value" != "true" && "$value" != "false" ]]; then
+    echo "$key must be true or false when supplied" >&2
+    exit 1
+  fi
+}
 
-if [[ "$(read_value APPLE_PAY_ENABLED)" == "true" || "$(read_value GOOGLE_PAY_ENABLED)" == "true" ]]; then
-  [[ "$(read_value STRIPE_ENABLED)" == "true" ]] || { echo "Apple Pay and Google Pay require Stripe to be enabled" >&2; exit 1; }
-fi
+payments_environment="$(read_value PAYMENTS_ENVIRONMENT)"
+[[ -z "$payments_environment" ]] && payments_environment="$(read_value PAYMENTS_ENV)"
+payments_environment="${payments_environment:-sandbox}"
+case "$payments_environment" in
+  sandbox|test|live|production) ;;
+  *) echo "PAYMENTS_ENVIRONMENT must be sandbox, test, live, or production" >&2; exit 1 ;;
+esac
 
-if [[ "$(read_value PAYMENTS_ENV)" == "production" && "$(read_value PAYMENTS_ALLOW_TEST_KEYS)" != "false" ]]; then
-  echo "Production environment must reject test keys" >&2
+currency="$(value_or_default PAYMENTS_DEFAULT_CURRENCY USD)"
+if [[ ! "$currency" =~ ^[A-Za-z]{3}$ ]]; then
+  echo "PAYMENTS_DEFAULT_CURRENCY must be a 3-letter currency code" >&2
   exit 1
 fi
 
-echo "Payments environment configuration is valid."
+success_url="$(value_or_default PAYMENTS_SUCCESS_URL 'https://ai.vip-e.net/en/billing?checkout=success')"
+cancel_url="$(value_or_default PAYMENTS_CANCEL_URL 'https://ai.vip-e.net/en/billing?checkout=cancelled')"
+[[ "$success_url" == https://* ]] || { echo "PAYMENTS_SUCCESS_URL must use HTTPS" >&2; exit 1; }
+[[ "$cancel_url" == https://* ]] || { echo "PAYMENTS_CANCEL_URL must use HTTPS" >&2; exit 1; }
+
+tolerance="$(value_or_default PAYMENTS_WEBHOOK_TOLERANCE_SECONDS 300)"
+if [[ ! "$tolerance" =~ ^[0-9]+$ ]] || (( tolerance < 30 || tolerance > 3600 )); then
+  echo "PAYMENTS_WEBHOOK_TOLERANCE_SECONDS must be an integer from 30 to 3600" >&2
+  exit 1
+fi
+
+require_all_or_none "Stripe" STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET
+require_all_or_none "PayPal" PAYPAL_CLIENT_ID PAYPAL_CLIENT_SECRET PAYPAL_WEBHOOK_ID
+require_all_or_none "Paddle" PADDLE_API_KEY PADDLE_WEBHOOK_SECRET
+require_all_or_none "Paymob" PAYMOB_API_KEY PAYMOB_WEBHOOK_SECRET
+require_all_or_none "Fawry" FAWRY_API_KEY FAWRY_WEBHOOK_SECRET
+require_all_or_none "STC Pay" STC_PAY_API_KEY STC_PAY_WEBHOOK_SECRET
+require_all_or_none "Bank transfer" BANK_TRANSFER_BANK_NAME BANK_TRANSFER_ACCOUNT_NAME BANK_TRANSFER_IBAN
+
+stripe_key="$(read_value STRIPE_SECRET_KEY)"
+if [[ "$payments_environment" == "live" || "$payments_environment" == "production" ]]; then
+  if [[ "$stripe_key" == sk_test_* || "$stripe_key" == rk_test_* ]]; then
+    echo "Live payments must not use a Stripe test key" >&2
+    exit 1
+  fi
+fi
+
+for flag in GOOGLE_PAY_ENABLED MADA_ENABLED APPLE_PAY_ENABLED PAYMENTS_ALLOW_TEST_KEYS; do
+  validate_optional_bool "$flag"
+done
+
+if [[ "$(read_value GOOGLE_PAY_ENABLED)" == "true" || "$(read_value MADA_ENABLED)" == "true" ]]; then
+  [[ -n "$stripe_key" && -n "$(read_value STRIPE_WEBHOOK_SECRET)" ]] || {
+    echo "Google Pay and Mada require the configured Stripe adapter" >&2
+    exit 1
+  }
+fi
+
+# AIOS intentionally keeps the requested direct Apple Pay gateway outside the
+# Stripe adapter. Until a Merchant ID, domain association, payment-processing
+# certificate, and non-Stripe settlement processor/adapter are selected and
+# implemented, activation must remain fail-closed rather than silently routing
+# Apple Pay through Stripe.
+if [[ "$(read_value APPLE_PAY_ENABLED)" == "true" ]]; then
+  echo "Direct Apple Pay is an external activation boundary: configure an Apple Merchant ID, verified domain, payment-processing certificate, and selected non-Stripe settlement processor/adapter before enabling it" >&2
+  exit 1
+fi
+
+if [[ "$payments_environment" == "live" || "$payments_environment" == "production" ]]; then
+  if [[ "$(read_value PAYMENTS_ALLOW_TEST_KEYS)" == "true" ]]; then
+    echo "Live payments must reject test keys" >&2
+    exit 1
+  fi
+fi
+
+echo "Payments environment configuration is valid for the current AIOS payment contract."

@@ -2,7 +2,13 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from aios.payments.admin import FinanceAdminService
-from aios.payments.release import PaymentReleaseGate, ReleaseCheck, serialize_release_report, verify_signed_webhook
+from aios.payments.release import (
+    PaymentReleaseGate,
+    ReleaseCheck,
+    check_payment_methods,
+    serialize_release_report,
+    verify_signed_webhook,
+)
 
 
 @dataclass
@@ -56,3 +62,29 @@ def test_signed_webhook_validation():
     signature = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
     assert verify_signed_webhook(payload, signature, secret)
     assert not verify_signed_webhook(payload, "invalid", secret)
+
+
+class WalletProvider:
+    def __init__(self, payment_methods: tuple[str, ...]) -> None:
+        self.payment_methods = payment_methods
+
+
+class WalletRegistry:
+    def __init__(self, methods: tuple[str, ...]) -> None:
+        self._providers = (WalletProvider(methods),)
+
+    def providers(self):
+        return self._providers
+
+
+def test_wallet_release_gate_keeps_direct_apple_pay_external() -> None:
+    check = check_payment_methods(WalletRegistry(("card", "google_pay")))
+    assert check.passed is True
+    assert "Google Pay is enabled" in check.detail
+    assert "direct Apple Pay" in check.detail
+
+
+def test_wallet_release_gate_still_requires_google_pay() -> None:
+    check = check_payment_methods(WalletRegistry(("card", "apple_pay")))
+    assert check.passed is False
+    assert check.detail == "missing wallet method: google"
