@@ -195,14 +195,45 @@ def phase36_program_snapshot() -> dict[str, object]:
     highest = MATURITY_ORDER[-1]
     production_ready = counts[highest]
     batches = []
+    runtime_verified_index = MATURITY_ORDER.index("runtime_verified")
     for batch in BATCHES:
         capabilities = [item for item in CAPABILITIES if item.owner_batch == batch.batch_id]
-        batches.append({**asdict(batch), "capabilities": [asdict(item) for item in capabilities]})
+        unresolved = (
+            [
+                item
+                for item in capabilities
+                if MATURITY_ORDER.index(item.maturity) < runtime_verified_index
+            ]
+            if batch.status == "external_gate"
+            else []
+        )
+        blocking_external_gates = sorted(
+            {gate for item in unresolved for gate in item.external_gates}
+        )
+        ungated_unresolved = sorted(
+            item.capability_id for item in unresolved if not item.external_gates
+        )
+        batches.append(
+            {
+                **asdict(batch),
+                "capabilities": [asdict(item) for item in capabilities],
+                "local_closeout_complete": batch.status == "complete"
+                or (batch.status == "external_gate" and not ungated_unresolved),
+                "blocking_external_gates": blocking_external_gates,
+                "unresolved_capabilities": sorted(
+                    item.capability_id for item in unresolved
+                ),
+                "ungated_unresolved_capabilities": ungated_unresolved,
+            }
+        )
     return {
         "program": "Phase 36 — Universal Capability, Creative Media & 1000+ User Scale",
         "authoritative": True,
         "minimum_concurrent_users": 1000,
         "current_batch": next((batch.batch_id for batch in BATCHES if batch.status == "in_progress"), "COMPLETE"),
+        "external_gate_batches": [
+            batch.batch_id for batch in BATCHES if batch.status == "external_gate"
+        ],
         "total_capabilities": len(CAPABILITIES),
         "production_ready_capabilities": production_ready,
         "completion": round(100 * production_ready / max(1, len(CAPABILITIES))),

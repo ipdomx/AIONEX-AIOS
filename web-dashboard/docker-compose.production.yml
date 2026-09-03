@@ -72,7 +72,7 @@ services:
     mem_limit: 4g
     cpus: "4.0"
     pids_limit: 768
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -88,10 +88,12 @@ services:
       PROJECT_EXECUTION_ADMISSION_CONCURRENCY: "14"
       PROJECT_EXECUTION_ADMISSION_GLOBAL_LIMIT: "48"
       BACKUP_DIR: /var/lib/aionex/backups
+      BACKUP_THREE_D_ASSETS_ENABLED: "true"
       FIREBASE_ADMIN_CREDENTIALS_JSON: /run/secrets/aionex/firebase-admin.json
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
       THREE_D_RUNPOD_SECRET_FILE: /run/secrets/aionex/RUNPOD_GPU.env
+      THREE_D_STORAGE_TYPE: local
       AIOS_TELEGRAM_BOT_TOKEN_FILE: /run/operator-secrets/telegram-bot-token
       AIOS_USER_TELEGRAM_BOT_TOKEN_FILE: /run/operator-secrets/user-telegram-bot-token
     volumes:
@@ -103,6 +105,7 @@ services:
       - portal_asset_data:/var/lib/aionex/portal-assets:rw
       - project_execution_data:/var/lib/aionex/project-executions:rw
       - studio_asset_data:/var/lib/aionex/studio-assets:rw
+      - three_d_asset_data:/var/lib/aionex/three-d-assets:rw
       - audio_song_ingress_data:/var/lib/aionex/audio-song-provider-ingress:rw
       - course_package_data:/var/lib/aionex/course-packages:ro
       - mobile_release_data:/var/lib/aionex/mobile-releases:ro
@@ -129,7 +132,7 @@ services:
     cpus: "1.0"
     pids_limit: 256
     command: ["python", "/app/app/db/postgres_credentials.py"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
@@ -153,18 +156,21 @@ services:
     pids_limit: 512
     stop_grace_period: ${BACKUP_JOB_LEASE_SECONDS:-3600}s
     command: ["python", "-m", "app.services.backup_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
       BACKUP_DIR: /var/lib/aionex/backups
+      BACKUP_THREE_D_ASSETS_ENABLED: "true"
+      THREE_D_STORAGE_ROOT: /var/lib/aionex/three-d-assets
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
     volumes:
       - ..:/workspace:ro
       - backup_data:/var/lib/aionex/backups:rw
+      - three_d_asset_data:/var/lib/aionex/three-d-assets:ro
     depends_on:
       backend: {condition: service_healthy}
     healthcheck:
@@ -183,7 +189,7 @@ services:
     cpus: "2.0"
     pids_limit: 384
     command: ["python", "-m", "app.services.communication_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -218,7 +224,7 @@ services:
     cpus: "1.0"
     pids_limit: 256
     command: ["python", "-m", "app.services.operations_observer"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -227,6 +233,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
+      PROJECT_AI_MODEL_REFRESH_ENABLED: "true"
     volumes:
       - ..:/workspace:ro
     depends_on:
@@ -247,7 +254,7 @@ services:
     cpus: "2.0"
     pids_limit: 512
     command: ["python", "-m", "app.services.studio_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -286,7 +293,7 @@ services:
     pids_limit: 384
     stop_grace_period: 30s
     command: ["python", "-m", "app.services.academy_course_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -327,7 +334,7 @@ services:
     pids_limit: 768
     stop_grace_period: 60s
     command: ["python", "-m", "app.services.media_render_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -365,7 +372,7 @@ services:
     pids_limit: 256
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.audio_speech_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -402,7 +409,7 @@ services:
     pids_limit: 256
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.audio_transcript_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -439,7 +446,7 @@ services:
     pids_limit: 256
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.audio_dubbing_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -476,7 +483,7 @@ services:
     pids_limit: 256
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.audio_music_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -511,7 +518,7 @@ services:
     pids_limit: 256
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.audio_song_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -550,7 +557,7 @@ services:
     pids_limit: 256
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.audio_song_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -595,7 +602,7 @@ services:
     pids_limit: 768
     stop_grace_period: 60s
     command: ["python", "-m", "app.services.video_provider_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -634,7 +641,7 @@ services:
     pids_limit: 384
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.design_image_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -673,7 +680,7 @@ services:
     pids_limit: 384
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.design_image_derivative_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -709,10 +716,11 @@ services:
     pids_limit: 512
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.three_d_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
+      THREE_D_STORAGE_TYPE: local
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
       REDIS_URL: redis://redis:6379/0
@@ -722,6 +730,7 @@ services:
     volumes:
       - ..:/workspace:ro
       - ./secrets/RUNPOD_GPU.env:/run/secrets/aionex/runpod-gpu.env:ro
+      - three_d_asset_data:/var/lib/aionex/three-d-assets:rw
     depends_on:
       backend: {condition: service_healthy}
     healthcheck:
@@ -745,10 +754,11 @@ services:
     cpus: "3.0"
     pids_limit: 768
     command: ["python", "-m", "app.services.project_execution_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
+      THREE_D_STORAGE_TYPE: local
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
       REDIS_URL: redis://redis:6379/0
@@ -771,6 +781,7 @@ services:
       - ${AIOS_PHASE22B_REFERENCE_HOST_DIR:-/var/tmp/aionex-phase22b/sandbox-output/local-qwen3-8b}:/run/references/phase22b/local-qwen3-8b:ro
       - project_execution_data:/var/lib/aionex/project-executions
       - project_npm_cache_data:/var/lib/aionex/project-npm-cache
+      - three_d_asset_data:/var/lib/aionex/three-d-assets:ro
     depends_on:
       backend: {condition: service_healthy}
     healthcheck:
@@ -792,7 +803,7 @@ services:
     pids_limit: 256
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.telegram_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -825,7 +836,7 @@ services:
     pids_limit: 256
     stop_grace_period: 45s
     command: ["python", "-m", "app.services.user_telegram_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -873,7 +884,7 @@ services:
     pids_limit: 384
     read_only: true
     command: ["python", "-m", "app.services.security_scan_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -913,7 +924,7 @@ services:
     cpus: "1.5"
     pids_limit: 384
     command: ["python", "-m", "app.services.security_remediation_worker"]
-    env_file: ["${AIOS_ENV_FILE:-.env}"]
+    env_file: ["${AIOS_ENV_FILE:-.env.production}"]
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
@@ -1123,6 +1134,7 @@ volumes:
   project_execution_data:
   project_npm_cache_data:
   studio_asset_data:
+  three_d_asset_data:
   audio_song_ingress_data:
   media_asset_data:
   mobile_release_data:

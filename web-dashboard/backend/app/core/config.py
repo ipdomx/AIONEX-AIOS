@@ -56,6 +56,9 @@ class Settings(BaseSettings):
         default="/var/lib/aionex/backups",
         validation_alias="BACKUP_DIR",
     )
+    BACKUP_THREE_D_ASSETS_ENABLED: bool = Field(
+        default=False, validation_alias="BACKUP_THREE_D_ASSETS_ENABLED"
+    )
     BACKUP_TIMEOUT_SECONDS: int = Field(
         default=900,
         ge=30,
@@ -383,6 +386,15 @@ class Settings(BaseSettings):
     THREE_D_RUNPOD_SECRET_FILE: str = Field(
         default="/run/secrets/aionex/runpod-gpu.env",
         validation_alias="THREE_D_RUNPOD_SECRET_FILE",
+    )
+    THREE_D_STORAGE_TYPE: str = Field(
+        default="inherit",
+        pattern=r"^(inherit|local|s3)$",
+        validation_alias="THREE_D_STORAGE_TYPE",
+    )
+    THREE_D_STORAGE_ROOT: str = Field(
+        default="/var/lib/aionex/three-d-assets",
+        validation_alias="THREE_D_STORAGE_ROOT",
     )
     THREE_D_WORKER_POLL_SECONDS: int = Field(
         default=2, ge=1, le=60, validation_alias="THREE_D_WORKER_POLL_SECONDS"

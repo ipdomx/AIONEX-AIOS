@@ -819,10 +819,20 @@ def _send_owner_test_email(recipient: str) -> dict[str, Any]:
         "The AIONEX Owner email notification channel is configured and reachable."
     )
 
-    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as smtp:
+    tls_context = ssl.create_default_context()
+    smtp_client: smtplib.SMTP | smtplib.SMTP_SSL
+    if settings.SMTP_SSL:
+        smtp_client = smtplib.SMTP_SSL(
+            settings.SMTP_HOST, settings.SMTP_PORT, timeout=10, context=tls_context
+        )
+    else:
+        smtp_client = smtplib.SMTP(
+            settings.SMTP_HOST, settings.SMTP_PORT, timeout=10
+        )
+    with smtp_client as smtp:
         smtp.ehlo()
-        if settings.SMTP_TLS:
-            smtp.starttls(context=ssl.create_default_context())
+        if settings.SMTP_TLS and not settings.SMTP_SSL:
+            smtp.starttls(context=tls_context)
             smtp.ehlo()
         if settings.SMTP_USER:
             if not settings.SMTP_PASSWORD:
@@ -2343,6 +2353,7 @@ async def _validate_release_gate(
         completed_backup = await session.scalar(
             select(BackupRecord)
             .where(
+                BackupRecord.scope == "platform",
                 BackupRecord.status == "completed",
                 BackupRecord.completed_at.is_not(None),
                 BackupRecord.completed_at >= cutoff,
@@ -2382,6 +2393,11 @@ async def _validate_release_gate(
                     continue
                 if details.get("size_bytes") != completed_backup.size_bytes:
                     continue
+                if settings.BACKUP_THREE_D_ASSETS_ENABLED and (
+                    details.get("three_d_snapshot_required") is not True
+                    or details.get("three_d_snapshot_validated") is not True
+                ):
+                    continue
                 recovery_run = candidate
                 break
         passed = (
@@ -2415,6 +2431,12 @@ async def _validate_release_gate(
             "recoveryRunId": recovery_run.id if recovery_run is not None else None,
             "recoveryOperation": (
                 recovery_run.operation if recovery_run is not None else None
+            ),
+            "threeDAssetRecoveryRequired": settings.BACKUP_THREE_D_ASSETS_ENABLED,
+            "threeDAssetRecoveryValidated": (
+                (recovery_run.details or {}).get("three_d_snapshot_validated") is True
+                if recovery_run is not None
+                else False
             ),
         }
     else:

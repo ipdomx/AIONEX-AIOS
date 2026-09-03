@@ -230,6 +230,16 @@ def test_phase36_snapshot_is_truthful_and_phase29_is_not_current_finality() -> N
     assert batch_statuses["36H"] == "external_gate"
     assert batch_statuses["36I"] == "external_gate"
     assert batch_statuses["36J"] == "complete"
+    assert snapshot["external_gate_batches"] == ["36G", "36H", "36I"]
+    batch_by_id = {batch["batch_id"]: batch for batch in snapshot["batches"]}
+    for batch_id in ("36G", "36H", "36I"):
+        batch = batch_by_id[batch_id]
+        assert batch["local_closeout_complete"] is True
+        assert batch["unresolved_capabilities"]
+        assert batch["blocking_external_gates"]
+        assert batch["ungated_unresolved_capabilities"] == []
+    assert batch_by_id["36A"]["local_closeout_complete"] is True
+    assert batch_by_id["36A"]["unresolved_capabilities"] == []
     assert snapshot["total_capabilities"] == len(CAPABILITIES)
     assert snapshot["production_ready_capabilities"] < snapshot["total_capabilities"]
     assert snapshot["completion"] < 100
