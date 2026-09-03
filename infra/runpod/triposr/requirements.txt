@@ -2,7 +2,7 @@ numpy==2.3.5
 omegaconf==2.3.0
 Pillow==12.3.0
 einops==0.8.1
-transformers==5.5.4
+transformers==5.10.1
 trimesh==4.8.3
 rembg==2.0.78
 huggingface-hub==1.7.1

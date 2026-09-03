@@ -8,7 +8,9 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/*
 COPY requirements.txt /tmp/requirements.txt
 RUN python -m pip install --no-cache-dir --upgrade pip==26.2.1 setuptools==80.9.0 wheel==0.46.3 \
- && python -m pip install --no-cache-dir -r /tmp/requirements.txt
+ && python -m pip install --no-cache-dir -r /tmp/requirements.txt \
+ && python -m pip check \
+ && python -c "from transformers.models.vit.modeling_vit import ViTModel; assert ViTModel is not None"
 RUN mkdir -p /models/TripoSR /models/dino-vitb16 /models/rembg \
  && python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='stabilityai/TripoSR', revision='5b521936b01fbe1890f6f9baed0254ab6351c04a', local_dir='/models/TripoSR')" \
  && cp -L /models/TripoSR/model.ckpt /models/TripoSR/model.ckpt.bin \
