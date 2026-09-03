@@ -9,7 +9,7 @@ This review validates the complete payments and billing implementation delivered
 - Core payment domain models and provider registry
 - Plans, trials, subscriptions, upgrades, cancellations, and renewal flows
 - Stripe integration contracts
-- Apple Pay and Google Pay enablement through Stripe automatic payment methods
+- Google Pay and eligible wallet methods through Stripe automatic payment methods; direct Apple Pay remains a separate gateway boundary
 - PayPal checkout and webhook contracts
 - Paddle billing integration contracts
 - Wallet, credits ledger, and pay-as-you-go usage charging
@@ -60,5 +60,5 @@ Production activation remains blocked until:
 1. Sandbox credentials are configured.
 2. Webhook endpoints are registered with each provider.
 3. End-to-end checkout and refund tests pass.
-4. Apple Pay domain verification is completed for the production domain.
+4. Direct Apple Pay has an approved non-Stripe settlement processor plus Merchant ID, domain verification, and payment-processing certificate evidence.
 5. Owner approval is recorded for production secrets and live payment enablement.

@@ -6,7 +6,7 @@ Batches 1 through 10 complete the payments and billing foundation.
 
 - Core provider contracts and registry
 - Plans, trials, subscriptions, upgrades, cancellations
-- Stripe with Apple Pay and Google Pay enablement
+- Stripe hosted checkout with Google Pay and other eligible Stripe methods; direct Apple Pay is a separate activation boundary
 - PayPal and Paddle provider contracts
 - Wallet, credits, and pay-as-you-go usage charging
 - Invoices, taxes, coupons, refunds, and multi-currency money handling
@@ -18,7 +18,7 @@ Batches 1 through 10 complete the payments and billing foundation.
 
 1. Configure sandbox credentials for each enabled provider.
 2. Register webhook endpoints and secrets.
-3. Verify Apple Pay domain association through the selected payment processor.
+3. For direct Apple Pay, select the non-Stripe settlement processor and provide Apple Merchant ID, domain association, and payment-processing certificate evidence before activation.
 4. Run the complete payment test suite and repository CI.
 5. Execute sandbox checkout, subscription, refund, invoice, and webhook flows.
 6. Enable production credentials only after sandbox sign-off.

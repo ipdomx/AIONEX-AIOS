@@ -1,7 +1,7 @@
 # AIONEX AIOS Mobile Store Billing Plan
 
 ## Goal
-Complete compliant native subscription billing for both mobile stores while preserving existing Stripe Checkout + Apple Pay/Google Pay for web/PWA.
+Complete compliant native subscription billing for both mobile stores while preserving Stripe Checkout + Google Pay for web/PWA and keeping direct Apple Pay as a separate externally activated gateway boundary.
 
 ## Batch 1 — Store billing foundation (this batch)
 - Define a single provider-neutral mobile store contract for App Store and Google Play subscriptions.
@@ -14,7 +14,7 @@ Complete compliant native subscription billing for both mobile stores while pres
 ## Batch 2 — iOS StoreKit 2 client
 - Add StoreKit 2 product loading, purchase, restore purchases, current entitlements, transaction listener, and signed transaction submission to AIOS.
 - Add native subscription UI bridge so the iOS app does not route digital subscription purchases to Stripe Checkout.
-- Preserve Stripe/Apple Pay for web/PWA and eligible external web flows only.
+- Preserve Stripe + Google Pay for web/PWA and eligible external web flows; direct Apple Pay remains separate until Apple merchant/domain/certificate and settlement-processor activation is approved.
 - Add iOS source validation tests on Linux; final signed StoreKit sandbox test remains dependent on Apple/Xcode environment.
 
 ## Batch 3 — Google Play Billing client ✅ COMPLETE

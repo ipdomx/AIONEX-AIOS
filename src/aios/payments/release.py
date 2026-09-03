@@ -56,13 +56,19 @@ def check_provider_registry(registry: object) -> ReleaseCheck:
 
 def check_payment_methods(registry: object) -> ReleaseCheck:
     providers = list(getattr(registry, "providers", lambda: [])())
-    text = " ".join(str(getattr(provider, "payment_methods", "")) for provider in providers).lower()
-    expected = ("apple", "google")
-    missing = [method for method in expected if method not in text]
+    text = " ".join(
+        str(getattr(provider, "payment_methods", "")) for provider in providers
+    ).lower()
+    google_pay_ready = "google" in text
     return ReleaseCheck(
         name="wallet_payment_methods",
-        passed=not missing,
-        detail="Apple Pay and Google Pay are enabled" if not missing else f"missing wallet methods: {', '.join(missing)}",
+        passed=google_pay_ready,
+        detail=(
+            "Google Pay is enabled through the Stripe adapter; direct Apple Pay "
+            "remains a separate external activation boundary"
+            if google_pay_ready
+            else "missing wallet method: google"
+        ),
     )
 
 

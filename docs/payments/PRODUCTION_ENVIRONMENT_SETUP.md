@@ -4,8 +4,8 @@ This step prepares the production environment variables without storing any real
 
 ## Procedure
 
-1. Copy `deploy/production/.env.payments.example` to the server secret-managed path.
-2. Set only the providers approved by the owner to `true`.
+1. Copy `deploy/production/.env.payments.example` to the server secret-managed path, or validate the existing secret-managed payment environment directly.
+2. Populate only credentials for providers approved by the owner; unset/empty provider credentials remain disabled by default.
 3. Enter live credentials through the server secret manager or vault.
 4. Keep `PAYMENTS_ALLOW_TEST_KEYS=false` in production.
 5. Keep webhook verification, audit logging, idempotency, and HTTPS enforcement enabled.
@@ -17,7 +17,7 @@ bash scripts/validate-payments-env.sh /secure/path/.env.payments
 
 ## Required activation controls
 
-- Apple Pay and Google Pay require Stripe to be enabled.
+- Google Pay uses the configured Stripe adapter. Direct Apple Pay must remain disabled until its separate Apple Merchant ID/domain/certificate and non-Stripe settlement adapter are approved and installed.
 - Enabled providers must have all required credentials.
 - Production origins must use HTTPS.
 - Real keys must never be committed to the repository.
