@@ -89,3 +89,12 @@ Phase 34F is complete only when:
 - The image build now runs `pip check` and imports `ViTModel` from the exact API used by vendored TripoSR before model baking.
 - Container-security actions are updated to the current Dependabot-proposed immutable SHAs, with matching contract assertions.
 - Production provider activation is unchanged; this maintenance does not trigger a GPU/provider request or spend.
+
+### Protected merge and production template activation — 2026-09-03
+
+- PR #543 passed all 16 protected checks, including the rebuilt TripoSR source/SBOM/Trivy gate and Production Docker Build, and merged to `main` as `7db9fde112e58d660c4eb614a420795bed09b7b1`.
+- The exact server-built release image is `ipdomx/aionex-triposr@sha256:66d8a17e74377a0335bf7fda22847afe4ee7ae30431eb6f09f6c99c03389f440`; runtime metadata confirms `transformers=5.10.1` and the exact vendored `ViTModel` import passes.
+- A fresh Trivy `0.72.0` scan of that exact local release image completed with **0 HIGH / 0 CRITICAL**.
+- The image was pushed by immutable digest, then the already-bound production TripoSR template was changed from the prior `sha256:e07f4558089de625817e58729d192eea6740889a0f17d3029a4b32026c8f0e4f` image to the new immutable digest above.
+- Template activation preserved every non-image mutable template field exactly; the endpoint remained `workersMin=0`, `workersMax=1`, `idleTimeout=5`.
+- No Serverless generation job was submitted for this security deployment. Post-activation health reported `inProgress=0`, `inQueue=0`, `retried=0`, with no unhealthy/running worker, and application policy reports `triposr_configured=True` while Hunyuan remains fail-closed (`hunyuan_configured=False`).
