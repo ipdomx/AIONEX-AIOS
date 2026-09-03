@@ -529,6 +529,7 @@ export function StudioClient() {
               <button
                 type="button"
                 key={preset.key}
+                aria-label={t(`families.${preset.key}`)}
                 disabled={!available}
                 onClick={() => {
                   if (!available) return;

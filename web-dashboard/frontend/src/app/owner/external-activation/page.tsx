@@ -11,6 +11,9 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
+import { useLanguageVoice } from "@/components/providers/LanguageVoiceProvider";
+import { translateInterfaceText } from "@/lib/interface-translations";
+
 import {
   fetchOwnerExternalActivation,
   type ExternalActivationGate,
@@ -58,7 +61,7 @@ function evidenceValue(value: unknown): string {
   return String(value);
 }
 
-function GateCard({ gate }: { gate: ExternalActivationGate }) {
+function GateCard({ gate, t }: { gate: ExternalActivationGate; t: (text: string) => string }) {
   const meta = statusMeta[gate.status];
   const StatusIcon = meta.icon;
   const liveEntries = Object.entries(gate.live_evidence);
@@ -78,7 +81,7 @@ function GateCard({ gate }: { gate: ExternalActivationGate }) {
           className={`inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-medium ${meta.className}`}
         >
           <StatusIcon className="h-3.5 w-3.5" />
-          {meta.label}
+          {t(meta.label)}
         </span>
       </div>
 
@@ -86,7 +89,7 @@ function GateCard({ gate }: { gate: ExternalActivationGate }) {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div>
-          <h3 className="text-xs font-semibold text-white/70">Required external evidence</h3>
+          <h3 className="text-xs font-semibold text-white/70">{t("Required external evidence")}</h3>
           <ul className="mt-2 space-y-1.5 text-xs leading-5 text-white/40">
             {gate.evidence_requirements.map((item) => (
               <li key={item} className="flex gap-2">
@@ -97,7 +100,7 @@ function GateCard({ gate }: { gate: ExternalActivationGate }) {
           </ul>
         </div>
         <div>
-          <h3 className="text-xs font-semibold text-white/70">Internal fail-closed controls</h3>
+          <h3 className="text-xs font-semibold text-white/70">{t("Internal fail-closed controls")}</h3>
           <ul className="mt-2 space-y-1.5 text-xs leading-5 text-white/40">
             {gate.internal_controls.map((item) => (
               <li key={item} className="flex gap-2">
@@ -112,7 +115,7 @@ function GateCard({ gate }: { gate: ExternalActivationGate }) {
       {liveEntries.length > 0 && (
         <div className="rounded-xl border border-electric-500/10 bg-electric-500/5 p-3">
           <div className="text-[10px] font-semibold uppercase tracking-[0.15em] text-electric-300">
-            Live evidence
+            {t("Live evidence")}
           </div>
           <dl className="mt-2 grid gap-2 sm:grid-cols-2">
             {liveEntries.map(([key, value]) => (
@@ -147,6 +150,11 @@ function GateCard({ gate }: { gate: ExternalActivationGate }) {
 }
 
 export default function OwnerExternalActivationPage() {
+  const { locale } = useLanguageVoice();
+  const t = useCallback(
+    (text: string) => translateInterfaceText(text, locale),
+    [locale],
+  );
   const [snapshot, setSnapshot] = useState<ExternalActivationSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("Loading external activation truth…");
@@ -185,14 +193,13 @@ export default function OwnerExternalActivationPage() {
             <ShieldCheck className="mt-1 h-7 w-7 shrink-0 text-electric-300" />
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-electric-300">
-                External Activation Truth Ledger
+                {t("External Activation Truth Ledger")}
               </p>
-              <h1 className="mt-2 text-3xl font-bold text-white">External Activation</h1>
+              <h1 className="mt-2 text-3xl font-bold text-white">{t("External Activation")}</h1>
               <p className="mt-2 max-w-4xl text-sm leading-relaxed text-white/45">
-                Read-only evidence view. No generic override exists: every external gate remains
-                fail-closed until its own runtime, legal, financial, device, or infrastructure
-                evidence is real. Store publication and direct Apple Pay are excluded from the
-                current closeout scope by Owner decision.
+                {t(
+                  "Read-only evidence view. No generic override exists: every external gate remains fail-closed until its own runtime, legal, financial, device, or infrastructure evidence is real. Store publication and direct Apple Pay are excluded from the current closeout scope by Owner decision.",
+                )}
               </p>
             </div>
           </div>
@@ -203,7 +210,7 @@ export default function OwnerExternalActivationPage() {
             onClick={() => void load()}
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Refresh
+            {t("Refresh")}
           </button>
         </div>
       </header>
@@ -211,37 +218,36 @@ export default function OwnerExternalActivationPage() {
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="glass-card p-5">
           <div className="text-3xl font-bold text-white">{snapshot?.counts.in_scope_gates ?? 0}</div>
-          <div className="mt-1 text-xs text-white/40">In-scope external gates</div>
+          <div className="mt-1 text-xs text-white/40">{t("In-scope external gates")}</div>
         </div>
         <div className="glass-card p-5">
           <div className="text-3xl font-bold text-green-300">{snapshot?.counts.satisfied_runtime ?? 0}</div>
-          <div className="mt-1 text-xs text-white/40">Satisfied by live evidence</div>
+          <div className="mt-1 text-xs text-white/40">{t("Satisfied by live evidence")}</div>
         </div>
         <div className="glass-card p-5">
           <div className="text-3xl font-bold text-amber-200">
             {snapshot?.counts.enforced_internal_external_pending ?? 0}
           </div>
-          <div className="mt-1 text-xs text-white/40">Internally enforced · external pending</div>
+          <div className="mt-1 text-xs text-white/40">{t("Internally enforced · external pending")}</div>
         </div>
         <div className="glass-card p-5">
           <div className="text-3xl font-bold text-red-200">{snapshot?.counts.blocked_external ?? 0}</div>
-          <div className="mt-1 text-xs text-white/40">Blocked on external facts</div>
+          <div className="mt-1 text-xs text-white/40">{t("Blocked on external facts")}</div>
         </div>
       </section>
 
       <section className="glass-card p-4 text-xs leading-6 text-electric-200/80">
-        {message}
+        {t(message)}
         {snapshot && (
           <span className="ms-2 text-white/30">
-            {inScope.length} active gates · {snapshot.counts.excluded_current_scope} excluded ·
-            catalog drift {snapshot.catalog_invariant.missing_definitions.length || snapshot.catalog_invariant.orphan_definitions.length ? "detected" : "none"}.
+            {inScope.length} {t("active gates ·")} {snapshot.counts.excluded_current_scope} {t("excluded · catalog drift")} {snapshot.catalog_invariant.missing_definitions.length || snapshot.catalog_invariant.orphan_definitions.length ? t("detected") : t("none")}.
           </span>
         )}
       </section>
 
       <section className="grid gap-4 xl:grid-cols-2">
         {gates.map((gate) => (
-          <GateCard key={gate.gate_id} gate={gate} />
+          <GateCard key={gate.gate_id} gate={gate} t={t} />
         ))}
       </section>
     </div>

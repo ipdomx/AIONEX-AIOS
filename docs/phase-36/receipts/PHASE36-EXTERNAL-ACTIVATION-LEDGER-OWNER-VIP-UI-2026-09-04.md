@@ -87,3 +87,7 @@ VIP frontend:
 - No Cloudflare or DNS change was made.
 - No external financial balance, legal certification, device acceptance, voice-rights evidence, or realtime capacity evidence was fabricated.
 - Hunyuan security approval remains unchanged and fail-closed.
+
+## CI follow-up hardening
+- Owner Arabic coverage was completed for the new External Activation page; the repository Arabic coverage gate reports 1009 translatable UI strings with only the five approved technical tokens exempted.
+- VIP Studio readiness badges preserve the template button accessible name through an explicit locale label, so browser automation and assistive technology still address capability buttons by their translated family name.
