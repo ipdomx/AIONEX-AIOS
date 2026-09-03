@@ -61,7 +61,13 @@ function evidenceValue(value: unknown): string {
   return String(value);
 }
 
-function GateCard({ gate, t }: { gate: ExternalActivationGate; t: (text: string) => string }) {
+function GateCard({
+  gate,
+  t,
+}: {
+  gate: ExternalActivationGate;
+  t: (text: string) => string;
+}) {
   const meta = statusMeta[gate.status];
   const StatusIcon = meta.icon;
   const liveEntries = Object.entries(gate.live_evidence);
@@ -89,7 +95,9 @@ function GateCard({ gate, t }: { gate: ExternalActivationGate; t: (text: string)
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div>
-          <h3 className="text-xs font-semibold text-white/70">{t("Required external evidence")}</h3>
+          <h3 className="text-xs font-semibold text-white/70">
+            {t("Required external evidence")}
+          </h3>
           <ul className="mt-2 space-y-1.5 text-xs leading-5 text-white/40">
             {gate.evidence_requirements.map((item) => (
               <li key={item} className="flex gap-2">
@@ -100,7 +108,9 @@ function GateCard({ gate, t }: { gate: ExternalActivationGate; t: (text: string)
           </ul>
         </div>
         <div>
-          <h3 className="text-xs font-semibold text-white/70">{t("Internal fail-closed controls")}</h3>
+          <h3 className="text-xs font-semibold text-white/70">
+            {t("Internal fail-closed controls")}
+          </h3>
           <ul className="mt-2 space-y-1.5 text-xs leading-5 text-white/40">
             {gate.internal_controls.map((item) => (
               <li key={item} className="flex gap-2">
@@ -120,8 +130,12 @@ function GateCard({ gate, t }: { gate: ExternalActivationGate; t: (text: string)
           <dl className="mt-2 grid gap-2 sm:grid-cols-2">
             {liveEntries.map(([key, value]) => (
               <div key={key} className="min-w-0">
-                <dt className="text-[10px] text-white/30">{key.replaceAll("_", " ")}</dt>
-                <dd className="mt-0.5 break-words text-xs text-white/65">{evidenceValue(value)}</dd>
+                <dt className="text-[10px] text-white/30">
+                  {key.replaceAll("_", " ")}
+                </dt>
+                <dd className="mt-0.5 break-words text-xs text-white/65">
+                  {evidenceValue(value)}
+                </dd>
               </div>
             ))}
           </dl>
@@ -130,7 +144,10 @@ function GateCard({ gate, t }: { gate: ExternalActivationGate; t: (text: string)
 
       <div className="flex flex-wrap gap-2 text-[10px] text-white/35">
         {gate.batch_ids.map((item) => (
-          <span key={item} className="rounded-full border border-white/[0.07] px-2 py-1">
+          <span
+            key={item}
+            className="rounded-full border border-white/[0.07] px-2 py-1"
+          >
             {item}
           </span>
         ))}
@@ -155,7 +172,9 @@ export default function OwnerExternalActivationPage() {
     (text: string) => translateInterfaceText(text, locale),
     [locale],
   );
-  const [snapshot, setSnapshot] = useState<ExternalActivationSnapshot | null>(null);
+  const [snapshot, setSnapshot] = useState<ExternalActivationSnapshot | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("Loading external activation truth…");
 
@@ -164,7 +183,9 @@ export default function OwnerExternalActivationPage() {
     try {
       const result = await fetchOwnerExternalActivation(signal);
       setSnapshot(result);
-      setMessage("External activation ledger synchronized with live runtime evidence.");
+      setMessage(
+        "External activation ledger synchronized with live runtime evidence.",
+      );
     } catch (error) {
       if (!(error instanceof DOMException && error.name === "AbortError"))
         setMessage("External activation ledger could not be loaded.");
@@ -195,7 +216,9 @@ export default function OwnerExternalActivationPage() {
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-electric-300">
                 {t("External Activation Truth Ledger")}
               </p>
-              <h1 className="mt-2 text-3xl font-bold text-white">{t("External Activation")}</h1>
+              <h1 className="mt-2 text-3xl font-bold text-white">
+                {t("External Activation")}
+              </h1>
               <p className="mt-2 max-w-4xl text-sm leading-relaxed text-white/45">
                 {t(
                   "Read-only evidence view. No generic override exists: every external gate remains fail-closed until its own runtime, legal, financial, device, or infrastructure evidence is real. Store publication and direct Apple Pay are excluded from the current closeout scope by Owner decision.",
@@ -217,22 +240,36 @@ export default function OwnerExternalActivationPage() {
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="glass-card p-5">
-          <div className="text-3xl font-bold text-white">{snapshot?.counts.in_scope_gates ?? 0}</div>
-          <div className="mt-1 text-xs text-white/40">{t("In-scope external gates")}</div>
+          <div className="text-3xl font-bold text-white">
+            {snapshot?.counts.in_scope_gates ?? 0}
+          </div>
+          <div className="mt-1 text-xs text-white/40">
+            {t("In-scope external gates")}
+          </div>
         </div>
         <div className="glass-card p-5">
-          <div className="text-3xl font-bold text-green-300">{snapshot?.counts.satisfied_runtime ?? 0}</div>
-          <div className="mt-1 text-xs text-white/40">{t("Satisfied by live evidence")}</div>
+          <div className="text-3xl font-bold text-green-300">
+            {snapshot?.counts.satisfied_runtime ?? 0}
+          </div>
+          <div className="mt-1 text-xs text-white/40">
+            {t("Satisfied by live evidence")}
+          </div>
         </div>
         <div className="glass-card p-5">
           <div className="text-3xl font-bold text-amber-200">
             {snapshot?.counts.enforced_internal_external_pending ?? 0}
           </div>
-          <div className="mt-1 text-xs text-white/40">{t("Internally enforced · external pending")}</div>
+          <div className="mt-1 text-xs text-white/40">
+            {t("Internally enforced · external pending")}
+          </div>
         </div>
         <div className="glass-card p-5">
-          <div className="text-3xl font-bold text-red-200">{snapshot?.counts.blocked_external ?? 0}</div>
-          <div className="mt-1 text-xs text-white/40">{t("Blocked on external facts")}</div>
+          <div className="text-3xl font-bold text-red-200">
+            {snapshot?.counts.blocked_external ?? 0}
+          </div>
+          <div className="mt-1 text-xs text-white/40">
+            {t("Blocked on external facts")}
+          </div>
         </div>
       </section>
 
@@ -240,7 +277,14 @@ export default function OwnerExternalActivationPage() {
         {t(message)}
         {snapshot && (
           <span className="ms-2 text-white/30">
-            {inScope.length} {t("active gates ·")} {snapshot.counts.excluded_current_scope} {t("excluded · catalog drift")} {snapshot.catalog_invariant.missing_definitions.length || snapshot.catalog_invariant.orphan_definitions.length ? t("detected") : t("none")}.
+            {inScope.length} {t("active gates ·")}{" "}
+            {snapshot.counts.excluded_current_scope}{" "}
+            {t("excluded · catalog drift")}{" "}
+            {snapshot.catalog_invariant.missing_definitions.length ||
+            snapshot.catalog_invariant.orphan_definitions.length
+              ? t("detected")
+              : t("none")}
+            .
           </span>
         )}
       </section>

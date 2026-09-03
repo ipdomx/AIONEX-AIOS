@@ -4,21 +4,28 @@ type Catalog = Record<string, string>;
 
 const AR: Catalog = {
   "External Activation": "التفعيل الخارجي",
-  "Read-only live truth for external runtime, finance, legal, device, and infrastructure gates.": "عرض حي للقراءة فقط لحقيقة بوابات التشغيل والتمويل والقانون والأجهزة والبنية التحتية الخارجية.",
+  "Read-only live truth for external runtime, finance, legal, device, and infrastructure gates.":
+    "عرض حي للقراءة فقط لحقيقة بوابات التشغيل والتمويل والقانون والأجهزة والبنية التحتية الخارجية.",
   "Satisfied by live runtime evidence": "مستوفاة بدليل تشغيل حي",
-  "Internally enforced · external evidence pending": "مفروضة داخليًا · بانتظار دليل خارجي",
-  "Blocked on external authority / infrastructure": "محظورة بانتظار سلطة أو بنية خارجية",
+  "Internally enforced · external evidence pending":
+    "مفروضة داخليًا · بانتظار دليل خارجي",
+  "Blocked on external authority / infrastructure":
+    "محظورة بانتظار سلطة أو بنية خارجية",
   "Excluded from current closeout scope": "مستبعدة من نطاق الإغلاق الحالي",
   "Required external evidence": "الدليل الخارجي المطلوب",
   "Internal fail-closed controls": "ضوابط الإغلاق الآمن الداخلية",
   "Live evidence": "الدليل الحي",
-  "External activation ledger synchronized with live runtime evidence.": "تمت مزامنة سجل التفعيل الخارجي مع دليل التشغيل الحي.",
-  "External activation ledger could not be loaded.": "تعذر تحميل سجل التفعيل الخارجي.",
+  "External activation ledger synchronized with live runtime evidence.":
+    "تمت مزامنة سجل التفعيل الخارجي مع دليل التشغيل الحي.",
+  "External activation ledger could not be loaded.":
+    "تعذر تحميل سجل التفعيل الخارجي.",
   "External Activation Truth Ledger": "سجل حقيقة التفعيل الخارجي",
-  "Read-only evidence view. No generic override exists: every external gate remains fail-closed until its own runtime, legal, financial, device, or infrastructure evidence is real. Store publication and direct Apple Pay are excluded from the current closeout scope by Owner decision.": "عرض أدلة للقراءة فقط. لا يوجد تجاوز عام؛ تظل كل بوابة خارجية مغلقة آمنًا حتى يصبح دليل التشغيل أو القانون أو التمويل أو الجهاز أو البنية التحتية حقيقيًا. تم استبعاد نشر المتاجر وApple Pay المباشر من نطاق الإغلاق الحالي بقرار المالك.",
+  "Read-only evidence view. No generic override exists: every external gate remains fail-closed until its own runtime, legal, financial, device, or infrastructure evidence is real. Store publication and direct Apple Pay are excluded from the current closeout scope by Owner decision.":
+    "عرض أدلة للقراءة فقط. لا يوجد تجاوز عام؛ تظل كل بوابة خارجية مغلقة آمنًا حتى يصبح دليل التشغيل أو القانون أو التمويل أو الجهاز أو البنية التحتية حقيقيًا. تم استبعاد نشر المتاجر وApple Pay المباشر من نطاق الإغلاق الحالي بقرار المالك.",
   "In-scope external gates": "البوابات الخارجية ضمن النطاق",
   "Satisfied by live evidence": "مستوفاة بدليل حي",
-  "Internally enforced · external pending": "مفروضة داخليًا · الخارج قيد الانتظار",
+  "Internally enforced · external pending":
+    "مفروضة داخليًا · الخارج قيد الانتظار",
   "Blocked on external facts": "محظورة بانتظار حقائق خارجية",
   "active gates ·": "بوابات نشطة ·",
   "excluded · catalog drift": "مستبعدة · انحراف الكتالوج",
@@ -29,15 +36,20 @@ const AR: Catalog = {
   "Provider mode:": "وضع المزود:",
   "External cost ceiling: $": "سقف التكلفة الخارجية: $",
   "Studio Governance": "حوكمة الاستوديو",
-  "Capability enablement, plan quotas, concurrency, moderation, and retry limits.": "تفعيل القدرات وحصص الخطط والتزامن والإشراف وحدود إعادة المحاولة.",
+  "Capability enablement, plan quotas, concurrency, moderation, and retry limits.":
+    "تفعيل القدرات وحصص الخطط والتزامن والإشراف وحدود إعادة المحاولة.",
   "Loading Studio governance…": "جارٍ تحميل حوكمة الاستوديو…",
   "Owner Studio policies synchronized.": "تمت مزامنة سياسات استوديو المالك.",
-  "Owner Studio policies could not be loaded.": "تعذر تحميل سياسات استوديو المالك.",
-  "At least one eligible plan is required.": "يجب اختيار خطة مؤهلة واحدة على الأقل.",
-  "Capability policy saved and audit-logged.": "تم حفظ سياسة القدرة وتسجيلها في سجل التدقيق.",
+  "Owner Studio policies could not be loaded.":
+    "تعذر تحميل سياسات استوديو المالك.",
+  "At least one eligible plan is required.":
+    "يجب اختيار خطة مؤهلة واحدة على الأقل.",
+  "Capability policy saved and audit-logged.":
+    "تم حفظ سياسة القدرة وتسجيلها في سجل التدقيق.",
   "Capability policy update failed.": "فشل تحديث سياسة القدرة.",
   "Unified Studio Capability Governance": "حوكمة موحدة لقدرات الاستوديو",
-  "Control capability enablement, eligible plans, job quotas, concurrency, retry limits, and moderation without editing code or environment files. External provider activation remains separate and fail-closed.": "تحكم في تفعيل القدرات والخطط المؤهلة وحصص المهام والتزامن وحدود إعادة المحاولة والإشراف دون تعديل الكود أو ملفات البيئة. يظل تفعيل المزود الخارجي منفصلًا ومغلقًا افتراضيًا.",
+  "Control capability enablement, eligible plans, job quotas, concurrency, retry limits, and moderation without editing code or environment files. External provider activation remains separate and fail-closed.":
+    "تحكم في تفعيل القدرات والخطط المؤهلة وحصص المهام والتزامن وحدود إعادة المحاولة والإشراف دون تعديل الكود أو ملفات البيئة. يظل تفعيل المزود الخارجي منفصلًا ومغلقًا افتراضيًا.",
   "Capability families": "عائلات القدرات",
   "Enabled families": "العائلات المفعلة",
   "Provider-neutral": "محايد للمزود",
@@ -48,9 +60,10 @@ const AR: Catalog = {
   "Daily job limit": "الحد اليومي للمهام",
   "Max concurrent jobs": "أقصى عدد مهام متزامنة",
   "Max attempts": "أقصى عدد محاولات",
-  "Moderation": "الإشراف",
+  Moderation: "الإشراف",
   "External gates:": "البوابات الخارجية:",
-  "This capability runtime does not support this plan.": "بيئة تشغيل هذه القدرة لا تدعم هذه الخطة.",
+  "This capability runtime does not support this plan.":
+    "بيئة تشغيل هذه القدرة لا تدعم هذه الخطة.",
   "Runtime launch: gated (": "تشغيل البيئة: محكوم ببوابة (",
   "Required user permissions:": "صلاحيات المستخدم المطلوبة:",
   "Professional Review": "المراجعة المهنية",
