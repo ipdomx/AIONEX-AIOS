@@ -1,0 +1,71 @@
+{
+  "acceptance": {
+    "activeExecutionQueues": 0,
+    "backendTagDrift": 0,
+    "badContainers": 0,
+    "http": {
+      "apiReady": 200,
+      "ownerBoundary": 302,
+      "vipLocaleRootsAll200": true,
+      "vipRoot": 200,
+      "vipStudioLocalesAll200": true
+    },
+    "operationsCompletion": 100,
+    "projectWorkers": 2,
+    "projectWorkersHealthy": 2,
+    "runningContainers": 30
+  },
+  "certifiedRuntimeSourceSha": "53b5e086223111842eba59879e424f96bcb2062f",
+  "cloudflareOrDnsChanged": false,
+  "date": "2026-09-04",
+  "deployment": {
+    "backendImage": "sha256:13ac3144c62e618b3b594835e3299b79f65de7adc3e6b1099039f3dcd1b0ab58",
+    "backendRollbackImage": "sha256:4c25cb9e6e85123e437418113ebe7815525cbbda6d24f7f05e0143d8a9e9f274",
+    "ownerImage": "sha256:0bd87d5e13cb9f6b9117ea1823da38d246e36383bf9ba70bcc93fd42fc99c232",
+    "ownerRollbackImage": "sha256:587c62a14268b388d0503f1442ab0f4d6f559110d5e98bbd42fd8081183a7eb6",
+    "productionDbSafetyDump": {
+      "path": "/opt/AIOS/.deployment-backups/external-activation-ui/20260904T073740Z/aionex-pre-external-activation.dump",
+      "sha256": "fc81981e60ebc4d2f6b6a63dd9522aebe18376bbaba19965aba8f9f336bcaf26",
+      "sizeBytes": 19186585
+    },
+    "vip": {
+      "checksumParity": "EXACT",
+      "packageOwnedFilesLocal": 322,
+      "packageOwnedFilesRemote": 322,
+      "remoteBackup": "/home2/ipdom3m7/.aionex-deploy-backups/20260904T090542Z-external-activation-ui/ai-vip-before-external-activation.tar.gz",
+      "remoteBackupSha256": "7e93d6d624b7a64036598f40ebb5e1b3ded6356cfb521c80d5f8a54b29835216",
+      "remoteBackupSizeBytes": 5772244,
+      "route": "aionex-cpanel-ai-vip:/home2/ipdom3m7/ai.vip-e.net/",
+      "studioChunkSha256": "e58b4db292363cd1921ca0f25b76f0425b97505f9de7109a51b5aa53645bc371"
+    }
+  },
+  "disasterRecovery": {
+    "backupId": "c7679bea-2bf7-4b74-99dc-cc0e5b8764c3",
+    "backupSha256": "0d3381ca931efe3c5d4a62c6f99439977df4c8be24121c3a2e7269b21e96ae40",
+    "backupSizeBytes": 18968546,
+    "restoreResidueCount": 0,
+    "restoreValidationId": "a7ab63bf-4fdb-447d-92ac-9483fb311cb6",
+    "scratchDatabaseCount": 0,
+    "threeDCompanionSha256": "4f972bd6abdcc1f3b049979da5c852cc519e5dd695856d7a82d338a4b683da22",
+    "threeDRequired": true,
+    "threeDValidated": true,
+    "validated": true
+  },
+  "externalActivation": {
+    "blockedExternal": 8,
+    "enforcedInternalExternalPending": 6,
+    "excludedCurrentScope": 1,
+    "excludedNonRegistryBoundaries": [
+      "direct-apple-pay",
+      "app-store-publication",
+      "google-play-publication"
+    ],
+    "inScopeGates": 15,
+    "registryGates": 16,
+    "satisfiedRuntime": 1
+  },
+  "kind": "external_activation_owner_vip_deployment_closeout",
+  "paidProviderOrGpuGenerationInvoked": false,
+  "productionLiveGenerationChanged": false,
+  "schemaVersion": 1
+}

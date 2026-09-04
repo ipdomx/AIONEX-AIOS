@@ -793,9 +793,9 @@ jobs:
         working-directory: web-dashboard/frontend
         run: |
           npm ci
-          npm audit --omit=dev
+          "$GITHUB_WORKSPACE/.github/scripts/npm-audit-retry.sh"
       - name: Audit governed image derivative dependencies
         working-directory: web-dashboard/backend/image_tools
         run: |
           npm ci --ignore-scripts
-          npm audit --omit=dev
+          "$GITHUB_WORKSPACE/.github/scripts/npm-audit-retry.sh"
