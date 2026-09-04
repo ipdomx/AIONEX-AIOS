@@ -288,6 +288,14 @@ export const ownerNavigationSections: OwnerNavigationSection[] = [
         icon: ToggleRight,
       },
       {
+        id: "owner-external-activation",
+        label: "External Activation",
+        description:
+          "Read-only live truth for external runtime, finance, legal, device, and infrastructure gates.",
+        href: "/owner/external-activation",
+        icon: AlertTriangle,
+      },
+      {
         id: "owner-secrets",
         label: "Secrets & Keys",
         description: "Masked credentials, rotation, revocation, and scope.",

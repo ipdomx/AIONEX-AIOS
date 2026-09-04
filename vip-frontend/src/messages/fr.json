@@ -944,7 +944,14 @@
     "customSectorObjective": "Objectif",
     "customSectorCreate": "Créer le projet sectoriel",
     "sectorProjectCreated": "Le projet « {name} » a été créé depuis la spécification sectorielle gouvernée.",
-    "sectorProjectError": "Le projet sectoriel n’a pas pu être créé."
+    "sectorProjectError": "Le projet sectoriel n’a pas pu être créé.",
+    "readinessTitle": "État d’activation des capacités",
+    "readinessCopy": "La disponibilité provient du catalogue Studio gouverné en direct. Les capacités nécessitant encore une preuve de fournisseur, de droits, d’appareil, juridique, financière ou d’infrastructure restent clairement indisponibles.",
+    "readinessAvailable": "Disponibles pour votre compte",
+    "readinessExternal": "En attente d’activation externe",
+    "readinessGates": "barrières externes",
+    "readyBadge": "Prêt",
+    "externalGateBadge": "Activation externe"
   },
   "academyUser": {
     "loadError": "Impossible de charger les données Academy.",

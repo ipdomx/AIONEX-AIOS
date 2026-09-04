@@ -944,7 +944,14 @@
     "customSectorObjective": "الهدف",
     "customSectorCreate": "إنشاء مشروع قطاع مخصص",
     "sectorProjectCreated": "تم إنشاء المشروع «{name}» من مواصفة القطاع المحكومة.",
-    "sectorProjectError": "تعذر إنشاء مشروع القطاع."
+    "sectorProjectError": "تعذر إنشاء مشروع القطاع.",
+    "readinessTitle": "حالة تفعيل القدرات",
+    "readinessCopy": "تأتي حالة الإتاحة من كتالوج Studio الحي والمحكوم. القدرات التي ما زالت تحتاج دليل مزود أو حقوق أو جهاز أو اعتماد قانوني أو تمويل أو بنية خارجية تظل غير متاحة بوضوح بدل إظهارها كجاهزة.",
+    "readinessAvailable": "متاح لحسابك الآن",
+    "readinessExternal": "بانتظار تفعيل خارجي",
+    "readinessGates": "بوابات خارجية",
+    "readyBadge": "جاهز",
+    "externalGateBadge": "تفعيل خارجي"
   },
   "academyUser": {
     "loadError": "تعذر تحميل بيانات الأكاديمية.",

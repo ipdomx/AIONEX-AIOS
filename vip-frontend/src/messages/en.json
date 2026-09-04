@@ -944,7 +944,14 @@
     "customSectorObjective": "Objective",
     "customSectorCreate": "Create custom sector project",
     "sectorProjectCreated": "Project “{name}” was created from the governed sector specification.",
-    "sectorProjectError": "The sector project could not be created."
+    "sectorProjectError": "The sector project could not be created.",
+    "readinessTitle": "Capability activation status",
+    "readinessCopy": "Availability comes from the live governed Studio catalog. Capabilities that still require provider, rights, device, legal, financial, or infrastructure evidence remain visibly unavailable instead of appearing ready.",
+    "readinessAvailable": "Available to your account now",
+    "readinessExternal": "Waiting for external activation",
+    "readinessGates": "external gates",
+    "readyBadge": "Ready",
+    "externalGateBadge": "External activation"
   },
   "academyUser": {
     "loadError": "Academy data could not be loaded.",

@@ -31,6 +31,7 @@ OWNER_APP = FRONTEND / "src" / "app" / "owner"
 OWNER_CLIENTS = FRONTEND / "src" / "lib"
 
 OWNER_API_CONTRACT = {
+    ("GET", "/api/v1/owner/external-activation"),
     ("GET", "/api/v1/owner/platform-integration/snapshot"),
     ("POST", "/api/v1/owner/platform-integration/command"),
     ("GET", "/api/v1/owner/operations-integration"),
@@ -506,13 +507,13 @@ def test_owner_navigation_registry_matches_all_owner_pages() -> None:
         f"/owner/{page.parent.relative_to(OWNER_APP).as_posix()}"
         for page in OWNER_APP.glob("*/page.tsx")
     }
-    assert len(page_routes) == 48
+    assert len(page_routes) == 49
 
     registry = (FRONTEND / "src" / "config" / "owner-navigation.ts").read_text()
     registry_routes = re.findall(r'href:\s*"(/owner/[^"]+)"', registry)
 
-    assert len(registry_routes) == 48
-    assert len(set(registry_routes)) == 48
+    assert len(registry_routes) == 49
+    assert len(set(registry_routes)) == 49
     assert set(registry_routes) == page_routes
 
 
