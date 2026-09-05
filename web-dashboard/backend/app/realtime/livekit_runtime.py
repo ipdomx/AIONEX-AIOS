@@ -306,14 +306,19 @@ class LiveKitRuntime:
             settings.REALTIME_TURN_SHARED_SECRET_FILE, label="Coturn shared"
         )
         turn_expiry = int(time.time()) + settings.REALTIME_TURN_CREDENTIAL_TTL_SECONDS
-        turn_username = f"{turn_expiry}:{participant_id}"
+        # Coturn TURN REST authentication requires HMAC-SHA1 for protocol
+        # compatibility. Keep the HMAC message non-sensitive: the credential
+        # subject is a fresh opaque nonce, never a user/participant identifier.
+        opaque_turn_label = uuid.uuid4().hex
+        rest_auth_input = f"{turn_expiry}:{opaque_turn_label}".encode("ascii")
         turn_password = base64.b64encode(
             hmac.new(
                 turn_secret.encode("utf-8"),
-                turn_username.encode("utf-8"),
+                rest_auth_input,
                 hashlib.sha1,
             ).digest()
         ).decode("ascii")
+        turn_credential_name = rest_auth_input.decode("ascii")
         host = self._turn_host
         port = self._turn_port
         ice_servers = (
@@ -323,7 +328,7 @@ class LiveKitRuntime:
                     f"turn:{host}:{port}?transport=udp",
                     f"turn:{host}:{port}?transport=tcp",
                 ],
-                "username": turn_username,
+                "username": turn_credential_name,
                 "credential": turn_password,
                 "credentialType": "password",
             },

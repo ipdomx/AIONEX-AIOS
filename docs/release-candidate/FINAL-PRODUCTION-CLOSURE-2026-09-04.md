@@ -658,3 +658,9 @@ Production database remains at revision `20260825_0043` at this checkpoint. No f
 
 ### Release-control boundary
 The working branch is ready for protected Git persistence. The remaining release-control actions are commit/push, protected GitHub PR/CI merge, then rebuilding/recreating affected Production services from the exact merged `main` tree and recording the post-merge runtime snapshot. No bypass of protected checks is permitted.
+
+### CodeQL TURN credential privacy hardening
+- GitHub Advanced Security correctly flagged the initial Coturn REST derivation because the HMAC-SHA1 protocol input contained `participant_id`.
+- Coturn REST authentication requires HMAC-SHA1 compatibility; a controlled HMAC-SHA256 credential was rejected by the exact deployed Coturn server, matching Coturn's documented REST contract.
+- The runtime was hardened so the REST credential subject is now `timestamp:random_nonce` (128-bit opaque nonce), never a participant/user identifier. The short TTL and server-side high-entropy secret are retained.
+- The unit contract now asserts the participant ID is absent from the TURN credential name and avoids duplicating SHA1 over identifier-like test data. Focused runtime test, Ruff and Mypy passed after the change.

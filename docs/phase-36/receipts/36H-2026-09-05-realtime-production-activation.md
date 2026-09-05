@@ -26,6 +26,7 @@ The activation preserves fail-closed external/legal/device gates that require ev
 - Alembic head: `20260905_0044`.
 - New durable recording/consent state is tenant-scoped and consent-gated.
 - Short-lived participant JWTs and TURN REST credentials are returned; static LiveKit/TURN secrets remain server-side only.
+- TURN REST credential subjects are `timestamp:random_nonce`; no participant/user identifier is included in the HMAC input. Coturn REST compatibility still requires its protocol-defined HMAC-SHA1 primitive, scoped to a high-entropy shared secret and short-lived opaque nonce.
 - Recording volume ownership is initialized durably for Egress UID 1001 and Backend group 1000; Egress remains non-root.
 - Owner-funded provider attestation supports `funded_confirmed=true` with private/unknown numeric amount instead of fabricating a dollar balance. Current required paid providers (`openai`, `mistral`, `deepseek`) are 3/3 attested.
 
