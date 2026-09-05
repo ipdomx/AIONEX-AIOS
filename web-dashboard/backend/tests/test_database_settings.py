@@ -521,6 +521,8 @@ def test_production_compose_preserves_postgres_credential_contract() -> None:
     assert '- "443:443"' not in compose
     assert "server_name _;" in nginx_config
     assert "$aionex_forwarded_proto" in nginx_config
+    assert nginx_config.count('if ($http_x_forwarded_proto = "http")') == 3
+    assert nginx_config.count("return 308 https://$host$request_uri;") == 3
 
 
 def test_legacy_backup_writes_sha256_sidecar(tmp_path: Path) -> None:
