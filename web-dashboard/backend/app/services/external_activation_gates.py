@@ -116,11 +116,11 @@ _DEFINITIONS: tuple[GateDefinition, ...] = (
     GateDefinition(
         "owner-provider-funded-credit-thresholds",
         "blocked_external",
-        "Truthful funded-credit baselines and low/critical thresholds for each paid launch provider.",
+        "Truthful funding confirmation for each paid launch provider; an exact balance may remain private when the Owner attests funding and billing/quota failures remain fail-closed.",
         (
-            "current funded-credit amount per paid provider",
-            "low-balance threshold",
-            "critical-balance threshold",
+            "numeric funded-credit baseline and thresholds when the balance amount is managed in AIONEX",
+            "or explicit Owner funding attestation with private balance amount",
+            "billing/quota failure escalation remains enabled",
         ),
         (
             "durable provider-finance records and low/critical alerting are implemented",

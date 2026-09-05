@@ -240,6 +240,39 @@ class SFUAdapter(Protocol):
     async def provision_room(self, plan: SFURoomPlan) -> None: ...
 
 
+def build_livekit_room_plan(
+    *,
+    organization_id: str,
+    room_id: str,
+    max_participants: int,
+    signaling_url: str,
+    provider_mutation_allowed: bool,
+) -> SFURoomPlan:
+    """Build the deterministic LiveKit room identity used by candidate and runtime adapters."""
+    if not 1 <= max_participants <= 10_000:
+        raise RealtimeMediaConfigurationError(
+            "room participant limit must be between 1 and 10000"
+        )
+    secure_signaling = _secure_service_url(
+        signaling_url, field="LiveKit signaling URL", scheme="wss"
+    )
+    tenant_fingerprint = sha256(organization_id.encode("utf-8")).hexdigest()
+    room_fingerprint = sha256(room_id.encode("utf-8")).hexdigest()
+    provider_room_name = _opaque(
+        f"{organization_id}\x00{room_id}", prefix="aios-rt-", length=40
+    )
+    return SFURoomPlan(
+        provider="livekit",
+        provider_room_name=provider_room_name,
+        organization_fingerprint=tenant_fingerprint,
+        room_fingerprint=room_fingerprint,
+        signaling_url=secure_signaling,
+        max_participants=max_participants,
+        recording_enabled=False,
+        provider_mutation_allowed=provider_mutation_allowed,
+    )
+
+
 class LiveKitCandidateAdapter:
     """Fail-closed LiveKit candidate adapter with zero network side effects."""
 
@@ -258,23 +291,11 @@ class LiveKitCandidateAdapter:
         room_id: str,
         max_participants: int,
     ) -> SFURoomPlan:
-        if not 1 <= max_participants <= 10_000:
-            raise RealtimeMediaConfigurationError(
-                "room participant limit must be between 1 and 10000"
-            )
-        tenant_fingerprint = sha256(organization_id.encode("utf-8")).hexdigest()
-        room_fingerprint = sha256(room_id.encode("utf-8")).hexdigest()
-        provider_room_name = _opaque(
-            f"{organization_id}\x00{room_id}", prefix="aios-rt-", length=40
-        )
-        return SFURoomPlan(
-            provider=self.provider,
-            provider_room_name=provider_room_name,
-            organization_fingerprint=tenant_fingerprint,
-            room_fingerprint=room_fingerprint,
-            signaling_url=self._config.signaling_url,
+        return build_livekit_room_plan(
+            organization_id=organization_id,
+            room_id=room_id,
             max_participants=max_participants,
-            recording_enabled=False,
+            signaling_url=self._config.signaling_url,
             provider_mutation_allowed=False,
         )
 

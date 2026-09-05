@@ -12,6 +12,7 @@ from app.services import communications
 from app.services.provider_credit_alerts import (
     PROVIDER_FINANCE_DOMAIN,
     ProviderCreditPolicyError,
+    attest_provider_funded,
     configure_provider_credit,
     notify_provider_billing_failure,
     provider_credit_snapshot,
@@ -22,6 +23,7 @@ from app.services.provider_credit_alerts import (
 async def _seed_provider(*, runtime_spend_microusd: int = 0) -> str:
     suffix = uuid4().hex[:10]
     provider_id = f"credit-provider-{suffix}"
+    organization_id = f"credit-org-{suffix}"
     async with SessionLocal() as session:
         await session.execute(
             delete(OwnerControlRecord).where(
@@ -29,20 +31,19 @@ async def _seed_provider(*, runtime_spend_microusd: int = 0) -> str:
             )
         )
         await session.execute(delete(AIProvider).where(AIProvider.id.like("credit-provider-%")))
+        await session.execute(delete(Organization).where(Organization.id.like("credit-org-%")))
         await session.commit()
-        platform = await session.get(Organization, "aionex-org")
-        if platform is None:
-            session.add(Organization(
-                id="aionex-org",
-                name="AIONEX Platform",
-                slug=f"aionex-credit-platform-{suffix}",
-                plan="enterprise",
-                status="active",
-            ))
-            await session.flush()
+        session.add(Organization(
+            id=organization_id,
+            name="AIONEX Credit Test Platform",
+            slug=f"aionex-credit-platform-{suffix}",
+            plan="enterprise",
+            status="active",
+        ))
+        await session.flush()
         session.add(AIProvider(
             id=provider_id,
-            organization_id="aionex-org",
+            organization_id=organization_id,
             name="Credit Test Provider",
             type="groq",
             status="connected",
@@ -55,6 +56,18 @@ async def _seed_provider(*, runtime_spend_microusd: int = 0) -> str:
         ))
         await session.commit()
     return provider_id
+
+
+async def _cleanup_provider(provider_id: str) -> None:
+    async with SessionLocal() as session:
+        await session.execute(
+            delete(OwnerControlRecord).where(
+                OwnerControlRecord.domain == PROVIDER_FINANCE_DOMAIN,
+                OwnerControlRecord.resource_id == provider_id,
+            )
+        )
+        await session.execute(delete(AIProvider).where(AIProvider.id == provider_id))
+        await session.commit()
 
 
 @pytest.mark.asyncio
@@ -180,9 +193,35 @@ async def test_finance_policy_record_is_owner_control_not_provider_secret_state(
         )
         assert record is not None
         assert set(record.payload) == {
+            "funding_mode",
+            "funded_confirmed",
+            "balance_amount_private",
             "funded_microusd",
             "baseline_spend_microusd",
             "low_threshold_microusd",
             "critical_threshold_microusd",
             "topup_recorded_at",
         }
+
+
+@pytest.mark.asyncio
+async def test_owner_attested_funding_keeps_amount_private() -> None:
+    provider_id = await _seed_provider()
+    try:
+        async with SessionLocal() as session:
+            snapshot = await attest_provider_funded(
+                session, provider_id=provider_id, enabled=True
+            )
+            await session.commit()
+            public = snapshot.public()
+            assert public["funding_mode"] == "owner_attested"
+            assert public["funded_confirmed"] is True
+            assert public["balance_amount_private"] is True
+            assert public["funded_usd"] is None
+            assert public["remaining_usd"] is None
+            assert public["low_balance_threshold_usd"] is None
+            assert public["critical_balance_threshold_usd"] is None
+            assert public["billing_failure_alerts_enabled"] is True
+            assert public["state"] == "funded_attested"
+    finally:
+        await _cleanup_provider(provider_id)

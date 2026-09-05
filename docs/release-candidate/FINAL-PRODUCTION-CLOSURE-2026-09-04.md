@@ -431,3 +431,230 @@
 - Final pre-commit security gates rerun: `scripts/repository-security-audit.sh` PASS؛ `scripts/security-audit.py` PASS؛ `git diff --check` PASS.
 - Production source changes to persist are intentionally limited to: VIP HTTPS enforcement + smoke contract، Security Acceptance backup/restore seed contract correction، Nginx HTTPS enforcement، Nginx contract assertion، وهذا التقرير الرسمي.
 - سيتم حفظ الإغلاق عبر protected Git branch/PR بدل ترك Production على working-tree drift؛ لا يتم تعديل أي secret أو external provider أثناء Git closeout.
+
+## 2026-09-05 — Owner-funded provider attestation + Phase36H runtime implementation gate
+
+### Owner provider-funding authority
+The Owner explicitly confirmed that all currently used AI providers have funded balance. AIONEX now supports this truthfully without fabricating a numeric balance:
+- numeric finance mode remains available when a concrete funded amount and low/critical thresholds are intentionally recorded;
+- new `owner_attested` mode records `funded_confirmed=true` and `balance_amount_private=true`;
+- exact funded/remaining USD is deliberately returned as null in attested mode rather than invented;
+- billing/quota failure escalation remains enabled and fail-closed;
+- a Super Owner API and Owner Project AI console action now record the attestation with audit evidence.
+
+Targeted implementation files include `provider_credit_alerts.py`, Owner Project-AI API/client/UI, and external activation gate semantics. Owner frontend verification after the change: API-contract/type-check PASS, Arabic coverage PASS, production build PASS.
+
+### Phase 36H end-to-end implementation progress
+A branch `phase36h-realtime-activation-20260905` now contains the previously missing application/runtime bridge on top of the already-proven isolated LiveKit/Coturn/Egress lab:
+- fail-closed realtime runtime configuration;
+- short-lived LiveKit participant JWTs and temporary TURN REST credentials; no static provider credential returned to clients or persisted in room records;
+- durable realtime recording + participant-consent schema in Alembic revision `20260905_0044`;
+- authenticated tenant-scoped room create/list/join/leave/close API;
+- all-active-participant recording consent, Egress start/stop/status, bounded output validation, SHA-256 verification, Studio Job/Asset/Revision ingestion, and temporary recording deletion after successful ingestion;
+- VIP Realtime page/client using exact `livekit-client@2.22.2` with camera, microphone, screen sharing, remote track attachment, recording consent/status, six languages, and navbar entry.
+
+The production DB has NOT yet been migrated by this branch. The revision was first applied only to isolated PostgreSQL and passed.
+
+### Targeted isolated CI gate
+Official backend test target + isolated PostgreSQL/Redis:
+- Alembic upgrade through `20260905_0044`: PASS.
+- Phase36H + provider finance + external activation + Owner API contract/integration suite: **77 passed, 0 failed, 2 deprecation warnings**.
+- Earlier test-only isolation defects (fixed shared `aionex-org` test tenant and missing Owner frontend client contract) were corrected; neither represented a production failure.
+
+Evidence:
+- `.deployment-backups/final-launch-review/20260904T142546Z/realtime-0044-migration-isolated-final-targeted-20260905.log`
+- `.deployment-backups/final-launch-review/20260904T142546Z/realtime-finance-targeted-ci-final-20260905.log`
+- `.deployment-backups/final-launch-review/20260904T142546Z/owner-project-ai-funding-typecheck-20260905.log`
+- `.deployment-backups/final-launch-review/20260904T142546Z/owner-project-ai-funding-arabic-20260905.log`
+- `.deployment-backups/final-launch-review/20260904T142546Z/owner-project-ai-funding-build-20260905.log`
+
+Current boundary: Realtime source/application implementation is test-passing but production activation is intentionally still pending a fresh production backup, full backend/VIP verification, production Compose/Nginx wiring, migration, narrowly-scoped firewall changes, and external-client acceptance. The four isolated realtime-lab containers remain temporary and must be removed at final cleanup.
+
+## 2026-09-05 — Phase36H production preflight completed (before production mutation)
+
+Owner-funded provider attestation and the Realtime application/runtime bridge were carried through the final pre-production gate before touching the live database or public media ports.
+
+### Production topology and secret isolation
+- New Production-only LiveKit/Coturn/Egress credentials were generated independently from the disposable lab credentials; no lab key is reused.
+- No credential is stored in Git. Runtime secret files are under the ignored `web-dashboard/secrets/realtime/` tree and are mode `0600` with service-specific ownership.
+- LiveKit uses a non-secret tracked config plus `key_file`; Backend receives separate read-only API-key/API-secret/TURN-secret files; Egress and Coturn receive service-specific config files.
+- LiveKit hardening acceptance: non-root UID 1000, read-only root filesystem, `cap_drop=ALL`, `no-new-privileges` — PASS in disposable lab.
+- Egress hardening acceptance: non-root UID 1001, `cap_drop=ALL`, `no-new-privileges`, bounded tmpfs/shm — PASS in disposable lab.
+- Coturn hardening acceptance established the minimum required bounding capability: `NET_BIND_SERVICE` only; all other Linux capabilities are dropped, user is `nobody`, root filesystem read-only, and `no-new-privileges` remains enabled.
+- TURN config denies loopback/private/multicast peer ranges to prevent the relay from becoming an internal-network pivot, uses time-limited REST credentials, and bounds allocation quota + relay range.
+
+### Network contract prepared, not yet live at this checkpoint
+- Browser signaling URL: `wss://api.vip-e.net/livekit`; Nginx strips only `/livekit/` and forwards signaling to internal LiveKit.
+- LiveKit Twirp/admin port `7880` is not published publicly.
+- Prepared direct media surface on the current primary host IPv4: LiveKit ICE `7881/tcp`, `7882/udp`; TURN `3478/tcp+udp`; bounded TURN relay UDP range `49160-49359`.
+- Public REST allowlist was extended only for authenticated `/api/v1/realtime/media/...` contracts.
+- VIP browser policy now permits camera/microphone for `self` only and WebSocket connectivity only to `wss://api.vip-e.net`; unrelated browser capabilities remain denied.
+
+### Configuration and CI hard gates
+- `docker compose ... config --quiet`: PASS.
+- Nginx syntax using the exact Production user/read-only/tmpfs/security contract: PASS.
+- First isolated CI harness attempt was rejected before tests due disposable-container DNS/readiness handling; production was untouched. The harness was corrected to fixed network aliases and explicit readiness failure.
+- Final isolated CI used the same major Production runtime images (`postgres:16-alpine`, `redis:7-alpine`).
+- Alembic isolated upgrade: `20260905_0044 (head)` PASS.
+- Final Phase36H + provider finance + external activation + Owner contract/integration gate: **82 passed, 0 failed, 2 deprecation warnings**.
+- Temporary CI containers/networks were removed after the run.
+
+Production database remains at revision `20260825_0043` at this checkpoint. No firewall/media-port or live-service activation is claimed until the fresh pre-migration backup is created and validated.
+
+## 2026-09-05 — Phase36H production activation checkpoint
+
+### Recovery evidence before live mutation
+- Fresh Production custom-format PostgreSQL archive created before the 0044 migration:
+  - source revision: `20260825_0043`
+  - bytes: `19851165`
+  - SHA-256: `95ef7def15606edfb1d5fc1d72c1fd1908c8249853497c96053cec245886daf7`
+  - `pg_restore -l`: PASS
+  - evidence: `.deployment-backups/final-launch-review/20260904T142546Z/production-pre-realtime-0044-20260905T081247Z.dump`
+- Alembic isolated round-trip `0043 -> 0044 -> 0043 -> 0044`: PASS before applying the live migration.
+
+### Production database and provider-funding state
+- Production Alembic upgrade to `20260905_0044`: PASS.
+- New durable tables `realtime_recordings` and `realtime_recording_consents` exist; schema checks returned 31 and 12 columns respectively.
+- Owner funding attestation was persisted only for the three paid providers required by the current launch model registry: `deepseek`, `mistral`, `openai`.
+- Each record is `owner_attested`, `funded_confirmed=true`, `balance_amount_private=true`; numeric funded/remaining balance remains deliberately null, and billing/quota failure alerting remains enabled.
+- `owner-provider-funded-credit-thresholds`: **satisfied_runtime**, 3/3 configured, missing provider types `[]`.
+- External gate counts changed truthfully to: 2 satisfied-runtime, 6 enforced-internal/external-pending, 7 blocked-external, 1 excluded current scope.
+
+### Realtime production network/runtime activation
+- UFW now allows only the primary IPv4/interface media surface required by the production runtime:
+  - LiveKit ICE `7881/tcp`, `7882/udp`
+  - TURN `3478/tcp`, `3478/udp`
+  - TURN relay UDP `49160-49359`
+- LiveKit admin/Twirp port `7880` is **not** publicly published.
+- Host `net.core.rmem_max` was raised from the prior kernel ceiling to `5000000` and persisted in `/etc/sysctl.d/99-aionex-realtime.conf`; the prior LiveKit production UDP-buffer warning then disappeared.
+- LiveKit external-IP self-validation was configured with `skip_external_ip_validation=true` for the Docker-NAT hairpin case while retaining external-IP discovery.
+- Coturn deprecated/invalid switches were removed; listener/relay/pid paths are explicit. Private/loopback/multicast peer ranges remain denied.
+- Production LiveKit, Coturn, and Egress containers are all healthy with restart count 0.
+- Post-fix startup anomaly check: LiveKit empty; Egress empty; Coturn only emits default certificate/key warnings while TLS is intentionally disabled.
+
+### Public-IP media control-plane acceptance so far
+- Public-IP TCP connectivity: LiveKit ICE 7881 PASS; TURN TCP 3478 PASS.
+- STUN binding on TURN 3478: PASS.
+- Initial TURN client-to-client tests returned 403 because the same-host Docker hairpin peer is a private address and the relay intentionally rejects private peers. The production private-peer protection was not weakened.
+- Allocation-only TURN REST tests with permission creation disabled (`-I`) succeeded over both UDP and TCP, one allocation each. This proves public-address reachability, REST authentication, and relay allocation without granting access to private peers.
+- This is still a same-host hairpin test, not a real off-host browser/device path, so the `public-stun-turn-and-sfu-capacity` external gate is not marked satisfied from this evidence alone.
+
+
+## 2026-09-05 — Phase36H external realtime, VIP publication, and recording-path diagnosis
+
+### Off-host realtime acceptance and public TURN topology
+- The hosting provider rejects direct off-host TCP access to the dedicated `7881`/`3478` media ports even though Docker/UFW listeners are correct. A controlled listener probe proved inbound TCP `443` is reachable from the independent shared-hosting account.
+- Production Coturn was therefore moved to the host's standard public `443/tcp+udp` surface while retaining its internal listener contract. Backend-issued participant sessions now advertise TURN on port `443`.
+- From the independent shared-hosting account, with short-lived credentials only:
+  - STUN over TCP/443: **PASS**.
+  - authenticated TURN allocation over TCP/443: **PASS**.
+  - LiveKit signaling through Cloudflare -> Nginx -> LiveKit using the JS SDK's supported v0 signaling fallback: WebSocket **101 PASS**.
+- The shared-hosting runtime itself denies creation of UDP sockets (`EPERM`), so no off-host UDP success is claimed from that client. UDP remains enabled server-side but is not falsely certified from this evidence.
+
+### LiveKit RoomService admin-token compatibility repair
+- Production acceptance exposed that LiveKit 1.13.5 rejects `DeleteRoom`/`RemoveParticipant` tokens containing only `roomAdmin` (and also rejects `roomAdmin + roomList`).
+- The exact admin grant profile previously proven in the isolated LiveKit lab (`roomCreate + roomList + roomAdmin + roomRecord`) was reproduced successfully and implemented as the runtime's RoomService admin grant helper.
+- Regression acceptance on isolated PostgreSQL/Redis: **6 passed**.
+- Backend was rebuilt and deployed with the repair; runtime `/ready` returned 200, health was healthy, restart count 0.
+- Two acceptance/probe rooms that had remained after the pre-fix 401 responses were deleted through the repaired production method; post-cleanup test-room count was **0**.
+
+### Public VIP Realtime publication
+- VIP static verification with the current Realtime implementation: **PASS** (`verify:static`, including type/lint/build/static-smoke gates).
+- Realtime pages were built for all six locales: `ar`, `en`, `fr`, `de`, `es`, `tr`.
+- A full shared-hosting document-root backup was created before publication at `/home2/ipdom3m7/.aionex-deploy-backups/20260905T090941Z-realtime-launch`.
+- The full current `vip-frontend/out/` was published with the hosting-owned ACME and CGI exclusions preserved.
+- Local/remote package-owned manifest parity: **336/336 files exact**.
+- Live `/realtime` routes for all six locales return HTTP 200; HTTP redirects to HTTPS.
+- Browser policy now permits camera/microphone for `self` only and WSS connectivity to `api.vip-e.net`; unrelated browser capabilities remain denied.
+
+### Real production media publication
+- A synthetic, isolated acceptance tenant/room/participant was used; no real-user content or identity was used.
+- Headless Chrome executed the exact project `livekit-client@2.22.2` bundle with only a short-lived participant token and fake camera/microphone devices. No static LiveKit API secret was exposed to the browser.
+- Browser publication: **PASS, 2 tracks**.
+- LiveKit server evidence confirms an active JS participant plus a microphone audio publication and a VP8 1280x720 camera publication.
+
+### Recording -> Studio acceptance: real remaining defect identified
+- Consent gate for the isolated participant: **1/1 consented**, consent digest present.
+- `StartRoomCompositeEgress` was accepted by LiveKit and returned an Egress identifier.
+- The first production Room Composite recording terminated as `EGRESS_ABORTED` with zero-byte output and provider error `Start signal not received` / `Source closed`.
+- LiveKit ICE statistics prove the Egress recorder joined signaling but its subscriber media transport never established: the server offered the host public ICE candidate while the Egress Chrome process, inside the Docker bridge, ended up with a public server-reflexive path that cannot hairpin back through this host/provider topology.
+- This is not an API, consent, publisher, credential, or Egress-start failure. The production publisher remained connected and publishing while the Egress subscriber ICE path failed.
+- The disposable lab had recorded MP4 successfully with `use_external_ip=false`, but globally disabling external-IP ICE in production is explicitly rejected because it would trade the recorder fix for broken public-browser media.
+
+### Egress 1.13.0 configuration contract verification
+- The exact deployed Egress binary reports version **1.13.0**.
+- Official 1.13.0 source was inspected for `BaseConfig`, `ServiceConfig`, and the Room Composite `WebSource` path.
+- There is no Egress-specific `rtc_config` / `ice_servers` override for Room Composite recording. The recorder page receives the configured LiveKit WebSocket URL/token and then consumes ICE supplied by LiveKit.
+- `chrome_flags` can only add Chrome process switches; it is not a supported RTC ICE-server override.
+- Therefore the correct remaining repair is a network-topology solution scoped to Egress, while retaining LiveKit `use_external_ip=true` for public clients. A host-network Egress proof with loopback-only control-plane access is the next acceptance step; no global public ICE downgrade will be used.
+
+
+### 2026-09-05 — Realtime recording blocker closed with dual ICE + durable recording-volume ownership
+
+#### Dual ICE repair
+- LiveKit 1.13.5 / `mediatransportutil` source was inspected at the exact dependency revision used by the deployed server. The supported `rtc.advertise_internal_ip` switch keeps internal candidates while `use_external_ip=true` continues to advertise the public NAT candidate.
+- Disposable Lab proof was changed from `use_external_ip=false` to `use_external_ip=true`, `skip_external_ip_validation=true`, `advertise_internal_ip=true`.
+- Lab startup reported both external and internal mappings with `advertiseInternalIP=true`.
+- With a real `livekit-client@2.22.2` Chrome publisher (camera + microphone), Room Composite Egress moved to `START_RECORDING`, `EGRESS_ACTIVE`, then `egress_complete` with no provider error. The lab MP4 was 14,414,937 bytes, proving that public + internal candidates coexist without the earlier Egress hairpin failure.
+- Production `web-dashboard/docker/realtime/livekit.yaml` now keeps `use_external_ip: true` and adds `advertise_internal_ip: true`; `external_ip_only` is explicitly not enabled.
+- Production LiveKit was recreated alone. It returned healthy / restart count 0 and logged the actual mapping `209.74.65.106/172.18.0.32` with `advertiseInternalIP=true`.
+- In Production, both the normal JS publisher and the Egress subscriber became active over the internal `172.18.0.x` candidate while the public candidate remained advertised. This closes the previous `Start signal not received` ICE defect without downgrading public WebRTC.
+
+#### Durable recording-volume ownership repair
+- After ICE was fixed, Egress reached `EGRESS_ACTIVE` but the first Production write attempt failed with `Local upload failed ... permission denied` on `/recordings`.
+- Root cause: Docker created the named volume root as `0:0 / 0755`, while Egress intentionally runs non-root as UID 1001 and the Backend application process runs as `aionex:aionex` (1000:1000).
+- Added `realtime-recording-init`, a one-shot, network-disabled, read-only init service using the already-pinned Egress image. It has only `CHOWN` + `FOWNER`, owns the recording root as `1001:1000`, applies mode `0770`, then exits. `realtime-egress` requires this service to complete successfully before startup.
+- Compose validation passed and regression assertions were added. Targeted infrastructure tests: **2 passed**.
+- Live named-volume state after init: owner `1001:1000`, mode `0770`.
+
+#### Final real Production recording -> Studio acceptance
+- Isolated synthetic tenant/room/participant only; no real user data was used.
+- The exact VIP SDK (`livekit-client@2.22.2`) published camera + microphone: **2 tracks PASS**.
+- All-participant recording consent: **1/1**, consent digest present.
+- Egress reached `EGRESS_COMPLETE` after a controlled recording window.
+- A first service-call receipt run under root verified the provider/output logic but was not accepted as the final filesystem-fidelity proof because the real Backend PID runs as `aionex:aionex`.
+- The filesystem acceptance was repeated/finalized as the actual `aionex` runtime user. Final accepted receipt:
+  - Egress: `EGRESS_COMPLETE`.
+  - Recording status: `completed`.
+  - Studio Job and Studio Asset created; Revision = 1.
+  - MP4 bytes: **3,686,560**.
+  - Recorded service duration: **22,681 ms**.
+  - SHA-256: `a3a1fa67a3fa08f8977747ac29dc43dd5f275d18fcda3510d7f4e4b024b714d9`.
+  - Recording checksum == Studio asset checksum == independently recalculated checksum: **PASS**.
+  - Source recording removed after verified Studio ingestion: **PASS**.
+  - Final Studio file ownership/mode under real runtime user: `1000:1000 / 0600`.
+  - Independent FFprobe (read-only volume, user 1000) identified a valid MP4-family container, duration **23.777234 s**, size **3,686,560 bytes**.
+- The earlier synthetic root-owned Studio directory was confirmed to be test-harness residue only; the pre-existing real Studio organization directory remained `1000:1000`. The final accepted run used the real application UID/GID.
+
+## 2026-09-05 — Phase36H final launch gates and cleanup
+
+### Final functional acceptance
+- Production LiveKit dual ICE uses `use_external_ip=true` plus `advertise_internal_ip=true`; public signaling remains reachable while Egress can select the internal Docker candidate.
+- Independent off-host shared-hosting acceptance after the dual-ICE repair: STUN/TCP 443 PASS and LiveKit WebSocket 101 PASS.
+- Real Production browser acceptance used the exact VIP `livekit-client@2.22.2` with synthetic camera + microphone and published 2 tracks.
+- Consent-gated Room Composite Egress completed successfully and the final filesystem-fidelity acceptance was finalized as the actual `aionex:aionex` application user.
+- Accepted Studio MP4: 3,686,560 bytes, independent ffprobe duration 23.777234 s, SHA-256 `a3a1fa67a3fa08f8977747ac29dc43dd5f275d18fcda3510d7f4e4b024b714d9`; recording/Studio/recomputed checksums matched; source recording was deleted after verified ingestion.
+- Synthetic tenant/room/recording/consent/Studio artifacts, publisher containers, recording sidecars and external-probe credentials were removed. Final realtime test residue is zero.
+
+### Final regression and security gates on the launch source
+- Root/Core suite using the repository contract `PYTHONPATH=.:src`: **857 passed, 0 failed**.
+- Fresh isolated PostgreSQL 16 + Redis 7 Backend suite migrated from empty through Alembic `20260905_0044`: **1108 passed, 1 skipped, 0 failed**. Final post-static-fix log SHA-256: `5e80c9fbc38ae388ad2d090c2058097bf0b3d9b734d930fd22a85ff523ed0a57`.
+- Backend Ruff: PASS. Backend Mypy: PASS across 252 source files.
+- Owner frontend API-contract/type-check/Arabic/lint/build: PASS; final lint has zero warnings/errors.
+- VIP `verify:static`: PASS (integrity, type-check, lint, static build and 94-URL smoke contract).
+- Owner and VIP `npm audit --omit=dev`: 0 vulnerabilities.
+- Backend Trivy production-source scan excluding the intentional vulnerable acceptance fixture: 0 Critical/High findings.
+- Repository security audit: PASS. Python security audit: PASS. `git diff --check`: PASS.
+- Security Acceptance Lab: PASS; coverage 1.0, final gate passed, remediation verified_fixed, learning promoted, repeatable true. Compact report SHA-256: `32b203e5f9dfcd7dea13cf8bd9bee977123ce8c21671d7477cc8a5ec1afda7c4`. The 138 vulnerable findings belong to the intentional vulnerable fixture used by that acceptance lab.
+- Core completion/market-readiness audit regressions introduced by the new Realtime page/API were corrected before closeout: Realtime is registered in the completion program and backend zero-dead blocking findings are zero.
+
+### Final database and recovery evidence
+- Production Alembic head: `20260905_0044`.
+- Final clean custom-format Production database backup: 19,927,465 bytes, mode 0600, `pg_restore -l` PASS, SHA-256 `6082d7f50321373c4a69af484e121502c3428899d259e3abc113216bc48f9bf2`.
+- Database hygiene: 1,496 non-secret text columns scanned; suspicious columns 0; suspicious rows 0.
+- Realtime rooms/recordings/recording-consents/active synthetic participants: 0.
+- Active queues for audio dubbing/music/song/speech/transcript, design image, project execution, Studio, 3D and video: all 0.
+- Disposable Realtime Lab, Backend CI PostgreSQL/Redis runners, Security Acceptance containers/networks and the 3.4 GB Security Acceptance state cache were removed after evidence preservation.
+
+### Release-control boundary
+The working branch is ready for protected Git persistence. The remaining release-control actions are commit/push, protected GitHub PR/CI merge, then rebuilding/recreating affected Production services from the exact merged `main` tree and recording the post-merge runtime snapshot. No bypass of protected checks is permitted.

@@ -19,7 +19,7 @@ const contentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://api.vip-e.net",
   "font-src 'self' data: https://api.vip-e.net",
-  "connect-src 'self' https://api.vip-e.net https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://*.googleapis.com https://*.firebaseapp.com",
+  "connect-src 'self' https://api.vip-e.net wss://api.vip-e.net https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://*.googleapis.com https://*.firebaseapp.com",
   "frame-src https://www.google.com https://accounts.google.com https://www.recaptcha.net https://*.firebaseapp.com",
   "upgrade-insecure-requests",
 ].join("; ");
@@ -61,7 +61,7 @@ const nextConfig = {
                 {
                   key: "Permissions-Policy",
                   value:
-                    "camera=(), geolocation=(), microphone=(), payment=(), publickey-credentials-create=(self), publickey-credentials-get=(self), usb=()",
+                    "camera=(self), geolocation=(), microphone=(self), payment=(), publickey-credentials-create=(self), publickey-credentials-get=(self), usb=()",
                 },
               ],
             },

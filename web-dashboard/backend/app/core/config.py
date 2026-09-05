@@ -423,6 +423,53 @@ class Settings(BaseSettings):
         default="/var/lib/aionex/studio-assets",
         validation_alias="STUDIO_ASSET_ROOT",
     )
+
+    # Phase 36H realtime media runtime. Provider mutations stay fail-closed until
+    # the dedicated production activation stack and secret files are present.
+    REALTIME_MEDIA_LIVE_ENABLED: bool = Field(
+        default=False, validation_alias="REALTIME_MEDIA_LIVE_ENABLED"
+    )
+    REALTIME_SIGNALING_URL: str = Field(
+        default="wss://api.vip-e.net", validation_alias="REALTIME_SIGNALING_URL"
+    )
+    REALTIME_LIVEKIT_INTERNAL_URL: str = Field(
+        default="http://realtime-livekit:7880",
+        validation_alias="REALTIME_LIVEKIT_INTERNAL_URL",
+    )
+    REALTIME_LIVEKIT_API_KEY_FILE: str = Field(
+        default="/run/realtime-secrets/livekit-api-key",
+        validation_alias="REALTIME_LIVEKIT_API_KEY_FILE",
+    )
+    REALTIME_LIVEKIT_API_SECRET_FILE: str = Field(
+        default="/run/realtime-secrets/livekit-api-secret",
+        validation_alias="REALTIME_LIVEKIT_API_SECRET_FILE",
+    )
+    REALTIME_TURN_SHARED_SECRET_FILE: str = Field(
+        default="/run/realtime-secrets/coturn-shared-secret",
+        validation_alias="REALTIME_TURN_SHARED_SECRET_FILE",
+    )
+    REALTIME_TURN_PUBLIC_HOST: str = Field(
+        default="127.0.0.1", validation_alias="REALTIME_TURN_PUBLIC_HOST"
+    )
+    REALTIME_TURN_PORT: int = Field(
+        default=3478, ge=1, le=65535, validation_alias="REALTIME_TURN_PORT"
+    )
+    REALTIME_PROVIDER_TOKEN_TTL_SECONDS: int = Field(
+        default=300, ge=30, le=900, validation_alias="REALTIME_PROVIDER_TOKEN_TTL_SECONDS"
+    )
+    REALTIME_TURN_CREDENTIAL_TTL_SECONDS: int = Field(
+        default=600, ge=60, le=3600, validation_alias="REALTIME_TURN_CREDENTIAL_TTL_SECONDS"
+    )
+    REALTIME_RECORDING_ROOT: str = Field(
+        default="/var/lib/aionex/realtime-recordings",
+        validation_alias="REALTIME_RECORDING_ROOT",
+    )
+    REALTIME_RECORDING_MAX_BYTES: int = Field(
+        default=2 * 1024 * 1024 * 1024,
+        ge=1024 * 1024,
+        le=20 * 1024 * 1024 * 1024,
+        validation_alias="REALTIME_RECORDING_MAX_BYTES",
+    )
     STUDIO_WORKER_POLL_SECONDS: int = Field(
         default=2, ge=1, le=60, validation_alias="STUDIO_WORKER_POLL_SECONDS"
     )

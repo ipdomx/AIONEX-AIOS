@@ -329,7 +329,7 @@ class _FakeAsyncEngine:
 
 def test_backend_exposes_the_shipped_alembic_head() -> None:
     database.expected_alembic_heads.cache_clear()
-    assert database.expected_alembic_heads() == frozenset({"20260825_0043"})
+    assert database.expected_alembic_heads() == frozenset({"20260905_0044"})
 
 
 @pytest.mark.asyncio
@@ -391,6 +391,7 @@ def test_production_compose_preserves_postgres_credential_contract() -> None:
         dashboard_root / "backend" / "app" / "db" / "postgres_credentials.py"
     ).read_text()
     nginx_config = (dashboard_root / "docker" / "nginx.conf").read_text()
+    livekit_config = (dashboard_root / "docker" / "realtime" / "livekit.yaml").read_text()
     dashboard_postgres = compose.split("\n  postgres:", 1)[1].split("\n  redis:", 1)[0]
     deployment_postgres = deployment_compose.split("\n  postgres:", 1)[1].split(
         "\n  redis:", 1
@@ -523,6 +524,13 @@ def test_production_compose_preserves_postgres_credential_contract() -> None:
     assert "$aionex_forwarded_proto" in nginx_config
     assert nginx_config.count('if ($http_x_forwarded_proto = "http")') == 3
     assert nginx_config.count("return 308 https://$host$request_uri;") == 3
+    assert "use_external_ip: true" in livekit_config
+    assert "advertise_internal_ip: true" in livekit_config
+    assert "external_ip_only: true" not in livekit_config
+    assert "realtime-recording-init:" in compose
+    assert 'command: ["chown 1001:1000 /recordings && chmod 0770 /recordings"]' in compose
+    assert "realtime-recording-init: {condition: service_completed_successfully}" in compose
+    assert 'user: "1001:0"' in compose
 
 
 def test_legacy_backup_writes_sha256_sidecar(tmp_path: Path) -> None:

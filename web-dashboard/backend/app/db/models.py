@@ -4848,7 +4848,7 @@ class RealtimeTenantQuota(Base, TimestampMixin):
         Integer, default=4, nullable=False
     )
     max_concurrent_recordings: Mapped[int] = mapped_column(
-        Integer, default=0, nullable=False
+        Integer, default=2, nullable=False
     )
     admission_window_seconds: Mapped[int] = mapped_column(
         Integer, default=60, nullable=False
@@ -5129,4 +5129,132 @@ class RealtimeAdmissionGrant(Base, TimestampMixin):
     consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     consumed_by_node: Mapped[str | None] = mapped_column(String(160))
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+class RealtimeRecording(Base, TimestampMixin):
+    """Durable consent-gated LiveKit Egress recording state."""
+
+    __tablename__ = "realtime_recordings"
+    __table_args__ = (
+        UniqueConstraint("id", "organization_id", name="uq_realtime_recording_id_org"),
+        UniqueConstraint(
+            "organization_id", "idempotency_key", name="uq_realtime_recording_org_idempotency"
+        ),
+        UniqueConstraint("provider_egress_id", name="uq_realtime_recording_provider_egress"),
+        ForeignKeyConstraint(
+            ["room_id", "organization_id"],
+            ["realtime_rooms.id", "realtime_rooms.organization_id"],
+            name="fk_realtime_recording_room_tenant",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["requested_by_id", "organization_id"],
+            ["users.id", "users.organization_id"],
+            name="fk_realtime_recording_requester_tenant",
+            ondelete="RESTRICT",
+        ),
+        Index(
+            "ix_realtime_recordings_org_room_status",
+            "organization_id",
+            "room_id",
+            "status",
+        ),
+        Index(
+            "ix_realtime_recordings_org_status_created",
+            "organization_id",
+            "status",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    room_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    requested_by_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    idempotency_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32), default="awaiting_consent", nullable=False, index=True
+    )
+    provider_adapter: Mapped[str] = mapped_column(
+        String(40), default="livekit", nullable=False
+    )
+    provider_egress_id: Mapped[str | None] = mapped_column(String(160), index=True)
+    output_format: Mapped[str] = mapped_column(String(16), default="mp4", nullable=False)
+    output_relpath: Mapped[str] = mapped_column(Text, nullable=False)
+    media_type: Mapped[str] = mapped_column(
+        String(120), default="video/mp4", nullable=False
+    )
+    consent_version: Mapped[str] = mapped_column(String(80), nullable=False)
+    required_consent_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    consented_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    consent_digest_sha256: Mapped[str | None] = mapped_column(String(64))
+    retention_until: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    output_checksum_sha256: Mapped[str | None] = mapped_column(String(64), index=True)
+    output_size_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    output_duration_ms: Mapped[int | None] = mapped_column(BigInteger)
+    studio_job_id: Mapped[str | None] = mapped_column(
+        ForeignKey("studio_jobs.id", ondelete="SET NULL"), index=True
+    )
+    studio_asset_id: Mapped[str | None] = mapped_column(
+        ForeignKey("studio_assets.id", ondelete="SET NULL"), index=True
+    )
+    provider_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    error_code: Mapped[str | None] = mapped_column(String(120))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    stopped_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class RealtimeRecordingConsent(Base, TimestampMixin):
+    """One participant's explicit durable recording decision."""
+
+    __tablename__ = "realtime_recording_consents"
+    __table_args__ = (
+        UniqueConstraint(
+            "recording_id", "participant_id", name="uq_realtime_recording_consent_participant"
+        ),
+        ForeignKeyConstraint(
+            ["recording_id", "organization_id"],
+            ["realtime_recordings.id", "realtime_recordings.organization_id"],
+            name="fk_realtime_recording_consent_recording_tenant",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["participant_id", "organization_id"],
+            ["realtime_participants.id", "realtime_participants.organization_id"],
+            name="fk_realtime_recording_consent_participant_tenant",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["user_id", "organization_id"],
+            ["users.id", "users.organization_id"],
+            name="fk_realtime_recording_consent_user_tenant",
+            ondelete="RESTRICT",
+        ),
+        Index(
+            "ix_realtime_recording_consents_org_recording_status",
+            "organization_id",
+            "recording_id",
+            "status",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    recording_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    participant_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(
+        String(24), default="pending", nullable=False, index=True
+    )
+    consent_version: Mapped[str] = mapped_column(String(80), nullable=False)
+    consented_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    declined_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)

@@ -96,6 +96,17 @@ services:
       THREE_D_STORAGE_TYPE: local
       AIOS_TELEGRAM_BOT_TOKEN_FILE: /run/operator-secrets/telegram-bot-token
       AIOS_USER_TELEGRAM_BOT_TOKEN_FILE: /run/operator-secrets/user-telegram-bot-token
+      REALTIME_MEDIA_LIVE_ENABLED: "true"
+      REALTIME_SIGNALING_URL: wss://api.vip-e.net/livekit
+      REALTIME_LIVEKIT_INTERNAL_URL: http://realtime-livekit:7880
+      REALTIME_LIVEKIT_API_KEY_FILE: /run/realtime-secrets/livekit-api-key
+      REALTIME_LIVEKIT_API_SECRET_FILE: /run/realtime-secrets/livekit-api-secret
+      REALTIME_TURN_SHARED_SECRET_FILE: /run/realtime-secrets/coturn-shared-secret
+      REALTIME_TURN_PUBLIC_HOST: ${AIOS_REALTIME_PUBLIC_IP:?AIOS_REALTIME_PUBLIC_IP is required}
+      REALTIME_TURN_PORT: "443"
+      REALTIME_PROVIDER_TOKEN_TTL_SECONDS: "300"
+      REALTIME_TURN_CREDENTIAL_TTL_SECONDS: "600"
+      REALTIME_RECORDING_ROOT: /var/lib/aionex/realtime-recordings
     volumes:
       - ..:/workspace:ro
       - ./secrets:/run/secrets/aionex:ro
@@ -109,10 +120,17 @@ services:
       - audio_song_ingress_data:/var/lib/aionex/audio-song-provider-ingress:rw
       - course_package_data:/var/lib/aionex/course-packages:ro
       - mobile_release_data:/var/lib/aionex/mobile-releases:ro
+      - ./secrets/realtime/backend-livekit-api-key:/run/realtime-secrets/livekit-api-key:ro
+      - ./secrets/realtime/backend-livekit-api-secret:/run/realtime-secrets/livekit-api-secret:ro
+      - ./secrets/realtime/backend-coturn-shared-secret:/run/realtime-secrets/coturn-shared-secret:ro
+      - realtime_recording_data:/var/lib/aionex/realtime-recordings:rw
     depends_on:
       postgres: {condition: service_healthy}
       postgres-credential-reconciler: {condition: service_completed_successfully}
       redis: {condition: service_healthy}
+      realtime-livekit: {condition: service_healthy}
+      realtime-turn: {condition: service_healthy}
+      realtime-egress: {condition: service_healthy}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready', timeout=5)"]
       interval: 30s
@@ -1075,6 +1093,112 @@ services:
     cap_drop: ["ALL"]
     networks: [aionex-network]
 
+
+  realtime-livekit:
+    image: livekit/livekit-server@sha256:d0d1cfdbe95617647bbe91630454526c2cdd88cec83f41114b3495b444918b9a
+    user: "1000:1000"
+    restart: unless-stopped
+    mem_limit: 1g
+    cpus: "2.0"
+    pids_limit: 256
+    read_only: true
+    cap_drop: ["ALL"]
+    command: ["--config", "/etc/livekit.yaml"]
+    ports:
+      - "${AIOS_REALTIME_PUBLIC_IP:?AIOS_REALTIME_PUBLIC_IP is required}:7881:7881/tcp"
+      - "${AIOS_REALTIME_PUBLIC_IP:?AIOS_REALTIME_PUBLIC_IP is required}:7882:7882/udp"
+    volumes:
+      - ./docker/realtime/livekit.yaml:/etc/livekit.yaml:ro
+      - ./secrets/realtime/livekit.keys:/run/realtime-secrets/livekit.keys:ro
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,uid=1000,gid=1000,mode=0700,size=64m
+    depends_on:
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:7880/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    security_opt: ["no-new-privileges:true"]
+    networks: [aionex-network]
+
+  realtime-turn:
+    image: coturn/coturn@sha256:75e9ebd1e19005bec0c7f591d29afe22f959916ac8d9c852452f27db8c789828
+    user: "65534:65534"
+    entrypoint: ["/usr/bin/turnserver"]
+    command: ["-c", "/etc/coturn/turnserver.conf"]
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: "1.0"
+    pids_limit: 256
+    read_only: true
+    cap_drop: ["ALL"]
+    cap_add: ["NET_BIND_SERVICE"]
+    ports:
+      - "${AIOS_REALTIME_PUBLIC_IP:?AIOS_REALTIME_PUBLIC_IP is required}:443:3478/tcp"
+      - "${AIOS_REALTIME_PUBLIC_IP:?AIOS_REALTIME_PUBLIC_IP is required}:443:3478/udp"
+      - "${AIOS_REALTIME_PUBLIC_IP:?AIOS_REALTIME_PUBLIC_IP is required}:49160-49359:49160-49359/udp"
+    volumes:
+      - ./secrets/realtime/turnserver.conf:/etc/coturn/turnserver.conf:ro
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,uid=65534,gid=65534,mode=0700,size=32m
+    healthcheck:
+      test: ["CMD-SHELL", "bash -ec 'exec 3<>/dev/tcp/127.0.0.1/3478; exec 3>&-' "]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    security_opt: ["no-new-privileges:true"]
+    networks: [aionex-network]
+
+  realtime-recording-init:
+    image: livekit/egress@sha256:a3e61a70479694a5075cff3c081ab633f34d3bfa778adc6089935c96908b6550
+    user: "0:0"
+    entrypoint: ["sh", "-ceu"]
+    command: ["chown 1001:1000 /recordings && chmod 0770 /recordings"]
+    restart: "no"
+    read_only: true
+    mem_limit: 64m
+    cpus: "0.25"
+    pids_limit: 32
+    cap_drop: ["ALL"]
+    cap_add: ["CHOWN", "FOWNER"]
+    volumes:
+      - realtime_recording_data:/recordings:rw
+    security_opt: ["no-new-privileges:true"]
+    network_mode: "none"
+
+  realtime-egress:
+    image: livekit/egress@sha256:a3e61a70479694a5075cff3c081ab633f34d3bfa778adc6089935c96908b6550
+    user: "1001:0"
+    restart: unless-stopped
+    mem_limit: 4g
+    cpus: "4.0"
+    pids_limit: 1024
+    shm_size: "1g"
+    cap_drop: ["ALL"]
+    environment:
+      EGRESS_CONFIG_FILE: /etc/egress.yaml
+    volumes:
+      - ./secrets/realtime/egress.yaml:/etc/egress.yaml:ro
+      - realtime_recording_data:/recordings:rw
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=512m
+      - /home/egress/tmp:rw,nosuid,nodev,uid=1001,gid=0,mode=0700,size=1024m
+    depends_on:
+      realtime-recording-init: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+      realtime-livekit: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    security_opt: ["no-new-privileges:true"]
+    networks: [aionex-network]
+
   nginx:
     image: aionex-aios-nginx:hardened
     build:
@@ -1100,6 +1224,7 @@ services:
       frontend: {condition: service_healthy}
       portal: {condition: service_healthy}
       backend: {condition: service_healthy}
+      realtime-livekit: {condition: service_healthy}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health >/dev/null && wget -qO- http://127.0.0.1:8081/ >/dev/null && wget -qO- http://127.0.0.1:8082/en/ >/dev/null || exit 1"]
       interval: 10s
@@ -1144,6 +1269,7 @@ volumes:
   security_tool_cache_data:
   ollama_model_data:
   course_package_data:
+  realtime_recording_data:
 
 networks:
   aionex-network:

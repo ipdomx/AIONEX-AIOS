@@ -33,7 +33,9 @@
     "studioTitle": "الاستوديو الموحّد للإبداع والمشاريع",
     "studioDescription": "أنشئ أعمال الاستوديو المحكومة وتابعها وراجعها ونزّلها واربطها بمشروعات AIONEX.",
     "academyTitle": "أكاديمية AIONEX ومصنع الدورات",
-    "academyDescription": "أنشئ حزم دورات AIONEX المحكومة وراجعها ووطّنها ونزّلها من بوابة المستخدم."
+    "academyDescription": "أنشئ حزم دورات AIONEX المحكومة وراجعها ووطّنها ونزّلها من بوابة المستخدم.",
+    "realtimeTitle": "الاتصال المباشر | AIONEX",
+    "realtimeDescription": "مكالمات صوت وفيديو ومشاركة شاشة آمنة مع تسجيل لا يبدأ إلا بموافقة المشاركين."
   },
   "nav": {
     "home": "الرئيسية",
@@ -56,7 +58,8 @@
     "support": "الدعم",
     "securityLab": "مختبر الأمان",
     "campaigns": "الحملات",
-    "studio": "الاستوديو"
+    "studio": "الاستوديو",
+    "realtime": "الاتصال المباشر"
   },
   "footer": {
     "description": "نظام تشغيل ذكاء اصطناعي محكوم لتنسيق الوكلاء والنماذج والمشاريع وضوابط التشغيل.",
@@ -1003,5 +1006,52 @@
     "download": "تنزيل ZIP",
     "approve": "اعتماد",
     "reject": "رفض"
+  },
+  "realtime": {
+    "eyebrow": "اتصال مباشر",
+    "title": "صوت وفيديو ومشاركة شاشة",
+    "description": "غرف اتصال آمنة بصلاحيات قصيرة العمر وحدود لكل مؤسسة ووسائط متكيفة وتسجيل يتطلب موافقة صريحة.",
+    "refresh": "تحديث",
+    "loadError": "تعذر تحميل بيانات الاتصال المباشر.",
+    "actionError": "تعذر إتمام الإجراء.",
+    "runtimeTitle": "حالة الاتصال المباشر",
+    "runtimeReady": "خدمة الوسائط المباشرة متصلة وجاهزة.",
+    "runtimeOffline": "خدمة الوسائط المباشرة غير مفعلة بعد.",
+    "createRoom": "إنشاء غرفة",
+    "roomNamePlaceholder": "اسم الغرفة",
+    "create": "إنشاء",
+    "roomCreated": "تم إنشاء الغرفة.",
+    "rooms": "الغرف",
+    "noRooms": "لا توجد غرف مباشرة بعد.",
+    "participants": "{count} من {max} مشارك",
+    "selectRoom": "اختر غرفة",
+    "join": "انضمام",
+    "joined": "تم الاتصال بالغرفة.",
+    "joinError": "تعذر الانضمام إلى الغرفة.",
+    "leave": "مغادرة",
+    "close": "إغلاق الغرفة",
+    "closeConfirm": "إغلاق هذه الغرفة للجميع؟",
+    "roomClosed": "تم إغلاق الغرفة.",
+    "roomIdCopied": "تم نسخ رقم الغرفة.",
+    "mute": "كتم الصوت",
+    "unmute": "تشغيل الصوت",
+    "cameraOff": "إيقاف الكاميرا",
+    "cameraOn": "تشغيل الكاميرا",
+    "shareScreen": "مشاركة الشاشة",
+    "stopShare": "إيقاف المشاركة",
+    "mediaPlaceholder": "انضم إلى غرفة لبدء الوسائط المباشرة.",
+    "recordings": "التسجيلات",
+    "recordingConsentNotice": "لا يبدأ التسجيل إلا بعد موافقة صريحة من جميع المشاركين المقبولين.",
+    "requestRecording": "طلب تسجيل",
+    "recordingTitlePrompt": "عنوان التسجيل",
+    "recordingRequested": "تم طلب موافقات التسجيل.",
+    "noRecordings": "لا توجد تسجيلات لهذه الغرفة.",
+    "consentProgress": "الموافقات {done}/{total}",
+    "agree": "موافق",
+    "decline": "رفض",
+    "consentRecorded": "تم تسجيل الموافقة.",
+    "consentDeclined": "تم رفض التسجيل.",
+    "stopRecording": "إيقاف",
+    "savedToStudio": "تم الحفظ في الاستوديو"
   }
 }

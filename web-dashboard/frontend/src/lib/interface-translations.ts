@@ -86,6 +86,16 @@ const AR: Catalog = {
   "Provider credit policy saved and monitoring baseline reset.":
     "تم حفظ سياسة رصيد المزود وإعادة ضبط خط أساس المراقبة.",
   "Provider credit policy update failed.": "فشل تحديث سياسة رصيد المزود.",
+  "Provider funding confirmed by Owner. Exact balance remains private; billing/quota failures stay fail-closed.":
+    "أكد المالك تمويل المزود. تظل قيمة الرصيد الدقيقة خاصة، وتبقى حالات فشل الفوترة أو الحصة مغلقة آمنًا.",
+  "Provider funding attestation failed.": "فشل تسجيل إقرار تمويل المزود.",
+  "Owner confirmed · amount private": "تأكيد المالك · القيمة خاصة",
+  "Owner funding attestation active. Exact provider balance is intentionally private; billing/quota failures remain monitored.":
+    "إقرار تمويل المالك نشط. قيمة رصيد المزود الدقيقة خاصة عمدًا، وتظل حالات فشل الفوترة أو الحصة تحت المراقبة.",
+  "Use numeric monitoring when you want AIONEX to estimate a remaining balance, or confirm funded status without exposing the exact provider balance.":
+    "استخدم المراقبة الرقمية عندما تريد من AIONEX تقدير الرصيد المتبقي، أو أكد حالة التمويل دون كشف قيمة رصيد المزود الدقيقة.",
+  "Confirm funded · private balance": "تأكيد التمويل · الرصيد خاص",
+  "Billing/quota failure alerts:": "تنبيهات فشل الفوترة/الحصة:",
   "Free users": "المستخدمون المجانيون",
   "Paid users": "المستخدمون المدفوعون",
   "Local/free providers only. External provider spend stays blocked.":

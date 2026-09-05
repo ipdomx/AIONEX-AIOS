@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import {
+  attestProjectAIProviderFunding,
   clearProjectAIUserPolicy,
   fetchProjectAIAccess,
   fetchProjectAIProviderFinance,
@@ -262,6 +263,21 @@ export default function OwnerProjectAIPage() {
       await load();
     } catch {
       setMessage("Provider credit policy update failed.");
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  async function attestFunding(providerId: string) {
+    setSaving(`funding:${providerId}`);
+    try {
+      await attestProjectAIProviderFunding(providerId);
+      setMessage(
+        "Provider funding confirmed by Owner. Exact balance remains private; billing/quota failures stay fail-closed.",
+      );
+      await load();
+    } catch {
+      setMessage("Provider funding attestation failed.");
     } finally {
       setSaving(null);
     }
@@ -570,13 +586,35 @@ export default function OwnerProjectAIPage() {
                   {row && (
                     <div className="text-right">
                       <div className="text-lg font-bold text-white">
-                        ${row.remaining_usd.toFixed(2)}
+                        {row.balance_amount_private || row.remaining_usd === null
+                          ? "Funded"
+                          : `$${row.remaining_usd.toFixed(2)}`}
                       </div>
                       <div className="text-[11px] text-white/35">
-                        estimated remaining
+                        {row.balance_amount_private
+                          ? "Owner confirmed · amount private"
+                          : "estimated remaining"}
                       </div>
                     </div>
                   )}
+                </div>
+                <div className="mt-4 rounded-xl border border-white/[0.06] bg-white/[0.025] p-3 text-xs text-white/55">
+                  {row?.funding_mode === "owner_attested" && row.funded_confirmed
+                    ? "Owner funding attestation active. Exact provider balance is intentionally private; billing/quota failures remain monitored."
+                    : "Use numeric monitoring when you want AIONEX to estimate a remaining balance, or confirm funded status without exposing the exact provider balance."}
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <button
+                    className="rounded-xl border border-electric-500/25 bg-electric-500/10 px-3 py-2.5 text-xs font-semibold text-electric-200 disabled:opacity-50"
+                    disabled={saving !== null}
+                    onClick={() => void attestFunding(provider.id)}
+                  >
+                    <CheckCircle2 className="mr-2 inline h-4 w-4" />
+                    Confirm funded · private balance
+                  </button>
+                  <div className="rounded-xl border border-white/[0.06] px-3 py-2.5 text-xs text-white/45">
+                    Billing/quota failure alerts: {row?.billing_failure_alerts_enabled === false ? "off" : "on"}
+                  </div>
                 </div>
                 <div className="mt-4 grid grid-cols-3 gap-2">
                   {(

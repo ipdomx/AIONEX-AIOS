@@ -13,6 +13,7 @@ from app.db.models import AuditEvent
 from app.services import communications
 from app.services.project_ai_model_refresh import refresh_launch_model_evidence
 from app.services.provider_credit_alerts import (
+    attest_provider_funded,
     ProviderCreditPolicyError,
     configure_provider_credit,
     provider_credit_snapshot,
@@ -121,11 +122,44 @@ async def owner_clear_project_ai_user_policy(
     return {"user_id": user_id, "changed": changed}
 
 
+class ProjectAIProviderFundingAttestation(BaseModel):
+    funded_confirmed: bool = True
+
+
 class ProjectAIProviderFinanceUpdate(BaseModel):
     funded_credit_usd: float = Field(ge=0, le=1_000_000)
     low_balance_threshold_usd: float = Field(ge=0, le=1_000_000)
     critical_balance_threshold_usd: float = Field(ge=0, le=1_000_000)
     enabled: bool = True
+
+
+@router.post("/providers/{provider_id}/funding-attestation")
+async def owner_attest_project_ai_provider_funding(
+    provider_id: str,
+    data: ProjectAIProviderFundingAttestation,
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    if data.funded_confirmed is not True:
+        raise HTTPException(status_code=422, detail="Funding attestation must explicitly confirm funding")
+    try:
+        snapshot = await attest_provider_funded(session, provider_id=provider_id, enabled=True)
+    except ProviderCreditPolicyError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    session.add(AuditEvent(
+        organization_id=actor.organization_id,
+        user_id=actor.id,
+        action="owner.project_ai.provider_funding.attested",
+        resource_type="ai_provider",
+        resource_id=provider_id,
+        details={
+            "funded_confirmed": True,
+            "balance_amount_private": True,
+            "billing_failure_alerts_enabled": True,
+        },
+    ))
+    await session.commit()
+    return snapshot.public()
 
 
 @router.get("/providers/{provider_id}/finance")

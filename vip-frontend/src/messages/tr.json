@@ -33,7 +33,9 @@
     "studioTitle": "Birleşik Yaratıcı ve Proje Stüdyosu",
     "studioDescription": "Yönetilen Studio çalışmalarını oluşturun, izleyin, revize edin, indirin ve AIONEX projelerinize bağlayın.",
     "academyTitle": "AIONEX Academy ve Kurs Fabrikası",
-    "academyDescription": "Yönetilen AIONEX kurs paketlerini kullanıcı portalından oluşturun, inceleyin, yerelleştirin ve indirin."
+    "academyDescription": "Yönetilen AIONEX kurs paketlerini kullanıcı portalından oluşturun, inceleyin, yerelleştirin ve indirin.",
+    "realtimeTitle": "Gerçek zamanlı iletişim | AIONEX",
+    "realtimeDescription": "Güvenli ses, video, ekran paylaşımı ve açık onaylı kayıt."
   },
   "nav": {
     "home": "Ana sayfa",
@@ -56,7 +58,8 @@
     "support": "Destek",
     "securityLab": "Güvenlik Laboratuvarı",
     "campaigns": "Kampanyalar",
-    "studio": "Stüdyo"
+    "studio": "Stüdyo",
+    "realtime": "Canlı iletişim"
   },
   "footer": {
     "description": "Ajanları, modelleri, projeleri ve operasyonel kontrolleri koordine eden yönetişimli bir yapay zekâ işletim sistemi.",
@@ -1003,5 +1006,52 @@
     "download": "ZIP indir",
     "approve": "Onayla",
     "reject": "Reddet"
+  },
+  "realtime": {
+    "eyebrow": "Gerçek zamanlı medya",
+    "title": "Ses, video ve ekran paylaşımı",
+    "description": "Kısa ömürlü kimlik bilgileri, kuruluş sınırları ve açık onay gerektiren kayıt ile güvenli odalar.",
+    "refresh": "Yenile",
+    "loadError": "Canlı veriler yüklenemedi.",
+    "actionError": "İşlem tamamlanamadı.",
+    "runtimeTitle": "Canlı medya hizmeti",
+    "runtimeReady": "Canlı medya hizmeti çevrimiçi.",
+    "runtimeOffline": "Canlı medya hizmeti henüz etkin değil.",
+    "createRoom": "Oda oluştur",
+    "roomNamePlaceholder": "Oda adı",
+    "create": "Oluştur",
+    "roomCreated": "Oda oluşturuldu.",
+    "rooms": "Odalar",
+    "noRooms": "Henüz oda yok.",
+    "participants": "{count}/{max} katılımcı",
+    "selectRoom": "Bir oda seçin",
+    "join": "Katıl",
+    "joined": "Odaya bağlanıldı.",
+    "joinError": "Odaya katılım başarısız.",
+    "leave": "Ayrıl",
+    "close": "Odayı kapat",
+    "closeConfirm": "Bu oda herkes için kapatılsın mı?",
+    "roomClosed": "Oda kapatıldı.",
+    "roomIdCopied": "Oda kimliği kopyalandı.",
+    "mute": "Sustur",
+    "unmute": "Mikrofonu aç",
+    "cameraOff": "Kamerayı kapat",
+    "cameraOn": "Kamerayı aç",
+    "shareScreen": "Ekranı paylaş",
+    "stopShare": "Paylaşımı durdur",
+    "mediaPlaceholder": "Canlı medyayı başlatmak için odaya katılın.",
+    "recordings": "Kayıtlar",
+    "recordingConsentNotice": "Kayıt yalnızca tüm katılımcıların açık onayından sonra başlar.",
+    "requestRecording": "Kayıt iste",
+    "recordingTitlePrompt": "Kayıt başlığı",
+    "recordingRequested": "Kayıt onayı istendi.",
+    "noRecordings": "Kayıt yok.",
+    "consentProgress": "Onay {done}/{total}",
+    "agree": "Onayla",
+    "decline": "Reddet",
+    "consentRecorded": "Onay kaydedildi.",
+    "consentDeclined": "Kayıt reddedildi.",
+    "stopRecording": "Durdur",
+    "savedToStudio": "Studio’ya kaydedildi"
   }
 }

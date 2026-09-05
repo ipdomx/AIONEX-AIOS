@@ -33,7 +33,9 @@
     "studioTitle": "Unified Creative & Project Studio",
     "studioDescription": "Create, track, revise, download, and connect governed Studio work to your AIONEX projects.",
     "academyTitle": "AIONEX Academy & Course Factory",
-    "academyDescription": "Build, review, localize, and download governed AIONEX course packages from the user portal."
+    "academyDescription": "Build, review, localize, and download governed AIONEX course packages from the user portal.",
+    "realtimeTitle": "Realtime Communication | AIONEX",
+    "realtimeDescription": "Secure tenant-scoped voice, video, screen sharing and consent-governed recording."
   },
   "nav": {
     "home": "Home",
@@ -56,7 +58,8 @@
     "support": "Support",
     "securityLab": "Security Lab",
     "campaigns": "Campaigns",
-    "studio": "Studio"
+    "studio": "Studio",
+    "realtime": "Realtime"
   },
   "footer": {
     "description": "A governed AI operating system for coordinating agents, models, projects, and operational controls.",
@@ -1003,5 +1006,52 @@
     "download": "Download ZIP",
     "approve": "Approve",
     "reject": "Reject"
+  },
+  "realtime": {
+    "eyebrow": "Realtime media",
+    "title": "Voice, video and screen sharing",
+    "description": "Secure realtime rooms with short-lived credentials, tenant limits, adaptive media and explicit recording consent.",
+    "refresh": "Refresh",
+    "loadError": "Realtime data could not be loaded.",
+    "actionError": "The realtime action could not be completed.",
+    "runtimeTitle": "Realtime runtime",
+    "runtimeReady": "Live media runtime is online and ready.",
+    "runtimeOffline": "Live media runtime is not active yet.",
+    "createRoom": "Create room",
+    "roomNamePlaceholder": "Room name",
+    "create": "Create room",
+    "roomCreated": "Room created.",
+    "rooms": "Rooms",
+    "noRooms": "No realtime rooms yet.",
+    "participants": "{count} of {max} participants",
+    "selectRoom": "Select a room",
+    "join": "Join",
+    "joined": "Connected to the room.",
+    "joinError": "Could not join the realtime room.",
+    "leave": "Leave",
+    "close": "Close room",
+    "closeConfirm": "Close this room for everyone?",
+    "roomClosed": "Room closed.",
+    "roomIdCopied": "Room ID copied.",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "cameraOff": "Camera off",
+    "cameraOn": "Camera on",
+    "shareScreen": "Share screen",
+    "stopShare": "Stop sharing",
+    "mediaPlaceholder": "Join a room to start live media.",
+    "recordings": "Recordings",
+    "recordingConsentNotice": "Recording starts only after every admitted participant explicitly agrees.",
+    "requestRecording": "Request recording",
+    "recordingTitlePrompt": "Recording title",
+    "recordingRequested": "Recording consent requested.",
+    "noRecordings": "No recordings for this room.",
+    "consentProgress": "Consent {done}/{total}",
+    "agree": "Agree",
+    "decline": "Decline",
+    "consentRecorded": "Recording consent recorded.",
+    "consentDeclined": "Recording declined.",
+    "stopRecording": "Stop",
+    "savedToStudio": "Saved to Studio"
   }
 }
