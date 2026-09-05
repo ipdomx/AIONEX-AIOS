@@ -1,0 +1,18 @@
+[Unit]
+Description=AIONEX Production Docker Runtime Watch
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/AIOS/scripts/operations/docker-runtime-watch.py --project web-dashboard --state-file /var/lib/aionex-runtime-watch/state.json
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+StateDirectory=aionex-runtime-watch
+StateDirectoryMode=0700
+ReadWritePaths=/var/lib/aionex-runtime-watch
+RestrictAddressFamilies=AF_UNIX
+LockPersonality=true
+MemoryDenyWriteExecute=true

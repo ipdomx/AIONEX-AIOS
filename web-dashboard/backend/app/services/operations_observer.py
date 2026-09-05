@@ -21,6 +21,7 @@ from app.services.growth_paid_live_execution import reconcile_stale_live_executi
 from app.services.lifecycle_alerts import run_account_lifecycle_alerts
 from app.services.project_ai_model_refresh import refresh_launch_model_evidence
 from app.services.provider_credit_alerts import run_provider_credit_alerts
+from app.services.runtime_owner_alerts import run_runtime_owner_alerts
 from app.services.operations_assurance import record_observation_cycle
 
 logger = get_logger(__name__)
@@ -33,6 +34,7 @@ class OperationsObserver:
         self.cycles = 0
         self.errors = 0
         self.last_lifecycle_alert_monotonic = 0.0
+        self.last_provider_credit_alert_monotonic = 0.0
         self.last_project_ai_model_refresh_monotonic = 0.0
 
     async def preflight(self) -> None:
@@ -62,6 +64,11 @@ class OperationsObserver:
             or current_monotonic - self.last_lifecycle_alert_monotonic
             >= settings.ACCOUNT_LIFECYCLE_ALERT_INTERVAL_SECONDS
         )
+        run_provider_credit_alerts_now = (
+            self.last_provider_credit_alert_monotonic <= 0
+            or current_monotonic - self.last_provider_credit_alert_monotonic
+            >= settings.PROVIDER_CREDIT_ALERT_INTERVAL_SECONDS
+        )
         run_model_refresh = bool(settings.PROJECT_AI_MODEL_REFRESH_ENABLED) and (
             self.last_project_ai_model_refresh_monotonic <= 0
             or current_monotonic - self.last_project_ai_model_refresh_monotonic
@@ -90,11 +97,14 @@ class OperationsObserver:
                 if run_lifecycle_alerts
                 else []
             )
-            if run_lifecycle_alerts:
+            notifications.extend(await run_runtime_owner_alerts(session))
+            if run_provider_credit_alerts_now:
                 notifications.extend(await run_provider_credit_alerts(session))
             await session.commit()
         if run_lifecycle_alerts:
             self.last_lifecycle_alert_monotonic = current_monotonic
+        if run_provider_credit_alerts_now:
+            self.last_provider_credit_alert_monotonic = current_monotonic
         if pilot_runtime["auto_disarmed"]:
             logger.warning(
                 "GS-12 runtime guard auto-disarmed controlled pilots",

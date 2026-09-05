@@ -127,6 +127,17 @@ const AR: Catalog = {
     "سجل الرصيد الممول وحدود التنبيه. يُخصم الإنفاق الفعلي لذكاء المشروعات من خط الأساس المسجل.",
   "validated models ·": "نماذج متحققة ·",
   "estimated remaining": "المتبقي التقديري",
+  "Owner confirmed · predictive amount unavailable":
+    "تأكيد المالك · لا تتوفر قيمة رقمية للتنبؤ",
+  "private estimated remaining": "المتبقي التقديري الخاص",
+  "Funding is confirmed, but predictive low-balance alerts need a numeric funded amount. Save Funded / Low / Critical below to activate pre-exhaustion monitoring.":
+    "تم تأكيد التمويل، لكن تنبيهات انخفاض الرصيد الاستباقية تحتاج إلى مبلغ تمويل رقمي. احفظ قيم التمويل والمنخفض والحرج أدناه لتفعيل المراقبة قبل نفاد الرصيد.",
+  "Predictive low/critical monitoring is active. Numeric balance details are visible only to the Super Owner; general snapshots and alert payloads remain private.":
+    "المراقبة الاستباقية للرصيد المنخفض والحرج مفعلة. تفاصيل الرصيد الرقمية ظاهرة للمالك الأعلى فقط، بينما تظل اللقطات العامة وبيانات التنبيهات دون كشف المبلغ.",
+  "Predictive low/critical monitoring is active from the recorded funded baseline and durable provider spend.":
+    "المراقبة الاستباقية للرصيد المنخفض والحرج مفعلة اعتمادًا على خط التمويل المسجل وإنفاق المزود المحفوظ.",
+  "Keep numeric balance private from non-Owner surfaces":
+    "إبقاء الرصيد الرقمي خاصًا عن الواجهات غير المخصصة للمالك",
   "Save credit policy": "حفظ سياسة الرصيد",
   "Project AI policy saved.": "تم حفظ سياسة ذكاء المشروعات.",
   "Loading current live-plan and execution state…":

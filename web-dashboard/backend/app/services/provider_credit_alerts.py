@@ -42,10 +42,18 @@ class ProviderCreditSnapshot:
     funding_mode: str = "numeric"
 
     @property
-    def remaining_usd(self) -> float | None:
-        if self.funding_mode == "owner_attested":
-            return None
+    def balance_amount_private(self) -> bool:
+        return self.funding_mode in {"owner_attested", "numeric_private"}
+
+    @property
+    def remaining_usd_internal(self) -> float:
         return round(self.remaining_microusd / 1_000_000, 6)
+
+    @property
+    def remaining_usd(self) -> float | None:
+        if self.balance_amount_private:
+            return None
+        return self.remaining_usd_internal
 
     @property
     def state(self) -> str:
@@ -60,13 +68,13 @@ class ProviderCreditSnapshot:
         return "healthy"
 
     def public(self) -> dict[str, Any]:
-        private_amount = self.funding_mode == "owner_attested"
+        private_amount = self.balance_amount_private
         return {
             "provider_id": self.provider_id,
             "provider_type": self.provider_type,
             "enabled": self.enabled,
             "funding_mode": self.funding_mode,
-            "funded_confirmed": self.enabled and self.funding_mode in {"numeric", "owner_attested"},
+            "funded_confirmed": self.enabled and self.funding_mode in {"numeric", "numeric_private", "owner_attested"},
             "balance_amount_private": private_amount,
             "funded_usd": None if private_amount else round(self.funded_microusd / 1_000_000, 6),
             "consumed_since_topup_usd": round(
@@ -83,6 +91,29 @@ class ProviderCreditSnapshot:
             "state": self.state,
             "policy_version": self.policy_version,
         }
+
+    def owner(self) -> dict[str, Any]:
+        """Return finance data to the authenticated Super Owner only.
+
+        ``numeric_private`` keeps amounts out of general snapshots and notification
+        payloads while still allowing the Owner console to display the configured
+        funded amount and thresholds needed for predictive alerts.
+        """
+        payload = self.public()
+        if self.funding_mode == "numeric_private":
+            payload.update(
+                {
+                    "funded_usd": round(self.funded_microusd / 1_000_000, 6),
+                    "remaining_usd": self.remaining_usd_internal,
+                    "low_balance_threshold_usd": round(
+                        self.low_threshold_microusd / 1_000_000, 6
+                    ),
+                    "critical_balance_threshold_usd": round(
+                        self.critical_threshold_microusd / 1_000_000, 6
+                    ),
+                }
+            )
+        return payload
 
 
 def _payload_amount(payload: dict[str, Any], key: str) -> int:
@@ -119,6 +150,7 @@ async def configure_provider_credit(
     low_balance_threshold_usd: float,
     critical_balance_threshold_usd: float,
     enabled: bool = True,
+    balance_amount_private: bool = False,
 ) -> ProviderCreditSnapshot:
     provider = await session.scalar(
         select(AIProvider).where(AIProvider.id == provider_id).with_for_update()
@@ -142,9 +174,9 @@ async def configure_provider_credit(
         .with_for_update()
     )
     payload = {
-        "funding_mode": "numeric",
+        "funding_mode": "numeric_private" if balance_amount_private else "numeric",
         "funded_confirmed": True,
-        "balance_amount_private": False,
+        "balance_amount_private": bool(balance_amount_private),
         "funded_microusd": funded,
         "baseline_spend_microusd": baseline,
         "low_threshold_microusd": low,
@@ -248,7 +280,7 @@ async def provider_credit_snapshot(
         raise ProviderCreditPolicyError("provider credit policy is not configured")
     payload = dict(record.payload or {})
     funding_mode = str(payload.get("funding_mode") or "numeric")
-    if funding_mode not in {"numeric", "owner_attested"}:
+    if funding_mode not in {"numeric", "numeric_private", "owner_attested"}:
         raise ProviderCreditPolicyError("funding_mode is invalid")
     if funding_mode == "owner_attested" and payload.get("funded_confirmed") is not True:
         raise ProviderCreditPolicyError("owner-attested funding is not confirmed")
@@ -287,6 +319,18 @@ async def _notify_credit_state(
         if snapshot.state == "critical"
         else "AI provider credit is running low"
     )
+    if snapshot.balance_amount_private:
+        message = (
+            f"Provider {snapshot.provider_type} estimated funded credit crossed the "
+            f"{snapshot.state} threshold. Review or top up the provider before live "
+            "project capacity is affected."
+        )
+    else:
+        message = (
+            f"Provider {snapshot.provider_type} estimated remaining funded credit is "
+            f"${snapshot.remaining_usd_internal:.2f}. Review or top up the provider "
+            "before live project capacity is affected."
+        )
     return await communications.notify_audience(
         session,
         organization_id="platform",
@@ -294,10 +338,7 @@ async def _notify_credit_state(
         event_key=f"project_ai.provider_credit.{snapshot.state}",
         category="billing",
         title=title,
-        message=(
-            f"Provider {snapshot.provider_type} estimated remaining funded credit is "
-            f"${snapshot.remaining_usd:.2f}. Review or top up the provider before live project capacity is affected."
-        ),
+        message=message,
         severity=severity,
         channels=owner_alert_channels(),
         source_type="ai_provider",
@@ -305,6 +346,38 @@ async def _notify_credit_state(
         correlation_id=snapshot.provider_id,
         dedupe_prefix=(
             f"project-ai-credit:{snapshot.provider_id}:v{snapshot.policy_version}:{snapshot.state}"
+        ),
+        payload=snapshot.public(),
+        respect_preferences=False,
+    )
+
+
+async def _notify_predictive_monitoring_gap(
+    session: AsyncSession,
+    snapshot: ProviderCreditSnapshot,
+) -> list:
+    if not snapshot.enabled or snapshot.funding_mode != "owner_attested":
+        return []
+    return await communications.notify_audience(
+        session,
+        organization_id="platform",
+        audience="platform_owner",
+        event_key="project_ai.provider_credit.predictive_monitoring_required",
+        category="billing",
+        title="AI provider predictive credit alert needs a numeric baseline",
+        message=(
+            f"Provider {snapshot.provider_type} is confirmed funded, but its exact funded "
+            "amount is not recorded in AIONEX. Record the numeric funded amount plus low and "
+            "critical thresholds in Owner > Project AI to receive warnings before the "
+            "balance is estimated to run out. Billing/quota failures remain monitored now."
+        ),
+        severity="warning",
+        channels=owner_alert_channels(),
+        source_type="ai_provider",
+        source_id=snapshot.provider_id,
+        correlation_id=snapshot.provider_id,
+        dedupe_prefix=(
+            f"project-ai-credit:{snapshot.provider_id}:v{snapshot.policy_version}:predictive-required"
         ),
         payload=snapshot.public(),
         respect_preferences=False,
@@ -332,6 +405,7 @@ async def run_provider_credit_alerts(session: AsyncSession) -> list:
         except ProviderCreditPolicyError:
             continue
         notifications.extend(await _notify_credit_state(session, snapshot))
+        notifications.extend(await _notify_predictive_monitoring_gap(session, snapshot))
     return notifications
 
 

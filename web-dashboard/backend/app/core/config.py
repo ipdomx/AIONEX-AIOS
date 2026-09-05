@@ -135,6 +135,12 @@ class Settings(BaseSettings):
         le=86_400,
         validation_alias="ACCOUNT_LIFECYCLE_ALERT_INTERVAL_SECONDS",
     )
+    PROVIDER_CREDIT_ALERT_INTERVAL_SECONDS: int = Field(
+        default=300,
+        ge=60,
+        le=3600,
+        validation_alias="PROVIDER_CREDIT_ALERT_INTERVAL_SECONDS",
+    )
     OPERATIONS_OBSERVER_HEALTH_FILE: str = Field(
         default="/tmp/aionex-operations-observer-health.json",
         validation_alias="OPERATIONS_OBSERVER_HEALTH_FILE",

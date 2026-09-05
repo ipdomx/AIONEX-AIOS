@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+import time
 from pathlib import Path
 from uuid import uuid4
 
@@ -24,7 +25,7 @@ from app.db.models import (
     Role,
     User,
 )
-from app.services import operations_assurance, operations_observer
+from app.services import operations_assurance, operations_observer, runtime_owner_alerts
 
 
 class Identity:
@@ -556,18 +557,178 @@ async def test_operations_observer_run_once_reconciles_gs12_runtime(
         events.append("lifecycle")
         return []
 
+    async def runtime_alerts(_session):
+        events.append("runtime-alert")
+        return []
+
+    async def provider_credit(_session):
+        events.append("provider-credit")
+        return []
+
     async def publish(_notifications):
         events.append("publish")
 
     monkeypatch.setattr(operations_observer, "record_observation_cycle", observe)
     monkeypatch.setattr(operations_observer, "reconcile_runtime_pilots", reconcile)
     monkeypatch.setattr(operations_observer, "run_account_lifecycle_alerts", lifecycle)
+    monkeypatch.setattr(operations_observer, "run_runtime_owner_alerts", runtime_alerts)
+    monkeypatch.setattr(operations_observer, "run_provider_credit_alerts", provider_credit)
     monkeypatch.setattr(operations_observer.communications, "publish_many", publish)
 
     observer = operations_observer.OperationsObserver()
     observer.health_path = tmp_path / "observer-health.json"
     await observer.run_once()
 
-    assert events == ["reconcile", "observe", "lifecycle", "publish"]
+    assert events == [
+        "reconcile",
+        "observe",
+        "lifecycle",
+        "runtime-alert",
+        "provider-credit",
+        "publish",
+    ]
     assert observer.cycles == 1
     assert observer.health_path.exists()
+
+
+
+@pytest.mark.asyncio
+async def test_operations_observer_checks_provider_credit_independently_of_lifecycle_interval(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    calls: list[str] = []
+
+    async def observe(_session):
+        return {}
+
+    async def reconcile(_session):
+        return {"checked": 0, "auto_disarmed": 0}
+
+    async def live_reconcile(_session):
+        return {"executions_marked_manual_review": 0, "pilots_auto_disarmed": 0}
+
+    async def lifecycle(_session):
+        calls.append("lifecycle")
+        return []
+
+    async def runtime_alerts(_session):
+        return []
+
+    async def provider_credit(_session):
+        calls.append("provider-credit")
+        return []
+
+    async def publish(_notifications):
+        return None
+
+    monkeypatch.setattr(operations_observer, "record_observation_cycle", observe)
+    monkeypatch.setattr(operations_observer, "reconcile_runtime_pilots", reconcile)
+    monkeypatch.setattr(
+        operations_observer, "reconcile_stale_live_executions", live_reconcile
+    )
+    monkeypatch.setattr(operations_observer, "run_account_lifecycle_alerts", lifecycle)
+    monkeypatch.setattr(operations_observer, "run_runtime_owner_alerts", runtime_alerts)
+    monkeypatch.setattr(operations_observer, "run_provider_credit_alerts", provider_credit)
+    monkeypatch.setattr(operations_observer.communications, "publish_many", publish)
+    monkeypatch.setattr(
+        operations_observer.settings, "PROVIDER_CREDIT_ALERT_INTERVAL_SECONDS", 300
+    )
+
+    observer = operations_observer.OperationsObserver()
+    observer.health_path = tmp_path / "observer-health.json"
+    observer.last_lifecycle_alert_monotonic = time.monotonic()
+    observer.last_provider_credit_alert_monotonic = 0.0
+    await observer.run_once()
+
+    assert calls == ["provider-credit"]
+    assert observer.last_provider_credit_alert_monotonic > 0
+
+
+@pytest.mark.asyncio
+async def test_runtime_owner_alerts_notify_health_transition_recovery_and_critical_alert(monkeypatch) -> None:
+    awaitable_inventory = [
+        {
+            "id": "backend",
+            "name": "Backend API",
+            "health": "healthy",
+        }
+    ]
+    captured: list[dict] = []
+
+    async def inventory(_session):
+        return list(awaitable_inventory)
+
+    async def fake_notify_audience(_session, **kwargs):
+        captured.append(kwargs)
+        return [kwargs["event_key"]]
+
+    monkeypatch.setattr(runtime_owner_alerts.operations_assurance, "service_inventory", inventory)
+    monkeypatch.setattr(runtime_owner_alerts.communications, "notify_audience", fake_notify_audience)
+    try:
+        async with SessionLocal() as session:
+            await session.execute(
+                delete(OwnerControlRecord).where(
+                    OwnerControlRecord.domain == runtime_owner_alerts.RUNTIME_HEALTH_DOMAIN
+                )
+            )
+            await session.execute(delete(Alert).where(Alert.source == "postlaunch-runtime-test"))
+            await session.commit()
+
+        # First observation establishes a baseline without paging the Owner.
+        async with SessionLocal() as session:
+            notes = await runtime_owner_alerts.run_runtime_owner_alerts(session)
+            await session.commit()
+            assert notes == []
+
+        awaitable_inventory[0] = {
+            "id": "backend",
+            "name": "Backend API",
+            "health": "unhealthy",
+        }
+        async with SessionLocal() as session:
+            notes = await runtime_owner_alerts.run_runtime_owner_alerts(session)
+            await session.commit()
+            assert notes == ["operations.runtime.service_unhealthy"]
+        down = next(row for row in captured if row["event_key"] == "operations.runtime.service_unhealthy")
+        assert down["audience"] == "platform_owner"
+        assert down["severity"] == "critical"
+        assert down["channels"]
+
+        awaitable_inventory[0] = {
+            "id": "backend",
+            "name": "Backend API",
+            "health": "healthy",
+        }
+        async with SessionLocal() as session:
+            notes = await runtime_owner_alerts.run_runtime_owner_alerts(session)
+            await session.commit()
+            assert notes == ["operations.runtime.service_recovered"]
+
+        async with SessionLocal() as session:
+            incident = Alert(
+                title="Synthetic critical runtime test",
+                description="synthetic",
+                severity="critical",
+                status="active",
+                source="postlaunch-runtime-test",
+                details={},
+            )
+            session.add(incident)
+            await session.commit()
+            incident_id = incident.id
+        async with SessionLocal() as session:
+            notes = await runtime_owner_alerts.run_runtime_owner_alerts(session)
+            await session.commit()
+            assert "operations.runtime.critical_alert" in notes
+        critical = next(row for row in captured if row["event_key"] == "operations.runtime.critical_alert")
+        assert critical["source_id"] == incident_id
+        assert critical["severity"] == "critical"
+    finally:
+        async with SessionLocal() as session:
+            await session.execute(
+                delete(OwnerControlRecord).where(
+                    OwnerControlRecord.domain == runtime_owner_alerts.RUNTIME_HEALTH_DOMAIN
+                )
+            )
+            await session.execute(delete(Alert).where(Alert.source == "postlaunch-runtime-test"))
+            await session.commit()

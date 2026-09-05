@@ -59,6 +59,7 @@ type FinanceDraft = {
   low_balance_threshold_usd: number;
   critical_balance_threshold_usd: number;
   enabled: boolean;
+  balance_amount_private: boolean;
 };
 
 function modelKey(provider: string, model: string) {
@@ -150,6 +151,7 @@ export default function OwnerProjectAIPage() {
                 critical_balance_threshold_usd:
                   row?.critical_balance_threshold_usd ?? 2,
                 enabled: row?.enabled ?? true,
+                balance_amount_private: row?.balance_amount_private ?? true,
               },
             ];
           }),
@@ -586,15 +588,16 @@ export default function OwnerProjectAIPage() {
                   {row && (
                     <div className="text-right">
                       <div className="text-lg font-bold text-white">
-                        {row.balance_amount_private ||
-                        row.remaining_usd === null
+                        {row.remaining_usd === null
                           ? "Funded"
                           : `$${row.remaining_usd.toFixed(2)}`}
                       </div>
                       <div className="text-[11px] text-white/35">
-                        {row.balance_amount_private
-                          ? "Owner confirmed · amount private"
-                          : "estimated remaining"}
+                        {row.funding_mode === "owner_attested"
+                          ? "Owner confirmed · predictive amount unavailable"
+                          : row.balance_amount_private
+                            ? "private estimated remaining"
+                            : "estimated remaining"}
                       </div>
                     </div>
                   )}
@@ -602,8 +605,10 @@ export default function OwnerProjectAIPage() {
                 <div className="mt-4 rounded-xl border border-white/[0.06] bg-white/[0.025] p-3 text-xs text-white/55">
                   {row?.funding_mode === "owner_attested" &&
                   row.funded_confirmed
-                    ? "Owner funding attestation active. Exact provider balance is intentionally private; billing/quota failures remain monitored."
-                    : "Use numeric monitoring when you want AIONEX to estimate a remaining balance, or confirm funded status without exposing the exact provider balance."}
+                    ? "Funding is confirmed, but predictive low-balance alerts need a numeric funded amount. Save Funded / Low / Critical below to activate pre-exhaustion monitoring."
+                    : row?.funding_mode === "numeric_private"
+                      ? "Predictive low/critical monitoring is active. Numeric balance details are visible only to the Super Owner; general snapshots and alert payloads remain private."
+                      : "Predictive low/critical monitoring is active from the recorded funded baseline and durable provider spend."}
                 </div>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   <button
@@ -650,6 +655,22 @@ export default function OwnerProjectAIPage() {
                     </label>
                   ))}
                 </div>
+                <label className="mt-3 flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 text-xs text-white/55">
+                  <input
+                    type="checkbox"
+                    checked={draft.balance_amount_private}
+                    onChange={(event) =>
+                      setFinanceDrafts((current) => ({
+                        ...current,
+                        [provider.id]: {
+                          ...current[provider.id],
+                          balance_amount_private: event.target.checked,
+                        },
+                      }))
+                    }
+                  />
+                  Keep numeric balance private from non-Owner surfaces
+                </label>
                 <button
                   className="btn-primary mt-4 w-full justify-center"
                   disabled={saving !== null}

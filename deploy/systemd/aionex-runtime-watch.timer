@@ -1,0 +1,12 @@
+[Unit]
+Description=Run AIONEX Production Runtime Watch every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=60s
+AccuracySec=10s
+Persistent=true
+Unit=aionex-runtime-watch.service
+
+[Install]
+WantedBy=timers.target
