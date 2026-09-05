@@ -586,7 +586,8 @@ export default function OwnerProjectAIPage() {
                   {row && (
                     <div className="text-right">
                       <div className="text-lg font-bold text-white">
-                        {row.balance_amount_private || row.remaining_usd === null
+                        {row.balance_amount_private ||
+                        row.remaining_usd === null
                           ? "Funded"
                           : `$${row.remaining_usd.toFixed(2)}`}
                       </div>
@@ -599,7 +600,8 @@ export default function OwnerProjectAIPage() {
                   )}
                 </div>
                 <div className="mt-4 rounded-xl border border-white/[0.06] bg-white/[0.025] p-3 text-xs text-white/55">
-                  {row?.funding_mode === "owner_attested" && row.funded_confirmed
+                  {row?.funding_mode === "owner_attested" &&
+                  row.funded_confirmed
                     ? "Owner funding attestation active. Exact provider balance is intentionally private; billing/quota failures remain monitored."
                     : "Use numeric monitoring when you want AIONEX to estimate a remaining balance, or confirm funded status without exposing the exact provider balance."}
                 </div>
@@ -613,7 +615,10 @@ export default function OwnerProjectAIPage() {
                     Confirm funded · private balance
                   </button>
                   <div className="rounded-xl border border-white/[0.06] px-3 py-2.5 text-xs text-white/45">
-                    Billing/quota failure alerts: {row?.billing_failure_alerts_enabled === false ? "off" : "on"}
+                    Billing/quota failure alerts:{" "}
+                    {row?.billing_failure_alerts_enabled === false
+                      ? "off"
+                      : "on"}
                   </div>
                 </div>
                 <div className="mt-4 grid grid-cols-3 gap-2">
