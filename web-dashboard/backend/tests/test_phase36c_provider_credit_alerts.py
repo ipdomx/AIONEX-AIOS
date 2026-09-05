@@ -225,3 +225,80 @@ async def test_owner_attested_funding_keeps_amount_private() -> None:
             assert public["state"] == "funded_attested"
     finally:
         await _cleanup_provider(provider_id)
+
+
+@pytest.mark.asyncio
+async def test_private_numeric_monitoring_hides_general_amounts_but_alerts_before_exhaustion(monkeypatch) -> None:
+    provider_id = await _seed_provider()
+    captured: list[dict] = []
+
+    async def fake_notify_audience(_session, **kwargs):
+        captured.append(kwargs)
+        return ["private-low"]
+
+    monkeypatch.setattr(communications, "notify_audience", fake_notify_audience)
+    try:
+        async with SessionLocal() as session:
+            initial = await configure_provider_credit(
+                session,
+                provider_id=provider_id,
+                funded_credit_usd=10.0,
+                low_balance_threshold_usd=3.0,
+                critical_balance_threshold_usd=1.0,
+                balance_amount_private=True,
+            )
+            assert initial.funding_mode == "numeric_private"
+            public = initial.public()
+            owner = initial.owner()
+            assert public["balance_amount_private"] is True
+            assert public["funded_usd"] is None
+            assert public["remaining_usd"] is None
+            assert public["low_balance_threshold_usd"] is None
+            assert owner["funded_usd"] == 10.0
+            assert owner["remaining_usd"] == 10.0
+            assert owner["low_balance_threshold_usd"] == 3.0
+            provider = await session.get(AIProvider, provider_id)
+            assert provider is not None
+            config = dict(provider.config or {})
+            config["runtime_spend_microusd"] = 8_000_000
+            provider.config = config
+            await session.commit()
+
+        async with SessionLocal() as session:
+            notifications = await run_provider_credit_alerts(session)
+            assert notifications == ["private-low"]
+        match = next(row for row in captured if row.get("source_id") == provider_id)
+        assert match["event_key"] == "project_ai.provider_credit.low"
+        assert match["severity"] == "warning"
+        assert match["payload"]["remaining_usd"] is None
+        assert "$2.00" not in match["message"]
+        assert "crossed the low threshold" in match["message"]
+    finally:
+        await _cleanup_provider(provider_id)
+
+
+@pytest.mark.asyncio
+async def test_owner_attested_mode_warns_that_predictive_monitoring_needs_numeric_baseline(monkeypatch) -> None:
+    provider_id = await _seed_provider()
+    captured: list[dict] = []
+
+    async def fake_notify_audience(_session, **kwargs):
+        captured.append(kwargs)
+        return ["predictive-gap"]
+
+    monkeypatch.setattr(communications, "notify_audience", fake_notify_audience)
+    try:
+        async with SessionLocal() as session:
+            await attest_provider_funded(session, provider_id=provider_id, enabled=True)
+            await session.commit()
+        async with SessionLocal() as session:
+            notifications = await run_provider_credit_alerts(session)
+            assert notifications == ["predictive-gap"]
+        match = next(row for row in captured if row.get("source_id") == provider_id)
+        assert match["event_key"] == "project_ai.provider_credit.predictive_monitoring_required"
+        assert match["severity"] == "warning"
+        assert "numeric funded amount" in match["message"]
+        assert match["payload"]["balance_amount_private"] is True
+        assert match["payload"]["remaining_usd"] is None
+    finally:
+        await _cleanup_provider(provider_id)

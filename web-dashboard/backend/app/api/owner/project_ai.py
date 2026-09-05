@@ -131,6 +131,7 @@ class ProjectAIProviderFinanceUpdate(BaseModel):
     low_balance_threshold_usd: float = Field(ge=0, le=1_000_000)
     critical_balance_threshold_usd: float = Field(ge=0, le=1_000_000)
     enabled: bool = True
+    balance_amount_private: bool = True
 
 
 @router.post("/providers/{provider_id}/funding-attestation")
@@ -159,7 +160,7 @@ async def owner_attest_project_ai_provider_funding(
         },
     ))
     await session.commit()
-    return snapshot.public()
+    return snapshot.owner()
 
 
 @router.get("/providers/{provider_id}/finance")
@@ -173,7 +174,7 @@ async def owner_project_ai_provider_finance(
         snapshot = await provider_credit_snapshot(session, provider_id=provider_id)
     except ProviderCreditPolicyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return snapshot.public()
+    return snapshot.owner()
 
 
 @router.put("/providers/{provider_id}/finance")
@@ -191,6 +192,7 @@ async def owner_set_project_ai_provider_finance(
             low_balance_threshold_usd=data.low_balance_threshold_usd,
             critical_balance_threshold_usd=data.critical_balance_threshold_usd,
             enabled=data.enabled,
+            balance_amount_private=data.balance_amount_private,
         )
     except ProviderCreditPolicyError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -201,14 +203,14 @@ async def owner_set_project_ai_provider_finance(
         resource_type="ai_provider",
         resource_id=provider_id,
         details={
-            "funded_credit_usd": data.funded_credit_usd,
-            "low_balance_threshold_usd": data.low_balance_threshold_usd,
-            "critical_balance_threshold_usd": data.critical_balance_threshold_usd,
+            "balance_amount_private": data.balance_amount_private,
+            "numeric_monitoring_configured": True,
             "enabled": data.enabled,
         },
     ))
     await session.commit()
-    return snapshot.public()
+    return snapshot.owner()
+
 
 @router.post("/models/refresh")
 async def owner_refresh_project_ai_models(

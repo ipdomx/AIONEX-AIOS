@@ -13,21 +13,24 @@ from app.db.redis import close_redis, init_redis
 from app.services.project_execution_admission import project_execution_admission_slot
 
 
-async def _admit(index: int, *, batch: str, start_epoch: float) -> tuple[str, float]:
+async def _admit(
+    index: int, *, batch: str, start_epoch: float, projects_per_tenant: int = 1
+) -> tuple[str, float]:
     delay = start_epoch - time.time()
     if delay > 0:
         await asyncio.sleep(delay)
     started = time.perf_counter()
     execution_id = f"p36be-{batch}-{index}"
+    tenant_index = index // max(1, projects_per_tenant)
     async with project_execution_admission_slot():
         async with SessionLocal() as session:
             session.add(
                 ProjectExecution(
                     id=execution_id,
-                    organization_id=f"p36bl-{batch}-{index}",
-                    workspace_id=f"p36bw-{batch}-{index}",
+                    organization_id=f"p36bl-{batch}-{tenant_index}",
+                    workspace_id=f"p36bw-{batch}-{tenant_index}",
                     project_id=f"p36bp-{batch}-{index}",
-                    requested_by_id=f"p36bu-{batch}-{index}",
+                    requested_by_id=f"p36bu-{batch}-{tenant_index}",
                     mode="full",
                     provider="synthetic-fake-provider",
                     status="queued",
@@ -52,11 +55,17 @@ async def main() -> int:
     stop = int(sys.argv[2])
     batch = sys.argv[3]
     start_epoch = float(sys.argv[4])
+    projects_per_tenant = int(sys.argv[5]) if len(sys.argv) > 5 else 1
     await init_redis()
     try:
         results = await asyncio.gather(
             *(
-                _admit(index, batch=batch, start_epoch=start_epoch)
+                _admit(
+                    index,
+                    batch=batch,
+                    start_epoch=start_epoch,
+                    projects_per_tenant=projects_per_tenant,
+                )
                 for index in range(start, stop)
             )
         )

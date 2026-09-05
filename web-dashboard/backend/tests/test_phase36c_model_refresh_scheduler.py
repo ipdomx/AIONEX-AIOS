@@ -25,6 +25,14 @@ async def _lifecycle(_session):
     return []
 
 
+async def _provider_credit(_session):
+    return []
+
+
+async def _runtime_alerts(_session):
+    return []
+
+
 @pytest.mark.asyncio
 async def test_model_refresh_scheduler_is_disabled_by_default_and_interval_bounded(monkeypatch, tmp_path) -> None:
     calls: list[str] = []
@@ -41,6 +49,8 @@ async def test_model_refresh_scheduler_is_disabled_by_default_and_interval_bound
     monkeypatch.setattr(observer_module, "reconcile_stale_live_executions", _live)
     monkeypatch.setattr(observer_module, "record_observation_cycle", _observation)
     monkeypatch.setattr(observer_module, "run_account_lifecycle_alerts", _lifecycle)
+    monkeypatch.setattr(observer_module, "run_provider_credit_alerts", _provider_credit)
+    monkeypatch.setattr(observer_module, "run_runtime_owner_alerts", _runtime_alerts)
     monkeypatch.setattr(observer_module, "refresh_launch_model_evidence", fake_refresh)
     monkeypatch.setattr(observer_module.communications, "publish_many", fake_publish)
     monkeypatch.setattr(settings, "OPERATIONS_OBSERVER_HEALTH_FILE", str(tmp_path / "health.json"))

@@ -55,7 +55,7 @@ export type ProjectAIProviderFinance = {
   provider_id: string;
   provider_type: string;
   enabled: boolean;
-  funding_mode: "numeric" | "owner_attested";
+  funding_mode: "numeric" | "numeric_private" | "owner_attested";
   funded_confirmed: boolean;
   balance_amount_private: boolean;
   funded_usd: number | null;
@@ -73,6 +73,7 @@ export type ProjectAIProviderFinanceUpdate = {
   low_balance_threshold_usd: number;
   critical_balance_threshold_usd: number;
   enabled: boolean;
+  balance_amount_private: boolean;
 };
 
 export function fetchProjectAIAccess(

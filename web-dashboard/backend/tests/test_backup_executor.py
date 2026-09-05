@@ -1464,6 +1464,10 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
         assert 'command: ["python", "/app/app/db/postgres_credentials.py"]' in compose
         assert "project-worker:" in compose
         assert 'profiles: ["ai-execution"]' in compose
+        assert 'scale: ${PROJECT_EXECUTION_WORKER_REPLICAS:-4}' in project_section
+        assert 'PROJECT_EXECUTION_WORKER_CAPACITY: "${PROJECT_EXECUTION_WORKER_CAPACITY:-3}"' in project_section
+        assert 'PROJECT_EXECUTION_TENANT_ACTIVE_LIMIT: "${PROJECT_EXECUTION_TENANT_ACTIVE_LIMIT:-6}"' in project_section
+        assert 'PROVIDER_CREDIT_ALERT_INTERVAL_SECONDS: "${PROVIDER_CREDIT_ALERT_INTERVAL_SECONDS:-300}"' in compose
         assert (
             'command: ["python", "-m", "app.services.project_execution_worker"]'
             in compose

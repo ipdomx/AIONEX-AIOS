@@ -705,3 +705,315 @@ async def test_one_thousand_concurrent_tenant_jobs_are_durably_admitted_without_
                 delete(Organization).where(Organization.id.like(f"{org_prefix}%"))
             )
             await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_150_users_can_admit_three_parallel_projects_each_without_loss() -> None:
+    batch = uuid4().hex[:8]
+    tenants = 150
+    projects_per_tenant = 3
+    count = tenants * projects_per_tenant
+    shards = 4
+    per_shard = (count + shards - 1) // shards
+    admission_key = f"aionex:phase36b:multi-project-admission:{batch}"
+    org_prefix = f"p36bl-{batch}-"
+    user_prefix = f"p36bu-{batch}-"
+    workspace_prefix = f"p36bw-{batch}-"
+    project_prefix = f"p36bp-{batch}-"
+    execution_prefix = f"p36be-{batch}-"
+
+    organizations = [
+        Organization(
+            id=f"{org_prefix}{index}",
+            name=f"Postlaunch Multi Project Tenant {index}",
+            slug=f"postlaunch-multi-{batch}-{index}",
+            plan="enterprise",
+            status="active",
+        )
+        for index in range(tenants)
+    ]
+    users = [
+        User(
+            id=f"{user_prefix}{index}",
+            organization_id=f"{org_prefix}{index}",
+            role_id=None,
+            email=f"postlaunch-multi-{batch}-{index}@example.com",
+            name="Synthetic Multi Project User",
+            password_hash="unused",
+            status="active",
+        )
+        for index in range(tenants)
+    ]
+    workspaces = [
+        Workspace(
+            id=f"{workspace_prefix}{index}",
+            organization_id=f"{org_prefix}{index}",
+            name="Synthetic Multi Project Workspace",
+            slug=f"postlaunch-multi-ws-{batch}-{index}",
+            status="active",
+        )
+        for index in range(tenants)
+    ]
+    projects = [
+        Project(
+            id=f"{project_prefix}{index}",
+            organization_id=f"{org_prefix}{index // projects_per_tenant}",
+            workspace_id=f"{workspace_prefix}{index // projects_per_tenant}",
+            owner_id=f"{user_prefix}{index // projects_per_tenant}",
+            name=f"Parallel Project {index}",
+            slug=f"postlaunch-parallel-project-{batch}-{index}",
+            description="Synthetic post-launch multi-project admission workload.",
+            status="planning",
+            priority="medium",
+            progress=0,
+            tags=["postlaunch", "multi-project", "synthetic-load"],
+        )
+        for index in range(count)
+    ]
+    redis_client = aioredis.from_url(
+        settings.REDIS_URL,
+        decode_responses=True,
+        max_connections=4,
+    )
+    processes: list[asyncio.subprocess.Process] = []
+    try:
+        await redis_client.delete(admission_key)
+        async with SessionLocal() as session:
+            session.add_all(organizations)
+            await session.flush()
+            session.add_all(users)
+            await session.flush()
+            session.add_all(workspaces)
+            await session.flush()
+            session.add_all(projects)
+            await session.commit()
+
+        child = Path(__file__).with_name("phase36b_admission_process.py")
+        backend_root = str(Path(__file__).resolve().parents[1])
+        start_epoch = time.time() + 1.5
+        for shard in range(shards):
+            start = shard * per_shard
+            stop = min(count, (shard + 1) * per_shard)
+            if start >= stop:
+                continue
+            environment = os.environ.copy()
+            environment["PYTHONPATH"] = os.pathsep.join(
+                part for part in (backend_root, environment.get("PYTHONPATH", "")) if part
+            )
+            environment.update(
+                {
+                    "DATABASE_POOLING_ENABLED": "true",
+                    "DATABASE_POOL_SIZE": "12",
+                    "DATABASE_MAX_OVERFLOW": "2",
+                    "DATABASE_POOL_TIMEOUT_SECONDS": "5",
+                    "DATABASE_POOL_CONNECTION_BUDGET": "60",
+                    "WORKERS": "4",
+                    "REDIS_POOL_SIZE": "18",
+                    "PROJECT_EXECUTION_ADMISSION_CONCURRENCY": "14",
+                    "PROJECT_EXECUTION_ADMISSION_GLOBAL_LIMIT": "48",
+                    "PROJECT_EXECUTION_ADMISSION_WAIT_SECONDS": "30",
+                    "PROJECT_EXECUTION_ADMISSION_REDIS_KEY": admission_key,
+                }
+            )
+            processes.append(
+                await asyncio.create_subprocess_exec(
+                    sys.executable,
+                    str(child),
+                    str(start),
+                    str(stop),
+                    batch,
+                    str(start_epoch),
+                    str(projects_per_tenant),
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    env=environment,
+                )
+            )
+
+        all_ids: list[str] = []
+        latencies: list[float] = []
+        for process in processes:
+            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=45)
+            assert process.returncode == 0, stderr.decode("utf-8", errors="replace")
+            result_line = next(
+                (
+                    line
+                    for line in stdout.decode("utf-8", errors="replace").splitlines()
+                    if line.startswith("P36B_CHILD_RESULT=")
+                ),
+                None,
+            )
+            assert result_line is not None
+            payload = json.loads(result_line.split("=", 1)[1])
+            all_ids.extend(str(item) for item in payload["ids"])
+            latencies.extend(float(item) for item in payload["latencies"])
+
+        assert len(all_ids) == count
+        assert len(set(all_ids)) == count
+        ordered = sorted(latencies)
+        p95 = ordered[int(count * 0.95) - 1]
+        print(
+            "POSTLAUNCH_150_USERS_X3_PROJECTS_ADMISSION "
+            f"count={count} p95={p95:.3f}s max={ordered[-1]:.3f}s"
+        )
+        assert p95 < 5.0
+        assert int(await redis_client.zcard(admission_key)) == 0
+
+        async with SessionLocal() as session:
+            rows = (
+                await session.execute(
+                    select(
+                        ProjectExecution.organization_id,
+                        func.count(ProjectExecution.id),
+                    )
+                    .where(ProjectExecution.id.like(f"{execution_prefix}%"))
+                    .group_by(ProjectExecution.organization_id)
+                )
+            ).all()
+            assert len(rows) == tenants
+            assert {int(row[1]) for row in rows} == {projects_per_tenant}
+            admitted = int(
+                await session.scalar(
+                    select(func.count(ProjectExecution.id)).where(
+                        ProjectExecution.id.like(f"{execution_prefix}%")
+                    )
+                )
+                or 0
+            )
+            distinct_users = int(
+                await session.scalar(
+                    select(func.count(func.distinct(ProjectExecution.requested_by_id))).where(
+                        ProjectExecution.id.like(f"{execution_prefix}%")
+                    )
+                )
+                or 0
+            )
+            queued = int(
+                await session.scalar(
+                    select(func.count(ProjectExecution.id)).where(
+                        ProjectExecution.id.like(f"{execution_prefix}%"),
+                        ProjectExecution.status == "queued",
+                    )
+                )
+                or 0
+            )
+            assert admitted == count
+            assert distinct_users == tenants
+            assert queued == count
+    finally:
+        for process in processes:
+            if process.returncode is None:
+                process.kill()
+                await process.wait()
+        await redis_client.delete(admission_key)
+        await redis_client.close()
+        async with SessionLocal() as session:
+            await session.execute(
+                delete(ProjectExecution).where(ProjectExecution.id.like(f"{execution_prefix}%"))
+            )
+            await session.execute(delete(Project).where(Project.id.like(f"{project_prefix}%")))
+            await session.execute(delete(Workspace).where(Workspace.id.like(f"{workspace_prefix}%")))
+            await session.execute(delete(User).where(User.id.like(f"{user_prefix}%")))
+            await session.execute(delete(Organization).where(Organization.id.like(f"{org_prefix}%")))
+            await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_one_tenant_can_hold_three_running_projects_under_postlaunch_limit(monkeypatch) -> None:
+    suffix = f"multi-{uuid4().hex[:8]}"
+    organization = Organization(
+        id=f"p36b-org-{suffix}",
+        name="Multi Project Tenant",
+        slug=f"p36b-org-{suffix}",
+        plan="enterprise",
+        status="active",
+    )
+    user = User(
+        id=f"p36b-user-{suffix}",
+        organization_id=organization.id,
+        role_id=None,
+        email=f"{suffix}@example.com",
+        name="Multi Project User",
+        password_hash="unused",
+        status="active",
+    )
+    workspace = Workspace(
+        id=f"p36b-ws-{suffix}",
+        organization_id=organization.id,
+        name="Multi Project Workspace",
+        slug=f"p36b-ws-{suffix}",
+        status="active",
+    )
+    projects = []
+    executions = []
+    for index in range(3):
+        project = Project(
+            id=f"p36b-project-{suffix}-{index}",
+            organization_id=organization.id,
+            workspace_id=workspace.id,
+            owner_id=user.id,
+            name=f"Parallel Project {index}",
+            slug=f"p36b-project-{suffix}-{index}",
+            description="Three simultaneous governed projects for one user.",
+            status="planning",
+            priority="high",
+            progress=0,
+            tags=["postlaunch", "parallel"],
+        )
+        execution = ProjectExecution(
+            id=f"p36b-exec-{suffix}-{index}",
+            organization_id=organization.id,
+            workspace_id=workspace.id,
+            project_id=project.id,
+            requested_by_id=user.id,
+            mode="full",
+            provider="synthetic-fake-provider",
+            status="queued",
+            stage="queued",
+            progress=0,
+            objective=project.description,
+            external_processing_confirmed=True,
+            budget_cap_usd=0.05,
+            result_summary={},
+            resource_class="project-build-cpu",
+            priority_rank=200,
+            attempts=0,
+            max_attempts=3,
+        )
+        projects.append(project)
+        executions.append(execution)
+
+    monkeypatch.setattr(settings, "PROJECT_EXECUTION_TENANT_ACTIVE_LIMIT", 6)
+    worker = ProjectExecutionWorker(
+        runner=_UnusedRunner(),
+        worker_id=f"postlaunch-worker-{suffix}",
+        capacity=3,
+    )
+    try:
+        async with SessionLocal() as session:
+            session.add(organization)
+            await session.flush()
+            session.add_all([user, workspace])
+            await session.flush()
+            session.add_all(projects)
+            await session.flush()
+            session.add_all(executions)
+            await session.commit()
+
+        claims = [await worker.claim() for _ in range(3)]
+        assert all(claim is not None for claim in claims)
+        assert len({claim[0] for claim in claims if claim is not None}) == 3
+        async with SessionLocal() as session:
+            running = int(
+                await session.scalar(
+                    select(func.count(ProjectExecution.id)).where(
+                        ProjectExecution.organization_id == organization.id,
+                        ProjectExecution.status == "running",
+                    )
+                )
+                or 0
+            )
+            assert running == 3
+    finally:
+        await _cleanup_org(organization.id)
+        await _delete_workers(worker.worker_id)
