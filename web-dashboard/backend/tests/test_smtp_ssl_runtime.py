@@ -7,6 +7,7 @@ from app.services import communications
 class _SMTPSSL:
     calls: list[tuple[str, int, int, bool]] = []
     logins: list[tuple[str, object]] = []
+    sent_messages: list[object] = []
     sent = 0
     started_tls = False
 
@@ -29,8 +30,9 @@ class _SMTPSSL:
         type(self).logins.append((user, password))
         return 235, b"ok"
 
-    def send_message(self, _message: object) -> dict[str, tuple[int, bytes]]:
+    def send_message(self, message: object) -> dict[str, tuple[int, bytes]]:
         type(self).sent += 1
+        type(self).sent_messages.append(message)
         return {}
 
 
@@ -41,12 +43,14 @@ def _plain_smtp_forbidden(*_args: object, **_kwargs: object) -> object:
 def _configure_ssl(monkeypatch) -> None:
     _SMTPSSL.calls.clear()
     _SMTPSSL.logins.clear()
+    _SMTPSSL.sent_messages.clear()
     _SMTPSSL.sent = 0
     _SMTPSSL.started_tls = False
     for module in (communications, control_plane):
         monkeypatch.setattr(module.settings, "SMTP_HOST", "smtp.example.test")
         monkeypatch.setattr(module.settings, "SMTP_PORT", 465)
         monkeypatch.setattr(module.settings, "SMTP_USER", "smtp-user")
+        monkeypatch.setattr(module.settings, "SMTP_FROM_EMAIL", "sender@example.test")
         monkeypatch.setattr(module.settings, "SMTP_PASSWORD", "smtp-password")
         monkeypatch.setattr(module.settings, "SMTP_SSL", True)
         monkeypatch.setattr(module.settings, "SMTP_TLS", False)
@@ -73,6 +77,7 @@ def test_communication_email_uses_implicit_tls_when_configured(monkeypatch) -> N
     assert _SMTPSSL.calls == [("smtp.example.test", 465, 15, True)]
     assert _SMTPSSL.logins == [("smtp-user", "smtp-password")]
     assert _SMTPSSL.sent == 1
+    assert _SMTPSSL.sent_messages[0]["From"] == "sender@example.test"
     assert _SMTPSSL.started_tls is False
 
 
@@ -88,4 +93,5 @@ def test_owner_test_email_uses_implicit_tls_when_configured(monkeypatch) -> None
     assert _SMTPSSL.calls == [("smtp.example.test", 465, 10, True)]
     assert _SMTPSSL.logins == [("smtp-user", "smtp-password")]
     assert _SMTPSSL.sent == 1
+    assert _SMTPSSL.sent_messages[0]["From"] == "sender@example.test"
     assert _SMTPSSL.started_tls is False

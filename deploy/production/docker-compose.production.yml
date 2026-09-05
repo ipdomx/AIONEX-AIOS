@@ -162,6 +162,7 @@ services:
       PYTHONPATH: /workspace/src:/app
       PROJECT_AI_MODEL_REFRESH_ENABLED: "true"
       PROVIDER_CREDIT_ALERT_INTERVAL_SECONDS: "${PROVIDER_CREDIT_ALERT_INTERVAL_SECONDS:-300}"
+      AIOS_TELEGRAM_BOT_TOKEN_FILE: /run/operator-secrets/telegram-bot-token
     command: ["python", "-m", "app.services.operations_observer"]
     restart: unless-stopped
     mem_limit: 1g
@@ -169,6 +170,7 @@ services:
     pids_limit: 256
     volumes:
       - ../..:/workspace:ro
+      - ${AIOS_TELEGRAM_BOT_TOKEN_HOST_FILE:-/root/.config/aionex/telegram/bot-token}:/run/operator-secrets/telegram-bot-token:ro
     depends_on:
       backend:
         condition: service_healthy
