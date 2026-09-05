@@ -813,7 +813,7 @@ def _send_owner_test_email(recipient: str) -> dict[str, Any]:
 
     message = EmailMessage()
     message["Subject"] = "AIONEX Owner channel test"
-    message["From"] = settings.SMTP_USER or "noreply@aionex.local"
+    message["From"] = settings.SMTP_FROM_EMAIL or settings.SMTP_USER or "noreply@aionex.local"
     message["To"] = recipient
     message.set_content(
         "The AIONEX Owner email notification channel is configured and reachable."

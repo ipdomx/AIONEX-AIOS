@@ -1053,7 +1053,7 @@ def _send_email(address: str, notification: Notification) -> str:
         raise ProviderNotConfigured("email-provider-unconfigured")
     message = EmailMessage()
     message["Subject"] = notification.title
-    message["From"] = settings.SMTP_USER or "noreply@aionex.local"
+    message["From"] = settings.SMTP_FROM_EMAIL or settings.SMTP_USER or "noreply@aionex.local"
     message["To"] = address
     message.set_content(notification.message)
     smtp_host = settings.SMTP_HOST

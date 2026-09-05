@@ -101,6 +101,8 @@ def test_production_operations_observer_keeps_model_evidence_fresh_without_armin
         observer = _compose_service_block(compose, "operations-observer")
         assert 'PROJECT_AI_MODEL_REFRESH_ENABLED: "true"' in observer
         assert 'PROJECT_AI_LIVE_RUNTIME_ENABLED: "true"' not in observer
+        assert 'AIOS_TELEGRAM_BOT_TOKEN_FILE: /run/operator-secrets/telegram-bot-token' in observer
+        assert '/run/operator-secrets/telegram-bot-token:ro' in observer
 
     dashboard_compose = (repo_root / "web-dashboard/docker-compose.production.yml").read_text(encoding="utf-8")
     assert 'PROJECT_AI_LIVE_RUNTIME_ENABLED: "false"' in dashboard_compose
