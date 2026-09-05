@@ -396,11 +396,12 @@ async def _prepare_database(session):
             },
         },
     )
+    backup_id = uuid_str()
     session.add(
         BackupRecord(
-            id=uuid_str(),
+            id=backup_id,
             kind="acceptance_lab",
-            scope=PROJECT_ID,
+            scope="platform",
             status="completed",
             location="acceptance://backup",
             checksum="0" * 64,
@@ -414,7 +415,13 @@ async def _prepare_database(session):
             operation="restore_test",
             status="completed",
             region="acceptance-lab",
-            details={"disposable": True},
+            details={
+                "disposable": True,
+                "backup_id": backup_id,
+                "validated": True,
+                "three_d_snapshot_required": True,
+                "three_d_snapshot_validated": True,
+            },
             completed_at=now(),
         )
     )

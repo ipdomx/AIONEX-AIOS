@@ -161,6 +161,16 @@ try {
   if (!htaccess.includes('Service-Worker-Allowed "/"')) {
     throw new Error("Service worker scope header is missing");
   }
+  if (
+    !htaccess.includes("RewriteEngine On") ||
+    !htaccess.includes("RewriteCond %{HTTPS} !=on") ||
+    !htaccess.includes("RewriteCond %{HTTP:X-Forwarded-Proto} !https [NC]") ||
+    !htaccess.includes(
+      "RewriteRule ^ https://ai.vip-e.net%{REQUEST_URI} [R=301,L,NE]",
+    )
+  ) {
+    throw new Error("HTTP to HTTPS deployment redirect is missing");
+  }
   console.log(
     `Static smoke test passed: ${expectedUrls.length} URLs, PWA assets, 404 fallback, API target and deployment headers.`,
   );
