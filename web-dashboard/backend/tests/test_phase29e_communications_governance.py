@@ -971,3 +971,79 @@ async def test_super_owner_can_suspend_cancel_and_delete_one_support_conversatio
             assert requester_alert is not None
     finally:
         await cleanup(customer.organization.id, platform.organization.id)
+
+@pytest.mark.asyncio
+async def test_deduped_notification_adds_newly_selected_delivery_channel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    suffix = uuid4().hex[:10]
+    data = await identity(suffix)
+    recipient = data.users["Manager"]
+    monkeypatch.setattr(communications.settings, "SMTP_HOST", "smtp.example.test")
+    monkeypatch.setattr(communications.settings, "SMTP_USER", None)
+    try:
+        async with SessionLocal() as session:
+            first = await communications.create_notification(
+                session,
+                recipient,
+                event_key="phase29e.delivery.reconcile",
+                category="system",
+                title="Initial channel",
+                message="Initial in-app delivery only.",
+                severity="warning",
+                channels=["in_app"],
+                dedupe_key=f"phase29e-reconcile-{suffix}",
+                respect_preferences=False,
+            )
+            await session.commit()
+            replay = await communications.create_notification(
+                session,
+                recipient,
+                event_key="phase29e.delivery.reconcile",
+                category="system",
+                title="Replay",
+                message="Replay with an added channel.",
+                severity="warning",
+                channels=["in_app", "email"],
+                dedupe_key=f"phase29e-reconcile-{suffix}",
+                respect_preferences=False,
+            )
+            await session.commit()
+            assert replay.id == first.id
+            deliveries = list(
+                (
+                    await session.scalars(
+                        select(NotificationDelivery).where(
+                            NotificationDelivery.notification_id == first.id
+                        )
+                    )
+                ).all()
+            )
+            assert {item.channel: item.status for item in deliveries} == {
+                "in_app": "delivered",
+                "email": "queued",
+            }
+            replay_again = await communications.create_notification(
+                session,
+                recipient,
+                event_key="phase29e.delivery.reconcile",
+                category="system",
+                title="Replay again",
+                message="No duplicate delivery should be created.",
+                severity="warning",
+                channels=["in_app", "email"],
+                dedupe_key=f"phase29e-reconcile-{suffix}",
+                respect_preferences=False,
+            )
+            await session.commit()
+            assert replay_again.id == first.id
+            assert (
+                await session.scalar(
+                    select(func.count(NotificationDelivery.id)).where(
+                        NotificationDelivery.notification_id == first.id
+                    )
+                )
+                == 2
+            )
+    finally:
+        await cleanup(data.organization.id)

@@ -806,6 +806,92 @@ def delivery_snapshot(delivery: NotificationDelivery) -> dict[str, Any]:
     }
 
 
+async def _ensure_notification_deliveries(
+    session: AsyncSession,
+    recipient: User,
+    notification: Notification,
+    selected: Sequence[str],
+    *,
+    severity: str,
+) -> list[NotificationDelivery]:
+    existing_channels = set(
+        (
+            await session.scalars(
+                select(NotificationDelivery.channel).where(
+                    NotificationDelivery.notification_id == notification.id
+                )
+            )
+        ).all()
+    )
+    missing = [channel for channel in selected if channel not in existing_channels]
+    if not missing:
+        return []
+
+    endpoints = list(
+        (
+            await session.scalars(
+                select(CommunicationEndpoint).where(
+                    CommunicationEndpoint.user_id == recipient.id,
+                    CommunicationEndpoint.status == "active",
+                    CommunicationEndpoint.verified_at.is_not(None),
+                )
+            )
+        ).all()
+    )
+    endpoint_by_channel: dict[str, CommunicationEndpoint] = {}
+    for endpoint in endpoints:
+        endpoint_by_channel.setdefault(endpoint.channel, endpoint)
+    if "email" in missing and "email" not in endpoint_by_channel:
+        endpoint_by_channel["email"] = await ensure_email_endpoint(session, recipient)
+    if "telegram" in missing and "telegram" not in endpoint_by_channel:
+        telegram_endpoint = await ensure_owner_telegram_endpoint(session, recipient)
+        if telegram_endpoint is not None:
+            endpoint_by_channel["telegram"] = telegram_endpoint
+
+    created: list[NotificationDelivery] = []
+    for channel in missing:
+        state = channel_state(channel)
+        selected_endpoint = endpoint_by_channel.get(channel)
+        if channel == "in_app":
+            delivery_status = "delivered"
+            delivered_at = now()
+            error_code = None
+        elif not state["ready"]:
+            delivery_status = "unconfigured"
+            delivered_at = None
+            error_code = "provider_unconfigured"
+        elif selected_endpoint is None:
+            delivery_status = "skipped"
+            delivered_at = None
+            error_code = "recipient_endpoint_missing"
+        else:
+            delivery_status = "queued"
+            delivered_at = None
+            error_code = None
+        delivery = NotificationDelivery(
+            id=uuid_str(),
+            organization_id=recipient.organization_id,
+            notification_id=notification.id,
+            endpoint_id=selected_endpoint.id if selected_endpoint else None,
+            channel=channel,
+            status=delivery_status,
+            priority=100 if severity == "critical" else 50,
+            max_attempts=settings.COMMUNICATION_MAX_ATTEMPTS,
+            next_attempt_at=now() if delivery_status == "queued" else None,
+            delivered_at=delivered_at,
+            error_code=error_code,
+            idempotency_key=f"{notification.id}:{channel}",
+            delivery_metadata={
+                "provider_ready_at_queue_time": state["ready"],
+                "recipient_endpoint_present": selected_endpoint is not None,
+            },
+        )
+        session.add(delivery)
+        created.append(delivery)
+    await session.flush()
+    return created
+
+
 async def create_notification(
     session: AsyncSession,
     recipient: User,
@@ -829,15 +915,6 @@ async def create_notification(
         raise ValueError("Unsupported notification severity")
     normalized_event = event_key.strip().lower()
     normalized_category = category.strip().lower() or "system"
-    if dedupe_key:
-        existing = await session.scalar(
-            select(Notification).where(
-                Notification.organization_id == recipient.organization_id,
-                Notification.dedupe_key == dedupe_key,
-            )
-        )
-        if existing is not None:
-            return existing
     rule = await _matching_rule(session, recipient.organization_id, normalized_event)
     proposed = list(channels or (rule.channels if rule else ["in_app"]))
     if respect_preferences:
@@ -848,6 +925,30 @@ async def create_notification(
         selected = [item for item in dict.fromkeys(proposed) if item in CHANNELS]
         if "in_app" not in selected:
             selected.insert(0, "in_app")
+    if dedupe_key:
+        existing = await session.scalar(
+            select(Notification).where(
+                Notification.organization_id == recipient.organization_id,
+                Notification.dedupe_key == dedupe_key,
+            )
+        )
+        if existing is not None:
+            added = await _ensure_notification_deliveries(
+                session, recipient, existing, selected, severity=existing.severity
+            )
+            if added:
+                session.add(
+                    AuditEvent(
+                        organization_id=recipient.organization_id,
+                        user_id=actor_id,
+                        action="notification.delivery.channels_reconciled",
+                        resource_type="notification",
+                        resource_id=existing.id,
+                        details={"channels": [item.channel for item in added]},
+                    )
+                )
+                await session.flush()
+            return existing
     notification = Notification(
         id=uuid_str(),
         organization_id=recipient.organization_id,
@@ -868,66 +969,10 @@ async def create_notification(
     session.add(notification)
     await session.flush()
 
-    endpoints = list(
-        (
-            await session.scalars(
-                select(CommunicationEndpoint).where(
-                    CommunicationEndpoint.user_id == recipient.id,
-                    CommunicationEndpoint.status == "active",
-                    CommunicationEndpoint.verified_at.is_not(None),
-                )
-            )
-        ).all()
+    await _ensure_notification_deliveries(
+        session, recipient, notification, selected, severity=severity
     )
-    endpoint_by_channel: dict[str, CommunicationEndpoint] = {}
-    for endpoint in endpoints:
-        endpoint_by_channel.setdefault(endpoint.channel, endpoint)
-    if "email" in selected and "email" not in endpoint_by_channel:
-        endpoint_by_channel["email"] = await ensure_email_endpoint(session, recipient)
-    if "telegram" in selected and "telegram" not in endpoint_by_channel:
-        telegram_endpoint = await ensure_owner_telegram_endpoint(session, recipient)
-        if telegram_endpoint is not None:
-            endpoint_by_channel["telegram"] = telegram_endpoint
 
-    for channel in selected:
-        state = channel_state(channel)
-        selected_endpoint = endpoint_by_channel.get(channel)
-        if channel == "in_app":
-            delivery_status = "delivered"
-            delivered_at = now()
-            error_code = None
-        elif not state["ready"]:
-            delivery_status = "unconfigured"
-            delivered_at = None
-            error_code = "provider_unconfigured"
-        elif selected_endpoint is None:
-            delivery_status = "skipped"
-            delivered_at = None
-            error_code = "recipient_endpoint_missing"
-        else:
-            delivery_status = "queued"
-            delivered_at = None
-            error_code = None
-        session.add(
-            NotificationDelivery(
-                id=uuid_str(),
-                organization_id=recipient.organization_id,
-                notification_id=notification.id,
-                endpoint_id=selected_endpoint.id if selected_endpoint else None,
-                channel=channel,
-                status=delivery_status,
-                priority=100 if severity == "critical" else 50,
-                max_attempts=settings.COMMUNICATION_MAX_ATTEMPTS,
-                next_attempt_at=now() if delivery_status == "queued" else None,
-                delivered_at=delivered_at,
-                error_code=error_code,
-                idempotency_key=f"{notification.id}:{channel}",
-                delivery_metadata={
-                    "provider_ready_at_queue_time": state["ready"],
-                    "recipient_endpoint_present": selected_endpoint is not None,
-                },
-            )
-        )
     session.add(
         AuditEvent(
             organization_id=recipient.organization_id,
