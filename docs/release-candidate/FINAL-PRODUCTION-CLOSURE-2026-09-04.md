@@ -664,3 +664,9 @@ The working branch is ready for protected Git persistence. The remaining release
 - Coturn REST authentication requires HMAC-SHA1 compatibility; a controlled HMAC-SHA256 credential was rejected by the exact deployed Coturn server, matching Coturn's documented REST contract.
 - The runtime was hardened so the REST credential subject is now `timestamp:random_nonce` (128-bit opaque nonce), never a participant/user identifier. The short TTL and server-side high-entropy secret are retained.
 - The unit contract now asserts the participant ID is absent from the TURN credential name and avoids duplicating SHA1 over identifier-like test data. Focused runtime test, Ruff and Mypy passed after the change.
+
+### Final Validation database-upgrade isolation correction
+- PR #550's final Docker validation built the core Production images, FFmpeg 9 media worker, disabled provider workers, Sharp derivative worker, and Security Lab successfully, then stopped in the legacy `DATABASE_URL` upgrade job before PostgreSQL data verification because an unscoped full-stack `compose up` attempted to bind the Realtime public TURN address on the GitHub runner.
+- This identified an unnecessary boot-time coupling rather than a PostgreSQL migration failure. Backend `depends_on` is now limited to PostgreSQL, the credential reconciler, and Redis, and Nginx no longer requires LiveKit at boot; Realtime remains fail-closed at request/runtime boundaries.
+- The four media services (LiveKit, Coturn, recording-volume init, Egress) are now isolated behind the Compose profile `realtime`. The private Production env enables it, while examples/CI keep it disabled, so legacy database upgrade/recovery tests cannot start the public media stack accidentally.
+- A regression contract asserts the Backend dependency boundary and all four Realtime profile assignments; Compose dependency inspection reports exactly `postgres`, `postgres-credential-reconciler`, and `redis` for Backend.

@@ -59,3 +59,11 @@ The activation preserves fail-closed external/legal/device gates that require ev
 ## Release-control status
 
 This receipt satisfies the Phase 36 reporting invariant for the owned Realtime changes. The branch must still pass the repository's protected GitHub checks and merge through normal branch protection. Post-merge Production must be rebuilt/recreated from the exact merged `main` tree before final certification.
+
+## Final Validation — database-upgrade isolation correction
+
+- PR #550 Final Validation proved all production images and media/security worker builds before exposing one unrelated CI coupling: the legacy PostgreSQL compatibility job invoked an unscoped full-stack `compose up`, which attempted to bind the Realtime public media address on the GitHub runner.
+- PostgreSQL migration, credential reconciliation, and data preservation had not failed; the job stopped while starting the unrelated TURN container.
+- Backend startup dependencies were corrected to PostgreSQL, the credential reconciler, and Redis only; Nginx also no longer has a boot dependency on LiveKit. Realtime remains a fail-closed runtime capability instead of a core-platform boot prerequisite.
+- LiveKit, Coturn, recording-volume init, and Egress are now grouped under the optional Compose profile `realtime`. The private Production env enables that profile; examples/CI leave it disabled, so database/recovery jobs cannot bind public media ports or depend on media-runtime health.
+- Regression coverage asserts the Backend dependency boundary and all four Realtime profile assignments. Compose dependency inspection and the targeted database-settings contract pass after the correction.
