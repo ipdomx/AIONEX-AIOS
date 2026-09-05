@@ -55,12 +55,16 @@ export type ProjectAIProviderFinance = {
   provider_id: string;
   provider_type: string;
   enabled: boolean;
-  funded_usd: number;
+  funding_mode: "numeric" | "owner_attested";
+  funded_confirmed: boolean;
+  balance_amount_private: boolean;
+  funded_usd: number | null;
   consumed_since_topup_usd: number;
-  remaining_usd: number;
-  low_balance_threshold_usd: number;
-  critical_balance_threshold_usd: number;
-  state: "healthy" | "low" | "critical" | "disabled";
+  remaining_usd: number | null;
+  low_balance_threshold_usd: number | null;
+  critical_balance_threshold_usd: number | null;
+  billing_failure_alerts_enabled: boolean;
+  state: "healthy" | "low" | "critical" | "disabled" | "funded_attested";
   policy_version: number;
 };
 
@@ -124,6 +128,15 @@ export function updateProjectAIProviderFinance(
   return apiClient.put<ProjectAIProviderFinance>(
     `/owner/project-ai/providers/${providerId}/finance`,
     updates,
+  );
+}
+
+export function attestProjectAIProviderFunding(
+  providerId: string,
+): Promise<ProjectAIProviderFinance> {
+  return apiClient.post<ProjectAIProviderFinance>(
+    `/owner/project-ai/providers/${providerId}/funding-attestation`,
+    { funded_confirmed: true },
   );
 }
 

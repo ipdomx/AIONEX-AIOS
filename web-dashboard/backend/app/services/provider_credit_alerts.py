@@ -39,15 +39,20 @@ class ProviderCreditSnapshot:
     low_threshold_microusd: int
     critical_threshold_microusd: int
     policy_version: int
+    funding_mode: str = "numeric"
 
     @property
-    def remaining_usd(self) -> float:
+    def remaining_usd(self) -> float | None:
+        if self.funding_mode == "owner_attested":
+            return None
         return round(self.remaining_microusd / 1_000_000, 6)
 
     @property
     def state(self) -> str:
         if not self.enabled:
             return "disabled"
+        if self.funding_mode == "owner_attested":
+            return "funded_attested"
         if self.remaining_microusd <= self.critical_threshold_microusd:
             return "critical"
         if self.remaining_microusd <= self.low_threshold_microusd:
@@ -55,21 +60,26 @@ class ProviderCreditSnapshot:
         return "healthy"
 
     def public(self) -> dict[str, Any]:
+        private_amount = self.funding_mode == "owner_attested"
         return {
             "provider_id": self.provider_id,
             "provider_type": self.provider_type,
             "enabled": self.enabled,
-            "funded_usd": round(self.funded_microusd / 1_000_000, 6),
+            "funding_mode": self.funding_mode,
+            "funded_confirmed": self.enabled and self.funding_mode in {"numeric", "owner_attested"},
+            "balance_amount_private": private_amount,
+            "funded_usd": None if private_amount else round(self.funded_microusd / 1_000_000, 6),
             "consumed_since_topup_usd": round(
                 self.consumed_since_topup_microusd / 1_000_000, 6
             ),
             "remaining_usd": self.remaining_usd,
-            "low_balance_threshold_usd": round(
+            "low_balance_threshold_usd": None if private_amount else round(
                 self.low_threshold_microusd / 1_000_000, 6
             ),
-            "critical_balance_threshold_usd": round(
+            "critical_balance_threshold_usd": None if private_amount else round(
                 self.critical_threshold_microusd / 1_000_000, 6
             ),
+            "billing_failure_alerts_enabled": True,
             "state": self.state,
             "policy_version": self.policy_version,
         }
@@ -132,11 +142,71 @@ async def configure_provider_credit(
         .with_for_update()
     )
     payload = {
+        "funding_mode": "numeric",
+        "funded_confirmed": True,
+        "balance_amount_private": False,
         "funded_microusd": funded,
         "baseline_spend_microusd": baseline,
         "low_threshold_microusd": low,
         "critical_threshold_microusd": critical,
         "topup_recorded_at": datetime.now(UTC).isoformat(),
+    }
+    if record is None:
+        record = OwnerControlRecord(
+            domain=PROVIDER_FINANCE_DOMAIN,
+            resource_id=provider_id,
+            status="active",
+            enabled=bool(enabled),
+            payload=payload,
+            version=1,
+        )
+        session.add(record)
+    else:
+        record.status = "active"
+        record.enabled = bool(enabled)
+        record.payload = payload
+        record.version += 1
+    await session.flush()
+    return await provider_credit_snapshot(session, provider_id=provider_id, lock=False)
+
+
+async def attest_provider_funded(
+    session: AsyncSession,
+    *,
+    provider_id: str,
+    enabled: bool = True,
+) -> ProviderCreditSnapshot:
+    """Record Owner-confirmed funding without inventing or exposing a balance amount.
+
+    Some providers do not expose a supported balance API and the Owner may choose
+    to keep the exact funded amount private. In this mode numeric low-balance
+    estimates are intentionally unavailable; explicit billing/quota failures still
+    trigger the existing fail-closed alert path.
+    """
+    provider = await session.scalar(
+        select(AIProvider).where(AIProvider.id == provider_id).with_for_update()
+    )
+    if provider is None:
+        raise ProviderCreditPolicyError("provider was not found")
+    baseline = await provider_total_spend_microusd(session, provider)
+    record = await session.scalar(
+        select(OwnerControlRecord)
+        .where(
+            OwnerControlRecord.domain == PROVIDER_FINANCE_DOMAIN,
+            OwnerControlRecord.resource_id == provider_id,
+        )
+        .with_for_update()
+    )
+    payload = {
+        "funding_mode": "owner_attested",
+        "funded_confirmed": True,
+        "balance_amount_private": True,
+        "funded_microusd": 0,
+        "baseline_spend_microusd": baseline,
+        "low_threshold_microusd": 0,
+        "critical_threshold_microusd": 0,
+        "attested_at": datetime.now(UTC).isoformat(),
+        "billing_failure_alerts_enabled": True,
     }
     if record is None:
         record = OwnerControlRecord(
@@ -177,6 +247,11 @@ async def provider_credit_snapshot(
     if record is None:
         raise ProviderCreditPolicyError("provider credit policy is not configured")
     payload = dict(record.payload or {})
+    funding_mode = str(payload.get("funding_mode") or "numeric")
+    if funding_mode not in {"numeric", "owner_attested"}:
+        raise ProviderCreditPolicyError("funding_mode is invalid")
+    if funding_mode == "owner_attested" and payload.get("funded_confirmed") is not True:
+        raise ProviderCreditPolicyError("owner-attested funding is not confirmed")
     funded = _payload_amount(payload, "funded_microusd")
     baseline = _payload_amount(payload, "baseline_spend_microusd")
     low = _payload_amount(payload, "low_threshold_microusd")
@@ -196,6 +271,7 @@ async def provider_credit_snapshot(
         low_threshold_microusd=low,
         critical_threshold_microusd=critical,
         policy_version=record.version,
+        funding_mode=funding_mode,
     )
 
 

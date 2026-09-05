@@ -62,6 +62,7 @@ from app.api.v1.endpoints import (
     portal,
     professional,
     project_executions,
+    realtime_media,
     projects,
     reports,
     roles,
@@ -277,6 +278,7 @@ api_router.include_router(
     dependencies=restricted,
 )
 api_router.include_router(websocket.router, prefix="/realtime", tags=["Realtime"])
+api_router.include_router(realtime_media.router, prefix="/realtime", tags=["Realtime Media"])
 api_router.include_router(
     integration.router,
     prefix="/integration",

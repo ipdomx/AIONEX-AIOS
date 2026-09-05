@@ -175,6 +175,7 @@ OWNER_API_CONTRACT = {
     ("DELETE", "/api/v1/owner/project-ai/access/users/{user_id}"),
     ("GET", "/api/v1/owner/project-ai/providers/{provider_id}/finance"),
     ("PUT", "/api/v1/owner/project-ai/providers/{provider_id}/finance"),
+    ("POST", "/api/v1/owner/project-ai/providers/{provider_id}/funding-attestation"),
     ("GET", "/api/v1/owner/studio-governance"),
     ("PATCH", "/api/v1/owner/studio-governance/{capability_id}"),
 
@@ -205,6 +206,9 @@ OWNER_MUTATION_REQUESTS = {
         "low_balance_threshold_usd": 3.0,
         "critical_balance_threshold_usd": 1.0,
         "enabled": True,
+    },
+    ("POST", "/api/v1/owner/project-ai/providers/{provider_id}/funding-attestation"): {
+        "funded_confirmed": True,
     },
     ("PATCH", "/api/v1/owner/studio-governance/{capability_id}"): {
         "enabled": True,

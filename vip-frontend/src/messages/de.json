@@ -33,7 +33,9 @@
     "studioTitle": "Einheitliches Kreativ- & Projektstudio",
     "studioDescription": "Erstellen, verfolgen, überarbeiten und laden Sie gesteuerte Studio-Arbeiten herunter und verbinden Sie sie mit AIONEX-Projekten.",
     "academyTitle": "AIONEX Academy & Kursfabrik",
-    "academyDescription": "Erstellen, prüfen, lokalisieren und laden Sie gesteuerte AIONEX-Kurspakete im Benutzerportal herunter."
+    "academyDescription": "Erstellen, prüfen, lokalisieren und laden Sie gesteuerte AIONEX-Kurspakete im Benutzerportal herunter.",
+    "realtimeTitle": "Echtzeit-Kommunikation | AIONEX",
+    "realtimeDescription": "Sichere Sprach- und Videoanrufe, Bildschirmfreigabe und zustimmungspflichtige Aufzeichnung."
   },
   "nav": {
     "home": "Start",
@@ -56,7 +58,8 @@
     "support": "Support",
     "securityLab": "Security Lab",
     "campaigns": "Kampagnen",
-    "studio": "Studio"
+    "studio": "Studio",
+    "realtime": "Echtzeit"
   },
   "footer": {
     "description": "Ein gesteuertes KI-Betriebssystem zur Koordination von Agenten, Modellen, Projekten und Betriebskontrollen.",
@@ -1003,5 +1006,52 @@
     "download": "ZIP herunterladen",
     "approve": "Freigeben",
     "reject": "Ablehnen"
+  },
+  "realtime": {
+    "eyebrow": "Echtzeit-Medien",
+    "title": "Sprache, Video und Bildschirmfreigabe",
+    "description": "Sichere Räume mit kurzlebigen Zugangsdaten, Mandantenlimits und Aufzeichnung nur mit ausdrücklicher Zustimmung.",
+    "refresh": "Aktualisieren",
+    "loadError": "Echtzeitdaten konnten nicht geladen werden.",
+    "actionError": "Die Echtzeitaktion konnte nicht abgeschlossen werden.",
+    "runtimeTitle": "Echtzeitdienst",
+    "runtimeReady": "Der Mediendienst ist online.",
+    "runtimeOffline": "Der Mediendienst ist noch nicht aktiv.",
+    "createRoom": "Raum erstellen",
+    "roomNamePlaceholder": "Raumname",
+    "create": "Erstellen",
+    "roomCreated": "Raum erstellt.",
+    "rooms": "Räume",
+    "noRooms": "Noch keine Räume.",
+    "participants": "{count} von {max} Teilnehmern",
+    "selectRoom": "Raum auswählen",
+    "join": "Beitreten",
+    "joined": "Mit dem Raum verbunden.",
+    "joinError": "Raumbeitritt fehlgeschlagen.",
+    "leave": "Verlassen",
+    "close": "Raum schließen",
+    "closeConfirm": "Diesen Raum für alle schließen?",
+    "roomClosed": "Raum geschlossen.",
+    "roomIdCopied": "Raum-ID kopiert.",
+    "mute": "Stumm",
+    "unmute": "Mikro an",
+    "cameraOff": "Kamera aus",
+    "cameraOn": "Kamera an",
+    "shareScreen": "Bildschirm teilen",
+    "stopShare": "Freigabe beenden",
+    "mediaPlaceholder": "Treten Sie einem Raum bei, um Medien zu starten.",
+    "recordings": "Aufzeichnungen",
+    "recordingConsentNotice": "Die Aufzeichnung beginnt erst nach ausdrücklicher Zustimmung aller Teilnehmer.",
+    "requestRecording": "Aufzeichnung anfordern",
+    "recordingTitlePrompt": "Titel der Aufzeichnung",
+    "recordingRequested": "Zustimmung angefordert.",
+    "noRecordings": "Keine Aufzeichnungen.",
+    "consentProgress": "Zustimmung {done}/{total}",
+    "agree": "Zustimmen",
+    "decline": "Ablehnen",
+    "consentRecorded": "Zustimmung gespeichert.",
+    "consentDeclined": "Aufzeichnung abgelehnt.",
+    "stopRecording": "Stoppen",
+    "savedToStudio": "In Studio gespeichert"
   }
 }

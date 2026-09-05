@@ -33,7 +33,9 @@
     "studioTitle": "Studio créatif et projets unifié",
     "studioDescription": "Créez, suivez, révisez, téléchargez et reliez les travaux Studio gouvernés à vos projets AIONEX.",
     "academyTitle": "Académie AIONEX et fabrique de cours",
-    "academyDescription": "Créez, révisez, localisez et téléchargez des paquets de cours AIONEX gouvernés depuis le portail utilisateur."
+    "academyDescription": "Créez, révisez, localisez et téléchargez des paquets de cours AIONEX gouvernés depuis le portail utilisateur.",
+    "realtimeTitle": "Communication en temps réel | AIONEX",
+    "realtimeDescription": "Voix, vidéo, partage d’écran et enregistrement avec consentement explicite."
   },
   "nav": {
     "home": "Accueil",
@@ -56,7 +58,8 @@
     "support": "Assistance",
     "securityLab": "Laboratoire sécurité",
     "campaigns": "Campagnes",
-    "studio": "Studio"
+    "studio": "Studio",
+    "realtime": "Temps réel"
   },
   "footer": {
     "description": "Un système d’exploitation IA gouverné pour coordonner agents, modèles, projets et contrôles opérationnels.",
@@ -1003,5 +1006,52 @@
     "download": "Télécharger ZIP",
     "approve": "Approuver",
     "reject": "Rejeter"
+  },
+  "realtime": {
+    "eyebrow": "Média temps réel",
+    "title": "Voix, vidéo et partage d’écran",
+    "description": "Salles sécurisées avec identifiants temporaires, limites par organisation et enregistrement avec consentement explicite.",
+    "refresh": "Actualiser",
+    "loadError": "Impossible de charger les données temps réel.",
+    "actionError": "Action temps réel impossible.",
+    "runtimeTitle": "Service temps réel",
+    "runtimeReady": "Le service média est en ligne.",
+    "runtimeOffline": "Le service média n’est pas encore actif.",
+    "createRoom": "Créer une salle",
+    "roomNamePlaceholder": "Nom de la salle",
+    "create": "Créer",
+    "roomCreated": "Salle créée.",
+    "rooms": "Salles",
+    "noRooms": "Aucune salle.",
+    "participants": "{count} sur {max} participants",
+    "selectRoom": "Sélectionnez une salle",
+    "join": "Rejoindre",
+    "joined": "Connecté à la salle.",
+    "joinError": "Connexion à la salle impossible.",
+    "leave": "Quitter",
+    "close": "Fermer",
+    "closeConfirm": "Fermer cette salle pour tous ?",
+    "roomClosed": "Salle fermée.",
+    "roomIdCopied": "Identifiant copié.",
+    "mute": "Couper le micro",
+    "unmute": "Activer le micro",
+    "cameraOff": "Couper la caméra",
+    "cameraOn": "Activer la caméra",
+    "shareScreen": "Partager l’écran",
+    "stopShare": "Arrêter le partage",
+    "mediaPlaceholder": "Rejoignez une salle pour démarrer.",
+    "recordings": "Enregistrements",
+    "recordingConsentNotice": "L’enregistrement démarre uniquement après le consentement explicite de tous les participants.",
+    "requestRecording": "Demander un enregistrement",
+    "recordingTitlePrompt": "Titre de l’enregistrement",
+    "recordingRequested": "Consentements demandés.",
+    "noRecordings": "Aucun enregistrement.",
+    "consentProgress": "Consentement {done}/{total}",
+    "agree": "Accepter",
+    "decline": "Refuser",
+    "consentRecorded": "Consentement enregistré.",
+    "consentDeclined": "Enregistrement refusé.",
+    "stopRecording": "Arrêter",
+    "savedToStudio": "Enregistré dans Studio"
   }
 }

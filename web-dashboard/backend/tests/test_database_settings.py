@@ -329,7 +329,7 @@ class _FakeAsyncEngine:
 
 def test_backend_exposes_the_shipped_alembic_head() -> None:
     database.expected_alembic_heads.cache_clear()
-    assert database.expected_alembic_heads() == frozenset({"20260825_0043"})
+    assert database.expected_alembic_heads() == frozenset({"20260905_0044"})
 
 
 @pytest.mark.asyncio
@@ -391,6 +391,7 @@ def test_production_compose_preserves_postgres_credential_contract() -> None:
         dashboard_root / "backend" / "app" / "db" / "postgres_credentials.py"
     ).read_text()
     nginx_config = (dashboard_root / "docker" / "nginx.conf").read_text()
+    livekit_config = (dashboard_root / "docker" / "realtime" / "livekit.yaml").read_text()
     dashboard_postgres = compose.split("\n  postgres:", 1)[1].split("\n  redis:", 1)[0]
     deployment_postgres = deployment_compose.split("\n  postgres:", 1)[1].split(
         "\n  redis:", 1
@@ -401,6 +402,7 @@ def test_production_compose_preserves_postgres_credential_contract() -> None:
     dashboard_reconciler = compose.split("\n  postgres-credential-reconciler:", 1)[
         1
     ].split("\n  backup-worker:", 1)[0]
+    dashboard_nginx = compose.split("\n  nginx:", 1)[1].split("\n  cloudflared:", 1)[0]
     dashboard_worker = compose.split("\n  backup-worker:", 1)[1].split(
         "\n  postgres:", 1
     )[0]
@@ -449,6 +451,14 @@ def test_production_compose_preserves_postgres_credential_contract() -> None:
         assert "env_file:" in backend
     for backend in (dashboard_backend, deployment_backend):
         assert "service_completed_successfully" in backend
+    # Realtime media is a runtime capability, not a Backend boot prerequisite.
+    # Keeping it out of Backend depends_on lets DB recovery/backup maintenance run
+    # without binding public WebRTC/TURN ports or requiring media runtime health.
+    for realtime_service in ("realtime-livekit", "realtime-turn", "realtime-egress"):
+        assert (
+            f"{realtime_service}: {{condition: service_healthy}}" not in dashboard_backend
+        )
+    assert "realtime-livekit: {condition: service_healthy}" not in dashboard_nginx
     for worker in (dashboard_worker, deployment_worker):
         assert "condition: service_healthy" in worker
     for reconciler in (dashboard_reconciler, deployment_reconciler):
@@ -469,6 +479,7 @@ def test_production_compose_preserves_postgres_credential_contract() -> None:
         assert f"{postgres_key}:" in dashboard_postgres
         assert f"{postgres_key}:" in deployment_postgres
     assert validation_workflow.count("--env-file .env.production") >= 2
+    assert compose.count('profiles: ["realtime"]') == 4
     assert (
         'tar -czf "${ARCHIVE_PATH}" -C "${BACKUP_DIR}" "${SQL_NAME}"' in backup_script
     )
@@ -523,6 +534,13 @@ def test_production_compose_preserves_postgres_credential_contract() -> None:
     assert "$aionex_forwarded_proto" in nginx_config
     assert nginx_config.count('if ($http_x_forwarded_proto = "http")') == 3
     assert nginx_config.count("return 308 https://$host$request_uri;") == 3
+    assert "use_external_ip: true" in livekit_config
+    assert "advertise_internal_ip: true" in livekit_config
+    assert "external_ip_only: true" not in livekit_config
+    assert "realtime-recording-init:" in compose
+    assert 'command: ["chown 1001:1000 /recordings && chmod 0770 /recordings"]' in compose
+    assert "realtime-recording-init: {condition: service_completed_successfully}" in compose
+    assert 'user: "1001:0"' in compose
 
 
 def test_legacy_backup_writes_sha256_sidecar(tmp_path: Path) -> None:

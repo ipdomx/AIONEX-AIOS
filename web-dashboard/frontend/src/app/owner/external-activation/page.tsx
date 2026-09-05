@@ -200,7 +200,7 @@ export default function OwnerExternalActivationPage() {
     return () => controller.abort();
   }, [load]);
 
-  const gates = snapshot?.gates ?? [];
+  const gates = useMemo(() => snapshot?.gates ?? [], [snapshot?.gates]);
   const inScope = useMemo(
     () => gates.filter((gate) => !gate.excluded_from_current_scope),
     [gates],
