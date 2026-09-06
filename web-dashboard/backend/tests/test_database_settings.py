@@ -609,3 +609,86 @@ def test_legacy_payment_environment_aliases_remain_supported() -> None:
 
     assert settings.PAYMENTS_ENVIRONMENT == "sandbox"
     assert settings.PAYPAL_API_BASE == "https://api-m.sandbox.paypal.com"
+
+
+
+def test_file_backed_runtime_secrets_override_legacy_env(tmp_path: Path) -> None:
+    app_secret = tmp_path / "app-secret"
+    db_secret = tmp_path / "db-secret"
+    app_secret.write_text("file-backed-app-secret-key-with-more-than-32-characters")
+    db_secret.write_text("file-backed-database-password")
+    app_secret.chmod(0o600)
+    db_secret.chmod(0o600)
+
+    configured = Settings(
+        _env_file=None,
+        ENVIRONMENT="production",
+        SECRET_KEY="change-this-to-a-secure-random-string",
+        SECRET_KEY_FILE=str(app_secret),
+        DATABASE_URL="postgresql+asyncpg://aionex:legacy@postgres:5432/aionex",
+        POSTGRES_HOST="postgres",
+        POSTGRES_PORT=5432,
+        POSTGRES_USER="aionex",
+        POSTGRES_PASSWORD="postgres",
+        POSTGRES_PASSWORD_FILE=str(db_secret),
+        POSTGRES_DB="aionex",
+    )
+
+    assert configured.SECRET_KEY == app_secret.read_text()
+    assert configured.POSTGRES_PASSWORD == db_secret.read_text()
+    resolved = make_url(configured.DATABASE_URL)
+    assert resolved.host == "postgres"
+    assert resolved.username == "aionex"
+    assert resolved.password == db_secret.read_text()
+    assert resolved.database == "aionex"
+
+
+def test_production_rejects_bootstrap_secret_without_file() -> None:
+    with pytest.raises(ValueError, match="Production SECRET_KEY cannot use the bootstrap default"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            SECRET_KEY="change-this-to-a-secure-random-string",
+            POSTGRES_PASSWORD="safe-database-password",
+        )
+
+
+def test_runtime_secret_file_rejects_group_or_other_permissions(tmp_path: Path) -> None:
+    secret = tmp_path / "app-secret"
+    secret.write_text("file-backed-app-secret-key-with-more-than-32-characters")
+    secret.chmod(0o644)
+    with pytest.raises(ValueError, match="must not grant group/other permissions"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            SECRET_KEY="",
+            SECRET_KEY_FILE=str(secret),
+            POSTGRES_PASSWORD="safe-database-password",
+        )
+
+
+def test_runtime_secret_file_rejects_symlink(tmp_path: Path) -> None:
+    target = tmp_path / "target"
+    target.write_text("file-backed-app-secret-key-with-more-than-32-characters")
+    target.chmod(0o600)
+    link = tmp_path / "link"
+    link.symlink_to(target)
+    with pytest.raises(ValueError, match="regular non-symlink"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            SECRET_KEY="",
+            SECRET_KEY_FILE=str(link),
+            POSTGRES_PASSWORD="safe-database-password",
+        )
+
+
+def test_production_compose_supports_postgres_password_file_and_workspace_mount() -> None:
+    root = Path(__file__).resolve().parents[3]
+    for compose_path in (
+        root / "web-dashboard" / "docker-compose.production.yml",
+        root / "deploy" / "production" / "docker-compose.production.yml",
+    ):
+        text = compose_path.read_text()
+        assert "POSTGRES_PASSWORD_FILE: ${POSTGRES_INIT_PASSWORD_FILE:-}" in text
+        assert "/workspace:ro" in text

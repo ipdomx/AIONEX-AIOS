@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 import os
+from pathlib import Path
+import stat
 import sys
 import traceback
 from typing import Mapping
@@ -16,6 +18,39 @@ from sqlalchemy.exc import ArgumentError
 
 class CredentialConfigurationError(RuntimeError):
     """Raised when database credential sources are unsafe or inconsistent."""
+
+
+def _read_password_file(path: str) -> str:
+    candidate = Path(path.strip())
+    if not candidate.is_absolute():
+        raise CredentialConfigurationError(
+            "POSTGRES_PASSWORD_FILE must be an absolute path"
+        )
+    try:
+        metadata = candidate.lstat()
+    except OSError as exc:
+        raise CredentialConfigurationError(
+            "POSTGRES_PASSWORD_FILE is unavailable"
+        ) from exc
+    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+        raise CredentialConfigurationError(
+            "POSTGRES_PASSWORD_FILE must be a regular non-symlink file"
+        )
+    if stat.S_IMODE(metadata.st_mode) & 0o077:
+        raise CredentialConfigurationError(
+            "POSTGRES_PASSWORD_FILE must not grant group/other permissions"
+        )
+    try:
+        value = candidate.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        raise CredentialConfigurationError(
+            "POSTGRES_PASSWORD_FILE is unreadable"
+        ) from exc
+    if not value or "\n" in value or "\r" in value:
+        raise CredentialConfigurationError(
+            "POSTGRES_PASSWORD_FILE must contain one non-empty line"
+        )
+    return value
 
 
 @dataclass(frozen=True)
@@ -37,7 +72,12 @@ def resolve_bundled_credentials(
     host = environ.get("POSTGRES_HOST", "").strip()
     port_value = environ.get("POSTGRES_PORT", "").strip()
     user = environ.get("POSTGRES_USER", "")
-    password = environ.get("POSTGRES_PASSWORD", "")
+    password_file = environ.get("POSTGRES_PASSWORD_FILE", "").strip()
+    password = (
+        _read_password_file(password_file)
+        if password_file
+        else environ.get("POSTGRES_PASSWORD", "")
+    )
     database = environ.get("POSTGRES_DB", "")
 
     database_url = environ.get("DATABASE_URL", "").strip()
@@ -99,7 +139,8 @@ def resolve_bundled_credentials(
             raise CredentialConfigurationError(
                 "Bundled DATABASE_URL user and database must match POSTGRES_*"
             )
-        password = url_password
+        if not password_file:
+            password = url_password
 
     return BundledPostgresCredentials(
         host="postgres",
