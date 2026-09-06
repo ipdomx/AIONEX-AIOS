@@ -261,3 +261,50 @@ This is a scope exclusion, not evidence fabrication: excluded items remain visib
 - Source now gives Backend the same explicit `MEDIA_STORAGE_TYPE=local`, `MEDIA_STORAGE_ROOT=/var/lib/aionex/media-assets` and read/write `media_asset_data` mount in both production Compose definitions. No S3 credential or external provider status is changed.
 - Added a regression contract proving Backend and all pre-XR media workers resolve the same private local storage root/volume in both Compose definitions. Focused media/storage regression: `8 passed, 0 failed`.
 - Production activation remains pending protected PR/CI/merge. After merge, Backend must be recreated and a worker-write → Backend-read/delete checksum acceptance must pass before any currently-disabled media live flag is armed.
+
+## Batch F — pre-XR media live-arm evidence checkpoint — 2026-09-06
+
+Storage PR **#557** passed the full protected matrix and merged as `ab0792d1b2efe22bddf06c92d42aec075c23d872`. Before Backend recreation a custom-format PostgreSQL backup was captured at `.deployment-backups/pre-xr-media-deploy-20260906/pre-media-backend-mount.dump` (20,436,776 bytes, mode 0600, SHA-256 `6e8596b4be4ccb5f427f5d9f176d9c24723bb45d811424f945cd5f49bd85c4c1`) and `pg_restore -l` passed. Backend was recreated healthy/restart=0 with `MEDIA_STORAGE_TYPE=local`, `MEDIA_STORAGE_ROOT=/var/lib/aionex/media-assets` and the shared named media volume mounted read/write.
+
+Cross-service acceptance then wrote a 45-byte object from the Media Worker, read the exact same SHA-256 (`4bb9829b12ba7b48e3c2136e177e4f0a6bb466ac89fe8515a80501036c7de667`) from Backend, deleted it from Backend and verified it missing from the Media Worker. G06 is closed for the Owner's current single-host pre-XR scope. Host-loss/off-site durability is explicitly outside the revised post-XR scope and is not claimed.
+
+Fresh bounded provider/runtime evidence before persistent arming:
+
+- **Design Image / OpenAI GPT Image 2:** completed, one provider request, local output 798,880 bytes, official provider usage cost `$0.005995`, Studio revision 2, synthetic DB/object cleanup complete.
+- **Image Derivative / Sharp 0.35.3:** no-provider canary completed 3 derivatives (`png`, `webp`, `jpeg`), zero provider spend, Sharp/libvips runtime preflight passed, synthetic cleanup complete.
+- **Video / OpenAI Sora 2:** fresh 4-second image-to-video acceptance completed after one durable submission and 14 poll cycles; provider state completed, output 1,616,017 bytes, actual fixed-second cost `$0.40`, all synthetic DB/object rows cleaned.
+- **Stock Speech / OpenAI:** fresh one-attempt provider acceptance passed; 5.85-second output, 48 kHz stereo PCM WAV, final QA passed (`-16.31 LUFS`, no clipping), synthetic cleanup returned all active queues to zero.
+- **Transcript / OpenAI:** fresh provider request completed once and produced checksum-verified private transcript output. The legacy acceptance wrapper then rejected a later caption-manifest truth assertion that has changed since the original checkpoint; no provider retry was performed. The completed provider object was verified directly and the synthetic scope/object residue was removed. Existing authoritative Stage 4 runtime acceptance remains the downstream caption contract evidence.
+- **Dubbing / OpenAI stock voices:** authoritative Stage 6C full acceptance remains valid (one translation + two one-attempt stock-speech calls, 14.5s final WAV and QA PASS). A fresh 2026-09-06 exercise again crossed one translation and two stock-speech boundaries successfully, but its newly generated synthetic mix was rejected by the governed `loudness_range` QA gate. No retry of the same provider jobs occurred; the failed synthetic scope was removed. This is evidence that the current runtime remains fail-closed on output QA, not evidence of a credential/runtime outage.
+- **Music / Replicate Lyria 3:** fresh direct bounded draft submission reached `succeeded`, downloaded 744,609 bytes and reported the official fixed request cost `$0.04`. The configured default Replicate route is therefore currently usable. Gemini/Stability are not required for the default live route.
+- **Open Song / primary RunPod:** the authoritative v8 full-song/four-stem acceptance remains the complete provider-rendered evidence. Current one-shot preflight with live semantics loads the exact private runtime binding and adapter successfully; the live RunPod balance probe returns positive with durable balance evidence. The unconfigured secondary RunPod route remains explicitly live-disabled under the Owner's unavailable-provider exclusion.
+
+Based on these bounded acceptances and the existing authoritative receipts, source now arms only the accepted **primary** pre-XR media routes: Design Image, Image Derivative, Video, Speech, Transcript, stock-voice Dubbing, Music and primary Open Song. The secondary Open Song route remains false. Persistent production activation is still gated on protected PR/CI/merge and post-arm health/queue acceptance.
+
+## Batch F CI contract correction — 2026-09-06
+
+- PR #558's first protected Backend Tests run correctly rejected stale test assertions that still required the accepted media workers to remain live-disabled. This was a source/test contract inconsistency introduced by the deliberate live-arm change; the production Docker, SBOM, CodeQL, browser, frontend and dependency gates all passed on that head.
+- Updated the existing worker/production-image contract tests to require `true` only for the accepted primary pre-XR routes: speech, transcript, stock dubbing, music, primary Open Song, video and design image. The unconfigured secondary Open Song route remains explicitly asserted `false`.
+- Isolated PostgreSQL 16 + Redis 7 regression after migration to `20260905_0044`: `38 passed, 0 failed`. No production database was used and the isolated containers were removed after the run.
+- PR #558 must rerun the protected Backend Tests on the corrected head before merge; no bypass is permitted.
+
+## Batch C — Firebase Admin / Push truthfulness checkpoint — 2026-09-06
+
+- Confirmed the production Firebase Admin source credential exists but is root-owned mode 0600 and therefore is not readable by Backend/Communication Worker UID 1000. This is the concrete cause of `admin_verification_ready=false` and the historical Push `unconfigured` deliveries.
+- Created a host runtime copy from the existing credential without printing its contents, owned by UID/GID 1000:1000 and mode 0600; the original root-owned credential remains unchanged.
+- Source now overlays that single credential file read-only at `/run/secrets/aionex/firebase-admin.json` for Backend and Communication Worker in both production Compose definitions. The broader secrets directory remains read-only and unchanged.
+- Hardened Push channel readiness: file existence alone is no longer sufficient. Readiness now requires a readable, non-symlink JSON service-account document whose project id matches configured Firebase and which contains the required client identity/private-key fields. Permission/JSON/project mismatch therefore fails closed instead of reporting a false positive.
+- Added regression coverage for missing/unreadable-equivalent, valid matching and mismatched Firebase credential readiness. Production recreation and live Firebase Admin/Push acceptance remain gated on protected PR/CI/merge.
+
+## Batch C Firebase mount correction — 2026-09-06
+
+- The first file-overlay design was rejected by the protected Production Docker legacy-upgrade gate because the parent `/run/secrets/aionex` directory is itself a read-only bind mount, so Docker cannot create a nested file mountpoint there on a fresh container rootfs.
+- No production change was made. The conflicting nested overlay was removed from both Compose definitions. The readiness hardening remains valid and continues to fail closed.
+- The UID1000 runtime credential copy remains host-private but will only be wired through a non-conflicting dedicated mount path in a subsequent protected source change; no permissions on the original root-owned secret were broadened.
+- Corrected Firebase wiring uses a dedicated read-only target `/run/firebase-admin-runtime/firebase-admin.json`, outside the existing read-only secrets-directory bind. Backend and Communication Worker point `FIREBASE_ADMIN_CREDENTIALS_JSON` at that dedicated path in both production Compose definitions. This preserves the root-owned source credential and avoids nested mount semantics.
+
+## Batch C2 — Firebase dedicated runtime mount CI alignment — 2026-09-07
+
+- Protected PR #558 reached green on CodeQL, SBOM/vulnerability, dependency security, browser boundaries, frontend, production Docker build, reporting and core release contracts; Backend Tests alone rejected one stale source-contract assertion that still named the superseded nested Firebase path.
+- Updated that existing contract to require the dedicated `/run/firebase-admin-runtime/firebase-admin.json` path plus the `AIOS_FIREBASE_ADMIN_HOST_FILE` host-source contract, while retaining the broader secrets-directory read-only assertion.
+- No production deployment is authorized until the corrected protected Backend Tests rerun passes; no branch protection bypass is used.

@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
+import json
 import smtplib
 import ssl
 from datetime import UTC, datetime, timedelta
@@ -141,11 +142,23 @@ def channel_readiness() -> list[dict[str, Any]]:
         not settings.SMTP_USER or bool(settings.SMTP_PASSWORD)
     )
     firebase_path = Path(settings.FIREBASE_ADMIN_CREDENTIALS_JSON or "")
-    push_ready = bool(settings.FIREBASE_PROJECT_ID) and bool(
-        settings.FIREBASE_ADMIN_CREDENTIALS_JSON
-        and firebase_path.is_file()
-        and not firebase_path.is_symlink()
-    )
+    push_ready = False
+    if settings.FIREBASE_PROJECT_ID and settings.FIREBASE_ADMIN_CREDENTIALS_JSON:
+        try:
+            firebase_document = json.loads(firebase_path.read_text(encoding="utf-8"))
+            push_ready = bool(
+                firebase_path.is_file()
+                and not firebase_path.is_symlink()
+                and isinstance(firebase_document, dict)
+                and firebase_document.get("type") == "service_account"
+                and firebase_document.get("project_id") == settings.FIREBASE_PROJECT_ID
+                and all(
+                    str(firebase_document.get(key) or "").strip()
+                    for key in ("client_email", "private_key")
+                )
+            )
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            push_ready = False
     owner_telegram_ready = _telegram_scope_ready("owner")
     user_telegram_ready = _telegram_scope_ready("user")
     telegram_ready = owner_telegram_ready or user_telegram_ready

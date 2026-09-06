@@ -93,7 +93,7 @@ services:
       BACKUP_AUTO_RESTORE_VALIDATION_ENABLED: "${BACKUP_AUTO_RESTORE_VALIDATION_ENABLED:-true}"
       MEDIA_STORAGE_TYPE: local
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
-      FIREBASE_ADMIN_CREDENTIALS_JSON: /run/secrets/aionex/firebase-admin.json
+      FIREBASE_ADMIN_CREDENTIALS_JSON: /run/firebase-admin-runtime/firebase-admin.json
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
       THREE_D_RUNPOD_SECRET_FILE: /run/secrets/aionex/RUNPOD_GPU.env
@@ -114,6 +114,7 @@ services:
     volumes:
       - ..:/workspace:ro
       - ./secrets:/run/secrets/aionex:ro
+      - ${AIOS_FIREBASE_ADMIN_HOST_FILE:-/root/.config/aionex/firebase-runtime/firebase-admin.json}:/run/firebase-admin-runtime/firebase-admin.json:ro
       - ${AIOS_TELEGRAM_BOT_TOKEN_HOST_FILE:-/root/.config/aionex/telegram/bot-token}:/run/operator-secrets/telegram-bot-token:ro
       - ${AIOS_USER_TELEGRAM_BOT_TOKEN_HOST_FILE:-/root/.config/aionex/telegram/user-bot-token}:/run/operator-secrets/user-telegram-bot-token:ro
       - backup_data:/var/lib/aionex/backups:ro
@@ -216,7 +217,7 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
       REDIS_URL: redis://redis:6379/0
-      FIREBASE_ADMIN_CREDENTIALS_JSON: /run/secrets/aionex/firebase-admin.json
+      FIREBASE_ADMIN_CREDENTIALS_JSON: /run/firebase-admin-runtime/firebase-admin.json
       AIOS_TELEGRAM_BOT_TOKEN_FILE: /run/operator-secrets/telegram-bot-token
       AIOS_USER_TELEGRAM_BOT_TOKEN_FILE: /run/operator-secrets/user-telegram-bot-token
       AIOS_REPO_ROOT: /workspace
@@ -224,6 +225,7 @@ services:
     volumes:
       - ..:/workspace:ro
       - ./secrets:/run/secrets/aionex:ro
+      - ${AIOS_FIREBASE_ADMIN_HOST_FILE:-/root/.config/aionex/firebase-runtime/firebase-admin.json}:/run/firebase-admin-runtime/firebase-admin.json:ro
       - ${AIOS_TELEGRAM_BOT_TOKEN_HOST_FILE:-/root/.config/aionex/telegram/bot-token}:/run/operator-secrets/telegram-bot-token:ro
       - ${AIOS_USER_TELEGRAM_BOT_TOKEN_HOST_FILE:-/root/.config/aionex/telegram/user-bot-token}:/run/operator-secrets/user-telegram-bot-token:ro
     depends_on:
@@ -403,7 +405,7 @@ services:
       POSTGRES_PORT: "5432"
       MEDIA_STORAGE_TYPE: local
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
-      AUDIO_SPEECH_LIVE_ENABLED: "false"
+      AUDIO_SPEECH_LIVE_ENABLED: "true"
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
     volumes:
@@ -440,7 +442,7 @@ services:
       POSTGRES_PORT: "5432"
       MEDIA_STORAGE_TYPE: local
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
-      AUDIO_TRANSCRIPT_LIVE_ENABLED: "false"
+      AUDIO_TRANSCRIPT_LIVE_ENABLED: "true"
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
     volumes:
@@ -477,7 +479,7 @@ services:
       POSTGRES_PORT: "5432"
       MEDIA_STORAGE_TYPE: local
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
-      AUDIO_DUBBING_LIVE_ENABLED: "false"
+      AUDIO_DUBBING_LIVE_ENABLED: "true"
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
     volumes:
@@ -514,7 +516,7 @@ services:
       POSTGRES_PORT: "5432"
       MEDIA_STORAGE_TYPE: local
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
-      AUDIO_MUSIC_LIVE_ENABLED: "false"
+      AUDIO_MUSIC_LIVE_ENABLED: "true"
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
     volumes:
@@ -549,7 +551,7 @@ services:
       POSTGRES_PORT: "5432"
       MEDIA_STORAGE_TYPE: local
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
-      AUDIO_SONG_LIVE_ENABLED: "false"
+      AUDIO_SONG_LIVE_ENABLED: "true"
       AUDIO_SONG_ENTRYPOINT_SECRET_BOOTSTRAP_ONLY: "true"
       AUDIO_SONG_RUNPOD_SECRET_FILE: /run/secrets/aionex/runpod-open-song.env
       AIOS_REPO_ROOT: /workspace
@@ -636,7 +638,7 @@ services:
       MEDIA_FFMPEG_BINARY: /opt/ffmpeg/bin/ffmpeg
       MEDIA_FFPROBE_BINARY: /opt/ffmpeg/bin/ffprobe
       MEDIA_FFMPEG_TARGET_VERSION: "9.0"
-      VIDEO_EXECUTION_LIVE_ENABLED: "false"
+      VIDEO_EXECUTION_LIVE_ENABLED: "true"
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
     volumes:
@@ -671,7 +673,7 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
       MEDIA_STORAGE_TYPE: local
-      DESIGN_IMAGE_LIVE_ENABLED: "false"
+      DESIGN_IMAGE_LIVE_ENABLED: "true"
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
     volumes:
@@ -710,7 +712,7 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
       MEDIA_STORAGE_TYPE: local
-      DESIGN_IMAGE_DERIVATIVE_ENABLED: "false"
+      DESIGN_IMAGE_DERIVATIVE_ENABLED: "true"
       DESIGN_IMAGE_SHARP_NODE_BINARY: /usr/bin/node
       DESIGN_IMAGE_SHARP_SCRIPT: /opt/aionex-image-tools/derivative.mjs
       DESIGN_IMAGE_SHARP_TEMP_ROOT: /tmp/aionex-image-derivatives

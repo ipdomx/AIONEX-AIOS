@@ -1047,3 +1047,36 @@ async def test_deduped_notification_adds_newly_selected_delivery_channel(
             )
     finally:
         await cleanup(data.organization.id)
+
+
+def test_push_readiness_requires_readable_valid_matching_firebase_credentials(tmp_path, monkeypatch):
+    credentials = tmp_path / "firebase-admin.json"
+    monkeypatch.setattr(communications.settings, "FIREBASE_PROJECT_ID", "project-a")
+    monkeypatch.setattr(communications.settings, "FIREBASE_ADMIN_CREDENTIALS_JSON", str(credentials))
+
+    readiness = communications.channel_readiness()
+    assert next(item for item in readiness if item["id"] == "push")["ready"] is False
+
+    credentials.write_text(
+        json.dumps({
+            "type": "service_account",
+            "project_id": "project-a",
+            "client_email": "firebase@example.invalid",
+            "private_key": "private-key-placeholder",
+        }),
+        encoding="utf-8",
+    )
+    readiness = communications.channel_readiness()
+    assert next(item for item in readiness if item["id"] == "push")["ready"] is True
+
+    credentials.write_text(
+        json.dumps({
+            "type": "service_account",
+            "project_id": "wrong-project",
+            "client_email": "firebase@example.invalid",
+            "private_key": "private-key-placeholder",
+        }),
+        encoding="utf-8",
+    )
+    readiness = communications.channel_readiness()
+    assert next(item for item in readiness if item["id"] == "push")["ready"] is False
