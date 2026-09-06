@@ -76,6 +76,16 @@ RUNTIME_RECEIPT_EVIDENCE: dict[str, dict[str, Any]] = {
             "synthetic-residue-zero",
         ],
     },
+    "synthetic-voice-disclosure": {
+        "source": "phase36-runtime-enforcement-receipt",
+        "receipt_path": PRE_XR_RUNTIME_CLOSEOUT_RECEIPT_PATH,
+        "receipt_sha256": PRE_XR_RUNTIME_CLOSEOUT_RECEIPT_SHA256,
+        "assertions": [
+            "backend-literal-true-required",
+            "studio-ui-explicit-acknowledgement",
+            "audit-retains-acceptance",
+        ],
+    },
     "recording-retention-and-studio-ingestion-runtime-evidence": {
         "source": "phase36-authoritative-receipt",
         "receipt_path": REALTIME_ACCEPTANCE_RECEIPT_PATH,
