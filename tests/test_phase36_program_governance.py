@@ -175,7 +175,7 @@ def test_phase36g_stage5_source_keeps_diarization_separate_without_overclaiming(
         "lyria-3-music-generation": "runtime_verified",
         "stable-audio-instrumental-generation": "runtime_verified",
         "song-production": "runtime_verified",
-        "podcast-jingle-narration": "source_built",
+        "podcast-jingle-narration": "runtime_verified",
     }
     for capability_id, maturity in expected.items():
         capability = capabilities[capability_id]
@@ -204,7 +204,8 @@ def test_phase36g_stage5_source_keeps_diarization_separate_without_overclaiming(
     assert "SFX" not in capabilities["audio-cleanup-master"].title
     assert capabilities["stt-tts-dubbing"].maturity == "runtime_verified"
     assert capabilities["stt-tts-dubbing"].external_gates == ("synthetic-voice-disclosure",)
-    assert capabilities["podcast-jingle-narration"].maturity != "runtime_verified"
+    assert capabilities["podcast-jingle-narration"].maturity == "runtime_verified"
+    assert "docs/phase-36/receipts/36N-2026-09-07-pre-xr-runtime-closeout.md" in capabilities["podcast-jingle-narration"].evidence
     assert capabilities["podcast-jingle-narration"].external_gates == (
         "provider-rendered-podcast-jingle-runtime-evidence",
         "synthetic-voice-disclosure",
@@ -235,9 +236,11 @@ def test_phase36_snapshot_is_truthful_and_phase29_is_not_current_finality() -> N
     for batch_id in ("36G", "36H", "36I"):
         batch = batch_by_id[batch_id]
         assert batch["local_closeout_complete"] is True
-        assert batch["unresolved_capabilities"]
         assert batch["blocking_external_gates"]
         assert batch["ungated_unresolved_capabilities"] == []
+    assert batch_by_id["36G"]["unresolved_capabilities"] == ["voice-transformation"]
+    assert batch_by_id["36H"]["unresolved_capabilities"] == []
+    assert batch_by_id["36I"]["unresolved_capabilities"] == ["xr-ar-vr"]
     assert batch_by_id["36A"]["local_closeout_complete"] is True
     assert batch_by_id["36A"]["unresolved_capabilities"] == []
     assert snapshot["total_capabilities"] == len(CAPABILITIES)

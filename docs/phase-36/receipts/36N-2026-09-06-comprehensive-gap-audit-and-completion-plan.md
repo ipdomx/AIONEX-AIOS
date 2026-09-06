@@ -359,3 +359,11 @@ Based on these bounded acceptances and the existing authoritative receipts, sour
 - Focused Backend regression on isolated PostgreSQL 16 + Redis 7 through Alembic `20260905_0044`: 22 passed, 0 failed.
 - Frontend API contract/type-check, ESLint, Prettier, and Production Next.js build: PASS; 91 routes generated.
 - The synthetic-voice disclosure source change is not considered runtime-satisfied until this batch passes protected CI, merges, and deploys. No external legal/rights/balance/device fact is fabricated.
+
+### 2026-09-07 — External-gate snapshot contract correction
+
+- Core CI exposed a stale governance assertion after `podcast-jingle-narration` and the complete 36H realtime pair became `runtime_verified`.
+- The Phase 36 snapshot now reports activation gates from every capability in an `external_gate` batch, not only from capabilities below `runtime_verified`.
+- `unresolved_capabilities` remains reserved for maturity below `runtime_verified`; therefore 36H truthfully has zero unresolved runtime capabilities while still exposing its consent/public-edge activation gates.
+- Focused root governance regression after the correction: `17/17 PASS`.
+- No Production mutation or provider request was performed by this contract correction.

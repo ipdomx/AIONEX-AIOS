@@ -208,7 +208,13 @@ def phase36_program_snapshot() -> dict[str, object]:
             else []
         )
         blocking_external_gates = sorted(
-            {gate for item in unresolved for gate in item.external_gates}
+            {
+                gate
+                for item in capabilities
+                for gate in item.external_gates
+            }
+            if batch.status == "external_gate"
+            else set()
         )
         ungated_unresolved = sorted(
             item.capability_id for item in unresolved if not item.external_gates
