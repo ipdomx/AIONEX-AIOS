@@ -105,7 +105,7 @@ def test_production_operations_observer_keeps_model_evidence_fresh_without_armin
         assert '/run/operator-secrets/telegram-bot-token:ro' in observer
 
     dashboard_compose = (repo_root / "web-dashboard/docker-compose.production.yml").read_text(encoding="utf-8")
-    assert 'PROJECT_AI_LIVE_RUNTIME_ENABLED: "false"' in dashboard_compose
+    assert 'PROJECT_AI_LIVE_RUNTIME_ENABLED: "true"' in dashboard_compose
 
     for relative in (
         "web-dashboard/docker-compose.production.yml",
