@@ -280,3 +280,10 @@ Fresh bounded provider/runtime evidence before persistent arming:
 - **Open Song / primary RunPod:** the authoritative v8 full-song/four-stem acceptance remains the complete provider-rendered evidence. Current one-shot preflight with live semantics loads the exact private runtime binding and adapter successfully; the live RunPod balance probe returns positive with durable balance evidence. The unconfigured secondary RunPod route remains explicitly live-disabled under the Owner's unavailable-provider exclusion.
 
 Based on these bounded acceptances and the existing authoritative receipts, source now arms only the accepted **primary** pre-XR media routes: Design Image, Image Derivative, Video, Speech, Transcript, stock-voice Dubbing, Music and primary Open Song. The secondary Open Song route remains false. Persistent production activation is still gated on protected PR/CI/merge and post-arm health/queue acceptance.
+
+## Batch F CI contract correction — 2026-09-06
+
+- PR #558's first protected Backend Tests run correctly rejected stale test assertions that still required the accepted media workers to remain live-disabled. This was a source/test contract inconsistency introduced by the deliberate live-arm change; the production Docker, SBOM, CodeQL, browser, frontend and dependency gates all passed on that head.
+- Updated the existing worker/production-image contract tests to require `true` only for the accepted primary pre-XR routes: speech, transcript, stock dubbing, music, primary Open Song, video and design image. The unconfigured secondary Open Song route remains explicitly asserted `false`.
+- Isolated PostgreSQL 16 + Redis 7 regression after migration to `20260905_0044`: `38 passed, 0 failed`. No production database was used and the isolated containers were removed after the run.
+- PR #558 must rerun the protected Backend Tests on the corrected head before merge; no bypass is permitted.
