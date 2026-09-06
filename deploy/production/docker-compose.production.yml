@@ -275,7 +275,7 @@ services:
       POSTGRES_PORT: "5432"
       MEDIA_STORAGE_TYPE: local
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
-      AUDIO_SPEECH_LIVE_ENABLED: "false"
+      AUDIO_SPEECH_LIVE_ENABLED: "true"
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
     volumes:
@@ -311,7 +311,7 @@ services:
       POSTGRES_PORT: "5432"
       MEDIA_STORAGE_TYPE: local
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
-      AUDIO_TRANSCRIPT_LIVE_ENABLED: "false"
+      AUDIO_TRANSCRIPT_LIVE_ENABLED: "true"
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
     volumes:
@@ -347,7 +347,7 @@ services:
       POSTGRES_PORT: "5432"
       MEDIA_STORAGE_TYPE: local
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
-      AUDIO_DUBBING_LIVE_ENABLED: "false"
+      AUDIO_DUBBING_LIVE_ENABLED: "true"
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
     volumes:
@@ -383,7 +383,7 @@ services:
       POSTGRES_PORT: "5432"
       MEDIA_STORAGE_TYPE: local
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
-      AUDIO_MUSIC_LIVE_ENABLED: "false"
+      AUDIO_MUSIC_LIVE_ENABLED: "true"
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
     volumes:
@@ -417,7 +417,7 @@ services:
       POSTGRES_PORT: "5432"
       MEDIA_STORAGE_TYPE: local
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
-      AUDIO_SONG_LIVE_ENABLED: "false"
+      AUDIO_SONG_LIVE_ENABLED: "true"
       AUDIO_SONG_ENTRYPOINT_SECRET_BOOTSTRAP_ONLY: "true"
       AUDIO_SONG_RUNPOD_SECRET_FILE: /run/secrets/aionex/runpod-open-song.env
       AIOS_REPO_ROOT: /workspace
@@ -502,7 +502,7 @@ services:
       MEDIA_FFMPEG_BINARY: /opt/ffmpeg/bin/ffmpeg
       MEDIA_FFPROBE_BINARY: /opt/ffmpeg/bin/ffprobe
       MEDIA_FFMPEG_TARGET_VERSION: "9.0"
-      VIDEO_EXECUTION_LIVE_ENABLED: "false"
+      VIDEO_EXECUTION_LIVE_ENABLED: "true"
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
     volumes:
@@ -536,7 +536,7 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
       MEDIA_STORAGE_TYPE: local
-      DESIGN_IMAGE_LIVE_ENABLED: "false"
+      DESIGN_IMAGE_LIVE_ENABLED: "true"
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
     volumes:
@@ -574,7 +574,7 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
       MEDIA_STORAGE_TYPE: local
-      DESIGN_IMAGE_DERIVATIVE_ENABLED: "false"
+      DESIGN_IMAGE_DERIVATIVE_ENABLED: "true"
       DESIGN_IMAGE_SHARP_NODE_BINARY: /usr/bin/node
       DESIGN_IMAGE_SHARP_SCRIPT: /opt/aionex-image-tools/derivative.mjs
       DESIGN_IMAGE_SHARP_TEMP_ROOT: /tmp/aionex-image-derivatives
