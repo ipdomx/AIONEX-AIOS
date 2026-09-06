@@ -311,7 +311,8 @@ def test_production_mounts_admin_credential_and_drops_privileges() -> None:
     )
 
     for compose in (web_compose, deploy_compose):
-        assert "/run/secrets/aionex/firebase-admin.json" in compose
+        assert "/run/firebase-admin-runtime/firebase-admin.json" in compose
+        assert "AIOS_FIREBASE_ADMIN_HOST_FILE" in compose
         assert "/run/secrets/aionex:ro" in compose
     assert "su-exec" in dockerfile
     assert 'ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]' in dockerfile

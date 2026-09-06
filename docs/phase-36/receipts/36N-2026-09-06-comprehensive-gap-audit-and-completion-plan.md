@@ -302,3 +302,9 @@ Based on these bounded acceptances and the existing authoritative receipts, sour
 - No production change was made. The conflicting nested overlay was removed from both Compose definitions. The readiness hardening remains valid and continues to fail closed.
 - The UID1000 runtime credential copy remains host-private but will only be wired through a non-conflicting dedicated mount path in a subsequent protected source change; no permissions on the original root-owned secret were broadened.
 - Corrected Firebase wiring uses a dedicated read-only target `/run/firebase-admin-runtime/firebase-admin.json`, outside the existing read-only secrets-directory bind. Backend and Communication Worker point `FIREBASE_ADMIN_CREDENTIALS_JSON` at that dedicated path in both production Compose definitions. This preserves the root-owned source credential and avoids nested mount semantics.
+
+## Batch C2 — Firebase dedicated runtime mount CI alignment — 2026-09-07
+
+- Protected PR #558 reached green on CodeQL, SBOM/vulnerability, dependency security, browser boundaries, frontend, production Docker build, reporting and core release contracts; Backend Tests alone rejected one stale source-contract assertion that still named the superseded nested Firebase path.
+- Updated that existing contract to require the dedicated `/run/firebase-admin-runtime/firebase-admin.json` path plus the `AIOS_FIREBASE_ADMIN_HOST_FILE` host-source contract, while retaining the broader secrets-directory read-only assertion.
+- No production deployment is authorized until the corrected protected Backend Tests rerun passes; no branch protection bypass is used.
