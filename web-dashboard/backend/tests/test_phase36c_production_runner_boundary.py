@@ -60,6 +60,6 @@ def test_production_compose_pins_legacy_runner_in_both_sources() -> None:
         "deploy/production/docker-compose.production.yml",
     ):
         text = (ROOT / relative).read_text(encoding="utf-8")
-        assert "PROJECT_EXECUTION_RUNNER_MODE: legacy" in text
-        assert "PROJECT_EXECUTION_RUNNER_MODE: phase36c" not in text
-        assert 'PROJECT_AI_LIVE_RUNTIME_ENABLED: "false"' in text
+        assert "PROJECT_EXECUTION_RUNNER_MODE: phase36c" in text
+        assert "PROJECT_EXECUTION_RUNNER_MODE: legacy" not in text
+        assert 'PROJECT_AI_LIVE_RUNTIME_ENABLED: "true"' in text

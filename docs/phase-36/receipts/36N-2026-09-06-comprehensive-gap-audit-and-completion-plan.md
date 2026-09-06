@@ -24,9 +24,9 @@ Production workers are healthy, but the live provider flags for Project AI, Desi
 
 Four Project Workers are online, but production still uses legacy runner behavior and `PROJECT_AI_LIVE_RUNTIME_ENABLED=false`. The 15-provider inventory is therefore not yet the live project execution pool. The free-user full/3D execution path can be rejected while Phase 36C live/local routing remains unavailable. Activation requires fresh model evidence, provider readiness, billing controls and acceptance before the flag changes.
 
-### G04 — Automatic launch-model evidence refresh is disabled — HIGH
+### G04 — Automatic launch-model evidence refresh preliminary finding was disproved — CLOSED BY RE-VERIFICATION
 
-`PROJECT_AI_MODEL_REFRESH_ENABLED=false`; the configured interval is 14,400 seconds and validated model evidence TTL is 6 hours. Current evidence was fresh at audit time, but it can become stale without automatic refresh. This must be enabled with failure/recovery alerting before multi-provider live activation.
+The Project Worker containers intentionally carry `PROJECT_AI_MODEL_REFRESH_ENABLED=false` because workers do not own evidence refresh. The dedicated Operations Observer carries `PROJECT_AI_MODEL_REFRESH_ENABLED=true` and a 14,400-second refresh interval against a 6-hour evidence TTL. After the 2026-09-06 recreation it refreshed OpenAI, DeepSeek, Mistral and Ollama evidence immediately; all launch evidence returned with about 5.85 hours of remaining TTL. No activation change is required for the refresh scheduler.
 
 ### G05 — Configured S3-compatible media storage currently fails preflight — CRITICAL for live media
 
@@ -217,3 +217,14 @@ Batch B is now active.
 - Docker build cache remains intentionally retained for protected rebuild speed; disk free space is >500 GiB, so deleting verified reusable build cache provides no reliability benefit at this checkpoint. Final release engineering may prune it after all completion batches and rollback windows close.
 - Historical communications terminal evidence was reviewed in place. Twelve Email `dead_letter` and eleven Push `unconfigured` records were marked in `delivery_metadata.historical_reconciliation` as reviewed/preserved terminal evidence with `retry_performed=false`, and matching audit events were written. Original terminal statuses, attempts and error evidence were preserved; **zero stale messages were resent**. This prevents cleanup from falsifying history or spamming users with obsolete 3D/billing/support/provider-credit events.
 - Current production remains 35/35 running, unhealthy=0, restart sum=0. Batch B runtime cleanup is complete; final build-cache cleanup remains intentionally deferred to Batch L.
+
+## Batch D — Project AI live-runtime activation checkpoint — 2026-09-06
+
+- Re-verification corrected G04: model evidence refresh is already live in Operations Observer; the false observation came from inspecting the Project Worker flag, which is intentionally false because workers do not own refresh. Fresh evidence was regenerated after the observer recreation.
+- Pre-arm state: active ProjectExecutions `0`; provider-finance external gate `satisfied_runtime`; OpenAI/DeepSeek/Mistral/Ollama connected; six reviewed launch models had about 5.85 hours of evidence TTL remaining.
+- Bounded direct provider acceptance: Ollama, all three reviewed OpenAI GPT-5.6 models and DeepSeek passed. Mistral returned a quota/rate failure and generated the normal provider-quota alert; no credential was exposed. The shared coordinator/circuit/fallback design therefore remains necessary.
+- Bounded **Paid** Phase36C end-to-end runner canary passed on the exact production runtime with one 32-token task and synthetic tenant cleanup; safe summary selected provider `openai`, input tokens `10`, output tokens `5`.
+- Bounded **Free** Phase36C end-to-end runner canary passed on the exact production runtime with local-only Ollama; safe summary selected provider `ollama`, input tokens `14`, output tokens `3`. No external provider spend is possible under the Free policy.
+- Synthetic canary organizations/projects/executions/memory/audit records were deleted after each acceptance. Canary scripts/evidence remain outside Git under `.deployment-backups/phase36c-live-arm-20260906/`.
+- Source activation now changes only the four Project Worker runtime selector from `legacy`/unarmed to `phase36c`/armed. The Operations Observer retains automatic evidence refresh; Project Worker capacity remains 4 replicas × 3 = 12 simultaneous heavy executions; per-execution budget enforcement and Owner access policies are unchanged.
+- Production is **not** considered armed until this source passes protected PR/CI, is merged, the exact merged Project Worker image is rebuilt, and all four workers are recreated healthy with post-arm Free/Paid acceptance.
