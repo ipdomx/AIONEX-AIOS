@@ -514,6 +514,9 @@ class FakeSession:
     def add(self, value: Any) -> None:
         self.added.append(value)
 
+    async def flush(self) -> None:
+        return None
+
     async def commit(self) -> None:
         self.commits += 1
 
@@ -676,6 +679,84 @@ async def test_worker_sanitizes_unexpected_executor_failure(
     )
     assert failure_audit.details["reason"] == "PostgreSQL backup failed unexpectedly"
     assert "plaintext-secret" not in str(failure_audit.details)
+
+
+@pytest.mark.asyncio
+async def test_scheduled_backup_auto_enqueues_exactly_one_restore_validation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    backup = BackupRecord(
+        id="scheduled-backup-1",
+        kind="scheduled-production",
+        scope="platform",
+        status="completed",
+        location="/protected/scheduled-backup.dump",
+        checksum="a" * 64,
+        size_bytes=128,
+        completed_at=datetime.now(UTC),
+    )
+    first = FakeSession([None, backup, None])
+    duplicate = FakeSession([None, backup, "existing-run"])
+
+    async def no_lock(_session: object, _name: str) -> None:
+        return None
+
+    monkeypatch.setattr(
+        "app.services.backup_worker.acquire_enqueue_lock",
+        no_lock,
+    )
+    monkeypatch.setattr(application_settings, "BACKUP_SCHEDULE_ENABLED", True)
+    monkeypatch.setattr(
+        application_settings, "BACKUP_AUTO_RESTORE_VALIDATION_ENABLED", True
+    )
+    worker = BackupJobWorker(
+        executor=FakeExecutor(),  # type: ignore[arg-type]
+        session_factory=FakeSessionFactory([first, duplicate]),  # type: ignore[arg-type]
+    )
+
+    assert await worker._enqueue_latest_scheduled_restore_validation_if_needed() is True
+    runs = [item for item in first.added if isinstance(item, DisasterRecoveryRun)]
+    assert len(runs) == 1
+    assert runs[0].operation == "restore_validation"
+    assert runs[0].status == "pending"
+    assert runs[0].details == {
+        "backup_id": backup.id,
+        "dry_run": True,
+        "requested_by": "scheduled-backup-worker",
+        "auto_enqueued": True,
+    }
+    assert first.commits == 1
+
+    assert await worker._enqueue_latest_scheduled_restore_validation_if_needed() is False
+    assert not [item for item in duplicate.added if isinstance(item, DisasterRecoveryRun)]
+    assert duplicate.commits == 0
+
+
+@pytest.mark.asyncio
+async def test_scheduled_restore_auto_enqueue_defers_while_recovery_is_active(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = FakeSession(["active-recovery-run"])
+
+    async def no_lock(_session: object, _name: str) -> None:
+        return None
+
+    monkeypatch.setattr(
+        "app.services.backup_worker.acquire_enqueue_lock",
+        no_lock,
+    )
+    monkeypatch.setattr(application_settings, "BACKUP_SCHEDULE_ENABLED", True)
+    monkeypatch.setattr(
+        application_settings, "BACKUP_AUTO_RESTORE_VALIDATION_ENABLED", True
+    )
+    worker = BackupJobWorker(
+        executor=FakeExecutor(),  # type: ignore[arg-type]
+        session_factory=FakeSessionFactory([session]),  # type: ignore[arg-type]
+    )
+
+    assert await worker._enqueue_latest_scheduled_restore_validation_if_needed() is False
+    assert session.added == []
+    assert session.commits == 0
 
 
 @pytest.mark.asyncio

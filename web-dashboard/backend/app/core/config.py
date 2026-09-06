@@ -99,6 +99,10 @@ class Settings(BaseSettings):
         le=720,
         validation_alias="BACKUP_SCHEDULE_INTERVAL_HOURS",
     )
+    BACKUP_AUTO_RESTORE_VALIDATION_ENABLED: bool = Field(
+        default=True,
+        validation_alias="BACKUP_AUTO_RESTORE_VALIDATION_ENABLED",
+    )
     BACKUP_WORKER_HEARTBEAT_SECONDS: int = Field(
         default=10,
         ge=2,
