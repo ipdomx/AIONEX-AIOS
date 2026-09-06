@@ -91,6 +91,8 @@ services:
       BACKUP_DIR: /var/lib/aionex/backups
       BACKUP_THREE_D_ASSETS_ENABLED: "true"
       BACKUP_AUTO_RESTORE_VALIDATION_ENABLED: "${BACKUP_AUTO_RESTORE_VALIDATION_ENABLED:-true}"
+      MEDIA_STORAGE_TYPE: local
+      MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
       FIREBASE_ADMIN_CREDENTIALS_JSON: /run/secrets/aionex/firebase-admin.json
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
@@ -118,6 +120,7 @@ services:
       - portal_asset_data:/var/lib/aionex/portal-assets:rw
       - project_execution_data:/var/lib/aionex/project-executions:rw
       - studio_asset_data:/var/lib/aionex/studio-assets:rw
+      - media_asset_data:/var/lib/aionex/media-assets:rw
       - three_d_asset_data:/var/lib/aionex/three-d-assets:rw
       - audio_song_ingress_data:/var/lib/aionex/audio-song-provider-ingress:rw
       - course_package_data:/var/lib/aionex/course-packages:ro
