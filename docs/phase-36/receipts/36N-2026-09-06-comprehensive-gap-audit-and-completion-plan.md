@@ -287,3 +287,11 @@ Based on these bounded acceptances and the existing authoritative receipts, sour
 - Updated the existing worker/production-image contract tests to require `true` only for the accepted primary pre-XR routes: speech, transcript, stock dubbing, music, primary Open Song, video and design image. The unconfigured secondary Open Song route remains explicitly asserted `false`.
 - Isolated PostgreSQL 16 + Redis 7 regression after migration to `20260905_0044`: `38 passed, 0 failed`. No production database was used and the isolated containers were removed after the run.
 - PR #558 must rerun the protected Backend Tests on the corrected head before merge; no bypass is permitted.
+
+## Batch C — Firebase Admin / Push truthfulness checkpoint — 2026-09-06
+
+- Confirmed the production Firebase Admin source credential exists but is root-owned mode 0600 and therefore is not readable by Backend/Communication Worker UID 1000. This is the concrete cause of `admin_verification_ready=false` and the historical Push `unconfigured` deliveries.
+- Created a host runtime copy from the existing credential without printing its contents, owned by UID/GID 1000:1000 and mode 0600; the original root-owned credential remains unchanged.
+- Source now overlays that single credential file read-only at `/run/secrets/aionex/firebase-admin.json` for Backend and Communication Worker in both production Compose definitions. The broader secrets directory remains read-only and unchanged.
+- Hardened Push channel readiness: file existence alone is no longer sufficient. Readiness now requires a readable, non-symlink JSON service-account document whose project id matches configured Firebase and which contains the required client identity/private-key fields. Permission/JSON/project mismatch therefore fails closed instead of reporting a false positive.
+- Added regression coverage for missing/unreadable-equivalent, valid matching and mismatched Firebase credential readiness. Production recreation and live Firebase Admin/Push acceptance remain gated on protected PR/CI/merge.
