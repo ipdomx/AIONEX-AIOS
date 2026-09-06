@@ -177,6 +177,58 @@ async def test_live_video_http_arms_only_with_total_cost_cap(monkeypatch: pytest
 
 
 @pytest.mark.asyncio
+async def test_live_speech_rejects_missing_synthetic_voice_disclosure() -> None:
+    org, _user, actor = await _actor("speech-disclosure")
+    try:
+        async with AsyncClient(transport=ASGITransport(app=_app(actor)), base_url="http://test") as client:
+            response = await client.post(
+                "/api/v1/studio/live-media/speech",
+                json={
+                    "title": "Governed narration",
+                    "text": "This request intentionally omits the required synthetic voice disclosure acceptance.",
+                    "language": "en-US",
+                    "voice": "marin",
+                    "approved_max_cost_usd": 0.05,
+                    "idempotency_key": f"live-speech-disclosure-{uuid4().hex}",
+                },
+            )
+        assert response.status_code == 422, response.text
+        assert "synthetic_voice_disclosure_accepted" in response.text
+    finally:
+        await _cleanup(org.id)
+
+
+def test_dubbing_request_requires_explicit_synthetic_voice_disclosure() -> None:
+    base = {
+        "source_transcript_node_id": "node-1",
+        "target_language": "en",
+        "voice_bindings": {"speaker-1": "marin"},
+        "max_translation_cost_usd": 0.2,
+        "per_segment_speech_cap_usd": 0.05,
+        "approved_max_total_cost_usd": 0.5,
+        "idempotency_key": "dubbing-disclosure-test",
+    }
+    with pytest.raises(ValueError):
+        live_media.DubbingLiveRequest(**base)
+    accepted = live_media.DubbingLiveRequest(
+        **base, synthetic_voice_disclosure_accepted=True
+    )
+    assert accepted.synthetic_voice_disclosure_accepted is True
+
+
+def test_live_media_ui_exposes_fail_closed_synthetic_voice_disclosure() -> None:
+    from pathlib import Path
+
+    source = (
+        Path(__file__).resolve().parents[2]
+        / "frontend/src/app/studio/live-media/page.tsx"
+    ).read_text(encoding="utf-8")
+    assert "Synthetic stock-voice disclosure" in source
+    assert "synthetic_voice_disclosure_accepted: syntheticVoiceDisclosureAccepted" in source
+    assert "You must acknowledge the synthetic stock-voice disclosure" in source
+
+
+@pytest.mark.asyncio
 async def test_live_speech_http_stops_at_one_attempt_arm(monkeypatch: pytest.MonkeyPatch) -> None:
     org, _user, actor = await _actor("speech")
     monkeypatch.setattr(live_media, "_provider_inventory", _inventory)
@@ -189,6 +241,7 @@ async def test_live_speech_http_stops_at_one_attempt_arm(monkeypatch: pytest.Mon
                     "text": "This is an original short narration for the AIONEX live media contract test.",
                     "language": "en-US",
                     "voice": "marin",
+                    "synthetic_voice_disclosure_accepted": True,
                     "approved_max_cost_usd": 0.05,
                     "idempotency_key": f"live-speech-{uuid4().hex}",
                 },

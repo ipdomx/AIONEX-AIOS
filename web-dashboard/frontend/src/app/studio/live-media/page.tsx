@@ -95,6 +95,7 @@ export default function LiveMediaStudioPage() {
 
   const [voice, setVoice] = useState("marin");
   const [instructions, setInstructions] = useState("Speak naturally, clearly, and at a comfortable pace.");
+  const [syntheticVoiceDisclosureAccepted, setSyntheticVoiceDisclosureAccepted] = useState(false);
 
   const [sourceNode, setSourceNode] = useState("");
   const [transcriptOperation, setTranscriptOperation] = useState("transcribe");
@@ -159,6 +160,7 @@ export default function LiveMediaStudioPage() {
   }, [activeJobs, load]);
 
   useEffect(() => {
+    if (kind === "speech" || kind === "dubbing") setSyntheticVoiceDisclosureAccepted(false);
     if (kind === "video") setCost("2.40");
     else if (kind === "song") setCost("0.20");
     else if (kind === "music") setCost(musicProvider === "stability" ? "0.20" : "0.04");
@@ -170,6 +172,10 @@ export default function LiveMediaStudioPage() {
     event.preventDefault();
     if (!currentCapability?.ready) {
       setMessage("This runtime is not currently live-ready for the selected provider/model evidence.");
+      return;
+    }
+    if ((kind === "speech" || kind === "dubbing") && !syntheticVoiceDisclosureAccepted) {
+      setMessage("You must acknowledge the synthetic stock-voice disclosure before this request can be queued.");
       return;
     }
     setBusy(true);
@@ -217,6 +223,7 @@ export default function LiveMediaStudioPage() {
           voice,
           instructions,
           speed: 1,
+          synthetic_voice_disclosure_accepted: syntheticVoiceDisclosureAccepted,
           approved_max_cost_usd: amount(cost),
         };
       } else if (kind === "transcript") {
@@ -243,6 +250,7 @@ export default function LiveMediaStudioPage() {
           target_language: targetLanguage,
           voice_bindings: bindings,
           output_profile_id: "wav-pcm-48k-stereo",
+          synthetic_voice_disclosure_accepted: syntheticVoiceDisclosureAccepted,
           max_translation_cost_usd: amount(translationCap),
           per_segment_speech_cap_usd: amount(segmentCap),
           approved_max_total_cost_usd: amount(cost),
@@ -392,6 +400,10 @@ export default function LiveMediaStudioPage() {
               <label className={labelClass}>Stock voice<select className={inputClass} value={voice} onChange={(e) => setVoice(e.target.value)}><option value="marin">Marin</option><option value="cedar">Cedar</option><option value="alloy">Alloy</option><option value="coral">Coral</option><option value="nova">Nova</option><option value="onyx">Onyx</option><option value="shimmer">Shimmer</option></select></label>
               <label className={labelClass}>Voice instructions<input className={inputClass} value={instructions} onChange={(e) => setInstructions(e.target.value)} /></label>
             </div>
+          )}
+
+          {(kind === "speech" || kind === "dubbing") && (
+            <div className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 text-xs leading-5 text-amber-100/80"><div className="font-semibold text-amber-100">Synthetic stock-voice disclosure</div><p className="mt-1">This output uses an AI-generated synthetic stock voice. It must not be presented as a real person&apos;s voice or as an identity clone.</p><label className="mt-3 flex items-start gap-3 text-white/70"><input type="checkbox" className="mt-0.5" checked={syntheticVoiceDisclosureAccepted} onChange={(e) => setSyntheticVoiceDisclosureAccepted(e.target.checked)} />I understand and accept the synthetic-voice disclosure for this generated output.</label></div>
           )}
 
           {kind === "transcript" && (

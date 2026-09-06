@@ -56,7 +56,8 @@ async def test_snapshot_excludes_store_scope_and_keeps_other_external_facts_bloc
     assert by_id["store-signing-and-publication"]["status"] == "excluded_current_scope"
     assert by_id["live-payment-provider-credential"]["status"] == "satisfied_runtime"
     assert by_id["owner-provider-funded-credit-thresholds"]["status"] == "blocked_external"
-    assert by_id["public-stun-turn-and-sfu-capacity"]["status"] == "blocked_external"
+    assert by_id["public-stun-turn-and-sfu-capacity"]["status"] == "satisfied_runtime"
+    assert by_id["provider-rendered-podcast-jingle-runtime-evidence"]["status"] == "satisfied_runtime"
     assert by_id["explicit-consent-egress-runtime-acceptance"]["status"] == "satisfied_runtime"
     assert by_id["recording-retention-and-studio-ingestion-runtime-evidence"]["status"] == "satisfied_runtime"
     assert by_id["music-rights-and-ai-generated-disclosure"]["status"] == (
@@ -104,8 +105,13 @@ def test_realtime_runtime_receipt_checksum_is_immutable_and_matches_source() -> 
     receipt = repo / gates.REALTIME_ACCEPTANCE_RECEIPT_PATH
     assert receipt.exists()
     assert hashlib.sha256(receipt.read_bytes()).hexdigest() == gates.REALTIME_ACCEPTANCE_RECEIPT_SHA256
+    closeout = repo / gates.PRE_XR_RUNTIME_CLOSEOUT_RECEIPT_PATH
+    assert closeout.exists()
+    assert hashlib.sha256(closeout.read_bytes()).hexdigest() == gates.PRE_XR_RUNTIME_CLOSEOUT_RECEIPT_SHA256
     assert set(gates.RUNTIME_RECEIPT_EVIDENCE) == {
         "explicit-consent-egress-runtime-acceptance",
+        "public-stun-turn-and-sfu-capacity",
+        "provider-rendered-podcast-jingle-runtime-evidence",
         "recording-retention-and-studio-ingestion-runtime-evidence",
     }
 
