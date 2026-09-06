@@ -22,6 +22,35 @@ const AR: Catalog = {
   "External Activation Truth Ledger": "سجل حقيقة التفعيل الخارجي",
   "Read-only evidence view. No generic override exists: every external gate remains fail-closed until its own runtime, legal, financial, device, or infrastructure evidence is real. Store publication and direct Apple Pay are excluded from the current closeout scope by Owner decision.":
     "عرض أدلة للقراءة فقط. لا يوجد تجاوز عام؛ تظل كل بوابة خارجية مغلقة آمنًا حتى يصبح دليل التشغيل أو القانون أو التمويل أو الجهاز أو البنية التحتية حقيقيًا. تم استبعاد نشر المتاجر وApple Pay المباشر من نطاق الإغلاق الحالي بقرار المالك.",
+  "Satisfied by reviewed external evidence": "مستوفاة بدليل خارجي تمت مراجعته",
+  "Evidence submitted for governed review.":
+    "تم تقديم الدليل للمراجعة المحكومة.",
+  "Evidence submission failed validation or authorization.":
+    "فشل تقديم الدليل في التحقق أو التفويض.",
+  "Evidence review recorded: accepted.": "تم تسجيل مراجعة الدليل: مقبول.",
+  "Evidence review recorded: rejected.": "تم تسجيل مراجعة الدليل: مرفوض.",
+  "Evidence review recorded: revoked.": "تم تسجيل مراجعة الدليل: ملغى.",
+  "Evidence review failed validation or authorization.":
+    "فشلت مراجعة الدليل في التحقق أو التفويض.",
+  "Runtime-derived gate. Manual evidence cannot activate or override this boundary.":
+    "بوابة مشتقة من التشغيل. لا يمكن للدليل اليدوي تفعيل هذه الحدود أو تجاوزها.",
+  "Governed Owner evidence": "دليل المالك المحكوم",
+  "Submitting evidence never bypasses runtime gates. Review state, checksum, issuer, version and audit history are retained.":
+    "تقديم الدليل لا يتجاوز بوابات التشغيل مطلقًا. يتم الاحتفاظ بحالة المراجعة وبصمة التحقق والجهة المصدرة والإصدار وسجل التدقيق.",
+  "Review status": "حالة المراجعة",
+  "Evidence reference": "مرجع الدليل",
+  "Evidence reference / vault URI": "مرجع الدليل / رابط الخزنة",
+  "Issuer / authority": "الجهة المصدرة / السلطة",
+  "Evidence expiry": "انتهاء صلاحية الدليل",
+  "Evidence notes": "ملاحظات الدليل",
+  "Submit evidence": "تقديم الدليل",
+  "Review note": "ملاحظة المراجعة",
+  "Accept evidence": "قبول الدليل",
+  "External activation ledger synchronized with governed runtime and external evidence.":
+    "تمت مزامنة سجل التفعيل الخارجي مع دليل التشغيل المحكوم والدليل الخارجي.",
+  "Governed evidence workflow. Runtime gates remain runtime-derived and cannot be manually overridden. Reviewable legal, rights and certification gates accept checksum-bound external evidence with audit history. Store publication and direct Apple Pay remain excluded from the current closeout scope by Owner decision.":
+    "مسار أدلة محكوم. تظل بوابات التشغيل مشتقة من التشغيل ولا يمكن تجاوزها يدويًا. تقبل بوابات القانون والحقوق والشهادات القابلة للمراجعة أدلة خارجية مرتبطة ببصمة تحقق مع سجل تدقيق. يظل نشر المتاجر وApple Pay المباشر مستبعدين من نطاق الإغلاق الحالي بقرار المالك.",
+  "Satisfied by reviewed evidence": "مستوفاة بدليل تمت مراجعته",
   "In-scope external gates": "البوابات الخارجية ضمن النطاق",
   "Satisfied by live evidence": "مستوفاة بدليل حي",
   "Internally enforced · external pending":

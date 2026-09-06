@@ -16,6 +16,8 @@ import { translateInterfaceText } from "@/lib/interface-translations";
 
 import {
   fetchOwnerExternalActivation,
+  reviewOwnerExternalActivationEvidence,
+  submitOwnerExternalActivationEvidence,
   type ExternalActivationGate,
   type ExternalActivationSnapshot,
   type ExternalActivationStatus,
@@ -29,6 +31,11 @@ const statusMeta: Record<
     label: "Satisfied by live runtime evidence",
     className: "border-green-500/20 bg-green-500/10 text-green-300",
     icon: CheckCircle2,
+  },
+  satisfied_external_evidence: {
+    label: "Satisfied by reviewed external evidence",
+    className: "border-cyan-500/20 bg-cyan-500/10 text-cyan-200",
+    icon: BadgeCheck,
   },
   enforced_internal_external_pending: {
     label: "Internally enforced · external evidence pending",
@@ -61,12 +68,235 @@ function evidenceValue(value: unknown): string {
   return String(value);
 }
 
-function GateCard({
+function EvidenceWorkflow({
   gate,
   t,
+  onChanged,
 }: {
   gate: ExternalActivationGate;
   t: (text: string) => string;
+  onChanged: () => Promise<void>;
+}) {
+  const [reference, setReference] = useState("");
+  const [sha256, setSha256] = useState("");
+  const [issuer, setIssuer] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
+  const [notes, setNotes] = useState("");
+  const [reviewNote, setReviewNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const submit = async () => {
+    setBusy(true);
+    setMessage("");
+    try {
+      await submitOwnerExternalActivationEvidence(gate.gate_id, {
+        evidence_reference: reference.trim(),
+        evidence_sha256: sha256.trim().toLowerCase(),
+        issuer: issuer.trim(),
+        expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
+        notes: notes.trim(),
+      });
+      setMessage("Evidence submitted for governed review.");
+      setReference("");
+      setSha256("");
+      setIssuer("");
+      setExpiresAt("");
+      setNotes("");
+      await onChanged();
+    } catch {
+      setMessage("Evidence submission failed validation or authorization.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const review = async (decision: "accepted" | "rejected" | "revoked") => {
+    setBusy(true);
+    setMessage("");
+    try {
+      await reviewOwnerExternalActivationEvidence(gate.gate_id, {
+        decision,
+        review_note: reviewNote.trim(),
+      });
+      setMessage(
+        decision === "accepted"
+          ? "Evidence review recorded: accepted."
+          : decision === "rejected"
+            ? "Evidence review recorded: rejected."
+            : "Evidence review recorded: revoked.",
+      );
+      setReviewNote("");
+      await onChanged();
+    } catch {
+      setMessage("Evidence review failed validation or authorization.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!gate.owner_evidence_reviewable) {
+    return (
+      <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3 text-xs leading-5 text-white/40">
+        {t(
+          "Runtime-derived gate. Manual evidence cannot activate or override this boundary.",
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 rounded-xl border border-white/[0.08] bg-black/10 p-4">
+      <div>
+        <div className="text-xs font-semibold text-white/75">
+          {t("Governed Owner evidence")}
+        </div>
+        <p className="mt-1 text-[11px] leading-5 text-white/35">
+          {t(
+            "Submitting evidence never bypasses runtime gates. Review state, checksum, issuer, version and audit history are retained.",
+          )}
+        </p>
+      </div>
+
+      {gate.owner_evidence && (
+        <dl className="grid gap-2 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 text-[11px] sm:grid-cols-2">
+          <div>
+            <dt className="text-white/30">{t("Review status")}</dt>
+            <dd className="mt-0.5 text-white/70">
+              {gate.owner_evidence.review_status}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-white/30">{t("Issuer")}</dt>
+            <dd className="mt-0.5 break-words text-white/70">
+              {gate.owner_evidence.issuer}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-white/30">SHA-256</dt>
+            <dd className="mt-0.5 break-all font-mono text-white/55">
+              {gate.owner_evidence.evidence_sha256}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-white/30">{t("Version")}</dt>
+            <dd className="mt-0.5 text-white/70">
+              {gate.owner_evidence.version}
+            </dd>
+          </div>
+          <div className="sm:col-span-2">
+            <dt className="text-white/30">{t("Evidence reference")}</dt>
+            <dd className="mt-0.5 break-all text-white/55">
+              {gate.owner_evidence.evidence_reference}
+            </dd>
+          </div>
+        </dl>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <input
+          className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-none focus:border-electric-400/50"
+          placeholder={t("Evidence reference / vault URI")}
+          value={reference}
+          onChange={(event) => setReference(event.target.value)}
+          maxLength={500}
+        />
+        <input
+          className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 font-mono text-xs text-white outline-none focus:border-electric-400/50"
+          placeholder="SHA-256"
+          value={sha256}
+          onChange={(event) => setSha256(event.target.value)}
+          maxLength={64}
+        />
+        <input
+          className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-none focus:border-electric-400/50"
+          placeholder={t("Issuer / authority")}
+          value={issuer}
+          onChange={(event) => setIssuer(event.target.value)}
+          maxLength={200}
+        />
+        <input
+          className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-none focus:border-electric-400/50"
+          type="datetime-local"
+          aria-label={t("Evidence expiry")}
+          value={expiresAt}
+          onChange={(event) => setExpiresAt(event.target.value)}
+        />
+      </div>
+      <textarea
+        className="min-h-20 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-none focus:border-electric-400/50"
+        placeholder={t("Evidence notes")}
+        value={notes}
+        onChange={(event) => setNotes(event.target.value)}
+        maxLength={2000}
+      />
+      <button
+        type="button"
+        className="btn-secondary"
+        disabled={
+          busy ||
+          !reference.trim() ||
+          sha256.trim().length !== 64 ||
+          !issuer.trim()
+        }
+        onClick={() => void submit()}
+      >
+        {t("Submit evidence")}
+      </button>
+
+      {gate.owner_evidence && (
+        <div className="space-y-3 border-t border-white/[0.06] pt-4">
+          <textarea
+            className="min-h-16 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-none focus:border-electric-400/50"
+            placeholder={t("Review note")}
+            value={reviewNote}
+            onChange={(event) => setReviewNote(event.target.value)}
+            maxLength={2000}
+          />
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={busy}
+              onClick={() => void review("accepted")}
+            >
+              {t("Accept evidence")}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={busy}
+              onClick={() => void review("rejected")}
+            >
+              {t("Reject")}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={busy}
+              onClick={() => void review("revoked")}
+            >
+              {t("Revoke")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {message && (
+        <div className="text-[11px] text-electric-200/80">{t(message)}</div>
+      )}
+    </div>
+  );
+}
+
+function GateCard({
+  gate,
+  t,
+  onChanged,
+}: {
+  gate: ExternalActivationGate;
+  t: (text: string) => string;
+  onChanged: () => Promise<void>;
 }) {
   const meta = statusMeta[gate.status];
   const StatusIcon = meta.icon;
@@ -142,6 +372,8 @@ function GateCard({
         </div>
       )}
 
+      <EvidenceWorkflow gate={gate} t={t} onChanged={onChanged} />
+
       <div className="flex flex-wrap gap-2 text-[10px] text-white/35">
         {gate.batch_ids.map((item) => (
           <span
@@ -184,7 +416,7 @@ export default function OwnerExternalActivationPage() {
       const result = await fetchOwnerExternalActivation(signal);
       setSnapshot(result);
       setMessage(
-        "External activation ledger synchronized with live runtime evidence.",
+        "External activation ledger synchronized with governed runtime and external evidence.",
       );
     } catch (error) {
       if (!(error instanceof DOMException && error.name === "AbortError"))
@@ -193,6 +425,10 @@ export default function OwnerExternalActivationPage() {
       if (!signal?.aborted) setLoading(false);
     }
   }, []);
+
+  const reload = useCallback(async () => {
+    await load();
+  }, [load]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -221,7 +457,7 @@ export default function OwnerExternalActivationPage() {
               </h1>
               <p className="mt-2 max-w-4xl text-sm leading-relaxed text-white/45">
                 {t(
-                  "Read-only evidence view. No generic override exists: every external gate remains fail-closed until its own runtime, legal, financial, device, or infrastructure evidence is real. Store publication and direct Apple Pay are excluded from the current closeout scope by Owner decision.",
+                  "Governed evidence workflow. Runtime gates remain runtime-derived and cannot be manually overridden. Reviewable legal, rights and certification gates accept checksum-bound external evidence with audit history. Store publication and direct Apple Pay remain excluded from the current closeout scope by Owner decision.",
                 )}
               </p>
             </div>
@@ -230,7 +466,7 @@ export default function OwnerExternalActivationPage() {
             type="button"
             className="btn-secondary"
             disabled={loading}
-            onClick={() => void load()}
+            onClick={() => void reload()}
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             {t("Refresh")}
@@ -238,7 +474,7 @@ export default function OwnerExternalActivationPage() {
         </div>
       </header>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <div className="glass-card p-5">
           <div className="text-3xl font-bold text-white">
             {snapshot?.counts.in_scope_gates ?? 0}
@@ -253,6 +489,14 @@ export default function OwnerExternalActivationPage() {
           </div>
           <div className="mt-1 text-xs text-white/40">
             {t("Satisfied by live evidence")}
+          </div>
+        </div>
+        <div className="glass-card p-5">
+          <div className="text-3xl font-bold text-cyan-200">
+            {snapshot?.counts.satisfied_external_evidence ?? 0}
+          </div>
+          <div className="mt-1 text-xs text-white/40">
+            {t("Satisfied by reviewed evidence")}
           </div>
         </div>
         <div className="glass-card p-5">
@@ -291,7 +535,7 @@ export default function OwnerExternalActivationPage() {
 
       <section className="grid gap-4 xl:grid-cols-2">
         {gates.map((gate) => (
-          <GateCard key={gate.gate_id} gate={gate} t={t} />
+          <GateCard key={gate.gate_id} gate={gate} t={t} onChanged={reload} />
         ))}
       </section>
     </div>

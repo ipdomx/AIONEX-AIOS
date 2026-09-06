@@ -32,6 +32,8 @@ OWNER_CLIENTS = FRONTEND / "src" / "lib"
 
 OWNER_API_CONTRACT = {
     ("GET", "/api/v1/owner/external-activation"),
+    ("POST", "/api/v1/owner/external-activation/{gate_id}/evidence"),
+    ("PUT", "/api/v1/owner/external-activation/{gate_id}/evidence/review"),
     ("GET", "/api/v1/owner/platform-integration/snapshot"),
     ("POST", "/api/v1/owner/platform-integration/command"),
     ("GET", "/api/v1/owner/operations-integration"),
@@ -185,6 +187,16 @@ OWNER_GET_ROUTES = sorted(
     path for method, path in OWNER_API_CONTRACT if method == "GET"
 )
 OWNER_MUTATION_REQUESTS = {
+    ("POST", "/api/v1/owner/external-activation/{gate_id}/evidence"): {
+        "evidence_reference": "vault://contract-test/evidence",
+        "evidence_sha256": "a" * 64,
+        "issuer": "Contract Test Authority",
+        "notes": "Authorization contract only",
+    },
+    ("PUT", "/api/v1/owner/external-activation/{gate_id}/evidence/review"): {
+        "decision": "rejected",
+        "review_note": "Authorization contract only",
+    },
     ("POST", "/api/v1/owner/project-ai/models/refresh"): None,
     ("PUT", "/api/v1/owner/project-ai/access/plans/{access_class}"): {
         "access_class": "paid",
@@ -467,6 +479,7 @@ def _owner_routes(app: FastAPI) -> set[tuple[str, str]]:
 def _materialize_route(path: str) -> str:
     values = {
         "domain": "services",
+        "gate_id": "music-rights-and-ai-generated-disclosure",
         "target_id": "missing-target",
         "resource_id": "missing-resource",
         "approval_id": "missing-approval",

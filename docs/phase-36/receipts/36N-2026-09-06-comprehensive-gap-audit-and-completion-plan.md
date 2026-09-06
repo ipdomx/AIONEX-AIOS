@@ -308,3 +308,38 @@ Based on these bounded acceptances and the existing authoritative receipts, sour
 - Protected PR #558 reached green on CodeQL, SBOM/vulnerability, dependency security, browser boundaries, frontend, production Docker build, reporting and core release contracts; Backend Tests alone rejected one stale source-contract assertion that still named the superseded nested Firebase path.
 - Updated that existing contract to require the dedicated `/run/firebase-admin-runtime/firebase-admin.json` path plus the `AIOS_FIREBASE_ADMIN_HOST_FILE` host-source contract, while retaining the broader secrets-directory read-only assertion.
 - No production deployment is authorized until the corrected protected Backend Tests rerun passes; no branch protection bypass is used.
+
+
+## Batch F — CLOSED in production — 2026-09-07
+
+- Protected PR **#558** completed the corrected media/Firebase contracts and merged as `437a7f070c4b96fff39fda301ba92a8e239b6e9f` after Backend Tests, Production Docker Build, SBOM/vulnerability, CodeQL, dependency security, browser boundaries, frontend and reporting gates all passed.
+- A fresh pre-deploy platform backup `a5b37fed-dd4a-4769-a237-1d535ae9c7d5` completed before recreation: 20,461,150 bytes, SHA-256 `b719a761a56695052c73c403fed5651a1bf126f7b575fc4f4a48db3f986a273d`.
+- Previous Backend, Media/Video and Image-Derivative production image IDs were tagged as rollback artifacts before replacement.
+- Backend and the accepted pre-XR media workers were recreated from the merged source. The accidental Compose creation of the intentionally unconfigured secondary Open Song worker was detected immediately and removed; the production baseline returned to exactly 35 running containers.
+- Post-deploy production: 35/35 running; every affected healthcheck passed; restart count remained zero.
+- Live runtime selectors now prove the accepted primary pre-XR routes are armed in the actual containers: Design Image, Image Derivative, Video, Stock Speech, Transcript, stock-voice Dubbing, Music and primary Open Song. Secondary Open Song remains unarmed/unconfigured and is not running.
+- Post-arm durable queue inspection found zero active Image/Speech/Transcript/Dubbing/Music/Song/Video executions and zero newly failed rows in the deployment window.
+- Firebase Admin runtime mount is now UID/GID 1000:1000, mode 0600 inside Backend; `admin_verification_ready=true`. Hardened Push readiness reports configured/ready only after credential validation and is now `ready=true` in production.
+- G02/G05/G06 are closed for the Owner's current single-host, connected-authority pre-XR scope. Unavailable AWS S3/Bedrock and secondary RunPod authorities remain explicit external exclusions and are not represented as repaired.
+
+## Batch E — truthful provider-credit checkpoint — 2026-09-07
+
+- Production has three active provider-finance records for the currently relevant connected paid launch set: OpenAI, DeepSeek and Mistral.
+- All three remain `funding_mode=owner_attested`; no numeric funded amount or low/critical balance thresholds have been supplied by a real Owner/provider balance authority. AIONEX therefore does **not** fabricate predictive dollar balances.
+- `project_ai.provider_credit.predictive_monitoring_required` has been delivered for all three providers through Email, Telegram and In-app. Billing/quota failure escalation remains active.
+- Numeric pre-exhaustion prediction remains an external Owner-data boundary: it becomes available only after a real private numeric baseline is entered or a supported provider balance API is authorized. This is recorded as a truthful residual rather than a software defect.
+
+## Batch G — governed External Activation workflow checkpoint — 2026-09-07
+
+- New source branch: `completion-pre-xr-governance-20260907` from production `main` at `437a7f070c4b96fff39fda301ba92a8e239b6e9f`.
+- Replaced the previous GET-only External Activation owner surface with a governed evidence workflow for reviewable legal/rights/certification gates: checksum-bound evidence submission plus explicit `accepted` / `rejected` / `revoked` review, versioning and `AuditEvent` records.
+- There is still **no generic mark-passed escape hatch**. Runtime-derived gates reject manual evidence transitions and remain derived from runtime/authoritative receipts only.
+- Reconciled the two stale Phase 36H recording gates from the immutable authoritative receipt `docs/phase-36/receipts/36H-2026-09-05-realtime-production-activation.md`, SHA-256 `94cf95bbda3a97a1e6583bb5d9cc41d31339f7851871ad5aa0cde70d4fd119b2`. The receipt proves all-participant consent, `EGRESS_COMPLETE`, checksum-matched Studio ingestion, source deletion and zero synthetic residue. A regression test verifies the receipt checksum before those gates can report `satisfied_runtime`.
+- Owner UI now exposes the governed workflow directly, including submission reference/SHA/issuer/expiry/notes, current reviewed evidence, Accept/Reject/Revoke actions, and an explicit non-overridable runtime-gate message.
+- Added `satisfied_external_evidence` as a distinct ledger status; it does not masquerade reviewed external authority as runtime evidence.
+- Focused Backend acceptance against isolated PostgreSQL 16 + Redis 7 migrated through `20260905_0044`: **25 passed, 0 failed**.
+- Backend focused Ruff and mypy: PASS.
+- Frontend: Owner Arabic coverage PASS (1039 translatable strings, 5 approved technical tokens), API-contract/type-check PASS, Owner lint PASS with zero warnings/errors, Prettier PASS, and full Next.js production build PASS across all 91 static routes including `/owner/external-activation`.
+- Production deployment remains gated on protected PR/CI/merge; no branch protection bypass is used.
+
+**Next active work:** protected PR/CI/merge/deploy for Batch G; then close the remaining pre-XR provider-rendered podcast/jingle boundary that can use current accepted providers, while retaining voice-transformation rights/consent as an explicit external authority boundary unless real rights evidence is supplied.
