@@ -228,3 +228,36 @@ Batch B is now active.
 - Synthetic canary organizations/projects/executions/memory/audit records were deleted after each acceptance. Canary scripts/evidence remain outside Git under `.deployment-backups/phase36c-live-arm-20260906/`.
 - Source activation now changes only the four Project Worker runtime selector from `legacy`/unarmed to `phase36c`/armed. The Operations Observer retains automatic evidence refresh; Project Worker capacity remains 4 replicas × 3 = 12 simultaneous heavy executions; per-execution budget enforcement and Owner access policies are unchanged.
 - Production is **not** considered armed until this source passes protected PR/CI, is merged, the exact merged Project Worker image is rebuilt, and all four workers are recreated healthy with post-arm Free/Paid acceptance.
+
+## Owner scope revision — 2026-09-06
+
+The Owner explicitly revised the completion scope after Batch D deployment:
+
+- **Exclude AI/provider authorities that are not currently connected/usable.** They remain documented as external exclusions and must not block completion of the connected-provider launch set. No unavailable provider is represented as connected or accepted.
+- **Exclude XR and all completion work that follows the XR boundary in the prior roadmap from the current completion contract.** This means XR physical-device acceptance and subsequent regulated/high-stakes, Realtime 1000-user/HA, platform multi-host/off-site infrastructure, optional external product integrations/store publication and other post-XR expansion work remain recorded but are not blockers for the Owner's current scoped completion.
+- Continue and fully close every internally satisfiable item **before the XR boundary**, including storage/runtime activation, connected-provider Project AI, credit-monitoring behavior that can be truthfully configured, media capabilities whose provider/storage authority is actually available, governance reconciliation and pre-XR voice/podcast capabilities where real authority exists.
+- Every closure, exclusion and residual external dependency must be recorded in this report before the scoped project is called complete.
+
+This is a scope exclusion, not evidence fabrication: excluded items remain visible in the historical gap register and are not relabeled as production-ready.
+
+## Batch D — CLOSED in production — 2026-09-06
+
+- Protected PR **#556** passed all required checks and merged without bypass.
+- Source head: `c46c8c351680deec67d5e3d5c690f45554e9662a`; merge commit: `3e26b84f5f22b20237703aa0a666c93ee57d7034`.
+- A fresh pre-arm protected backup `253299b7-7099-46f1-999a-218b85d29373` completed (20,421,948 bytes) and matching restore validation `fac283e1-eab3-41c3-a00c-8cb0ecb4d232` completed with `validated=true` before worker recreation.
+- Exact merged Project Worker image: `sha256:218fb85d6c9663577590102d696c6d2252abff2681a44c7341acd3d3d4cef726`; previous production image was retained as rollback evidence.
+- All four Project Workers were recreated healthy with restart count 0 and runtime selectors `PROJECT_EXECUTION_RUNNER_MODE=phase36c`, `PROJECT_AI_LIVE_RUNTIME_ENABLED=true`, worker capacity 3 and tenant active limit 6. Aggregate heavy execution capacity remains 12.
+- Post-arm **Free** bounded canary passed and selected local-only `ollama` (14 input / 3 output tokens). Post-arm **Paid** bounded canary passed and selected `openai` (10 input / 5 output tokens). Synthetic canary data was removed after both acceptances.
+- Model-evidence refresh remains owned by Operations Observer and active independently of Project Workers.
+- G03 is closed for the connected/accepted launch-provider set. Unavailable provider authorities remain explicit external exclusions under the Owner scope revision above.
+
+**Next active work:** close pre-XR Batch C/F storage + media runtime boundaries, then remaining pre-XR credit/governance/voice-podcast items that can be proven with current authorities.
+
+## Batch C/F — shared local media authority checkpoint — 2026-09-06
+
+- Under the revised Owner scope, the unavailable AWS authority is excluded rather than fabricated as repaired. S3/Bedrock remain documented external exclusions.
+- The production `media_asset_data` volume is real and non-empty (18 MiB / 9 files at this checkpoint), private mode 0700 and owned by runtime UID/GID 1000:1000.
+- All media producer workers already mount that named volume at `/var/lib/aionex/media-assets`, but the Backend did not. This was the concrete cross-service retrieval defect behind G06.
+- Source now gives Backend the same explicit `MEDIA_STORAGE_TYPE=local`, `MEDIA_STORAGE_ROOT=/var/lib/aionex/media-assets` and read/write `media_asset_data` mount in both production Compose definitions. No S3 credential or external provider status is changed.
+- Added a regression contract proving Backend and all pre-XR media workers resolve the same private local storage root/volume in both Compose definitions. Focused media/storage regression: `8 passed, 0 failed`.
+- Production activation remains pending protected PR/CI/merge. After merge, Backend must be recreated and a worker-write → Backend-read/delete checksum acceptance must pass before any currently-disabled media live flag is armed.
