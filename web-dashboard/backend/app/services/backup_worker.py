@@ -937,6 +937,84 @@ class BackupJobWorker:
             )
             await session.commit()
 
+    async def _enqueue_latest_scheduled_restore_validation_if_needed(self) -> bool:
+        """Queue one restore validation for the latest scheduled platform backup.
+
+        The release backup gate is intentionally tied to the newest backup.  This
+        helper closes the scheduler gap without retry storms: a backup receives at
+        most one automatic validation record, while a failed validation remains a
+        visible operator incident that requires an explicit decision.
+        """
+        if (
+            not settings.BACKUP_SCHEDULE_ENABLED
+            or not settings.BACKUP_AUTO_RESTORE_VALIDATION_ENABLED
+        ):
+            return False
+        async with self._session_factory() as session:
+            await acquire_enqueue_lock(session, "restore-validation")
+            active = await session.scalar(
+                select(DisasterRecoveryRun.id)
+                .where(
+                    DisasterRecoveryRun.status.in_({"pending", "running"}),
+                    DisasterRecoveryRun.operation.in_({"restore_validation", "test"}),
+                )
+                .limit(1)
+            )
+            if active is not None:
+                return False
+            backup = await session.scalar(
+                select(BackupRecord)
+                .where(
+                    BackupRecord.kind == "scheduled-production",
+                    BackupRecord.scope == "platform",
+                    BackupRecord.status == "completed",
+                    BackupRecord.location.is_not(None),
+                    BackupRecord.checksum.is_not(None),
+                    BackupRecord.size_bytes.is_not(None),
+                    BackupRecord.size_bytes > 0,
+                )
+                .order_by(BackupRecord.completed_at.desc(), BackupRecord.created_at.desc())
+                .limit(1)
+                .with_for_update()
+            )
+            if backup is None:
+                return False
+            existing = await session.scalar(
+                select(DisasterRecoveryRun.id)
+                .where(
+                    DisasterRecoveryRun.operation == "restore_validation",
+                    DisasterRecoveryRun.details["backup_id"].as_string() == backup.id,
+                )
+                .limit(1)
+            )
+            if existing is not None:
+                return False
+            run = DisasterRecoveryRun(
+                operation="restore_validation",
+                status="pending",
+                details={
+                    "backup_id": backup.id,
+                    "dry_run": True,
+                    "requested_by": "scheduled-backup-worker",
+                    "auto_enqueued": True,
+                },
+            )
+            session.add(run)
+            await session.flush()
+            session.add(
+                _system_audit(
+                    "dr.schedule.restore_validation.queued",
+                    "disaster_recovery_run",
+                    run.id,
+                    {
+                        "backup_id": backup.id,
+                        "automatic": True,
+                    },
+                )
+            )
+            await session.commit()
+            return True
+
     async def _enqueue_scheduled_backup_if_due(self) -> bool:
         """Queue one protected platform backup when the production schedule is due."""
         if not settings.BACKUP_SCHEDULE_ENABLED:
@@ -996,6 +1074,7 @@ class BackupJobWorker:
                 backup,
                 self.execute_backup,
             )
+            await self._enqueue_latest_scheduled_restore_validation_if_needed()
             await self._apply_retention(
                 current_backup_id=backup.id,
                 pressure=False,
@@ -1016,7 +1095,9 @@ class BackupJobWorker:
         if now < self._next_maintenance_at:
             return False
         self._next_maintenance_at = now + MAINTENANCE_INTERVAL_SECONDS
-        await self._enqueue_scheduled_backup_if_due()
+        restore_queued = await self._enqueue_latest_scheduled_restore_validation_if_needed()
+        if not restore_queued:
+            await self._enqueue_scheduled_backup_if_due()
         await self._apply_retention(
             current_backup_id=None,
             pressure=False,
