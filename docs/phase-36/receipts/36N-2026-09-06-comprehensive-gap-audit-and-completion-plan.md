@@ -182,3 +182,12 @@ Batch A starts immediately from this report.
 - Finalization was then re-evaluated with a properly initialized Redis runtime client: `completion=100`; database, Redis, Backend, runtime components, operations, security, validation, performance, backup and Owner approval all passed.
 - A diagnostic fresh process that did not initialize the process-global Redis client temporarily reported Redis offline and finalization 60%; this was a harness misuse, not a production Redis outage. Direct Backend `/health` and `/ready`, Redis container health and the correctly initialized finalization snapshot all passed.
 - Remaining Batch A work: protected PR/CI/merge, deploy Backend + Backup Worker from exact merged source, then prove a **new** scheduled backup automatically creates and completes its own matching restore validation without manual insertion.
+
+## Batch A security-gate follow-up — 2026-09-06
+
+- PR #554 correctly failed the protected Backend SBOM/vulnerability gate after Trivy refreshed its database and found six newly disclosed HIGH `util-linux/libuuid` vulnerabilities in Alpine package `libuuid 2.41.4-r0`; fixed packages are available at `2.41.6-r0/r1`. This is a newly surfaced base-image package issue, not a failure in the backup automation logic.
+- The runtime Dockerfile already performs explicit security upgrades for selected Alpine runtime libraries. `libuuid` was added to that controlled upgrade list so the protected rebuild consumes the fixed repository package while retaining the immutable base-image digest.
+- No vulnerability suppression, ignore rule or protected-branch bypass is used. PR #554 must rerun the full security gate on the new head.
+- Local rebuilt runtime contains `libuuid-2.41.6-r1`; Trivy 0.72.0 HIGH/CRITICAL vulnerability scan on the rebuilt runtime exits 0 with no HIGH/CRITICAL findings.
+- During the same checkpoint, the two isolated post-launch scale-test containers and their isolated test network/anonymous volumes were removed after proving they had no Compose labels, no production network references and `restart=no`. Host running containers now equal the 35 production Compose containers. No blind Docker prune was executed.
+- AWS diagnosis was refined without exposing credentials: the same configured AWS authority used by the S3-compatible media path fails STS identity validation with `InvalidClientTokenId`/HTTP 403. This explains both the media S3 403 and the AWS Bedrock provider error as one external AWS credential-authority problem. No AWS secret was printed or changed.
