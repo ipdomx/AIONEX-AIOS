@@ -191,3 +191,29 @@ Batch A starts immediately from this report.
 - Local rebuilt runtime contains `libuuid-2.41.6-r1`; Trivy 0.72.0 HIGH/CRITICAL vulnerability scan on the rebuilt runtime exits 0 with no HIGH/CRITICAL findings.
 - During the same checkpoint, the two isolated post-launch scale-test containers and their isolated test network/anonymous volumes were removed after proving they had no Compose labels, no production network references and `restart=no`. Host running containers now equal the 35 production Compose containers. No blind Docker prune was executed.
 - AWS diagnosis was refined without exposing credentials: the same configured AWS authority used by the S3-compatible media path fails STS identity validation with `InvalidClientTokenId`/HTTP 403. This explains both the media S3 403 and the AWS Bedrock provider error as one external AWS credential-authority problem. No AWS secret was printed or changed.
+
+## Batch A — CLOSED in production — 2026-09-06
+
+- Protected PR: **#554**.
+- Final source head before merge: `1e79bec10b9e4c6c18adf1ff8b5aa8874bbb09af`.
+- Merge commit: `17c6c4695b7734d1296a46bb21e77e5141190036`.
+- Required CI: all PASS, including Backend Tests, Production Docker Build, Backend SBOM/vulnerability, CodeQL Python/JS, dependency security, browser boundaries, repository hygiene and Phase 36 reporting.
+- The first security run discovered six new HIGH Alpine `libuuid` CVEs. The runtime was patched to `libuuid-2.41.6-r1`; local Trivy and the rerun protected SBOM/vulnerability gate both passed with zero HIGH/CRITICAL findings. The patch was propagated to Backend, Media, Image Derivative and Project Worker production image families.
+- Pre-deploy protected backup: `6bf2b444-73df-43cd-9109-53b467e0715b`, 20,390,659 bytes, SHA-256 `b78faf2c7c817b46c357261adb96c84b858c513648d26c930d4b5d500226dc1d`; matching restore validation `83f05870-ac8e-4407-8338-b2be3b450703` completed with `validated=true`.
+- Production `main` equals remote `main` at the merge commit; schema remains `20260905_0044`.
+- Patched production image IDs: Backend `feab9862d579...`, Media/Video `2a048dd4fdb7...`, Image Derivative `e2b5e6e67711...`, Project Worker `9aa8fd232f34...`. All inspected families contain `libuuid-2.41.6-r1` and local HIGH/CRITICAL Trivy scans return zero findings.
+- Backend and every long-running Backend-image worker were recreated from the patched exact merged source. Media/Video/Image-Derivative and all four Project Workers were recreated from their patched derived images.
+- Post-deploy: 35 production containers running, unhealthy=0, restart sum=0, systemd failed units=0, runtime-watch timer active, Backend `/health`=200 and `/ready`=200.
+- **Automatic self-closing acceptance:** a new production `scheduled-production` backup `58d45718-f701-463b-8df4-157a6497c9f0` was queued after deployment. Without manually creating a DR record, the new Backup Worker automatically created restore validation `92c8516d-19d4-43ce-b2e2-56477abf19d4` with `auto_enqueued=true`; it completed `validated=true`.
+- Finalization after that *newer* backup remained **100%**, with Security, Validation, Performance, Backup and Owner Approval all passed. G01 is therefore closed durably.
+
+Batch B is now active.
+
+## Batch B — operational cleanup and historical delivery reconciliation — 2026-09-06
+
+- The two isolated post-launch acceptance containers and their isolated network/anonymous volumes had already been removed after reference classification. Host running container count now equals the 35 production Compose containers.
+- Classified all remaining dangling volumes before mutation. Twenty-five anonymous volumes created by the 2026-09-05 local acceptance runs were unreferenced and contained only disposable PostgreSQL/Redis/TURN/test scratch state; all 25 were removed individually. The named `aionex-ollama-phase22b-models` volume was explicitly preserved even though it is currently dangling because it is a deliberate local-model asset, not test residue.
+- Classified dangling images by live-container ancestry. Eight unreferenced dangling images were removed individually; images referenced by running containers were preserved. No blind `docker system prune` or volume prune was executed.
+- Docker build cache remains intentionally retained for protected rebuild speed; disk free space is >500 GiB, so deleting verified reusable build cache provides no reliability benefit at this checkpoint. Final release engineering may prune it after all completion batches and rollback windows close.
+- Historical communications terminal evidence was reviewed in place. Twelve Email `dead_letter` and eleven Push `unconfigured` records were marked in `delivery_metadata.historical_reconciliation` as reviewed/preserved terminal evidence with `retry_performed=false`, and matching audit events were written. Original terminal statuses, attempts and error evidence were preserved; **zero stale messages were resent**. This prevents cleanup from falsifying history or spamming users with obsolete 3D/billing/support/provider-credit events.
+- Current production remains 35/35 running, unhealthy=0, restart sum=0. Batch B runtime cleanup is complete; final build-cache cleanup remains intentionally deferred to Batch L.
