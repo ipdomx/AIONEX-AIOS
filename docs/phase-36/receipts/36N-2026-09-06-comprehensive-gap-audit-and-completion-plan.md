@@ -1,5 +1,9 @@
 # Phase 36N — Comprehensive Production Gap Audit and Completion Plan — 2026-09-06
 
+## Current scoped status — 2026-09-07
+
+**SCOPED PRE-XR INTERNAL CLOSEOUT: COMPLETE AND DEPLOYED.** The authoritative final certification is `docs/phase-36/receipts/36N-2026-09-07-pre-xr-final-production-certification.md`. It supersedes earlier historical `IN_PROGRESS`, `Next active work`, and pending-deployment checkpoint language in this audit for the currently agreed scope. External rights, signing, physical-device/chain authority, unavailable providers, private numeric balance facts, XR and post-XR expansion remain explicitly external/excluded and are not fabricated as PASS.
+
 ## Purpose
 
 This is the authoritative post-launch gap audit requested by the Owner after the production rollout. It records the live server, database, Docker, Git/CI, Phase 29/36, provider, storage, communications, mobile, payments, realtime, Growth/Social, backup/DR and scale findings. It is deliberately stricter than a container-health or green-CI statement: a capability is not called complete unless its live runtime/evidence boundary is complete.
@@ -367,3 +371,20 @@ Based on these bounded acceptances and the existing authoritative receipts, sour
 - `unresolved_capabilities` remains reserved for maturity below `runtime_verified`; therefore 36H truthfully has zero unresolved runtime capabilities while still exposing its consent/public-edge activation gates.
 - Focused root governance regression after the correction: `17/17 PASS`.
 - No Production mutation or provider request was performed by this contract correction.
+
+
+## 2026-09-07 — Final scoped Production certification after PR #560
+
+- Protected PR #560 passed every required GitHub gate and merged as `0c939ecdd23900c06dd31b3be589302c39705fdf`; no branch-protection bypass was used.
+- Production `/opt/AIOS` was fast-forwarded to that exact merge commit before Backend/Owner Frontend build and recreate.
+- New pre-deploy Backup Worker record `1ba65369-beb0-4100-b83c-ec44fcf0347f` completed at 20,479,615 bytes with SHA-256 `697a514e4f52a96b9afb6281bf7b54077e3cb664f7fc60685555756503e5935c`.
+- Post-deploy restore-validation `07a42fbb-c12c-4f0a-af86-aadb2ad80822` completed with `validated=true`.
+- Backend image is `sha256:265133031badf2243984e496f22e49e66622b9eadc006ef00efdf097c6fd9ea9`; Owner Frontend image is `sha256:40b87281a17864d460b919f2e42840d4ab781c2a1a9dcddb5c11d7baf95c3d88`; both are Healthy with restart count 0.
+- Production remains exactly 35 containers: 34 report Docker `healthy`; cloudflared remains the one running service without a Docker healthcheck. No unhealthy/nonzero-restart service was found.
+- `/ready=200`, Studio and Owner External Activation pages return 200, unauthenticated Owner API returns 401, and the deployed Frontend bundle contains the synthetic stock-voice disclosure.
+- Live external-activation ledger: `satisfied_runtime=7`, `enforced_internal_external_pending=3`, `blocked_external=5`, `excluded_current_scope=1`, `satisfied_external_evidence=0`. Podcast, public STUN/TURN/SFU, consent/Egress, recording/Studio, provider funding policy and synthetic-voice disclosure are runtime-satisfied.
+- Deployed Speech and Dubbing schemas require `synthetic_voice_disclosure_accepted` and constrain it to literal `true`.
+- Active Speech/Transcript/Dubbing/Music/Song/Video/Design/MediaGraph/ProjectExecution counts are all zero.
+- Bounded recent logs for Backend, Frontend, Backup Worker, Speech Worker and Dubbing Worker contained zero ERROR/Traceback/CRITICAL/panic matches.
+- Full certification: `docs/phase-36/receipts/36N-2026-09-07-pre-xr-final-production-certification.md`.
+- **Current scoped conclusion:** every internally satisfiable pre-XR closeout item is complete. Remaining entries are external authority, optional/excluded product expansion, XR/post-XR scope, or truthful private-provider facts that cannot be fabricated.
