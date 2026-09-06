@@ -27,7 +27,7 @@ services:
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
       AIOS_PUBLIC_ORIGIN: ${PUBLIC_ORIGIN}
       AIOS_API_ORIGIN: ${API_ORIGIN}
-      FIREBASE_ADMIN_CREDENTIALS_JSON: /run/secrets/aionex/firebase-admin.json
+      FIREBASE_ADMIN_CREDENTIALS_JSON: /run/firebase-admin-runtime/firebase-admin.json
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
       THREE_D_RUNPOD_SECRET_FILE: /run/secrets/aionex/RUNPOD_GPU.env
@@ -42,6 +42,7 @@ services:
     volumes:
       - ../..:/workspace:ro
       - ../../web-dashboard/secrets:/run/secrets/aionex:ro
+      - ${AIOS_FIREBASE_ADMIN_HOST_FILE:-/root/.config/aionex/firebase-runtime/firebase-admin.json}:/run/firebase-admin-runtime/firebase-admin.json:ro
       - ${AIOS_TELEGRAM_BOT_TOKEN_HOST_FILE:-/root/.config/aionex/telegram/bot-token}:/run/operator-secrets/telegram-bot-token:ro
       - backup_data:/var/lib/aionex/backups:ro
       - portal_asset_data:/var/lib/aionex/portal-assets:rw
@@ -129,7 +130,7 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
       REDIS_URL: redis://redis:6379/0
-      FIREBASE_ADMIN_CREDENTIALS_JSON: /run/secrets/aionex/firebase-admin.json
+      FIREBASE_ADMIN_CREDENTIALS_JSON: /run/firebase-admin-runtime/firebase-admin.json
       AIOS_TELEGRAM_BOT_TOKEN_FILE: /run/operator-secrets/telegram-bot-token
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
@@ -141,6 +142,7 @@ services:
     volumes:
       - ../..:/workspace:ro
       - ../../web-dashboard/secrets:/run/secrets/aionex:ro
+      - ${AIOS_FIREBASE_ADMIN_HOST_FILE:-/root/.config/aionex/firebase-runtime/firebase-admin.json}:/run/firebase-admin-runtime/firebase-admin.json:ro
       - ${AIOS_TELEGRAM_BOT_TOKEN_HOST_FILE:-/root/.config/aionex/telegram/bot-token}:/run/operator-secrets/telegram-bot-token:ro
     depends_on:
       backend:
