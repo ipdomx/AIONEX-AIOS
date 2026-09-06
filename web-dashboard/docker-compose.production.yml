@@ -114,7 +114,6 @@ services:
     volumes:
       - ..:/workspace:ro
       - ./secrets:/run/secrets/aionex:ro
-      - ${AIOS_FIREBASE_ADMIN_HOST_FILE:-/root/.config/aionex/firebase-runtime/firebase-admin.json}:/run/secrets/aionex/firebase-admin.json:ro
       - ${AIOS_TELEGRAM_BOT_TOKEN_HOST_FILE:-/root/.config/aionex/telegram/bot-token}:/run/operator-secrets/telegram-bot-token:ro
       - ${AIOS_USER_TELEGRAM_BOT_TOKEN_HOST_FILE:-/root/.config/aionex/telegram/user-bot-token}:/run/operator-secrets/user-telegram-bot-token:ro
       - backup_data:/var/lib/aionex/backups:ro
@@ -225,7 +224,6 @@ services:
     volumes:
       - ..:/workspace:ro
       - ./secrets:/run/secrets/aionex:ro
-      - ${AIOS_FIREBASE_ADMIN_HOST_FILE:-/root/.config/aionex/firebase-runtime/firebase-admin.json}:/run/secrets/aionex/firebase-admin.json:ro
       - ${AIOS_TELEGRAM_BOT_TOKEN_HOST_FILE:-/root/.config/aionex/telegram/bot-token}:/run/operator-secrets/telegram-bot-token:ro
       - ${AIOS_USER_TELEGRAM_BOT_TOKEN_HOST_FILE:-/root/.config/aionex/telegram/user-bot-token}:/run/operator-secrets/user-telegram-bot-token:ro
     depends_on:
