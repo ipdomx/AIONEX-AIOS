@@ -691,4 +691,6 @@ def test_production_compose_supports_postgres_password_file_and_workspace_mount(
     ):
         text = compose_path.read_text()
         assert "POSTGRES_PASSWORD_FILE: ${POSTGRES_INIT_PASSWORD_FILE:-}" in text
+        assert "POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}" in text
+        assert "POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required" not in text
         assert "/workspace:ro" in text

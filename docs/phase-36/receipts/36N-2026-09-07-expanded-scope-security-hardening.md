@@ -41,6 +41,7 @@ The candidate adds file-backed runtime secret support instead of replacing one p
 - Runtime secret files must be absolute, regular, non-symlink files with no group/other permissions and exactly one non-empty line.
 - The PostgreSQL credential reconciler independently supports the private password file with the same fail-closed regular-file/permissions rules.
 - Both production Compose definitions provide read-only `/workspace` access to the PostgreSQL reconciler and optional `POSTGRES_INIT_PASSWORD_FILE` support for the bundled PostgreSQL container.
+- The production Compose contract no longer requires a non-empty `POSTGRES_PASSWORD` environment value when the private password-file path is used; CI/test deployments may still use the legacy environment value when no file is configured.
 - No secret is copied into a Docker image or Git source.
 
 Host runtime secret files have been prepared under the existing Git-ignored secrets tree but are not yet activated. File metadata only:
