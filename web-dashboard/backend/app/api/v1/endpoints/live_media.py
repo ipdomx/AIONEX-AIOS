@@ -270,6 +270,7 @@ class SpeechLiveRequest(LiveScope):
     voice: Literal["alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse", "marin", "cedar"] = "marin"
     instructions: str = Field(default="", max_length=4096)
     speed: float = Field(default=1.0, ge=0.25, le=4.0)
+    synthetic_voice_disclosure_accepted: Literal[True]
     approved_max_cost_usd: float = Field(default=0.05, gt=0, le=0.05)
 
 
@@ -288,6 +289,7 @@ class DubbingLiveRequest(LiveScope):
     target_language: str = Field(min_length=2, max_length=32)
     voice_bindings: dict[str, str] = Field(min_length=1, max_length=32)
     output_profile_id: str = "wav-pcm-48k-stereo"
+    synthetic_voice_disclosure_accepted: Literal[True]
     max_translation_cost_usd: float = Field(gt=0, le=2.0)
     per_segment_speech_cap_usd: float = Field(gt=0, le=0.10)
     approved_max_total_cost_usd: float = Field(gt=0, le=5.0)
@@ -541,7 +543,7 @@ async def create_live_speech(data: SpeechLiveRequest, actor: UserRecord = Depend
             max_attempts=1,
         )
         row = await arm_audio_speech_execution(session, execution_id=pipeline.speech_execution_id, organization_id=actor.organization_id, approved_max_cost_usd=data.approved_max_cost_usd)
-        await _audit(session, actor, "studio.live_media.speech.armed", "audio_speech_execution", row.id, {"provider": row.provider, "model": row.model, "approved_max_cost_usd": data.approved_max_cost_usd})
+        await _audit(session, actor, "studio.live_media.speech.armed", "audio_speech_execution", row.id, {"provider": row.provider, "model": row.model, "approved_max_cost_usd": data.approved_max_cost_usd, "synthetic_voice_disclosure_accepted": True})
         await session.commit()
         return {"kind": "speech", **(await audio_speech_execution_snapshot(session, organization_id=actor.organization_id, execution_id=row.id))}
     except Exception as exc:
@@ -592,7 +594,7 @@ async def create_live_dubbing(data: DubbingLiveRequest, actor: UserRecord = Depe
     try:
         pipeline = await create_audio_dubbing_pipeline(session, scope=scope, source_transcript_node_id=source.id, document=document, target_language=data.target_language, voice_bindings=bindings, output_profile_id=data.output_profile_id, idempotency_key=data.idempotency_key, max_translation_cost_usd=data.max_translation_cost_usd, per_segment_speech_cap_usd=data.per_segment_speech_cap_usd, max_total_cost_usd=data.approved_max_total_cost_usd)
         row = await arm_audio_dubbing_execution(session, execution_id=pipeline.execution_id, organization_id=actor.organization_id, approved_max_total_cost_usd=data.approved_max_total_cost_usd)
-        await _audit(session, actor, "studio.live_media.dubbing.armed", "audio_dubbing_execution", row.id, {"target_language": data.target_language, "approved_max_total_cost_usd": data.approved_max_total_cost_usd, "voice_mode": "stock"})
+        await _audit(session, actor, "studio.live_media.dubbing.armed", "audio_dubbing_execution", row.id, {"target_language": data.target_language, "approved_max_total_cost_usd": data.approved_max_total_cost_usd, "voice_mode": "stock", "synthetic_voice_disclosure_accepted": True})
         await session.commit()
         return {"kind": "dubbing", **(await audio_dubbing_execution_snapshot(session, organization_id=actor.organization_id, execution_id=row.id))}
     except Exception as exc:

@@ -343,3 +343,27 @@ Based on these bounded acceptances and the existing authoritative receipts, sour
 - Production deployment remains gated on protected PR/CI/merge; no branch protection bypass is used.
 
 **Next active work:** protected PR/CI/merge/deploy for Batch G; then close the remaining pre-XR provider-rendered podcast/jingle boundary that can use current accepted providers, while retaining voice-transformation rights/consent as an explicit external authority boundary unless real rights evidence is supplied.
+
+
+## 2026-09-07 — Final pre-XR runtime closeout batch
+
+- Governance PR #559 merged and was deployed from merge commit `dbc7e050a257b4113c4dbd1b3908a41dd1ee9dad` with Backend/Frontend healthy, restart=0, and Production remaining at 35 containers.
+- Pre-deploy DB backup `40abe2e4-1044-411d-86b9-2d573388d290` completed: 20,469,637 bytes, SHA-256 `4de39cec0a72aeda322945b3c573606a4dfd46a75f4bfe04510a33aff872a8e5`.
+- Real multi-speaker Podcast acceptance completed on Production using the persistent `audio-speech-worker`: exactly two OpenAI stock-voice renders (`marin`, `cedar`), one attempt each, final WAV 16.3 seconds / 3,129,644 bytes / SHA-256 `bb043bd1cf7583ba2d4fd1f09d32a6c9c5a38839c16236fe807d3bdbed7b549e`.
+- Independent Backend storage readback matched; final artifact deleted and verified missing; 10/10 child media objects deleted and verified missing; synthetic DB scope and all relevant queues returned to zero.
+- Safe Podcast evidence SHA-256: `358cae32dc9b41705b453f4cff3d9224ae47f84e701f89600bd174a5a9d7b61d`.
+- `provider-rendered-podcast-jingle-runtime-evidence` is now backed by real runtime evidence; music rights remain a separate external authority and are not inferred.
+- Phase 36H public edge receipt proves off-host STUN/TCP 443, LiveKit WebSocket 101, and browser camera+microphone publish; `public-stun-turn-and-sfu-capacity` is reconciled from stale blocked state to runtime evidence.
+- `podcast-jingle-narration`, `realtime-chat-calling`, and `realtime-streaming-recording` are updated to `runtime_verified` with authoritative receipts.
+- Stock Speech/Dubbing user requests are hardened to require explicit `synthetic_voice_disclosure_accepted=true`; the Studio UI shows a visible synthetic stock-voice disclosure and refuses queueing until the user accepts it. Audit records retain the acceptance.
+- Focused Backend regression on isolated PostgreSQL 16 + Redis 7 through Alembic `20260905_0044`: 22 passed, 0 failed.
+- Frontend API contract/type-check, ESLint, Prettier, and Production Next.js build: PASS; 91 routes generated.
+- The synthetic-voice disclosure source change is not considered runtime-satisfied until this batch passes protected CI, merges, and deploys. No external legal/rights/balance/device fact is fabricated.
+
+### 2026-09-07 — External-gate snapshot contract correction
+
+- Core CI exposed a stale governance assertion after `podcast-jingle-narration` and the complete 36H realtime pair became `runtime_verified`.
+- The Phase 36 snapshot now reports activation gates from every capability in an `external_gate` batch, not only from capabilities below `runtime_verified`.
+- `unresolved_capabilities` remains reserved for maturity below `runtime_verified`; therefore 36H truthfully has zero unresolved runtime capabilities while still exposing its consent/public-edge activation gates.
+- Focused root governance regression after the correction: `17/17 PASS`.
+- No Production mutation or provider request was performed by this contract correction.

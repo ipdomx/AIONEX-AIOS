@@ -47,12 +47,44 @@ OWNER_EVIDENCE_REVIEWABLE_GATES = frozenset({
 })
 REALTIME_ACCEPTANCE_RECEIPT_SHA256 = "94cf95bbda3a97a1e6583bb5d9cc41d31339f7851871ad5aa0cde70d4fd119b2"
 REALTIME_ACCEPTANCE_RECEIPT_PATH = "docs/phase-36/receipts/36H-2026-09-05-realtime-production-activation.md"
+PRE_XR_RUNTIME_CLOSEOUT_RECEIPT_SHA256 = "a7152b259a575253d444411f6bca7756e2b82818b06d6d2cccb9c8122b0060c5"
+PRE_XR_RUNTIME_CLOSEOUT_RECEIPT_PATH = "docs/phase-36/receipts/36N-2026-09-07-pre-xr-runtime-closeout.md"
 RUNTIME_RECEIPT_EVIDENCE: dict[str, dict[str, Any]] = {
     "explicit-consent-egress-runtime-acceptance": {
         "source": "phase36-authoritative-receipt",
         "receipt_path": REALTIME_ACCEPTANCE_RECEIPT_PATH,
         "receipt_sha256": REALTIME_ACCEPTANCE_RECEIPT_SHA256,
         "assertions": ["all-participant-consent", "egress-complete"],
+    },
+    "public-stun-turn-and-sfu-capacity": {
+        "source": "phase36-authoritative-receipt",
+        "receipt_path": REALTIME_ACCEPTANCE_RECEIPT_PATH,
+        "receipt_sha256": REALTIME_ACCEPTANCE_RECEIPT_SHA256,
+        "assertions": [
+            "off-host-stun-tcp-443-pass",
+            "off-host-livekit-websocket-101-pass",
+            "browser-camera-microphone-publish-pass",
+        ],
+    },
+    "provider-rendered-podcast-jingle-runtime-evidence": {
+        "source": "phase36-authoritative-receipt",
+        "receipt_path": PRE_XR_RUNTIME_CLOSEOUT_RECEIPT_PATH,
+        "receipt_sha256": PRE_XR_RUNTIME_CLOSEOUT_RECEIPT_SHA256,
+        "assertions": [
+            "two-stock-voice-provider-renders",
+            "final-podcast-wav-readback",
+            "synthetic-residue-zero",
+        ],
+    },
+    "synthetic-voice-disclosure": {
+        "source": "phase36-runtime-enforcement-receipt",
+        "receipt_path": PRE_XR_RUNTIME_CLOSEOUT_RECEIPT_PATH,
+        "receipt_sha256": PRE_XR_RUNTIME_CLOSEOUT_RECEIPT_SHA256,
+        "assertions": [
+            "backend-literal-true-required",
+            "studio-ui-explicit-acknowledgement",
+            "audit-retains-acceptance",
+        ],
     },
     "recording-retention-and-studio-ingestion-runtime-evidence": {
         "source": "phase36-authoritative-receipt",

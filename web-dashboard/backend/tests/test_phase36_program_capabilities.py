@@ -46,7 +46,7 @@ async def test_phase36_public_capability_snapshot_is_truthful_and_non_secret() -
     assert capabilities["video-final-export"]["maturity"] == "runtime_verified"
     assert capabilities["stt-tts-dubbing"]["maturity"] == "runtime_verified"
     assert capabilities["stt-tts-dubbing"]["external_gates"] == ("synthetic-voice-disclosure",)
-    assert capabilities["podcast-jingle-narration"]["maturity"] == "source_built"
+    assert capabilities["podcast-jingle-narration"]["maturity"] == "runtime_verified"
     assert capabilities["podcast-jingle-narration"]["external_gates"] == (
         "provider-rendered-podcast-jingle-runtime-evidence",
         "synthetic-voice-disclosure",
@@ -64,6 +64,8 @@ async def test_phase36_public_capability_snapshot_is_truthful_and_non_secret() -
     assert capabilities["song-production"]["external_gates"] == (
         "music-rights-and-ai-generated-disclosure",
     )
+    assert capabilities["realtime-chat-calling"]["maturity"] == "runtime_verified"
+    assert capabilities["realtime-streaming-recording"]["maturity"] == "runtime_verified"
     assert capabilities["voice-transformation"]["maturity"] == "specified"
     assert payload["completion"] < 100
     assert payload["production_ready_capabilities"] < payload["total_capabilities"]
