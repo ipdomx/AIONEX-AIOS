@@ -6,6 +6,7 @@ Requires=docker.service
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/python3 /opt/AIOS/scripts/operations/docker-runtime-watch.py --project web-dashboard --state-file /var/lib/aionex-runtime-watch/state.json
+ExecStart=/usr/bin/python3 /opt/AIOS/scripts/operations/host-capacity-guard.py --project web-dashboard --state-file /var/lib/aionex-runtime-watch/capacity-state.json --interface wan0
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
