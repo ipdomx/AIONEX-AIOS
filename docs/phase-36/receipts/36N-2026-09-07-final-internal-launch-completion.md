@@ -51,3 +51,7 @@ Android App Links remain live with the real release certificate fingerprint. A d
 - iOS App Store signing and additional social-platform OAuth accounts are external account authorities, not unfinished internal code paths.
 
 AWS, Bedrock, XR and payment-provider activation remain last by explicit Owner instruction.
+
+## Off-host watchdog acceptance trigger
+
+The existing scheduled Security Baseline runner now executes the production availability probe for both `schedule` and explicit `workflow_dispatch` events. This allows an immediate GitHub-hosted acceptance run without adding or modifying a workflow file, while preserving the weekly independent schedule. The probe remains fail-closed for Public Portal, Public API readiness and User Portal and performs three bounded attempts per target.
