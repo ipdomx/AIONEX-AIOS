@@ -343,3 +343,16 @@ def test_password_reset_delivery_supports_implicit_ssl_and_starttls(
     account_security._deliver_password_reset("person@example.invalid", "token-value")
     assert ("starttls", True) in calls
     assert ("send", "person@example.invalid") in calls
+
+
+def test_mfa_ciphertext_and_backup_hash_accept_previous_rotation_key(monkeypatch) -> None:
+    old_key = "old-account-secret-key-with-more-than-32-characters"
+    new_key = "new-account-secret-key-with-more-than-32-characters"
+    monkeypatch.setattr(account_security.settings, "SECRET_KEY", old_key)
+    monkeypatch.setattr(account_security.settings, "SECRET_KEY_PREVIOUS", "")
+    ciphertext = account_security._encrypt_secret("JBSWY3DPEHPK3PXP")
+    old_hash = account_security._backup_hash("user-rotation", "ABCD-EF01")
+    monkeypatch.setattr(account_security.settings, "SECRET_KEY", new_key)
+    monkeypatch.setattr(account_security.settings, "SECRET_KEY_PREVIOUS", old_key)
+    assert account_security._decrypt_secret(ciphertext) == "JBSWY3DPEHPK3PXP"
+    assert old_hash in account_security._backup_hash_candidates("user-rotation", "ABCD-EF01")

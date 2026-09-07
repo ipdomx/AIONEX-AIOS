@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     WORKERS: int = Field(default=4, validation_alias="WORKERS")
     SECRET_KEY: str = Field(default="", validation_alias="SECRET_KEY")
     SECRET_KEY_FILE: str = Field(default="", validation_alias="SECRET_KEY_FILE")
+    SECRET_KEY_PREVIOUS: str = Field(default="", validation_alias="SECRET_KEY_PREVIOUS")
+    SECRET_KEY_PREVIOUS_FILE: str = Field(
+        default="", validation_alias="SECRET_KEY_PREVIOUS_FILE"
+    )
 
     DATABASE_URL: str = Field(default="", validation_alias="DATABASE_URL")
     POSTGRES_PASSWORD_FILE: str = Field(
@@ -1136,13 +1140,23 @@ class Settings(BaseSettings):
             self.SECRET_KEY = _read_private_runtime_secret(
                 self.SECRET_KEY_FILE, label="SECRET_KEY"
             )
+        if self.SECRET_KEY_PREVIOUS_FILE.strip():
+            self.SECRET_KEY_PREVIOUS = _read_private_runtime_secret(
+                self.SECRET_KEY_PREVIOUS_FILE, label="SECRET_KEY_PREVIOUS"
+            )
         if len(self.SECRET_KEY) < 32:
             raise ValueError("SECRET_KEY must contain at least 32 characters")
-        if (
-            self.ENVIRONMENT.strip().lower() == "production"
-            and self.SECRET_KEY == "change-this-to-a-secure-random-string"
-        ):
-            raise ValueError("Production SECRET_KEY cannot use the bootstrap default")
+        if self.SECRET_KEY_PREVIOUS and len(self.SECRET_KEY_PREVIOUS) < 32:
+            raise ValueError("SECRET_KEY_PREVIOUS must contain at least 32 characters")
+        if self.SECRET_KEY_PREVIOUS and self.SECRET_KEY_PREVIOUS == self.SECRET_KEY:
+            raise ValueError("SECRET_KEY_PREVIOUS must differ from SECRET_KEY")
+        if self.ENVIRONMENT.strip().lower() == "production":
+            if self.SECRET_KEY == "change-this-to-a-secure-random-string":
+                raise ValueError("Production SECRET_KEY cannot use the bootstrap default")
+            if self.SECRET_KEY_PREVIOUS and not self.SECRET_KEY_PREVIOUS_FILE.strip():
+                raise ValueError(
+                    "Production SECRET_KEY_PREVIOUS is only accepted from a private file"
+                )
         if self.POSTGRES_PASSWORD_FILE.strip():
             self.POSTGRES_PASSWORD = _read_private_runtime_secret(
                 self.POSTGRES_PASSWORD_FILE, label="POSTGRES_PASSWORD"

@@ -694,3 +694,32 @@ def test_production_compose_supports_postgres_password_file_and_workspace_mount(
         assert "POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}" in text
         assert "POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required" not in text
         assert "/workspace:ro" in text
+
+
+def test_production_accepts_private_previous_key_file_for_rotation(tmp_path: Path) -> None:
+    primary = tmp_path / "primary"
+    previous = tmp_path / "previous"
+    primary.write_text("new-primary-secret-key-with-more-than-32-characters")
+    previous.write_text("old-previous-secret-key-with-more-than-32-characters")
+    primary.chmod(0o600)
+    previous.chmod(0o600)
+    configured = Settings(
+        _env_file=None,
+        ENVIRONMENT="production",
+        SECRET_KEY_FILE=str(primary),
+        SECRET_KEY_PREVIOUS_FILE=str(previous),
+        POSTGRES_PASSWORD="safe-database-password",
+    )
+    assert configured.SECRET_KEY == primary.read_text()
+    assert configured.SECRET_KEY_PREVIOUS == previous.read_text()
+
+
+def test_production_rejects_previous_key_from_plain_environment() -> None:
+    with pytest.raises(ValueError, match="only accepted from a private file"):
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            SECRET_KEY="new-primary-secret-key-with-more-than-32-characters",
+            SECRET_KEY_PREVIOUS="old-previous-secret-key-with-more-than-32-characters",
+            POSTGRES_PASSWORD="safe-database-password",
+        )

@@ -400,3 +400,7 @@ Based on these bounded acceptances and the existing authoritative receipts, sour
 - Full checkpoint: `docs/phase-36/receipts/36N-2026-09-07-expanded-scope-security-hardening.md`.
 
 **Expanded-program execution order now active:** security credential hardening first, then remaining internal Batch L release/source cleanup, then Batch K product-integration internals, then Batch I/J scale/HA/DR/observability work that can be proven with available infrastructure. Genuine external authorities remain visible and fail-closed; AWS/Bedrock/XR are explicitly last.
+
+### 2026-09-07 — Expanded launch: safe key rotation recovery + G28/G29 closure candidate
+
+The expanded launch sequence exposed and recovered a secret-rotation sequencing defect before data loss. The runtime was returned to the retained production application images and pre-rotation credential contract; PostgreSQL credentials were reconciled back without secret readback. The corrective candidate uses a new primary application key plus a private-file-only previous key for legacy decrypt/backup-code verification, allowing encrypted provider/MFA material to survive rotation while new encryption/signing uses the primary key. G29 stale LiveKit source wording is removed. G28 now has a production release-manifest generator; the immutable runtime manifest will be generated only from the protected merged/deployed commit. AWS, Bedrock, XR and payment-provider activation remain deferred to the final batch by Owner instruction; all other internally satisfiable launch work remains active.

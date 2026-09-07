@@ -49,9 +49,20 @@ def _token_hash(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
-def _fernet() -> Fernet:
-    key = base64.urlsafe_b64encode(hashlib.sha256(settings.SECRET_KEY.encode("utf-8")).digest())
+def _fernet_for(secret_key: str) -> Fernet:
+    key = base64.urlsafe_b64encode(hashlib.sha256(secret_key.encode("utf-8")).digest())
     return Fernet(key)
+
+
+def _fernet() -> Fernet:
+    return _fernet_for(settings.SECRET_KEY)
+
+
+def _fernet_candidates() -> tuple[Fernet, ...]:
+    candidates = [_fernet()]
+    if settings.SECRET_KEY_PREVIOUS:
+        candidates.append(_fernet_for(settings.SECRET_KEY_PREVIOUS))
+    return tuple(candidates)
 
 
 def _encrypt_secret(secret: str) -> str:
@@ -59,10 +70,13 @@ def _encrypt_secret(secret: str) -> str:
 
 
 def _decrypt_secret(ciphertext: str) -> str:
-    try:
-        return _fernet().decrypt(ciphertext.encode("ascii")).decode("ascii")
-    except (InvalidToken, UnicodeDecodeError) as exc:
-        raise HTTPException(status_code=503, detail="MFA secret cannot be decrypted") from exc
+    last_error: Exception | None = None
+    for fernet in _fernet_candidates():
+        try:
+            return fernet.decrypt(ciphertext.encode("ascii")).decode("ascii")
+        except (InvalidToken, UnicodeDecodeError) as exc:
+            last_error = exc
+    raise HTTPException(status_code=503, detail="MFA secret cannot be decrypted") from last_error
 
 
 def _backup_hash(user_id: str, code: str) -> str:
@@ -72,6 +86,18 @@ def _backup_hash(user_id: str, code: str) -> str:
         f"{user_id}:{normalized}".encode("utf-8"),
         hashlib.sha256,
     ).hexdigest()
+
+
+def _backup_hash_candidates(user_id: str, code: str) -> tuple[str, ...]:
+    normalized = code.replace("-", "").replace(" ", "").upper()
+    payload = f"{user_id}:{normalized}".encode("utf-8")
+    keys = [settings.SECRET_KEY]
+    if settings.SECRET_KEY_PREVIOUS:
+        keys.append(settings.SECRET_KEY_PREVIOUS)
+    return tuple(
+        hmac.new(key.encode("utf-8"), payload, hashlib.sha256).hexdigest()
+        for key in keys
+    )
 
 
 def _totp(secret: str, counter: int | None = None) -> str:
@@ -312,10 +338,11 @@ async def _verify_mfa_code(session: AsyncSession, user_id: str, code: str, *, co
     if verify_totp(secret, code):
         record.last_used_at = _now()
         return True
-    candidate = _backup_hash(user_id, code)
-    if candidate in record.backup_code_hashes:
+    candidates = _backup_hash_candidates(user_id, code)
+    matched = next((value for value in candidates if value in record.backup_code_hashes), None)
+    if matched is not None:
         if consume_backup:
-            record.backup_code_hashes = [value for value in record.backup_code_hashes if value != candidate]
+            record.backup_code_hashes = [value for value in record.backup_code_hashes if value != matched]
         record.last_used_at = _now()
         return True
     return False
