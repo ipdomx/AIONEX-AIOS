@@ -32,3 +32,10 @@ The Owner notification bridge uses the project's existing channel policy: durabl
 Pure transition regression: PASS for warning debounce, critical escalation, dedupe and recovery. Live host baseline sample before deployment: CPU 15.49%, memory 11.15%, root disk 37.70%, normalized load 22.09%, swap 0.43%, network near idle; every metric classified `healthy`. The existing runtime-watch timer is active.
 
 Production activation remains gated on protected PR/CI/merge. After merge the systemd service definition must be installed/reloaded, the timer must remain active, a normal live sample must persist all metrics as healthy, and a bounded synthetic notification acceptance must prove the Owner delivery path without generating host load.
+
+## Production acceptance addendum
+
+- PR #587 merged as `2955d6c`; all protected checks passed, including Production Docker Build.
+- Host timer is enabled/active and the capacity state file is being written under `/var/lib/aionex-runtime-watch/`.
+- Acceptance warning and recovery both produced durable In-app and Telegram deliveries with no delivery error code.
+- A follow-up hardening change initializes Redis in the host-alert CLI so immediate realtime In-app publication is available in addition to durable delivery.

@@ -10,6 +10,7 @@ import asyncio
 import re
 
 from app.db.base import SessionLocal
+from app.db.redis import close_redis, init_redis
 from app.services import communications
 from app.services.lifecycle_alerts import owner_alert_channels
 
@@ -158,17 +159,22 @@ def main() -> int:
     parser.add_argument("--value", type=float)
     parser.add_argument("--threshold", type=float)
     args = parser.parse_args()
-    asyncio.run(
-        emit(
-            event=args.event,
-            service=args.service,
-            transition=args.transition,
-            restart_count=args.restart_count,
-            metric=args.metric,
-            value=args.value,
-            threshold=args.threshold,
-        )
-    )
+    async def _run() -> None:
+        await init_redis()
+        try:
+            await emit(
+                event=args.event,
+                service=args.service,
+                transition=args.transition,
+                restart_count=args.restart_count,
+                metric=args.metric,
+                value=args.value,
+                threshold=args.threshold,
+            )
+        finally:
+            await close_redis()
+
+    asyncio.run(_run())
     return 0
 
 
