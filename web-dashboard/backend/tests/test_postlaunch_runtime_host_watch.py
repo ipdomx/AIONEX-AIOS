@@ -142,3 +142,14 @@ def test_systemd_timer_runs_runtime_and_capacity_guards_host_side() -> None:
     assert "host-capacity-guard.py" in service
     assert "capacity-state.json" in service
     assert "--interface wan0" in service
+
+
+def test_runtime_host_alert_starts_and_stops_realtime_runtime() -> None:
+    source = (ROOT / "web-dashboard/backend/app/services/runtime_host_alert.py").read_text(encoding="utf-8")
+    assert "await init_redis()" in source
+    assert "await realtime_event_runtime.start()" in source
+    assert "await realtime_event_runtime.stop()" in source
+    assert "await close_redis()" in source
+    assert source.index("await init_redis()") < source.index("await realtime_event_runtime.start()")
+    assert source.index("await realtime_event_runtime.start()") < source.index("await emit(")
+    assert source.index("await realtime_event_runtime.stop()") < source.index("await close_redis()")

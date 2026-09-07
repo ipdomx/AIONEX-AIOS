@@ -11,6 +11,7 @@ import re
 
 from app.db.base import SessionLocal
 from app.db.redis import close_redis, init_redis
+from app.realtime.runtime import realtime_event_runtime
 from app.services import communications
 from app.services.lifecycle_alerts import owner_alert_channels
 
@@ -161,6 +162,7 @@ def main() -> int:
     args = parser.parse_args()
     async def _run() -> None:
         await init_redis()
+        await realtime_event_runtime.start()
         try:
             await emit(
                 event=args.event,
@@ -172,6 +174,7 @@ def main() -> int:
                 threshold=args.threshold,
             )
         finally:
+            await realtime_event_runtime.stop()
             await close_redis()
 
     asyncio.run(_run())
