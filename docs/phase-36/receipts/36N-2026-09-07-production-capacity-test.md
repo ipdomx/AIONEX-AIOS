@@ -59,3 +59,9 @@ The current server does not require a RAM or storage upgrade for initial commerc
 Conservative launch operating target on this host: up to ~100 simultaneously active application/control-plane users without changing capacity settings, with bursts around 200 supported by the measured host. This is not a claim that every one of those users can simultaneously run a heavy project build or live video session. Heavy Project Execution remains governed by the deployed 4 workers x capacity 3 = 12 simultaneous heavy execution slots, with queueing/admission providing safe overflow.
 
 Upgrade trigger: sustained production CPU >70–75%, HTTP/API p95 materially above the product SLO during normal traffic, persistent Project Worker saturation/queue age, or public-network saturation. RAM alone is not an upgrade trigger on the measured system.
+
+## Invalidated live-queue Launch100 harness attempt
+
+A further attempt to reuse the repository's `Launch100` pytest directly inside the live Backend container was deliberately **not** accepted as capacity evidence. The production Project Workers correctly consumed the synthetic queue rows concurrently with the ad-hoc harness, which caused test-harness event-loop/connection contention and a cleanup deadlock. This was a harness/isolation violation, not a production outage or server-capacity failure.
+
+The synthetic scope was identified exactly, the four Project Workers were stopped briefly to eliminate the cleanup race, all 101 synthetic organizations and all 100 synthetic executions/projects were removed, and the same four workers were restarted. Post-cleanup production returned to 35 running containers, 0 unhealthy containers, restart sum 0, all four Project Workers healthy, and Backend `/ready=200`. The failed ad-hoc harness contributes **no** capacity claim; only the bounded HTTP and official isolated Phase36H acceptance above are authoritative for this run.
