@@ -286,4 +286,4 @@ class OffsiteBackupReplicator:
                 try:
                     Path(path).unlink(missing_ok=True)
                 except OSError:
-                    pass
+                    continue
