@@ -158,10 +158,11 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
       POSTGRES_SOCKET_DIR: /var/run/postgresql
     volumes:
+      - ..:/workspace:ro
       - postgres_socket:/var/run/postgresql
       - postgres_data:/var/lib/postgresql/data
     depends_on:
@@ -1036,8 +1037,10 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_PASSWORD_FILE: ${POSTGRES_INIT_PASSWORD_FILE:-}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
     volumes:
+      - ..:/workspace:ro
       - postgres_data:/var/lib/postgresql/data
       - postgres_socket:/var/run/postgresql
     healthcheck:

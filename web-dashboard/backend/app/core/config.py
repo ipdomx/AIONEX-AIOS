@@ -1,12 +1,38 @@
 """Application configuration."""
 
 from functools import lru_cache
+from pathlib import Path
+import stat
 from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
 from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL
+
+
+def _read_private_runtime_secret(path: str, *, label: str) -> str:
+    normalized = path.strip()
+    if not normalized:
+        raise ValueError(f"{label} secret file path is empty")
+    candidate = Path(normalized)
+    if not candidate.is_absolute():
+        raise ValueError(f"{label} secret file path must be absolute")
+    try:
+        metadata = candidate.lstat()
+    except OSError as exc:
+        raise ValueError(f"{label} secret file is unavailable") from exc
+    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+        raise ValueError(f"{label} secret file must be a regular non-symlink file")
+    if stat.S_IMODE(metadata.st_mode) & 0o077:
+        raise ValueError(f"{label} secret file must not grant group/other permissions")
+    try:
+        value = candidate.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        raise ValueError(f"{label} secret file is unreadable") from exc
+    if not value or "\n" in value or "\r" in value:
+        raise ValueError(f"{label} secret file must contain one non-empty line")
+    return value
 
 
 class Settings(BaseSettings):
@@ -27,8 +53,12 @@ class Settings(BaseSettings):
     PORT: int = Field(default=8000, validation_alias="PORT")
     WORKERS: int = Field(default=4, validation_alias="WORKERS")
     SECRET_KEY: str = Field(default="", validation_alias="SECRET_KEY")
+    SECRET_KEY_FILE: str = Field(default="", validation_alias="SECRET_KEY_FILE")
 
     DATABASE_URL: str = Field(default="", validation_alias="DATABASE_URL")
+    POSTGRES_PASSWORD_FILE: str = Field(
+        default="", validation_alias="POSTGRES_PASSWORD_FILE"
+    )
     POSTGRES_HOST: str = Field(default="localhost", validation_alias="POSTGRES_HOST")
     POSTGRES_PORT: int = Field(default=5432, validation_alias="POSTGRES_PORT")
     POSTGRES_USER: str = Field(default="postgres", validation_alias="POSTGRES_USER")
@@ -1101,7 +1131,25 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def resolve_database_url(self) -> "Settings":
-        """Build one encoded URL and enforce shared runtime capacity invariants."""
+        """Resolve file-backed secrets, build the DB URL, and enforce capacity."""
+        if self.SECRET_KEY_FILE.strip():
+            self.SECRET_KEY = _read_private_runtime_secret(
+                self.SECRET_KEY_FILE, label="SECRET_KEY"
+            )
+        if len(self.SECRET_KEY) < 32:
+            raise ValueError("SECRET_KEY must contain at least 32 characters")
+        if (
+            self.ENVIRONMENT.strip().lower() == "production"
+            and self.SECRET_KEY == "change-this-to-a-secure-random-string"
+        ):
+            raise ValueError("Production SECRET_KEY cannot use the bootstrap default")
+        if self.POSTGRES_PASSWORD_FILE.strip():
+            self.POSTGRES_PASSWORD = _read_private_runtime_secret(
+                self.POSTGRES_PASSWORD_FILE, label="POSTGRES_PASSWORD"
+            )
+        if not self.POSTGRES_PASSWORD:
+            raise ValueError("POSTGRES_PASSWORD cannot be empty")
+
         redis_admission_ceiling = max(1, self.REDIS_POOL_SIZE - 2)
         if self.PROJECT_EXECUTION_ADMISSION_CONCURRENCY > redis_admission_ceiling:
             raise ValueError(
@@ -1130,7 +1178,7 @@ class Settings(BaseSettings):
                     "API database pool ceiling exceeds "
                     "DATABASE_POOL_CONNECTION_BUDGET"
                 )
-        if self.DATABASE_URL.strip():
+        if self.DATABASE_URL.strip() and not self.POSTGRES_PASSWORD_FILE.strip():
             self.DATABASE_URL = self.DATABASE_URL.strip()
             return self
 
@@ -1234,7 +1282,7 @@ class Settings(BaseSettings):
     @field_validator("SECRET_KEY")
     @classmethod
     def validate_secret_key(cls, value: str) -> str:
-        if len(value) < 32:
+        if value and len(value) < 32:
             raise ValueError("SECRET_KEY must contain at least 32 characters")
         return value
 

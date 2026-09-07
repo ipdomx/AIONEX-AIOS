@@ -2,7 +2,7 @@
 
 ## Current scoped status — 2026-09-07
 
-**SCOPED PRE-XR INTERNAL CLOSEOUT: COMPLETE AND DEPLOYED.** The authoritative final certification is `docs/phase-36/receipts/36N-2026-09-07-pre-xr-final-production-certification.md`. It supersedes earlier historical `IN_PROGRESS`, `Next active work`, and pending-deployment checkpoint language in this audit for the currently agreed scope. External rights, signing, physical-device/chain authority, unavailable providers, private numeric balance facts, XR and post-XR expansion remain explicitly external/excluded and are not fabricated as PASS.
+**PRE-XR INTERNAL CLOSEOUT REMAINS COMPLETE; EXPANDED COMPLETION PROGRAM REOPENED BY OWNER.** The earlier certification `docs/phase-36/receipts/36N-2026-09-07-pre-xr-final-production-certification.md` remains valid for its exact scope, but the Owner expanded the active completion contract on 2026-09-07. Only AWS credential authority, AWS Bedrock and XR/device validation are deferred to the final tail. All other previously post-XR/optional/internal completion items are active again and must be closed wherever real authority exists. External rights, signing, merchant/social account authority, second-host/off-site infrastructure and other genuine outside facts are never fabricated as PASS. Current expanded-scope checkpoint: `docs/phase-36/receipts/36N-2026-09-07-expanded-scope-security-hardening.md`.
 
 ## Purpose
 
@@ -388,3 +388,15 @@ Based on these bounded acceptances and the existing authoritative receipts, sour
 - Bounded recent logs for Backend, Frontend, Backup Worker, Speech Worker and Dubbing Worker contained zero ERROR/Traceback/CRITICAL/panic matches.
 - Full certification: `docs/phase-36/receipts/36N-2026-09-07-pre-xr-final-production-certification.md`.
 - **Current scoped conclusion:** every internally satisfiable pre-XR closeout item is complete. Remaining entries are external authority, optional/excluded product expansion, XR/post-XR scope, or truthful private-provider facts that cannot be fabricated.
+
+
+## 2026-09-07 — Owner scope expansion and security-first restart
+
+- Owner instruction changed the completion boundary: AWS credential authority, AWS Bedrock and XR/device validation are deferred to the final tail only. Batch I/J/K/L and other previously post-XR/internal work return to the active completion program.
+- A bounded configuration audit immediately found a more urgent internal issue: the root-owned production environment is Git-ignored/untracked/mode 0600, but the running application still resolves the historical bootstrap application secret and bundled PostgreSQL still carries the historical bootstrap database password. Secret values are not recorded here.
+- Recovery anchor before any credential mutation: platform backup `b152a5f4-3b05-4901-aa07-a747e6a67df7`, 20,484,783 bytes, SHA-256 `cee49c3594281902de41f6925b8d9015d0171da1a0776b67b15947af263f3b40`; matching DR validation `55c71b3e-4669-4e9d-a03e-f4c266ee6290` completed with `validated=true` and 3D snapshot validation true.
+- Source candidate adds fail-closed file-backed application/PostgreSQL secrets and PostgreSQL reconciler support. Runtime secret files are prepared in the existing Git-ignored secret tree with owner-specific 0400 permissions; no source/image contains secret material and no production credential has been changed yet.
+- Focused database/credential regression: `61 passed, 0 failed`. Protected static/security/production-build CI remains mandatory before deployment.
+- Full checkpoint: `docs/phase-36/receipts/36N-2026-09-07-expanded-scope-security-hardening.md`.
+
+**Expanded-program execution order now active:** security credential hardening first, then remaining internal Batch L release/source cleanup, then Batch K product-integration internals, then Batch I/J scale/HA/DR/observability work that can be proven with available infrastructure. Genuine external authorities remain visible and fail-closed; AWS/Bedrock/XR are explicitly last.

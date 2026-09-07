@@ -378,3 +378,43 @@ def test_external_database_skip_is_reported_without_reconciliation(
     assert postgres_credentials.main() == 0
     captured = capsys.readouterr()
     assert "External DATABASE_URL detected" in captured.out
+
+
+
+def test_password_file_overrides_legacy_env_and_database_url(tmp_path: Path) -> None:
+    password_file = tmp_path / "postgres-password"
+    password_file.write_text("file-backed-postgres-password")
+    password_file.chmod(0o600)
+    environment = _postgres_environment(
+        DATABASE_URL="postgresql+asyncpg://aionex:legacy@postgres:5432/aionex",
+        POSTGRES_PASSWORD="stale-environment-password",
+        POSTGRES_PASSWORD_FILE=str(password_file),
+    )
+
+    credentials = resolve_bundled_credentials(environment)
+
+    assert credentials is not None
+    assert credentials.password == password_file.read_text()
+    assert "file-backed-postgres-password" not in repr(credentials)
+
+
+def test_password_file_rejects_group_or_other_permissions(tmp_path: Path) -> None:
+    password_file = tmp_path / "postgres-password"
+    password_file.write_text("file-backed-postgres-password")
+    password_file.chmod(0o644)
+    with pytest.raises(CredentialConfigurationError, match="must not grant group/other permissions"):
+        resolve_bundled_credentials(
+            _postgres_environment(POSTGRES_PASSWORD_FILE=str(password_file))
+        )
+
+
+def test_password_file_rejects_symlink(tmp_path: Path) -> None:
+    target = tmp_path / "target"
+    target.write_text("file-backed-postgres-password")
+    target.chmod(0o600)
+    link = tmp_path / "link"
+    link.symlink_to(target)
+    with pytest.raises(CredentialConfigurationError, match="regular non-symlink"):
+        resolve_bundled_credentials(
+            _postgres_environment(POSTGRES_PASSWORD_FILE=str(link))
+        )
