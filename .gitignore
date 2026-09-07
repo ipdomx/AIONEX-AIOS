@@ -301,3 +301,6 @@ kubeconfig.*
 .cloudflare/
 .idea/
 .vscode/
+
+# Private runtime credentials (never commit)
+.runtime-secrets/

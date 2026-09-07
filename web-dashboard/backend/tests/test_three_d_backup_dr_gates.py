@@ -156,3 +156,46 @@ async def test_operations_integration_requires_three_d_restore_evidence_when_ena
     assert await operations_integration._restore_evidence_ready(  # type: ignore[arg-type]
         _EvidenceSession(backup, [_restore(backup, three_d=True)]), backup
     )
+
+@pytest.mark.asyncio
+async def test_owner_backup_gate_requires_verified_offsite_restore_when_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    backup = _backup()
+    backup.offsite_status = "completed"
+    backup.offsite_evidence = {"database": {"key": "aionex-production/example/database.dump"}}
+    backup.offsite_completed_at = datetime.now(UTC)
+
+    async def artifact_ready(
+        _backup: BackupRecord | None,
+        *,
+        verify_checksum: bool,
+    ) -> bool:
+        assert verify_checksum is True
+        return True
+
+    monkeypatch.setattr(control_plane, "_backup_artifact_ready", artifact_ready)
+    monkeypatch.setattr(control_plane.settings, "BACKUP_THREE_D_ASSETS_ENABLED", False)
+    monkeypatch.setattr(control_plane.settings, "BACKUP_OFFSITE_ENABLED", True)
+
+    restore = _restore(backup, three_d=False)
+    blocked = OwnerControlRecord(
+        domain="release", resource_id="backup", status="pending", enabled=True,
+        payload={"name": "Backup & Restore Verification"}, version=1,
+    )
+    await control_plane._validate_release_gate(  # type: ignore[arg-type]
+        _EvidenceSession(backup, [restore]), blocked
+    )
+    assert blocked.status == "blocked"
+
+    restore.details = {**restore.details, "offsite_required": True, "offsite_validated": True}
+    passed = OwnerControlRecord(
+        domain="release", resource_id="backup", status="pending", enabled=True,
+        payload={"name": "Backup & Restore Verification"}, version=1,
+    )
+    result = await control_plane._validate_release_gate(  # type: ignore[arg-type]
+        _EvidenceSession(backup, [restore]), passed
+    )
+    assert passed.status == "passed"
+    assert result["evidence"]["offsiteRequired"] is True
+    assert result["evidence"]["offsiteValidated"] is True
