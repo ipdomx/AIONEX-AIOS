@@ -86,3 +86,14 @@ def test_ollama_internal_compose_service_url_is_allowed_but_arbitrary_hosts_are_
         ai_runtime_service.validate_provider_base_url("ollama", "http://example.internal:11434")
     with pytest.raises(HTTPException):
         ai_runtime_service.validate_provider_base_url("ollama", "http://ollama:11434/api")
+
+
+def test_provider_secret_decryption_accepts_previous_rotation_key(monkeypatch) -> None:
+    old_key = "old-provider-secret-key-with-more-than-32-characters"
+    new_key = "new-provider-secret-key-with-more-than-32-characters"
+    monkeypatch.setattr(ai_runtime_service.settings, "SECRET_KEY", old_key)
+    monkeypatch.setattr(ai_runtime_service.settings, "SECRET_KEY_PREVIOUS", "")
+    ciphertext = ai_runtime_service.encrypt_provider_secret("rotation-provider-secret")
+    monkeypatch.setattr(ai_runtime_service.settings, "SECRET_KEY", new_key)
+    monkeypatch.setattr(ai_runtime_service.settings, "SECRET_KEY_PREVIOUS", old_key)
+    assert ai_runtime_service.decrypt_provider_secret(ciphertext) == "rotation-provider-secret"

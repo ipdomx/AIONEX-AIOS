@@ -306,5 +306,6 @@ class LiveKitCandidateAdapter:
                 "LiveKit provider mutations are disabled until the 36H activation gate"
             )
         raise RealtimeMediaDisabledError(
-            "LiveKit runtime provisioning is intentionally not implemented in source-only 36H.3"
+            "This candidate adapter is intentionally non-mutating; production LiveKit "
+            "provisioning is owned by the governed realtime runtime"
         )

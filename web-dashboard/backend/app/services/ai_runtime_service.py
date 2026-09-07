@@ -115,9 +115,20 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
-def _fernet() -> Fernet:
-    key = base64.urlsafe_b64encode(hashlib.sha256(settings.SECRET_KEY.encode("utf-8")).digest())
+def _fernet_for(secret_key: str) -> Fernet:
+    key = base64.urlsafe_b64encode(hashlib.sha256(secret_key.encode("utf-8")).digest())
     return Fernet(key)
+
+
+def _fernet() -> Fernet:
+    return _fernet_for(settings.SECRET_KEY)
+
+
+def _fernet_candidates() -> tuple[Fernet, ...]:
+    candidates = [_fernet()]
+    if settings.SECRET_KEY_PREVIOUS:
+        candidates.append(_fernet_for(settings.SECRET_KEY_PREVIOUS))
+    return tuple(candidates)
 
 
 def encrypt_provider_secret(value: str) -> str:
@@ -131,10 +142,15 @@ def decrypt_provider_secret(value: str | None) -> str | None:
     if not value:
         return None
     token = value.removeprefix("fernet:v1:")
-    try:
-        return _fernet().decrypt(token.encode("ascii")).decode("utf-8")
-    except (InvalidToken, UnicodeDecodeError, ValueError) as exc:
-        raise HTTPException(status_code=503, detail="Provider credential cannot be decrypted") from exc
+    last_error: Exception | None = None
+    for fernet in _fernet_candidates():
+        try:
+            return fernet.decrypt(token.encode("ascii")).decode("utf-8")
+        except (InvalidToken, UnicodeDecodeError, ValueError) as exc:
+            last_error = exc
+    raise HTTPException(
+        status_code=503, detail="Provider credential cannot be decrypted"
+    ) from last_error
 
 
 def _server_credential(provider_type: str) -> str | None:
