@@ -50,7 +50,7 @@ SCHEDULED_AVAILABILITY_TARGETS = (
 
 def scheduled_availability_failures() -> list[str]:
     """Probe production from the off-host GitHub runner on scheduled audits only."""
-    if os.environ.get("GITHUB_EVENT_NAME", "").strip().lower() != "schedule":
+    if os.environ.get("GITHUB_EVENT_NAME", "").strip().lower() not in {"schedule", "workflow_dispatch"}:
         return []
     failures: list[str] = []
     for label, url in SCHEDULED_AVAILABILITY_TARGETS:
@@ -137,8 +137,8 @@ def main() -> int:
         )
         return 1
     print("Security audit passed: no tracked secret artifacts or forbidden production patterns detected.")
-    if os.environ.get("GITHUB_EVENT_NAME", "").strip().lower() == "schedule":
-        print("Scheduled off-host production availability probe passed.")
+    if os.environ.get("GITHUB_EVENT_NAME", "").strip().lower() in {"schedule", "workflow_dispatch"}:
+        print("Off-host production availability probe passed.")
     return 0
 
 
