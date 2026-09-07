@@ -1,0 +1,61 @@
+{
+  "components": {
+    "android": "1.6.0",
+    "backend": "1.0.0",
+    "core": "2.2.0b3",
+    "ios": "1.6.0",
+    "ownerFrontend": "1.0.0"
+  },
+  "compose": {
+    "deploySha256": "036d3673218deb9cbcb825837e7301322d2572af285b5d5b228e80da4ab9bdc4",
+    "webDashboardSha256": "20488945d1cb53dc5791190ecb7f3a12a324557765e913f96e4991b77dca9c1d"
+  },
+  "generatedAt": "2026-09-07T09:32:01.083224+00:00",
+  "releaseId": "AIOS-2026-09-07-LAUNCH-23ed820",
+  "runtime": {
+    "alembicHeads": [
+      "20260905_0044 (head)"
+    ],
+    "containerCount": 35,
+    "containerImageIds": {
+      "web-dashboard-academy-course-worker-1": "sha256:42ffcd105cef9fa7ceb7ecba54cf303bbde4880861154e1674762fb9e05e71ce",
+      "web-dashboard-audio-dubbing-worker-1": "sha256:c42742f68a219654ec19db5dc6d44e9d323e378992d7e54ba55b3d41e60a0929",
+      "web-dashboard-audio-music-worker-1": "sha256:c42742f68a219654ec19db5dc6d44e9d323e378992d7e54ba55b3d41e60a0929",
+      "web-dashboard-audio-song-worker-1": "sha256:c42742f68a219654ec19db5dc6d44e9d323e378992d7e54ba55b3d41e60a0929",
+      "web-dashboard-audio-speech-worker-1": "sha256:c42742f68a219654ec19db5dc6d44e9d323e378992d7e54ba55b3d41e60a0929",
+      "web-dashboard-audio-transcript-worker-1": "sha256:c42742f68a219654ec19db5dc6d44e9d323e378992d7e54ba55b3d41e60a0929",
+      "web-dashboard-backend-1": "sha256:c42742f68a219654ec19db5dc6d44e9d323e378992d7e54ba55b3d41e60a0929",
+      "web-dashboard-backup-worker-1": "sha256:c42742f68a219654ec19db5dc6d44e9d323e378992d7e54ba55b3d41e60a0929",
+      "web-dashboard-cloudflared-1": "sha256:5e49861633763e8933475477c20bae6039ed47f32c1d267a34babc347f28f0df",
+      "web-dashboard-communication-worker-1": "sha256:c42742f68a219654ec19db5dc6d44e9d323e378992d7e54ba55b3d41e60a0929",
+      "web-dashboard-design-image-derivative-worker-1": "sha256:e3768c347932d9e6606ea5e1a41c56ff1faf4ebca3fb8c32401dcf58ea0c87ba",
+      "web-dashboard-design-image-worker-1": "sha256:c42742f68a219654ec19db5dc6d44e9d323e378992d7e54ba55b3d41e60a0929",
+      "web-dashboard-frontend-1": "sha256:40b87281a17864d460b919f2e42840d4ab781c2a1a9dcddb5c11d7baf95c3d88",
+      "web-dashboard-media-worker-1": "sha256:42ffcd105cef9fa7ceb7ecba54cf303bbde4880861154e1674762fb9e05e71ce",
+      "web-dashboard-nginx-1": "sha256:ad1cd14808d782f285c0c21b0d2ecb2336eb2344167a8ce0cfac5316b0cd9ab1",
+      "web-dashboard-ollama-1": "sha256:1685741456770df6e3cceb2a945a5f75e020f658d1701509668d6f4688f1dd3f",
+      "web-dashboard-operations-observer-1": "sha256:c42742f68a219654ec19db5dc6d44e9d323e378992d7e54ba55b3d41e60a0929",
+      "web-dashboard-portal-1": "sha256:d8cf0e957cdc6cd36138809bff1f38ca824c5bab210dc2648f0eeb5cdbb57f59",
+      "web-dashboard-postgres-1": "sha256:8572a08fbe6fb12ea7ca8ac548fb84e7e83fcd567e68cd8de6157d73205f6ae0",
+      "web-dashboard-project-worker-1": "sha256:9189c79a5a0c55ce93c97522b9472ddd7bea56bd08af82771df9992af0237e00",
+      "web-dashboard-project-worker-2": "sha256:9189c79a5a0c55ce93c97522b9472ddd7bea56bd08af82771df9992af0237e00",
+      "web-dashboard-project-worker-3": "sha256:9189c79a5a0c55ce93c97522b9472ddd7bea56bd08af82771df9992af0237e00",
+      "web-dashboard-project-worker-4": "sha256:9189c79a5a0c55ce93c97522b9472ddd7bea56bd08af82771df9992af0237e00",
+      "web-dashboard-realtime-egress-1": "sha256:a3e61a70479694a5075cff3c081ab633f34d3bfa778adc6089935c96908b6550",
+      "web-dashboard-realtime-livekit-1": "sha256:d0d1cfdbe95617647bbe91630454526c2cdd88cec83f41114b3495b444918b9a",
+      "web-dashboard-realtime-turn-1": "sha256:75e9ebd1e19005bec0c7f591d29afe22f959916ac8d9c852452f27db8c789828",
+      "web-dashboard-redis-1": "sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf",
+      "web-dashboard-security-remediation-worker-1": "sha256:c42742f68a219654ec19db5dc6d44e9d323e378992d7e54ba55b3d41e60a0929",
+      "web-dashboard-security-scan-worker-1": "sha256:d841bfd2d3ef76d045db48c1060303ade899f0a9b9ca0b3b89585a9aaec8800f",
+      "web-dashboard-security-zap-1": "sha256:781a2bdaea47324e7bab583e2263f21d257b0aee61ed51521a5be45f5f5081ef",
+      "web-dashboard-studio-worker-1": "sha256:c42742f68a219654ec19db5dc6d44e9d323e378992d7e54ba55b3d41e60a0929",
+      "web-dashboard-telegram-worker-1": "sha256:c42742f68a219654ec19db5dc6d44e9d323e378992d7e54ba55b3d41e60a0929",
+      "web-dashboard-three-d-worker-1": "sha256:c42742f68a219654ec19db5dc6d44e9d323e378992d7e54ba55b3d41e60a0929",
+      "web-dashboard-user-telegram-worker-1": "sha256:c42742f68a219654ec19db5dc6d44e9d323e378992d7e54ba55b3d41e60a0929",
+      "web-dashboard-video-provider-worker-1": "sha256:baa3fe2c542af77c7e40e163a5978985b62150f416ef8446f6b9953a402d6f77"
+    }
+  },
+  "schemaVersion": 1,
+  "sourceCommit": "23ed8201d4f17b285e2b8efe3c4411ffeb51c4d0",
+  "sourceTreeClean": true
+}

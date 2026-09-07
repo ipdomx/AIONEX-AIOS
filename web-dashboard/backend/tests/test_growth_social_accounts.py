@@ -35,6 +35,12 @@ def test_raw_credentials_are_rejected_and_external_refs_are_accepted() -> None:
         )
         == "file:/run/operator-secrets/social/facebook-page-1"
     )
+    assert (
+        social.validate_credential_ref(
+            "secretref://file/meta/marketing-api-token"
+        )
+        == "secretref://file/meta/marketing-api-token"
+    )
 
 
 def test_sensitive_metadata_keys_are_rejected_recursively() -> None:
