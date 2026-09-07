@@ -3,9 +3,13 @@
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
+import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -36,6 +40,39 @@ ALLOWED_FAKE_PRIVATE_KEYS = {
     Path("web-dashboard/backend/tests/test_firebase_phone_auth.py"):
         "-----BEGIN PRIVATE KEY-----\\ntest\\n-----END PRIVATE KEY-----",
 }
+
+SCHEDULED_AVAILABILITY_TARGETS = (
+    ("public-portal", "https://vip-e.net/en/"),
+    ("public-api", "https://api.vip-e.net/ready"),
+    ("user-portal", "https://ai.vip-e.net/en/"),
+)
+
+
+def scheduled_availability_failures() -> list[str]:
+    """Probe production from the off-host GitHub runner on scheduled audits only."""
+    if os.environ.get("GITHUB_EVENT_NAME", "").strip().lower() != "schedule":
+        return []
+    failures: list[str] = []
+    for label, url in SCHEDULED_AVAILABILITY_TARGETS:
+        ok = False
+        for attempt in range(3):
+            request = urllib.request.Request(
+                url,
+                headers={"User-Agent": "AIONEX-OffHost-Availability/1.0"},
+                method="GET",
+            )
+            try:
+                with urllib.request.urlopen(request, timeout=15) as response:
+                    ok = response.status == 200
+            except (OSError, urllib.error.URLError):
+                ok = False
+            if ok:
+                break
+            if attempt < 2:
+                time.sleep(2)
+        if not ok:
+            failures.append(label)
+    return failures
 
 
 def tracked_files() -> list[Path]:
@@ -85,6 +122,14 @@ def main() -> int:
             if "allow_origins=[\"*\"]" in compact or "allow_origins=['*']" in compact:
                 findings.append(("wildcard CORS policy", relative, None))
 
+    availability_failures = scheduled_availability_failures()
+    if availability_failures:
+        print(
+            "Security audit failed: scheduled off-host production availability probe did not pass "
+            f"for {len(availability_failures)} target(s).",
+            file=sys.stderr,
+        )
+        return 1
     if findings:
         print(
             f"Security audit failed with {len(set(findings))} finding(s); details are intentionally not logged.",
@@ -92,6 +137,8 @@ def main() -> int:
         )
         return 1
     print("Security audit passed: no tracked secret artifacts or forbidden production patterns detected.")
+    if os.environ.get("GITHUB_EVENT_NAME", "").strip().lower() == "schedule":
+        print("Scheduled off-host production availability probe passed.")
     return 0
 
 

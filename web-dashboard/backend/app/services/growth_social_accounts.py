@@ -63,7 +63,7 @@ ACCOUNT_KINDS: tuple[str, ...] = (
     "board",
 )
 
-SAFE_CREDENTIAL_PREFIXES = ("file:", "vault:", "secret-ref:", "credential:")
+SAFE_CREDENTIAL_PREFIXES = ("file:", "vault:", "secret-ref:", "secretref:", "credential:")
 SENSITIVE_KEYS = (
     "token",
     "password",
@@ -114,7 +114,9 @@ def validate_credential_ref(value: str | None) -> str | None:
         raise GrowthSocialAccountError(
             "credential-value-rejected-use-external-reference"
         )
-    if not _CREDENTIAL_REF_RE.fullmatch(ref) or ".." in ref or "//" in ref:
+    if not _CREDENTIAL_REF_RE.fullmatch(ref) or ".." in ref:
+        raise GrowthSocialAccountError("invalid-credential-reference")
+    if "//" in ref and not ref.startswith("secretref://"):
         raise GrowthSocialAccountError("invalid-credential-reference")
     return ref
 
