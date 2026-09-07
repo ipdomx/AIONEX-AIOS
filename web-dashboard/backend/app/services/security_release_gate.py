@@ -213,6 +213,13 @@ async def operational_assurance(
                 or details.get("three_d_snapshot_validated") is not True
             ):
                 continue
+            if settings.BACKUP_OFFSITE_ENABLED and (
+                backup.offsite_status != "completed"
+                or not backup.offsite_evidence
+                or details.get("offsite_required") is not True
+                or details.get("offsite_validated") is not True
+            ):
+                continue
             restore_ready = True
             break
     return {

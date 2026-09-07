@@ -1862,6 +1862,9 @@ class BackupRecord(Base, TimestampMixin):
     size_bytes: Mapped[int | None] = mapped_column(BigInteger)
     lease_token: Mapped[str | None] = mapped_column(String(36))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    offsite_status: Mapped[str] = mapped_column(String(32), default="disabled", nullable=False, index=True)
+    offsite_evidence: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    offsite_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class DisasterRecoveryRun(Base, TimestampMixin):

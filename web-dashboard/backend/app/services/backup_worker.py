@@ -29,6 +29,8 @@ from app.services.three_d_asset_backup import (
     ThreeDAssetSnapshot,
     ThreeDAssetSnapshotExecutor,
 )
+from app.services.offsite_backup import OffsiteBackupReplicator
+from app.services import communications
 from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -149,10 +151,12 @@ class BackupJobWorker:
         *,
         executor: BackupExecutor | None = None,
         three_d_executor: ThreeDAssetSnapshotExecutor | None = None,
+        offsite_replicator: OffsiteBackupReplicator | None = None,
         session_factory: SessionFactory = SessionLocal,
     ) -> None:
         self._executor = executor or get_backup_executor()
         self._three_d_executor = three_d_executor or ThreeDAssetSnapshotExecutor()
+        self._offsite = offsite_replicator or OffsiteBackupReplicator()
         self._session_factory = session_factory
         self._next_maintenance_at = 0.0
 
@@ -637,6 +641,20 @@ class BackupJobWorker:
                         "3D asset backup",
                         "The required 3D asset snapshot was not created",
                     )
+            offsite_evidence: dict[str, Any] = {"enabled": False}
+            offsite_error: BackupExecutionError | None = None
+            if self._offsite.enabled:
+                try:
+                    offsite_evidence = await asyncio.to_thread(
+                        self._offsite.replicate,
+                        backup_id=claim.id,
+                        database_location=artifact.location,
+                        database_checksum=artifact.checksum,
+                        database_size=artifact.size_bytes,
+                        snapshot=snapshot,
+                    )
+                except BackupExecutionError as exc:
+                    offsite_error = exc
         except asyncio.CancelledError:
             if artifact is not None:
                 await self._cleanup_uncommitted_backup(artifact.location)
@@ -683,6 +701,14 @@ class BackupJobWorker:
             record.checksum = artifact.checksum
             record.size_bytes = artifact.size_bytes
             record.completed_at = _now()
+            if self._offsite.enabled:
+                record.offsite_status = "failed" if offsite_error is not None else "completed"
+                record.offsite_evidence = offsite_evidence if offsite_error is None else {"enabled": True}
+                record.offsite_completed_at = None if offsite_error is not None else _now()
+            else:
+                record.offsite_status = "disabled"
+                record.offsite_evidence = {"enabled": False}
+                record.offsite_completed_at = None
             snapshot_evidence: dict[str, Any] = {"required": snapshot_required}
             if snapshot is not None:
                 snapshot_evidence.update(
@@ -704,9 +730,83 @@ class BackupJobWorker:
                         "checksum": artifact.checksum,
                         "size_bytes": artifact.size_bytes,
                         "three_d_snapshot": snapshot_evidence,
+                        "offsite_status": record.offsite_status,
+                        "offsite_verified": record.offsite_status == "completed",
                     },
                 )
             )
+            previous_offsite_status = None
+            if self._offsite.enabled:
+                previous_offsite_status = await session.scalar(
+                    select(BackupRecord.offsite_status)
+                    .where(
+                        BackupRecord.id != claim.id,
+                        BackupRecord.scope == record.scope,
+                        BackupRecord.completed_at.is_not(None),
+                    )
+                    .order_by(BackupRecord.completed_at.desc())
+                    .limit(1)
+                )
+            if offsite_error is not None:
+                session.add(
+                    _system_audit(
+                        "backup.offsite.failed",
+                        "backup",
+                        claim.id,
+                        {"status": "failed", "reason": offsite_error.public_message},
+                    )
+                )
+                await communications.notify_audience(
+                    session,
+                    organization_id="platform",
+                    audience="platform_owner",
+                    event_key="operations.backup.offsite_failed",
+                    category="operations",
+                    title="Off-site backup needs attention / النسخ الخارجي يحتاج تدخل",
+                    message=(
+                        "The local platform backup completed, but verified replication to the "
+                        "private Cloudflare R2 backup bucket failed. Local recovery remains "
+                        "available; investigate the off-site authority or network path."
+                    ),
+                    severity="critical",
+                    channels=["in_app", "telegram"],
+                    source_type="offsite_backup",
+                    source_id=claim.id,
+                    correlation_id="offsite-backup:r2",
+                    dedupe_prefix=f"offsite-backup:r2:failed:{claim.id}",
+                    payload={"backup_id": claim.id, "offsite_status": "failed"},
+                    respect_preferences=False,
+                )
+            elif self._offsite.enabled:
+                session.add(
+                    _system_audit(
+                        "backup.offsite.completed",
+                        "backup",
+                        claim.id,
+                        {"status": "completed", "verified": True},
+                    )
+                )
+                if previous_offsite_status == "failed":
+                    await communications.notify_audience(
+                        session,
+                        organization_id="platform",
+                        audience="platform_owner",
+                        event_key="operations.backup.offsite_recovered",
+                        category="operations",
+                        title="Off-site backup recovered / النسخ الخارجي عاد للعمل",
+                        message=(
+                            "A new platform backup was replicated to Cloudflare R2 and passed "
+                            "full remote checksum readback after the previous off-site failure."
+                        ),
+                        severity="info",
+                        channels=["in_app", "telegram"],
+                        source_type="offsite_backup",
+                        source_id=claim.id,
+                        correlation_id="offsite-backup:r2",
+                        dedupe_prefix=f"offsite-backup:r2:recovered:{claim.id}",
+                        payload={"backup_id": claim.id, "offsite_status": "completed"},
+                        respect_preferences=False,
+                    )
             await session.commit()
 
     async def _finish_backup_failure(
@@ -749,6 +849,9 @@ class BackupJobWorker:
         snapshot_required = False
         snapshot_evidence: dict[str, Any] | None = None
         snapshot_validation: ThreeDAssetSnapshot | None = None
+        offsite_validation = None
+        offsite_snapshot_validation: ThreeDAssetSnapshot | None = None
+        offsite_artifacts = None
         try:
             async with self._session_factory() as session:
                 run = await session.scalar(
@@ -823,6 +926,43 @@ class BackupJobWorker:
                 stale_scratch_databases=claim.stale_scratch_databases,
                 expected_size_bytes=backup.size_bytes,
             )
+            if self._offsite.enabled:
+                if backup.offsite_status != "completed" or not backup.offsite_evidence:
+                    raise BackupExecutionError(
+                        "off-site restore validation",
+                        "The selected backup has no verified R2 replication evidence",
+                        status_code=409,
+                    )
+                offsite_artifacts = await asyncio.to_thread(
+                    self._offsite.download_for_validation,
+                    backup.offsite_evidence,
+                    validation_id=claim.id,
+                    attempt_token=claim.lease_token,
+                )
+                remote_database = (backup.offsite_evidence or {}).get("database") or {}
+                remote_snapshot = (backup.offsite_evidence or {}).get("three_d_snapshot")
+                if snapshot_required:
+                    if not remote_snapshot or not offsite_artifacts.snapshot_location:
+                        raise BackupExecutionError(
+                            "off-site restore validation",
+                            "The R2 backup is missing its required 3D snapshot",
+                            status_code=409,
+                        )
+                    offsite_snapshot_validation = await asyncio.to_thread(
+                        self._three_d_executor.validate_snapshot,
+                        offsite_artifacts.database_location,
+                        expected_checksum=str(remote_snapshot["sha256"]),
+                        expected_size_bytes=int(remote_snapshot["size_bytes"]),
+                        expected_file_count=int(remote_snapshot["file_count"]),
+                        expected_payload_bytes=int(remote_snapshot["payload_bytes"]),
+                    )
+                offsite_validation = await self._executor.validate_restore(
+                    offsite_artifacts.database_location,
+                    str(remote_database["sha256"]),
+                    f"{claim.id}:offsite",
+                    claim.lease_token,
+                    expected_size_bytes=int(remote_database["size_bytes"]),
+                )
         except asyncio.CancelledError:
             raise
         except BackupExecutionError as exc:
@@ -838,6 +978,13 @@ class BackupJobWorker:
                 ),
             )
             return
+        finally:
+            if offsite_artifacts is not None:
+                await asyncio.to_thread(
+                    self._offsite.cleanup_validation,
+                    offsite_artifacts.database_location,
+                    offsite_artifacts.snapshot_location,
+                )
 
         async with self._session_factory() as session:
             await acquire_enqueue_lock(session, "restore-validation")
@@ -853,7 +1000,19 @@ class BackupJobWorker:
             if run is None:
                 return
             three_d_validated = not snapshot_required or snapshot_validation is not None
-            overall_validated = validation.restored and three_d_validated
+            offsite_required = self._offsite.enabled
+            offsite_three_d_validated = (
+                not snapshot_required or offsite_snapshot_validation is not None
+            )
+            offsite_validated = (
+                not offsite_required
+                or (
+                    offsite_validation is not None
+                    and offsite_validation.restored
+                    and offsite_three_d_validated
+                )
+            )
+            overall_validated = validation.restored and three_d_validated and offsite_validated
             run.status = "completed" if overall_validated else "failed"
             run.lease_token = None
             run.completed_at = _now()
@@ -866,6 +1025,11 @@ class BackupJobWorker:
                 "size_bytes": validation.size_bytes,
                 "three_d_snapshot_required": snapshot_required,
                 "three_d_snapshot_validated": three_d_validated,
+                "offsite_required": offsite_required,
+                "offsite_validated": offsite_validated,
+                "offsite_database_checksum": (offsite_validation.checksum if offsite_validation is not None else None),
+                "offsite_database_size_bytes": (offsite_validation.size_bytes if offsite_validation is not None else None),
+                "offsite_three_d_snapshot_validated": offsite_three_d_validated if offsite_required else False,
             }
             if snapshot_validation is not None:
                 validation_details.update(
@@ -890,6 +1054,8 @@ class BackupJobWorker:
                         "size_bytes": validation.size_bytes,
                         "three_d_snapshot_required": snapshot_required,
                         "three_d_snapshot_validated": three_d_validated,
+                        "offsite_required": offsite_required,
+                        "offsite_validated": offsite_validated,
                     },
                 )
             )
@@ -1151,6 +1317,14 @@ class BackupJobWorker:
                         "AND column_name = 'lease_token'"
                         ") AND EXISTS ("
                         "SELECT 1 FROM information_schema.columns "
+                        "WHERE table_name = 'backup_records' "
+                        "AND column_name = 'offsite_status'"
+                        ") AND EXISTS ("
+                        "SELECT 1 FROM information_schema.columns "
+                        "WHERE table_name = 'backup_records' "
+                        "AND column_name = 'offsite_evidence'"
+                        ") AND EXISTS ("
+                        "SELECT 1 FROM information_schema.columns "
                         "WHERE table_name = 'disaster_recovery_runs' "
                         "AND column_name = 'lease_token'"
                         ")"
@@ -1168,6 +1342,7 @@ class BackupJobWorker:
 
         self._executor.verify_storage()
         self._three_d_executor.verify_source()
+        await asyncio.to_thread(self._offsite.preflight)
         if not require_heartbeat:
             self._executor.cleanup_stale_partials(
                 settings.BACKUP_JOB_LEASE_SECONDS,

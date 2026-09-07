@@ -2382,7 +2382,16 @@ async def _validate_release_gate(
             completed_backup,
             verify_checksum=True,
         )
-        if completed_backup is not None and artifact_ready:
+        offsite_ready = (
+            not settings.BACKUP_OFFSITE_ENABLED
+            or (
+                completed_backup is not None
+                and completed_backup.offsite_status == "completed"
+                and bool(completed_backup.offsite_evidence)
+                and completed_backup.offsite_completed_at is not None
+            )
+        )
+        if completed_backup is not None and artifact_ready and offsite_ready:
             for candidate in recovery_runs:
                 details = candidate.details or {}
                 if details.get("backup_id") != completed_backup.id:
@@ -2398,10 +2407,18 @@ async def _validate_release_gate(
                     or details.get("three_d_snapshot_validated") is not True
                 ):
                     continue
+                if settings.BACKUP_OFFSITE_ENABLED and (
+                    details.get("offsite_required") is not True
+                    or details.get("offsite_validated") is not True
+                ):
+                    continue
                 recovery_run = candidate
                 break
         passed = (
-            completed_backup is not None and artifact_ready and recovery_run is not None
+            completed_backup is not None
+            and artifact_ready
+            and offsite_ready
+            and recovery_run is not None
         )
         last_result = (
             "A recent completed backup and successful restore/DR run are available"
@@ -2414,8 +2431,12 @@ async def _validate_release_gate(
                     "verification"
                     if not artifact_ready
                     else (
-                        "No successful restore or DR run from the last 24 hours "
-                        "is available"
+                        "The latest completed backup has no verified off-site R2 replication"
+                        if not offsite_ready
+                        else (
+                            "No successful restore or DR run from the last 24 hours "
+                            "is available"
+                        )
                     )
                 )
             )
@@ -2427,6 +2448,14 @@ async def _validate_release_gate(
                 "unavailable"
                 if completed_backup is None
                 else "verified" if artifact_ready else "failed"
+            ),
+            "offsiteRequired": settings.BACKUP_OFFSITE_ENABLED,
+            "offsiteReplication": (
+                completed_backup.offsite_status if completed_backup is not None else "unavailable"
+            ),
+            "offsiteValidated": (
+                (recovery_run.details or {}).get("offsite_validated") is True
+                if recovery_run is not None else False
             ),
             "recoveryRunId": recovery_run.id if recovery_run is not None else None,
             "recoveryOperation": (
