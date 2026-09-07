@@ -1525,6 +1525,25 @@ async def delivery_statistics(session: AsyncSession) -> dict[str, Any]:
             )
         )
     ).all()
+    historical_expr = (
+        NotificationDelivery.delivery_metadata["historical_actionable"]
+        .as_boolean()
+        .is_(False)
+    )
+    historical_rows = (
+        await session.execute(
+            select(NotificationDelivery.status, func.count(NotificationDelivery.id))
+            .where(historical_expr)
+            .group_by(NotificationDelivery.status)
+        )
+    ).all()
+    actionable_rows = (
+        await session.execute(
+            select(NotificationDelivery.status, func.count(NotificationDelivery.id))
+            .where(or_(historical_expr.is_(False), historical_expr.is_(None)))
+            .group_by(NotificationDelivery.status)
+        )
+    ).all()
     channel_rows = (
         await session.execute(
             select(NotificationDelivery.channel, func.count(NotificationDelivery.id)).group_by(
@@ -1534,6 +1553,12 @@ async def delivery_statistics(session: AsyncSession) -> dict[str, Any]:
     ).all()
     return {
         "by_status": {str(status): int(count) for status, count in status_rows},
+        "actionable_by_status": {
+            str(status): int(count) for status, count in actionable_rows
+        },
+        "historical_reconciled_by_status": {
+            str(status): int(count) for status, count in historical_rows
+        },
         "by_channel": {str(channel): int(count) for channel, count in channel_rows},
         "readiness": channel_readiness(),
     }
