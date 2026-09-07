@@ -39,3 +39,51 @@ Production activation remains gated on protected PR/CI/merge. After merge the sy
 - Host timer is enabled/active and the capacity state file is being written under `/var/lib/aionex-runtime-watch/`.
 - Acceptance warning and recovery both produced durable In-app and Telegram deliveries with no delivery error code.
 - A follow-up hardening change initializes Redis in the host-alert CLI so immediate realtime In-app publication is available in addition to durable delivery.
+
+## Final Production Acceptance — 2026-09-07
+
+The Capacity Guard is now merged, deployed, and verified on Production.
+
+- PR #587 introduced the host-side Capacity Guard and Owner capacity alert contract.
+- PR #588 added Redis lifecycle ownership for the host alert CLI.
+- PR #589 fixed the final realtime lifecycle boundary by starting/stopping `realtime_event_runtime` around host alert emission.
+- Final runtime merge commit: `b76aa5e895fe223f60da2f880f81a04baea9ea65`.
+- `aionex-runtime-watch.timer`: enabled and active.
+- Last `aionex-runtime-watch.service`: `Result=success`, `ExecMainStatus=0`.
+- Final observer image: `sha256:0db1fb8fc0b641da50f5c3570ed4ec829b339a204d98c9a223a3a5da2cf64449`.
+- `operations-observer`: running, healthy, restart count 0.
+
+### Live Owner notification acceptance
+
+A synthetic capacity warning and recovery were emitted through the exact Production host-alert bridge without applying real load to the server.
+
+Warning transition `910003`:
+- event: `operations.host.capacity_warning`
+- In-app: `delivered`
+- Telegram: `delivered`
+- Telegram provider receipt: present
+- delivery error code: none
+- realtime publish warning: none
+
+Recovery transition `910004`:
+- event: `operations.host.capacity_recovered`
+- In-app: `delivered`
+- Telegram: `delivered`
+- Telegram provider receipt: present
+- delivery error code: none
+- realtime publish warning: none
+
+### Post-acceptance host state
+
+- Production containers running: 35
+- unhealthy: 0
+- aggregate restart count: 0
+- `/ready`: HTTP 200
+- CPU: healthy (34.26% at final sampled cycle)
+- memory: healthy (11.38%)
+- disk: healthy (38.36%)
+- normalized load: healthy (29.54%)
+- network: healthy (0.0% at final sampled cycle)
+- swap: healthy (0.42%)
+
+**Certification:** the Production server now has an active, durable, debounced Capacity Guard that issues explicit Owner upgrade recommendations before sustained resource pressure reaches the measured critical boundary, escalates critical pressure, and emits recovery notifications after the host returns to the safe range.
