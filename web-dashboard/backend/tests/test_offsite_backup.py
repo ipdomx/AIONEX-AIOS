@@ -108,3 +108,26 @@ def test_r2_credentials_reject_group_readable_file(tmp_path):
         assert "private R2 backup credential file" in str(exc)
     else:
         raise AssertionError("unsafe credential permissions were accepted")
+
+
+def test_production_r2_secret_uses_root_only_source_and_private_runtime_copy():
+    root = Path(__file__).resolve().parents[3]
+    entrypoint = (root / "web-dashboard/backend/scripts/docker-entrypoint.sh").read_text()
+    example = (root / "deploy/production/.env.production.example").read_text()
+    for relative in (
+        "web-dashboard/docker-compose.production.yml",
+        "deploy/production/docker-compose.production.yml",
+    ):
+        compose = (root / relative).read_text()
+        start = compose.index("  backup-worker:")
+        end = compose.find("\n  communication-worker:", start)
+        block = compose[start:] if end < 0 else compose[start:end]
+        assert "AIOS_R2_BACKUP_SECRET_SOURCE: /run/operator-secrets/r2-backup-source.env" in block
+        assert "/root/.config/aionex/r2-backup/credentials.env" in block
+        assert ":/run/operator-secrets/r2-backup-source.env:ro" in block
+        assert ":/run/operator-secrets/r2-backup.env:ro" not in block
+    assert 'r2_secret_source="${AIOS_R2_BACKUP_SECRET_SOURCE:-}"' in entrypoint
+    assert 'r2_secret_runtime="$runtime_dir/r2-backup.env"' in entrypoint
+    assert 'install -m 0400 -o aionex -g aionex "$r2_secret_source" "$r2_secret_runtime"' in entrypoint
+    assert 'export BACKUP_OFFSITE_SECRET_FILE="$r2_secret_runtime"' in entrypoint
+    assert "BACKUP_OFFSITE_SECRET_FILE=/run/aionex/r2-backup.env" in example
