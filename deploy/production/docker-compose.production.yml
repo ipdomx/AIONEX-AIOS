@@ -103,6 +103,7 @@ services:
       THREE_D_STORAGE_ROOT: /var/lib/aionex/three-d-assets
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
+      AIOS_R2_BACKUP_SECRET_SOURCE: /run/operator-secrets/r2-backup-source.env
     command: ["python", "-m", "app.services.backup_worker"]
     restart: unless-stopped
     mem_limit: 3g
@@ -112,7 +113,7 @@ services:
       - ../..:/workspace:ro
       - backup_data:/var/lib/aionex/backups:rw
       - three_d_asset_data:/var/lib/aionex/three-d-assets:ro
-      - ${AIOS_R2_BACKUP_SECRET_HOST_FILE:-/etc/aionex/r2-backup/credentials.env}:/run/operator-secrets/r2-backup.env:ro
+      - ${AIOS_R2_BACKUP_SECRET_HOST_FILE:-/root/.config/aionex/r2-backup/credentials.env}:/run/operator-secrets/r2-backup-source.env:ro
     depends_on:
       backend:
         condition: service_healthy

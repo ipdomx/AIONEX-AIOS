@@ -18,6 +18,15 @@ if [ "$(id -u)" = "0" ]; then
         fi
         export FIREBASE_ADMIN_CREDENTIALS_JSON="$runtime_path"
     fi
+    r2_secret_source="${AIOS_R2_BACKUP_SECRET_SOURCE:-}"
+    if [ -n "$r2_secret_source" ] && [ -f "$r2_secret_source" ]; then
+        runtime_dir=/run/aionex
+        r2_secret_runtime="$runtime_dir/r2-backup.env"
+        install -d -m 0700 -o aionex -g aionex "$runtime_dir"
+        install -m 0400 -o aionex -g aionex "$r2_secret_source" "$r2_secret_runtime"
+        export BACKUP_OFFSITE_SECRET_FILE="$r2_secret_runtime"
+    fi
+
     project_secret_source="${PROJECT_EXECUTION_SECRET_FILE:-}"
     if [ -n "$project_secret_source" ] && [ -f "$project_secret_source" ]; then
         runtime_dir=/run/aionex
