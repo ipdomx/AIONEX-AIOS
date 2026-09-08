@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from collections.abc import Sequence
 from typing import Any, Literal
 from uuid import uuid4
 
@@ -178,7 +179,7 @@ async def set_owner_access(
     user_id: str,
     operation: str,
     allowed: bool,
-    identity_bases: list[str] | tuple[str, ...] | None = None,
+    identity_bases: Sequence[str] | None = None,
     subject_scope: Literal["any", "exact"] = "any",
     subject_reference: str | None = None,
     note: str = "",

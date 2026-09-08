@@ -150,6 +150,7 @@ class IdentityMediaWorker:
             if row.provider_job_id:
                 await session.rollback()
                 return
+            metadata: dict[str, Any]
             try:
                 if operation == "voice_clone":
                     audio = await self._input_file(row, "audio")

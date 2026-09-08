@@ -228,7 +228,6 @@ async def create_identity_execution(
                 "owner_approval_required": access.owner_approval_required,
             },
         )
-    provider_access = "paid"
     effective_rights_sha = str(rights_evidence_sha256 or "").strip().lower() or None
     rights_body: bytes | None = None
     rights_content_type: str | None = None
@@ -262,7 +261,7 @@ async def create_identity_execution(
         decision = IdentityMediaRequest(
             operation=operation,  # type: ignore[arg-type]
             identity_basis=identity_basis,  # type: ignore[arg-type]
-            provider_access=provider_access,
+            provider_access="paid",
             subject_reference=subject_reference,
             synthetic_media_disclosure_accepted=synthetic_media_disclosure_accepted,
             rights_evidence_sha256=effective_rights_sha,

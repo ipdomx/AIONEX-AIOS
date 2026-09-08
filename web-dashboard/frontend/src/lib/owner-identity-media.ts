@@ -83,6 +83,16 @@ export function searchOwnerIdentityMediaUsers(
   );
 }
 
+export function listOwnerIdentityMediaRequests(
+  status?: OwnerIdentityMediaRequest["review_status"],
+  signal?: AbortSignal,
+) {
+  return apiClient.get<{ requests: OwnerIdentityMediaRequest[] }>(
+    "/owner/identity-media/requests",
+    { params: status ? { status } : undefined, signal },
+  );
+}
+
 export function setOwnerIdentityMediaAccess(input: {
   user_id: string;
   operation: IdentityMediaOperation;

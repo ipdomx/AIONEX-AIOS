@@ -180,6 +180,12 @@ OWNER_API_CONTRACT = {
     ("POST", "/api/v1/owner/project-ai/providers/{provider_id}/funding-attestation"),
     ("GET", "/api/v1/owner/studio-governance"),
     ("PATCH", "/api/v1/owner/studio-governance/{capability_id}"),
+    ("GET", "/api/v1/owner/identity-media"),
+    ("GET", "/api/v1/owner/identity-media/users"),
+    ("PUT", "/api/v1/owner/identity-media/access"),
+    ("DELETE", "/api/v1/owner/identity-media/access/{user_id}/{operation}"),
+    ("GET", "/api/v1/owner/identity-media/requests"),
+    ("PUT", "/api/v1/owner/identity-media/requests/{request_id}"),
 
 }
 
@@ -231,6 +237,20 @@ OWNER_MUTATION_REQUESTS = {
         "max_cost_usd": 0.0,
         "provider_mode": "provider_neutral",
         "moderation_mode": "standard",
+    },
+    ("PUT", "/api/v1/owner/identity-media/access"): {
+        "user_id": "missing-user",
+        "operation": "voice_clone",
+        "allowed": True,
+        "identity_bases": ["self"],
+        "subject_scope": "any",
+        "subject_reference": None,
+        "note": "Authorization contract only",
+    },
+    ("DELETE", "/api/v1/owner/identity-media/access/{user_id}/{operation}"): None,
+    ("PUT", "/api/v1/owner/identity-media/requests/{request_id}"): {
+        "decision": "denied",
+        "review_note": "Authorization contract only",
     },
     ("POST", "/api/v1/owner/platform-integration/command"): {
         "action": "validate",

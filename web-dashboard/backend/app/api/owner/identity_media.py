@@ -13,6 +13,12 @@ from app.services import identity_media_access
 
 router = APIRouter(prefix="/owner/identity-media", tags=["Owner Identity Media"])
 
+RealIdentityBasis = Literal["self", "consented_person", "licensed_public_figure"]
+
+
+def _default_identity_bases() -> list[RealIdentityBasis]:
+    return ["self", "consented_person"]
+
 
 class IdentityMediaAccessUpdate(BaseModel):
     user_id: str = Field(min_length=1, max_length=36)
@@ -26,9 +32,9 @@ class IdentityMediaAccessUpdate(BaseModel):
         "avatar_generation",
     ]
     allowed: bool
-    identity_bases: list[
-        Literal["self", "consented_person", "licensed_public_figure"]
-    ] = Field(default_factory=lambda: ["self", "consented_person"], min_length=1, max_length=3)
+    identity_bases: list[RealIdentityBasis] = Field(
+        default_factory=_default_identity_bases, min_length=1, max_length=3
+    )
     subject_scope: Literal["any", "exact"] = "any"
     subject_reference: str | None = Field(default=None, max_length=200)
     note: str = Field(default="", max_length=1000)
