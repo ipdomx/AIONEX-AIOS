@@ -846,6 +846,32 @@ class Settings(BaseSettings):
         le=86_400,
         validation_alias="AUDIO_SONG_ARTIFACT_RETENTION_SECONDS",
     )
+    IDENTITY_MEDIA_LIVE_ENABLED: bool = Field(
+        default=False, validation_alias="IDENTITY_MEDIA_LIVE_ENABLED"
+    )
+    IDENTITY_MEDIA_WORKER_ID: str = Field(
+        default="", validation_alias="IDENTITY_MEDIA_WORKER_ID"
+    )
+    IDENTITY_MEDIA_POLL_SECONDS: int = Field(
+        default=3, ge=1, le=60, validation_alias="IDENTITY_MEDIA_POLL_SECONDS"
+    )
+    IDENTITY_MEDIA_LEASE_SECONDS: int = Field(
+        default=300, ge=30, le=3600, validation_alias="IDENTITY_MEDIA_LEASE_SECONDS"
+    )
+    IDENTITY_MEDIA_PROVIDER_TIMEOUT_SECONDS: int = Field(
+        default=90, ge=10, le=300, validation_alias="IDENTITY_MEDIA_PROVIDER_TIMEOUT_SECONDS"
+    )
+    IDENTITY_MEDIA_MAX_PROVIDER_BYTES: int = Field(
+        default=268_435_456, ge=1_048_576, le=536_870_912,
+        validation_alias="IDENTITY_MEDIA_MAX_PROVIDER_BYTES",
+    )
+    IDENTITY_MEDIA_MAX_POLLS: int = Field(
+        default=240, ge=10, le=2000, validation_alias="IDENTITY_MEDIA_MAX_POLLS"
+    )
+    IDENTITY_MEDIA_WORKER_HEALTH_FILE: str = Field(
+        default="/tmp/aionex-identity-media-worker-health.json",
+        validation_alias="IDENTITY_MEDIA_WORKER_HEALTH_FILE",
+    )
     VIDEO_EXECUTION_LIVE_ENABLED: bool = Field(
         default=False, validation_alias="VIDEO_EXECUTION_LIVE_ENABLED"
     )

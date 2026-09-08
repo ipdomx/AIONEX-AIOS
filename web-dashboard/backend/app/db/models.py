@@ -5261,3 +5261,97 @@ class RealtimeRecordingConsent(Base, TimestampMixin):
     consented_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     declined_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class IdentityMediaExecution(Base, TimestampMixin):
+    """Durable governed identity-media provider execution."""
+
+    __tablename__ = "identity_media_executions"
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id",
+            "idempotency_key",
+            name="uq_identity_media_execution_org_idempotency",
+        ),
+        Index(
+            "ix_identity_media_executions_org_status_created",
+            "organization_id",
+            "status",
+            "created_at",
+        ),
+        Index(
+            "ix_identity_media_executions_claim",
+            "status",
+            "available_at",
+            "created_at",
+        ),
+        Index(
+            "ix_identity_media_executions_provider_state_lookup",
+            "provider",
+            "provider_state",
+        ),
+        Index(
+            "ix_identity_media_executions_user_created",
+            "requested_by_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    project_id: Mapped[str | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), index=True
+    )
+    requested_by_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    operation: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    identity_basis: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    provider_access: Mapped[str] = mapped_column(String(40), nullable=False)
+    provider: Mapped[str] = mapped_column(String(40), default="replicate", nullable=False, index=True)
+    model: Mapped[str] = mapped_column(String(160), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="planned", nullable=False, index=True)
+    provider_state: Mapped[str] = mapped_column(String(40), default="not_started", nullable=False, index=True)
+    idempotency_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    subject_reference: Mapped[str] = mapped_column(String(200), nullable=False)
+    named_real_person_reference: Mapped[str | None] = mapped_column(String(200))
+    rights_evidence_sha256: Mapped[str | None] = mapped_column(String(64), index=True)
+    license_reference: Mapped[str | None] = mapped_column(String(500))
+    synthetic_media_disclosure_accepted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    commercial_use_requested: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    commercial_use_authorized: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    claims_real_identity: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    request_payload: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    input_storage_keys: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    input_checksums: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    provider_job_id: Mapped[str | None] = mapped_column(String(200), index=True)
+    secondary_provider_job_id: Mapped[str | None] = mapped_column(String(200), index=True)
+    provider_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    polls: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    max_polls: Mapped[int] = mapped_column(Integer, default=240, nullable=False)
+    lease_token = mapped_column(String(36))
+    lease_owner: Mapped[str | None] = mapped_column(String(160), index=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    fencing_token = mapped_column(Integer, default=0, nullable=False)
+    available_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    estimated_cost_usd: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    max_cost_usd: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    actual_cost_usd: Mapped[float | None] = mapped_column(Float)
+    cost_basis: Mapped[str] = mapped_column(String(64), default="user_authorized_ceiling_provider_price_unverified", nullable=False)
+    output_storage_backend: Mapped[str | None] = mapped_column(String(32))
+    output_storage_key: Mapped[str | None] = mapped_column(Text)
+    output_checksum_sha256: Mapped[str | None] = mapped_column(String(64), index=True)
+    output_size_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    output_media_type: Mapped[str | None] = mapped_column(String(120))
+    error_code: Mapped[str | None] = mapped_column(String(120))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    armed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    provider_submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)

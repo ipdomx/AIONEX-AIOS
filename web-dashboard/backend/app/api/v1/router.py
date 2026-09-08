@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from app.api.owner import (
     external_activation as owner_external_activation,
     growth_access as owner_growth_access,
+    identity_media as owner_identity_media,
     growth_pilots as owner_growth_pilots,
     growth_paid_campaigns as owner_growth_paid_campaigns,
     project_ai as owner_project_ai,
@@ -47,6 +48,7 @@ from app.api.v1.endpoints import (
     growth_provider_connectors,
     growth_social_accounts,
     identity,
+    identity_media,
     incidents,
     integration,
     knowledge,
@@ -105,6 +107,7 @@ api_router.include_router(
 )
 api_router.include_router(studio.router, prefix="/studio", tags=["Production Studio"])
 api_router.include_router(live_media.router, prefix="/studio/live-media", tags=["Live Media Studio"])
+api_router.include_router(identity_media.router)
 api_router.include_router(
     mobile_delivery.router, prefix="/mobile", tags=["Mobile Delivery"]
 )
@@ -310,4 +313,5 @@ owner_router.include_router(owner_growth_paid_campaigns.router)
 owner_router.include_router(owner_project_ai.router)
 owner_router.include_router(owner_external_activation.router)
 owner_router.include_router(owner_studio_governance.router)
+owner_router.include_router(owner_identity_media.router)
 api_router.include_router(owner_router)

@@ -37,6 +37,7 @@ STORE_GATE = "store-signing-and-publication"
 OWNER_EVIDENCE_DOMAIN = "external-activation-owner-evidence"
 OWNER_EVIDENCE_REVIEWABLE_GATES = frozenset({
     "jurisdictional-healthcare-compliance-certification",
+    "identity-media-rights-and-consent-evidence",
     "music-rights-and-ai-generated-disclosure",
     "music-rights-and-synthid-disclosure",
     "platform-code-signing",
@@ -258,6 +259,35 @@ _DEFINITIONS: tuple[GateDefinition, ...] = (
         ("excluded from current closeout scope by Owner decision",),
     ),
     GateDefinition(
+        "identity-media-rights-and-consent-evidence",
+        "blocked_external",
+        "Rights, consent or licensed-catalog authority for a real person's voice, face or likeness in synthetic/transformed media.",
+        (
+            "subject consent or rightsholder/provider license",
+            "permitted identity-media operation and use scope",
+            "durable checksum-bound evidence reference",
+        ),
+        (
+            "real-person identity media requires rights evidence",
+            "licensed public-figure routes require licensed-catalog authority",
+            "fictional/inspired personas cannot claim or bind to a named real person",
+        ),
+    ),
+    GateDefinition(
+        "identity-media-runtime-acceptance",
+        "enforced_internal_external_pending",
+        "A bounded accepted local or provider runtime for governed identity-media operations.",
+        (
+            "accepted identity-media runtime/provider route",
+            "bounded operation canary and artifact QA evidence",
+            "synthetic-media disclosure and rights policy preserved end to end",
+        ),
+        (
+            "provider-neutral identity-media admission policy is source-built",
+            "no identity-media provider is reported active without runtime evidence",
+        ),
+    ),
+    GateDefinition(
         "synthetic-voice-disclosure",
         "enforced_internal_external_pending",
         "User-facing disclosure that generated speech/dubbing uses a synthetic voice.",
@@ -270,9 +300,12 @@ _DEFINITIONS: tuple[GateDefinition, ...] = (
     GateDefinition(
         "voice-rights-and-consent-evidence",
         "blocked_external",
-        "Rights/consent evidence from the voice owner or authorized subject for transformation/cloning.",
-        ("voice-owner consent", "permitted use scope", "durable evidence reference"),
-        ("voice transformation remains unavailable without the rights gate",),
+        "Rights/consent or licensed-catalog evidence from the voice owner, authorized subject or rightsholder for transformation/cloning.",
+        ("voice-owner/subject consent or licensed identity authority", "permitted use scope", "durable evidence reference"),
+        (
+            "voice transformation remains unavailable without the rights gate",
+            "named public-figure voice identity requires a licensed catalog or equivalent rightsholder authority",
+        ),
     ),
     GateDefinition(
         "xr-device-validation",

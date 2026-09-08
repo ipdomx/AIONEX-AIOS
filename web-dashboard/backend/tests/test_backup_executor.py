@@ -1438,7 +1438,7 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
     assert "requirements-runtime.txt" in dockerfile
     assert "setuptools*" in dockerfile and "wheel*" in dockerfile
     assert "install -d -m 0700 -o aionex -g aionex" in dockerfile
-    for compose, expected_backend_images in ((primary_compose, 17), (deploy_compose, 16)):
+    for compose, expected_backend_images in ((primary_compose, 18), (deploy_compose, 17)):
         assert "backup-worker:" in compose
         assert "postgres-credential-reconciler:" in compose
         assert "communication-worker:" in compose
@@ -1527,6 +1527,9 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
         assert 'cap_drop: ["ALL"]' in secondary_song_section
         assert 'cap_add: ["CHOWN", "FOWNER", "SETGID", "SETUID"]' in secondary_song_section
         assert 'no-new-privileges:true' in secondary_song_section
+        assert "identity-media-worker:" in compose
+        assert 'command: ["python", "-m", "app.services.identity_media_worker"]' in compose
+        assert 'IDENTITY_MEDIA_LIVE_ENABLED: "true"' in compose
         assert "three-d-worker:" in compose
         assert 'command: ["python", "-m", "app.services.three_d_worker"]' in compose
         assert "/run/secrets/aionex/runpod-gpu.env:ro" in compose

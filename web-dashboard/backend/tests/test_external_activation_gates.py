@@ -64,6 +64,12 @@ async def test_snapshot_excludes_store_scope_and_keeps_other_external_facts_bloc
     assert by_id["music-rights-and-ai-generated-disclosure"]["status"] == (
         "enforced_internal_external_pending"
     )
+    assert by_id["identity-media-rights-and-consent-evidence"]["status"] == "blocked_external"
+    assert by_id["identity-media-rights-and-consent-evidence"]["owner_evidence_reviewable"] is True
+    assert by_id["identity-media-runtime-acceptance"]["status"] == (
+        "enforced_internal_external_pending"
+    )
+    assert by_id["identity-media-runtime-acceptance"]["owner_evidence_reviewable"] is False
     assert snapshot["scope_policy"]["direct_apple_pay_excluded"] is True
     assert snapshot["catalog_invariant"]["missing_definitions"] == []
 

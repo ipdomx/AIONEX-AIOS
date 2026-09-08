@@ -67,6 +67,19 @@ async def test_phase36_public_capability_snapshot_is_truthful_and_non_secret() -
     assert capabilities["realtime-chat-calling"]["maturity"] == "runtime_verified"
     assert capabilities["realtime-streaming-recording"]["maturity"] == "runtime_verified"
     assert capabilities["voice-transformation"]["maturity"] == "specified"
+    assert capabilities["voice-transformation"]["external_gates"] == (
+        "voice-rights-and-consent-evidence",
+        "identity-media-runtime-acceptance",
+    )
+    assert capabilities["identity-media-consented-licensed"]["maturity"] == "specified"
+    assert capabilities["identity-media-consented-licensed"]["external_gates"] == (
+        "identity-media-rights-and-consent-evidence",
+        "identity-media-runtime-acceptance",
+    )
+    assert capabilities["identity-media-fictional-inspired"]["maturity"] == "specified"
+    assert capabilities["identity-media-fictional-inspired"]["external_gates"] == (
+        "identity-media-runtime-acceptance",
+    )
     assert payload["completion"] < 100
     assert payload["production_ready_capabilities"] < payload["total_capabilities"]
     rendered = repr(payload).lower()
