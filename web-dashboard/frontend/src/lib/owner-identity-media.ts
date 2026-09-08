@@ -10,9 +10,7 @@ export type IdentityMediaOperation =
   | "avatar_generation";
 
 export type RealIdentityBasis =
-  | "self"
-  | "consented_person"
-  | "licensed_public_figure";
+  "self" | "consented_person" | "licensed_public_figure";
 
 export type OwnerIdentityMediaAccess = {
   user_id: string;
@@ -75,7 +73,10 @@ export function getOwnerIdentityMedia(query = "", signal?: AbortSignal) {
   });
 }
 
-export function searchOwnerIdentityMediaUsers(query: string, signal?: AbortSignal) {
+export function searchOwnerIdentityMediaUsers(
+  query: string,
+  signal?: AbortSignal,
+) {
   return apiClient.get<{ users: OwnerIdentityMediaUser[] }>(
     "/owner/identity-media/users",
     { params: query ? { query } : undefined, signal },

@@ -5286,7 +5286,7 @@ class IdentityMediaExecution(Base, TimestampMixin):
             "created_at",
         ),
         Index(
-            "ix_identity_media_executions_provider_state",
+            "ix_identity_media_executions_provider_state_lookup",
             "provider",
             "provider_state",
         ),
