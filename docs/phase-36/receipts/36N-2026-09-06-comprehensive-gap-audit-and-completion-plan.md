@@ -450,3 +450,11 @@ G16 was re-evaluated after this deferral. The repository contains the official L
 ## 2026-09-08 — Owner deferral update: known-person/custom voice rights
 
 The Owner confirmed that the current launch will not submit the Owner's own voice and does not have a third-party voice subject whose consent is being supplied. Accordingly, known-person/custom voice transformation and voice cloning remain fail-closed and are explicitly deferred from the current launch scope. No consent document will be fabricated or self-invented merely to move the gate to PASS. Existing stock synthetic-voice TTS and stock-voice dubbing remain within the current launch scope under the already-enforced synthetic-voice disclosure controls. The `voice-rights-and-consent-evidence` gate remains truthful and blocked until a real voice owner/authorized subject and permitted-use evidence exist.
+
+## 2026-09-08 — Owner expansion: governed artist / identity media
+
+The Owner expanded AIONEX scope to include voice + image/video identity media, including voice cloning/transformation, avatars, face reenactment/swap, talking heads and lip-sync, across local/free, external-free, paid and licensed-catalog provider routes. This is a scope expansion, not a claim that an unlicensed celebrity imitation is authorized merely because an external tool technically permits it.
+
+AIONEX now distinguishes `self`, `consented_person`, `licensed_public_figure` and `fictional_inspired` identity bases. Real-person identity media remains checksum-rights-bound; public-figure/artist identity requires licensed-catalog/rightsholder authority; fictional/inspired personas may use free or paid runtimes but cannot name, bind to or claim the identity of a real person. The current launch music default remains original/instrumental/AI-generated material. Licensed/public-domain material may be used only with real evidence.
+
+Identity-media provider/runtime activation remains a separate external/runtime acceptance boundary and is not a launch blocker for the already certified stock-voice/image/video paths. The detailed scope/evidence contract is `docs/phase-36/receipts/36G-2026-09-08-identity-media-scope-expansion.md`.

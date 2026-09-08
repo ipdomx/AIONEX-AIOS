@@ -171,17 +171,23 @@ def test_phase36g_stage5_source_keeps_diarization_separate_without_overclaiming(
         "complete-stock-voice-dubbing": "runtime_verified",
         "stt-tts-dubbing": "runtime_verified",
         "voice-transformation": "specified",
+        "identity-media-consented-licensed": "specified",
+        "identity-media-fictional-inspired": "specified",
         "audio-cleanup-master": "runtime_verified",
         "lyria-3-music-generation": "runtime_verified",
         "stable-audio-instrumental-generation": "runtime_verified",
         "song-production": "runtime_verified",
         "podcast-jingle-narration": "runtime_verified",
     }
+    identity_receipt = "docs/phase-36/receipts/36G-2026-09-08-identity-media-scope-expansion.md"
     for capability_id, maturity in expected.items():
         capability = capabilities[capability_id]
         assert capability.owner_batch == "36G"
         assert capability.maturity == maturity
-        assert receipt in capability.evidence
+        if capability_id.startswith("identity-media-"):
+            assert identity_receipt in capability.evidence
+        else:
+            assert receipt in capability.evidence
     assert capabilities["stock-voice-tts"].external_gates == (
         "synthetic-voice-disclosure",
     )
@@ -190,6 +196,14 @@ def test_phase36g_stage5_source_keeps_diarization_separate_without_overclaiming(
     assert capabilities["complete-stock-voice-dubbing"].external_gates == ()
     assert capabilities["voice-transformation"].external_gates == (
         "voice-rights-and-consent-evidence",
+        "identity-media-runtime-acceptance",
+    )
+    assert capabilities["identity-media-consented-licensed"].external_gates == (
+        "identity-media-rights-and-consent-evidence",
+        "identity-media-runtime-acceptance",
+    )
+    assert capabilities["identity-media-fictional-inspired"].external_gates == (
+        "identity-media-runtime-acceptance",
     )
     assert capabilities["lyria-3-music-generation"].external_gates == (
         "music-rights-and-synthid-disclosure",
@@ -238,7 +252,11 @@ def test_phase36_snapshot_is_truthful_and_phase29_is_not_current_finality() -> N
         assert batch["local_closeout_complete"] is True
         assert batch["blocking_external_gates"]
         assert batch["ungated_unresolved_capabilities"] == []
-    assert batch_by_id["36G"]["unresolved_capabilities"] == ["voice-transformation"]
+    assert batch_by_id["36G"]["unresolved_capabilities"] == [
+        "identity-media-consented-licensed",
+        "identity-media-fictional-inspired",
+        "voice-transformation",
+    ]
     assert batch_by_id["36H"]["unresolved_capabilities"] == []
     assert batch_by_id["36I"]["unresolved_capabilities"] == ["xr-ar-vr"]
     assert batch_by_id["36A"]["local_closeout_complete"] is True
