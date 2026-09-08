@@ -118,11 +118,6 @@ class IdentityMediaRequest:
                     "licensed public-figure route must explicitly declare that it represents the licensed identity"
                 )
 
-        if self.identity_basis in {"self", "consented_person"} and self.claims_real_identity is False:
-            # The user may still render an avatarized form of the authorized subject.  The
-            # rights evidence remains mandatory even when the output is stylized.
-            pass
-
         if self.identity_basis == "fictional_inspired":
             if self.claims_real_identity:
                 raise IdentityMediaPolicyError(
