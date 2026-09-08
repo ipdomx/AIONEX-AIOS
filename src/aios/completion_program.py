@@ -462,6 +462,7 @@ OWNER_PAGE_BATCH: Final[dict[str, str]] = {
     "billing": "29D", "communications": "29E", "completion": "29A", "compliance": "29G",
     "compliance-runtime": "29G", "costs": "29D", "executive": "29B", "executive-bi": "29B",
     "external-activation": "36M",
+    "identity-media": "36G",
     "final-platform-integration": "29G", "finalization": "29G", "global-command": "29B",
     "governance": "29E", "health": "29G", "incidents": "29E", "integrations": "29I",
     "licensing": "29D", "mobile-delivery": "29H", "notification-runtime": "29E", "notifications": "29E",
@@ -489,6 +490,7 @@ VIP_PAGE_BATCH: Final[dict[str, str]] = {
     "[locale]/reset-password/page.tsx": "29C",
     "[locale]/security-lab/page.tsx": "34E",
     "[locale]/studio/page.tsx": "36M",
+    "[locale]/studio/identity-media/page.tsx": "36G",
 }
 
 ENDPOINT_BATCH: Final[dict[str, str]] = {
@@ -496,7 +498,7 @@ ENDPOINT_BATCH: Final[dict[str, str]] = {
     "billing": "29D", "mobile_store_billing": "29D", "communications": "29E",
     "capabilities": "29A", "containers": "29G", "dashboard": "29B", "databases": "29G",
     "final_integration": "29G", "firebase_phone": "29C", "governance": "29E", "growth_access": "GS-01", "growth_campaigns": "GS-02", "growth_social_accounts": "GS-03", "growth_content": "GS-04", "growth_analytics": "GS-05", "growth_leads": "GS-06", "growth_inbox": "GS-07", "growth_paid_campaigns": "GS-08", "growth_provider_connectors": "GS-09", "growth_advanced_integrations": "GS-10",
-    "identity": "29C", "incidents": "29E", "integration": "29I", "knowledge": "29F", "live_media": "36N", "locale": "29B", "meetings": "29E",
+    "identity": "29C", "identity_media": "36G", "incidents": "29E", "integration": "29I", "knowledge": "29F", "live_media": "36N", "locale": "29B", "meetings": "29E",
     "mobile_delivery": "29H", "monitoring": "29G", "notifications": "29E", "organizations": "29C",
     "permissions": "29C", "portal": "29B", "professional": "29F", "project_executions": "29F", "projects": "29F", "realtime_media": "36H",
     "reports": "29F", "roles": "29C", "search": "29B", "security": "29G", "security_lab": "34E",

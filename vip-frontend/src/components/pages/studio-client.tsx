@@ -463,6 +463,9 @@ export function StudioClient() {
           <p className="section-copy mt-4">{t("description")}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button onClick={() => router.push(`/${locale}/studio/identity-media`)}>
+            <WandSparkles className="h-4 w-4" /> {t("identityMediaLink")}
+          </Button>
           <Button variant="secondary" onClick={() => router.push(`/${locale}/projects`)}>
             <FolderKanban className="h-4 w-4" /> {t("projectsLink")}
           </Button>

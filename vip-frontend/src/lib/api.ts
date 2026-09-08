@@ -285,6 +285,31 @@ export async function downloadAuthenticated(
   };
 }
 
+export async function downloadAuthenticatedBlob(
+  path: string,
+  retry = true,
+): Promise<{ blob: Blob; filename: string }> {
+  const response = await fetch(`${API_ROOT}${path}`, {
+    credentials: "include",
+    headers: { Accept: "*/*" },
+  });
+  if (response.status === 401 && retry) {
+    await refreshSession();
+    return downloadAuthenticatedBlob(path, false);
+  }
+  if (!response.ok) {
+    const payload = await responsePayload(response);
+    throw apiError(response, payload);
+  }
+  const disposition = response.headers.get("Content-Disposition") || "";
+  const utf8 = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+  const basic = disposition.match(/filename="?([^";]+)"?/i);
+  return {
+    blob: await response.blob(),
+    filename: decodeURIComponent(utf8?.[1] || basic?.[1] || "aionex-identity-media-output"),
+  };
+}
+
 export function jsonRequest<T>(
   path: string,
   method: "POST" | "PATCH" | "PUT" | "DELETE",

@@ -288,6 +288,14 @@ export const ownerNavigationSections: OwnerNavigationSection[] = [
         icon: ToggleRight,
       },
       {
+        id: "owner-identity-media",
+        label: "Identity Media Access",
+        description:
+          "Per-user voice, face, avatar and likeness grants, revocation, and approval requests.",
+        href: "/owner/identity-media",
+        icon: UserCog,
+      },
+      {
         id: "owner-external-activation",
         label: "External Activation",
         description:
