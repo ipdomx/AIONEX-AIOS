@@ -22,6 +22,7 @@ services:
       PROJECT_EXECUTION_TENANT_ACTIVE_LIMIT: "${PROJECT_EXECUTION_TENANT_ACTIVE_LIMIT:-6}"
       BACKUP_DIR: /var/lib/aionex/backups
       BACKUP_THREE_D_ASSETS_ENABLED: "true"
+      BACKUP_OFFSITE_SECRET_FILE: /run/operator-secrets/r2-backup.env
       BACKUP_AUTO_RESTORE_VALIDATION_ENABLED: "${BACKUP_AUTO_RESTORE_VALIDATION_ENABLED:-true}"
       MEDIA_STORAGE_TYPE: local
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
@@ -111,6 +112,7 @@ services:
       - ../..:/workspace:ro
       - backup_data:/var/lib/aionex/backups:rw
       - three_d_asset_data:/var/lib/aionex/three-d-assets:ro
+      - ${AIOS_R2_BACKUP_SECRET_HOST_FILE:-/etc/aionex/r2-backup/credentials.env}:/run/operator-secrets/r2-backup.env:ro
     depends_on:
       backend:
         condition: service_healthy
