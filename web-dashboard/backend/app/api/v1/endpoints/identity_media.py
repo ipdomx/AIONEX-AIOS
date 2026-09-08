@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from hashlib import sha256
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import RedirectResponse, Response
@@ -14,7 +14,7 @@ from aios.phase36_identity_media import IdentityMediaPolicyError, IdentityMediaR
 from app.core.auth import UserRecord, current_user
 from app.core.config import settings
 from app.db.base import get_db
-from app.db.models import IdentityMediaExecution, Project
+from app.db.models import AuditEvent, IdentityMediaExecution, Project
 from app.services import identity_media_access
 from app.services.identity_media_replicate import (
     IdentityMediaProviderFailure,

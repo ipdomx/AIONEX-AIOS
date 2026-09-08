@@ -6,7 +6,6 @@ import asyncio
 import json
 import os
 import socket
-import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -17,7 +16,6 @@ from app.db.base import SessionLocal
 from app.services.identity_media_replicate import (
     IdentityMediaProviderFailure,
     ReplicateIdentityMediaAdapter,
-    ReplicatePrediction,
 )
 from app.services.identity_media_runtime import (
     IdentityMediaClaim,
