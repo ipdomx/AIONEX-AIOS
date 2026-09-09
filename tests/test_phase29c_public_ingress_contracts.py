@@ -41,6 +41,7 @@ def test_identity_media_provider_input_bridge_is_narrowly_public() -> None:
     assert route in public_server
     block = public_server.split(route, 1)[1].split("\n        }", 1)[0]
     assert "access_log off;" in block
+    assert "error_log /dev/null crit;" in block
     assert "limit_except GET" in block
     assert "proxy_pass http://$backend_upstream;" in block
     assert "X-AIOS-Auth-Channel public" in block
