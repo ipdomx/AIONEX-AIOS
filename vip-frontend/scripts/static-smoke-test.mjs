@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { assertProductionApiBundle } from "./production-api-bundle-policy.mjs";
 import { readFile, readdir, stat } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 
@@ -131,12 +132,7 @@ try {
         .map((path) => readFile(path, "utf8")),
     )
   ).join("\n");
-  if (!bundleText.includes("https://api.vip-e.net/api/v1")) {
-    throw new Error("Static bundle does not target the production API");
-  }
-  if (bundleText.includes("https://api.ai.vip-e.net")) {
-    throw new Error("Static bundle contains the rejected API host");
-  }
+  assertProductionApiBundle(bundleText);
   const manifest = JSON.parse(
     await readFile(join(root, "manifest.webmanifest"), "utf8"),
   );

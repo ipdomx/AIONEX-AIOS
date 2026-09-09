@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict
+import fcntl
+import hashlib
+import os
+import stat
 from pathlib import Path
 
 from aios.academy import Academy
@@ -111,9 +114,17 @@ class WorkerRuntime:
             notes='; '.join(assignment.defects[-3:]),
         )
         self._events.append(event)
-        if self.ledger_path:
-            with self.ledger_path.open('a', encoding='utf-8') as handle:
-                handle.write(json.dumps({'type': 'performance', **asdict(event)}, ensure_ascii=False) + '\n')
+        # Free-form review notes remain in the authorized runtime, never in the
+        # operational file. References are pseudonyms, not encryption/anonymity.
+        self._append_audit({
+            'type': 'performance',
+            'employee_ref': self._audit_reference(event.employee_id),
+            'assignment_ref': self._audit_reference(event.assignment_id),
+            'outcome': event.outcome if event.outcome in {'success', 'rework', 'failure'} else 'other',
+            'quality_score': event.quality_score,
+            'defect_count': len(assignment.defects),
+            'recorded_at': event.recorded_at,
+        })
         return event
 
     def get(self, assignment_id: str) -> Assignment:
@@ -130,12 +141,36 @@ class WorkerRuntime:
             return
         payload = {
             'type': event_type,
-            'assignment_id': assignment.request.id,
-            'project_id': assignment.request.project_id,
-            'employee_id': assignment.employee_id,
+            'assignment_ref': self._audit_reference(assignment.request.id),
+            'project_ref': self._audit_reference(assignment.request.project_id),
+            'employee_ref': self._audit_reference(assignment.employee_id),
             'state': assignment.state.value,
             'attempts': assignment.attempts,
             'completeness': assignment.completeness,
         }
-        with self.ledger_path.open('a', encoding='utf-8') as handle:
-            handle.write(json.dumps(payload, ensure_ascii=False) + '\n')
+        self._append_audit(payload)
+
+    @staticmethod
+    def _audit_reference(value: str) -> str:
+        return hashlib.sha256(b'aionex-worker-audit-v1\0' + value.encode('utf-8')).hexdigest()
+
+    def _append_audit(self, payload: dict) -> None:
+        if self.ledger_path is None:
+            return
+        flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK
+        descriptor = os.open(self.ledger_path, flags, 0o600)
+        try:
+            info = os.fstat(descriptor)
+            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != os.geteuid():
+                raise PermissionError('worker audit requires an owned regular file without links')
+            os.fchmod(descriptor, 0o600)
+            fcntl.flock(descriptor, fcntl.LOCK_EX)
+            remaining = memoryview((json.dumps(payload, ensure_ascii=False) + '\n').encode('utf-8'))
+            while remaining:
+                written = os.write(descriptor, remaining)
+                if written <= 0:
+                    raise OSError('worker audit write failed')
+                remaining = remaining[written:]
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)

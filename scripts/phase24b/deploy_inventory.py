@@ -39,9 +39,8 @@ def run(argv: Sequence[str], *, timeout: int = 300) -> subprocess.CompletedProce
     )
     if completed.returncode != 0:
         raise RuntimeError(
-            f"command failed ({completed.returncode}): {' '.join(argv)}\n"
-            f"stdout={completed.stdout[-5000:]}\n"
-            f"stderr={completed.stderr[-5000:]}"
+            f"deployment subprocess failed with exit code {completed.returncode}; "
+            "command arguments and process output are withheld"
         )
     return completed
 
@@ -222,8 +221,14 @@ def main() -> int:
         json.dumps(
             {
                 "mode": "apply" if args.apply else "dry-run",
-                "targets": [target.ssh_target for target in (control, *hosts)],
-                "commands": plan,
+                "targets": [target.role for target in (control, *hosts)],
+                "commands": [
+                    {"sequence": index + 1, "transport": command[0] if command[0] in {"ssh", "scp"} else "other"}
+                    for index, command in enumerate(plan)
+                ],
+                "command_count": len(plan),
+                "command_arguments_omitted": True,
+                "remote_targets_modified": args.apply,
                 "production_modified": False,
             },
             ensure_ascii=False,
