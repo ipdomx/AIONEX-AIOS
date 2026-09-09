@@ -131,10 +131,10 @@ ENV DESIGN_IMAGE_SHARP_NODE_BINARY=/usr/bin/node \
     DESIGN_IMAGE_SHARP_TEMP_ROOT=/tmp/aionex-image-derivatives
 RUN set -eux; \
     node --version | grep -Eq '^v24\.'; \
-    node /opt/aionex-image-tools/derivative.mjs --probe | grep -q '"engine_version":"0.35.3"'; \
+    node /opt/aionex-image-tools/derivative.mjs --probe | grep -q '"engine_version":"0.35.4"'; \
     cd /opt/aionex-image-tools; \
     node -e "import('sharp').then(async({default:s})=>{await s({create:{width:32,height:24,channels:4,background:{r:10,g:50,b:160,alpha:1}}}).png().toFile('/tmp/aionex-sharp-source.png')})"; \
-    node /opt/aionex-image-tools/derivative.mjs --input /tmp/aionex-sharp-source.png --output /tmp/aionex-sharp-output.webp --width 96 --height 64 --format webp --fit cover --position centre | grep -q '"engine_version":"0.35.3"'; \
+    node /opt/aionex-image-tools/derivative.mjs --input /tmp/aionex-sharp-source.png --output /tmp/aionex-sharp-output.webp --width 96 --height 64 --format webp --fit cover --position centre | grep -q '"engine_version":"0.35.4"'; \
     node -e "import('sharp').then(async({default:s})=>{const m=await s('/tmp/aionex-sharp-output.webp').metadata();if(m.width!==96||m.height!==64||m.format!=='webp')process.exit(1)})"; \
     rm -f /tmp/aionex-sharp-source.png /tmp/aionex-sharp-output.webp; \
     chown -R root:root /opt/aionex-image-tools; \

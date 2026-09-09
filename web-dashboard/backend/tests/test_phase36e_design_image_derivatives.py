@@ -65,7 +65,7 @@ def test_sharp_runtime_verifies_receipt_output_dimensions_and_hashes(
                 stdout=json.dumps(
                     {
                         "engine": "sharp",
-                        "engine_version": "0.35.3",
+                        "engine_version": "0.35.4",
                         "libvips_version": "8.18.3",
                     }
                 ),
@@ -77,7 +77,7 @@ def test_sharp_runtime_verifies_receipt_output_dimensions_and_hashes(
         output.write_bytes(png_envelope(width, height))
         receipt = {
             "engine": "sharp",
-            "engine_version": "0.35.3",
+            "engine_version": "0.35.4",
             "input_format": "png",
             "input_width": 64,
             "input_height": 48,
@@ -109,7 +109,7 @@ def test_sharp_runtime_verifies_receipt_output_dimensions_and_hashes(
     assert result.input_sha256 == source_sha
     assert result.sha256 == hashlib.sha256(result.body).hexdigest()
     assert len(result.command_hash) == 64
-    assert result.metadata["engine_version"] == "0.35.3"
+    assert result.metadata["engine_version"] == "0.35.4"
 
 
 def test_sharp_runtime_fails_closed_on_version_or_receipt_mismatch(
@@ -151,7 +151,7 @@ def test_sharp_runtime_subprocess_environment_excludes_application_secrets(
             stdout=json.dumps(
                 {
                     "engine": "sharp",
-                    "engine_version": "0.35.3",
+                    "engine_version": "0.35.4",
                     "libvips_version": "8.18.3",
                 }
             ),
@@ -165,7 +165,7 @@ def test_sharp_runtime_subprocess_environment_excludes_application_secrets(
         temp_root=tmp_path / "work",
     )
     evidence = runtime.preflight()
-    assert evidence["engine_version"] == "0.35.3"
+    assert evidence["engine_version"] == "0.35.4"
     assert len(captured_envs) == 2
     for env in captured_envs:
         assert env["HOME"] == "/tmp"

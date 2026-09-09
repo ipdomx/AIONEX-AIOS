@@ -683,7 +683,7 @@ async def test_design_image_worker_loads_platform_provider_and_completes_durable
 
 class _FakeSharpDerivativeRuntime:
     def preflight(self) -> dict[str, str]:
-        return {"engine": "sharp", "engine_version": "0.35.3", "node_version": "24.19.0"}
+        return {"engine": "sharp", "engine_version": "0.35.4", "node_version": "24.19.0"}
 
     def render(self, *, source_body: bytes, source_format: str, source_checksum: str, spec):
         assert source_body == _PNG_1X1
@@ -701,10 +701,10 @@ class _FakeSharpDerivativeRuntime:
             size_bytes=len(_PNG_1X1),
             input_sha256=checksum,
             command_hash=__import__("hashlib").sha256(b"phase36e-fake-sharp-command").hexdigest(),
-            engine_version="0.35.3",
+            engine_version="0.35.4",
             metadata={
                 "engine": "sharp",
-                "engine_version": "0.35.3",
+                "engine_version": "0.35.4",
                 "output_format": "png",
                 "output_width": 1,
                 "output_height": 1,
@@ -840,7 +840,7 @@ async def test_routed_pipeline_stays_no_spend_until_arm_and_sharp_worker_owns_on
             assert pipeline.route.provider == "openai" and pipeline.route.model == "gpt-image-2"
             assert len(steps) == 1
             assert steps[0].engine == "sharp"
-            assert steps[0].engine_version == "0.35.3"
+            assert steps[0].engine_version == "0.35.4"
             assert steps[0].operation == "design-image-derivative"
             await session.commit()
 

@@ -41,7 +41,7 @@ async function run() {
   if (rawArgs.length === 1 && rawArgs[0] === "--probe") {
     const sharpVersion = sharp.versions?.sharp ?? "unknown";
     const libvipsVersion = sharp.versions?.vips ?? "unknown";
-    if (sharpVersion !== "0.35.3") fail("unexpected Sharp runtime version");
+    if (sharpVersion !== "0.35.4") fail("unexpected Sharp runtime version");
     process.stdout.write(JSON.stringify({ engine: "sharp", engine_version: sharpVersion, libvips_version: libvipsVersion }));
     return;
   }
@@ -80,7 +80,7 @@ async function run() {
     fail("derivative output verification failed");
   }
   const sharpVersion = sharp.versions?.sharp ?? "unknown";
-  if (sharpVersion !== "0.35.3") fail("unexpected Sharp runtime version");
+  if (sharpVersion !== "0.35.4") fail("unexpected Sharp runtime version");
   process.stdout.write(JSON.stringify({
     engine: "sharp",
     engine_version: sharpVersion,
