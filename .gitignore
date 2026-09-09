@@ -304,3 +304,8 @@ kubeconfig.*
 
 # Private runtime credentials (never commit)
 .runtime-secrets/
+
+# Generated canonical operational views; reviewed plan and receipts remain tracked.
+/docs/project/runtime/
+/docs/project/PROJECT-REPORT.md
+/docs/project/STATE.json
