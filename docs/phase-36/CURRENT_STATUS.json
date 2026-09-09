@@ -1,15 +1,15 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-09-10T03:53:03.135492+08:00",
+  "updated_at": "2026-09-09T20:17:21.931422+00:00",
   "project": "AIONEX AIOS / AIONEX Server MCP 2",
   "production_root": "/opt/AIOS",
-  "production_source_at_checkpoint": "8d5a805094b3705e5f4f3256e8140c9cce69af5d",
+  "production_source_at_checkpoint": "9194176c6118e7483d64b05e1183d6c479bfdd3a",
   "production_schema": "20260908_0046",
-  "status": "SOURCE_VERIFIED_PROTECTED_CI_REQUIRED",
+  "status": "DEPLOYED_VERIFIED_PR603_COMPLETE",
   "active_batch": "Identity Media runtime authorization revocation",
-  "branch": "fix/identity-media-runtime-revocation-20260910",
+  "branch": "docs/identity-media-revocation-production-closeout-20260910",
   "worktree": "/opt/AIOS-worktrees/mcp2-identity-revocation-20260910",
-  "receipt": "docs/phase-36/receipts/36G-2026-09-10-identity-media-runtime-revocation.md",
+  "receipt": "docs/phase-36/receipts/36G-2026-09-10-identity-media-revocation-production-closeout.md",
   "regression": {
     "pre_fix_expected_failures": 5,
     "post_fix_passed": 46,
@@ -18,7 +18,7 @@
     "ruff": "PASS",
     "mypy": "PASS"
   },
-  "deployment_performed": false,
+  "deployment_performed": true,
   "paid_provider_requests": 0,
   "preserve": [
     "Cloudflare/DNS unchanged",
@@ -33,5 +33,28 @@
     "voice_transform",
     "face_swap"
   ],
-  "next_action": "Read this handoff and current PR/check status, merge only after protected checks, verify backup/R2 restore, retain rollback images, deploy exact merged Backend/Identity worker and verify without paid requests."
+  "next_action": "Runtime rollout is complete: do not redeploy #603 or repeat provider canaries. First reconcile this documentation-only branch PR, then continue separately documented Voice Transform / Face Swap runtime acceptance while preserving deferred scope.",
+  "production_image": "sha256:edcb331a71794832e0d52fb9f74b0cb61242917f1f070299b31d41bf668bf870",
+  "merged_runtime_pr": 603,
+  "protected_checks_passed": 12,
+  "runtime_checkpoint": "/opt/AIOS/.deployment-backups/identity-revocation-20260910/CURRENT-STATE.json",
+  "global_session_pointer": "/opt/AIOS/.deployment-backups/CURRENT-SESSION-MCP2.json",
+  "postdeploy_authorization": {
+    "allowed_download": 200,
+    "revoked_download": 403,
+    "durable_permission_change": false,
+    "output_sha256_unchanged": true
+  },
+  "postdeploy_operational_gates": {
+    "passed": 10,
+    "total": 10,
+    "scope": "current operational gates, not all roadmap features"
+  },
+  "image_vulnerability_scan": {
+    "scanner": "Trivy 0.72.0",
+    "database_downloaded_during_batch": true,
+    "high_critical_findings": 0
+  },
+  "backup_id": "703bb06a-acc8-4e42-bc66-65adb09251e6",
+  "offsite_restore_validation_id": "cc68a0e2-f04a-4baa-97ca-827ae6861432"
 }
