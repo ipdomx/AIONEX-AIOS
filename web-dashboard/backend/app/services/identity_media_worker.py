@@ -13,6 +13,7 @@ from typing import Any
 from app.core.config import settings
 from app.core.logging import get_logger, setup_logging
 from app.db.base import SessionLocal
+from app.services.identity_media_access import execution_access
 from app.services.identity_media_replicate import (
     IdentityMediaProviderFailure,
     ReplicateFile,
@@ -156,6 +157,19 @@ class IdentityMediaWorker:
             ),
         )
 
+    async def _authorized(self, session, row, claim: IdentityMediaClaim) -> bool:
+        decision = await execution_access(session, row)
+        if decision.allowed:
+            return True
+        # Provider-accepted work is not falsely called cancelled. Its durable
+        # identifiers remain available for explicit operator reconciliation.
+        await fail_execution(
+            session, claim, code="identity_media_access_revoked",
+            message="Current identity media authorization no longer permits execution",
+            needs_review=bool(row.provider_job_id or row.secondary_provider_job_id),
+        )
+        return False
+
     async def _submit(self, claim: IdentityMediaClaim) -> None:
         async with SessionLocal() as session:
             row = await load_claim(session, claim)
@@ -166,12 +180,18 @@ class IdentityMediaWorker:
             if row.provider_job_id:
                 await session.rollback()
                 return
+            if not await self._authorized(session, row, claim):
+                await session.commit()
+                return
             metadata: dict[str, Any]
             try:
                 if operation == "voice_clone":
                     audio = await self._input_file(row, "audio")
                     if audio is None:
                         raise IdentityMediaProviderFailure("identity_media_audio_required")
+                    if not await self._authorized(session, row, claim):
+                        await session.commit()
+                        return
                     prediction = await self.adapter.create_prediction(
                         model="minimax/voice-cloning",
                         inputs={
@@ -209,6 +229,9 @@ class IdentityMediaWorker:
                         if not script:
                             raise IdentityMediaProviderFailure("identity_media_script_or_audio_required")
                         inputs["voice_script"] = script[:5000]
+                    if not await self._authorized(session, row, claim):
+                        await session.commit()
+                        return
                     prediction = await self.adapter.create_prediction(
                         model="prunaai/p-video-avatar",
                         inputs=inputs,
@@ -225,6 +248,9 @@ class IdentityMediaWorker:
                     audio = await self._input_file(row, "audio")
                     if video is None or audio is None:
                         raise IdentityMediaProviderFailure("identity_media_video_audio_required")
+                    if not await self._authorized(session, row, claim):
+                        await session.commit()
+                        return
                     prediction = await self.adapter.create_prediction(
                         model="sync/lipsync-2",
                         inputs={
@@ -271,9 +297,13 @@ class IdentityMediaWorker:
             if prediction.status != "succeeded":
                 await fail_execution(session, claim, code="provider_secondary_failed", message="Generated cloned speech failed")
                 return
+            if not await self._authorized(session, row, claim):
+                return
             body, content_type = await self.adapter.download_output(_output_url(prediction.output))
             media_type, suffix = _output_media("voice_clone", body, content_type)
             key = f"identity-media/{row.organization_id}/{row.id}/output{suffix}"
+            if not await self._authorized(session, row, claim):
+                return
             stored = await asyncio.to_thread(self.store.put_bytes, key, body, media_type, metadata={"execution": row.id})
             await complete_execution(
                 session,
@@ -299,6 +329,8 @@ class IdentityMediaWorker:
         text = str((row.request_payload or {}).get("script") or "").strip()
         if not text:
             await fail_execution(session, claim, code="identity_media_script_required", message="Cloned speech script is missing")
+            return
+        if not await self._authorized(session, row, claim):
             return
         try:
             secondary = await self.adapter.create_prediction(
@@ -341,6 +373,9 @@ class IdentityMediaWorker:
                 await fail_execution(session, claim, code="provider_job_missing", message="Provider job identity is missing", needs_review=True)
                 await session.commit()
                 return
+            if not await self._authorized(session, row, claim):
+                await session.commit()
+                return
             try:
                 if row.operation == "voice_clone":
                     await self._poll_voice_clone(session, row, claim)
@@ -355,9 +390,15 @@ class IdentityMediaWorker:
                     await fail_execution(session, claim, code="provider_execution_failed", message="Identity media provider execution failed")
                     await session.commit()
                     return
+                if not await self._authorized(session, row, claim):
+                    await session.commit()
+                    return
                 body, content_type = await self.adapter.download_output(_output_url(prediction.output))
                 media_type, suffix = _output_media(row.operation, body, content_type)
                 key = f"identity-media/{row.organization_id}/{row.id}/output{suffix}"
+                if not await self._authorized(session, row, claim):
+                    await session.commit()
+                    return
                 stored = await asyncio.to_thread(self.store.put_bytes, key, body, media_type, metadata={"execution": row.id})
                 await complete_execution(
                     session,

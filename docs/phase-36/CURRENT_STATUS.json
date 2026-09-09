@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-09-10T03:53:03.135492+08:00",
+  "project": "AIONEX AIOS / AIONEX Server MCP 2",
+  "production_root": "/opt/AIOS",
+  "production_source_at_checkpoint": "8d5a805094b3705e5f4f3256e8140c9cce69af5d",
+  "production_schema": "20260908_0046",
+  "status": "SOURCE_VERIFIED_PROTECTED_CI_REQUIRED",
+  "active_batch": "Identity Media runtime authorization revocation",
+  "branch": "fix/identity-media-runtime-revocation-20260910",
+  "worktree": "/opt/AIOS-worktrees/mcp2-identity-revocation-20260910",
+  "receipt": "docs/phase-36/receipts/36G-2026-09-10-identity-media-runtime-revocation.md",
+  "regression": {
+    "pre_fix_expected_failures": 5,
+    "post_fix_passed": 46,
+    "failed": 0,
+    "real_postgres_cross_session_cases": 5,
+    "ruff": "PASS",
+    "mypy": "PASS"
+  },
+  "deployment_performed": false,
+  "paid_provider_requests": 0,
+  "preserve": [
+    "Cloudflare/DNS unchanged",
+    "R2 DR previously accepted",
+    "prior project/multi-project/control-plane scale evidence retained",
+    "second RunPod untouched",
+    "AWS/Bedrock/XR/payment activation deferred",
+    "Namecheap disk encryption deferred pending written authority",
+    "licensed public figures remain fail-closed"
+  ],
+  "not_yet_accepted_operations": [
+    "voice_transform",
+    "face_swap"
+  ],
+  "next_action": "Read this handoff and current PR/check status, merge only after protected checks, verify backup/R2 restore, retain rollback images, deploy exact merged Backend/Identity worker and verify without paid requests."
+}
