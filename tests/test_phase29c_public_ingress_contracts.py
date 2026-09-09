@@ -40,6 +40,7 @@ def test_identity_media_provider_input_bridge_is_narrowly_public() -> None:
     assert public_server.count("studio/identity-media/provider-input") == 1
     assert route in public_server
     block = public_server.split(route, 1)[1].split("\n        }", 1)[0]
+    assert "access_log off;" in block
     assert "limit_except GET" in block
     assert "proxy_pass http://$backend_upstream;" in block
     assert "X-AIOS-Auth-Channel public" in block
