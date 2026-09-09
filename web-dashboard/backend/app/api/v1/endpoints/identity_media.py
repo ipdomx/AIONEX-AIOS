@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -133,6 +133,9 @@ async def provider_input(
     )
     if row is None or row.status not in {"queued", "provider_running"}:
         raise HTTPException(status_code=404, detail="Provider input is unavailable")
+    access = await identity_media_access.execution_access(session, row)
+    if not access.allowed:
+        raise HTTPException(status_code=404, detail="Provider input is unavailable")
     keys = dict(row.input_storage_keys or {})
     payload = dict(row.request_payload or {})
     content_types = dict(payload.get("input_content_types") or {})
@@ -162,6 +165,9 @@ async def provider_input(
         )
     except MediaStorageError as exc:
         raise HTTPException(status_code=404, detail="Provider input is unavailable") from exc
+    access = await identity_media_access.execution_access(session, row)
+    if not access.allowed:
+        raise HTTPException(status_code=404, detail="Provider input is unavailable")
     return Response(
         body,
         media_type=content_type,
@@ -509,19 +515,15 @@ async def download_execution(
     )
     if row is None or row.status != "completed" or not row.output_storage_key:
         raise HTTPException(status_code=404, detail="Identity Media output is not ready")
+    access = await identity_media_access.execution_access(session, row)
+    if not access.allowed:
+        raise HTTPException(status_code=403, detail="Identity Media access is no longer permitted")
     store = media_object_store()
     media_type = str(row.output_media_type or "application/octet-stream")
     suffix = ".mp3" if media_type == "audio/mpeg" else ".wav" if "wav" in media_type else ".mp4"
     filename = f"aionex-{row.operation}-{row.id}{suffix}"
-    signed = store.presigned_get(
-        row.output_storage_key,
-        filename=filename,
-        content_type=media_type,
-        expires_seconds=300,
-        inline=False,
-    )
-    if signed:
-        return RedirectResponse(signed, status_code=307)
+    # Identity outputs always pass the current authorization boundary. A new
+    # presigned redirect would remain usable after a subsequent Owner revoke.
     try:
         body = await __import__("asyncio").to_thread(
             store.get_bytes,
@@ -530,8 +532,15 @@ async def download_execution(
         )
     except MediaStorageError as exc:
         raise HTTPException(status_code=404, detail="Identity Media output is unavailable") from exc
+    access = await identity_media_access.execution_access(session, row)
+    if not access.allowed:
+        raise HTTPException(status_code=403, detail="Identity Media access is no longer permitted")
     return Response(
         body,
         media_type=media_type,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "private, no-store, max-age=0",
+            "X-Content-Type-Options": "nosniff",
+        },
     )

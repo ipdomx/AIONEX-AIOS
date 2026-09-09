@@ -15,8 +15,8 @@ from uuid import uuid4
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import UserRecord
-from app.db.models import AuditEvent, OwnerControlRecord, User
+from app.core.auth import ACTIVE_ORGANIZATION_STATUSES, ACTIVE_USER_STATUSES, UserRecord
+from app.db.models import AuditEvent, BillingAccount, IdentityMediaExecution, Organization, OwnerControlRecord, Project, Role, User
 from app.services import billing
 
 ACCESS_DOMAIN = "identity-media-user-access"
@@ -110,7 +110,7 @@ async def _access_record(
             OwnerControlRecord.domain == ACCESS_DOMAIN,
             OwnerControlRecord.resource_id == _access_resource(user_id, operation),
             OwnerControlRecord.status == "active",
-        )
+        ).execution_options(populate_existing=True)
     )
 
 
@@ -127,7 +127,7 @@ def _subject_matches(payload: dict[str, Any], subject_reference: str | None) -> 
 
 async def effective_access(
     session: AsyncSession,
-    actor: UserRecord,
+    actor: UserRecord | User,
     *,
     operation: str,
     identity_basis: str,
@@ -143,6 +143,22 @@ async def effective_access(
     if account.status not in billing.ACTIVE_ACCOUNT_STATUSES:
         return IdentityMediaAccessDecision(op, basis, False, basis in REAL_PERSON_BASES, "billing", "account-suspended", runtime_ready)
 
+    return await _owner_access(
+        session, actor, op=op, basis=basis, runtime_ready=runtime_ready,
+        subject_reference=subject_reference,
+    )
+
+
+async def _owner_access(
+    session: AsyncSession,
+    actor: UserRecord | User,
+    *,
+    op: str,
+    basis: str,
+    runtime_ready: bool,
+    subject_reference: str | None,
+) -> IdentityMediaAccessDecision:
+    """Read the current Owner decision without mutating billing/catalog state."""
     record = await _access_record(session, user_id=actor.id, operation=op)
     if record is not None:
         payload = dict(record.payload or {})
@@ -170,6 +186,73 @@ async def effective_access(
             runtime_ready,
         )
     return IdentityMediaAccessDecision(op, basis, False, True, "owner-approval", "owner-approval-required", runtime_ready)
+
+
+async def execution_access(
+    session: AsyncSession, execution: IdentityMediaExecution
+) -> IdentityMediaAccessDecision:
+    """Revalidate durable work against current, tenant-bound access authority.
+
+    This is deliberately independent of admission-time grants. Refresh mapped
+    authorities because a provider await can outlive an Owner/account change.
+    Missing authority fails closed and never provisions a new billing account.
+    """
+    def denied(reason: str) -> IdentityMediaAccessDecision:
+        return IdentityMediaAccessDecision(
+            execution.operation, execution.identity_basis, False,
+            execution.identity_basis in REAL_PERSON_BASES,
+            "execution-authority", reason,
+            execution.operation in RUNTIME_READY_OPERATIONS
+            and execution.identity_basis != "licensed_public_figure",
+        )
+
+    user = await session.scalar(
+        select(User).where(
+            User.id == execution.requested_by_id,
+            User.organization_id == execution.organization_id,
+        ).execution_options(populate_existing=True)
+    )
+    if user is None or user.deleted_at is not None or user.status not in ACTIVE_USER_STATUSES:
+        return denied("user-unavailable")
+    organization = await session.scalar(
+        select(Organization).where(
+            Organization.id == execution.organization_id,
+        ).execution_options(populate_existing=True)
+    )
+    if organization is None or organization.status not in ACTIVE_ORGANIZATION_STATUSES:
+        return denied("organization-inactive")
+    if user.role_id:
+        role = await session.scalar(
+            select(Role).where(Role.id == user.role_id).execution_options(populate_existing=True)
+        )
+        if role is None or role.status != "active" or role.organization_id not in {None, execution.organization_id}:
+            return denied("role-unavailable")
+    account = await session.scalar(
+        select(BillingAccount).where(
+            BillingAccount.organization_id == execution.organization_id,
+        ).execution_options(populate_existing=True)
+    )
+    if account is None or account.status not in billing.ACTIVE_ACCOUNT_STATUSES:
+        return denied("account-suspended")
+    if execution.project_id:
+        project = await session.scalar(
+            select(Project).where(
+                Project.id == execution.project_id,
+                Project.organization_id == execution.organization_id,
+                Project.status != "deleted",
+            ).execution_options(populate_existing=True)
+        )
+        if project is None:
+            return denied("project-unavailable")
+    op = _operation(execution.operation)
+    basis = _basis(execution.identity_basis)
+    # Unlike admission's billing_context, an execution/delivery check must be
+    # read-only: catalog sync writes could lock a provider's concurrent pull.
+    return await _owner_access(
+        session, user, op=op, basis=basis,
+        runtime_ready=op in RUNTIME_READY_OPERATIONS and basis != "licensed_public_figure",
+        subject_reference=execution.subject_reference,
+    )
 
 
 async def set_owner_access(

@@ -214,6 +214,12 @@ async def test_provider_input_endpoint_serves_only_active_bound_object(monkeypat
         ),
     )
     monkeypatch.setattr(endpoint_module, "media_object_store", lambda: Store())
+    async def allowed_access(*_args, **_kwargs):
+        return SimpleNamespace(allowed=True)
+
+    monkeypatch.setattr(
+        endpoint_module.identity_media_access, "execution_access", allowed_access
+    )
 
     response = await endpoint_module.provider_input(
         token=token,

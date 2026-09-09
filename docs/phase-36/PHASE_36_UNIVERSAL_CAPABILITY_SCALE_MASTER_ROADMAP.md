@@ -1,5 +1,8 @@
 # Phase 36 — Universal Capability, Creative Media & 1000+ User Scale Master Roadmap
 
+> Latest operational handoff: [NEXT_SESSION_CURRENT.md](NEXT_SESSION_CURRENT.md) and [CURRENT_STATUS.json](CURRENT_STATUS.json). The latest operational entry takes precedence over older checkpoint status paragraphs; historical capability evidence and Owner-deferred boundaries remain valid for their recorded scope.
+
+
 Status: **AUTHORITATIVE NEW PRODUCT EXPANSION CONTRACT — implementation not complete until every Phase 36 batch is closed.**
 
 Date opened: 2026-08-17.
