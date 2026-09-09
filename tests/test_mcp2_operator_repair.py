@@ -172,3 +172,23 @@ def test_status_permission_denied_is_unknown_not_missing(operator, monkeypatch):
     assert status["runtime_key_exists"] is None
     assert status["deploy_key_exists"] is None
     assert status["mcp_server_exists"] is None
+
+
+@pytest.mark.parametrize("template", [
+    "--token {value}", "--token={value}", '--token "{value}"',
+    "--api-key {value}", "--password {value}", "--access-token {value}",
+    '\"token\": \"{value}\"', '\"client_secret\": \"{value}\"',
+    '\"api_key\": \"{value}\"', '\"access_token\": \"{value}\"',
+])
+def test_command_and_json_credentials_are_redacted(operator, template):
+    secret_value = "synthetic-credential-for-redaction-test"
+    output = operator._safe_output(template.format(value=secret_value))
+    assert secret_value not in output
+    assert "[REDACTED]" in output
+
+
+def test_redaction_preserves_operator_metadata(operator):
+    output = operator._safe_output('project_root=/opt/AIOS; token_count=28; status=online')
+    assert 'project_root=/opt/AIOS' in output
+    assert 'token_count=28' in output
+    assert 'status=online' in output

@@ -48,6 +48,16 @@ def _redact(text: str) -> str:
     value = _SECRET_PATTERNS[1].sub("[REDACTED]", value)
     value = _SECRET_PATTERNS[2].sub("[REDACTED]", value)
     value = _SECRET_PATTERNS[3].sub(r"\1[REDACTED]", value)
+    # Cover command flags and quoted JSON credentials as well as .env syntax.
+    # Raw Docker metadata must still be allowlisted before it is persisted.
+    value = re.sub(
+        r"(?i)(--(?:[a-z0-9_-]*token|api[-_]key|password|secret)(?:=|\s+))[\"']?[^\s\"']+",
+        r"\1[REDACTED]", value,
+    )
+    value = re.sub(
+        r"(?i)([\"'](?:[a-z0-9_-]*token|api[_-]?key|password|secret|client_secret)[\"']\s*:\s*[\"'])[^\"']*",
+        r"\1[REDACTED]", value,
+    )
     return value
 
 
