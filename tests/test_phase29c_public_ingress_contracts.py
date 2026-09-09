@@ -31,6 +31,25 @@ def test_privileged_identity_administration_remains_private() -> None:
         assert f"/{path}" not in public_server
 
 
+def test_identity_media_provider_input_bridge_is_narrowly_public() -> None:
+    public_server = NGINX.split("# Public user portal origin.", 1)[0]
+    route = (
+        'location ~ "^/api/v1/studio/identity-media/provider-input/'
+        '[A-Za-z0-9_-]{20,1900}\\.[0-9a-f]{64}/[A-Za-z0-9._-]{1,160}$"'
+    )
+    assert public_server.count("studio/identity-media/provider-input") == 1
+    assert route in public_server
+    block = public_server.split(route, 1)[1].split("\n        }", 1)[0]
+    assert "limit_except GET" in block
+    assert "proxy_pass http://$backend_upstream;" in block
+    assert "X-AIOS-Auth-Channel public" in block
+    assert 'proxy_set_header Authorization "";' in block
+    assert 'proxy_set_header Cookie "";' in block
+    assert "proxy_buffering off;" in block
+    assert public_server.index(route) < public_server.index("location /api/")
+    assert "studio/identity-media(?:/.*)?" not in public_server
+
+
 def test_entitled_security_lab_user_routes_are_public_channel_allowlisted() -> None:
     public_server = NGINX.split("# Public user portal origin.", 1)[0]
     assert "security-lab(?:/.*)?" in public_server
