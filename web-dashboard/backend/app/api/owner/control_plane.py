@@ -31,6 +31,7 @@ from aios.completion_program import completion_program_snapshot
 from aios.phase36_program import phase36_program_snapshot
 from app.core.auth import UserRecord, pwd_context, require_super_owner
 from app.core.config import settings
+from app.core.owner_input_validation import normalize_owner_user_email
 from app.db.base import SessionLocal, get_db
 from app.db.models import (
     AcademyAssessment,
@@ -3842,7 +3843,10 @@ async def _execute_owner_operation(
                         "organization_id are required"
                     ),
                 )
-            email = str(data.payload["email"]).strip().lower()
+            try:
+                email = normalize_owner_user_email(data.payload["email"])
+            except ValueError:
+                raise HTTPException(status_code=422, detail="User email is invalid") from None
             await account_bans.assert_registration_not_banned(session, email=email)
             if await session.scalar(select(User.id).where(User.email == email)):
                 raise HTTPException(status_code=409, detail="Email already exists")
@@ -3867,8 +3871,6 @@ async def _execute_owner_operation(
                         f"{settings.PASSWORD_MIN_LENGTH} characters"
                     ),
                 )
-            if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
-                raise HTTPException(status_code=422, detail="User email is invalid")
             created_user = User(
                 organization_id=user_organization.id,
                 role_id=role.id,

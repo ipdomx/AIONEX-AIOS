@@ -1,0 +1,32 @@
+{
+  "event_id": "FR-02-source-candidate-20260910",
+  "batch_id": "FR-02",
+  "status": "local_verified",
+  "summary_ar": "أعدت معالجة مواقع التنبيهات الخمسة: تقليل سجل العامل وحمايته دون تسجيل نصوص المراجعة، إخفاء أوامر/مخرجات النشر الحساسة، تحليل URL كامل بدل المطابقة الجزئية، والتحقق المحدود للبريد قبل قاعدة البيانات. اجتاز المصدر 931 اختبار Core و12 اختبار بريد و45 اختبارًا موجّهًا متداخلة مع Core؛ لم يدمج أو ينشر ولم تغلق تنبيهات main بعد.",
+  "verification_passed": true,
+  "evidence": [
+    "docs/project/runtime/fr02-core.log:931 PASS",
+    "tests/test_fr02_source_security.py + worker/runtime and deployment regression:45 PASS",
+    "web-dashboard/backend/tests/test_owner_input_validation.py:12 PASS isolated, existing email-validator",
+    "existing static bundle:66 JS files, candidate URL policy PASS"
+  ],
+  "source_sha256": {
+    "scripts/phase24b/deploy_inventory.py": "d9347e8ff7ad7b92403801c0139743345d147314bb0162d6d6aac0c9638f797f",
+    "src/aios/workers/runtime.py": "ec788fe8c84f8da9f4ec76f1abf36f8b043ff3e6a33decabb88d491de3c1b31a",
+    "vip-frontend/scripts/static-smoke-test.mjs": "1890a04c8ffdab4bb503e39ce5dd51c7bcfe943e2c4990b032d863264d876c8c",
+    "vip-frontend/scripts/production-api-bundle-policy.mjs": "d3633ba2e6d2ee1e8c7762c7219dcd984c53f19fb39fa0204dbe3deda20352ba",
+    "web-dashboard/backend/app/api/owner/control_plane.py": "bf6e07d67720301beb368bb82cb6590dbcb080cd5b078684d4defe38f0a7a37f",
+    "web-dashboard/backend/app/core/owner_input_validation.py": "ae0104a4262682d51faf652c0a494f952519535598f194ebca6278a076acd75d",
+    "tests/test_fr02_source_security.py": "bd17321160652266aecf6808bfd44587321e84da51723e69dce1f0fdfbc55544",
+    "web-dashboard/backend/tests/test_owner_input_validation.py": "c1a4a2cf4634c3c903392573d20135dc843f7f03a497e64c75e6bf53b1036289"
+  },
+  "security_limitations_ar": [
+    "بصمات معرفات سجل العامل أسماء مستعارة وليست تشفيرًا أو إخفاء هوية مضمونًا؛ تبقى معالجة التخزين والملفات التاريخية في FR-06.",
+    "لا يسجل نص العيوب الحر في ملف العمليات الجديد؛ يبقى داخل الكائن المعتمد في الذاكرة؛ لا حذف للسجلات التاريخية.",
+    "ملخص النشر العام لا يحتوي argv أو قيم المخرجات، مع إبقاء بناء الأوامر الفعلي StrictHostKeyChecking مثبتًا باختبارات منفصلة.",
+    "سياسة URL تخص فحص حزمة البناء، وليست بديلًا عن سياسات طلبات الشبكة التشغيلية.",
+    "لا إغلاق آلي أو dismiss لتنبيه قبل فحص المصدر على main."
+  ],
+  "deployment_verified": false,
+  "codeql_main_state": "5 original alerts open at fff8d8581da1b101499186fe08f2cba3178c3438"
+}

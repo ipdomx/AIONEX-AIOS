@@ -590,7 +590,10 @@ def test_remote_inventory_deployment_is_dry_run_by_default(tmp_path):
     assert plan["mode"] == "dry-run"
     assert len(plan["targets"]) == 4
     assert plan["production_modified"] is False
-    rendered = json.dumps(plan["commands"])
-    assert "StrictHostKeyChecking=yes" in rendered
-    assert "systemctl enable --now aionex-phase24b-control-plane.service" in rendered
-    assert "systemctl enable --now aionex-phase24b-agent.service" in rendered
+    assert plan["command_arguments_omitted"] is True
+    assert plan["remote_targets_modified"] is False
+    assert plan["command_count"] == len(plan["commands"]) == 17
+    assert {command["transport"] for command in plan["commands"]} == {"ssh", "scp"}
+    rendered = json.dumps(plan)
+    assert "root@" not in rendered
+    assert "host-secrets" not in rendered
