@@ -132,30 +132,28 @@ class IdentityMediaWorker:
         filenames = dict(payload.get("input_filenames") or {})
         content_type = str(types.get(name) or "application/octet-stream").strip().lower()
         filename = str(filenames.get(name) or f"{name}{_content_suffix(content_type, kind=name)}")[:160]
-        body = await asyncio.to_thread(
+        # Preflight the exact private object before issuing the provider pull grant.
+        # Replicate file URLs require the account bearer token, which third-party
+        # model runtimes cannot receive. This scoped HTTPS grant preserves the
+        # filename suffix required by the model while keeping storage private.
+        await asyncio.to_thread(
             self.store.get_bytes,
             key,
             max_bytes=min(int(settings.IDENTITY_MEDIA_MAX_PROVIDER_BYTES), 100 * 1024 * 1024),
         )
-        if row.operation == "voice_clone" and name == "audio":
-            token = issue_provider_input_token(
-                execution_id=row.id,
-                input_name=name,
-                secret=settings.SECRET_KEY,
-                ttl_seconds=900,
-            )
-            return ReplicateFile(
-                file_id="signed-provider-input",
-                url=provider_input_url(
-                    settings.PORTAL_PUBLIC_API_ORIGIN,
-                    token,
-                    filename,
-                ),
-            )
-        return await self.adapter.upload_private_file(
-            body=body,
-            filename=filename,
-            content_type=content_type,
+        token = issue_provider_input_token(
+            execution_id=row.id,
+            input_name=name,
+            secret=settings.SECRET_KEY,
+            ttl_seconds=1800,
+        )
+        return ReplicateFile(
+            file_id=f"signed-provider-input:{name}",
+            url=provider_input_url(
+                settings.PORTAL_PUBLIC_API_ORIGIN,
+                token,
+                filename,
+            ),
         )
 
     async def _submit(self, claim: IdentityMediaClaim) -> None:
@@ -184,7 +182,11 @@ class IdentityMediaWorker:
                         },
                         cancel_after_seconds=600,
                     )
-                    metadata = {"stage": "voice_clone", "uploaded_file_ids": [audio.file_id]}
+                    metadata = {
+                        "stage": "voice_clone",
+                        "provider_input_transport": "signed_https_pull",
+                        "provider_input_names": ["audio"],
+                    }
                 elif operation in {"talking_head", "face_reenactment", "avatar_generation"}:
                     image = await self._input_file(row, "image")
                     if image is None:
@@ -198,10 +200,10 @@ class IdentityMediaWorker:
                         "disable_prompt_upsampling": False,
                         "negative_prompt": "watermark, subtitles, scene change, blurry, low quality",
                     }
-                    file_ids = [image.file_id]
+                    input_names = ["image"]
                     if audio is not None:
                         inputs["audio"] = audio.url
-                        file_ids.append(audio.file_id)
+                        input_names.append("audio")
                     else:
                         script = str(payload.get("script") or "").strip()
                         if not script:
@@ -212,7 +214,12 @@ class IdentityMediaWorker:
                         inputs=inputs,
                         cancel_after_seconds=900,
                     )
-                    metadata = {"stage": "avatar_video", "uploaded_file_ids": file_ids, "safety_filter_forced": True}
+                    metadata = {
+                        "stage": "avatar_video",
+                        "provider_input_transport": "signed_https_pull",
+                        "provider_input_names": input_names,
+                        "safety_filter_forced": True,
+                    }
                 elif operation == "lip_sync":
                     video = await self._input_file(row, "video")
                     audio = await self._input_file(row, "audio")
@@ -229,7 +236,11 @@ class IdentityMediaWorker:
                         },
                         cancel_after_seconds=900,
                     )
-                    metadata = {"stage": "lip_sync", "uploaded_file_ids": [video.file_id, audio.file_id]}
+                    metadata = {
+                        "stage": "lip_sync",
+                        "provider_input_transport": "signed_https_pull",
+                        "provider_input_names": ["video", "audio"],
+                    }
                 else:
                     raise IdentityMediaProviderFailure("identity_media_runtime_pending")
                 await record_primary_submission(
