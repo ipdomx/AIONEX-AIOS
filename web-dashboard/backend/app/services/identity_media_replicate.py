@@ -5,9 +5,15 @@ IDs are private runtime details and must not be returned to public clients.
 """
 from __future__ import annotations
 
+import base64
+import binascii
+import hashlib
+import hmac
+import json
+import time
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import httpx
 
@@ -26,6 +32,137 @@ class IdentityMediaProviderFailure(RuntimeError):
         self.retryable = retryable
         self.ambiguous_submission = ambiguous_submission
         self.http_status = http_status
+
+
+
+
+_PROVIDER_INPUT_DOMAIN = "aionex.identity-media.provider-input.v1"
+_PROVIDER_INPUT_NAMES = frozenset({"image", "audio", "video"})
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderInputGrant:
+    execution_id: str
+    input_name: str
+    expires_at_epoch: int
+
+
+def _b64url(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+
+def _b64url_decode(value: str) -> bytes:
+    padding = "=" * (-len(value) % 4)
+    try:
+        return base64.urlsafe_b64decode((value + padding).encode("ascii"))
+    except (ValueError, UnicodeEncodeError, binascii.Error) as exc:
+        raise IdentityMediaProviderFailure("provider_input_token_invalid") from exc
+
+
+def _valid_execution_id(value: str) -> str:
+    text = str(value or "").strip()
+    if not text or len(text) > 80 or any(ch not in "0123456789abcdefABCDEF-" for ch in text):
+        raise IdentityMediaProviderFailure("provider_input_execution_invalid")
+    return text
+
+
+def issue_provider_input_token(
+    *,
+    execution_id: str,
+    input_name: str,
+    secret: str,
+    ttl_seconds: int = 900,
+    now_epoch: int | None = None,
+) -> str:
+    if len(str(secret or "")) < 32:
+        raise IdentityMediaProviderFailure("provider_input_signing_secret_invalid")
+    execution = _valid_execution_id(execution_id)
+    name = str(input_name or "").strip().lower()
+    if name not in _PROVIDER_INPUT_NAMES:
+        raise IdentityMediaProviderFailure("provider_input_name_invalid")
+    ttl = int(ttl_seconds)
+    if not 60 <= ttl <= 1800:
+        raise IdentityMediaProviderFailure("provider_input_ttl_invalid")
+    current = int(time.time()) if now_epoch is None else int(now_epoch)
+    payload = json.dumps(
+        {"v": 1, "execution_id": execution, "input_name": name, "exp": current + ttl},
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    ).encode("ascii")
+    encoded = _b64url(payload)
+    signature = hmac.new(
+        str(secret).encode("utf-8"),
+        f"{_PROVIDER_INPUT_DOMAIN}|{encoded}".encode("ascii"),
+        hashlib.sha256,
+    ).hexdigest()
+    return f"{encoded}.{signature}"
+
+
+def verify_provider_input_token(
+    token: str,
+    *,
+    secret: str,
+    now_epoch: int | None = None,
+) -> ProviderInputGrant:
+    if len(str(secret or "")) < 32:
+        raise IdentityMediaProviderFailure("provider_input_signing_secret_invalid")
+    text = str(token or "").strip()
+    if len(text) > 2048 or text.count(".") != 1:
+        raise IdentityMediaProviderFailure("provider_input_token_invalid")
+    encoded, supplied = text.split(".", 1)
+    if len(supplied) != 64:
+        raise IdentityMediaProviderFailure("provider_input_token_invalid")
+    expected = hmac.new(
+        str(secret).encode("utf-8"),
+        f"{_PROVIDER_INPUT_DOMAIN}|{encoded}".encode("ascii"),
+        hashlib.sha256,
+    ).hexdigest()
+    if not hmac.compare_digest(expected, supplied):
+        raise IdentityMediaProviderFailure("provider_input_token_invalid")
+    try:
+        payload = json.loads(_b64url_decode(encoded))
+    except (json.JSONDecodeError, UnicodeDecodeError, TypeError) as exc:
+        raise IdentityMediaProviderFailure("provider_input_token_invalid") from exc
+    if not isinstance(payload, dict) or payload.get("v") != 1:
+        raise IdentityMediaProviderFailure("provider_input_token_invalid")
+    try:
+        execution = _valid_execution_id(str(payload["execution_id"]))
+        name = str(payload["input_name"]).strip().lower()
+        expiry = int(payload["exp"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise IdentityMediaProviderFailure("provider_input_token_invalid") from exc
+    if name not in _PROVIDER_INPUT_NAMES:
+        raise IdentityMediaProviderFailure("provider_input_token_invalid")
+    current = int(time.time()) if now_epoch is None else int(now_epoch)
+    if expiry < current or expiry > current + 1800:
+        raise IdentityMediaProviderFailure("provider_input_token_expired")
+    return ProviderInputGrant(execution, name, expiry)
+
+
+def provider_input_url(origin: str, token: str, filename: str) -> str:
+    value = str(origin or "").strip().rstrip("/")
+    parsed = urlparse(value)
+    if (
+        parsed.scheme != "https"
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+        or parsed.path not in {"", "/"}
+        or parsed.port not in {None, 443}
+    ):
+        raise IdentityMediaProviderFailure("provider_input_origin_invalid")
+    name = str(filename or "").strip()
+    if not name or len(name) > 160 or name != name.rsplit("/", 1)[-1] or name != name.rsplit("\\", 1)[-1]:
+        raise IdentityMediaProviderFailure("provider_input_filename_invalid")
+    if any(ch not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-" for ch in name):
+        raise IdentityMediaProviderFailure("provider_input_filename_invalid")
+    return (
+        f"{value}/api/v1/studio/identity-media/provider-input/"
+        f"{quote(str(token), safe='.')}/{quote(name, safe='._-')}"
+    )
 
 
 @dataclass(frozen=True, slots=True)

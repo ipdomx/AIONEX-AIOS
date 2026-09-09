@@ -477,7 +477,7 @@ jobs:
           assert payload["provider_requests"] == 0
           print("PHASE36F_VIDEO_PROVIDER_WORKER_OFFLINE_SMOKE_OK")
           PY2
-      - name: Build and verify Sharp 0.35.3 image derivative worker
+      - name: Build and verify Sharp 0.35.4 image derivative worker
         working-directory: web-dashboard
         env:
           COMPOSE_PARALLEL_LIMIT: "1"
@@ -504,7 +504,7 @@ jobs:
           from pathlib import Path
           payload = json.loads(Path("diagnostics/design-image-derivative-worker-smoke.json").read_text())
           assert payload["preflight"]["engine"] == "sharp"
-          assert payload["preflight"]["engine_version"] == "0.35.3"
+          assert payload["preflight"]["engine_version"] == "0.35.4"
           assert payload["preflight"]["node_version"].startswith("24.")
           assert {item["format"] for item in payload["outputs"]} == {"png", "webp", "jpeg"}
           assert all(item["width"] == 96 and item["height"] == 64 for item in payload["outputs"])
