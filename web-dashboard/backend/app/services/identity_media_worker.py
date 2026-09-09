@@ -15,7 +15,10 @@ from app.core.logging import get_logger, setup_logging
 from app.db.base import SessionLocal
 from app.services.identity_media_replicate import (
     IdentityMediaProviderFailure,
+    ReplicateFile,
     ReplicateIdentityMediaAdapter,
+    issue_provider_input_token,
+    provider_input_url,
 )
 from app.services.identity_media_runtime import (
     IdentityMediaClaim,
@@ -134,6 +137,21 @@ class IdentityMediaWorker:
             key,
             max_bytes=min(int(settings.IDENTITY_MEDIA_MAX_PROVIDER_BYTES), 100 * 1024 * 1024),
         )
+        if row.operation == "voice_clone" and name == "audio":
+            token = issue_provider_input_token(
+                execution_id=row.id,
+                input_name=name,
+                secret=settings.SECRET_KEY,
+                ttl_seconds=900,
+            )
+            return ReplicateFile(
+                file_id="signed-provider-input",
+                url=provider_input_url(
+                    settings.PORTAL_PUBLIC_API_ORIGIN,
+                    token,
+                    filename,
+                ),
+            )
         return await self.adapter.upload_private_file(
             body=body,
             filename=filename,

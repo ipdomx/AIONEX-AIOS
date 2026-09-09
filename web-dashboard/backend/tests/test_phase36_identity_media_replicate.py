@@ -48,3 +48,60 @@ def test_cost_value_is_authorization_not_invented_estimate():
         _cost_authorization(0)
     with pytest.raises(Exception, match="outside the launch range"):
         _cost_authorization(25.01)
+
+
+def test_provider_input_token_round_trip_and_tamper_rejection():
+    from app.services.identity_media_replicate import (
+        IdentityMediaProviderFailure,
+        issue_provider_input_token,
+        provider_input_url,
+        verify_provider_input_token,
+    )
+
+    secret = "s" * 48
+    token = issue_provider_input_token(
+        execution_id="11111111-2222-3333-4444-555555555555",
+        input_name="audio",
+        secret=secret,
+        ttl_seconds=300,
+        now_epoch=1_800_000_000,
+    )
+    grant = verify_provider_input_token(
+        token,
+        secret=secret,
+        now_epoch=1_800_000_100,
+    )
+    assert grant.execution_id == "11111111-2222-3333-4444-555555555555"
+    assert grant.input_name == "audio"
+    assert grant.expires_at_epoch == 1_800_000_300
+    url = provider_input_url(
+        "https://api.vip-e.net",
+        token,
+        "voice-reference.wav",
+    )
+    assert url.startswith("https://api.vip-e.net/api/v1/studio/identity-media/provider-input/")
+    assert url.endswith("/voice-reference.wav")
+    with pytest.raises(IdentityMediaProviderFailure, match="provider_input_token_invalid"):
+        verify_provider_input_token(token[:-1] + ("0" if token[-1] != "0" else "1"), secret=secret, now_epoch=1_800_000_100)
+    with pytest.raises(IdentityMediaProviderFailure, match="provider_input_token_expired"):
+        verify_provider_input_token(token, secret=secret, now_epoch=1_800_000_301)
+
+
+def test_provider_input_url_rejects_unsafe_origin_and_filename():
+    from app.services.identity_media_replicate import (
+        IdentityMediaProviderFailure,
+        issue_provider_input_token,
+        provider_input_url,
+    )
+
+    token = issue_provider_input_token(
+        execution_id="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+        input_name="audio",
+        secret="k" * 48,
+        ttl_seconds=300,
+        now_epoch=1_800_000_000,
+    )
+    with pytest.raises(IdentityMediaProviderFailure, match="provider_input_origin_invalid"):
+        provider_input_url("http://api.vip-e.net", token, "voice.wav")
+    with pytest.raises(IdentityMediaProviderFailure, match="provider_input_filename_invalid"):
+        provider_input_url("https://api.vip-e.net", token, "../voice.wav")

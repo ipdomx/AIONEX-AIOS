@@ -19,6 +19,7 @@ from app.services import identity_media_access
 from app.services.identity_media_replicate import (
     IdentityMediaProviderFailure,
     model_for_operation,
+    verify_provider_input_token,
 )
 from app.services.identity_media_runtime import (
     IdentityMediaExecutionError,
@@ -113,6 +114,63 @@ async def _project_scope(session: AsyncSession, actor: UserRecord, project_id: s
     if not exists:
         raise HTTPException(status_code=404, detail="Project not found")
     return value
+
+
+
+
+@router.get("/provider-input/{token}/{filename}")
+async def provider_input(
+    token: str,
+    filename: str,
+    session: AsyncSession = Depends(get_db),
+):
+    try:
+        grant = verify_provider_input_token(token, secret=settings.SECRET_KEY)
+    except IdentityMediaProviderFailure as exc:
+        raise HTTPException(status_code=404, detail="Provider input link is invalid") from exc
+    row = await session.scalar(
+        select(IdentityMediaExecution).where(IdentityMediaExecution.id == grant.execution_id)
+    )
+    if row is None or row.status not in {"queued", "provider_running"}:
+        raise HTTPException(status_code=404, detail="Provider input is unavailable")
+    keys = dict(row.input_storage_keys or {})
+    payload = dict(row.request_payload or {})
+    content_types = dict(payload.get("input_content_types") or {})
+    filenames = dict(payload.get("input_filenames") or {})
+    key = str(keys.get(grant.input_name) or "").strip()
+    expected_name = _safe_filename(
+        str(filenames.get(grant.input_name) or ""),
+        f"source-{grant.input_name}",
+    )
+    content_type = str(content_types.get(grant.input_name) or "application/octet-stream").strip().lower()
+    if not key or filename != expected_name:
+        raise HTTPException(status_code=404, detail="Provider input is unavailable")
+    allowed = (
+        _IMAGE_TYPES
+        if grant.input_name == "image"
+        else _AUDIO_TYPES
+        if grant.input_name == "audio"
+        else _VIDEO_TYPES
+    )
+    if content_type not in allowed:
+        raise HTTPException(status_code=404, detail="Provider input is unavailable")
+    try:
+        body = await __import__("asyncio").to_thread(
+            media_object_store().get_bytes,
+            key,
+            max_bytes=int(settings.IDENTITY_MEDIA_MAX_PROVIDER_BYTES),
+        )
+    except MediaStorageError as exc:
+        raise HTTPException(status_code=404, detail="Provider input is unavailable") from exc
+    return Response(
+        body,
+        media_type=content_type,
+        headers={
+            "Cache-Control": "private, no-store, max-age=0",
+            "Content-Disposition": f'inline; filename="{expected_name}"',
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @router.get("/capabilities")
