@@ -163,3 +163,12 @@ def test_pytest_runs_as_module_to_keep_project_imports(operator, monkeypatch):
     operator.run_pytest("tests/test_example.py")
     assert run.call_args.args[0][1:] == ["-m", "pytest", "-q", "tests/test_example.py"]
     assert run.call_args.kwargs["cwd"] == "/opt/AIOS"
+
+
+def test_status_permission_denied_is_unknown_not_missing(operator, monkeypatch):
+    monkeypatch.setattr(Path, "is_file", Mock(side_effect=PermissionError("denied")))
+    status = operator.server_status()
+    assert status["status"] == "online"
+    assert status["runtime_key_exists"] is None
+    assert status["deploy_key_exists"] is None
+    assert status["mcp_server_exists"] is None

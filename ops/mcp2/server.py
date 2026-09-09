@@ -141,9 +141,17 @@ def _safe_job(data: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _probe_file(path: Path) -> bool | None:
+    """Report unknown rather than crash or claim missing on denied metadata."""
+    try:
+        return path.is_file()
+    except OSError:
+        return None
+
+
 @mcp.tool()
 def server_status() -> dict[str, Any]:
-    return {"status": "online", "purpose": "general-server-operator", "version": SERVER_VERSION, "canonical_report": str(PROJECT_REPORT), "tunnel_service": TUNNEL_SERVICE, "uid": os.getuid(), "euid": os.geteuid(), "project_root": str(PROJECT_ROOT), "project_exists": PROJECT_ROOT.is_dir(), "mcp_server_path": str(MCP_SERVER_PATH), "mcp_server_exists": MCP_SERVER_PATH.is_file(), "tunnel_profile": TUNNEL_PROFILE, "runtime_key_exists": TUNNEL_RUNTIME_KEY.is_file(), "deploy_key_exists": DEPLOY_KEY.is_file()}
+    return {"status": "online", "purpose": "general-server-operator", "version": SERVER_VERSION, "canonical_report": str(PROJECT_REPORT), "tunnel_service": TUNNEL_SERVICE, "uid": os.getuid(), "euid": os.geteuid(), "project_root": str(PROJECT_ROOT), "project_exists": PROJECT_ROOT.is_dir(), "mcp_server_path": str(MCP_SERVER_PATH), "mcp_server_exists": _probe_file(MCP_SERVER_PATH), "tunnel_profile": TUNNEL_PROFILE, "runtime_key_exists": _probe_file(TUNNEL_RUNTIME_KEY), "deploy_key_exists": _probe_file(DEPLOY_KEY)}
 
 
 @mcp.tool()
