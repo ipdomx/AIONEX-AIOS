@@ -49,3 +49,7 @@ The previously written 2026-09-07 production-capacity receipt existed on PR #586
 ## Next protected boundary
 
 `SOURCE_VERIFIED — PROTECTED_CI_REQUIRED`. Merge/deployment completion is not asserted by the local test result. Follow the current branch and its PR; deploy only the exact protected merged source after a healthy backup/R2 restore anchor, retain Backend/Identity-worker rollback image IDs, and recheck live health and authorization without paid provider requests.
+
+## Superseding production checkpoint
+
+Protected PR #603 was merged and deployed as `9194176c6118e7483d64b05e1183d6c479bfdd3a`. The source/CI-pending states above are historical checkpoints, not the current runtime status. See `36G-2026-09-10-identity-media-revocation-production-closeout.md` and `/opt/AIOS/.deployment-backups/identity-revocation-20260910/CURRENT-STATE.json` for verified deployment, fresh R2 restore, image-scan and live 200/403 rollback-only authorization evidence.
