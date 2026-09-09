@@ -1,0 +1,14 @@
+{
+  "event_id": "FR-01-cli-json-redaction-20260910",
+  "batch_id": "FR-01",
+  "status": "local_verified",
+  "summary_ar": "اكتمل تقوية حجب بيانات الاتصال في flags وJSON، وتقليل metadata المحفوظة إلى حقول آمنة. اجتاز المرشح 909 اختبار Core و46 اختبار مرجع/MCP بصلاحية غير root؛ لم يثبت التثبيت الحي بعد.",
+  "verification_passed": true,
+  "evidence": [
+    "docs/project/runtime/fr01-final-core.log",
+    "tests/test_mcp2_operator_repair.py:32 PASS",
+    "tests/test_project_hub.py:14 PASS",
+    "non-root nobody focused run:46 PASS"
+  ],
+  "candidate_sha256": "d112fdde0a8e9434b16ad09d1c9447ea3d9d224cd995f0e12313d1179f3995ad"
+}

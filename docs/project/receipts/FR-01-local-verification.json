@@ -1,0 +1,15 @@
+{
+  "event_id": "FR01-local-897-core-34-regression",
+  "batch_id": "FR-01",
+  "status": "local_verified",
+  "summary_ar": "نجح 897 اختبار Core، منها 34 اختبارًا جديدًا للمرجع وMCP؛ اجتاز مصدر المرشح FastMCP الفعلي بـ28 أداة وسبعة افتراضيات صحيحة. ينتظر الفحوص المحمية والدمج والتثبيت الحي.",
+  "core_tests_passed": 897,
+  "new_regression_tests_passed": 34,
+  "verification_passed": true,
+  "evidence": [
+    "tests/test_mcp2_operator_repair.py:20 PASS",
+    "tests/test_project_hub.py:14 PASS",
+    "full root Python -m pytest:897 PASS",
+    "docs/project/runtime/framework-smoke.json"
+  ]
+}

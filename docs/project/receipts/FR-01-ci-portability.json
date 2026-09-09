@@ -1,0 +1,18 @@
+{
+  "event_id": "FR01-portability-corrected-898-core-35-regression",
+  "batch_id": "FR-01",
+  "status": "local_verified",
+  "summary_ar": "الإصدار المعدل اجتاز 898 اختبار Core، و35 اختبارًا جديدًا بصلاحيات مستخدم nobody غير root أيضًا؛ فحص FastMCP الحقيقي يطابق الأدوات الـ28. أول CI فشل بفحص metadata وصحح دون تخفيف الأمان. التثبيت الحي ما زال ينتظر الفحوص المحمية والدمج.",
+  "core_tests_passed": 898,
+  "new_regression_tests_passed": 35,
+  "unprivileged_regression_passed": 35,
+  "verification_passed": true,
+  "evidence": [
+    "tests/test_mcp2_operator_repair.py:21 PASS",
+    "tests/test_project_hub.py:14 PASS",
+    "full root Python -m pytest:898 PASS",
+    "unprivileged nobody run:35 PASS",
+    "docs/project/runtime/framework-smoke.json",
+    "docs/project/runtime/core-ci-first-attempt.log"
+  ]
+}

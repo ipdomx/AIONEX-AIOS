@@ -56,5 +56,10 @@
     "high_critical_findings": 0
   },
   "backup_id": "703bb06a-acc8-4e42-bc66-65adb09251e6",
-  "offsite_restore_validation_id": "cc68a0e2-f04a-4baa-97ca-827ae6861432"
+  "offsite_restore_validation_id": "cc68a0e2-f04a-4baa-97ca-827ae6861432",
+  "canonical_project_hub": "docs/project/README.md",
+  "authoritative_current_report": "/opt/AIOS/docs/project/PROJECT-REPORT.md",
+  "authoritative_current_state": "/opt/AIOS/docs/project/STATE.json",
+  "historical_snapshot_below_not_current_resume_point": true,
+  "documentation_pr604_merged_commit": "fff8d8581da1b101499186fe08f2cba3178c3438"
 }

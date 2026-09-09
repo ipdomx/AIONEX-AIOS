@@ -1,0 +1,1612 @@
+{
+  "schema_version": 1,
+  "project": "AIONEX AIOS / AIONEX Server MCP 2",
+  "repository": "ipdomx/AIONEX-AIOS",
+  "directive_date": "2026-09-10",
+  "timezone": "Asia/Makassar",
+  "production_root": "/opt/AIOS",
+  "canonical_directory": "docs/project",
+  "report": "docs/project/PROJECT-REPORT.md",
+  "runtime_journal": "docs/project/runtime/events.jsonl",
+  "goal_ar": "إطلاق النطاق النهائي بجميع وظائفه غير المؤجلة، مع دليل قبول ألف مستخدم متعدد المشاريع والمحادثات وصلاحيات المالك، وليس مجرد سلامة الخدمات أو نسبة لوحة.",
+  "owner_decisions": {
+    "licenses": "المالك أكد في 2026-09-10 امتلاك جميع التصاريح والتراخيص المطلوبة. يعتمد هذا كإقرار مالك ولا يطلب انتظار ترخيص عام للتطوير. لا يمثل تحققًا مستقلًا ولا يلغي موافقة صاحب الهوية/المستخدم أو المراجعة البشرية أو حدود الأمان.",
+    "merge_policy": "كل دفعة صغيرة تستكمل اختباراتها وفحوصها المحمية تدمج فورًا، ثم تنشر التغييرات اللازمة فقط وتتحقق حيًا وتسجل إيصالها. لا دمج قسري ولا تجاوز فحوص ولا ادعاء أن الدمج يساوي النشر.",
+    "cloudflare": "الإبقاء على Cloudflare وR2 وDNS والنفق وسياسات Access الحالية دون إعادة إعداد.",
+    "encryption": "انتهى انتظار Namecheap: الرد المرفق يؤكد عدم توفير تشفير التخزين افتراضيًا أو المساعدة في تركيبه؛ المسار المعتمد تنفيذ تشفير على مستوى الملفات/المجلدات أو التطبيق، مع فصل المفاتيح واستعادة مجربة، دون إعادة تهيئة القرص الحي.",
+    "user_governance": "المالك يحدد مدة المحادثة وعدد الرسائل وعدد المشاريع والمحادثات المتزامنة والحدود العامة/الخطة/المستخدم والاستثناءات والتعليق والحظر وسحب الصلاحيات. قيمة ثلاثة مشاريع وثلاث محادثات هي ملف اختبار وليست حدًا ثابتًا مفروضًا على المنتج.",
+    "deferred": [
+      "XR/AR/VR والتحقق على أجهزة XR",
+      "المزودون غير الموصولين والحساب الثاني لـRunPod",
+      "بوابات الدفع وتفعيل التحصيل والتوسعات المالية",
+      "تطبيقات المنصة المستقلة وتوقيعها ونشرها بالمتاجر"
+    ],
+    "defer_scope_note": "بناء المستخدم مصدر مشروع تطبيق يبقى وظيفة منشئ المشاريع؛ المؤجل هو إطلاق تطبيقات المنصة/المتاجر والتكاملات الخارجية المذكورة. لا يؤجل 2D أو 3D أو وظائف الويب أو ضوابط المالك. لا تستخدم بيانات أو أموال حقيقية لاختبارات جماعية.",
+    "runtime_truth": "إقرار التراخيص لا يحول قدرة غير منفذة أو مزودًا غير موصول إلى PASS؛ تتبقى اختبارات تقنية وموافقة المالك لكل مستخدم حيث يلزم. يستمر الإفصاح عن الصوت/الوسائط الاصطناعية."
+  },
+  "baseline": {
+    "application_commit": "9194176c6118e7483d64b05e1183d6c479bfdd3a",
+    "documentation_commit": "fff8d8581da1b101499186fe08f2cba3178c3438",
+    "application_pr": 603,
+    "documentation_pr": 604,
+    "historical_services": {
+      "total": 40,
+      "running": 36,
+      "successful_oneshot": 4
+    },
+    "historical_capacity": "1000 مشارك/قبول في نطاق الاختبار السابق؛ 150 مؤسسة × 3 مشاريع = 450 مشروعًا؛ أربعة عمال مشاريع بسعة 12 تنفيذًا ثقيلًا. تحفظ الأدلة ولا تستبدل بها شهادة اختبار الرحلات الموسعة.",
+    "historical_audit_attachment_sha256": "30b5a2c05f7e56202ad2539e1b77eefa0b085aaddaa1aa64952ea154f4db28cf",
+    "namecheap_attachment_sha256": "e96f85206cccb2d828ee550b96707392d13eeea165f10d84476ae26e5b4c500a",
+    "legacy_roadmap": "docs/phase-36/PHASE_36_UNIVERSAL_CAPABILITY_SCALE_MASTER_ROADMAP.md",
+    "legacy_latest_state": ".deployment-backups/identity-revocation-20260910/CURRENT-STATE.json",
+    "prior_capacity_receipts": [
+      "docs/phase-36/receipts/36N-2026-09-07-production-capacity-test.md",
+      "docs/phase-36/receipts/36H-2026-08-24-scale-part6b.md",
+      "docs/phase-36/receipts/36H-2026-09-05-realtime-production-activation.md"
+    ]
+  },
+  "capacity_acceptance": {
+    "status": "NOT_YET_RUN_FOR_EXPANDED_PROFILE",
+    "authenticated_active_users": 1000,
+    "projects_per_user_min": 3,
+    "conversations_per_user_min": 3,
+    "durable_jobs_min": 3000,
+    "steady_state_minutes_min": 15,
+    "ordinary_read_p95_ms_max": 500,
+    "durable_enqueue_p95_ms_max": 1000,
+    "unexpected_error_rate_max": 0.005,
+    "tenant_leaks_max": 0,
+    "lost_jobs_max": 0,
+    "duplicate_terminal_executions_max": 0,
+    "required_evidence": [
+      "مولد حمل مستقل أو إثبات عدم اختناقه مع تسجيل موارده",
+      "مسار HTTP موثق ومصادقة حقيقية وWebSocket/الاستئناف حيث يستخدمه المنتج",
+      "3000 مشروع و3000 محادثة مع عدادات مستخدمين فعالة لا مجرد صفوف مدخلة",
+      "رفع/تنزيل أصول واختبارات منع العبور بين المستخدمين والمشاريع",
+      "فرض وقت وعدد رسائل المالك ذريًا أثناء التزامن وتغيير السياسة أثناء الجلسة",
+      "قبول وجدولة عادلة واستمرار بعد فقد عامل ومنع إكمال قديم",
+      "p50/p95/p99 ومعدلات الطلبات وعمق الطوابير وزمن الانتظار والموارد والتكلفة",
+      "فصل نتائج قبول المستخدمين عن عدد GPU/CPU والمكالمات الثقيلة المنفذة فعليًا",
+      "أمثلة حقيقية محدودة ومدفوعة عند الحاجة لكل عائلة قدرات؛ لا تقديم نموذج مزيف كقبول مزود",
+      "SHA المصدر وصور التشغيل ومخطط قاعدة البيانات وتهيئة الاختبار وإثبات التنظيف"
+    ],
+    "production_safety": "تدرج الحمل أولًا في بيئة معزولة مطابقة للإصدار، ثم تحقق خارجي آمن للنشر. توقف تلقائي عند تدهور الصحة أو اختراق عزل أو زيادة كلفة غير مصرح بها. لا تعطيل Cloudflare أو حماية المالك ولا خصم أموال المستخدمين.",
+    "owner_policy_response_accounting": "تعرض الرفضات المتعمدة بسبب سياسة المالك منفصلة وبأعدادها؛ لا تستخدم لإخفاء أخطاء التطبيق أو لتقليل المقام انتقائيًا."
+  },
+  "batches": [
+    {
+      "id": "FR-00",
+      "title_ar": "إغلاق التوثيق السابق ومطابقة النشر",
+      "requires_deploy": false,
+      "depends_on": [],
+      "scope_ar": "دمج PR604 والتحقق من SHA ومزامنة main دون إعادة نشر PR603.",
+      "exit_ar": "الدمج المحمي مثبت مع نجاح 12 فحصًا والشجرة المحلية مطابقة."
+    },
+    {
+      "id": "FR-01",
+      "title_ar": "مرجع واحد للمشروع وإصلاح MCP2",
+      "requires_deploy": true,
+      "depends_on": [
+        "FR-00"
+      ],
+      "scope_ar": "خطة/حالة/تقرير وأدلة في docs/project؛ إحالات القديمة؛ مصدر MCP قابل لإعادة البناء؛ /opt/AIOS افتراضيًا؛ إلغاء اختيار نسخة احتياطية متغيرة؛ إعادة اتصال خدمة MCP2 فقط؛ معالجة مهلة المخرجات الثنائية.",
+      "exit_ar": "تغطية جميع القدرات والفجوات، اختبارات العقد، 28 أداة، فحوص محمية ثم دمج وتثبيت ذري وقراءة حالة حية بلا cwd صريح ودون مساس بالخدمات الأخرى."
+    },
+    {
+      "id": "FR-02",
+      "title_ar": "معالجة تنبيهات المصدر الأمنية الخمسة",
+      "requires_deploy": true,
+      "depends_on": [
+        "FR-01"
+      ],
+      "scope_ar": "CodeQL #1/#3/#5/#6/#25: سجل الأعمال والتعبير المنتظم للبريد وفحوص URL وسجل النشر. إصلاح أو تقييم موثق لكل تنبيه، ولا إغلاق صوري.",
+      "exit_ar": "اختبارات سلبية/إيجابية ودليل إعادة فحص التنبيه على main المنشور، وعدم تسرب أسرار أو تعطيل الاستخدام."
+    },
+    {
+      "id": "FR-03",
+      "title_ar": "تنبيهات التبعيات والتحديثات على دفعات مستقلة",
+      "requires_deploy": true,
+      "depends_on": [
+        "FR-02"
+      ],
+      "scope_ar": "حسم تفعيل Dependabot والصلاحيات وسياسة الإشعار؛ مراجعة PR563-580 باستثناء غير الموجود وPR599. كل مجموعة متوافقة أو ترقية كبرى دفعة فرعية منفصلة، مع غلق المتجاوز/المكرر بسبب موثق لا بدمج عمياني.",
+      "sub_batches": [
+        "FR-03A تنبيهات الأمان وتحديثات GitHub Actions",
+        "FR-03B تحديثات Python المتوافقة والتشفير",
+        "FR-03C Redis/WebSockets/WebAuthn وترقيات Python الكبرى كل على حدة",
+        "FR-03D تحديثات الواجهة المتوافقة",
+        "FR-03E Zustand/i18next/Tailwind/ESLint/react-window/date-fns كل ترقية مستقلة"
+      ],
+      "exit_ar": "قائمة التنبيهات مقروءة فعليًا ومراجعة كل PR؛ اجتياز التوافق وبناء الواجهات والعمال والرجوع، لا اعتبار 403 صفر ثغرات."
+    },
+    {
+      "id": "FR-04",
+      "title_ar": "تغطية النسخ لكل بيانات المنصة",
+      "requires_deploy": true,
+      "depends_on": [
+        "FR-01"
+      ],
+      "scope_ar": "DB والوسائط ومخرجات المشاريع والدورات وStudio وPortal والتسجيلات و3D وأدلة الإصدارات وإعدادات إعادة البناء. حصر الجذور الدائمة وضبط التزامن بين DB والأصول وموانع اجتياز المسار والروابط الرمزية.",
+      "exit_ar": "مصفوفة تغطية من التركيب الفعلي؛ لا مجلد دائم مجهول؛ نسخة كاملة غير فارغة ومقارنة أعداد/بصمات وحالة حذف/احتفاظ واضحة."
+    },
+    {
+      "id": "FR-05",
+      "title_ar": "نسخ مشفرة إلى R2 واستعادة مستقلة",
+      "requires_deploy": true,
+      "depends_on": [
+        "FR-04"
+      ],
+      "scope_ar": "تشفير من جهة العميل قبل الرفع، مفاتيح منفصلة عن مستودع النسخ، إدارة تدوير/استعادة واحتفاظ، فحص سلامة وتنبيه فشل. تقييم restic/المسار القائم دون تغيير Cloudflare.",
+      "exit_ar": "استعادة DB والأصول غير الفارغة في موقع معزول وروابط صحيحة، رفض مفتاح خاطئ/ملف تالف، وعدم كشف المفتاح في Git أو التقرير أو نفس نسخة البيانات."
+    },
+    {
+      "id": "FR-06",
+      "title_ar": "بديل تشفير بيانات الخادم دون انتظار الاستضافة",
+      "requires_deploy": true,
+      "depends_on": [
+        "FR-05"
+      ],
+      "scope_ar": "تشفير بيانات التطبيق والملفات/المجلدات الحساسة؛ تحديد تغطية DB/WAL/السجلات والمؤقتات والنسخ والمفاتيح والـswap. تجربة معزولة ثم نقل مرحلي قابل للرجوع دون إعادة تهيئة القرص الحي.",
+      "sub_batches": [
+        "FR-06A نموذج التهديد والمفاتيح وتجربة أداء/إقلاع معزولة",
+        "FR-06B أصول المستخدمين والمشاريع",
+        "FR-06C بيانات المحادثات والبيانات الحساسة وDB/WAL/السجلات"
+      ],
+      "exit_ar": "دليل أن البيانات المحددة لا تبقى واضحة على التخزين غير المركب، واستعادة وفك تشفير وإقلاع آمنان. توضيح أن تشفير النسخة ليس تشفير كامل القرص ولا يحمي من root حي يملك المفاتيح."
+    },
+    {
+      "id": "FR-07",
+      "title_ar": "سلطة المالك الكاملة على المستخدم والمحادثة",
+      "requires_deploy": true,
+      "depends_on": [
+        "FR-01"
+      ],
+      "scope_ar": "مدد الجلسة وعدد الرسائل وحدود المستخدم/الخطة/اليوم/المحادثة والاستثناءات والأولوية والرصيد وعدد المشاريع والمحادثات؛ تعليق/حظر/استعادة وسحب الصلاحية والمزايا الحساسة؛ فرض Backend وWebSocket لا واجهة فقط.",
+      "exit_ar": "اختبارات تزامن ذرية وتجاوز سلبي وتغيير فوري للسياسة ومنع حساب/جلسة/صلاحية مسحوبة مع سجل مالك واضح؛ لا يضيع الاستهلاك عند إعادة الاتصال أو تبديل المشروع."
+    },
+    {
+      "id": "FR-08",
+      "title_ar": "مشاريع ومحادثات متعددة مع عزل وجدولة عادلة",
+      "requires_deploy": true,
+      "depends_on": [
+        "FR-07"
+      ],
+      "scope_ar": "ثلاثة مشاريع وثلاث محادثات أو أكثر لكل مستخدم حسب المالك؛ ذاكرة مستقلة ومخرجات وسياق منفصل؛ حفظ واستئناف وتوجيه مزودين وحدود الموارد وتوازي فعلي للجاهز.",
+      "exit_ar": "رحلات متزامنة حقيقية لنفس المستخدم وبين المستخدمين دون تسرب أو قفل عام، مع منع التكرار وقياس الطابور والانتظار."
+    },
+    {
+      "id": "FR-09",
+      "title_ar": "اختبار ألف مستخدم متعدد المشاريع والمحادثات",
+      "requires_deploy": false,
+      "depends_on": [
+        "FR-08"
+      ],
+      "scope_ar": "تنفيذ ملف capacity_acceptance المحفوظ تدريجيًا، قياس المصادقة والقراءة والكتابة والأصول والقنوات والمالك، والاحتفاظ بالأدلة السابقة بدل إلغائها.",
+      "exit_ar": "1000 مستخدم فعال × 3 مشاريع × 3 محادثات، 3000 عمل دائم، اجتياز SLO المحدد وصفر تسرب/فقد/تكرار؛ نشر القيم الفعلية وحدود التوليد الثقيل."
+    },
+    {
+      "id": "FR-10",
+      "title_ar": "تحمل الفشل والتوسع أثناء الحمل",
+      "requires_deploy": true,
+      "depends_on": [
+        "FR-09"
+      ],
+      "scope_ar": "فقد عامل ومزود، تعطل/استعادة الاتصال، leases/fencing، DLQ، استئناف، عدالة وحواجز الذاكرة؛ مقارنة زيادة العمال بالسعة الفعلية دون ادعاء عنقود غير منشور.",
+      "exit_ar": "كل عمل مقبول مستعاد أو نهائي واضح؛ لا إعادة خصم/إرسال ملتبس ولا إكمال قديم؛ زمن التعافي ومعدلات الإنجاز موثقان."
+    },
+    {
+      "id": "FR-11",
+      "title_ar": "تشغيل Voice Transform كاملًا",
+      "requires_deploy": true,
+      "depends_on": [
+        "FR-07"
+      ],
+      "scope_ar": "مسار تحويل صوت حقيقي ضمن البنية الحالية مع مدخل/مخرج ومراجعات وتنزيل وتكلفة وإفصاح وموافقة المالك القابلة للسحب؛ لا انتظار ترخيص عام.",
+      "exit_ar": "طلب من لوحة المستخدم إلى مخرج صوت متحقق؛ تحقق قبل التنفيذ وبعد سحب الإذن؛ فشل آمن وقبول مستقل على النسخة المنشورة."
+    },
+    {
+      "id": "FR-12",
+      "title_ar": "تشغيل Face Swap كاملًا",
+      "requires_deploy": true,
+      "depends_on": [
+        "FR-11"
+      ],
+      "scope_ar": "Adapter حقيقي لتبديل الوجه وإدارة الهوية وموافقاتها والمدخلات الموقعة والتخزين والعزل والمخرجات والتكلفة ضمن المزودين الموصولين أو خدمة محلية آمنة.",
+      "exit_ar": "مخرج حقيقي مثبت وبصمة ومدة/جودة، اختبارات سحب إذن وعزل ومراجعة وعدم إعادة إنفاق عند التباس الطلب."
+    },
+    {
+      "id": "FR-13",
+      "title_ar": "قبول جميع عمليات الهوية كل على حدة",
+      "requires_deploy": false,
+      "depends_on": [
+        "FR-12"
+      ],
+      "scope_ar": "قبول مستقل Talking Head وFace Reenactment وتأكيد Voice Clone/Lip Sync/Avatar/Transform/Swap؛ تحديث السجل المجمع بحسب العملية لا رفع جماعي شكلي.",
+      "exit_ar": "مصفوفة العمليات السبع تربط الاختبارات والحقوق المعتمدة والصلاحيات وتكلفة فعلية أو تكلفة مجهولة مصرحًا بها، ولا تقدم السقف كفاتورة."
+    },
+    {
+      "id": "FR-14",
+      "title_ar": "إكمال الصور والتصميم والفيديو وVFX",
+      "requires_deploy": true,
+      "depends_on": [
+        "FR-08"
+      ],
+      "scope_ar": "مراجعة/إكمال تحرير الصور والتوسيع والخلفية والشفافية والمشتقات والشعارات والتصميم القابل للتحرير؛ استكمال وظائف معلنة لا يدعمها المسار الحالي ببديل حقيقي آمن؛ فيديو متعدد المشاهد/المراجع والاستئناف والصوت والترجمة وVFX والتصدير.",
+      "exit_ar": "رحلات فعلية لكل عائلة وملف معلن، بيان Raster مقابل Vector ودقة التوليد مقابل التصدير، واختبار جودة لمشاهد طويلة لا عينة دقة شكلية فقط."
+    },
+    {
+      "id": "FR-15",
+      "title_ar": "قبول الصوت والموسيقى والأغاني بجودة نهائية",
+      "requires_deploy": true,
+      "depends_on": [
+        "FR-08"
+      ],
+      "scope_ar": "STT/diarization/dubbing/TTS/cleanup/master/SFX/music/song/stems/podcast/jingle؛ حسم فشل جودة الدبلجة وغلاف قبول التفريغ؛ الصيغ والتنزيل والتكلفة.",
+      "exit_ar": "QA للنص والتوقيت وloudness/clipping والملفات المقبولة؛ الفصل بين نجاح المزود ونجاح الجودة؛ حفظ البودكاست الناجح السابق."
+    },
+    {
+      "id": "FR-16",
+      "title_ar": "إكمال 2D و3D ومعالجة Hunyuan بأمان",
+      "requires_deploy": true,
+      "depends_on": [
+        "FR-03"
+      ],
+      "scope_ar": "الرسوم والألعاب والمشاهد والخامات والتحريك والتصدير والتحسين؛ TripoSR القائم، إعادة بناء/فحص Hunyuan ثم قبوله فقط عند خلو سبب الحجر؛ لا تفعيل صورة محجورة.",
+      "exit_ar": "أصول 3D غير فارغة مقروءة ومصدرة ومحمية وقابلة للاستعادة؛ دليل فحص صورة GPU والوظائف المنشورة. XR وحده مؤجل."
+    },
+    {
+      "id": "FR-17",
+      "title_ar": "الدورات والتعليم والقطاعات والمساعدة المهنية",
+      "requires_deploy": true,
+      "depends_on": [
+        "FR-08"
+      ],
+      "scope_ar": "قبول المنهج والأصول والتقييم والشهادات؛ إدارة العيادة والمساعدة المهنية والمراجعة البشرية؛ التجزئة والمطاعم والصيدلة والمدارس والحكومة واللوجستيات والصناعة والعقار والقطاع المخصص.",
+      "exit_ar": "مشاريع قابلة للتشغيل وتدفقات مراجعة فعلية وصلاحيات معلم/متعلم وخصوصية؛ لا تجعل التراخيص سبب تعطيل، ولا تنسب اعتمادًا طبيًا مستقلًا لاختبار تقني."
+    },
+    {
+      "id": "FR-18",
+      "title_ar": "وظائف Phase29 ومنشئ المشاريع والأدوات",
+      "requires_deploy": true,
+      "depends_on": [
+        "FR-08"
+      ],
+      "scope_ar": "الحساب والمؤسسات والفرق والأدوار والاشتراكات غير المالية والدعم والمشاريع والمهام والمراجعة والموظفون الرقميون والأكاديمية والمعرفة والبحث والإضافات والتكاملات والمنشئ العام ودورة الإصدار؛ مشاريع الويب/API/data/bots/desktop/extensions/commerce/source-mobile/simulations.",
+      "exit_ar": "مصفوفة ربط متطلبات قديمة وحديثة باختبار تشغيلي وبناء وناتج؛ لا قالب أو mock مقدم كوظيفة حية، ولا ضياع ميزة قديمة بسبب توسعة Phase36."
+    },
+    {
+      "id": "FR-19",
+      "title_ar": "التكلفة والرصيد والتنبيه قبل النفاد",
+      "requires_deploy": true,
+      "depends_on": [
+        "FR-08"
+      ],
+      "scope_ar": "تكلفة فعلية مقابل تقدير وسقف؛ مصادر رصيد يدعمها المزود أو ميزانية مالك قابلة للقياس؛ إنذار مبكر للحصة/الميزانية وفشل الفوترة والتحويل الآمن ضمن المزودين المسموحين.",
+      "exit_ar": "تسليم تنبيه مالك مجرب قبل حد الاختبار وأثناء فشل الرصيد؛ دقة المصدر معلنة ولا تحويل owner_attested إلى مبلغ مخترع؛ لا قراءة أسرار للمستخدم."
+    },
+    {
+      "id": "FR-20",
+      "title_ar": "الإشعارات والتواصل والحسابات الاجتماعية المتصلة",
+      "requires_deploy": true,
+      "depends_on": [
+        "FR-19"
+      ],
+      "scope_ar": "داخل التطبيق والبريد وTelegram والمالك/المستخدم وFirebase الحالي؛ فحص الحسابات الاجتماعية الموصولة وOAuth/الصحة/صلاحيات CRM والمحتوى والتحليل؛ إبقاء أي موصل غير موصول ضمن مؤجلات المزودين لا ادعاء أنه يعمل.",
+      "exit_ar": "تسليمات جديدة معلومة المصدر وأخطاء واضحة دون إعادة 23 إخفاقًا تاريخيًا تلقائيًا؛ احترام موافقة المالك وعدم نشر إعلان أو إنفاق غير مصرح."
+    },
+    {
+      "id": "FR-21",
+      "title_ar": "لوحتا المالك والمستخدم وجميع الروابط",
+      "requires_deploy": true,
+      "depends_on": [
+        "FR-13",
+        "FR-14",
+        "FR-15",
+        "FR-16",
+        "FR-17",
+        "FR-18",
+        "FR-20"
+      ],
+      "scope_ar": "مطابقة كل صفحة/زر/API/ميزة بالخريطة، ست لغات وRTL وDark Mode وSafari/iPhone، رفع/تنزيل ومشاريع ومحادثات متزامنة وسياسة مالك، تحديث الاستضافة القائمة دون تغيير النفق.",
+      "exit_ar": "رحلات متصفح محمية وصلاحيات سلبية وبصمات تطابق الاستضافة؛ إزالة بيانات العرض الوهمية من الإنتاج دون حذف تاريخ أو بيانات مستخدمين."
+    },
+    {
+      "id": "FR-22",
+      "title_ar": "الرصد المستقل والتشغيل والصيانة",
+      "requires_deploy": true,
+      "depends_on": [
+        "FR-10",
+        "FR-19"
+      ],
+      "scope_ar": "رصد خارج المضيف بوتيرة مستهدفة خمس دقائق مع كشف غياب النبض، إنذارات موارد/سعة/نسخ/انتهاء مفاتيح؛ runbooks وحصر العمليات والمجلدات والأدوات وتنظيف محكوم.",
+      "exit_ar": "محاكاة انقطاع ومشاهدة وصول التنبيه من خارج المضيف؛ إثبات الجدولة الفعلية وعدم ادعاء SLA زمني من cron فقط؛ لا حذف نسخة رجوع لازمة أو مساس بمشروع آخر."
+    },
+    {
+      "id": "FR-23",
+      "title_ar": "الفحص الأمني الشامل النهائي",
+      "requires_deploy": true,
+      "depends_on": [
+        "FR-02",
+        "FR-03",
+        "FR-06",
+        "FR-21"
+      ],
+      "scope_ar": "SAST/SCA/SBOM وصور التشغيل وGPU وDAST معزول وIDOR/CSRF/XSS/SSRF/upload/archive/WebSocket/revocation/secrets؛ فحص أدوات الأمن الموجودة وقواعدها وحالة تفعيلها دون الاكتفاء باسم منتج.",
+      "exit_ar": "إغلاق كل finding ضمن النطاق أو قرار موثق مدعوم؛ منع الأسرار وتسرب المستأجرين؛ إثبات مستوى الخطر المتبقي دون ادعاء أمان مطلق."
+    },
+    {
+      "id": "FR-24",
+      "title_ar": "تعافٍ شامل من فقد الخادم",
+      "requires_deploy": false,
+      "depends_on": [
+        "FR-05",
+        "FR-06",
+        "FR-22"
+      ],
+      "scope_ar": "استعادة مستقلة من النسخة المشفرة مع مفاتيح الاسترداد وDB وجميع الأصول وأدلة الصور والإعدادات وتطبيق الرجوع؛ قياس RPO/RTO.",
+      "exit_ar": "مضيف/بيئة استعادة مستقلة قابلة للتشغيل وروابط وملفات غير فارغة سليمة؛ فقد المفتاح/فساد النسخة يفشلان بأمان؛ لا تنفيذ الاستعادة فوق الإنتاج."
+    },
+    {
+      "id": "FR-25",
+      "title_ar": "الإصدار النهائي وإثبات القدرة والإطلاق",
+      "requires_deploy": true,
+      "depends_on": [
+        "FR-01",
+        "FR-02",
+        "FR-03",
+        "FR-04",
+        "FR-05",
+        "FR-06",
+        "FR-07",
+        "FR-08",
+        "FR-09",
+        "FR-10",
+        "FR-11",
+        "FR-12",
+        "FR-13",
+        "FR-14",
+        "FR-15",
+        "FR-16",
+        "FR-17",
+        "FR-18",
+        "FR-19",
+        "FR-20",
+        "FR-21",
+        "FR-22",
+        "FR-23",
+        "FR-24"
+      ],
+      "scope_ar": "مطابقة جميع القدرات غير المؤجلة ومتطلبات Phase29، تثبيت version/manifest/SHA لكل خدمة وواجهة، فحوص كاملة ونسخ ورجوع وقبول حي، Release مجمع ودليل المستخدم والمالك والتشغيل.",
+      "exit_ar": "لا إغلاق نهائي قبل دليل ملف الألف مستخدم الموسع ونجاح كل دفعة لازمة؛ جميع المتبقي داخل المؤجلات الأربعة فقط؛ المصدر والنشر والتقرير متفقون."
+    }
+  ],
+  "open_dependency_prs_at_audit": [
+    563,
+    564,
+    565,
+    566,
+    567,
+    568,
+    569,
+    570,
+    571,
+    572,
+    574,
+    575,
+    576,
+    577,
+    578,
+    579,
+    580,
+    599
+  ],
+  "audit_findings": [
+    {
+      "id": "A01",
+      "finding_ar": "خمسة تنبيهات CodeQL High مفتوحة",
+      "batches": [
+        "FR-02",
+        "FR-23"
+      ]
+    },
+    {
+      "id": "A02",
+      "finding_ar": "Dependabot معطل أو غير مقروء",
+      "batches": [
+        "FR-03"
+      ]
+    },
+    {
+      "id": "A03",
+      "finding_ar": "نسخ R2 يستثني أصولًا دائمة فعلية",
+      "batches": [
+        "FR-04",
+        "FR-05",
+        "FR-24"
+      ]
+    },
+    {
+      "id": "A04",
+      "finding_ar": "3D في أحدث الاستعادات فارغ فلا يثبت استعادة أصول غير فارغة",
+      "batches": [
+        "FR-04",
+        "FR-16",
+        "FR-24"
+      ]
+    },
+    {
+      "id": "A05",
+      "finding_ar": "تشتيت التقرير والنشر وPR604 ونسخ Release المختلفة",
+      "batches": [
+        "FR-00",
+        "FR-01",
+        "FR-25"
+      ]
+    },
+    {
+      "id": "A06",
+      "finding_ar": "MCP root مفقود ومصدر متغير وإعادة تشغيل عابرة للأنفاق",
+      "batches": [
+        "FR-01"
+      ]
+    },
+    {
+      "id": "A07",
+      "finding_ar": "Voice Transform/Face Swap غير منفذين",
+      "batches": [
+        "FR-11",
+        "FR-12"
+      ]
+    },
+    {
+      "id": "A08",
+      "finding_ar": "قبول Talking Head/Face Reenactment مستقل غير مثبت",
+      "batches": [
+        "FR-13"
+      ]
+    },
+    {
+      "id": "A09",
+      "finding_ar": "Hunyuan محجور أمنيًا",
+      "batches": [
+        "FR-16",
+        "FR-23"
+      ]
+    },
+    {
+      "id": "A10",
+      "finding_ar": "owner_attested لا يثبت رقم الرصيد ولا تكلفة Identity الفعلية",
+      "batches": [
+        "FR-13",
+        "FR-19"
+      ]
+    },
+    {
+      "id": "A11",
+      "finding_ar": "ألف تحكم/450 مشروع لا يساوي ألف مستخدم متعدد المحادثات بكامل الرحلات",
+      "batches": [
+        "FR-07",
+        "FR-08",
+        "FR-09",
+        "FR-10"
+      ]
+    },
+    {
+      "id": "A12",
+      "finding_ar": "الرصد المستقل أسبوعي والبنية الرئيسية على مضيف واحد",
+      "batches": [
+        "FR-10",
+        "FR-22",
+        "FR-24"
+      ]
+    },
+    {
+      "id": "A13",
+      "finding_ar": "100%/2%/COMPLETE مقاييس متعارضة التعريف",
+      "batches": [
+        "FR-01",
+        "FR-13",
+        "FR-25"
+      ]
+    },
+    {
+      "id": "A14",
+      "finding_ar": "فشل جودة دبلجة/غلاف تفريغ بعد نجاح مزود",
+      "batches": [
+        "FR-15"
+      ]
+    },
+    {
+      "id": "A15",
+      "finding_ar": "حدود تحرير Raster/Vector/شفافية ودقة فيديو مقابل تصدير",
+      "batches": [
+        "FR-14"
+      ]
+    },
+    {
+      "id": "A16",
+      "finding_ar": "مراجعة نطاق الإشعارات والتواصل والبيانات الوهمية",
+      "batches": [
+        "FR-20",
+        "FR-21"
+      ]
+    },
+    {
+      "id": "A17",
+      "finding_ar": "رد Namecheap ينهي الانتظار ولا يثبت تشفيرًا منفذًا",
+      "batches": [
+        "FR-05",
+        "FR-06"
+      ]
+    },
+    {
+      "id": "A18",
+      "finding_ar": "التراخيص مثبتة بإقرار المالك لا تزال بعض الوظائف محتاجة قبولًا تقنيًا",
+      "batches": [
+        "FR-07",
+        "FR-13",
+        "FR-17",
+        "FR-25"
+      ]
+    }
+  ],
+  "technology_review": [
+    {
+      "component": "MCP2",
+      "decision": "لا ترقية اعتماد أثناء إصلاح المسار؛ الحفاظ على بيئة FastMCP الحالية واختبار مخطط الأدوات الفعلي؛ مصدر مستقل بدل wrapper متغير."
+    },
+    {
+      "component": "Client-side backup encryption",
+      "source": "https://github.com/restic/restic",
+      "decision": "مرجع أولي لتقييم restic ضمن FR-05؛ لا ادعاء تثبيت أو تفعيل الآن."
+    },
+    {
+      "component": "Directory encryption",
+      "source": "https://github.com/rfjakob/gocryptfs/blob/master/Documentation/MANPAGE.md",
+      "decision": "مرجع لتشفير مجلدات التطبيق؛ اختيار آلية DB/الملفات يتبع اختبارات سلامة/أداء واسترداد قبل النقل."
+    },
+    {
+      "component": "Capacity acceptance",
+      "source": "https://grafana.com/docs/k6/latest/using-k6/thresholds/",
+      "decision": "معايير thresholds واضحة قابلة للفشل، لا checks لا تؤثر في حالة خروج الاختبار."
+    }
+  ],
+  "capabilities": [
+    {
+      "capability_id": "program-registry",
+      "category": "program",
+      "title": "Capability maturity registry and reporting invariant",
+      "owner_batch": "36A",
+      "maturity": "production_ready",
+      "evidence": [
+        "docs/phase-36/PHASE_36_UNIVERSAL_CAPABILITY_SCALE_MASTER_ROADMAP.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-01"
+      ]
+    },
+    {
+      "capability_id": "distributed-project-execution",
+      "category": "scale",
+      "title": "Distributed live project execution",
+      "owner_batch": "36B",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-23/PHASE_23_DISTRIBUTED_EXECUTION_FABRIC.md",
+        "docs/phase-36/receipts/36B-2026-08-17-distributed-project-execution.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-08",
+        "FR-09",
+        "FR-10"
+      ]
+    },
+    {
+      "capability_id": "thousand-user-admission",
+      "category": "scale",
+      "title": "1000+ concurrent authenticated user and workflow admission",
+      "owner_batch": "36B",
+      "maturity": "locally_executed",
+      "evidence": [
+        "docs/phase-36/receipts/36B-2026-08-17-distributed-project-execution.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-08",
+        "FR-09",
+        "FR-10"
+      ]
+    },
+    {
+      "capability_id": "horizontal-worker-scaling",
+      "category": "scale",
+      "title": "Horizontal CPU/GPU/provider worker scaling",
+      "owner_batch": "36B",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-29/PHASE_29I_PLUGINS_DISTRIBUTED_INTEGRATIONS_COMPLETION.md",
+        "docs/phase-36/receipts/36B-2026-08-17-distributed-project-execution.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-08",
+        "FR-09",
+        "FR-10"
+      ]
+    },
+    {
+      "capability_id": "multi-provider-project-routing",
+      "category": "ai",
+      "title": "Multi-provider/model project execution pools",
+      "owner_batch": "36C",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-29/PHASE_29J_MODELS_PROVIDERS_FINAL_COMPLETION.md",
+        "docs/phase-36/receipts/36C-2026-08-17-multi-provider-execution-baseline.md"
+      ],
+      "external_gates": [
+        "owner-provider-funded-credit-thresholds"
+      ],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-08",
+        "FR-19"
+      ]
+    },
+    {
+      "capability_id": "tenant-agent-memory-isolation",
+      "category": "ai",
+      "title": "Tenant/project-scoped agent and model memory isolation",
+      "owner_batch": "36C",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36C-2026-08-17-multi-provider-execution-baseline.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-08",
+        "FR-19"
+      ]
+    },
+    {
+      "capability_id": "web-saas-pwa",
+      "category": "software",
+      "title": "Websites, SaaS, portals and PWAs",
+      "owner_batch": "36C",
+      "maturity": "locally_executed",
+      "evidence": [
+        "docs/phase-28/PHASE_28_FULL_PROJECT_LIFECYCLE.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-18"
+      ]
+    },
+    {
+      "capability_id": "api-serverless",
+      "category": "software",
+      "title": "REST/domain APIs and serverless functions",
+      "owner_batch": "36C",
+      "maturity": "locally_executed",
+      "evidence": [
+        "docs/phase-28/PHASE_28_FULL_PROJECT_LIFECYCLE.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-18"
+      ]
+    },
+    {
+      "capability_id": "mobile-apps",
+      "category": "software",
+      "title": "Android/iOS application source and delivery",
+      "owner_batch": "36C",
+      "maturity": "locally_executed",
+      "evidence": [
+        "docs/phase-29/PHASE_29H_PRODUCTION_STUDIO_MOBILE_DELIVERY_COMPLETION.md"
+      ],
+      "external_gates": [
+        "store-signing-and-publication"
+      ],
+      "scope": "builder_source_preserved_platform_apps_deferred",
+      "final_batches": [
+        "FR-18"
+      ]
+    },
+    {
+      "capability_id": "desktop-apps",
+      "category": "software",
+      "title": "Windows/macOS/Linux desktop source",
+      "owner_batch": "36C",
+      "maturity": "locally_executed",
+      "evidence": [
+        "docs/phase-28/PHASE_28_FULL_PROJECT_LIFECYCLE.md"
+      ],
+      "external_gates": [
+        "platform-code-signing"
+      ],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-18"
+      ]
+    },
+    {
+      "capability_id": "browser-extensions",
+      "category": "software",
+      "title": "Browser extensions",
+      "owner_batch": "36C",
+      "maturity": "locally_executed",
+      "evidence": [],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-18"
+      ]
+    },
+    {
+      "capability_id": "data-database-etl",
+      "category": "software",
+      "title": "Databases, ETL, analytics and data pipelines",
+      "owner_batch": "36C",
+      "maturity": "locally_executed",
+      "evidence": [],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-18"
+      ]
+    },
+    {
+      "capability_id": "bots-automation-cli-sdk",
+      "category": "software",
+      "title": "Bots, automation, CLIs, SDKs and libraries",
+      "owner_batch": "36C",
+      "maturity": "locally_executed",
+      "evidence": [],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-18"
+      ]
+    },
+    {
+      "capability_id": "commerce-apps",
+      "category": "software",
+      "title": "Commerce, subscription and billing domain applications",
+      "owner_batch": "36C",
+      "maturity": "locally_executed",
+      "evidence": [],
+      "external_gates": [
+        "live-payment-provider-credential"
+      ],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-18"
+      ]
+    },
+    {
+      "capability_id": "iot-robotics-contracts",
+      "category": "software",
+      "title": "IoT/firmware simulation, robotics and smart contracts",
+      "owner_batch": "36C",
+      "maturity": "locally_executed",
+      "evidence": [],
+      "external_gates": [
+        "physical-device-or-chain-deployment-authority"
+      ],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-18"
+      ]
+    },
+    {
+      "capability_id": "creative-asset-graph",
+      "category": "media",
+      "title": "Durable creative asset DAG, revisions and provenance",
+      "owner_batch": "36D",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36D-2026-08-17-media-orchestrator.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-04",
+        "FR-14"
+      ]
+    },
+    {
+      "capability_id": "media-render-transcode",
+      "category": "media",
+      "title": "Real render/transcode and resumable assembly",
+      "owner_batch": "36D",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36D-2026-08-17-media-orchestrator.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-04",
+        "FR-14"
+      ]
+    },
+    {
+      "capability_id": "object-storage-media",
+      "category": "media",
+      "title": "Scale object storage for media/artifacts",
+      "owner_batch": "36D",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36D-2026-08-17-media-orchestrator.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-04",
+        "FR-14"
+      ]
+    },
+    {
+      "capability_id": "prompt-factory",
+      "category": "design",
+      "title": "Prompt generation, refinement and reusable packs",
+      "owner_batch": "36E",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-29/PHASE_29H_PRODUCTION_STUDIO_MOBILE_DELIVERY_COMPLETION.md",
+        "docs/phase-36/receipts/36E-2026-08-18-design-image-foundation.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-14"
+      ]
+    },
+    {
+      "capability_id": "image-generation-editing",
+      "category": "design",
+      "title": "Image generation, editing, variants and upscale workflows",
+      "owner_batch": "36E",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36E-2026-08-18-design-image-foundation.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-14"
+      ]
+    },
+    {
+      "capability_id": "logo-branding",
+      "category": "design",
+      "title": "Logo systems, branding and brand kits",
+      "owner_batch": "36E",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36E-2026-08-18-design-image-foundation.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-14"
+      ]
+    },
+    {
+      "capability_id": "infographic-experimental-graphics",
+      "category": "design",
+      "title": "Infographics, diagrams and experimental graphics",
+      "owner_batch": "36E",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36E-2026-08-18-design-image-foundation.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-14"
+      ]
+    },
+    {
+      "capability_id": "editable-design-exports",
+      "category": "design",
+      "title": "Editable vector/raster source and export profiles",
+      "owner_batch": "36E",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36E-2026-08-18-design-image-foundation.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-14"
+      ]
+    },
+    {
+      "capability_id": "text-image-logo-to-video",
+      "category": "video",
+      "title": "Text/image/logo-to-video generation",
+      "owner_batch": "36F",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36F-2026-08-19-video-factory.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-14"
+      ]
+    },
+    {
+      "capability_id": "long-form-ad-video",
+      "category": "video",
+      "title": "Long-form advertising and multi-scene video",
+      "owner_batch": "36F",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36F-2026-08-19-video-factory.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-14"
+      ]
+    },
+    {
+      "capability_id": "cinema-motion-vfx",
+      "category": "video",
+      "title": "Cinema, motion graphics, compositing and VFX",
+      "owner_batch": "36F",
+      "maturity": "locally_executed",
+      "evidence": [
+        "docs/phase-36/receipts/36I-2026-08-25-final-vfx-exit.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-14"
+      ]
+    },
+    {
+      "capability_id": "video-continuity-resume",
+      "category": "video",
+      "title": "Scene continuity, resumable rendering and partial regeneration",
+      "owner_batch": "36F",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36F-2026-08-19-video-factory.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-14"
+      ]
+    },
+    {
+      "capability_id": "video-final-export",
+      "category": "video",
+      "title": "1080p/1440p/4K and governed final video exports",
+      "owner_batch": "36F",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36F-2026-08-19-video-factory.md",
+        "docs/phase-36/receipts/36F-2026-08-26-final-export-runtime.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-14"
+      ]
+    },
+    {
+      "capability_id": "stock-voice-tts",
+      "category": "audio",
+      "title": "Pinned stock-voice text-to-speech with governed local mastering and export",
+      "owner_batch": "36G",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md"
+      ],
+      "external_gates": [
+        "synthetic-voice-disclosure"
+      ],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-15"
+      ]
+    },
+    {
+      "capability_id": "governed-stt-transcript",
+      "category": "audio",
+      "title": "Pinned single-speaker STT with private transcript and governed WebVTT/SRT captions",
+      "owner_batch": "36G",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-15"
+      ]
+    },
+    {
+      "capability_id": "multi-speaker-diarization",
+      "category": "audio",
+      "title": "Pseudonymous multi-speaker diarization with governed timed captions",
+      "owner_batch": "36G",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-15"
+      ]
+    },
+    {
+      "capability_id": "complete-stock-voice-dubbing",
+      "category": "audio",
+      "title": "Private translation, per-segment stock TTS, timing-fit alignment and final local master",
+      "owner_batch": "36G",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-15"
+      ]
+    },
+    {
+      "capability_id": "stt-tts-dubbing",
+      "category": "audio",
+      "title": "Speech recognition, speech synthesis, dubbing and alignment",
+      "owner_batch": "36G",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",
+        "docs/phase-36/receipts/36G-2026-08-26-broad-audio-reconciliation.md"
+      ],
+      "external_gates": [
+        "synthetic-voice-disclosure"
+      ],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-15"
+      ]
+    },
+    {
+      "capability_id": "voice-transformation",
+      "category": "audio",
+      "title": "Consent/licensed voice transformation and cloning",
+      "owner_batch": "36G",
+      "maturity": "specified",
+      "evidence": [
+        "docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",
+        "docs/phase-36/receipts/36G-2026-09-08-identity-media-scope-expansion.md"
+      ],
+      "external_gates": [
+        "voice-rights-and-consent-evidence",
+        "identity-media-runtime-acceptance"
+      ],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-11",
+        "FR-13"
+      ]
+    },
+    {
+      "capability_id": "identity-media-consented-licensed",
+      "category": "identity-media",
+      "title": "Consent/licensed voice, face, avatar, talking-head and lip-sync identity media",
+      "owner_batch": "36G",
+      "maturity": "specified",
+      "evidence": [
+        "docs/phase-36/receipts/36G-2026-09-08-identity-media-scope-expansion.md"
+      ],
+      "external_gates": [
+        "identity-media-rights-and-consent-evidence",
+        "identity-media-runtime-acceptance"
+      ],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-11",
+        "FR-12",
+        "FR-13"
+      ]
+    },
+    {
+      "capability_id": "identity-media-fictional-inspired",
+      "category": "identity-media",
+      "title": "Fictional/non-identical inspired avatar, voice, talking-head and lip-sync media",
+      "owner_batch": "36G",
+      "maturity": "specified",
+      "evidence": [
+        "docs/phase-36/receipts/36G-2026-09-08-identity-media-scope-expansion.md"
+      ],
+      "external_gates": [
+        "identity-media-runtime-acceptance"
+      ],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-11",
+        "FR-12",
+        "FR-13"
+      ]
+    },
+    {
+      "capability_id": "audio-cleanup-master",
+      "category": "audio",
+      "title": "Audio cleanup, alignment, mixing, mastering and governed local export",
+      "owner_batch": "36G",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-15"
+      ]
+    },
+    {
+      "capability_id": "lyria-3-music-generation",
+      "category": "audio",
+      "title": "Low-cost Google Lyria 3 Clip drafts and explicitly approved Pro full songs through durable Replicate predictions with governed local mastering",
+      "owner_batch": "36G",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",
+        "docs/phase-36/receipts/36G-2026-08-26-funded-music-provider-activation.md"
+      ],
+      "external_gates": [
+        "music-rights-and-synthid-disclosure"
+      ],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-15"
+      ]
+    },
+    {
+      "capability_id": "stable-audio-instrumental-generation",
+      "category": "audio",
+      "title": "Bounded Stability Stable Audio 2.5 instrumental drafts with governed local mastering",
+      "owner_batch": "36G",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",
+        "docs/phase-36/receipts/36G-2026-08-26-funded-music-provider-activation.md"
+      ],
+      "external_gates": [
+        "music-rights-and-ai-generated-disclosure"
+      ],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-15"
+      ]
+    },
+    {
+      "capability_id": "song-production",
+      "category": "audio",
+      "title": "Governed lyrics, ACE-Step composition and synthetic vocals, four Demucs stems, FFmpeg mix, master and final export",
+      "owner_batch": "36G",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",
+        "docs/phase-36/receipts/36G-2026-08-27-open-song-eager-init.md"
+      ],
+      "external_gates": [
+        "music-rights-and-ai-generated-disclosure"
+      ],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-15"
+      ]
+    },
+    {
+      "capability_id": "podcast-jingle-narration",
+      "category": "audio",
+      "title": "Podcasts, jingles, narration and multi-speaker production",
+      "owner_batch": "36G",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",
+        "docs/phase-36/receipts/36G-2026-08-26-broad-audio-reconciliation.md",
+        "docs/phase-36/receipts/36N-2026-09-07-pre-xr-runtime-closeout.md"
+      ],
+      "external_gates": [
+        "provider-rendered-podcast-jingle-runtime-evidence",
+        "synthetic-voice-disclosure",
+        "music-rights-and-ai-generated-disclosure"
+      ],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-15"
+      ]
+    },
+    {
+      "capability_id": "realtime-chat-calling",
+      "category": "realtime",
+      "title": "Realtime chat and 1:1/group voice-video calling",
+      "owner_batch": "36H",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-28/PHASE_28_FULL_PROJECT_LIFECYCLE.md",
+        "docs/phase-36/receipts/36H-2026-08-24-realtime-foundation.md",
+        "docs/phase-36/receipts/36H-2026-08-24-sfu-turn-source.md",
+        "docs/phase-36/receipts/36H-2026-08-24-realtime-media-policy.md",
+        "docs/phase-36/receipts/36H-2026-08-24-scale-part6b.md",
+        "docs/phase-36/receipts/36H-2026-08-24-resilience-part6c.md",
+        "docs/phase-36/receipts/36H-2026-09-05-realtime-production-activation.md"
+      ],
+      "external_gates": [
+        "public-stun-turn-and-sfu-capacity"
+      ],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-08",
+        "FR-09",
+        "FR-10"
+      ]
+    },
+    {
+      "capability_id": "realtime-streaming-recording",
+      "category": "realtime",
+      "title": "Streaming, screen share and recording",
+      "owner_batch": "36H",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36H-2026-08-24-realtime-foundation.md",
+        "docs/phase-36/receipts/36H-2026-08-24-realtime-media-policy.md",
+        "docs/phase-36/receipts/36H-2026-08-24-realtime-recording-source.md",
+        "docs/phase-36/receipts/36H-2026-08-24-resilience-part6c.md",
+        "docs/phase-36/receipts/36H-2026-09-05-realtime-production-activation.md"
+      ],
+      "external_gates": [
+        "explicit-consent-egress-runtime-acceptance",
+        "recording-retention-and-studio-ingestion-runtime-evidence"
+      ],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-08",
+        "FR-09",
+        "FR-10"
+      ]
+    },
+    {
+      "capability_id": "two-d-animation-games",
+      "category": "3d-xr",
+      "title": "2D animation and game production",
+      "owner_batch": "36I",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-30/PHASE_30_3D_WEB_CREATION_PROGRAM.md",
+        "docs/phase-36/receipts/36I-2026-08-25-interactive-foundation.md",
+        "docs/phase-36/receipts/36I-2026-08-25-two-d-runtime.md",
+        "docs/phase-36/receipts/36I-2026-08-25-final-vfx-exit.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-16"
+      ]
+    },
+    {
+      "capability_id": "three-d-production",
+      "category": "3d-xr",
+      "title": "3D assets, materials, animation, scenes and environments",
+      "owner_batch": "36I",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-34/PHASE_34G_PRODUCTION_E2E_COMPLETION.md",
+        "docs/phase-36/receipts/36I-2026-08-25-blender-3d-expansion.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-16"
+      ]
+    },
+    {
+      "capability_id": "xr-ar-vr",
+      "category": "3d-xr",
+      "title": "WebXR, AR and VR experiences",
+      "owner_batch": "36I",
+      "maturity": "locally_executed",
+      "evidence": [
+        "docs/phase-30/PHASE_30_3D_WEB_CREATION_PROGRAM.md",
+        "docs/phase-36/receipts/36I-2026-08-25-interactive-foundation.md",
+        "docs/phase-36/receipts/36I-2026-08-25-webxr-delivery.md"
+      ],
+      "external_gates": [
+        "xr-device-validation"
+      ],
+      "scope": "deferred",
+      "final_batches": [],
+      "deferred_reason": "XR deferred by Owner on 2026-09-10"
+    },
+    {
+      "capability_id": "course-factory",
+      "category": "education",
+      "title": "Complete multilingual course/curriculum factory",
+      "owner_batch": "36J",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36J-2026-08-25-complete-course-factory.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-17"
+      ]
+    },
+    {
+      "capability_id": "learning-assessment-certification",
+      "category": "education",
+      "title": "Learner progress, assessment, certification and analytics",
+      "owner_batch": "36J",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-29/PHASE_29F_PROJECTS_WORKFORCE_KNOWLEDGE_COMPLETION.md",
+        "docs/phase-36/receipts/36J-2026-08-25-complete-course-factory.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-17"
+      ]
+    },
+    {
+      "capability_id": "healthcare-administration",
+      "category": "healthcare",
+      "title": "Clinic/hospital/medical administration systems",
+      "owner_batch": "36K",
+      "maturity": "source_built",
+      "evidence": [
+        "docs/phase-36/receipts/36K-2026-08-25-high-stakes-controls.md",
+        "docs/phase-36/receipts/36K-2026-08-26-healthcare-activation-boundary.md"
+      ],
+      "external_gates": [
+        "jurisdictional-healthcare-compliance-certification"
+      ],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-17"
+      ]
+    },
+    {
+      "capability_id": "professional-evidence-assistance",
+      "category": "healthcare",
+      "title": "Evidence-grounded professional assistance",
+      "owner_batch": "36K",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36K-2026-08-25-high-stakes-controls.md"
+      ],
+      "external_gates": [
+        "sector-evidence-and-human-review"
+      ],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-17"
+      ]
+    },
+    {
+      "capability_id": "high-stakes-human-review",
+      "category": "healthcare",
+      "title": "Human review and regulated-data controls",
+      "owner_batch": "36K",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36K-2026-08-25-high-stakes-controls.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-17"
+      ]
+    },
+    {
+      "capability_id": "retail-supermarket",
+      "category": "sectors",
+      "title": "Retail and supermarket pack",
+      "owner_batch": "36L",
+      "maturity": "locally_executed",
+      "evidence": [
+        "docs/phase-36/receipts/36L-2026-08-25-sector-packs.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-17"
+      ]
+    },
+    {
+      "capability_id": "restaurant-hospitality",
+      "category": "sectors",
+      "title": "Restaurant and hospitality pack",
+      "owner_batch": "36L",
+      "maturity": "locally_executed",
+      "evidence": [
+        "docs/phase-36/receipts/36L-2026-08-25-sector-packs.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-17"
+      ]
+    },
+    {
+      "capability_id": "pharmacy",
+      "category": "sectors",
+      "title": "Pharmacy pack",
+      "owner_batch": "36L",
+      "maturity": "locally_executed",
+      "evidence": [
+        "docs/phase-36/receipts/36L-2026-08-25-sector-packs.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-17"
+      ]
+    },
+    {
+      "capability_id": "school-university",
+      "category": "sectors",
+      "title": "School, university and training-center pack",
+      "owner_batch": "36L",
+      "maturity": "locally_executed",
+      "evidence": [
+        "docs/phase-36/receipts/36L-2026-08-25-sector-packs.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-17"
+      ]
+    },
+    {
+      "capability_id": "government-public-service",
+      "category": "sectors",
+      "title": "Government/public-service workflows",
+      "owner_batch": "36L",
+      "maturity": "locally_executed",
+      "evidence": [
+        "docs/phase-36/receipts/36L-2026-08-25-sector-packs.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-17"
+      ]
+    },
+    {
+      "capability_id": "logistics-industry-realestate-professional",
+      "category": "sectors",
+      "title": "Logistics, manufacturing, real-estate and professional-service packs",
+      "owner_batch": "36L",
+      "maturity": "locally_executed",
+      "evidence": [
+        "docs/phase-36/receipts/36L-2026-08-25-sector-packs.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-17"
+      ]
+    },
+    {
+      "capability_id": "custom-domain-composer",
+      "category": "sectors",
+      "title": "Unlisted lawful sector through Domain Blueprint v3",
+      "owner_batch": "36L",
+      "maturity": "locally_executed",
+      "evidence": [
+        "docs/phase-28/PHASE_28_FULL_PROJECT_LIFECYCLE.md",
+        "docs/phase-36/receipts/36L-2026-08-25-sector-packs.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-17"
+      ]
+    },
+    {
+      "capability_id": "unified-user-creative-studio",
+      "category": "product",
+      "title": "Unified user Project/Creative Studio",
+      "owner_batch": "36M",
+      "maturity": "locally_executed",
+      "evidence": [
+        "docs/phase-36/receipts/36M-2026-08-25-unified-studio.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-07",
+        "FR-21"
+      ]
+    },
+    {
+      "capability_id": "owner-capability-governance",
+      "category": "product",
+      "title": "Owner quotas, policies, costs and capability controls",
+      "owner_batch": "36M",
+      "maturity": "locally_executed",
+      "evidence": [
+        "docs/phase-36/receipts/36M-2026-08-25-unified-studio.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-07",
+        "FR-21"
+      ]
+    },
+    {
+      "capability_id": "six-locale-mobile-ux",
+      "category": "product",
+      "title": "Six-locale mobile-first capability UX",
+      "owner_batch": "36M",
+      "maturity": "locally_executed",
+      "evidence": [
+        "docs/phase-36/receipts/36M-2026-08-25-unified-studio.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-07",
+        "FR-21"
+      ]
+    },
+    {
+      "capability_id": "scale-chaos-dr",
+      "category": "certification",
+      "title": "1000+ load, chaos, DR and final integrated certification",
+      "owner_batch": "36N",
+      "maturity": "runtime_verified",
+      "evidence": [
+        "docs/phase-36/receipts/36N-2026-08-26-final-certification.md"
+      ],
+      "external_gates": [],
+      "scope": "in_scope",
+      "final_batches": [
+        "FR-23",
+        "FR-24",
+        "FR-25"
+      ]
+    }
+  ],
+  "core_feature_groups": [
+    "identity_auth_mfa_passkeys_sessions",
+    "organizations_workspaces_teams_roles",
+    "owner_user_suspend_ban_restore_revocation",
+    "plans_quotas_entitlements_without_payment_activation",
+    "projects_tasks_review_rework_releases",
+    "digital_workforce_agents_memory",
+    "academy_knowledge_search",
+    "plugins_marketplace_integrations",
+    "support_notifications_audit_governance",
+    "universal_builder_all_software_families",
+    "security_learning_scanners_remediation",
+    "operations_backups_recovery_observability",
+    "user_studio_assets_upload_download",
+    "owner_cost_provider_model_controls",
+    "six_language_accessible_mobile_web",
+    "growth_social_connected_accounts_without_unapproved_spend"
+  ]
+}

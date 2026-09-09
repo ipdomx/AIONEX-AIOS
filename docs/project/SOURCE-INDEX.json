@@ -1,0 +1,1002 @@
+{
+  "schema_version": 1,
+  "scope": "tracked historical docs and AFS at FR-01; current hub excluded to avoid recursive hashes",
+  "source_commit_before_batch": "fff8d8581da1b101499186fe08f2cba3178c3438",
+  "files": [
+    {
+      "path": "AFS/ADR/ADR-0001.md",
+      "size_bytes": 139,
+      "sha256": "db980f3ce2bb0e9579a368cc5f4c4ed388523ae71224aa1438ad2d3eb514777a"
+    },
+    {
+      "path": "AFS/ADR/ADR-0002.md",
+      "size_bytes": 154,
+      "sha256": "da6b11f0fcdf326c7cab9070ac994d18c0b1b4042f447e9193b5508c4eec49b0"
+    },
+    {
+      "path": "AFS/ADR/ADR-0003.md",
+      "size_bytes": 153,
+      "sha256": "8a136fdc5b86eb5e60c2eae7407362627f7a5cfaa1fa2c9c0883b81c12210a47"
+    },
+    {
+      "path": "AFS/ADR/ADR-0004-Cognitive-Cells.md",
+      "size_bytes": 619,
+      "sha256": "6a8603c4ce37e3c1d2ae4dcc7553eb76829b78ddcad2890f8ff1e0668d8bc196"
+    },
+    {
+      "path": "AFS/ADR/ADR-0005-Governed-Self-Evolution.md",
+      "size_bytes": 571,
+      "sha256": "aba26c74f94fc3caa1cf89b25caa54fd21c67fda963be905f05d23afcca61e2e"
+    },
+    {
+      "path": "AFS/ADR/ADR-0006-Reliability-Memory-and-Experiment-Gates.md",
+      "size_bytes": 1035,
+      "sha256": "5ed436567848e7fb72a7a3aed012234b6adb055b35faced2c49e9ab2ce6a2bb8"
+    },
+    {
+      "path": "AFS/ADR/ADR-0007-Execution-Safety-Layer.md",
+      "size_bytes": 991,
+      "sha256": "097c4db672f2a2f22dbe960be82bfdaff715202ff5fa3d67b8461c089bb47ace"
+    },
+    {
+      "path": "AFS/ADR/ADR-0008-Autonomous-Project-Intelligence.md",
+      "size_bytes": 873,
+      "sha256": "f3f96f3563b8e0a02dfde88400d2ccf3a44296b6099895c8ea23409ed936576c"
+    },
+    {
+      "path": "AFS/ADR/ADR-0009-Engineering-Organization-and-Chief-Gate.md",
+      "size_bytes": 855,
+      "sha256": "644ed6357bb329a7dcce49f29cf6c27afc2e8fe3928ce3149cb5072d9357a9d9"
+    },
+    {
+      "path": "AFS/ADR/ADR-0010-Modular-Orchestration-Language-and-Access.md",
+      "size_bytes": 747,
+      "sha256": "b5439a3f42a4748e8fcd5485a1d212dda59c1cb62db7a500185c099dea0a6e94"
+    },
+    {
+      "path": "AFS/ADR/ADR-0011-Enterprise-Foundation.md",
+      "size_bytes": 827,
+      "sha256": "e62b43e9ef3455931d7ba319ddf3aeaa24dbc73690fc3ff0bdd55457b786ed52"
+    },
+    {
+      "path": "AFS/ADR/ADR-0012-Distributed-Runtime-and-Notification-Center.md",
+      "size_bytes": 762,
+      "sha256": "57710469b29d50c469a836617fd68755f3f3f83aa8e13a016d09928527b9d758"
+    },
+    {
+      "path": "AFS/AFS-0000.md",
+      "size_bytes": 675,
+      "sha256": "3719bb172b19ce38fd5efb37814ebdd74087e9a1d394a9e44ee1033ab82dc60d"
+    },
+    {
+      "path": "AFS/AFS-0001-Cognitive-Cell-Architecture.md",
+      "size_bytes": 3897,
+      "sha256": "a54957258141c72eb6c1801a12daa3d6cbbea4dd739f55e5ec93d77ddb8df898"
+    },
+    {
+      "path": "AFS/AIS/AIS-0001-Module-Boundaries.md",
+      "size_bytes": 392,
+      "sha256": "1041e71289405b825f94bb6d6d9a9ad888ae18bb1e1e9e98025fc7d55ddac2ad"
+    },
+    {
+      "path": "AFS/AIS/AIS-0002-Enterprise-Events.md",
+      "size_bytes": 203,
+      "sha256": "2ef04b5fe14ccab684a0e63dda960aae8e701b0ab4d9804871797a0255fe2f86"
+    },
+    {
+      "path": "AFS/AIS/AIS-0003-Plugin-Runtime.md",
+      "size_bytes": 250,
+      "sha256": "7813453560b4366dbdb30b2b9244dcc90ba1f4c1580a8ac889de133a2b29227f"
+    },
+    {
+      "path": "AFS/AIS/AIS-0004-Notification-Routing.md",
+      "size_bytes": 307,
+      "sha256": "7cbfcee3d2ca7fe93e622b60c7f1f55449f2f39fab2c13843408378ea4cda8e5"
+    },
+    {
+      "path": "docs/AIS/AIS-0011-MINISTRIES-HR-SERVICES.md",
+      "size_bytes": 514,
+      "sha256": "c79ee9977f4646204719060dfb6258b8d196d1975f497b15e12d71faa3d3dbd5"
+    },
+    {
+      "path": "docs/AIS/AIS-0012-WORKER-RUNTIME.md",
+      "size_bytes": 708,
+      "sha256": "f45fd65dae4a2aed24c2d976e12f588d461d5f2445cfbaf5f6b620687b589b9e"
+    },
+    {
+      "path": "docs/AIS/AIS-0013-ENGINEERING-PLATFORM.md",
+      "size_bytes": 499,
+      "sha256": "2ab7c62fc8e9e209e160613e0fed7dc32895817e32ce8df2304d8ebb8b1ada24"
+    },
+    {
+      "path": "docs/AIS/AIS-0014-SECURITY-PLATFORM.md",
+      "size_bytes": 792,
+      "sha256": "ab6c26cf07da8ac49e3c6e5869a2613721cc57c8a38fc8e176aa1b1ff50c852c"
+    },
+    {
+      "path": "docs/AIS/AIS-0015-KNOWLEDGE-MEMORY-LEARNING.md",
+      "size_bytes": 696,
+      "sha256": "eaf382d8db635ef07ee6645f517b95a8f027ddc987e8bfe89971d02d8ddb7b2c"
+    },
+    {
+      "path": "docs/AIS/AIS-0016-AI-PROVIDERS-MULTI-MODEL.md",
+      "size_bytes": 569,
+      "sha256": "e2248a7bb5bf0aa8069759c2ae01f4c59dc76da5f866643139294e7a31147619"
+    },
+    {
+      "path": "docs/AIS/AIS-0017-AI-PROVIDERS-IMPLEMENTATION.md",
+      "size_bytes": 746,
+      "sha256": "5b29178e12706f937bf63b851f0122e9a80465e15d7258a467d5f6add1c2f853"
+    },
+    {
+      "path": "docs/AIS/AIS-0018-AI-ROUTING-LAYER.md",
+      "size_bytes": 803,
+      "sha256": "b670b835dc6dbcfb5ae774b2989c9d8884feaecad75212c50ac35eb6be8a86f0"
+    },
+    {
+      "path": "docs/AIS/AIS-0019-AI-PROVIDERS-FINAL-INTEGRATION.md",
+      "size_bytes": 606,
+      "sha256": "6d09bee2b110f11942da3273754037b6b4888466505137be93d19950fcab79c4"
+    },
+    {
+      "path": "docs/AIS/AIS-0019-INFRASTRUCTURE-CORE.md",
+      "size_bytes": 940,
+      "sha256": "b0fab515f0b62062e0f74801defb79b6a5afd57e3e3f66c93838d077803e849f"
+    },
+    {
+      "path": "docs/AIS/AIS-0020-DEVELOPMENT-SERVER-INTEGRATIONS.md",
+      "size_bytes": 673,
+      "sha256": "eb02900b5dcaa45c34943d91f8e4fb9d637297cc8010c965659c96d85fe726fb"
+    },
+    {
+      "path": "docs/AIS/AIS-0021-CLOUD-PLATFORM-INTEGRATIONS.md",
+      "size_bytes": 626,
+      "sha256": "e64c4a0792c2f5fc360c569809fecbd63277468e2f4570196ccaf0be8811e361"
+    },
+    {
+      "path": "docs/AIS/AIS-0022-DEPLOYMENT-AUTOMATION.md",
+      "size_bytes": 254,
+      "sha256": "136ad959c5a291f9161899245027f314834047ac7b550b94a5bf1cf5340def3a"
+    },
+    {
+      "path": "docs/AIS/AIS-0023-ENTERPRISE-OPERATIONS.md",
+      "size_bytes": 268,
+      "sha256": "572ef26154685ba2242981facfc1d9be14b2be3301aea768e0f4f2195dc58097"
+    },
+    {
+      "path": "docs/PHASE_11_COMPLETION.md",
+      "size_bytes": 834,
+      "sha256": "9b92eea639b882c65e2ab4c3cfc3cd96c51ee9aacaabfa25c4ef0455341a04bc"
+    },
+    {
+      "path": "docs/PHASE_13_COMPLETE.md",
+      "size_bytes": 750,
+      "sha256": "d29a88e842b4787ec813f5481dc7e6264a981f4cf3ab0d2c69f81cd7ee362870"
+    },
+    {
+      "path": "docs/PHASE_14_TELEGRAM_BOT_COMPLETE.md",
+      "size_bytes": 852,
+      "sha256": "aa3fe9bd16db5c41a6185c97dbffe75e95583e1cd3fb892a81b36dcbba8682da"
+    },
+    {
+      "path": "docs/PHASE_16_BATCH_1_5.md",
+      "size_bytes": 861,
+      "sha256": "4f3d3f9303ff63f2551f64fa8d8a4384b967e0d9338439fcf4b2c10ca2f6efd6"
+    },
+    {
+      "path": "docs/PHASE_19_ENTERPRISE_HARDENING.md",
+      "size_bytes": 866,
+      "sha256": "3007d7afe28d0ddf024cdc56a21dbd2896aa772ef38971931988fc02661af5a7"
+    },
+    {
+      "path": "docs/VIP_FRONTEND_AUTH_DEPLOYMENT.md",
+      "size_bytes": 2147,
+      "sha256": "3f29b75d7f15f1a351e6fc32acf7e3da36a88d6e5b67d82374a3b094568b7f3d"
+    },
+    {
+      "path": "docs/audit/OWNER_UI_ACTION_AUDIT_2026-08-10.md",
+      "size_bytes": 3174,
+      "sha256": "8c6dc90e906ac084a1e91d93ba170138e90948137f18984182fa1a76ab815606"
+    },
+    {
+      "path": "docs/mobile-store-billing/BATCH4_SERVER_LIFECYCLE.md",
+      "size_bytes": 2826,
+      "sha256": "c326bcb3e95970cb94bf9860f99aa1a62260dce13ce13bc93ef4bd2c62eb013f"
+    },
+    {
+      "path": "docs/mobile-store-billing/BATCH6_RELEASE_READINESS.md",
+      "size_bytes": 2604,
+      "sha256": "0af538278686f53fbc1eb9304f0daf1cafbc62f0f7e3408a0a947b8f18d20c15"
+    },
+    {
+      "path": "docs/mobile-store-billing/BATCH6_SIMULATED_E2E_ACCEPTANCE.md",
+      "size_bytes": 1759,
+      "sha256": "e7d8a2a4d58935d78037a5cf1ede524e5132265b1562282625a7de2f2c2b18d9"
+    },
+    {
+      "path": "docs/mobile-store-billing/IMPLEMENTATION_PLAN.md",
+      "size_bytes": 4304,
+      "sha256": "0e24f6aa838d9228332bbe9717b59d524244a0c2bc84f6dd75db279980bda7eb"
+    },
+    {
+      "path": "docs/operations/AI-VIP-SHARED-HOSTING-DEPLOYMENT.md",
+      "size_bytes": 5113,
+      "sha256": "d86b8e04622094a98f72fdce31c59b89789035fa1067b7d10880576f0644242f"
+    },
+    {
+      "path": "docs/payments/FINAL_RELEASE.md",
+      "size_bytes": 1265,
+      "sha256": "c7bdbc2f5de47a43ca306ffb530a032b53f8c3f7148fe14d30aef7ec88f1e3f5"
+    },
+    {
+      "path": "docs/payments/FINAL_SYSTEM_REVIEW.md",
+      "size_bytes": 3043,
+      "sha256": "9bcebcb5dbe1e3fee1774a83d3e4426d268f8aeff077b023f4f96d07c53ecb4d"
+    },
+    {
+      "path": "docs/payments/PRODUCTION_ENVIRONMENT_SETUP.md",
+      "size_bytes": 1337,
+      "sha256": "e8828efaff2b20659a5188c9d8a83c32ce6a79eaf073f79a9675816473345b93"
+    },
+    {
+      "path": "docs/phase-10/PHASE_10_COMPLETION.md",
+      "size_bytes": 794,
+      "sha256": "21e1da779254a42c765c81072eb55e0921b423d7fb5fd2b5f1b90e1669cd0365"
+    },
+    {
+      "path": "docs/phase-12-complete.md",
+      "size_bytes": 939,
+      "sha256": "f3c1403de2111668d4d7623923eae9d767580cff04e1b2891ca4bf7f6f1d8fc6"
+    },
+    {
+      "path": "docs/phase-13-batches-1-4.md",
+      "size_bytes": 609,
+      "sha256": "a1780df02c28bd83c7cc43f8b1173a1de847118e8c20578866e688429431bcb2"
+    },
+    {
+      "path": "docs/phase-15/PHASE_15_BATCHES_1_5.md",
+      "size_bytes": 836,
+      "sha256": "eaa6f497a4670dae327439eeaa346b0ab7e852f4326ed1894580a52653c1e40d"
+    },
+    {
+      "path": "docs/phase-15/PHASE_15_COMPLETE.md",
+      "size_bytes": 749,
+      "sha256": "4be7abb97f89ea277360ef1edc3e4131754e17c2c23e175947e57f49a91551c0"
+    },
+    {
+      "path": "docs/phase-16/PHASE_16_COMPLETE.md",
+      "size_bytes": 720,
+      "sha256": "15130b80e793130b9d2c6996c8a867be9d2543301472238e505d768c6b6ee60c"
+    },
+    {
+      "path": "docs/phase-17-batches-1-4.md",
+      "size_bytes": 619,
+      "sha256": "1a85af1d2cd9d53bb912aaedf270abdb134a28f83d780f16a3fdbf203e7703a3"
+    },
+    {
+      "path": "docs/phase-17/PHASE_17_COMPLETE.md",
+      "size_bytes": 800,
+      "sha256": "0d1c8fab01ef2125ed8c35a4ed3c483e7a5487c8b38a74681368e51c0069b46b"
+    },
+    {
+      "path": "docs/phase-18-batches-1-6.md",
+      "size_bytes": 753,
+      "sha256": "c6f912c6c99be2d327dd45800227240d9ee318aaca8a9113ef44be10b75b8c15"
+    },
+    {
+      "path": "docs/phase-18/PHASE_18_COMPLETE.md",
+      "size_bytes": 867,
+      "sha256": "c286b927ef853931d8d4ba85f24f55ea920a4964e1b6357be668585c654104bd"
+    },
+    {
+      "path": "docs/phase-20/PHASE_20_COMPLETE.md",
+      "size_bytes": 916,
+      "sha256": "9df3b7ab3691c10652e6eb4596ea606574b58fdd697530189ade1d5fcf4b1362"
+    },
+    {
+      "path": "docs/phase-21-stable-enterprise-release.md",
+      "size_bytes": 860,
+      "sha256": "3a263f97bb01777b8b9e7522f27a19da8509251ccc41789fbfa9a5b2f060fcd8"
+    },
+    {
+      "path": "docs/phase-22b/PHASE_22B_LOCAL_MODEL_SANDBOX.md",
+      "size_bytes": 8591,
+      "sha256": "83340d2143cc3b903765252436b5311a1d121a8664581ee799031a96130a940a"
+    },
+    {
+      "path": "docs/phase-22c/PHASE_22C_SINGLE_PROVIDER_SANDBOX.md",
+      "size_bytes": 9517,
+      "sha256": "11915a5bfb2451c7494169eeef40870a7e264e4cdc1e7819811f1d4974385949"
+    },
+    {
+      "path": "docs/phase-22d/PHASE_22D_EVIDENCE_CLOSURE.md",
+      "size_bytes": 3862,
+      "sha256": "872d46bd2e3fe1d0d83525d6733a4f16e39c44610253113625fab71f0ad88822"
+    },
+    {
+      "path": "docs/phase-23/PHASE_23_DISTRIBUTED_EXECUTION_FABRIC.md",
+      "size_bytes": 5670,
+      "sha256": "79b6a122fc8eb8c117ec4227b82b13927426d185af4571b71ea1984a079cf803"
+    },
+    {
+      "path": "docs/phase-24a/PHASE_24A_MULTI_NODE_CLUSTER_RUNTIME.md",
+      "size_bytes": 8375,
+      "sha256": "6c1112e90e333270669126605ada46fa502d6ffafc588fed7b98991f4ca48ab0"
+    },
+    {
+      "path": "docs/phase-24b/PHASE_24B_MULTI_HOST_CLUSTER_DEPLOYMENT.md",
+      "size_bytes": 9370,
+      "sha256": "4285b53a1f78136f999e914b93be9f89c837c73bf7a8fe3efedb3d369258d11a"
+    },
+    {
+      "path": "docs/phase-25/PHASE_25_SINGLE_SERVER_LIVE_PROJECT_PILOT.md",
+      "size_bytes": 8176,
+      "sha256": "85b2b2a9c21f79e8c940494bf2db2ab7b0d6d56fbe434455ac6217b579475697"
+    },
+    {
+      "path": "docs/phase-26/PHASE_26_MOBILE_TELEGRAM_DELIVERY_READINESS.md",
+      "size_bytes": 4466,
+      "sha256": "aabb6be9c227df2fe5e8c8f183ac4e3c4672243cd992d47583d0180f1626525f"
+    },
+    {
+      "path": "docs/phase-27/OWNER_DASHBOARD_ARABIC_ACCESS_FIX.md",
+      "size_bytes": 3032,
+      "sha256": "5390e160ed90be4bc2f050275a94a17e038f06a76a3f889b7e399d349744043a"
+    },
+    {
+      "path": "docs/phase-27/PHASE_27_OWNER_CONTROLLED_PORTAL_AND_PRICING.md",
+      "size_bytes": 9038,
+      "sha256": "ce4b478c7b4dd7476b1e73233b39be40c2aa96d09b1192a710c0ab04e23c66e7"
+    },
+    {
+      "path": "docs/phase-28/PHASE_28_FINAL_PRODUCTION_ACCEPTANCE.md",
+      "size_bytes": 7303,
+      "sha256": "14ba0663c26eb774164b1331457c4bfb685875b21b0a4ca426d40716f5b42a8e"
+    },
+    {
+      "path": "docs/phase-28/PHASE_28_FULL_PROJECT_LIFECYCLE.md",
+      "size_bytes": 22424,
+      "sha256": "4d682731f6326bfcfcac2ffdb02a03a90ff240c81d92edce06ccd88851d82672"
+    },
+    {
+      "path": "docs/phase-29/PHASE_29B_PUBLIC_PORTAL_ORIGIN.md",
+      "size_bytes": 8993,
+      "sha256": "7364cba8e689297459a3228aea0c21c62217b85d595fa0e2b51cee2463bc1ab4"
+    },
+    {
+      "path": "docs/phase-29/PHASE_29C_IDENTITY_TENANCY_COMPLETION.md",
+      "size_bytes": 6287,
+      "sha256": "4f94b12106eac8adc8e865d01efe4a714bc570b6b016e612b414c68ad2368436"
+    },
+    {
+      "path": "docs/phase-29/PHASE_29D_BILLING_PAYMENTS_COMPLETION.md",
+      "size_bytes": 3794,
+      "sha256": "73d3c656830bba1743d180f97bc380ca6faf62e5c27fbdadbb10e014799ce0f2"
+    },
+    {
+      "path": "docs/phase-29/PHASE_29E_COMMUNICATIONS_GOVERNANCE_COMPLETION.md",
+      "size_bytes": 7552,
+      "sha256": "6c901f7cb138064f906643665ec4856808e552d39fb2a16658c675cfadef4d8b"
+    },
+    {
+      "path": "docs/phase-29/PHASE_29F_PROJECTS_WORKFORCE_KNOWLEDGE_COMPLETION.md",
+      "size_bytes": 6535,
+      "sha256": "75fe5934e66ad4fa9ba365ebfa631fd8a31e0b6c82f5fce32bacd1f94c24113d"
+    },
+    {
+      "path": "docs/phase-29/PHASE_29G_OPERATIONS_SECURITY_RECOVERY_RELEASE_COMPLETION.md",
+      "size_bytes": 1671,
+      "sha256": "b0f59cbee16af8404bc3324c30074f7f577d8a4e14fda3ee36ce0417a3467fc9"
+    },
+    {
+      "path": "docs/phase-29/PHASE_29H_PRODUCTION_STUDIO_MOBILE_DELIVERY_COMPLETION.md",
+      "size_bytes": 2928,
+      "sha256": "b07c0a2f81a3381aefed2d7a8b306e264b000bde35c9805ccc32070106dc2e46"
+    },
+    {
+      "path": "docs/phase-29/PHASE_29I_PLUGINS_DISTRIBUTED_INTEGRATIONS_COMPLETION.md",
+      "size_bytes": 2719,
+      "sha256": "b88a802d08c16a66cdf742c11d7338c8e916999d5ca138401b9d597c96deec83"
+    },
+    {
+      "path": "docs/phase-29/PHASE_29J_LIVE_ACCEPTANCE_2026-08-10.md",
+      "size_bytes": 3126,
+      "sha256": "2d95f5f4361cb467600d62503ed2c2658f16fba4d65e4485c044d3f4aa574d3e"
+    },
+    {
+      "path": "docs/phase-29/PHASE_29J_MODELS_PROVIDERS_FINAL_COMPLETION.md",
+      "size_bytes": 5240,
+      "sha256": "27d3cbaf020ee92099e5b0834cee4b9570d489c802873001852bb03c3ed00cf3"
+    },
+    {
+      "path": "docs/phase-29/PHASE_29J_PROVIDER_LIVE_MATRIX_2026-08-11.md",
+      "size_bytes": 14361,
+      "sha256": "c28cf7ad346ed3b5315b6983106780cf9e709fee654e2b24fe616ff5e8582b96"
+    },
+    {
+      "path": "docs/phase-29/PHASE_29J_SYNTHETIC_PROVIDER_ACCEPTANCE_2026-08-11.md",
+      "size_bytes": 1414,
+      "sha256": "19117fc27e7c613de5570b7c7b81454af4457e3f62fbb0f28f73986bf4e5055e"
+    },
+    {
+      "path": "docs/phase-29/PHASE_29_PLATFORM_COMPLETION_PROGRAM.md",
+      "size_bytes": 9921,
+      "sha256": "7625a07c2325c4053fdf3b83e20c57672ea73aa93ef53ffc6fbd534e054273b7"
+    },
+    {
+      "path": "docs/phase-30/PHASE_30_3D_WEB_CREATION_PROGRAM.md",
+      "size_bytes": 6512,
+      "sha256": "87093855a05553885a66f9d5d447425a704dd8ad39629451b74d7bc90adea003"
+    },
+    {
+      "path": "docs/phase-30/TRIPO_V3_MIGRATION_2026-08-11.md",
+      "size_bytes": 2855,
+      "sha256": "bfe0c898b504cd66061b59b5fc39282bccdf7642c2037753ed9b297759cb54a9"
+    },
+    {
+      "path": "docs/phase-31/PHASE_31_TOTAL_CAPABILITY_ACTIVATION_PROGRAM.md",
+      "size_bytes": 6629,
+      "sha256": "bed5968cbf884132f8d62ac636a3feacb3c5bc67ec3059f9f85f44cbb0094bbb"
+    },
+    {
+      "path": "docs/phase-33/PHASE_33_GPU_WORKER_AUTOSCALING.md",
+      "size_bytes": 718,
+      "sha256": "41422f854775b8ca57e4490823c69be82415a05d10e207f018b2106743f5ea73"
+    },
+    {
+      "path": "docs/phase-34/PHASE_34B_RUNPOD_PRODUCTION_ACCEPTANCE.md",
+      "size_bytes": 3155,
+      "sha256": "a2acaf59d05bf5c1b2dd7dbae2670e9779597adcc6098ebe51c327cd4d90b38f"
+    },
+    {
+      "path": "docs/phase-34/PHASE_34C_PBR_ACCEPTANCE.md",
+      "size_bytes": 4302,
+      "sha256": "cfbdf03be11a6221edfea37295ae775c9100862ab43d380eddddc575a7f37d6b"
+    },
+    {
+      "path": "docs/phase-34/PHASE_34D_PRODUCT_INTEGRATION_ACCEPTANCE.md",
+      "size_bytes": 5643,
+      "sha256": "7757d5bf8fd3b1e44f7198472eb9beee85022a687cdd643cb949ae8cc207dda2"
+    },
+    {
+      "path": "docs/phase-34/PHASE_34E_SECURITY_OBSERVABILITY_RESILIENCE.md",
+      "size_bytes": 4671,
+      "sha256": "923fc091d9da4c254b256911eb8f6829e610fe79899bd79127b085d769e9b7db"
+    },
+    {
+      "path": "docs/phase-34/PHASE_34F_LICENSE_REGION_PROVIDER_GATE.md",
+      "size_bytes": 8967,
+      "sha256": "f8c1ed4a70913af98bb47d08486271f0bb96c3efd5c022cea28fcc1b402abe2f"
+    },
+    {
+      "path": "docs/phase-34/PHASE_34G_PRODUCTION_E2E_COMPLETION.md",
+      "size_bytes": 6285,
+      "sha256": "8ab4b945c96087bb29785064082fb4c39421dafdf7b41062794cbf04394ffc9e"
+    },
+    {
+      "path": "docs/phase-34/PHASE_34_3D_PLATFORM_COMPLETION_PLAN.md",
+      "size_bytes": 6022,
+      "sha256": "a974cecdab775a93cef795b417397769d3285721eefce9189602c53066968bd1"
+    },
+    {
+      "path": "docs/phase-35/PHASE_35_SECURITY_LEARNING_FABRIC.md",
+      "size_bytes": 5000,
+      "sha256": "da0e9a3250f41cdaddc939bb4e6e2c3d822b143b5263924883d44faa14ac5a8e"
+    },
+    {
+      "path": "docs/phase-36/CURRENT_STATUS.json",
+      "size_bytes": 2886,
+      "sha256": "451f0c901e11de1195f775040ebb85f782675fd43a460baa53c5bb109f000c9a"
+    },
+    {
+      "path": "docs/phase-36/NEXT_SESSION_CURRENT.md",
+      "size_bytes": 1000,
+      "sha256": "e1459324be16780903e8da0bccfb861700bff118c65558bd602f51d479d3a6b4"
+    },
+    {
+      "path": "docs/phase-36/PHASE_36H_REALTIME_FOUNDATION.md",
+      "size_bytes": 34461,
+      "sha256": "fc0b26466b9692e414b93410473adaee965060b9f89d28412088ceb82b1f6164"
+    },
+    {
+      "path": "docs/phase-36/PHASE_36_FINAL_CONSOLIDATED_RELEASE_REPORT_2026-08-26.md",
+      "size_bytes": 15603,
+      "sha256": "1c4a371e6271815c57e38dbdd4f4eee804d47a40b3f6eaf47332dba2514a6d96"
+    },
+    {
+      "path": "docs/phase-36/PHASE_36_UNIVERSAL_CAPABILITY_SCALE_MASTER_ROADMAP.md",
+      "size_bytes": 233154,
+      "sha256": "173dad0b55920dc69053dba6b9dd5d0993a13413631af66ef1a41220a29d956f"
+    },
+    {
+      "path": "docs/phase-36/REPORTING_RECEIPT_TEMPLATE.md",
+      "size_bytes": 792,
+      "sha256": "97ad401b764c5d381d39deb48088aeb8651e529286f923a9ac6280992abf935a"
+    },
+    {
+      "path": "docs/phase-36/evidence/36N-2026-08-31-comprehensive-closeout-summary.json",
+      "size_bytes": 4496,
+      "sha256": "6eadc40ffb314b03970dfa546a74229e397f722002ffa8afe924786ea432f0c7"
+    },
+    {
+      "path": "docs/phase-36/evidence/36N-2026-08-31-final-launch-closeout-summary.json",
+      "size_bytes": 5111,
+      "sha256": "f23901ceca7f656889bf2038143a1288d85989a9c1e7536d6fdac6b1aa6a1b4d"
+    },
+    {
+      "path": "docs/phase-36/evidence/36N-2026-09-03-integrated-runtime-closeout.json",
+      "size_bytes": 1836,
+      "sha256": "9315a414ddcf0a0877f70b5e420277785d01b385268b9614bc6f19c706d4974e"
+    },
+    {
+      "path": "docs/phase-36/evidence/36N-2026-09-04-external-activation-owner-vip-deployment-closeout.json",
+      "size_bytes": 2813,
+      "sha256": "51db023ac0d1dd2534453ae5b1e0731f0aac834a4c6a33aded859a3b3bd5d27b"
+    },
+    {
+      "path": "docs/phase-36/evidence/36N-2026-09-04-final-residual-closeout.json",
+      "size_bytes": 4475,
+      "sha256": "328068acfa9109b9142bcd9483ba6609ff4476649879336aee078768e2977c5b"
+    },
+    {
+      "path": "docs/phase-36/receipts/36A-2026-08-17-program-governance.md",
+      "size_bytes": 3717,
+      "sha256": "b1cd9a7fa8f5f067a6a76ddfdb82a89920ecb66e0b1d10086d3a04dc87544a78"
+    },
+    {
+      "path": "docs/phase-36/receipts/36B-2026-08-17-distributed-project-execution.md",
+      "size_bytes": 9310,
+      "sha256": "71cd3fcd45e3f407db955408b9c21c0584a7f1fc32e4566acec51f46af2aaf04"
+    },
+    {
+      "path": "docs/phase-36/receipts/36C-2026-08-17-multi-provider-execution-baseline.md",
+      "size_bytes": 51100,
+      "sha256": "366b030c3d0ca4985d0cfc1cfaadc1901aa5a66eba18f9bf82c8502af8a097e9"
+    },
+    {
+      "path": "docs/phase-36/receipts/36D-2026-08-17-media-orchestrator.md",
+      "size_bytes": 24346,
+      "sha256": "d2ff00b636c951522a57796260de5c802628b959eb81e3312f793824ce4e55df"
+    },
+    {
+      "path": "docs/phase-36/receipts/36E-2026-08-18-design-image-foundation.md",
+      "size_bytes": 72069,
+      "sha256": "da824208d1c5b3173d3b90e576d6162660a52d85b00a053c65c8a1c406ea21d7"
+    },
+    {
+      "path": "docs/phase-36/receipts/36F-2026-08-19-video-factory.md",
+      "size_bytes": 46068,
+      "sha256": "bf0d2043a196169c449795557e6bba4659c23bd21a4c2948966ebfbe1b0cc413"
+    },
+    {
+      "path": "docs/phase-36/receipts/36F-2026-08-26-final-export-runtime.md",
+      "size_bytes": 2639,
+      "sha256": "16bfa12bde72e21870dcdcdc06a0323f8749a65645111da81ca65690a11f4573"
+    },
+    {
+      "path": "docs/phase-36/receipts/36G-2026-08-21-audio-foundation.md",
+      "size_bytes": 120978,
+      "sha256": "b448afe9afb5322644b7cf5c5fb8e5f0cef8823b06638dfcdcde52acd2e4bd35"
+    },
+    {
+      "path": "docs/phase-36/receipts/36G-2026-08-26-broad-audio-reconciliation.md",
+      "size_bytes": 2210,
+      "sha256": "65c01e20df0fcd4caceac404c34f14787b5079238e92f18ee243132916c30f07"
+    },
+    {
+      "path": "docs/phase-36/receipts/36G-2026-08-26-funded-music-provider-activation.md",
+      "size_bytes": 2891,
+      "sha256": "2ff28fc9daaa0720c623dc3f823481b6bca03043177b60f8088a56403c532579"
+    },
+    {
+      "path": "docs/phase-36/receipts/36G-2026-08-26-open-song-artifact-bridge-preflight.md",
+      "size_bytes": 7013,
+      "sha256": "787fb1b20f877b51b3cd9eb12a1fcf80f5ad493958631387ea1e70926c742989"
+    },
+    {
+      "path": "docs/phase-36/receipts/36G-2026-08-27-open-song-cache-permission-and-dual-account.md",
+      "size_bytes": 3562,
+      "sha256": "4030015a2470cb1d1ca9f2288c1692f786e43f02683b75d5443c70c6e11ed537"
+    },
+    {
+      "path": "docs/phase-36/receipts/36G-2026-08-27-open-song-diagnostic-hardening.md",
+      "size_bytes": 2653,
+      "sha256": "b43c4daa6cc61946556fcd7429ef95d64d4aefd2a208e31a9d31c84418abb51e"
+    },
+    {
+      "path": "docs/phase-36/receipts/36G-2026-08-27-open-song-eager-init.md",
+      "size_bytes": 18210,
+      "sha256": "73b92f9ba774cda10c8d8b42560a696e067001a02fa0d69559b419dcea40764c"
+    },
+    {
+      "path": "docs/phase-36/receipts/36G-2026-08-27-runpod-dual-account-worker.md",
+      "size_bytes": 1691,
+      "sha256": "9b1ec2b7e7cf6bed4dc29ce03f091353d963508c5937f4e7d15a5dce1c590910"
+    },
+    {
+      "path": "docs/phase-36/receipts/36G-2026-08-28-open-song-final-production-activation.md",
+      "size_bytes": 4339,
+      "sha256": "bc2984c1a0dadd9db97b8d80d2bc86974881701afde3788df6084f50763e5eb7"
+    },
+    {
+      "path": "docs/phase-36/receipts/36G-2026-08-31-open-song-dual-account-routing.md",
+      "size_bytes": 2757,
+      "sha256": "93aa69ee9ea0735415d36ac893999a77676e9736baf334c5b017d87a440b672e"
+    },
+    {
+      "path": "docs/phase-36/receipts/36G-2026-09-08-identity-media-production-closeout.md",
+      "size_bytes": 6206,
+      "sha256": "67c24a18936175f2df274c34680ebfe31df4cab083e1f0ac5b6ccff93589c776"
+    },
+    {
+      "path": "docs/phase-36/receipts/36G-2026-09-08-identity-media-scope-expansion.md",
+      "size_bytes": 3478,
+      "sha256": "4c8eba032b68ebcb8408c61e8b5d0fa69494cbdb0df097fd3e56ecb5fd43875b"
+    },
+    {
+      "path": "docs/phase-36/receipts/36G-2026-09-09-identity-media-provider-input-closeout.md",
+      "size_bytes": 8651,
+      "sha256": "87b627ecc00d97376d2d3423e3ce480a8580990e8b4b74817cd3d4480f401ebc"
+    },
+    {
+      "path": "docs/phase-36/receipts/36G-2026-09-10-identity-media-revocation-production-closeout.md",
+      "size_bytes": 5857,
+      "sha256": "ece10cb5410d125158adc16e8140bd35332eb5fc8585eb4020e942a8f4673de9"
+    },
+    {
+      "path": "docs/phase-36/receipts/36G-2026-09-10-identity-media-runtime-revocation.md",
+      "size_bytes": 6989,
+      "sha256": "5ee8fb988fb535fdc7fe7e093977754e162e9788787608d1e93eff0ae0ae4728"
+    },
+    {
+      "path": "docs/phase-36/receipts/36H-2026-08-24-production-gate-b.md",
+      "size_bytes": 3072,
+      "sha256": "c4ce1424e9ae1291ecdf3c8197e3223d2c9aff93314ca218a4663770bc5e55cb"
+    },
+    {
+      "path": "docs/phase-36/receipts/36H-2026-08-24-realtime-admission-schema.md",
+      "size_bytes": 7193,
+      "sha256": "489ce45db74cf4ef5ccc8ba7e4202026030b8e197d0d5bf2d670276a1c198704"
+    },
+    {
+      "path": "docs/phase-36/receipts/36H-2026-08-24-realtime-admission-service.md",
+      "size_bytes": 3949,
+      "sha256": "4312ee71239d051e744ffdce7558cd733cd3e3dccd55858030e59d89b0a4302c"
+    },
+    {
+      "path": "docs/phase-36/receipts/36H-2026-08-24-realtime-foundation.md",
+      "size_bytes": 3266,
+      "sha256": "76cb9ff0aef18c556f05acdfa18e45b0ebd88e418a0405962bdd79c81e588b6d"
+    },
+    {
+      "path": "docs/phase-36/receipts/36H-2026-08-24-realtime-media-policy.md",
+      "size_bytes": 2681,
+      "sha256": "e06972b96cb48582e22fc8d2a86174d7ef0118cf57fa0c52695b42032d2dde25"
+    },
+    {
+      "path": "docs/phase-36/receipts/36H-2026-08-24-realtime-recording-source.md",
+      "size_bytes": 874,
+      "sha256": "4b6c22aa23a3c5be6a7b59753b6e386748db24d6e5865bea46c3ceb3fd086a05"
+    },
+    {
+      "path": "docs/phase-36/receipts/36H-2026-08-24-realtime-route-wiring.md",
+      "size_bytes": 1998,
+      "sha256": "ebadbaedd18777e640ab325b756fba73691ffea494f80273abac3d2c07c1f939"
+    },
+    {
+      "path": "docs/phase-36/receipts/36H-2026-08-24-resilience-part6c.md",
+      "size_bytes": 1669,
+      "sha256": "4a37acd7b8925a59dc6eafec17ccddc4ceb54cd894403f94a18d0e522af958e9"
+    },
+    {
+      "path": "docs/phase-36/receipts/36H-2026-08-24-scale-part6a.md",
+      "size_bytes": 655,
+      "sha256": "e809b2ad5404fce793d9f186618e8b80619b3ca8b5a58a6ab958d33eb5111edb"
+    },
+    {
+      "path": "docs/phase-36/receipts/36H-2026-08-24-scale-part6b.md",
+      "size_bytes": 3196,
+      "sha256": "c71e59d852b4fd407ed41dd29ea0d16ad6b26085f49a1779f34d98f50da11db8"
+    },
+    {
+      "path": "docs/phase-36/receipts/36H-2026-08-24-sfu-turn-source.md",
+      "size_bytes": 3348,
+      "sha256": "4005e7d755293809bb63bf45db7887352ccbc04a91e97ee23312f2e307aec338"
+    },
+    {
+      "path": "docs/phase-36/receipts/36H-2026-09-05-realtime-production-activation.md",
+      "size_bytes": 5874,
+      "sha256": "94cf95bbda3a97a1e6583bb5d9cc41d31339f7851871ad5aa0cde70d4fd119b2"
+    },
+    {
+      "path": "docs/phase-36/receipts/36I-2026-08-25-blender-3d-expansion.md",
+      "size_bytes": 3667,
+      "sha256": "6e51c4a7382e790fc85f16bc179cab9e55bfcd4c8f763114c3b1d612f5d4cd0b"
+    },
+    {
+      "path": "docs/phase-36/receipts/36I-2026-08-25-final-vfx-exit.md",
+      "size_bytes": 2052,
+      "sha256": "8dbfbfa52651e16e5d0e66bb6e2b88dd9a3ff45e15eae72d322f24208f7865a6"
+    },
+    {
+      "path": "docs/phase-36/receipts/36I-2026-08-25-interactive-foundation.md",
+      "size_bytes": 3511,
+      "sha256": "0712ebe4673658621860e3d4b43c71042af24a10ffb420f3f80dfd72977f0f0e"
+    },
+    {
+      "path": "docs/phase-36/receipts/36I-2026-08-25-two-d-runtime.md",
+      "size_bytes": 1902,
+      "sha256": "5f530c0617d0359fe923da7855529cc0d88fd64c46e0c78d0c1a850e59f29c71"
+    },
+    {
+      "path": "docs/phase-36/receipts/36I-2026-08-25-webxr-delivery.md",
+      "size_bytes": 1599,
+      "sha256": "22eabbe7009416bd678e836bfe6079c35dfdcd21313a460c6b872974a6a35f29"
+    },
+    {
+      "path": "docs/phase-36/receipts/36J-2026-08-25-complete-course-factory.md",
+      "size_bytes": 8534,
+      "sha256": "92d5059d8a4e60efeb351a2c7a3134b3d414c0fa5e2a35cc76602d724f78f4f8"
+    },
+    {
+      "path": "docs/phase-36/receipts/36K-2026-08-25-high-stakes-controls.md",
+      "size_bytes": 3512,
+      "sha256": "fe013fb8a164edf3e0dc999c5b1a3f3c387bb1f69c3311d1712019ff03e9b99c"
+    },
+    {
+      "path": "docs/phase-36/receipts/36K-2026-08-26-healthcare-activation-boundary.md",
+      "size_bytes": 1187,
+      "sha256": "36109e2ad0315be50b7298817825b33184f7f721294b827ebcd0616bc866d08b"
+    },
+    {
+      "path": "docs/phase-36/receipts/36L-2026-08-25-sector-packs.md",
+      "size_bytes": 2628,
+      "sha256": "9f7b496f5d3cd11bd4d72b37a8cad74f710a669fae12cff58350f949426be5b8"
+    },
+    {
+      "path": "docs/phase-36/receipts/36M-2026-08-25-unified-studio.md",
+      "size_bytes": 10083,
+      "sha256": "5d956d683b8a4972223998efc8c3395936f18195055a8f95d5f1e24b32913ba6"
+    },
+    {
+      "path": "docs/phase-36/receipts/36N-2026-08-26-final-certification.md",
+      "size_bytes": 7171,
+      "sha256": "3facdfbae6c8ec0ae81f673b60f7cc0e547e8f7e2ce01730860e63d539a419a6"
+    },
+    {
+      "path": "docs/phase-36/receipts/36N-2026-08-28-real-runtime-audit.md",
+      "size_bytes": 5993,
+      "sha256": "bc64cc3e3cc25372325074368fa6f5d944d1e82c23df25153c8bf578e7c035a8"
+    },
+    {
+      "path": "docs/phase-36/receipts/36N-2026-08-29-live-media-security-closeout.md",
+      "size_bytes": 3993,
+      "sha256": "d4406b35094875ef03ce71606546f4b8b2f67433fea5d34b19d62b4a79040e12"
+    },
+    {
+      "path": "docs/phase-36/receipts/36N-2026-08-30-comprehensive-closeout.md",
+      "size_bytes": 12214,
+      "sha256": "d389f89dae649dcfdf4ad9dedf6c273382b2bb3cd9b9ec75362f225d4dfce955"
+    },
+    {
+      "path": "docs/phase-36/receipts/36N-2026-08-30-prelaunch-lockdown.md",
+      "size_bytes": 4336,
+      "sha256": "6449b2764e8ef116fc46960a30bba9247c41a729c4f9a6b1872bbced51b9b79c"
+    },
+    {
+      "path": "docs/phase-36/receipts/36N-2026-08-31-final-launch-closeout.md",
+      "size_bytes": 16333,
+      "sha256": "0ec56c2e06419e6ce441a179c1eff649b8626be4a84234776f99a4d514af94e9"
+    },
+    {
+      "path": "docs/phase-36/receipts/36N-2026-09-03-external-gate-reporting-closeout.md",
+      "size_bytes": 1922,
+      "sha256": "acfca85e0ef44c96352e9fbc7e101af13542ee633bc779e94573454a33c5642c"
+    },
+    {
+      "path": "docs/phase-36/receipts/36N-2026-09-04-final-residual-closeout.md",
+      "size_bytes": 5107,
+      "sha256": "91d1e1f5ceadea0d0616d72a8f7276004930c41ff1fee2c90928602012fd69f7"
+    },
+    {
+      "path": "docs/phase-36/receipts/36N-2026-09-05-notification-channel-reconcile.md",
+      "size_bytes": 1709,
+      "sha256": "6659a8ea06888984f3581ed881d2e747dce1d55549de299d5f3ffb2eb574fd5e"
+    },
+    {
+      "path": "docs/phase-36/receipts/36N-2026-09-05-owner-communications-delivery-hotfix.md",
+      "size_bytes": 3294,
+      "sha256": "d08c0b7068342435c5b18df8d29d0e4834ae0f38bb115bb08190a50ccebdaa3e"
+    },
+    {
+      "path": "docs/phase-36/receipts/36N-2026-09-05-postlaunch-credit-scale-runtime-monitoring.md",
+      "size_bytes": 6454,
+      "sha256": "290568c46b2abb5d4e6de348fcdc43a1b044716a85ec509c16e71a6168a144cb"
+    },
+    {
+      "path": "docs/phase-36/receipts/36N-2026-09-06-comprehensive-gap-audit-and-completion-plan.md",
+      "size_bytes": 68773,
+      "sha256": "fd6b03f77a9fbc2d2d07e60c60a5ade5b9312a61a9afcc3c14cb8d98cb1644b0"
+    },
+    {
+      "path": "docs/phase-36/receipts/36N-2026-09-07-expanded-launch-operations-closeout.md",
+      "size_bytes": 3591,
+      "sha256": "4c37d290a97ab78aa5120ec7ba666d2eb375ef79579bf9ee68a03c4d72146639"
+    },
+    {
+      "path": "docs/phase-36/receipts/36N-2026-09-07-expanded-scope-security-hardening.md",
+      "size_bytes": 5688,
+      "sha256": "0b9d9e797cdb25a7ae863abef36130a53091e537198be0573bbe3f79057fc70a"
+    },
+    {
+      "path": "docs/phase-36/receipts/36N-2026-09-07-final-internal-launch-completion.md",
+      "size_bytes": 11119,
+      "sha256": "21acb5e766267254c736f4482a2bb41137feb876b79f7d637ba1dbcd212b3f1b"
+    },
+    {
+      "path": "docs/phase-36/receipts/36N-2026-09-07-key-rotation-recovery-and-release-engineering.md",
+      "size_bytes": 2703,
+      "sha256": "c88bdbceb559c9dac4a4838c72bc8fdb183ee4cca18d02fd7150cbbb46d27574"
+    },
+    {
+      "path": "docs/phase-36/receipts/36N-2026-09-07-pre-xr-final-production-certification.md",
+      "size_bytes": 8402,
+      "sha256": "aa9234dc617f42ccddbfb6ece4e5730e05c82c1bf3222f3f706a25bcfcbcd70e"
+    },
+    {
+      "path": "docs/phase-36/receipts/36N-2026-09-07-pre-xr-runtime-closeout.md",
+      "size_bytes": 5449,
+      "sha256": "a7152b259a575253d444411f6bca7756e2b82818b06d6d2cccb9c8122b0060c5"
+    },
+    {
+      "path": "docs/phase-36/receipts/36N-2026-09-07-production-capacity-test.md",
+      "size_bytes": 5288,
+      "sha256": "1f07b62e7789883cd5332809f422eab311cdd466504588318c4916f175054696"
+    },
+    {
+      "path": "docs/phase-36/receipts/36N-2026-09-07-server-capacity-guard.md",
+      "size_bytes": 5862,
+      "sha256": "4df9d22a3fc0f0d566200dbe9d2dc54757520e9075d150cc3b4387b19c5bfe99"
+    },
+    {
+      "path": "docs/phase-36/receipts/36N-2026-09-08-r2-offsite-dr-candidate.md",
+      "size_bytes": 1662,
+      "sha256": "a85ececa05da6918c42f24952f5a8aae8a7239399ff74ad6c1cceb529a8ba589"
+    },
+    {
+      "path": "docs/phase-36/receipts/36N-2026-09-08-r2-offsite-dr-production-acceptance.md",
+      "size_bytes": 5443,
+      "sha256": "3cde24362dc0286b1afc6c188a1bbd330cb69199b34ceaf8d76deaefd35fca81"
+    },
+    {
+      "path": "docs/phase-36/receipts/36N-2026-09-08-r2-root-secret-bootstrap-fix.md",
+      "size_bytes": 1529,
+      "sha256": "73edad710599a1eb376ce1e068f579e7127d066fdc49376ea4f1e25fef78147a"
+    },
+    {
+      "path": "docs/phase-36/receipts/36N-2026-09-08-r2-secret-mount-hardening.md",
+      "size_bytes": 1558,
+      "sha256": "5c8c07e4b95ab5b5879fb46cc7dd8cfdc75125b8e019d6fe1dd96321c2440e8f"
+    },
+    {
+      "path": "docs/phase-36/receipts/PHASE36-EXTERNAL-ACTIVATION-LEDGER-OWNER-VIP-UI-2026-09-04.md",
+      "size_bytes": 9692,
+      "sha256": "5beea8e9425544fa22082ed44eeb330f0953e5971b473c35b637cb5d52a1e7f5"
+    },
+    {
+      "path": "docs/phase-36/release-manifests/AIOS-2026-09-07-FINAL-CAPACITY-fb92251.json",
+      "size_bytes": 4768,
+      "sha256": "bddafc261ba13e861670a4020042613ef1c33546e35cd53a34ed1e04de7904e3"
+    },
+    {
+      "path": "docs/phase-36/release-manifests/AIOS-2026-09-07-FINAL-da7e1fd.json",
+      "size_bytes": 4759,
+      "sha256": "b98c1dfe2e9ce1f5980fb2cbfc95771b8973c4194bb0e584a67b2327a2196d16"
+    },
+    {
+      "path": "docs/phase-36/release-manifests/AIOS-2026-09-07-LAUNCH-23ed820.json",
+      "size_bytes": 4760,
+      "sha256": "8a5b9e54698dad6045108ac4f692d32fbd919ae76f704345069d3c2e62d5fa6e"
+    },
+    {
+      "path": "docs/phase-36/release-manifests/AIOS-2026-09-08-R2-DR-847dacd.json",
+      "size_bytes": 4759,
+      "sha256": "4a08e8814376ff03818c5de8f77a5b6aa80edb42c86b0ddeae2af1c51453f394"
+    },
+    {
+      "path": "docs/phase-9/DISTRIBUTED_RUNTIME_FINAL.md",
+      "size_bytes": 1173,
+      "sha256": "f5c3ba03e20dc4d102fbf38f78ce079aacdef27cb5c3fc2273355a34e6ab19d9"
+    },
+    {
+      "path": "docs/release-candidate/AIONEX_PRODUCTION_DEPLOYMENT_CLOSEOUT_2026-08-17.md",
+      "size_bytes": 12670,
+      "sha256": "2701f0b7b0b25ab0dc9b5c79c98d979fb6211e6a1c1119fb9210a65ec7ad1504"
+    },
+    {
+      "path": "docs/release-candidate/CORE_PRODUCTION_RC_ACCEPTANCE_2026-08-13.md",
+      "size_bytes": 13339,
+      "sha256": "c2a759a3961784b35b011a178c936a09736bb8a472f6139c21a84f8fdd047fd5"
+    },
+    {
+      "path": "docs/release-candidate/FINAL-PRODUCTION-CLOSURE-2026-09-04.md",
+      "size_bytes": 68122,
+      "sha256": "782f8c80394e93d8d2b63f32de81d1b7b6d8e8cfce8c6a92d909298edc097638"
+    },
+    {
+      "path": "docs/release-candidate/FULL_PROJECT_REAL_RUNTIME_AUDIT_2026-08-28.md",
+      "size_bytes": 7267,
+      "sha256": "246f01a63ceb1b520823dc4404597aeafc665bc1d087caa881b8f86b7e5b7761"
+    },
+    {
+      "path": "docs/release-candidate/GROWTH_SOCIAL_COMMAND_CENTER_ROADMAP_2026-08-14.md",
+      "size_bytes": 177050,
+      "sha256": "c53d6ef4ce0d735d45b518f5994e3d10b6bf97da5038addd405444d473e5511b"
+    },
+    {
+      "path": "docs/release/CORE_PRODUCTION_RC_ACCEPTANCE_2026-08-13.md",
+      "size_bytes": 8349,
+      "sha256": "5b6ff2272ddedb8b25fa995383da10e3c8684d83b04932d22d355149ff729e03"
+    },
+    {
+      "path": "docs/releases/2.5.0-beta.1.md",
+      "size_bytes": 512,
+      "sha256": "faa5bb37ffdd10e038538d2efef0b5952b5ad3dd79ddb0eeee27d9b2860c1e6c"
+    },
+    {
+      "path": "docs/releases/2.6.0-beta.1.md",
+      "size_bytes": 454,
+      "sha256": "1ac7574e7224f76866b7c7a8f901f37bc928d789cba1de49730fef58de6f77f6"
+    },
+    {
+      "path": "docs/releases/2.7.0-beta.1.md",
+      "size_bytes": 553,
+      "sha256": "16d391033cb1696324bca926b7d7596c260dc65272b7de06556a85612f27ddb2"
+    },
+    {
+      "path": "docs/releases/2.8.0-beta.1.md",
+      "size_bytes": 739,
+      "sha256": "d26c33db2a74b7e5dc538e1484cf2a26bae5993a4fc85385beea9f5491c1895e"
+    },
+    {
+      "path": "docs/releases/2.9.0-beta.1.md",
+      "size_bytes": 677,
+      "sha256": "c0833eb96213c88e1517e74ae69b2b7203164303183ef9807d46926e573d6475"
+    },
+    {
+      "path": "docs/releases/3.0.0-beta.1.md",
+      "size_bytes": 496,
+      "sha256": "640feb4e5517a03450eab45b683483d50058f6ca2d8945e5275c219a1ce5ecac"
+    },
+    {
+      "path": "docs/releases/3.1.0-beta.1.md",
+      "size_bytes": 690,
+      "sha256": "1351db89ca531d1d100e8de5e8070a3d0ecec4a1a8d69135cf81ed8e87ca8b71"
+    },
+    {
+      "path": "docs/releases/3.2.0-beta.1.md",
+      "size_bytes": 622,
+      "sha256": "67fc65873018876458b8fe2c306b15540326880ad3b6df153040abee2b9eaafa"
+    },
+    {
+      "path": "docs/releases/3.3.0-beta.1.md",
+      "size_bytes": 663,
+      "sha256": "7207657312677071a441c599161b9673797bf6796769687f0f42a614220dfdae"
+    },
+    {
+      "path": "docs/releases/3.4.0-beta.1.md",
+      "size_bytes": 649,
+      "sha256": "a6a37eb91cca84d27bbb295755b6f067e79df68181bf4da696d62330d9f0dd21"
+    },
+    {
+      "path": "docs/releases/3.5.0-beta.1.md",
+      "size_bytes": 575,
+      "sha256": "cedd2aaeb41b472476090fb8c7779159ffae5763b1d4a1efe08c7dd167c95227"
+    },
+    {
+      "path": "docs/releases/3.6.0-beta.1.md",
+      "size_bytes": 583,
+      "sha256": "d4951c701604f76bd2b0332e73afa7a06409e33de0ff4b84b74d0ea802072afa"
+    }
+  ]
+}

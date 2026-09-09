@@ -1,0 +1,15 @@
+{
+  "event_id": "FR00-pr604-fff8d8581da1b101499186fe08f2cba3178c3438",
+  "batch_id": "FR-00",
+  "status": "complete",
+  "summary_ar": "دمج PR604 بعد نجاح الفحوص الاثني عشر، ومزامنة main المحلي؛ لا إعادة نشر للتطبيق PR603.",
+  "pr": 604,
+  "merge_commit": "fff8d8581da1b101499186fe08f2cba3178c3438",
+  "protected_checks_passed": true,
+  "protected_check_count": 12,
+  "verification_passed": true,
+  "evidence": [
+    "GitHub PR604 merge and 12 completed SUCCESS checks",
+    "local main fast-forward to fff8d8581da1b101499186fe08f2cba3178c3438"
+  ]
+}
