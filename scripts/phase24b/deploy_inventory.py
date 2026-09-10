@@ -141,21 +141,24 @@ def deploy_target(
     bundle_root: Path,
     *,
     apply: bool,
-) -> list[list[str]]:
+) -> list[str]:
+    # Return literal transport labels only, never command arguments or paths.
     staging = f"/tmp/aionex-phase24b-{target.host_id}"
-    commands: list[list[str]] = []
-    commands.append(
-        ssh(
-            target.ssh_target,
-            f"rm -rf {shlex.quote(staging)} && mkdir -p {shlex.quote(staging)}",
-            apply=apply,
-        )
+    transports: list[str] = []
+    ssh(
+        target.ssh_target,
+        f"rm -rf {shlex.quote(staging)} && mkdir -p {shlex.quote(staging)}",
+        apply=apply,
     )
-    commands.append(scp(archive, target.ssh_target, f"{staging}/source.tar.gz", recursive=False, apply=apply))
-    commands.append(scp(target.bundle_directory, target.ssh_target, staging, recursive=True, apply=apply))
+    transports.append("ssh")
+    scp(archive, target.ssh_target, f"{staging}/source.tar.gz", recursive=False, apply=apply)
+    transports.append("scp")
+    scp(target.bundle_directory, target.ssh_target, staging, recursive=True, apply=apply)
+    transports.append("scp")
     if target.role == "control-plane":
         host_secrets = bundle_root / "host-secrets"
-        commands.append(scp(host_secrets, target.ssh_target, staging, recursive=True, apply=apply))
+        scp(host_secrets, target.ssh_target, staging, recursive=True, apply=apply)
+        transports.append("scp")
         remote = " && ".join(
             (
                 "sudo -n id aionex >/dev/null 2>&1 || sudo -n useradd --system --home /nonexistent --shell /usr/sbin/nologin aionex",
@@ -190,8 +193,9 @@ def deploy_target(
                 "sudo -n systemctl enable --now aionex-phase24b-agent.service",
             )
         )
-    commands.append(ssh(target.ssh_target, remote, apply=apply))
-    return commands
+    ssh(target.ssh_target, remote, apply=apply)
+    transports.append("ssh")
+    return transports
 
 
 def main() -> int:
@@ -207,7 +211,7 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="aionex-phase24b-") as temporary:
         archive = Path(temporary) / "source.tar.gz"
         source_archive(args.project_root.resolve(strict=True), archive)
-        plan: list[list[str]] = []
+        plan: list[str] = []
         for target in (control, *hosts):
             plan.extend(
                 deploy_target(
@@ -223,8 +227,8 @@ def main() -> int:
                 "mode": "apply" if args.apply else "dry-run",
                 "targets": [target.role for target in (control, *hosts)],
                 "commands": [
-                    {"sequence": index + 1, "transport": command[0] if command[0] in {"ssh", "scp"} else "other"}
-                    for index, command in enumerate(plan)
+                    {"sequence": index + 1, "transport": transport}
+                    for index, transport in enumerate(plan)
                 ],
                 "command_count": len(plan),
                 "command_arguments_omitted": True,

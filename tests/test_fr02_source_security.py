@@ -95,9 +95,22 @@ def test_real_command_builders_keep_strict_ssh_and_dry_run(tmp_path, monkeypatch
     module = deployment_module()
     call = Mock(side_effect=AssertionError('dry-run must not execute'))
     monkeypatch.setattr(module, 'run', call)
+    commands = []
+
+    def capture(builder):
+        def wrapped(*args, **kwargs):
+            argv = builder(*args, **kwargs)
+            commands.append(argv)
+            return argv
+        return wrapped
+
+    monkeypatch.setattr(module, 'ssh', capture(module.ssh))
+    monkeypatch.setattr(module, 'scp', capture(module.scp))
     for role in ['control-plane', 'agent']:
+        commands.clear()
         target = module.InventoryTarget(role, 'host-a', 'root@host.example', tmp_path / role)
-        commands = module.deploy_target(target, tmp_path / 'source.tar.gz', tmp_path, apply=False)
+        transports = module.deploy_target(target, tmp_path / 'source.tar.gz', tmp_path, apply=False)
+        assert transports == [command[0] for command in commands]
         assert all('StrictHostKeyChecking=yes' in command for command in commands)
         assert all('BatchMode=yes' in command for command in commands)
         assert f'systemctl enable --now aionex-phase24b-{role}.service' in commands[-1][-1]
