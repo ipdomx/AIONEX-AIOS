@@ -9,6 +9,11 @@ updates:
       timezone: "Etc/UTC"
     open-pull-requests-limit: 10
     labels: ["dependencies", "security"]
+    # The security acceptance lab intentionally carries vulnerable pins so the
+    # scanner can prove it detects known-bad inputs. Version updates for those
+    # test-only manifests would erase the negative-control fixture.
+    exclude-paths:
+      - "tests/security_acceptance_lab/fixtures/vulnerable/**"
     groups:
       python-runtime:
         patterns: ["*"]
