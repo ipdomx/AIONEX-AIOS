@@ -68,6 +68,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      # Preserve the existing toolchain; do not depend on Dockerfile stage order.
+      target: project-worker
     restart: unless-stopped
     mem_limit: 4g
     cpus: "4.0"
@@ -150,6 +152,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      # Preserve the existing toolchain; do not depend on Dockerfile stage order.
+      target: project-worker
     restart: "no"
     mem_limit: 1g
     cpus: "1.0"
