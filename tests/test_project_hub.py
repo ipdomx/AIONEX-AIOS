@@ -107,3 +107,15 @@ def test_conflicting_replay_is_rejected(plan, tmp_path):
     event["summary_ar"] = "different"
     with pytest.raises(ValueError, match="conflicting"):
         hub.record(tmp_path, event)
+
+
+def test_all_remaining_batches_have_short_parts_and_preserve_scope(plan):
+    assert "short_parts" in plan["owner_decisions"]
+    for batch in plan["batches"][2:]:
+        parts = batch["sub_batches"]
+        assert 3 <= len(parts) <= 6
+        identifiers = [part.split(" ", 1)[0] for part in parts]
+        assert len(identifiers) == len(set(identifiers))
+        assert all(name.startswith(batch["id"]) for name in identifiers)
+    assert len(plan["owner_decisions"]["deferred"]) == 4
+    assert plan["capacity_acceptance"]["authenticated_active_users"] == 1000
