@@ -12,6 +12,7 @@ Local evidence:
 - Python resolver: full backend requirements PASS.
 - Root Core suite: `956 passed in 40.69s`.
 - Project-worker contract target: `6 passed`.
+- Selenium contract coverage: both root project-worker and backend project-execution contracts updated to `4.48.0` and targeted tests PASS.
 - `pip-audit -r requirements-runtime.txt`: no known vulnerabilities.
 - `git diff --check`: required before commit.
 
