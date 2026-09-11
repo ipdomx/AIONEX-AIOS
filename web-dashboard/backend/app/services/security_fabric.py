@@ -116,7 +116,13 @@ def assert_public_target(hostname: str) -> list[str]:
         infos = socket.getaddrinfo(hostname, None, type=socket.SOCK_STREAM)
     except OSError as exc:
         raise ValueError("Security target hostname did not resolve") from exc
-    addresses = sorted({item[4][0] for item in infos})
+    address_set: set[str] = set()
+    for item in infos:
+        raw_address = item[4][0]
+        if not isinstance(raw_address, str):
+            raise ValueError("Security target hostname resolved to an unsupported address")
+        address_set.add(raw_address)
+    addresses = sorted(address_set)
     if not addresses:
         raise ValueError("Security target hostname did not resolve")
     for address in addresses:
