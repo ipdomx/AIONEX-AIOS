@@ -29,7 +29,7 @@ pytz==2026.3.post1
 python-dateutil==2.9.0.post0
 orjson==3.12.0
 defusedxml==0.7.1
-ujson==5.13.0
+ujson==6.0.0
 prometheus-client==0.26.0
 structlog==24.1.0
 loguru==0.7.3
