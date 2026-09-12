@@ -1,0 +1,222 @@
+{
+  "schema_version": 1,
+  "observed_at": "2026-09-12T14:35:00Z",
+  "source_commit": "c7baf7a1fcdca28d692172a8529c34840942fb15",
+  "current_backup_scope": {
+    "database": "logical pg_dump into backup_data",
+    "three_d_asset_data": "read-only 3D snapshot path mounted into backup-worker",
+    "other_platform_data_volumes": "not currently mounted into backup-worker and not included in the platform backup artifact"
+  },
+  "volumes": [
+    {
+      "name": "postgres_data",
+      "runtime_name": "web-dashboard_postgres_data",
+      "class": "authoritative_database",
+      "required_recovery": "include",
+      "current_coverage": "covered_logically",
+      "observed_bytes": 557404870,
+      "observed_files": 6369,
+      "note": "Do not raw-copy a live PGDATA tree; retain logical/consistent database backup."
+    },
+    {
+      "name": "backup_data",
+      "runtime_name": "web-dashboard_backup_data",
+      "class": "backup_artifact_store",
+      "required_recovery": "include_offhost",
+      "current_coverage": "destination_only",
+      "observed_bytes": 146419385,
+      "observed_files": 44,
+      "note": "Backup artifacts/evidence need independent off-host retention; never recurse into themselves."
+    },
+    {
+      "name": "three_d_asset_data",
+      "runtime_name": "web-dashboard_three_d_asset_data",
+      "class": "user_asset_data",
+      "required_recovery": "include",
+      "current_coverage": "covered_snapshot",
+      "observed_bytes": 0,
+      "observed_files": 0,
+      "note": "Currently empty, so present coverage does not prove non-empty asset recovery."
+    },
+    {
+      "name": "media_asset_data",
+      "runtime_name": "web-dashboard_media_asset_data",
+      "class": "user_asset_data",
+      "required_recovery": "include",
+      "current_coverage": "missing",
+      "observed_bytes": 28588768,
+      "observed_files": 26
+    },
+    {
+      "name": "project_execution_data",
+      "runtime_name": "web-dashboard_project_execution_data",
+      "class": "project_output_data",
+      "required_recovery": "include",
+      "current_coverage": "missing",
+      "observed_bytes": 25931753,
+      "observed_files": 223
+    },
+    {
+      "name": "studio_asset_data",
+      "runtime_name": "web-dashboard_studio_asset_data",
+      "class": "user_asset_data",
+      "required_recovery": "include",
+      "current_coverage": "missing",
+      "observed_bytes": 0,
+      "observed_files": 0
+    },
+    {
+      "name": "course_package_data",
+      "runtime_name": "web-dashboard_course_package_data",
+      "class": "course_data",
+      "required_recovery": "include",
+      "current_coverage": "missing",
+      "observed_bytes": 119,
+      "observed_files": 1
+    },
+    {
+      "name": "realtime_recording_data",
+      "runtime_name": "web-dashboard_realtime_recording_data",
+      "class": "recording_data",
+      "required_recovery": "include",
+      "current_coverage": "missing",
+      "observed_bytes": 0,
+      "observed_files": 0
+    },
+    {
+      "name": "portal_asset_data",
+      "runtime_name": "web-dashboard_portal_asset_data",
+      "class": "portal_asset_data",
+      "required_recovery": "include",
+      "current_coverage": "missing",
+      "observed_bytes": 0,
+      "observed_files": 0
+    },
+    {
+      "name": "mobile_release_data",
+      "runtime_name": "web-dashboard_mobile_release_data",
+      "class": "release_artifact_data",
+      "required_recovery": "include",
+      "current_coverage": "missing",
+      "observed_bytes": 0,
+      "observed_files": 0
+    },
+    {
+      "name": "audio_song_ingress_data",
+      "runtime_name": "web-dashboard_audio_song_ingress_data",
+      "class": "provider_ingress_data",
+      "required_recovery": "include",
+      "current_coverage": "missing",
+      "observed_bytes": 0,
+      "observed_files": 0
+    },
+    {
+      "name": "security_source_data",
+      "runtime_name": "web-dashboard_security_source_data",
+      "class": "user_source_data",
+      "required_recovery": "include",
+      "current_coverage": "missing",
+      "observed_bytes": 0,
+      "observed_files": 0
+    },
+    {
+      "name": "security_remediation_data",
+      "runtime_name": "web-dashboard_security_remediation_data",
+      "class": "security_output_data",
+      "required_recovery": "include",
+      "current_coverage": "missing",
+      "observed_bytes": 0,
+      "observed_files": 0
+    },
+    {
+      "name": "redis_data",
+      "runtime_name": "web-dashboard_redis_data",
+      "class": "operational_persistent_state",
+      "required_recovery": "explicit_policy",
+      "current_coverage": "missing",
+      "observed_bytes": 58749500,
+      "observed_files": 4,
+      "note": "Redis runs AOF/noeviction. FR-04C must prove either consistent recovery or safe reconstruction from durable authorities; do not silently omit."
+    },
+    {
+      "name": "project_npm_cache_data",
+      "runtime_name": "web-dashboard_project_npm_cache_data",
+      "class": "rebuildable_cache",
+      "required_recovery": "exclude_rebuildable",
+      "current_coverage": "intentionally_excluded",
+      "observed_bytes": 53057700,
+      "observed_files": 264
+    },
+    {
+      "name": "security_tool_cache_data",
+      "runtime_name": "web-dashboard_security_tool_cache_data",
+      "class": "rebuildable_cache",
+      "required_recovery": "exclude_rebuildable",
+      "current_coverage": "intentionally_excluded",
+      "observed_bytes": 3550831417,
+      "observed_files": 735
+    },
+    {
+      "name": "ollama_model_data",
+      "runtime_name": "web-dashboard_ollama_model_data",
+      "class": "rebuildable_model_cache",
+      "required_recovery": "exclude_rebuildable",
+      "current_coverage": "intentionally_excluded",
+      "observed_bytes": 3338804250,
+      "observed_files": 9,
+      "note": "Models must be reproducible from pinned model identity/download procedure, not treated as user data."
+    },
+    {
+      "name": "postgres_socket",
+      "runtime_name": "web-dashboard_postgres_socket",
+      "class": "runtime_socket",
+      "required_recovery": "exclude_ephemeral",
+      "current_coverage": "intentionally_excluded",
+      "observed_bytes": 63,
+      "observed_files": 1
+    }
+  ],
+  "runtime_extra_mounts": [
+    {
+      "runtime_name": "anonymous coturn volume",
+      "destination": "/var/lib/coturn",
+      "class": "runtime_operational_state",
+      "required_recovery": "exclude_ephemeral_with_rebuild_contract",
+      "note": "Anonymous runtime state; FR-04C must keep it explicitly non-authoritative."
+    },
+    {
+      "source": "/opt/AIOS",
+      "class": "tracked_source_and_rebuild_config",
+      "required_recovery": "reconstruct_from_git_release_manifest"
+    },
+    {
+      "source": "/opt/AIOS/web-dashboard/secrets and /root/.config/aionex/*",
+      "class": "secret_material",
+      "required_recovery": "separate_secret_recovery_policy",
+      "note": "Must not be swept into ordinary asset backup; key/secret recovery belongs to FR-05/06/24."
+    },
+    {
+      "source": "/var/tmp/aionex-phase22b/sandbox-output/local-qwen3-8b",
+      "class": "rebuildable_reference_model",
+      "required_recovery": "reconstruct_from_pinned_reference"
+    }
+  ],
+  "fr04b_required_additions": [
+    "media_asset_data",
+    "project_execution_data",
+    "studio_asset_data",
+    "course_package_data",
+    "realtime_recording_data",
+    "portal_asset_data",
+    "mobile_release_data",
+    "audio_song_ingress_data",
+    "security_source_data",
+    "security_remediation_data"
+  ],
+  "fr04c_required_decisions": [
+    "redis_data consistency/rebuild contract",
+    "retention/deletion semantics",
+    "path traversal and symlink/hardlink/FIFO rejection",
+    "DB/assets consistency boundary"
+  ]
+}
