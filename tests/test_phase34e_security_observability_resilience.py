@@ -74,14 +74,8 @@ def test_phase34e_cleanup_spend_and_owner_controls_are_complete():
 
 
 def test_phase34e_supply_chain_gate_pins_actions_and_emits_sbom():
-    approved_sbom_pins = {
-        "e22c389904149dbc22b58101806040fa8d37a610",
-        "3ad7283483fc7af8ff2b4ea19663c2d5ca935e26",
-    }
-    approved_trivy_pins = {
-        "57a97c7e7821a5776cebc9bb87c984fa69cba8f1",
-        "ed142fd0673e97e23eac54620cfb913e5ce36c25",
-    }
+    approved_sbom_pins = {"3ad7283483fc7af8ff2b4ea19663c2d5ca935e26"}
+    approved_trivy_pins = {"ed142fd0673e97e23eac54620cfb913e5ce36c25"}
     for workflow in (WORKFLOW, TRIPOSR_WORKFLOW):
         assert "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" in workflow
         sbom = re.findall(r"anchore/sbom-action@([0-9a-f]{40})", workflow)
