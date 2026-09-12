@@ -29,6 +29,8 @@ from app.services.three_d_asset_backup import (
     ThreeDAssetSnapshot,
     ThreeDAssetSnapshotExecutor,
 )
+from app.services.file_tree_snapshot import FileTreeSnapshot
+from app.services.media_asset_backup import MediaAssetSnapshotExecutor
 from app.services.offsite_backup import OffsiteBackupReplicator
 from app.services import communications
 from sqlalchemy import and_, func, or_, select, text
@@ -151,11 +153,13 @@ class BackupJobWorker:
         *,
         executor: BackupExecutor | None = None,
         three_d_executor: ThreeDAssetSnapshotExecutor | None = None,
+        media_executor: MediaAssetSnapshotExecutor | None = None,
         offsite_replicator: OffsiteBackupReplicator | None = None,
         session_factory: SessionFactory = SessionLocal,
     ) -> None:
         self._executor = executor or get_backup_executor()
         self._three_d_executor = three_d_executor or ThreeDAssetSnapshotExecutor()
+        self._media_executor = media_executor or MediaAssetSnapshotExecutor()
         self._offsite = offsite_replicator or OffsiteBackupReplicator()
         self._session_factory = session_factory
         self._next_maintenance_at = 0.0
@@ -366,10 +370,11 @@ class BackupJobWorker:
                 )
             )
 
-    async def _snapshot_evidence_for_backup(
+    async def _companion_evidence_for_backup(
         self,
         session: AsyncSession,
         backup_id: str,
+        key: str,
     ) -> dict[str, Any] | None:
         event = await session.scalar(
             select(AuditEvent)
@@ -383,8 +388,17 @@ class BackupJobWorker:
         )
         if event is None:
             return None
-        evidence = (event.details or {}).get("three_d_snapshot")
+        evidence = (event.details or {}).get(key)
         return evidence if isinstance(evidence, dict) else None
+
+    async def _snapshot_evidence_for_backup(
+        self,
+        session: AsyncSession,
+        backup_id: str,
+    ) -> dict[str, Any] | None:
+        return await self._companion_evidence_for_backup(
+            session, backup_id, "three_d_snapshot"
+        )
 
     async def _delete_expired_artifact(
         self,
@@ -443,6 +457,7 @@ class BackupJobWorker:
         if not location:
             return
         await asyncio.to_thread(self._three_d_executor.delete_snapshot, location)
+        await asyncio.to_thread(self._media_executor.delete_snapshot, location)
         await asyncio.to_thread(self._executor.delete_artifact, location)
         async with self._session_factory() as session:
             record = await session.scalar(
@@ -524,6 +539,14 @@ class BackupJobWorker:
             self._three_d_executor.cleanup_orphan_snapshots,
             settings.BACKUP_JOB_LEASE_SECONDS,
         )
+        await asyncio.to_thread(
+            self._media_executor.cleanup_stale_partials,
+            settings.BACKUP_JOB_LEASE_SECONDS,
+        )
+        await asyncio.to_thread(
+            self._media_executor.cleanup_orphan_snapshots,
+            settings.BACKUP_JOB_LEASE_SECONDS,
+        )
         for record in expired:
             await self._delete_expired_artifact(
                 record.id,
@@ -600,13 +623,21 @@ class BackupJobWorker:
                 database_location,
             )
         finally:
-            await asyncio.to_thread(self._executor.delete_artifact, database_location)
+            try:
+                await asyncio.to_thread(
+                    self._media_executor.delete_snapshot,
+                    database_location,
+                )
+            finally:
+                await asyncio.to_thread(self._executor.delete_artifact, database_location)
 
     async def execute_backup(self, claim: ClaimedJob) -> None:
         artifact = None
         snapshot: ThreeDAssetSnapshot | None = None
+        media_snapshot: FileTreeSnapshot | None = None
         scope = claim.backup_scope or "platform"
         snapshot_required = scope == "platform" and self._three_d_executor.enabled
+        media_snapshot_required = scope == "platform" and self._media_executor.enabled
         try:
             if claim.reclaimed:
                 await asyncio.to_thread(
@@ -617,10 +648,20 @@ class BackupJobWorker:
                     self._three_d_executor.cleanup_backup_partials,
                     claim.id,
                 )
+                await asyncio.to_thread(
+                    self._media_executor.cleanup_backup_partials,
+                    claim.id,
+                )
+            extra_required_bytes = 0
             if snapshot_required:
-                extra_required_bytes = await asyncio.to_thread(
+                extra_required_bytes += await asyncio.to_thread(
                     self._three_d_executor.estimated_snapshot_bytes
                 )
+            if media_snapshot_required:
+                extra_required_bytes += await asyncio.to_thread(
+                    self._media_executor.estimated_snapshot_bytes
+                )
+            if extra_required_bytes:
                 await self._ensure_capacity(
                     claim.id,
                     extra_required_bytes=extra_required_bytes,
@@ -641,6 +682,16 @@ class BackupJobWorker:
                         "3D asset backup",
                         "The required 3D asset snapshot was not created",
                     )
+            if media_snapshot_required:
+                media_snapshot = await asyncio.to_thread(
+                    self._media_executor.create_snapshot,
+                    artifact.location,
+                )
+                if media_snapshot is None:
+                    raise BackupExecutionError(
+                        "media asset backup",
+                        "The required media asset snapshot was not created",
+                    )
             offsite_evidence: dict[str, Any] = {"enabled": False}
             offsite_error: BackupExecutionError | None = None
             if self._offsite.enabled:
@@ -652,6 +703,7 @@ class BackupJobWorker:
                         database_checksum=artifact.checksum,
                         database_size=artifact.size_bytes,
                         snapshot=snapshot,
+                        media_snapshot=media_snapshot,
                     )
                 except BackupExecutionError as exc:
                     offsite_error = exc
@@ -719,6 +771,16 @@ class BackupJobWorker:
                         "payload_bytes": snapshot.payload_bytes,
                     }
                 )
+            media_snapshot_evidence: dict[str, Any] = {"required": media_snapshot_required}
+            if media_snapshot is not None:
+                media_snapshot_evidence.update(
+                    {
+                        "checksum": media_snapshot.checksum,
+                        "size_bytes": media_snapshot.size_bytes,
+                        "file_count": media_snapshot.file_count,
+                        "payload_bytes": media_snapshot.payload_bytes,
+                    }
+                )
             session.add(
                 _system_audit(
                     "backup.worker.completed",
@@ -730,6 +792,7 @@ class BackupJobWorker:
                         "checksum": artifact.checksum,
                         "size_bytes": artifact.size_bytes,
                         "three_d_snapshot": snapshot_evidence,
+                        "media_snapshot": media_snapshot_evidence,
                         "offsite_status": record.offsite_status,
                         "offsite_verified": record.offsite_status == "completed",
                     },
@@ -849,8 +912,12 @@ class BackupJobWorker:
         snapshot_required = False
         snapshot_evidence: dict[str, Any] | None = None
         snapshot_validation: ThreeDAssetSnapshot | None = None
+        media_snapshot_required = False
+        media_snapshot_evidence: dict[str, Any] | None = None
+        media_snapshot_validation: FileTreeSnapshot | None = None
         offsite_validation = None
         offsite_snapshot_validation: ThreeDAssetSnapshot | None = None
+        offsite_media_snapshot_validation: FileTreeSnapshot | None = None
         offsite_artifacts = None
         try:
             async with self._session_factory() as session:
@@ -882,6 +949,13 @@ class BackupJobWorker:
                     if snapshot_required:
                         snapshot_evidence = await self._snapshot_evidence_for_backup(
                             session, backup.id
+                        )
+                    media_snapshot_required = (
+                        backup.scope == "platform" and self._media_executor.enabled
+                    )
+                    if media_snapshot_required:
+                        media_snapshot_evidence = await self._companion_evidence_for_backup(
+                            session, backup.id, "media_snapshot"
                         )
             if backup is None or not backup.location or not backup.checksum:
                 raise BackupExecutionError(
@@ -918,6 +992,35 @@ class BackupJobWorker:
                     expected_file_count=expected_snapshot_files,
                     expected_payload_bytes=expected_snapshot_payload,
                 )
+            if media_snapshot_required:
+                if (
+                    media_snapshot_evidence is None
+                    or media_snapshot_evidence.get("required") is not True
+                ):
+                    raise BackupExecutionError(
+                        "media asset restore validation",
+                        "The selected platform backup has no durable media asset snapshot evidence",
+                        status_code=409,
+                    )
+                try:
+                    expected_media_checksum = str(media_snapshot_evidence["checksum"])
+                    expected_media_size = int(media_snapshot_evidence["size_bytes"])
+                    expected_media_files = int(media_snapshot_evidence["file_count"])
+                    expected_media_payload = int(media_snapshot_evidence["payload_bytes"])
+                except (KeyError, TypeError, ValueError) as exc:
+                    raise BackupExecutionError(
+                        "media asset restore validation",
+                        "The durable media asset snapshot evidence is incomplete",
+                        status_code=409,
+                    ) from exc
+                media_snapshot_validation = await asyncio.to_thread(
+                    self._media_executor.validate_snapshot,
+                    backup.location,
+                    expected_checksum=expected_media_checksum,
+                    expected_size_bytes=expected_media_size,
+                    expected_file_count=expected_media_files,
+                    expected_payload_bytes=expected_media_payload,
+                )
             validation = await self._executor.validate_restore(
                 backup.location,
                 backup.checksum,
@@ -941,6 +1044,7 @@ class BackupJobWorker:
                 )
                 remote_database = (backup.offsite_evidence or {}).get("database") or {}
                 remote_snapshot = (backup.offsite_evidence or {}).get("three_d_snapshot")
+                remote_media_snapshot = (backup.offsite_evidence or {}).get("media_snapshot")
                 if snapshot_required:
                     if not remote_snapshot or not offsite_artifacts.snapshot_location:
                         raise BackupExecutionError(
@@ -955,6 +1059,24 @@ class BackupJobWorker:
                         expected_size_bytes=int(remote_snapshot["size_bytes"]),
                         expected_file_count=int(remote_snapshot["file_count"]),
                         expected_payload_bytes=int(remote_snapshot["payload_bytes"]),
+                    )
+                if media_snapshot_required:
+                    if (
+                        not remote_media_snapshot
+                        or not offsite_artifacts.media_snapshot_location
+                    ):
+                        raise BackupExecutionError(
+                            "off-site restore validation",
+                            "The R2 backup is missing its required media asset snapshot",
+                            status_code=409,
+                        )
+                    offsite_media_snapshot_validation = await asyncio.to_thread(
+                        self._media_executor.validate_snapshot,
+                        offsite_artifacts.database_location,
+                        expected_checksum=str(remote_media_snapshot["sha256"]),
+                        expected_size_bytes=int(remote_media_snapshot["size_bytes"]),
+                        expected_file_count=int(remote_media_snapshot["file_count"]),
+                        expected_payload_bytes=int(remote_media_snapshot["payload_bytes"]),
                     )
                 offsite_validation = await self._executor.validate_restore(
                     offsite_artifacts.database_location,
@@ -984,6 +1106,7 @@ class BackupJobWorker:
                     self._offsite.cleanup_validation,
                     offsite_artifacts.database_location,
                     offsite_artifacts.snapshot_location,
+                    offsite_artifacts.media_snapshot_location,
                 )
 
         async with self._session_factory() as session:
@@ -1000,9 +1123,16 @@ class BackupJobWorker:
             if run is None:
                 return
             three_d_validated = not snapshot_required or snapshot_validation is not None
+            media_validated = (
+                not media_snapshot_required or media_snapshot_validation is not None
+            )
             offsite_required = self._offsite.enabled
             offsite_three_d_validated = (
                 not snapshot_required or offsite_snapshot_validation is not None
+            )
+            offsite_media_validated = (
+                not media_snapshot_required
+                or offsite_media_snapshot_validation is not None
             )
             offsite_validated = (
                 not offsite_required
@@ -1010,9 +1140,15 @@ class BackupJobWorker:
                     offsite_validation is not None
                     and offsite_validation.restored
                     and offsite_three_d_validated
+                    and offsite_media_validated
                 )
             )
-            overall_validated = validation.restored and three_d_validated and offsite_validated
+            overall_validated = (
+                validation.restored
+                and three_d_validated
+                and media_validated
+                and offsite_validated
+            )
             run.status = "completed" if overall_validated else "failed"
             run.lease_token = None
             run.completed_at = _now()
@@ -1025,11 +1161,14 @@ class BackupJobWorker:
                 "size_bytes": validation.size_bytes,
                 "three_d_snapshot_required": snapshot_required,
                 "three_d_snapshot_validated": three_d_validated,
+                "media_snapshot_required": media_snapshot_required,
+                "media_snapshot_validated": media_validated,
                 "offsite_required": offsite_required,
                 "offsite_validated": offsite_validated,
                 "offsite_database_checksum": (offsite_validation.checksum if offsite_validation is not None else None),
                 "offsite_database_size_bytes": (offsite_validation.size_bytes if offsite_validation is not None else None),
                 "offsite_three_d_snapshot_validated": offsite_three_d_validated if offsite_required else False,
+                "offsite_media_snapshot_validated": offsite_media_validated if offsite_required else False,
             }
             if snapshot_validation is not None:
                 validation_details.update(
@@ -1038,6 +1177,15 @@ class BackupJobWorker:
                         "three_d_snapshot_size_bytes": snapshot_validation.size_bytes,
                         "three_d_snapshot_file_count": snapshot_validation.file_count,
                         "three_d_snapshot_payload_bytes": snapshot_validation.payload_bytes,
+                    }
+                )
+            if media_snapshot_validation is not None:
+                validation_details.update(
+                    {
+                        "media_snapshot_checksum": media_snapshot_validation.checksum,
+                        "media_snapshot_size_bytes": media_snapshot_validation.size_bytes,
+                        "media_snapshot_file_count": media_snapshot_validation.file_count,
+                        "media_snapshot_payload_bytes": media_snapshot_validation.payload_bytes,
                     }
                 )
             run.details = validation_details
@@ -1054,6 +1202,8 @@ class BackupJobWorker:
                         "size_bytes": validation.size_bytes,
                         "three_d_snapshot_required": snapshot_required,
                         "three_d_snapshot_validated": three_d_validated,
+                        "media_snapshot_required": media_snapshot_required,
+                        "media_snapshot_validated": media_validated,
                         "offsite_required": offsite_required,
                         "offsite_validated": offsite_validated,
                     },
@@ -1342,6 +1492,7 @@ class BackupJobWorker:
 
         self._executor.verify_storage()
         self._three_d_executor.verify_source()
+        self._media_executor.verify_source()
         await asyncio.to_thread(self._offsite.preflight)
         if not require_heartbeat:
             self._executor.cleanup_stale_partials(

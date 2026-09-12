@@ -24,6 +24,7 @@ from botocore.exceptions import BotoCoreError, ClientError  # type: ignore[impor
 from app.core.config import Settings, settings
 from app.services.backup_executor import BackupExecutionError
 from app.services.three_d_asset_backup import ThreeDAssetSnapshot
+from app.services.file_tree_snapshot import FileTreeSnapshot
 
 _CHUNK = 1024 * 1024
 _BUCKET = re.compile(r"^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$")
@@ -39,6 +40,7 @@ _ALLOWED_KEYS = {
 class OffsiteValidationArtifacts:
     database_location: str
     snapshot_location: str | None
+    media_snapshot_location: str | None = None
 
 
 def _sha256(path: Path) -> tuple[str, int]:
@@ -188,6 +190,7 @@ class OffsiteBackupReplicator:
         database_checksum: str,
         database_size: int,
         snapshot: ThreeDAssetSnapshot | None,
+        media_snapshot: FileTreeSnapshot | None = None,
     ) -> dict[str, Any]:
         if not self.enabled:
             return {"enabled": False}
@@ -204,12 +207,21 @@ class OffsiteBackupReplicator:
                 raise BackupExecutionError("off-site backup replication", "The local 3D snapshot changed before R2 replication", status_code=409)
             snapshot_evidence = self._upload_verified(snapshot_path, self._key(backup_id, "three-d.tar"), snapshot.checksum, snapshot.size_bytes)
             snapshot_evidence.update({"file_count": snapshot.file_count, "payload_bytes": snapshot.payload_bytes})
+        media_evidence = None
+        if media_snapshot is not None:
+            media_path = Path(media_snapshot.location)
+            media_checksum, media_size = _sha256(media_path)
+            if media_checksum != media_snapshot.checksum or media_size != media_snapshot.size_bytes:
+                raise BackupExecutionError("off-site backup replication", "The local media asset snapshot changed before R2 replication", status_code=409)
+            media_evidence = self._upload_verified(media_path, self._key(backup_id, "media-assets.tar"), media_snapshot.checksum, media_snapshot.size_bytes)
+            media_evidence.update({"file_count": media_snapshot.file_count, "payload_bytes": media_snapshot.payload_bytes})
         manifest = {
             "schema_version": 1,
             "backup_id": backup_id,
             "created_at": datetime.now(UTC).isoformat(),
             "database": database,
             "three_d_snapshot": snapshot_evidence,
+            "media_snapshot": media_evidence,
         }
         payload = json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode("utf-8")
         manifest_checksum = hashlib.sha256(payload).hexdigest()
@@ -255,10 +267,12 @@ class OffsiteBackupReplicator:
             raise BackupExecutionError("off-site restore validation", "Off-site backup is not enabled", status_code=409)
         database = evidence.get("database") or {}
         snapshot = evidence.get("three_d_snapshot")
+        media_snapshot = evidence.get("media_snapshot")
         stable = hashlib.sha256(validation_id.encode()).hexdigest()[:24]
         attempt = hashlib.sha256(attempt_token.encode()).hexdigest()[:32]
         database_path = self._backup_dir / f"backup-{stable}-{attempt}.dump"
         snapshot_path = self._backup_dir / f"backup-{stable}-{attempt}.three-d.tar"
+        media_snapshot_path = self._backup_dir / f"backup-{stable}-{attempt}.media-assets.tar"
         try:
             self.client.download_file(self._bucket, str(database["key"]), str(database_path))
             os.chmod(database_path, 0o600)
@@ -271,17 +285,31 @@ class OffsiteBackupReplicator:
                 checksum, size = _sha256(snapshot_path)
                 if checksum != str(snapshot["sha256"]) or size != int(snapshot["size_bytes"]):
                     raise BackupExecutionError("off-site restore validation", "Downloaded R2 3D snapshot failed checksum validation", status_code=409)
-            return OffsiteValidationArtifacts(str(database_path), str(snapshot_path) if snapshot else None)
+            if media_snapshot:
+                self.client.download_file(self._bucket, str(media_snapshot["key"]), str(media_snapshot_path))
+                os.chmod(media_snapshot_path, 0o600)
+                checksum, size = _sha256(media_snapshot_path)
+                if checksum != str(media_snapshot["sha256"]) or size != int(media_snapshot["size_bytes"]):
+                    raise BackupExecutionError("off-site restore validation", "Downloaded R2 media asset snapshot failed checksum validation", status_code=409)
+            return OffsiteValidationArtifacts(
+                str(database_path),
+                str(snapshot_path) if snapshot else None,
+                str(media_snapshot_path) if media_snapshot else None,
+            )
         except BackupExecutionError:
-            self.cleanup_validation(database_path, snapshot_path)
+            self.cleanup_validation(database_path, snapshot_path, media_snapshot_path)
             raise
         except (BotoCoreError, ClientError, OSError, KeyError, TypeError, ValueError) as exc:
-            self.cleanup_validation(database_path, snapshot_path)
+            self.cleanup_validation(database_path, snapshot_path, media_snapshot_path)
             raise BackupExecutionError("off-site restore validation", "R2 restore-validation artifacts could not be downloaded safely", status_code=503) from exc
 
     @staticmethod
-    def cleanup_validation(database_path: Path | str, snapshot_path: Path | str | None) -> None:
-        for path in (database_path, snapshot_path):
+    def cleanup_validation(
+        database_path: Path | str,
+        snapshot_path: Path | str | None,
+        media_snapshot_path: Path | str | None = None,
+    ) -> None:
+        for path in (database_path, snapshot_path, media_snapshot_path):
             if path:
                 try:
                     Path(path).unlink(missing_ok=True)

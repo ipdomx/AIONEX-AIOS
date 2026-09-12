@@ -33,6 +33,7 @@ from app.services.backup_worker import (
     retention_candidate_ids,
 )
 from app.services.three_d_asset_backup import ThreeDAssetSnapshot
+from app.services.file_tree_snapshot import FileTreeSnapshot
 from sqlalchemy import BigInteger, delete
 
 
@@ -1747,6 +1748,64 @@ class FakeThreeDCompanion:
         return None
 
 
+class FakeMediaCompanion:
+    enabled = True
+
+    def __init__(self) -> None:
+        self.created_for: list[str] = []
+        self.validated_for: list[str] = []
+
+    def estimated_snapshot_bytes(self) -> int:
+        return 8192
+
+    def create_snapshot(self, database_location: str) -> FileTreeSnapshot:
+        self.created_for.append(database_location)
+        return FileTreeSnapshot(
+            location="/protected/backup.media-assets.tar",
+            checksum="e" * 64,
+            size_bytes=4096,
+            file_count=3,
+            payload_bytes=3072,
+        )
+
+    def validate_snapshot(
+        self,
+        database_location: str,
+        *,
+        expected_checksum: str | None = None,
+        expected_size_bytes: int | None = None,
+        expected_file_count: int | None = None,
+        expected_payload_bytes: int | None = None,
+    ) -> FileTreeSnapshot:
+        self.validated_for.append(database_location)
+        assert expected_checksum == "e" * 64
+        assert expected_size_bytes == 4096
+        assert expected_file_count == 3
+        assert expected_payload_bytes == 3072
+        return FileTreeSnapshot(
+            location="/protected/backup.media-assets.tar",
+            checksum="e" * 64,
+            size_bytes=4096,
+            file_count=3,
+            payload_bytes=3072,
+        )
+
+    def delete_snapshot(self, _database_location: str) -> bool:
+        return True
+
+    def cleanup_backup_partials(self, _backup_id: str) -> int:
+        return 0
+
+    def cleanup_stale_partials(self, _maximum_age_seconds: int) -> int:
+        return 0
+
+    def cleanup_orphan_snapshots(self, _maximum_age_seconds: int) -> int:
+        return 0
+
+    def verify_source(self) -> None:
+        return None
+
+
 class FakePlatformBackupExecutor:
     def __init__(self) -> None:
         self.deleted: list[str] = []
@@ -1818,6 +1877,117 @@ async def test_platform_backup_persists_durable_three_d_companion_evidence(
         "file_count": 2,
         "payload_bytes": 1536,
     }
+
+
+@pytest.mark.asyncio
+async def test_platform_backup_persists_media_companion_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    record = BackupRecord(
+        id="platform-media-backup",
+        kind="on-demand",
+        scope="platform",
+        status="running",
+        lease_token="platform-media-lease",
+    )
+    finish_session = FakeSession([record])
+    media = FakeMediaCompanion()
+    worker = BackupJobWorker(
+        executor=FakePlatformBackupExecutor(),  # type: ignore[arg-type]
+        media_executor=media,  # type: ignore[arg-type]
+        session_factory=FakeSessionFactory([finish_session]),  # type: ignore[arg-type]
+    )
+    captured_capacity: dict[str, int] = {}
+
+    async def skip_capacity(
+        _backup_id: str, *, extra_required_bytes: int = 0
+    ) -> None:
+        captured_capacity["extra"] = extra_required_bytes
+
+    monkeypatch.setattr(worker, "_ensure_capacity", skip_capacity)
+    await worker.execute_backup(
+        ClaimedJob(
+            record.id,
+            "platform-media-lease",
+            reclaimed=False,
+            backup_scope="platform",
+        )
+    )
+
+    assert record.status == "completed"
+    assert captured_capacity["extra"] == 8192
+    assert media.created_for == ["/protected/backup.dump"]
+    audit = next(
+        item
+        for item in finish_session.added
+        if isinstance(item, AuditEvent) and item.action == "backup.worker.completed"
+    )
+    assert audit.details["media_snapshot"] == {
+        "required": True,
+        "checksum": "e" * 64,
+        "size_bytes": 4096,
+        "file_count": 3,
+        "payload_bytes": 3072,
+    }
+
+
+@pytest.mark.asyncio
+async def test_platform_restore_validates_media_companion() -> None:
+    backup = BackupRecord(
+        id="platform-backup-with-media-evidence",
+        kind="on-demand",
+        scope="platform",
+        status="completed",
+        location="/protected/restore.dump",
+        checksum="b" * 64,
+        size_bytes=512,
+    )
+    evidence_event = AuditEvent(
+        action="backup.worker.completed",
+        resource_type="backup",
+        resource_id=backup.id,
+        details={
+            "media_snapshot": {
+                "required": True,
+                "checksum": "e" * 64,
+                "size_bytes": 4096,
+                "file_count": 3,
+                "payload_bytes": 3072,
+            }
+        },
+    )
+    run = DisasterRecoveryRun(
+        id="restore-job-1",
+        operation="restore_validation",
+        status="running",
+        details={"backup_id": backup.id},
+        lease_token="restore-three-d-success",
+    )
+    load_session = FakeSession([run, backup, evidence_event])
+    finish_session = FakeSession([run])
+    media = FakeMediaCompanion()
+    executor = RestoreExecutor()
+    worker = BackupJobWorker(
+        executor=executor,  # type: ignore[arg-type]
+        media_executor=media,  # type: ignore[arg-type]
+        session_factory=FakeSessionFactory(
+            [load_session, finish_session]
+        ),  # type: ignore[arg-type]
+    )
+
+    await worker.execute_restore_validation(
+        ClaimedJob(run.id, "restore-three-d-success", reclaimed=False)
+    )
+
+    assert run.status == "completed", run.details
+    assert run.details["validated"] is True
+    assert run.details["media_snapshot_required"] is True
+    assert run.details["media_snapshot_validated"] is True
+    assert run.details["media_snapshot_checksum"] == "e" * 64
+    assert run.details["media_snapshot_size_bytes"] == 4096
+    assert run.details["media_snapshot_file_count"] == 3
+    assert run.details["media_snapshot_payload_bytes"] == 3072
+    assert media.validated_for == [backup.location]
 
 
 @pytest.mark.asyncio
