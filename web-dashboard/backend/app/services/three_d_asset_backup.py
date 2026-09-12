@@ -575,6 +575,9 @@ class ThreeDAssetSnapshotExecutor:
                 "3D asset restore validation",
                 "The asset snapshot root manifest is invalid",
             )
+        declared_root_map = cast(dict[str, object], declared_roots) if is_platform_snapshot else {}
+        for root_id in declared_root_map:
+            root_totals[str(root_id)] = {"file_count": 0, "payload_bytes": 0}
         with tempfile.TemporaryDirectory(
             prefix=".three-d-restore-",
             dir=backup_dir,
@@ -592,7 +595,7 @@ class ThreeDAssetSnapshotExecutor:
                 root_id = str(entry.get("root") or "legacy_three_d_asset_data")
                 if is_platform_snapshot:
                     if (
-                        root_id not in cast(dict[str, object], declared_roots)
+                        root_id not in declared_root_map
                         or not relative.parts
                         or relative.parts[0] != root_id
                     ):
@@ -693,7 +696,7 @@ class ThreeDAssetSnapshotExecutor:
                 status_code=409,
             )
         if is_platform_snapshot:
-            for root_id, declared in cast(dict[str, object], declared_roots).items():
+            for root_id, declared in declared_root_map.items():
                 if not isinstance(declared, dict):
                     raise BackupExecutionError(
                         "3D asset restore validation",
