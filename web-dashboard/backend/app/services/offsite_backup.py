@@ -201,9 +201,11 @@ class OffsiteBackupReplicator:
             snapshot_path = Path(snapshot.location)
             snapshot_checksum, snapshot_size = _sha256(snapshot_path)
             if snapshot_checksum != snapshot.checksum or snapshot_size != snapshot.size_bytes:
-                raise BackupExecutionError("off-site backup replication", "The local 3D snapshot changed before R2 replication", status_code=409)
+                raise BackupExecutionError("off-site backup replication", "The local asset snapshot changed before R2 replication", status_code=409)
             snapshot_evidence = self._upload_verified(snapshot_path, self._key(backup_id, "three-d.tar"), snapshot.checksum, snapshot.size_bytes)
             snapshot_evidence.update({"file_count": snapshot.file_count, "payload_bytes": snapshot.payload_bytes})
+            if snapshot.roots:
+                snapshot_evidence["roots"] = snapshot.roots
         manifest = {
             "schema_version": 1,
             "backup_id": backup_id,
@@ -270,7 +272,7 @@ class OffsiteBackupReplicator:
                 os.chmod(snapshot_path, 0o600)
                 checksum, size = _sha256(snapshot_path)
                 if checksum != str(snapshot["sha256"]) or size != int(snapshot["size_bytes"]):
-                    raise BackupExecutionError("off-site restore validation", "Downloaded R2 3D snapshot failed checksum validation", status_code=409)
+                    raise BackupExecutionError("off-site restore validation", "Downloaded R2 asset snapshot failed checksum validation", status_code=409)
             return OffsiteValidationArtifacts(str(database_path), str(snapshot_path) if snapshot else None)
         except BackupExecutionError:
             self.cleanup_validation(database_path, snapshot_path)

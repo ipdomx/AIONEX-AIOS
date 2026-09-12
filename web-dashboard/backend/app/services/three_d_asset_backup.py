@@ -1,4 +1,4 @@
-"""Private companion backup and restore validation for local 3D assets."""
+"""Private companion backup and restore validation for platform asset roots."""
 
 from __future__ import annotations
 
@@ -30,6 +30,8 @@ _PARTIAL_ARTIFACT = re.compile(
     r"\.[0-9a-f]{32}\.partial"
 )
 _SCHEMA_VERSION = 1
+_LEGACY_KIND = "aionex-three-d-local-assets"
+_PLATFORM_KIND = "aionex-platform-asset-roots"
 _MAX_FILES = 100_000
 _MAX_MANIFEST_BYTES = 16 * 1024 * 1024
 _CHUNK_SIZE = 1024 * 1024
@@ -42,6 +44,15 @@ class ThreeDAssetSnapshot:
     size_bytes: int
     file_count: int
     payload_bytes: int
+    roots: dict[str, dict[str, int]] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _SourceRoot:
+    root_id: str
+    label: str
+    path: Path
+    enabled: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,6 +62,7 @@ class _SourceFile:
     size_bytes: int
     inode: int
     mtime_ns: int
+    root_id: str
 
 
 class _HashingReader:
@@ -68,11 +80,36 @@ class _HashingReader:
 
 
 class ThreeDAssetSnapshotExecutor:
-    """Create and validate immutable companion archives for local 3D assets."""
+    """Create and validate immutable companion archives for platform asset roots.
+
+    The original artifact name and public evidence key remain 3D-compatible so
+    older restore records keep validating. FR-04B extends the same protected
+    companion archive with explicitly enabled, read-only platform asset roots.
+    """
 
     def __init__(self, config: Settings = settings) -> None:
         self._settings = config
-        self.enabled = bool(config.BACKUP_THREE_D_ASSETS_ENABLED)
+        self._roots = (
+            _SourceRoot(
+                "three_d_asset_data",
+                "3D asset",
+                Path(config.THREE_D_STORAGE_ROOT),
+                bool(config.BACKUP_THREE_D_ASSETS_ENABLED),
+            ),
+            _SourceRoot(
+                "project_execution_data",
+                "Project execution output",
+                Path(config.PROJECT_EXECUTION_OUTPUT_ROOT),
+                bool(getattr(config, "BACKUP_PROJECT_EXECUTION_ASSETS_ENABLED", False)),
+            ),
+            _SourceRoot(
+                "course_package_data",
+                "Academy course package",
+                Path(getattr(config, "ACADEMY_COURSE_PACKAGE_ROOT", "/var/lib/aionex/course-packages")),
+                bool(getattr(config, "BACKUP_COURSE_PACKAGES_ENABLED", False)),
+            ),
+        )
+        self.enabled = any(root.enabled for root in self._roots)
         self._source = Path(config.THREE_D_STORAGE_ROOT)
         self._backup_dir = Path(config.BACKUP_DIR)
 
@@ -101,32 +138,35 @@ class ThreeDAssetSnapshotExecutor:
             return None
         return self._protected_backup_dir()
 
-    def _protected_source(self) -> Path:
-        if not self.enabled:
+    def _enabled_roots(self) -> tuple[_SourceRoot, ...]:
+        return tuple(root for root in self._roots if root.enabled)
+
+    def _protected_source(self, source_root: _SourceRoot) -> Path:
+        if not source_root.enabled:
             raise BackupExecutionError(
-                "3D asset backup",
-                "Local 3D asset backup is not enabled",
+                "asset backup",
+                f"{source_root.label} backup is not enabled",
                 status_code=409,
             )
         try:
-            metadata = self._source.lstat()
+            metadata = source_root.path.lstat()
             if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
-                raise OSError("3D asset root is unsafe")
-            root = self._source.resolve(strict=True)
+                raise OSError("asset root is unsafe")
+            root = source_root.path.resolve(strict=True)
             if stat.S_IMODE(root.stat().st_mode) & 0o077:
-                raise OSError("3D asset root is not private")
+                raise OSError("asset root is not private")
             if not os.access(root, os.R_OK | os.X_OK):
-                raise OSError("3D asset root is unreadable")
+                raise OSError("asset root is unreadable")
             return root
         except OSError as exc:
             raise BackupExecutionError(
-                "3D asset backup",
-                "The private 3D asset volume is unavailable",
+                "asset backup",
+                f"The private {source_root.label} volume is unavailable",
             ) from exc
 
     def verify_source(self) -> None:
-        if self.enabled:
-            self._protected_source()
+        for source_root in self._enabled_roots():
+            self._protected_source(source_root)
 
     def _companion_path(self, database_location: str) -> Path:
         backup_dir = self._protected_backup_dir()
@@ -165,54 +205,58 @@ class ThreeDAssetSnapshotExecutor:
         return relative
 
     def _source_files(self) -> list[_SourceFile]:
-        root = self._protected_source()
         result: list[_SourceFile] = []
-        for current_text, directories, files in os.walk(root, followlinks=False):
-            current = Path(current_text)
-            for name in list(directories):
-                candidate = current / name
-                metadata = candidate.lstat()
-                if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
-                    raise BackupExecutionError(
-                        "3D asset backup",
-                        "The private 3D asset tree contains an unsafe directory",
+        for source_root in self._enabled_roots():
+            root = self._protected_source(source_root)
+            for current_text, directories, files in os.walk(root, followlinks=False):
+                current = Path(current_text)
+                for name in list(directories):
+                    candidate = current / name
+                    metadata = candidate.lstat()
+                    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
+                        raise BackupExecutionError(
+                            "asset backup",
+                            f"The private {source_root.label} tree contains an unsafe directory",
+                        )
+                    if stat.S_IMODE(metadata.st_mode) & 0o077:
+                        raise BackupExecutionError(
+                            "asset backup",
+                            f"The private {source_root.label} tree has unsafe directory permissions",
+                        )
+                for name in files:
+                    if name.startswith(".") and name.endswith(".partial"):
+                        continue
+                    candidate = current / name
+                    metadata = candidate.lstat()
+                    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+                        raise BackupExecutionError(
+                            "asset backup",
+                            f"The private {source_root.label} tree contains an unsafe file",
+                        )
+                    if stat.S_IMODE(metadata.st_mode) & 0o077:
+                        raise BackupExecutionError(
+                            "asset backup",
+                            f"The private {source_root.label} tree has unsafe file permissions",
+                        )
+                    relative = candidate.relative_to(root).as_posix()
+                    self._safe_relative(relative)
+                    archive_relative = f"{source_root.root_id}/{relative}"
+                    self._safe_relative(archive_relative)
+                    result.append(
+                        _SourceFile(
+                            relative=archive_relative,
+                            path=candidate,
+                            size_bytes=metadata.st_size,
+                            inode=metadata.st_ino,
+                            mtime_ns=metadata.st_mtime_ns,
+                            root_id=source_root.root_id,
+                        )
                     )
-                if stat.S_IMODE(metadata.st_mode) & 0o077:
-                    raise BackupExecutionError(
-                        "3D asset backup",
-                        "The private 3D asset tree has unsafe directory permissions",
-                    )
-            for name in files:
-                if name.startswith(".") and name.endswith(".partial"):
-                    continue
-                candidate = current / name
-                metadata = candidate.lstat()
-                if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
-                    raise BackupExecutionError(
-                        "3D asset backup",
-                        "The private 3D asset tree contains an unsafe file",
-                    )
-                if stat.S_IMODE(metadata.st_mode) & 0o077:
-                    raise BackupExecutionError(
-                        "3D asset backup",
-                        "The private 3D asset tree has unsafe file permissions",
-                    )
-                relative = candidate.relative_to(root).as_posix()
-                self._safe_relative(relative)
-                result.append(
-                    _SourceFile(
-                        relative=relative,
-                        path=candidate,
-                        size_bytes=metadata.st_size,
-                        inode=metadata.st_ino,
-                        mtime_ns=metadata.st_mtime_ns,
-                    )
-                )
-                if len(result) > _MAX_FILES:
-                    raise BackupExecutionError(
-                        "3D asset backup",
-                        "The 3D asset snapshot exceeds the supported file count",
-                    )
+                    if len(result) > _MAX_FILES:
+                        raise BackupExecutionError(
+                            "asset backup",
+                            "The asset snapshot exceeds the supported file count",
+                        )
         result.sort(key=lambda item: item.relative)
         return result
 
@@ -258,6 +302,10 @@ class ThreeDAssetSnapshotExecutor:
         files = self._source_files()
         temporary = destination.with_name(f".{destination.name}.{uuid4().hex}.partial")
         manifest_files: list[dict[str, object]] = []
+        root_totals: dict[str, dict[str, int]] = {
+            root.root_id: {"file_count": 0, "payload_bytes": 0}
+            for root in self._enabled_roots()
+        }
         payload_bytes = 0
         try:
             descriptor = os.open(
@@ -321,17 +369,21 @@ class ThreeDAssetSnapshotExecutor:
                                     "path": source_item.relative,
                                     "sha256": reader.digest.hexdigest(),
                                     "size_bytes": reader.count,
+                                    "root": source_item.root_id,
                                 }
                             )
+                            root_totals[source_item.root_id]["file_count"] += 1
+                            root_totals[source_item.root_id]["payload_bytes"] += reader.count
                             payload_bytes += reader.count
                         finally:
                             os.close(source_descriptor)
                     manifest = json.dumps(
                         {
                             "schema_version": _SCHEMA_VERSION,
-                            "kind": "aionex-three-d-local-assets",
+                            "kind": _PLATFORM_KIND,
                             "file_count": len(manifest_files),
                             "payload_bytes": payload_bytes,
+                            "roots": root_totals,
                             "files": manifest_files,
                         },
                         sort_keys=True,
@@ -359,6 +411,7 @@ class ThreeDAssetSnapshotExecutor:
                 size_bytes=size_bytes,
                 file_count=len(manifest_files),
                 payload_bytes=payload_bytes,
+                roots=root_totals,
             )
         except BackupExecutionError:
             raise
@@ -427,6 +480,7 @@ class ThreeDAssetSnapshotExecutor:
                 size_bytes=size_bytes,
                 file_count=result[0],
                 payload_bytes=result[1],
+                roots=result[2],
             )
         except BackupExecutionError:
             raise
@@ -444,7 +498,7 @@ class ThreeDAssetSnapshotExecutor:
         *,
         expected_file_count: int | None,
         expected_payload_bytes: int | None,
-    ) -> tuple[int, int]:
+    ) -> tuple[int, int, dict[str, dict[str, int]] | None]:
         members = archive.getmembers()
         if not members or len(members) > _MAX_FILES + 1:
             raise BackupExecutionError(
@@ -487,12 +541,13 @@ class ThreeDAssetSnapshotExecutor:
         if (
             not isinstance(manifest, dict)
             or manifest.get("schema_version") != _SCHEMA_VERSION
-            or manifest.get("kind") != "aionex-three-d-local-assets"
+            or manifest.get("kind") not in {_LEGACY_KIND, _PLATFORM_KIND}
         ):
             raise BackupExecutionError(
                 "3D asset restore validation",
-                "The 3D asset snapshot manifest is invalid",
+                "The asset snapshot manifest is invalid",
             )
+        is_platform_snapshot = manifest.get("kind") == _PLATFORM_KIND
         files = manifest.get("files")
         if not isinstance(files, list) or len(files) > _MAX_FILES:
             raise BackupExecutionError(
@@ -513,6 +568,13 @@ class ThreeDAssetSnapshotExecutor:
         expected_names = {"manifest.json"}
         manifest_paths: set[str] = set()
         payload_bytes = 0
+        root_totals: dict[str, dict[str, int]] = {}
+        declared_roots = manifest.get("roots") if is_platform_snapshot else None
+        if is_platform_snapshot and not isinstance(declared_roots, dict):
+            raise BackupExecutionError(
+                "3D asset restore validation",
+                "The asset snapshot root manifest is invalid",
+            )
         with tempfile.TemporaryDirectory(
             prefix=".three-d-restore-",
             dir=backup_dir,
@@ -527,6 +589,17 @@ class ThreeDAssetSnapshotExecutor:
                     )
                 relative_text = str(entry.get("path", ""))
                 relative = self._safe_relative(relative_text)
+                root_id = str(entry.get("root") or "legacy_three_d_asset_data")
+                if is_platform_snapshot:
+                    if (
+                        root_id not in cast(dict[str, object], declared_roots)
+                        or not relative.parts
+                        or relative.parts[0] != root_id
+                    ):
+                        raise BackupExecutionError(
+                            "3D asset restore validation",
+                            "The asset snapshot root assignment is invalid",
+                        )
                 if relative_text in manifest_paths:
                     raise BackupExecutionError(
                         "3D asset restore validation",
@@ -591,8 +664,14 @@ class ThreeDAssetSnapshotExecutor:
                 ):
                     raise BackupExecutionError(
                         "3D asset restore validation",
-                        "A restored 3D asset failed integrity verification",
+                        "A restored asset failed integrity verification",
                     )
+                if is_platform_snapshot:
+                    root_total = root_totals.setdefault(
+                        root_id, {"file_count": 0, "payload_bytes": 0}
+                    )
+                    root_total["file_count"] += 1
+                    root_total["payload_bytes"] += count
                 payload_bytes += count
         if set(by_name) != expected_names:
             raise BackupExecutionError(
@@ -610,10 +689,37 @@ class ThreeDAssetSnapshotExecutor:
         ):
             raise BackupExecutionError(
                 "3D asset restore validation",
-                "The 3D asset snapshot payload size does not match durable evidence",
+                "The asset snapshot payload size does not match durable evidence",
                 status_code=409,
             )
-        return len(files), payload_bytes
+        if is_platform_snapshot:
+            for root_id, declared in cast(dict[str, object], declared_roots).items():
+                if not isinstance(declared, dict):
+                    raise BackupExecutionError(
+                        "3D asset restore validation",
+                        "The asset snapshot root manifest is invalid",
+                    )
+                observed = root_totals.get(
+                    str(root_id), {"file_count": 0, "payload_bytes": 0}
+                )
+                try:
+                    expected_root_files = int(declared["file_count"])
+                    expected_root_payload = int(declared["payload_bytes"])
+                except (KeyError, TypeError, ValueError) as exc:
+                    raise BackupExecutionError(
+                        "3D asset restore validation",
+                        "The asset snapshot root manifest is invalid",
+                    ) from exc
+                if (
+                    expected_root_files != observed["file_count"]
+                    or expected_root_payload != observed["payload_bytes"]
+                ):
+                    raise BackupExecutionError(
+                        "3D asset restore validation",
+                        "The asset snapshot root totals are invalid",
+                    )
+            return len(files), payload_bytes, root_totals
+        return len(files), payload_bytes, None
 
     def cleanup_stale_partials(self, maximum_age_seconds: int) -> int:
         directory = self._cleanup_directory()

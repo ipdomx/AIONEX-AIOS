@@ -192,7 +192,11 @@ services:
       POSTGRES_PORT: "5432"
       BACKUP_DIR: /var/lib/aionex/backups
       BACKUP_THREE_D_ASSETS_ENABLED: "true"
+      BACKUP_PROJECT_EXECUTION_ASSETS_ENABLED: "true"
+      BACKUP_COURSE_PACKAGES_ENABLED: "true"
       THREE_D_STORAGE_ROOT: /var/lib/aionex/three-d-assets
+      PROJECT_EXECUTION_OUTPUT_ROOT: /var/lib/aionex/project-executions
+      ACADEMY_COURSE_PACKAGE_ROOT: /var/lib/aionex/course-packages
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
       AIOS_R2_BACKUP_SECRET_SOURCE: /run/operator-secrets/r2-backup-source.env
@@ -200,6 +204,8 @@ services:
       - ..:/workspace:ro
       - backup_data:/var/lib/aionex/backups:rw
       - three_d_asset_data:/var/lib/aionex/three-d-assets:ro
+      - project_execution_data:/var/lib/aionex/project-executions:ro
+      - course_package_data:/var/lib/aionex/course-packages:ro
       - ${AIOS_R2_BACKUP_SECRET_HOST_FILE:-/root/.config/aionex/r2-backup/credentials.env}:/run/operator-secrets/r2-backup-source.env:ro
     depends_on:
       backend: {condition: service_healthy}
