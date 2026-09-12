@@ -131,3 +131,56 @@ def test_production_r2_secret_uses_root_only_source_and_private_runtime_copy():
     assert 'install -m 0400 -o aionex -g aionex "$r2_secret_source" "$r2_secret_runtime"' in entrypoint
     assert 'export BACKUP_OFFSITE_SECRET_FILE="$r2_secret_runtime"' in entrypoint
     assert "BACKUP_OFFSITE_SECRET_FILE=/run/aionex/r2-backup.env" in example
+
+
+def test_r2_replication_includes_media_snapshot(tmp_path, monkeypatch):
+    from app.services.file_tree_snapshot import FileTreeSnapshot
+
+    endpoint = "https://0123456789abcdef0123456789abcdef.r2.cloudflarestorage.com"
+    credentials = tmp_path / "r2-media.env"
+    credentials.write_text(
+        "R2_BACKUP_ENDPOINT=" + endpoint + "\n"
+        "R2_BACKUP_BUCKET=aionex-production-backups\n"
+        "R2_BACKUP_ACCESS_KEY_ID=test-access\n"
+        "R2_BACKUP_SECRET_ACCESS_KEY=test-secret\n"
+    )
+    credentials.chmod(0o400)
+    backup_dir = tmp_path / "backups"
+    backup_dir.mkdir()
+    database = backup_dir / "backup-0123456789abcdef01234567-0123456789abcdef0123456789abcdef.dump"
+    database.write_bytes(b"PGDMP-test-database")
+    media = backup_dir / "backup-0123456789abcdef01234567-0123456789abcdef0123456789abcdef.media-assets.tar"
+    media.write_bytes(b"media-snapshot")
+    fake = _FakeS3()
+    monkeypatch.setattr(offsite_backup.boto3, "client", lambda *args, **kwargs: fake)
+    replicator = offsite_backup.OffsiteBackupReplicator(_config(tmp_path, credentials))
+    checksum, size = offsite_backup._sha256(database)
+    media_checksum, media_size = offsite_backup._sha256(media)
+    evidence = replicator.replicate(
+        backup_id="12345678-1234-1234-1234-123456789abc",
+        database_location=str(database),
+        database_checksum=checksum,
+        database_size=size,
+        snapshot=None,
+        media_snapshot=FileTreeSnapshot(
+            location=str(media),
+            checksum=media_checksum,
+            size_bytes=media_size,
+            file_count=2,
+            payload_bytes=123,
+        ),
+    )
+    assert evidence["media_snapshot"]["sha256"] == media_checksum
+    assert evidence["media_snapshot"]["key"].endswith("/media-assets.tar")
+    staged = replicator.download_for_validation(
+        evidence,
+        validation_id="87654321-4321-4321-4321-cba987654321",
+        attempt_token="media-attempt-token",
+    )
+    assert staged.media_snapshot_location is not None
+    assert Path(staged.media_snapshot_location).read_bytes() == media.read_bytes()
+    replicator.cleanup_validation(
+        staged.database_location,
+        staged.snapshot_location,
+        staged.media_snapshot_location,
+    )
