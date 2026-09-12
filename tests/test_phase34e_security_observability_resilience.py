@@ -92,6 +92,7 @@ def test_phase34e_supply_chain_gate_pins_actions_and_emits_sbom():
         assert "version: v0.72.0" in workflow
         assert "CRITICAL,HIGH" in workflow
         assert 'exit-code: "1"' in workflow
+    assert "timeout: 15m" in TRIPOSR_WORKFLOW
     requirements = (BACKEND / "requirements-runtime.txt").read_text()
     assert "python-multipart==0.0.32" in requirements
     assert "firebase-admin==6.8.0" in requirements
