@@ -15,3 +15,5 @@ Expected verification:
 - backend test validates project/course files in the companion archive;
 - Docker Compose production config renders with project/course read-only backup-worker mounts;
 - no cache or unrelated asset root is added in this PR.
+
+Production Compose adds `backup-asset-root-init` as a one-shot initializer for the included asset roots. It mounts the three snapshot roots read-write only during initialization, rejects unsafe paths, sets `0700` and uid/gid `1000:1000`, then `backup-worker` consumes them read-only. The entrypoint accepts already-prepared read-only roots and still fails closed on unsafe ownership or permissions.
