@@ -719,6 +719,8 @@ class BackupJobWorker:
                         "payload_bytes": snapshot.payload_bytes,
                     }
                 )
+                if snapshot.roots:
+                    snapshot_evidence["roots"] = snapshot.roots
             session.add(
                 _system_audit(
                     "backup.worker.completed",
@@ -1040,6 +1042,8 @@ class BackupJobWorker:
                         "three_d_snapshot_payload_bytes": snapshot_validation.payload_bytes,
                     }
                 )
+                if snapshot_validation.roots:
+                    validation_details["asset_snapshot_roots"] = snapshot_validation.roots
             run.details = validation_details
             session.add(
                 _system_audit(

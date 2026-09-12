@@ -130,7 +130,32 @@ if [ "$(id -u)" = "0" ]; then
 
     project_output_root="${PROJECT_EXECUTION_OUTPUT_ROOT:-}"
     if [ -n "$project_output_root" ]; then
-        install -d -m 0700 -o aionex -g aionex "$project_output_root"
+        if ! install -d -m 0700 -o aionex -g aionex "$project_output_root" 2>/dev/null; then
+            if [ ! -d "$project_output_root" ] || [ ! -r "$project_output_root" ] || [ ! -x "$project_output_root" ] || [ -L "$project_output_root" ]; then
+                echo "Unable to prepare private project execution root" >&2
+                exit 1
+            fi
+            project_output_meta="$(stat -c '%a:%u:%g' "$project_output_root")"
+            if [ "$project_output_meta" != "700:1000:1000" ]; then
+                echo "Private project execution root is not owned or permissioned correctly" >&2
+                exit 1
+            fi
+        fi
+    fi
+
+    course_package_root="${ACADEMY_COURSE_PACKAGE_ROOT:-}"
+    if [ -n "$course_package_root" ]; then
+        if ! install -d -m 0700 -o aionex -g aionex "$course_package_root" 2>/dev/null; then
+            if [ ! -d "$course_package_root" ] || [ ! -r "$course_package_root" ] || [ ! -x "$course_package_root" ] || [ -L "$course_package_root" ]; then
+                echo "Unable to prepare private academy course package root" >&2
+                exit 1
+            fi
+            course_package_meta="$(stat -c '%a:%u:%g' "$course_package_root")"
+            if [ "$course_package_meta" != "700:1000:1000" ]; then
+                echo "Private academy course package root is not owned or permissioned correctly" >&2
+                exit 1
+            fi
+        fi
     fi
 
     project_npm_cache="${PROJECT_EXECUTION_NPM_CACHE:-}"

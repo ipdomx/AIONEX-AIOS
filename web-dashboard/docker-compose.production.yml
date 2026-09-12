@@ -176,6 +176,32 @@ services:
     security_opt: ["no-new-privileges:true"]
     networks: [aionex-network]
 
+  backup-asset-root-init:
+    image: aionex-aios-backend:local
+    restart: "no"
+    mem_limit: 256m
+    cpus: "0.5"
+    pids_limit: 64
+    read_only: true
+    entrypoint: ["/bin/sh", "-ceu"]
+    command:
+      - |
+        for path in /var/lib/aionex/three-d-assets /var/lib/aionex/project-executions /var/lib/aionex/course-packages; do
+          if [ -L "$$path" ] || { [ -e "$$path" ] && [ ! -d "$$path" ]; }; then
+            echo "Unsafe backup asset root: $$path" >&2
+            exit 1
+          fi
+          install -d -m 0700 -o 1000 -g 1000 "$$path"
+        done
+    volumes:
+      - three_d_asset_data:/var/lib/aionex/three-d-assets:rw
+      - project_execution_data:/var/lib/aionex/project-executions:rw
+      - course_package_data:/var/lib/aionex/course-packages:rw
+    cap_drop: ["ALL"]
+    cap_add: ["CHOWN", "FOWNER", "DAC_OVERRIDE"]
+    security_opt: ["no-new-privileges:true"]
+    networks: [aionex-network]
+
   backup-worker:
     image: aionex-aios-backend:local
     restart: unless-stopped
@@ -192,7 +218,11 @@ services:
       POSTGRES_PORT: "5432"
       BACKUP_DIR: /var/lib/aionex/backups
       BACKUP_THREE_D_ASSETS_ENABLED: "true"
+      BACKUP_PROJECT_EXECUTION_ASSETS_ENABLED: "true"
+      BACKUP_COURSE_PACKAGES_ENABLED: "true"
       THREE_D_STORAGE_ROOT: /var/lib/aionex/three-d-assets
+      PROJECT_EXECUTION_OUTPUT_ROOT: /var/lib/aionex/project-executions
+      ACADEMY_COURSE_PACKAGE_ROOT: /var/lib/aionex/course-packages
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
       AIOS_R2_BACKUP_SECRET_SOURCE: /run/operator-secrets/r2-backup-source.env
@@ -200,8 +230,11 @@ services:
       - ..:/workspace:ro
       - backup_data:/var/lib/aionex/backups:rw
       - three_d_asset_data:/var/lib/aionex/three-d-assets:ro
+      - project_execution_data:/var/lib/aionex/project-executions:ro
+      - course_package_data:/var/lib/aionex/course-packages:ro
       - ${AIOS_R2_BACKUP_SECRET_HOST_FILE:-/root/.config/aionex/r2-backup/credentials.env}:/run/operator-secrets/r2-backup-source.env:ro
     depends_on:
+      backup-asset-root-init: {condition: service_completed_successfully}
       backend: {condition: service_healthy}
     healthcheck:
       test: ["CMD", "python", "-m", "app.services.backup_worker", "--healthcheck"]

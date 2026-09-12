@@ -93,6 +93,16 @@ class Settings(BaseSettings):
     BACKUP_THREE_D_ASSETS_ENABLED: bool = Field(
         default=False, validation_alias="BACKUP_THREE_D_ASSETS_ENABLED"
     )
+    BACKUP_PROJECT_EXECUTION_ASSETS_ENABLED: bool = Field(
+        default=False, validation_alias="BACKUP_PROJECT_EXECUTION_ASSETS_ENABLED"
+    )
+    BACKUP_COURSE_PACKAGES_ENABLED: bool = Field(
+        default=False, validation_alias="BACKUP_COURSE_PACKAGES_ENABLED"
+    )
+    ACADEMY_COURSE_PACKAGE_ROOT: str = Field(
+        default="/var/lib/aionex/course-packages",
+        validation_alias="ACADEMY_COURSE_PACKAGE_ROOT",
+    )
     BACKUP_TIMEOUT_SECONDS: int = Field(
         default=900,
         ge=30,

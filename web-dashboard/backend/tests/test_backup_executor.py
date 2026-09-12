@@ -1438,8 +1438,11 @@ def test_production_images_ship_worker_and_credential_gate_once() -> None:
     assert "requirements-runtime.txt" in dockerfile
     assert "setuptools*" in dockerfile and "wheel*" in dockerfile
     assert "install -d -m 0700 -o aionex -g aionex" in dockerfile
-    for compose, expected_backend_images in ((primary_compose, 18), (deploy_compose, 17)):
+    for compose, expected_backend_images in ((primary_compose, 19), (deploy_compose, 17)):
         assert "backup-worker:" in compose
+        if compose is primary_compose:
+            assert "backup-asset-root-init:" in compose
+            assert "backup-asset-root-init: {condition: service_completed_successfully}" in compose
         assert "postgres-credential-reconciler:" in compose
         assert "communication-worker:" in compose
         assert "operations-observer:" in compose
