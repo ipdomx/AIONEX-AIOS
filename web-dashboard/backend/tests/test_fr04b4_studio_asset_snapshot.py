@@ -36,14 +36,16 @@ def _settings(tmp_path: Path) -> Settings:
         BACKUP_PROJECT_EXECUTION_ASSETS_ENABLED=True,
         BACKUP_COURSE_PACKAGES_ENABLED=True,
         BACKUP_MEDIA_ASSETS_ENABLED=True,
+        BACKUP_STUDIO_ASSETS_ENABLED=True,
         THREE_D_STORAGE_ROOT=str(_private_dir(tmp_path / "three-d-assets")),
         PROJECT_EXECUTION_OUTPUT_ROOT=str(_private_dir(tmp_path / "project-executions")),
         ACADEMY_COURSE_PACKAGE_ROOT=str(_private_dir(tmp_path / "course-packages")),
         MEDIA_STORAGE_ROOT=str(_private_dir(tmp_path / "media-assets")),
+        STUDIO_ASSET_ROOT=str(_private_dir(tmp_path / "studio-assets")),
     )
 
 
-def test_media_assets_join_platform_asset_snapshot(tmp_path: Path) -> None:
+def test_studio_assets_join_platform_asset_snapshot(tmp_path: Path) -> None:
     config = _settings(tmp_path)
     backup_dir = Path(config.BACKUP_DIR)
     database = _private_file(
@@ -51,12 +53,8 @@ def test_media_assets_join_platform_asset_snapshot(tmp_path: Path) -> None:
         b"PGDMPdatabase",
     )
     _private_file(
-        Path(config.MEDIA_STORAGE_ROOT) / "tenant-a" / "image.png",
-        b"media-image",
-    )
-    _private_file(
-        Path(config.MEDIA_STORAGE_ROOT) / "tenant-a" / "voice.wav",
-        b"media-voice",
+        Path(config.STUDIO_ASSET_ROOT) / "tenant-a" / "draft.json",
+        b"studio-draft",
     )
 
     executor = ThreeDAssetSnapshotExecutor(config)
@@ -64,9 +62,9 @@ def test_media_assets_join_platform_asset_snapshot(tmp_path: Path) -> None:
 
     assert snapshot is not None
     assert snapshot.roots is not None
-    assert snapshot.roots["media_asset_data"] == {
-        "file_count": 2,
-        "payload_bytes": len(b"media-imagemedia-voice"),
+    assert snapshot.roots["studio_asset_data"] == {
+        "file_count": 1,
+        "payload_bytes": len(b"studio-draft"),
     }
     validated = executor.validate_snapshot(
         str(database),
@@ -82,19 +80,18 @@ def test_media_assets_join_platform_asset_snapshot(tmp_path: Path) -> None:
         assert manifest_member is not None
         manifest = json.loads(manifest_member.read())
     names = {item["path"] for item in manifest["files"]}
-    assert "media_asset_data/tenant-a/image.png" in names
-    assert "media_asset_data/tenant-a/voice.wav" in names
+    assert "studio_asset_data/tenant-a/draft.json" in names
 
 
-def test_media_asset_snapshot_rejects_symlinks(tmp_path: Path) -> None:
+def test_studio_asset_snapshot_rejects_symlinks(tmp_path: Path) -> None:
     config = _settings(tmp_path)
     backup_dir = Path(config.BACKUP_DIR)
     database = _private_file(
         backup_dir / f"backup-{'c' * 24}-{'d' * 32}.dump",
         b"PGDMPdatabase",
     )
-    target = _private_file(tmp_path / "outside.bin", b"outside")
-    link = Path(config.MEDIA_STORAGE_ROOT) / "tenant-a" / "leak.bin"
+    target = _private_file(tmp_path / "outside.json", b"outside")
+    link = Path(config.STUDIO_ASSET_ROOT) / "tenant-a" / "leak.json"
     link.parent.mkdir(parents=True, exist_ok=True)
     os.chmod(link.parent, 0o700)
     link.symlink_to(target)
@@ -103,20 +100,21 @@ def test_media_asset_snapshot_rejects_symlinks(tmp_path: Path) -> None:
         ThreeDAssetSnapshotExecutor(config).create_snapshot(str(database))
 
 
-def test_backup_worker_mounts_media_assets_read_only() -> None:
+def test_backup_worker_mounts_studio_assets_read_only() -> None:
     compose = COMPOSE.read_text(encoding="utf-8")
     init = compose.split("\n  backup-asset-root-init:", 1)[1].split("\n\n  backup-worker:", 1)[0]
     backup = compose.split("\n  backup-worker:", 1)[1].split("\n\n  communication-worker:", 1)[0]
-    assert "/var/lib/aionex/media-assets" in init
-    assert "media_asset_data:/var/lib/aionex/media-assets:rw" in init
-    assert 'BACKUP_MEDIA_ASSETS_ENABLED: "true"' in backup
-    assert "MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets" in backup
-    assert "media_asset_data:/var/lib/aionex/media-assets:ro" in backup
+    assert "/var/lib/aionex/studio-assets" in init
+    assert "studio_asset_data:/var/lib/aionex/studio-assets:rw" in init
+    assert 'BACKUP_STUDIO_ASSETS_ENABLED: "true"' in backup
+    assert "STUDIO_ASSET_ROOT: /var/lib/aionex/studio-assets" in backup
+    assert "studio_asset_data:/var/lib/aionex/studio-assets:ro" in backup
     assert "project_npm_cache_data" not in backup
     assert "portal_asset_data" not in backup
 
 
-def test_media_entrypoint_accepts_prepared_read_only_root() -> None:
+def test_studio_entrypoint_accepts_prepared_read_only_root() -> None:
     entrypoint = ENTRYPOINT.read_text(encoding="utf-8")
-    assert "Private media asset root is not owned or permissioned correctly" in entrypoint
-    assert "media_storage_meta" in entrypoint
+    assert "Unable to prepare private studio asset root" in entrypoint
+    assert "Private studio asset root is not owned or permissioned correctly" in entrypoint
+    assert "studio_asset_meta" in entrypoint

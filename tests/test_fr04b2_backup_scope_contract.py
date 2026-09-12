@@ -38,7 +38,6 @@ def test_fr04b2_backup_worker_mounts_only_project_and_course_additions() -> None
     assert "course_package_data:/var/lib/aionex/course-packages:ro" in backup
     assert "backup-asset-root-init: {condition: service_completed_successfully}" in backup
     assert "project_npm_cache_data" not in backup
-    assert "studio_asset_data" not in backup
     assert "portal_asset_data" not in backup
 
 

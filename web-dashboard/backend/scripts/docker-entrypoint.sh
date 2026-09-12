@@ -170,7 +170,17 @@ if [ "$(id -u)" = "0" ]; then
 
     studio_asset_root="${STUDIO_ASSET_ROOT-/var/lib/aionex/studio-assets}"
     if [ -n "$studio_asset_root" ]; then
-        install -d -m 0700 -o aionex -g aionex "$studio_asset_root"
+        if ! install -d -m 0700 -o aionex -g aionex "$studio_asset_root" 2>/dev/null; then
+            if [ ! -d "$studio_asset_root" ] || [ ! -r "$studio_asset_root" ] || [ ! -x "$studio_asset_root" ] || [ -L "$studio_asset_root" ]; then
+                echo "Unable to prepare private studio asset root" >&2
+                exit 1
+            fi
+            studio_asset_meta="$(stat -c '%a:%u:%g' "$studio_asset_root")"
+            if [ "$studio_asset_meta" != "700:1000:1000" ]; then
+                echo "Private studio asset root is not owned or permissioned correctly" >&2
+                exit 1
+            fi
+        fi
     fi
 
     three_d_storage_root="${THREE_D_STORAGE_ROOT-/var/lib/aionex/three-d-assets}"

@@ -114,6 +114,12 @@ class ThreeDAssetSnapshotExecutor:
                 Path(getattr(config, "MEDIA_STORAGE_ROOT", "/var/lib/aionex/media-assets")),
                 bool(getattr(config, "BACKUP_MEDIA_ASSETS_ENABLED", False)),
             ),
+            _SourceRoot(
+                "studio_asset_data",
+                "Studio asset",
+                Path(getattr(config, "STUDIO_ASSET_ROOT", "/var/lib/aionex/studio-assets")),
+                bool(getattr(config, "BACKUP_STUDIO_ASSETS_ENABLED", False)),
+            ),
         )
         self.enabled = any(root.enabled for root in self._roots)
         self._source = Path(config.THREE_D_STORAGE_ROOT)
