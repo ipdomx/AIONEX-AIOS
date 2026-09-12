@@ -186,7 +186,7 @@ services:
     entrypoint: ["/bin/sh", "-ceu"]
     command:
       - |
-        for path in /var/lib/aionex/three-d-assets /var/lib/aionex/project-executions /var/lib/aionex/course-packages /var/lib/aionex/media-assets; do
+        for path in /var/lib/aionex/three-d-assets /var/lib/aionex/project-executions /var/lib/aionex/course-packages /var/lib/aionex/media-assets /var/lib/aionex/studio-assets; do
           if [ -L "$$path" ] || { [ -e "$$path" ] && [ ! -d "$$path" ]; }; then
             echo "Unsafe backup asset root: $$path" >&2
             exit 1
@@ -198,6 +198,7 @@ services:
       - project_execution_data:/var/lib/aionex/project-executions:rw
       - course_package_data:/var/lib/aionex/course-packages:rw
       - media_asset_data:/var/lib/aionex/media-assets:rw
+      - studio_asset_data:/var/lib/aionex/studio-assets:rw
     cap_drop: ["ALL"]
     cap_add: ["CHOWN", "FOWNER", "DAC_OVERRIDE"]
     security_opt: ["no-new-privileges:true"]
@@ -222,10 +223,12 @@ services:
       BACKUP_PROJECT_EXECUTION_ASSETS_ENABLED: "true"
       BACKUP_COURSE_PACKAGES_ENABLED: "true"
       BACKUP_MEDIA_ASSETS_ENABLED: "true"
+      BACKUP_STUDIO_ASSETS_ENABLED: "true"
       THREE_D_STORAGE_ROOT: /var/lib/aionex/three-d-assets
       PROJECT_EXECUTION_OUTPUT_ROOT: /var/lib/aionex/project-executions
       ACADEMY_COURSE_PACKAGE_ROOT: /var/lib/aionex/course-packages
       MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets
+      STUDIO_ASSET_ROOT: /var/lib/aionex/studio-assets
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
       AIOS_R2_BACKUP_SECRET_SOURCE: /run/operator-secrets/r2-backup-source.env
@@ -236,6 +239,7 @@ services:
       - project_execution_data:/var/lib/aionex/project-executions:ro
       - course_package_data:/var/lib/aionex/course-packages:ro
       - media_asset_data:/var/lib/aionex/media-assets:ro
+      - studio_asset_data:/var/lib/aionex/studio-assets:ro
       - ${AIOS_R2_BACKUP_SECRET_HOST_FILE:-/root/.config/aionex/r2-backup/credentials.env}:/run/operator-secrets/r2-backup-source.env:ro
     depends_on:
       backup-asset-root-init: {condition: service_completed_successfully}
