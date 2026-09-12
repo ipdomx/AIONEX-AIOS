@@ -143,7 +143,7 @@ export default function OwnerAccessPage() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search roles..."
-            className="glass-input rounded-xl px-4 py-2 text-sm text-white outline-none"
+            className="glass-input rounded-xl px-4 py-2 text-sm text-white outline-hidden"
           />
         </div>
         <div className="mb-4 text-xs text-electric-300">{message}</div>
@@ -159,7 +159,7 @@ export default function OwnerAccessPage() {
           <div className="space-y-6">
             {groups.map((group) => (
               <section key={group.organization} className="space-y-3">
-                <div className="flex items-center gap-2 border-b border-white/[0.06] pb-3">
+                <div className="flex items-center gap-2 border-b border-white/6 pb-3">
                   <Building2 className="h-4 w-4 text-electric-300" />
                   <h3 className="text-sm font-semibold text-white">
                     {group.organization}
@@ -172,10 +172,10 @@ export default function OwnerAccessPage() {
                   {group.roles.map((role) => (
                     <div
                       key={role.id}
-                      className="flex flex-col gap-3 rounded-xl border border-white/[0.05] bg-white/[0.02] p-4 sm:flex-row sm:items-center sm:justify-between"
+                      className="flex flex-col gap-3 rounded-xl border border-white/5 bg-white/2 p-4 sm:flex-row sm:items-center sm:justify-between"
                     >
                       <div className="min-w-0">
-                        <div className="break-words text-sm font-semibold text-white">
+                        <div className="wrap-break-word text-sm font-semibold text-white">
                           {role.name}
                         </div>
                         <div className="mt-1 text-xs text-white/35">
@@ -186,7 +186,7 @@ export default function OwnerAccessPage() {
                         type="button"
                         onClick={() => void execute(role.id, "toggle")}
                         disabled={busy || role.status === "protected"}
-                        className={`shrink-0 rounded-xl px-4 py-2 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60 ${role.status === "active" ? "bg-green-500/10 text-green-400" : role.status === "suspended" ? "bg-orange-500/10 text-orange-300" : "cursor-not-allowed bg-white/[0.04] text-white/30"}`}
+                        className={`shrink-0 rounded-xl px-4 py-2 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60 ${role.status === "active" ? "bg-green-500/10 text-green-400" : role.status === "suspended" ? "bg-orange-500/10 text-orange-300" : "cursor-not-allowed bg-white/4 text-white/30"}`}
                       >
                         {role.status === "protected"
                           ? "Protected"
@@ -204,7 +204,7 @@ export default function OwnerAccessPage() {
           </div>
         )}
       </div>
-      <div className="border-t border-white/[0.06] pt-6">
+      <div className="border-t border-white/6 pt-6">
         <GrowthSocialAccessConsole />
       </div>
     </div>

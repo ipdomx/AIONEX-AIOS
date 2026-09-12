@@ -166,7 +166,7 @@ export default function OwnerAccountSecurityManager() {
       )}
 
       <div className="grid gap-5 xl:grid-cols-2">
-        <section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+        <section className="rounded-xl border border-white/6 bg-white/2 p-5">
           <div className="flex items-center gap-2">
             <KeyRound className="h-4 w-4 text-electric-300" />
             <h3 className="font-medium text-white">
@@ -259,7 +259,7 @@ export default function OwnerAccountSecurityManager() {
           )}
         </section>
 
-        <section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+        <section className="rounded-xl border border-white/6 bg-white/2 p-5">
           <div className="flex items-center gap-2">
             <LogOut className="h-4 w-4 text-electric-300" />
             <h3 className="font-medium text-white">Account sessions</h3>
@@ -281,7 +281,7 @@ export default function OwnerAccountSecurityManager() {
                     className={`rounded-full px-2 py-1 text-[10px] ${
                       session.active
                         ? "bg-green-500/10 text-green-300"
-                        : "bg-white/[0.05] text-white/35"
+                        : "bg-white/5 text-white/35"
                     }`}
                   >
                     {session.active ? "Active" : "Closed"}

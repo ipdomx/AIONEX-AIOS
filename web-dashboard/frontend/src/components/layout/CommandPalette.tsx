@@ -272,7 +272,7 @@ export default function CommandPalette({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[100] flex items-start justify-center px-4 pt-[12vh]"
+          className="fixed inset-0 z-100 flex items-start justify-center px-4 pt-[12vh]"
           onClick={onClose}
         >
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
@@ -283,16 +283,16 @@ export default function CommandPalette({
             className="glass-card relative w-full max-w-2xl overflow-hidden shadow-modal"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-center gap-3 border-b border-white/[0.06] px-4 py-4">
+            <div className="flex items-center gap-3 border-b border-white/6 px-4 py-4">
               <Search className="h-5 w-5 text-white/30" />
               <input
                 ref={inputRef}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Navigate to a page or Owner module…"
-                className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/30"
+                className="flex-1 bg-transparent text-sm text-white outline-hidden placeholder:text-white/30"
               />
-              <kbd className="rounded-md border border-white/[0.08] bg-white/[0.06] px-2 py-1 font-mono text-[10px] text-white/40">
+              <kbd className="rounded-md border border-white/8 bg-white/6 px-2 py-1 font-mono text-[10px] text-white/40">
                 ESC
               </kbd>
             </div>
@@ -316,11 +316,11 @@ export default function CommandPalette({
                         onClick={() => openCommand(command)}
                         className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition ${
                           selected
-                            ? "bg-white/[0.08] text-white"
-                            : "text-white/60 hover:bg-white/[0.03] hover:text-white/80"
+                            ? "bg-white/8 text-white"
+                            : "text-white/60 hover:bg-white/3 hover:text-white/80"
                         }`}
                       >
-                        <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-white/[0.04]">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/4">
                           <Icon className="h-4 w-4" />
                         </span>
                         <span className="flex-1 text-sm font-medium">

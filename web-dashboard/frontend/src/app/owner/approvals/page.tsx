@@ -79,7 +79,7 @@ export default function OwnerApprovalsPage() {
             >
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex items-start gap-3">
-                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-2.5">
+                  <div className="rounded-xl border border-white/6 bg-white/3 p-2.5">
                     <FileCheck2 className="h-5 w-5 text-electric-300" />
                   </div>
                   <div>

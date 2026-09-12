@@ -21,7 +21,7 @@ import {
 } from "@/lib/phase29f-api";
 
 const inputClass =
-  "glass-input rounded-xl px-3 py-2.5 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-50";
+  "glass-input rounded-xl px-3 py-2.5 text-sm text-white outline-hidden disabled:cursor-not-allowed disabled:opacity-50";
 const buttonClass =
   "inline-flex items-center justify-center gap-2 rounded-xl border border-electric-500/20 bg-electric-500/10 px-3 py-2 text-xs font-semibold text-electric-200 transition hover:bg-electric-500/15 disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -315,7 +315,7 @@ export default function TasksPage() {
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="font-semibold text-white">{task.title}</h2>
-                    <span className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[10px] text-white/45">
+                    <span className="rounded-full border border-white/8 px-2 py-0.5 text-[10px] text-white/45">
                       {task.status}
                     </span>
                     <span className="rounded-full border border-purple-500/20 bg-purple-500/10 px-2 py-0.5 text-[10px] text-purple-300">
@@ -376,7 +376,7 @@ export default function TasksPage() {
               comments.map((entry) => (
                 <div
                   key={entry.id}
-                  className="rounded-xl border border-white/[0.06] bg-black/15 p-4"
+                  className="rounded-xl border border-white/6 bg-black/15 p-4"
                 >
                   <p className="whitespace-pre-wrap text-sm text-white/70">
                     {entry.body}

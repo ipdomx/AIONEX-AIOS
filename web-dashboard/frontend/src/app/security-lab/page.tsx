@@ -249,7 +249,7 @@ export default function SecurityLabPage() {
                     <th className="p-2">Severity</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/[0.05]">
+                <tbody className="divide-y divide-white/5">
                   {scans.slice(0, 50).map((scan) => {
                     const target = targets.find(
                       (item) => item.id === scan.target_id,
@@ -286,7 +286,7 @@ export default function SecurityLabPage() {
               {tools.map((tool) => (
                 <div
                   key={tool.id}
-                  className="rounded-xl border border-white/[0.06] bg-black/20 p-3"
+                  className="rounded-xl border border-white/6 bg-black/20 p-3"
                 >
                   <div className="text-xs font-medium text-white">
                     {tool.id}

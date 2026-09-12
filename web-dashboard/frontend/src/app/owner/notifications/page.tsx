@@ -77,7 +77,7 @@ export default function OwnerNotificationsPage() {
             <button
               key={value}
               onClick={() => setFilter(value)}
-              className={`rounded-xl border px-3 py-2 text-xs font-medium capitalize transition ${filter === value ? "border-electric-500/30 bg-electric-500/10 text-electric-300" : "border-white/[0.06] bg-white/[0.03] text-white/45 hover:bg-white/[0.06]"}`}
+              className={`rounded-xl border px-3 py-2 text-xs font-medium capitalize transition ${filter === value ? "border-electric-500/30 bg-electric-500/10 text-electric-300" : "border-white/6 bg-white/3 text-white/45 hover:bg-white/6"}`}
             >
               {value}
             </button>
@@ -120,9 +120,9 @@ export default function OwnerNotificationsPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.03 }}
-                className={`glass-card flex w-full items-start gap-4 p-5 text-left transition hover:bg-white/[0.05] disabled:cursor-default ${item.read ? "opacity-70" : "border border-electric-500/10"}`}
+                className={`glass-card flex w-full items-start gap-4 p-5 text-left transition hover:bg-white/5 disabled:cursor-default ${item.read ? "opacity-70" : "border border-electric-500/10"}`}
               >
-                <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-2.5">
+                <div className="rounded-xl border border-white/6 bg-white/3 p-2.5">
                   <Icon className={`h-5 w-5 ${iconClass}`} />
                 </div>
                 <div className="min-w-0 flex-1">

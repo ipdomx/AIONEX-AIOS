@@ -355,7 +355,7 @@ export default function Sidebar({
 
   const renderBadge = (badge?: number) =>
     !collapsed && badge ? (
-      <span className="flex-shrink-0 rounded-md bg-white/[0.08] px-1.5 py-0.5 text-[10px] font-semibold text-white/60">
+      <span className="shrink-0 rounded-md bg-white/8 px-1.5 py-0.5 text-[10px] font-semibold text-white/60">
         {badge}
       </span>
     ) : null;
@@ -379,13 +379,13 @@ export default function Sidebar({
             className={cn(
               "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all",
               active
-                ? "bg-white/[0.08] text-white"
-                : "text-white/50 hover:bg-white/[0.04] hover:text-white/80",
+                ? "bg-white/8 text-white"
+                : "text-white/50 hover:bg-white/4 hover:text-white/80",
             )}
           >
             <SectionIcon
               className={cn(
-                "h-[18px] w-[18px] flex-shrink-0",
+                "h-[18px] w-[18px] shrink-0",
                 active && "text-electric-400",
               )}
             />
@@ -419,8 +419,8 @@ export default function Sidebar({
                   className={cn(
                     "mt-0.5 space-y-0.5",
                     isRtl
-                      ? "mr-4 border-r border-white/[0.06] pr-3"
-                      : "ml-4 border-l border-white/[0.06] pl-3",
+                      ? "mr-4 border-r border-white/6 pr-3"
+                      : "ml-4 border-l border-white/6 pl-3",
                   )}
                 >
                   {section.children?.map((child) => {
@@ -433,14 +433,14 @@ export default function Sidebar({
                         className={cn(
                           "flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
                           isActive(child.href)
-                            ? "bg-white/[0.06] text-white"
-                            : "text-white/40 hover:bg-white/[0.03] hover:text-white/70",
+                            ? "bg-white/6 text-white"
+                            : "text-white/40 hover:bg-white/3 hover:text-white/70",
                         )}
                       >
                         <ChildIcon className="h-3.5 w-3.5" />
                         <span className="flex-1">{child.label}</span>
                         {child.badge ? (
-                          <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-white/50">
+                          <span className="rounded-md bg-white/6 px-1.5 py-0.5 text-[10px] text-white/50">
                             {child.badge}
                           </span>
                         ) : null}
@@ -464,13 +464,13 @@ export default function Sidebar({
         className={cn(
           "relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all",
           isActive(href)
-            ? "bg-white/[0.08] text-white"
-            : "text-white/50 hover:bg-white/[0.04] hover:text-white/80",
+            ? "bg-white/8 text-white"
+            : "text-white/50 hover:bg-white/4 hover:text-white/80",
         )}
       >
         <SectionIcon
           className={cn(
-            "h-[18px] w-[18px] flex-shrink-0",
+            "h-[18px] w-[18px] shrink-0",
             isActive(href) && "text-electric-400",
           )}
         />
@@ -489,12 +489,12 @@ export default function Sidebar({
       }}
       transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
-        "glass-strong fixed top-0 z-50 flex h-screen flex-col border-white/[0.06]",
+        "glass-strong fixed top-0 z-50 flex h-screen flex-col border-white/6",
         isRtl ? "right-0 border-l" : "left-0 border-r",
       )}
     >
-      <div className="flex h-16 items-center gap-3 border-b border-white/[0.06] px-4">
-        <div className="relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04]">
+      <div className="flex h-16 items-center gap-3 border-b border-white/6 px-4">
+        <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/8 bg-white/4">
           <Sparkles className="h-5 w-5 text-electric-300" />
         </div>
         {!collapsed && (
@@ -514,7 +514,7 @@ export default function Sidebar({
         )}
         <div className="space-y-1">{mainNavSections.map(renderSection)}</div>
         {!collapsed && favorites.length > 0 && (
-          <div className="mt-5 border-t border-white/[0.06] pt-4">
+          <div className="mt-5 border-t border-white/6 pt-4">
             <div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/25">
               Favorites
             </div>
@@ -523,7 +523,7 @@ export default function Sidebar({
                 key={favorite.id}
                 href={favorite.href}
                 onClick={onNavigate}
-                className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-white/45 hover:bg-white/[0.04] hover:text-white/75"
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-white/45 hover:bg-white/4 hover:text-white/75"
               >
                 <Star className="h-3.5 w-3.5" />
                 {favorite.label}
@@ -532,13 +532,13 @@ export default function Sidebar({
           </div>
         )}
       </div>
-      <div className="border-t border-white/[0.06] p-3">
+      <div className="border-t border-white/6 p-3">
         <div className="mb-2 space-y-1">
           {bottomNavSections.map(renderSection)}
         </div>
         <button
           onClick={onToggle}
-          className="flex w-full items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] p-2 text-white/40 hover:bg-white/[0.06] hover:text-white/70"
+          className="flex w-full items-center justify-center rounded-xl border border-white/6 bg-white/3 p-2 text-white/40 hover:bg-white/6 hover:text-white/70"
         >
           {collapsed ? (
             isRtl ? (

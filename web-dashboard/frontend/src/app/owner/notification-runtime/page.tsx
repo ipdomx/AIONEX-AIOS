@@ -169,7 +169,7 @@ export default function OwnerNotificationRuntimePage() {
                 return (
                   <span
                     key={channel}
-                    className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-2.5 py-1.5 text-xs text-white/55"
+                    className="rounded-lg border border-white/6 bg-white/3 px-2.5 py-1.5 text-xs text-white/55"
                   >
                     <Icon className="mr-1 inline h-3.5 w-3.5" />
                     {channel}
@@ -179,7 +179,7 @@ export default function OwnerNotificationRuntimePage() {
             </div>
             <button
               onClick={() => void toggle(item.id)}
-              className="mt-4 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white/70"
+              className="mt-4 rounded-lg border border-white/8 bg-white/4 px-3 py-2 text-xs text-white/70"
             >
               {item.enabled ? (
                 <ToggleRight className="mr-1 inline h-3.5 w-3.5" />

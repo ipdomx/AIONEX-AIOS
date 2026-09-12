@@ -99,7 +99,7 @@ export default function PermissionsPage() {
             <button
               key={role.id}
               onClick={() => chooseRole(role.id)}
-              className={`w-full rounded-xl px-3 py-3 text-left text-sm ${selectedRoleId === role.id ? "bg-electric-500/15 text-electric-200" : "bg-white/[0.02] text-white/55 hover:bg-white/[0.05]"}`}
+              className={`w-full rounded-xl px-3 py-3 text-left text-sm ${selectedRoleId === role.id ? "bg-electric-500/15 text-electric-200" : "bg-white/2 text-white/55 hover:bg-white/5"}`}
             >
               <span className="block font-semibold">{role.name}</span>
               <span className="mt-1 block text-[11px] opacity-60">
@@ -133,7 +133,7 @@ export default function PermissionsPage() {
             {grouped.map(([group, items]) => (
               <fieldset
                 key={group}
-                className="rounded-xl border border-white/[0.06] p-4"
+                className="rounded-xl border border-white/6 p-4"
               >
                 <legend className="px-1 text-xs font-semibold text-white/50">
                   {group}

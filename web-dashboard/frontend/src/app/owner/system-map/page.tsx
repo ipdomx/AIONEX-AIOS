@@ -52,7 +52,7 @@ function healthClass(health: string) {
     return "border-orange-500/20 bg-orange-500/10 text-orange-300";
   if (health === "critical")
     return "border-red-500/20 bg-red-500/10 text-red-400";
-  return "border-white/10 bg-white/[0.03] text-white/35";
+  return "border-white/10 bg-white/3 text-white/35";
 }
 
 export default function OwnerSystemMapPage() {
@@ -153,7 +153,7 @@ export default function OwnerSystemMapPage() {
           <select
             value={selectedRegion}
             onChange={(event) => setSelectedRegion(event.target.value)}
-            className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+            className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
           >
             {regions.map((region) => (
               <option key={region} value={region} className="bg-space-800">
@@ -182,7 +182,7 @@ export default function OwnerSystemMapPage() {
             >
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div className="flex items-start gap-3">
-                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.04] p-2.5">
+                  <div className="rounded-xl border border-white/6 bg-white/4 p-2.5">
                     <Icon className="h-5 w-5 text-electric-300" />
                   </div>
                   <div>
@@ -196,7 +196,7 @@ export default function OwnerSystemMapPage() {
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <div className="rounded-lg bg-white/[0.02] px-3 py-2 text-xs text-white/40">
+                  <div className="rounded-lg bg-white/2 px-3 py-2 text-xs text-white/40">
                     Latency{" "}
                     <span className="ml-1 font-semibold text-white">
                       {node.latency === null
@@ -204,13 +204,13 @@ export default function OwnerSystemMapPage() {
                         : `${node.latency}ms`}
                     </span>
                   </div>
-                  <div className="rounded-lg bg-white/[0.02] px-3 py-2 text-xs text-white/40">
+                  <div className="rounded-lg bg-white/2 px-3 py-2 text-xs text-white/40">
                     Load{" "}
                     <span className="ml-1 font-semibold text-white">
                       {node.load === null ? "Unavailable" : `${node.load}%`}
                     </span>
                   </div>
-                  <div className="rounded-lg bg-white/[0.02] px-3 py-2 text-xs text-white/40">
+                  <div className="rounded-lg bg-white/2 px-3 py-2 text-xs text-white/40">
                     Links{" "}
                     <span className="ml-1 font-semibold text-white">
                       {node.connections === null

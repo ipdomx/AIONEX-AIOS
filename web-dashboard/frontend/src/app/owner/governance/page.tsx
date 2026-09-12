@@ -43,7 +43,7 @@ import {
 type Tab = "bodies" | "policies" | "decisions";
 
 const inputClass =
-  "glass-input rounded-xl px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-50";
+  "glass-input rounded-xl px-3 py-2 text-sm text-white outline-hidden disabled:cursor-not-allowed disabled:opacity-50";
 const buttonClass =
   "inline-flex items-center justify-center gap-2 rounded-xl border border-electric-500/20 bg-electric-500/10 px-3 py-2 text-xs font-semibold text-electric-200 transition hover:bg-electric-500/15 disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -249,7 +249,7 @@ export default function OwnerGovernancePage() {
           <button
             key={value}
             onClick={() => setTab(value)}
-            className={`rounded-xl border px-4 py-2 text-xs font-medium capitalize ${tab === value ? "border-amber-500/25 bg-amber-500/10 text-amber-200" : "border-white/[0.07] bg-white/[0.03] text-white/45"}`}
+            className={`rounded-xl border px-4 py-2 text-xs font-medium capitalize ${tab === value ? "border-amber-500/25 bg-amber-500/10 text-amber-200" : "border-white/[0.07] bg-white/3 text-white/45"}`}
           >
             {value}
           </button>

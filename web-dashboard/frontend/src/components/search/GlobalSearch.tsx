@@ -235,7 +235,7 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[100] flex items-start justify-center px-4 pt-[12vh]"
+          className="fixed inset-0 z-100 flex items-start justify-center px-4 pt-[12vh]"
           onClick={onClose}
         >
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
@@ -246,7 +246,7 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
             className="glass-card relative w-full max-w-2xl overflow-hidden shadow-modal"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-center gap-3 border-b border-white/[0.06] px-4 py-4">
+            <div className="flex items-center gap-3 border-b border-white/6 px-4 py-4">
               <Search className="h-5 w-5 text-white/30" />
               <input
                 ref={inputRef}
@@ -256,7 +256,7 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
                   setSelectedIndex(0);
                 }}
                 placeholder="Search pages and Owner modules…"
-                className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/30"
+                className="flex-1 bg-transparent text-sm text-white outline-hidden placeholder:text-white/30"
               />
               {query && (
                 <button
@@ -270,7 +270,7 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
                   <X className="h-4 w-4 text-white/30 hover:text-white/60" />
                 </button>
               )}
-              <kbd className="rounded-md border border-white/[0.08] bg-white/[0.06] px-2 py-1 font-mono text-[10px] text-white/40">
+              <kbd className="rounded-md border border-white/8 bg-white/6 px-2 py-1 font-mono text-[10px] text-white/40">
                 ESC
               </kbd>
             </div>
@@ -286,14 +286,14 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
                     onMouseEnter={() => setSelectedIndex(index)}
                     onClick={() => openResult(result)}
                     className={`flex w-full items-center gap-3 px-4 py-3 text-left transition ${
-                      selected ? "bg-white/[0.08]" : "hover:bg-white/[0.03]"
+                      selected ? "bg-white/8" : "hover:bg-white/3"
                     }`}
                   >
                     <span
-                      className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
                         result.type === "owner"
                           ? "bg-electric-500/20 text-electric-400"
-                          : "bg-white/[0.05] text-white/55"
+                          : "bg-white/5 text-white/55"
                       }`}
                     >
                       <Icon className="h-4 w-4" />
@@ -306,7 +306,7 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
                         {result.subtitle}
                       </span>
                     </span>
-                    <span className="rounded bg-white/[0.05] px-1.5 py-0.5 text-[10px] uppercase text-white/35">
+                    <span className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] uppercase text-white/35">
                       {result.type}
                     </span>
                     <ArrowRight
@@ -326,7 +326,7 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
                 </div>
               )}
             </div>
-            <div className="border-t border-white/[0.06] bg-white/[0.02] px-4 py-2.5 text-right text-[10px] text-white/25">
+            <div className="border-t border-white/6 bg-white/2 px-4 py-2.5 text-right text-[10px] text-white/25">
               {filteredResults.length} reachable pages
             </div>
           </motion.div>

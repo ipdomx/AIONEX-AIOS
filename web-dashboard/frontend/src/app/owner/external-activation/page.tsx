@@ -49,7 +49,7 @@ const statusMeta: Record<
   },
   excluded_current_scope: {
     label: "Excluded from current closeout scope",
-    className: "border-white/10 bg-white/[0.03] text-white/45",
+    className: "border-white/10 bg-white/3 text-white/45",
     icon: Ban,
   },
 };
@@ -137,7 +137,7 @@ function EvidenceWorkflow({
 
   if (!gate.owner_evidence_reviewable) {
     return (
-      <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3 text-xs leading-5 text-white/40">
+      <div className="rounded-xl border border-white/[0.07] bg-white/2 p-3 text-xs leading-5 text-white/40">
         {t(
           "Runtime-derived gate. Manual evidence cannot activate or override this boundary.",
         )}
@@ -146,7 +146,7 @@ function EvidenceWorkflow({
   }
 
   return (
-    <div className="space-y-4 rounded-xl border border-white/[0.08] bg-black/10 p-4">
+    <div className="space-y-4 rounded-xl border border-white/8 bg-black/10 p-4">
       <div>
         <div className="text-xs font-semibold text-white/75">
           {t("Governed Owner evidence")}
@@ -159,7 +159,7 @@ function EvidenceWorkflow({
       </div>
 
       {gate.owner_evidence && (
-        <dl className="grid gap-2 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 text-[11px] sm:grid-cols-2">
+        <dl className="grid gap-2 rounded-lg border border-white/6 bg-white/2 p-3 text-[11px] sm:grid-cols-2">
           <div>
             <dt className="text-white/30">{t("Review status")}</dt>
             <dd className="mt-0.5 text-white/70">
@@ -168,7 +168,7 @@ function EvidenceWorkflow({
           </div>
           <div>
             <dt className="text-white/30">{t("Issuer")}</dt>
-            <dd className="mt-0.5 break-words text-white/70">
+            <dd className="mt-0.5 wrap-break-word text-white/70">
               {gate.owner_evidence.issuer}
             </dd>
           </div>
@@ -195,28 +195,28 @@ function EvidenceWorkflow({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <input
-          className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-none focus:border-electric-400/50"
+          className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-hidden focus:border-electric-400/50"
           placeholder={t("Evidence reference / vault URI")}
           value={reference}
           onChange={(event) => setReference(event.target.value)}
           maxLength={500}
         />
         <input
-          className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 font-mono text-xs text-white outline-none focus:border-electric-400/50"
+          className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 font-mono text-xs text-white outline-hidden focus:border-electric-400/50"
           placeholder="SHA-256"
           value={sha256}
           onChange={(event) => setSha256(event.target.value)}
           maxLength={64}
         />
         <input
-          className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-none focus:border-electric-400/50"
+          className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-hidden focus:border-electric-400/50"
           placeholder={t("Issuer / authority")}
           value={issuer}
           onChange={(event) => setIssuer(event.target.value)}
           maxLength={200}
         />
         <input
-          className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-none focus:border-electric-400/50"
+          className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-hidden focus:border-electric-400/50"
           type="datetime-local"
           aria-label={t("Evidence expiry")}
           value={expiresAt}
@@ -224,7 +224,7 @@ function EvidenceWorkflow({
         />
       </div>
       <textarea
-        className="min-h-20 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-none focus:border-electric-400/50"
+        className="min-h-20 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-hidden focus:border-electric-400/50"
         placeholder={t("Evidence notes")}
         value={notes}
         onChange={(event) => setNotes(event.target.value)}
@@ -245,9 +245,9 @@ function EvidenceWorkflow({
       </button>
 
       {gate.owner_evidence && (
-        <div className="space-y-3 border-t border-white/[0.06] pt-4">
+        <div className="space-y-3 border-t border-white/6 pt-4">
           <textarea
-            className="min-h-16 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-none focus:border-electric-400/50"
+            className="min-h-16 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-hidden focus:border-electric-400/50"
             placeholder={t("Review note")}
             value={reviewNote}
             onChange={(event) => setReviewNote(event.target.value)}
@@ -306,7 +306,7 @@ function GateCard({
     <article className="glass-card space-y-5 p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h2 className="break-words text-base font-semibold text-white">
+          <h2 className="wrap-break-word text-base font-semibold text-white">
             {label(gate.gate_id)}
           </h2>
           <p className="mt-1 break-all font-mono text-[10px] text-white/30">
@@ -363,7 +363,7 @@ function GateCard({
                 <dt className="text-[10px] text-white/30">
                   {key.replaceAll("_", " ")}
                 </dt>
-                <dd className="mt-0.5 break-words text-xs text-white/65">
+                <dd className="mt-0.5 wrap-break-word text-xs text-white/65">
                   {evidenceValue(value)}
                 </dd>
               </div>

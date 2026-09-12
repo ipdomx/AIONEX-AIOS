@@ -145,13 +145,13 @@ export default function OrganizationsPage() {
               </span>
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3 text-center text-xs text-white/45">
-              <div className="rounded-xl bg-white/[0.03] p-3">
+              <div className="rounded-xl bg-white/3 p-3">
                 <div className="text-lg font-bold text-white">
                   {item.member_count}
                 </div>
                 Members
               </div>
-              <div className="rounded-xl bg-white/[0.03] p-3">
+              <div className="rounded-xl bg-white/3 p-3">
                 <div className="text-lg font-bold text-white">
                   {item.role_count}
                 </div>

@@ -126,14 +126,14 @@ export default function OwnerFinalizationPage() {
             </div>
           </div>
           <div
-            className={`rounded-full border px-4 py-2 text-sm ${snapshot.generatedAt ? "border-green-500/20 bg-green-500/10 text-green-300" : "border-white/10 bg-white/[0.04] text-white/45"}`}
+            className={`rounded-full border px-4 py-2 text-sm ${snapshot.generatedAt ? "border-green-500/20 bg-green-500/10 text-green-300" : "border-white/10 bg-white/4 text-white/45"}`}
           >
             {snapshot.generatedAt
               ? "Verified readiness result"
               : "Awaiting readiness data"}
           </div>
         </div>
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.05]">
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/5">
           <div
             className="h-full rounded-full bg-electric-400"
             style={{

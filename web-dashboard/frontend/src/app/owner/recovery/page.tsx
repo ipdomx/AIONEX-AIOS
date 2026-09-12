@@ -95,7 +95,7 @@ export default function OwnerRecoveryPage() {
         <button
           onClick={createBackup}
           disabled={loading || busy || processing}
-          className="glass-card p-5 text-left transition hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-50"
+          className="glass-card p-5 text-left transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <DatabaseBackup className="h-6 w-6 text-electric-300" />
           <h2 className="mt-4 text-sm font-semibold text-white">
@@ -108,7 +108,7 @@ export default function OwnerRecoveryPage() {
         <button
           onClick={validateRestore}
           disabled={loading || busy || processing || !completedBackupAvailable}
-          className="glass-card p-5 text-left transition hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-50"
+          className="glass-card p-5 text-left transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <RotateCcw className="h-6 w-6 text-purple-300" />
           <h2 className="mt-4 text-sm font-semibold text-white">
@@ -122,7 +122,7 @@ export default function OwnerRecoveryPage() {
         <button
           onClick={runDisasterRecoveryDrill}
           disabled={loading || busy || processing || !completedBackupAvailable}
-          className="glass-card p-5 text-left transition hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-50"
+          className="glass-card p-5 text-left transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <ShieldAlert className="h-6 w-6 text-orange-300" />
           <h2 className="mt-4 text-sm font-semibold text-white">
@@ -135,13 +135,13 @@ export default function OwnerRecoveryPage() {
       </div>
 
       <section className="glass-card overflow-hidden">
-        <div className="flex items-center justify-between border-b border-white/[0.06] p-5">
+        <div className="flex items-center justify-between border-b border-white/6 p-5">
           <h2 className="text-sm font-semibold text-white">Protected assets</h2>
           <button
             type="button"
             onClick={() => void reload()}
             disabled={loading || busy}
-            className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/60 transition hover:bg-white/[0.05] disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/60 transition hover:bg-white/5 disabled:opacity-50"
           >
             <RefreshCw
               className={`h-3.5 w-3.5 ${processing ? "animate-spin" : ""}`}
@@ -149,7 +149,7 @@ export default function OwnerRecoveryPage() {
             Refresh
           </button>
         </div>
-        <div className="divide-y divide-white/[0.05]">
+        <div className="divide-y divide-white/5">
           {!loading && items.length === 0 && (
             <div className="p-5 text-sm text-white/45">
               No backup or recovery requests exist yet.

@@ -99,7 +99,7 @@ const fallbackDepartments: StudioDepartment[] = [
     id: "documentary",
     name: "Documentary Studio",
     asset_type: "documentary",
-    outputs: ["research outline", "narration", "evidence checklist"],
+    outputs: ["research outline-solid", "narration", "evidence checklist"],
   },
   {
     id: "image",
@@ -371,8 +371,9 @@ export default function StudioPage() {
           <p className="mt-2 max-w-4xl text-sm leading-6 text-white/50">
             Provider-neutral text, image, audio, video, web, code, design, and
             3D jobs with durable assets, revisions, safety evidence, verified
-            downloads, and project attachment. External media providers are governed by the completed provider runtime and
-            remain unavailable unless they are explicitly configured.
+            downloads, and project attachment. External media providers are
+            governed by the completed provider runtime and remain unavailable
+            unless they are explicitly configured.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -407,7 +408,7 @@ export default function StudioPage() {
               key={item.id}
               type="button"
               onClick={() => setDepartment(item.id)}
-              className={`glass-card p-4 text-left transition ${active ? "border-electric-400/50 bg-electric-500/10" : "hover:bg-white/[0.04]"}`}
+              className={`glass-card p-4 text-left transition ${active ? "border-electric-400/50 bg-electric-500/10" : "hover:bg-white/4"}`}
             >
               <Icon
                 className={`h-5 w-5 ${active ? "text-electric-300" : "text-white/40"}`}
@@ -443,7 +444,7 @@ export default function StudioPage() {
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="Project title"
-            className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
+            className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-hidden"
           />
           <textarea
             required
@@ -451,26 +452,26 @@ export default function StudioPage() {
             value={brief}
             onChange={(event) => setBrief(event.target.value)}
             placeholder="Describe the output, audience, scenes, dimensions, accessibility, evidence, and source requirements..."
-            className="glass-input min-h-48 w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
+            className="glass-input min-h-48 w-full rounded-xl px-4 py-3 text-sm text-white outline-hidden"
           />
           <div className="grid gap-3 sm:grid-cols-2">
             <input
               value={style}
               onChange={(event) => setStyle(event.target.value)}
               placeholder="Style"
-              className="glass-input rounded-xl px-4 py-3 text-sm text-white outline-none"
+              className="glass-input rounded-xl px-4 py-3 text-sm text-white outline-hidden"
             />
             <input
               value={target}
               onChange={(event) => setTarget(event.target.value)}
               placeholder="Target audience or platform"
-              className="glass-input rounded-xl px-4 py-3 text-sm text-white outline-none"
+              className="glass-input rounded-xl px-4 py-3 text-sm text-white outline-hidden"
             />
           </div>
           <select
             value={projectId}
             onChange={(event) => setProjectId(event.target.value)}
-            className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
+            className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-hidden"
           >
             <option value="" className="bg-space-900">
               No project attachment yet
@@ -489,7 +490,7 @@ export default function StudioPage() {
             <select
               value={programmingLanguage}
               onChange={(event) => setProgrammingLanguage(event.target.value)}
-              className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none"
+              className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-hidden"
             >
               {[
                 "python",
@@ -519,7 +520,7 @@ export default function StudioPage() {
             Queue durable Studio job
           </button>
         </div>
-        <aside className="rounded-2xl border border-white/[0.06] bg-black/20 p-5">
+        <aside className="rounded-2xl border border-white/6 bg-black/20 p-5">
           <div className="text-xs font-semibold uppercase tracking-wider text-white/35">
             Governed output contract
           </div>
@@ -550,7 +551,7 @@ export default function StudioPage() {
           {jobs.slice(0, 20).map((job) => (
             <div
               key={job.id}
-              className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4"
+              className="rounded-xl border border-white/6 bg-white/2 p-4"
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <div className="min-w-0 flex-1">
@@ -608,7 +609,7 @@ export default function StudioPage() {
           {assets.map((asset) => (
             <div
               key={asset.id}
-              className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4"
+              className="rounded-xl border border-white/6 bg-white/2 p-4"
             >
               <div className="flex items-start gap-3">
                 <ShieldCheck className="mt-0.5 h-5 w-5 text-green-300" />
@@ -636,7 +637,7 @@ export default function StudioPage() {
                       type="button"
                       disabled={busy !== null}
                       onClick={() => void revise(asset)}
-                      className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white/65"
+                      className="rounded-lg border border-white/10 bg-white/4 px-3 py-2 text-xs text-white/65"
                       aria-label="New revision"
                     >
                       <RotateCcw className="mr-1 inline h-3.5 w-3.5" /> New
@@ -646,7 +647,7 @@ export default function StudioPage() {
                       type="button"
                       disabled={busy !== null}
                       onClick={() => void attach(asset)}
-                      className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white/65"
+                      className="rounded-lg border border-white/10 bg-white/4 px-3 py-2 text-xs text-white/65"
                       aria-label="Attach to project"
                     >
                       <Paperclip className="mr-1 inline h-3.5 w-3.5" /> Attach
@@ -656,7 +657,7 @@ export default function StudioPage() {
                       type="button"
                       disabled={busy !== null}
                       onClick={() => void archive(asset)}
-                      className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white/45"
+                      className="rounded-lg border border-white/10 bg-white/4 px-3 py-2 text-xs text-white/45"
                     >
                       <Archive className="mr-1 inline h-3.5 w-3.5" /> Archive
                     </button>

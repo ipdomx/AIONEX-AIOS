@@ -49,10 +49,10 @@ export default function OwnerDashboardPage() {
         <div className="flex min-w-0 flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">
             <div className="mb-2 inline-flex max-w-full items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-[11px] font-medium text-electric-300 sm:text-xs">
-              <Gauge className="h-3.5 w-3.5 flex-shrink-0" />
+              <Gauge className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">Super Owner Command Center</span>
             </div>
-            <h1 className="break-words text-2xl font-bold tracking-tight text-white sm:text-3xl xl:text-4xl">
+            <h1 className="wrap-break-word text-2xl font-bold tracking-tight text-white sm:text-3xl xl:text-4xl">
               AIONEX AIOS Owner Dashboard
             </h1>
             <p className="mt-2 max-w-4xl text-sm leading-relaxed text-white/45">
@@ -120,11 +120,11 @@ export default function OwnerDashboardPage() {
         return (
           <section key={section.id} className="min-w-0 space-y-3">
             <div className="flex min-w-0 items-center gap-2">
-              <SectionIcon className="h-4 w-4 flex-shrink-0 text-electric-300" />
+              <SectionIcon className="h-4 w-4 shrink-0 text-electric-300" />
               <h2 className="truncate text-sm font-semibold text-white">
                 {section.label}
               </h2>
-              <span className="flex-shrink-0 text-xs text-white/30">
+              <span className="shrink-0 text-xs text-white/30">
                 {section.items.length} pages
               </span>
             </div>
@@ -141,13 +141,13 @@ export default function OwnerDashboardPage() {
                   >
                     <Link
                       href={item.href}
-                      className="glass-card block h-full min-w-0 p-4 transition hover:bg-white/[0.05] sm:p-5"
+                      className="glass-card block h-full min-w-0 p-4 transition hover:bg-white/5 sm:p-5"
                     >
                       <Icon className="h-5 w-5 text-electric-300" />
-                      <h3 className="mt-4 break-words text-sm font-semibold text-white">
+                      <h3 className="mt-4 wrap-break-word text-sm font-semibold text-white">
                         {item.label}
                       </h3>
-                      <p className="mt-2 break-words text-xs leading-relaxed text-white/40">
+                      <p className="mt-2 wrap-break-word text-xs leading-relaxed text-white/40">
                         {item.description}
                       </p>
                     </Link>
@@ -168,9 +168,9 @@ export default function OwnerDashboardPage() {
             <Link
               key={item.label}
               href={item.href}
-              className="flex min-w-0 items-center gap-2 rounded-xl border border-white/[0.05] bg-white/[0.02] px-3 py-3 text-xs text-white/60 transition hover:bg-white/[0.05] hover:text-white"
+              className="flex min-w-0 items-center gap-2 rounded-xl border border-white/5 bg-white/2 px-3 py-3 text-xs text-white/60 transition hover:bg-white/5 hover:text-white"
             >
-              <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0 text-green-400" />
+              <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-400" />
               <span className="truncate">{item.label}</span>
             </Link>
           ))}

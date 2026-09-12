@@ -122,7 +122,7 @@ export default function OwnerAuditPage() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search actor, action or target..."
-              className="glass-input w-full rounded-xl py-2.5 pl-10 pr-4 text-sm text-white outline-none"
+              className="glass-input w-full rounded-xl py-2.5 pl-10 pr-4 text-sm text-white outline-hidden"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -130,7 +130,7 @@ export default function OwnerAuditPage() {
             <select
               value={severity}
               onChange={(event) => setSeverity(event.target.value)}
-              className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+              className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
             >
               {severityOptions.map((option) => (
                 <option key={option} value={option} className="bg-space-800">
@@ -161,7 +161,7 @@ export default function OwnerAuditPage() {
           >
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-start gap-3">
-                <div className="rounded-xl border border-white/[0.06] bg-white/[0.04] p-2.5">
+                <div className="rounded-xl border border-white/6 bg-white/4 p-2.5">
                   <UserRound className="h-4 w-4 text-electric-300" />
                 </div>
                 <div>

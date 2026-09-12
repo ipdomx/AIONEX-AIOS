@@ -95,7 +95,7 @@ function Field({
   );
 }
 const inputClass =
-  "w-full rounded-xl border border-white/10 bg-black/20 px-3.5 py-3 text-sm text-white outline-none focus:border-electric-300/45";
+  "w-full rounded-xl border border-white/10 bg-black/20 px-3.5 py-3 text-sm text-white outline-hidden focus:border-electric-300/45";
 const buttonClass =
   "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -269,14 +269,14 @@ export default function OwnerPortalControlPage() {
             href="https://ai.vip-e.net/ar/"
             target="_blank"
             rel="noreferrer"
-            className={`${buttonClass} border border-white/10 bg-white/[0.04] text-white/70`}
+            className={`${buttonClass} border border-white/10 bg-white/4 text-white/70`}
           >
             <Eye className="h-4 w-4" /> Open portal
           </a>
           <button
             onClick={() => void load()}
             disabled={saving}
-            className={`${buttonClass} border border-white/10 bg-white/[0.04] text-white/70`}
+            className={`${buttonClass} border border-white/10 bg-white/4 text-white/70`}
           >
             <RefreshCw className="h-4 w-4" /> Refresh
           </button>
@@ -290,7 +290,7 @@ export default function OwnerPortalControlPage() {
           <button
             onClick={() => void publish()}
             disabled={saving}
-            className={`${buttonClass} bg-gradient-to-r from-electric-500 to-violet-500 text-white`}
+            className={`${buttonClass} bg-linear-to-r from-electric-500 to-violet-500 text-white`}
           >
             <Rocket className="h-4 w-4" /> Publish
           </button>
@@ -317,13 +317,13 @@ export default function OwnerPortalControlPage() {
         {dirty && " — Unsaved changes."}
       </div>
 
-      <div className="flex flex-wrap gap-2 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-2">
+      <div className="flex flex-wrap gap-2 rounded-2xl border border-white/[0.07] bg-white/2 p-2">
         {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             type="button"
             onClick={() => setTab(id)}
-            className={`${buttonClass} ${tab === id ? "bg-white text-ink-950" : "text-white/55 hover:bg-white/[0.05]"}`}
+            className={`${buttonClass} ${tab === id ? "bg-white text-ink-950" : "text-white/55 hover:bg-white/5"}`}
           >
             <Icon className="h-4 w-4" />
             {label}

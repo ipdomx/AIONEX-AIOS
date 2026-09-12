@@ -22,8 +22,8 @@ const statusClass: Record<ComplianceControl["status"], string> = {
   partial: "border-orange-500/20 bg-orange-500/10 text-orange-300",
   warning: "border-orange-500/20 bg-orange-500/10 text-orange-300",
   non_compliant: "border-red-500/20 bg-red-500/10 text-red-300",
-  not_applicable: "border-white/10 bg-white/[0.03] text-white/40",
-  not_assessed: "border-white/10 bg-white/[0.03] text-white/40",
+  not_applicable: "border-white/10 bg-white/3 text-white/40",
+  not_assessed: "border-white/10 bg-white/3 text-white/40",
 };
 
 type SummaryCard = readonly [label: string, value: number, icon: LucideIcon];
@@ -198,7 +198,7 @@ export default function OwnerComplianceRuntimePage() {
                     }))
                   }
                   placeholder="Evidence reference, URL, ticket, or artifact ID"
-                  className="glass-input w-full rounded-lg px-3 py-2 text-xs text-white outline-none"
+                  className="glass-input w-full rounded-lg px-3 py-2 text-xs text-white outline-hidden"
                 />
               </label>
               <button

@@ -181,7 +181,7 @@ export default function OwnerProductionRuntimePage() {
           </div>
           <ShieldCheck className="h-8 w-8 text-electric-300" />
         </div>
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.05]">
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/5">
           <div
             className="h-full rounded-full bg-electric-400"
             style={{
@@ -229,7 +229,7 @@ export default function OwnerProductionRuntimePage() {
           ].map(([label, value]) => (
             <div
               key={String(label)}
-              className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3"
+              className="rounded-xl border border-white/6 bg-white/3 p-3"
             >
               <div className="text-lg font-semibold text-white">{value}</div>
               <div className="mt-1 text-[11px] text-white/35">{label}</div>
@@ -285,7 +285,7 @@ export default function OwnerProductionRuntimePage() {
               <button
                 disabled={loading || actingTarget !== null}
                 onClick={() => void command(item.id, "validate")}
-                className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white/70 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg border border-white/8 bg-white/4 px-3 py-2 text-xs text-white/70 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {actingTarget === item.id ? "Validating…" : "Validate"}
               </button>

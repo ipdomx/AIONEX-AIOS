@@ -137,7 +137,7 @@ export default function ProjectsPage() {
             <button
               type="button"
               onClick={() => setShowCreate(false)}
-              className="p-1.5 rounded-lg hover:bg-white/[0.06]"
+              className="p-1.5 rounded-lg hover:bg-white/6"
             >
               <X className="w-4 h-4 text-white/50" />
             </button>
@@ -148,19 +148,19 @@ export default function ProjectsPage() {
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="Project name"
-            className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white outline-none"
+            className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white outline-hidden"
           />
           <textarea
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             placeholder="Description"
-            className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white outline-none min-h-24"
+            className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white outline-hidden min-h-24"
           />
           <select
             required
             value={workspaceId}
             onChange={(event) => setWorkspaceId(event.target.value)}
-            className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white outline-none"
+            className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white outline-hidden"
           >
             <option value="" className="bg-space-800">
               Select a workspace
@@ -183,7 +183,7 @@ export default function ProjectsPage() {
           <select
             value={priority}
             onChange={(event) => setPriority(event.target.value)}
-            className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white outline-none"
+            className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white outline-hidden"
           >
             <option value="low" className="bg-space-800">
               Low
@@ -217,13 +217,13 @@ export default function ProjectsPage() {
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Search projects..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl glass-input text-sm text-white placeholder-white/30 outline-none"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl glass-input text-sm text-white placeholder-white/30 outline-hidden"
           />
         </div>
         <select
           value={statusFilter}
           onChange={(event) => setStatusFilter(event.target.value)}
-          className="px-4 py-2.5 rounded-xl glass-input text-sm text-white outline-none"
+          className="px-4 py-2.5 rounded-xl glass-input text-sm text-white outline-hidden"
         >
           <option value="all" className="bg-space-800">
             All Status
@@ -269,7 +269,7 @@ export default function ProjectsPage() {
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center border border-white/[0.08]">
+                  <div className="w-10 h-10 rounded-xl bg-linear-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center border border-white/8">
                     <FolderOpen className="w-5 h-5 text-blue-400" />
                   </div>
                   <div>
@@ -292,29 +292,29 @@ export default function ProjectsPage() {
                     {project.progress}%
                   </span>
                 </div>
-                <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                <div className="h-1.5 rounded-full bg-white/6 overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${project.progress}%` }}
-                    className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-500"
+                    className="h-full rounded-full bg-linear-to-r from-blue-500 to-cyan-500"
                   />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2 mb-4">
-                <div className="text-center p-2 rounded-lg bg-white/[0.02]">
+                <div className="text-center p-2 rounded-lg bg-white/2">
                   <div className="text-xs font-bold text-white">
                     {project.task_count}
                   </div>
                   <div className="text-[10px] text-white/30">Tasks</div>
                 </div>
-                <div className="text-center p-2 rounded-lg bg-white/[0.02]">
+                <div className="text-center p-2 rounded-lg bg-white/2">
                   <div className="text-xs font-bold text-white">
                     {project.team_count}
                   </div>
                   <div className="text-[10px] text-white/30">Members</div>
                 </div>
               </div>
-              <div className="flex items-center justify-between pt-3 border-t border-white/[0.06]">
+              <div className="flex items-center justify-between pt-3 border-t border-white/6">
                 <div className="flex items-center gap-2">
                   <Users className="w-3.5 h-3.5 text-white/30" />
                   <span className="text-xs text-white/40">
