@@ -190,7 +190,17 @@ if [ "$(id -u)" = "0" ]; then
 
     media_storage_root="${MEDIA_STORAGE_ROOT-/var/lib/aionex/media-assets}"
     if [ -n "$media_storage_root" ]; then
-        install -d -m 0700 -o aionex -g aionex "$media_storage_root"
+        if ! install -d -m 0700 -o aionex -g aionex "$media_storage_root" 2>/dev/null; then
+            if [ ! -d "$media_storage_root" ] || [ ! -r "$media_storage_root" ] || [ ! -x "$media_storage_root" ] || [ -L "$media_storage_root" ]; then
+                echo "Unable to prepare private media asset root" >&2
+                exit 1
+            fi
+            media_storage_meta="$(stat -c '%a:%u:%g' "$media_storage_root")"
+            if [ "$media_storage_meta" != "700:1000:1000" ]; then
+                echo "Private media asset root is not owned or permissioned correctly" >&2
+                exit 1
+            fi
+        fi
     fi
 
     mobile_release_root="${MOBILE_RELEASE_ROOT-/var/lib/aionex/mobile-releases}"
