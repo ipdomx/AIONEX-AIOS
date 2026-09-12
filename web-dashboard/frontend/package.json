@@ -59,7 +59,6 @@
     "@vercel/speed-insights": "^1.0.0",
     "@wavesurfer/react": "^1.0.0",
     "accept-language-parser": "^1.5.0",
-    "autoprefixer": "^10.4.0",
     "axios": "^1.20.0",
     "canvas-confetti": "^1.9.0",
     "clsx": "^2.1.0",
@@ -102,16 +101,15 @@
     "screenfull": "^6.0.0",
     "socket.io-client": "^4.7.0",
     "tailwind-merge": "^2.2.0",
-    "tailwindcss": "^3.4.0",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5.4.0",
     "use-sound": "^5.0.0",
     "wavesurfer.js": "^7.7.0",
-    "zod": "^3.22.0"
+    "zod": "^3.22.0",
+    "@tailwindcss/postcss": "^4.3.3"
   },
   "devDependencies": {
-    "@tailwindcss/aspect-ratio": "^0.4.0",
-    "@tailwindcss/forms": "^0.5.0",
-    "@tailwindcss/typography": "^0.5.0",
+    "@tailwindcss/forms": "^0.5.11",
     "@types/react-virtualized": "^9.21.0",
     "@typescript-eslint/eslint-plugin": "^7.4.0",
     "@typescript-eslint/parser": "^7.4.0",
@@ -119,9 +117,7 @@
     "eslint-config-next": "15.5.25",
     "prettier": "^3.2.0",
     "prettier-plugin-tailwindcss": "^0.8.1",
-    "sharp": "0.35.4",
-    "tailwind-scrollbar": "^3.1.0",
-    "tailwindcss-animate": "^1.0.0"
+    "sharp": "0.35.4"
   },
   "overrides": {
     "postcss": "8.5.26",

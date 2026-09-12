@@ -122,7 +122,7 @@ export default function OwnerTimelinePage() {
             onChange={(event) =>
               setCategory(event.target.value as typeof category)
             }
-            className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+            className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
           >
             <option value="all" className="bg-space-800">
               All categories

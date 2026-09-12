@@ -51,7 +51,7 @@ type Tab =
   "accounts" | "payments" | "commerce" | "licenses" | "stores" | "operations";
 
 const inputClass =
-  "glass-input rounded-xl px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-50";
+  "glass-input rounded-xl px-3 py-2 text-sm text-white outline-hidden disabled:cursor-not-allowed disabled:opacity-50";
 const buttonClass =
   "inline-flex items-center justify-center gap-2 rounded-xl border border-electric-500/20 bg-electric-500/10 px-3 py-2 text-xs font-semibold text-electric-200 transition hover:bg-electric-500/15 disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -409,7 +409,7 @@ export default function OwnerBillingPage() {
           return (
             <div key={String(label)} className="glass-card p-4">
               <MetricIcon className="h-5 w-5 text-electric-300" />
-              <div className="mt-3 break-words text-xl font-bold text-white">
+              <div className="mt-3 wrap-break-word text-xl font-bold text-white">
                 {String(value)}
               </div>
               <div className="mt-1 text-xs text-white/35">{String(label)}</div>
@@ -422,7 +422,7 @@ export default function OwnerBillingPage() {
         {message}
       </div>
 
-      <div className="flex flex-wrap gap-2 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-2">
+      <div className="flex flex-wrap gap-2 rounded-2xl border border-white/[0.07] bg-white/2 p-2">
         {tabs.map(([id, label]) => (
           <button
             key={id}
@@ -431,7 +431,7 @@ export default function OwnerBillingPage() {
             className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
               tab === id
                 ? "bg-white text-ink-950"
-                : "text-white/50 hover:bg-white/[0.05]"
+                : "text-white/50 hover:bg-white/5"
             }`}
           >
             {label}
@@ -480,7 +480,7 @@ export default function OwnerBillingPage() {
                     licensed seats · period ends{" "}
                     {dateValue(account.current_period_end)}
                   </p>
-                  <p className="mt-2 max-w-3xl break-words text-[11px] text-white/30">
+                  <p className="mt-2 max-w-3xl wrap-break-word text-[11px] text-white/30">
                     Limits: {JSON.stringify(account.limits)} · Entitlements:{" "}
                     {account.entitlements.join(", ") || "none"}
                   </p>
@@ -1156,7 +1156,7 @@ export default function OwnerBillingPage() {
                   <p className="font-semibold text-white">
                     {item.provider} · {item.status}
                   </p>
-                  <p className="mt-2 break-words text-xs text-white/35">
+                  <p className="mt-2 wrap-break-word text-xs text-white/35">
                     {JSON.stringify(item.summary)}
                   </p>
                   <p className="mt-2 text-[11px] text-white/25">

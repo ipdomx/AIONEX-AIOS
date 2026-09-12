@@ -147,7 +147,7 @@ export default function OwnerExecutiveBIPage() {
                   className={`h-5 w-5 ${insight.severity === "critical" ? "text-red-300" : insight.severity === "warning" ? "text-orange-300" : "text-electric-300"}`}
                 />
               </div>
-              <div className="mt-4 rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 text-xs text-white/60">
+              <div className="mt-4 rounded-xl border border-white/6 bg-white/3 p-4 text-xs text-white/60">
                 <span className="font-semibold text-white">
                   Recommendation:
                 </span>{" "}

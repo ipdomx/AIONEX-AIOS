@@ -152,13 +152,13 @@ export default function OwnerStaffPage() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search worker, role, department, ministry or organization..."
-              className="glass-input w-full rounded-xl py-2.5 pl-10 pr-4 text-sm text-white outline-none"
+              className="glass-input w-full rounded-xl py-2.5 pl-10 pr-4 text-sm text-white outline-hidden"
             />
           </div>
           <select
             value={kind}
             onChange={(event) => setKind(event.target.value)}
-            className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+            className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
           >
             <option value="all" className="bg-space-800">
               All Workforce
@@ -173,7 +173,7 @@ export default function OwnerStaffPage() {
           <select
             value={status}
             onChange={(event) => setStatus(event.target.value)}
-            className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+            className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
           >
             {statusOptions.map((option) => (
               <option key={option} value={option} className="bg-space-800">
@@ -206,12 +206,12 @@ export default function OwnerStaffPage() {
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex items-center gap-3">
-                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.04] p-2.5">
+                    <div className="rounded-xl border border-white/6 bg-white/4 p-2.5">
                       <MemberIcon className="h-5 w-5 text-purple-300" />
                     </div>
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="break-words text-sm font-semibold text-white">
+                        <h2 className="wrap-break-word text-sm font-semibold text-white">
                           {member.name}
                         </h2>
                         <span className="rounded-full border border-white/[0.07] px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/35">
@@ -263,7 +263,7 @@ export default function OwnerStaffPage() {
                     ].map((metric) => (
                       <div
                         key={metric.label}
-                        className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-3"
+                        className="rounded-xl border border-white/5 bg-white/2 p-3"
                       >
                         <metric.icon className="h-3.5 w-3.5 text-electric-300" />
                         <div className="mt-2 text-sm font-semibold text-white">
@@ -277,7 +277,7 @@ export default function OwnerStaffPage() {
                   </div>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-3 text-xs text-white/45">
+                    <div className="rounded-xl border border-white/5 bg-white/2 p-3 text-xs text-white/45">
                       <div className="font-medium text-white/75">
                         Performance record
                       </div>
@@ -286,7 +286,7 @@ export default function OwnerStaffPage() {
                       </div>
                       <div>Failed or returned: {member.failureCount ?? 0}</div>
                     </div>
-                    <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-3 text-xs text-white/45">
+                    <div className="rounded-xl border border-white/5 bg-white/2 p-3 text-xs text-white/45">
                       <div className="font-medium text-white/75">
                         Latest training assessment
                       </div>
@@ -304,7 +304,7 @@ export default function OwnerStaffPage() {
                     </div>
                   </div>
 
-                  <div className="mt-4 rounded-xl border border-white/[0.05] bg-white/[0.02] p-3 text-xs text-white/45">
+                  <div className="mt-4 rounded-xl border border-white/5 bg-white/2 p-3 text-xs text-white/45">
                     <div className="font-medium text-white/75">
                       Institute recommendation
                     </div>
@@ -332,7 +332,7 @@ export default function OwnerStaffPage() {
                     )}
                   </div>
 
-                  <div className="mt-4 flex flex-wrap gap-2 border-t border-white/[0.05] pt-4">
+                  <div className="mt-4 flex flex-wrap gap-2 border-t border-white/5 pt-4">
                     <button
                       type="button"
                       disabled={busy || member.status === "retired"}
@@ -400,7 +400,7 @@ export default function OwnerStaffPage() {
                   </div>
                 </>
               ) : (
-                <div className="mt-4 border-t border-white/[0.05] pt-4 text-xs text-white/45">
+                <div className="mt-4 border-t border-white/5 pt-4 text-xs text-white/45">
                   Human account status is read directly from the identity
                   database. Digital-worker performance scores do not apply to
                   human identities.

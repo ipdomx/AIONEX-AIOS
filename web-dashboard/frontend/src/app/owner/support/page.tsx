@@ -169,7 +169,7 @@ export default function OwnerSupportPage() {
           type="button"
           onClick={() => void load()}
           disabled={loading}
-          className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-xs text-white/70 hover:bg-white/[0.08] disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-xl border border-white/8 bg-white/4 px-4 py-2 text-xs text-white/70 hover:bg-white/8 disabled:opacity-50"
         >
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           {t("Refresh")}
@@ -243,7 +243,7 @@ export default function OwnerSupportPage() {
                 type="button"
                 disabled={busy}
                 onClick={() => void setStatus("closed")}
-                className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white/65 disabled:opacity-50"
+                className="rounded-xl border border-white/8 bg-white/4 px-3 py-2 text-xs text-white/65 disabled:opacity-50"
               >
                 {t("Close")}
               </button>
@@ -281,7 +281,7 @@ export default function OwnerSupportPage() {
             {(selected.messages || []).map((entry) => (
               <div
                 key={entry.id}
-                className="rounded-xl border border-white/[0.06] bg-black/15 p-4"
+                className="rounded-xl border border-white/6 bg-black/15 p-4"
               >
                 <div className="flex items-center justify-between gap-3 text-[10px] uppercase tracking-wider text-white/30">
                   <span>{entry.visibility}</span>
@@ -300,7 +300,7 @@ export default function OwnerSupportPage() {
                 value={reply}
                 onChange={(event) => setReply(event.target.value)}
                 placeholder={t("Write a durable reply")}
-                className="min-h-28 flex-1 rounded-xl border border-white/[0.08] bg-black/20 p-4 text-sm text-white outline-none focus:border-electric-500/40"
+                className="min-h-28 flex-1 rounded-xl border border-white/8 bg-black/20 p-4 text-sm text-white outline-hidden focus:border-electric-500/40"
               />
               <button
                 type="button"
@@ -334,14 +334,14 @@ export default function OwnerSupportPage() {
               type="button"
               key={ticket.id}
               onClick={() => void openTicket(ticket)}
-              className="glass-card flex w-full items-center justify-between gap-4 p-5 text-start transition hover:bg-white/[0.04]"
+              className="glass-card flex w-full items-center justify-between gap-4 p-5 text-start transition hover:bg-white/4"
             >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="truncate text-sm font-semibold text-white">
                     {ticket.subject}
                   </span>
-                  <span className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[10px] text-white/45">
+                  <span className="rounded-full border border-white/8 px-2 py-0.5 text-[10px] text-white/45">
                     {ticket.status}
                   </span>
                   <span className="rounded-full border border-orange-500/20 bg-orange-500/10 px-2 py-0.5 text-[10px] text-orange-300">

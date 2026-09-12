@@ -42,7 +42,7 @@ const basisLabels: Record<RealIdentityBasis, string> = {
 };
 
 const inputClass =
-  "w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white outline-none focus:border-electric-400/50";
+  "w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white outline-hidden focus:border-electric-400/50";
 
 export default function OwnerIdentityMediaPage() {
   const [snapshot, setSnapshot] = useState<OwnerIdentityMediaSnapshot | null>(
@@ -481,7 +481,7 @@ export default function OwnerIdentityMediaPage() {
               {(snapshot?.access || []).map((item) => (
                 <tr
                   key={`${item.user_id}:${item.operation}`}
-                  className="border-t border-white/[0.06]"
+                  className="border-t border-white/6"
                 >
                   <td className="py-3">
                     <div className="font-medium text-white/75">

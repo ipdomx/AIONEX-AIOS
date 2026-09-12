@@ -56,7 +56,7 @@ export default function LanguageVoiceControls() {
 
   return (
     <div
-      className="fixed bottom-4 end-4 z-[90] flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-space-900/95 p-2 shadow-2xl backdrop-blur-xl"
+      className="fixed bottom-4 inset-e-4 z-90 flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-space-900/95 p-2 shadow-2xl backdrop-blur-xl"
       role="group"
       aria-label="Language and voice controls"
     >
@@ -64,7 +64,7 @@ export default function LanguageVoiceControls() {
       <select
         value={locale}
         onChange={(event) => setLocale(event.target.value as SupportedLocale)}
-        className="max-w-44 rounded-lg border border-white/10 bg-space-950 px-2 py-1.5 text-xs text-white outline-none"
+        className="max-w-44 rounded-lg border border-white/10 bg-space-950 px-2 py-1.5 text-xs text-white outline-hidden"
         aria-label="Interface language"
       >
         {SUPPORTED_LOCALES.map((item) => (
@@ -77,7 +77,7 @@ export default function LanguageVoiceControls() {
         <select
           value={dialect ?? "msa"}
           onChange={(event) => setDialect(event.target.value as ArabicDialect)}
-          className="max-w-36 rounded-lg border border-white/10 bg-space-950 px-2 py-1.5 text-xs text-white outline-none"
+          className="max-w-36 rounded-lg border border-white/10 bg-space-950 px-2 py-1.5 text-xs text-white outline-hidden"
           aria-label="Arabic dialect"
         >
           {DIALECTS.map((item) => (

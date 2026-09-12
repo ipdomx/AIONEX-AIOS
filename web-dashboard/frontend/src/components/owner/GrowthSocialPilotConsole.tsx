@@ -110,7 +110,7 @@ function statusClass(status: string): string {
   if (["disarmed", "auto_disarmed"].includes(status)) {
     return "border-orange-500/20 bg-orange-500/10 text-orange-300";
   }
-  return "border-white/10 bg-white/[0.03] text-white/45";
+  return "border-white/10 bg-white/3 text-white/45";
 }
 
 function formatDate(value: string | null | undefined): string {
@@ -490,7 +490,7 @@ export function GrowthSocialPilotConsole() {
   return (
     <section className="space-y-4">
       <div className="glass-card overflow-hidden border border-electric-500/15">
-        <div className="border-b border-white/[0.06] bg-electric-500/[0.04] p-5">
+        <div className="border-b border-white/6 bg-electric-500/4 p-5">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div>
               <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs text-electric-300">
@@ -510,7 +510,7 @@ export function GrowthSocialPilotConsole() {
               type="button"
               onClick={() => void load()}
               disabled={loading || busyId !== null}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-medium text-white/70 transition hover:bg-white/[0.08] disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/4 px-4 py-2 text-xs font-medium text-white/70 transition hover:bg-white/8 disabled:opacity-50"
             >
               <RefreshCw
                 className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
@@ -521,21 +521,21 @@ export function GrowthSocialPilotConsole() {
         </div>
 
         <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+          <div className="rounded-xl border border-white/6 bg-white/2 p-4">
             <Activity className="h-4 w-4 text-electric-300" />
             <div className="mt-3 text-2xl font-bold text-white">
               {pilots.length}
             </div>
             <div className="text-xs text-white/35">Controlled pilots</div>
           </div>
-          <div className="rounded-xl border border-blue-500/15 bg-blue-500/[0.04] p-4">
+          <div className="rounded-xl border border-blue-500/15 bg-blue-500/4 p-4">
             <FlaskConical className="h-4 w-4 text-blue-300" />
             <div className="mt-3 text-2xl font-bold text-white">
               {readOnlyPilots}
             </div>
             <div className="text-xs text-white/35">Read-only pilots</div>
           </div>
-          <div className="rounded-xl border border-orange-500/15 bg-orange-500/[0.04] p-4">
+          <div className="rounded-xl border border-orange-500/15 bg-orange-500/4 p-4">
             <Rocket className="h-4 w-4 text-orange-300" />
             <div className="mt-3 text-2xl font-bold text-white">
               {liveSpendPilots}
@@ -545,7 +545,7 @@ export function GrowthSocialPilotConsole() {
             </div>
           </div>
           <div
-            className={`rounded-xl border p-4 ${liveSpendEnabled ? "border-red-500/30 bg-red-500/10" : "border-green-500/20 bg-green-500/[0.06]"}`}
+            className={`rounded-xl border p-4 ${liveSpendEnabled ? "border-red-500/30 bg-red-500/10" : "border-green-500/20 bg-green-500/6"}`}
           >
             <CircleDollarSign
               className={`h-4 w-4 ${liveSpendEnabled ? "text-red-300" : "text-green-300"}`}
@@ -558,7 +558,7 @@ export function GrowthSocialPilotConsole() {
         </div>
 
         <div
-          className={`mx-5 mb-5 flex items-start gap-3 rounded-xl border p-4 text-xs leading-5 ${liveSpendEnabled ? "border-red-500/30 bg-red-500/10 text-red-200" : "border-green-500/20 bg-green-500/[0.05] text-green-200"}`}
+          className={`mx-5 mb-5 flex items-start gap-3 rounded-xl border p-4 text-xs leading-5 ${liveSpendEnabled ? "border-red-500/30 bg-red-500/10 text-red-200" : "border-green-500/20 bg-green-500/5 text-green-200"}`}
         >
           {liveSpendEnabled ? (
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -572,7 +572,7 @@ export function GrowthSocialPilotConsole() {
           </span>
         </div>
 
-        <div className="border-t border-white/[0.06] px-5 py-3 text-xs text-electric-300">
+        <div className="border-t border-white/6 px-5 py-3 text-xs text-electric-300">
           {message}
         </div>
       </div>
@@ -594,7 +594,7 @@ export function GrowthSocialPilotConsole() {
               onChange={(event) =>
                 setMode(event.target.value as CreateForm["mode"])
               }
-              className="glass-input w-full rounded-xl px-3 py-2 text-white outline-none"
+              className="glass-input w-full rounded-xl px-3 py-2 text-white outline-hidden"
             >
               <option className="bg-space-800" value="read_only">
                 Read only
@@ -611,7 +611,7 @@ export function GrowthSocialPilotConsole() {
               onChange={(event) =>
                 setProvider(event.target.value as CreateForm["provider"])
               }
-              className="glass-input w-full rounded-xl px-3 py-2 text-white outline-none"
+              className="glass-input w-full rounded-xl px-3 py-2 text-white outline-hidden"
             >
               <option className="bg-space-800" value="meta">
                 Meta
@@ -631,7 +631,7 @@ export function GrowthSocialPilotConsole() {
                   providerScope: event.target.value,
                 }))
               }
-              className="glass-input w-full rounded-xl px-3 py-2 text-white outline-none"
+              className="glass-input w-full rounded-xl px-3 py-2 text-white outline-hidden"
             >
               {createForm.provider === "telegram" ? (
                 <option className="bg-space-800" value="owner_bots">
@@ -664,7 +664,7 @@ export function GrowthSocialPilotConsole() {
                   expiresAt: event.target.value,
                 }))
               }
-              className="glass-input w-full rounded-xl px-3 py-2 text-white outline-none"
+              className="glass-input w-full rounded-xl px-3 py-2 text-white outline-hidden"
             />
           </label>
           {createForm.mode === "live_spend" ? (
@@ -679,7 +679,7 @@ export function GrowthSocialPilotConsole() {
                       organizationId: event.target.value,
                     }))
                   }
-                  className="glass-input w-full rounded-xl px-3 py-2 text-white outline-none"
+                  className="glass-input w-full rounded-xl px-3 py-2 text-white outline-hidden"
                 >
                   <option className="bg-space-800" value="">
                     Select active organization
@@ -705,7 +705,7 @@ export function GrowthSocialPilotConsole() {
                       scopeRef: event.target.value,
                     }))
                   }
-                  className="glass-input w-full rounded-xl px-3 py-2 text-white outline-none"
+                  className="glass-input w-full rounded-xl px-3 py-2 text-white outline-hidden"
                 >
                   <option className="bg-space-800" value="">
                     Select active Meta account
@@ -724,7 +724,7 @@ export function GrowthSocialPilotConsole() {
                   ))}
                 </select>
               </label>
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-xs leading-5 text-white/45 md:col-span-2 xl:col-span-4">
+              <div className="rounded-xl border border-white/6 bg-white/2 p-4 text-xs leading-5 text-white/45 md:col-span-2 xl:col-span-4">
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div className="flex items-start gap-2">
                     <Target className="mt-0.5 h-4 w-4 shrink-0 text-electric-300" />
@@ -805,7 +805,7 @@ export function GrowthSocialPilotConsole() {
                 }))
               }
               placeholder="Audit reference only — never credential material"
-              className="glass-input w-full rounded-xl px-3 py-2 text-white outline-none"
+              className="glass-input w-full rounded-xl px-3 py-2 text-white outline-hidden"
             />
           </label>
         </div>
@@ -838,7 +838,7 @@ export function GrowthSocialPilotConsole() {
               return (
                 <article
                   key={pilot.id}
-                  className={`glass-card cursor-pointer border p-5 transition ${selected ? "border-electric-500/25" : "border-white/[0.05]"}`}
+                  className={`glass-card cursor-pointer border p-5 transition ${selected ? "border-electric-500/25" : "border-white/5"}`}
                   onClick={() => setSelectedId(pilot.id)}
                 >
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -904,7 +904,7 @@ export function GrowthSocialPilotConsole() {
                         return (
                           <div
                             key={key}
-                            className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[10px] ${passed ? "border-green-500/15 bg-green-500/[0.05] text-green-300" : "border-white/[0.07] bg-white/[0.02] text-white/35"}`}
+                            className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[10px] ${passed ? "border-green-500/15 bg-green-500/5 text-green-300" : "border-white/[0.07] bg-white/2 text-white/35"}`}
                           >
                             {passed ? (
                               <CheckCircle2 className="h-3 w-3 shrink-0" />
@@ -926,7 +926,7 @@ export function GrowthSocialPilotConsole() {
                       {state.blocked_reasons.map((reason) => (
                         <code
                           key={reason}
-                          className="rounded-md border border-orange-500/10 bg-orange-500/[0.05] px-2 py-1 text-[10px] text-orange-200/80"
+                          className="rounded-md border border-orange-500/10 bg-orange-500/5 px-2 py-1 text-[10px] text-orange-200/80"
                         >
                           {reason}
                         </code>
@@ -961,7 +961,7 @@ export function GrowthSocialPilotConsole() {
               </div>
 
               {selectedPilot.mode === "live_spend" ? (
-                <div className="space-y-3 border-t border-white/[0.06] pt-4">
+                <div className="space-y-3 border-t border-white/6 pt-4">
                   <div className="flex items-center gap-2 text-xs font-semibold text-white">
                     <CircleDollarSign className="h-4 w-4 text-orange-300" />
                     Explicit spend controls
@@ -988,7 +988,7 @@ export function GrowthSocialPilotConsole() {
                       }))
                     }
                     placeholder="Legal/policy audit reference"
-                    className="glass-input w-full rounded-xl px-3 py-2 text-xs text-white outline-none"
+                    className="glass-input w-full rounded-xl px-3 py-2 text-xs text-white outline-hidden"
                   />
                   <div className="grid grid-cols-2 gap-2">
                     <input
@@ -1001,7 +1001,7 @@ export function GrowthSocialPilotConsole() {
                         }))
                       }
                       placeholder="Currency"
-                      className="glass-input rounded-xl px-3 py-2 text-xs text-white outline-none"
+                      className="glass-input rounded-xl px-3 py-2 text-xs text-white outline-hidden"
                     />
                     <input
                       type="datetime-local"
@@ -1012,7 +1012,7 @@ export function GrowthSocialPilotConsole() {
                           expiresAt: event.target.value,
                         }))
                       }
-                      className="glass-input rounded-xl px-3 py-2 text-xs text-white outline-none"
+                      className="glass-input rounded-xl px-3 py-2 text-xs text-white outline-hidden"
                     />
                   </div>
                   <p className="text-[10px] leading-4 text-white/30">
@@ -1031,7 +1031,7 @@ export function GrowthSocialPilotConsole() {
                         }))
                       }
                       placeholder="Maximum total budget"
-                      className="glass-input rounded-xl px-3 py-2 text-xs text-white outline-none"
+                      className="glass-input rounded-xl px-3 py-2 text-xs text-white outline-hidden"
                     />
                     <input
                       inputMode="numeric"
@@ -1043,7 +1043,7 @@ export function GrowthSocialPilotConsole() {
                         }))
                       }
                       placeholder="Maximum daily budget"
-                      className="glass-input rounded-xl px-3 py-2 text-xs text-white outline-none"
+                      className="glass-input rounded-xl px-3 py-2 text-xs text-white outline-hidden"
                     />
                     <input
                       inputMode="numeric"
@@ -1055,7 +1055,7 @@ export function GrowthSocialPilotConsole() {
                         }))
                       }
                       placeholder="Maximum CPA"
-                      className="glass-input rounded-xl px-3 py-2 text-xs text-white outline-none"
+                      className="glass-input rounded-xl px-3 py-2 text-xs text-white outline-hidden"
                     />
                     <input
                       inputMode="decimal"
@@ -1067,14 +1067,14 @@ export function GrowthSocialPilotConsole() {
                         }))
                       }
                       placeholder="Minimum ROAS"
-                      className="glass-input rounded-xl px-3 py-2 text-xs text-white outline-none"
+                      className="glass-input rounded-xl px-3 py-2 text-xs text-white outline-hidden"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={() => void handleControls(selectedPilot)}
                     disabled={busyId === selectedPilot.id}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-medium text-white/70 disabled:opacity-50"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/4 px-4 py-2 text-xs font-medium text-white/70 disabled:opacity-50"
                   >
                     <Save className="h-3.5 w-3.5" />
                     Save controls and reset launch authorization
@@ -1082,7 +1082,7 @@ export function GrowthSocialPilotConsole() {
                 </div>
               ) : null}
 
-              <div className="space-y-2 border-t border-white/[0.06] pt-4">
+              <div className="space-y-2 border-t border-white/6 pt-4">
                 {selectedPilot.mode === "live_spend" ? (
                   <button
                     type="button"
@@ -1106,7 +1106,7 @@ export function GrowthSocialPilotConsole() {
                       busyId === selectedPilot.id ||
                       selectedPilot.launch_authorized
                     }
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-orange-500/20 bg-orange-500/[0.06] px-4 py-2 text-xs font-medium text-orange-200 disabled:opacity-40"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-orange-500/20 bg-orange-500/6 px-4 py-2 text-xs font-medium text-orange-200 disabled:opacity-40"
                   >
                     <Rocket className="h-3.5 w-3.5" />
                     Authorize launch gate
@@ -1172,14 +1172,14 @@ export function GrowthSocialPilotConsole() {
                     );
                   }}
                   disabled={busyId === selectedPilot.id}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2 text-xs font-medium text-white/55 disabled:opacity-40"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/3 px-4 py-2 text-xs font-medium text-white/55 disabled:opacity-40"
                 >
                   <Ban className="h-3.5 w-3.5" />
                   Emergency disarm
                 </button>
               </div>
 
-              <div className="rounded-xl border border-white/[0.06] bg-black/10 p-3 text-[10px] leading-4 text-white/35">
+              <div className="rounded-xl border border-white/6 bg-black/10 p-3 text-[10px] leading-4 text-white/35">
                 <div>
                   Real spend allowed: {String(selectedPilot.real_spend_allowed)}
                 </div>

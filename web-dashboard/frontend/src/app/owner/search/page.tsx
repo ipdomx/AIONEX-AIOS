@@ -82,13 +82,13 @@ export default function OwnerGlobalSearchPage() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search names, descriptions, or routes…"
-              className="glass-input w-full rounded-xl py-3 pl-10 pr-4 text-sm text-white outline-none"
+              className="glass-input w-full rounded-xl py-3 pl-10 pr-4 text-sm text-white outline-hidden"
             />
           </label>
           <select
             value={sectionId}
             onChange={(event) => setSectionId(event.target.value)}
-            className="glass-input rounded-xl px-4 py-3 text-sm text-white outline-none"
+            className="glass-input rounded-xl px-4 py-3 text-sm text-white outline-hidden"
           >
             <option value="all" className="bg-space-800">
               All Owner groups
@@ -128,10 +128,10 @@ export default function OwnerGlobalSearchPage() {
             >
               <Link
                 href={item.href}
-                className="glass-card block h-full p-5 transition hover:bg-white/[0.05]"
+                className="glass-card block h-full p-5 transition hover:bg-white/5"
               >
                 <div className="flex items-start gap-3">
-                  <span className="rounded-xl border border-white/[0.06] bg-white/[0.04] p-2.5">
+                  <span className="rounded-xl border border-white/6 bg-white/4 p-2.5">
                     <Icon className="h-5 w-5 text-electric-300" />
                   </span>
                   <span>
@@ -166,7 +166,7 @@ export default function OwnerGlobalSearchPage() {
               <Link
                 key={`${item.type}-${item.id}`}
                 href={href}
-                className="glass-card p-4 transition hover:bg-white/[0.05]"
+                className="glass-card p-4 transition hover:bg-white/5"
               >
                 <div className="text-sm font-semibold text-white">
                   {item.name}

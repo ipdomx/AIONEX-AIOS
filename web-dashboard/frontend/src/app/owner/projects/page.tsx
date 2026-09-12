@@ -111,7 +111,7 @@ export default function OwnerProjectsPage() {
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            className="glass-input w-full rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+            className="glass-input w-full rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
             placeholder="Search every project..."
           />
         </div>
@@ -120,14 +120,14 @@ export default function OwnerProjectsPage() {
         </div>
         <div className="space-y-3">
           {!loading && projects.length === 0 && (
-            <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-5 text-sm text-white/45">
+            <div className="rounded-xl border border-white/5 bg-white/2 p-5 text-sm text-white/45">
               No projects match the current search.
             </div>
           )}
           {projects.map((project) => (
             <div
               key={project.id}
-              className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-4"
+              className="rounded-xl border border-white/5 bg-white/2 p-4"
             >
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div>
@@ -184,7 +184,7 @@ export default function OwnerProjectsPage() {
                     <button
                       onClick={() => runProjectAction(project.id, "resume")}
                       disabled={busy}
-                      className="rounded-lg border border-white/[0.08] p-2 text-white/55 hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-lg border border-white/8 p-2 text-white/55 hover:bg-white/6 disabled:cursor-not-allowed disabled:opacity-50"
                       aria-label={`Resume ${project.name}`}
                     >
                       <PlayCircle className="h-4 w-4" />
@@ -195,7 +195,7 @@ export default function OwnerProjectsPage() {
                     <button
                       onClick={() => runProjectAction(project.id, "pause")}
                       disabled={busy}
-                      className="rounded-lg border border-white/[0.08] p-2 text-white/55 hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-lg border border-white/8 p-2 text-white/55 hover:bg-white/6 disabled:cursor-not-allowed disabled:opacity-50"
                       aria-label={`Pause ${project.name}`}
                     >
                       <PauseCircle className="h-4 w-4" />
@@ -229,7 +229,7 @@ export default function OwnerProjectsPage() {
                     <button
                       onClick={() => runProjectAction(project.id, "archive")}
                       disabled={busy}
-                      className="rounded-lg border border-white/[0.08] p-2 text-white/55 hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-lg border border-white/8 p-2 text-white/55 hover:bg-white/6 disabled:cursor-not-allowed disabled:opacity-50"
                       aria-label={`Archive ${project.name}`}
                     >
                       <Archive className="h-4 w-4" />

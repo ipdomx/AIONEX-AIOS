@@ -125,26 +125,26 @@ export default function OwnerPoliciesPage() {
             minLength={2}
             name="name"
             placeholder="Policy name"
-            className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+            className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
           />
           <input
             required
             minLength={2}
             name="target"
             placeholder="Target"
-            className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+            className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
           />
           <textarea
             required
             minLength={3}
             name="description"
             placeholder="Description"
-            className="glass-input min-h-24 rounded-xl px-4 py-2.5 text-sm text-white outline-none md:col-span-2"
+            className="glass-input min-h-24 rounded-xl px-4 py-2.5 text-sm text-white outline-hidden md:col-span-2"
           />
           <select
             name="scope"
             defaultValue="global"
-            className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+            className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
           >
             <option value="global" className="bg-space-800">
               Global
@@ -159,7 +159,7 @@ export default function OwnerPoliciesPage() {
           <select
             name="enforcement"
             defaultValue="mandatory"
-            className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+            className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
           >
             <option value="mandatory" className="bg-space-800">
               Mandatory
@@ -207,13 +207,13 @@ export default function OwnerPoliciesPage() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search policies..."
-              className="glass-input w-full rounded-xl py-2.5 pl-10 pr-4 text-sm text-white outline-none"
+              className="glass-input w-full rounded-xl py-2.5 pl-10 pr-4 text-sm text-white outline-hidden"
             />
           </div>
           <select
             value={scope}
             onChange={(event) => setScope(event.target.value as typeof scope)}
-            className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+            className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
           >
             <option value="all" className="bg-space-800">
               All scopes

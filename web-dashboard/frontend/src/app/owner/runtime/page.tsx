@@ -37,7 +37,7 @@ function runtimeStatusClass(status: string) {
   if (["restricted", "blocked", "inactive", "deleted"].includes(status)) {
     return "border-red-500/20 bg-red-500/10 text-red-300";
   }
-  return "border-white/10 bg-white/[0.03] text-white/45";
+  return "border-white/10 bg-white/3 text-white/45";
 }
 
 export default function OwnerRuntimePage() {
@@ -159,7 +159,7 @@ export default function OwnerRuntimePage() {
                   {project.status}
                 </span>
               </div>
-              <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.05]">
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/5">
                 <div
                   className="h-full rounded-full bg-electric-400"
                   style={{

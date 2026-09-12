@@ -89,7 +89,7 @@ export default function OwnerServicesPage() {
             Runtime credentials remain deployment-managed.
           </p>
         </div>
-        <div className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3">
+        <div className="flex items-center gap-3 rounded-xl border border-white/6 bg-white/3 px-4 py-3">
           <CheckCircle2 className="h-5 w-5 text-green-400" />
           <div>
             <div className="text-sm font-semibold text-white">
@@ -143,7 +143,7 @@ export default function OwnerServicesPage() {
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-3">
-                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.04] p-2.5">
+                    <div className="rounded-xl border border-white/6 bg-white/4 p-2.5">
                       <Icon className="h-5 w-5 text-electric-300" />
                     </div>
                     <div>
@@ -159,7 +159,7 @@ export default function OwnerServicesPage() {
                     disabled={busy || coreService}
                     onClick={() => toggleService(service)}
                     aria-label={`Toggle ${service.name}`}
-                    className="rounded-lg p-1.5 hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-lg p-1.5 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {service.enabled ? (
                       <ToggleRight className="h-7 w-7 text-green-400" />
@@ -171,7 +171,7 @@ export default function OwnerServicesPage() {
                 <p className="mt-4 text-xs leading-relaxed text-white/40">
                   {service.description}
                 </p>
-                <div className="mt-4 flex items-center justify-between border-t border-white/[0.05] pt-3 text-[10px]">
+                <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-3 text-[10px]">
                   <span className="text-white/30">{service.scope}</span>
                   <span
                     className={

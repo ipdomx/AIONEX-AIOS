@@ -21,7 +21,7 @@ import {
 } from "@/lib/phase29f-api";
 
 const inputClass =
-  "glass-input rounded-xl px-3 py-2.5 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-50";
+  "glass-input rounded-xl px-3 py-2.5 text-sm text-white outline-hidden disabled:cursor-not-allowed disabled:opacity-50";
 const buttonClass =
   "inline-flex items-center justify-center gap-2 rounded-xl border border-electric-500/20 bg-electric-500/10 px-3 py-2 text-xs font-semibold text-electric-200 transition hover:bg-electric-500/15 disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -438,7 +438,7 @@ export default function AcademyPage() {
                   packages.map((item) => (
                     <div
                       key={item.id}
-                      className="rounded-xl border border-white/[0.06] bg-black/15 p-4"
+                      className="rounded-xl border border-white/6 bg-black/15 p-4"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
@@ -510,7 +510,7 @@ export default function AcademyPage() {
                 courses.map((course) => (
                   <div
                     key={course.id}
-                    className="rounded-xl border border-white/[0.06] bg-black/15 p-4"
+                    className="rounded-xl border border-white/6 bg-black/15 p-4"
                   >
                     <div className="flex items-center justify-between">
                       <div>
@@ -554,7 +554,7 @@ export default function AcademyPage() {
                 enrollments.map((item) => (
                   <div
                     key={item.id}
-                    className="flex flex-col gap-2 rounded-xl border border-white/[0.06] bg-black/15 p-4 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex flex-col gap-2 rounded-xl border border-white/6 bg-black/15 p-4 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div>
                       <p className="text-sm font-semibold text-white">
@@ -585,7 +585,7 @@ export default function AcademyPage() {
                 certifications.map((certificate) => (
                   <div
                     key={certificate.id}
-                    className="rounded-xl border border-green-500/15 bg-green-500/[0.04] p-4"
+                    className="rounded-xl border border-green-500/15 bg-green-500/4 p-4"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>

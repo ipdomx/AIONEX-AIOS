@@ -67,7 +67,7 @@ export default function DashboardShell({
         <button
           type="button"
           aria-label="Close navigation"
-          className="fixed inset-0 z-[45] bg-black/70 backdrop-blur-sm"
+          className="fixed inset-0 z-45 bg-black/70 backdrop-blur-sm"
           onClick={() => setMobileSidebarOpen(false)}
         />
       )}
@@ -107,7 +107,7 @@ export default function DashboardShell({
       </motion.main>
       <Link
         href="/studio"
-        className="fixed bottom-5 start-4 z-40 flex items-center gap-2 rounded-full border border-electric-400/30 bg-space-900/95 px-4 py-2.5 text-sm font-semibold text-white shadow-xl backdrop-blur-xl transition hover:border-electric-300/60 hover:bg-electric-500/15 sm:end-5 sm:start-auto"
+        className="fixed bottom-5 inset-s-4 z-40 flex items-center gap-2 rounded-full border border-electric-400/30 bg-space-900/95 px-4 py-2.5 text-sm font-semibold text-white shadow-xl backdrop-blur-xl transition hover:border-electric-300/60 hover:bg-electric-500/15 sm:inset-e-5 sm:inset-s-auto"
       >
         <Palette className="h-4 w-4 text-electric-300" />
         Production Studio

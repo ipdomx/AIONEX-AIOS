@@ -76,7 +76,7 @@ function statusClass(status: string): string {
   ) {
     return "border-amber-500/20 bg-amber-500/10 text-amber-200";
   }
-  return "border-white/10 bg-white/[0.04] text-white/55";
+  return "border-white/10 bg-white/4 text-white/55";
 }
 
 export default function OwnerCommunicationsPage() {
@@ -315,7 +315,7 @@ export default function OwnerCommunicationsPage() {
               className={`rounded-full border px-3 py-1 text-xs ${
                 telegramSecurity?.session_active
                   ? "border-green-500/20 bg-green-500/10 text-green-300"
-                  : "border-white/10 bg-white/[0.04] text-white/55"
+                  : "border-white/10 bg-white/4 text-white/55"
               }`}
             >
               {telegramSecurity?.session_active
@@ -326,7 +326,7 @@ export default function OwnerCommunicationsPage() {
         </div>
 
         <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_auto_auto] lg:items-end">
-          <div className="rounded-xl border border-white/[0.06] bg-black/15 p-4">
+          <div className="rounded-xl border border-white/6 bg-black/15 p-4">
             <div className="text-[10px] uppercase tracking-wider text-white/30">
               One-time authentication
             </div>
@@ -393,7 +393,7 @@ export default function OwnerCommunicationsPage() {
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex gap-3">
-                      <div className="rounded-xl border border-white/[0.06] bg-white/[0.04] p-2.5">
+                      <div className="rounded-xl border border-white/6 bg-white/4 p-2.5">
                         <Icon className="h-5 w-5 text-electric-300" />
                       </div>
                       <div>
@@ -414,7 +414,7 @@ export default function OwnerCommunicationsPage() {
                         channelBusy || channel.protected || !channel.configured
                       }
                       onClick={() => void execute(channel.id, "toggle")}
-                      className={`rounded-full px-3 py-1 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50 ${channel.enabled ? "bg-green-500/15 text-green-300" : "bg-white/[0.06] text-white/40"}`}
+                      className={`rounded-full px-3 py-1 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50 ${channel.enabled ? "bg-green-500/15 text-green-300" : "bg-white/6 text-white/40"}`}
                     >
                       {channel.enabled ? "Enabled" : "Disabled"}
                     </button>
@@ -427,7 +427,7 @@ export default function OwnerCommunicationsPage() {
       </section>
 
       <section className="glass-card overflow-hidden">
-        <div className="border-b border-white/[0.06] p-5">
+        <div className="border-b border-white/6 p-5">
           <h2 className="text-sm font-semibold text-white">
             Delivery receipts & recovery
           </h2>
@@ -436,7 +436,7 @@ export default function OwnerCommunicationsPage() {
             dead-letter states.
           </p>
         </div>
-        <div className="divide-y divide-white/[0.05]">
+        <div className="divide-y divide-white/5">
           {deliveries.length === 0 ? (
             <p className="p-6 text-center text-sm text-white/40">
               No delivery records are available.
@@ -471,7 +471,7 @@ export default function OwnerCommunicationsPage() {
                     )
                   }
                   onClick={() => void retry(delivery)}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white/65 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/8 bg-white/4 px-3 py-2 text-xs text-white/65 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <RotateCcw className="h-3.5 w-3.5" /> Retry delivery
                 </button>
@@ -482,7 +482,7 @@ export default function OwnerCommunicationsPage() {
       </section>
 
       <section className="glass-card overflow-hidden">
-        <div className="border-b border-white/[0.06] p-5">
+        <div className="border-b border-white/6 p-5">
           <h2 className="text-sm font-semibold text-white">
             Private support intake
           </h2>
@@ -491,7 +491,7 @@ export default function OwnerCommunicationsPage() {
             platform visibility.
           </p>
         </div>
-        <div className="divide-y divide-white/[0.05]">
+        <div className="divide-y divide-white/5">
           {tickets.length === 0 ? (
             <p className="p-6 text-center text-sm text-white/40">
               No support requests are recorded.

@@ -39,8 +39,8 @@ const statusClass: Record<ControlStatus, string> = {
   partial: "border-orange-500/20 bg-orange-500/10 text-orange-300",
   warning: "border-orange-500/20 bg-orange-500/10 text-orange-300",
   non_compliant: "border-red-500/20 bg-red-500/10 text-red-400",
-  not_applicable: "border-white/10 bg-white/[0.03] text-white/35",
-  not_assessed: "border-white/10 bg-white/[0.03] text-white/35",
+  not_applicable: "border-white/10 bg-white/3 text-white/35",
+  not_assessed: "border-white/10 bg-white/3 text-white/35",
 };
 
 const riskClass = {
@@ -165,7 +165,7 @@ export default function OwnerCompliancePage() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search controls, owners or evidence..."
-              className="glass-input w-full rounded-xl py-2.5 pl-10 pr-4 text-sm text-white outline-none"
+              className="glass-input w-full rounded-xl py-2.5 pl-10 pr-4 text-sm text-white outline-hidden"
             />
           </div>
           <select
@@ -173,7 +173,7 @@ export default function OwnerCompliancePage() {
             onChange={(event) =>
               setFramework(event.target.value as typeof framework)
             }
-            className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+            className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
           >
             <option value="all" className="bg-space-800">
               All frameworks
@@ -225,7 +225,7 @@ export default function OwnerCompliancePage() {
               >
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                   <div className="flex items-start gap-3">
-                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.04] p-2.5">
+                    <div className="rounded-xl border border-white/6 bg-white/4 p-2.5">
                       <FileCheck2 className="h-5 w-5 text-electric-300" />
                     </div>
                     <div>
@@ -258,7 +258,7 @@ export default function OwnerCompliancePage() {
                               }))
                             }
                             placeholder="Evidence reference, URL, ticket, or artifact ID"
-                            className="glass-input w-full rounded-lg px-3 py-2 text-xs text-white outline-none"
+                            className="glass-input w-full rounded-lg px-3 py-2 text-xs text-white outline-hidden"
                           />
                         </label>
                         <button

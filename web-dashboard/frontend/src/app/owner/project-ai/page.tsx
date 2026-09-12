@@ -322,7 +322,7 @@ export default function OwnerProjectAIPage() {
         </div>
         <div className="mt-4 grid gap-2">
           {options.length === 0 ? (
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-xs text-white/45">
+            <div className="rounded-xl border border-white/6 bg-white/2 p-3 text-xs text-white/45">
               No validated {accessClass} model is available yet. Routing remains
               fail-closed.
             </div>
@@ -330,7 +330,7 @@ export default function OwnerProjectAIPage() {
             options.map((item) => (
               <label
                 key={item.key}
-                className="flex items-center gap-3 rounded-xl border border-white/[0.06] p-3 text-xs text-white/70"
+                className="flex items-center gap-3 rounded-xl border border-white/6 p-3 text-xs text-white/70"
               >
                 <input
                   type="checkbox"
@@ -365,7 +365,7 @@ export default function OwnerProjectAIPage() {
         <label className="mt-4 block text-xs text-white/45">
           Maximum project provider cost (USD)
           <input
-            className="mt-2 w-full rounded-xl border border-white/[0.08] bg-black/20 px-3 py-2 text-white"
+            className="mt-2 w-full rounded-xl border border-white/8 bg-black/20 px-3 py-2 text-white"
             type="number"
             min={0}
             step="0.01"
@@ -405,7 +405,7 @@ export default function OwnerProjectAIPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <button
-              className="rounded-xl border border-white/[0.08] px-4 py-2.5 text-xs text-white/70"
+              className="rounded-xl border border-white/8 px-4 py-2.5 text-xs text-white/70"
               disabled={loading || saving !== null}
               onClick={() => void load()}
             >
@@ -476,7 +476,7 @@ export default function OwnerProjectAIPage() {
           <label className="text-xs text-white/45">
             User
             <select
-              className="mt-2 w-full rounded-xl border border-white/[0.08] bg-black/20 px-3 py-2 text-white"
+              className="mt-2 w-full rounded-xl border border-white/8 bg-black/20 px-3 py-2 text-white"
               value={selectedUserId}
               onChange={(event) => setSelectedUserId(event.target.value)}
             >
@@ -490,7 +490,7 @@ export default function OwnerProjectAIPage() {
           <label className="text-xs text-white/45">
             Access class
             <select
-              className="mt-2 w-full rounded-xl border border-white/[0.08] bg-black/20 px-3 py-2 text-white"
+              className="mt-2 w-full rounded-xl border border-white/8 bg-black/20 px-3 py-2 text-white"
               value={userClass}
               onChange={(event) => {
                 const next = event.target.value as ProjectAIAccessClass;
@@ -511,7 +511,7 @@ export default function OwnerProjectAIPage() {
               <Save className="h-4 w-4" /> Save override
             </button>
             <button
-              className="rounded-xl border border-white/[0.08] px-4 py-2.5 text-xs text-white/60"
+              className="rounded-xl border border-white/8 px-4 py-2.5 text-xs text-white/60"
               disabled={!selectedUserId || saving !== null}
               onClick={() => void clearUserOverride()}
             >
@@ -531,7 +531,7 @@ export default function OwnerProjectAIPage() {
           {(userClass === "free" ? freeOptions : paidOptions).map((item) => (
             <label
               key={item.key}
-              className="flex items-center gap-3 rounded-xl border border-white/[0.06] p-3 text-xs text-white/70"
+              className="flex items-center gap-3 rounded-xl border border-white/6 p-3 text-xs text-white/70"
             >
               <input
                 type="checkbox"
@@ -602,7 +602,7 @@ export default function OwnerProjectAIPage() {
                     </div>
                   )}
                 </div>
-                <div className="mt-4 rounded-xl border border-white/[0.06] bg-white/[0.025] p-3 text-xs text-white/55">
+                <div className="mt-4 rounded-xl border border-white/6 bg-white/2.5 p-3 text-xs text-white/55">
                   {row?.funding_mode === "owner_attested" &&
                   row.funded_confirmed
                     ? "Funding is confirmed, but predictive low-balance alerts need a numeric funded amount. Save Funded / Low / Critical below to activate pre-exhaustion monitoring."
@@ -619,7 +619,7 @@ export default function OwnerProjectAIPage() {
                     <CheckCircle2 className="mr-2 inline h-4 w-4" />
                     Confirm funded · private balance
                   </button>
-                  <div className="rounded-xl border border-white/[0.06] px-3 py-2.5 text-xs text-white/45">
+                  <div className="rounded-xl border border-white/6 px-3 py-2.5 text-xs text-white/45">
                     Billing/quota failure alerts:{" "}
                     {row?.billing_failure_alerts_enabled === false
                       ? "off"
@@ -640,7 +640,7 @@ export default function OwnerProjectAIPage() {
                         type="number"
                         min={0}
                         step="0.01"
-                        className="mt-1 w-full rounded-lg border border-white/[0.08] bg-black/20 px-2 py-2 text-xs text-white"
+                        className="mt-1 w-full rounded-lg border border-white/8 bg-black/20 px-2 py-2 text-xs text-white"
                         value={draft[key]}
                         onChange={(event) =>
                           setFinanceDrafts((current) => ({
@@ -655,7 +655,7 @@ export default function OwnerProjectAIPage() {
                     </label>
                   ))}
                 </div>
-                <label className="mt-3 flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 text-xs text-white/55">
+                <label className="mt-3 flex items-center gap-2 rounded-xl border border-white/6 bg-white/2 px-3 py-2.5 text-xs text-white/55">
                   <input
                     type="checkbox"
                     checked={draft.balance_amount_private}

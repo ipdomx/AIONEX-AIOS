@@ -180,7 +180,7 @@ export default function OwnerGlobalCommandPage() {
           <button
             onClick={() => runGlobalAction("validate")}
             disabled={loading || busy}
-            className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 text-sm font-medium text-white/75 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl border border-white/8 bg-white/4 px-4 py-2.5 text-sm font-medium text-white/75 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <CheckCircle2 className="mr-2 inline h-4 w-4" />
             Validate
@@ -206,7 +206,7 @@ export default function OwnerGlobalCommandPage() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search every controlled entity..."
-              className="glass-input w-full rounded-xl py-2.5 pl-10 pr-4 text-sm text-white outline-none"
+              className="glass-input w-full rounded-xl py-2.5 pl-10 pr-4 text-sm text-white outline-hidden"
             />
           </div>
           <select
@@ -214,7 +214,7 @@ export default function OwnerGlobalCommandPage() {
             onChange={(event) =>
               setTypeFilter(event.target.value as typeof typeFilter)
             }
-            className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+            className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
           >
             <option value="all" className="bg-space-800">
               All entities
@@ -254,7 +254,7 @@ export default function OwnerGlobalCommandPage() {
             >
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div className="flex items-start gap-3">
-                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.04] p-2.5">
+                  <div className="rounded-xl border border-white/6 bg-white/4 p-2.5">
                     <Icon className="h-5 w-5 text-electric-300" />
                   </div>
                   <div>
@@ -328,7 +328,7 @@ export default function OwnerGlobalCommandPage() {
                       </button>
                     )}
                   {entity.protected && (
-                    <span className="rounded-lg border border-white/[0.08] px-3 py-2 text-xs text-white/35">
+                    <span className="rounded-lg border border-white/8 px-3 py-2 text-xs text-white/35">
                       Protected
                     </span>
                   )}
