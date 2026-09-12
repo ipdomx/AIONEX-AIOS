@@ -366,7 +366,7 @@ export function GrowthPaidCampaignApprovalConsole() {
 
   return (
     <section className="glass-card overflow-hidden border border-violet-500/15">
-      <div className="border-b border-white/[0.06] bg-violet-500/[0.04] p-5">
+      <div className="border-b border-white/6 bg-violet-500/4 p-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1 text-xs text-violet-200">
@@ -388,7 +388,7 @@ export function GrowthPaidCampaignApprovalConsole() {
             type="button"
             onClick={() => void load()}
             disabled={loading || busyId !== null}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs text-white/70 disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/4 px-4 py-2 text-xs text-white/70 disabled:opacity-50"
           >
             <RefreshCw
               className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
@@ -399,7 +399,7 @@ export function GrowthPaidCampaignApprovalConsole() {
       </div>
 
       <div className="grid gap-3 p-5 sm:grid-cols-3">
-        <div className="rounded-xl border border-orange-500/15 bg-orange-500/[0.04] p-4">
+        <div className="rounded-xl border border-orange-500/15 bg-orange-500/4 p-4">
           <ShieldCheck className="h-4 w-4 text-orange-300" />
           <div className="mt-2 text-2xl font-bold text-white">
             {pending.length}
@@ -408,12 +408,12 @@ export function GrowthPaidCampaignApprovalConsole() {
             {tr("Awaiting Owner approval")}
           </div>
         </div>
-        <div className="rounded-xl border border-green-500/15 bg-green-500/[0.04] p-4">
+        <div className="rounded-xl border border-green-500/15 bg-green-500/4 p-4">
           <CheckCircle2 className="h-4 w-4 text-green-300" />
           <div className="mt-2 text-2xl font-bold text-white">{approved}</div>
           <div className="text-xs text-white/35">{tr("Owner approved")}</div>
         </div>
-        <div className="rounded-xl border border-electric-500/15 bg-electric-500/[0.04] p-4">
+        <div className="rounded-xl border border-electric-500/15 bg-electric-500/4 p-4">
           <Sparkles className="h-4 w-4 text-electric-300" />
           <div className="mt-2 text-sm font-semibold text-white">AIOS</div>
           <div className="mt-1 text-xs text-white/35">
@@ -424,11 +424,11 @@ export function GrowthPaidCampaignApprovalConsole() {
 
       <div className="space-y-3 px-5 pb-5">
         {loading ? (
-          <div className="rounded-xl border border-white/[0.06] p-6 text-center text-sm text-white/35">
+          <div className="rounded-xl border border-white/6 p-6 text-center text-sm text-white/35">
             {tr("Loading paid campaign approvals…")}
           </div>
         ) : items.length === 0 ? (
-          <div className="rounded-xl border border-white/[0.06] p-6 text-center text-sm text-white/35">
+          <div className="rounded-xl border border-white/6 p-6 text-center text-sm text-white/35">
             {tr("No paid campaigns are waiting for review.")}
           </div>
         ) : (
@@ -452,7 +452,7 @@ export function GrowthPaidCampaignApprovalConsole() {
             return (
               <article
                 key={item.id}
-                className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4"
+                className="rounded-xl border border-white/6 bg-white/2 p-4"
               >
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                   <div className="min-w-0 flex-1">
@@ -481,7 +481,7 @@ export function GrowthPaidCampaignApprovalConsole() {
                     </div>
 
                     <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                      <div className="rounded-lg border border-white/[0.05] p-3">
+                      <div className="rounded-lg border border-white/5 p-3">
                         <div className="text-[10px] uppercase tracking-wider text-white/30">
                           {tr("User total budget")}
                         </div>
@@ -489,7 +489,7 @@ export function GrowthPaidCampaignApprovalConsole() {
                           {minorAmount(item.total_budget_minor, item.currency)}
                         </div>
                       </div>
-                      <div className="rounded-lg border border-white/[0.05] p-3">
+                      <div className="rounded-lg border border-white/5 p-3">
                         <div className="text-[10px] uppercase tracking-wider text-white/30">
                           {tr("User daily budget")}
                         </div>
@@ -500,7 +500,7 @@ export function GrowthPaidCampaignApprovalConsole() {
                           )}
                         </div>
                       </div>
-                      <div className="rounded-lg border border-white/[0.05] p-3">
+                      <div className="rounded-lg border border-white/5 p-3">
                         <div className="text-[10px] uppercase tracking-wider text-white/30">
                           {tr("AIOS recommendation")}
                         </div>
@@ -508,7 +508,7 @@ export function GrowthPaidCampaignApprovalConsole() {
                           {technicalText(assessment.recommendation)}
                         </div>
                       </div>
-                      <div className="rounded-lg border border-white/[0.05] p-3">
+                      <div className="rounded-lg border border-white/5 p-3">
                         <div className="text-[10px] uppercase tracking-wider text-white/30">
                           {tr("AIOS rationale")}
                         </div>
@@ -519,7 +519,7 @@ export function GrowthPaidCampaignApprovalConsole() {
                     </div>
 
                     {configuration ? (
-                      <div className="mt-3 rounded-xl border border-white/[0.06] bg-black/10 p-3">
+                      <div className="mt-3 rounded-xl border border-white/6 bg-black/10 p-3">
                         <div className="text-[10px] uppercase tracking-wider text-white/30">
                           {tr("Campaign configuration reviewed by Owner")}
                         </div>
@@ -547,7 +547,7 @@ export function GrowthPaidCampaignApprovalConsole() {
                             (creative, creativeIndex) => (
                               <div
                                 key={`${item.id}-creative-${creativeIndex}`}
-                                className="rounded-lg border border-white/[0.05] p-3"
+                                className="rounded-lg border border-white/5 p-3"
                               >
                                 <div className="text-[10px] text-white/30">
                                   {tr("Creative")} {creativeIndex + 1} ·{" "}
@@ -578,7 +578,7 @@ export function GrowthPaidCampaignApprovalConsole() {
                   </div>
 
                   <div className="flex shrink-0 flex-col gap-2 xl:w-48">
-                    <div className="rounded-lg border border-white/[0.06] bg-black/10 p-3 text-[11px] leading-5 text-white/35">
+                    <div className="rounded-lg border border-white/6 bg-black/10 p-3 text-[11px] leading-5 text-white/35">
                       <CircleDollarSign className="mb-1 h-3.5 w-3.5 text-electric-300" />
                       {tr(
                         "Approval preserves the user's budget and does not authorize launch, provider mutation, or real spend.",
@@ -612,7 +612,7 @@ export function GrowthPaidCampaignApprovalConsole() {
                 </div>
 
                 {isApproved && livePanelId === item.id ? (
-                  <div className="mt-4 rounded-xl border border-electric-500/15 bg-electric-500/[0.03] p-4">
+                  <div className="mt-4 rounded-xl border border-electric-500/15 bg-electric-500/3 p-4">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <div className="text-xs font-semibold text-electric-200">
@@ -677,7 +677,7 @@ export function GrowthPaidCampaignApprovalConsole() {
                     </div>
 
                     {selectedPilot ? (
-                      <div className="mt-3 rounded-xl border border-white/[0.06] bg-black/10 p-3">
+                      <div className="mt-3 rounded-xl border border-white/6 bg-black/10 p-3">
                         <div className="text-[10px] uppercase tracking-wider text-white/30">
                           {tr("Selected pilot runtime limits")}
                         </div>
@@ -761,7 +761,7 @@ export function GrowthPaidCampaignApprovalConsole() {
                         type="button"
                         disabled={busyId !== null || !planInput.pilotId}
                         onClick={() => void evaluatePlan(item)}
-                        className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white/65 disabled:opacity-40"
+                        className="rounded-lg border border-white/10 bg-white/4 px-3 py-2 text-xs text-white/65 disabled:opacity-40"
                       >
                         {tr("Evaluate live plan")}
                       </button>
@@ -788,7 +788,7 @@ export function GrowthPaidCampaignApprovalConsole() {
                     </div>
 
                     {planResult ? (
-                      <div className="mt-4 rounded-lg border border-white/[0.06] bg-black/10 p-3 text-xs">
+                      <div className="mt-4 rounded-lg border border-white/6 bg-black/10 p-3 text-xs">
                         <div className="flex flex-wrap gap-2">
                           {"plan_compilable" in planResult ? (
                             <span
@@ -837,7 +837,7 @@ export function GrowthPaidCampaignApprovalConsole() {
                         </div>
                       </div>
                     ) : null}
-                    <div className="mt-4 rounded-xl border border-orange-500/20 bg-orange-500/[0.04] p-4">
+                    <div className="mt-4 rounded-xl border border-orange-500/20 bg-orange-500/4 p-4">
                       <div className="text-xs font-semibold text-orange-200">
                         {tr("Controlled PAUSED Meta execution")}
                       </div>
@@ -865,7 +865,7 @@ export function GrowthPaidCampaignApprovalConsole() {
                         </button>
                       </div>
                       {executionResult ? (
-                        <div className="mt-3 rounded-lg border border-white/[0.06] bg-black/10 p-3">
+                        <div className="mt-3 rounded-lg border border-white/6 bg-black/10 p-3">
                           <div className="flex flex-wrap gap-3 text-[11px] text-white/50">
                             <span>
                               {tr("Status")}:{" "}
@@ -885,7 +885,7 @@ export function GrowthPaidCampaignApprovalConsole() {
                             </span>
                           </div>
                           {executionResult.manual_review_required ? (
-                            <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/[0.08] p-3 text-xs font-medium text-red-200">
+                            <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/8 p-3 text-xs font-medium text-red-200">
                               {tr(
                                 "Manual review required. The uncertain provider operation will not be retried automatically, and the pilot safety guard must be reviewed before any further execution.",
                               )}
@@ -948,7 +948,7 @@ export function GrowthPaidCampaignApprovalConsole() {
         )}
       </div>
 
-      <div className="border-t border-white/[0.06] px-5 py-3 text-xs text-electric-300">
+      <div className="border-t border-white/6 px-5 py-3 text-xs text-electric-300">
         {tr(message)}
       </div>
     </section>

@@ -154,7 +154,7 @@ export default function OwnerSecretsPage() {
                   }))
                 }
                 placeholder="OPENAI_API_KEY"
-                className="glass-input mt-1 w-full rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+                className="glass-input mt-1 w-full rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
               />
             </label>
             <label className="text-xs text-white/55">
@@ -169,7 +169,7 @@ export default function OwnerSecretsPage() {
                   }))
                 }
                 placeholder="Vault, AWS Secrets Manager..."
-                className="glass-input mt-1 w-full rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+                className="glass-input mt-1 w-full rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
               />
             </label>
             <label className="text-xs text-white/55">
@@ -182,7 +182,7 @@ export default function OwnerSecretsPage() {
                     scope: event.target.value as SecretScope,
                   }))
                 }
-                className="glass-input mt-1 w-full rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+                className="glass-input mt-1 w-full rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
               >
                 <option value="global" className="bg-space-800">
                   Global
@@ -210,7 +210,7 @@ export default function OwnerSecretsPage() {
                   }))
                 }
                 placeholder="vault://aionex/production/openai"
-                className="glass-input mt-1 w-full rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+                className="glass-input mt-1 w-full rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
               />
             </label>
           </div>
@@ -262,13 +262,13 @@ export default function OwnerSecretsPage() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search references and providers..."
-              className="glass-input w-full rounded-xl py-2.5 pl-10 pr-4 text-sm text-white outline-none"
+              className="glass-input w-full rounded-xl py-2.5 pl-10 pr-4 text-sm text-white outline-hidden"
             />
           </div>
           <select
             value={scope}
             onChange={(event) => setScope(event.target.value as typeof scope)}
-            className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+            className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
           >
             <option value="all" className="bg-space-800">
               All scopes

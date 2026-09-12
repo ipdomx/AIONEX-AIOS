@@ -64,7 +64,7 @@ export default function OwnerExecutivePage() {
           <button
             onClick={() => void reload()}
             disabled={loading || busy}
-            className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 text-sm font-medium text-white/75 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl border border-white/8 bg-white/4 px-4 py-2.5 text-sm font-medium text-white/75 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <RefreshCw className="mr-2 inline h-4 w-4" />
             Refresh
@@ -95,10 +95,10 @@ export default function OwnerExecutivePage() {
             >
               <Link
                 href={presentation.href}
-                className="glass-card block p-5 transition hover:bg-white/[0.05]"
+                className="glass-card block p-5 transition hover:bg-white/5"
               >
                 <div className="flex items-center justify-between">
-                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.04] p-2.5">
+                  <div className="rounded-xl border border-white/6 bg-white/4 p-2.5">
                     <Icon className="h-5 w-5 text-electric-300" />
                   </div>
                   <span className="text-2xl font-bold text-white">
@@ -135,7 +135,7 @@ export default function OwnerExecutivePage() {
               return (
                 <div
                   key={item.id}
-                  className="flex items-center justify-between rounded-xl border border-white/[0.05] bg-white/[0.02] px-4 py-3"
+                  className="flex items-center justify-between rounded-xl border border-white/5 bg-white/2 px-4 py-3"
                 >
                   <span className="text-xs text-white/55">{item.label}</span>
                   <span
@@ -167,7 +167,7 @@ export default function OwnerExecutivePage() {
               {attentionItems.map((item, index) => (
                 <div
                   key={item.id}
-                  className="flex items-center gap-3 rounded-xl border border-white/[0.05] bg-white/[0.02] px-4 py-3"
+                  className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/2 px-4 py-3"
                 >
                   <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-electric-500/10 text-xs font-bold text-electric-300">
                     {index + 1}
@@ -180,7 +180,7 @@ export default function OwnerExecutivePage() {
               ))}
             </div>
           ) : (
-            <p className="rounded-xl border border-white/[0.05] bg-white/[0.02] px-4 py-3 text-xs text-white/45">
+            <p className="rounded-xl border border-white/5 bg-white/2 px-4 py-3 text-xs text-white/45">
               No live executive signal currently requires owner attention.
             </p>
           )}

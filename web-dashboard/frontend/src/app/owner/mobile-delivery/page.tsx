@@ -134,10 +134,10 @@ export default function OwnerMobileDeliveryPage() {
                   : "No registered release"}
               </div>
               <div className="mt-4 flex flex-wrap gap-2 text-[11px]">
-                <span className="rounded-full bg-white/[0.05] px-2.5 py-1 text-white/60">
+                <span className="rounded-full bg-white/5 px-2.5 py-1 text-white/60">
                   {release?.status ?? "not built"}
                 </span>
-                <span className="rounded-full bg-white/[0.05] px-2.5 py-1 text-white/60">
+                <span className="rounded-full bg-white/5 px-2.5 py-1 text-white/60">
                   {release?.signing_status ?? "unavailable"}
                 </span>
                 <span
@@ -169,7 +169,7 @@ export default function OwnerMobileDeliveryPage() {
                 <span className="rounded-full bg-green-500/10 px-3 py-1 text-green-300">
                   {release.status}
                 </span>
-                <span className="rounded-full bg-white/[0.05] px-3 py-1 text-white/60">
+                <span className="rounded-full bg-white/5 px-3 py-1 text-white/60">
                   {release.publication_status}
                 </span>
               </div>
@@ -179,7 +179,7 @@ export default function OwnerMobileDeliveryPage() {
               {release.artifacts.map((artifact) => (
                 <div
                   key={artifact.id}
-                  className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4"
+                  className="rounded-xl border border-white/6 bg-white/2 p-4"
                 >
                   <div className="flex items-start gap-3">
                     <ShieldCheck className="mt-0.5 h-4 w-4 text-green-300" />
@@ -218,7 +218,7 @@ export default function OwnerMobileDeliveryPage() {
               {release.validations.map((validation) => (
                 <div
                   key={validation.id}
-                  className="flex items-center gap-3 rounded-lg border border-white/[0.05] bg-black/10 px-3 py-2 text-xs"
+                  className="flex items-center gap-3 rounded-lg border border-white/5 bg-black/10 px-3 py-2 text-xs"
                 >
                   <CheckCircle2 className="h-4 w-4 text-green-300" />
                   <span className="flex-1 text-white/65">

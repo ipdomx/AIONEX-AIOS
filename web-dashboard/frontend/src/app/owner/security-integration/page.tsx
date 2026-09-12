@@ -146,7 +146,7 @@ export default function OwnerSecurityIntegrationPage() {
           </div>
           <ShieldCheck className="h-8 w-8 text-electric-300" />
         </div>
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.05]">
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/5">
           <div
             className="h-full rounded-full bg-electric-400"
             style={{
@@ -199,7 +199,7 @@ export default function OwnerSecurityIntegrationPage() {
               <button
                 disabled={loading || actingTarget !== null}
                 onClick={() => void command(item.id, "validate")}
-                className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white/70 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg border border-white/8 bg-white/4 px-3 py-2 text-xs text-white/70 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {actingTarget === item.id ? "Running…" : "Validate"}
               </button>

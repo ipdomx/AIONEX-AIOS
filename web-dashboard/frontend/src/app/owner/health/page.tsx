@@ -61,7 +61,7 @@ export default function OwnerHealthPage() {
           <button
             onClick={refreshHealth}
             disabled={loading || busy}
-            className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 text-sm font-medium text-white/75 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl border border-white/8 bg-white/4 px-4 py-2.5 text-sm font-medium text-white/75 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <RefreshCw className="mr-2 inline h-4 w-4" />
             Refresh health
@@ -90,7 +90,7 @@ export default function OwnerHealthPage() {
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.04] p-2.5">
+                  <div className="rounded-xl border border-white/6 bg-white/4 p-2.5">
                     <Icon className="h-5 w-5 text-electric-300" />
                   </div>
                   <div>
@@ -149,7 +149,7 @@ export default function OwnerHealthPage() {
             return (
               <div
                 key={item.id}
-                className="flex items-center gap-2 rounded-xl border border-white/[0.05] bg-white/[0.02] px-4 py-3 text-xs text-white/60"
+                className="flex items-center gap-2 rounded-xl border border-white/5 bg-white/2 px-4 py-3 text-xs text-white/60"
               >
                 {isHealthy ? (
                   <CheckCircle2 className="h-4 w-4 text-green-400" />

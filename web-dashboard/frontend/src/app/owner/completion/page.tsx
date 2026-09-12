@@ -87,7 +87,7 @@ export default function OwnerCompletionPage() {
       <header className="glass-card p-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex items-start gap-3">
-            <ShieldCheck className="mt-1 h-7 w-7 flex-shrink-0 text-electric-300" />
+            <ShieldCheck className="mt-1 h-7 w-7 shrink-0 text-electric-300" />
             <div>
               <h1 className="text-2xl font-bold text-white">
                 Platform Completion & Phase 36 Expansion
@@ -176,7 +176,7 @@ export default function OwnerCompletionPage() {
             </span>
           </div>
         </div>
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.05]">
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/5">
           <div
             className="h-full rounded-full bg-electric-400"
             style={{ width: `${snapshot.program.completion}%` }}
@@ -209,12 +209,12 @@ export default function OwnerCompletionPage() {
           {snapshot.phase36.maturity_order.map((maturity) => (
             <div
               key={maturity}
-              className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3"
+              className="rounded-xl border border-white/6 bg-white/2 p-3"
             >
               <div className="text-lg font-semibold text-white">
                 {snapshot.phase36.maturity_counts[maturity]}
               </div>
-              <div className="mt-1 break-words text-[10px] text-white/35">
+              <div className="mt-1 wrap-break-word text-[10px] text-white/35">
                 {maturity.replaceAll("_", " ")}
               </div>
             </div>
@@ -224,7 +224,7 @@ export default function OwnerCompletionPage() {
           {snapshot.phase36.batches.map((batch) => (
             <details
               key={batch.batch_id}
-              className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4"
+              className="rounded-xl border border-white/6 bg-white/2 p-4"
             >
               <summary className="cursor-pointer text-sm font-medium text-white/75">
                 {batch.batch_id} · {batch.title} · {batch.status}
@@ -233,7 +233,7 @@ export default function OwnerCompletionPage() {
                 {batch.capabilities.map((capability) => (
                   <div
                     key={capability.capability_id}
-                    className="rounded-lg border border-white/[0.05] p-3 text-xs"
+                    className="rounded-lg border border-white/5 p-3 text-xs"
                   >
                     <div className="font-medium text-white/65">
                       {capability.title}
@@ -290,14 +290,14 @@ export default function OwnerCompletionPage() {
                   <AlertTriangle className="h-4 w-4 text-orange-300" />
                 )}
               </div>
-              <div className="mt-4 space-y-2 border-t border-white/[0.05] pt-4">
+              <div className="mt-4 space-y-2 border-t border-white/5 pt-4">
                 {batch.features.map((feature) => (
                   <div
                     key={feature.feature_id}
                     className="flex items-start justify-between gap-3 text-xs"
                   >
                     <span className="text-white/55">{feature.title}</span>
-                    <span className="flex-shrink-0 text-white/30">
+                    <span className="shrink-0 text-white/30">
                       {feature.status}
                     </span>
                   </div>
@@ -316,7 +316,7 @@ export default function OwnerCompletionPage() {
           {snapshot.checks.map((check) => (
             <div
               key={check.id}
-              className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4"
+              className="rounded-xl border border-white/6 bg-white/2 p-4"
             >
               <div className="flex items-center gap-2">
                 {check.status === "passed" ? (
@@ -342,7 +342,7 @@ export default function OwnerCompletionPage() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="glass-card flex items-center gap-3 p-4 transition hover:bg-white/[0.05]"
+                className="glass-card flex items-center gap-3 p-4 transition hover:bg-white/5"
               >
                 <ExternalLink className="h-5 w-5 text-electric-300" />
                 <span className="flex-1 text-sm font-medium text-white/75">

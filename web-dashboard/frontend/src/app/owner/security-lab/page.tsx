@@ -460,7 +460,7 @@ export default function OwnerSecurityLabPage() {
           ).map(([key, label]) => (
             <label
               key={key}
-              className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-black/20 p-3 text-xs text-white/60"
+              className="flex items-center justify-between rounded-xl border border-white/6 bg-black/20 p-3 text-xs text-white/60"
             >
               <span>{label}</span>
               <input
@@ -542,7 +542,7 @@ export default function OwnerSecurityLabPage() {
           ).map(([key, label]) => (
             <label
               key={key}
-              className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-black/20 p-3 text-xs text-white/60"
+              className="flex items-center justify-between rounded-xl border border-white/6 bg-black/20 p-3 text-xs text-white/60"
             >
               <span>{label}</span>
               <input
@@ -560,7 +560,7 @@ export default function OwnerSecurityLabPage() {
               />
             </label>
           ))}
-          <label className="rounded-xl border border-white/[0.06] bg-black/20 p-3 text-xs text-white/60">
+          <label className="rounded-xl border border-white/6 bg-black/20 p-3 text-xs text-white/60">
             Allowed confirmed medium findings
             <input
               type="number"
@@ -719,7 +719,7 @@ export default function OwnerSecurityLabPage() {
                 <th className="p-2">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/[0.05]">
+            <tbody className="divide-y divide-white/5">
               {snapshot.grants.map((grant) => {
                 const user = users.find((item) => item.id === grant.user_id);
                 return (
@@ -763,7 +763,7 @@ export default function OwnerSecurityLabPage() {
                 <th className="p-2">Owner decision</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/[0.05]">
+            <tbody className="divide-y divide-white/5">
               {findings.slice(0, 200).map((item) => (
                 <tr key={item.id} className="text-white/60">
                   <td className="p-2 uppercase">{item.severity}</td>
@@ -824,7 +824,7 @@ export default function OwnerSecurityLabPage() {
           {rules.slice(0, 100).map((rule) => (
             <div
               key={rule.id}
-              className="flex flex-col gap-3 rounded-xl border border-white/[0.06] bg-black/20 p-3 lg:flex-row lg:items-center lg:justify-between"
+              className="flex flex-col gap-3 rounded-xl border border-white/6 bg-black/20 p-3 lg:flex-row lg:items-center lg:justify-between"
             >
               <div>
                 <div className="text-sm text-white">{rule.name}</div>
@@ -894,7 +894,7 @@ export default function OwnerSecurityLabPage() {
           {gates.slice(0, 30).map((gate) => (
             <div
               key={gate.id}
-              className="rounded-xl border border-white/[0.06] bg-black/20 p-3"
+              className="rounded-xl border border-white/6 bg-black/20 p-3"
             >
               <div className="text-sm font-medium text-white">
                 {gate.decision}

@@ -211,7 +211,7 @@ export default function UsersPage() {
       </form>
 
       <label className="relative block max-w-xl">
-        <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+        <Search className="absolute inset-s-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
         <input
           value={search}
           onChange={(event) => setSearch(event.target.value)}

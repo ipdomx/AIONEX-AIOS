@@ -19,7 +19,7 @@ import {
 } from "@/lib/phase29f-api";
 
 const inputClass =
-  "glass-input rounded-xl px-3 py-2.5 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-50";
+  "glass-input rounded-xl px-3 py-2.5 text-sm text-white outline-hidden disabled:cursor-not-allowed disabled:opacity-50";
 const buttonClass =
   "inline-flex items-center justify-center gap-2 rounded-xl border border-electric-500/20 bg-electric-500/10 px-3 py-2 text-xs font-semibold text-electric-200 transition hover:bg-electric-500/15 disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -232,7 +232,7 @@ export default function ReportsPage() {
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h2 className="font-semibold text-white">{report.name}</h2>
                     <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] ${report.status === "archived" ? "bg-white/[0.06] text-white/35" : "bg-green-500/10 text-green-300"}`}
+                      className={`rounded-full px-2 py-0.5 text-[10px] ${report.status === "archived" ? "bg-white/6 text-white/35" : "bg-green-500/10 text-green-300"}`}
                     >
                       {report.status}
                     </span>
@@ -250,7 +250,7 @@ export default function ReportsPage() {
                       .map(([key, value]) => (
                         <div
                           key={key}
-                          className="rounded-xl border border-white/[0.05] bg-black/15 p-3 text-center"
+                          className="rounded-xl border border-white/5 bg-black/15 p-3 text-center"
                         >
                           <BarChart3 className="mx-auto h-4 w-4 text-electric-300" />
                           <div className="mt-1 text-sm font-semibold text-white">

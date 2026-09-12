@@ -166,7 +166,7 @@ def test_project_execution_table_and_compose_worker_contracts() -> None:
         ROOT / "web-dashboard/backend/requirements-project-worker.txt"
     ).read_text(encoding="utf-8")
     dockerfile = (ROOT / "web-dashboard/backend/Dockerfile").read_text(encoding="utf-8")
-    assert "selenium==4.46.0" in worker_requirements
+    assert "selenium==4.48.0" in worker_requirements
     assert "pip check" in dockerfile
 
 

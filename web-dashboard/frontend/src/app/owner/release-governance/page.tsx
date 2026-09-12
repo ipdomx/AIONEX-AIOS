@@ -177,7 +177,7 @@ export default function OwnerReleaseGovernancePage() {
                     {item.createdAt}
                   </p>
                 </div>
-                <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/65">
+                <span className="rounded-full border border-white/10 bg-white/4 px-3 py-1 text-xs text-white/65">
                   {item.status}
                 </span>
               </div>
@@ -188,7 +188,7 @@ export default function OwnerReleaseGovernancePage() {
                 </div>
               )}
               <div className="mt-4 grid gap-3 lg:grid-cols-2">
-                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-xs text-white/45">
+                <div className="rounded-xl border border-white/6 bg-white/2 p-4 text-xs text-white/45">
                   <div className="font-medium text-white">
                     Deployment evidence
                   </div>
@@ -209,7 +209,7 @@ export default function OwnerReleaseGovernancePage() {
                     </div>
                   )}
                 </div>
-                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-xs text-white/45">
+                <div className="rounded-xl border border-white/6 bg-white/2 p-4 text-xs text-white/45">
                   <div className="font-medium text-white">
                     Rollback evidence
                   </div>
@@ -235,7 +235,7 @@ export default function OwnerReleaseGovernancePage() {
                 {item.gates.map((gate) => (
                   <div
                     key={gate.id}
-                    className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4"
+                    className="rounded-xl border border-white/6 bg-white/2 p-4"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>

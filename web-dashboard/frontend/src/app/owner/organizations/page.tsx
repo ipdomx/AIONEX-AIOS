@@ -127,7 +127,7 @@ export default function OwnerOrganizationsPage() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search organizations, plans or status..."
-            className="glass-input w-full rounded-xl py-2.5 pl-10 pr-4 text-sm text-white outline-none"
+            className="glass-input w-full rounded-xl py-2.5 pl-10 pr-4 text-sm text-white outline-hidden"
           />
         </div>
         <div className="mt-3 text-xs text-electric-300">
@@ -163,26 +163,26 @@ export default function OwnerOrganizationsPage() {
                 )}
               </div>
               <div className="mt-5 grid grid-cols-3 gap-3 text-center">
-                <div className="rounded-lg bg-white/[0.02] p-3">
+                <div className="rounded-lg bg-white/2 p-3">
                   <div className="text-sm font-bold text-white">
                     {organization.users}
                   </div>
                   <div className="text-[10px] text-white/30">Users</div>
                 </div>
-                <div className="rounded-lg bg-white/[0.02] p-3">
+                <div className="rounded-lg bg-white/2 p-3">
                   <div className="text-sm font-bold text-white">
                     {organization.projects}
                   </div>
                   <div className="text-[10px] text-white/30">Projects</div>
                 </div>
-                <div className="rounded-lg bg-white/[0.02] p-3">
+                <div className="rounded-lg bg-white/2 p-3">
                   <div className="text-sm font-bold text-white">
                     {organization.services ?? "—"}
                   </div>
                   <div className="text-[10px] text-white/30">Services</div>
                 </div>
               </div>
-              <div className="mt-4 flex items-center justify-between border-t border-white/[0.05] pt-4">
+              <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-4">
                 <span className="text-xs text-white/40">
                   {organization.status}
                 </span>

@@ -1,3 +1,52 @@
 "use client";
-import {useEffect,useMemo,useState} from "react";import {opsSecurityServices,MonitoringLog} from "@/lib/ops-security-services";import {LiveDataPanel,JsonCard} from "@/components/system/LiveDataPanel";
-export default function Page(){const[d,setD]=useState<MonitoringLog[]>([]),[e,setE]=useState<string|null>(null),[l,setL]=useState(true),[q,setQ]=useState("");useEffect(()=>{opsSecurityServices.logs({limit:200}).then(setD).catch(x=>setE(x.message)).finally(()=>setL(false))},[]);const rows=useMemo(()=>d.filter(x=>!q||`${x.message} ${x.service} ${x.level}`.toLowerCase().includes(q.toLowerCase())),[d,q]);return <LiveDataPanel title="Logs" subtitle="Durable monitoring logs from the backend audit ledger." loading={l} error={e} empty={!rows.length}><input className="glass-input w-full max-w-xl rounded-xl px-4 py-2 text-sm text-white outline-none" value={q} onChange={x=>setQ(x.target.value)} placeholder="Search live logs…"/><div className="space-y-3">{rows.map(x=><JsonCard key={x.id} title={`${x.level} · ${x.service}`} value={x}/>)}</div></LiveDataPanel>}
+import { useEffect, useMemo, useState } from "react";
+import {
+  opsSecurityServices,
+  MonitoringLog,
+} from "@/lib/ops-security-services";
+import { LiveDataPanel, JsonCard } from "@/components/system/LiveDataPanel";
+export default function Page() {
+  const [d, setD] = useState<MonitoringLog[]>([]),
+    [e, setE] = useState<string | null>(null),
+    [l, setL] = useState(true),
+    [q, setQ] = useState("");
+  useEffect(() => {
+    opsSecurityServices
+      .logs({ limit: 200 })
+      .then(setD)
+      .catch((x) => setE(x.message))
+      .finally(() => setL(false));
+  }, []);
+  const rows = useMemo(
+    () =>
+      d.filter(
+        (x) =>
+          !q ||
+          `${x.message} ${x.service} ${x.level}`
+            .toLowerCase()
+            .includes(q.toLowerCase()),
+      ),
+    [d, q],
+  );
+  return (
+    <LiveDataPanel
+      title="Logs"
+      subtitle="Durable monitoring logs from the backend audit ledger."
+      loading={l}
+      error={e}
+      empty={!rows.length}
+    >
+      <input
+        className="glass-input w-full max-w-xl rounded-xl px-4 py-2 text-sm text-white outline-hidden"
+        value={q}
+        onChange={(x) => setQ(x.target.value)}
+        placeholder="Search live logs…"
+      />
+      <div className="space-y-3">
+        {rows.map((x) => (
+          <JsonCard key={x.id} title={`${x.level} · ${x.service}`} value={x} />
+        ))}
+      </div>
+    </LiveDataPanel>
+  );
+}

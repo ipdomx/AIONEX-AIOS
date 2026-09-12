@@ -302,7 +302,7 @@ export default function TeamsPage() {
                 {members.map((member) => (
                   <div
                     key={member.id}
-                    className="flex items-center gap-3 rounded-xl bg-white/[0.03] p-3"
+                    className="flex items-center gap-3 rounded-xl bg-white/3 p-3"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm text-white">

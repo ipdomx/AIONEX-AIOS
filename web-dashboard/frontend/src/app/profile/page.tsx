@@ -64,7 +64,7 @@ function QuotaCard({
   limit: string | number;
 }) {
   return (
-    <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
+    <div className="rounded-2xl border border-white/[0.07] bg-white/2.5 p-4">
       <Icon className="h-5 w-5 text-electric-300" />
       <div className="mt-3 text-xs text-white/40">{label}</div>
       <div className="mt-1 text-lg font-semibold text-white">
@@ -182,7 +182,7 @@ export default function ProfilePage() {
         <>
           <section className="glass-card grid gap-6 p-6 md:grid-cols-[180px_1fr]">
             <div className="flex flex-col items-center gap-4">
-              <div className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/[0.04]">
+              <div className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/4">
                 {data.profile.avatar ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -219,7 +219,7 @@ export default function ProfilePage() {
               ].map(([label, value]) => (
                 <div
                   key={label}
-                  className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-4"
+                  className="rounded-xl border border-white/6 bg-white/2.5 p-4"
                 >
                   <div className="text-xs text-white/35">{label}</div>
                   <div className="mt-2 break-all text-sm text-white/80">
@@ -227,7 +227,7 @@ export default function ProfilePage() {
                   </div>
                 </div>
               ))}
-              <div className="sm:col-span-2 rounded-xl border border-electric-500/15 bg-electric-500/[0.05] p-4 text-xs leading-5 text-electric-200/80">
+              <div className="sm:col-span-2 rounded-xl border border-electric-500/15 bg-electric-500/5 p-4 text-xs leading-5 text-electric-200/80">
                 This account can manage one free project, view this profile,
                 change its profile image, and change its password. Additional
                 platform capabilities require an owner-assigned plan or role.
@@ -247,7 +247,7 @@ export default function ProfilePage() {
                   </p>
                 </div>
                 {quota.period_ends_at && (
-                  <div className="rounded-lg border border-white/[0.06] px-3 py-2 text-xs text-white/45">
+                  <div className="rounded-lg border border-white/6 px-3 py-2 text-xs text-white/45">
                     Resets {new Date(quota.period_ends_at).toLocaleDateString()}
                   </div>
                 )}
@@ -301,7 +301,7 @@ export default function ProfilePage() {
                 onChange={(event) => setCurrentPassword(event.target.value)}
                 placeholder="Current password"
                 autoComplete="current-password"
-                className="glass-input rounded-xl px-4 py-3 text-sm text-white outline-none"
+                className="glass-input rounded-xl px-4 py-3 text-sm text-white outline-hidden"
               />
               <input
                 type="password"
@@ -309,7 +309,7 @@ export default function ProfilePage() {
                 onChange={(event) => setNewPassword(event.target.value)}
                 placeholder={`New password (${data.security.password_min_length}+ characters)`}
                 autoComplete="new-password"
-                className="glass-input rounded-xl px-4 py-3 text-sm text-white outline-none"
+                className="glass-input rounded-xl px-4 py-3 text-sm text-white outline-hidden"
               />
               <input
                 type="password"
@@ -317,7 +317,7 @@ export default function ProfilePage() {
                 onChange={(event) => setConfirmPassword(event.target.value)}
                 placeholder="Confirm new password"
                 autoComplete="new-password"
-                className="glass-input rounded-xl px-4 py-3 text-sm text-white outline-none"
+                className="glass-input rounded-xl px-4 py-3 text-sm text-white outline-hidden"
               />
             </div>
             <button

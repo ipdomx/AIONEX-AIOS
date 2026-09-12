@@ -188,8 +188,8 @@ export default function SettingsPage() {
                 onClick={() => setActive(section.id)}
                 className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm transition ${
                   active === section.id
-                    ? "bg-white/[0.08] text-white"
-                    : "text-white/50 hover:bg-white/[0.04] hover:text-white/80"
+                    ? "bg-white/8 text-white"
+                    : "text-white/50 hover:bg-white/4 hover:text-white/80"
                 }`}
               >
                 <Icon className="h-[18px] w-[18px]" />
@@ -209,7 +209,7 @@ export default function SettingsPage() {
                   <input
                     value={name}
                     onChange={(event) => setName(event.target.value)}
-                    className="glass-input w-full rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+                    className="glass-input w-full rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
                   />
                 </label>
                 <label className="space-y-2 text-xs text-white/40">
@@ -217,13 +217,13 @@ export default function SettingsPage() {
                   <input
                     value={data.profile.email}
                     readOnly
-                    className="glass-input w-full rounded-xl px-4 py-2.5 text-sm text-white/60 outline-none"
+                    className="glass-input w-full rounded-xl px-4 py-2.5 text-sm text-white/60 outline-hidden"
                   />
                 </label>
-                <div className="rounded-xl bg-white/[0.02] p-4 text-sm text-white/60">
+                <div className="rounded-xl bg-white/2 p-4 text-sm text-white/60">
                   Role: {data.profile.role || "—"}
                 </div>
-                <div className="rounded-xl bg-white/[0.02] p-4 text-sm text-white/60">
+                <div className="rounded-xl bg-white/2 p-4 text-sm text-white/60">
                   Organization: {data.profile.organization || "—"}
                 </div>
               </div>
@@ -254,7 +254,7 @@ export default function SettingsPage() {
                   onChange={(event) => setCurrentPassword(event.target.value)}
                   placeholder="Current password"
                   autoComplete="current-password"
-                  className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+                  className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
                 />
                 <input
                   type="password"
@@ -262,7 +262,7 @@ export default function SettingsPage() {
                   onChange={(event) => setNewPassword(event.target.value)}
                   placeholder={`New password (${data.security.password_min_length}+ characters)`}
                   autoComplete="new-password"
-                  className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+                  className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
                 />
                 <input
                   type="password"
@@ -270,7 +270,7 @@ export default function SettingsPage() {
                   onChange={(event) => setConfirmPassword(event.target.value)}
                   placeholder="Confirm new password"
                   autoComplete="new-password"
-                  className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+                  className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
                 />
               </div>
               {securityNotice && (
@@ -333,7 +333,7 @@ export default function SettingsPage() {
                 (key) => (
                   <label
                     key={key}
-                    className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-sm text-white/65"
+                    className="flex items-center justify-between rounded-xl border border-white/6 bg-white/2 p-4 text-sm text-white/65"
                   >
                     {key === "email_notifications"
                       ? "Email notifications"
@@ -405,7 +405,7 @@ export default function SettingsPage() {
           {active === "appearance" && (
             <div className="space-y-4">
               <h2 className="text-lg font-semibold text-white">Appearance</h2>
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-sm text-white/60">
+              <div className="rounded-xl border border-white/6 bg-white/2 p-4 text-sm text-white/60">
                 The production dashboard currently uses its supported dark
                 theme.
               </div>

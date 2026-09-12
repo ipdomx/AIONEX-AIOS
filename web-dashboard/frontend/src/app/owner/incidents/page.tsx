@@ -129,7 +129,7 @@ export default function OwnerIncidentsPage() {
             >
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div className="flex items-start gap-4">
-                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.04] p-2.5">
+                  <div className="rounded-xl border border-white/6 bg-white/4 p-2.5">
                     {incident.source.includes("Database") ? (
                       <Server className="h-5 w-5 text-electric-300" />
                     ) : (
@@ -146,7 +146,7 @@ export default function OwnerIncidentsPage() {
                       >
                         {incident.severity}
                       </span>
-                      <span className="rounded-full border border-white/[0.06] bg-white/[0.03] px-2 py-0.5 text-[10px] text-white/45">
+                      <span className="rounded-full border border-white/6 bg-white/3 px-2 py-0.5 text-[10px] text-white/45">
                         {incident.status}
                       </span>
                     </div>
@@ -164,7 +164,7 @@ export default function OwnerIncidentsPage() {
                   <button
                     disabled={busy || incident.status === "resolved"}
                     onClick={() => void execute(incident.id, "investigate")}
-                    className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white/65 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-xl border border-white/8 bg-white/4 px-3 py-2 text-xs text-white/65 hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Investigate
                   </button>

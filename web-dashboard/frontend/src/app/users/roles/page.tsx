@@ -133,7 +133,7 @@ export default function RolesPage() {
           {groupedPermissions.map(([group, items]) => (
             <fieldset
               key={group}
-              className="rounded-xl border border-white/[0.06] p-3"
+              className="rounded-xl border border-white/6 p-3"
             >
               <legend className="px-1 text-xs font-semibold text-white/50">
                 {group}
@@ -203,7 +203,7 @@ export default function RolesPage() {
               {role.permissions.map((permission) => (
                 <span
                   key={permission}
-                  className="rounded-md bg-white/[0.05] px-2 py-1 text-[10px] text-white/45"
+                  className="rounded-md bg-white/5 px-2 py-1 text-[10px] text-white/45"
                 >
                   {permission}
                 </span>

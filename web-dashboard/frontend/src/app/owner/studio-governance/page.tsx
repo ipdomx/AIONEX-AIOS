@@ -186,7 +186,7 @@ export default function OwnerStudioGovernancePage() {
                   <h2 className="text-lg font-semibold text-white">
                     {item.title}
                   </h2>
-                  <span className="rounded-full border border-white/[0.08] px-2.5 py-1 text-[10px] text-white/40">
+                  <span className="rounded-full border border-white/8 px-2.5 py-1 text-[10px] text-white/40">
                     {item.policy_source === "owner"
                       ? "Owner override"
                       : "Default policy"}
@@ -324,7 +324,7 @@ export default function OwnerStudioGovernancePage() {
                   <option value="strict">strict</option>
                 </select>
               </label>
-              <div className="rounded-xl border border-white/[0.06] bg-black/10 p-3 text-xs text-white/45">
+              <div className="rounded-xl border border-white/6 bg-black/10 p-3 text-xs text-white/45">
                 <div>Provider mode: {item.policy.provider_mode}</div>
                 <div className="mt-1">
                   External cost ceiling: ${item.policy.max_cost_usd.toFixed(2)}
@@ -340,7 +340,7 @@ export default function OwnerStudioGovernancePage() {
 
             {(!item.runtime_launchable ||
               item.required_permissions.length > 0) && (
-              <div className="rounded-xl border border-white/[0.06] bg-black/10 p-3 text-[11px] leading-5 text-white/40">
+              <div className="rounded-xl border border-white/6 bg-black/10 p-3 text-[11px] leading-5 text-white/40">
                 {!item.runtime_launchable && (
                   <div>
                     Runtime launch: gated (

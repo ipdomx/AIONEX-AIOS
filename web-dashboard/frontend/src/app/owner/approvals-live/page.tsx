@@ -132,7 +132,7 @@ export default function OwnerApprovalsLivePage() {
                   Priority: {item.priority} · {item.createdAt}
                 </p>
               </div>
-              <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-white/60">
+              <span className="rounded-full border border-white/10 bg-white/4 px-2.5 py-1 text-xs text-white/60">
                 {item.status}
               </span>
             </div>

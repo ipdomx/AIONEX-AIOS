@@ -146,7 +146,7 @@ export default function OwnerReleasePage() {
         </h2>
         <div className="space-y-3">
           {!loading && items.length === 0 && (
-            <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-4 text-sm text-white/45">
+            <div className="rounded-xl border border-white/5 bg-white/2 p-4 text-sm text-white/45">
               No release gates are configured.
             </div>
           )}
@@ -158,7 +158,7 @@ export default function OwnerReleasePage() {
             return (
               <div
                 key={gate.id}
-                className="flex flex-col gap-3 rounded-xl border border-white/[0.05] bg-white/[0.02] p-4 sm:flex-row sm:items-center"
+                className="flex flex-col gap-3 rounded-xl border border-white/5 bg-white/2 p-4 sm:flex-row sm:items-center"
               >
                 {passed ? (
                   <CheckCircle2 className="h-5 w-5 text-green-400" />

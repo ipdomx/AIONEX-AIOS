@@ -83,7 +83,7 @@ export default function AuthGate({ children }: PropsWithChildren) {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-space-950 px-4 py-10 text-white">
-      <section className="w-full max-w-md rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl backdrop-blur-xl sm:p-8">
+      <section className="w-full max-w-md rounded-3xl border border-white/10 bg-white/4 p-6 shadow-2xl backdrop-blur-xl sm:p-8">
         <div className="mb-7 flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-electric-500/15 text-electric-300">
             <ShieldCheck className="h-6 w-6" />
@@ -112,7 +112,7 @@ export default function AuthGate({ children }: PropsWithChildren) {
                 maxLength={32}
                 required
                 autoFocus
-                className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-electric-400/60 focus:ring-2 focus:ring-electric-400/20"
+                className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-hidden transition focus:border-electric-400/60 focus:ring-2 focus:ring-electric-400/20"
               />
             </label>
             {error && (
@@ -157,7 +157,7 @@ export default function AuthGate({ children }: PropsWithChildren) {
                 onChange={(event) => setEmail(event.target.value)}
                 autoComplete="username"
                 required
-                className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-electric-400/60 focus:ring-2 focus:ring-electric-400/20"
+                className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-hidden transition focus:border-electric-400/60 focus:ring-2 focus:ring-electric-400/20"
               />
             </label>
             <label className="block space-y-2">
@@ -168,7 +168,7 @@ export default function AuthGate({ children }: PropsWithChildren) {
                 onChange={(event) => setPassword(event.target.value)}
                 autoComplete="current-password"
                 required
-                className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-electric-400/60 focus:ring-2 focus:ring-electric-400/20"
+                className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-hidden transition focus:border-electric-400/60 focus:ring-2 focus:ring-electric-400/20"
               />
             </label>
 

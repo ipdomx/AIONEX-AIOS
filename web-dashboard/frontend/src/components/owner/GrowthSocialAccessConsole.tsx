@@ -352,7 +352,7 @@ export function GrowthSocialAccessConsole() {
               <button
                 type="button"
                 onClick={resetForm}
-                className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/55 hover:bg-white/[0.04]"
+                className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/55 hover:bg-white/4"
               >
                 <RotateCcw className="mr-1 inline h-3.5 w-3.5" /> New override
               </button>
@@ -370,7 +370,7 @@ export function GrowthSocialAccessConsole() {
                   setSubjectId("");
                 }}
                 disabled={busy || Boolean(selectedOverride)}
-                className="glass-input mt-2 w-full rounded-xl px-3 py-2.5 text-sm text-white outline-none"
+                className="glass-input mt-2 w-full rounded-xl px-3 py-2.5 text-sm text-white outline-hidden"
               >
                 <option value="user" className="bg-space-800">
                   User
@@ -387,7 +387,7 @@ export function GrowthSocialAccessConsole() {
                 value={subjectId}
                 onChange={(event) => setSubjectId(event.target.value)}
                 disabled={busy || Boolean(selectedOverride)}
-                className="glass-input mt-2 w-full rounded-xl px-3 py-2.5 text-sm text-white outline-none"
+                className="glass-input mt-2 w-full rounded-xl px-3 py-2.5 text-sm text-white outline-hidden"
               >
                 {selectedOverride &&
                   !targets.some((target) => target.id === subjectId) && (
@@ -414,7 +414,7 @@ export function GrowthSocialAccessConsole() {
                 value={capability}
                 onChange={(event) => setCapability(event.target.value)}
                 disabled={busy || Boolean(selectedOverride)}
-                className="glass-input mt-2 w-full rounded-xl px-3 py-2.5 text-sm text-white outline-none"
+                className="glass-input mt-2 w-full rounded-xl px-3 py-2.5 text-sm text-white outline-hidden"
               >
                 {capabilities.map((item) => (
                   <option
@@ -437,7 +437,7 @@ export function GrowthSocialAccessConsole() {
                 className={`rounded-xl border px-4 py-3 text-sm font-medium ${
                   decision === "grant"
                     ? "border-green-500/30 bg-green-500/15 text-green-300"
-                    : "border-white/10 bg-white/[0.02] text-white/40"
+                    : "border-white/10 bg-white/2 text-white/40"
                 }`}
               >
                 <CheckCircle2 className="mr-2 inline h-4 w-4" /> Grant
@@ -449,14 +449,14 @@ export function GrowthSocialAccessConsole() {
                 className={`rounded-xl border px-4 py-3 text-sm font-medium ${
                   decision === "deny"
                     ? "border-red-500/30 bg-red-500/15 text-red-300"
-                    : "border-white/10 bg-white/[0.02] text-white/40"
+                    : "border-white/10 bg-white/2 text-white/40"
                 }`}
               >
                 <XCircle className="mr-2 inline h-4 w-4" /> Deny
               </button>
             </div>
 
-            <label className="flex items-start gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-xs text-white/55">
+            <label className="flex items-start gap-3 rounded-xl border border-white/6 bg-white/2 p-3 text-xs text-white/55">
               <input
                 type="checkbox"
                 checked={approvalRequired}
@@ -483,7 +483,7 @@ export function GrowthSocialAccessConsole() {
                 disabled={busy || Boolean(selectedOverride?.limits_redacted)}
                 rows={6}
                 spellCheck={false}
-                className="glass-input mt-2 w-full rounded-xl px-3 py-2.5 font-mono text-xs text-white outline-none"
+                className="glass-input mt-2 w-full rounded-xl px-3 py-2.5 font-mono text-xs text-white outline-hidden"
               />
               <span className="mt-1 block text-[11px] text-white/30">
                 Maximum 4096 bytes. Token, password, secret, API key,
@@ -535,14 +535,14 @@ export function GrowthSocialAccessConsole() {
 
           <div className="mt-4 space-y-3">
             {!loading && overrides.length === 0 && (
-              <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-6 text-center text-sm text-white/35">
+              <div className="rounded-xl border border-white/5 bg-white/2 p-6 text-center text-sm text-white/35">
                 No Growth &amp; Social Owner overrides are registered.
               </div>
             )}
             {overrides.map((item) => (
               <div
                 key={item.record_id}
-                className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4"
+                className="rounded-xl border border-white/6 bg-white/2 p-4"
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
@@ -552,7 +552,7 @@ export function GrowthSocialAccessConsole() {
                       ) : (
                         <Building2 className="h-4 w-4 text-cyan-300" />
                       )}
-                      <span className="break-words text-sm font-semibold text-white">
+                      <span className="wrap-break-word text-sm font-semibold text-white">
                         {item.subject_name ?? "Missing target"}
                       </span>
                       <span
@@ -579,7 +579,7 @@ export function GrowthSocialAccessConsole() {
                         controlled by GS-12.
                       </div>
                     )}
-                    <pre className="mt-3 max-h-32 overflow-auto rounded-lg border border-white/[0.04] bg-black/10 p-2 text-[10px] text-white/35">
+                    <pre className="mt-3 max-h-32 overflow-auto rounded-lg border border-white/4 bg-black/10 p-2 text-[10px] text-white/35">
                       {item.limits_redacted
                         ? JSON.stringify({ redacted: true }, null, 2)
                         : JSON.stringify(item.limits, null, 2)}
@@ -590,7 +590,7 @@ export function GrowthSocialAccessConsole() {
                       type="button"
                       onClick={() => editOverride(item)}
                       disabled={busy}
-                      className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/55 hover:bg-white/[0.04] disabled:opacity-40"
+                      className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/55 hover:bg-white/4 disabled:opacity-40"
                     >
                       <Edit3 className="mr-1 inline h-3.5 w-3.5" /> Edit
                     </button>

@@ -24,7 +24,7 @@ import {
 } from "@/lib/phase29f-api";
 
 const inputClass =
-  "glass-input rounded-xl px-3 py-2.5 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-50";
+  "glass-input rounded-xl px-3 py-2.5 text-sm text-white outline-hidden disabled:cursor-not-allowed disabled:opacity-50";
 const buttonClass =
   "inline-flex items-center justify-center gap-2 rounded-xl border border-electric-500/20 bg-electric-500/10 px-3 py-2 text-xs font-semibold text-electric-200 transition hover:bg-electric-500/15 disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -409,7 +409,7 @@ export default function WorkforcePage() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="font-semibold text-white">{member.name}</h2>
-                    <span className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[10px] text-white/45">
+                    <span className="rounded-full border border-white/8 px-2 py-0.5 text-[10px] text-white/45">
                       {member.status}
                     </span>
                   </div>
@@ -428,7 +428,7 @@ export default function WorkforcePage() {
                 ].map(([label, value]) => (
                   <div
                     key={String(label)}
-                    className="rounded-xl border border-white/[0.05] bg-black/15 p-3"
+                    className="rounded-xl border border-white/5 bg-black/15 p-3"
                   >
                     <div className="text-sm font-semibold text-white">
                       {typeof value === "number"
@@ -502,7 +502,7 @@ export default function WorkforcePage() {
             assignments.map((assignment) => (
               <div
                 key={assignment.id}
-                className="rounded-xl border border-white/[0.06] bg-black/15 p-4"
+                className="rounded-xl border border-white/6 bg-black/15 p-4"
               >
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div>
@@ -510,7 +510,7 @@ export default function WorkforcePage() {
                       <h3 className="text-sm font-semibold text-white">
                         {assignment.title}
                       </h3>
-                      <span className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[10px] text-white/45">
+                      <span className="rounded-full border border-white/8 px-2 py-0.5 text-[10px] text-white/45">
                         {assignment.status}
                       </span>
                     </div>
@@ -594,7 +594,7 @@ export default function WorkforcePage() {
             incidents.map((incident) => (
               <div
                 key={incident.id}
-                className="flex flex-col gap-3 rounded-xl border border-white/[0.06] bg-black/15 p-4 lg:flex-row lg:items-center lg:justify-between"
+                className="flex flex-col gap-3 rounded-xl border border-white/6 bg-black/15 p-4 lg:flex-row lg:items-center lg:justify-between"
               >
                 <div>
                   <p className="text-sm font-semibold text-white">

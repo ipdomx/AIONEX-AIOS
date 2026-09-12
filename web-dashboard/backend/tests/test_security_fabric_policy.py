@@ -1,5 +1,7 @@
 import pytest
+from app.services import security_fabric
 from app.services.security_fabric import (
+    assert_public_target,
     host_matches_suffix,
     normalize_origin,
     profile_allowed,
@@ -29,3 +31,26 @@ def test_entitlement_profile_ceiling():
     assert profile_allowed("elite", "elite")
     assert profile_allowed("owner", "elite")
     assert not profile_allowed(None, "passive")
+
+
+def test_public_target_accepts_string_global_dns_answer(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(
+        security_fabric.socket,
+        "getaddrinfo",
+        lambda *_args, **_kwargs: [
+            (security_fabric.socket.AF_INET, security_fabric.socket.SOCK_STREAM, 6, "", ("8.8.8.8", 0))
+        ],
+    )
+    assert assert_public_target("example.test") == ["8.8.8.8"]
+
+
+def test_public_target_rejects_non_string_dns_address(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(
+        security_fabric.socket,
+        "getaddrinfo",
+        lambda *_args, **_kwargs: [
+            (security_fabric.socket.AF_INET, security_fabric.socket.SOCK_STREAM, 6, "", (1234, 0))
+        ],
+    )
+    with pytest.raises(ValueError, match="unsupported address"):
+        assert_public_target("example.test")

@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -9,6 +10,7 @@ OWNER = (BACKEND / "app/api/owner/three_d.py").read_text()
 POLICY = (BACKEND / "app/services/three_d_policy.py").read_text()
 MIGRATION = (BACKEND / "alembic/versions/20260809_0014_three_d_resilience_observability.py").read_text()
 WORKFLOW = (ROOT / ".github/workflows/phase34e-container-security.yml").read_text()
+TRIPOSR_WORKFLOW = (ROOT / ".github/workflows/phase34f-triposr-container-security.yml").read_text()
 DOC = (ROOT / "docs/phase-34/PHASE_34E_SECURITY_OBSERVABILITY_RESILIENCE.md").read_text()
 PLAN = (ROOT / "docs/phase-34/PHASE_34_3D_PLATFORM_COMPLETION_PLAN.md").read_text()
 
@@ -72,13 +74,24 @@ def test_phase34e_cleanup_spend_and_owner_controls_are_complete():
 
 
 def test_phase34e_supply_chain_gate_pins_actions_and_emits_sbom():
-    assert "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" in WORKFLOW
-    assert "anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610" in WORKFLOW
-    assert "aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1" in WORKFLOW
-    assert "cyclonedx-json" in WORKFLOW
-    assert "version: v0.72.0" in WORKFLOW
-    assert "CRITICAL,HIGH" in WORKFLOW
-    assert 'exit-code: "1"' in WORKFLOW
+    approved_sbom_pins = {
+        "e22c389904149dbc22b58101806040fa8d37a610",
+        "3ad7283483fc7af8ff2b4ea19663c2d5ca935e26",
+    }
+    approved_trivy_pins = {
+        "57a97c7e7821a5776cebc9bb87c984fa69cba8f1",
+        "ed142fd0673e97e23eac54620cfb913e5ce36c25",
+    }
+    for workflow in (WORKFLOW, TRIPOSR_WORKFLOW):
+        assert "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" in workflow
+        sbom = re.findall(r"anchore/sbom-action@([0-9a-f]{40})", workflow)
+        trivy = re.findall(r"aquasecurity/trivy-action@([0-9a-f]{40})", workflow)
+        assert len(sbom) == 1 and sbom[0] in approved_sbom_pins
+        assert len(trivy) == 1 and trivy[0] in approved_trivy_pins
+        assert "cyclonedx-json" in workflow
+        assert "version: v0.72.0" in workflow
+        assert "CRITICAL,HIGH" in workflow
+        assert 'exit-code: "1"' in workflow
     requirements = (BACKEND / "requirements-runtime.txt").read_text()
     assert "python-multipart==0.0.32" in requirements
     assert "firebase-admin==6.8.0" in requirements

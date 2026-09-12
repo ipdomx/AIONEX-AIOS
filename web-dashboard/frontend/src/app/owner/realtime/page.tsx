@@ -28,7 +28,7 @@ const statusClass: Record<
   healthy: "border-green-500/20 bg-green-500/10 text-green-300",
   warning: "border-orange-500/20 bg-orange-500/10 text-orange-300",
   critical: "border-red-500/20 bg-red-500/10 text-red-300",
-  unknown: "border-white/10 bg-white/[0.03] text-white/45",
+  unknown: "border-white/10 bg-white/3 text-white/45",
 };
 
 export default function OwnerRealtimePage() {
