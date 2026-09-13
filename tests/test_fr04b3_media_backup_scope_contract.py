@@ -20,7 +20,6 @@ def test_fr04b3_backup_worker_mounts_media_assets_only_as_new_root() -> None:
     assert 'BACKUP_MEDIA_ASSETS_ENABLED: "true"' in backup
     assert "MEDIA_STORAGE_ROOT: /var/lib/aionex/media-assets" in backup
     assert "project_npm_cache_data" not in backup
-    assert "portal_asset_data" not in backup
 
 
 def test_fr04b3_media_settings_and_snapshot_root_are_explicit() -> None:

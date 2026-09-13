@@ -110,7 +110,6 @@ def test_backup_worker_mounts_studio_assets_read_only() -> None:
     assert "STUDIO_ASSET_ROOT: /var/lib/aionex/studio-assets" in backup
     assert "studio_asset_data:/var/lib/aionex/studio-assets:ro" in backup
     assert "project_npm_cache_data" not in backup
-    assert "portal_asset_data" not in backup
 
 
 def test_studio_entrypoint_accepts_prepared_read_only_root() -> None:
