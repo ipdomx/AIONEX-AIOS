@@ -194,6 +194,14 @@ services:
           fi
           install -d -m 0700 -o 1000 -g 1000 "$$path"
         done
+        realtime_path=/var/lib/aionex/realtime-recordings
+        if [ -L "$$realtime_path" ] || { [ -e "$$realtime_path" ] && [ ! -d "$$realtime_path" ]; }; then
+          echo "Unsafe backup realtime recording root: $$realtime_path" >&2
+          exit 1
+        fi
+        install -d -m 0770 -o 1001 -g 1000 "$$realtime_path"
+        chown 1001:1000 "$$realtime_path"
+        chmod 2770 "$$realtime_path"
     volumes:
       - three_d_asset_data:/var/lib/aionex/three-d-assets:rw
       - project_execution_data:/var/lib/aionex/project-executions:rw
@@ -202,8 +210,9 @@ services:
       - studio_asset_data:/var/lib/aionex/studio-assets:rw
       - portal_asset_data:/var/lib/aionex/portal-assets:rw
       - mobile_release_data:/var/lib/aionex/mobile-releases:rw
+      - realtime_recording_data:/var/lib/aionex/realtime-recordings:rw
     cap_drop: ["ALL"]
-    cap_add: ["CHOWN", "FOWNER", "DAC_OVERRIDE"]
+    cap_add: ["CHOWN", "FOWNER", "DAC_OVERRIDE", "FSETID"]
     security_opt: ["no-new-privileges:true"]
     networks: [aionex-network]
 
@@ -229,6 +238,7 @@ services:
       BACKUP_STUDIO_ASSETS_ENABLED: "true"
       BACKUP_PORTAL_ASSETS_ENABLED: "true"
       BACKUP_MOBILE_RELEASES_ENABLED: "true"
+      BACKUP_REALTIME_RECORDINGS_ENABLED: "true"
       THREE_D_STORAGE_ROOT: /var/lib/aionex/three-d-assets
       PROJECT_EXECUTION_OUTPUT_ROOT: /var/lib/aionex/project-executions
       ACADEMY_COURSE_PACKAGE_ROOT: /var/lib/aionex/course-packages
@@ -236,6 +246,7 @@ services:
       STUDIO_ASSET_ROOT: /var/lib/aionex/studio-assets
       PORTAL_ASSET_ROOT: /var/lib/aionex/portal-assets
       MOBILE_RELEASE_ROOT: /var/lib/aionex/mobile-releases
+      REALTIME_RECORDING_ROOT: /var/lib/aionex/realtime-recordings
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
       AIOS_R2_BACKUP_SECRET_SOURCE: /run/operator-secrets/r2-backup-source.env
@@ -249,6 +260,7 @@ services:
       - studio_asset_data:/var/lib/aionex/studio-assets:ro
       - portal_asset_data:/var/lib/aionex/portal-assets:ro
       - mobile_release_data:/var/lib/aionex/mobile-releases:ro
+      - realtime_recording_data:/var/lib/aionex/realtime-recordings:ro
       - ${AIOS_R2_BACKUP_SECRET_HOST_FILE:-/root/.config/aionex/r2-backup/credentials.env}:/run/operator-secrets/r2-backup-source.env:ro
     depends_on:
       backup-asset-root-init: {condition: service_completed_successfully}
@@ -1267,14 +1279,14 @@ services:
     image: livekit/egress@sha256:a3e61a70479694a5075cff3c081ab633f34d3bfa778adc6089935c96908b6550
     user: "0:0"
     entrypoint: ["sh", "-ceu"]
-    command: ["chown 1001:1000 /recordings && chmod 0770 /recordings"]
+    command: ["chown 1001:1000 /recordings && chmod 2770 /recordings"]
     restart: "no"
     read_only: true
     mem_limit: 64m
     cpus: "0.25"
     pids_limit: 32
     cap_drop: ["ALL"]
-    cap_add: ["CHOWN", "FOWNER"]
+    cap_add: ["CHOWN", "FOWNER", "FSETID"]
     volumes:
       - realtime_recording_data:/recordings:rw
     security_opt: ["no-new-privileges:true"]

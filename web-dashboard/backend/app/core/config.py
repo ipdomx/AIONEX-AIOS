@@ -111,6 +111,15 @@ class Settings(BaseSettings):
     BACKUP_MOBILE_RELEASES_ENABLED: bool = Field(
         default=False, validation_alias="BACKUP_MOBILE_RELEASES_ENABLED"
     )
+    BACKUP_REALTIME_RECORDINGS_ENABLED: bool = Field(
+        default=False, validation_alias="BACKUP_REALTIME_RECORDINGS_ENABLED"
+    )
+    BACKUP_REALTIME_RECORDING_OWNER_UID: int = Field(
+        default=1001, ge=0, validation_alias="BACKUP_REALTIME_RECORDING_OWNER_UID"
+    )
+    BACKUP_REALTIME_RECORDING_GROUP_GID: int = Field(
+        default=1000, ge=0, validation_alias="BACKUP_REALTIME_RECORDING_GROUP_GID"
+    )
     ACADEMY_COURSE_PACKAGE_ROOT: str = Field(
         default="/var/lib/aionex/course-packages",
         validation_alias="ACADEMY_COURSE_PACKAGE_ROOT",

@@ -53,6 +53,10 @@ class _SourceRoot:
     label: str
     path: Path
     enabled: bool
+    directory_mode: int = 0o700
+    file_mode: int = 0o600
+    owner_uid: int | None = None
+    group_gid: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,6 +136,16 @@ class ThreeDAssetSnapshotExecutor:
                 Path(getattr(config, "MOBILE_RELEASE_ROOT", "/var/lib/aionex/mobile-releases")),
                 bool(getattr(config, "BACKUP_MOBILE_RELEASES_ENABLED", False)),
             ),
+            _SourceRoot(
+                "realtime_recording_data",
+                "Realtime recording",
+                Path(getattr(config, "REALTIME_RECORDING_ROOT", "/var/lib/aionex/realtime-recordings")),
+                bool(getattr(config, "BACKUP_REALTIME_RECORDINGS_ENABLED", False)),
+                directory_mode=0o2770,
+                file_mode=0o660,
+                owner_uid=int(getattr(config, "BACKUP_REALTIME_RECORDING_OWNER_UID", 1001)),
+                group_gid=int(getattr(config, "BACKUP_REALTIME_RECORDING_GROUP_GID", 1000)),
+            ),
         )
         self.enabled = any(root.enabled for root in self._roots)
         self._source = Path(config.THREE_D_STORAGE_ROOT)
@@ -165,6 +179,23 @@ class ThreeDAssetSnapshotExecutor:
     def _enabled_roots(self) -> tuple[_SourceRoot, ...]:
         return tuple(root for root in self._roots if root.enabled)
 
+    @staticmethod
+    def _metadata_is_allowed(
+        metadata: os.stat_result,
+        source_root: _SourceRoot,
+        *,
+        is_directory: bool,
+    ) -> bool:
+        mode = stat.S_IMODE(metadata.st_mode)
+        expected = source_root.directory_mode if is_directory else source_root.file_mode
+        if mode != expected:
+            return False
+        if source_root.owner_uid is not None and metadata.st_uid != source_root.owner_uid:
+            return False
+        if source_root.group_gid is not None and metadata.st_gid != source_root.group_gid:
+            return False
+        return True
+
     def _protected_source(self, source_root: _SourceRoot) -> Path:
         if not source_root.enabled:
             raise BackupExecutionError(
@@ -177,7 +208,8 @@ class ThreeDAssetSnapshotExecutor:
             if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
                 raise OSError("asset root is unsafe")
             root = source_root.path.resolve(strict=True)
-            if stat.S_IMODE(root.stat().st_mode) & 0o077:
+            root_metadata = root.stat()
+            if not self._metadata_is_allowed(root_metadata, source_root, is_directory=True):
                 raise OSError("asset root is not private")
             if not os.access(root, os.R_OK | os.X_OK):
                 raise OSError("asset root is unreadable")
@@ -242,7 +274,7 @@ class ThreeDAssetSnapshotExecutor:
                             "asset backup",
                             f"The private {source_root.label} tree contains an unsafe directory",
                         )
-                    if stat.S_IMODE(metadata.st_mode) & 0o077:
+                    if not self._metadata_is_allowed(metadata, source_root, is_directory=True):
                         raise BackupExecutionError(
                             "asset backup",
                             f"The private {source_root.label} tree has unsafe directory permissions",
@@ -257,10 +289,15 @@ class ThreeDAssetSnapshotExecutor:
                             "asset backup",
                             f"The private {source_root.label} tree contains an unsafe file",
                         )
-                    if stat.S_IMODE(metadata.st_mode) & 0o077:
+                    if not self._metadata_is_allowed(metadata, source_root, is_directory=False):
                         raise BackupExecutionError(
                             "asset backup",
                             f"The private {source_root.label} tree has unsafe file permissions",
+                        )
+                    if not os.access(candidate, os.R_OK):
+                        raise BackupExecutionError(
+                            "asset backup",
+                            f"The private {source_root.label} tree contains an unreadable file",
                         )
                     relative = candidate.relative_to(root).as_posix()
                     self._safe_relative(relative)
