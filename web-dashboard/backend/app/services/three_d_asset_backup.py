@@ -307,6 +307,11 @@ class ThreeDAssetSnapshotExecutor:
                             "asset backup",
                             f"The private {source_root.label} tree contains an unsafe file",
                         )
+                    if metadata.st_nlink != 1:
+                        raise BackupExecutionError(
+                            "asset backup",
+                            f"The private {source_root.label} tree contains an unsafe hard link",
+                        )
                     if not self._metadata_is_allowed(metadata, source_root, is_directory=False):
                         raise BackupExecutionError(
                             "asset backup",
