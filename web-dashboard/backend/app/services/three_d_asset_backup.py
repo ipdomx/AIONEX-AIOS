@@ -126,6 +126,12 @@ class ThreeDAssetSnapshotExecutor:
                 Path(getattr(config, "PORTAL_ASSET_ROOT", "/var/lib/aionex/portal-assets")),
                 bool(getattr(config, "BACKUP_PORTAL_ASSETS_ENABLED", False)),
             ),
+            _SourceRoot(
+                "mobile_release_data",
+                "Mobile release",
+                Path(getattr(config, "MOBILE_RELEASE_ROOT", "/var/lib/aionex/mobile-releases")),
+                bool(getattr(config, "BACKUP_MOBILE_RELEASES_ENABLED", False)),
+            ),
         )
         self.enabled = any(root.enabled for root in self._roots)
         self._source = Path(config.THREE_D_STORAGE_ROOT)
