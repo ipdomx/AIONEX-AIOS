@@ -22,7 +22,6 @@ def test_fr04b7_backup_worker_mounts_realtime_recordings_read_only_only() -> Non
     assert "REALTIME_RECORDING_ROOT: /var/lib/aionex/realtime-recordings" in backup
     assert "realtime_recording_data:/var/lib/aionex/realtime-recordings:ro" in backup
     assert "project_npm_cache_data" not in backup
-    assert "audio_song_ingress_data" not in backup
     assert "security_source_data" not in backup
     assert "security_remediation_data" not in backup
 

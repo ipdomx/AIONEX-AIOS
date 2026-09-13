@@ -205,7 +205,17 @@ if [ "$(id -u)" = "0" ]; then
 
     audio_song_ingress_root="${AUDIO_SONG_ARTIFACT_BRIDGE_ROOT-/var/lib/aionex/audio-song-provider-ingress}"
     if [ -n "$audio_song_ingress_root" ]; then
-        install -d -m 0700 -o aionex -g aionex "$audio_song_ingress_root"
+        if ! install -d -m 0700 -o aionex -g aionex "$audio_song_ingress_root" 2>/dev/null; then
+            if [ ! -d "$audio_song_ingress_root" ] || [ ! -r "$audio_song_ingress_root" ] || [ ! -x "$audio_song_ingress_root" ] || [ -L "$audio_song_ingress_root" ]; then
+                echo "Unable to prepare private audio song ingress root" >&2
+                exit 1
+            fi
+            audio_song_ingress_meta="$(stat -c '%a:%u:%g' "$audio_song_ingress_root")"
+            if [ "$audio_song_ingress_meta" != "700:1000:1000" ]; then
+                echo "Private audio song ingress root is not owned or permissioned correctly" >&2
+                exit 1
+            fi
+        fi
     fi
 
     media_storage_root="${MEDIA_STORAGE_ROOT-/var/lib/aionex/media-assets}"
