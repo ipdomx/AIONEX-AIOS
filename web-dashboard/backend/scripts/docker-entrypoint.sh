@@ -26,6 +26,14 @@ if [ "$(id -u)" = "0" ]; then
         install -m 0400 -o aionex -g aionex "$r2_secret_source" "$r2_secret_runtime"
         export BACKUP_OFFSITE_SECRET_FILE="$r2_secret_runtime"
     fi
+    r2_encryption_key_source="${AIOS_R2_BACKUP_ENCRYPTION_KEY_SOURCE:-}"
+    if [ -n "$r2_encryption_key_source" ] && [ -f "$r2_encryption_key_source" ]; then
+        runtime_dir=/run/aionex
+        r2_encryption_key_runtime="$runtime_dir/r2-backup-encryption.key"
+        install -d -m 0700 -o aionex -g aionex "$runtime_dir"
+        install -m 0400 -o aionex -g aionex "$r2_encryption_key_source" "$r2_encryption_key_runtime"
+        export BACKUP_OFFSITE_ENCRYPTION_KEY_FILE="$r2_encryption_key_runtime"
+    fi
 
     project_secret_source="${PROJECT_EXECUTION_SECRET_FILE:-}"
     if [ -n "$project_secret_source" ] && [ -f "$project_secret_source" ]; then
