@@ -538,7 +538,7 @@ def test_production_compose_preserves_postgres_credential_contract() -> None:
     assert "advertise_internal_ip: true" in livekit_config
     assert "external_ip_only: true" not in livekit_config
     assert "realtime-recording-init:" in compose
-    assert 'command: ["chown 1001:1000 /recordings && chmod 0770 /recordings"]' in compose
+    assert 'command: ["chown 1001:1000 /recordings && chmod 2770 /recordings"]' in compose
     assert "realtime-recording-init: {condition: service_completed_successfully}" in compose
     assert 'user: "1001:0"' in compose
 
