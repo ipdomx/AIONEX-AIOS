@@ -177,4 +177,5 @@ def test_assets_are_durable_outside_source_and_compose_mounts_the_library() -> N
     assert "PORTAL_ASSET_ROOT" in config
     assert "PORTAL_PUBLIC_API_ORIGIN" in config
     assert "portal_asset_root" in entrypoint
-    assert 'install -d -m 0750 -o aionex -g aionex "$portal_asset_root"' in entrypoint
+    assert 'install -d -m 0700 -o aionex -g aionex "$portal_asset_root"' in entrypoint
+    assert "Private portal asset root is not owned or permissioned correctly" in entrypoint

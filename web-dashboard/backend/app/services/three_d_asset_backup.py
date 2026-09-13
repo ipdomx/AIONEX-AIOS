@@ -120,6 +120,12 @@ class ThreeDAssetSnapshotExecutor:
                 Path(getattr(config, "STUDIO_ASSET_ROOT", "/var/lib/aionex/studio-assets")),
                 bool(getattr(config, "BACKUP_STUDIO_ASSETS_ENABLED", False)),
             ),
+            _SourceRoot(
+                "portal_asset_data",
+                "Portal asset",
+                Path(getattr(config, "PORTAL_ASSET_ROOT", "/var/lib/aionex/portal-assets")),
+                bool(getattr(config, "BACKUP_PORTAL_ASSETS_ENABLED", False)),
+            ),
         )
         self.enabled = any(root.enabled for root in self._roots)
         self._source = Path(config.THREE_D_STORAGE_ROOT)

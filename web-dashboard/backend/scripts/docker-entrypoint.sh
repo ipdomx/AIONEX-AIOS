@@ -165,7 +165,17 @@ if [ "$(id -u)" = "0" ]; then
 
     portal_asset_root="${PORTAL_ASSET_ROOT-/var/lib/aionex/portal-assets}"
     if [ -n "$portal_asset_root" ]; then
-        install -d -m 0750 -o aionex -g aionex "$portal_asset_root"
+        if ! install -d -m 0700 -o aionex -g aionex "$portal_asset_root" 2>/dev/null; then
+            if [ ! -d "$portal_asset_root" ] || [ ! -r "$portal_asset_root" ] || [ ! -x "$portal_asset_root" ] || [ -L "$portal_asset_root" ]; then
+                echo "Unable to prepare private portal asset root" >&2
+                exit 1
+            fi
+            portal_asset_meta="$(stat -c '%a:%u:%g' "$portal_asset_root")"
+            if [ "$portal_asset_meta" != "700:1000:1000" ]; then
+                echo "Private portal asset root is not owned or permissioned correctly" >&2
+                exit 1
+            fi
+        fi
     fi
 
     studio_asset_root="${STUDIO_ASSET_ROOT-/var/lib/aionex/studio-assets}"

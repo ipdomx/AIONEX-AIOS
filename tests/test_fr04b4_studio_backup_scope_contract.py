@@ -20,7 +20,6 @@ def test_fr04b4_backup_worker_mounts_studio_assets_only_as_new_root() -> None:
     assert 'BACKUP_STUDIO_ASSETS_ENABLED: "true"' in backup
     assert "STUDIO_ASSET_ROOT: /var/lib/aionex/studio-assets" in backup
     assert "project_npm_cache_data" not in backup
-    assert "portal_asset_data" not in backup
 
 
 def test_fr04b4_studio_settings_snapshot_and_entrypoint_are_explicit() -> None:
