@@ -20,7 +20,6 @@ def test_fr04b5_backup_worker_mounts_portal_assets_read_only_only() -> None:
     assert "PORTAL_ASSET_ROOT: /var/lib/aionex/portal-assets" in backup
     assert "portal_asset_data:/var/lib/aionex/portal-assets:ro" in backup
     assert "project_npm_cache_data" not in backup
-    assert "security_remediation_data" not in backup
 
 
 def test_fr04b5_portal_settings_snapshot_and_entrypoint_are_explicit() -> None:

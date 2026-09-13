@@ -188,7 +188,7 @@ services:
     entrypoint: ["/bin/sh", "-ceu"]
     command:
       - |
-        for path in /var/lib/aionex/three-d-assets /var/lib/aionex/project-executions /var/lib/aionex/course-packages /var/lib/aionex/media-assets /var/lib/aionex/studio-assets /var/lib/aionex/portal-assets /var/lib/aionex/mobile-releases /var/lib/aionex/audio-song-provider-ingress /var/lib/aionex/security-sources; do
+        for path in /var/lib/aionex/three-d-assets /var/lib/aionex/project-executions /var/lib/aionex/course-packages /var/lib/aionex/media-assets /var/lib/aionex/studio-assets /var/lib/aionex/portal-assets /var/lib/aionex/mobile-releases /var/lib/aionex/audio-song-provider-ingress /var/lib/aionex/security-sources /var/lib/aionex/security-remediations; do
           if [ -L "$$path" ] || { [ -e "$$path" ] && [ ! -d "$$path" ]; }; then
             echo "Unsafe backup asset root: $$path" >&2
             exit 1
@@ -213,6 +213,7 @@ services:
       - mobile_release_data:/var/lib/aionex/mobile-releases:rw
       - audio_song_ingress_data:/var/lib/aionex/audio-song-provider-ingress:rw
       - security_source_data:/var/lib/aionex/security-sources:rw
+      - security_remediation_data:/var/lib/aionex/security-remediations:rw
       - realtime_recording_data:/var/lib/aionex/realtime-recordings:rw
     cap_drop: ["ALL"]
     cap_add: ["CHOWN", "FOWNER", "DAC_OVERRIDE", "FSETID"]
@@ -244,6 +245,7 @@ services:
       BACKUP_REALTIME_RECORDINGS_ENABLED: "true"
       BACKUP_AUDIO_SONG_INGRESS_ENABLED: "true"
       BACKUP_SECURITY_SOURCES_ENABLED: "true"
+      BACKUP_SECURITY_REMEDIATIONS_ENABLED: "true"
       THREE_D_STORAGE_ROOT: /var/lib/aionex/three-d-assets
       PROJECT_EXECUTION_OUTPUT_ROOT: /var/lib/aionex/project-executions
       ACADEMY_COURSE_PACKAGE_ROOT: /var/lib/aionex/course-packages
@@ -254,6 +256,7 @@ services:
       REALTIME_RECORDING_ROOT: /var/lib/aionex/realtime-recordings
       AUDIO_SONG_ARTIFACT_BRIDGE_ROOT: /var/lib/aionex/audio-song-provider-ingress
       SECURITY_SOURCE_ROOT: /var/lib/aionex/security-sources
+      SECURITY_REMEDIATION_ROOT: /var/lib/aionex/security-remediations
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
       AIOS_R2_BACKUP_SECRET_SOURCE: /run/operator-secrets/r2-backup-source.env
@@ -270,6 +273,7 @@ services:
       - realtime_recording_data:/var/lib/aionex/realtime-recordings:ro
       - audio_song_ingress_data:/var/lib/aionex/audio-song-provider-ingress:ro
       - security_source_data:/var/lib/aionex/security-sources:ro
+      - security_remediation_data:/var/lib/aionex/security-remediations:ro
       - ${AIOS_R2_BACKUP_SECRET_HOST_FILE:-/root/.config/aionex/r2-backup/credentials.env}:/run/operator-secrets/r2-backup-source.env:ro
     depends_on:
       backup-asset-root-init: {condition: service_completed_successfully}

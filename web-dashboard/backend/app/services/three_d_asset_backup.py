@@ -158,6 +158,12 @@ class ThreeDAssetSnapshotExecutor:
                 Path(getattr(config, "SECURITY_SOURCE_ROOT", "/var/lib/aionex/security-sources")),
                 bool(getattr(config, "BACKUP_SECURITY_SOURCES_ENABLED", False)),
             ),
+            _SourceRoot(
+                "security_remediation_data",
+                "Security remediation",
+                Path(getattr(config, "SECURITY_REMEDIATION_ROOT", "/var/lib/aionex/security-remediations")),
+                bool(getattr(config, "BACKUP_SECURITY_REMEDIATIONS_ENABLED", False)),
+            ),
         )
         self.enabled = any(root.enabled for root in self._roots)
         self._source = Path(config.THREE_D_STORAGE_ROOT)

@@ -19,7 +19,6 @@ def test_fr04b9_backup_worker_mounts_security_sources_read_only_only() -> None:
     assert 'BACKUP_SECURITY_SOURCES_ENABLED: "true"' in backup
     assert "SECURITY_SOURCE_ROOT: /var/lib/aionex/security-sources" in backup
     assert "security_source_data:/var/lib/aionex/security-sources:ro" in backup
-    assert "security_remediation_data" not in backup
     assert "security_tool_cache_data" not in backup
     assert "project_npm_cache_data" not in backup
 

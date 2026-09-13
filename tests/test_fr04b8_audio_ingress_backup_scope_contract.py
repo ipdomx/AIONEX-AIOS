@@ -20,7 +20,6 @@ def test_fr04b8_backup_worker_mounts_audio_ingress_read_only_only() -> None:
     assert "AUDIO_SONG_ARTIFACT_BRIDGE_ROOT: /var/lib/aionex/audio-song-provider-ingress" in backup
     assert "audio_song_ingress_data:/var/lib/aionex/audio-song-provider-ingress:ro" in backup
     assert "project_npm_cache_data" not in backup
-    assert "security_remediation_data" not in backup
 
 
 def test_fr04b8_audio_ingress_settings_snapshot_and_entrypoint_are_explicit() -> None:

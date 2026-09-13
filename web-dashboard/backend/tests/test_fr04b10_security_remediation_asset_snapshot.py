@@ -10,28 +10,20 @@ from app.services.three_d_asset_backup import ThreeDAssetSnapshotExecutor
 
 ROOT = Path(__file__).resolve().parents[3]
 COMPOSE = ROOT / "web-dashboard" / "docker-compose.production.yml"
+ENTRYPOINT = ROOT / "web-dashboard" / "backend" / "scripts" / "docker-entrypoint.sh"
 
 
-def _private_dir(path: Path, *, realtime: bool = False) -> Path:
+def _private_dir(path: Path) -> Path:
     path.mkdir(parents=True, exist_ok=True)
-    if realtime:
-        os.chmod(path, 0o2770)
-    else:
-        os.chmod(path, 0o700)
+    os.chmod(path, 0o700)
     return path
 
 
-def _private_file(path: Path, payload: bytes, *, realtime: bool = False) -> Path:
+def _private_file(path: Path, payload: bytes) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    if realtime:
-        os.chmod(path.parent, 0o2770)
-    else:
-        os.chmod(path.parent, 0o700)
+    os.chmod(path.parent, 0o700)
     path.write_bytes(payload)
-    if realtime:
-        os.chmod(path, 0o660)
-    else:
-        os.chmod(path, 0o600)
+    os.chmod(path, 0o600)
     return path
 
 
@@ -40,32 +32,12 @@ def _settings(tmp_path: Path) -> Settings:
         SECRET_KEY="unit-test-secret-key-with-at-least-32-characters",
         DATABASE_URL="postgresql+asyncpg://backup_user:db-password@database:5432/aionex_test",
         BACKUP_DIR=str(_private_dir(tmp_path / "backups")),
-        BACKUP_THREE_D_ASSETS_ENABLED=True,
-        BACKUP_PROJECT_EXECUTION_ASSETS_ENABLED=True,
-        BACKUP_COURSE_PACKAGES_ENABLED=True,
-        BACKUP_MEDIA_ASSETS_ENABLED=True,
-        BACKUP_STUDIO_ASSETS_ENABLED=True,
-        BACKUP_PORTAL_ASSETS_ENABLED=True,
-        BACKUP_MOBILE_RELEASES_ENABLED=True,
-        BACKUP_REALTIME_RECORDINGS_ENABLED=True,
-        BACKUP_AUDIO_SONG_INGRESS_ENABLED=True,
-        BACKUP_SECURITY_SOURCES_ENABLED=True,
-        THREE_D_STORAGE_ROOT=str(_private_dir(tmp_path / "three-d-assets")),
-        PROJECT_EXECUTION_OUTPUT_ROOT=str(_private_dir(tmp_path / "project-executions")),
-        ACADEMY_COURSE_PACKAGE_ROOT=str(_private_dir(tmp_path / "course-packages")),
-        MEDIA_STORAGE_ROOT=str(_private_dir(tmp_path / "media-assets")),
-        STUDIO_ASSET_ROOT=str(_private_dir(tmp_path / "studio-assets")),
-        PORTAL_ASSET_ROOT=str(_private_dir(tmp_path / "portal-assets")),
-        MOBILE_RELEASE_ROOT=str(_private_dir(tmp_path / "mobile-releases")),
-        REALTIME_RECORDING_ROOT=str(_private_dir(tmp_path / "realtime-recordings", realtime=True)),
-        BACKUP_REALTIME_RECORDING_OWNER_UID=os.getuid(),
-        BACKUP_REALTIME_RECORDING_GROUP_GID=os.getgid(),
-        AUDIO_SONG_ARTIFACT_BRIDGE_ROOT=str(_private_dir(tmp_path / "audio-song-provider-ingress")),
-        SECURITY_SOURCE_ROOT=str(_private_dir(tmp_path / "security-sources")),
+        BACKUP_SECURITY_REMEDIATIONS_ENABLED=True,
+        SECURITY_REMEDIATION_ROOT=str(_private_dir(tmp_path / "security-remediations")),
     )
 
 
-def test_security_sources_join_platform_asset_snapshot(tmp_path: Path) -> None:
+def test_security_remediations_join_platform_asset_snapshot(tmp_path: Path) -> None:
     config = _settings(tmp_path)
     backup_dir = Path(config.BACKUP_DIR)
     database = _private_file(
@@ -73,8 +45,8 @@ def test_security_sources_join_platform_asset_snapshot(tmp_path: Path) -> None:
         b"PGDMPdatabase",
     )
     _private_file(
-        Path(config.SECURITY_SOURCE_ROOT) / "targets" / "app.py",
-        b"print('secure')\n",
+        Path(config.SECURITY_REMEDIATION_ROOT) / "runs" / "fix.patch",
+        b"security-remediation-patch",
     )
 
     executor = ThreeDAssetSnapshotExecutor(config)
@@ -82,9 +54,9 @@ def test_security_sources_join_platform_asset_snapshot(tmp_path: Path) -> None:
 
     assert snapshot is not None
     assert snapshot.roots is not None
-    assert snapshot.roots["security_source_data"] == {
+    assert snapshot.roots["security_remediation_data"] == {
         "file_count": 1,
-        "payload_bytes": len(b"print('secure')\n"),
+        "payload_bytes": len(b"security-remediation-patch"),
     }
     validated = executor.validate_snapshot(
         str(database),
@@ -100,18 +72,18 @@ def test_security_sources_join_platform_asset_snapshot(tmp_path: Path) -> None:
         assert manifest_member is not None
         manifest = json.loads(manifest_member.read())
     names = {item["path"] for item in manifest["files"]}
-    assert "security_source_data/targets/app.py" in names
+    assert "security_remediation_data/runs/fix.patch" in names
 
 
-def test_security_source_snapshot_rejects_symlinks(tmp_path: Path) -> None:
+def test_security_remediation_snapshot_rejects_symlinks(tmp_path: Path) -> None:
     config = _settings(tmp_path)
     backup_dir = Path(config.BACKUP_DIR)
     database = _private_file(
         backup_dir / f"backup-{'c' * 24}-{'d' * 32}.dump",
         b"PGDMPdatabase",
     )
-    target = _private_file(tmp_path / "outside.py", b"outside")
-    link = Path(config.SECURITY_SOURCE_ROOT) / "targets" / "leak.py"
+    target = _private_file(tmp_path / "outside.patch", b"outside")
+    link = Path(config.SECURITY_REMEDIATION_ROOT) / "runs" / "leak.patch"
     link.parent.mkdir(parents=True, exist_ok=True)
     os.chmod(link.parent, 0o700)
     link.symlink_to(target)
@@ -120,7 +92,7 @@ def test_security_source_snapshot_rejects_symlinks(tmp_path: Path) -> None:
         ThreeDAssetSnapshotExecutor(config).create_snapshot(str(database))
 
 
-def test_security_source_snapshot_rejects_group_or_world_permissions(tmp_path: Path) -> None:
+def test_security_remediation_snapshot_rejects_group_or_world_readable_files(tmp_path: Path) -> None:
     config = _settings(tmp_path)
     backup_dir = Path(config.BACKUP_DIR)
     database = _private_file(
@@ -128,7 +100,7 @@ def test_security_source_snapshot_rejects_group_or_world_permissions(tmp_path: P
         b"PGDMPdatabase",
     )
     public = _private_file(
-        Path(config.SECURITY_SOURCE_ROOT) / "targets" / "public.py",
+        Path(config.SECURITY_REMEDIATION_ROOT) / "runs" / "public.patch",
         b"public",
     )
     os.chmod(public, 0o640)
@@ -137,12 +109,19 @@ def test_security_source_snapshot_rejects_group_or_world_permissions(tmp_path: P
         ThreeDAssetSnapshotExecutor(config).create_snapshot(str(database))
 
 
-def test_backup_worker_mounts_security_sources_read_only() -> None:
+def test_backup_worker_mounts_security_remediations_read_only() -> None:
     compose = COMPOSE.read_text(encoding="utf-8")
     init = compose.split("\n  backup-asset-root-init:", 1)[1].split("\n\n  backup-worker:", 1)[0]
     backup = compose.split("\n  backup-worker:", 1)[1].split("\n\n  communication-worker:", 1)[0]
-    assert "security_source_data:/var/lib/aionex/security-sources:rw" in init
-    assert 'BACKUP_SECURITY_SOURCES_ENABLED: "true"' in backup
-    assert "SECURITY_SOURCE_ROOT: /var/lib/aionex/security-sources" in backup
-    assert "security_source_data:/var/lib/aionex/security-sources:ro" in backup
+    assert "security_remediation_data:/var/lib/aionex/security-remediations:rw" in init
+    assert 'BACKUP_SECURITY_REMEDIATIONS_ENABLED: "true"' in backup
+    assert "SECURITY_REMEDIATION_ROOT: /var/lib/aionex/security-remediations" in backup
+    assert "security_remediation_data:/var/lib/aionex/security-remediations:ro" in backup
     assert "security_tool_cache_data" not in backup
+
+
+def test_security_remediation_entrypoint_accepts_prepared_read_only_root() -> None:
+    entrypoint = ENTRYPOINT.read_text(encoding="utf-8")
+    assert "Unable to prepare private security remediation root" in entrypoint
+    assert "Private security remediation root is not owned or permissioned correctly" in entrypoint
+    assert "security_remediation_meta" in entrypoint
