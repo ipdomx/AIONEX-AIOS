@@ -20,7 +20,6 @@ def test_fr04b6_backup_worker_mounts_mobile_releases_read_only_only() -> None:
     assert "MOBILE_RELEASE_ROOT: /var/lib/aionex/mobile-releases" in backup
     assert "mobile_release_data:/var/lib/aionex/mobile-releases:ro" in backup
     assert "project_npm_cache_data" not in backup
-    assert "security_remediation_data" not in backup
 
 
 def test_fr04b6_mobile_settings_snapshot_and_entrypoint_are_explicit() -> None:

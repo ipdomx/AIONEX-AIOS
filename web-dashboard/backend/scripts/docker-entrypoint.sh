@@ -252,7 +252,17 @@ if [ "$(id -u)" = "0" ]; then
 
     security_remediation_root="${SECURITY_REMEDIATION_ROOT:-}"
     if [ -n "$security_remediation_root" ]; then
-        install -d -m 0700 -o aionex -g aionex "$security_remediation_root"
+        if ! install -d -m 0700 -o aionex -g aionex "$security_remediation_root" 2>/dev/null; then
+            if [ ! -d "$security_remediation_root" ] || [ ! -r "$security_remediation_root" ] || [ ! -x "$security_remediation_root" ] || [ -L "$security_remediation_root" ]; then
+                echo "Unable to prepare private security remediation root" >&2
+                exit 1
+            fi
+            security_remediation_meta="$(stat -c '%a:%u:%g' "$security_remediation_root")"
+            if [ "$security_remediation_meta" != "700:1000:1000" ]; then
+                echo "Private security remediation root is not owned or permissioned correctly" >&2
+                exit 1
+            fi
+        fi
     fi
 
     telegram_token_source="${AIOS_TELEGRAM_BOT_TOKEN_FILE:-}"
