@@ -20,5 +20,6 @@ This short part establishes the client-side encryption and key-separation contra
 - Encryption/decryption staging files use 0600 and exclusive creation.
 
 ## Verification
+- First protected CI attempt failed only on Ruff F401 for one unused test import; corrected without changing runtime behavior.
 - Focused FR-05A tests: 4 PASS.
 - No production deployment, no R2 write, no live key creation, and no secret content read in this part.
