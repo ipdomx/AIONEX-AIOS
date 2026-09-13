@@ -225,13 +225,17 @@ if [ "$(id -u)" = "0" ]; then
 
     mobile_release_root="${MOBILE_RELEASE_ROOT-/var/lib/aionex/mobile-releases}"
     if [ -n "$mobile_release_root" ]; then
-        # Readers mount the release store read-only. Preparing ownership is only
-        # required when the path is writable; an existing readable read-only
-        # mount is already valid and must not prevent the API from starting.
-        if ! install -d -m 0750 -o aionex -g aionex "$mobile_release_root" 2>/dev/null; then
-            if [ ! -d "$mobile_release_root" ] || [ ! -r "$mobile_release_root" ]; then
-                echo "Unable to prepare mobile release root: $mobile_release_root" >&2
+        if ! install -d -m 0700 -o aionex -g aionex "$mobile_release_root" 2>/dev/null; then
+            if [ ! -d "$mobile_release_root" ] || [ ! -r "$mobile_release_root" ] || [ ! -x "$mobile_release_root" ] || [ -L "$mobile_release_root" ]; then
+                echo "Unable to prepare private mobile release root" >&2
                 exit 1
+            fi
+            if [ "${BACKUP_MOBILE_RELEASES_ENABLED:-false}" = "true" ]; then
+                mobile_release_meta="$(stat -c '%a:%u:%g' "$mobile_release_root")"
+                if [ "$mobile_release_meta" != "700:1000:1000" ]; then
+                    echo "Private mobile release root is not owned or permissioned correctly" >&2
+                    exit 1
+                fi
             fi
         fi
     fi

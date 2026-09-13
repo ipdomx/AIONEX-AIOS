@@ -12,27 +12,29 @@ def _service_block(name: str, next_name: str) -> str:
     return text.split(f"\n  {name}:", 1)[1].split(f"\n\n  {next_name}:", 1)[0]
 
 
-def test_fr04b5_backup_worker_mounts_portal_assets_read_only_only() -> None:
+def test_fr04b6_backup_worker_mounts_mobile_releases_read_only_only() -> None:
     init = _service_block("backup-asset-root-init", "backup-worker")
     backup = _service_block("backup-worker", "communication-worker")
-    assert "portal_asset_data:/var/lib/aionex/portal-assets:rw" in init
-    assert 'BACKUP_PORTAL_ASSETS_ENABLED: "true"' in backup
-    assert "PORTAL_ASSET_ROOT: /var/lib/aionex/portal-assets" in backup
-    assert "portal_asset_data:/var/lib/aionex/portal-assets:ro" in backup
+    assert "mobile_release_data:/var/lib/aionex/mobile-releases:rw" in init
+    assert 'BACKUP_MOBILE_RELEASES_ENABLED: "true"' in backup
+    assert "MOBILE_RELEASE_ROOT: /var/lib/aionex/mobile-releases" in backup
+    assert "mobile_release_data:/var/lib/aionex/mobile-releases:ro" in backup
     assert "project_npm_cache_data" not in backup
     assert "realtime_recording_data" not in backup
+    assert "audio_song_ingress_data" not in backup
     assert "security_source_data" not in backup
     assert "security_remediation_data" not in backup
 
 
-def test_fr04b5_portal_settings_snapshot_and_entrypoint_are_explicit() -> None:
+def test_fr04b6_mobile_settings_snapshot_and_entrypoint_are_explicit() -> None:
     settings = SETTINGS.read_text(encoding="utf-8")
     snapshot = SNAPSHOT.read_text(encoding="utf-8")
     entrypoint = ENTRYPOINT.read_text(encoding="utf-8")
-    assert "BACKUP_PORTAL_ASSETS_ENABLED" in settings
-    assert '"portal_asset_data"' in snapshot
-    assert "Portal asset" in snapshot
-    assert "BACKUP_PORTAL_ASSETS_ENABLED" in snapshot
-    assert "Unable to prepare private portal asset root" in entrypoint
-    assert "Private portal asset root is not owned or permissioned correctly" in entrypoint
-    assert "portal_asset_meta" in entrypoint
+    assert "BACKUP_MOBILE_RELEASES_ENABLED" in settings
+    assert '"mobile_release_data"' in snapshot
+    assert "Mobile release" in snapshot
+    assert "BACKUP_MOBILE_RELEASES_ENABLED" in snapshot
+    assert "Unable to prepare private mobile release root" in entrypoint
+    assert "Private mobile release root is not owned or permissioned correctly" in entrypoint
+    assert "mobile_release_meta" in entrypoint
+    assert "BACKUP_MOBILE_RELEASES_ENABLED:-false" in entrypoint

@@ -108,6 +108,9 @@ class Settings(BaseSettings):
     BACKUP_PORTAL_ASSETS_ENABLED: bool = Field(
         default=False, validation_alias="BACKUP_PORTAL_ASSETS_ENABLED"
     )
+    BACKUP_MOBILE_RELEASES_ENABLED: bool = Field(
+        default=False, validation_alias="BACKUP_MOBILE_RELEASES_ENABLED"
+    )
     ACADEMY_COURSE_PACKAGE_ROOT: str = Field(
         default="/var/lib/aionex/course-packages",
         validation_alias="ACADEMY_COURSE_PACKAGE_ROOT",
