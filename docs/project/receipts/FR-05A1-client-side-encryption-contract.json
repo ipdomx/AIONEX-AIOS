@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "batch": "FR-05A1",
+  "title": "Client-side offsite backup encryption contract",
+  "implementation_status": "design_contract_only",
+  "current_state": {
+    "offsite_replication": "HTTPS upload to private R2 with metadata checks and full checksum readback",
+    "client_side_encryption": "not_implemented_yet",
+    "provider_at_rest_encryption_is_sufficient_for_fr05": false
+  },
+  "required_before_encrypted_rollout": {
+    "encrypt_database_dump_before_upload": true,
+    "encrypt_asset_snapshot_before_upload": true,
+    "encrypt_manifest_or_store_only_non_sensitive_signed_metadata": true,
+    "wrong_key_restore_test": true,
+    "tampered_ciphertext_restore_test": true,
+    "independent_restore_uses_key_material_outside_backup_payload": true,
+    "no_plaintext_key_material_in_git_reports_logs_or_backup_artifacts": true
+  },
+  "key_separation_contract": {
+    "key_material_location": "private operator mount outside Git and outside the backup object prefix",
+    "runtime_mount_example": "/run/operator-secrets/r2-backup-encryption/key.env",
+    "forbidden_locations": [
+      "Git repository",
+      "project reports",
+      "R2 backup payload prefix",
+      "database dump",
+      "asset snapshot tar",
+      "manifest JSON",
+      "container image layers"
+    ],
+    "reports_may_record": [
+      "key_id",
+      "algorithm",
+      "created_at",
+      "rotation_generation",
+      "hash of public metadata only"
+    ],
+    "reports_must_not_record": [
+      "raw key material",
+      "password material",
+      "decryption material"
+    ]
+  },
+  "crypto_contract": {
+    "minimum_algorithm": "streaming authenticated encryption or envelope encryption with AEAD per object",
+    "per_object_associated_data": [
+      "backup_id",
+      "object_role",
+      "plaintext_sha256",
+      "plaintext_size_bytes",
+      "schema_version"
+    ],
+    "wrong_key_failure": "restore validation must fail closed before accepting database or asset artifacts",
+    "tamper_failure": "restore validation must fail closed before extraction or restore"
+  },
+  "retention_and_rotation_contract": {
+    "retain_decryption_material_for_unexpired_generations": true,
+    "rotation_must_not_orphan_unexpired_backups": true,
+    "retention_delete_must_remove_ciphertext_objects_only_after_policy": true,
+    "lost_key_requires_explicit_unrecoverable_incident": true
+  },
+  "next_segments": {
+    "FR-05B": "implement local encryption and wrong-key/tamper tests",
+    "FR-05C": "roll out encrypted R2 replication without Cloudflare configuration changes",
+    "FR-05D": "prove independent encrypted restore of DB and assets"
+  }
+}
