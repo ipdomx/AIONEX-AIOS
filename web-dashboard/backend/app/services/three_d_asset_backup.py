@@ -146,6 +146,12 @@ class ThreeDAssetSnapshotExecutor:
                 owner_uid=int(getattr(config, "BACKUP_REALTIME_RECORDING_OWNER_UID", 1001)),
                 group_gid=int(getattr(config, "BACKUP_REALTIME_RECORDING_GROUP_GID", 1000)),
             ),
+            _SourceRoot(
+                "audio_song_ingress_data",
+                "Audio song ingress",
+                Path(getattr(config, "AUDIO_SONG_ARTIFACT_BRIDGE_ROOT", "/var/lib/aionex/audio-song-provider-ingress")),
+                bool(getattr(config, "BACKUP_AUDIO_SONG_INGRESS_ENABLED", False)),
+            ),
         )
         self.enabled = any(root.enabled for root in self._roots)
         self._source = Path(config.THREE_D_STORAGE_ROOT)

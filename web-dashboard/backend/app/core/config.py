@@ -120,6 +120,9 @@ class Settings(BaseSettings):
     BACKUP_REALTIME_RECORDING_GROUP_GID: int = Field(
         default=1000, ge=0, validation_alias="BACKUP_REALTIME_RECORDING_GROUP_GID"
     )
+    BACKUP_AUDIO_SONG_INGRESS_ENABLED: bool = Field(
+        default=False, validation_alias="BACKUP_AUDIO_SONG_INGRESS_ENABLED"
+    )
     ACADEMY_COURSE_PACKAGE_ROOT: str = Field(
         default="/var/lib/aionex/course-packages",
         validation_alias="ACADEMY_COURSE_PACKAGE_ROOT",
