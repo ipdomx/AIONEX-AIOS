@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "batch": "FR-05A2",
+  "title": "Offsite encryption algorithm, envelope and keyring contract",
+  "implementation_status": "design_contract_only",
+  "architecture_decision": {
+    "selected_path": "extend_existing_offsite_backup_pipeline",
+    "restic_evaluation": "not_selected_for_fr05",
+    "reason": "The existing backup pipeline already owns BackupRecord evidence, full R2 readback, asset-root manifests, retention and restore-validation semantics. Replacing it with restic in FR-05 would duplicate or bypass those controls. Client-side AEAD is added to the existing object path instead.",
+    "cloudflare_configuration_change_required": false
+  },
+  "algorithm_contract": {
+    "algorithm": "AES-256-GCM",
+    "implementation": "cryptography streaming Cipher API",
+    "key_bytes": 32,
+    "nonce_bytes": 12,
+    "tag_bytes": 16,
+    "nonce_generation": "cryptographically secure random unique nonce per encrypted object",
+    "streaming_required": true,
+    "whole_file_plaintext_buffering_for_database_or_asset_snapshot": false,
+    "envelope_version": 1,
+    "envelope_magic": "AIONEX-R2-ENC",
+    "encrypted_roles": [
+      "database",
+      "platform_asset_snapshot",
+      "manifest"
+    ]
+  },
+  "envelope_contract": {
+    "clear_authenticated_header_may_contain": [
+      "envelope_version",
+      "algorithm",
+      "key_id",
+      "nonce",
+      "plaintext_sha256",
+      "plaintext_size_bytes"
+    ],
+    "associated_data_must_bind": [
+      "backup_id",
+      "object_role",
+      "r2_object_key",
+      "envelope_version",
+      "algorithm",
+      "key_id",
+      "plaintext_sha256",
+      "plaintext_size_bytes"
+    ],
+    "ciphertext_footer": "AES-GCM authentication tag",
+    "r2_metadata_may_contain": [
+      "envelope_version",
+      "algorithm",
+      "key_id",
+      "ciphertext_sha256"
+    ],
+    "r2_metadata_must_not_contain": [
+      "raw key material",
+      "decryption key",
+      "keyring contents"
+    ],
+    "restore_acceptance": "A ciphertext object is not accepted until AEAD authentication succeeds and decrypted plaintext SHA-256 and size match the authenticated header/manifest evidence."
+  },
+  "object_naming_contract": {
+    "database": "database.dump.aex1",
+    "platform_asset_snapshot": "platform-assets.tar.aex1",
+    "manifest": "manifest.json.aex1",
+    "legacy_plaintext_r2_objects": "must remain readable only through explicit legacy restore compatibility until retention removes them; new backups after encrypted rollout must not upload plaintext database.dump, three-d.tar, platform-assets.tar or manifest.json objects"
+  },
+  "keyring_contract": {
+    "host_path": "/root/.config/aionex/backup-encryption/keyring.json",
+    "runtime_source_mount": "/run/operator-secrets/backup-encryption/keyring.json",
+    "runtime_private_copy": "/run/aionex/backup-encryption-keyring.json",
+    "host_mode": "0400 root-only",
+    "runtime_copy_mode": "0400 aionex-only",
+    "separate_from_r2_credentials_file": true,
+    "never_uploaded_to_r2": true,
+    "never_baked_into_image": true,
+    "format": {
+      "schema_version": 1,
+      "active_key_id": "non-secret identifier",
+      "keys": "map of key_id to 32-byte base64url key material plus lifecycle status/created_at"
+    },
+    "allowed_key_states": [
+      "active",
+      "decrypt_only"
+    ],
+    "reportable_fields": [
+      "key_id",
+      "status",
+      "created_at",
+      "rotation_generation"
+    ],
+    "secret_fields_forbidden_from_reports_logs_git": [
+      "key_b64",
+      "raw key bytes"
+    ]
+  },
+  "rotation_contract": {
+    "new_backups_use_only_active_key": true,
+    "previous_active_key_becomes_decrypt_only": true,
+    "old_key_deletion_requires": [
+      "no retained local/offsite backup references the key_id",
+      "retention cleanup for those backups has completed",
+      "independent recovery copy policy has been satisfied"
+    ],
+    "automatic_reencryption_of_old_backups": false,
+    "lost_required_key": "raise explicit unrecoverable-backup incident; never silently skip the affected retained generation"
+  },
+  "recovery_copy_contract": {
+    "required": true,
+    "location": "operator-controlled recovery location outside this server and outside the R2 backup bucket/prefix",
+    "fr05_server_automation_must_not_upload_keyring_to_backup_repository": true,
+    "recovery_copy_content_must_not_be_recorded_in_project_report": true
+  },
+  "scope_boundary": {
+    "fr05_protects": "offsite R2 backup objects before upload",
+    "fr05_does_not_claim": [
+      "full-disk encryption",
+      "local backup_data encryption at rest",
+      "database volume encryption at rest",
+      "protection from a live root process that can read mounted keys"
+    ],
+    "local_at_rest_follow_up": "FR-06"
+  },
+  "next_segment": "FR-05B1 implement versioned streaming envelope and synthetic wrong-key/tamper tests before wiring R2",
+  "implementation_dependency_contract": {
+    "cryptography_must_be_direct_runtime_dependency": true,
+    "must_not_rely_on_pyjwt_crypto_transitive_install": true,
+    "dependency_pin_added_in": "FR-05B before encrypted runtime rollout"
+  }
+}
