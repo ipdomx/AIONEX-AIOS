@@ -123,6 +123,13 @@ class Settings(BaseSettings):
     BACKUP_AUDIO_SONG_INGRESS_ENABLED: bool = Field(
         default=False, validation_alias="BACKUP_AUDIO_SONG_INGRESS_ENABLED"
     )
+    BACKUP_SECURITY_SOURCES_ENABLED: bool = Field(
+        default=False, validation_alias="BACKUP_SECURITY_SOURCES_ENABLED"
+    )
+    SECURITY_SOURCE_ROOT: str = Field(
+        default="/var/lib/aionex/security-sources",
+        validation_alias="SECURITY_SOURCE_ROOT",
+    )
     ACADEMY_COURSE_PACKAGE_ROOT: str = Field(
         default="/var/lib/aionex/course-packages",
         validation_alias="ACADEMY_COURSE_PACKAGE_ROOT",

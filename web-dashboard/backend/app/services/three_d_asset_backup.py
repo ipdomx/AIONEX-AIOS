@@ -152,6 +152,12 @@ class ThreeDAssetSnapshotExecutor:
                 Path(getattr(config, "AUDIO_SONG_ARTIFACT_BRIDGE_ROOT", "/var/lib/aionex/audio-song-provider-ingress")),
                 bool(getattr(config, "BACKUP_AUDIO_SONG_INGRESS_ENABLED", False)),
             ),
+            _SourceRoot(
+                "security_source_data",
+                "Security source",
+                Path(getattr(config, "SECURITY_SOURCE_ROOT", "/var/lib/aionex/security-sources")),
+                bool(getattr(config, "BACKUP_SECURITY_SOURCES_ENABLED", False)),
+            ),
         )
         self.enabled = any(root.enabled for root in self._roots)
         self._source = Path(config.THREE_D_STORAGE_ROOT)
