@@ -24,8 +24,8 @@ class RootPolicy:
     path: Path
     directory_mode: int = 0o700
     file_mode: int = 0o600
-    owner_uid: int = 1000
-    group_gid: int = 1000
+    owner_uid: int | None = None
+    group_gid: int | None = None
 
 
 DEFAULT_ROOTS: tuple[RootPolicy, ...] = (
@@ -99,8 +99,8 @@ def _allowed(metadata: os.stat_result, policy: RootPolicy, *, is_directory: bool
     expected_mode = policy.directory_mode if is_directory else policy.file_mode
     return (
         _mode(metadata) == expected_mode
-        and metadata.st_uid == policy.owner_uid
-        and metadata.st_gid == policy.group_gid
+        and (policy.owner_uid is None or metadata.st_uid == policy.owner_uid)
+        and (policy.group_gid is None or metadata.st_gid == policy.group_gid)
     )
 
 
@@ -194,8 +194,8 @@ def _load_roots(path: Path | None) -> tuple[RootPolicy, ...]:
                 path=Path(item["path"]),
                 directory_mode=int(str(item.get("directory_mode", "0700")), 8),
                 file_mode=int(str(item.get("file_mode", "0600")), 8),
-                owner_uid=int(item.get("owner_uid", 1000)),
-                group_gid=int(item.get("group_gid", 1000)),
+                owner_uid=(None if item.get("owner_uid") is None else int(item["owner_uid"])),
+                group_gid=(None if item.get("group_gid") is None else int(item["group_gid"])),
             )
         )
     return tuple(roots)

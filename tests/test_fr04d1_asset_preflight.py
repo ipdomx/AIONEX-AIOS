@@ -109,3 +109,14 @@ def test_fr04d1_cli_uses_json_root_policy(tmp_path: Path, capsys) -> None:
     out = json.loads(capsys.readouterr().out)
     assert out["status"] == "pass"
     assert out["root_count"] == 1
+
+
+def test_fr04d1_default_policy_does_not_require_owner_or_group(tmp_path: Path) -> None:
+    root = _private_dir(tmp_path / "ownerless")
+    _private_file(root / "asset.bin", b"payload")
+
+    policy = module.RootPolicy("ownerless", root)
+    result = module.preflight((policy,))
+
+    assert result["status"] == "pass"
+    assert result["totals"]["unsafe_permission_count"] == 0
