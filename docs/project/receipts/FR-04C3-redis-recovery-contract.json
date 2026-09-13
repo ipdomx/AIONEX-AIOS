@@ -1,0 +1,44 @@
+{
+  "id": "FR-04C3",
+  "title": "Redis recovery and rebuild contract",
+  "runtime_volume": "redis_data",
+  "asset_snapshot_policy": "excluded",
+  "rationale": [
+    "Redis is operational coordination and short-lived ceremony state, not the durable authority for platform records.",
+    "PostgreSQL logical backups and protected platform asset snapshots are the durable recovery authorities.",
+    "Restoring an old redis_data volume after PostgreSQL/assets rollback can resurrect stale leases, challenges, throttles, or circuit state."
+  ],
+  "production_runtime_guards": {
+    "appendonly": "yes",
+    "maxmemory_policy": "noeviction",
+    "volume_mount": "redis_data:/data"
+  },
+  "disaster_recovery_contract": {
+    "do_not_restore_redis_data_into_dr_artifact": true,
+    "post_restore_action": "Start Redis empty for restored environments, or flush runtime namespaces before opening traffic.",
+    "rehydration_authorities": [
+      "PostgreSQL logical backup",
+      "protected platform asset snapshot",
+      "provider APIs only where a feature already has a reconciliation path"
+    ],
+    "safe_to_rebuild_or_expire": [
+      "one-use authentication/passkey/social registration challenges",
+      "rate limit and account security counters",
+      "project AI routing leases, concurrency windows, circuit state, and idempotency guards",
+      "operations telemetry snapshots"
+    ],
+    "must_not_become_authoritative": [
+      "billing balances",
+      "user, organization, project, consent, backup, restore, security scan, and remediation records",
+      "asset file manifests or checksums"
+    ]
+  },
+  "explicit_non_asset_volumes": [
+    "redis_data",
+    "project_npm_cache_data",
+    "security_tool_cache_data",
+    "ollama_model_data",
+    "postgres_socket"
+  ],
+  "next_required_step": "FR-04C4 should lock the DB/assets consistency boundary and retention/delete semantics before FR-04D."
+}
