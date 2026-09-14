@@ -1,0 +1,42 @@
+# FR-06B3A source-only admission restart policy. Never apply without the retained gates.
+services:
+  academy-course-worker:
+    restart: "no"
+  audio-dubbing-worker:
+    restart: "no"
+  audio-music-worker:
+    restart: "no"
+  audio-song-worker:
+    restart: "no"
+  audio-song-worker-secondary:
+    restart: "no"
+  audio-speech-worker:
+    restart: "no"
+  audio-transcript-worker:
+    restart: "no"
+  backend:
+    restart: "no"
+  backup-worker:
+    restart: "no"
+  design-image-derivative-worker:
+    restart: "no"
+  design-image-worker:
+    restart: "no"
+  identity-media-worker:
+    restart: "no"
+  media-worker:
+    restart: "no"
+  project-worker:
+    restart: "no"
+  realtime-egress:
+    restart: "no"
+  security-remediation-worker:
+    restart: "no"
+  security-scan-worker:
+    restart: "no"
+  studio-worker:
+    restart: "no"
+  three-d-worker:
+    restart: "no"
+  video-provider-worker:
+    restart: "no"
