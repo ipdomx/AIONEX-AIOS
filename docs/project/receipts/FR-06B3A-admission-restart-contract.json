@@ -1,0 +1,226 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06B3A",
+  "implementation_status": "source_only_admission_restart_policy_and_isolated_rehearsal",
+  "source_baseline": "736d623c1b2380c5928476eb7fd5df8a5aa98eed",
+  "depends_on": {
+    "asset_copy_contract": "docs/project/receipts/FR-06B1-asset-vault-copy-contract.json",
+    "compose_cutover_contract": "docs/project/receipts/FR-06B2-compose-cutover-contract.json",
+    "asset_overlay": "web-dashboard/docker-compose.fr06-assets.yml"
+  },
+  "artifacts": {
+    "admission_overlay": "web-dashboard/docker-compose.fr06-admission.yml",
+    "admission_gate": "scripts/security/fr06b_cutover_admission.py",
+    "isolated_lab": "scripts/security/fr06b_admission_restart_lab.py",
+    "retained_lab_proof": "docs/project/receipts/FR-06B3A-isolated-admission-restart.json"
+  },
+  "restart_policy": {
+    "current_runtime_policy": "unless-stopped",
+    "guarded_runtime_policy": "no",
+    "semantics": "Docker never starts these protected runtime containers automatically; every start and every retry must pass through the guarded lifecycle.",
+    "protected_runtime_services": [
+      "academy-course-worker",
+      "audio-dubbing-worker",
+      "audio-music-worker",
+      "audio-song-worker",
+      "audio-song-worker-secondary",
+      "audio-speech-worker",
+      "audio-transcript-worker",
+      "backend",
+      "backup-worker",
+      "design-image-derivative-worker",
+      "design-image-worker",
+      "identity-media-worker",
+      "media-worker",
+      "project-worker",
+      "realtime-egress",
+      "security-remediation-worker",
+      "security-scan-worker",
+      "studio-worker",
+      "three-d-worker",
+      "video-provider-worker"
+    ],
+    "protected_runtime_service_count": 20,
+    "initializer_services": [
+      "backup-asset-root-init",
+      "realtime-recording-init"
+    ],
+    "initializer_policy": "no",
+    "all_profiles_required": true,
+    "latent_profile_service_included": "audio-song-worker-secondary",
+    "explicit_guarded_start_required_after_every_daemon_start": true,
+    "standalone_systemd_gate_claimed": false,
+    "rationale": "A standalone unit cannot gate Docker's independent unless-stopped restore path. The overlay removes every Docker-managed restore and retry path; FR-06B3B may then add bounded retry inside the guarded lifecycle executor.",
+    "rejected_alternative": {
+      "policy": "on-failure:5",
+      "isolated_observation": "A running mapper-backed control container was restored automatically when the isolated Docker daemon restarted.",
+      "decision": "rejected because it does not provide a daemon-start admission boundary"
+    }
+  },
+  "admission_gate": {
+    "commands": [
+      "inspect-runtime",
+      "evaluate"
+    ],
+    "inspect_runtime_is_read_only": true,
+    "starts_or_creates_containers": false,
+    "mounts_or_unlocks_vaults": false,
+    "renders_compose_without_exposing_rendered_secrets": true,
+    "requires": {
+      "active_luks2_mappers": [
+        "asset-vault",
+        "project-execution-vault"
+      ],
+      "mapper_filesystem": "ext4",
+      "mount_contract": {
+        "asset-vault": {
+          "required": [
+            "nodev",
+            "nosuid",
+            "noexec"
+          ],
+          "forbidden": []
+        },
+        "project-execution-vault": {
+          "required": [
+            "nodev",
+            "nosuid"
+          ],
+          "forbidden": [
+            "noexec"
+          ]
+        }
+      },
+      "docker_local_volume_contract": {
+        "asset-vault": {
+          "name": "aionex-fr06-asset-vault",
+          "device": "/dev/mapper/aionex-asset-vault",
+          "type": "ext4",
+          "options": [
+            "nodev",
+            "nosuid",
+            "noexec"
+          ]
+        },
+        "project-execution-vault": {
+          "name": "aionex-fr06-project-execution-vault",
+          "device": "/dev/mapper/aionex-project-execution-vault",
+          "type": "ext4",
+          "options": [
+            "nodev",
+            "nosuid"
+          ]
+        }
+      },
+      "all_eleven_target_subpaths": true,
+      "running_protected_volume_consumers": 0,
+      "fr06b2_overlay_validation": "FR06B2_COMPOSE_OVERLAY_PASS",
+      "restart_overlay_validation": "FR06B3A_RESTART_OVERLAY_PASS"
+    },
+    "evaluate_exit_codes": {
+      "0": "preflight passed; this batch never authorizes or executes production",
+      "1": "malformed_or_operational_error",
+      "2": "well_formed_but_blocked"
+    },
+    "isolated_lab_requires_explicit_flag": true,
+    "isolated_lab_receipt_never_authorizes_production": true,
+    "secret_material_accepted": false,
+    "production_authorization_capability": false,
+    "executor_present": false,
+    "production_success_decision": "production_preflight_ready",
+    "isolated_success_decision": "isolated_lab_ready"
+  },
+  "production_evidence": {
+    "maximum_age_seconds": 3600,
+    "required_source_checks": [
+      "protected_pr_head",
+      "post_merge_main"
+    ],
+    "required_recovery": [
+      "fresh encrypted R2 restore receipt",
+      "external active-key custody reference",
+      "independent external recovery-key custody reference",
+      "two distinct off-host LUKS2 header backup references separate from recovery keys"
+    ],
+    "required_operations": [
+      "owner authorization and maintenance window",
+      "admission closed without Cloudflare changes",
+      "queues drained",
+      "all runtime writers, initializers, and read-only consumers stopped",
+      "no unlisted writable descriptors",
+      "stable final delta with exact manifests"
+    ],
+    "required_rehearsals": [
+      "out-of-band alert",
+      "boot behavior",
+      "Docker daemon restart",
+      "missing mapper",
+      "wrong key",
+      "delayed unlock",
+      "pre-admission rollback",
+      "post-admission reverse-delta rollback"
+    ],
+    "maximum_p95_regression_percent": 15,
+    "local_or_embedded_key_evidence_rejected": true
+  },
+  "isolated_lab": {
+    "production_sources_used": false,
+    "production_daemon_used": false,
+    "two_file_backed_luks2_vaults": true,
+    "keys_only_on_tmpfs": true,
+    "active_and_recovery_keys_independent": true,
+    "header_backups_separate_on_tmpfs": true,
+    "isolated_docker_data_root": true,
+    "required_checks": [
+      "restart-policy control proves unless-stopped restores automatically",
+      "on-failure:5 negative control proves that policy also restores automatically",
+      "guarded restart-no containers do not restore after daemon restart",
+      "missing mapper blocks admission and container start",
+      "wrong keys fail for both vaults",
+      "delayed unlock requires fresh admission and explicit start",
+      "both recovery keys reopen their vaults",
+      "stable final delta and exact manifest comparison",
+      "read-only retained legacy source rejects writes",
+      "pre-admission rollback works directly from retained legacy data",
+      "post-admission reverse delta restores exact legacy content",
+      "all isolated resources are removed",
+      "production container identity digest is unchanged"
+    ],
+    "not_claimed_by_lab": [
+      "host boot rehearsal",
+      "external out-of-band alert delivery",
+      "protected PR or post-merge main checks",
+      "live workload p95 measurement",
+      "production custody or authorization"
+    ],
+    "these_remain_production_gates": true
+  },
+  "rollback": {
+    "legacy_sources_retained": true,
+    "blind_reversion_after_candidate_writes_allowed": false,
+    "pre_admission": "Remove candidate resources and recreate affected consumers from retained legacy volumes only after exact source verification.",
+    "post_admission": "Close admission, drain and stop writers, reverse a stable delta from encrypted vaults into temporarily writable retained roots, require exact manifests, then recreate affected consumers on legacy volumes.",
+    "candidate_and_diagnostic_evidence_retained": true
+  },
+  "scope_boundary": {
+    "production_compose_applied": false,
+    "production_restart_policies_changed": false,
+    "external_production_volumes_created": false,
+    "production_vaults_created": false,
+    "production_keys_created": false,
+    "production_services_stopped_or_restarted": false,
+    "production_volumes_written": false,
+    "deployment_or_cutover_performed": false,
+    "docker_daemon_restarted": false,
+    "host_rebooted": false,
+    "systemd_units_installed": false,
+    "cloudflare_changed": false,
+    "fr06b_or_fr06_parent_completion_claimed": false
+  },
+  "next_subpart": {
+    "id": "FR-06B3B",
+    "purpose": "Implement the bounded guarded lifecycle and final-delta executor only after B3A behavior is retained and production custody, alerting, R2 restore, maintenance-window, and authorization gates exist.",
+    "production_execution_still_requires_owner_window": true
+  }
+}
