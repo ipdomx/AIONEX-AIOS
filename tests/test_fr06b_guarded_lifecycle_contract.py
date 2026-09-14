@@ -435,8 +435,10 @@ def test_plan_rejects_socket_mismatch_and_path_escape(tmp_path: Path) -> None:
         module.create_cutover_plan(args)
 
     args = _plan_fixture(tmp_path / "second")
+    outside = tmp_path.with_name(f"{tmp_path.name}-outside")
+    outside.mkdir()
     layout = _json(args.lab_layout)
-    layout["source_roots"]["three_d_asset_data"] = "/opt/AIOS"
+    layout["source_roots"]["three_d_asset_data"] = str(outside)
     module._write_json_atomic(args.lab_layout, layout)
     with pytest.raises(module.LifecycleBlocked, match="escaped"):
         module.create_cutover_plan(args)
