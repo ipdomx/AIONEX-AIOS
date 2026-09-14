@@ -158,11 +158,11 @@ for root in "${ALL_ROOTS[@]}"; do
   source_mirror="$LAB_ROOT/sources/$root"
   install -d -m 0700 "$source_mirror"
   mount --bind "$source_path" "$source_mirror"
+  SOURCE_MOUNTS+=("$source_mirror")
   mount -o remount,bind,ro,nodev,nosuid,noexec "$source_mirror"
   mirror_options=",$(findmnt -n -o OPTIONS --target "$source_mirror"),"
   [[ "$mirror_options" == *,ro,* && "$mirror_options" == *,nodev,* \
     && "$mirror_options" == *,nosuid,* && "$mirror_options" == *,noexec,* ]]
-  SOURCE_MOUNTS+=("$source_mirror")
   SOURCE_PATHS["$root"]="$source_mirror"
 done
 
