@@ -1,0 +1,148 @@
+# ADR-001: FR-06 host-data encryption without live-root reformat
+
+- Status: Accepted for staged FR-06 implementation
+- Date: 2026-09-14
+- Decision scope: FR-06A design and isolated proof only
+- Production data migration: Not performed by this ADR
+
+## Context
+
+The production host uses two RAID1 members assembled as `md0`, with `md0p2`
+mounted directly as one ext4 root filesystem. There is no dm-crypt mapping, no
+TPM device, and no unused partition suitable for a safe in-place LUKS retrofit.
+PostgreSQL data and WAL, Docker named volumes, local backups, JSON container
+logs, journald, temporary files, application secrets, operator material, and an
+8 GiB swap file currently reside on that unencrypted root.
+
+FR-05 protects offsite R2 backup objects with client-side encryption. It does
+not protect the live local data, local backup artifacts, logs, temporary files,
+container writable layers, secrets, or swap.
+
+The FR-06 constraint forbids reformatting or repartitioning the live root. The
+design must remain reversible and must not claim protection from a live root
+compromise.
+
+## Decision
+
+Use preallocated regular files as LUKS2 containers, one per operational data
+domain, mounted as ext4 filesystems and exposed to Docker through explicit
+binds or local-volume definitions.
+
+The planned domains are:
+
+1. `asset-vault` in FR-06B for all authoritative user/project/media roots.
+2. `database-vault` in FR-06C for PostgreSQL PGDATA including `pg_wal`.
+3. `operations-vault` in FR-06C for Redis and retained sanitized logs.
+4. `local-backup-vault` in FR-06C for local backup and restore evidence.\n5. `container-runtime-vault` in FR-06C for Docker layers and JSON logs after\n   authoritative named volumes move to explicit encrypted domain mounts.\n6. `host-state-vault` in FR-06C for secrets, retained journals, and classified\n   release/audit state; its unlock material remains external.
+
+This gives each domain an independent maintenance and rollback boundary. A
+single monolithic vault is rejected because it would couple unrelated services
+and enlarge the outage blast radius.
+
+Each vault uses LUKS2, `aes-xts-plain64` with a 512-bit XTS key, Argon2id
+key derivation, a preallocated non-sparse backing file, and ext4. Data-only
+vaults mount with `nodev,nosuid,noexec`; executable requirements must be
+explicit exceptions, never inherited accidentally.
+
+## Key and recovery decision
+
+No persistent unlock key may be stored on the same unencrypted root. The
+current host has no TPM, so the secure initial mode is manual operator unlock
+from externally held material injected into tmpfs under `/run/credentials`.
+Unattended unlock is not allowed until a separately trusted external KMS or
+equivalent mechanism exists.
+
+Every vault requires:
+
+- an active key and independently retained recovery key;
+- an off-host LUKS2 header backup, stored separately from the vault;
+- add-and-verify-before-remove rotation;
+- a tested recovery-key open and payload integrity check;
+- no raw key in Git, images, logs, reports, backup objects, or the vault file.
+
+A header backup without a recovery key is not sufficient. Losing the last
+verified key is an unrecoverable-data incident.
+
+## Boot and failure behavior
+
+Encrypted-data services depend on a dedicated encrypted-storage target and
+their required mount paths. If a key or vault is unavailable, those services remain stopped and systemd\nrecords a critical local failure. They must never start against an empty\nplaintext fallback directory. Before cutover, an owner-visible out-of-band\nalert path must be proved without depending on the locked vault.
+
+An unexpected reboot therefore boots the host but leaves affected application
+services unavailable until an operator unlocks and verifies the vaults. This is
+an intentional availability tradeoff: storing an unattended key on the same
+disk would nullify the offline-disk threat model.
+
+A real host reboot is not part of FR-06A. Before live migration, each scoped
+group must pass an unlock, mount, ownership/integrity, service start, service
+restart, close, and reopen maintenance rehearsal.
+
+## Coverage that must not be omitted
+
+FR-06B covers the eleven authoritative asset roots already identified by
+FR-04. FR-06C covers PostgreSQL and WAL, Redis or a proved ephemeral
+replacement, local backups, application/Docker/journald logs, application
+temporary files, Docker writable-layer spill, application/operator secrets,
+and swap.
+
+Rebuildable npm, security-tool, and model caches are not migrated as
+authoritative data. They must be inspected for user excerpts, wiped, and
+rebuilt from pinned sources before FR-06 can close. PostgreSQL sockets remain
+ephemeral.
+
+Swap will use a fresh random key per boot because hibernation is not required.
+Sensitive application temporary paths move to tmpfs or a vault. Services must
+be configured so user data cannot spill into an unencrypted container layer.
+
+## Migration and rollback
+
+FR-06A does not migrate live data.
+
+Each later vault uses this sequence:
+
+1. Record source identity, size, file count, and checksum evidence.
+2. Create and validate a fresh encrypted R2 recovery point.
+3. Preallocate and format the candidate LUKS2 file with external keys.
+4. Pre-seed only nonauthoritative data while writers continue.
+5. Stop only services that write the selected domain.
+6. Copy the final delta and compare integrity.
+7. Mount the encrypted target and apply explicit Compose bindings.
+8. Start and verify only the scoped services.
+9. Retain the original source read-only through the rollback window.
+10. Wipe plaintext only after owner-visible acceptance and a second recovery proof.
+
+Rollback stops the scoped services, restores the prior Compose definition,
+remounts the retained source, restarts the same services, and records the
+failed candidate. It does not delete diagnostic evidence.
+
+## Alternatives rejected
+
+- Retrofitting full-root LUKS or repartitioning `md0`: destructive and outside
+  the approved live-host constraint.
+- fscrypt on the current root: does not by itself solve swap, logs, Docker
+  layers, or key placement, and requires a live filesystem policy change.
+- gocryptfs or application-only encryption: incomplete for PGDATA/WAL, Redis,
+  logs, swap, and writable-layer spill.
+- A key file on the current root: defeats protection from an offline disk or
+  root-filesystem snapshot.
+- Reusing FR-05 backup encryption as host encryption: protects backup objects,
+  not mounted production data.
+
+## Evidence and consequences
+
+The isolated FR-06A lab formatted only a temporary regular file under
+`/var/tmp`; its keys existed only in `/dev/shm`. Active and recovery-key
+opens passed, a wrong key failed, a closed raw-image plaintext marker scan
+failed to find plaintext, and header erase/restore preserved payload integrity.
+All mappings and temporary files were removed. No production mount, service,
+block device, or Cloudflare configuration changed.
+
+The isolated direct-write result retained 82.46% of the plain-file rate
+(202.725 MiB/s versus 245.835 MiB/s). This is a feasibility signal only.
+Loopback read comparison was deliberately excluded because cache layers made
+it misleading. FR-06B/C require workload-specific production-candidate
+benchmarks and no more than 15% p95 regression before cutover.
+
+This decision protects closed vaults from offline storage access. It is not
+full-disk encryption and does not protect data from live root or an authorized
+service after unlock.

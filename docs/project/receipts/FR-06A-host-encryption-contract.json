@@ -1,0 +1,225 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06A",
+  "implementation_status": "design_contract_and_isolated_lab_only",
+  "architecture_decision": {
+    "selected_path": "preallocated_file_backed_luks2_domain_vaults",
+    "reason": "The live RAID1 root is a single ext4 filesystem with no dm-crypt layer or spare partition. Preallocated LUKS2 files provide strong block encryption for selected domains without repartitioning or reformatting the live root and allow staged, reversible migration.",
+    "vault_layout": [
+      {
+        "vault": "asset-vault",
+        "stage": "FR-06B",
+        "contents": "all authoritative user, project, course, media, studio, portal, release, recording, ingress and security asset directories"
+      },
+      {
+        "vault": "database-vault",
+        "stage": "FR-06C",
+        "contents": "PostgreSQL PGDATA including pg_wal"
+      },
+      {
+        "vault": "operations-vault",
+        "stage": "FR-06C",
+        "contents": "Redis persistent state plus retained sanitized application and Docker logs"
+      },
+      {
+        "vault": "local-backup-vault",
+        "stage": "FR-06C",
+        "contents": "local backup_data artifacts and retained restore evidence"
+      },
+      {
+        "vault": "container-runtime-vault",
+        "stage": "FR-06C",
+        "contents": "Docker image layers, writable layers and json-file logs after authoritative named volumes move to explicit encrypted domain mounts"
+      },
+      {
+        "vault": "host-state-vault",
+        "stage": "FR-06C",
+        "contents": "operator/application secrets, retained system journals and classified release/audit state; unlock keys remain external"
+      }
+    ],
+    "not_selected": [
+      {
+        "option": "retrofit full-root LUKS or repartition md0",
+        "reason": "requires destructive live-root migration or reinstallation and violates the no-live-disk-reformat constraint"
+      },
+      {
+        "option": "one monolithic vault for every data class",
+        "reason": "couples unrelated service lifecycles and creates an unnecessarily large availability and rollback blast radius"
+      },
+      {
+        "option": "fscrypt on the current root",
+        "reason": "requires live filesystem feature and per-directory policy changes while leaving swap, Docker layers and logs as separate exposures"
+      },
+      {
+        "option": "gocryptfs or application-only encryption",
+        "reason": "does not transparently cover PostgreSQL WAL, Redis, logs, swap and container writable-layer spill"
+      },
+      {
+        "option": "persistent unlock key on the same unencrypted root",
+        "reason": "would defeat the offline disk and provider-snapshot threat model"
+      }
+    ],
+    "cloudflare_change_required": false
+  },
+  "threat_model": {
+    "must_protect_against": [
+      "offline theft or loss of either RAID member",
+      "offline provider or hypervisor snapshot of the root filesystem",
+      "retired disk recovery",
+      "accidental copying of local application data without the external unlock material",
+      "offline inspection of closed vault files"
+    ],
+    "does_not_claim_protection_against": [
+      "a live root compromise while vaults are unlocked",
+      "application authorization defects after data is legitimately decrypted",
+      "malware executing as a service identity with access to its mounted vault",
+      "plaintext deliberately exported by an authorized user or operator",
+      "full-disk encryption of the operating system or boot partition"
+    ]
+  },
+  "crypto_contract": {
+    "format": "LUKS2",
+    "cipher": "aes-xts-plain64",
+    "key_bits": 512,
+    "pbkdf": "argon2id",
+    "filesystem": "ext4",
+    "container_allocation": "preallocated_regular_file_not_sparse",
+    "container_owner": "root:root",
+    "container_mode": "0600",
+    "mount_options_minimum": [
+      "nodev",
+      "nosuid"
+    ],
+    "noexec_required_for_non_executable_data_vaults": true
+  },
+  "key_management": {
+    "tpm_available": false,
+    "active_unlock_material_runtime_location": "operator-injected tmpfs under /run/credentials",
+    "persistent_unlock_material_on_root_allowed": false,
+    "raw_unlock_material_in_git_reports_logs_images_or_vault_files_allowed": false,
+    "recovery_key_required": true,
+    "recovery_key_location": "operator-owned encrypted storage outside the production host",
+    "luks_header_backup_required": true,
+    "header_backup_location": "off-host and separate from the vault file",
+    "header_backup_is_sufficient_without_key": false,
+    "rotation_order": [
+      "create a new off-host recovery key",
+      "back up the current LUKS2 header",
+      "add the new key to an unused slot",
+      "prove open and read integrity using the new key",
+      "update the external recovery record",
+      "remove the superseded key only after independent recovery verification"
+    ],
+    "lost_last_required_key_result": "unrecoverable-data incident; never auto-delete the last verified keyslot"
+  },
+  "boot_and_service_contract": {
+    "unattended_unlock_allowed_without_tpm_or_external_kms": false,
+    "current_mode": "manual operator unlock after boot using external material",
+    "fail_closed": true,
+    "services_must_not_start_before_required_vaults_are_mounted": true,
+    "systemd_gating": "dedicated aionex-encrypted-storage target plus RequiresMountsFor/After dependencies",
+    "missing_key_behavior": "affected services remain stopped and systemd records a critical local failure; no plaintext fallback directory",
+    "unexpected_reboot_behavior": "system boots, encrypted-data services remain unavailable until an operator unlocks and verifies vaults",
+    "boot_rehearsal_before_live_migration": [
+      "open each candidate vault from external recovery material",
+      "mount with required options",
+      "verify ownership, checksums and expected empty-underlay guard",
+      "start only the scoped services",
+      "restart the scoped services once",
+      "close and reopen in a maintenance rehearsal without rebooting the live host"
+    ],
+    "owner_alert_pre_cutover_requirement": "prove an owner-visible out-of-band alert path that does not depend on the locked vault"
+  },
+  "coverage_contract": {
+    "FR-06B": [
+      "three_d_asset_data",
+      "media_asset_data",
+      "project_execution_data",
+      "studio_asset_data",
+      "course_package_data",
+      "realtime_recording_data",
+      "portal_asset_data",
+      "mobile_release_data",
+      "audio_song_ingress_data",
+      "security_source_data",
+      "security_remediation_data"
+    ],
+    "FR-06C": [
+      "postgres_data including pg_wal",
+      "redis_data or a proved ephemeral reconstruction contract",
+      "backup_data",
+      "application and Docker logs",
+      "journald/system logs that may contain application metadata",
+      "application temporary files",
+      "container writable-layer spill",
+      "application and operator secrets",
+      "swap"
+    ],
+    "rebuildable_exclusions": [
+      "project_npm_cache_data",
+      "security_tool_cache_data after inspection for user excerpts",
+      "ollama_model_data",
+      "postgres_socket"
+    ],
+    "rebuildable_exclusions_must_be_wiped_before_release": true,
+    "plaintext_fallback_mount_allowed": false
+  },
+  "migration_contract": {
+    "fr06a_live_data_migration_allowed": false,
+    "live_raid_reformat_or_repartition_allowed": false,
+    "source_deletion_before_verified_cutover_allowed": false,
+    "per_vault_sequence": [
+      "record exact source volume identity, size, file count and checksum manifest",
+      "take a fresh encrypted R2 recovery point and validate it",
+      "preallocate and format a new LUKS2 vault using external keys",
+      "copy while source services remain running only for a nonauthoritative pre-seed",
+      "stop only services that write the selected domain",
+      "perform final delta copy and integrity comparison",
+      "mount the encrypted target and bind it through explicit Compose configuration",
+      "start only scoped services and run health plus functional verification",
+      "retain the original source read-only for the rollback window",
+      "wipe the original plaintext only after owner-visible acceptance and a second recovery proof"
+    ],
+    "rollback": [
+      "stop only scoped services",
+      "restore the previous Compose definition",
+      "remount the retained original source",
+      "restart scoped services",
+      "verify database/assets and record the failed encrypted candidate without deleting evidence"
+    ],
+    "cloudflare_changes_allowed": false
+  },
+  "performance_acceptance": {
+    "cpu_aes_xts_encrypt_mib_s_observed": 2509.2,
+    "cpu_aes_xts_decrypt_mib_s_observed": 2720.7,
+    "isolated_direct_write_plain_mib_s": 245.835,
+    "isolated_direct_write_encrypted_mib_s": 202.725,
+    "isolated_write_ratio": 0.8246,
+    "fr06a_minimum_feasibility_ratio": 0.7,
+    "fr06a_feasibility_passed": true,
+    "read_comparison_accepted_from_loopback_lab": false,
+    "production_gate": "each later vault requires a workload-specific immediate baseline and encrypted candidate comparison with no integrity error and no more than 15 percent p95 regression"
+  },
+  "fr06a_exit_evidence": {
+    "live_inventory": "docs/project/receipts/FR-06A-live-storage-inventory.json",
+    "isolated_lab": "docs/project/receipts/FR-06A-isolated-luks-lab.json",
+    "reproducible_lab_script": "scripts/security/fr06a_luks_lab.sh",
+    "architecture_record": "docs/architecture/ADR-001-FR-06-host-data-encryption.md",
+    "wrong_key_rejected": true,
+    "closed_raw_plaintext_marker_absent": true,
+    "recovery_key_open_verified": true,
+    "header_restore_verified": true,
+    "production_changed": false
+  },
+  "scope_boundary": {
+    "fr06a_does_not_claim": [
+      "production data encrypted at rest",
+      "full-disk encryption",
+      "safe unattended reboot",
+      "protection from live root",
+      "FR-06 parent completion"
+    ],
+    "next_action": "FR-06B asset-vault implementation and isolated copy/compare before any selective live cutover"
+  }
+}
