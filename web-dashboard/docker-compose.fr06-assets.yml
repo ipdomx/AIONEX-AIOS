@@ -1,0 +1,378 @@
+# FR-06B2 source-only overlay. Never apply without every gate in the retained contract.
+services:
+  academy-course-worker:
+    volumes:
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/course-packages"
+        read_only: false
+        volume:
+          subpath: course_package_data
+  audio-dubbing-worker:
+    volumes:
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/media-assets"
+        read_only: false
+        volume:
+          subpath: media_asset_data
+  audio-music-worker:
+    volumes:
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/media-assets"
+        read_only: false
+        volume:
+          subpath: media_asset_data
+  audio-song-worker:
+    volumes:
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/media-assets"
+        read_only: false
+        volume:
+          subpath: media_asset_data
+  audio-song-worker-secondary:
+    volumes:
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/media-assets"
+        read_only: false
+        volume:
+          subpath: media_asset_data
+  audio-speech-worker:
+    volumes:
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/media-assets"
+        read_only: false
+        volume:
+          subpath: media_asset_data
+  audio-transcript-worker:
+    volumes:
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/media-assets"
+        read_only: false
+        volume:
+          subpath: media_asset_data
+  backend:
+    volumes:
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/three-d-assets"
+        read_only: false
+        volume:
+          subpath: three_d_asset_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/media-assets"
+        read_only: false
+        volume:
+          subpath: media_asset_data
+      - type: volume
+        source: fr06_project_execution_vault
+        target: "/var/lib/aionex/project-executions"
+        read_only: false
+        volume:
+          subpath: project_execution_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/studio-assets"
+        read_only: false
+        volume:
+          subpath: studio_asset_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/course-packages"
+        read_only: true
+        volume:
+          subpath: course_package_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/realtime-recordings"
+        read_only: false
+        volume:
+          subpath: realtime_recording_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/portal-assets"
+        read_only: false
+        volume:
+          subpath: portal_asset_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/mobile-releases"
+        read_only: true
+        volume:
+          subpath: mobile_release_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/audio-song-provider-ingress"
+        read_only: false
+        volume:
+          subpath: audio_song_ingress_data
+  backup-asset-root-init:
+    volumes:
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/three-d-assets"
+        read_only: false
+        volume:
+          subpath: three_d_asset_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/media-assets"
+        read_only: false
+        volume:
+          subpath: media_asset_data
+      - type: volume
+        source: fr06_project_execution_vault
+        target: "/var/lib/aionex/project-executions"
+        read_only: false
+        volume:
+          subpath: project_execution_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/studio-assets"
+        read_only: false
+        volume:
+          subpath: studio_asset_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/course-packages"
+        read_only: false
+        volume:
+          subpath: course_package_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/realtime-recordings"
+        read_only: false
+        volume:
+          subpath: realtime_recording_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/portal-assets"
+        read_only: false
+        volume:
+          subpath: portal_asset_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/mobile-releases"
+        read_only: false
+        volume:
+          subpath: mobile_release_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/audio-song-provider-ingress"
+        read_only: false
+        volume:
+          subpath: audio_song_ingress_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/security-sources"
+        read_only: false
+        volume:
+          subpath: security_source_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/security-remediations"
+        read_only: false
+        volume:
+          subpath: security_remediation_data
+  backup-worker:
+    volumes:
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/three-d-assets"
+        read_only: true
+        volume:
+          subpath: three_d_asset_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/media-assets"
+        read_only: true
+        volume:
+          subpath: media_asset_data
+      - type: volume
+        source: fr06_project_execution_vault
+        target: "/var/lib/aionex/project-executions"
+        read_only: true
+        volume:
+          subpath: project_execution_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/studio-assets"
+        read_only: true
+        volume:
+          subpath: studio_asset_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/course-packages"
+        read_only: true
+        volume:
+          subpath: course_package_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/realtime-recordings"
+        read_only: true
+        volume:
+          subpath: realtime_recording_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/portal-assets"
+        read_only: true
+        volume:
+          subpath: portal_asset_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/mobile-releases"
+        read_only: true
+        volume:
+          subpath: mobile_release_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/audio-song-provider-ingress"
+        read_only: true
+        volume:
+          subpath: audio_song_ingress_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/security-sources"
+        read_only: true
+        volume:
+          subpath: security_source_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/security-remediations"
+        read_only: true
+        volume:
+          subpath: security_remediation_data
+  design-image-derivative-worker:
+    volumes:
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/media-assets"
+        read_only: false
+        volume:
+          subpath: media_asset_data
+  design-image-worker:
+    volumes:
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/media-assets"
+        read_only: false
+        volume:
+          subpath: media_asset_data
+  identity-media-worker:
+    volumes:
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/media-assets"
+        read_only: false
+        volume:
+          subpath: media_asset_data
+  media-worker:
+    volumes:
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/media-assets"
+        read_only: false
+        volume:
+          subpath: media_asset_data
+  project-worker:
+    volumes:
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/three-d-assets"
+        read_only: true
+        volume:
+          subpath: three_d_asset_data
+      - type: volume
+        source: fr06_project_execution_vault
+        target: "/var/lib/aionex/project-executions"
+        read_only: false
+        volume:
+          subpath: project_execution_data
+  realtime-egress:
+    volumes:
+      - type: volume
+        source: fr06_asset_vault
+        target: "/recordings"
+        read_only: false
+        volume:
+          subpath: realtime_recording_data
+  realtime-recording-init:
+    volumes:
+      - type: volume
+        source: fr06_asset_vault
+        target: "/recordings"
+        read_only: false
+        volume:
+          subpath: realtime_recording_data
+  security-remediation-worker:
+    volumes:
+      - type: volume
+        source: fr06_project_execution_vault
+        target: "/var/lib/aionex/project-executions"
+        read_only: true
+        volume:
+          subpath: project_execution_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/security-sources"
+        read_only: true
+        volume:
+          subpath: security_source_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/security-remediations"
+        read_only: false
+        volume:
+          subpath: security_remediation_data
+  security-scan-worker:
+    volumes:
+      - type: volume
+        source: fr06_project_execution_vault
+        target: "/var/lib/aionex/project-executions"
+        read_only: true
+        volume:
+          subpath: project_execution_data
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/security-sources"
+        read_only: true
+        volume:
+          subpath: security_source_data
+  studio-worker:
+    volumes:
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/studio-assets"
+        read_only: false
+        volume:
+          subpath: studio_asset_data
+  three-d-worker:
+    volumes:
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/three-d-assets"
+        read_only: false
+        volume:
+          subpath: three_d_asset_data
+  video-provider-worker:
+    volumes:
+      - type: volume
+        source: fr06_asset_vault
+        target: "/var/lib/aionex/media-assets"
+        read_only: false
+        volume:
+          subpath: media_asset_data
+
+volumes:
+  fr06_asset_vault:
+    name: aionex-fr06-asset-vault
+    external: true
+  fr06_project_execution_vault:
+    name: aionex-fr06-project-execution-vault
+    external: true
