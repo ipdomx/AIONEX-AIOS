@@ -1,0 +1,71 @@
+{
+  "all_checks_passed": true,
+  "batch_id": "FR-06",
+  "checks": {
+    "all_eleven_forward_deltas_exact": true,
+    "all_eleven_post_initializer_manifests_exact": true,
+    "all_temporary_bind_mounts_removed": true,
+    "all_temporary_files_and_state_removed": true,
+    "application_admission_opened": false,
+    "cloudflare_changed": false,
+    "exclusive_lock_collision_blocked": true,
+    "guarded_start_blocks_legacy_drift_after_reboot": true,
+    "guarded_start_passed_and_kept_admission_closed": true,
+    "guarded_start_reestablished_missing_legacy_seals": true,
+    "guarded_start_verified_legacy_baseline_after_reseal": true,
+    "host_rebooted": false,
+    "initializer_failure_never_reverse_copied_to_legacy": true,
+    "legacy_roots_real_read_only_bind_mounts": true,
+    "manual_reverse_delta_rollback_passed": true,
+    "manual_rollback_unsealed_legacy": true,
+    "path_escape_blocked": true,
+    "post_candidate_failure_reverse_delta_rollback_passed": true,
+    "pre_candidate_failure_legacy_restore_passed": true,
+    "production_container_identity_unchanged": true,
+    "production_docker_used_for_lab_operations": false,
+    "production_services_stopped_or_restarted": false,
+    "production_sources_used": false,
+    "production_vaults_or_keys_created": false,
+    "production_volumes_or_mounts_changed": false,
+    "single_use_plan_replay_blocked": true,
+    "successful_cutover_closed_admission": true,
+    "topology_drift_blocked_before_mutation": true,
+    "twenty_service_matrix_and_scaled_instance_preserved": true
+  },
+  "cutover_gate": {
+    "application_admission_opened": false,
+    "production_cutover_allowed_by_this_receipt": false,
+    "still_required": [
+      "protected PR and post-merge main checks for FR-06B3B",
+      "fresh encrypted R2 restore immediately before an approved window",
+      "external independent active and recovery key custody",
+      "separate off-host LUKS2 header backups",
+      "independent owner-visible alert and production boot proof",
+      "explicit owner-approved production execution decision",
+      "live candidate p95 within the fifteen-percent ceiling",
+      "separate decision to open admission and retained rollback-window acceptance"
+    ]
+  },
+  "details": {
+    "guarded_runtime_service_count": 20,
+    "initializer_service_count": 2,
+    "maximum_guarded_start_attempts": 3,
+    "private_evidence_mode": "0600",
+    "private_state_mode": "0700",
+    "protected_root_count": 11,
+    "scenario_count": 8,
+    "success_plan_consumed_once": true
+  },
+  "lab": {
+    "production_docker_daemon_used_for_operations": false,
+    "production_sources_used": false,
+    "real_read_only_bind_mounts_used": true,
+    "sandbox_removed": true,
+    "type": "isolated_filesystem_bind_mount_and_file_backed_runtime_lifecycle_rehearsal"
+  },
+  "observed_at": "2026-09-14T21:34:39Z",
+  "production_changed": false,
+  "schema_version": 1,
+  "source_commit": "6e1ceb3a05193793ee8e5ad3d81c646678d77957",
+  "subpart": "FR-06B3B"
+}

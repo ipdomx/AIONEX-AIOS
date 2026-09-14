@@ -1,0 +1,240 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06B3B",
+  "implementation_status": "source_only_guarded_lifecycle_final_delta_and_dual_path_rollback_executor",
+  "source_baseline": "6e1ceb3a05193793ee8e5ad3d81c646678d77957",
+  "depends_on": {
+    "asset_copy_contract": "docs/project/receipts/FR-06B1-asset-vault-copy-contract.json",
+    "compose_cutover_contract": "docs/project/receipts/FR-06B2-compose-cutover-contract.json",
+    "admission_restart_contract": "docs/project/receipts/FR-06B3A-admission-restart-contract.json",
+    "asset_overlay": "web-dashboard/docker-compose.fr06-assets.yml",
+    "admission_overlay": "web-dashboard/docker-compose.fr06-admission.yml"
+  },
+  "artifacts": {
+    "executor": "scripts/security/fr06b_guarded_lifecycle.py",
+    "isolated_lab": "scripts/security/fr06b_guarded_lifecycle_lab.py",
+    "retained_lab_proof": "docs/project/receipts/FR-06B3B-isolated-guarded-lifecycle.json"
+  },
+  "invariant": {
+    "success_terminal_state": "candidate_started_admission_closed",
+    "opens_application_admission": false,
+    "changes_cloudflare": false,
+    "creates_or_unlocks_vaults": false,
+    "handles_key_material": false,
+    "deletes_legacy_sources": false,
+    "deletes_candidate_or_diagnostic_evidence": false,
+    "parent_completion_claimed": false,
+    "rationale": "The executor proves and performs only the reversible storage lifecycle. Owner-visible live acceptance and opening admission remain a later independent decision."
+  },
+  "production_binding": {
+    "project_root": "/opt/AIOS",
+    "state_directory": "/var/lib/aionex/fr06b3b",
+    "state_directory_mode": "0700",
+    "environment_file": "/opt/AIOS/web-dashboard/.env.production",
+    "docker_sockets": [
+      "unix:///run/docker.sock",
+      "unix:///var/run/docker.sock"
+    ],
+    "root_required": true,
+    "arbitrary_executable_or_shell_accepted": false,
+    "exact_head_and_origin_main_must_equal_evidence_merge_sha": true,
+    "tracked_worktree_must_be_clean": true,
+    "exact_legacy_volume_names_derived_from_contract": true,
+    "candidate_paths_bound_to_fresh_mapper_snapshot": true,
+    "path_escape_symlink_and_overlap_rejected": true
+  },
+  "admission_binding": {
+    "reruns_fr06b3a_evaluator": true,
+    "accepts_only": [
+      "isolated_lab_ready",
+      "production_preflight_ready"
+    ],
+    "fr06b3a_production_authorized_must_remain_false": true,
+    "evidence_and_snapshot_hash_bound_into_plan": true,
+    "contract_hash_bound_into_plan": true,
+    "maximum_plan_ttl_seconds": 900,
+    "maximum_evidence_age_seconds": 3600,
+    "production_window_maximum_seconds": 14400,
+    "current_time_must_be_inside_window": true,
+    "one_time_plan_nonce": true,
+    "exclusive_nonblocking_lock": true,
+    "one_time_reservation_written_before_first_mutation": true,
+    "exact_dynamic_confirmation_required": true,
+    "second_fixed_production_confirmation_required": true,
+    "retained_active_services_must_be_subset_of_reviewed_matrix": true,
+    "retained_instance_identifiers_must_be_unique_safe_and_bounded": true,
+    "retained_legacy_seal_paths_must_equal_current_bound_roots": true,
+    "receipt_must_remain_in_private_state_directory": true,
+    "operation_nonce_pattern": "[A-Za-z0-9._:-]{16,128}",
+    "production_runtime_reinspection_at_plan_apply_and_each_start_attempt": true,
+    "production_reinspection_checks": [
+      "active LUKS2 mappers",
+      "ext4 and exact mount options",
+      "all eleven subpaths",
+      "exact mapper-backed Docker volumes",
+      "zero candidate consumers",
+      "B2 and B3A Compose validation"
+    ],
+    "current_reviewed_main_required_for_guarded_start_and_rollback": true,
+    "old_cutover_commit_equality_not_required_after_compatible_main_advance": true
+  },
+  "scope": {
+    "protected_root_count": 11,
+    "protected_mount_count": 54,
+    "protected_service_definition_count": 22,
+    "runtime_writer_service_definition_count": 18,
+    "read_only_only_service_definition_count": 2,
+    "initializer_service_definition_count": 2,
+    "guarded_runtime_service_definition_count": 20,
+    "resolves_scaled_container_ids_at_plan_time": true,
+    "topology_must_be_identical_at_apply_time": true,
+    "unlisted_container_using_protected_volume_blocks": true,
+    "unlisted_writable_descriptor_after_stop_blocks": true,
+    "unrelated_service_stop_or_start_permitted": false,
+    "exact_protected_mount_set_required": true,
+    "cross_project_label_spoof_blocks": true
+  },
+  "cutover": {
+    "ordered_phases": [
+      "rerun fresh admission and verify source/contract/input digests",
+      "acquire exclusive lifecycle lock and consume the plan exactly once",
+      "resolve and stop only the exact planned protected container ids",
+      "require every protected runtime service stopped and no unlisted writable descriptor in legacy or candidate roots",
+      "self-bind each retained legacy root read-only with nodev and nosuid before copying",
+      "build source-before manifests, apply final rsync delta from the sealed sources, and require source-before equals source-after equals candidate for all eleven roots",
+      "reverify every legacy read-only seal and rerun admission before any candidate start",
+      "run exactly the two candidate initializer definitions",
+      "require sealed-source equals post-initializer candidate for all eleven roots before any runtime start",
+      "recreate only the previously active runtime services with exact scale using the asset and restart overlays",
+      "require running or healthy state, an exact protected-mount set, exact scale, and restart no",
+      "return candidate_started_admission_closed without opening admission"
+    ],
+    "copy": {
+      "tool": "rsync",
+      "arguments_fixed": [
+        "-a",
+        "--numeric-ids",
+        "--delete",
+        "--safe-links",
+        "--no-devices",
+        "--no-specials"
+      ],
+      "shell_used": false,
+      "source_types_revalidated_by_fr06b1_manifest": true,
+      "filenames_retained_only_in_private_mode_0600_state": true,
+      "public_receipt_contains_only_counts_bytes_and_aggregate_hashes": true
+    },
+    "legacy_seal": {
+      "type": "self bind mount remounted read-only",
+      "required_options": [
+        "ro",
+        "nodev",
+        "nosuid"
+      ],
+      "retained_through_acceptance_and_rollback_window": true,
+      "sealed_before_final_delta": true
+    },
+    "compose": {
+      "pulls_forbidden": true,
+      "no_dependencies_started": true,
+      "force_recreate_only_planned_services": true,
+      "original_active_scale_preserved": true,
+      "runtime_restart_policy": "no",
+      "initializer_order_before_runtime": true
+    },
+    "post_initializer_exact_manifest_required": true
+  },
+  "automatic_rollback": {
+    "before_any_candidate_start": "unseal any completed legacy seals and recreate the exact prior active scale from base Compose",
+    "after_any_candidate_start_attempt": "stop all candidate consumers, unseal legacy roots, reverse a stable exact delta from candidate to legacy, then recreate the exact prior active scale from base Compose",
+    "blind_base_reversion_after_candidate_write_allowed": false,
+    "failure_terminal_state": "admission remains closed",
+    "rollback_failure_terminal_state": "admission remains closed for manual recovery",
+    "diagnostic_evidence_retained": true,
+    "candidate_runtime_start_is_reverse_delta_boundary": true,
+    "initializer_only_failure_never_copies_candidate_metadata_back_to_legacy": true
+  },
+  "guarded_start": {
+    "purpose": "Only restart the retained candidate service scale after Docker or host restart while restart:no prevents automatic restoration.",
+    "successful_cutover_receipt_required": true,
+    "legacy_seal_layout_must_match_cutover_receipt": true,
+    "missing_or_partial_seals_after_reboot_reestablished_under_lock": true,
+    "reseal_requires_quiescent_legacy_and_candidate_roots": true,
+    "resealed_legacy_manifest_must_equal_cutover_baseline": true,
+    "lock_held_quiescence_rechecked_before_every_start_attempt": true,
+    "all_candidate_consumers_must_be_stopped": true,
+    "fresh_admission_rerun_before_every_attempt": true,
+    "maximum_attempts": 3,
+    "bounded_backoff_seconds": [
+      5,
+      10
+    ],
+    "exhaustion_terminal_state": "all candidate services stopped and admission closed",
+    "opens_admission": false,
+    "root_layout_must_equal_cutover_receipt": true
+  },
+  "manual_rollback": {
+    "successful_cutover_receipt_required": true,
+    "fresh_closed_admission_preflight_required": true,
+    "all_candidate_consumers_must_already_be_stopped": true,
+    "missing_or_partial_seals_after_reboot_accepted_after_quiescence": true,
+    "legacy_seals_removed_before_reverse_delta": true,
+    "exact_reverse_delta_required": true,
+    "legacy_service_scale_restored": true,
+    "candidate_deleted": false,
+    "opens_admission": false,
+    "root_layout_must_equal_cutover_receipt": true
+  },
+  "isolated_lab": {
+    "production_root_forbidden": true,
+    "production_docker_socket_forbidden": true,
+    "every_path_must_remain_under_one_sandbox": true,
+    "real_temporary_bind_mount_read_only_seal_required": true,
+    "file_backed_twenty_service_runtime_model": true,
+    "required_scenarios": [
+      "successful plan and final-delta cutover stops at closed admission",
+      "single-use plan replay is rejected",
+      "topology drift blocks before mutation",
+      "exclusive lock collision blocks",
+      "candidate health failure triggers post-candidate reverse-delta rollback",
+      "pre-candidate failure restores legacy without a blind reverse copy",
+      "initializer failure restores legacy without copying candidate-only metadata back",
+      "guarded start re-establishes reboot-lost legacy seals under lock after quiescence, proves the legacy manifest still equals the cutover baseline, uses at most three attempts, and keeps admission closed",
+      "legacy drift while reboot seals are absent blocks guarded start before candidate launch",
+      "manual reverse-delta rollback restores exact legacy manifests",
+      "all temporary mounts, state, and files are removed"
+    ],
+    "production_behavior_claimed": false
+  },
+  "production_gates_still_required": [
+    "fresh encrypted R2 recovery point independently restored immediately before the approved window",
+    "external independent custody for active and recovery keys",
+    "two distinct off-host LUKS2 header backups separate from recovery keys",
+    "independent owner-visible out-of-band alert proof",
+    "protected PR and exact post-merge main checks for this source batch",
+    "owner-approved maintenance window and explicit execution decision",
+    "production boot and Docker-daemon restart acceptance",
+    "candidate workload p95 regression no greater than fifteen percent",
+    "explicit later decision to open admission",
+    "retained rollback-window monitoring and canonical Project Hub receipt"
+  ],
+  "scope_boundary": {
+    "production_executor_invoked_by_this_source_batch": false,
+    "production_compose_applied": false,
+    "production_services_stopped_or_restarted": false,
+    "production_volumes_written": false,
+    "production_mounts_changed": false,
+    "production_vaults_or_keys_created": false,
+    "docker_daemon_restarted": false,
+    "host_rebooted": false,
+    "cloudflare_changed": false,
+    "application_admission_opened": false,
+    "fr06b_or_fr06_parent_completion_claimed": false
+  },
+  "next_subpart": {
+    "id": "FR-06B4",
+    "purpose": "Satisfy the external custody, R2 restore, alert, boot, protected-source, and owner-window gates before any authorized live asset cutover and rollback-window acceptance.",
+    "production_execution_requires_new_owner_decision": true
+  }
+}
