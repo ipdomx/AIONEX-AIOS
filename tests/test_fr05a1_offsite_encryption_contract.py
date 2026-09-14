@@ -38,13 +38,19 @@ def test_fr05a1_key_material_is_separated_from_backup_payloads_and_reports() -> 
     assert "algorithm" in may
 
 
-def test_fr05a1_current_offsite_code_is_readback_only_not_client_side_encryption() -> None:
+def test_fr05a1_required_client_side_encryption_is_now_wired_before_upload() -> None:
     source = OFFSITE.read_text(encoding="utf-8")
-    assert "full SHA-256 readback" in source
-    assert "automatic AES-256 encryption at rest" in source
     replicator = source.split("class OffsiteBackupReplicator", 1)[1]
-    assert "client-side" not in replicator
-    assert "R2_BACKUP_ENCRYPTION" not in source
+    assert "Client-side encryption is required" in replicator
+    assert 'filename="database.dump.aex1"' in replicator
+    assert 'filename="platform-assets.tar.aex1"' in replicator
+    assert 'filename="manifest.json.aex1"' in replicator
+    wiring = replicator.split("def _encrypt_upload", 1)[1].split("def replicate", 1)[0]
+    assert "self.encryption.encrypt_file(" in wiring
+    assert "self._upload_verified(" in wiring
+    assert wiring.index("self.encryption.encrypt_file(") < wiring.index(
+        "self._upload_verified("
+    )
 
 
 def test_fr05a1_plan_keeps_implementation_and_independent_restore_as_later_slices() -> None:

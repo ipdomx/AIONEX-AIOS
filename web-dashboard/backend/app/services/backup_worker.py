@@ -952,7 +952,7 @@ class BackupJobWorker:
                         )
                     offsite_snapshot_validation = await asyncio.to_thread(
                         self._three_d_executor.validate_snapshot,
-                        offsite_artifacts.database_location,
+                        offsite_artifacts.snapshot_location,
                         expected_checksum=str(remote_snapshot["sha256"]),
                         expected_size_bytes=int(remote_snapshot["size_bytes"]),
                         expected_file_count=int(remote_snapshot["file_count"]),
