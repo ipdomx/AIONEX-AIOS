@@ -260,6 +260,8 @@ services:
       AIOS_REPO_ROOT: /workspace
       PYTHONPATH: /workspace/src:/app
       AIOS_R2_BACKUP_SECRET_SOURCE: /run/operator-secrets/r2-backup-source.env
+      AIOS_BACKUP_ENCRYPTION_KEYRING_SOURCE: /run/operator-secrets/backup-encryption/keyring.json
+      BACKUP_OFFSITE_ENCRYPTION_REQUIRED: "true"
     volumes:
       - ..:/workspace:ro
       - backup_data:/var/lib/aionex/backups:rw
@@ -275,6 +277,7 @@ services:
       - security_source_data:/var/lib/aionex/security-sources:ro
       - security_remediation_data:/var/lib/aionex/security-remediations:ro
       - ${AIOS_R2_BACKUP_SECRET_HOST_FILE:-/root/.config/aionex/r2-backup/credentials.env}:/run/operator-secrets/r2-backup-source.env:ro
+      - ${AIOS_BACKUP_ENCRYPTION_KEYRING_HOST_FILE:-/root/.config/aionex/backup-encryption/keyring.json}:/run/operator-secrets/backup-encryption/keyring.json:ro
     depends_on:
       backup-asset-root-init: {condition: service_completed_successfully}
       backend: {condition: service_healthy}

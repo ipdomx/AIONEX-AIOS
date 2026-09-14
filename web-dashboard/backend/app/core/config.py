@@ -213,6 +213,8 @@ class Settings(BaseSettings):
     BACKUP_OFFSITE_SECRET_FILE: str = Field(default="/workspace/.runtime-secrets/r2-backup.env", validation_alias="BACKUP_OFFSITE_SECRET_FILE")
     BACKUP_OFFSITE_PREFIX: str = Field(default="aionex-production", min_length=1, max_length=160, pattern=r"^[A-Za-z0-9][A-Za-z0-9._/-]*$", validation_alias="BACKUP_OFFSITE_PREFIX")
     BACKUP_OFFSITE_RETENTION_COUNT: int = Field(default=30, ge=2, le=365, validation_alias="BACKUP_OFFSITE_RETENTION_COUNT")
+    BACKUP_OFFSITE_ENCRYPTION_REQUIRED: bool = Field(default=True, validation_alias="BACKUP_OFFSITE_ENCRYPTION_REQUIRED")
+    BACKUP_OFFSITE_ENCRYPTION_KEYRING_FILE: str = Field(default="/run/aionex/backup-encryption-keyring.json", validation_alias="BACKUP_OFFSITE_ENCRYPTION_KEYRING_FILE")
 
     OPERATIONS_OBSERVER_INTERVAL_SECONDS: int = Field(
         default=30,

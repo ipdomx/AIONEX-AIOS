@@ -26,6 +26,14 @@ if [ "$(id -u)" = "0" ]; then
         install -m 0400 -o aionex -g aionex "$r2_secret_source" "$r2_secret_runtime"
         export BACKUP_OFFSITE_SECRET_FILE="$r2_secret_runtime"
     fi
+    backup_encryption_keyring_source="${AIOS_BACKUP_ENCRYPTION_KEYRING_SOURCE:-}"
+    if [ -n "$backup_encryption_keyring_source" ] && [ -f "$backup_encryption_keyring_source" ]; then
+        runtime_dir=/run/aionex
+        backup_encryption_keyring_runtime="$runtime_dir/backup-encryption-keyring.json"
+        install -d -m 0700 -o aionex -g aionex "$runtime_dir"
+        install -m 0400 -o aionex -g aionex "$backup_encryption_keyring_source" "$backup_encryption_keyring_runtime"
+        export BACKUP_OFFSITE_ENCRYPTION_KEYRING_FILE="$backup_encryption_keyring_runtime"
+    fi
 
     project_secret_source="${PROJECT_EXECUTION_SECRET_FILE:-}"
     if [ -n "$project_secret_source" ] && [ -f "$project_secret_source" ]; then
