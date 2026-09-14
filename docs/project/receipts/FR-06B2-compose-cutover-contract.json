@@ -1,0 +1,578 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06B2",
+  "implementation_status": "source_only_compose_overlay_and_cutover_orchestration_contract",
+  "source_baseline": "a890d4fb1d7ea2a5f05345c7a869edbbd757f191",
+  "overlay": "web-dashboard/docker-compose.fr06-assets.yml",
+  "validator": "scripts/security/fr06b_validate_compose_overlay.py",
+  "architecture": {
+    "legacy_named_volumes_retained_for_rollback": true,
+    "base_compose_file_modified": false,
+    "external_vault_volumes": [
+      {
+        "logical_name": "fr06_asset_vault",
+        "external_name": "aionex-fr06-asset-vault",
+        "mapper": "/dev/mapper/aionex-asset-vault",
+        "filesystem": "ext4",
+        "required_options": [
+          "nodev",
+          "nosuid",
+          "noexec"
+        ],
+        "root_count": 10
+      },
+      {
+        "logical_name": "fr06_project_execution_vault",
+        "external_name": "aionex-fr06-project-execution-vault",
+        "mapper": "/dev/mapper/aionex-project-execution-vault",
+        "filesystem": "ext4",
+        "required_options": [
+          "nodev",
+          "nosuid"
+        ],
+        "forbidden_options": [
+          "noexec"
+        ],
+        "root_count": 1
+      }
+    ],
+    "exposure": "Docker external local volumes plus Compose long syntax volume.subpath",
+    "host_bind_to_vault_underlay_allowed": false,
+    "missing_external_volume_behavior": "Compose deployment fails before any protected target can fall back to a legacy volume.",
+    "missing_mapper_behavior": "The mapper-backed Docker local volume mount fails; no directory fallback is permitted.",
+    "subpaths_must_exist_before_container_creation": true
+  },
+  "matrix": {
+    "root_count": 11,
+    "protected_mount_count": 54,
+    "service_definition_count": 22,
+    "roots": [
+      {
+        "compose_volume": "three_d_asset_data",
+        "vault": "asset-vault",
+        "overlay_volume": "fr06_asset_vault",
+        "target_subpath": "three_d_asset_data",
+        "consumers": [
+          {
+            "service": "backend",
+            "access": "rw",
+            "role": "runtime_writer",
+            "target": "/var/lib/aionex/three-d-assets"
+          },
+          {
+            "service": "backup-asset-root-init",
+            "access": "rw",
+            "role": "initializer",
+            "target": "/var/lib/aionex/three-d-assets"
+          },
+          {
+            "service": "backup-worker",
+            "access": "ro",
+            "role": "runtime_reader",
+            "target": "/var/lib/aionex/three-d-assets"
+          },
+          {
+            "service": "project-worker",
+            "access": "ro",
+            "role": "runtime_reader",
+            "target": "/var/lib/aionex/three-d-assets"
+          },
+          {
+            "service": "three-d-worker",
+            "access": "rw",
+            "role": "runtime_writer",
+            "target": "/var/lib/aionex/three-d-assets"
+          }
+        ]
+      },
+      {
+        "compose_volume": "media_asset_data",
+        "vault": "asset-vault",
+        "overlay_volume": "fr06_asset_vault",
+        "target_subpath": "media_asset_data",
+        "consumers": [
+          {
+            "service": "audio-dubbing-worker",
+            "access": "rw",
+            "role": "runtime_writer",
+            "target": "/var/lib/aionex/media-assets"
+          },
+          {
+            "service": "audio-music-worker",
+            "access": "rw",
+            "role": "runtime_writer",
+            "target": "/var/lib/aionex/media-assets"
+          },
+          {
+            "service": "audio-song-worker",
+            "access": "rw",
+            "role": "runtime_writer",
+            "target": "/var/lib/aionex/media-assets"
+          },
+          {
+            "service": "audio-speech-worker",
+            "access": "rw",
+            "role": "runtime_writer",
+            "target": "/var/lib/aionex/media-assets"
+          },
+          {
+            "service": "audio-transcript-worker",
+            "access": "rw",
+            "role": "runtime_writer",
+            "target": "/var/lib/aionex/media-assets"
+          },
+          {
+            "service": "backend",
+            "access": "rw",
+            "role": "runtime_writer",
+            "target": "/var/lib/aionex/media-assets"
+          },
+          {
+            "service": "backup-asset-root-init",
+            "access": "rw",
+            "role": "initializer",
+            "target": "/var/lib/aionex/media-assets"
+          },
+          {
+            "service": "backup-worker",
+            "access": "ro",
+            "role": "runtime_reader",
+            "target": "/var/lib/aionex/media-assets"
+          },
+          {
+            "service": "design-image-derivative-worker",
+            "access": "rw",
+            "role": "runtime_writer",
+            "target": "/var/lib/aionex/media-assets"
+          },
+          {
+            "service": "design-image-worker",
+            "access": "rw",
+            "role": "runtime_writer",
+            "target": "/var/lib/aionex/media-assets"
+          },
+          {
+            "service": "identity-media-worker",
+            "access": "rw",
+            "role": "runtime_writer",
+            "target": "/var/lib/aionex/media-assets"
+          },
+          {
+            "service": "media-worker",
+            "access": "rw",
+            "role": "runtime_writer",
+            "target": "/var/lib/aionex/media-assets"
+          },
+          {
+            "service": "video-provider-worker",
+            "access": "rw",
+            "role": "runtime_writer",
+            "target": "/var/lib/aionex/media-assets"
+          },
+          {
+            "service": "audio-song-worker-secondary",
+            "access": "rw",
+            "role": "runtime_writer",
+            "target": "/var/lib/aionex/media-assets"
+          }
+        ]
+      },
+      {
+        "compose_volume": "project_execution_data",
+        "vault": "project-execution-vault",
+        "overlay_volume": "fr06_project_execution_vault",
+        "target_subpath": "project_execution_data",
+        "consumers": [
+          {
+            "service": "backend",
+            "access": "rw",
+            "role": "runtime_writer",
+            "target": "/var/lib/aionex/project-executions"
+          },
+          {
+            "service": "backup-asset-root-init",
+            "access": "rw",
+            "role": "initializer",
+            "target": "/var/lib/aionex/project-executions"
+          },
+          {
+            "service": "backup-worker",
+            "access": "ro",
+            "role": "runtime_reader",
+            "target": "/var/lib/aionex/project-executions"
+          },
+          {
+            "service": "project-worker",
+            "access": "rw",
+            "role": "runtime_writer",
+            "target": "/var/lib/aionex/project-executions"
+          },
+          {
+            "service": "security-remediation-worker",
+            "access": "ro",
+            "role": "runtime_reader",
+            "target": "/var/lib/aionex/project-executions"
+          },
+          {
+            "service": "security-scan-worker",
+            "access": "ro",
+            "role": "runtime_reader",
+            "target": "/var/lib/aionex/project-executions"
+          }
+        ]
+      },
+      {
+        "compose_volume": "studio_asset_data",
+        "vault": "asset-vault",
+        "overlay_volume": "fr06_asset_vault",
+        "target_subpath": "studio_asset_data",
+        "consumers": [
+          {
+            "service": "backend",
+            "access": "rw",
+            "role": "runtime_writer",
+            "target": "/var/lib/aionex/studio-assets"
+          },
+          {
+            "service": "backup-asset-root-init",
+            "access": "rw",
+            "role": "initializer",
+            "target": "/var/lib/aionex/studio-assets"
+          },
+          {
+            "service": "backup-worker",
+            "access": "ro",
+            "role": "runtime_reader",
+            "target": "/var/lib/aionex/studio-assets"
+          },
+          {
+            "service": "studio-worker",
+            "access": "rw",
+            "role": "runtime_writer",
+            "target": "/var/lib/aionex/studio-assets"
+          }
+        ]
+      },
+      {
+        "compose_volume": "course_package_data",
+        "vault": "asset-vault",
+        "overlay_volume": "fr06_asset_vault",
+        "target_subpath": "course_package_data",
+        "consumers": [
+          {
+            "service": "academy-course-worker",
+            "access": "rw",
+            "role": "runtime_writer",
+            "target": "/var/lib/aionex/course-packages"
+          },
+          {
+            "service": "backend",
+            "access": "ro",
+            "role": "runtime_reader",
+            "target": "/var/lib/aionex/course-packages"
+          },
+          {
+            "service": "backup-asset-root-init",
+            "access": "rw",
+            "role": "initializer",
+            "target": "/var/lib/aionex/course-packages"
+          },
+          {
+            "service": "backup-worker",
+            "access": "ro",
+            "role": "runtime_reader",
+            "target": "/var/lib/aionex/course-packages"
+          }
+        ]
+      },
+      {
+        "compose_volume": "realtime_recording_data",
+        "vault": "asset-vault",
+        "overlay_volume": "fr06_asset_vault",
+        "target_subpath": "realtime_recording_data",
+        "consumers": [
+          {
+            "service": "backend",
+            "access": "rw",
+            "role": "runtime_writer",
+            "target": "/var/lib/aionex/realtime-recordings"
+          },
+          {
+            "service": "backup-asset-root-init",
+            "access": "rw",
+            "role": "initializer",
+            "target": "/var/lib/aionex/realtime-recordings"
+          },
+          {
+            "service": "backup-worker",
+            "access": "ro",
+            "role": "runtime_reader",
+            "target": "/var/lib/aionex/realtime-recordings"
+          },
+          {
+            "service": "realtime-egress",
+            "access": "rw",
+            "role": "runtime_writer",
+            "target": "/recordings"
+          },
+          {
+            "service": "realtime-recording-init",
+            "access": "rw",
+            "role": "initializer",
+            "target": "/recordings"
+          }
+        ]
+      },
+      {
+        "compose_volume": "portal_asset_data",
+        "vault": "asset-vault",
+        "overlay_volume": "fr06_asset_vault",
+        "target_subpath": "portal_asset_data",
+        "consumers": [
+          {
+            "service": "backend",
+            "access": "rw",
+            "role": "runtime_writer",
+            "target": "/var/lib/aionex/portal-assets"
+          },
+          {
+            "service": "backup-asset-root-init",
+            "access": "rw",
+            "role": "initializer",
+            "target": "/var/lib/aionex/portal-assets"
+          },
+          {
+            "service": "backup-worker",
+            "access": "ro",
+            "role": "runtime_reader",
+            "target": "/var/lib/aionex/portal-assets"
+          }
+        ]
+      },
+      {
+        "compose_volume": "mobile_release_data",
+        "vault": "asset-vault",
+        "overlay_volume": "fr06_asset_vault",
+        "target_subpath": "mobile_release_data",
+        "consumers": [
+          {
+            "service": "backend",
+            "access": "ro",
+            "role": "runtime_reader",
+            "target": "/var/lib/aionex/mobile-releases"
+          },
+          {
+            "service": "backup-asset-root-init",
+            "access": "rw",
+            "role": "initializer",
+            "target": "/var/lib/aionex/mobile-releases"
+          },
+          {
+            "service": "backup-worker",
+            "access": "ro",
+            "role": "runtime_reader",
+            "target": "/var/lib/aionex/mobile-releases"
+          }
+        ]
+      },
+      {
+        "compose_volume": "audio_song_ingress_data",
+        "vault": "asset-vault",
+        "overlay_volume": "fr06_asset_vault",
+        "target_subpath": "audio_song_ingress_data",
+        "consumers": [
+          {
+            "service": "backend",
+            "access": "rw",
+            "role": "runtime_writer",
+            "target": "/var/lib/aionex/audio-song-provider-ingress"
+          },
+          {
+            "service": "backup-asset-root-init",
+            "access": "rw",
+            "role": "initializer",
+            "target": "/var/lib/aionex/audio-song-provider-ingress"
+          },
+          {
+            "service": "backup-worker",
+            "access": "ro",
+            "role": "runtime_reader",
+            "target": "/var/lib/aionex/audio-song-provider-ingress"
+          }
+        ]
+      },
+      {
+        "compose_volume": "security_source_data",
+        "vault": "asset-vault",
+        "overlay_volume": "fr06_asset_vault",
+        "target_subpath": "security_source_data",
+        "consumers": [
+          {
+            "service": "backup-asset-root-init",
+            "access": "rw",
+            "role": "initializer",
+            "target": "/var/lib/aionex/security-sources"
+          },
+          {
+            "service": "backup-worker",
+            "access": "ro",
+            "role": "runtime_reader",
+            "target": "/var/lib/aionex/security-sources"
+          },
+          {
+            "service": "security-remediation-worker",
+            "access": "ro",
+            "role": "runtime_reader",
+            "target": "/var/lib/aionex/security-sources"
+          },
+          {
+            "service": "security-scan-worker",
+            "access": "ro",
+            "role": "runtime_reader",
+            "target": "/var/lib/aionex/security-sources"
+          }
+        ]
+      },
+      {
+        "compose_volume": "security_remediation_data",
+        "vault": "asset-vault",
+        "overlay_volume": "fr06_asset_vault",
+        "target_subpath": "security_remediation_data",
+        "consumers": [
+          {
+            "service": "backup-asset-root-init",
+            "access": "rw",
+            "role": "initializer",
+            "target": "/var/lib/aionex/security-remediations"
+          },
+          {
+            "service": "backup-worker",
+            "access": "ro",
+            "role": "runtime_reader",
+            "target": "/var/lib/aionex/security-remediations"
+          },
+          {
+            "service": "security-remediation-worker",
+            "access": "rw",
+            "role": "runtime_writer",
+            "target": "/var/lib/aionex/security-remediations"
+          }
+        ]
+      }
+    ],
+    "affected_services": [
+      "academy-course-worker",
+      "audio-dubbing-worker",
+      "audio-music-worker",
+      "audio-song-worker",
+      "audio-song-worker-secondary",
+      "audio-speech-worker",
+      "audio-transcript-worker",
+      "backend",
+      "backup-asset-root-init",
+      "backup-worker",
+      "design-image-derivative-worker",
+      "design-image-worker",
+      "identity-media-worker",
+      "media-worker",
+      "project-worker",
+      "realtime-egress",
+      "realtime-recording-init",
+      "security-remediation-worker",
+      "security-scan-worker",
+      "studio-worker",
+      "three-d-worker",
+      "video-provider-worker"
+    ],
+    "runtime_writer_services": [
+      "academy-course-worker",
+      "audio-dubbing-worker",
+      "audio-music-worker",
+      "audio-song-worker",
+      "audio-song-worker-secondary",
+      "audio-speech-worker",
+      "audio-transcript-worker",
+      "backend",
+      "design-image-derivative-worker",
+      "design-image-worker",
+      "identity-media-worker",
+      "media-worker",
+      "project-worker",
+      "realtime-egress",
+      "security-remediation-worker",
+      "studio-worker",
+      "three-d-worker",
+      "video-provider-worker"
+    ],
+    "initializer_services": [
+      "backup-asset-root-init",
+      "realtime-recording-init"
+    ],
+    "read_only_only_services": [
+      "backup-worker",
+      "security-scan-worker"
+    ],
+    "compose_profile_scope": "*",
+    "latent_profile_service_included": "audio-song-worker-secondary",
+    "live_production_profile_mount_count_at_inventory": 53,
+    "all_profile_mount_count": 54,
+    "inventory_note": "The active production profile had 53 protected mounts across 21 service definitions. Wildcard profile validation found and included the dormant audio-song-worker-secondary, so the protected source contract covers 54 mounts across 22 definitions."
+  },
+  "cutover_orchestration": {
+    "production_cutover_allowed_by_this_contract": false,
+    "prerequisites": [
+      "exact protected PR head and exact post-merge main checks are successful",
+      "fresh encrypted R2 recovery point is created and independently restored immediately before the window",
+      "active and recovery keys are outside the unencrypted host root and held independently",
+      "LUKS2 header backups are off-host and separate from recovery keys",
+      "owner-visible out-of-band missing-vault alert works while both vaults and the host application are unavailable",
+      "both external Docker volume objects match their exact mapper, filesystem, and mount-option contracts",
+      "all eleven target subpaths exist with verified ownership and mode before Compose container creation",
+      "maintenance admission is closed and every affected queue has a retained drain receipt",
+      "no unaccounted host process or container has an open writable descriptor in any source root",
+      "boot, Docker daemon restart, missing mapper, wrong key, and delayed unlock behaviors are rehearsed in an isolated environment"
+    ],
+    "ordered_steps": [
+      "Close application admission without changing Cloudflare and retain an owner-visible maintenance receipt.",
+      "Drain in-flight work to zero, then stop all eighteen runtime writer service definitions and verify every scaled instance is absent.",
+      "Keep initializer services stopped; stop read-only consumers before changing their mounts.",
+      "Create final source manifests, apply the final delta into the already-preseeded encrypted vaults, and require stable source-before, source-after, and candidate equality.",
+      "Reverify external volume options and mapper identity, then render the base plus overlay and require all fifty-four protected mounts to use the expected vault subpath with unchanged access mode.",
+      "Start only the affected services in dependency order with admission still closed; require health, queue, permission, noexec, build, backup-read, and restart checks.",
+      "Measure workload-specific p95 against the retained baseline and reject regression greater than fifteen percent.",
+      "Open admission only after all acceptance gates pass; retain the legacy named volumes and evidence through the rollback window."
+    ],
+    "stop_scope_rule": "Resolve every live container for each service label at execution time; a source service definition may have multiple scaled containers.",
+    "unlisted_writer_rule": "Any unlisted writable descriptor, mount, container, or host process blocks cutover.",
+    "unrelated_service_rule": "Do not stop, recreate, or restart services outside the resolved affected set."
+  },
+  "rollback": {
+    "legacy_sources_deleted_during_window": false,
+    "pre_admission_failure": "Keep writers closed, remove the overlay, recreate only affected consumers against the retained legacy volumes, verify manifests and health, then decide whether to reopen admission.",
+    "post_admission_failure": "Close admission again, drain and stop writers, temporarily make the retained legacy roots writable only for a reverse stable-delta copy from the encrypted vaults, require exact manifests, then recreate affected consumers without the overlay.",
+    "blind_base_compose_reversion_after_new_writes_allowed": false,
+    "candidate_and_diagnostic_evidence_deleted_on_rollback": false,
+    "rollback_rehearsal_required_before_live_cutover": true
+  },
+  "startup_and_systemd_gate": {
+    "source_unit_shipped_by_fr06b2": false,
+    "reason": "Production containers use Docker restart: unless-stopped. A standalone systemd target cannot truthfully gate Docker's independent restore path and would create false assurance.",
+    "safe_property_already_proved": "If a mapper is absent, the local-volume mount fails without a plaintext fallback.",
+    "still_required": "Before live cutover, isolate and prove boot and Docker-daemon-restart behavior, then either place the whole Compose lifecycle behind a verified service manager gate or change and verify restart policy orchestration.",
+    "production_boot_acceptance_complete": false
+  },
+  "scope_boundary": {
+    "production_compose_applied": false,
+    "external_docker_volumes_created": false,
+    "production_vaults_created": false,
+    "production_keys_created": false,
+    "production_services_stopped_or_restarted": false,
+    "production_volumes_written": false,
+    "deployment_or_cutover_performed": false,
+    "reboot_performed": false,
+    "cloudflare_changed": false,
+    "fr06b_or_fr06_parent_completion_claimed": false
+  },
+  "next_action": "FR-06B3: add and isolate-test the external-key admission, mapper/volume-option preflight, Docker restart/boot gate, final-delta and dual-path rollback executor. Do not provision production vaults until R2 restore, off-host key/header custody, independent alerting, and a maintenance window are evidenced."
+}

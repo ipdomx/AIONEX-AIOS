@@ -199,5 +199,5 @@
     "original plaintext Docker volumes remain retained read-only through the rollback window",
     "rollback to the retained sources is rehearsed without deleting diagnostic evidence"
   ],
-  "next_action": "FR-06B2: add protected systemd/Compose cutover source and exact writer/rollback matrix, then provision no production vault until the fresh R2, external-key/header, independent-alert, and maintenance gates are all evidenced."
+  "next_action": "FR-06B2: add a protected additive Compose overlay and exact writer/initializer/rollback matrix. Do not claim a standalone systemd target gates Docker restart restoration; isolate and prove boot and daemon-restart behavior before selecting that control. Provision no production vault until the fresh R2, external-key/header, independent-alert, and maintenance gates are all evidenced."
 }

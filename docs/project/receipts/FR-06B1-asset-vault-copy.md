@@ -70,9 +70,11 @@ FR-06B1 proves the split design, safe online pre-seed, recovery, least
 privilege, and missing-mapper failure behavior. It does not claim live data is
 encrypted, does not authorize cutover, and does not close FR-06B or FR-06.
 
-FR-06B2 must add the protected systemd/Compose cutover source and exact writer
-and rollback matrix. Live provisioning remains blocked until a fresh encrypted
-R2 recovery point, external production keys and off-host headers, an
-independent owner alert, a stopped-writer final delta, the p95 gate, protected
-CI, selective service rehearsal, and rollback with retained read-only plaintext
-sources are all evidenced.
+FR-06B2 must add the protected Compose cutover source and exact writer and
+rollback matrix, and must not claim that a standalone systemd target gates
+Docker's independent restart path. Live provisioning remains blocked until a
+fresh encrypted R2 recovery point, external production keys and off-host
+headers, an independent owner alert, a stopped-writer final delta, the p95
+gate, protected CI, isolated boot/Docker-restart rehearsal, selective service
+rehearsal, and rollback with retained read-only plaintext sources are all
+evidenced.

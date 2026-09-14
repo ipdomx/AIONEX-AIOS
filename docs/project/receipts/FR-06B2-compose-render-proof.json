@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06B2",
+  "source_baseline": "a890d4fb1d7ea2a5f05345c7a869edbbd757f191",
+  "at": "2026-09-14T18:12:19Z",
+  "all_checks_passed": true,
+  "render_profiles": [
+    {
+      "env_profile": ".env.production.example",
+      "affected_service_definition_count": 22,
+      "base_compose_sha256": "2277dd54c7cc4f877730a1bdc7b36f90dffb56306efb62a1176976884c064b9b",
+      "compose_profile_scope": "*",
+      "compose_version": "2.40.3+ds1-0ubuntu1~24.04.1",
+      "contract_sha256": "b40b03f52000cb537995d1e82f552c7f9ca65e073cdeea634f2b0975d3f06d07",
+      "docker_daemon_or_service_start_required": false,
+      "legacy_protected_mounts_after_merge": 0,
+      "overlay_sha256": "bba0c4764aa621e87ca178e6cfb9eaa814ed1bfaab9100013b722c8beb69b693",
+      "production_changed": false,
+      "protected_mount_count": 54,
+      "protected_root_count": 11,
+      "unrelated_service_or_top_level_drift": false,
+      "validation": "FR06B2_COMPOSE_OVERLAY_PASS",
+      "validator_sha256": "5dee4b4a6f6175e63c5a53dc09da7f80ad10971bae40b3314557a64c958c961f"
+    },
+    {
+      "env_profile": ".env.production",
+      "affected_service_definition_count": 22,
+      "base_compose_sha256": "2277dd54c7cc4f877730a1bdc7b36f90dffb56306efb62a1176976884c064b9b",
+      "compose_profile_scope": "*",
+      "compose_version": "2.40.3+ds1-0ubuntu1~24.04.1",
+      "contract_sha256": "b40b03f52000cb537995d1e82f552c7f9ca65e073cdeea634f2b0975d3f06d07",
+      "docker_daemon_or_service_start_required": false,
+      "legacy_protected_mounts_after_merge": 0,
+      "overlay_sha256": "bba0c4764aa621e87ca178e6cfb9eaa814ed1bfaab9100013b722c8beb69b693",
+      "production_changed": false,
+      "protected_mount_count": 54,
+      "protected_root_count": 11,
+      "unrelated_service_or_top_level_drift": false,
+      "validation": "FR06B2_COMPOSE_OVERLAY_PASS",
+      "validator_sha256": "5dee4b4a6f6175e63c5a53dc09da7f80ad10971bae40b3314557a64c958c961f"
+    }
+  ],
+  "discovery": {
+    "active_production_profile_mount_count": 53,
+    "active_production_profile_service_definition_count": 21,
+    "wildcard_profile_mount_count": 54,
+    "wildcard_profile_service_definition_count": 22,
+    "newly_covered_dormant_writer": "audio-song-worker-secondary",
+    "gap_closed": true
+  },
+  "checks": {
+    "base_consumer_matrix_matches_contract": true,
+    "all_profiles_enabled_for_validation": true,
+    "every_protected_target_replaced_once": true,
+    "read_only_and_read_write_modes_preserved": true,
+    "every_vault_mount_uses_expected_subpath": true,
+    "legacy_protected_sources_remaining": 0,
+    "unexpected_vault_exposure": 0,
+    "unrelated_service_configuration_unchanged": true,
+    "unrelated_top_level_configuration_unchanged": true,
+    "external_volume_names_exact": true,
+    "base_compose_file_modified": false,
+    "docker_daemon_contact_required": false,
+    "containers_created_or_started": false,
+    "external_volumes_created": false,
+    "mappers_or_vaults_created": false,
+    "production_services_stopped_or_restarted": false,
+    "production_volumes_written": false,
+    "cloudflare_changed": false
+  },
+  "cutover_gate": {
+    "production_cutover_allowed_by_this_receipt": false,
+    "production_boot_acceptance_complete": false,
+    "external_key_and_header_custody_evidenced": false,
+    "independent_missing_vault_alert_evidenced": false,
+    "fresh_r2_restore_point_evidenced": false,
+    "maintenance_window_approved": false,
+    "stopped_writer_final_delta_evidenced": false,
+    "workload_p95_gate_evidenced": false,
+    "rollback_rehearsal_evidenced": false
+  },
+  "verification": {
+    "focused_fr06_tests": "32/32 passed",
+    "full_root_tests": "1068/1068 passed",
+    "python_syntax": "passed",
+    "json_validation": "passed",
+    "diff_whitespace": "passed",
+    "security_audit": "passed",
+    "repository_security_audit": "passed"
+  }
+}
