@@ -733,7 +733,7 @@ class OffsiteBackupReplicator:
         attempt = hashlib.sha256(attempt_token.encode()).hexdigest()[:32]
         database_path = self._backup_dir / f"backup-{stable}-{attempt}.dump"
         snapshot_path = (
-            self._backup_dir / f"backup-{stable}-{attempt}.platform-assets.tar"
+            self._backup_dir / f"backup-{stable}-{attempt}.three-d.tar"
         )
         try:
             with self._staging_directory() as staging_name:
