@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import base64
 from datetime import UTC, datetime
+import json
 from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
@@ -15,6 +17,7 @@ class _Body(BytesIO):
 class _Paginator:
     def __init__(self, client):
         self.client = client
+
     def paginate(self, *, Bucket, Prefix):
         contents = [
             {"Key": key, "LastModified": datetime.now(UTC)}
@@ -28,22 +31,35 @@ class _FakeS3:
     def __init__(self):
         self.objects = {}
         self.metadata = {}
-    def head_bucket(self, *, Bucket): return {}
+
+    def head_bucket(self, *, Bucket):
+        return {}
+
     def upload_file(self, filename, bucket, key, ExtraArgs=None):
         self.objects[key] = Path(filename).read_bytes()
         self.metadata[key] = dict((ExtraArgs or {}).get("Metadata") or {})
+
     def head_object(self, *, Bucket, Key):
-        return {"ContentLength": len(self.objects[Key]), "Metadata": self.metadata.get(Key, {})}
-    def get_object(self, *, Bucket, Key): return {"Body": _Body(self.objects[Key])}
+        return {
+            "ContentLength": len(self.objects[Key]),
+            "Metadata": self.metadata.get(Key, {}),
+        }
+
+    def get_object(self, *, Bucket, Key):
+        return {"Body": _Body(self.objects[Key])}
+
     def put_object(self, *, Bucket, Key, Body, **kwargs):
         self.objects[Key] = bytes(Body)
         self.metadata[Key] = dict(kwargs.get("Metadata") or {})
         return {}
+
     def download_file(self, bucket, key, filename):
         Path(filename).write_bytes(self.objects[key])
+
     def get_paginator(self, name):
         assert name == "list_objects_v2"
         return _Paginator(self)
+
     def delete_objects(self, *, Bucket, Delete):
         for item in Delete["Objects"]:
             self.objects.pop(item["Key"], None)
@@ -51,12 +67,33 @@ class _FakeS3:
 
 
 def _config(tmp_path: Path, credentials: Path):
+    keyring = tmp_path / "keyring.json"
+    keyring.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "active_key_id": "test-key",
+                "keys": {
+                    "test-key": {
+                        "key_b64": base64.urlsafe_b64encode(b"K" * 32)
+                        .decode()
+                        .rstrip("="),
+                        "status": "active",
+                        "created_at": "2026-09-14T00:00:00Z",
+                    }
+                },
+            }
+        )
+    )
+    keyring.chmod(0o400)
     return SimpleNamespace(
         BACKUP_OFFSITE_ENABLED=True,
         BACKUP_OFFSITE_PREFIX="aionex-production",
         BACKUP_DIR=str(tmp_path / "backups"),
         BACKUP_OFFSITE_SECRET_FILE=str(credentials),
         BACKUP_OFFSITE_RETENTION_COUNT=30,
+        BACKUP_OFFSITE_ENCRYPTION_REQUIRED=True,
+        BACKUP_OFFSITE_ENCRYPTION_KEYRING_FILE=str(keyring),
     )
 
 
@@ -72,7 +109,10 @@ def test_r2_replication_full_readback_and_restore_staging(tmp_path, monkeypatch)
     credentials.chmod(0o400)
     backup_dir = tmp_path / "backups"
     backup_dir.mkdir()
-    database = backup_dir / "backup-0123456789abcdef01234567-0123456789abcdef0123456789abcdef.dump"
+    database = (
+        backup_dir
+        / "backup-0123456789abcdef01234567-0123456789abcdef0123456789abcdef.dump"
+    )
     database.write_bytes(b"PGDMP-test-database")
     fake = _FakeS3()
     monkeypatch.setattr(offsite_backup.boto3, "client", lambda *args, **kwargs: fake)
@@ -87,7 +127,9 @@ def test_r2_replication_full_readback_and_restore_staging(tmp_path, monkeypatch)
         snapshot=None,
     )
     assert evidence["database"]["sha256"] == checksum
-    assert evidence["manifest"]["key"].endswith("/manifest.json")
+    assert evidence["manifest"]["key"].endswith("/manifest.json.aex1")
+    assert evidence["schema_version"] == 2
+    assert evidence["database"]["key"].endswith("/database.dump.aex1")
     staged = replicator.download_for_validation(
         evidence,
         validation_id="87654321-4321-4321-4321-cba987654321",
@@ -112,7 +154,9 @@ def test_r2_credentials_reject_group_readable_file(tmp_path):
 
 def test_production_r2_secret_uses_root_only_source_and_private_runtime_copy():
     root = Path(__file__).resolve().parents[3]
-    entrypoint = (root / "web-dashboard/backend/scripts/docker-entrypoint.sh").read_text()
+    entrypoint = (
+        root / "web-dashboard/backend/scripts/docker-entrypoint.sh"
+    ).read_text()
     example = (root / "deploy/production/.env.production.example").read_text()
     for relative in (
         "web-dashboard/docker-compose.production.yml",
@@ -122,12 +166,18 @@ def test_production_r2_secret_uses_root_only_source_and_private_runtime_copy():
         start = compose.index("  backup-worker:")
         end = compose.find("\n  communication-worker:", start)
         block = compose[start:] if end < 0 else compose[start:end]
-        assert "AIOS_R2_BACKUP_SECRET_SOURCE: /run/operator-secrets/r2-backup-source.env" in block
+        assert (
+            "AIOS_R2_BACKUP_SECRET_SOURCE: /run/operator-secrets/r2-backup-source.env"
+            in block
+        )
         assert "/root/.config/aionex/r2-backup/credentials.env" in block
         assert ":/run/operator-secrets/r2-backup-source.env:ro" in block
         assert ":/run/operator-secrets/r2-backup.env:ro" not in block
     assert 'r2_secret_source="${AIOS_R2_BACKUP_SECRET_SOURCE:-}"' in entrypoint
     assert 'r2_secret_runtime="$runtime_dir/r2-backup.env"' in entrypoint
-    assert 'install -m 0400 -o aionex -g aionex "$r2_secret_source" "$r2_secret_runtime"' in entrypoint
+    assert (
+        'install -m 0400 -o aionex -g aionex "$r2_secret_source" "$r2_secret_runtime"'
+        in entrypoint
+    )
     assert 'export BACKUP_OFFSITE_SECRET_FILE="$r2_secret_runtime"' in entrypoint
     assert "BACKUP_OFFSITE_SECRET_FILE=/run/aionex/r2-backup.env" in example
