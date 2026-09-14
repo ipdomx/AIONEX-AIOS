@@ -333,13 +333,13 @@ def test_explicit_schema_v1_legacy_restore_remains_available(
     replicator.cleanup_validation(staged.database_location, None)
 
 
-def test_backup_worker_validates_the_downloaded_snapshot_not_the_database() -> None:
+def test_backup_worker_validates_the_downloaded_snapshot_companion() -> None:
     source = (
         Path(__file__).resolve().parents[1] / "app/services/backup_worker.py"
     ).read_text()
     assert (
         "self._three_d_executor.validate_snapshot,\n"
-        "                        offsite_artifacts.snapshot_location,"
+        "                        offsite_artifacts.database_location,"
     ) in source
 
 
@@ -371,3 +371,74 @@ def test_source_change_between_precheck_and_encryption_is_never_uploaded(
         )
 
     assert fake.objects == {}
+
+
+def test_encrypted_restore_staging_matches_asset_companion_contract(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.core.config import Settings
+    from app.services.three_d_asset_backup import ThreeDAssetSnapshotExecutor
+
+    fake = _FakeS3()
+    monkeypatch.setattr(offsite_backup.boto3, "client", lambda *args, **kwargs: fake)
+    offsite_config = _config(tmp_path)
+
+    asset_root = tmp_path / "three-d"
+    asset_root.mkdir(mode=0o700)
+    asset = asset_root / "mesh.glb"
+    asset.write_bytes(b"private-mesh-payload")
+    asset.chmod(0o600)
+
+    database = (
+        Path(offsite_config.BACKUP_DIR)
+        / f"backup-{'a' * 24}-{'b' * 32}.dump"
+    )
+    database.write_bytes(b"PGDMP-private-database-payload")
+    database.chmod(0o600)
+
+    asset_config = Settings(
+        SECRET_KEY="test-only-secret-key-with-at-least-32-characters",
+        DATABASE_URL="postgresql+asyncpg://user:pass@database:5432/aionex_test",
+        BACKUP_DIR=offsite_config.BACKUP_DIR,
+        BACKUP_THREE_D_ASSETS_ENABLED=True,
+        THREE_D_STORAGE_ROOT=str(asset_root),
+    )
+    asset_executor = ThreeDAssetSnapshotExecutor(asset_config)
+    snapshot = asset_executor.create_snapshot(str(database))
+    assert snapshot is not None
+
+    replicator = offsite_backup.OffsiteBackupReplicator(offsite_config)
+    evidence = _replicate(
+        replicator,
+        "12345678-1234-1234-1234-123456789abc",
+        database,
+        snapshot,
+    )
+    staged = replicator.download_for_validation(
+        evidence,
+        validation_id="44444444-4444-4444-4444-444444444444",
+        attempt_token="asset-companion",
+    )
+
+    assert staged.snapshot_location is not None
+    assert Path(staged.snapshot_location) == Path(
+        staged.database_location
+    ).with_suffix(".three-d.tar")
+    validated = asset_executor.validate_snapshot(
+        staged.database_location,
+        expected_checksum=snapshot.checksum,
+        expected_size_bytes=snapshot.size_bytes,
+        expected_file_count=snapshot.file_count,
+        expected_payload_bytes=snapshot.payload_bytes,
+    )
+    assert validated.location == staged.snapshot_location
+    assert validated.file_count == 1
+    assert validated.payload_bytes == len(b"private-mesh-payload")
+
+    replicator.cleanup_validation(
+        staged.database_location,
+        staged.snapshot_location,
+    )
+    assert not Path(staged.database_location).exists()
+    assert not Path(staged.snapshot_location).exists()
