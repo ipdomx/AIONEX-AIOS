@@ -162,7 +162,17 @@ def _validate_size(value: Any) -> int:
     return value
 
 
+def _close_quietly(descriptor: int | None) -> None:
+    if descriptor is None:
+        return
+    try:
+        os.close(descriptor)
+    except OSError:
+        return
+
+
 def _open_regular_read(path: Path, *, operation: str, public_message: str) -> int:
+    descriptor: int | None = None
     flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
     try:
         descriptor = os.open(path, flags)
@@ -171,12 +181,7 @@ def _open_regular_read(path: Path, *, operation: str, public_message: str) -> in
             raise OSError("unsafe source file")
         return descriptor
     except OSError as exc:
-        try:
-            os.close(descriptor)
-        except UnboundLocalError:
-            pass
-        except OSError:
-            pass
+        _close_quietly(descriptor)
         raise _operation_error(operation, public_message) from exc
 
 
@@ -219,6 +224,7 @@ def _open_destination_directory(destination: Path, *, operation: str) -> tuple[i
     name = destination.name
     if not name or name in {".", ".."}:
         raise _operation_error(operation, "Backup destination is invalid", status_code=409)
+    descriptor: int | None = None
     flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_DIRECTORY", 0)
     flags |= getattr(os, "O_NOFOLLOW", 0)
     try:
@@ -228,12 +234,7 @@ def _open_destination_directory(destination: Path, *, operation: str) -> tuple[i
             raise OSError("destination parent is not a directory")
         return descriptor, name
     except OSError as exc:
-        try:
-            os.close(descriptor)
-        except UnboundLocalError:
-            pass
-        except OSError:
-            pass
+        _close_quietly(descriptor)
         raise _operation_error(operation, "Backup destination directory is unavailable") from exc
 
 
@@ -259,9 +260,9 @@ def _unlink_quietly(directory_fd: int | None, name: str | None) -> None:
     try:
         os.unlink(name, dir_fd=directory_fd)
     except FileNotFoundError:
-        pass
+        return
     except OSError:
-        pass
+        return
 
 
 def _publish_no_replace(
@@ -371,11 +372,7 @@ class OffsiteEncryptionKeyring:
                 "The private backup-encryption keyring is unavailable or unsafe",
             ) from exc
         finally:
-            if descriptor is not None:
-                try:
-                    os.close(descriptor)
-                except OSError:
-                    pass
+            _close_quietly(descriptor)
 
     def active(self) -> _KeyRecord:
         return self._records[self.active_key_id]
@@ -576,22 +573,10 @@ class OffsiteEncryption:
                 "Backup artifact could not be encrypted safely",
             ) from exc
         finally:
-            if temporary_fd is not None:
-                try:
-                    os.close(temporary_fd)
-                except OSError:
-                    pass
+            _close_quietly(temporary_fd)
             _unlink_quietly(directory_fd, temporary_name)
-            if directory_fd is not None:
-                try:
-                    os.close(directory_fd)
-                except OSError:
-                    pass
-            if source_fd is not None:
-                try:
-                    os.close(source_fd)
-                except OSError:
-                    pass
+            _close_quietly(directory_fd)
+            _close_quietly(source_fd)
 
     def decrypt_file(
         self,
@@ -740,19 +725,7 @@ class OffsiteEncryption:
                 "Encrypted backup could not be decrypted safely",
             ) from exc
         finally:
-            if temporary_fd is not None:
-                try:
-                    os.close(temporary_fd)
-                except OSError:
-                    pass
+            _close_quietly(temporary_fd)
             _unlink_quietly(directory_fd, temporary_name)
-            if directory_fd is not None:
-                try:
-                    os.close(directory_fd)
-                except OSError:
-                    pass
-            if source_fd is not None:
-                try:
-                    os.close(source_fd)
-                except OSError:
-                    pass
+            _close_quietly(directory_fd)
+            _close_quietly(source_fd)
