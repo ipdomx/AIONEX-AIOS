@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "observed_at": "2026-09-14T14:41:36Z",
+  "source_commit": "49075990f7d526a7db0d69944fb74f9cceafa06b",
+  "lab": {
+    "type": "file_backed_luks2_isolated_rehearsal",
+    "backing_file_bytes": 402653184,
+    "benchmark_payload_bytes": 134217728,
+    "cipher": "aes-xts-plain64",
+    "key_bits": 512,
+    "pbkdf": "argon2id",
+    "filesystem": "ext4",
+    "mount_options": [
+      "nodev",
+      "nosuid",
+      "noexec"
+    ],
+    "keys_created_only_on_tmpfs": true,
+    "key_material_persisted": false
+  },
+  "checks": {
+    "luks2_format_verified": true,
+    "active_key_open_verified": true,
+    "secondary_recovery_key_open_verified": true,
+    "wrong_key_rejected": true,
+    "closed_raw_plaintext_marker_absent": true,
+    "closed_mapper_absent": true,
+    "header_backup_created_private": true,
+    "header_backup_bytes": 16777216,
+    "erased_keyslots_rejected": true,
+    "header_restore_verified": true,
+    "payload_checksum_after_header_restore_verified": true,
+    "cleanup_verified": true,
+    "live_block_devices_formatted": false,
+    "production_mounts_changed": false,
+    "production_services_touched": false,
+    "reboot_performed": false
+  },
+  "performance": {
+    "method": "128 MiB sequential direct write I/O on the same ext4 host filesystem",
+    "plain_write_mib_s": 245.835,
+    "encrypted_write_mib_s": 202.725,
+    "encrypted_to_plain_write_ratio": 0.8246,
+    "read_comparison_recorded": false,
+    "note": "Read comparison is intentionally omitted because loopback cache layers make it misleading. This write result is a feasibility signal, not a production SLO."
+  },
+  "all_checks_passed": true
+}
