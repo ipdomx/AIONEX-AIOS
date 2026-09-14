@@ -17,8 +17,8 @@ Status: source candidate; protected PR and merge required; not deployed.
 
 ## Verification
 
-- Focused encryption/offsite/backup executor suite: 61 passed, 1 skipped.
-- FR-05 focused subset: 21 passed.
+- Focused encryption/offsite/backup executor suite: 62 passed, 1 skipped.
+- FR-05 focused subset: 22 passed.
 - Ruff: pass.
 - Mypy for the changed services: pass.
 - Python compilation and Git diff whitespace validation: pass.

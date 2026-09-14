@@ -377,6 +377,8 @@ class OffsiteBackupReplicator:
         backup_id: str,
         object_role: str,
         filename: str,
+        expected_plaintext_checksum: str,
+        expected_plaintext_size: int,
     ) -> dict[str, Any]:
         key = self._key(backup_id, filename)
         encrypted = self.encryption.encrypt_file(
@@ -388,6 +390,15 @@ class OffsiteBackupReplicator:
                 r2_object_key=key,
             ),
         )
+        if (
+            encrypted.plaintext_sha256 != expected_plaintext_checksum
+            or encrypted.plaintext_size_bytes != expected_plaintext_size
+        ):
+            raise BackupExecutionError(
+                "off-site backup replication",
+                "Backup artifact changed before encrypted R2 upload",
+                status_code=409,
+            )
         uploaded = self._upload_verified(
             Path(encrypted.location),
             key,
@@ -430,6 +441,8 @@ class OffsiteBackupReplicator:
                 backup_id=backup_id,
                 object_role="database",
                 filename="database.dump.aex1",
+                expected_plaintext_checksum=database_checksum,
+                expected_plaintext_size=database_size,
             )
             snapshot_evidence = None
             if snapshot is not None:
@@ -450,6 +463,8 @@ class OffsiteBackupReplicator:
                     backup_id=backup_id,
                     object_role="platform_asset_snapshot",
                     filename="platform-assets.tar.aex1",
+                    expected_plaintext_checksum=snapshot.checksum,
+                    expected_plaintext_size=snapshot.size_bytes,
                 )
                 snapshot_evidence.update(
                     {
@@ -480,6 +495,8 @@ class OffsiteBackupReplicator:
                 backup_id=backup_id,
                 object_role="manifest",
                 filename="manifest.json.aex1",
+                expected_plaintext_checksum=hashlib.sha256(manifest_bytes).hexdigest(),
+                expected_plaintext_size=len(manifest_bytes),
             )
         evidence = {
             **manifest_payload,

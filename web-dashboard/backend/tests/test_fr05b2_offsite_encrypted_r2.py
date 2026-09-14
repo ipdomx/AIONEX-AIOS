@@ -341,3 +341,33 @@ def test_backup_worker_validates_the_downloaded_snapshot_not_the_database() -> N
         "self._three_d_executor.validate_snapshot,\n"
         "                        offsite_artifacts.snapshot_location,"
     ) in source
+
+
+def test_source_change_between_precheck_and_encryption_is_never_uploaded(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database, _snapshot = _source_artifacts(tmp_path)
+    fake = _FakeS3()
+    monkeypatch.setattr(offsite_backup.boto3, "client", lambda *args, **kwargs: fake)
+    replicator = offsite_backup.OffsiteBackupReplicator(_config(tmp_path))
+    encrypt_file = replicator.encryption.encrypt_file
+
+    def mutate_before_encryption(source, destination, *, context):
+        source.write_bytes(b"changed-after-replicator-precheck")
+        return encrypt_file(source, destination, context=context)
+
+    monkeypatch.setattr(replicator.encryption, "encrypt_file", mutate_before_encryption)
+    checksum, size = offsite_backup._sha256(database)
+    with pytest.raises(
+        BackupExecutionError, match="changed before encrypted R2 upload"
+    ):
+        replicator.replicate(
+            backup_id="12345678-1234-1234-1234-123456789abc",
+            database_location=str(database),
+            database_checksum=checksum,
+            database_size=size,
+            snapshot=None,
+        )
+
+    assert fake.objects == {}
