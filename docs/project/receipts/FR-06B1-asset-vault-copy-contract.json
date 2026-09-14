@@ -1,0 +1,203 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06B1",
+  "implementation_status": "source_contract_and_isolated_live_source_copy_proof_only",
+  "source_baseline": "6ac557a77f9674805844ce3ddea0be0d540d0e11",
+  "architecture_refinement": {
+    "supersedes_only_the_fr06a_asset_vault_grouping": true,
+    "reason": "project_execution_data is not passive data: the project worker creates a Node project in that root and runs npm run build there. Keeping it on a noexec mount would break the production project lifecycle, while making every passive asset root executable would unnecessarily weaken the boundary.",
+    "vaults": [
+      {
+        "vault": "asset-vault",
+        "mapper": "/dev/mapper/aionex-asset-vault",
+        "mount_options_minimum": [
+          "nodev",
+          "nosuid",
+          "noexec"
+        ],
+        "executable_content_allowed": false,
+        "roots": [
+          "three_d_asset_data",
+          "media_asset_data",
+          "studio_asset_data",
+          "course_package_data",
+          "realtime_recording_data",
+          "portal_asset_data",
+          "mobile_release_data",
+          "audio_song_ingress_data",
+          "security_source_data",
+          "security_remediation_data"
+        ]
+      },
+      {
+        "vault": "project-execution-vault",
+        "mapper": "/dev/mapper/aionex-project-execution-vault",
+        "mount_options_minimum": [
+          "nodev",
+          "nosuid"
+        ],
+        "noexec_allowed": false,
+        "executable_content_reason": "npm ci and npm run build operate inside PROJECT_EXECUTION_OUTPUT_ROOT for governed 3D web delivery",
+        "roots": [
+          "project_execution_data"
+        ]
+      }
+    ],
+    "total_fr06_domain_vaults_after_refinement": 7,
+    "other_fr06a_domain_vaults_unchanged": [
+      "database-vault",
+      "operations-vault",
+      "local-backup-vault",
+      "container-runtime-vault",
+      "host-state-vault"
+    ]
+  },
+  "source_roots": [
+    {
+      "compose_volume": "three_d_asset_data",
+      "runtime_volume": "web-dashboard_three_d_asset_data",
+      "target_vault": "asset-vault",
+      "target_subpath": "three_d_asset_data"
+    },
+    {
+      "compose_volume": "media_asset_data",
+      "runtime_volume": "web-dashboard_media_asset_data",
+      "target_vault": "asset-vault",
+      "target_subpath": "media_asset_data"
+    },
+    {
+      "compose_volume": "project_execution_data",
+      "runtime_volume": "web-dashboard_project_execution_data",
+      "target_vault": "project-execution-vault",
+      "target_subpath": "project_execution_data"
+    },
+    {
+      "compose_volume": "studio_asset_data",
+      "runtime_volume": "web-dashboard_studio_asset_data",
+      "target_vault": "asset-vault",
+      "target_subpath": "studio_asset_data"
+    },
+    {
+      "compose_volume": "course_package_data",
+      "runtime_volume": "web-dashboard_course_package_data",
+      "target_vault": "asset-vault",
+      "target_subpath": "course_package_data"
+    },
+    {
+      "compose_volume": "realtime_recording_data",
+      "runtime_volume": "web-dashboard_realtime_recording_data",
+      "target_vault": "asset-vault",
+      "target_subpath": "realtime_recording_data"
+    },
+    {
+      "compose_volume": "portal_asset_data",
+      "runtime_volume": "web-dashboard_portal_asset_data",
+      "target_vault": "asset-vault",
+      "target_subpath": "portal_asset_data"
+    },
+    {
+      "compose_volume": "mobile_release_data",
+      "runtime_volume": "web-dashboard_mobile_release_data",
+      "target_vault": "asset-vault",
+      "target_subpath": "mobile_release_data"
+    },
+    {
+      "compose_volume": "audio_song_ingress_data",
+      "runtime_volume": "web-dashboard_audio_song_ingress_data",
+      "target_vault": "asset-vault",
+      "target_subpath": "audio_song_ingress_data"
+    },
+    {
+      "compose_volume": "security_source_data",
+      "runtime_volume": "web-dashboard_security_source_data",
+      "target_vault": "asset-vault",
+      "target_subpath": "security_source_data"
+    },
+    {
+      "compose_volume": "security_remediation_data",
+      "runtime_volume": "web-dashboard_security_remediation_data",
+      "target_vault": "asset-vault",
+      "target_subpath": "security_remediation_data"
+    }
+  ],
+  "copy_and_integrity_contract": {
+    "source_access": "temporary read-only bind mirrors of the eleven Docker volume roots",
+    "allowed_source_types": [
+      "directory",
+      "single-link regular file"
+    ],
+    "rejected_source_types": [
+      "symbolic link",
+      "regular file with st_nlink other than one",
+      "FIFO",
+      "socket",
+      "block device",
+      "character device"
+    ],
+    "file_hash": "SHA-256 through an O_NOFOLLOW descriptor with before/after identity and metadata stability checks",
+    "copy_tool": "rsync archive mode with numeric IDs, deletion parity, safe-link policy, and device/special-file exclusion",
+    "online_copy_authority": "nonauthoritative pre-seed only",
+    "stable_copy_requirement": "source-before equals source-after and source-after equals candidate for every root; retry at most three times and otherwise fail closed",
+    "metadata_compared": [
+      "relative path and type",
+      "mode",
+      "uid",
+      "gid",
+      "regular-file size",
+      "regular-file SHA-256"
+    ],
+    "receipt_privacy": "persist only per-root counts, byte totals, and aggregate hashes; do not persist user filenames or file contents"
+  },
+  "docker_fail_closed_contract": {
+    "binding": "Docker local volumes with type ext4 and device set to the required /dev/mapper node",
+    "compose_mapping": "long volume syntax with volume.subpath for least-privilege per-root exposure",
+    "plain_host_bind_to_vault_underlay_allowed": false,
+    "missing_mapper_behavior": "Docker mount fails and the scoped container does not start; an empty Docker volume underlay must remain empty",
+    "passive_asset_execution_behavior": "direct execution from asset-vault is rejected by noexec",
+    "project_execution_behavior": "direct execution is allowed only on project-execution-vault because the governed builder runs npm within that root",
+    "temporary_probe_image": "already-present aionex-aios-backend:local with network disabled, read-only root filesystem, all capabilities dropped, and no-new-privileges",
+    "temporary_docker_resources_must_be_removed": true
+  },
+  "crypto_and_recovery_contract": {
+    "format": "LUKS2",
+    "cipher": "aes-xts-plain64",
+    "key_bits": 512,
+    "pbkdf": "argon2id",
+    "filesystem": "ext4",
+    "backing_file": "preallocated non-sparse regular file",
+    "independent_active_and_recovery_key_per_vault": true,
+    "lab_keys_only_on_tmpfs": true,
+    "production_keys_on_unencrypted_root_allowed": false,
+    "private_header_backup_per_vault_required": true,
+    "production_headers_must_be_off_host_and_separate_from_keys": true,
+    "closed_image_plaintext_marker_must_be_absent": true,
+    "recovery_open_and_full_manifest_match_required": true
+  },
+  "fr06b1_scope_boundary": {
+    "production_compose_change_allowed": false,
+    "production_service_stop_or_restart_allowed": false,
+    "production_volume_write_allowed": false,
+    "live_block_device_format_allowed": false,
+    "production_vault_file_creation_allowed": false,
+    "cloudflare_change_allowed": false,
+    "reboot_allowed": false,
+    "temporary_isolated_luks_files_allowed": true,
+    "temporary_isolated_docker_probe_resources_allowed": true,
+    "fr06b_or_fr06_parent_completion_claimed": false
+  },
+  "live_cutover_gates": [
+    "protected source PR is merged and exact-main required checks pass",
+    "fresh encrypted R2 recovery point is created and independently validated immediately before cutover",
+    "production active and recovery keys are retained outside the unencrypted root",
+    "production LUKS2 headers are retained off-host separately from recovery keys",
+    "owner-visible out-of-band missing-vault alert works without the locked vault",
+    "all writers for the selected root group are stopped before final delta copy",
+    "final stable source and candidate manifests match exactly",
+    "workload-specific p95 regression is no more than 15 percent",
+    "only scoped services start and restart successfully against the candidate",
+    "original plaintext Docker volumes remain retained read-only through the rollback window",
+    "rollback to the retained sources is rehearsed without deleting diagnostic evidence"
+  ],
+  "next_action": "FR-06B2: add protected systemd/Compose cutover source and exact writer/rollback matrix, then provision no production vault until the fresh R2, external-key/header, independent-alert, and maintenance gates are all evidenced."
+}
