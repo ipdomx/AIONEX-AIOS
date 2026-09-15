@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C3C4",
+  "implementation_status": "source_only_guarded_local_backup_cutover_executor",
+  "depends_on": ["FR-06C3C2", "FR-06C3C3"],
+  "executor": {
+    "path": "scripts/security/fr06c3_backup_cutover.py",
+    "commands": ["inspect-runtime", "plan-cutover", "apply-cutover", "rollback"],
+    "state_root": "/var/lib/aionex/fr06c3-backup-cutover",
+    "single_use_plan": true,
+    "maximum_plan_ttl_seconds": 900,
+    "exclusive_nonblocking_lock": true,
+    "production_cutover_confirmation": "FR06C3_PRODUCTION_BACKUP_CUTOVER",
+    "production_rollback_confirmation": "FR06C3_PRODUCTION_BACKUP_ROLLBACK",
+    "protected_services": ["backup-worker", "backend"],
+    "opens_admission": false,
+    "changes_cloudflare": false,
+    "handles_key_material": false,
+    "creates_or_unlocks_vault": false
+  },
+  "cutover": {
+    "legacy_volume": "web-dashboard_backup_data",
+    "candidate_volume": "aionex-fr06-local-backup-vault",
+    "candidate_path": "/mnt/aionex/fr06-local-backup-vault/backups",
+    "required_active_jobs_zero": ["backup", "restore", "durable external"],
+    "stop_order": ["backup-worker", "backend"],
+    "legacy_source_sealed_read_only_before_copy": true,
+    "copy": "offline exact rsync plus before/after/candidate safe manifests",
+    "candidate_start": "recreate exact previous backend and backup-worker scale against candidate overlay",
+    "candidate_mount_acceptance": true,
+    "legacy_deleted": false,
+    "success_status": "candidate_backup_started_admission_closed"
+  },
+  "rollback": {
+    "automatic_on_cutover_failure": true,
+    "pre_candidate_start": "unseal legacy and recreate exact legacy services without reverse copy",
+    "post_candidate_start": "stop candidate services, reverse exact candidate-to-legacy delta, then recreate legacy services",
+    "explicit_single_use_rollback": true,
+    "candidate_retained": true,
+    "blind_live_reverse_copy_allowed": false
+  },
+  "post_cutover_required_before_c3d_close": [
+    "backend and backup-worker healthy on candidate mount",
+    "fresh client-side-encrypted R2 platform backup from candidate",
+    "independent local and offsite restore validation",
+    "legacy backup_data remains read-only through rollback window"
+  ],
+  "scope_boundary": {
+    "source_merge_executes_production": false,
+    "redis_touched": false,
+    "logs_moved": false,
+    "admission_opened": false,
+    "cloudflare_changed": false,
+    "fr06_completed": false
+  }
+}
