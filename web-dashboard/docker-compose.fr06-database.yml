@@ -9,6 +9,8 @@ services:
         source: fr06_database_vault
         target: /var/lib/postgresql/data
         read_only: false
+        volume:
+          subpath: pgdata
       - postgres_socket:/var/run/postgresql
 
   postgres-credential-reconciler:
@@ -17,6 +19,8 @@ services:
         source: fr06_database_vault
         target: /var/lib/postgresql/data
         read_only: false
+        volume:
+          subpath: pgdata
 
 volumes:
   fr06_database_vault:

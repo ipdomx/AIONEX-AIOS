@@ -214,9 +214,12 @@ def run_lab(root: Path) -> dict[str, Any]:
         _run(["mkfs.ext4", "-q", "-L", "AIOS_DB_LAB", str(mapper)], timeout=120)
         mount_root.mkdir(mode=0o700)
         _run(["mount", "-o", "nodev,nosuid,noexec", str(mapper), str(mount_root)])
-        _run(["rsync", "-aHAX", "--numeric-ids", "--delete", f"{source}/", f"{mount_root}/"], timeout=180)
-        _run(["sync", "-f", str(mount_root)])
-        target_manifest = _manifest(mount_root)
+        pgdata_target = mount_root / "pgdata"
+        pgdata_target.mkdir(mode=0o700)
+        os.chown(pgdata_target, 70, 70)
+        _run(["rsync", "-aHAX", "--numeric-ids", "--delete", f"{source}/", f"{pgdata_target}/"], timeout=180)
+        _run(["sync", "-f", str(pgdata_target)])
+        target_manifest = _manifest(pgdata_target)
         if source_manifest != target_manifest:
             raise LabError("offline PGDATA source/candidate manifests differ")
         _run(["umount", str(mount_root)])
@@ -225,7 +228,13 @@ def run_lab(root: Path) -> dict[str, Any]:
             "docker", "volume", "create", "--driver", "local", "--opt", "type=ext4", "--opt", f"device={mapper}",
             "--opt", "o=nodev,nosuid,noexec", volume,
         ])
-        _start(target_container, volume)
+        _run([
+            "docker", "run", "-d", "--rm", "--name", target_container, "--network", "none",
+            "--entrypoint", "postgres", "--user", "70:70",
+            "--mount", f"type=volume,src={volume},dst=/var/lib/postgresql/data,volume-subpath=pgdata",
+            IMAGE, "-D", "/var/lib/postgresql/data", "-c", "listen_addresses=", "-c", "unix_socket_directories=/tmp",
+        ])
+        _wait_ready(target_container)
         _validate_row(target_container)
         row_after_active_open = True
         _stop(target_container)
@@ -241,7 +250,13 @@ def run_lab(root: Path) -> dict[str, Any]:
             "docker", "volume", "create", "--driver", "local", "--opt", "type=ext4", "--opt", f"device={mapper}",
             "--opt", "o=nodev,nosuid,noexec", volume,
         ])
-        _start(target_container, volume)
+        _run([
+            "docker", "run", "-d", "--rm", "--name", target_container, "--network", "none",
+            "--entrypoint", "postgres", "--user", "70:70",
+            "--mount", f"type=volume,src={volume},dst=/var/lib/postgresql/data,volume-subpath=pgdata",
+            IMAGE, "-D", "/var/lib/postgresql/data", "-c", "listen_addresses=", "-c", "unix_socket_directories=/tmp",
+        ])
+        _wait_ready(target_container)
         _validate_row(target_container)
         row_after_recovery_open = True
         _stop(target_container)

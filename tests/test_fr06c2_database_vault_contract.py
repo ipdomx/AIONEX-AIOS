@@ -40,6 +40,7 @@ def test_database_vault_crypto_and_mapper_contract_is_explicit() -> None:
     assert vault["key_bits"] == 512
     assert vault["pbkdf"] == "argon2id"
     assert vault["production_key_on_unencrypted_root_allowed"] is False
+    assert vault["target_subpath"] == "pgdata"
 
 
 def test_pgdata_consumers_and_database_clients_are_fully_guarded() -> None:
@@ -64,6 +65,7 @@ def test_overlay_uses_external_database_volume_without_plaintext_fallback() -> N
     assert "target: /var/lib/postgresql/data" in text
     assert "name: aionex-fr06-database-vault" in text
     assert "external: true" in text
+    assert text.count("subpath: pgdata") == 2
     assert "postgres_data:/var/lib/postgresql/data" not in text
 
 

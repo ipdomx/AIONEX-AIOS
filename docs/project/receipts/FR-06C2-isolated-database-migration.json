@@ -1,6 +1,6 @@
 {
   "candidate_manifest": {
-    "aggregate_sha256": "f37da4801d1b764b8b661afcc5521419add54e125842857ac62c6c00eac6d967",
+    "aggregate_sha256": "bb2d20109e650bce802e073dfdcbaf1e2931e5a149a60093468eb1b69176b909",
     "directories": 25,
     "payload_bytes": 40293202,
     "regular_files": 975
@@ -25,7 +25,7 @@
   "source_candidate_manifest_match": true,
   "source_cluster_state_before_copy": "shut down",
   "source_manifest": {
-    "aggregate_sha256": "f37da4801d1b764b8b661afcc5521419add54e125842857ac62c6c00eac6d967",
+    "aggregate_sha256": "bb2d20109e650bce802e073dfdcbaf1e2931e5a149a60093468eb1b69176b909",
     "directories": 25,
     "payload_bytes": 40293202,
     "regular_files": 975

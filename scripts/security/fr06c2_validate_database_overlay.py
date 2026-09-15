@@ -136,6 +136,9 @@ def validate(root: Path, env_file: Path) -> dict[str, Any]:
             raise ContractError(f"candidate PGDATA does not use the database vault for {service}")
         if bool(after_mount.get("read_only", False)):
             raise ContractError(f"candidate PGDATA must remain writable for {service}")
+        volume_options = after_mount.get("volume") or {}
+        if volume_options.get("subpath") != contract["candidate_vault"]["target_subpath"]:
+            raise ContractError(f"candidate PGDATA subpath drifted for {service}")
     postgres_before = accepted_services[database["service"]]
     postgres_after = candidate_services[database["service"]]
 

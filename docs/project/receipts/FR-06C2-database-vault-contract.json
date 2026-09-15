@@ -39,7 +39,8 @@
     "key_bits": 512,
     "pbkdf": "argon2id",
     "independent_active_and_recovery_keys": true,
-    "production_key_on_unencrypted_root_allowed": false
+    "production_key_on_unencrypted_root_allowed": false,
+    "target_subpath": "pgdata"
   },
   "database_clients": {
     "service_definition_count": 24,
@@ -83,7 +84,8 @@
     "database_admission_overlay": "docker-compose.fr06-database-admission.yml",
     "legacy_pgdata_mounts_after_candidate_merge": 0,
     "postgres_socket_remains_ephemeral": true,
-    "workspace_mount_unchanged": true
+    "workspace_mount_unchanged": true,
+    "candidate_volume_subpath": "pgdata"
   },
   "production_cutover_gates": [
     "protected source PR and exact post-merge main checks pass",

@@ -12,7 +12,7 @@ The candidate is a preallocated 16 GiB LUKS2/ext4 vault using the FR-06 cryptogr
 
 The production Compose stack has 24 database-client service definitions. FR-06C2 adds a database admission overlay that pins those clients plus PostgreSQL itself to `restart: no`. This intentionally extends the FR-06B admission policy to communication/observer/Telegram/reconciler services that also connect to PostgreSQL. Docker or host restart must never make a database client race a locked candidate vault.
 
-The PostgreSQL socket volume remains ephemeral and outside the vault. The existing read-only `/workspace` mount remains unchanged. The only protected storage replacement is `/var/lib/postgresql/data`.
+The PostgreSQL socket volume remains ephemeral and outside the vault. The existing read-only `/workspace` mount remains unchanged. The only protected storage replacement is `/var/lib/postgresql/data`, mapped to the exact `pgdata` subpath of the mapper-backed volume so ext4 root metadata such as `lost+found` never becomes part of PGDATA.
 
 ## Isolated rehearsal requirement
 
