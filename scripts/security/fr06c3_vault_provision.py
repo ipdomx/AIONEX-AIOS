@@ -33,6 +33,7 @@ MAX_PLAN_TTL_SECONDS = 900
 MAX_EVIDENCE_AGE_SECONDS = 3600
 MAX_WINDOW_SECONDS = 4 * 60 * 60
 PRODUCTION_CONFIRMATION = "PROVISION_FR06C3_EMPTY_VAULTS"
+UNLOCK_CONFIRMATION = "UNLOCK_FR06C3_VAULTS"
 SAFE_PLAN_RE = re.compile(r"^plan-[0-9A-Za-z._-]+\.json$")
 SENSITIVE_KEYS = {"key", "private_key", "recovery_key", "secret", "secret_key", "token", "passphrase", "password"}
 
@@ -244,6 +245,24 @@ def _bundle(path: Path, purpose: str) -> tuple[dict[str, bytes], str]:
     return decoded, _file_digest(resolved)
 
 
+def _docker_available() -> bool:
+    try:
+        result = subprocess.run(["docker", "info"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.returncode == 0
+
+
+def _git_descendant_gate(root: Path, minimum_sha: str) -> None:
+    heads = _run(["git", "rev-parse", "HEAD", "origin/main"], cwd=root).splitlines()
+    if len(heads) != 2 or heads[0] != heads[1]:
+        raise ProvisionBlocked("checkout and origin/main do not match")
+    if _run(["git", "status", "--porcelain=v1"], cwd=root):
+        raise ProvisionBlocked("production source tree is not clean")
+    if subprocess.run(["git", "merge-base", "--is-ancestor", minimum_sha, heads[0]], cwd=root, check=False).returncode != 0:
+        raise ProvisionBlocked("current main is not a descendant of provisioned source")
+
+
 def _legacy_volumes() -> list[dict[str, str]]:
     docker_root = Path(_run(["docker", "info", "--format", "{{.DockerRootDir}}"])).resolve()
     result: list[dict[str, str]] = []
@@ -342,6 +361,18 @@ def _verify_host_ready(vault: dict[str, Any]) -> dict[str, Any]:
     if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode) or info.st_uid != uid or info.st_gid != gid or stat.S_IMODE(info.st_mode) != vault["mode"]:
         raise ProvisionBlocked(f"{vault['role']} subpath ownership/mode drifted")
     return {"role": vault["role"], "mapper": str(mapper), "mount_root": str(vault["mount_root"]), "subpath": vault["subpath"]}
+
+
+def _verify_all_host_ready() -> dict[str, Any]:
+    rows = [_verify_host_ready(vault) for vault in VAULTS]
+    return {
+        "status": "host-ready",
+        "validation": "FR06C3_VAULTS_HOST_READY",
+        "observed_at": _utc_text(),
+        "vaults": rows,
+        "docker_inspected": False,
+        "admission_opened": False,
+    }
 
 
 def _verify_ready(require_zero_consumers: bool = True) -> dict[str, Any]:
@@ -599,6 +630,78 @@ def prove_recovery(args: argparse.Namespace) -> dict[str, Any]:
             os.close(lock_fd)
 
 
+def unlock(args: argparse.Namespace) -> dict[str, Any]:
+    if args.confirmation != UNLOCK_CONFIRMATION:
+        raise ProvisionBlocked("unlock confirmation is invalid")
+    if os.geteuid() != 0:
+        raise ProvisionBlocked("post-boot C3 unlock requires root")
+    if _docker_available():
+        raise ProvisionBlocked("Docker must be stopped before C3 vault unlock")
+    if _run(["findmnt", "-n", "-o", "FSTYPE", "--target", "/dev/shm"]) != "tmpfs":
+        raise ProvisionBlocked("/dev/shm must be tmpfs")
+    receipt_path = STATE_ROOT / "provision-receipt.json"
+    _private_regular(receipt_path, "provision receipt")
+    receipt = _json(receipt_path)
+    merge_sha = receipt.get("merge_sha")
+    if receipt.get("status") != "empty_c3_vaults_provisioned_admission_closed" or not isinstance(merge_sha, str):
+        raise ProvisionBlocked("provision receipt invalid")
+    _git_descendant_gate(PRODUCTION_ROOT, merge_sha)
+    active, active_digest = _bundle(args.active_bundle, "active")
+    if active_digest != receipt.get("active_bundle_sha256"):
+        raise ProvisionBlocked("active bundle differs from provisioned custody")
+    for vault in VAULTS:
+        _private_regular(vault["image"], f"{vault['role']} image", maximum=int(vault["size_bytes"]) + 1)
+        _verify_luks(vault)
+        if vault["mapper"].exists() or os.path.ismount(vault["mount_root"]):
+            raise ProvisionBlocked(f"{vault['role']} unlock requires fully closed host state")
+    directory = KEY_ROOT / ("unlock-" + secrets.token_hex(8))
+    directory.mkdir(parents=True, mode=0o700)
+    paths: list[Path] = []
+    opened: list[str] = []
+    mounted: list[Path] = []
+    try:
+        for vault in VAULTS:
+            field = vault["bundle_field"]
+            key_path = _secret_file(directory, vault["mapper_name"] + ".active", active[field])
+            paths.append(key_path)
+            _run(["cryptsetup", "open", "--type", "luks", "--key-file", str(key_path), str(vault["image"]), vault["mapper_name"]], timeout=180)
+            opened.append(vault["mapper_name"])
+            _mount(vault)
+            mounted.append(vault["mount_root"])
+        ready = _verify_all_host_ready()
+        out = STATE_ROOT / "unlock-receipts" / f"unlock-{int(_utc_now().timestamp())}-{secrets.token_hex(6)}.json"
+        result = {
+            "schema_version": 1,
+            "subpart": SUBPART,
+            "status": "c3_vaults_unlocked_host_ready_docker_stopped",
+            "completed_at": _utc_text(),
+            "host_validation": ready["validation"],
+            "vault_count": len(VAULTS),
+            "docker_started": False,
+            "services_started_or_restarted": False,
+            "key_material_persisted": False,
+            "admission_opened": False,
+        }
+        _write_exclusive(out, result)
+        return {"status": result["status"], "receipt": str(out), "vault_count": len(VAULTS)}
+    except Exception:
+        for mount_root in reversed(mounted):
+            subprocess.run(["umount", str(mount_root)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        for mapper in reversed(opened):
+            subprocess.run(["cryptsetup", "close", mapper], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        raise
+    finally:
+        for path in paths:
+            try:
+                path.unlink()
+            except OSError:
+                pass
+        try:
+            directory.rmdir()
+        except OSError:
+            pass
+
+
 def wipe_inputs() -> dict[str, Any]:
     removed: list[str] = []
     for name in ("active-bundle.json", "recovery-bundle.json"):
@@ -622,7 +725,13 @@ def parser() -> argparse.ArgumentParser:
     plan = sub.add_parser("plan"); common(plan); plan.add_argument("--plan", type=Path, required=True); plan.add_argument("--ttl-seconds", type=int, default=600)
     apply = sub.add_parser("apply"); common(apply); apply.add_argument("--plan", type=Path, required=True); apply.add_argument("--confirmation", required=True); apply.add_argument("--confirm-production", default="")
     prove = sub.add_parser("prove-recovery"); prove.add_argument("--root", type=Path, default=PRODUCTION_ROOT); prove.add_argument("--active-bundle", type=Path, required=True); prove.add_argument("--recovery-bundle", type=Path, required=True)
-    status = sub.add_parser("status"); status.add_argument("--require-ready", action="store_true")
+    status = sub.add_parser("status")
+    group = status.add_mutually_exclusive_group()
+    group.add_argument("--require-ready", action="store_true")
+    group.add_argument("--require-host-ready", action="store_true")
+    unlock_cmd = sub.add_parser("unlock")
+    unlock_cmd.add_argument("--active-bundle", type=Path, required=True)
+    unlock_cmd.add_argument("--confirmation", required=True)
     sub.add_parser("wipe-inputs")
     return p
 
@@ -633,9 +742,10 @@ def main() -> int:
         if args.command == "plan": result = create_plan(args)
         elif args.command == "apply": result = apply_plan(args)
         elif args.command == "prove-recovery": result = prove_recovery(args)
+        elif args.command == "unlock": result = unlock(args)
         elif args.command == "wipe-inputs": result = wipe_inputs()
         else:
-            result = _verify_ready(bool(args.require_ready))
+            result = _verify_all_host_ready() if args.require_host_ready else _verify_ready(bool(args.require_ready))
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))
         return 0
     except ProvisionBlocked as exc:

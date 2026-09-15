@@ -3,10 +3,19 @@
   "batch_id": "FR-06",
   "subpart": "FR-06C3C2",
   "implementation_status": "source_only_guarded_empty_vault_provisioning_and_header_custody",
-  "depends_on": ["FR-06C3C1"],
+  "depends_on": [
+    "FR-06C3C1"
+  ],
   "executor": {
     "path": "scripts/security/fr06c3_vault_provision.py",
-    "commands": ["plan", "apply", "prove-recovery", "status", "wipe-inputs"],
+    "commands": [
+      "plan",
+      "apply",
+      "prove-recovery",
+      "status",
+      "unlock",
+      "wipe-inputs"
+    ],
     "production_root": "/opt/AIOS",
     "state_root": "/var/lib/aionex/fr06c3",
     "runtime_root": "/run/aionex-fr06c3",
@@ -20,7 +29,9 @@
     "service_stop_or_restart_capability": false,
     "redis_flush_capability": false,
     "log_move_capability": false,
-    "cloudflare_change_capability": false
+    "cloudflare_change_capability": false,
+    "post_boot_unlock_confirmation": "UNLOCK_FR06C3_VAULTS",
+    "post_boot_unlock_starts_docker_or_services": false
   },
   "vaults": [
     {
@@ -31,7 +42,11 @@
       "mount_root": "/mnt/aionex/fr06-local-backup-vault",
       "subpath": "backups",
       "docker_volume": "aionex-fr06-local-backup-vault",
-      "mount_options": ["nodev", "nosuid", "noexec"],
+      "mount_options": [
+        "nodev",
+        "nosuid",
+        "noexec"
+      ],
       "subpath_owner": "root:root",
       "subpath_mode": "0700"
     },
@@ -43,7 +58,11 @@
       "mount_root": "/mnt/aionex/fr06-operations-vault",
       "subpath": "redis",
       "docker_volume": "aionex-fr06-operations-vault",
-      "mount_options": ["nodev", "nosuid", "noexec"],
+      "mount_options": [
+        "nodev",
+        "nosuid",
+        "noexec"
+      ],
       "subpath_owner": "999:1000",
       "subpath_mode": "0700"
     }
@@ -91,5 +110,17 @@
     "cloudflare_changed": false,
     "fr06_completed": false
   },
-  "next_subpart": "FR-06C3C3 guarded local-backup cutover executor and Redis reconciliation executor"
+  "next_subpart": "FR-06C3C3 guarded local-backup cutover executor and Redis reconciliation executor",
+  "docker_restart_gate": {
+    "repository_drop_in": "deploy/systemd/docker.service.d/32-aionex-fr06c3-vault-gate.conf",
+    "command": "/usr/bin/python3 /opt/AIOS/scripts/security/fr06c3_vault_provision.py status --require-host-ready",
+    "checks": [
+      "local-backup-vault mapper/mount/subpath",
+      "operations-vault mapper/mount/subpath"
+    ],
+    "missing_mapper_behavior": "Docker fails closed before daemon start",
+    "unlocks_keys": false,
+    "installation_gate": "Install only after both C3D local-backup and C3E operations cutovers succeed while legacy rollback sources remain retained.",
+    "source_merge_installs_drop_in": false
+  }
 }

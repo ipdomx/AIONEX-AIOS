@@ -88,3 +88,31 @@ def test_scope_keeps_production_untouched_by_source_merge() -> None:
     assert s["production_services_stopped_or_restarted"] is False
     assert s["admission_opened"] is False
     assert s["cloudflare_changed"] is False
+
+
+def test_post_boot_unlock_is_tmpfs_only_and_never_starts_docker() -> None:
+    c = _contract()
+    e = c["executor"]
+    assert "unlock" in e["commands"]
+    assert e["post_boot_unlock_confirmation"] == "UNLOCK_FR06C3_VAULTS"
+    assert e["post_boot_unlock_starts_docker_or_services"] is False
+    text = PROVISION.read_text(encoding="utf-8")
+    assert 'UNLOCK_CONFIRMATION = "UNLOCK_FR06C3_VAULTS"' in text
+    assert 'Docker must be stopped before C3 vault unlock' in text
+    assert '"services_started_or_restarted": False' in text
+    assert '"key_material_persisted": False' in text
+
+
+def test_docker_gate_is_source_only_and_host_ready_not_consumer_bound() -> None:
+    c = _contract()["docker_restart_gate"]
+    assert c["missing_mapper_behavior"].startswith("Docker fails closed")
+    assert c["unlocks_keys"] is False
+    assert c["source_merge_installs_drop_in"] is False
+    dropin = ROOT / c["repository_drop_in"]
+    assert dropin.read_text(encoding="utf-8") == (
+        "[Service]\n"
+        "ExecStartPre=/usr/bin/python3 /opt/AIOS/scripts/security/fr06c3_vault_provision.py status --require-host-ready\n"
+    )
+    text = PROVISION.read_text(encoding="utf-8")
+    assert '"validation": "FR06C3_VAULTS_HOST_READY"' in text
+    assert "_verify_all_host_ready() if args.require_host_ready" in text
