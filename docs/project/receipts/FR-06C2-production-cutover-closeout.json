@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C2D",
+  "status": "production_database_cutover_accepted_pending_closeout_merge",
+  "parent_fr06_completed": false,
+  "fr06c2_runtime_completed": true,
+  "source": {
+    "cutover_executor_merge": "e1a4350f211e13e49e3b3c105e782fccad2f65d6",
+    "cutover_executor_pr": 687,
+    "protected_checks_passed": true,
+    "post_merge_main_checks_passed": true,
+    "post_merge_main_check_count": 11,
+    "restart_gate_pr": 688,
+    "restart_gate_merge": "6a153a5a5c307dfe6d76a0f5a9a9e510a64a2aed",
+    "restart_gate_protected_checks_passed": true,
+    "restart_gate_post_merge_main_checks_passed": true,
+    "restart_gate_post_merge_main_check_count": 11
+  },
+  "production_cutover": {
+    "operation_id": "af43b27864bd41740e2f5eb444128126443743751a19c4bd0efc377a78ac5217",
+    "status": "candidate_database_started_admission_closed",
+    "completed_at": "2026-09-15T15:49:51Z",
+    "database_acceptance_exact_match": true,
+    "alembic_version": "20260908_0046",
+    "server_version_num": "160015",
+    "public_table_count": 165,
+    "organizations": 2,
+    "users": 2,
+    "project_executions": 1,
+    "backup_records_at_cutover": 112,
+    "final_regular_files": 6373,
+    "final_payload_bytes": 614925915,
+    "legacy_pgdata_deleted": false,
+    "legacy_pgdata_read_only": true,
+    "admission_opened": false,
+    "cloudflare_changed": false
+  },
+  "post_cutover_recovery": {
+    "backup_id": "c6f832f5-b6da-4804-bddc-a7249819fe54",
+    "backup_status": "completed",
+    "offsite_status": "completed",
+    "schema_version": 2,
+    "encryption_required": true,
+    "database_size_bytes": 21622585,
+    "restore_run_id": "21a417c3-d8bd-4e25-b7db-93a9db3df074",
+    "restore_status": "completed",
+    "restore_validated": true,
+    "restore_offsite_validated": true,
+    "restore_completed_at": "2026-09-15T15:52:54.873073+00:00"
+  },
+  "runtime_acceptance": {
+    "running_containers": 36,
+    "unhealthy_running_containers": 0,
+    "local_health_http": 200,
+    "local_ready_http": 200,
+    "public_health_http": 200,
+    "public_ready_http": 200,
+    "user_portal_http": 200,
+    "postgres_pgdata_volume": "aionex-fr06-database-vault",
+    "postgres_pgdata_mapper": "/dev/mapper/aionex-database-vault",
+    "legacy_source_mount_options": [
+      "ro",
+      "nosuid",
+      "nodev",
+      "noexec"
+    ],
+    "database_host_gate_validation": "FR06C2_DATABASE_HOST_READY"
+  },
+  "docker_fail_closed_gate": {
+    "installed": true,
+    "drop_in": "/etc/systemd/system/docker.service.d/31-aionex-fr06c2-database-gate.conf",
+    "repository_sha256": "c1e21e3ca3ae22358a965516259294d00b932529a35bdcfa3482d8c74c74839f",
+    "installed_sha256": "c1e21e3ca3ae22358a965516259294d00b932529a35bdcfa3482d8c74c74839f",
+    "daemon_reloaded": true,
+    "docker_restart_performed_in_c2d": false,
+    "reason_restart_deferred": "Full multi-vault host reboot and guarded recovery acceptance is owned by FR-06C6; installing and validating the host-ready gate now prevents a future Docker start with the database mapper absent without introducing an unnecessary second production interruption in C2D.",
+    "existing_asset_gate_retained": true
+  },
+  "rollback": {
+    "legacy_pgdata_retained": true,
+    "legacy_pgdata_read_only": true,
+    "blind_live_reverse_copy_allowed": false,
+    "candidate_database_authoritative_after_cutover": true,
+    "rollback_executor_retained": true
+  },
+  "release_boundary": {
+    "fr06c2_completed": true,
+    "fr06_completed": false,
+    "next_subpart": "FR-06C3",
+    "admission_opened_by_encryption_batch": false,
+    "cloudflare_changed": false
+  }
+}
