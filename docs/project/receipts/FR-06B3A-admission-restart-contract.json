@@ -146,10 +146,8 @@
     "required_operations": [
       "owner authorization and maintenance window",
       "admission closed without Cloudflare changes",
-      "queues drained",
-      "all runtime writers, initializers, and read-only consumers stopped",
-      "no unlisted writable descriptors",
-      "stable final delta with exact manifests"
+      "fresh read-only runtime snapshot with zero candidate consumers",
+      "measured legacy workload p95 baseline"
     ],
     "required_rehearsals": [
       "out-of-band alert",
@@ -162,7 +160,16 @@
       "post-admission reverse-delta rollback"
     ],
     "maximum_p95_regression_percent": 15,
-    "local_or_embedded_key_evidence_rejected": true
+    "local_or_embedded_key_evidence_rejected": true,
+    "post_cutover_acceptance": [
+      "queues drained by the guarded executor before final delta",
+      "all runtime writers, initializers, and read-only consumers stopped by the guarded executor",
+      "no unlisted writable descriptors",
+      "stable final delta with exact manifests",
+      "candidate workload p95 no more than 15 percent above the retained legacy baseline",
+      "host boot recovery and Docker daemon restart while admission remains closed"
+    ],
+    "preflight_must_not_claim_post_cutover_results": true
   },
   "isolated_lab": {
     "production_sources_used": false,
