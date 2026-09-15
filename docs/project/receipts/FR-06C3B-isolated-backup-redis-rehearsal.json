@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "subpart": "FR-06C3B",
+  "status": "isolated_backup_redis_reconciliation_pass",
+  "production_backup_data_used": false,
+  "production_redis_data_used": false,
+  "production_mutation_performed": false,
+  "production_container_identity_unchanged": true,
+  "keys_only_on_tmpfs": true,
+  "local_backup_vault": {
+    "luks2": true,
+    "cipher": "aes-xts-plain64",
+    "key_bits": 512,
+    "pbkdf": "argon2id",
+    "wrong_key_rejected": true,
+    "stable_copy_manifest_match": true,
+    "recovery_key_manifest_match": true,
+    "active_key_reopen_manifest_match": true,
+    "closed_raw_plaintext_marker_absent": true,
+    "regular_files": 3,
+    "payload_bytes": 4180,
+    "aggregate_sha256": "4e44c77417d54c2b75ade6a1f635b5c0eed7121c1cc74b3e95697fcaac3251a1"
+  },
+  "operations_vault": {
+    "luks2": true,
+    "wrong_key_rejected": true,
+    "legacy_redis_aof_copied": false,
+    "redis_started_empty": true,
+    "synthetic_volatile_state_persisted_before_reconcile": true,
+    "explicit_reconciliation_flush_passed": true,
+    "redis_empty_after_active_key_reopen": true,
+    "redis_is_disaster_recovery_authority": false
+  },
+  "temporary_resources_removed": true,
+  "production_cutover_authorized": false,
+  "cloudflare_changed": false
+}

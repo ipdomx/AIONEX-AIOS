@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C3B",
+  "implementation_status": "source_contract_and_isolated_rehearsal_only",
+  "depends_on": ["FR-06C3A"],
+  "local_backup_vault": {
+    "planned_bytes": 17179869184,
+    "legacy_volume": "web-dashboard_backup_data",
+    "container_target": "/var/lib/aionex/backups",
+    "candidate_role": "local-backup-vault",
+    "filesystem": "ext4",
+    "mount_options": ["nodev", "nosuid", "noexec"],
+    "readers": ["backend"],
+    "writers": ["backup-worker"],
+    "live_copy_while_writer_active_allowed": false,
+    "production_cutover_rule": "prove zero backup/restore work, stop backup-worker, seal legacy backup_data read-only, exact offline manifest copy, switch only backend/backup-worker, retain legacy read-only, then require new encrypted R2 backup plus independent restore before closure"
+  },
+  "operations_vault": {
+    "planned_bytes": 8589934592,
+    "legacy_redis_volume": "web-dashboard_redis_data",
+    "candidate_role": "operations-vault",
+    "redis_is_disaster_recovery_authority": false,
+    "raw_live_aof_copy_allowed": false,
+    "selected_redis_recovery": "empty or explicitly reconciled runtime state rebuilt from PostgreSQL/durable authorities",
+    "retained_logs_policy": "sanitized non-container operational logs move to operations-vault or become volatile before FR-06 closure",
+    "docker_json_logs_owned_by": "container-runtime-vault"
+  },
+  "isolated_rehearsal": {
+    "receipt": "docs/project/receipts/FR-06C3B-isolated-backup-redis-rehearsal.json",
+    "synthetic_data_only": true,
+    "production_backup_data_used": false,
+    "production_redis_data_used": false,
+    "backup_wrong_key_rejected": true,
+    "backup_stable_copy_manifest_match": true,
+    "backup_recovery_key_manifest_match": true,
+    "closed_backup_image_plaintext_marker_absent": true,
+    "operations_wrong_key_rejected": true,
+    "legacy_redis_aof_copied": false,
+    "redis_started_empty": true,
+    "synthetic_volatile_state_persisted_before_reconcile": true,
+    "explicit_reconciliation_flush_passed": true,
+    "redis_empty_after_active_key_reopen": true,
+    "temporary_resources_removed": true,
+    "production_container_identity_unchanged": true
+  },
+  "scope_boundary": {
+    "production_vault_created": false,
+    "production_volume_copied": false,
+    "production_backup_worker_stopped": false,
+    "production_redis_stopped_or_flushed": false,
+    "production_logs_moved": false,
+    "production_keys_created": false,
+    "cloudflare_changed": false,
+    "fr06_parent_completed": false
+  },
+  "next_subpart": "FR-06C3C protected mapper-backed overlays plus guarded production provisioning/cutover executors"
+}
