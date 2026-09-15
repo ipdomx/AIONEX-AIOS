@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "event_id": "FR06B5-live-cutover-checkpoint-20260915",
+  "batch_id": "FR-06",
+  "subpart": "FR-06B5",
+  "status": "in_progress",
+  "subpart_completed": false,
+  "parent_batch_completed": false,
+  "source_commit": "e0cef19d939e36ce71477b6cdb81ce3e447317b9",
+  "source_gate": {
+    "pr": 680,
+    "pr_head_sha": "614635378b2bafbf1996f3aaf2488e84f1b60ac5",
+    "merge_sha": "e0cef19d939e36ce71477b6cdb81ce3e447317b9",
+    "protected_checks_passed": true,
+    "post_merge_checks_passed": true,
+    "server_and_origin_main_matched_before_cutover": true,
+    "worktree_clean_before_cutover": true
+  },
+  "production_cutover": {
+    "plan_id": "f4cf5522955b5edcdd426c45ab7ea55d4eacac165381713f34354add3c743f6f",
+    "status": "candidate_started_admission_closed",
+    "completed_at": "2026-09-15T11:24:41Z",
+    "root_count": 11,
+    "final_regular_files": 250,
+    "final_payload_bytes": 54520638,
+    "legacy_deleted": false,
+    "legacy_read_only_root_count": 11,
+    "admission_opened": false,
+    "cloudflare_changed": false
+  },
+  "pre_cutover_recovery": {
+    "backup_id": "65083fd0-d6ec-464e-bfbc-ce8f280a2e85",
+    "status": "completed",
+    "offsite_status": "completed",
+    "encryption": "AES-256-GCM",
+    "restore_run_id": "43d6a0d8-ccb6-4262-9c4b-e0c8283999dd",
+    "restore_status": "completed",
+    "restore_completed_at": "2026-09-15T10:34:22Z"
+  },
+  "post_cutover_recovery": {
+    "backup_id": "236c3adf-9cc5-4c9e-91b0-8240a53bf4a9",
+    "backup_status": "completed",
+    "offsite_status": "completed",
+    "encryption_required": true,
+    "offsite_schema_version": 2,
+    "database_size_bytes": 21556113,
+    "asset_file_count": 250,
+    "asset_payload_bytes": 54520636,
+    "restore_run_id": "8695687b-a21f-4c8a-93c2-55d461dd05be",
+    "restore_status": "completed",
+    "restore_validated": true,
+    "offsite_database_validated": true,
+    "offsite_assets_validated": true,
+    "restore_completed_at": "2026-09-15T11:27:41Z"
+  },
+  "docker_restart_acceptance": {
+    "daemon_restart_performed": true,
+    "systemd_exec_start_pre_gate_passed": true,
+    "protected_services_auto_restarted": false,
+    "guarded_start_operation_id": "4bdcb8f7d858127f1e89ab00ca6e45a6564beb4f9f8c867d46d2e4f8b5712efa",
+    "guarded_start_attempt": 1,
+    "guarded_start_status": "candidate_started_admission_closed",
+    "guarded_start_completed_at": "2026-09-15T11:31:25Z",
+    "admission_opened": false
+  },
+  "runtime_acceptance": {
+    "running_containers": 36,
+    "bad_or_unhealthy_containers": 0,
+    "local_health_http": 200,
+    "local_ready_http": 200,
+    "public_health_http": 200,
+    "public_ready_http": 200,
+    "active_protected_service_definitions_checked": 19,
+    "actual_protected_mounts_checked": 47,
+    "mount_contract_errors": 0,
+    "legacy_roots_read_only": 11,
+    "host_vault_gate_validation": "FR06B4_HOST_VAULTS_READY"
+  },
+  "performance_acceptance": {
+    "workload": "metadata traversal and lstat of every entry across all 11 protected roots; no content reads and no writes",
+    "iterations": 100,
+    "legacy_baseline_p95_ms": 13.984,
+    "maximum_allowed_candidate_p95_ms": 16.082,
+    "candidate_p95_before_daemon_restart_ms": 7.837,
+    "candidate_p95_after_daemon_restart_ms": 7.397,
+    "final_regression_percent": -47.107,
+    "accepted": true
+  },
+  "governed_build_acceptance": {
+    "production_builder": "ThreeDWebDeliveryBuilder",
+    "production_build_passed": true,
+    "browser_qa_passed": true,
+    "performance_passed": true,
+    "release_ready": true,
+    "bundle_bytes": 1174065,
+    "build_manifest_sha256": "92ffa746cbae7d3ad306ddc30649a885ea2340c5adf0842a21a041364d0f1783",
+    "aggregate_sha256": "d8f7f76bcb8855361ee8b226f480446e18f658c85b139681372c532a81189521",
+    "temporary_canary_removed": true,
+    "external_billable_provider_used": false
+  },
+  "host_boot_recovery": {
+    "status": "pending_external_active_bundle_rematerialization",
+    "production_reboot_performed": false,
+    "local_active_bundle_present": false,
+    "reason": "The production active key bundle is intentionally absent from the host after FR-06B4. A real reboot would close the LUKS mappings and the Docker fail-closed gate would correctly block Docker until the externally held active bundle is rematerialized into tmpfs and the guarded unlock is completed. Rebooting without that external custody input would create avoidable production unavailability.",
+    "required_before_reboot": "External active bundle must be available for tmpfs rematerialization and guarded post-boot unlock.",
+    "unlock_confirmation": "UNLOCK_FR06B4_PRODUCTION"
+  },
+  "release_boundary": {
+    "fr06b_complete": false,
+    "fr06_complete": false,
+    "admission_opened": false,
+    "cloudflare_changed": false,
+    "rollback_retained": true,
+    "legacy_plaintext_volumes_deleted": false,
+    "independent_owner_decision_required_before_admission": true
+  },
+  "verification_passed": true,
+  "deployment_verified": true,
+  "evidence": [
+    "Production FR-06B3B preflight returned production_preflight_ready with zero blockers and a one-time plan bound to exact main e0cef19d.",
+    "The one-time final-delta cutover completed as candidate_started_admission_closed across all eleven protected roots while retaining all legacy roots read-only for rollback.",
+    "All 36 running containers were healthy after cutover and again after a real Docker daemon restart plus guarded-start; local and public health/ready endpoints returned HTTP 200.",
+    "The Docker systemd ExecStartPre FR-06 vault gate passed on the real daemon restart; protected restart:no services did not auto-start and guarded-start restored them on attempt one while admission stayed closed.",
+    "Actual candidate runtime inspection validated 47 protected mounts across 19 active service definitions with zero legacy-volume or read/write-mode mismatches; all eleven retained legacy roots remain read-only.",
+    "Candidate storage p95 passed before and after Docker restart and remained below the 15 percent regression ceiling; the final measured p95 was 7.397 ms versus a 13.984 ms baseline.",
+    "A post-cutover encrypted platform backup completed to private R2 and an independent restore validation passed for the database and 250 protected asset files.",
+    "The production ThreeDWebDeliveryBuilder completed npm ci, npm run build, browser QA and performance acceptance directly on encrypted project-execution storage; its temporary canary was removed.",
+    "A production host reboot was deliberately not attempted because the active key bundle is correctly absent from the host; the external custody bundle must first be available for post-boot tmpfs unlock."
+  ],
+  "summary_ar": "اكتمل القطع الحي FR-06B3B إلى الخزنتين المشفرتين مع final-delta مطابق وبقاء admission مغلقًا و11 جذر legacy للرجوع فقط. نجحت الصحة والصلاحيات و47 mount فعليًا ونسخة R2 مشفرة واستعادة مستقلة وبناء 3D إنتاجي وp95 النهائي 7.397ms، كما نجحت إعادة تشغيل Docker الحقيقية: الخدمات المحمية لم تعد تلقائيًا ثم أعادها guarded-start من المحاولة الأولى. المتبقي الوحيد لإغلاق FR-06B5 هو اختبار host reboot الفعلي، وهو محجوب بأمان لأن active key bundle ممسوح من الخادم حسب التصميم ويجب إعادة توفيره من الحفظ الخارجي إلى tmpfs قبل reboot/unlock. لم يفتح admission ولم يتغير Cloudflare ولم تحذف volumes القديمة.",
+  "next_action_ar": "وفّر active key bundle الخارجي فقط إلى tmpfs حسب runbook، ثم نفّذ host reboot recovery مع Docker fail-closed، guarded unlock، إزالة مدخل المفتاح، guarded-start جديد، وإعادة health/permissions/backup/build/p95. بعد نجاح ذلك سجّل إغلاق FR-06B5، ثم يتطلب فتح admission قرار مالك مستقل جديد؛ لا تحذف legacy volumes قبل نهاية نافذة rollback."
+}
