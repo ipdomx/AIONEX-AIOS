@@ -1,0 +1,37 @@
+{
+  "candidate_manifest": {
+    "aggregate_sha256": "f37da4801d1b764b8b661afcc5521419add54e125842857ac62c6c00eac6d967",
+    "directories": 25,
+    "payload_bytes": 40293202,
+    "regular_files": 975
+  },
+  "cipher": "aes-xts-plain64",
+  "closed_raw_plaintext_marker_absent": true,
+  "independent_recovery_key_open_passed": true,
+  "key_bits": 512,
+  "keys_only_on_tmpfs": true,
+  "luks2": true,
+  "online_raw_copy_performed": false,
+  "pbkdf": "argon2id",
+  "pg_wal_included": true,
+  "postgres_image": "aionex-aios-postgres:16-hardened",
+  "production_container_identity_unchanged": true,
+  "production_cutover_authorized": false,
+  "production_mutation_performed": false,
+  "production_pgdata_used": false,
+  "row_validated_after_active_open": true,
+  "row_validated_after_recovery_open": true,
+  "schema_version": 1,
+  "source_candidate_manifest_match": true,
+  "source_cluster_state_before_copy": "shut down",
+  "source_manifest": {
+    "aggregate_sha256": "f37da4801d1b764b8b661afcc5521419add54e125842857ac62c6c00eac6d967",
+    "directories": 25,
+    "payload_bytes": 40293202,
+    "regular_files": 975
+  },
+  "status": "isolated_database_physical_migration_recovery_pass",
+  "subpart": "FR-06C2A",
+  "temporary_resources_removed": true,
+  "wrong_key_rejected": true
+}

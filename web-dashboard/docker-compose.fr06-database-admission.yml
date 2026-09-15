@@ -1,0 +1,28 @@
+# FR-06C2 database-client restart gate.
+# Every database client remains restart:no so a host/Docker restart cannot race PostgreSQL vault unlock.
+services:
+  academy-course-worker: {restart: "no"}
+  audio-dubbing-worker: {restart: "no"}
+  audio-music-worker: {restart: "no"}
+  audio-song-worker: {restart: "no"}
+  audio-song-worker-secondary: {restart: "no"}
+  audio-speech-worker: {restart: "no"}
+  audio-transcript-worker: {restart: "no"}
+  backend: {restart: "no"}
+  backup-worker: {restart: "no"}
+  communication-worker: {restart: "no"}
+  design-image-derivative-worker: {restart: "no"}
+  design-image-worker: {restart: "no"}
+  identity-media-worker: {restart: "no"}
+  media-worker: {restart: "no"}
+  operations-observer: {restart: "no"}
+  postgres: {restart: "no"}
+  postgres-credential-reconciler: {restart: "no"}
+  project-worker: {restart: "no"}
+  security-remediation-worker: {restart: "no"}
+  security-scan-worker: {restart: "no"}
+  studio-worker: {restart: "no"}
+  telegram-worker: {restart: "no"}
+  three-d-worker: {restart: "no"}
+  user-telegram-worker: {restart: "no"}
+  video-provider-worker: {restart: "no"}

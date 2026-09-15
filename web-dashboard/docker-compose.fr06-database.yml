@@ -1,0 +1,24 @@
+# FR-06C2 source-only PostgreSQL data overlay.
+# Do not apply in production before the retained FR-06C2 recovery/cutover gates pass.
+services:
+  postgres:
+    restart: "no"
+    volumes:
+      - ..:/workspace:ro
+      - type: volume
+        source: fr06_database_vault
+        target: /var/lib/postgresql/data
+        read_only: false
+      - postgres_socket:/var/run/postgresql
+
+  postgres-credential-reconciler:
+    volumes:
+      - type: volume
+        source: fr06_database_vault
+        target: /var/lib/postgresql/data
+        read_only: false
+
+volumes:
+  fr06_database_vault:
+    external: true
+    name: aionex-fr06-database-vault
