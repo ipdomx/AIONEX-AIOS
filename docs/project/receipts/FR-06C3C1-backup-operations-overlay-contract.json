@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C3C1",
+  "implementation_status": "source_only_mapper_backed_overlays_and_validator",
+  "depends_on": ["FR-06C3A", "FR-06C3B"],
+  "accepted_compose_files": [
+    "docker-compose.production.yml",
+    "docker-compose.fr06-assets.yml",
+    "docker-compose.fr06-admission.yml",
+    "docker-compose.fr06-database.yml",
+    "docker-compose.fr06-database-admission.yml"
+  ],
+  "candidate_compose_files": [
+    "docker-compose.production.yml",
+    "docker-compose.fr06-assets.yml",
+    "docker-compose.fr06-admission.yml",
+    "docker-compose.fr06-database.yml",
+    "docker-compose.fr06-database-admission.yml",
+    "docker-compose.fr06-backup.yml",
+    "docker-compose.fr06-operations.yml",
+    "docker-compose.fr06-operations-admission.yml"
+  ],
+  "local_backup": {
+    "legacy_compose_volume": "backup_data",
+    "legacy_runtime_volume": "web-dashboard_backup_data",
+    "candidate_compose_volume": "fr06_local_backup_vault",
+    "candidate_docker_volume": "aionex-fr06-local-backup-vault",
+    "candidate_mapper": "/dev/mapper/aionex-local-backup-vault",
+    "candidate_subpath": "backups",
+    "target": "/var/lib/aionex/backups",
+    "mount_options": ["nodev", "nosuid", "noexec"],
+    "consumers": {
+      "backend": "ro",
+      "backup-worker": "rw"
+    }
+  },
+  "operations": {
+    "legacy_redis_compose_volume": "redis_data",
+    "legacy_redis_runtime_volume": "web-dashboard_redis_data",
+    "candidate_compose_volume": "fr06_operations_vault",
+    "candidate_docker_volume": "aionex-fr06-operations-vault",
+    "candidate_mapper": "/dev/mapper/aionex-operations-vault",
+    "candidate_subpath": "redis",
+    "target": "/data",
+    "mount_options": ["nodev", "nosuid", "noexec"],
+    "redis_restart_policy": "no",
+    "legacy_aof_copy_authorized": false,
+    "recovery_policy": "empty_or_explicitly_reconciled_from_durable_authorities"
+  },
+  "validation": {
+    "all_profiles_required": true,
+    "legacy_backup_mounts_after_candidate": 0,
+    "legacy_redis_mounts_after_candidate": 0,
+    "unrelated_service_drift_allowed": false,
+    "unrelated_top_level_drift_allowed": false,
+    "production_execution_capability": false
+  },
+  "scope_boundary": {
+    "production_vault_created": false,
+    "production_data_copied": false,
+    "production_redis_flushed": false,
+    "production_service_restarted": false,
+    "production_logs_moved": false,
+    "cloudflare_changed": false,
+    "fr06_completed": false
+  },
+  "next_subpart": "FR-06C3C2 guarded empty-vault provisioning and external custody source"
+}

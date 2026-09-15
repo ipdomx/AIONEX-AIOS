@@ -1,0 +1,23 @@
+# FR-06C3C1 additive local-backup vault overlay. Apply only after guarded provisioning/cutover gates pass.
+services:
+  backend:
+    volumes:
+      - type: volume
+        source: fr06_local_backup_vault
+        target: /var/lib/aionex/backups
+        read_only: true
+        volume:
+          subpath: backups
+  backup-worker:
+    volumes:
+      - type: volume
+        source: fr06_local_backup_vault
+        target: /var/lib/aionex/backups
+        read_only: false
+        volume:
+          subpath: backups
+
+volumes:
+  fr06_local_backup_vault:
+    external: true
+    name: aionex-fr06-local-backup-vault
