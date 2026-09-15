@@ -53,7 +53,7 @@ VAULTS: tuple[dict[str, Any], ...] = (
         "mount_root": Path("/mnt/aionex/fr06-asset-vault"),
         "mount_options": ("nodev", "nosuid", "noexec"),
         "volume": "aionex-fr06-asset-vault",
-        "fs_label": "AIONEX_FR06_ASSET",
+        "fs_label": "AIONEX06_ASSET",
         "bundle_field": "asset_vault",
     },
     {
@@ -65,7 +65,7 @@ VAULTS: tuple[dict[str, Any], ...] = (
         "mount_root": Path("/mnt/aionex/fr06-project-execution-vault"),
         "mount_options": ("nodev", "nosuid"),
         "volume": "aionex-fr06-project-execution-vault",
-        "fs_label": "AIONEX_FR06_PROJECT",
+        "fs_label": "AIONEX06_PROJECT",
         "bundle_field": "project_execution_vault",
     },
 )
@@ -279,6 +279,16 @@ def _validate_window(start_text: str, end_text: str, now: datetime) -> None:
         raise ProvisionBlocked("current time is outside the approved maintenance window")
 
 
+def _existing_ancestor(path: Path) -> Path:
+    candidate = path
+    while not candidate.exists():
+        parent = candidate.parent
+        if parent == candidate:
+            raise ProvisionError("no existing ancestor for capacity check")
+        candidate = parent
+    return candidate
+
+
 def _preflight(args: argparse.Namespace) -> tuple[dict[str, Any], str, str]:
     if os.geteuid() != 0 or args.root.resolve() != PRODUCTION_ROOT:
         raise ProvisionBlocked("production provisioning requires root and /opt/AIOS")
@@ -300,7 +310,7 @@ def _preflight(args: argparse.Namespace) -> tuple[dict[str, Any], str, str]:
         raise ProvisionBlocked("all four production keys must be independent")
     del active, recovery, all_keys
     required = sum(int(v["size_bytes"]) for v in VAULTS) + 8 * GIB
-    free = shutil.disk_usage(IMAGE_ROOT.parent if IMAGE_ROOT.parent.exists() else Path("/var/lib/aionex")).free
+    free = shutil.disk_usage(_existing_ancestor(IMAGE_ROOT.parent)).free
     if free < required:
         raise ProvisionBlocked("insufficient free space for non-sparse vaults and safety reserve")
     now = _utc_now()

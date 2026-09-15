@@ -52,6 +52,16 @@ def test_fr06b4_fixed_vault_layout_matches_prior_contracts() -> None:
     assert vaults["project-execution-vault"]["protected_root_count"] == 1
 
 
+def test_ext4_labels_fit_limit_and_capacity_check_uses_existing_ancestor(tmp_path: Path) -> None:
+    module = _module()
+    labels = [vault["fs_label"] for vault in module.VAULTS]
+    assert labels == ["AIONEX06_ASSET", "AIONEX06_PROJECT"]
+    assert all(len(label.encode("utf-8")) <= 16 for label in labels)
+    existing = tmp_path / "existing"
+    existing.mkdir()
+    assert module._existing_ancestor(existing / "missing" / "nested") == existing
+
+
 def test_fr06b4_crypto_and_external_custody_are_fail_closed() -> None:
     crypto = _json(CONTRACT)["cryptography"]
     assert crypto == {
