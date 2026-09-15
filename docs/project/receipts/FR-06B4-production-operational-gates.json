@@ -1,0 +1,84 @@
+{
+  "event_id": "FR06B4-operational-gates-20260915",
+  "batch_id": "FR-06",
+  "subpart": "FR-06B4",
+  "status": "in_progress",
+  "subpart_completed": true,
+  "parent_batch_completed": false,
+  "implementation_commits": {
+    "production_gates_merge": "68090ed829f85258c23e08536ba04eb0e1b48028",
+    "ext4_label_fix_merge": "c7295e483304a76b29850f617d92e73dfcebb0db"
+  },
+  "protected_checks_passed": true,
+  "protected_check_count": 12,
+  "main_checks_passed": true,
+  "main_workflow_count": 5,
+  "verification_passed": true,
+  "deployment_verified": true,
+  "production_changed": true,
+  "runtime_cutover_performed": false,
+  "admission_opened": false,
+  "cloudflare_changed": false,
+  "fresh_recovery": {
+    "backup_id": "1934341e-ec57-4d66-a15a-c61d13282e8e",
+    "backup_status": "completed",
+    "offsite_status": "completed",
+    "completed_at": "2026-09-15T06:47:08Z",
+    "restore_run_id": "c801b6bc-b43e-4c1e-acec-500a2a8764b9",
+    "restore_status": "completed",
+    "restore_completed_at": "2026-09-15T06:47:48Z"
+  },
+  "owner_alert": {
+    "notification_id": "2b8df517-6848-4b95-aa1a-97595ed18bd7",
+    "in_app": "delivered",
+    "telegram": "delivered",
+    "delivered_at": "2026-09-15T06:48:39Z"
+  },
+  "vaults": {
+    "provisioned_at": "2026-09-15T07:43:53Z",
+    "status": "FR06B4_VAULTS_READY",
+    "asset_vault_bytes": 68719476736,
+    "project_execution_vault_bytes": 34359738368,
+    "luks2": true,
+    "keyslot_count_each": 2,
+    "protected_root_count": 11,
+    "candidate_consumers": 0
+  },
+  "header_custody": {
+    "generation": "f6cec53a78020a411845210699f709b7",
+    "object_count": 2,
+    "full_readback_verified": true,
+    "metadata_and_sha256_matched": true,
+    "asset_header_ref": "r2://private/aionex-production/fr06b4/luks2-headers/f6cec53a78020a411845210699f709b7/aionex-asset-vault.header",
+    "project_header_ref": "r2://private/aionex-production/fr06b4/luks2-headers/f6cec53a78020a411845210699f709b7/aionex-project-execution-vault.header",
+    "local_tmpfs_copies_removed": true
+  },
+  "recovery_proof": {
+    "status": "independent_recovery_keys_proved",
+    "receipt": "/var/lib/aionex/fr06b4/recovery-proof.json",
+    "active_reopen_passed": true,
+    "recovery_open_passed": true,
+    "tmpfs_key_inputs_removed": true
+  },
+  "docker_restart_gate": {
+    "drop_in": "/etc/systemd/system/docker.service.d/30-aionex-fr06-vault-gate.conf",
+    "sha256": "5822582feab7a0fd11c529f0384b559b7d155d095c677767fb50e6462613bf50",
+    "host_gate_validation": "FR06B4_HOST_VAULTS_READY",
+    "daemon_restart_passed": true,
+    "restarted_at": "2026-09-15T08:23:48Z",
+    "all_expected_runtime_services_returned_healthy": true,
+    "cloudflared_up": true
+  },
+  "evidence": [
+    "PR #677 and PR #678 passed all 12 protected checks and their exact post-merge main workflows passed.",
+    "Fresh encrypted R2 backup 1934341e-ec57-4d66-a15a-c61d13282e8e and independent restore c801b6bc-b43e-4c1e-acec-500a2a8764b9 completed.",
+    "Owner-visible FR-06B4 test notification was delivered through in_app and telegram.",
+    "Two production LUKS2 vaults were provisioned with two independent keyslots each while services remained untouched and admission remained closed.",
+    "Both LUKS2 headers were fully read back from distinct private R2 objects and matched local size, metadata, and SHA-256.",
+    "Both recovery keys opened their vaults and both active keys reopened them; tmpfs key inputs and local header staging copies were removed.",
+    "The Docker ExecStartPre fail-closed gate was installed, daemon-reload completed, and one Docker daemon restart returned all expected healthchecked services to healthy.",
+    "No live protected data was copied, no candidate consumer was started, admission stayed closed, and Cloudflare was unchanged."
+  ],
+  "summary_ar": "اكتملت بوابات FR-06B4 التشغيلية قبل القطع الحي: نجحت نسخة R2 مشفرة واستعادة مستقلة حديثتان، ووصل تنبيه المالك داخل التطبيق وTelegram، وأُنشئت خزانتان LUKS2 للإنتاج بسعتي 64 و32 GiB مع مفتاحين مستقلين لكل خزنة و11 جذرًا محميًا. تحققنا من نسختي رؤوس LUKS2 على R2 بقراءة كاملة وتطابق الحجم والبيانات الوصفية وSHA-256، ثم نجح فتح الخزانتين بمفاتيح الاسترداد وإعادة فتحهما بالمفاتيح النشطة، ومُسحت مدخلات المفاتيح ونسخ الرؤوس المؤقتة من الذاكرة. ثُبتت بوابة Docker fail-closed وأثبتت إعادة تشغيل daemon واحدة عودة جميع الخدمات المتوقعة سليمة. لم يُنقل أي بيانات حية، ولم يُفتح القبول، ولم يتغير Cloudflare؛ تبقى FR-06B وFR-06 مفتوحتين إلى حين القطع المحكوم والقبول.",
+  "next_action_ar": "أنشئ دليل preflight إنتاجي حديث وخطة FR-06B3B أحادية الاستخدام، ثم نفّذ final-delta والقطع المحكوم إلى الخزانتين حتى candidate_started_admission_closed فقط. بعد ذلك اختبر الصحة والصلاحيات والنسخ والبناء وp95، ولا تفتح admission إلا بقرار مالك مستقل مع بقاء rollback جاهزًا."
+}
