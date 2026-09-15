@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C3A",
+  "status": "live_read_only_inventory_complete_source_candidate",
+  "observed_at": "2026-09-15T16:41:00Z",
+  "production_mutation_performed": false,
+  "cloudflare_changed": false,
+  "local_backup_domain": {
+    "vault": "local-backup-vault",
+    "legacy_runtime_volume": "web-dashboard_backup_data",
+    "container_target": "/var/lib/aionex/backups",
+    "payload_bytes": 688822351,
+    "regular_file_count": 67,
+    "symlink_count": 0,
+    "planned_vault_bytes": 17179869184,
+    "readers": ["backend"],
+    "writers": ["backup-worker"],
+    "backend_access": "read_only",
+    "backup_worker_access": "read_write",
+    "cutover_rule": "require no active backup/restore work, stop backup-worker, seal source, exact offline manifest copy into mapper-backed local-backup-vault, switch backend read-only and backup-worker read-write, retain source read-only, then require a new encrypted offsite backup and independent restore before closure"
+  },
+  "operations_domain": {
+    "vault": "operations-vault",
+    "redis_runtime_volume": "web-dashboard_redis_data",
+    "redis_container_target": "/data",
+    "redis_payload_bytes": 16346977,
+    "redis_regular_file_count": 4,
+    "redis_symlink_count": 0,
+    "redis_dbsize": 2,
+    "redis_aof_enabled": true,
+    "redis_aof_current_size_bytes": 16346614,
+    "redis_appendfsync": "everysec",
+    "redis_maxmemory_policy": "noeviction",
+    "redis_aof_last_rewrite_status": "ok",
+    "redis_rebuildable_from_durable_authorities": true,
+    "planned_vault_bytes": 8589934592,
+    "host_log_bytes": 874753939,
+    "journald_bytes_approx": 506986496,
+    "rsyslog_active": true,
+    "docker_json_logs_excluded_to_container_runtime_domain": true,
+    "cutover_rule": "do not copy stale Redis queues as authority; start the encrypted Redis candidate empty or from an explicitly reconciled safe operational snapshot, then rebuild volatile runtime state from PostgreSQL/durable authorities. Retained sanitized non-container operational logs move to operations-vault or become volatile before FR-06 closure"
+  },
+  "consistency": {
+    "backup_data_is_authoritative_local_recovery_cache": true,
+    "offsite_r2_remains_independent_recovery_authority": true,
+    "redis_is_not_disaster_recovery_authority": true,
+    "redis_raw_live_copy_allowed": false,
+    "backup_raw_live_copy_while_writer_active_allowed": false,
+    "legacy_sources_deleted_by_c3a": false
+  },
+  "required_order": [
+    "FR-06C3A live read-only inventory and contracts",
+    "FR-06C3B isolated local-backup physical migration and Redis empty/reconciliation rehearsal",
+    "FR-06C3C protected source overlays plus guarded provisioning/cutover executors",
+    "FR-06C3D production local-backup-vault cutover with new encrypted backup and independent restore",
+    "FR-06C3E production operations-vault Redis/log policy cutover and acceptance"
+  ],
+  "release_boundary": "FR-06 remains open. C3A is read-only and authorizes no production vault creation, copy, service stop, Redis flush, log move or Cloudflare change.",
+  "parent_batch_completed": false,
+  "subpart_completed": false
+}
