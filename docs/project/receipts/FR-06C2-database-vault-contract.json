@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C2",
+  "status": "source_candidate_after_fr06c1_closure",
+  "purpose": "Move PostgreSQL PGDATA including pg_wal to a dedicated mapper-backed LUKS2 domain with external key custody, exact offline copy, independent recovery proof and reversible cutover.",
+  "vault": {
+    "role": "database-vault",
+    "image": "/var/lib/aionex/fr06-vaults/database-vault.luks2",
+    "preallocated_non_sparse_bytes": 17179869184,
+    "mapper": "/dev/mapper/aionex-database-vault",
+    "mapper_name": "aionex-database-vault",
+    "mount_root": "/mnt/aionex/fr06-database-vault",
+    "target_subpath": "pgdata",
+    "docker_volume": "aionex-fr06-database-vault",
+    "filesystem": "ext4",
+    "filesystem_label": "AIONEX_DB_VAULT",
+    "mount_options": [
+      "nodev",
+      "nosuid",
+      "noexec"
+    ],
+    "source_volume": "web-dashboard_postgres_data",
+    "source_mount_target": "/var/lib/postgresql/data"
+  },
+  "crypto": {
+    "format": "LUKS2",
+    "cipher": "aes-xts-plain64",
+    "key_bits": 512,
+    "pbkdf": "argon2id",
+    "active_and_recovery_keys_independent": true,
+    "production_key_persistence_on_root_allowed": false,
+    "off_host_header_backup_required": true,
+    "header_and_recovery_key_custody_must_be_separate": true
+  },
+  "consistency": {
+    "raw_online_pgdata_copy_allowed": false,
+    "fresh_encrypted_r2_backup_and_independent_restore_required_before_cutover": true,
+    "all_database_clients_stopped_before_final_copy": true,
+    "postgres_clean_shutdown_required": true,
+    "postmaster_pid_must_be_absent": true,
+    "source_and_candidate_file_manifest": [
+      "relative_path",
+      "size",
+      "mode",
+      "uid",
+      "gid",
+      "sha256"
+    ],
+    "pg_wal_must_be_nonempty_and_included": true,
+    "candidate_postgres_must_start_before_any_application_client": true,
+    "candidate_validation": [
+      "pg_isready",
+      "database identity",
+      "Alembic head",
+      "selected table counts",
+      "read-only query",
+      "PGDATA and pg_wal ownership/mode"
+    ],
+    "legacy_source_retained_read_only": true
+  },
+  "compose": {
+    "base_file_unchanged": true,
+    "additive_overlay_planned": "web-dashboard/docker-compose.fr06-database.yml",
+    "affected_definitions": [
+      "postgres",
+      "postgres-credential-reconciler"
+    ],
+    "postgres_data_legacy_mounts_after_overlay": 0,
+    "postgres_socket_remains_ephemeral": true,
+    "plain_host_bind_fallback_allowed": false
+  },
+  "rollback": {
+    "before_application_clients_start": "Stop candidate PostgreSQL, remove candidate consumer, start retained legacy PostgreSQL; no reverse copy is needed because no application write was admitted.",
+    "after_application_clients_start": "Close admission, stop every database client and PostgreSQL, take exact stable reverse delta from encrypted PGDATA to the retained legacy source, verify manifests, then restore the legacy mount and clients.",
+    "legacy_data_deleted_during_fr06c2": false,
+    "candidate_evidence_deleted_on_failure": false
+  },
+  "parts": [
+    "FR-06C2A protected source contract and isolated synthetic PostgreSQL/LUKS migration lab",
+    "FR-06C2B production vault provisioning, external active/recovery custody and off-host header readback; no PGDATA copied",
+    "FR-06C2C guarded production cutover executor with plan/apply/rollback and isolated failure-path rehearsal",
+    "FR-06C2D fresh R2 recovery gate, live offline PGDATA cutover, candidate-only DB validation, application restart, p95/backup/restore acceptance"
+  ],
+  "isolated_lab": {
+    "status": "passed",
+    "synthetic_only": true,
+    "source_file_count": 1273,
+    "manifest_match": true,
+    "active_key_open": true,
+    "wrong_key_rejected": true,
+    "recovery_key_reopen": true,
+    "postgres_start_on_encrypted_noexec_mount": true,
+    "synthetic_rows_verified": 2,
+    "pg_wal_bytes": 16777216,
+    "payload_bytes": 47770325,
+    "final_copy_ms": 159,
+    "production_data_touched": false,
+    "production_services_touched": false,
+    "receipt": "docs/project/receipts/FR-06C2-isolated-database-vault-lab.json",
+    "script": "scripts/security/fr06c2_database_vault_lab.sh",
+    "source_script_rehearsal_passed": true
+  },
+  "production_authorization": false,
+  "next_gate": "FR-06C2A source must pass protected PR checks, merge without bypass, and pass exact post-merge main checks before any production database vault/key/header is created or production PostgreSQL is stopped.",
+  "source_baseline": "057990cca92d2716d0a0242dbeab216e240600a0",
+  "requires_fr06c2a_postmerge_before_production_provisioning": true
+}
