@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C3C7",
+  "implementation_status": "source_only_guarded_volatile_log_activation_executor",
+  "depends_on": ["FR-06C3C5", "FR-06C3C6"],
+  "executor": {
+    "path": "scripts/security/fr06c3_log_policy.py",
+    "commands": ["inspect-runtime", "plan", "apply", "rollback"],
+    "state_root": "/var/lib/aionex/fr06c3-log-policy",
+    "single_use_plan": true,
+    "maximum_plan_ttl_seconds": 900,
+    "exclusive_nonblocking_lock": true,
+    "production_apply_confirmation": "FR06C3_PRODUCTION_VOLATILE_LOG_CUTOVER",
+    "production_rollback_confirmation": "FR06C3_PRODUCTION_VOLATILE_LOG_ROLLBACK",
+    "source_merge_changes_systemd": false,
+    "source_merge_restarts_services": false
+  },
+  "apply_order": [
+    "require accepted Redis/operations cutover closeout and operations-vault host readiness",
+    "require exact protected main and fresh production evidence",
+    "stop rsyslog to close persistent file descriptors",
+    "install repository-pinned journald volatile drop-in and var-log.mount atomically",
+    "daemon-reload and restart journald into Storage=volatile",
+    "enable and start var-log.mount so /var/log is tmpfs",
+    "recreate expected volatile log directories with systemd-tmpfiles",
+    "restart rsyslog so any compatibility file outputs land on tmpfs",
+    "verify tmpfs type/options, volatile journald source and active rsyslog",
+    "retain hidden plaintext underlay only as rollback/remanence evidence; do not claim secure erasure"
+  ],
+  "rollback": {
+    "stops_rsyslog_before_unmount": true,
+    "stops_var_log_mount": true,
+    "removes_only_exact_executor_installed_sources": true,
+    "restarts_journald_and_rsyslog_on_legacy_log_path": true,
+    "deletes_historical_log_underlay": false,
+    "secure_erase_claimed": false
+  },
+  "scope_boundary": {
+    "source_merge_applies_policy": false,
+    "source_merge_moves_logs": false,
+    "source_merge_changes_cloudflare": false,
+    "source_merge_opens_admission": false,
+    "fr06_completed": false
+  }
+}
