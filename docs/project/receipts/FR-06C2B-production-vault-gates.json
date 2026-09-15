@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C2B",
+  "depends_on": [
+    "FR-06C2A"
+  ],
+  "implementation_status": "source_only_provisioning_recovery_and_boot_gate",
+  "purpose": "Provision and prove recovery of the empty production database-vault before any production PostgreSQL cutover.",
+  "executor": {
+    "path": "scripts/security/fr06c2_database_vault_provision.py",
+    "commands": [
+      "plan",
+      "apply",
+      "prove-recovery",
+      "status",
+      "unlock",
+      "wipe-inputs"
+    ],
+    "production_root": "/opt/AIOS",
+    "state_root": "/var/lib/aionex/fr06c2",
+    "runtime_root": "/run/aionex-fr06c2",
+    "key_input_root": "/dev/shm/aionex-fr06c2-keys",
+    "maximum_plan_ttl_seconds": 900,
+    "maximum_evidence_age_seconds": 3600,
+    "maximum_maintenance_window_seconds": 14400,
+    "single_use_plan": true,
+    "exclusive_nonblocking_lock": true,
+    "dynamic_confirmation": true,
+    "second_production_confirmation": "PROVISION_FR06C2_DATABASE_VAULT",
+    "post_boot_unlock_confirmation": "UNLOCK_FR06C2_DATABASE_VAULT",
+    "accepts_key_material_only_from_tmpfs": true,
+    "prints_or_persists_key_material": false,
+    "stops_or_restarts_services": false,
+    "copies_production_pgdata": false,
+    "changes_cloudflare": false
+  },
+  "vault": {
+    "role": "database-vault",
+    "image": "/var/lib/aionex/fr06-vaults/database-vault.luks2",
+    "preallocated_non_sparse_bytes": 17179869184,
+    "mapper": "/dev/mapper/aionex-database-vault",
+    "mount_root": "/mnt/aionex/fr06-database-vault",
+    "target_subpath": "pgdata",
+    "filesystem": "ext4",
+    "filesystem_label": "AIONEX06_DB",
+    "mount_options": [
+      "nodev",
+      "nosuid",
+      "noexec"
+    ],
+    "docker_volume": "aionex-fr06-database-vault"
+  },
+  "cryptography": {
+    "format": "LUKS2",
+    "cipher": "aes-xts-plain64",
+    "key_bits": 512,
+    "pbkdf": "argon2id",
+    "independent_active_and_recovery_keys": true,
+    "exact_keyslot_count": 2,
+    "production_keys_on_unencrypted_root_allowed": false,
+    "key_input_tmpfs_only": true,
+    "header_staging_tmpfs_only": true,
+    "header_offhost_full_readback_required": true,
+    "header_custody_separate_from_recovery_key": true
+  },
+  "fresh_recovery_evidence": {
+    "client_side_encrypted_r2_backup_required": true,
+    "independent_restore_validation_required": true,
+    "maximum_age_seconds": 3600,
+    "raw_key_material_forbidden": true
+  },
+  "header_custody_executor": {
+    "path": "scripts/security/fr06c2_database_header_custody.py",
+    "execution_boundary": "existing backup-worker container with private R2 credential mount",
+    "fixed_input_root": "/run/aionex-fr06c2-headers",
+    "accepts_key_material": false,
+    "requires_new_object_key": true,
+    "verifies_head_metadata": true,
+    "verifies_full_object_readback_sha256": true
+  },
+  "docker_restart_gate": {
+    "repository_drop_in": "deploy/systemd/docker.service.d/31-aionex-fr06c2-database-gate.conf",
+    "control": "Docker ExecStartPre checks the database mapper, ext4 label, mount options and pgdata subpath before daemon start.",
+    "installation_during_c2b_provisioning_allowed": false,
+    "installation_gate": "Only after PostgreSQL production cutover has succeeded and legacy rollback remains retained.",
+    "missing_mapper_behavior": "docker.service fails closed before daemon start once this gate is installed"
+  },
+  "production_gate_order": [
+    "FR-06C2A protected source and isolated lab are merged",
+    "FR-06C2B protected PR head and exact post-merge main pass",
+    "fresh encrypted R2 backup and independent restore validation pass within 3600 seconds",
+    "active and recovery database-vault key bundles exist as distinct external custody items",
+    "owner authorization and bounded maintenance window are current",
+    "empty database-vault plan and apply succeed without stopping PostgreSQL or any client",
+    "LUKS2 header is uploaded off-host and fully read-back verified",
+    "recovery key opens the empty vault and active key reopens it",
+    "tmpfs key inputs and local header staging copy are removed",
+    "production PGDATA cutover remains separately blocked until FR-06C2C"
+  ],
+  "failure_policy": {
+    "before_success_receipt": "Remove only database-vault artifacts created by the failed invocation.",
+    "after_success_receipt": "Retain encrypted candidate and evidence; do not delete legacy PGDATA or install the Docker gate yet.",
+    "stale_or_partial_recovery_evidence": "block",
+    "missing_external_custody": "block"
+  },
+  "scope_boundary": {
+    "production_pgdata_read_or_copied": false,
+    "production_postgres_stopped": false,
+    "database_clients_stopped": false,
+    "candidate_postgres_started": false,
+    "docker_gate_installed": false,
+    "cloudflare_changed": false,
+    "parent_fr06_completed": false
+  }
+}
