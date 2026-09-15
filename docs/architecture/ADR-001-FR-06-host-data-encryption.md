@@ -189,3 +189,13 @@ gates.
 This decision protects closed vaults from offline storage access. It is not
 full-disk encryption and does not protect data from live root or an authorized
 service after unlock.
+
+## FR-06C1 refinement: containerd runtime store and clean reconstruction
+
+The live C1 inventory on 2026-09-15 corrected the original runtime-size assumption. Docker reports `/var/lib/docker` as its Docker root, but Docker 29 stores image content and overlay snapshots under `/var/lib/containerd` on this host. The retained historical containerd tree was about 398.6 GB while the root had about 322 GB free. Copying that tree into a new preallocated vault while also retaining it for rollback is therefore rejected as an unsafe capacity plan.
+
+Container image layers, old snapshots and build cache are rebuildable runtime material rather than durable user authority. FR-06C will construct `container-runtime-vault` cleanly from the exact protected source and pinned/pullable image authorities after PostgreSQL, Redis, backups and authoritative named volumes are already externalized to their own encrypted domains. Only the images required by the accepted runtime are rebuilt or pulled; historical build cache and unused layer history are not migrated. Five currently running services whose old image metadata has already been pruned must be rebuilt before the runtime cutover, so their running snapshots are never presented as a reproducible recovery source.
+
+The C1 candidate size for the clean runtime vault is 64 GiB. This is a capacity starting point, not an unconditional allocation: the cutover must re-measure required images and free space, build the candidate runtime independently, and prove that it can recreate the complete accepted Compose topology before the old runtime is stopped. Missing runtime mapper behavior remains fail-closed.
+
+C1 also records a narrow bootstrapping boundary for `host-state-vault`: the MCP control tunnel must return before application vault unlock so an operator can recover a rebooted host. Until a separately trusted KMS/TPM-like bootstrap exists, the minimal credential required solely for that out-of-band control channel is an explicit residual risk rather than a false encryption claim. Application/provider/user secrets are not covered by that exception. FR-23 must review and, if feasible, rotate or further isolate the management bootstrap credential.
