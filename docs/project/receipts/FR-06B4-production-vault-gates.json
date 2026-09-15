@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06B4",
+  "depends_on": [
+    "FR-06B1",
+    "FR-06B2",
+    "FR-06B3A",
+    "FR-06B3B"
+  ],
+  "implementation_status": "protected_source_candidate_only",
+  "purpose": "Provision the two fixed production LUKS2 vaults and satisfy recovery and restart gates before the already-implemented guarded data cutover.",
+  "executor": {
+    "path": "scripts/security/fr06b4_vault_provision.py",
+    "commands": [
+      "plan",
+      "apply",
+      "prove-recovery",
+      "unlock",
+      "status",
+      "wipe-inputs"
+    ],
+    "production_root": "/opt/AIOS",
+    "state_root": "/var/lib/aionex/fr06b4",
+    "runtime_root": "/run/aionex-fr06b4",
+    "key_input_root": "/dev/shm/aionex-fr06b4-keys",
+    "maximum_plan_ttl_seconds": 900,
+    "maximum_maintenance_window_seconds": 14400,
+    "single_use_plan": true,
+    "exclusive_nonblocking_lock": true,
+    "dynamic_confirmation": true,
+    "second_production_confirmation": "PROVISION_FR06B4_PRODUCTION",
+    "post_boot_unlock_confirmation": "UNLOCK_FR06B4_PRODUCTION",
+    "post_boot_unlock_starts_docker_or_services": false,
+    "accepts_key_material_only_from_tmpfs": true,
+    "prints_or_persists_key_material": false,
+    "stops_or_restarts_services": false,
+    "copies_live_data": false,
+    "opens_admission": false,
+    "changes_cloudflare": false
+  },
+  "header_custody_executor": {
+    "path": "scripts/security/fr06b4_header_custody.py",
+    "execution_boundary": "existing backup-worker container with its private R2 credential mount",
+    "fixed_input_root": "/run/aionex-fr06b4-headers",
+    "accepts_key_material": false,
+    "requires_new_object_keys": true,
+    "verifies_head_metadata": true,
+    "verifies_full_object_readback_sha256": true,
+    "prints_credentials": false
+  },
+  "vaults": [
+    {
+      "role": "asset-vault",
+      "image": "/var/lib/aionex/fr06-vaults/asset-vault.luks2",
+      "preallocated_non_sparse_bytes": 68719476736,
+      "mapper": "/dev/mapper/aionex-asset-vault",
+      "mount_root": "/mnt/aionex/fr06-asset-vault",
+      "filesystem": "ext4",
+      "mount_options": [
+        "nodev",
+        "nosuid",
+        "noexec"
+      ],
+      "docker_volume": "aionex-fr06-asset-vault",
+      "protected_root_count": 10
+    },
+    {
+      "role": "project-execution-vault",
+      "image": "/var/lib/aionex/fr06-vaults/project-execution-vault.luks2",
+      "preallocated_non_sparse_bytes": 34359738368,
+      "mapper": "/dev/mapper/aionex-project-execution-vault",
+      "mount_root": "/mnt/aionex/fr06-project-execution-vault",
+      "filesystem": "ext4",
+      "mount_options": [
+        "nodev",
+        "nosuid"
+      ],
+      "forbidden_mount_options": [
+        "noexec"
+      ],
+      "docker_volume": "aionex-fr06-project-execution-vault",
+      "protected_root_count": 1
+    }
+  ],
+  "cryptography": {
+    "format": "LUKS2",
+    "cipher": "aes-xts-plain64",
+    "key_bits": 512,
+    "pbkdf": "argon2id",
+    "independent_active_and_recovery_key_per_vault": true,
+    "exact_keyslot_count": 2,
+    "active_and_recovery_bundles_must_be_distinct_external_library_items": true,
+    "production_keys_on_unencrypted_root_allowed": false,
+    "header_staging_allowed_only_on_tmpfs": true,
+    "header_backups_must_be_uploaded_to_two_distinct_off_host_objects": true,
+    "header_backups_must_not_share_custody_with_recovery_keys": true
+  },
+  "docker_restart_gate": {
+    "repository_drop_in": "deploy/systemd/docker.service.d/30-aionex-fr06-vault-gate.conf",
+    "control": "Docker ExecStartPre invokes the Docker-independent, read-only status --require-host-ready check on every daemon start.",
+    "missing_mapper_or_mount_behavior": "docker.service fails closed before the daemon starts",
+    "host_gate_checks": "exact mappers, LUKS activity, ext4 labels, mount sources, mount options, and all eleven subpaths",
+    "docker_volume_options_checked_after_daemon_start_before_candidate_start": true,
+    "post_boot_recovery": "operator re-materializes the external active bundle into the fixed tmpfs root, runs the guarded unlock command while Docker is stopped, removes the tmpfs bundle, then starts Docker through this host gate",
+    "installation_is_separate_from_source_merge": true,
+    "installation_requires_both_external_header_receipts_and_recovery_key_proof": true,
+    "daemon_restart_and_host_boot_must_be_observed_before_admission": true
+  },
+  "production_gate_order": [
+    "protected PR head passes",
+    "exact post-merge main passes",
+    "fresh encrypted R2 backup and independent restore pass within 3600 seconds",
+    "active and recovery key bundles exist as distinct external custody items outside server and R2",
+    "owner-visible out-of-band alert is received",
+    "owner authorization and bounded maintenance window are current",
+    "vault plan and apply succeed while all production services remain untouched",
+    "both LUKS2 header backups are independently uploaded and read-back verified off-host",
+    "both recovery keys open their respective vaults and active keys reopen them",
+    "tmpfs key inputs are removed",
+    "Docker restart gate is installed and verified",
+    "FR-06B3B guarded cutover stops at candidate_started_admission_closed",
+    "Docker daemon restart and host boot recovery pass while admission remains closed",
+    "health, permissions, backup, governed build, and p95 regression at or below 15 percent pass",
+    "a new independent owner decision is required before opening admission"
+  ],
+  "failure_policy": {
+    "before_success_receipt": "Remove only Docker volumes, mounts, mappers, and image files newly created by the failed invocation.",
+    "after_success_receipt": "Retain encrypted images and evidence; use FR-06B3B rollback for data-path rollback and do not delete plaintext legacy volumes.",
+    "partial_or_stale_evidence": "block",
+    "missing_external_custody": "block",
+    "performance_regression_over_percent": 15
+  },
+  "admission": {
+    "remains_closed_by_this_subpart": true,
+    "cloudflare_change_permitted": false,
+    "separate_owner_decision_required": true
+  },
+  "next_action": "Merge this protected source batch, then create fresh production recovery and external-custody evidence before provisioning. Do not run the guarded data cutover until every preceding gate is fresh and verified."
+}
