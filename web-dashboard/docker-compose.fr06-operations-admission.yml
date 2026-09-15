@@ -1,0 +1,4 @@
+# Redis must not auto-restore before operations-vault admission/reconciliation is revalidated.
+services:
+  redis:
+    restart: "no"

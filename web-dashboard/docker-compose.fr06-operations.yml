@@ -1,0 +1,15 @@
+# FR-06C3C1 additive Redis operations-vault overlay. Never copy legacy Redis AOF into this candidate as authority.
+services:
+  redis:
+    volumes:
+      - type: volume
+        source: fr06_operations_vault
+        target: /data
+        read_only: false
+        volume:
+          subpath: redis
+
+volumes:
+  fr06_operations_vault:
+    external: true
+    name: aionex-fr06-operations-vault
