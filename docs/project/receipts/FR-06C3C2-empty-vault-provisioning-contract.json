@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C3C2",
+  "implementation_status": "source_only_guarded_empty_vault_provisioning_and_header_custody",
+  "depends_on": ["FR-06C3C1"],
+  "executor": {
+    "path": "scripts/security/fr06c3_vault_provision.py",
+    "commands": ["plan", "apply", "prove-recovery", "status", "wipe-inputs"],
+    "production_root": "/opt/AIOS",
+    "state_root": "/var/lib/aionex/fr06c3",
+    "runtime_root": "/run/aionex-fr06c3",
+    "key_input_root": "/dev/shm/aionex-fr06c3-keys",
+    "maximum_plan_ttl_seconds": 900,
+    "single_use_plan": true,
+    "exclusive_nonblocking_lock": true,
+    "dynamic_confirmation": true,
+    "production_confirmation": "PROVISION_FR06C3_EMPTY_VAULTS",
+    "production_data_copy_capability": false,
+    "service_stop_or_restart_capability": false,
+    "redis_flush_capability": false,
+    "log_move_capability": false,
+    "cloudflare_change_capability": false
+  },
+  "vaults": [
+    {
+      "role": "local-backup-vault",
+      "image": "/var/lib/aionex/fr06-vaults/local-backup-vault.luks2",
+      "preallocated_bytes": 17179869184,
+      "mapper": "/dev/mapper/aionex-local-backup-vault",
+      "mount_root": "/mnt/aionex/fr06-local-backup-vault",
+      "subpath": "backups",
+      "docker_volume": "aionex-fr06-local-backup-vault",
+      "mount_options": ["nodev", "nosuid", "noexec"],
+      "subpath_owner": "root:root",
+      "subpath_mode": "0700"
+    },
+    {
+      "role": "operations-vault",
+      "image": "/var/lib/aionex/fr06-vaults/operations-vault.luks2",
+      "preallocated_bytes": 8589934592,
+      "mapper": "/dev/mapper/aionex-operations-vault",
+      "mount_root": "/mnt/aionex/fr06-operations-vault",
+      "subpath": "redis",
+      "docker_volume": "aionex-fr06-operations-vault",
+      "mount_options": ["nodev", "nosuid", "noexec"],
+      "subpath_owner": "999:1000",
+      "subpath_mode": "0700"
+    }
+  ],
+  "cryptography": {
+    "format": "LUKS2",
+    "cipher": "aes-xts-plain64",
+    "key_bits": 512,
+    "pbkdf": "argon2id",
+    "exact_keyslot_count_each": 2,
+    "active_and_recovery_keys_independent_per_vault": true,
+    "active_bundle_keys_distinct_across_vaults": true,
+    "recovery_bundle_keys_distinct_across_vaults": true,
+    "production_keys_on_unencrypted_root_allowed": false,
+    "key_inputs_tmpfs_only": true
+  },
+  "header_custody": {
+    "path": "scripts/security/fr06c3_header_custody.py",
+    "execution_boundary": "existing backup-worker container with private R2 credential source",
+    "input_root": "/run/aionex-fr06c3-headers",
+    "object_count": 2,
+    "new_object_keys_required": true,
+    "metadata_readback_required": true,
+    "full_sha256_readback_required": true,
+    "recovery_keys_stored_in_r2": false
+  },
+  "production_gate_order": [
+    "protected source PR and exact post-merge main checks pass",
+    "fresh client-side-encrypted R2 backup and independent restore validation pass within one hour",
+    "four independent active/recovery key custody items exist outside the production root",
+    "empty local-backup and operations vault provisioning succeeds with zero candidate consumers",
+    "both LUKS2 headers are uploaded to distinct private R2 objects and fully read back",
+    "both recovery keys open their respective vaults and active keys reopen them",
+    "tmpfs key inputs and header staging copies are removed",
+    "only then may C3D/C3E data cutovers be planned"
+  ],
+  "scope_boundary": {
+    "production_execution_by_source_merge": false,
+    "production_backup_data_read_or_copied": false,
+    "production_redis_data_read_or_copied": false,
+    "production_redis_flushed": false,
+    "production_logs_moved": false,
+    "production_services_stopped_or_restarted": false,
+    "admission_opened": false,
+    "cloudflare_changed": false,
+    "fr06_completed": false
+  },
+  "next_subpart": "FR-06C3C3 guarded local-backup cutover executor and Redis reconciliation executor"
+}
