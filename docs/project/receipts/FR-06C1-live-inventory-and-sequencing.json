@@ -1,0 +1,174 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C1",
+  "status": "live_read_only_inventory_complete_source_candidate",
+  "observed_at": "2026-09-15T12:31:27Z",
+  "accepted_main_before_fr06c": "70dcc972d7bd8ca9f382daf3e6a0a46516883ed2",
+  "production_mutation_performed": false,
+  "cloudflare_changed": false,
+  "fr06b": {
+    "complete": true,
+    "asset_vault": "active",
+    "project_execution_vault": "active",
+    "legacy_roots_retained_read_only": 11
+  },
+  "database_domain": {
+    "vault": "database-vault",
+    "source_volume": "web-dashboard_postgres_data",
+    "pgdata_bytes": 614027974,
+    "pg_wal_bytes": 218112000,
+    "volume_payload_bytes": 613757638,
+    "volume_file_count": 6373,
+    "logical_database_bytes": 318618647,
+    "pgdata_mode": "0700 postgres:postgres",
+    "raw_live_copy_allowed": false,
+    "contains_user_and_platform_authoritative_state": true,
+    "contains_conversation_message_or_session_classes": true,
+    "planned_vault_bytes": 17179869184,
+    "cutover_rule": "fresh encrypted R2 restore point, stop all DB clients then PostgreSQL, checkpoint/clean shutdown, exact offline copy, mapper-backed external volume, start PostgreSQL then reconciler then application services, retain old source read-only"
+  },
+  "operations_domain": {
+    "vault": "operations-vault",
+    "redis_volume": "web-dashboard_redis_data",
+    "redis_payload_bytes": 14957929,
+    "redis_aof_enabled": true,
+    "redis_rebuildable_from_durable_authorities": true,
+    "host_log_bytes": 864089213,
+    "journald_bytes_approx": 498598000,
+    "rsyslog_active": true,
+    "docker_json_logs_are_not_in_this_domain": true,
+    "planned_vault_bytes": 8589934592,
+    "cutover_rule": "prefer empty/reconciled encrypted Redis state over copying stale operational queues; move retained sanitized non-container logs or make them volatile before claiming coverage"
+  },
+  "local_backup_domain": {
+    "vault": "local-backup-vault",
+    "source_volume": "web-dashboard_backup_data",
+    "payload_bytes": 535302516,
+    "file_count": 63,
+    "writers": [
+      "backup-worker"
+    ],
+    "readers": [
+      "backend"
+    ],
+    "planned_vault_bytes": 17179869184,
+    "cutover_rule": "stop backup writer, exact manifest copy, switch backend read-only and backup-worker read-write mounts, retain legacy source read-only until an encrypted backup plus restore succeeds from the new vault"
+  },
+  "container_runtime_domain": {
+    "vault": "container-runtime-vault",
+    "docker_root": "/var/lib/docker",
+    "docker_root_payload_bytes": 14598885376,
+    "containerd_root": "/var/lib/containerd",
+    "containerd_root_payload_bytes": 398603976704,
+    "containerd_content_bytes": 120708784128,
+    "containerd_overlay_snapshot_bytes": 277819277312,
+    "docker_json_log_bytes": 87294486,
+    "docker_storage_driver": "overlayfs",
+    "docker_logging_driver": "json-file",
+    "active_or_retained_container_image_count_observed": 21,
+    "known_logical_image_bytes_for_referenced_images": 9344581804,
+    "running_services_with_pruned_image_metadata": [
+      "operations-observer",
+      "communication-worker",
+      "user-telegram-worker",
+      "telegram-worker",
+      "postgres"
+    ],
+    "historical_runtime_copy_rejected": true,
+    "reason": "containerd uses about 398.6 GB while the root had about 322 GB free, so a duplicate retained copy cannot meet rollback and free-space safety simultaneously",
+    "selected_path": "clean encrypted runtime reconstruction from pinned images and exact protected source, not copying historical containerd layers/build cache",
+    "planned_vault_bytes": 68719476736,
+    "requirements_before_cutover": [
+      "database, Redis, backup and authoritative named volumes already externalized to encrypted domain vaults",
+      "all active images either pinned/pullable or rebuilt from exact protected source",
+      "rebuild images for the five currently running services whose image metadata was previously pruned",
+      "wipe/rebuild npm, security-tool and Ollama caches from pinned authorities",
+      "independent fresh candidate runtime acceptance before retiring historical containerd store",
+      "Docker and containerd remain stopped if the runtime mapper is unavailable"
+    ]
+  },
+  "host_state_domain": {
+    "vault": "host-state-vault",
+    "application_secret_root": "/opt/AIOS/web-dashboard/secrets",
+    "application_secret_files": 23,
+    "application_secret_bytes": 13839,
+    "application_secret_modes": {
+      "0400": 4,
+      "0600": 18,
+      "0644": 1
+    },
+    "operator_state_root": "/root/.config/aionex",
+    "operator_state_payload_bytes": 14308779293,
+    "release_state_payload_bytes": 14266585088,
+    "audit_state_payload_bytes": 21655552,
+    "management_bootstrap_exception_required": true,
+    "bootstrap_reason": "the MCP control tunnel must return before encrypted application vaults are unlocked; its minimal control-plane bootstrap credential cannot depend on host-state-vault in the current no-TPM/no-KMS design",
+    "bootstrap_scope_must_be_minimal_and_separately_risk_documented": true,
+    "planned_vault_bytes": 34359738368,
+    "cutover_rule": "move application/provider/operator secrets and retained audit/release state behind mapper-backed or bind-mounted encrypted paths, preserving only the explicitly reviewed management bootstrap needed for out-of-band unlock"
+  },
+  "swap": {
+    "source": "/swap.img",
+    "bytes": 8589934592,
+    "mode": "0600 root:root",
+    "current_state": "plaintext_file_swap_on_root",
+    "used_bytes_at_inventory": 0,
+    "hibernation_required": false,
+    "selected_path": "random-key encrypted swap regenerated each boot; no persistent recovery key"
+  },
+  "temporary_data": {
+    "tmp": {
+      "filesystem": "root ext4",
+      "payload_bytes": 22
+    },
+    "var_tmp": {
+      "filesystem": "root ext4",
+      "payload_bytes": 5396622
+    },
+    "dev_shm": "tmpfs",
+    "run": "tmpfs",
+    "policy": "sensitive runtime staging must move to /run or /dev/shm; /tmp and /var/tmp may retain only classified nonsensitive rebuildable artifacts"
+  },
+  "rebuildable_cache_domains": {
+    "project_npm_cache": {
+      "payload_bytes": 68757179,
+      "action": "wipe and rebuild from package lock/pinned registries"
+    },
+    "security_tool_cache": {
+      "payload_bytes": 3550831417,
+      "action": "wipe and rebuild; authoritative user source/remediation already lives in FR-06B encrypted roots"
+    },
+    "ollama_model_cache": {
+      "payload_bytes": 3338804284,
+      "action": "wipe and rebuild from pinned model authority"
+    },
+    "postgres_socket": {
+      "payload_bytes": 63,
+      "action": "ephemeral; never migrate"
+    }
+  },
+  "capacity_plan": {
+    "database_vault_bytes": 17179869184,
+    "operations_vault_bytes": 8589934592,
+    "local_backup_vault_bytes": 17179869184,
+    "container_runtime_vault_bytes": 68719476736,
+    "host_state_vault_bytes": 34359738368,
+    "total_new_fr06c_preallocated_bytes": 146028888064,
+    "root_available_bytes_at_inventory": 321954201600,
+    "post_preallocation_headroom_bytes_approx": 175925313536,
+    "source_retention_required_during_rollback_window": true
+  },
+  "required_order": [
+    "FR-06C1 protected inventory/threat/consistency contract",
+    "FR-06C2 database-vault isolated migration/recovery lab then production cutover",
+    "FR-06C3 local-backup-vault and Redis/operations handling with independent rollback",
+    "FR-06C4 rebuildable cache wipe/rebuild and clean container-runtime-vault reconstruction",
+    "FR-06C5 host-state secret/audit/release migration plus random-key encrypted swap and temporary-data controls",
+    "FR-06C6 real host reboot and independent recovery acceptance with all seven vault domains, then FR-06 parent closure"
+  ],
+  "release_boundary": "FR-06 remains open. This inventory is read-only and does not authorize any FR-06C production data movement.",
+  "contract_document": "docs/project/receipts/FR-06C1-host-data-plan.md",
+  "parent_batch_completed": false,
+  "subpart_completed": false
+}
