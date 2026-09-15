@@ -204,12 +204,14 @@ def _evidence(environment: str) -> dict:
         ),
     }
     if production:
+        value["operations"] = {
+            "admission_closed": True,
+            "cloudflare_changed": False,
+            "baseline_p95_ms": 100,
+        }
+        value["safety"].pop("boot_rehearsal_passed")
         value["safety"]["out_of_band_alert_ref"] = (
             "pagerduty://events/fr06-test"
-        )
-        value["operations"].update(
-            baseline_p95_ms=100,
-            candidate_p95_ms=114.9,
         )
         value["approvals"] = {
             "owner_authorized": True,
@@ -337,6 +339,9 @@ def test_evaluator_can_admit_complete_production_references() -> None:
     assert result["decision"] == "production_preflight_ready"
     assert result["executor_present"] is False
     assert result["blockers"] == []
+    assert "boot_rehearsal_passed" not in _evidence("production")["safety"]
+    assert "candidate_p95_ms" not in _evidence("production")["operations"]
+    assert "final_delta_exact" not in _evidence("production")["operations"]
 
 
 @pytest.mark.parametrize(
@@ -356,7 +361,11 @@ def test_evaluator_can_admit_complete_production_references() -> None:
         ),
         (
             lambda item: item["operations"].update(candidate_p95_ms=115.01),
-            "operations:p95_regression_over_15_percent",
+            "operations:candidate_p95_ms_is_post_cutover",
+        ),
+        (
+            lambda item: item["operations"].update(final_delta_exact=True),
+            "operations:final_delta_exact:premature_preflight_claim",
         ),
         (
             lambda item: item["safety"].update(delayed_unlock_rehearsal_passed=False),

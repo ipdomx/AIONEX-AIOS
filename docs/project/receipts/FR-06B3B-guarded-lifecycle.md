@@ -8,6 +8,8 @@ FR-06B3B adds the bounded executor that FR-06B3A deliberately omitted. It does n
 
 A successful cutover stops at `candidate_started_admission_closed`. The executor does not open application admission. That later decision remains outside this program and requires live acceptance.
 
+Production preflight is strictly ordered before mutation. It requires a measured legacy p95 baseline, but rejects candidate p95 and final-delta/drain/stop claims as premature. Those results are produced and retained only after the one-time plan is consumed and before any separate decision to open admission.
+
 ## Retained source
 
 - `scripts/security/fr06b_guarded_lifecycle.py` implements `plan-cutover`, `apply-cutover`, `guarded-start`, and `rollback`.

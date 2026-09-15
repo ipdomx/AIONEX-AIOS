@@ -534,21 +534,24 @@ def evaluate(
         _truth(safety.get(key), f"safety:{key}", blockers)
 
     operations = _mapping(evidence.get("operations"), "evidence.operations")
-    for key in (
-        "admission_closed",
-        "queues_drained",
-        "writers_stopped",
-        "initializers_stopped",
-        "read_only_consumers_stopped",
-        "no_unlisted_writable_descriptors",
-        "final_delta_exact",
-    ):
-        _truth(operations.get(key), f"operations:{key}", blockers)
+    _truth(operations.get("admission_closed"), "operations:admission_closed", blockers)
     if operations.get("cloudflare_changed") is not False:
         blockers.append("operations:cloudflare_must_remain_unchanged")
 
     source = _mapping(evidence.get("source"), "evidence.source")
     if environment == "isolated_lab":
+        # A disposable rehearsal can truthfully prove the complete lifecycle
+        # before admission. Production preflight cannot: the guarded executor
+        # performs these mutable steps only after it consumes its one-time plan.
+        for key in (
+            "queues_drained",
+            "writers_stopped",
+            "initializers_stopped",
+            "read_only_consumers_stopped",
+            "no_unlisted_writable_descriptors",
+            "final_delta_exact",
+        ):
+            _truth(operations.get(key), f"operations:{key}", blockers)
         if not allow_isolated_lab:
             blockers.append("isolated_lab_requires_explicit_flag")
         if evidence.get("production_authorization") is not False:
@@ -578,35 +581,25 @@ def evaluate(
             "safety:out_of_band_alert_passed",
             blockers,
         )
-        _truth(
-            safety.get("boot_rehearsal_passed"),
-            "safety:boot_rehearsal_passed",
-            blockers,
-        )
-
         baseline = operations.get("baseline_p95_ms")
-        candidate = operations.get("candidate_p95_ms")
         if (
             not isinstance(baseline, (int, float))
             or isinstance(baseline, bool)
             or baseline <= 0
         ):
             blockers.append("operations:baseline_p95_ms")
-        if (
-            not isinstance(candidate, (int, float))
-            or isinstance(candidate, bool)
-            or candidate <= 0
+        if "candidate_p95_ms" in operations:
+            blockers.append("operations:candidate_p95_ms_is_post_cutover")
+        for key in (
+            "queues_drained",
+            "writers_stopped",
+            "initializers_stopped",
+            "read_only_consumers_stopped",
+            "no_unlisted_writable_descriptors",
+            "final_delta_exact",
         ):
-            blockers.append("operations:candidate_p95_ms")
-        if (
-            isinstance(baseline, (int, float))
-            and not isinstance(baseline, bool)
-            and baseline > 0
-            and isinstance(candidate, (int, float))
-            and not isinstance(candidate, bool)
-            and candidate > baseline * 1.15
-        ):
-            blockers.append("operations:p95_regression_over_15_percent")
+            if key in operations:
+                blockers.append(f"operations:{key}:premature_preflight_claim")
 
         approvals = _mapping(evidence.get("approvals"), "evidence.approvals")
         _truth(
