@@ -1,0 +1,13 @@
+# FR-06C2C — guarded PostgreSQL database-vault cutover executor
+
+Status: source-only executor. Merge alone does not stop PostgreSQL or copy production PGDATA.
+
+The executor binds one fresh production evidence file, the exact protected `main`, the already-provisioned empty database-vault receipts, current database-client topology, a short-lived single-use plan and two production confirmations. It contains no unlock key handling and cannot create the vault.
+
+The live sequence is deliberately offline at the physical-copy boundary. All running database clients are stopped first, durable work must be drained, PostgreSQL receives a clean shutdown, and `pg_controldata` must report `shut down`. Only then is the legacy PGDATA source self-bind-sealed read-only. An exact file manifest is computed, the final copy is made with shell-free `rsync`, and source/candidate manifests must match before candidate PostgreSQL may start.
+
+Candidate PostgreSQL uses the FR-06C2 overlays and the exact `pgdata` subpath of `aionex-fr06-database-vault`. After all legacy database clients are stopped, the executor records a read-only baseline of database identity, PostgreSQL server version, Alembic head, selected durable table counts, and public-table count. After candidate PostgreSQL becomes healthy, the same probe must match **exactly before** the credential reconciler or any application client is allowed to start. The executor then runs the reconciler and recreates only database-client services that were running in the bound plan, preserving scale (including scaled Project Workers) and keeping all guarded restart policies at `no`.
+
+Rollback is different before and after candidate PostgreSQL starts. Before candidate start, the retained read-only legacy source can be unsealed and restarted directly. After a candidate start attempt, rollback first stops every candidate client and PostgreSQL cleanly, performs an explicit **offline reverse delta** from the encrypted candidate into temporarily writable legacy PGDATA, requires exact manifests, then recreates the legacy stack. Blind copying while either PostgreSQL is running is forbidden. The successful cutover receipt is digest-verified before rollback, and rollback accepts a later clean `main` only when it is a descendant of the protected cutover commit so a documentation-only follow-up cannot strand recovery.
+
+This part does not install the database Docker boot gate and does not delete legacy PGDATA. A later operational acceptance must prove post-cutover encrypted backup/restore, Docker restart, health/performance and eventually host-reboot behavior before C2 closes.
