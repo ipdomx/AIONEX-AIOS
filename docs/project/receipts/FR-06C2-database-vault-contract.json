@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C2A",
+  "implementation_status": "source_contract_and_isolated_rehearsal_only",
+  "depends_on": [
+    "FR-06C1"
+  ],
+  "database": {
+    "service": "postgres",
+    "image": "aionex-aios-postgres:16-hardened",
+    "legacy_compose_volume": "postgres_data",
+    "legacy_runtime_volume": "web-dashboard_postgres_data",
+    "container_target": "/var/lib/postgresql/data",
+    "wal_location": "inside_pgdata/pg_wal",
+    "online_raw_pgdata_copy_allowed": false,
+    "required_shutdown_state": "shut down",
+    "planned_vault_bytes": 17179869184,
+    "pgdata_consumers": [
+      "postgres",
+      "postgres-credential-reconciler"
+    ]
+  },
+  "candidate_vault": {
+    "role": "database-vault",
+    "image": "/var/lib/aionex/fr06-vaults/database-vault.luks2",
+    "mapper": "/dev/mapper/aionex-database-vault",
+    "mount_root": "/mnt/aionex/fr06-database-vault",
+    "docker_volume": "aionex-fr06-database-vault",
+    "compose_volume": "fr06_database_vault",
+    "filesystem": "ext4",
+    "mount_options": [
+      "nodev",
+      "nosuid",
+      "noexec"
+    ],
+    "format": "LUKS2",
+    "cipher": "aes-xts-plain64",
+    "key_bits": 512,
+    "pbkdf": "argon2id",
+    "independent_active_and_recovery_keys": true,
+    "production_key_on_unencrypted_root_allowed": false,
+    "target_subpath": "pgdata"
+  },
+  "database_clients": {
+    "service_definition_count": 24,
+    "services": [
+      "academy-course-worker",
+      "audio-dubbing-worker",
+      "audio-music-worker",
+      "audio-song-worker",
+      "audio-song-worker-secondary",
+      "audio-speech-worker",
+      "audio-transcript-worker",
+      "backend",
+      "backup-worker",
+      "communication-worker",
+      "design-image-derivative-worker",
+      "design-image-worker",
+      "identity-media-worker",
+      "media-worker",
+      "operations-observer",
+      "postgres-credential-reconciler",
+      "project-worker",
+      "security-remediation-worker",
+      "security-scan-worker",
+      "studio-worker",
+      "telegram-worker",
+      "three-d-worker",
+      "user-telegram-worker",
+      "video-provider-worker"
+    ],
+    "candidate_restart_policy": "no",
+    "postgres_restart_policy": "no",
+    "reason": "No database client may automatically race a locked or not-yet-validated database vault after Docker or host restart."
+  },
+  "compose": {
+    "accepted_files_before_c2": [
+      "docker-compose.production.yml",
+      "docker-compose.fr06-assets.yml",
+      "docker-compose.fr06-admission.yml"
+    ],
+    "database_overlay": "docker-compose.fr06-database.yml",
+    "database_admission_overlay": "docker-compose.fr06-database-admission.yml",
+    "legacy_pgdata_mounts_after_candidate_merge": 0,
+    "postgres_socket_remains_ephemeral": true,
+    "workspace_mount_unchanged": true,
+    "candidate_volume_subpath": "pgdata"
+  },
+  "production_cutover_gates": [
+    "protected source PR and exact post-merge main checks pass",
+    "fresh client-side-encrypted R2 platform backup and independent restore validation pass immediately before cutover",
+    "active and recovery keys plus LUKS2 header custody are retained outside the production root",
+    "all database clients are drained and stopped before PostgreSQL shutdown",
+    "PostgreSQL receives a clean shutdown and pg_controldata reports shut down",
+    "offline source and candidate manifests match exactly before candidate PostgreSQL starts",
+    "candidate Docker local volume resolves only to the required mapper with nodev,nosuid,noexec",
+    "PostgreSQL starts healthy on candidate before reconciler and database clients restart",
+    "schema/version/data acceptance and application health pass with no plaintext fallback",
+    "legacy PGDATA remains retained read-only through the rollback window",
+    "new encrypted backup and independent restore pass from the candidate before C2 closure"
+  ],
+  "rollback": {
+    "legacy_pgdata_deleted": false,
+    "blind_candidate_to_legacy_copy_allowed": false,
+    "before_candidate_write": "stop candidate and restart exact retained legacy PGDATA after manifest verification",
+    "after_candidate_write": "stop clients and candidate PostgreSQL, take a fresh candidate recovery point if possible, then use the explicitly rehearsed reverse/offsite recovery decision rather than silently copying live files"
+  },
+  "scope_boundary": {
+    "production_vault_created": false,
+    "production_postgres_stopped": false,
+    "production_pgdata_copied": false,
+    "production_compose_applied": false,
+    "production_service_restarted": false,
+    "cloudflare_changed": false,
+    "parent_fr06_completed": false
+  },
+  "isolated_rehearsal": {
+    "receipt": "docs/project/receipts/FR-06C2-isolated-database-migration.json",
+    "status": "isolated_database_physical_migration_recovery_pass",
+    "source_cluster_state_before_copy": "shut down",
+    "source_candidate_manifest_match": true,
+    "pg_wal_included": true,
+    "wrong_key_rejected": true,
+    "independent_recovery_key_open_passed": true,
+    "closed_raw_plaintext_marker_absent": true,
+    "production_pgdata_used": false,
+    "production_mutation_performed": false,
+    "temporary_resources_removed": true
+  }
+}
