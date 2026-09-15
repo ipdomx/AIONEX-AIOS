@@ -1,0 +1,16 @@
+[Unit]
+Description=AIONEX volatile /var/log boundary
+Documentation=internal:AIONEX-FR-06C3
+DefaultDependencies=no
+After=local-fs-pre.target
+Before=local-fs.target systemd-journald.service rsyslog.service
+Conflicts=umount.target
+
+[Mount]
+What=tmpfs
+Where=/var/log
+Type=tmpfs
+Options=mode=0755,nodev,nosuid,noexec,size=1G
+
+[Install]
+WantedBy=local-fs.target
