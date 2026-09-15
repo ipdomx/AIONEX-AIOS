@@ -42,6 +42,7 @@ MAX_EVIDENCE_AGE_SECONDS = 1800
 MAX_WINDOW_SECONDS = 4 * 60 * 60
 CUTOVER_CONFIRMATION = "FR06C2_PRODUCTION_DATABASE_CUTOVER"
 ROLLBACK_CONFIRMATION = "FR06C2_PRODUCTION_DATABASE_ROLLBACK"
+START_CONFIRMATION = "FR06C2_PRODUCTION_DATABASE_START"
 SENSITIVE_KEYS = {"key", "private_key", "recovery_key", "secret", "secret_key", "token", "passphrase", "password"}
 ACCEPTED_COMPOSE = [
     DASHBOARD / "docker-compose.production.yml",
@@ -803,6 +804,103 @@ def rollback(args: argparse.Namespace) -> dict[str, Any]:
         os.close(lock_fd)
 
 
+
+def _validate_candidate_host_ready(root: Path) -> None:
+    output = _run([
+        "python3",
+        str(root / "scripts/security/fr06c2_database_vault_provision.py"),
+        "status",
+        "--require-host-ready",
+    ])
+    try:
+        value = json.loads(output)
+    except json.JSONDecodeError as exc:
+        raise CutoverBlocked("database-vault host gate did not return JSON") from exc
+    if value.get("validation") != "FR06C2_DATABASE_HOST_READY":
+        raise CutoverBlocked("database-vault host gate is not ready")
+
+
+def _manifest_entries(root: Path, path: Path) -> dict[str, Any]:
+    return _manifest_module(root).build_manifest(path)
+
+
+def guarded_start(args: argparse.Namespace) -> dict[str, Any]:
+    prior = _load_success_receipt(args.receipt.resolve())
+    nonce = args.nonce
+    if re.fullmatch(r"[A-Za-z0-9._:-]{16,128}", nonce) is None:
+        raise CutoverBlocked("guarded-start nonce is invalid")
+    operation_id = _digest({"operation": "database-guarded-start", "receipt": prior["receipt_sha256"], "nonce": nonce})
+    if args.confirmation != f"START_FR06C2_DATABASE:{operation_id}" or args.confirm_production != START_CONFIRMATION:
+        raise CutoverBlocked("exact production database guarded-start confirmation is required")
+    root = args.root.resolve()
+    if os.geteuid() != 0 or root != PRODUCTION_ROOT:
+        raise CutoverBlocked("production guarded-start requires root and /opt/AIOS")
+    _git_descendant_gate(root, str(prior.get("merge_sha", "")))
+    _validate_candidate_host_ready(root)
+    topology = prior.get("topology")
+    if not isinstance(topology, dict):
+        raise CutoverBlocked("cutover receipt topology is missing")
+    legacy = Path(str(prior.get("legacy_source"))).resolve(strict=True)
+    candidate = Path(str(prior.get("candidate_source"))).resolve(strict=True)
+    if _containers(POSTGRES_SERVICE, running_only=True):
+        raise CutoverBlocked("guarded-start requires PostgreSQL stopped")
+    for service in topology.get("active_clients", {}):
+        if _containers(str(service), running_only=True):
+            raise CutoverBlocked("guarded-start requires database clients stopped")
+    lock_fd = _lock()
+    _reserve(operation_id, "database-guarded-start")
+    candidate_started = False
+    resealed = False
+    try:
+        legacy_manifest = _manifest_entries(root, legacy)
+        candidate_manifest = _manifest_entries(root, candidate)
+        if legacy_manifest.get("entries") != candidate_manifest.get("entries"):
+            raise CutoverBlocked("legacy/candidate PGDATA drifted before guarded-start")
+        if not _sealed(legacy):
+            _seal(legacy)
+            resealed = True
+        _start_postgres(CANDIDATE_COMPOSE)
+        candidate_started = True
+        rows = _containers(POSTGRES_SERVICE, running_only=True)
+        if len(rows) != 1:
+            raise CutoverBlocked("candidate PostgreSQL did not return at exact scale")
+        accepted = _postgres_probe(rows[0]["id"])
+        expected = (prior.get("database_acceptance") or {}).get("candidate")
+        if accepted != expected:
+            raise CutoverBlocked("candidate PostgreSQL acceptance drifted after restart")
+        _run_reconciler(CANDIDATE_COMPOSE)
+        _start_clients(CANDIDATE_COMPOSE, topology)
+        if not _candidate_topology_matches(topology):
+            raise CutoverBlocked("candidate database-client topology differs after guarded-start")
+        if not _sealed(legacy):
+            raise CutoverBlocked("legacy PGDATA seal drifted after guarded-start")
+        body = {
+            "schema_version": 1,
+            "subpart": "FR-06C2D",
+            "operation": "database-guarded-start",
+            "operation_id": operation_id,
+            "status": "candidate_database_started_admission_closed",
+            "completed_at": _utc(),
+            "source_cutover_receipt": prior["receipt_sha256"],
+            "database_acceptance": accepted,
+            "legacy_resealed": resealed,
+            "legacy_read_only": True,
+            "admission_opened": False,
+            "cloudflare_changed": False,
+            "production_execution": True,
+        }
+        path = _write_result(operation_id, body)
+        return {"status": body["status"], "operation_id": operation_id, "result": str(path), "admission_opened": False}
+    except Exception as original:
+        try:
+            _automatic_rollback(root, topology, candidate_started=candidate_started, legacy=legacy, candidate=candidate, evidence_dir=STATE_ROOT / "manifests" / operation_id / "automatic-rollback")
+        except Exception as rollback_error:
+            raise CutoverError("database guarded-start failed and automatic rollback also failed; admission must remain closed") from rollback_error
+        raise CutoverError("database guarded-start failed; automatic rollback passed and admission remains closed") from original
+    finally:
+        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        os.close(lock_fd)
+
 def parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser()
     sub = p.add_subparsers(dest="command", required=True)
@@ -820,6 +918,12 @@ def parser() -> argparse.ArgumentParser:
     apply.add_argument("--plan", type=Path, required=True)
     apply.add_argument("--confirmation", required=True)
     apply.add_argument("--confirm-production", default="")
+    start = sub.add_parser("guarded-start")
+    start.add_argument("--root", type=Path, default=PRODUCTION_ROOT)
+    start.add_argument("--receipt", type=Path, required=True)
+    start.add_argument("--nonce", required=True)
+    start.add_argument("--confirmation", required=True)
+    start.add_argument("--confirm-production", default="")
     rb = sub.add_parser("rollback")
     rb.add_argument("--root", type=Path, default=PRODUCTION_ROOT)
     rb.add_argument("--merge-sha", required=True)
@@ -840,6 +944,8 @@ def main() -> int:
             result = create_plan(args)
         elif args.command == "apply-cutover":
             result = apply_cutover(args)
+        elif args.command == "guarded-start":
+            result = guarded_start(args)
         else:
             result = rollback(args)
     except CutoverBlocked as exc:

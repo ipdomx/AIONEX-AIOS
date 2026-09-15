@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C2D",
+  "implementation_status": "source_only_database_restart_gate_and_guarded_start",
+  "depends_on": ["FR-06C2C"],
+  "docker_gate": {
+    "drop_in": "deploy/systemd/docker.service.d/31-aionex-fr06-database-vault-gate.conf",
+    "command": "/usr/bin/python3 /opt/AIOS/scripts/security/fr06c2_database_vault_provision.py status --require-host-ready",
+    "unlocks_keys": false,
+    "missing_mapper_behavior": "docker fails closed before daemon start",
+    "composes_with_asset_vault_gate": true
+  },
+  "guarded_start": {
+    "command": "guarded-start",
+    "requires_successful_cutover_receipt": true,
+    "requires_clean_descendant_main": true,
+    "requires_exact_legacy_candidate_manifest_before_start": true,
+    "reestablishes_legacy_read_only_seal_after_reboot_only_after_manifest_match": true,
+    "requires_database_acceptance_match_before_reconciler": true,
+    "restores_exact_prior_client_scale": true,
+    "candidate_restart_policy": "no",
+    "automatic_offline_rollback_on_failure": true,
+    "production_confirmation": "FR06C2_PRODUCTION_DATABASE_START"
+  },
+  "scope_boundary": {
+    "source_merge_installs_systemd_drop_in": false,
+    "source_merge_restarts_docker": false,
+    "source_merge_reboots_host": false,
+    "admission_opened": false,
+    "cloudflare_changed": false,
+    "legacy_pgdata_deleted": false,
+    "fr06_completed": false
+  }
+}
