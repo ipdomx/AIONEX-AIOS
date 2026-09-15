@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C2C",
+  "depends_on": [
+    "FR-06C2B"
+  ],
+  "implementation_status": "source_only_guarded_database_cutover_executor",
+  "executor": {
+    "path": "scripts/security/fr06c2_database_cutover.py",
+    "commands": [
+      "inspect-runtime",
+      "plan-cutover",
+      "apply-cutover",
+      "rollback"
+    ],
+    "production_root": "/opt/AIOS",
+    "state_root": "/var/lib/aionex/fr06c2-cutover",
+    "maximum_plan_ttl_seconds": 900,
+    "single_use_plan": true,
+    "exclusive_nonblocking_lock": true,
+    "dynamic_confirmation": true,
+    "production_cutover_confirmation": "FR06C2_PRODUCTION_DATABASE_CUTOVER",
+    "production_rollback_confirmation": "FR06C2_PRODUCTION_DATABASE_ROLLBACK",
+    "handles_key_material": false,
+    "creates_or_unlocks_vault": false,
+    "changes_cloudflare": false,
+    "opens_application_admission": false,
+    "tamper_evident_success_receipts": true,
+    "rollback_accepts_descendant_main": true
+  },
+  "topology": {
+    "postgres_service": "postgres",
+    "reconciler_service": "postgres-credential-reconciler",
+    "runtime_database_clients": [
+      "academy-course-worker",
+      "audio-dubbing-worker",
+      "audio-music-worker",
+      "audio-song-worker",
+      "audio-song-worker-secondary",
+      "audio-speech-worker",
+      "audio-transcript-worker",
+      "backend",
+      "backup-worker",
+      "communication-worker",
+      "design-image-derivative-worker",
+      "design-image-worker",
+      "identity-media-worker",
+      "media-worker",
+      "operations-observer",
+      "project-worker",
+      "security-remediation-worker",
+      "security-scan-worker",
+      "studio-worker",
+      "telegram-worker",
+      "three-d-worker",
+      "user-telegram-worker",
+      "video-provider-worker"
+    ],
+    "runtime_database_client_definition_count": 23,
+    "latent_optional_service": "audio-song-worker-secondary",
+    "project_worker_may_be_scaled": true,
+    "accepted_compose_files": [
+      "docker-compose.production.yml",
+      "docker-compose.fr06-assets.yml",
+      "docker-compose.fr06-admission.yml"
+    ],
+    "candidate_compose_files": [
+      "docker-compose.production.yml",
+      "docker-compose.fr06-assets.yml",
+      "docker-compose.fr06-admission.yml",
+      "docker-compose.fr06-database.yml",
+      "docker-compose.fr06-database-admission.yml"
+    ]
+  },
+  "fixed_state_inputs": {
+    "provision_receipt": "/var/lib/aionex/fr06c2/provision-receipt.json",
+    "recovery_proof": "/var/lib/aionex/fr06c2/recovery-proof.json",
+    "header_custody": "/var/lib/aionex/fr06c2/header-custody.json",
+    "legacy_volume": "web-dashboard_postgres_data",
+    "candidate_volume": "aionex-fr06-database-vault",
+    "legacy_source": "/var/lib/docker/volumes/web-dashboard_postgres_data/_data",
+    "candidate_pgdata": "/mnt/aionex/fr06-database-vault/pgdata"
+  },
+  "cutover_order": [
+    "fresh encrypted R2 backup and independent restore evidence plus owner window pass",
+    "empty database-vault provisioning, off-host header custody and recovery-key proof pass",
+    "capture exact running database-client topology and scale",
+    "stop all running database clients and verify durable jobs are drained",
+    "stop PostgreSQL cleanly and require pg_controldata state shut down",
+    "seal legacy PGDATA read-only before final copy",
+    "perform offline rsync only and require exact source/candidate manifest equality including pg_wal",
+    "start candidate PostgreSQL with database overlays and require healthy",
+    "compare candidate database identity, server version, Alembic head and selected durable table counts to the post-drain legacy baseline before reconciler or application clients start",
+    "run credential reconciler against candidate",
+    "recreate only previously running database clients at exact scale with restart:no",
+    "verify health/data/schema and keep application admission closed",
+    "retain legacy PGDATA read-only; do not delete it"
+  ],
+  "manifest_policy": {
+    "allowed_types": [
+      "directory",
+      "single-link regular file"
+    ],
+    "symlinks_allowed": false,
+    "hardlinks_allowed": false,
+    "special_files_allowed": false,
+    "fields": [
+      "relative_path",
+      "type",
+      "mode",
+      "uid",
+      "gid",
+      "size",
+      "sha256"
+    ],
+    "content_names_retained_only_in_private_state": true,
+    "public_receipt": "counts, payload bytes and aggregate SHA-256 only"
+  },
+  "rollback": {
+    "pre_candidate_start": "unseal retained legacy PGDATA and recreate legacy PostgreSQL plus exact prior client topology",
+    "post_candidate_start": "stop clients and candidate PostgreSQL cleanly, reverse offline rsync candidate PGDATA into temporarily writable legacy PGDATA, require exact manifests, then recreate legacy PostgreSQL and exact prior client topology",
+    "blind_live_reverse_copy_allowed": false,
+    "legacy_pgdata_deleted": false,
+    "candidate_evidence_deleted": false,
+    "compatible_later_main_allowed": true,
+    "receipt_digest_verified_before_rollback": true
+  },
+  "scope_boundary": {
+    "production_execution_by_source_merge": false,
+    "docker_gate_installed": false,
+    "host_reboot_performed": false,
+    "legacy_pgdata_deleted": false,
+    "admission_opened": false,
+    "cloudflare_changed": false,
+    "fr06_parent_completed": false
+  }
+}
