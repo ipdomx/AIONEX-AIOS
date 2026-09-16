@@ -55,3 +55,11 @@ def test_mcp2_live_install_is_explicit_gate():
     assert m['required_after_source_merge_before_c5d'] is True
     assert m['restart_performed_by_installer'] is False
     assert m['expected_live_hash_must_equal_canonical_source'] is True
+
+
+def test_mcp2_bootstrap_probe_cannot_crash_non_root_import():
+    text=(ROOT/'ops/mcp2/server.py').read_text()
+    assert '_path_exists_without_import_failure' in text
+    assert 'except OSError' in text
+    assert 'BOOTSTRAP_TUNNEL_RUNTIME_KEY' in text
+    assert 'LEGACY_TUNNEL_RUNTIME_KEY' in text
