@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C4B",
+  "implementation_status": "source_only_isolated_clean_runtime_vault_rehearsal",
+  "depends_on": ["FR-06C4A"],
+  "lab": {
+    "script": "scripts/security/fr06c4b_runtime_isolated_lab.py",
+    "uses_production_docker_root": false,
+    "uses_production_containerd_root": false,
+    "copies_historical_runtime_layers": false,
+    "synthetic_runtime_only": true,
+    "vault_format": "LUKS2/ext4",
+    "mount_options": ["nodev", "nosuid"],
+    "subpaths": ["docker", "containerd"],
+    "wrong_key_must_fail": true,
+    "independent_recovery_key_required": true,
+    "closed_plaintext_marker_must_be_absent": true
+  },
+  "production_boundary": {
+    "vault_provisioning": false,
+    "docker_stop_or_restart": false,
+    "containerd_stop_or_restart": false,
+    "runtime_data_root_switch": false,
+    "cache_wipe": false,
+    "cloudflare_changed": false
+  },
+  "next_subpart": "FR-06C4C guarded production runtime-vault provisioning and clean reconstruction executor"
+}
