@@ -94,5 +94,13 @@
     "temporary_key_short_write_rejected": true,
     "behavioral_regression_tests": "tests/test_fr06c5c1_provision_replay_safety.py"
   },
-  "live_activation_followup_review": "docs/project/receipts/FR-06C5-independent-safety-review.json"
+  "live_activation_followup_review": "docs/project/receipts/FR-06C5-independent-safety-review.json",
+  "bind_rollback_safety": {
+    "matching_source_only": true,
+    "umount_exit_and_effect_checked": true,
+    "foreign_mounts_preserved": true,
+    "legacy_seal_identity_checked": true,
+    "complete_runtime_restoration_claimed": false,
+    "behavioral_regression_tests": "tests/test_fr06c5c1_bind_rollback_ownership.py"
+  }
 }

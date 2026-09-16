@@ -19,6 +19,15 @@
       "fix": "Locked current-state gates, durable single-use claim, O_EXCL creation and fd-based allocation, inode ownership cleanup, retain image when teardown fails or mapper/mount remains, key and lock cleanup on all handled failures."
     },
     {
+      "id": "C5C1-BIND-OWNERSHIP",
+      "severity": "P1",
+      "status": "fixed_in_this_source_change_pending_protected_ci",
+      "file": "scripts/security/fr06c5_host_state_bind.py",
+      "issue": "Rollback could unmount a previous unrelated exact mount and reported legacy exposure without checked teardown.",
+      "fix": "Only remove the matching candidate bind, verify umount effect, preserve verified legacy seals and block on foreign mounts, report that complete runtime restoration is not attested.",
+      "remaining": "The C5D executor still requires its own durable attempt journal and checked runtime restoration."
+    },
+    {
       "id": "C5D-ROLLBACK",
       "severity": "P1",
       "status": "blocks_live_cutover",
@@ -105,8 +114,8 @@
   },
   "remaining_scope": "FR-06 stays in progress; FR-06C5D/E must be repaired and behaviorally validated before live activation. Deferred owner scope is unchanged.",
   "validation": {
-    "nonroot_targeted_tests_passed": 32,
-    "seconds": 0.2,
+    "nonroot_targeted_tests_passed": 49,
+    "seconds": 0.22,
     "tested_as": "nobody",
     "real_system_mutations": false,
     "production_secrets_read": false,
