@@ -46,6 +46,14 @@ def swap_rows():
   if not line.strip():continue
   c=line.split();rows.append({'name':c[0],'type':c[1],'size_bytes':int(c[2])*1024,'used_bytes':int(c[3])*1024,'priority':int(c[4])})
  return rows
+def same_swap_device(name,target):
+ """Match swap aliases by block-device identity; unresolved paths block the caller."""
+ try:
+  expected=os.stat(target)
+  if not stat.S_ISBLK(expected.st_mode):raise B('expected swap mapper is not a block device')
+  observed=os.stat(name)
+ except OSError as e:raise B('swap device identity unavailable') from e
+ return stat.S_ISBLK(observed.st_mode) and observed.st_rdev==expected.st_rdev
 def mem_available():
  for line in Path('/proc/meminfo').read_text().splitlines():
   if line.startswith('MemAvailable:'):return int(line.split()[1])*1024
@@ -87,7 +95,7 @@ def evidence(p,sha):
  return d
 def current_preflight(host_receipt):
  if host_state_receipt(host_receipt) is None:raise B('accepted host-state cutover receipt required')
- rows=swap_rows();legacy=[r for r in rows if r['name']==str(LEGACY)];enc=[r for r in rows if r['name']==str(MAPPER)]
+ rows=swap_rows();legacy=[r for r in rows if r['name']==str(LEGACY)];enc=[r for r in rows if same_swap_device(r['name'],MAPPER)] if MAPPER.exists() else []
  if len(legacy)!=1 or enc:raise B('expected only active legacy swap before activation')
  if not LEGACY.is_file() or exact_mount(Path('/tmp')):raise B('legacy swap or /tmp preflight drifted')
  available=mem_available();used=legacy[0]['used_bytes']
@@ -133,7 +141,7 @@ def boot_swap_start():
  if any(r['name']==str(LEGACY) for r in swap_rows()):raise B('legacy plaintext swap is active')
  backing_prepare()
  if MAPPER.exists():
-  if any(r['name']==str(MAPPER) for r in swap_rows()):return {'status':'encrypted_swap_active','mapper':str(MAPPER),'key_persisted':False}
+  if any(same_swap_device(r['name'],MAPPER) for r in swap_rows()):return {'status':'encrypted_swap_active','mapper':str(MAPPER),'key_persisted':False}
   raise B('swap mapper exists but is not active')
  KEY.parent.mkdir(parents=True,exist_ok=True);fd=os.open(KEY,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
  try:os.write(fd,os.urandom(64));os.fsync(fd)
@@ -141,11 +149,14 @@ def boot_swap_start():
  try:
   run(['cryptsetup','open','--type','plain','--cipher','aes-xts-plain64','--key-size','512','--key-file',str(KEY),str(BACKING),MAPPER_NAME],60);KEY.unlink(missing_ok=True);run(['mkswap',str(MAPPER)],60);run(['swapon',str(MAPPER)],60)
  finally:KEY.unlink(missing_ok=True)
- if not any(r['name']==str(MAPPER) for r in swap_rows()):raise B('encrypted swap did not activate')
+ if not any(same_swap_device(r['name'],MAPPER) for r in swap_rows()):raise B('encrypted swap did not activate')
  return {'status':'encrypted_swap_active','mapper':str(MAPPER),'key_persisted':False}
 def boot_swap_stop():
- if any(r['name']==str(MAPPER) for r in swap_rows()):run(['swapoff',str(MAPPER)],120)
- if MAPPER.exists():run(['cryptsetup','close',MAPPER_NAME],60)
+ rows=swap_rows()
+ if MAPPER.exists():
+  if any(same_swap_device(r['name'],MAPPER) for r in rows):run(['swapoff',str(MAPPER)],120)
+  run(['cryptsetup','close',MAPPER_NAME],60)
+ elif rows:raise B('swap device identity unavailable')
  KEY.unlink(missing_ok=True);return {'status':'encrypted_swap_inactive','key_persisted':False}
 def tmp_ready():
  if not exact_mount(Path('/tmp')):return False
@@ -153,8 +164,9 @@ def tmp_ready():
  opts=set(run(['findmnt','-n','-o','OPTIONS','--target','/tmp']).split(','))
  return typ=='tmpfs' and {'nodev','nosuid','mode=1777'}.issubset(opts)
 def verify_live():
- rows=swap_rows();enc=[r for r in rows if r['name']==str(MAPPER)];legacy=[r for r in rows if r['name']==str(LEGACY)]
- if len(enc)!=1 or legacy:raise B('swap acceptance failed')
+ rows=swap_rows()
+ if len(rows)!=1 or not same_swap_device(rows[0]['name'],MAPPER):raise B('swap acceptance failed')
+ enc=rows
  if KEY.exists():raise B('random swap key persisted')
  if not tmp_ready():raise B('/tmp tmpfs acceptance failed')
  text=FSTAB.read_text()
