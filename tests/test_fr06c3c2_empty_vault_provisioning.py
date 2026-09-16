@@ -33,8 +33,10 @@ def test_exact_two_vaults_and_sizes() -> None:
     assert rows["operations-vault"]["preallocated_bytes"] == 8 * 1024**3
     assert rows["local-backup-vault"]["subpath"] == "backups"
     assert rows["local-backup-vault"]["subpath_owner"] == "1000:1000"
+    assert rows["local-backup-vault"]["subpath_mode"] == "0700"
     assert rows["operations-vault"]["subpath"] == "redis"
     assert rows["operations-vault"]["subpath_owner"] == "999:1000"
+    assert rows["operations-vault"]["subpath_mode"] == "0700"
     for row in rows.values():
         assert row["mount_options"] == ["nodev", "nosuid", "noexec"]
 

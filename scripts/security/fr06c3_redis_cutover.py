@@ -40,6 +40,9 @@ MAX_EVIDENCE_AGE_SECONDS = 3600
 MAX_PLAN_TTL_SECONDS = 900
 MAX_WINDOW_SECONDS = 4 * 60 * 60
 CUTOVER_CONFIRMATION = "FR06C3_PRODUCTION_REDIS_CUTOVER"
+CANDIDATE_UID = 999
+CANDIDATE_GID = 1000
+CANDIDATE_MODE = 0o700
 SENSITIVE_KEYS = {"key", "private_key", "recovery_key", "secret", "secret_key", "token", "passphrase", "password"}
 ACCEPTED_COMPOSE = [
     DASHBOARD / "docker-compose.production.yml",
@@ -265,6 +268,27 @@ def _candidate_mount_ok()->bool:
     return len(matches)==1 and matches[0].get("Name")==CANDIDATE_VOLUME
 
 
+def _harden_candidate_root()->dict[str,Any]:
+    try:
+        before=os.lstat(CANDIDATE_SOURCE)
+    except OSError as exc:
+        raise CutoverBlocked("candidate Redis root is unavailable after startup") from exc
+    if stat.S_ISLNK(before.st_mode) or not stat.S_ISDIR(before.st_mode):
+        raise CutoverBlocked("candidate Redis root is unsafe after startup")
+    if (before.st_uid,before.st_gid)!=(CANDIDATE_UID,CANDIDATE_GID):
+        raise CutoverBlocked("candidate Redis root ownership drifted after startup")
+    try:
+        os.chmod(CANDIDATE_SOURCE,CANDIDATE_MODE)
+    except OSError as exc:
+        raise CutoverBlocked("candidate Redis root could not be re-hardened after startup") from exc
+    after=os.lstat(CANDIDATE_SOURCE)
+    if stat.S_ISLNK(after.st_mode) or not stat.S_ISDIR(after.st_mode):
+        raise CutoverBlocked("candidate Redis root became unsafe during hardening")
+    if (after.st_uid,after.st_gid)!=(CANDIDATE_UID,CANDIDATE_GID) or stat.S_IMODE(after.st_mode)!=CANDIDATE_MODE:
+        raise CutoverBlocked("candidate Redis root hardening did not hold")
+    return {"uid":after.st_uid,"gid":after.st_gid,"mode":"0700"}
+
+
 def _store(path:Path,value:dict[str,Any])->None:
     path.parent.mkdir(parents=True,exist_ok=True,mode=0o700); fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
     try: os.write(fd,json.dumps(value,ensure_ascii=False,sort_keys=True,indent=2).encode()+b"\n"); os.fsync(fd)
@@ -333,9 +357,10 @@ def apply_cutover(args:argparse.Namespace)->dict[str,Any]:
         if not _candidate_mount_ok(): raise CutoverBlocked("candidate Redis mount acceptance failed")
         initial=_dbsize(redis["id"])
         if initial!=0: raise CutoverBlocked("candidate Redis did not start empty")
+        root_hardening=_harden_candidate_root()
         _start_clients(CANDIDATE_COMPOSE,topology);clients_started=True
         if not _sealed(legacy): raise CutoverBlocked("legacy Redis seal drifted")
-        body={"schema_version":1,"subpart":SUBPART,"operation":"redis-empty-cutover","operation_id":op,"status":"candidate_redis_started_admission_closed","completed_at":_utc(),"merge_sha":args.merge_sha,"topology":topology,"legacy_source":str(legacy),"candidate_source":str(CANDIDATE_SOURCE),"legacy_dbsize_at_cutover":runtime["legacy_dbsize"],"legacy_aof_copied":False,"candidate_initial_dbsize":0,"legacy_read_only":True,"legacy_deleted":False,"candidate_clients_started":True,"admission_opened":False,"cloudflare_changed":False,"production_execution":True,"parent_fr06_completed":False};path=_write_result(op,body);return {"status":body["status"],"operation_id":op,"result":str(path),"admission_opened":False}
+        body={"schema_version":1,"subpart":SUBPART,"operation":"redis-empty-cutover","operation_id":op,"status":"candidate_redis_started_admission_closed","completed_at":_utc(),"merge_sha":args.merge_sha,"topology":topology,"legacy_source":str(legacy),"candidate_source":str(CANDIDATE_SOURCE),"legacy_dbsize_at_cutover":runtime["legacy_dbsize"],"legacy_aof_copied":False,"candidate_initial_dbsize":0,"candidate_root_hardening":root_hardening,"legacy_read_only":True,"legacy_deleted":False,"candidate_clients_started":True,"admission_opened":False,"cloudflare_changed":False,"production_execution":True,"parent_fr06_completed":False};path=_write_result(op,body);return {"status":body["status"],"operation_id":op,"result":str(path),"admission_opened":False}
     except Exception as original:
         try:_stop_candidate(topology)
         except Exception:pass

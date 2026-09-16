@@ -38,6 +38,10 @@ def test_client_matrix_matches_lifecycle_contract() -> None:
     assert c["candidate_must_start_with_dbsize"] == 0
     assert c["legacy_aof_copied"] is False
     assert c["restart_only_previously_running_clients"] is True
+    assert c["candidate_subpath_owner"] == "999:1000"
+    assert c["candidate_subpath_mode"] == "0700"
+    assert c["redis_image_first_start_mode_observed"] == "0755"
+    assert c["reharden_candidate_root_before_any_client_restart"] is True
 
 
 def test_failure_policy_is_fail_closed_after_client_start() -> None:
@@ -57,3 +61,16 @@ def test_source_contains_no_rsync_or_redis_aof_copy_path() -> None:
     assert "active_realtime_sessions" in text
     assert "active_livekit_rooms" in text
     assert "manual empty/reconciliation recovery is required" in text
+
+
+def test_candidate_root_is_rehardened_before_any_client_restart() -> None:
+    text = SCRIPT.read_text(encoding="utf-8")
+    apply = text[text.index("def apply_cutover"):]
+    assert "CANDIDATE_UID = 999" in text
+    assert "CANDIDATE_GID = 1000" in text
+    assert "CANDIDATE_MODE = 0o700" in text
+    assert 'root_hardening=_harden_candidate_root()' in apply
+    assert apply.index('initial=_dbsize') < apply.index('root_hardening=_harden_candidate_root()')
+    assert apply.index('root_hardening=_harden_candidate_root()') < apply.index('_start_clients(CANDIDATE_COMPOSE,topology)')
+    assert '"candidate_root_hardening":root_hardening' in apply
+    assert 'os.chmod(CANDIDATE_SOURCE,CANDIDATE_MODE)' in text

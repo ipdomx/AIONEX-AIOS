@@ -7,3 +7,5 @@ The executor binds the exact running Redis-client topology and a fresh recovery 
 Failure semantics deliberately differ before and after client restart. Before any candidate client starts, no Redis divergence exists, so the exact quiesced legacy Redis runtime may be restored. After any candidate client starts, the executor stops the candidate topology and fails closed; it never copies candidate AOF back and never blindly resurrects the stale legacy AOF. Recovery then requires the explicit empty/reconciliation path.
 
 This executor does not move retained host logs; that acceptance remains in C3E. It does not open application admission or alter Cloudflare.
+
+The official Redis image was independently observed to normalize a freshly mounted `/data` root to mode `0755` on its first start. The executor therefore requires the candidate to prove `DBSIZE=0`, then re-hardens the mapper-backed Redis subpath to `0700` with owner `999:1000` **before any application client is restarted**. Failure to retain that boundary is a pre-client cutover failure and follows the safe legacy rollback path.
