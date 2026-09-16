@@ -19,3 +19,9 @@ def test_source_merge_does_not_activate_live_policy():
 
 def test_residual_plaintext_is_not_misrepresented_as_secure_erasure():
     c=json.loads((ROOT/'docs/project/receipts/FR-06C3C6-volatile-log-policy.json').read_text()); assert c['production_activation_gate']['plaintext_underlay_is_residual_remanence_not_active_storage'] is True
+
+
+def test_log_policy_accepts_current_host_ready_validation_name() -> None:
+    text = (ROOT / 'scripts/security/fr06c3_log_policy.py').read_text(encoding='utf-8')
+    assert "FR06C3_VAULTS_HOST_READY" in text
+    assert "FR06C3_HOST_VAULTS_READY" in text

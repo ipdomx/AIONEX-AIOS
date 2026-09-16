@@ -96,7 +96,7 @@ def _c3_gate(root:Path)->str:
     raw=_run(['python3',str(root/'scripts/security/fr06c3_vault_provision.py'),'status','--require-host-ready'])
     try:s=json.loads(raw)
     except json.JSONDecodeError as exc:raise PolicyBlocked('C3 host-ready status invalid') from exc
-    if s.get('validation')!='FR06C3_HOST_VAULTS_READY':raise PolicyBlocked('C3 host vaults not ready')
+    if s.get('validation') not in {'FR06C3_HOST_VAULTS_READY','FR06C3_VAULTS_HOST_READY'}:raise PolicyBlocked('C3 host vaults not ready')
     return _sha(REDIS_CLOSEOUT)
 def _fstype()->str:return _run(['findmnt','-n','-o','FSTYPE','--target','/var/log'])
 def inspect()->dict[str,Any]:
