@@ -1,0 +1,3 @@
+# FR-06C4C3B — guarded live clean-runtime cutover
+
+This source-only executor switches the host from retained legacy Docker/containerd roots to the pre-reconstructed encrypted runtime vault. It stops all live application containers and both daemons before installing the guarded bind service and C4 fail-closed drop-ins. It never copies historical layers. It re-registers exactly five already-encrypted authoritative Docker volumes, recreates only transient/cache volumes, restores the planned 36-container topology, and rebuilds the governed `gemma3:4b` Ollama cache. Rollback removes candidate binds/gates and exposes the untouched legacy runtime metadata; no candidate layer reverse-copy is permitted.
