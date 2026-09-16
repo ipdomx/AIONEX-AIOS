@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C3D",
+  "status": "local_backup_cutover_accepted_pending_closeout_merge",
+  "parent_fr06_completed": false,
+  "source": {
+    "cutover_executor_pr": 694,
+    "cutover_executor_merge": "425a66c27dcfbb7131ecf9bc970c7560b580c92d",
+    "protected_checks_passed": true,
+    "cutover_executor_post_merge_main_checks_passed": true,
+    "cutover_executor_post_merge_main_check_count": 11,
+    "backup_owner_fix_pr": 695,
+    "backup_owner_fix_merge": "19ec9ddfcb41bf5dff09b46dc09df5a67fb760d8",
+    "backup_owner_fix_protected_checks_passed": true,
+    "backup_owner_fix_post_merge_main_checks_passed": true,
+    "backup_owner_fix_post_merge_main_check_count": 11
+  },
+  "production_cutover": {
+    "operation_id": "27fe95c845142a4d1ced61f8a84b363905954490170cf5ddcfc59b684b04883e",
+    "status": "candidate_backup_started_admission_closed",
+    "completed_at": "2026-09-16T06:39:00Z",
+    "candidate_volume": "aionex-fr06-local-backup-vault",
+    "candidate_path": "/mnt/aionex/fr06-local-backup-vault/backups",
+    "final_regular_files": 69,
+    "final_payload_bytes": 765460097,
+    "final_manifest_sha256": "7f2ee87642ff334e444ae8fae32965dce3101d06903eeb6c1536e08221a5df43",
+    "legacy_backup_data_deleted": false,
+    "legacy_backup_data_read_only": true,
+    "admission_opened": false,
+    "cloudflare_changed": false
+  },
+  "runtime_correction": {
+    "issue": "local-backup vault subpath owner was provisioned root:root while the backend image entrypoint drops Backup Worker to aionex uid/gid 1000:1000",
+    "correct_owner": "1000:1000",
+    "mode": "0700",
+    "source_hotfix": "fix: align FR-06C3 backup vault owner with runtime user",
+    "backup_worker_healthy_after_fix": true,
+    "candidate_gate_passed_after_fix": true
+  },
+  "post_cutover_recovery": {
+    "backup_id": "ef4ede44-c33d-4259-9674-838c91b38b5d",
+    "backup_status": "completed",
+    "offsite_status": "completed",
+    "database_size_bytes": 21708722,
+    "restore_run_id": "69f71995-f782-483c-8028-3940b06afb80",
+    "restore_status": "completed",
+    "restore_validated": true,
+    "restore_offsite_validated": true,
+    "restore_completed_at": "2026-09-16T07:03:12.269681+00:00"
+  },
+  "runtime_acceptance": {
+    "backend_healthy": true,
+    "backup_worker_healthy": true,
+    "backend_candidate_mount_read_only": true,
+    "backup_worker_candidate_mount_read_write": true,
+    "legacy_source_read_only": true,
+    "local_backup_vault_owner": "1000:1000",
+    "local_backup_vault_mode": "0700",
+    "operations_vault_consumers": 0
+  },
+  "rollback": {
+    "legacy_backup_data_retained": true,
+    "legacy_backup_data_read_only": true,
+    "explicit_rollback_executor_retained": true,
+    "blind_live_reverse_copy_allowed": false
+  },
+  "release_boundary": {
+    "fr06c3d_runtime_completed": true,
+    "fr06_completed": false,
+    "next_subpart": "FR-06C3E",
+    "redis_touched_by_c3d": false,
+    "host_logs_touched_by_c3d": false,
+    "admission_opened_by_encryption_batch": false,
+    "cloudflare_changed": false
+  }
+}
