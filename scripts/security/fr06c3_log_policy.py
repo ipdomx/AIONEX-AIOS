@@ -25,6 +25,8 @@ APPLY_CONFIRMATION='FR06C3_PRODUCTION_VOLATILE_LOG_CUTOVER'
 ROLLBACK_CONFIRMATION='FR06C3_PRODUCTION_VOLATILE_LOG_ROLLBACK'
 SENSITIVE_KEYS={'key','private_key','recovery_key','secret','secret_key','token','passphrase','password'}
 DIRECT_LOG_SERVICES=('rsyslog.service','fail2ban.service','unattended-upgrades.service')
+SYSLOG_SOCKET='syslog.socket'
+QUIESCE_BEFORE_SYSLOG=('fail2ban.service','unattended-upgrades.service')
 ALLOWED_PRECUTOVER_LOG_HOLDER_COMMS={'systemd-journal','rsyslogd','fail2ban-server','unattended-upgr'}
 
 class PolicyError(RuntimeError): pass
@@ -102,6 +104,7 @@ def _require_known_log_holders()->list[dict[str,Any]]:
     if unknown:raise PolicyBlocked('unknown direct /var/log holder(s): '+','.join(unknown))
     inactive=[name for name in DIRECT_LOG_SERVICES if not _service_active(name)]
     if inactive:raise PolicyBlocked('required direct log service is not active: '+','.join(inactive))
+    if not _service_active(SYSLOG_SOCKET):raise PolicyBlocked('syslog activation socket is not active')
     return rows
 def _hidden_underlay_holders()->list[dict[str,Any]]:
     current_dev=os.stat('/var/log').st_dev
@@ -130,7 +133,7 @@ def _fstype()->str:return _run(['findmnt','-n','-o','FSTYPE','--target','/var/lo
 def inspect()->dict[str,Any]:
     enabled=subprocess.run(['systemctl','is-enabled','var-log.mount'],capture_output=True,text=True,check=False).stdout.strip()
     holders=_log_fd_holders()
-    return {'schema_version':1,'subpart':'FR-06C3E','observed_at':_utc(),'var_log_fstype':_fstype(),'var_log_mount_enabled':enabled,'direct_log_services':{name:('active' if _service_active(name) else 'inactive') for name in DIRECT_LOG_SERVICES},'direct_log_holder_count':len(holders),'direct_log_holder_comms':sorted({r['comm'] for r in holders}),'repository_policy':_source_policy(),'read_only_inspection':True,'production_changed':False}
+    return {'schema_version':1,'subpart':'FR-06C3E','observed_at':_utc(),'var_log_fstype':_fstype(),'var_log_mount_enabled':enabled,'syslog_socket_state':('active' if _service_active(SYSLOG_SOCKET) else 'inactive'),'direct_log_services':{name:('active' if _service_active(name) else 'inactive') for name in DIRECT_LOG_SERVICES},'direct_log_holder_count':len(holders),'direct_log_holder_comms':sorted({r['comm'] for r in holders}),'repository_policy':_source_policy(),'read_only_inspection':True,'production_changed':False}
 def _store(path:Path,value:dict[str,Any])->None:
     path.parent.mkdir(parents=True,exist_ok=True,mode=0o700);fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
     try:os.write(fd,json.dumps(value,sort_keys=True,indent=2).encode()+b'\n');os.fsync(fd)
@@ -146,7 +149,7 @@ def plan(args:argparse.Namespace)->dict[str,Any]:
     if not 1<=args.ttl_seconds<=MAX_PLAN_TTL_SECONDS:raise PolicyBlocked('plan TTL outside bounded range')
     _git_gate(root,args.merge_sha);_evidence(args.evidence.resolve(),args.merge_sha);src=_source_policy();closeout=_c3_gate(root);holders=_require_known_log_holders()
     if _fstype()=='tmpfs':raise PolicyBlocked('/var/log is already tmpfs')
-    now=_now();body={'schema_version':1,'subpart':'FR-06C3E','operation':'volatile-log-cutover','created_at':_utc(now),'expires_at':_utc(now+timedelta(seconds=args.ttl_seconds)),'nonce':secrets.token_hex(32),'merge_sha':args.merge_sha,'evidence_sha256':_sha(args.evidence.resolve()),'redis_closeout_sha256':closeout,**src,'prior_var_log_fstype':_fstype(),'managed_direct_log_services':list(DIRECT_LOG_SERVICES),'precutover_holder_count':len(holders),'precutover_holder_comms':sorted({r['comm'] for r in holders}),'cloudflare_change_permitted':False,'admission_opened':False};body['plan_id']=_digest(body);p=STATE_ROOT/'plans'/f"{body['plan_id']}.json";_store(p,body);return {'decision':'volatile_log_plan_ready','plan_id':body['plan_id'],'plan':str(p),'production_executed':False}
+    now=_now();body={'schema_version':1,'subpart':'FR-06C3E','operation':'volatile-log-cutover','created_at':_utc(now),'expires_at':_utc(now+timedelta(seconds=args.ttl_seconds)),'nonce':secrets.token_hex(32),'merge_sha':args.merge_sha,'evidence_sha256':_sha(args.evidence.resolve()),'redis_closeout_sha256':closeout,**src,'prior_var_log_fstype':_fstype(),'managed_direct_log_services':list(DIRECT_LOG_SERVICES),'managed_syslog_socket':SYSLOG_SOCKET,'precutover_holder_count':len(holders),'precutover_holder_comms':sorted({r['comm'] for r in holders}),'cloudflare_change_permitted':False,'admission_opened':False};body['plan_id']=_digest(body);p=STATE_ROOT/'plans'/f"{body['plan_id']}.json";_store(p,body);return {'decision':'volatile_log_plan_ready','plan_id':body['plan_id'],'plan':str(p),'production_executed':False}
 def _load_plan(path:Path,evidence:Path)->dict[str,Any]:
     _private(path,'log policy plan');v=_json(path);pid=v.get('plan_id')
     if not isinstance(pid,str) or _digest({k:x for k,x in v.items() if k!='plan_id'})!=pid:raise PolicyBlocked('plan digest mismatch')
@@ -165,6 +168,7 @@ def _verify_live()->dict[str,Any]:
     opts=set(_run(['findmnt','-n','-o','OPTIONS','--target','/var/log']).split(','))
     if not {'nodev','nosuid','noexec'}.issubset(opts):raise PolicyBlocked('/var/log mount options drifted')
     if not _service_active('systemd-journald.service'):raise PolicyBlocked('journald did not return active')
+    if not _service_active(SYSLOG_SOCKET):raise PolicyBlocked('syslog activation socket did not return active')
     inactive=[name for name in DIRECT_LOG_SERVICES if not _service_active(name)]
     if inactive:raise PolicyBlocked('direct log service did not return active: '+','.join(inactive))
     if subprocess.run(['systemctl','is-enabled','var-log.mount'],capture_output=True,text=True,check=False).stdout.strip() not in {'enabled','static'}:raise PolicyBlocked('var-log.mount is not enabled')
@@ -172,30 +176,37 @@ def _verify_live()->dict[str,Any]:
     if 'Storage=volatile' not in cat:raise PolicyBlocked('journald volatile drop-in not effective')
     hidden=_hidden_underlay_holders()
     if hidden:raise PolicyBlocked('process still holds plaintext /var/log underlay after activation')
-    return {'validation':'FR06C3_VOLATILE_LOG_RUNTIME_READY','var_log_fstype':'tmpfs','mount_options':sorted(opts),'direct_log_services_active':list(DIRECT_LOG_SERVICES),'hidden_underlay_fd_count':0,'journald_storage':'volatile'}
+    return {'validation':'FR06C3_VOLATILE_LOG_RUNTIME_READY','var_log_fstype':'tmpfs','mount_options':sorted(opts),'syslog_socket_active':True,'direct_log_services_active':list(DIRECT_LOG_SERVICES),'hidden_underlay_fd_count':0,'journald_storage':'volatile'}
 def _rollback_installed(src:dict[str,str])->None:
-    for service in DIRECT_LOG_SERVICES:subprocess.run(['systemctl','stop',service],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=False)
+    for service in QUIESCE_BEFORE_SYSLOG:subprocess.run(['systemctl','stop',service],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=False)
+    subprocess.run(['systemctl','stop',SYSLOG_SOCKET],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=False)
+    subprocess.run(['systemctl','stop','rsyslog.service'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=False)
     subprocess.run(['systemctl','disable','var-log.mount'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=False)
     subprocess.run(['systemctl','stop','var-log.mount'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=False)
     _remove_if_exact(TARGET_MOUNT,src['mount_sha256']);_remove_if_exact(TARGET_JOURNAL,src['journal_sha256'])
     subprocess.run(['systemctl','daemon-reload'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=False)
     subprocess.run(['systemctl','restart','systemd-journald.service'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=False)
-    for service in DIRECT_LOG_SERVICES:subprocess.run(['systemctl','start',service],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=False)
+    subprocess.run(['systemctl','start',SYSLOG_SOCKET],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=False)
+    subprocess.run(['systemctl','start','rsyslog.service'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=False)
+    for service in QUIESCE_BEFORE_SYSLOG:subprocess.run(['systemctl','start',service],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=False)
 def apply(args:argparse.Namespace)->dict[str,Any]:
     p=_load_plan(args.plan.resolve(),args.evidence.resolve())
     if args.confirmation!=f"EXECUTE_FR06C3_VOLATILE_LOG_CUTOVER:{p['plan_id']}" or args.confirm_production!=APPLY_CONFIRMATION:raise PolicyBlocked('exact production log-policy confirmation required')
     root=args.root.resolve();_git_gate(root,args.merge_sha);_evidence(args.evidence.resolve(),args.merge_sha);src=_source_policy();closeout=_c3_gate(root);_require_known_log_holders()
-    if p.get('merge_sha')!=args.merge_sha or p.get('redis_closeout_sha256')!=closeout or p.get('mount_sha256')!=src['mount_sha256'] or p.get('journal_sha256')!=src['journal_sha256'] or p.get('managed_direct_log_services')!=list(DIRECT_LOG_SERVICES):raise PolicyBlocked('plan-bound source/state changed')
+    if p.get('merge_sha')!=args.merge_sha or p.get('redis_closeout_sha256')!=closeout or p.get('mount_sha256')!=src['mount_sha256'] or p.get('journal_sha256')!=src['journal_sha256'] or p.get('managed_direct_log_services')!=list(DIRECT_LOG_SERVICES) or p.get('managed_syslog_socket')!=SYSLOG_SOCKET:raise PolicyBlocked('plan-bound source/state changed')
     reservation=STATE_ROOT/'reservations'/f"{p['plan_id']}.json"
     if reservation.exists():raise PolicyBlocked('plan already consumed')
     fd=_lock();_store(reservation,{'plan_id':p['plan_id'],'reserved_at':_utc()})
     try:
-        for service in DIRECT_LOG_SERVICES:_run(['systemctl','stop',service])
+        for service in QUIESCE_BEFORE_SYSLOG:_run(['systemctl','stop',service])
+        _run(['systemctl','stop',SYSLOG_SOCKET]);_run(['systemctl','stop','rsyslog.service'])
+        if _service_active(SYSLOG_SOCKET) or _service_active('rsyslog.service'):raise PolicyBlocked('syslog activation boundary did not quiesce')
         _atomic_install(SOURCE_JOURNAL,TARGET_JOURNAL,0o644);_atomic_install(SOURCE_MOUNT,TARGET_MOUNT,0o644)
         _run(['systemctl','daemon-reload']);_run(['systemctl','enable','var-log.mount']);_run(['systemctl','start','var-log.mount'])
         _run(['systemctl','restart','systemd-journald.service']);_run(['systemd-tmpfiles','--create','--prefix=/var/log'])
         if _hidden_underlay_holders():raise PolicyBlocked('plaintext /var/log underlay still has open file descriptors after journald restart')
-        for service in DIRECT_LOG_SERVICES:_run(['systemctl','start',service])
+        _run(['systemctl','start',SYSLOG_SOCKET]);_run(['systemctl','start','rsyslog.service'])
+        for service in QUIESCE_BEFORE_SYSLOG:_run(['systemctl','start',service])
         runtime=_verify_live()
         body={'schema_version':1,'subpart':'FR-06C3E','operation':'volatile-log-cutover','operation_id':p['plan_id'],'status':'volatile_log_boundary_active','completed_at':_utc(),'merge_sha':args.merge_sha,'runtime':runtime,'plaintext_underlay_retained_for_rollback':True,'secure_erase_claimed':False,'admission_opened':False,'cloudflare_changed':False,'production_execution':True};result=dict(body);result['receipt_sha256']=_digest(body);out=STATE_ROOT/'results'/f"{p['plan_id']}.json";_store(out,result);return {'status':body['status'],'result':str(out),'validation':runtime['validation']}
     except Exception as exc:

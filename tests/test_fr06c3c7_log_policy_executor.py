@@ -40,7 +40,7 @@ def test_executor_covers_direct_log_fd_holders_and_hidden_underlay():
 
 def test_apply_mounts_tmpfs_before_journald_restart():
     text=SCRIPT.read_text()
-    start=text.index("for service in DIRECT_LOG_SERVICES:_run(['systemctl','stop',service])")
+    start=text.index("for service in QUIESCE_BEFORE_SYSLOG:_run(['systemctl','stop',service])")
     mount=text.index("_run(['systemctl','start','var-log.mount'])",start)
     journal=text.index("_run(['systemctl','restart','systemd-journald.service'])",start)
     assert mount < journal
@@ -52,3 +52,23 @@ def test_log_policy_uses_exact_c3_host_gate_name() -> None:
     text=SCRIPT.read_text()
     assert "FR06C3_VAULTS_HOST_READY" in text
     assert "FR06C3_HOST_VAULTS_READY" not in text
+
+
+def test_syslog_socket_is_quiesced_before_rsyslog_and_restarted_before_rsyslog():
+    c=json.loads(CONTRACT.read_text())
+    assert c['executor']['syslog_activation_socket']=='syslog.socket'
+    assert c['rollback']['stops_syslog_socket_before_rsyslog'] is True
+    assert c['rollback']['restarts_syslog_socket_before_rsyslog'] is True
+    text=SCRIPT.read_text()
+    apply_start=text.index("for service in QUIESCE_BEFORE_SYSLOG:_run(['systemctl','stop',service])")
+    socket_stop=text.index("_run(['systemctl','stop',SYSLOG_SOCKET])",apply_start)
+    rsyslog_stop=text.index("_run(['systemctl','stop','rsyslog.service'])",socket_stop)
+    mount=text.index("_run(['systemctl','start','var-log.mount'])",rsyslog_stop)
+    socket_start=text.index("_run(['systemctl','start',SYSLOG_SOCKET])",mount)
+    rsyslog_start=text.index("_run(['systemctl','start','rsyslog.service'])",socket_start)
+    assert socket_stop < rsyslog_stop < mount < socket_start < rsyslog_start
+
+def test_plan_binds_syslog_socket_identity():
+    text=SCRIPT.read_text()
+    assert "'managed_syslog_socket':SYSLOG_SOCKET" in text
+    assert "p.get('managed_syslog_socket')!=SYSLOG_SOCKET" in text

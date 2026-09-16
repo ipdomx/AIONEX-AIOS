@@ -30,18 +30,20 @@
     ],
     "unknown_direct_log_holder_behavior": "fail_closed",
     "hidden_plaintext_underlay_fd_acceptance": 0,
-    "required_c3_host_validation": "FR06C3_VAULTS_HOST_READY"
+    "required_c3_host_validation": "FR06C3_VAULTS_HOST_READY",
+    "syslog_activation_socket": "syslog.socket",
+    "syslog_socket_reactivation_behavior": "socket_activation_blocked_during_plaintext_underlay_cutover"
   },
   "apply_order": [
     "require accepted Redis/operations cutover closeout and operations-vault host readiness",
     "require exact protected main and fresh production evidence",
     "inventory direct /var/log file-descriptor holders and fail closed on any process outside journald/rsyslog/fail2ban/unattended-upgrades",
-    "stop rsyslog, fail2ban and unattended-upgrades to close their persistent log descriptors",
+    "stop fail2ban and unattended-upgrades, then stop syslog.socket before rsyslog so socket activation cannot reopen plaintext /var/log file descriptors",
     "install repository-pinned journald volatile drop-in and var-log.mount atomically",
     "daemon-reload, enable and mount /var/log tmpfs before restarting journald",
     "restart journald into Storage=volatile and recreate expected volatile log directories with systemd-tmpfiles",
     "require zero file descriptors remaining on the hidden plaintext /var/log underlay device",
-    "restart rsyslog, fail2ban and unattended-upgrades so all direct log access is rebound to tmpfs/volatile journal",
+    "restart syslog.socket and rsyslog on tmpfs, then restart fail2ban and unattended-upgrades so all direct log access is rebound to volatile storage",
     "verify tmpfs type/options, volatile journald source, managed service health and zero hidden-underlay descriptors",
     "retain hidden plaintext underlay only as rollback/remanence evidence; do not claim secure erasure"
   ],
@@ -53,7 +55,9 @@
     "deletes_historical_log_underlay": false,
     "secure_erase_claimed": false,
     "stops_direct_log_services_before_unmount": true,
-    "restarts_fail2ban_and_unattended_upgrades": true
+    "restarts_fail2ban_and_unattended_upgrades": true,
+    "stops_syslog_socket_before_rsyslog": true,
+    "restarts_syslog_socket_before_rsyslog": true
   },
   "scope_boundary": {
     "source_merge_applies_policy": false,
