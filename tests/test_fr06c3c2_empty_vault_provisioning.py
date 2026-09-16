@@ -36,8 +36,7 @@ def test_exact_two_vaults_and_sizes() -> None:
     assert rows["local-backup-vault"]["subpath_mode"] == "0700"
     assert rows["operations-vault"]["subpath"] == "redis"
     assert rows["operations-vault"]["subpath_owner"] == "999:1000"
-    assert rows["operations-vault"]["subpath_mode"] == "0755"
-    assert "Redis runs as uid/gid 999:1000" in rows["operations-vault"]["runtime_mode_reason"]
+    assert rows["operations-vault"]["subpath_mode"] == "0700"
     for row in rows.values():
         assert row["mount_options"] == ["nodev", "nosuid", "noexec"]
 

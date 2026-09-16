@@ -3,10 +3,18 @@
   "batch_id": "FR-06",
   "subpart": "FR-06C3C5",
   "implementation_status": "source_only_guarded_empty_redis_cutover_executor",
-  "depends_on": ["FR-06C3C2", "FR-06C3C3", "FR-06C3C4"],
+  "depends_on": [
+    "FR-06C3C2",
+    "FR-06C3C3",
+    "FR-06C3C4"
+  ],
   "executor": {
     "path": "scripts/security/fr06c3_redis_cutover.py",
-    "commands": ["inspect-runtime", "plan-cutover", "apply-cutover"],
+    "commands": [
+      "inspect-runtime",
+      "plan-cutover",
+      "apply-cutover"
+    ],
     "state_root": "/var/lib/aionex/fr06c3-redis-cutover",
     "single_use_plan": true,
     "maximum_plan_ttl_seconds": 900,
@@ -37,7 +45,11 @@
     "legacy_aof_copied": false,
     "candidate_must_start_with_dbsize": 0,
     "restart_only_previously_running_clients": true,
-    "success_status": "candidate_redis_started_admission_closed"
+    "success_status": "candidate_redis_started_admission_closed",
+    "candidate_subpath_owner": "999:1000",
+    "candidate_subpath_mode": "0700",
+    "redis_image_first_start_mode_observed": "0755",
+    "reharden_candidate_root_before_any_client_restart": true
   },
   "failure_policy": {
     "before_any_candidate_client_starts": "stop candidate Redis, unseal legacy source and restore exact quiesced legacy Redis plus prior client topology",

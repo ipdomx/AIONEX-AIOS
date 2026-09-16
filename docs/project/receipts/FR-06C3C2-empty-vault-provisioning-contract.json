@@ -64,8 +64,7 @@
         "noexec"
       ],
       "subpath_owner": "999:1000",
-      "subpath_mode": "0755",
-      "runtime_mode_reason": "Redis runs as uid/gid 999:1000 and normalizes its /data directory to 0755; the host /mnt/aionex parent remains root-only 0700."
+      "subpath_mode": "0700"
     }
   ],
   "cryptography": {

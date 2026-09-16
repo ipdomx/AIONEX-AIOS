@@ -65,7 +65,7 @@ VAULTS: tuple[dict[str, Any], ...] = (
         "volume": "aionex-fr06-operations-vault",
         "label": "AIOS06_OPS",
         "owner": (999, 1000),
-        "mode": 0o755,
+        "mode": 0o700,
         "legacy_volume": "web-dashboard_redis_data",
     },
 )
