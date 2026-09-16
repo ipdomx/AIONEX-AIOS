@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C5C1",
+  "implementation_status": "source_only_guarded_bootstrap_transition_and_empty_host_state_vault",
+  "depends_on": [
+    "FR-06C5A",
+    "FR-06C5B"
+  ],
+  "bootstrap": {
+    "root": "/root/.config/aionex-bootstrap",
+    "control_plane_key_target": "/root/.config/aionex-bootstrap/control-plane.key",
+    "shared_bridge_upstream_target": "/root/.config/aionex-bootstrap/trendbost-mcp-upstream.url",
+    "tunnel_configs_remain_outside_host_state": true,
+    "authorized_keys_remains_outside_host_state": true,
+    "deployment_private_keys_excluded": true,
+    "installed_tunnel_wrappers_use_bootstrap_only": true,
+    "apply_restarts_tunnels": false,
+    "tracked_mcp2_source_prefers_bootstrap_with_legacy_fallback_before_cutover": true,
+    "trendbost_upstream_bootstrap_copy_prepared_for_c6_legacy_retirement": true,
+    "mcp2_live_install": {
+      "installer": "ops/mcp2/install.py",
+      "canonical_source": "ops/mcp2/server.py",
+      "live_target": "/opt/AIOS/tools/aionex_phase22c_mcp2.py",
+      "required_after_source_merge_before_c5d": true,
+      "restart_performed_by_installer": false,
+      "expected_live_hash_must_equal_canonical_source": true,
+      "reason": "The live MCP2 artifact is an installed runtime file outside the tracked Git source; C5D fail-closes unless it matches the accepted canonical source that prefers the dedicated bootstrap key."
+    }
+  },
+  "vault": {
+    "image": "/var/lib/aionex/fr06-vaults/host-state-vault.luks2",
+    "preallocated_bytes": 34359738368,
+    "mapper": "/dev/mapper/aionex-host-state-vault",
+    "mount_root": "/mnt/aionex/fr06-host-state-vault",
+    "subpaths": [
+      "operator-state",
+      "app-secrets",
+      "ssh"
+    ],
+    "filesystem": "ext4",
+    "mount_options": [
+      "nodev",
+      "nosuid",
+      "noexec"
+    ],
+    "keyslots": 2,
+    "active_and_recovery_keys_independent": true,
+    "tmpfs_key_inputs_only": true,
+    "off_host_header_full_readback_required": true
+  },
+  "bind_strategy": {
+    "directory_targets": [
+      "/root/.config/aionex",
+      "/opt/AIOS/web-dashboard/secrets"
+    ],
+    "private_key_targets": [
+      "/root/.ssh/aionex_aios_deploy",
+      "/root/.ssh/aionex_cpanel_ai_vip_e_net_ed25519"
+    ],
+    "private_key_binds_read_only": true,
+    "apply_requires_docker_stopped": true,
+    "legacy_underlays_retained": true,
+    "source_merge_installs_binds": false
+  },
+  "boot_fail_closed": {
+    "bind_service": "deploy/systemd/aionex-fr06c5-host-state-bind.service",
+    "docker_dropin": "deploy/systemd/docker.service.d/34-aionex-fr06c5-host-state-gate.conf",
+    "docker_refuses_start_without_host_state_bind": true,
+    "mcp_tunnel_requires_host_state_vault": false
+  },
+  "header_custody": {
+    "script": "scripts/security/fr06c5_host_state_header_custody.py",
+    "object_count": 1,
+    "full_sha256_readback_required": true,
+    "recovery_key_stored_in_r2": false
+  },
+  "production_boundary": {
+    "source_merge_copies_bootstrap_key": false,
+    "source_merge_provisions_vault": false,
+    "source_merge_moves_secrets": false,
+    "source_merge_stops_docker": false,
+    "source_merge_changes_swap": false,
+    "source_merge_changes_tmp": false,
+    "cloudflare_changed": false,
+    "fr06_completed": false
+  },
+  "next_subpart": "FR-06C5D guarded live host-state migration then FR-06C5E random-key swap and /tmp tmpfs activation"
+}

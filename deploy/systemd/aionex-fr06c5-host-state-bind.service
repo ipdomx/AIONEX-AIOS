@@ -1,0 +1,14 @@
+[Unit]
+Description=AIONEX FR-06C5 encrypted host-state bind gate
+Before=docker.service
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/usr/bin/python3 /opt/AIOS/scripts/security/fr06c5_host_state_vault.py status --require-host-ready
+ExecStart=/usr/bin/python3 /opt/AIOS/scripts/security/fr06c5_host_state_bind.py apply
+ExecStop=/usr/bin/python3 /opt/AIOS/scripts/security/fr06c5_host_state_bind.py rollback
+
+[Install]
+WantedBy=multi-user.target

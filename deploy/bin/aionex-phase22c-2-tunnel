@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+KEY=/root/.config/aionex-bootstrap/control-plane.key
+[ -f "$KEY" ] || { echo "bootstrap control-plane key unavailable" >&2; exit 1; }
+export CONTROL_PLANE_API_KEY="$(tr -d '\r\n' <"$KEY")"
+[ -n "$CONTROL_PLANE_API_KEY" ] || { echo "bootstrap control-plane key empty" >&2; exit 1; }
+exec /usr/local/bin/tunnel-client run --config /root/.config/tunnel-client/aionex-phase22c-2.yaml
