@@ -1,0 +1,12 @@
+[Unit]
+Description=AIONEX FR-06C5 volatile /tmp
+Before=local-fs.target
+
+[Mount]
+What=tmpfs
+Where=/tmp
+Type=tmpfs
+Options=mode=1777,nodev,nosuid,size=8G
+
+[Install]
+WantedBy=local-fs.target

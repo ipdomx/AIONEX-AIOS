@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C5E",
+  "implementation_status": "source_only_guarded_random_key_swap_and_tmpfs_controls",
+  "depends_on": ["FR-06C5D"],
+  "swap": {
+    "legacy_backing": "/swap.img",
+    "legacy_plaintext_swap_must_be_inactive_after_apply": true,
+    "legacy_backing_retained_as_residual_rollback_state": true,
+    "secure_erase_claimed": false,
+    "encrypted_backing": "/var/lib/aionex/fr06-vaults/random-swap.backing",
+    "encrypted_backing_bytes": 8589934592,
+    "mapper": "/dev/mapper/aionex-fr06c5-swap",
+    "random_key_path": "/run/aionex-fr06c5-swap.key",
+    "random_key_bytes": 64,
+    "random_key_generated_each_activation": true,
+    "random_key_removed_after_mapper_open": true,
+    "persistent_recovery_key": false,
+    "mkswap_runs_only_on_encrypted_mapper": true,
+    "fstab_legacy_entry_disabled_after_success": true
+  },
+  "tmp": {
+    "target": "/tmp",
+    "filesystem": "tmpfs",
+    "max_bytes": 8589934592,
+    "options": ["nodev", "nosuid", "mode=1777"],
+    "underlay_copy_permitted": false,
+    "hidden_underlay_fd_count_must_be_zero": true,
+    "legacy_underlay_retained_for_rollback": true
+  },
+  "activation": {
+    "executor": "scripts/security/fr06c5_memory_controls.py",
+    "fresh_source_ci_required": true,
+    "accepted_host_state_cutover_receipt_required": true,
+    "memory_available_must_exceed_current_swap_used_plus_reserve": true,
+    "memory_reserve_bytes": 8589934592,
+    "maintenance_window_required": true,
+    "application_admission_remains_closed": true,
+    "cloudflare_change_permitted": false
+  },
+  "boot": {
+    "encrypted_swap_service": "deploy/systemd/aionex-fr06c5-encrypted-swap.service",
+    "tmp_mount_unit": "deploy/systemd/tmp.mount",
+    "legacy_fstab_swap_entry_must_remain_disabled": true,
+    "new_swap_key_survives_reboot": false
+  },
+  "rollback": {
+    "encrypted_swap_is_swapped_off_before_mapper_close": true,
+    "legacy_fstab_backup_restored": true,
+    "legacy_swap_can_be_reenabled": true,
+    "tmpfs_unmounted_to_reveal_retained_tmp_underlay": true,
+    "secure_erase_claimed": false
+  },
+  "scope_boundary": {
+    "source_merge_changes_swap": false,
+    "source_merge_mounts_tmpfs": false,
+    "source_merge_edits_fstab": false,
+    "source_merge_stops_services": false,
+    "cloudflare_changed": false,
+    "fr06_completed": false
+  },
+  "next_subpart": "FR-06C5 closeout then FR-06C6 all-domain real reboot and independent recovery acceptance"
+}
