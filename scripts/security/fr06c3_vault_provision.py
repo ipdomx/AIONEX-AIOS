@@ -49,7 +49,7 @@ VAULTS: tuple[dict[str, Any], ...] = (
         "subpath": "backups",
         "volume": "aionex-fr06-local-backup-vault",
         "label": "AIOS06_BACKUP",
-        "owner": (0, 0),
+        "owner": (1000, 1000),
         "mode": 0o700,
         "legacy_volume": "web-dashboard_backup_data",
     },

@@ -47,7 +47,7 @@
         "nosuid",
         "noexec"
       ],
-      "subpath_owner": "root:root",
+      "subpath_owner": "1000:1000",
       "subpath_mode": "0700"
     },
     {

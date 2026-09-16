@@ -32,6 +32,7 @@ def test_exact_two_vaults_and_sizes() -> None:
     assert rows["local-backup-vault"]["preallocated_bytes"] == 16 * 1024**3
     assert rows["operations-vault"]["preallocated_bytes"] == 8 * 1024**3
     assert rows["local-backup-vault"]["subpath"] == "backups"
+    assert rows["local-backup-vault"]["subpath_owner"] == "1000:1000"
     assert rows["operations-vault"]["subpath"] == "redis"
     assert rows["operations-vault"]["subpath_owner"] == "999:1000"
     for row in rows.values():
@@ -116,3 +117,14 @@ def test_docker_gate_is_source_only_and_host_ready_not_consumer_bound() -> None:
     text = PROVISION.read_text(encoding="utf-8")
     assert '"validation": "FR06C3_VAULTS_HOST_READY"' in text
     assert "_verify_all_host_ready() if args.require_host_ready" in text
+
+
+def test_local_backup_owner_matches_runtime_aionex_user() -> None:
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("fr06c3_provision_owner", PROVISION)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    backup = next(v for v in module.VAULTS if v["role"] == "local-backup-vault")
+    assert backup["owner"] == (1000, 1000)
+    assert _contract()["vaults"][0]["subpath_owner"] == "1000:1000"
