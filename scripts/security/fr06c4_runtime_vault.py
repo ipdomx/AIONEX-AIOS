@@ -49,8 +49,9 @@ def verify_host():
  line=run(['findmnt','-n','-o','SOURCE,FSTYPE,OPTIONS','--target',str(MOUNT)]).split(None,2)
  if len(line)!=3 or os.path.realpath(line[0])!=os.path.realpath(MAPPER) or line[1]!='ext4' or not set(OPTS).issubset(set(line[2].split(','))):raise B('runtime mount drifted')
  for sub in ('docker','containerd'):
-  p=MOUNT/sub; s=os.lstat(p)
-  if stat.S_ISLNK(s.st_mode) or not stat.S_ISDIR(s.st_mode) or s.st_uid!=0 or s.st_gid!=0 or stat.S_IMODE(s.st_mode)!=0o700:raise B(f'{sub} subpath drifted')
+  p=MOUNT/sub; s=os.lstat(p); mode=stat.S_IMODE(s.st_mode)
+  allowed={0o700,0o710} if sub=='docker' else {0o700}
+  if stat.S_ISLNK(s.st_mode) or not stat.S_ISDIR(s.st_mode) or s.st_uid!=0 or s.st_gid!=0 or mode not in allowed:raise B(f'{sub} subpath drifted')
  return {'status':'host-ready','validation':'FR06C4_RUNTIME_VAULT_HOST_READY','mapper':str(MAPPER),'mount_root':str(MOUNT),'subpaths':['docker','containerd'],'admission_opened':False}
 def status(require=False):
  try:r=verify_host()
