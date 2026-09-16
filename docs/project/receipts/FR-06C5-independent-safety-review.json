@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C5-safety-review",
+  "reviewed_at": "2026-09-16",
+  "source_authorities": {
+    "c5c1": "32dcdf393fa0835a034a953f1476795a5a585927",
+    "c5d": "fce07a38114a2c5252e804be9ec52219fa8b1dad",
+    "c5e": "e11a18c60291246206486fbd52f71647224b4009"
+  },
+  "execution_scope": "Source review and disposable mocked regression tests only. No vault provisioning, secret migration, service restart, swap change or tmp mount.",
+  "findings": [
+    {
+      "id": "C5C1-REPLAY",
+      "severity": "P1",
+      "status": "fixed_in_this_source_change_pending_protected_ci",
+      "file": "scripts/security/fr06c5_host_state_vault.py",
+      "issue": "apply did not recheck target state under its lock and could format an existing image on replay; failure cleanup could unlink a prior or still-mapped backing file.",
+      "fix": "Locked current-state gates, durable single-use claim, O_EXCL creation and fd-based allocation, inode ownership cleanup, retain image when teardown fails or mapper/mount remains, key and lock cleanup on all handled failures."
+    },
+    {
+      "id": "C5D-ROLLBACK",
+      "severity": "P1",
+      "status": "blocks_live_cutover",
+      "file": "scripts/security/fr06c5_host_state_cutover.py",
+      "symbols": [
+        "apply",
+        "rollback_prestart",
+        "c5gate",
+        "quiesce_restart_policies"
+      ],
+      "issue": "A failure before cutover invokes global rollback; teardown and restore return codes are ignored; restart policies are not restored; in-memory started flag and reusable plan do not protect an earlier authoritative candidate.",
+      "required": "Durable attempt journal and ownership of mount/gate/policy mutations, phase-aware rollback, checked teardown and legacy health acceptance, no automatic replay after candidate start attempt."
+    },
+    {
+      "id": "C5E-ROLLBACK",
+      "severity": "P1",
+      "status": "blocks_live_activation",
+      "file": "scripts/security/fr06c5_memory_controls.py",
+      "symbols": [
+        "rollback_internal",
+        "rollback"
+      ],
+      "issue": "Rollback reports legacy restored even when all system commands fail.",
+      "evidence": "In-memory fault injection returned legacy_swap_and_tmp_underlay_restored with returncode=1 and boot_swap_stop exception.",
+      "required": "Check every restore operation, retain recovery artifacts on failure, verify swap/fstab/tmp state before reporting restoration."
+    },
+    {
+      "id": "C5E-SWAP-IDENTITY",
+      "severity": "P1",
+      "status": "blocks_live_activation",
+      "file": "scripts/security/fr06c5_memory_controls.py",
+      "symbols": [
+        "boot_swap_start",
+        "boot_swap_stop",
+        "verify_live"
+      ],
+      "issue": "Exact path comparison ignores a /dev/dm-N alias of the encrypted mapper.",
+      "evidence": "Synthetic /dev/dm-7 row made start reject active mapper and stop omit swapoff. Actual kernel representation for this new target was not tested live.",
+      "required": "Compare canonical block-device identity and test aliases."
+    },
+    {
+      "id": "C5E-BOOT-ORDER",
+      "severity": "P1",
+      "status": "blocks_live_activation_pending_enabled_graph_validation",
+      "file": "deploy/systemd/aionex-fr06c5-encrypted-swap.service",
+      "issue": "Ordering with tmp.mount and local-fs.target can cycle because tmpfs mounts have an automatic After=swap.target dependency.",
+      "evidence": "Source-derived dependency cycle: swap.target -> tmp.mount -> local-fs.target -> encrypted-swap.service -> swap.target. Bare unit-file verify does not prove the enabled boot graph.",
+      "required": "Remove cycle and validate enabled target graph in isolation."
+    },
+    {
+      "id": "C5E-TMP-BOUNDARY",
+      "severity": "P1",
+      "status": "blocks_live_activation",
+      "file": "scripts/security/fr06c5_memory_controls.py",
+      "symbols": [
+        "tmp_holders",
+        "apply"
+      ],
+      "issue": "Holder scan omits writable mmap after fd close and has no post-mount underlay identity verification; zero holders is recorded as a constant.",
+      "required": "Quiesce writers, include mapped-file references, verify the hidden underlay after mount, and record measured results."
+    },
+    {
+      "id": "C5E-CRASH-RECOVERY",
+      "severity": "P1",
+      "status": "blocks_live_activation",
+      "file": "scripts/security/fr06c5_memory_controls.py",
+      "symbols": [
+        "apply",
+        "current_preflight",
+        "rollback"
+      ],
+      "issue": "A crash after legacy swap/fstab change but before final receipt leaves apply rejected and rollback unable to find the receipt.",
+      "required": "Write durable intent and phases before changes; provide reconciliation and safe recovery for partial mapper creation."
+    }
+  ],
+  "current_live_observation": {
+    "running_containers": 36,
+    "unhealthy_containers": 0,
+    "docker_and_containerd_backed_by_encrypted_vault": true,
+    "host_state_vault_observed_present": false,
+    "active_legacy_swap": "/swap.img",
+    "tmp_fstype": "ext4",
+    "final_release": false
+  },
+  "remaining_scope": "FR-06 stays in progress; FR-06C5D/E must be repaired and behaviorally validated before live activation. Deferred owner scope is unchanged.",
+  "validation": {
+    "nonroot_targeted_tests_passed": 32,
+    "seconds": 0.2,
+    "tested_as": "nobody",
+    "real_system_mutations": false,
+    "production_secrets_read": false,
+    "protected_ci": "pending"
+  }
+}
