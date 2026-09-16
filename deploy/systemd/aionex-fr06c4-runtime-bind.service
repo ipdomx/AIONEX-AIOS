@@ -1,0 +1,13 @@
+[Unit]
+Description=AIONEX guarded encrypted container runtime bind mounts
+Before=containerd.service docker.service
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/python3 /opt/AIOS/scripts/security/fr06c4_runtime_bind.py apply
+ExecStop=/usr/bin/python3 /opt/AIOS/scripts/security/fr06c4_runtime_bind.py rollback
+
+[Install]
+WantedBy=multi-user.target

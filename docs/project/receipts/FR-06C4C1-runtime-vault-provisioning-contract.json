@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C4C1",
+  "implementation_status": "source_only_guarded_empty_container_runtime_vault_provisioning",
+  "depends_on": [
+    "FR-06C4A",
+    "FR-06C4B"
+  ],
+  "vault": {
+    "image": "/var/lib/aionex/fr06-vaults/container-runtime-vault.luks2",
+    "preallocated_bytes": 68719476736,
+    "mapper": "/dev/mapper/aionex-container-runtime-vault",
+    "mount_root": "/mnt/aionex/fr06-container-runtime-vault",
+    "subpaths": [
+      "docker",
+      "containerd"
+    ],
+    "filesystem": "ext4",
+    "mount_options": [
+      "nodev",
+      "nosuid"
+    ],
+    "keyslots": 2,
+    "active_and_recovery_keys_independent": true,
+    "tmpfs_key_inputs_only": true,
+    "off_host_header_full_readback_required": true
+  },
+  "bind_mount_strategy": {
+    "guarded_service": "deploy/systemd/aionex-fr06c4-runtime-bind.service",
+    "bind_executor": "scripts/security/fr06c4_runtime_bind.py",
+    "sources": [
+      "/mnt/aionex/fr06-container-runtime-vault/containerd",
+      "/mnt/aionex/fr06-container-runtime-vault/docker"
+    ],
+    "targets": [
+      "/var/lib/containerd",
+      "/var/lib/docker"
+    ],
+    "requires_vault_host_ready_before_first_bind": true,
+    "requires_both_daemons_stopped": true,
+    "atomic_failure_cleanup": true,
+    "legacy_underlay_retained": true,
+    "candidate_binds_installed_only_after_clean_reconstruction_acceptance": true,
+    "rollback": "stop Docker/containerd, invoke guarded bind rollback, expose retained legacy underlays, restart legacy runtime"
+  },
+  "boot_fail_closed": {
+    "containerd_dropin": "deploy/systemd/containerd.service.d/30-aionex-fr06c4-runtime-gate.conf",
+    "docker_dropin": "deploy/systemd/docker.service.d/33-aionex-fr06c4-runtime-gate.conf",
+    "missing_mapper_or_mount": "containerd and Docker fail before daemon start",
+    "unlock_keys": false,
+    "bind_service": "deploy/systemd/aionex-fr06c4-runtime-bind.service"
+  },
+  "production_boundary": {
+    "source_merge_provisions_vault": false,
+    "source_merge_stops_docker": false,
+    "source_merge_stops_containerd": false,
+    "source_merge_installs_bind_mounts": false,
+    "source_merge_installs_systemd_gates": false,
+    "historical_runtime_copy_capability": false,
+    "admission_opened": false,
+    "cloudflare_changed": false
+  },
+  "next_subpart": "FR-06C4C2 clean runtime reconstruction and guarded live bind-mount cutover executor",
+  "header_custody": {
+    "script": "scripts/security/fr06c4_runtime_header_custody.py",
+    "execution_boundary": "existing backup-worker container with private R2 credential source",
+    "input_root": "/run/aionex-fr06c4-runtime-header",
+    "object_count": 1,
+    "new_object_required": true,
+    "metadata_readback_required": true,
+    "full_sha256_readback_required": true,
+    "recovery_key_stored_in_r2": false
+  }
+}
