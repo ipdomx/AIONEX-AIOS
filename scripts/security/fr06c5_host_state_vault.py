@@ -61,7 +61,7 @@ def write_exclusive(p,v):
 def plan(a):
  if os.geteuid()!=0:raise B('root required')
  gitgate(a.merge_sha)
- if IMAGE.exists() or MAPPER.exists():raise B('host-state vault already exists')
+ require_empty_provision_target()
  active,ad=bundle(a.active_bundle,'active');recovery,rd=bundle(a.recovery_bundle,'recovery')
  if active==recovery:raise B('active/recovery keys must differ')
  if shutil.disk_usage('/var/lib/aionex').free<SIZE+16*1024**3:raise B('insufficient free space plus reserve')
@@ -72,30 +72,128 @@ def loadplan(p):
  if not isinstance(pid,str) or digest({k:v for k,v in d.items() if k!='plan_id'})!=pid:raise B('plan digest invalid')
  if now()>datetime.fromisoformat(d['expires_at'].replace('Z','+00:00')):raise B('plan expired')
  return d
+def require_empty_provision_target():
+    """Recheck live state while holding the provision lock, before any mutation."""
+    if any(os.path.lexists(p) for p in (IMAGE, MAPPER, STATE/'provision-receipt.json', STATE/'recovery-proof.json', RUN/'host-state-vault.header')):
+        raise B('host-state vault or provision receipt already exists')
+    if MOUNT.is_symlink() or os.path.ismount(MOUNT):
+        raise B('host-state mount already exists')
+    if MOUNT.exists() and (not MOUNT.is_dir() or any(MOUNT.iterdir())):
+        raise B('host-state mount target is not empty')
+
+def owned_image(identity):
+    if identity is None:
+        return False
+    try:
+        s=os.lstat(IMAGE)
+    except FileNotFoundError:
+        return False
+    return stat.S_ISREG(s.st_mode) and (s.st_dev,s.st_ino)==identity
+
 def apply(a):
- p=loadplan(a.plan.resolve())
- if a.confirmation!='PROVISION-'+p['plan_id'][:16] or a.confirm_production!=CONFIRM:raise B('confirmation invalid')
- gitgate(a.merge_sha);ak,ad=bundle(a.active_bundle,'active');rk,rd=bundle(a.recovery_bundle,'recovery')
- if p['merge_sha']!=a.merge_sha or p['active_bundle_sha256']!=ad or p['recovery_bundle_sha256']!=rd:raise B('bound input changed')
- STATE.mkdir(parents=True,exist_ok=True,mode=0o700);RUN.mkdir(parents=True,exist_ok=True,mode=0o700);lock=os.open(RUN/'operation.lock',os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600);fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
- tmp=KEYS/('apply-'+secrets.token_hex(6));tmp.mkdir(parents=True,mode=0o700);ap=tmp/'active';rp=tmp/'recovery';ap.write_bytes(ak);rp.write_bytes(rk);os.chmod(ap,0o600);os.chmod(rp,0o600);opened=mounted=False
- try:
-  IMAGE.parent.mkdir(parents=True,exist_ok=True,mode=0o700);run(['fallocate','-l',str(SIZE),str(IMAGE)],600);os.chmod(IMAGE,0o600)
-  run(['cryptsetup','luksFormat','--batch-mode','--type','luks2','--cipher','aes-xts-plain64','--key-size','512','--pbkdf','argon2id','--key-file',str(ap),str(IMAGE)],600);run(['cryptsetup','luksAddKey',str(IMAGE),str(rp),'--key-file',str(ap)],300);run(['cryptsetup','open','--key-file',str(ap),str(IMAGE),MAPPER_NAME],180);opened=True;run(['mkfs.ext4','-q','-L','AIOS06_HOSTSTATE',str(MAPPER)],300);mount_vault();mounted=True
-  for sub in ('operator-state','app-secrets','ssh'):(MOUNT/sub).mkdir(mode=0o700);os.chown(MOUNT/sub,0,0);os.chmod(MOUNT/sub,0o700)
-  header=RUN/'host-state-vault.header';run(['cryptsetup','luksHeaderBackup',str(IMAGE),'--header-backup-file',str(header)],120);os.chmod(header,0o400);ready=verify_host();receipt={'schema_version':1,'subpart':'FR-06C5C1','status':'empty_host_state_vault_provisioned_admission_closed','completed_at':utc(),'merge_sha':a.merge_sha,'size_bytes':SIZE,'mapper':str(MAPPER),'mount_root':str(MOUNT),'subpaths':['operator-state','app-secrets','ssh'],'active_bundle_sha256':ad,'recovery_bundle_sha256':rd,'header_staging_path':str(header),'header_sha256':fsha(header),'production_state_copied':False,'services_stopped_or_restarted':False,'binds_installed':False,'admission_opened':False,'cloudflare_changed':False,'ready_validation':ready['validation']};write_exclusive(STATE/'provision-receipt.json',receipt);return {'status':receipt['status'],'receipt':str(STATE/'provision-receipt.json'),'production_state_copied':False}
- except Exception:
-  if mounted:subprocess.run(['umount',str(MOUNT)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-  if opened:subprocess.run(['cryptsetup','close',MAPPER_NAME],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-  if IMAGE.exists():IMAGE.unlink()
-  raise
- finally:
-  for x in (ap,rp):
-   try:x.unlink()
-   except OSError:pass
-  try:tmp.rmdir()
-  except OSError:pass
-  fcntl.flock(lock,fcntl.LOCK_UN);os.close(lock)
+    if os.geteuid()!=0:
+        raise B('root required')
+    p=loadplan(a.plan.resolve())
+    if a.confirmation!='PROVISION-'+p['plan_id'][:16] or a.confirm_production!=CONFIRM:
+        raise B('confirmation invalid')
+    gitgate(a.merge_sha)
+    ak,ad=bundle(a.active_bundle,'active')
+    rk,rd=bundle(a.recovery_bundle,'recovery')
+    if p['merge_sha']!=a.merge_sha or p['active_bundle_sha256']!=ad or p['recovery_bundle_sha256']!=rd:
+        raise B('bound input changed')
+    if ak==rk:
+        raise B('active/recovery keys must differ')
+    STATE.mkdir(parents=True,exist_ok=True,mode=0o700)
+    RUN.mkdir(parents=True,exist_ok=True,mode=0o700)
+    lock=os.open(RUN/'operation.lock',os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW|os.O_CLOEXEC,0o600)
+    locked=False
+    tmp=ap=rp=None
+    identity=None
+    opened=mounted=False
+    try:
+        fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        locked=True
+        # Planning is advisory. Only this locked, current-state check authorizes creation.
+        loadplan(a.plan.resolve())
+        gitgate(a.merge_sha)
+        require_empty_provision_target()
+        if shutil.disk_usage('/var/lib/aionex').free<SIZE+16*1024**3:
+            raise B('insufficient free space plus reserve')
+        claim=STATE/('provision-attempt-'+p['plan_id']+'.json')
+        try:
+            write_exclusive(claim,{'schema_version':1,'plan_id':p['plan_id'],'started_at':utc(),'status':'claimed_no_automatic_replay'})
+        except FileExistsError as e:
+            raise B('provision plan already attempted; inspect durable state before a new plan') from e
+        tmp=KEYS/('apply-'+secrets.token_hex(6))
+        tmp.mkdir(parents=True,mode=0o700)
+        ap=tmp/'active'
+        rp=tmp/'recovery'
+        for path,key in ((ap,ak),(rp,rk)):
+            fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_CLOEXEC,0o600)
+            try:
+                if os.write(fd,key)!=len(key):
+                    raise B('temporary key write incomplete')
+            finally:
+                os.close(fd)
+        IMAGE.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
+        # Reserve the destination atomically; never fallocate or format a prior image.
+        fd=os.open(IMAGE,os.O_RDWR|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_CLOEXEC,0o600)
+        try:
+            s=os.fstat(fd)
+            identity=(s.st_dev,s.st_ino)
+            os.posix_fallocate(fd,0,SIZE)
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+        if not owned_image(identity):
+            raise B('provision image identity changed')
+        run(['cryptsetup','luksFormat','--batch-mode','--type','luks2','--cipher','aes-xts-plain64','--key-size','512','--pbkdf','argon2id','--key-file',str(ap),str(IMAGE)],600)
+        run(['cryptsetup','luksAddKey',str(IMAGE),str(rp),'--key-file',str(ap)],300)
+        run(['cryptsetup','open','--key-file',str(ap),str(IMAGE),MAPPER_NAME],180)
+        opened=True
+        run(['mkfs.ext4','-q','-L','AIOS06_HOSTSTATE',str(MAPPER)],300)
+        mount_vault()
+        mounted=True
+        for sub in ('operator-state','app-secrets','ssh'):
+            (MOUNT/sub).mkdir(mode=0o700)
+            os.chown(MOUNT/sub,0,0)
+            os.chmod(MOUNT/sub,0o700)
+        header=RUN/'host-state-vault.header'
+        run(['cryptsetup','luksHeaderBackup',str(IMAGE),'--header-backup-file',str(header)],120)
+        os.chmod(header,0o400)
+        ready=verify_host()
+        receipt={'schema_version':1,'subpart':'FR-06C5C1','status':'empty_host_state_vault_provisioned_admission_closed','completed_at':utc(),'merge_sha':a.merge_sha,'size_bytes':SIZE,'mapper':str(MAPPER),'mount_root':str(MOUNT),'subpaths':['operator-state','app-secrets','ssh'],'active_bundle_sha256':ad,'recovery_bundle_sha256':rd,'header_staging_path':str(header),'header_sha256':fsha(header),'production_state_copied':False,'services_stopped_or_restarted':False,'binds_installed':False,'admission_opened':False,'cloudflare_changed':False,'ready_validation':ready['validation'],'plan_id':p['plan_id']}
+        write_exclusive(STATE/'provision-receipt.json',receipt)
+        return {'status':receipt['status'],'receipt':str(STATE/'provision-receipt.json'),'production_state_copied':False}
+    except Exception:
+        cleanup_ok=True
+        for needed,command in ((mounted,['umount',str(MOUNT)]),(opened,['cryptsetup','close',MAPPER_NAME])):
+            if needed:
+                try:
+                    result=subprocess.run(command,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=120,check=False)
+                    cleanup_ok=cleanup_ok and result.returncode==0
+                except (OSError,subprocess.SubprocessError):
+                    cleanup_ok=False
+        # A failed unmount/close or changed inode requires reconciliation, never unlinking.
+        if cleanup_ok and owned_image(identity) and not os.path.lexists(MAPPER) and not os.path.ismount(MOUNT):
+            IMAGE.unlink()
+        raise
+    finally:
+        for path in (ap,rp):
+            if path is not None:
+                try:
+                    path.unlink()
+                except OSError:
+                    pass
+        if tmp is not None:
+            try:
+                tmp.rmdir()
+            except OSError:
+                pass
+        if locked:
+            fcntl.flock(lock,fcntl.LOCK_UN)
+        os.close(lock)
+
 def prove(a):
  private(STATE/'provision-receipt.json','receipt',1024*1024);r=json.loads((STATE/'provision-receipt.json').read_text());ak,ad=bundle(a.active_bundle,'active');rk,rd=bundle(a.recovery_bundle,'recovery')
  if ad!=r['active_bundle_sha256'] or rd!=r['recovery_bundle_sha256']:raise B('custody changed')

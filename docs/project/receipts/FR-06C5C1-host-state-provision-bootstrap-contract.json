@@ -85,5 +85,22 @@
     "cloudflare_changed": false,
     "fr06_completed": false
   },
-  "next_subpart": "FR-06C5D guarded live host-state migration then FR-06C5E random-key swap and /tmp tmpfs activation"
+  "next_subpart": "FR-06C5D safety remediation and behavioral verification before guarded live host-state migration; then FR-06C5E safety remediation before memory-control activation",
+  "provision_replay_safety": {
+    "locked_current_state_recheck": true,
+    "atomic_exclusive_image_creation": true,
+    "durable_single_use_plan_claim": true,
+    "cleanup_requires_owned_inode_and_successful_teardown": true,
+    "temporary_key_short_write_rejected": true,
+    "behavioral_regression_tests": "tests/test_fr06c5c1_provision_replay_safety.py"
+  },
+  "live_activation_followup_review": "docs/project/receipts/FR-06C5-independent-safety-review.json",
+  "bind_rollback_safety": {
+    "matching_source_only": true,
+    "umount_exit_and_effect_checked": true,
+    "foreign_mounts_preserved": true,
+    "legacy_seal_identity_checked": true,
+    "complete_runtime_restoration_claimed": false,
+    "behavioral_regression_tests": "tests/test_fr06c5c1_bind_rollback_ownership.py"
+  }
 }
