@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C5B",
+  "implementation_status": "source_only_isolated_host_state_swap_tmpfs_rehearsal",
+  "depends_on": ["FR-06C5A"],
+  "lab": {
+    "production_operator_state_read": false,
+    "production_application_secrets_read": false,
+    "production_swap_touched": false,
+    "production_tmp_touched": false,
+    "synthetic_metadata_preserved": true,
+    "wrong_key_rejected": true,
+    "independent_recovery_key_required": true,
+    "active_key_reopen_required": true,
+    "closed_plaintext_marker_absent": true
+  },
+  "bootstrap_rehearsal": {
+    "dedicated_minimal_bootstrap": true,
+    "control_plane_key_only": true,
+    "three_tunnel_configs_use_environment_reference": true,
+    "shared_bridge_upstream_preserved": true,
+    "break_glass_authorized_keys_preserved": true,
+    "deployment_private_keys_excluded": true,
+    "deployment_private_keys_remain_in_encrypted_host_state": true
+  },
+  "swap_rehearsal": {
+    "actual_swapon_permitted": false,
+    "synthetic_mapper_mkswap_only": true,
+    "random_key_tmpfs_only": true,
+    "raw_backing_swap_signature_absent_after_close": true,
+    "new_random_key_cannot_read_prior_swap_signature": true,
+    "persistent_recovery_key": false
+  },
+  "tmpfs_rehearsal": {
+    "mount_only_disposable_path": true,
+    "production_tmp_mount_permitted": false,
+    "nodev": true,
+    "nosuid": true,
+    "mode": "1777",
+    "data_disappears_after_unmount": true
+  },
+  "scope_boundary": {
+    "production_changed": false,
+    "cloudflare_changed": false,
+    "fr06_completed": false
+  },
+  "next_subpart": "FR-06C5C guarded host-state-vault provisioning/bootstrap source"
+}
