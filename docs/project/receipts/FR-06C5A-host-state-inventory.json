@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C5A",
+  "implementation_status": "live_read_only_host_state_bootstrap_swap_temp_inventory",
+  "production_changed": false,
+  "host_state_vault": {
+    "planned_bytes": 34359738368,
+    "filesystem": "ext4",
+    "mount_options": [
+      "nodev",
+      "nosuid",
+      "noexec"
+    ],
+    "operator_state_target": "/root/.config/aionex",
+    "application_secret_target": "/opt/AIOS/web-dashboard/secrets",
+    "ssh_private_bind_targets": [
+      "/root/.ssh/aionex_aios_deploy",
+      "/root/.ssh/aionex_cpanel_ai_vip_e_net_ed25519"
+    ]
+  },
+  "observed_operator_state": {
+    "root": "/root/.config/aionex",
+    "payload_bytes_approx": 14322089984,
+    "releases_bytes_approx": 14266585088,
+    "audits_bytes_approx": 21655552,
+    "active_bootstrap_key": "/root/.config/aionex/aionex-tunnel-runtime.key"
+  },
+  "observed_application_secrets": {
+    "root": "/opt/AIOS/web-dashboard/secrets",
+    "file_count": 23,
+    "payload_bytes_approx": 13839,
+    "contains_mixed_runtime_owners": true
+  },
+  "management_bootstrap_exception": {
+    "reason": "MCP2 must return before encrypted application/operator state can be unlocked in the current no-TPM/no-KMS design",
+    "control_plane_key_count": 1,
+    "control_plane_key_mode": "0600 root:root",
+    "active_tunnel_configs": [
+      "/root/.config/tunnel-client/aionex-phase22c-2.yaml",
+      "/root/.config/tunnel-client/aionex-phase22c.yaml",
+      "/root/.config/tunnel-client/trendbost-mcp-bridge.yaml"
+    ],
+    "active_tunnel_config_mode": "0600 root:root",
+    "old_or_backup_tunnel_configs_must_not_remain_in_bootstrap": true,
+    "other_project_tunnel_config_preserved": true,
+    "active_tunnel_configs_contain_raw_api_key": false,
+    "active_tunnel_configs_api_key_source": "CONTROL_PLANE_API_KEY environment reference",
+    "break_glass_ssh_authorized_keys": "/root/.ssh/authorized_keys",
+    "break_glass_authorized_keys_must_remain_available_before_unlock": true,
+    "deployment_private_keys_are_bootstrap": false,
+    "shared_bridge_upstream_source": "/root/.config/aionex/trendbost-mcp-upstream.url",
+    "shared_bridge_upstream_bootstrap_target": "/root/.config/aionex-bootstrap/trendbost-mcp-upstream.url",
+    "shared_bridge_upstream_reason": "TrendBost MCP bridge is launched before host-state unlock and must keep the other project control path available without exposing the full AIOS operator-state tree."
+  },
+  "selected_bootstrap_path": {
+    "new_key_root": "/root/.config/aionex-bootstrap",
+    "rule": "copy only the shared control-plane bootstrap key to the dedicated root-owned bootstrap path and update wrappers before binding encrypted operator state; never expose the rest of operator state as bootstrap",
+    "mcp_source_constant_must_move_to_bootstrap_key": true,
+    "control_plane_key_target": "/root/.config/aionex-bootstrap/control-plane.key",
+    "source_code_transition_rule": "MCP1/MCP2 and TrendBost bridge must prefer dedicated bootstrap paths with a legacy fallback only before host-state cutover; wrappers are atomically switched before the encrypted operator-state bind is activated."
+  },
+  "swap": {
+    "source": "/swap.img",
+    "bytes": 8589930496,
+    "current": "plaintext file swap on root",
+    "used_bytes_observed": 4194304,
+    "hibernation_required": false,
+    "selected": "random-key encrypted swap regenerated every boot with no persistent recovery key",
+    "used_bytes_is_dynamic_observation": true,
+    "cutover_requires_pre_swapoff_capacity_check": true
+  },
+  "temporary_data": {
+    "tmp": {
+      "current_fstype": "ext4",
+      "selected": "tmpfs",
+      "planned_max_bytes": 8589934592,
+      "options": [
+        "nodev",
+        "nosuid",
+        "mode=1777"
+      ]
+    },
+    "var_tmp": {
+      "current": "root ext4 work scratch",
+      "rule": "not a secret/key staging area; sensitive temporary inputs remain limited to /run or /dev/shm fixed roots"
+    }
+  },
+  "cutover_principles": [
+    "preserve MCP control path before host-state unlock",
+    "copy operator/application state offline or quiesced with exact metadata",
+    "preserve file owners and modes",
+    "bind encrypted paths over retained legacy underlays only after validation",
+    "do not claim secure erase of residual root blocks",
+    "after all-domain reboot acceptance retire legacy sensitive underlay except minimal bootstrap"
+  ],
+  "scope_boundary": {
+    "read_only_inventory": true,
+    "production_secrets_read": false,
+    "production_files_moved": false,
+    "swap_changed": false,
+    "tmp_mount_changed": false,
+    "cloudflare_changed": false,
+    "fr06_completed": false
+  },
+  "next_subpart": "FR-06C5B isolated host-state metadata-preserving migration plus random-key swap/tmpfs rehearsal",
+  "observed_at": "2026-09-16T19:57:07Z"
+}
