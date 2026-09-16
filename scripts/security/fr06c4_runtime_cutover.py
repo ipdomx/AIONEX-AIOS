@@ -4,7 +4,7 @@ import argparse,fcntl,hashlib,json,os,secrets,shutil,stat,subprocess,time
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
 from typing import Any
-ROOT=Path('/opt/AIOS');DASH=ROOT/'web-dashboard';ENV=DASH/'.env.production';STATE=Path('/var/lib/aionex/fr06c4-cutover');CANDIDATE=Path('/var/lib/aionex/fr06c4-candidate/accepted.json');C4_STATE=Path('/var/lib/aionex/fr06c4');MAX_TTL=900;CONFIRM='FR06C4_PRODUCTION_RUNTIME_CUTOVER';ROLLBACK_CONFIRM='FR06C4_PRODUCTION_RUNTIME_ROLLBACK'
+ROOT=Path('/opt/AIOS');DASH=ROOT/'web-dashboard';ENV=DASH/'.env.production';STATE=Path('/var/lib/aionex/fr06c4-cutover');CANDIDATE=Path('/var/lib/aionex/fr06c4-candidate/accepted.json');C4_STATE=Path('/var/lib/aionex/fr06c4-runtime');MAX_TTL=900;MAX_EVIDENCE_AGE=3600;CONFIRM='FR06C4_PRODUCTION_RUNTIME_CUTOVER';ROLLBACK_CONFIRM='FR06C4_PRODUCTION_RUNTIME_ROLLBACK'
 COMPOSE=(DASH/'docker-compose.production.yml',DASH/'docker-compose.fr06-assets.yml',DASH/'docker-compose.fr06-admission.yml',DASH/'docker-compose.fr06-database.yml',DASH/'docker-compose.fr06-database-admission.yml',DASH/'docker-compose.fr06-backup.yml',DASH/'docker-compose.fr06-operations.yml',DASH/'docker-compose.fr06-operations-admission.yml')
 SYSTEMD=(
 (ROOT/'deploy/systemd/aionex-fr06c4-runtime-bind.service',Path('/etc/systemd/system/aionex-fr06c4-runtime-bind.service')),
@@ -40,6 +40,10 @@ def store(p,v):
  try:os.write(fd,json.dumps(v,sort_keys=True,indent=2).encode()+b'\n');os.fsync(fd)
  finally:os.close(fd)
 def active(unit):return subprocess.run(['systemctl','is-active','--quiet',unit]).returncode==0
+def parsez(value,label):
+ if not isinstance(value,str) or not value.endswith('Z'):raise B(f'{label} must be RFC3339 UTC Z')
+ try:return datetime.fromisoformat(value[:-1]+'+00:00').astimezone(timezone.utc)
+ except ValueError as x:raise B(f'{label} invalid') from x
 def gitgate(sha):
  heads=run(['git','-C',str(ROOT),'rev-parse','HEAD','origin/main']).splitlines()
  if heads!=[sha,sha] or run(['git','-C',str(ROOT),'status','--porcelain=v1']):raise B('production source is not clean exact accepted main')
@@ -63,6 +67,9 @@ def topology():
 def c4gate():
  private(CANDIDATE,'candidate reconstruction receipt');c=jread(CANDIDATE)
  if c.get('status')!='isolated_candidate_runtime_reconstruction_accepted' or c.get('authority_count')!=17 or c.get('application_container_count')!=0 or c.get('historical_runtime_copy_performed') is not False:raise B('candidate runtime reconstruction not accepted')
+ if Path('/run/aionex-fr06c4-candidate/docker.sock').exists() or Path('/run/aionex-fr06c4-candidate/containerd/containerd.sock').exists():raise B('candidate reconstruction daemons are still active')
+ for pidfile in (Path('/run/aionex-fr06c4-candidate/dockerd.pid'),Path('/run/aionex-fr06c4-candidate/containerd.pid')):
+  if pidfile.exists():raise B('candidate daemon pidfile remained after reconstruction')
  for p,label,status in ((C4_STATE/'provision-receipt.json','runtime vault receipt','empty_container_runtime_vault_provisioned_admission_closed'),(C4_STATE/'recovery-proof.json','runtime recovery proof','independent_runtime_recovery_key_proved'),(C4_STATE/'header-custody.json','runtime header custody','off_host_runtime_header_verified')):
   private(p,label);d=jread(p)
   if d.get('status')!=status:raise B(f'{label} unacceptable')
@@ -73,11 +80,15 @@ def c4gate():
 def evidence(p,sha):
  private(p,'cutover evidence');d=jread(p)
  if d.get('schema_version')!=1 or d.get('subpart')!='FR-06C4C3B' or d.get('environment')!='production' or d.get('production_authorization') is not True:raise B('cutover evidence metadata invalid')
+ age=(now()-parsez(d.get('observed_at'),'evidence observed_at')).total_seconds()
+ if age < -300 or age > MAX_EVIDENCE_AGE:raise B('cutover evidence stale/future-dated')
  src=d.get('source') or {}
  if src.get('merge_sha')!=sha or src.get('protected_pr_checks_passed') is not True or src.get('post_merge_main_checks_passed') is not True:raise B('source CI evidence incomplete')
  r=d.get('recovery') or {}
  for k,w in {'backup_status':'completed','offsite_status':'completed','restore_status':'completed','restore_validated':True,'restore_offsite_validated':True}.items():
   if r.get(k)!=w:raise B(f'recovery gate failed: {k}')
+ restore_age=(now()-parsez(r.get('restore_completed_at'),'restore completed_at')).total_seconds()
+ if restore_age < -300 or restore_age > MAX_EVIDENCE_AGE:raise B('restore validation stale/future-dated')
  ops=d.get('operations') or {}
  for k in ('active_backup_jobs','active_restore_validations','active_durable_external_jobs','active_realtime_sessions','active_livekit_rooms'):
   if ops.get(k)!=0:raise B(f'operations not drained: {k}')
@@ -124,6 +135,15 @@ def register_volumes():
   if o.get('device')!=dev or set(str(o.get('o','')).split(','))!=set(opts.split(',')) or o.get('type')!=typ:raise B(f'external volume registration drifted: {name}')
 def services_args(t):return sorted(t['services'])
 def health_accept(t):
+ bind=json.loads(run(['python3',str(ROOT/'scripts/security/fr06c4_runtime_bind.py'),'status','--require-ready']))
+ if bind.get('validation')!='FR06C4_RUNTIME_BIND_READY':raise B('encrypted runtime bind acceptance failed')
+ legacy=(
+  'web-dashboard_postgres_data','web-dashboard_redis_data','web-dashboard_backup_data','web-dashboard_project_execution_data',
+  'web-dashboard_three_d_asset_data','web-dashboard_course_package_data','web-dashboard_media_asset_data','web-dashboard_studio_asset_data',
+  'web-dashboard_portal_asset_data','web-dashboard_mobile_release_data','web-dashboard_realtime_recording_data','web-dashboard_audio_song_ingress_data',
+  'web-dashboard_security_source_data','web-dashboard_security_remediation_data')
+ for volume in legacy:
+  if run(['docker','ps','--filter',f'volume={volume}','-q']).strip():raise B(f'legacy authoritative volume is consumed: {volume}')
  for _ in range(60):
   try:n=topology();break
   except Exception:time.sleep(5)

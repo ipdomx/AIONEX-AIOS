@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse,fcntl,hashlib,json,os,secrets,signal,stat,subprocess,time
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
-ROOT=Path('/opt/AIOS');VAULT=Path('/mnt/aionex/fr06-container-runtime-vault');DOCKER_ROOT=VAULT/'docker';CONTAINERD_ROOT=VAULT/'containerd';RUN=Path('/run/aionex-fr06c4-candidate');CD_STATE=RUN/'containerd';CD_SOCK=CD_STATE/'containerd.sock';DOCKER_SOCK=RUN/'docker.sock';DOCKER_EXEC=RUN/'docker-exec';PID=RUN/'dockerd.pid';CD_PID=RUN/'containerd.pid';STATE=Path('/var/lib/aionex/fr06c4-candidate');C4_STATE=Path('/var/lib/aionex/fr06c4');MAX_TTL=1800;MAX_USED=48*1024**3;CONFIRM='RECONSTRUCT_FR06C4_CANDIDATE_RUNTIME'
+ROOT=Path('/opt/AIOS');VAULT=Path('/mnt/aionex/fr06-container-runtime-vault');DOCKER_ROOT=VAULT/'docker';CONTAINERD_ROOT=VAULT/'containerd';RUN=Path('/run/aionex-fr06c4-candidate');CD_STATE=RUN/'containerd';CD_SOCK=CD_STATE/'containerd.sock';DOCKER_SOCK=RUN/'docker.sock';DOCKER_EXEC=RUN/'docker-exec';PID=RUN/'dockerd.pid';CD_PID=RUN/'containerd.pid';STATE=Path('/var/lib/aionex/fr06c4-candidate');C4_STATE=Path('/var/lib/aionex/fr06c4-runtime');MAX_TTL=1800;MAX_USED=48*1024**3;CONFIRM='RECONSTRUCT_FR06C4_CANDIDATE_RUNTIME'
 PULLS=('cloudflare/cloudflared:2026.7.0@sha256:5e49861633763e8933475477c20bae6039ed47f32c1d267a34babc347f28f0df','coturn/coturn@sha256:75e9ebd1e19005bec0c7f591d29afe22f959916ac8d9c852452f27db8c789828','livekit/egress@sha256:a3e61a70479694a5075cff3c081ab633f34d3bfa778adc6089935c96908b6550','livekit/livekit-server@sha256:d0d1cfdbe95617647bbe91630454526c2cdd88cec83f41114b3495b444918b9a','ollama/ollama@sha256:1685741456770df6e3cceb2a945a5f75e020f658d1701509668d6f4688f1dd3f','redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf','zaproxy/zap-stable:2.17.0@sha256:781a2bdaea47324e7bab583e2263f21d257b0aee61ed51521a5be45f5f5081ef')
 BUILDS=(('aionex-aios-backend:local','web-dashboard/backend','Dockerfile','project-worker',()),('aionex-aios-media-worker:local','web-dashboard/backend','Dockerfile','media-worker',()),('aionex-aios-video-provider-worker:local','web-dashboard/backend','Dockerfile','media-worker',()),('aionex-aios-image-derivative-worker:local','web-dashboard/backend','Dockerfile','image-derivative-worker',()),('aionex-aios-project-worker:local','web-dashboard/backend','Dockerfile','project-worker',()),('aionex-aios-security-tools:local','web-dashboard/backend','Dockerfile.security-tools',None,()),('aionex-aios-postgres:16-hardened','web-dashboard/docker','postgres.Dockerfile',None,()),('aionex-aios-nginx:hardened','web-dashboard/docker','nginx.Dockerfile',None,()),('web-dashboard-frontend','web-dashboard/frontend','Dockerfile',None,(('NEXT_PUBLIC_USER_PORTAL_URL','https://ai.vip-e.net'),)),('web-dashboard-portal','vip-frontend','Dockerfile',None,(('AIOS_BACKEND_ORIGIN','https://api.vip-e.net'),('NEXT_PUBLIC_API_URL','https://api.vip-e.net/api/v1'))))
 class E(RuntimeError):pass
@@ -51,17 +51,27 @@ def wait_socket(p,proc,seconds):
   if p.exists():return
   time.sleep(.2)
  raise E('candidate daemon socket readiness timed out')
+def _pid_alive(pid):
+ try:os.kill(pid,0);return True
+ except ProcessLookupError:return False
+ except PermissionError:return True
 def stop_candidate():
+ pids=[]
  for p in (PID,CD_PID):
-  try:os.kill(int(p.read_text().strip()),signal.SIGTERM)
+  try:pids.append(int(p.read_text().strip()))
   except Exception:pass
- for _ in range(100):
-  if not DOCKER_SOCK.exists() and not CD_SOCK.exists():break
+ for pid in pids:
+  try:os.kill(pid,signal.SIGTERM)
+  except ProcessLookupError:pass
+ for _ in range(200):
+  if all(not _pid_alive(pid) for pid in pids):break
   time.sleep(.1)
+ if any(_pid_alive(pid) for pid in pids):raise E('candidate daemon failed to terminate after bounded SIGTERM wait')
  for p in (DOCKER_SOCK,CD_SOCK,PID,CD_PID):
   try:p.unlink()
   except OSError:pass
- return {'status':'candidate_daemons_stopped','production_daemons_changed':False}
+ if DOCKER_SOCK.exists() or CD_SOCK.exists():raise E('candidate daemon socket remained after stop')
+ return {'status':'candidate_daemons_stopped','production_daemons_changed':False,'candidate_processes_remaining':0}
 def start_candidate():
  RUN.mkdir(parents=True,exist_ok=True,mode=0o700);CD_STATE.mkdir(parents=True,exist_ok=True,mode=0o700);DOCKER_EXEC.mkdir(parents=True,exist_ok=True,mode=0o700)
  if DOCKER_SOCK.exists() or CD_SOCK.exists():raise B('candidate daemon already active')
@@ -107,6 +117,8 @@ def reconstruct(a):
   for ref in PULLS:docker(['pull',ref],1800)
   for row in BUILDS:build_one(*row)
   if docker(['ps','-aq'],30).strip():raise B('candidate reconstruction left containers behind')
+  docker(['builder','prune','-af'],900)
+  docker(['image','prune','-f'],300)
   rows=[]
   for ref in [x[0] for x in BUILDS]+list(PULLS):
    v=json.loads(docker(['image','inspect',ref],60));
