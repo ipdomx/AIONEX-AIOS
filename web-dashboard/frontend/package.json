@@ -104,7 +104,7 @@
     "typescript": "^5.4.0",
     "use-sound": "^5.0.0",
     "wavesurfer.js": "^7.7.0",
-    "zod": "^3.22.0"
+    "zod": "^4.6.2"
   },
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.11",
