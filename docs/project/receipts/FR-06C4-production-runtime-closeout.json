@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C4",
+  "status": "clean_encrypted_container_runtime_accepted_pending_closeout_merge",
+  "parent_fr06_completed": false,
+  "source": {
+    "runtime_source_merge": "5d59a431586fa781e35655552b6c10dbae57e454",
+    "source_stack_pr": 703,
+    "state_root_fix_pr": 704,
+    "protected_checks_passed": true,
+    "post_merge_main_checks_passed": true,
+    "post_merge_main_check_count": 11
+  },
+  "vault": {
+    "size_bytes": 68719476736,
+    "mapper": "/dev/mapper/aionex-container-runtime-vault",
+    "mount_root": "/mnt/aionex/fr06-container-runtime-vault",
+    "subpaths": ["docker", "containerd"],
+    "mount_options": ["nodev", "nosuid"],
+    "header_custody_generation": "ae8ae04c6ecfea1869714a37bb660e38",
+    "header_full_readback_verified": true,
+    "recovery_open_passed": true,
+    "active_reopen_passed": true,
+    "tmpfs_key_inputs_removed": true,
+    "raw_key_material_recorded": false
+  },
+  "candidate_reconstruction": {
+    "status": "isolated_candidate_runtime_reconstruction_accepted",
+    "completed_at": "2026-09-16T16:10:11Z",
+    "authority_count": 17,
+    "application_container_count": 0,
+    "candidate_used_file_bytes": 31453323624,
+    "historical_runtime_copy_performed": false,
+    "live_docker_remained_active": true,
+    "live_containerd_remained_active": true
+  },
+  "live_cutover": {
+    "operation_id": "da2c1ef4bb126284e9ac8cdfcf662ac3e0b455ad5db778b604b0f64d3af71065",
+    "status": "clean_encrypted_runtime_started_admission_closed",
+    "completed_at": "2026-09-16T16:17:13Z",
+    "running_containers": 36,
+    "unhealthy_running_containers": 0,
+    "project_worker_scale": 4,
+    "external_encrypted_volume_count": 5,
+    "historical_runtime_copy_performed": false,
+    "legacy_runtime_underlays_retained": true,
+    "candidate_runtime_authoritative": true,
+    "admission_opened": false,
+    "cloudflare_changed": false
+  },
+  "runtime_acceptance": {
+    "docker_root_source": "/dev/mapper/aionex-container-runtime-vault[/docker]",
+    "containerd_root_source": "/dev/mapper/aionex-container-runtime-vault[/containerd]",
+    "runtime_bind_validation": "FR06C4_RUNTIME_BIND_READY",
+    "runtime_bind_service_enabled": true,
+    "runtime_bind_service_active": true,
+    "systemd_gate_files_match_repository": true,
+    "legacy_authoritative_volume_consumers": 0,
+    "local_health_http": 200,
+    "local_ready_http": 200,
+    "public_health_http": 200,
+    "public_ready_http": 200,
+    "user_portal_http": 200,
+    "ollama_required_model": "gemma3:4b"
+  },
+  "post_cutover_recovery": {
+    "backup_id": "a4e54bf3-93e6-404b-9d49-b525897914ab",
+    "backup_status": "completed",
+    "offsite_status": "completed",
+    "database_size_bytes": 21779417,
+    "restore_run_id": "91f9b2be-82cf-446e-a303-60fc844bab0d",
+    "restore_status": "completed",
+    "restore_validated": true,
+    "restore_offsite_validated": true,
+    "restore_completed_at": "2026-09-16T16:26:10.173215+00:00"
+  },
+  "rollback": {
+    "legacy_runtime_underlays_retained": true,
+    "candidate_layers_reverse_copied_to_legacy": false,
+    "rollback_executor_retained": true,
+    "full_host_reboot_acceptance_deferred_to": "FR-06C6"
+  },
+  "release_boundary": {
+    "fr06c4_completed": true,
+    "fr06_completed": false,
+    "next_subpart": "FR-06C5",
+    "admission_opened_by_encryption_batch": false,
+    "cloudflare_changed": false
+  }
+}
