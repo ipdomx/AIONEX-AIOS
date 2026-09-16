@@ -52,3 +52,26 @@ def test_log_policy_uses_exact_c3_host_gate_name() -> None:
     text=SCRIPT.read_text()
     assert "FR06C3_VAULTS_HOST_READY" in text
     assert "FR06C3_HOST_VAULTS_READY" not in text
+
+
+def test_syslog_socket_activation_is_drained_and_restored():
+    c=json.loads(CONTRACT.read_text())
+    assert c['executor']['syslog_socket']=='syslog.socket'
+    assert c['executor']['socket_activation_drain_required'] is True
+    assert c['rollback']['stops_syslog_socket_before_unmount'] is True
+    assert c['rollback']['restarts_syslog_socket_before_rsyslog'] is True
+    text=SCRIPT.read_text()
+    assert "SYSLOG_SOCKET='syslog.socket'" in text
+    stop_services=text.index("for service in DIRECT_LOG_SERVICES:_run(['systemctl','stop',service])")
+    stop_socket=text.index("_run(['systemctl','stop',SYSLOG_SOCKET])",stop_services)
+    mount=text.index("_run(['systemctl','start','var-log.mount'])",stop_socket)
+    start_socket=text.index("_run(['systemctl','start',SYSLOG_SOCKET])",mount)
+    start_services=text.index("for service in DIRECT_LOG_SERVICES:_run(['systemctl','start',service])",start_socket)
+    assert stop_services < stop_socket < mount < start_socket < start_services
+
+def test_plan_binds_syslog_socket_boundary():
+    text=SCRIPT.read_text()
+    assert "'managed_syslog_socket':SYSLOG_SOCKET" in text
+    assert "p.get('managed_syslog_socket')!=SYSLOG_SOCKET" in text
+    assert "syslog socket is not active before cutover" in text
+    assert "syslog socket did not return active" in text
