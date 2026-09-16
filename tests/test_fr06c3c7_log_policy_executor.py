@@ -24,3 +24,23 @@ def test_remove_if_exact_deletes_only_exact_file(tmp_path):
 
 def test_success_receipt_never_claims_secure_erase():
     c=json.loads(CONTRACT.read_text());assert c['rollback']['secure_erase_claimed'] is False;assert c['rollback']['deletes_historical_log_underlay'] is False
+
+
+def test_executor_covers_direct_log_fd_holders_and_hidden_underlay():
+    c=json.loads(CONTRACT.read_text())
+    assert c['executor']['direct_log_services']==['rsyslog.service','fail2ban.service','unattended-upgrades.service']
+    assert c['executor']['unknown_direct_log_holder_behavior']=='fail_closed'
+    assert c['executor']['hidden_plaintext_underlay_fd_acceptance']==0
+    text=SCRIPT.read_text()
+    assert "ALLOWED_PRECUTOVER_LOG_HOLDER_COMMS" in text
+    assert "_hidden_underlay_holders" in text
+    assert "unknown direct /var/log holder" in text
+    assert "plaintext /var/log underlay still has open file descriptors" in text
+    assert "fail2ban.service" in text and "unattended-upgrades.service" in text
+
+def test_apply_mounts_tmpfs_before_journald_restart():
+    text=SCRIPT.read_text()
+    start=text.index("for service in DIRECT_LOG_SERVICES:_run(['systemctl','stop',service])")
+    mount=text.index("_run(['systemctl','start','var-log.mount'])",start)
+    journal=text.index("_run(['systemctl','restart','systemd-journald.service'])",start)
+    assert mount < journal
