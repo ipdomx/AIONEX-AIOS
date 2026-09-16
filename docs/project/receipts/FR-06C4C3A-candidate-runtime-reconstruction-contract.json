@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C4C3A",
+  "implementation_status": "source_only_guarded_isolated_candidate_runtime_reconstruction",
+  "depends_on": ["FR-06C4C1", "FR-06C4C2"],
+  "candidate_daemons": {
+    "containerd_root": "/mnt/aionex/fr06-container-runtime-vault/containerd",
+    "docker_root": "/mnt/aionex/fr06-container-runtime-vault/docker",
+    "state_root": "/run/aionex-fr06c4-candidate",
+    "containerd_socket": "/run/aionex-fr06c4-candidate/containerd/containerd.sock",
+    "docker_socket": "/run/aionex-fr06c4-candidate/docker.sock",
+    "live_daemons_stopped": false,
+    "shares_live_socket_or_state": false,
+    "application_containers_permitted": false,
+    "network_bridge_created": false,
+    "iptables_mutation_permitted": false
+  },
+  "authorities": {
+    "count": 17,
+    "rebuild_from_exact_source": 10,
+    "pull_by_digest": 7,
+    "dockerfile_base_images_digest_pinned": true,
+    "byte_identical_rebuild_claimed": false,
+    "acceptance_rule": "local images are rebuilt from exact accepted source and acceptance-tested; external images must resolve to their configured digest"
+  },
+  "capacity": {
+    "vault_bytes": 68719476736,
+    "maximum_candidate_used_bytes": 51539607552,
+    "minimum_post_reconstruction_free_bytes": 17179869184
+  },
+  "executor": {
+    "path": "scripts/security/fr06c4_candidate_runtime.py",
+    "commands": ["inspect", "plan", "reconstruct", "stop-candidate"],
+    "single_use_plan": true,
+    "maximum_plan_ttl_seconds": 1800,
+    "production_cutover_capability": false,
+    "live_docker_stop_capability": false,
+    "live_containerd_stop_capability": false,
+    "historical_runtime_copy_capability": false
+  },
+  "acceptance": [
+    "all 17 authorities exist in the isolated candidate daemon",
+    "all seven external images have exact configured content digest",
+    "candidate has zero application containers after reconstruction",
+    "candidate Docker/containerd roots are inside the encrypted runtime mapper",
+    "candidate used bytes remain below the fixed capacity ceiling",
+    "live Docker and containerd remain active and unchanged"
+  ],
+  "scope_boundary": {
+    "source_merge_reconstructs_candidate": false,
+    "source_merge_stops_live_daemons": false,
+    "source_merge_installs_bind_mounts": false,
+    "source_merge_changes_cloudflare": false,
+    "fr06_completed": false
+  },
+  "next_subpart": "FR-06C4C3B guarded live runtime bind cutover and rollback acceptance"
+}

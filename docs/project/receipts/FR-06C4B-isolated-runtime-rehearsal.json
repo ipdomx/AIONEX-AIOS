@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "subpart": "FR-06C4B",
+  "status": "isolated_clean_runtime_vault_rehearsal_pass",
+  "production_docker_root_used": false,
+  "production_containerd_root_used": false,
+  "production_mutation_performed": false,
+  "historical_runtime_copy_performed": false,
+  "luks2": true,
+  "cipher": "aes-xts-plain64",
+  "key_bits": 512,
+  "pbkdf": "argon2id",
+  "wrong_key_rejected": true,
+  "closed_raw_plaintext_marker_absent": true,
+  "independent_recovery_key_open_passed": true,
+  "active_key_reopen_passed": true,
+  "subpaths": [
+    "docker",
+    "containerd"
+  ],
+  "mount_options": [
+    "nodev",
+    "nosuid"
+  ],
+  "synthetic_manifest": {
+    "docker_authority_sha256": "05ef694a5ca917e6dad2cd28edd9857fb2166c6cb7138c1fc50fd8bcbae7a4a5",
+    "synthetic_layer_sha256": "8ae005ffdfba0601d9b1ca8fc472a04a9a6aec6ebea02f0c45349e7a0d7ca02e",
+    "synthetic_layer_bytes": 31744
+  },
+  "temporary_resources_removed": true
+}

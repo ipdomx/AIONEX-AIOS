@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C4C3B",
+  "implementation_status": "source_only_guarded_live_clean_runtime_cutover",
+  "depends_on": ["FR-06C4C3A"],
+  "executor": {
+    "path": "scripts/security/fr06c4_runtime_cutover.py",
+    "commands": ["inspect-runtime", "plan-cutover", "apply-cutover", "rollback"],
+    "single_use_plan": true,
+    "maximum_plan_ttl_seconds": 900,
+    "production_confirmation": "FR06C4_PRODUCTION_RUNTIME_CUTOVER",
+    "rollback_confirmation": "FR06C4_PRODUCTION_RUNTIME_ROLLBACK"
+  },
+  "topology": {
+    "expected_running_containers": 36,
+    "project_worker_scale": 4,
+    "capture_live_service_set_at_plan_time": true,
+    "candidate_start_uses_no_build": true,
+    "application_admission_remains_closed": true
+  },
+  "cutover": {
+    "stop_all_live_application_containers_first": true,
+    "stop_order": ["application containers", "docker.service/docker.socket", "containerd.service"],
+    "require_zero_containerd_shims_before_bind": true,
+    "install_runtime_bind_service_and_fail_closed_dropins_only_after_daemons_stop": true,
+    "bind_candidate_docker_and_containerd_subpaths_over_retained_legacy_underlays": true,
+    "start_order": ["guarded runtime bind", "containerd", "docker.socket/docker"],
+    "external_encrypted_volume_count": 5,
+    "transient_volumes_recreated_empty": true,
+    "ollama_required_model": "gemma3:4b",
+    "ollama_model_rebuilt_from_governed_authority": true,
+    "historical_runtime_copy": false
+  },
+  "acceptance": [
+    "36 running containers and zero unhealthy",
+    "same planned service set and project-worker scale",
+    "five external encrypted volumes re-registered with exact mapper options",
+    "Redis, PostgreSQL, local-backup and asset/project mounts remain external encrypted",
+    "gemma3:4b present after governed Ollama bootstrap",
+    "local/public health and ready endpoints 200",
+    "legacy Docker/containerd underlays remain hidden and retained",
+    "runtime bind and all fail-closed gates pass"
+  ],
+  "rollback": {
+    "candidate_layers_reverse_copied_to_legacy": false,
+    "stop_candidate_runtime_then_remove_bind": true,
+    "remove_c4_runtime_gate_dropins_before_legacy_start": true,
+    "legacy_runtime_metadata_retained": true,
+    "restart_exact_planned_legacy_container_ids": true
+  },
+  "scope_boundary": {
+    "source_merge_executes_cutover": false,
+    "source_merge_stops_daemons": false,
+    "source_merge_installs_systemd": false,
+    "cloudflare_routing_changed": false,
+    "fr06_completed": false
+  },
+  "next_subpart": "FR-06C4 closeout then FR-06C5 host-state/swap/temporary-data controls"
+}
