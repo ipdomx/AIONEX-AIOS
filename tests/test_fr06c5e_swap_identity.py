@@ -129,15 +129,18 @@ class SwapIdentityTests(unittest.TestCase):
         self.assertEqual(result["status"], "encrypted_swap_active")
         self.m.run.assert_not_called()
 
-    def test_start_does_not_accept_another_active_device(self):
-        self.m.swap_rows.return_value = [swap_row(OTHER)]
-        with self.assertRaisesRegex(self.m.B, "not active"):
-            self.m.boot_swap_start()
+    def test_start_does_not_accept_another_active_device_or_empty_rows(self):
+        for rows in ([swap_row(OTHER)], []):
+            with self.subTest(names=[row["name"] for row in rows]):
+                self.m.swap_rows.return_value = rows
+                with self.assertRaisesRegex(self.m.B, "not active"):
+                    self.m.boot_swap_start()
+        self.m.backing_prepare.assert_not_called()
         self.m.run.assert_not_called()
 
-    def test_new_activation_accepts_kernel_alias_after_swapon(self):
+    def mock_new_activation(self, final_rows):
         self.mapper.present = False
-        self.m.swap_rows.side_effect = [[], [swap_row(ALIAS)]]
+        self.m.swap_rows.side_effect = [[], final_rows]
         self.m.os = SimpleNamespace(
             stat=self.device_stat, geteuid=lambda: 0,
             open=lambda *args: 99, write=lambda fd, data: len(data),
@@ -155,11 +158,44 @@ class SwapIdentityTests(unittest.TestCase):
             return ""
 
         self.m.run = Mock(side_effect=execute)
+        return commands
+
+    def test_new_activation_accepts_kernel_alias_after_swapon(self):
+        commands = self.mock_new_activation([swap_row(ALIAS)])
         result = self.m.boot_swap_start()
         self.assertEqual(result["status"], "encrypted_swap_active")
         self.assertEqual([command[0] for command in commands],
                          ["cryptsetup", "mkswap", "swapon"])
         self.assertFalse(self.key.present)
+
+    def test_start_rejects_extra_or_duplicate_swaps_before_any_mutation(self):
+        for rows in ([swap_row(ALIAS), swap_row(OTHER)],
+                     [swap_row(OTHER), swap_row(ALIAS)],
+                     [swap_row(MAPPER), swap_row(ALIAS)],
+                     [swap_row(ALIAS), swap_row("/extra.swap")]):
+            with self.subTest(names=[row["name"] for row in rows]):
+                self.m.swap_rows.return_value = rows
+                with self.assertRaisesRegex(self.m.B, "additional active swaps"):
+                    self.m.boot_swap_start()
+        self.m.backing_prepare.assert_not_called()
+        self.m.run.assert_not_called()
+        self.assertEqual(self.key.unlink_calls, 0)
+
+    def test_start_rejects_foreign_swap_with_absent_mapper_before_mutation(self):
+        self.mapper.present = False
+        self.m.swap_rows.return_value = [swap_row(OTHER)]
+        with self.assertRaisesRegex(self.m.B, "unexpected active swap device"):
+            self.m.boot_swap_start()
+        self.m.backing_prepare.assert_not_called()
+        self.m.run.assert_not_called()
+
+    def test_new_activation_rejects_additional_swaps_after_swapon(self):
+        for rows in ([swap_row(ALIAS), swap_row(OTHER)],
+                     [swap_row(ALIAS), swap_row(MAPPER)]):
+            with self.subTest(names=[row["name"] for row in rows]):
+                self.mock_new_activation(rows)
+                with self.assertRaisesRegex(self.m.B, "encrypted swap did not activate"):
+                    self.m.boot_swap_start()
 
     def test_stop_swaps_off_alias_before_mapper_close(self):
         commands = []
@@ -171,6 +207,19 @@ class SwapIdentityTests(unittest.TestCase):
             ["cryptsetup", "close", self.m.MAPPER_NAME],
         ])
         self.assertEqual(self.key.unlink_calls, 1)
+
+    def test_stop_only_swaps_off_target_when_another_known_device_is_active(self):
+        for rows in ([swap_row(OTHER), swap_row(ALIAS)],
+                     [swap_row(ALIAS), swap_row(OTHER)]):
+            with self.subTest(names=[row["name"] for row in rows]):
+                self.m.swap_rows.return_value = rows
+                commands = []
+                self.m.run = Mock(side_effect=lambda command, *args: commands.append(command) or "")
+                self.m.boot_swap_stop()
+                self.assertEqual(commands, [
+                    ["swapoff", MAPPER],
+                    ["cryptsetup", "close", self.m.MAPPER_NAME],
+                ])
 
     def test_stop_does_not_swap_off_a_different_device(self):
         self.m.swap_rows.return_value = [swap_row(OTHER)]
@@ -242,6 +291,22 @@ class SwapIdentityTests(unittest.TestCase):
         self.m.tmp_holders = Mock(return_value=[])
         result = self.m.current_preflight(Path("/virtual/receipt"))
         self.assertEqual(result["legacy_swap"]["name"], "/swap.img")
+
+    def test_preflight_rejects_an_extra_swap_file_before_mutation(self):
+        self.mapper.present = False
+        self.m.LEGACY = FakePath("/swap.img")
+        self.m.swap_rows.return_value = [swap_row("/swap.img"), swap_row("/extra.swap")]
+        self.m.host_state_receipt = Mock(return_value={"accepted": True})
+        self.m.exact_mount = Mock(return_value=False)
+        self.m.mem_available = Mock(return_value=2 * self.m.RESERVE)
+        self.m.tmp_holders = Mock(return_value=[])
+        with self.assertRaisesRegex(self.m.B, "only active legacy"):
+            self.m.current_preflight(Path("/virtual/receipt"))
+        self.m.exact_mount.assert_not_called()
+        self.m.mem_available.assert_not_called()
+        self.m.tmp_holders.assert_not_called()
+        self.m.backing_prepare.assert_not_called()
+        self.m.run.assert_not_called()
 
     def test_preflight_rejects_active_mapper_alias_alongside_legacy(self):
         self.devices["/swap.img"] = SimpleNamespace(

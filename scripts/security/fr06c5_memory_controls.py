@@ -96,7 +96,7 @@ def evidence(p,sha):
 def current_preflight(host_receipt):
  if host_state_receipt(host_receipt) is None:raise B('accepted host-state cutover receipt required')
  rows=swap_rows();legacy=[r for r in rows if r['name']==str(LEGACY)];enc=[r for r in rows if same_swap_device(r['name'],MAPPER)] if MAPPER.exists() else []
- if len(legacy)!=1 or enc:raise B('expected only active legacy swap before activation')
+ if len(rows)!=1 or len(legacy)!=1 or enc:raise B('expected only active legacy swap before activation')
  if not LEGACY.is_file() or exact_mount(Path('/tmp')):raise B('legacy swap or /tmp preflight drifted')
  available=mem_available();used=legacy[0]['used_bytes']
  if available < used+RESERVE:raise B('insufficient available memory for safe swapoff reserve')
@@ -138,18 +138,23 @@ def backing_prepare():
  run(['fallocate','-l',str(SWAP_SIZE),str(BACKING)],300);os.chmod(BACKING,0o600);os.chown(BACKING,0,0)
 def boot_swap_start():
  if os.geteuid()!=0:raise B('root required')
- if any(r['name']==str(LEGACY) for r in swap_rows()):raise B('legacy plaintext swap is active')
- backing_prepare()
+ rows=swap_rows()
+ if any(r['name']==str(LEGACY) for r in rows):raise B('legacy plaintext swap is active')
+ if len(rows)>1:raise B('unexpected additional active swaps')
  if MAPPER.exists():
-  if any(same_swap_device(r['name'],MAPPER) for r in swap_rows()):return {'status':'encrypted_swap_active','mapper':str(MAPPER),'key_persisted':False}
+  if len(rows)==1 and same_swap_device(rows[0]['name'],MAPPER):
+   backing_prepare();return {'status':'encrypted_swap_active','mapper':str(MAPPER),'key_persisted':False}
   raise B('swap mapper exists but is not active')
+ if rows:raise B('unexpected active swap device')
+ backing_prepare()
  KEY.parent.mkdir(parents=True,exist_ok=True);fd=os.open(KEY,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
  try:os.write(fd,os.urandom(64));os.fsync(fd)
  finally:os.close(fd)
  try:
   run(['cryptsetup','open','--type','plain','--cipher','aes-xts-plain64','--key-size','512','--key-file',str(KEY),str(BACKING),MAPPER_NAME],60);KEY.unlink(missing_ok=True);run(['mkswap',str(MAPPER)],60);run(['swapon',str(MAPPER)],60)
  finally:KEY.unlink(missing_ok=True)
- if not any(same_swap_device(r['name'],MAPPER) for r in swap_rows()):raise B('encrypted swap did not activate')
+ rows=swap_rows()
+ if len(rows)!=1 or not same_swap_device(rows[0]['name'],MAPPER):raise B('encrypted swap did not activate')
  return {'status':'encrypted_swap_active','mapper':str(MAPPER),'key_persisted':False}
 def boot_swap_stop():
  rows=swap_rows()
