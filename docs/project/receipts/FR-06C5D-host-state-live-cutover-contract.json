@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C5D",
+  "implementation_status": "source_only_guarded_live_host_state_migration",
+  "depends_on": [
+    "FR-06C5C1"
+  ],
+  "executor": {
+    "path": "scripts/security/fr06c5_host_state_cutover.py",
+    "commands": [
+      "inspect-runtime",
+      "plan-cutover",
+      "apply-cutover"
+    ],
+    "single_use_plan": true,
+    "maximum_plan_ttl_seconds": 900,
+    "fresh_evidence_max_age_seconds": 3600,
+    "production_confirmation": "FR06C5_PRODUCTION_HOST_STATE_CUTOVER"
+  },
+  "sources": [
+    "/root/.config/aionex",
+    "/opt/AIOS/web-dashboard/secrets",
+    "/root/.ssh/aionex_aios_deploy",
+    "/root/.ssh/aionex_cpanel_ai_vip_e_net_ed25519"
+  ],
+  "candidate_targets": [
+    "/mnt/aionex/fr06-host-state-vault/operator-state",
+    "/mnt/aionex/fr06-host-state-vault/app-secrets",
+    "/mnt/aionex/fr06-host-state-vault/ssh/aionex_aios_deploy",
+    "/mnt/aionex/fr06-host-state-vault/ssh/aionex_cpanel_ai_vip_e_net_ed25519"
+  ],
+  "cutover": {
+    "initial_precopy_while_live": true,
+    "capture_exact_36_container_topology": true,
+    "stop_application_containers_then_docker": true,
+    "containerd_remains_active": true,
+    "seal_all_legacy_sources_read_only_before_final_delta": true,
+    "final_rsync_delete_numeric_ids": true,
+    "exact_metadata_and_content_manifest_match": true,
+    "bootstrap_key_and_shared_upstream_must_match_sealed_source": true,
+    "install_bind_service_and_docker_gate_after_exact_copy": true,
+    "restart_exact_planned_container_ids": true,
+    "legacy_underlays_remain_read_only_below_candidate_binds": true,
+    "capture_and_quiesce_all_restart_policies_before_docker_stop": true,
+    "restore_original_restart_policies_after_explicit_start": true,
+    "require_zero_hidden_underlay_fds_before_bind": true
+  },
+  "rollback": {
+    "pre_candidate_start_rollback_to_legacy_allowed": true,
+    "post_candidate_start_blind_rollback_allowed": false,
+    "candidate_state_authoritative_after_container_start": true,
+    "reverse_copy_to_legacy_allowed": false,
+    "candidate_divergence_boundary": "immediately before explicit docker start batch; partial start failure is post-start and cannot blind-rollback"
+  },
+  "acceptance": [
+    "zero hidden legacy host-state file descriptors before candidate bind activation",
+    "36 running containers and zero unhealthy",
+    "project-worker scale 4 and identical planned service set",
+    "FR06C5_HOST_STATE_BIND_READY",
+    "FR06C4_RUNTIME_BIND_READY remains true",
+    "local/public health and ready endpoints plus user portal return 200",
+    "all three MCP/tunnel control services remain active",
+    "Docker fail-closed host-state gate installed and repository hash matched",
+    "legacy host-state underlays remain read-only and are not deleted"
+  ],
+  "scope_boundary": {
+    "source_merge_executes_cutover": false,
+    "source_merge_reads_secret_contents": false,
+    "source_merge_stops_docker": false,
+    "source_merge_changes_swap": false,
+    "source_merge_changes_tmp": false,
+    "cloudflare_changed": false,
+    "fr06_completed": false
+  },
+  "next_subpart": "FR-06C5E random-key encrypted swap and /tmp tmpfs activation, then FR-06C5 closeout"
+}
