@@ -33,30 +33,49 @@ def status(require=False):
  except Exception as e:
   if require:raise
   return {'status':'not-ready','validation':'FR06C5_HOST_STATE_BIND_NOT_READY','reason':str(e)}
+def mount_record(dst):
+ rows=json.loads(run(['findmnt','--json','--output','TARGET,FSROOT,MAJ:MIN,OPTIONS','--target',str(dst)])).get('filesystems',[])
+ if len(rows)!=1 or any(not isinstance(rows[0].get(k),str) or not rows[0][k] for k in ('target','fsroot','maj:min','options')):raise B('host-state mount identity unavailable')
+ return rows[0]
 def sealed_underlay(dst):
  if not exact_mount(dst):return False
- try:opts=set(run(['findmnt','-n','-o','OPTIONS','--target',str(dst)]).split(','))
+ try:
+  current=mount_record(dst);parent=mount_record(dst.parent);opts=set(current['options'].split(','))
+  # A seal must bind the legacy path on its parent filesystem, not an arbitrary ro source.
+  expected_root=Path(parent['fsroot'])/dst.relative_to(Path(parent['target']))
+  return 'ro' in opts and current['target']==str(dst) and parent['target']!=str(dst) and current['maj:min']==parent['maj:min'] and Path(current['fsroot'])==expected_root
  except Exception:return False
- return 'ro' in opts
-def rollback_mounts():
- for _,dst,_ in reversed(PAIRS):
-  if exact_mount(dst):subprocess.run(['umount',str(dst)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+def rollback_mounts(pairs=None):
+ pairs=PAIRS if pairs is None else pairs;removed=[];seals=[]
+ # Refuse visible foreign mounts before changing any of the requested targets.
+ for src,dst,_ in pairs:
+  if exact_mount(dst) and not same(src,dst) and not sealed_underlay(dst):raise B('unexpected host-state mount preserved; rollback blocked')
+ for src,dst,_ in reversed(pairs):
+  if same(src,dst):
+   run(['umount',str(dst)])
+   if same(src,dst):raise B('owned host-state bind remained after umount')
+   removed.append(str(dst))
+  if exact_mount(dst):
+   if not sealed_underlay(dst):raise B('unexpected host-state mount preserved after unbind')
+   seals.append(str(dst))
+ return {'removed_bind_targets':removed,'preserved_legacy_seals':seals}
 def apply():
  if os.geteuid()!=0:raise B('root required')
  if active('docker.service'):raise B('Docker must be stopped before host-state bind')
- vault_ready();mounted=[]
+ vault_ready();attempted=[]
  try:
   for src,dst,ro in PAIRS:
    if not src.exists() or src.is_symlink() or not dst.exists() or dst.is_symlink():raise B('bind source/target unsafe')
    if exact_mount(dst) and not sealed_underlay(dst):raise B('host-state target already mounted without accepted read-only seal')
-   run(['mount','--bind',str(src),str(dst)]);mounted.append(dst);opts='remount,bind,nodev,nosuid,noexec'+(',ro' if ro else '') ;run(['mount','-o',opts,str(dst)])
+   attempted.append((src,dst,ro));run(['mount','--bind',str(src),str(dst)]);opts='remount,bind,nodev,nosuid,noexec'+(',ro' if ro else '') ;run(['mount','-o',opts,str(dst)])
   return status(True)
  except Exception:
-  for dst in reversed(mounted):subprocess.run(['umount',str(dst)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+  try:rollback_mounts(attempted)
+  except Exception as cleanup:raise B('host-state bind failed and owned-bind cleanup incomplete') from cleanup
   raise
 def rollback():
  if active('docker.service'):raise B('Docker must be stopped before host-state bind rollback')
- rollback_mounts();return {'status':'legacy_host_state_underlays_exposed','validation':'FR06C5_HOST_STATE_BIND_REMOVED'}
+ result=rollback_mounts();return {'status':'owned_host_state_binds_removed','validation':'FR06C5_HOST_STATE_BIND_REMOVED','restoration_complete':False,**result}
 def main():
  p=argparse.ArgumentParser();s=p.add_subparsers(dest='cmd',required=True);q=s.add_parser('status');q.add_argument('--require-ready',action='store_true');s.add_parser('apply');s.add_parser('rollback');a=p.parse_args()
  try:o=status(a.require_ready) if a.cmd=='status' else apply() if a.cmd=='apply' else rollback();print(json.dumps(o,sort_keys=True));return 0
