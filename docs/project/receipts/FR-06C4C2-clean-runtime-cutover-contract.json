@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C4C2",
+  "implementation_status": "source_only_guarded_clean_runtime_reconstruction_and_cutover_contract",
+  "depends_on": ["FR-06C4C1"],
+  "candidate_reconstruction": {
+    "historical_docker_root_copy": false,
+    "historical_containerd_root_copy": false,
+    "historical_build_cache_copy": false,
+    "historical_json_log_copy": false,
+    "image_authority_count": 17,
+    "rebuild_from_exact_source_count": 10,
+    "pull_by_digest_count": 7,
+    "prebuild_candidate_before_live_cutover": true,
+    "candidate_daemons_must_use_separate_sockets_and_state": true,
+    "candidate_daemons_must_not_start_application_containers": true
+  },
+  "external_authoritative_volumes": [
+    "aionex-fr06-asset-vault",
+    "aionex-fr06-project-execution-vault",
+    "aionex-fr06-database-vault",
+    "aionex-fr06-local-backup-vault",
+    "aionex-fr06-operations-vault"
+  ],
+  "rebuildable_runtime_state": {
+    "web-dashboard_ollama_model_data": "model cache rebuilt from governed model authority",
+    "web-dashboard_project_npm_cache_data": "npm cache rebuilt from lockfiles and package registry",
+    "web-dashboard_security_tool_cache_data": "security tool cache rebuilt from pinned authorities",
+    "web-dashboard_postgres_socket": "runtime socket volume recreated empty",
+    "coturn_anonymous_runtime_volume": "transient coturn state recreated empty",
+    "docker_buildkit_cache": "not copied",
+    "containerd_content_and_snapshots": "not copied"
+  },
+  "live_cutover_order": [
+    "fresh encrypted platform backup plus independent offsite restore validation",
+    "zero durable jobs and zero realtime rooms/sessions",
+    "candidate runtime vault open and clean candidate image reconstruction fully accepted",
+    "capture exact running service topology and project-worker scale",
+    "stop Docker then containerd and verify no live writers remain under legacy runtime roots",
+    "install and start var-lib-containerd.mount and var-lib-docker.mount over retained legacy underlays",
+    "start containerd then Docker through fail-closed gates",
+    "re-register five external encrypted Docker volumes with their mapper-backed definitions",
+    "recreate transient/cache volumes empty and rebuild only from governed authorities",
+    "start exactly the previously-running service topology and scale",
+    "verify 36 running containers, zero unhealthy, HTTP health/ready, Redis/PostgreSQL/backup recovery and all encrypted volume mounts",
+    "retain hidden legacy Docker/containerd underlays untouched through rollback window"
+  ],
+  "rollback": {
+    "allowed_before_candidate_runtime_writes": "stop daemons, remove candidate bind mounts, expose legacy underlays, restart legacy daemons and exact prior topology",
+    "after_candidate_runtime_started": "candidate runtime metadata is disposable; stop daemons and remove bind mounts, never reverse-copy layers to legacy underlay",
+    "legacy_underlay_retained": true,
+    "blind_runtime_reverse_copy_allowed": false
+  },
+  "admission": {
+    "application_admission_remains_closed": true,
+    "cloudflare_routing_change_permitted": false,
+    "mcp_control_path_must_remain_independent_of_docker": true
+  },
+  "production_boundary": {
+    "source_merge_executes_cutover": false,
+    "source_merge_stops_daemons": false,
+    "source_merge_installs_mount_units": false,
+    "source_merge_wipes_caches": false,
+    "fr06_completed": false
+  },
+  "next_subpart": "FR-06C4C3 guarded candidate reconstruction executor and live cutover acceptance"
+}
