@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C3C5",
+  "implementation_status": "source_only_guarded_empty_redis_cutover_executor",
+  "depends_on": ["FR-06C3C2", "FR-06C3C3", "FR-06C3C4"],
+  "executor": {
+    "path": "scripts/security/fr06c3_redis_cutover.py",
+    "commands": ["inspect-runtime", "plan-cutover", "apply-cutover"],
+    "state_root": "/var/lib/aionex/fr06c3-redis-cutover",
+    "single_use_plan": true,
+    "maximum_plan_ttl_seconds": 900,
+    "exclusive_nonblocking_lock": true,
+    "production_confirmation": "FR06C3_PRODUCTION_REDIS_CUTOVER",
+    "legacy_aof_copy_capability": false,
+    "post_client_blind_rollback_capability": false,
+    "opens_admission": false,
+    "changes_cloudflare": false
+  },
+  "preflight": {
+    "active_backup_jobs": 0,
+    "active_restore_validations": 0,
+    "active_durable_external_jobs": 0,
+    "active_realtime_sessions": 0,
+    "active_livekit_rooms": 0,
+    "application_admission_closed": true,
+    "fresh_encrypted_backup_restore_required": true,
+    "c3d_local_backup_closeout_required": true,
+    "operations_vault_zero_consumers_required": true
+  },
+  "cutover": {
+    "redis_client_definition_count": 26,
+    "capture_exact_running_instances_and_scale": true,
+    "stop_all_running_clients_before_redis": true,
+    "legacy_redis_stopped_cleanly": true,
+    "legacy_source_retained_read_only": true,
+    "legacy_aof_copied": false,
+    "candidate_must_start_with_dbsize": 0,
+    "restart_only_previously_running_clients": true,
+    "success_status": "candidate_redis_started_admission_closed"
+  },
+  "failure_policy": {
+    "before_any_candidate_client_starts": "stop candidate Redis, unseal legacy source and restore exact quiesced legacy Redis plus prior client topology",
+    "after_any_candidate_client_starts": "stop candidate clients and Redis, preserve both sides, fail closed and require explicit empty/reconciliation recovery; never resurrect stale legacy AOF blindly",
+    "candidate_to_legacy_aof_reverse_copy_allowed": false
+  },
+  "scope_boundary": {
+    "source_merge_executes_production": false,
+    "local_backup_data_copied": false,
+    "operational_logs_moved": false,
+    "admission_opened": false,
+    "cloudflare_changed": false,
+    "fr06_completed": false
+  }
+}

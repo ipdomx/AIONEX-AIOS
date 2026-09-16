@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C3C6",
+  "implementation_status": "source_only_volatile_host_log_boundary",
+  "depends_on": ["FR-06C3C2", "FR-06C3C3"],
+  "observed_legacy": {
+    "persistent_journal_bytes_approx": 506986496,
+    "var_log_bytes_at_inventory": 874753939,
+    "journald_storage_before_policy": "auto_with_persistent_/var/log/journal_present",
+    "journald_forward_to_syslog": true,
+    "rsyslog_active": true,
+    "rsyslog_plaintext_targets": ["/var/log/auth.log", "/var/log/syslog", "/var/log/kern.log", "/var/log/mail.log", "/var/log/mail.err", "/var/log/ufw.log", "/var/log/cloud-init.log"]
+  },
+  "selected_policy": {
+    "var_log_filesystem": "tmpfs",
+    "var_log_max_bytes": 1073741824,
+    "var_log_mount_options": ["nodev", "nosuid", "noexec"],
+    "journald_storage": "volatile",
+    "journald_runtime_max_bytes": 536870912,
+    "journald_runtime_max_file_bytes": 67108864,
+    "rsyslog_may_continue": true,
+    "reason": "Mounting /var/log itself on tmpfs covers direct file writers as well as journald/rsyslog without requiring every producer to be enumerated."
+  },
+  "repository_sources": {
+    "mount_unit": "deploy/systemd/var-log.mount",
+    "journald_dropin": "deploy/systemd/journald.conf.d/30-aionex-fr06-volatile.conf"
+  },
+  "production_activation_gate": {
+    "source_merge_installs_policy": false,
+    "archive_retained_logs_to_encrypted_operations_vault_first": true,
+    "stop_rsyslog_before_live_mount": true,
+    "restart_journald_with_volatile_policy_before_live_mount": true,
+    "mount_tmpfs_then_recreate_log_directories_with_systemd_tmpfiles": true,
+    "restart_rsyslog_after_tmpfs_mount": true,
+    "enable_var_log_mount_for_boot": true,
+    "verify_findmnt_tmpfs_and_journal_runtime_storage": true,
+    "plaintext_underlay_is_residual_remanence_not_active_storage": true
+  },
+  "scope_boundary": {
+    "production_logs_moved_by_source_merge": false,
+    "production_systemd_changed_by_source_merge": false,
+    "production_services_restarted_by_source_merge": false,
+    "cloudflare_changed": false,
+    "fr06_completed": false
+  }
+}

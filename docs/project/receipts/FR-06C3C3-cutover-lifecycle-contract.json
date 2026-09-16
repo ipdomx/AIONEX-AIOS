@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C3C3",
+  "implementation_status": "design_contract_for_guarded_backup_and_redis_cutovers",
+  "depends_on": ["FR-06C3C2"],
+  "local_backup_cutover": {
+    "protected_services": ["backend", "backup-worker"],
+    "legacy_volume": "web-dashboard_backup_data",
+    "candidate_volume": "aionex-fr06-local-backup-vault",
+    "source_must_be_sealed_read_only_before_final_copy": true,
+    "copy_mode": "offline_exact_manifest_copy",
+    "live_copy_while_backup_worker_can_write": false,
+    "required_preflight": [
+      "active_backup_jobs=0",
+      "active_restore_validations=0",
+      "fresh encrypted R2 backup and independent restore",
+      "candidate vault and external custody verified",
+      "owner maintenance window active"
+    ],
+    "post_cutover_acceptance": [
+      "backend mounts candidate read-only",
+      "backup-worker mounts candidate read-write",
+      "health and ready pass",
+      "new encrypted R2 backup from candidate completes",
+      "independent local and offsite restore validation passes"
+    ],
+    "legacy_source_deleted": false
+  },
+  "redis_cutover": {
+    "service": "redis",
+    "legacy_volume": "web-dashboard_redis_data",
+    "candidate_volume": "aionex-fr06-operations-vault",
+    "legacy_aof_copy_allowed": false,
+    "candidate_initial_state": "empty",
+    "restart_policy": "no",
+    "database_client_definition_count": 26,
+    "database_clients": [
+      "academy-course-worker",
+      "audio-dubbing-worker",
+      "audio-music-worker",
+      "audio-song-worker",
+      "audio-song-worker-secondary",
+      "audio-speech-worker",
+      "audio-transcript-worker",
+      "backend",
+      "backup-worker",
+      "communication-worker",
+      "design-image-derivative-worker",
+      "design-image-worker",
+      "identity-media-worker",
+      "media-worker",
+      "operations-observer",
+      "postgres-credential-reconciler",
+      "project-worker",
+      "realtime-egress",
+      "realtime-livekit",
+      "security-remediation-worker",
+      "security-scan-worker",
+      "studio-worker",
+      "telegram-worker",
+      "three-d-worker",
+      "user-telegram-worker",
+      "video-provider-worker"
+    ],
+    "required_preflight": [
+      "active durable project/backup/restore/external jobs=0",
+      "application admission closed",
+      "all running Redis clients captured at exact scale",
+      "operations-vault ready with zero consumers",
+      "owner maintenance window active"
+    ],
+    "cutover_order": [
+      "stop exact running Redis clients",
+      "stop Redis cleanly",
+      "retain legacy Redis source without treating its AOF as DR authority",
+      "start candidate Redis on encrypted operations-vault with no legacy AOF copy",
+      "require candidate DBSIZE=0 before clients",
+      "restart only previously running clients at exact prior scale with guarded restart policy",
+      "allow runtime caches/locks/queues to rebuild from durable authorities",
+      "verify health, queues, worker topology and realtime boundaries before admission"
+    ],
+    "rollback_policy": "never reverse-copy volatile candidate AOF into legacy. Stop clients/Redis and follow an explicit empty/reconciled Redis recovery path; stale legacy AOF is evidence, not authority."
+  },
+  "safety": {
+    "production_execution_by_this_contract": false,
+    "application_admission_opened": false,
+    "cloudflare_changed": false,
+    "backup_legacy_deleted": false,
+    "redis_legacy_deleted": false,
+    "redis_promoted_to_dr_authority": false,
+    "blind_system_prune_allowed": false
+  },
+  "next_implementation": "Build separate single-use executors for local-backup cutover and Redis empty/reconciliation cutover after C3C2 protected merge."
+}
