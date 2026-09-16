@@ -44,3 +44,11 @@ def test_apply_mounts_tmpfs_before_journald_restart():
     mount=text.index("_run(['systemctl','start','var-log.mount'])",start)
     journal=text.index("_run(['systemctl','restart','systemd-journald.service'])",start)
     assert mount < journal
+
+
+def test_log_policy_uses_exact_c3_host_gate_name() -> None:
+    c=json.loads(CONTRACT.read_text())
+    assert c['executor']['required_c3_host_validation']=='FR06C3_VAULTS_HOST_READY'
+    text=SCRIPT.read_text()
+    assert "FR06C3_VAULTS_HOST_READY" in text
+    assert "FR06C3_HOST_VAULTS_READY" not in text

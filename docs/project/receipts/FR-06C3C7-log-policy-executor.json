@@ -29,7 +29,8 @@
       "unattended-upgrades.service"
     ],
     "unknown_direct_log_holder_behavior": "fail_closed",
-    "hidden_plaintext_underlay_fd_acceptance": 0
+    "hidden_plaintext_underlay_fd_acceptance": 0,
+    "required_c3_host_validation": "FR06C3_VAULTS_HOST_READY"
   },
   "apply_order": [
     "require accepted Redis/operations cutover closeout and operations-vault host readiness",
