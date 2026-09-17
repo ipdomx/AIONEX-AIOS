@@ -1,4 +1,4 @@
-"""Durable delivery worker for Phase 29E communication channels."""
+"""Owned external notification dispatch with durable maintenance admission."""
 
 from __future__ import annotations
 
@@ -10,18 +10,47 @@ import signal
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from uuid import uuid4
 
 from app.core.config import settings
 from app.core.logging import get_logger, setup_logging
 from app.db.base import SessionLocal
-from app.services.communications import claim_due_deliveries, process_delivery
+from app.services.communications import (
+    NotificationDispatcher,
+    NotificationSessionFactory,
+    claim_due_deliveries,
+    process_delivery,
+)
+from app.services.host_maintenance_admission import (
+    HostMaintenanceClosed,
+    read_admission_snapshot,
+)
+from app.services.host_maintenance_notifications import CONSUMER
 from sqlalchemy import text
 
 logger = get_logger(__name__)
 
+_CYCLE_COLUMNS = {
+    "id", "resource_id", "consumer", "worker_incarnation", "admitted_generation",
+    "ownership_nonce", "state", "phase", "job_id", "started_at", "heartbeat_at",
+    "lease_expires_at", "unresolved_reason",
+}
+
 
 class CommunicationWorker:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        session_factory: NotificationSessionFactory | None = None,
+        dispatcher: NotificationDispatcher | None = None,
+        heartbeat_interval_seconds: float = 20.0,
+    ) -> None:
+        if heartbeat_interval_seconds <= 0:
+            raise ValueError("Notification heartbeat interval must be positive")
+        self.session_factory = session_factory if session_factory is not None else SessionLocal
+        self.dispatcher = dispatcher
+        self.heartbeat_interval_seconds = heartbeat_interval_seconds
+        self.worker_incarnation = str(uuid4())
         self.stop_event = asyncio.Event()
         self.health_path = Path(settings.COMMUNICATION_WORKER_HEALTH_FILE)
         self.processed = 0
@@ -29,7 +58,8 @@ class CommunicationWorker:
         self.last_delivery_id: str | None = None
 
     async def preflight(self) -> None:
-        async with SessionLocal() as session:
+        """Readiness validates coverage and schema without opening admission."""
+        async with self.session_factory() as session:
             ready = bool(
                 await session.scalar(
                     text(
@@ -37,33 +67,80 @@ class CommunicationWorker:
                         "to_regclass('notifications') IS NOT NULL "
                         "AND to_regclass('notification_deliveries') IS NOT NULL "
                         "AND to_regclass('notification_delivery_attempts') IS NOT NULL "
-                        "AND to_regclass('communication_endpoints') IS NOT NULL"
+                        "AND to_regclass('communication_endpoints') IS NOT NULL "
+                        "AND to_regclass('host_maintenance_work_cycles') IS NOT NULL"
                     )
                 )
             )
-        if not ready:
-            raise RuntimeError("Communication worker database schema is not current")
+            if not ready:
+                raise RuntimeError("Communication worker database schema is not current")
+            cycle_columns = set(
+                (
+                    await session.scalars(
+                        text(
+                            "SELECT column_name FROM information_schema.columns "
+                            "WHERE table_schema = current_schema() "
+                            "AND table_name = 'host_maintenance_work_cycles'"
+                        )
+                    )
+                ).all()
+            )
+            attempt_columns = set(
+                (
+                    await session.scalars(
+                        text(
+                            "SELECT column_name FROM information_schema.columns "
+                            "WHERE table_schema = current_schema() "
+                            "AND table_name = 'notification_delivery_attempts'"
+                        )
+                    )
+                ).all()
+            )
+            if not _CYCLE_COLUMNS <= cycle_columns or not {
+                "dispatch_protocol_version", "dispatch_outcome"
+            } <= attempt_columns:
+                raise RuntimeError("Communication worker ownership schema is not current")
+            # A valid CLOSED dispatch scope is healthy and waits for reopening.
+            await read_admission_snapshot(session, required_scope=CONSUMER)
 
     async def run_once(self) -> int:
-        async with SessionLocal() as session:
-            delivery_ids = await claim_due_deliveries(session, limit=25)
-        for delivery_id in delivery_ids:
-            try:
-                async with SessionLocal() as session:
-                    await process_delivery(session, delivery_id)
-                self.processed += 1
-                self.last_delivery_id = delivery_id
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:
-                self.errors += 1
-                logger.error(
-                    "Communication delivery cycle failed",
-                    delivery_id=delivery_id,
-                    error_type=type(exc).__name__,
+        if self.stop_event.is_set():
+            return 0
+        try:
+            async with self.session_factory() as session:
+                ownerships = await claim_due_deliveries(
+                    session, worker_incarnation=self.worker_incarnation, limit=1
                 )
+        except HostMaintenanceClosed:
+            self.write_health("running")
+            return 0
+        if not ownerships:
+            self.write_health("running")
+            return 0
+        ownership = ownerships[0]
+        try:
+            await process_delivery(
+                ownership,
+                session_factory=self.session_factory,
+                dispatcher=self.dispatcher,
+                heartbeat_interval_seconds=self.heartbeat_interval_seconds,
+                health_callback=lambda: self.write_health("running"),
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            self.errors += 1
+            logger.error(
+                "Communication delivery cycle failed",
+                delivery_id=ownership.delivery_id,
+                error_type=type(exc).__name__,
+            )
+            self.write_health("degraded")
+            return 1
+        self.processed += 1
+        self.last_delivery_id = ownership.delivery_id
         self.write_health("running")
-        return len(delivery_ids)
+        return 1
 
     async def run_forever(self) -> None:
         await self.preflight()
@@ -88,10 +165,11 @@ class CommunicationWorker:
                         timeout=settings.COMMUNICATION_WORKER_POLL_SECONDS,
                     )
                 except TimeoutError:
-                    pass
+                    continue
         self.write_health("stopped")
 
     def write_health(self, status: str) -> None:
+        """Publish explicitly excluded control-plane liveness metadata."""
         payload = {
             "status": status,
             "checked_at": datetime.now(UTC).isoformat(),
@@ -125,7 +203,7 @@ async def async_main() -> int:
         try:
             loop.add_signal_handler(signum, worker.stop_event.set)
         except NotImplementedError:
-            pass
+            logger.debug("Notification signal handler is unavailable")
     await worker.run_forever()
     return 0
 

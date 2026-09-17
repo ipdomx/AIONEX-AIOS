@@ -289,27 +289,39 @@ async def test_preferences_limit_channels_and_keep_in_app_delivery(
 async def test_whatsapp_delivery_receipt_retry_dead_letter_and_recovery(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    suffix = uuid4().hex[:10]
-    data = await identity(suffix)
-    monkeypatch.setattr(communications.settings, "WHATSAPP_ACCESS_TOKEN", "phase29e-token")
-    monkeypatch.setattr(communications.settings, "WHATSAPP_PHONE_NUMBER_ID", "123456")
-    monkeypatch.setattr(
-        communications.settings, "WHATSAPP_API_BASE", "https://graph.example/v99.0"
+    from tests.test_fr06c5d5_notification_producers_database import (
+        isolated_notification_database,
     )
-    actor = data.actor("Manager", ["notifications:read", "communications:read"])
-    try:
-        async with SessionLocal() as session:
+
+    # Real private PostgreSQL ownership replaces the old bare-ID dispatch path.
+    # Local no-send outcomes can be manually retried; HTTP 5xx is ambiguous and
+    # is covered by the worker's separate unresolved-outcome contracts.
+    async with isolated_notification_database(
+        monkeypatch, allow_mock_whatsapp=True
+    ) as case:
+        suffix = uuid4().hex[:10]
+        monkeypatch.setattr(
+            communications.settings, "WHATSAPP_ACCESS_TOKEN", "phase29e-token"
+        )
+        monkeypatch.setattr(
+            communications.settings, "WHATSAPP_PHONE_NUMBER_ID", "123456"
+        )
+        monkeypatch.setattr(
+            communications.settings, "WHATSAPP_API_BASE", "https://graph.example/v99.0"
+        )
+        async with case.sessions() as session:
             endpoint = await communications.register_endpoint(
                 session,
-                actor,
+                case.actor,
                 channel="whatsapp",
                 address="971501234567",
                 label="Escalation",
                 verified=True,
             )
+            recipient = await session.get(User, case.users["Manager"].id)
             notification = await communications.create_notification(
                 session,
-                data.users["Manager"],
+                recipient,
                 event_key="incident.critical",
                 category="incident",
                 title="Critical incident",
@@ -326,71 +338,105 @@ async def test_whatsapp_delivery_receipt_retry_dead_letter_and_recovery(
             )
             assert endpoint.verified_at is not None
             assert delivery is not None and delivery.status == "queued"
-            delivery.max_attempts = 2
-            await session.commit()
+            delivery_id, endpoint_id = delivery.id, endpoint.id
 
-            failing = httpx.MockTransport(
-                lambda request: httpx.Response(500, json={"error": "temporary"})
-            )
-            first = await communications.process_delivery(
-                session, delivery.id, whatsapp_transport=failing
-            )
-            assert first.status == "retrying" and first.attempt_count == 1
-            second = await communications.process_delivery(
-                session, delivery.id, whatsapp_transport=failing
-            )
-            assert second.status == "dead_letter" and second.attempt_count == 2
-            assert second.dead_lettered_at is not None
-
-            await communications.retry_delivery(
-                session, second, actor_id=data.users["Owner"].id
-            )
-            await session.commit()
-
-            def success_handler(request: httpx.Request) -> httpx.Response:
-                assert request.headers["Authorization"] == "Bearer phase29e-token"
-                assert request.url.path.endswith("/123456/messages")
-                assert b"phase29e-token" not in request.content
-                return httpx.Response(
-                    200, json={"messages": [{"id": f"wamid.{suffix}"}]}
+        async def claim_owned():
+            async with case.sessions() as session:
+                claims = await communications.claim_due_deliveries(
+                    session, worker_incarnation=case.worker_incarnation, limit=1
                 )
+            assert len(claims) == 1 and claims[0].delivery_id == delivery_id
+            return claims[0]
 
-            recovered = await communications.process_delivery(
-                session,
-                delivery.id,
-                whatsapp_transport=httpx.MockTransport(success_handler),
+        def forbidden_request(_request):
+            raise AssertionError("pre-send rejection must not call WhatsApp")
+
+        first_claim = await claim_owned()
+        monkeypatch.setattr(
+            communications.settings, "WHATSAPP_PHONE_NUMBER_ID", None
+        )
+        first = await communications.process_delivery(
+            first_claim,
+            session_factory=case.sessions,
+            whatsapp_transport=httpx.MockTransport(forbidden_request),
+        )
+        assert first.status == "unconfigured" and first.attempt_count == 1
+
+        monkeypatch.setattr(
+            communications.settings, "WHATSAPP_PHONE_NUMBER_ID", "123456"
+        )
+        async with case.sessions() as session:
+            delivery = await session.get(NotificationDelivery, delivery_id)
+            await communications.retry_delivery(
+                session, delivery, actor_id=case.users["Super Owner"].id
             )
-            assert recovered.status == "delivered"
-            assert recovered.provider_message_id == f"wamid.{suffix}"
-            assert recovered.attempt_count == 3
+            endpoint = await session.get(CommunicationEndpoint, endpoint_id)
+            endpoint.status = "inactive"
+            await session.commit()
+        second = await communications.process_delivery(
+            await claim_owned(),
+            session_factory=case.sessions,
+            whatsapp_transport=httpx.MockTransport(forbidden_request),
+        )
+        assert second.status == "dead_letter" and second.attempt_count == 2
+        assert second.dead_lettered_at is not None
+
+        async with case.sessions() as session:
+            endpoint = await session.get(CommunicationEndpoint, endpoint_id)
+            endpoint.status = "active"
+            delivery = await session.get(NotificationDelivery, delivery_id)
+            await communications.retry_delivery(
+                session, delivery, actor_id=case.users["Super Owner"].id
+            )
+            await session.commit()
+
+        def success_handler(request: httpx.Request) -> httpx.Response:
+            assert request.headers["Authorization"] == "Bearer phase29e-token"
+            assert request.url.path.endswith("/123456/messages")
+            assert b"phase29e-token" not in request.content
+            return httpx.Response(
+                200, json={"messages": [{"id": f"wamid.{suffix}"}]}
+            )
+
+        recovered = await communications.process_delivery(
+            await claim_owned(),
+            session_factory=case.sessions,
+            whatsapp_transport=httpx.MockTransport(success_handler),
+        )
+        assert recovered.status == "delivered"
+        assert recovered.provider_message_id == f"wamid.{suffix}"
+        assert recovered.attempt_count == 3
+        async with case.sessions() as observer:
             attempts = list(
                 (
-                    await session.scalars(
+                    await observer.scalars(
                         select(NotificationDeliveryAttempt)
-                        .where(NotificationDeliveryAttempt.delivery_id == delivery.id)
+                        .where(NotificationDeliveryAttempt.delivery_id == delivery_id)
                         .order_by(NotificationDeliveryAttempt.attempt_number)
                     )
                 ).all()
             )
-            assert [item.status for item in attempts] == [
-                "failed",
-                "failed",
-                "delivered",
+            assert [item.dispatch_protocol_version for item in attempts] == [1, 1, 1]
+            assert [item.dispatch_outcome for item in attempts] == [
+                "no_send", "no_send", "accepted"
             ]
+            assert all(item.completed_at is not None for item in attempts)
+            stored = await observer.get(NotificationDelivery, delivery_id)
             serialized = json.dumps(
                 {
-                    "delivery": communications.delivery_snapshot(recovered),
+                    "delivery": communications.delivery_snapshot(stored),
                     "attempts": [item.response_metadata for item in attempts],
                 }
             )
             assert "phase29e-token" not in serialized
             await communications.acknowledge_delivery(
-                session, recovered, actor_id=actor.id
+                observer, stored, actor_id=case.actor.id
             )
-            await session.commit()
-            assert recovered.status == "acknowledged"
-    finally:
-        await cleanup(data.organization.id)
+            await observer.commit()
+        async with case.sessions() as observer:
+            stored = await observer.get(NotificationDelivery, delivery_id)
+            assert stored.status == "acknowledged"
+        assert not case.forbidden_attempts
 
 
 @pytest.mark.asyncio
