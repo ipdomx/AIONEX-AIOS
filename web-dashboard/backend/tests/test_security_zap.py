@@ -60,6 +60,10 @@ async def test_active_clone_spiders_before_active_scan(monkeypatch):
             return {"status": "100"}
         if path == "/JSON/core/view/alerts/":
             return {"alerts": []}
+        if path == "/JSON/pscan/view/recordsToScan/":
+            return {"recordsToScan": "0"}
+        if path == "/JSON/core/view/urls/":
+            return {"urls": []}
         return {}
 
     monkeypatch.setattr(client, "_json", fake_json)

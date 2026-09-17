@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from app.api.backup_admission import require_backup_enqueue_admission
 from app.core.auth import UserRecord, require_super_owner
 from app.db.base import get_db
 from app.db.models import AuditEvent, BackupRecord, DisasterRecoveryRun
@@ -159,6 +160,7 @@ async def create_backup(
             status_code=422,
             detail="Backup name or scope is empty or exceeds its supported length",
         )
+    await require_backup_enqueue_admission(session)
     await acquire_enqueue_lock(session, f"backup:{normalized_scope}")
     active = await session.scalar(
         select(BackupRecord.id)
@@ -205,6 +207,7 @@ async def _enqueue_restore_validation(
     # BackupRecord row. Keep that order here as well, then re-read the durable
     # record under the lock so an artifact cannot be expired between selection
     # and enqueue.
+    await require_backup_enqueue_admission(session)
     await acquire_enqueue_lock(session, "restore-validation")
 
     if backup_id is None:

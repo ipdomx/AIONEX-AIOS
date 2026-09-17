@@ -26,6 +26,7 @@ from app.db.models import (
     uuid_str,
 )
 from app.services import security_fabric, security_scanning
+from app.services.host_maintenance_remediation import require_remediation_admission
 
 TERMINAL = {"verified_fixed", "rejected", "failed", "cancelled"}
 
@@ -110,6 +111,7 @@ async def request_remediation(
     *,
     finding_id: str,
 ) -> SecurityRemediation:
+    await require_remediation_admission(session)
     policy = await security_fabric.get_policy(session)
     if not policy.get("auto_remediation_enabled", False):
         raise PermissionError(
@@ -292,6 +294,9 @@ async def queue_retest(
     actor: UserRecord,
     remediation: SecurityRemediation,
 ) -> SecurityScan:
+    from app.services.host_maintenance_scan_admission import require_scan_admission
+
+    await require_scan_admission(session)
     if remediation.status != "regression_passed":
         raise ValueError("Regression must pass before the security retest")
     finding = await session.get(SecurityFinding, remediation.finding_id)

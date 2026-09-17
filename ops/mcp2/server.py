@@ -26,7 +26,25 @@ TUNNEL_PROFILE = "aionex-phase22c-2"
 TUNNEL_SERVICE = "aionex-phase22c-2-tunnel.service"
 SERVER_VERSION = "2026.09.10.1"
 PROJECT_REPORT = PROJECT_ROOT / "docs/project/PROJECT-REPORT.md"
-TUNNEL_RUNTIME_KEY = Path("/root/.config/aionex/aionex-tunnel-runtime.key")
+BOOTSTRAP_TUNNEL_RUNTIME_KEY = Path("/root/.config/aionex-bootstrap/control-plane.key")
+LEGACY_TUNNEL_RUNTIME_KEY = Path("/root/.config/aionex/aionex-tunnel-runtime.key")
+
+
+def _path_exists_without_import_failure(path: Path) -> bool:
+    try:
+        return path.exists()
+    except OSError:
+        # Non-root CI/test contexts cannot stat paths below /root. Treat that
+        # as unavailable here instead of failing module import; production MCP2
+        # runs as root and will observe the dedicated bootstrap path normally.
+        return False
+
+
+TUNNEL_RUNTIME_KEY = (
+    BOOTSTRAP_TUNNEL_RUNTIME_KEY
+    if _path_exists_without_import_failure(BOOTSTRAP_TUNNEL_RUNTIME_KEY)
+    else LEGACY_TUNNEL_RUNTIME_KEY
+)
 TUNNEL_LOG = Path("/var/log/aionex-phase22c-tunnel.log")
 DEPLOY_KEY = Path("/root/.ssh/aionex_aios_deploy")
 PYTHON_BIN = Path("/opt/AIOS/.venv/bin/python")

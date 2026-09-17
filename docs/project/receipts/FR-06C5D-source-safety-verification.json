@@ -1,0 +1,89 @@
+{
+  "accepted_source_parent": "734c0065d828e2cf3997dd4efbcdf6cbba32a37b",
+  "batch_id": "FR-06",
+  "cloudflare_changed": false,
+  "deferred_owner_scope_changed": false,
+  "implementation": [
+    "Plan and apply share one operation lock; source, evidence, topology, boot and resource snapshots are checked under it and again after precopy.",
+    "Durable schema-2 claims and phase intents use complete writes and file/parent fsync; partial or unreadable attempts block replay.",
+    "Candidate-start intent is persisted before Docker start; its in-memory barrier also forbids blind rollback if that journal write fails. Accepted attempts permanently block initial-cutover replay.",
+    "Legacy seal mount IDs/options and gate inode/content identities constrain rollback; preexisting or foreign resources are preserved, and all resource cleanup is preflighted before any rollback mutation.",
+    "Enable symlink identity is captured in private staging before no-overwrite publication; same-target replacements, unsupported publication and ambiguous stages block cleanup.",
+    "Actual rollback_prestart integrations verify owned teardown and legacy targets before Docker restart; failed commands or failed legacy acceptance cannot report restoration.",
+    "Every original restart policy is attempted and read back, including on-failure retry limits; partial quiesce failures trigger checked restoration.",
+    "Candidate and legacy acceptance require exact container IDs, names, project services and policies with bounded health/HTTP/tunnel stabilization and final encrypted-bind/topology checks.",
+    "Process/thread inventory covers FD, cwd, root and mappings, matching device/inode identities through external aliases and original source paths. Ambiguous unlinked references on legacy filesystems and unreadable inventories block acceptance."
+  ],
+  "independent_review": {
+    "followup_findings": [
+      "External alias references escaped lexical-only matching.",
+      "Same-target enable symlink replacement could be adopted after creation."
+    ],
+    "followup_status": "The external-alias scanner and staged no-overwrite link publication were independently reviewed after their fixes; no concrete new P1 blocker was found within those reviewed scopes.",
+    "initial_integrated_scope": "Journal/resource/policy/acceptance integration reviewed at 71036ba1; no concrete new blocker found in that scope.",
+    "final_scanner_commit": "a4c9d607919c4b632d5b66873b800fc85fa28582",
+    "final_enable_link_commit": "fed8362632f708136fa91c54d0a5110ded145331"
+  },
+  "limitations": [
+    "Temporary files, synthetic proc trees, mount-table models and explicit subprocess fakes exercise behavior; no real vault, mount, daemon lifecycle or secret migration is exercised by these tests.",
+    "Proc reference observations are not an atomic proof about every possible kernel-held reference or future writer. Ambiguous unlinked references can conservatively block legitimate workloads and require reconciliation.",
+    "Manifest fields attest paths, types, mode, ownership, sizes and file hashes. rsync copies extended metadata with -aHAX; the manifest does not independently attest all xattr/ACL contents.",
+    "Interrupted or uncertain resource ownership remains a reconciliation barrier; this source follow-up does not attest live crash recovery or host-state activation."
+  ],
+  "operational_sequence": [
+    "Accept C5C1 minimal bootstrap and canonical MCP2 runtime installation.",
+    "Provision an empty host-state vault with external key custody, recovery proof and verified off-host header.",
+    "Obtain fresh backup/validated restore and execute accepted C5D in the authorized maintenance/drain window.",
+    "Complete remaining C5E journal, rollback, boot-order and tmp safety remediation before memory-control activation."
+  ],
+  "parent_batch_completed": false,
+  "prior_accepted_c5c1_pr": 709,
+  "prior_bind_helper_preserved": true,
+  "production_activation_executed": false,
+  "protected_ci": "pending_at_source_receipt_authoring; later exact-commit PR/main results are recorded in the canonical project event journal",
+  "read_only_runtime_observation": {
+    "actual_topology_function_passed": true,
+    "healthy_running_containers": 35,
+    "host_state_vault_present": false,
+    "project_workers": 4,
+    "restart_policy_counts": {
+      "no": 28,
+      "unless-stopped": 8
+    },
+    "running_containers": 36,
+    "successful_init_containers": 4,
+    "unhealthy_running_containers": 0
+  },
+  "recovered_draft_commit": "8bd2af694919e23e5217eb3a6009317f5a6389fa",
+  "reviewed_at": "2026-09-17",
+  "schema_version": 1,
+  "source_only": true,
+  "subpart": "FR-06C5D-source-safety",
+  "swap_changed": false,
+  "tmp_changed": false,
+  "validation": {
+    "passed": true,
+    "tested_as": "nobody",
+    "fr06_test_modules": 38,
+    "fr06_tests_passed": 636,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 13.34,
+    "c5d_tests": {
+      "transaction_regressions": 67,
+      "resource_ownership": 75,
+      "runtime_acceptance": 60,
+      "underlay_references": 120,
+      "contract": 11,
+      "total": 333
+    },
+    "source_commit_under_test": "57190bd40ba035957f5df632fcaf49b8edf35e4b",
+    "executor_sha256": "ef70bde59d679cc0f3104a95266ce153c75bf466c2e81a11b19cddb735e5eb47",
+    "syntax_and_diff_check_passed": true,
+    "reviewed_functions_ast_matched": true,
+    "local_evidence": "docs/project/runtime/fr06c5d-local-validation-20260917.json",
+    "junit_evidence": "docs/project/runtime/fr06c5d-local-validation-20260917.xml",
+    "production_lifecycle_executed": false
+  }
+}

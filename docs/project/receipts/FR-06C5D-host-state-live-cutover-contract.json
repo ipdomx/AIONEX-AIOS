@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "batch_id": "FR-06",
+  "subpart": "FR-06C5D",
+  "implementation_status": "source_only_transactional_host_state_migration_pending_protected_ci_and_operational_acceptance",
+  "depends_on": [
+    "FR-06C5C1"
+  ],
+  "executor": {
+    "path": "scripts/security/fr06c5_host_state_cutover.py",
+    "commands": [
+      "inspect-runtime",
+      "plan-cutover",
+      "apply-cutover"
+    ],
+    "single_use_plan": true,
+    "maximum_plan_ttl_seconds": 900,
+    "fresh_evidence_max_age_seconds": 3600,
+    "production_confirmation": "FR06C5_PRODUCTION_HOST_STATE_CUTOVER",
+    "plan_schema_version": 2,
+    "attempt_schema_version": 2,
+    "plan_and_apply_share_operation_lock": true,
+    "mutable_authorities_rechecked_under_lock": true,
+    "recheck_after_precopy_before_live_stop": true,
+    "prior_candidate_start_blocks_new_cutover_even_if_binds_disappear": true,
+    "journal_full_writes_and_parent_directory_fsync": true,
+    "partial_journal_blocks_replay": true,
+    "exact_plan_topology_boot_and_resource_snapshot_recorded": true,
+    "preexisting_loaded_active_or_pending_bind_unit_rejected": true
+  },
+  "sources": [
+    "/root/.config/aionex",
+    "/opt/AIOS/web-dashboard/secrets",
+    "/root/.ssh/aionex_aios_deploy",
+    "/root/.ssh/aionex_cpanel_ai_vip_e_net_ed25519"
+  ],
+  "candidate_targets": [
+    "/mnt/aionex/fr06-host-state-vault/operator-state",
+    "/mnt/aionex/fr06-host-state-vault/app-secrets",
+    "/mnt/aionex/fr06-host-state-vault/ssh/aionex_aios_deploy",
+    "/mnt/aionex/fr06-host-state-vault/ssh/aionex_cpanel_ai_vip_e_net_ed25519"
+  ],
+  "cutover": {
+    "initial_precopy_while_live": true,
+    "capture_exact_36_container_topology": true,
+    "stop_application_containers_then_docker": true,
+    "containerd_remains_active": true,
+    "seal_all_legacy_sources_read_only_before_final_delta": true,
+    "final_rsync_delete_numeric_ids": true,
+    "exact_metadata_and_content_manifest_match": true,
+    "bootstrap_key_and_shared_upstream_must_match_sealed_source": true,
+    "install_bind_service_and_docker_gate_after_exact_copy": true,
+    "restart_exact_planned_container_ids": true,
+    "legacy_underlays_remain_read_only_below_candidate_binds": true,
+    "capture_and_quiesce_all_restart_policies_before_docker_stop": true,
+    "restore_original_restart_policies_after_explicit_start": true,
+    "require_zero_hidden_underlay_fds_before_bind": true,
+    "durable_attempt_journal": true,
+    "candidate_start_attempt_persisted_before_docker_start": true,
+    "restart_policies_restored_and_verified_on_prestart_rollback": true,
+    "legacy_key_file_mounts_and_candidate_submounts_rejected": true,
+    "legacy_and_candidate_root_symlinks_rejected": true,
+    "require_zero_visible_underlay_references_before_bind": true,
+    "underlay_reference_kinds": [
+      "fd",
+      "cwd",
+      "root",
+      "mmap"
+    ],
+    "underlay_scan_permission_and_io_failures_block": true,
+    "manifest_verified_fields": [
+      "relative_path",
+      "file_type",
+      "mode",
+      "uid",
+      "gid",
+      "file_size",
+      "file_sha256"
+    ],
+    "rsync_extended_metadata_copy_flags": [
+      "-aHAX",
+      "--numeric-ids"
+    ],
+    "kernel_mount_ids_and_file_inodes_recorded_for_cleanup": true,
+    "preexisting_gate_files_and_enable_links_rejected": true,
+    "explicit_enable_link_ownership_instead_of_global_disable": true,
+    "thread_level_proc_reference_inventory": true,
+    "enable_link_target_verified_before_ownership_claim": true,
+    "underlay_reference_identity_match": "device_and_inode_with_lexical_deleted_source_fallback",
+    "ambiguous_unlinked_references_on_legacy_filesystems_block": true,
+    "enable_link_inode_captured_before_no_overwrite_publication": true,
+    "source_reference_inventory_rejects_symlinks_and_special_files": true,
+    "source_inventory_rechecked_after_reference_scan": true
+  },
+  "rollback": {
+    "pre_candidate_start_rollback_to_legacy_allowed": true,
+    "post_candidate_start_blind_rollback_allowed": false,
+    "candidate_state_authoritative_after_container_start": true,
+    "reverse_copy_to_legacy_allowed": false,
+    "candidate_divergence_boundary": "Before the first attempt to start docker.socket/docker.service, including a failed or partial start; the durable barrier is retained after accepted completion.",
+    "teardown_and_restore_commands_checked": true,
+    "owned_bind_and_gate_mutations_only": true,
+    "legacy_health_acceptance_required_before_reporting_restored": true,
+    "same_plan_replay_allowed": false,
+    "entire_resource_cleanup_preflight_before_rollback_mutation": true,
+    "each_resource_identity_rechecked_before_removal": true,
+    "foreign_or_uncertain_mutations_preserved_for_reconciliation": true,
+    "legacy_identity_verified_before_docker_restart": true,
+    "all_original_restart_policies_attempted_and_read_back": true,
+    "on_failure_retry_limit_preserved": true,
+    "bounded_health_polling_and_exact_container_id_service_membership": true,
+    "source_merge_runs_rollback": false,
+    "completed_seal_options_rechecked_including_hidden_mounts": true
+  },
+  "acceptance": [
+    "zero observed underlay references across file descriptors, cwd, root and mapped files before candidate binds; unreadable inventory fails closed",
+    "36 running containers with exact planned IDs, names, service membership and four project workers",
+    "original restart policies restored and verified, including on-failure retry limits",
+    "FR06C5_HOST_STATE_BIND_READY",
+    "FR06C4_RUNTIME_BIND_READY remains true",
+    "local/public health and ready endpoints plus user portal return 200 with TLS verification and the tested complete browser User-Agent",
+    "all three control tunnels active",
+    "encrypted binds and exact container identities rechecked after HTTP and tunnel stabilization",
+    "owned gates and enable link installed with recorded identities",
+    "legacy host-state underlays remain read-only and are not deleted"
+  ],
+  "scope_boundary": {
+    "source_merge_executes_cutover": false,
+    "source_merge_reads_secret_contents": false,
+    "source_merge_stops_docker": false,
+    "source_merge_changes_swap": false,
+    "source_merge_changes_tmp": false,
+    "cloudflare_changed": false,
+    "fr06_completed": false
+  },
+  "next_subpart": "FR-06C5C1 guarded bootstrap/MCP2/empty-vault runtime prerequisites; then accepted FR-06C5D live migration; FR-06C5E after its remaining safety remediation",
+  "operational_prerequisites": [
+    "FR-06C5C1 minimal bootstrap and canonical MCP2 runtime installation accepted",
+    "Empty host-state vault provisioned with external key custody, recovery proof and verified off-host header",
+    "Protected PR and exact post-merge main CI passed and clean canonical source synchronized",
+    "Fresh encrypted backup and independently validated restore",
+    "Owner-authorized maintenance window, closed admission and drained operations",
+    "Review durable attempt and current resource state; never erase a reconciliation barrier to retry"
+  ],
+  "validation_scope": "Unit behavior uses synthetic state and explicit subprocess fakes under nobody. Source merge does not prove real mounts, interruption recovery or live host-state acceptance. Proc reference inventory is observational, not an atomic proof about every possible kernel-held reference; unattributable unlinked references on a legacy filesystem conservatively block instead of being reported absent."
+}

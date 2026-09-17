@@ -33,6 +33,7 @@ from app.services.backup_worker import (
     retention_candidate_ids,
 )
 from app.services.three_d_asset_backup import ThreeDAssetSnapshot
+from app.services.host_maintenance_cycles import CycleOwnership
 from sqlalchemy import BigInteger, delete
 
 
@@ -529,6 +530,45 @@ class FakeSessionFactory:
         return self.sessions.pop(0)
 
 
+
+async def _read_worker_admission(_session: Any, *, required_scope: str) -> None:
+    assert required_scope == "backup_cycles"
+
+
+async def _allow_worker_admission(_session: Any, *, required_scope: str) -> bool:
+    assert required_scope == "backup_cycles"
+    return True
+
+
+class FakeCycleService:
+    """Explicit unit-test dependency; real PostgreSQL coverage lives separately."""
+
+    async def begin_backup_cycle(
+        self, *, worker_incarnation: str, phase: str, session_factory: Any
+    ) -> CycleOwnership:
+        return CycleOwnership(str(uuid4()), worker_incarnation, 2, str(uuid4()))
+
+    async def heartbeat_backup_cycle(
+        self,
+        ownership: CycleOwnership,
+        *,
+        phase: str | None = None,
+        job_id: str | None = None,
+        session_factory: Any,
+    ) -> None:
+        return None
+
+    async def mark_backup_cycle_unresolved(
+        self, ownership: CycleOwnership, *, reason: str, session_factory: Any
+    ) -> None:
+        return None
+
+    async def finish_backup_cycle(
+        self, ownership: CycleOwnership, *, session_factory: Any
+    ) -> None:
+        return None
+
+
 class FakeExecutor:
     async def create_backup(
         self,
@@ -556,6 +596,8 @@ async def test_worker_atomically_claims_and_completes_backup(
     claim_session = FakeSession([record])
     finish_session = FakeSession([record])
     worker = BackupJobWorker(
+        admission_check=_allow_worker_admission,
+        cycle_service=FakeCycleService(),
         executor=FakeExecutor(),  # type: ignore[arg-type]
         session_factory=FakeSessionFactory(  # type: ignore[arg-type]
             [claim_session, finish_session]
@@ -618,6 +660,8 @@ async def test_worker_persists_sanitized_backup_failure(
     )
     failure_session = FakeSession([record])
     worker = BackupJobWorker(
+        admission_check=_allow_worker_admission,
+        cycle_service=FakeCycleService(),
         executor=FailingExecutor(),  # type: ignore[arg-type]
         session_factory=FakeSessionFactory([failure_session]),  # type: ignore[arg-type]
     )
@@ -660,6 +704,8 @@ async def test_worker_sanitizes_unexpected_executor_failure(
     )
     failure_session = FakeSession([record])
     worker = BackupJobWorker(
+        admission_check=_allow_worker_admission,
+        cycle_service=FakeCycleService(),
         executor=UnexpectedFailingExecutor(),  # type: ignore[arg-type]
         session_factory=FakeSessionFactory([failure_session]),  # type: ignore[arg-type]
     )
@@ -710,6 +756,8 @@ async def test_scheduled_backup_auto_enqueues_exactly_one_restore_validation(
         application_settings, "BACKUP_AUTO_RESTORE_VALIDATION_ENABLED", True
     )
     worker = BackupJobWorker(
+        admission_check=_allow_worker_admission,
+        cycle_service=FakeCycleService(),
         executor=FakeExecutor(),  # type: ignore[arg-type]
         session_factory=FakeSessionFactory([first, duplicate]),  # type: ignore[arg-type]
     )
@@ -750,6 +798,8 @@ async def test_scheduled_restore_auto_enqueue_defers_while_recovery_is_active(
         application_settings, "BACKUP_AUTO_RESTORE_VALIDATION_ENABLED", True
     )
     worker = BackupJobWorker(
+        admission_check=_allow_worker_admission,
+        cycle_service=FakeCycleService(),
         executor=FakeExecutor(),  # type: ignore[arg-type]
         session_factory=FakeSessionFactory([session]),  # type: ignore[arg-type]
     )
@@ -772,6 +822,8 @@ async def test_expired_lease_gets_new_token_and_is_marked_reclaimed() -> None:
     )
     session = FakeSession([record])
     worker = BackupJobWorker(
+        admission_check=_allow_worker_admission,
+        cycle_service=FakeCycleService(),
         executor=FakeExecutor(),  # type: ignore[arg-type]
         session_factory=FakeSessionFactory([session]),  # type: ignore[arg-type]
     )
@@ -793,6 +845,8 @@ async def test_repeated_restore_reclaims_persist_all_attempt_database_names() ->
         details={"backup_id": "protected-backup"},
     )
     worker = BackupJobWorker(
+        admission_check=_allow_worker_admission,
+        cycle_service=FakeCycleService(),
         executor=FakeExecutor(),  # type: ignore[arg-type]
         session_factory=FakeSessionFactory(  # type: ignore[arg-type]
             [FakeSession([run]), FakeSession([run]), FakeSession([run])]
@@ -835,6 +889,8 @@ async def test_lease_heartbeat_is_fenced_by_current_token() -> None:
     renewed = FakeSession([record])
     lost = FakeSession([None])
     worker = BackupJobWorker(
+        admission_check=_allow_worker_admission,
+        cycle_service=FakeCycleService(),
         executor=FakeExecutor(),  # type: ignore[arg-type]
         session_factory=FakeSessionFactory([renewed, lost]),  # type: ignore[arg-type]
     )
@@ -880,6 +936,8 @@ async def test_stale_worker_cannot_publish_or_overwrite_winning_artifact(
     executor = LateExecutor()
     finish_session = FakeSession([None])
     worker = BackupJobWorker(
+        admission_check=_allow_worker_admission,
+        cycle_service=FakeCycleService(),
         executor=executor,  # type: ignore[arg-type]
         session_factory=FakeSessionFactory([finish_session]),  # type: ignore[arg-type]
     )
@@ -925,6 +983,8 @@ async def test_low_capacity_blocks_pg_dump_after_safe_cleanup(
     failure_session = FakeSession([record])
     executor = CapacityExecutor()
     worker = BackupJobWorker(
+        admission_check=_allow_worker_admission,
+        cycle_service=FakeCycleService(),
         executor=executor,  # type: ignore[arg-type]
         session_factory=FakeSessionFactory([failure_session]),  # type: ignore[arg-type]
     )
@@ -1033,6 +1093,8 @@ async def test_expiration_deletes_only_artifact_and_keeps_audit_metadata() -> No
     delete_session = FakeSession([record])
     executor = RetentionExecutor()
     worker = BackupJobWorker(
+        admission_check=_allow_worker_admission,
+        cycle_service=FakeCycleService(),
         executor=executor,  # type: ignore[arg-type]
         session_factory=FakeSessionFactory(  # type: ignore[arg-type]
             [expire_session, delete_session]
@@ -1072,6 +1134,8 @@ async def test_expiration_rechecks_active_recovery_reference_before_delete() -> 
     session = FakeSession([record, "active-recovery-run"])
     executor = RetentionExecutor()
     worker = BackupJobWorker(
+        admission_check=_allow_worker_admission,
+        cycle_service=FakeCycleService(),
         executor=executor,  # type: ignore[arg-type]
         session_factory=FakeSessionFactory([session]),  # type: ignore[arg-type]
     )
@@ -1090,6 +1154,8 @@ async def test_post_backup_retention_runs_after_the_lease_heartbeat_stops(
 ) -> None:
     claim = ClaimedJob("backup-job", "lease-token", reclaimed=False)
     worker = BackupJobWorker(
+        admission_check=_allow_worker_admission,
+        cycle_service=FakeCycleService(),
         executor=FakeExecutor(),  # type: ignore[arg-type]
         session_factory=FakeSessionFactory([]),  # type: ignore[arg-type]
     )
@@ -1165,6 +1231,8 @@ async def test_worker_claims_dr_drill_and_persists_completed_restore_evidence() 
     finish_session = FakeSession([run])
     executor = RestoreExecutor()
     worker = BackupJobWorker(
+        admission_check=_allow_worker_admission,
+        cycle_service=FakeCycleService(),
         executor=executor,  # type: ignore[arg-type]
         session_factory=FakeSessionFactory(  # type: ignore[arg-type]
             [claim_session, load_session, finish_session]
@@ -1236,6 +1304,8 @@ async def test_worker_persists_failed_restore_validation_evidence() -> None:
     load_session = FakeSession([run, backup])
     failure_session = FakeSession([run])
     worker = BackupJobWorker(
+        admission_check=_allow_worker_admission,
+        cycle_service=FakeCycleService(),
         executor=RestoreFailingExecutor(),  # type: ignore[arg-type]
         session_factory=FakeSessionFactory(  # type: ignore[arg-type]
             [load_session, failure_session]
@@ -1275,7 +1345,7 @@ class PreflightExecutor:
 
 
 @pytest.mark.asyncio
-async def test_worker_preflight_checks_schema_storage_heartbeat_and_version(
+async def test_worker_preflight_checks_schema_and_heartbeat_without_storage_writes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class VersionProcess:
@@ -1290,18 +1360,23 @@ async def test_worker_preflight_checks_schema_storage_heartbeat_and_version(
     async def create_process(*_args: object, **_kwargs: object) -> VersionProcess:
         return VersionProcess()
 
+    monkeypatch.setattr(
+        "app.services.backup_worker.read_admission_snapshot", _read_worker_admission
+    )
     monkeypatch.setattr("shutil.which", lambda tool: f"/usr/bin/{tool}")
     monkeypatch.setattr(asyncio, "create_subprocess_exec", create_process)
     executor = PreflightExecutor()
     preflight_session = FakeSession([160010, True])
     worker = BackupJobWorker(
+        admission_check=_allow_worker_admission,
+        cycle_service=FakeCycleService(),
         executor=executor,  # type: ignore[arg-type]
         session_factory=FakeSessionFactory([preflight_session]),  # type: ignore[arg-type]
     )
 
     await worker.preflight(require_heartbeat=True)
 
-    assert executor.storage_verified is True
+    assert executor.storage_verified is False
     assert executor.heartbeat_verified is True
     assert executor.partials_cleaned_with is None
 
@@ -1324,9 +1399,14 @@ async def test_worker_preflight_rejects_mismatched_pg_dump(
     async def create_process(*_args: object, **_kwargs: object) -> VersionProcess:
         return VersionProcess()
 
+    monkeypatch.setattr(
+        "app.services.backup_worker.read_admission_snapshot", _read_worker_admission
+    )
     monkeypatch.setattr("shutil.which", lambda tool: f"/usr/bin/{tool}")
     monkeypatch.setattr(asyncio, "create_subprocess_exec", create_process)
     worker = BackupJobWorker(
+        admission_check=_allow_worker_admission,
+        cycle_service=FakeCycleService(),
         executor=PreflightExecutor(),  # type: ignore[arg-type]
         session_factory=FakeSessionFactory(  # type: ignore[arg-type]
             [FakeSession([160010, True])]
@@ -1353,15 +1433,24 @@ async def test_worker_startup_cleans_only_partials_older_than_the_job_lease(
     async def create_process(*_args: object, **_kwargs: object) -> VersionProcess:
         return VersionProcess()
 
+    monkeypatch.setattr(
+        "app.services.backup_worker.read_admission_snapshot", _read_worker_admission
+    )
     monkeypatch.setattr("shutil.which", lambda tool: f"/usr/bin/{tool}")
     monkeypatch.setattr(asyncio, "create_subprocess_exec", create_process)
     executor = PreflightExecutor()
     worker = BackupJobWorker(
+        admission_check=_allow_worker_admission,
+        cycle_service=FakeCycleService(),
         executor=executor,  # type: ignore[arg-type]
         session_factory=FakeSessionFactory([FakeSession([160010, True])]),  # type: ignore[arg-type]
     )
 
     await worker.preflight()
+    assert executor.storage_verified is False
+    assert executor.partials_cleaned_with is None
+    assert await worker._ensure_startup() is True
+    assert executor.storage_verified is True
 
     assert (
         executor.partials_cleaned_with == application_settings.BACKUP_JOB_LEASE_SECONDS
@@ -1374,9 +1463,12 @@ async def test_worker_shutdown_drains_an_inflight_job_before_exit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     worker = BackupJobWorker(
+        admission_check=_allow_worker_admission,
+        cycle_service=FakeCycleService(),
         executor=PreflightExecutor(),  # type: ignore[arg-type]
         session_factory=FakeSessionFactory([]),  # type: ignore[arg-type]
     )
+    worker._startup_complete = True
     stop_event = asyncio.Event()
     started = asyncio.Event()
     release = asyncio.Event()
@@ -1630,7 +1722,7 @@ async def test_live_postgres_worker_backup_and_restore_smoke() -> None:
 
     suffix = uuid4().hex
     backup = BackupRecord(
-        id=f"bkp-{suffix}",
+        id=str(uuid4()),
         kind="ci-smoke",
         scope=f"ci-smoke-{suffix}",
         status="pending",
@@ -1644,7 +1736,7 @@ async def test_live_postgres_worker_backup_and_restore_smoke() -> None:
         session_factory=SessionLocal,
     )
     artifact_path: Path | None = None
-    run_id = f"rst-{suffix}"
+    run_id = str(uuid4())
     try:
         assert await worker.run_once() is True
         assert await worker.claim_backup() is None
@@ -1784,6 +1876,8 @@ async def test_platform_backup_persists_durable_three_d_companion_evidence(
     finish_session = FakeSession([record])
     three_d = FakeThreeDCompanion()
     worker = BackupJobWorker(
+        admission_check=_allow_worker_admission,
+        cycle_service=FakeCycleService(),
         executor=FakePlatformBackupExecutor(),  # type: ignore[arg-type]
         three_d_executor=three_d,  # type: ignore[arg-type]
         session_factory=FakeSessionFactory([finish_session]),  # type: ignore[arg-type]
@@ -1844,6 +1938,8 @@ async def test_platform_restore_requires_three_d_companion_evidence() -> None:
     load_session = FakeSession([run, backup, None])
     failure_session = FakeSession([run])
     worker = BackupJobWorker(
+        admission_check=_allow_worker_admission,
+        cycle_service=FakeCycleService(),
         executor=RestoreExecutor(),  # type: ignore[arg-type]
         three_d_executor=FakeThreeDCompanion(),  # type: ignore[arg-type]
         session_factory=FakeSessionFactory(  # type: ignore[arg-type]
@@ -1897,6 +1993,8 @@ async def test_platform_restore_validates_database_and_three_d_companion() -> No
     three_d = FakeThreeDCompanion()
     executor = RestoreExecutor()
     worker = BackupJobWorker(
+        admission_check=_allow_worker_admission,
+        cycle_service=FakeCycleService(),
         executor=executor,  # type: ignore[arg-type]
         three_d_executor=three_d,  # type: ignore[arg-type]
         session_factory=FakeSessionFactory(  # type: ignore[arg-type]

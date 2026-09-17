@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.api.backup_admission import require_backup_enqueue_admission
 from app.core.auth import UserRecord, require_super_owner
 from app.db.base import get_db
 from app.db.models import AuditEvent, BackupRecord
@@ -57,6 +58,7 @@ async def backup_database(
 ):
     if db_id != "postgres-primary":
         raise HTTPException(status_code=409, detail="Only the governed PostgreSQL data store supports application backup")
+    await require_backup_enqueue_admission(session)
     await acquire_enqueue_lock(session, "backup:platform")
     active = await session.scalar(
         select(BackupRecord.id)

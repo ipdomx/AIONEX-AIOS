@@ -13,16 +13,19 @@ import hashlib
 import json
 import smtplib
 import ssl
+import sys
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from email.message import EmailMessage
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Awaitable, Callable, Iterable, Sequence, TypeVar, cast
 
 import httpx
 from app.realtime.runtime import realtime_event_runtime
 from app.core.auth import UserRecord
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.db.base import SessionLocal
 from app.db.models import (
     Alert,
     AuditEvent,
@@ -30,7 +33,6 @@ from app.db.models import (
     EscalationPolicy,
     Notification,
     NotificationDelivery,
-    NotificationDeliveryAttempt,
     NotificationPreference,
     NotificationRule,
     Role,
@@ -39,9 +41,10 @@ from app.db.models import (
     User,
     uuid_str,
 )
+from app.services import host_maintenance_notifications as notification_maintenance
 from app.services.telegram_worker import TelegramBotAPI, load_bot_token
 from cryptography.fernet import Fernet, InvalidToken
-from sqlalchemy import func, or_, select
+from sqlalchemy import Table, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = get_logger(__name__)
@@ -1105,7 +1108,7 @@ async def notify_audience(
     return notifications
 
 
-def _send_email(address: str, notification: Notification) -> str:
+def _send_email(address: str, notification: NotificationMessageData) -> str:
     state = channel_state("email")
     if not state["ready"]:
         raise ProviderNotConfigured("email-provider-unconfigured")
@@ -1125,25 +1128,52 @@ def _send_email(address: str, notification: Notification) -> str:
         )
     else:
         smtp_client = smtplib.SMTP(smtp_host, settings.SMTP_PORT, timeout=15)
-    with smtp_client as smtp:
-        smtp.ehlo()
-        if settings.SMTP_TLS and not settings.SMTP_SSL:
-            smtp.starttls(context=tls_context)
-            smtp.ehlo()
-        if settings.SMTP_USER:
-            if not settings.SMTP_PASSWORD:
-                raise ProviderNotConfigured("smtp-password-unconfigured")
-            smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-        refused = smtp.send_message(message)
+
+    operation_error: BaseException | None = None
+    refused: dict[str, Any] = {}
+    try:
+        with smtp_client as smtp:
+            try:
+                smtp.ehlo()
+                if settings.SMTP_TLS and not settings.SMTP_SSL:
+                    smtp.starttls(context=tls_context)
+                    smtp.ehlo()
+                if settings.SMTP_USER:
+                    if not settings.SMTP_PASSWORD:
+                        raise ProviderNotConfigured("smtp-password-unconfigured")
+                    smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+                refused = smtp.send_message(message)
+            except BaseException as exc:
+                operation_error = exc
+    except BaseException:
+        if isinstance(operation_error, asyncio.CancelledError):
+            operation_error.add_note("SMTP client cleanup was not confirmed")
+            raise operation_error
+        raise NotificationDispatchUncertain("smtp-client-cleanup-unconfirmed") from None
+    if operation_error is not None:
+        if isinstance(operation_error, smtplib.SMTPRecipientsRefused):
+            # Only send_message can supply this proof; close errors never do.
+            recipients = operation_error.recipients
+            response_codes = [
+                value[0] for value in recipients.values()
+                if isinstance(value, tuple) and value and type(value[0]) is int
+            ]
+            retryable = bool(response_codes) and len(response_codes) == len(
+                recipients
+            ) and all(400 <= code < 500 for code in response_codes)
+            raise _DefiniteDeliveryRejection(
+                "smtp-all-recipients-refused", retryable=retryable
+            ) from None
+        raise operation_error
     if refused:
-        raise PermanentDeliveryError("smtp-recipient-refused")
+        raise NotificationDispatchUncertain("smtp-partial-recipient-refusal")
     return f"smtp:{notification.id}"
 
 
 _firebase_app: Any | None = None
 
 
-def _send_push(address: str, notification: Notification) -> str:
+def _send_push(address: str, notification: NotificationMessageData) -> str:
     global _firebase_app
     state = channel_state("push")
     if not state["ready"]:
@@ -1161,23 +1191,10 @@ def _send_push(address: str, notification: Notification) -> str:
                     {"projectId": settings.FIREBASE_PROJECT_ID},
                     name="aionex-communications",
                 )
-        return str(
-            messaging.send(
-                messaging.Message(
-                    token=address,
-                    notification=messaging.Notification(
-                        title=notification.title,
-                        body=notification.message[:1024],
-                    ),
-                    data={
-                        "notification_id": notification.id,
-                        "event_key": notification.event_key,
-                        "severity": notification.severity,
-                    },
-                ),
-                app=_firebase_app,
-            )
-        )
+        result = messaging.send(messaging.Message(token=address, notification=messaging.Notification(title=notification.title, body=notification.message[:1024]), data={'notification_id': notification.id, 'event_key': notification.event_key, 'severity': notification.severity}), app=_firebase_app)
+        if not isinstance(result, str) or not result.strip() or len(result) > 255:
+            raise NotificationDispatchUncertain("push-acknowledgement-invalid")
+        return result
     except ProviderNotConfigured:
         raise
     except Exception as exc:
@@ -1189,29 +1206,80 @@ def _send_push(address: str, notification: Notification) -> str:
 
 async def _send_telegram(
     address: str,
-    notification: Notification,
+    notification: NotificationMessageData,
     *,
     scope: str = "owner",
 ) -> str:
     state = telegram_scope_state(scope)
     if not state["ready"]:
-        raise ProviderNotConfigured(f"telegram-{scope}-provider-unconfigured")
+        raise ProviderNotConfigured("telegram-provider-unconfigured")
     try:
         chat_id = int(address)
     except ValueError as exc:
-        raise PermanentDeliveryError("telegram-chat-id-invalid") from exc
-    token = load_bot_token(_telegram_scope_token_file(scope))
-    api = TelegramBotAPI(token)
+        raise _NoSendDeliveryError("telegram-chat-id-invalid") from exc
+    api = TelegramBotAPI(load_bot_token(_telegram_scope_token_file(scope)))
     try:
-        await api.send_message(chat_id, f"{notification.title}\n\n{notification.message}")
+        response = await api.send_message_response(
+            chat_id, f"{notification.title}\n\n{notification.message}"
+        )
+        try:
+            decoded = response.json()
+        except ValueError:
+            raise NotificationDispatchUncertain("telegram-invalid-response") from None
+        if not isinstance(decoded, dict):
+            raise NotificationDispatchUncertain("telegram-invalid-response")
+        if response.status_code == 200 and decoded.get("ok") is True:
+            result = decoded.get("result")
+            message_id = result.get("message_id") if isinstance(result, dict) else None
+            chat = result.get("chat") if isinstance(result, dict) else None
+            recipient_id = chat.get("id") if isinstance(chat, dict) else None
+            sent_at = result.get("date") if isinstance(result, dict) else None
+            if (
+                type(message_id) is not int
+                or message_id <= 0
+                or type(recipient_id) is not int
+                or recipient_id != chat_id
+                or type(sent_at) is not int
+                or sent_at <= 0
+                or "error_code" in decoded
+            ):
+                raise NotificationDispatchUncertain("telegram-acknowledgement-invalid")
+            return f"telegram:{scope}:{notification.id}:{message_id}"
+        parameters = decoded.get("parameters")
+        retry_after = (
+            parameters.get("retry_after") if isinstance(parameters, dict) else None
+        )
+        if (
+            response.status_code == 429
+            and decoded.get("ok") is False
+            and type(decoded.get("error_code")) is int
+            and decoded["error_code"] == 429
+            and type(retry_after) is int
+            and 0 < retry_after <= 30 * 86400
+        ):
+            # Telegram documents retry_after for a rejected flood-control request.
+            raise _DefiniteDeliveryRejection(
+                "telegram-flood-control",
+                retryable=True,
+                retry_after_seconds=retry_after,
+            )
+        raise NotificationDispatchUncertain("telegram-outcome-uncertain")
     finally:
-        await api.close()
-    return f"telegram:{scope}:{notification.id}:{chat_id}"
+        pending = sys.exception()
+        try:
+            await api.close()
+        except BaseException:
+            if isinstance(pending, asyncio.CancelledError):
+                pending.add_note("Telegram client cleanup was not confirmed")
+                raise pending
+            raise NotificationDispatchUncertain(
+                "telegram-client-cleanup-unconfirmed"
+            ) from None
 
 
 async def _send_whatsapp(
     address: str,
-    notification: Notification,
+    notification: NotificationMessageData,
     *,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> str:
@@ -1234,37 +1302,120 @@ async def _send_whatsapp(
             "body": f"{notification.title}\n\n{notification.message}"[:4096],
         },
     }
-    async with httpx.AsyncClient(
+    client = httpx.AsyncClient(
         transport=transport,
         timeout=httpx.Timeout(20, connect=10),
         follow_redirects=False,
-    ) as client:
+    )
+    try:
+        response = await client.post(url, headers=headers, json=payload)
+    finally:
+        pending = sys.exception()
         try:
-            response = await client.post(url, headers=headers, json=payload)
-        except (httpx.TimeoutException, httpx.NetworkError) as exc:
-            raise CommunicationError(type(exc).__name__) from exc
-    if response.status_code in {400, 401, 403, 404, 422}:
-        raise PermanentDeliveryError(f"whatsapp-http-{response.status_code}")
-    if response.status_code >= 500 or response.status_code == 429:
-        raise CommunicationError(f"whatsapp-http-{response.status_code}")
+            await client.aclose()
+        except BaseException:
+            if isinstance(pending, asyncio.CancelledError):
+                pending.add_note("WhatsApp client cleanup was not confirmed")
+                raise pending
+            raise NotificationDispatchUncertain(
+                "whatsapp-client-cleanup-unconfirmed"
+            ) from None
     if response.status_code not in {200, 201, 202}:
-        raise PermanentDeliveryError(f"whatsapp-http-{response.status_code}")
+        raise NotificationDispatchUncertain("whatsapp-outcome-uncertain")
     try:
         decoded = response.json()
-        message_id = str(decoded["messages"][0]["id"])
-    except (ValueError, KeyError, IndexError, TypeError) as exc:
-        raise CommunicationError("whatsapp-invalid-response") from exc
+        messages = decoded["messages"]
+        message_id = messages[0]["id"]
+    except (ValueError, KeyError, IndexError, TypeError):
+        raise NotificationDispatchUncertain("whatsapp-invalid-response") from None
+    if (
+        not isinstance(decoded, dict)
+        or decoded.get("error") is not None
+        or not isinstance(message_id, str)
+        or not message_id.strip()
+        or len(message_id) > 255
+    ):
+        raise NotificationDispatchUncertain("whatsapp-acknowledgement-invalid")
     return message_id
+
+
+@dataclass(frozen=True)
+class NotificationMessageData:
+    """Immutable notification text carried across the provider boundary."""
+
+    id: str
+    title: str = field(repr=False)
+    message: str = field(repr=False)
+    event_key: str
+    severity: str
+
+
+@dataclass(frozen=True)
+class NotificationDispatchData:
+    """A committed attempt's immutable send input, without ORM state."""
+
+    channel: str
+    address: str = field(repr=False)
+    notification: NotificationMessageData = field(repr=False)
+    telegram_scope: str = "owner"
+    endpoint_id: str | None = field(default=None, repr=False)
+    max_attempts: int = 5
+
+
+@dataclass(frozen=True)
+class NotificationDispatchResult:
+    """Non-owning business result returned only after confirmed settlement."""
+
+    delivery_id: str
+    status: str
+    attempt_count: int
+    provider_message_id: str | None = field(repr=False)
+    dead_lettered_at: datetime | None
+
+
+class NotificationDispatchUncertain(CommunicationError):
+    """Provider execution or local settlement cannot be proved complete."""
+
+
+class _NoSendDeliveryError(CommunicationError):
+    """A local check proved that no notification provider send was invoked."""
+
+    def __init__(self, code: str, *, delivery_status: str = "dead_letter") -> None:
+        super().__init__(code)
+        self.code = code
+        self.delivery_status = delivery_status
+
+
+class _DefiniteDeliveryRejection(CommunicationError):
+    """A documented provider response proves rejection after client cleanup."""
+
+    def __init__(
+        self,
+        code: str,
+        *,
+        retryable: bool = False,
+        retry_after_seconds: int | None = None,
+    ) -> None:
+        super().__init__(code)
+        self.code = code
+        self.retryable = retryable
+        self.retry_after_seconds = retry_after_seconds
+
+
+NotificationSessionFactory = Callable[[], AsyncSession]
+NotificationDispatcher = Callable[[NotificationDispatchData], Awaitable[str]]
+_NotificationTaskResult = TypeVar("_NotificationTaskResult")
 
 
 async def _dispatch(
     channel: str,
     address: str,
-    notification: Notification,
+    notification: NotificationMessageData,
     *,
     telegram_scope: str = "owner",
     whatsapp_transport: httpx.AsyncBaseTransport | None = None,
 ) -> str:
+    """Keep each client's full operation and cleanup within the retained task."""
     if channel == "email":
         return await asyncio.to_thread(_send_email, address, notification)
     if channel == "push":
@@ -1275,190 +1426,411 @@ async def _dispatch(
         return await _send_whatsapp(
             address, notification, transport=whatsapp_transport
         )
-    raise PermanentDeliveryError("unsupported-channel")
+    raise _NoSendDeliveryError("unsupported-channel")
+
+
+async def _prepare_owned_notification_dispatch(
+    ownership: notification_maintenance.NotificationActivityOwnership,
+    *,
+    session_factory: NotificationSessionFactory,
+) -> NotificationDispatchData:
+    """Copy the fenced delivery input, then release the database transaction."""
+    async with session_factory() as session:
+        async with session.begin():
+            await notification_maintenance.require_owned_notification_activity(
+                session, ownership
+            )
+            delivery = await session.get(NotificationDelivery, ownership.delivery_id)
+            if delivery is None:
+                raise notification_maintenance.NotificationActivityOwnershipLost(
+                    "Notification delivery disappeared"
+                )
+            notification = await session.get(Notification, delivery.notification_id)
+            if notification is None:
+                raise _NoSendDeliveryError("notification-missing")
+            endpoint = (
+                await session.get(CommunicationEndpoint, delivery.endpoint_id)
+                if delivery.endpoint_id is not None
+                else None
+            )
+            if (
+                endpoint is None
+                or endpoint.status != "active"
+                or endpoint.verified_at is None
+                or endpoint.channel != delivery.channel
+                or endpoint.organization_id != delivery.organization_id
+                or endpoint.user_id != notification.recipient_id
+            ):
+                raise _NoSendDeliveryError("recipient-endpoint-unavailable")
+            telegram_scope = "owner"
+            if delivery.channel == "telegram":
+                telegram_scope = str(
+                    dict(endpoint.endpoint_metadata or {}).get("bot_scope") or "owner"
+                ).strip().lower()
+                if telegram_scope not in {"owner", "user"}:
+                    raise _NoSendDeliveryError("telegram-scope-invalid")
+            state = (
+                telegram_scope_state(telegram_scope)
+                if delivery.channel == "telegram"
+                else channel_state(delivery.channel)
+            )
+            if not state["ready"]:
+                raise _NoSendDeliveryError(
+                    "provider-unconfigured", delivery_status="unconfigured"
+                )
+            try:
+                address = decrypt_address(endpoint.address_ciphertext)
+            except PermanentDeliveryError as exc:
+                raise _NoSendDeliveryError("endpoint-decryption-failed") from exc
+            return NotificationDispatchData(
+                channel=delivery.channel,
+                address=address,
+                notification=NotificationMessageData(
+                    id=notification.id,
+                    title=notification.title,
+                    message=notification.message,
+                    event_key=notification.event_key,
+                    severity=notification.severity,
+                ),
+                telegram_scope=telegram_scope,
+                endpoint_id=endpoint.id,
+                max_attempts=delivery.max_attempts,
+            )
+
+
+async def _settle_owned_notification_dispatch(
+    ownership: notification_maintenance.NotificationActivityOwnership,
+    *,
+    session_factory: NotificationSessionFactory,
+    outcome: str,
+    delivery_status: str,
+    provider_message_id: str | None = None,
+    error_code: str | None = None,
+    next_attempt_at: datetime | None = None,
+) -> NotificationDispatchResult:
+    """Publish the business result under the same exact ownership fence."""
+    async with session_factory() as session:
+        async with session.begin():
+            await notification_maintenance.settle_notification_dispatch(
+                session,
+                ownership,
+                outcome=outcome,
+                delivery_status=delivery_status,
+                provider_message_id=provider_message_id,
+                error_code=error_code,
+                error_message=(
+                    None
+                    if outcome == "accepted"
+                    else "Notification was not accepted by the provider"
+                ),
+                next_attempt_at=next_attempt_at,
+            )
+            delivery = await session.get(
+                NotificationDelivery, ownership.delivery_id, populate_existing=True
+            )
+            if delivery is None:
+                raise notification_maintenance.NotificationActivityOwnershipLost(
+                    "Notification delivery disappeared during settlement"
+                )
+            if outcome == "accepted" and delivery.endpoint_id is not None:
+                endpoint = await session.get(CommunicationEndpoint, delivery.endpoint_id)
+                if endpoint is not None:
+                    endpoint.last_used_at = now()
+            session.add(
+                AuditEvent(
+                    organization_id=delivery.organization_id,
+                    user_id=None,
+                    action="notification.delivery.processed",
+                    resource_type="notification_delivery",
+                    resource_id=delivery.id,
+                    details={
+                        "channel": delivery.channel,
+                        "status": delivery.status,
+                        "attempt_count": delivery.attempt_count,
+                        "error_code": delivery.error_code,
+                        "dispatch_outcome": outcome,
+                    },
+                )
+            )
+            result = NotificationDispatchResult(
+                delivery_id=delivery.id,
+                status=delivery.status,
+                attempt_count=delivery.attempt_count,
+                provider_message_id=delivery.provider_message_id,
+                dead_lettered_at=delivery.dead_lettered_at,
+            )
+        return result
+
+
+async def _execute_owned_notification_dispatch(
+    ownership: notification_maintenance.NotificationActivityOwnership,
+    *,
+    session_factory: NotificationSessionFactory,
+    dispatcher: NotificationDispatcher | None,
+    whatsapp_transport: httpx.AsyncBaseTransport | None,
+) -> NotificationDispatchResult:
+    data: NotificationDispatchData | None = None
+    provider_message_id: str | None = None
+    error_code: str | None = None
+    next_attempt_at: datetime | None = None
+    try:
+        data = await _prepare_owned_notification_dispatch(
+            ownership, session_factory=session_factory
+        )
+        if dispatcher is None:
+            provider_message_id = await _dispatch(
+                data.channel,
+                data.address,
+                data.notification,
+                telegram_scope=data.telegram_scope,
+                whatsapp_transport=whatsapp_transport,
+            )
+        else:
+            provider_message_id = await dispatcher(data)
+        if (
+            not isinstance(provider_message_id, str)
+            or not provider_message_id.strip()
+            or len(provider_message_id) > 255
+        ):
+            raise NotificationDispatchUncertain("provider-acknowledgement-invalid")
+        outcome = "accepted"
+        delivery_status = "delivered"
+    except _NoSendDeliveryError as exc:
+        outcome = "no_send"
+        delivery_status = exc.delivery_status
+        error_code = exc.code
+    except ProviderNotConfigured:
+        # This typed error is raised only before a provider's send operation.
+        outcome = "no_send"
+        delivery_status = "unconfigured"
+        error_code = "provider-unconfigured"
+    except _DefiniteDeliveryRejection as exc:
+        outcome = "rejected"
+        error_code = exc.code
+        maximum = data.max_attempts if data is not None else 1
+        if exc.retryable and ownership.attempt_number < maximum:
+            delay = (
+                exc.retry_after_seconds
+                if exc.retry_after_seconds is not None
+                else min(
+                    settings.COMMUNICATION_RETRY_BASE_SECONDS
+                    * (2 ** max(0, ownership.attempt_number - 1)),
+                    86400,
+                )
+            )
+            delivery_status = "retrying"
+            next_attempt_at = now() + timedelta(seconds=delay)
+        else:
+            delivery_status = "dead_letter"
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        raise NotificationDispatchUncertain("provider-outcome-uncertain") from None
+    return await _settle_owned_notification_dispatch(
+        ownership,
+        session_factory=session_factory,
+        outcome=outcome,
+        delivery_status=delivery_status,
+        provider_message_id=provider_message_id,
+        error_code=error_code,
+        next_attempt_at=next_attempt_at,
+    )
+
+
+async def _await_actual_notification_task(
+    task: asyncio.Task[_NotificationTaskResult],
+    *,
+    health_callback: Callable[[], None] | None,
+    health_interval_seconds: float,
+) -> _NotificationTaskResult:
+    """Join the retained operation even if its waiter is cancelled repeatedly."""
+    while True:
+        try:
+            return await asyncio.wait_for(
+                asyncio.shield(task), timeout=max(0.01, health_interval_seconds)
+            )
+        except asyncio.CancelledError:
+            if task.done():
+                return task.result()
+            continue
+        except TimeoutError:
+            if task.done():
+                return task.result()
+            if health_callback is not None:
+                try:
+                    health_callback()
+                except Exception:
+                    logger.debug("Notification control-plane health update failed")
+            continue
+
+
+async def _mark_notification_unresolved_safely(
+    ownership: notification_maintenance.NotificationActivityOwnership,
+    *,
+    reason: str,
+    session_factory: NotificationSessionFactory,
+    health_callback: Callable[[], None] | None,
+    health_interval_seconds: float,
+) -> None:
+    marker = asyncio.create_task(
+        notification_maintenance.mark_notification_activity_unresolved(
+            ownership, reason=reason, session_factory=session_factory
+        )
+    )
+    try:
+        await _await_actual_notification_task(
+            marker,
+            health_callback=health_callback,
+            health_interval_seconds=health_interval_seconds,
+        )
+    except BaseException:
+        # The already-committed activity/started attempt remain independent blockers.
+        logger.error("Notification uncertainty could not be recorded")
+
+
+async def _heartbeat_owned_notification_dispatch(
+    ownership: notification_maintenance.NotificationActivityOwnership,
+    stop: asyncio.Event,
+    *,
+    session_factory: NotificationSessionFactory,
+    interval_seconds: float,
+    health_callback: Callable[[], None] | None,
+) -> None:
+    while not stop.is_set():
+        await notification_maintenance.heartbeat_notification_activity(
+            ownership, session_factory=session_factory
+        )
+        if health_callback is not None:
+            health_callback()
+        try:
+            await asyncio.wait_for(stop.wait(), timeout=interval_seconds)
+        except TimeoutError:
+            continue
 
 
 async def process_delivery(
-    session: AsyncSession,
-    delivery_id: str,
+    ownership: notification_maintenance.NotificationActivityOwnership,
     *,
+    session_factory: NotificationSessionFactory = SessionLocal,
+    dispatcher: NotificationDispatcher | None = None,
     whatsapp_transport: httpx.AsyncBaseTransport | None = None,
-) -> NotificationDelivery:
-    delivery = await session.scalar(
-        select(NotificationDelivery)
-        .where(NotificationDelivery.id == delivery_id)
-        .with_for_update()
-    )
-    if delivery is None:
-        raise LookupError("Notification delivery not found")
-    if delivery.status in {"delivered", "acknowledged"}:
-        return delivery
-    notification = await session.get(Notification, delivery.notification_id)
-    if notification is None:
-        delivery.status = "dead_letter"
-        delivery.error_code = "notification_missing"
-        delivery.dead_lettered_at = now()
-        await session.commit()
-        return delivery
-    if delivery.channel == "in_app":
-        delivery.status = "delivered"
-        delivery.delivered_at = delivery.delivered_at or now()
-        await session.commit()
-        return delivery
-    endpoint = await session.get(CommunicationEndpoint, delivery.endpoint_id)
-    telegram_scope = "owner"
-    if delivery.channel == "telegram" and endpoint is not None:
-        telegram_scope = str(
-            dict(endpoint.endpoint_metadata or {}).get("bot_scope") or "owner"
-        ).strip().lower()
-        if telegram_scope not in {"owner", "user"}:
-            telegram_scope = "owner"
-    state = (
-        telegram_scope_state(telegram_scope)
-        if delivery.channel == "telegram"
-        else channel_state(delivery.channel)
-    )
-    if not state["ready"]:
-        delivery.status = "unconfigured"
-        delivery.error_code = "provider_unconfigured"
-        delivery.error_message = state["reason"]
-        delivery.lease_token = None
-        delivery.lease_expires_at = None
-        await session.commit()
-        return delivery
-    if endpoint is None or endpoint.status != "active" or endpoint.verified_at is None:
-        delivery.status = "dead_letter"
-        delivery.error_code = "recipient_endpoint_unavailable"
-        delivery.dead_lettered_at = now()
-        delivery.lease_token = None
-        delivery.lease_expires_at = None
-        await session.commit()
-        return delivery
-
-    delivery.attempt_count += 1
-    attempt = NotificationDeliveryAttempt(
-        id=uuid_str(),
-        delivery_id=delivery.id,
-        attempt_number=delivery.attempt_count,
-        status="started",
-        started_at=now(),
-    )
-    session.add(attempt)
-    await session.flush()
+    heartbeat_interval_seconds: float = 20.0,
+    health_callback: Callable[[], None] | None = None,
+) -> NotificationDispatchResult:
+    """Consume one durable capability and retain it until actual I/O settles."""
+    if heartbeat_interval_seconds <= 0:
+        raise ValueError("Notification heartbeat interval must be positive")
+    began = False
     try:
-        provider_message_id = await _dispatch(
-            delivery.channel,
-            decrypt_address(endpoint.address_ciphertext),
-            notification,
-            telegram_scope=telegram_scope,
+        async with session_factory() as session:
+            async with session.begin():
+                await notification_maintenance.begin_notification_dispatch(
+                    session, ownership
+                )
+                began = True
+    except BaseException:
+        if began:
+            await _mark_notification_unresolved_safely(
+                ownership,
+                reason="notification-begin-commit-unconfirmed",
+                session_factory=session_factory,
+                health_callback=health_callback,
+                health_interval_seconds=heartbeat_interval_seconds,
+            )
+        raise
+
+    heartbeat_stop = asyncio.Event()
+    operation_task = asyncio.create_task(
+        _execute_owned_notification_dispatch(
+            ownership,
+            session_factory=session_factory,
+            dispatcher=dispatcher,
             whatsapp_transport=whatsapp_transport,
         )
-        completed = now()
-        attempt.status = "delivered"
-        attempt.provider_message_id = provider_message_id
-        attempt.completed_at = completed
-        delivery.status = "delivered"
-        delivery.provider_message_id = provider_message_id
-        delivery.error_code = None
-        delivery.error_message = None
-        delivery.delivered_at = completed
-        delivery.next_attempt_at = None
-        endpoint.last_used_at = completed
-    except ProviderNotConfigured as exc:
-        attempt.status = "unconfigured"
-        attempt.error_code = str(exc)
-        attempt.completed_at = now()
-        delivery.status = "unconfigured"
-        delivery.error_code = str(exc)
-        delivery.error_message = "Provider is not configured"
-        delivery.next_attempt_at = None
-    except PermanentDeliveryError as exc:
-        attempt.status = "failed"
-        attempt.error_code = str(exc)
-        attempt.completed_at = now()
-        delivery.status = "dead_letter"
-        delivery.error_code = str(exc)
-        delivery.error_message = "Permanent provider rejection"
-        delivery.dead_lettered_at = now()
-        delivery.next_attempt_at = None
-    except Exception as exc:
-        code = type(exc).__name__
-        attempt.status = "failed"
-        attempt.error_code = code
-        attempt.completed_at = now()
-        delivery.error_code = code
-        delivery.error_message = "Transient provider failure"
-        if delivery.attempt_count >= delivery.max_attempts:
-            delivery.status = "dead_letter"
-            delivery.dead_lettered_at = now()
-            delivery.next_attempt_at = None
-        else:
-            delay = min(
-                settings.COMMUNICATION_RETRY_BASE_SECONDS
-                * (2 ** max(0, delivery.attempt_count - 1)),
-                86400,
-            )
-            delivery.status = "retrying"
-            delivery.next_attempt_at = now() + timedelta(seconds=delay)
-    delivery.lease_token = None
-    delivery.lease_expires_at = None
-    session.add(
-        AuditEvent(
-            organization_id=delivery.organization_id,
-            user_id=None,
-            action="notification.delivery.processed",
-            resource_type="notification_delivery",
-            resource_id=delivery.id,
-            details={
-                "channel": delivery.channel,
-                "status": delivery.status,
-                "attempt_count": delivery.attempt_count,
-                "error_code": delivery.error_code,
-            },
+    )
+    heartbeat_task = asyncio.create_task(
+        _heartbeat_owned_notification_dispatch(
+            ownership,
+            heartbeat_stop,
+            session_factory=session_factory,
+            interval_seconds=heartbeat_interval_seconds,
+            health_callback=health_callback,
         )
     )
-    await session.commit()
-    return delivery
+    reason = "notification-execution-unsettled"
+    try:
+        done, _pending = await asyncio.wait(
+            {operation_task, heartbeat_task}, return_when=asyncio.FIRST_COMPLETED
+        )
+        if heartbeat_task in done:
+            reason = "notification-heartbeat-unconfirmed"
+            await heartbeat_task
+            raise NotificationDispatchUncertain("notification-heartbeat-stopped")
+        result = await asyncio.shield(operation_task)
+        heartbeat_stop.set()
+        # A current caller cancellation must reach the uncertainty path below.
+        await asyncio.shield(heartbeat_task)
+        reason = "notification-finish-unconfirmed"
+        await notification_maintenance.finish_notification_activity(
+            ownership, session_factory=session_factory
+        )
+        return result
+    except BaseException as exc:
+        heartbeat_stop.set()
+        if isinstance(exc, asyncio.CancelledError):
+            reason = "notification-dispatch-cancelled"
+        await _mark_notification_unresolved_safely(
+            ownership,
+            reason=reason,
+            session_factory=session_factory,
+            health_callback=health_callback,
+            health_interval_seconds=heartbeat_interval_seconds,
+        )
+        for task in (operation_task, heartbeat_task):
+            try:
+                await _await_actual_notification_task(
+                    task,
+                    health_callback=health_callback,
+                    health_interval_seconds=heartbeat_interval_seconds,
+                )
+            except BaseException:
+                logger.debug("Notification task settled with a secondary failure")
+        raise
 
 
 async def claim_due_deliveries(
-    session: AsyncSession, *, limit: int = 25
-) -> list[str]:
+    session: AsyncSession, *, worker_incarnation: str, limit: int = 1
+) -> list[notification_maintenance.NotificationActivityOwnership]:
+    """Admit one attempt atomically; lease age never authorizes takeover."""
+    if limit != 1:
+        raise ValueError("Notification dispatch claims exactly one delivery per cycle")
+    await notification_maintenance.require_notification_admission(session)
     current = now()
-    rows = list(
-        (
-            await session.scalars(
-                select(NotificationDelivery)
-                .where(
-                    NotificationDelivery.status.in_({"queued", "retrying", "processing"}),
-                    or_(
-                        NotificationDelivery.next_attempt_at.is_(None),
-                        NotificationDelivery.next_attempt_at <= current,
-                    ),
-                    or_(
-                        NotificationDelivery.lease_expires_at.is_(None),
-                        NotificationDelivery.lease_expires_at <= current,
-                    ),
-                )
-                .order_by(
-                    NotificationDelivery.priority.desc(),
-                    NotificationDelivery.created_at,
-                )
-                .limit(limit)
-                .with_for_update(skip_locked=True)
-            )
-        ).all()
-    )
-    claimed: list[str] = []
-    for delivery in rows:
-        delivery.status = "processing"
-        delivery.lease_token = uuid_str()
-        delivery.lease_expires_at = current + timedelta(
-            seconds=settings.COMMUNICATION_DELIVERY_LEASE_SECONDS
+    table = cast(Table, NotificationDelivery.__table__)
+    delivery = await session.scalar(
+        select(NotificationDelivery)
+        .where(
+            *notification_maintenance.eligible_notification_delivery_conditions(table),
+            or_(
+                NotificationDelivery.next_attempt_at.is_(None),
+                NotificationDelivery.next_attempt_at <= current,
+            ),
         )
-        claimed.append(delivery.id)
+        .order_by(
+            NotificationDelivery.priority.desc(), NotificationDelivery.created_at,
+            NotificationDelivery.id,
+        )
+        .limit(1)
+        .with_for_update(skip_locked=True)
+    )
+    if delivery is None:
+        await session.commit()
+        return []
+    ownership = await notification_maintenance.register_notification_activity(
+        session, delivery_id=delivery.id, worker_incarnation=worker_incarnation
+    )
     await session.commit()
-    return claimed
+    return [ownership]
 
 
 async def retry_delivery(

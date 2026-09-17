@@ -1507,6 +1507,13 @@ class NotificationDeliveryAttempt(Base):
     __table_args__ = (
         UniqueConstraint("delivery_id", "attempt_number", name="uq_notification_delivery_attempt"),
         Index("ix_notification_delivery_attempts_delivery", "delivery_id", "started_at"),
+        CheckConstraint(
+            "(dispatch_protocol_version IS NULL AND dispatch_outcome IS NULL) OR "
+            "(dispatch_protocol_version IS NOT NULL AND dispatch_protocol_version = 1 AND "
+            "(dispatch_outcome IS NULL OR dispatch_outcome IN "
+            "('accepted', 'no_send', 'rejected', 'uncertain')))",
+            name="ck_notification_attempt_dispatch_proof",
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
@@ -1520,6 +1527,9 @@ class NotificationDeliveryAttempt(Base):
     response_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    dispatch_protocol_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    dispatch_outcome: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
 class SupportRequest(Base, TimestampMixin):
@@ -2610,6 +2620,76 @@ class OwnerControlRecord(Base, TimestampMixin):
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
 
+class HostMaintenanceWorkCycle(Base):
+    """Unfinished scoped ownership; heartbeat expiry never removes evidence."""
+
+    __tablename__ = "host_maintenance_work_cycles"
+    __table_args__ = (
+        CheckConstraint(
+            "consumer IN ('backup_cycles', 'academy_course_packages', 'notification_delivery_dispatch', 'security_remediation_preparation')",
+            name="ck_host_cycle_consumer",
+        ),
+        CheckConstraint(
+            "consumer != 'academy_course_packages' OR job_id IS NOT NULL",
+            name="ck_host_cycle_academy_job",
+        ),
+        Index(
+            "uq_host_cycle_academy_package",
+            "consumer", "job_id",
+            unique=True,
+            postgresql_where=text("consumer = 'academy_course_packages'"),
+        ),
+        CheckConstraint(
+            "consumer != 'notification_delivery_dispatch' OR job_id IS NOT NULL",
+            name="ck_host_cycle_notification_job",
+        ),
+        Index(
+            "uq_host_cycle_notification_delivery",
+            "consumer", "job_id",
+            unique=True,
+            postgresql_where=text("consumer = 'notification_delivery_dispatch'"),
+        ),
+        CheckConstraint(
+            "consumer != 'security_remediation_preparation' OR job_id IS NOT NULL",
+            name="ck_host_cycle_remediation_job",
+        ),
+        Index(
+            "uq_host_cycle_security_remediation",
+            "consumer", "job_id",
+            unique=True,
+            postgresql_where=text("consumer = 'security_remediation_preparation'"),
+        ),
+        CheckConstraint("admitted_generation > 0", name="ck_host_cycle_generation"),
+        CheckConstraint("state IN ('active', 'unresolved')", name="ck_host_cycle_state"),
+        CheckConstraint(
+            "lease_expires_at >= heartbeat_at", name="ck_host_cycle_deadline"
+        ),
+        CheckConstraint(
+            "(state = 'active' AND unresolved_reason IS NULL) OR "
+            "(state = 'unresolved' AND unresolved_reason IS NOT NULL)",
+            name="ck_host_cycle_unresolved_reason",
+        ),
+        Index(
+            "ix_host_cycle_resource_consumer_state",
+            "resource_id", "consumer", "state", "lease_expires_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    resource_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    consumer: Mapped[str] = mapped_column(String(80), nullable=False)
+    worker_incarnation: Mapped[str] = mapped_column(String(36), nullable=False)
+    admitted_generation: Mapped[int] = mapped_column(Integer, nullable=False)
+    ownership_nonce: Mapped[str] = mapped_column(String(36), nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False)
+    phase: Mapped[str] = mapped_column(String(80), nullable=False)
+    job_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    heartbeat_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    lease_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    unresolved_reason: Mapped[str | None] = mapped_column(String(160), nullable=True)
+
+
 class OwnerCommandRecord(Base):
     """Append-only audit record for every mutating owner dashboard command."""
 
@@ -3331,7 +3411,15 @@ class SecurityRuleValidation(Base):
 
 class SecurityRemediation(Base, TimestampMixin):
     __tablename__ = "security_remediations"
-    __table_args__ = (Index("ix_security_remediations_org_status_created", "organization_id", "status", "created_at"),)
+    __table_args__ = (
+        Index("ix_security_remediations_org_status_created", "organization_id", "status", "created_at"),
+        CheckConstraint(
+            "(preparation_protocol_version IS NULL AND preparation_outcome IS NULL) OR "
+            "(preparation_protocol_version IS NOT NULL AND preparation_protocol_version = 1 AND "
+            "(preparation_outcome IS NULL OR preparation_outcome IN ('prepared', 'clean_failed')))",
+            name="ck_security_remediation_preparation_proof",
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
     organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -3344,6 +3432,9 @@ class SecurityRemediation(Base, TimestampMixin):
     regression_result: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     retest_scan_id: Mapped[str | None] = mapped_column(ForeignKey("security_scans.id", ondelete="SET NULL"), index=True)
     verified_fixed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    preparation_protocol_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    preparation_outcome: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
 class SecurityReleaseGate(Base):

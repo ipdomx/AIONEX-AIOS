@@ -91,6 +91,18 @@ class TelegramBotAPI:
         result = response["result"]
         return [item for item in result if isinstance(item, dict)] if isinstance(result, list) else []
 
+
+    async def send_message_response(self, chat_id: int, text: str) -> httpx.Response:
+        """Expose a notification-only acknowledgement without changing bot handlers."""
+        return await self._client.post(
+            f"{self._base_url}/sendMessage",
+            json={
+                "chat_id": int(chat_id),
+                "text": text[:_MAX_MESSAGE],
+                "disable_web_page_preview": True,
+            },
+        )
+
     async def send_message(self, chat_id: int, text: str) -> None:
         await self._call(
             "sendMessage",
