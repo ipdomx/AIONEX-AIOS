@@ -174,12 +174,12 @@
       ],
       "exit_ar": "دليل أن البيانات المحددة لا تبقى واضحة على التخزين غير المركب، واستعادة وفك تشفير وإقلاع آمنان. توضيح أن تشفير النسخة ليس تشفير كامل القرص ولا يحمي من root حي يملك المفاتيح.",
       "host_state_cutover_admission": {
-        "source_part": "FR-06C5D6",
-        "scope_ar": "سلطة قبول دائمة للصيانة في PostgreSQL تشمل سحب مهام المشاريع ودورات النسخ والاستعادة وحراسة API للنسخ وملكية بناء حزم الأكاديمية وحجز الإرسال الخارجي للإشعارات. تضيف D6 طلب تحضير إصلاح أمني وملكية نسخ مصدره ونشر خطته وتنظيفه وحفظ النتيجة، دون استرداد العمل بالعمر أو محو الدليل غير المحسوم. التغطية جزئية وتحتاج نشرًا وقبولًا حيًا قبل استخدامها في نقل المضيف.",
+        "source_part": "FR-06C5D7A",
+        "scope_ar": "سلطة قبول دائمة للصيانة في PostgreSQL تشمل سحب مهام المشاريع ودورات النسخ والاستعادة وحراسة API للنسخ وملكية بناء حزم الأكاديمية وحجز الإرسال الخارجي للإشعارات. تضيف D6 طلب تحضير إصلاح أمني وملكية نسخ مصدره ونشر خطته وتنظيفه وحفظ النتيجة، دون استرداد العمل بالعمر أو محو الدليل غير المحسوم. التغطية جزئية وتحتاج نشرًا وقبولًا حيًا قبل استخدامها في نقل المضيف. يضيف D7A حراسة إنشاء طلب الفحص وإعادة الفحص فقط، قبل السياسة وDNS وأقفال الأعمال وفي معاملة المستدعي؛ تشغيل الفاحص وملكية عملياته وتنظيفها ما زالت خارج التغطية.",
         "authority_domain": "host-maintenance-admission",
         "authority_resource_id": "runtime-node",
-        "implemented_consumer_scope": "project_execution+backup_cycles+academy_course_packages+notification_delivery_dispatch+security_remediation_preparation",
-        "migration": "20260917_0051",
+        "implemented_consumer_scope": "project_execution+backup_cycles+academy_course_packages+notification_delivery_dispatch+security_remediation_preparation+security_scan_requests",
+        "migration": "20260917_0052",
         "acceptance_ar": [
           "FOR SHARE للقبول وFOR UPDATE للإغلاق مع قراءة جديدة؛ يثبت الإغلاق فقط بعد commit مستقل ويحتفظ بالمهام المملوكة قبل الإغلاق.",
           "إعادة الفتح تتطلب operation_id والجيل الحالي؛ لا فتح بانتهاء الوقت ولا إنشاء open من داخل الحراسة ولا استبدال حالة مغلقة عند إعادة الترحيل.",
@@ -214,9 +214,13 @@
           "تبقى ملكية النشاط حتى انتهاء I/O والتنظيف المؤكد والتزام معاملة النتيجة والتدقيق. يحتفظ SecurityRemediation بدليل preparation_protocol_version وpreparation_outcome مستقل عن regression_result القابلة للاستبدال عند حفظ أدلة الإصلاح؛ لا يمنع تقدم patch أو retest المشروع إنهاء نشاط تحضير مثبت سابقًا.",
           "قياس التحضير مرتبط بالعملية والجيل المغلقين الحاليين ويشمل أنشطة كل الأجيال والعمل اليتيم وpreparing القديمة وfailed القديمة التي لا تثبت التنظيف وplanned ذات آثار والتحضير غير المحسوم. يفصل planned السليمة غير المبدوءة كعمل محفوظ ومتجمد، ويحفظ نتائج worktree_ready دون اعتبارها دليل توقف وكلاء الإصلاح أو retest.",
           "فحص بداية العامل يقرأ السلطة والسجل والجذر المجهز دون mkdir أو chmod أو probe؛ الإغلاق الصحيح حالة healthy idle. تبقى تهيئة الجذر في entrypoint وكتابة الصحة أعمال تحكم معلنة خارج حراسة payload الجزئية، ولا يساوي نجاح healthcheck إثبات التصريف.",
-          "اختبارات PostgreSQL وحواجز الخيوط والملفات تثبت ترتيب القبول والإغلاق في الاتجاهين وفشل commit الحقيقي وإعادة استخدام الملكية والإلغاء المتكرر وتبديل المسارات والنشر والتنظيف وفشل حفظ النتيجة. تبقى أدلة patch وطلبات retest وإنهاؤها وسياسة الإصلاح ونسخ أصوله متوافقة؛ فحص SecurityScan وتنفيذه خارج نطاق D6."
+          "اختبارات PostgreSQL وحواجز الخيوط والملفات تثبت ترتيب القبول والإغلاق في الاتجاهين وفشل commit الحقيقي وإعادة استخدام الملكية والإلغاء المتكرر وتبديل المسارات والنشر والتنظيف وفشل حفظ النتيجة. تبقى أدلة patch وطلبات retest وإنهاؤها وسياسة الإصلاح ونسخ أصوله متوافقة؛ فحص SecurityScan وتنفيذه خارج نطاق D6.",
+          "D7A يتطلب نطاق security_scan_requests في schema6؛ يرحّل0052 سلطة schema5 الصحيحة فقط، ويحفظ الإغلاق والعملية والسبب ووقت التحكم ويرفع الجيل. لا يغير طوابير أو ملكية أو أدلة، ولا ينشئ سلطة ناقصة أو يصحح سلطة فاسدة، وdowngrade لا يعيد الفتح.",
+          "حارس إنشاء الفحص المركزي يسبق إعداد السياسة وDNS وقراءة مصدر الهدف؛ يحرس مسار إعادة الفحص قبل قفل remediation ويعاد التحقق داخل المنتجين بنفس المعاملة حتى commit أو rollback. الرفض503 ثابت وآمن دون سياسة افتراضية أو صف أو audit جديد، مع بقاء المصادقة والتحقق من الجسم.",
+          "اختبارات D7A المعزولة تثبت الحظر المتبادل الحقيقي في PostgreSQL في الاتجاهين، وتثبيت أو تراجع المعاملة والإلغاء وفشل commit، وحفظ أدلة تحضير D6 عبر توسيع النطاق. لا ينسب نجاحها إلى تشغيل الأدوات أو توقفها أو تصريف المضيف."
         ],
         "remaining_before_host_cutover_ar": [
+          "استكمال D7 لملكية تنفيذ الفحص وإعادة الفحص الفعلية، والعمليات والخيوط وZAP والتنظيف والإلغاء والنبض والتسوية؛ D7A يحمي إنشاء الطلبات فقط ولا يغطي العامل أو إعادة تشغيل المهام القديمة.",
           "ربط بقية العمال والمنتجين وطلبات realtime بالحراسة، والتحقق من شمول كل عملية تقبل أو تستأنف أو تنفذ عملًا أثناء نقل المضيف.",
           "قياسات تصريف مرتبطة بالعملية والجيل وتغطية كل عملية منشورة؛ تشمل أعمال المزود غير المحسومة والجلسات وصلاحية LiveKit، مع تسوية تشغيلية موثقة للدورات غير المحسومة.",
           "نشر وقبول حي للنطاق الكامل ثم نسخة واستعادة حديثتان ونافذة C5D فعلية قبل النقل."
@@ -242,7 +246,8 @@
             2,
             3,
             4,
-            5
+            5,
+            6
           ]
         },
         "academy_package_activity_source": {
@@ -260,7 +265,8 @@
           "accepted_authority_schema_versions": [
             3,
             4,
-            5
+            5,
+            6
           ]
         },
         "notification_dispatch_activity_source": {
@@ -291,7 +297,8 @@
           "local_single_use_does_not_prove_provider_exactly_once": true,
           "accepted_authority_schema_versions": [
             4,
-            5
+            5,
+            6
           ]
         },
         "remediation_preparation_activity_source": {
@@ -317,7 +324,29 @@
           "health_heartbeat_is_control_plane": true,
           "entrypoint_root_preparation_is_control_plane": true,
           "worker_payload_root_created_before_claim": false,
-          "coverage_ar": "عقد مصدر لحراسة إنشاء تحضير الإصلاح وملكية خيط النسخ والنشر والتنظيف وحفظ النتيجة. شيفرة app للعامل مرفقة بالصورة الحالية؛ قبول المصدر لا يثبت ترحيل الإنتاج أو تحديث الصورة أو شمول scans وretest والوكلاء الخارجيين أو تصريف المضيف. تهيئة الجذر وكتابة الصحة تحتاجان حدًا تشغيليًا مستقلًا عند النقل."
+          "coverage_ar": "عقد مصدر لحراسة إنشاء تحضير الإصلاح وملكية خيط النسخ والنشر والتنظيف وحفظ النتيجة. شيفرة app للعامل مرفقة بالصورة الحالية؛ قبول المصدر لا يثبت ترحيل الإنتاج أو تحديث الصورة أو شمول scans وretest والوكلاء الخارجيين أو تصريف المضيف. تهيئة الجذر وكتابة الصحة تحتاجان حدًا تشغيليًا مستقلًا عند النقل.",
+          "accepted_authority_schema_versions": [
+            5,
+            6
+          ]
+        },
+        "security_scan_request_admission_source": {
+          "source_part": "FR-06C5D7A",
+          "required_scope": "security_scan_requests",
+          "authority_schema_version": 6,
+          "dedicated_http_producers": 2,
+          "guarded_in_source": true,
+          "guard_precedes_policy_dns_and_retest_row_lock": true,
+          "caller_transaction_retained": true,
+          "internal_commit_added": false,
+          "malformed_authority_fail_closed": true,
+          "production_deployment_verified": false,
+          "worker_execution_guarded": false,
+          "worker_retry_or_cancellation_changed": false,
+          "full_d7_completed": false,
+          "coverage_verified": false,
+          "full_host_closure": false,
+          "coverage_ar": "حماية طلبات إنشاء SecurityScan وطلب إعادة الفحص فقط؛ source schema6 ليس ملكية تشغيل الفحص ولا دليل تصريف. تبقى ملكية العامل والعمليات والخيوط والموارد المؤقتة وZAP غير منفذة في D7A، ولا تفعّل هذه الترقية على الإنتاج قبل تنسيق جميع الصور والترحيل والقبول الحي."
         }
       }
     },

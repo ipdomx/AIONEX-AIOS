@@ -13,6 +13,7 @@ from app.core.auth import UserRecord, current_user
 from app.db.base import get_db
 from app.db.models import SecurityFinding, SecurityScan, SecurityTarget
 from app.services import security_fabric, security_scanning
+from app.services.host_maintenance_scan_admission import require_scan_admission
 from app.services.host_maintenance_admission import (
     HostMaintenanceClosed,
     HostMaintenanceUnavailable,
@@ -196,6 +197,18 @@ async def create_scan(
         await session.commit()
         await session.refresh(scan)
         return security_scanning.scan_snapshot(scan)
+    except HostMaintenanceClosed:
+        await session.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail="Security scan admission is temporarily closed for maintenance.",
+        ) from None
+    except HostMaintenanceUnavailable:
+        await session.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail="Security scan admission is currently unavailable.",
+        ) from None
     except PermissionError as exc:
         await session.rollback()
         raise HTTPException(status_code=403, detail=str(exc)) from exc
@@ -411,19 +424,20 @@ async def remediation_retest(
     from app.db.models import SecurityRemediation
     from app.services import security_remediation
 
-    item = await session.scalar(
-        select(SecurityRemediation)
-        .where(
-            SecurityRemediation.id == remediation_id,
-            SecurityRemediation.organization_id == actor.organization_id,
-        )
-        .with_for_update()
-    )
-    if item is None or (
-        actor.role != "Super Owner" and item.requested_by_id != actor.id
-    ):
-        raise HTTPException(status_code=404, detail="Security remediation not found")
     try:
+        await require_scan_admission(session)
+        item = await session.scalar(
+            select(SecurityRemediation)
+            .where(
+                SecurityRemediation.id == remediation_id,
+                SecurityRemediation.organization_id == actor.organization_id,
+            )
+            .with_for_update()
+        )
+        if item is None or (
+            actor.role != "Super Owner" and item.requested_by_id != actor.id
+        ):
+            raise HTTPException(status_code=404, detail="Security remediation not found")
         scan = await security_remediation.queue_retest(session, actor, item)
         await session.commit()
         await session.refresh(item)
@@ -432,6 +446,18 @@ async def remediation_retest(
             "remediation": security_remediation.remediation_snapshot(item),
             "scan": security_scanning.scan_snapshot(scan),
         }
+    except HostMaintenanceClosed:
+        await session.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail="Security scan admission is temporarily closed for maintenance.",
+        ) from None
+    except HostMaintenanceUnavailable:
+        await session.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail="Security scan admission is currently unavailable.",
+        ) from None
     except PermissionError as exc:
         await session.rollback()
         raise HTTPException(status_code=403, detail=str(exc)) from exc

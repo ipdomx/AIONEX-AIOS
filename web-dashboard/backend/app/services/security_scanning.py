@@ -27,6 +27,7 @@ from app.services.security_web_scanner import scan_web_origin
 from app.services.security_zap import run_zap
 from app.services.security_deep_validation import build_scenario_plan
 from app.services.security_mobile import scan_mobile_source
+from app.services.host_maintenance_scan_admission import require_scan_admission
 
 ACTIVE_SCAN_STATES = {"queued", "running"}
 
@@ -92,6 +93,7 @@ async def request_scan(
     target_id: str,
     profile: str,
 ) -> SecurityScan:
+    await require_scan_admission(session)
     policy = await security_fabric.get_policy(session)
     if not policy["enabled"]:
         raise PermissionError("Security Lab is disabled by the Super Owner")

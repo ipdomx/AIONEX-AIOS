@@ -294,6 +294,9 @@ async def queue_retest(
     actor: UserRecord,
     remediation: SecurityRemediation,
 ) -> SecurityScan:
+    from app.services.host_maintenance_scan_admission import require_scan_admission
+
+    await require_scan_admission(session)
     if remediation.status != "regression_passed":
         raise ValueError("Regression must pass before the security retest")
     finding = await session.get(SecurityFinding, remediation.finding_id)
