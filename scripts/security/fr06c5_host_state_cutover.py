@@ -415,7 +415,21 @@ def _check_mount_resources(journal,r,allow_candidate):
    if len(stack)!=1 or not _same_legacy(entry):raise B('legacy seal stack or inode changed')
   elif not (allow_candidate and candidate_intent and len(stack)==2 and any(row['id']==visible['id'] for row in stack) and _candidate_matches(visible,entry)):
    raise B('foreign mount above owned legacy seal preserved')
+def _check_enable_staging(entry,link):
+ staging=entry.get('staging')
+ if staging is None:return
+ if not isinstance(staging,dict) or not isinstance(staging.get('path'),str):raise B('enable link staging journal invalid')
+ path=Path(staging['path']);prefix='.aionex-enable-';suffix=path.name.removeprefix(prefix)
+ if path.parent!=link.parent or not path.name.startswith(prefix) or len(suffix)!=32 or any(c not in '0123456789abcdef' for c in suffix):raise B('enable link staging scope drifted')
+ # A leftover stage is never silently adopted or recursively removed. It can
+ # contain an unrecorded creation/publication effect and requires reconciliation.
+ if _exists(path):raise B('enable link publication stage unresolved; resources preserved')
+ state=staging.get('state');identity=staging.get('identity')
+ if state in {'remove_intent','removed'} and isinstance(identity,dict):return
+ if state=='create_intent' and identity is None:return
+ raise B('enable link publication stage disappeared without removal intent')
 def _check_file_resources(r):
+ for name,entry in r['enable_links'].items():_check_enable_staging(entry,Path(name))
  if _unexpected_unit_links():raise B('unexpected host-state unit link preserved')
  for section,link in (('gates',False),('enable_links',True)):
   for name,entry in r[section].items():
@@ -599,6 +613,40 @@ def _record_gate_file(attempt,r,name,fd):
  current=_identity(p,content=True)
  if (current['dev'],current['ino'])!=(s.st_dev,s.st_ino):raise B('created gate identity replaced')
  entry['owned']=current;_save_resources(attempt,r)
+def _publish_link_noreplace(staged,destination):
+ # renameat2 preserves the staged symlink inode and atomically refuses any
+ # existing destination. There is deliberately no overwrite-capable fallback.
+ import ctypes
+ try:rename=ctypes.CDLL(None,use_errno=True).renameat2
+ except (AttributeError,OSError) as x:raise B('atomic no-replace enable publication unavailable') from x
+ rename.argtypes=[ctypes.c_int,ctypes.c_char_p,ctypes.c_int,ctypes.c_char_p,ctypes.c_uint]
+ rename.restype=ctypes.c_int
+ if rename(-100,os.fsencode(staged),-100,os.fsencode(destination),1)!=0:raise OSError(ctypes.get_errno(),'atomic enable link publication failed')
+def _install_enable_link(attempt,r,link,target):
+ entry=r['enable_links'][str(link)]
+ if entry['state']!='absent' or _exists(link):raise B('enable link install precondition changed')
+ stage=link.parent/('.aionex-enable-'+secrets.token_hex(16));staged=stage/'link'
+ staging={'path':str(stage),'state':'create_intent','identity':None}
+ entry.update(state='create_intent',staging=staging);_save_resources(attempt,r)
+ stage.mkdir(mode=0o700);_resource_sync_parent(stage)
+ identity=_identity(stage)
+ if not stat.S_ISDIR(identity['type']) or identity['mode']!=0o700 or identity['uid']!=os.geteuid():raise B('enable link staging directory is not private')
+ staging.update(state='created',identity=identity);_save_resources(attempt,r)
+ os.symlink(str(target),staged);expected=_identity(staged,link=True)
+ if expected['target']!=str(target):raise B('created enable link target replaced; ownership not claimed')
+ _resource_sync_parent(staged)
+ # The journal owns the private inode before that inode enters systemd's
+ # enable path. Observing a same-target replacement can never grant ownership.
+ entry.update(owned=expected,state='publish_intent');_save_resources(attempt,r)
+ if _identity(stage)!=identity or _identity(link.parent)!=entry['parent_identity']:raise B('enable link publication parent changed')
+ _publish_link_noreplace(staged,link)
+ if _identity(link,link=True)!=expected or _exists(staged):raise B('published enable link identity replaced; foreign resource preserved')
+ _resource_sync_parent(staged);_resource_sync_parent(link)
+ staging['state']='remove_intent';_save_resources(attempt,r)
+ if _identity(stage)!=identity:raise B('enable link staging identity changed before removal')
+ stage.rmdir();_resource_sync_parent(stage)
+ if _exists(stage):raise B('enable link staging directory remained after removal')
+ staging['state']='removed';entry['state']='installed';_save_resources(attempt,r)
 def install_gates(attempt):
  journal,r=_resources(attempt);_check_file_resources(r)
  for src,dst in SYSTEMD:
@@ -620,13 +668,7 @@ def install_gates(attempt):
    entry['state']='installed';_save_resources(attempt,r)
   finally:os.close(fd)
  for link,target in _enable_links():
-  entry=r['enable_links'][str(link)]
-  _check_file_resources(r)
-  if entry['state']!='absent' or _exists(link):raise B('enable link install precondition changed')
-  entry['state']='create_intent';_save_resources(attempt,r);os.symlink(str(target),link)
-  observed=_identity(link,link=True)
-  if observed['target']!=str(target):raise B('created enable link target replaced; ownership not claimed')
-  entry.update(owned=observed,state='installed');_resource_sync_parent(link);_save_resources(attempt,r)
+  _check_file_resources(r);_install_enable_link(attempt,r,link,target)
  run(['systemctl','daemon-reload'])
 def remove_gates_checked(attempt):
  rollback_resources_preflight(attempt)

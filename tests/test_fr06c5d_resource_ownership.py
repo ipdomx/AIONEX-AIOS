@@ -673,29 +673,32 @@ def test_second_gate_source_drift_cleans_only_successful_first_install(resources
     assert s.m.verify_legacy_targets(s.attempt) is True
 
 
-def test_unrecorded_enable_link_effect_is_preserved(resources, monkeypatch):
+def test_published_link_with_failed_final_checkpoint_cleans_only_recorded_inode(resources, monkeypatch):
     s = resources
     s.begin()
     link, target = s.m._enable_links()[0]
     original = s.m._save_resources
 
-    def fail_link_ownership(attempt, resource_map):
+    def fail_final_link_checkpoint(attempt, resource_map):
         if resource_map["enable_links"][str(link)]["state"] == "installed":
-            raise OSError("synthetic enable-link ownership checkpoint")
+            raise OSError("synthetic final enable-link checkpoint")
         return original(attempt, resource_map)
 
-    monkeypatch.setattr(s.m, "_save_resources", fail_link_ownership)
-    with pytest.raises(OSError, match="enable-link ownership"):
+    monkeypatch.setattr(s.m, "_save_resources", fail_final_link_checkpoint)
+    with pytest.raises(OSError, match="final enable-link checkpoint"):
         s.m.install_gates(s.attempt)
     assert link.is_symlink()
     assert os.readlink(link) == str(target)
     saved = s.journal()["resources"]["enable_links"][str(link)]
-    assert saved["state"] == "create_intent" and saved["owned"] is None
-    with pytest.raises(s.m.B, match="unowned or replaced"):
-        s.m.remove_gates_checked(s.attempt)
-    assert link.is_symlink()
-    assert all(dst.exists() for _, dst in s.gates)
+    assert saved["state"] == "publish_intent"
+    assert saved["owned"] == s.m._identity(link, link=True)
+    assert saved["staging"]["state"] == "remove_intent"
+    assert not os.path.lexists(saved["staging"]["path"])
     assert s.events == []
+    s.m.remove_gates_checked(s.attempt)
+    assert not os.path.lexists(link)
+    assert all(not os.path.lexists(destination) for _, destination in s.gates)
+    assert s.events == [("systemctl", "daemon-reload")]
 
 
 def test_boot_change_blocks_resource_cleanup_before_effect(resources, monkeypatch):
@@ -782,34 +785,44 @@ def test_foreign_symlink_substituted_during_creation_never_becomes_owned(resourc
     foreign_target = s.tmp / "foreign-substituted-unit"
     foreign_target.write_text("synthetic foreign service")
     original_symlink = os.symlink
-    substituted_inode = []
+    substituted = []
 
-    def substitute_link(source, destination, *args, **kwargs):
-        assert Path(destination) == link
+    def substitute_staged_link(source, destination, *args, **kwargs):
+        destination = Path(destination)
+        assert destination != link
+        assert destination.name == "link"
+        assert destination.parent.stat().st_mode & 0o777 == 0o700
         assert str(source) == str(target)
         if substitution == "create-foreign":
             original_symlink(str(foreign_target), destination, *args, **kwargs)
         else:
             original_symlink(source, destination, *args, **kwargs)
-            replacement = s.tmp / "injected-enable-link"
+            replacement = s.tmp / "injected-staged-link"
             original_symlink(str(foreign_target), replacement)
             os.replace(replacement, destination)
-        substituted_inode.append(link.lstat().st_ino)
+        substituted.append((destination, destination.lstat().st_ino))
 
-    monkeypatch.setattr(s.m.os, "symlink", substitute_link)
-    with pytest.raises(s.m.B):
+    def unexpected_publication(*args, **kwargs):
+        raise AssertionError("foreign staged target reached publication")
+
+    monkeypatch.setattr(s.m.os, "symlink", substitute_staged_link)
+    monkeypatch.setattr(s.m, "_publish_link_noreplace", unexpected_publication)
+    with pytest.raises(s.m.B, match="target replaced"):
         s.m.install_gates(s.attempt)
     saved = s.journal()["resources"]["enable_links"][str(link)]
     assert saved["state"] == "create_intent"
     assert saved["owned"] is None
-    assert os.readlink(link) == str(foreign_target)
-    assert link.lstat().st_ino == substituted_inode[0]
+    stage_link, foreign_inode = substituted[0]
+    assert stage_link.parent == Path(saved["staging"]["path"])
+    assert os.readlink(stage_link) == str(foreign_target)
+    assert stage_link.lstat().st_ino == foreign_inode
+    assert not os.path.lexists(link)
     assert all(destination.exists() for _, destination in s.gates)
     assert s.events == []
-    with pytest.raises(s.m.B, match="unowned or replaced"):
+    with pytest.raises(s.m.B, match="stage unresolved"):
         s.m.remove_gates_checked(s.attempt)
-    assert link.lstat().st_ino == substituted_inode[0]
-    assert os.readlink(link) == str(foreign_target)
+    assert stage_link.lstat().st_ino == foreign_inode
+    assert os.readlink(stage_link) == str(foreign_target)
     assert all(destination.exists() for _, destination in s.gates)
     assert s.events == []
 
@@ -1060,3 +1073,264 @@ def test_root_rollback_resource_failure_blocks_every_legacy_start(rollback_runti
         assert len(s.layers) == len(s.paths)
         assert any(event[0] == "umount" for event in s.events)
         assert all(not os.path.lexists(path) for path in file_paths)
+
+
+def test_publication_cannot_adopt_same_target_replacement_inode(resources, monkeypatch):
+    s = resources
+    s.begin()
+    link, target = s.m._enable_links()[0]
+    publish = s.m._publish_link_noreplace
+    original_identity = []
+    replacement_inode = []
+
+    def publish_then_substitute(staged, destination):
+        assert Path(destination) == link
+        before = s.journal()["resources"]["enable_links"][str(link)]
+        assert before["state"] == "publish_intent"
+        assert before["owned"] == s.m._identity(staged, link=True)
+        original_identity.append(deepcopy(before["owned"]))
+        publish(staged, destination)
+        assert link.lstat().st_ino == before["owned"]["ino"]
+        replacement = s.tmp / "same-target-canonical-replacement"
+        replacement.symlink_to(target)
+        replacement_inode.append(replacement.lstat().st_ino)
+        assert replacement_inode[0] != before["owned"]["ino"]
+        os.replace(replacement, link)
+
+    monkeypatch.setattr(s.m, "_publish_link_noreplace", publish_then_substitute)
+    with pytest.raises(s.m.B, match="published enable link identity replaced"):
+        s.m.install_gates(s.attempt)
+    saved = s.journal()["resources"]["enable_links"][str(link)]
+    assert saved["state"] == "publish_intent"
+    assert saved["owned"] == original_identity[0]
+    assert saved["owned"]["ino"] != link.lstat().st_ino == replacement_inode[0]
+    assert saved["owned"]["target"] == os.readlink(link) == str(target)
+    stage = Path(saved["staging"]["path"])
+    assert stage.is_dir()
+    assert not os.path.lexists(stage / "link")
+    before_stage = stage.lstat().st_ino
+    assert s.events == []
+    for cleanup in (s.m.rollback_resources_preflight, s.m.remove_gates_checked, s.m.unseal_all_checked):
+        with pytest.raises(s.m.B, match="stage unresolved"):
+            cleanup(s.attempt)
+    assert link.lstat().st_ino == replacement_inode[0]
+    assert os.readlink(link) == str(target)
+    assert stage.lstat().st_ino == before_stage
+    assert all(destination.exists() for _, destination in s.gates)
+    assert s.events == []
+
+
+def test_same_target_destination_race_is_never_overwritten_by_publication(resources, monkeypatch):
+    s = resources
+    s.begin()
+    link, target = s.m._enable_links()[0]
+    publish = s.m._publish_link_noreplace
+    foreign_inode = []
+
+    def collide_before_publication(staged, destination):
+        saved = s.journal()["resources"]["enable_links"][str(link)]
+        assert saved["state"] == "publish_intent"
+        assert saved["owned"] == s.m._identity(staged, link=True)
+        link.symlink_to(target)
+        foreign_inode.append(link.lstat().st_ino)
+        assert foreign_inode[0] != saved["owned"]["ino"]
+        publish(staged, destination)
+
+    monkeypatch.setattr(s.m, "_publish_link_noreplace", collide_before_publication)
+    with pytest.raises(OSError) as failure:
+        s.m.install_gates(s.attempt)
+    assert failure.value.errno == errno.EEXIST
+    saved = s.journal()["resources"]["enable_links"][str(link)]
+    staged = Path(saved["staging"]["path"]) / "link"
+    assert saved["state"] == "publish_intent"
+    assert saved["owned"] == s.m._identity(staged, link=True)
+    assert saved["owned"]["ino"] != link.lstat().st_ino == foreign_inode[0]
+    assert os.readlink(link) == os.readlink(staged) == str(target)
+    assert s.events == []
+    with pytest.raises(s.m.B, match="stage unresolved"):
+        s.m.remove_gates_checked(s.attempt)
+    assert staged.lstat().st_ino == saved["owned"]["ino"]
+    assert link.lstat().st_ino == foreign_inode[0]
+    assert all(destination.exists() for _, destination in s.gates)
+    assert s.events == []
+
+
+@pytest.mark.parametrize("failure_point", [
+    "stage-identity-checkpoint",
+    "link-ownership-checkpoint",
+    "publication-effect-error",
+    "stage-removal-intent-checkpoint",
+])
+def test_uncertain_stage_or_publication_effect_preserves_resources_for_reconciliation(resources, monkeypatch, failure_point):
+    s = resources
+    s.begin()
+    link, target = s.m._enable_links()[0]
+    save = s.m._save_resources
+    publish = s.m._publish_link_noreplace
+    publications = []
+
+    def controlled_save(attempt, resource_map):
+        entry = resource_map["enable_links"][str(link)]
+        stage = entry.get("staging") or {}
+        fail = (
+            failure_point == "stage-identity-checkpoint"
+            and stage.get("state") == "created"
+            and entry["owned"] is None
+        ) or (
+            failure_point == "link-ownership-checkpoint"
+            and entry["state"] == "publish_intent"
+        ) or (
+            failure_point == "stage-removal-intent-checkpoint"
+            and stage.get("state") == "remove_intent"
+        )
+        if fail:
+            raise OSError("synthetic publication journal checkpoint failure")
+        return save(attempt, resource_map)
+
+    def controlled_publish(staged, destination):
+        original = deepcopy(s.journal()["resources"]["enable_links"][str(link)]["owned"])
+        assert original == s.m._identity(staged, link=True)
+        publish(staged, destination)
+        publications.append(original)
+        if failure_point == "publication-effect-error":
+            raise OSError("synthetic error after publication effect")
+
+    monkeypatch.setattr(s.m, "_save_resources", controlled_save)
+    monkeypatch.setattr(s.m, "_publish_link_noreplace", controlled_publish)
+    with pytest.raises(OSError, match="synthetic"):
+        s.m.install_gates(s.attempt)
+    saved = s.journal()["resources"]["enable_links"][str(link)]
+    stage = Path(saved["staging"]["path"])
+    assert stage.is_dir()
+    stage_inode = stage.lstat().st_ino
+    if publications:
+        assert saved["owned"] == publications[0] == s.m._identity(link, link=True)
+        assert os.readlink(link) == str(target)
+        assert not os.path.lexists(stage / "link")
+    else:
+        assert not os.path.lexists(link)
+        assert saved["owned"] is None
+    if failure_point == "stage-identity-checkpoint":
+        assert saved["staging"]["state"] == "create_intent"
+        assert saved["staging"]["identity"] is None
+        assert not os.path.lexists(stage / "link")
+    if failure_point == "link-ownership-checkpoint":
+        assert (stage / "link").is_symlink()
+    assert s.events == []
+    with pytest.raises(s.m.B, match="stage unresolved"):
+        s.m.remove_gates_checked(s.attempt)
+    assert stage.lstat().st_ino == stage_inode
+    assert all(destination.exists() for _, destination in s.gates)
+    if publications:
+        assert s.m._identity(link, link=True) == publications[0]
+    assert s.events == []
+
+
+def test_replaced_staging_directory_is_preserved_after_publication(resources, monkeypatch):
+    s = resources
+    s.begin()
+    link, _ = s.m._enable_links()[0]
+    publish = s.m._publish_link_noreplace
+    foreign_directory = []
+
+    def replace_stage_after_publication(staged, destination):
+        stage = Path(staged).parent
+        saved = s.journal()["resources"]["enable_links"][str(link)]
+        assert stage.lstat().st_ino == saved["staging"]["identity"]["ino"]
+        publish(staged, destination)
+        moved = s.tmp / "original-staging-directory"
+        stage.rename(moved)
+        stage.mkdir(mode=0o700)
+        foreign_directory.append((stage, stage.lstat().st_ino))
+        assert stage.lstat().st_ino != saved["staging"]["identity"]["ino"]
+
+    monkeypatch.setattr(s.m, "_publish_link_noreplace", replace_stage_after_publication)
+    with pytest.raises(s.m.B, match="staging identity changed"):
+        s.m.install_gates(s.attempt)
+    stage, foreign_inode = foreign_directory[0]
+    saved = s.journal()["resources"]["enable_links"][str(link)]
+    assert saved["owned"] == s.m._identity(link, link=True)
+    assert saved["staging"]["identity"]["ino"] != foreign_inode
+    assert stage.lstat().st_ino == foreign_inode
+    assert s.events == []
+    with pytest.raises(s.m.B, match="stage unresolved"):
+        s.m.remove_gates_checked(s.attempt)
+    assert stage.lstat().st_ino == foreign_inode
+    assert link.is_symlink()
+    assert all(destination.exists() for _, destination in s.gates)
+    assert s.events == []
+
+
+@pytest.mark.parametrize("scenario", ["destination-absent", "same-target-exists", "api-unavailable"])
+def test_real_noreplace_helper_keeps_inode_and_refuses_fallback(resources, monkeypatch, scenario):
+    s = resources
+    staged = s.tmp / "real-helper-staged"
+    destination = s.tmp / "real-helper-destination"
+    target = s.tmp / "synthetic-helper-target"
+    staged.symlink_to(target)
+    staged_inode = staged.lstat().st_ino
+    if scenario == "same-target-exists":
+        destination.symlink_to(target)
+        foreign_inode = destination.lstat().st_ino
+        assert foreign_inode != staged_inode
+    if scenario == "api-unavailable":
+        import ctypes
+        monkeypatch.setattr(ctypes, "CDLL", lambda *args, **kwargs: SimpleNamespace())
+    if scenario == "destination-absent":
+        s.m._publish_link_noreplace(staged, destination)
+        assert not os.path.lexists(staged)
+        assert destination.lstat().st_ino == staged_inode
+        assert os.readlink(destination) == str(target)
+    elif scenario == "same-target-exists":
+        with pytest.raises(OSError) as failure:
+            s.m._publish_link_noreplace(staged, destination)
+        assert failure.value.errno == errno.EEXIST
+        assert staged.lstat().st_ino == staged_inode
+        assert destination.lstat().st_ino == foreign_inode
+        assert os.readlink(destination) == os.readlink(staged) == str(target)
+    else:
+        with pytest.raises(s.m.B, match="publication unavailable"):
+            s.m._publish_link_noreplace(staged, destination)
+        assert staged.lstat().st_ino == staged_inode
+        assert not os.path.lexists(destination)
+    assert s.events == []
+
+
+@pytest.mark.parametrize("failure_errno", [None, errno.ENOSYS, errno.EINVAL])
+def test_noreplace_unavailable_or_rejected_syscall_never_falls_back_or_overwrites(resources, monkeypatch, failure_errno):
+    import ctypes
+
+    s = resources
+    staged = s.tmp / "unavailable-helper-staged"
+    destination = s.tmp / "unavailable-helper-canonical"
+    target = s.tmp / "same-synthetic-target"
+    staged.symlink_to(target)
+    destination.symlink_to(target)
+    staged_inode = staged.lstat().st_ino
+    canonical_inode = destination.lstat().st_ino
+    assert staged_inode != canonical_inode
+
+    class RejectedRename:
+        def __call__(self, *args):
+            ctypes.set_errno(failure_errno)
+            return -1
+
+    library = SimpleNamespace() if failure_errno is None else SimpleNamespace(renameat2=RejectedRename())
+    monkeypatch.setattr(ctypes, "CDLL", lambda *args, **kwargs: library)
+
+    def forbidden_fallback(*args, **kwargs):
+        raise AssertionError("overwrite-capable publication fallback was invoked")
+
+    monkeypatch.setattr(s.m.os, "rename", forbidden_fallback)
+    monkeypatch.setattr(s.m.os, "replace", forbidden_fallback)
+    if failure_errno is None:
+        with pytest.raises(s.m.B, match="publication unavailable"):
+            s.m._publish_link_noreplace(staged, destination)
+    else:
+        with pytest.raises(OSError) as failure:
+            s.m._publish_link_noreplace(staged, destination)
+        assert failure.value.errno == failure_errno
+    assert staged.lstat().st_ino == staged_inode
+    assert destination.lstat().st_ino == canonical_inode
+    assert os.readlink(destination) == os.readlink(staged) == str(target)
+    assert s.events == []
