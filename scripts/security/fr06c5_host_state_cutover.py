@@ -407,6 +407,9 @@ def _check_mount_resources(journal,r,allow_candidate):
   if owned is None or seal['state']=='removed':raise B('unrecorded legacy mount preserved')
   saved=[row for row in stack if _mount_owner(row)==_mount_owner(owned)]
   if len(saved)!=1 or not _seal_matches(saved[0],entry):raise B('recorded seal identity changed')
+  if seal['state']=='sealed':
+   recorded_options=set(owned.get('options',[]));current_options=set(saved[0]['options'])
+   if not {'ro','nodev','nosuid','noexec'}.issubset(recorded_options) or current_options!=recorded_options:raise B('completed legacy seal options drifted')
   visible=_mount_at(path)
   if _mount_owner(visible)==_mount_owner(owned):
    if len(stack)!=1 or not _same_legacy(entry):raise B('legacy seal stack or inode changed')
@@ -621,7 +624,9 @@ def install_gates(attempt):
   _check_file_resources(r)
   if entry['state']!='absent' or _exists(link):raise B('enable link install precondition changed')
   entry['state']='create_intent';_save_resources(attempt,r);os.symlink(str(target),link)
-  entry.update(owned=_identity(link,link=True),state='installed');_resource_sync_parent(link);_save_resources(attempt,r)
+  observed=_identity(link,link=True)
+  if observed['target']!=str(target):raise B('created enable link target replaced; ownership not claimed')
+  entry.update(owned=observed,state='installed');_resource_sync_parent(link);_save_resources(attempt,r)
  run(['systemctl','daemon-reload'])
 def remove_gates_checked(attempt):
  rollback_resources_preflight(attempt)
