@@ -25,7 +25,7 @@ from botocore.config import Config  # type: ignore[import-untyped]
 from botocore.exceptions import BotoCoreError, ClientError  # type: ignore[import-untyped]
 
 from app.core.config import Settings, settings
-from app.services.backup_executor import BackupExecutionError
+from app.services.backup_executor import BackupCleanupIncomplete, BackupExecutionError
 from app.services.offsite_encryption import (
     EncryptionContext,
     EncryptedArtifact,
@@ -805,9 +805,16 @@ class OffsiteBackupReplicator:
         database_path: Path | str,
         snapshot_path: Path | str | None,
     ) -> None:
+        first_error: OSError | None = None
         for path in (database_path, snapshot_path):
             if path:
                 try:
                     Path(path).unlink(missing_ok=True)
-                except OSError:
-                    continue
+                except OSError as exc:
+                    if first_error is None:
+                        first_error = exc
+        if first_error is not None:
+            raise BackupCleanupIncomplete(
+                "Off-site validation cleanup",
+                "The downloaded restore-validation artifacts could not all be removed",
+            ) from first_error

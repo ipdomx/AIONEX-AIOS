@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from contextlib import suppress
 from dataclasses import dataclass
 import hashlib
 import hmac
@@ -12,6 +11,7 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import stat
+import sys
 import tarfile
 import tempfile
 import time
@@ -19,7 +19,7 @@ from typing import BinaryIO, cast
 from uuid import uuid4
 
 from app.core.config import Settings, settings
-from app.services.backup_executor import BackupExecutionError
+from app.services.backup_executor import BackupCleanupIncomplete, BackupExecutionError
 
 _DB_ARTIFACT = re.compile(r"backup-[0-9a-f]{24}(?:-[0-9a-f]{32})?\.dump")
 _SNAPSHOT_ARTIFACT = re.compile(
@@ -505,8 +505,17 @@ class ThreeDAssetSnapshotExecutor:
                 "The 3D asset snapshot could not be finalized",
             ) from exc
         finally:
-            with suppress(OSError):
+            pending_error = sys.exception()
+            try:
                 temporary.unlink(missing_ok=True)
+            except OSError as cleanup_error:
+                if pending_error is not None and not isinstance(pending_error, Exception):
+                    pending_error.add_note("3D snapshot temporary artifact cleanup is incomplete")
+                else:
+                    raise BackupCleanupIncomplete(
+                        "3D asset backup cleanup",
+                        "The temporary 3D snapshot artifact could not be removed",
+                    ) from cleanup_error
 
     def validate_snapshot(
         self,

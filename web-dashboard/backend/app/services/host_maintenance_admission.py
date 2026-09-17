@@ -1,8 +1,8 @@
-"""Durable admission authority for the project execution worker.
+"""Durable admission authority with explicitly versioned partial coverage.
 
-This first consumer covers project execution claims and lease reaping only. A
-closed authority does not prove that running work has drained or that the host is
-closed. There is deliberately no expiry or automatic reopening.
+Legacy schema 1 covers project execution claims and lease reaping. Schema 2 also
+covers backup worker cycles, including startup cleanup; it does not cover all
+enqueue APIs or prove full-host closure. There is no automatic reopening.
 
 Admission holds FOR SHARE in the caller's transaction. The caller must keep that
 transaction through the protected claim and commit or roll it back afterwards.
@@ -28,6 +28,9 @@ DOMAIN = "host-maintenance-admission"
 RESOURCE_ID = "runtime-node"
 SCHEMA_VERSION = 1
 SCOPE = "project_execution"
+COVERAGE_SCHEMA_VERSION = 2
+COVERAGE_SCOPE = "project_execution+backup_cycles"
+_REQUIRED_SCOPES = frozenset({"project_execution", "backup_cycles"})
 _CONTROL_LOCK_TIMEOUT = "5s"
 
 _PAYLOAD_KEYS = frozenset(
@@ -62,16 +65,22 @@ class HostMaintenanceSnapshot:
     def is_open(self) -> bool:
         return self.status == "open" and self.enabled
 
+    @property
+    def covered_scopes(self) -> tuple[str, ...]:
+        if self.schema_version == COVERAGE_SCHEMA_VERSION:
+            return ("project_execution", "backup_cycles")
+        return ("project_execution",)
+
 
 class HostMaintenanceUnavailable(RuntimeError):
     """The durable authority is missing, malformed, or cannot provide row locks."""
 
 
 class HostMaintenanceClosed(RuntimeError):
-    """The validated authority denies new project execution admission."""
+    """The validated authority denies admission for its covered consumers."""
 
     def __init__(self, snapshot: HostMaintenanceSnapshot):
-        super().__init__("Project execution admission is closed")
+        super().__init__("Maintenance admission is closed")
         self.snapshot = snapshot
 
 
@@ -107,8 +116,8 @@ def _snapshot(row: RowMapping) -> HostMaintenanceSnapshot:
         raise HostMaintenanceUnavailable("Maintenance authority payload is malformed")
     if (
         type(payload["schema_version"]) is not int
-        or payload["schema_version"] != SCHEMA_VERSION
-        or payload["scope"] != SCOPE
+        or (payload["schema_version"], payload["scope"])
+        not in ((SCHEMA_VERSION, SCOPE), (COVERAGE_SCHEMA_VERSION, COVERAGE_SCOPE))
         or payload["full_host_closure"] is not False
         or not _valid_generation(payload["generation"])
         or not _valid_generation(row["version"])
@@ -125,7 +134,8 @@ def _snapshot(row: RowMapping) -> HostMaintenanceSnapshot:
     changed_at = payload["changed_at"]
     if generation == 1:
         if (
-            row["status"] != "open"
+            payload["schema_version"] != SCHEMA_VERSION
+            or row["status"] != "open"
             or operation_id is not None
             or changed_at is not None
             or payload["reason"] != "migration-seed"
@@ -145,8 +155,8 @@ def _snapshot(row: RowMapping) -> HostMaintenanceSnapshot:
             raise HostMaintenanceUnavailable("Maintenance authority timestamp lacks timezone")
 
     return HostMaintenanceSnapshot(
-        schema_version=SCHEMA_VERSION,
-        scope=SCOPE,
+        schema_version=payload["schema_version"],
+        scope=payload["scope"],
         generation=generation,
         status=row["status"],
         enabled=row["enabled"],
@@ -186,22 +196,38 @@ async def _locked_snapshot(
     return row["id"], _snapshot(row)
 
 
-async def require_admission_open(session: AsyncSession) -> HostMaintenanceSnapshot:
+async def read_admission_snapshot(
+    session: AsyncSession, *, required_scope: str = "project_execution"
+) -> HostMaintenanceSnapshot:
+    """Lock and validate the requested coverage without requiring open state."""
+    if not isinstance(required_scope, str) or required_scope not in _REQUIRED_SCOPES:
+        raise ValueError("Unknown maintenance admission scope")
+    _, snapshot = await _locked_snapshot(session, exclusive=False)
+    if required_scope not in snapshot.covered_scopes:
+        raise HostMaintenanceUnavailable("Maintenance authority does not cover this consumer")
+    return snapshot
+
+
+async def require_admission_open(
+    session: AsyncSession, *, required_scope: str = "project_execution"
+) -> HostMaintenanceSnapshot:
     """Hold shared admission until the caller commits or rolls back its claim.
 
     This function never commits, rolls back, seeds, or repairs authority state.
     Database errors propagate so callers cannot mistake a failed check for open.
     """
-    _, snapshot = await _locked_snapshot(session, exclusive=False)
+    snapshot = await read_admission_snapshot(session, required_scope=required_scope)
     if not snapshot.is_open:
         raise HostMaintenanceClosed(snapshot)
     return snapshot
 
 
-async def is_admission_open(session: AsyncSession) -> bool:
+async def is_admission_open(
+    session: AsyncSession, *, required_scope: str = "project_execution"
+) -> bool:
     """Return false only for an explicitly closed or unavailable authority."""
     try:
-        await require_admission_open(session)
+        await require_admission_open(session, required_scope=required_scope)
     except (HostMaintenanceClosed, HostMaintenanceUnavailable):
         return False
     return True
