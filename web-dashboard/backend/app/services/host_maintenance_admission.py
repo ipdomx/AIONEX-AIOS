@@ -1,8 +1,10 @@
 """Durable admission authority with explicitly versioned partial coverage.
 
 Legacy schema 1 covers project execution claims and lease reaping. Schema 2 also
-covers backup worker cycles, including startup cleanup; it does not cover all
-enqueue APIs or prove full-host closure. There is no automatic reopening.
+covers backup worker cycles and their guarded enqueue APIs. Schema 3 adds
+academy course-package production and owned builds. Coverage remains partial;
+no schema version proves deployment or full-host closure. There is no automatic
+reopening.
 
 Admission holds FOR SHARE in the caller's transaction. The caller must keep that
 transaction through the protected claim and commit or roll it back afterwards.
@@ -30,7 +32,11 @@ SCHEMA_VERSION = 1
 SCOPE = "project_execution"
 COVERAGE_SCHEMA_VERSION = 2
 COVERAGE_SCOPE = "project_execution+backup_cycles"
-_REQUIRED_SCOPES = frozenset({"project_execution", "backup_cycles"})
+ACADEMY_SCHEMA_VERSION = 3
+ACADEMY_COVERAGE_SCOPE = "project_execution+backup_cycles+academy_course_packages"
+_REQUIRED_SCOPES = frozenset(
+    {"project_execution", "backup_cycles", "academy_course_packages"}
+)
 _CONTROL_LOCK_TIMEOUT = "5s"
 
 _PAYLOAD_KEYS = frozenset(
@@ -67,6 +73,8 @@ class HostMaintenanceSnapshot:
 
     @property
     def covered_scopes(self) -> tuple[str, ...]:
+        if self.schema_version == ACADEMY_SCHEMA_VERSION:
+            return ("project_execution", "backup_cycles", "academy_course_packages")
         if self.schema_version == COVERAGE_SCHEMA_VERSION:
             return ("project_execution", "backup_cycles")
         return ("project_execution",)
@@ -117,7 +125,11 @@ def _snapshot(row: RowMapping) -> HostMaintenanceSnapshot:
     if (
         type(payload["schema_version"]) is not int
         or (payload["schema_version"], payload["scope"])
-        not in ((SCHEMA_VERSION, SCOPE), (COVERAGE_SCHEMA_VERSION, COVERAGE_SCOPE))
+        not in (
+            (SCHEMA_VERSION, SCOPE),
+            (COVERAGE_SCHEMA_VERSION, COVERAGE_SCOPE),
+            (ACADEMY_SCHEMA_VERSION, ACADEMY_COVERAGE_SCOPE),
+        )
         or payload["full_host_closure"] is not False
         or not _valid_generation(payload["generation"])
         or not _valid_generation(row["version"])

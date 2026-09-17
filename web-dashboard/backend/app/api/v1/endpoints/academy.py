@@ -25,6 +25,10 @@ from app.db.models import (
 )
 from app.services import workforce
 from app.services import academy_course_runtime
+from app.services.host_maintenance_admission import (
+    HostMaintenanceClosed,
+    HostMaintenanceUnavailable,
+)
 
 router = APIRouter()
 
@@ -373,6 +377,18 @@ async def create_course_package(
         )
         await session.commit()
         await session.refresh(item)
+    except HostMaintenanceClosed:
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Academy course package admission is temporarily closed for maintenance.",
+        ) from None
+    except HostMaintenanceUnavailable:
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Academy course package admission is currently unavailable.",
+        ) from None
     except (ValueError, PermissionError) as exc:
         await session.rollback()
         raise HTTPException(status_code=422, detail=str(exc)) from exc
