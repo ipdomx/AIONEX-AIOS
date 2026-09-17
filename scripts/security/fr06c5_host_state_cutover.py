@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 import argparse,fcntl,hashlib,json,os,secrets,shutil,stat,subprocess,time
+from contextlib import contextmanager
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
 from typing import Any
@@ -34,26 +35,145 @@ def jread(p):
  except Exception as x:raise E(f'cannot read {p.name}') from x
  if not isinstance(v,dict):raise E('JSON object required')
  return v
-def store(p,v):
- p.parent.mkdir(parents=True,exist_ok=True,mode=0o700);fd=os.open(p,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_CLOEXEC,0o600)
- try:os.write(fd,json.dumps(v,sort_keys=True,indent=2).encode()+b'\n');os.fsync(fd)
- finally:os.close(fd)
-def atomic_store(p,v):
- p.parent.mkdir(parents=True,exist_ok=True,mode=0o700);tmp=p.parent/(p.name+'.aionex-new-'+secrets.token_hex(4));fd=os.open(tmp,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_CLOEXEC,0o600)
- try:os.write(fd,json.dumps(v,sort_keys=True,indent=2).encode()+b'\n');os.fsync(fd)
- finally:os.close(fd)
- os.replace(tmp,p);d=os.open(p.parent,os.O_RDONLY|os.O_DIRECTORY|os.O_CLOEXEC)
- try:os.fsync(d)
- finally:os.close(d)
-def attempt_path(plan_id):return STATE/'attempts'/f'{plan_id}.json'
-def update_attempt(path,**changes):
- d=jread(path);d.update(changes);d['updated_at']=utc();atomic_store(path,d);return d
+def _fsync_directory(path):
+    fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def _ensure_directory(path):
+    missing = []
+    cursor = path
+    while not cursor.exists():
+        missing.append(cursor)
+        cursor = cursor.parent
+    for directory in reversed(missing):
+        directory.mkdir(mode=0o700)
+        _fsync_directory(directory.parent)
+    info = path.lstat()
+    if not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(info.st_mode):
+        raise B('journal directory is not a real directory')
+
+
+def _write_all(fd, data):
+    remaining = memoryview(data)
+    while remaining:
+        written = os.write(fd, remaining)
+        if written <= 0:
+            raise E('journal write made no progress')
+        remaining = remaining[written:]
+
+
+def store(p, v):
+    _ensure_directory(p.parent)
+    fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+    try:
+        _write_all(fd, json.dumps(v, sort_keys=True, indent=2).encode() + b'\n')
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    _fsync_directory(p.parent)
+
+
+def atomic_store(p, v):
+    _ensure_directory(p.parent)
+    temporary = p.parent / (p.name + '.aionex-new-' + secrets.token_hex(8))
+    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+    try:
+        _write_all(fd, json.dumps(v, sort_keys=True, indent=2).encode() + b'\n')
+        os.fsync(fd)
+        os.close(fd)
+        fd = None
+        os.replace(temporary, p)
+        _fsync_directory(p.parent)
+    finally:
+        if fd is not None:
+            os.close(fd)
+        if temporary.exists():
+            temporary.unlink()
+
+
+def attempt_path(plan_id):
+    if not isinstance(plan_id, str) or len(plan_id) != 64 or any(c not in '0123456789abcdef' for c in plan_id):
+        raise B('attempt plan identifier is invalid')
+    return STATE / 'attempts' / (plan_id + '.json')
+
+
+def update_attempt(path, **changes):
+    forbidden = {'schema_version', 'subpart', 'plan_id', 'merge_sha', 'plan', 'topology',
+                 'boot_id', 'resource_snapshot_sha256', 'created_at'}
+    if forbidden.intersection(changes):
+        raise B('attempt authority cannot change')
+    record = jread(path)
+    if record.get('candidate_start_attempted') is True and changes.get('candidate_start_attempted') is False:
+        raise B('candidate-start barrier cannot be cleared')
+    record.update(changes)
+    record['updated_at'] = utc()
+    atomic_store(path, record)
+    return record
+
+
 def unresolved_attempt_gate():
- d=STATE/'attempts'
- if not d.exists():return
- for p in sorted(d.glob('*.json')):
-  private(p,'prior attempt');a=jread(p)
-  if a.get('phase') not in {'failed_before_live_mutation','legacy_restored_prestart','accepted'}:raise B('prior host-state cutover attempt requires reconciliation')
+    directory = STATE / 'attempts'
+    if not os.path.lexists(directory):
+        return
+    if directory.is_symlink() or not directory.is_dir():
+        raise B('attempt directory requires reconciliation')
+    for path in sorted(directory.iterdir()):
+        if path.suffix != '.json':
+            raise B('unfinished journal artifact requires reconciliation')
+        private(path, 'prior attempt')
+        record = jread(path)
+        plan_record = record.get('plan') or {}
+        plan_id = record.get('plan_id')
+        authority_valid = (
+            record.get('schema_version') == 2
+            and record.get('subpart') == 'FR-06C5D'
+            and path == attempt_path(plan_id)
+            and plan_record.get('plan_id') == plan_id
+            and digest({k: v for k, v in plan_record.items() if k != 'plan_id'}) == plan_id
+            and record.get('merge_sha') == plan_record.get('merge_sha')
+            and record.get('topology') == plan_record.get('topology')
+            and record.get('resource_snapshot_sha256') == digest(plan_record.get('resource_snapshot'))
+        )
+        if not authority_valid:
+            raise B('prior host-state attempt authority requires reconciliation')
+        if record.get('candidate_start_attempted') is not False:
+            raise B('prior candidate start remains an irreversible replay barrier')
+        phase = record.get('phase')
+        safe_terminal = phase == 'failed_before_live_mutation' or (
+            phase == 'legacy_restored_prestart' and record.get('rollback_verified') is True
+        )
+        if not safe_terminal:
+            raise B('prior host-state cutover attempt requires reconciliation')
+
+
+@contextmanager
+def operation_lock():
+    _ensure_directory(STATE)
+    fd = os.open(STATE / 'operation.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+    locked = False
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or stat.S_IMODE(info.st_mode) & 0o077:
+            raise B('operation lock metadata is unsafe')
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise B('another host-state operation holds the lock') from exc
+        locked = True
+        yield
+    finally:
+        if locked:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+
+
+def boot_id():
+    return Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+
 def parsez(v,label):
  if not isinstance(v,str) or not v.endswith('Z'):raise B(f'{label} must be UTC Z')
  try:return datetime.fromisoformat(v[:-1]+'+00:00').astimezone(timezone.utc)
@@ -74,7 +194,20 @@ def topology():
  for r in rows:services.setdefault(r['service'],[]).append(r['id'])
  if len(services.get('project-worker',[]))!=4:raise B('project-worker scale drifted')
  return {'containers':sorted(rows,key=lambda x:x['name']),'services':{k:sorted(v) for k,v in sorted(services.items())},'container_count':36,'project_worker_scale':4}
+def bind_unit_preflight():
+    raw = run([
+        'systemctl', 'show', 'aionex-fr06c5-host-state-bind.service',
+        '--property=LoadState', '--property=ActiveState', '--property=SubState',
+        '--property=FragmentPath', '--property=DropInPaths', '--property=Job', '--no-pager',
+    ])
+    properties = dict(line.split('=', 1) for line in raw.splitlines() if '=' in line)
+    expected = {'LoadState': 'not-found', 'ActiveState': 'inactive', 'SubState': 'dead',
+                'FragmentPath': '', 'DropInPaths': '', 'Job': ''}
+    if properties != expected:
+        raise B('preexisting or pending host-state bind unit requires reconciliation')
+
 def c5gate():
+ bind_unit_preflight()
  expected=((BOOT/'bootstrap-receipt.json','minimal_management_bootstrap_installed'),(C5/'provision-receipt.json','empty_host_state_vault_provisioned_admission_closed'),(C5/'recovery-proof.json','independent_host_state_recovery_key_proved'),(C5/'header-custody.json','off_host_host_state_header_verified'))
  for p,status in expected:
   private(p,p.name);d=jread(p)
@@ -252,33 +385,59 @@ def legacy_acceptance(t):
  for u in TUNNELS:
   if not active(u):raise B('control tunnel regressed during rollback')
  return n
-def rollback_prestart(t,watch,phase):
- no_live={'claimed','precopy_started'}
- watcher_only={'watcher_stop_started','watchers_stopped'}
- policy_only={'restart_policy_quiesce_started','restart_policies_quiesced'}
- if phase in no_live:return {'status':'no_live_mutation_to_rollback'}
- if phase in watcher_only:
-  restore_watchers(watch);return {'status':'watchers_restored'}
- if phase in policy_only:
-  if not active('docker.service'):raise B('Docker unexpectedly inactive during policy-only rollback')
-  restore_restart_policies(t);restore_watchers(watch);legacy_acceptance(t);return {'status':'policies_and_watchers_restored'}
- # Application stop may have partially stopped containers; later phases may also
- # own seals, gates and candidate bind mounts. Reconcile conservatively.
- bind_unit=Path('/etc/systemd/system/aionex-fr06c5-host-state-bind.service')
- gates_present=any(dst.exists() for _,dst in SYSTEMD)
- if gates_present or phase in {'gate_install_started','gates_installed','bind_activation_started','bind_active'}:
-  run(['systemctl','stop','docker.service','docker.socket'],120)
-  if active('docker.service'):raise B('Docker remained active during rollback')
-  if bind_unit.exists():run(['systemctl','stop','aionex-fr06c5-host-state-bind.service'],120)
-  rb=json.loads(run(['python3',str(ROOT/'scripts/security/fr06c5_host_state_bind.py'),'rollback'],120))
-  if rb.get('validation')!='FR06C5_HOST_STATE_BIND_REMOVED':raise B('candidate host-state bind rollback not verified')
-  remove_gates_checked()
- if phase in {'legacy_seal_started','legacy_sources_sealed','gate_install_started','gates_installed','bind_activation_started','bind_active'}:
-  unseal_all_checked()
- if not active('docker.service'):
-  run(['systemctl','start','docker.socket','docker.service'],180)
- if not active('docker.service'):raise B('legacy Docker failed to restart')
- run(['docker','start',*[r['id'] for r in t['containers']]],180);restore_restart_policies(t);restore_watchers(watch);legacy_acceptance(t);return {'status':'legacy_runtime_fully_restored'}
+def rollback_prestart(t, watch, phase, attempt):
+    record = jread(attempt)
+    if record.get('candidate_start_attempted') is not False or record.get('boot_id') != boot_id():
+        raise B('rollback authority changed or candidate start was attempted')
+    no_live = {'claimed', 'precopy_started'}
+    watcher_only = {'watcher_stop_started', 'watchers_stopped'}
+    policy_only = {'restart_policy_quiesce_started', 'restart_policies_quiesced'}
+    live_phases = {
+        'application_stop_started', 'legacy_runtime_stopped', 'legacy_seal_started',
+        'legacy_sources_sealed', 'gate_install_started', 'gates_installed',
+        'bind_activation_started', 'bind_active',
+    }
+    if phase in no_live:
+        return {'status': 'no_live_mutation_to_rollback'}
+    if phase in watcher_only:
+        restore_watchers(watch)
+        return {'status': 'watchers_restored'}
+    if phase in policy_only:
+        if not active('docker.service'):
+            raise B('Docker unexpectedly inactive during policy-only rollback')
+        restore_restart_policies(t)
+        restore_watchers(watch)
+        legacy_acceptance(t)
+        return {'status': 'policies_and_watchers_restored'}
+    if phase not in live_phases:
+        raise B('unknown cutover phase requires reconciliation')
+    rollback_resources_preflight(attempt)
+    if phase in {'bind_activation_started', 'bind_active'}:
+        run(['systemctl','stop','docker.service','docker.socket'],120)
+        if active('docker.service'):
+            raise B('Docker remained active during rollback')
+        run(['systemctl', 'stop', 'aionex-fr06c5-host-state-bind.service'], 120)
+        result = json.loads(run([
+            'python3', str(ROOT / 'scripts/security/fr06c5_host_state_bind.py'), 'rollback'
+        ], 120))
+        if result.get('validation') != 'FR06C5_HOST_STATE_BIND_REMOVED':
+            raise B('candidate host-state bind rollback not verified')
+    if phase in {'gate_install_started', 'gates_installed', 'bind_activation_started', 'bind_active'}:
+        remove_gates_checked(attempt)
+    if phase in {'legacy_seal_started', 'legacy_sources_sealed', 'gate_install_started',
+                 'gates_installed', 'bind_activation_started', 'bind_active'}:
+        unseal_all_checked(attempt)
+    verify_legacy_targets(attempt)
+    if not active('docker.service'):
+        run(['systemctl', 'start', 'docker.socket', 'docker.service'], 180)
+    if not active('docker.service'):
+        raise B('legacy Docker failed to restart')
+    run(['docker', 'start', *[r['id'] for r in t['containers']]], 180)
+    restore_restart_policies(t)
+    restore_watchers(watch)
+    legacy_acceptance(t)
+    return {'status': 'legacy_runtime_fully_restored'}
+
 def acceptance(t):
  bind=json.loads(run(['python3',str(ROOT/'scripts/security/fr06c5_host_state_bind.py'),'status','--require-ready']))
  if bind.get('validation')!='FR06C5_HOST_STATE_BIND_READY':raise B('host-state bind acceptance failed')
@@ -296,55 +455,194 @@ def acceptance(t):
  return n
 def inspect():return {'schema_version':1,'subpart':'FR-06C5D','observed_at':utc(),'topology':topology(),'docker_active':active('docker.service'),'containerd_active':active('containerd.service'),'production_changed':False}
 def plan(a):
- if os.geteuid()!=0:raise B('root required')
- gitgate(a.merge_sha);evidence(a.evidence.resolve(),a.merge_sha);c5gate();unresolved_attempt_gate();t=topology()
- if not active('docker.service') or not active('containerd.service'):raise B('live runtime not active')
- if not 1<=a.ttl_seconds<=MAX_TTL:raise B('plan TTL invalid')
- n=now();body={'schema_version':1,'subpart':'FR-06C5D','operation':'host-state-cutover','created_at':utc(n),'expires_at':utc(n+timedelta(seconds=a.ttl_seconds)),'merge_sha':a.merge_sha,'evidence_sha256':fsha(a.evidence.resolve()),'topology':t,'nonce':secrets.token_hex(32),'blind_post_start_rollback_permitted':False,'cloudflare_change_permitted':False};body['plan_id']=digest(body);p=STATE/'plans'/f"{body['plan_id']}.json";store(p,body);return {'status':'host_state_cutover_plan_ready','plan_id':body['plan_id'],'plan':str(p),'production_executed':False}
-def loadplan(p,e):
- private(p,'plan');d=jread(p);pid=d.get('plan_id')
- if not isinstance(pid,str) or digest({k:v for k,v in d.items() if k!='plan_id'})!=pid:raise B('plan digest invalid')
- if now()>parsez(d['expires_at'],'plan expiry'):raise B('plan expired')
- if d['evidence_sha256']!=fsha(e):raise B('evidence changed after planning')
- return d
+    if os.geteuid() != 0:
+        raise B('root required')
+    with operation_lock():
+        gitgate(a.merge_sha)
+        evidence(a.evidence.resolve(), a.merge_sha)
+        c5gate()
+        unresolved_attempt_gate()
+        current = topology()
+        if not active('docker.service') or not active('containerd.service'):
+            raise B('live runtime not active')
+        if not 1 <= a.ttl_seconds <= MAX_TTL:
+            raise B('plan TTL invalid')
+        resources = capture_resources()
+        created = now()
+        body = {
+            'schema_version': 2, 'subpart': 'FR-06C5D', 'operation': 'host-state-cutover',
+            'created_at': utc(created), 'expires_at': utc(created + timedelta(seconds=a.ttl_seconds)),
+            'merge_sha': a.merge_sha, 'evidence_sha256': fsha(a.evidence.resolve()),
+            'topology': current, 'resource_snapshot': resources, 'boot_id': boot_id(),
+            'nonce': secrets.token_hex(32), 'blind_post_start_rollback_permitted': False,
+            'cloudflare_change_permitted': False,
+        }
+        body['plan_id'] = digest(body)
+        path = STATE / 'plans' / (body['plan_id'] + '.json')
+        store(path, body)
+        return {'status': 'host_state_cutover_plan_ready', 'plan_id': body['plan_id'],
+                'plan': str(path), 'production_executed': False}
+
+
+def loadplan(path, evidence_path):
+    private(path, 'plan')
+    result = jread(path)
+    plan_id = result.get('plan_id')
+    attempt_path(plan_id)
+    if result.get('schema_version') != 2 or result.get('subpart') != 'FR-06C5D' or result.get('operation') != 'host-state-cutover':
+        raise B('plan schema or operation invalid')
+    if digest({k: v for k, v in result.items() if k != 'plan_id'}) != plan_id:
+        raise B('plan digest invalid')
+    if now() > parsez(result['expires_at'], 'plan expiry'):
+        raise B('plan expired')
+    if result['evidence_sha256'] != fsha(evidence_path):
+        raise B('evidence changed after planning')
+    if result.get('boot_id') != boot_id():
+        raise B('plan belongs to another boot')
+    return result
+
+
 def apply(a):
- p=loadplan(a.plan.resolve(),a.evidence.resolve())
- if a.confirmation!=f"EXECUTE_FR06C5_HOST_STATE_CUTOVER:{p['plan_id']}" or a.confirm_production!=CONFIRM:raise B('exact production confirmation required')
- gitgate(a.merge_sha);evidence(a.evidence.resolve(),a.merge_sha);c5gate();unresolved_attempt_gate();t=topology()
- if p['merge_sha']!=a.merge_sha or t!=p['topology']:raise B('live topology changed after planning')
- STATE.mkdir(parents=True,exist_ok=True,mode=0o700);fd=os.open(STATE/'operation.lock',os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW|os.O_CLOEXEC,0o600);fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB);attempt=attempt_path(p['plan_id']);watch={};candidate_start_attempted=False;claimed=False
- try:
-  try:store(attempt,{'schema_version':1,'subpart':'FR-06C5D','plan_id':p['plan_id'],'merge_sha':a.merge_sha,'phase':'claimed','created_at':utc(),'candidate_start_attempted':False})
-  except FileExistsError as x:raise B('host-state cutover plan already attempted') from x
-  claimed=True
-  reject_nested_mounts();update_attempt(attempt,phase='precopy_started');precopy();watch=watcher_states();update_attempt(attempt,phase='watcher_stop_started',watchers=watch);stop_watchers(watch);update_attempt(attempt,phase='watchers_stopped');update_attempt(attempt,phase='restart_policy_quiesce_started');quiesce_restart_policies(t);update_attempt(attempt,phase='restart_policies_quiesced');update_attempt(attempt,phase='application_stop_started');stop_live(t);update_attempt(attempt,phase='legacy_runtime_stopped');update_attempt(attempt,phase='legacy_seal_started')
-  for _,src,_,_ in PATHS:seal(src)
-  update_attempt(attempt,phase='legacy_sources_sealed');manifests=exact_copy_and_manifest();bootstrap_match();hidden_fd_count=require_zero_hidden_underlay_fds();update_attempt(attempt,phase='gate_install_started');install_gates();update_attempt(attempt,phase='gates_installed');update_attempt(attempt,phase='bind_activation_started');run(['systemctl','start','aionex-fr06c5-host-state-bind.service'],120);bind=json.loads(run(['python3',str(ROOT/'scripts/security/fr06c5_host_state_bind.py'),'status','--require-ready']))
-  if bind.get('validation')!='FR06C5_HOST_STATE_BIND_READY':raise B('host-state candidate bind did not become ready')
-  update_attempt(attempt,phase='bind_active')
-  candidate_start_attempted=True;update_attempt(attempt,phase='candidate_start_attempted',candidate_start_attempted=True)
-  run(['systemctl','start','docker.socket','docker.service'],180);run(['docker','start',*[r['id'] for r in t['containers']]],180);restore_restart_policies(t);restore_watchers(watch);n=acceptance(t)
-  body={'schema_version':1,'subpart':'FR-06C5D','status':'encrypted_host_state_started_admission_closed','completed_at':utc(),'operation_id':p['plan_id'],'merge_sha':a.merge_sha,'running_containers':36,'unhealthy_running_containers':0,'project_worker_scale':4,'manifest':manifests,'hidden_underlay_fd_count':hidden_fd_count,'legacy_underlays_read_only':True,'legacy_underlays_deleted':False,'candidate_host_state_authoritative':True,'bootstrap_remains_outside_vault':True,'post_start_blind_rollback_permitted':False,'admission_opened':False,'cloudflare_changed':False};out=STATE/'results'/f"{p['plan_id']}.json";store(out,{**body,'receipt_sha256':digest(body)});update_attempt(attempt,phase='accepted',accepted_receipt=str(out));return {'status':body['status'],'result':str(out),'admission_opened':False}
- except Exception as original:
-  if not claimed:
-   raise
-  if attempt.exists() and not candidate_start_attempted:
-   phase=str(jread(attempt).get('phase','claimed'))
-   if phase in {'claimed','precopy_started'}:
-    update_attempt(attempt,phase='failed_before_live_mutation',last_error_type=type(original).__name__)
-    raise E('host-state cutover failed before live mutation; plan consumed without outage') from original
-   try:
-    rollback_prestart(p['topology'],watch,phase);update_attempt(attempt,phase='legacy_restored_prestart',last_error_type=type(original).__name__)
-   except Exception as rb:
-    try:update_attempt(attempt,phase='rollback_failed',last_error_type=type(original).__name__,rollback_error_type=type(rb).__name__)
-    except Exception:pass
-    raise E('host-state cutover failed before candidate start and rollback failed; reconciliation required') from rb
-   raise E('host-state cutover failed before candidate start; legacy runtime restored and plan consumed') from original
-  if attempt.exists():
-   try:update_attempt(attempt,phase='post_start_failure_requires_reconciliation',candidate_start_attempted=True,last_error_type=type(original).__name__)
-   except Exception:pass
-  raise E('host-state cutover failed after candidate start attempt; candidate state may be authoritative and blind rollback is prohibited') from original
- finally:fcntl.flock(fd,fcntl.LOCK_UN);os.close(fd)
+    if os.geteuid() != 0:
+        raise B('root required')
+    with operation_lock():
+        # Every authority that can change is read after obtaining the same lock
+        # used for planning. No precopy or live mutation precedes the durable claim.
+        planned = loadplan(a.plan.resolve(), a.evidence.resolve())
+        if a.confirmation != 'EXECUTE_FR06C5_HOST_STATE_CUTOVER:' + planned['plan_id'] or a.confirm_production != CONFIRM:
+            raise B('exact production confirmation required')
+        gitgate(a.merge_sha)
+        evidence(a.evidence.resolve(), a.merge_sha)
+        c5gate()
+        unresolved_attempt_gate()
+        current = topology()
+        if planned['merge_sha'] != a.merge_sha or current != planned['topology']:
+            raise B('live topology changed after planning')
+        if not active('docker.service') or not active('containerd.service'):
+            raise B('live runtime not active')
+        resources = capture_resources()
+        if resources != planned.get('resource_snapshot'):
+            raise B('host-state resources changed after planning')
+        validate_resources(resources)
+        watch = watcher_states()
+        attempt = attempt_path(planned['plan_id'])
+        candidate_start_attempted = False
+        claimed = False
+        try:
+            try:
+                store(attempt, {
+                    'schema_version': 2, 'subpart': 'FR-06C5D',
+                    'plan_id': planned['plan_id'], 'merge_sha': a.merge_sha, 'plan': planned,
+                    'topology': current, 'boot_id': boot_id(), 'watchers': watch,
+                    'resources': resources, 'resource_snapshot_sha256': digest(resources),
+                    'phase': 'claimed', 'created_at': utc(), 'candidate_start_attempted': False,
+                })
+            except FileExistsError as exc:
+                raise B('host-state cutover plan already attempted') from exc
+            claimed = True
+            reject_nested_mounts()
+            validate_resources(jread(attempt)['resources'])
+            update_attempt(attempt, phase='precopy_started')
+            precopy()
+            # The copy may take longer than the plan's TTL. Revalidate all
+            # mutable authorization and identities before the first live stop.
+            c5gate()
+            if topology() != current:
+                raise B('live topology changed during precopy')
+            validate_resources(jread(attempt)['resources'])
+            if watcher_states() != watch:
+                raise B('runtime watcher state changed before mutation')
+            confirmed = loadplan(a.plan.resolve(), a.evidence.resolve())
+            if confirmed != planned:
+                raise B('plan changed during precopy')
+            gitgate(a.merge_sha)
+            evidence(a.evidence.resolve(), a.merge_sha)
+            update_attempt(attempt, phase='watcher_stop_started')
+            stop_watchers(watch)
+            update_attempt(attempt, phase='watchers_stopped')
+            update_attempt(attempt, phase='restart_policy_quiesce_started')
+            quiesce_restart_policies(current)
+            update_attempt(attempt, phase='restart_policies_quiesced')
+            update_attempt(attempt, phase='application_stop_started')
+            stop_live(current)
+            update_attempt(attempt, phase='legacy_runtime_stopped')
+            update_attempt(attempt, phase='legacy_seal_started')
+            for _, source, _, _ in PATHS:
+                seal(source, attempt)
+            update_attempt(attempt, phase='legacy_sources_sealed')
+            manifests = exact_copy_and_manifest()
+            bootstrap_match()
+            hidden_fd_count = require_zero_hidden_underlay_fds()
+            update_attempt(attempt, phase='gate_install_started')
+            install_gates(attempt)
+            update_attempt(attempt, phase='gates_installed')
+            update_attempt(attempt, phase='bind_activation_started')
+            run(['systemctl', 'start', 'aionex-fr06c5-host-state-bind.service'], 120)
+            bind = json.loads(run([
+                'python3', str(ROOT / 'scripts/security/fr06c5_host_state_bind.py'),
+                'status', '--require-ready',
+            ]))
+            if bind.get('validation') != 'FR06C5_HOST_STATE_BIND_READY':
+                raise B('host-state candidate bind did not become ready')
+            update_attempt(attempt, phase='bind_active')
+            # Set the in-memory barrier before the durable write. A failed write
+            # leaves an uncertain attempt for reconciliation, never a blind undo.
+            candidate_start_attempted = True
+            update_attempt(attempt, phase='candidate_start_attempted', candidate_start_attempted=True)
+            run(['systemctl', 'start', 'docker.socket', 'docker.service'], 180)
+            run(['docker', 'start', *[r['id'] for r in current['containers']]], 180)
+            restore_restart_policies(current)
+            restore_watchers(watch)
+            acceptance(current)
+            body = {
+                'schema_version': 1, 'subpart': 'FR-06C5D',
+                'status': 'encrypted_host_state_started_admission_closed', 'completed_at': utc(),
+                'operation_id': planned['plan_id'], 'merge_sha': a.merge_sha,
+                'running_containers': 36, 'unhealthy_running_containers': 0, 'project_worker_scale': 4,
+                'manifest': manifests, 'hidden_underlay_fd_count': hidden_fd_count,
+                'legacy_underlays_read_only': True, 'legacy_underlays_deleted': False,
+                'candidate_host_state_authoritative': True, 'bootstrap_remains_outside_vault': True,
+                'post_start_blind_rollback_permitted': False, 'admission_opened': False,
+                'cloudflare_changed': False,
+            }
+            result = STATE / 'results' / (planned['plan_id'] + '.json')
+            store(result, {**body, 'receipt_sha256': digest(body)})
+            update_attempt(attempt, phase='accepted', accepted_receipt=str(result))
+            return {'status': body['status'], 'result': str(result), 'admission_opened': False}
+        except Exception as original:
+            if not claimed:
+                raise
+            try:
+                recorded = jread(attempt)
+            except Exception as journal_error:
+                raise E('attempt journal unavailable; reconciliation required without automatic rollback') from journal_error
+            candidate_start_attempted = candidate_start_attempted or recorded.get('candidate_start_attempted') is not False
+            if not candidate_start_attempted:
+                phase = str(recorded.get('phase', ''))
+                if phase in {'claimed', 'precopy_started'}:
+                    update_attempt(attempt, phase='failed_before_live_mutation',
+                                   last_error_type=type(original).__name__)
+                    raise E('host-state cutover failed before live mutation; plan consumed without outage') from original
+                try:
+                    rollback = rollback_prestart(current, watch, phase, attempt)
+                    update_attempt(attempt, phase='legacy_restored_prestart', rollback_verified=True,
+                                   rollback_result=rollback, last_error_type=type(original).__name__)
+                except Exception as rollback_error:
+                    try:
+                        update_attempt(attempt, phase='rollback_failed', rollback_verified=False,
+                                       last_error_type=type(original).__name__,
+                                       rollback_error_type=type(rollback_error).__name__)
+                    except Exception:
+                        pass
+                    raise E('host-state cutover failed before candidate start and rollback failed; reconciliation required') from rollback_error
+                raise E('host-state cutover failed before candidate start; legacy runtime restored and plan consumed') from original
+            try:
+                update_attempt(attempt, phase='post_start_failure_requires_reconciliation',
+                               candidate_start_attempted=True, last_error_type=type(original).__name__)
+            except Exception:
+                pass
+            raise E('host-state cutover failed after candidate start attempt; candidate state may be authoritative and blind rollback is prohibited') from original
+
 def main():
  p=argparse.ArgumentParser();s=p.add_subparsers(dest='cmd',required=True);s.add_parser('inspect-runtime');q=s.add_parser('plan-cutover');q.add_argument('--merge-sha',required=True);q.add_argument('--evidence',type=Path,required=True);q.add_argument('--ttl-seconds',type=int,default=600);q=s.add_parser('apply-cutover');q.add_argument('--merge-sha',required=True);q.add_argument('--evidence',type=Path,required=True);q.add_argument('--plan',type=Path,required=True);q.add_argument('--confirmation',required=True);q.add_argument('--confirm-production',default='');a=p.parse_args()
  try:o=inspect() if a.cmd=='inspect-runtime' else plan(a) if a.cmd=='plan-cutover' else apply(a);print(json.dumps(o,sort_keys=True));return 0
