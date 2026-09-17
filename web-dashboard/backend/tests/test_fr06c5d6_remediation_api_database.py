@@ -8,6 +8,7 @@ locks run. Preparation, scan execution, subprocesses and filesystem writes do no
 from __future__ import annotations
 
 import asyncio
+import importlib.util
 import re
 import subprocess
 from contextlib import asynccontextmanager
@@ -850,7 +851,7 @@ async def test_actual_denial_or_failed_commit_rolls_back_and_releases_waiting_cl
 
 
 @pytest.mark.asyncio
-async def test_closed_preparation_keeps_existing_list_patch_retest_and_finalization(
+async def test_closed_preparation_keeps_list_patch_finalization_but_new_retest_needs_scan_admission(
     remediation_case,
 ):
     case = remediation_case
@@ -876,6 +877,40 @@ async def test_closed_preparation_keeps_existing_list_patch_retest_and_finalizat
     assert response.status_code == 200, response.text
     assert response.json()["status"] == "regression_passed"
     assert response.json()["regression_result"]["production_modified"] is False
+    before_retest = await _business(case)
+    response = await case.client.post(f"{PREFIX}/remediations/{remediation_id}/retest")
+    _rejected(response, "Security scan admission is currently unavailable.")
+    assert await _business(case) == before_retest
+
+    # D7A now guards NEW retest creation. Widen through the actual migration,
+    # prove closure survives it, and reopen explicitly before accepting a retest.
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+
+    path = (Path(__file__).resolve().parents[1] / "alembic" / "versions"
+            / "20260917_0052_scan_request_admission.py")
+    spec = importlib.util.spec_from_file_location("scan_admission_" + uuid4().hex, path)
+    assert spec is not None and spec.loader is not None
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+
+    def migrate(connection):
+        migration.op = Operations(MigrationContext.configure(connection))
+        migration.upgrade()
+
+    async with case.engine.begin() as connection:
+        await connection.run_sync(migrate)
+    response = await case.client.post(f"{PREFIX}/remediations/{remediation_id}/retest")
+    _rejected(response, "Security scan admission is temporarily closed for maintenance.")
+    assert await _business(case) == before_retest
+    async with case.sessions() as session:
+        generation = await session.scalar(select(OwnerControlRecord.version).where(
+            OwnerControlRecord.domain == DOMAIN, OwnerControlRecord.resource_id == RESOURCE_ID,
+        ))
+    opened = await open_admission(
+        operation_id=case.operation_id, expected_generation=generation,
+        reason="isolated explicit reopen for a new retest", session_factory=case.sessions,
+    )
     response = await case.client.post(
         f"{PREFIX}/remediations/{remediation_id}/retest",
     )
@@ -883,6 +918,10 @@ async def test_closed_preparation_keeps_existing_list_patch_retest_and_finalizat
     retest_id = response.json()["scan"]["id"]
     assert response.json()["remediation"]["status"] == "retest_queued"
     assert response.json()["scan"]["status"] == "queued"
+    await close_admission(
+        operation_id=case.operation_id, expected_generation=opened.generation,
+        reason="isolated closure before existing retest finalization", session_factory=case.sessions,
+    )
     async with case.sessions() as session:
         retest = await session.get(SecurityScan, retest_id)
         assert retest.target_id == case.target_id
