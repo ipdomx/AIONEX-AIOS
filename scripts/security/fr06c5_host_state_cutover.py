@@ -497,7 +497,74 @@ def exact_copy_and_manifest():
   out[role]=a
  return out
 def hidden_underlay_references():
-    """Inspect visible proc references; this is not proof about every kernel reference."""
+    """Observe proc-visible references, not every possible kernel or historical reference."""
+    def identity(info):
+        return (info.st_dev, info.st_ino, stat.S_IFMT(info.st_mode))
+
+    def inventory():
+        roles, devices, snapshot = {}, set(), {}
+        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+
+        def fingerprint(info):
+            return (
+                info.st_dev, info.st_ino, info.st_mode, info.st_uid, info.st_gid,
+                info.st_size, info.st_nlink, info.st_mtime_ns, info.st_ctime_ns,
+            )
+
+        def visit(parent_fd, name, role, relative, expected_file=None):
+            before = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+            is_file, is_directory = stat.S_ISREG(before.st_mode), stat.S_ISDIR(before.st_mode)
+            if not (is_file or is_directory):
+                raise B('legacy identity inventory rejects symlinks and special entries')
+            if expected_file is not None and is_file != expected_file:
+                raise B('legacy identity inventory source type changed')
+            observed = fingerprint(before)
+            snapshot[(role, 'source', relative)] = observed
+            roles.setdefault((before.st_dev, before.st_ino), set()).add(role)
+            devices.add(before.st_dev)
+            if is_directory:
+                fd = os.open(name, flags, dir_fd=parent_fd)
+                try:
+                    if fingerprint(os.fstat(fd)) != observed:
+                        raise B('legacy directory changed while opening identity inventory')
+                    with os.scandir(fd) as entries:
+                        names = sorted(entry.name for entry in entries)
+                    for child in names:
+                        visit(fd, child, role, relative + (child,))
+                    if fingerprint(os.fstat(fd)) != observed:
+                        raise B('legacy directory changed during identity inventory')
+                finally:
+                    os.close(fd)
+            if fingerprint(os.stat(name, dir_fd=parent_fd, follow_symlinks=False)) != observed:
+                raise B('legacy entry changed during identity inventory')
+
+        try:
+            for role, source, _, is_file in PATHS:
+                if not source.is_absolute() or '..' in source.parts or source == Path('/'):
+                    raise B('legacy inventory source path is invalid')
+                parent_fd = os.open('/', flags)
+                try:
+                    snapshot[(role, 'ancestor', 0)] = identity(os.fstat(parent_fd))
+                    for number, component in enumerate(source.parts[1:-1], 1):
+                        next_fd = os.open(component, flags, dir_fd=parent_fd)
+                        try:
+                            opened = os.fstat(next_fd)
+                            linked = os.stat(component, dir_fd=parent_fd, follow_symlinks=False)
+                            if not stat.S_ISDIR(linked.st_mode) or identity(opened) != identity(linked):
+                                raise B('legacy source ancestor changed during identity inventory')
+                            snapshot[(role, 'ancestor', number)] = identity(opened)
+                        except Exception:
+                            os.close(next_fd)
+                            raise
+                        os.close(parent_fd)
+                        parent_fd = next_fd
+                    visit(parent_fd, source.name, role, (), is_file)
+                finally:
+                    os.close(parent_fd)
+        except OSError as exc:
+            raise B('cannot complete legacy identity inventory; underlay scan incomplete') from exc
+        return roles, devices, snapshot
+
     def verified_absent(reference, follow=False):
         try:
             (os.stat if follow else os.lstat)(reference)
@@ -517,34 +584,67 @@ def hidden_underlay_references():
         except OSError as exc:
             raise B('cannot enumerate process references; underlay scan incomplete') from exc
 
+    def reference_stat(reference):
+        try:
+            return os.stat(reference)
+        except (FileNotFoundError, ProcessLookupError) as exc:
+            if verified_absent(reference, follow=True):
+                return None
+            raise B('process reference stat disappearance could not be verified') from exc
+        except OSError as exc:
+            raise B('cannot inspect process reference identity; underlay scan incomplete') from exc
+
     def link(reference):
         try:
             return os.readlink(reference)
         except (FileNotFoundError, ProcessLookupError) as exc:
-            # Kernel/zombie tasks can retain a magic-link placeholder without
-            # a referenced FS object. Follow it to prove absence, not lstat.
+            # Kernel/zombie tasks may retain a magic-link placeholder without
+            # a referenced object. Following stat proves absence, unlike lstat.
             if verified_absent(reference, follow=True):
                 return None
             raise B('process reference disappearance could not be verified') from exc
         except OSError as exc:
             raise B('cannot inspect a process reference; underlay scan incomplete') from exc
 
+    source_roles, source_devices, source_snapshot = inventory()
     holders = []
 
     def inspect_reference(reference, kind, pid, tid, identifier=None):
+        before = reference_stat(reference)
+        if before is None:
+            return
         target = link(reference)
         if target is None:
             return
+        after = reference_stat(reference)
+        if after is None:
+            return
+        if identity(before) != identity(after):
+            raise B('process reference identity changed during underlay scan')
+        matched = set(source_roles.get((after.st_dev, after.st_ino), ()))
         clean = target[:-10] if target.endswith(' (deleted)') else target
-        for role, source, _, isfile in PATHS:
+        for role, source, _, is_file in PATHS:
             base = str(source)
-            if (isfile and clean == base) or (
-                not isfile and (clean == base or clean.startswith(base.rstrip('/') + '/'))
+            if (is_file and clean == base) or (
+                not is_file and (clean == base or clean.startswith(base.rstrip('/') + '/'))
             ):
-                record = {'kind': kind, 'pid': pid, 'tid': tid, 'role': role}
-                if identifier is not None:
-                    record['range' if kind == 'mmap' else 'fd'] = identifier
-                holders.append(record)
+                matched.add(role)
+        # Current source names cannot establish provenance for an already
+        # unlinked external alias. Block unknown unlinked objects on a source
+        # filesystem rather than calling that ambiguity a zero-reference result.
+        ambiguous = (
+            not matched and after.st_dev in source_devices and after.st_nlink == 0
+            and (stat.S_ISREG(after.st_mode) or stat.S_ISDIR(after.st_mode))
+        )
+        if ambiguous:
+            matched.add('unresolved-legacy-filesystem')
+        for role in sorted(matched):
+            record = {'kind': kind, 'pid': pid, 'tid': tid, 'role': role}
+            if ambiguous:
+                record['reason'] = 'unlinked-reference-provenance-unverified'
+            if identifier is not None:
+                record['range' if kind == 'mmap' else 'fd'] = identifier
+            holders.append(record)
 
     try:
         processes = sorted(PROC.iterdir(), key=lambda value: value.name)
@@ -567,14 +667,16 @@ def hidden_underlay_references():
                 inspect_reference(descriptor, 'fd', pid, tid, descriptor.name)
             for kind in ('cwd', 'root'):
                 inspect_reference(thread / kind, kind, pid, tid)
-            # Linux exposes map_files through /proc/TID, not task/TID/map_files.
-            # Scan each live thread alias so an exited leader cannot hide its
-            # surviving threads' mappings. FD and FS tables can be unshared.
+            # /proc/TID aliases also cover mappings of surviving nonleader
+            # threads; Linux does not expose task/TID/map_files.
             mappings = entries(PROC / thread.name / 'map_files', thread)
             if mappings is None:
                 continue
             for mapping in mappings:
                 inspect_reference(mapping, 'mmap', pid, tid, mapping.name)
+    _, _, final_snapshot = inventory()
+    if final_snapshot != source_snapshot:
+        raise B('legacy identity inventory changed during underlay scan')
     return holders
 
 
