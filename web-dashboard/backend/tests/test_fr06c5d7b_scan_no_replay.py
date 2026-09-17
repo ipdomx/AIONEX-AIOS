@@ -352,3 +352,105 @@ async def test_start_commit_failure_never_performs_scanner_io(execution_case, mo
         await case.worker.run_claim(*claim)
         assert not case.io
     assert await case.worker.claim() is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("ack_lost", [False, True])
+async def test_claim_commit_failure_never_returns_execution_capability(execution_case, monkeypatch, ack_lost):
+    case = execution_case
+    identifier = await _new(case)
+
+    class FailingClaimSession(AsyncSession):
+        async def commit(self):
+            if ack_lost:
+                await super().commit()
+            raise RuntimeError("synthetic claim acknowledgement failure")
+
+    sessions = async_sessionmaker(case.engine, class_=FailingClaimSession, expire_on_commit=False)
+    monkeypatch.setattr(worker_module, "SessionLocal", sessions)
+    with pytest.raises(RuntimeError, match="acknowledgement"):
+        await case.worker.claim()
+    assert not case.io
+    row = await _row(case, identifier)
+    if ack_lost:
+        assert row["status"] == "running" and row["attempts"] == 1
+        assert row["summary"][worker_module.GUARD_KEY] == _guard("claimed")
+    else:
+        assert row["status"] == "queued" and row["attempts"] == 0
+        assert worker_module.GUARD_KEY not in row["summary"]
+    monkeypatch.setattr(worker_module, "SessionLocal", case.sessions)
+    if ack_lost:
+        assert await case.worker.claim() is None
+    else:
+        assert await case.worker.claim() is not None
+
+
+@pytest.mark.asyncio
+async def test_duplicate_running_capability_does_not_block_maintenance_close(execution_case, monkeypatch):
+    case = execution_case
+    identifier = await _new(case)
+    claim = await case.worker.claim()
+    assert claim
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def owned_execute(_session, scan):
+        entered.set()
+        await release.wait()
+        scan.status = "completed"
+        scan.completed_at = datetime.now(UTC)
+        scan.lease_token = None
+
+    monkeypatch.setattr(worker_module, "execute_scan", owned_execute)
+    task = asyncio.create_task(case.worker.run_claim(*claim))
+    try:
+        await asyncio.wait_for(entered.wait(), WAIT)
+        await asyncio.wait_for(worker_module.SecurityScanWorker().run_claim(*claim), WAIT)
+        closed = await asyncio.wait_for(_shared._close(case), WAIT)
+        assert closed.is_open is False
+        assert not task.done()
+        release.set()
+        await asyncio.wait_for(task, WAIT)
+    finally:
+        release.set()
+        if not task.done():
+            task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+    row = await _row(case, identifier)
+    assert row["status"] == "completed"
+    assert row["summary"][worker_module.GUARD_KEY] == _guard("returned")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("ack_lost", [False, True])
+async def test_completion_commit_failure_never_replays_external_work(execution_case, monkeypatch, ack_lost):
+    case = execution_case
+    identifier = await _new(case)
+    claim = await case.worker.claim()
+    assert claim
+    commits = []
+
+    class FailingCompletionSession(AsyncSession):
+        async def commit(self):
+            commits.append(True)
+            if len(commits) == 2:
+                if ack_lost:
+                    await super().commit()
+                raise RuntimeError("synthetic completion acknowledgement failure")
+            await super().commit()
+
+    sessions = async_sessionmaker(case.engine, class_=FailingCompletionSession, expire_on_commit=False)
+    monkeypatch.setattr(worker_module, "SessionLocal", sessions)
+    with pytest.raises(RuntimeError, match="acknowledgement"):
+        await case.worker.run_claim(*claim)
+    row = await _row(case, identifier)
+    if ack_lost:
+        assert row["status"] == "completed" and row["lease_token"] is None
+        assert row["summary"][worker_module.GUARD_KEY] == _guard("returned")
+    else:
+        assert row["status"] == "running" and row["lease_token"] == claim[1]
+        assert row["summary"][worker_module.GUARD_KEY] == _guard("unresolved")
+        assert "synthetic_result" not in row["summary"]
+    monkeypatch.setattr(worker_module, "SessionLocal", case.sessions)
+    assert await case.worker.claim() is None
+    await case.worker.run_claim(*claim)
+    assert case.io == ["policy", "execute"]
