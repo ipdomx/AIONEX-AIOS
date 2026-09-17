@@ -7,11 +7,11 @@ import re
 import shutil
 import signal
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Protocol
 from uuid import uuid4
 
 from app.core.config import settings
@@ -19,6 +19,7 @@ from app.core.logging import get_logger, setup_logging
 from app.db.base import SessionLocal
 from app.db.models import AuditEvent, BackupRecord, DisasterRecoveryRun
 from app.services.backup_executor import (
+    BackupCleanupIncomplete,
     BackupExecutionError,
     BackupExecutor,
     acquire_enqueue_lock,
@@ -30,14 +31,55 @@ from app.services.three_d_asset_backup import (
     ThreeDAssetSnapshotExecutor,
 )
 from app.services.offsite_backup import OffsiteBackupReplicator
-from app.services import communications
+from app.services import communications, host_maintenance_cycles
+from app.services.host_maintenance_admission import (
+    HostMaintenanceClosed,
+    HostMaintenanceUnavailable,
+    is_admission_open,
+    read_admission_snapshot,
+)
+from app.services.host_maintenance_cycles import CycleOwnership
 from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import SQLAlchemyError
 
 logger = get_logger(__name__)
 SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
 MAINTENANCE_INTERVAL_SECONDS = 300
 RESTORE_SCRATCH_DATABASES_KEY = "_restore_scratch_databases"
+
+class AdmissionCheck(Protocol):
+    async def __call__(
+        self, session: AsyncSession, *, required_scope: str
+    ) -> bool: ...
+
+
+class BackupCycleService(Protocol):
+    async def begin_backup_cycle(
+        self, *, worker_incarnation: str, phase: str, session_factory: SessionFactory
+    ) -> CycleOwnership: ...
+
+    async def heartbeat_backup_cycle(
+        self,
+        ownership: CycleOwnership,
+        *,
+        phase: str | None = None,
+        job_id: str | None = None,
+        session_factory: SessionFactory,
+    ) -> None: ...
+
+    async def mark_backup_cycle_unresolved(
+        self,
+        ownership: CycleOwnership,
+        *,
+        reason: str,
+        session_factory: SessionFactory,
+    ) -> None: ...
+
+    async def finish_backup_cycle(
+        self, ownership: CycleOwnership, *, session_factory: SessionFactory
+    ) -> None: ...
+
 
 
 def _now() -> datetime:
@@ -153,12 +195,21 @@ class BackupJobWorker:
         three_d_executor: ThreeDAssetSnapshotExecutor | None = None,
         offsite_replicator: OffsiteBackupReplicator | None = None,
         session_factory: SessionFactory = SessionLocal,
+        admission_check: AdmissionCheck | None = None,
+        cycle_service: BackupCycleService | None = None,
     ) -> None:
         self._executor = executor or get_backup_executor()
         self._three_d_executor = three_d_executor or ThreeDAssetSnapshotExecutor()
         self._offsite = offsite_replicator or OffsiteBackupReplicator()
         self._session_factory = session_factory
         self._next_maintenance_at = 0.0
+        self._admission_check = admission_check or is_admission_open
+        self._cycle_service = cycle_service or host_maintenance_cycles
+        self._worker_incarnation = str(uuid4())
+        self._cycle_lock = asyncio.Lock()
+        self._active_cycle: CycleOwnership | None = None
+        self._cycle_uncertain_reason: str | None = None
+        self._startup_complete = False
 
     @property
     def _stale_before(self) -> datetime:
@@ -184,6 +235,10 @@ class BackupJobWorker:
         """Claim one pending or safely expired backup job with SKIP LOCKED."""
 
         async with self._session_factory() as session:
+            if not await self._admission_check(
+                session, required_scope="backup_cycles"
+            ):
+                return None
             record = await session.scalar(
                 select(BackupRecord)
                 .where(
@@ -226,6 +281,10 @@ class BackupJobWorker:
         """Claim one durable restore-validation or DR-drill job."""
 
         async with self._session_factory() as session:
+            if not await self._admission_check(
+                session, required_scope="backup_cycles"
+            ):
+                return None
             record = await session.scalar(
                 select(DisasterRecoveryRun)
                 .where(
@@ -333,7 +392,7 @@ class BackupJobWorker:
         self,
         model: Any,
         claim: ClaimedJob,
-        operation: Callable[[ClaimedJob], Any],
+        operation: Callable[[ClaimedJob], Coroutine[Any, Any, None]],
     ) -> None:
         stop_event = asyncio.Event()
         operation_task = asyncio.create_task(operation(claim))
@@ -346,17 +405,31 @@ class BackupJobWorker:
                 return_when=asyncio.FIRST_COMPLETED,
             )
             if heartbeat_task in done and not operation_task.done():
-                error = heartbeat_task.exception()
-                operation_task.cancel()
-                await asyncio.gather(operation_task, return_exceptions=True)
-                if error is not None:
-                    raise error
-                raise LeaseLostError(f"Lease heartbeat for {claim.id} stopped")
+                await heartbeat_task
+                raise LeaseLostError("The backup lease heartbeat stopped early")
             await operation_task
-        finally:
             stop_event.set()
-            heartbeat_task.cancel()
-            await asyncio.gather(heartbeat_task, return_exceptions=True)
+            if heartbeat_task.done():
+                try:
+                    await heartbeat_task
+                except LeaseLostError:
+                    # Terminal publication clears the running token. A renewal can
+                    # observe that terminal state before this waiter resumes. The
+                    # operation already completed; a genuinely lost publication is
+                    # recorded by the fenced completion/failure paths themselves.
+                    pass
+            else:
+                # A renewal may be waiting behind terminal publication. Stop this
+                # DB-only heartbeat; the completed operation no longer needs it.
+                heartbeat_task.cancel()
+                await asyncio.gather(heartbeat_task, return_exceptions=True)
+        except BaseException:
+            stop_event.set()
+            # Cancellation of this waiter must never detach its operation task.
+            # Blocking threads may outlive task cancellation; the enclosing durable
+            # cycle remains unresolved instead of claiming completion.
+            await self._cancel_and_settle(operation_task, heartbeat_task)
+            raise
 
     async def _database_size_bytes(self) -> int:
         async with self._session_factory() as session:
@@ -654,16 +727,24 @@ class BackupJobWorker:
                         snapshot=snapshot,
                     )
                 except BackupExecutionError as exc:
+                    if isinstance(exc, BackupCleanupIncomplete):
+                        self._record_cycle_uncertainty("backup-cleanup-incomplete")
                     offsite_error = exc
         except asyncio.CancelledError:
             if artifact is not None:
                 await self._cleanup_uncommitted_backup(artifact.location)
             raise
+        except (SQLAlchemyError, LeaseLostError):
+            self._record_cycle_uncertainty("job-database-or-lease-uncertain")
+            raise
         except BackupExecutionError as exc:
+            if isinstance(exc, BackupCleanupIncomplete):
+                self._record_cycle_uncertainty("backup-cleanup-incomplete")
             if artifact is not None:
                 try:
                     await self._cleanup_uncommitted_backup(artifact.location)
                 except BackupExecutionError:
+                    self._record_cycle_uncertainty("backup-cleanup-incomplete")
                     logger.exception("Failed to clean an uncommitted backup artifact")
             await self._finish_backup_failure(claim, exc)
             return
@@ -672,6 +753,7 @@ class BackupJobWorker:
                 try:
                     await self._cleanup_uncommitted_backup(artifact.location)
                 except BackupExecutionError:
+                    self._record_cycle_uncertainty("backup-cleanup-incomplete")
                     logger.exception("Failed to clean an uncommitted backup artifact")
             await self._finish_backup_failure(
                 claim,
@@ -693,6 +775,7 @@ class BackupJobWorker:
                 .with_for_update()
             )
             if record is None:
+                self._record_cycle_uncertainty("job-ownership-lost")
                 await self._cleanup_uncommitted_backup(artifact.location)
                 return
             record.status = "completed"
@@ -827,6 +910,7 @@ class BackupJobWorker:
                 .with_for_update()
             )
             if record is None:
+                self._record_cycle_uncertainty("job-ownership-lost")
                 return
             record.status = "failed"
             record.lease_token = None
@@ -864,6 +948,7 @@ class BackupJobWorker:
                     )
                 )
                 if run is None:
+                    self._record_cycle_uncertainty("job-ownership-lost")
                     return
                 operation = run.operation
                 backup_id = str((run.details or {}).get("backup_id", ""))
@@ -967,7 +1052,12 @@ class BackupJobWorker:
                 )
         except asyncio.CancelledError:
             raise
+        except (SQLAlchemyError, LeaseLostError):
+            self._record_cycle_uncertainty("job-database-or-lease-uncertain")
+            raise
         except BackupExecutionError as exc:
+            if isinstance(exc, BackupCleanupIncomplete):
+                self._record_cycle_uncertainty("restore-cleanup-incomplete")
             await self._finish_restore_failure(claim, operation, exc)
             return
         except Exception:
@@ -981,12 +1071,24 @@ class BackupJobWorker:
             )
             return
         finally:
+            pending_error = sys.exception()
             if offsite_artifacts is not None:
-                await asyncio.to_thread(
-                    self._offsite.cleanup_validation,
-                    offsite_artifacts.database_location,
-                    offsite_artifacts.snapshot_location,
-                )
+                try:
+                    await asyncio.to_thread(
+                        self._offsite.cleanup_validation,
+                        offsite_artifacts.database_location,
+                        offsite_artifacts.snapshot_location,
+                    )
+                except BackupCleanupIncomplete:
+                    self._record_cycle_uncertainty("restore-cleanup-incomplete")
+                    if isinstance(pending_error, BaseException) and not isinstance(
+                        pending_error, Exception
+                    ):
+                        pending_error.add_note(
+                            "Offsite restore cleanup could not be verified"
+                        )
+                    else:
+                        raise
 
         async with self._session_factory() as session:
             await acquire_enqueue_lock(session, "restore-validation")
@@ -1000,6 +1102,7 @@ class BackupJobWorker:
                 .with_for_update()
             )
             if run is None:
+                self._record_cycle_uncertainty("job-ownership-lost")
                 return
             three_d_validated = not snapshot_required or snapshot_validation is not None
             offsite_required = self._offsite.enabled
@@ -1083,6 +1186,7 @@ class BackupJobWorker:
                 .with_for_update()
             )
             if run is None:
+                self._record_cycle_uncertainty("job-ownership-lost")
                 return
             run.status = "failed"
             run.lease_token = None
@@ -1121,6 +1225,10 @@ class BackupJobWorker:
         ):
             return False
         async with self._session_factory() as session:
+            if not await self._admission_check(
+                session, required_scope="backup_cycles"
+            ):
+                return False
             await acquire_enqueue_lock(session, "restore-validation")
             active = await session.scalar(
                 select(DisasterRecoveryRun.id)
@@ -1190,6 +1298,10 @@ class BackupJobWorker:
         if not settings.BACKUP_SCHEDULE_ENABLED:
             return False
         async with self._session_factory() as session:
+            if not await self._admission_check(
+                session, required_scope="backup_cycles"
+            ):
+                return False
             await acquire_enqueue_lock(session, "scheduled-platform-backup")
             active = await session.scalar(
                 select(BackupRecord.id)
@@ -1236,15 +1348,162 @@ class BackupJobWorker:
             await session.commit()
             return True
 
+    @staticmethod
+    async def _cancel_and_settle(*tasks: asyncio.Task[Any]) -> None:
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        joined = asyncio.gather(*tasks, return_exceptions=True)
+        while not joined.done():
+            try:
+                await asyncio.shield(joined)
+            except asyncio.CancelledError:
+                # Repeated cancellation cannot detach children that are cleaning up.
+                continue
+        joined.result()
+
+    def _record_cycle_uncertainty(self, reason: str) -> None:
+        if self._active_cycle is not None and self._cycle_uncertain_reason is None:
+            self._cycle_uncertain_reason = reason
+
+    async def _persist_cycle_uncertainty(
+        self, ownership: CycleOwnership, reason: str
+    ) -> None:
+        try:
+            await self._cycle_service.mark_backup_cycle_unresolved(
+                ownership, reason=reason, session_factory=self._session_factory
+            )
+        except BaseException as exc:
+            # The committed row remains even if uncertainty cannot be persisted.
+            # Log only the exception class, never connection details.
+            logger.error(
+                "Backup cycle uncertainty could not be persisted",
+                error_type=type(exc).__name__,
+            )
+
+    async def _update_cycle_phase(
+        self, phase: str, job_id: str | None = None
+    ) -> None:
+        if self._active_cycle is not None:
+            await self._cycle_service.heartbeat_backup_cycle(
+                self._active_cycle,
+                phase=phase,
+                job_id=job_id,
+                session_factory=self._session_factory,
+            )
+
+    async def _heartbeat_cycle(
+        self, ownership: CycleOwnership, stop_event: asyncio.Event
+    ) -> None:
+        interval = min(
+            settings.BACKUP_WORKER_HEARTBEAT_SECONDS,
+            max(1, host_maintenance_cycles.CYCLE_LEASE_SECONDS // 3),
+        )
+        while not stop_event.is_set():
+            await self._wait_for_stop(stop_event, interval)
+            if stop_event.is_set():
+                return
+            await self._cycle_service.heartbeat_backup_cycle(
+                ownership, session_factory=self._session_factory
+            )
+
+    async def _run_owned_cycle(
+        self, phase: str, operation: Callable[[], Coroutine[Any, Any, bool]]
+    ) -> bool:
+        async with self._cycle_lock:
+            try:
+                ownership = await self._cycle_service.begin_backup_cycle(
+                    worker_incarnation=self._worker_incarnation,
+                    phase=phase,
+                    session_factory=self._session_factory,
+                )
+            except (HostMaintenanceClosed, HostMaintenanceUnavailable):
+                return False
+            self._active_cycle = ownership
+            self._cycle_uncertain_reason = None
+            stop_event = asyncio.Event()
+            operation_task = asyncio.create_task(operation())
+            heartbeat_task = asyncio.create_task(
+                self._heartbeat_cycle(ownership, stop_event)
+            )
+            try:
+                done, _ = await asyncio.wait(
+                    {operation_task, heartbeat_task},
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                if heartbeat_task in done:
+                    await heartbeat_task
+                    if not operation_task.done():
+                        raise LeaseLostError("The backup cycle heartbeat stopped early")
+                result = await operation_task
+                stop_event.set()
+                await heartbeat_task
+                if self._cycle_uncertain_reason is not None:
+                    await self._persist_cycle_uncertainty(
+                        ownership, self._cycle_uncertain_reason
+                    )
+                else:
+                    # Never finally cleanup: canceled tasks can leave blocking I/O
+                    # alive. Only an explicitly settled cycle may release ownership.
+                    await self._cycle_service.finish_backup_cycle(
+                        ownership, session_factory=self._session_factory
+                    )
+                return result
+            except BaseException as exc:
+                reason = (
+                    "cycle-cancelled"
+                    if isinstance(exc, asyncio.CancelledError)
+                    else "cycle-failed-or-ownership-uncertain"
+                )
+                self._record_cycle_uncertainty(reason)
+                stop_event.set()
+                await self._cancel_and_settle(operation_task, heartbeat_task)
+                await self._persist_cycle_uncertainty(
+                    ownership, self._cycle_uncertain_reason or reason
+                )
+                raise
+            finally:
+                self._active_cycle = None
+                self._cycle_uncertain_reason = None
+
+    async def _startup_owned(self) -> bool:
+        await self._update_cycle_phase("startup-storage")
+        await asyncio.to_thread(self._executor.verify_storage)
+        await asyncio.to_thread(self._three_d_executor.verify_source)
+        await asyncio.to_thread(self._offsite.preflight)
+        await self._update_cycle_phase("startup-partial-cleanup")
+        await asyncio.to_thread(
+            self._executor.cleanup_stale_partials, settings.BACKUP_JOB_LEASE_SECONDS
+        )
+        await asyncio.to_thread(
+            self._three_d_executor.cleanup_stale_partials,
+            settings.BACKUP_JOB_LEASE_SECONDS,
+        )
+        return True
+
+    async def _ensure_startup(self) -> bool:
+        if not self._startup_complete:
+            self._startup_complete = await self._run_owned_cycle(
+                "startup", self._startup_owned
+            )
+        return self._startup_complete
+
     async def run_once(self) -> bool:
+        return await self._run_owned_cycle("run_once", self._run_once_owned)
+
+    async def _run_once_owned(self) -> bool:
+        await self._update_cycle_phase("claim-backup")
         backup = await self.claim_backup()
         if backup is not None:
+            await self._update_cycle_phase("execute-backup", backup.id)
             await self._run_with_heartbeat(
                 BackupRecord,
                 backup,
                 self.execute_backup,
             )
+            await self._update_cycle_phase("post-backup-scheduling")
             await self._enqueue_latest_scheduled_restore_validation_if_needed()
+            await self._update_cycle_phase("post-backup-retention")
             await self._apply_retention(
                 current_backup_id=backup.id,
                 pressure=False,
@@ -1253,8 +1512,10 @@ class BackupJobWorker:
                 asyncio.get_running_loop().time() + MAINTENANCE_INTERVAL_SECONDS
             )
             return True
+        await self._update_cycle_phase("claim-restore-validation")
         recovery_run = await self.claim_restore_validation()
         if recovery_run is not None:
+            await self._update_cycle_phase("execute-restore-validation", recovery_run.id)
             await self._run_with_heartbeat(
                 DisasterRecoveryRun,
                 recovery_run,
@@ -1265,9 +1526,11 @@ class BackupJobWorker:
         if now < self._next_maintenance_at:
             return False
         self._next_maintenance_at = now + MAINTENANCE_INTERVAL_SECONDS
+        await self._update_cycle_phase("idle-scheduling")
         restore_queued = await self._enqueue_latest_scheduled_restore_validation_if_needed()
         if not restore_queued:
             await self._enqueue_scheduled_backup_if_due()
+        await self._update_cycle_phase("idle-retention")
         await self._apply_retention(
             current_backup_id=None,
             pressure=False,
@@ -1275,7 +1538,7 @@ class BackupJobWorker:
         return True
 
     async def preflight(self, *, require_heartbeat: bool = False) -> None:
-        """Verify database schema, storage, and client/server compatibility."""
+        """Check schema/client compatibility; gated startup owns storage writes."""
 
         required_tools = ("pg_dump", "pg_restore", "createdb", "dropdb", "psql")
         missing = [tool for tool in required_tools if shutil.which(tool) is None]
@@ -1331,10 +1594,20 @@ class BackupJobWorker:
                         "SELECT 1 FROM information_schema.columns "
                         "WHERE table_name = 'disaster_recovery_runs' "
                         "AND column_name = 'lease_token'"
-                        ")"
+                        ") AND to_regclass('host_maintenance_work_cycles') IS NOT NULL "
+                        "AND (SELECT count(*) FROM pg_catalog.pg_attribute "
+                        "WHERE attrelid = to_regclass('host_maintenance_work_cycles') "
+                        "AND NOT attisdropped AND attname IN ("
+                        "'id', 'resource_id', 'consumer', 'worker_incarnation', "
+                        "'admitted_generation', 'ownership_nonce', 'state', 'phase', "
+                        "'job_id', 'started_at', 'heartbeat_at', 'lease_expires_at', "
+                        "'unresolved_reason')) = 13"
                     )
                 )
             )
+            # Readiness accepts valid closed authority, but rejects a worker
+            # image whose migrated admission coverage or registry is missing.
+            await read_admission_snapshot(session, required_scope="backup_cycles")
         server_major = server_version_num // 10000
         if client_major != server_major:
             raise RuntimeError(
@@ -1344,16 +1617,6 @@ class BackupJobWorker:
         if not schema_ready:
             raise RuntimeError("Backup worker database schema is not current")
 
-        self._executor.verify_storage()
-        self._three_d_executor.verify_source()
-        await asyncio.to_thread(self._offsite.preflight)
-        if not require_heartbeat:
-            self._executor.cleanup_stale_partials(
-                settings.BACKUP_JOB_LEASE_SECONDS,
-            )
-            self._three_d_executor.cleanup_stale_partials(
-                settings.BACKUP_JOB_LEASE_SECONDS,
-            )
         if require_heartbeat:
             self._executor.verify_heartbeat()
 
@@ -1365,6 +1628,8 @@ class BackupJobWorker:
             return
 
     async def _heartbeat_forever(self, stop_event: asyncio.Event) -> None:
+        # Control-plane liveness continues while backup admission is closed;
+        # these heartbeat writes are outside the partial backup-cycle snapshot.
         while not stop_event.is_set():
             self._executor.write_heartbeat()
             await self._wait_for_stop(
@@ -1375,7 +1640,10 @@ class BackupJobWorker:
     async def _process_forever(self, stop_event: asyncio.Event) -> None:
         while not stop_event.is_set():
             try:
-                processed = await self.run_once()
+                startup_ready = await self._ensure_startup()
+                if stop_event.is_set():
+                    return
+                processed = await self.run_once() if startup_ready else False
             except asyncio.CancelledError:
                 raise
             except Exception as exc:

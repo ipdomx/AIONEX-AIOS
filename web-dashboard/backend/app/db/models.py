@@ -2610,6 +2610,43 @@ class OwnerControlRecord(Base, TimestampMixin):
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
 
+class HostMaintenanceWorkCycle(Base):
+    """Unfinished backup-cycle ownership; lease expiry never removes evidence."""
+
+    __tablename__ = "host_maintenance_work_cycles"
+    __table_args__ = (
+        CheckConstraint("consumer = 'backup_cycles'", name="ck_host_cycle_consumer"),
+        CheckConstraint("admitted_generation > 0", name="ck_host_cycle_generation"),
+        CheckConstraint("state IN ('active', 'unresolved')", name="ck_host_cycle_state"),
+        CheckConstraint(
+            "lease_expires_at >= heartbeat_at", name="ck_host_cycle_deadline"
+        ),
+        CheckConstraint(
+            "(state = 'active' AND unresolved_reason IS NULL) OR "
+            "(state = 'unresolved' AND unresolved_reason IS NOT NULL)",
+            name="ck_host_cycle_unresolved_reason",
+        ),
+        Index(
+            "ix_host_cycle_resource_consumer_state",
+            "resource_id", "consumer", "state", "lease_expires_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    resource_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    consumer: Mapped[str] = mapped_column(String(80), nullable=False)
+    worker_incarnation: Mapped[str] = mapped_column(String(36), nullable=False)
+    admitted_generation: Mapped[int] = mapped_column(Integer, nullable=False)
+    ownership_nonce: Mapped[str] = mapped_column(String(36), nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False)
+    phase: Mapped[str] = mapped_column(String(80), nullable=False)
+    job_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    heartbeat_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    lease_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    unresolved_reason: Mapped[str | None] = mapped_column(String(160), nullable=True)
+
+
 class OwnerCommandRecord(Base):
     """Append-only audit record for every mutating owner dashboard command."""
 

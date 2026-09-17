@@ -14,6 +14,7 @@ import os
 import re
 import shutil
 import stat
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -50,6 +51,10 @@ class BackupExecutionError(RuntimeError):
         self.operation = operation
         self.public_message = message
         self.status_code = status_code
+
+
+class BackupCleanupIncomplete(BackupExecutionError):
+    """Required cleanup did not complete; cycle ownership must remain unresolved."""
 
 
 @dataclass(frozen=True)
@@ -375,7 +380,7 @@ class BackupExecutor:
     def _heartbeat_path(self) -> Path:
         hostname = os.environ.get("HOSTNAME", "local-worker")
         identity = hashlib.sha256(hostname.encode("utf-8")).hexdigest()[:16]
-        return self._secure_backup_directory() / f".worker-{identity}.heartbeat"
+        return self._protected_backup_directory() / f".worker-{identity}.heartbeat"
 
     def verify_storage(self) -> None:
         """Fail unless the protected volume is writable by the worker user."""
@@ -408,6 +413,7 @@ class BackupExecutor:
     def write_heartbeat(self) -> None:
         """Atomically publish liveness for this specific worker container."""
 
+        self._secure_backup_directory()
         destination = self._heartbeat_path
         temporary = destination.with_name(f"{destination.name}.{uuid4().hex}.tmp")
         try:
@@ -673,12 +679,19 @@ class BackupExecutor:
                 "The backup artifact could not be finalized",
             ) from exc
         finally:
+            pending_error = sys.exception()
             if descriptor is not None:
                 os.close(descriptor)
             try:
                 temporary.unlink(missing_ok=True)
-            except OSError:
-                pass
+            except OSError as cleanup_error:
+                if pending_error is not None and not isinstance(pending_error, Exception):
+                    pending_error.add_note("Backup temporary artifact cleanup is incomplete")
+                else:
+                    raise BackupCleanupIncomplete(
+                        "PostgreSQL backup cleanup",
+                        "The backup temporary artifact could not be removed",
+                    ) from cleanup_error
 
     @classmethod
     def _publish_artifact(
@@ -928,6 +941,7 @@ class BackupExecutor:
         except BackupExecutionError as exc:
             primary_error = exc
         finally:
+            pending_error = sys.exception()
             if created:
                 try:
                     await self._runner.run(
@@ -945,8 +959,13 @@ class BackupExecutor:
                         operation="Restore validation cleanup",
                     )
                 except BackupExecutionError as cleanup_error:
-                    if primary_error is None:
-                        primary_error = cleanup_error
+                    if pending_error is not None and not isinstance(pending_error, Exception):
+                        pending_error.add_note("Restore scratch database cleanup is incomplete")
+                    else:
+                        raise BackupCleanupIncomplete(
+                            "Restore validation cleanup",
+                            "The restore-validation scratch database could not be removed",
+                        ) from cleanup_error
         if primary_error is not None:
             raise primary_error
         return RestoreValidation(
