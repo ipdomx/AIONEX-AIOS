@@ -2611,11 +2611,24 @@ class OwnerControlRecord(Base, TimestampMixin):
 
 
 class HostMaintenanceWorkCycle(Base):
-    """Unfinished backup-cycle ownership; lease expiry never removes evidence."""
+    """Unfinished scoped ownership; heartbeat expiry never removes evidence."""
 
     __tablename__ = "host_maintenance_work_cycles"
     __table_args__ = (
-        CheckConstraint("consumer = 'backup_cycles'", name="ck_host_cycle_consumer"),
+        CheckConstraint(
+            "consumer IN ('backup_cycles', 'academy_course_packages')",
+            name="ck_host_cycle_consumer",
+        ),
+        CheckConstraint(
+            "consumer != 'academy_course_packages' OR job_id IS NOT NULL",
+            name="ck_host_cycle_academy_job",
+        ),
+        Index(
+            "uq_host_cycle_academy_package",
+            "consumer", "job_id",
+            unique=True,
+            postgresql_where=text("consumer = 'academy_course_packages'"),
+        ),
         CheckConstraint("admitted_generation > 0", name="ck_host_cycle_generation"),
         CheckConstraint("state IN ('active', 'unresolved')", name="ck_host_cycle_state"),
         CheckConstraint(

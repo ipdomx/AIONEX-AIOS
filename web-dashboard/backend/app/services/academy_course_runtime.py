@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
-from typing import Any
-from sqlalchemy import func, select
+from typing import Any, cast
+from sqlalchemy import Table, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import UserRecord
 from app.db.models import (
@@ -13,9 +13,15 @@ from app.db.models import (
     AcademyCoursePackage,
     AcademyEnrollment,
     AcademyLessonProgress,
+    HostMaintenanceWorkCycle,
     WorkforceMember,
     uuid_str,
 )
+
+from app.services import host_maintenance_academy as maintenance
+from app.services.host_maintenance_academy import require_academy_admission
+from app.services.host_maintenance_admission import HostMaintenanceClosed
+
 
 PACKAGE_STATUSES = frozenset(
     {"queued", "building", "review_pending", "approved", "rejected", "failed"}
@@ -114,6 +120,7 @@ async def create_package_job(
         or module_count * lessons_per_module > 32
     ):
         raise ValueError("Course module/lesson counts are outside the allowed range")
+    await require_academy_admission(session)
     existing = await session.scalar(
         select(AcademyCoursePackage).where(
             AcademyCoursePackage.organization_id == actor.organization_id,
@@ -157,51 +164,56 @@ async def create_package_job(
 
 
 async def claim_next_package(
-    session: AsyncSession, *, stale_after_seconds: int = 1_800
-) -> AcademyCoursePackage | None:
-    if not 60 <= stale_after_seconds <= 86_400:
-        raise ValueError(
-            "Course package stale-build window is outside the allowed range"
-        )
-    cutoff = now() - timedelta(seconds=stale_after_seconds)
-    stale = await session.scalar(
-        select(AcademyCoursePackage)
-        .where(
-            AcademyCoursePackage.status == "building",
-            AcademyCoursePackage.updated_at < cutoff,
-        )
-        .order_by(AcademyCoursePackage.updated_at, AcademyCoursePackage.id)
-        .limit(1)
-        .with_for_update(skip_locked=True)
-    )
-    if stale is not None:
-        stale.status = "queued"
-        stale.error_code = "stale_build_recovered"
-        stale.error_message = (
-            "A stale course build was recovered after the bounded lease window."
-        )
-        await session.flush()
+    session: AsyncSession, *, worker_incarnation: str
+) -> maintenance.AcademyActivityOwnership | None:
+    """Stage a pristine claim and its owner in one caller-owned transaction.
 
+    Elapsed time never authorizes reuse of a previous build or its files. The
+    caller may use the returned capability only after its commit succeeds.
+    """
+    try:
+        await require_academy_admission(session)
+    except HostMaintenanceClosed:
+        return None
+    package_table = cast(Table, AcademyCoursePackage.__table__)
+    prior_activity = (
+        select(HostMaintenanceWorkCycle.id)
+        .where(
+            HostMaintenanceWorkCycle.consumer == maintenance.CONSUMER,
+            HostMaintenanceWorkCycle.job_id == AcademyCoursePackage.id,
+        )
+        .exists()
+    )
     item = await session.scalar(
         select(AcademyCoursePackage)
-        .where(AcademyCoursePackage.status == "queued")
+        .where(
+            *maintenance.pristine_queued_package_conditions(package_table),
+            ~prior_activity,
+        )
         .order_by(AcademyCoursePackage.created_at, AcademyCoursePackage.id)
         .limit(1)
         .with_for_update(skip_locked=True)
+        .execution_options(populate_existing=True)
     )
     if item is None:
         return None
+    if not maintenance.is_pristine_queued_package(item):
+        raise maintenance.AcademyActivityOwnershipLost(
+            "Academy package provenance changed before its claim"
+        )
+    ownership = await maintenance.register_academy_activity(
+        session, package_id=item.id, worker_incarnation=worker_incarnation
+    )
     item.status = "building"
-    item.error_code = None
-    item.error_message = None
     await session.flush()
-    return item
+    return ownership
 
 
 async def complete_package(
     session: AsyncSession,
     item: AcademyCoursePackage,
     *,
+    ownership: maintenance.AcademyActivityOwnership,
     site_relpath: str,
     archive_relpath: str,
     archive_sha256: str,
@@ -209,6 +221,9 @@ async def complete_package(
     archive_bytes: int,
     curriculum: dict[str, Any],
 ) -> None:
+    if item.id != ownership.package_id:
+        raise maintenance.AcademyActivityOwnershipLost("Academy package owner mismatch")
+    await maintenance.require_owned_academy_activity(session, ownership)
     for digest in (archive_sha256, manifest_sha256):
         if len(digest) != 64 or any(
             c not in "0123456789abcdef" for c in digest.lower()
@@ -238,8 +253,16 @@ async def complete_package(
 
 
 async def fail_package(
-    session: AsyncSession, item: AcademyCoursePackage, *, code: str, message: str
+    session: AsyncSession,
+    item: AcademyCoursePackage,
+    *,
+    ownership: maintenance.AcademyActivityOwnership,
+    code: str,
+    message: str,
 ) -> None:
+    if item.id != ownership.package_id:
+        raise maintenance.AcademyActivityOwnershipLost("Academy package owner mismatch")
+    await maintenance.require_owned_academy_activity(session, ownership)
     item.status = "failed"
     item.error_code = code[:120]
     item.error_message = message[:2000]
