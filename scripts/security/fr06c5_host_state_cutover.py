@@ -183,15 +183,31 @@ def digest(v):return hashlib.sha256(canon(v)).hexdigest()
 def gitgate(sha):
  heads=run(['git','-C',str(ROOT),'rev-parse','HEAD','origin/main']).splitlines()
  if heads!=[sha,sha] or run(['git','-C',str(ROOT),'status','--porcelain=v1']):raise B('production source is not clean exact accepted main')
-def topology():
- raw=run(['docker','ps','--format','{{.ID}}']);ids=[x for x in raw.splitlines() if x.strip()];rows=[]
- if len(ids)!=36:raise B('running container count is not 36')
+def topology(require_healthy=True,deadline=None):
+ def docker(args):
+  budget=30 if deadline is None else min(30,deadline-time.monotonic())
+  if budget<=0:raise B('container health timeout')
+  return run(['docker',*args],budget)
+ ids=[x.strip() for x in docker(['ps','--no-trunc','--format','{{.ID}}']).splitlines() if x.strip()]
+ if len(ids)!=36 or len(set(ids))!=36:raise B('running container count or identity is not exact 36')
+ inspected=json.loads(docker(['inspect',*ids]))
+ if not isinstance(inspected,list) or len(inspected)!=36:raise B('container inspection set is incomplete')
+ by_id={d.get('Id'):d for d in inspected if isinstance(d,dict)}
+ if len(by_id)!=36 or set(by_id)!=set(ids):raise B('container inspection identities differ from running set')
+ rows=[]
  for cid in ids:
-  d=json.loads(run(['docker','inspect',cid]))[0];labels=(d.get('Config') or {}).get('Labels') or {};service=labels.get('com.docker.compose.service');project=labels.get('com.docker.compose.project');state=d.get('State') or {};health=str((state.get('Health') or {}).get('Status','none'))
-  if project!='web-dashboard' or not service or health not in {'healthy','none'}:raise B('live topology is not exact healthy web-dashboard set')
-  rp=(d.get('HostConfig') or {}).get('RestartPolicy') or {};rpn=str(rp.get('Name') or 'no');mr=int(rp.get('MaximumRetryCount') or 0);restart=rpn+(f':{mr}' if rpn=='on-failure' and mr>0 else '');rows.append({'id':d['Id'],'name':str(d.get('Name','')).lstrip('/'),'service':service,'health':health,'restart':restart})
+  d=by_id[cid];config=d.get('Config') or {};labels=config.get('Labels') or {};service=labels.get('com.docker.compose.service');project=labels.get('com.docker.compose.project');state=d.get('State') or {};name=str(d.get('Name','')).lstrip('/')
+  if project!='web-dashboard' or not service or not name:raise B('live topology is not exact web-dashboard set')
+  if state.get('Running') is not True or state.get('Paused') is True or state.get('Restarting') is True or state.get('Status')!='running':raise B('container is not stably running')
+  test=(config.get('Healthcheck') or {}).get('Test') or [];has_healthcheck=bool(test) and test[0]!='NONE'
+  health=str((state.get('Health') or {}).get('Status') or ('starting' if has_healthcheck else 'none'))
+  if has_healthcheck and health=='none':health='starting'
+  if health not in {'healthy','none','starting','unhealthy'}:raise B('container health state is invalid')
+  if require_healthy and health not in {'healthy','none'}:raise B('live container health is not ready')
+  rows.append({'id':cid,'name':name,'service':service,'health':health,'restart':current_restart(cid,d)})
+ if len({r['name'] for r in rows})!=36:raise B('container names are not unique')
  services={}
- for r in rows:services.setdefault(r['service'],[]).append(r['id'])
+ for row in rows:services.setdefault(row['service'],[]).append(row['id'])
  if len(services.get('project-worker',[]))!=4:raise B('project-worker scale drifted')
  return {'containers':sorted(rows,key=lambda x:x['name']),'services':{k:sorted(v) for k,v in sorted(services.items())},'container_count':36,'project_worker_scale':4}
 def bind_unit_preflight():
@@ -555,31 +571,107 @@ def restore_watchers(states):
   if on:run(['systemctl','start',u],60)
  for u,on in states.items():
   if on and not active(u):raise B('runtime watcher failed to restore')
-def current_restart(container_id):
- d=json.loads(run(['docker','inspect',container_id]))[0];rp=(d.get('HostConfig') or {}).get('RestartPolicy') or {};name=str(rp.get('Name') or 'no');count=int(rp.get('MaximumRetryCount') or 0);return name+(f':{count}' if name=='on-failure' and count>0 else '')
+def current_restart(container_id,inspected=None):
+ if inspected is None:
+  payload=json.loads(run(['docker','inspect',container_id],30))
+  if not isinstance(payload,list) or len(payload)!=1:raise B('restart policy inspection is incomplete')
+  inspected=payload[0]
+ if not isinstance(inspected,dict) or inspected.get('Id')!=container_id:raise B('restart policy container identity mismatch')
+ policy=(inspected.get('HostConfig') or {}).get('RestartPolicy')
+ if not isinstance(policy,dict):raise B('container restart policy is unavailable')
+ name=policy.get('Name') or 'no';count=policy.get('MaximumRetryCount',0)
+ if name not in {'no','always','unless-stopped','on-failure'} or not isinstance(count,int) or isinstance(count,bool) or count<0 or (name!='on-failure' and count!=0):raise B('container restart policy is invalid')
+ return name+(f':{count}' if name=='on-failure' and count>0 else '')
+
+def restart_targets(t):
+ rows=t.get('containers') or [];seen=set();targets=[]
+ if not rows:raise B('planned restart policies are empty')
+ for row in rows:
+  cid=row.get('id');restart=row.get('restart')
+  if not isinstance(cid,str) or not cid or cid in seen or not isinstance(restart,str):raise B('planned restart policy identity is invalid')
+  name,separator,count=restart.partition(':')
+  if name not in {'no','always','unless-stopped','on-failure'} or (separator and (name!='on-failure' or not count.isdigit() or int(count)<=0 or str(int(count))!=count)):raise B('planned restart policy is invalid')
+  seen.add(cid);targets.append((cid,restart))
+ return targets
 def quiesce_restart_policies(t):
- for r in t['containers']:run(['docker','update','--restart=no',r['id']],60)
- for r in t['containers']:
-  if current_restart(r['id'])!='no':raise B('container restart policy did not quiesce')
+ targets=restart_targets(t)
+ for cid,restart in targets:
+  if current_restart(cid)!=restart:raise B('container restart policy changed after planning')
+ try:
+  for cid,_ in targets:
+   run(['docker','update','--restart=no',cid],60)
+   if current_restart(cid)!='no':raise B('container restart policy did not quiesce')
+  for cid,_ in targets:
+   if current_restart(cid)!='no':raise B('container restart policy did not remain quiesced')
+ except Exception as original:
+  try:restore_restart_policies(t)
+  except Exception as restore_error:raise E('restart policy quiesce failed and original policy restoration failed') from restore_error
+  raise E('restart policy quiesce failed; all original policies restored') from original
 def restore_restart_policies(t):
- for r in t['containers']:run(['docker','update','--restart='+r['restart'],r['id']],60)
- for r in t['containers']:
-  if current_restart(r['id'])!=r['restart']:raise B('container restart policy did not restore')
+ targets=restart_targets(t);failures=[]
+ for cid,restart in targets:
+  try:run(['docker','update','--restart='+restart,cid],60)
+  except Exception:failures.append(cid)
+ for cid,restart in targets:
+  try:
+   if current_restart(cid)!=restart:failures.append(cid)
+  except Exception:failures.append(cid)
+ if failures:raise B('container restart policy restoration failed or remained unverified')
 def stop_live(t):
  ids=[r['id'] for r in t['containers']];run(['docker','stop','--time','60',*ids],180)
  if run(['docker','ps','-q']).strip():raise B('running Docker containers remained')
  run(['systemctl','stop','docker.service','docker.socket'],120)
  if active('docker.service'):raise B('Docker remained active')
+HEALTH_PROBE_USER_AGENT='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
+HTTP_ACCEPTANCE_URLS=('http://127.0.0.1:8080/health','http://127.0.0.1:8080/ready','https://api.vip-e.net/health','https://api.vip-e.net/ready','https://ai.vip-e.net/')
+
+def wait_for_topology(t,timeout_seconds=300,poll_seconds=5):
+ if timeout_seconds<=0 or poll_seconds<=0:raise B('container health polling bounds are invalid')
+ expected=t.get('containers') or [];expected_ids={r['id'] for r in expected};services={}
+ for row in expected:services.setdefault(row['service'],[]).append(row['id'])
+ services={k:sorted(v) for k,v in sorted(services.items())}
+ if len(expected)!=36 or len(expected_ids)!=36 or t.get('container_count')!=36 or t.get('project_worker_scale')!=4 or len(services.get('project-worker',[]))!=4 or t.get('services')!=services:raise B('planned acceptance topology is invalid')
+ identity={(r['id'],r['name'],r['service']) for r in expected};policies=dict(restart_targets(t));deadline=time.monotonic()+timeout_seconds
+ while True:
+  n=topology(require_healthy=False,deadline=deadline)
+  if {(r['id'],r['name'],r['service']) for r in n['containers']}!=identity or n['services']!=services or n['container_count']!=36 or n['project_worker_scale']!=4:raise B('container identity or service topology drifted')
+  if {r['id']:r['restart'] for r in n['containers']}!=policies:raise B('container restart policies drifted during acceptance')
+  if all(r['health'] in {'healthy','none'} for r in n['containers']):return n
+  remaining=deadline-time.monotonic()
+  if remaining<=0:raise B('container health timeout')
+  time.sleep(min(poll_seconds,remaining))
+
+def http_and_tunnel_acceptance(timeout_seconds=90,poll_seconds=5):
+ if timeout_seconds<=0 or poll_seconds<=0:raise B('HTTP acceptance polling bounds are invalid')
+ deadline=time.monotonic()+timeout_seconds
+ while True:
+  ready=True
+  for url in HTTP_ACCEPTANCE_URLS:
+   remaining=deadline-time.monotonic()
+   if remaining<=0:raise B('HTTP health or portal acceptance timeout')
+   budget=min(25,remaining)
+   try:code=run(['curl','-sS','--connect-timeout',str(min(10,budget)),'--max-time',str(budget),'--user-agent',HEALTH_PROBE_USER_AGENT,'-o','/dev/null','-w','%{http_code}',url],budget)
+   except (E,subprocess.TimeoutExpired):ready=False;break
+   if code!='200':
+    if code not in {'000','429','500','502','503','504'}:raise B('HTTP health or portal acceptance failed')
+    ready=False;break
+  if ready:
+   for unit in TUNNELS:
+    remaining=deadline-time.monotonic()
+    if remaining<=0:raise B('control tunnel acceptance timeout')
+    if run(['systemctl','is-active',unit],min(10,remaining),check=False)!='active':ready=False;break
+  if ready:return
+  remaining=deadline-time.monotonic()
+  if remaining<=0:raise B('HTTP or control tunnel acceptance timeout')
+  time.sleep(min(poll_seconds,remaining))
+
 def legacy_acceptance(t):
- n=topology()
- if {r['id'] for r in n['containers']}!={r['id'] for r in t['containers']} or set(n['services'])!=set(t['services']) or n['project_worker_scale']!=t['project_worker_scale']:raise B('legacy topology failed rollback acceptance')
- r=json.loads(run(['python3',str(ROOT/'scripts/security/fr06c4_runtime_bind.py'),'status','--require-ready']))
- if r.get('validation')!='FR06C4_RUNTIME_BIND_READY':raise B('encrypted container runtime regressed during rollback')
- for u in ('http://127.0.0.1:8080/health','http://127.0.0.1:8080/ready','https://api.vip-e.net/health','https://api.vip-e.net/ready','https://ai.vip-e.net/'):
-  if run(['curl','-ksS','-o','/dev/null','-w','%{http_code}',u],30)!='200':raise B('legacy HTTP rollback acceptance failed')
- for u in TUNNELS:
-  if not active(u):raise B('control tunnel regressed during rollback')
- return n
+ def encrypted_runtime_ready():
+  runtime=json.loads(run(['python3',str(ROOT/'scripts/security/fr06c4_runtime_bind.py'),'status','--require-ready'],30))
+  if runtime.get('validation')!='FR06C4_RUNTIME_BIND_READY':raise B('encrypted container runtime regressed during rollback')
+ wait_for_topology(t);encrypted_runtime_ready();http_and_tunnel_acceptance();encrypted_runtime_ready()
+ return wait_for_topology(t,timeout_seconds=30)
+
 def rollback_prestart(t, watch, phase, attempt):
     record = jread(attempt)
     if record.get('candidate_start_attempted') is not False or record.get('boot_id') != boot_id():
@@ -634,20 +726,13 @@ def rollback_prestart(t, watch, phase, attempt):
     return {'status': 'legacy_runtime_fully_restored'}
 
 def acceptance(t):
- bind=json.loads(run(['python3',str(ROOT/'scripts/security/fr06c5_host_state_bind.py'),'status','--require-ready']))
- if bind.get('validation')!='FR06C5_HOST_STATE_BIND_READY':raise B('host-state bind acceptance failed')
- r=json.loads(run(['python3',str(ROOT/'scripts/security/fr06c4_runtime_bind.py'),'status','--require-ready']))
- if r.get('validation')!='FR06C4_RUNTIME_BIND_READY':raise B('container runtime bind regressed')
- for _ in range(60):
-  try:n=topology();break
-  except Exception:time.sleep(5)
- else:raise B('container health timeout')
- if set(n['services'])!=set(t['services']) or n['project_worker_scale']!=4:raise B('service topology drifted')
- for u in ('http://127.0.0.1:8080/health','http://127.0.0.1:8080/ready','https://api.vip-e.net/health','https://api.vip-e.net/ready','https://ai.vip-e.net/'):
-  if run(['curl','-ksS','-o','/dev/null','-w','%{http_code}',u],30)!='200':raise B('HTTP acceptance failed')
- for u in TUNNELS:
-  if not active(u):raise B('control tunnel regressed')
- return n
+ def encrypted_binds_ready():
+  bind=json.loads(run(['python3',str(ROOT/'scripts/security/fr06c5_host_state_bind.py'),'status','--require-ready'],30))
+  if bind.get('validation')!='FR06C5_HOST_STATE_BIND_READY':raise B('host-state bind acceptance failed')
+  runtime=json.loads(run(['python3',str(ROOT/'scripts/security/fr06c4_runtime_bind.py'),'status','--require-ready'],30))
+  if runtime.get('validation')!='FR06C4_RUNTIME_BIND_READY':raise B('container runtime bind regressed')
+ encrypted_binds_ready();wait_for_topology(t);http_and_tunnel_acceptance();encrypted_binds_ready()
+ return wait_for_topology(t,timeout_seconds=30)
 def inspect():return {'schema_version':1,'subpart':'FR-06C5D','observed_at':utc(),'topology':topology(),'docker_active':active('docker.service'),'containerd_active':active('containerd.service'),'production_changed':False}
 def plan(a):
     if os.geteuid() != 0:
