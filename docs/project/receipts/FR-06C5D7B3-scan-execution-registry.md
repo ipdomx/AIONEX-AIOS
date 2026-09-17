@@ -10,7 +10,12 @@ remains schema 6 (partial scan-request coverage); no coverage claim is widened.
 
 ## Durable contract
 
-Migration `20260918_0053` creates `security_scan_executions`. Registration locks
+Migration `20260918_0053` creates `security_scan_executions`. The historic
+bootstrap can already create the table from current model metadata. In that case
+the migration reflects and compares its columns, constraints, keys and indexes
+against a private frozen temporary reference. Incompatible existing tables are
+rejected, not silently adopted or replaced. Existing rows are preserved.
+Registration locks
 and revalidates pristine backlog, then atomically changes the business scan and
 publishes a unique execution owner. It rejects post-hoc adoption of running,
 failed, completed, touched, or previously owned scans. Ownership binds an

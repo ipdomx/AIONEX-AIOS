@@ -609,3 +609,39 @@ async def test_cancel_and_settle_race_preserves_finished_evidence(registry_case,
     assert results[1]["status"] in {"cancellation_requested", "already_settled"}
     assert (await row(case, owner)).state == "settled"
     assert (await snapshot(case))["is_clear"] is True
+
+
+@pytest.mark.asyncio
+async def test_migration_accepts_current_metadata_bootstrap_without_changing_rows(scan_case):
+    case = scan_case
+    async with case.engine.begin() as connection:
+        await connection.run_sync(lambda bind: SecurityScanExecution.__table__.create(bind))
+    owner = await claim(case)
+    before = await row(case, owner)
+    async with case.engine.begin() as connection:
+        await connection.run_sync(_shared._run_migration, "0053", "upgrade")
+    after = await row(case, owner)
+    assert after.ownership_nonce == before.ownership_nonce
+    assert after.resources == before.resources and after.state == before.state
+    assert after.started_at == before.started_at
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("corruption", ["nullability", "constraint", "index", "extra_column"])
+async def test_migration_refuses_incompatible_preexisting_ledger(registry_case, corruption):
+    case = registry_case
+    owner = await claim(case)
+    async with case.engine.begin() as connection:
+        if corruption == "nullability":
+            await connection.execute(text("ALTER TABLE security_scan_executions ALTER COLUMN resources DROP NOT NULL"))
+        elif corruption == "constraint":
+            await connection.execute(text("ALTER TABLE security_scan_executions DROP CONSTRAINT ck_scan_execution_state"))
+            await connection.execute(text("ALTER TABLE security_scan_executions ADD CONSTRAINT ck_scan_execution_state CHECK (state IS NOT NULL)"))
+        elif corruption == "index":
+            await connection.execute(text("DROP INDEX ix_scan_execution_unfinished"))
+        else:
+            await connection.execute(text("ALTER TABLE security_scan_executions ADD COLUMN unverified_extra text"))
+    with pytest.raises(RuntimeError, match="frozen schema"):
+        async with case.engine.begin() as connection:
+            await connection.run_sync(_shared._run_migration, "0053", "upgrade")
+    assert (await row(case, owner)).ownership_nonce == owner.ownership_nonce

@@ -3,9 +3,10 @@
 Revision ID: 20260918_0053
 Revises: 20260917_0052
 
-This adds storage only. It does not start workers, touch jobs, widen the existing
-partial authority, or claim deployment/host closure. Evidence has no cascading
-business foreign key and survives a downgrade for forward reconciliation.
+The historic bootstrap uses current model metadata. A fresh full upgrade may
+therefore already contain this table. Accept only an exactly compatible schema,
+validated against frozen temporary DDL; never silently adopt a colliding table.
+This migration does not change jobs, authority, coverage, workers or deployment.
 """
 from __future__ import annotations
 
@@ -18,12 +19,10 @@ branch_labels = None
 depends_on = None
 
 
-def upgrade() -> None:
-    if op.get_bind().dialect.name != "postgresql":
-        raise RuntimeError("Scan execution ownership requires PostgreSQL")
-    op.execute("SELECT set_config('lock_timeout', '5s', true)")
-    op.create_table(
-        "security_scan_executions",
+def _table(name: str, *, temporary: bool = False) -> sa.Table:
+    """Frozen schema, independent of future mutable application models."""
+    table = sa.Table(
+        name, sa.MetaData(),
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("scan_id", sa.String(36), nullable=False, unique=True),
         sa.Column("worker_incarnation", sa.String(36), nullable=False),
@@ -51,11 +50,55 @@ def upgrade() -> None:
             "AND supervisor_stopped_at IS NOT NULL AND settled_at IS NOT NULL AND zap_owner_key IS NULL)",
             name="ck_scan_execution_settlement",
         ),
+        prefixes=["TEMPORARY"] if temporary else [],
     )
-    op.create_index("ix_scan_execution_unfinished", "security_scan_executions", ["state", "lease_expires_at"])
+    sa.Index("ix_scan_execution_unfinished", table.c.state, table.c.lease_expires_at)
+    return table
+
+
+def _signature(bind, name: str, schema: str | None = None) -> dict:
+    inspector = sa.inspect(bind)
+    columns = inspector.get_columns(name, schema=schema)
+    indexes = inspector.get_indexes(name, schema=schema)
+    return {
+        "columns": sorted((
+            item["name"], str(item["type"]), getattr(item["type"], "timezone", None),
+            item["nullable"], item.get("default"), item.get("identity"), item.get("computed"),
+        ) for item in columns),
+        "primary_key": inspector.get_pk_constraint(name, schema=schema)["constrained_columns"],
+        "unique": sorted(tuple(item["column_names"]) for item in inspector.get_unique_constraints(name, schema=schema)),
+        "checks": sorted((item["name"], item["sqltext"]) for item in inspector.get_check_constraints(name, schema=schema)),
+        "indexes": sorted((
+            item["name"], tuple(item["column_names"]), item["unique"], item.get("dialect_options", {}),
+        ) for item in indexes if not item.get("duplicates_constraint")),
+        "foreign_keys": inspector.get_foreign_keys(name, schema=schema),
+    }
+
+
+def upgrade() -> None:
+    bind = op.get_bind()
+    if bind.dialect.name != "postgresql":
+        raise RuntimeError("Scan execution ownership requires PostgreSQL")
+    bind.execute(sa.text("SELECT set_config('lock_timeout', '5s', true)"))
+    name = "security_scan_executions"
+    if not sa.inspect(bind).has_table(name):
+        _table(name).create(bind)
+        return
+    # PostgreSQL renders CHECK expressions canonically. Reflect both the existing
+    # table and a private, frozen reference to compare the actual definitions,
+    # not just names or permissive string matching. Existing rows are untouched.
+    reference = _table("_fr06_0053_scan_execution_expected", temporary=True)
+    reference.create(bind)
+    try:
+        temporary_schema = bind.execute(sa.text(
+            "SELECT nspname FROM pg_namespace WHERE oid=pg_my_temp_schema()"
+        )).scalar_one()
+        if _signature(bind, name) != _signature(bind, reference.name, temporary_schema):
+            raise RuntimeError("Existing execution ledger does not match the frozen schema")
+    finally:
+        # Only the temporary reference created above is removed, never evidence.
+        reference.drop(bind)
 
 
 def downgrade() -> None:
-    # Removing this ledger would destroy unresolved resource and engine owners.
-    # Downgrade is explicitly refused; old binaries must not run uninstrumented.
     raise RuntimeError("Execution evidence cannot be discarded by downgrade")
