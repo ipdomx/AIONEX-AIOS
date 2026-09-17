@@ -24,6 +24,7 @@ from app.db.models import (
     ProjectExecutionWorkerNode,
     ThreeDArtifact,
 )
+from app.services.host_maintenance_admission import is_admission_open
 from app.services.project_execution import (
     ProjectPlanningRunner,
     ProjectExecutionConfigurationError,
@@ -276,6 +277,8 @@ class ProjectExecutionWorker:
             seconds=settings.PROJECT_EXECUTION_JOB_LEASE_SECONDS
         )
         async with self.session_factory() as session:
+            if not await is_admission_open(session):
+                return 0
             records = list(
                 (
                     await session.scalars(
@@ -364,6 +367,8 @@ class ProjectExecutionWorker:
             seconds=settings.PROJECT_EXECUTION_JOB_LEASE_SECONDS
         )
         async with self.session_factory() as session:
+            if not await is_admission_open(session):
+                return None
             active = aliased(ProjectExecution)
             active_count = (
                 select(func.count(active.id))
