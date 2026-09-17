@@ -1430,3 +1430,9 @@ Implementation ledger — 2026-08-25 / 36K Production closeout:
 - Regression prevention: any future Hunyuan image must be scanned by exact immutable digest, must have no unresolved applicable Critical/High finding (or narrowly justified source-controlled VEX where genuinely non-applicable), and must rerun the original non-fallback PBR/Blender/glTF Transform/GLB acceptance before `HUNYUAN_RUNTIME_SECURITY_APPROVED` can become true.
 - Rollout/rollback state: quarantine is a source change pending the protected closeout merge/deploy. Until deployed, persistent 3D execution remains governed by the existing pre-launch disabled/live-gated boundary; after deploy the Hunyuan route will be technically ineligible while TripoSR remains approved.
 - Residual follow-up: construct and GPU-validate a hardened Hunyuan successor image during the full project review rather than performing unverified major framework upgrades inside the accepted v11 image.
+
+
+Implementation ledger — 2026-09-18 / FR-06C5D7B2 conservative scan no-replay source:
+- Scanner claims and one-shot starts hold the existing maintenance switch; only untouched queued work is eligible. Expired running jobs and attempted queues are never automatically reclaimed.
+- A committed executing marker precedes scanner I/O; duplicate capability use, uncertain start-commit acknowledgement, exception, timeout and repeated cancellation cannot silently replay work. Uncertain attempts retain their owner and require reconciliation.
+- PostgreSQL tests use disposable UUID schemas and forbid external scanner/process/file I/O; clean function return is explicitly NOT cleanup proof. No migration, authority-coverage upgrade, production rollout or full D7/FR-06 closure is asserted.

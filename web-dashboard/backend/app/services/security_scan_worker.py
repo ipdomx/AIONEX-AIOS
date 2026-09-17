@@ -1,4 +1,10 @@
-"""Durable Security Lab worker."""
+"""Security Lab worker with conservative, one-shot execution admission.
+
+A cancelled await, an exception, an expired lease and a terminal-looking business
+row are not evidence that child processes, threads or remote work have stopped.
+This guard prevents automatic replay; it is NOT a full execution/drain registry.
+Uncertain attempts remain running with an explicit reconciliation-required error.
+"""
 
 from __future__ import annotations
 
@@ -8,24 +14,62 @@ import json
 import os
 import signal
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import cast, func, select
+from sqlalchemy.dialects.postgresql import JSONB
 
 from app.core.logging import get_logger, setup_logging
 from app.db.base import SessionLocal
 from app.db.models import AuditEvent, OwnerControlRecord, SecurityScan, uuid_str
-from app.services.security_scanning import execute_scan
 from app.services import security_tools
+from app.services.host_maintenance_admission import HostMaintenanceClosed
+from app.services.host_maintenance_scan_admission import require_scan_admission
 from app.services.security_fabric import get_policy
+from app.services.security_scanning import execute_scan
 
 logger = get_logger(__name__)
+GUARD_KEY = "_execution_guard"
+GUARD_PROTOCOL = 1
+_PHASES = frozenset({"claimed", "executing", "returned", "unresolved"})
 
 
 def now() -> datetime:
     return datetime.now(UTC)
+
+
+def _execution_phase(scan: SecurityScan) -> str | None:
+    """Only an exact server-written guard can authorize a one-time start."""
+    if not isinstance(scan.summary, dict):
+        return None
+    guard = scan.summary.get(GUARD_KEY)
+    if (
+        not isinstance(guard, dict)
+        or set(guard) != {"protocol_version", "phase", "cleanup_verified"}
+        or type(guard["protocol_version"]) is not int
+        or guard["protocol_version"] != GUARD_PROTOCOL
+        or not isinstance(guard["phase"], str)
+        or guard["phase"] not in _PHASES
+        or guard["cleanup_verified"] is not False
+    ):
+        return None
+    return guard["phase"]
+
+
+def _set_execution_phase(scan: SecurityScan, phase: str) -> None:
+    if phase not in _PHASES or not isinstance(scan.summary, dict):
+        raise ValueError("Invalid execution guard transition")
+    scan.summary = {
+        **scan.summary,
+        GUARD_KEY: {
+            "protocol_version": GUARD_PROTOCOL,
+            "phase": phase,
+            # This part intentionally does not attest process/thread/ZAP cleanup.
+            "cleanup_verified": False,
+        },
+    }
 
 
 class SecurityScanWorker:
@@ -39,9 +83,6 @@ class SecurityScanWorker:
         )
         self.poll_seconds = max(
             1, int(os.getenv("SECURITY_SCAN_WORKER_POLL_SECONDS", "5"))
-        )
-        self.lease_seconds = max(
-            60, int(os.getenv("SECURITY_SCAN_JOB_LEASE_SECONDS", "1800"))
         )
         self.cycles = 0
         self.errors = 0
@@ -99,34 +140,42 @@ class SecurityScanWorker:
             await session.commit()
 
     async def claim(self) -> tuple[str, str] | None:
-        stale = now() - timedelta(seconds=self.lease_seconds)
+        """Claim untouched backlog only, under the existing maintenance switch.
+
+        No age-based recovery or automatic retry is safe until external resource
+        settlement is established. Schema 6 remains partial request coverage;
+        using its switch here does not upgrade that coverage claim.
+        """
         async with SessionLocal() as session:
+            await require_scan_admission(session)
+            summary = cast(SecurityScan.summary, JSONB)
             scan = await session.scalar(
                 select(SecurityScan)
                 .where(
-                    or_(
-                        SecurityScan.status == "queued",
-                        and_(
-                            SecurityScan.status == "running",
-                            SecurityScan.updated_at < stale,
-                        ),
-                    ),
-                    SecurityScan.attempts < SecurityScan.max_attempts,
+                    SecurityScan.status == "queued",
+                    SecurityScan.attempts == 0,
+                    SecurityScan.max_attempts > 0,
+                    SecurityScan.started_at.is_(None),
+                    SecurityScan.completed_at.is_(None),
+                    SecurityScan.cancelled_at.is_(None),
+                    SecurityScan.lease_token.is_(None),
+                    SecurityScan.error_code.is_(None),
+                    SecurityScan.error_message.is_(None),
+                    func.jsonb_typeof(summary) == "object",
+                    ~func.jsonb_exists(summary, GUARD_KEY),
                 )
-                .order_by(SecurityScan.created_at)
+                .order_by(SecurityScan.created_at, SecurityScan.id)
                 .with_for_update(skip_locked=True)
                 .limit(1)
             )
             if scan is None:
                 return None
             token = str(uuid4())
-            reclaimed = scan.status == "running"
             scan.status = "running"
-            scan.started_at = scan.started_at or now()
+            scan.started_at = now()
             scan.lease_token = token
             scan.attempts += 1
-            scan.error_code = None
-            scan.error_message = None
+            _set_execution_phase(scan, "claimed")
             session.add(
                 AuditEvent(
                     organization_id=scan.organization_id,
@@ -134,13 +183,33 @@ class SecurityScanWorker:
                     action="security.scan.claimed",
                     resource_type="security_scan",
                     resource_id=scan.id,
-                    details={"attempt": scan.attempts, "reclaimed": reclaimed},
+                    details={"attempt": scan.attempts, "reclaimed": False},
                 )
             )
             await session.commit()
             return scan.id, token
 
-    async def run_claim(self, scan_id: str, token: str) -> None:
+    async def _begin_execution(self, scan_id: str, token: str) -> bool:
+        """Commit the one-shot start before any scanner I/O, including policy I/O."""
+        async with SessionLocal() as session:
+            await require_scan_admission(session)
+            scan = await session.scalar(
+                select(SecurityScan)
+                .where(
+                    SecurityScan.id == scan_id,
+                    SecurityScan.status == "running",
+                    SecurityScan.lease_token == token,
+                )
+                .with_for_update(skip_locked=True)
+            )
+            if scan is None or _execution_phase(scan) != "claimed":
+                return False
+            _set_execution_phase(scan, "executing")
+            await session.commit()
+            return True
+
+    async def _mark_unresolved(self, scan_id: str, token: str, error_type: str) -> None:
+        """Preserve the exact uncertain owner; do not clear, requeue or finish it."""
         async with SessionLocal() as session:
             scan = await session.scalar(
                 select(SecurityScan)
@@ -151,9 +220,40 @@ class SecurityScanWorker:
                 )
                 .with_for_update()
             )
-            if scan is None:
+            if scan is None or _execution_phase(scan) != "executing":
                 return
-            try:
+            _set_execution_phase(scan, "unresolved")
+            scan.error_code = "SECURITY_SCAN_RECONCILIATION_REQUIRED"
+            scan.error_message = error_type
+            scan.completed_at = None
+            session.add(
+                AuditEvent(
+                    organization_id=scan.organization_id,
+                    user_id=scan.requested_by_id,
+                    action="security.scan.reconciliation_required",
+                    resource_type="security_scan",
+                    resource_id=scan.id,
+                    details={"error_type": error_type, "cleanup_verified": False},
+                )
+            )
+            await session.commit()
+
+    async def run_claim(self, scan_id: str, token: str) -> None:
+        if not await self._begin_execution(scan_id, token):
+            return
+        try:
+            async with SessionLocal() as session:
+                scan = await session.scalar(
+                    select(SecurityScan)
+                    .where(
+                        SecurityScan.id == scan_id,
+                        SecurityScan.status == "running",
+                        SecurityScan.lease_token == token,
+                    )
+                    .with_for_update()
+                )
+                if scan is None or _execution_phase(scan) != "executing":
+                    return
                 policy = await get_policy(session)
                 timeout_seconds = max(
                     60, min(int(policy.get("max_scan_runtime_seconds", 1800)), 7200)
@@ -161,40 +261,25 @@ class SecurityScanWorker:
                 await asyncio.wait_for(
                     execute_scan(session, scan), timeout=timeout_seconds
                 )
+                _set_execution_phase(scan, "returned")
                 await session.commit()
-            except Exception as exc:
-                await session.rollback()
-                async with SessionLocal() as failure_session:
-                    failed = await failure_session.scalar(
-                        select(SecurityScan)
-                        .where(
-                            SecurityScan.id == scan_id,
-                            SecurityScan.lease_token == token,
-                        )
-                        .with_for_update()
-                    )
-                    if failed is not None:
-                        terminal = failed.attempts >= failed.max_attempts
-                        failed.status = "failed" if terminal else "queued"
-                        failed.error_code = "SECURITY_SCAN_FAILED"
-                        failed.error_message = type(exc).__name__
-                        failed.completed_at = now() if terminal else None
-                        failed.lease_token = None
-                        failure_session.add(
-                            AuditEvent(
-                                organization_id=failed.organization_id,
-                                user_id=failed.requested_by_id,
-                                action="security.scan.failed",
-                                resource_type="security_scan",
-                                resource_id=failed.id,
-                                details={
-                                    "error_type": type(exc).__name__,
-                                    "terminal": terminal,
-                                },
-                            )
-                        )
-                        await failure_session.commit()
-                raise
+        except BaseException as exc:
+            # asyncio.CancelledError is deliberately included. A second cancel
+            # must not interrupt recording the uncertain attempt. If recording
+            # itself fails, the committed executing marker still prevents replay.
+            reconciliation = asyncio.create_task(
+                self._mark_unresolved(scan_id, token, type(exc).__name__)
+            )
+            try:
+                while not reconciliation.done():
+                    try:
+                        await asyncio.shield(reconciliation)
+                    except asyncio.CancelledError:
+                        continue
+                reconciliation.result()
+            except Exception:
+                logger.exception("Security scan reconciliation recording failed")
+            raise
 
     async def run(self) -> None:
         await self.preflight()
@@ -205,6 +290,8 @@ class SecurityScanWorker:
                 claim = await self.claim()
                 if claim:
                     await self.run_claim(*claim)
+                self.write_health("healthy")
+            except HostMaintenanceClosed:
                 self.write_health("healthy")
             except Exception:
                 self.errors += 1
