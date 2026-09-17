@@ -934,7 +934,7 @@ def apply(a):
             update_attempt(attempt, phase='legacy_sources_sealed')
             manifests = exact_copy_and_manifest()
             bootstrap_match()
-            hidden_fd_count = require_zero_hidden_underlay_fds()
+            hidden_reference_count = require_zero_hidden_underlay_references()
             update_attempt(attempt, phase='gate_install_started')
             install_gates(attempt)
             update_attempt(attempt, phase='gates_installed')
@@ -961,7 +961,9 @@ def apply(a):
                 'status': 'encrypted_host_state_started_admission_closed', 'completed_at': utc(),
                 'operation_id': planned['plan_id'], 'merge_sha': a.merge_sha,
                 'running_containers': 36, 'unhealthy_running_containers': 0, 'project_worker_scale': 4,
-                'manifest': manifests, 'hidden_underlay_fd_count': hidden_fd_count,
+                'manifest': manifests,
+                'hidden_underlay_reference_count': hidden_reference_count,
+                'hidden_underlay_fd_count': hidden_reference_count,
                 'legacy_underlays_read_only': True, 'legacy_underlays_deleted': False,
                 'candidate_host_state_authoritative': True, 'bootstrap_remains_outside_vault': True,
                 'post_start_blind_rollback_permitted': False, 'admission_opened': False,

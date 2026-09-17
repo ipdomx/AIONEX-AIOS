@@ -87,7 +87,7 @@ def cutover(module, tmp_path, monkeypatch):
     monkeypatch.setattr(m, "seal", lambda path, attempt: calls.append("seal"))
     monkeypatch.setattr(m, "exact_copy_and_manifest", lambda: {"synthetic": {"matched": True}})
     monkeypatch.setattr(m, "bootstrap_match", lambda: None)
-    monkeypatch.setattr(m, "require_zero_hidden_underlay_fds", lambda: 0)
+    monkeypatch.setattr(m, "require_zero_hidden_underlay_references", lambda: 0)
     monkeypatch.setattr(m, "install_gates", lambda attempt: calls.append("install-gates"))
     monkeypatch.setattr(m, "rollback_resources_preflight", lambda attempt: calls.append("resource-preflight"), raising=False)
     monkeypatch.setattr(m, "remove_gates_checked", lambda attempt: calls.append("remove-gates"))
