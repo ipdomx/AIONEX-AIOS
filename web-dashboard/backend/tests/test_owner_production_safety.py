@@ -863,6 +863,15 @@ async def test_revoked_secret_reference_cannot_be_reactivated(
 async def test_restore_validation_is_tied_to_a_completed_backup(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    admitted_sessions: list[object] = []
+
+    async def admission_open(received_session: object) -> None:
+        admitted_sessions.append(received_session)
+
+    monkeypatch.setattr(
+        control_plane, "require_backup_enqueue_admission", admission_open
+    )
+
     async def artifact_ready(
         _backup: BackupRecord | None,
         *,
@@ -948,6 +957,8 @@ async def test_restore_validation_is_tied_to_a_completed_backup(
         )
     assert corrupt.value.status_code == 409
     assert "readiness" in corrupt.value.detail
+    assert len(admitted_sessions) == 3
+    assert admitted_sessions[:2] == [missing_session, session]
 
 
 @pytest.mark.asyncio

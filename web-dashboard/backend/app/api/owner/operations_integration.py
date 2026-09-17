@@ -8,6 +8,7 @@ from app.api.owner.control_plane import (
     _health_items,
     _run_audited_mutation,
 )
+from app.api.backup_admission import require_backup_enqueue_admission
 from app.core.auth import UserRecord, require_super_owner
 from app.core.config import settings
 from app.db.base import get_db
@@ -172,6 +173,8 @@ async def run_operations_command(
     session: AsyncSession = Depends(get_db),
 ) -> OperationsSnapshot:
     async def execute(_audit: object) -> dict[str, Any]:
+        if target_id == "backup" and command.action == "recover":
+            await require_backup_enqueue_admission(session)
         snapshot = await _snapshot(session)
         if not any(item.id == target_id for item in snapshot.targets):
             raise HTTPException(
