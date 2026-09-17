@@ -5446,3 +5446,44 @@ class IdentityMediaExecution(Base, TimestampMixin):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class SecurityScanExecution(Base):
+    """Permanent execution/resource evidence, independent of business-row deletion.
+
+    Neither heartbeat expiry nor a terminal SecurityScan authorizes deletion or
+    takeover. The nullable unique ZAP key remains held across uncertain results.
+    """
+
+    __tablename__ = "security_scan_executions"
+    __table_args__ = (
+        CheckConstraint("admitted_generation > 0", name="ck_scan_execution_generation"),
+        CheckConstraint("state IN ('active', 'unresolved', 'settled')", name="ck_scan_execution_state"),
+        CheckConstraint("phase IN ('claimed', 'executing', 'returned')", name="ck_scan_execution_phase"),
+        CheckConstraint("lease_expires_at >= heartbeat_at", name="ck_scan_execution_deadline"),
+        CheckConstraint(
+            "state != 'settled' OR (phase = 'returned' AND operation_stopped_at IS NOT NULL "
+            "AND supervisor_stopped_at IS NOT NULL AND settled_at IS NOT NULL AND zap_owner_key IS NULL)",
+            name="ck_scan_execution_settlement",
+        ),
+        Index("ix_scan_execution_unfinished", "state", "lease_expires_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    scan_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    worker_incarnation: Mapped[str] = mapped_column(String(36), nullable=False)
+    admitted_generation: Mapped[int] = mapped_column(Integer, nullable=False)
+    ownership_nonce: Mapped[str] = mapped_column(String(36), nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False)
+    phase: Mapped[str] = mapped_column(String(32), nullable=False)
+    resources: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    zap_owner_key: Mapped[str | None] = mapped_column(String(64), unique=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    heartbeat_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    lease_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    cancel_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    operation_stopped_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    supervisor_stopped_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    outcome: Mapped[str | None] = mapped_column(String(32))
+    unresolved_reason: Mapped[str | None] = mapped_column(String(160))
