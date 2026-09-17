@@ -10,6 +10,7 @@ SYSTEMD=((ROOT/'deploy/systemd/aionex-fr06c5-host-state-bind.service',Path('/etc
 WRAPPERS=tuple((ROOT/'deploy/bin'/n,Path('/usr/local/sbin')/n) for n in ('aionex-phase22c-2-tunnel','aionex-phase22c-tunnel','trendbost-mcp-bridge-tunnel'))
 PATHS=(('operator',Path('/root/.config/aionex'),MOUNT/'operator-state',False),('app-secrets',ROOT/'web-dashboard/secrets',MOUNT/'app-secrets',False),('deploy-key',Path('/root/.ssh/aionex_aios_deploy'),MOUNT/'ssh/aionex_aios_deploy',True),('cpanel-key',Path('/root/.ssh/aionex_cpanel_ai_vip_e_net_ed25519'),MOUNT/'ssh/aionex_cpanel_ai_vip_e_net_ed25519',True))
 TUNNELS=('aionex-phase22c-2-tunnel.service','aionex-phase22c-tunnel.service','trendbost-mcp-bridge-tunnel.service')
+PROC = Path('/proc')
 class E(RuntimeError):pass
 class B(E):pass
 def now():return datetime.now(timezone.utc)
@@ -478,27 +479,103 @@ def exact_copy_and_manifest():
   if a!=b:raise B(f'exact host-state manifest mismatch: {role}')
   out[role]=a
  return out
+def hidden_underlay_references():
+    """Inspect visible proc references; this is not proof about every kernel reference."""
+    def verified_absent(reference, follow=False):
+        try:
+            (os.stat if follow else os.lstat)(reference)
+        except (FileNotFoundError, ProcessLookupError):
+            return True
+        except OSError as exc:
+            raise B('cannot verify a vanished process reference; underlay scan incomplete') from exc
+        return False
+
+    def entries(directory, owner):
+        try:
+            return sorted(directory.iterdir(), key=lambda value: value.name)
+        except (FileNotFoundError, ProcessLookupError) as exc:
+            if verified_absent(owner):
+                return None
+            raise B('reference directory unavailable for a remaining process or thread') from exc
+        except OSError as exc:
+            raise B('cannot enumerate process references; underlay scan incomplete') from exc
+
+    def link(reference):
+        try:
+            return os.readlink(reference)
+        except (FileNotFoundError, ProcessLookupError) as exc:
+            # Kernel/zombie tasks can retain a magic-link placeholder without
+            # a referenced FS object. Follow it to prove absence, not lstat.
+            if verified_absent(reference, follow=True):
+                return None
+            raise B('process reference disappearance could not be verified') from exc
+        except OSError as exc:
+            raise B('cannot inspect a process reference; underlay scan incomplete') from exc
+
+    holders = []
+
+    def inspect_reference(reference, kind, pid, tid, identifier=None):
+        target = link(reference)
+        if target is None:
+            return
+        clean = target[:-10] if target.endswith(' (deleted)') else target
+        for role, source, _, isfile in PATHS:
+            base = str(source)
+            if (isfile and clean == base) or (
+                not isfile and (clean == base or clean.startswith(base.rstrip('/') + '/'))
+            ):
+                record = {'kind': kind, 'pid': pid, 'tid': tid, 'role': role}
+                if identifier is not None:
+                    record['range' if kind == 'mmap' else 'fd'] = identifier
+                holders.append(record)
+
+    try:
+        processes = sorted(PROC.iterdir(), key=lambda value: value.name)
+    except OSError as exc:
+        raise B('cannot enumerate host processes; underlay scan incomplete') from exc
+    for process in processes:
+        if not process.name.isdigit():
+            continue
+        threads = entries(process / 'task', process)
+        if threads is None:
+            continue
+        for thread in threads:
+            if not thread.name.isdigit():
+                continue
+            pid, tid = int(process.name), int(thread.name)
+            descriptors = entries(thread / 'fd', thread)
+            if descriptors is None:
+                continue
+            for descriptor in descriptors:
+                inspect_reference(descriptor, 'fd', pid, tid, descriptor.name)
+            for kind in ('cwd', 'root'):
+                inspect_reference(thread / kind, kind, pid, tid)
+            # Linux exposes map_files through /proc/TID, not task/TID/map_files.
+            # Scan each live thread alias so an exited leader cannot hide its
+            # surviving threads' mappings. FD and FS tables can be unshared.
+            mappings = entries(PROC / thread.name / 'map_files', thread)
+            if mappings is None:
+                continue
+            for mapping in mappings:
+                inspect_reference(mapping, 'mmap', pid, tid, mapping.name)
+    return holders
+
+
+def require_zero_hidden_underlay_references():
+    holders = hidden_underlay_references()
+    if holders:
+        raise B('legacy host-state source has visible process references before bind activation')
+    return 0
+
+
 def hidden_underlay_fds():
- holders=[]
- for proc in Path('/proc').iterdir():
-  if not proc.name.isdigit():continue
-  fdroot=proc/'fd'
-  try:fds=list(fdroot.iterdir())
-  except OSError:continue
-  for fdpath in fds:
-   try:target=os.readlink(fdpath)
-   except OSError:continue
-   clean=target[:-10] if target.endswith(' (deleted)') else target
-   for role,src,_,isfile in PATHS:
-    base=str(src)
-    if (isfile and clean==base) or (not isfile and (clean==base or clean.startswith(base.rstrip('/')+'/'))):
-     holders.append({'pid':int(proc.name),'fd':fdpath.name,'role':role})
- return holders
+    """Compatibility alias; now includes cwd, root and file mappings."""
+    return hidden_underlay_references()
+
 
 def require_zero_hidden_underlay_fds():
- holders=hidden_underlay_fds()
- if holders:raise B('legacy host-state source has open file descriptors before bind activation')
- return 0
+    """Compatibility alias for the complete visible-reference gate."""
+    return require_zero_hidden_underlay_references()
 
 def bootstrap_match():
  key=Path('/root/.config/aionex-bootstrap/control-plane.key');up=Path('/root/.config/aionex-bootstrap/trendbost-mcp-upstream.url')
