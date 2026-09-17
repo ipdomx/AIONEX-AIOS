@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import os
+import re
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -22,6 +23,38 @@ _RISK = {
     "informational": "info",
     "info": "info",
 }
+
+
+class ZapResponseInvalid(RuntimeError):
+    """An expected engine observation is absent or malformed, never zero work."""
+
+
+def _integer_field(
+    payload: dict[str, Any], key: str, *, maximum: int = (2**63 - 1)
+) -> int:
+    """Accept bounded JSON integers or canonical decimal strings, not coercions.
+
+    ZAP commonly returns counters as strings. Booleans, floating-point values,
+    signs, whitespace, Unicode digits and API-error objects are not observations.
+    Error messages deliberately omit both payloads and engine-supplied values.
+    """
+    value = payload.get(key)
+    if "code" in payload:
+        raise ZapResponseInvalid("ZAP returned an API error instead of an observation")
+    if type(value) is int:
+        number = value
+    elif isinstance(value, str) and re.fullmatch(r"0|[1-9][0-9]{0,18}", value):
+        number = int(value)
+    else:
+        raise ZapResponseInvalid("ZAP numeric observation is missing or malformed")
+    if not 0 <= number <= maximum:
+        raise ZapResponseInvalid("ZAP numeric observation is outside its valid range")
+    return number
+
+
+def _scan_id(payload: dict[str, Any]) -> str:
+    """Zero is a valid engine identifier; a missing acknowledgement is not."""
+    return str(_integer_field(payload, "scan"))
 
 
 def configured() -> bool:
@@ -90,14 +123,27 @@ class ZapClient:
         deadline = asyncio.get_running_loop().time() + timeout
         while True:
             payload = await self._json(path, {"scanId": scan_id})
-            try:
-                progress = int(payload.get("status", "0"))
-            except (TypeError, ValueError):
-                progress = 0
-            if progress >= 100:
+            progress = _integer_field(payload, "status", maximum=100)
+            if progress == 100:
                 return
             if asyncio.get_running_loop().time() >= deadline:
                 raise TimeoutError("ZAP scan timed out")
+            await asyncio.sleep(1.0)
+
+    async def _wait_passive_queue(self, *, timeout: int) -> None:
+        """Require a fresh, valid zero after the last producer has completed.
+
+        This is a scoped engine observation, not daemon ownership or a host-drain
+        proof. Missing/malformed responses, HTTP errors and cancellation propagate.
+        """
+        deadline = asyncio.get_running_loop().time() + timeout
+        while True:
+            payload = await self._json("/JSON/pscan/view/recordsToScan/")
+            remaining = _integer_field(payload, "recordsToScan")
+            if remaining == 0:
+                return
+            if asyncio.get_running_loop().time() >= deadline:
+                raise TimeoutError("ZAP passive scanner timed out")
             await asyncio.sleep(1.0)
 
     async def passive(self, origin: str, *, timeout: int = 120) -> dict[str, Any]:
@@ -108,24 +154,11 @@ class ZapClient:
             "/JSON/spider/action/scan/",
             {"url": origin, "maxChildren": "20", "subtreeOnly": "true"},
         )
-        scan_id = str(spider.get("scan") or "")
-        if not scan_id:
-            raise RuntimeError("ZAP spider did not return a scan id")
+        scan_id = _scan_id(spider)
         await self._wait_percent(
             "/JSON/spider/view/status/", scan_id=scan_id, timeout=min(timeout, 90)
         )
-        deadline = asyncio.get_running_loop().time() + min(timeout, 90)
-        while True:
-            payload = await self._json("/JSON/pscan/view/recordsToScan/")
-            try:
-                remaining = int(payload.get("recordsToScan", "0"))
-            except (TypeError, ValueError):
-                remaining = 0
-            if remaining <= 0:
-                break
-            if asyncio.get_running_loop().time() >= deadline:
-                raise TimeoutError("ZAP passive scanner timed out")
-            await asyncio.sleep(1.0)
+        await self._wait_passive_queue(timeout=min(timeout, 90))
         return await self.alerts(origin)
 
     async def active_clone(self, origin: str, *, timeout: int = 300) -> dict[str, Any]:
@@ -140,9 +173,7 @@ class ZapClient:
             "/JSON/spider/action/scan/",
             {"url": origin, "maxChildren": "100", "subtreeOnly": "true"},
         )
-        spider_id = str(spider.get("scan") or "")
-        if not spider_id:
-            raise RuntimeError("ZAP active pre-scan spider did not return a scan id")
+        spider_id = _scan_id(spider)
         await self._wait_percent(
             "/JSON/spider/view/status/",
             scan_id=spider_id,
@@ -152,26 +183,13 @@ class ZapClient:
         # Let passive processing settle before the active scan. This also makes
         # the discovered URL inventory stable enough to target parameterized
         # same-origin URLs explicitly after the recursive root scan.
-        passive_deadline = asyncio.get_running_loop().time() + min(timeout, 90)
-        while True:
-            payload = await self._json("/JSON/pscan/view/recordsToScan/")
-            try:
-                remaining = int(payload.get("recordsToScan", "0"))
-            except (TypeError, ValueError):
-                remaining = 0
-            if remaining <= 0:
-                break
-            if asyncio.get_running_loop().time() >= passive_deadline:
-                raise TimeoutError("ZAP active pre-scan passive queue timed out")
-            await asyncio.sleep(1.0)
+        await self._wait_passive_queue(timeout=min(timeout, 90))
 
         started = await self._json(
             "/JSON/ascan/action/scan/",
             {"url": origin, "recurse": "true", "inScopeOnly": "false"},
         )
-        scan_id = str(started.get("scan") or "")
-        if not scan_id:
-            raise RuntimeError("ZAP active scanner did not return a scan id")
+        scan_id = _scan_id(started)
         await self._wait_percent(
             "/JSON/ascan/view/status/", scan_id=scan_id, timeout=timeout
         )
@@ -181,8 +199,11 @@ class ZapClient:
         # same-origin parameterized URLs explicitly. This remains clone-only,
         # uses only URLs ZAP itself discovered, and never expands to another host.
         discovered = await self._json("/JSON/core/view/urls/", {"baseurl": origin})
-        raw_urls = discovered.get("urls")
-        urls = raw_urls if isinstance(raw_urls, list) else []
+        urls = discovered.get("urls")
+        if "code" in discovered or not isinstance(urls, list) or not all(
+            isinstance(item, str) for item in urls
+        ):
+            raise ZapResponseInvalid("ZAP URL inventory is missing or malformed")
         base = urlsplit(origin)
         parameterized: list[str] = []
         for candidate in urls:
@@ -202,14 +223,15 @@ class ZapClient:
                 "/JSON/ascan/action/scan/",
                 {"url": url, "recurse": "false", "inScopeOnly": "false"},
             )
-            targeted_id = str(targeted.get("scan") or "")
-            if not targeted_id:
-                raise RuntimeError("ZAP targeted active scan did not return a scan id")
+            targeted_id = _scan_id(targeted)
             await self._wait_percent(
                 "/JSON/ascan/view/status/",
                 scan_id=targeted_id,
                 timeout=min(timeout, 180),
             )
+        # Active requests (including the final targeted URL) also enqueue passive
+        # work. The earlier pre-active zero is not a final completion observation.
+        await self._wait_passive_queue(timeout=min(timeout, 90))
         return await self.alerts(origin)
 
     async def alerts(self, origin: str) -> dict[str, Any]:
@@ -217,9 +239,12 @@ class ZapClient:
             "/JSON/core/view/alerts/",
             {"baseurl": origin, "start": "0", "count": "1000"},
         )
-        raw_alerts = payload.get("alerts")
-        alerts: list[Any] = raw_alerts if isinstance(raw_alerts, list) else []
-        findings = [_finding(item) for item in alerts if isinstance(item, dict)]
+        alerts = payload.get("alerts")
+        if "code" in payload or not isinstance(alerts, list) or not all(
+            isinstance(item, dict) for item in alerts
+        ):
+            raise ZapResponseInvalid("ZAP alert inventory is missing or malformed")
+        findings = [_finding(item) for item in alerts]
         return {
             "tool": "owasp-zap",
             "status": "completed",
