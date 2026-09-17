@@ -2,35 +2,43 @@
   "schema_version": 1,
   "batch_id": "FR-06",
   "subpart": "FR-06C5-safety-review",
-  "reviewed_at": "2026-09-16",
+  "reviewed_at": "2026-09-17",
   "source_authorities": {
     "c5c1": "32dcdf393fa0835a034a953f1476795a5a585927",
     "c5d": "fce07a38114a2c5252e804be9ec52219fa8b1dad",
-    "c5e": "e11a18c60291246206486fbd52f71647224b4009"
+    "c5e": "e11a18c60291246206486fbd52f71647224b4009",
+    "accepted_c5c1_main": "734c0065d828e2cf3997dd4efbcdf6cbba32a37b",
+    "c5d_followup_receipt": "docs/project/receipts/FR-06C5D-source-safety-verification.json"
   },
   "execution_scope": "Source review and disposable mocked regression tests only. No vault provisioning, secret migration, service restart, swap change or tmp mount.",
   "findings": [
     {
       "id": "C5C1-REPLAY",
       "severity": "P1",
-      "status": "fixed_in_this_source_change_pending_protected_ci",
+      "status": "source_fix_merged_protected_ci_and_main_ci_passed",
       "file": "scripts/security/fr06c5_host_state_vault.py",
       "issue": "apply did not recheck target state under its lock and could format an existing image on replay; failure cleanup could unlink a prior or still-mapped backing file.",
-      "fix": "Locked current-state gates, durable single-use claim, O_EXCL creation and fd-based allocation, inode ownership cleanup, retain image when teardown fails or mapper/mount remains, key and lock cleanup on all handled failures."
+      "fix": "Locked current-state gates, durable single-use claim, O_EXCL creation and fd-based allocation, inode ownership cleanup, retain image when teardown fails or mapper/mount remains, key and lock cleanup on all handled failures.",
+      "accepted_pr": 709,
+      "accepted_main": "734c0065d828e2cf3997dd4efbcdf6cbba32a37b",
+      "runtime_activation_verified": false
     },
     {
       "id": "C5C1-BIND-OWNERSHIP",
       "severity": "P1",
-      "status": "fixed_in_this_source_change_pending_protected_ci",
+      "status": "source_fix_merged_protected_ci_and_main_ci_passed",
       "file": "scripts/security/fr06c5_host_state_bind.py",
       "issue": "Rollback could unmount a previous unrelated exact mount and reported legacy exposure without checked teardown.",
       "fix": "Only remove the matching candidate bind, verify umount effect, preserve verified legacy seals and block on foreign mounts, report that complete runtime restoration is not attested.",
-      "remaining": "The C5D executor still requires its own durable attempt journal and checked runtime restoration."
+      "remaining": "C5D journal, resource ownership and runtime restoration are covered by the separate C5D source follow-up; live activation still requires operational acceptance.",
+      "accepted_pr": 709,
+      "accepted_main": "734c0065d828e2cf3997dd4efbcdf6cbba32a37b",
+      "runtime_activation_verified": false
     },
     {
       "id": "C5D-ROLLBACK",
       "severity": "P1",
-      "status": "blocks_live_cutover",
+      "status": "source_remediation_pending_protected_ci_and_live_operational_acceptance",
       "file": "scripts/security/fr06c5_host_state_cutover.py",
       "symbols": [
         "apply",
@@ -39,7 +47,10 @@
         "quiesce_restart_policies"
       ],
       "issue": "A failure before cutover invokes global rollback; teardown and restore return codes are ignored; restart policies are not restored; in-memory started flag and reusable plan do not protect an earlier authoritative candidate.",
-      "required": "Durable attempt journal and ownership of mount/gate/policy mutations, phase-aware rollback, checked teardown and legacy health acceptance, no automatic replay after candidate start attempt."
+      "required": "Durable attempt journal and ownership of mount/gate/policy mutations, phase-aware rollback, checked teardown and legacy health acceptance, no automatic replay after candidate start attempt.",
+      "source_fix": "Shared plan/apply lock with fresh authority checks, schema-2 durable attempt journal, permanent candidate-start barrier, inode/mount-ID ownership with checked teardown, full policy restoration including retry limits, actual phase-aware rollback tests and bounded exact-topology legacy/candidate acceptance.",
+      "verification_receipt": "docs/project/receipts/FR-06C5D-source-safety-verification.json",
+      "live_activation_blocked_until_operational_prerequisites": true
     },
     {
       "id": "C5E-ROLLBACK",
@@ -66,7 +77,11 @@
       ],
       "issue": "Exact path comparison ignores a /dev/dm-N alias of the encrypted mapper.",
       "evidence": "Synthetic /dev/dm-7 row made start reject active mapper and stop omit swapoff. Actual kernel representation for this new target was not tested live.",
-      "required": "Compare canonical block-device identity and test aliases."
+      "required": "Compare canonical block-device identity and test aliases.",
+      "prepared_source_branch": "fix/fr06c5e-swap-device-identity",
+      "prepared_source_commit": "13b76558f585f432acc831b6ad0448ee5909b5bd",
+      "prepared_source_tests_passed": 39,
+      "prepared_source_merged": false
     },
     {
       "id": "C5E-BOOT-ORDER",
@@ -112,8 +127,24 @@
     "tmp_fstype": "ext4",
     "final_release": false
   },
-  "remaining_scope": "FR-06 stays in progress; FR-06C5D/E must be repaired and behaviorally validated before live activation. Deferred owner scope is unchanged.",
+  "remaining_scope": "FR-06 stays in progress. C5C1 runtime prerequisites, C5D protected source checks and guarded operational acceptance, and C5E remaining safety fixes are separate. The canonical project event journal records later exact-commit CI and source synchronization results. Deferred owner scope is unchanged.",
   "validation": {
+    "c5c1": {
+      "pr": 709,
+      "targeted_nonroot_tests_passed": 49,
+      "protected_checks_passed": 12,
+      "main_checks_passed": 11,
+      "main_workflows_passed": 5
+    },
+    "c5d": {
+      "receipt": "docs/project/receipts/FR-06C5D-source-safety-verification.json",
+      "protected_ci": "pending_at_source_receipt_authoring",
+      "live_operational_acceptance": false
+    },
+    "real_system_mutations": false
+  },
+  "initial_reviewed_at": "2026-09-16",
+  "initial_validation": {
     "nonroot_targeted_tests_passed": 49,
     "seconds": 0.22,
     "tested_as": "nobody",
