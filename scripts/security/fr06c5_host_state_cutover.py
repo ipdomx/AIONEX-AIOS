@@ -262,42 +262,196 @@ def file_manifest(path):
  p=path.resolve(strict=True);s=source_entry(p)
  if not stat.S_ISREG(s.st_mode):raise B('private-key source is not regular')
  return {'sha256':fsha(p),'mode':stat.S_IMODE(s.st_mode),'uid':s.st_uid,'gid':s.st_gid,'size':s.st_size}
-def mount_targets():
- raw=run(['findmnt','-rn','-o','TARGET'])
+def _mount_rows(target=None):
+ args=['findmnt','--kernel','--json','--output','ID,TARGET,SOURCE,FSROOT,MAJ:MIN,OPTIONS']
+ args+=['--target',str(target)] if target is not None else ['--list']
+ rows=json.loads(run(args)).get('filesystems',[])
+ if not isinstance(rows,list) or not rows:raise B('mount inventory unavailable')
  out=[]
- for line in raw.splitlines():
-  value=line.replace('\040',' ').replace('\011','\t').replace('\134','\\')
-  out.append(value)
+ for row in rows:
+  if not isinstance(row,dict) or any(not isinstance(row.get(k),str) or not row[k] for k in ('target','source','fsroot','maj:min','options')):raise B('mount identity unavailable')
+  out.append({'id':int(row['id']),'target':row['target'],'source':row['source'],'fsroot':row['fsroot'],'device':row['maj:min'],'options':sorted(row['options'].split(','))})
  return out
+def _mount_at(path):
+ rows=_mount_rows(path)
+ if len(rows)!=1:raise B('visible mount identity ambiguous')
+ return rows[0]
+def _mount_owner(row):
+ return {k:row[k] for k in ('id','target','fsroot','device')}
+def _exists(path):return os.path.lexists(path)
+def _identity(path,content=False,link=False):
+ s=os.lstat(path)
+ if link:
+  if not stat.S_ISLNK(s.st_mode):raise B('owned enable link type changed')
+ elif stat.S_ISLNK(s.st_mode) or not (stat.S_ISREG(s.st_mode) or stat.S_ISDIR(s.st_mode)):raise B('resource type unsafe')
+ if not stat.S_ISDIR(s.st_mode) and s.st_nlink!=1:raise B('resource link count unsafe')
+ value={'dev':s.st_dev,'ino':s.st_ino,'mode':stat.S_IMODE(s.st_mode),'uid':s.st_uid,'gid':s.st_gid,'type':stat.S_IFMT(s.st_mode)}
+ if not stat.S_ISDIR(s.st_mode):value['nlink']=s.st_nlink
+ if link:value['target']=os.readlink(path)
+ if content:
+  if not stat.S_ISREG(s.st_mode):raise B('gate is not a regular file')
+  value.update(size=s.st_size,sha256=fsha(path))
+ return value
+def _boot_id():return Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+def _enable_links():
+ unit=SYSTEMD[0][1]
+ return ((unit.parent/'multi-user.target.wants'/unit.name,unit),)
+def _unexpected_unit_links():
+ unit=SYSTEMD[0][1];expected={str(p) for p,_ in _enable_links()};found=[]
+ # Include runtime enablement and aliases, without asking systemctl to remove them.
+ roots={unit.parent,Path('/run/systemd/system')}
+ for root in roots:
+  if not root.is_dir():continue
+  for p in root.rglob('*'):
+   if not p.is_symlink():continue
+   target=os.readlink(p)
+   if (p.name==unit.name or Path(target).name==unit.name) and str(p) not in expected:found.append(str(p))
+ return found
+def mount_targets():return [row['target'] for row in _mount_rows()]
+def _candidate_paths_safe():
+ if not stat.S_ISDIR(_identity(MOUNT)['type']) or _mount_at(MOUNT)['target']!=str(MOUNT):raise B('candidate vault root is not an exact directory mount')
+ for _,_,candidate,isfile in PATHS:
+  try:parts=candidate.relative_to(MOUNT).parts
+  except ValueError as x:raise B('candidate escaped fixed vault root') from x
+  current=MOUNT
+  for index,part in enumerate(parts):
+   current=current/part;last=index==len(parts)-1
+   if not _exists(current):
+    if last and isfile:continue
+    raise B('candidate parent directory unavailable')
+   identity=_identity(current)
+   if last and isfile:
+    if not stat.S_ISREG(identity['type']):raise B('candidate key type unsafe')
+   elif not stat.S_ISDIR(identity['type']):raise B('candidate directory type unsafe')
 def reject_nested_mounts():
  mounts=mount_targets()
- for _,src,_,isfile in PATHS:
-  if isfile:continue
+ for _,src,_,_ in PATHS:
   base=str(src).rstrip('/')
-  nested=[m for m in mounts if m==base or m.startswith(base+'/')]
-  if nested:raise B(f'unexpected mount under host-state source: {src}')
+  if any(m==base or m.startswith(base+'/') for m in mounts):raise B(f'unexpected mount under host-state source: {src}')
+ if any(m.startswith(str(MOUNT).rstrip('/')+'/') for m in mounts):raise B('unexpected mount inside candidate vault')
+ _candidate_paths_safe()
+def capture_resources():
+ reject_nested_mounts()
+ if _unexpected_unit_links():raise B('preexisting host-state unit link')
+ legacy={}
+ for role,src,candidate,isfile in PATHS:
+  identity=_identity(src)
+  if bool(stat.S_ISREG(identity['type']))!=isfile:raise B('legacy resource type drifted')
+  legacy[role]={'path':str(src),'candidate':str(candidate),'is_file':isfile,'identity':identity,'base_mount':_mount_at(src),'seal':{'state':'absent','owned':None}}
+ gates={}
+ for src,dst in SYSTEMD:
+  if _exists(dst):raise B('preexisting host-state gate')
+  gates[str(dst)]={'source':str(src),'source_identity':_identity(src,content=True),'parent_identity':_identity(dst.parent),'state':'absent','owned':None}
+ links={}
+ for link,target in _enable_links():
+  if _exists(link):raise B('preexisting host-state enable link')
+  links[str(link)]={'target':str(target),'parent_identity':_identity(link.parent),'state':'absent','owned':None}
+ return {'schema_version':1,'boot_id':_boot_id(),'vault_mount':_mount_at(MOUNT),'vault_identity':_identity(MOUNT),'legacy':legacy,'gates':gates,'enable_links':links}
+def validate_resources(snapshot):
+ if snapshot!=capture_resources():raise B('resource snapshot changed before live mutation')
+ return True
+def _resources(attempt):
+ journal=jread(attempt);r=journal.get('resources')
+ if not isinstance(r,dict) or r.get('schema_version')!=1 or r.get('boot_id')!=_boot_id():raise B('resource journal unavailable or boot changed')
+ if r.get('vault_mount')!=_mount_at(MOUNT) or r.get('vault_identity')!=_identity(MOUNT):raise B('candidate vault identity changed')
+ _candidate_paths_safe()
+ if any(m.startswith(str(MOUNT).rstrip('/')+'/') for m in mount_targets()):raise B('unexpected mount inside candidate vault')
+ if set(r.get('legacy',{}))!={x[0] for x in PATHS} or set(r.get('gates',{}))!={str(x[1]) for x in SYSTEMD} or set(r.get('enable_links',{}))!={str(x[0]) for x in _enable_links()}:raise B('resource journal scope drifted')
+ for role,src,candidate,isfile in PATHS:
+  x=r['legacy'][role]
+  if x.get('path')!=str(src) or x.get('candidate')!=str(candidate) or x.get('is_file')!=isfile:raise B('legacy resource journal scope drifted')
+ for src,dst in SYSTEMD:
+  if r['gates'][str(dst)].get('source')!=str(src):raise B('gate source journal scope drifted')
+ for link,target in _enable_links():
+  if r['enable_links'][str(link)].get('target')!=str(target):raise B('enable link journal scope drifted')
+ return journal,r
+def _save_resources(attempt,r):update_attempt(attempt,resources=r)
+def _same_legacy(entry):
+ return _identity(Path(entry['path']))==entry['identity']
+def _expected_root(path,base):
+ return str(Path(base['fsroot'])/Path(path).relative_to(Path(base['target'])))
+def _seal_matches(row,entry):
+ base=entry['base_mount']
+ return row['target']==entry['path'] and row['device']==base['device'] and row['fsroot']==_expected_root(entry['path'],base)
+def _candidate_matches(row,entry):
+ src=Path(entry['candidate']);dst=Path(entry['path']);a=os.stat(src);b=os.stat(dst);base=_mount_at(src)
+ return (a.st_dev,a.st_ino)==(b.st_dev,b.st_ino) and row['target']==str(dst) and row['device']==base['device'] and row['fsroot']==_expected_root(src,base)
+def _check_mount_resources(journal,r,allow_candidate):
+ rows=_mount_rows()
+ allowed_phase={'bind_activation_started','bind_active'}
+ candidate_intent=journal.get('bind_activation_attempted') is True or journal.get('phase') in allowed_phase or journal.get('rollback_from_phase') in allowed_phase
+ for entry in r['legacy'].values():
+  path=entry['path'];seal=entry['seal'];owned=seal.get('owned');stack=[row for row in rows if row['target']==path]
+  if any(row['target'].startswith(path.rstrip('/')+'/') for row in rows):raise B('unexpected nested mount during resource rollback')
+  if not stack:
+   if owned is not None and seal['state'] not in {'remove_intent','removed'}:raise B('owned seal disappeared without removal intent')
+   if not _same_legacy(entry) or _mount_at(path)!=entry['base_mount']:raise B('legacy resource identity changed')
+   continue
+  if owned is None or seal['state']=='removed':raise B('unrecorded legacy mount preserved')
+  saved=[row for row in stack if _mount_owner(row)==_mount_owner(owned)]
+  if len(saved)!=1 or not _seal_matches(saved[0],entry):raise B('recorded seal identity changed')
+  visible=_mount_at(path)
+  if _mount_owner(visible)==_mount_owner(owned):
+   if len(stack)!=1 or not _same_legacy(entry):raise B('legacy seal stack or inode changed')
+  elif not (allow_candidate and candidate_intent and len(stack)==2 and any(row['id']==visible['id'] for row in stack) and _candidate_matches(visible,entry)):
+   raise B('foreign mount above owned legacy seal preserved')
+def _check_file_resources(r):
+ if _unexpected_unit_links():raise B('unexpected host-state unit link preserved')
+ for section,link in (('gates',False),('enable_links',True)):
+  for name,entry in r[section].items():
+   p=Path(name)
+   if _identity(p.parent)!=entry['parent_identity']:raise B('resource parent identity changed')
+   if not _exists(p):
+    if entry.get('owned') is not None and entry['state'] not in {'remove_intent','removed'}:raise B('owned gate or link disappeared without removal intent')
+   elif entry.get('owned') is None or _identity(p,content=not link,link=link)!=entry['owned']:
+    raise B('unowned or replaced gate/link preserved')
+def rollback_resources_preflight(attempt):
+ journal,r=_resources(attempt);_check_mount_resources(journal,r,True);_check_file_resources(r)
+ return True
+def verify_legacy_targets(attempt):
+ journal,r=_resources(attempt);_check_mount_resources(journal,r,False);_check_file_resources(r)
+ for entry in r['legacy'].values():
+  if any(row['target']==entry['path'] for row in _mount_rows()):raise B('legacy mount remained after rollback')
+ for section in ('gates','enable_links'):
+  if any(_exists(Path(name)) for name in r[section]):raise B('host-state gate/link remained after rollback')
+ return True
+def exact_mount(p):return _mount_at(p)['target']==str(p)
+def sealed(p):
+ row=_mount_at(p)
+ return row['target']==str(p) and {'ro','nodev','nosuid','noexec'}.issubset(row['options'])
+def seal(p,attempt):
+ journal,r=_resources(attempt);entry=next((v for v in r['legacy'].values() if v['path']==str(p)),None)
+ if entry is None or entry['seal']['state']!='absent':raise B('seal not owned by a fresh resource intent')
+ if not _same_legacy(entry) or _mount_at(p)!=entry['base_mount']:raise B('legacy source changed before seal')
+ if any(m==str(p) or m.startswith(str(p).rstrip('/')+'/') for m in mount_targets()):raise B('preexisting mount before seal')
+ entry['seal']['state']='create_intent';_save_resources(attempt,r)
+ run(['mount','--bind',str(p),str(p)])
+ row=_mount_at(p)
+ if not _seal_matches(row,entry) or not _same_legacy(entry):raise B('new seal identity not proved')
+ entry['seal'].update(state='remount_intent',owned=row);_save_resources(attempt,r)
+ run(['mount','-o','remount,bind,ro,nodev,nosuid,noexec',str(p)])
+ current=_mount_at(p)
+ if _mount_owner(current)!=_mount_owner(row) or not sealed(p):raise B('legacy seal did not become read-only')
+ entry['seal'].update(state='sealed',owned=current);_save_resources(attempt,r)
+def unseal_all_checked(attempt):
+ journal,r=_resources(attempt);_check_mount_resources(journal,r,False);_check_file_resources(r)
+ for entry in reversed(list(r['legacy'].values())):
+  p=Path(entry['path']);seal_entry=entry['seal'];owned=seal_entry.get('owned')
+  if owned is None:continue
+  journal,r=_resources(attempt);_check_mount_resources(journal,r,False);_check_file_resources(r)
+  entry=next(x for x in r['legacy'].values() if x['path']==str(p));seal_entry=entry['seal']
+  if not exact_mount(p):
+   seal_entry['state']='removed';_save_resources(attempt,r);continue
+  if _mount_owner(_mount_at(p))!=_mount_owner(owned):raise B('refusing unowned legacy unmount')
+  seal_entry['state']='remove_intent';_save_resources(attempt,r);run(['umount',str(p)],120)
+  if exact_mount(p) or not _same_legacy(entry) or _mount_at(p)!=entry['base_mount']:raise B('legacy seal removal not verified')
+  seal_entry['state']='removed';_save_resources(attempt,r)
 def precopy():
  for role,src,dst,isfile in PATHS:
   if isfile:
    dst.parent.mkdir(parents=True,exist_ok=True,mode=0o700);run(['rsync','-aHAX','--numeric-ids',str(src),str(dst)],300)
   else:
    dst.mkdir(parents=True,exist_ok=True,mode=0o700);run(['rsync','-aHAX','--numeric-ids','--delete',str(src)+'/',str(dst)+'/'],1800)
-def exact_mount(p):
- r=subprocess.run(['findmnt','-n','-o','TARGET','--target',str(p)],capture_output=True,text=True,check=False)
- return r.returncode==0 and r.stdout.strip()==str(p)
-def sealed(p):
- if not exact_mount(p):return False
- r=subprocess.run(['findmnt','-n','-o','OPTIONS','--target',str(p)],capture_output=True,text=True,check=False)
- return r.returncode==0 and 'ro' in set(r.stdout.strip().split(','))
-def seal(p):
- if sealed(p):return
- run(['mount','--bind',str(p),str(p)]);run(['mount','-o','remount,bind,ro,nodev,nosuid,noexec',str(p)])
- if not sealed(p):raise B('legacy host-state seal failed')
-def unseal_all_checked():
- for _,src,_,_ in reversed(PATHS):
-  if exact_mount(src):
-   run(['umount',str(src)],120)
-   if exact_mount(src):raise B('legacy host-state seal remained after rollback')
 def exact_copy_and_manifest():
  for _,src,dst,isfile in PATHS:
   if isfile:run(['rsync','-aHAX','--numeric-ids',str(src),str(dst)],300)
@@ -334,20 +488,61 @@ def bootstrap_match():
  key=Path('/root/.config/aionex-bootstrap/control-plane.key');up=Path('/root/.config/aionex-bootstrap/trendbost-mcp-upstream.url')
  if fsha(key)!=fsha(Path('/root/.config/aionex/aionex-tunnel-runtime.key')):raise B('bootstrap control-plane key drifted from sealed operator source')
  if fsha(up)!=fsha(Path('/root/.config/aionex/trendbost-mcp-upstream.url')):raise B('bootstrap bridge upstream drifted from sealed operator source')
-def atomic_install(src,dst):
- dst.parent.mkdir(parents=True,exist_ok=True,mode=0o755);tmp=dst.parent/(dst.name+'.aionex-new');shutil.copyfile(src,tmp);os.chmod(tmp,0o644);os.replace(tmp,dst)
-def install_gates():
+def _resource_sync_parent(path):
+ fd=os.open(path.parent,os.O_RDONLY|os.O_DIRECTORY|os.O_CLOEXEC)
+ try:os.fsync(fd)
+ finally:os.close(fd)
+def _resource_write_all(fd,data):
+ view=memoryview(data)
+ while view:
+  count=os.write(fd,view)
+  if count<=0:raise E('gate write made no progress')
+  view=view[count:]
+def _record_gate_file(attempt,r,name,fd):
+ entry=r['gates'][name];p=Path(name);s=os.fstat(fd)
+ current=_identity(p,content=True)
+ if (current['dev'],current['ino'])!=(s.st_dev,s.st_ino):raise B('created gate identity replaced')
+ entry['owned']=current;_save_resources(attempt,r)
+def install_gates(attempt):
+ journal,r=_resources(attempt);_check_file_resources(r)
  for src,dst in SYSTEMD:
-  atomic_install(src,dst)
-  if fsha(src)!=fsha(dst):raise B('installed host-state gate hash mismatch')
- run(['systemctl','daemon-reload']);run(['systemctl','enable','aionex-fr06c5-host-state-bind.service'])
-def remove_gates_checked():
- enabled=subprocess.run(['systemctl','is-enabled','aionex-fr06c5-host-state-bind.service'],capture_output=True,text=True,check=False).stdout.strip() in {'enabled','static'}
- if enabled:run(['systemctl','disable','aionex-fr06c5-host-state-bind.service'],60)
- for src,dst in SYSTEMD:
-  if dst.exists():
-   if dst.is_symlink() or not dst.is_file() or fsha(src)!=fsha(dst):raise B('refusing to remove drifted host-state gate')
-   dst.unlink()
+  name=str(dst);entry=r['gates'][name]
+  if entry['state']!='absent' or _exists(dst) or _identity(src,content=True)!=entry['source_identity']:raise B('gate install precondition changed')
+  data=src.read_bytes()
+  if hashlib.sha256(data).hexdigest()!=entry['source_identity']['sha256']:raise B('gate source changed while reading')
+  entry['state']='create_intent';_save_resources(attempt,r)
+  fd=os.open(dst,os.O_RDWR|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_CLOEXEC,0o644)
+  try:
+   os.fchmod(fd,0o644);_record_gate_file(attempt,r,name,fd)
+   try:_resource_write_all(fd,data);os.fsync(fd)
+   except Exception:
+    try:_record_gate_file(attempt,r,name,fd);_resource_sync_parent(dst)
+    except Exception:pass
+    raise
+   _record_gate_file(attempt,r,name,fd);_resource_sync_parent(dst)
+   if entry['owned']['sha256']!=entry['source_identity']['sha256']:raise B('installed gate content mismatch')
+   entry['state']='installed';_save_resources(attempt,r)
+  finally:os.close(fd)
+ for link,target in _enable_links():
+  entry=r['enable_links'][str(link)]
+  _check_file_resources(r)
+  if entry['state']!='absent' or _exists(link):raise B('enable link install precondition changed')
+  entry['state']='create_intent';_save_resources(attempt,r);os.symlink(str(target),link)
+  entry.update(owned=_identity(link,link=True),state='installed');_resource_sync_parent(link);_save_resources(attempt,r)
+ run(['systemctl','daemon-reload'])
+def remove_gates_checked(attempt):
+ rollback_resources_preflight(attempt)
+ for section,link in (('enable_links',True),('gates',False)):
+  _,r=_resources(attempt)
+  for name in reversed(list(r[section])):
+   rollback_resources_preflight(attempt);_,r=_resources(attempt);entry=r[section][name];p=Path(name)
+   if not _exists(p):
+    if entry.get('owned') is not None:entry['state']='removed';_save_resources(attempt,r)
+    continue
+   if entry.get('owned') is None or _identity(p,content=not link,link=link)!=entry['owned']:raise B('refusing removal of unowned gate/link')
+   entry['state']='remove_intent';_save_resources(attempt,r);p.unlink();_resource_sync_parent(p)
+   if _exists(p):raise B('owned gate/link remained after removal')
+   entry['state']='removed';_save_resources(attempt,r)
  run(['systemctl','daemon-reload'])
 def watcher_states():return {u:active(u) for u in ('aionex-runtime-watch.timer','aionex-runtime-watch.service')}
 def stop_watchers(states):
