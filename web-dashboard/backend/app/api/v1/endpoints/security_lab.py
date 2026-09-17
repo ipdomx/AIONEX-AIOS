@@ -13,6 +13,10 @@ from app.core.auth import UserRecord, current_user
 from app.db.base import get_db
 from app.db.models import SecurityFinding, SecurityScan, SecurityTarget
 from app.services import security_fabric, security_scanning
+from app.services.host_maintenance_admission import (
+    HostMaintenanceClosed,
+    HostMaintenanceUnavailable,
+)
 
 router = APIRouter()
 
@@ -336,6 +340,18 @@ async def create_remediation(
         await session.commit()
         await session.refresh(item)
         return security_remediation.remediation_snapshot(item)
+    except HostMaintenanceClosed:
+        await session.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail="Security remediation admission is temporarily closed for maintenance.",
+        ) from None
+    except HostMaintenanceUnavailable:
+        await session.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail="Security remediation admission is currently unavailable.",
+        ) from None
     except PermissionError as exc:
         await session.rollback()
         raise HTTPException(status_code=403, detail=str(exc)) from exc

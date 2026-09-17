@@ -26,6 +26,7 @@ from app.db.models import (
     uuid_str,
 )
 from app.services import security_fabric, security_scanning
+from app.services.host_maintenance_remediation import require_remediation_admission
 
 TERMINAL = {"verified_fixed", "rejected", "failed", "cancelled"}
 
@@ -110,6 +111,7 @@ async def request_remediation(
     *,
     finding_id: str,
 ) -> SecurityRemediation:
+    await require_remediation_admission(session)
     policy = await security_fabric.get_policy(session)
     if not policy.get("auto_remediation_enabled", False):
         raise PermissionError(
