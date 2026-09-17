@@ -2,7 +2,9 @@
 
 Legacy schema 1 covers project execution claims and lease reaping. Schema 2 also
 covers backup worker cycles and their guarded enqueue APIs. Schema 3 adds
-academy course-package production and owned builds. Coverage remains partial;
+academy course-package production and owned builds. Schema 4 adds owned external
+notification dispatch, without guarding generic notification creation or realtime.
+Coverage remains partial;
 no schema version proves deployment or full-host closure. There is no automatic
 reopening.
 
@@ -34,8 +36,13 @@ COVERAGE_SCHEMA_VERSION = 2
 COVERAGE_SCOPE = "project_execution+backup_cycles"
 ACADEMY_SCHEMA_VERSION = 3
 ACADEMY_COVERAGE_SCOPE = "project_execution+backup_cycles+academy_course_packages"
+NOTIFICATION_SCHEMA_VERSION = 4
+NOTIFICATION_COVERAGE_SCOPE = (
+    "project_execution+backup_cycles+academy_course_packages+notification_delivery_dispatch"
+)
 _REQUIRED_SCOPES = frozenset(
-    {"project_execution", "backup_cycles", "academy_course_packages"}
+    {"project_execution", "backup_cycles", "academy_course_packages",
+     "notification_delivery_dispatch"}
 )
 _CONTROL_LOCK_TIMEOUT = "5s"
 
@@ -73,6 +80,11 @@ class HostMaintenanceSnapshot:
 
     @property
     def covered_scopes(self) -> tuple[str, ...]:
+        if self.schema_version == NOTIFICATION_SCHEMA_VERSION:
+            return (
+                "project_execution", "backup_cycles", "academy_course_packages",
+                "notification_delivery_dispatch",
+            )
         if self.schema_version == ACADEMY_SCHEMA_VERSION:
             return ("project_execution", "backup_cycles", "academy_course_packages")
         if self.schema_version == COVERAGE_SCHEMA_VERSION:
@@ -129,6 +141,7 @@ def _snapshot(row: RowMapping) -> HostMaintenanceSnapshot:
             (SCHEMA_VERSION, SCOPE),
             (COVERAGE_SCHEMA_VERSION, COVERAGE_SCOPE),
             (ACADEMY_SCHEMA_VERSION, ACADEMY_COVERAGE_SCOPE),
+            (NOTIFICATION_SCHEMA_VERSION, NOTIFICATION_COVERAGE_SCOPE),
         )
         or payload["full_host_closure"] is not False
         or not _valid_generation(payload["generation"])

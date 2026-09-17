@@ -1507,6 +1507,13 @@ class NotificationDeliveryAttempt(Base):
     __table_args__ = (
         UniqueConstraint("delivery_id", "attempt_number", name="uq_notification_delivery_attempt"),
         Index("ix_notification_delivery_attempts_delivery", "delivery_id", "started_at"),
+        CheckConstraint(
+            "(dispatch_protocol_version IS NULL AND dispatch_outcome IS NULL) OR "
+            "(dispatch_protocol_version IS NOT NULL AND dispatch_protocol_version = 1 AND "
+            "(dispatch_outcome IS NULL OR dispatch_outcome IN "
+            "('accepted', 'no_send', 'rejected', 'uncertain')))",
+            name="ck_notification_attempt_dispatch_proof",
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
@@ -1520,6 +1527,9 @@ class NotificationDeliveryAttempt(Base):
     response_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    dispatch_protocol_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    dispatch_outcome: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
 class SupportRequest(Base, TimestampMixin):
@@ -2616,7 +2626,7 @@ class HostMaintenanceWorkCycle(Base):
     __tablename__ = "host_maintenance_work_cycles"
     __table_args__ = (
         CheckConstraint(
-            "consumer IN ('backup_cycles', 'academy_course_packages')",
+            "consumer IN ('backup_cycles', 'academy_course_packages', 'notification_delivery_dispatch')",
             name="ck_host_cycle_consumer",
         ),
         CheckConstraint(
@@ -2628,6 +2638,16 @@ class HostMaintenanceWorkCycle(Base):
             "consumer", "job_id",
             unique=True,
             postgresql_where=text("consumer = 'academy_course_packages'"),
+        ),
+        CheckConstraint(
+            "consumer != 'notification_delivery_dispatch' OR job_id IS NOT NULL",
+            name="ck_host_cycle_notification_job",
+        ),
+        Index(
+            "uq_host_cycle_notification_delivery",
+            "consumer", "job_id",
+            unique=True,
+            postgresql_where=text("consumer = 'notification_delivery_dispatch'"),
         ),
         CheckConstraint("admitted_generation > 0", name="ck_host_cycle_generation"),
         CheckConstraint("state IN ('active', 'unresolved')", name="ck_host_cycle_state"),
