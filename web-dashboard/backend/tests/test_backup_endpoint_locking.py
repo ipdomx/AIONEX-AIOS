@@ -83,6 +83,14 @@ async def test_restore_enqueue_locks_queue_before_backup_row(
     backup = _completed_backup()
     session = RecordingSession([backup, None], events)
 
+    async def admission_open(received_session: Any) -> None:
+        assert received_session is session
+        events.append(("admission", "backup_cycles"))
+
+    monkeypatch.setattr(
+        backup_endpoints, "require_backup_enqueue_admission", admission_open
+    )
+
     async def acquire_lock(_session: Any, key: str) -> None:
         events.append(("advisory-lock", key))
 
@@ -101,9 +109,10 @@ async def test_restore_enqueue_locks_queue_before_backup_row(
 
     assert selected is backup
     assert run.details["backup_id"] == backup.id
-    assert events[0] == ("advisory-lock", "restore-validation")
-    assert events[1][0] == "scalar"
-    assert events[1][1]._for_update_arg is not None
+    assert events[0] == ("admission", "backup_cycles")
+    assert events[1] == ("advisory-lock", "restore-validation")
+    assert events[2][0] == "scalar"
+    assert events[2][1]._for_update_arg is not None
     assert session.flushes == 1
     assert session.commits == 1
 
@@ -117,6 +126,14 @@ async def test_restore_enqueue_revalidates_backup_after_advisory_lock(
     events: list[tuple[str, Any]] = []
     backup = _completed_backup()
     session = RecordingSession([backup], events)
+
+    async def admission_open(received_session: Any) -> None:
+        assert received_session is session
+        events.append(("admission", "backup_cycles"))
+
+    monkeypatch.setattr(
+        backup_endpoints, "require_backup_enqueue_admission", admission_open
+    )
 
     async def retention_wins_before_lock(_session: Any, key: str) -> None:
         events.append(("advisory-lock", key))
@@ -138,7 +155,8 @@ async def test_restore_enqueue_revalidates_backup_after_advisory_lock(
         )
 
     assert error.value.status_code == 409
-    assert events[0] == ("advisory-lock", "restore-validation")
-    assert events[1][1]._for_update_arg is not None
+    assert events[0] == ("admission", "backup_cycles")
+    assert events[1] == ("advisory-lock", "restore-validation")
+    assert events[2][1]._for_update_arg is not None
     assert session.flushes == 0
     assert session.commits == 0

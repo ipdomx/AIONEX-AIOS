@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aios.completion_program import completion_program_snapshot
 from aios.phase36_program import phase36_program_snapshot
+from app.api.backup_admission import require_backup_enqueue_admission
 from app.core.auth import UserRecord, pwd_context, require_super_owner
 from app.core.config import settings
 from app.core.owner_input_validation import normalize_owner_user_email
@@ -3011,6 +3012,8 @@ async def _apply_live_action(
         return _control_item(record)
 
     if domain == "recovery":
+        if action in {"create-backup", "validate-restore", "dr-drill"}:
+            await require_backup_enqueue_admission(session)
         if action == "create-backup":
             kind = str(payload.get("kind", "on-demand")).strip()
             scope = str(payload.get("scope", "platform")).strip()
