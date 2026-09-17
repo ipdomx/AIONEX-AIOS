@@ -2626,7 +2626,7 @@ class HostMaintenanceWorkCycle(Base):
     __tablename__ = "host_maintenance_work_cycles"
     __table_args__ = (
         CheckConstraint(
-            "consumer IN ('backup_cycles', 'academy_course_packages', 'notification_delivery_dispatch')",
+            "consumer IN ('backup_cycles', 'academy_course_packages', 'notification_delivery_dispatch', 'security_remediation_preparation')",
             name="ck_host_cycle_consumer",
         ),
         CheckConstraint(
@@ -2648,6 +2648,16 @@ class HostMaintenanceWorkCycle(Base):
             "consumer", "job_id",
             unique=True,
             postgresql_where=text("consumer = 'notification_delivery_dispatch'"),
+        ),
+        CheckConstraint(
+            "consumer != 'security_remediation_preparation' OR job_id IS NOT NULL",
+            name="ck_host_cycle_remediation_job",
+        ),
+        Index(
+            "uq_host_cycle_security_remediation",
+            "consumer", "job_id",
+            unique=True,
+            postgresql_where=text("consumer = 'security_remediation_preparation'"),
         ),
         CheckConstraint("admitted_generation > 0", name="ck_host_cycle_generation"),
         CheckConstraint("state IN ('active', 'unresolved')", name="ck_host_cycle_state"),
@@ -3401,7 +3411,15 @@ class SecurityRuleValidation(Base):
 
 class SecurityRemediation(Base, TimestampMixin):
     __tablename__ = "security_remediations"
-    __table_args__ = (Index("ix_security_remediations_org_status_created", "organization_id", "status", "created_at"),)
+    __table_args__ = (
+        Index("ix_security_remediations_org_status_created", "organization_id", "status", "created_at"),
+        CheckConstraint(
+            "(preparation_protocol_version IS NULL AND preparation_outcome IS NULL) OR "
+            "(preparation_protocol_version IS NOT NULL AND preparation_protocol_version = 1 AND "
+            "(preparation_outcome IS NULL OR preparation_outcome IN ('prepared', 'clean_failed')))",
+            name="ck_security_remediation_preparation_proof",
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
     organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -3414,6 +3432,9 @@ class SecurityRemediation(Base, TimestampMixin):
     regression_result: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     retest_scan_id: Mapped[str | None] = mapped_column(ForeignKey("security_scans.id", ondelete="SET NULL"), index=True)
     verified_fixed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    preparation_protocol_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    preparation_outcome: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
 class SecurityReleaseGate(Base):

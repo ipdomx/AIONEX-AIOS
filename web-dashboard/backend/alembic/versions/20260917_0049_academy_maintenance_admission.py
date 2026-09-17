@@ -70,7 +70,28 @@ def _expand_registry(bind) -> None:
         "consumerin'backup_cycles','academy_course_packages','notification_delivery_dispatch'",
         "consumer=anyarray['backup_cycles','academy_course_packages','notification_delivery_dispatch']",
     }
-    if consumer_check in notification_consumers:
+    remediation_consumers = {
+        "consumerin'backup_cycles','academy_course_packages','notification_delivery_dispatch','security_remediation_preparation'",
+        "consumer=anyarray['backup_cycles','academy_course_packages','notification_delivery_dispatch','security_remediation_preparation']",
+    }
+    if consumer_check in remediation_consumers:
+        # Current metadata and retained 0051 evidence must never be shrunk.
+        if _normalized_check(checks.get("ck_host_cycle_remediation_job", "")) != (
+            "consumer<>'security_remediation_preparation'orjob_idisnotnull"
+        ):
+            raise RuntimeError("Retained remediation activity reference is incompatible")
+        indexes = {item["name"]: item for item in sa.inspect(bind).get_indexes(_TABLE)}
+        existing = indexes.get("uq_host_cycle_security_remediation")
+        if existing is None:
+            raise RuntimeError("Retained remediation activity uniqueness is missing")
+        predicate = existing.get("dialect_options", {}).get("postgresql_where", "")
+        if (
+            existing.get("unique") is not True
+            or existing.get("column_names") != ["consumer", "job_id"]
+            or _normalized_check(predicate) != "consumer='security_remediation_preparation'"
+        ):
+            raise RuntimeError("Retained remediation activity uniqueness is incompatible")
+    if consumer_check in notification_consumers | remediation_consumers:
         # 0001 creates current metadata. A retained 0050 registry can also pass
         # through this revision after downgrade. Recognize only that exact
         # forward schema and retain its constraint and notification evidence.

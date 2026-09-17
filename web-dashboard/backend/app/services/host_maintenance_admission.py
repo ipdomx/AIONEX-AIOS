@@ -4,6 +4,7 @@ Legacy schema 1 covers project execution claims and lease reaping. Schema 2 also
 covers backup worker cycles and their guarded enqueue APIs. Schema 3 adds
 academy course-package production and owned builds. Schema 4 adds owned external
 notification dispatch, without guarding generic notification creation or realtime.
+Schema 5 adds security remediation creation and owned local preparation.
 Coverage remains partial;
 no schema version proves deployment or full-host closure. There is no automatic
 reopening.
@@ -40,9 +41,14 @@ NOTIFICATION_SCHEMA_VERSION = 4
 NOTIFICATION_COVERAGE_SCOPE = (
     "project_execution+backup_cycles+academy_course_packages+notification_delivery_dispatch"
 )
+REMEDIATION_SCHEMA_VERSION = 5
+REMEDIATION_COVERAGE_SCOPE = (
+    "project_execution+backup_cycles+academy_course_packages+"
+    "notification_delivery_dispatch+security_remediation_preparation"
+)
 _REQUIRED_SCOPES = frozenset(
     {"project_execution", "backup_cycles", "academy_course_packages",
-     "notification_delivery_dispatch"}
+     "notification_delivery_dispatch", "security_remediation_preparation"}
 )
 _CONTROL_LOCK_TIMEOUT = "5s"
 
@@ -80,6 +86,11 @@ class HostMaintenanceSnapshot:
 
     @property
     def covered_scopes(self) -> tuple[str, ...]:
+        if self.schema_version == REMEDIATION_SCHEMA_VERSION:
+            return (
+                "project_execution", "backup_cycles", "academy_course_packages",
+                "notification_delivery_dispatch", "security_remediation_preparation",
+            )
         if self.schema_version == NOTIFICATION_SCHEMA_VERSION:
             return (
                 "project_execution", "backup_cycles", "academy_course_packages",
@@ -142,6 +153,7 @@ def _snapshot(row: RowMapping) -> HostMaintenanceSnapshot:
             (COVERAGE_SCHEMA_VERSION, COVERAGE_SCOPE),
             (ACADEMY_SCHEMA_VERSION, ACADEMY_COVERAGE_SCOPE),
             (NOTIFICATION_SCHEMA_VERSION, NOTIFICATION_COVERAGE_SCOPE),
+            (REMEDIATION_SCHEMA_VERSION, REMEDIATION_COVERAGE_SCOPE),
         )
         or payload["full_host_closure"] is not False
         or not _valid_generation(payload["generation"])
