@@ -1,5 +1,7 @@
 > **2026-09-10 canonical current hub:** [docs/project/README.md](../project/README.md). Current execution report: `/opt/AIOS/docs/project/PROJECT-REPORT.md`. This long Phase36 file is retained as the historical product contract/evidence; newer Owner directives and batch state live only in the canonical hub.
 
+> **2026-09-17 FR-06C5D1 source contract:** project execution maintenance admission and its PostgreSQL locking acceptance are specified in the canonical `docs/project/PLAN.json` under `FR-06.host_state_cutover_admission`. This first consumer does not establish full-host admission closure or drain. Current tests, merge and deployment evidence remain exclusively in the canonical project hub.
+
 # Phase 36 — Universal Capability, Creative Media & 1000+ User Scale Master Roadmap
 
 > Latest operational handoff: [NEXT_SESSION_CURRENT.md](NEXT_SESSION_CURRENT.md) and [CURRENT_STATUS.json](CURRENT_STATUS.json). The latest operational entry takes precedence over older checkpoint status paragraphs; historical capability evidence and Owner-deferred boundaries remain valid for their recorded scope.
