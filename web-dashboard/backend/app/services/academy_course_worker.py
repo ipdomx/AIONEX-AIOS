@@ -77,11 +77,11 @@ class AcademyWorkUnresolved(RuntimeError):
 
 
 class _ExistingPublication(RuntimeError):
-    pass
+    """Refuse to replace artifacts with unresolved prior publication provenance."""
 
 
 class _BuildInterrupted(RuntimeError):
-    pass
+    """Stop between filesystem phases while the durable owner remains unresolved."""
 
 
 def _write_health(
@@ -523,7 +523,7 @@ async def _execute_owned_package(
         except BaseException:
             # The original interruption remains primary. Its durable owner is
             # retained by run_once, irrespective of the eventual thread result.
-            pass
+            logger.debug("Interrupted Academy filesystem task has settled")
         raise
     if outcome.unresolved_reason is not None:
         raise AcademyWorkUnresolved(outcome.unresolved_reason)
@@ -547,7 +547,7 @@ async def _heartbeat_activity(
         try:
             await asyncio.wait_for(stop.wait(), timeout=interval)
         except TimeoutError:
-            pass
+            continue
 
 
 async def _retain_uncertainty(
@@ -658,7 +658,7 @@ async def run_once(
             try:
                 await _settled_task_result(task)
             except BaseException:
-                pass
+                continue
         raise
 
 
