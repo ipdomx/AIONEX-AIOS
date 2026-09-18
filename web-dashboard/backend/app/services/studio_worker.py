@@ -38,6 +38,7 @@ from sqlalchemy import select
 
 from app.services.host_maintenance_admission import HostMaintenanceClosed, SessionFactory
 from app.services.host_maintenance_studio_admission import require_studio_admission
+from app.services.studio_thread_runtime import joined_studio_thread
 from app.services.studio_execution_guard import (
     GUARD_KEY, PROTOCOL, execution_guard, pristine_conditions, set_phase,
 )
@@ -312,8 +313,8 @@ class StudioWorker:
                     return
                 revision_number = existing.current_revision + 1
         try:
-            artifact = await asyncio.to_thread(build_archive, spec, job_id=job.id, revision_number=revision_number)
-            path = await asyncio.to_thread(
+            artifact = await joined_studio_thread(build_archive, spec, job_id=job.id, revision_number=revision_number)
+            path = await joined_studio_thread(
                 store_artifact,
                 organization_id=job.organization_id,
                 asset_id=asset_id,
