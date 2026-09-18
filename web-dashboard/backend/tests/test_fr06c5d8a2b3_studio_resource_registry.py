@@ -507,12 +507,17 @@ async def test_snapshot_database_transaction_really_uses_repeatable_read(executi
     class ObservedSession(AsyncSession):
         async def scalars(self, statement, *args, **kwargs):
             isolation = await super().scalar(text("SHOW transaction_isolation"))
-            observations.append(isolation)
+            observations.append((tuple(table.name for table in statement.get_final_froms()), isolation))
             return await super().scalars(statement, *args, **kwargs)
     sessions = async_sessionmaker(case.engine, class_=ObservedSession, expire_on_commit=False)
     await registry.execution_snapshot(session_factory=sessions)
-    # Includes the new publication-evidence read in the same snapshot.
-    assert len(observations) == 4 and set(observations) == {"repeatable read"}
+    # Every execution, queue, job, publication and settlement read shares one
+    # snapshot. Match the queried tables, not just an increased query count.
+    assert sorted(tables for tables, _ in observations) == sorted([
+        ("studio_executions",), ("studio_jobs",), ("studio_jobs",),
+        ("studio_publications",), ("studio_settlements",),
+    ])
+    assert {isolation for _, isolation in observations} == {"repeatable read"}
 
 
 @pytest.mark.asyncio

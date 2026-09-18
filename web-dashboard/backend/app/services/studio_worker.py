@@ -26,6 +26,7 @@ from app.db.models import (
     StudioJob,
     StudioExecution,
     StudioPublication,
+    StudioSettlement,
     StudioSafetyReview,
     uuid_str,
 )
@@ -42,7 +43,7 @@ from sqlalchemy import select
 from app.services.host_maintenance_admission import HostMaintenanceClosed, SessionFactory
 from app.services.host_maintenance_studio_admission import require_studio_admission
 from app.services import studio_resource_registry as studio_registry
-from app.services import studio_result_binding
+from app.services import studio_result_binding, studio_success_settlement
 from app.services.studio_execution_guard import (
     GUARD_KEY, PROTOCOL, execution_guard, pristine_conditions, set_phase,
 )
@@ -102,6 +103,7 @@ class StudioWorker:
                 *pristine_conditions(),
                 ~select(StudioExecution.id).where(StudioExecution.job_id == StudioJob.id).exists(),
                 ~select(StudioPublication.id).where(StudioPublication.job_id == StudioJob.id).exists(),
+                ~select(StudioSettlement.id).where(StudioSettlement.job_id == StudioJob.id).exists(),
             )
             if job_id is not None:
                 statement = statement.where(StudioJob.id == job_id)
@@ -286,7 +288,7 @@ class StudioWorker:
         if not await self._begin_execution(job_id, lease_token):
             return
         try:
-            await self._execute_claimed(job_id, lease_token)
+            acknowledgement = await self._execute_claimed(job_id, lease_token)
         except BaseException as exc:
             try:
                 await studio_registry.observe_execution_end(
@@ -302,6 +304,11 @@ class StudioWorker:
                 )
                 logger.error("Studio interruption evidence unavailable", error_type=type(evidence_error).__name__)
             raise
+        if acknowledgement is not None:
+            await studio_success_settlement.settle_success(
+                session_factory=self.sessions, acknowledgement=acknowledgement,
+            )
+            return
         await studio_registry.observe_execution_end(
             session_factory=self.sessions, job_id=job_id, nonce=lease_token,
             worker_incarnation=self.incarnation, interrupted=False,
@@ -309,10 +316,10 @@ class StudioWorker:
         # A return without a committed terminal result is still unresolved.
         await self._mark_unresolved(job_id, lease_token, "execution_returned_without_terminal_result")
 
-    async def _execute_claimed(self, job_id: str, lease_token: str) -> None:
+    async def _execute_claimed(self, job_id: str, lease_token: str) -> studio_success_settlement.StudioResultAcknowledgement | None:
         job = await self._load_claim(job_id, lease_token)
         if job is None:
-            return
+            return None
         spec = StudioSpec(
             department=job.department,
             title=job.title,
@@ -325,7 +332,7 @@ class StudioWorker:
         review = safety_review(spec)
         if review["status"] != "passed":
             await self._blocked(job_id, lease_token, review)
-            return
+            return None
 
         asset_id = job.revision_of_asset_id or uuid_str()
         revision_number = 1
@@ -339,7 +346,7 @@ class StudioWorker:
                 )
                 if existing is None:
                     await self._failed(job_id, lease_token, "STUDIO_ASSET_NOT_FOUND", "The revision target is unavailable")
-                    return
+                    return None
                 revision_number = existing.current_revision + 1
         try:
             artifact = await studio_registry.owned_studio_thread(
@@ -356,11 +363,11 @@ class StudioWorker:
             )
         except PermissionError:
             await self._blocked(job_id, lease_token, review)
-            return
+            return None
         except Exception as exc:
             logger.error("Studio artifact generation failed", error_type=type(exc).__name__)
             await self._failed(job_id, lease_token, "STUDIO_GENERATION_FAILED", "The provider-neutral package could not be generated")
-            return
+            return None
 
         async with self.sessions() as session:
             locked = await session.scalar(
@@ -376,7 +383,7 @@ class StudioWorker:
                 # A pathname is not proof of file ownership. Preserve the output
                 # and durable attempt for later identity-bound reconciliation.
                 logger.warning("Studio artifact retained for owned reconciliation")
-                return
+                return None
 
             revision_id = uuid_str()
             binding = await studio_result_binding.bind_owned_result(
@@ -398,7 +405,7 @@ class StudioWorker:
                 if asset is None:
                     await session.rollback()
                     await self._failed(job_id, lease_token, "STUDIO_ASSET_NOT_FOUND", "The revision target is unavailable")
-                    return
+                    return None
                 if asset.current_revision != revision_number - 1:
                     raise studio_registry.StudioOwnershipLost("Studio revision head changed before result acceptance")
                 asset.current_revision = revision_number
@@ -529,6 +536,9 @@ class StudioWorker:
                 )
             )
             await session.commit()
+        return studio_success_settlement.acknowledge_business_result(
+            job_id=job_id, nonce=lease_token, worker_incarnation=self.incarnation, binding=binding,
+        )
 
     async def run_once(self) -> bool:
         try:

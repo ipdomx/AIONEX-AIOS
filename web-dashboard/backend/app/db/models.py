@@ -3525,6 +3525,23 @@ class StudioExecution(Base):
     unresolved_reason: Mapped[str | None] = mapped_column(String(160))
 
 
+class StudioSettlement(Base):
+    """Retained normal-success receipt, with no cascading business-row links."""
+    __tablename__ = "studio_settlements"
+    __table_args__ = (
+        CheckConstraint("admitted_generation >= 7", name="ck_studio_settlement_generation"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    execution_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    publication_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    job_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    worker_incarnation: Mapped[str] = mapped_column(String(36), nullable=False)
+    admitted_generation: Mapped[int] = mapped_column(Integer, nullable=False)
+    proof: Mapped[dict] = mapped_column(JSON, nullable=False)
+    proof_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class StudioPublication(Base):
     """Filesystem intent/evidence independent of business or execution deletion."""
     __tablename__ = "studio_publications"

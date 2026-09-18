@@ -1,9 +1,9 @@
-"""Permanent Studio execution and thread evidence, never automatic settlement.
+"""Permanent Studio execution and thread evidence, independent of business deletion.
 
-The ledger is independent of business-row deletion. Claim and one-shot start are
-committed with the job, before work is submitted. A thread resource is persisted
-before its submission. Joined and cleaned are different facts: this increment
-never certifies filesystem cleanup, retries an attempt, or releases a blocker.
+Claim and one-shot start commit with the job before work is submitted; thread
+intent commits before submission. Raw ledgers never certify filesystem cleanup.
+The snapshot may distinguish an immutable normal-success settlement receipt from
+unfinished work, while keeping all raw evidence and denying automatic replay.
 """
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import StudioExecution, StudioJob, StudioPublication
+from app.db.models import StudioExecution, StudioJob, StudioPublication, StudioSettlement
 from app.services.host_maintenance_admission import (
     SessionFactory, read_admission_snapshot,
 )
@@ -175,7 +175,8 @@ async def register_claim(
         ).with_for_update().execution_options(populate_existing=True))
         prior = await session.scalar(select(StudioExecution.id).where(StudioExecution.job_id == job_id))
         prior_publication = await session.scalar(select(StudioPublication.id).where(StudioPublication.job_id == job_id).limit(1))
-    if job is None or prior is not None or prior_publication is not None:
+        prior_settlement = await session.scalar(select(StudioSettlement.id).where(StudioSettlement.job_id == job_id))
+    if job is None or prior is not None or prior_publication is not None or prior_settlement is not None:
         raise StudioOwnershipLost("Only untouched Studio backlog can register")
     stamp = await _now(session)
     row = StudioExecution(
@@ -209,6 +210,8 @@ async def begin_registered(
     if owner is None or owner.admitted_generation != admitted_generation:
         return False
     row = await _locked(session, owner)
+    if await session.scalar(select(StudioSettlement.id).where(StudioSettlement.job_id == job_id)) is not None:
+        return False
     if row.state != "active" or row.phase != "claimed" or row.resources:
         return False
     row.phase = "executing"
@@ -226,6 +229,10 @@ async def observe_execution_end(
         if owner is None:
             raise StudioOwnershipLost("Studio execution ledger is missing")
         row = await _locked(session, owner)
+        if await session.scalar(select(StudioSettlement.id).where(
+            StudioSettlement.execution_id == owner.execution_id,
+        )) is not None:
+            raise StudioOwnershipLost("Settled Studio execution observations are immutable")
         if row.phase not in {"executing", "returned"}:
             raise StudioOwnershipLost("Studio execution was not started")
         stamp = await _now(session)
@@ -409,15 +416,30 @@ async def execution_snapshot(*, session_factory: SessionFactory) -> dict[str, An
                 "state": publication.state, "event_count": len(publication.events),
                 "orphan_execution": orphan, "cleanup_verified": False,
             })
-        # Completion/failed/cancelled and a missing business row cannot erase a
-        # prior owner. This conservative foundation releases no execution rows.
+        from app.services.studio_success_settlement import snapshot_settlements
+        accepted, retained, settlements, receipt_jobs = await snapshot_settlements(
+            session, list(rows), list(publications), list(jobs),
+        )
+        legacy = [identifier for identifier in legacy if identifier not in receipt_jobs]
+        invalid_receipts = sum(item["requires_reconciliation"] for item in settlements)
+        blockers = len(observed) - len(accepted) + len(legacy) + orphans + invalid_receipts
+        for item in observed:
+            item["settled_successfully"] = item["execution_id"] in accepted
+            item["staging_cleanup_verified"] = item["execution_id"] in accepted
+        for item in publication_observations:
+            item["accepted_archive_retained"] = item["publication_id"] in retained
+            item["staging_cleanup_verified"] = item["publication_id"] in retained
+        # Retain every raw ledger and failed/old/orphan attempt. Only a verified
+        # normal-success receipt distinguishes accepted archives from active work.
         return {
             "scope": "studio_execution_threads", "observed_at": stamp.isoformat(),
             "executions": observed, "unregistered_unverified_job_ids": legacy,
             "publications": publication_observations,
             "orphan_publications": orphans,
-            "blocker_count": len(observed) + len(legacy) + orphans,
-            "is_clear": not observed and not legacy and not publications,
+            "settlements": settlements, "settled_execution_count": len(accepted),
+            "retained_archive_count": len(retained), "invalid_settlement_count": invalid_receipts,
+            "blocker_count": blockers,
+            "is_clear": blockers == 0,
             "admission_closed": not authority.is_open,
             "coverage_unverified": True, "full_host_closure": False,
         }

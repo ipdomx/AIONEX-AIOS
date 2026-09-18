@@ -19,7 +19,7 @@ from alembic.operations import Operations
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 
-from app.db.models import StudioExecution, StudioJob, StudioPublication
+from app.db.models import StudioExecution, StudioJob, StudioPublication, StudioSettlement
 from app.services import studio_resource_registry as registry
 from app.services import studio_publication_journal as journal
 from app.services import studio_artifact_publication as publication
@@ -77,11 +77,17 @@ async def _publish(case, claim, args):
 
 
 @pytest.mark.asyncio
-async def test_worker_persists_complete_identity_chain_but_does_not_settle(publication_case):
+async def test_worker_publication_before_final_settlement_retains_complete_identity_chain(publication_case):
     case = publication_case
     identifier = await _shared._shared._new(case)
     claim = await case.worker.claim_by_id(identifier)
-    await case.worker.execute(*claim)
+    assert await case.worker._begin_execution(*claim)
+    acknowledgement = await case.worker._execute_claimed(*claim)
+    assert acknowledgement is not None and acknowledgement.job_id == identifier
+    # This is the real publication/business phase before the separate receipt
+    # transaction. Complete worker settlement is exercised by the B5B suite.
+    async with case.sessions() as session:
+        assert await session.scalar(select(StudioSettlement.id).limit(1)) is None
     row, = await _rows(case)
     assert row["state"] == "observed"
     assert row["execution_id"] == (await _shared._ledger(case, identifier))["id"]

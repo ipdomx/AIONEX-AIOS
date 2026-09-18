@@ -458,7 +458,9 @@
           "evidence": [
             "docs/project/receipts/FR-06C5D8A2B3-studio-resource-ledger-draft.md"
           ],
-          "coverage_ar": "المصدر يحتوي ملكية المحاولات ونية الخيوط قبل تشغيلها ولقطة لجميع الأجيال تحفظ العمل غير المحسوم رغم حذف المهمة. عولج فقد سبب الإلغاء عند تعذر تسجيل الدليل وعدم جواز اعتماد الخيط غير المؤكد كمنتهٍ. انتهت اختبارات المعمل المحدود؛ حالة الدمج والمزامنة تؤخذ من سجل التشغيل. لا يحتوي هذا الجزء تسجيل هوية الملفات أو تنظيفها أو تسوية المحاولات، ولا يثبت نشر الحماية أو تصريف المضيف."
+          "coverage_ar": "المصدر يحتوي ملكية المحاولات ونية الخيوط قبل تشغيلها ولقطة لجميع الأجيال تحفظ العمل غير المحسوم رغم حذف المهمة. عولج فقد سبب الإلغاء عند تعذر تسجيل الدليل وعدم جواز اعتماد الخيط غير المؤكد كمنتهٍ. انتهت اختبارات المعمل المحدود؛ حالة الدمج والمزامنة تؤخذ من سجل التشغيل. لا يحتوي هذا الجزء تسجيل هوية الملفات أو تنظيفها أو تسوية المحاولات، ولا يثبت نشر الحماية أو تصريف المضيف.",
+          "historical_part_scope": true,
+          "current_settlement_contract": "studio_success_settlement_source"
         },
         "studio_publication_journal_source": {
           "source_part": "FR-06C5D8A2B4",
@@ -487,7 +489,9 @@
           "evidence": [
             "docs/project/receipts/FR-06C5D8A2B4-studio-publication-journal.md"
           ],
-          "coverage_ar": "المصدر يضيف سجلًا مستقلًا لخطة نشر أرشيفStudio ونية عمليات الملفات قبل تنفيذها، وهوية الواصفات المثبتة وملاحظات النشر وتنظيف الاسم المرحلي. تبقى السجلات بعد حذف المهمة أو سجل التنفيذ، ويمنع الأثر المتبقي إعادة العمل. فقد إقرار الحفظ يوقف الآثار التالية ويحتفظ بالأرشيف النهائي؛ اكتمال النشر المحلي ليس تسوية للمحاولة ولا قبولًا لنشر الإنتاج. تنظيف ما بعد سقوط العملية وتسوية الحالات الملتبسة وإغلاق التنفيذ لم تنفذ؛ حالة الدمج والاختبارات والمزامنة تؤخذ من سجل التشغيل."
+          "coverage_ar": "المصدر يضيف سجلًا مستقلًا لخطة نشر أرشيفStudio ونية عمليات الملفات قبل تنفيذها، وهوية الواصفات المثبتة وملاحظات النشر وتنظيف الاسم المرحلي. تبقى السجلات بعد حذف المهمة أو سجل التنفيذ، ويمنع الأثر المتبقي إعادة العمل. فقد إقرار الحفظ يوقف الآثار التالية ويحتفظ بالأرشيف النهائي؛ اكتمال النشر المحلي ليس تسوية للمحاولة ولا قبولًا لنشر الإنتاج. تنظيف ما بعد سقوط العملية وتسوية الحالات الملتبسة وإغلاق التنفيذ لم تنفذ؛ حالة الدمج والاختبارات والمزامنة تؤخذ من سجل التشغيل.",
+          "historical_part_scope": true,
+          "current_settlement_contract": "studio_success_settlement_source"
         },
         "studio_result_binding_source": {
           "source_part": "FR-06C5D8B5A",
@@ -513,7 +517,44 @@
           "evidence": [
             "docs/project/receipts/FR-06C5D8B5A-studio-result-binding.md"
           ],
-          "coverage_ar": "يربط قبول نتيجةStudio داخل معاملة الأعمال نفسها بالمالك الدقيق وخيطي البناء والتخزين المنتهيين بنجاح وسجل نشر مكتمل مطابق للأرشيف والمراجعة. تحفظ بصمات الدليل مع المهمة والأصل والمراجعة دون مسارات أو nonce في النتيجة. إلغاء سابق أو فشل الدليل أو تغير رأس المراجعة يمنع حفظ نتيجة غير مثبتة؛ الأرشيف والدليل يبقيان ولا تنفذ إعادة أو تسوية آلية. هذا ربط للنتيجة وليس إنهاء لسجل الموارد أو تنظيفًا بعد سقوط العملية أو نشرًا في الإنتاج."
+          "coverage_ar": "يربط قبول نتيجةStudio داخل معاملة الأعمال نفسها بالمالك الدقيق وخيطي البناء والتخزين المنتهيين بنجاح وسجل نشر مكتمل مطابق للأرشيف والمراجعة. تحفظ بصمات الدليل مع المهمة والأصل والمراجعة دون مسارات أو nonce في النتيجة. إلغاء سابق أو فشل الدليل أو تغير رأس المراجعة يمنع حفظ نتيجة غير مثبتة؛ الأرشيف والدليل يبقيان ولا تنفذ إعادة أو تسوية آلية. هذا ربط للنتيجة وليس إنهاء لسجل الموارد أو تنظيفًا بعد سقوط العملية أو نشرًا في الإنتاج.",
+          "historical_part_scope": true,
+          "current_settlement_contract": "studio_success_settlement_source"
+        },
+        "studio_success_settlement_source": {
+          "source_part": "FR-06C5D8B5B",
+          "prerequisite_merged_prs": [
+            730
+          ],
+          "authority_schema_version": 7,
+          "migration": "20260919_0057",
+          "source_implementation_present": true,
+          "normal_success_only": true,
+          "business_commit_and_execution_return_acknowledged": true,
+          "same_task_single_use_acknowledgement": true,
+          "exact_joined_threads_and_owned_publication_required": true,
+          "immutable_revision_binding_required": true,
+          "staging_cleanup_evidence_required": true,
+          "retained_receipt_independent_of_business_row_deletion": true,
+          "raw_execution_and_publication_evidence_retained": true,
+          "settled_execution_observations_immutable": true,
+          "receipt_locks_held_through_commit": true,
+          "newer_asset_revision_not_used_as_old_attempt_evidence": true,
+          "all_generation_snapshot": true,
+          "cancelled_or_uncertain_attempt_automatically_settled": false,
+          "post_crash_reconciliation_implemented": false,
+          "post_crash_cleanup_implemented": false,
+          "accepted_archive_deleted": false,
+          "automatic_uncertain_retry": false,
+          "production_database_migrated": false,
+          "production_deployment_verified": false,
+          "coverage_verified": false,
+          "full_host_closure": false,
+          "postmerge_acceptance_source": "docs/project/runtime/events.jsonl",
+          "evidence": [
+            "docs/project/receipts/FR-06C5D8B5B-studio-success-settlement.md"
+          ],
+          "coverage_ar": "تسوية مصدرية للمحاولة الناجحة فقط بعد إقرار معاملة النتيجة ورجوع التنفيذ، وبشرط مطابقة سجل الخيطين والنشر المكتمل وتنظيف الاسم المرحلي والمراجعة المحفوظة. يحفظ إيصال مستقل غير قابل لإعادة الاستخدام، وتبقى أدلة التنفيذ والنشر والأرشيف دون حذف. تمنع محاولة تسجيل انتهاء لاحقة تغيير دليل تمت تسويته. تميز اللقطة نجاحًا مثبتًا من العمل الملغى أو اليتيم أو القديم أو ذي الدليل الفاسد، ولا تعد النجاح إثباتًا لتنظيف ما بعد الانقطاع أو سلامة الأرشيف الحالية أو تصريف المضيف. حالة الاختبارات والدمج والمزامنة والنشر تؤخذ من السجل الحي."
         }
       }
     },
