@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from copy import deepcopy
 import json
 import os
 import signal
@@ -41,6 +42,7 @@ from sqlalchemy import select
 from app.services.host_maintenance_admission import HostMaintenanceClosed, SessionFactory
 from app.services.host_maintenance_studio_admission import require_studio_admission
 from app.services import studio_resource_registry as studio_registry
+from app.services import studio_result_binding
 from app.services.studio_execution_guard import (
     GUARD_KEY, PROTOCOL, execution_guard, pristine_conditions, set_phase,
 )
@@ -376,6 +378,14 @@ class StudioWorker:
                 logger.warning("Studio artifact retained for owned reconciliation")
                 return
 
+            revision_id = uuid_str()
+            binding = await studio_result_binding.bind_owned_result(
+                session, job_id=job_id, nonce=lease_token,
+                worker_incarnation=self.incarnation, asset_id=asset_id,
+                revision_id=revision_id, revision_number=revision_number,
+                path=path, artifact=artifact,
+            )
+
             if locked.revision_of_asset_id:
                 asset = await session.scalar(
                     select(StudioAsset)
@@ -389,13 +399,15 @@ class StudioWorker:
                     await session.rollback()
                     await self._failed(job_id, lease_token, "STUDIO_ASSET_NOT_FOUND", "The revision target is unavailable")
                     return
+                if asset.current_revision != revision_number - 1:
+                    raise studio_registry.StudioOwnershipLost("Studio revision head changed before result acceptance")
                 asset.current_revision = revision_number
                 asset.filename = artifact.filename
                 asset.storage_path = str(path)
                 asset.checksum = artifact.checksum
                 asset.size_bytes = artifact.size_bytes
                 asset.media_type = artifact.media_type
-                asset.asset_metadata = {**(asset.asset_metadata or {}), "manifest": artifact.manifest, "last_revision_job_id": locked.id}
+                asset.asset_metadata = {**(asset.asset_metadata or {}), "manifest": artifact.manifest, "last_revision_job_id": locked.id, studio_result_binding.BINDING_KEY: deepcopy(binding)}
                 asset.status = "active"
                 asset.archived_at = None
             else:
@@ -415,12 +427,12 @@ class StudioWorker:
                     size_bytes=artifact.size_bytes,
                     status="active",
                     current_revision=1,
-                    asset_metadata={"manifest": artifact.manifest},
+                    asset_metadata={"manifest": artifact.manifest, studio_result_binding.BINDING_KEY: deepcopy(binding)},
                 )
                 session.add(asset)
 
             revision = StudioAssetRevision(
-                id=uuid_str(),
+                id=revision_id,
                 organization_id=locked.organization_id,
                 asset_id=asset.id,
                 job_id=locked.id,
@@ -432,7 +444,7 @@ class StudioWorker:
                 checksum=artifact.checksum,
                 size_bytes=artifact.size_bytes,
                 change_note=locked.change_note,
-                revision_metadata={"manifest": artifact.manifest},
+                revision_metadata={"manifest": artifact.manifest, studio_result_binding.BINDING_KEY: deepcopy(binding)},
                 status="active",
             )
             session.add(revision)
@@ -457,6 +469,7 @@ class StudioWorker:
             locked.safety_findings = []
             locked.result_metadata = {
                 **locked.result_metadata,
+                studio_result_binding.BINDING_KEY: deepcopy(binding),
                 "asset_id": asset.id,
                 "revision_id": revision.id,
                 "revision_number": revision_number,
