@@ -174,12 +174,12 @@
       ],
       "exit_ar": "دليل أن البيانات المحددة لا تبقى واضحة على التخزين غير المركب، واستعادة وفك تشفير وإقلاع آمنان. توضيح أن تشفير النسخة ليس تشفير كامل القرص ولا يحمي من root حي يملك المفاتيح.",
       "host_state_cutover_admission": {
-        "source_part": "FR-06C5D7B2",
-        "scope_ar": "سلطة قبول دائمة للصيانة في PostgreSQL تشمل سحب مهام المشاريع ودورات النسخ والاستعادة وحراسة API للنسخ وملكية بناء حزم الأكاديمية وحجز الإرسال الخارجي للإشعارات. تضيف D6 طلب تحضير إصلاح أمني وملكية نسخ مصدره ونشر خطته وتنظيفه وحفظ النتيجة، دون استرداد العمل بالعمر أو محو الدليل غير المحسوم. التغطية جزئية وتحتاج نشرًا وقبولًا حيًا قبل استخدامها في نقل المضيف. يضيف D7A حراسة إنشاء طلب الفحص وإعادة الفحص فقط، قبل السياسة وDNS وأقفال الأعمال وفي معاملة المستدعي؛ تشغيل الفاحص وملكية عملياته وتنظيفها ما زالت خارج التغطية. يضيف D7B2 حاجز منع إعادة التنفيذ التلقائي وبدءًا أحاديًا ملتزمًا قبل I/O تحت مفتاح الصيانة القائم، دون ترقية schema6 أو ادعاء سجل موارد أو تنظيف مثبت.",
+        "source_part": "FR-06C5D7B8",
+        "scope_ar": "سلطة قبول دائمة للصيانة في PostgreSQL تغطي نطاقات المصدر الستة المذكورة. يضيف D7B3 سجل ملكية دائمًا للفحص وموارده وترحيل0053، ويربط D7B8 العامل بالخيوط والعمليات وموارد الملفات وZAP وطلب الإلغاء والتسوية. دُمج سجل الملكية في PR720 وربط التنفيذ في PR722. القبول المصدرى لا يثبت نشر الصور أو ترحيل قاعدة الإنتاج أو احتواء ZAP الإنتاجي أو تسوية الحالات القديمة أو تصريف المضيف. تبقى عقود الأجزاء السابقة أدناه تاريخية لنطاق كل جزء، وليست قائمة بما ينقص المصدر الحالي.",
         "authority_domain": "host-maintenance-admission",
         "authority_resource_id": "runtime-node",
         "implemented_consumer_scope": "project_execution+backup_cycles+academy_course_packages+notification_delivery_dispatch+security_remediation_preparation+security_scan_requests",
-        "migration": "20260917_0052",
+        "migration": "20260918_0053",
         "acceptance_ar": [
           "FOR SHARE للقبول وFOR UPDATE للإغلاق مع قراءة جديدة؛ يثبت الإغلاق فقط بعد commit مستقل ويحتفظ بالمهام المملوكة قبل الإغلاق.",
           "إعادة الفتح تتطلب operation_id والجيل الحالي؛ لا فتح بانتهاء الوقت ولا إنشاء open من داخل الحراسة ولا استبدال حالة مغلقة عند إعادة الترحيل.",
@@ -222,10 +222,11 @@
           "D7B2 يحجز queued السليمة غير المبدوءة فقط، ولا يسترد running قديمة أو محاولة ذات آثار. يثبت claimed ثم executing قبل I/O، ولا يبدأ المالك نفسه مرتين. الإلغاء المتكرر وفشل المهلة أو الحفظ يبقيان المحاولة running مع دليل غير محسوم بدل إعادة الإدراج؛ رجوع الدالة ليس إثبات تنظيف مواردها."
         ],
         "remaining_before_host_cutover_ar": [
-          "استكمال سجل ملكية تنفيذ الفحص الدائم المرتبط بالعملية والجيل، والعمليات والخيوط وZAP والتنظيف والنبض وقياس التصريف والتسوية. D7B2 يمنع إعادة التنفيذ التلقائي فقط؛ لا يثبت توقف الموارد أو اكتمال D7.",
+          "قبول النسخة المدمجة من خلال فحوص main ومطابقة المصدر وفق سجل التشغيل؛ لا إعادة تنفيذ أو دمج سجل D7B3 أو ربط D7B8 المنجزين في PR720 وPR722.",
+          "إثبات احتواء ZAP الإنتاجي وملكية جميع الجهات المتصلة به، وحسم الحالات القديمة والملتبسة بتسوية تشغيلية موثقة؛ إقرار الإيقاف أو انتهاء المهلة لا يثبت انتهاء العمل.",
           "ربط بقية العمال والمنتجين وطلبات realtime بالحراسة، والتحقق من شمول كل عملية تقبل أو تستأنف أو تنفذ عملًا أثناء نقل المضيف.",
-          "قياسات تصريف مرتبطة بالعملية والجيل وتغطية كل عملية منشورة؛ تشمل أعمال المزود غير المحسومة والجلسات وصلاحية LiveKit، مع تسوية تشغيلية موثقة للدورات غير المحسومة.",
-          "نشر وقبول حي للنطاق الكامل ثم نسخة واستعادة حديثتان ونافذة C5D فعلية قبل النقل."
+          "قياسات تصريف مرتبطة بالعملية والجيل وتغطية كل عملية منشورة؛ تشمل أعمال المزود غير المحسومة والجلسات وصلاحية LiveKit، مع فصل الأعمال المحفوظة غير المبدوءة عن العمل الفعلي.",
+          "نشر وقبول حي للنطاق الكامل ثم نسخة واستعادة حديثتان ونافذة C5D فعلية قبل النقل؛ لا تعتمد حالة قبول المصدر دليلًا على تغيير الإنتاج."
         ],
         "full_host_admission_closed": false,
         "production_activation_record": "docs/project/runtime/events.jsonl",
@@ -348,7 +349,9 @@
           "full_d7_completed": false,
           "coverage_verified": false,
           "full_host_closure": false,
-          "coverage_ar": "حماية طلبات إنشاء SecurityScan وطلب إعادة الفحص فقط؛ source schema6 ليس ملكية تشغيل الفحص ولا دليل تصريف. تبقى ملكية العامل والعمليات والخيوط والموارد المؤقتة وZAP غير منفذة في D7A، ولا تفعّل هذه الترقية على الإنتاج قبل تنسيق جميع الصور والترحيل والقبول الحي."
+          "coverage_ar": "حماية طلبات إنشاء SecurityScan وطلب إعادة الفحص فقط؛ source schema6 ليس ملكية تشغيل الفحص ولا دليل تصريف. تبقى ملكية العامل والعمليات والخيوط والموارد المؤقتة وZAP غير منفذة في D7A، ولا تفعّل هذه الترقية على الإنتاج قبل تنسيق جميع الصور والترحيل والقبول الحي.",
+          "historical_part_scope": true,
+          "current_runtime_contract": "security_scan_runtime_source"
         },
         "security_scan_zap_observation_source": {
           "source_part": "FR-06C5D7B1",
@@ -365,7 +368,9 @@
           "full_d7_completed": false,
           "coverage_verified": false,
           "full_host_closure": false,
-          "coverage_ar": "جزء مصدر محدود لتفسير ردود ZAP وانتظار الطابور السلبي بعد آخر فحص نشط أو مستهدف. لا يحول الرد المفقود أو المشوه إلى صفر أو نجاح. هذا قياس محرك جزئي وليس إثبات ملكية أو توقف daemon؛ لا يغير العامل أو إعادة الحجز أو newSession أو الإلغاء البعيد. تبقى الملكية الدائمة والعمليات والخيوط والتنظيف والنشر ضمن D7B غير المكتملة."
+          "coverage_ar": "جزء مصدر محدود لتفسير ردود ZAP وانتظار الطابور السلبي بعد آخر فحص نشط أو مستهدف. لا يحول الرد المفقود أو المشوه إلى صفر أو نجاح. هذا قياس محرك جزئي وليس إثبات ملكية أو توقف daemon؛ لا يغير العامل أو إعادة الحجز أو newSession أو الإلغاء البعيد. تبقى الملكية الدائمة والعمليات والخيوط والتنظيف والنشر ضمن D7B غير المكتملة.",
+          "historical_part_scope": true,
+          "current_runtime_contract": "security_scan_runtime_source"
         },
         "security_scan_no_replay_source": {
           "source_part": "FR-06C5D7B2",
@@ -386,7 +391,40 @@
           "full_d7_completed": false,
           "coverage_verified": false,
           "full_host_closure": false,
-          "coverage_ar": "حاجز مصدر جزئي يمنع التكرار بعد بدء محاولة غير محسومة. تحفظ علامة التنفيذ في summary دون nonce أو أسرار، وتبقى ملكية المحاولة في حقلها الخاص. لا ترحيل أو ترقية للسلطة، ولا حذف أنشطة، ولا إفادة بأن الموارد توقفت أو أن التغطية التنفيذية مكتملة."
+          "coverage_ar": "حاجز مصدر جزئي يمنع التكرار بعد بدء محاولة غير محسومة. تحفظ علامة التنفيذ في summary دون nonce أو أسرار، وتبقى ملكية المحاولة في حقلها الخاص. لا ترحيل أو ترقية للسلطة، ولا حذف أنشطة، ولا إفادة بأن الموارد توقفت أو أن التغطية التنفيذية مكتملة.",
+          "historical_part_scope": true,
+          "current_runtime_contract": "security_scan_runtime_source"
+        },
+        "security_scan_runtime_source": {
+          "source_part": "FR-06C5D7B8",
+          "registry_source_part": "FR-06C5D7B3",
+          "registry_pr": 720,
+          "runtime_pr": 722,
+          "registry_merge_commit": "0e26a756b1a0486ebf8de312d3fa51678d226f7b",
+          "runtime_merge_commit": "647b2e15f59999925f916b0eb372e9a2236d8678",
+          "authority_schema_version": 6,
+          "migration": "20260918_0053",
+          "source_implementation_present": true,
+          "durable_execution_and_resource_registry": true,
+          "worker_registry_integration": true,
+          "joined_threads_processes_and_workspaces": true,
+          "zap_database_fence_for_cooperating_callers": true,
+          "cancellation_is_intent_not_cleanup_proof": true,
+          "ambiguous_zap_keeps_fence": true,
+          "automatic_stale_takeover": false,
+          "automatic_uncertain_requeue": false,
+          "legacy_or_ambiguous_work_automatically_settled": false,
+          "production_zap_exclusivity_verified": false,
+          "production_deployment_verified": false,
+          "production_database_migrated": false,
+          "coverage_verified": false,
+          "full_host_closure": false,
+          "full_d7_completed": false,
+          "postmerge_acceptance_source": "docs/project/runtime/events.jsonl",
+          "evidence": [
+            "docs/project/receipts/FR-06C5D7B8-runtime-acceptance.md"
+          ],
+          "coverage_ar": "المصدر المدمج يحتوي سجل التنفيذ وربط العامل وموارد التشغيل والإلغاء. نجحت اختبارات المعمل الحقيقي المحدود كما في إيصال B8؛ لا تثبت عزل محرك الإنتاج أو فحص كل القواعد أو تصريف المضيف. حالة فحوص main والمزامنة تؤخذ من السجل الحي، ولا تجمد كحقيقة تشغيلية داخل PLAN."
         }
       }
     },
