@@ -93,7 +93,8 @@ def main() -> int:
                 try:
                     os.kill(pid, signal.SIGKILL)
                 except ProcessLookupError:
-                    pass
+                    # Re-enter waitpid; only ECHILD can finish this supervisor.
+                    continue
         time.sleep(0.01)
     proof = {"version": 1, "subreaper": True, "children_reaped": True,
              "exit_code": exit_code, "started": child is not None}

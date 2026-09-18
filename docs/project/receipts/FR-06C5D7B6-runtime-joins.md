@@ -51,9 +51,12 @@ Permanent host inventory still reports coverage_unverified=true and full_host_cl
 Production ZAP containment and reconciliation of legacy/ambiguous work must be
 accepted with exact runtime evidence before any full-host cutover or FR-06 closure.
 
-## Draft acceptance status (2026-09-18)
+## Historical draft acceptance status (2026-09-18T07:05Z)
 
-This source is NOT approved for merge or deployment. The focused four-file run
+At this checkpoint the source was NOT approved for merge or deployment.
+The subsequent correction and acceptance contract are recorded in
+`FR-06C5D7B8-runtime-acceptance.md`; this section retains the original failed
+observations rather than overwriting them as successes. The focused four-file run
 recorded 164 passing cases and one stale claimant-incarnation test failure. That
 test was corrected without weakening ownership; its subsequent run together with
 the owned-ZAP HTTP-model suite passed all 71 cases. Ruff and focused mypy on ten

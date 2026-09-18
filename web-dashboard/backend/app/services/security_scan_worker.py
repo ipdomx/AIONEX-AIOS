@@ -308,7 +308,7 @@ class SecurityScanWorker:
             try:
                 await asyncio.wait_for(ended.wait(), timeout=self.heartbeat_seconds)
             except TimeoutError:
-                pass
+                continue  # The next heartbeat observes cancellation or shutdown.
 
     async def _finalize_execution(
         self, runtime: ScanResourceRuntime, supervisor: asyncio.Task[None],
@@ -373,8 +373,12 @@ class SecurityScanWorker:
                 operation.cancel()
             try:
                 await join_task(operation)
-            except BaseException:
-                pass  # Original failure is retained; operation is now joined.
+            except BaseException as joined_error:
+                # Preserve the original failure only after the actual task ended.
+                if not operation.done():
+                    raise executions.ScanExecutionUncertain(
+                        "Operation join did not observe completion"
+                    ) from joined_error
         finalizer = asyncio.create_task(self._finalize_execution(runtime, supervisor, ended, error))
         try:
             _, interrupted = await join_task(finalizer)

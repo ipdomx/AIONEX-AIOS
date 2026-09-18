@@ -274,7 +274,12 @@ class ScanResourceRuntime:
                             try:
                                 process.terminate()
                             except ProcessLookupError:
-                                pass
+                                # A signal race is not proof. The normal join and
+                                # private supervisor receipt below remain required.
+                                if process.returncode is None:
+                                    raise registry.ScanExecutionUncertain(
+                                        "Supervisor exit status is not yet observed"
+                                    )
                         if capture is None:
                             capture = asyncio.create_task(process.communicate())
                         try:
