@@ -36,6 +36,7 @@ from app.services.media_storage import (
 )
 from app.services.production_studio import DEPARTMENTS
 from app.services.studio_worker import StudioWorker
+from app.services.studio_execution_guard import retry_has_no_execution_provenance
 from app.services.host_maintenance_admission import (
     HostMaintenanceClosed,
     HostMaintenanceUnavailable,
@@ -421,22 +422,31 @@ async def cancel_job(
     session: AsyncSession = Depends(get_db),
 ):
     job = await _job_or_404(session, actor, job_id, lock=True)
+    if job.status == "cancel_requested":
+        return production_studio.job_snapshot(job)
     if job.status not in {"queued", "running"}:
         raise HTTPException(status_code=409, detail="Only queued or running jobs can be cancelled")
-    job.status = "cancelled"
-    job.progress = 100
+    unstarted = retry_has_no_execution_provenance(job)
     job.cancelled_at = _now()
-    job.completed_at = _now()
-    job.lease_token = None
+    if unstarted:
+        job.status = "cancelled"
+        job.progress = 100
+        job.completed_at = _now()
+        job.lease_token = None
+    else:
+        # An in-flight/legacy attempt retains ownership. Request intent is not
+        # evidence that its build/storage thread stopped or its files are clean.
+        job.status = "cancel_requested"
+        job.completed_at = None
     job.version += 1
     session.add(
         AuditEvent(
             organization_id=actor.organization_id,
             user_id=actor.id,
-            action="studio.job.cancelled",
+            action="studio.job.cancelled" if unstarted else "studio.job.cancel_requested",
             resource_type="studio_job",
             resource_id=job.id,
-            details={"status": "cancelled"},
+            details={"status": job.status, "cleanup_verified": False},
         )
     )
     await session.commit()
@@ -453,6 +463,11 @@ async def retry_job(
     job = await _job_or_404(session, actor, job_id, lock=True)
     if job.status not in {"failed", "cancelled"}:
         raise HTTPException(status_code=409, detail="Only failed or cancelled jobs can be retried")
+    if not retry_has_no_execution_provenance(job):
+        raise HTTPException(
+            status_code=409,
+            detail="Studio execution requires evidence-based reconciliation before retry.",
+        )
     job.status = "queued"
     job.progress = 0
     job.attempts = 0
@@ -895,7 +910,18 @@ async def generate_artifact_compatibility(
     """Create a durable job and return the completed ZIP for older clients."""
     job = await _enqueue_job(data, actor, session)
     worker = StudioWorker()
-    claim = await worker.claim_by_id(job.id)
+    try:
+        claim = await worker.claim_by_id(job.id)
+    except HostMaintenanceClosed:
+        raise HTTPException(
+            status_code=503,
+            detail="Studio request admission is temporarily closed for maintenance.",
+        ) from None
+    except HostMaintenanceUnavailable:
+        raise HTTPException(
+            status_code=503,
+            detail="Studio request admission is currently unavailable.",
+        ) from None
     if claim is None:
         raise HTTPException(status_code=409, detail="Studio job could not be claimed")
     await worker.execute(*claim)
