@@ -3525,6 +3525,29 @@ class StudioExecution(Base):
     unresolved_reason: Mapped[str | None] = mapped_column(String(160))
 
 
+class StudioPublication(Base):
+    """Filesystem intent/evidence independent of business or execution deletion."""
+    __tablename__ = "studio_publications"
+    __table_args__ = (
+        CheckConstraint("admitted_generation >= 7", name="ck_studio_publication_generation"),
+        CheckConstraint("state IN ('reserved', 'observed')", name="ck_studio_publication_state"),
+        CheckConstraint("updated_at >= created_at", name="ck_studio_publication_clock"),
+        Index("ix_studio_publication_execution", "execution_id", "created_at"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    execution_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    job_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    thread_resource_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    worker_incarnation: Mapped[str] = mapped_column(String(36), nullable=False)
+    admitted_generation: Mapped[int] = mapped_column(Integer, nullable=False)
+    ownership_nonce: Mapped[str] = mapped_column(String(36), nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False)
+    plan: Mapped[dict] = mapped_column(JSON, nullable=False)
+    events: Mapped[list] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class StudioAsset(Base, TimestampMixin):
     __tablename__ = "studio_assets"
     __table_args__ = (

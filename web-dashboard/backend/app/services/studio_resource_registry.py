@@ -18,7 +18,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import StudioExecution, StudioJob
+from app.db.models import StudioExecution, StudioJob, StudioPublication
 from app.services.host_maintenance_admission import (
     SessionFactory, read_admission_snapshot,
 )
@@ -174,7 +174,8 @@ async def register_claim(
             StudioJob.id == job_id, *pristine_conditions(),
         ).with_for_update().execution_options(populate_existing=True))
         prior = await session.scalar(select(StudioExecution.id).where(StudioExecution.job_id == job_id))
-    if job is None or prior is not None:
+        prior_publication = await session.scalar(select(StudioPublication.id).where(StudioPublication.job_id == job_id).limit(1))
+    if job is None or prior is not None or prior_publication is not None:
         raise StudioOwnershipLost("Only untouched Studio backlog can register")
     stamp = await _now(session)
     row = StudioExecution(
@@ -323,11 +324,19 @@ async def owned_studio_thread(
         session_factory=session_factory, job_id=job_id, nonce=nonce,
         worker_incarnation=worker_incarnation, operation=operation,
     )
+    # Import at execution time to avoid a registry/journal definition cycle.
+    from app.services.studio_publication_journal import make_publication_observer
+    from app.services.studio_publication_protocol import publication_observer
+    observer = make_publication_observer(session_factory, owner, resource_id) if operation == "store_artifact" else None
     finished = threading.Event()
     successful = threading.Event()
     def call() -> T:
         try:
-            result = function(*args, **kwargs)
+            if observer is None:
+                result = function(*args, **kwargs)
+            else:
+                with publication_observer(observer):
+                    result = function(*args, **kwargs)
             successful.set()
             return result
         finally:
@@ -383,13 +392,32 @@ async def execution_snapshot(*, session_factory: SessionFactory) -> dict[str, An
         untouched = set((await session.scalars(select(StudioJob.id).where(*pristine_conditions()))).all())
         jobs = (await session.scalars(select(StudioJob).order_by(StudioJob.id))).all()
         legacy = [job.id for job in jobs if job.id not in registered and job.id not in untouched]
+        # Publication evidence is independent of both business and execution
+        # row deletion. One snapshot retains old generations and orphan records.
+        from app.services.studio_publication_journal import validate_row
+        publications = (await session.scalars(select(StudioPublication).order_by(StudioPublication.id))).all()
+        execution_ids = {row.id for row in rows}
+        publication_observations = []
+        orphans = 0
+        for publication in publications:
+            validate_row(publication)
+            orphan = publication.execution_id not in execution_ids
+            orphans += int(orphan)
+            publication_observations.append({
+                "publication_id": publication.id, "execution_id": publication.execution_id,
+                "job_id": publication.job_id, "admitted_generation": publication.admitted_generation,
+                "state": publication.state, "event_count": len(publication.events),
+                "orphan_execution": orphan, "cleanup_verified": False,
+            })
         # Completion/failed/cancelled and a missing business row cannot erase a
         # prior owner. This conservative foundation releases no execution rows.
         return {
             "scope": "studio_execution_threads", "observed_at": stamp.isoformat(),
             "executions": observed, "unregistered_unverified_job_ids": legacy,
-            "blocker_count": len(observed) + len(legacy),
-            "is_clear": not observed and not legacy,
+            "publications": publication_observations,
+            "orphan_publications": orphans,
+            "blocker_count": len(observed) + len(legacy) + orphans,
+            "is_clear": not observed and not legacy and not publications,
             "admission_closed": not authority.is_open,
             "coverage_unverified": True, "full_host_closure": False,
         }

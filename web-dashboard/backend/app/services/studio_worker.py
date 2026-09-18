@@ -24,6 +24,7 @@ from app.db.models import (
     StudioAssetRevision,
     StudioJob,
     StudioExecution,
+    StudioPublication,
     StudioSafetyReview,
     uuid_str,
 )
@@ -98,6 +99,7 @@ class StudioWorker:
             statement = select(StudioJob).where(
                 *pristine_conditions(),
                 ~select(StudioExecution.id).where(StudioExecution.job_id == StudioJob.id).exists(),
+                ~select(StudioPublication.id).where(StudioPublication.job_id == StudioJob.id).exists(),
             )
             if job_id is not None:
                 statement = statement.where(StudioJob.id == job_id)

@@ -511,7 +511,8 @@ async def test_snapshot_database_transaction_really_uses_repeatable_read(executi
             return await super().scalars(statement, *args, **kwargs)
     sessions = async_sessionmaker(case.engine, class_=ObservedSession, expire_on_commit=False)
     await registry.execution_snapshot(session_factory=sessions)
-    assert len(observations) == 3 and set(observations) == {"repeatable read"}
+    # Includes the new publication-evidence read in the same snapshot.
+    assert len(observations) == 4 and set(observations) == {"repeatable read"}
 
 
 @pytest.mark.asyncio
