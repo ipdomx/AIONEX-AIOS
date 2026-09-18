@@ -5,8 +5,9 @@ A same-directory link publishes its fully flushed bytes with no replace fallback
 Only the identity-checked staging name is removed; a final name is never deleted
 here, even when publication or a directory sync has an uncertain outcome.
 
-This is local publication, not durable execution-resource ownership, worker
-settlement or host-drain evidence. Cooperating service processes are trusted not
+Owned worker calls journal every effect through their thread-bound observer.
+Unowned library calls remain local publication, not durable execution-resource ownership.
+Neither form is execution settlement or host-drain evidence. Cooperating service processes are trusted not
 to maliciously race directory entries after identity checks; same-UID/root
 attackers and later path-based readers/cleanup require separate containment.
 """
@@ -18,6 +19,8 @@ import os
 from pathlib import Path
 import stat
 from uuid import uuid4
+
+from app.services.studio_publication_protocol import publication_event
 
 _DIRECTORY_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
 _FILE_FLAGS = os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC
@@ -37,6 +40,17 @@ def _component(value: str) -> str:
     ):
         raise ValueError("Invalid Studio storage component")
     return value
+
+
+def _descriptor_identity(descriptor: int) -> dict[str, int | str]:
+    value = os.fstat(descriptor)
+    return {
+        "device": value.st_dev, "inode": value.st_ino,
+        "kind": "directory" if stat.S_ISDIR(value.st_mode) else "file",
+        "uid": value.st_uid, "gid": value.st_gid, "mode": stat.S_IMODE(value.st_mode),
+        "links": value.st_nlink, "size": value.st_size,
+        "mtime_ns": value.st_mtime_ns, "ctime_ns": value.st_ctime_ns,
+    }
 
 
 def _identity(value: os.stat_result) -> tuple[int, int]:
@@ -140,32 +154,53 @@ def publish_studio_archive(
     if not root_parts:
         raise ValueError("Studio root cannot be the filesystem root")
     components = (*root_parts, organization_id, asset_id, f"revision-{revision_number}")
+    # Validate the complete plan and reserve all names before mkdir/open/write.
+    if len(components) > 64:
+        raise ValueError("Studio storage chain is too deep")
+    components = tuple(_component(name) for name in components)
+    staging_name = f".studio-publish-{uuid4().hex}.partial"
+    publication_event("reserve", {
+        "root": str(absolute_root), "components": list(components),
+        "filename": filename, "staging_name": staging_name,
+        "size_bytes": size_bytes, "checksum": checksum,
+    })
     edges: list[tuple[int, str, int]] = []
     with ExitStack() as stack:
         directory = os.open("/", _DIRECTORY_FLAGS)
         stack.callback(os.close, directory)
         for index, name in enumerate(components):
             name = _component(name)
+            publication_event("directory_intent", {
+                "index": index, "name": name, "parent": _descriptor_identity(directory),
+            })
             child = _open_directory(directory, name, create=True)
             stack.callback(os.close, child)
             if index >= len(root_parts) - 1:
                 current = os.fstat(child)
                 if current.st_uid != os.geteuid() or stat.S_IMODE(current.st_mode) & 0o022:
                     raise StudioPublicationUncertain("Studio storage directory is not private to its writer")
+            publication_event("directory_observed", {
+                "index": index, "name": name, "identity": _descriptor_identity(child),
+            })
             edges.append((directory, name, child))
             directory = child
         _assert_tree(edges)
-        staging_name = f".studio-publish-{uuid4().hex}.partial"
+        publication_event("staging_intent", {"directory": _descriptor_identity(directory)})
         descriptor = os.open(staging_name, _FILE_FLAGS, 0o600, dir_fd=directory)
         stack.callback(os.close, descriptor)
+        original: BaseException | None = None
         try:
             os.fchmod(descriptor, 0o600)
             _assert_file(directory, staging_name, descriptor, links=1, size=0)
+            publication_event("staging_observed", {"file": _descriptor_identity(descriptor)})
+            publication_event("write_intent", {"file": _descriptor_identity(descriptor)})
             _write_bytes(descriptor, content)
             os.fsync(descriptor)
             _verify_bytes(descriptor, checksum)
             _assert_file(directory, staging_name, descriptor, links=1, size=size_bytes)
             _assert_tree(edges)
+            publication_event("staged", {"file": _descriptor_identity(descriptor)})
+            publication_event("link_intent", {"file": _descriptor_identity(descriptor)})
             # Atomic name creation, never exists()+replace() and no fallback.
             os.link(
                 staging_name, filename, src_dir_fd=directory, dst_dir_fd=directory,
@@ -174,10 +209,22 @@ def publish_studio_archive(
             os.fsync(directory)
             _assert_file(directory, filename, descriptor, links=2, size=size_bytes)
             _assert_tree(edges)
+            publication_event("published", {"file": _descriptor_identity(descriptor)})
+        except BaseException as error:
+            original = error
+            raise
         finally:
-            # A cleanup error is propagated. Never manufacture clean success,
-            # and never delete the destination after a possibly completed link.
-            _remove_staging(directory, staging_name, descriptor)
+            try:
+                publication_event("cleanup_intent", {"file": _descriptor_identity(descriptor)})
+                _remove_staging(directory, staging_name, descriptor)
+                publication_event("staging_removed", {"file": _descriptor_identity(descriptor)})
+            except BaseException as cleanup_error:
+                if original is None:
+                    raise
+                # Retain the first failure and never let a failed journal permit
+                # a second unacknowledged effect or erase uncertain final output.
+                original.add_note(f"Studio staging disposition unverified: {type(cleanup_error).__name__}")
         _assert_file(directory, filename, descriptor, links=1, size=size_bytes)
         _assert_tree(edges)
+        publication_event("complete", {"file": _descriptor_identity(descriptor)})
     return absolute_root / organization_id / asset_id / f"revision-{revision_number}" / filename
