@@ -65,8 +65,11 @@ def test_valid_guard_is_explicitly_not_cleanup_proof(phase):
 @pytest_asyncio.fixture
 async def execution_case(scan_case, monkeypatch):
     case = scan_case
+    async with case.engine.begin() as connection:
+        await connection.run_sync(_shared._run_migration, "0053", "upgrade")
     case.io = []
     case.worker = worker_module.SecurityScanWorker()
+    monkeypatch.setattr(worker_module.SecurityScanWorker, "write_health", lambda self, status: None)
     monkeypatch.setattr(worker_module, "SessionLocal", case.sessions)
 
     async def policy(_session):
@@ -74,6 +77,8 @@ async def execution_case(scan_case, monkeypatch):
         return {"max_scan_runtime_seconds": 60}
 
     async def execute(_session, scan):
+        from app.services.security_scan_resources import require_runtime
+        require_runtime(scan.id)
         case.io.append("execute")
         await asyncio.sleep(0)
         scan.status = "completed"
@@ -161,13 +166,17 @@ async def test_touched_or_legacy_work_is_never_reclaimed(execution_case, changes
 async def test_concurrent_claims_and_duplicate_runs_execute_once(execution_case):
     case = execution_case
     identifier = await _new(case)
-    claims = await asyncio.wait_for(asyncio.gather(
-        case.worker.claim(), worker_module.SecurityScanWorker().claim(),
-    ), WAIT)
+    workers = [case.worker, worker_module.SecurityScanWorker()]
+    claims = await asyncio.wait_for(asyncio.gather(*(worker.claim() for worker in workers)), WAIT)
     accepted = [claim for claim in claims if claim is not None]
     assert len(accepted) == 1 and accepted[0][0] == identifier
+    winner = workers[claims.index(accepted[0])]
+    # The capability belongs to the claiming incarnation, not any worker that
+    # happens to possess its nonce. A fresh worker cannot adopt it.
+    await worker_module.SecurityScanWorker().run_claim(*accepted[0])
+    assert case.io == []
     await asyncio.wait_for(asyncio.gather(
-        case.worker.run_claim(*accepted[0]),
+        winner.run_claim(*accepted[0]), winner.run_claim(*accepted[0]),
         worker_module.SecurityScanWorker().run_claim(*accepted[0]),
     ), WAIT)
     assert case.io == ["policy", "execute"]
@@ -249,7 +258,7 @@ async def test_repeated_external_cancel_does_not_cancel_reconciliation(execution
     claim = await case.worker.claim()
     assert claim
     entered, recording, release = asyncio.Event(), asyncio.Event(), asyncio.Event()
-    original = case.worker._mark_unresolved
+    original = case.worker._finalize_execution
 
     async def blocked_execute(_session, _scan):
         entered.set()
@@ -261,7 +270,7 @@ async def test_repeated_external_cancel_does_not_cancel_reconciliation(execution
         await original(*args)
 
     monkeypatch.setattr(worker_module, "execute_scan", blocked_execute)
-    monkeypatch.setattr(case.worker, "_mark_unresolved", delayed_record)
+    monkeypatch.setattr(case.worker, "_finalize_execution", delayed_record)
     task = asyncio.create_task(case.worker.run_claim(*claim))
     try:
         await asyncio.wait_for(entered.wait(), WAIT)
@@ -313,8 +322,8 @@ async def test_failed_reconciliation_retains_committed_executing_marker(executio
         raise RuntimeError("synthetic database unavailable")
 
     monkeypatch.setattr(worker_module, "execute_scan", failed_execute)
-    monkeypatch.setattr(case.worker, "_mark_unresolved", failed_record)
-    with pytest.raises(TimeoutError):
+    monkeypatch.setattr(case.worker, "_finalize_execution", failed_record)
+    with pytest.raises(RuntimeError, match="database unavailable"):
         await case.worker.run_claim(*claim)
     row = await _row(case, identifier)
     assert row["summary"][worker_module.GUARD_KEY] == _guard("executing")
@@ -394,6 +403,8 @@ async def test_duplicate_running_capability_does_not_block_maintenance_close(exe
     entered, release = asyncio.Event(), asyncio.Event()
 
     async def owned_execute(_session, scan):
+        from app.services.security_scan_resources import require_runtime
+        require_runtime(scan.id)
         entered.set()
         await release.wait()
         scan.status = "completed"
@@ -447,8 +458,8 @@ async def test_completion_commit_failure_never_replays_external_work(execution_c
         assert row["status"] == "completed" and row["lease_token"] is None
         assert row["summary"][worker_module.GUARD_KEY] == _guard("returned")
     else:
-        assert row["status"] == "running" and row["lease_token"] == claim[1]
-        assert row["summary"][worker_module.GUARD_KEY] == _guard("unresolved")
+        assert row["status"] == "failed" and row["lease_token"] is None
+        assert row["summary"]["execution_cleanup"]["verified"] is True
         assert "synthetic_result" not in row["summary"]
     monkeypatch.setattr(worker_module, "SessionLocal", case.sessions)
     assert await case.worker.claim() is None

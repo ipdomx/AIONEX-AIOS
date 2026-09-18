@@ -28,6 +28,7 @@ from app.services.security_zap import run_zap
 from app.services.security_deep_validation import build_scenario_plan
 from app.services.security_mobile import scan_mobile_source
 from app.services.host_maintenance_scan_admission import require_scan_admission
+from app.services.security_scan_resources import require_runtime, tracked_thread
 
 ACTIVE_SCAN_STATES = {"queued", "running"}
 
@@ -288,6 +289,8 @@ async def _openapi_scan(origin: str) -> dict[str, Any]:
 
 
 async def execute_scan(session: AsyncSession, scan: SecurityScan) -> SecurityScan:
+    runtime = require_runtime(scan.id)
+    await runtime.checkpoint()
     target = await session.get(SecurityTarget, scan.target_id)
     if (
         target is None
@@ -295,28 +298,28 @@ async def execute_scan(session: AsyncSession, scan: SecurityScan) -> SecuritySca
         or target.status != "active"
     ):
         raise RuntimeError("Security target authorization is no longer valid")
-    security_fabric.assert_target_dns_stable(target)
+    await tracked_thread("target-authorization-dns", security_fabric.assert_target_dns_stable, target)
     results: list[dict[str, Any]] = []
     all_findings: list[dict[str, Any]] = []
-    web_result = await scan_web_origin(target.origin)
+    web_result = await runtime.async_io("web-origin", lambda: scan_web_origin(target.origin))
     results.append(
         {key: value for key, value in web_result.items() if key != "findings"}
     )
     all_findings.extend(web_result.get("findings", []))
     if security_fabric.PROFILE_RANK.get(scan.profile, 0) >= 1:
-        api_result = await _openapi_scan(target.origin)
+        api_result = await runtime.async_io("openapi-origin", lambda: _openapi_scan(target.origin))
         results.append(
             {key: value for key, value in api_result.items() if key != "findings"}
         )
         all_findings.extend(api_result.get("findings", []))
-    source = _safe_source_snapshot(target)
+    source = await tracked_thread("source-resolution", _safe_source_snapshot, target)
     if source is not None:
-        built_in = security_tools.scan_source_tree(source)
+        built_in = await tracked_thread("source-inventory", security_tools.scan_source_tree, source)
         results.append(
             {key: value for key, value in built_in.items() if key != "findings"}
         )
         all_findings.extend(built_in.get("findings", []))
-        mobile_result = scan_mobile_source(source)
+        mobile_result = await tracked_thread("mobile-inventory", scan_mobile_source, source)
         results.append(
             {key: value for key, value in mobile_result.items() if key != "findings"}
         )
@@ -411,6 +414,7 @@ async def execute_scan(session: AsyncSession, scan: SecurityScan) -> SecuritySca
         if scan.profile in {"advanced", "elite"}
         else None
     )
+    await runtime.checkpoint()
     seen: set[str] = set()
     for raw in all_findings:
         fingerprint = str(

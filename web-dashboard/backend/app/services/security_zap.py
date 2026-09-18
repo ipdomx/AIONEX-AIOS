@@ -261,6 +261,11 @@ async def run_zap(
     if active and execution_mode != "intrusive_clone":
         return {"tool": "owasp-zap", "status": "blocked_requires_clone", "findings": []}
     try:
+        from app.services.security_scan_resources import current_runtime
+        runtime = current_runtime()
+        if runtime is not None:
+            from app.services.security_scan_zap_resources import OwnedZapClient
+            return await OwnedZapClient(runtime).run(origin, active=active)
         client = ZapClient()
         return await (client.active_clone(origin) if active else client.passive(origin))
     except (httpx.HTTPError, OSError, RuntimeError, TimeoutError) as exc:
