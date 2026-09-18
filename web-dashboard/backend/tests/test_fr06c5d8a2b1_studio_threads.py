@@ -183,3 +183,63 @@ async def test_parallel_functions_are_all_joined_before_cancelled_callers_return
     finally:
         release.set()
         await asyncio.gather(*tasks, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_function_cancelled_error_preserves_identity_and_original_cause():
+    original = asyncio.CancelledError("function cancellation, not caller cancellation")
+    cause = ValueError("synthetic function cause")
+    def function():
+        raise original from cause
+    with pytest.raises(asyncio.CancelledError) as observed:
+        await joined_studio_thread(function)
+    assert observed.value is original
+    assert observed.value.__cause__ is cause
+    assert observed.value.__cause__ is not observed.value
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cancel_count", [1, 3])
+async def test_caller_cancel_remains_primary_when_function_later_raises_cancelled_error(cancel_count):
+    entered, release, finished = threading.Event(), threading.Event(), threading.Event()
+    original = asyncio.CancelledError("late synthetic function cancellation")
+    cause = ValueError("synthetic function cause")
+    def function():
+        entered.set()
+        try:
+            assert release.wait(5)
+            raise original from cause
+        finally:
+            finished.set()
+    task = asyncio.create_task(joined_studio_thread(function))
+    try:
+        await _until(entered.is_set)
+        for _ in range(cancel_count):
+            task.cancel("original caller cancellation")
+            await asyncio.sleep(0)
+        assert not task.done()
+        release.set()
+        with pytest.raises(asyncio.CancelledError) as observed:
+            await task
+        assert observed.value is not original
+        assert observed.value.__cause__ is original
+        assert original.__cause__ is cause
+        assert finished.is_set()
+    finally:
+        release.set()
+        await asyncio.gather(task, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_already_completed_function_cancellation_preserves_cause(monkeypatch):
+    # Synthetic completed-future boundary; no running-thread termination claim.
+    loop = asyncio.get_running_loop()
+    original = asyncio.CancelledError("already completed function")
+    cause = LookupError("synthetic prior cause")
+    original.__cause__ = cause
+    future = loop.create_future()
+    future.set_exception(original)
+    monkeypatch.setattr(loop, "run_in_executor", lambda *args: future)
+    with pytest.raises(asyncio.CancelledError) as observed:
+        await joined_studio_thread(lambda: "unused")
+    assert observed.value is original and original.__cause__ is cause

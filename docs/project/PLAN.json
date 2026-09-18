@@ -425,6 +425,40 @@
             "docs/project/receipts/FR-06C5D7B8-runtime-acceptance.md"
           ],
           "coverage_ar": "المصدر المدمج يحتوي سجل التنفيذ وربط العامل وموارد التشغيل والإلغاء. نجحت اختبارات المعمل الحقيقي المحدود كما في إيصال B8؛ لا تثبت عزل محرك الإنتاج أو فحص كل القواعد أو تصريف المضيف. حالة فحوص main والمزامنة تؤخذ من السجل الحي، ولا تجمد كحقيقة تشغيلية داخل PLAN."
+        },
+        "studio_execution_resources_source": {
+          "source_part": "FR-06C5D8A2B3",
+          "authority_schema_version": 7,
+          "migration": "20260918_0055",
+          "prerequisite_merged_prs": [
+            724,
+            725,
+            726,
+            727
+          ],
+          "source_implementation_present": true,
+          "same_transaction_claim_and_registry": true,
+          "durable_thread_intent_before_submission": true,
+          "ledger_survives_business_row_deletion": true,
+          "all_generation_snapshot": true,
+          "snapshot_isolation": "repeatable_read",
+          "original_interruption_preserved_on_observation_failure": true,
+          "uncertain_executor_is_join_proof": false,
+          "automatic_stale_takeover": false,
+          "automatic_uncertain_requeue": false,
+          "filesystem_identity_registry_implemented": false,
+          "filesystem_cleanup_implemented": false,
+          "execution_settlement_implemented": false,
+          "legacy_or_ambiguous_work_automatically_settled": false,
+          "production_database_migrated": false,
+          "production_deployment_verified": false,
+          "coverage_verified": false,
+          "full_host_closure": false,
+          "postmerge_acceptance_source": "docs/project/runtime/events.jsonl",
+          "evidence": [
+            "docs/project/receipts/FR-06C5D8A2B3-studio-resource-ledger-draft.md"
+          ],
+          "coverage_ar": "المصدر يحتوي ملكية المحاولات ونية الخيوط قبل تشغيلها ولقطة لجميع الأجيال تحفظ العمل غير المحسوم رغم حذف المهمة. عولج فقد سبب الإلغاء عند تعذر تسجيل الدليل وعدم جواز اعتماد الخيط غير المؤكد كمنتهٍ. انتهت اختبارات المعمل المحدود؛ حالة الدمج والمزامنة تؤخذ من سجل التشغيل. لا يحتوي هذا الجزء تسجيل هوية الملفات أو تنظيفها أو تسوية المحاولات، ولا يثبت نشر الحماية أو تصريف المضيف."
         }
       }
     },

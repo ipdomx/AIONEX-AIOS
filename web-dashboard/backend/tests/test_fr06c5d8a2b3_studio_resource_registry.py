@@ -512,3 +512,98 @@ async def test_snapshot_database_transaction_really_uses_repeatable_read(executi
     sessions = async_sessionmaker(case.engine, class_=ObservedSession, expire_on_commit=False)
     await registry.execution_snapshot(session_factory=sessions)
     assert len(observations) == 3 and set(observations) == {"repeatable read"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("journal_error", [OSError, asyncio.CancelledError])
+@pytest.mark.parametrize("original_error", [ValueError, asyncio.CancelledError])
+async def test_thread_journal_failure_never_replaces_original_error(
+    execution_case, monkeypatch, journal_error, original_error,
+):
+    case = execution_case
+    claim, _owner = await _started(case)
+    original = original_error("synthetic original interruption")
+    late_cause = LookupError("synthetic prior cause")
+    def function():
+        raise original from late_cause
+    async def unavailable(**kwargs):
+        raise journal_error("private-journal-detail-must-not-be-in-notes")
+    monkeypatch.setattr(registry, "observe_thread", unavailable)
+    with pytest.raises(original_error) as error:
+        await registry.owned_studio_thread(
+            case.sessions, claim[0], claim[1], case.worker.incarnation,
+            "build_archive", function,
+        )
+    assert error.value is original
+    assert error.value.__cause__ is late_cause
+    notes = " ".join(error.value.__notes__)
+    assert journal_error.__name__ in notes
+    assert "private-journal-detail" not in notes
+    row = await _ledger(case, claim[0])
+    assert next(iter(row["resources"].values()))["state"] == "reserved"
+    assert row["cleanup_verified"] is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("function_finished", [False, True])
+async def test_uncertain_join_never_certifies_completion_even_with_local_finished_flag(
+    execution_case, monkeypatch, function_finished,
+):
+    # The uncertainty is an injected executor-boundary fault; PostgreSQL and
+    # the function execution (when enabled) are real. No host-drain claim.
+    case = execution_case
+    claim, _owner = await _started(case)
+    calls = []
+    original_join = registry.joined_studio_thread
+    async def uncertain(function):
+        if function_finished:
+            await original_join(function)
+        raise registry.StudioThreadUncertain("synthetic executor completion uncertainty")
+    monkeypatch.setattr(registry, "joined_studio_thread", uncertain)
+    with pytest.raises(registry.StudioThreadUncertain):
+        await registry.owned_studio_thread(
+            case.sessions, claim[0], claim[1], case.worker.incarnation,
+            "build_archive", lambda: calls.append(True),
+        )
+    assert len(calls) == int(function_finished)
+    row = await _ledger(case, claim[0])
+    resource = next(iter(row["resources"].values()))
+    assert resource["state"] == "unresolved"
+    assert resource["joined_at"] is None and resource["outcome"] is None
+    assert row["state"] == "unresolved"
+    assert row["unresolved_reason"] == "thread_completion_unverified"
+    assert row["cleanup_verified"] is False
+    snapshot = await registry.execution_snapshot(session_factory=case.sessions)
+    observed = next(item for item in snapshot["executions"] if item["job_id"] == claim[0])
+    assert observed["joined_threads"] == 0
+    assert snapshot["is_clear"] is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("journal_error", [OSError, asyncio.CancelledError])
+@pytest.mark.parametrize("original_error", [ValueError, asyncio.CancelledError])
+async def test_worker_interruption_observation_preserves_original_error(
+    execution_case, monkeypatch, journal_error, original_error,
+):
+    case = execution_case
+    identifier = await _shared._new(case)
+    claim = await case.worker.claim_by_id(identifier)
+    original = original_error("synthetic worker interruption")
+    cause = LookupError("synthetic worker cause")
+    async def interrupted(*args):
+        raise original from cause
+    async def unavailable(**kwargs):
+        raise journal_error("private-ledger-detail-must-not-be-in-notes")
+    monkeypatch.setattr(case.worker, "_execute_claimed", interrupted)
+    monkeypatch.setattr(registry, "observe_execution_end", unavailable)
+    with pytest.raises(original_error) as error:
+        await case.worker.execute(*claim)
+    assert error.value is original and error.value.__cause__ is cause
+    notes = " ".join(error.value.__notes__)
+    assert journal_error.__name__ in notes
+    assert "private-ledger-detail" not in notes
+    row = await _ledger(case, identifier)
+    assert row["phase"] == "executing" and row["cleanup_verified"] is False
+    assert await case.worker.claim_by_id(identifier) is None
+    snapshot = await registry.execution_snapshot(session_factory=case.sessions)
+    assert snapshot["is_clear"] is False

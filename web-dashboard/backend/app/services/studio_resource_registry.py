@@ -24,7 +24,7 @@ from app.services.host_maintenance_admission import (
 )
 from app.services.host_maintenance_studio_admission import require_studio_admission
 from app.services.studio_execution_guard import execution_guard, pristine_conditions
-from app.services.studio_thread_runtime import joined_studio_thread
+from app.services.studio_thread_runtime import StudioThreadUncertain, joined_studio_thread
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -334,13 +334,22 @@ async def owned_studio_thread(
             finished.set()
     try:
         result = await joined_studio_thread(call)
-    except BaseException:
-        # If recording is interrupted or fails, the already committed reserved
-        # resource remains a blocker. Never reinterpret it as a clean resource.
-        await observe_thread(
-            session_factory=session_factory, owner=owner, resource_id=resource_id,
-            joined=finished.is_set(), succeeded=successful.is_set(),
-        )
+    except BaseException as original:
+        # An uncertain executor is never join evidence, even if the function's
+        # local completion flag was set. Persistence must not replace the
+        # original cancellation or its late-function failure cause.
+        try:
+            await observe_thread(
+                session_factory=session_factory, owner=owner, resource_id=resource_id,
+                joined=finished.is_set() and not isinstance(original, StudioThreadUncertain),
+                succeeded=successful.is_set(),
+            )
+        except BaseException as evidence_error:
+            # The durable reservation remains a blocker. Expose only the error
+            # class, not connection details or user content from the journal.
+            original.add_note(
+                f"Studio thread observation unavailable: {type(evidence_error).__name__}"
+            )
         raise
     await observe_thread(
         session_factory=session_factory, owner=owner, resource_id=resource_id,

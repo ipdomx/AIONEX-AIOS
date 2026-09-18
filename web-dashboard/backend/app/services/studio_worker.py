@@ -290,7 +290,12 @@ class StudioWorker:
                     worker_incarnation=self.incarnation, interrupted=True,
                 )
                 await self._mark_unresolved(job_id, lease_token, type(exc).__name__)
-            except Exception as evidence_error:
+            except BaseException as evidence_error:
+                # Repeated cancellation during evidence persistence must not
+                # replace the first interruption or its function-failure cause.
+                exc.add_note(
+                    f"Studio interruption observation unavailable: {type(evidence_error).__name__}"
+                )
                 logger.error("Studio interruption evidence unavailable", error_type=type(evidence_error).__name__)
             raise
         await studio_registry.observe_execution_end(
