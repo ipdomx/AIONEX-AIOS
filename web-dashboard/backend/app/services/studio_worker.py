@@ -23,6 +23,7 @@ from app.db.models import (
     StudioAsset,
     StudioAssetRevision,
     StudioJob,
+    StudioExecution,
     StudioSafetyReview,
     uuid_str,
 )
@@ -38,7 +39,7 @@ from sqlalchemy import select
 
 from app.services.host_maintenance_admission import HostMaintenanceClosed, SessionFactory
 from app.services.host_maintenance_studio_admission import require_studio_admission
-from app.services.studio_thread_runtime import joined_studio_thread
+from app.services import studio_resource_registry as studio_registry
 from app.services.studio_execution_guard import (
     GUARD_KEY, PROTOCOL, execution_guard, pristine_conditions, set_phase,
 )
@@ -94,7 +95,10 @@ class StudioWorker:
         """Commit admission, untouched-job claim and provenance before I/O."""
         async with self.sessions() as session:
             authority = await require_studio_admission(session)
-            statement = select(StudioJob).where(*pristine_conditions())
+            statement = select(StudioJob).where(
+                *pristine_conditions(),
+                ~select(StudioExecution.id).where(StudioExecution.job_id == StudioJob.id).exists(),
+            )
             if job_id is not None:
                 statement = statement.where(StudioJob.id == job_id)
             statement = statement.order_by(StudioJob.created_at, StudioJob.id)
@@ -102,6 +106,9 @@ class StudioWorker:
             if job is None:
                 return None
             nonce = str(uuid4())
+            await studio_registry.register_claim(
+                session, job_id=job.id, nonce=nonce, worker_incarnation=self.incarnation,
+            )
             job.status = "running"
             job.progress = 10
             job.started_at = now()
@@ -140,6 +147,11 @@ class StudioWorker:
                 guard is None or guard["phase"] != "claimed"
                 or guard["worker_incarnation"] != self.incarnation
                 or guard["admitted_generation"] != authority.generation
+            ):
+                return False
+            if not await studio_registry.begin_registered(
+                session, job_id=job_id, nonce=nonce, worker_incarnation=self.incarnation,
+                admitted_generation=authority.generation,
             ):
                 return False
             set_phase(job, "executing")
@@ -273,10 +285,18 @@ class StudioWorker:
             await self._execute_claimed(job_id, lease_token)
         except BaseException as exc:
             try:
+                await studio_registry.observe_execution_end(
+                    session_factory=self.sessions, job_id=job_id, nonce=lease_token,
+                    worker_incarnation=self.incarnation, interrupted=True,
+                )
                 await self._mark_unresolved(job_id, lease_token, type(exc).__name__)
             except Exception as evidence_error:
                 logger.error("Studio interruption evidence unavailable", error_type=type(evidence_error).__name__)
             raise
+        await studio_registry.observe_execution_end(
+            session_factory=self.sessions, job_id=job_id, nonce=lease_token,
+            worker_incarnation=self.incarnation, interrupted=False,
+        )
         # A return without a committed terminal result is still unresolved.
         await self._mark_unresolved(job_id, lease_token, "execution_returned_without_terminal_result")
 
@@ -313,8 +333,12 @@ class StudioWorker:
                     return
                 revision_number = existing.current_revision + 1
         try:
-            artifact = await joined_studio_thread(build_archive, spec, job_id=job.id, revision_number=revision_number)
-            path = await joined_studio_thread(
+            artifact = await studio_registry.owned_studio_thread(
+                self.sessions, job_id, lease_token, self.incarnation, "build_archive",
+                build_archive, spec, job_id=job.id, revision_number=revision_number,
+            )
+            path = await studio_registry.owned_studio_thread(
+                self.sessions, job_id, lease_token, self.incarnation, "store_artifact",
                 store_artifact,
                 organization_id=job.organization_id,
                 asset_id=asset_id,
@@ -340,10 +364,9 @@ class StudioWorker:
                 .with_for_update()
             )
             if locked is None:
-                try:
-                    path.unlink(missing_ok=True)
-                except OSError as exc:
-                    logger.error("Studio artifact cleanup unverified", error_type=type(exc).__name__)
+                # A pathname is not proof of file ownership. Preserve the output
+                # and durable attempt for later identity-bound reconciliation.
+                logger.warning("Studio artifact retained for owned reconciliation")
                 return
 
             if locked.revision_of_asset_id:

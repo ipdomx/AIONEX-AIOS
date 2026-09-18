@@ -13,9 +13,12 @@ def test_worker_joins_both_actual_build_and_storage_functions():
     tree = ast.parse(source)
     body = next(node for node in ast.walk(tree) if isinstance(node, ast.AsyncFunctionDef) and node.name == "_execute_claimed")
     calls = [node for node in ast.walk(body) if isinstance(node, ast.Call)]
-    joined = [node for node in calls if isinstance(node.func, ast.Name) and node.func.id == "joined_studio_thread"]
+    joined = [node for node in calls if isinstance(node.func, ast.Attribute) and node.func.attr == "owned_studio_thread"]
     assert len(joined) == 2
-    assert {node.args[0].id for node in joined} == {"build_archive", "store_artifact"}
+    assert {node.args[5].id for node in joined} == {"build_archive", "store_artifact"}
+    registry = (APP / "studio_resource_registry.py").read_text()
+    assert "result = await joined_studio_thread(call)" in registry
+    assert registry.index("owner, resource_id = await reserve_thread(") < registry.index("result = await joined_studio_thread(call)")
     assert not any(isinstance(node.func, ast.Attribute) and node.func.attr == "to_thread" for node in calls)
 
 
