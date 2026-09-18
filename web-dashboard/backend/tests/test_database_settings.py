@@ -329,11 +329,11 @@ class _FakeAsyncEngine:
 
 def test_backend_exposes_the_shipped_alembic_head() -> None:
     database.expected_alembic_heads.cache_clear()
-    assert database.expected_alembic_heads() == frozenset({"20260918_0054"})
+    assert database.expected_alembic_heads() == frozenset({"20260918_0055"})
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("revision,accepted", [("20260917_0052", False), ("20260918_0053", False), ("20260918_0054", True)])
+@pytest.mark.parametrize("revision,accepted", [("20260917_0052", False), ("20260918_0053", False), ("20260918_0054", False), ("20260918_0055", True)])
 async def test_registry_release_requires_its_actual_migration_head(monkeypatch, revision, accepted):
     database.expected_alembic_heads.cache_clear()
     monkeypatch.setattr(database, "engine", _FakeAsyncEngine(frozenset({revision})))

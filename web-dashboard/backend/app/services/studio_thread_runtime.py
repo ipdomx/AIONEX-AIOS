@@ -39,11 +39,16 @@ async def joined_studio_thread(
         try:
             await asyncio.shield(future)
         except asyncio.CancelledError as exc:
-            cancellation = cancellation or exc
             if future.cancelled():
                 raise StudioThreadUncertain(
                     "Studio executor completion is unverified"
                 ) from exc
+            if future.done() and future.exception() is exc:
+                # The function raised CancelledError itself. It is not a new
+                # caller cancellation; preserve its cause instead of chaining
+                # the exception to itself. Any earlier caller cancel still wins.
+                break
+            cancellation = cancellation or exc
         except BaseException:
             if not future.done():
                 raise
