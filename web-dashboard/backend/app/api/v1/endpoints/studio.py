@@ -36,6 +36,11 @@ from app.services.media_storage import (
 )
 from app.services.production_studio import DEPARTMENTS
 from app.services.studio_worker import StudioWorker
+from app.services.host_maintenance_admission import (
+    HostMaintenanceClosed,
+    HostMaintenanceUnavailable,
+)
+from app.services.host_maintenance_studio_admission import require_studio_admission
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel, Field
@@ -165,6 +170,22 @@ async def _validate_scope(
     return normalized_workspace, normalized_project
 
 
+async def _require_studio_request_admission(session: AsyncSession) -> None:
+    """Preserve the caller transaction and keep driver details out of responses."""
+    try:
+        await require_studio_admission(session)
+    except HostMaintenanceClosed:
+        raise HTTPException(
+            status_code=503,
+            detail="Studio request admission is temporarily closed for maintenance.",
+        ) from None
+    except HostMaintenanceUnavailable:
+        raise HTTPException(
+            status_code=503,
+            detail="Studio request admission is currently unavailable.",
+        ) from None
+
+
 async def _enqueue_job(
     data: StudioRequest,
     actor: UserRecord,
@@ -173,6 +194,7 @@ async def _enqueue_job(
     revision_of_asset_id: str | None = None,
     change_note: str | None = None,
 ) -> StudioJob:
+    await _require_studio_request_admission(session)
     workspace_id, project_id = await _validate_scope(
         session,
         actor,
@@ -427,6 +449,7 @@ async def retry_job(
     actor: UserRecord = Depends(current_user),
     session: AsyncSession = Depends(get_db),
 ):
+    await _require_studio_request_admission(session)
     job = await _job_or_404(session, actor, job_id, lock=True)
     if job.status not in {"failed", "cancelled"}:
         raise HTTPException(status_code=409, detail="Only failed or cancelled jobs can be retried")
@@ -663,6 +686,7 @@ async def create_revision(
     actor: UserRecord = Depends(current_user),
     session: AsyncSession = Depends(get_db),
 ):
+    await _require_studio_request_admission(session)
     asset = await _asset_or_404(session, actor, asset_id)
     original = await session.get(StudioJob, asset.job_id)
     if original is None:
