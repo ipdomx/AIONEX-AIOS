@@ -20,6 +20,9 @@ from typing import Any, Literal
 from urllib.parse import urlsplit
 
 
+from app.services.security_scan_resources import current_runtime
+
+
 def _as_dict(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
@@ -999,7 +1002,7 @@ def _normalize_source_findings(
     return findings
 
 
-async def run_source_tool(
+async def _run_source_tool(
     tool_id: str, source: Path, *, timeout: int = 300
 ) -> dict[str, Any]:
     spec = CATALOG_BY_ID.get(tool_id)
@@ -1012,18 +1015,28 @@ async def run_source_tool(
     if shutil.which(spec.adapter) is None:
         return {"tool": tool_id, "status": "unavailable", "findings": []}
     command = _command_for(tool_id, source)
-    process = await asyncio.create_subprocess_exec(
-        *command,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        env={**os.environ, "NO_COLOR": "1"},
-    )
-    try:
-        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
-    except TimeoutError:
-        process.kill()
-        await process.communicate()
-        return {"tool": tool_id, "status": "timeout", "findings": []}
+    runtime = current_runtime()
+    if runtime is not None:
+        managed_result = await runtime.process(command, timeout=timeout)
+        if managed_result.timed_out:
+            return {"tool": tool_id, "status": "timeout", "findings": []}
+        stdout, stderr = managed_result.stdout, managed_result.stderr
+        returncode = managed_result.returncode
+    else:
+        child_process = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env={**os.environ, "NO_COLOR": "1"},
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(child_process.communicate(), timeout=timeout)
+        except TimeoutError:
+            child_process.kill()
+            await child_process.communicate()
+            return {"tool": tool_id, "status": "timeout", "findings": []}
+        assert child_process.returncode is not None
+        returncode = child_process.returncode
     # Parse the complete tool output before any bounded diagnostic handling. Large
     # Bandit/Trivy/Gitleaks reports can legitimately exceed diagnostic limits;
     # parsing a truncated JSON stream would silently lose findings.
@@ -1039,18 +1052,18 @@ async def run_source_tool(
     finding_exit_tools = {"bandit", "osv-scanner", "gitleaks"}
     no_package_sources = (
         tool_id == "osv-scanner"
-        and process.returncode == 128
+        and returncode == 128
         and "No package sources found" in stderr_text
     )
     completed = (
-        process.returncode == 0
-        or (process.returncode == 1 and tool_id in finding_exit_tools and bool(normalized))
+        returncode == 0
+        or (returncode == 1 and tool_id in finding_exit_tools and bool(normalized))
         or no_package_sources
     )
     return {
         "tool": tool_id,
         "status": "completed" if completed else "failed",
-        "exit_code": process.returncode,
+        "exit_code": returncode,
         "finding_count": len(normalized),
         "findings": normalized,
         "stdout_sha256": hashlib.sha256(stdout).hexdigest(),
@@ -1128,7 +1141,7 @@ def _network_command(tool_id: str, origin: str, hostname: str) -> list[str]:
     raise ValueError(f"No bounded network adapter for {tool_id}")
 
 
-async def run_network_tool(
+async def _run_network_tool(
     tool_id: str,
     *,
     origin: str,
@@ -1154,10 +1167,13 @@ async def run_network_tool(
             "reason": "https_required",
             "findings": [],
         }
+    runtime = current_runtime()
     nikto_output: Path | None = None
     if tool_id == "nikto":
         handle = tempfile.NamedTemporaryFile(
-            prefix="aionex-nikto-", suffix=".json", dir="/tmp", delete=False
+            prefix="aionex-nikto-", suffix=".json",
+            dir=str(runtime.workspace) if runtime is not None else "/tmp",
+            delete=False
         )
         handle.close()
         nikto_output = Path(handle.name)
@@ -1178,23 +1194,33 @@ async def run_network_tool(
         ]
     else:
         command = _network_command(tool_id, origin, hostname)
-    process = await asyncio.create_subprocess_exec(
-        *command,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        env={**os.environ, "NO_COLOR": "1"},
-    )
-    try:
-        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
-    except TimeoutError:
-        process.kill()
-        await process.communicate()
-        if nikto_output is not None:
-            try:
-                nikto_output.unlink(missing_ok=True)
-            except OSError:
-                nikto_output = None
-        return {"tool": tool_id, "status": "timeout", "findings": []}
+    runtime = current_runtime()
+    if runtime is not None:
+        managed_result = await runtime.process(command, timeout=timeout)
+        if managed_result.timed_out:
+            return {"tool": tool_id, "status": "timeout", "findings": []}
+        stdout, stderr = managed_result.stdout, managed_result.stderr
+        returncode = managed_result.returncode
+    else:
+        child_process = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env={**os.environ, "NO_COLOR": "1"},
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(child_process.communicate(), timeout=timeout)
+        except TimeoutError:
+            child_process.kill()
+            await child_process.communicate()
+            if nikto_output is not None:
+                try:
+                    nikto_output.unlink(missing_ok=True)
+                except OSError:
+                    nikto_output = None
+            return {"tool": tool_id, "status": "timeout", "findings": []}
+        assert child_process.returncode is not None
+        returncode = child_process.returncode
     stdout_text = redact_tool_output(stdout.decode("utf-8", errors="replace"))[
         :5_000_000
     ]
@@ -1286,8 +1312,8 @@ async def run_network_tool(
     successful_codes = {0, 1, 2} if tool_id == "zap-baseline" else {0}
     return {
         "tool": tool_id,
-        "status": "completed" if process.returncode in successful_codes else "failed",
-        "exit_code": process.returncode,
+        "status": "completed" if returncode in successful_codes else "failed",
+        "exit_code": returncode,
         "finding_count": len(findings),
         "stdout_sha256": hashlib.sha256(stdout).hexdigest(),
         "stderr": stderr_text,
@@ -1320,3 +1346,23 @@ async def runtime_catalog_snapshot(session) -> list[dict[str, Any]]:
         item["runtime_checked_at"] = checked_at
         result.append(item)
     return result
+
+
+async def run_source_tool(tool_id: str, source: Path, *, timeout: int = 300) -> dict[str, Any]:
+    runtime = current_runtime()
+    if runtime is None:
+        return await _run_source_tool(tool_id, source, timeout=timeout)
+    async with runtime.temporary_workspace("source-tool-workspace"):
+        return await _run_source_tool(tool_id, source, timeout=timeout)
+
+
+async def run_network_tool(
+    tool_id: str, *, origin: str, hostname: str, execution_mode: str, timeout: int = 180,
+) -> dict[str, Any]:
+    runtime = current_runtime()
+    if runtime is None:
+        return await _run_network_tool(tool_id, origin=origin, hostname=hostname,
+                                       execution_mode=execution_mode, timeout=timeout)
+    async with runtime.temporary_workspace("network-tool-workspace"):
+        return await _run_network_tool(tool_id, origin=origin, hostname=hostname,
+                                       execution_mode=execution_mode, timeout=timeout)

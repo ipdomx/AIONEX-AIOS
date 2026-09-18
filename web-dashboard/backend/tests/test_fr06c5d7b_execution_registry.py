@@ -246,7 +246,7 @@ async def test_heartbeat_continues_after_admission_close_and_reads_cancel(regist
 @pytest.mark.parametrize("kind,evidence", [
     ("thread", {"joined": True, "cleanup_complete": True}),
     ("async_io", {"joined": True, "cleanup_complete": True}),
-    ("process", {"leader_reaped": True, "group_empty": True, "cleanup_complete": True}),
+    ("process", {"leader_reaped": True, "group_empty": True, "descendants_reaped": True, "cleanup_complete": True}),
     ("zap", {"remote_zero": True, "cleanup_complete": True}),
 ])
 async def test_resource_record_requires_explicit_settlement_and_supervisor_join(registry_case, kind, evidence):

@@ -31,7 +31,7 @@ _IDENTITY_KEYS = frozenset({
 })
 _EVIDENCE_KEYS = frozenset({
     "joined", "group_empty", "leader_reaped", "cleanup_complete", "remote_zero",
-    "not_started", "error_type",
+    "not_started", "error_type", "descendants_reaped",
 })
 
 
@@ -110,7 +110,7 @@ def _settlement_valid(kind: str, evidence: dict[str, Any]) -> bool:
         return evidence.get("joined") is True and evidence.get("cleanup_complete") is True
     if kind == "process":
         return all(evidence.get(k) is True for k in (
-            "leader_reaped", "group_empty", "cleanup_complete",
+            "leader_reaped", "group_empty", "descendants_reaped", "cleanup_complete",
         ))
     if kind == "zap":
         return evidence.get("remote_zero") is True and evidence.get("cleanup_complete") is True
