@@ -1,6 +1,7 @@
 """Source boundaries for acknowledged Studio filesystem effects."""
 from pathlib import Path
 import ast
+import json
 
 ROOT = Path(__file__).resolve().parents[1]
 SERVICES = ROOT / "web-dashboard/backend/app/services"
@@ -75,3 +76,17 @@ def test_publication_record_has_reviewed_receipt():
     assert receipt.is_file()
     text = receipt.read_text()
     assert "No production" in text and "not execution settlement" in text
+
+
+def test_roadmap_distinguishes_file_journal_from_settlement_and_deployment():
+    plan = json.loads((ROOT / "docs/project/PLAN.json").read_text())
+    batch = next(item for item in plan["batches"] if item["id"] == "FR-06")
+    scope = batch["host_state_cutover_admission"]["studio_publication_journal_source"]
+    assert scope["migration"] == "20260918_0056"
+    assert scope["source_implementation_present"] is True
+    assert scope["intent_acknowledged_before_filesystem_effect"] is True
+    assert scope["owned_staging_removal_journaled"] is True
+    for key in ("execution_settlement_implemented", "post_crash_cleanup_implemented",
+                "production_database_migrated", "production_deployment_verified",
+                "full_host_closure", "coverage_verified"):
+        assert scope[key] is False
