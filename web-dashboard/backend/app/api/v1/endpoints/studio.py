@@ -37,6 +37,9 @@ from app.services.media_storage import (
 from app.services.production_studio import DEPARTMENTS
 from app.services.studio_worker import StudioWorker
 from app.services.studio_execution_guard import retry_has_no_execution_provenance
+from app.services.studio_control_evidence import (
+    StudioControlEvidenceUnavailable, has_retained_studio_evidence,
+)
 from app.services.host_maintenance_admission import (
     HostMaintenanceClosed,
     HostMaintenanceUnavailable,
@@ -272,8 +275,13 @@ async def _job_or_404(
         StudioJob.organization_id == actor.organization_id,
     )
     if lock:
-        statement = statement.with_for_update()
-    item = await session.scalar(statement)
+        # Refresh after the row lock is acquired; cached fields cannot certify
+        # that a competing claim never started. Do not autoflush before locking.
+        statement = statement.with_for_update().execution_options(populate_existing=True)
+        with session.no_autoflush:
+            item = await session.scalar(statement)
+    else:
+        item = await session.scalar(statement)
     if item is None:
         raise HTTPException(status_code=404, detail="Studio job not found")
     return item
@@ -415,6 +423,17 @@ async def get_job(
     )
 
 
+async def _retained_studio_control_evidence(session: AsyncSession, job_id: str) -> bool:
+    """Read after tenant-scoped job locking, before any control mutation."""
+    try:
+        return await has_retained_studio_evidence(session, job_id)
+    except StudioControlEvidenceUnavailable:
+        raise HTTPException(
+            status_code=503,
+            detail="Studio control evidence is currently unavailable.",
+        ) from None
+
+
 @router.post("/jobs/{job_id}/cancel")
 async def cancel_job(
     job_id: str,
@@ -426,7 +445,8 @@ async def cancel_job(
         return production_studio.job_snapshot(job)
     if job.status not in {"queued", "running"}:
         raise HTTPException(status_code=409, detail="Only queued or running jobs can be cancelled")
-    unstarted = retry_has_no_execution_provenance(job)
+    retained_history = await _retained_studio_control_evidence(session, job.id)
+    unstarted = retry_has_no_execution_provenance(job) and not retained_history
     job.cancelled_at = _now()
     if unstarted:
         job.status = "cancelled"
@@ -463,7 +483,10 @@ async def retry_job(
     job = await _job_or_404(session, actor, job_id, lock=True)
     if job.status not in {"failed", "cancelled"}:
         raise HTTPException(status_code=409, detail="Only failed or cancelled jobs can be retried")
-    if not retry_has_no_execution_provenance(job):
+    if (
+        not retry_has_no_execution_provenance(job)
+        or await _retained_studio_control_evidence(session, job.id)
+    ):
         raise HTTPException(
             status_code=409,
             detail="Studio execution requires evidence-based reconciliation before retry.",
