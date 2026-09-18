@@ -35,6 +35,7 @@ from aios.design_factory import (
 )
 from aios.video_factory import VideoRequest, build_video_plan
 from app.core.config import settings
+from app.services.studio_artifact_publication import publish_studio_archive
 from app.db.models import (
     ProjectStudioAttachment,
     StudioAsset,
@@ -513,17 +514,19 @@ def protected_root() -> Path:
 
 
 def store_artifact(*, organization_id: str, asset_id: str, revision_number: int, artifact: BuiltArtifact) -> Path:
-    root = protected_root()
-    directory = (root / organization_id / asset_id / f"revision-{revision_number}").resolve()
-    if root not in directory.parents:
-        raise ValueError("Invalid Studio storage path")
-    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
-    path = directory / artifact.filename
-    temporary = path.with_suffix(path.suffix + ".partial")
-    temporary.write_bytes(artifact.content)
-    os.chmod(temporary, 0o600)
-    os.replace(temporary, path)
-    return path
+    # Keep the established Path-returning API, but never replace an existing
+    # archive. Worker resource settlement remains a separate acceptance gate.
+    return publish_studio_archive(
+        root=settings.STUDIO_ASSET_ROOT,
+        organization_id=organization_id,
+        asset_id=asset_id,
+        revision_number=revision_number,
+        filename=artifact.filename,
+        content=artifact.content,
+        checksum=artifact.checksum,
+        size_bytes=artifact.size_bytes,
+        maximum_bytes=settings.STUDIO_MAX_ARTIFACT_BYTES,
+    )
 
 
 def verify_artifact(path: str, checksum: str, size_bytes: int) -> Path:
