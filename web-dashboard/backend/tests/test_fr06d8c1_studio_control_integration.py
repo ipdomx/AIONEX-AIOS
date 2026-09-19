@@ -260,8 +260,14 @@ async def test_actual_claim_blocks_cancel_until_its_registry_transaction_finishe
     assert not isinstance(response, BaseException) and response.status_code == 200
     if outcome == "commit":
         assert not isinstance(results[0], BaseException)
-        assert response.json()["status"] == "cancel_requested"
-        assert (await _row(case, job_id))["attempts"] == 1
+        assert response.json()["status"] == "cancelled"
+        row = await _row(case, job_id)
+        assert row["attempts"] == 1 and row["lease_token"] is None
+        async with case.sessions() as verify:
+            receipt = await verify.scalar(select(StudioPrestartCancellation).where(
+                StudioPrestartCancellation.job_id == job_id,
+            ))
+            assert receipt is not None and receipt.execution_id
     else:
         assert isinstance(results[0], RuntimeError)
         assert response.json()["status"] == "cancelled"
