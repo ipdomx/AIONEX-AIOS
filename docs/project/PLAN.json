@@ -642,6 +642,34 @@
             "docs/project/receipts/FR-06D8C3-studio-poststart-cancellation.md"
           ],
           "coverage_ar": "تسوية مصدرية محدودة لإلغاء بدأ بعد انتقال المحاولة إلى executing، ولا تُقبل إلا بعد رجوع/انقطاع العامل وتثبيت أن كل مورد مسجل انتهى joined بنجاح. تقبل ثلاث حالات فقط: عدم بدء مورد payload، اكتمال build قبل storage، أو نشر أرشيف كامل مع إثبات إزالة staging؛ النشر الجزئي أو فشل/عدم يقين أي خيط يبقى blocker. الأرشيف المنشور الكامل يُحتفظ به ولا يُحذف، والسجلات الخام لا تُمحى. الإلغاء الداخلي StudioResourceCancelled لا يوقف حلقة العامل بعد تثبيت الدليل، بينما إلغاء asyncio العام يبقى قابلاً للانتشار. لا تنظيف بعد crash أو نشر إنتاج أو تصريف مضيف في هذا الجزء."
+        },
+        "studio_postcrash_observation_source": {
+          "source_part": "FR-06D8C4A",
+          "prerequisite_merged_prs": [
+            734
+          ],
+          "authority_schema_version": 7,
+          "migration": "20260919_0060",
+          "source_implementation_present": true,
+          "closed_admission_required": true,
+          "process_drain_verified": false,
+          "filesystem_mutation_performed": false,
+          "cleanup_authorized": false,
+          "automatic_retry": false,
+          "automatic_stale_takeover": false,
+          "directory_descriptor_identity_observed": true,
+          "staging_and_final_identity_observed": true,
+          "observation_survives_business_and_raw_evidence_deletion": true,
+          "observation_clears_execution_blocker": false,
+          "production_database_migrated": false,
+          "production_deployment_verified": false,
+          "coverage_verified": false,
+          "full_host_closure": false,
+          "postmerge_acceptance_source": "docs/project/runtime/events.jsonl",
+          "evidence": [
+            "docs/project/receipts/FR-06D8C4A-studio-postcrash-observation.md"
+          ],
+          "coverage_ar": "يسجل المصدر ملاحظة دائمة بعد crash فقط أثناء إغلاق قبول Studio، ويربطها بمحاولة التنفيذ وسجل النشر وهوية سلسلة المجلدات وموضعي staging/final دون أي حذف أو rename أو retry. إغلاق القبول لا يُعامل كإثبات توقف العملية؛ لذلك process_drain_verified وcleanup_authorized يبقيان false، والملاحظة لا تُنقص blockers ولا تدعي full-host closure. حالات الهوية المفقودة أو المتغيرة تبقى reconciliation required. النشر والترحيل والتنظيف الفعلي بعد crash خارج هذا الجزء."
         }
       }
     },

@@ -23,7 +23,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import (
-    StudioAsset, StudioAssetRevision, StudioExecution, StudioJob,
+    StudioAsset, StudioAssetRevision, StudioCrashObservation, StudioExecution, StudioJob,
     StudioPublication, StudioSettlement,
 )
 from app.services.host_maintenance_admission import SessionFactory
@@ -245,6 +245,14 @@ async def _record_success(
         prior = await session.scalar(select(StudioSettlement.id).where(StudioSettlement.execution_id == owner.execution_id))
         if prior is not None:
             raise registry.StudioOwnershipLost("Studio settlement is single-use")
+        if await session.scalar(
+            select(StudioCrashObservation.id).where(
+                StudioCrashObservation.execution_id == owner.execution_id
+            )
+        ) is not None:
+            raise registry.StudioOwnershipLost(
+                "Observed post-crash Studio execution requires explicit reconciliation"
+            )
         publication = await session.scalar(select(StudioPublication).where(
             StudioPublication.execution_id == owner.execution_id,
         ).with_for_update().execution_options(populate_existing=True))
