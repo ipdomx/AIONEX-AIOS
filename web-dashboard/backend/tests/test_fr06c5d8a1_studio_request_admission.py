@@ -33,7 +33,7 @@ from app.core.auth import UserRecord, current_user
 from app.db.base import Base, get_db
 from app.db.models import (
     AuditEvent, Organization, OwnerControlRecord, Project, StudioAsset,
-    StudioAssetRevision, StudioJob, User,
+    StudioAssetRevision, StudioJob, StudioExecution, StudioPublication, StudioSettlement, User,
 )
 from app.services import host_maintenance_admission as admission
 from app.services import studio_governance
@@ -57,6 +57,7 @@ def _migration(connection, direction="upgrade"):
 def _tables():
     tables = {model.__table__ for model in (
         OwnerControlRecord, StudioJob, StudioAsset, StudioAssetRevision, AuditEvent, Project,
+        StudioExecution, StudioPublication, StudioSettlement,
     )}
     while True:
         expanded = tables | {fk.column.table for table in tables for fk in table.foreign_keys}

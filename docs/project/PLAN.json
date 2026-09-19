@@ -555,6 +555,36 @@
             "docs/project/receipts/FR-06C5D8B5B-studio-success-settlement.md"
           ],
           "coverage_ar": "تسوية مصدرية للمحاولة الناجحة فقط بعد إقرار معاملة النتيجة ورجوع التنفيذ، وبشرط مطابقة سجل الخيطين والنشر المكتمل وتنظيف الاسم المرحلي والمراجعة المحفوظة. يحفظ إيصال مستقل غير قابل لإعادة الاستخدام، وتبقى أدلة التنفيذ والنشر والأرشيف دون حذف. تمنع محاولة تسجيل انتهاء لاحقة تغيير دليل تمت تسويته. تميز اللقطة نجاحًا مثبتًا من العمل الملغى أو اليتيم أو القديم أو ذي الدليل الفاسد، ولا تعد النجاح إثباتًا لتنظيف ما بعد الانقطاع أو سلامة الأرشيف الحالية أو تصريف المضيف. حالة الاختبارات والدمج والمزامنة والنشر تؤخذ من السجل الحي."
+        },
+        "studio_control_evidence_source": {
+          "source_part": "FR-06D8C1",
+          "prerequisite_merged_prs": [
+            731
+          ],
+          "authority_schema_version": 7,
+          "additional_migration_required": false,
+          "source_implementation_present": true,
+          "retained_ledgers": [
+            "studio_executions",
+            "studio_publications",
+            "studio_settlements"
+          ],
+          "fresh_tenant_job_lock": true,
+          "same_transaction_evidence_before_control_mutation": true,
+          "cancellation_intent_retains_historical_evidence": true,
+          "retry_rejects_surviving_evidence": true,
+          "history_unavailable_fails_closed": true,
+          "cancellation_available_during_admission_closure": true,
+          "cancellation_settlement_implemented": false,
+          "post_crash_cleanup_implemented": false,
+          "production_deployment_verified": false,
+          "production_database_migrated": false,
+          "full_host_closure": false,
+          "postmerge_acceptance_source": "docs/project/runtime/events.jsonl",
+          "evidence": [
+            "docs/project/receipts/FR-06D8C1-studio-control-evidence.md"
+          ],
+          "coverage_ar": "يراجع الإلغاء وإعادة المحاولة سجلات التنفيذ والنشر والتسوية المستقلة بعد قفل المهمة الخاص بالمستأجر وقراءة بياناتها الحالية. بقاء أي أثر يمنع تصنيفها غير مبدوءة أو إعادة ضبطها؛ تعذر قراءة السجل يرفض القرار قبل التعديل. هذا إصلاح للتحكم ولا يثبت توقف العمل أو تنظيفه أو تسوية الإلغاء والانقطاع أو نشر الإنتاج."
         }
       }
     },
