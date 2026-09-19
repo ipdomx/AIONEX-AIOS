@@ -606,7 +606,42 @@
           "evidence": [
             "docs/project/receipts/FR-06D8C2-studio-prestart-cancellation.md"
           ],
-          "coverage_ar": "مسودة مصدر لإلغاء حجز دقيق لم ينتقل إلى التنفيذ: تقفل المهمة وسجل التنفيذ وتحفظ إيصالًا مستقلًا مع إلغاء المهمة في معاملة واحدة دون حذف سجل أو ملفات. غياب الملفات أو العمر لا يثبت توقف عمل بدأ. اختبارات الجزء الجديد والترحيل المعزول لا تعني قبول حزمة التوافق القديمة أو الدمج أو النشر؛ حالة القبول تؤخذ من سجل التشغيل."
+          "coverage_ar": "المصدر يثبت إلغاء محاولة Studio المحجوزة التي لم تدخل تنفيذ payload بعد: تقفل المهمة وسجل التنفيذ وتُحفظ هوية الإلغاء مع الإيصال في معاملة واحدة، دون حذف السجل أو الملفات. يحتفظ الإيصال بالدليل ويمنع replay حتى مع حذف صف المهمة؛ الحالات التي بدأت payload أو تملك موردًا أو دليلاً متعارضًا تبقى خارج هذا الجزء. حالة قبول الدمج والمزامنة والنشر تؤخذ من سجل التشغيل، ولا يثبت هذا الجزء نشر الإنتاج أو تصريف المضيف.",
+          "source_implementation_present": true,
+          "prerequisite_merged_prs": [
+            732
+          ]
+        },
+        "studio_poststart_cancellation_source": {
+          "source_part": "FR-06D8C3",
+          "prerequisite_merged_prs": [
+            733
+          ],
+          "authority_schema_version": 7,
+          "migration": "20260919_0059",
+          "source_implementation_present": true,
+          "worker_stop_observation_precedes_settlement": true,
+          "joined_resources_required": true,
+          "failed_or_unresolved_resources_accepted": false,
+          "partial_publication_accepted": false,
+          "complete_publication_can_be_retained": true,
+          "staging_cleanup_evidence_required_for_publication": true,
+          "accepted_archive_deleted": false,
+          "internal_resource_cancellation_stops_worker_process": false,
+          "generic_task_cancellation_swallowed": false,
+          "raw_execution_and_publication_evidence_retained": true,
+          "automatic_retry": false,
+          "automatic_stale_takeover": false,
+          "post_crash_cleanup_implemented": false,
+          "production_database_migrated": false,
+          "production_deployment_verified": false,
+          "coverage_verified": false,
+          "full_host_closure": false,
+          "postmerge_acceptance_source": "docs/project/runtime/events.jsonl",
+          "evidence": [
+            "docs/project/receipts/FR-06D8C3-studio-poststart-cancellation.md"
+          ],
+          "coverage_ar": "تسوية مصدرية محدودة لإلغاء بدأ بعد انتقال المحاولة إلى executing، ولا تُقبل إلا بعد رجوع/انقطاع العامل وتثبيت أن كل مورد مسجل انتهى joined بنجاح. تقبل ثلاث حالات فقط: عدم بدء مورد payload، اكتمال build قبل storage، أو نشر أرشيف كامل مع إثبات إزالة staging؛ النشر الجزئي أو فشل/عدم يقين أي خيط يبقى blocker. الأرشيف المنشور الكامل يُحتفظ به ولا يُحذف، والسجلات الخام لا تُمحى. الإلغاء الداخلي StudioResourceCancelled لا يوقف حلقة العامل بعد تثبيت الدليل، بينما إلغاء asyncio العام يبقى قابلاً للانتشار. لا تنظيف بعد crash أو نشر إنتاج أو تصريف مضيف في هذا الجزء."
         }
       }
     },

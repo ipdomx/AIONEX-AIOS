@@ -22,7 +22,7 @@ from alembic.operations import Operations
 from sqlalchemy import delete, select, text, update
 from sqlalchemy.exc import IntegrityError
 
-from app.db.models import StudioExecution, StudioJob
+from app.db.models import StudioExecution, StudioJob, StudioPoststartCancellation
 from app.services import studio_resource_registry as registry
 from app.services import studio_worker as workers
 
@@ -275,9 +275,15 @@ async def test_cancel_during_store_retains_output_without_path_deletion(executio
         release.set()
         await task
         assert len(paths) == 1 and paths[0].exists()
-        assert (await _shared._row(case, identifier))["status"] == "cancel_requested"
+        assert (await _shared._row(case, identifier))["status"] == "cancelled"
         row = await _ledger(case, identifier)
         assert row["state"] == "unresolved" and row["cleanup_verified"] is False
+        async with case.sessions() as session:
+            receipt = await session.scalar(select(StudioPoststartCancellation).where(
+                StudioPoststartCancellation.job_id == identifier,
+            ))
+            assert receipt is not None and receipt.publication_id is not None
+            assert receipt.proof["accepted_archive_retained"] is True
     finally:
         release.set()
         await asyncio.gather(task, return_exceptions=True)
@@ -515,7 +521,8 @@ async def test_snapshot_database_transaction_really_uses_repeatable_read(executi
     # snapshot. Match the queried tables, not just an increased query count.
     assert sorted(tables for tables, _ in observations) == sorted([
         ("studio_executions",), ("studio_jobs",), ("studio_jobs",),
-        ("studio_publications",), ("studio_settlements",), ("studio_prestart_cancellations",),
+        ("studio_publications",), ("studio_settlements",),
+        ("studio_prestart_cancellations",), ("studio_poststart_cancellations",),
     ])
     assert {isolation for _, isolation in observations} == {"repeatable read"}
 

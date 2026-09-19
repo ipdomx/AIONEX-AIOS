@@ -28,6 +28,7 @@ from app.db.models import (
     StudioPublication,
     StudioSettlement,
     StudioPrestartCancellation,
+    StudioPoststartCancellation,
     StudioSafetyReview,
     uuid_str,
 )
@@ -44,7 +45,9 @@ from sqlalchemy import select
 from app.services.host_maintenance_admission import HostMaintenanceClosed, SessionFactory
 from app.services.host_maintenance_studio_admission import require_studio_admission
 from app.services import studio_resource_registry as studio_registry
-from app.services import studio_result_binding, studio_success_settlement
+from app.services import (
+    studio_poststart_cancellation, studio_result_binding, studio_success_settlement,
+)
 from app.services.studio_execution_guard import (
     GUARD_KEY, PROTOCOL, execution_guard, pristine_conditions, set_phase,
 )
@@ -106,6 +109,7 @@ class StudioWorker:
                 ~select(StudioPublication.id).where(StudioPublication.job_id == StudioJob.id).exists(),
                 ~select(StudioSettlement.id).where(StudioSettlement.job_id == StudioJob.id).exists(),
                 ~select(StudioPrestartCancellation.id).where(StudioPrestartCancellation.job_id == StudioJob.id).exists(),
+                ~select(StudioPoststartCancellation.id).where(StudioPoststartCancellation.job_id == StudioJob.id).exists(),
             )
             if job_id is not None:
                 statement = statement.where(StudioJob.id == job_id)
@@ -298,6 +302,14 @@ class StudioWorker:
                     worker_incarnation=self.incarnation, interrupted=True,
                 )
                 await self._mark_unresolved(job_id, lease_token, type(exc).__name__)
+                if isinstance(exc, studio_registry.StudioResourceCancelled):
+                    await studio_poststart_cancellation.settle_poststart_cancellation(
+                        session_factory=self.sessions, job_id=job_id, nonce=lease_token,
+                        worker_incarnation=self.incarnation,
+                    )
+                    # This is internal cancellation intent, not task shutdown. The
+                    # durable attempt remains unresolved if settlement returned False.
+                    return
             except BaseException as evidence_error:
                 # Repeated cancellation during evidence persistence must not
                 # replace the first interruption or its function-failure cause.
@@ -317,6 +329,10 @@ class StudioWorker:
         )
         # A return without a committed terminal result is still unresolved.
         await self._mark_unresolved(job_id, lease_token, "execution_returned_without_terminal_result")
+        await studio_poststart_cancellation.settle_poststart_cancellation(
+            session_factory=self.sessions, job_id=job_id, nonce=lease_token,
+            worker_incarnation=self.incarnation,
+        )
 
     async def _execute_claimed(self, job_id: str, lease_token: str) -> studio_success_settlement.StudioResultAcknowledgement | None:
         job = await self._load_claim(job_id, lease_token)
