@@ -18,7 +18,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import StudioExecution, StudioJob, StudioPublication, StudioSettlement
+from app.db.models import StudioExecution, StudioJob, StudioPublication, StudioSettlement, StudioPrestartCancellation
 from app.services.host_maintenance_admission import (
     SessionFactory, read_admission_snapshot,
 )
@@ -176,7 +176,8 @@ async def register_claim(
         prior = await session.scalar(select(StudioExecution.id).where(StudioExecution.job_id == job_id))
         prior_publication = await session.scalar(select(StudioPublication.id).where(StudioPublication.job_id == job_id).limit(1))
         prior_settlement = await session.scalar(select(StudioSettlement.id).where(StudioSettlement.job_id == job_id))
-    if job is None or prior is not None or prior_publication is not None or prior_settlement is not None:
+        prior_cancellation = await session.scalar(select(StudioPrestartCancellation.id).where(StudioPrestartCancellation.job_id == job_id))
+    if job is None or prior is not None or prior_publication is not None or prior_settlement is not None or prior_cancellation is not None:
         raise StudioOwnershipLost("Only untouched Studio backlog can register")
     stamp = await _now(session)
     row = StudioExecution(
@@ -211,6 +212,8 @@ async def begin_registered(
         return False
     row = await _locked(session, owner)
     if await session.scalar(select(StudioSettlement.id).where(StudioSettlement.job_id == job_id)) is not None:
+        return False
+    if await session.scalar(select(StudioPrestartCancellation.id).where(StudioPrestartCancellation.job_id == job_id)) is not None:
         return False
     if row.state != "active" or row.phase != "claimed" or row.resources:
         return False
@@ -420,10 +423,18 @@ async def execution_snapshot(*, session_factory: SessionFactory) -> dict[str, An
         accepted, retained, settlements, receipt_jobs = await snapshot_settlements(
             session, list(rows), list(publications), list(jobs),
         )
-        legacy = [identifier for identifier in legacy if identifier not in receipt_jobs]
+        from app.services.studio_prestart_cancellation import snapshot_prestart_cancellations
+        cancelled, cancellations, cancellation_jobs = await snapshot_prestart_cancellations(
+            session, list(rows), list(publications), list(jobs), settlements,
+        )
+        if accepted & cancelled:
+            raise StudioResourceUncertain("Studio terminal receipts conflict")
+        legacy = [identifier for identifier in legacy if identifier not in receipt_jobs | cancellation_jobs]
         invalid_receipts = sum(item["requires_reconciliation"] for item in settlements)
-        blockers = len(observed) - len(accepted) + len(legacy) + orphans + invalid_receipts
+        invalid_cancellations = sum(item["requires_reconciliation"] for item in cancellations)
+        blockers = len(observed) - len(accepted) - len(cancelled) + len(legacy) + orphans + invalid_receipts + invalid_cancellations
         for item in observed:
+            item["cancelled_before_execution"] = item["execution_id"] in cancelled
             item["settled_successfully"] = item["execution_id"] in accepted
             item["staging_cleanup_verified"] = item["execution_id"] in accepted
         for item in publication_observations:
@@ -436,6 +447,8 @@ async def execution_snapshot(*, session_factory: SessionFactory) -> dict[str, An
             "executions": observed, "unregistered_unverified_job_ids": legacy,
             "publications": publication_observations,
             "orphan_publications": orphans,
+            "prestart_cancellations": cancellations, "prestart_cancelled_count": len(cancelled),
+            "invalid_prestart_cancellation_count": invalid_cancellations,
             "settlements": settlements, "settled_execution_count": len(accepted),
             "retained_archive_count": len(retained), "invalid_settlement_count": invalid_receipts,
             "blocker_count": blockers,

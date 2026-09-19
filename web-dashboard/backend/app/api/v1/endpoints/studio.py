@@ -37,6 +37,8 @@ from app.services.media_storage import (
 from app.services.production_studio import DEPARTMENTS
 from app.services.studio_worker import StudioWorker
 from app.services.studio_execution_guard import retry_has_no_execution_provenance
+from app.services.studio_prestart_cancellation import cancel_claimed_before_start
+from app.services.studio_resource_registry import StudioResourceUncertain
 from app.services.studio_control_evidence import (
     StudioControlEvidenceUnavailable, has_retained_studio_evidence,
 )
@@ -49,7 +51,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
@@ -447,23 +449,29 @@ async def cancel_job(
         raise HTTPException(status_code=409, detail="Only queued or running jobs can be cancelled")
     retained_history = await _retained_studio_control_evidence(session, job.id)
     unstarted = retry_has_no_execution_provenance(job) and not retained_history
-    job.cancelled_at = _now()
-    if unstarted:
-        job.status = "cancelled"
-        job.progress = 100
-        job.completed_at = _now()
-        job.lease_token = None
-    else:
-        # An in-flight/legacy attempt retains ownership. Request intent is not
-        # evidence that its build/storage thread stopped or its files are clean.
-        job.status = "cancel_requested"
-        job.completed_at = None
+    prestart_settled = False
+    if not unstarted:
+        try:
+            prestart_settled = await cancel_claimed_before_start(session, job)
+        except (SQLAlchemyError, StudioResourceUncertain):
+            raise HTTPException(status_code=503, detail="Studio cancellation evidence is currently unavailable.") from None
+    if not prestart_settled:
+        job.cancelled_at = _now()
+        if unstarted:
+            job.status = "cancelled"
+            job.progress = 100
+            job.completed_at = _now()
+            job.lease_token = None
+        else:
+            # Started, malformed or legacy work is not certified stopped.
+            job.status = "cancel_requested"
+            job.completed_at = None
     job.version += 1
     session.add(
         AuditEvent(
             organization_id=actor.organization_id,
             user_id=actor.id,
-            action="studio.job.cancelled" if unstarted else "studio.job.cancel_requested",
+            action="studio.job.cancelled" if unstarted or prestart_settled else "studio.job.cancel_requested",
             resource_type="studio_job",
             resource_id=job.id,
             details={"status": job.status, "cleanup_verified": False},
