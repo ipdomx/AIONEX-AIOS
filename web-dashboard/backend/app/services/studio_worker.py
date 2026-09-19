@@ -27,6 +27,7 @@ from app.db.models import (
     StudioExecution,
     StudioPublication,
     StudioSettlement,
+    StudioPrestartCancellation,
     StudioSafetyReview,
     uuid_str,
 )
@@ -104,6 +105,7 @@ class StudioWorker:
                 ~select(StudioExecution.id).where(StudioExecution.job_id == StudioJob.id).exists(),
                 ~select(StudioPublication.id).where(StudioPublication.job_id == StudioJob.id).exists(),
                 ~select(StudioSettlement.id).where(StudioSettlement.job_id == StudioJob.id).exists(),
+                ~select(StudioPrestartCancellation.id).where(StudioPrestartCancellation.job_id == StudioJob.id).exists(),
             )
             if job_id is not None:
                 statement = statement.where(StudioJob.id == job_id)

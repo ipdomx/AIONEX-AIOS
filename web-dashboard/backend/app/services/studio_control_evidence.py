@@ -13,7 +13,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import StudioExecution, StudioPublication, StudioSettlement
+from app.db.models import StudioExecution, StudioPublication, StudioSettlement, StudioPrestartCancellation
 
 
 class StudioControlEvidenceUnavailable(RuntimeError):
@@ -36,6 +36,7 @@ async def has_retained_studio_evidence(session: AsyncSession, job_id: str) -> bo
                 select(StudioExecution.id).where(StudioExecution.job_id == job_id).exists(),
                 select(StudioPublication.id).where(StudioPublication.job_id == job_id).exists(),
                 select(StudioSettlement.id).where(StudioSettlement.job_id == job_id).exists(),
+                select(StudioPrestartCancellation.id).where(StudioPrestartCancellation.job_id == job_id).exists(),
             )))
         if type(found) is not bool:
             raise StudioControlEvidenceUnavailable("Studio control evidence is unavailable")
