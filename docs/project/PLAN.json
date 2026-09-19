@@ -719,7 +719,9 @@
         },
         "studio_cleanup_candidate_source": {
           "source_part": "FR-06D8C4B3",
-          "prerequisite_merged_prs": [],
+          "prerequisite_merged_prs": [
+            737
+          ],
           "source_implementation_present": true,
           "crash_observation_required": true,
           "execution_publication_digest_match_required": true,
