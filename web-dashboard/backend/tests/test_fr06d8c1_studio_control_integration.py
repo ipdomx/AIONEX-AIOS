@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.api.v1.endpoints import studio
 from app.db.base import get_db
-from app.db.models import AuditEvent, Organization, StudioJob, User
+from app.db.models import AuditEvent, Organization, StudioJob, StudioPrestartCancellation, User
 from app.services.studio_control_evidence import (
     StudioControlEvidenceUnavailable, has_retained_studio_evidence,
 )
@@ -139,11 +139,16 @@ async def test_cached_job_is_refreshed_after_a_competing_actual_claim(execution_
         claim = await case.worker.claim_by_id(job_id)
         assert claim is not None
         result = await studio.cancel_job(job_id, actor=case.actor, session=session)
-        assert result["status"] == "cancel_requested"
-        assert cached.attempts == 1 and cached.lease_token == claim[1]
+        assert result["status"] == "cancelled"
+        assert cached.attempts == 1 and cached.lease_token is None
     after = await _row(case, job_id)
-    assert after["attempts"] == 1 and after["lease_token"] == claim[1]
-    assert after["completed_at"] is None and not case.root.exists()
+    assert after["attempts"] == 1 and after["lease_token"] is None
+    assert after["completed_at"] == after["cancelled_at"] and not case.root.exists()
+    async with case.sessions() as verify:
+        receipt = await verify.scalar(select(StudioPrestartCancellation).where(
+            StudioPrestartCancellation.job_id == job_id,
+        ))
+        assert receipt is not None and receipt.execution_id
 
 
 @pytest.mark.asyncio

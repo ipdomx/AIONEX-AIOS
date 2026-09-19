@@ -65,3 +65,8 @@ Cloudflare change or host-vault transfer is performed by this increment.
 Evidence directories:
 `docs/project/runtime/fr06d8c2-resume-20260919/`
 `docs/project/runtime/fr06d8c2-compat-final-20260919/`
+
+
+## Protected-CI compatibility correction
+
+The first protected backend CI run exposed one historical C1 compatibility expectation: a cached queued row was claimed by the real worker before cancellation, and the old test still expected `cancel_requested`. C2 proves that this exact `active/claimed`, resource-empty attempt can be fenced before payload start. The test now requires `cancelled` plus a retained `StudioPrestartCancellation` receipt and a cleared lease; application code was unchanged by this correction. The corrected case passed against disposable PostgreSQL before push.
