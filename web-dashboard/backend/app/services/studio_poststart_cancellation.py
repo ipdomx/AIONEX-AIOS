@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import (
     AuditEvent,
+    StudioCrashObservation,
     StudioAsset,
     StudioAssetRevision,
     StudioExecution,
@@ -253,6 +254,11 @@ async def settle_poststart_cancellation(
                     StudioPoststartCancellation.execution_id
                     == owner.execution_id
                 )
+            ) is not None:
+                return False
+            if await session.scalar(
+                select(StudioCrashObservation.id)
+                .where(StudioCrashObservation.execution_id == owner.execution_id)
             ) is not None:
                 return False
 
