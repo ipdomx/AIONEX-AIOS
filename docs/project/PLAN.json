@@ -716,6 +716,31 @@
           "evidence": [
             "docs/project/receipts/FR-06D8C4B2-studio-runtime-drain.md"
           ]
+        },
+        "studio_cleanup_candidate_source": {
+          "source_part": "FR-06D8C4B3",
+          "prerequisite_merged_prs": [],
+          "source_implementation_present": true,
+          "crash_observation_required": true,
+          "execution_publication_digest_match_required": true,
+          "same_maintenance_operation_generation_required": true,
+          "relative_components_only": true,
+          "conflicting_terminal_evidence_rejected": true,
+          "safe_layouts": [
+            "no_archive_entry",
+            "owned_staging_present",
+            "owned_final_present",
+            "owned_staging_and_final_hardlinks"
+          ],
+          "process_reference_scan_required_for_staging": true,
+          "final_deletion_permitted": false,
+          "cleanup_authorized": false,
+          "filesystem_mutation_performed": false,
+          "production_deployment_verified": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06D8C4B3-studio-cleanup-candidate.md"
+          ]
         }
       }
     },
