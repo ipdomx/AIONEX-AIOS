@@ -312,10 +312,18 @@ async def test_acknowledged_cancellation_cannot_publish_a_business_result(public
         release.set()
         await asyncio.wait_for(task, WAIT)
     job = await _row(case, job_id)
-    assert job["status"] == "cancel_requested" and binding.BINDING_KEY not in job["result_metadata"]
+    assert job["status"] == "cancelled" and binding.BINDING_KEY not in job["result_metadata"]
+    assert job["lease_token"] is None and job["completed_at"] is not None
     assert await _outputs(case, job_id) == (None, None)
     assert len(list(case.root.rglob("*.zip"))) == 1
-    assert not (await registry.execution_snapshot(session_factory=case.sessions))["is_clear"]
+    snapshot = await registry.execution_snapshot(session_factory=case.sessions)
+    assert snapshot["poststart_cancelled_count"] == 1
+    assert snapshot["invalid_poststart_cancellation_count"] == 0
+    execution = next(item for item in snapshot["executions"] if item["job_id"] == job_id)
+    publication = next(item for item in snapshot["publications"] if item["job_id"] == job_id)
+    assert execution["cancelled_after_execution_start"] is True
+    assert publication["cancelled_archive_retained"] is True
+    assert snapshot["full_host_closure"] is False
 
 
 @pytest.mark.asyncio

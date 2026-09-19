@@ -70,3 +70,7 @@ acceptance remain required before this increment is accepted.
 This is not post-crash cleanup, automatic reconciliation of failed work, a proof
 that a retained archive should be deleted, a production deployment, production DB
 migration, ZAP containment, realtime drain, or full-host closure.
+
+## Protected-CI compatibility correction
+
+The first protected backend run exposed one historical result-binding expectation that still required `cancel_requested` after cancellation had been acknowledged while the publication `complete` event was paused. Under C3, once the publication completes, all registered resources are joined successfully and no business result is accepted, that bounded case is terminally classified as `cancelled` with the archive retained. The compatibility assertion now requires the C3 post-start receipt classification and retained publication while continuing to require that no business asset/revision or result binding is published. Application logic was unchanged by this correction; the exact failing case passed against disposable PostgreSQL before the update was pushed.
