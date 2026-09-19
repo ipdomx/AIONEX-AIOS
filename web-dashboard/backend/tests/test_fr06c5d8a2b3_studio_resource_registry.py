@@ -517,12 +517,13 @@ async def test_snapshot_database_transaction_really_uses_repeatable_read(executi
             return await super().scalars(statement, *args, **kwargs)
     sessions = async_sessionmaker(case.engine, class_=ObservedSession, expire_on_commit=False)
     await registry.execution_snapshot(session_factory=sessions)
-    # Every execution, queue, job, publication and settlement read shares one
+    # Every execution, queue, job, publication and terminal/observation read shares one
     # snapshot. Match the queried tables, not just an increased query count.
     assert sorted(tables for tables, _ in observations) == sorted([
         ("studio_executions",), ("studio_jobs",), ("studio_jobs",),
         ("studio_publications",), ("studio_settlements",),
         ("studio_prestart_cancellations",), ("studio_poststart_cancellations",),
+        ("studio_crash_observations",),
     ])
     assert {isolation for _, isolation in observations} == {"repeatable read"}
 

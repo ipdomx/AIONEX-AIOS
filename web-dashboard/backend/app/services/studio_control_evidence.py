@@ -14,8 +14,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import (
-    StudioExecution, StudioPoststartCancellation, StudioPrestartCancellation,
-    StudioPublication, StudioSettlement,
+    StudioCrashObservation, StudioExecution, StudioPoststartCancellation,
+    StudioPrestartCancellation, StudioPublication, StudioSettlement,
 )
 
 
@@ -41,6 +41,7 @@ async def has_retained_studio_evidence(session: AsyncSession, job_id: str) -> bo
                 select(StudioSettlement.id).where(StudioSettlement.job_id == job_id).exists(),
                 select(StudioPrestartCancellation.id).where(StudioPrestartCancellation.job_id == job_id).exists(),
                 select(StudioPoststartCancellation.id).where(StudioPoststartCancellation.job_id == job_id).exists(),
+                select(StudioCrashObservation.id).where(StudioCrashObservation.job_id == job_id).exists(),
             )))
         if type(found) is not bool:
             raise StudioControlEvidenceUnavailable("Studio control evidence is unavailable")

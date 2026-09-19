@@ -19,7 +19,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import (
-    StudioExecution, StudioJob, StudioPoststartCancellation,
+    StudioCrashObservation, StudioExecution, StudioJob, StudioPoststartCancellation,
     StudioPrestartCancellation, StudioPublication, StudioSettlement,
 )
 from app.services.host_maintenance_admission import (
@@ -181,10 +181,11 @@ async def register_claim(
         prior_settlement = await session.scalar(select(StudioSettlement.id).where(StudioSettlement.job_id == job_id))
         prior_cancellation = await session.scalar(select(StudioPrestartCancellation.id).where(StudioPrestartCancellation.job_id == job_id))
         prior_poststart_cancellation = await session.scalar(select(StudioPoststartCancellation.id).where(StudioPoststartCancellation.job_id == job_id))
+        prior_crash_observation = await session.scalar(select(StudioCrashObservation.id).where(StudioCrashObservation.job_id == job_id))
     if (
         job is None or prior is not None or prior_publication is not None
         or prior_settlement is not None or prior_cancellation is not None
-        or prior_poststart_cancellation is not None
+        or prior_poststart_cancellation is not None or prior_crash_observation is not None
     ):
         raise StudioOwnershipLost("Only untouched Studio backlog can register")
     stamp = await _now(session)
@@ -224,6 +225,8 @@ async def begin_registered(
     if await session.scalar(select(StudioPrestartCancellation.id).where(StudioPrestartCancellation.job_id == job_id)) is not None:
         return False
     if await session.scalar(select(StudioPoststartCancellation.id).where(StudioPoststartCancellation.job_id == job_id)) is not None:
+        return False
+    if await session.scalar(select(StudioCrashObservation.id).where(StudioCrashObservation.job_id == job_id)) is not None:
         return False
     if row.state != "active" or row.phase != "claimed" or row.resources:
         return False
@@ -447,13 +450,20 @@ async def execution_snapshot(*, session_factory: SessionFactory) -> dict[str, An
                 session, list(rows), list(publications), list(jobs),
             )
         )
+        from app.services.studio_crash_observation import snapshot_crash_observations
+        crash_observations, crash_jobs, invalid_crash_observations, orphan_crash_observations = (
+            await snapshot_crash_observations(
+                session, list(rows), list(publications), list(jobs),
+            )
+        )
         if (
             accepted & cancelled or accepted & post_cancelled
             or cancelled & post_cancelled
         ):
             raise StudioResourceUncertain("Studio terminal receipts conflict")
         terminal_jobs = receipt_jobs | cancellation_jobs | post_cancellation_jobs
-        legacy = [identifier for identifier in legacy if identifier not in terminal_jobs]
+        observed_jobs = terminal_jobs | crash_jobs
+        legacy = [identifier for identifier in legacy if identifier not in observed_jobs]
         invalid_receipts = sum(item["requires_reconciliation"] for item in settlements)
         invalid_cancellations = sum(item["requires_reconciliation"] for item in cancellations)
         invalid_post_cancellations = sum(
@@ -462,7 +472,7 @@ async def execution_snapshot(*, session_factory: SessionFactory) -> dict[str, An
         blockers = (
             len(observed) - len(accepted) - len(cancelled) - len(post_cancelled)
             + len(legacy) + orphans + invalid_receipts + invalid_cancellations
-            + invalid_post_cancellations
+            + invalid_post_cancellations + len(crash_observations)
         )
         for item in observed:
             item["cancelled_before_execution"] = item["execution_id"] in cancelled
@@ -491,6 +501,10 @@ async def execution_snapshot(*, session_factory: SessionFactory) -> dict[str, An
             "poststart_cancellations": post_cancellations,
             "poststart_cancelled_count": len(post_cancelled),
             "invalid_poststart_cancellation_count": invalid_post_cancellations,
+            "postcrash_observations": crash_observations,
+            "postcrash_observation_count": len(crash_observations),
+            "invalid_postcrash_observation_count": invalid_crash_observations,
+            "orphan_postcrash_observation_count": orphan_crash_observations,
             "settlements": settlements, "settled_execution_count": len(accepted),
             "retained_archive_count": len(retained), "invalid_settlement_count": invalid_receipts,
             "blocker_count": blockers,
