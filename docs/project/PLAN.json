@@ -1016,15 +1016,16 @@
           "zap_daemon_retains_api_key": true,
           "zap_host_ports_exposed": false,
           "existing_database_admission_overlay_enforces_env_scrub": false,
-          "production_zap_exclusivity_verified": false,
-          "production_deployment_verified": false,
-          "production_execution_performed": false,
+          "production_zap_exclusivity_verified": true,
+          "production_deployment_verified": true,
+          "production_execution_performed": true,
           "real_scan_performed_by_b9": false,
           "full_host_closure": false,
           "evidence": [
-            "docs/project/receipts/FR-06C5D7B9-production-zap-exclusivity.md"
+            "docs/project/receipts/FR-06C5D7B9-production-zap-exclusivity.md",
+            "docs/project/receipts/FR-06C5D7B9-production-rollout-closeout.md"
           ],
-          "coverage_ar": "يقفل المصدر مسارين كانا يمنعان إثبات حصرية ZAP: في Production لا يسمح run_zap بأي fallback مباشر إلى ZapClient خارج ScanResourceRuntime المملوك دائمًا، وoverlay مستقل جديد يصفر SECURITY_ZAP_URL/API_KEY لكل DB client غير security-scan-worker بينما يبقى ZAP نفسه بلا host ports. هذه دفعة مصدر فقط؛ production_zap_exclusivity_verified تظل false حتى الدمج والنشر وإضافة overlay الحي وإعادة إنشاء العملاء المتأثرين والتحقق من env والـfence دون تشغيل scan حقيقي.",
+          "coverage_ar": "يغلق B9 مساري حصرية ZAP مصدرًا وإنتاجًا: في Production لا يسمح run_zap بأي fallback مباشر إلى ZapClient خارج ScanResourceRuntime المملوك دائمًا، والـoverlay المستقل يصفر SECURITY_ZAP_URL/API_KEY لكل DB client غير security-scan-worker بينما يبقى ZAP نفسه بلا host ports. نُشر المصدر المقبول وجرى التحقق الحي من أن القيم غير الفارغة لا تبقى إلا في security-scan-worker وsecurity-zap، مع fail-closed دون تشغيل scan حقيقي. آخر تحقق حي لاحق أبقى قاعدة الإنتاج على Alembic 0062 والسلطة مفتوحة بعد إعادة الفتح؛ لا تعني حصرية ZAP تصريف Realtime/LiveKit أو full-host closure.",
           "dedicated_zap_exclusivity_overlay": "web-dashboard/docker-compose.fr06-zap-exclusivity.yml"
         },
         "realtime_media_request_admission_source": {
@@ -1054,7 +1055,8 @@
           "evidence": [
             "docs/project/receipts/FR-06C5D9A-realtime-maintenance-admission.md"
           ],
-          "coverage_ar": "يوسع سلطة الصيانة إلى schema8 ونطاق realtime_media_requests. يحرس إنشاء الغرفة وإصدار join token وطلب التسجيل وconsent الإيجابي الذي قد يقبل عملاً جديدًا، ويعيد التحقق داخل provider recording start نفسه لإغلاق سباق commit/maintenance-close وأي GET-based resume. تظل leave/close/stop متاحة لأنها مسارات إنهاء وتنظيف. لا يضيف ملكية دائمة لجلسات LiveKit أو Egress ولا يدعي تصريف الجلسات أو full-host closure، ولا يثبت النشر الإنتاجي قبل merge/rollout مستقل."        }
+          "coverage_ar": "يوسع سلطة الصيانة إلى schema8 ونطاق realtime_media_requests. يحرس إنشاء الغرفة وإصدار join token وطلب التسجيل وconsent الإيجابي الذي قد يقبل عملاً جديدًا، ويعيد التحقق داخل provider recording start نفسه لإغلاق سباق commit/maintenance-close وأي GET-based resume. تظل leave/close/stop متاحة لأنها مسارات إنهاء وتنظيف. لا يضيف ملكية دائمة لجلسات LiveKit أو Egress ولا يدعي تصريف الجلسات أو full-host closure، ولا يثبت النشر الإنتاجي قبل merge/rollout مستقل."
+        }
       }
     },
     {
