@@ -30,6 +30,11 @@ from app.realtime.livekit_runtime import (
     livekit_runtime,
 )
 from app.services.free_tier import require_non_free_user
+from app.services.host_maintenance_admission import (
+    HostMaintenanceClosed,
+    HostMaintenanceUnavailable,
+)
+from app.services.host_maintenance_realtime_admission import require_realtime_admission
 from app.services.realtime_media_runtime import (
     RealtimeRecordingError,
     active_participants,
@@ -44,6 +49,22 @@ from app.services.realtime_media_runtime import (
 router = APIRouter()
 admission = RealtimeAdmissionAuthority()
 logger = logging.getLogger(__name__)
+
+async def _require_realtime_open(session: AsyncSession) -> None:
+    try:
+        await require_realtime_admission(session)
+    except HostMaintenanceClosed:
+        await session.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail="Realtime media admission is temporarily closed for maintenance.",
+        ) from None
+    except HostMaintenanceUnavailable:
+        await session.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail="Realtime media admission is currently unavailable.",
+        ) from None
 
 
 class RealtimeRoomCreate(BaseModel):
@@ -178,6 +199,7 @@ async def _audit(
 async def _start_recording_provider(
     session: AsyncSession, actor: UserRecord, recording: RealtimeRecording
 ) -> RealtimeRecording:
+    await _require_realtime_open(session)
     room = await _room_or_404(session, actor, recording.room_id)
     plan = livekit_runtime.plan_room(
         organization_id=actor.organization_id,
@@ -268,6 +290,7 @@ async def create_room(
 ) -> dict[str, Any]:
     if not livekit_runtime.enabled:
         raise HTTPException(status_code=503, detail="Realtime media runtime is not activated")
+    await _require_realtime_open(session)
     workspace_id, project_id = await _validate_scope(session, actor, data)
     try:
         await admission.provision_default_quota(session, organization_id=actor.organization_id)
@@ -343,6 +366,7 @@ async def join_room(
     actor: UserRecord = Depends(require_non_free_user),
     session: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
+    await _require_realtime_open(session)
     room = await _room_or_404(session, actor, room_id, lock=True)
     if room.status != "open" or room.provider_adapter != "livekit":
         raise HTTPException(status_code=409, detail="Realtime room is not open")
@@ -547,6 +571,7 @@ async def request_recording(
     actor: UserRecord = Depends(require_non_free_user),
     session: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
+    await _require_realtime_open(session)
     room = await _room_or_404(session, actor, room_id, lock=True)
     if not _can_manage(actor, room):
         raise HTTPException(status_code=403, detail="Only the room manager can request recording")
@@ -586,6 +611,8 @@ async def recording_consent(
     actor: UserRecord = Depends(require_non_free_user),
     session: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
+    if data.consented:
+        await _require_realtime_open(session)
     try:
         transition = await apply_recording_consent(
             session,

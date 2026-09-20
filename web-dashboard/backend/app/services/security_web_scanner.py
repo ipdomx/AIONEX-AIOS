@@ -6,7 +6,6 @@ to separately admitted clone-only adapters after target authorization.
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import socket
 import ssl
@@ -18,6 +17,7 @@ from urllib.parse import urlsplit
 import httpx
 
 from app.services.security_fabric import assert_public_target
+from app.services.security_scan_resources import tracked_thread
 
 SECURITY_HEADERS = {
     "strict-transport-security": (
@@ -309,13 +309,13 @@ async def scan_web_origin(origin: str) -> dict[str, Any]:
     parsed = urlsplit(origin)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise ValueError("Invalid web origin")
-    addresses = await asyncio.to_thread(assert_public_target, parsed.hostname)
+    addresses = await tracked_thread("target-dns", assert_public_target, parsed.hostname)
     tls: dict[str, Any] | None = None
     tls_error: str | None = None
     if parsed.scheme == "https":
         try:
-            tls = await asyncio.to_thread(
-                _tls_probe, parsed.hostname, parsed.port or 443
+            tls = await tracked_thread(
+                "target-tls", _tls_probe, parsed.hostname, parsed.port or 443
             )
         except (OSError, ssl.SSLError, TimeoutError) as exc:
             tls_error = type(exc).__name__

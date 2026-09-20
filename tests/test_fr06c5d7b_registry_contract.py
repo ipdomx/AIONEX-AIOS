@@ -1,4 +1,4 @@
-"""Repository-level boundaries for the not-yet-wired execution registry."""
+"""Repository boundaries for registry foundation and subsequent runtime wiring."""
 from pathlib import Path
 import ast
 
@@ -46,12 +46,45 @@ def test_downgrade_explicitly_refuses_to_discard_ledger():
     assert 'down_revision = "20260917_0052"' in MIGRATION.read_text()
 
 
-def test_receipt_and_worker_do_not_claim_runtime_wiring():
+def test_historical_foundation_receipt_remains_distinct_from_runtime_wiring():
     receipt = (ROOT / "docs/project/receipts/FR-06C5D7B3-scan-execution-registry.md").read_text()
     worker = (BACKEND / "app/services/security_scan_worker.py").read_text()
     assert "The existing worker does not call these helpers" in receipt
     assert "synthetic inputs" in receipt
     assert "No new HTTP cancellation route" in receipt
-    # When the next part genuinely wires the worker, replace this temporary
-    # boundary with actual runtime/cancellation acceptance, not a fake pass.
-    assert "host_maintenance_scan_execution" not in worker
+    # The historical foundation receipt is unchanged. The next part now has
+    # actual PostgreSQL/resource/cancellation tests and an explicit own receipt.
+    assert "host_maintenance_scan_execution" in worker
+    assert "ScanResourceRuntime" in worker
+    assert (BACKEND / "tests/test_fr06c5d7b_worker_runtime.py").is_file()
+    current = (ROOT / "docs/project/receipts/FR-06C5D7B6-runtime-joins.md").read_text()
+    assert "No production deployment" in current
+    assert "stop acknowledgement is not settlement" in current
+
+
+def test_private_supervisor_requires_actual_child_reaping():
+    source = (BACKEND / "app/services/security_scan_process_entry.py").read_text()
+    assert "PR_SET_CHILD_SUBREAPER" in source
+    assert "os.waitpid(-1, os.WNOHANG)" in source
+    assert "close_fds=True" in source
+    assert "os.killpg" not in source
+    runtime = (BACKEND / "app/services/security_scan_resources.py").read_text()
+    assert '"descendants_reaped": True' in runtime
+    assert "pass_fds=(write_fd,)" in runtime
+
+
+def test_owned_zap_does_not_reset_or_stop_unknown_producers():
+    source = (BACKEND / "app/services/security_scan_zap_resources.py").read_text()
+    assert "exclusive_key=self.engine_key" in source
+    assert "self.completed != expected" in source
+    assert "self.uncertain_transport" in source
+    assert '"/JSON/ascan/action/stopAllScans/"' not in source
+    assert '"/JSON/spider/action/stopAllScans/"' not in source
+
+
+def test_cancel_route_is_intent_not_immediate_lease_release():
+    node = _function(BACKEND / "app/api/v1/endpoints/security_lab.py", "cancel_scan")
+    source = ast.get_source_segment((BACKEND / "app/api/v1/endpoints/security_lab.py").read_text(), node)
+    assert "request_scan_cancellation" in source
+    assert "actor.organization_id" in source and "scan.requested_by_id != actor.id" in source
+    assert "scan.lease_token =" not in source

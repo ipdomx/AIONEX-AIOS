@@ -13,6 +13,7 @@ import hashlib
 import json
 import threading
 from datetime import UTC, datetime, timedelta
+from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -730,8 +731,11 @@ async def _wait_for_database_waiter(case, blocker_pid):
                 ).mappings().all()
             if waiting:
                 assert len(waiting) == 1
-                assert waiting[0]["wait_event_type"] == "Lock"
-                return dict(waiting[0])
+                # The blocker and activity observations may straddle entry to
+                # a wait. Keep polling until BOTH prove a real database lock;
+                # a blocker PID alone must never release the test barrier.
+                if waiting[0]["wait_event_type"] == "Lock":
+                    return dict(waiting[0])
             await asyncio.sleep(0.01)
 
 
@@ -817,3 +821,32 @@ async def test_cancelled_result_commit_retains_heartbeat_waiter_and_published_pr
                     {"lock_key": lock_key},
                 )
             await _drain(task)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("initial_wait_event", [None, "Client", "IO"])
+async def test_database_waiter_requires_lock_observation_before_return(initial_wait_event):
+    """A transient activity observation is not proof of the lock barrier."""
+    observations = [
+        [{"pid": 42, "wait_event_type": initial_wait_event, "query": "COMMIT"}],
+        [],
+        [{"pid": 42, "wait_event_type": "Lock", "query": "COMMIT"}],
+    ]
+    calls = []
+
+    class Observer:
+        async def execute(self, statement, parameters):
+            assert parameters == {"blocker_pid": 7}
+            assert "pg_blocking_pids" in str(statement)
+            assert "current_database()" in str(statement)
+            calls.append(parameters)
+            values = observations.pop(0)
+            return SimpleNamespace(mappings=lambda: SimpleNamespace(all=lambda: values))
+
+    @asynccontextmanager
+    async def sessions():
+        yield Observer()
+
+    result = await _wait_for_database_waiter(SimpleNamespace(sessions=sessions), 7)
+    assert result == {"pid": 42, "wait_event_type": "Lock", "query": "COMMIT"}
+    assert len(calls) == 3 and not observations

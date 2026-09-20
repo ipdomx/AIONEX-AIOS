@@ -274,34 +274,36 @@ async def findings(
     return [security_scanning.finding_snapshot(item) for item in rows]
 
 
-@router.post("/scans/{scan_id}/cancel")
+@router.post("/scans/{scan_id}/cancel", status_code=status.HTTP_202_ACCEPTED)
 async def cancel_scan(
     scan_id: str,
     actor: UserRecord = Depends(current_user),
     session: AsyncSession = Depends(get_db),
 ):
-    await _require_access(session, actor)
+    from app.services.host_maintenance_scan_execution import request_scan_cancellation
+
+    # Revocation must not prevent a user stopping an already-owned scan. The
+    # authenticated actor and strict organization/requester filters authorize
+    # cancellation; no profile grant or open maintenance admission is needed.
     scan = await session.scalar(
-        select(SecurityScan)
-        .where(
+        select(SecurityScan).where(
             SecurityScan.id == scan_id,
             SecurityScan.organization_id == actor.organization_id,
-        )
-        .with_for_update()
+        ).with_for_update().execution_options(populate_existing=True)
     )
-    if scan is None or (
-        actor.role != "Super Owner" and scan.requested_by_id != actor.id
-    ):
+    if scan is None or (actor.role != "Super Owner" and scan.requested_by_id != actor.id):
         raise HTTPException(status_code=404, detail="Security scan not found")
-    if scan.status in {"queued", "running"}:
-        from app.services.security_scanning import now
-
-        scan.status = "cancelled"
-        scan.cancelled_at = now()
-        scan.lease_token = None
+    try:
+        answer = await request_scan_cancellation(
+            session, scan_id=scan_id, organization_id=actor.organization_id,
+            user_id=actor.id,
+        )
         await session.commit()
         await session.refresh(scan)
-    return security_scanning.scan_snapshot(scan)
+        return {**security_scanning.scan_snapshot(scan), "cancellation": answer}
+    except BaseException:
+        await session.rollback()
+        raise
 
 
 class RemediationRequest(BaseModel):

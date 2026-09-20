@@ -1,0 +1,99 @@
+# FR-06C5D7B9 Production ZAP credential exclusivity overlay.
+# Only security-scan-worker and security-zap may retain non-empty ZAP variables.
+services:
+  academy-course-worker:
+    environment:
+      SECURITY_ZAP_URL: ""
+      SECURITY_ZAP_API_KEY: ""
+  audio-dubbing-worker:
+    environment:
+      SECURITY_ZAP_URL: ""
+      SECURITY_ZAP_API_KEY: ""
+  audio-music-worker:
+    environment:
+      SECURITY_ZAP_URL: ""
+      SECURITY_ZAP_API_KEY: ""
+  audio-song-worker:
+    environment:
+      SECURITY_ZAP_URL: ""
+      SECURITY_ZAP_API_KEY: ""
+  audio-song-worker-secondary:
+    environment:
+      SECURITY_ZAP_URL: ""
+      SECURITY_ZAP_API_KEY: ""
+  audio-speech-worker:
+    environment:
+      SECURITY_ZAP_URL: ""
+      SECURITY_ZAP_API_KEY: ""
+  audio-transcript-worker:
+    environment:
+      SECURITY_ZAP_URL: ""
+      SECURITY_ZAP_API_KEY: ""
+  backend:
+    environment:
+      SECURITY_ZAP_URL: ""
+      SECURITY_ZAP_API_KEY: ""
+  backup-worker:
+    environment:
+      SECURITY_ZAP_URL: ""
+      SECURITY_ZAP_API_KEY: ""
+  communication-worker:
+    environment:
+      SECURITY_ZAP_URL: ""
+      SECURITY_ZAP_API_KEY: ""
+  design-image-derivative-worker:
+    environment:
+      SECURITY_ZAP_URL: ""
+      SECURITY_ZAP_API_KEY: ""
+  design-image-worker:
+    environment:
+      SECURITY_ZAP_URL: ""
+      SECURITY_ZAP_API_KEY: ""
+  identity-media-worker:
+    environment:
+      SECURITY_ZAP_URL: ""
+      SECURITY_ZAP_API_KEY: ""
+  media-worker:
+    environment:
+      SECURITY_ZAP_URL: ""
+      SECURITY_ZAP_API_KEY: ""
+  operations-observer:
+    environment:
+      SECURITY_ZAP_URL: ""
+      SECURITY_ZAP_API_KEY: ""
+  postgres:
+    environment:
+      SECURITY_ZAP_URL: ""
+      SECURITY_ZAP_API_KEY: ""
+  postgres-credential-reconciler:
+    environment:
+      SECURITY_ZAP_URL: ""
+      SECURITY_ZAP_API_KEY: ""
+  project-worker:
+    environment:
+      SECURITY_ZAP_URL: ""
+      SECURITY_ZAP_API_KEY: ""
+  security-remediation-worker:
+    environment:
+      SECURITY_ZAP_URL: ""
+      SECURITY_ZAP_API_KEY: ""
+  studio-worker:
+    environment:
+      SECURITY_ZAP_URL: ""
+      SECURITY_ZAP_API_KEY: ""
+  telegram-worker:
+    environment:
+      SECURITY_ZAP_URL: ""
+      SECURITY_ZAP_API_KEY: ""
+  three-d-worker:
+    environment:
+      SECURITY_ZAP_URL: ""
+      SECURITY_ZAP_API_KEY: ""
+  user-telegram-worker:
+    environment:
+      SECURITY_ZAP_URL: ""
+      SECURITY_ZAP_API_KEY: ""
+  video-provider-worker:
+    environment:
+      SECURITY_ZAP_URL: ""
+      SECURITY_ZAP_API_KEY: ""

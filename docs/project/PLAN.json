@@ -174,12 +174,12 @@
       ],
       "exit_ar": "دليل أن البيانات المحددة لا تبقى واضحة على التخزين غير المركب، واستعادة وفك تشفير وإقلاع آمنان. توضيح أن تشفير النسخة ليس تشفير كامل القرص ولا يحمي من root حي يملك المفاتيح.",
       "host_state_cutover_admission": {
-        "source_part": "FR-06C5D7B2",
-        "scope_ar": "سلطة قبول دائمة للصيانة في PostgreSQL تشمل سحب مهام المشاريع ودورات النسخ والاستعادة وحراسة API للنسخ وملكية بناء حزم الأكاديمية وحجز الإرسال الخارجي للإشعارات. تضيف D6 طلب تحضير إصلاح أمني وملكية نسخ مصدره ونشر خطته وتنظيفه وحفظ النتيجة، دون استرداد العمل بالعمر أو محو الدليل غير المحسوم. التغطية جزئية وتحتاج نشرًا وقبولًا حيًا قبل استخدامها في نقل المضيف. يضيف D7A حراسة إنشاء طلب الفحص وإعادة الفحص فقط، قبل السياسة وDNS وأقفال الأعمال وفي معاملة المستدعي؛ تشغيل الفاحص وملكية عملياته وتنظيفها ما زالت خارج التغطية. يضيف D7B2 حاجز منع إعادة التنفيذ التلقائي وبدءًا أحاديًا ملتزمًا قبل I/O تحت مفتاح الصيانة القائم، دون ترقية schema6 أو ادعاء سجل موارد أو تنظيف مثبت.",
+        "source_part": "FR-06C5D9A",
+        "scope_ar": "سلطة قبول دائمة للصيانة في PostgreSQL توسعت في D9A إلى schema8 وثمانية نطاقات: project execution والنسخ والأكاديمية وإرسال الإشعارات وتحضير الإصلاحات وطلبات Security Scan وطلبات Studio وطلبات/resume Realtime media. سجلات D7B3/D7B8 تظل عقد ملكية تشغيل الفحص المدمج، وسلسلة D8 تثبت Studio. D9A يحرس بدء/استئناف Realtime الجديد فقط ولا يثبت ملكية جلسات LiveKit أو Egress أو تصريفها أو full-host closure. قبول المصدر لا يثبت النشر الإنتاجي للـ0063.",
         "authority_domain": "host-maintenance-admission",
         "authority_resource_id": "runtime-node",
-        "implemented_consumer_scope": "project_execution+backup_cycles+academy_course_packages+notification_delivery_dispatch+security_remediation_preparation+security_scan_requests",
-        "migration": "20260917_0052",
+        "implemented_consumer_scope": "project_execution+backup_cycles+academy_course_packages+notification_delivery_dispatch+security_remediation_preparation+security_scan_requests+studio_job_requests+realtime_media_requests",
+        "migration": "20260920_0063",
         "acceptance_ar": [
           "FOR SHARE للقبول وFOR UPDATE للإغلاق مع قراءة جديدة؛ يثبت الإغلاق فقط بعد commit مستقل ويحتفظ بالمهام المملوكة قبل الإغلاق.",
           "إعادة الفتح تتطلب operation_id والجيل الحالي؛ لا فتح بانتهاء الوقت ولا إنشاء open من داخل الحراسة ولا استبدال حالة مغلقة عند إعادة الترحيل.",
@@ -222,10 +222,11 @@
           "D7B2 يحجز queued السليمة غير المبدوءة فقط، ولا يسترد running قديمة أو محاولة ذات آثار. يثبت claimed ثم executing قبل I/O، ولا يبدأ المالك نفسه مرتين. الإلغاء المتكرر وفشل المهلة أو الحفظ يبقيان المحاولة running مع دليل غير محسوم بدل إعادة الإدراج؛ رجوع الدالة ليس إثبات تنظيف مواردها."
         ],
         "remaining_before_host_cutover_ar": [
-          "استكمال سجل ملكية تنفيذ الفحص الدائم المرتبط بالعملية والجيل، والعمليات والخيوط وZAP والتنظيف والنبض وقياس التصريف والتسوية. D7B2 يمنع إعادة التنفيذ التلقائي فقط؛ لا يثبت توقف الموارد أو اكتمال D7.",
+          "قبول النسخة المدمجة من خلال فحوص main ومطابقة المصدر وفق سجل التشغيل؛ لا إعادة تنفيذ أو دمج سجل D7B3 أو ربط D7B8 المنجزين في PR720 وPR722.",
+          "إثبات احتواء ZAP الإنتاجي وملكية جميع الجهات المتصلة به، وحسم الحالات القديمة والملتبسة بتسوية تشغيلية موثقة؛ إقرار الإيقاف أو انتهاء المهلة لا يثبت انتهاء العمل.",
           "ربط بقية العمال والمنتجين وطلبات realtime بالحراسة، والتحقق من شمول كل عملية تقبل أو تستأنف أو تنفذ عملًا أثناء نقل المضيف.",
-          "قياسات تصريف مرتبطة بالعملية والجيل وتغطية كل عملية منشورة؛ تشمل أعمال المزود غير المحسومة والجلسات وصلاحية LiveKit، مع تسوية تشغيلية موثقة للدورات غير المحسومة.",
-          "نشر وقبول حي للنطاق الكامل ثم نسخة واستعادة حديثتان ونافذة C5D فعلية قبل النقل."
+          "قياسات تصريف مرتبطة بالعملية والجيل وتغطية كل عملية منشورة؛ تشمل أعمال المزود غير المحسومة والجلسات وصلاحية LiveKit، مع فصل الأعمال المحفوظة غير المبدوءة عن العمل الفعلي.",
+          "نشر وقبول حي للنطاق الكامل ثم نسخة واستعادة حديثتان ونافذة C5D فعلية قبل النقل؛ لا تعتمد حالة قبول المصدر دليلًا على تغيير الإنتاج."
         ],
         "full_host_admission_closed": false,
         "production_activation_record": "docs/project/runtime/events.jsonl",
@@ -348,7 +349,9 @@
           "full_d7_completed": false,
           "coverage_verified": false,
           "full_host_closure": false,
-          "coverage_ar": "حماية طلبات إنشاء SecurityScan وطلب إعادة الفحص فقط؛ source schema6 ليس ملكية تشغيل الفحص ولا دليل تصريف. تبقى ملكية العامل والعمليات والخيوط والموارد المؤقتة وZAP غير منفذة في D7A، ولا تفعّل هذه الترقية على الإنتاج قبل تنسيق جميع الصور والترحيل والقبول الحي."
+          "coverage_ar": "حماية طلبات إنشاء SecurityScan وطلب إعادة الفحص فقط؛ source schema6 ليس ملكية تشغيل الفحص ولا دليل تصريف. تبقى ملكية العامل والعمليات والخيوط والموارد المؤقتة وZAP غير منفذة في D7A، ولا تفعّل هذه الترقية على الإنتاج قبل تنسيق جميع الصور والترحيل والقبول الحي.",
+          "historical_part_scope": true,
+          "current_runtime_contract": "security_scan_runtime_source"
         },
         "security_scan_zap_observation_source": {
           "source_part": "FR-06C5D7B1",
@@ -365,7 +368,9 @@
           "full_d7_completed": false,
           "coverage_verified": false,
           "full_host_closure": false,
-          "coverage_ar": "جزء مصدر محدود لتفسير ردود ZAP وانتظار الطابور السلبي بعد آخر فحص نشط أو مستهدف. لا يحول الرد المفقود أو المشوه إلى صفر أو نجاح. هذا قياس محرك جزئي وليس إثبات ملكية أو توقف daemon؛ لا يغير العامل أو إعادة الحجز أو newSession أو الإلغاء البعيد. تبقى الملكية الدائمة والعمليات والخيوط والتنظيف والنشر ضمن D7B غير المكتملة."
+          "coverage_ar": "جزء مصدر محدود لتفسير ردود ZAP وانتظار الطابور السلبي بعد آخر فحص نشط أو مستهدف. لا يحول الرد المفقود أو المشوه إلى صفر أو نجاح. هذا قياس محرك جزئي وليس إثبات ملكية أو توقف daemon؛ لا يغير العامل أو إعادة الحجز أو newSession أو الإلغاء البعيد. تبقى الملكية الدائمة والعمليات والخيوط والتنظيف والنشر ضمن D7B غير المكتملة.",
+          "historical_part_scope": true,
+          "current_runtime_contract": "security_scan_runtime_source"
         },
         "security_scan_no_replay_source": {
           "source_part": "FR-06C5D7B2",
@@ -386,7 +391,671 @@
           "full_d7_completed": false,
           "coverage_verified": false,
           "full_host_closure": false,
-          "coverage_ar": "حاجز مصدر جزئي يمنع التكرار بعد بدء محاولة غير محسومة. تحفظ علامة التنفيذ في summary دون nonce أو أسرار، وتبقى ملكية المحاولة في حقلها الخاص. لا ترحيل أو ترقية للسلطة، ولا حذف أنشطة، ولا إفادة بأن الموارد توقفت أو أن التغطية التنفيذية مكتملة."
+          "coverage_ar": "حاجز مصدر جزئي يمنع التكرار بعد بدء محاولة غير محسومة. تحفظ علامة التنفيذ في summary دون nonce أو أسرار، وتبقى ملكية المحاولة في حقلها الخاص. لا ترحيل أو ترقية للسلطة، ولا حذف أنشطة، ولا إفادة بأن الموارد توقفت أو أن التغطية التنفيذية مكتملة.",
+          "historical_part_scope": true,
+          "current_runtime_contract": "security_scan_runtime_source"
+        },
+        "security_scan_runtime_source": {
+          "source_part": "FR-06C5D7B8",
+          "registry_source_part": "FR-06C5D7B3",
+          "registry_pr": 720,
+          "runtime_pr": 722,
+          "registry_merge_commit": "0e26a756b1a0486ebf8de312d3fa51678d226f7b",
+          "runtime_merge_commit": "647b2e15f59999925f916b0eb372e9a2236d8678",
+          "authority_schema_version": 6,
+          "migration": "20260918_0053",
+          "source_implementation_present": true,
+          "durable_execution_and_resource_registry": true,
+          "worker_registry_integration": true,
+          "joined_threads_processes_and_workspaces": true,
+          "zap_database_fence_for_cooperating_callers": true,
+          "cancellation_is_intent_not_cleanup_proof": true,
+          "ambiguous_zap_keeps_fence": true,
+          "automatic_stale_takeover": false,
+          "automatic_uncertain_requeue": false,
+          "legacy_or_ambiguous_work_automatically_settled": false,
+          "production_zap_exclusivity_verified": false,
+          "production_deployment_verified": false,
+          "production_database_migrated": false,
+          "coverage_verified": false,
+          "full_host_closure": false,
+          "full_d7_completed": false,
+          "postmerge_acceptance_source": "docs/project/runtime/events.jsonl",
+          "evidence": [
+            "docs/project/receipts/FR-06C5D7B8-runtime-acceptance.md"
+          ],
+          "coverage_ar": "المصدر المدمج يحتوي سجل التنفيذ وربط العامل وموارد التشغيل والإلغاء. نجحت اختبارات المعمل الحقيقي المحدود كما في إيصال B8؛ لا تثبت عزل محرك الإنتاج أو فحص كل القواعد أو تصريف المضيف. حالة فحوص main والمزامنة تؤخذ من السجل الحي، ولا تجمد كحقيقة تشغيلية داخل PLAN.",
+          "current_exclusivity_contract": "security_scan_zap_exclusivity_source"
+        },
+        "studio_execution_resources_source": {
+          "source_part": "FR-06C5D8A2B3",
+          "authority_schema_version": 7,
+          "migration": "20260918_0055",
+          "prerequisite_merged_prs": [
+            724,
+            725,
+            726,
+            727
+          ],
+          "source_implementation_present": true,
+          "same_transaction_claim_and_registry": true,
+          "durable_thread_intent_before_submission": true,
+          "ledger_survives_business_row_deletion": true,
+          "all_generation_snapshot": true,
+          "snapshot_isolation": "repeatable_read",
+          "original_interruption_preserved_on_observation_failure": true,
+          "uncertain_executor_is_join_proof": false,
+          "automatic_stale_takeover": false,
+          "automatic_uncertain_requeue": false,
+          "filesystem_identity_registry_implemented": false,
+          "filesystem_cleanup_implemented": false,
+          "execution_settlement_implemented": false,
+          "legacy_or_ambiguous_work_automatically_settled": false,
+          "production_database_migrated": false,
+          "production_deployment_verified": false,
+          "coverage_verified": false,
+          "full_host_closure": false,
+          "postmerge_acceptance_source": "docs/project/runtime/events.jsonl",
+          "evidence": [
+            "docs/project/receipts/FR-06C5D8A2B3-studio-resource-ledger-draft.md"
+          ],
+          "coverage_ar": "المصدر يحتوي ملكية المحاولات ونية الخيوط قبل تشغيلها ولقطة لجميع الأجيال تحفظ العمل غير المحسوم رغم حذف المهمة. عولج فقد سبب الإلغاء عند تعذر تسجيل الدليل وعدم جواز اعتماد الخيط غير المؤكد كمنتهٍ. انتهت اختبارات المعمل المحدود؛ حالة الدمج والمزامنة تؤخذ من سجل التشغيل. لا يحتوي هذا الجزء تسجيل هوية الملفات أو تنظيفها أو تسوية المحاولات، ولا يثبت نشر الحماية أو تصريف المضيف.",
+          "historical_part_scope": true,
+          "current_settlement_contract": "studio_success_settlement_source"
+        },
+        "studio_publication_journal_source": {
+          "source_part": "FR-06C5D8A2B4",
+          "authority_schema_version": 7,
+          "migration": "20260918_0056",
+          "prerequisite_merged_prs": [
+            728
+          ],
+          "source_implementation_present": true,
+          "intent_acknowledged_before_filesystem_effect": true,
+          "descriptor_identity_observations_journaled": true,
+          "owning_event_loop_database_acknowledgement": true,
+          "publication_evidence_survives_business_and_execution_deletion": true,
+          "orphan_publication_blocks_replay": true,
+          "all_generation_snapshot": true,
+          "owned_staging_removal_journaled": true,
+          "final_file_deleted_after_uncertain_outcome": false,
+          "post_crash_cleanup_implemented": false,
+          "execution_settlement_implemented": false,
+          "automatic_uncertain_retry": false,
+          "production_database_migrated": false,
+          "production_deployment_verified": false,
+          "coverage_verified": false,
+          "full_host_closure": false,
+          "postmerge_acceptance_source": "docs/project/runtime/events.jsonl",
+          "evidence": [
+            "docs/project/receipts/FR-06C5D8A2B4-studio-publication-journal.md"
+          ],
+          "coverage_ar": "المصدر يضيف سجلًا مستقلًا لخطة نشر أرشيفStudio ونية عمليات الملفات قبل تنفيذها، وهوية الواصفات المثبتة وملاحظات النشر وتنظيف الاسم المرحلي. تبقى السجلات بعد حذف المهمة أو سجل التنفيذ، ويمنع الأثر المتبقي إعادة العمل. فقد إقرار الحفظ يوقف الآثار التالية ويحتفظ بالأرشيف النهائي؛ اكتمال النشر المحلي ليس تسوية للمحاولة ولا قبولًا لنشر الإنتاج. تنظيف ما بعد سقوط العملية وتسوية الحالات الملتبسة وإغلاق التنفيذ لم تنفذ؛ حالة الدمج والاختبارات والمزامنة تؤخذ من سجل التشغيل.",
+          "historical_part_scope": true,
+          "current_settlement_contract": "studio_success_settlement_source"
+        },
+        "studio_result_binding_source": {
+          "source_part": "FR-06C5D8B5A",
+          "prerequisite_merged_prs": [
+            729
+          ],
+          "authority_schema_version": 7,
+          "additional_migration_required": false,
+          "source_implementation_present": true,
+          "same_transaction_business_binding": true,
+          "exact_execution_and_storage_thread_required": true,
+          "acknowledged_complete_publication_required": true,
+          "business_job_execution_and_publication_locks_retained": true,
+          "stale_revision_head_rejected": true,
+          "public_binding_contains_raw_paths_or_nonce": false,
+          "existing_unsettled_archive_deleted": false,
+          "execution_settlement_implemented": false,
+          "post_crash_cleanup_implemented": false,
+          "production_deployment_verified": false,
+          "production_database_migrated": false,
+          "full_host_closure": false,
+          "postmerge_acceptance_source": "docs/project/runtime/events.jsonl",
+          "evidence": [
+            "docs/project/receipts/FR-06C5D8B5A-studio-result-binding.md"
+          ],
+          "coverage_ar": "يربط قبول نتيجةStudio داخل معاملة الأعمال نفسها بالمالك الدقيق وخيطي البناء والتخزين المنتهيين بنجاح وسجل نشر مكتمل مطابق للأرشيف والمراجعة. تحفظ بصمات الدليل مع المهمة والأصل والمراجعة دون مسارات أو nonce في النتيجة. إلغاء سابق أو فشل الدليل أو تغير رأس المراجعة يمنع حفظ نتيجة غير مثبتة؛ الأرشيف والدليل يبقيان ولا تنفذ إعادة أو تسوية آلية. هذا ربط للنتيجة وليس إنهاء لسجل الموارد أو تنظيفًا بعد سقوط العملية أو نشرًا في الإنتاج.",
+          "historical_part_scope": true,
+          "current_settlement_contract": "studio_success_settlement_source"
+        },
+        "studio_success_settlement_source": {
+          "source_part": "FR-06C5D8B5B",
+          "prerequisite_merged_prs": [
+            730
+          ],
+          "authority_schema_version": 7,
+          "migration": "20260919_0057",
+          "source_implementation_present": true,
+          "normal_success_only": true,
+          "business_commit_and_execution_return_acknowledged": true,
+          "same_task_single_use_acknowledgement": true,
+          "exact_joined_threads_and_owned_publication_required": true,
+          "immutable_revision_binding_required": true,
+          "staging_cleanup_evidence_required": true,
+          "retained_receipt_independent_of_business_row_deletion": true,
+          "raw_execution_and_publication_evidence_retained": true,
+          "settled_execution_observations_immutable": true,
+          "receipt_locks_held_through_commit": true,
+          "newer_asset_revision_not_used_as_old_attempt_evidence": true,
+          "all_generation_snapshot": true,
+          "cancelled_or_uncertain_attempt_automatically_settled": false,
+          "post_crash_reconciliation_implemented": false,
+          "post_crash_cleanup_implemented": false,
+          "accepted_archive_deleted": false,
+          "automatic_uncertain_retry": false,
+          "production_database_migrated": false,
+          "production_deployment_verified": false,
+          "coverage_verified": false,
+          "full_host_closure": false,
+          "postmerge_acceptance_source": "docs/project/runtime/events.jsonl",
+          "evidence": [
+            "docs/project/receipts/FR-06C5D8B5B-studio-success-settlement.md"
+          ],
+          "coverage_ar": "تسوية مصدرية للمحاولة الناجحة فقط بعد إقرار معاملة النتيجة ورجوع التنفيذ، وبشرط مطابقة سجل الخيطين والنشر المكتمل وتنظيف الاسم المرحلي والمراجعة المحفوظة. يحفظ إيصال مستقل غير قابل لإعادة الاستخدام، وتبقى أدلة التنفيذ والنشر والأرشيف دون حذف. تمنع محاولة تسجيل انتهاء لاحقة تغيير دليل تمت تسويته. تميز اللقطة نجاحًا مثبتًا من العمل الملغى أو اليتيم أو القديم أو ذي الدليل الفاسد، ولا تعد النجاح إثباتًا لتنظيف ما بعد الانقطاع أو سلامة الأرشيف الحالية أو تصريف المضيف. حالة الاختبارات والدمج والمزامنة والنشر تؤخذ من السجل الحي."
+        },
+        "studio_control_evidence_source": {
+          "source_part": "FR-06D8C1",
+          "prerequisite_merged_prs": [
+            731
+          ],
+          "authority_schema_version": 7,
+          "additional_migration_required": false,
+          "source_implementation_present": true,
+          "retained_ledgers": [
+            "studio_executions",
+            "studio_publications",
+            "studio_settlements"
+          ],
+          "fresh_tenant_job_lock": true,
+          "same_transaction_evidence_before_control_mutation": true,
+          "cancellation_intent_retains_historical_evidence": true,
+          "retry_rejects_surviving_evidence": true,
+          "history_unavailable_fails_closed": true,
+          "cancellation_available_during_admission_closure": true,
+          "cancellation_settlement_implemented": false,
+          "post_crash_cleanup_implemented": false,
+          "production_deployment_verified": false,
+          "production_database_migrated": false,
+          "full_host_closure": false,
+          "postmerge_acceptance_source": "docs/project/runtime/events.jsonl",
+          "evidence": [
+            "docs/project/receipts/FR-06D8C1-studio-control-evidence.md"
+          ],
+          "coverage_ar": "يراجع الإلغاء وإعادة المحاولة سجلات التنفيذ والنشر والتسوية المستقلة بعد قفل المهمة الخاص بالمستأجر وقراءة بياناتها الحالية. بقاء أي أثر يمنع تصنيفها غير مبدوءة أو إعادة ضبطها؛ تعذر قراءة السجل يرفض القرار قبل التعديل. هذا إصلاح للتحكم ولا يثبت توقف العمل أو تنظيفه أو تسوية الإلغاء والانقطاع أو نشر الإنتاج."
+        },
+        "studio_prestart_cancellation_source": {
+          "source_part": "FR-06D8C2",
+          "authority_schema_version": 7,
+          "migration": "20260919_0058",
+          "claimed_but_never_started_only": true,
+          "job_and_execution_locked_before_receipt": true,
+          "receipt_and_job_in_caller_transaction": true,
+          "retained_claim_and_receipt_block_replay": true,
+          "snapshot_retains_orphan_and_invalid_receipts": true,
+          "raw_execution_evidence_retained": true,
+          "no_filesystem_operations": true,
+          "post_start_cancellation_settlement": false,
+          "post_crash_cleanup_implemented": false,
+          "production_deployment_verified": false,
+          "production_database_migrated": false,
+          "full_host_closure": false,
+          "postmerge_acceptance_source": "docs/project/runtime/events.jsonl",
+          "evidence": [
+            "docs/project/receipts/FR-06D8C2-studio-prestart-cancellation.md"
+          ],
+          "coverage_ar": "المصدر يثبت إلغاء محاولة Studio المحجوزة التي لم تدخل تنفيذ payload بعد: تقفل المهمة وسجل التنفيذ وتُحفظ هوية الإلغاء مع الإيصال في معاملة واحدة، دون حذف السجل أو الملفات. يحتفظ الإيصال بالدليل ويمنع replay حتى مع حذف صف المهمة؛ الحالات التي بدأت payload أو تملك موردًا أو دليلاً متعارضًا تبقى خارج هذا الجزء. حالة قبول الدمج والمزامنة والنشر تؤخذ من سجل التشغيل، ولا يثبت هذا الجزء نشر الإنتاج أو تصريف المضيف.",
+          "source_implementation_present": true,
+          "prerequisite_merged_prs": [
+            732
+          ]
+        },
+        "studio_poststart_cancellation_source": {
+          "source_part": "FR-06D8C3",
+          "prerequisite_merged_prs": [
+            733
+          ],
+          "authority_schema_version": 7,
+          "migration": "20260919_0059",
+          "source_implementation_present": true,
+          "worker_stop_observation_precedes_settlement": true,
+          "joined_resources_required": true,
+          "failed_or_unresolved_resources_accepted": false,
+          "partial_publication_accepted": false,
+          "complete_publication_can_be_retained": true,
+          "staging_cleanup_evidence_required_for_publication": true,
+          "accepted_archive_deleted": false,
+          "internal_resource_cancellation_stops_worker_process": false,
+          "generic_task_cancellation_swallowed": false,
+          "raw_execution_and_publication_evidence_retained": true,
+          "automatic_retry": false,
+          "automatic_stale_takeover": false,
+          "post_crash_cleanup_implemented": false,
+          "production_database_migrated": false,
+          "production_deployment_verified": false,
+          "coverage_verified": false,
+          "full_host_closure": false,
+          "postmerge_acceptance_source": "docs/project/runtime/events.jsonl",
+          "evidence": [
+            "docs/project/receipts/FR-06D8C3-studio-poststart-cancellation.md"
+          ],
+          "coverage_ar": "تسوية مصدرية محدودة لإلغاء بدأ بعد انتقال المحاولة إلى executing، ولا تُقبل إلا بعد رجوع/انقطاع العامل وتثبيت أن كل مورد مسجل انتهى joined بنجاح. تقبل ثلاث حالات فقط: عدم بدء مورد payload، اكتمال build قبل storage، أو نشر أرشيف كامل مع إثبات إزالة staging؛ النشر الجزئي أو فشل/عدم يقين أي خيط يبقى blocker. الأرشيف المنشور الكامل يُحتفظ به ولا يُحذف، والسجلات الخام لا تُمحى. الإلغاء الداخلي StudioResourceCancelled لا يوقف حلقة العامل بعد تثبيت الدليل، بينما إلغاء asyncio العام يبقى قابلاً للانتشار. لا تنظيف بعد crash أو نشر إنتاج أو تصريف مضيف في هذا الجزء."
+        },
+        "studio_postcrash_observation_source": {
+          "source_part": "FR-06D8C4A",
+          "prerequisite_merged_prs": [
+            734
+          ],
+          "authority_schema_version": 7,
+          "migration": "20260919_0060",
+          "source_implementation_present": true,
+          "closed_admission_required": true,
+          "process_drain_verified": false,
+          "filesystem_mutation_performed": false,
+          "cleanup_authorized": false,
+          "automatic_retry": false,
+          "automatic_stale_takeover": false,
+          "directory_descriptor_identity_observed": true,
+          "staging_and_final_identity_observed": true,
+          "observation_survives_business_and_raw_evidence_deletion": true,
+          "observation_clears_execution_blocker": false,
+          "production_database_migrated": false,
+          "production_deployment_verified": false,
+          "coverage_verified": false,
+          "full_host_closure": false,
+          "postmerge_acceptance_source": "docs/project/runtime/events.jsonl",
+          "evidence": [
+            "docs/project/receipts/FR-06D8C4A-studio-postcrash-observation.md"
+          ],
+          "coverage_ar": "يسجل المصدر ملاحظة دائمة بعد crash فقط أثناء إغلاق قبول Studio، ويربطها بمحاولة التنفيذ وسجل النشر وهوية سلسلة المجلدات وموضعي staging/final دون أي حذف أو rename أو retry. إغلاق القبول لا يُعامل كإثبات توقف العملية؛ لذلك process_drain_verified وcleanup_authorized يبقيان false، والملاحظة لا تُنقص blockers ولا تدعي full-host closure. حالات الهوية المفقودة أو المتغيرة تبقى reconciliation required. النشر والترحيل والتنظيف الفعلي بعد crash خارج هذا الجزء."
+        },
+        "studio_writer_epoch_source": {
+          "source_part": "FR-06D8C4B1",
+          "prerequisite_merged_prs": [
+            735
+          ],
+          "source_implementation_present": true,
+          "runtime_writers": [
+            "backend",
+            "studio-worker"
+          ],
+          "runtime_readers": [
+            "backup-worker"
+          ],
+          "closed_studio_admission_required": true,
+          "writer_epoch_stable_required": true,
+          "process_drain_verified": false,
+          "backup_cycle_drain_verified": false,
+          "cleanup_authorized": false,
+          "filesystem_mutation_performed": false,
+          "production_deployment_verified": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06D8C4B1-studio-writer-epoch.md"
+          ]
+        },
+        "studio_runtime_drain_source": {
+          "source_part": "FR-06D8C4B2",
+          "prerequisite_merged_prs": [
+            736
+          ],
+          "source_implementation_present": true,
+          "writer_receipt_required": true,
+          "same_operation_generation_required": true,
+          "stable_container_epoch_required": true,
+          "backup_cycle_registry_empty_required": true,
+          "backup_cycle_drain_verified_by_source": true,
+          "process_drain_verified": false,
+          "host_process_scan_verified": false,
+          "cleanup_authorized": false,
+          "filesystem_mutation_performed": false,
+          "production_deployment_verified": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06D8C4B2-studio-runtime-drain.md"
+          ]
+        },
+        "studio_cleanup_candidate_source": {
+          "source_part": "FR-06D8C4B3",
+          "prerequisite_merged_prs": [
+            737
+          ],
+          "source_implementation_present": true,
+          "crash_observation_required": true,
+          "execution_publication_digest_match_required": true,
+          "same_maintenance_operation_generation_required": true,
+          "relative_components_only": true,
+          "conflicting_terminal_evidence_rejected": true,
+          "safe_layouts": [
+            "no_archive_entry",
+            "owned_staging_present",
+            "owned_final_present",
+            "owned_staging_and_final_hardlinks"
+          ],
+          "process_reference_scan_required_for_staging": true,
+          "final_deletion_permitted": false,
+          "cleanup_authorized": false,
+          "filesystem_mutation_performed": false,
+          "production_deployment_verified": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06D8C4B3-studio-cleanup-candidate.md"
+          ]
+        },
+        "studio_process_reference_scan_source": {
+          "source_part": "FR-06D8C4B4",
+          "prerequisite_merged_prs": [
+            738
+          ],
+          "source_implementation_present": true,
+          "writer_receipt_required": true,
+          "runtime_drain_receipt_required": true,
+          "cleanup_candidate_required": true,
+          "same_operation_generation_required": true,
+          "current_writer_epoch_recheck_required": true,
+          "current_reader_identity_mount_recheck_required": true,
+          "candidate_staging_identity_recheck_required": true,
+          "candidate_final_layout_recheck_required": true,
+          "nofollow_descriptor_path_required": true,
+          "proc_reference_classes": [
+            "fd",
+            "cwd",
+            "root",
+            "exe",
+            "mmap"
+          ],
+          "per_thread_scan_required": true,
+          "double_proc_scan_required": true,
+          "stable_candidate_identity_between_scans_required": true,
+          "boot_id_bound_receipt": true,
+          "zero_visible_candidate_reference_required": true,
+          "candidate_reference_drain_verified_by_source": true,
+          "host_process_scan_verified_by_source": true,
+          "process_drain_verified": false,
+          "cleanup_authorized": false,
+          "filesystem_mutation_performed": false,
+          "final_deletion_permitted": false,
+          "production_deployment_verified": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06D8C4B4-studio-process-reference-scan.md"
+          ],
+          "coverage_ar": "يربط المصدر إيصالات B1/B2 بمرشح B3 محدد يتطلب إزالة staging، ثم يعيد التحقق من epoch حاويات الكتابة الحالية وهوية حاوية القراءة وربطها read-only وهوية الحجم ويفتح مسار المرشح بوصفات O_NOFOLLOW. يطابق staging وfinal مع الدليل المحتفظ به، ويمسح fd/cwd/root/exe/mmap لكل thread مرتين مع إعادة التحقق من inode بين المسحين وربط الإيصال بالـboot id. النجاح يثبت غياب مرجع /proc مرئي للـstaging المرشح فقط؛ process_drain_verified وcleanup_authorized وfinal_deletion_permitted وfull_host_closure تبقى false ولا يحدث أي حذف أو إيقاف."
+        },
+        "studio_staging_quarantine_source": {
+          "source_part": "FR-06D8C4B5",
+          "prerequisite_merged_prs": [
+            740
+          ],
+          "source_implementation_present": true,
+          "writer_receipt_required": true,
+          "runtime_drain_receipt_required": true,
+          "cleanup_candidate_required": true,
+          "process_reference_scan_receipt_required": true,
+          "same_operation_generation_required": true,
+          "same_boot_as_process_scan_required": true,
+          "current_writer_epoch_recheck_required": true,
+          "current_reader_identity_mount_recheck_required": true,
+          "candidate_staging_identity_required": true,
+          "candidate_final_layout_preserved": true,
+          "nofollow_descriptor_path_required": true,
+          "deterministic_quarantine_name_bound_to_candidate_digest": true,
+          "atomic_rename_noreplace_required": true,
+          "pre_quarantine_proc_scans": 2,
+          "post_quarantine_proc_scans": 2,
+          "post_rename_crash_recovery_supported": true,
+          "staging_namespace_detach_capability_implemented": true,
+          "quarantine_inode_retained": true,
+          "filesystem_mutation_capability_implemented": true,
+          "production_mutation_performed": false,
+          "process_drain_verified": false,
+          "cleanup_authorized": false,
+          "settlement_authorized": false,
+          "quarantine_deletion_permitted": false,
+          "final_deletion_permitted": false,
+          "production_deployment_verified": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06D8C4B5-studio-staging-quarantine.md"
+          ],
+          "coverage_ar": "مرحلة احتواء مصدرية فقط بعد B4: تربط B1/B2/B3/إيصال B4 بنفس العملية والجيل والـboot. في مسار النقل الجديد تعيد جرد حاويات الكتابة والقارئ من Docker أربع مرات فعليًا: عند الدخول، وعند آخر نقطة آمنة قبل rename، وبعد النقل، وقبل إصدار الإيصال؛ وفي مسار same-boot crash-recovery لا يوجد rename جديد لذلك تعيد الجرد ثلاث مرات: عند الدخول، وبعد إثبات quarantine المحتفظ به، وقبل الإيصال. تمسح /proc مرتين قبل الحركة ومرتين بعدها في مسار النقل، بينما recovery لا يعيد ادعاء pre-rename scan. الاسم المرحلي المملوك فقط يُنقل ذريًا داخل نفس المجلد إلى اسم quarantine حتمي مشتق من candidate_sha256 باستخدام renameat2(RENAME_NOREPLACE) دون overwrite أو fallback قابل للاستبدال أو unlink؛ يحتفظ نفس inode والـfinal hardlink إن وجد ويعمل fsync للمجلد. إعادة التشغيل بعد crash في نفس boot تتعرف فقط على quarantine نفسه بالهوية الدقيقة. لا حذف bytes أو final، ولا cleanup/settlement أو process/full-host drain، ولا تنفيذ إنتاجي في هذه الدفعة.",
+          "fresh_inventory_immediately_before_rename_required": true,
+          "fresh_inventory_after_rename_required": true,
+          "directory_fsync_required": true,
+          "no_overwrite_fallback_permitted": true,
+          "same_boot_crash_recovery_requires_exact_inode": true,
+          "private_receipt_state_root": "/var/lib/aionex/fr06d8c4b5-studio-quarantine",
+          "state_root_preexisting_mode": "0700",
+          "state_root_owner": "runtime_euid_root",
+          "receipt_mode": "0600",
+          "receipt_filename_bound_to_candidate_sha256": true,
+          "receipt_create_only": true,
+          "automatic_state_root_creation": false,
+          "host_preflight_before_namespace_mutation_required": true,
+          "state_root_descriptor_chain_nofollow": true,
+          "receipt_single_link_required": true,
+          "receipt_exact_schema_required": true,
+          "receipt_self_digest_verified_before_write": true,
+          "receipt_candidate_digest_match_required": true,
+          "receipt_quarantine_name_match_required": true,
+          "fresh_container_inventory_rechecks_mutation_path": 4,
+          "fresh_container_inventory_rechecks_recovery_path": 3
+        },
+        "studio_crash_containment_source": {
+          "source_part": "FR-06D8C4B6A",
+          "prerequisite_merged_prs": [
+            741
+          ],
+          "migration": "20260920_0061",
+          "source_implementation_present": true,
+          "database_only_provenance": true,
+          "cleanup_candidate_required": true,
+          "process_reference_scan_receipt_required": true,
+          "staging_quarantine_receipt_required": true,
+          "same_operation_generation_required": true,
+          "same_boot_chain_required": true,
+          "current_closed_maintenance_required_for_new_receipt": true,
+          "raw_execution_publication_observation_retained": true,
+          "exact_same_receipt_idempotent": true,
+          "different_existing_receipt_rejected": true,
+          "terminal_receipt_conflicts_rejected": true,
+          "filesystem_mutation_performed_by_b6a": false,
+          "host_containment_mutation_recorded": true,
+          "filesystem_cleanup_claimed": false,
+          "blocker_cleared": false,
+          "retry_authorized": false,
+          "process_drain_verified": false,
+          "cleanup_authorized": false,
+          "settlement_authorized": false,
+          "quarantine_deletion_permitted": false,
+          "final_deletion_permitted": false,
+          "production_database_migrated": false,
+          "production_deployment_verified": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06D8C4B6A-studio-crash-containment.md"
+          ],
+          "coverage_ar": "يربط المصدر دليل post-crash المحتفظ به بسلسلة B3/B4/B5 الدقيقة داخل قاعدة البيانات فقط، مع نفس العملية والجيل والـboot، ويحفظ سجل containment مستقلًا ودائمًا دون لمس filesystem أو إيقاف/إعادة تشغيل أي عملية أو حاوية. السجل يثبت فقط أن اسم staging عُزل إلى quarantine محفوظ؛ لا يدعي cleanup أو settlement أو process drain ولا ينقص blocker_count. تكرار نفس الدليل idempotent، وأي اختلاف أو terminal receipt متعارض أو drift في الأدلة الخام يبقى reconciliation blocker. لا migration إنتاجية أو deploy أو retry أو حذف quarantine/final في هذه الدفعة."
+        },
+        "studio_crash_terminal_candidate_source": {
+          "source_part": "FR-06D8C4B6B1",
+          "prerequisite_merged_required_before_acceptance": true,
+          "source_implementation_present": true,
+          "database_only_read_only_export": true,
+          "valid_b6a_containment_required": true,
+          "raw_execution_publication_crash_evidence_required": true,
+          "conflicting_terminal_receipts_rejected": true,
+          "current_closed_studio_maintenance_required": true,
+          "later_closed_maintenance_generation_permitted": true,
+          "containment_operation_generation_retained": true,
+          "current_reconciliation_authority_bound": true,
+          "deterministic_candidate_under_same_authority": true,
+          "host_revalidation_required": true,
+          "quarantine_revalidation_required": true,
+          "terminalization_authorized": false,
+          "blocker_cleared": false,
+          "retry_authorized": false,
+          "filesystem_cleanup_claimed": false,
+          "cleanup_authorized": false,
+          "settlement_authorized": false,
+          "quarantine_deletion_permitted": false,
+          "final_deletion_permitted": false,
+          "production_database_migrated": false,
+          "production_deployment_verified": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06D8C4B6B1-studio-terminal-candidate.md"
+          ],
+          "coverage_ar": "مرشح قراءة فقط بعد B6A: يتحقق من containment الخام الصحيح وعدم وجود أي success/prestart/poststart terminal receipt متعارض، ثم يربط containment التاريخي بسلطة Studio maintenance المغلقة الحالية. يسمح بعملية/جيل صيانة أحدث حتى لا يصبح crash قديم غير قابل للمصالحة بعد rollover، لكنه يحتفظ بهوية العملية والجيل والـboot الأصلية منفصلة. المرشح يحتفظ أيضًا بمسار B3 النسبي واسم final ودليل final حتى يمكن للـhost إعادة فتح نفس المجلد دون تخمين، ويطلب host/quarantine revalidation لاحقًا ولا يصرح terminalization أو blocker clear أو retry أو cleanup أو حذف quarantine/final، ولا يضيف migration أو يغير قاعدة البيانات.",
+          "relative_path_plan_retained": true,
+          "final_layout_evidence_retained": true,
+          "archive_size_bound_from_publication_plan": true,
+          "archive_checksum_bound_from_publication_plan": true,
+          "prerequisite_merged_prs": [
+            742
+          ],
+          "prerequisite_main_merge_commit": "badf231e37597826dcd45643fd63aa557e0464a2",
+          "prerequisite_main_acceptance_verified": true
+        },
+        "studio_quarantine_revalidation_source": {
+          "source_part": "FR-06D8C4B6B2",
+          "prerequisite_source_part": "FR-06D8C4B6B1",
+          "requires_b6b1_merged_acceptance_before_protected_acceptance": true,
+          "source_implementation_present": true,
+          "host_read_only_revalidation": true,
+          "terminal_candidate_exact_digest_required": true,
+          "current_studio_volume_source_derived_from_docker": true,
+          "current_writer_reader_set_required": [
+            "backend",
+            "studio-worker",
+            "backup-worker"
+          ],
+          "unexpected_alternate_volume_access_rejected": true,
+          "fresh_container_inventories": 2,
+          "container_epoch_stable_during_revalidation": true,
+          "nofollow_descriptor_chain_required": true,
+          "original_staging_name_must_be_absent": true,
+          "quarantine_identity_must_match_b5_retained_identity": true,
+          "archive_size_bound_from_b6b1": true,
+          "archive_checksum_bound_from_b6b1": true,
+          "archive_content_hash_passes": 2,
+          "archive_content_revalidated": true,
+          "process_reference_scan_passes": 2,
+          "quarantine_reference_drain_verified": true,
+          "cross_boot_revalidation_permitted": true,
+          "authority_revalidation_required_by_next_stage": true,
+          "terminalization_authorized": false,
+          "blocker_cleared": false,
+          "retry_authorized": false,
+          "filesystem_cleanup_claimed": false,
+          "studio_filesystem_mutation_performed": false,
+          "cleanup_authorized": false,
+          "settlement_authorized": false,
+          "quarantine_deletion_permitted": false,
+          "final_deletion_permitted": false,
+          "production_execution_performed": false,
+          "production_database_migrated": false,
+          "production_deployment_verified": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06D8C4B6B2-studio-quarantine-revalidation.md"
+          ],
+          "coverage_ar": "إعادة تحقق host-side للقراءة فقط بعد B6B1: تستخرج مصدر Studio الحالي من جرد Docker حي بدل الاعتماد على source تاريخي، وتشترط backend وstudio-worker ككاتبين وbackup-worker كقارئ فقط على نفس المصدر، وترفض أي مسار وصول بديل لنفس المصدر. تعيد الجرد مرتين وتفشل عند أي تغير في container id/restart/start/mount. تفتح المسار النسبي نفسه عبر O_NOFOLLOW descriptors، تشترط غياب اسم staging وبقاء quarantine بنفس هوية B5 مع final layout الصحيح، وتفتح quarantine نفسه بوصف file descriptor مثبت ثم تعيد SHA-256 مرتين مقابل checksum والحجم الدائمين من StudioPublication.plan حول مسحين كاملين لـ/proc. يسمح بإعادة التحقق بعد reboot لأن الإثبات يعاد من الصفر ويُسجل current boot منفصلًا؛ لكنه لا يصرح terminalization أو blocker clear أو retry أو cleanup/delete، وتبقى إعادة ربط سلطة DB الحالية مطلوبة في المرحلة التالية."
+        },
+        "studio_crash_terminal_reconciliation_source": {
+          "source_part": "FR-06D8C4B6B3",
+          "prerequisite_source_parts": [
+            "FR-06D8C4B6B1",
+            "FR-06D8C4B6B2"
+          ],
+          "requires_b6b1_b6b2_merged_acceptance_before_protected_acceptance": true,
+          "migration": "20260920_0062",
+          "source_implementation_present": true,
+          "database_only_terminal_reconciliation": true,
+          "exact_terminal_candidate_required": true,
+          "exact_quarantine_revalidation_receipt_required": true,
+          "current_closed_studio_authority_exact_match_required_for_new_record": true,
+          "raw_execution_publication_observation_containment_revalidated": true,
+          "conflicting_success_or_cancellation_receipts_rejected": true,
+          "exact_same_receipt_idempotent": true,
+          "different_existing_receipt_rejected": true,
+          "exact_replay_survives_later_authority_rollover": true,
+          "valid_reconciliation_clears_execution_and_crash_observation_blockers_only": true,
+          "invalid_reconciliation_clears_no_blocker": true,
+          "terminalization_authorized": true,
+          "blocker_cleared": true,
+          "quarantine_retained": true,
+          "retry_authorized": false,
+          "filesystem_cleanup_claimed": false,
+          "studio_filesystem_mutation_performed_by_b6b3": false,
+          "cleanup_authorized": false,
+          "settlement_authorized": false,
+          "quarantine_deletion_permitted": false,
+          "final_deletion_permitted": false,
+          "process_drain_verified": false,
+          "production_execution_performed": false,
+          "production_database_migrated": false,
+          "production_deployment_verified": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06D8C4B6B3-studio-terminal-reconciliation.md"
+          ],
+          "coverage_ar": "تسوية terminal دائمة في قاعدة البيانات فقط بعد B6B1/B6B2: تعيد مطابقة containment والدليل الخام والمرشح وhost revalidation، وتشترط أن سلطة Studio maintenance المغلقة الحالية ما زالت مطابقة تمامًا للسلطة التي بُني عليها host proof. عند التطابق فقط تسجل crash_reconciled_quarantine_retained وتزيل blocker محاولة التنفيذ وblocker ملاحظة crash لنفس المحاولة، مع إبقاء quarantine وكل الأدلة الخام. التكرار المطابق idempotent حتى بعد rollover لاحق، أما إنشاء سجل جديد بعد تغير السلطة أو مع success/prestart/poststart conflict أو raw drift فيفشل مغلقًا. لا retry أو success settlement أو filesystem cleanup أو حذف quarantine/final، ولا ادعاء process drain أو full-host closure أو Production deployment في هذه الدفعة."
+        },
+        "security_scan_zap_exclusivity_source": {
+          "source_part": "FR-06C5D7B9",
+          "prerequisite_source_part": "FR-06C5D7B8",
+          "source_implementation_present": true,
+          "production_requires_owned_runtime": true,
+          "direct_zap_client_fallback_permitted_in_production": false,
+          "non_scan_db_clients_receive_zap_credentials": false,
+          "security_scan_worker_retains_zap_credentials": true,
+          "zap_daemon_retains_api_key": true,
+          "zap_host_ports_exposed": false,
+          "existing_database_admission_overlay_enforces_env_scrub": false,
+          "production_zap_exclusivity_verified": true,
+          "production_deployment_verified": true,
+          "production_execution_performed": true,
+          "real_scan_performed_by_b9": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06C5D7B9-production-zap-exclusivity.md",
+            "docs/project/receipts/FR-06C5D7B9-production-rollout-closeout.md"
+          ],
+          "coverage_ar": "يغلق B9 مساري حصرية ZAP مصدرًا وإنتاجًا: في Production لا يسمح run_zap بأي fallback مباشر إلى ZapClient خارج ScanResourceRuntime المملوك دائمًا، والـoverlay المستقل يصفر SECURITY_ZAP_URL/API_KEY لكل DB client غير security-scan-worker بينما يبقى ZAP نفسه بلا host ports. نُشر المصدر المقبول وجرى التحقق الحي من أن القيم غير الفارغة لا تبقى إلا في security-scan-worker وsecurity-zap، مع fail-closed دون تشغيل scan حقيقي. آخر تحقق حي لاحق أبقى قاعدة الإنتاج على Alembic 0062 والسلطة مفتوحة بعد إعادة الفتح؛ لا تعني حصرية ZAP تصريف Realtime/LiveKit أو full-host closure.",
+          "dedicated_zap_exclusivity_overlay": "web-dashboard/docker-compose.fr06-zap-exclusivity.yml"
+        },
+        "realtime_media_request_admission_source": {
+          "source_part": "FR-06C5D9A",
+          "authority_schema_version": 8,
+          "migration": "20260920_0063",
+          "required_scope": "realtime_media_requests",
+          "source_implementation_present": true,
+          "room_create_guarded": true,
+          "room_join_token_guarded": true,
+          "recording_request_guarded": true,
+          "positive_consent_guarded": true,
+          "provider_recording_start_rechecks_admission": true,
+          "get_refresh_resume_guarded_by_provider_start_recheck": true,
+          "leave_allowed_during_maintenance": true,
+          "room_close_allowed_during_maintenance": true,
+          "recording_stop_allowed_during_maintenance": true,
+          "migration_preserves_open_closed_state": true,
+          "migration_preserves_operation_reason_changed_at": true,
+          "migration_advances_generation_only": true,
+          "no_room_participant_grant_recording_backfill": true,
+          "provider_io_performed_by_migration": false,
+          "production_database_migrated": false,
+          "production_deployment_verified": false,
+          "coverage_verified": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06C5D9A-realtime-maintenance-admission.md"
+          ],
+          "coverage_ar": "يوسع سلطة الصيانة إلى schema8 ونطاق realtime_media_requests. يحرس إنشاء الغرفة وإصدار join token وطلب التسجيل وconsent الإيجابي الذي قد يقبل عملاً جديدًا، ويعيد التحقق داخل provider recording start نفسه لإغلاق سباق commit/maintenance-close وأي GET-based resume. تظل leave/close/stop متاحة لأنها مسارات إنهاء وتنظيف. لا يضيف ملكية دائمة لجلسات LiveKit أو Egress ولا يدعي تصريف الجلسات أو full-host closure، ولا يثبت النشر الإنتاجي قبل merge/rollout مستقل."
         }
       }
     },

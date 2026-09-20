@@ -36,11 +36,22 @@ from app.services.media_storage import (
 )
 from app.services.production_studio import DEPARTMENTS
 from app.services.studio_worker import StudioWorker
+from app.services.studio_execution_guard import retry_has_no_execution_provenance
+from app.services.studio_prestart_cancellation import cancel_claimed_before_start
+from app.services.studio_resource_registry import StudioResourceUncertain
+from app.services.studio_control_evidence import (
+    StudioControlEvidenceUnavailable, has_retained_studio_evidence,
+)
+from app.services.host_maintenance_admission import (
+    HostMaintenanceClosed,
+    HostMaintenanceUnavailable,
+)
+from app.services.host_maintenance_studio_admission import require_studio_admission
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
@@ -165,6 +176,22 @@ async def _validate_scope(
     return normalized_workspace, normalized_project
 
 
+async def _require_studio_request_admission(session: AsyncSession) -> None:
+    """Preserve the caller transaction and keep driver details out of responses."""
+    try:
+        await require_studio_admission(session)
+    except HostMaintenanceClosed:
+        raise HTTPException(
+            status_code=503,
+            detail="Studio request admission is temporarily closed for maintenance.",
+        ) from None
+    except HostMaintenanceUnavailable:
+        raise HTTPException(
+            status_code=503,
+            detail="Studio request admission is currently unavailable.",
+        ) from None
+
+
 async def _enqueue_job(
     data: StudioRequest,
     actor: UserRecord,
@@ -173,6 +200,7 @@ async def _enqueue_job(
     revision_of_asset_id: str | None = None,
     change_note: str | None = None,
 ) -> StudioJob:
+    await _require_studio_request_admission(session)
     workspace_id, project_id = await _validate_scope(
         session,
         actor,
@@ -249,8 +277,13 @@ async def _job_or_404(
         StudioJob.organization_id == actor.organization_id,
     )
     if lock:
-        statement = statement.with_for_update()
-    item = await session.scalar(statement)
+        # Refresh after the row lock is acquired; cached fields cannot certify
+        # that a competing claim never started. Do not autoflush before locking.
+        statement = statement.with_for_update().execution_options(populate_existing=True)
+        with session.no_autoflush:
+            item = await session.scalar(statement)
+    else:
+        item = await session.scalar(statement)
     if item is None:
         raise HTTPException(status_code=404, detail="Studio job not found")
     return item
@@ -392,6 +425,17 @@ async def get_job(
     )
 
 
+async def _retained_studio_control_evidence(session: AsyncSession, job_id: str) -> bool:
+    """Read after tenant-scoped job locking, before any control mutation."""
+    try:
+        return await has_retained_studio_evidence(session, job_id)
+    except StudioControlEvidenceUnavailable:
+        raise HTTPException(
+            status_code=503,
+            detail="Studio control evidence is currently unavailable.",
+        ) from None
+
+
 @router.post("/jobs/{job_id}/cancel")
 async def cancel_job(
     job_id: str,
@@ -399,22 +443,38 @@ async def cancel_job(
     session: AsyncSession = Depends(get_db),
 ):
     job = await _job_or_404(session, actor, job_id, lock=True)
+    if job.status == "cancel_requested":
+        return production_studio.job_snapshot(job)
     if job.status not in {"queued", "running"}:
         raise HTTPException(status_code=409, detail="Only queued or running jobs can be cancelled")
-    job.status = "cancelled"
-    job.progress = 100
-    job.cancelled_at = _now()
-    job.completed_at = _now()
-    job.lease_token = None
+    retained_history = await _retained_studio_control_evidence(session, job.id)
+    unstarted = retry_has_no_execution_provenance(job) and not retained_history
+    prestart_settled = False
+    if not unstarted:
+        try:
+            prestart_settled = await cancel_claimed_before_start(session, job)
+        except (SQLAlchemyError, StudioResourceUncertain):
+            raise HTTPException(status_code=503, detail="Studio cancellation evidence is currently unavailable.") from None
+    if not prestart_settled:
+        job.cancelled_at = _now()
+        if unstarted:
+            job.status = "cancelled"
+            job.progress = 100
+            job.completed_at = _now()
+            job.lease_token = None
+        else:
+            # Started, malformed or legacy work is not certified stopped.
+            job.status = "cancel_requested"
+            job.completed_at = None
     job.version += 1
     session.add(
         AuditEvent(
             organization_id=actor.organization_id,
             user_id=actor.id,
-            action="studio.job.cancelled",
+            action="studio.job.cancelled" if unstarted or prestart_settled else "studio.job.cancel_requested",
             resource_type="studio_job",
             resource_id=job.id,
-            details={"status": "cancelled"},
+            details={"status": job.status, "cleanup_verified": False},
         )
     )
     await session.commit()
@@ -427,9 +487,18 @@ async def retry_job(
     actor: UserRecord = Depends(current_user),
     session: AsyncSession = Depends(get_db),
 ):
+    await _require_studio_request_admission(session)
     job = await _job_or_404(session, actor, job_id, lock=True)
     if job.status not in {"failed", "cancelled"}:
         raise HTTPException(status_code=409, detail="Only failed or cancelled jobs can be retried")
+    if (
+        not retry_has_no_execution_provenance(job)
+        or await _retained_studio_control_evidence(session, job.id)
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Studio execution requires evidence-based reconciliation before retry.",
+        )
     job.status = "queued"
     job.progress = 0
     job.attempts = 0
@@ -663,6 +732,7 @@ async def create_revision(
     actor: UserRecord = Depends(current_user),
     session: AsyncSession = Depends(get_db),
 ):
+    await _require_studio_request_admission(session)
     asset = await _asset_or_404(session, actor, asset_id)
     original = await session.get(StudioJob, asset.job_id)
     if original is None:
@@ -871,7 +941,18 @@ async def generate_artifact_compatibility(
     """Create a durable job and return the completed ZIP for older clients."""
     job = await _enqueue_job(data, actor, session)
     worker = StudioWorker()
-    claim = await worker.claim_by_id(job.id)
+    try:
+        claim = await worker.claim_by_id(job.id)
+    except HostMaintenanceClosed:
+        raise HTTPException(
+            status_code=503,
+            detail="Studio request admission is temporarily closed for maintenance.",
+        ) from None
+    except HostMaintenanceUnavailable:
+        raise HTTPException(
+            status_code=503,
+            detail="Studio request admission is currently unavailable.",
+        ) from None
     if claim is None:
         raise HTTPException(status_code=409, detail="Studio job could not be claimed")
     await worker.execute(*claim)

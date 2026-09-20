@@ -3497,6 +3497,205 @@ class StudioJob(Base, TimestampMixin):
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class StudioExecution(Base):
+    """Durable Studio attempt/thread evidence, retained independently of jobs."""
+    __tablename__ = "studio_executions"
+    __table_args__ = (
+        CheckConstraint("admitted_generation >= 7", name="ck_studio_execution_generation"),
+        CheckConstraint("state IN ('active', 'unresolved')", name="ck_studio_execution_state"),
+        CheckConstraint("phase IN ('claimed', 'executing', 'returned')", name="ck_studio_execution_phase"),
+        CheckConstraint("cleanup_verified = false", name="ck_studio_execution_no_settlement"),
+        CheckConstraint("updated_at >= started_at", name="ck_studio_execution_clock"),
+        CheckConstraint("(phase = 'returned') = (returned_at IS NOT NULL)", name="ck_studio_execution_return"),
+        Index("ix_studio_execution_unfinished", "state", "started_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    job_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    worker_incarnation: Mapped[str] = mapped_column(String(36), nullable=False)
+    admitted_generation: Mapped[int] = mapped_column(Integer, nullable=False)
+    ownership_nonce: Mapped[str] = mapped_column(String(36), nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False)
+    phase: Mapped[str] = mapped_column(String(32), nullable=False)
+    resources: Mapped[dict] = mapped_column(JSON, nullable=False)
+    cleanup_verified: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    returned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    unresolved_reason: Mapped[str | None] = mapped_column(String(160))
+
+
+class StudioPrestartCancellation(Base):
+    """Retained proof that a fenced claim never entered payload execution."""
+    __tablename__ = "studio_prestart_cancellations"
+    __table_args__ = (
+        CheckConstraint("admitted_generation >= 7", name="ck_studio_prestart_generation"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    execution_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    job_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    worker_incarnation: Mapped[str] = mapped_column(String(36), nullable=False)
+    admitted_generation: Mapped[int] = mapped_column(Integer, nullable=False)
+    proof: Mapped[dict] = mapped_column(JSON, nullable=False)
+    proof_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class StudioPoststartCancellation(Base):
+    """Retained proof that a started Studio attempt stopped after cancellation."""
+    __tablename__ = "studio_poststart_cancellations"
+    __table_args__ = (
+        CheckConstraint("admitted_generation >= 7", name="ck_studio_poststart_cancel_generation"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    execution_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    publication_id: Mapped[str | None] = mapped_column(String(36), unique=True)
+    job_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    worker_incarnation: Mapped[str] = mapped_column(String(36), nullable=False)
+    admitted_generation: Mapped[int] = mapped_column(Integer, nullable=False)
+    proof: Mapped[dict] = mapped_column(JSON, nullable=False)
+    proof_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class StudioCrashObservation(Base):
+    """Immutable post-crash observation; never a cleanup or drain receipt."""
+    __tablename__ = "studio_crash_observations"
+    __table_args__ = (
+        CheckConstraint("admitted_generation >= 7", name="ck_studio_crash_observation_generation"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    execution_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    publication_id: Mapped[str | None] = mapped_column(String(36), unique=True)
+    job_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    worker_incarnation: Mapped[str] = mapped_column(String(36), nullable=False)
+    admitted_generation: Mapped[int] = mapped_column(Integer, nullable=False)
+    proof: Mapped[dict] = mapped_column(JSON, nullable=False)
+    proof_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class StudioCrashContainment(Base):
+    """Retained proof that one post-crash staging inode was quarantined."""
+
+    __tablename__ = "studio_crash_containments"
+    __table_args__ = (
+        CheckConstraint(
+            "admitted_generation >= 7",
+            name="ck_studio_crash_containment_generation",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=uuid_str
+    )
+    execution_id: Mapped[str] = mapped_column(
+        String(36), nullable=False, unique=True
+    )
+    publication_id: Mapped[str] = mapped_column(
+        String(36), nullable=False, unique=True
+    )
+    observation_id: Mapped[str] = mapped_column(
+        String(36), nullable=False, unique=True
+    )
+    job_id: Mapped[str] = mapped_column(
+        String(36), nullable=False, unique=True
+    )
+    worker_incarnation: Mapped[str] = mapped_column(
+        String(36), nullable=False
+    )
+    admitted_generation: Mapped[int] = mapped_column(
+        Integer, nullable=False
+    )
+    proof: Mapped[dict] = mapped_column(JSON, nullable=False)
+    proof_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+
+class StudioCrashReconciliation(Base):
+    """Immutable terminal crash reconciliation with quarantine retained."""
+
+    __tablename__ = "studio_crash_reconciliations"
+    __table_args__ = (
+        CheckConstraint(
+            "admitted_generation >= 7",
+            name="ck_studio_crash_reconciliation_generation",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=uuid_str
+    )
+    containment_id: Mapped[str] = mapped_column(
+        String(36), nullable=False, unique=True
+    )
+    execution_id: Mapped[str] = mapped_column(
+        String(36), nullable=False, unique=True
+    )
+    publication_id: Mapped[str] = mapped_column(
+        String(36), nullable=False, unique=True
+    )
+    observation_id: Mapped[str] = mapped_column(
+        String(36), nullable=False, unique=True
+    )
+    job_id: Mapped[str] = mapped_column(
+        String(36), nullable=False, unique=True
+    )
+    worker_incarnation: Mapped[str] = mapped_column(
+        String(36), nullable=False
+    )
+    admitted_generation: Mapped[int] = mapped_column(
+        Integer, nullable=False
+    )
+    proof: Mapped[dict] = mapped_column(JSON, nullable=False)
+    proof_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+
+class StudioSettlement(Base):
+    """Retained normal-success receipt, with no cascading business-row links."""
+    __tablename__ = "studio_settlements"
+    __table_args__ = (
+        CheckConstraint("admitted_generation >= 7", name="ck_studio_settlement_generation"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    execution_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    publication_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    job_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    worker_incarnation: Mapped[str] = mapped_column(String(36), nullable=False)
+    admitted_generation: Mapped[int] = mapped_column(Integer, nullable=False)
+    proof: Mapped[dict] = mapped_column(JSON, nullable=False)
+    proof_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class StudioPublication(Base):
+    """Filesystem intent/evidence independent of business or execution deletion."""
+    __tablename__ = "studio_publications"
+    __table_args__ = (
+        CheckConstraint("admitted_generation >= 7", name="ck_studio_publication_generation"),
+        CheckConstraint("state IN ('reserved', 'observed')", name="ck_studio_publication_state"),
+        CheckConstraint("updated_at >= created_at", name="ck_studio_publication_clock"),
+        Index("ix_studio_publication_execution", "execution_id", "created_at"),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    execution_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    job_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    thread_resource_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    worker_incarnation: Mapped[str] = mapped_column(String(36), nullable=False)
+    admitted_generation: Mapped[int] = mapped_column(Integer, nullable=False)
+    ownership_nonce: Mapped[str] = mapped_column(String(36), nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False)
+    plan: Mapped[dict] = mapped_column(JSON, nullable=False)
+    events: Mapped[list] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class StudioAsset(Base, TimestampMixin):
     __tablename__ = "studio_assets"
     __table_args__ = (

@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from copy import deepcopy
 import json
 import os
 import signal
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -23,6 +24,12 @@ from app.db.models import (
     StudioAsset,
     StudioAssetRevision,
     StudioJob,
+    StudioCrashObservation,
+    StudioExecution,
+    StudioPublication,
+    StudioSettlement,
+    StudioPrestartCancellation,
+    StudioPoststartCancellation,
     StudioSafetyReview,
     uuid_str,
 )
@@ -34,7 +41,17 @@ from app.services.production_studio import (
     safety_review,
     store_artifact,
 )
-from sqlalchemy import and_, or_, select
+from sqlalchemy import select
+
+from app.services.host_maintenance_admission import HostMaintenanceClosed, SessionFactory
+from app.services.host_maintenance_studio_admission import require_studio_admission
+from app.services import studio_resource_registry as studio_registry
+from app.services import (
+    studio_poststart_cancellation, studio_result_binding, studio_success_settlement,
+)
+from app.services.studio_execution_guard import (
+    GUARD_KEY, PROTOCOL, execution_guard, pristine_conditions, set_phase,
+)
 
 logger = get_logger(__name__)
 
@@ -44,15 +61,17 @@ def now() -> datetime:
 
 
 class StudioWorker:
-    def __init__(self) -> None:
+    def __init__(self, *, session_factory: SessionFactory | None = None) -> None:
+        self._session_factory = session_factory
+        self.incarnation = str(uuid4())
         self.stop_event = asyncio.Event()
         self.health_path = Path(settings.STUDIO_WORKER_HEALTH_FILE)
         self.cycles = 0
         self.errors = 0
 
     @property
-    def stale_before(self) -> datetime:
-        return now() - timedelta(seconds=settings.STUDIO_JOB_LEASE_SECONDS)
+    def sessions(self) -> SessionFactory:
+        return self._session_factory or SessionLocal
 
     def write_health(self, status: str) -> None:
         payload = {
@@ -75,86 +94,131 @@ class StudioWorker:
         test_path = root / ".studio-worker-preflight"
         test_path.write_text("ok", encoding="utf-8")
         test_path.unlink()
-        async with SessionLocal() as session:
+        async with self.sessions() as session:
             await session.execute(select(StudioJob.id).limit(1))
 
     async def claim(self) -> tuple[str, str] | None:
-        async with SessionLocal() as session:
-            job = await session.scalar(
-                select(StudioJob)
-                .where(
-                    or_(
-                        StudioJob.status == "queued",
-                        and_(
-                            StudioJob.status == "running",
-                            StudioJob.updated_at < self.stale_before,
-                        ),
-                    ),
-                    StudioJob.attempts < StudioJob.max_attempts,
-                )
-                .order_by(StudioJob.created_at)
-                .with_for_update(skip_locked=True)
-                .limit(1)
+        return await self._claim()
+
+    async def _claim(self, job_id: str | None = None) -> tuple[str, str] | None:
+        """Commit admission, untouched-job claim and provenance before I/O."""
+        async with self.sessions() as session:
+            authority = await require_studio_admission(session)
+            statement = select(StudioJob).where(
+                *pristine_conditions(),
+                ~select(StudioExecution.id).where(StudioExecution.job_id == StudioJob.id).exists(),
+                ~select(StudioPublication.id).where(StudioPublication.job_id == StudioJob.id).exists(),
+                ~select(StudioSettlement.id).where(StudioSettlement.job_id == StudioJob.id).exists(),
+                ~select(StudioPrestartCancellation.id).where(StudioPrestartCancellation.job_id == StudioJob.id).exists(),
+                ~select(StudioPoststartCancellation.id).where(StudioPoststartCancellation.job_id == StudioJob.id).exists(),
+                ~select(StudioCrashObservation.id).where(StudioCrashObservation.job_id == StudioJob.id).exists(),
             )
+            if job_id is not None:
+                statement = statement.where(StudioJob.id == job_id)
+            statement = statement.order_by(StudioJob.created_at, StudioJob.id)
+            job = await session.scalar(statement.with_for_update(skip_locked=True).limit(1))
             if job is None:
                 return None
-            lease_token = str(uuid4())
-            reclaimed = job.status == "running"
+            nonce = str(uuid4())
+            await studio_registry.register_claim(
+                session, job_id=job.id, nonce=nonce, worker_incarnation=self.incarnation,
+            )
             job.status = "running"
             job.progress = 10
-            job.started_at = job.started_at or now()
-            job.lease_token = lease_token
-            job.attempts += 1
-            job.error_code = None
-            job.error_message = None
-            session.add(
-                AuditEvent(
-                    organization_id=job.organization_id,
-                    user_id=None,
-                    action="studio.job.claimed",
-                    resource_type="studio_job",
-                    resource_id=job.id,
-                    details={"attempt": job.attempts, "reclaimed": reclaimed, "provider_mode": job.provider_mode},
-                )
-            )
+            job.started_at = now()
+            job.lease_token = nonce
+            job.attempts = 1
+            job.result_metadata = {
+                GUARD_KEY: {
+                    "protocol_version": PROTOCOL, "phase": "claimed",
+                    "worker_incarnation": self.incarnation,
+                    "admitted_generation": authority.generation,
+                    "cleanup_verified": False,
+                },
+            }
+            session.add(AuditEvent(
+                organization_id=job.organization_id, user_id=None,
+                action="studio.job.claimed", resource_type="studio_job",
+                resource_id=job.id,
+                details={"attempt": 1, "reclaimed": False, "provider_mode": job.provider_mode},
+            ))
             await session.commit()
-            return job.id, lease_token
+            return job.id, nonce
+
+    async def _begin_execution(self, job_id: str, nonce: str) -> bool:
+        """Exactly one start, by its claiming incarnation and authority generation."""
+        async with self.sessions() as session:
+            authority = await require_studio_admission(session)
+            job = await session.scalar(select(StudioJob).where(
+                StudioJob.id == job_id, StudioJob.status == "running",
+                StudioJob.lease_token == nonce, StudioJob.attempts == 1,
+                StudioJob.completed_at.is_(None), StudioJob.cancelled_at.is_(None),
+            ).with_for_update())
+            if job is None:
+                return False
+            guard = execution_guard(job)
+            if (
+                guard is None or guard["phase"] != "claimed"
+                or guard["worker_incarnation"] != self.incarnation
+                or guard["admitted_generation"] != authority.generation
+            ):
+                return False
+            if not await studio_registry.begin_registered(
+                session, job_id=job_id, nonce=nonce, worker_incarnation=self.incarnation,
+                admitted_generation=authority.generation,
+            ):
+                return False
+            set_phase(job, "executing")
+            await session.commit()
+            return True
+
+    async def _mark_unresolved(self, job_id: str, nonce: str, reason: str) -> None:
+        """Keep any possible execution as a blocker, never schedule a retry."""
+        async with self.sessions() as session:
+            job = await session.scalar(select(StudioJob).where(
+                StudioJob.id == job_id,
+            ).with_for_update())
+            if job is None:
+                return
+            guard = execution_guard(job)
+            if (
+                guard is None or guard["worker_incarnation"] != self.incarnation
+                or guard["phase"] not in {"executing", "unresolved"}
+                or job.lease_token != nonce
+            ):
+                return
+            if guard["phase"] == "unresolved" and job.error_code == "STUDIO_RECONCILIATION_REQUIRED":
+                # A later wrapper return must not replace the first failure evidence.
+                return
+            set_phase(job, "unresolved")
+            job.error_code = "STUDIO_RECONCILIATION_REQUIRED"
+            job.error_message = reason[:160]
+            if job.status in {"running", "cancel_requested"}:
+                job.completed_at = None
+            await session.commit()
+
 
     async def claim_by_id(self, job_id: str) -> tuple[str, str] | None:
-        """Claim a specific queued job for the legacy synchronous endpoint."""
-        async with SessionLocal() as session:
-            job = await session.scalar(
-                select(StudioJob)
-                .where(
-                    StudioJob.id == job_id,
-                    StudioJob.status == "queued",
-                    StudioJob.attempts < StudioJob.max_attempts,
-                )
-                .with_for_update()
-            )
-            if job is None:
-                return None
-            lease_token = str(uuid4())
-            job.status = "running"
-            job.progress = 10
-            job.started_at = job.started_at or now()
-            job.lease_token = lease_token
-            job.attempts += 1
-            await session.commit()
-            return job.id, lease_token
+        """Use the identical no-replay contract for legacy synchronous requests."""
+        return await self._claim(job_id)
+
 
     async def _load_claim(self, job_id: str, lease_token: str) -> StudioJob | None:
-        async with SessionLocal() as session:
-            return await session.scalar(
-                select(StudioJob).where(
-                    StudioJob.id == job_id,
-                    StudioJob.status == "running",
-                    StudioJob.lease_token == lease_token,
-                )
-            )
+        async with self.sessions() as session:
+            job = await session.scalar(select(StudioJob).where(
+                StudioJob.id == job_id, StudioJob.status == "running",
+                StudioJob.lease_token == lease_token,
+            ))
+            if job is None:
+                return None
+            guard = execution_guard(job)
+            if guard is None or guard["phase"] != "executing" or guard["worker_incarnation"] != self.incarnation:
+                return None
+            return job
+
 
     async def _blocked(self, job_id: str, lease_token: str, review: dict) -> None:
-        async with SessionLocal() as session:
+        async with self.sessions() as session:
             job = await session.scalar(
                 select(StudioJob)
                 .where(
@@ -166,6 +230,7 @@ class StudioWorker:
             )
             if job is None:
                 return
+            set_phase(job, "returned")
             job.status = "blocked"
             job.progress = 100
             job.safety_status = "blocked"
@@ -220,57 +285,61 @@ class StudioWorker:
             await session.commit()
 
     async def _failed(self, job_id: str, lease_token: str, code: str, message: str) -> None:
-        async with SessionLocal() as session:
-            job = await session.scalar(
-                select(StudioJob)
-                .where(StudioJob.id == job_id, StudioJob.lease_token == lease_token)
-                .with_for_update()
-            )
-            if job is None:
-                return
-            terminal = job.attempts >= job.max_attempts
-            job.status = "failed" if terminal else "queued"
-            job.progress = 0 if not terminal else 100
-            job.error_code = code
-            job.error_message = message
-            job.completed_at = now() if terminal else None
-            job.lease_token = None
-            session.add(
-                AuditEvent(
-                    organization_id=job.organization_id,
-                    user_id=None,
-                    action="studio.job.failed" if terminal else "studio.job.retry_scheduled",
-                    resource_type="studio_job",
-                    resource_id=job.id,
-                    details={"code": code, "attempt": job.attempts, "terminal": terminal},
-                )
-            )
-            if terminal:
-                session.add(
-                    Notification(
-                        id=uuid_str(),
-                        organization_id=job.organization_id,
-                        recipient_id=job.requested_by_id,
-                        type="studio_job_failed",
-                        category="studio",
-                        event_key="studio.job.failed",
-                        audience="user",
-                        title="Production Studio job failed",
-                        message=f"{job.title} could not be produced after {job.attempts} attempt(s).",
-                        severity="warning",
-                        source_type="studio_job",
-                        source_id=job.id,
-                        correlation_id=job.id,
-                        dedupe_key=f"studio-failed:{job.id}",
-                        payload={"job_id": job.id, "error_code": code},
-                    )
-                )
-            await session.commit()
+        # A generation/storage failure does not prove that filesystem work stopped.
+        # Keep the exact attempt visible; the full resource settlement is separate.
+        await self._mark_unresolved(job_id, lease_token, code)
+
 
     async def execute(self, job_id: str, lease_token: str) -> None:
+        # Never retry a begin whose commit acknowledgement is missing. No I/O is
+        # dispatched before its successful acknowledgement, and the claim remains.
+        if not await self._begin_execution(job_id, lease_token):
+            return
+        try:
+            acknowledgement = await self._execute_claimed(job_id, lease_token)
+        except BaseException as exc:
+            try:
+                await studio_registry.observe_execution_end(
+                    session_factory=self.sessions, job_id=job_id, nonce=lease_token,
+                    worker_incarnation=self.incarnation, interrupted=True,
+                )
+                await self._mark_unresolved(job_id, lease_token, type(exc).__name__)
+                if isinstance(exc, studio_registry.StudioResourceCancelled):
+                    await studio_poststart_cancellation.settle_poststart_cancellation(
+                        session_factory=self.sessions, job_id=job_id, nonce=lease_token,
+                        worker_incarnation=self.incarnation,
+                    )
+                    # This is internal cancellation intent, not task shutdown. The
+                    # durable attempt remains unresolved if settlement returned False.
+                    return
+            except BaseException as evidence_error:
+                # Repeated cancellation during evidence persistence must not
+                # replace the first interruption or its function-failure cause.
+                exc.add_note(
+                    f"Studio interruption observation unavailable: {type(evidence_error).__name__}"
+                )
+                logger.error("Studio interruption evidence unavailable", error_type=type(evidence_error).__name__)
+            raise
+        if acknowledgement is not None:
+            await studio_success_settlement.settle_success(
+                session_factory=self.sessions, acknowledgement=acknowledgement,
+            )
+            return
+        await studio_registry.observe_execution_end(
+            session_factory=self.sessions, job_id=job_id, nonce=lease_token,
+            worker_incarnation=self.incarnation, interrupted=False,
+        )
+        # A return without a committed terminal result is still unresolved.
+        await self._mark_unresolved(job_id, lease_token, "execution_returned_without_terminal_result")
+        await studio_poststart_cancellation.settle_poststart_cancellation(
+            session_factory=self.sessions, job_id=job_id, nonce=lease_token,
+            worker_incarnation=self.incarnation,
+        )
+
+    async def _execute_claimed(self, job_id: str, lease_token: str) -> studio_success_settlement.StudioResultAcknowledgement | None:
         job = await self._load_claim(job_id, lease_token)
         if job is None:
-            return
+            return None
         spec = StudioSpec(
             department=job.department,
             title=job.title,
@@ -283,12 +352,12 @@ class StudioWorker:
         review = safety_review(spec)
         if review["status"] != "passed":
             await self._blocked(job_id, lease_token, review)
-            return
+            return None
 
         asset_id = job.revision_of_asset_id or uuid_str()
         revision_number = 1
         if job.revision_of_asset_id:
-            async with SessionLocal() as session:
+            async with self.sessions() as session:
                 existing = await session.scalar(
                     select(StudioAsset).where(
                         StudioAsset.id == job.revision_of_asset_id,
@@ -297,11 +366,15 @@ class StudioWorker:
                 )
                 if existing is None:
                     await self._failed(job_id, lease_token, "STUDIO_ASSET_NOT_FOUND", "The revision target is unavailable")
-                    return
+                    return None
                 revision_number = existing.current_revision + 1
         try:
-            artifact = await asyncio.to_thread(build_archive, spec, job_id=job.id, revision_number=revision_number)
-            path = await asyncio.to_thread(
+            artifact = await studio_registry.owned_studio_thread(
+                self.sessions, job_id, lease_token, self.incarnation, "build_archive",
+                build_archive, spec, job_id=job.id, revision_number=revision_number,
+            )
+            path = await studio_registry.owned_studio_thread(
+                self.sessions, job_id, lease_token, self.incarnation, "store_artifact",
                 store_artifact,
                 organization_id=job.organization_id,
                 asset_id=asset_id,
@@ -310,13 +383,13 @@ class StudioWorker:
             )
         except PermissionError:
             await self._blocked(job_id, lease_token, review)
-            return
+            return None
         except Exception as exc:
             logger.error("Studio artifact generation failed", error_type=type(exc).__name__)
             await self._failed(job_id, lease_token, "STUDIO_GENERATION_FAILED", "The provider-neutral package could not be generated")
-            return
+            return None
 
-        async with SessionLocal() as session:
+        async with self.sessions() as session:
             locked = await session.scalar(
                 select(StudioJob)
                 .where(
@@ -327,11 +400,18 @@ class StudioWorker:
                 .with_for_update()
             )
             if locked is None:
-                try:
-                    path.unlink(missing_ok=True)
-                except OSError:
-                    pass
-                return
+                # A pathname is not proof of file ownership. Preserve the output
+                # and durable attempt for later identity-bound reconciliation.
+                logger.warning("Studio artifact retained for owned reconciliation")
+                return None
+
+            revision_id = uuid_str()
+            binding = await studio_result_binding.bind_owned_result(
+                session, job_id=job_id, nonce=lease_token,
+                worker_incarnation=self.incarnation, asset_id=asset_id,
+                revision_id=revision_id, revision_number=revision_number,
+                path=path, artifact=artifact,
+            )
 
             if locked.revision_of_asset_id:
                 asset = await session.scalar(
@@ -345,14 +425,16 @@ class StudioWorker:
                 if asset is None:
                     await session.rollback()
                     await self._failed(job_id, lease_token, "STUDIO_ASSET_NOT_FOUND", "The revision target is unavailable")
-                    return
+                    return None
+                if asset.current_revision != revision_number - 1:
+                    raise studio_registry.StudioOwnershipLost("Studio revision head changed before result acceptance")
                 asset.current_revision = revision_number
                 asset.filename = artifact.filename
                 asset.storage_path = str(path)
                 asset.checksum = artifact.checksum
                 asset.size_bytes = artifact.size_bytes
                 asset.media_type = artifact.media_type
-                asset.asset_metadata = {**(asset.asset_metadata or {}), "manifest": artifact.manifest, "last_revision_job_id": locked.id}
+                asset.asset_metadata = {**(asset.asset_metadata or {}), "manifest": artifact.manifest, "last_revision_job_id": locked.id, studio_result_binding.BINDING_KEY: deepcopy(binding)}
                 asset.status = "active"
                 asset.archived_at = None
             else:
@@ -372,12 +454,12 @@ class StudioWorker:
                     size_bytes=artifact.size_bytes,
                     status="active",
                     current_revision=1,
-                    asset_metadata={"manifest": artifact.manifest},
+                    asset_metadata={"manifest": artifact.manifest, studio_result_binding.BINDING_KEY: deepcopy(binding)},
                 )
                 session.add(asset)
 
             revision = StudioAssetRevision(
-                id=uuid_str(),
+                id=revision_id,
                 organization_id=locked.organization_id,
                 asset_id=asset.id,
                 job_id=locked.id,
@@ -389,7 +471,7 @@ class StudioWorker:
                 checksum=artifact.checksum,
                 size_bytes=artifact.size_bytes,
                 change_note=locked.change_note,
-                revision_metadata={"manifest": artifact.manifest},
+                revision_metadata={"manifest": artifact.manifest, studio_result_binding.BINDING_KEY: deepcopy(binding)},
                 status="active",
             )
             session.add(revision)
@@ -413,6 +495,8 @@ class StudioWorker:
             locked.safety_status = "passed"
             locked.safety_findings = []
             locked.result_metadata = {
+                **locked.result_metadata,
+                studio_result_binding.BINDING_KEY: deepcopy(binding),
                 "asset_id": asset.id,
                 "revision_id": revision.id,
                 "revision_number": revision_number,
@@ -423,6 +507,7 @@ class StudioWorker:
                 "external_tokens": 0,
                 "external_cost_usd": 0,
             }
+            set_phase(locked, "returned")
             locked.completed_at = now()
             locked.lease_token = None
             locked.version += 1
@@ -471,15 +556,22 @@ class StudioWorker:
                 )
             )
             await session.commit()
+        return studio_success_settlement.acknowledge_business_result(
+            job_id=job_id, nonce=lease_token, worker_incarnation=self.incarnation, binding=binding,
+        )
 
     async def run_once(self) -> bool:
-        claim = await self.claim()
+        try:
+            claim = await self.claim()
+        except HostMaintenanceClosed:
+            return False
         if claim is None:
             return False
         await self.execute(*claim)
         self.cycles += 1
         self.write_health("running")
         return True
+
 
     async def run_forever(self) -> None:
         await self.preflight()
@@ -522,7 +614,7 @@ async def async_main() -> int:
         try:
             loop.add_signal_handler(signum, worker.stop_event.set)
         except NotImplementedError:
-            pass
+            logger.debug("Studio signal handler unsupported")
     await worker.run_forever()
     return 0
 
