@@ -335,11 +335,22 @@ def test_changed_reader_identity_is_rejected(tmp_path):
         _evaluate(case, containers=containers)
 
 
-def test_changed_reader_mount_is_rejected(tmp_path):
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("Source", "replacement-source"),
+        ("Type", "bind"),
+        ("Name", "replacement-volume"),
+        ("RW", True),
+    ],
+)
+def test_changed_reader_mount_is_rejected(tmp_path, field, value):
     case = _case(tmp_path)
     volume = case[0]
     containers = _containers(volume)
-    containers[2]["Mounts"][0]["Source"] = str(volume / "replacement")
+    if field == "Source":
+        value = str(volume / value)
+    containers[2]["Mounts"][0][field] = value
     with pytest.raises(scan.ProcessScanBlocked, match="reader mount changed"):
         _evaluate(case, containers=containers)
 

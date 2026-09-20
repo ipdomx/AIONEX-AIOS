@@ -349,6 +349,8 @@ def _current_epoch(
             mount is None
             or mount.get("RW") is not False
             or mount.get("Source") != writer["studio_volume_source"]
+            or mount.get("Type") != expected.get("type")
+            or mount.get("Name") != expected.get("name")
         ):
             raise ProcessScanBlocked(f"current reader mount changed: {service}")
 
