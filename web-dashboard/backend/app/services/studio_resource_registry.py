@@ -19,8 +19,9 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import (
-    StudioCrashObservation, StudioExecution, StudioJob, StudioPoststartCancellation,
-    StudioPrestartCancellation, StudioPublication, StudioSettlement,
+    StudioCrashObservation, StudioExecution, StudioJob,
+    StudioPoststartCancellation, StudioPrestartCancellation, StudioPublication,
+    StudioSettlement,
 )
 from app.services.host_maintenance_admission import (
     SessionFactory, read_admission_snapshot,
@@ -479,7 +480,41 @@ async def execution_snapshot(*, session_factory: SessionFactory) -> dict[str, An
             bool(item.get("orphan_raw_evidence"))
             for item in crash_containments
         )
-        terminal_jobs = receipt_jobs | cancellation_jobs | post_cancellation_jobs
+        from app.services.studio_crash_reconciliation import (
+            snapshot_crash_reconciliations,
+        )
+        (
+            reconciled_execution_ids,
+            reconciled_publication_ids,
+            reconciled_observation_ids,
+            reconciled_containment_ids,
+            crash_reconciliations,
+            reconciliation_jobs,
+            invalid_crash_reconciliations,
+        ) = await snapshot_crash_reconciliations(
+            session,
+            list(rows),
+            list(publications),
+            list(jobs),
+        )
+        orphan_crash_reconciliations = sum(
+            bool(item.get("orphan_raw_evidence"))
+            for item in crash_reconciliations
+        )
+        if (
+            reconciled_execution_ids & accepted
+            or reconciled_execution_ids & cancelled
+            or reconciled_execution_ids & post_cancelled
+        ):
+            raise StudioResourceUncertain(
+                "Studio crash reconciliation conflicts with terminal receipts"
+            )
+        terminal_jobs = (
+            receipt_jobs
+            | cancellation_jobs
+            | post_cancellation_jobs
+            | reconciliation_jobs
+        )
         observed_jobs = terminal_jobs | crash_jobs
         legacy = [identifier for identifier in legacy if identifier not in observed_jobs]
         invalid_receipts = sum(item["requires_reconciliation"] for item in settlements)
@@ -488,9 +523,19 @@ async def execution_snapshot(*, session_factory: SessionFactory) -> dict[str, An
             item["requires_reconciliation"] for item in post_cancellations
         )
         blockers = (
-            len(observed) - len(accepted) - len(cancelled) - len(post_cancelled)
-            + len(legacy) + orphans + invalid_receipts + invalid_cancellations
-            + invalid_post_cancellations + len(crash_observations)
+            len(observed)
+            - len(accepted)
+            - len(cancelled)
+            - len(post_cancelled)
+            - len(reconciled_execution_ids)
+            + len(legacy)
+            + orphans
+            + invalid_receipts
+            + invalid_cancellations
+            + invalid_post_cancellations
+            + len(crash_observations)
+            - len(reconciled_observation_ids)
+            + invalid_crash_reconciliations
         )
         for item in observed:
             item["cancelled_before_execution"] = item["execution_id"] in cancelled
@@ -499,6 +544,9 @@ async def execution_snapshot(*, session_factory: SessionFactory) -> dict[str, An
             item["postcrash_containment_recorded"] = (
                 item["execution_id"] in contained_execution_ids
             )
+            item["crash_reconciled_terminally"] = (
+                item["execution_id"] in reconciled_execution_ids
+            )
             item["staging_cleanup_verified"] = (
                 item["execution_id"] in accepted or item["execution_id"] in post_cancelled
             )
@@ -506,6 +554,19 @@ async def execution_snapshot(*, session_factory: SessionFactory) -> dict[str, An
             item["containment_recorded"] = (
                 item["observation_id"] in valid_containment_observations
             )
+            item["terminal_reconciliation_recorded"] = (
+                item["observation_id"] in reconciled_observation_ids
+            )
+            if item["terminal_reconciliation_recorded"]:
+                item["requires_reconciliation"] = False
+                item["blocker_cleared"] = True
+        for item in crash_containments:
+            item["terminal_reconciliation_recorded"] = (
+                item["containment_id"] in reconciled_containment_ids
+            )
+            if item["terminal_reconciliation_recorded"]:
+                item["requires_reconciliation"] = False
+                item["blocker_cleared"] = True
         for item in publication_observations:
             item["accepted_archive_retained"] = (
                 item["publication_id"] in retained or item["publication_id"] in post_retained
@@ -514,11 +575,15 @@ async def execution_snapshot(*, session_factory: SessionFactory) -> dict[str, An
             item["postcrash_containment_recorded"] = (
                 item["publication_id"] in contained_publication_ids
             )
+            item["crash_reconciled_terminally"] = (
+                item["publication_id"] in reconciled_publication_ids
+            )
             item["staging_cleanup_verified"] = (
                 item["publication_id"] in retained or item["publication_id"] in post_retained
             )
-        # Retain every raw ledger and failed/old/orphan attempt. Only a verified
-        # normal-success receipt distinguishes accepted archives from active work.
+        # Retain every raw ledger and failed/old/orphan attempt. A verified
+        # success/cancellation receipt or exact terminal crash reconciliation may
+        # clear only its own blocker; retained crash quarantine remains evidence.
         return {
             "scope": "studio_execution_threads", "observed_at": stamp.isoformat(),
             "executions": observed, "unregistered_unverified_job_ids": legacy,
@@ -538,6 +603,17 @@ async def execution_snapshot(*, session_factory: SessionFactory) -> dict[str, An
             "valid_postcrash_containment_count": len(contained_execution_ids),
             "invalid_postcrash_containment_count": invalid_crash_containments,
             "orphan_postcrash_containment_count": orphan_crash_containments,
+            "postcrash_reconciliations": crash_reconciliations,
+            "postcrash_reconciliation_count": len(crash_reconciliations),
+            "valid_postcrash_reconciliation_count": len(
+                reconciled_execution_ids
+            ),
+            "invalid_postcrash_reconciliation_count": (
+                invalid_crash_reconciliations
+            ),
+            "orphan_postcrash_reconciliation_count": (
+                orphan_crash_reconciliations
+            ),
             "settlements": settlements, "settled_execution_count": len(accepted),
             "retained_archive_count": len(retained), "invalid_settlement_count": invalid_receipts,
             "blocker_count": blockers,

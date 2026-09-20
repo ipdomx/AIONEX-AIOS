@@ -524,13 +524,19 @@ async def test_snapshot_database_transaction_really_uses_repeatable_read(executi
         ("studio_jobs",), ("studio_jobs",),
         ("studio_publications",),
         ("studio_settlements",), ("studio_settlements",),
+        ("studio_settlements",),
+        ("studio_prestart_cancellations",),
         ("studio_prestart_cancellations",),
         ("studio_prestart_cancellations",),
         ("studio_poststart_cancellations",),
         ("studio_poststart_cancellations",),
+        ("studio_poststart_cancellations",),
+        ("studio_crash_observations",),
         ("studio_crash_observations",),
         ("studio_crash_observations",),
         ("studio_crash_containments",),
+        ("studio_crash_containments",),
+        ("studio_crash_reconciliations",),
     ])
     assert {isolation for _, isolation in observations} == {"repeatable read"}
 
