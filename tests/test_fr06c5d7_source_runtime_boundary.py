@@ -17,8 +17,10 @@ def admission():
 def test_current_part_includes_merged_runtime_and_registry():
     state = admission()
     runtime = state["security_scan_runtime_source"]
-    assert state["source_part"] == runtime["source_part"] == "FR-06C5D7B8"
-    assert state["migration"] == runtime["migration"] == "20260918_0053"
+    assert state["source_part"] == "FR-06C5D9A"
+    assert runtime["source_part"] == "FR-06C5D7B8"
+    assert state["migration"] == "20260920_0063"
+    assert runtime["migration"] == "20260918_0053"
     assert runtime["authority_schema_version"] == 6
     assert runtime["registry_pr"] == 720
     assert runtime["runtime_pr"] == 722

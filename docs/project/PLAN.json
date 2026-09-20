@@ -174,12 +174,12 @@
       ],
       "exit_ar": "دليل أن البيانات المحددة لا تبقى واضحة على التخزين غير المركب، واستعادة وفك تشفير وإقلاع آمنان. توضيح أن تشفير النسخة ليس تشفير كامل القرص ولا يحمي من root حي يملك المفاتيح.",
       "host_state_cutover_admission": {
-        "source_part": "FR-06C5D7B8",
-        "scope_ar": "سلطة قبول دائمة للصيانة في PostgreSQL تغطي نطاقات المصدر الستة المذكورة. يضيف D7B3 سجل ملكية دائمًا للفحص وموارده وترحيل0053، ويربط D7B8 العامل بالخيوط والعمليات وموارد الملفات وZAP وطلب الإلغاء والتسوية. دُمج سجل الملكية في PR720 وربط التنفيذ في PR722. القبول المصدرى لا يثبت نشر الصور أو ترحيل قاعدة الإنتاج أو احتواء ZAP الإنتاجي أو تسوية الحالات القديمة أو تصريف المضيف. تبقى عقود الأجزاء السابقة أدناه تاريخية لنطاق كل جزء، وليست قائمة بما ينقص المصدر الحالي.",
+        "source_part": "FR-06C5D9A",
+        "scope_ar": "سلطة قبول دائمة للصيانة في PostgreSQL توسعت في D9A إلى schema8 وثمانية نطاقات: project execution والنسخ والأكاديمية وإرسال الإشعارات وتحضير الإصلاحات وطلبات Security Scan وطلبات Studio وطلبات/resume Realtime media. سجلات D7B3/D7B8 تظل عقد ملكية تشغيل الفحص المدمج، وسلسلة D8 تثبت Studio. D9A يحرس بدء/استئناف Realtime الجديد فقط ولا يثبت ملكية جلسات LiveKit أو Egress أو تصريفها أو full-host closure. قبول المصدر لا يثبت النشر الإنتاجي للـ0063.",
         "authority_domain": "host-maintenance-admission",
         "authority_resource_id": "runtime-node",
-        "implemented_consumer_scope": "project_execution+backup_cycles+academy_course_packages+notification_delivery_dispatch+security_remediation_preparation+security_scan_requests",
-        "migration": "20260918_0053",
+        "implemented_consumer_scope": "project_execution+backup_cycles+academy_course_packages+notification_delivery_dispatch+security_remediation_preparation+security_scan_requests+studio_job_requests+realtime_media_requests",
+        "migration": "20260920_0063",
         "acceptance_ar": [
           "FOR SHARE للقبول وFOR UPDATE للإغلاق مع قراءة جديدة؛ يثبت الإغلاق فقط بعد commit مستقل ويحتفظ بالمهام المملوكة قبل الإغلاق.",
           "إعادة الفتح تتطلب operation_id والجيل الحالي؛ لا فتح بانتهاء الوقت ولا إنشاء open من داخل الحراسة ولا استبدال حالة مغلقة عند إعادة الترحيل.",
@@ -1003,6 +1003,35 @@
             "docs/project/receipts/FR-06D8C4B6B3-studio-terminal-reconciliation.md"
           ],
           "coverage_ar": "تسوية terminal دائمة في قاعدة البيانات فقط بعد B6B1/B6B2: تعيد مطابقة containment والدليل الخام والمرشح وhost revalidation، وتشترط أن سلطة Studio maintenance المغلقة الحالية ما زالت مطابقة تمامًا للسلطة التي بُني عليها host proof. عند التطابق فقط تسجل crash_reconciled_quarantine_retained وتزيل blocker محاولة التنفيذ وblocker ملاحظة crash لنفس المحاولة، مع إبقاء quarantine وكل الأدلة الخام. التكرار المطابق idempotent حتى بعد rollover لاحق، أما إنشاء سجل جديد بعد تغير السلطة أو مع success/prestart/poststart conflict أو raw drift فيفشل مغلقًا. لا retry أو success settlement أو filesystem cleanup أو حذف quarantine/final، ولا ادعاء process drain أو full-host closure أو Production deployment في هذه الدفعة."
+        },
+        "realtime_media_request_admission_source": {
+          "source_part": "FR-06C5D9A",
+          "authority_schema_version": 8,
+          "migration": "20260920_0063",
+          "required_scope": "realtime_media_requests",
+          "source_implementation_present": true,
+          "room_create_guarded": true,
+          "room_join_token_guarded": true,
+          "recording_request_guarded": true,
+          "positive_consent_guarded": true,
+          "provider_recording_start_rechecks_admission": true,
+          "get_refresh_resume_guarded_by_provider_start_recheck": true,
+          "leave_allowed_during_maintenance": true,
+          "room_close_allowed_during_maintenance": true,
+          "recording_stop_allowed_during_maintenance": true,
+          "migration_preserves_open_closed_state": true,
+          "migration_preserves_operation_reason_changed_at": true,
+          "migration_advances_generation_only": true,
+          "no_room_participant_grant_recording_backfill": true,
+          "provider_io_performed_by_migration": false,
+          "production_database_migrated": false,
+          "production_deployment_verified": false,
+          "coverage_verified": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06C5D9A-realtime-maintenance-admission.md"
+          ],
+          "coverage_ar": "يوسع سلطة الصيانة إلى schema8 ونطاق realtime_media_requests. يحرس إنشاء الغرفة وإصدار join token وطلب التسجيل وconsent الإيجابي الذي قد يقبل عملاً جديدًا، ويعيد التحقق داخل provider recording start نفسه لإغلاق سباق commit/maintenance-close وأي GET-based resume. تظل leave/close/stop متاحة لأنها مسارات إنهاء وتنظيف. لا يضيف ملكية دائمة لجلسات LiveKit أو Egress ولا يدعي تصريف الجلسات أو full-host closure، ولا يثبت النشر الإنتاجي قبل merge/rollout مستقل."
         }
       }
     },

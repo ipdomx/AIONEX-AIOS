@@ -208,6 +208,7 @@ def test_all_legacy_terminal_writers_fence_crash_reconciliation():
 
 def test_backend_shipped_head_contract_advances_to_0062():
     text = DATABASE_TEST.read_text()
-    assert 'frozenset({"20260920_0062"})' in text
+    assert 'frozenset({"20260920_0063"})' in text
     assert '("20260920_0061", False)' in text
-    assert '("20260920_0062", True)' in text
+    assert '("20260920_0062", False)' in text
+    assert '("20260920_0063", True)' in text

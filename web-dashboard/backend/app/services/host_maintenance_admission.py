@@ -7,6 +7,7 @@ notification dispatch, without guarding generic notification creation or realtim
 Schema 5 adds security remediation creation and owned local preparation.
 Schema 6 adds security-scan request admission only; execution is not yet covered.
 Schema 7 adds Studio job request/retry admission only, not execution coverage.
+Schema 8 adds Realtime media request/resume admission for new LiveKit work only.
 Coverage remains partial;
 no schema version proves deployment or full-host closure. There is no automatic
 reopening.
@@ -52,10 +53,12 @@ SCAN_REQUEST_SCHEMA_VERSION = 6
 SCAN_REQUEST_COVERAGE_SCOPE = REMEDIATION_COVERAGE_SCOPE + "+security_scan_requests"
 STUDIO_REQUEST_SCHEMA_VERSION = 7
 STUDIO_REQUEST_COVERAGE_SCOPE = SCAN_REQUEST_COVERAGE_SCOPE + "+studio_job_requests"
+REALTIME_REQUEST_SCHEMA_VERSION = 8
+REALTIME_REQUEST_COVERAGE_SCOPE = STUDIO_REQUEST_COVERAGE_SCOPE + "+realtime_media_requests"
 _REQUIRED_SCOPES = frozenset(
     {"project_execution", "backup_cycles", "academy_course_packages",
      "notification_delivery_dispatch", "security_remediation_preparation", "security_scan_requests",
-     "studio_job_requests"}
+     "studio_job_requests", "realtime_media_requests"}
 )
 _CONTROL_LOCK_TIMEOUT = "5s"
 
@@ -93,6 +96,12 @@ class HostMaintenanceSnapshot:
 
     @property
     def covered_scopes(self) -> tuple[str, ...]:
+        if self.schema_version == REALTIME_REQUEST_SCHEMA_VERSION:
+            return (
+                "project_execution", "backup_cycles", "academy_course_packages",
+                "notification_delivery_dispatch", "security_remediation_preparation",
+                "security_scan_requests", "studio_job_requests", "realtime_media_requests",
+            )
         if self.schema_version == STUDIO_REQUEST_SCHEMA_VERSION:
             return (
                 "project_execution", "backup_cycles", "academy_course_packages",
@@ -175,12 +184,15 @@ def _snapshot(row: RowMapping) -> HostMaintenanceSnapshot:
             (REMEDIATION_SCHEMA_VERSION, REMEDIATION_COVERAGE_SCOPE),
             (SCAN_REQUEST_SCHEMA_VERSION, SCAN_REQUEST_COVERAGE_SCOPE),
             (STUDIO_REQUEST_SCHEMA_VERSION, STUDIO_REQUEST_COVERAGE_SCOPE),
+            (REALTIME_REQUEST_SCHEMA_VERSION, REALTIME_REQUEST_COVERAGE_SCOPE),
         )
         or payload["full_host_closure"] is not False
         or not _valid_generation(payload["generation"])
         or not _valid_generation(row["version"])
-        or (payload["schema_version"] in (SCAN_REQUEST_SCHEMA_VERSION, STUDIO_REQUEST_SCHEMA_VERSION)
-            and payload["generation"] < payload["schema_version"])
+        or (payload["schema_version"] in (
+            SCAN_REQUEST_SCHEMA_VERSION, STUDIO_REQUEST_SCHEMA_VERSION,
+            REALTIME_REQUEST_SCHEMA_VERSION,
+        ) and payload["generation"] < payload["schema_version"])
         or payload["generation"] != row["version"]
         or row["status"] not in ("open", "closed")
         or type(row["enabled"]) is not bool
