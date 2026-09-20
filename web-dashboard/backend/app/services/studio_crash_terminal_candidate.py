@@ -219,6 +219,8 @@ async def export_terminal_candidate(
             "original_staging_name": cleanup_candidate["staging_name"],
             "final_name": cleanup_candidate["final_name"],
             "final_evidence": deepcopy(cleanup_candidate["final"]),
+            "archive_size_bytes": publication.plan["size_bytes"],
+            "archive_checksum_sha256": publication.plan["checksum"],
             "quarantine_name": row.proof["quarantine_name"],
             "retained_identity": deepcopy(row.proof["retained_identity"]),
             "reconciliation_authority": authority,

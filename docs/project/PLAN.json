@@ -913,7 +913,9 @@
           ],
           "coverage_ar": "مرشح قراءة فقط بعد B6A: يتحقق من containment الخام الصحيح وعدم وجود أي success/prestart/poststart terminal receipt متعارض، ثم يربط containment التاريخي بسلطة Studio maintenance المغلقة الحالية. يسمح بعملية/جيل صيانة أحدث حتى لا يصبح crash قديم غير قابل للمصالحة بعد rollover، لكنه يحتفظ بهوية العملية والجيل والـboot الأصلية منفصلة. المرشح يحتفظ أيضًا بمسار B3 النسبي واسم final ودليل final حتى يمكن للـhost إعادة فتح نفس المجلد دون تخمين، ويطلب host/quarantine revalidation لاحقًا ولا يصرح terminalization أو blocker clear أو retry أو cleanup أو حذف quarantine/final، ولا يضيف migration أو يغير قاعدة البيانات.",
           "relative_path_plan_retained": true,
-          "final_layout_evidence_retained": true
+          "final_layout_evidence_retained": true,
+          "archive_size_bound_from_publication_plan": true,
+          "archive_checksum_bound_from_publication_plan": true
         }
       }
     },

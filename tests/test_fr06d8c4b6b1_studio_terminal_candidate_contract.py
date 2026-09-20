@@ -95,6 +95,8 @@ def test_candidate_keeps_historical_and_current_authority_separate():
         "'original_staging_name'",
         "'final_name'",
         "'final_evidence'",
+        "'archive_size_bytes'",
+        "'archive_checksum_sha256'",
         "'reconciliation_authority'",
         "'reconciliation_authority_sha256'",
     ):

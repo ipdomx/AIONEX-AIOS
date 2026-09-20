@@ -6,7 +6,7 @@ The exporter consumes one valid retained `studio_crash_containments` row plus th
 
 The original containment maintenance operation/generation and boot remain separate immutable evidence. A later closed maintenance operation/generation is permitted for reconciliation so an old crash does not become permanently unrecoverable after an authority rollover. The current reconciliation authority is embedded and digested into the exported candidate.
 
-The candidate is deterministic while the same containment and current authority remain unchanged. It carries the retained quarantine name/inode identity, the B3 relative path plan, original staging name, final name/final evidence, and the exact B3/B4/B5 digests already bound by B6A. Those fields let a later host stage reopen the exact directory without guessing. It still explicitly requires host/quarantine revalidation before any terminal decision.
+The candidate is deterministic while the same containment and current authority remain unchanged. It carries the retained quarantine name/inode identity, the B3 relative path plan, original staging name, final name/final evidence, and the original archive size plus SHA-256 checksum from the validated durable StudioPublication.plan, along with the exact B3/B4/B5 digests already bound by B6A. Those fields let a later host stage reopen the exact directory without guessing. It still explicitly requires host/quarantine revalidation before any terminal decision.
 
 The output always keeps `terminalization_authorized=false`, `blocker_cleared=false`, `retry_authorized=false`, `filesystem_cleanup_claimed=false`, `cleanup_authorized=false`, `settlement_authorized=false`, `quarantine_deletion_permitted=false`, `final_deletion_permitted=false`, and `full_host_closure=false`.
 

@@ -100,6 +100,11 @@ async def test_valid_b6a_containment_exports_nonterminal_candidate(
     assert value["original_staging_name"] == cleanup_candidate["staging_name"]
     assert value["final_name"] == cleanup_candidate["final_name"]
     assert value["final_evidence"] == cleanup_candidate["final"]
+    _execution_raw, publication_raw, _crash_raw = await _b6a._raw(
+        case, observation
+    )
+    assert value["archive_size_bytes"] == publication_raw["plan"]["size_bytes"]
+    assert value["archive_checksum_sha256"] == publication_raw["plan"]["checksum"]
     assert value["quarantine_name"] == row.proof["quarantine_name"]
     assert value["retained_identity"] == row.proof["retained_identity"]
     assert value["host_revalidation_required"] is True
