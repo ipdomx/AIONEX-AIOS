@@ -266,6 +266,10 @@ async def run_zap(
         if runtime is not None:
             from app.services.security_scan_zap_resources import OwnedZapClient
             return await OwnedZapClient(runtime).run(origin, active=active)
+        if os.getenv("ENVIRONMENT", "").strip().lower() == "production":
+            raise RuntimeError(
+                "Production ZAP requires durable scan runtime ownership"
+            )
         client = ZapClient()
         return await (client.active_clone(origin) if active else client.passive(origin))
     except (httpx.HTTPError, OSError, RuntimeError, TimeoutError) as exc:
