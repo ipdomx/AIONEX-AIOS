@@ -5,3 +5,5 @@ Read-only current-authority-bound export from a valid B6A crash containment. It 
 This stage does not clear blockers, authorize terminalization/retry/cleanup, delete quarantine/final names, mutate the database, add a migration, or perform Production work.
 
 Canonical detail: docs/project/receipts/FR-06D8C4B6B1-studio-terminal-candidate.md
+
+Prerequisite B6A accepted on main at `badf231e37597826dcd45643fd63aa557e0464a2`; B6B1 remains read-only/nonterminal and production-unapplied.

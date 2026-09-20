@@ -142,7 +142,9 @@ def test_b6b1_plan_is_read_only_and_nonterminal():
         "studio_crash_terminal_candidate_source"
     ]
     assert item["source_part"] == "FR-06D8C4B6B1"
-    assert item["prerequisite_prs"] == [742]
+    assert item["prerequisite_merged_prs"] == [742]
+    assert item["prerequisite_main_merge_commit"] == "badf231e37597826dcd45643fd63aa557e0464a2"
+    assert item["prerequisite_main_acceptance_verified"] is True
     assert item["prerequisite_merged_required_before_acceptance"] is True
     assert item["database_only_read_only_export"] is True
     assert item["later_closed_maintenance_generation_permitted"] is True

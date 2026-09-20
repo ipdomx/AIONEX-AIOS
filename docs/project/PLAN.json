@@ -881,9 +881,6 @@
         },
         "studio_crash_terminal_candidate_source": {
           "source_part": "FR-06D8C4B6B1",
-          "prerequisite_prs": [
-            742
-          ],
           "prerequisite_merged_required_before_acceptance": true,
           "source_implementation_present": true,
           "database_only_read_only_export": true,
@@ -915,7 +912,12 @@
           "relative_path_plan_retained": true,
           "final_layout_evidence_retained": true,
           "archive_size_bound_from_publication_plan": true,
-          "archive_checksum_bound_from_publication_plan": true
+          "archive_checksum_bound_from_publication_plan": true,
+          "prerequisite_merged_prs": [
+            742
+          ],
+          "prerequisite_main_merge_commit": "badf231e37597826dcd45643fd63aa557e0464a2",
+          "prerequisite_main_acceptance_verified": true
         }
       }
     },
