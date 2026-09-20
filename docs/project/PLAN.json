@@ -174,7 +174,7 @@
       ],
       "exit_ar": "دليل أن البيانات المحددة لا تبقى واضحة على التخزين غير المركب، واستعادة وفك تشفير وإقلاع آمنان. توضيح أن تشفير النسخة ليس تشفير كامل القرص ولا يحمي من root حي يملك المفاتيح.",
       "host_state_cutover_admission": {
-        "source_part": "FR-06C5D9B1",
+        "source_part": "FR-06C5D9B2A",
         "scope_ar": "سلطة قبول دائمة للصيانة في PostgreSQL توسعت في D9A إلى schema8 وثمانية نطاقات: project execution والنسخ والأكاديمية وإرسال الإشعارات وتحضير الإصلاحات وطلبات Security Scan وطلبات Studio وطلبات/resume Realtime media. سجلات D7B3/D7B8 تظل عقد ملكية تشغيل الفحص المدمج، وسلسلة D8 تثبت Studio. D9A يحرس بدء/استئناف Realtime الجديد فقط ولا يثبت ملكية جلسات LiveKit أو Egress أو تصريفها أو full-host closure. قبول المصدر لا يثبت النشر الإنتاجي للـ0063.",
         "authority_domain": "host-maintenance-admission",
         "authority_resource_id": "runtime-node",
@@ -1115,6 +1115,38 @@
           "generic_host_cycle_supports_realtime_as_is": false,
           "generic_host_cycle_consumer_constraint_excludes_realtime": true,
           "generic_host_cycle_has_realtime_resource_type_discriminator": false
+        },
+        "realtime_provider_resource_ledger_source": {
+          "source_part": "FR-06C5D9B2A",
+          "prerequisite_source_part": "FR-06C5D9B1",
+          "migration": "20260920_0064",
+          "source_implementation_present": true,
+          "provider_routes_wired": false,
+          "production_database_migrated": false,
+          "production_deployment_verified": false,
+          "production_execution_performed": false,
+          "resource_kinds": [
+            "room",
+            "participant_session",
+            "egress",
+            "recording_file"
+          ],
+          "intent_commits_before_provider_capability": true,
+          "provider_start_rechecks_same_open_generation": true,
+          "submitted_or_active_ambiguity_is_retained": true,
+          "not_started_settlement_requires_unconsumed_reserved_intent": true,
+          "automatic_takeover": false,
+          "automatic_retry": false,
+          "session_drain_verified": false,
+          "provider_drain_verified": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06C5D9B2A-realtime-provider-resource-ledger.md"
+          ],
+          "coverage_ar": "يضيف D9B2A سجلًا دائمًا ومخصصًا لموارد Realtime provider بدل توسيع host_maintenance_work_cycles العام. يحجز intent تحت schema8 admission داخل معاملة الأعمال، ولا يسمح ببدء provider I/O إلا بعد commit ومن خلال إعادة فحص نفس الجيل المفتوح في معاملة مستقلة. يحتفظ submitted/active كدليل غير منتهٍ عند الغموض، ولا يسمح بتسوية not_started بعد استهلاك capability. لا يربط المسارات بعد ولا ينفذ migration أو provider I/O في Production.",
+          "one_unfinished_attempt_per_local_resource": true,
+          "settled_history_retained": true,
+          "explicit_retry_after_settlement_permitted": true
         }
       }
     },

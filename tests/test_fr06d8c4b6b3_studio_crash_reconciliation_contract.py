@@ -206,9 +206,10 @@ def test_all_legacy_terminal_writers_fence_crash_reconciliation():
         assert "StudioCrashReconciliation.execution_id" in source
 
 
-def test_backend_shipped_head_contract_advances_to_0062():
+def test_backend_keeps_studio_migrations_in_linear_history_after_0064():
     text = DATABASE_TEST.read_text()
-    assert 'frozenset({"20260920_0063"})' in text
+    assert 'frozenset({"20260920_0064"})' in text
     assert '("20260920_0061", False)' in text
     assert '("20260920_0062", False)' in text
-    assert '("20260920_0063", True)' in text
+    assert '("20260920_0063", False)' in text
+    assert '("20260920_0064", True)' in text

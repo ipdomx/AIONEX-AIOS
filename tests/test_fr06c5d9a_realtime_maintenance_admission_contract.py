@@ -80,7 +80,7 @@ def test_plan_records_d9a_live_rollout_without_claiming_session_drain():
     root = fr06["host_state_cutover_admission"]
     item = root["realtime_media_request_admission_source"]
     assert item["source_part"] == "FR-06C5D9A"
-    assert root["source_part"] == "FR-06C5D9B1"
+    assert root["source_part"] == "FR-06C5D9B2A"
     assert root["implemented_consumer_scope"].endswith("+realtime_media_requests")
     assert item["authority_schema_version"] == 8
     assert item["migration"] == "20260920_0063"
@@ -104,8 +104,7 @@ def test_plan_records_d9a_live_rollout_without_claiming_session_drain():
     assert any("full-host closure" in line for line in remaining)
 
 
-def test_backend_shipped_head_advances_to_0063():
+def test_backend_keeps_0063_in_the_linear_history_after_0064():
     text = DB_TEST.read_text()
-    assert 'frozenset({"20260920_0063"})' in text
-    assert '("20260920_0062", False)' in text
-    assert '("20260920_0063", True)' in text
+    assert '("20260920_0063", False)' in text
+    assert '("20260920_0064", True)' in text
