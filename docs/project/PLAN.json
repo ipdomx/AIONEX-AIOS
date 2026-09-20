@@ -878,6 +878,46 @@
             "docs/project/receipts/FR-06D8C4B6A-studio-crash-containment.md"
           ],
           "coverage_ar": "يربط المصدر دليل post-crash المحتفظ به بسلسلة B3/B4/B5 الدقيقة داخل قاعدة البيانات فقط، مع نفس العملية والجيل والـboot، ويحفظ سجل containment مستقلًا ودائمًا دون لمس filesystem أو إيقاف/إعادة تشغيل أي عملية أو حاوية. السجل يثبت فقط أن اسم staging عُزل إلى quarantine محفوظ؛ لا يدعي cleanup أو settlement أو process drain ولا ينقص blocker_count. تكرار نفس الدليل idempotent، وأي اختلاف أو terminal receipt متعارض أو drift في الأدلة الخام يبقى reconciliation blocker. لا migration إنتاجية أو deploy أو retry أو حذف quarantine/final في هذه الدفعة."
+        },
+        "studio_crash_terminal_candidate_source": {
+          "source_part": "FR-06D8C4B6B1",
+          "prerequisite_merged_required_before_acceptance": true,
+          "source_implementation_present": true,
+          "database_only_read_only_export": true,
+          "valid_b6a_containment_required": true,
+          "raw_execution_publication_crash_evidence_required": true,
+          "conflicting_terminal_receipts_rejected": true,
+          "current_closed_studio_maintenance_required": true,
+          "later_closed_maintenance_generation_permitted": true,
+          "containment_operation_generation_retained": true,
+          "current_reconciliation_authority_bound": true,
+          "deterministic_candidate_under_same_authority": true,
+          "host_revalidation_required": true,
+          "quarantine_revalidation_required": true,
+          "terminalization_authorized": false,
+          "blocker_cleared": false,
+          "retry_authorized": false,
+          "filesystem_cleanup_claimed": false,
+          "cleanup_authorized": false,
+          "settlement_authorized": false,
+          "quarantine_deletion_permitted": false,
+          "final_deletion_permitted": false,
+          "production_database_migrated": false,
+          "production_deployment_verified": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06D8C4B6B1-studio-terminal-candidate.md"
+          ],
+          "coverage_ar": "مرشح قراءة فقط بعد B6A: يتحقق من containment الخام الصحيح وعدم وجود أي success/prestart/poststart terminal receipt متعارض، ثم يربط containment التاريخي بسلطة Studio maintenance المغلقة الحالية. يسمح بعملية/جيل صيانة أحدث حتى لا يصبح crash قديم غير قابل للمصالحة بعد rollover، لكنه يحتفظ بهوية العملية والجيل والـboot الأصلية منفصلة. المرشح يحتفظ أيضًا بمسار B3 النسبي واسم final ودليل final حتى يمكن للـhost إعادة فتح نفس المجلد دون تخمين، ويطلب host/quarantine revalidation لاحقًا ولا يصرح terminalization أو blocker clear أو retry أو cleanup أو حذف quarantine/final، ولا يضيف migration أو يغير قاعدة البيانات.",
+          "relative_path_plan_retained": true,
+          "final_layout_evidence_retained": true,
+          "archive_size_bound_from_publication_plan": true,
+          "archive_checksum_bound_from_publication_plan": true,
+          "prerequisite_merged_prs": [
+            742
+          ],
+          "prerequisite_main_merge_commit": "badf231e37597826dcd45643fd63aa557e0464a2",
+          "prerequisite_main_acceptance_verified": true
         }
       }
     },
