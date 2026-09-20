@@ -461,6 +461,24 @@ async def execution_snapshot(*, session_factory: SessionFactory) -> dict[str, An
             or cancelled & post_cancelled
         ):
             raise StudioResourceUncertain("Studio terminal receipts conflict")
+        from app.services.studio_crash_containment import snapshot_crash_containments
+        (
+            contained_execution_ids,
+            contained_publication_ids,
+            valid_containment_observations,
+            crash_containments,
+            containment_jobs,
+            invalid_crash_containments,
+        ) = await snapshot_crash_containments(
+            session,
+            list(rows),
+            list(publications),
+            list(jobs),
+        )
+        orphan_crash_containments = sum(
+            bool(item.get("orphan_raw_evidence"))
+            for item in crash_containments
+        )
         terminal_jobs = receipt_jobs | cancellation_jobs | post_cancellation_jobs
         observed_jobs = terminal_jobs | crash_jobs
         legacy = [identifier for identifier in legacy if identifier not in observed_jobs]
@@ -478,14 +496,24 @@ async def execution_snapshot(*, session_factory: SessionFactory) -> dict[str, An
             item["cancelled_before_execution"] = item["execution_id"] in cancelled
             item["cancelled_after_execution_start"] = item["execution_id"] in post_cancelled
             item["settled_successfully"] = item["execution_id"] in accepted
+            item["postcrash_containment_recorded"] = (
+                item["execution_id"] in contained_execution_ids
+            )
             item["staging_cleanup_verified"] = (
                 item["execution_id"] in accepted or item["execution_id"] in post_cancelled
+            )
+        for item in crash_observations:
+            item["containment_recorded"] = (
+                item["observation_id"] in valid_containment_observations
             )
         for item in publication_observations:
             item["accepted_archive_retained"] = (
                 item["publication_id"] in retained or item["publication_id"] in post_retained
             )
             item["cancelled_archive_retained"] = item["publication_id"] in post_retained
+            item["postcrash_containment_recorded"] = (
+                item["publication_id"] in contained_publication_ids
+            )
             item["staging_cleanup_verified"] = (
                 item["publication_id"] in retained or item["publication_id"] in post_retained
             )
@@ -505,6 +533,11 @@ async def execution_snapshot(*, session_factory: SessionFactory) -> dict[str, An
             "postcrash_observation_count": len(crash_observations),
             "invalid_postcrash_observation_count": invalid_crash_observations,
             "orphan_postcrash_observation_count": orphan_crash_observations,
+            "postcrash_containments": crash_containments,
+            "postcrash_containment_count": len(crash_containments),
+            "valid_postcrash_containment_count": len(contained_execution_ids),
+            "invalid_postcrash_containment_count": invalid_crash_containments,
+            "orphan_postcrash_containment_count": orphan_crash_containments,
             "settlements": settlements, "settled_execution_count": len(accepted),
             "retained_archive_count": len(retained), "invalid_settlement_count": invalid_receipts,
             "blocker_count": blockers,

@@ -21,7 +21,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.db.base import Base
-from app.db.models import Notification, ProjectEvent, StudioCrashObservation, StudioExecution, StudioJob, StudioPublication, StudioSettlement, StudioPrestartCancellation, StudioPoststartCancellation, StudioSafetyReview
+from app.db.models import Notification, ProjectEvent, StudioCrashContainment, StudioCrashObservation, StudioExecution, StudioJob, StudioPublication, StudioSettlement, StudioPrestartCancellation, StudioPoststartCancellation, StudioSafetyReview
 from app.services import host_maintenance_admission as admission
 from app.services import studio_execution_guard as guards
 from app.services import studio_worker as workers
@@ -69,7 +69,7 @@ def test_all_guard_phases_explicitly_leave_cleanup_unverified(phase):
 @pytest_asyncio.fixture
 async def execution_case(studio_case, monkeypatch, tmp_path):
     case = studio_case
-    extra = {Notification.__table__, StudioSafetyReview.__table__, ProjectEvent.__table__, StudioExecution.__table__, StudioPublication.__table__, StudioSettlement.__table__, StudioPrestartCancellation.__table__, StudioPoststartCancellation.__table__, StudioCrashObservation.__table__}
+    extra = {Notification.__table__, StudioSafetyReview.__table__, ProjectEvent.__table__, StudioExecution.__table__, StudioPublication.__table__, StudioSettlement.__table__, StudioPrestartCancellation.__table__, StudioPoststartCancellation.__table__, StudioCrashObservation.__table__, StudioCrashContainment.__table__}
     while True:
         expanded = extra | {fk.column.table for table in extra for fk in table.foreign_keys}
         if expanded == extra:
