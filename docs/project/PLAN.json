@@ -716,6 +716,41 @@
           "evidence": [
             "docs/project/receipts/FR-06D8C4B2-studio-runtime-drain.md"
           ]
+        },
+        "studio_process_scan_source": {
+          "source_part": "FR-06D8C4B3",
+          "prerequisite_merged_prs": [
+            737
+          ],
+          "source_implementation_present": true,
+          "writer_receipt_required": true,
+          "runtime_drain_receipt_required": true,
+          "same_writer_reader_epoch_recheck_required": true,
+          "single_volume_identity_required": true,
+          "nofollow_inventory_required": true,
+          "special_or_symlink_entry_rejected": true,
+          "nested_filesystem_rejected": true,
+          "proc_reference_classes": [
+            "fd",
+            "cwd",
+            "root",
+            "exe",
+            "mmap"
+          ],
+          "double_proc_scan_required": true,
+          "stable_inventory_across_scans_required": true,
+          "zero_visible_reference_required": true,
+          "host_visible_studio_reference_scan_verified_by_source": true,
+          "studio_process_drain_verified_by_source": true,
+          "process_drain_verified": false,
+          "cleanup_authorized": false,
+          "filesystem_mutation_performed": false,
+          "production_deployment_verified": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06D8C4B3-studio-process-scan.md"
+          ],
+          "coverage_ar": "يفحص المصدر مراجع /proc المرئية لأجسام حجم Studio الحالي بعد ربط إيصال writer-epoch وإيصال runtime/backup drain وإعادة التحقق من نفس حاويات writers/readers والحجم. الجرد يرفض symlink والأنواع الخاصة وnested filesystem، ويثبت ثبات الهوية قبل وبين وبعد مسحين يشملان fd/cwd/root/exe/mmap. النجاح يثبت Studio-scoped visible-reference drain فقط؛ process_drain_verified وcleanup_authorized وfull_host_closure تبقى false ولا يحدث kill أو restart أو حذف ملفات."
         }
       }
     },
