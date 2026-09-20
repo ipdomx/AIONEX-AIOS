@@ -754,7 +754,8 @@
           "runtime_drain_receipt_required": true,
           "cleanup_candidate_required": true,
           "same_operation_generation_required": true,
-          "current_writer_reader_epoch_recheck_required": true,
+          "current_writer_epoch_recheck_required": true,
+          "current_reader_identity_mount_recheck_required": true,
           "candidate_staging_identity_recheck_required": true,
           "candidate_final_layout_recheck_required": true,
           "nofollow_descriptor_path_required": true,
@@ -781,7 +782,7 @@
           "evidence": [
             "docs/project/receipts/FR-06D8C4B4-studio-process-reference-scan.md"
           ],
-          "coverage_ar": "يربط المصدر إيصالات B1/B2 بمرشح B3 محدد يتطلب إزالة staging، ثم يعيد التحقق من حاويات الكتابة/القراءة الحالية وهوية الحجم ويفتح مسار المرشح بوصفات O_NOFOLLOW. يطابق staging وfinal مع الدليل المحتفظ به، ويمسح fd/cwd/root/exe/mmap لكل thread مرتين مع إعادة التحقق من inode بين المسحين وربط الإيصال بالـboot id. النجاح يثبت غياب مرجع /proc مرئي للـstaging المرشح فقط؛ process_drain_verified وcleanup_authorized وfinal_deletion_permitted وfull_host_closure تبقى false ولا يحدث أي حذف أو إيقاف."
+          "coverage_ar": "يربط المصدر إيصالات B1/B2 بمرشح B3 محدد يتطلب إزالة staging، ثم يعيد التحقق من epoch حاويات الكتابة الحالية وهوية حاوية القراءة وربطها read-only وهوية الحجم ويفتح مسار المرشح بوصفات O_NOFOLLOW. يطابق staging وfinal مع الدليل المحتفظ به، ويمسح fd/cwd/root/exe/mmap لكل thread مرتين مع إعادة التحقق من inode بين المسحين وربط الإيصال بالـboot id. النجاح يثبت غياب مرجع /proc مرئي للـstaging المرشح فقط؛ process_drain_verified وcleanup_authorized وfinal_deletion_permitted وfull_host_closure تبقى false ولا يحدث أي حذف أو إيقاف."
         }
       }
     },

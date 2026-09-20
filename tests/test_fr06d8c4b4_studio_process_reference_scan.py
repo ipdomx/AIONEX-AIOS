@@ -4,16 +4,24 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/security/fr06d8c4_studio_process_reference_scan.py"
+B1_SCRIPT = ROOT / "scripts/security/fr06d8c4_studio_writer_epoch.py"
+
 _spec = importlib.util.spec_from_file_location("fr06d8c4_process_scan", SCRIPT)
 assert _spec is not None and _spec.loader is not None
 scan = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(scan)
+
+_b1_spec = importlib.util.spec_from_file_location("fr06d8c4_writer_epoch", B1_SCRIPT)
+assert _b1_spec is not None and _b1_spec.loader is not None
+writer_epoch = importlib.util.module_from_spec(_b1_spec)
+_b1_spec.loader.exec_module(writer_epoch)
 
 OPERATION = "11111111-1111-4111-8111-111111111111"
 
@@ -25,49 +33,40 @@ def _digest(value, key):
 
 
 def _writer(volume: Path):
-    return _digest({
-        "schema": scan.WRITER_SCHEMA,
-        "observed_at": "2026-09-20T01:00:00+00:00",
-        "merge_sha": "a" * 40,
-        "admission": {"operation_id": OPERATION, "generation": 20},
-        "studio_snapshot": {"scope": "studio_execution_threads"},
-        "writers": [
-            {
-                "service": "backend",
-                "container_id": "backend-id",
-                "started_at": "2026-09-20T00:59:00+00:00",
-                "restart_count": 0,
-            },
-            {
-                "service": "studio-worker",
-                "container_id": "studio-id",
-                "started_at": "2026-09-20T00:59:30+00:00",
-                "restart_count": 0,
-            },
-        ],
-        "readers": [
-            {
-                "service": "backup-worker",
-                "container_id": "backup-id",
-                "started_at": "2026-09-20T00:58:00+00:00",
-                "restart_count": 0,
-            }
-        ],
-        "studio_volume_source": str(volume),
-        "application_writer_epoch_verified": True,
-        "process_drain_verified": False,
-        "host_process_scan_verified": False,
-        "backup_cycle_drain_verified": False,
-        "cleanup_authorized": False,
-        "filesystem_mutation_performed": False,
+    admission = {
+        "schema_version": 20,
+        "scope": "studio_job_requests",
+        "generation": 20,
+        "status": "closed",
+        "enabled": False,
+        "operation_id": OPERATION,
+        "reason": "test closed admission",
+        "changed_at": "2026-09-20T00:58:00+00:00",
         "full_host_closure": False,
-    }, "receipt_sha256")
+    }
+    studio_snapshot = {
+        "scope": "studio_execution_threads",
+        "observed_at": "2026-09-20T00:59:45+00:00",
+        "admission_closed": True,
+        "coverage_unverified": True,
+        "full_host_closure": False,
+        "executions": [],
+        "postcrash_observations": [],
+    }
+    return writer_epoch.evaluate(
+        admission=admission,
+        studio_snapshot=studio_snapshot,
+        containers=_containers(volume),
+        merge_sha="a" * 40,
+    )
 
 
 def _runtime(writer):
     return _digest({
         "schema": scan.RUNTIME_SCHEMA,
-        "observed_at": "2026-09-20T01:01:00+00:00",
+        "observed_at": (
+            datetime.fromisoformat(writer["observed_at"]) + timedelta(seconds=1)
+        ).isoformat(),
         "writer_receipt_sha256": writer["receipt_sha256"],
         "merge_sha": writer["merge_sha"],
         "operation_id": writer["admission"]["operation_id"],
@@ -317,12 +316,31 @@ def test_changed_writer_epoch_is_rejected(tmp_path):
         _evaluate(case, containers=containers)
 
 
-def test_changed_reader_epoch_is_rejected(tmp_path):
+def test_real_b1_reader_shape_without_epoch_fields_is_accepted(tmp_path):
+    case = _case(tmp_path)
+    reader = case[4]["readers"][0]
+    assert set(reader) == {
+        "service", "container_id", "rw", "source", "type", "name"
+    }
+    receipt = _evaluate(case)
+    assert receipt["host_process_scan_verified"] is True
+
+
+def test_changed_reader_identity_is_rejected(tmp_path):
     case = _case(tmp_path)
     volume = case[0]
     containers = _containers(volume)
-    containers[2]["RestartCount"] = 1
-    with pytest.raises(scan.ProcessScanBlocked, match="reader epoch changed"):
+    containers[2]["Id"] = "replacement-backup"
+    with pytest.raises(scan.ProcessScanBlocked, match="reader identity changed"):
+        _evaluate(case, containers=containers)
+
+
+def test_changed_reader_mount_is_rejected(tmp_path):
+    case = _case(tmp_path)
+    volume = case[0]
+    containers = _containers(volume)
+    containers[2]["Mounts"][0]["Source"] = str(volume / "replacement")
+    with pytest.raises(scan.ProcessScanBlocked, match="reader mount changed"):
         _evaluate(case, containers=containers)
 
 

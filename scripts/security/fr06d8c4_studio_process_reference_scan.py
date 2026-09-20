@@ -3,8 +3,9 @@
 
 This is a read-only, candidate-specific host observation. It consumes the C4B1
 writer-epoch receipt, C4B2 runtime/backup-drain receipt, and C4B3 cleanup
-candidate. It revalidates the exact current writer/reader container epoch,
-reopens the candidate path through no-follow directory descriptors, verifies the
+candidate. It revalidates the exact current writer container epoch plus the
+current read-only reader identity/mount, reopens the candidate path through
+no-follow directory descriptors, verifies the
 current staging/final layout against retained identities, and scans proc-visible
 thread references twice.
 
@@ -327,18 +328,29 @@ def _current_epoch(
     }
     if set(expected_readers) != READERS or len(writer["readers"]) != len(READERS):
         raise ProcessScanBlocked("writer receipt reader set differs")
+    reader_keys = {"service", "container_id", "rw", "source", "type", "name"}
     for service in sorted(READERS):
         rows = by_service.get(service, [])
         if len(rows) != 1:
             raise ProcessScanBlocked(f"current reader count differs: {service}")
         expected = expected_readers[service]
         if (
-            rows[0]["Id"] != expected.get("container_id")
-            or rows[0].get("RestartCount") != expected.get("restart_count")
-            or _time((rows[0].get("State") or {}).get("StartedAt"), service)
-            != _time(expected.get("started_at"), service)
+            set(expected) != reader_keys
+            or expected.get("rw") is not False
+            or expected.get("source") != writer["studio_volume_source"]
+            or not isinstance(expected.get("container_id"), str)
+            or not expected["container_id"]
         ):
-            raise ProcessScanBlocked(f"current reader epoch changed: {service}")
+            raise ProcessScanBlocked("writer receipt reader identity is malformed")
+        if rows[0]["Id"] != expected["container_id"]:
+            raise ProcessScanBlocked(f"current reader identity changed: {service}")
+        mount = _mount(rows[0])
+        if (
+            mount is None
+            or mount.get("RW") is not False
+            or mount.get("Source") != writer["studio_volume_source"]
+        ):
+            raise ProcessScanBlocked(f"current reader mount changed: {service}")
 
     source = writer["studio_volume_source"]
     for service, _, mount in mounted:
