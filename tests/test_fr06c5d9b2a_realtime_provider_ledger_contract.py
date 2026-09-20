@@ -68,7 +68,7 @@ def test_submitted_or_active_work_cannot_be_erased_as_not_started():
 
 def test_plan_keeps_route_wiring_and_production_open():
     root, item = _item()
-    assert root["source_part"] == "FR-06C5D9B2A"
+    assert root["source_part"] == "FR-06C5D9B2B1"
     assert item["source_implementation_present"] is True
     assert item["provider_routes_wired"] is False
     assert item["intent_commits_before_provider_capability"] is True
@@ -86,7 +86,6 @@ def test_plan_keeps_route_wiring_and_production_open():
     assert item["provider_drain_verified"] is False
     assert item["full_host_closure"] is False
     assert RECEIPT.is_file()
-    assert "host_maintenance_realtime_resources" not in ROUTES.read_text()
 
 
 def test_backend_shipped_head_advances_to_0064():

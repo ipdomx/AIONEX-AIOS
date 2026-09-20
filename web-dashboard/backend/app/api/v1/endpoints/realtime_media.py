@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import logging
 from datetime import UTC, datetime
+from uuid import uuid4
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -35,6 +36,7 @@ from app.services.host_maintenance_admission import (
     HostMaintenanceUnavailable,
 )
 from app.services.host_maintenance_realtime_admission import require_realtime_admission
+from app.services import host_maintenance_realtime_resources as realtime_resources
 from app.services.realtime_media_runtime import (
     RealtimeRecordingError,
     active_participants,
@@ -122,7 +124,7 @@ async def _room_or_404(
         RealtimeRoom.organization_id == actor.organization_id,
     )
     if lock:
-        statement = statement.with_for_update()
+        statement = statement.with_for_update().execution_options(populate_existing=True)
     room = await session.scalar(statement)
     if room is None:
         raise HTTPException(status_code=404, detail="Realtime room not found")
@@ -322,40 +324,84 @@ async def create_room(
         room_id=room.id,
         max_participants=room.max_participants,
     )
-    provider_created = False
+    try:
+        owner = await realtime_resources.reserve_provider_resource(
+            session,
+            organization_id=actor.organization_id,
+            resource_kind="room",
+            local_resource_id=room.id,
+            owner_incarnation=str(uuid4()),
+        )
+        # The planned business room and provider intent must be durable together
+        # before any capability can be consumed for external I/O.
+        await session.commit()
+    except realtime_resources.RealtimeProviderOwnershipLost as exc:
+        await session.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Realtime room provider ownership requires reconciliation.",
+        ) from exc
+    # Re-lock the planned room before consuming provider capability. The lock is
+    # retained across provider I/O, so close-room cannot race an in-flight CreateRoom.
+    room = await _room_or_404(session, actor, room.id, lock=True)
+    if room.status != "planned" or room.provider_adapter != "unassigned":
+        await realtime_resources.settle_not_started(owner)
+        await session.rollback()
+        raise HTTPException(
+            status_code=409, detail="Realtime room state changed before provider start."
+        )
+    try:
+        began = await realtime_resources.begin_provider_io(owner)
+    except HostMaintenanceClosed:
+        # begin_provider_io checks admission before consuming the reserved intent.
+        await realtime_resources.settle_not_started(owner)
+        await session.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail="Realtime media admission is temporarily closed for maintenance.",
+        ) from None
+    except HostMaintenanceUnavailable:
+        # Keep reserved evidence when authority/database availability is uncertain.
+        await session.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail="Realtime media admission is currently unavailable.",
+        ) from None
+    if not began:
+        await realtime_resources.settle_not_started(owner)
+        await session.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail="Realtime media admission generation changed before provider start.",
+        )
+    provider_ref_sha256 = hashlib.sha256(plan.provider_room_name.encode("utf-8")).hexdigest()
     try:
         await livekit_runtime.provision_room(plan)
-        provider_created = True
-        room.provider_adapter = "livekit"
-        room.provider_room_id_sha256 = hashlib.sha256(
-            plan.provider_room_name.encode("utf-8")
-        ).hexdigest()
-        room.status = "open"
-        room.opened_at = room.opened_at or datetime.now(UTC)
-        room.version += 1
-        await _audit(
-            session,
-            actor,
-            "realtime.room.opened",
-            "realtime_room",
-            room.id,
-            {"media_mode": room.media_mode, "max_participants": room.max_participants},
-        )
-        await session.commit()
     except (RealtimeProviderUnavailable, RealtimeProviderProtocolError) as exc:
+        await realtime_resources.mark_provider_unresolved(
+            owner, reason=f"room_create_{type(exc).__name__}"[:160]
+        )
         await session.rollback()
         raise _provider_error(exc) from exc
-    except Exception:
-        await session.rollback()
-        if provider_created:
-            try:
-                await livekit_runtime.delete_room(plan.provider_room_name)
-            except Exception:
-                logger.warning(
-                    "Failed to delete provider room after transaction rollback",
-                    exc_info=True,
-                )
-        raise
+    # Provider success becomes durable before the business row is advertised open.
+    # If the later local commit fails, active ownership remains a drain blocker.
+    await realtime_resources.observe_provider_active(
+        owner, provider_ref_sha256=provider_ref_sha256
+    )
+    room.provider_adapter = "livekit"
+    room.provider_room_id_sha256 = provider_ref_sha256
+    room.status = "open"
+    room.opened_at = room.opened_at or datetime.now(UTC)
+    room.version += 1
+    await _audit(
+        session,
+        actor,
+        "realtime.room.opened",
+        "realtime_room",
+        room.id,
+        {"media_mode": room.media_mode, "max_participants": room.max_participants},
+    )
+    await session.commit()
     return room_snapshot(room, participant_count=0)
 
 
@@ -511,18 +557,50 @@ async def close_room(
         raise HTTPException(status_code=403, detail="Only the room manager can close this room")
     if room.status == "closed":
         return room_snapshot(room, participant_count=0)
+    owner = await realtime_resources.find_unfinished_provider_ownership(
+        session, organization_id=actor.organization_id, resource_kind="room",
+        local_resource_id=room.id,
+    )
+    owner_state = (
+        await realtime_resources.provider_ownership_state(owner) if owner is not None else None
+    )
     plan = livekit_runtime.plan_room(
         organization_id=actor.organization_id,
         room_id=room.id,
         max_participants=room.max_participants,
     )
-    try:
-        await livekit_runtime.delete_room(plan.provider_room_name)
-    except RealtimeProviderProtocolError as exc:
-        if "404" not in str(exc) and "not_found" not in str(exc):
+    provider_ref_sha256 = hashlib.sha256(plan.provider_room_name.encode("utf-8")).hexdigest()
+    if owner is not None and owner_state == "reserved":
+        if room.status == "open" or room.provider_adapter == "livekit":
+            raise HTTPException(
+                status_code=409, detail="Realtime room ownership is inconsistent."
+            )
+        await realtime_resources.settle_not_started(owner)
+    elif owner is not None and owner_state == "submitted":
+        raise HTTPException(
+            status_code=409,
+            detail="Realtime room provider start is not yet reconciled.",
+        )
+    else:
+        try:
+            await livekit_runtime.delete_room(plan.provider_room_name)
+        except RealtimeProviderProtocolError as exc:
+            if "404" not in str(exc) and "not_found" not in str(exc):
+                if owner is not None:
+                    await realtime_resources.mark_provider_unresolved(
+                        owner, reason="room_delete_provider_protocol_unknown"
+                    )
+                raise _provider_error(exc) from exc
+        except RealtimeProviderUnavailable as exc:
+            if owner is not None:
+                await realtime_resources.mark_provider_unresolved(
+                    owner, reason="room_delete_provider_unavailable"
+                )
             raise _provider_error(exc) from exc
-    except RealtimeProviderUnavailable as exc:
-        raise _provider_error(exc) from exc
+        if owner is not None:
+            await realtime_resources.settle_room_absent(
+                owner, provider_ref_sha256=provider_ref_sha256
+            )
     room.status = "closed"
     room.closed_at = datetime.now(UTC)
     room.version += 1

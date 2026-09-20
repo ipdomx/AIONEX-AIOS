@@ -226,3 +226,51 @@ async def settle_not_started(
         row.state = "settled"
         row.settled_at = stamp
         row.updated_at = stamp
+
+
+async def find_unfinished_provider_ownership(
+    session: AsyncSession, *, organization_id: str, resource_kind: str,
+    local_resource_id: str,
+) -> RealtimeProviderOwnership | None:
+    if resource_kind not in _RESOURCE_KINDS or not all(
+        _uuid(v) for v in (organization_id, local_resource_id)
+    ):
+        raise ValueError("Realtime provider lookup identity is invalid")
+    row = await session.scalar(select(RealtimeProviderResourceOwnership).where(
+        RealtimeProviderResourceOwnership.organization_id == organization_id,
+        RealtimeProviderResourceOwnership.resource_kind == resource_kind,
+        RealtimeProviderResourceOwnership.local_resource_id == local_resource_id,
+        RealtimeProviderResourceOwnership.state != "settled",
+    ).limit(1))
+    return _owner(row) if row is not None else None
+
+
+async def provider_ownership_state(
+    owner: RealtimeProviderOwnership, *, session_factory: SessionFactory = SessionLocal,
+) -> str:
+    async with session_factory() as session:
+        row = await _locked(session, owner)
+        return row.state
+
+
+async def settle_room_absent(
+    owner: RealtimeProviderOwnership, *, provider_ref_sha256: str,
+    session_factory: SessionFactory = SessionLocal,
+) -> None:
+    """Settle room ownership only after explicit provider delete/not-found proof."""
+    if owner.resource_kind != "room" or not _hex64(provider_ref_sha256):
+        raise ValueError("Room settlement identity is invalid")
+    async with session_factory() as session, session.begin():
+        row = await _locked(session, owner)
+        if row.state not in {"active", "unresolved"}:
+            raise RealtimeProviderOwnershipLost(
+                "Room absence requires completed-or-ambiguous provider observation"
+            )
+        if row.provider_ref_sha256 not in (None, provider_ref_sha256):
+            raise RealtimeProviderOwnershipUncertain("Room provider identity differs")
+        stamp = await _now(session)
+        row.provider_ref_sha256 = provider_ref_sha256
+        row.state = "settled"
+        row.unresolved_reason = None
+        row.settled_at = stamp
+        row.updated_at = stamp

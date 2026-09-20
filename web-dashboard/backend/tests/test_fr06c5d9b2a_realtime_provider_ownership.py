@@ -219,3 +219,54 @@ async def test_settled_history_is_retained_but_does_not_block_explicit_new_attem
             RealtimeProviderResourceOwnership.local_resource_id == room_id,
         ).order_by(RealtimeProviderResourceOwnership.started_at))).all())
     assert [row.state for row in rows] == ["settled", "reserved"]
+
+
+@pytest.mark.asyncio
+async def test_submitted_room_cannot_be_settled_from_absence_while_create_may_be_inflight(provider_case):
+    case = provider_case
+    org_id, room_id = str(uuid4()), str(uuid4())
+    async with case.sessions() as session:
+        async with session.begin():
+            owner = await registry.reserve_provider_resource(
+                session, organization_id=org_id, resource_kind="room",
+                local_resource_id=room_id, owner_incarnation=str(uuid4()),
+            )
+    assert await registry.begin_provider_io(owner, session_factory=case.sessions) is True
+    with pytest.raises(registry.RealtimeProviderOwnershipLost, match="completed-or-ambiguous"):
+        await registry.settle_room_absent(
+            owner, provider_ref_sha256="b" * 64, session_factory=case.sessions
+        )
+    assert await registry.provider_ownership_state(owner, session_factory=case.sessions) == "submitted"
+
+
+@pytest.mark.asyncio
+async def test_active_room_settles_only_with_matching_explicit_provider_absence(provider_case):
+    case = provider_case
+    org_id, room_id, digest = str(uuid4()), str(uuid4()), "c" * 64
+    async with case.sessions() as session:
+        async with session.begin():
+            owner = await registry.reserve_provider_resource(
+                session, organization_id=org_id, resource_kind="room",
+                local_resource_id=room_id, owner_incarnation=str(uuid4()),
+            )
+    assert await registry.begin_provider_io(owner, session_factory=case.sessions) is True
+    await registry.observe_provider_active(
+        owner, provider_ref_sha256=digest, session_factory=case.sessions
+    )
+    async with case.sessions() as session:
+        found = await registry.find_unfinished_provider_ownership(
+            session, organization_id=org_id, resource_kind="room", local_resource_id=room_id
+        )
+    assert found == owner
+    with pytest.raises(registry.RealtimeProviderOwnershipUncertain, match="identity differs"):
+        await registry.settle_room_absent(
+            owner, provider_ref_sha256="d" * 64, session_factory=case.sessions
+        )
+    await registry.settle_room_absent(
+        owner, provider_ref_sha256=digest, session_factory=case.sessions
+    )
+    assert await registry.provider_ownership_state(owner, session_factory=case.sessions) == "settled"
+    async with case.sessions() as session:
+        assert await registry.find_unfinished_provider_ownership(
+            session, organization_id=org_id, resource_kind="room", local_resource_id=room_id
+        ) is None
