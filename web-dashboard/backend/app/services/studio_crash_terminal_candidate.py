@@ -140,6 +140,11 @@ async def export_terminal_candidate(
                 execution=execution,
                 publication=publication,
             )
+            cleanup_candidate = containment._reconstruct_candidate(
+                observation=observation,
+                execution=execution,
+                publication=publication,
+            )
         except (
             containment.StudioCrashContainmentUnavailable,
             registry.StudioResourceUncertain,
@@ -147,6 +152,10 @@ async def export_terminal_candidate(
             raise StudioCrashTerminalCandidateUnavailable(
                 "Studio crash containment is invalid"
             ) from exc
+        if cleanup_candidate["candidate_sha256"] != row.proof["candidate_sha256"]:
+            raise StudioCrashTerminalCandidateUnavailable(
+                "Studio cleanup candidate differs from containment"
+            )
 
         if await _terminal_conflict(session, execution.id):
             raise StudioCrashTerminalCandidateUnavailable(
@@ -204,6 +213,12 @@ async def export_terminal_candidate(
                 "staging_quarantine_receipt_sha256"
             ],
             "layout": row.proof["layout"],
+            "relative_components": deepcopy(
+                cleanup_candidate["relative_components"]
+            ),
+            "original_staging_name": cleanup_candidate["staging_name"],
+            "final_name": cleanup_candidate["final_name"],
+            "final_evidence": deepcopy(cleanup_candidate["final"]),
             "quarantine_name": row.proof["quarantine_name"],
             "retained_identity": deepcopy(row.proof["retained_identity"]),
             "reconciliation_authority": authority,

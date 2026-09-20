@@ -50,7 +50,7 @@ async def _prepared(case, monkeypatch, tmp_path):
         process_scan_receipt=b4_receipt,
         staging_quarantine_receipt=b5_receipt,
     )
-    return observation, row
+    return observation, row, cleanup_candidate
 
 
 async def _counts(case):
@@ -76,7 +76,7 @@ async def test_valid_b6a_containment_exports_nonterminal_candidate(
     containment_case, monkeypatch, tmp_path
 ):
     case = containment_case
-    observation, row = await _prepared(case, monkeypatch, tmp_path)
+    observation, row, cleanup_candidate = await _prepared(case, monkeypatch, tmp_path)
 
     value = await candidate_service.export_terminal_candidate(
         containment_id=row.id,
@@ -96,6 +96,10 @@ async def test_valid_b6a_containment_exports_nonterminal_candidate(
         "maintenance_generation"
     ]
     assert value["containment_boot_id"] == row.proof["boot_id"]
+    assert value["relative_components"] == cleanup_candidate["relative_components"]
+    assert value["original_staging_name"] == cleanup_candidate["staging_name"]
+    assert value["final_name"] == cleanup_candidate["final_name"]
+    assert value["final_evidence"] == cleanup_candidate["final"]
     assert value["quarantine_name"] == row.proof["quarantine_name"]
     assert value["retained_identity"] == row.proof["retained_identity"]
     assert value["host_revalidation_required"] is True
@@ -122,7 +126,7 @@ async def test_export_is_deterministic_and_database_read_only(
     containment_case, monkeypatch, tmp_path
 ):
     case = containment_case
-    _, row = await _prepared(case, monkeypatch, tmp_path)
+    _, row, _ = await _prepared(case, monkeypatch, tmp_path)
     before = await _counts(case)
 
     first = await candidate_service.export_terminal_candidate(
@@ -143,7 +147,7 @@ async def test_open_authority_blocks_terminal_candidate(
     containment_case, monkeypatch, tmp_path
 ):
     case = containment_case
-    _, row = await _prepared(case, monkeypatch, tmp_path)
+    _, row, _ = await _prepared(case, monkeypatch, tmp_path)
     async with case.sessions() as session:
         current = await admission.read_admission_snapshot(
             session, required_scope="studio_job_requests"
@@ -171,7 +175,7 @@ async def test_later_closed_authority_is_bound_without_rewriting_containment(
     containment_case, monkeypatch, tmp_path
 ):
     case = containment_case
-    _, row = await _prepared(case, monkeypatch, tmp_path)
+    _, row, _ = await _prepared(case, monkeypatch, tmp_path)
     first = await candidate_service.export_terminal_candidate(
         containment_id=row.id,
         session_factory=case.sessions,
@@ -220,7 +224,7 @@ async def test_terminal_conflict_blocks_candidate_export(
     containment_case, monkeypatch, tmp_path
 ):
     case = containment_case
-    _, row = await _prepared(case, monkeypatch, tmp_path)
+    _, row, _ = await _prepared(case, monkeypatch, tmp_path)
 
     async with case.sessions() as session, session.begin():
         stamp = await registry._now(session)
@@ -250,7 +254,7 @@ async def test_raw_execution_drift_invalidates_candidate_export(
     containment_case, monkeypatch, tmp_path
 ):
     case = containment_case
-    _, row = await _prepared(case, monkeypatch, tmp_path)
+    _, row, _ = await _prepared(case, monkeypatch, tmp_path)
 
     async with case.sessions() as session, session.begin():
         await session.execute(
