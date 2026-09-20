@@ -173,6 +173,17 @@ def test_private_receipt_content_is_exact_and_self_digest_verified():
         assert marker in source
 
 
+def test_cli_preflights_root_and_state_before_candidate_mutation():
+    source = ast.unparse(_node("main"))
+    preflight = source.index("_preflight_host_state(STATE_ROOT)")
+    evaluate = source.index("evaluate_and_quarantine")
+    write = source.index("_write_private")
+    assert preflight < evaluate < write
+    helper = ast.unparse(_node("_preflight_host_state"))
+    assert "os.geteuid()" in helper
+    assert "_validated_state_root(state_root)" in helper
+
+
 def test_receipt_persistence_is_fixed_private_create_only_state():
     source = ast.unparse(_node("_write_private"))
     root = ast.unparse(_node("_validated_state_root"))
@@ -214,6 +225,7 @@ def test_project_plan_keeps_b5_as_retained_containment_not_cleanup():
     assert contract["state_root_descriptor_chain_nofollow"] is True
     assert contract["receipt_create_only"] is True
     assert contract["receipt_single_link_required"] is True
+    assert contract["host_preflight_before_namespace_mutation_required"] is True
     assert contract["receipt_exact_schema_required"] is True
     assert contract["receipt_self_digest_verified_before_write"] is True
     assert contract["receipt_candidate_digest_match_required"] is True

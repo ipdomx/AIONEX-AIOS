@@ -521,6 +521,14 @@ def _validated_state_root(path: Path) -> int:
         raise
 
 
+def _preflight_host_state(state_root: Path) -> None:
+    """Reject an unusable host receipt boundary before any Studio mutation."""
+    if os.geteuid() != 0:
+        raise StagingQuarantineBlocked("B5 host containment requires root")
+    descriptor = _validated_state_root(state_root)
+    os.close(descriptor)
+
+
 def _write_private(
     state_root: Path, candidate_sha256: str, value: dict[str, Any]
 ) -> Path:
@@ -584,6 +592,7 @@ def main() -> int:
     parser.add_argument("--proc-root", type=Path, default=Path("/proc"))
     args = parser.parse_args()
     try:
+        _preflight_host_state(STATE_ROOT)
         writer = json.loads(args.writer_receipt.read_text(encoding="utf-8"))
         runtime = json.loads(args.runtime_receipt.read_text(encoding="utf-8"))
         candidate = json.loads(args.cleanup_candidate.read_text(encoding="utf-8"))
@@ -597,8 +606,6 @@ def main() -> int:
             proc_root=args.proc_root,
             boot_id=scan._boot_id(),
         )
-        if os.geteuid() != 0:
-            raise StagingQuarantineBlocked("B5 host receipt requires root")
         _write_private(STATE_ROOT, candidate["candidate_sha256"], receipt)
     except (
         OSError,

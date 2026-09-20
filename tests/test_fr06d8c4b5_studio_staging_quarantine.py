@@ -602,6 +602,54 @@ def test_final_appearance_blocks_before_quarantine(tmp_path):
     assert staging.exists()
 
 
+def test_preflight_requires_root_and_private_state_root(tmp_path, monkeypatch):
+    root = tmp_path / "receipts"
+    root.mkdir(mode=0o700)
+
+    monkeypatch.setattr(b5.os, "geteuid", lambda: 1000)
+    with pytest.raises(b5.StagingQuarantineBlocked, match="requires root"):
+        b5._preflight_host_state(root)
+
+    monkeypatch.setattr(b5.os, "geteuid", lambda: 0)
+    root.chmod(0o755)
+    with pytest.raises(b5.StagingQuarantineBlocked, match="not private"):
+        b5._preflight_host_state(root)
+
+
+def test_cli_preflight_blocks_before_evaluate_or_namespace_mutation(
+    tmp_path, monkeypatch
+):
+    missing_root = tmp_path / "missing-state-root"
+    monkeypatch.setattr(b5, "STATE_ROOT", missing_root)
+    monkeypatch.setattr(b5.os, "geteuid", lambda: 0)
+
+    called = False
+
+    def forbidden_evaluate(**_kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("evaluate must not run before state preflight")
+
+    monkeypatch.setattr(b5, "evaluate_and_quarantine", forbidden_evaluate)
+    monkeypatch.setattr(
+        __import__("sys"),
+        "argv",
+        [
+            str(SCRIPT),
+            "--writer-receipt",
+            str(tmp_path / "writer.json"),
+            "--runtime-receipt",
+            str(tmp_path / "runtime.json"),
+            "--cleanup-candidate",
+            str(tmp_path / "candidate.json"),
+            "--process-scan-receipt",
+            str(tmp_path / "scan.json"),
+        ],
+    )
+    assert b5.main() == 2
+    assert called is False
+
+
 def test_create_only_private_candidate_bound_receipt(tmp_path):
     case = _case(tmp_path)
     value = _evaluate(case)

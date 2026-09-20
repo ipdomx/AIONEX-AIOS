@@ -833,6 +833,7 @@
           "receipt_filename_bound_to_candidate_sha256": true,
           "receipt_create_only": true,
           "automatic_state_root_creation": false,
+          "host_preflight_before_namespace_mutation_required": true,
           "state_root_descriptor_chain_nofollow": true,
           "receipt_single_link_required": true,
           "receipt_exact_schema_required": true,
