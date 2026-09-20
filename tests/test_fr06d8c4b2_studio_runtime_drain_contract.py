@@ -76,3 +76,21 @@ def test_cli_has_no_container_control_commands():
         "open_admission",
     ):
         assert forbidden not in text
+
+
+def test_project_plan_preserves_b1_and_b2_noncleanup_boundaries():
+    import json
+
+    plan = json.loads((ROOT / "docs/project/PLAN.json").read_text())
+    fr06 = next(batch for batch in plan["batches"] if batch["id"] == "FR-06")
+    host = fr06["host_state_cutover_admission"]
+    b1 = host["studio_writer_epoch_source"]
+    b2 = host["studio_runtime_drain_source"]
+    assert b1["source_part"] == "FR-06D8C4B1"
+    assert b2["source_part"] == "FR-06D8C4B2"
+    assert b2["backup_cycle_drain_verified_by_source"] is True
+    for contract in (b1, b2):
+        assert contract["process_drain_verified"] is False
+        assert contract["cleanup_authorized"] is False
+        assert contract["filesystem_mutation_performed"] is False
+        assert contract["full_host_closure"] is False
