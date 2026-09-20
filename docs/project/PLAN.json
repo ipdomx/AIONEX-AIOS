@@ -963,6 +963,46 @@
             "docs/project/receipts/FR-06D8C4B6B2-studio-quarantine-revalidation.md"
           ],
           "coverage_ar": "إعادة تحقق host-side للقراءة فقط بعد B6B1: تستخرج مصدر Studio الحالي من جرد Docker حي بدل الاعتماد على source تاريخي، وتشترط backend وstudio-worker ككاتبين وbackup-worker كقارئ فقط على نفس المصدر، وترفض أي مسار وصول بديل لنفس المصدر. تعيد الجرد مرتين وتفشل عند أي تغير في container id/restart/start/mount. تفتح المسار النسبي نفسه عبر O_NOFOLLOW descriptors، تشترط غياب اسم staging وبقاء quarantine بنفس هوية B5 مع final layout الصحيح، وتفتح quarantine نفسه بوصف file descriptor مثبت ثم تعيد SHA-256 مرتين مقابل checksum والحجم الدائمين من StudioPublication.plan حول مسحين كاملين لـ/proc. يسمح بإعادة التحقق بعد reboot لأن الإثبات يعاد من الصفر ويُسجل current boot منفصلًا؛ لكنه لا يصرح terminalization أو blocker clear أو retry أو cleanup/delete، وتبقى إعادة ربط سلطة DB الحالية مطلوبة في المرحلة التالية."
+        },
+        "studio_crash_terminal_reconciliation_source": {
+          "source_part": "FR-06D8C4B6B3",
+          "prerequisite_source_parts": [
+            "FR-06D8C4B6B1",
+            "FR-06D8C4B6B2"
+          ],
+          "requires_b6b1_b6b2_merged_acceptance_before_protected_acceptance": true,
+          "migration": "20260920_0062",
+          "source_implementation_present": true,
+          "database_only_terminal_reconciliation": true,
+          "exact_terminal_candidate_required": true,
+          "exact_quarantine_revalidation_receipt_required": true,
+          "current_closed_studio_authority_exact_match_required_for_new_record": true,
+          "raw_execution_publication_observation_containment_revalidated": true,
+          "conflicting_success_or_cancellation_receipts_rejected": true,
+          "exact_same_receipt_idempotent": true,
+          "different_existing_receipt_rejected": true,
+          "exact_replay_survives_later_authority_rollover": true,
+          "valid_reconciliation_clears_execution_and_crash_observation_blockers_only": true,
+          "invalid_reconciliation_clears_no_blocker": true,
+          "terminalization_authorized": true,
+          "blocker_cleared": true,
+          "quarantine_retained": true,
+          "retry_authorized": false,
+          "filesystem_cleanup_claimed": false,
+          "studio_filesystem_mutation_performed_by_b6b3": false,
+          "cleanup_authorized": false,
+          "settlement_authorized": false,
+          "quarantine_deletion_permitted": false,
+          "final_deletion_permitted": false,
+          "process_drain_verified": false,
+          "production_execution_performed": false,
+          "production_database_migrated": false,
+          "production_deployment_verified": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06D8C4B6B3-studio-terminal-reconciliation.md"
+          ],
+          "coverage_ar": "تسوية terminal دائمة في قاعدة البيانات فقط بعد B6B1/B6B2: تعيد مطابقة containment والدليل الخام والمرشح وhost revalidation، وتشترط أن سلطة Studio maintenance المغلقة الحالية ما زالت مطابقة تمامًا للسلطة التي بُني عليها host proof. عند التطابق فقط تسجل crash_reconciled_quarantine_retained وتزيل blocker محاولة التنفيذ وblocker ملاحظة crash لنفس المحاولة، مع إبقاء quarantine وكل الأدلة الخام. التكرار المطابق idempotent حتى بعد rollover لاحق، أما إنشاء سجل جديد بعد تغير السلطة أو مع success/prestart/poststart conflict أو raw drift فيفشل مغلقًا. لا retry أو success settlement أو filesystem cleanup أو حذف quarantine/final، ولا ادعاء process drain أو full-host closure أو Production deployment في هذه الدفعة."
         }
       }
     },

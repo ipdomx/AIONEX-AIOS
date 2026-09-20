@@ -16,7 +16,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import (
-    StudioCrashObservation, StudioExecution, StudioJob, StudioPrestartCancellation,
+    StudioCrashObservation, StudioCrashReconciliation, StudioExecution, StudioJob, StudioPrestartCancellation,
     StudioPublication, StudioSettlement,
 )
 from app.services import studio_resource_registry as registry
@@ -98,6 +98,10 @@ async def cancel_claimed_before_start(session: AsyncSession, job: StudioJob) -> 
             select(StudioPrestartCancellation.id).where(or_(
                 StudioPrestartCancellation.job_id == locked_job.id,
                 StudioPrestartCancellation.execution_id == row.id,
+            )).exists(),
+            select(StudioCrashReconciliation.id).where(or_(
+                StudioCrashReconciliation.job_id == locked_job.id,
+                StudioCrashReconciliation.execution_id == row.id,
             )).exists(),
             select(StudioCrashObservation.id).where(or_(
                 StudioCrashObservation.job_id == locked_job.id,
