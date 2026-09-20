@@ -1,0 +1,15 @@
+# FR-06D8C4B6B1 — Studio crash terminal candidate
+
+This stacked source draft is a database-only, read-only export after B6A crash-containment provenance. It does not terminalize, settle, retry, delete, clean, deploy, or migrate anything.
+
+The exporter consumes one valid retained `studio_crash_containments` row plus the matching raw crash observation, execution, and publication evidence. It revalidates the B6A containment proof, rejects any conflicting normal-success, prestart-cancellation, or poststart-cancellation receipt, and requires the current Studio maintenance authority to be explicitly closed.
+
+The original containment maintenance operation/generation and boot remain separate immutable evidence. A later closed maintenance operation/generation is permitted for reconciliation so an old crash does not become permanently unrecoverable after an authority rollover. The current reconciliation authority is embedded and digested into the exported candidate.
+
+The candidate is deterministic while the same containment and current authority remain unchanged. It carries the retained quarantine name/inode identity and the exact B3/B4/B5 digests already bound by B6A, but it explicitly requires a later host/quarantine revalidation before any terminal decision.
+
+The output always keeps `terminalization_authorized=false`, `blocker_cleared=false`, `retry_authorized=false`, `filesystem_cleanup_claimed=false`, `cleanup_authorized=false`, `settlement_authorized=false`, `quarantine_deletion_permitted=false`, `final_deletion_permitted=false`, and `full_host_closure=false`.
+
+B6B1 introduces no database migration and performs no database mutation. Protected acceptance of this stage is blocked on merge/acceptance of PR #742 / B6A first.
+
+Current stacked-draft acceptance: 8/8 isolated PostgreSQL integration cases passed; 7/7 root source-contract cases passed; the complete root repository suite passed 1935/1935. Ruff passed the new service/test, Mypy reported no issues in the new service, and Phase 36 reporting, py_compile, JSON, and diff checks passed. The disposable PostgreSQL QA container was removed. This remains a stacked draft only until PR #742 / B6A is merged and accepted on main.
