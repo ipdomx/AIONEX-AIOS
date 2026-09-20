@@ -1,4 +1,4 @@
-"""FR-06C5D7B9 Production ZAP exclusivity source contract."""
+"""FR-06C5D7B9 Production ZAP exclusivity source/runtime contract."""
 from __future__ import annotations
 
 import json
@@ -47,7 +47,7 @@ def test_database_clients_do_not_inherit_zap_credentials():
     assert "  security-zap:\n" not in text
 
 
-def test_plan_keeps_exclusivity_unverified_until_runtime_rollout():
+def test_plan_records_live_exclusivity_closeout_without_claiming_host_drain():
     plan = json.loads(PLAN.read_text())
     fr06 = next(batch for batch in plan["batches"] if batch["id"] == "FR-06")
     item = fr06["host_state_cutover_admission"]["security_scan_zap_exclusivity_source"]
@@ -55,6 +55,12 @@ def test_plan_keeps_exclusivity_unverified_until_runtime_rollout():
     assert item["production_requires_owned_runtime"] is True
     assert item["non_scan_db_clients_receive_zap_credentials"] is False
     assert item["zap_host_ports_exposed"] is False
-    assert item["production_zap_exclusivity_verified"] is False
-    assert item["production_deployment_verified"] is False
+    assert item["production_zap_exclusivity_verified"] is True
+    assert item["production_deployment_verified"] is True
+    assert item["production_execution_performed"] is True
+    assert item["real_scan_performed_by_b9"] is False
     assert item["full_host_closure"] is False
+    assert any(
+        path.endswith("FR-06C5D7B9-production-rollout-closeout.md")
+        for path in item["evidence"]
+    )

@@ -174,12 +174,12 @@
       ],
       "exit_ar": "دليل أن البيانات المحددة لا تبقى واضحة على التخزين غير المركب، واستعادة وفك تشفير وإقلاع آمنان. توضيح أن تشفير النسخة ليس تشفير كامل القرص ولا يحمي من root حي يملك المفاتيح.",
       "host_state_cutover_admission": {
-        "source_part": "FR-06C5D7B8",
-        "scope_ar": "سلطة قبول دائمة للصيانة في PostgreSQL تغطي نطاقات المصدر الستة المذكورة. يضيف D7B3 سجل ملكية دائمًا للفحص وموارده وترحيل0053، ويربط D7B8 العامل بالخيوط والعمليات وموارد الملفات وZAP وطلب الإلغاء والتسوية. دُمج سجل الملكية في PR720 وربط التنفيذ في PR722. القبول المصدرى لا يثبت نشر الصور أو ترحيل قاعدة الإنتاج أو احتواء ZAP الإنتاجي أو تسوية الحالات القديمة أو تصريف المضيف. تبقى عقود الأجزاء السابقة أدناه تاريخية لنطاق كل جزء، وليست قائمة بما ينقص المصدر الحالي.",
+        "source_part": "FR-06C5D9A",
+        "scope_ar": "سلطة قبول دائمة للصيانة في PostgreSQL توسعت في D9A إلى schema8 وثمانية نطاقات: project execution والنسخ والأكاديمية وإرسال الإشعارات وتحضير الإصلاحات وطلبات Security Scan وطلبات Studio وطلبات/resume Realtime media. سجلات D7B3/D7B8 تظل عقد ملكية تشغيل الفحص المدمج، وسلسلة D8 تثبت Studio. D9A يحرس بدء/استئناف Realtime الجديد فقط ولا يثبت ملكية جلسات LiveKit أو Egress أو تصريفها أو full-host closure. قبول المصدر لا يثبت النشر الإنتاجي للـ0063.",
         "authority_domain": "host-maintenance-admission",
         "authority_resource_id": "runtime-node",
-        "implemented_consumer_scope": "project_execution+backup_cycles+academy_course_packages+notification_delivery_dispatch+security_remediation_preparation+security_scan_requests",
-        "migration": "20260918_0053",
+        "implemented_consumer_scope": "project_execution+backup_cycles+academy_course_packages+notification_delivery_dispatch+security_remediation_preparation+security_scan_requests+studio_job_requests+realtime_media_requests",
+        "migration": "20260920_0063",
         "acceptance_ar": [
           "FOR SHARE للقبول وFOR UPDATE للإغلاق مع قراءة جديدة؛ يثبت الإغلاق فقط بعد commit مستقل ويحتفظ بالمهام المملوكة قبل الإغلاق.",
           "إعادة الفتح تتطلب operation_id والجيل الحالي؛ لا فتح بانتهاء الوقت ولا إنشاء open من داخل الحراسة ولا استبدال حالة مغلقة عند إعادة الترحيل.",
@@ -1016,16 +1016,46 @@
           "zap_daemon_retains_api_key": true,
           "zap_host_ports_exposed": false,
           "existing_database_admission_overlay_enforces_env_scrub": false,
-          "production_zap_exclusivity_verified": false,
-          "production_deployment_verified": false,
-          "production_execution_performed": false,
+          "production_zap_exclusivity_verified": true,
+          "production_deployment_verified": true,
+          "production_execution_performed": true,
           "real_scan_performed_by_b9": false,
           "full_host_closure": false,
           "evidence": [
-            "docs/project/receipts/FR-06C5D7B9-production-zap-exclusivity.md"
+            "docs/project/receipts/FR-06C5D7B9-production-zap-exclusivity.md",
+            "docs/project/receipts/FR-06C5D7B9-production-rollout-closeout.md"
           ],
-          "coverage_ar": "يقفل المصدر مسارين كانا يمنعان إثبات حصرية ZAP: في Production لا يسمح run_zap بأي fallback مباشر إلى ZapClient خارج ScanResourceRuntime المملوك دائمًا، وoverlay مستقل جديد يصفر SECURITY_ZAP_URL/API_KEY لكل DB client غير security-scan-worker بينما يبقى ZAP نفسه بلا host ports. هذه دفعة مصدر فقط؛ production_zap_exclusivity_verified تظل false حتى الدمج والنشر وإضافة overlay الحي وإعادة إنشاء العملاء المتأثرين والتحقق من env والـfence دون تشغيل scan حقيقي.",
+          "coverage_ar": "يغلق B9 مساري حصرية ZAP مصدرًا وإنتاجًا: في Production لا يسمح run_zap بأي fallback مباشر إلى ZapClient خارج ScanResourceRuntime المملوك دائمًا، والـoverlay المستقل يصفر SECURITY_ZAP_URL/API_KEY لكل DB client غير security-scan-worker بينما يبقى ZAP نفسه بلا host ports. نُشر المصدر المقبول وجرى التحقق الحي من أن القيم غير الفارغة لا تبقى إلا في security-scan-worker وsecurity-zap، مع fail-closed دون تشغيل scan حقيقي. آخر تحقق حي لاحق أبقى قاعدة الإنتاج على Alembic 0062 والسلطة مفتوحة بعد إعادة الفتح؛ لا تعني حصرية ZAP تصريف Realtime/LiveKit أو full-host closure.",
           "dedicated_zap_exclusivity_overlay": "web-dashboard/docker-compose.fr06-zap-exclusivity.yml"
+        },
+        "realtime_media_request_admission_source": {
+          "source_part": "FR-06C5D9A",
+          "authority_schema_version": 8,
+          "migration": "20260920_0063",
+          "required_scope": "realtime_media_requests",
+          "source_implementation_present": true,
+          "room_create_guarded": true,
+          "room_join_token_guarded": true,
+          "recording_request_guarded": true,
+          "positive_consent_guarded": true,
+          "provider_recording_start_rechecks_admission": true,
+          "get_refresh_resume_guarded_by_provider_start_recheck": true,
+          "leave_allowed_during_maintenance": true,
+          "room_close_allowed_during_maintenance": true,
+          "recording_stop_allowed_during_maintenance": true,
+          "migration_preserves_open_closed_state": true,
+          "migration_preserves_operation_reason_changed_at": true,
+          "migration_advances_generation_only": true,
+          "no_room_participant_grant_recording_backfill": true,
+          "provider_io_performed_by_migration": false,
+          "production_database_migrated": false,
+          "production_deployment_verified": false,
+          "coverage_verified": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06C5D9A-realtime-maintenance-admission.md"
+          ],
+          "coverage_ar": "يوسع سلطة الصيانة إلى schema8 ونطاق realtime_media_requests. يحرس إنشاء الغرفة وإصدار join token وطلب التسجيل وconsent الإيجابي الذي قد يقبل عملاً جديدًا، ويعيد التحقق داخل provider recording start نفسه لإغلاق سباق commit/maintenance-close وأي GET-based resume. تظل leave/close/stop متاحة لأنها مسارات إنهاء وتنظيف. لا يضيف ملكية دائمة لجلسات LiveKit أو Egress ولا يدعي تصريف الجلسات أو full-host closure، ولا يثبت النشر الإنتاجي قبل merge/rollout مستقل."
         }
       }
     },
