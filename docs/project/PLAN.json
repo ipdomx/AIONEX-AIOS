@@ -222,11 +222,11 @@
           "D7B2 يحجز queued السليمة غير المبدوءة فقط، ولا يسترد running قديمة أو محاولة ذات آثار. يثبت claimed ثم executing قبل I/O، ولا يبدأ المالك نفسه مرتين. الإلغاء المتكرر وفشل المهلة أو الحفظ يبقيان المحاولة running مع دليل غير محسوم بدل إعادة الإدراج؛ رجوع الدالة ليس إثبات تنظيف مواردها."
         ],
         "remaining_before_host_cutover_ar": [
-          "قبول النسخة المدمجة من خلال فحوص main ومطابقة المصدر وفق سجل التشغيل؛ لا إعادة تنفيذ أو دمج سجل D7B3 أو ربط D7B8 المنجزين في PR720 وPR722.",
-          "إثبات احتواء ZAP الإنتاجي وملكية جميع الجهات المتصلة به، وحسم الحالات القديمة والملتبسة بتسوية تشغيلية موثقة؛ إقرار الإيقاف أو انتهاء المهلة لا يثبت انتهاء العمل.",
-          "ربط بقية العمال والمنتجين وطلبات realtime بالحراسة، والتحقق من شمول كل عملية تقبل أو تستأنف أو تنفذ عملًا أثناء نقل المضيف.",
-          "قياسات تصريف مرتبطة بالعملية والجيل وتغطية كل عملية منشورة؛ تشمل أعمال المزود غير المحسومة والجلسات وصلاحية LiveKit، مع فصل الأعمال المحفوظة غير المبدوءة عن العمل الفعلي.",
-          "نشر وقبول حي للنطاق الكامل ثم نسخة واستعادة حديثتان ونافذة C5D فعلية قبل النقل؛ لا تعتمد حالة قبول المصدر دليلًا على تغيير الإنتاج."
+          "ربط بقية العمال والمنتجين غير المشمولين بنطاقات authority الثمانية بالحراسة، والتحقق من كل عملية تقبل أو تستأنف أو تنفذ عملًا أثناء نقل المضيف.",
+          "إضافة ملكية دائمة لموارد realtime/LiveKit الفعلية، بما يشمل الغرف والمشاركين ومنح الانضمام وصلاحية الرموز وEgress والتسجيلات، وربطها بالعملية والجيل؛ leave/stop أو انتهاء المهلة لا يثبت التصريف وحده.",
+          "حسم الأعمال القديمة أو الملتبسة في ZAP والفحص الأمني وStudio وبقية المزودين بتسوية تشغيلية موثقة دون retry أو adoption تلقائي؛ حصرية ZAP الإنتاجية نفسها مكتملة ولا تعاد.",
+          "قياسات تصريف مرتبطة بالعملية والجيل لكل عملية منشورة، تشمل أعمال المزود غير المحسومة والجلسات وLiveKit/Egress، مع فصل الأعمال المحفوظة غير المبدوءة عن العمل الفعلي.",
+          "بعد اكتمال التغطية والتسوية: قبول حي للنطاق الكامل ثم نسخة واستعادة حديثتان ونافذة C5D فعلية قبل نقل المضيف؛ لا يعتمد قبول المصدر أو request admission وحدهما دليل full-host closure."
         ],
         "full_host_admission_closed": false,
         "production_activation_record": "docs/project/runtime/events.jsonl",
@@ -1048,14 +1048,21 @@
           "migration_advances_generation_only": true,
           "no_room_participant_grant_recording_backfill": true,
           "provider_io_performed_by_migration": false,
-          "production_database_migrated": false,
-          "production_deployment_verified": false,
-          "coverage_verified": false,
+          "production_database_migrated": true,
+          "production_deployment_verified": true,
+          "coverage_verified": true,
+          "production_request_admission_verified": true,
+          "production_open_generation": 16,
+          "production_rollout_merge_commit": "7be95f99a18bfc6d0b3e894cf8ae8992962f0383",
+          "session_drain_verified": false,
+          "durable_livekit_ownership_verified": false,
+          "livekit_provider_io_performed_by_d9a": false,
           "full_host_closure": false,
           "evidence": [
-            "docs/project/receipts/FR-06C5D9A-realtime-maintenance-admission.md"
+            "docs/project/receipts/FR-06C5D9A-realtime-maintenance-admission.md",
+            "docs/project/receipts/FR-06C5D9A-production-rollout-closeout.md"
           ],
-          "coverage_ar": "يوسع سلطة الصيانة إلى schema8 ونطاق realtime_media_requests. يحرس إنشاء الغرفة وإصدار join token وطلب التسجيل وconsent الإيجابي الذي قد يقبل عملاً جديدًا، ويعيد التحقق داخل provider recording start نفسه لإغلاق سباق commit/maintenance-close وأي GET-based resume. تظل leave/close/stop متاحة لأنها مسارات إنهاء وتنظيف. لا يضيف ملكية دائمة لجلسات LiveKit أو Egress ولا يدعي تصريف الجلسات أو full-host closure، ولا يثبت النشر الإنتاجي قبل merge/rollout مستقل."
+          "coverage_ar": "يوسع D9A سلطة الصيانة إلى schema8 ونطاق realtime_media_requests ويحرس إنشاء الغرفة وإصدار join token وطلب التسجيل وconsent الإيجابي وبداية أو استئناف provider recording. نُشر المصدر المقبول على Production عند 7be95f99 ورُقيت القاعدة إلى 0063 ضمن authority مغلقة، وثبتت scopes الثمانية مغلقة ثم مفتوحة، واختبار Realtime الحي فشل مغلقًا دون provider I/O. تظل leave/close/stop متاحة للتنظيف. هذا closeout يثبت request/resume admission فقط؛ لا يضيف ملكية دائمة لجلسات LiveKit أو Egress ولا يثبت session drain أو full-host closure."
         }
       }
     },

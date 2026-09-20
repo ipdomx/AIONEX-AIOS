@@ -74,7 +74,7 @@ def test_migration_0063_is_linear_non_destructive_and_preserves_control_state():
         assert forbidden not in text.lower()
 
 
-def test_plan_keeps_d9a_source_only_and_full_host_open():
+def test_plan_records_d9a_live_rollout_without_claiming_session_drain():
     plan = json.loads(PLAN.read_text())
     fr06 = next(batch for batch in plan["batches"] if batch["id"] == "FR-06")
     root = fr06["host_state_cutover_admission"]
@@ -87,10 +87,20 @@ def test_plan_keeps_d9a_source_only_and_full_host_open():
     assert item["leave_allowed_during_maintenance"] is True
     assert item["room_close_allowed_during_maintenance"] is True
     assert item["recording_stop_allowed_during_maintenance"] is True
-    assert item["production_database_migrated"] is False
-    assert item["production_deployment_verified"] is False
-    assert item["coverage_verified"] is False
+    assert item["production_database_migrated"] is True
+    assert item["production_deployment_verified"] is True
+    assert item["coverage_verified"] is True
+    assert item["production_request_admission_verified"] is True
+    assert item["production_open_generation"] == 16
+    assert item["production_rollout_merge_commit"] == "7be95f99a18bfc6d0b3e894cf8ae8992962f0383"
+    assert item["session_drain_verified"] is False
+    assert item["durable_livekit_ownership_verified"] is False
+    assert item["livekit_provider_io_performed_by_d9a"] is False
     assert item["full_host_closure"] is False
+    assert any(path.endswith("FR-06C5D9A-production-rollout-closeout.md") for path in item["evidence"])
+    remaining = root["remaining_before_host_cutover_ar"]
+    assert any("realtime/LiveKit" in line and "ملكية دائمة" in line for line in remaining)
+    assert any("full-host closure" in line for line in remaining)
 
 
 def test_backend_shipped_head_advances_to_0063():
