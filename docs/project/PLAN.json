@@ -424,7 +424,8 @@
           "evidence": [
             "docs/project/receipts/FR-06C5D7B8-runtime-acceptance.md"
           ],
-          "coverage_ar": "المصدر المدمج يحتوي سجل التنفيذ وربط العامل وموارد التشغيل والإلغاء. نجحت اختبارات المعمل الحقيقي المحدود كما في إيصال B8؛ لا تثبت عزل محرك الإنتاج أو فحص كل القواعد أو تصريف المضيف. حالة فحوص main والمزامنة تؤخذ من السجل الحي، ولا تجمد كحقيقة تشغيلية داخل PLAN."
+          "coverage_ar": "المصدر المدمج يحتوي سجل التنفيذ وربط العامل وموارد التشغيل والإلغاء. نجحت اختبارات المعمل الحقيقي المحدود كما في إيصال B8؛ لا تثبت عزل محرك الإنتاج أو فحص كل القواعد أو تصريف المضيف. حالة فحوص main والمزامنة تؤخذ من السجل الحي، ولا تجمد كحقيقة تشغيلية داخل PLAN.",
+          "current_exclusivity_contract": "security_scan_zap_exclusivity_source"
         },
         "studio_execution_resources_source": {
           "source_part": "FR-06C5D8A2B3",
@@ -1004,6 +1005,28 @@
           ],
           "coverage_ar": "تسوية terminal دائمة في قاعدة البيانات فقط بعد B6B1/B6B2: تعيد مطابقة containment والدليل الخام والمرشح وhost revalidation، وتشترط أن سلطة Studio maintenance المغلقة الحالية ما زالت مطابقة تمامًا للسلطة التي بُني عليها host proof. عند التطابق فقط تسجل crash_reconciled_quarantine_retained وتزيل blocker محاولة التنفيذ وblocker ملاحظة crash لنفس المحاولة، مع إبقاء quarantine وكل الأدلة الخام. التكرار المطابق idempotent حتى بعد rollover لاحق، أما إنشاء سجل جديد بعد تغير السلطة أو مع success/prestart/poststart conflict أو raw drift فيفشل مغلقًا. لا retry أو success settlement أو filesystem cleanup أو حذف quarantine/final، ولا ادعاء process drain أو full-host closure أو Production deployment في هذه الدفعة."
         },
+        "security_scan_zap_exclusivity_source": {
+          "source_part": "FR-06C5D7B9",
+          "prerequisite_source_part": "FR-06C5D7B8",
+          "source_implementation_present": true,
+          "production_requires_owned_runtime": true,
+          "direct_zap_client_fallback_permitted_in_production": false,
+          "non_scan_db_clients_receive_zap_credentials": false,
+          "security_scan_worker_retains_zap_credentials": true,
+          "zap_daemon_retains_api_key": true,
+          "zap_host_ports_exposed": false,
+          "existing_database_admission_overlay_enforces_env_scrub": false,
+          "production_zap_exclusivity_verified": false,
+          "production_deployment_verified": false,
+          "production_execution_performed": false,
+          "real_scan_performed_by_b9": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06C5D7B9-production-zap-exclusivity.md"
+          ],
+          "coverage_ar": "يقفل المصدر مسارين كانا يمنعان إثبات حصرية ZAP: في Production لا يسمح run_zap بأي fallback مباشر إلى ZapClient خارج ScanResourceRuntime المملوك دائمًا، وoverlay مستقل جديد يصفر SECURITY_ZAP_URL/API_KEY لكل DB client غير security-scan-worker بينما يبقى ZAP نفسه بلا host ports. هذه دفعة مصدر فقط؛ production_zap_exclusivity_verified تظل false حتى الدمج والنشر وإضافة overlay الحي وإعادة إنشاء العملاء المتأثرين والتحقق من env والـfence دون تشغيل scan حقيقي.",
+          "dedicated_zap_exclusivity_overlay": "web-dashboard/docker-compose.fr06-zap-exclusivity.yml"
+        },
         "realtime_media_request_admission_source": {
           "source_part": "FR-06C5D9A",
           "authority_schema_version": 8,
@@ -1031,8 +1054,7 @@
           "evidence": [
             "docs/project/receipts/FR-06C5D9A-realtime-maintenance-admission.md"
           ],
-          "coverage_ar": "يوسع سلطة الصيانة إلى schema8 ونطاق realtime_media_requests. يحرس إنشاء الغرفة وإصدار join token وطلب التسجيل وconsent الإيجابي الذي قد يقبل عملاً جديدًا، ويعيد التحقق داخل provider recording start نفسه لإغلاق سباق commit/maintenance-close وأي GET-based resume. تظل leave/close/stop متاحة لأنها مسارات إنهاء وتنظيف. لا يضيف ملكية دائمة لجلسات LiveKit أو Egress ولا يدعي تصريف الجلسات أو full-host closure، ولا يثبت النشر الإنتاجي قبل merge/rollout مستقل."
-        }
+          "coverage_ar": "يوسع سلطة الصيانة إلى schema8 ونطاق realtime_media_requests. يحرس إنشاء الغرفة وإصدار join token وطلب التسجيل وconsent الإيجابي الذي قد يقبل عملاً جديدًا، ويعيد التحقق داخل provider recording start نفسه لإغلاق سباق commit/maintenance-close وأي GET-based resume. تظل leave/close/stop متاحة لأنها مسارات إنهاء وتنظيف. لا يضيف ملكية دائمة لجلسات LiveKit أو Egress ولا يدعي تصريف الجلسات أو full-host closure، ولا يثبت النشر الإنتاجي قبل merge/rollout مستقل."        }
       }
     },
     {

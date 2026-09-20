@@ -70,3 +70,22 @@ async def test_active_clone_spiders_before_active_scan(monkeypatch):
     result = await client.active_clone("http://fixture:8088", timeout=10)
     assert result["status"] == "completed"
     assert calls.index("/JSON/spider/action/scan/") < calls.index("/JSON/ascan/action/scan/")
+
+
+@pytest.mark.asyncio
+async def test_production_zap_requires_durable_owned_runtime(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.setenv("SECRET_KEY", "fr06-zap-exclusivity-test-key-32chars-minimum")
+    monkeypatch.setenv("SECURITY_ZAP_URL", "http://security-zap:8080")
+    monkeypatch.setenv("SECURITY_ZAP_API_KEY", "test-key")
+
+    class ForbiddenDirectClient:
+        def __init__(self):
+            raise AssertionError("Production must not instantiate direct ZapClient")
+
+    monkeypatch.setattr(security_zap, "ZapClient", ForbiddenDirectClient)
+    result = await security_zap.run_zap(
+        "https://example.test", execution_mode="passive", active=False
+    )
+    assert result["status"] == "failed"
+    assert result["error_type"] == "RuntimeError"
