@@ -743,6 +743,45 @@
           "evidence": [
             "docs/project/receipts/FR-06D8C4B3-studio-cleanup-candidate.md"
           ]
+        },
+        "studio_process_reference_scan_source": {
+          "source_part": "FR-06D8C4B4",
+          "prerequisite_merged_prs": [
+            738
+          ],
+          "source_implementation_present": true,
+          "writer_receipt_required": true,
+          "runtime_drain_receipt_required": true,
+          "cleanup_candidate_required": true,
+          "same_operation_generation_required": true,
+          "current_writer_reader_epoch_recheck_required": true,
+          "candidate_staging_identity_recheck_required": true,
+          "candidate_final_layout_recheck_required": true,
+          "nofollow_descriptor_path_required": true,
+          "proc_reference_classes": [
+            "fd",
+            "cwd",
+            "root",
+            "exe",
+            "mmap"
+          ],
+          "per_thread_scan_required": true,
+          "double_proc_scan_required": true,
+          "stable_candidate_identity_between_scans_required": true,
+          "boot_id_bound_receipt": true,
+          "zero_visible_candidate_reference_required": true,
+          "candidate_reference_drain_verified_by_source": true,
+          "host_process_scan_verified_by_source": true,
+          "process_drain_verified": false,
+          "cleanup_authorized": false,
+          "filesystem_mutation_performed": false,
+          "final_deletion_permitted": false,
+          "production_deployment_verified": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06D8C4B4-studio-process-reference-scan.md"
+          ],
+          "coverage_ar": "يربط المصدر إيصالات B1/B2 بمرشح B3 محدد يتطلب إزالة staging، ثم يعيد التحقق من حاويات الكتابة/القراءة الحالية وهوية الحجم ويفتح مسار المرشح بوصفات O_NOFOLLOW. يطابق staging وfinal مع الدليل المحتفظ به، ويمسح fd/cwd/root/exe/mmap لكل thread مرتين مع إعادة التحقق من inode بين المسحين وربط الإيصال بالـboot id. النجاح يثبت غياب مرجع /proc مرئي للـstaging المرشح فقط؛ process_drain_verified وcleanup_authorized وfinal_deletion_permitted وfull_host_closure تبقى false ولا يحدث أي حذف أو إيقاف."
         }
       }
     },
