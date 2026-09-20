@@ -193,6 +193,19 @@ def test_plan_keeps_b6b3_terminal_but_non_destructive():
         assert item[key] is False
 
 
+
+def test_all_legacy_terminal_writers_fence_crash_reconciliation():
+    paths = [
+        ROOT / "web-dashboard/backend/app/services/studio_success_settlement.py",
+        ROOT / "web-dashboard/backend/app/services/studio_prestart_cancellation.py",
+        ROOT / "web-dashboard/backend/app/services/studio_poststart_cancellation.py",
+    ]
+    for path in paths:
+        source = path.read_text()
+        assert "StudioCrashReconciliation" in source
+        assert "StudioCrashReconciliation.execution_id" in source
+
+
 def test_backend_shipped_head_contract_advances_to_0062():
     text = DATABASE_TEST.read_text()
     assert 'frozenset({"20260920_0062"})' in text
