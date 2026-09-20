@@ -842,6 +842,42 @@
           "receipt_quarantine_name_match_required": true,
           "fresh_container_inventory_rechecks_mutation_path": 4,
           "fresh_container_inventory_rechecks_recovery_path": 3
+        },
+        "studio_crash_containment_source": {
+          "source_part": "FR-06D8C4B6A",
+          "prerequisite_merged_prs": [
+            741
+          ],
+          "migration": "20260920_0061",
+          "source_implementation_present": true,
+          "database_only_provenance": true,
+          "cleanup_candidate_required": true,
+          "process_reference_scan_receipt_required": true,
+          "staging_quarantine_receipt_required": true,
+          "same_operation_generation_required": true,
+          "same_boot_chain_required": true,
+          "current_closed_maintenance_required_for_new_receipt": true,
+          "raw_execution_publication_observation_retained": true,
+          "exact_same_receipt_idempotent": true,
+          "different_existing_receipt_rejected": true,
+          "terminal_receipt_conflicts_rejected": true,
+          "filesystem_mutation_performed_by_b6a": false,
+          "host_containment_mutation_recorded": true,
+          "filesystem_cleanup_claimed": false,
+          "blocker_cleared": false,
+          "retry_authorized": false,
+          "process_drain_verified": false,
+          "cleanup_authorized": false,
+          "settlement_authorized": false,
+          "quarantine_deletion_permitted": false,
+          "final_deletion_permitted": false,
+          "production_database_migrated": false,
+          "production_deployment_verified": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06D8C4B6A-studio-crash-containment.md"
+          ],
+          "coverage_ar": "يربط المصدر دليل post-crash المحتفظ به بسلسلة B3/B4/B5 الدقيقة داخل قاعدة البيانات فقط، مع نفس العملية والجيل والـboot، ويحفظ سجل containment مستقلًا ودائمًا دون لمس filesystem أو إيقاف/إعادة تشغيل أي عملية أو حاوية. السجل يثبت فقط أن اسم staging عُزل إلى quarantine محفوظ؛ لا يدعي cleanup أو settlement أو process drain ولا ينقص blocker_count. تكرار نفس الدليل idempotent، وأي اختلاف أو terminal receipt متعارض أو drift في الأدلة الخام يبقى reconciliation blocker. لا migration إنتاجية أو deploy أو retry أو حذف quarantine/final في هذه الدفعة."
         }
       }
     },
