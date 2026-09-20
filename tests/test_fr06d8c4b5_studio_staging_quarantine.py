@@ -603,10 +603,11 @@ def test_final_appearance_blocks_before_quarantine(tmp_path):
 
 
 def test_create_only_private_candidate_bound_receipt(tmp_path):
+    case = _case(tmp_path)
+    value = _evaluate(case)
+    digest = value["candidate_sha256"]
     root = tmp_path / "receipts"
     root.mkdir(mode=0o700)
-    digest = "a" * 64
-    value = {"ok": True}
     path = b5._write_private(root, digest, value)
     assert path == root / f"{digest}.json"
     assert json.loads(path.read_text()) == value
@@ -614,6 +615,22 @@ def test_create_only_private_candidate_bound_receipt(tmp_path):
     assert stat.S_IMODE(root.stat().st_mode) == 0o700
     with pytest.raises(b5.StagingQuarantineBlocked, match="already exists"):
         b5._write_private(root, digest, value)
+
+
+def test_private_receipt_rejects_content_digest_or_candidate_mismatch(tmp_path):
+    case = _case(tmp_path)
+    value = _evaluate(case)
+    digest = value["candidate_sha256"]
+    root = tmp_path / "receipts"
+    root.mkdir(mode=0o700)
+
+    tampered = dict(value)
+    tampered["cleanup_authorized"] = True
+    with pytest.raises(b5.StagingQuarantineBlocked, match="boundary is invalid"):
+        b5._write_private(root, digest, tampered)
+
+    with pytest.raises(b5.StagingQuarantineBlocked, match="boundary is invalid"):
+        b5._write_private(root, "f" * 64, value)
 
 
 def test_receipt_state_root_must_preexist_and_be_private(tmp_path):

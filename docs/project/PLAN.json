@@ -798,7 +798,6 @@
           "same_boot_as_process_scan_required": true,
           "current_writer_epoch_recheck_required": true,
           "current_reader_identity_mount_recheck_required": true,
-          "fresh_container_inventory_rechecks": 4,
           "candidate_staging_identity_required": true,
           "candidate_final_layout_preserved": true,
           "nofollow_descriptor_path_required": true,
@@ -821,7 +820,7 @@
           "evidence": [
             "docs/project/receipts/FR-06D8C4B5-studio-staging-quarantine.md"
           ],
-          "coverage_ar": "مرحلة احتواء مصدرية فقط بعد B4: تربط B1/B2/B3/إيصال B4 بنفس العملية والجيل والـboot، وتعيد جرد حاويات الكتابة والقارئ من Docker أربع مرات فعليًا: عند الدخول، وعند آخر نقطة آمنة قبل rename، وبعد النقل، وقبل إصدار الإيصال؛ وتمسح /proc مرتين قبل الحركة ومرتين بعدها. الاسم المرحلي المملوك فقط يُنقل ذريًا داخل نفس المجلد إلى اسم quarantine حتمي مشتق من candidate_sha256 باستخدام renameat2(RENAME_NOREPLACE) دون overwrite أو fallback قابل للاستبدال أو unlink؛ يحتفظ نفس inode والـfinal hardlink إن وجد ويعمل fsync للمجلد. إعادة التشغيل بعد crash في نفس boot تتعرف فقط على quarantine نفسه بالهوية الدقيقة. لا حذف bytes أو final، ولا cleanup/settlement أو process/full-host drain، ولا تنفيذ إنتاجي في هذه الدفعة.",
+          "coverage_ar": "مرحلة احتواء مصدرية فقط بعد B4: تربط B1/B2/B3/إيصال B4 بنفس العملية والجيل والـboot. في مسار النقل الجديد تعيد جرد حاويات الكتابة والقارئ من Docker أربع مرات فعليًا: عند الدخول، وعند آخر نقطة آمنة قبل rename، وبعد النقل، وقبل إصدار الإيصال؛ وفي مسار same-boot crash-recovery لا يوجد rename جديد لذلك تعيد الجرد ثلاث مرات: عند الدخول، وبعد إثبات quarantine المحتفظ به، وقبل الإيصال. تمسح /proc مرتين قبل الحركة ومرتين بعدها في مسار النقل، بينما recovery لا يعيد ادعاء pre-rename scan. الاسم المرحلي المملوك فقط يُنقل ذريًا داخل نفس المجلد إلى اسم quarantine حتمي مشتق من candidate_sha256 باستخدام renameat2(RENAME_NOREPLACE) دون overwrite أو fallback قابل للاستبدال أو unlink؛ يحتفظ نفس inode والـfinal hardlink إن وجد ويعمل fsync للمجلد. إعادة التشغيل بعد crash في نفس boot تتعرف فقط على quarantine نفسه بالهوية الدقيقة. لا حذف bytes أو final، ولا cleanup/settlement أو process/full-host drain، ولا تنفيذ إنتاجي في هذه الدفعة.",
           "fresh_inventory_immediately_before_rename_required": true,
           "fresh_inventory_after_rename_required": true,
           "directory_fsync_required": true,
@@ -835,7 +834,13 @@
           "receipt_create_only": true,
           "automatic_state_root_creation": false,
           "state_root_descriptor_chain_nofollow": true,
-          "receipt_single_link_required": true
+          "receipt_single_link_required": true,
+          "receipt_exact_schema_required": true,
+          "receipt_self_digest_verified_before_write": true,
+          "receipt_candidate_digest_match_required": true,
+          "receipt_quarantine_name_match_required": true,
+          "fresh_container_inventory_rechecks_mutation_path": 4,
+          "fresh_container_inventory_rechecks_recovery_path": 3
         }
       }
     },

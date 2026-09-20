@@ -153,6 +153,26 @@ def test_no_container_control_database_or_admission_mutation_surface():
         assert forbidden not in text
 
 
+def test_private_receipt_content_is_exact_and_self_digest_verified():
+    source = ast.unparse(_node("_validated_output_receipt"))
+    assert "_RECEIPT_KEYS" in source
+    assert "candidate_sha256" in source
+    assert "_quarantine_name(candidate_sha256)" in source
+    assert "receipt_sha256" in source
+    assert "_sha(body)" in source
+    for marker in (
+        "staging_namespace_detached",
+        "quarantine_inode_retained",
+        "final_layout_preserved",
+        "cleanup_authorized",
+        "settlement_authorized",
+        "quarantine_deletion_permitted",
+        "final_deletion_permitted",
+        "full_host_closure",
+    ):
+        assert marker in source
+
+
 def test_receipt_persistence_is_fixed_private_create_only_state():
     source = ast.unparse(_node("_write_private"))
     root = ast.unparse(_node("_validated_state_root"))
@@ -182,11 +202,22 @@ def test_project_plan_keeps_b5_as_retained_containment_not_cleanup():
     assert contract["source_part"] == "FR-06D8C4B5"
     assert contract["prerequisite_merged_prs"] == [740]
     assert contract["same_boot_as_process_scan_required"] is True
-    assert contract["fresh_container_inventory_rechecks"] == 4
+    assert contract["fresh_container_inventory_rechecks_mutation_path"] == 4
+    assert contract["fresh_container_inventory_rechecks_recovery_path"] == 3
     assert contract["atomic_rename_noreplace_required"] is True
     assert contract["pre_quarantine_proc_scans"] == 2
     assert contract["post_quarantine_proc_scans"] == 2
     assert contract["quarantine_inode_retained"] is True
+    assert contract["private_receipt_state_root"] == (
+        "/var/lib/aionex/fr06d8c4b5-studio-quarantine"
+    )
+    assert contract["state_root_descriptor_chain_nofollow"] is True
+    assert contract["receipt_create_only"] is True
+    assert contract["receipt_single_link_required"] is True
+    assert contract["receipt_exact_schema_required"] is True
+    assert contract["receipt_self_digest_verified_before_write"] is True
+    assert contract["receipt_candidate_digest_match_required"] is True
+    assert contract["receipt_quarantine_name_match_required"] is True
     assert contract["production_mutation_performed"] is False
     assert contract["process_drain_verified"] is False
     assert contract["cleanup_authorized"] is False

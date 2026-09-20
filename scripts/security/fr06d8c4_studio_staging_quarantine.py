@@ -439,6 +439,53 @@ def evaluate_and_quarantine(
     return receipt
 
 
+_RECEIPT_KEYS = {
+    "schema", "observed_at", "writer_receipt_sha256", "runtime_receipt_sha256",
+    "candidate_sha256", "process_scan_receipt_sha256", "operation_id",
+    "generation", "boot_id", "staging_name", "quarantine_name",
+    "retained_identity", "pre_quarantine_scan_passes",
+    "post_quarantine_scan_passes", "recovered_existing_quarantine",
+    "mutation_performed_by_this_run", "staging_namespace_detached",
+    "quarantine_inode_retained", "final_layout_preserved",
+    "candidate_reference_drain_verified", "process_drain_verified",
+    "cleanup_authorized", "settlement_authorized",
+    "filesystem_mutation_performed", "quarantine_deletion_permitted",
+    "final_deletion_permitted", "full_host_closure", "receipt_sha256",
+}
+
+
+def _validated_output_receipt(
+    value: Any, candidate_sha256: str
+) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != _RECEIPT_KEYS:
+        raise StagingQuarantineBlocked("quarantine receipt fields are not exact")
+    digest = value.get("receipt_sha256")
+    body = {key: item for key, item in value.items() if key != "receipt_sha256"}
+    if (
+        value.get("schema") != SCHEMA
+        or value.get("candidate_sha256") != candidate_sha256
+        or value.get("quarantine_name") != _quarantine_name(candidate_sha256)
+        or not isinstance(digest, str)
+        or len(digest) != 64
+        or digest != _sha(body)
+        or value.get("staging_namespace_detached") is not True
+        or value.get("quarantine_inode_retained") is not True
+        or value.get("final_layout_preserved") is not True
+        or value.get("candidate_reference_drain_verified") is not True
+        or value.get("filesystem_mutation_performed") is not True
+        or value.get("process_drain_verified") is not False
+        or value.get("cleanup_authorized") is not False
+        or value.get("settlement_authorized") is not False
+        or value.get("quarantine_deletion_permitted") is not False
+        or value.get("final_deletion_permitted") is not False
+        or value.get("full_host_closure") is not False
+        or value.get("post_quarantine_scan_passes") != 2
+        or value.get("pre_quarantine_scan_passes") not in {0, 2}
+    ):
+        raise StagingQuarantineBlocked("quarantine receipt boundary is invalid")
+    return value
+
+
 def _validated_state_root(path: Path) -> int:
     if not path.is_absolute() or path == Path("/") or ".." in path.parts:
         raise StagingQuarantineBlocked("quarantine state root is unsafe")
@@ -485,6 +532,11 @@ def _write_private(
     ) + ".json"
     root_fd = _validated_state_root(state_root)
     try:
+        checked = _validated_output_receipt(value, candidate_sha256)
+    except BaseException:
+        os.close(root_fd)
+        raise
+    try:
         try:
             descriptor = os.open(
                 receipt_name,
@@ -497,7 +549,7 @@ def _write_private(
                 "quarantine receipt already exists"
             ) from exc
         try:
-            content = (json.dumps(value, sort_keys=True, indent=2) + "\n").encode()
+            content = (json.dumps(checked, sort_keys=True, indent=2) + "\n").encode()
             view = memoryview(content)
             while view:
                 count = os.write(descriptor, view)
