@@ -918,6 +918,51 @@
           ],
           "prerequisite_main_merge_commit": "badf231e37597826dcd45643fd63aa557e0464a2",
           "prerequisite_main_acceptance_verified": true
+        },
+        "studio_quarantine_revalidation_source": {
+          "source_part": "FR-06D8C4B6B2",
+          "prerequisite_source_part": "FR-06D8C4B6B1",
+          "requires_b6b1_merged_acceptance_before_protected_acceptance": true,
+          "source_implementation_present": true,
+          "host_read_only_revalidation": true,
+          "terminal_candidate_exact_digest_required": true,
+          "current_studio_volume_source_derived_from_docker": true,
+          "current_writer_reader_set_required": [
+            "backend",
+            "studio-worker",
+            "backup-worker"
+          ],
+          "unexpected_alternate_volume_access_rejected": true,
+          "fresh_container_inventories": 2,
+          "container_epoch_stable_during_revalidation": true,
+          "nofollow_descriptor_chain_required": true,
+          "original_staging_name_must_be_absent": true,
+          "quarantine_identity_must_match_b5_retained_identity": true,
+          "archive_size_bound_from_b6b1": true,
+          "archive_checksum_bound_from_b6b1": true,
+          "archive_content_hash_passes": 2,
+          "archive_content_revalidated": true,
+          "process_reference_scan_passes": 2,
+          "quarantine_reference_drain_verified": true,
+          "cross_boot_revalidation_permitted": true,
+          "authority_revalidation_required_by_next_stage": true,
+          "terminalization_authorized": false,
+          "blocker_cleared": false,
+          "retry_authorized": false,
+          "filesystem_cleanup_claimed": false,
+          "studio_filesystem_mutation_performed": false,
+          "cleanup_authorized": false,
+          "settlement_authorized": false,
+          "quarantine_deletion_permitted": false,
+          "final_deletion_permitted": false,
+          "production_execution_performed": false,
+          "production_database_migrated": false,
+          "production_deployment_verified": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06D8C4B6B2-studio-quarantine-revalidation.md"
+          ],
+          "coverage_ar": "إعادة تحقق host-side للقراءة فقط بعد B6B1: تستخرج مصدر Studio الحالي من جرد Docker حي بدل الاعتماد على source تاريخي، وتشترط backend وstudio-worker ككاتبين وbackup-worker كقارئ فقط على نفس المصدر، وترفض أي مسار وصول بديل لنفس المصدر. تعيد الجرد مرتين وتفشل عند أي تغير في container id/restart/start/mount. تفتح المسار النسبي نفسه عبر O_NOFOLLOW descriptors، تشترط غياب اسم staging وبقاء quarantine بنفس هوية B5 مع final layout الصحيح، وتفتح quarantine نفسه بوصف file descriptor مثبت ثم تعيد SHA-256 مرتين مقابل checksum والحجم الدائمين من StudioPublication.plan حول مسحين كاملين لـ/proc. يسمح بإعادة التحقق بعد reboot لأن الإثبات يعاد من الصفر ويُسجل current boot منفصلًا؛ لكنه لا يصرح terminalization أو blocker clear أو retry أو cleanup/delete، وتبقى إعادة ربط سلطة DB الحالية مطلوبة في المرحلة التالية."
         }
       }
     },
