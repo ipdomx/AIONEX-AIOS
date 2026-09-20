@@ -670,6 +670,52 @@
             "docs/project/receipts/FR-06D8C4A-studio-postcrash-observation.md"
           ],
           "coverage_ar": "يسجل المصدر ملاحظة دائمة بعد crash فقط أثناء إغلاق قبول Studio، ويربطها بمحاولة التنفيذ وسجل النشر وهوية سلسلة المجلدات وموضعي staging/final دون أي حذف أو rename أو retry. إغلاق القبول لا يُعامل كإثبات توقف العملية؛ لذلك process_drain_verified وcleanup_authorized يبقيان false، والملاحظة لا تُنقص blockers ولا تدعي full-host closure. حالات الهوية المفقودة أو المتغيرة تبقى reconciliation required. النشر والترحيل والتنظيف الفعلي بعد crash خارج هذا الجزء."
+        },
+        "studio_writer_epoch_source": {
+          "source_part": "FR-06D8C4B1",
+          "prerequisite_merged_prs": [
+            735
+          ],
+          "source_implementation_present": true,
+          "runtime_writers": [
+            "backend",
+            "studio-worker"
+          ],
+          "runtime_readers": [
+            "backup-worker"
+          ],
+          "closed_studio_admission_required": true,
+          "writer_epoch_stable_required": true,
+          "process_drain_verified": false,
+          "backup_cycle_drain_verified": false,
+          "cleanup_authorized": false,
+          "filesystem_mutation_performed": false,
+          "production_deployment_verified": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06D8C4B1-studio-writer-epoch.md"
+          ]
+        },
+        "studio_runtime_drain_source": {
+          "source_part": "FR-06D8C4B2",
+          "prerequisite_merged_prs": [
+            736
+          ],
+          "source_implementation_present": true,
+          "writer_receipt_required": true,
+          "same_operation_generation_required": true,
+          "stable_container_epoch_required": true,
+          "backup_cycle_registry_empty_required": true,
+          "backup_cycle_drain_verified_by_source": true,
+          "process_drain_verified": false,
+          "host_process_scan_verified": false,
+          "cleanup_authorized": false,
+          "filesystem_mutation_performed": false,
+          "production_deployment_verified": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06D8C4B2-studio-runtime-drain.md"
+          ]
         }
       }
     },
