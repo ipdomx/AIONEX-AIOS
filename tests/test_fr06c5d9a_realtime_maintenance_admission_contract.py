@@ -79,7 +79,8 @@ def test_plan_records_d9a_live_rollout_without_claiming_session_drain():
     fr06 = next(batch for batch in plan["batches"] if batch["id"] == "FR-06")
     root = fr06["host_state_cutover_admission"]
     item = root["realtime_media_request_admission_source"]
-    assert root["source_part"] == "FR-06C5D9A"
+    assert item["source_part"] == "FR-06C5D9A"
+    assert root["source_part"] == "FR-06C5D9B1"
     assert root["implemented_consumer_scope"].endswith("+realtime_media_requests")
     assert item["authority_schema_version"] == 8
     assert item["migration"] == "20260920_0063"
