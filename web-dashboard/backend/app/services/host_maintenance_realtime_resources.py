@@ -181,6 +181,40 @@ async def begin_provider_io(
         return True
 
 
+async def begin_provider_io_bundle(
+    owners: tuple[RealtimeProviderOwnership, ...],
+    *,
+    session_factory: SessionFactory = SessionLocal,
+) -> bool:
+    """Consume a committed provider-intent bundle atomically under one admission read."""
+    if not owners or len({owner.id for owner in owners}) != len(owners):
+        raise ValueError("Realtime provider ownership bundle is invalid")
+    first = owners[0]
+    if any(
+        owner.admitted_generation != first.admitted_generation
+        or owner.admitted_operation_id != first.admitted_operation_id
+        for owner in owners
+    ):
+        raise ValueError("Realtime provider ownership bundle admission differs")
+    ordered = tuple(sorted(owners, key=lambda owner: owner.id))
+    async with session_factory() as session, session.begin():
+        authority = await require_realtime_admission(session)
+        rows = [await _locked(session, owner) for owner in ordered]
+        if (
+            authority.generation != first.admitted_generation
+            or authority.operation_id != first.admitted_operation_id
+        ):
+            return False
+        if any(row.state != "reserved" for row in rows):
+            raise RealtimeProviderOwnershipLost("Provider intent bundle is single-use")
+        stamp = await _now(session)
+        for row in rows:
+            row.state = "submitted"
+            row.provider_started_at = stamp
+            row.updated_at = stamp
+        return True
+
+
 async def observe_provider_active(
     owner: RealtimeProviderOwnership, *, provider_ref_sha256: str,
     expires_at: datetime | None = None, session_factory: SessionFactory = SessionLocal,
@@ -352,6 +386,32 @@ async def settle_egress_terminal(
             )
         if row.provider_ref_sha256 != provider_ref_sha256:
             raise RealtimeProviderOwnershipUncertain("Egress provider identity differs")
+        stamp = await _now(session)
+        row.state = "settled"
+        row.unresolved_reason = None
+        row.settled_at = stamp
+        row.updated_at = stamp
+
+async def settle_recording_file_absent(
+    owner: RealtimeProviderOwnership,
+    *,
+    provider_ref_sha256: str,
+    provider_status: str,
+    session_factory: SessionFactory = SessionLocal,
+) -> None:
+    """Settle recording-file ownership only after explicit terminal absence proof."""
+    if owner.resource_kind != "recording_file" or not _hex64(provider_ref_sha256):
+        raise ValueError("Recording-file settlement identity is invalid")
+    if provider_status not in _EGRESS_TERMINAL_STATUSES:
+        raise ValueError("Recording-file settlement requires terminal Egress status")
+    async with session_factory() as session, session.begin():
+        row = await _locked(session, owner)
+        if row.state not in {"active", "unresolved"}:
+            raise RealtimeProviderOwnershipLost(
+                "Recording-file settlement requires active or unresolved ownership"
+            )
+        if row.provider_ref_sha256 != provider_ref_sha256:
+            raise RealtimeProviderOwnershipUncertain("Recording-file identity differs")
         stamp = await _now(session)
         row.state = "settled"
         row.unresolved_reason = None

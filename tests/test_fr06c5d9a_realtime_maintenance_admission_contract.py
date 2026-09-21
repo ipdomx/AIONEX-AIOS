@@ -80,7 +80,7 @@ def test_plan_records_d9a_live_rollout_without_claiming_session_drain():
     root = fr06["host_state_cutover_admission"]
     item = root["realtime_media_request_admission_source"]
     assert item["source_part"] == "FR-06C5D9A"
-    assert root["source_part"] == "FR-06C5D9B2B3"
+    assert root["source_part"] == "FR-06C5D9B2B4"
     assert root["implemented_consumer_scope"].endswith("+realtime_media_requests")
     assert item["authority_schema_version"] == 8
     assert item["migration"] == "20260920_0063"
