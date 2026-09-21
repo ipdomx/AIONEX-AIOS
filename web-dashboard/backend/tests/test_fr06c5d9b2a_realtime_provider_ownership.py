@@ -332,3 +332,63 @@ async def test_participant_session_settles_only_after_whole_bundle_expiry(
     row = await _row(case, owner)
     assert row is not None and row.state == "settled"
     assert row.settled_at == expiry + timedelta(seconds=1)
+
+
+@pytest.mark.asyncio
+async def test_egress_ending_does_not_settle_but_explicit_terminal_status_does(provider_case):
+    case = provider_case
+    digest = "f" * 64
+    async with case.sessions() as session:
+        async with session.begin():
+            owner = await registry.reserve_provider_resource(
+                session, organization_id=str(uuid4()), resource_kind="egress",
+                local_resource_id=str(uuid4()), owner_incarnation=str(uuid4()),
+            )
+    assert await registry.begin_provider_io(owner, session_factory=case.sessions) is True
+    await registry.observe_provider_active(
+        owner, provider_ref_sha256=digest, session_factory=case.sessions
+    )
+    assert await registry.verify_provider_reference(
+        owner, provider_ref_sha256=digest, session_factory=case.sessions
+    ) == "active"
+    with pytest.raises(ValueError, match="explicit terminal"):
+        await registry.settle_egress_terminal(
+            owner, provider_ref_sha256=digest, provider_status="EGRESS_ENDING",
+            session_factory=case.sessions,
+        )
+    assert await registry.provider_ownership_state(owner, session_factory=case.sessions) == "active"
+    await registry.settle_egress_terminal(
+        owner, provider_ref_sha256=digest, provider_status="EGRESS_COMPLETE",
+        session_factory=case.sessions,
+    )
+    assert await registry.provider_ownership_state(owner, session_factory=case.sessions) == "settled"
+
+
+@pytest.mark.asyncio
+async def test_egress_terminal_settlement_rejects_identity_mismatch_and_accepts_unresolved(provider_case):
+    case = provider_case
+    digest = "1" * 64
+    async with case.sessions() as session:
+        async with session.begin():
+            owner = await registry.reserve_provider_resource(
+                session, organization_id=str(uuid4()), resource_kind="egress",
+                local_resource_id=str(uuid4()), owner_incarnation=str(uuid4()),
+            )
+    assert await registry.begin_provider_io(owner, session_factory=case.sessions) is True
+    await registry.observe_provider_active(
+        owner, provider_ref_sha256=digest, session_factory=case.sessions
+    )
+    await registry.mark_provider_unresolved(
+        owner, reason="egress_list_RealtimeProviderUnavailable", session_factory=case.sessions
+    )
+    with pytest.raises(registry.RealtimeProviderOwnershipUncertain, match="identity differs"):
+        await registry.settle_egress_terminal(
+            owner, provider_ref_sha256="2" * 64, provider_status="EGRESS_FAILED",
+            session_factory=case.sessions,
+        )
+    await registry.settle_egress_terminal(
+        owner, provider_ref_sha256=digest, provider_status="EGRESS_FAILED",
+        session_factory=case.sessions,
+    )
+    row = await _row(case, owner)
+    assert row is not None and row.state == "settled" and row.unresolved_reason is None

@@ -314,3 +314,46 @@ async def settle_participant_session_expired(
         row.settled_at = stamp
         row.updated_at = stamp
         return True
+
+
+_EGRESS_TERMINAL_STATUSES = frozenset({
+    "EGRESS_COMPLETE", "EGRESS_FAILED", "EGRESS_ABORTED",
+})
+
+
+async def verify_provider_reference(
+    owner: RealtimeProviderOwnership, *, provider_ref_sha256: str,
+    session_factory: SessionFactory = SessionLocal,
+) -> str:
+    """Verify an observed provider identity without changing settlement state."""
+    if not _hex64(provider_ref_sha256):
+        raise ValueError("Provider reference digest is invalid")
+    async with session_factory() as session:
+        row = await _locked(session, owner)
+        if row.provider_ref_sha256 != provider_ref_sha256:
+            raise RealtimeProviderOwnershipUncertain("Provider resource identity differs")
+        return row.state
+
+
+async def settle_egress_terminal(
+    owner: RealtimeProviderOwnership, *, provider_ref_sha256: str, provider_status: str,
+    session_factory: SessionFactory = SessionLocal,
+) -> None:
+    """Settle Egress only from an explicit terminal provider observation."""
+    if owner.resource_kind != "egress" or not _hex64(provider_ref_sha256):
+        raise ValueError("Egress settlement identity is invalid")
+    if provider_status not in _EGRESS_TERMINAL_STATUSES:
+        raise ValueError("Egress settlement requires explicit terminal provider status")
+    async with session_factory() as session, session.begin():
+        row = await _locked(session, owner)
+        if row.state not in {"active", "unresolved"}:
+            raise RealtimeProviderOwnershipLost(
+                "Egress terminal settlement requires active or unresolved ownership"
+            )
+        if row.provider_ref_sha256 != provider_ref_sha256:
+            raise RealtimeProviderOwnershipUncertain("Egress provider identity differs")
+        stamp = await _now(session)
+        row.state = "settled"
+        row.unresolved_reason = None
+        row.settled_at = stamp
+        row.updated_at = stamp

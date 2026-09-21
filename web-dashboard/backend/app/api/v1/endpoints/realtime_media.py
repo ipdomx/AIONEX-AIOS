@@ -202,34 +202,94 @@ async def _start_recording_provider(
     session: AsyncSession, actor: UserRecord, recording: RealtimeRecording
 ) -> RealtimeRecording:
     await _require_realtime_open(session)
-    room = await _room_or_404(session, actor, recording.room_id)
+    recording = await _recording_or_404(session, actor, recording.id, lock=True)
+    room = await _room_or_404(session, actor, recording.room_id, lock=True)
+    if recording.status != "starting" or recording.provider_egress_id:
+        raise HTTPException(status_code=409, detail="Realtime recording is not awaiting Egress start")
+    existing = await realtime_resources.find_unfinished_provider_ownership(
+        session,
+        organization_id=actor.organization_id,
+        resource_kind="egress",
+        local_resource_id=recording.id,
+    )
+    if existing is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Realtime Egress start ownership requires reconciliation.",
+        )
     plan = livekit_runtime.plan_room(
         organization_id=actor.organization_id,
         room_id=room.id,
         max_participants=room.max_participants,
     )
+    owner = await realtime_resources.reserve_provider_resource(
+        session,
+        organization_id=actor.organization_id,
+        resource_kind="egress",
+        local_resource_id=recording.id,
+        owner_incarnation=str(uuid4()),
+    )
+    # Recording state + durable Egress intent commit before StartEgress I/O.
+    await session.commit()
+
+    recording = await _recording_or_404(session, actor, recording.id, lock=True)
+    room = await _room_or_404(session, actor, recording.room_id, lock=True)
+    if recording.status != "starting" or recording.provider_egress_id:
+        await realtime_resources.settle_not_started_in_session(session, owner)
+        await session.commit()
+        raise HTTPException(status_code=409, detail="Realtime recording changed before Egress start")
+    try:
+        began = await realtime_resources.begin_provider_io(owner)
+    except HostMaintenanceClosed:
+        await realtime_resources.settle_not_started_in_session(session, owner)
+        await session.commit()
+        raise HTTPException(
+            status_code=503,
+            detail="Realtime media admission is temporarily closed for maintenance.",
+        ) from None
+    except HostMaintenanceUnavailable:
+        await session.rollback()
+        raise HTTPException(
+            status_code=503, detail="Realtime media admission is currently unavailable."
+        ) from None
+    if not began:
+        await realtime_resources.settle_not_started_in_session(session, owner)
+        await session.commit()
+        raise HTTPException(
+            status_code=503,
+            detail="Realtime media admission generation changed before Egress start.",
+        )
+
     try:
         state = await livekit_runtime.start_room_recording(
             provider_room_name=plan.provider_room_name,
             output_relpath=recording.output_relpath,
         )
     except (RealtimeProviderUnavailable, RealtimeProviderProtocolError) as exc:
-        recording.status = "failed"
-        recording.error_code = "provider_start_failed"
+        await realtime_resources.mark_provider_unresolved(
+            owner, reason=f"egress_start_{type(exc).__name__}"[:160]
+        )
+        recording.error_code = "provider_start_uncertain"
         recording.error_message = type(exc).__name__
-        recording.completed_at = datetime.now(UTC)
         recording.version += 1
         await session.commit()
         raise _provider_error(exc) from exc
+
+    provider_ref_sha256 = hashlib.sha256(state.egress_id.encode("utf-8")).hexdigest()
+    await realtime_resources.observe_provider_active(
+        owner, provider_ref_sha256=provider_ref_sha256
+    )
+    if state.terminal:
+        await realtime_resources.settle_egress_terminal(
+            owner, provider_ref_sha256=provider_ref_sha256, provider_status=state.status
+        )
     recording.provider_egress_id = state.egress_id
     recording.started_at = recording.started_at or datetime.now(UTC)
+    recording.error_code = None
+    recording.error_message = None
     recording = await update_from_provider_state(session, recording=recording, state=state)
     await _audit(
-        session,
-        actor,
-        "realtime.recording.started",
-        "realtime_recording",
-        recording.id,
+        session, actor, "realtime.recording.started", "realtime_recording", recording.id,
         {"room_id": room.id, "all_participant_consent": True},
     )
     await session.commit()
@@ -240,12 +300,46 @@ async def _refresh_recording_provider(
     session: AsyncSession, actor: UserRecord, recording: RealtimeRecording
 ) -> RealtimeRecording:
     if recording.status == "starting" and not recording.provider_egress_id:
+        existing = await realtime_resources.find_unfinished_provider_ownership(
+            session, organization_id=actor.organization_id, resource_kind="egress",
+            local_resource_id=recording.id,
+        )
+        if existing is not None:
+            raise HTTPException(
+                status_code=409,
+                detail="Realtime Egress start ownership requires reconciliation.",
+            )
         return await _start_recording_provider(session, actor, recording)
     if recording.provider_egress_id and recording.status in {"starting", "active", "ending"}:
+        owner = await realtime_resources.find_unfinished_provider_ownership(
+            session, organization_id=actor.organization_id, resource_kind="egress",
+            local_resource_id=recording.id,
+        )
+        provider_ref_sha256 = hashlib.sha256(
+            recording.provider_egress_id.encode("utf-8")
+        ).hexdigest()
+        if owner is not None:
+            await realtime_resources.verify_provider_reference(
+                owner, provider_ref_sha256=provider_ref_sha256
+            )
         try:
             state = await livekit_runtime.list_egress(egress_id=recording.provider_egress_id)
         except (RealtimeProviderUnavailable, RealtimeProviderProtocolError) as exc:
+            if owner is not None:
+                await realtime_resources.mark_provider_unresolved(
+                    owner, reason=f"egress_list_{type(exc).__name__}"[:160]
+                )
             raise _provider_error(exc) from exc
+        if hashlib.sha256(state.egress_id.encode("utf-8")).hexdigest() != provider_ref_sha256:
+            if owner is not None:
+                await realtime_resources.mark_provider_unresolved(
+                    owner, reason="egress_list_identity_mismatch"
+                )
+            raise HTTPException(status_code=409, detail="Realtime Egress provider identity changed")
+        if owner is not None and state.terminal:
+            await realtime_resources.settle_egress_terminal(
+                owner, provider_ref_sha256=provider_ref_sha256, provider_status=state.status
+            )
         recording = await update_from_provider_state(session, recording=recording, state=state)
         await session.commit()
     return recording
@@ -837,26 +931,70 @@ async def stop_recording(
     room = await _room_or_404(session, actor, recording.room_id)
     if not _can_manage(actor, room):
         raise HTTPException(status_code=403, detail="Only the room manager can stop recording")
+    owner = await realtime_resources.find_unfinished_provider_ownership(
+        session, organization_id=actor.organization_id, resource_kind="egress",
+        local_resource_id=recording.id,
+    )
     if recording.status in {"completed", "failed", "declined", "cancelled"}:
+        if owner is not None:
+            raise HTTPException(
+                status_code=409, detail="Realtime Egress ownership requires reconciliation."
+            )
         return recording_snapshot(recording)
     if not recording.provider_egress_id:
+        if owner is not None:
+            owner_state = await realtime_resources.provider_ownership_state(owner)
+            if owner_state == "reserved":
+                await realtime_resources.settle_not_started_in_session(session, owner)
+            else:
+                raise HTTPException(
+                    status_code=409, detail="Realtime Egress start is not yet reconciled."
+                )
         recording.status = "cancelled"
         recording.stopped_at = datetime.now(UTC)
         recording.version += 1
         await session.commit()
         return recording_snapshot(recording)
+
+    provider_ref_sha256 = hashlib.sha256(
+        recording.provider_egress_id.encode("utf-8")
+    ).hexdigest()
+    if owner is not None:
+        await realtime_resources.verify_provider_reference(
+            owner, provider_ref_sha256=provider_ref_sha256
+        )
     try:
         state = await livekit_runtime.stop_egress(egress_id=recording.provider_egress_id)
     except RealtimeProviderProtocolError as exc:
-        # If provider already completed, refresh is authoritative.
         if "failed_precondition" in str(exc) or "COMPLETE" in str(exc):
             recording = await _refresh_recording_provider(session, actor, recording)
             return recording_snapshot(recording)
+        if owner is not None:
+            await realtime_resources.mark_provider_unresolved(
+                owner, reason=f"egress_stop_{type(exc).__name__}"[:160]
+            )
         raise _provider_error(exc) from exc
     except RealtimeProviderUnavailable as exc:
+        if owner is not None:
+            await realtime_resources.mark_provider_unresolved(
+                owner, reason=f"egress_stop_{type(exc).__name__}"[:160]
+            )
         raise _provider_error(exc) from exc
+    observed_ref = hashlib.sha256(state.egress_id.encode("utf-8")).hexdigest()
+    if observed_ref != provider_ref_sha256:
+        if owner is not None:
+            await realtime_resources.mark_provider_unresolved(
+                owner, reason="egress_stop_identity_mismatch"
+            )
+        raise HTTPException(status_code=409, detail="Realtime Egress provider identity changed")
+    if owner is not None and state.terminal:
+        await realtime_resources.settle_egress_terminal(
+            owner, provider_ref_sha256=provider_ref_sha256, provider_status=state.status
+        )
     recording.stopped_at = datetime.now(UTC)
     recording = await update_from_provider_state(session, recording=recording, state=state)
-    await _audit(session, actor, "realtime.recording.stop.requested", "realtime_recording", recording.id, {})
+    await _audit(
+        session, actor, "realtime.recording.stop.requested", "realtime_recording", recording.id, {}
+    )
     await session.commit()
     return recording_snapshot(recording)
