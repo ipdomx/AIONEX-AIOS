@@ -392,3 +392,83 @@ async def test_egress_terminal_settlement_rejects_identity_mismatch_and_accepts_
     )
     row = await _row(case, owner)
     assert row is not None and row.state == "settled" and row.unresolved_reason is None
+
+
+@pytest.mark.asyncio
+async def test_recording_bundle_begin_consumes_egress_and_file_intents_atomically(provider_case):
+    case = provider_case
+    org_id, recording_id, incarnation = str(uuid4()), str(uuid4()), str(uuid4())
+    async with case.sessions() as session:
+        async with session.begin():
+            egress_owner = await registry.reserve_provider_resource(
+                session,
+                organization_id=org_id,
+                resource_kind="egress",
+                local_resource_id=recording_id,
+                owner_incarnation=incarnation,
+            )
+            file_owner = await registry.reserve_provider_resource(
+                session,
+                organization_id=org_id,
+                resource_kind="recording_file",
+                local_resource_id=recording_id,
+                owner_incarnation=incarnation,
+            )
+    assert await registry.begin_provider_io_bundle(
+        (egress_owner, file_owner), session_factory=case.sessions
+    ) is True
+    egress_row = await _row(case, egress_owner)
+    file_row = await _row(case, file_owner)
+    assert egress_row is not None and file_row is not None
+    assert egress_row.state == file_row.state == "submitted"
+    assert egress_row.provider_started_at == file_row.provider_started_at
+    with pytest.raises(registry.RealtimeProviderOwnershipLost, match="bundle is single-use"):
+        await registry.begin_provider_io_bundle(
+            (egress_owner, file_owner), session_factory=case.sessions
+        )
+
+
+@pytest.mark.asyncio
+async def test_recording_file_settlement_requires_matching_terminal_absence_evidence(provider_case):
+    case = provider_case
+    digest = "3" * 64
+    async with case.sessions() as session:
+        async with session.begin():
+            owner = await registry.reserve_provider_resource(
+                session,
+                organization_id=str(uuid4()),
+                resource_kind="recording_file",
+                local_resource_id=str(uuid4()),
+                owner_incarnation=str(uuid4()),
+            )
+    assert await registry.begin_provider_io(owner, session_factory=case.sessions) is True
+    await registry.observe_provider_active(
+        owner, provider_ref_sha256=digest, session_factory=case.sessions
+    )
+    with pytest.raises(ValueError, match="terminal Egress"):
+        await registry.settle_recording_file_absent(
+            owner,
+            provider_ref_sha256=digest,
+            provider_status="EGRESS_ENDING",
+            session_factory=case.sessions,
+        )
+    with pytest.raises(registry.RealtimeProviderOwnershipUncertain, match="identity differs"):
+        await registry.settle_recording_file_absent(
+            owner,
+            provider_ref_sha256="4" * 64,
+            provider_status="EGRESS_COMPLETE",
+            session_factory=case.sessions,
+        )
+    await registry.mark_provider_unresolved(
+        owner,
+        reason="recording_file_present_after_terminal",
+        session_factory=case.sessions,
+    )
+    await registry.settle_recording_file_absent(
+        owner,
+        provider_ref_sha256=digest,
+        provider_status="EGRESS_COMPLETE",
+        session_factory=case.sessions,
+    )
+    row = await _row(case, owner)
+    assert row is not None and row.state == "settled" and row.unresolved_reason is None
