@@ -174,7 +174,7 @@
       ],
       "exit_ar": "دليل أن البيانات المحددة لا تبقى واضحة على التخزين غير المركب، واستعادة وفك تشفير وإقلاع آمنان. توضيح أن تشفير النسخة ليس تشفير كامل القرص ولا يحمي من root حي يملك المفاتيح.",
       "host_state_cutover_admission": {
-        "source_part": "FR-06C5D9B2B2",
+        "source_part": "FR-06C5D9B2B3",
         "scope_ar": "سلطة قبول دائمة للصيانة في PostgreSQL توسعت في D9A إلى schema8 وثمانية نطاقات: project execution والنسخ والأكاديمية وإرسال الإشعارات وتحضير الإصلاحات وطلبات Security Scan وطلبات Studio وطلبات/resume Realtime media. سجلات D7B3/D7B8 تظل عقد ملكية تشغيل الفحص المدمج، وسلسلة D8 تثبت Studio. D9A يحرس بدء/استئناف Realtime الجديد فقط ولا يثبت ملكية جلسات LiveKit أو Egress أو تصريفها أو full-host closure. قبول المصدر لا يثبت النشر الإنتاجي للـ0063.",
         "authority_domain": "host-maintenance-admission",
         "authority_resource_id": "runtime-node",
@@ -1209,6 +1209,36 @@
           "credential_bundle_expiry_is_not_connected_presence_drain": true,
           "livekit_connected_participant_drain_verified": false,
           "turn_allocation_drain_verified": false
+        },
+        "realtime_egress_ownership_source": {
+          "source_part": "FR-06C5D9B2B3",
+          "prerequisite_source_part": "FR-06C5D9B2B2",
+          "migration": "20260920_0064",
+          "egress_wired": true,
+          "recording_file_wired": false,
+          "ownership_local_resource": "realtime_recording.id",
+          "recording_and_egress_intent_commit_before_start": true,
+          "provider_start_rechecks_same_generation": true,
+          "provider_egress_id_hash_persisted_before_business_publish": true,
+          "start_ambiguity_retained_without_automatic_retry": true,
+          "list_identity_checked_against_durable_owner": true,
+          "stop_acknowledgement_is_not_terminal_proof": true,
+          "terminal_statuses": [
+            "EGRESS_COMPLETE",
+            "EGRESS_FAILED",
+            "EGRESS_ABORTED"
+          ],
+          "terminal_settlement_requires_explicit_provider_observation": true,
+          "production_database_migrated": false,
+          "production_deployment_verified": false,
+          "production_execution_performed": false,
+          "recording_file_drain_verified": false,
+          "provider_drain_verified": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06C5D9B2B3-realtime-egress-ownership.md"
+          ],
+          "coverage_ar": "يربط D9B2B3 LiveKit Egress start/list/stop بالـprovider ledger على recording UUID. recording+intent يثبتان قبل StartEgress، والبداية تعيد فحص نفس operation/generation. start ambiguity لا تتحول failed ولا يعاد Start تلقائيًا. كل list/stop observation يطابق provider identity، وownership لا تسوى إلا مع COMPLETE/FAILED/ABORTED صريح؛ ENDING أو Stop acknowledgement لا يثبت terminal. recording-file finalization تبقى جزءًا لاحقًا، و0064 غير منشورة في Production."
         }
       }
     },
