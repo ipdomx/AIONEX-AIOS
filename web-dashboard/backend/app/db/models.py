@@ -5553,6 +5553,69 @@ class RealtimeRecordingConsent(Base, TimestampMixin):
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
 
+class RealtimeProviderResourceOwnership(Base):
+    """Permanent provider-resource intent/evidence for host-maintenance drain."""
+
+    __tablename__ = "realtime_provider_resources"
+    __table_args__ = (
+        CheckConstraint(
+            "resource_kind IN ('room', 'participant_session', 'egress', 'recording_file')",
+            name="ck_realtime_provider_resource_kind",
+        ),
+        CheckConstraint(
+            "state IN ('reserved', 'submitted', 'active', 'unresolved', 'settled')",
+            name="ck_realtime_provider_resource_state",
+        ),
+        CheckConstraint(
+            "admitted_generation > 0", name="ck_realtime_provider_resource_generation"
+        ),
+        CheckConstraint(
+            "expires_at IS NULL OR expires_at >= started_at",
+            name="ck_realtime_provider_resource_expiry",
+        ),
+        CheckConstraint(
+            "(state = 'unresolved' AND unresolved_reason IS NOT NULL) OR "
+            "(state != 'unresolved' AND unresolved_reason IS NULL)",
+            name="ck_realtime_provider_resource_unresolved",
+        ),
+        CheckConstraint(
+            "(state = 'settled' AND settled_at IS NOT NULL) OR "
+            "(state != 'settled' AND settled_at IS NULL)",
+            name="ck_realtime_provider_resource_settlement",
+        ),
+        Index(
+            "uq_realtime_provider_resource_unfinished_local",
+            "organization_id", "resource_kind", "local_resource_id",
+            unique=True,
+            postgresql_where=text("state != 'settled'"),
+        ),
+        Index(
+            "ix_realtime_provider_resource_unfinished", "state", "expires_at"
+        ),
+        Index(
+            "ix_realtime_provider_resource_org_kind_state",
+            "organization_id", "resource_kind", "state",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    resource_kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    local_resource_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    owner_incarnation: Mapped[str] = mapped_column(String(36), nullable=False)
+    admitted_generation: Mapped[int] = mapped_column(Integer, nullable=False)
+    admitted_operation_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    ownership_nonce: Mapped[str] = mapped_column(String(36), nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False)
+    provider_ref_sha256: Mapped[str | None] = mapped_column(String(64))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    provider_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    unresolved_reason: Mapped[str | None] = mapped_column(String(160))
+
+
 class IdentityMediaExecution(Base, TimestampMixin):
     """Durable governed identity-media provider execution."""
 
