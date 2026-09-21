@@ -39,7 +39,9 @@ class RealtimeProviderProtocolError(RuntimeError):
 class ParticipantSession:
     token: str
     token_jti_sha256: str
+    ownership_ref_sha256: str
     expires_at: datetime
+    drain_expires_at: datetime
     server_url: str
     ice_servers: tuple[dict[str, Any], ...]
 
@@ -269,6 +271,13 @@ class LiveKitRuntime:
             video_grant=self._room_service_admin_grant(),
         )
 
+    def participant_session_max_ttl(self) -> timedelta:
+        """Maximum lifetime of any credential returned in one participant bundle."""
+        return timedelta(seconds=max(
+            settings.REALTIME_PROVIDER_TOKEN_TTL_SECONDS,
+            settings.REALTIME_TURN_CREDENTIAL_TTL_SECONDS,
+        ))
+
     def participant_session(
         self,
         *,
@@ -333,10 +342,17 @@ class LiveKitRuntime:
                 "credentialType": "password",
             },
         )
+        token_jti_sha256 = hashlib.sha256(jti.encode("utf-8")).hexdigest()
+        turn_name_sha256 = hashlib.sha256(turn_credential_name.encode("utf-8")).hexdigest()
+        ownership_ref_sha256 = hashlib.sha256(
+            f"{token_jti_sha256}:{turn_name_sha256}".encode("ascii")
+        ).hexdigest()
         return ParticipantSession(
             token=token,
-            token_jti_sha256=hashlib.sha256(jti.encode("utf-8")).hexdigest(),
+            token_jti_sha256=token_jti_sha256,
+            ownership_ref_sha256=ownership_ref_sha256,
             expires_at=datetime.fromtimestamp(expires, tz=UTC),
+            drain_expires_at=datetime.fromtimestamp(max(expires, turn_expiry), tz=UTC),
             server_url=self._signaling_url,
             ice_servers=ice_servers,
         )

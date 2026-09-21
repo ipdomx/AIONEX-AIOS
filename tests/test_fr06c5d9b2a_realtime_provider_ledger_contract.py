@@ -68,7 +68,7 @@ def test_submitted_or_active_work_cannot_be_erased_as_not_started():
 
 def test_plan_keeps_route_wiring_and_production_open():
     root, item = _item()
-    assert root["source_part"] == "FR-06C5D9B2B1"
+    assert root["source_part"] == "FR-06C5D9B2B2"
     assert item["source_implementation_present"] is True
     assert item["provider_routes_wired"] is False
     assert item["intent_commits_before_provider_capability"] is True

@@ -200,18 +200,42 @@ async def observe_provider_active(
 
 
 async def mark_provider_unresolved(
-    owner: RealtimeProviderOwnership, *, reason: str,
+    owner: RealtimeProviderOwnership, *, reason: str, expires_at: datetime | None = None,
     session_factory: SessionFactory = SessionLocal,
 ) -> None:
-    if not _reason(reason):
-        raise ValueError("Provider uncertainty reason is invalid")
+    if not _reason(reason) or (expires_at is not None and not _aware(expires_at)):
+        raise ValueError("Provider uncertainty evidence is invalid")
     async with session_factory() as session, session.begin():
         row = await _locked(session, owner)
         if row.state not in {"submitted", "active", "unresolved"}:
             raise RealtimeProviderOwnershipLost("Provider uncertainty requires started ownership")
+        if owner.resource_kind == "participant_session":
+            candidate_expiry = row.expires_at or expires_at
+            if candidate_expiry is None:
+                raise RealtimeProviderOwnershipUncertain(
+                    "Participant session uncertainty requires a conservative expiry"
+                )
+            if candidate_expiry < row.started_at:
+                raise RealtimeProviderOwnershipUncertain(
+                    "Participant session expiry predates its durable intent"
+                )
+            row.expires_at = candidate_expiry
         row.state = "unresolved"
         row.unresolved_reason = row.unresolved_reason or reason
         row.updated_at = await _now(session)
+
+
+async def settle_not_started_in_session(
+    session: AsyncSession, owner: RealtimeProviderOwnership,
+) -> None:
+    """Settle one unconsumed reserved capability inside the caller transaction."""
+    row = await _locked(session, owner)
+    if row.state != "reserved" or row.provider_started_at is not None:
+        raise RealtimeProviderOwnershipLost("Started provider work cannot be settled as not-started")
+    stamp = await _now(session)
+    row.state = "settled"
+    row.settled_at = stamp
+    row.updated_at = stamp
 
 
 async def settle_not_started(
@@ -219,13 +243,7 @@ async def settle_not_started(
 ) -> None:
     """Settle only a reserved capability that was never consumed for provider I/O."""
     async with session_factory() as session, session.begin():
-        row = await _locked(session, owner)
-        if row.state != "reserved" or row.provider_started_at is not None:
-            raise RealtimeProviderOwnershipLost("Started provider work cannot be settled as not-started")
-        stamp = await _now(session)
-        row.state = "settled"
-        row.settled_at = stamp
-        row.updated_at = stamp
+        await settle_not_started_in_session(session, owner)
 
 
 async def find_unfinished_provider_ownership(
@@ -274,3 +292,25 @@ async def settle_room_absent(
         row.unresolved_reason = None
         row.settled_at = stamp
         row.updated_at = stamp
+
+
+async def settle_participant_session_expired(
+    owner: RealtimeProviderOwnership, *, session_factory: SessionFactory = SessionLocal,
+) -> bool:
+    """Settle issued participant credentials only after the whole bundle expires."""
+    if owner.resource_kind != "participant_session":
+        raise ValueError("Participant-session ownership is required")
+    async with session_factory() as session, session.begin():
+        row = await _locked(session, owner)
+        if row.state == "settled":
+            return True
+        if row.state not in {"active", "unresolved"} or row.expires_at is None:
+            return False
+        stamp = await _now(session)
+        if stamp < row.expires_at:
+            return False
+        row.state = "settled"
+        row.unresolved_reason = None
+        row.settled_at = stamp
+        row.updated_at = stamp
+        return True

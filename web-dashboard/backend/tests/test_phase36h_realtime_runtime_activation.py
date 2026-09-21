@@ -89,6 +89,15 @@ def test_livekit_session_is_short_lived_and_static_secrets_never_return(
     turn = response["ice_servers"][1]
     credential_name = turn["username"]
     expiry_text, opaque_label = credential_name.split(":", 1)
+    turn_name_sha256 = hashlib.sha256(credential_name.encode("utf-8")).hexdigest()
+    expected_bundle_hash = hashlib.sha256(
+        f"{session.token_jti_sha256}:{turn_name_sha256}".encode("ascii")
+    ).hexdigest()
+    assert session.ownership_ref_sha256 == expected_bundle_hash
+    assert session.drain_expires_at >= session.expires_at
+    assert int(session.drain_expires_at.timestamp()) == int(expiry_text)
+    assert "ownership_ref_sha256" not in response
+    assert "drain_expires_at" not in response
     assert "participant-1" not in credential_name
     assert len(opaque_label) == 32
     assert all(ch in "0123456789abcdef" for ch in opaque_label)
