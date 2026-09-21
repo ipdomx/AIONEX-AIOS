@@ -270,3 +270,65 @@ async def test_active_room_settles_only_with_matching_explicit_provider_absence(
         assert await registry.find_unfinished_provider_ownership(
             session, organization_id=org_id, resource_kind="room", local_resource_id=room_id
         ) is None
+
+
+@pytest.mark.asyncio
+async def test_participant_session_uncertainty_requires_conservative_expiry(provider_case):
+    case = provider_case
+    async with case.sessions() as session:
+        async with session.begin():
+            owner = await registry.reserve_provider_resource(
+                session, organization_id=str(uuid4()), resource_kind="participant_session",
+                local_resource_id=str(uuid4()), owner_incarnation=str(uuid4()),
+            )
+    assert await registry.begin_provider_io(owner, session_factory=case.sessions) is True
+    with pytest.raises(
+        registry.RealtimeProviderOwnershipUncertain, match="requires a conservative expiry"
+    ):
+        await registry.mark_provider_unresolved(
+            owner, reason="credential_mint_uncertain", session_factory=case.sessions
+        )
+    expiry = datetime.now(UTC) + timedelta(minutes=10)
+    await registry.mark_provider_unresolved(
+        owner, reason="credential_mint_uncertain", expires_at=expiry,
+        session_factory=case.sessions,
+    )
+    row = await _row(case, owner)
+    assert row is not None and row.state == "unresolved"
+    assert row.expires_at == expiry
+    assert await registry.settle_participant_session_expired(
+        owner, session_factory=case.sessions
+    ) is False
+
+
+@pytest.mark.asyncio
+async def test_participant_session_settles_only_after_whole_bundle_expiry(
+    provider_case, monkeypatch: pytest.MonkeyPatch
+):
+    case = provider_case
+    async with case.sessions() as session:
+        async with session.begin():
+            owner = await registry.reserve_provider_resource(
+                session, organization_id=str(uuid4()), resource_kind="participant_session",
+                local_resource_id=str(uuid4()), owner_incarnation=str(uuid4()),
+            )
+    assert await registry.begin_provider_io(owner, session_factory=case.sessions) is True
+    expiry = datetime.now(UTC) + timedelta(minutes=10)
+    await registry.observe_provider_active(
+        owner, provider_ref_sha256="e" * 64, expires_at=expiry,
+        session_factory=case.sessions,
+    )
+    assert await registry.settle_participant_session_expired(
+        owner, session_factory=case.sessions
+    ) is False
+
+    async def after_expiry(_session):
+        return expiry + timedelta(seconds=1)
+
+    monkeypatch.setattr(registry, "_now", after_expiry)
+    assert await registry.settle_participant_session_expired(
+        owner, session_factory=case.sessions
+    ) is True
+    row = await _row(case, owner)
+    assert row is not None and row.state == "settled"
+    assert row.settled_at == expiry + timedelta(seconds=1)

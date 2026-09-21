@@ -432,18 +432,110 @@ async def join_room(
             can_subscribe=data.can_subscribe,
             can_screen_share=data.can_screen_share,
         )
-        plan = livekit_runtime.plan_room(
+        grant_id = granted.grant.id
+        participant_id = granted.participant.id
+        owner = await realtime_resources.reserve_provider_resource(
+            session,
             organization_id=actor.organization_id,
-            room_id=room.id,
-            max_participants=room.max_participants,
+            resource_kind="participant_session",
+            local_resource_id=grant_id,
+            owner_incarnation=str(uuid4()),
         )
+        # Grant + provider intent become durable together before JWT/TURN minting.
+        await session.commit()
+    except RealtimeAdmissionRejected as exc:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail={"code": exc.code, "message": exc.detail}) from exc
+    except realtime_resources.RealtimeProviderOwnershipLost as exc:
+        await session.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Realtime participant-session ownership requires reconciliation.",
+        ) from exc
+
+    # Re-lock room and participant after the commit. Keep the room lock while the
+    # local credential bundle is minted so room closure cannot race issuance.
+    room = await _room_or_404(session, actor, room.id, lock=True)
+    participant = await session.scalar(
+        select(RealtimeParticipant).where(
+            RealtimeParticipant.id == participant_id,
+            RealtimeParticipant.organization_id == actor.organization_id,
+        ).with_for_update().execution_options(populate_existing=True)
+    )
+    if (
+        room.status != "open" or room.provider_adapter != "livekit"
+        or participant is None or participant.status not in {"admitted", "connected"}
+    ):
+        await admission.revoke_grant(
+            session, organization_id=actor.organization_id, grant_id=grant_id
+        )
+        await realtime_resources.settle_not_started_in_session(session, owner)
+        await session.commit()
+        raise HTTPException(status_code=409, detail="Realtime session state changed before provider start.")
+    try:
+        began = await realtime_resources.begin_provider_io(owner)
+    except HostMaintenanceClosed:
+        await admission.revoke_grant(
+            session, organization_id=actor.organization_id, grant_id=grant_id
+        )
+        await realtime_resources.settle_not_started_in_session(session, owner)
+        await session.commit()
+        raise HTTPException(
+            status_code=503,
+            detail="Realtime media admission is temporarily closed for maintenance.",
+        ) from None
+    except HostMaintenanceUnavailable:
+        # Authority uncertainty preserves the committed grant+intent for explicit
+        # reconciliation instead of guessing that capability start was safe.
+        await session.rollback()
+        raise HTTPException(
+            status_code=503, detail="Realtime media admission is currently unavailable."
+        ) from None
+    if not began:
+        await admission.revoke_grant(
+            session, organization_id=actor.organization_id, grant_id=grant_id
+        )
+        await realtime_resources.settle_not_started_in_session(session, owner)
+        await session.commit()
+        raise HTTPException(
+            status_code=503,
+            detail="Realtime media admission generation changed before session start.",
+        )
+
+    plan = livekit_runtime.plan_room(
+        organization_id=actor.organization_id,
+        room_id=room.id,
+        max_participants=room.max_participants,
+    )
+    try:
         provider_session = livekit_runtime.participant_session(
             room_name=plan.provider_room_name,
-            participant_id=granted.participant.id,
+            participant_id=participant_id,
             participant_name=actor.name,
             can_publish=data.can_publish,
             can_subscribe=data.can_subscribe,
         )
+    except (RealtimeProviderUnavailable, RealtimeProviderProtocolError) as exc:
+        conservative_expiry = datetime.now(UTC) + livekit_runtime.participant_session_max_ttl()
+        await realtime_resources.mark_provider_unresolved(
+            owner,
+            reason=f"participant_session_{type(exc).__name__}"[:160],
+            expires_at=conservative_expiry,
+        )
+        await admission.revoke_grant(
+            session, organization_id=actor.organization_id, grant_id=grant_id
+        )
+        await session.commit()
+        raise _provider_error(exc) from exc
+
+    # The whole JWT+TURN bundle is durable drain evidence before it is consumed
+    # or returned. Its deadline is the later credential expiry, not leave-time.
+    await realtime_resources.observe_provider_active(
+        owner,
+        provider_ref_sha256=provider_session.ownership_ref_sha256,
+        expires_at=provider_session.drain_expires_at,
+    )
+    try:
         consumed = await admission.consume_grant(
             session,
             organization_id=actor.organization_id,
@@ -452,28 +544,25 @@ async def join_room(
         )
         consumed.provider_adapter = "livekit"
         consumed.provider_token_jti_sha256 = provider_session.token_jti_sha256
-        granted.participant.capabilities = {
+        participant.capabilities = {
             "provider": "livekit",
             "can_publish": data.can_publish,
             "can_subscribe": data.can_subscribe,
             "can_screen_share": data.can_screen_share,
         }
-        granted.participant.version += 1
+        participant.version += 1
         await _audit(
-            session,
-            actor,
-            "realtime.room.join_token.issued",
-            "realtime_room",
-            room.id,
-            {"participant_id": granted.participant.id, "ttl_seconds": 300},
+            session, actor, "realtime.room.join_token.issued", "realtime_room", room.id,
+            {"participant_id": participant_id, "ttl_seconds": 300},
         )
         await session.commit()
     except RealtimeAdmissionRejected as exc:
+        # Credentials were minted, so keep the ownership until whole-bundle expiry.
+        await realtime_resources.mark_provider_unresolved(
+            owner, reason=f"participant_session_grant_{exc.code}"[:160]
+        )
         await session.rollback()
         raise HTTPException(status_code=409, detail={"code": exc.code, "message": exc.detail}) from exc
-    except (RealtimeProviderUnavailable, RealtimeProviderProtocolError) as exc:
-        await session.rollback()
-        raise _provider_error(exc) from exc
     return {
         "room": room_snapshot(
             room,
@@ -481,7 +570,7 @@ async def join_room(
                 session, organization_id=actor.organization_id, room_id=room.id
             ),
         ),
-        "participant_id": granted.participant.id,
+        "participant_id": participant_id,
         "session": provider_session.response_payload(),
         "admission_grant_returned": False,
     }
