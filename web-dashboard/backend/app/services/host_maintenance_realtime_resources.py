@@ -43,6 +43,26 @@ class RealtimeProviderOwnership:
     nonce: str = field(repr=False)
 
 
+@dataclass(frozen=True, slots=True)
+class RealtimeProviderResourceObservation:
+    """Sanitized permanent provider evidence for drain measurement."""
+
+    id: str
+    organization_id: str
+    resource_kind: str
+    local_resource_id: str
+    admitted_generation: int
+    admitted_operation_id: str
+    state: str
+    expires_at: datetime | None
+    provider_started_at: datetime | None
+    started_at: datetime
+    updated_at: datetime
+    settled_at: datetime | None
+    unresolved_reason_present: bool
+    provider_reference_present: bool
+
+
 def _uuid(value: Any) -> bool:
     try:
         return isinstance(value, str) and str(UUID(value)) == value
@@ -106,6 +126,29 @@ def _owner(row: RealtimeProviderResourceOwnership) -> RealtimeProviderOwnership:
         row.id, row.organization_id, row.resource_kind, row.local_resource_id,
         row.owner_incarnation, row.admitted_generation, row.admitted_operation_id,
         row.ownership_nonce,
+    )
+
+
+def provider_resource_observation(
+    row: RealtimeProviderResourceOwnership,
+) -> RealtimeProviderResourceObservation:
+    """Validate one ledger row and expose no nonce or provider-reference digest."""
+    _owner(row)
+    return RealtimeProviderResourceObservation(
+        id=row.id,
+        organization_id=row.organization_id,
+        resource_kind=row.resource_kind,
+        local_resource_id=row.local_resource_id,
+        admitted_generation=row.admitted_generation,
+        admitted_operation_id=row.admitted_operation_id,
+        state=row.state,
+        expires_at=row.expires_at,
+        provider_started_at=row.provider_started_at,
+        started_at=row.started_at,
+        updated_at=row.updated_at,
+        settled_at=row.settled_at,
+        unresolved_reason_present=row.unresolved_reason is not None,
+        provider_reference_present=row.provider_ref_sha256 is not None,
     )
 
 
