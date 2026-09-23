@@ -78,7 +78,7 @@ def test_room_absence_settlement_requires_active_or_unresolved_owner():
 
 def test_plan_scopes_room_wiring_without_claiming_other_realtime_resources():
     root, item = _item()
-    assert root["source_part"] == "FR-06C5D9B3C"
+    assert root["source_part"] == "FR-06C5D9B3D"
     assert item["room_create_wired"] is True
     assert item["room_close_wired"] is True
     assert item["join_session_wired"] is False

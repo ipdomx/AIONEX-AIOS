@@ -59,7 +59,7 @@ def test_provider_inventory_binds_durable_snapshot_to_room_and_participant_drain
 
 def test_plan_records_bounded_drain_without_turn_or_full_provider_claim():
     root, item = _item()
-    assert root["source_part"] == "FR-06C5D9B3C"
+    assert root["source_part"] == "FR-06C5D9B3D"
     assert item["source_part"] == "FR-06C5D9B3C"
     assert item["prerequisite_source_part"] == "FR-06C5D9B3B"
     assert item["d9b3a_snapshot_clear_required"] is True
