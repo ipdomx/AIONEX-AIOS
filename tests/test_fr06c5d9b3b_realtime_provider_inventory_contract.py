@@ -54,7 +54,7 @@ def test_provider_inventory_service_requires_durable_clear_snapshot_before_provi
 
 def test_plan_advances_to_provider_inventory_without_claiming_full_drain():
     root, item = _item()
-    assert root["source_part"] == "FR-06C5D9B3D"
+    assert root["source_part"] == "FR-06C5D9B4"
     assert item["source_part"] == "FR-06C5D9B3B"
     assert item["prerequisite_source_part"] == "FR-06C5D9B3A"
     assert item["provider_io_source_present"] is True
