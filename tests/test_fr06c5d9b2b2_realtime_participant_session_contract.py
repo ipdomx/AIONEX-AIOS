@@ -93,7 +93,7 @@ def test_participant_session_settlement_uses_database_clock_after_bundle_expiry(
 
 def test_plan_scopes_b2b2_without_claiming_egress_file_or_drain():
     root, item = _item()
-    assert root["source_part"] == "FR-06C5D9B3C"
+    assert root["source_part"] == "FR-06C5D9B3D"
     assert item["source_part"] == "FR-06C5D9B2B2"
     assert item["prerequisite_source_part"] == "FR-06C5D9B2B1"
     assert item["ownership_local_resource"] == "realtime_admission_grant.id"
