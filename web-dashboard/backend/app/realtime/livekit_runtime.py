@@ -56,6 +56,18 @@ class ParticipantSession:
 
 
 @dataclass(frozen=True, slots=True)
+class ProviderRoomInventory:
+    """Sanitized read-only LiveKit room inventory for drain checks."""
+
+    provider_room_name_sha256: str
+    participant_identity_sha256: tuple[str, ...]
+
+    @property
+    def participant_count(self) -> int:
+        return len(self.participant_identity_sha256)
+
+
+@dataclass(frozen=True, slots=True)
 class ProviderEgressState:
     egress_id: str
     status: str
@@ -355,6 +367,57 @@ class LiveKitRuntime:
             drain_expires_at=datetime.fromtimestamp(max(expires, turn_expiry), tz=UTC),
             server_url=self._signaling_url,
             ice_servers=ice_servers,
+        )
+
+
+    async def list_aios_room_name_hashes(self) -> tuple[str, ...]:
+        """Return hashes of AIOS-owned LiveKit room names without raw names."""
+        body = await self._twirp(
+            service="RoomService",
+            method="ListRooms",
+            payload={},
+            video_grant=self._room_service_admin_grant(),
+            timeout_seconds=10.0,
+        )
+        rooms = body.get("rooms")
+        if not isinstance(rooms, list):
+            raise RealtimeProviderProtocolError("LiveKit room inventory is unavailable")
+        hashes: list[str] = []
+        for item in rooms:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name") or "").strip()
+            if name.startswith("aios-rt-"):
+                hashes.append(hashlib.sha256(name.encode("utf-8")).hexdigest())
+        return tuple(sorted(set(hashes)))
+
+    async def list_room_participant_inventory(
+        self, *, provider_room_name: str
+    ) -> ProviderRoomInventory:
+        """Return only hashes/counts for one LiveKit room's participant inventory."""
+        room_name = provider_room_name.strip()
+        if not room_name.startswith("aios-rt-") or len(room_name) > 80:
+            raise RealtimeProviderProtocolError("LiveKit room inventory identity is invalid")
+        body = await self._twirp(
+            service="RoomService",
+            method="ListParticipants",
+            payload={"room": room_name},
+            video_grant=self._room_service_admin_grant(),
+            timeout_seconds=10.0,
+        )
+        participants = body.get("participants")
+        if not isinstance(participants, list):
+            raise RealtimeProviderProtocolError("LiveKit participant inventory is unavailable")
+        identities: list[str] = []
+        for item in participants:
+            if not isinstance(item, dict):
+                continue
+            identity = str(item.get("identity") or "").strip()
+            if identity:
+                identities.append(hashlib.sha256(identity.encode("utf-8")).hexdigest())
+        return ProviderRoomInventory(
+            provider_room_name_sha256=hashlib.sha256(room_name.encode("utf-8")).hexdigest(),
+            participant_identity_sha256=tuple(sorted(set(identities))),
         )
 
     async def start_room_recording(

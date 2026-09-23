@@ -68,7 +68,7 @@ def test_provider_observation_redacts_nonce_reason_and_reference_digest():
 
 def test_plan_advances_to_d9b3a_without_claiming_provider_drain():
     root, item = _item()
-    assert root["source_part"] == "FR-06C5D9B3A"
+    assert root["source_part"] == "FR-06C5D9B3B"
     assert item["source_part"] == "FR-06C5D9B3A"
     assert item["prerequisite_source_part"] == "FR-06C5D9B2B4"
     assert item["repeatable_read"] is True
