@@ -9,7 +9,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.realtime.livekit_runtime import LiveKitRuntime, livekit_runtime
+from app.realtime.livekit_runtime import (
+    LiveKitRuntime,
+    ProviderRoomInventory,
+    livekit_runtime,
+)
 from app.services.host_maintenance_admission import SessionFactory
 from app.services.host_maintenance_realtime_drain import (
     RealtimeDrainSnapshot,
@@ -25,9 +29,13 @@ class RealtimeProviderInventoryUnavailable(RuntimeError):
 class RealtimeProviderInventorySnapshot:
     drain: RealtimeDrainSnapshot
     provider_aios_room_hashes: tuple[str, ...]
+    provider_room_inventories: tuple[ProviderRoomInventory, ...]
+    provider_participant_count: int
     live_provider_inventory_verified: bool
+    livekit_room_drain_verified: bool
     connected_presence_provider_drain_verified: bool
     turn_allocation_drain_verified: bool = False
+    turn_allocation_drain_blocker_reason: str = "coturn_allocation_inventory_unavailable"
     provider_drain_verified: bool = False
     full_host_closure: bool = False
 
@@ -43,12 +51,17 @@ async def collect_livekit_provider_inventory(
         raise RealtimeProviderInventoryUnavailable(
             "durable Realtime blockers must be reconciled before provider inventory"
         )
-    room_hashes = await runtime.list_aios_room_name_hashes()
+    inventories = await runtime.list_aios_room_inventory()
+    room_hashes = tuple(item.provider_room_name_sha256 for item in inventories)
+    participant_count = sum(item.participant_count for item in inventories)
     return RealtimeProviderInventorySnapshot(
         drain=drain,
         provider_aios_room_hashes=room_hashes,
+        provider_room_inventories=inventories,
+        provider_participant_count=participant_count,
         live_provider_inventory_verified=True,
-        connected_presence_provider_drain_verified=not room_hashes,
+        livekit_room_drain_verified=not room_hashes,
+        connected_presence_provider_drain_verified=participant_count == 0,
         turn_allocation_drain_verified=False,
         provider_drain_verified=False,
         full_host_closure=False,
