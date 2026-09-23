@@ -122,7 +122,7 @@ def test_ledger_has_atomic_bundle_begin_and_narrow_file_settlement():
 
 def test_plan_advances_to_recording_file_source_without_claiming_production_drain():
     root, item = _item()
-    assert root["source_part"] == "FR-06C5D9B3B"
+    assert root["source_part"] == "FR-06C5D9B3C"
     assert item["source_part"] == "FR-06C5D9B2B4"
     assert item["prerequisite_source_part"] == "FR-06C5D9B2B3"
     assert item["egress_wired"] is True

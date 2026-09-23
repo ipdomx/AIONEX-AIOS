@@ -420,6 +420,38 @@ class LiveKitRuntime:
             participant_identity_sha256=tuple(sorted(set(identities))),
         )
 
+    async def list_aios_room_inventory(self) -> tuple[ProviderRoomInventory, ...]:
+        """Return sanitized AIOS-owned room and participant inventory.
+
+        Raw LiveKit room names are used only as private control-plane inputs for
+        the immediate ListParticipants calls. The returned snapshot contains only
+        SHA-256 identities and counts, never provider room names or participant
+        identities.
+        """
+        body = await self._twirp(
+            service="RoomService",
+            method="ListRooms",
+            payload={},
+            video_grant=self._room_service_admin_grant(),
+            timeout_seconds=10.0,
+        )
+        rooms = body.get("rooms")
+        if not isinstance(rooms, list):
+            raise RealtimeProviderProtocolError("LiveKit room inventory is unavailable")
+        sanitized: list[ProviderRoomInventory] = []
+        for item in rooms:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name") or "").strip()
+            if not name.startswith("aios-rt-"):
+                continue
+            sanitized.append(
+                await self.list_room_participant_inventory(provider_room_name=name)
+            )
+        return tuple(
+            sorted(sanitized, key=lambda item: item.provider_room_name_sha256)
+        )
+
     async def start_room_recording(
         self, *, provider_room_name: str, output_relpath: str
     ) -> ProviderEgressState:

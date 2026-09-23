@@ -22,7 +22,7 @@ def item():
 
 def test_current_part_is_inventory_only_after_d9a():
     root, inv = item()
-    assert root["source_part"] == "FR-06C5D9B3B"
+    assert root["source_part"] == "FR-06C5D9B3C"
     assert inv["source_part"] == "FR-06C5D9B1"
     assert inv["prerequisite_source_part"] == "FR-06C5D9A"
     assert inv["inventory_only"] is True

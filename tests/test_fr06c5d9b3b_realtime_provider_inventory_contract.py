@@ -42,7 +42,7 @@ def test_provider_inventory_service_requires_durable_clear_snapshot_before_provi
     text = SERVICE.read_text()
     before = text.index("drain = await measure_realtime_drain")
     gate = text.index("if not drain.is_clear", before)
-    provider = text.index("runtime.list_aios_room_name_hashes", gate)
+    provider = text.index("runtime.list_aios_room_inventory", gate)
     assert before < gate < provider
     assert "durable Realtime blockers must be reconciled" in text
     assert "turn_allocation_drain_verified=False" in text
@@ -54,7 +54,7 @@ def test_provider_inventory_service_requires_durable_clear_snapshot_before_provi
 
 def test_plan_advances_to_provider_inventory_without_claiming_full_drain():
     root, item = _item()
-    assert root["source_part"] == "FR-06C5D9B3B"
+    assert root["source_part"] == "FR-06C5D9B3C"
     assert item["source_part"] == "FR-06C5D9B3B"
     assert item["prerequisite_source_part"] == "FR-06C5D9B3A"
     assert item["provider_io_source_present"] is True
