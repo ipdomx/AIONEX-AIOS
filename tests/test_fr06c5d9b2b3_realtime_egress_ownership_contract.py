@@ -81,7 +81,7 @@ def test_ledger_terminal_settlement_is_explicit_and_narrow():
 
 def test_plan_keeps_file_and_full_drain_open():
     root, item = _item()
-    assert root["source_part"] == "FR-06C5D9B3D"
+    assert root["source_part"] == "FR-06C5D9B4"
     assert item["source_part"] == "FR-06C5D9B2B3"
     assert item["prerequisite_source_part"] == "FR-06C5D9B2B2"
     assert item["egress_wired"] is True

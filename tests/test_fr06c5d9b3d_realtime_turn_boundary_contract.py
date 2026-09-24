@@ -54,7 +54,7 @@ def test_turn_boundary_is_read_only_and_blocks_rollout_without_cleanup_or_settle
 
 def test_plan_advances_to_turn_boundary_without_provider_or_full_host_claim():
     root, item = _item()
-    assert root["source_part"] == "FR-06C5D9B3D"
+    assert root["source_part"] == "FR-06C5D9B4"
     assert item["source_part"] == "FR-06C5D9B3D"
     assert item["prerequisite_source_part"] == "FR-06C5D9B3C"
     assert item["livekit_provider_inventory_consumed"] is True
