@@ -128,7 +128,7 @@ def test_realtime_secret_files_must_be_private(
 
 
 @pytest.mark.asyncio
-async def test_room_service_admin_mutations_use_livekit_113_admin_profile(
+async def test_room_service_operations_use_global_delete_and_room_bound_participant_grants(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     runtime, _, _ = _runtime(monkeypatch, tmp_path)
@@ -151,7 +151,8 @@ async def test_room_service_admin_mutations_use_livekit_113_admin_profile(
         "roomRecord": True,
     }
     assert len(calls) == 2
-    assert all(call["video_grant"] == expected for call in calls)
+    assert calls[0]["video_grant"] == expected
+    assert calls[1]["video_grant"] == {"roomAdmin": True, "room": "aios-rt-room"}
     assert calls[0]["method"] == "DeleteRoom"
     assert calls[1]["method"] == "RemoveParticipant"
 

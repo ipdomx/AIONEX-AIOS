@@ -1512,6 +1512,58 @@
             "docs/phase-36/receipts/36H-2026-09-24-settlement-evidence-integrity.md"
           ],
           "coverage_ar": "تصحيح تنفيذي داخل D9B4: إعادة إنتاج14 حالة قبول خاطئ لدليلsettled فيPostgreSQL معزول ثم رفضها دون تعديل السجلات. يشترط ترتيب توقيت التسوية بين إنشاء النية وآخر تحديث وبعد بدء المزود، ويشترط انتهاء كامل بيانات جلسة بدأ إصدارها قبل تسويتها. يحافظ على تسوية النوايا غير المبدوءة. نجح96 اختبارًا سلوكيًا وسجل ملكية دون نشر أو اتصال مزود حقيقي."
+        },
+        "realtime_livekit_room_admin_scope_source": {
+          "source_part": "FR-06C5D9B4D",
+          "prerequisite_source_part": "FR-06C5D9B4A2",
+          "migration": "20260920_0064",
+          "remove_participant_grant_bound_to_exact_room": true,
+          "participant_inventory_grant_bound_to_exact_room": true,
+          "participant_admin_grant_keys": [
+            "roomAdmin",
+            "room"
+          ],
+          "global_room_management_profile_preserved": true,
+          "real_disposable_livekit_failure_reproduced": true,
+          "real_disposable_livekit_control_flow_passed": true,
+          "wrong_room_admin_grant_rejected_in_real_lab": true,
+          "credential_expiry_not_inferred_from_leave": true,
+          "production_database_migrated": false,
+          "production_deployment_verified": false,
+          "production_provider_mutation_performed": false,
+          "audio_video_media_session_tested": false,
+          "egress_recording_tested": false,
+          "turn_allocation_drain_verified": false,
+          "provider_drain_verified": false,
+          "full_host_closure": false,
+          "migration_0064_rollout_allowed": false,
+          "evidence": [
+            "docs/project/receipts/FR-06C5D9B4D-livekit-room-admin-scope.md",
+            "docs/phase-36/receipts/36H-2026-09-24-livekit-room-admin-scope.md"
+          ],
+          "coverage_ar": "أثبت الاختبار الحقيقي المعزول على LiveKit1.13.5 أن RemoveParticipant يرفض الرمز الإداري غير المرتبط بالغرفة برد401، رغم نجاح إنشاء الغرفة وإصدار JWT. يصحح D9B4D منحتي RemoveParticipant وListParticipants إلى roomAdmin مع اسم الغرفة الدقيق فقط. أعاد اختبار PostgreSQL/LiveKit الحقيقي دورة إنشاء الغرفة وإصدار بيانات الدخول والمغادرة والإغلاق وتسوية الملكية بعد انتهاء بيانات الاختبار بنجاح، ورفض صلاحية غرفة مختلفة. لا يثبت الاختبار جلسة صوت/فيديو أو تسجيل Egress أو TURN الإنتاجي، ولا يسمح بنشر0064 قبل قبول التصحيح ونافذة مستقلة."
+        },
+        "realtime_room_scoped_admin_correction_source": {
+          "source_part": "FR-06C5D9B4D",
+          "prerequisite_source_part": "FR-06C5D9B4A2",
+          "migration": "20260920_0064",
+          "list_participants_room_bound_admin": true,
+          "remove_participant_room_bound_admin": true,
+          "unrelated_participant_operation_grants_removed": true,
+          "real_pinned_livekit_isolated_control_plane_executed": true,
+          "real_synthetic_signaling_participant_observed_and_removed": true,
+          "audio_video_tracks_tested": false,
+          "production_database_migrated": false,
+          "production_deployment_verified": false,
+          "production_execution_performed": false,
+          "turn_allocation_drain_verified": false,
+          "provider_drain_verified": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06C5D9B4D-livekit-room-admin-scope.md",
+            "docs/phase-36/receipts/36H-2026-09-24-livekit-room-scoped-admin.md"
+          ],
+          "coverage_ar": "أثبت اختبار LiveKit الحقيقي المعزول رفض ListParticipants وRemoveParticipant برمز401 لغياب room من صلاحية roomAdmin. صُححت الصلاحية بأقل امتياز للغرفة المحددة، وثبت جرد غرفة ومشارك signaling حقيقي ثم إزالة المشارك والغرفة، مع بقاء رفض صلاحية الغرفة الأخرى. لا صوت/فيديو أو بيانات عملاء أو نشر Production أو ادعاء تصريف المضيف."
         }
       }
     },
