@@ -256,7 +256,10 @@ async def _ensure_account_record(
         OwnerControlRecord.resource_id == user_id,
     )
     if lock:
-        statement = statement.with_for_update()
+        # A previously loaded ORM object may predate another committed consumer.
+        # Refresh it only after taking the lock; autoflush preserves this
+        # transaction's earlier counter changes before the locked SELECT.
+        statement = statement.with_for_update().execution_options(populate_existing=True)
     record = await session.scalar(statement)
     if record is None:
         now = _now()
@@ -284,11 +287,22 @@ async def _ensure_account_record(
     return record
 
 
-def _reset_usage_if_needed(record: OwnerControlRecord) -> None:
-    payload = {**_new_usage_payload(), **(record.payload or {})}
+def _usage_for_current_period(
+    stored: dict[str, Any] | None,
+) -> tuple[dict[str, Any], bool]:
+    """Project an expired period without changing the durable account record."""
+    now = _now()
+    payload = {**_new_usage_payload(now), **(stored or {})}
     period_end = _as_utc(payload.get("period_ends_at"))
-    if period_end is None or period_end <= _now():
-        payload = _new_usage_payload()
+    if period_end is None or period_end <= now:
+        return _new_usage_payload(now), True
+    return payload, False
+
+
+def _reset_usage_if_needed(record: OwnerControlRecord) -> None:
+    # Called by writers after the account row has been locked and refreshed.
+    payload, expired = _usage_for_current_period(record.payload)
+    if expired:
         record.version += 1
     record.payload = payload
 
@@ -301,7 +315,9 @@ async def get_free_tier_status(
         return {"plan": actor.organization_plan, "free_tier": False}
     policy = await get_free_tier_policy(session)
     record = await _ensure_account_record(session, actor.id)
-    _reset_usage_if_needed(record)
+    # A status read must not reset counters or hold a usage write lock.
+    # Actual rollover is persisted by the next locked consuming transaction.
+    usage, _ = _usage_for_current_period(record.payload)
     project_count = int(
         await session.scalar(
             select(func.count(Project.id)).where(
@@ -311,7 +327,6 @@ async def get_free_tier_status(
         )
         or 0
     )
-    usage = record.payload
     limits = {
         "projects": policy["project_limit"],
         "user_messages": policy["monthly_user_message_limit"],
