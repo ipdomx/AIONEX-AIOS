@@ -23,3 +23,9 @@ Retained under `/opt/AIOS/docs/project/runtime/d9b4a2-settlement-evidence-202609
 - `full/`: 96 combined PostgreSQL behavioral and provider-ownership tests passed, no failures/errors/skips.
 
 Each run used a fresh private internal Docker network, disposable PostgreSQL on tmpfs, read-only source and container root, dropped runner capabilities, and synthetic test credentials. Specifically named test containers and networks were removed. LiveKit/Coturn/production database were not contacted. Root/static quality and protected CI are reported separately by their actual results in the canonical journal.
+
+## Main advancement and cross-integration verification
+
+The original PR765 head `202077eaaefbf200197c1bb6b13d87bb35caf159` passed all 12 reported checks. A normal merge request was then refused because main had advanced to `95e70d0a880242fe62e3094446092c3a5bc7b570` and the two branches appended different entries to PLAN.json. No protected-main change was made by that refused request.
+
+The updated main was merged into this feature branch without a force push. Resolution retained the entire new main plan and the exact additive settlement-validation record; the source correction and all observer work were preserved. On this reconciled source, all 2,197 root tests and 96 PostgreSQL behavioral/ownership tests passed. An earlier independent check of the immutable observer integration `1decd4a4` also passed its 171 executable observer/authority tests. This is cross-integration evidence, not a claim of runtime deployment or an exemption from renewed protected CI on the new head.
