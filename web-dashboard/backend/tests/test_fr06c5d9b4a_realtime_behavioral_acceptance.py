@@ -449,3 +449,66 @@ async def test_other_tenant_history_never_hides_unowned_livekit_room(case):
     assert snapshot.legacy_unowned_room_ids == (room,)
     with pytest.raises(RealtimeAmbiguityAcceptanceBlocked):
         await evaluate_realtime_ambiguity_acceptance(session_factory=case.sessions)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('kind', ['room', 'participant_session', 'egress', 'recording_file'])
+@pytest.mark.parametrize('fault', ['before_intent', 'before_provider_start', 'after_last_update'])
+async def test_settled_ledger_chronology_cannot_certify_drain(case, kind, fault):
+    """Malformed durable settlement evidence must not create a false clear snapshot."""
+    owner = await _reserve(case, kind)
+    assert await registry.begin_provider_io(owner, session_factory=case.sessions)
+    await registry.observe_provider_active(
+        owner, provider_ref_sha256='a'*64,
+        expires_at=datetime.now(UTC)+timedelta(hours=1) if kind=='participant_session' else None,
+        session_factory=case.sessions,
+    )
+    async with case.sessions() as session, session.begin():
+        row = await session.get(RealtimeProviderResourceOwnership, owner.id)
+        row.state = 'settled'
+        row.updated_at = datetime.now(UTC)
+        if fault == 'before_intent':
+            row.settled_at = row.started_at-timedelta(seconds=1)
+        elif fault == 'before_provider_start':
+            row.provider_started_at = row.started_at+timedelta(milliseconds=10)
+            row.settled_at = row.started_at+timedelta(milliseconds=1)
+            row.updated_at = row.started_at+timedelta(seconds=1)
+        else:
+            row.settled_at = row.updated_at+timedelta(seconds=1)
+    await _close(case)
+    before = await _rows(case)
+    with pytest.raises(registry.RealtimeProviderOwnershipUncertain):
+        await measure_realtime_drain(session_factory=case.sessions)
+    assert await _rows(case) == before
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('fault', ['missing_expiry', 'unexpired_bundle'])
+async def test_settled_started_session_requires_expiry_evidence(case, fault):
+    owner = await _reserve(case, 'participant_session')
+    assert await registry.begin_provider_io(owner, session_factory=case.sessions)
+    await registry.observe_provider_active(owner, provider_ref_sha256='a'*64,
+        expires_at=datetime.now(UTC)+timedelta(hours=1), session_factory=case.sessions)
+    async with case.sessions() as session, session.begin():
+        row = await session.get(RealtimeProviderResourceOwnership, owner.id)
+        row.state = 'settled'
+        row.settled_at = row.updated_at = datetime.now(UTC)
+        if fault == 'missing_expiry':
+            row.expires_at = None
+    await _close(case)
+    before = await _rows(case)
+    with pytest.raises(registry.RealtimeProviderOwnershipUncertain):
+        await measure_realtime_drain(session_factory=case.sessions)
+    assert await _rows(case) == before
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('kind', ['room', 'participant_session', 'egress', 'recording_file'])
+async def test_not_started_settlement_still_allows_clear_snapshot(case, kind):
+    owner = await _reserve(case, kind)
+    await registry.settle_not_started(owner, session_factory=case.sessions)
+    await _close(case)
+    result = await measure_realtime_drain(session_factory=case.sessions)
+    assert result.is_clear
+    assert not result.provider_drain_verified
+    assert not result.full_host_closure

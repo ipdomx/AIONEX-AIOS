@@ -1,0 +1,3 @@
+# 36H — D9B4 settlement evidence integrity
+
+The shared Realtime ownership validator rejects contradictory settled timestamps and started participant sessions without expired credential evidence. Four never-started resource controls remain valid. Real disposable PostgreSQL acceptance reproduced 14 prior failures and passed all 18 new cases after correction; the combined behavioral/ownership suite passed 96 tests. See `docs/project/receipts/FR-06C5D9B4A2-settlement-evidence-integrity.md` and the canonical Project Hub journal for current CI/merge status. No production repair/migration or provider/full-host drain claim is made.

@@ -112,6 +112,18 @@ def _owner(row: RealtimeProviderResourceOwnership) -> RealtimeProviderOwnership:
         or (row.state == "settled") != _aware(row.settled_at)
     ):
         raise RealtimeProviderOwnershipUncertain("Realtime provider ownership is malformed")
+    # A terminal label is not sufficient evidence. Inconsistent persisted times
+    # must never erase a drain blocker, even when the row satisfies SQL checks.
+    if row.settled_at is not None:
+        if (
+            row.settled_at < row.started_at
+            or row.settled_at > row.updated_at
+            or (row.provider_started_at is not None and row.settled_at < row.provider_started_at)
+        ):
+            raise RealtimeProviderOwnershipUncertain("Realtime settlement chronology is inconsistent")
+        if row.resource_kind == "participant_session" and row.provider_started_at is not None:
+            if row.expires_at is None or row.settled_at < row.expires_at:
+                raise RealtimeProviderOwnershipUncertain("Settled participant session lacks expired credential evidence")
     if row.state == "reserved" and (
         row.provider_started_at is not None or row.provider_ref_sha256 is not None
     ):

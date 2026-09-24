@@ -1431,6 +1431,27 @@
             "docs/phase-36/receipts/36H-2026-09-24-realtime-behavioral-drain-safety.md"
           ],
           "coverage_ar": "قبول سلوكي فعلي داخل D9B4 بقاعدة PostgreSQL معزولة وردود مزود محاكاة صريحة. أعاد إنتاج عيوب stale authority/blockers وmalformed inventory والربط بين المستأجرين ثم أصلحها. يختبر انقطاع child بعد commit وإلغاء bundle والتسويات الصريحة دون نشر أو مكالمات مزود حقيقي؛ النجاح لا يثبت TURN أو full-host drain ولا يسمح ب0064."
+        },
+        "realtime_settlement_evidence_validation_source": {
+          "source_part": "FR-06C5D9B4A2",
+          "prerequisite_source_part": "FR-06C5D9B4A",
+          "settlement_timestamp_order_required": true,
+          "started_session_expiry_evidence_required": true,
+          "not_started_settlement_preserved": true,
+          "real_disposable_postgresql_regressions": 18,
+          "baseline_defect_cases_reproduced": 14,
+          "isolated_combined_backend_tests_passed": 96,
+          "production_database_migrated": false,
+          "production_execution_performed": false,
+          "automatic_settlement": false,
+          "provider_drain_verified": false,
+          "full_host_closure": false,
+          "migration_0064_rollout_allowed": false,
+          "evidence": [
+            "docs/project/receipts/FR-06C5D9B4A2-settlement-evidence-integrity.md",
+            "docs/phase-36/receipts/36H-2026-09-24-settlement-evidence-integrity.md"
+          ],
+          "coverage_ar": "تصحيح تنفيذي داخل D9B4: إعادة إنتاج14 حالة قبول خاطئ لدليلsettled فيPostgreSQL معزول ثم رفضها دون تعديل السجلات. يشترط ترتيب توقيت التسوية بين إنشاء النية وآخر تحديث وبعد بدء المزود، ويشترط انتهاء كامل بيانات جلسة بدأ إصدارها قبل تسويتها. يحافظ على تسوية النوايا غير المبدوءة. نجح96 اختبارًا سلوكيًا وسجل ملكية دون نشر أو اتصال مزود حقيقي."
         }
       }
     },
