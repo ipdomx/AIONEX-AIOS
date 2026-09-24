@@ -131,6 +131,19 @@ def _validated_turn_host(value: str) -> str:
     return host
 
 
+def _inventory_identity(item: Any, *, field: str) -> str:
+    """Reject incomplete provider evidence rather than silently dropping a row."""
+    value = item.get(field) if isinstance(item, dict) else None
+    if (
+        not isinstance(value, str)
+        or not value
+        or value != value.strip()
+        or any(ord(char) < 32 or ord(char) == 127 for char in value)
+    ):
+        raise RealtimeProviderProtocolError("LiveKit inventory entry is malformed")
+    return value
+
+
 class LiveKitRuntime:
     provider = "livekit"
 
@@ -383,11 +396,15 @@ class LiveKitRuntime:
         if not isinstance(rooms, list):
             raise RealtimeProviderProtocolError("LiveKit room inventory is unavailable")
         hashes: list[str] = []
+        seen: set[str] = set()
         for item in rooms:
-            if not isinstance(item, dict):
-                continue
-            name = str(item.get("name") or "").strip()
+            name = _inventory_identity(item, field="name")
+            if name in seen:
+                raise RealtimeProviderProtocolError("LiveKit inventory contains duplicate rooms")
+            seen.add(name)
             if name.startswith("aios-rt-"):
+                if len(name) > 80:
+                    raise RealtimeProviderProtocolError("LiveKit room inventory identity is invalid")
                 hashes.append(hashlib.sha256(name.encode("utf-8")).hexdigest())
         return tuple(sorted(set(hashes)))
 
@@ -395,7 +412,7 @@ class LiveKitRuntime:
         self, *, provider_room_name: str
     ) -> ProviderRoomInventory:
         """Return only hashes/counts for one LiveKit room's participant inventory."""
-        room_name = provider_room_name.strip()
+        room_name = _inventory_identity({"name": provider_room_name}, field="name")
         if not room_name.startswith("aios-rt-") or len(room_name) > 80:
             raise RealtimeProviderProtocolError("LiveKit room inventory identity is invalid")
         body = await self._twirp(
@@ -409,12 +426,13 @@ class LiveKitRuntime:
         if not isinstance(participants, list):
             raise RealtimeProviderProtocolError("LiveKit participant inventory is unavailable")
         identities: list[str] = []
+        seen: set[str] = set()
         for item in participants:
-            if not isinstance(item, dict):
-                continue
-            identity = str(item.get("identity") or "").strip()
-            if identity:
-                identities.append(hashlib.sha256(identity.encode("utf-8")).hexdigest())
+            identity = _inventory_identity(item, field="identity")
+            if identity in seen:
+                raise RealtimeProviderProtocolError("LiveKit inventory contains duplicate participants")
+            seen.add(identity)
+            identities.append(hashlib.sha256(identity.encode("utf-8")).hexdigest())
         return ProviderRoomInventory(
             provider_room_name_sha256=hashlib.sha256(room_name.encode("utf-8")).hexdigest(),
             participant_identity_sha256=tuple(sorted(set(identities))),
@@ -438,11 +456,16 @@ class LiveKitRuntime:
         rooms = body.get("rooms")
         if not isinstance(rooms, list):
             raise RealtimeProviderProtocolError("LiveKit room inventory is unavailable")
-        sanitized: list[ProviderRoomInventory] = []
+        names: set[str] = set()
         for item in rooms:
-            if not isinstance(item, dict):
-                continue
-            name = str(item.get("name") or "").strip()
+            name = _inventory_identity(item, field="name")
+            if name in names:
+                raise RealtimeProviderProtocolError("LiveKit inventory contains duplicate rooms")
+            names.add(name)
+            if name.startswith("aios-rt-") and len(name) > 80:
+                raise RealtimeProviderProtocolError("LiveKit room inventory identity is invalid")
+        sanitized: list[ProviderRoomInventory] = []
+        for name in sorted(names):
             if not name.startswith("aios-rt-"):
                 continue
             sanitized.append(
