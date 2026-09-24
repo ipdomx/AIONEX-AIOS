@@ -14,21 +14,27 @@ import os
 import re
 import stat
 import subprocess
+import sys
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
-from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, NoReturn
 from uuid import UUID
+
+# Both direct CLI and namespace/package invocation use the same reviewed core.
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from scripts.security import fr06_turn_private_observer as turn_core
 
 SCHEMA = 'aionex.coturn-allocation-observation.v1'
 SCOPE = ('project_execution+backup_cycles+academy_course_packages+'
          'notification_delivery_dispatch+security_remediation_preparation+'
          'security_scan_requests+studio_job_requests+realtime_media_requests')
-IMAGE = 'sha256:75e9ebd1e19005bec0c7f591d29afe22f959916ac8d9c852452f27db8c789828'
+IMAGE = turn_core.COTURN_IMAGE
 CONFIG_DESTINATION = '/etc/coturn/turnserver.conf'
 METRIC = 'turn_total_allocations'
 MAX_RESPONSE_BYTES = 262144
@@ -53,22 +59,6 @@ async def main():
 asyncio.run(main())
 '''
 
-# Runs with the host interpreter but only inside the pinned network namespace.
-# Proxies and redirects are disabled. Only this metric family crosses the pipe.
-METRICS_READER = '''import hashlib,json,signal,urllib.request
-signal.alarm(5)
-class NoRedirect(urllib.request.HTTPRedirectHandler):
- def redirect_request(self,*args,**kwargs): return None
-url="http://127.0.0.1:9641/metrics"
-opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
-with opener.open(urllib.request.Request(url,headers={"Accept":"text/plain"}),timeout=3) as response:
- if response.status!=200 or response.geturl()!=url: raise RuntimeError("metrics unavailable")
- raw=response.read(262145)
- if len(raw)>262144: raise RuntimeError("metrics response exceeds bound")
- body=raw.decode("utf-8",errors="strict")
- family=[line for line in body.splitlines() if line.startswith("# TYPE turn_total_allocations ") or line.startswith("turn_total_allocations")]
- print(json.dumps({"family":"\\n".join(family),"body_sha256":hashlib.sha256(raw).hexdigest(),"body_bytes":len(raw)}))
-'''
 
 
 class ObservationBlocked(RuntimeError):
@@ -121,30 +111,14 @@ def validate_authority(payload: Any, operation_id: str, generation: int) -> dict
 
 
 def parse_allocations(family: Any) -> int:
-    """Missing, incomplete, duplicated or non-UDP samples are UNKNOWN, not zero."""
+    """Validate an aggregate family using the one reviewed low-level parser."""
     if not isinstance(family, str) or len(family.encode()) > MAX_RESPONSE_BYTES:
         _fail('invalid metric family')
-    types = 0
-    values: list[int] = []
-    for line in family.splitlines():
-        if not line:
-            continue
-        if line == '# TYPE turn_total_allocations gauge':
-            types += 1
-            continue
-        match = re.fullmatch(r'turn_total_allocations\{type="UDP"\} ([^\s]+)', line)
-        if match is None:
-            _fail('metric family is incomplete or outside the UDP profile')
-        try:
-            value = Decimal(match.group(1))
-        except InvalidOperation:
-            _fail('invalid allocation value')
-        if not value.is_finite() or value < 0 or value > 2**53 or value != value.to_integral_value():
-            _fail('invalid allocation count')
-        values.append(int(value))
-    if types != 1 or len(values) != 1:
-        _fail('allocation metric is missing or duplicated')
-    return values[0]
+    try:
+        counts=turn_core.parse_allocation_counts((family+'\n').encode(),('UDP',))
+    except turn_core.TurnObservationUnavailable:
+        _fail('allocation metric is unavailable')
+    return dict(counts.values)['UDP']
 
 
 def validate_config(body: str) -> None:
@@ -193,6 +167,7 @@ class Epoch:
     boot_id: str
     process_start_ticks: int
     netns_inode: int
+    listener_socket_inode: int
 
 
 class DockerObserver:
@@ -206,7 +181,7 @@ class DockerObserver:
     def _inspect(self, service: str) -> dict[str, Any]:
         if service not in {'backend','realtime-turn'}:
             _fail('unsupported observation service')
-        rows = _run(['docker','ps','--no-trunc','--filter',
+        rows = _run(['docker','container','ls','--all','--no-trunc','--filter',
             'label=com.docker.compose.project='+self.project,'--filter',
             'label=com.docker.compose.service='+service,'--format','{{.ID}}']).split()
         if len(rows) != 1 or not _hex(rows[0],64):
@@ -252,8 +227,13 @@ class DockerObserver:
         boot = Path('/proc/sys/kernel/random/boot_id').read_text().strip()
         if not _uuid(boot) or ticks <= 0:
             _fail('invalid host process epoch')
+        listener=0
+        if service=='realtime-turn':
+            if raw[raw.find('(')+1:raw.rfind(')')]!='turnserver' or Path(os.readlink(f'/proc/{pid}/exe')).name!='turnserver':
+                _fail('unexpected Coturn daemon process')
+            listener=turn_core._loopback_listener(Path(f'/proc/{pid}'))
         return Epoch(container['Id'],container['Image'],pid,started,restarts,
-                     boot,ticks,os.stat(f'/proc/{pid}/ns/net').st_ino)
+                     boot,ticks,os.stat(f'/proc/{pid}/ns/net').st_ino,listener)
 
     def config_digest(self, epoch: Epoch) -> str:
         container = self._inspect('realtime-turn')
@@ -303,14 +283,20 @@ class DockerObserver:
             os.close(fd)
 
     def sample(self, netns_fd: int) -> dict[str, Any]:
+        # Shared core performs bounded, no-proxy/no-redirect HTTP and strict
+        # decoding inside the namespace. Only validated aggregate counts return.
         payload=json.loads(_run(['/usr/bin/nsenter',f'--net=/proc/self/fd/{netns_fd}',
-            '--','/usr/bin/python3','-I','-c',METRICS_READER],pass_fds=(netns_fd,)))
-        if not isinstance(payload,dict) or set(payload)!={'family','body_sha256','body_bytes'}:
-            _fail('invalid metrics response envelope')
-        if not _hex(payload['body_sha256'],64) or type(payload['body_bytes']) is not int or not 0<payload['body_bytes']<=MAX_RESPONSE_BYTES:
-            _fail('metrics response bounds are invalid')
-        return {'udp_allocations':parse_allocations(payload['family']),
-                'body_sha256':payload['body_sha256'],'body_bytes':payload['body_bytes']}
+            '--',sys.executable,'-I',str(Path(turn_core.__file__).resolve()),
+            '_scrape','UDP'],pass_fds=(netns_fd,)))
+        if not isinstance(payload,dict) or set(payload)!={'status','values'} or payload['status']!='OBSERVED':
+            _fail('invalid private aggregate response')
+        rows=payload['values']
+        if not isinstance(rows,list) or len(rows)!=1 or not isinstance(rows[0],list) or len(rows[0])!=2:
+            _fail('invalid private aggregate samples')
+        kind,count=rows[0]
+        if kind!='UDP' or type(count) is not int or not 0<=count<=2**53-1:
+            _fail('invalid private allocation count')
+        return {'udp_allocations':count}
 
 
 def collect_observation(*, operation_id: str, generation: int,
@@ -363,7 +349,7 @@ def main() -> int:
     try:
         result=collect_observation(operation_id=args.operation_id,generation=args.generation,
                                    observer=DockerObserver(args.project))
-    except (ObservationBlocked,OSError,ValueError,KeyError,IndexError,TypeError,subprocess.SubprocessError):
+    except (ObservationBlocked,turn_core.TurnObservationUnavailable,OSError,ValueError,KeyError,IndexError,TypeError,subprocess.SubprocessError):
         # Suppress raw config, response body, credentials and command diagnostics.
         print(json.dumps({'status':'COTURN_OBSERVATION_BLOCKED','turn_allocation_drain_verified':False}))
         return 2

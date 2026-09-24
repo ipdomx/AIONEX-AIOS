@@ -1432,9 +1432,42 @@
           ],
           "coverage_ar": "قبول سلوكي فعلي داخل D9B4 بقاعدة PostgreSQL معزولة وردود مزود محاكاة صريحة. أعاد إنتاج عيوب stale authority/blockers وmalformed inventory والربط بين المستأجرين ثم أصلحها. يختبر انقطاع child بعد commit وإلغاء bundle والتسويات الصريحة دون نشر أو مكالمات مزود حقيقي؛ النجاح لا يثبت TURN أو full-host drain ولا يسمح ب0064."
         },
-        "realtime_private_coturn_observer_source": {
+        "realtime_private_turn_observer_source": {
           "source_part": "FR-06C5D9B4B",
-          "prerequisite_source_part": "FR-06C5D9B4A",
+          "independent_host_reader": true,
+          "base_commit": "9439a7f0520f38fb4c0ed6f966729f1bd3ccdc06",
+          "backend_integration_prerequisite_pr": 762,
+          "exact_expected_container_set_required": true,
+          "pinned_coturn_image_required": true,
+          "daemon_owned_loopback_listener_required": true,
+          "network_namespace_fd_bound": true,
+          "two_fresh_scrapes_required": true,
+          "process_boot_socket_epoch_revalidated": true,
+          "missing_metric_is_unknown": true,
+          "missing_required_transport_is_unknown": true,
+          "raw_metrics_returned": false,
+          "raw_configuration_or_credentials_read": false,
+          "read_only_host_observer": true,
+          "isolated_udp_and_tcp_positive_to_zero_observed": true,
+          "source_only": true,
+          "production_configuration_changed": false,
+          "production_execution_performed": false,
+          "production_database_migrated": false,
+          "maintenance_authority_verified": false,
+          "credential_admission_closed_verified": false,
+          "turn_allocation_drain_verified": false,
+          "provider_drain_verified": false,
+          "full_host_closure": false,
+          "migration_0064_rollout_allowed": false,
+          "evidence": [
+            "docs/project/receipts/FR-06C5D9B4B-private-turn-observer.md",
+            "docs/phase-36/receipts/36H-2026-09-24-private-turn-observer.md"
+          ],
+          "coverage_ar": "قارئ TURN خاص مستقل، بُني في فرع معزول دون الحاجة إلى استيراد تصحيح PR762 الذي لم يُقبل بعد في هذه الجلسة. يطابق مجموعة الحاويات الكاملة وصورة Coturn وهوية العملية والإقلاع والنطاق الشبكي والمقبس الخاص قبل عينتين وبعدهما. يقرأ عدد الاتصالات من loopback فقط ويعيد أعدادًا بلا هويات أو أسرار؛ غياب المقياس أو أحد أنواع النقل المطلوبة يعيد UNKNOWN وليس صفرًا. الاختبارات الحقيقية المعزولة لـ UDP وTCP رصدت اتصالات قائمة ثم صفرًا صريحًا مع ثبات العملية. لا تغيير للإنتاج ولا تصريح لنشر 0064؛ يظل الربط بسلطة الصيانة المغلقة وانتهاء صلاحية بيانات الانضمام وقبول PR762 خطوة تكامل مستقلة."
+        },
+        "realtime_private_coturn_authority_integration_source": {
+          "source_part": "FR-06C5D9B4C",
+          "prerequisite_source_part": "FR-06C5D9B4B",
           "observer": "scripts/security/fr06c5d9_coturn_observer.py",
           "supported_profile": "one_pinned_coturn_instance_udp_relay_only",
           "closed_authority_before_after_required": true,
@@ -1452,10 +1485,12 @@
           "full_host_closure": false,
           "migration_0064_rollout_allowed": false,
           "evidence": [
-            "docs/project/receipts/FR-06C5D9B4B-private-coturn-observer.md",
-            "docs/phase-36/receipts/36H-2026-09-24-private-coturn-observer.md"
+            "docs/project/receipts/FR-06C5D9B4C-private-coturn-authority-integration.md",
+            "docs/phase-36/receipts/36H-2026-09-24-private-coturn-authority-integration.md"
           ],
-          "coverage_ar": "مراقب خاص ينفذ قراءة فعلية لـCoturn allocations منloopback داخلnamespace مثبتة لنفس الحاوية والصورة والعملية، مع مطابقة authority مغلقة قبل وبعد. نجح CLI مع PostgreSQL وCoturn وعميل TURN حقيقيين في مختبر معزول: غياب metric رُفض، ثم3/3 ثم0/0 بعد عمرallocationاختباري، دون تغييرProduction. لا يعتبر الرصد وحده تصريفًا للمزود أو إذنًا ب0064؛ يلزم تفعيل تشغيلي خاص وقبول حي وربط بقية الأدلة."
+          "coverage_ar": "مراقب خاص ينفذ قراءة فعلية لـCoturn allocations منloopback داخلnamespace مثبتة لنفس الحاوية والصورة والعملية، مع مطابقة authority مغلقة قبل وبعد. نجح CLI مع PostgreSQL وCoturn وعميل TURN حقيقيين في مختبر معزول: غياب metric رُفض، ثم3/3 ثم0/0 بعد عمرallocationاختباري، دون تغييرProduction. لا يعتبر الرصد وحده تصريفًا للمزود أو إذنًا ب0064؛ يلزم تفعيل تشغيلي خاص وقبول حي وربط بقية الأدلة.",
+          "shared_core": "scripts/security/fr06_turn_private_observer.py",
+          "daemon_owned_listener_required": true
         }
       }
     },

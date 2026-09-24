@@ -67,7 +67,7 @@ class FakeObserver:
         self.authority_state={'schema_version':8,'scope':observer.SCOPE,
             'generation':17,'status':'closed','enabled':False,'operation_id':self.operation,
             'changed_at':datetime.now(UTC).isoformat(),'full_host_closure':False}
-        self.baseline=observer.Epoch('a'*64,observer.IMAGE,123,'2026-09-01T00:00:00Z',0,str(uuid4()),100,200)
+        self.baseline=observer.Epoch('a'*64,observer.IMAGE,123,'2026-09-01T00:00:00Z',0,str(uuid4()),100,200,300)
         self.epoch_calls={}
         self.authority_calls=0
         self.sample_calls=0
@@ -161,14 +161,14 @@ def test_other_project_cannot_be_selected():
         observer.DockerObserver('other-production-server')
 
 
-def test_reader_commands_are_fixed_private_and_have_process_deadlines():
-    assert 'http://127.0.0.1:9641/metrics' in observer.METRICS_READER
-    assert 'ProxyHandler({})' in observer.METRICS_READER
-    assert 'NoRedirect' in observer.METRICS_READER
-    assert 'signal.alarm(5)' in observer.METRICS_READER
+def test_reader_commands_are_fixed_private_and_reuse_the_reviewed_core():
+    import inspect
+    text=inspect.getsource(observer.DockerObserver.sample)
+    assert 'turn_core.__file__' in text and "'_scrape','UDP'" in text
     assert 'signal.alarm(8)' in observer.AUTHORITY_READER
     assert 'read_admission_snapshot' in observer.AUTHORITY_READER
     assert 'commit(' not in observer.AUTHORITY_READER
+    assert 'turn_core.parse_allocation_counts' in inspect.getsource(observer.parse_allocations)
 
 
 def test_observer_plan_tracks_real_source_without_granting_production_acceptance():
@@ -178,8 +178,8 @@ def test_observer_plan_tracks_real_source_without_granting_production_acceptance
     plan=json.loads((root/'docs/project/PLAN.json').read_text())
     part=next(x for x in plan['batches'] if x['id']=='FR-06')['host_state_cutover_admission']
     assert part['source_part']=='FR-06C5D9B4'
-    item=part['realtime_private_coturn_observer_source']
-    assert item['source_part']=='FR-06C5D9B4B'
+    item=part['realtime_private_coturn_authority_integration_source']
+    assert item['source_part']=='FR-06C5D9B4C'
     assert item['closed_authority_before_after_required'] and item['pinned_network_namespace_descriptor']
     assert (root/item['observer']).is_file()
     assert all((root/x).is_file() for x in item['evidence'])

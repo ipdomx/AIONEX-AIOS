@@ -1,6 +1,6 @@
-# FR-06C5D9B4B — Private, epoch-bound Coturn allocation observer
+# FR-06C5D9B4C — Private, epoch-bound Coturn allocation observer
 
-Base: corrective PR #762 merge `985fa4aa6c05c56356a92f6d848ed46e20c1197e`.
+Core prerequisite: exact PR763 head `2c2a2768de7ff8b36d11961fd70e847931375aa1`, preserved as a shared core rather than a duplicate observer. Integration adds to corrective PR #762 merge `985fa4aa6c05c56356a92f6d848ed46e20c1197e`.
 Current execution and merge/deployment status remain in the canonical Project Hub, not this source receipt.
 
 ## Implemented observation, not another constant rollout flag
@@ -11,7 +11,7 @@ The observer selects exactly one backend and one realtime-turn service in the AI
 
 Before and after the two samples, the backend's existing validated authority reader must return the same explicitly closed schema-8 operation and generation. Docker container ID, image, PID, start time, restart count, host boot ID, process start ticks and network-namespace inode are revalidated, including after the final database read. The network-namespace descriptor remains pinned while sampling. Process alarms and command/read deadlines bound subprocesses and I/O; no daemon, retry loop or background watcher is installed.
 
-Only the `turn_total_allocations` metric family crosses the helper pipe, together with response size/hash. Proxies and redirects are disabled, the response size is bounded, and no credentials, raw configuration, usernames, rooms or provider tokens are returned. The supported current deployment profile disables TCP relay; exactly one UDP gauge sample is required. Missing, duplicated, negative, fractional, non-finite, extra-transport or username-labeled samples are unavailable, never zero.
+Only validated aggregate counts cross the helper pipe. The shared core from PR763 owns parsing and HTTP reads; this wrapper adds closed-authority/configuration binding and validates the actual deployed UDP-only profile, including the daemon-owned loopback socket. Proxies and redirects are disabled, the response size is bounded by the shared core, and no credentials, raw configuration, usernames, rooms or provider tokens are returned. The supported current deployment profile disables TCP relay; exactly one UDP gauge sample is required. Missing, duplicated, negative, fractional, non-finite, extra-transport or username-labeled samples are unavailable, never zero.
 
 ## Executed acceptance
 
