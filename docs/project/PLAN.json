@@ -1404,6 +1404,33 @@
             "docs/project/receipts/FR-06C5D9B4-realtime-ambiguity-acceptance.md"
           ],
           "coverage_ar": "يضيف D9B4 قبولًا مصدريًا معزولًا لمسارات crash/cancellation/provider ambiguity في Realtime. يعتمد فقط على سنابشوت D9B3A الدائم ويعامل submitted/active/unresolved provider ownership والجلسات المنتهية غير المسواة والتسجيلات القديمة ذات بداية ملتبسة كعوائق rollout. لا يتصل بالمزود ولا يجري settlement أو cleanup أو retry أو adoption، ولا يسمح بنشر0064 أو يدعي provider/full-host drain."
+        },
+        "realtime_behavioral_acceptance_source": {
+          "source_part": "FR-06C5D9B4A",
+          "prerequisite_source_part": "FR-06C5D9B4",
+          "behavioral_test_path": "web-dashboard/backend/tests/test_fr06c5d9b4a_realtime_behavioral_acceptance.py",
+          "real_disposable_postgresql": true,
+          "provider_transport_simulated": true,
+          "child_process_exit_after_commit_tested": true,
+          "cancelled_committed_bundle_tested": true,
+          "authority_revalidated_after_provider_read": true,
+          "new_durable_blockers_rejected": true,
+          "malformed_inventory_rejected": true,
+          "duplicate_inventory_rejected": true,
+          "tenant_scoped_ownership_history": true,
+          "provider_inventory_deadline_seconds": 30,
+          "production_database_migrated": false,
+          "production_deployment_verified": false,
+          "live_provider_acceptance_verified": false,
+          "turn_allocation_drain_verified": false,
+          "migration_0064_rollout_allowed": false,
+          "provider_drain_verified": false,
+          "full_host_closure": false,
+          "evidence": [
+            "docs/project/receipts/FR-06C5D9B4A-realtime-behavioral-acceptance.md",
+            "docs/phase-36/receipts/36H-2026-09-24-realtime-behavioral-drain-safety.md"
+          ],
+          "coverage_ar": "قبول سلوكي فعلي داخل D9B4 بقاعدة PostgreSQL معزولة وردود مزود محاكاة صريحة. أعاد إنتاج عيوب stale authority/blockers وmalformed inventory والربط بين المستأجرين ثم أصلحها. يختبر انقطاع child بعد commit وإلغاء bundle والتسويات الصريحة دون نشر أو مكالمات مزود حقيقي؛ النجاح لا يثبت TURN أو full-host drain ولا يسمح ب0064."
         }
       }
     },

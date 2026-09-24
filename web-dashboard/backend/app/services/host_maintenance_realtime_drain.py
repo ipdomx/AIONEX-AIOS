@@ -146,7 +146,7 @@ async def measure_realtime_drain(
         )
 
         history = {
-            (item.resource_kind, item.local_resource_id)
+            (item.organization_id, item.resource_kind, item.local_resource_id)
             for item in provider
         }
 
@@ -203,7 +203,7 @@ async def measure_realtime_drain(
             for room in rooms
             if (
                 (room.provider_adapter == "livekit" or room.provider_room_id_sha256 is not None)
-                and ("room", room.id) not in history
+                and (room.organization_id, "room", room.id) not in history
             )
         )
         legacy_sessions = tuple(
@@ -214,7 +214,7 @@ async def measure_realtime_drain(
                     grant.provider_adapter == "livekit"
                     or grant.provider_token_jti_sha256 is not None
                 )
-                and ("participant_session", grant.id) not in history
+                and (grant.organization_id, "participant_session", grant.id) not in history
             )
         )
         legacy_egress = tuple(
@@ -222,7 +222,7 @@ async def measure_realtime_drain(
             for recording in recordings
             if (
                 recording.provider_egress_id is not None
-                and ("egress", recording.id) not in history
+                and (recording.organization_id, "egress", recording.id) not in history
             )
         )
         legacy_files = tuple(
@@ -230,7 +230,7 @@ async def measure_realtime_drain(
             for recording in recordings
             if (
                 recording.provider_egress_id is not None
-                and ("recording_file", recording.id) not in history
+                and (recording.organization_id, "recording_file", recording.id) not in history
             )
         )
         legacy_ambiguous = tuple(
@@ -238,7 +238,7 @@ async def measure_realtime_drain(
             for recording in recordings
             if (
                 recording.error_code in _LEGACY_AMBIGUOUS_RECORDING_ERRORS
-                and ("egress", recording.id) not in history
+                and (recording.organization_id, "egress", recording.id) not in history
             )
         )
 
