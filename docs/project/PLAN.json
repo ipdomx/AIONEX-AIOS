@@ -1404,6 +1404,39 @@
             "docs/project/receipts/FR-06C5D9B4-realtime-ambiguity-acceptance.md"
           ],
           "coverage_ar": "يضيف D9B4 قبولًا مصدريًا معزولًا لمسارات crash/cancellation/provider ambiguity في Realtime. يعتمد فقط على سنابشوت D9B3A الدائم ويعامل submitted/active/unresolved provider ownership والجلسات المنتهية غير المسواة والتسجيلات القديمة ذات بداية ملتبسة كعوائق rollout. لا يتصل بالمزود ولا يجري settlement أو cleanup أو retry أو adoption، ولا يسمح بنشر0064 أو يدعي provider/full-host drain."
+        },
+        "realtime_private_turn_observer_source": {
+          "source_part": "FR-06C5D9B4B",
+          "independent_host_reader": true,
+          "base_commit": "9439a7f0520f38fb4c0ed6f966729f1bd3ccdc06",
+          "backend_integration_prerequisite_pr": 762,
+          "exact_expected_container_set_required": true,
+          "pinned_coturn_image_required": true,
+          "daemon_owned_loopback_listener_required": true,
+          "network_namespace_fd_bound": true,
+          "two_fresh_scrapes_required": true,
+          "process_boot_socket_epoch_revalidated": true,
+          "missing_metric_is_unknown": true,
+          "missing_required_transport_is_unknown": true,
+          "raw_metrics_returned": false,
+          "raw_configuration_or_credentials_read": false,
+          "read_only_host_observer": true,
+          "isolated_udp_and_tcp_positive_to_zero_observed": true,
+          "source_only": true,
+          "production_configuration_changed": false,
+          "production_execution_performed": false,
+          "production_database_migrated": false,
+          "maintenance_authority_verified": false,
+          "credential_admission_closed_verified": false,
+          "turn_allocation_drain_verified": false,
+          "provider_drain_verified": false,
+          "full_host_closure": false,
+          "migration_0064_rollout_allowed": false,
+          "evidence": [
+            "docs/project/receipts/FR-06C5D9B4B-private-turn-observer.md",
+            "docs/phase-36/receipts/36H-2026-09-24-private-turn-observer.md"
+          ],
+          "coverage_ar": "قارئ TURN خاص مستقل، بُني في فرع معزول دون الحاجة إلى استيراد تصحيح PR762 الذي لم يُقبل بعد في هذه الجلسة. يطابق مجموعة الحاويات الكاملة وصورة Coturn وهوية العملية والإقلاع والنطاق الشبكي والمقبس الخاص قبل عينتين وبعدهما. يقرأ عدد الاتصالات من loopback فقط ويعيد أعدادًا بلا هويات أو أسرار؛ غياب المقياس أو أحد أنواع النقل المطلوبة يعيد UNKNOWN وليس صفرًا. الاختبارات الحقيقية المعزولة لـ UDP وTCP رصدت اتصالات قائمة ثم صفرًا صريحًا مع ثبات العملية. لا تغيير للإنتاج ولا تصريح لنشر 0064؛ يظل الربط بسلطة الصيانة المغلقة وانتهاء صلاحية بيانات الانضمام وقبول PR762 خطوة تكامل مستقلة."
         }
       }
     },
