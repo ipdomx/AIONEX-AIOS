@@ -63,3 +63,11 @@ limits and exception priority. FR-07D must execute WebSocket/reconnect and immed
 revocation tests; connect-time authentication alone is not that evidence. FR-07E
 requires both dashboards and a separately accepted production deployment.
 No parent-batch completion, capacity certification or final release is claimed.
+
+## Full CI lint correction
+
+The initial Backend Tests job rejected one E702 semicolon in the new test fixture
+before running the backend suite. The fixture was reformatted with identical AST;
+no lint rule was disabled. The exact full CI static scope then passed locally:
+`ruff check --no-cache app tests` and `mypy --no-incremental app` (299 source files).
+The initial CI rejection is retained; local tests were not reported as that CI run.

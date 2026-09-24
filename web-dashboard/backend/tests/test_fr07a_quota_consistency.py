@@ -60,7 +60,8 @@ async def case():
     created = False
     try:
         async with admin.begin() as conn:
-            await conn.execute(CreateSchema(schema)); created = True
+            await conn.execute(CreateSchema(schema))
+            created = True
         async with engine.begin() as conn:
             await conn.run_sync(lambda sync: Base.metadata.create_all(sync, tables=_dependency_tables()))
         async with sessions() as session, session.begin():
