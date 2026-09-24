@@ -1,0 +1,3 @@
+# 36H — LiveKit room-scoped participant administration
+
+FR-06C5D9B4D corrects `ListParticipants` and `RemoveParticipant` JWT grants to bind `roomAdmin` to the requested room and remove unrelated permissions. Real pinned LiveKit acceptance reproduced HTTP401 before the correction, then verified room inventory, one synthetic signaling participant, explicit participant removal, and room deletion without mocked transport. Wrong-room authorization remains rejected. No production rollout, media-track/load certification, TURN drain, or full-host closure is claimed. See `docs/project/receipts/FR-06C5D9B4D-livekit-room-admin-scope.md`; current operational state is only in the canonical Project Hub.
