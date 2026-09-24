@@ -267,8 +267,8 @@ class LiveKitRuntime:
 
     @staticmethod
     def _room_service_admin_grant() -> dict[str, bool]:
-        # LiveKit 1.13.x RoomService admin mutations require the complete
-        # server-side room administration grant profile. This token is only
+        # Retained global room-management profile. Participant moderation uses
+        # a separate least-privilege room-bound grant below. This token is only
         # used on the private Docker control plane and is never returned to a
         # participant or persisted.
         return {
@@ -293,7 +293,7 @@ class LiveKitRuntime:
             service="RoomService",
             method="RemoveParticipant",
             payload={"room": provider_room_name, "identity": participant_identity},
-            video_grant=self._room_service_admin_grant(),
+            video_grant={"roomAdmin": True, "room": provider_room_name},
         )
 
     def participant_session_max_ttl(self) -> timedelta:
@@ -419,7 +419,7 @@ class LiveKitRuntime:
             service="RoomService",
             method="ListParticipants",
             payload={"room": room_name},
-            video_grant=self._room_service_admin_grant(),
+            video_grant={"roomAdmin": True, "room": room_name},
             timeout_seconds=10.0,
         )
         participants = body.get("participants")
