@@ -1582,7 +1582,28 @@
         "FR-07C فرض حدود المشاريع والمحادثات والاستثناءات والتعليق والحظر والسحب",
         "FR-07D اختبارات WebSocket والتزامن وإعادة الاتصال وتغيير السياسة أثناء الجلسة",
         "FR-07E دمج ونشر وقبول لوحتي المالك والمستخدم وسجل القرارات"
-      ]
+      ],
+      "quota_counter_consistency_source": {
+        "source_part": "FR-07A1",
+        "source_base_commit": "22e94dc8afe892d5f80a0b71f55bac387ce571c1",
+        "scope": "existing_free_tier_account_counter_consistency",
+        "locked_account_refreshes_preloaded_identity_map": true,
+        "existing_account_status_does_not_persist_period_rollover": true,
+        "writer_rollover_remains_transactional": true,
+        "user_message_and_assistant_response_counters_tested": true,
+        "storage_counter_refresh_regression_tested": true,
+        "isolated_postgresql_cases_passed": 20,
+        "production_deployed": false,
+        "production_database_migrated": false,
+        "all_plan_user_conversation_limits_verified": false,
+        "websocket_revocation_verified": false,
+        "parent_batch_complete": false,
+        "evidence": [
+          "docs/project/receipts/FR-07A1-quota-counter-consistency.md",
+          "web-dashboard/backend/tests/test_fr07a_quota_consistency.py"
+        ],
+        "coverage_ar": "تصحيح ضيق داخل FR07A: أُعيد إنتاج تجاوز عداد قديم محمل مسبقًا رغم أخذ قفل الصف، وضياع زيادة مثبتة من معاملة أخرى، وتعديل فترة الاستخدام من مجرد عرض الحالة. يجدد المصدر كائن الحساب بعد القفل، ويجعل عرض الفترة منتهية الصلاحية إسقاطًا دون تعديل سجل الاستهلاك؛ يظل التجديد الفعلي في معاملة الكاتب. اختبارات PostgreSQL معزولة فعلية، بلا بيانات مستخدمين أو مزودين أو نشر. لا يغلق هذا حدود اليوم أو المحادثة أو مدة الجلسة أو كل الخطط أو WebSocket أو الدفعة FR07."
+      }
     },
     {
       "id": "FR-08",
