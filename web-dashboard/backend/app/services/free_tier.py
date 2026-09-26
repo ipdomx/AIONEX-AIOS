@@ -145,10 +145,12 @@ async def _ensure_policy_record(
     *,
     lock: bool = False,
 ) -> OwnerControlRecord:
+    # Re-query committed policy instead of reusing an older identity-map object.
+    # Normal autoflush preserves this transaction's earlier Owner edits first.
     statement = select(OwnerControlRecord).where(
         OwnerControlRecord.domain == FREE_TIER_POLICY_DOMAIN,
         OwnerControlRecord.resource_id == FREE_TIER_POLICY_RESOURCE,
-    )
+    ).execution_options(populate_existing=True)
     if lock:
         statement = statement.with_for_update()
     record = await session.scalar(statement)
@@ -175,10 +177,14 @@ async def _ensure_policy_record(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Free-tier policy could not be initialized",
         )
-    normalized = _policy_payload(record.payload)
-    if record.payload != normalized:
-        record.payload = normalized
-        record.version += 1
+    # Reads project defaults in get_free_tier_policy without writing history or
+    # acquiring a policy write lock. Persist normalization only for an explicit
+    # Owner update after its exclusive row lock has been acquired.
+    if lock:
+        normalized = _policy_payload(record.payload)
+        if record.payload != normalized:
+            record.payload = normalized
+            record.version += 1
     return record
 
 
