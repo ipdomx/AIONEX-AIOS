@@ -1603,6 +1603,30 @@
           "web-dashboard/backend/tests/test_fr07a_quota_consistency.py"
         ],
         "coverage_ar": "تصحيح ضيق داخل FR07A: أُعيد إنتاج تجاوز عداد قديم محمل مسبقًا رغم أخذ قفل الصف، وضياع زيادة مثبتة من معاملة أخرى، وتعديل فترة الاستخدام من مجرد عرض الحالة. يجدد المصدر كائن الحساب بعد القفل، ويجعل عرض الفترة منتهية الصلاحية إسقاطًا دون تعديل سجل الاستهلاك؛ يظل التجديد الفعلي في معاملة الكاتب. اختبارات PostgreSQL معزولة فعلية، بلا بيانات مستخدمين أو مزودين أو نشر. لا يغلق هذا حدود اليوم أو المحادثة أو مدة الجلسة أو كل الخطط أو WebSocket أو الدفعة FR07."
+      },
+      "owner_policy_freshness_source": {
+        "source_part": "FR-07A2",
+        "source_base_commit": "dd0a1bc2f48e958c818b7335cd90a85dc58b70de",
+        "scope": "existing_free_tier_owner_policy_freshness",
+        "preloaded_policy_refreshed_on_read": true,
+        "locked_owner_patch_preserves_committed_fields": true,
+        "existing_policy_read_does_not_persist_normalization": true,
+        "first_use_initialization_preserved": true,
+        "same_transaction_updates_preserved": true,
+        "real_isolated_postgresql_policy_cases_passed": 18,
+        "combined_counter_policy_cases_passed": 38,
+        "production_deployed": false,
+        "production_database_migrated": false,
+        "policy_wide_admission_fence_verified": false,
+        "already_admitted_work_revocation_verified": false,
+        "all_plan_user_conversation_limits_verified": false,
+        "websocket_revocation_verified": false,
+        "parent_batch_complete": false,
+        "evidence": [
+          "docs/project/receipts/FR-07A2-owner-policy-freshness.md",
+          "web-dashboard/backend/tests/test_fr07a2_policy_freshness.py"
+        ],
+        "coverage_ar": "أعاد اختبار PostgreSQL المعزول إنتاج13 إخفاقًا من18 حالة بسبب سياسة ORM قديمة وكتابة تطبيع من القراءة. يجدد المصدر السياسة عند القراءة وعند قفل تعديلالمالك، فيحفظ تعليقًا وحدودًا معدلة ومختلفحقول التعديلات المتعاقبة؛ القراءة تعرضالقيم الافتراضية دونتعديل سجل قائم. نجحت18 حالةسياسة و38 حالةمجمعة مععداداتA1. لايمثل ذلك حراسةمعاملة كاملة لتغييراتالسياسة أوإلغاءعمل بدأقبلها أوضبطكلالخطط والمحادثات وWebSocket أوالنشر."
       }
     },
     {
