@@ -59,7 +59,8 @@
     "securityLab": "Security Lab",
     "campaigns": "Kampagnen",
     "studio": "Studio",
-    "realtime": "Echtzeit"
+    "realtime": "Echtzeit",
+    "conversations": "Projektgespräche"
   },
   "footer": {
     "description": "Ein gesteuertes KI-Betriebssystem zur Koordination von Agenten, Modellen, Projekten und Betriebskontrollen.",
@@ -504,7 +505,8 @@
     "phase36CurrentBatch": "Aktueller Batch",
     "phase36MinScale": "Mindestens gleichzeitige Nutzer",
     "phase36ProductionReady": "Produktionsbereit",
-    "openStudio": "Studio öffnen"
+    "openStudio": "Studio öffnen",
+    "openConversations": "Projektgespräche"
   },
   "legal": {
     "effective": "Aktueller technischer Hinweis",
@@ -1133,6 +1135,52 @@
       "self": "Meine eigene Identität",
       "consented_person": "Person mit Zustimmung",
       "licensed_public_figure": "Lizenzierter Künstler / öffentliche Person"
+    }
+  },
+  "conversations": {
+    "title": "Projektgespräche",
+    "description": "Getrennte, dauerhaft gespeicherte Gespräche für Ihre Projekte. Der Eigentümer legt Dauer, Nachrichtenlimits und Zugriffsrechte auf dem Server fest.",
+    "refresh": "Aktualisieren",
+    "loading": "Gespräche werden geladen…",
+    "error": "Das Gespräch konnte nicht geladen oder aktualisiert werden.",
+    "daily": "Heute angenommene Nachrichten",
+    "credits": "Verbleibendes Nachrichtenguthaben",
+    "unlimited": "Unbegrenzt",
+    "concurrent": "Limit gleichzeitiger Gespräche",
+    "suspended": "Der Eigentümer hat den Gesprächszugriff gesperrt.",
+    "project": "Projekt",
+    "chooseProject": "Projekt auswählen",
+    "name": "Gesprächstitel",
+    "new": "Neues Gespräch",
+    "empty": "Noch keine Gespräche.",
+    "chooseConversation": "Wählen Sie ein Gespräch oder beginnen Sie eines für ein Projekt.",
+    "remaining": "Verbleibende Zeit",
+    "close": "Gespräch schließen",
+    "closeConfirm": "Dieses Gespräch schließen? Nachrichten und Nutzungsverlauf bleiben erhalten.",
+    "firstMessage": "Senden Sie Ihre erste Nachricht an den eingerichteten Assistenten.",
+    "you": "Sie",
+    "assistant": "Assistent",
+    "pending": "Das Ergebnis des gespeicherten Auftrags steht noch aus.",
+    "review": "Das Anbieterergebnis muss geprüft werden. Die Anfrage wird nicht automatisch wiederholt.",
+    "chooseAssistant": "Assistent auswählen",
+    "notConfigured": "Kein zulässiger Assistent eingerichtet. Bitten Sie den Eigentümer um eine Zuweisung; es werden keine simulierten Antworten erstellt.",
+    "externalConsent": "Ich erlaube, den Gesprächskontext an den ausgewählten externen KI-Anbieter zu senden.",
+    "message": "Nachricht",
+    "creditsNote": "Jede angenommene Nutzernachricht verbraucht ein Nachrichtenguthaben. Guthaben ist kein Geld. Aktualisieren oder erneutes Verbinden setzt die Nutzung nicht zurück.",
+    "send": "Senden",
+    "sending": "Wird gesendet…",
+    "inactive": "Das Gespräch ist geschlossen, pausiert oder abgelaufen. Der Server lehnt weitere Nachrichten ab.",
+    "status": {
+      "open": "Offen",
+      "paused": "Pausiert",
+      "closed": "Geschlossen",
+      "expired": "Abgelaufen",
+      "queued": "In Warteschlange",
+      "running": "In Bearbeitung",
+      "completed": "Abgeschlossen",
+      "failed": "Fehlgeschlagen",
+      "cancelled": "Abgebrochen",
+      "needs_review": "Prüfung erforderlich"
     }
   }
 }

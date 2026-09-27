@@ -59,7 +59,8 @@
     "securityLab": "Laboratoire sécurité",
     "campaigns": "Campagnes",
     "studio": "Studio",
-    "realtime": "Temps réel"
+    "realtime": "Temps réel",
+    "conversations": "Conversations de projet"
   },
   "footer": {
     "description": "Un système d’exploitation IA gouverné pour coordonner agents, modèles, projets et contrôles opérationnels.",
@@ -504,7 +505,8 @@
     "phase36CurrentBatch": "Lot actuel",
     "phase36MinScale": "Utilisateurs simultanés minimum",
     "phase36ProductionReady": "Prêt pour la production",
-    "openStudio": "Ouvrir Studio"
+    "openStudio": "Ouvrir Studio",
+    "openConversations": "Conversations de projet"
   },
   "legal": {
     "effective": "Avis technique actuel",
@@ -1133,6 +1135,52 @@
       "self": "Ma propre identité",
       "consented_person": "Personne consentante",
       "licensed_public_figure": "Artiste / personnalité sous licence"
+    }
+  },
+  "conversations": {
+    "title": "Conversations de projet",
+    "description": "Des conversations distinctes et conservées pour vos projets. Le propriétaire définit côté serveur leur durée, les limites de messages et les accès.",
+    "refresh": "Actualiser",
+    "loading": "Chargement des conversations…",
+    "error": "Impossible de charger ou de modifier la conversation.",
+    "daily": "Messages acceptés aujourd’hui",
+    "credits": "Crédits de messages restants",
+    "unlimited": "Illimité",
+    "concurrent": "Limite de conversations simultanées",
+    "suspended": "Le propriétaire a suspendu l’accès aux conversations.",
+    "project": "Projet",
+    "chooseProject": "Choisir un projet",
+    "name": "Titre de la conversation",
+    "new": "Nouvelle conversation",
+    "empty": "Aucune conversation pour le moment.",
+    "chooseConversation": "Choisissez une conversation ou démarrez-en une pour un projet.",
+    "remaining": "Temps restant",
+    "close": "Fermer la conversation",
+    "closeConfirm": "Fermer cette conversation ? Les messages et l’historique d’utilisation seront conservés.",
+    "firstMessage": "Envoyez votre premier message à l’assistant configuré.",
+    "you": "Vous",
+    "assistant": "Assistant",
+    "pending": "En attente du résultat de la tâche enregistrée.",
+    "review": "Le résultat du fournisseur doit être vérifié. Cette demande ne sera pas relancée automatiquement.",
+    "chooseAssistant": "Choisir un assistant",
+    "notConfigured": "Aucun assistant autorisé n’est configuré. Demandez au propriétaire d’en affecter un ; aucune réponse simulée ne sera générée.",
+    "externalConsent": "J’autorise l’envoi du contexte de cette conversation au fournisseur d’IA externe sélectionné.",
+    "message": "Message",
+    "creditsNote": "Chaque message utilisateur accepté consomme un crédit. Les crédits ne sont pas de l’argent. Actualiser ou se reconnecter ne remet pas l’utilisation à zéro.",
+    "send": "Envoyer",
+    "sending": "Envoi…",
+    "inactive": "Cette conversation est fermée, suspendue ou expirée. Le serveur refuse les nouveaux messages.",
+    "status": {
+      "open": "Ouverte",
+      "paused": "Suspendue",
+      "closed": "Fermée",
+      "expired": "Expirée",
+      "queued": "En attente",
+      "running": "En cours",
+      "completed": "Terminée",
+      "failed": "Échec",
+      "cancelled": "Annulée",
+      "needs_review": "À vérifier"
     }
   }
 }

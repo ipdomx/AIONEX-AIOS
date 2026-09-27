@@ -28,6 +28,7 @@ from app.db.models import (
     Workspace,
 )
 from app.services import communications, work_management
+from app.services.conversation_governance import project_capacity
 from app.services.lifecycle_alerts import owner_alert_channels
 from app.services.billing import enforce_limit
 
@@ -265,6 +266,7 @@ async def create_project(
     )
     if owner is None:
         raise HTTPException(status_code=404, detail="Project owner not found")
+    await project_capacity(session, actor, owner_id)
     current_projects = int(
         await session.scalar(
             select(func.count(Project.id)).where(

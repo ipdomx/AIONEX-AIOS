@@ -18,7 +18,7 @@ def test_user_studio_is_a_first_class_authenticated_portal_surface() -> None:
 
     assert "StudioClient" in page
     assert '`/${locale}/studio`' in navbar
-    assert "projects|studio|academy|campaigns|profile" in frame
+    assert "projects|conversations|studio|academy|campaigns|profile" in frame
     assert 't("openStudio")' in projects
     for contract in (
         "getStudioHub",

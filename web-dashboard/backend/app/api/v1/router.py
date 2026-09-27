@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends
 
 from app.api.owner import (
+    conversation_governance as owner_conversation_governance,
     external_activation as owner_external_activation,
     growth_access as owner_growth_access,
     identity_media as owner_identity_media,
@@ -64,6 +65,7 @@ from app.api.v1.endpoints import (
     portal,
     professional,
     project_executions,
+    project_conversations,
     realtime_media,
     projects,
     reports,
@@ -280,6 +282,7 @@ api_router.include_router(
     tags=["Backup and Recovery"],
     dependencies=restricted,
 )
+api_router.include_router(project_conversations.router, prefix="/project-conversations", tags=["Project Conversations"])
 api_router.include_router(websocket.router, prefix="/realtime", tags=["Realtime"])
 api_router.include_router(realtime_media.router, prefix="/realtime", tags=["Realtime Media"])
 api_router.include_router(
@@ -303,6 +306,7 @@ owner_router.include_router(owner_security_lab.router)
 owner_router.include_router(production_runtime.router)
 owner_router.include_router(final_platform_integration.router)
 owner_router.include_router(free_tier.router)
+owner_router.include_router(owner_conversation_governance.router)
 owner_router.include_router(three_d.router)
 owner_router.include_router(owner_portal.router)
 owner_router.include_router(mobile_delivery.router, prefix="/owner/mobile", tags=["Owner Mobile Delivery"])

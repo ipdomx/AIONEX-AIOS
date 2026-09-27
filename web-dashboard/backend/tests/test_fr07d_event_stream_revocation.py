@@ -47,7 +47,7 @@ def dependency_tables():
         for foreign_key in table.foreign_keys:
             visit(foreign_key.column.table)
 
-    for name in ("users", "role_permissions"):
+    for name in ("users", "role_permissions", "owner_control_records"):
         visit(Base.metadata.tables[name])
     return [t for t in Base.metadata.sorted_tables if t.name in seen]
 

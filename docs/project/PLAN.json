@@ -1649,6 +1649,58 @@
           "web-dashboard/backend/tests/test_fr07d_event_stream_revocation.py"
         ],
         "coverage_ar": "سحب صلاحية اتصال الأحداث القائم بإعادة فحص الرمز والحساب والجهة والدور والصلاحيات قبل كل إرسال وأثناء الخمول. إعادة الاتصال لا تستعيد صلاحية مسحوبة. رفض مسارالبثالعام القديم داخلBackend نفسه،ومعالجةتعطلإغلاقآخرمشتركفيRedis. لايتضمنإلغاءإطاربدأقبلالتحققأوسحبالوسائطأوحدودالمحادثة."
+      },
+      "governed_project_conversations_source": {
+        "source_part": "FR-07BCE",
+        "source_base_commit": "690bc0c08fe55234fc24ff212d07a43ee3cd21fd",
+        "database_migration_required": false,
+        "server_enforced_policy": true,
+        "policy_precedence": [
+          "global",
+          "plan",
+          "user"
+        ],
+        "any_disabled_layer_denies": true,
+        "owner_expected_version_required": true,
+        "database_clock_duration_and_utc_daily_limits": true,
+        "durable_cross_conversation_message_credits": true,
+        "credit_unit": "accepted_user_turn_not_currency",
+        "existing_commercial_entitlements_preserved": true,
+        "project_create_and_owner_restore_serialized": true,
+        "conversation_resume_rechecks_slots": true,
+        "legacy_entity_identifiers_preserved": true,
+        "accepted_assistant_and_provider_binding_revalidated": true,
+        "unresolved_turn_automatic_retry": false,
+        "running_turn_automatic_adoption": false,
+        "event_stream_governance_revalidated": true,
+        "portal_locales": [
+          "ar",
+          "en",
+          "fr",
+          "de",
+          "es",
+          "tr"
+        ],
+        "owner_and_user_pages_wired": true,
+        "combined_behavioral_cases_passed": 134,
+        "legacy_regression_cases_passed": 44,
+        "real_browser_assertion_groups": 11,
+        "browser_provider_transport": "explicit_synthetic_http_fixture",
+        "live_ai_inference_certified": false,
+        "production_deployed": false,
+        "parent_batch_complete": false,
+        "full_host_closure": false,
+        "evidence": [
+          "docs/project/receipts/FR-07BCE-governed-project-conversations.md",
+          "docs/phase-36/receipts/36H-2026-09-27-governed-project-conversations.md",
+          "web-dashboard/backend/tests/test_fr07_governed_conversations.py",
+          "web-dashboard/backend/tests/test_fr07_governance_review_regressions.py",
+          "web-dashboard/backend/tests/test_fr07_governed_stream_policy.py",
+          "web-dashboard/backend/tests/test_fr07_governance_http.py",
+          "web-dashboard/backend/tests/test_fr07_owner_policy_authority_refresh.py"
+        ],
+        "coverage_ar": "محادثات مشاريع محفوظة فعلية، وسياسات عامة/خطة/مستخدم مع مدة وحدود رسائل يومية وتراكمية ومحادثات ومشاريع متزامنة وأولوية واستثناءات، تُفرض من Backend وقاعدةالبيانات. ربطتلوحتاالمالك والمستخدمواللغاتالستبالواجهاتالفعلية. نجح134اختبارًا سلوكيًا و44 اختبارتكاملقديم، ومسارمتصفححقيقي بـ11مجموعةتحقق وثلاثرسائل محفوظة. مزودالاختبارخادمHTTPصناعي معلن، وليسإثباتاستدلالذكاءحقيقي. يظل دمجالمصدر والنشرواختبارالمزودالمتصل والقبولالحي متطلباتمستقلة قبلإغلاقالدفعة.",
+        "gateway_user_contract_allowlisted": true
       }
     },
     {

@@ -12,6 +12,7 @@ import websockets
 from fastapi import FastAPI
 
 from app.api.v1.endpoints import websocket as websocket_endpoint
+from app.realtime import authorized_socket
 
 
 class _DummySession:
@@ -61,6 +62,12 @@ async def test_uvicorn_websockets_transport_uses_project_realtime_endpoint(monke
     assert version("uvicorn") == "0.52.4"
     assert version("websockets") == "17.1"
 
+    # This test is transport-only; policy database behavior is covered by the
+    # real PostgreSQL/WebSocket governance suite.
+    async def allowed_governance(_session, _actor):
+        return None
+
+    monkeypatch.setattr(authorized_socket, "require_stream_allowed", allowed_governance)
     runtime = _DummyRealtimeRuntime()
     monkeypatch.setattr(websocket_endpoint, "auth_service", _DummyAuthService())
     monkeypatch.setattr(websocket_endpoint, "SessionLocal", _DummySession)

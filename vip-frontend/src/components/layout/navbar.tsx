@@ -181,6 +181,9 @@ export function Navbar() {
               >
                 {t("projects")}
               </Link>
+              <Link href={`/${locale}/conversations`} className="rounded-xl px-3 py-2 text-sm text-white/65 hover:text-white">
+                {t("conversations")}
+              </Link>
               <Link
                 href={`/${locale}/studio`}
                 className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/65 hover:text-white"
@@ -302,6 +305,9 @@ export function Navbar() {
                   className="rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06]"
                 >
                   {t("projects")}
+                </Link>
+                <Link href={`/${locale}/conversations`} onClick={() => setOpen(false)} className="rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06]">
+                  {t("conversations")}
                 </Link>
                 <Link
                   href={`/${locale}/studio`}

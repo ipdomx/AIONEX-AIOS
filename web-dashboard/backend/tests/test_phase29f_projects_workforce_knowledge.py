@@ -23,6 +23,8 @@ from app.db.models import (
     Notification,
     NotificationDelivery,
     Organization,
+    Permission,
+    RolePermission,
     Project,
     ProjectEvent,
     ProjectExecution,
@@ -87,6 +89,15 @@ async def tenant(suffix: str) -> Tenant:
         )
         session.add(role)
         await session.flush()
+        # Persist the actual narrow authority asserted by the HTTP actor.
+        # Live governance revalidates database role grants, not dependency stubs.
+        for code in ("projects:read", "projects:write"):
+            permission = await session.scalar(select(Permission).where(Permission.code == code))
+            if permission is None:
+                permission = Permission(code=code)
+                session.add(permission)
+                await session.flush()
+            session.add(RolePermission(role_id=role.id, permission_id=permission.id))
         user = User(
             organization_id=organization.id,
             role_id=role.id,

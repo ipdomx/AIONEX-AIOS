@@ -3792,6 +3792,8 @@ async def _execute_owner_operation(
                 )
             ):
                 project_slug = f"{project_slug}-{uuid_str()[:8]}"
+            from app.services.conversation_governance import owner_project_capacity
+            await owner_project_capacity(session, actor, project_owner_id)
             created_project = Project(
                 organization_id=organization_id,
                 workspace_id=workspace.id,
@@ -3831,6 +3833,9 @@ async def _execute_owner_operation(
             elif data.operation == "suspend":
                 existing_project.status = "paused"
             elif data.operation == "restore":
+                if existing_project.status == "deleted":
+                    from app.services.conversation_governance import owner_project_capacity
+                    await owner_project_capacity(session, actor, existing_project.owner_id)
                 existing_project.status = "active"
             elif data.operation == "delete":
                 existing_project.status = "deleted"

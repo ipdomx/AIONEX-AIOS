@@ -17,6 +17,7 @@ from fastapi import HTTPException, WebSocket
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import AuthService, UserRecord, auth_service
+from app.services.conversation_governance import require_stream_allowed
 
 SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
 AUTHORIZATION_TIMEOUT_SECONDS = 3.0
@@ -94,6 +95,7 @@ class AuthorizedRealtimeSocket:
                     raise PermissionError("Invalid stream subject")
                 async with self._session_factory() as session:
                     user = await self._authentication.get_user_by_id(session, subject)
+                    await require_stream_allowed(session, user)
                 if int(claims.get("auth_version", 0)) != user.auth_version:
                     raise PermissionError("Stream credential generation changed")
                 if user.role.strip().lower() == "free user" or user.organization_plan.strip().lower() == "free":
