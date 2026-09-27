@@ -25,6 +25,7 @@ from app.db.base import get_db
 from app.db.models import AuditEvent, Notification, Project, ProjectExecution
 from app.services import communications
 from app.services.free_tier import consume_assistant_response, consume_user_message
+from app.services.conversation_governance import charge_project_request
 from app.services.lifecycle_alerts import owner_alert_channels
 from app.services.project_execution_admission import (
     ProjectExecutionAdmissionTimeout,
@@ -311,6 +312,7 @@ async def start_project_execution(
         )
 
     if not provider_neutral:
+        await charge_project_request(session, actor, characters=len(objective))
         await consume_user_message(session, actor, characters=len(objective))
         await consume_assistant_response(session, actor)
 

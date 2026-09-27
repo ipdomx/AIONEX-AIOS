@@ -11,6 +11,7 @@ from app.core.auth import UserRecord, require_permissions
 from app.core.owner_policy import require_owner_service_allowed
 from app.db.base import get_db
 from app.services import ai_runtime_service
+from app.services.conversation_governance import charge_project_request
 
 router = APIRouter()
 
@@ -130,6 +131,7 @@ async def execute_agent(
         session, agent_id, user.organization_id
     )
     await require_owner_service_allowed(session, provider.type)
+    await charge_project_request(session, user, characters=len(data.prompt), permission="agents:write")
     job = await ai_runtime_service.create_job(
         session, agent_id, user.organization_id, data.prompt, user.id
     )

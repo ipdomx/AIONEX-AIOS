@@ -59,7 +59,8 @@
     "securityLab": "Güvenlik Laboratuvarı",
     "campaigns": "Kampanyalar",
     "studio": "Stüdyo",
-    "realtime": "Canlı iletişim"
+    "realtime": "Canlı iletişim",
+    "conversations": "Proje sohbetleri"
   },
   "footer": {
     "description": "Ajanları, modelleri, projeleri ve operasyonel kontrolleri koordine eden yönetişimli bir yapay zekâ işletim sistemi.",
@@ -504,7 +505,8 @@
     "phase36CurrentBatch": "Geçerli parti",
     "phase36MinScale": "En az eşzamanlı kullanıcı",
     "phase36ProductionReady": "Üretime hazır",
-    "openStudio": "Stüdyoyu aç"
+    "openStudio": "Stüdyoyu aç",
+    "openConversations": "Proje sohbetleri"
   },
   "legal": {
     "effective": "Güncel teknik bildirim",
@@ -1133,6 +1135,52 @@
       "self": "Kendi kimliğim",
       "consented_person": "Onay vermiş kişi",
       "licensed_public_figure": "Lisanslı sanatçı / kamu figürü"
+    }
+  },
+  "conversations": {
+    "title": "Proje sohbetleri",
+    "description": "Projeleriniz için ayrı ve kalıcı sohbetler. Sahip, sohbet süresini, mesaj sınırlarını ve erişimi sunucu üzerinden yönetir.",
+    "refresh": "Yenile",
+    "loading": "Sohbetler yükleniyor…",
+    "error": "Sohbet yüklenemedi veya güncellenemedi.",
+    "daily": "Bugün kabul edilen mesajlar",
+    "credits": "Kalan mesaj kredisi",
+    "unlimited": "Sınırsız",
+    "concurrent": "Eşzamanlı sohbet sınırı",
+    "suspended": "Sahip sohbet erişimini askıya aldı.",
+    "project": "Proje",
+    "chooseProject": "Bir proje seçin",
+    "name": "Sohbet başlığı",
+    "new": "Yeni sohbet",
+    "empty": "Henüz sohbet yok.",
+    "chooseConversation": "Bir sohbet seçin veya bir proje için yeni sohbet başlatın.",
+    "remaining": "Kalan süre",
+    "close": "Sohbeti kapat",
+    "closeConfirm": "Sohbet kapatılsın mı? Mesajlar ve kullanım geçmişi korunacaktır.",
+    "firstMessage": "Yapılandırılmış asistana ilk mesajınızı gönderin.",
+    "you": "Siz",
+    "assistant": "Asistan",
+    "pending": "Kaydedilmiş görevin sonucu bekleniyor.",
+    "review": "Sağlayıcı sonucu incelenmelidir. Bu istek otomatik olarak tekrarlanmaz.",
+    "chooseAssistant": "Bir asistan seçin",
+    "notConfigured": "İzin verilen bir asistan yapılandırılmamış. Sahibinden bir asistan atamasını isteyin; örnek yanıt oluşturulmaz.",
+    "externalConsent": "Bu sohbetin bağlamının seçilen harici yapay zekâ sağlayıcısına gönderilmesine izin veriyorum.",
+    "message": "Mesaj",
+    "creditsNote": "Kabul edilen her kullanıcı mesajı bir mesaj kredisi tüketir. Krediler para değildir. Yenilemek veya yeniden bağlanmak kullanımı sıfırlamaz.",
+    "send": "Gönder",
+    "sending": "Gönderiliyor…",
+    "inactive": "Sohbet kapalı, duraklatılmış veya süresi dolmuş. Sunucu yeni mesajları reddeder.",
+    "status": {
+      "open": "Açık",
+      "paused": "Duraklatıldı",
+      "closed": "Kapalı",
+      "expired": "Süresi doldu",
+      "queued": "Sırada",
+      "running": "Çalışıyor",
+      "completed": "Tamamlandı",
+      "failed": "Başarısız",
+      "cancelled": "İptal edildi",
+      "needs_review": "İnceleme gerekli"
     }
   }
 }

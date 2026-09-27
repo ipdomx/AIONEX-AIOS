@@ -3,6 +3,60 @@ import type { SupportedLocale } from "@/lib/locale-engine";
 type Catalog = Record<string, string>;
 
 const AR: Catalog = {
+  "Conversation Governance": "إدارة المحادثات وحدود الاستخدام",
+  "Server-enforced conversation duration, message quotas, user exceptions and audit.":
+    "مدة المحادثة وحدود الرسائل واستثناءات المستخدم وسجل التدقيق، مع فرضها من الخادم.",
+  "Set global, plan and user conversation limits. All enforcement and counters are server-side.":
+    "حدد الحدود العامة وحدود الخطط والمستخدمين للمحادثات. تُفرض القيود وتُحفظ العدادات من الخادم.",
+  "Projects per user": "عدد المشاريع لكل مستخدم",
+  "Concurrent conversations per user": "المحادثات المتزامنة لكل مستخدم",
+  "Concurrent conversations per project": "المحادثات المتزامنة لكل مشروع",
+  "Conversation duration in seconds": "مدة المحادثة بالثواني",
+  "Messages per conversation": "عدد الرسائل في المحادثة",
+  "Messages per UTC day": "الرسائل يوميًا حسب التوقيت العالمي",
+  "Lifetime message credits (-1 = unlimited)":
+    "رصيد الرسائل التراكمي (-1 يعني غير محدود)",
+  "Characters per message": "عدد الأحرف في الرسالة",
+  "Dispatch priority (0–100)": "أولوية التنفيذ (0–100)",
+  "Governance request failed.": "تعذر تنفيذ طلب إدارة المحادثات.",
+  "Policy saved with an audited version. Usage counters were not reset.":
+    "حُفظت السياسة بإصدار موثق في سجل التدقيق دون تصفير عدادات الاستهلاك.",
+  "Reset this policy to inherited values? Existing usage remains charged.":
+    "هل تريد إعادة السياسة إلى القيم الموروثة؟ يبقى الاستهلاك السابق محسوبًا.",
+  "Policy override reset. Usage history was retained.":
+    "أُعيد ضبط الاستثناء مع الاحتفاظ بسجل الاستهلاك.",
+  "Apply this conversation action? Its original age and counters are retained.":
+    "هل تريد تنفيذ هذا الإجراء؟ سيُحتفظ بوقت بدء المحادثة وعداداتها.",
+  "Conversation control recorded in the owner audit.":
+    "سُجل إجراء المحادثة في سجل تدقيق المالك.",
+  "Loading conversation governance…": "جارٍ تحميل إدارة المحادثات…",
+  "Policy scope": "نطاق السياسة",
+  "Global defaults": "القيم العامة",
+  "Plan override": "استثناء للخطة",
+  "Policy target": "الجهة المستهدفة بالسياسة",
+  "Select a user": "اختر مستخدمًا",
+  "Numeric overrides use global → plan → user precedence. A suspended layer cannot be overridden by a lower layer. Only edited fields are saved.":
+    "ترتيب أولوية الأرقام: العام ثم الخطة ثم المستخدم. لا يُلغى التعليق في نطاق أعلى باستثناء أدنى. تُحفظ الحقول المعدلة فقط.",
+  "Allow governed conversations and new work":
+    "السماح بالمحادثات المحكومة والأعمال الجديدة",
+  "Default platform assistant": "مساعد المنصة الافتراضي",
+  "No shared assistant": "دون مساعد مشترك",
+  "Free accounts can use only a configured local assistant. Paid users must confirm external processing. No simulated replies are substituted.":
+    "تستخدم الحسابات المجانية مساعدًا محليًا متصلًا فقط. يلزم تأكيد المعالجة الخارجية للحسابات المدفوعة. لا تُستبدل الردود بإجابات محاكية.",
+  "Credits count accepted user turns, not money. Lowering limits does not erase usage. External work already dispatched cannot be recalled.":
+    "الرصيد يحسب رسائل المستخدم المقبولة وليس مبالغ مالية. تخفيض الحدود لا يمحو الاستهلاك. لا يمكن استرجاع عمل خارجي أُرسل بالفعل.",
+  "Policy version": "إصدار السياسة",
+  "Reset override": "إعادة ضبط الاستثناء",
+  "Conversation control": "التحكم في المحادثات",
+  "Account suspension and roles": "تعليق الحسابات والأدوار",
+  "User filter": "تصفية حسب المستخدم",
+  "All users": "كل المستخدمين",
+  "Inspect usage and conversations": "عرض الاستهلاك والمحادثات",
+  "Messages today": "رسائل اليوم",
+  "Used message credits": "رصيد الرسائل المستهلك",
+  "Audit note": "ملاحظة التدقيق",
+  "No conversations match this view.": "لا توجد محادثات مطابقة لهذا العرض.",
+  Closed: "مغلقة",
   "Identity Media": "وسائط الهوية",
   "Identity Media Access": "صلاحيات وسائط الهوية",
   "Super Owner Identity Authority": "سلطة المالك الأعلى للهوية",
@@ -13,10 +67,13 @@ const AR: Catalog = {
   "; it is not consent or a legal likeness/voice license from an artist or other person. Real-person execution still requires valid rights evidence, and public-figure use additionally requires an accepted licensed-catalog authority.":
     "؛ وليست موافقة من الشخص أو ترخيصًا قانونيًا لاستخدام صورته أو صوته من فنان أو أي شخص آخر. يظل تنفيذ هوية شخص حقيقي بحاجة إلى دليل حقوق صالح، كما يتطلب استخدام شخصية عامة سلطة مقبولة من كتالوج مرخّص.",
   "Loading Identity Media authority…": "جارٍ تحميل سلطة وسائط الهوية…",
-  "Identity Media Owner authority synchronized.": "تمت مزامنة سلطة المالك لوسائط الهوية.",
-  "Identity Media authority could not be loaded.": "تعذر تحميل سلطة وسائط الهوية.",
+  "Identity Media Owner authority synchronized.":
+    "تمت مزامنة سلطة المالك لوسائط الهوية.",
+  "Identity Media authority could not be loaded.":
+    "تعذر تحميل سلطة وسائط الهوية.",
   "Select a user first.": "اختر مستخدمًا أولًا.",
-  "Enter the exact identity/subject this rule applies to.": "أدخل الهوية أو الشخص المحدد الذي تنطبق عليه هذه القاعدة.",
+  "Enter the exact identity/subject this rule applies to.":
+    "أدخل الهوية أو الشخص المحدد الذي تنطبق عليه هذه القاعدة.",
   "User Identity Media permission granted and audit-logged. Identity rights remain separately required.":
     "تم منح المستخدم صلاحية وسائط الهوية وتسجيل القرار في سجل التدقيق. تظل حقوق الهوية مطلوبة بشكل مستقل.",
   "User Identity Media permission denied immediately and audit-logged.":
@@ -36,12 +93,14 @@ const AR: Catalog = {
   "Deny / block": "منع / حظر",
   "Permitted real-person bases": "أنواع هوية الشخص الحقيقي المسموحة",
   "Subject scope": "نطاق الشخص",
-  "Any rights-verified subject under this operation": "أي شخص تم التحقق من حقوقه ضمن هذه العملية",
+  "Any rights-verified subject under this operation":
+    "أي شخص تم التحقق من حقوقه ضمن هذه العملية",
   "One exact subject only": "شخص محدد واحد فقط",
   "Exact subject reference": "مرجع الشخص المحدد",
   "Internal subject/rights reference": "مرجع داخلي للشخص/الحقوق",
   "Owner audit note": "ملاحظة تدقيق المالك",
-  "Why this user is being granted or denied access": "سبب منح هذا المستخدم الصلاحية أو منعه منها",
+  "Why this user is being granted or denied access":
+    "سبب منح هذا المستخدم الصلاحية أو منعه منها",
   "Grant Identity Media access": "منح صلاحية وسائط الهوية",
   "Deny Identity Media access": "منع صلاحية وسائط الهوية",
   "Pending approval requests": "طلبات الموافقة المعلقة",
@@ -61,8 +120,8 @@ const AR: Catalog = {
   "User's own identity": "هوية المستخدم نفسه",
   "Consented person": "شخص موافق",
   "Licensed public figure / artist": "شخصية عامة / فنان مرخّص",
-  "Granted": "ممنوح",
-  "Denied": "ممنوع",
+  Granted: "ممنوح",
+  Denied: "ممنوع",
   "External Activation": "التفعيل الخارجي",
   "Read-only live truth for external runtime, finance, legal, device, and infrastructure gates.":
     "عرض حي للقراءة فقط لحقيقة بوابات التشغيل والتمويل والقانون والأجهزة والبنية التحتية الخارجية.",

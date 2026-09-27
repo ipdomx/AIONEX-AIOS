@@ -59,7 +59,8 @@
     "securityLab": "Security Lab",
     "campaigns": "Campaigns",
     "studio": "Studio",
-    "realtime": "Realtime"
+    "realtime": "Realtime",
+    "conversations": "Project conversations"
   },
   "footer": {
     "description": "A governed AI operating system for coordinating agents, models, projects, and operational controls.",
@@ -504,7 +505,8 @@
     "phase36CurrentBatch": "Current batch",
     "phase36MinScale": "Minimum concurrent users",
     "phase36ProductionReady": "Production ready",
-    "openStudio": "Open Studio"
+    "openStudio": "Open Studio",
+    "openConversations": "Project conversations"
   },
   "legal": {
     "effective": "Current technical notice",
@@ -1133,6 +1135,52 @@
       "self": "My own identity",
       "consented_person": "Consented person",
       "licensed_public_figure": "Licensed artist / public figure"
+    }
+  },
+  "conversations": {
+    "title": "Project conversations",
+    "description": "Keep separate, durable conversations for your projects. The owner controls session duration, message limits and access on the server.",
+    "refresh": "Refresh",
+    "loading": "Loading conversations…",
+    "error": "Unable to load or update the conversation.",
+    "daily": "Accepted messages today",
+    "credits": "Remaining message credits",
+    "unlimited": "Unlimited",
+    "concurrent": "Concurrent conversation limit",
+    "suspended": "Conversation access is suspended by the owner.",
+    "project": "Project",
+    "chooseProject": "Choose a project",
+    "name": "Conversation title",
+    "new": "New conversation",
+    "empty": "No conversations yet.",
+    "chooseConversation": "Choose a conversation or start one for a project.",
+    "remaining": "Time remaining",
+    "close": "Close conversation",
+    "closeConfirm": "Close this conversation? Its messages and usage history will be retained.",
+    "firstMessage": "Send your first message to the configured assistant.",
+    "you": "You",
+    "assistant": "Assistant",
+    "pending": "Waiting for the durable job result.",
+    "review": "The provider outcome needs review. This request will not be retried automatically.",
+    "chooseAssistant": "Choose an assistant",
+    "notConfigured": "No permitted assistant is configured. Ask the owner to assign an assistant; no simulated response will be generated.",
+    "externalConsent": "I authorize sending this conversation context to the selected external AI provider.",
+    "message": "Message",
+    "creditsNote": "One accepted user turn uses one message credit. Credits are not money. Refreshing or reconnecting does not reset usage.",
+    "send": "Send",
+    "sending": "Sending…",
+    "inactive": "This conversation is closed, paused or expired. The server rejects further messages.",
+    "status": {
+      "open": "Open",
+      "paused": "Paused",
+      "closed": "Closed",
+      "expired": "Expired",
+      "queued": "Queued",
+      "running": "Running",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "needs_review": "Needs review"
     }
   }
 }

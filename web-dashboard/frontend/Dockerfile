@@ -20,6 +20,13 @@ RUN npm run build
 
 FROM base AS runner
 WORKDIR /app
+
+# These are web runtimes, not build workers. Keep only the patched TLS
+# libraries and Node runtime; npm/yarn are build-stage tools, not runtime APIs.
+RUN apk add --no-cache --upgrade libcrypto3=3.5.8-r0 libssl3=3.5.8-r0 \
+    && rm -rf /usr/local/lib/node_modules/npm /opt/yarn-* \
+    && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/yarn /usr/local/bin/yarnpkg
+
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000

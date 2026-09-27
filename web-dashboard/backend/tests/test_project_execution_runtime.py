@@ -23,6 +23,9 @@ from app.db.models import (
     Notification,
     Organization,
     OwnerControlRecord,
+    Permission,
+    Role,
+    RolePermission,
     Project,
     ProjectExecution,
     User,
@@ -104,6 +107,17 @@ async def _create_project_tenant(suffix: str):
     async with SessionLocal() as session:
         session.add(organization)
         await session.flush()
+        role = Role(organization_id=organization.id, name="Manager", status="active")
+        session.add(role)
+        await session.flush()
+        user.role_id = role.id
+        for code in ("projects:read", "projects:write"):
+            permission = await session.scalar(select(Permission).where(Permission.code == code))
+            if permission is None:
+                permission = Permission(code=code)
+                session.add(permission)
+                await session.flush()
+            session.add(RolePermission(role_id=role.id, permission_id=permission.id))
         session.add_all([user, workspace])
         await session.flush()
         session.add(project)

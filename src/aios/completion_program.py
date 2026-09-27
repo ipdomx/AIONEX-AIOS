@@ -457,6 +457,7 @@ MODULE_BATCH: Final[dict[str, str]] = {
 }
 
 OWNER_PAGE_BATCH: Final[dict[str, str]] = {
+    "conversation-governance": "FR-07",
     "3d": "34B",
     "access": "29C", "approvals": "29E", "approvals-live": "29E", "audit": "29G",
     "billing": "29D", "communications": "29E", "completion": "29A", "compliance": "29G",
@@ -476,6 +477,7 @@ OWNER_PAGE_BATCH: Final[dict[str, str]] = {
 }
 
 VIP_PAGE_BATCH: Final[dict[str, str]] = {
+    "[locale]/conversations/page.tsx": "FR-07",
     "(root)/page.tsx": "29B", "[locale]/about/page.tsx": "29B",
     "[locale]/academy/page.tsx": "36J",
     "[locale]/billing/page.tsx": "29D",
@@ -494,6 +496,7 @@ VIP_PAGE_BATCH: Final[dict[str, str]] = {
 }
 
 ENDPOINT_BATCH: Final[dict[str, str]] = {
+    "project_conversations": "FR-07",
     "academy": "29F", "ai_agents": "29J", "ai_providers": "29J", "audio_song_artifacts": "36G", "auth": "29C", "backups": "29G",
     "billing": "29D", "mobile_store_billing": "29D", "communications": "29E",
     "capabilities": "29A", "containers": "29G", "dashboard": "29B", "databases": "29G",
