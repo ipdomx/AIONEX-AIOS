@@ -204,3 +204,16 @@ completion-resource maps now assign these new resources to FR-07, without
 changing the historical Phase29 feature completion percentage. The Studio test
 retains every previously required protected route and additionally includes
 conversations. No runtime guard or test coverage was removed.
+
+## Complete CI scope reconciliation
+
+The first protected Frontend Build rejected formatting of the new Owner page.
+The full existing Prettier scope was applied and verified without exclusions.
+An additional path-triggered Phase34 policy workflow then exposed its explicit
+50-page Owner inventory and six absent new API contracts. The registry now
+accounts for all51 pages and the six new protected routes, including all new
+mutation payloads in anonymous/non-global-Owner rejection tests. The new client
+uses the established `owner-*.ts` convention and typed Axios query parameters;
+its static numeric field definitions are UI configuration, not simulated data.
+The complete66-case Phase34/Owner integration workflow passes locally. These
+changes do not relax existing authorization or remove the exact route inventory.

@@ -31,6 +31,12 @@ OWNER_APP = FRONTEND / "src" / "app" / "owner"
 OWNER_CLIENTS = FRONTEND / "src" / "lib"
 
 OWNER_API_CONTRACT = {
+    ("GET", "/api/v1/owner/conversation-governance"),
+    ("GET", "/api/v1/owner/conversation-governance/conversations"),
+    ("GET", "/api/v1/owner/conversation-governance/users/{user_id}"),
+    ("PUT", "/api/v1/owner/conversation-governance/policies/{scope}/{identifier}"),
+    ("POST", "/api/v1/owner/conversation-governance/policies/{scope}/{identifier}/reset"),
+    ("POST", "/api/v1/owner/conversation-governance/conversations/{conversation_id}"),
     ("GET", "/api/v1/owner/external-activation"),
     ("POST", "/api/v1/owner/external-activation/{gate_id}/evidence"),
     ("PUT", "/api/v1/owner/external-activation/{gate_id}/evidence/review"),
@@ -193,6 +199,15 @@ OWNER_GET_ROUTES = sorted(
     path for method, path in OWNER_API_CONTRACT if method == "GET"
 )
 OWNER_MUTATION_REQUESTS = {
+    ("PUT", "/api/v1/owner/conversation-governance/policies/{scope}/{identifier}"): {
+        "expected_version": 0, "values": {"messages_per_day": 3},
+    },
+    ("POST", "/api/v1/owner/conversation-governance/policies/{scope}/{identifier}/reset"): {
+        "expected_version": 1,
+    },
+    ("POST", "/api/v1/owner/conversation-governance/conversations/{conversation_id}"): {
+        "action": "close", "user_id": "owner-1", "note": "Authorization contract only",
+    },
     ("POST", "/api/v1/owner/external-activation/{gate_id}/evidence"): {
         "evidence_reference": "vault://contract-test/evidence",
         "evidence_sha256": "a" * 64,
@@ -544,13 +559,14 @@ def test_owner_navigation_registry_matches_all_owner_pages() -> None:
         f"/owner/{page.parent.relative_to(OWNER_APP).as_posix()}"
         for page in OWNER_APP.glob("*/page.tsx")
     }
-    assert len(page_routes) == 50
+    assert len(page_routes) == 51
+    assert "/owner/conversation-governance" in page_routes
 
     registry = (FRONTEND / "src" / "config" / "owner-navigation.ts").read_text()
     registry_routes = re.findall(r'href:\s*"(/owner/[^"]+)"', registry)
 
-    assert len(registry_routes) == 50
-    assert len(set(registry_routes)) == 50
+    assert len(registry_routes) == 51
+    assert len(set(registry_routes)) == 51
     assert set(registry_routes) == page_routes
 
 

@@ -13,63 +13,14 @@ import { useLanguageVoice } from "@/components/providers/LanguageVoiceProvider";
 import { translateInterfaceText } from "@/lib/interface-translations";
 import {
   governanceApi,
+  conversationLimitFields,
   type ConversationLimits,
   type GovernedConversation,
   type GovernedUsage,
   type GovernanceDirectory,
   type GovernanceScope,
-} from "@/lib/conversation-governance";
+} from "@/lib/owner-conversation-governance";
 
-type NumericKey = Exclude<
-  keyof ConversationLimits,
-  "enabled" | "default_agent_id"
->;
-const limits: { key: NumericKey; label: string; min: number; max: number }[] = [
-  { key: "max_projects", label: "Projects per user", min: 0, max: 100000 },
-  {
-    key: "max_open_conversations",
-    label: "Concurrent conversations per user",
-    min: 0,
-    max: 1000,
-  },
-  {
-    key: "max_open_conversations_per_project",
-    label: "Concurrent conversations per project",
-    min: 0,
-    max: 1000,
-  },
-  {
-    key: "conversation_seconds",
-    label: "Conversation duration in seconds",
-    min: 1,
-    max: 31536000,
-  },
-  {
-    key: "messages_per_conversation",
-    label: "Messages per conversation",
-    min: 0,
-    max: 100000,
-  },
-  {
-    key: "messages_per_day",
-    label: "Messages per UTC day",
-    min: 0,
-    max: 1000000,
-  },
-  {
-    key: "lifetime_message_credits",
-    label: "Lifetime message credits (-1 = unlimited)",
-    min: -1,
-    max: 1000000000,
-  },
-  {
-    key: "max_message_characters",
-    label: "Characters per message",
-    min: 1,
-    max: 50000,
-  },
-  { key: "priority", label: "Dispatch priority (0–100)", min: 0, max: 100 },
-];
 const PLAN_IDENTIFIER_PATTERN = "[a-z][a-z0-9_-]{0,49}";
 const input =
   "mt-2 w-full rounded-xl border border-white/10 bg-slate-950 p-3 text-sm text-white";
@@ -367,7 +318,7 @@ export default function ConversationGovernancePage() {
                 {t("Allow governed conversations and new work")}
               </label>
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {limits.map((field) => (
+                {conversationLimitFields.map((field) => (
                   <label key={field.key} className="text-sm">
                     {t(field.label)}
                     <input
