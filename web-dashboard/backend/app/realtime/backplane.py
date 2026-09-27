@@ -154,11 +154,13 @@ class RedisRealtimeBackplane:
             if last_subscription:
                 listener = self._listener
                 self._listener = None
-        if listener is not None:
+            # Keep channel removal ordered with concurrent subscriptions.
+            # The delivery callback can remove its own final client. Such a
+            # callback must never cancel/gather the task currently executing it.
+            await pubsub.unsubscribe(channel)
+        if listener is not None and listener is not asyncio.current_task():
             listener.cancel()
             await asyncio.gather(listener, return_exceptions=True)
-        if pubsub is not None:
-            await pubsub.unsubscribe(channel)
 
     async def publish(self, tenant_id: str, event: RealtimeEvent) -> None:
         payload = encode_event(event, max_bytes=self._max_event_bytes)
@@ -169,7 +171,9 @@ class RedisRealtimeBackplane:
         await redis.publish(channel, payload)
 
     async def _listen(self) -> None:
-        while True:
+        # A retired listener exits after its current delivery, even when that
+        # delivery itself removed the final subscription and a new one started.
+        while self._listener is asyncio.current_task():
             pubsub = self._pubsub
             if pubsub is None:
                 return

@@ -15,8 +15,7 @@ from app.core.events import shutdown_event, startup_event
 from app.core.logging import get_logger, setup_logging
 from app.db.base import SessionLocal
 from app.db.redis import get_redis
-from app.websocket.manager import websocket_manager
-from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, Response, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
@@ -144,16 +143,10 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 @app.websocket("/ws/{client_id}")
 async def websocket_endpoint(websocket: WebSocket, client_id: str):
-    await websocket_manager.connect(websocket, client_id)
-    try:
-        while True:
-            data = await websocket.receive_text()
-            await websocket_manager.broadcast(f"Client {client_id}: {data}")
-    except WebSocketDisconnect:
-        websocket_manager.disconnect(client_id)
-    except Exception:
-        logger.exception("WebSocket failure", client_id=client_id)
-        websocket_manager.disconnect(client_id)
+    # Preserve the existing proxy denial at the application boundary as well.
+    # Client-chosen identifiers must never enable unauthenticated global fanout.
+    del client_id
+    await websocket.close(code=4403)
 
 
 if __name__ == "__main__":
