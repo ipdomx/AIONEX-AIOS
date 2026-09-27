@@ -67,3 +67,14 @@ FR-07B/C conversation lifetime/message quotas, plan/user exceptions and project
 creation bounds, and both dashboard acceptance remain separate requirements.
 FR-06 host-state/TURN/producer drain is not asserted. No migration or production
 change occurs by merely merging this source.
+
+## Protected CI transport fixture compatibility
+
+The first protected run failed in the pre-existing transport-only test because
+its synthetic auth service returned a partial object with no organization plan
+or permissions. A later read through the same MCP `read_file` action succeeded;
+no alternative source-access route was used. The fixture now supplies those two
+real UserRecord contract fields. Transport, authentication, connected-count and
+ping/pong assertions remain intact. Production authorization was not weakened,
+and no test was skipped or disabled. The initial CI failure is retained in the
+runtime evidence rather than rewritten as success.
