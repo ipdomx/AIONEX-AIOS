@@ -20,6 +20,8 @@ from app.db.models import (
     NotificationDelivery,
     NotificationPreference,
     Organization,
+    Permission,
+    RolePermission,
     Report,
     Role,
     User,
@@ -71,6 +73,15 @@ async def create_identity(suffix: str):
         )
         session.add_all([member_role, owner_role])
         await session.flush()
+        # Persist the same narrow project grants as the authenticated test actor.
+        # Governance now rechecks durable role permissions before admission.
+        for code in ("projects:read", "projects:write", "billing:read"):
+            permission = await session.scalar(select(Permission).where(Permission.code == code))
+            if permission is None:
+                permission = Permission(code=code)
+                session.add(permission)
+                await session.flush()
+            session.add(RolePermission(role_id=member_role.id, permission_id=permission.id))
         member = User(
             organization_id=customer.id,
             role_id=member_role.id,
