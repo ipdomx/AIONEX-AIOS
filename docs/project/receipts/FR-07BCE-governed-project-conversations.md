@@ -217,3 +217,22 @@ uses the established `owner-*.ts` convention and typed Axios query parameters;
 its static numeric field definitions are UI configuration, not simulated data.
 The complete66-case Phase34/Owner integration workflow passes locally. These
 changes do not relax existing authorization or remove the exact route inventory.
+
+## Runtime security and local model acceptance
+
+A fresh whole-image scan passed for the Backend delta but reported six high
+findings in each original Node runtime candidate: outdated system TLS libraries
+and transitive packages in the bundled npm CLI. Both frontend runtime stages now
+pin the patched `libcrypto3`/`libssl3`3.5.8-r0 and remove npm/yarn from the web-only
+runtime. Next still starts with Node. Build stages and Backend project-worker
+Node/npm/Chromium tooling remain intact. No scanner findings were suppressed.
+Images must be rescanned after assembly and before deployment.
+
+The immutable Backend candidate also completed a real `gemma3:4b` turn using the
+existing local Ollama runtime and a private disposable PostgreSQL database. One
+Job completed, exactly one daily/cumulative credit was charged, and the original
+conversation timestamp was retained. No production database credentials, customer
+records or paid/external provider were used. The ephemeral canary joined the
+application network solely for the local Ollama request, which is disclosed
+rather than described as complete network isolation. This is functional
+inference acceptance, not a general model-quality or thousand-user certificate.

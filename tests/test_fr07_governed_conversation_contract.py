@@ -82,3 +82,15 @@ def test_public_gateway_exposes_only_the_user_conversation_contract():
         assert re.fullmatch(pattern, "/api/v1/project-conversations" + suffix)
     for path in ("/api/v1/owner/conversation-governance", "/api/v1/project-conversations/owner", "/api/v1/project-conversations/../owner", "/api/v1/project-conversations/a1234567-1234-5678-9012-123456789012/reset"):
         assert re.fullmatch(pattern, path) is None
+
+
+def test_frontend_runtime_tls_is_patched_without_removing_backend_build_tooling():
+    for relative in ("web-dashboard/frontend/Dockerfile", "vip-frontend/Dockerfile"):
+        source = (ROOT / relative).read_text()
+        runtime = source.split(" AS runner", 1)[1]
+        assert "libcrypto3=3.5.8-r0 libssl3=3.5.8-r0" in runtime
+        assert "/usr/local/lib/node_modules/npm /opt/yarn-*" in runtime
+        assert 'CMD ["node", "server.js"]' in runtime
+    backend = (BACKEND / "Dockerfile").read_text()
+    assert "FROM runtime AS project-worker" in backend
+    assert "chromium" in backend and "npm" in backend
