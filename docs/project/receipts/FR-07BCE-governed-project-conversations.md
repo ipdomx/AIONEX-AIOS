@@ -236,3 +236,17 @@ records or paid/external provider were used. The ephemeral canary joined the
 application network solely for the local Ollama request, which is disclosed
 rather than described as complete network isolation. This is functional
 inference acceptance, not a general model-quality or thousand-user certificate.
+
+
+## Full-suite seeded identity reconciliation
+
+The complete protected CI run at `0cad5dd8` stopped after 2,252 passing tests:
+`test_owner_source_of_truth` injected a generation-zero Owner principal after
+preceding security tests had legitimately rotated that account generation.
+A disposable sequence reproduced the same HTTP403: 41 passed and one failed.
+The relational integration fixture now loads its current seeded Owner using
+`auth_service.get_user_by_id` after seeding, and restores that same principal
+after the existing role-only meeting scenario. No production authorization,
+password reset, session generation comparison, or refusal assertion is weakened.
+The before/after sequence and retained original CI diagnostics are in
+`docs/project/runtime/fr06-fr07-resume-20260927T2056/`.

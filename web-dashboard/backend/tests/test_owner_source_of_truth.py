@@ -8,7 +8,7 @@ from uuid import uuid4
 
 import pytest
 from app.api.v1.router import api_router
-from app.core.auth import UserRecord, current_user, require_super_owner
+from app.core.auth import UserRecord, auth_service, current_user, require_super_owner
 from app.db.base import SessionLocal
 from app.db.models import (
     Alert,
@@ -110,7 +110,12 @@ def test_runtime_endpoint_sources_are_relational_and_mutations_are_protected() -
 async def test_standard_mutations_are_immediately_visible_to_owner_api() -> None:
     await seed()
     suffix = uuid4().hex
-    actor_holder = {"actor": _actor()}
+    # Earlier security tests legitimately rotate the seeded Owner generation.
+    # This relational integration test needs a current authenticated principal,
+    # not the generation-zero stand-in used for role-only request contracts.
+    async with SessionLocal() as session:
+        owner_actor = await auth_service.get_user_by_id(session, "owner-1")
+    actor_holder = {"actor": owner_actor}
     app = FastAPI()
     app.include_router(api_router, prefix="/api/v1")
     app.dependency_overrides[current_user] = lambda: actor_holder["actor"]
@@ -178,7 +183,7 @@ async def test_standard_mutations_are_immediately_visible_to_owner_api() -> None
             meeting_id = meeting_response.json()["id"]
             assert meeting_response.json()["status"] == "pending_approval"
 
-            actor_holder["actor"] = _actor()
+            actor_holder["actor"] = owner_actor
             owner_approvals = await client.get("/api/v1/owner/approvals")
             assert owner_approvals.status_code == 200, owner_approvals.text
             assert meeting_id in {
