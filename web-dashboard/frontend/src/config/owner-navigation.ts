@@ -352,7 +352,8 @@ export const ownerNavigationSections: OwnerNavigationSection[] = [
       {
         id: "owner-conversation-governance",
         label: "Conversation Governance",
-        description: "Server-enforced conversation duration, message quotas, user exceptions and audit.",
+        description:
+          "Server-enforced conversation duration, message quotas, user exceptions and audit.",
         href: "/owner/conversation-governance",
         icon: MessageCircle,
       },
