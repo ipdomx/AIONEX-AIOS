@@ -1627,6 +1627,28 @@
           "web-dashboard/backend/tests/test_fr07a2_policy_freshness.py"
         ],
         "coverage_ar": "أعاد اختبار PostgreSQL المعزول إنتاج13 إخفاقًا من18 حالة بسبب سياسة ORM قديمة وكتابة تطبيع من القراءة. يجدد المصدر السياسة عند القراءة وعند قفل تعديلالمالك، فيحفظ تعليقًا وحدودًا معدلة ومختلفحقول التعديلات المتعاقبة؛ القراءة تعرضالقيم الافتراضية دونتعديل سجل قائم. نجحت18 حالةسياسة و38 حالةمجمعة مععداداتA1. لايمثل ذلك حراسةمعاملة كاملة لتغييراتالسياسة أوإلغاءعمل بدأقبلها أوضبطكلالخطط والمحادثات وWebSocket أوالنشر."
+      },
+      "live_event_stream_revocation_source": {
+        "source_part": "FR-07D1",
+        "source_base_commit": "820f78e4c09a71b5553357e1ff17c789d5c011ca",
+        "pre_send_authentication_refreshed": true,
+        "idle_revalidation_seconds": 5,
+        "authorization_and_io_timeout_seconds": 3,
+        "user_role_organization_permission_binding": true,
+        "redis_logout_and_jwt_expiry_checked": true,
+        "legacy_anonymous_socket_denied_in_application": true,
+        "listener_self_cancellation_prevented": true,
+        "real_websocket_postgresql_redis_cases": 23,
+        "combined_regression_cases": 33,
+        "production_deployed": false,
+        "livekit_media_revocation_verified": false,
+        "conversation_time_and_message_limits_verified": false,
+        "parent_batch_complete": false,
+        "evidence": [
+          "docs/project/receipts/FR-07D1-live-event-stream-revocation.md",
+          "web-dashboard/backend/tests/test_fr07d_event_stream_revocation.py"
+        ],
+        "coverage_ar": "سحب صلاحية اتصال الأحداث القائم بإعادة فحص الرمز والحساب والجهة والدور والصلاحيات قبل كل إرسال وأثناء الخمول. إعادة الاتصال لا تستعيد صلاحية مسحوبة. رفض مسارالبثالعام القديم داخلBackend نفسه،ومعالجةتعطلإغلاقآخرمشتركفيRedis. لايتضمنإلغاءإطاربدأقبلالتحققأوسحبالوسائطأوحدودالمحادثة."
       }
     },
     {

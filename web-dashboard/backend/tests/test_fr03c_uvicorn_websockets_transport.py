@@ -34,6 +34,8 @@ class _DummyAuthService:
             organization_id="tenant-1",
             auth_version=7,
             role="member",
+            organization_plan="enterprise",
+            permissions=["projects:read"],
         )
 
 
