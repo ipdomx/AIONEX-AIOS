@@ -1716,6 +1716,33 @@
           "tests/test_fr06d11b_observer_admission_contract.py"
         ],
         "coverage_ar": "حراسة الرصد العادي وتحديث النماذج والنشر اللاحق للالتزام بقفل مستقل؛ تظل معاملات الأمان وإيقاف التجارب غير الآمنة والمراجعة اليدوية ملتزمة قبله حتى أثناء الصيانة. لا إثبات نشر أو تصريف أو نقل المضيف من اختبارات المصدر. D11A وD10 وFR07 لا تعاد."
+      },
+      "memory_preflight_source": {
+        "source_part": "FR-06C5E1",
+        "source_base_commit": "c8b3b7247e6c0801f9432b71c6ef3641bad694c1",
+        "prepared_source_commit": "13b76558f585f432acc831b6ad0448ee5909b5bd",
+        "read_only": true,
+        "pinned_underlay_identity": true,
+        "mmap_after_fd_close_observed": true,
+        "strict_unknown_instead_of_zero": true,
+        "swap_alias_identity_preserved": true,
+        "enabled_boot_graph_verified_in_owned_offline_root": true,
+        "reject_zero_exit_with_graph_diagnostics": true,
+        "directed_tests_passed": 68,
+        "real_host_graph_verified": false,
+        "writer_quiescence_implemented": false,
+        "legacy_apply_rollback_imported_into_main": false,
+        "crash_journal_and_recovery_complete": false,
+        "production_activated": false,
+        "activation_authorized": false,
+        "full_host_closure": false,
+        "parent_batch_complete": false,
+        "evidence": [
+          "docs/project/receipts/FR-06C5E1-memory-preflight.md",
+          "tests/test_fr06c5e_memory_preflight.py",
+          "tests/test_fr06c5e_memory_boot_plan.py"
+        ],
+        "remaining_ar": "يبقى إصلاح سجل الانقطاع والرجوع الموثق للمنفذ المحضر، وقبول C5D وتجميد الكتابات ومطابقة الخزنة/ذاكرة swap وقبول الإقلاع الفعلي قبل أي تفعيل. لا يعتبر القارئ أو مخطط الإقلاع إذن نقل أو إثبات خلو المزود."
       }
     },
     {
