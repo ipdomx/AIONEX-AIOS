@@ -464,3 +464,12 @@ async def test_status_only_routes_are_not_accidentally_turned_into_file_transact
 
 
 
+
+
+def test_file_fence_uses_a_separate_engine_from_business_session_pool():
+    from app.db.base import SessionLocal as business_sessions
+    module = _module()
+    assert module is not None
+    assert module.SessionLocal.kw["bind"] is not business_sessions.kw["bind"], (
+        "File fences must not exhaust the business pool while handlers wait for a second connection"
+    )

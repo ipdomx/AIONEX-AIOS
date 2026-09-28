@@ -16,6 +16,7 @@ from app.core.logging import get_logger, setup_logging
 from app.db.base import SessionLocal
 from app.db.redis import get_redis
 from app.services.conversation_worker import conversation_worker
+from app.services.host_maintenance_media_http import close_media_file_admission
 from fastapi import FastAPI, Request, Response, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -60,7 +61,10 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         await conversation_worker.stop()
-        await shutdown_event()
+        try:
+            await close_media_file_admission()
+        finally:
+            await shutdown_event()
 
 
 app = FastAPI(

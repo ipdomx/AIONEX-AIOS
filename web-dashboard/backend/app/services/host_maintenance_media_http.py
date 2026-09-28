@@ -8,12 +8,15 @@ not evidence that older workers, crashed processes or remote providers drained.
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 from fastapi.routing import APIRoute
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 from starlette.responses import JSONResponse
 from starlette.types import Receive, Scope, Send
 
-from app.db.base import SessionLocal
+from app.core.config import settings
 from app.services.host_maintenance_admission import HostMaintenanceClosed, HostMaintenanceUnavailable
 from app.services.host_maintenance_studio_admission import require_studio_admission
 
@@ -23,6 +26,23 @@ FILE_ENDPOINTS = frozenset({
     "create_three_d_job", "clarify_three_d_job", "cancel_three_d_job",
     "download_local_three_d_artifact", "get_three_d_artifact_links",
 })
+
+
+# Guard requests must not take every business-pool connection while their
+# handlers wait for a second connection. Give file admission a bounded, separate
+# pool; test/worker configurations retain their loop-independent NullPool policy.
+_fence_options: dict[str, Any] = {"pool_pre_ping": True, "echo": settings.DATABASE_ECHO}
+if settings.DATABASE_POOLING_ENABLED:
+    _fence_options.update(pool_size=4, max_overflow=0, pool_timeout=2.0)
+else:
+    _fence_options["poolclass"] = NullPool
+_fence_engine = create_async_engine(settings.DATABASE_URL, **_fence_options)
+SessionLocal = async_sessionmaker(_fence_engine, expire_on_commit=False)
+
+
+async def close_media_file_admission() -> None:
+    """Release the dedicated pool after ASGI requests have ended at shutdown."""
+    await _fence_engine.dispose()
 
 
 class MediaFileRoute(APIRoute):

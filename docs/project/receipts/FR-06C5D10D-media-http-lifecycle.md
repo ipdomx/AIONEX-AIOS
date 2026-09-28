@@ -87,3 +87,19 @@ serialization and encrypted host-state cutover remain independently required.
 The blocked Replicate inventory was not retried and its state remains UNKNOWN;
 no historical needs_review record was altered. No production images, services,
 Cloudflare configuration, DNS, tunnel, key or schema changed in this laboratory.
+
+## Dedicated connection capacity
+
+Review identified that two transactions must not draw from the same bounded
+business connection pool: admitted file requests could occupy the pool while
+their handlers wait for another connection. A regression first confirmed the
+shared engine, then passed after separating the file-admission engine. In pooled
+API mode it allows four connections per process, no overflow and a two-second
+pool wait; saturation is rejected before body parsing instead of starving the
+business pool. Nonpooled configurations retain NullPool for loop independence.
+Application shutdown disposes the dedicated pool after request handling ends.
+
+The focused suite now passes63 cases (the62 ASGI/database/lifetime cases plus the
+engine-separation regression). The accepted-PR774 integrated regression passes550
+cases, including media and FR07 regressions; counts overlap and must not be summed.
+No production capacity or1000-user certification is asserted by these results.
