@@ -1,6 +1,8 @@
 """Durable Phase 36D media-graph persistence and partial-revision planning."""
 from __future__ import annotations
 
+from app.services.host_maintenance_media_enqueue import require_media_enqueue_admission
+
 import hashlib
 from dataclasses import dataclass
 from typing import Any
@@ -65,6 +67,7 @@ async def create_media_graph(
     reuse_nodes: dict[str, MediaAssetNode] | None = None,
 ) -> MediaAssetGraph:
     """Persist one tenant-scoped DAG and its render steps exactly once."""
+    await require_media_enqueue_admission(session, consumer="media_graph")
     key = idempotency_key.strip()
     if not key or len(key) > 160:
         raise MediaGraphError("media graph idempotency key is invalid")
@@ -261,6 +264,7 @@ async def create_partial_media_revision(
     idempotency_key: str,
 ) -> tuple[MediaAssetGraph, tuple[str, ...]]:
     """Create a new graph revision, reusing outputs outside the dependency impact set."""
+    await require_media_enqueue_admission(session, consumer="media_graph")
     current, current_rows = await load_media_graph_spec(session, graph)
     changed = tuple(sorted(key.strip() for key in node_parameter_updates if key.strip()))
     if not changed:

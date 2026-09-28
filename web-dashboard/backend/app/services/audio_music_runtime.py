@@ -6,6 +6,8 @@ prediction. Only a pre-ID submitting lease may become ambiguous.
 """
 from __future__ import annotations
 
+from app.services.host_maintenance_media_enqueue import require_media_enqueue_admission
+
 from app.services.host_maintenance_media_claims import media_claim_admission_open
 
 import asyncio
@@ -348,6 +350,7 @@ async def arm_audio_music_execution(
     organization_id: str,
     approved_max_cost_usd: float,
 ) -> AudioMusicExecution:
+    await require_media_enqueue_admission(session, consumer="audio_music")
     row = await session.scalar(
         select(AudioMusicExecution)
         .where(

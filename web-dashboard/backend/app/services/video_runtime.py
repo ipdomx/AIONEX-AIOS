@@ -1,6 +1,8 @@
 """Phase 36F durable asynchronous video execution authority (no provider HTTP transport)."""
 from __future__ import annotations
 
+from app.services.host_maintenance_media_enqueue import require_media_enqueue_admission
+
 from app.services.host_maintenance_media_claims import media_claim_admission_open
 
 import asyncio
@@ -272,6 +274,7 @@ async def create_video_execution(
 async def arm_video_execution(
     session: AsyncSession, *, execution_id: str, organization_id: str
 ) -> VideoExecution:
+    await require_media_enqueue_admission(session, consumer="video")
     row = await session.scalar(
         select(VideoExecution)
         .where(
