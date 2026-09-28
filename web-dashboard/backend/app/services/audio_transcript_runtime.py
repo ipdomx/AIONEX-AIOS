@@ -6,6 +6,8 @@ that expires after `provider_state=submitting` is therefore moved to
 """
 from __future__ import annotations
 
+from app.services.host_maintenance_media_claims import media_claim_admission_open
+
 import asyncio
 import hashlib
 import io
@@ -388,6 +390,8 @@ class AudioTranscriptExecutionAuthority:
     async def claim(self) -> AudioTranscriptClaim | None:
         now = _now()
         async with self.session_factory() as session:
+            if not await media_claim_admission_open(session, consumer="audio_transcript"):
+                return None
             row = await session.scalar(
                 select(AudioTranscriptExecution)
                 .where(

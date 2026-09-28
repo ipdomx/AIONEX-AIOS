@@ -5,6 +5,8 @@ submission state is terminal for automatic execution and requires operator revie
 """
 from __future__ import annotations
 
+from app.services.host_maintenance_media_claims import media_claim_admission_open
+
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -208,6 +210,8 @@ async def claim_next(
     worker_id: str,
     lease_seconds: int,
 ) -> IdentityMediaClaim | None:
+    if not await media_claim_admission_open(session, consumer="identity_media"):
+        return None
     now = _now()
     row = await session.scalar(
         select(IdentityMediaExecution)

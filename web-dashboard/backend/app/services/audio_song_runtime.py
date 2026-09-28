@@ -9,6 +9,8 @@ snapshots.
 
 from __future__ import annotations
 
+from app.services.host_maintenance_media_claims import media_claim_admission_open
+
 import hashlib
 import math
 from dataclasses import dataclass
@@ -706,6 +708,8 @@ async def claim_audio_song_execution(
     endpoint_id_sha256: str | None = None,
     current: datetime | None = None,
 ) -> AudioSongExecution | None:
+    if not await media_claim_admission_open(session, consumer="audio_song"):
+        return None
     now = current or _now()
     lease = _positive_int(lease_seconds, label="song lease", maximum=3_600)
     routes: frozenset[str] | None = None
@@ -1392,6 +1396,8 @@ async def recover_expired_audio_song_executions(
     *,
     current: datetime | None = None,
 ) -> dict[str, int]:
+    if not await media_claim_admission_open(session, consumer="audio_song"):
+        return {"recovered": 0, "needs_review": 0, "observed": 0}
     now = current or _now()
     rows = list(
         (

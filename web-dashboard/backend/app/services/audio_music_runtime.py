@@ -6,6 +6,8 @@ prediction. Only a pre-ID submitting lease may become ambiguous.
 """
 from __future__ import annotations
 
+from app.services.host_maintenance_media_claims import media_claim_admission_open
+
 import asyncio
 import hashlib
 from collections.abc import Callable
@@ -444,6 +446,8 @@ class AudioMusicExecutionAuthority:
     async def reap_ambiguous_submissions(self, *, limit: int = 16) -> int:
         now = _now()
         async with self.session_factory() as session:
+            if not await media_claim_admission_open(session, consumer="audio_music"):
+                return 0
             rows = list(
                 (
                     await session.scalars(
@@ -506,6 +510,8 @@ class AudioMusicExecutionAuthority:
         parent_edge = aliased(MediaAssetEdge)
         parent_node = aliased(MediaAssetNode)
         async with self.session_factory() as session:
+            if not await media_claim_admission_open(session, consumer="audio_music"):
+                return None
             blocked_parent = (
                 select(parent_edge.id)
                 .join(parent_node, parent_node.id == parent_edge.parent_node_id)

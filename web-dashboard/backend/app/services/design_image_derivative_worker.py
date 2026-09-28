@@ -5,6 +5,8 @@ default. It never invokes an image provider or reads provider credentials.
 """
 from __future__ import annotations
 
+from app.services.host_maintenance_media_claims import media_claim_admission_open
+
 import argparse
 import asyncio
 import hashlib
@@ -119,6 +121,8 @@ class DesignImageDerivativeWorker:
     async def reap_exhausted_leases(self, *, limit: int = 16) -> int:
         now = _now()
         async with SessionLocal() as session:
+            if not await media_claim_admission_open(session, consumer="design_image_derivative"):
+                return 0
             rows = list(
                 (
                     await session.scalars(
@@ -199,6 +203,8 @@ class DesignImageDerivativeWorker:
             MediaRenderStep.lease_expires_at < now,
         )
         async with SessionLocal() as session:
+            if not await media_claim_admission_open(session, consumer="design_image_derivative"):
+                return None
             row = await session.scalar(
                 select(MediaRenderStep)
                 .where(or_(queued, recovery), ~blocked)

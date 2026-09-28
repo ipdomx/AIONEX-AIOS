@@ -1,6 +1,8 @@
 """Durable Phase 36G stock-voice dubbing translation authority."""
 from __future__ import annotations
 
+from app.services.host_maintenance_media_claims import media_claim_admission_open
+
 import asyncio
 import hashlib
 import json
@@ -360,6 +362,8 @@ class AudioDubbingExecutionAuthority:
     async def claim(self) -> AudioDubbingClaim | None:
         now = _now()
         async with self.session_factory() as session:
+            if not await media_claim_admission_open(session, consumer="audio_dubbing"):
+                return None
             row = await session.scalar(
                 select(AudioDubbingExecution)
                 .where(

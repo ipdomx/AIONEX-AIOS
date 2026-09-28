@@ -1565,6 +1565,31 @@
           ],
           "coverage_ar": "أثبت اختبار LiveKit الحقيقي المعزول رفض ListParticipants وRemoveParticipant برمز401 لغياب room من صلاحية roomAdmin. صُححت الصلاحية بأقل امتياز للغرفة المحددة، وثبت جرد غرفة ومشارك signaling حقيقي ثم إزالة المشارك والغرفة، مع بقاء رفض صلاحية الغرفة الأخرى. لا صوت/فيديو أو بيانات عملاء أو نشر Production أو ادعاء تصريف المضيف."
         }
+      },
+      "downstream_media_claim_admission_source": {
+        "source_part": "FR-06C5D10A",
+        "source_base_commit": "0151b1aa2dcc4dd7c743ec6ffc27f55e32b242fa",
+        "guarded_claim_paths": 11,
+        "guarded_reaper_paths": 6,
+        "same_transaction_shared_lock": true,
+        "conservative_parent_fence": "studio_job_requests",
+        "closed_or_unavailable_returns_no_work": true,
+        "existing_open_state_claim_recovery_semantics_preserved": true,
+        "database_migration_required": false,
+        "versioned_scope_widened": false,
+        "production_deployed": false,
+        "all_producers_guarded": false,
+        "preclosure_provider_work_drained": false,
+        "full_host_closure": false,
+        "parent_batch_complete": false,
+        "behavioral_postgresql_cases_passed": 61,
+        "combined_media_regression_cases_passed": 274,
+        "evidence": [
+          "docs/project/receipts/FR-06C5D10A-downstream-media-claim-fence.md",
+          "web-dashboard/backend/tests/test_fr06d10a_media_claim_fence.py",
+          "tests/test_fr06d10a_media_claim_fence_contract.py"
+        ],
+        "coverage_ar": "حراسة ثانوية لالتقاط مهام الوسائط واسترداد leases المنتهية: أحد عشر مسارclaim وستة مساراتreaper تحترم قفلStudio المشترك داخل المعاملة نفسها قبل صفوف العمل. أُعيد إنتاج21 إخفاقًا من32 حالة على المصدر القديم ثم نجحت61 حالةPostgreSQL و274 حالةمجمعة. لا اتصالات مزود أو بيانات إنتاج أو ترحيل، ولا توسيع لإقرار تغطيةschema أو إثبات تصريف العمل السابق أو غطاء لكل المنتجين. FR07 محفوظة مكتملة؛ FR06 تبقى مفتوحة حتى بقية التغطية والقبول التشغيلي والنقل."
       }
     },
     {
