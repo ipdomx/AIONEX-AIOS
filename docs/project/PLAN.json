@@ -1590,6 +1590,27 @@
           "tests/test_fr06d10a_media_claim_fence_contract.py"
         ],
         "coverage_ar": "حراسة ثانوية لالتقاط مهام الوسائط واسترداد leases المنتهية: أحد عشر مسارclaim وستة مساراتreaper تحترم قفلStudio المشترك داخل المعاملة نفسها قبل صفوف العمل. أُعيد إنتاج21 إخفاقًا من32 حالة على المصدر القديم ثم نجحت61 حالةPostgreSQL و274 حالةمجمعة. لا اتصالات مزود أو بيانات إنتاج أو ترحيل، ولا توسيع لإقرار تغطيةschema أو إثبات تصريف العمل السابق أو غطاء لكل المنتجين. FR07 محفوظة مكتملة؛ FR06 تبقى مفتوحة حتى بقية التغطية والقبول التشغيلي والنقل."
+      },
+      "media_http_lifecycle_admission_source": {
+        "source_part": "FR-06C5D10D",
+        "source_base_commit": "564d5754c7a6c5780d77ff09cab327e1ba413364",
+        "file_request_endpoints": 11,
+        "independent_lock_transaction": true,
+        "before_multipart_parsing": true,
+        "response_and_cleanup_lifetime_bound": true,
+        "defer_cancellation_after_admission": true,
+        "denied_before_body_or_storage": true,
+        "actual_asgi_postgresql_cases_passed": 62,
+        "database_migration_required": false,
+        "production_deployed": false,
+        "full_host_closure": false,
+        "parent_batch_complete": false,
+        "provider_inventory_verified": false,
+        "blocked_provider_action_retried": false,
+        "evidence": [
+          "docs/project/receipts/FR-06C5D10D-media-http-lifecycle.md",
+          "web-dashboard/backend/tests/test_fr06d10d_media_http_lifecycle.py"
+        ]
       }
     },
     {

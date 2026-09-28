@@ -21,7 +21,9 @@ from app.services.audio_song_artifact_bridge import (
     verify_artifact_token,
 )
 
-router = APIRouter()
+from app.services.host_maintenance_media_http import MediaFileRoute
+
+router = APIRouter(route_class=MediaFileRoute)
 _SHA_HEADER = "x-aionex-artifact-sha256"
 _SIZE_HEADER = "x-aionex-artifact-size"
 
