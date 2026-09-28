@@ -14,6 +14,7 @@ from pathlib import Path
 from app.core.config import settings
 from app.core.logging import get_logger, setup_logging
 from app.db.base import SessionLocal
+from app.services.host_maintenance_media_cycles import media_cycle_admission_open
 from app.db.models import AIProvider, AudioDubbingExecution
 from app.services.ai_runtime_service import (
     provider_credential,
@@ -271,6 +272,8 @@ class AudioDubbingWorker:
 
     async def _advance_one(self) -> bool:
         async with SessionLocal() as session:
+            if not await media_cycle_admission_open(session, consumer="audio_dubbing"):
+                return False
             row = await session.scalar(
                 select(AudioDubbingExecution)
                 .where(
@@ -291,6 +294,8 @@ class AudioDubbingWorker:
             status = row.status
         if status == "speech_running":
             async with SessionLocal() as session:
+                if not await media_cycle_admission_open(session, consumer="audio_dubbing"):
+                    return False
                 refreshed = await refresh_dubbing_speech_status(
                     session,
                     execution_id=execution_id,
@@ -299,6 +304,8 @@ class AudioDubbingWorker:
                 await session.commit()
             if refreshed == "speech_completed":
                 async with SessionLocal() as session:
+                    if not await media_cycle_admission_open(session, consumer="audio_dubbing"):
+                        return False
                     await create_dubbing_final_pipeline(
                         session,
                         execution_id=execution_id,
@@ -308,6 +315,8 @@ class AudioDubbingWorker:
             return True
         if status == "speech_completed":
             async with SessionLocal() as session:
+                if not await media_cycle_admission_open(session, consumer="audio_dubbing"):
+                    return False
                 await create_dubbing_final_pipeline(
                     session,
                     execution_id=execution_id,
@@ -318,6 +327,8 @@ class AudioDubbingWorker:
         if status == "rendering":
             try:
                 async with SessionLocal() as session:
+                    if not await media_cycle_admission_open(session, consumer="audio_dubbing"):
+                        return False
                     await finalize_dubbing_execution(
                         session,
                         execution_id=execution_id,
