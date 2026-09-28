@@ -460,12 +460,6 @@ async def test_status_only_routes_are_not_accidentally_turned_into_file_transact
     assert not case.sql
 
 
-
-
-
-
-
-
 def test_file_fence_uses_a_separate_engine_from_business_session_pool():
     from app.db.base import SessionLocal as business_sessions
     module = _module()
