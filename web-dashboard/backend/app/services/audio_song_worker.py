@@ -27,6 +27,7 @@ from sqlalchemy import select
 from app.core.config import settings
 from app.core.logging import get_logger, setup_logging
 from app.db.base import SessionLocal
+from app.services.host_maintenance_media_cycles import SONG_BALANCE_TIMEOUT_SECONDS, media_cycle_admission_open
 from app.db.models import AuditEvent, AudioSongExecution, MediaAssetNode, uuid_str
 from app.services.audio_song_providers import (
     AudioSongProviderFailure,
@@ -402,8 +403,10 @@ class AudioSongWorker:
         """
         if time.monotonic() < self._next_balance_check_at:
             return False
-        secrets = self._runtime_secrets()
         async with SessionLocal() as session:
+            if not await media_cycle_admission_open(session, consumer="audio_song"):
+                return False
+            secrets = self._runtime_secrets()
             rows = list(
                 (
                     await session.scalars(
@@ -431,8 +434,9 @@ class AudioSongWorker:
                 return False
             candidate_id = candidate.id
 
-        balance, evidence_sha256 = await self._provider_balance_usd()
         async with SessionLocal() as session:
+            if not await media_cycle_admission_open(session, consumer="audio_song"):
+                return False
             row = await session.scalar(
                 select(AudioSongExecution)
                 .where(
@@ -456,6 +460,11 @@ class AudioSongWorker:
                 raise AudioSongWorkerError("open-song user approval metadata is invalid") from exc
             if abs(approved - float(row.max_cost_usd)) > 1e-9 or monthly <= 0:
                 raise AudioSongWorkerError("open-song user approval does not match durable cost bounds")
+            # Balance is read while the same shared maintenance lock protects
+            # the eventual arm. A concurrent close must wait or time out; it
+            # cannot publish closure between the balance check and queue commit.
+            async with asyncio.timeout(SONG_BALANCE_TIMEOUT_SECONDS):
+                balance, evidence_sha256 = await self._provider_balance_usd()
             if balance + 1e-9 < approved:
                 metadata["last_balance_check_sufficient"] = False
                 metadata["last_balance_check_sha256"] = evidence_sha256

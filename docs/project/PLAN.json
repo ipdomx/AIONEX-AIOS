@@ -1613,6 +1613,31 @@
           "tests/test_fr06d10c_media_enqueue_contract.py"
         ],
         "coverage_ar": "حراسة نشر مهام الوسائط وgraph وطلب3D في معاملةالنشر نفسها، قبلالقراءة أوautoflush. ثبت46فشلًا قبلالتصحيح ثم58اختبارًا موجهًا و377تكاملًا ناجحًا. لايثبت ذلك توقفالعمل السابق أوالمزود أوتنظيفمابعدrollback أوالنشر أوإغلاقالمضيف. D10B وFR07 لا يعادان."
+      },
+      "downstream_media_cycle_admission_source": {
+        "source_part": "FR-06C5D10B",
+        "source_base_commit": "564d5754c7a6c5780d77ff09cab327e1ba413364",
+        "worker_cycle_paths": 3,
+        "transaction_boundaries": 8,
+        "conservative_parent_fence": "studio_job_requests",
+        "balance_and_arm_same_transaction": true,
+        "song_balance_timeout_seconds": 20,
+        "repeated_outer_cleanup_cancellation_deferred": true,
+        "behavioral_postgresql_cases_passed": 35,
+        "combined_media_regression_cases_passed": 333,
+        "database_migration_required": false,
+        "versioned_scope_widened": false,
+        "production_deployed": false,
+        "all_producers_guarded": false,
+        "hard_crash_cleanup_drain_verified": false,
+        "provider_inventory_verified": false,
+        "full_host_closure": false,
+        "parent_batch_complete": false,
+        "evidence": [
+          "docs/project/receipts/FR-06C5D10B-downstream-media-cycle-fence.md",
+          "web-dashboard/backend/tests/test_fr06d10b_media_cycle_fence.py",
+          "tests/test_fr06d10b_media_cycle_fence_contract.py"
+        ]
       }
     },
     {
