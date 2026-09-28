@@ -1591,6 +1591,29 @@
         ],
         "coverage_ar": "حراسة ثانوية لالتقاط مهام الوسائط واسترداد leases المنتهية: أحد عشر مسارclaim وستة مساراتreaper تحترم قفلStudio المشترك داخل المعاملة نفسها قبل صفوف العمل. أُعيد إنتاج21 إخفاقًا من32 حالة على المصدر القديم ثم نجحت61 حالةPostgreSQL و274 حالةمجمعة. لا اتصالات مزود أو بيانات إنتاج أو ترحيل، ولا توسيع لإقرار تغطيةschema أو إثبات تصريف العمل السابق أو غطاء لكل المنتجين. FR07 محفوظة مكتملة؛ FR06 تبقى مفتوحة حتى بقية التغطية والقبول التشغيلي والنقل."
       },
+      "downstream_media_enqueue_admission_source": {
+        "source_part": "FR-06C5D10C",
+        "source_base_commit": "564d5754c7a6c5780d77ff09cab327e1ba413364",
+        "guarded_entrypoints": 11,
+        "media_arm_entrypoints": 8,
+        "graph_creation_and_revision_guarded": true,
+        "three_d_request_before_upload_guarded": true,
+        "same_caller_transaction": true,
+        "closed_or_unavailable_returns_http_503": true,
+        "database_migration_required": false,
+        "focused_postgresql_cases": 58,
+        "combined_regression_cases": 377,
+        "production_deployed": false,
+        "provider_inventory_verified": false,
+        "full_host_closure": false,
+        "parent_batch_complete": false,
+        "evidence": [
+          "docs/project/receipts/FR-06C5D10C-downstream-media-enqueue-fence.md",
+          "web-dashboard/backend/tests/test_fr06d10c_media_enqueue_fence.py",
+          "tests/test_fr06d10c_media_enqueue_contract.py"
+        ],
+        "coverage_ar": "حراسة نشر مهام الوسائط وgraph وطلب3D في معاملةالنشر نفسها، قبلالقراءة أوautoflush. ثبت46فشلًا قبلالتصحيح ثم58اختبارًا موجهًا و377تكاملًا ناجحًا. لايثبت ذلك توقفالعمل السابق أوالمزود أوتنظيفمابعدrollback أوالنشر أوإغلاقالمضيف. D10B وFR07 لا يعادان."
+      },
       "downstream_media_cycle_admission_source": {
         "source_part": "FR-06C5D10B",
         "source_base_commit": "564d5754c7a6c5780d77ff09cab327e1ba413364",

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.services.host_maintenance_media_enqueue import require_media_enqueue_admission
+
 from datetime import timedelta
 from typing import Annotated
 
@@ -197,6 +199,7 @@ async def create_three_d_job(
         str | None, Header(alias="X-Correlation-ID", max_length=160)
     ] = None,
 ):
+    await require_media_enqueue_admission(session, consumer="three_d")
     project = await project_for_actor(session, actor, project_id, write=True)
     initial = await access_snapshot(session, actor)
     if not initial["eligible"]:

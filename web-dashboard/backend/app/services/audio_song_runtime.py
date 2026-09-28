@@ -9,6 +9,8 @@ snapshots.
 
 from __future__ import annotations
 
+from app.services.host_maintenance_media_enqueue import require_media_enqueue_admission
+
 from app.services.host_maintenance_media_claims import media_claim_admission_open
 
 import hashlib
@@ -605,6 +607,7 @@ async def arm_audio_song_execution(
     balance_evidence_sha256: str | None,
     current: datetime | None = None,
 ) -> AudioSongExecution:
+    await require_media_enqueue_admission(session, consumer="audio_song")
     now = current or _now()
     row = await session.scalar(
         select(AudioSongExecution)
