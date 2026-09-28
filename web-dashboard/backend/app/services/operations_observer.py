@@ -23,6 +23,10 @@ from app.services.project_ai_model_refresh import refresh_launch_model_evidence
 from app.services.provider_credit_alerts import run_provider_credit_alerts
 from app.services.runtime_owner_alerts import run_runtime_owner_alerts
 from app.services.operations_assurance import record_observation_cycle
+from app.services.host_maintenance_observer import (
+    close_observer_admission,
+    run_observer_observation,
+)
 
 logger = get_logger(__name__)
 
@@ -38,9 +42,12 @@ class OperationsObserver:
         self.last_project_ai_model_refresh_monotonic = 0.0
 
     async def preflight(self) -> None:
-        async with SessionLocal() as session:
-            await record_observation_cycle(session)
-            await session.rollback()
+        async def observation_preflight() -> None:
+            async with SessionLocal() as session:
+                await record_observation_cycle(session)
+                await session.rollback()
+
+        await run_observer_observation(observation_preflight)
 
     def write_health(self, status: str) -> None:
         payload = {
@@ -82,29 +89,6 @@ class OperationsObserver:
             live_execution_runtime = await reconcile_stale_live_executions(session)
             await session.commit()
 
-        if run_model_refresh:
-            async with SessionLocal() as session:
-                refresh_result = await refresh_launch_model_evidence(session)
-                model_notifications = list(refresh_result.pop("notifications", []))
-                await session.commit()
-            await communications.publish_many(model_notifications)
-            self.last_project_ai_model_refresh_monotonic = current_monotonic
-
-        async with SessionLocal() as session:
-            await record_observation_cycle(session)
-            notifications = (
-                await run_account_lifecycle_alerts(session)
-                if run_lifecycle_alerts
-                else []
-            )
-            notifications.extend(await run_runtime_owner_alerts(session))
-            if run_provider_credit_alerts_now:
-                notifications.extend(await run_provider_credit_alerts(session))
-            await session.commit()
-        if run_lifecycle_alerts:
-            self.last_lifecycle_alert_monotonic = current_monotonic
-        if run_provider_credit_alerts_now:
-            self.last_provider_credit_alert_monotonic = current_monotonic
         if pilot_runtime["auto_disarmed"]:
             logger.warning(
                 "GS-12 runtime guard auto-disarmed controlled pilots",
@@ -116,8 +100,37 @@ class OperationsObserver:
                 executions=live_execution_runtime["executions_marked_manual_review"],
                 pilots_auto_disarmed=live_execution_runtime["pilots_auto_disarmed"],
             )
-        await communications.publish_many(notifications)
-        self.cycles += 1
+
+        async def ordinary_cycle() -> None:
+            if self.stop_event.is_set():
+                return
+            if run_model_refresh:
+                async with SessionLocal() as session:
+                    refresh_result = await refresh_launch_model_evidence(session)
+                    model_notifications = list(refresh_result.pop("notifications", []))
+                    await session.commit()
+                await communications.publish_many(model_notifications)
+                self.last_project_ai_model_refresh_monotonic = current_monotonic
+
+            async with SessionLocal() as session:
+                await record_observation_cycle(session)
+                notifications = (
+                    await run_account_lifecycle_alerts(session)
+                    if run_lifecycle_alerts
+                    else []
+                )
+                notifications.extend(await run_runtime_owner_alerts(session))
+                if run_provider_credit_alerts_now:
+                    notifications.extend(await run_provider_credit_alerts(session))
+                await session.commit()
+            if run_lifecycle_alerts:
+                self.last_lifecycle_alert_monotonic = current_monotonic
+            if run_provider_credit_alerts_now:
+                self.last_provider_credit_alert_monotonic = current_monotonic
+            await communications.publish_many(notifications)
+            self.cycles += 1
+
+        await run_observer_observation(ordinary_cycle)
         self.write_health("running")
 
     async def run_forever(self) -> None:
@@ -171,7 +184,10 @@ async def async_main() -> int:
         await observer.run_forever()
         return 0
     finally:
-        await close_redis()
+        try:
+            await close_observer_admission()
+        finally:
+            await close_redis()
 
 
 def main() -> int:

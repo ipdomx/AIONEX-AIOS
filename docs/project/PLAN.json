@@ -1687,6 +1687,35 @@
         "coverage_verified": false,
         "full_host_closure": false,
         "coverage_ar": "حراسة مصدرية تكميلية للبوتين قبل polling وعند معالجة دفعة تحديثات وتسجيل هوية البوت؛ قفل مستقل حتى الرد والتدقيق وحفظ offset. لا يثبت وصول Telegram أو توقف poll سابق أو تصريف عمل ملتبس. لا ترحيل أو توسيع مخطط السلطة، ولا إعادة نشر العمال المنتهية."
+      },
+      "observer_ordinary_cycle_admission_source": {
+        "source_part": "FR-06C5D11B",
+        "source_base_commit": "a8c13247d1eacc9e52327c05f2084bcc65b12b91",
+        "worker": "operations-observer",
+        "guarded_lifetimes": [
+          "observation_preflight",
+          "ordinary_observation_cycle"
+        ],
+        "independent_transaction_and_connection": true,
+        "schema8_required_without_scope_expansion": true,
+        "safety_reconciliation_commits_before_admission": true,
+        "safety_auto_disarm_or_manual_review_frozen": false,
+        "postcommit_notification_publication_covered": true,
+        "outer_cancellation_waits_for_admitted_action": true,
+        "ordinary_schedule_unchanged_on_denial": true,
+        "focused_postgresql_cases": 30,
+        "combined_regression_cases": 56,
+        "database_migration_required": false,
+        "production_deployed": false,
+        "provider_drain_verified": false,
+        "full_host_closure": false,
+        "parent_batch_complete": false,
+        "evidence": [
+          "docs/project/receipts/FR-06C5D11B-observer-ordinary-admission.md",
+          "web-dashboard/backend/tests/test_fr06d11b_observer_admission.py",
+          "tests/test_fr06d11b_observer_admission_contract.py"
+        ],
+        "coverage_ar": "حراسة الرصد العادي وتحديث النماذج والنشر اللاحق للالتزام بقفل مستقل؛ تظل معاملات الأمان وإيقاف التجارب غير الآمنة والمراجعة اليدوية ملتزمة قبله حتى أثناء الصيانة. لا إثبات نشر أو تصريف أو نقل المضيف من اختبارات المصدر. D11A وD10 وFR07 لا تعاد."
       }
     },
     {
