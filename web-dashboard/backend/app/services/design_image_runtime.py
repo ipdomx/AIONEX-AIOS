@@ -1,6 +1,8 @@
 """Phase 36E durable provider-image execution authority (no provider HTTP transport)."""
 from __future__ import annotations
 
+from app.services.host_maintenance_media_claims import media_claim_admission_open
+
 import asyncio
 import hashlib
 from collections.abc import Callable
@@ -294,6 +296,8 @@ class DesignImageExecutionAuthority:
         parent_edge = aliased(MediaAssetEdge)
         parent_node = aliased(MediaAssetNode)
         async with self.session_factory() as session:
+            if not await media_claim_admission_open(session, consumer="design_image"):
+                return None
             blocked_parent = (
                 select(parent_edge.id)
                 .join(parent_node, parent_node.id == parent_edge.parent_node_id)

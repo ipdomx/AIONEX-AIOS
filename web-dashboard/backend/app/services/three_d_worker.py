@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.services.host_maintenance_media_claims import media_claim_admission_open
+
 import argparse
 import asyncio
 import base64
@@ -210,6 +212,8 @@ class ThreeDGenerationWorker:
 
     async def claim(self) -> tuple[str, str] | None:
         async with SessionLocal() as session:
+            if not await media_claim_admission_open(session, consumer="three_d"):
+                return None
             blocked_provider_values: set[str] = set()
             for provider in ("hunyuan3d", "triposr"):
                 state = await provider_circuit_snapshot(session, provider=provider)
