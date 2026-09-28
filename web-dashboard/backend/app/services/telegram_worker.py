@@ -26,6 +26,12 @@ from app.db.models import (
     ProjectExecution,
     uuid_str,
 )
+from app.services.host_maintenance_telegram import (
+    close_telegram_admission,
+    run_telegram_action,
+    telegram_poll_admission_open,
+    wait_for_telegram_admission,
+)
 from app.services import owner_telegram_auth
 from sqlalchemy import func, select
 
@@ -125,24 +131,41 @@ class TelegramOperationsWorker:
 
     async def run(self) -> None:
         offset = await self._load_offset()
+
+        async def consume(updates: list[dict[str, Any]]) -> None:
+            nonlocal offset
+            for raw in updates:
+                if self.stop_event.is_set():
+                    break
+                update_id = _safe_int(raw.get("update_id"))
+                if update_id is None or update_id < offset:
+                    continue
+                message = parse_inbound_message(raw)
+                if message is not None:
+                    await self._handle(message)
+                next_offset = max(offset, update_id + 1)
+                # Never acknowledge a later remote offset before it is durable.
+                await self._store_offset(next_offset)
+                offset = next_offset
+                if message is not None:
+                    self.last_update_id = message.update_id
+
         self._write_health("running", offset=offset)
         while not self.stop_event.is_set():
             try:
+                if not await telegram_poll_admission_open(consumer="owner"):
+                    self._write_health("running", offset=offset)
+                    await wait_for_telegram_admission(self.stop_event)
+                    continue
                 updates = await self.api.get_updates(
-                    offset,
-                    settings.AIOS_TELEGRAM_LONG_POLL_SECONDS,
+                    offset, settings.AIOS_TELEGRAM_LONG_POLL_SECONDS,
                 )
-                for raw in updates:
-                    update_id = _safe_int(raw.get("update_id"))
-                    if update_id is None:
-                        continue
-                    message = parse_inbound_message(raw)
-                    if message is not None:
-                        await self._handle(message)
-                        self.last_update_id = message.update_id
-                    offset = max(offset, update_id + 1)
-                    await self._store_offset(offset)
+                if self.stop_event.is_set():
+                    break
+                accepted = await run_telegram_action(lambda: consume(updates), consumer="owner")
                 self._write_health("running", offset=offset)
+                if not accepted:
+                    await wait_for_telegram_admission(self.stop_event)
             except TelegramWorkerError as exc:
                 self.errors += 1
                 logger.warning("Telegram polling failure", error=type(exc).__name__)
@@ -150,7 +173,7 @@ class TelegramOperationsWorker:
                 try:
                     await asyncio.wait_for(self.stop_event.wait(), timeout=5.0)
                 except TimeoutError:
-                    pass
+                    continue
             except asyncio.CancelledError:
                 break
         self._write_health("stopped", offset=offset)
@@ -504,7 +527,10 @@ async def async_main() -> int:
     try:
         await worker.run()
     finally:
-        await api.close()
+        try:
+            await api.close()
+        finally:
+            await close_telegram_admission()
     return 0
 
 

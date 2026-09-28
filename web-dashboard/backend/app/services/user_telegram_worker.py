@@ -18,6 +18,12 @@ from app.core.config import settings
 from app.core.logging import get_logger, setup_logging
 from app.db.base import SessionLocal
 from app.db.models import AuditEvent, Notification, OwnerControlRecord, Project
+from app.services.host_maintenance_telegram import (
+    close_telegram_admission,
+    run_telegram_action,
+    telegram_poll_admission_open,
+    wait_for_telegram_admission,
+)
 from app.services import user_telegram_auth
 from app.services.telegram_worker import (
     TelegramBotAPI,
@@ -43,36 +49,56 @@ class UserTelegramWorker:
 
     async def run(self) -> None:
         offset = await self._load_offset()
-        await self._record_bot_identity()
+        identity_recorded = False
+
+        async def consume(updates: list[dict[str, Any]]) -> None:
+            nonlocal offset
+            for update in updates:
+                if self.stop_event.is_set():
+                    break
+                update_id = _safe_int(update.get("update_id"))
+                if update_id is None or update_id < offset:
+                    continue
+                message = parse_inbound_message(update)
+                if message is not None:
+                    await self._handle(message)
+                next_offset = update_id + 1
+                await self._store_offset(next_offset)
+                offset = next_offset
+                self.last_update_id = update_id
+
         self._write_health("running", offset=offset)
         while not self.stop_event.is_set():
             try:
+                if not identity_recorded:
+                    identity_recorded = await run_telegram_action(
+                        self._record_bot_identity, consumer="user",
+                    )
+                    if not identity_recorded:
+                        self._write_health("running", offset=offset)
+                        await wait_for_telegram_admission(self.stop_event)
+                        continue
+                if not await telegram_poll_admission_open(consumer="user"):
+                    self._write_health("running", offset=offset)
+                    await wait_for_telegram_admission(self.stop_event)
+                    continue
                 updates = await self.api.get_updates(
-                    offset,
-                    settings.AIOS_USER_TELEGRAM_LONG_POLL_SECONDS,
+                    offset, settings.AIOS_USER_TELEGRAM_LONG_POLL_SECONDS,
                 )
-                for update in updates:
-                    update_id = _safe_int(update.get("update_id"))
-                    if update_id is None:
-                        continue
-                    if update_id < offset:
-                        continue
-                    message = parse_inbound_message(update)
-                    if message is not None:
-                        await self._handle(message)
-                    offset = update_id + 1
-                    self.last_update_id = update_id
-                    await self._store_offset(offset)
+                if self.stop_event.is_set():
+                    break
+                accepted = await run_telegram_action(lambda: consume(updates), consumer="user")
                 self.errors = 0
                 self._write_health("running", offset=offset)
+                if not accepted:
+                    await wait_for_telegram_admission(self.stop_event)
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
                 self.errors += 1
                 logger.warning(
                     "User Telegram polling iteration failed",
-                    error_type=type(exc).__name__,
-                    consecutive_errors=self.errors,
+                    error_type=type(exc).__name__, consecutive_errors=self.errors,
                 )
                 self._write_health("running", offset=offset)
                 await asyncio.sleep(min(30, max(1, 2 ** min(self.errors, 5))))
@@ -496,7 +522,10 @@ async def async_main() -> int:
     try:
         await worker.run()
     finally:
-        await api.close()
+        try:
+            await api.close()
+        finally:
+            await close_telegram_admission()
     return 0
 
 
