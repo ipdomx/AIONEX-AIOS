@@ -67,7 +67,9 @@ from app.services.three_d_storage import (
     verify_local_artifact_token,
 )
 
-router = APIRouter()
+from app.services.host_maintenance_media_http import MediaFileRoute
+
+router = APIRouter(route_class=MediaFileRoute)
 
 
 def _may_manage(

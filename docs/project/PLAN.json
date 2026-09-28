@@ -1638,6 +1638,32 @@
           "web-dashboard/backend/tests/test_fr06d10b_media_cycle_fence.py",
           "tests/test_fr06d10b_media_cycle_fence_contract.py"
         ]
+      },
+      "media_http_lifecycle_admission_source": {
+        "source_part": "FR-06C5D10D",
+        "source_base_commit": "564d5754c7a6c5780d77ff09cab327e1ba413364",
+        "file_request_endpoints": 11,
+        "independent_lock_transaction": true,
+        "before_multipart_parsing": true,
+        "response_and_cleanup_lifetime_bound": true,
+        "defer_cancellation_after_admission": true,
+        "denied_before_body_or_storage": true,
+        "actual_asgi_postgresql_cases_passed": 62,
+        "database_migration_required": false,
+        "production_deployed": false,
+        "full_host_closure": false,
+        "parent_batch_complete": false,
+        "provider_inventory_verified": false,
+        "blocked_provider_action_retried": false,
+        "evidence": [
+          "docs/project/receipts/FR-06C5D10D-media-http-lifecycle.md",
+          "web-dashboard/backend/tests/test_fr06d10d_media_http_lifecycle.py"
+        ],
+        "dedicated_business_independent_pool": true,
+        "pool_connections_per_api_process": 4,
+        "pool_max_overflow": 0,
+        "pool_wait_seconds": 2,
+        "additional_pool_regression_passed": true
       }
     },
     {

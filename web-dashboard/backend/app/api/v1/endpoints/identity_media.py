@@ -29,7 +29,9 @@ from app.services.identity_media_runtime import (
 )
 from app.services.media_storage import MediaStorageError, media_object_store
 
-router = APIRouter(prefix="/studio/identity-media", tags=["Studio Identity Media"])
+from app.services.host_maintenance_media_http import MediaFileRoute
+
+router = APIRouter(route_class=MediaFileRoute, prefix="/studio/identity-media", tags=["Studio Identity Media"])
 
 _IMAGE_TYPES = frozenset({"image/png", "image/jpeg", "image/webp"})
 _AUDIO_TYPES = frozenset({"audio/wav", "audio/x-wav", "audio/mpeg", "audio/mp4"})
