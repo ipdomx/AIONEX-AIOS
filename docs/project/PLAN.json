@@ -1664,6 +1664,29 @@
         "pool_max_overflow": 0,
         "pool_wait_seconds": 2,
         "additional_pool_regression_passed": true
+      },
+      "telegram_worker_action_admission_source": {
+        "source_part": "FR-06C5D11A",
+        "consumers": [
+          "owner-telegram-worker",
+          "user-telegram-worker"
+        ],
+        "accepted_authority_schema_version": 8,
+        "authority_scope_modified": false,
+        "poll_preflight_guarded": true,
+        "inflight_long_poll_lock_retained": false,
+        "received_batch_rechecked_before_handler": true,
+        "bot_identity_registration_guarded": true,
+        "independent_action_lock_through_reply_audit_offset": true,
+        "in_memory_offset_after_durable_commit": true,
+        "cancellation_defers_started_action": true,
+        "guard_engine_separate_from_business_pool": true,
+        "durable_external_delivery_ownership_implemented": false,
+        "provider_exactly_once_claimed": false,
+        "production_deployment_verified": false,
+        "coverage_verified": false,
+        "full_host_closure": false,
+        "coverage_ar": "حراسة مصدرية تكميلية للبوتين قبل polling وعند معالجة دفعة تحديثات وتسجيل هوية البوت؛ قفل مستقل حتى الرد والتدقيق وحفظ offset. لا يثبت وصول Telegram أو توقف poll سابق أو تصريف عمل ملتبس. لا ترحيل أو توسيع مخطط السلطة، ولا إعادة نشر العمال المنتهية."
       }
     },
     {
