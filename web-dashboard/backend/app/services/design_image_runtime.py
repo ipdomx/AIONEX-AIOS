@@ -1,6 +1,8 @@
 """Phase 36E durable provider-image execution authority (no provider HTTP transport)."""
 from __future__ import annotations
 
+from app.services.host_maintenance_media_enqueue import require_media_enqueue_admission
+
 from app.services.host_maintenance_media_claims import media_claim_admission_open
 
 import asyncio
@@ -252,6 +254,7 @@ async def create_design_image_execution(
 async def arm_design_image_execution(
     session: AsyncSession, *, execution_id: str, organization_id: str
 ) -> DesignImageExecution:
+    await require_media_enqueue_admission(session, consumer="design_image")
     row = await session.scalar(
         select(DesignImageExecution)
         .where(

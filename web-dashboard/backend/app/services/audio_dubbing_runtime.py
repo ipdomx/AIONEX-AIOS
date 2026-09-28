@@ -1,6 +1,8 @@
 """Durable Phase 36G stock-voice dubbing translation authority."""
 from __future__ import annotations
 
+from app.services.host_maintenance_media_enqueue import require_media_enqueue_admission
+
 from app.services.host_maintenance_media_claims import media_claim_admission_open
 
 import asyncio
@@ -298,6 +300,7 @@ async def arm_audio_dubbing_execution(
     organization_id: str,
     approved_max_total_cost_usd: float,
 ) -> AudioDubbingExecution:
+    await require_media_enqueue_admission(session, consumer="audio_dubbing")
     row = await session.scalar(
         select(AudioDubbingExecution)
         .where(

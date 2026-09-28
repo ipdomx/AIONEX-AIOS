@@ -6,6 +6,8 @@ that expires after `provider_state=submitting` is therefore moved to
 """
 from __future__ import annotations
 
+from app.services.host_maintenance_media_enqueue import require_media_enqueue_admission
+
 from app.services.host_maintenance_media_claims import media_claim_admission_open
 
 import asyncio
@@ -315,6 +317,7 @@ async def arm_audio_transcript_execution(
     organization_id: str,
     approved_max_cost_usd: float,
 ) -> AudioTranscriptExecution:
+    await require_media_enqueue_admission(session, consumer="audio_transcript")
     row = await session.scalar(
         select(AudioTranscriptExecution)
         .where(

@@ -5,6 +5,8 @@ submission state is terminal for automatic execution and requires operator revie
 """
 from __future__ import annotations
 
+from app.services.host_maintenance_media_enqueue import require_media_enqueue_admission
+
 from app.services.host_maintenance_media_claims import media_claim_admission_open
 
 from dataclasses import dataclass
@@ -181,6 +183,7 @@ async def arm_execution(
     organization_id: str,
     execution_id: str,
 ) -> IdentityMediaExecution:
+    await require_media_enqueue_admission(session, consumer="identity_media")
     row = await session.scalar(
         select(IdentityMediaExecution)
         .where(
