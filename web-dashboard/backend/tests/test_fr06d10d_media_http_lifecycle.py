@@ -458,9 +458,3 @@ async def test_status_only_routes_are_not_accidentally_turned_into_file_transact
         response = await client.get("/studio/identity-media/capabilities")
     assert response.status_code == 401  # Normal authentication, not file503.
     assert not case.sql
-
-
-
-
-
-
