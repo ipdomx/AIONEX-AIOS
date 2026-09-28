@@ -24,6 +24,7 @@ from aios.gpu_worker.runpod import RunPodError, RunPodServerlessClient
 from app.core.config import settings
 from app.core.logging import get_logger, setup_logging
 from app.db.base import SessionLocal
+from app.services.host_maintenance_media_cycles import finish_started_cleanup, media_cycle_admission_open
 from app.db.models import ThreeDArtifact, ThreeDGenerationJob, uuid_str
 from app.services import billing, communications
 from app.services.three_d_policy import get_three_d_policy
@@ -811,10 +812,14 @@ class ThreeDGenerationWorker:
         if time.monotonic() < self.next_cleanup_at:
             return
         async with SessionLocal() as session:
+            if not await media_cycle_admission_open(session, consumer="three_d"):
+                return
             policy = await get_three_d_policy(session)
             interval = int(policy["cleanup_interval_seconds"])
             try:
-                result = await cleanup_expired_three_d_data(session, self.storage)
+                result = await finish_started_cleanup(
+                    cleanup_expired_three_d_data(session, self.storage)
+                )
                 self.last_cleanup_at = now().isoformat()
                 logger.info("3D cleanup completed", **result)
             except Exception as exc:
