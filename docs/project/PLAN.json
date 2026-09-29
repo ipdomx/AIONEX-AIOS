@@ -1956,7 +1956,7 @@
         "single_remove_task_no_force_defer_retry": true,
         "foreign_mapper_adoption": false,
         "random_key_regenerated_on_reconciliation": false,
-        "directed_tests_passed": 55,
+        "directed_tests_passed": 56,
         "native_qemu_cases": 8,
         "native_child_interruption_cases": 4,
         "full_kernel_plan_composed": false,
@@ -1973,7 +1973,12 @@
           "tests/test_fr06c5e_memory_mapper.py",
           "tests/fixtures/fr06c5e/mapper_guest.py.txt"
         ],
-        "coverage_ar": "إنشاءmapperبهويةعمليةومفتاحعشوائيمؤقتفيذاكرةمقفلةوقفلوجرنالالـloop/backing؛ إزالةصريحةبمحاولةkernelواحدةمعرفضالمستهلكينوالهويةالمختلفة. تشغيلkernelداخلQEMUفقط،ولاسياقإنتاجأوتهيئةswapأوتفعيلtmpfs/systemdأوقبولنقلمضيف."
+        "coverage_ar": "إنشاءmapperبهويةعمليةومفتاحعشوائيمؤقتفيذاكرةمقفلةوقفلوجرنالالـloop/backing؛ إزالةصريحةبمحاولةkernelواحدةمعرفضالمستهلكينوالهويةالمختلفة. تشغيلkernelداخلQEMUفقط،ولاسياقإنتاجأوتهيئةswapأوتفعيلtmpfs/systemdأوقبولنقلمضيف.",
+        "process_dumpability_disabled_before_crypto": true,
+        "core_limit_verified": true,
+        "native_guest_pipe_core_positive_negative_controls": true,
+        "process_protection_failure_stops_key_generation": true,
+        "host_core_configuration_changed": false
       }
     },
     {

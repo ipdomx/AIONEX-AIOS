@@ -46,3 +46,5 @@ Seven new tests cover native process state and denial of each protection step. A
 Review evidence is retained independently at docs/project/runtime/fr06c5e8-key-review-20260929T1212/. A blocked combined historical-evidence comparison was not replayed and is not counted as acceptance. A duplicate launch attempt rejected the existing vm-v1 directory; its already-completed result and exact copied source were reconciled instead of recreating or overwriting it.
 
 Primary documentation: https://man7.org/linux/man-pages/man5/core.5.html and https://man7.org/linux/man-pages/man2/PR_SET_DUMPABLE.2const.html.
+
+A concurrent test-only change was reconciled in an independent review tree: both the actual child-process memory-lock-limit rejection and the mocked assertion that entropy is never requested after mlock failure are retained. No implementation change or native result was discarded.

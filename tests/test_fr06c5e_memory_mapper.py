@@ -6,6 +6,8 @@ from __future__ import annotations
 import ctypes
 import dataclasses
 import os
+import subprocess
+import sys
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
@@ -333,3 +335,12 @@ def test_native_removal_is_single_key_free_task_without_retry_flags(case,monkeyp
     assert calls[0]==('dm_task_create',(2,)) and calls[-1]==('dm_task_destroy',(17,))
     assert sum(n=='dm_task_set_uuid' for n,_ in calls)==0
     assert sum(n=='dm_task_update_nodes' for n,_ in calls)==int(succeeds)
+
+
+
+
+def test_native_memory_lock_denial_uses_real_process_limit():
+    code = "import resource\nfrom scripts.security.fr06c5_memory_volatile_key import LockedKey,VolatileKeyRejected\nresource.setrlimit(resource.RLIMIT_MEMLOCK,(0,0))\ntry: LockedKey()\nexcept VolatileKeyRejected: print('DENIED_BEFORE_ENTROPY')\nelse: raise SystemExit(1)\n"
+    result = subprocess.run([sys.executable, "-c", code], cwd=Path(__file__).resolve().parents[1],
+                            capture_output=True, text=True, timeout=10, check=False)
+    assert result.returncode == 0 and result.stdout.strip() == "DENIED_BEFORE_ENTROPY"
