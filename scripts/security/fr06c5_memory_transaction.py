@@ -24,7 +24,7 @@ from uuid import UUID
 STEPS = (
     "prepare_encrypted_backing", "install_swap_unit", "install_tmp_unit",
     "disable_legacy_swap", "disable_legacy_fstab", "reload_units",
-    "enable_memory_units", "attach_swap_loop", "create_swap_mapper", "activate_encrypted_swap", "activate_tmpfs",
+    "enable_memory_units", "attach_swap_loop", "create_swap_mapper", "activate_encrypted_swap", "prepare_tmpfs_mount", "activate_tmpfs",
 )
 MAX_RECORD = 65536
 MAX_EVENTS = 256
