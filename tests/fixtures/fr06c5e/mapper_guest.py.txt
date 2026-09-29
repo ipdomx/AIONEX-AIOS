@@ -1,0 +1,177 @@
+"""Native C5E8 acceptance ONLY in its explicitly tagged offline QEMU guest.
+All block devices are virtual, data synthetic, and no host filesystem is shared.
+"""
+from __future__ import annotations
+import json,os,signal,subprocess,sys,time,traceback
+from contextlib import contextmanager
+from pathlib import Path
+from types import SimpleNamespace
+from uuid import uuid4
+sys.path.insert(0,'/code')
+from scripts.security.fr06c5_memory_backing import BackingAdapter
+from scripts.security.fr06c5_memory_loop import LoopAdapter,LinuxLoopKernel,read_info
+from scripts.security.fr06c5_memory_mapper import MapperAdapter,LinuxMapperKernel,MapperRejected,mapper_name,mapper_uuid
+from scripts.security.fr06c5_memory_transaction import BoundContext,Plan,Journal,MemoryTransaction,ActionUncertain
+from scripts.security.fr06c5_memory_kernel_observation import parse_swaps
+
+
+def guard():
+    assert 'AIONEX-C5E8-DISPOSABLE' in Path('/sys/class/dmi/id/product_name').read_text()
+    assert any(' /disk ' in x and ' /dev/vda ' in x for x in Path('/proc/self/mountinfo').read_text().splitlines())
+    os.environ['DM_DISABLE_UDEV']='1'
+
+
+def context():
+    return BoundContext('e'*40,Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
+                        '11111111-1111-4111-8111-111111111111',36,'a'*64,'b'*64,'c'*64)
+
+
+def plan(a):
+    now=int(time.time());return Plan(a.operation,a.bound,(a.step,),now,now+300)
+
+
+@contextmanager
+def parent_case(name,operation=None):
+    root=Path('/disk')/name;fresh=operation is None
+    if fresh:
+        root.mkdir(mode=0o700)
+        for sub in ['files','backing-state','backing-journal','loop-state','loop-journal','mapper-state','mapper-journal']:(root/sub).mkdir(mode=0o700)
+        operation=str(uuid4())
+        owner=BackingAdapter.prepare(root/'files/random-swap.backing',root/'backing-state',operation,context,capacity=16*1024**2,reserve=8*1024**2)
+        bj=Journal(root/'backing-journal',operation,create=plan(owner));owner.attach(bj)
+        tx=MemoryTransaction(bj,owner);tx.apply_next();tx.verify_applied()
+        loop=LoopAdapter.prepare(owner,root/'loop-state',number=0)
+        lj=Journal(root/'loop-journal',operation,create=plan(loop));loop.attach(lj)
+        tx=MemoryTransaction(lj,loop);tx.apply_next();tx.verify_applied()
+    else:
+        owner=BackingAdapter.load(root/'files/random-swap.backing',root/'backing-state',operation,context)
+        bj=Journal(root/'backing-journal',operation);owner.attach(bj)
+        loop=LoopAdapter.load(owner,root/'loop-state',number=0)
+        lj=Journal(root/'loop-journal',operation);loop.attach(lj)
+    try:yield SimpleNamespace(root=root,owner=owner,loop=loop,operation=operation)
+    finally:lj.close();loop.close();bj.close();owner.close()
+
+
+@contextmanager
+def opened(c,kernel=None,load=False):
+    method=MapperAdapter.load if load else MapperAdapter.prepare
+    with method(c.loop,c.root/'mapper-state',kernel=kernel) as a:
+        args={} if load else {'create':plan(a)}
+        with Journal(c.root/'mapper-journal',c.operation,**args) as j:
+            a.attach(j);yield a,j,MemoryTransaction(j,a)
+
+
+def cleanup_parents(c):
+    tx=MemoryTransaction(c.loop.journal,c.loop);tx.begin_rollback();tx.undo_next();assert tx.verify_restored().phase=='restored'
+    tx=MemoryTransaction(c.owner.journal,c.owner);tx.begin_rollback();tx.undo_next();assert tx.verify_restored().phase=='restored'
+
+
+def invoke(args):
+    p=subprocess.run(args,check=False,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=30,
+                     env={'PATH':'/usr/sbin:/usr/bin:/sbin:/bin','LC_ALL':'C','DM_DISABLE_UDEV':'1'})
+    assert p.returncode==0,(args[0],p.returncode,p.stderr[-1000:])
+
+
+def child(name,operation,direction,timing):
+    class Crash(LinuxMapperKernel):
+        def create(self,*args):
+            if direction=='apply' and timing=='before':os.kill(os.getpid(),signal.SIGKILL)
+            super().create(*args)
+            if direction=='apply' and timing=='after':os.kill(os.getpid(),signal.SIGKILL)
+        def remove(self,operation):
+            if direction=='undo' and timing=='before':os.kill(os.getpid(),signal.SIGKILL)
+            super().remove(operation)
+            if direction=='undo' and timing=='after':os.kill(os.getpid(),signal.SIGKILL)
+    with parent_case(name,operation) as c,opened(c,Crash(),load=True) as (a,j,tx):
+        (tx.apply_next if direction=='apply' else tx.undo_next)()
+    raise AssertionError('Crash injection did not execute')
+
+
+def run():
+    guard()
+    if len(sys.argv)>1:child(*sys.argv[1:]);return
+    results=[]
+    with parent_case('basic') as c:
+        inode=os.fstat(c.owner.fd).st_ino
+        with opened(c) as (a,j,tx):
+            tx.apply_next();assert tx.verify_applied().phase=='applied'
+            value=a._sample().mapper
+            assert value.uuid==mapper_uuid(c.operation) and value.crypt.key_bits==512
+            assert value.crypt.cipher=='aes-xts-plain64'
+            tx.begin_rollback();tx.undo_next();assert tx.verify_restored().phase=='restored'
+            assert c.owner.target.stat().st_ino==inode
+        cleanup_parents(c)
+        results.append({'case':'native_mapper_create_remove','native_libcryptsetup':True,'operation_uuid_from_creation':True,'locked_ephemeral_key_no_file':True,'same_backing_inode':True})
+    with parent_case('active-swap') as c:
+        with opened(c) as (a,j,tx):
+            tx.apply_next();tx.verify_applied()
+            path='/dev/mapper/'+mapper_name(c.operation)
+            invoke(['/bin/busybox','mkswap',path]);invoke(['/bin/busybox','swapon',path])
+            tx.begin_rollback()
+            try:tx.undo_next()
+            except ActionUncertain:pass
+            else:raise AssertionError('Active swap device removed')
+            assert a._sample().mapper is not None and len(parse_swaps(Path('/proc/swaps').read_text()))==1
+            invoke(['/bin/busybox','swapoff',path]);tx.reconcile_pending();tx.undo_next();assert tx.verify_restored().phase=='restored'
+        cleanup_parents(c)
+        results.append({'case':'native_swap_consumer_blocks_remove','no_force_or_deferred_remove':True})
+    with parent_case('mounted') as c:
+        with opened(c) as (a,j,tx):
+            tx.apply_next();tx.verify_applied()
+            path='/dev/mapper/'+mapper_name(c.operation)
+            invoke(['/usr/sbin/mkfs.ext4','-F','-q','-E','nodiscard',path])
+            target=c.root/'mounted';target.mkdir()
+            invoke(['/bin/busybox','mount','-t','ext4',path,str(target)])
+            tx.begin_rollback()
+            try:tx.undo_next()
+            except ActionUncertain:pass
+            else:raise AssertionError('Mounted device removed')
+            assert a._sample().mapper.mounts==1
+            invoke(['/bin/busybox','umount',str(target)]);tx.reconcile_pending();tx.undo_next();assert tx.verify_restored().phase=='restored'
+        cleanup_parents(c)
+        results.append({'case':'native_mounted_filesystem_blocks_remove','unmounted_before_explicit_recovery':True})
+    with parent_case('busy-descriptor') as c:
+        with opened(c) as (a,j,tx):
+            tx.apply_next();tx.verify_applied()
+            fd=os.open('/dev/mapper/'+mapper_name(c.operation),os.O_RDONLY|os.O_CLOEXEC)
+            tx.begin_rollback()
+            try:
+                try:tx.undo_next()
+                except ActionUncertain:pass
+                else:raise AssertionError('Open block descriptor ignored')
+                assert a._sample().mapper is not None
+            finally:os.close(fd)
+            tx.reconcile_pending();tx.undo_next();assert tx.verify_restored().phase=='restored'
+        cleanup_parents(c)
+        results.append({'case':'native_busy_descriptor_not_forced','pending_intent_retained':True})
+    for direction in ['apply','undo']:
+        for timing in ['before','after']:
+            name='crash-'+direction+'-'+timing
+            with parent_case(name) as c,opened(c) as (a,j,tx):
+                op=c.operation
+                if direction=='undo':tx.apply_next();tx.begin_rollback()
+            p=subprocess.run(['/usr/bin/python3.12','/guest_acceptance.py',name,op,direction,timing],capture_output=True,text=True,check=False,timeout=45)
+            assert p.returncode==-9,(direction,timing,p.returncode,p.stderr[-2000:])
+            with parent_case(name,op) as c:
+                with opened(c,load=True) as (a,j,tx):
+                    assert j.state().pending==(direction,0)
+                    try:(tx.apply_next if direction=='apply' else tx.undo_next)()
+                    except ActionUncertain:pass
+                    else:raise AssertionError('Interrupted mapper action repeated')
+                    tx.reconcile_pending()
+                    if direction=='apply':tx.begin_rollback()
+                    if j.state().applied:tx.undo_next()
+                    assert tx.verify_restored().phase=='restored' and a._sample().mapper is None
+                cleanup_parents(c)
+            results.append({'case':'native_process_loss','direction':direction,'timing':timing,'child_exit':p.returncode,'no_replay_or_key_regeneration':True,'restored':True})
+    assert parse_swaps(Path('/proc/swaps').read_text())==()
+    assert not list(Path('/dev/mapper').glob('aionex-c5e8-*'))
+    fd=LinuxLoopKernel().open(0)
+    try:assert read_info(fd) is None
+    finally:os.close(fd)
+    print('AIONEX_VM_RESULT '+json.dumps({'status':'PASS','kernel':os.uname().release,'cases':results,'guest_only':True,'guest_cleanup_verified':True,'production_context_used':False,'host_swap_changed':False,'host_loop_changed':False,'provider_io':False,'power_loss_tested':False,'full_host_closure':False},sort_keys=True),flush=True)
+
+try:run()
+except BaseException as exc:
+    print('SANITIZED_FAILURE_CONTEXT',type(exc.__context__).__name__,str(exc.__context__),flush=True)
+    traceback.print_exc();print('AIONEX_VM_FAILED',flush=True);raise
