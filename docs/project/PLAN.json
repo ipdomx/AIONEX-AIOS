@@ -1989,6 +1989,37 @@
         "native_guest_pipe_core_positive_negative_controls": true,
         "process_protection_failure_stops_key_generation": true,
         "host_core_configuration_changed": false
+      },
+      "memory_private_tmpfs_stage_source": {
+        "source_part": "FR-06C5E10",
+        "source_base_commit": "26608e7081107ac6ed48f8cb81fd17f4b75e3d34",
+        "step": "prepare_tmpfs_mount",
+        "operation_private_empty_target_only": true,
+        "journal_before_native_effect": true,
+        "bounded_byte_and_inode_limits": true,
+        "current_memory_reserve_required": true,
+        "final_empty_stage_required": true,
+        "nonempty_contents_retained": true,
+        "no_forced_lazy_or_automatic_unmount": true,
+        "source_marker_and_kernel_graph_verified": true,
+        "original_directory_identity_restored": true,
+        "directed_tests_passed": 68,
+        "native_qemu_cases": 8,
+        "native_child_interruption_cases": 4,
+        "production_tmp_changed": false,
+        "mount_publication_to_tmp_implemented": false,
+        "C5E9_imported_or_receipt_replaced": false,
+        "encrypted_swap_or_writer_freeze_attested": false,
+        "systemd_boot_integration_implemented": false,
+        "production_activated": false,
+        "full_host_closure": false,
+        "parent_batch_complete": false,
+        "evidence": [
+          "docs/project/receipts/FR-06C5E10-private-tmpfs-staging.md",
+          "scripts/security/fr06c5_memory_tmpfs_stage.py",
+          "tests/test_fr06c5e_memory_tmpfs_stage.py",
+          "tests/fixtures/fr06c5e/tmpfs_stage_guest.py.txt"
+        ]
       }
     },
     {

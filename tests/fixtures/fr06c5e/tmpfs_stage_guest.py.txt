@@ -1,0 +1,127 @@
+"""Owned offline QEMU guest only. Never changes host mounts or production /tmp."""
+from __future__ import annotations
+import json,os,signal,subprocess,sys,time,traceback
+from contextlib import contextmanager
+from pathlib import Path
+from uuid import uuid4
+sys.path.insert(0,'/code')
+from scripts.security.fr06c5_memory_tmpfs_stage import TmpfsStageAdapter,LinuxTmpfsKernel,TmpfsRejected,marker
+from scripts.security.fr06c5_memory_transaction import BoundContext,Plan,Journal,MemoryTransaction,ActionUncertain
+from scripts.security.fr06c5_memory_kernel_observation import parse_mountinfo
+
+
+def guard():
+    assert 'AIONEX-C5E10-DISPOSABLE' in Path('/sys/class/dmi/id/product_name').read_text()
+    assert any(' /disk ' in row and ' /dev/vda ' in row for row in Path('/proc/self/mountinfo').read_text().splitlines())
+
+
+def context():
+    return BoundContext('e'*40,Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
+                        '11111111-1111-4111-8111-111111111111',36,'a'*64,'b'*64,'c'*64)
+
+
+def plan(a):
+    now=int(time.time());return Plan(a.operation,a.bound,(a.step,),now,now+300)
+
+
+@contextmanager
+def opened(name,operation=None,kernel=None):
+    root=Path('/disk')/name;fresh=operation is None
+    if fresh:
+        root.mkdir(mode=0o700);(root/'state').mkdir(mode=0o700);(root/'journals').mkdir(mode=0o700)
+        operation=str(uuid4())
+    method=TmpfsStageAdapter.prepare if fresh else TmpfsStageAdapter.load
+    extra={'capacity':4*1024**2,'inodes':4096,'reserve':16*1024**2} if fresh else {}
+    with method(root/'state',operation,context,kernel=kernel,**extra) as a:
+        with Journal(root/'journals',operation,**({'create':plan(a)} if fresh else {})) as j:
+            a.attach(j);yield a,j,MemoryTransaction(j,a)
+
+
+def invoke(args):
+    p=subprocess.run(args,capture_output=True,text=True,check=False,timeout=20)
+    assert p.returncode==0,(args[0],p.returncode,p.stderr[-500:])
+
+
+def child(name,operation,direction,timing):
+    class Crash(LinuxTmpfsKernel):
+        def create(self,*args):
+            if direction=='apply' and timing=='before':os.kill(os.getpid(),signal.SIGKILL)
+            super().create(*args)
+            if direction=='apply' and timing=='after':os.kill(os.getpid(),signal.SIGKILL)
+        def remove(self,*args):
+            if direction=='undo' and timing=='before':os.kill(os.getpid(),signal.SIGKILL)
+            super().remove(*args)
+            if direction=='undo' and timing=='after':os.kill(os.getpid(),signal.SIGKILL)
+    with opened(name,operation,Crash()) as (a,j,tx):
+        (tx.apply_next if direction=='apply' else tx.undo_next)()
+    raise AssertionError('Crash was not injected')
+
+
+def run():
+    guard()
+    if len(sys.argv)>1:child(*sys.argv[1:]);return
+    tmp_before=os.stat('/tmp');results=[]
+    with opened('basic') as (a,j,tx):
+        original=a.target.stat();tx.apply_next();assert tx.verify_applied().phase=='applied'
+        sample=a._sample();assert sample.mount.source==marker(a.operation) and sample.capacity==4*1024**2 and sample.inodes==4096
+        tx.begin_rollback();tx.undo_next();assert tx.verify_restored().phase=='restored'
+        assert a.target.stat().st_ino==original.st_ino
+        results.append({'case':'native_private_tmpfs_create_remove','same_underlay_inode':True,'capacity_and_inode_limits_matched':True})
+    with opened('nonempty') as (a,j,tx):
+        tx.apply_next();tx.verify_applied();f=a.target/'owned-canary';f.write_bytes(b'OWNED-TEST-DATA-DO-NOT-DISCARD')
+        tx.begin_rollback()
+        try:tx.undo_next()
+        except TmpfsRejected:pass
+        else:raise AssertionError('Nonempty tmpfs was discarded')
+        assert f.read_bytes()==b'OWNED-TEST-DATA-DO-NOT-DISCARD'
+        # The test owns this fixture file. The adapter never unlinks contents.
+        f.unlink();assert j.state().pending is None;tx.undo_next();assert tx.verify_restored().phase=='restored'
+        results.append({'case':'native_nonempty_tmpfs_retained','canary_preserved_before_explicit_fixture_cleanup':True})
+    with opened('busy') as (a,j,tx):
+        tx.apply_next();tx.verify_applied();fd=os.open(a.target,os.O_RDONLY|os.O_DIRECTORY)
+        tx.begin_rollback()
+        try:
+            try:tx.undo_next()
+            except ActionUncertain:pass
+            else:raise AssertionError('Busy tmpfs detached without a reference fence')
+            assert a._sample().mount is not None and j.state().pending==('undo',0)
+        finally:os.close(fd)
+        tx.reconcile_pending();tx.undo_next();assert tx.verify_restored().phase=='restored'
+        results.append({'case':'native_busy_directory_fd_rejected','no_force_or_lazy_unmount':True})
+    with opened('alias') as (a,j,tx):
+        tx.apply_next();tx.verify_applied();alias=Path('/disk/alias-mount');alias.mkdir(mode=0o700)
+        invoke(['/bin/busybox','mount','--bind',str(a.target),str(alias)])
+        tx.begin_rollback()
+        try:tx.undo_next()
+        except TmpfsRejected:pass
+        else:raise AssertionError('Aliased mount accepted')
+        assert j.state().pending is None
+        invoke(['/bin/busybox','umount',str(alias)]);tx.undo_next();assert tx.verify_restored().phase=='restored'
+        results.append({'case':'native_bind_alias_rejected','alias_removed_before_recovery':True})
+    for direction in ['apply','undo']:
+        for timing in ['before','after']:
+            name='crash-'+direction+'-'+timing
+            with opened(name) as (a,j,tx):
+                operation=a.operation
+                if direction=='undo':tx.apply_next();tx.begin_rollback()
+            p=subprocess.run(['/usr/bin/python3.12','/guest_acceptance.py',name,operation,direction,timing],capture_output=True,text=True,check=False,timeout=30)
+            assert p.returncode==-9,(p.returncode,p.stderr[-1000:])
+            with opened(name,operation) as (a,j,tx):
+                assert j.state().pending==(direction,0)
+                try:(tx.apply_next if direction=='apply' else tx.undo_next)()
+                except ActionUncertain:pass
+                else:raise AssertionError('Interrupted mount action repeated')
+                tx.reconcile_pending()
+                if direction=='apply':tx.begin_rollback()
+                if j.state().applied:tx.undo_next()
+                assert tx.verify_restored().phase=='restored'
+            results.append({'case':'native_process_loss','direction':direction,'timing':timing,'child_exit':p.returncode,'no_replay':True,'restored':True})
+    assert not [r for r in parse_mountinfo(Path('/proc/self/mountinfo').read_text()) if r.source.startswith('aionex-c5e10-')]
+    tmp_after=os.stat('/tmp');assert (tmp_before.st_dev,tmp_before.st_ino)==(tmp_after.st_dev,tmp_after.st_ino)
+    print('AIONEX_VM_RESULT '+json.dumps({'status':'PASS','cases':results,'kernel':os.uname().release,'guest_only':True,
+          'guest_tmp_unchanged':True,'guest_cleanup_verified':True,'production_context_used':False,'host_mount_or_swap_changed':False,
+          'publication_to_tmp_implemented':False,'C5E9_imported':False,'provider_io':False,'power_loss_tested':False,'full_host_closure':False},sort_keys=True),flush=True)
+
+try:run()
+except BaseException:
+    traceback.print_exc();print('AIONEX_VM_FAILED',flush=True);raise
