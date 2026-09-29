@@ -1743,6 +1743,34 @@
           "tests/test_fr06c5e_memory_boot_plan.py"
         ],
         "remaining_ar": "يبقى إصلاح سجل الانقطاع والرجوع الموثق للمنفذ المحضر، وقبول C5D وتجميد الكتابات ومطابقة الخزنة/ذاكرة swap وقبول الإقلاع الفعلي قبل أي تفعيل. لا يعتبر القارئ أو مخطط الإقلاع إذن نقل أو إثبات خلو المزود."
+      },
+      "memory_control_transaction_journal_source": {
+        "source_part": "FR-06C5E2",
+        "source_base_commit": "6d340519bc89b3c3421476566a3c090e1851fbd8",
+        "durable_intent_before_effect": true,
+        "file_and_directory_fsync": true,
+        "sequence_and_plan_hash_bound": true,
+        "independent_process_lock": true,
+        "one_explicit_effect_per_call": true,
+        "automatic_apply_replay": false,
+        "automatic_rollback": false,
+        "reconciliation_executes_resource_effects": false,
+        "forward_halted_after_reconciliation": true,
+        "reverse_ownership_bound_recovery": true,
+        "all_baseline_resources_verified_before_restored": true,
+        "bound_source_boot_maintenance_generation": true,
+        "maximum_forward_window_seconds": 900,
+        "kernel_adapter_implemented": false,
+        "legacy_memory_operator_imported": false,
+        "production_activated": false,
+        "power_loss_or_host_boot_verified": false,
+        "full_host_closure": false,
+        "parent_batch_complete": false,
+        "evidence": [
+          "docs/project/receipts/FR-06C5E2-memory-transaction-journal.md",
+          "tests/test_fr06c5e_memory_transaction.py"
+        ],
+        "coverage_ar": "نواة سجل نية متين وتعافٍ متحقق خطوة واحدة لكل استدعاء، مع رفض التكرار بعد الانقطاع واشتراط ملكية المورد ومطابقة حالة الأصل كاملة قبل إعلان الرجوع. اختبارات ملفات وعمليات Linux مملوكة فقط؛ لا مشغل kernel أو تفعيل swap/tmpfs أو boot فعلي. تبقى بوابات الربط التشغيلي والتصريف والنقل والقبول النهائي مستقلة."
       }
     },
     {
