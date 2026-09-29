@@ -2020,6 +2020,63 @@
           "tests/test_fr06c5e_memory_tmpfs_stage.py",
           "tests/fixtures/fr06c5e/tmpfs_stage_guest.py.txt"
         ]
+      },
+      "memory_tmpfs_publication_source": {
+        "source_part": "FR-06C5E11",
+        "base_commit": "2cf91edffc6ffc175641365a23b0e46911f56842",
+        "steps": [
+          "preserve_tmp_underlay",
+          "publish_tmpfs_mount"
+        ],
+        "retained_original_directory_reference": true,
+        "same_tmpfs_mount_moved_not_copied": true,
+        "new_tmpfs_data_retained_on_rollback": true,
+        "exact_mount_id_and_root_inode_bound": true,
+        "extra_underlay_and_tmpfs_aliases_rejected": true,
+        "forward_staging_emptiness_rechecked": true,
+        "native_effects_per_journal_call": 1,
+        "automatic_replay": false,
+        "forced_or_lazy_unmount": false,
+        "focused_tests_passed": 58,
+        "native_qemu_cases": 11,
+        "native_process_loss_cases": 8,
+        "guest_authority_evidence": "synthetic",
+        "independent_writer_freezer_implemented": false,
+        "production_encrypted_swap_attestor_implemented": false,
+        "C5E9_imported": false,
+        "production_cli_implemented": false,
+        "systemd_or_host_boot_integrated": false,
+        "production_deployed": false,
+        "activation_authorized": false,
+        "full_host_closure": false,
+        "parent_batch_complete": false,
+        "evidence": [
+          "docs/project/receipts/FR-06C5E11-reversible-tmpfs-publication.md",
+          "scripts/security/fr06c5_memory_tmpfs_publication.py",
+          "tests/test_fr06c5e_memory_tmpfs_publication.py",
+          "tests/fixtures/fr06c5e/tmpfs_publication_guest.py.txt"
+        ],
+        "coverage_ar": "حفظمرجع خاصللـunderlay ثم نقلtmpfsالمقبول بنفسmount-id وinode، والرجوع يعيدالأصل ويحتفظبالملفاتالجديدةفيtmpfsالراجع دونحذف. الاختبارنواةضيففقط معأدلةسلطةصناعيةمعلنة؛لاتجميدإنتاجأوقبولذاكرةمشفرةأونشرمضيفأوإقلاع. C5E9المحجوبةلم تستوردولم يعادإيصالها.",
+        "ci_dependency_security_patch": {
+          "package": "PyJWT[crypto]",
+          "from": "2.13.0",
+          "to": "2.14.0",
+          "advisory": "CVE-2026-102274",
+          "upstream_advisory": "GHSA-w6j9-cwv2-h6wq",
+          "malformed_jwk_baseline_failures": 7,
+          "focused_jwt_cases": 21,
+          "isolated_backend_compatibility_cases": 80,
+          "audited_dependencies": 142,
+          "audit_ignored_ids": [],
+          "running_containers_patched": false,
+          "runtime_deployment_verified": false,
+          "first_candidate_security_failure_retained": true,
+          "evidence": [
+            "web-dashboard/backend/tests/test_fr06_ci_pyjwt_malformed_jwk.py",
+            "web-dashboard/backend/requirements-runtime.txt",
+            "docs/project/receipts/FR-06C5E11-reversible-tmpfs-publication.md"
+          ]
+        }
       }
     },
     {
