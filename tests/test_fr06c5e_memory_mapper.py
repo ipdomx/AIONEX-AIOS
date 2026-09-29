@@ -339,10 +339,38 @@ def test_native_removal_is_single_key_free_task_without_retry_flags(case,monkeyp
 
 
 
-def test_native_memory_lock_denial_uses_real_process_limit():
-    code = "import resource\nfrom scripts.security.fr06c5_memory_volatile_key import LockedKey,VolatileKeyRejected\nresource.setrlimit(resource.RLIMIT_MEMLOCK,(0,0))\ntry: LockedKey()\nexcept VolatileKeyRejected: print('DENIED_BEFORE_ENTROPY')\nelse: raise SystemExit(1)\n"
+@pytest.mark.parametrize("limit", [0, 1, 4095])
+def test_native_memory_lock_denial_uses_real_process_limit(limit):
+    # The CI runner is already unprivileged. Start the same interpreter, then
+    # lower only the child's privileges when a local operator launched pytest
+    # as root. Import first so a root-private checkout need not be made public.
+    code = """
+import os
+import pwd
+import resource
+import sys
+from scripts.security.fr06c5_memory_volatile_key import LockedKey, VolatileKeyRejected
+if os.geteuid() == 0:
+    account = pwd.getpwnam("nobody")
+    os.setgroups([])
+    os.setgid(account.pw_gid)
+    os.setuid(account.pw_uid)
+assert os.geteuid() != 0, "negative proof must run unprivileged"
+limit = int(sys.argv[1])
+resource.setrlimit(resource.RLIMIT_MEMLOCK, (limit, limit))
+try:
+    LockedKey()
+except VolatileKeyRejected as exc:
+    assert str(exc) == "Memory locking failed; no entropy requested"
+    print("DENIED_BEFORE_ENTROPY")
+else:
+    raise SystemExit("memory protections unexpectedly bypassed")
+"""
     root = Path(__file__).resolve().parents[1]
-    result = subprocess.run(["runuser", "-u", "nobody", "--", sys.executable, "-c", code], cwd=root,
+    identity = (os.geteuid(), os.getegid(), tuple(os.getgroups()))
+    result = subprocess.run([sys.executable, "-c", code, str(limit)], cwd=root,
                             capture_output=True, text=True, timeout=10, check=False,
                             env={**os.environ, "PYTHONPATH": str(root)})
-    assert result.returncode == 0 and result.stdout.strip() == "DENIED_BEFORE_ENTROPY"
+    assert (os.geteuid(), os.getegid(), tuple(os.getgroups())) == identity
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "DENIED_BEFORE_ENTROPY"
