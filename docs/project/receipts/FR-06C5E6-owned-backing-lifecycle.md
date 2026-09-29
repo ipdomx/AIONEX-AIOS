@@ -1,0 +1,1 @@
+FR-06C5E6 source acceptance: 69 focused tests and 2713 root tests passed. Isolated QEMU verified owned backing allocation, consumer fencing, explicit recovery after process loss, and no host swap change. Production activation, host reboot/power-loss, full-host closure, C5D drain, and C6 remain unverified.

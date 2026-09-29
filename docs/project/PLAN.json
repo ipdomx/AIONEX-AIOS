@@ -1865,6 +1865,27 @@
           "tests/fixtures/fr06c5e/legacy_swap_guest.py.txt"
         ],
         "remaining_ar": "تنفذ خطوةswapالقديمةبهويةfdوسجلنيةوبدونتغييرالمضيف؛ الاختبارنواةQEMUمستقلةوشملصفحاتمستخدمةومحاكاةانقطاععملية. تبقىملكيةإنشاءbacking/mapperوخطواتالتركيبوالإقلاعوربطكلالخطواتوسياقالإنتاجالمغلقوالتصريفC5DوالقبولC6غيرمكتملة."
+      },
+      "memory_backing_lifecycle_source": {
+        "source_part": "FR-06C5E6",
+        "source_base_commit": "2ccb2d14fcede5ea7d8aad7a84b0115baf035a11",
+        "durable_intent_bound": true,
+        "allocated_backing_inode_owned": true,
+        "consumer_fence_loop_dm_swap": true,
+        "blind_replay_after_process_loss": false,
+        "focused_tests_passed": 69,
+        "root_tests_passed": 2713,
+        "native_qemu_kernel_verified": true,
+        "host_swap_changed_by_lab": false,
+        "production_activated": false,
+        "power_loss_or_host_boot_verified": false,
+        "full_host_closure": false,
+        "parent_batch_complete": false,
+        "evidence": [
+          "docs/project/receipts/FR-06C5E6-owned-backing-lifecycle.md",
+          "scripts/security/fr06c5_memory_backing.py",
+          "tests/test_fr06c5e_memory_backing.py"
+        ]
       }
     },
     {
