@@ -1771,6 +1771,40 @@
           "tests/test_fr06c5e_memory_transaction.py"
         ],
         "coverage_ar": "نواة سجل نية متين وتعافٍ متحقق خطوة واحدة لكل استدعاء، مع رفض التكرار بعد الانقطاع واشتراط ملكية المورد ومطابقة حالة الأصل كاملة قبل إعلان الرجوع. اختبارات ملفات وعمليات Linux مملوكة فقط؛ لا مشغل kernel أو تفعيل swap/tmpfs أو boot فعلي. تبقى بوابات الربط التشغيلي والتصريف والنقل والقبول النهائي مستقلة."
+      },
+      "memory_configuration_file_adapter_source": {
+        "source_part": "FR-06C5E3",
+        "base_commit": "02fafcb1e8b80958cc211f7ffbb0fefae450d608",
+        "implemented_file_steps": [
+          "install_swap_unit",
+          "install_tmp_unit",
+          "disable_legacy_fstab"
+        ],
+        "journal_bound_before_effect": true,
+        "actual_linux_renameat2": true,
+        "original_fstab_inode_preserved": true,
+        "same_filesystem_private_staging": true,
+        "directory_fsync_required": true,
+        "replay_or_automatic_cleanup": false,
+        "cross_step_file_identity_checked": true,
+        "unknown_foreign_inode_preserved": true,
+        "independent_context_reader_required": true,
+        "production_context_reader_shipped": false,
+        "actual_swap_mapper_mount_or_systemctl_implemented": false,
+        "production_cli_shipped": false,
+        "directed_cases_passed": 74,
+        "native_process_interruption_cases": 12,
+        "host_power_loss_or_reboot_verified": false,
+        "production_deployed": false,
+        "activation_authorized": false,
+        "full_host_closure": false,
+        "parent_batch_complete": false,
+        "evidence": [
+          "docs/project/receipts/FR-06C5E3-owned-memory-config-files.md",
+          "scripts/security/fr06c5_memory_config_files.py",
+          "tests/test_fr06c5e_memory_config_files.py"
+        ],
+        "coverage_ar": "ربط سجل C5E2 بثلاث خطوات ملفات فعلية على Linux؛ الأصل لا يستبدل بنسخة جديدة عند الرجوع بل يعاد inode نفسه. الاختبار بحساب غير إداري على جذر ملفات صناعي، ولا تفعيل للنظام. تبقى خطوات swap والmapper والmount وsystemd وربط سياق إنتاج موثق والتصريف ونقل المضيف والقبول النهائي مفتوحة. لا إعادة FR07 أو الدفعات المنشورة."
       }
     },
     {
