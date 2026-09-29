@@ -1805,6 +1805,36 @@
           "tests/test_fr06c5e_memory_config_files.py"
         ],
         "coverage_ar": "ربط سجل C5E2 بثلاث خطوات ملفات فعلية على Linux؛ الأصل لا يستبدل بنسخة جديدة عند الرجوع بل يعاد inode نفسه. الاختبار بحساب غير إداري على جذر ملفات صناعي، ولا تفعيل للنظام. تبقى خطوات swap والmapper والmount وsystemd وربط سياق إنتاج موثق والتصريف ونقل المضيف والقبول النهائي مفتوحة. لا إعادة FR07 أو الدفعات المنشورة."
+      },
+      "memory_kernel_resource_observation_source": {
+        "source_part": "FR-06C5E4",
+        "source_base_commit": "9887bf2318c4440f17d9edc567cb2725bc0e409c",
+        "read_only_collector": true,
+        "fixed_cryptsetup_status_only": true,
+        "key_bytes_or_backing_content_read": false,
+        "loop_backing_inode_via_get_status64": true,
+        "mapper_device_graph_cross_checked": true,
+        "active_swap_alias_identity_checked": true,
+        "exact_tmp_mount_identity_checked": true,
+        "current_and_init_mount_namespace_bound": true,
+        "page_profile_bytes": 4096,
+        "paired_sampling_maximum_seconds": 15,
+        "directed_cases": 143,
+        "kernel_mutation_adapter_implemented": false,
+        "operation_ownership_verified": false,
+        "writer_quiescence_verified": false,
+        "key_custody_verified": false,
+        "host_boot_verified": false,
+        "production_deployed": false,
+        "activation_authorized": false,
+        "full_host_closure": false,
+        "parent_batch_complete": false,
+        "evidence": [
+          "docs/project/receipts/FR-06C5E4-kernel-resource-observation.md",
+          "scripts/security/fr06c5_memory_kernel_observation.py",
+          "tests/test_fr06c5e_memory_kernel_observation.py"
+        ],
+        "coverage_ar": "طبقةقراءةتطابقmapper والـloop وinode ملفbacking وactive swap وهويةmount/tmp ضمننفسالإقلاعوmountnamespace. ليستإذنتهيئةأوتوقيعملكيةأوإثباتمفتاحمؤقت؛لاتنفذأيخطوةkernel وتظلC5E/C5D/C6 مفتوحة."
       }
     },
     {
