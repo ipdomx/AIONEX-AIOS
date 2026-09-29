@@ -1835,6 +1835,24 @@
           "tests/test_fr06c5e_memory_kernel_observation.py"
         ],
         "coverage_ar": "طبقةقراءةتطابقmapper والـloop وinode ملفbacking وactive swap وهويةmount/tmp ضمننفسالإقلاعوmountnamespace. ليستإذنتهيئةأوتوقيعملكيةأوإثباتمفتاحمؤقت؛لاتنفذأيخطوةkernel وتظلC5E/C5D/C6 مفتوحة."
+      },
+      "memory_encrypted_backing_source": {
+        "source_part": "FR-06C5E6",
+        "source_base_commit": "ed4096d47e66feff3e120ae21ef9494925ea8e31",
+        "journal_bound_step": "prepare_encrypted_backing",
+        "create_only_target": true,
+        "full_allocation_required": true,
+        "retained_inode_identity": true,
+        "explicit_reverse_retirement": true,
+        "blind_replay": false,
+        "loop_mapper_key_or_swap_activation_implemented": false,
+        "production_activated": false,
+        "full_host_closure": false,
+        "parent_batch_complete": false,
+        "evidence": [
+          "scripts/security/fr06c5_memory_encrypted_backing.py",
+          "tests/test_fr06c5e_memory_encrypted_backing.py"
+        ]
       }
     },
     {
