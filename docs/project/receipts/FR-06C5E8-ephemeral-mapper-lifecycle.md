@@ -33,3 +33,16 @@ ABI declarations were checked against downloaded distribution development header
 - https://mbroz.fedorapeople.org/libcryptsetup_API/group__crypt-type.html
 
 The operation-specific mapper name differs from the legacy fixed boot-plan name. No existing boot unit is silently retargeted; integration of that identity with the full plan and reboot recovery remains required. No host swap/loop/mount, production provider, maintenance transition or existing deployed service is changed by this part. Incomplete library creation may leave an unrecognized partial mapper, which remains blocked for separate reconciliation; no automatic cleanup is used to manufacture success. Host power loss, host boot, C5D provider/resource drain and encrypted host-state cutover, plus C6 final acceptance, remain unverified.
+
+
+## Additional process-dump security review (2026-09-29)
+
+The original mapper implementation set RLIMIT_CORE to zero but left PR_GET_DUMPABLE at one during native-library initialization, key consumption and cleanup. A new nonroot subprocess regression reproduced that state without creating a kernel mapper or exporting key payload. Linux core(5) documents that RLIMIT_CORE does not limit cores piped to a userspace handler; the process-local dumpability control is therefore required as well.
+
+The revised native creation path establishes PR_SET_DUMPABLE=0, reads it back, sets the core-file limit to zero and verifies that limit BEFORE loading/initializing the crypto library. Failure of any check stops before crypto or key generation. The process remains nondumpable after cleanup; no host core_pattern, sysctl or collector is modified by the implementation. Privileged memory inspection, later credential changes, kernel/native-library copies and boot key custody remain outside this proof.
+
+Seven new tests cover native process state and denial of each protection step. A separate tagged QEMU guest additionally exercises a real pipe-based core handler using synthetic crashing processes with no keys: RLIMIT_CORE=0 alone invoked the collector once, whereas the protected process did not invoke it. The collector discarded the memory payload instead of saving it. Guest core settings were restored; the host configuration was never changed. The same guest accepted native libcryptsetup mapper creation/removal, active swap, mounted filesystem and open-descriptor removal fences, and four process-loss reconciliation cases. This is not a power-loss or host reboot proof.
+
+Review evidence is retained independently at docs/project/runtime/fr06c5e8-key-review-20260929T1212/. A blocked combined historical-evidence comparison was not replayed and is not counted as acceptance. A duplicate launch attempt rejected the existing vm-v1 directory; its already-completed result and exact copied source were reconciled instead of recreating or overwriting it.
+
+Primary documentation: https://man7.org/linux/man-pages/man5/core.5.html and https://man7.org/linux/man-pages/man2/PR_SET_DUMPABLE.2const.html.

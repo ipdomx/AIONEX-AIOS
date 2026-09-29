@@ -12,6 +12,7 @@ import ctypes
 import errno
 import mmap
 import os
+import resource
 from collections.abc import Callable
 from typing import Self
 
@@ -20,6 +21,28 @@ KEY_BYTES = 64
 
 class VolatileKeyRejected(RuntimeError):
     """Key creation must not proceed without its memory protections."""
+
+
+def disable_process_dumps() -> None:
+    """Fail closed before native crypto work, including pipe-based core handlers.
+
+    RLIMIT_CORE=0 alone does not govern a core_pattern pipe. PR_SET_DUMPABLE
+    is process-local and intentionally remains disabled after native cleanup;
+    no global sysctl or crash collector is changed. This is not protection from
+    a live privileged inspector, later credential changes, or malicious code.
+    """
+    lib = ctypes.CDLL(None, use_errno=True)
+    lib.prctl.argtypes = [ctypes.c_int, ctypes.c_ulong, ctypes.c_ulong,
+                         ctypes.c_ulong, ctypes.c_ulong]
+    lib.prctl.restype = ctypes.c_int
+    if lib.prctl(4, 0, 0, 0, 0) != 0:  # PR_SET_DUMPABLE = 4
+        raise VolatileKeyRejected("Process dump protection could not be established")
+    if lib.prctl(3, 0, 0, 0, 0) != 0:  # PR_GET_DUMPABLE = 3
+        raise VolatileKeyRejected("Process dump protection could not be verified")
+    _, hard = resource.getrlimit(resource.RLIMIT_CORE)
+    resource.setrlimit(resource.RLIMIT_CORE, (0, hard))
+    if resource.getrlimit(resource.RLIMIT_CORE)[0] != 0:
+        raise VolatileKeyRejected("Core file limit could not be verified")
 
 
 class LockedKey:
