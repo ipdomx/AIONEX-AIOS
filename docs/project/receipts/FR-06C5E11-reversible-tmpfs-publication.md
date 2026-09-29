@@ -28,3 +28,16 @@ The complete Root suite, source hashes, quality checks, owned-VM cleanup and pro
 Production reference scans and writer freezes must be implemented/accepted independently, connected to real encrypted-swap evidence, and rechecked while admission is closed. Staging/publication still requires systemd/boot integration and composed rollback acceptance before a host window. C5D provider/resource drain, encrypted host-state transfer and C6 final acceptance remain open. An interrupted PROCESS is not a power-loss or host reboot test. Old underlay contents remain intact; secure erasure is not claimed.
 
 Native API references: upstream Linux `mount(2)` bind/move semantics and `umount(2)` ordinary busy-mount semantics. This part uses only a single bind, single move or ordinary unmount per journal effect; it never applies host-wide mount changes.
+
+## CI-discovered dependency correction — PyJWT 2.14.0
+
+The first protected run for this part failed `Dependency Security`: `pip-audit` reported CVE-2026-102274 in the inherited `PyJWT[crypto]==2.13.0` pin, with 2.14.0 as the fixed release. The failure was investigated, not suppressed or bypassed. This revision changes only that runtime dependency pin, retaining the crypto extra and the existing separately pinned cryptography package. It does not deploy the package to any running service.
+
+Upstream advisory: https://github.com/jpadilla/pyjwt/security/advisories/GHSA-w6j9-cwv2-h6wq
+Verified package release: https://pypi.org/project/PyJWT/2.14.0/
+
+The advisory concerns availability when one malformed RSA JWK causes parsing of an entire JWK Set to abort with a raw ValueError. It is NOT a signature-forgery or claims-verification bypass. Both exact PyPI wheels were checksum-verified and unpacked into test-only directories. Seven tests reproduced the defect on 2.13.0; all 21 focused JWK/JWT tests passed on 2.14.0, including controls that still reject unsigned, wrongly signed, expired, wrong-issuer, wrong-audience and missing-expiration tokens. The JWKS fetch was a declared synthetic function; no provider endpoint was contacted.
+
+Eighty backend compatibility tests, including those 21, passed against disposable PostgreSQL/Redis and the exact patched wheel. Coverage included session-cookie refresh/logout, Redis revocation, account security, Telegram authorization, LiveKit room-scoped tokens, WebSocket revocation, and simulated mobile-store verification. No payment or messaging provider was activated. The complete requirements audit on 142 resolved dependencies found no known vulnerabilities with no ignored vulnerability IDs. An initial local scanner environment could not load an extension from noexec temporary storage; that diagnostic was retained, and the scanner was rerun in a separate ephemeral virtual environment with loadable extensions. No production mount, package environment or service was changed.
+
+The C5E11 native guest code is unchanged by this dependency correction. Guest archive/source matching and the final accepted source snapshot remain separate evidence from protected CI. A future runtime rollout must independently apply and verify the security patch; merging source is not a claim that running containers have been patched.

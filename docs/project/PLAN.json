@@ -2056,7 +2056,27 @@
           "tests/test_fr06c5e_memory_tmpfs_publication.py",
           "tests/fixtures/fr06c5e/tmpfs_publication_guest.py.txt"
         ],
-        "coverage_ar": "حفظمرجع خاصللـunderlay ثم نقلtmpfsالمقبول بنفسmount-id وinode، والرجوع يعيدالأصل ويحتفظبالملفاتالجديدةفيtmpfsالراجع دونحذف. الاختبارنواةضيففقط معأدلةسلطةصناعيةمعلنة؛لاتجميدإنتاجأوقبولذاكرةمشفرةأونشرمضيفأوإقلاع. C5E9المحجوبةلم تستوردولم يعادإيصالها."
+        "coverage_ar": "حفظمرجع خاصللـunderlay ثم نقلtmpfsالمقبول بنفسmount-id وinode، والرجوع يعيدالأصل ويحتفظبالملفاتالجديدةفيtmpfsالراجع دونحذف. الاختبارنواةضيففقط معأدلةسلطةصناعيةمعلنة؛لاتجميدإنتاجأوقبولذاكرةمشفرةأونشرمضيفأوإقلاع. C5E9المحجوبةلم تستوردولم يعادإيصالها.",
+        "ci_dependency_security_patch": {
+          "package": "PyJWT[crypto]",
+          "from": "2.13.0",
+          "to": "2.14.0",
+          "advisory": "CVE-2026-102274",
+          "upstream_advisory": "GHSA-w6j9-cwv2-h6wq",
+          "malformed_jwk_baseline_failures": 7,
+          "focused_jwt_cases": 21,
+          "isolated_backend_compatibility_cases": 80,
+          "audited_dependencies": 142,
+          "audit_ignored_ids": [],
+          "running_containers_patched": false,
+          "runtime_deployment_verified": false,
+          "first_candidate_security_failure_retained": true,
+          "evidence": [
+            "web-dashboard/backend/tests/test_fr06_ci_pyjwt_malformed_jwk.py",
+            "web-dashboard/backend/requirements-runtime.txt",
+            "docs/project/receipts/FR-06C5E11-reversible-tmpfs-publication.md"
+          ]
+        }
       }
     },
     {
