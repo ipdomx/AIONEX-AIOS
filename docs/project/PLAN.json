@@ -1835,6 +1835,36 @@
           "tests/test_fr06c5e_memory_kernel_observation.py"
         ],
         "coverage_ar": "طبقةقراءةتطابقmapper والـloop وinode ملفbacking وactive swap وهويةmount/tmp ضمننفسالإقلاعوmountnamespace. ليستإذنتهيئةأوتوقيعملكيةأوإثباتمفتاحمؤقت؛لاتنفذأيخطوةkernel وتظلC5E/C5D/C6 مفتوحة."
+      },
+      "memory_legacy_swap_step_source": {
+        "source_part": "FR-06C5E5",
+        "source_base_commit": "ed4096d47e66feff3e120ae21ef9494925ea8e31",
+        "native_implemented_steps": [
+          "disable_legacy_swap"
+        ],
+        "descriptor_bound_swapoff_and_swapon": true,
+        "exact_original_inode_and_priority_restored": true,
+        "journal_required_before_effect": true,
+        "one_step_composition_only": true,
+        "swap_payload_read_by_adapter": false,
+        "automatic_replay_or_rollback": false,
+        "independent_qemu_kernel_tested": true,
+        "guest_native_interruption_cases": 4,
+        "guest_positive_used_swap_bytes": 8437760,
+        "guest_native_c5e4_graph_verified": true,
+        "nonroot_directed_cases": 67,
+        "production_context_reader_implemented": false,
+        "kernel_full_plan_composed": false,
+        "production_memory_activated": false,
+        "host_reboot_or_power_loss_verified": false,
+        "full_host_closure": false,
+        "parent_batch_complete": false,
+        "evidence": [
+          "docs/project/receipts/FR-06C5E5-native-legacy-swap-step.md",
+          "tests/test_fr06c5e_memory_legacy_swap.py",
+          "tests/fixtures/fr06c5e/legacy_swap_guest.py.txt"
+        ],
+        "remaining_ar": "تنفذ خطوةswapالقديمةبهويةfdوسجلنيةوبدونتغييرالمضيف؛ الاختبارنواةQEMUمستقلةوشملصفحاتمستخدمةومحاكاةانقطاععملية. تبقىملكيةإنشاءbacking/mapperوخطواتالتركيبوالإقلاعوربطكلالخطواتوسياقالإنتاجالمغلقوالتصريفC5DوالقبولC6غيرمكتملة."
       }
     },
     {
