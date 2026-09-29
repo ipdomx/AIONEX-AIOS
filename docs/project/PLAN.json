@@ -1942,6 +1942,38 @@
           "tests/fixtures/fr06c5e/loop_guest.py.txt"
         ],
         "coverage_ar": "إنشاءloop بهويةالعملية وbackingفيخطوةkernelواحدة تحتسجلنية، ورفضإزالته معمستهلكdmأوmountأوswap وعدمإعادةالأثرالمجهول. أُصلحت مقارنةحسابمساحةextentمعالاحتفاظبشرطالملكيةوالحجزالكامل؛التحققداخلQEMUفقط. لاmapperأومفتاحأوتفعيلإنتاجيأوتصريفشامل."
+      },
+      "memory_ephemeral_mapper_source": {
+        "source_part": "FR-06C5E8",
+        "base_candidate": "c00b75f714b65ed6c6a325f1c8d14754fe26ced4",
+        "step": "create_swap_mapper",
+        "accepted_loop_and_backing_journals_required": true,
+        "operation_identity_from_creation": true,
+        "private_locked_anonymous_volume_key": true,
+        "key_excluded_from_core_and_fork": true,
+        "key_file_or_argv_or_environment": false,
+        "native_mapper_create_libcryptsetup": true,
+        "single_remove_task_no_force_defer_retry": true,
+        "foreign_mapper_adoption": false,
+        "random_key_regenerated_on_reconciliation": false,
+        "directed_tests_passed": 56,
+        "native_qemu_cases": 8,
+        "native_child_interruption_cases": 4,
+        "full_kernel_plan_composed": false,
+        "production_context_reader_shipped": false,
+        "boot_unit_dynamic_identity_integrated": false,
+        "production_activated": false,
+        "host_boot_or_power_loss_verified": false,
+        "full_host_closure": false,
+        "parent_batch_complete": false,
+        "evidence": [
+          "docs/project/receipts/FR-06C5E8-ephemeral-mapper-lifecycle.md",
+          "scripts/security/fr06c5_memory_mapper.py",
+          "scripts/security/fr06c5_memory_volatile_key.py",
+          "tests/test_fr06c5e_memory_mapper.py",
+          "tests/fixtures/fr06c5e/mapper_guest.py.txt"
+        ],
+        "coverage_ar": "إنشاءmapperبهويةعمليةومفتاحعشوائيمؤقتفيذاكرةمقفلةوقفلوجرنالالـloop/backing؛ إزالةصريحةبمحاولةkernelواحدةمعرفضالمستهلكينوالهويةالمختلفة. تشغيلkernelداخلQEMUفقط،ولاسياقإنتاجأوتهيئةswapأوتفعيلtmpfs/systemdأوقبولنقلمضيف."
       }
     },
     {
