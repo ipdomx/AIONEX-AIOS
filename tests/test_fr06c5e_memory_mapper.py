@@ -342,7 +342,10 @@ def test_native_removal_is_single_key_free_task_without_retry_flags(case,monkeyp
 def test_native_memory_lock_denial_uses_real_process_limit():
     code = "import resource\nfrom scripts.security.fr06c5_memory_volatile_key import LockedKey,VolatileKeyRejected\nresource.setrlimit(resource.RLIMIT_MEMLOCK,(0,0))\ntry: LockedKey()\nexcept VolatileKeyRejected: print('DENIED_BEFORE_ENTROPY')\nelse: raise SystemExit(1)\n"
     root = Path(__file__).resolve().parents[1]
-    result = subprocess.run(["runuser", "-u", "nobody", "--", sys.executable, "-c", code], cwd=root,
+    command = [sys.executable, "-c", code]
+    if os.geteuid() == 0:
+        command = ["runuser", "-u", "nobody", "--", *command]
+    result = subprocess.run(command, cwd=root,
                             capture_output=True, text=True, timeout=10, check=False,
                             env={**os.environ, "PYTHONPATH": str(root)})
     assert result.returncode == 0 and result.stdout.strip() == "DENIED_BEFORE_ENTROPY"
