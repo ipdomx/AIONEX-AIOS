@@ -1,0 +1,21 @@
+{
+  "upstream_version": "8.30.1",
+  "local_version": "8.30.1+aios.1",
+  "upstream_commit": "83d9cd684c87d95d656c1458ef04895a7f1cbd8e",
+  "source_url": "https://codeload.github.com/gitleaks/gitleaks/tar.gz/83d9cd684c87d95d656c1458ef04895a7f1cbd8e",
+  "source_sha256": "6b2638a733b85619dc80bdf28e84e4fed7e526a761ab5c148fbf67695aea2115",
+  "toolchain_version": "go1.27.1",
+  "toolchain_url": "https://go.dev/dl/go1.27.1.linux-amd64.tar.gz",
+  "toolchain_sha256": "63d339f0da5ab53635a56f2490a7984dfe12dfcff22ad749f63edaf590168445",
+  "files": {
+    "go.mod": "e0edfb0862afb47842aee08811984801fef09c60865c77988c814a2b58450404",
+    "go.sum": "87aac01e740e91cd05b83e1faa0a9626b73fc49d46d8fe25c828456e566f3242"
+  },
+  "modules": {
+    "golang.org/x/crypto": "v0.55.0",
+    "golang.org/x/text": "v0.41.0",
+    "golang.org/x/sync": "v0.22.0",
+    "golang.org/x/sys": "v0.47.0"
+  },
+  "expected_binary_sha256": "7c8b599cead7b3c8cd4a55aac3a3c1238814f59d08a88b4078b1a18afa100f5b"
+}
