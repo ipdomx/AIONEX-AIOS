@@ -1,0 +1,10 @@
+# Locally versioned METADATA-only compatibility wheel, constructed by
+# scripts/build_semgrep_compat_wheel.py from hash-pinned upstream 1.178.0.
+# No Semgrep executable/source changes. No --no-deps or pip-check bypass.
+semgrep==1.178.0+aios.1
+mcp==1.29.0
+PyJWT[crypto]==2.14.0
+cryptography==50.0.1
+msgpack==1.2.3
+setuptools==84.0.0
+wheel==0.48.0

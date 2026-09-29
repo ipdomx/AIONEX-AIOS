@@ -2077,6 +2077,33 @@
             "docs/project/receipts/FR-06C5E11-reversible-tmpfs-publication.md"
           ]
         }
+      },
+      "security_scanner_python_isolation_source": {
+        "source_base": "ce9659d2a060a31453f1f569e2e92274974d214c",
+        "scope": "independent scanner Python build remediation only",
+        "semgrep_version": "1.178.0+aios.1",
+        "semgrep_upstream_payload_modified": false,
+        "semgrep_environment_isolated": true,
+        "mcp_version": "1.29.0",
+        "pyjwt_version": "2.14.0",
+        "dependency_checks_bypassed": false,
+        "focused_contract_tests": 22,
+        "same_jwt_cases_per_environment": 21,
+        "native_payload_files_preserved": 183,
+        "image_findings_before": 303,
+        "image_findings_after": 298,
+        "python_findings_remaining": 2,
+        "full_image_security_gate_passed": false,
+        "production_deployed": false,
+        "full_host_closure": false,
+        "parent_batch_complete": false,
+        "observer_blocked_operator_retried": false,
+        "evidence": [
+          "docs/project/receipts/FR-06-security-scanner-python-isolation.md",
+          "web-dashboard/backend/scripts/build_semgrep_compat_wheel.py",
+          "web-dashboard/backend/scripts/verify_security_python.py",
+          "tests/test_fr06_security_scanner_python.py"
+        ]
       }
     },
     {

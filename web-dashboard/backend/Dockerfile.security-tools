@@ -5,14 +5,22 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential libpq-dev \
     && rm -rf /var/lib/apt/lists/* \
     && python -m venv /opt/venv \
-    && /opt/venv/bin/pip install --no-cache-dir --upgrade pip setuptools wheel
-COPY requirements-runtime.txt .
-RUN /opt/venv/bin/pip install --no-cache-dir -r requirements-runtime.txt \
-    && /opt/venv/bin/pip install --no-cache-dir \
-       semgrep==1.172.0 \
-       bandit==1.9.4 \
-       pip-audit==2.10.1 \
-       schemathesis==4.24.3
+    && /opt/venv/bin/pip install --no-cache-dir --upgrade pip==26.2.1 setuptools==84.0.0 wheel==0.48.0
+COPY requirements-runtime.txt requirements-security-tools.txt ./
+RUN /opt/venv/bin/pip install --no-cache-dir -r requirements-runtime.txt -r requirements-security-tools.txt \
+    && /opt/venv/bin/python -m pip check
+
+# Semgrep pins an older OpenTelemetry line; keep it out of the application venv.
+FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS semgrep-builder
+WORKDIR /build
+RUN python -m venv /opt/semgrep \
+    && /opt/semgrep/bin/pip install --no-cache-dir --upgrade pip==26.2.1 setuptools==84.0.0 wheel==0.48.0
+COPY scripts/build_semgrep_compat_wheel.py ./
+COPY requirements-security-semgrep.txt ./
+RUN python build_semgrep_compat_wheel.py --output /build/wheels \
+    && /opt/semgrep/bin/pip install --no-cache-dir --find-links=/build/wheels -r requirements-security-semgrep.txt \
+    && /opt/semgrep/bin/python -m pip check \
+    && rm -rf /opt/semgrep/lib/python3.11/site-packages/pip* /opt/semgrep/bin/pip*
 
 FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS runtime
 WORKDIR /app
@@ -20,7 +28,19 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
        bash bsdextrautils ca-certificates curl dnsutils jq libio-socket-ssl-perl libnet-ssleay-perl libxml-writer-perl libpq5 nmap openssl perl postgresql-client procps unzip \
     && rm -rf /var/lib/apt/lists/*
+# Remove unused system installers INCLUDING their vendored vulnerable code.
+# Operational pip-audit still uses the maintained pip inside /opt/venv.
+RUN rm -rf /usr/local/lib/python3.11/site-packages/pip* \
+           /usr/local/lib/python3.11/site-packages/setuptools* \
+           /usr/local/lib/python3.11/site-packages/pkg_resources \
+           /usr/local/lib/python3.11/site-packages/_distutils_hack \
+           /usr/local/lib/python3.11/site-packages/distutils-precedence.pth \
+           /usr/local/lib/python3.11/site-packages/wheel* \
+           /usr/local/bin/pip /usr/local/bin/pip3 /usr/local/bin/pip3.11 /usr/local/bin/wheel
 COPY --from=builder /opt/venv /opt/venv
+COPY --from=semgrep-builder /opt/semgrep /opt/semgrep
+COPY --from=semgrep-builder /build/wheels/semgrep-compat-provenance.json /usr/local/share/aionex/semgrep-compat-provenance.json
+RUN ln -s /opt/semgrep/bin/semgrep /usr/local/bin/semgrep
 COPY scripts/install-security-tools.sh /usr/local/sbin/install-security-tools.sh
 RUN /usr/local/sbin/install-security-tools.sh \
     && rm -f /usr/local/sbin/install-security-tools.sh
@@ -29,7 +49,7 @@ RUN rm -rf /app/tests \
     && addgroup --system --gid 1000 aionex \
     && adduser --system --uid 1000 --gid 1000 --home /home/aionex aionex \
     && install -d -m 0700 -o aionex -g aionex /var/lib/aionex/security-sources /home/aionex/.cache \
-    && chown -R aionex:aionex /app /opt/venv /opt/testssl /opt/nuclei-templates /opt/nikto
+    && chown -R aionex:aionex /app /opt/venv /opt/semgrep /opt/testssl /opt/nuclei-templates /opt/nikto
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
