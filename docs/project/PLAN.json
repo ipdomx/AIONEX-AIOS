@@ -1868,6 +1868,37 @@
       },
       "memory_backing_lifecycle_source": {
         "source_part": "FR-06C5E6",
+        "base_candidate": "2ccb2d14fcede5ea7d8aad7a84b0115baf035a11",
+        "step": "prepare_encrypted_backing",
+        "preparation_intent_before_allocation": true,
+        "actual_posix_fallocate": true,
+        "space_reserve_required": true,
+        "new_inode_only": true,
+        "journal_bound_atomic_publication": true,
+        "no_replace_rename": true,
+        "rollback_retains_allocated_inode": true,
+        "payload_or_keys_read": false,
+        "native_loop_inode_consumers": true,
+        "direct_file_swap_consumers": true,
+        "unused_baseline_requires_zero_consumers": true,
+        "partial_preparation_automatically_replayed": false,
+        "directed_tests_passed": 69,
+        "native_qemu_cases": 6,
+        "native_child_interruption_cases": 4,
+        "complete_kernel_plan_composed": false,
+        "mapper_creation_adapter_shipped": false,
+        "production_context_reader_shipped": false,
+        "writer_quiescence_implemented": false,
+        "production_activated": false,
+        "host_reboot_or_power_loss_verified": false,
+        "full_host_closure": false,
+        "parent_batch_complete": false,
+        "evidence": [
+          "docs/project/receipts/FR-06C5E6-owned-backing-lifecycle.md",
+          "scripts/security/fr06c5_memory_backing.py",
+          "tests/test_fr06c5e_memory_backing.py"
+        ],
+        "coverage_ar": "تجهيز ملفbacking جديد بحجز مساحة حقيقي ونية تحضير محفوظة، ونشر/رجوع inode نفسه بسجل C5E2 دون محو. تثبت مراجعloop وswap المباشرة قبل النقل، ولا يعتمد الأصل المستعاد مع وجود مستهلك. اختباراتkernel فعلية داخلQEMU فقط؛ لا مشغلmapper أوسياقإنتاج أوتجميدكتابات أوتفعيلللمضيف.",
         "source_base_commit": "2ccb2d14fcede5ea7d8aad7a84b0115baf035a11",
         "durable_intent_bound": true,
         "allocated_backing_inode_owned": true,
@@ -1877,15 +1908,7 @@
         "root_tests_passed": 2713,
         "native_qemu_kernel_verified": true,
         "host_swap_changed_by_lab": false,
-        "production_activated": false,
-        "power_loss_or_host_boot_verified": false,
-        "full_host_closure": false,
-        "parent_batch_complete": false,
-        "evidence": [
-          "docs/project/receipts/FR-06C5E6-owned-backing-lifecycle.md",
-          "scripts/security/fr06c5_memory_backing.py",
-          "tests/test_fr06c5e_memory_backing.py"
-        ]
+        "power_loss_or_host_boot_verified": false
       }
     },
     {
