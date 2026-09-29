@@ -1,0 +1,17 @@
+[Unit]
+Description=AIONEX FR-06C5 random-key encrypted swap
+DefaultDependencies=no
+After=local-fs.target
+Before=swap.target
+Conflicts=swap.img.swap
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/python3 /opt/AIOS/scripts/security/fr06c5_memory_controls.py boot-swap-start
+ExecStop=/usr/bin/python3 /opt/AIOS/scripts/security/fr06c5_memory_controls.py boot-swap-stop
+TimeoutStartSec=120
+TimeoutStopSec=120
+
+[Install]
+WantedBy=swap.target

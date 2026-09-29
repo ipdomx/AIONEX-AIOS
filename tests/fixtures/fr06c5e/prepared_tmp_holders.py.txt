@@ -1,0 +1,21 @@
+"""Exact tmp_holders from preserved commit 13b76558; baseline fixture only."""
+from pathlib import Path
+import os
+def tmp_holders():
+ hits=[];me=os.getpid()
+ for proc in Path('/proc').iterdir():
+  if not proc.name.isdigit() or int(proc.name)==me:continue
+  pid=int(proc.name)
+  for label,path in [('cwd',proc/'cwd'),('root',proc/'root')]:
+   try:t=os.readlink(path)
+   except OSError:continue
+   if t=='/tmp' or t.startswith('/tmp/') : hits.append({'pid':pid,'kind':label,'target':t})
+  fdroot=proc/'fd'
+  try:fds=list(fdroot.iterdir())
+  except OSError:continue
+  for fd in fds:
+   try:t=os.readlink(fd)
+   except OSError:continue
+   clean=t[:-10] if t.endswith(' (deleted)') else t
+   if clean=='/tmp' or clean.startswith('/tmp/'):hits.append({'pid':pid,'kind':'fd','fd':fd.name,'target':t})
+ return hits
