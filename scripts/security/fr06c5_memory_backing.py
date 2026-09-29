@@ -78,12 +78,33 @@ def _metadata(fd: int, capacity: int) -> dict[str, int]:
             or s.st_blocks * 512 < capacity or os.listxattr(fd)):
         raise BackingRejected("Backing not fully allocated, singly linked and private")
     # Ciphertext writes through a future loop may update time metadata, but may
-    # not change ownership, capacity, inode or allocated block count. No payload
+    # not change ownership, capacity or inode; allocation must remain complete.
+    # Extent metadata can change st_blocks without replacing the inode. No payload
     # is read or hashed. The separately held writer barrier remains essential.
     return {name: int(getattr(s, name)) for name in (
         "st_dev", "st_ino", "st_uid", "st_gid", "st_mode", "st_nlink", "st_size", "st_blocks"
     )}
 
+
+
+def same_allocation(actual: dict[str, int] | None, expected: dict[str, int] | None) -> bool:
+    """Bind file identity and full allocation, not mutable extent accounting.
+
+    Keep the original observed block count in historical manifests. Both current
+    and original observations must cover the entire capacity. No sparse file,
+    identity, permission, link-count or size drift is accepted. This does not
+    attest payload integrity, which is never inferred from stat metadata.
+    """
+    keys = {"st_dev", "st_ino", "st_uid", "st_gid", "st_mode", "st_nlink", "st_size", "st_blocks"}
+    if actual is None or expected is None:
+        return actual is expected
+    if set(actual) != keys or set(expected) != keys:
+        return False
+    if any(type(value) is not int or value < 0 for row in (actual, expected) for value in row.values()):
+        return False
+    if any(row["st_size"] <= 0 or row["st_blocks"] * 512 < row["st_size"] for row in (actual, expected)):
+        return False
+    return all(actual[key] == expected[key] for key in keys - {"st_blocks"})
 
 def _named(parent: int, name: str, capacity: int) -> dict[str, int] | None:
     try:
@@ -379,7 +400,7 @@ class BackingAdapter:
             preparation_info, data = _file(self.bundle_fd, name, private=True)
             if preparation_info != wanted["identity"] or hashlib.sha256(data).hexdigest() != wanted["sha256"]:
                 raise BackingRejected("Preparation intent or inode receipt changed")
-        if not set(os.listdir(self.stage_fd)).issubset({"candidate"}) or _metadata(self.fd, self.spec["capacity"]) != self.spec["file"]:
+        if not set(os.listdir(self.stage_fd)).issubset({"candidate"}) or not same_allocation(_metadata(self.fd, self.spec["capacity"]), self.spec["file"]):
             raise BackingRejected("Backing file allocation or staging changed")
 
     def context(self) -> BoundContext:
@@ -400,9 +421,9 @@ class BackingAdapter:
         if step != self.step or operation != self.operation:
             raise BackingRejected("Foreign backing step")
         target, staged = _named(self.parent_fd, self.target.name, self.spec["capacity"]), _named(self.stage_fd, "candidate", self.spec["capacity"])
-        if target is None and staged == self.spec["file"]:
+        if target is None and same_allocation(staged, self.spec["file"]):
             published = False
-        elif target == self.spec["file"] and staged is None:
+        elif same_allocation(target, self.spec["file"]) and staged is None:
             published = True
         else:
             raise BackingRejected("Unknown or replaced backing inode")
@@ -411,7 +432,7 @@ class BackingAdapter:
             if not isinstance(consumers, tuple) or consumers:
                 raise BackingRejected("Unused backing baseline has consumers or incomplete evidence")
             if (_named(self.parent_fd, self.target.name, self.spec["capacity"]) is not None
-                    or _named(self.stage_fd, "candidate", self.spec["capacity"]) != staged):
+                    or not same_allocation(_named(self.stage_fd, "candidate", self.spec["capacity"]), staged)):
                 raise BackingRejected("Backing location changed during baseline observation")
         self._identity()
         authorized = False

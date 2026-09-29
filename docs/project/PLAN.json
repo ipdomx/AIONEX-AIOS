@@ -1909,6 +1909,30 @@
         "native_qemu_kernel_verified": true,
         "host_swap_changed_by_lab": false,
         "power_loss_or_host_boot_verified": false
+      },
+      "memory_loop_lifecycle_source": {
+        "source_part": "FR-06C5E7",
+        "base_commit": "1dda030b59b19a4f5c44e711864702ea9d9abff2",
+        "step": "attach_swap_loop",
+        "journal_bound": true,
+        "atomic_loop_configure": true,
+        "descriptor_and_marker_identity_bound": true,
+        "consumer_fence_holders_mounts_swap": true,
+        "foreign_marker_rejected": true,
+        "blind_replay_after_process_loss": false,
+        "directed_tests_passed": 66,
+        "root_tests_passed": 2790,
+        "native_qemu_cases": 8,
+        "production_activated": false,
+        "host_reboot_or_power_loss_verified": false,
+        "mapper_creation_adapter_shipped": false,
+        "full_host_closure": false,
+        "parent_batch_complete": false,
+        "evidence": [
+          "docs/project/receipts/FR-06C5E7-owned-loop-lifecycle.md",
+          "scripts/security/fr06c5_memory_loop.py",
+          "tests/test_fr06c5e_memory_loop.py"
+        ]
       }
     },
     {

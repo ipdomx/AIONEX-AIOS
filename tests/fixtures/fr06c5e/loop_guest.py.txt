@@ -1,0 +1,162 @@
+"""Native C5E7 ONLY inside the explicitly tagged offline QEMU guest.
+No host block devices, network or host shares are passed to this guest.
+"""
+from __future__ import annotations
+import fcntl,json,os,signal,subprocess,sys,time,traceback
+from contextlib import contextmanager
+from pathlib import Path
+from types import SimpleNamespace
+from uuid import uuid4
+sys.path.insert(0,'/code')
+from scripts.security.fr06c5_memory_backing import BackingAdapter
+from scripts.security.fr06c5_memory_loop import LoopAdapter,LinuxLoopKernel,LoopRejected,read_info
+from scripts.security.fr06c5_memory_transaction import BoundContext,Plan,Journal,MemoryTransaction,ActionUncertain
+from scripts.security.fr06c5_memory_kernel_observation import parse_swaps,LOOP_STRUCT
+
+
+def guard():
+    assert 'AIONEX-C5E7-DISPOSABLE' in Path('/sys/class/dmi/id/product_name').read_text()
+    assert any(' /disk ' in x and ' /dev/vda ' in x for x in Path('/proc/self/mountinfo').read_text().splitlines())
+
+
+def context():
+    return BoundContext('e'*40,Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
+                        '11111111-1111-4111-8111-111111111111',36,'a'*64,'b'*64,'c'*64)
+
+
+def plan(a):
+    now=int(time.time());return Plan(a.operation,a.bound,(a.step,),now,now+300)
+
+
+@contextmanager
+def backing_case(name,operation=None):
+    root=Path('/disk')/name
+    if operation is None:
+        root.mkdir(mode=0o700)
+        for sub in ['files','backing-state','backing-journal','loop-state','loop-journal']:(root/sub).mkdir(mode=0o700)
+        operation=str(uuid4())
+        owner=BackingAdapter.prepare(root/'files/random-swap.backing',root/'backing-state',operation,context,capacity=16*1024**2,reserve=8*1024**2)
+        journal=Journal(root/'backing-journal',operation,create=plan(owner));owner.attach(journal)
+        tx=MemoryTransaction(journal,owner);tx.apply_next();tx.verify_applied()
+    else:
+        owner=BackingAdapter.load(root/'files/random-swap.backing',root/'backing-state',operation,context)
+        journal=Journal(root/'backing-journal',operation);owner.attach(journal)
+    try:yield SimpleNamespace(root=root,owner=owner,operation=operation)
+    finally:journal.close();owner.close()
+
+
+@contextmanager
+def loop_case(c,kernel=None,load=False):
+    method=LoopAdapter.load if load else LoopAdapter.prepare
+    with method(c.owner,c.root/'loop-state',number=0,kernel=kernel) as a:
+        args={} if load else {'create':plan(a)}
+        with Journal(c.root/'loop-journal',c.operation,**args) as j:
+            a.attach(j);yield a,j,MemoryTransaction(j,a)
+
+
+def invoke(args):
+    p=subprocess.run(args,check=False,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=20,
+                     env={'PATH':'/usr/sbin:/usr/bin:/sbin:/bin','LC_ALL':'C','DM_DISABLE_UDEV':'1'})
+    assert p.returncode==0,(args[0],p.returncode,p.stderr[-1000:])
+
+
+def child(name,operation,direction,timing):
+    class Crash(LinuxLoopKernel):
+        def configure(self,*args):
+            if direction=='apply' and timing=='before':os.kill(os.getpid(),signal.SIGKILL)
+            super().configure(*args)
+            if direction=='apply' and timing=='after':os.kill(os.getpid(),signal.SIGKILL)
+        def detach(self,fd):
+            if direction=='undo' and timing=='before':os.kill(os.getpid(),signal.SIGKILL)
+            super().detach(fd)
+            if direction=='undo' and timing=='after':os.kill(os.getpid(),signal.SIGKILL)
+    with backing_case(name,operation) as c,loop_case(c,Crash(),load=True) as (a,j,tx):
+        (tx.apply_next if direction=='apply' else tx.undo_next)()
+    raise AssertionError('Crash injection did not execute')
+
+
+def run():
+    guard()
+    if len(sys.argv)>1:
+        child(*sys.argv[1:]);return
+    results=[]
+    with backing_case('basic') as c,loop_case(c) as (a,j,tx):
+        inode=os.fstat(c.owner.fd).st_ino
+        tx.apply_next();assert tx.verify_applied().phase=='applied'
+        info=read_info(a.fd)
+        assert info.marker=='AIONEX-C5E7:'+c.operation and info.backing_inode==inode
+        tx.begin_rollback();tx.undo_next();assert tx.verify_restored().phase=='restored'
+        assert read_info(a.fd) is None and c.owner.target.stat().st_ino==inode
+        results.append({'case':'native_atomic_loop_configure_and_detach','atomic_marker_and_backing_matched':True,'same_backing_inode_retained':True})
+    with backing_case('encrypted-holder') as c,loop_case(c) as (a,j,tx):
+        tx.apply_next();tx.verify_applied()
+        key=bytearray(os.urandom(64))
+        try:
+            p=subprocess.run(['/usr/sbin/cryptsetup','open','--type','plain','--cipher','aes-xts-plain64','--key-size','512','--sector-size','512','--key-file','-','/dev/loop0','guest-c5e7-crypt'],input=key,capture_output=True,check=False,timeout=30,env={'PATH':'/usr/sbin:/usr/bin:/sbin:/bin','LC_ALL':'C','DM_DISABLE_UDEV':'1'})
+            assert p.returncode==0,p.stderr[-1000:]
+        finally:key[:]=b'\0'*len(key)
+        invoke(['/bin/busybox','mkswap','/dev/mapper/guest-c5e7-crypt'])
+        invoke(['/bin/busybox','swapon','/dev/mapper/guest-c5e7-crypt'])
+        tx.begin_rollback()
+        try:tx.undo_next()
+        except ActionUncertain:pass
+        else:raise AssertionError('Active encrypted holder was detached')
+        assert read_info(a.fd) is not None and len(parse_swaps(Path('/proc/swaps').read_text()))==1
+        invoke(['/bin/busybox','swapoff','/dev/mapper/guest-c5e7-crypt'])
+        invoke(['/usr/sbin/cryptsetup','close','guest-c5e7-crypt'])
+        tx.reconcile_pending();tx.undo_next();assert tx.verify_restored().phase=='restored'
+        results.append({'case':'native_encrypted_swap_holder_blocks_detach','no_early_detach':True,'explicit_recovery_after_consumer_removed':True,'mapper_setup_is_fixture_not_shipped_adapter':True})
+    with backing_case('direct-loop-swap') as c,loop_case(c) as (a,j,tx):
+        tx.apply_next();tx.verify_applied()
+        invoke(['/bin/busybox','mkswap','/dev/loop0']);invoke(['/bin/busybox','swapon','/dev/loop0'])
+        tx.begin_rollback()
+        try:tx.undo_next()
+        except ActionUncertain:pass
+        else:raise AssertionError('Direct loop swap consumer ignored')
+        assert read_info(a.fd) is not None
+        invoke(['/bin/busybox','swapoff','/dev/loop0'])
+        tx.reconcile_pending();tx.undo_next();assert tx.verify_restored().phase=='restored'
+        results.append({'case':'native_direct_loop_swap_blocks_detach','consumer_removed_before_recovery':True})
+    with backing_case('foreign-marker') as c:
+        with loop_case(c) as (a,j,tx):
+            tx.apply_next();tx.verify_applied()
+            data=bytearray(232);fcntl.ioctl(a.fd,0x4C05,data,True)
+            fields=list(LOOP_STRUCT.unpack(data));fields[9]=b'foreign-loop-owner'.ljust(64,b'\0')
+            fcntl.ioctl(a.fd,0x4C04,LOOP_STRUCT.pack(*fields))
+        with loop_case(c,load=True) as (a,j,tx):
+            tx.begin_rollback()
+            try:tx.undo_next()
+            except LoopRejected:pass
+            else:raise AssertionError('Foreign marker accepted after reopen')
+            assert read_info(a.fd).marker=='foreign-loop-owner'
+            # Owned disposable fixture cleanup, not adapter recovery authorization.
+            LinuxLoopKernel().detach(a.fd)
+        results.append({'case':'native_reopen_rejects_foreign_marker_same_inode','foreign_kernel_binding_preserved_by_adapter':True})
+    for direction in ['apply','undo']:
+        for timing in ['before','after']:
+            name='crash-'+direction+'-'+timing
+            with backing_case(name) as c,loop_case(c) as (a,j,tx):
+                op=c.operation
+                if direction=='undo':tx.apply_next();tx.begin_rollback()
+            p=subprocess.run(['/usr/bin/python3.12','/guest_acceptance.py',name,op,direction,timing],capture_output=True,text=True,check=False,timeout=30)
+            assert p.returncode==-9,(direction,timing,p.returncode,p.stderr[-2000:])
+            with backing_case(name,op) as c,loop_case(c,load=True) as (a,j,tx):
+                assert j.state().pending==(direction,0)
+                try:(tx.apply_next if direction=='apply' else tx.undo_next)()
+                except ActionUncertain:pass
+                else:raise AssertionError('Pending loop effect replayed')
+                tx.reconcile_pending()
+                if direction=='apply':tx.begin_rollback()
+                if j.state().applied:tx.undo_next()
+                assert tx.verify_restored().phase=='restored' and read_info(a.fd) is None
+            results.append({'case':'native_process_loss','direction':direction,'timing':timing,'child_exit':p.returncode,'no_blind_replay':True,'restored':True})
+    assert parse_swaps(Path('/proc/swaps').read_text())==()
+    assert not Path('/dev/mapper/guest-c5e7-crypt').exists()
+    fd=LinuxLoopKernel().open(0)
+    try:assert read_info(fd) is None
+    finally:os.close(fd)
+    print('AIONEX_VM_RESULT '+json.dumps({'status':'PASS','kernel':os.uname().release,'cases':results,'guest_only':True,'guest_cleanup_verified':True,'production_context_used':False,'host_swap_changed':False,'host_loop_changed':False,'provider_io':False,'power_loss_tested':False,'full_host_closure':False},sort_keys=True),flush=True)
+
+try:run()
+except BaseException:
+    traceback.print_exc();print('AIONEX_VM_FAILED',flush=True);raise
