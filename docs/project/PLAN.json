@@ -1909,6 +1909,39 @@
         "native_qemu_kernel_verified": true,
         "host_swap_changed_by_lab": false,
         "power_loss_or_host_boot_verified": false
+      },
+      "memory_loop_lifecycle_source": {
+        "source_part": "FR-06C5E7",
+        "source_base_commit": "1dda030b59b19a4f5c44e711864702ea9d9abff2",
+        "step": "attach_swap_loop",
+        "requires_published_owned_backing_journal": true,
+        "atomic_loop_configure_and_operation_marker": true,
+        "durable_intent_before_ioctl": true,
+        "unknown_or_foreign_marker_never_adopted": true,
+        "loop_holder_mount_swap_fences": true,
+        "deferred_autoclear_not_certified_complete": true,
+        "backing_inode_never_deleted": true,
+        "historical_allocation_observations_preserved": true,
+        "full_allocation_required_with_variable_extent_metadata": true,
+        "focused_cases": 77,
+        "combined_loop_backing_transaction_cases": 211,
+        "native_qemu_cases": 9,
+        "native_process_loss_cases": 4,
+        "mapper_key_or_swap_activation_adapter_shipped": false,
+        "complete_kernel_plan_composed": false,
+        "production_context_reader_shipped": false,
+        "writer_quiescence_implemented": false,
+        "production_activated": false,
+        "host_reboot_or_power_loss_verified": false,
+        "full_host_closure": false,
+        "parent_batch_complete": false,
+        "evidence": [
+          "docs/project/receipts/FR-06C5E7-owned-loop-lifecycle.md",
+          "scripts/security/fr06c5_memory_loop.py",
+          "tests/test_fr06c5e_memory_loop.py",
+          "tests/fixtures/fr06c5e/loop_guest.py.txt"
+        ],
+        "coverage_ar": "إنشاءloop بهويةالعملية وbackingفيخطوةkernelواحدة تحتسجلنية، ورفضإزالته معمستهلكdmأوmountأوswap وعدمإعادةالأثرالمجهول. أُصلحت مقارنةحسابمساحةextentمعالاحتفاظبشرطالملكيةوالحجزالكامل؛التحققداخلQEMUفقط. لاmapperأومفتاحأوتفعيلإنتاجيأوتصريفشامل."
       }
     },
     {
