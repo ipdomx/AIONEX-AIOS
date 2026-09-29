@@ -34,6 +34,19 @@ ABI declarations were checked against downloaded distribution development header
 
 The operation-specific mapper name differs from the legacy fixed boot-plan name. No existing boot unit is silently retargeted; integration of that identity with the full plan and reboot recovery remains required. No host swap/loop/mount, production provider, maintenance transition or existing deployed service is changed by this part. Incomplete library creation may leave an unrecognized partial mapper, which remains blocked for separate reconciliation; no automatic cleanup is used to manufacture success. Host power loss, host boot, C5D provider/resource drain and encrypted host-state cutover, plus C6 final acceptance, remain unverified.
 
+
+## Additional process-dump security review (2026-09-29)
+
+The original mapper implementation set RLIMIT_CORE to zero but left PR_GET_DUMPABLE at one during native-library initialization, key consumption and cleanup. A new nonroot subprocess regression reproduced that state without creating a kernel mapper or exporting key payload. Linux core(5) documents that RLIMIT_CORE does not limit cores piped to a userspace handler; the process-local dumpability control is therefore required as well.
+
+The revised native creation path establishes PR_SET_DUMPABLE=0, reads it back, sets the core-file limit to zero and verifies that limit BEFORE loading/initializing the crypto library. Failure of any check stops before crypto or key generation. The process remains nondumpable after cleanup; no host core_pattern, sysctl or collector is modified by the implementation. Privileged memory inspection, later credential changes, kernel/native-library copies and boot key custody remain outside this proof.
+
+Seven new tests cover native process state and denial of each protection step. A separate tagged QEMU guest additionally exercises a real pipe-based core handler using synthetic crashing processes with no keys: RLIMIT_CORE=0 alone invoked the collector once, whereas the protected process did not invoke it. The collector discarded the memory payload instead of saving it. Guest core settings were restored; the host configuration was never changed. The same guest accepted native libcryptsetup mapper creation/removal, active swap, mounted filesystem and open-descriptor removal fences, and four process-loss reconciliation cases. This is not a power-loss or host reboot proof.
+
+Review evidence is retained independently at docs/project/runtime/fr06c5e8-key-review-20260929T1212/. A blocked combined historical-evidence comparison was not replayed and is not counted as acceptance. A duplicate launch attempt rejected the existing vm-v1 directory; its already-completed result and exact copied source were reconciled instead of recreating or overwriting it.
+
+Primary documentation: https://man7.org/linux/man-pages/man5/core.5.html and https://man7.org/linux/man-pages/man2/PR_SET_DUMPABLE.2const.html.
+
 A concurrent test-only change was reconciled in an independent review tree: both the actual child-process memory-lock-limit rejection and the mocked assertion that entropy is never requested after mlock failure are retained. No implementation change or native result was discarded.
 
 ## CI portability correction after the source rebase
@@ -41,3 +54,5 @@ A concurrent test-only change was reconciled in an independent review tree: both
 The c041ed9b test-only update failed the GitHub Core Owner / Release / Web Contracts job: it invoked `runuser` although the runner already used an unprivileged account. The original CI failure and an independent nonroot reproduction are retained. The correction runs the existing interpreter directly and drops privileges only inside a root-launched child, before requesting a protected key. It never changes the parent process identity, calls sudo/runuser from a test, skips the assertion, or changes application memory protections.
 
 All 58 mapper/key cases pass with both a root parent and a nobody parent. The actual unprivileged child must reject memory-lock limits of 0, 1 and 4095 bytes; the separate mocked no-entropy assertion remains. Full-suite acceptance and the new exact PR head are recorded independently in `docs/project/runtime/fr06c5e8-ci-portability-20260929T1229/`. Earlier QEMU tests are historical implementation evidence, not newly executed tests in this CI correction. No deployment or memory-control activation is authorized by these tests.
+
+The independent portability branch was merged with the upstream process-dump protection update instead of overwriting it. The combined mapper/key/dump suite passed 65 cases with each parent-privilege profile. The integrated native guest has nine successful cases, including the positive/negative pipe-core control and four interrupted mapper actions; its source and fixture are pinned by the new source proof. The create-only laboratory refused a duplicate launch, and the completed result was reconciled without re-execution. No existing native result was overwritten.

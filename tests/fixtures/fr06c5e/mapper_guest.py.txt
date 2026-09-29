@@ -87,10 +87,42 @@ def child(name,operation,direction,timing):
     raise AssertionError('Crash injection did not execute')
 
 
+def verify_guest_core_handler_boundary():
+    """Positive and negative controls in this VM, with no memory payload saved."""
+    guard()
+    pattern = Path('/proc/sys/kernel/core_pattern')
+    pipe_limit = Path('/proc/sys/kernel/core_pipe_limit')
+    old_pattern, old_limit = pattern.read_text(), pipe_limit.read_text()
+    collector = Path('/disk/synthetic-core-collector.sh')
+    marker = Path('/disk/synthetic-core-collector.calls')
+    collector.write_text('#!/bin/sh\necho invoked >> /disk/synthetic-core-collector.calls\n/bin/cat > /dev/null\n')
+    collector.chmod(0o700)
+    prefix = 'import os, resource, signal; resource.setrlimit(resource.RLIMIT_CORE, (0, 0)); '
+    crash = 'os.kill(os.getpid(), signal.SIGABRT)'
+    try:
+        pipe_limit.write_text('1\n')
+        pattern.write_text('|/bin/sh /disk/synthetic-core-collector.sh\n')
+        positive = subprocess.run(['/usr/bin/python3.12', '-c', prefix + crash],
+                                  capture_output=True, text=True, check=False, timeout=20)
+        assert positive.returncode == -signal.SIGABRT
+        assert marker.read_text().splitlines() == ['invoked'], 'Positive collector control did not execute'
+        negative = subprocess.run(['/usr/bin/python3.12', '-c', prefix +
+            'from scripts.security.fr06c5_memory_volatile_key import disable_process_dumps; '
+            'disable_process_dumps(); ' + crash], capture_output=True, text=True, check=False, timeout=20)
+        assert negative.returncode == -signal.SIGABRT
+        assert marker.read_text().splitlines() == ['invoked'], 'Protected process still invoked the core handler'
+        return {'case': 'native_pipe_core_dump_protection', 'unprotected_rlimit_zero_collector_calls': 1,
+                'protected_collector_calls': 0, 'core_payload_saved': False, 'key_generated_by_controls': False,
+                'host_core_configuration_changed': False}
+    finally:
+        pattern.write_text(old_pattern)
+        pipe_limit.write_text(old_limit)
+
+
 def run():
     guard()
     if len(sys.argv)>1:child(*sys.argv[1:]);return
-    results=[]
+    results=[verify_guest_core_handler_boundary()]
     with parent_case('basic') as c:
         inode=os.fstat(c.owner.fd).st_ino
         with opened(c) as (a,j,tx):

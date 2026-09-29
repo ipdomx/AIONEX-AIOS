@@ -307,11 +307,11 @@ def test_native_creation_uses_locked_pointer_and_never_reveals_key(case,monkeypa
     monkeypatch.setattr(m.os,'fstat',lambda fd:SimpleNamespace(st_mode=__import__('stat').S_IFBLK,st_rdev=os.makedev(7,3)))
     monkeypatch.setattr(k,'sample',lambda op:m.Runtime(case.context.boot_id,(11,12),(11,12),None))
     monkeypatch.setattr(k,'_library',lambda:Library())
-    monkeypatch.setattr(m.resource,'setrlimit',lambda which,limits:calls.append(('core-limit',limits[0])))
+    monkeypatch.setattr(m,'disable_process_dumps',lambda:calls.append(('process-nondumpable',)))
     if failure:
         with pytest.raises(m.MapperRejected):k.create(10,3,16384,case.operation)
     else:k.create(10,3,16384,case.operation)
-    assert calls[-1]==('free',) and ('core-limit',0) in calls
+    assert calls[-1]==('free',) and ('process-nondumpable',) in calls
     assert sum(c[0]=='activate' for c in calls)==int(failure in {None,'activate'})
 
 

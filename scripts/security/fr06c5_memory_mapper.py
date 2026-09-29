@@ -17,7 +17,6 @@ import fcntl
 import hashlib
 import json
 import os
-import resource
 import stat
 import subprocess
 import time
@@ -48,7 +47,7 @@ from scripts.security.fr06c5_memory_transaction import (
     Observation,
     TransitionRejected,
 )
-from scripts.security.fr06c5_memory_volatile_key import LockedKey
+from scripts.security.fr06c5_memory_volatile_key import LockedKey, disable_process_dumps
 
 STEP = "create_swap_mapper"
 MAX_TEXT = 1024 * 1024
@@ -216,13 +215,10 @@ class LinuxMapperKernel:
         info = os.fstat(loop_fd)
         _require(stat.S_ISBLK(info.st_mode) and Device.number(info.st_rdev) == Device(7, number), "Wrong loop descriptor")
         _require(self.sample(operation).mapper is None, "Existing mapper cannot be adopted or rekeyed")
+        disable_process_dumps()
         lib = self._library()
         context = ctypes.c_void_p()
         callback = _LOG(_silent_log)
-        # This process cannot produce a core containing native-library copies.
-        # The process-level restriction deliberately remains after this call.
-        _, hard = resource.getrlimit(resource.RLIMIT_CORE)
-        resource.setrlimit(resource.RLIMIT_CORE, (0, hard))
         try:
             _require(lib.crypt_init(ctypes.byref(context), f"/proc/self/fd/{loop_fd}".encode()) == 0,
                      "Crypt context could not bind the retained loop")
