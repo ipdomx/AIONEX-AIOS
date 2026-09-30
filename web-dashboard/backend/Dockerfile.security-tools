@@ -72,10 +72,12 @@ FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a2
 WORKDIR /app
 # Retain this small package's documentation too, so dpkg can verify every file.
 RUN printf 'path-include=/usr/share/doc/libpcre2-8-0/*\n' > /etc/dpkg/dpkg.cfg.d/zz-aios-pcre2-integrity \
+    && printf 'path-include=/usr/share/doc/liblzma5/*\n' > /etc/dpkg/dpkg.cfg.d/zz-aios-lzma-integrity \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-       bash bsdextrautils ca-certificates curl dnsutils jq libio-socket-ssl-perl libnet-ssleay-perl libxml-writer-perl libpq5 nmap openssl perl postgresql-client procps unzip libpcre2-8-0 \
+       bash bsdextrautils ca-certificates curl dnsutils jq libio-socket-ssl-perl libnet-ssleay-perl libxml-writer-perl libpq5 nmap openssl perl postgresql-client procps unzip libpcre2-8-0 liblzma5 \
     && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libpcre2-8-0)" ge '10.42-1+deb12u1' \
+    && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' liblzma5)" ge '5.4.1-1+deb12u2' \
     && rm -rf /var/lib/apt/lists/*
 # Remove unused system installers INCLUDING their vendored vulnerable code.
 # Operational pip-audit still uses the maintained pip inside /opt/venv.
@@ -130,5 +132,7 @@ ENV PATH="/opt/venv/bin:$PATH" \
 # This is a bounded offline regression, not full-image security acceptance.
 USER 1000:1000
 RUN python /app/scripts/verify_security_pcre2.py
+# Require the Debian liblzma backport and exercise bounded offline compatibility.
+RUN python /app/scripts/verify_security_lzma.py
 ENTRYPOINT []
 CMD ["python", "-m", "app.services.security_scan_worker"]
