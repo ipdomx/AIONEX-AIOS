@@ -81,9 +81,14 @@ class Coordinator:
         if actual!=expected: raise CoordinatorRejected("Coordinator plan changed")
         for spec in self.plan.children:
             child=self.children[spec.name]
-            digest=hashlib.sha256(self._canonical(asdict(child.journal.plan))).hexdigest() if hasattr(child,"journal") else ""
-            # Child journals are the authority. Require caller-supplied digest to match a stable canonical plan representation when exposed.
-            if digest and digest!=spec.plan_sha256: raise CoordinatorRejected("Child plan digest differs")
+            try:
+                child_plan=child.journal.plan
+                digest=hashlib.sha256(self._canonical(asdict(child_plan))).hexdigest()
+                context_digest=hashlib.sha256(self._canonical(asdict(child_plan.context))).hexdigest()
+            except (AttributeError, TypeError) as exc:
+                raise CoordinatorRejected("Child must expose its authoritative typed journal plan") from exc
+            if digest!=spec.plan_sha256: raise CoordinatorRejected("Child plan digest differs")
+            if context_digest!=self.plan.context_sha256: raise CoordinatorRejected("Child bound context differs")
     def states(self): return {n:c.state() for n,c in self.children.items()}
     def apply_next(self):
         states=self.states()
@@ -102,7 +107,7 @@ class Coordinator:
         if any(s.pending is not None for s in states.values()): raise CoordinatorUncertain("Resolve child intent before rollback")
         for spec in reversed(self.plan.children):
             s=states[spec.name]
-            if s.phase=="applied": return spec.name,self.children[spec.name].begin_rollback()
+            if s.phase in {"applied","halted"}: return spec.name,self.children[spec.name].begin_rollback()
             if s.phase=="applying" and s.applied: return spec.name,self.children[spec.name].begin_rollback()
             if s.phase not in {"restored","applying"}: raise CoordinatorRejected("Unknown child rollback state")
         raise CoordinatorRejected("Nothing applied")
@@ -114,6 +119,6 @@ class Coordinator:
             if s.phase=="rolling_back":
                 if s.applied: return spec.name,self.children[spec.name].undo_next()
                 return spec.name,self.children[spec.name].verify_restored()
-            if s.phase=="applied" or (s.phase=="applying" and s.applied): raise CoordinatorRejected("Explicit begin_rollback required")
+            if s.phase in {"applied","halted"} or (s.phase=="applying" and s.applied): raise CoordinatorRejected("Explicit begin_rollback required")
             if s.phase not in {"restored","applying"}: raise CoordinatorRejected("Unknown child rollback state")
         raise CoordinatorRejected("All children restored")
