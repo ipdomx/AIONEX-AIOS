@@ -2125,6 +2125,32 @@
           "web-dashboard/backend/scripts/verify_security_pip.py",
           "tests/test_fr06_security_scanner_vendor.py"
         ]
+      },
+      "security_scanner_gitleaks_rebuild_source": {
+        "parent_source_pr": 793,
+        "parent_commit": "958cfbcf5ff62ecd836c53361b458eeeece5fef0",
+        "local_version": "8.30.1+aios.1",
+        "toolchain": "go1.27.1",
+        "source_rules_changed": false,
+        "upstream_files_preserved": 234,
+        "upstream_tests_and_subtests_passed": 275,
+        "focused_build_contract_tests": 32,
+        "deterministic_build_verified": true,
+        "binary_sha256": "7c8b599cead7b3c8cd4a55aac3a3c1238814f59d08a88b4078b1a18afa100f5b",
+        "high_critical_gitleaks_instances_before": 33,
+        "high_critical_gitleaks_instances_after": 0,
+        "full_image_high_critical_remaining": 263,
+        "full_image_security_accepted": false,
+        "production_deployed": false,
+        "workflow_changed": false,
+        "full_host_closure": false,
+        "parent_batch_complete": false,
+        "evidence": [
+          "docs/project/receipts/FR-06-security-gitleaks-rebuild.md",
+          "web-dashboard/backend/security-build/gitleaks/lock.json",
+          "web-dashboard/backend/scripts/build_gitleaks.py",
+          "web-dashboard/backend/scripts/verify_security_gitleaks.py"
+        ]
       }
     },
     {

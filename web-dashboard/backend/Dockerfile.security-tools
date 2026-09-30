@@ -25,6 +25,15 @@ RUN python build_semgrep_compat_wheel.py --output /build/wheels \
     && /opt/semgrep/bin/python -m pip check \
     && rm -rf /opt/semgrep/lib/python3.11/site-packages/pip* /opt/semgrep/bin/pip*
 
+# Pinned local Gitleaks rebuild; public source/rules remain byte-identical.
+FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS gitleaks-builder
+WORKDIR /build
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates git \
+    && rm -rf /var/lib/apt/lists/*
+COPY scripts/build_gitleaks.py /build/build_gitleaks.py
+COPY security-build/gitleaks /build/gitleaks-lock
+RUN python /build/build_gitleaks.py --lock-dir /build/gitleaks-lock --output /build/gitleaks-output
+
 FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS runtime
 WORKDIR /app
 RUN apt-get update \
@@ -45,6 +54,9 @@ COPY --from=builder /build/pip-wheels/pip-vendor-provenance.json /usr/local/shar
 COPY --from=semgrep-builder /opt/semgrep /opt/semgrep
 COPY --from=semgrep-builder /build/wheels/semgrep-compat-provenance.json /usr/local/share/aionex/semgrep-compat-provenance.json
 RUN ln -s /opt/semgrep/bin/semgrep /usr/local/bin/semgrep
+COPY --from=gitleaks-builder /build/gitleaks-output/gitleaks /usr/local/bin/gitleaks
+COPY --from=gitleaks-builder /build/gitleaks-output/gitleaks-build-provenance.json /usr/local/share/aionex/gitleaks-build-provenance.json
+COPY --from=gitleaks-builder /build/gitleaks-output/GITLEAKS-LICENSE /usr/local/share/licenses/gitleaks/LICENSE
 COPY scripts/install-security-tools.sh /usr/local/sbin/install-security-tools.sh
 RUN /usr/local/sbin/install-security-tools.sh \
     && rm -f /usr/local/sbin/install-security-tools.sh
