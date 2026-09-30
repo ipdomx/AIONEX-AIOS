@@ -2324,6 +2324,28 @@
           "web-dashboard/backend/scripts/verify_security_trivy.py",
           "tests/test_fr06_security_trivy.py"
         ]
+      },
+      "trivy_cold_build_correction": {
+        "failed_candidate": "bd5a86dc52b0371c8c8c1ca7b03cd70d0ef70ddc",
+        "failed_run": 36719900374,
+        "failed_job": 109902047586,
+        "observed_outer_timeout_seconds": 600,
+        "new_outer_cold_command_timeout_seconds": 1800,
+        "go_package_test_timeout_seconds": 120,
+        "selected_package_count": 7,
+        "source_or_detector_rules_changed": false,
+        "grype_before_trivy_build_order": true,
+        "workflow_files_changed": false,
+        "new_head_ci_acceptance_required": true,
+        "merge_freeze": true,
+        "deployment_freeze": true,
+        "full_image_security_passed": false,
+        "production_deployed": false,
+        "parent_batch_completed": false,
+        "evidence": [
+          "docs/project/receipts/FR-06-security-trivy-rebuild.md",
+          "tests/test_fr06_trivy_cold_build.py"
+        ]
       }
     },
     {

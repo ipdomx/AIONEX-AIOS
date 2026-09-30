@@ -13,6 +13,7 @@ import platform
 import re
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
 
@@ -92,6 +93,43 @@ def build_command(go: str, binary: Path, lock: dict[str, Any]) -> list[str]:
             "-o", str(binary), "./cmd/trivy"]
 
 
+
+# Go's package-test timeout does not include compilation. The first CI build
+# exhausted the generic 600-second *outer* command budget. Keep Go's 120-second
+# test limit and complete test selection, but bound cold compilation separately.
+COLD_COMMAND_TIMEOUT_SECONDS = 1800
+FAILURE_LOG_TAIL_BYTES = 16384
+
+
+def run_cold_build_step(args: list[str], cwd: Path, env: dict[str, str], output: Path) -> None:
+    started = time.monotonic()
+    status = "FAILED"
+    try:
+        run(args, cwd, env, output, timeout=COLD_COMMAND_TIMEOUT_SECONDS)
+        status = "PASSED"
+    except subprocess.TimeoutExpired:
+        status = "TIMED_OUT"
+        raise
+    finally:
+        record: dict[str, Any] = {
+            "status": status, "command": args,
+            "outer_timeout_seconds": COLD_COMMAND_TIMEOUT_SECONDS,
+            "elapsed_seconds": round(time.monotonic() - started, 3),
+            "log_file": output.name,
+        }
+        # JSON escaping prevents terminal controls in compiler logs being
+        # interpreted by the CI viewer. Never print the process environment.
+        if status != "PASSED" and output.is_file() and not output.is_symlink():
+            with output.open("rb") as log:
+                log.seek(0, os.SEEK_END)
+                log.seek(max(0, log.tell() - FAILURE_LOG_TAIL_BYTES))
+                record["failure_log_tail"] = log.read(FAILURE_LOG_TAIL_BYTES).decode("utf-8", "replace")
+        with output.with_name(output.name + ".execution.json").open("x") as receipt:
+            json.dump(record, receipt, indent=2, ensure_ascii=True)
+            receipt.write("\n")
+        print(json.dumps(record, ensure_ascii=True), flush=True)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--lock-dir", type=Path, required=True)
@@ -119,14 +157,14 @@ def main() -> None:
         raise ValueError("Compiler identity differs")
     run([go, "mod", "download", "all"], source, env, output / "download.log")
     run([go, "mod", "verify"], source, env, output / "verify.log")
-    run([go, "test", "-p=2", "-count=1", "-timeout=120s", "-json", *TEST_PACKAGES],
-        source, env, output / "upstream-tests.jsonl")
+    run_cold_build_step([go, "test", "-p=2", "-count=1", "-timeout=120s", "-json", *TEST_PACKAGES],
+                        source, env, output / "upstream-tests.jsonl")
     events = [json.loads(line) for line in (output / "upstream-tests.jsonl").read_text().splitlines() if line.startswith("{")]
     counts = {a: sum(e.get("Action") == a and bool(e.get("Test")) for e in events) for a in ("pass", "fail", "skip")}
     if not counts["pass"] or counts["fail"] or counts["skip"]:
         raise RuntimeError("Selected upstream acceptance incomplete")
     binary = output / "trivy"
-    run(build_command(go, binary, lock), source, env, output / "build.log")
+    run_cold_build_step(build_command(go, binary, lock), source, env, output / "build.log")
     if source_fingerprint(source) != before or any(sha(source / n) != h for n, h in lock["files"].items()):
         raise RuntimeError("Source or pinned dependency files drifted")
     if sha(binary) != lock["expected_binary_sha256"]:
@@ -139,6 +177,8 @@ def main() -> None:
     shutil.copyfile(source / "LICENSE", output / "TRIVY-LICENSE")
     proof = {"lock": lock, "source_files_unchanged": before, "selected_packages": TEST_PACKAGES,
              "selected_tests": counts, "all_upstream_tests_claimed": False,
+             "cold_command_timeout_seconds": COLD_COMMAND_TIMEOUT_SECONDS,
+             "go_package_test_timeout_seconds": 120,
              "binary_sha256": sha(binary), "local_rebuild_not_upstream_binary": True,
              "production_changed": False, "full_image_security_passed": False}
     (output / "trivy-build-provenance.json").write_text(json.dumps(proof, indent=2) + "\n")

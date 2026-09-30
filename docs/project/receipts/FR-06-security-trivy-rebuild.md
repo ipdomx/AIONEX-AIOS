@@ -91,3 +91,39 @@ remains complete; FR06, the remaining scanner-image findings and later runtime,
 drain, host-state, memory and boot acceptance remain open.
 
 Evidence: `docs/project/runtime/fr06-security-trivy-20260930T1235/`.
+
+## CI cold-build correction (2026-09-30)
+
+Candidate bd5a86dc's Production Docker Build, run 36719900374 / job
+109902047586, FAILED in trivy-builder. Its retained completed-job log shows
+Python's outer subprocess timeout expiring at 600 seconds while executing the
+unchanged seven-package `go test` command. Grype was still building in parallel.
+The log does not prove which compiler/test subprocess was active at timeout;
+no native assertion failure or successful full CI acceptance is inferred.
+
+The corrected build makes Trivy wait for the completed Grype build by copying
+only Grype's build-provenance receipt into the Trivy builder stage. This is an
+ordering dependency, not reuse of an unverified/prebuilt Trivy executable. No
+workflow permission or file is changed. Trivy's Go test/build commands receive
+a fixed 1,800-second outer budget for cold compilation; the actual Go package
+test deadline remains 120 seconds, `-count=1`, all seven selected packages,
+nonzero/failed/skipped-test rejection, source/module pins, jsonv2 and the expected
+binary digest are unchanged. Download and module-validation budgets are unchanged.
+A cold-compile budget is not a relaxation of runtime security or load-test SLOs.
+
+Each cold command now emits a machine-readable timing/status receipt. On failure
+it retains and prints only the last 16 KiB of the compiler/test log, with JSON
+escaping and without the process environment. Exceptions and timeouts are still
+raised and existing receipts are not overwritten. Contract tests include real
+nonzero process exit, timeout propagation, bounded/control-escaped diagnostics,
+symlink rejection for diagnostic reads, build ordering and unchanged test scope.
+
+A separate isolated rebuild starts with an EMPTY Go build cache, two CPUs,
+6 GiB memory, no network and the already hash-verified public module/archive
+inputs. Its outcome, output digest and exact-source acceptance are recorded in
+runtime evidence; the earlier warm-cache result is not relabeled a cold build.
+CI must re-run on the corrected head before full build acceptance. The old
+failed run remains historical evidence. Neither local acceptance nor the
+200-finding child scan authorizes merge, production deployment or source sync.
+
+Correction evidence: docs/project/runtime/fr06-security-trivy-20260930T1235/ci-build-investigation-20260930T1346/.

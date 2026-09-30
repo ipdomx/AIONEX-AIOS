@@ -61,6 +61,9 @@ RUN python build_grype.py --lock-dir /build/grype-lock --output /build/grype-out
 # Corrected Trivy/gRPC source build with pinned inputs and native detector tests.
 FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS trivy-builder
 WORKDIR /build
+# Establish build ordering only: avoid running the largest two Go compilations
+# concurrently on a small CI runner. This receipt is not a cached Trivy binary.
+COPY --from=grype-builder /build/grype-output/grype-build-provenance.json /build/prerequisites/grype-build-provenance.json
 COPY scripts/build_gitleaks.py scripts/build_trivy.py ./
 COPY security-build/trivy /build/trivy-lock
 RUN python build_trivy.py --lock-dir /build/trivy-lock --output /build/trivy-output
