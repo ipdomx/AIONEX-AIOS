@@ -43,6 +43,13 @@ COPY scripts/build_httpx.py scripts/build_gitleaks.py /build/
 COPY security-build/httpx /build/httpx-lock
 RUN python /build/build_httpx.py --lock-dir /build/httpx-lock --output /build/httpx-output
 
+# Syft source unchanged; newer pinned compiler and an explicit local version.
+FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS syft-builder
+WORKDIR /build
+COPY scripts/build_syft.py scripts/build_gitleaks.py /build/
+COPY security-build/syft /build/syft-lock
+RUN python /build/build_syft.py --lock-dir /build/syft-lock --output /build/syft-output
+
 FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS runtime
 WORKDIR /app
 RUN apt-get update \
@@ -69,6 +76,9 @@ COPY --from=gitleaks-builder /build/gitleaks-output/GITLEAKS-LICENSE /usr/local/
 COPY --from=httpx-builder /build/httpx-output/pd-httpx /usr/local/bin/pd-httpx
 COPY --from=httpx-builder /build/httpx-output/httpx-build-provenance.json /usr/local/share/aionex/httpx-build-provenance.json
 COPY --from=httpx-builder /build/httpx-output/HTTPX-LICENSE.md /usr/local/share/licenses/httpx/LICENSE.md
+COPY --from=syft-builder /build/syft-output/syft /usr/local/bin/syft
+COPY --from=syft-builder /build/syft-output/syft-build-provenance.json /usr/local/share/aionex/syft-build-provenance.json
+COPY --from=syft-builder /build/syft-output/SYFT-LICENSE /usr/local/share/licenses/syft/LICENSE
 COPY scripts/install-security-tools.sh /usr/local/sbin/install-security-tools.sh
 RUN /usr/local/sbin/install-security-tools.sh \
     && rm -f /usr/local/sbin/install-security-tools.sh

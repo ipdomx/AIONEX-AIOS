@@ -13,7 +13,7 @@ KATANA_VERSION=1.7.0
 HTTPX_VERSION=1.12.0
 TRIVY_VERSION=0.73.0
 OSV_VERSION=2.5.0
-SYFT_VERSION=1.50.0
+SYFT_VERSION=1.52.0
 GRYPE_VERSION=0.116.1
 GITLEAKS_VERSION=8.30.1+aios.1
 GITLEAKS_SHA256=7c8b599cead7b3c8cd4a55aac3a3c1238814f59d08a88b4078b1a18afa100f5b
@@ -117,7 +117,8 @@ download "$checksums" "https://github.com/google/osv-scanner/releases/download/v
 verify_asset "$checksums" "$asset"
 install -m 0755 "$asset" /usr/local/bin/osv-scanner
 
-install_tgz_release anchore/syft "v${SYFT_VERSION}" "$SYFT_VERSION" "syft_${SYFT_VERSION}_linux_amd64.tar.gz" "syft_${SYFT_VERSION}_checksums.txt" syft
+# Keep the source-built Syft; reject an absent or unexpected executable.
+[[ "$(syft version -o json | jq -r .version)" == "${SYFT_VERSION}+aios.1" ]] || { echo "Pinned Syft build required" >&2; exit 1; }
 install_tgz_release anchore/grype "v${GRYPE_VERSION}" "$GRYPE_VERSION" "grype_${GRYPE_VERSION}_linux_amd64.tar.gz" "grype_${GRYPE_VERSION}_checksums.txt" grype
 # Already built from verified source in the dedicated stage; never overwrite
 # it with the older upstream release binary containing unpatched Go modules.

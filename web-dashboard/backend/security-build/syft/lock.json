@@ -1,0 +1,22 @@
+{
+  "upstream_version": "1.52.0",
+  "local_version": "1.52.0+aios.1",
+  "upstream_commit": "02ba369d13b4248395b20a504eca94b0cab564d8",
+  "source_url": "https://codeload.github.com/anchore/syft/tar.gz/02ba369d13b4248395b20a504eca94b0cab564d8",
+  "source_sha256": "b4e44679d069d9025ecf0ce91e3f6191a3efb12a441a7e01d409ae30d42db269",
+  "toolchain_version": "go1.27.1",
+  "toolchain_url": "https://go.dev/dl/go1.27.1.linux-amd64.tar.gz",
+  "toolchain_sha256": "63d339f0da5ab53635a56f2490a7984dfe12dfcff22ad749f63edaf590168445",
+  "files": {
+    "go.mod": "f1db5a8f2feeb1a725b14c9b33d910a214008d3f1fd2d3c433f35b01af3c881d",
+    "go.sum": "54d586511a8996f58c3851a67e831691a21dc533fd5f142542531d1287b0f03c"
+  },
+  "modules": {
+    "golang.org/x/crypto": "v0.56.0",
+    "golang.org/x/mod": "v0.41.0",
+    "golang.org/x/net": "v0.58.0",
+    "google.golang.org/grpc": "v1.83.2"
+  },
+  "build_date": "2026-09-30T05:48:00Z",
+  "expected_binary_sha256": "4251a6a8e77e0a332815c6977a3f62fe9a391d21985caea733a9aee8f8a216be"
+}
