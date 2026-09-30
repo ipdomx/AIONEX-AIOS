@@ -34,6 +34,15 @@ COPY scripts/build_gitleaks.py /build/build_gitleaks.py
 COPY security-build/gitleaks /build/gitleaks-lock
 RUN python /build/build_gitleaks.py --lock-dir /build/gitleaks-lock --output /build/gitleaks-output
 
+# Upstream httpx source with corrected pinned compiler; explicit local version.
+FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS httpx-builder
+WORKDIR /build
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates git \
+    && rm -rf /var/lib/apt/lists/*
+COPY scripts/build_httpx.py scripts/build_gitleaks.py /build/
+COPY security-build/httpx /build/httpx-lock
+RUN python /build/build_httpx.py --lock-dir /build/httpx-lock --output /build/httpx-output
+
 FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS runtime
 WORKDIR /app
 RUN apt-get update \
@@ -57,6 +66,9 @@ RUN ln -s /opt/semgrep/bin/semgrep /usr/local/bin/semgrep
 COPY --from=gitleaks-builder /build/gitleaks-output/gitleaks /usr/local/bin/gitleaks
 COPY --from=gitleaks-builder /build/gitleaks-output/gitleaks-build-provenance.json /usr/local/share/aionex/gitleaks-build-provenance.json
 COPY --from=gitleaks-builder /build/gitleaks-output/GITLEAKS-LICENSE /usr/local/share/licenses/gitleaks/LICENSE
+COPY --from=httpx-builder /build/httpx-output/pd-httpx /usr/local/bin/pd-httpx
+COPY --from=httpx-builder /build/httpx-output/httpx-build-provenance.json /usr/local/share/aionex/httpx-build-provenance.json
+COPY --from=httpx-builder /build/httpx-output/HTTPX-LICENSE.md /usr/local/share/licenses/httpx/LICENSE.md
 COPY scripts/install-security-tools.sh /usr/local/sbin/install-security-tools.sh
 RUN /usr/local/sbin/install-security-tools.sh \
     && rm -f /usr/local/sbin/install-security-tools.sh

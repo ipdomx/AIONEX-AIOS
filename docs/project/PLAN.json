@@ -2151,6 +2151,48 @@
           "web-dashboard/backend/scripts/build_gitleaks.py",
           "web-dashboard/backend/scripts/verify_security_gitleaks.py"
         ]
+      },
+      "security_httpx_source": {
+        "part": "FR-06-security-httpx",
+        "upstream_version": "1.12.0",
+        "local_version": "1.12.0+aios.1",
+        "toolchain": "go1.27.1",
+        "source_base": "ecb9c030dda5c58426d2e13d2871399096309c82",
+        "new_contract_tests": 37,
+        "selected_upstream_test_events_per_run": 368,
+        "full_upstream_suite_claimed": false,
+        "external_integration_tests_run": false,
+        "official_new_binary_security_rejected": true,
+        "rebuilt_httpx_high_critical": 0,
+        "remaining_full_image_findings": 255,
+        "full_image_security_passed": false,
+        "clean_full_source_image_rebuild_claimed": false,
+        "production_deployed": false,
+        "parent_batch_completed": false,
+        "full_host_closure": false,
+        "evidence": [
+          "docs/project/receipts/FR-06-security-httpx-rebuild.md",
+          "web-dashboard/backend/security-build/httpx/lock.json",
+          "web-dashboard/backend/scripts/build_httpx.py",
+          "web-dashboard/backend/scripts/verify_security_httpx.py",
+          "tests/test_fr06_security_httpx.py"
+        ]
+      },
+      "main794_moment_security_correction": {
+        "source_part": "httpx-continuation",
+        "affected_lock_entry": "web-dashboard/frontend/package-lock.json:node_modules/moment",
+        "from": "2.30.1",
+        "to": "2.31.0",
+        "other_dependencies_changed": false,
+        "advisory": "GHSA-4p3w-j4w9-5jqw",
+        "new_node_regressions": 17,
+        "old_package_failed_cases": 3,
+        "fixed_package_passed_cases": 17,
+        "production_audit_fixed": true,
+        "workflow_changed": false,
+        "frontend_deployed": false,
+        "main794_historically_failed": true,
+        "parent_batch_complete": false
       }
     },
     {
