@@ -10,7 +10,8 @@ from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-class TurnDrainAcceptanceUnavailable(RuntimeError): pass
+class TurnDrainAcceptanceUnavailable(RuntimeError):
+    """TURN drain evidence is incomplete, stale, or differently bound."""
 
 def _time(v: Any) -> datetime:
     if not isinstance(v,str): raise TurnDrainAcceptanceUnavailable("timestamp missing")
