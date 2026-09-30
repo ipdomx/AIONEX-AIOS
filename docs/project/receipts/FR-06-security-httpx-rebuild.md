@@ -76,3 +76,34 @@ FR-07 remains complete. Observer-operator/workflow/C5E9 blocked operations were 
 retried. Backend and the Telegram workers were not redeployed. The remaining Python
 worker rollout, OS/Go image remediation, drain, host-state/memory and boot acceptance
 remain open. Evidence: docs/project/runtime/fr06-security-httpx-20260930T0342/.
+
+## Continuation — repair newly failing main dependency gate
+
+The exact post-merge main794 run 36665391112 finished with a failed frontend
+production-dependency audit. Backend tests and Production Docker Build succeeded;
+the failure was NOT waived or rerun without a change. The published Moment
+advisory GHSA-4p3w-j4w9-5jqw affects >=2.29.2,<2.31.0 and identifies 2.31.0 as
+fixed. It concerns server-side lazy locale loading with attacker-influenced
+non-string input; presence in this lockfile does not establish application
+exploitability, and a browser-only exposure is not asserted.
+
+Updated exactly one package-lock entry, Moment 2.30.1 -> 2.31.0, inside the
+already permitted transitive dependency ranges. No other dependency or override
+changed. npm production audit reproduced the moderate finding before the update
+and returned zero known findings afterward. Published npm SHA512 integrity was
+verified for both original and corrected packages.
+
+The added Node regression suite exercises real packaged Moment code. Seventeen
+cases cover crafted/non-string and string locale inputs, locale fallback, six
+supported locale round-trips, leap dates, UTC offsets, normalization and prototype
+names. Three cases fail on the old package, all seventeen pass on the corrected
+one. Unsafe module resolution is intercepted before filesystem access; no outside
+file is read and no network request is made. This verifies a guarded local
+regression, not exploitation of production. The suite is included in the existing
+frontend API-contract/type-check command; .github/workflows files stay unchanged.
+
+Complete combined-source Root, frontend type/build and final audit receipts are
+retained under resume-20260930T0524. They must be checked before source acceptance;
+the prior httpx-only Root result is not substituted for these changed files.
+Live frontend deployment is a separate pending gate; no live container is updated
+by this source repair and main794 remains historically failed.

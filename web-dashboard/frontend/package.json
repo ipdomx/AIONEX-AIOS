@@ -9,7 +9,8 @@
     "lint": "next lint",
     "type-check": "npm run check:api-contracts && tsc --noEmit",
     "check:owner-arabic": "node scripts/check-owner-arabic-coverage.mjs",
-    "check:api-contracts": "node scripts/check-api-contracts.mjs"
+    "check:api-contracts": "node scripts/check-api-contracts.mjs && npm run check:moment-security",
+    "check:moment-security": "node scripts/test-moment-security.cjs"
   },
   "dependencies": {
     "@apollo/client": "^3.9.0",

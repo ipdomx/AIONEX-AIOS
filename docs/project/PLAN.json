@@ -2177,6 +2177,22 @@
           "web-dashboard/backend/scripts/verify_security_httpx.py",
           "tests/test_fr06_security_httpx.py"
         ]
+      },
+      "main794_moment_security_correction": {
+        "source_part": "httpx-continuation",
+        "affected_lock_entry": "web-dashboard/frontend/package-lock.json:node_modules/moment",
+        "from": "2.30.1",
+        "to": "2.31.0",
+        "other_dependencies_changed": false,
+        "advisory": "GHSA-4p3w-j4w9-5jqw",
+        "new_node_regressions": 17,
+        "old_package_failed_cases": 3,
+        "fixed_package_passed_cases": 17,
+        "production_audit_fixed": true,
+        "workflow_changed": false,
+        "frontend_deployed": false,
+        "main794_historically_failed": true,
+        "parent_batch_complete": false
       }
     },
     {
