@@ -2296,6 +2296,34 @@
           "web-dashboard/backend/scripts/verify_security_pcre2.py",
           "tests/test_fr06_security_pcre2.py"
         ]
+      },
+      "security_trivy_source": {
+        "source_part": "FR-06-security-trivy",
+        "source_base_commit": "340d577f52c1f14b8d3745d7f971bf45d97c8ff9",
+        "stacked_parent_pr": 810,
+        "local_version": "0.74.0+aios.1",
+        "compiler": "go1.26.8",
+        "upstream_json_experiment_retained": true,
+        "grpc_version": "1.83.2",
+        "upstream_scanner_source_modified": false,
+        "focused_contract_tests": 39,
+        "selected_upstream_test_events": 175,
+        "all_upstream_tests_claimed": false,
+        "native_three_scanner_modes_verified": true,
+        "fixture_database_not_current_feed": true,
+        "trivy_high_critical": 0,
+        "remaining_image_high_critical": 200,
+        "full_image_security_passed": false,
+        "merge_freeze": true,
+        "deployment_freeze": true,
+        "production_deployed": false,
+        "parent_batch_completed": false,
+        "evidence": [
+          "docs/project/receipts/FR-06-security-trivy-rebuild.md",
+          "web-dashboard/backend/scripts/build_trivy.py",
+          "web-dashboard/backend/scripts/verify_security_trivy.py",
+          "tests/test_fr06_security_trivy.py"
+        ]
       }
     },
     {

@@ -1,0 +1,27 @@
+{
+  "upstream_version": "0.74.0",
+  "upstream_commit": "e1fd17a0ea4a8cf24bc4b4dd7e2cfbf4bb31b994",
+  "source_url": "https://codeload.github.com/aquasecurity/trivy/tar.gz/e1fd17a0ea4a8cf24bc4b4dd7e2cfbf4bb31b994",
+  "source_sha256": "285594b257470eb444fd2836be95a835565ee600382320c977b3993d8efbb767",
+  "local_version": "0.74.0+aios.1",
+  "toolchain_version": "go1.26.8",
+  "toolchain_url": "https://go.dev/dl/go1.26.8.linux-amd64.tar.gz",
+  "toolchain_sha256": "d0f743b33e8d8945e6b1f432edd15785c70507121d6e2a723b21285eddf8b57b",
+  "files": {
+    "go.mod": "926dad0adb06c67df30013f281d1c723a1e43152fa6b3fe80abda6b0e9e8dae8",
+    "go.sum": "76d5fda115c00788a05b11c3434324653ff053a9435da3f4267925da4b3d18d7"
+  },
+  "upstream_files": {
+    "go.mod": "85697654fc5fea7d0a0082920bed1116af5d06dbd2be0fcc0c281b68a35c8e33",
+    "go.sum": "b0727b3c85888f77163ac9f6164869e9e8fc11cc6b8b6bafabbed92cf3288b9a"
+  },
+  "modules": {
+    "google.golang.org/grpc": "v1.83.2",
+    "golang.org/x/crypto": "v0.55.0",
+    "golang.org/x/net": "v0.58.0",
+    "golang.org/x/mod": "v0.40.0",
+    "github.com/go-git/go-git/v5": "v5.19.2",
+    "oras.land/oras-go/v2": "v2.6.2"
+  },
+  "expected_binary_sha256": "82e0a73a831efc894c1df0de6893eb653145570d2b186f395338628ba380345e"
+}

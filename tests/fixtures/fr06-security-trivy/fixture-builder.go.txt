@@ -1,0 +1,53 @@
+// Synthetic, local fixture only. Never installed as the runtime vulnerability feed.
+package main
+
+import (
+    "encoding/json"
+    "fmt"
+    "os"
+    "path/filepath"
+    "time"
+    fixtures "github.com/aquasecurity/bolt-fixtures"
+)
+
+func main() {
+    if len(os.Args)!=2 { panic("fixture output directory required") }
+    dest:=os.Args[1]
+    if err:=os.MkdirAll(dest,0755);err!=nil {panic(err)}
+    yaml:=`- bucket: debian 12
+  pairs:
+    - bucket: apache2
+      pairs:
+        - key: CVE-2020-11985
+          value:
+            FixedVersion: "2.4.25-1"
+- bucket: data-source
+  pairs:
+    - key: debian 12
+      value:
+        ID: "debian"
+        Name: "Synthetic historical fixture, NOT public feed"
+        URL: "https://example.invalid/synthetic-advisory"
+- bucket: vulnerability
+  pairs:
+    - key: CVE-2020-11985
+      value:
+        Title: "Synthetic historical test only"
+        Description: "Fixture exercises version comparison, never a current vulnerability feed"
+        Severity: "HIGH"
+        VendorSeverity:
+          debian: 3
+        References:
+          - "https://example.invalid/synthetic-advisory"
+`
+    path:=filepath.Join(dest,"fixture.yaml")
+    if err:=os.WriteFile(path,[]byte(yaml),0644);err!=nil {panic(err)}
+    loader,err:=fixtures.New(filepath.Join(dest,"trivy.db"),[]string{path});if err!=nil {panic(err)}
+    if err=loader.Load();err!=nil {panic(err)}
+    if err=loader.Close();err!=nil {panic(err)}
+    now:=time.Now().UTC()
+    meta:=map[string]interface{}{"Version":2,"UpdatedAt":now,"NextUpdate":now.Add(24*time.Hour),"DownloadedAt":now}
+    data,err:=json.MarshalIndent(meta,"","  ");if err!=nil {panic(err)}
+    if err=os.WriteFile(filepath.Join(dest,"metadata.json"),data,0644);err!=nil {panic(err)}
+    fmt.Println("SYNTHETIC_FIXTURE_READY")
+}

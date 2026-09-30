@@ -58,6 +58,13 @@ COPY scripts/build_gitleaks.py scripts/build_grype.py ./
 COPY security-build/grype /build/grype-lock
 RUN python build_grype.py --lock-dir /build/grype-lock --output /build/grype-output
 
+# Corrected Trivy/gRPC source build with pinned inputs and native detector tests.
+FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS trivy-builder
+WORKDIR /build
+COPY scripts/build_gitleaks.py scripts/build_trivy.py ./
+COPY security-build/trivy /build/trivy-lock
+RUN python build_trivy.py --lock-dir /build/trivy-lock --output /build/trivy-output
+
 FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS runtime
 WORKDIR /app
 # Retain this small package's documentation too, so dpkg can verify every file.
@@ -93,6 +100,9 @@ COPY --from=syft-builder /build/syft-output/SYFT-LICENSE /usr/local/share/licens
 COPY --from=grype-builder /build/grype-output/grype /usr/local/bin/grype
 COPY --from=grype-builder /build/grype-output/grype-build-provenance.json /usr/local/share/aionex/grype-build-provenance.json
 COPY --from=grype-builder /build/grype-output/GRYPE-LICENSE /usr/local/share/aionex/GRYPE-LICENSE
+COPY --from=trivy-builder /build/trivy-output/trivy /usr/local/bin/trivy
+COPY --from=trivy-builder /build/trivy-output/trivy-build-provenance.json /usr/local/share/aionex/trivy-build-provenance.json
+COPY --from=trivy-builder /build/trivy-output/TRIVY-LICENSE /usr/local/share/licenses/trivy/LICENSE
 COPY scripts/install-security-tools.sh /usr/local/sbin/install-security-tools.sh
 RUN /usr/local/sbin/install-security-tools.sh \
     && rm -f /usr/local/sbin/install-security-tools.sh

@@ -11,7 +11,7 @@ NUCLEI_TEMPLATES_VERSION=10.4.7
 NUCLEI_TEMPLATES_SHA256=a84dffa24f6a6e44798f45a4502f9cb06f93714287bce75a5fc559e153252f7e
 KATANA_VERSION=1.7.0
 HTTPX_VERSION=1.12.0
-TRIVY_VERSION=0.73.0
+TRIVY_VERSION=0.74.0
 OSV_VERSION=2.5.0
 SYFT_VERSION=1.52.0
 GRYPE_VERSION=0.119.0
@@ -102,13 +102,8 @@ install_zip_release projectdiscovery/katana "$KATANA_VERSION" "katana_${KATANA_V
 [[ -x /usr/local/bin/pd-httpx ]] || { echo "Missing rebuilt httpx" >&2; exit 1; }
 /usr/local/bin/pd-httpx -version 2>&1 | grep -F "v${HTTPX_VERSION}+aios.1" >/dev/null
 
-asset="trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
-checksums="trivy_${TRIVY_VERSION}_checksums.txt"
-download "$asset" "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/$asset"
-download "$checksums" "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/$checksums"
-verify_asset "$checksums" "$asset"
-tar -xzf "$asset" trivy
-install -m 0755 trivy /usr/local/bin/trivy
+# Preserve the reviewed source-built Trivy; never replace it with the old binary.
+[[ "$(trivy version --format json | jq -r .Version)" == "${TRIVY_VERSION}+aios.1" ]] || { echo "Pinned Trivy build required" >&2; exit 1; }
 
 asset="osv-scanner_linux_amd64"
 checksums="osv-scanner_SHA256SUMS"
