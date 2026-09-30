@@ -15,11 +15,12 @@ import posixpath
 import re
 import shutil
 import subprocess
+import sys
 import tarfile
 import urllib.parse
 import urllib.request
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, TextIO
 
 
 def sha(path: Path) -> str:
@@ -108,12 +109,56 @@ def source_fingerprint(root: Path) -> dict[str, str]:
             and p.name not in {"go.mod", "go.sum"}}
 
 
+# Only fixed labels are emitted. Raw logs, URLs, argv and environment values
+# stay private to the build stage; an unsuccessful Docker layer is not an artifact.
+FAILURE_MARKERS = {
+    "checksum_mismatch": (b"checksum mismatch", b"security error"),
+    "http_429": (b"429 too many requests",),
+    "http_5xx": (b"500 internal server error", b"502 bad gateway",
+                 b"503 service unavailable", b"504 gateway timeout"),
+    "http_403": (b"403 forbidden",),
+    "http_404": (b"404 not found",),
+    "network_timeout": (b"i/o timeout", b"tls handshake timeout", b"context deadline exceeded"),
+    "dns_failure": (b"no such host", b"temporary failure in name resolution"),
+    "connection_reset": (b"connection reset by peer",),
+    "tls_certificate": (b"x509:",),
+    "disk_full": (b"no space left on device",),
+    "permission_denied": (b"permission denied",),
+    "module_revision_missing": (b"unknown revision",),
+}
+FAILURE_TAIL_BYTES = 64 * 1024
+
+
+def emit_failure_diagnostic(log: TextIO, return_code: int | None, *, timed_out: bool) -> None:
+    """Read a bounded tail from the owned open descriptor, never from its path.
+
+    Categories are observations of the retained tail, not proven root causes or
+    retry permission. No command is retried and no unsuccessful step is accepted.
+    """
+    log.flush()
+    size = os.fstat(log.fileno()).st_size
+    tail = os.pread(log.fileno(), FAILURE_TAIL_BYTES, max(0, size - FAILURE_TAIL_BYTES))
+    lower = tail.lower()
+    categories = [name for name, markers in FAILURE_MARKERS.items()
+                  if any(marker in lower for marker in markers)] or ["unclassified"]
+    result = {"schema_version": 1, "event": "pinned_build_step_failure",
+              "return_code": return_code, "timed_out": timed_out,
+              "log_bytes": size, "bytes_examined": len(tail), "tail_only": size > len(tail),
+              "tail_sha256": hashlib.sha256(tail).hexdigest(), "error_categories": categories}
+    print("AIONEX_BUILD_FAILURE " + json.dumps(result, ensure_ascii=True), file=sys.stderr, flush=True)
+
+
 def run(args: list[str], cwd: Path, env: dict[str, str], output: Path, timeout: int = 600) -> None:
-    with output.open("x") as log:
-        result = subprocess.run(args, cwd=cwd, env=env, stdout=log, stderr=subprocess.STDOUT,
-                                timeout=timeout, check=False)
-    if result.returncode:
-        raise RuntimeError("Pinned build step failed; retained log: " + output.name)
+    with output.open("x+") as log:
+        try:
+            result = subprocess.run(args, cwd=cwd, env=env, stdout=log, stderr=subprocess.STDOUT,
+                                    timeout=timeout, check=False)
+        except subprocess.TimeoutExpired:
+            emit_failure_diagnostic(log, None, timed_out=True)
+            raise
+        if result.returncode:
+            emit_failure_diagnostic(log, result.returncode, timed_out=False)
+            raise RuntimeError("Pinned build step failed; retained log: " + output.name)
 
 
 def main() -> None:

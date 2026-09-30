@@ -58,11 +58,26 @@ COPY scripts/build_gitleaks.py scripts/build_grype.py ./
 COPY security-build/grype /build/grype-lock
 RUN python build_grype.py --lock-dir /build/grype-lock --output /build/grype-output
 
+# Corrected Trivy/gRPC source build with pinned inputs and native detector tests.
+FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS trivy-builder
+WORKDIR /build
+# Establish build ordering only: avoid running the largest two Go compilations
+# concurrently on a small CI runner. This receipt is not a cached Trivy binary.
+COPY --from=grype-builder /build/grype-output/grype-build-provenance.json /build/prerequisites/grype-build-provenance.json
+COPY scripts/build_gitleaks.py scripts/build_trivy.py ./
+COPY security-build/trivy /build/trivy-lock
+RUN python build_trivy.py --lock-dir /build/trivy-lock --output /build/trivy-output
+
 FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS runtime
 WORKDIR /app
-RUN apt-get update \
+# Retain this small package's documentation too, so dpkg can verify every file.
+RUN printf 'path-include=/usr/share/doc/libpcre2-8-0/*\n' > /etc/dpkg/dpkg.cfg.d/zz-aios-pcre2-integrity \
+    && printf 'path-include=/usr/share/doc/liblzma5/*\n' > /etc/dpkg/dpkg.cfg.d/zz-aios-lzma-integrity \
+    && apt-get update \
     && apt-get install -y --no-install-recommends \
-       bash bsdextrautils ca-certificates curl dnsutils jq libio-socket-ssl-perl libnet-ssleay-perl libxml-writer-perl libpq5 nmap openssl perl postgresql-client procps unzip \
+       bash bsdextrautils ca-certificates curl dnsutils jq libio-socket-ssl-perl libnet-ssleay-perl libxml-writer-perl libpq5 nmap openssl perl postgresql-client procps unzip libpcre2-8-0 liblzma5 \
+    && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libpcre2-8-0)" ge '10.42-1+deb12u1' \
+    && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' liblzma5)" ge '5.4.1-1+deb12u2' \
     && rm -rf /var/lib/apt/lists/*
 # Remove unused system installers INCLUDING their vendored vulnerable code.
 # Operational pip-audit still uses the maintained pip inside /opt/venv.
@@ -90,6 +105,9 @@ COPY --from=syft-builder /build/syft-output/SYFT-LICENSE /usr/local/share/licens
 COPY --from=grype-builder /build/grype-output/grype /usr/local/bin/grype
 COPY --from=grype-builder /build/grype-output/grype-build-provenance.json /usr/local/share/aionex/grype-build-provenance.json
 COPY --from=grype-builder /build/grype-output/GRYPE-LICENSE /usr/local/share/aionex/GRYPE-LICENSE
+COPY --from=trivy-builder /build/trivy-output/trivy /usr/local/bin/trivy
+COPY --from=trivy-builder /build/trivy-output/trivy-build-provenance.json /usr/local/share/aionex/trivy-build-provenance.json
+COPY --from=trivy-builder /build/trivy-output/TRIVY-LICENSE /usr/local/share/licenses/trivy/LICENSE
 COPY scripts/install-security-tools.sh /usr/local/sbin/install-security-tools.sh
 RUN /usr/local/sbin/install-security-tools.sh \
     && rm -f /usr/local/sbin/install-security-tools.sh
@@ -110,6 +128,11 @@ ENV PATH="/opt/venv/bin:$PATH" \
     SEMGREP_ENABLE_VERSION_CHECK=0 \
     TRIVY_NO_PROGRESS=true \
     HOME=/tmp/aionex-security-home
+# Exercise the installed native library after the signed Debian package upgrade.
+# This is a bounded offline regression, not full-image security acceptance.
 USER 1000:1000
+RUN python /app/scripts/verify_security_pcre2.py
+# Require the Debian liblzma backport and exercise bounded offline compatibility.
+RUN python /app/scripts/verify_security_lzma.py
 ENTRYPOINT []
 CMD ["python", "-m", "app.services.security_scan_worker"]
