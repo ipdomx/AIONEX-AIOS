@@ -8,10 +8,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import platform
 import re
 import shutil
+import signal
 import subprocess
 import time
 from pathlib import Path
@@ -101,11 +103,66 @@ COLD_COMMAND_TIMEOUT_SECONDS = 1800
 FAILURE_LOG_TAIL_BYTES = 16384
 
 
+def wait_cold_leader(pid: int, args: list[str], timeout: float) -> None:
+    """Observe, but do not reap, this command's leader until group cleanup.
+
+    WNOWAIT retains the leader PID even if it exits between observation and
+    signaling, so cleanup cannot target a newly recycled process-group ID.
+    This dedicated synchronous builder must be its child's sole reaper.
+    """
+    deadline = time.monotonic() + timeout
+    while True:
+        observed = os.waitid(os.P_PID, pid, os.WEXITED | os.WNOWAIT | os.WNOHANG)
+        if observed is not None:
+            return
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise subprocess.TimeoutExpired(args, timeout)
+        time.sleep(min(0.05, remaining))
+
+
+def run_cold_process(args: list[str], cwd: Path, env: dict[str, str], output: Path,
+                     timeout: float) -> None:
+    """Bound one trusted compiler/test process group, not the host or a cgroup.
+
+    Descendants inheriting the new session are signaled before the direct child
+    is reaped, on success, failure, timeout or a caught Python interruption.
+    Detached sessions, abrupt supervisor death and kernel-I/O drain are outside
+    this local guarantee; the surrounding disposable build remains required.
+    """
+    if isinstance(timeout, bool) or not math.isfinite(timeout) or timeout <= 0:
+        raise ValueError("Positive finite build timeout required")
+    if platform.system() != "Linux" or signal.getsignal(signal.SIGCHLD) != signal.SIG_DFL:
+        raise RuntimeError("Linux build with default child-reaping policy required")
+    with output.open("x") as log:
+        process = subprocess.Popen(args, cwd=cwd, env=env, stdin=subprocess.DEVNULL,
+                                   stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+        owned = True
+        try:
+            wait_cold_leader(process.pid, args, timeout)
+        except ChildProcessError as error:
+            # Another reaper invalidates ownership. Never signal a reusable ID.
+            owned = False
+            raise RuntimeError("Build leader ownership lost; cleanup unverified") from error
+        finally:
+            if owned:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                finally:
+                    # Reaping follows the signal, never the other way around.
+                    # A failed cleanup cannot silently become build acceptance.
+                    process.wait(timeout=10)
+        if process.returncode:
+            raise RuntimeError("Pinned build step failed; retained log: " + output.name)
+
+
 def run_cold_build_step(args: list[str], cwd: Path, env: dict[str, str], output: Path) -> None:
     started = time.monotonic()
     status = "FAILED"
     try:
-        run(args, cwd, env, output, timeout=COLD_COMMAND_TIMEOUT_SECONDS)
+        run_cold_process(args, cwd, env, output, timeout=COLD_COMMAND_TIMEOUT_SECONDS)
         status = "PASSED"
     except subprocess.TimeoutExpired:
         status = "TIMED_OUT"

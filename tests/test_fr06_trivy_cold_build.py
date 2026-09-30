@@ -31,7 +31,7 @@ def test_cold_compilation_budget_is_bounded_and_recorded(tmp_path, monkeypatch, 
     def fake_run(args, cwd, env, output, timeout):
         calls.append((args, cwd, env, output, timeout))
         output.write_text("build complete\n")
-    monkeypatch.setattr(m, "run", fake_run)
+    monkeypatch.setattr(m, "run_cold_process", fake_run)
     args = ["go", "test", "-timeout=120s", "./pkg/db"]
     log = tmp_path / "tests.jsonl"
     env = {"SYNTHETIC_NOT_FOR_LOGGING": "not-a-real-secret"}
@@ -51,7 +51,7 @@ def test_failure_is_never_converted_to_acceptance(tmp_path, monkeypatch, failure
     def fail(args, cwd, env, output, timeout):
         output.write_text("retained diagnostic\n")
         raise failure
-    monkeypatch.setattr(m, "run", fail)
+    monkeypatch.setattr(m, "run_cold_process", fail)
     log = tmp_path / "build.log"
     with pytest.raises(type(failure)) as exc:
         m.run_cold_build_step(["go", "build"], tmp_path, {}, log)
@@ -65,7 +65,7 @@ def test_outer_timeout_is_retained_and_raised(tmp_path, monkeypatch):
     def fail(args, cwd, env, output, timeout):
         output.write_text("compiler still active\n")
         raise failure
-    monkeypatch.setattr(m, "run", fail)
+    monkeypatch.setattr(m, "run_cold_process", fail)
     log = tmp_path / "tests.jsonl"
     with pytest.raises(subprocess.TimeoutExpired) as exc:
         m.run_cold_build_step(["go", "test"], tmp_path, {}, log)
@@ -77,7 +77,7 @@ def test_outer_timeout_is_retained_and_raised(tmp_path, monkeypatch):
 def test_no_log_when_process_cannot_start_is_not_false_success(tmp_path, monkeypatch):
     def fail(*args, **kwargs):
         raise FileNotFoundError("synthetic")
-    monkeypatch.setattr(m, "run", fail)
+    monkeypatch.setattr(m, "run_cold_process", fail)
     log = tmp_path / "absent.log"
     with pytest.raises(FileNotFoundError):
         m.run_cold_build_step(["missing"], tmp_path, {}, log)
@@ -90,7 +90,7 @@ def test_failure_tail_is_bounded_and_terminal_controls_are_escaped(tmp_path, mon
     def fail(args, cwd, env, output, timeout):
         output.write_text(payload)
         raise RuntimeError("synthetic")
-    monkeypatch.setattr(m, "run", fail)
+    monkeypatch.setattr(m, "run_cold_process", fail)
     log = tmp_path / "huge.log"
     with pytest.raises(RuntimeError):
         m.run_cold_build_step(["go", "test"], tmp_path, {}, log)
@@ -109,7 +109,7 @@ def test_symlink_log_is_never_followed_for_diagnostic_output(tmp_path, monkeypat
     log.symlink_to(outside)
     def fail(*args, **kwargs):
         raise FileExistsError("log already exists")
-    monkeypatch.setattr(m, "run", fail)
+    monkeypatch.setattr(m, "run_cold_process", fail)
     with pytest.raises(FileExistsError):
         m.run_cold_build_step(["go", "build"], tmp_path, {}, log)
     assert "failure_log_tail" not in read_receipt(log)
@@ -131,7 +131,7 @@ def test_existing_receipt_is_not_overwritten(tmp_path, monkeypatch):
     receipt.write_text("prior evidence")
     def fake_run(args, cwd, env, output, timeout):
         output.write_text("success\n")
-    monkeypatch.setattr(m, "run", fake_run)
+    monkeypatch.setattr(m, "run_cold_process", fake_run)
     with pytest.raises(FileExistsError):
         m.run_cold_build_step(["go", "build"], tmp_path, {}, log)
     assert receipt.read_text() == "prior evidence"
