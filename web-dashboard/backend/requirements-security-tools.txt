@@ -2,9 +2,9 @@
 # Semgrep has a separate environment; its OpenTelemetry pins conflict with Google API Core.
 bandit==1.9.4
 pip-audit==2.10.1
-schemathesis==4.24.3
+schemathesis==4.28.0
 msgpack==1.2.3
-opentelemetry-api==1.44.0
+opentelemetry-api==1.45.0
 setuptools==84.0.0
 wheel==0.48.0
 # Explicitly local build with actual vendored code refreshed, not an upstream release.
