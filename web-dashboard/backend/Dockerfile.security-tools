@@ -50,6 +50,14 @@ COPY scripts/build_syft.py scripts/build_gitleaks.py /build/
 COPY security-build/syft /build/syft-lock
 RUN python /build/build_syft.py --lock-dir /build/syft-lock --output /build/syft-output
 
+# Grype's upstream release binary has an older Go toolchain; build the pinned source.
+FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS grype-builder
+WORKDIR /build
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY scripts/build_gitleaks.py scripts/build_grype.py ./
+COPY security-build/grype /build/grype-lock
+RUN python build_grype.py --lock-dir /build/grype-lock --output /build/grype-output
+
 FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS runtime
 WORKDIR /app
 RUN apt-get update \
@@ -79,6 +87,9 @@ COPY --from=httpx-builder /build/httpx-output/HTTPX-LICENSE.md /usr/local/share/
 COPY --from=syft-builder /build/syft-output/syft /usr/local/bin/syft
 COPY --from=syft-builder /build/syft-output/syft-build-provenance.json /usr/local/share/aionex/syft-build-provenance.json
 COPY --from=syft-builder /build/syft-output/SYFT-LICENSE /usr/local/share/licenses/syft/LICENSE
+COPY --from=grype-builder /build/grype-output/grype /usr/local/bin/grype
+COPY --from=grype-builder /build/grype-output/grype-build-provenance.json /usr/local/share/aionex/grype-build-provenance.json
+COPY --from=grype-builder /build/grype-output/GRYPE-LICENSE /usr/local/share/aionex/GRYPE-LICENSE
 COPY scripts/install-security-tools.sh /usr/local/sbin/install-security-tools.sh
 RUN /usr/local/sbin/install-security-tools.sh \
     && rm -f /usr/local/sbin/install-security-tools.sh

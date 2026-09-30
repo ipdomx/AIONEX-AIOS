@@ -1,0 +1,24 @@
+{
+  "upstream_version": "0.119.0",
+  "local_version": "0.119.0+aios.1",
+  "upstream_commit": "b6f5194537747ee7f705f4113069ac9eb269919f",
+  "source_url": "https://codeload.github.com/anchore/grype/tar.gz/b6f5194537747ee7f705f4113069ac9eb269919f",
+  "source_sha256": "645953a20891e2f129dc6f2bddbb76f978a29abe838cec67babcf56846e9dac7",
+  "toolchain_version": "go1.27.1",
+  "toolchain_url": "https://go.dev/dl/go1.27.1.linux-amd64.tar.gz",
+  "toolchain_sha256": "63d339f0da5ab53635a56f2490a7984dfe12dfcff22ad749f63edaf590168445",
+  "files": {
+    "go.mod": "55dcebbf99c98ecfd8ead7bb622fdc90c6004d535e54f3ec60e5e2118c151d0b",
+    "go.sum": "3c4e04e631ed1ba8be89e601cd2e09864fcbf481d7ddb88e1facded7eee1bcc0"
+  },
+  "modules": {
+    "github.com/docker/docker": "v28.5.2+incompatible",
+    "github.com/go-git/go-git/v5": "v5.19.2",
+    "golang.org/x/crypto": "v0.56.0",
+    "golang.org/x/mod": "v0.41.0",
+    "golang.org/x/net": "v0.58.0",
+    "google.golang.org/grpc": "v1.83.2"
+  },
+  "build_date": "2026-09-30T06:28:00Z",
+  "expected_binary_sha256": "025815315009831be7cad6d1fd7e9a2255e126f67750d1f83cfdc4c5f233e75b"
+}
