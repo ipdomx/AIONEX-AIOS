@@ -6,6 +6,9 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && python -m venv /opt/venv \
     && /opt/venv/bin/pip install --no-cache-dir --upgrade pip==26.2.1 setuptools==84.0.0 wheel==0.48.0
+COPY scripts/build_pip_vendor_wheel.py ./
+RUN python build_pip_vendor_wheel.py --download --inputs /build/pip-inputs --output /build/pip-wheels \
+    && /opt/venv/bin/python -m pip install --no-index --no-cache-dir /build/pip-wheels/pip-26.2.1+aios.1-py3-none-any.whl
 COPY requirements-runtime.txt requirements-security-tools.txt ./
 RUN /opt/venv/bin/pip install --no-cache-dir -r requirements-runtime.txt -r requirements-security-tools.txt \
     && /opt/venv/bin/python -m pip check
@@ -38,6 +41,7 @@ RUN rm -rf /usr/local/lib/python3.11/site-packages/pip* \
            /usr/local/lib/python3.11/site-packages/wheel* \
            /usr/local/bin/pip /usr/local/bin/pip3 /usr/local/bin/pip3.11 /usr/local/bin/wheel
 COPY --from=builder /opt/venv /opt/venv
+COPY --from=builder /build/pip-wheels/pip-vendor-provenance.json /usr/local/share/aionex/pip-vendor-provenance.json
 COPY --from=semgrep-builder /opt/semgrep /opt/semgrep
 COPY --from=semgrep-builder /build/wheels/semgrep-compat-provenance.json /usr/local/share/aionex/semgrep-compat-provenance.json
 RUN ln -s /opt/semgrep/bin/semgrep /usr/local/bin/semgrep
@@ -45,6 +49,9 @@ COPY scripts/install-security-tools.sh /usr/local/sbin/install-security-tools.sh
 RUN /usr/local/sbin/install-security-tools.sh \
     && rm -f /usr/local/sbin/install-security-tools.sh
 COPY . .
+# Keep temporary pip-audit resolution on the same reviewed pip, not a floating upgrade.
+RUN chmod 0755 /app/scripts/security_pip_audit.py \
+    && ln -sf /app/scripts/security_pip_audit.py /opt/venv/bin/pip-audit
 RUN rm -rf /app/tests \
     && addgroup --system --gid 1000 aionex \
     && adduser --system --uid 1000 --gid 1000 --home /home/aionex aionex \

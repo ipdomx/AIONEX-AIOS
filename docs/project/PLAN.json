@@ -2104,6 +2104,27 @@
           "web-dashboard/backend/scripts/verify_security_python.py",
           "tests/test_fr06_security_scanner_python.py"
         ]
+      },
+      "security_scanner_pip_vendor_source": {
+        "parent_source_pr": 792,
+        "parent_source_commit": "cede8ae6080a3c03adf5e365b81ca96204487f50",
+        "local_pip_version": "26.2.1+aios.1",
+        "real_vendor_code_updated": true,
+        "pip_engine_files_unchanged": 153,
+        "focused_tests": 32,
+        "python_high_critical_instances": 0,
+        "remaining_full_image_high_critical_instances": 296,
+        "full_image_accepted": false,
+        "production_deployed": false,
+        "workflow_changed": false,
+        "floating_audit_installer_removed_from_allowlisted_cli": true,
+        "evidence": [
+          "docs/project/receipts/FR-06-security-scanner-pip-vendor.md",
+          "web-dashboard/backend/scripts/build_pip_vendor_wheel.py",
+          "web-dashboard/backend/scripts/security_pip_audit.py",
+          "web-dashboard/backend/scripts/verify_security_pip.py",
+          "tests/test_fr06_security_scanner_vendor.py"
+        ]
       }
     },
     {
