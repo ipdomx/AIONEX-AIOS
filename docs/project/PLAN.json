@@ -2151,6 +2151,32 @@
           "web-dashboard/backend/scripts/build_gitleaks.py",
           "web-dashboard/backend/scripts/verify_security_gitleaks.py"
         ]
+      },
+      "security_httpx_source": {
+        "part": "FR-06-security-httpx",
+        "upstream_version": "1.12.0",
+        "local_version": "1.12.0+aios.1",
+        "toolchain": "go1.27.1",
+        "source_base": "ecb9c030dda5c58426d2e13d2871399096309c82",
+        "new_contract_tests": 37,
+        "selected_upstream_test_events_per_run": 368,
+        "full_upstream_suite_claimed": false,
+        "external_integration_tests_run": false,
+        "official_new_binary_security_rejected": true,
+        "rebuilt_httpx_high_critical": 0,
+        "remaining_full_image_findings": 255,
+        "full_image_security_passed": false,
+        "clean_full_source_image_rebuild_claimed": false,
+        "production_deployed": false,
+        "parent_batch_completed": false,
+        "full_host_closure": false,
+        "evidence": [
+          "docs/project/receipts/FR-06-security-httpx-rebuild.md",
+          "web-dashboard/backend/security-build/httpx/lock.json",
+          "web-dashboard/backend/scripts/build_httpx.py",
+          "web-dashboard/backend/scripts/verify_security_httpx.py",
+          "tests/test_fr06_security_httpx.py"
+        ]
       }
     },
     {

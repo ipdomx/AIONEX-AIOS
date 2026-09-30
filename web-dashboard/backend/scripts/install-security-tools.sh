@@ -10,7 +10,7 @@ NUCLEI_VERSION=3.11.1
 NUCLEI_TEMPLATES_VERSION=10.4.7
 NUCLEI_TEMPLATES_SHA256=a84dffa24f6a6e44798f45a4502f9cb06f93714287bce75a5fc559e153252f7e
 KATANA_VERSION=1.7.0
-HTTPX_VERSION=1.10.0
+HTTPX_VERSION=1.12.0
 TRIVY_VERSION=0.73.0
 OSV_VERSION=2.5.0
 SYFT_VERSION=1.50.0
@@ -98,8 +98,9 @@ printf '%s  %s\n' "$NUCLEI_TEMPLATES_SHA256" nuclei-templates.tar.gz | sha256sum
 mkdir -p /opt/nuclei-templates
 tar -xzf nuclei-templates.tar.gz --strip-components=1 -C /opt/nuclei-templates
 install_zip_release projectdiscovery/katana "$KATANA_VERSION" "katana_${KATANA_VERSION}_linux_amd64.zip" "katana-${KATANA_VERSION}-checksums.txt" katana
-install_zip_release projectdiscovery/httpx "$HTTPX_VERSION" "httpx_${HTTPX_VERSION}_linux_amd64.zip" "httpx_${HTTPX_VERSION}_checksums.txt" httpx
-mv /usr/local/bin/httpx /usr/local/bin/pd-httpx
+# Keep the pinned source-stage binary; the upstream release binary has an older Go.
+[[ -x /usr/local/bin/pd-httpx ]] || { echo "Missing rebuilt httpx" >&2; exit 1; }
+/usr/local/bin/pd-httpx -version 2>&1 | grep -F "v${HTTPX_VERSION}+aios.1" >/dev/null
 
 asset="trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
 checksums="trivy_${TRIVY_VERSION}_checksums.txt"

@@ -55,7 +55,7 @@ def test_phase35_toolchain_and_learning_promotions_are_pinned_and_evidence_gated
     for version in (
         "NUCLEI_VERSION=3.11.1",
         "KATANA_VERSION=1.7.0",
-        "HTTPX_VERSION=1.10.0",
+        "HTTPX_VERSION=1.12.0",
         "TRIVY_VERSION=0.73.0",
         "OSV_VERSION=2.5.0",
         "SYFT_VERSION=1.50.0",
