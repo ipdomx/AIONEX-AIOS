@@ -22,8 +22,8 @@ Conflicts=swap.img.swap umount.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/usr/bin/python3 /opt/AIOS/scripts/security/fr06c5_memory_controls.py boot-swap-start
-ExecStop=/usr/bin/python3 /opt/AIOS/scripts/security/fr06c5_memory_controls.py boot-swap-stop
+ExecStart=/usr/bin/false
+ExecStop=/usr/bin/false
 TimeoutStartSec=120
 TimeoutStopSec=120
 
@@ -91,10 +91,9 @@ def proposal() -> dict[str, object]:
             "local-fs.target.wants/tmp.mount": "../tmp.mount",
         },
         "activation_authorized": False,
-        "operator_integrated_in_main": False,
+        "operator_integrated_in_main": True,
         "real_host_dependency_graph_verified": False,
         "remaining_prerequisites": [
-            "Durable phase journal and verified ownership-aware recovery for the prepared memory operator",
             "Accepted host-state cutover, operation-bound writer quiescence and pinned underlay recheck",
             "Actual mapper/backing encryption attestation and safe memory reserve",
             "Full intended host enabled dependency graph and independently accepted boot/recovery",
