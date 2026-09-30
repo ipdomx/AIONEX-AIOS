@@ -2269,6 +2269,33 @@
           "docs/project/receipts/FR-06-production-build-two-high.md",
           "tests/test_fr06_production_build_two_high.py"
         ]
+      },
+      "security_pcre2_backport": {
+        "source_part": "FR-06-security-pcre2",
+        "source_base_commit": "1e5ebb6a5109ae4a81d8e14ea0747111e52d63a6",
+        "package": "libpcre2-8-0",
+        "minimum_version": "10.42-1+deb12u1",
+        "official_debian_backport": true,
+        "target_cves": [
+          "CVE-2026-86145",
+          "CVE-2026-89157",
+          "CVE-2026-89161"
+        ],
+        "native_cases_passed": 11,
+        "source_contract_cases": 24,
+        "old_native_failures": 2,
+        "huge_pattern_32bit_reproduced": false,
+        "whole_image_high_critical": 216,
+        "full_image_security_passed": false,
+        "merge_freeze": true,
+        "deployment_freeze": true,
+        "production_deployed": false,
+        "parent_batch_completed": false,
+        "evidence": [
+          "docs/project/receipts/FR-06-security-pcre2-backport.md",
+          "web-dashboard/backend/scripts/verify_security_pcre2.py",
+          "tests/test_fr06_security_pcre2.py"
+        ]
       }
     },
     {
