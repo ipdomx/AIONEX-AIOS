@@ -10,7 +10,7 @@ import hashlib
 import json
 import lzma
 import subprocess
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 PACKAGE = "liblzma5"
@@ -38,10 +38,51 @@ def loaded_libraries() -> set[Path]:
     return paths
 
 
+def native_manifest_digest(path: Path) -> str:
+    """Require explicit native-file coverage in dpkg's installed metadata.
+
+    dpkg --verify silently omits files without an MD5 entry. This comparison
+    detects missing metadata/file drift, not malicious replacement of both the
+    trusted package database and the library by root. APT authenticates packages;
+    MD5 here follows dpkg's format and is not a provenance/security signature.
+    """
+    result = run(["dpkg-query", "--control-show", f"{PACKAGE}:amd64", "md5sums"])
+    if result.returncode or result.stderr.strip() or not result.stdout.strip():
+        raise RuntimeError("Native liblzma checksum metadata missing")
+    if len(result.stdout) > 1024 * 1024:
+        raise RuntimeError("Native liblzma checksum metadata oversized")
+    expected_paths = {path.relative_to("/").as_posix()}
+    # Bookworm may record /lib while the merged-/usr filesystem resolves it
+    # to /usr/lib. No arbitrary path alias is accepted as native coverage.
+    if path.is_relative_to("/usr/lib"):
+        expected_paths.add(path.relative_to("/usr").as_posix())
+    matches: list[str] = []
+    seen: set[str] = set()
+    for line in result.stdout.splitlines():
+        parts = line.split("  ", 1)
+        if (len(parts) != 2 or len(parts[0]) != 32
+                or any(c not in "0123456789abcdef" for c in parts[0])):
+            raise RuntimeError("Native liblzma checksum metadata malformed")
+        name = parts[1]
+        relative = PurePosixPath(name)
+        if (not name or relative.is_absolute() or ".." in relative.parts
+                or relative.as_posix() != name or "\\" in name or "\x00" in name
+                or name in seen):
+            raise RuntimeError("Native liblzma checksum metadata path invalid")
+        seen.add(name)
+        if name in expected_paths:
+            if Path("/", name).resolve(strict=True) != path:
+                raise RuntimeError("Native liblzma checksum path does not match")
+            matches.append(parts[0])
+    if len(matches) != 1:
+        raise RuntimeError("Native liblzma checksum coverage not unique")
+    return matches[0]
+
+
 def package_identity() -> dict[str, str]:
     result = run(["dpkg-query", "-W", "-f=${Package}\t${Version}\t${Architecture}\t${db:Status-Abbrev}", PACKAGE])
     parts = result.stdout.split("\t")
-    if (result.returncode or len(parts) != 4 or parts[0] != PACKAGE
+    if (result.returncode or result.stderr.strip() or len(parts) != 4 or parts[0] != PACKAGE
             or parts[2] != "amd64" or parts[3].strip() != "ii"):
         raise RuntimeError("Installed official amd64 liblzma package required")
     if run(["dpkg", "--compare-versions", parts[1], "ge", MINIMUM_VERSION]).returncode:
@@ -50,12 +91,17 @@ def package_identity() -> dict[str, str]:
     if path.parent != LIBRARY.parent or not path.is_file():
         raise RuntimeError("Unexpected native liblzma location")
     verified = run(["dpkg", "--verify", PACKAGE])
-    if verified.returncode or verified.stdout.strip():
+    if verified.returncode or verified.stdout.strip() or verified.stderr.strip():
         raise RuntimeError("Installed liblzma package files differ")
     if loaded_libraries() != {path}:
         raise RuntimeError("Python is not using exactly the verified liblzma")
+    expected_digest = native_manifest_digest(path)
+    data = path.read_bytes()
+    if hashlib.md5(data, usedforsecurity=False).hexdigest() != expected_digest:
+        raise RuntimeError("Native liblzma content checksum differs")
     return {"package": parts[0], "version": parts[1], "architecture": parts[2],
-            "library": str(path), "library_sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+            "library": str(path), "library_sha256": hashlib.sha256(data).hexdigest(),
+            "library_package_md5": expected_digest}
 
 
 def expect_rejection(data: bytes, *, memlimit: int = MEMORY_LIMIT) -> None:
