@@ -58,7 +58,7 @@ def test_phase35_toolchain_and_learning_promotions_are_pinned_and_evidence_gated
         "HTTPX_VERSION=1.12.0",
         "TRIVY_VERSION=0.73.0",
         "OSV_VERSION=2.5.0",
-        "SYFT_VERSION=1.50.0",
+        "SYFT_VERSION=1.52.0",
         "GRYPE_VERSION=0.116.1",
         "GITLEAKS_VERSION=8.30.1",
         "TRUFFLEHOG_VERSION=3.96.0",

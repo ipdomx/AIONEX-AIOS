@@ -2193,6 +2193,30 @@
         "frontend_deployed": false,
         "main794_historically_failed": true,
         "parent_batch_complete": false
+      },
+      "security_syft_source": {
+        "source_part": "FR-06-security-syft",
+        "source_base_commit": "1d24d13701a5c70c25377b67b5563522b40ac95b",
+        "local_version": "1.52.0+aios.1",
+        "upstream_source_modified": false,
+        "toolchain": "go1.27.1",
+        "focused_tests_passed": 45,
+        "selected_upstream_test_events": 736,
+        "all_upstream_tests_claimed": false,
+        "absolute_test_links_omitted": 3,
+        "image_high_critical_remaining": 238,
+        "syft_high_critical": 0,
+        "full_image_security_passed": false,
+        "full_source_image_rebuild_claimed": false,
+        "production_deployed": false,
+        "parent_batch_completed": false,
+        "full_host_closure": false,
+        "evidence": [
+          "docs/project/receipts/FR-06-security-syft-rebuild.md",
+          "web-dashboard/backend/scripts/build_syft.py",
+          "web-dashboard/backend/scripts/verify_security_syft.py",
+          "tests/test_fr06_security_syft.py"
+        ]
       }
     },
     {
