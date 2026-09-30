@@ -151,12 +151,14 @@ def test_proposal_retains_partial_scope_and_does_not_install():
         plan["activation_authorized"] is False
         and plan["real_host_dependency_graph_verified"] is False
     )
-    assert plan["operator_integrated_in_main"] is False
+    assert plan["operator_integrated_in_main"] is True
+    assert "fr06c5_memory_controls.py" not in boot.SWAP_UNIT
+    assert "ExecStart=/usr/bin/false" in boot.SWAP_UNIT
     assert "After=local-fs.target" not in boot.SWAP_UNIT
     assert "RequiresMountsFor=" in boot.SWAP_UNIT
     assert "Requires=" + SWAP_NAME in boot.TMP_UNIT
     assert "size=8G" in boot.TMP_UNIT and "mode=1777,nodev,nosuid" in boot.TMP_UNIT
-    assert len(plan["remaining_prerequisites"]) == 4
+    assert len(plan["remaining_prerequisites"]) == 3
     json.dumps(plan)
 
 
