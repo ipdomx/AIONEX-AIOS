@@ -119,7 +119,7 @@ install -m 0755 "$asset" /usr/local/bin/osv-scanner
 
 # Keep the source-built Syft; reject an absent or unexpected executable.
 [[ "$(syft version -o json | jq -r .version)" == "${SYFT_VERSION}+aios.1" ]] || { echo "Pinned Syft build required" >&2; exit 1; }
-[[ "$(grype version -o json | jq -r .version)" == "${GRYPE_VERSION}+aios.1" ]] || { echo "Pinned Grype build required" >&2; exit 1; }
+[[ "$(grype version -o json | jq -r .version)" == "${GRYPE_VERSION}+aios.2" ]] || { echo "Pinned Grype build required" >&2; exit 1; }
 # Already built from verified source in the dedicated stage; never overwrite
 # it with the older upstream release binary containing unpatched Go modules.
 printf '%s  %s\n' "$GITLEAKS_SHA256" /usr/local/bin/gitleaks | sha256sum -c -

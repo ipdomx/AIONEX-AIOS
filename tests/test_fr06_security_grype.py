@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import shutil
 import sqlite3
 import sys
 from pathlib import Path
@@ -24,6 +25,7 @@ finally:
 @pytest.fixture
 def locked(tmp_path):
     value = json.loads((ROOT / "web-dashboard/backend/security-build/grype/lock.json").read_text())
+    shutil.copytree(ROOT / "web-dashboard/backend/security-build/grype/patches", tmp_path / "patches")
     for name in ("go.mod", "go.sum"):
         p = tmp_path / name
         p.write_text("synthetic locked module file\n")
@@ -37,11 +39,12 @@ def test_exact_source_lock_accepted(locked):
     assert m.read_lock(folder) == value
     real = m.read_lock(ROOT / "web-dashboard/backend/security-build/grype")
     assert real["toolchain_version"] == "go1.27.1"
-    assert real["modules"]["github.com/docker/docker"] == "v28.5.2+incompatible"
+    assert "github.com/docker/docker" not in real["modules"]
+    assert real["modules"]["github.com/moby/moby/client"] == "v0.6.0"
 
 
 @pytest.mark.parametrize("field", ["upstream_version", "local_version", "upstream_commit", "source_url", "source_sha256",
-    "toolchain_version", "toolchain_url", "toolchain_sha256", "files", "modules", "build_date", "expected_binary_sha256"])
+    "toolchain_version", "toolchain_url", "toolchain_sha256", "files", "modules", "build_date", "expected_binary_sha256", "upstream_files", "source_patches"])
 def test_missing_lock_field_denied(locked, field):
     folder, value = locked
     del value[field]
@@ -81,7 +84,7 @@ def test_module_file_change_denied(locked, filename, fault):
 def test_linked_module_inventory_required(locked, fault):
     folder, value = locked
     if fault == "missing":
-        del value["modules"]["github.com/docker/docker"]
+        del value["modules"]["github.com/moby/moby/client"]
     elif fault == "extra":
         value["modules"]["unexpected"] = "v1.0.0"
     else:
@@ -118,7 +121,7 @@ def test_local_version_and_reproducible_build_flags(locked):
     args = m.build_command("go", Path("/owned/grype"), lock)
     assert "-trimpath" in args and "-buildvcs=false" in args
     flags = args[args.index("-ldflags") + 1]
-    assert "main.version=0.119.0+aios.1" in flags and lock["upstream_commit"] in flags
+    assert "main.version=0.119.0+aios.2" in flags and lock["upstream_commit"] in flags
     assert lock["build_date"] in flags and args[-1] == "./cmd/grype"
 
 
@@ -172,7 +175,7 @@ def test_invalid_or_ambiguous_fixture_is_not_adopted(tmp_path, fault):
 
 
 def test_selected_scope_includes_real_database_and_matchers():
-    assert len(m.TEST_PACKAGES) == 8
+    assert len(m.TEST_PACKAGES) == 9
     assert {"./grype/db/v6", "./grype/matcher/python", "./grype/matcher/javascript", "./grype/matcher/dpkg"} <= set(m.TEST_PACKAGES)
     text = (SCRIPTS / "build_grype.py").read_text()
     assert '"all_upstream_tests_claimed": False' in text
@@ -187,7 +190,7 @@ def test_docker_runtime_never_installs_fixture_database_or_older_binary():
     assert "grype-build-provenance.json" in text and "GRYPE-LICENSE" in text
     assert "test-fixture-db" not in text
     assert "install_tgz_release anchore/grype" not in install
-    assert '"${GRYPE_VERSION}+aios.1"' in install and "GRYPE_VERSION=0.119.0" in install
+    assert '"${GRYPE_VERSION}+aios.2"' in install and "GRYPE_VERSION=0.119.0" in install
 
 
 def test_native_verifier_retains_checksum_gate_and_real_application_path():

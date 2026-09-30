@@ -1,8 +1,10 @@
-"""Build a pinned, explicitly local Grype and test its offline matcher subset.
+"""Build Grype with a reviewed modular-client migration and offline matcher tests.
 
 A new, empty Git repository is used ONLY in the extracted build directory so
 upstream DB-fixture tests can fingerprint source. No host repository or daemon
-is used. This is not a full upstream suite or a full image-security approval.
+is used. The only upstream source changes migrate Docker completion, remove a
+legacy test-only homedir import, and add native completion regression tests.
+This is not a full upstream suite or a full image-security approval.
 """
 from __future__ import annotations
 
@@ -22,10 +24,10 @@ from build_gitleaks import extract_verified, fetch, run, sha, source_fingerprint
 TEST_PACKAGES = (
     "./grype/version", "./grype/match", "./grype/cpe", "./grype/db/v6",
     "./grype/matcher/python", "./grype/matcher/javascript", "./grype/matcher/dpkg",
-    "./grype/presenter/json",
+    "./grype/presenter/json", "./internal/format",
 )
 MODULES = {
-    "github.com/docker/docker", "github.com/go-git/go-git/v5", "golang.org/x/crypto",
+    "github.com/moby/moby/client", "github.com/moby/moby/api", "github.com/go-git/go-git/v5", "golang.org/x/crypto",
     "golang.org/x/mod", "golang.org/x/net", "google.golang.org/grpc",
 }
 FIXTURE_ID = "GHSA-h95j-h2rv-qrg4"
@@ -38,10 +40,10 @@ def read_lock(folder: Path) -> dict[str, Any]:
     value = json.loads(p.read_text())
     fields = {"upstream_version", "local_version", "upstream_commit", "source_url", "source_sha256",
               "toolchain_version", "toolchain_url", "toolchain_sha256", "files", "modules",
-              "build_date", "expected_binary_sha256"}
+              "build_date", "expected_binary_sha256", "upstream_files", "source_patches"}
     if not isinstance(value, dict) or set(value) != fields:
         raise ValueError("Incomplete build lock")
-    if value["upstream_version"] != "0.119.0" or value["local_version"] != "0.119.0+aios.1":
+    if value["upstream_version"] != "0.119.0" or value["local_version"] != "0.119.0+aios.2":
         raise ValueError("Explicit local identity required")
     if not isinstance(value["upstream_commit"], str) or not re.fullmatch(r"[0-9a-f]{40}", value["upstream_commit"]):
         raise ValueError("Immutable source required")
@@ -67,7 +69,61 @@ def read_lock(folder: Path) -> dict[str, Any]:
         p = folder / name
         if p.is_symlink() or not p.is_file() or sha(p) != digest:
             raise ValueError("Module input drift")
+    validate_source_patches(folder, value)
     return value
+
+
+PATCH_TARGETS = {
+    "cmd/grype/cli/commands/completion.go": "completion.go",
+    "internal/format/writer_test.go": "writer_test.go",
+    "cmd/grype/cli/commands/completion_aios_test.go": "completion_aios_test.go",
+}
+
+
+def validate_source_patches(folder: Path, lock: dict[str, Any]) -> None:
+    if not isinstance(lock.get("upstream_files"), dict) or set(lock["upstream_files"]) != {"go.mod", "go.sum"}:
+        raise ValueError("Pristine upstream module fingerprints required")
+    for digest in lock["upstream_files"].values():
+        if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            raise ValueError("Pristine fingerprint missing")
+    patches = lock.get("source_patches")
+    if not isinstance(patches, dict) or set(patches) != set(PATCH_TARGETS):
+        raise ValueError("Exact reviewed migration file set required")
+    for target, name in PATCH_TARGETS.items():
+        entry = patches[target]
+        if not isinstance(entry, dict) or set(entry) != {"before_sha256", "after_sha256", "replacement"} or entry["replacement"] != name:
+            raise ValueError("Migration recipe differs")
+        before = entry["before_sha256"]
+        if target.endswith("completion_aios_test.go"):
+            if before is not None:
+                raise ValueError("Regression file must be new")
+        elif not isinstance(before, str) or not re.fullmatch(r"[0-9a-f]{64}", before):
+            raise ValueError("Original migration-file fingerprint required")
+        after = entry["after_sha256"]
+        file = folder / "patches" / name
+        if not isinstance(after, str) or not re.fullmatch(r"[0-9a-f]{64}", after) or file.is_symlink() or not file.is_file() or sha(file) != after:
+            raise ValueError("Reviewed migration file changed")
+
+
+def apply_source_patches(source: Path, folder: Path, lock: dict[str, Any]) -> None:
+    validate_source_patches(folder, lock)
+    # Validate the entire old state before writing any source file.
+    for name, digest in lock["upstream_files"].items():
+        if (source / name).is_symlink() or sha(source / name) != digest:
+            raise ValueError("Pristine upstream module files changed")
+    for target, entry in lock["source_patches"].items():
+        file = source / target
+        if file.is_symlink():
+            raise ValueError("Source patch target is a symlink")
+        if entry["before_sha256"] is None:
+            if file.exists():
+                raise ValueError("Regression file already exists")
+        elif not file.is_file() or sha(file) != entry["before_sha256"]:
+            raise ValueError("Upstream client source drift")
+    for target, entry in lock["source_patches"].items():
+        shutil.copyfile(folder / "patches" / entry["replacement"], source / target)
+    for name in ("go.mod", "go.sum"):
+        shutil.copyfile(folder / name, source / name)
 
 
 def build_environment(toolchain: Path) -> dict[str, str]:
@@ -134,12 +190,10 @@ def main() -> None:
     if (source / ".git").exists() or (source / ".git").is_symlink():
         raise ValueError("Archive must not provide repository control files")
     before = fingerprint(source)
-    if sha(source / "go.mod") != lock["files"]["go.mod"]:
-        raise ValueError("Upstream dependency graph changed")
-    original = set((source / "go.sum").read_text().splitlines())
-    if not original <= set((args.lock_dir / "go.sum").read_text().splitlines()):
-        raise ValueError("Original module checksums removed")
-    shutil.copyfile(args.lock_dir / "go.sum", source / "go.sum")
+    apply_source_patches(source, args.lock_dir, lock)
+    expected = dict(before)
+    for target, entry in lock["source_patches"].items():
+        expected[target] = entry["after_sha256"]
     env = build_environment(toolchain)
     go = str(toolchain / "bin/go")
     compiler = subprocess.check_output([go, "version"], env=env, text=True).strip()
@@ -153,9 +207,19 @@ def main() -> None:
     counts = {a: sum(e.get("Action") == a and bool(e.get("Test")) for e in events) for a in ("pass", "fail", "skip")}
     if not counts["pass"] or counts["fail"] or counts["skip"]:
         raise RuntimeError("Selected upstream tests incomplete")
+    run([go, "test", "-p=2", "-count=1", "-timeout=60s", "-json",
+         "./cmd/grype/cli/commands", "-run", "^TestAIOS"], source, env, output / "completion-tests.jsonl")
+    completion_events = [json.loads(s) for s in (output / "completion-tests.jsonl").read_text().splitlines() if s.startswith("{")]
+    completion_counts = {a: sum(e.get("Action") == a and bool(e.get("Test")) for e in completion_events) for a in ("pass", "fail", "skip")}
+    if completion_counts != {"pass": 8, "fail": 0, "skip": 0}:
+        raise RuntimeError("Native Docker completion regression failed")
+    graph = subprocess.check_output([go, "list", "-m", "all"], env=env, cwd=source, text=True)
+    if any(line.split()[0] == "github.com/docker/docker" for line in graph.splitlines()):
+        raise RuntimeError("Obsolete Docker module still present in dependency graph")
+    (output / "module-graph.txt").write_text(graph)
     binary = output / "grype"
     run(build_command(go, binary, lock), source, env, output / "build.log")
-    if fingerprint(source) != before or any(sha(source / n) != h for n, h in lock["files"].items()):
+    if fingerprint(source) != expected or any(sha(source / n) != h for n, h in lock["files"].items()):
         raise RuntimeError("Upstream source or locked modules changed")
     if sha(binary) != lock["expected_binary_sha256"]:
         raise RuntimeError("Rebuilt executable differs")
@@ -163,16 +227,18 @@ def main() -> None:
     for name, version in lock["modules"].items():
         if "\tdep\t" + name + "\t" + version + "\t" not in linked:
             raise RuntimeError("Linked module inventory differs")
+    if any(len(fields := line.split()) > 1 and fields[0] == "dep" and fields[1] == "github.com/docker/docker" for line in linked.splitlines()):
+        raise RuntimeError("Obsolete Docker code linked into executable")
     (output / "binary-modules.txt").write_text(linked)
     shutil.copyfile(source / "LICENSE", output / "GRYPE-LICENSE")
     fixture = retain_test_fixture(source, output)
-    proof = {"lock": lock, "source_files_unchanged": before, "selected_tests": counts,
+    proof = {"lock": lock, "source_before": before, "source_after": expected, "reviewed_source_migration": lock["source_patches"], "completion_tests": completion_counts, "legacy_docker_module_absent": True, "selected_tests": counts,
              "selected_test_packages": TEST_PACKAGES, "all_upstream_tests_claimed": False,
              "private_empty_git_used_for_fixture_root": True, "binary_sha256": sha(binary),
              "test_fixture": fixture, "production_changed": False, "full_image_security_passed": False,
              "docker_module_findings_not_suppressed": True, "local_rebuild_not_upstream_binary": True}
     (output / "grype-build-provenance.json").write_text(json.dumps(proof, indent=2) + "\n")
-    print(json.dumps({k: v for k, v in proof.items() if k not in {"lock", "source_files_unchanged"}}))
+    print(json.dumps({k: v for k, v in proof.items() if k not in {"lock", "source_before", "source_after", "reviewed_source_migration"}}))
 
 
 if __name__ == "__main__":
