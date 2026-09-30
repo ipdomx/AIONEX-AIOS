@@ -11,7 +11,7 @@
   "goal_ar": "إطلاق النطاق النهائي بجميع وظائفه غير المؤجلة، مع دليل قبول ألف مستخدم متعدد المشاريع والمحادثات وصلاحيات المالك، وليس مجرد سلامة الخدمات أو نسبة لوحة.",
   "owner_decisions": {
     "licenses": "المالك أكد في 2026-09-10 امتلاك جميع التصاريح والتراخيص المطلوبة. يعتمد هذا كإقرار مالك ولا يطلب انتظار ترخيص عام للتطوير. لا يمثل تحققًا مستقلًا ولا يلغي موافقة صاحب الهوية/المستخدم أو المراجعة البشرية أو حدود الأمان.",
-    "merge_policy": "كل دفعة صغيرة تستكمل اختباراتها وفحوصها المحمية تدمج فورًا، ثم تنشر التغييرات اللازمة فقط وتتحقق حيًا وتسجل إيصالها. لا دمج قسري ولا تجاوز فحوص ولا ادعاء أن الدمج يساوي النشر.",
+    "merge_policy": "توجيه المالك الأحدث 2026-09-30: إيقاف أي دمج أو نشر جديد حتى إصلاح بناء الإنتاج ومعالجة التنبيهين عاليَي الخطورة #34 و#36 وإثبات نجاح الاختبارات والفحوص على الرأس المصحح. هذا القرار يتقدم على سياسة الدمج الفوري السابقة. الإصلاح على فرع منفصل مسموح؛ لا يعتبر نجاح جزء أو تصحيح المصدر إذنا بنشر صورة لا تزال مرفوضة أمنيا.",
     "cloudflare": "الإبقاء على Cloudflare وR2 وDNS والنفق وسياسات Access الحالية دون إعادة إعداد.",
     "encryption": "انتهى انتظار Namecheap: الرد المرفق يؤكد عدم توفير تشفير التخزين افتراضيًا أو المساعدة في تركيبه؛ المسار المعتمد تنفيذ تشفير على مستوى الملفات/المجلدات أو التطبيق، مع فصل المفاتيح واستعادة مجربة، دون إعادة تهيئة القرص الحي.",
     "user_governance": "المالك يحدد مدة المحادثة وعدد الرسائل وعدد المشاريع والمحادثات المتزامنة والحدود العامة/الخطة/المستخدم والاستثناءات والتعليق والحظر وسحب الصلاحيات. قيمة ثلاثة مشاريع وثلاث محادثات هي ملف اختبار وليست حدًا ثابتًا مفروضًا على المنتج.",
@@ -2239,6 +2239,35 @@
           "web-dashboard/backend/scripts/build_grype.py",
           "web-dashboard/backend/scripts/verify_security_grype.py",
           "tests/test_fr06_security_grype.py"
+        ]
+      },
+      "production_build_two_high_repair": {
+        "source_base_commit": "632839c36e652013b9a562debcdf5c5591a6257b",
+        "merge_freeze": true,
+        "deployment_freeze": true,
+        "alerts": [
+          34,
+          36
+        ],
+        "cves": [
+          "CVE-2026-41567",
+          "CVE-2026-42306"
+        ],
+        "alpine_tls_floor": "3.5.9-r0",
+        "grype_local_version": "0.119.0+aios.2",
+        "legacy_docker_module_removed": true,
+        "docker_completion_preserved": true,
+        "native_test_events": 2407,
+        "native_completion_test_events": 8,
+        "target_cves_in_corrected_image": 0,
+        "grype_high_critical": 0,
+        "other_image_high_critical": 219,
+        "full_image_security_passed": false,
+        "production_deployed": false,
+        "parent_batch_completed": false,
+        "evidence": [
+          "docs/project/receipts/FR-06-production-build-two-high.md",
+          "tests/test_fr06_production_build_two_high.py"
         ]
       }
     },

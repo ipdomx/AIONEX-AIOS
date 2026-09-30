@@ -43,7 +43,7 @@ def main() -> None:
     os.environ.update(GRYPE_DB_AUTO_UPDATE="false", GRYPE_CHECK_FOR_APP_UPDATE="false",
                       GRYPE_DB_VALIDATE_AGE="true", GRYPE_DB_VALIDATE_BY_HASH_ON_START="true")
     version = json.loads(invoke(["grype", "version", "-o", "json"]).stdout)
-    assert version["version"] == "0.119.0+aios.1" and version["goVersion"] == "go1.27.1"
+    assert version["version"] == "0.119.0+aios.2" and version["goVersion"] == "go1.27.1"
     with tempfile.TemporaryDirectory(prefix="aios-grype-fixture-") as temp:
         base = Path(temp)
         database = base / "database"
