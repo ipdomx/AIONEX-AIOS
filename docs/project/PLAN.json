@@ -2217,6 +2217,29 @@
           "web-dashboard/backend/scripts/verify_security_syft.py",
           "tests/test_fr06_security_syft.py"
         ]
+      },
+      "security_grype_source": {
+        "source_part": "FR-06-security-grype",
+        "source_base_commit": "4cd1a65f14dad2b629a45f2a1680b081d7c1b399",
+        "local_version": "0.119.0+aios.1",
+        "toolchain": "go1.27.1",
+        "upstream_source_modified": false,
+        "focused_tests_passed": 44,
+        "selected_upstream_test_events": 2390,
+        "all_upstream_tests_claimed": false,
+        "grype_high_critical_remaining": 2,
+        "full_image_high_critical_remaining": 221,
+        "full_image_security_passed": false,
+        "source_image_clean_rebuild_claimed": false,
+        "production_deployed": false,
+        "parent_batch_completed": false,
+        "full_host_closure": false,
+        "evidence": [
+          "docs/project/receipts/FR-06-security-grype-rebuild.md",
+          "web-dashboard/backend/scripts/build_grype.py",
+          "web-dashboard/backend/scripts/verify_security_grype.py",
+          "tests/test_fr06_security_grype.py"
+        ]
       }
     },
     {
