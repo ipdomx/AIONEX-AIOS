@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+# Shared fixed operator; installation/adoption must be accepted separately.
+exec /usr/bin/python3 -I /opt/AIOS/scripts/security/fr06_source_operator.py "$@" --invocation-type watchdog

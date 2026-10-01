@@ -91,6 +91,30 @@ class Binding:
 
 
 @dataclass(frozen=True)
+class SyncBinding:
+    """Keep remote target and still-old local main distinct during fast-forward.
+
+    This is valid ONLY for source_sync to main_commit. The fixed caller must
+    separately verify protected exact-main checks and forward ancestry, while
+    holding the guard. This type neither claims those checks nor fetches code.
+    """
+    source_commit: str
+    local_main_commit: str
+    main_commit: str
+    boot_id: str
+    operation_id: str
+    generation: int
+    source_clean: bool
+    maintenance_status: str
+
+    def validate(self) -> None:
+        Binding(self.source_commit, self.local_main_commit, self.boot_id,
+                self.operation_id, self.generation, self.source_clean,
+                self.maintenance_status).validate()
+        _need(_hex(self.main_commit, 40), "exact remote main target required")
+
+
+@dataclass(frozen=True)
 class ObservedResult:
     """Caller-observed outcome, NOT automatic production acceptance.
 
@@ -105,12 +129,19 @@ class ObservedResult:
         _need(_hex(self.evidence_sha256, 64), "exact evidence digest required")
 
 
-def _binding(raw: object) -> Binding:
-    _need(isinstance(raw, dict) and set(raw) == set(Binding.__dataclass_fields__),
-          "invalid binding fields")
-    value = Binding(**raw)
+def _binding(raw: object) -> Binding | SyncBinding:
+    _need(isinstance(raw, dict), "invalid binding fields")
+    cls = SyncBinding if "local_main_commit" in raw else Binding
+    _need(set(raw) == set(cls.__dataclass_fields__), "invalid binding fields")
+    value = cls(**raw)
     value.validate()
     return value
+
+
+def _action_binding(value: Binding | SyncBinding, action: str, target: str) -> None:
+    if type(value) is SyncBinding:
+        _need(action == "source_sync" and target == value.main_commit,
+              "sync binding is restricted to exact remote-main fast-forward")
 
 
 def _open_directory(path: Path) -> int:
@@ -246,7 +277,7 @@ class ExecutionGuard:
                 _need(_uuid(payload["request_id"]) and payload["request_id"] not in used_ids
                       and isinstance(payload["action"], str) and payload["action"] in ACTIONS and _hex(payload["target_commit"], 40),
                       "invalid or reused effect identity")
-                _binding(payload["binding"])
+                _action_binding(_binding(payload["binding"]), payload["action"], payload["target_commit"])
                 pending = item
                 used_ids.add(payload["request_id"])
             elif item["kind"] == "result":
@@ -292,8 +323,8 @@ class ExecutionGuard:
         _need(self._records()[-1] == item, "journal readback differs")
         return item
 
-    def perform(self, *, action: str, target_commit: str, expected: Binding,
-                observe: Callable[[], Binding], invoke: Callable[[], ObservedResult]) -> dict:
+    def perform(self, *, action: str, target_commit: str, expected: Binding | SyncBinding,
+                observe: Callable[[], Binding | SyncBinding], invoke: Callable[[], ObservedResult]) -> dict:
         """Run one already-authorized caller operation, never a prior intent.
 
         observe MUST read current clean-main/boot/closed-operation/generation from
@@ -303,18 +334,19 @@ class ExecutionGuard:
         """
         self._assert_held()
         _need(isinstance(action, str) and action in ACTIONS and _hex(target_commit, 40), "invalid effect request")
-        _need(isinstance(expected, Binding), "typed expected context required")
+        _need(type(expected) in (Binding, SyncBinding), "typed expected context required")
         expected.validate()
+        _action_binding(expected, action, target_commit)
         if self.pending() is not None:
             raise UncertainEffect("prior intent requires external evidence reconciliation, never replay")
         current = observe()
-        _need(type(current) is Binding and current == expected, "current context differs before intent")
+        _need(type(current) is type(expected) and current == expected, "current context differs before intent")
         current.validate()
         intent = self._append("intent", {"request_id": str(uuid4()), "action": action,
                               "target_commit": target_commit, "binding": asdict(expected)})
         self._assert_held()
         current = observe()
-        _need(type(current) is Binding and current == expected, "context changed after intent; no effect attempted")
+        _need(type(current) is type(expected) and current == expected, "context changed after intent; no effect attempted")
         current.validate()
         self._assert_held()
         result = invoke()
