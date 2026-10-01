@@ -1,0 +1,46 @@
+{
+  "upstream_version": "0.119.0",
+  "local_version": "0.119.0+aios.2",
+  "upstream_commit": "b6f5194537747ee7f705f4113069ac9eb269919f",
+  "source_url": "https://codeload.github.com/anchore/grype/tar.gz/b6f5194537747ee7f705f4113069ac9eb269919f",
+  "source_sha256": "645953a20891e2f129dc6f2bddbb76f978a29abe838cec67babcf56846e9dac7",
+  "toolchain_version": "go1.27.1",
+  "toolchain_url": "https://go.dev/dl/go1.27.1.linux-amd64.tar.gz",
+  "toolchain_sha256": "63d339f0da5ab53635a56f2490a7984dfe12dfcff22ad749f63edaf590168445",
+  "files": {
+    "go.mod": "01f2b423ba918ccfcf336af9d7dda5afbc9da896c5b1c6ec03061d3db3b53648",
+    "go.sum": "b077bc85b6640ae3d18012ed0cac22cbddd71d82883a49d08d9e59656b99fee9"
+  },
+  "modules": {
+    "github.com/go-git/go-git/v5": "v5.19.2",
+    "golang.org/x/crypto": "v0.56.0",
+    "golang.org/x/mod": "v0.41.0",
+    "golang.org/x/net": "v0.58.0",
+    "google.golang.org/grpc": "v1.83.2",
+    "github.com/moby/moby/client": "v0.6.0",
+    "github.com/moby/moby/api": "v1.56.0"
+  },
+  "build_date": "2026-09-30T10:35:39Z",
+  "expected_binary_sha256": "49d40604b87e06f6de7cf17beaf7a2ac48b7617e6f01c88e2ce842d904001fa8",
+  "upstream_files": {
+    "go.mod": "55dcebbf99c98ecfd8ead7bb622fdc90c6004d535e54f3ec60e5e2118c151d0b",
+    "go.sum": "c1407aaae73c62f0c445c06fe76a3b578533002549aaee982d6c1f752174021f"
+  },
+  "source_patches": {
+    "cmd/grype/cli/commands/completion.go": {
+      "before_sha256": "7c15b4b4db66c060af498f277bd6a09877e3d1f4036245114b1ae7680c3e0a8c",
+      "replacement": "completion.go",
+      "after_sha256": "e11fa90998adda41a1677de62f79d456bb19c11fcf8463e54c2c563dd0c7e32b"
+    },
+    "internal/format/writer_test.go": {
+      "before_sha256": "cf4f1004eea27265ef16812a459d7efe3da319dc338c83e808e9e1c44447dd1e",
+      "replacement": "writer_test.go",
+      "after_sha256": "bd32c079ba4a8678f63467da6f67ca62aba9ae117ecdc20f70489ec93f06719a"
+    },
+    "cmd/grype/cli/commands/completion_aios_test.go": {
+      "before_sha256": null,
+      "replacement": "completion_aios_test.go",
+      "after_sha256": "8acaa3c0291d3034c42fca54ee9b937fbdd9676560d5954acc679c5709c93e71"
+    }
+  }
+}

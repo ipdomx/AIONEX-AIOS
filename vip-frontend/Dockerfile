@@ -22,9 +22,21 @@ WORKDIR /app
 
 # These are web runtimes, not build workers. Keep only the patched TLS
 # libraries and Node runtime; npm/yarn are build-stage tools, not runtime APIs.
-RUN apk add --no-cache --upgrade libcrypto3=3.5.8-r0 libssl3=3.5.8-r0 \
-    && rm -rf /usr/local/lib/node_modules/npm /opt/yarn-* \
-    && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/yarn /usr/local/bin/yarnpkg
+# Alpine stable repositories retire superseded package revisions. Require a
+# security floor rather than an unavailable exact revision, keep signed APK
+# verification enabled, and record the resolved, matching TLS library versions.
+RUN set -eu; \
+    apk upgrade --no-cache; \
+    apk add --no-cache --upgrade 'libcrypto3>=3.5.9-r0' 'libssl3>=3.5.9-r0'; \
+    crypto="$(apk list --installed libcrypto3 | awk 'NR==1{print $1} END{if(NR!=1)exit 1}')"; \
+    ssl="$(apk list --installed libssl3 | awk 'NR==1{print $1} END{if(NR!=1)exit 1}')"; \
+    test "${crypto#libcrypto3-}" = "${ssl#libssl3-}"; \
+    comparison="$(apk version -t "${crypto#libcrypto3-}" 3.5.9-r0)"; \
+    case "$comparison" in '='|'>') ;; *) exit 1 ;; esac; \
+    mkdir -p /usr/local/share/aionex; \
+    printf '%s\n' "$crypto" "$ssl" > /usr/local/share/aionex/tls-packages.txt; \
+    rm -rf /usr/local/lib/node_modules/npm /opt/yarn-*; \
+    rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/yarn /usr/local/bin/yarnpkg
 
 ARG NEXT_PUBLIC_API_URL=https://api.vip-e.net/api/v1
 ARG AIOS_BACKEND_ORIGIN=https://api.vip-e.net
@@ -34,9 +46,6 @@ ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV AIOS_BACKEND_ORIGIN=${AIOS_BACKEND_ORIGIN}
-
-RUN apk upgrade --no-cache \
-    && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs

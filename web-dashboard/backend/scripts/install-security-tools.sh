@@ -10,12 +10,13 @@ NUCLEI_VERSION=3.11.1
 NUCLEI_TEMPLATES_VERSION=10.4.7
 NUCLEI_TEMPLATES_SHA256=a84dffa24f6a6e44798f45a4502f9cb06f93714287bce75a5fc559e153252f7e
 KATANA_VERSION=1.7.0
-HTTPX_VERSION=1.10.0
-TRIVY_VERSION=0.73.0
+HTTPX_VERSION=1.12.0
+TRIVY_VERSION=0.74.0
 OSV_VERSION=2.5.0
-SYFT_VERSION=1.50.0
-GRYPE_VERSION=0.116.1
-GITLEAKS_VERSION=8.30.1
+SYFT_VERSION=1.52.0
+GRYPE_VERSION=0.119.0
+GITLEAKS_VERSION=8.30.1+aios.1
+GITLEAKS_SHA256=7c8b599cead7b3c8cd4a55aac3a3c1238814f59d08a88b4078b1a18afa100f5b
 COSIGN_VERSION=3.1.3
 TRUFFLEHOG_VERSION=3.96.0
 TESTSSL_VERSION=3.2.4
@@ -97,16 +98,12 @@ printf '%s  %s\n' "$NUCLEI_TEMPLATES_SHA256" nuclei-templates.tar.gz | sha256sum
 mkdir -p /opt/nuclei-templates
 tar -xzf nuclei-templates.tar.gz --strip-components=1 -C /opt/nuclei-templates
 install_zip_release projectdiscovery/katana "$KATANA_VERSION" "katana_${KATANA_VERSION}_linux_amd64.zip" "katana-${KATANA_VERSION}-checksums.txt" katana
-install_zip_release projectdiscovery/httpx "$HTTPX_VERSION" "httpx_${HTTPX_VERSION}_linux_amd64.zip" "httpx_${HTTPX_VERSION}_checksums.txt" httpx
-mv /usr/local/bin/httpx /usr/local/bin/pd-httpx
+# Keep the pinned source-stage binary; the upstream release binary has an older Go.
+[[ -x /usr/local/bin/pd-httpx ]] || { echo "Missing rebuilt httpx" >&2; exit 1; }
+/usr/local/bin/pd-httpx -version 2>&1 | grep -F "v${HTTPX_VERSION}+aios.1" >/dev/null
 
-asset="trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
-checksums="trivy_${TRIVY_VERSION}_checksums.txt"
-download "$asset" "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/$asset"
-download "$checksums" "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/$checksums"
-verify_asset "$checksums" "$asset"
-tar -xzf "$asset" trivy
-install -m 0755 trivy /usr/local/bin/trivy
+# Preserve the reviewed source-built Trivy; never replace it with the old binary.
+[[ "$(trivy version --format json | jq -r .Version)" == "${TRIVY_VERSION}+aios.1" ]] || { echo "Pinned Trivy build required" >&2; exit 1; }
 
 asset="osv-scanner_linux_amd64"
 checksums="osv-scanner_SHA256SUMS"
@@ -115,9 +112,13 @@ download "$checksums" "https://github.com/google/osv-scanner/releases/download/v
 verify_asset "$checksums" "$asset"
 install -m 0755 "$asset" /usr/local/bin/osv-scanner
 
-install_tgz_release anchore/syft "v${SYFT_VERSION}" "$SYFT_VERSION" "syft_${SYFT_VERSION}_linux_amd64.tar.gz" "syft_${SYFT_VERSION}_checksums.txt" syft
-install_tgz_release anchore/grype "v${GRYPE_VERSION}" "$GRYPE_VERSION" "grype_${GRYPE_VERSION}_linux_amd64.tar.gz" "grype_${GRYPE_VERSION}_checksums.txt" grype
-install_tgz_release gitleaks/gitleaks "v${GITLEAKS_VERSION}" "$GITLEAKS_VERSION" "gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" "gitleaks_${GITLEAKS_VERSION}_checksums.txt" gitleaks
+# Keep the source-built Syft; reject an absent or unexpected executable.
+[[ "$(syft version -o json | jq -r .version)" == "${SYFT_VERSION}+aios.1" ]] || { echo "Pinned Syft build required" >&2; exit 1; }
+[[ "$(grype version -o json | jq -r .version)" == "${GRYPE_VERSION}+aios.2" ]] || { echo "Pinned Grype build required" >&2; exit 1; }
+# Already built from verified source in the dedicated stage; never overwrite
+# it with the older upstream release binary containing unpatched Go modules.
+printf '%s  %s\n' "$GITLEAKS_SHA256" /usr/local/bin/gitleaks | sha256sum -c -
+[[ "$(/usr/local/bin/gitleaks version)" == "$GITLEAKS_VERSION" ]]
 install_tgz_release trufflesecurity/trufflehog "v${TRUFFLEHOG_VERSION}" "$TRUFFLEHOG_VERSION" "trufflehog_${TRUFFLEHOG_VERSION}_linux_amd64.tar.gz" "trufflehog_${TRUFFLEHOG_VERSION}_checksums.txt" trufflehog
 
 asset=cosign-linux-amd64

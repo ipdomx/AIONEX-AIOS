@@ -88,7 +88,8 @@ def test_frontend_runtime_tls_is_patched_without_removing_backend_build_tooling(
     for relative in ("web-dashboard/frontend/Dockerfile", "vip-frontend/Dockerfile"):
         source = (ROOT / relative).read_text()
         runtime = source.split(" AS runner", 1)[1]
-        assert "libcrypto3=3.5.8-r0 libssl3=3.5.8-r0" in runtime
+        assert "'libcrypto3>=3.5.9-r0' 'libssl3>=3.5.9-r0'" in runtime
+        assert 'test "${crypto#libcrypto3-}" = "${ssl#libssl3-}"' in runtime
         assert "/usr/local/lib/node_modules/npm /opt/yarn-*" in runtime
         assert 'CMD ["node", "server.js"]' in runtime
     backend = (BACKEND / "Dockerfile").read_text()

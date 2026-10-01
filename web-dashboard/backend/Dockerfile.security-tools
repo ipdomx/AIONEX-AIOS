@@ -5,31 +5,121 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential libpq-dev \
     && rm -rf /var/lib/apt/lists/* \
     && python -m venv /opt/venv \
-    && /opt/venv/bin/pip install --no-cache-dir --upgrade pip setuptools wheel
-COPY requirements-runtime.txt .
-RUN /opt/venv/bin/pip install --no-cache-dir -r requirements-runtime.txt \
-    && /opt/venv/bin/pip install --no-cache-dir \
-       semgrep==1.172.0 \
-       bandit==1.9.4 \
-       pip-audit==2.10.1 \
-       schemathesis==4.24.3
+    && /opt/venv/bin/pip install --no-cache-dir --upgrade pip==26.2.1 setuptools==84.0.0 wheel==0.48.0
+COPY scripts/build_pip_vendor_wheel.py ./
+RUN python build_pip_vendor_wheel.py --download --inputs /build/pip-inputs --output /build/pip-wheels \
+    && /opt/venv/bin/python -m pip install --no-index --no-cache-dir /build/pip-wheels/pip-26.2.1+aios.1-py3-none-any.whl
+COPY requirements-runtime.txt requirements-security-tools.txt ./
+RUN /opt/venv/bin/pip install --no-cache-dir -r requirements-runtime.txt -r requirements-security-tools.txt \
+    && /opt/venv/bin/python -m pip check
+
+# Semgrep pins an older OpenTelemetry line; keep it out of the application venv.
+FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS semgrep-builder
+WORKDIR /build
+RUN python -m venv /opt/semgrep \
+    && /opt/semgrep/bin/pip install --no-cache-dir --upgrade pip==26.2.1 setuptools==84.0.0 wheel==0.48.0
+COPY scripts/build_semgrep_compat_wheel.py ./
+COPY requirements-security-semgrep.txt ./
+RUN python build_semgrep_compat_wheel.py --output /build/wheels \
+    && /opt/semgrep/bin/pip install --no-cache-dir --find-links=/build/wheels -r requirements-security-semgrep.txt \
+    && /opt/semgrep/bin/python -m pip check \
+    && rm -rf /opt/semgrep/lib/python3.11/site-packages/pip* /opt/semgrep/bin/pip*
+
+# Pinned local Gitleaks rebuild; public source/rules remain byte-identical.
+FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS gitleaks-builder
+WORKDIR /build
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates git \
+    && rm -rf /var/lib/apt/lists/*
+COPY scripts/build_gitleaks.py /build/build_gitleaks.py
+COPY security-build/gitleaks /build/gitleaks-lock
+RUN python /build/build_gitleaks.py --lock-dir /build/gitleaks-lock --output /build/gitleaks-output
+
+# Upstream httpx source with corrected pinned compiler; explicit local version.
+FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS httpx-builder
+WORKDIR /build
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates git \
+    && rm -rf /var/lib/apt/lists/*
+COPY scripts/build_httpx.py scripts/build_gitleaks.py /build/
+COPY security-build/httpx /build/httpx-lock
+RUN python /build/build_httpx.py --lock-dir /build/httpx-lock --output /build/httpx-output
+
+# Syft source unchanged; newer pinned compiler and an explicit local version.
+FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS syft-builder
+WORKDIR /build
+COPY scripts/build_syft.py scripts/build_gitleaks.py /build/
+COPY security-build/syft /build/syft-lock
+RUN python /build/build_syft.py --lock-dir /build/syft-lock --output /build/syft-output
+
+# Grype's upstream release binary has an older Go toolchain; build the pinned source.
+FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS grype-builder
+WORKDIR /build
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY scripts/build_gitleaks.py scripts/build_grype.py ./
+COPY security-build/grype /build/grype-lock
+RUN python build_grype.py --lock-dir /build/grype-lock --output /build/grype-output
+
+# Corrected Trivy/gRPC source build with pinned inputs and native detector tests.
+FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS trivy-builder
+WORKDIR /build
+# Establish build ordering only: avoid running the largest two Go compilations
+# concurrently on a small CI runner. This receipt is not a cached Trivy binary.
+COPY --from=grype-builder /build/grype-output/grype-build-provenance.json /build/prerequisites/grype-build-provenance.json
+COPY scripts/build_gitleaks.py scripts/build_trivy.py ./
+COPY security-build/trivy /build/trivy-lock
+RUN python build_trivy.py --lock-dir /build/trivy-lock --output /build/trivy-output
 
 FROM python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3 AS runtime
 WORKDIR /app
-RUN apt-get update \
+# Retain this small package's documentation too, so dpkg can verify every file.
+RUN printf 'path-include=/usr/share/doc/libpcre2-8-0/*\n' > /etc/dpkg/dpkg.cfg.d/zz-aios-pcre2-integrity \
+    && printf 'path-include=/usr/share/doc/liblzma5/*\n' > /etc/dpkg/dpkg.cfg.d/zz-aios-lzma-integrity \
+    && apt-get update \
     && apt-get install -y --no-install-recommends \
-       bash bsdextrautils ca-certificates curl dnsutils jq libio-socket-ssl-perl libnet-ssleay-perl libxml-writer-perl libpq5 nmap openssl perl postgresql-client procps unzip \
+       bash bsdextrautils ca-certificates curl dnsutils jq libio-socket-ssl-perl libnet-ssleay-perl libxml-writer-perl libpq5 nmap openssl perl postgresql-client procps unzip libpcre2-8-0 liblzma5 \
+    && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libpcre2-8-0)" ge '10.42-1+deb12u1' \
+    && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' liblzma5)" ge '5.4.1-1+deb12u2' \
     && rm -rf /var/lib/apt/lists/*
+# Remove unused system installers INCLUDING their vendored vulnerable code.
+# Operational pip-audit still uses the maintained pip inside /opt/venv.
+RUN rm -rf /usr/local/lib/python3.11/site-packages/pip* \
+           /usr/local/lib/python3.11/site-packages/setuptools* \
+           /usr/local/lib/python3.11/site-packages/pkg_resources \
+           /usr/local/lib/python3.11/site-packages/_distutils_hack \
+           /usr/local/lib/python3.11/site-packages/distutils-precedence.pth \
+           /usr/local/lib/python3.11/site-packages/wheel* \
+           /usr/local/bin/pip /usr/local/bin/pip3 /usr/local/bin/pip3.11 /usr/local/bin/wheel
 COPY --from=builder /opt/venv /opt/venv
+COPY --from=builder /build/pip-wheels/pip-vendor-provenance.json /usr/local/share/aionex/pip-vendor-provenance.json
+COPY --from=semgrep-builder /opt/semgrep /opt/semgrep
+COPY --from=semgrep-builder /build/wheels/semgrep-compat-provenance.json /usr/local/share/aionex/semgrep-compat-provenance.json
+RUN ln -s /opt/semgrep/bin/semgrep /usr/local/bin/semgrep
+COPY --from=gitleaks-builder /build/gitleaks-output/gitleaks /usr/local/bin/gitleaks
+COPY --from=gitleaks-builder /build/gitleaks-output/gitleaks-build-provenance.json /usr/local/share/aionex/gitleaks-build-provenance.json
+COPY --from=gitleaks-builder /build/gitleaks-output/GITLEAKS-LICENSE /usr/local/share/licenses/gitleaks/LICENSE
+COPY --from=httpx-builder /build/httpx-output/pd-httpx /usr/local/bin/pd-httpx
+COPY --from=httpx-builder /build/httpx-output/httpx-build-provenance.json /usr/local/share/aionex/httpx-build-provenance.json
+COPY --from=httpx-builder /build/httpx-output/HTTPX-LICENSE.md /usr/local/share/licenses/httpx/LICENSE.md
+COPY --from=syft-builder /build/syft-output/syft /usr/local/bin/syft
+COPY --from=syft-builder /build/syft-output/syft-build-provenance.json /usr/local/share/aionex/syft-build-provenance.json
+COPY --from=syft-builder /build/syft-output/SYFT-LICENSE /usr/local/share/licenses/syft/LICENSE
+COPY --from=grype-builder /build/grype-output/grype /usr/local/bin/grype
+COPY --from=grype-builder /build/grype-output/grype-build-provenance.json /usr/local/share/aionex/grype-build-provenance.json
+COPY --from=grype-builder /build/grype-output/GRYPE-LICENSE /usr/local/share/aionex/GRYPE-LICENSE
+COPY --from=trivy-builder /build/trivy-output/trivy /usr/local/bin/trivy
+COPY --from=trivy-builder /build/trivy-output/trivy-build-provenance.json /usr/local/share/aionex/trivy-build-provenance.json
+COPY --from=trivy-builder /build/trivy-output/TRIVY-LICENSE /usr/local/share/licenses/trivy/LICENSE
 COPY scripts/install-security-tools.sh /usr/local/sbin/install-security-tools.sh
 RUN /usr/local/sbin/install-security-tools.sh \
     && rm -f /usr/local/sbin/install-security-tools.sh
 COPY . .
+# Keep temporary pip-audit resolution on the same reviewed pip, not a floating upgrade.
+RUN chmod 0755 /app/scripts/security_pip_audit.py \
+    && ln -sf /app/scripts/security_pip_audit.py /opt/venv/bin/pip-audit
 RUN rm -rf /app/tests \
     && addgroup --system --gid 1000 aionex \
     && adduser --system --uid 1000 --gid 1000 --home /home/aionex aionex \
     && install -d -m 0700 -o aionex -g aionex /var/lib/aionex/security-sources /home/aionex/.cache \
-    && chown -R aionex:aionex /app /opt/venv /opt/testssl /opt/nuclei-templates /opt/nikto
+    && chown -R aionex:aionex /app /opt/venv /opt/semgrep /opt/testssl /opt/nuclei-templates /opt/nikto
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -38,6 +128,11 @@ ENV PATH="/opt/venv/bin:$PATH" \
     SEMGREP_ENABLE_VERSION_CHECK=0 \
     TRIVY_NO_PROGRESS=true \
     HOME=/tmp/aionex-security-home
+# Exercise the installed native library after the signed Debian package upgrade.
+# This is a bounded offline regression, not full-image security acceptance.
 USER 1000:1000
+RUN python /app/scripts/verify_security_pcre2.py
+# Require the Debian liblzma backport and exercise bounded offline compatibility.
+RUN python /app/scripts/verify_security_lzma.py
 ENTRYPOINT []
 CMD ["python", "-m", "app.services.security_scan_worker"]

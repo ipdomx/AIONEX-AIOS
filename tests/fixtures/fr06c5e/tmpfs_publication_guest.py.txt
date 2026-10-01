@@ -1,0 +1,173 @@
+"""Native C5E11 topology acceptance ONLY inside the tagged offline QEMU VM.
+Independent writer/swap/reference authority is SYNTHETIC in this fixture. This
+is not a production freeze, encrypted-swap or host-activation attestation.
+"""
+from __future__ import annotations
+import json,os,signal,subprocess,sys,time,traceback
+from contextlib import contextmanager
+from pathlib import Path
+from types import SimpleNamespace
+from uuid import uuid4
+sys.path.insert(0,'/code')
+from scripts.security.fr06c5_memory_tmpfs_stage import TmpfsStageAdapter,TmpfsRejected
+from scripts.security.fr06c5_memory_tmpfs_publication import TmpfsPublicationAdapter,LinuxPublicationKernel,FrozenEvidence,PublicationRejected
+from scripts.security.fr06c5_memory_transaction import BoundContext,Plan,Journal,MemoryTransaction,ActionUncertain
+
+
+def guard():
+    assert 'AIONEX-C5E11-DISPOSABLE' in Path('/sys/class/dmi/id/product_name').read_text()
+    assert any(' /disk ' in row and ' /dev/vda ' in row for row in Path('/proc/self/mountinfo').read_text().splitlines())
+
+
+def context():
+    return BoundContext('e'*40,Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
+                        '11111111-1111-4111-8111-111111111111',36,'a'*64,'b'*64,'c'*64)
+
+
+def proof():
+    return FrozenEvidence(context(),'d'*64,'e'*64,'f'*64)
+
+
+def plan(a):
+    now=int(time.time());return Plan(a.operation,a.bound,a.steps if hasattr(a,'steps') else (a.step,),now,now+300)
+
+
+@contextmanager
+def resources(name,operation=None,kernel=None,live_tmp=False):
+    root=Path('/disk')/name;fresh=operation is None
+    public=Path('/tmp') if live_tmp else root/'public/tmp'
+    if fresh:
+        root.mkdir(mode=0o700)
+        for sub in ['stage','stage-journal','publication','publication-journal','public']:(root/sub).mkdir(mode=0o700)
+        public.mkdir(mode=0o1777,exist_ok=live_tmp);public.chmod(0o1777)
+        (public/'old-canary').write_bytes(b'original-underlay-canary')
+        operation=str(uuid4())
+    stage_method=TmpfsStageAdapter.prepare if fresh else TmpfsStageAdapter.load
+    kwargs={'capacity':4*1024**2,'inodes':4096,'reserve':16*1024**2} if fresh else {}
+    stage=stage_method(root/'stage',operation,context,**kwargs)
+    sj=Journal(root/'stage-journal',operation,**({'create':plan(stage)} if fresh else {}));stage.attach(sj)
+    if fresh:
+        tx=MemoryTransaction(sj,stage);tx.apply_next();tx.verify_applied()
+    method=TmpfsPublicationAdapter.prepare if fresh else TmpfsPublicationAdapter.load
+    pub=method(stage,public,root/'publication',proof,kernel=kernel)
+    journal=Journal(root/'publication-journal',operation,**({'create':plan(pub)} if fresh else {}));pub.attach(journal)
+    try:yield SimpleNamespace(stage=stage,pub=pub,journal=journal,tx=MemoryTransaction(journal,pub),root=root,public=public,operation=operation)
+    finally:journal.close();pub.close();sj.close();stage.close()
+
+
+def clean_stage(c):
+    t=MemoryTransaction(c.stage.journal,c.stage)
+    t.begin_rollback();t.undo_next();assert t.verify_restored().phase=='restored'
+
+
+def child(name,operation,direction,index,timing):
+    index=int(index)
+    class Crash(LinuxPublicationKernel):
+        def stop(self,when):
+            if timing==when:os.kill(os.getpid(),signal.SIGKILL)
+        def preserve(self,*args):
+            self.stop('before');super().preserve(*args);self.stop('after')
+        def move(self,*args):
+            self.stop('before');super().move(*args);self.stop('after')
+        def release(self,*args):
+            self.stop('before');super().release(*args);self.stop('after')
+    with resources(name,operation,Crash()) as c:
+        assert c.journal.state().applied==(index if direction=='apply' else index+1)
+        (c.tx.apply_next if direction=='apply' else c.tx.undo_next)()
+    raise AssertionError('Crash boundary did not execute')
+
+
+def run():
+    guard()
+    if len(sys.argv)>1:child(*sys.argv[1:]);return
+    results=[]
+    with resources('native-guest-tmp',live_tmp=True) as c:
+        old=c.public/'old-canary';before=old.stat();public_inode=c.public.stat().st_ino
+        c.tx.apply_next()
+        assert (c.pub.reference/'old-canary').stat().st_ino==before.st_ino
+        c.tx.apply_next();assert c.tx.verify_applied().phase=='applied'
+        assert not old.exists() and (c.pub.reference/'old-canary').read_bytes()==b'original-underlay-canary'
+        new=c.public/'new-canary';new.write_bytes(b'new-tmpfs-data');new_inode=new.stat().st_ino
+        # Reversal moves, never destroys the used tmpfs. Parent cleanup remains
+        # forbidden while that returned tmpfs still contains even this one file.
+        c.tx.begin_rollback();c.tx.undo_next()
+        assert c.public.stat().st_ino==public_inode and old.stat().st_ino==before.st_ino
+        assert old.read_bytes()==b'original-underlay-canary'
+        retained=c.stage.target/'new-canary'
+        assert retained.stat().st_ino==new_inode and retained.read_bytes()==b'new-tmpfs-data'
+        fd=os.open(c.pub.reference,os.O_RDONLY|os.O_DIRECTORY)
+        try:
+            try:c.tx.undo_next()
+            except ActionUncertain:pass
+            else:raise AssertionError('Busy original reference removed')
+        finally:os.close(fd)
+        c.tx.reconcile_pending();c.tx.undo_next();assert c.tx.verify_restored().phase=='restored'
+        try:c.stage.observe(c.stage.step,c.operation)
+        except TmpfsRejected:pass
+        else:raise AssertionError('Returned used tmpfs declared empty')
+        assert retained.read_bytes()==b'new-tmpfs-data'
+        results.append({'case':'native_guest_tmp_preserves_old_and_new_inodes','underlay_preserved':True,
+                        'new_tmpfs_data_retained_after_rollback':True,'busy_underlay_reference_denied':True,
+                        'used_staging_not_deleted_or_declared_empty':True,'production_authority':'synthetic'})
+        retained.unlink()  # This exact synthetic file is owned by this fixture.
+        clean_stage(c)
+    with resources('alias') as c:
+        c.tx.apply_next();c.tx.apply_next()
+        alias=c.root/'alias';alias.mkdir()
+        subprocess.run(['/bin/busybox','mount','--bind',str(c.public),str(alias)],check=True)
+        c.tx.begin_rollback()
+        try:c.tx.undo_next()
+        except PublicationRejected:pass
+        else:raise AssertionError('Foreign alias ignored')
+        subprocess.run(['/bin/busybox','umount',str(alias)],check=True)
+        c.tx.undo_next();c.tx.undo_next();assert c.tx.verify_restored().phase=='restored'
+        clean_stage(c)
+        results.append({'case':'native_alias_blocks_move','alias_not_removed_by_adapter':True})
+    with resources('underlay-alias') as c:
+        c.tx.apply_next();c.tx.apply_next()
+        alias=c.root/'underlay-alias';alias.mkdir()
+        subprocess.run(['/bin/busybox','mount','--bind',str(c.pub.reference),str(alias)],check=True)
+        c.tx.begin_rollback()
+        try:c.tx.undo_next()
+        except PublicationRejected:pass
+        else:raise AssertionError('Alias of original underlay ignored')
+        assert (alias/'old-canary').read_bytes()==b'original-underlay-canary'
+        subprocess.run(['/bin/busybox','umount',str(alias)],check=True)
+        c.tx.undo_next();c.tx.undo_next();assert c.tx.verify_restored().phase=='restored'
+        clean_stage(c)
+        results.append({'case':'native_underlay_alias_blocks_move','original_canary_retained':True})
+    for direction in ['apply','undo']:
+        for index in [0,1]:
+            for timing in ['before','after']:
+                name=f'crash-{direction}-{index}-{timing}'
+                with resources(name) as c:
+                    operation=c.operation
+                    if direction=='undo':
+                        c.tx.apply_next();c.tx.apply_next();c.tx.begin_rollback()
+                        if index==0:c.tx.undo_next()
+                    elif index==1:c.tx.apply_next()
+                p=subprocess.run(['/usr/bin/python3.12','/guest_acceptance.py',name,operation,direction,str(index),timing],
+                                 capture_output=True,text=True,check=False,timeout=40)
+                assert p.returncode==-9,(p.returncode,p.stderr[-1500:])
+                with resources(name,operation) as c:
+                    assert c.journal.state().pending==(direction,index)
+                    try:(c.tx.apply_next if direction=='apply' else c.tx.undo_next)()
+                    except ActionUncertain:pass
+                    else:raise AssertionError('Pending effect replayed')
+                    c.tx.reconcile_pending()
+                    if direction=='apply':c.tx.begin_rollback()
+                    while c.journal.state().applied:c.tx.undo_next()
+                    assert c.tx.verify_restored().phase=='restored'
+                    assert (c.public/'old-canary').read_bytes()==b'original-underlay-canary'
+                    clean_stage(c)
+                results.append({'case':'native_process_loss','direction':direction,'index':index,'timing':timing,
+                                'child_exit':p.returncode,'no_blind_replay':True,'original_data_retained':True})
+    remaining=Path('/proc/self/mountinfo').read_text()
+    assert 'aionex-c5e10-' not in remaining and '/publication/' not in remaining
+    print('AIONEX_VM_RESULT '+json.dumps({'status':'PASS','cases':results,'guest_only':True,'kernel':os.uname().release,
+          'guest_cleanup_verified':True,'writer_and_encrypted_swap_proof':'synthetic','host_mounts_changed':False,
+          'production_context_used':False,'provider_io':False,'power_loss_tested':False,'full_host_closure':False},sort_keys=True),flush=True)
+
+try:run()
+except BaseException:
+    traceback.print_exc();print('AIONEX_VM_FAILED',flush=True);raise

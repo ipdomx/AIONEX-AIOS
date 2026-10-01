@@ -1,0 +1,11 @@
+# Python tools sharing the application's venv. Resolve WITH requirements-runtime.txt.
+# Semgrep has a separate environment; its OpenTelemetry pins conflict with Google API Core.
+bandit==1.9.4
+pip-audit==2.10.1
+schemathesis==4.24.3
+msgpack==1.2.3
+opentelemetry-api==1.44.0
+setuptools==84.0.0
+wheel==0.48.0
+# Explicitly local build with actual vendored code refreshed, not an upstream release.
+pip==26.2.1+aios.1
