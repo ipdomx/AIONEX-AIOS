@@ -366,6 +366,12 @@ def native_lab(tmp_path,monkeypatch,private):
     launch=tmp_path/'launch';launch.mkdir(mode=0o700)
     monkeypatch.setattr(m,'ROOT',repo);monkeypatch.setattr(m,'GUARD',private);monkeypatch.setattr(m,'LAUNCH',launch)
     monkeypatch.setattr(m,'__file__',str(repo/'scripts/security/fr06_execution_enrollment.py'))
+    # This fixture does NOT attest root or a real production installation.
+    # Only that boundary is synthetic; file metadata, effective UID and
+    # subprocess flock contention keep using the real nonroot test process.
+    def synthetic_installed_context(source_root, guard_root):
+        assert source_root == repo and guard_root == private
+    monkeypatch.setattr(m, '_require_installed_context', synthetic_installed_context)
     monkeypatch.setattr(sys.modules[__name__],'AT',datetime.now(timezone.utc)-timedelta(seconds=3))
     f=fixtures();f['guard_identity']=m.resource_identity(private)
     for role in m.ROUTES:
@@ -441,7 +447,8 @@ def test_bootstrap_change_during_probe_is_not_accepted(native_lab,monkeypatch):
             p=private/'bootstrap-evidence.json';p.write_bytes(p.read_bytes()+b' ')
         return value
     monkeypatch.setattr(operator,'command',changing)
-    with pytest.raises(m.EnrollmentBlocked):m.verify_installed_routes(source_root=repo,guard_root=private,enrollment=f['enrollment'])
+    with pytest.raises(m.EnrollmentBlocked, match='bootstrap changed during verification'):
+        m.verify_installed_routes(source_root=repo,guard_root=private,enrollment=f['enrollment'])
 
 
 def test_hourly_role_receipts_can_span_one_real_hour_before_bootstrap():

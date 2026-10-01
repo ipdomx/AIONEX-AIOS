@@ -413,11 +413,20 @@ def challenge_routes(directory: Path, invoke: Callable[[str, str], dict], *, act
     return proofs
 
 
+def _require_installed_context(source_root: Path, guard_root: Path) -> None:
+    """Production privilege and installation checks; never a configurable bypass.
+
+    Kept separate so nonprivileged tests can model installation explicitly while
+    exercising real file ownership and kernel locks as their actual Unix user.
+    """
+    need(source_root == ROOT and guard_root == GUARD and os.geteuid() == 0, 'fixed installed root required')
+    need(Path(__file__).resolve() == ROOT/'scripts/security/fr06_execution_enrollment.py', 'uninstalled enrollment verifier')
+
+
 def verify_installed_routes(*, source_root: Path, guard_root: Path, enrollment: dict, active_guard=None) -> dict:
     """Native verifier. Reads only explicit allowlisted files, never incident data."""
-    need(source_root == ROOT and guard_root == GUARD and os.geteuid() == 0, 'fixed installed root required')
+    _require_installed_context(source_root, guard_root)
     from scripts.security.fr06_source_operator import command
-    need(Path(__file__).resolve() == ROOT/'scripts/security/fr06_execution_enrollment.py', 'uninstalled enrollment verifier')
     head = command(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'])
     need(ishex(head, 40) and head == enrollment.get('source_commit'), 'current enrollment source differs')
     need(not command(['git', '-C', str(ROOT), 'status', '--porcelain=v1']), 'dirty enrollment source')
