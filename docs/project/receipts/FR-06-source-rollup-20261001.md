@@ -8,4 +8,11 @@ Local integrated verification: 126 directed tests passed, with zero failures, er
 
 The older C5E9 maintenance progress receipt is historical evidence at its stated observation time, not a new assertion of current admission, service state, source SHA, or host closure. Every production use must revalidate current raw evidence, source, boot identity, maintenance operation/generation and exact accepted prerequisites.
 
-No production action, service resume, admission transition, provider lookup, database settlement, memory activation, reboot or recovery is performed by this source consolidation. C5D15 remains separate unfinished source. Complete host-state migration, production/boot integration, writer freeze and encrypted swap plus /tmp acceptance, and C6 reboot/recovery still require their own evidence. FR-06 remains open; FR-07 remains complete.
+No production action, service resume, admission transition, provider lookup, database settlement, memory activation, reboot or recovery is performed by this source consolidation. The initial consolidation did not include C5D15; the continuation below records its later source inclusion. Its production reconciliation remains unexecuted. Complete host-state migration, production/boot integration, writer freeze and encrypted swap plus /tmp acceptance, and C6 reboot/recovery still require their own evidence. FR-06 remains open; FR-07 remains complete.
+
+
+## Continued source inclusion: C5D15
+
+The preserved C5D15 staged work was reviewed in a separate worktree and integrated without touching the scheduled run's original staged files. Five new failing regressions exposed the missing in-transaction maintenance fence; the correction and six real isolated PostgreSQL cases are documented in `FR-06C5D15-identity-terminal-reconciliation.md`. The combined selected suite now passes 145 tests. These tests and the six native cases overlap in purpose, not in their claimed runtime scope.
+
+The combined PR also includes the C5D15 source, its original tests, a new embedded-program regression suite, and the executable PostgreSQL laboratory fixture. No production provider read or settlement was performed. Earlier CI results on the initial consolidation are not acceptance of the extended head; all required current-head checks must run again. No branch protection or security gate is changed.
