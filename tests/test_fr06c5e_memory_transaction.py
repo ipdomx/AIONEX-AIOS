@@ -91,7 +91,7 @@ def after(operation, name):
     return ("changed-by-owned-laboratory-operation:" + operation + ":" + name).encode()
 
 
-def setup(tmp_path, count=2):
+def make_case(tmp_path, count=2):
     parent, files = tmp_path / "journal", tmp_path / "files"
     parent.mkdir(mode=0o700)
     files.mkdir(mode=0o700)
@@ -143,7 +143,7 @@ def test_prepared_rollback_negative_control_swallows_failure(failure):
 
 
 def test_apply_and_explicit_reverse_rollback_are_verified_from_actual_files(tmp_path):
-    parent, files, plan, adapter = setup(tmp_path, 3)
+    parent, files, plan, adapter = make_case(tmp_path, 3)
     with open_new(parent, plan) as journal:
         transaction = m.MemoryTransaction(journal, adapter)
         for step in plan.steps:
@@ -163,7 +163,7 @@ def test_apply_and_explicit_reverse_rollback_are_verified_from_actual_files(tmp_
 @pytest.mark.parametrize("direction", ["apply", "undo"])
 @pytest.mark.parametrize("when", ["before", "after", "noop"])
 def test_failure_never_becomes_success_or_automatic_retry(tmp_path, direction, when):
-    parent, _, plan, adapter = setup(tmp_path, 1)
+    parent, _, plan, adapter = make_case(tmp_path, 1)
     with open_new(parent, plan) as journal:
         transaction = m.MemoryTransaction(journal, adapter)
         if direction == "undo":
@@ -201,7 +201,7 @@ def test_failure_never_becomes_success_or_automatic_retry(tmp_path, direction, w
 @pytest.mark.parametrize("field", ["source_commit", "boot_id", "maintenance_operation", "maintenance_generation",
                                    "host_state_receipt_sha256", "preflight_sha256", "boot_graph_sha256"])
 def test_bound_context_drift_blocks_effects_before_intent(tmp_path, field):
-    parent, _, plan, adapter = setup(tmp_path, 1)
+    parent, _, plan, adapter = make_case(tmp_path, 1)
     changed = 38 if field == "maintenance_generation" else str(uuid4()) if field in {"boot_id", "maintenance_operation"} else "f" * (40 if field == "source_commit" else 64)
     adapter.ctx = replace(adapter.ctx, **{field: changed})
     with open_new(parent, plan) as journal:
@@ -211,7 +211,7 @@ def test_bound_context_drift_blocks_effects_before_intent(tmp_path, field):
 
 
 def test_context_changes_during_effect_retain_intent_and_block_recovery(tmp_path):
-    parent, _, plan, adapter = setup(tmp_path, 1)
+    parent, _, plan, adapter = make_case(tmp_path, 1)
     with open_new(parent, plan) as journal:
         transaction = m.MemoryTransaction(journal, adapter)
         def change(stage, direction):
@@ -227,7 +227,7 @@ def test_context_changes_during_effect_retain_intent_and_block_recovery(tmp_path
 
 @pytest.mark.parametrize("kind", ["content", "replacement", "hardlink", "permissions"])
 def test_changed_or_unowned_resource_cannot_be_undone(tmp_path, kind):
-    parent, files, plan, adapter = setup(tmp_path, 1)
+    parent, files, plan, adapter = make_case(tmp_path, 1)
     with open_new(parent, plan) as journal:
         transaction = m.MemoryTransaction(journal, adapter)
         transaction.apply_next()
@@ -254,7 +254,7 @@ def test_changed_or_unowned_resource_cannot_be_undone(tmp_path, kind):
 
 
 def test_final_verification_covers_untouched_steps_not_only_executed_steps(tmp_path):
-    parent, files, plan, adapter = setup(tmp_path, 2)
+    parent, files, plan, adapter = make_case(tmp_path, 2)
     with open_new(parent, plan) as journal:
         transaction = m.MemoryTransaction(journal, adapter)
         transaction.apply_next()
@@ -267,7 +267,7 @@ def test_final_verification_covers_untouched_steps_not_only_executed_steps(tmp_p
 
 
 def test_forward_expiry_blocks_apply_but_not_explicit_same_context_recovery(tmp_path):
-    parent, _, plan, adapter = setup(tmp_path, 1)
+    parent, _, plan, adapter = make_case(tmp_path, 1)
     with open_new(parent, plan) as journal:
         transaction = m.MemoryTransaction(journal, adapter, clock=lambda: plan.expires_at + 1)
         with pytest.raises(m.TransitionRejected):
@@ -277,7 +277,7 @@ def test_forward_expiry_blocks_apply_but_not_explicit_same_context_recovery(tmp_
 
 
 def test_terminal_results_cannot_be_replayed_and_early_finalization_rejected(tmp_path):
-    parent, _, plan, adapter = setup(tmp_path, 1)
+    parent, _, plan, adapter = make_case(tmp_path, 1)
     with open_new(parent, plan) as journal:
         transaction = m.MemoryTransaction(journal, adapter)
         with pytest.raises(m.TransitionRejected):
@@ -296,7 +296,7 @@ def test_terminal_results_cannot_be_replayed_and_early_finalization_rejected(tmp
 
 
 def test_exclusive_lock_and_reopening_after_close(tmp_path):
-    parent, _, plan, _ = setup(tmp_path)
+    parent, _, plan, _ = make_case(tmp_path)
     with open_new(parent, plan), pytest.raises(BlockingIOError):
         m.Journal(parent, plan.operation)
     with m.Journal(parent, plan.operation) as journal:
@@ -305,7 +305,7 @@ def test_exclusive_lock_and_reopening_after_close(tmp_path):
 
 @pytest.mark.parametrize("target", ["operation", "parent", "lock"])
 def test_live_journal_identity_replacement_is_rejected(tmp_path, target):
-    parent, _, plan, _ = setup(tmp_path)
+    parent, _, plan, _ = make_case(tmp_path)
     with open_new(parent, plan) as journal:
         if target == "operation":
             (parent / plan.operation).rename(parent / "displaced")
@@ -324,7 +324,7 @@ def test_live_journal_identity_replacement_is_rejected(tmp_path, target):
 
 @pytest.mark.parametrize("damage", ["truncated", "gap", "hash", "duplicate-key", "extra", "symlink", "hardlink", "plan", "mode", "fifo"])
 def test_torn_corrupt_or_untrusted_journal_never_reopens_for_effects(tmp_path, damage):
-    parent, _, plan, _ = setup(tmp_path)
+    parent, _, plan, _ = make_case(tmp_path)
     with open_new(parent, plan):
         pass
     directory = parent / plan.operation
@@ -364,7 +364,7 @@ def test_torn_corrupt_or_untrusted_journal_never_reopens_for_effects(tmp_path, d
 
 
 def test_symlink_parent_never_followed(tmp_path):
-    parent, _, plan, _ = setup(tmp_path)
+    parent, _, plan, _ = make_case(tmp_path)
     link = tmp_path / "alias"
     link.symlink_to(parent, target_is_directory=True)
     with pytest.raises((m.JournalRejected, OSError)):
@@ -373,7 +373,7 @@ def test_symlink_parent_never_followed(tmp_path):
 
 
 def test_private_parent_required(tmp_path):
-    parent, _, plan, _ = setup(tmp_path)
+    parent, _, plan, _ = make_case(tmp_path)
     parent.chmod(0o755)
     with pytest.raises(m.JournalRejected):
         open_new(parent, plan)
@@ -381,7 +381,7 @@ def test_private_parent_required(tmp_path):
 
 @pytest.mark.parametrize("failure", ["write", "file-fsync", "directory-fsync"])
 def test_intent_durability_failure_prevents_effect_and_poisoned_session(tmp_path, monkeypatch, failure):
-    parent, _, plan, adapter = setup(tmp_path, 1)
+    parent, _, plan, adapter = make_case(tmp_path, 1)
     with open_new(parent, plan) as journal:
         original_sync, original_write = os.fsync, os.write
         def sync(fd):
@@ -404,7 +404,7 @@ def test_intent_durability_failure_prevents_effect_and_poisoned_session(tmp_path
 
 
 def test_partial_write_is_completed_before_effect(tmp_path, monkeypatch):
-    parent, _, plan, adapter = setup(tmp_path, 1)
+    parent, _, plan, adapter = make_case(tmp_path, 1)
     with open_new(parent, plan) as journal:
         original = os.write
         journal_writes = []
@@ -423,7 +423,7 @@ def test_partial_write_is_completed_before_effect(tmp_path, monkeypatch):
 @pytest.mark.parametrize("direction", ["apply", "undo"])
 @pytest.mark.parametrize("stage", ["before", "after"])
 def test_sigkill_owned_process_reopens_as_pending_and_recovers_without_replay(tmp_path, direction, stage):
-    parent, files, plan, adapter = setup(tmp_path, 1)
+    parent, files, plan, adapter = make_case(tmp_path, 1)
     with open_new(parent, plan) as journal:
         transaction = m.MemoryTransaction(journal, adapter)
         if direction == "undo":
@@ -477,7 +477,7 @@ def test_sigkill_owned_process_reopens_as_pending_and_recovers_without_replay(tm
 
 @pytest.mark.parametrize("invalid", ["bool-generation", "open", "bad-hash", "bad-uuid", "duplicates", "reversed", "equal", "ttl", "bool-schema"])
 def test_invalid_plan_cannot_start_journal(tmp_path, invalid):
-    _, _, plan, _ = setup(tmp_path)
+    _, _, plan, _ = make_case(tmp_path)
     data = asdict(plan)
     data["steps"] = list(data["steps"])
     if invalid == "bool-generation":
@@ -510,7 +510,7 @@ def test_module_has_no_kernel_or_production_execution_adapter():
 
 
 def test_access_time_updates_do_not_count_as_journal_content_mutation(tmp_path, monkeypatch):
-    parent, _, plan, _ = setup(tmp_path)
+    parent, _, plan, _ = make_case(tmp_path)
     with open_new(parent, plan) as journal:
         original_stat, original_read = os.fstat, os.read
         accessed = set()
@@ -533,7 +533,7 @@ def test_access_time_updates_do_not_count_as_journal_content_mutation(tmp_path, 
 
 @pytest.mark.parametrize("direction", ["apply", "undo"])
 def test_lost_outcome_record_keeps_durable_intent_and_reconciliation_is_readonly(tmp_path, monkeypatch, direction):
-    parent, files, plan, adapter = setup(tmp_path, 1)
+    parent, files, plan, adapter = make_case(tmp_path, 1)
     with open_new(parent, plan) as journal:
         transaction = m.MemoryTransaction(journal, adapter)
         if direction == "undo":
@@ -560,7 +560,7 @@ def test_lost_outcome_record_keeps_durable_intent_and_reconciliation_is_readonly
 
 
 def test_unowned_after_fingerprint_does_not_authorize_adoption_or_delete(tmp_path, monkeypatch):
-    parent, _, plan, adapter = setup(tmp_path, 1)
+    parent, _, plan, adapter = make_case(tmp_path, 1)
     with open_new(parent, plan) as journal:
         transaction = m.MemoryTransaction(journal, adapter)
         adapter.hook = lambda stage, direction: (_ for _ in ()).throw(OSError("interrupted")) if stage == "after" else None
@@ -574,7 +574,7 @@ def test_unowned_after_fingerprint_does_not_authorize_adoption_or_delete(tmp_pat
 
 
 def test_rollback_receipt_cannot_be_emitted_after_context_changes_at_final_probe(tmp_path):
-    parent, _, plan, adapter = setup(tmp_path, 1)
+    parent, _, plan, adapter = make_case(tmp_path, 1)
     with open_new(parent, plan) as journal:
         transaction = m.MemoryTransaction(journal, adapter)
         transaction.begin_rollback()
