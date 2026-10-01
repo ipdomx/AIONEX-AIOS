@@ -52,7 +52,7 @@ The raw and accepted evidence is retained in the same private runtime directory
 as `coturn-first.json`, `coturn-final.json`, and `coturn-accepted.json`.
 No shorter interval is claimed.
 
-## Graceful-stop boundary remains open
+## Final graceful-stop and composite full-host closure accepted
 
 The required final service set is exactly:
 
@@ -60,26 +60,40 @@ The required final service set is exactly:
 - `user-telegram-worker`
 - `operations-observer`
 
-The original before-evidence bound all three running container IDs with
-`restart_policy=no` and `restart_count=0`.
+The durable before-evidence bound all three running container IDs to the same
+closed operation/generation with `restart_policy=no` and `restart_count=0`. The
+accepted stop sequence then recorded a create-before-effect intent for each target,
+used one `SIGTERM` only, never permitted a forced kill, and verified the same
+container epoch stopped with `exit_code=0`, `restart_count=0`, and `OOMKilled=false`.
+The accepted service receipts are retained in the private runtime directory as:
 
-A stop/signal attempt for `telegram-worker` was rejected by the execution
-control layer before effect execution. That no-effect condition was durably
-recorded and subsequently reconciled while the same container was still running.
+- `telegram-worker-stop-accepted.json`
+- `user-telegram-worker-stop-accepted.json`
+- `operations-observer-stop-accepted.json`
 
-Later, the same Telegram container was observed stopped with:
+The shared verifier was rerun against `graceful-before.json` and
+`graceful-after.json` and returned `graceful_stop_verified=true` for all three
+services on operation `cd5a0e31-a49b-4fdf-b2a6-ac53a7831d17`, generation `41`.
+The accepted verifier receipt is `graceful-accepted.json` with file SHA-256
+`3d557659968f589dbf08c1a522a72346aabf7a09f791480d36774967e562ea3c`.
 
-- same container ID
-- restart_count 0
-- exit_code 0
-- OOMKilled false
-- finished_at `2026-10-01T05:32:39.122295947Z`
+The composite full-host closure verifier was then rerun from the accepted Studio,
+TURN, and graceful-stop evidence. It returned:
 
-No durable second-attempt intent exists that proves the invocation provenance or
-signal type for that later stop, and Docker event/log inspection did not provide
-that missing provenance. Therefore the clean stopped state is **not** promoted to
-the final graceful-stop verifier. User-Telegram and Operations-Observer were still
-running at the last bound inspection. No composite full-host closure is claimed.
+- `studio_process_drain_verified=true`
+- `turn_allocation_drain_verified=true`
+- `turn_credential_expiry_verified=true`
+- `telegram_observer_graceful_stop_verified=true`
+- `component_full_host_flags_remain_false=true`
+- `full_host_closure=true`
+- `production_activation_authorized=false`
+
+The receipt field SHA-256 is
+`d8d5ea30b5da23e3f15fc2ef18cb2b595f4d1fbe75490778eb0d6bdd318e1cb6`;
+the retained `full-host-closure.json` file SHA-256 is
+`e7a97646bf0effd77fbe8631ab5dc6a913f02d05699bab7d83b778bdb15089ef`.
+This is full-host drain closure only; it is not C5E kernel-effect authority and
+does not claim swap, `/tmp`, reboot, or recovery.
 
 ## C5E host read-only preflight
 
@@ -114,12 +128,8 @@ activation/reboot path:
 - the current proposed encrypted-swap systemd service remains inert with
   `ExecStart=/usr/bin/false` and `ExecStop=/usr/bin/false`.
 
-Accordingly, no swap, mapper, unit, fstab, `/tmp`, reboot, or recovery mutation
-is authorized by this receipt. C5E/C6 remain open until a protected source change
-implements the missing journaled Production/boot integration and the graceful-stop
-evidence is accepted under the same authority.
+Accordingly, the drain prerequisite is now closed, but no swap, mapper, unit, fstab, `/tmp`, reboot, or recovery mutation is authorized by this receipt. C5E/C6 remain open until protected source changes complete the missing journaled Production/boot integration and bind a short-lived activation authority to the exact accepted host-state, preflight, boot-graph, source commit, boot identity, and current maintenance evidence.
 
 ## Status
 
-FR-06 remains in progress. FR-07 remains closed. No fabricated elapsed TTL,
-graceful stop, full-host closure, activation, reboot, or recovery is claimed.
+FR-06 remains in progress. FR-07 remains closed. Studio drain, the real 600-second TURN interval, final graceful stop, and composite full-host closure are accepted under operation generation 41. Production activation remains false; no swap, `/tmp`, reboot, or recovery is claimed.
