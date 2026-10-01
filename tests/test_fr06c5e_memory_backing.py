@@ -37,7 +37,7 @@ class FakeConsumers:
         return self.rows
 
 
-def setup(tmp_path):
+def make_case(tmp_path):
     files, state, journals = (tmp_path / n for n in ("files", "state", "journals"))
     for path in (files, state, journals):
         path.mkdir(mode=0o700)
@@ -63,7 +63,7 @@ def attach(case, adapter):
 
 
 def test_real_allocation_is_staged_published_and_retained_on_rollback(tmp_path):
-    case = setup(tmp_path)
+    case = make_case(tmp_path)
     with prepared(case) as a:
         original = os.fstat(a.fd)
         assert original.st_size == 1024*1024 and original.st_blocks*512 >= original.st_size
@@ -85,7 +85,7 @@ def test_real_allocation_is_staged_published_and_retained_on_rollback(tmp_path):
 
 @pytest.mark.parametrize("capacity", [0, 1, 4096, 8193, True, -4096, m.MAX_BACKING+4096, 4096.0])
 def test_invalid_capacity_no_preparation(tmp_path, capacity):
-    case = setup(tmp_path)
+    case = make_case(tmp_path)
     with pytest.raises(m.BackingRejected):
         m.BackingAdapter.prepare(case.target, case.state, case.operation, lambda: case.context,
                                 capacity=capacity, reserve=4096, reader=case.reader)
@@ -94,7 +94,7 @@ def test_invalid_capacity_no_preparation(tmp_path, capacity):
 
 @pytest.mark.parametrize("reserve", [0, -1, True, 1, 4096.0])
 def test_invalid_reserve_no_preparation(tmp_path, reserve):
-    case = setup(tmp_path)
+    case = make_case(tmp_path)
     with pytest.raises(m.BackingRejected):
         m.BackingAdapter.prepare(case.target, case.state, case.operation, lambda: case.context,
                                 capacity=8192, reserve=reserve, reader=case.reader)
@@ -102,7 +102,7 @@ def test_invalid_reserve_no_preparation(tmp_path, reserve):
 
 @pytest.mark.parametrize("kind", ["file", "symlink", "directory"])
 def test_preexisting_target_never_adopted_or_changed(tmp_path, kind):
-    case = setup(tmp_path)
+    case = make_case(tmp_path)
     if kind == "file": case.target.write_bytes(b"original")
     elif kind == "directory": case.target.mkdir()
     else: case.target.symlink_to(case.target.parent/"missing")
@@ -113,7 +113,7 @@ def test_preexisting_target_never_adopted_or_changed(tmp_path, kind):
 
 
 def test_disk_reserve_checked_before_any_allocation(tmp_path, monkeypatch):
-    case = setup(tmp_path)
+    case = make_case(tmp_path)
     monkeypatch.setattr(m.os, "fstatvfs", lambda _: SimpleNamespace(f_bavail=1, f_frsize=4096))
     with pytest.raises(m.BackingRejected, match="Insufficient space"): prepared(case)
     assert not (case.state/case.operation).exists()
@@ -121,7 +121,7 @@ def test_disk_reserve_checked_before_any_allocation(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("phase", ["before", "partial", "after"])
 def test_failed_allocation_retains_intent_and_never_loads_or_retries(tmp_path, monkeypatch, phase):
-    case = setup(tmp_path)
+    case = make_case(tmp_path)
     original = os.posix_fallocate
     called = []
 
@@ -145,7 +145,7 @@ def test_failed_allocation_retains_intent_and_never_loads_or_retries(tmp_path, m
 
 
 def test_sizing_without_allocated_blocks_is_rejected(tmp_path, monkeypatch):
-    case = setup(tmp_path)
+    case = make_case(tmp_path)
     monkeypatch.setattr(m.os, "posix_fallocate", lambda fd, offset, length: os.ftruncate(fd, length))
     with pytest.raises(m.BackingRejected, match="fully allocated"): prepared(case)
     assert not case.target.exists()
@@ -154,7 +154,7 @@ def test_sizing_without_allocated_blocks_is_rejected(tmp_path, monkeypatch):
 @pytest.mark.parametrize("when", ["apply", "undo"])
 @pytest.mark.parametrize("problem", ["loop", "direct_swap", "unknown", "exception"])
 def test_kernel_consumers_or_incomplete_inventory_preserve_resource_and_intent(tmp_path, when, problem):
-    case = setup(tmp_path)
+    case = make_case(tmp_path)
     with prepared(case) as a:
         j, t = attach(case, a)
         with j:
@@ -172,7 +172,7 @@ def test_kernel_consumers_or_incomplete_inventory_preserve_resource_and_intent(t
 
 
 def test_no_effect_without_pending_journal(tmp_path):
-    case = setup(tmp_path)
+    case = make_case(tmp_path)
     with prepared(case) as a:
         with pytest.raises(m.BackingRejected): a.apply(a.step, case.operation)
         j, _ = attach(case, a)
@@ -182,7 +182,7 @@ def test_no_effect_without_pending_journal(tmp_path):
 
 @pytest.mark.parametrize("what", ["context", "lock", "state_parent", "file_parent", "manifest", "intent", "created", "stage_extra", "candidate_size", "candidate_mode", "candidate_link"])
 def test_changed_binding_or_inode_refuses_publication(tmp_path, what):
-    case = setup(tmp_path)
+    case = make_case(tmp_path)
     with prepared(case) as a:
         j, t = attach(case, a)
         with j:
@@ -206,7 +206,7 @@ def test_changed_binding_or_inode_refuses_publication(tmp_path, what):
 
 @pytest.mark.parametrize("phase", ["before", "after"])
 def test_other_target_inode_never_overwritten_or_erased(tmp_path, phase):
-    case = setup(tmp_path)
+    case = make_case(tmp_path)
     with prepared(case) as a:
         j, t = attach(case, a)
         with j:
@@ -217,7 +217,7 @@ def test_other_target_inode_never_overwritten_or_erased(tmp_path, phase):
 
 
 def test_lock_excludes_competing_operator_but_reopens_after_close(tmp_path):
-    case = setup(tmp_path)
+    case = make_case(tmp_path)
     with prepared(case), pytest.raises(BlockingIOError):
         m.BackingAdapter.load(case.target, case.state, case.operation, lambda: case.context, case.reader)
     with m.BackingAdapter.load(case.target, case.state, case.operation, lambda: case.context, case.reader) as a:
@@ -225,7 +225,7 @@ def test_lock_excludes_competing_operator_but_reopens_after_close(tmp_path):
 
 
 def test_forged_step_or_context_cannot_attach(tmp_path):
-    case = setup(tmp_path)
+    case = make_case(tmp_path)
     with prepared(case) as a:
         p = dataclasses.replace(plan(a), steps=(txm.BoundStep(m.STEP, "e"*64, "f"*64),))
         with txm.Journal(case.journals, case.operation, create=p) as j, pytest.raises(m.BackingRejected): a.attach(j)
@@ -234,7 +234,7 @@ def test_forged_step_or_context_cannot_attach(tmp_path):
 @pytest.mark.parametrize("direction", ["apply", "undo"])
 @pytest.mark.parametrize("timing", ["before", "after"])
 def test_actual_process_loss_before_after_atomic_publication_and_retention(tmp_path, direction, timing):
-    case = setup(tmp_path)
+    case = make_case(tmp_path)
     with prepared(case) as a:
         inode = os.fstat(a.fd).st_ino
         j, t = attach(case, a)
@@ -354,7 +354,7 @@ def test_native_consumer_reader_is_fail_closed_on_synthetic_kernel_boundary(monk
 
 
 def test_late_foreign_target_during_consumer_probe_is_preserved(tmp_path):
-    case=setup(tmp_path)
+    case=make_case(tmp_path)
     with prepared(case) as a:
         j,t=attach(case,a)
         with j:
@@ -371,7 +371,7 @@ def test_late_foreign_target_during_consumer_probe_is_preserved(tmp_path):
 
 @pytest.mark.parametrize("where", ["before_allocation", "after_allocation"])
 def test_context_change_retains_only_private_preparation(tmp_path, monkeypatch, where):
-    case=setup(tmp_path)
+    case=make_case(tmp_path)
     original=os.posix_fallocate
     seen=0
     initial=case.context
@@ -393,7 +393,7 @@ def test_context_change_retains_only_private_preparation(tmp_path, monkeypatch, 
 
 
 def test_no_raw_backing_content_read_for_metadata_or_observation(tmp_path, monkeypatch):
-    case=setup(tmp_path)
+    case=make_case(tmp_path)
     with prepared(case) as a:
         original=os.read
         def guarded(fd,count):
@@ -409,7 +409,7 @@ def test_no_raw_backing_content_read_for_metadata_or_observation(tmp_path, monke
 
 @pytest.mark.parametrize("phase", ["staged", "restored"])
 def test_unused_baseline_cannot_be_certified_with_a_new_kernel_consumer(tmp_path, phase):
-    case=setup(tmp_path)
+    case=make_case(tmp_path)
     with prepared(case) as a:
         j,t=attach(case,a)
         with j:
