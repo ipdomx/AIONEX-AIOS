@@ -42,7 +42,8 @@ GUARD_ROOT = Path('/var/lib/aionex/fr06-executor')
 LAUNCH_ROOT = Path('/usr/local/libexec/aionex/fr06')
 LAUNCHERS = {'scheduled': 'aionex-fr06-primary', 'watchdog': 'aionex-fr06-watchdog',
              'interactive': 'aionex-fr06-interactive'}
-CODE = ('scripts/security/fr06_source_operator.py', 'scripts/security/fr06_execution_guard.py')
+CODE = ('scripts/security/fr06_source_operator.py', 'scripts/security/fr06_execution_guard.py',
+        'scripts/security/fr06_execution_enrollment.py')
 MINIMUM_CHECKS = frozenset({
     'Owner and VIP browser boundaries', 'CodeQL Analysis (python)',
     'Phase 36 Reporting Invariant', 'Backend SBOM and vulnerability gate',
@@ -256,7 +257,8 @@ class NativePort:
         # this source operator. It must attest actual primary/watchdog/interactive
         # ingress routing and reconciliation of pre-guard effects, not true flags.
         from scripts.security.fr06_execution_enrollment import verify_installed_routes
-        verify_installed_routes(source_root=ROOT, guard_root=GUARD_ROOT, enrollment=data)
+        verify_installed_routes(source_root=ROOT, guard_root=GUARD_ROOT, enrollment=data,
+                                active_guard=getattr(self, '_enrollment_guard', None))
 
 
     def authority(self, req: Request) -> tuple[str, dict]:
@@ -400,41 +402,64 @@ def execute(req: Request, *, run_id: str, invocation_type: str, port: NativePort
     port = NativePort() if port is None else port  # Tests only; not exposed by CLI.
     port.enrollment(req)
     with ExecutionGuard(port.guard_root, run_id=run_id, invocation_type=invocation_type) as guard:
-        # Re-read installed routing while ownership is held; no stale pre-lock grant.
-        port.enrollment(req)
-        expected = binding_from(port, req)
-        def observe():
+        port._enrollment_guard = guard
+        try:
+            # Re-read installed routing while ownership is held; no stale pre-lock grant.
             port.enrollment(req)
-            return binding_from(port, req)
-        def invoke():
-            # Check all mutable acceptance immediately before any remote/local effect.
-            port.enrollment(req)
-            need(binding_from(port, req) == expected, 'pre-effect context changed')
-            if req.action == 'source_merge':
-                port.merge(req)
-                result = port.merge_observation(req)
-                local, main, clean = port.local()
-                need(local == main == req.source and clean is True, 'local source changed during merge')
-                require_same_authority(port, req)
-            else:
-                port.fetch_target(req)
-                need(binding_from(port, req) == expected, 'post-fetch context changed')
-                port.fast_forward(req)
-                local, main, clean = port.local()
-                need(local == main == req.target and clean is True, 'fast-forward not observed clean')
-                require_same_authority(port, req)
-                validate_remote(req, port.remote(req))
-                result = {'pr': req.pr, 'head': req.head, 'source_commit': local, 'remote_main': req.target,
-                          'source_synced': True, 'deployment_accepted': False}
-            evidence = {'schema': 'aionex.fr06-source-result.v1', 'task_id': TASK_ID, 'run_id': run_id,
-                        'invocation_type': invocation_type, 'at': datetime.now(timezone.utc).isoformat(),
-                        'request': asdict(req), 'observations': result, 'production_deployed': False}
-            return ObservedResult('observed_complete', port.save(evidence))
-        return guard.perform(action=req.action, target_commit=req.target, expected=expected,
-                             observe=observe, invoke=invoke)
+            expected = binding_from(port, req)
+            def observe():
+                port.enrollment(req)
+                return binding_from(port, req)
+            def invoke():
+                # Check all mutable acceptance immediately before any remote/local effect.
+                port.enrollment(req)
+                need(binding_from(port, req) == expected, 'pre-effect context changed')
+                if req.action == 'source_merge':
+                    port.merge(req)
+                    result = port.merge_observation(req)
+                    local, main, clean = port.local()
+                    need(local == main == req.source and clean is True, 'local source changed during merge')
+                    require_same_authority(port, req)
+                else:
+                    port.fetch_target(req)
+                    need(binding_from(port, req) == expected, 'post-fetch context changed')
+                    port.fast_forward(req)
+                    local, main, clean = port.local()
+                    need(local == main == req.target and clean is True, 'fast-forward not observed clean')
+                    require_same_authority(port, req)
+                    validate_remote(req, port.remote(req))
+                    result = {'pr': req.pr, 'head': req.head, 'source_commit': local, 'remote_main': req.target,
+                              'source_synced': True, 'deployment_accepted': False}
+                evidence = {'schema': 'aionex.fr06-source-result.v1', 'task_id': TASK_ID, 'run_id': run_id,
+                            'invocation_type': invocation_type, 'at': datetime.now(timezone.utc).isoformat(),
+                            'request': asdict(req), 'observations': result, 'production_deployed': False}
+                return ObservedResult('observed_complete', port.save(evidence))
+            return guard.perform(action=req.action, target_commit=req.target, expected=expected,
+                                 observe=observe, invoke=invoke)
+        finally:
+            port._enrollment_guard = None
+
 
 
 def main() -> int:
+    # A fixed no-effect challenge for independent installation verification.
+    # It does not create a lock/journal, accept source or issue enrollment.
+    if len(sys.argv) > 1 and sys.argv[1] == 'enrollment_probe':
+        p = argparse.ArgumentParser(description='Read-only kernel route challenge')
+        p.add_argument('action', choices=('enrollment_probe',))
+        p.add_argument('--challenge', required=True)
+        p.add_argument('--invocation-type', required=True, choices=sorted(INVOCATIONS))
+        a = p.parse_args()
+        try:
+            from scripts.security.fr06_execution_enrollment import probe_existing_lock
+            need(os.geteuid() == 0, 'root-owned installed probe required')
+            need(Path(__file__).resolve() == ROOT/'scripts/security/fr06_source_operator.py', 'uninstalled probe')
+            result = probe_existing_lock(GUARD_ROOT, a.invocation_type, a.challenge)
+        except Exception:
+            print(json.dumps({'status': 'probe_blocked', 'production_accepted': False}))
+            return 2
+        print(json.dumps(result, sort_keys=True))
+        return 0
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('action', choices=('source_merge', 'source_sync'))
     p.add_argument('--invocation-type', required=True, choices=sorted(INVOCATIONS))
