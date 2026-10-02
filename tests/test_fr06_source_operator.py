@@ -13,6 +13,7 @@ import sys
 from dataclasses import replace
 from pathlib import Path
 import pytest
+from fr06_check_evidence_fixture import attach
 
 ROOT=Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
@@ -28,7 +29,7 @@ def request(action='source_merge'):
 
 def snapshot(req):
     sync=req.action=='source_sync'
-    return {'main':req.target if sync else req.source,
+    image = {'main':req.target if sync else req.source,
       'pr':{'number':835,'baseRefName':'main','headRefOid':req.head,'baseRefOid':req.source,
             'state':'MERGED' if sync else 'OPEN','isDraft':False,'mergeStateStatus':'CLEAN',
             'mergeable':'MERGEABLE','reviewDecision':'','mergeCommit':{'oid':req.target} if sync else None},
@@ -39,6 +40,9 @@ def snapshot(req):
       'checks':{'total_count':11,'check_runs':[{'name':name,'app':{'id':15368},
                 'head_sha':req.target if sync else req.head,'status':'completed','conclusion':'success'}
                  for name in sorted(m.MINIMUM_CHECKS)]}}
+    image['actions_evidence'] = attach(image['checks'], req.target if sync else req.head,
+                                      event='push' if sync else 'pull_request', pr=req.pr, base_sha=req.source)
+    return image
 
 
 class FakePort:
@@ -186,6 +190,9 @@ def test_extra_required_context_is_also_enforced(directory):
     assert not journal(directory)
     p.image['checks']['check_runs'].append({'name':'New gate','app':{'id':15368},'head_sha':HEAD,'status':'completed','conclusion':'success'})
     p.image['checks']['total_count']+=1
+    with pytest.raises(m.SourceBlocked):execute(p)  # status without original run is insufficient
+    assert p.effects==0 and not journal(directory)
+    p.image['actions_evidence']=attach(p.image['checks'],HEAD,pr=p.req.pr,base_sha=p.req.source)
     execute(p); assert p.effects==1
 
 

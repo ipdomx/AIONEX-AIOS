@@ -35,7 +35,7 @@ if __package__ in (None, ''):
 from scripts.security import fr06_executor_preparation as prep
 from scripts.security import fr06_executor_installation as installer
 from scripts.security.fr06_execution_guard import Binding
-from scripts.security.fr06_source_operator import required_checks
+from scripts.security.fr06_source_operator import required_checks, collect_actions_evidence
 
 ROOT = Path('/opt/AIOS')
 TRUST = Path('/etc/aionex/fr06-initial-install')
@@ -370,7 +370,8 @@ class NativeSession:
              and pr.get('merge_commit_sha') == local, 'exact protected main merge not observed')
         rules = port.api('repos/'+REPOSITORY+'/rules/branches/main')
         checks = port.api('repos/'+REPOSITORY+'/commits/'+local+'/check-runs?filter=latest&per_page=100')
-        required_checks(rules, checks, local)
+        evidence = collect_actions_evidence(port.api, rules, checks, local)
+        required_checks(rules, checks, local, actions_evidence=evidence, event='push')
 
     def journal(self):
         from scripts.security.fr06_execution_enrollment import read_bounded, MAX_EVENTS

@@ -10,6 +10,7 @@ import subprocess
 from pathlib import Path
 from uuid import uuid4
 import pytest
+from fr06_check_evidence_fixture import attach
 from scripts.security import fr06_executor_native_install as m
 from scripts.security import fr06_source_operator as operator
 from scripts.security.fr06_execution_guard import GuardBlocked
@@ -39,6 +40,8 @@ def source_case(tmp_path,monkeypatch):
         for name in sorted(operator.MINIMUM_CHECKS)]}
     pr={'number':835,'merged':True,'base':{'ref':'main'},'head':{'sha':reviewed,'repo':{'full_name':m.REPOSITORY}},'merge_commit_sha':head}
     data={'remote':{'commit':{'sha':head}},'pr':pr,'rules':rules,'checks':checks,'local_head':head,'local_main':head,'clean':True,'calls':[]}
+    evidence = attach(checks, head, event='push')
+    data['actions_evidence'] = evidence
     class Port:
         def local(self):return data['local_head'],data['local_main'],data['clean'] and not bool(git('status','--porcelain'))
         def git(self,*args,**kwargs):return git(*args)
@@ -49,6 +52,8 @@ def source_case(tmp_path,monkeypatch):
             if endpoint.endswith('/branches/main'):return data['remote']
             if '/pulls/' in endpoint:return data['pr']
             if '/check-runs?' in endpoint:return data['checks']
+            if '/actions/jobs/' in endpoint:return copy.deepcopy(evidence[endpoint.rsplit('/',1)[1]]['job'])
+            if '/actions/runs/' in endpoint:return copy.deepcopy(next(iter(evidence.values()))['run'])
             raise AssertionError('unexpected native API endpoint')
     monkeypatch.setattr(m,'ROOT',repo)
     monkeypatch.setattr(operator,'NativePort',Port)
@@ -58,7 +63,8 @@ def source_case(tmp_path,monkeypatch):
 def test_real_source_bytes_and_exact_main_protected_checks_are_consumed(source_case):
     repo,permit,data=source_case
     assert m.NativeSession(str(uuid4())).source(permit) is None
-    assert len(data['calls'])==4
+    assert len(data['calls'])==4+len(operator.MINIMUM_CHECKS)+1
+    assert sum('/actions/runs/' in x for x in data['calls'])==1
     assert any('/commits/'+permit['binding']['source_commit']+'/check-runs?' in x for x in data['calls'])
 
 
@@ -100,6 +106,8 @@ def test_native_caller_reaches_real_file_publisher_only_in_signed_disposable_lab
     data.update(local_head=head,local_main=head)
     data['remote']['commit']['sha']=head;data['pr']['merge_commit_sha']=head
     for check in data['checks']['check_runs']:check['head_sha']=head
+    for pair in data['actions_evidence'].values():
+        pair['job']['head_sha']=head;pair['run']['head_sha']=head
     (repo/'.git/info/exclude').write_text('/docs/project/runtime/\n')
     runtime=repo/'docs/project/runtime';runtime.mkdir(parents=True)
     (runtime/'events.jsonl').write_bytes(b'{}\n');(runtime/'events.jsonl').chmod(0o644)
@@ -156,3 +164,10 @@ def test_native_caller_reaches_real_file_publisher_only_in_signed_disposable_lab
     before={q.name:q.stat().st_mtime_ns for q in m.LAUNCH.iterdir()}
     with pytest.raises(m.installer.InstallationBlocked):m.run('install',aid)
     assert before=={q.name:q.stat().st_mtime_ns for q in m.LAUNCH.iterdir()}
+
+
+@pytest.mark.parametrize('event',['workflow_dispatch','schedule','pull_request'])
+def test_native_install_source_rejects_non_main_push_checks(source_case,event):
+    repo,permit,data=source_case
+    for pair in data['actions_evidence'].values():pair['run']['event']=event
+    with pytest.raises(GuardBlocked):m.NativeSession(str(uuid4())).source(permit)
