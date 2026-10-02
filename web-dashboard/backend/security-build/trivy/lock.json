@@ -8,8 +8,8 @@
   "toolchain_url": "https://go.dev/dl/go1.26.8.linux-amd64.tar.gz",
   "toolchain_sha256": "d0f743b33e8d8945e6b1f432edd15785c70507121d6e2a723b21285eddf8b57b",
   "files": {
-    "go.mod": "926dad0adb06c67df30013f281d1c723a1e43152fa6b3fe80abda6b0e9e8dae8",
-    "go.sum": "76d5fda115c00788a05b11c3434324653ff053a9435da3f4267925da4b3d18d7"
+    "go.mod": "c1f271b774a0c53805464e768059c124a396b66cfe24fdaef040f01773828895",
+    "go.sum": "51bfbbaac4494262d052c000d4dae846671117067f44bfd5fd086b99646ee278"
   },
   "upstream_files": {
     "go.mod": "85697654fc5fea7d0a0082920bed1116af5d06dbd2be0fcc0c281b68a35c8e33",

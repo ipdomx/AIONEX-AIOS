@@ -66,7 +66,15 @@ def read_lock(folder: Path) -> dict[str, Any]:
         p = folder / name
         if p.is_symlink() or not p.is_file() or sha(p) != digest:
             raise ValueError("Reviewed module file drift")
+    require_archive_floor((folder / 'go.mod').read_text())
     return lock
+
+
+def require_archive_floor(modfile: str) -> None:
+    """Reject a rehashed old or redirected extraction dependency before build."""
+    entries = re.findall(r'(?m)^\s*github\.com/moby/go-archive\s+(\S+)(?:\s+//[^\n]*)?\s*$', modfile)
+    if entries != ['v0.3.0'] or re.search(r'(?m)^\s*replace(?:\s|\()', modfile):
+        raise ValueError('Reviewed go-archive v0.3.0 without replacements required')
 
 
 def prepare_modules(source: Path, folder: Path, lock: dict[str, Any]) -> None:
