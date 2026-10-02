@@ -131,7 +131,8 @@ class Request:
             need(self.target == self.head, 'merge target must be exact PR head')
 
 
-def required_checks(rules: Any, checks: Any, sha: str) -> list[str]:
+def _status_checks(rules: Any, checks: Any, sha: str) -> list[dict]:
+    """Status-only internal parsing; never sufficient for execution admission."""
     need(isinstance(rules, list) and all(isinstance(x, dict) for x in rules), 'active rules unavailable')
     relevant = [x for x in rules if x.get('type') == 'required_status_checks']
     pr_rules = [x for x in rules if x.get('type') == 'pull_request']
@@ -155,14 +156,109 @@ def required_checks(rules: Any, checks: Any, sha: str) -> list[str]:
     need(isinstance(checks, dict) and type(checks.get('total_count')) is int
          and isinstance(checks.get('check_runs'), list)
          and checks['total_count'] == len(checks['check_runs']) <= 100, 'check inventory incomplete')
-    for name, app in pairs:
+    selected = []
+    for name, app in sorted(pairs):
         matches = [c for c in checks['check_runs'] if isinstance(c, dict) and c.get('name') == name
                    and isinstance(c.get('app'), dict) and c['app'].get('id') == app]
         need(len(matches) == 1, 'required check missing or ambiguous')
         c = matches[0]
         need(c.get('head_sha') == sha and c.get('status') == 'completed' and c.get('conclusion') == 'success',
              'required current-head check is not successful')
-    return sorted(name for name, _ in pairs)
+        selected.append(c)
+    return selected
+
+
+# Only project-used eligible events are accepted. workflow_dispatch/schedule
+# successes are diagnostics, NOT protected PR/main source acceptance. Evidence
+# comes from fixed GET endpoints, not details_url or caller-supplied URLs.
+ACTIONS_APP = 15368
+
+
+def _positive_id(value: Any) -> bool:
+    return type(value) is int and value > 0
+
+
+def collect_actions_evidence(api, rules: Any, checks: Any, sha: str) -> dict:
+    selected = _status_checks(rules, checks, sha)
+    evidence, runs = {}, {}
+    job_fields = ('id', 'name', 'head_sha', 'status', 'conclusion', 'run_id',
+                  'run_attempt', 'check_run_url', 'run_url')
+    run_fields = ('id', 'run_attempt', 'head_sha', 'head_branch', 'event', 'status',
+                  'conclusion', 'check_suite_id', 'repository', 'head_repository', 'pull_requests')
+    for check in selected:
+        if check['app']['id'] != ACTIONS_APP:
+            continue  # External app checks do not have Actions event semantics.
+        ident = check.get('id')
+        need(_positive_id(ident) and str(ident) not in evidence, 'unique workflow check identity required')
+        job = api(API+'/actions/jobs/'+str(ident))
+        need(isinstance(job, dict) and job.get('id') == ident
+             and _positive_id(job.get('run_id')), 'workflow job identity unavailable')
+        run_id = job['run_id']
+        if run_id not in runs:
+            run = api(API+'/actions/runs/'+str(run_id))
+            need(isinstance(run, dict) and run.get('id') == run_id, 'workflow run identity unavailable')
+            runs[run_id] = {key: run.get(key) for key in run_fields}
+        evidence[str(ident)] = {'job': {key: job.get(key) for key in job_fields}, 'run': runs[run_id]}
+    return evidence
+
+
+def required_checks(rules: Any, checks: Any, sha: str, *, actions_evidence: Any = None,
+                    event: str | None = None, pr_number: int | None = None,
+                    base_ref: str | None = None, base_sha: str | None = None) -> list[str]:
+    """Verify exact successful checks AND their eligible native run provenance.
+
+    PR admission requires the matching pull_request event/head/base. Installed
+    main acceptance requires a push to main. Other events are deliberately not
+    supported by this project, even where GitHub may support them generally.
+    This verifies source evidence, not enrollment or permission to execute.
+    """
+    selected = _status_checks(rules, checks, sha)
+    need(event in {'pull_request', 'push'} and hex40(sha), 'explicit source acceptance context required')
+    if event == 'pull_request':
+        need(_positive_id(pr_number) and isinstance(base_ref, str) and bool(base_ref)
+             and hex40(base_sha), 'exact PR context required')
+    action_checks = [c for c in selected if c['app']['id'] == ACTIONS_APP]
+    need(isinstance(actions_evidence, dict), 'native workflow provenance required')
+    ids = [c.get('id') for c in action_checks]
+    need(all(_positive_id(i) for i in ids) and len(set(ids)) == len(ids)
+         and set(actions_evidence) == {str(i) for i in ids}, 'workflow provenance coverage differs')
+    api_root = 'https://api.github.com/'+API
+    for check in action_checks:
+        ident = check['id']; item = actions_evidence[str(ident)]
+        need(isinstance(item, dict) and set(item) == {'job', 'run'}, 'workflow evidence pair required')
+        job, run = item['job'], item['run']
+        need(isinstance(job, dict) and isinstance(run, dict), 'workflow objects required')
+        need(_positive_id(job.get('id')) and job['id'] == ident and job.get('name') == check['name']
+             and job.get('head_sha') == sha and job.get('status') == 'completed'
+             and job.get('conclusion') == 'success'
+             and job.get('check_run_url') == api_root+'/check-runs/'+str(ident),
+             'workflow job is not this successful check')
+        run_id = run.get('id'); attempt = run.get('run_attempt')
+        suite = check.get('check_suite')
+        need(_positive_id(run_id) and _positive_id(job.get('run_id')) and job['run_id'] == run_id
+             and job.get('run_url') == api_root+'/actions/runs/'+str(run_id)
+             and _positive_id(attempt) and type(job.get('run_attempt')) is int
+             and job['run_attempt'] == attempt and isinstance(suite, dict)
+             and _positive_id(suite.get('id')) and type(run.get('check_suite_id')) is int
+             and run['check_suite_id'] == suite['id'], 'workflow job/run/suite/attempt differs')
+        need(run.get('head_sha') == sha and run.get('status') == 'completed'
+             and run.get('conclusion') == 'success' and run.get('event') == event,
+             'workflow event or completed run is not eligible for this source')
+        need(all(isinstance(run.get(k), dict) and run[k].get('full_name') == REPOSITORY
+                 for k in ('repository', 'head_repository')), 'workflow repository differs')
+        if event == 'push':
+            need(run.get('head_branch') == 'main', 'post-merge source needs main push evidence')
+        else:
+            prs = run.get('pull_requests')
+            need(isinstance(prs, list) and len(prs) <= 100
+                 and all(isinstance(p, dict) for p in prs), 'workflow PR links incomplete')
+            matches = [p for p in prs if p.get('number') == pr_number and type(p.get('number')) is int]
+            need(len(matches) == 1, 'workflow not linked to exact PR')
+            p = matches[0]
+            need(isinstance(p.get('head'), dict) and p['head'].get('sha') == sha
+                 and isinstance(p.get('base'), dict) and p['base'].get('ref') == base_ref
+                 and p['base'].get('sha') == base_sha, 'workflow PR head/base differs')
+    return sorted(c['name'] for c in selected)
 
 
 def private_json(directory: Path, name: str) -> dict:
@@ -274,7 +370,8 @@ class NativePort:
         sha = req.head if req.action == 'source_merge' else req.target
         rules = self.api(API+'/rules/branches/main')
         checks = self.api(API+'/commits/'+sha+'/check-runs?filter=latest&per_page=100')
-        return {'main': main, 'pr': pr, 'rules': rules, 'checks': checks}
+        evidence = collect_actions_evidence(self.api, rules, checks, sha)
+        return {'main': main, 'pr': pr, 'rules': rules, 'checks': checks, 'actions_evidence': evidence}
 
     def checkout_preflight(self) -> None:
         # Do not disable existing hooks: they may be security controls. Reject
@@ -370,7 +467,10 @@ def validate_remote(req: Request, snapshot: Any) -> list[str]:
              and isinstance(p.get('mergeCommit'), dict) and p['mergeCommit'].get('oid') == req.target,
              'sync target is not observed PR merge on main')
     return required_checks(snapshot.get('rules'), snapshot.get('checks'),
-                           req.head if req.action == 'source_merge' else req.target)
+                           req.head if req.action == 'source_merge' else req.target,
+                           actions_evidence=snapshot.get('actions_evidence'),
+                           event='pull_request' if req.action == 'source_merge' else 'push',
+                           pr_number=req.pr, base_ref='main', base_sha=req.source)
 
 
 def require_same_authority(port: NativePort, req: Request) -> None:

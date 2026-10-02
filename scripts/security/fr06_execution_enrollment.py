@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any, Callable
 from uuid import UUID, uuid4
 
-from scripts.security.fr06_execution_guard import GuardBlocked, ConcurrentOwner, ExecutionGuard, _open_directory, _file_metadata
+from scripts.security.fr06_execution_guard import GuardBlocked, ConcurrentOwner, ExecutionGuard, _open_directory, _file_metadata, _require_owned_flock
 
 ROOT = Path('/opt/AIOS')
 GUARD = Path('/var/lib/aionex/fr06-executor')
@@ -380,11 +380,13 @@ def held_probe_lock(directory: Path, active_guard=None):
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB); acquired = True
         except BlockingIOError:
             raise ConcurrentOwner('another executor owns enrollment probe lock') from None
+        _require_owned_flock(fd)
         ident = resource_identity(directory)
         need((ident['device'], ident['inode']) == (os.fstat(root).st_dev, os.fstat(root).st_ino)
              and (ident['lock_device'], ident['lock_inode']) == (os.fstat(fd).st_dev, os.fstat(fd).st_ino), 'probe lock replaced')
         yield ident
         need(resource_identity(directory) == ident, 'probe resources changed')
+        _require_owned_flock(fd)
     finally:
         if acquired: fcntl.flock(fd, fcntl.LOCK_UN)
         if fd >= 0: os.close(fd)
