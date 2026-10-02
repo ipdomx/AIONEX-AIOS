@@ -6,6 +6,7 @@ import os
 import re
 import shlex
 import shutil
+import signal
 import stat
 import subprocess
 import sys
@@ -99,13 +100,76 @@ def _cwd(value: str | Path) -> Path:
     return directory
 
 
+def _stop_owned_command(process: subprocess.Popen, partial: str | bytes = b"") -> tuple[str | bytes, dict[str, Any]]:
+    """Bound timeout cleanup to this invocation's new process group only.
+
+    Do not poll/reap the leader before signaling: its retained PID is the group
+    identity. WNOWAIT observes our child without releasing that identity. The
+    supervisor must be the child's sole reaper (default SIGCHLD policy).
+    Detached sessions, uninterruptible kernel I/O and prior external effects are
+    NOT certified stopped or reversed. This is not durable run reconciliation.
+    """
+    state = {"process_group_signal_sent": False, "direct_child_reaped": False,
+             "output_collection_complete": False}
+    try:
+        if process.returncode is not None:
+            raise ChildProcessError("leader already reaped")
+        os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOWAIT | os.WNOHANG)
+    except (ChildProcessError, OSError):
+        # Ownership is unknown; never send a signal using a possibly reused PID.
+        for stream in (process.stdout, process.stderr):
+            if stream is not None:
+                stream.close()
+        return partial, state
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+        state["process_group_signal_sent"] = True
+    except OSError:
+        # No repeat/force escalation against a different target.
+        pass
+    try:
+        out, _ = process.communicate(timeout=3)
+        partial = out
+        state["output_collection_complete"] = True
+        state["direct_child_reaped"] = process.returncode is not None
+    except subprocess.TimeoutExpired as exc:
+        partial = exc.output or partial
+        # A detached descendant can retain a pipe. Closing our pipe ends the
+        # bounded observation, not the detached process or its external effect.
+        for stream in (process.stdout, process.stderr):
+            if stream is not None:
+                stream.close()
+        try:
+            process.wait(timeout=1)
+            state["direct_child_reaped"] = process.returncode is not None
+        except subprocess.TimeoutExpired:
+            pass
+    return partial, state
+
+
 def _run(args: list[str], *, cwd: str | Path = PROJECT_ROOT, timeout_seconds: int = 120, env: dict[str, str] | None = None) -> dict[str, Any]:
     timeout = max(1, min(int(timeout_seconds), 1800))
+    directory = str(_cwd(cwd))
+    if (not sys.platform.startswith("linux") or not hasattr(os, "WNOWAIT")
+            or signal.getsignal(signal.SIGCHLD) != signal.SIG_DFL):
+        return {"exit_code": 125, "stdout": "",
+                "stderr": "safe command supervision unavailable; command not started"}
+    process = subprocess.Popen(args, cwd=directory, env=os.environ.copy() if env is None else env,
+                               stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               text=True, start_new_session=True)
     try:
-        completed = subprocess.run(args, cwd=str(_cwd(cwd)), env=env or os.environ.copy(), text=True, capture_output=True, timeout=timeout, check=False)
-        return {"exit_code": completed.returncode, "stdout": _safe_output(completed.stdout), "stderr": _safe_output(completed.stderr)}
+        out, err = process.communicate(timeout=timeout)
+        return {"exit_code": process.returncode, "stdout": _safe_output(out), "stderr": _safe_output(err)}
     except subprocess.TimeoutExpired as exc:
-        return {"exit_code": 124, "stdout": _safe_output(exc.stdout or ""), "stderr": f"command timed out after {timeout} seconds"}
+        partial, cleanup = _stop_owned_command(process, exc.output or b"")
+        return {"exit_code": 124, "stdout": _safe_output(partial),
+                "stderr": f"command timed out after {timeout} seconds; outcome unknown; do not replay",
+                "outcome": "unknown", "automatic_retry": False, "cleanup": cleanup}
+    except BaseException:
+        # A caught interruption does not abandon still-owned same-group children.
+        # Never translate interruption into success or a no-effect receipt.
+        _stop_owned_command(process)
+        raise
 
 
 def _shell(command: str, *, cwd: str | Path = PROJECT_ROOT, timeout_seconds: int = 120, env: dict[str, str] | None = None) -> dict[str, Any]:
