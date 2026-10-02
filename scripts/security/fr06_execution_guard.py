@@ -171,6 +171,65 @@ def _file_metadata(fd: int) -> os.stat_result:
     return info
 
 
+
+def _read_lock_fdinfo(fd: int) -> bytes:
+    """Read this process's descriptor evidence, never an arbitrary proc path."""
+    _need(type(fd) is int and fd >= 0, "owned lock descriptor required")
+    handle = os.open(f"/proc/{os.getpid()}/fdinfo/{fd}",
+                     os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        data = bytearray()
+        while len(data) <= 4096:
+            chunk = os.read(handle, 4097 - len(data))
+            if not chunk:
+                break
+            data.extend(chunk)
+        _need(0 < len(data) <= 4096, "lock fdinfo missing or oversized")
+        return bytes(data)
+    finally:
+        os.close(handle)
+
+
+def _verify_owned_flock(raw: bytes, metadata: os.stat_result, pid: int) -> None:
+    """Linux fdinfo must report our exclusive whole-file open-description lock.
+
+    This is a sampled cooperative check, not a history of continuous ownership
+    or protection from malicious code sharing this process's descriptors.
+    """
+    _need(type(raw) is bytes and 0 < len(raw) <= 4096 and raw.endswith(b"\n"),
+          "incomplete kernel lock evidence")
+    try:
+        lines = raw.decode("ascii").splitlines()
+    except UnicodeError:
+        raise GuardBlocked("invalid kernel lock evidence") from None
+    locks = [line for line in lines if line.startswith("lock:")]
+    inodes = [line for line in lines if line.startswith("ino:")]
+    _need(len(locks) == 1 and len(inodes) == 1, "own exclusive flock not observed")
+    match = re.fullmatch(r"lock:\s+[0-9]+:\s+FLOCK\s+ADVISORY\s+WRITE\s+([0-9]+)\s+"
+                         r"([0-9a-f]+):([0-9a-f]+):([0-9]+)\s+0\s+EOF", locks[0])
+    inode = re.fullmatch(r"ino:\s+([0-9]+)", inodes[0])
+    _need(match is not None and inode is not None, "exclusive whole-file flock required")
+    owner, major, minor, locked_inode = match.groups()
+    _need(int(owner) == pid and int(major, 16) == os.major(metadata.st_dev)
+          and int(minor, 16) == os.minor(metadata.st_dev)
+          and int(locked_inode) == metadata.st_ino == int(inode.group(1)),
+          "kernel lock belongs to another owner or file")
+
+
+def _require_owned_flock(fd: int) -> None:
+    """Validate without reacquiring, upgrading, unlocking or writing the lock."""
+    try:
+        before = _file_metadata(fd)
+        _need(before.st_size == 0, "empty private execution lock required")
+        _verify_owned_flock(_read_lock_fdinfo(fd), before, os.getpid())
+        after = _file_metadata(fd)
+        _need((before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns, before.st_ctime_ns)
+              == (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns),
+              "lock descriptor changed during kernel observation")
+    except OSError:
+        raise GuardBlocked("owned kernel lock evidence unavailable") from None
+
+
 def _identity(info: os.stat_result) -> tuple[int, int]:
     return info.st_dev, info.st_ino
 
@@ -215,6 +274,7 @@ class ExecutionGuard:
                 raise ConcurrentOwner("another executor owns the kernel lock") from None
             self._held = True
             self._pid = os.getpid()
+            _require_owned_flock(self._lock)
             self._journal = os.open("effects.jsonl", os.O_RDWR | os.O_APPEND | os.O_CREAT
                                     | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600, dir_fd=self._root)
             _file_metadata(self._journal)
@@ -238,6 +298,7 @@ class ExecutionGuard:
             named = os.stat(name, dir_fd=self._root, follow_symlinks=False)
             _need(stat.S_ISREG(named.st_mode) and _identity(info) == _identity(named),
                   "lock/journal pathname replaced")
+        _require_owned_flock(self._lock)
 
     def _records(self) -> list[dict]:
         self._assert_held()
@@ -312,12 +373,14 @@ class ExecutionGuard:
         self._assert_held()
         remaining = memoryview(data)
         while remaining:
+            self._assert_held()
             try:
                 written = os.write(self._journal, remaining)
             except InterruptedError:
                 continue
             _need(written > 0, "journal write made no progress")
             remaining = remaining[written:]
+        self._assert_held()
         os.fsync(self._journal)
         os.fsync(self._root)
         _need(self._records()[-1] == item, "journal readback differs")
