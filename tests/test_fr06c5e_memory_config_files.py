@@ -31,7 +31,7 @@ FSTAB = b"# synthetic, owned laboratory only\nUUID=fixture-root / ext4 defaults 
 UNITS = {"install_swap_unit": SWAP_UNIT.encode(), "install_tmp_unit": TMP_UNIT.encode()}
 
 
-def setup(tmp_path):
+def make_case(tmp_path):
     root = tmp_path / "owned-root"
     (root / "etc/systemd/system").mkdir(parents=True)
     root.chmod(0o700)
@@ -86,7 +86,7 @@ def identity(path):
 
 
 def test_real_three_step_apply_restore_retains_original_inode_and_all_other_bytes(tmp_path):
-    root, config, journals, context, operation = setup(tmp_path)
+    root, config, journals, context, operation = make_case(tmp_path)
     original = identity(root / "etc/fstab")
     unrelated = root / "etc/unrelated"
     unrelated.write_bytes(b"do not touch\n")
@@ -110,7 +110,7 @@ def test_real_three_step_apply_restore_retains_original_inode_and_all_other_byte
 
 @pytest.mark.parametrize("point", [0, 1, 2, 3])
 def test_reopen_after_each_completed_step_then_explicit_rollback(tmp_path, point):
-    root, config, journals, context, operation = setup(tmp_path)
+    root, config, journals, context, operation = make_case(tmp_path)
     original = identity(root / "etc/fstab")
     with m.ConfigFileAdapter.prepare(root, config, operation, lambda: context, UNITS) as adapter:
         plan = plan_for(adapter)
@@ -128,7 +128,7 @@ def test_reopen_after_each_completed_step_then_explicit_rollback(tmp_path, point
 @pytest.mark.parametrize("step_index", [0, 1, 2])
 @pytest.mark.parametrize("direction", ["apply", "undo"])
 def test_directory_sync_failure_keeps_intent_without_repeat_or_false_rollback(tmp_path, monkeypatch, step_index, direction):
-    root, config, journals, context, operation = setup(tmp_path)
+    root, config, journals, context, operation = make_case(tmp_path)
     original = identity(root / "etc/fstab")
     with m.ConfigFileAdapter.prepare(root, config, operation, lambda: context, UNITS) as adapter, txm.Journal(journals, operation, create=plan_for(adapter)) as journal:
         tx = transaction(adapter, journal)
@@ -163,7 +163,7 @@ def test_directory_sync_failure_keeps_intent_without_repeat_or_false_rollback(tm
 @pytest.mark.parametrize("direction", ["apply", "undo"])
 @pytest.mark.parametrize("step_index", [0, 1, 2])
 def test_native_process_kill_recovers_owned_files_without_repeating_rename(tmp_path, phase, direction, step_index):
-    root, config, journals, context, operation = setup(tmp_path)
+    root, config, journals, context, operation = make_case(tmp_path)
     original = identity(root / "etc/fstab")
     with m.ConfigFileAdapter.prepare(root, config, operation, lambda: context, UNITS) as adapter, txm.Journal(journals, operation, create=plan_for(adapter)):
         pass
@@ -222,7 +222,7 @@ with m.ConfigFileAdapter.load(Path(p['root']),Path(p['config']),p['operation'],l
 
 @pytest.mark.parametrize("kind", ["target", "stage", "parent", "root", "lock", "manifest", "extra_stage", "hardlink", "permissions"])
 def test_changed_or_unowned_resources_deny_before_effect(tmp_path, kind):
-    root, config, journals, context, operation = setup(tmp_path)
+    root, config, journals, context, operation = make_case(tmp_path)
     with m.ConfigFileAdapter.prepare(root, config, operation, lambda: context, UNITS) as adapter, txm.Journal(journals, operation, create=plan_for(adapter)) as journal:
         tx = transaction(adapter, journal)
         item = adapter.spec["files"]["install_swap_unit"]
@@ -258,7 +258,7 @@ def test_changed_or_unowned_resources_deny_before_effect(tmp_path, kind):
 
 @pytest.mark.parametrize("target", ["fstab", "unit", "parent", "stage"])
 def test_symlinks_never_followed(tmp_path, target):
-    root, config, _journals, context, operation = setup(tmp_path)
+    root, config, _journals, context, operation = make_case(tmp_path)
     outside = tmp_path / "unowned-file"
     outside.write_bytes(b"must remain\n")
     if target == "fstab":
@@ -278,7 +278,7 @@ def test_symlinks_never_followed(tmp_path, target):
 
 
 def test_journal_intent_is_required_even_for_direct_adapter_calls(tmp_path):
-    root, config, journals, context, operation = setup(tmp_path)
+    root, config, journals, context, operation = make_case(tmp_path)
     with m.ConfigFileAdapter.prepare(root, config, operation, lambda: context, UNITS) as adapter:
         with pytest.raises(m.FileStepRejected):
             adapter.apply(adapter.steps[0], operation)
@@ -291,7 +291,7 @@ def test_journal_intent_is_required_even_for_direct_adapter_calls(tmp_path):
 
 @pytest.mark.parametrize("change", ["operation", "boot", "source", "generation"])
 def test_fresh_bound_context_is_required_before_each_effect(tmp_path, change):
-    root, config, journals, context, operation = setup(tmp_path)
+    root, config, journals, context, operation = make_case(tmp_path)
     current = [context]
     with m.ConfigFileAdapter.prepare(root, config, operation, lambda: current[0], UNITS) as adapter, txm.Journal(journals, operation, create=plan_for(adapter)) as journal:
         tx = transaction(adapter, journal)
@@ -304,7 +304,7 @@ def test_fresh_bound_context_is_required_before_each_effect(tmp_path, change):
 
 
 def test_config_lock_serializes_cooperating_operations_and_reopens_after_close(tmp_path):
-    root, config, _journals, context, operation = setup(tmp_path)
+    root, config, _journals, context, operation = make_case(tmp_path)
     with m.ConfigFileAdapter.prepare(root, config, operation, lambda: context, UNITS), pytest.raises(BlockingIOError):
         m.ConfigFileAdapter.load(root, config, operation, lambda: context)
     with m.ConfigFileAdapter.load(root, config, operation, lambda: context) as adapter:
@@ -312,7 +312,7 @@ def test_config_lock_serializes_cooperating_operations_and_reopens_after_close(t
 
 
 def test_rename_failure_is_uncertain_until_readonly_reconciliation(tmp_path, monkeypatch):
-    root, config, journals, context, operation = setup(tmp_path)
+    root, config, journals, context, operation = make_case(tmp_path)
     with m.ConfigFileAdapter.prepare(root, config, operation, lambda: context, UNITS) as adapter, txm.Journal(journals, operation, create=plan_for(adapter)) as journal:
         tx = transaction(adapter, journal)
         def unsupported(*args, **kwargs):
@@ -327,7 +327,7 @@ def test_rename_failure_is_uncertain_until_readonly_reconciliation(tmp_path, mon
 
 
 def test_no_replace_keeps_file_created_after_observation(tmp_path, monkeypatch):
-    root, config, journals, context, operation = setup(tmp_path)
+    root, config, journals, context, operation = make_case(tmp_path)
     with m.ConfigFileAdapter.prepare(root, config, operation, lambda: context, UNITS) as adapter, txm.Journal(journals, operation, create=plan_for(adapter)) as journal:
         tx = transaction(adapter, journal)
         original_rename = m.rename_owned
@@ -365,7 +365,7 @@ def test_fstab_preserves_indentation_newline_and_comments(entry):
 
 
 def test_filesystem_adapter_does_not_accept_kernel_or_wrong_operation_steps(tmp_path):
-    root, config, _journals, context, operation = setup(tmp_path)
+    root, config, _journals, context, operation = make_case(tmp_path)
     with m.ConfigFileAdapter.prepare(root, config, operation, lambda: context, UNITS) as adapter:
         with pytest.raises(m.FileStepRejected):
             adapter.observe(txm.BoundStep("activate_tmpfs", "a" * 64, "b" * 64), operation)
@@ -374,7 +374,7 @@ def test_filesystem_adapter_does_not_accept_kernel_or_wrong_operation_steps(tmp_
 
 
 def test_staging_write_short_chunks_and_reopened_stable_metadata(tmp_path, monkeypatch):
-    root, config, _journals, context, operation = setup(tmp_path)
+    root, config, _journals, context, operation = make_case(tmp_path)
     original_write = os.write
     monkeypatch.setattr(m.os, "write", lambda fd, data: original_write(fd, data[:37]))
     with m.ConfigFileAdapter.prepare(root, config, operation, lambda: context, UNITS) as adapter:
@@ -386,7 +386,7 @@ def test_staging_write_short_chunks_and_reopened_stable_metadata(tmp_path, monke
 
 
 def test_partial_staging_never_replaced_or_treated_as_complete(tmp_path):
-    root, config, _journals, context, operation = setup(tmp_path)
+    root, config, _journals, context, operation = make_case(tmp_path)
     (root / "etc/fstab").unlink()
     with pytest.raises(m.FileStepRejected):
         m.ConfigFileAdapter.prepare(root, config, operation, lambda: context, UNITS)
@@ -399,7 +399,7 @@ def test_partial_staging_never_replaced_or_treated_as_complete(tmp_path):
 
 @pytest.mark.parametrize("step_index", [0, 1, 2])
 def test_rollback_refuses_byte_identical_but_different_inode(tmp_path, step_index):
-    root, config, journals, context, operation = setup(tmp_path)
+    root, config, journals, context, operation = make_case(tmp_path)
     with m.ConfigFileAdapter.prepare(root, config, operation, lambda: context, UNITS) as adapter, txm.Journal(journals, operation, create=plan_for(adapter)) as journal:
         tx = transaction(adapter, journal)
         for _ in range(step_index + 1):
@@ -418,7 +418,7 @@ def test_rollback_refuses_byte_identical_but_different_inode(tmp_path, step_inde
 
 
 def test_exchange_race_retains_foreign_inode_and_refuses_reconciliation(tmp_path, monkeypatch):
-    root, config, journals, context, operation = setup(tmp_path)
+    root, config, journals, context, operation = make_case(tmp_path)
     with m.ConfigFileAdapter.prepare(root, config, operation, lambda: context, UNITS) as adapter, txm.Journal(journals, operation, create=plan_for(adapter)) as journal:
         tx = transaction(adapter, journal)
         tx.apply_next()
@@ -445,7 +445,7 @@ def test_exchange_race_retains_foreign_inode_and_refuses_reconciliation(tmp_path
 
 
 def test_extended_attributes_require_separate_preservation_review(tmp_path):
-    root, config, _journals, context, operation = setup(tmp_path)
+    root, config, _journals, context, operation = make_case(tmp_path)
     os.setxattr(root / "etc/fstab", "user.synthetic-c5e", b"owned-fixture")
     with pytest.raises(m.FileStepRejected, match="Extended attributes"):
         m.ConfigFileAdapter.prepare(root, config, operation, lambda: context, UNITS)
@@ -453,7 +453,7 @@ def test_extended_attributes_require_separate_preservation_review(tmp_path):
 
 
 def test_unsupported_renameat2_never_uses_weaker_rename(tmp_path, monkeypatch):
-    root, config, journals, context, operation = setup(tmp_path)
+    root, config, journals, context, operation = make_case(tmp_path)
     monkeypatch.setattr(m.ctypes, "CDLL", lambda *args, **kwargs: object())
     with m.ConfigFileAdapter.prepare(root, config, operation, lambda: context, UNITS) as adapter, txm.Journal(journals, operation, create=plan_for(adapter)) as journal:
         tx = transaction(adapter, journal)
@@ -465,7 +465,7 @@ def test_unsupported_renameat2_never_uses_weaker_rename(tmp_path, monkeypatch):
 
 
 def test_attaching_journal_with_wrong_fingerprints_is_rejected(tmp_path):
-    root, config, journals, context, operation = setup(tmp_path)
+    root, config, journals, context, operation = make_case(tmp_path)
     with m.ConfigFileAdapter.prepare(root, config, operation, lambda: context, UNITS) as adapter:
         plan = plan_for(adapter)
         forged = dataclasses.replace(plan, steps=(txm.BoundStep("install_swap_unit", "e" * 64, "f" * 64), *plan.steps[1:]))
@@ -474,14 +474,14 @@ def test_attaching_journal_with_wrong_fingerprints_is_rejected(tmp_path):
 
 
 def test_unknown_configuration_target_is_rejected_before_any_staging(tmp_path):
-    root, config, _journals, context, operation = setup(tmp_path)
+    root, config, _journals, context, operation = make_case(tmp_path)
     with pytest.raises(m.FileStepRejected):
         m.ConfigFileAdapter.prepare(root, config, operation, lambda: context, {**UNITS, "etc/shadow": b"forbidden"})
     assert not (config / operation).exists()
 
 
 def test_same_operation_staging_cannot_be_automatically_replaced(tmp_path):
-    root, config, _journals, context, operation = setup(tmp_path)
+    root, config, _journals, context, operation = make_case(tmp_path)
     with m.ConfigFileAdapter.prepare(root, config, operation, lambda: context, UNITS):
         pass
     saved = (config / operation / "manifest.json").read_bytes()
@@ -492,7 +492,7 @@ def test_same_operation_staging_cannot_be_automatically_replaced(tmp_path):
 
 @pytest.mark.parametrize("kind", ["removed", "replaced"])
 def test_reopened_adapter_refuses_changed_persistent_lock(tmp_path, kind):
-    root, config, _journals, context, operation = setup(tmp_path)
+    root, config, _journals, context, operation = make_case(tmp_path)
     with m.ConfigFileAdapter.prepare(root, config, operation, lambda: context, UNITS):
         pass
     lock = config / ".config.lock"
@@ -505,7 +505,7 @@ def test_reopened_adapter_refuses_changed_persistent_lock(tmp_path, kind):
 
 @pytest.mark.parametrize("changed_index", [0, 2])
 def test_other_bound_file_drift_prevents_the_next_file_effect(tmp_path, changed_index):
-    root, config, journals, context, operation = setup(tmp_path)
+    root, config, journals, context, operation = make_case(tmp_path)
     with m.ConfigFileAdapter.prepare(root, config, operation, lambda: context, UNITS) as adapter, txm.Journal(journals, operation, create=plan_for(adapter)) as journal:
         tx = transaction(adapter, journal)
         tx.apply_next()
@@ -522,7 +522,7 @@ def test_other_bound_file_drift_prevents_the_next_file_effect(tmp_path, changed_
 
 
 def test_adapter_uses_actual_syscall_and_syncs_both_changed_directories(tmp_path, monkeypatch):
-    root, config, journals, context, operation = setup(tmp_path)
+    root, config, journals, context, operation = make_case(tmp_path)
     with m.ConfigFileAdapter.prepare(root, config, operation, lambda: context, UNITS) as adapter, txm.Journal(journals, operation, create=plan_for(adapter)) as journal:
         tx = transaction(adapter, journal)
         observed = []

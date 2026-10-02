@@ -112,13 +112,15 @@ def test_restart_error_never_claims_success(operator, monkeypatch):
     assert operator.mcp_restart_tunnel()["success"] is False
 
 
-def test_timeout_accepts_partial_bytes_and_redacts(operator, monkeypatch, tmp_path):
-    error = subprocess.TimeoutExpired(["example"], 1, output=b"password=private-test-value")
-    monkeypatch.setattr(operator.subprocess, "run", Mock(side_effect=error))
-    result = operator._run(["example"], cwd=tmp_path, timeout_seconds=1)
+def test_timeout_accepts_partial_bytes_and_redacts(operator, tmp_path):
+    # Real timeout plumbing rather than mocking the removed subprocess.run call.
+    payload = "synthetic-sensitive-marker"
+    program = "import time;print('password=' + " + repr(payload) + ",flush=True);time.sleep(5)"
+    result = operator._run([sys.executable, "-c", program], cwd=tmp_path, timeout_seconds=1)
     assert result["exit_code"] == 124
-    assert "private-test-value" not in result["stdout"]
+    assert payload not in result["stdout"]
     assert "[REDACTED]" in result["stdout"]
+    assert result["outcome"] == "unknown" and result["automatic_retry"] is False
 
 
 def test_atomic_update_compiles_from_valid_root(operator, monkeypatch, tmp_path):

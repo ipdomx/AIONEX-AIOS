@@ -1,0 +1,142 @@
+"""Run the exact D15 embedded settlement against a private disposable PostgreSQL.
+No provider API, production configuration or in-place restore is used.
+"""
+import asyncio
+import hashlib
+import importlib.util
+import json
+import os
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+from uuid import uuid4
+from types import SimpleNamespace
+
+from sqlalchemy import delete, select, text
+from sqlalchemy.engine import make_url
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
+from app.db.models import Base, Organization, User, OwnerControlRecord, IdentityMediaExecution, AuditEvent
+from app.db import base as db
+from app.services import host_maintenance_admission as admission
+
+url=make_url(os.environ["DATABASE_URL"])
+assert url.database == "fr06_d15_disposable" and url.host == "fr06-d15-pg"
+assert os.environ.get("ENVIRONMENT") == "test"
+spec=importlib.util.spec_from_file_location("d15", "/qa/scripts/security/fr06c5d15_identity_media_terminal_reconcile.py")
+m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+program=m.SETTLE.rsplit("asyncio.run(main())",1)[0]
+appname="fr06-d15-lab-"+uuid4().hex
+engine=create_async_engine(url, poolclass=NullPool, connect_args={"server_settings":{"application_name":appname}})
+sessions=async_sessionmaker(engine, expire_on_commit=False)
+db.SessionLocal=sessions
+operation=str(uuid4()); control_id=str(uuid4()); org=str(uuid4()); user=str(uuid4())
+admission.RESOURCE_ID="d15-disposable-"+uuid4().hex
+job="synthetic-job"; jobhash=hashlib.sha256(job.encode()).hexdigest()
+accepted=[]
+
+async def seed_authority(*, gen=41, op=operation, status="closed"):
+    async with sessions() as s, s.begin():
+        row=await s.get(OwnerControlRecord,control_id)
+        payload=dict(schema_version=8, scope=admission.REALTIME_REQUEST_COVERAGE_SCOPE,
+                     generation=gen, operation_id=op, reason="isolated-d15-fixture",
+                     changed_at=datetime.now(timezone.utc).isoformat(), full_host_closure=False)
+        if row is None:
+            s.add(OwnerControlRecord(id=control_id,domain=admission.DOMAIN,resource_id=admission.RESOURCE_ID,
+                                   status=status,enabled=status=="open",version=gen,payload=payload))
+        else:
+            row.status=status;row.enabled=status=="open";row.version=gen;row.payload=payload
+
+async def new_execution():
+    eid=str(uuid4())
+    async with sessions() as s, s.begin():
+        s.add(IdentityMediaExecution(id=eid,organization_id=org,requested_by_id=user,
+              operation="voice_clone",identity_basis="self",provider_access="test",
+              provider="replicate",model="synthetic-not-a-provider-model",status="failed",
+              provider_state="starting",idempotency_key=eid,subject_reference="synthetic-self",
+              provider_job_id=job,completed_at=datetime.now(timezone.utc),version=3))
+    return eid
+
+async def invoke(eid):
+    prior=sys.argv
+    sys.argv=["-c",eid,"3",jobhash,"failed",operation,"41"]
+    namespace={}
+    try:
+        exec(compile(program,"<exact-D15-SETTLE>","exec"),namespace)
+        await namespace["main"]()
+    finally:sys.argv=prior
+
+async def assert_row(eid, state, version):
+    async with sessions() as s:
+        row=await s.get(IdentityMediaExecution,eid)
+        assert row.status=="failed" and row.provider_state==state and row.version==version
+        audits=(await s.scalars(select(AuditEvent).where(AuditEvent.resource_id==eid,
+                   AuditEvent.action=="identity_media.execution.provider_terminal_reconciled"))).all()
+        assert len(audits)==(1 if state=="failed" else 0)
+        if audits:
+            assert audits[0].details["maintenance_operation_id"]==operation
+            assert audits[0].details["maintenance_generation"]==41
+
+async def main():
+    async with engine.begin() as c:await c.run_sync(Base.metadata.create_all)
+    async with sessions() as s,s.begin():
+        s.add(Organization(id=org,name="Disposable D15",slug="d15-"+org,status="active",plan="free"))
+        await s.flush()
+        s.add(User(id=user,organization_id=org,email=user+"@example.invalid",name="Synthetic",
+                   password_hash="not-a-login-hash",status="active"))
+    for kwargs,label in [({"status":"open"},"open-denied"),({"gen":42},"generation-drift-denied"),
+                        ({"op":str(uuid4())},"operation-drift-denied")]:
+        await seed_authority(**kwargs);eid=await new_execution()
+        try:await invoke(eid)
+        except RuntimeError as ex:assert "maintenance authority" in str(ex)
+        else:raise AssertionError("authority drift allowed settlement")
+        await assert_row(eid,"starting",3);accepted.append(label)
+    await seed_authority();eid=await new_execution();await invoke(eid)
+    await assert_row(eid,"failed",4);accepted.append("same-authority-commit-and-audit")
+    try:await invoke(eid)
+    except RuntimeError as ex:assert "baseline changed" in str(ex)
+    else:raise AssertionError("same row settlement repeated")
+    await assert_row(eid,"failed",4);accepted.append("version-CAS-no-replay")
+
+    await seed_authority();eid=await new_execution()
+    acquired=asyncio.Event();release=asyncio.Event()
+    class ProbeSession(AsyncSession):
+        async def execute(self, stmt, *args, **kwargs):
+            result=await super().execute(stmt,*args,**kwargs)
+            lock=getattr(stmt,"_for_update_arg",None)
+            if lock is not None and lock.read and not self.info.get("paused"):
+                self.info["paused"]=True;acquired.set();await release.wait()
+            return result
+    db.SessionLocal=async_sessionmaker(engine,class_=ProbeSession,expire_on_commit=False)
+    writer=asyncio.create_task(invoke(eid));opener=None
+    try:
+        await asyncio.wait_for(acquired.wait(),10)
+        opener=asyncio.create_task(admission.open_admission(operation_id=operation,expected_generation=41,
+                      reason="disposable race test",session_factory=sessions))
+        blocked=False
+        for _ in range(100):
+            async with sessions() as monitor:
+                count=await monitor.scalar(text("SELECT count(*) FROM pg_stat_activity WHERE application_name=:n AND wait_event_type='Lock'"),{"n":appname})
+            if count:
+                blocked=True;break
+            await asyncio.sleep(.02)
+        assert blocked and not opener.done(),"real PostgreSQL exclusive lock did not wait"
+        release.set();await asyncio.wait_for(writer,10)
+        opened=await asyncio.wait_for(opener,10)
+        assert opened.generation==42 and opened.is_open
+        await assert_row(eid,"failed",4);accepted.append("real-PG-reopen-waits-for-settlement-commit")
+    finally:
+        release.set()
+        for task in (writer,opener):
+            if task is not None and not task.done():task.cancel()
+        await asyncio.gather(*(t for t in (writer,opener) if t is not None),return_exceptions=True)
+        db.SessionLocal=sessions
+    await engine.dispose()
+    result=dict(status="PASS",tests=len(accepted),cases=accepted,
+                embedded_program_sha256=hashlib.sha256(m.SETTLE.encode()).hexdigest(),
+                real_postgresql=True,provider_calls=0,production_changed=False)
+    out=Path("/evidence/postgres-result.json")
+    with out.open("x") as f:json.dump(result,f,indent=2);f.write("\n")
+    print(json.dumps(result,sort_keys=True))
+
+asyncio.run(main())
