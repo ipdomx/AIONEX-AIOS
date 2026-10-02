@@ -1,0 +1,11 @@
+# FR-06: repair existing Dependabot PR822 without pruning the pinned Trivy graph
+
+This is an isolated update to the already existing PR822, not a replacement for PR835 or PR838. The original Dependabot commit 16276990e974cfe7666499165252903309406897 is retained as a parent. The current accepted main source 7779f740a81d4fae2167c8441218b69e54cf56f5 is integrated locally; neither remote main nor live source is changed by this preparation.
+
+The original update reduced go.mod from491 to129 lines and go.sum from2200 to290 lines and failed the existing read_lock check with Reviewed module file drift. The repair reuses the seven exact reviewed Git blobs from retained security candidate40b3550099cc0d8a7c7acca0a26e3a8ff7d5edbd: full pinned manifests, authenticated archive0.3.0 checksums, corrected manifest digests, build-floor validation and its tests. All other pinned dependencies and the binary SHA remain unchanged. The retained October1 receipt remains explicitly historical; its3923 result is not the acceptance result of this new integration.
+
+The official upstream advisory GHSA-hfg8-hc9c-6c3h identifies0.3.0 as patched. Current Dependabot alert51 is open in the Trivy source/test graph. Restoring the complete graph and changing one selected archive version does not upgrade host Docker, close alerts48/50, remediate all image findings, close the credential incident or authorize production. Alert34/36 in the separate Grype manifest were observed fixed, not dismissed, on October2; that is not runtime security acceptance.
+
+Sixty-one focused archive/Trivy/cold-build tests passed on this integration. Full-suite and source input evidence must be read from the actual run artifacts, not inferred from this paragraph. Current main still contains the legacy setup helpers already corrected on PR835; any resulting baseline test failures must be retained and not hidden or fixed a second time through this independent archive change.
+
+Evidence: docs/project/runtime/fr06-recurring-task-health/interactive-next-gate-20261002T161729083803Z-129a50ac/. The publication, if accepted, updates only the existing PR822 review branch normally without force. PR835/838 and all live sources remain distinct. No merge into main, trust/permit/enrollment issuance, historical reconciliation, deployment, service/provider operation, swap/tmp or reboot is performed.
