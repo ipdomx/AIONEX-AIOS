@@ -218,6 +218,62 @@ def read_fixed(directory, name, *, mode=0o400, maximum=65536):
             os.close(fd)
 
 
+# Kernel documentation: filesystems/proc.html section /proc/<pid>/fdinfo.
+# flock belongs to an open file description, not merely an inode. A failed
+# competing acquisition can be caused by SOMEONE ELSE holding that inode.
+# Inspect this descriptor before/after the child probe; never reacquire here.
+def _read_coordinator_fdinfo(fd):
+    need(type(fd) is int and fd >= 0 and sys.platform.startswith('linux'),
+         'Linux coordinator descriptor required')
+    info = os.open(f'/proc/{os.getpid()}/fdinfo/{fd}',
+                   os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        raw = bytearray()
+        while len(raw) <= 4096:
+            chunk = os.read(info, 4097 - len(raw))
+            if not chunk:
+                break
+            raw.extend(chunk)
+        need(0 < len(raw) <= 4096, 'coordinator fdinfo unavailable or too large')
+        return bytes(raw)
+    finally:
+        os.close(info)
+
+
+def _verify_coordinator_fdinfo(raw, metadata, pid):
+    need(type(raw) is bytes and 0 < len(raw) <= 4096 and raw.endswith(b'\n'),
+         'coordinator fdinfo incomplete')
+    try:
+        lines = raw.decode('ascii').splitlines()
+    except UnicodeError as exc:
+        raise AdmissionBlocked('coordinator fdinfo invalid') from exc
+    locks = [line for line in lines if line.startswith('lock:')]
+    inodes = [line for line in lines if line.startswith('ino:')]
+    need(len(locks) == 1 and len(inodes) == 1, 'owned coordinator flock not observed')
+    owned = re.fullmatch(
+        r'lock:\s+[0-9]+:\s+FLOCK\s+ADVISORY\s+WRITE\s+([0-9]+)\s+'
+        r'([0-9a-f]+):([0-9a-f]+):([0-9]+)\s+0\s+EOF', locks[0])
+    inode = re.fullmatch(r'ino:\s+([0-9]+)', inodes[0])
+    need(owned is not None and inode is not None, 'exclusive coordinator flock not observed')
+    owner, major, minor, locked_inode = owned.groups()
+    need(int(owner) == pid and int(major, 16) == os.major(metadata.st_dev)
+         and int(minor, 16) == os.minor(metadata.st_dev)
+         and int(locked_inode) == metadata.st_ino == int(inode.group(1)),
+         'coordinator flock belongs to a different owner or file')
+
+
+def _require_owned_coordinator(fd):
+    before = os.fstat(fd)
+    need(stat.S_ISREG(before.st_mode) and before.st_uid == os.geteuid()
+         and before.st_nlink == 1 and before.st_size == 0
+         and stat.S_IMODE(before.st_mode) == 0o600, 'unsafe owned coordinator descriptor')
+    try:
+        _verify_coordinator_fdinfo(_read_coordinator_fdinfo(fd), before, os.getpid())
+    except OSError as exc:
+        raise AdmissionBlocked('owned coordinator kernel evidence unavailable') from exc
+    need(prep._same(before, os.fstat(fd)), 'coordinator descriptor changed during ownership read')
+
+
 class NativeSession:
     """Fixed native reads; injectable test ports are not exposed through the CLI."""
     def __init__(self, authorization_id):
@@ -242,6 +298,7 @@ class NativeSession:
                 need(stat.S_ISREG(value.st_mode) and value.st_uid == os.geteuid() and value.st_nlink == 1
                      and value.st_size == 0 and stat.S_IMODE(value.st_mode) == 0o600, 'unsafe independent coordinator lock')
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                _require_owned_coordinator(fd)
                 self.lock_fd = fd
                 yield self
             finally:
@@ -269,7 +326,9 @@ class NativeSession:
 
     def coordinator(self):
         need(self.lock_fd is not None, 'independent coordinator must remain held')
-        current = os.fstat(self.lock_fd)
+        held_fd = self.lock_fd
+        _require_owned_coordinator(held_fd)
+        current = os.fstat(held_fd)
         with prep._root(self.directory, private=True) as parent:
             named = os.stat('coordinator.lock', dir_fd=parent, follow_symlinks=False)
         need(prep._same(current, named) and current.st_uid == os.geteuid() and current.st_nlink == 1
@@ -287,6 +346,8 @@ class NativeSession:
             named_after = os.stat('coordinator.lock', dir_fd=parent, follow_symlinks=False)
         need(prep._same(current, os.fstat(self.lock_fd)) and prep._same(current, named_after),
              'coordinator changed during contention probe')
+        need(self.lock_fd == held_fd, 'coordinator descriptor replaced during probe')
+        _require_owned_coordinator(held_fd)
         return {'device': current.st_dev, 'inode': current.st_ino}
 
     def source(self, permit):
