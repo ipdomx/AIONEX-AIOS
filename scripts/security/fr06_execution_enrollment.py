@@ -126,24 +126,43 @@ def _journal(raw: bytes) -> list[dict]:
 def _event_run(event: dict) -> tuple[str | None, str | None]:
     refs = event.get('evidence', [])
     need(isinstance(refs, list) and all(isinstance(p, str) for p in refs), 'journal evidence list malformed')
+    key = event.get('event_id')
+    need(isinstance(key, str) and bool(key), 'journal event identity missing')
     phase = event.get('run_phase')
     selected: set[tuple[str, str]] = set()
-    # Older reports copied previous evidence. Only their newest own start/end is
-    # relevant; the event id has to bind to that run rather than a copied receipt.
+    # Historical scheduled records placed the phase BEFORE the timestamp. They
+    # must not disappear from the pre-bootstrap pending set merely because the
+    # full directory name is not a substring of that legacy event ID.
+    legacy = re.fullmatch(r'fr06-(scheduled|watchdog|interactive)-(start|started|end|terminal)-([A-Za-z0-9_-]+)', key)
+    legacy_name = None
+    legacy_phase = None
+    if legacy:
+        role, word, suffix = legacy.groups()
+        legacy_name = role + '-' + suffix
+        legacy_phase = 'started' if word in ('start', 'started') else 'terminal'
+        need(runid(legacy_name) and event.get('invocation_type') == role,
+             'legacy run role or identity differs')
+        need(phase in (None, legacy_phase), 'legacy run phase conflicts')
+        phase = legacy_phase
     for ref in refs:
         p = Path(ref)
         if p.parent.parent.as_posix() != RUNTIME.as_posix() or p.name not in {'started.json', 'terminal.json'}:
             continue
         name = p.parent.name
-        if runid(name) and name in event['event_id']:
+        match = name == legacy_name if legacy_name is not None else name in key
+        if runid(name) and match:
+            need(p.as_posix() == ref and all(x not in ('.', '..') for x in p.parts),
+                 'run receipt reference is not canonical')
             selected.add((name, 'started' if p.name == 'started.json' else 'terminal'))
     if phase in {'started', 'terminal'}:
         selected = {x for x in selected if x[1] == phase}
-    elif event['event_id'].endswith(('-terminal', '-end')):
+    elif key.endswith(('-terminal', '-end')):
         selected = {x for x in selected if x[1] == 'terminal'}
-    elif event['event_id'].endswith(('-started', '-start')):
+    elif key.endswith(('-started', '-start')):
         selected = {x for x in selected if x[1] == 'started'}
     need(len(selected) <= 1, 'ambiguous run phase in journal')
+    if legacy_name is not None:
+        need(selected == {(legacy_name, legacy_phase)}, 'legacy run receipt identity is unbound')
     return next(iter(selected)) if selected else (None, None)
 
 
