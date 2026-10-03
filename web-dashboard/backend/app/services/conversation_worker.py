@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections import defaultdict, deque
 from datetime import timedelta
+from typing import Iterable
 
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -161,6 +163,63 @@ async def cancel_unstarted(job_id: str, reason: str) -> None:
             await session.commit()
 
 
+FAIR_SCAN_LIMIT = 100
+DISPATCH_BATCH_SIZE = 8
+
+
+def _job_priority(row: Job) -> int:
+    value = row.payload.get("priority")
+    return value if type(value) is int else 0
+
+
+def fair_job_ids(rows: Iterable[Job], *, limit: int = DISPATCH_BATCH_SIZE) -> list[str]:
+    """Choose a bounded fair wave without weakening Owner priority.
+
+    Database order remains authoritative within each priority. At a given
+    priority we round-robin by organization+requesting user, and never select
+    two queued rows for the same conversation in one dispatch wave. The
+    durable run_turn claim is still the final authority, so multiple worker
+    processes may race safely without replaying provider work.
+    """
+    if limit < 1:
+        return []
+    buckets: dict[int, dict[tuple[str, str], deque[tuple[str, str]]]] = defaultdict(dict)
+    for row in rows:
+        payload = dict(row.payload or {})
+        requester = str(payload.get("requested_by_id") or row.id)
+        key = (str(row.organization_id), requester)
+        priority = _job_priority(row)
+        queue = buckets[priority].setdefault(key, deque())
+        queue.append((str(row.id), str(payload.get("conversation_id") or "")))
+
+    selected: list[str] = []
+    used_conversations: set[str] = set()
+    for priority in sorted(buckets, reverse=True):
+        queues = buckets[priority]
+        active = list(queues)
+        while active and len(selected) < limit:
+            next_round: list[tuple[str, str]] = []
+            for key in active:
+                queue = queues[key]
+                chosen: tuple[str, str] | None = None
+                while queue:
+                    candidate = queue.popleft()
+                    if candidate[1] and candidate[1] in used_conversations:
+                        continue
+                    chosen = candidate
+                    break
+                if chosen is not None:
+                    selected.append(chosen[0])
+                    if chosen[1]:
+                        used_conversations.add(chosen[1])
+                if queue:
+                    next_round.append(key)
+                if len(selected) >= limit:
+                    break
+            active = next_round
+    return selected
+
+
 class ConversationWorker:
     def __init__(self) -> None:
         self._task: asyncio.Task[None] | None = None
@@ -183,26 +242,44 @@ class ConversationWorker:
                 await asyncio.gather(task, return_exceptions=True)
                 logger.warning("Conversation worker stopped with retained non-replayable running work")
 
+    async def _dispatch_one(self, job_id: str) -> bool:
+        try:
+            return await run_turn(job_id)
+        except HTTPException as exc:
+            if exc.status_code in {401, 403, 404}:
+                await cancel_unstarted(job_id, "current_authority_unavailable")
+                return True
+            logger.warning("Conversation admission requires operational review")
+            return False
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning("Conversation job dispatch failed; durable state retained for reconciliation")
+            return False
+
+    async def _run_batch(self, ids: list[str]) -> bool:
+        if self._stopping or not ids:
+            return False
+        tasks = [
+            asyncio.create_task(
+                self._dispatch_one(job_id),
+                name=f"aionex-governed-conversation-{job_id}",
+            )
+            for job_id in ids
+        ]
+        results = await asyncio.gather(*tasks)
+        return any(results)
+
     async def _run(self) -> None:
         while not self._stopping:
             try:
                 async with SessionLocal() as session:
-                    ids = list((await session.scalars(select(Job.id).where(
+                    rows = list((await session.scalars(select(Job).where(
                         Job.type == governance.JOB_TYPE, Job.status == "queued")
-                        .order_by(Job.payload["priority"].as_integer().desc(), Job.created_at, Job.id).limit(20))).all())
-                progressed = False
-                for job_id in ids:
-                    if self._stopping:
-                        break
-                    try:
-                        progressed = await run_turn(job_id)
-                    except HTTPException as exc:
-                        if exc.status_code in {401, 403, 404}:
-                            await cancel_unstarted(job_id, "current_authority_unavailable")
-                        else:
-                            logger.warning("Conversation admission requires operational review")
-                    if progressed:
-                        break
+                        .order_by(Job.payload["priority"].as_integer().desc(), Job.created_at, Job.id)
+                        .limit(FAIR_SCAN_LIMIT))).all())
+                ids = fair_job_ids(rows)
+                progressed = await self._run_batch(ids)
                 if not progressed:
                     await asyncio.sleep(1)
             except asyncio.CancelledError:
