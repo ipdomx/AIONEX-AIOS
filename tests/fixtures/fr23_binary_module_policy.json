@@ -1,0 +1,103 @@
+{
+  "schema": 1,
+  "semantics": {
+    "reachability_only": true,
+    "dependabot_closure": false,
+    "preserved_open_alerts": [48, 50],
+    "final_live_closure_gated_by": ["FR-06", "FR-21"],
+    "notes": [
+      "Absence from a linked binary is mitigation/reachability evidence only, not closure of a source dependency alert.",
+      "Host Docker maintenance and shared dependency refresh remain coordinator/actual-owner work."
+    ]
+  },
+  "tools": {
+    "trivy": {
+      "minimum_dependency_count": 10,
+      "rules": [
+        {
+          "id": "trivy-legacy-docker-not-linked",
+          "mode": "absent",
+          "module": "github.com/docker/docker",
+          "closure_effect": "none"
+        },
+        {
+          "id": "trivy-containerd-floor-or-absent",
+          "mode": "min_version_or_absent",
+          "module": "github.com/containerd/containerd/v2",
+          "minimum": "v2.3.6",
+          "closure_effect": "none"
+        },
+        {
+          "id": "trivy-otel-family-floor-or-absent",
+          "mode": "prefix_min_version_or_absent",
+          "prefix": "go.opentelemetry.io/otel",
+          "minimum": "v1.45.0",
+          "closure_effect": "none"
+        }
+      ]
+    },
+    "grype": {
+      "minimum_dependency_count": 10,
+      "rules": [
+        {
+          "id": "grype-legacy-docker-not-linked",
+          "mode": "absent",
+          "module": "github.com/docker/docker",
+          "closure_effect": "none"
+        },
+        {
+          "id": "grype-containerd-floor-or-absent",
+          "mode": "min_version_or_absent",
+          "module": "github.com/containerd/containerd/v2",
+          "minimum": "v2.3.6",
+          "closure_effect": "none"
+        },
+        {
+          "id": "grype-otel-family-floor-or-absent",
+          "mode": "prefix_min_version_or_absent",
+          "prefix": "go.opentelemetry.io/otel",
+          "minimum": "v1.45.0",
+          "closure_effect": "none"
+        }
+      ]
+    },
+    "syft": {
+      "minimum_dependency_count": 10,
+      "rules": [
+        {
+          "id": "syft-containerd-floor-or-absent",
+          "mode": "min_version_or_absent",
+          "module": "github.com/containerd/containerd/v2",
+          "minimum": "v2.3.6",
+          "closure_effect": "none"
+        },
+        {
+          "id": "syft-otel-family-floor-or-absent",
+          "mode": "prefix_min_version_or_absent",
+          "prefix": "go.opentelemetry.io/otel",
+          "minimum": "v1.45.0",
+          "closure_effect": "none"
+        }
+      ]
+    },
+    "gitleaks": {
+      "minimum_dependency_count": 10,
+      "rules": [
+        {
+          "id": "gitleaks-rardecode-floor-or-absent",
+          "mode": "min_version_or_absent",
+          "module": "github.com/nwaples/rardecode/v2",
+          "minimum": "v2.2.0",
+          "closure_effect": "none"
+        },
+        {
+          "id": "gitleaks-xz-floor-or-absent",
+          "mode": "min_version_or_absent",
+          "module": "github.com/ulikunitz/xz",
+          "minimum": "v0.5.15",
+          "closure_effect": "none"
+        }
+      ]
+    }
+  }
+}
