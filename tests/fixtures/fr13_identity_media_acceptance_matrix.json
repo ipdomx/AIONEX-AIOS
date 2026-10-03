@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "dependency": {
+    "batch": "FR-12",
+    "accepted": false,
+    "effect_on_fr13": "integration_live_final_closure_gated"
+  },
+  "cost_truth": {
+    "authorized_ceiling_is_invoice": false,
+    "actual_cost_rule": "actual_cost_usd remains unknown/null unless the provider reports an actual cost",
+    "cap_rule": "max_cost_authorization_usd is an authorization ceiling, never a billed or actual cost"
+  },
+  "operations": [
+    {
+      "operation": "voice_clone",
+      "source_runtime_state": "ready",
+      "provider_model": "minimax/voice-cloning",
+      "evidence_tier": "provider_canary_present",
+      "independent_acceptance": "prepared_not_final",
+      "rights_owner_revocation_required": true,
+      "synthetic_media_disclosure_required": true
+    },
+    {
+      "operation": "voice_transform",
+      "source_runtime_state": "pending",
+      "provider_model": null,
+      "evidence_tier": "runtime_dependency_pending",
+      "independent_acceptance": "pending",
+      "rights_owner_revocation_required": true,
+      "synthetic_media_disclosure_required": true
+    },
+    {
+      "operation": "face_reenactment",
+      "source_runtime_state": "ready",
+      "provider_model": "prunaai/p-video-avatar",
+      "evidence_tier": "runtime_mapping_without_distinct_canary",
+      "independent_acceptance": "prepared_not_final",
+      "rights_owner_revocation_required": true,
+      "synthetic_media_disclosure_required": true
+    },
+    {
+      "operation": "face_swap",
+      "source_runtime_state": "pending",
+      "provider_model": null,
+      "evidence_tier": "fr12_dependency_pending",
+      "independent_acceptance": "pending",
+      "rights_owner_revocation_required": true,
+      "synthetic_media_disclosure_required": true
+    },
+    {
+      "operation": "talking_head",
+      "source_runtime_state": "ready",
+      "provider_model": "prunaai/p-video-avatar",
+      "evidence_tier": "runtime_mapping_without_distinct_canary",
+      "independent_acceptance": "prepared_not_final",
+      "rights_owner_revocation_required": true,
+      "synthetic_media_disclosure_required": true
+    },
+    {
+      "operation": "lip_sync",
+      "source_runtime_state": "ready",
+      "provider_model": "sync/lipsync-2",
+      "evidence_tier": "provider_canary_present",
+      "independent_acceptance": "prepared_not_final",
+      "rights_owner_revocation_required": true,
+      "synthetic_media_disclosure_required": true
+    },
+    {
+      "operation": "avatar_generation",
+      "source_runtime_state": "ready",
+      "provider_model": "prunaai/p-video-avatar",
+      "evidence_tier": "provider_canary_present",
+      "independent_acceptance": "prepared_not_final",
+      "rights_owner_revocation_required": true,
+      "synthetic_media_disclosure_required": true
+    }
+  ]
+}
