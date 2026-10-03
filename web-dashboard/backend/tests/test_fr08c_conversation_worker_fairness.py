@@ -101,3 +101,35 @@ async def test_worker_automatically_runs_independent_conversations_concurrently(
     assert started == {"a-1", "b-1"}
     release.set()
     await instance.stop()
+
+
+@pytest.mark.asyncio
+async def test_worker_cancels_unstarted_job_when_authority_changes(monkeypatch) -> None:
+    rows = [_job("denied", user="a", conversation="a-1")]
+    cancelled: list[tuple[str, str]] = []
+    cancelled_event = asyncio.Event()
+    candidate_calls = 0
+
+    async def candidates():
+        nonlocal candidate_calls
+        candidate_calls += 1
+        return rows if candidate_calls == 1 else []
+
+    async def run_turn(job_id: str) -> bool:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=403, detail="authority changed")
+
+    async def cancel_unstarted(job_id: str, reason: str) -> None:
+        cancelled.append((job_id, reason))
+        cancelled_event.set()
+
+    monkeypatch.setattr(worker, "_queued_candidates", candidates)
+    monkeypatch.setattr(worker, "run_turn", run_turn)
+    monkeypatch.setattr(worker, "cancel_unstarted", cancel_unstarted)
+
+    instance = worker.ConversationWorker(capacity=1)
+    await instance.start()
+    await asyncio.wait_for(cancelled_event.wait(), timeout=1)
+    assert cancelled == [("denied", "current_authority_unavailable")]
+    await instance.stop()

@@ -281,9 +281,11 @@ class ConversationWorker:
                 logger.warning("Conversation worker stopped with retained non-replayable running work")
 
     @staticmethod
-    def _consume_done(active: dict[str, asyncio.Task[bool]]) -> tuple[bool, list[BaseException]]:
+    def _consume_done(
+        active: dict[str, asyncio.Task[bool]],
+    ) -> tuple[bool, list[tuple[str, BaseException]]]:
         progressed = False
-        errors: list[BaseException] = []
+        errors: list[tuple[str, BaseException]] = []
         for job_id, task in list(active.items()):
             if not task.done():
                 continue
@@ -292,7 +294,7 @@ class ConversationWorker:
                 continue
             error = task.exception()
             if error is not None:
-                errors.append(error)
+                errors.append((job_id, error))
                 continue
             progressed = bool(task.result()) or progressed
         return progressed, errors
@@ -302,9 +304,9 @@ class ConversationWorker:
         try:
             while not self._stopping:
                 progressed, errors = self._consume_done(active)
-                for error in errors:
+                for job_id, error in errors:
                     if isinstance(error, HTTPException) and error.status_code in {401, 403, 404}:
-                        logger.warning("Conversation authority changed during fair dispatch")
+                        await cancel_unstarted(job_id, "current_authority_unavailable")
                     else:
                         logger.warning(
                             "Conversation dispatch task escaped worker guard",
