@@ -474,7 +474,7 @@ async def download_course_package(
     session: AsyncSession = Depends(get_db),
 ):
     item = await _package(session, actor, package_id)
-    if item.status not in {"review_pending", "approved"}:
+    if item.status != "approved":
         raise HTTPException(
             status_code=409, detail="Course package is not downloadable"
         )
@@ -513,7 +513,7 @@ async def course_package_site(
     if asset_path.strip().lstrip("/").startswith("_private/"):
         raise HTTPException(status_code=404, detail="Course asset not found")
     item = await _package(session, actor, package_id)
-    if item.status not in {"review_pending", "approved"} or not item.site_relpath:
+    if item.status != "approved" or not item.site_relpath:
         raise HTTPException(status_code=409, detail="Course site is unavailable")
     try:
         path = academy_course_runtime.resolve_package_path(
