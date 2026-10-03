@@ -23,6 +23,100 @@ from app.services import conversation_governance as governance
 
 logger = get_logger(__name__)
 
+_CONVERSATION_WORKER_CAPACITY = 4
+_CONVERSATION_QUEUE_SCAN_LIMIT = 100
+_CONVERSATION_WORKER_POLL_SECONDS = 1.0
+
+
+def _priority(row: Job) -> int:
+    value = (row.payload or {}).get("priority", 0)
+    return value if type(value) is int else 0
+
+
+def _created_key(row: Job) -> tuple[str, str]:
+    value = row.created_at.isoformat() if row.created_at is not None else ""
+    return value, str(row.id)
+
+
+def _fair_batch_ids(
+    rows: list[Job],
+    *,
+    limit: int,
+    active_job_ids: set[str] | frozenset[str] = frozenset(),
+) -> list[str]:
+    if limit <= 0:
+        return []
+    active = {str(value) for value in active_job_ids}
+    eligible = [
+        row for row in rows
+        if row.status == "queued" and str(row.id) not in active
+    ]
+    priorities = sorted({_priority(row) for row in eligible}, reverse=True)
+    selected: list[str] = []
+    selected_conversations: set[tuple[str, str, str]] = set()
+
+    for priority in priorities:
+        remaining = sorted(
+            (row for row in eligible if _priority(row) == priority),
+            key=_created_key,
+        )
+        user_counts: dict[tuple[str, str], int] = {}
+        while remaining and len(selected) < limit:
+            candidates: list[Job] = []
+            for row in remaining:
+                payload = row.payload or {}
+                user_id = str(payload.get("requested_by_id") or f"invalid:{row.id}")
+                conversation_id = str(payload.get("conversation_id") or f"invalid:{row.id}")
+                conversation_key = (str(row.organization_id), user_id, conversation_id)
+                if conversation_key not in selected_conversations:
+                    candidates.append(row)
+            if not candidates:
+                break
+            chosen = min(
+                candidates,
+                key=lambda row: (
+                    user_counts.get(
+                        (
+                            str(row.organization_id),
+                            str((row.payload or {}).get("requested_by_id") or f"invalid:{row.id}"),
+                        ),
+                        0,
+                    ),
+                    *_created_key(row),
+                ),
+            )
+            payload = chosen.payload or {}
+            user_key = (
+                str(chosen.organization_id),
+                str(payload.get("requested_by_id") or f"invalid:{chosen.id}"),
+            )
+            conversation_key = (
+                user_key[0],
+                user_key[1],
+                str(payload.get("conversation_id") or f"invalid:{chosen.id}"),
+            )
+            selected.append(str(chosen.id))
+            selected_conversations.add(conversation_key)
+            user_counts[user_key] = user_counts.get(user_key, 0) + 1
+            remaining.remove(chosen)
+        if len(selected) >= limit:
+            break
+    return selected
+
+
+async def _queued_candidates() -> list[Job]:
+    async with SessionLocal() as session:
+        return list((await session.scalars(
+            select(Job).where(
+                Job.type == governance.JOB_TYPE,
+                Job.status == "queued",
+            ).order_by(
+                Job.payload["priority"].as_integer().desc(),
+                Job.created_at,
+                Job.id,
+            ).limit(_CONVERSATION_QUEUE_SCAN_LIMIT)
+        )).all())
+
 
 async def run_turn(job_id: str) -> bool:
     async with SessionLocal() as session:
@@ -162,7 +256,10 @@ async def cancel_unstarted(job_id: str, reason: str) -> None:
 
 
 class ConversationWorker:
-    def __init__(self) -> None:
+    def __init__(self, *, capacity: int = _CONVERSATION_WORKER_CAPACITY) -> None:
+        if type(capacity) is not int or capacity < 1 or capacity > 32:
+            raise ValueError("conversation worker capacity out of range")
+        self.capacity = capacity
         self._task: asyncio.Task[None] | None = None
         self._stopping = False
 
@@ -183,33 +280,83 @@ class ConversationWorker:
                 await asyncio.gather(task, return_exceptions=True)
                 logger.warning("Conversation worker stopped with retained non-replayable running work")
 
+    @staticmethod
+    def _consume_done(active: dict[str, asyncio.Task[bool]]) -> tuple[bool, list[BaseException]]:
+        progressed = False
+        errors: list[BaseException] = []
+        for job_id, task in list(active.items()):
+            if not task.done():
+                continue
+            del active[job_id]
+            if task.cancelled():
+                continue
+            error = task.exception()
+            if error is not None:
+                errors.append(error)
+                continue
+            progressed = bool(task.result()) or progressed
+        return progressed, errors
+
     async def _run(self) -> None:
-        while not self._stopping:
-            try:
-                async with SessionLocal() as session:
-                    ids = list((await session.scalars(select(Job.id).where(
-                        Job.type == governance.JOB_TYPE, Job.status == "queued")
-                        .order_by(Job.payload["priority"].as_integer().desc(), Job.created_at, Job.id).limit(20))).all())
-                progressed = False
-                for job_id in ids:
-                    if self._stopping:
-                        break
+        active: dict[str, asyncio.Task[bool]] = {}
+        try:
+            while not self._stopping:
+                progressed, errors = self._consume_done(active)
+                for error in errors:
+                    if isinstance(error, HTTPException) and error.status_code in {401, 403, 404}:
+                        logger.warning("Conversation authority changed during fair dispatch")
+                    else:
+                        logger.warning(
+                            "Conversation dispatch task escaped worker guard",
+                            error_type=type(error).__name__,
+                        )
+
+                free_slots = self.capacity - len(active)
+                selected: list[str] = []
+                if free_slots > 0:
                     try:
-                        progressed = await run_turn(job_id)
-                    except HTTPException as exc:
-                        if exc.status_code in {401, 403, 404}:
-                            await cancel_unstarted(job_id, "current_authority_unavailable")
-                        else:
-                            logger.warning("Conversation admission requires operational review")
-                    if progressed:
-                        break
-                if not progressed:
-                    await asyncio.sleep(1)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                logger.warning("Conversation queue temporarily unavailable; no running job is reclaimed")
-                await asyncio.sleep(2)
+                        rows = await _queued_candidates()
+                        selected = _fair_batch_ids(
+                            rows,
+                            limit=free_slots,
+                            active_job_ids=set(active),
+                        )
+                    except Exception:
+                        logger.warning("Conversation queue temporarily unavailable; no running job is reclaimed")
+                    for job_id in selected:
+                        active[job_id] = asyncio.create_task(
+                            run_turn(job_id),
+                            name=f"aionex-conversation-turn:{job_id}",
+                        )
+
+                if self._stopping:
+                    break
+                if not active:
+                    await asyncio.sleep(_CONVERSATION_WORKER_POLL_SECONDS)
+                    continue
+                if not selected and not progressed:
+                    await asyncio.wait(
+                        set(active.values()),
+                        timeout=_CONVERSATION_WORKER_POLL_SECONDS,
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+        finally:
+            if active:
+                done, pending = await asyncio.wait(set(active.values()), timeout=65)
+                for task in done:
+                    if not task.cancelled() and task.exception() is not None:
+                        logger.warning(
+                            "Conversation dispatch task failed during drain",
+                            error_type=type(task.exception()).__name__,
+                        )
+                for task in pending:
+                    task.cancel()
+                if pending:
+                    await asyncio.gather(*pending, return_exceptions=True)
+                    logger.warning(
+                        "Conversation worker drain timed out; running rows remain non-replayable",
+                        retained=len(pending),
+                    )
 
 
 conversation_worker = ConversationWorker()
