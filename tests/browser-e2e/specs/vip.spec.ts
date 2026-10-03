@@ -872,3 +872,219 @@ test("Phase 36M Academy is a permission-gated mobile course-factory surface", as
   expect(overflow).toBe(false);
   expect(consoleErrors).toEqual([]);
 });
+
+
+async function mockFr21ProjectConversationEntry(page: Page, seen: Set<string>) {
+  await allowVipSession(page);
+  await page.route("**/api/v1/projects", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: "[]",
+    });
+  });
+  await page.route("**/api/v1/workspaces", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "workspace-fr21-e2e",
+          name: "FR21 acceptance workspace",
+          slug: "fr21-acceptance",
+          organization_id: "org-campaign-test",
+          description: null,
+          status: "active",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/v1/auth/free-tier", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ plan: "professional", free_tier: false }),
+    });
+  });
+  await page.route("**/api/v1/capabilities/phase36", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        program: "Phase 36",
+        authoritative: true,
+        minimum_concurrent_users: 1000,
+        current_batch: "FR21-E2E",
+        total_capabilities: 60,
+        production_ready_capabilities: 1,
+        completion: 2,
+        maturity_order: [],
+        maturity_counts: {},
+        batches: [],
+      }),
+    });
+  });
+  await page.route("**/api/v1/growth-social/paid-campaigns/readiness", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ads_manage_allowed: false,
+        social_accounts_allowed: false,
+        linked_ad_accounts: [],
+        campaigns_visible: false,
+        reason: "not-configured",
+        live_provider_mutation_allowed: false,
+        automatic_execution_allowed: false,
+        objectives: {},
+      }),
+    });
+  });
+  await page.route("**/api/v1/project-conversations**", async (route) => {
+    const request = route.request();
+    const pathname = new URL(request.url()).pathname;
+    seen.add(`${request.method()} ${pathname}`);
+
+    if (request.method() !== "GET") {
+      await route.fulfill({
+        status: 405,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "FR21 navigation acceptance is read-only" }),
+      });
+      return;
+    }
+    if (pathname === "/api/v1/project-conversations/policy") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          values: {
+            enabled: true,
+            max_projects: 3,
+            max_open_conversations: 3,
+            max_open_conversations_per_project: 2,
+            conversation_seconds: 1800,
+            messages_per_conversation: 20,
+            messages_per_day: 40,
+            lifetime_message_credits: -1,
+            max_message_characters: 12000,
+            priority: 0,
+            default_agent_id: "",
+          },
+          versions: {},
+          credit_unit: "message",
+          usage: {
+            day: "2026-10-03",
+            day_messages: 0,
+            total_message_credits: 0,
+          },
+        }),
+      });
+      return;
+    }
+    if (pathname === "/api/v1/project-conversations/agents") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: "[]",
+      });
+      return;
+    }
+    if (pathname === "/api/v1/project-conversations") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: "[]",
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Unexpected FR21 conversation route" }),
+    });
+  });
+}
+
+test("projects links into the protected conversation surface and loads only the documented read contracts", async ({ page }) => {
+  const seen = new Set<string>();
+  await mockFr21ProjectConversationEntry(page, seen);
+
+  await page.goto("/en/projects");
+  await expect(
+    page.getByRole("heading", { name: "Your projects", exact: true }),
+  ).toBeVisible();
+
+  const conversations = page.getByRole("button", {
+    name: "Project conversations",
+    exact: true,
+  });
+  await expect(conversations).toBeVisible();
+  await conversations.click();
+
+  await expect(page).toHaveURL(/\/en\/conversations$/);
+  await expect(
+    page.getByRole("heading", { name: "Project conversations", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "New conversation", exact: true }),
+  ).toBeDisabled();
+
+  expect(seen).toEqual(
+    new Set([
+      "GET /api/v1/project-conversations",
+      "GET /api/v1/project-conversations/policy",
+      "GET /api/v1/project-conversations/agents",
+    ]),
+  );
+});
+
+test("conversation permission denial fails closed and never emits a mutation", async ({ page }) => {
+  await allowVipSession(page);
+  let mutationRequests = 0;
+
+  await page.route("**/api/v1/projects", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: "[]",
+    });
+  });
+  await page.route("**/api/v1/project-conversations**", async (route) => {
+    if (route.request().method() !== "GET") mutationRequests += 1;
+    await route.fulfill({
+      status: 403,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Conversation access denied by owner policy" }),
+    });
+  });
+
+  await page.goto("/en/conversations");
+
+  await expect(
+    page.getByRole("heading", { name: "Project conversations", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "New conversation", exact: true }),
+  ).toBeDisabled();
+  expect(mutationRequests).toBe(0);
+});
+
+test("approved Academy download preserves the server Content-Disposition filename", async ({ page }) => {
+  await mockPhase36MStudio(page);
+  await mockPhase36MAcademy(page);
+
+  await page.goto("/en/academy");
+  await expect(
+    page.getByRole("heading", { name: "Governed Course", exact: true }),
+  ).toBeVisible();
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download ZIP", exact: true }).click();
+  const download = await downloadPromise;
+
+  expect(download.suggestedFilename()).toBe("course-e2e-v2.zip");
+});
