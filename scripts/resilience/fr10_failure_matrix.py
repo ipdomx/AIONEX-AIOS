@@ -32,8 +32,8 @@ class Scenario:
     effect_started: bool
     db_commit_state: str
     provider_outcome: str
-    attempt_fencing_token: [REDACTED]
-    current_fencing_token: [REDACTED]
+    attempt_fencing_token: int
+    current_fencing_token: int
     attempts: int
     max_attempts: int
     resource_abort: bool = False
@@ -47,7 +47,7 @@ def _retry_budget_left(scenario: Scenario) -> bool:
 def decide_action(scenario: Scenario) -> str:
     """Return the only safe synthetic disposition for one failure scenario."""
     if scenario.attempt_fencing_token != scenario.current_fencing_token:
-        [REDACTED] REJECT_STALE
+        return REJECT_STALE
 
     if scenario.provider_outcome == "confirmed_success":
         return ACCEPT
@@ -88,8 +88,8 @@ def scenario_from_dict(payload: dict[str, Any]) -> Scenario:
         effect_started=bool(payload["effect_started"]),
         db_commit_state=str(payload["db_commit_state"]),
         provider_outcome=str(payload["provider_outcome"]),
-        attempt_fencing_token=[REDACTED]"attempt_fencing_token"]),
-        current_fencing_token=[REDACTED]"current_fencing_token"]),
+        attempt_fencing_token=int(payload["attempt_fencing_token"]),
+        current_fencing_token=int(payload["current_fencing_token"]),
         attempts=int(payload["attempts"]),
         max_attempts=int(payload["max_attempts"]),
         resource_abort=bool(payload.get("resource_abort", False)),
