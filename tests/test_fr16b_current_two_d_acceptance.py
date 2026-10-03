@@ -26,9 +26,9 @@ def test_current_two_d_source_is_exact_historically_executed_blob() -> None:
     assert TWO_D.is_file()
     assert hashlib.sha256(TWO_D.read_bytes()).hexdigest() == EXPECTED_TWO_D_SHA256
 
-    latest_touch = _git("log", "-1", "--format=%H", "--", "src/aios/three_d_web/two_d.py")
-    assert latest_touch.returncode == 0, latest_touch.stderr
-    assert latest_touch.stdout.strip() == ACCEPTED_COMMIT
+    accepted_blob = _git("show", f"{ACCEPTED_COMMIT}:src/aios/three_d_web/two_d.py")
+    assert accepted_blob.returncode == 0, accepted_blob.stderr
+    assert hashlib.sha256(accepted_blob.stdout.encode()).hexdigest() == EXPECTED_TWO_D_SHA256
 
     ancestry = _git("merge-base", "--is-ancestor", ACCEPTED_COMMIT, "HEAD")
     assert ancestry.returncode == 0, ancestry.stderr
