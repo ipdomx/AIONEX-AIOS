@@ -1,11 +1,11 @@
 # FR-20A communications inventory acceptance — 2026-10-04
 
-Run: `fr20-scheduled-20261004T0041Z-6ac041f5-r10`  
-Task: `6ac041f5fa4481918e5b4512dc24436b`  
-Batch: `FR-20`  
-Origin main: `7779f740a81d4fae2167c8441218b69e54cf56f5`  
-Policy SHA256: `e10a48f32f2aaf7e699e410c67ce93ab3f326d2e784d0e9dcf9c8f8a77fe7582`  
-Coordination helper SHA256: `020e29cd84f5ecc9abb5aa8456b59721687cfa89f3d6e4cde97d128d3b6bf2a5`  
+Run: `fr20-scheduled-20261004T0041Z-6ac041f5-r10`
+Task: `6ac041f5fa4481918e5b4512dc24436b`
+Batch: `FR-20`
+Origin main: `7779f740a81d4fae2167c8441218b69e54cf56f5`
+Policy SHA256: `e10a48f32f2aaf7e699e410c67ce93ab3f326d2e784d0e9dcf9c8f8a77fe7582`
+Coordination helper SHA256: `020e29cd84f5ecc9abb5aa8456b59721687cfa89f3d6e4cde97d128d3b6bf2a5`
 Observed: `2026-10-04T00:47:26Z`
 
 ## Scope
