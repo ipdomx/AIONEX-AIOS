@@ -223,6 +223,22 @@ class AudioProviderCapability:
             raise AudioFactoryError("voice-clone verification requires voice-clone capability")
 
 
+STABILITY_SFX_SOURCE_CAPABILITY: Final[AudioProviderCapability] = AudioProviderCapability(
+    provider="stability",
+    model="stable-audio-2.5",
+    operations=frozenset({"generate-sfx"}),
+    input_modalities=frozenset({"text"}),
+    output_modalities=frozenset({"audio"}),
+    official_source="https://api.stability.ai/v2alpha/openapi",
+    evidence_date="2026-10-02",
+    execution_modes=frozenset({"batch"}),
+    preview=False,
+)
+# This capability is intentionally source-bound only. It is not added to the
+# legacy launch inventory until authorized decoded-output QA proves runtime
+# readiness; existing planner external-gate behavior remains truthful.
+
+
 AUDIO_PROVIDER_CAPABILITIES: Final[tuple[AudioProviderCapability, ...]] = (
     AudioProviderCapability(
         provider="openai",

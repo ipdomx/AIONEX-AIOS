@@ -1,0 +1,178 @@
+{
+  "schema": 1,
+  "purpose": "FR-10 synthetic N2/F1/M1 fault-tolerance acceptance; no provider, customer, live DB, or production effects.",
+  "scenarios": [
+    {
+      "id": "worker-loss-before-effect",
+      "failure_kind": "worker_loss",
+      "effect_started": false,
+      "db_commit_state": "not_started",
+      "provider_outcome": "not_started",
+      "attempt_fencing_token": 11,
+      "current_fencing_token": 11,
+      "attempts": 1,
+      "max_attempts": 3,
+      "resource_abort": false,
+      "expected_action": "retry_safe"
+    },
+    {
+      "id": "stale-worker-completion-after-reclaim",
+      "failure_kind": "lease_reclaim",
+      "effect_started": true,
+      "db_commit_state": "committed",
+      "provider_outcome": "confirmed_success",
+      "attempt_fencing_token": 10,
+      "current_fencing_token": 11,
+      "attempts": 1,
+      "max_attempts": 3,
+      "resource_abort": false,
+      "expected_action": "reject_stale"
+    },
+    {
+      "id": "provider-ack-loss-after-send",
+      "failure_kind": "provider_ack_loss",
+      "effect_started": true,
+      "db_commit_state": "not_started",
+      "provider_outcome": "uncertain",
+      "attempt_fencing_token": 11,
+      "current_fencing_token": 11,
+      "attempts": 1,
+      "max_attempts": 3,
+      "resource_abort": false,
+      "expected_action": "reconcile_no_replay"
+    },
+    {
+      "id": "network-loss-before-provider-send",
+      "failure_kind": "network_loss",
+      "effect_started": false,
+      "db_commit_state": "not_started",
+      "provider_outcome": "not_started",
+      "attempt_fencing_token": 11,
+      "current_fencing_token": 11,
+      "attempts": 1,
+      "max_attempts": 3,
+      "resource_abort": false,
+      "expected_action": "retry_safe"
+    },
+    {
+      "id": "db-commit-ack-lost-after-effect",
+      "failure_kind": "db_commit_ack_loss",
+      "effect_started": true,
+      "db_commit_state": "unknown",
+      "provider_outcome": "not_started",
+      "attempt_fencing_token": 11,
+      "current_fencing_token": 11,
+      "attempts": 1,
+      "max_attempts": 3,
+      "resource_abort": false,
+      "expected_action": "reconcile_no_replay"
+    },
+    {
+      "id": "db-failure-before-effect",
+      "failure_kind": "db_precommit_failure",
+      "effect_started": false,
+      "db_commit_state": "not_committed",
+      "provider_outcome": "not_started",
+      "attempt_fencing_token": 11,
+      "current_fencing_token": 11,
+      "attempts": 1,
+      "max_attempts": 3,
+      "resource_abort": false,
+      "expected_action": "retry_safe"
+    },
+    {
+      "id": "memory-abort-before-effect",
+      "failure_kind": "resource_abort",
+      "effect_started": false,
+      "db_commit_state": "not_started",
+      "provider_outcome": "not_started",
+      "attempt_fencing_token": 11,
+      "current_fencing_token": 11,
+      "attempts": 1,
+      "max_attempts": 3,
+      "resource_abort": true,
+      "expected_action": "retry_safe"
+    },
+    {
+      "id": "memory-abort-after-effect",
+      "failure_kind": "resource_abort",
+      "effect_started": true,
+      "db_commit_state": "unknown",
+      "provider_outcome": "uncertain",
+      "attempt_fencing_token": 11,
+      "current_fencing_token": 11,
+      "attempts": 1,
+      "max_attempts": 3,
+      "resource_abort": true,
+      "expected_action": "reconcile_no_replay"
+    },
+    {
+      "id": "retry-budget-exhausted-before-effect",
+      "failure_kind": "worker_loss",
+      "effect_started": false,
+      "db_commit_state": "not_started",
+      "provider_outcome": "not_started",
+      "attempt_fencing_token": 11,
+      "current_fencing_token": 11,
+      "attempts": 3,
+      "max_attempts": 3,
+      "resource_abort": false,
+      "expected_action": "terminal"
+    }
+  ],
+  "fairness_queue": [
+    {
+      "tenant": "tenant-a",
+      "resource_class": "cpu",
+      "wait_seconds": 12
+    },
+    {
+      "tenant": "tenant-a",
+      "resource_class": "cpu",
+      "wait_seconds": 3
+    },
+    {
+      "tenant": "tenant-b",
+      "resource_class": "cpu",
+      "wait_seconds": 10
+    },
+    {
+      "tenant": "tenant-c",
+      "resource_class": "gpu",
+      "wait_seconds": 20
+    },
+    {
+      "tenant": "tenant-d",
+      "resource_class": "gpu",
+      "wait_seconds": 8
+    },
+    {
+      "tenant": "tenant-e",
+      "resource_class": "tpu",
+      "wait_seconds": 30
+    }
+  ],
+  "eligible_resource_classes": [
+    "cpu",
+    "gpu"
+  ],
+  "metrics_sample": {
+    "recovery_seconds": [
+      3.1,
+      5,
+      8.2,
+      4.6
+    ],
+    "queue_wait_seconds": [
+      0.2,
+      1.4,
+      2.1,
+      4,
+      3.3
+    ],
+    "completed_jobs": 12,
+    "window_seconds": 30,
+    "worker_active_slots": 3,
+    "worker_capacity": 4
+  }
+}

@@ -58,6 +58,21 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
+def _sfx_duration_from_request_options(
+    operation: str,
+    request_options: dict[str, Any] | None,
+) -> float | None:
+    if operation != "generate-sfx":
+        return None
+    value = dict(request_options or {}).get("duration_seconds")
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ProviderMusicFailure("execution_sfx_duration", retryable=False)
+    duration = float(value)
+    if not 1.0 <= duration <= 30.0:
+        raise ProviderMusicFailure("execution_sfx_duration", retryable=False)
+    return duration
+
+
 class AudioMusicWorker:
     def __init__(
         self,
@@ -97,7 +112,7 @@ class AudioMusicWorker:
             "default_provider": "replicate",
             "automatic_cross_provider_fallback_enabled": False,
             "durable_prediction_resume": True,
-            "models": ["lyria-3-clip-preview", "lyria-3-pro-preview"],
+            "models": ["lyria-3-clip-preview", "lyria-3-pro-preview", "stable-audio-2.5"],
             "default_tier": "draft",
             "draft_fixed_cost_usd": 0.04,
             "final_fixed_cost_usd": 0.08,
@@ -108,7 +123,7 @@ class AudioMusicWorker:
             "named_artist_imitation_enabled": False,
             "voice_clone_enabled": False,
             "voice_transformation_enabled": False,
-            "dedicated_sfx_generation_enabled": False,
+            "dedicated_sfx_generation_enabled": True,
             "raw_prompt_returned": False,
             "raw_lyrics_returned": False,
             "raw_provider_text_returned": False,
@@ -193,6 +208,10 @@ class AudioMusicWorker:
                 instrumental_only=bool(row.instrumental_only),
                 lyrics=lyrics,
                 output_format=row.output_format,
+                duration_seconds=_sfx_duration_from_request_options(
+                    row.operation,
+                    dict(row.request_options or {}),
+                ),
             )
             provider_state = row.provider_state
             provider_request_id = row.provider_request_id

@@ -94,6 +94,7 @@ async def main() -> None:
         assert health["models"] == [
             "lyria-3-clip-preview",
             "lyria-3-pro-preview",
+            "stable-audio-2.5",
         ]
         assert health["default_tier"] == "draft"
         assert health["draft_fixed_cost_usd"] == 0.04
@@ -104,7 +105,7 @@ async def main() -> None:
         assert health["named_artist_imitation_enabled"] is False
         assert health["voice_clone_enabled"] is False
         assert health["voice_transformation_enabled"] is False
-        assert health["dedicated_sfx_generation_enabled"] is False
+        assert health["dedicated_sfx_generation_enabled"] is True
         assert health["raw_prompt_returned"] is False
         assert health["raw_lyrics_returned"] is False
         assert health["raw_provider_text_returned"] is False
