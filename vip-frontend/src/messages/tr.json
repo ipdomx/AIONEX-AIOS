@@ -1089,6 +1089,8 @@
     "sourceImage": "Kaynak görsel (zorunlu)",
     "sourceAudioRequired": "Kaynak ses (zorunlu)",
     "sourceAudioOptional": "Kaynak ses (script varsa isteğe bağlı)",
+    "targetVoiceAudioRequired": "Hedef ses WAV (zorunlu)",
+    "voiceTransformInputsRequired": "Voice Transform hem kaynak WAV hem de hedef ses WAV dosyası gerektirir.",
     "sourceVideo": "Kaynak MP4 video (zorunlu)",
     "script": "Script / metin",
     "selfAttestation": "Bunun kendi kimliğim olduğunu onaylıyor ve AIONEX’in bu istek için işlemesine izin veriyorum.",

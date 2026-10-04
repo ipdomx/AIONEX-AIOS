@@ -13,6 +13,8 @@ _EDITABLE_SCHEMA = "36E.editable.v1"
 _ALLOWED_RASTER_MEDIA_TYPES = frozenset({"image/png", "image/jpeg", "image/webp"})
 _HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
 _MAX_RASTER_BYTES = 32 * 1024 * 1024
+_EDITABLE_REPRESENTATION = "raster-backed-editable-svg"
+_EDITABLE_LAYERS = ("brand-guides", "editable-copy")
 
 
 class DesignEditableSourceError(RuntimeError):
@@ -26,6 +28,10 @@ class EditableSourceResult:
     size_bytes: int
     media_type: str = "image/svg+xml"
     schema: str = _EDITABLE_SCHEMA
+    representation: str = _EDITABLE_REPRESENTATION
+    vector_native: bool = False
+    raster_backed: bool = True
+    editable_layers: tuple[str, ...] = _EDITABLE_LAYERS
 
 
 def _bounded_text(value: Any, *, name: str, minimum: int = 1, maximum: int) -> str:
@@ -126,6 +132,11 @@ def build_rendered_editable_svg(
                 "brand": brand,
                 "exact_text": safe["exact_text"],
                 "base_raster_sha256": digest,
+                "base_raster_media_type": raster_media_type,
+                "representation": _EDITABLE_REPRESENTATION,
+                "vector_native": False,
+                "raster_backed": True,
+                "editable_layers": list(_EDITABLE_LAYERS),
             },
             sort_keys=True,
             separators=(",", ":"),
@@ -148,7 +159,9 @@ def build_rendered_editable_svg(
     svg = (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
         f'viewBox="0 0 {width} {height}" data-aionex-status="rendered-editable" '
-        f'data-aionex-schema="{_EDITABLE_SCHEMA}" data-aionex-base-sha256="{digest}">'
+        f'data-aionex-representation="{_EDITABLE_REPRESENTATION}" data-aionex-vector-native="false" '
+        f'data-aionex-raster-backed="true" data-aionex-schema="{_EDITABLE_SCHEMA}" '
+        f'data-aionex-base-sha256="{digest}">'
         f'<metadata data-layer="aionex-contract">{metadata}</metadata>'
         f'<g data-layer="generated-raster"><image width="{width}" height="{height}" '
         f'preserveAspectRatio="xMidYMid slice" href="data:{raster_media_type};base64,{encoded}"/></g>'
@@ -160,4 +173,8 @@ def build_rendered_editable_svg(
         body=svg,
         checksum=hashlib.sha256(svg).hexdigest(),
         size_bytes=len(svg),
+        representation=_EDITABLE_REPRESENTATION,
+        vector_native=False,
+        raster_backed=True,
+        editable_layers=_EDITABLE_LAYERS,
     )
