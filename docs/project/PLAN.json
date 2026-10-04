@@ -23,7 +23,8 @@
     ],
     "defer_scope_note": "بناء المستخدم مصدر مشروع تطبيق يبقى وظيفة منشئ المشاريع؛ المؤجل هو إطلاق تطبيقات المنصة/المتاجر والتكاملات الخارجية المذكورة. لا يؤجل 2D أو 3D أو وظائف الويب أو ضوابط المالك. لا تستخدم بيانات أو أموال حقيقية لاختبارات جماعية.",
     "runtime_truth": "إقرار التراخيص لا يحول قدرة غير منفذة أو مزودًا غير موصول إلى PASS؛ تتبقى اختبارات تقنية وموافقة المالك لكل مستخدم حيث يلزم. يستمر الإفصاح عن الصوت/الوسائط الاصطناعية.",
-    "short_parts": "توجيه المالك: جميع الدفعات المتبقية أجزاء قصيرة متتابعة؛ جزء تنفيذي محدد لكل دورة، ويجزأ الجزء مجددًا عند اتساعه. تسجل نتيجة كل جزء فورًا في التقرير نفسه مع دليل الاختبارات ومرجع الدمج وحالة النشر الفعلية؛ يدمج فور نجاح الفحوص المحمية، ولا يعلن دمجًا أو نشرًا أثناء انتظاره ولا إغلاق الدفعة من إغلاق جزء منها."
+    "short_parts": "توجيه المالك: جميع الدفعات المتبقية أجزاء قصيرة متتابعة؛ جزء تنفيذي محدد لكل دورة، ويجزأ الجزء مجددًا عند اتساعه. تسجل نتيجة كل جزء فورًا في التقرير نفسه مع دليل الاختبارات ومرجع الدمج وحالة النشر الفعلية؛ يدمج فور نجاح الفحوص المحمية، ولا يعلن دمجًا أو نشرًا أثناء انتظاره ولا إغلاق الدفعة من إغلاق جزء منها.",
+    "new_server_migration": "تم شراء الخادم الإنتاجي الجديد واستلام بياناته. لوحة المزود تعرض Debian 12 x86_64، وفريق المزود أكد كشف 4 أقراص NVMe سعة 1.92TB، RAID10 سليم ومتزامن بلا قرص degraded، ذاكرة 128GB كاملة، ومعالجَي AMD EPYC 7313. لم تُرفع أي بيانات ولم يبدأ النقل، والخادم القديم يبقى مصدر الإنتاج والرجوع حتى اجتياز الخطة docs/project/NEW-SERVER-MIGRATION-ROADMAP.md كاملة وموافقة المالك الصريحة على إلغاء القديم."
   },
   "baseline": {
     "application_commit": "9194176c6118e7483d64b05e1183d6c479bfdd3a",
@@ -4047,5 +4048,110 @@
     "owner_cost_provider_model_controls",
     "six_language_accessible_mobile_web",
     "growth_social_connected_accounts_without_unapproved_spend"
-  ]
+  ],
+  "new_server_migration": {
+    "status": "NEW_SERVER_PROVISIONED_PROVIDER_HARDWARE_VERIFIED_AWAITING_INDEPENDENT_HOST_AUDIT",
+    "roadmap": "docs/project/NEW-SERVER-MIGRATION-ROADMAP.md",
+    "runtime_plan": "docs/project/runtime/new-server-migration-20261004/PLAN.md",
+    "runtime_status": "docs/project/runtime/new-server-migration-20261004/STATUS.json",
+    "provider_control_panel_os": "Debian 12 x86_64",
+    "provider_confirmation": {
+      "four_nvme_1_92tb_detected": true,
+      "raid_level": "RAID10",
+      "raid_healthy": true,
+      "raid_fully_synchronized": true,
+      "degraded_disks": 0,
+      "ram_gb": 128,
+      "dual_amd_epyc_7313_detected": true
+    },
+    "ordered_profile": {
+      "cpu": "Dual AMD EPYC 7313, 32 physical cores total",
+      "ram_gb": 128,
+      "storage": "4 x 1.92 TB NVMe RAID10, approximately 3.84 TB usable before filesystem overhead",
+      "network": "1 Gbps unmetered subject to provider network-protection policy",
+      "management": "User-Responsible",
+      "control_panel": "None"
+    },
+    "migration_started": false,
+    "data_uploaded_to_new_server": false,
+    "old_production_remains_authoritative": true,
+    "independent_host_audit_required_before_upload": true,
+    "growth_readiness": {
+      "canonical_release_capacity_test_users": 1000,
+      "growth_target_users": 5000,
+      "claim_boundary": "5000-user growth readiness is not a claim of 5000 simultaneous heavy AI/GPU jobs on one server",
+      "horizontal_scale_out_required_before_single_host_bottleneck": true
+    },
+    "phases": [
+      {
+        "id": "NS-00",
+        "title_ar": "فحص مستقل للخادم الجديد قبل رفع أي بيانات"
+      },
+      {
+        "id": "NS-01",
+        "title_ar": "تثبيت خط أساس أمني لـ Debian 12 والوصول والاسترجاع"
+      },
+      {
+        "id": "NS-02",
+        "title_ar": "اعتماد RAID/NVMe ونظام الملفات وسياسة المساحة والنسخ المستقلة"
+      },
+      {
+        "id": "NS-03",
+        "title_ar": "تثبيت Docker/Compose والأدوات المطلوبة فقط"
+      },
+      {
+        "id": "NS-04",
+        "title_ar": "تجهيز المصدر والإعدادات والأسرار وحصر تبعيات عنوان IP"
+      },
+      {
+        "id": "NS-05",
+        "title_ar": "إنشاء نسخة ما قبل النقل واختبار الاستعادة وخطة الرجوع"
+      },
+      {
+        "id": "NS-06",
+        "title_ar": "نقل أولي مع بقاء الإنتاج القديم حيًا"
+      },
+      {
+        "id": "NS-07",
+        "title_ar": "قبول معزول للمنصة وقاعدة البيانات والواجهات والعزل"
+      },
+      {
+        "id": "NS-08",
+        "title_ar": "تجهيز Cloudflare والشبكة والتحويل القابل للرجوع"
+      },
+      {
+        "id": "NS-09",
+        "title_ar": "بروفة كاملة وخطة final delta ونافذة drain"
+      },
+      {
+        "id": "NS-10",
+        "title_ar": "التحويل الإنتاجي المحكوم مع بقاء القديم للرجوع"
+      },
+      {
+        "id": "NS-11",
+        "title_ar": "معايير وخطوات الرجوع الفوري"
+      },
+      {
+        "id": "NS-12",
+        "title_ar": "مراقبة ما بعد التحويل مع تشغيل الخادمين بالتوازي"
+      },
+      {
+        "id": "NS-13",
+        "title_ar": "إعادة قبول ألف مستخدم وقياس مسار النمو حتى 5000 مستخدم"
+      },
+      {
+        "id": "NS-14",
+        "title_ar": "الرصد والتنبيهات والتنظيف التشغيلي طويل الأجل"
+      },
+      {
+        "id": "NS-15",
+        "title_ar": "مطابقة المصدر والإنتاج والنسخ والتوثيق canonical"
+      },
+      {
+        "id": "NS-16",
+        "title_ar": "إخراج الخادم القديم من الخدمة بعد موافقة المالك فقط"
+      }
+    ],
+    "completion_definition_ar": "لا يعتبر النقل مكتملًا قبل نجاح الفحص المستقل والأمن والتخزين والنقل والقبول الإنتاجي واختبار الألف والنسخ/الاستعادة والرصد وفترة الرجوع ومطابقة التوثيق، ثم موافقة المالك الصريحة على إلغاء الخادم القديم."
+  }
 }

@@ -1089,6 +1089,8 @@
     "sourceImage": "الصورة المصدر (مطلوبة)",
     "sourceAudioRequired": "الصوت المصدر (مطلوب)",
     "sourceAudioOptional": "الصوت المصدر (اختياري عند كتابة النص)",
+    "targetVoiceAudioRequired": "صوت الهدف بصيغة WAV (مطلوب)",
+    "voiceTransformInputsRequired": "تحويل الصوت يتطلب ملف WAV للصوت المصدر وملف WAV للصوت الهدف.",
     "sourceVideo": "فيديو MP4 المصدر (مطلوب)",
     "script": "النص / الكلمات المطلوبة",
     "selfAttestation": "أؤكد أن هذه هويتي/صوتي/صورتي أنا، وأسمح لـ AIONEX بمعالجتها لهذا الطلب.",
