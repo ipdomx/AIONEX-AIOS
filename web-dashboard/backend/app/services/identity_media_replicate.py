@@ -37,7 +37,7 @@ class IdentityMediaProviderFailure(RuntimeError):
 
 
 _PROVIDER_INPUT_DOMAIN = "aionex.identity-media.provider-input.v1"
-_PROVIDER_INPUT_NAMES = frozenset({"image", "audio", "video"})
+_PROVIDER_INPUT_NAMES = frozenset({"image", "audio", "target_voice", "video"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -180,8 +180,14 @@ class ReplicatePrediction:
     metrics: dict[str, Any]
 
 
+VOICE_TRANSFORM_MODEL = "adirik/hierspeechpp"
+VOICE_TRANSFORM_VERSION = (
+    "ff5bcc71dc2c44662291fc348b9ca2eb40107c9f4b377b169fc0dea950c388c8"
+)
+
 _MODEL_BY_OPERATION = {
     "voice_clone": "minimax/voice-cloning",
+    "voice_transform": VOICE_TRANSFORM_MODEL,
     "face_reenactment": "prunaai/p-video-avatar",
     "talking_head": "prunaai/p-video-avatar",
     "avatar_generation": "prunaai/p-video-avatar",
@@ -339,6 +345,50 @@ class ReplicateIdentityMediaAdapter:
             ambiguous = response.status_code >= 500
             raise IdentityMediaProviderFailure(
                 "provider_submission_ambiguous" if ambiguous else "provider_submission_rejected",
+                ambiguous_submission=ambiguous,
+                http_status=response.status_code,
+            )
+        try:
+            return _prediction(response.json())
+        except ValueError as exc:
+            raise IdentityMediaProviderFailure("provider_response_invalid") from exc
+
+    async def create_pinned_prediction(
+        self,
+        *,
+        version: str,
+        inputs: dict[str, Any],
+        cancel_after_seconds: int = 600,
+    ) -> ReplicatePrediction:
+        if version != VOICE_TRANSFORM_VERSION:
+            raise IdentityMediaProviderFailure("provider_model_version_rejected")
+        headers = {
+            **self._headers(),
+            "Content-Type": "application/json",
+            "Cancel-After": f"{max(60, min(int(cancel_after_seconds), 1800))}s",
+        }
+        async with httpx.AsyncClient(
+            transport=self.transport,
+            timeout=self.timeout_seconds,
+            follow_redirects=False,
+        ) as client:
+            try:
+                response = await client.post(
+                    f"{self.base_url}/v1/predictions",
+                    headers=headers,
+                    json={"version": version, "input": inputs},
+                )
+            except (httpx.TimeoutException, httpx.TransportError) as exc:
+                raise IdentityMediaProviderFailure(
+                    "provider_submission_ambiguous",
+                    ambiguous_submission=True,
+                ) from exc
+        if response.status_code not in {200, 201}:
+            ambiguous = response.status_code >= 500
+            raise IdentityMediaProviderFailure(
+                "provider_submission_ambiguous"
+                if ambiguous
+                else "provider_submission_rejected",
                 ambiguous_submission=ambiguous,
                 http_status=response.status_code,
             )
