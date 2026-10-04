@@ -4047,5 +4047,145 @@
     "owner_cost_provider_model_controls",
     "six_language_accessible_mobile_web",
     "growth_social_connected_accounts_without_unapproved_spend"
-  ]
+  ],
+  "new_server_migration": {
+    "status": "NEW_SERVER_PROVISIONED_AWAITING_HARDWARE_VERIFICATION",
+    "roadmap_document": "docs/project/NEW-SERVER-MIGRATION.md",
+    "runtime_status_document": "docs/project/runtime/new-server-migration-20261004/STATUS.json",
+    "current_state_ar": "تم شراء الخادم الجديد واستلام بيانات الوصول، وواجهة المزود تعرض Debian 12 x86_64. لم تُرفع أي بيانات ولم يبدأ النقل، والخادم القديم يجب أن يبقى دون تغيير ومتاحًا حتى اجتياز النقل والمراقبة والموافقة الصريحة على إلغائه.",
+    "new_server_profile": {
+      "cpu": "Dual AMD EPYC 7313, 32 physical cores total",
+      "ram": "128 GB DDR4/ECC-class as ordered",
+      "storage_raw": "4 x 1.92 TB NVMe",
+      "raid": "RAID 10 expected by provider default; approximately 3.84 TB usable before filesystem overhead",
+      "network": "1 Gbps unmetered subject to provider network-protection policy",
+      "os": "Debian 12 x86_64",
+      "management": "User-Responsible",
+      "control_panel": "None"
+    },
+    "support_confirmation_pending": [
+      "all four NVMe devices detected",
+      "RAID10 healthy and fully synchronized",
+      "full 128 GB RAM detected",
+      "both AMD EPYC 7313 CPUs detected correctly"
+    ],
+    "hard_invariants": [
+      "No application data is uploaded before NS-00 hardware/RAID/OS verification passes.",
+      "Old production remains source of truth until explicit cutover acceptance.",
+      "Old server is not cancelled or destructively changed until post-cutover observation, backup/restore verification, rollback expiry and Owner approval.",
+      "RAID is not treated as backup; independent encrypted backup/restore evidence is mandatory.",
+      "Passwords, private keys, IPMI credentials, raw env files and customer data are never stored in project roadmap/Git.",
+      "Every migration phase ends with PASS, HOLD or ROLLBACK evidence."
+    ],
+    "phases": [
+      {
+        "id": "NS-00",
+        "name_ar": "التحقق من المزود والهاردوير قبل أي بيانات",
+        "exit": "OS/CPU/RAM/4xNVMe/RAID10/network/root/IPMI baseline PASS"
+      },
+      {
+        "id": "NS-01",
+        "name_ar": "تأمين Debian 12 والوصول والإدارة",
+        "exit": "SSH/firewall/fail2ban/updates/time/logging/recovery baseline PASS"
+      },
+      {
+        "id": "NS-02",
+        "name_ar": "RAID والتخزين ونظام الملفات والنسخ المستقلة",
+        "exit": "storage layout, health monitoring and external encrypted backup target accepted"
+      },
+      {
+        "id": "NS-03",
+        "name_ar": "تثبيت Runtime المضيف فقط",
+        "exit": "Docker/Compose/Git/cloudflared prerequisites inventoried with no production traffic"
+      },
+      {
+        "id": "NS-04",
+        "name_ar": "تجهيز المصدر والإعدادات والأسرار",
+        "exit": "protected-main source/config prepared without secret exposure or paid effects"
+      },
+      {
+        "id": "NS-05",
+        "name_ar": "حزمة Backup/Rollback من الإنتاج القديم",
+        "exit": "encrypted independently restorable pre-migration package PASS"
+      },
+      {
+        "id": "NS-06",
+        "name_ar": "النقل الأولي مع بقاء القديم Live",
+        "exit": "isolated complete replica on new server"
+      },
+      {
+        "id": "NS-07",
+        "name_ar": "قبول التطبيق قبل التحويل",
+        "exit": "containers, DB, Redis, portals, auth, projects/conversations, files, WebSocket, E2E/security PASS"
+      },
+      {
+        "id": "NS-08",
+        "name_ar": "تجهيز Cloudflare والشبكة واعتماديات IP",
+        "exit": "traffic switch and rollback path proven"
+      },
+      {
+        "id": "NS-09",
+        "name_ar": "بروفة الاستعادة وخطة Final Delta",
+        "exit": "rehearsal, checksums, RPO/RTO and drain checklist accepted"
+      },
+      {
+        "id": "NS-10",
+        "name_ar": "Cutover إنتاجي محكوم",
+        "exit": "new server serves public traffic with old server preserved for rollback"
+      },
+      {
+        "id": "NS-11",
+        "name_ar": "Rollback فوري عند أي خلل جوهري",
+        "exit": "reversible switch with evidence and no destructive cleanup"
+      },
+      {
+        "id": "NS-12",
+        "name_ar": "مراقبة ما بعد النقل",
+        "exit": "minimum 72h stable observation plus backup/restore verification"
+      },
+      {
+        "id": "NS-13",
+        "name_ar": "قبول السعة والاستعداد لنمو 5000 مستخدم",
+        "exit": "1000-user required acceptance plus staged 500/1000/2500/5000 synthetic capacity envelope and scale-out triggers"
+      },
+      {
+        "id": "NS-14",
+        "name_ar": "الرصد والتشغيل طويل المدى",
+        "exit": "RAID/NVMe/disk/CPU/RAM/containers/DB/Redis/queues/tunnel/backup/provider-credit alerts accepted"
+      },
+      {
+        "id": "NS-15",
+        "name_ar": "مطابقة المصدر والإنتاج والتوثيق",
+        "exit": "project_hub canonical state, runbooks, recovery and production identities agree"
+      },
+      {
+        "id": "NS-16",
+        "name_ar": "إحالة الخادم القديم للتقاعد",
+        "exit": "Owner approval after final archive, no old traffic/jobs, credential cleanup and rollback expiry"
+      }
+    ],
+    "capacity_target": {
+      "required_project_acceptance": "1000-user expanded profile after production-equivalent migration",
+      "growth_readiness": "staged synthetic 500 -> 1000 -> 2500 -> 5000 sessions/projects where safe",
+      "truth_boundary": "5000-user readiness does not mean 5000 simultaneous heavy AI/GPU generations on one server",
+      "network_watch": "1 Gbps may become a bottleneck; CDN/object storage/worker separation or horizontal nodes are scale-out options"
+    },
+    "old_server_retirement": {
+      "minimum_observation": "at least 72 hours after successful cutover unless longer is operationally justified",
+      "requires_owner_approval": true,
+      "requires_final_backup_restore_check": true,
+      "requires_no_remaining_dns_allowlist_callback_monitoring_dependency": true
+    },
+    "definition_of_done": [
+      "new hardware/RAID/OS/security baseline PASS",
+      "source and persistent data migrated and verified",
+      "public traffic served by new server",
+      "production acceptance and 1000-user capacity proof PASS",
+      "5000-user growth envelope characterized truthfully",
+      "backup/restore/recovery/monitoring PASS",
+      "post-cutover rollback window completed",
+      "canonical docs reconciled",
+      "Owner explicitly approves old-server retirement"
+    ]
+  }
 }
