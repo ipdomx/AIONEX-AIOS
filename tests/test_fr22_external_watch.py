@@ -189,6 +189,27 @@ def test_state_round_trip_is_atomic_and_schema_checked(tmp_path: Path) -> None:
     assert target.stat().st_mode & 0o777 == 0o600
 
 
+
+def test_tls_probe_requires_tls_1_2_or_newer(monkeypatch) -> None:
+    m = _load()
+
+    class DummyContext:
+        minimum_version = None
+
+    context = DummyContext()
+    monkeypatch.setattr(m.ssl, "create_default_context", lambda: context)
+
+    def refuse_network(*args, **kwargs):
+        raise OSError("network disabled in unit test")
+
+    monkeypatch.setattr(m.socket, "create_connection", refuse_network)
+    expires, error = m._tls_not_after(
+        "https://api.vip-e.net", timeout_seconds=1.0
+    )
+    assert expires is None
+    assert error == "tls:OSError"
+    assert context.minimum_version == m.ssl.TLSVersion.TLSv1_2
+
 def test_cli_fixture_mode_never_claims_scheduler_sla(tmp_path: Path, capsys) -> None:
     m = _load()
     obs = tmp_path / "observation.json"

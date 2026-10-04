@@ -17,6 +17,7 @@ The contract is deliberately strict:
   fragments and HTTP origins are rejected;
 - HTTP redirects are not followed, so a probe cannot silently drift to another
   origin;
+- TLS certificate probes explicitly require TLS 1.2 or newer;
 - `/health` and `/ready` are evaluated separately so reachability and
   readiness degradation remain distinct;
 - heartbeat staleness is calculated from the **actual observation timestamp and

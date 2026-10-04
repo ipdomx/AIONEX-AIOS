@@ -382,6 +382,7 @@ def _tls_not_after(origin: str, *, timeout_seconds: float) -> tuple[int | None, 
     host = parsed.hostname
     port = parsed.port or 443
     context = ssl.create_default_context()
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
     try:
         with socket.create_connection((host, port), timeout=timeout_seconds) as raw:
             with context.wrap_socket(raw, server_hostname=host) as tls:
