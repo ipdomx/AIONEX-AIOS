@@ -1089,6 +1089,8 @@
     "sourceImage": "Source image (required)",
     "sourceAudioRequired": "Source audio (required)",
     "sourceAudioOptional": "Source audio (optional when a script is provided)",
+    "targetVoiceAudioRequired": "Target voice WAV (required)",
+    "voiceTransformInputsRequired": "Voice Transform requires both a source WAV and a target voice WAV.",
     "sourceVideo": "Source MP4 video (required)",
     "script": "Script / exact words",
     "selfAttestation": "I confirm this is my own identity/voice/likeness and I authorize AIONEX to process it for this request.",
