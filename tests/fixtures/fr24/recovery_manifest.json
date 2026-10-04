@@ -1,0 +1,153 @@
+{
+  "backup": {
+    "backup_id": "11111111-2222-3333-4444-555555555555",
+    "created_at": "2026-10-03T12:00:00+00:00",
+    "database": {
+      "encryption": {
+        "algorithm": "AES-256-GCM",
+        "ciphertext_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "ciphertext_size_bytes": 4144,
+        "envelope_version": 1,
+        "key_id": "synthetic-fr24-key"
+      },
+      "key": "synthetic/backups/11111111-2222-3333-4444-555555555555/database.dump.aex1",
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "size_bytes": 4096
+    },
+    "encryption_required": true,
+    "manifest": {
+      "encryption": {
+        "algorithm": "AES-256-GCM",
+        "ciphertext_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+        "ciphertext_size_bytes": 1722,
+        "envelope_version": 1,
+        "key_id": "synthetic-fr24-key"
+      },
+      "key": "synthetic/backups/11111111-2222-3333-4444-555555555555/manifest.json.aex1",
+      "sha256": "5caf9a595ea9f45f2b8a45c4337679fda605aac00c0d03240fd652f701f2e95d",
+      "size_bytes": 1674
+    },
+    "platform_asset_snapshot": {
+      "encryption": {
+        "algorithm": "AES-256-GCM",
+        "ciphertext_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+        "ciphertext_size_bytes": 16432,
+        "envelope_version": 1,
+        "key_id": "synthetic-fr24-key"
+      },
+      "file_count": 11,
+      "key": "synthetic/backups/11111111-2222-3333-4444-555555555555/platform-assets.tar.aex1",
+      "payload_bytes": 11000,
+      "roots": {
+        "audio_song_ingress_data": {
+          "file_count": 1,
+          "payload_bytes": 1000
+        },
+        "course_package_data": {
+          "file_count": 1,
+          "payload_bytes": 1000
+        },
+        "media_asset_data": {
+          "file_count": 1,
+          "payload_bytes": 1000
+        },
+        "mobile_release_data": {
+          "file_count": 1,
+          "payload_bytes": 1000
+        },
+        "portal_asset_data": {
+          "file_count": 1,
+          "payload_bytes": 1000
+        },
+        "project_execution_data": {
+          "file_count": 1,
+          "payload_bytes": 1000
+        },
+        "realtime_recording_data": {
+          "file_count": 1,
+          "payload_bytes": 1000
+        },
+        "security_remediation_data": {
+          "file_count": 1,
+          "payload_bytes": 1000
+        },
+        "security_source_data": {
+          "file_count": 1,
+          "payload_bytes": 1000
+        },
+        "studio_asset_data": {
+          "file_count": 1,
+          "payload_bytes": 1000
+        },
+        "three_d_asset_data": {
+          "file_count": 1,
+          "payload_bytes": 1000
+        }
+      },
+      "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "size_bytes": 16384
+    },
+    "schema_version": 2
+  },
+  "gates": {
+    "approvals": {
+      "coordinator": false,
+      "key_custody": false
+    },
+    "dependencies": {
+      "FR-05": true,
+      "FR-06": false,
+      "FR-22": false
+    }
+  },
+  "redis": {
+    "recovery_authority": false,
+    "strategy": "empty_rebuild"
+  },
+  "release": {
+    "components": {
+      "backend": "1.2.0",
+      "frontend": "1.2.0"
+    },
+    "compose": {
+      "deploySha256": "7777777777777777777777777777777777777777777777777777777777777777",
+      "webDashboardSha256": "6666666666666666666666666666666666666666666666666666666666666666"
+    },
+    "runtime": {
+      "alembicHeads": [
+        "synthetic_head_001"
+      ],
+      "containerCount": 2,
+      "containerImageIds": {
+        "backend": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+        "frontend": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+      }
+    },
+    "schemaVersion": 1,
+    "sourceCommit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "sourceTreeClean": true
+  },
+  "rollback": {
+    "alembicHeads": [
+      "synthetic_head_001"
+    ],
+    "compose": {
+      "deploySha256": "7777777777777777777777777777777777777777777777777777777777777777",
+      "webDashboardSha256": "6666666666666666666666666666666666666666666666666666666666666666"
+    },
+    "containerImageIds": {
+      "backend": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+      "frontend": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+    },
+    "overwrite_allowed": false,
+    "preserved": true,
+    "sourceCommit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "schema_version": 1,
+  "synthetic_timeline": {
+    "backup_cutoff_at": "2026-10-03T12:00:00+00:00",
+    "loss_detected_at": "2026-10-03T12:10:00+00:00",
+    "recovery_started_at": "2026-10-03T12:15:00+00:00",
+    "service_restored_at": "2026-10-03T12:45:00+00:00"
+  }
+}
