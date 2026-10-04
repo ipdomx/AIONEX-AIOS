@@ -43,6 +43,7 @@ _RIGHTS_TYPES = frozenset({"application/pdf", "image/png", "image/jpeg", "text/p
 _MAX_RIGHTS = 5 * 1024 * 1024
 _RUNTIME_MODELS = {
     "voice_clone": "minimax/voice-cloning",
+    "voice_transform": "adirik/hierspeechpp",
     "face_reenactment": "prunaai/p-video-avatar",
     "talking_head": "prunaai/p-video-avatar",
     "avatar_generation": "prunaai/p-video-avatar",
@@ -154,7 +155,7 @@ async def provider_input(
         _IMAGE_TYPES
         if grant.input_name == "image"
         else _AUDIO_TYPES
-        if grant.input_name == "audio"
+        if grant.input_name in {"audio", "target_voice"}
         else _VIDEO_TYPES
     )
     if content_type not in allowed:
@@ -260,6 +261,7 @@ async def create_identity_execution(
     claims_real_identity: Annotated[bool, Form()] = False,
     source_image: UploadFile | None = File(default=None),
     source_audio: UploadFile | None = File(default=None),
+    target_voice_audio: UploadFile | None = File(default=None),
     source_video: UploadFile | None = File(default=None),
     rights_evidence_file: UploadFile | None = File(default=None),
     actor: UserRecord = Depends(current_user),
@@ -341,11 +343,12 @@ async def create_identity_execution(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     required = {
-        "voice_clone": (False, True, False),
-        "face_reenactment": (True, False, False),
-        "talking_head": (True, False, False),
-        "avatar_generation": (True, False, False),
-        "lip_sync": (False, True, True),
+        "voice_clone": (False, True, False, False),
+        "voice_transform": (False, True, False, True),
+        "face_reenactment": (True, False, False, False),
+        "talking_head": (True, False, False, False),
+        "avatar_generation": (True, False, False, False),
+        "lip_sync": (False, True, True, False),
     }[operation]
     if required[0] and source_image is None:
         raise HTTPException(status_code=422, detail="Source image is required")
@@ -353,6 +356,8 @@ async def create_identity_execution(
         raise HTTPException(status_code=422, detail="Source audio is required")
     if required[2] and source_video is None:
         raise HTTPException(status_code=422, detail="Source video is required")
+    if required[3] and target_voice_audio is None:
+        raise HTTPException(status_code=422, detail="Target voice audio is required")
     if operation == "voice_clone" and not script.strip():
         raise HTTPException(status_code=422, detail="A script is required for cloned speech output")
     if operation in {"face_reenactment", "talking_head", "avatar_generation"} and source_audio is None and not script.strip():
@@ -368,11 +373,21 @@ async def create_identity_execution(
         for name, upload, kind in (
             ("image", source_image, "image"),
             ("audio", source_audio, "audio"),
+            ("target_voice", target_voice_audio, "audio"),
             ("video", source_video, "video"),
         ):
             if upload is None:
                 continue
             body, content_type, filename = await _read_upload(upload, kind=kind)
+            if (
+                operation == "voice_transform"
+                and name in {"audio", "target_voice"}
+                and content_type not in {"audio/wav", "audio/x-wav"}
+            ):
+                raise HTTPException(
+                    status_code=415,
+                    detail="Voice Transform requires WAV source and target voice audio",
+                )
             digest = sha256(body).hexdigest()
             suffix = Path(filename).suffix.lower()[:10]
             key = f"identity-media/{actor.organization_id}/inputs/{idempotency_key}/{name}-{digest[:16]}{suffix}"
