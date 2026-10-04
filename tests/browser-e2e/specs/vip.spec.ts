@@ -1066,7 +1066,9 @@ test("conversation permission denial fails closed and never emits a mutation", a
   await expect(
     page.getByRole("heading", { name: "Project conversations", exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(
+    page.getByText("Conversation access denied by owner policy", { exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "New conversation", exact: true }),
   ).toBeDisabled();

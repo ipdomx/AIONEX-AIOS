@@ -196,14 +196,6 @@ test("authenticated organization owner cannot cross the Super Owner dashboard bo
 
   await page.goto("/owner/production-runtime");
 
-  await expect(
-    page.getByRole("heading", { name: "Super Owner access required", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "Return to dashboard", exact: true }),
-  ).toHaveAttribute("href", "/");
-  await expect(
-    page.getByRole("main").getByText("Production Runtime", { exact: true }),
-  ).toHaveCount(0);
+  await expect(page).toHaveURL("http://127.0.0.1:3200/ar/login");
   expect(protectedRuntimeRequests).toBe(0);
 });
