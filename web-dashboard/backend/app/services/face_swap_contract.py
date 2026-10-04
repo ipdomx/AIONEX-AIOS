@@ -222,6 +222,8 @@ def validate_output_image(
         raise FaceSwapContractError("output-size-rejected")
     media = str(content_type or "").split(";", 1)[0].strip().lower()
 
+    detected: Literal["image/png", "image/jpeg", "image/webp"]
+    suffix: Literal[".png", ".jpg", ".webp"]
     if body.startswith(b"\x89PNG\r\n\x1a\n"):
         detected, suffix = "image/png", ".png"
     elif len(body) >= 3 and body[:3] == b"\xff\xd8\xff":
