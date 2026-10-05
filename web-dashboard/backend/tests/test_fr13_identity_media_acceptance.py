@@ -19,12 +19,13 @@ EXPECTED_OPERATIONS = {
 }
 EXPECTED_READY = {
     "voice_clone",
+    "voice_transform",
     "face_reenactment",
     "talking_head",
     "lip_sync",
     "avatar_generation",
 }
-EXPECTED_PENDING = {"voice_transform", "face_swap"}
+EXPECTED_PENDING = {"face_swap"}
 
 
 def _matrix() -> dict:
@@ -33,6 +34,45 @@ def _matrix() -> dict:
 
 def _literal_assignment(relative: str, name: str):
     tree = ast.parse((ROOT / relative).read_text())
+    scalar_literals: dict[str, str | int | float | bool | bytes | None] = {}
+
+    for node in tree.body:
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        try:
+            literal = ast.literal_eval(node.value)
+        except (TypeError, ValueError):
+            continue
+        if not (
+            literal is None
+            or isinstance(literal, (str, int, float, bool, bytes))
+        ):
+            continue
+        for target in targets:
+            if isinstance(target, ast.Name):
+                scalar_literals[target.id] = literal
+
+    def resolve_literal(value: ast.AST):
+        if isinstance(value, ast.Name):
+            if value.id not in scalar_literals:
+                raise AssertionError(
+                    f"non-literal name {value.id} referenced by {name} in {relative}"
+                )
+            return scalar_literals[value.id]
+        if isinstance(value, ast.Dict):
+            return {
+                resolve_literal(key): resolve_literal(item)
+                for key, item in zip(value.keys, value.values)
+            }
+        if isinstance(value, ast.Set):
+            return {resolve_literal(item) for item in value.elts}
+        if isinstance(value, ast.Tuple):
+            return tuple(resolve_literal(item) for item in value.elts)
+        if isinstance(value, ast.List):
+            return [resolve_literal(item) for item in value.elts]
+        return ast.literal_eval(value)
+
     for node in tree.body:
         if not isinstance(node, (ast.Assign, ast.AnnAssign)):
             continue
@@ -47,7 +87,7 @@ def _literal_assignment(relative: str, name: str):
             and len(value.args) == 1
         ):
             value = value.args[0]
-        return ast.literal_eval(value)
+        return resolve_literal(value)
     raise AssertionError(f"{name} not found in {relative}")
 
 
@@ -58,8 +98,8 @@ def test_matrix_is_exactly_seven_rows_and_does_not_bulk_promote_pending_operatio
     assert set(rows) == EXPECTED_OPERATIONS
     assert matrix["dependency"] == {
         "batch": "FR-12",
-        "accepted": False,
-        "effect_on_fr13": "integration_live_final_closure_gated",
+        "accepted": True,
+        "effect_on_fr13": "dependency_satisfied_final_fr13_acceptance_still_required",
     }
     assert {op for op, row in rows.items() if row["source_runtime_state"] == "ready"} == EXPECTED_READY
     assert {op for op, row in rows.items() if row["source_runtime_state"] == "pending"} == EXPECTED_PENDING

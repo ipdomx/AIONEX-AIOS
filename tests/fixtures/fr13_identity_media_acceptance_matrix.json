@@ -2,8 +2,8 @@
   "schema": 1,
   "dependency": {
     "batch": "FR-12",
-    "accepted": false,
-    "effect_on_fr13": "integration_live_final_closure_gated"
+    "accepted": true,
+    "effect_on_fr13": "dependency_satisfied_final_fr13_acceptance_still_required"
   },
   "cost_truth": {
     "authorized_ceiling_is_invoice": false,
@@ -22,10 +22,10 @@
     },
     {
       "operation": "voice_transform",
-      "source_runtime_state": "pending",
-      "provider_model": null,
-      "evidence_tier": "runtime_dependency_pending",
-      "independent_acceptance": "pending",
+      "source_runtime_state": "ready",
+      "provider_model": "adirik/hierspeechpp",
+      "evidence_tier": "runtime_mapping_without_distinct_canary",
+      "independent_acceptance": "prepared_not_final",
       "rights_owner_revocation_required": true,
       "synthetic_media_disclosure_required": true
     },
@@ -42,7 +42,7 @@
       "operation": "face_swap",
       "source_runtime_state": "pending",
       "provider_model": null,
-      "evidence_tier": "fr12_dependency_pending",
+      "evidence_tier": "runtime_mapping_pending_after_fr12_merge",
       "independent_acceptance": "pending",
       "rights_owner_revocation_required": true,
       "synthetic_media_disclosure_required": true
