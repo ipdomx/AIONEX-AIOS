@@ -967,6 +967,9 @@ class Settings(BaseSettings):
     REDIS_POOL_SIZE: int = Field(
         default=10, ge=3, le=1000, validation_alias="REDIS_POOL_SIZE"
     )
+    REDIS_POOL_WAIT_SECONDS: float = Field(
+        default=5.0, ge=0.1, le=30.0, validation_alias="REDIS_POOL_WAIT_SECONDS"
+    )
 
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
         default=30, validation_alias="ACCESS_TOKEN_EXPIRE_MINUTES"

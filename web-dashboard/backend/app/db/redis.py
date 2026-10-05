@@ -22,11 +22,13 @@ async def init_redis():
     if redis_client is not None:
         await _close_client(redis_client)
         redis_client = None
-    client = aioredis.from_url(
+    pool = aioredis.BlockingConnectionPool.from_url(
         settings.REDIS_URL,
         decode_responses=True,
         max_connections=settings.REDIS_POOL_SIZE,
+        timeout=settings.REDIS_POOL_WAIT_SECONDS,
     )
+    client = aioredis.Redis(connection_pool=pool)
     try:
         await client.ping()
     except BaseException:
