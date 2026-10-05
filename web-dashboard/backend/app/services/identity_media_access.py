@@ -37,7 +37,7 @@ IDENTITY_BASES = (
     "fictional_inspired",
 )
 REAL_PERSON_BASES = frozenset({"self", "consented_person", "licensed_public_figure"})
-RUNTIME_READY_OPERATIONS = frozenset({"voice_clone", "face_reenactment", "talking_head", "lip_sync", "avatar_generation"})
+RUNTIME_READY_OPERATIONS = frozenset({"voice_clone", "voice_transform", "face_reenactment", "talking_head", "lip_sync", "avatar_generation"})
 
 
 @dataclass(frozen=True, slots=True)

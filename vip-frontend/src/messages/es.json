@@ -1089,6 +1089,8 @@
     "sourceImage": "Imagen fuente (obligatoria)",
     "sourceAudioRequired": "Audio fuente (obligatorio)",
     "sourceAudioOptional": "Audio fuente (opcional con guion)",
+    "targetVoiceAudioRequired": "Voz objetivo WAV (obligatoria)",
+    "voiceTransformInputsRequired": "Voice Transform requiere un WAV de audio fuente y otro WAV de voz objetivo.",
     "sourceVideo": "Vídeo MP4 fuente (obligatorio)",
     "script": "Guion / texto",
     "selfAttestation": "Confirmo que esta es mi propia identidad y autorizo a AIONEX a procesarla para esta solicitud.",

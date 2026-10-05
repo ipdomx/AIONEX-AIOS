@@ -18,6 +18,7 @@ from app.services.identity_media_replicate import (
     IdentityMediaProviderFailure,
     ReplicateFile,
     ReplicateIdentityMediaAdapter,
+    VOICE_TRANSFORM_VERSION,
     issue_provider_input_token,
     provider_input_url,
 )
@@ -56,7 +57,7 @@ def _content_suffix(content_type: str, *, kind: str) -> str:
 
 def _output_media(operation: str, body: bytes, content_type: str) -> tuple[str, str]:
     media = content_type.lower().split(";", 1)[0].strip()
-    if operation == "voice_clone":
+    if operation in {"voice_clone", "voice_transform"}:
         if media.startswith("audio/"):
             return media, ".mp3" if media == "audio/mpeg" else ".wav" if "wav" in media else ".audio"
         if body.startswith(b"ID3") or (len(body) > 2 and body[0] == 0xFF and body[1] & 0xE0 == 0xE0):
@@ -206,6 +207,37 @@ class IdentityMediaWorker:
                         "stage": "voice_clone",
                         "provider_input_transport": "signed_https_pull",
                         "provider_input_names": ["audio"],
+                    }
+                elif operation == "voice_transform":
+                    audio = await self._input_file(row, "audio")
+                    target_voice = await self._input_file(row, "target_voice")
+                    if audio is None or target_voice is None:
+                        raise IdentityMediaProviderFailure(
+                            "identity_media_voice_transform_inputs_required"
+                        )
+                    if not await self._authorized(session, row, claim):
+                        await session.commit()
+                        return
+                    prediction = await self.adapter.create_pinned_prediction(
+                        version=VOICE_TRANSFORM_VERSION,
+                        inputs={
+                            "input_sound": audio.url,
+                            "target_voice": target_voice.url,
+                            "denoise_ratio": 0.0,
+                            "text_to_vector_temperature": 0.33,
+                            "voice_conversion_temperature": 0.33,
+                            "output_sample_rate": 16000,
+                            "scale_output_volume": False,
+                        },
+                        cancel_after_seconds=600,
+                    )
+                    metadata = {
+                        "stage": "voice_transform",
+                        "provider_model": "adirik/hierspeechpp",
+                        "provider_model_version": VOICE_TRANSFORM_VERSION,
+                        "provider_input_transport": "signed_https_pull",
+                        "provider_input_names": ["audio", "target_voice"],
+                        "automatic_submission_replay": False,
                     }
                 elif operation in {"talking_head", "face_reenactment", "avatar_generation"}:
                     image = await self._input_file(row, "image")

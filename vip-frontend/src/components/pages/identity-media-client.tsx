@@ -68,6 +68,7 @@ export function IdentityMediaClient() {
   const [reason, setReason] = useState("");
   const [sourceImage, setSourceImage] = useState<File | null>(null);
   const [sourceAudio, setSourceAudio] = useState<File | null>(null);
+  const [targetVoiceAudio, setTargetVoiceAudio] = useState<File | null>(null);
   const [sourceVideo, setSourceVideo] = useState<File | null>(null);
   const [rightsEvidence, setRightsEvidence] = useState<File | null>(null);
   const [selfAttestation, setSelfAttestation] = useState(false);
@@ -132,6 +133,7 @@ export function IdentityMediaClient() {
   useEffect(() => {
     setSourceImage(null);
     setSourceAudio(null);
+    setTargetVoiceAudio(null);
     setSourceVideo(null);
     setRightsEvidence(null);
     setSelfAttestation(false);
@@ -174,6 +176,10 @@ export function IdentityMediaClient() {
       setMessage(t("disclosureRequired"));
       return;
     }
+    if (operation === "voice_transform" && (!sourceAudio || !targetVoiceAudio)) {
+      setMessage(t("voiceTransformInputsRequired"));
+      return;
+    }
     if (basis === "self" && !selfAttestation) {
       setMessage(t("selfAttestationRequired"));
       return;
@@ -209,6 +215,7 @@ export function IdentityMediaClient() {
       if (realPerson) body.set("named_real_person_reference", subject.trim());
       if (sourceImage) body.set("source_image", sourceImage);
       if (sourceAudio) body.set("source_audio", sourceAudio);
+      if (targetVoiceAudio) body.set("target_voice_audio", targetVoiceAudio);
       if (sourceVideo) body.set("source_video", sourceVideo);
       if (rightsEvidence) body.set("rights_evidence_file", rightsEvidence);
       const created = await createIdentityMediaExecution(body);
@@ -315,8 +322,11 @@ export function IdentityMediaClient() {
           {(operation === "face_reenactment" || operation === "talking_head" || operation === "avatar_generation") && (
             <label className="space-y-2 text-xs text-white/55"><Upload className="inline h-4 w-4" /> {t("sourceImage")}<input className={inputClass} type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setSourceImage(event.target.files?.[0] || null)} /></label>
           )}
-          {(operation === "voice_clone" || operation === "lip_sync" || operation === "face_reenactment" || operation === "talking_head" || operation === "avatar_generation") && (
-            <label className="space-y-2 text-xs text-white/55"><Upload className="inline h-4 w-4" /> {t(operation === "voice_clone" || operation === "lip_sync" ? "sourceAudioRequired" : "sourceAudioOptional")}<input className={inputClass} type="file" accept="audio/wav,audio/mpeg,audio/mp4" onChange={(event) => setSourceAudio(event.target.files?.[0] || null)} /></label>
+          {(operation === "voice_clone" || operation === "voice_transform" || operation === "lip_sync" || operation === "face_reenactment" || operation === "talking_head" || operation === "avatar_generation") && (
+            <label className="space-y-2 text-xs text-white/55"><Upload className="inline h-4 w-4" /> {t(operation === "voice_clone" || operation === "voice_transform" || operation === "lip_sync" ? "sourceAudioRequired" : "sourceAudioOptional")}<input className={inputClass} type="file" accept={operation === "voice_transform" ? "audio/wav" : "audio/wav,audio/mpeg,audio/mp4"} onChange={(event) => setSourceAudio(event.target.files?.[0] || null)} /></label>
+          )}
+          {operation === "voice_transform" && (
+            <label className="space-y-2 text-xs text-white/55"><Upload className="inline h-4 w-4" /> {t("targetVoiceAudioRequired")}<input className={inputClass} type="file" accept="audio/wav" onChange={(event) => setTargetVoiceAudio(event.target.files?.[0] || null)} /></label>
           )}
           {operation === "lip_sync" && (
             <label className="space-y-2 text-xs text-white/55"><Upload className="inline h-4 w-4" /> {t("sourceVideo")}<input className={inputClass} type="file" accept="video/mp4" onChange={(event) => setSourceVideo(event.target.files?.[0] || null)} /></label>

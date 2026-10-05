@@ -26,6 +26,7 @@ from app.services.host_maintenance_admission import HostMaintenanceClosed
 PACKAGE_STATUSES = frozenset(
     {"queued", "building", "review_pending", "approved", "rejected", "failed"}
 )
+LEARNER_READY_PACKAGE_STATUSES = frozenset({"approved"})
 PROGRESS_STATUSES = frozenset({"not_started", "in_progress", "completed"})
 SUPPORTED_LOCALES = ("ar", "en", "fr", "de", "es", "tr")
 
@@ -57,10 +58,10 @@ def package_snapshot(item: AcademyCoursePackage) -> dict[str, Any]:
         "manifest_sha256": item.manifest_sha256,
         "archive_bytes": item.archive_bytes,
         "download_ready": bool(
-            item.archive_relpath and item.status in {"review_pending", "approved"}
+            item.archive_relpath and item.status in LEARNER_READY_PACKAGE_STATUSES
         ),
         "site_ready": bool(
-            item.site_relpath and item.status in {"review_pending", "approved"}
+            item.site_relpath and item.status in LEARNER_READY_PACKAGE_STATUSES
         ),
         "error_code": item.error_code,
         "completed_at": iso(item.completed_at),
