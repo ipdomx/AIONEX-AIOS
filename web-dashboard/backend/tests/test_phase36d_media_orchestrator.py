@@ -132,6 +132,39 @@ def test_local_media_storage_is_private_atomic_and_path_safe(tmp_path: Path, mon
         store.get_bytes(stored.key, max_bytes=1024)
 
 
+def test_local_media_storage_root_writer_inherits_vault_owner(tmp_path: Path, monkeypatch) -> None:
+    from app.services import media_storage
+
+    monkeypatch.setattr(media_storage.settings, "MEDIA_MAX_OBJECT_BYTES", 1024 * 1024)
+    root = tmp_path / "media"
+    store = LocalMediaObjectStore(root)
+    expected_owner = (root.stat().st_uid, root.stat().st_gid)
+    chowns: list[tuple[Path, int, int]] = []
+
+    monkeypatch.setattr(media_storage.os, "geteuid", lambda: 0)
+    monkeypatch.setattr(
+        media_storage.os,
+        "chown",
+        lambda path, uid, gid: chowns.append((Path(path), uid, gid)),
+    )
+
+    stored = store.put_bytes(
+        "identity-media/org/request/audio.wav",
+        b"RIFFsynthetic",
+        "audio/wav",
+    )
+    target = root / stored.key
+    assert target.read_bytes() == b"RIFFsynthetic"
+    assert (target.parent, *expected_owner) in chowns
+    assert (target.parent.parent, *expected_owner) in chowns
+    assert any(
+        path.name == ".audio.wav.partial" and (uid, gid) == expected_owner
+        for path, uid, gid in chowns
+    )
+    assert (target.parent.stat().st_mode & 0o777) == 0o700
+    assert (target.stat().st_mode & 0o777) == 0o600
+
+
 def test_media_hardware_adapter_policy_is_operator_gated(monkeypatch) -> None:
     from app.api.v1.endpoints import studio
 
