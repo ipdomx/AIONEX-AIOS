@@ -31,6 +31,7 @@ class ProviderMusicRequest:
     instrumental_only: bool
     lyrics: str
     output_format: str = "mp3"
+    duration_seconds: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -598,7 +599,8 @@ class StabilityStableAudioMusicAdapter:
     _FIXED_COST_USD = 0.20
     _CREDITS_PER_SUCCESS = 20
     _CREDIT_USD = 0.01
-    _DURATION_SECONDS = 30
+    _MUSIC_DURATION_SECONDS = 30.0
+    _SFX_MAX_DURATION_SECONDS = 30.0
 
     def __init__(
         self,
@@ -624,8 +626,11 @@ class StabilityStableAudioMusicAdapter:
         }
 
     @classmethod
-    def _validate_request(cls, request: ProviderMusicRequest) -> None:
-        if request.provider != "stability" or request.operation != "generate-music":
+    def _validate_request(cls, request: ProviderMusicRequest) -> float:
+        if request.provider != "stability" or request.operation not in {
+            "generate-music",
+            "generate-sfx",
+        }:
             raise ProviderMusicFailure("provider_operation_unsupported", retryable=False)
         if request.model != cls._MODEL or request.tier != "draft":
             raise ProviderMusicFailure("provider_model_unsupported", retryable=False)
@@ -633,8 +638,24 @@ class StabilityStableAudioMusicAdapter:
             raise ProviderMusicFailure("provider_format_unsupported", retryable=False)
         if not 8 <= len(request.prompt.strip()) <= 10_000 or "\x00" in request.prompt:
             raise ProviderMusicFailure("provider_prompt_invalid", retryable=False)
-        if not request.instrumental_only or request.lyrics.strip():
-            raise ProviderMusicFailure("provider_lyrics_invalid", retryable=False)
+        if request.operation == "generate-music":
+            if request.duration_seconds is not None:
+                raise ProviderMusicFailure("provider_duration_unsupported", retryable=False)
+            if not request.instrumental_only or request.lyrics.strip():
+                raise ProviderMusicFailure("provider_lyrics_invalid", retryable=False)
+            return cls._MUSIC_DURATION_SECONDS
+        if request.instrumental_only or request.lyrics.strip():
+            raise ProviderMusicFailure("provider_sfx_contract_invalid", retryable=False)
+        value = request.duration_seconds
+        if isinstance(value, bool) or value is None:
+            raise ProviderMusicFailure("provider_duration_invalid", retryable=False)
+        try:
+            duration = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ProviderMusicFailure("provider_duration_invalid", retryable=False) from exc
+        if not 1.0 <= duration <= cls._SFX_MAX_DURATION_SECONDS:
+            raise ProviderMusicFailure("provider_duration_invalid", retryable=False)
+        return duration
 
     async def invoke(
         self,
@@ -643,14 +664,22 @@ class StabilityStableAudioMusicAdapter:
         credential: str,
         base_url: str,
     ) -> ProviderMusicResult:
-        self._validate_request(request)
+        duration_seconds = self._validate_request(request)
         root = base_url.rstrip("/")
         if root != "https://api.stability.ai":
             raise ProviderMusicFailure("provider_base_url_invalid", retryable=False)
+        prompt = request.prompt.strip()
+        if request.operation == "generate-music":
+            prompt += "\n\nInstrumental only, no vocals."
+        duration_value = (
+            str(int(duration_seconds))
+            if float(duration_seconds).is_integer()
+            else format(duration_seconds, "g")
+        )
         data = {
-            "prompt": request.prompt.strip() + "\n\nInstrumental only, no vocals.",
+            "prompt": prompt,
             "output_format": "mp3",
-            "duration": str(self._DURATION_SECONDS),
+            "duration": duration_value,
             "model": self._MODEL,
         }
         # A dummy empty multipart file mirrors Stability's official text-to-audio
@@ -711,13 +740,15 @@ class StabilityStableAudioMusicAdapter:
                 "tier": "draft",
                 "preview_model": False,
                 "provider_output_format": "mp3",
-                "provider_sample_rate_hz": 44_100,
-                "provider_channels": 2,
-                "nominal_duration_seconds": self._DURATION_SECONDS,
+                "provider_sample_rate_hz": 44_100 if request.operation == "generate-music" else None,
+                "provider_channels": 2 if request.operation == "generate-music" else None,
+                "nominal_duration_seconds": duration_seconds,
+                "operation": request.operation,
+                "decoded_quality_measured": False,
                 "returned_text_sha256": None,
                 "returned_text_characters": 0,
                 "raw_returned_text_returned": False,
-                "instrumental_only": True,
+                "instrumental_only": request.instrumental_only,
                 "ai_generated_disclosure_required": True,
                 "synthid_watermark_expected": False,
                 **inspected,

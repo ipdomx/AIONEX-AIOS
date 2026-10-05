@@ -1,0 +1,260 @@
+{
+  "schema": 1,
+  "batch_id": "FR-18",
+  "sub_batch": "FR-18A",
+  "base_commit": "3b382d00bacb1db50bf532d5f085e85585f32006",
+  "purpose": "Bind retained Phase29/core requirements to current project-builder source generation without treating templates, simulations, providers, or store publication as live execution.",
+  "truth_boundary": {
+    "generated_source_is_production_execution": false,
+    "generic_simulation_family_accepted": false,
+    "platform_store_deployment_accepted": false,
+    "provider_neutral_snapshot_is_full_governed_execution": false,
+    "source_mobile_generation_allowed": true,
+    "owner_governance_preserved": true
+  },
+  "families": [
+    {
+      "id": "web_api",
+      "status": "accepted_source_contract",
+      "objective": "Build a SaaS website and REST API",
+      "expected_targets": [
+        "web",
+        "api",
+        "domain",
+        "cli"
+      ],
+      "required_files": [
+        "targets/web-next/package.json",
+        "targets/api/app.py",
+        "targets/domain/schema.sql",
+        "targets/cli/main.py"
+      ],
+      "required_external_gates": []
+    },
+    {
+      "id": "data",
+      "status": "accepted_source_contract",
+      "objective": "Build analytics ETL data pipeline",
+      "expected_targets": [
+        "data",
+        "domain",
+        "cli"
+      ],
+      "required_files": [
+        "targets/data/pipeline.py",
+        "targets/domain/schema.sql",
+        "targets/cli/main.py"
+      ],
+      "required_external_gates": []
+    },
+    {
+      "id": "bot",
+      "status": "accepted_source_contract",
+      "objective": "Build Telegram bot",
+      "expected_targets": [
+        "bot",
+        "api",
+        "domain",
+        "cli"
+      ],
+      "required_files": [
+        "targets/bot/bot.py",
+        "targets/api/app.py",
+        "targets/domain/schema.sql",
+        "targets/cli/main.py"
+      ],
+      "required_external_gates": [
+        "messaging-provider-credential"
+      ]
+    },
+    {
+      "id": "desktop",
+      "status": "accepted_source_contract",
+      "objective": "Build a Windows desktop application",
+      "expected_targets": [
+        "desktop",
+        "web",
+        "domain",
+        "cli"
+      ],
+      "required_files": [
+        "targets/desktop-tauri/src-tauri/Cargo.toml",
+        "targets/web-next/package.json",
+        "targets/domain/schema.sql",
+        "targets/cli/main.py"
+      ],
+      "required_external_gates": [
+        "platform-code-signing"
+      ]
+    },
+    {
+      "id": "browser_extension",
+      "status": "accepted_source_contract",
+      "objective": "Build a Chrome browser extension",
+      "expected_targets": [
+        "browser_extension",
+        "domain",
+        "cli"
+      ],
+      "required_files": [
+        "targets/browser-extension/manifest.json",
+        "targets/domain/schema.sql",
+        "targets/cli/main.py"
+      ],
+      "required_external_gates": [
+        "browser-store-publishing"
+      ]
+    },
+    {
+      "id": "commerce",
+      "status": "accepted_source_contract",
+      "objective": "Build ecommerce store with subscriptions",
+      "expected_targets": [
+        "commerce",
+        "web",
+        "api",
+        "domain",
+        "cli"
+      ],
+      "required_files": [
+        "targets/commerce/domain.py",
+        "targets/web-next/package.json",
+        "targets/api/app.py",
+        "targets/domain/schema.sql",
+        "targets/cli/main.py"
+      ],
+      "required_external_gates": [
+        "payment-provider-credential-for-live-charges"
+      ]
+    },
+    {
+      "id": "source_mobile",
+      "status": "accepted_source_contract",
+      "objective": "Build Android and iOS mobile app",
+      "expected_targets": [
+        "mobile",
+        "api",
+        "domain",
+        "cli"
+      ],
+      "required_files": [
+        "targets/mobile-expo/app.json",
+        "targets/mobile-expo/package.json",
+        "targets/api/app.py",
+        "targets/domain/schema.sql",
+        "targets/cli/main.py"
+      ],
+      "required_external_gates": [
+        "apple-google-store-credentials",
+        "mobile-store-signing"
+      ],
+      "boundary": "Source generation is accepted; platform signing/store publication is not."
+    },
+    {
+      "id": "iot_bounded_simulator",
+      "status": "accepted_bounded_simulator_source",
+      "objective": "Build IoT firmware for a sensor simulator",
+      "expected_targets": [
+        "iot",
+        "domain",
+        "cli"
+      ],
+      "required_files": [
+        "targets/iot/firmware/main.c",
+        "targets/iot/simulator.py",
+        "targets/domain/schema.sql",
+        "targets/cli/main.py"
+      ],
+      "required_external_gates": [
+        "physical-hardware-validation"
+      ],
+      "boundary": "Local IoT simulator source is not physical hardware validation and is not generic simulation-family acceptance."
+    },
+    {
+      "id": "robotics_bounded_simulator",
+      "status": "accepted_bounded_simulator_source",
+      "objective": "Build robotics ROS2 simulator for a drone",
+      "expected_targets": [
+        "robotics",
+        "domain",
+        "cli"
+      ],
+      "required_files": [
+        "targets/robotics/simulator.py",
+        "targets/robotics/ros2_adapter.py",
+        "targets/domain/schema.sql",
+        "targets/cli/main.py"
+      ],
+      "required_external_gates": [
+        "robotics-hardware-and-runtime-validation"
+      ],
+      "boundary": "Deterministic robotics simulator source is not hardware/runtime validation and is not generic simulation-family acceptance."
+    },
+    {
+      "id": "generic_simulation",
+      "status": "gap_generic_family_not_implemented",
+      "objective": "Build a deterministic simulation model",
+      "observed_current_targets": [
+        "web",
+        "api",
+        "domain",
+        "cli"
+      ],
+      "missing_target": "simulation",
+      "must_not_be_counted_as_accepted": true,
+      "boundary": "Current fallback source is not evidence of a generic simulation implementation or execution."
+    }
+  ],
+  "legacy_contracts": [
+    {
+      "id": "phase29f_projects_workforce_knowledge",
+      "evidence": "docs/phase-29/PHASE_29F_PROJECTS_WORKFORCE_KNOWLEDGE_COMPLETION.md",
+      "preserve": "projects/tasks/workflows/reports/workforce/academy/knowledge/search remain retained; provider-neutral snapshots are not full governed execution."
+    },
+    {
+      "id": "phase29h_source_mobile",
+      "evidence": "docs/phase-29/PHASE_29H_PRODUCTION_STUDIO_MOBILE_DELIVERY_COMPLETION.md",
+      "preserve": "mobile source/package evidence stays distinct from Apple signing/App Store publication."
+    },
+    {
+      "id": "phase29i_integrations",
+      "evidence": "docs/phase-29/PHASE_29I_PLUGINS_DISTRIBUTED_INTEGRATIONS_COMPLETION.md",
+      "preserve": "missing integration credentials remain unconfigured/degraded rather than false green."
+    },
+    {
+      "id": "canonical_owner_decisions",
+      "evidence": "docs/project/PLAN.json",
+      "preserve": "Owner governance remains authoritative; user project source-mobile is in scope while platform-store deployment remains deferred."
+    },
+    {
+      "id": "phase29c_identity_tenancy_accounts",
+      "evidence": "docs/phase-29/PHASE_29C_IDENTITY_TENANCY_COMPLETION.md",
+      "preserve": "accounts, organizations, workspaces, teams, roles, permissions, suspension and session authority remain tenant-scoped; Super Owner authority is not weakened."
+    },
+    {
+      "id": "phase29d_nonfinancial_plan_entitlements",
+      "evidence": "docs/phase-29/PHASE_29D_BILLING_PAYMENTS_COMPLETION.md",
+      "preserve": "plan, seat, limit and entitlement records remain durable while live payment/provider activation is not implied by FR-18."
+    },
+    {
+      "id": "phase29e_support_governance",
+      "evidence": "docs/phase-29/PHASE_29E_COMMUNICATIONS_GOVERNANCE_COMPLETION.md",
+      "preserve": "support, approvals, councils, ministries, policies and Owner controls remain durable; unavailable external channels remain unconfigured rather than false success."
+    },
+    {
+      "id": "phase29g_release_governance",
+      "evidence": "docs/phase-29/PHASE_29G_OPERATIONS_SECURITY_RECOVERY_RELEASE_COMPLETION.md",
+      "preserve": "release gates continue to require explicit Owner approval and retained operational evidence; FR-18 cannot self-deploy."
+    },
+    {
+      "id": "fr18_research_source",
+      "evidence": "src/aios/controlled_research.py",
+      "preserve": "controlled research remains part of FR-18-owned core business-tool source and is not replaced by a template-only claim."
+    },
+    {
+      "id": "fr18_release_cycle_source",
+      "evidence": "src/aios/full_project_cycle.py",
+      "preserve": "the governed full project cycle remains retained and distinct from provider-neutral snapshots or source-only generation."
+    }
+  ]
+}
