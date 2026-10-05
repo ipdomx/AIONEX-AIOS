@@ -56,8 +56,33 @@ class LocalMediaObjectStore:
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         try:
             os.chmod(self.root, 0o700)
+            root_stat = self.root.stat()
         except OSError:
             raise MediaStorageError("unable to secure media storage root") from None
+        self._owner_uid = root_stat.st_uid
+        self._owner_gid = root_stat.st_gid
+
+    def _secure_local_path(self, path: Path, mode: int) -> None:
+        try:
+            os.chmod(path, mode)
+            if os.geteuid() == 0:
+                os.chown(path, self._owner_uid, self._owner_gid)
+        except OSError:
+            raise MediaStorageError("unable to secure media storage path") from None
+
+    def _ensure_private_parent(self, path: Path) -> None:
+        try:
+            relative = path.parent.relative_to(self.root)
+        except ValueError:
+            raise MediaStorageError("media object key escapes the private root") from None
+        current = self.root
+        for part in relative.parts:
+            current = current / part
+            try:
+                current.mkdir(exist_ok=True, mode=0o700)
+            except OSError:
+                raise MediaStorageError("unable to create media storage path") from None
+            self._secure_local_path(current, 0o700)
 
     def _path(self, key: str) -> Path:
         normalized = key.strip().lstrip("/")
@@ -75,10 +100,10 @@ class LocalMediaObjectStore:
         if len(body) > settings.MEDIA_MAX_OBJECT_BYTES:
             raise MediaStorageError("media object exceeds the configured size limit")
         path = self._path(key)
-        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        self._ensure_private_parent(path)
         temporary = path.with_name(f".{path.name}.partial")
         temporary.write_bytes(body)
-        os.chmod(temporary, 0o600)
+        self._secure_local_path(temporary, 0o600)
         os.replace(temporary, path)
         return StoredMediaObject(
             key=key,
