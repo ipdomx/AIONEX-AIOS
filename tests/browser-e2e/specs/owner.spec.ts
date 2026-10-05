@@ -168,3 +168,34 @@ test("Phase 36M Studio governance renders centrally controlled capabilities on m
   );
   expect(overflow).toBe(false);
 });
+
+
+test("authenticated organization owner cannot cross the Super Owner dashboard boundary", async ({ page }) => {
+  const organizationOwner = {
+    ...ownerUser,
+    role: "Owner",
+    permissions: ["projects:read", "projects:write"],
+  };
+  let protectedRuntimeRequests = 0;
+
+  await page.route("**/api/v1/auth/me", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(organizationOwner),
+    });
+  });
+  await page.route("**/api/v1/owner/production-runtime**", async (route) => {
+    protectedRuntimeRequests += 1;
+    await route.fulfill({
+      status: 403,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Super Owner access required" }),
+    });
+  });
+
+  await page.goto("/owner/production-runtime");
+
+  await expect(page).toHaveURL("http://127.0.0.1:3200/ar/login");
+  expect(protectedRuntimeRequests).toBe(0);
+});

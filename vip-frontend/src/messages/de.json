@@ -1089,6 +1089,8 @@
     "sourceImage": "Quellbild (erforderlich)",
     "sourceAudioRequired": "Quellaudio (erforderlich)",
     "sourceAudioOptional": "Quellaudio (optional mit Skript)",
+    "targetVoiceAudioRequired": "Zielstimme als WAV (erforderlich)",
+    "voiceTransformInputsRequired": "Voice Transform erfordert sowohl eine Quell-WAV-Datei als auch eine Zielstimmen-WAV-Datei.",
     "sourceVideo": "MP4-Quellvideo (erforderlich)",
     "script": "Skript / Text",
     "selfAttestation": "Ich bestätige, dass dies meine eigene Identität ist, und erlaube AIONEX die Verarbeitung für diese Anfrage.",

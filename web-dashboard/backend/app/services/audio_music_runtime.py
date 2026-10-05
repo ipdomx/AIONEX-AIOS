@@ -48,6 +48,7 @@ _ALLOWED_COST_BASES = frozenset({"official_fixed_request"})
 _MUSIC_MONTHLY_CAP_USD = 0.40
 _MUSIC_MONTHLY_DRAFT_LIMIT = 10
 _MUSIC_MONTHLY_FINAL_LIMIT = 3
+_SFX_MAX_DURATION_SECONDS = 30.0
 _SENSITIVE_METADATA_FRAGMENTS = (
     "api_key",
     "apikey",
@@ -166,19 +167,59 @@ def _validate_sha(value: str | None, label: str, *, required: bool) -> None:
         raise AudioMusicExecutionError(f"{label} checksum is invalid")
 
 
+def _validated_sfx_duration_seconds(request_options: dict[str, Any]) -> float:
+    value = request_options.get("duration_seconds")
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise AudioMusicExecutionError("SFX duration_seconds must be an explicit number")
+    duration = float(value)
+    if not 1.0 <= duration <= _SFX_MAX_DURATION_SECONDS:
+        raise AudioMusicExecutionError("SFX duration_seconds is outside the governed range")
+    return duration
+
+
 def _validate_spec(spec: AudioMusicExecutionSpec) -> tuple[str, float]:
-    if spec.operation != "generate-music":
+    if spec.operation not in {"generate-music", "generate-sfx"}:
         raise AudioMusicExecutionError("music provider/operation is outside the launch matrix")
     route = _MODEL_ROUTES.get((spec.provider, spec.tier))
     if route is None or route[0] != spec.model:
         raise AudioMusicExecutionError("music provider/tier/model is outside the launch matrix")
-    if spec.provider == "stability":
-        if not spec.instrumental_only or spec.lyrics.strip():
-            raise AudioMusicExecutionError("Stage 7D Stability route is instrumental only")
+
+    if spec.operation == "generate-sfx":
+        if (
+            spec.provider != "stability"
+            or spec.tier != "draft"
+            or spec.model != "stable-audio-2.5"
+        ):
+            raise AudioMusicExecutionError("SFX provider/tier/model is outside the governed route")
+        if spec.instrumental_only or spec.lyrics.strip():
+            raise AudioMusicExecutionError("SFX execution cannot carry music or lyrics semantics")
+        if spec.rights_basis != "sfx" or spec.rights_evidence_sha256 is not None:
+            raise AudioMusicExecutionError("SFX rights metadata is invalid")
+        _validated_sfx_duration_seconds(spec.request_options)
         if spec.preview_model or spec.synthid_disclosure_required:
             raise AudioMusicExecutionError("Stable Audio 2.5 truth metadata is invalid")
         if not spec.ai_generated_disclosure_required:
             raise AudioMusicExecutionError("Stable Audio AI-generated disclosure is required")
+    else:
+        if spec.provider == "stability":
+            if not spec.instrumental_only or spec.lyrics.strip():
+                raise AudioMusicExecutionError("Stage 7D Stability route is instrumental only")
+            if spec.preview_model or spec.synthid_disclosure_required:
+                raise AudioMusicExecutionError("Stable Audio 2.5 truth metadata is invalid")
+            if not spec.ai_generated_disclosure_required:
+                raise AudioMusicExecutionError("Stable Audio AI-generated disclosure is required")
+
+        if spec.instrumental_only:
+            if spec.lyrics.strip() or spec.rights_basis != "instrumental":
+                raise AudioMusicExecutionError("instrumental music rights are inconsistent")
+            _validate_sha(spec.rights_evidence_sha256, "music rights", required=False)
+        else:
+            if not 1 <= len(spec.lyrics.strip()) <= 20_000:
+                raise AudioMusicExecutionError("governed lyrics are required")
+            if spec.rights_basis not in {"original-user-owned", "licensed", "public-domain"}:
+                raise AudioMusicExecutionError("vocal music rights basis is invalid")
+            _validate_sha(spec.rights_evidence_sha256, "music rights", required=True)
+
     if spec.output_format != "mp3" or spec.max_attempts != 1:
         raise AudioMusicExecutionError("music output or attempt limit is invalid")
     if not 8 <= len(spec.idempotency_key.strip()) <= 160:
@@ -188,16 +229,7 @@ def _validate_spec(spec: AudioMusicExecutionSpec) -> tuple[str, float]:
     _validate_sha(spec.pricing_evidence_sha256, "music pricing evidence", required=True)
     if not 8 <= len(spec.prompt.strip()) <= 12_000 or "\x00" in spec.prompt:
         raise AudioMusicExecutionError("music prompt is invalid")
-    if spec.instrumental_only:
-        if spec.lyrics.strip() or spec.rights_basis != "instrumental":
-            raise AudioMusicExecutionError("instrumental music rights are inconsistent")
-        _validate_sha(spec.rights_evidence_sha256, "music rights", required=False)
-    else:
-        if not 1 <= len(spec.lyrics.strip()) <= 20_000:
-            raise AudioMusicExecutionError("governed lyrics are required")
-        if spec.rights_basis not in {"original-user-owned", "licensed", "public-domain"}:
-            raise AudioMusicExecutionError("vocal music rights basis is invalid")
-        _validate_sha(spec.rights_evidence_sha256, "music rights", required=True)
+
     if spec.tier == "draft":
         if (
             spec.final_generation_approved
@@ -214,6 +246,7 @@ def _validate_spec(spec: AudioMusicExecutionSpec) -> tuple[str, float]:
             required=True,
         )
         _validate_sha(spec.prior_draft_checksum, "prior draft", required=True)
+
     expected_cost = route[1]
     if round(float(spec.estimated_cost_usd), 9) != expected_cost:
         raise AudioMusicExecutionError("music estimate must match the official fixed price")
