@@ -11,7 +11,7 @@
   "goal_ar": "إطلاق النطاق النهائي بجميع وظائفه غير المؤجلة، مع دليل قبول ألف مستخدم متعدد المشاريع والمحادثات وصلاحيات المالك، وليس مجرد سلامة الخدمات أو نسبة لوحة.",
   "owner_decisions": {
     "licenses": "المالك أكد في 2026-09-10 امتلاك جميع التصاريح والتراخيص المطلوبة. يعتمد هذا كإقرار مالك ولا يطلب انتظار ترخيص عام للتطوير. لا يمثل تحققًا مستقلًا ولا يلغي موافقة صاحب الهوية/المستخدم أو المراجعة البشرية أو حدود الأمان.",
-    "merge_policy": "توجيه المالك الأحدث 2026-09-30: إيقاف أي دمج أو نشر جديد حتى إصلاح بناء الإنتاج ومعالجة التنبيهين عاليَي الخطورة #34 و#36 وإثبات نجاح الاختبارات والفحوص على الرأس المصحح. هذا القرار يتقدم على سياسة الدمج الفوري السابقة. الإصلاح على فرع منفصل مسموح؛ لا يعتبر نجاح جزء أو تصحيح المصدر إذنا بنشر صورة لا تزال مرفوضة أمنيا.",
+    "merge_policy": "العوائق الأمنية السابقة التي منعت الدمج والنشر أُغلقت بالأدلة، وDependabot الحالي صفر تنبيهات مفتوحة. من الآن لا يُدمج أو يُنشر أي تغيير إلا على exact head SHA اجتاز الفحوص المحمية المطلوبة ويكون CLEAN/MERGEABLE/current. لا force-push ولا تجاوز للفحوص ولا git pull عشوائي لاتخاذ قرار إصدار. أي تغيير في SHA بعد CI يحتاج قبولًا جديدًا لذلك الرأس قبل الدمج أو النشر.",
     "cloudflare": "الإبقاء على Cloudflare وR2 وDNS والنفق وسياسات Access الحالية دون إعادة إعداد.",
     "encryption": "انتهى انتظار Namecheap: الرد المرفق يؤكد عدم توفير تشفير التخزين افتراضيًا أو المساعدة في تركيبه؛ المسار المعتمد تنفيذ تشفير على مستوى الملفات/المجلدات أو التطبيق، مع فصل المفاتيح واستعادة مجربة، دون إعادة تهيئة القرص الحي.",
     "user_governance": "المالك يحدد مدة المحادثة وعدد الرسائل وعدد المشاريع والمحادثات المتزامنة والحدود العامة/الخطة/المستخدم والاستثناءات والتعليق والحظر وسحب الصلاحيات. قيمة ثلاثة مشاريع وثلاث محادثات هي ملف اختبار وليست حدًا ثابتًا مفروضًا على المنتج.",
@@ -24,7 +24,7 @@
     "defer_scope_note": "بناء المستخدم مصدر مشروع تطبيق يبقى وظيفة منشئ المشاريع؛ المؤجل هو إطلاق تطبيقات المنصة/المتاجر والتكاملات الخارجية المذكورة. لا يؤجل 2D أو 3D أو وظائف الويب أو ضوابط المالك. لا تستخدم بيانات أو أموال حقيقية لاختبارات جماعية.",
     "runtime_truth": "إقرار التراخيص لا يحول قدرة غير منفذة أو مزودًا غير موصول إلى PASS؛ تتبقى اختبارات تقنية وموافقة المالك لكل مستخدم حيث يلزم. يستمر الإفصاح عن الصوت/الوسائط الاصطناعية.",
     "short_parts": "توجيه المالك: جميع الدفعات المتبقية أجزاء قصيرة متتابعة؛ جزء تنفيذي محدد لكل دورة، ويجزأ الجزء مجددًا عند اتساعه. تسجل نتيجة كل جزء فورًا في التقرير نفسه مع دليل الاختبارات ومرجع الدمج وحالة النشر الفعلية؛ يدمج فور نجاح الفحوص المحمية، ولا يعلن دمجًا أو نشرًا أثناء انتظاره ولا إغلاق الدفعة من إغلاق جزء منها.",
-    "new_server_migration": "تم شراء الخادم الإنتاجي الجديد واستلام بياناته. لوحة المزود تعرض Debian 12 x86_64، وفريق المزود أكد كشف 4 أقراص NVMe سعة 1.92TB، RAID10 سليم ومتزامن بلا قرص degraded، ذاكرة 128GB كاملة، ومعالجَي AMD EPYC 7313. لم تُرفع أي بيانات ولم يبدأ النقل، والخادم القديم يبقى مصدر الإنتاج والرجوع حتى اجتياز الخطة docs/project/NEW-SERVER-MIGRATION-ROADMAP.md كاملة وموافقة المالك الصريحة على إلغاء القديم."
+    "new_server_migration": "تم نقل الإنتاج إلى الخادم الجديد Debian 12 وأصبح هو مصدر الإنتاج العام الفعلي. الخادم القديم محفوظ كما هو كمرساة rollback ولا يُلغى أو يُمس قبل اكتمال نافذة NS-12 الأصلية وموافقة المالك الصريحة. الإصدار التطبيقي المقبول حاليًا هو 960dab80fe8ec27b1e8bf59425b766e03f9b9783، مع إبقاء الوصول والإدارة الجديدة على مسار exact-SHA عبر قناة SSH الإدارية المعتمدة دون تخزين IP أو مفاتيح أو أسرار في المستودع."
   },
   "baseline": {
     "application_commit": "9194176c6118e7483d64b05e1183d6c479bfdd3a",
@@ -4050,7 +4050,7 @@
     "growth_social_connected_accounts_without_unapproved_spend"
   ],
   "new_server_migration": {
-    "status": "CUTOVER_COMPLETE_NEW_SERVER_AUTHORITATIVE_NS12_OBSERVATION_ACTIVE_PR875_MERGED_NS15_RECONCILIATION",
+    "status": "CUTOVER_COMPLETE_NEW_SERVER_AUTHORITATIVE_NS12_OBSERVATION_ACTIVE_RELEASE960_ACCEPTED_NS15_RUNTIME_RECONCILIATION",
     "roadmap": "docs/project/NEW-SERVER-MIGRATION-ROADMAP.md",
     "runtime_plan": "docs/project/runtime/new-server-migration-20261004/PLAN.md",
     "runtime_status": "docs/project/runtime/new-server-migration-20261004/STATUS.json",
@@ -4158,8 +4158,8 @@
     ],
     "completion_definition_ar": "لا يعتبر النقل والإطلاق مكتملين قبل نجاح الفحص المستقل والأمن والتخزين والنقل والقبول الإنتاجي واختبار الألف والنسخ/الاستعادة والرصد وفترة الرجوع، واجتياز مرونة استلام الردود/البث وإعادة الاتصال دون فقد أو تكرار تنفيذ أو تكلفة، ثم مطابقة التوثيق وموافقة المالك الصريحة على إلغاء الخادم القديم.",
     "old_server_retained_for_rollback": true,
-    "current_production_release_sha": "46eb80c8b7474d26f1cc9a2c8718aabd4d842391",
-    "current_protected_main_sha": "704a79cf3c98b70b526fa9c08eb1b88bd1221096",
+    "current_production_release_sha": "960dab80fe8ec27b1e8bf59425b766e03f9b9783",
+    "current_protected_main_sha": "960dab80fe8ec27b1e8bf59425b766e03f9b9783",
     "fr23_security_closure": {
       "pr": 870,
       "state": "MERGED",
@@ -4212,7 +4212,7 @@
       "secrets_or_private_keys_in_tracked_docs_forbidden": true
     },
     "client_delivery_resilience": {
-      "scope_status": "MERGED_PROTECTED_CI_PASS_PENDING_PRODUCTION_ROLLOUT_ACCEPTANCE",
+      "scope_status": "MERGED_DEPLOYED_RUNTIME_STRUCTURAL_PASS_EXTENDED_FAULT_ACCEPTANCE_PENDING",
       "source_pr": 872,
       "exact_head_sha": "d17c54530c9142f04bbf9aab50a1df01f5abe926",
       "local_focused_acceptance": {
@@ -4252,7 +4252,25 @@
       ],
       "merge_commit": "9dd7a79d3b590a25675d5209de14b5176cba7f7f",
       "protected_ci": "PASS",
-      "production_deployed": false
+      "production_deployed": true,
+      "production_release_sha": "960dab80fe8ec27b1e8bf59425b766e03f9b9783",
+      "runtime_acceptance": {
+        "status": "PASS_STRUCTURAL_AND_PUBLIC_SMOKE",
+        "evidence": "runtime checkpoint RELEASE-960DAB80-PRODUCTION-ROLLOUT-20261006.json",
+        "heartbeat_seconds": 10,
+        "stale_running_seconds": 180,
+        "provider_hard_timeout_seconds": 150,
+        "runtime_source_hash_match": true,
+        "public_site_http": 200,
+        "user_portal_http": 200,
+        "api_health_http": 200,
+        "api_ready_http": 200,
+        "owner_access_http": 302,
+        "unhealthy_containers": 0,
+        "restarting_containers": 0,
+        "maintenance_admission_generation": 48,
+        "extended_fault_matrix_pending": true
+      }
     },
     "documentation_and_execution_ledger_policy": {
       "every_material_transition_recorded": true,
@@ -4289,6 +4307,14 @@
         "old-host rollback state"
       ]
     },
-    "current_authoritative_host_role": "new_production_server"
+    "current_authoritative_host_role": "new_production_server",
+    "ns15_runtime_reconciliation": {
+      "tracked_docs_pr": 871,
+      "tracked_docs_merge_commit": "960dab80fe8ec27b1e8bf59425b766e03f9b9783",
+      "runtime_journal_restored_from_old_management_host": true,
+      "project_hub_render_validate": "PASS",
+      "generated_state_manual_edit_forbidden": true,
+      "status": "IN_PROGRESS"
+    }
   }
 }
