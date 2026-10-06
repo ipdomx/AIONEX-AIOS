@@ -163,7 +163,7 @@ def test_application_and_semgrep_resolve_in_separate_environments():
     tool_pins = (base / "requirements-security-tools.txt").read_text()
     assert "semgrep==" not in tool_pins and "opentelemetry-api==1.44.0" in tool_pins
     isolated = (base / "requirements-security-semgrep.txt").read_text()
-    for pin in ("semgrep==1.178.0+aios.1", "mcp==1.29.0", "PyJWT[crypto]==2.14.0"):
+    for pin in ("semgrep==1.178.0+aios.1", "mcp==1.29.0", "PyJWT[crypto]==2.15.0"):
         assert pin in isolated
 
 
