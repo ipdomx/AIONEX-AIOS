@@ -1,8 +1,9 @@
 """Pinned Syft source rebuild; selected offline cataloger/format tests only.
 
 Three absolute symlink fixtures belonging exclusively to the unselected upstream
-fileresolver test suite are recorded but never materialized. No source file,
-cataloger rule, parser or selected test is edited. Not a full upstream-test claim.
+fileresolver test suite are recorded but never materialized. Reviewed go.mod/go.sum
+dependency refreshes are applied after pristine upstream fingerprints are verified;
+no cataloger rule, parser or selected test is edited. Not a full upstream-test claim.
 """
 from __future__ import annotations
 
@@ -39,9 +40,10 @@ MODULES = {"golang.org/x/crypto", "golang.org/x/mod", "golang.org/x/net", "googl
 def read_lock(folder: Path) -> dict[str, Any]:
     lock = json.loads((folder / "lock.json").read_text())
     fields = {"upstream_version", "local_version", "upstream_commit", "source_url", "source_sha256",
-              "toolchain_version", "toolchain_url", "toolchain_sha256", "files", "modules",
+              "toolchain_version", "toolchain_url", "toolchain_sha256", "files", "upstream_files", "modules",
               "build_date", "expected_binary_sha256"}
-    if not isinstance(lock, dict) or set(lock) != fields or set(lock["files"]) != {"go.mod", "go.sum"}:
+    if (not isinstance(lock, dict) or set(lock) != fields or set(lock["files"]) != {"go.mod", "go.sum"}
+            or set(lock["upstream_files"]) != {"go.mod", "go.sum"}):
         raise ValueError("Incomplete Syft source lock")
     if lock["upstream_version"] != "1.52.0" or lock["local_version"] != "1.52.0+aios.1":
         raise ValueError("Explicit local identity required")
@@ -55,7 +57,8 @@ def read_lock(folder: Path) -> dict[str, Any]:
         raise ValueError("Unexpected toolchain URL")
     if not re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", lock["build_date"]):
         raise ValueError("Fixed local build timestamp required")
-    for value in (lock["source_sha256"], lock["toolchain_sha256"], lock["expected_binary_sha256"], *lock["files"].values()):
+    for value in (lock["source_sha256"], lock["toolchain_sha256"], lock["expected_binary_sha256"],
+                  *lock["files"].values(), *lock["upstream_files"].values()):
         if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value):
             raise ValueError("SHA256 input/output pins required")
     if set(lock["modules"]) != MODULES or any(not re.fullmatch(r"v\d+\.\d+\.\d+", v) for v in lock["modules"].values()):
@@ -141,12 +144,15 @@ def main() -> None:
     toolchain = extract_verified(inputs / "go.tar.gz", lock["toolchain_sha256"], output / "toolchain")
     source = extract_source(inputs / "source.tar.gz", lock["source_sha256"], output / "source")
     before = source_fingerprint(source)
-    if sha(source / "go.mod") != lock["files"]["go.mod"]:
-        raise ValueError("Upstream module graph differs")
+    for name, digest in lock["upstream_files"].items():
+        candidate = source / name
+        if candidate.is_symlink() or not candidate.is_file() or sha(candidate) != digest:
+            raise ValueError("Pristine upstream module files differ")
     original = set((source / "go.sum").read_text().splitlines())
     if not original <= set((args.lock_dir / "go.sum").read_text().splitlines()):
         raise ValueError("Original checksums removed")
-    shutil.copyfile(args.lock_dir / "go.sum", source / "go.sum")
+    for name in ("go.mod", "go.sum"):
+        shutil.copyfile(args.lock_dir / name, source / name)
     env = build_environment(toolchain)
     go = str(toolchain / "bin/go")
     compiler = subprocess.check_output([go, "version"], env=env, text=True).strip()

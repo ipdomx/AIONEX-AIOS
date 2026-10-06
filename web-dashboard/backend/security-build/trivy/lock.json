@@ -8,8 +8,8 @@
   "toolchain_url": "https://go.dev/dl/go1.26.8.linux-amd64.tar.gz",
   "toolchain_sha256": "d0f743b33e8d8945e6b1f432edd15785c70507121d6e2a723b21285eddf8b57b",
   "files": {
-    "go.mod": "c1f271b774a0c53805464e768059c124a396b66cfe24fdaef040f01773828895",
-    "go.sum": "51bfbbaac4494262d052c000d4dae846671117067f44bfd5fd086b99646ee278"
+    "go.mod": "a1adf033e5b293b8356ae06ee999e3e82ed809de19295b2043f322f95de5792c",
+    "go.sum": "0748c819a83424837302f61ccc7b34f4310af11ab7d50d413c43b5695ee15c47"
   },
   "upstream_files": {
     "go.mod": "85697654fc5fea7d0a0082920bed1116af5d06dbd2be0fcc0c281b68a35c8e33",
@@ -23,5 +23,5 @@
     "github.com/go-git/go-git/v5": "v5.19.2",
     "oras.land/oras-go/v2": "v2.6.2"
   },
-  "expected_binary_sha256": "82e0a73a831efc894c1df0de6893eb653145570d2b186f395338628ba380345e"
+  "expected_binary_sha256": "cf393282a6cf02605112e6886f466cb3c335826dff8172271de3b04441ab8b4d"
 }
