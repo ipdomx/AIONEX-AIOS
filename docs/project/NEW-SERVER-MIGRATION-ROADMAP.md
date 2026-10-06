@@ -2,17 +2,17 @@
 
 ## Current authoritative state — 2026-10-06
 
-Status: CUTOVER_COMPLETE_NEW_SERVER_AUTHORITATIVE_NS12_OBSERVATION_ACTIVE_RELEASE960_ACCEPTED_NS15_RUNTIME_RECONCILIATION
+Status: CUTOVER_COMPLETE_NEW_SERVER_AUTHORITATIVE_NS12_OBSERVATION_ACTIVE_RELEASE4C6_ACCEPTED_NS15_RUNTIME_RECONCILIATION
 
 - The new Debian 12 production server is the authoritative public runtime.
 - The old production server is retained intact as the rollback anchor and must not be retired before the original NS-12 observation gate and explicit Owner approval.
-- Protected GitHub `main` is currently `960dab80fe8ec27b1e8bf59425b766e03f9b9783`, which includes FR-23 PR #870, conversation anti-stall/reconnect PR #872, VIP dependency reconciliation PR #875, and canonical continuity PR #871.
+- Protected GitHub `main` is currently `4c6ae50091fb568b491eacbffa0fec53a444092d`, which includes FR-23 PR #870, conversation anti-stall/reconnect PR #872, VIP dependency reconciliation PR #875, and canonical continuity PR #871.
 - PR #875 merged the published fixes for the final 2 patchable VIP alerts: `source-map-js` 1.2.2 and `postcss-selector-parser` 7.1.6. `npm audit --omit=dev` is 0 on the accepted tree, and GitHub Dependabot now reports **0 open alerts** on protected `main`. Four source-manifest-only Trivy Docker-module alerts were dismissed as not-used only after exact FR-23 binary/module reachability proved the legacy module is not linked and no patched module release exists. This is an evidence-backed queue closure, not a claim of absolute security.
-- The currently deployed application release is `960dab80fe8ec27b1e8bf59425b766e03f9b9783`. Exact-source images were rolled out on the new production server after protected-main CI PASS, with rollback tags preserved, public/user/API/Owner smoke PASS, zero unhealthy/restarting production containers, and maintenance admission reopened at generation 48.
+- The currently deployed application release is `4c6ae50091fb568b491eacbffa0fec53a444092d`. Exact-source backend/image-derivative/frontend images were rolled out on the new production server after protected-main CI PASS; Sharp runtime is 0.35.5 with libvips 8.18.7, rollback tags are preserved, public/user/API/Owner smoke is PASS, production unhealthy/restarting counts are zero, and maintenance admission is reopened at generation 50.
 - Canonical FR-09 1,000-user acceptance is PASS on the new server; the staged authenticated-read growth envelope through 5,000 sessions is recorded as a synthetic capacity envelope, not a claim of 5,000 simultaneous heavy AI/GPU generations.
 - NS-12 observation started at `2026-10-05T16:43:26Z`; the earliest 72-hour completion is `2026-10-08T16:43:26Z`. Application updates do not reset this original window.
-- FR-07F conversation anti-stall/reconnect protection is merged from PR #872 and deployed in release `960dab80fe8ec27b1e8bf59425b766e03f9b9783`. Runtime source hash matches the protected source; heartbeat=10s, stale-running fail-closed threshold=180s, provider hard timeout=150s, and unauthenticated policy routing is live/fail-closed. Public smoke is PASS. The broader NS-14A fault matrix (mid-stream transport drops, auth refresh/expiry, repeated reconnect and terminal-event loss) remains required before final release closure.
-- NS-15 tracked documentation reconciliation PR #871 is merged as `960dab80fe8ec27b1e8bf59425b766e03f9b9783`. The retained append-only runtime journal has been restored to the new server and project_hub render/validate is active; runtime STATE/PROJECT-REPORT reconciliation continues without hand-editing generated files.
+- FR-07F conversation anti-stall/reconnect protection is merged from PR #872 and remains deployed/verified in release `4c6ae50091fb568b491eacbffa0fec53a444092d`. Runtime source hash matches the protected source; heartbeat=10s, stale-running fail-closed threshold=180s, provider hard timeout=150s, and unauthenticated policy routing is live/fail-closed. Public smoke is PASS. The broader NS-14A fault matrix (mid-stream transport drops, auth refresh/expiry, repeated reconnect and terminal-event loss) remains required before final release closure.
+- NS-15 tracked documentation reconciliation PR #871 is merged in history; the current protected/deployed exact SHA is `4c6ae50091fb568b491eacbffa0fec53a444092d`. The retained append-only runtime journal has been restored to the new server and project_hub render/validate is active; runtime STATE/PROJECT-REPORT reconciliation continues without hand-editing generated files.
 
 ### Current continuation transport
 
