@@ -17,7 +17,8 @@ def test_governed_chat_has_real_routes_worker_and_lifespan_integration():
     assert "owner_conversation_governance.router" in routes
     assert "conversation_worker.start" in lifecycle
     assert "conversation_worker.stop" in lifecycle
-    assert "await ai._execute_provider(" in worker
+    assert "ai._execute_provider(provider, agent, prompt)" in worker
+    assert "await asyncio.wait_for(" in worker
     assert 'Job.status == "queued"' in worker
     assert 'job.status != "queued"' in worker
     assert 'job.status = "running"' in worker
