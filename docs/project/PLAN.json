@@ -4165,7 +4165,7 @@
       "state": "MERGED",
       "merge_commit": "fa19d69412e2a28f266a0934ca20597215b8672c",
       "protected_ci": "PASS",
-      "closure_state": "PATCHABLE_VIP_FIXES_MERGED_DEPENDABOT_INDEX_RECONCILIATION_PENDING",
+      "closure_state": "CLOSED_ZERO_OPEN_DEPENDABOT_WITH_EVIDENCED_NOT_USED_DISMISSALS",
       "vip_dependency_reconciliation": {
         "pr": 875,
         "state": "MERGED",
@@ -4177,22 +4177,20 @@
         "npm_audit_omit_dev": "0 vulnerabilities"
       },
       "dependabot_open_snapshot": {
-        "count": 2,
-        "high": 1,
-        "medium": 1,
-        "captured_on": "2026-10-06 immediately after PR875 merge",
-        "release_blocker_until_reconciled": true,
-        "index_reconciliation_pending": true,
-        "alerts": [
-          "source-map-js -> 1.2.2",
-          "postcss-selector-parser -> 7.1.6"
-        ],
+        "count": 0,
+        "high": 0,
+        "medium": 0,
+        "captured_on": "2026-10-06 after PR875 merge and Dependabot reindex",
+        "release_blocker_until_reconciled": false,
+        "index_reconciliation_pending": false,
+        "alerts": [],
         "dismissed_not_used": [
           47,
           48,
           49,
           50
-        ]
+        ],
+        "closure_note": "Zero open Dependabot alerts; four source-manifest findings were dismissed only with exact binary reachability evidence and no patched module release. No absolute-security claim."
       }
     },
     "observation": {

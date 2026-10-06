@@ -13,3 +13,5 @@ The anti-stall/reconnect source is merged from PR #872 at exact head `d17c54530c
 Current security reconciliation note: protected main exposes 2 patchable VIP Dependabot alerts (source-map-js and postcss-selector-parser). Four Trivy Docker-module source-manifest alerts were dismissed as not-used only after exact FR-23 binary/module reachability PASS proved they are not linked and no patched module release exists.
 
 Security reconciliation update: PR #875 merged at `704a79cf3c98b70b526fa9c08eb1b88bd1221096` with protected CI PASS, pinning the two patchable VIP dependencies to fixed versions. The accepted tree has `npm audit --omit=dev = 0`. Dependabot still showed those two alerts open immediately after merge, so NS-15 records index reconciliation as pending instead of claiming the queue is already empty.
+
+Dependabot index reconciliation completed after PR #875: protected `main` now reports **0 open Dependabot alerts**. The four prior Trivy Docker-module findings remain documented as evidence-backed not-used dismissals from exact binary/module reachability; this closes the current alert queue without asserting absolute security.
