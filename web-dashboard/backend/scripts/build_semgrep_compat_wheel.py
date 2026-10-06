@@ -21,14 +21,14 @@ import zipfile
 from pathlib import Path, PurePosixPath
 
 UPSTREAM_VERSION = "1.178.0"
-LOCAL_VERSION = "1.178.0+aios.1"
+LOCAL_VERSION = "1.178.0+aios.2"
 UPSTREAM_NAME = "semgrep-1.178.0-cp310.cp311.cp312.cp313.cp314.py310.py311.py312.py313.py314-none-manylinux_2_34_x86_64.whl"
 UPSTREAM_URL = "https://files.pythonhosted.org/packages/b3/bf/5bc9cc1b1e1650467ceb6361306d170dd3641b911efa2a89bc7129be4d54/" + UPSTREAM_NAME
 UPSTREAM_SHA256 = "b7c4a4ba5cad1a6b0e76f7143c164b3f2853b9d0f902f2db2f64006257c941f2"
 OLD_DIST = "semgrep-1.178.0.dist-info/"
-NEW_DIST = "semgrep-1.178.0+aios.1.dist-info/"
+NEW_DIST = "semgrep-1.178.0+aios.2.dist-info/"
 OLD_REQUIREMENT = "Requires-Dist: pyjwt[crypto]~=2.13.0\n"
-NEW_REQUIREMENT = "Requires-Dist: pyjwt[crypto]>=2.14.0,<2.15.0\n"
+NEW_REQUIREMENT = "Requires-Dist: pyjwt[crypto]>=2.14.0,<2.16.0\n"
 MAX_ARCHIVE = 100 * 1024**2
 MAX_EXPANDED = 512 * 1024**2
 

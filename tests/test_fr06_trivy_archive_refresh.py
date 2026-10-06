@@ -56,4 +56,4 @@ def test_missing_or_ambiguous_floor_rejected(locked,mutation):
 def test_linked_runtime_module_floor_and_binary_pin_remain_present(locked):
     value=m.read_lock(locked)
     assert value['modules']['google.golang.org/grpc']=='v1.83.2'
-    assert value['expected_binary_sha256']=='82e0a73a831efc894c1df0de6893eb653145570d2b186f395338628ba380345e'
+    assert value['expected_binary_sha256']=='cf393282a6cf02605112e6886f466cb3c335826dff8172271de3b04441ab8b4d'

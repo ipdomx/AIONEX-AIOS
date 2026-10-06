@@ -61,7 +61,7 @@ def test_derived_identity_exact_delta_and_payload_bytes(tmp_path):
     source, original = wheel(tmp_path)
     result = build(tmp_path, source)
     target = tmp_path / "out" / result["derived_wheel"]
-    assert result["local_version"] == "1.178.0+aios.1"
+    assert result["local_version"] == "1.178.0+aios.2"
     assert result["only_metadata_changed"] and not result["dependency_checks_disabled"]
     assert result["derived_sha256"] == m.digest(target.read_bytes())
     with zipfile.ZipFile(target) as z:
@@ -74,7 +74,7 @@ def test_derived_identity_exact_delta_and_payload_bytes(tmp_path):
         meta = z.read(m.NEW_DIST + "METADATA").decode()
         assert m.NEW_REQUIREMENT in meta and m.OLD_REQUIREMENT not in meta
         assert "Requires-Dist: mcp==1.29.0\n" in meta
-        assert "Version: 1.178.0+aios.1\n" in meta
+        assert "Version: 1.178.0+aios.2\n" in meta
         for name, hashed, size in csv.reader(io.StringIO(z.read(m.NEW_DIST + "RECORD").decode())):
             if name.endswith("/RECORD"):
                 assert hashed == size == ""
@@ -163,7 +163,7 @@ def test_application_and_semgrep_resolve_in_separate_environments():
     tool_pins = (base / "requirements-security-tools.txt").read_text()
     assert "semgrep==" not in tool_pins and "opentelemetry-api==1.44.0" in tool_pins
     isolated = (base / "requirements-security-semgrep.txt").read_text()
-    for pin in ("semgrep==1.178.0+aios.1", "mcp==1.29.0", "PyJWT[crypto]==2.14.0"):
+    for pin in ("semgrep==1.178.0+aios.2", "mcp==1.29.0", "PyJWT[crypto]==2.15.0"):
         assert pin in isolated
 
 

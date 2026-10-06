@@ -39,7 +39,7 @@ def test_exact_lock_and_real_repository_lock_accepted(locked):
 
 
 @pytest.mark.parametrize("field", ["upstream_version", "local_version", "upstream_commit", "source_url", "source_sha256",
-                                  "toolchain_version", "toolchain_url", "toolchain_sha256", "files", "modules",
+                                  "toolchain_version", "toolchain_url", "toolchain_sha256", "files", "upstream_files", "modules",
                                   "build_date", "expected_binary_sha256"])
 def test_missing_fields_rejected(locked, field):
     folder, value = locked; del value[field]; (folder / "lock.json").write_text(json.dumps(value))

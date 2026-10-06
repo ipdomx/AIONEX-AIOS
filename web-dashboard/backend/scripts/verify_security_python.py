@@ -48,10 +48,10 @@ print(json.dumps({'versions':{n:d.version for n,d in packages.items()},'checked_
 def main() -> None:
     app = environment("/opt/venv/bin/python")
     tool = environment("/opt/semgrep/bin/python")
-    assert app["versions"]["pyjwt"] == tool["versions"]["pyjwt"] == "2.14.0"
+    assert app["versions"]["pyjwt"] == tool["versions"]["pyjwt"] == "2.15.0"
     assert "semgrep" not in app["versions"] and "mcp" not in app["versions"]
     assert app["versions"]["opentelemetry-api"] == "1.44.0"
-    assert tool["versions"]["semgrep"] == "1.178.0+aios.1"
+    assert tool["versions"]["semgrep"] == "1.178.0+aios.2"
     assert tool["versions"]["mcp"] == "1.29.0"
     assert tool["versions"]["opentelemetry-api"] == "1.37.0"
     assert "pip" not in tool["versions"]
