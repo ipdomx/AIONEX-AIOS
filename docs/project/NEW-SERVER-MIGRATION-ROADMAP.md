@@ -2,16 +2,16 @@
 
 ## Current authoritative state — 2026-10-06
 
-Status: CUTOVER_COMPLETE_NEW_SERVER_AUTHORITATIVE_NS12_OBSERVATION_ACTIVE_FR23_MERGED_ANTI_STALL_PR872_PROTECTED_CI
+Status: CUTOVER_COMPLETE_NEW_SERVER_AUTHORITATIVE_NS12_OBSERVATION_ACTIVE_PR872_MERGED_NS15_RECONCILIATION
 
 - The new Debian 12 production server is the authoritative public runtime.
 - The old production server is retained intact as the rollback anchor and must not be retired before the original NS-12 observation gate and explicit Owner approval.
-- Protected GitHub `main` is currently `fa19d69412e2a28f266a0934ca20597215b8672c`, which includes the merged FR-23 security dependency closure from PR #870.
-- GitHub Dependabot still reports 6 open alerts on protected `main` (3 high, 3 medium). These remain an explicit FR-23 reconciliation item; merge/CI success is not treated as proof that the Dependabot queue is empty.
+- Protected GitHub `main` is currently `9dd7a79d3b590a25675d5209de14b5176cba7f7f`, which includes FR-23 PR #870 and the merged conversation anti-stall/reconnect PR #872.
+- GitHub Dependabot currently reports 2 open patchable VIP alerts on protected `main` (source-map-js high; postcss-selector-parser medium). Four source-manifest-only Trivy Docker-module alerts were dismissed as not-used only after exact FR-23 binary/module reachability proved the legacy module is not linked and no patched module release exists.
 - The currently deployed application release remains `46eb80c8b7474d26f1cc9a2c8718aabd4d842391` until a newer protected-main rollout is explicitly accepted.
 - Canonical FR-09 1,000-user acceptance is PASS on the new server; the staged authenticated-read growth envelope through 5,000 sessions is recorded as a synthetic capacity envelope, not a claim of 5,000 simultaneous heavy AI/GPU generations.
 - NS-12 observation started at `2026-10-05T16:43:26Z`; the earliest 72-hour completion is `2026-10-08T16:43:26Z`. Application updates do not reset this original window.
-- FR-07F conversation anti-stall/reconnect protection is implemented as PR #872 at exact head `cd2fd3077e61af60ad79fff83b6186af65a6bca8`; local focused acceptance is PASS and protected exact-head CI is still authoritative before merge/deploy.
+- FR-07F conversation anti-stall/reconnect protection is merged from PR #872. Exact accepted head `d17c54530c9142f04bbf9aab50a1df01f5abe926`; merge commit `9dd7a79d3b590a25675d5209de14b5176cba7f7f`; every required exact-head protected check PASS. Focused exact-head conversation tests are 45 PASS and the exact-head core suite is 4472 PASS. Production rollout/smoke is still required before runtime closure.
 - NS-15 canonical reconciliation is active in PR #871. Until that PR merges, this branch is the reviewed documentation candidate while the append-only runtime checkpoint remains the immediate execution ledger.
 
 ### Current continuation transport
@@ -381,7 +381,7 @@ Required behavior for every AIOS long-lived response, stream, live progress feed
 
 Acceptance must cover at least: mid-stream TCP drop, Cloudflare/proxy interruption, client app background/foreground, network change, repeated reconnect, duplicate events, server/container restart, auth refresh/expiry, terminal-event loss, and fallback polling/status recovery.
 
-Status: IMPLEMENTED_CANDIDATE_PR872_PROTECTED_CI_IN_PROGRESS. Source and focused local acceptance exist at exact PR #872 head `cd2fd3077e61af60ad79fff83b6186af65a6bca8`; this is not yet a production-acceptance claim and protected exact-head CI plus post-merge rollout smoke remain required.
+Status: MERGED_PROTECTED_CI_PASS_PENDING_PRODUCTION_ROLLOUT_ACCEPTANCE. PR #872 exact head `d17c54530c9142f04bbf9aab50a1df01f5abe926` merged as `9dd7a79d3b590a25675d5209de14b5176cba7f7f`; protected exact-head CI is fully green. Runtime rollout and durable reconnect/anti-stall smoke remain required before final acceptance.
 
 ## NS-15 — Canonical documentation reconciliation
 

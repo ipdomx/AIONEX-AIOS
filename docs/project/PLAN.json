@@ -4050,7 +4050,7 @@
     "growth_social_connected_accounts_without_unapproved_spend"
   ],
   "new_server_migration": {
-    "status": "CUTOVER_COMPLETE_NEW_SERVER_AUTHORITATIVE_NS12_OBSERVATION_ACTIVE_FR23_MERGED_ANTI_STALL_PR872_PROTECTED_CI",
+    "status": "CUTOVER_COMPLETE_NEW_SERVER_AUTHORITATIVE_NS12_OBSERVATION_ACTIVE_PR872_MERGED_NS15_RECONCILIATION",
     "roadmap": "docs/project/NEW-SERVER-MIGRATION-ROADMAP.md",
     "runtime_plan": "docs/project/runtime/new-server-migration-20261004/PLAN.md",
     "runtime_status": "docs/project/runtime/new-server-migration-20261004/STATUS.json",
@@ -4159,19 +4159,29 @@
     "completion_definition_ar": "لا يعتبر النقل والإطلاق مكتملين قبل نجاح الفحص المستقل والأمن والتخزين والنقل والقبول الإنتاجي واختبار الألف والنسخ/الاستعادة والرصد وفترة الرجوع، واجتياز مرونة استلام الردود/البث وإعادة الاتصال دون فقد أو تكرار تنفيذ أو تكلفة، ثم مطابقة التوثيق وموافقة المالك الصريحة على إلغاء الخادم القديم.",
     "old_server_retained_for_rollback": true,
     "current_production_release_sha": "46eb80c8b7474d26f1cc9a2c8718aabd4d842391",
-    "current_protected_main_sha": "fa19d69412e2a28f266a0934ca20597215b8672c",
+    "current_protected_main_sha": "9dd7a79d3b590a25675d5209de14b5176cba7f7f",
     "fr23_security_closure": {
       "pr": 870,
       "state": "MERGED",
       "merge_commit": "fa19d69412e2a28f266a0934ca20597215b8672c",
       "protected_ci": "PASS",
-      "closure_state": "MERGED_WITH_RESIDUAL_DEPENDABOT_RECONCILIATION_REQUIRED",
+      "closure_state": "MERGED_WITH_TWO_PATCHABLE_VIP_ALERTS_PENDING_AND_FOUR_NOT_USED_BINARY_REACHABILITY_DISMISSALS",
       "dependabot_open_snapshot": {
-        "count": 6,
-        "high": 3,
-        "medium": 3,
+        "count": 2,
+        "high": 1,
+        "medium": 1,
         "captured_on": "2026-10-06",
-        "release_blocker_until_reconciled": true
+        "release_blocker_until_reconciled": true,
+        "alerts": [
+          "source-map-js -> 1.2.2",
+          "postcss-selector-parser -> 7.1.6"
+        ],
+        "dismissed_not_used": [
+          47,
+          48,
+          49,
+          50
+        ]
       }
     },
     "observation": {
@@ -4193,9 +4203,9 @@
       "secrets_or_private_keys_in_tracked_docs_forbidden": true
     },
     "client_delivery_resilience": {
-      "scope_status": "IMPLEMENTED_CANDIDATE_PR872_PROTECTED_CI_IN_PROGRESS",
+      "scope_status": "MERGED_PROTECTED_CI_PASS_PENDING_PRODUCTION_ROLLOUT_ACCEPTANCE",
       "source_pr": 872,
-      "exact_head_sha": "cd2fd3077e61af60ad79fff83b6186af65a6bca8",
+      "exact_head_sha": "d17c54530c9142f04bbf9aab50a1df01f5abe926",
       "local_focused_acceptance": {
         "governed_conversation_tests": "43 PASS",
         "worker_fairness_tests": "6 PASS",
@@ -4203,7 +4213,12 @@
         "vip_typecheck": "PASS",
         "vip_targeted_eslint": "PASS",
         "vip_static_build": "PASS",
-        "backend_ruff_changed_scope": "PASS"
+        "backend_ruff_changed_scope": "PASS",
+        "governed_conversation_and_contract_tests": "45 PASS",
+        "exact_head_core_suite": "4472 PASS",
+        "provider_hard_timeout_seconds": 150,
+        "heartbeat_seconds": 10,
+        "stale_running_seconds": 180
       },
       "applies_to": "long-lived AI responses, streams, live progress feeds, and equivalent asynchronous delivery",
       "durable_request_or_job_identity_required": true,
@@ -4225,7 +4240,10 @@
         "authentication refresh or expiry",
         "terminal-event loss",
         "durable status/poll fallback recovery"
-      ]
+      ],
+      "merge_commit": "9dd7a79d3b590a25675d5209de14b5176cba7f7f",
+      "protected_ci": "PASS",
+      "production_deployed": false
     },
     "documentation_and_execution_ledger_policy": {
       "every_material_transition_recorded": true,
