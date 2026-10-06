@@ -1,8 +1,22 @@
 # AIONEX AIOS — New Production Server Migration Roadmap
 
-## Current authoritative state — 2026-10-04
+## Historical migration baseline — 2026-10-04
 
-Status: NEW_SERVER_PROVISIONED_PROVIDER_HARDWARE_VERIFIED_AWAITING_INDEPENDENT_HOST_AUDIT
+The block below is the original pre-migration baseline and must not be treated as the current runtime state after cutover.
+
+Status at that time: NEW_SERVER_PROVISIONED_PROVIDER_HARDWARE_VERIFIED_AWAITING_INDEPENDENT_HOST_AUDIT
+
+### Live authority and continuity rule
+
+Before any continuation, operator or assistant action must reconcile all of the following rather than trusting a screenshot or stale paragraph:
+
+1. protected GitHub main and the exact candidate/head commit SHA;
+2. the latest retained migration/runtime checkpoint and evidence;
+3. the actual new-host source SHA, running image identities, database/schema state and health;
+4. current protected CI for the exact head being considered;
+5. rollback state on the old server.
+
+If these disagree, the discrepancy is recorded as documentation drift and live/GitHub evidence wins until canonical reconciliation. A stale map must never trigger a blind pull, reset, deletion, deployment, replay or provider action.
 
 The new dedicated server has been purchased and access details have been received. The provider control panel shows Debian 12 x86_64. Provider technical support has confirmed all of the following:
 
@@ -332,9 +346,55 @@ Maintain cleanup for:
 - logs and diagnostics,
 while preserving evidence required by project policy.
 
+## NS-14A — Client response and streaming resilience
+
+This is a release-scope requirement prompted by the observed class of UI failure where a long response can stop with a generic “streaming interrupted / waiting” state. The external ChatGPT client failure is not evidence that AIOS itself has the same bug, but the analogous failure mode is now explicitly in AIOS scope and must be tested before final release closure.
+
+Required behavior for every AIOS long-lived response, stream, live progress feed, or equivalent asynchronous delivery path:
+- Never silently hang forever. Use bounded idle/overall timeouts plus heartbeat/progress semantics where a long-lived transport is used.
+- Preserve the accepted request/job identity independently of the client transport.
+- A network drop, app background/foreground transition, proxy timeout, server restart, or client reconnect must not create a duplicate billable provider request or duplicate terminal execution.
+- If the transport is resumable, reconnect from an acknowledged cursor/sequence/event id with bounded exponential backoff and jitter.
+- If the upstream/provider stream cannot be resumed, the client must fall back to durable job/status retrieval rather than pretending the partial stream completed.
+- Duplicate/replayed chunks or terminal events must be idempotently de-duplicated.
+- UI states must distinguish connecting, streaming/running, reconnecting, recovered, completed, cancelled and failed; a generic indefinite spinner is not acceptable.
+- Partial content/progress that is safe to retain should remain visible after reconnect.
+- Authentication/session expiry during reconnect must fail closed and present a recoverable user action without losing the underlying durable job when policy permits.
+
+Acceptance must cover at least: mid-stream TCP drop, Cloudflare/proxy interruption, client app background/foreground, network change, repeated reconnect, duplicate events, server/container restart, auth refresh/expiry, terminal-event loss, and fallback polling/status recovery.
+
+Status: REQUIRED_PENDING_IMPLEMENTATION_AND_ACCEPTANCE. This section does not claim the feature is already complete.
+
 ## NS-15 — Canonical documentation reconciliation
 
 After stable cutover:
+
+### Exact-SHA new-server operating discipline
+
+The accepted operating path is explicit and immutable-SHA based:
+
+1. MCP2 may land on the retained management/old host; do not infer from the MCP name that the process is executing directly on the new host.
+2. Reach the new host only through the already-approved migration/administration channel; never place private keys, credentials or raw host secrets in tracked docs.
+3. Resolve the exact protected-main or reviewed PR head SHA from GitHub before mutation.
+4. On the new host, fetch the required ref and verify the exact SHA. Do not use a blind `git pull` as the release decision.
+5. Build/test from a clean detached worktree or clean checkout bound to that immutable SHA. Dirty source is never release authority.
+6. Protected CI evidence is valid only for the exact head SHA it tested. A newer commit requires fresh exact-head acceptance.
+7. Before rollout, preserve rollback source/image identities and revalidate maintenance/admission authority.
+8. After rollout, verify runtime source/content hashes or image identities, database/schema expectations, public/authenticated health and relevant feature smoke against the accepted SHA.
+9. Keep the old server and rollback artifacts intact until the observation/retirement gates and explicit Owner approval are satisfied.
+
+This is the continuity method to use if a conversation is interrupted: recover the last accepted SHA and evidence first, then continue from the new host without replaying already-performed effects.
+
+### Update ledger and map reconciliation policy
+
+Every material project transition must be retained, including unsuccessful work. The minimum record is: UTC time, phase/batch, exact source/candidate SHA, target environment/host role, action, outcome, evidence reference/hash where available, whether production was mutated, and the explicit next action.
+
+Allowed operational outcomes are at least: IN_PROGRESS, PASS, FAIL, BLOCKED/HOLD, PENDING_RETRY, ROLLBACK and COMPLETE. Failed or superseded attempts are evidence and are not overwritten to make the history look clean.
+
+The append-only runtime journal/checkpoint is the immediate execution ledger. The canonical PLAN/roadmap is the durable reviewed summary and is reconciled at material checkpoints; transient minute-by-minute CI polling does not require a Git commit for every poll. Generated STATE.json and PROJECT-REPORT.md are updated through `scripts/project_hub.py`, never hand-edited.
+
+Before starting a new continuation, read the canonical map, latest checkpoint/journal, GitHub protected state and live new-host evidence. If any “done / failed / still required” state is absent or contradictory, record the drift before further mutation.
+
 - Update PLAN and canonical project state through scripts/project_hub.py.
 - Never hand-edit generated STATE.json or PROJECT-REPORT.md.
 - Record the new production hardware profile, Debian 12 baseline, source SHA, images, DB schema, migration/cutover timestamp, and acceptance evidence.
@@ -368,6 +428,7 @@ Migration is complete only when all are true:
 - 5,000-user growth envelope and horizontal scaling triggers are documented honestly.
 - Backup/restore/recovery and monitoring PASS.
 - Old-server rollback observation window completes successfully.
+- Client response/stream delivery resilience acceptance PASS, including reconnect/fallback without duplicate execution or provider charge.
 - Canonical project documentation is reconciled.
 - Owner explicitly approves retirement of the old server.
 

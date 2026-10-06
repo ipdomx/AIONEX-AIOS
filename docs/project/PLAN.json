@@ -4050,7 +4050,7 @@
     "growth_social_connected_accounts_without_unapproved_spend"
   ],
   "new_server_migration": {
-    "status": "NEW_SERVER_PROVISIONED_PROVIDER_HARDWARE_VERIFIED_AWAITING_INDEPENDENT_HOST_AUDIT",
+    "status": "CUTOVER_COMPLETE_OBSERVATION_ACTIVE_RELEASE_46EB80C8_SECURITY_RECONCILIATION_IN_PROGRESS",
     "roadmap": "docs/project/NEW-SERVER-MIGRATION-ROADMAP.md",
     "runtime_plan": "docs/project/runtime/new-server-migration-20261004/PLAN.md",
     "runtime_status": "docs/project/runtime/new-server-migration-20261004/STATUS.json",
@@ -4072,9 +4072,9 @@
       "management": "User-Responsible",
       "control_panel": "None"
     },
-    "migration_started": false,
-    "data_uploaded_to_new_server": false,
-    "old_production_remains_authoritative": true,
+    "migration_started": true,
+    "data_uploaded_to_new_server": true,
+    "old_production_remains_authoritative": false,
     "independent_host_audit_required_before_upload": true,
     "growth_readiness": {
       "canonical_release_capacity_test_users": 1000,
@@ -4144,6 +4144,10 @@
         "title_ar": "الرصد والتنبيهات والتنظيف التشغيلي طويل الأجل"
       },
       {
+        "id": "NS-14A",
+        "title_ar": "مرونة استلام الردود والبث وإعادة الاتصال دون فقد أو تكرار التنفيذ"
+      },
+      {
         "id": "NS-15",
         "title_ar": "مطابقة المصدر والإنتاج والنسخ والتوثيق canonical"
       },
@@ -4152,6 +4156,85 @@
         "title_ar": "إخراج الخادم القديم من الخدمة بعد موافقة المالك فقط"
       }
     ],
-    "completion_definition_ar": "لا يعتبر النقل مكتملًا قبل نجاح الفحص المستقل والأمن والتخزين والنقل والقبول الإنتاجي واختبار الألف والنسخ/الاستعادة والرصد وفترة الرجوع ومطابقة التوثيق، ثم موافقة المالك الصريحة على إلغاء الخادم القديم."
+    "completion_definition_ar": "لا يعتبر النقل والإطلاق مكتملين قبل نجاح الفحص المستقل والأمن والتخزين والنقل والقبول الإنتاجي واختبار الألف والنسخ/الاستعادة والرصد وفترة الرجوع، واجتياز مرونة استلام الردود/البث وإعادة الاتصال دون فقد أو تكرار تنفيذ أو تكلفة، ثم مطابقة التوثيق وموافقة المالك الصريحة على إلغاء الخادم القديم.",
+    "old_server_retained_for_rollback": true,
+    "current_production_release_sha": "46eb80c8b7474d26f1cc9a2c8718aabd4d842391",
+    "observation": {
+      "status": "ACTIVE",
+      "started_at_utc": "2026-10-05T16:43:26Z",
+      "earliest_72h_completion_utc": "2026-10-08T16:43:26Z",
+      "window_must_not_be_reset_by_application_release": true
+    },
+    "exact_sha_operating_discipline": {
+      "mcp_entrypoint_may_be_old_management_host": true,
+      "new_host_reached_via_approved_admin_channel": true,
+      "resolve_exact_github_sha_before_mutation": true,
+      "blind_git_pull_for_release_forbidden": true,
+      "clean_detached_or_clean_sha_bound_checkout_required": true,
+      "ci_evidence_bound_to_exact_head_sha": true,
+      "rollback_source_and_images_preserved_before_rollout": true,
+      "post_rollout_runtime_identity_and_health_reverification_required": true,
+      "secrets_or_private_keys_in_tracked_docs_forbidden": true
+    },
+    "client_delivery_resilience": {
+      "scope_status": "REQUIRED_PENDING_IMPLEMENTATION_AND_ACCEPTANCE",
+      "applies_to": "long-lived AI responses, streams, live progress feeds, and equivalent asynchronous delivery",
+      "durable_request_or_job_identity_required": true,
+      "indefinite_silent_hang_forbidden": true,
+      "heartbeat_or_bounded_timeout_required": true,
+      "resume_cursor_or_durable_status_fallback_required": true,
+      "duplicate_billable_provider_request_on_reconnect_forbidden": true,
+      "duplicate_terminal_execution_on_reconnect_forbidden": true,
+      "reconnect_backoff_and_jitter_required": true,
+      "explicit_ui_reconnecting_recovered_failed_states_required": true,
+      "acceptance_cases": [
+        "mid-stream disconnect",
+        "Cloudflare/proxy interruption",
+        "client background/foreground",
+        "network change",
+        "repeated reconnect",
+        "duplicate events/chunks",
+        "server/container restart",
+        "authentication refresh or expiry",
+        "terminal-event loss",
+        "durable status/poll fallback recovery"
+      ]
+    },
+    "documentation_and_execution_ledger_policy": {
+      "every_material_transition_recorded": true,
+      "failed_and_blocked_attempts_preserved": true,
+      "minimum_fields": [
+        "UTC time",
+        "phase/batch",
+        "exact source/candidate SHA",
+        "target environment/host role",
+        "action",
+        "outcome",
+        "evidence reference/hash when available",
+        "production mutation flag",
+        "next action"
+      ],
+      "operational_outcomes": [
+        "IN_PROGRESS",
+        "PASS",
+        "FAIL",
+        "BLOCKED/HOLD",
+        "PENDING_RETRY",
+        "ROLLBACK",
+        "COMPLETE"
+      ],
+      "runtime_journal_is_immediate_ledger": true,
+      "canonical_plan_roadmap_reconciled_at_material_checkpoints": true,
+      "minute_by_minute_ci_poll_does_not_require_git_commit": true,
+      "generated_state_and_report_via_project_hub_only": true,
+      "pre_continuation_reconciliation_required": [
+        "canonical map",
+        "latest runtime checkpoint/journal",
+        "GitHub protected state",
+        "live new-host evidence",
+        "old-host rollback state"
+      ]
+    },
+    "current_authoritative_host_role": "new_production_server"
   }
 }
