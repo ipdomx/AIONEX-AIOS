@@ -445,6 +445,72 @@ async def test_provider_uncertainty_is_retained_not_replayed(case, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_running_turn_heartbeat_is_durable_and_visible(case):
+    c = await create(case)
+    job = await send(case, c)
+    old = datetime.now(UTC) - timedelta(minutes=5)
+    async with case.sessions() as s, s.begin():
+        row = await s.get(Job, job["job_id"])
+        row.status = "running"
+        row.started_at = old
+        row.updated_at = old
+
+    stop = asyncio.Event()
+    task = asyncio.create_task(
+        worker._heartbeat_running(job["job_id"], stop, interval_seconds=0.01)
+    )
+    await asyncio.sleep(0.05)
+    stop.set()
+    await asyncio.wait_for(task, 1)
+
+    async with case.sessions() as s:
+        row = await s.get(Job, job["job_id"])
+        assert row.status == "running"
+        assert row.updated_at > old
+        history = await g.messages(s, case.actor, c["id"])
+        item = history["messages"][0]
+        assert item["started_at"] is not None
+        assert item["updated_at"] is not None
+        assert item["heartbeat_age_seconds"] is not None
+        assert item["heartbeat_age_seconds"] < 5
+
+
+@pytest.mark.asyncio
+async def test_stale_running_turn_moves_to_review_without_replay(case):
+    c = await create(case)
+    job = await send(case, c)
+    old = datetime.now(UTC) - timedelta(minutes=5)
+    async with case.sessions() as s, s.begin():
+        row = await s.get(Job, job["job_id"])
+        row.status = "running"
+        row.started_at = old
+        row.updated_at = old
+
+    assert await worker.reconcile_stale_running(max_age_seconds=60) == 1
+    assert await worker.reconcile_stale_running(max_age_seconds=60) == 0
+    assert await worker.run_turn(job["job_id"]) is False
+    assert not case.provider_calls
+
+    async with case.sessions() as s:
+        row = await s.get(Job, job["job_id"])
+        assert row.status == "needs_review"
+        assert row.error == "provider_result_uncertain_stalled"
+        audit = await s.scalar(
+            select(AuditEvent).where(
+                AuditEvent.resource_id == job["job_id"],
+                AuditEvent.action == "conversation.turn_needs_review",
+            )
+        )
+        assert audit is not None
+        assert audit.details["stale_heartbeat"] is True
+        assert audit.details["automatic_retry"] is False
+
+    with pytest.raises(HTTPException) as exc:
+        await send(case, c)
+    assert exc.value.detail["code"] == "CONVERSATION_PROVIDER_RECONCILIATION_REQUIRED"
+
+
+@pytest.mark.asyncio
 async def test_queued_turn_revoked_before_provider_call(case):
     c = await create(case)
     job = await send(case, c)

@@ -527,11 +527,28 @@ async def messages(session: AsyncSession, actor: UserRecord, conversation_id: st
         Job.type == JOB_TYPE, Job.payload["conversation_id"].as_string() == row.resource_id,
         Job.payload["requested_by_id"].as_string() == actor.id)
         .order_by(Job.created_at.desc(), Job.id.desc()).limit(200))).all())
-    items = [{"id": job.id, "ordinal": job.payload["ordinal"], "user_message": job.payload["user_message"],
-              "assistant_message": str((job.result or {}).get("text", "")) if job.status == "completed" else None,
-              "status": job.status, "error": job.error, "created_at": _utc(job.created_at).isoformat(),
-              "completed_at": _utc(job.finished_at).isoformat() if job.finished_at else None} for job in reversed(rows)]
-    return {"conversation": thread_snapshot(row, actor, policy, await _clock(session)), "messages": items,
+    now = await _clock(session)
+    items = []
+    for job in reversed(rows):
+        updated_at = _utc(job.updated_at)
+        heartbeat_age = (
+            max(0, int((now - updated_at).total_seconds()))
+            if job.status in {"queued", "running"} else None
+        )
+        items.append({
+            "id": job.id,
+            "ordinal": job.payload["ordinal"],
+            "user_message": job.payload["user_message"],
+            "assistant_message": str((job.result or {}).get("text", "")) if job.status == "completed" else None,
+            "status": job.status,
+            "error": job.error,
+            "created_at": _utc(job.created_at).isoformat(),
+            "started_at": _utc(job.started_at).isoformat() if job.started_at else None,
+            "updated_at": updated_at.isoformat(),
+            "heartbeat_age_seconds": heartbeat_age,
+            "completed_at": _utc(job.finished_at).isoformat() if job.finished_at else None,
+        })
+    return {"conversation": thread_snapshot(row, actor, policy, now), "messages": items,
             "history_limit": 200}
 
 

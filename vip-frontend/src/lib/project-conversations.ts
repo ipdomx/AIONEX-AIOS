@@ -37,6 +37,9 @@ export type ConversationMessage = {
   status: string;
   error: string | null;
   created_at: string;
+  started_at: string | null;
+  updated_at: string;
+  heartbeat_age_seconds: number | null;
   completed_at: string | null;
 };
 export type ConversationHistory = {
@@ -55,15 +58,67 @@ export type ConversationAgent = {
   external_processing: boolean; platform_shared: boolean;
 };
 const base = "/project-conversations";
+const READ_TIMEOUT_MS = 12_000;
+const WRITE_TIMEOUT_MS = 20_000;
+
+function timed<T>(
+  milliseconds: number,
+  operation: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
+  const controller = new AbortController();
+  const timer = globalThis.setTimeout(() => controller.abort(), milliseconds);
+  return operation(controller.signal).finally(() => globalThis.clearTimeout(timer));
+}
+
 export const conversationApi = {
-  policy: () => request<ConversationUsage>(`${base}/policy`),
-  agents: () => request<ConversationAgent[]>(`${base}/agents`),
-  list: () => request<Conversation[]>(base),
-  history: (id: string) => request<ConversationHistory>(`${base}/${encodeURIComponent(id)}/messages`),
+  policy: () =>
+    timed(READ_TIMEOUT_MS, (signal) =>
+      request<ConversationUsage>(`${base}/policy`, { signal }),
+    ),
+  agents: () =>
+    timed(READ_TIMEOUT_MS, (signal) =>
+      request<ConversationAgent[]>(`${base}/agents`, { signal }),
+    ),
+  list: () =>
+    timed(READ_TIMEOUT_MS, (signal) => request<Conversation[]>(base, { signal })),
+  history: (id: string) =>
+    timed(READ_TIMEOUT_MS, (signal) =>
+      request<ConversationHistory>(
+        `${base}/${encodeURIComponent(id)}/messages`,
+        { signal },
+      ),
+    ),
   create: (project_id: string, title: string, request_id: string) =>
-    jsonRequest<Conversation>(base, "POST", { project_id, title, request_id }),
-  send: (id: string, message: string, agent_id: string, request_id: string, confirm_external_processing: boolean) =>
-    jsonRequest<{ job_id: string; status: string; duplicate: boolean }>(`${base}/${encodeURIComponent(id)}/messages`, "POST",
-      { message, agent_id, request_id, confirm_external_processing }),
-  close: (id: string) => jsonRequest<Conversation>(`${base}/${encodeURIComponent(id)}/close`, "POST"),
+    timed(WRITE_TIMEOUT_MS, (signal) =>
+      jsonRequest<Conversation>(
+        base,
+        "POST",
+        { project_id, title, request_id },
+        { signal },
+      ),
+    ),
+  send: (
+    id: string,
+    message: string,
+    agent_id: string,
+    request_id: string,
+    confirm_external_processing: boolean,
+  ) =>
+    timed(WRITE_TIMEOUT_MS, (signal) =>
+      jsonRequest<{ job_id: string; status: string; duplicate: boolean }>(
+        `${base}/${encodeURIComponent(id)}/messages`,
+        "POST",
+        { message, agent_id, request_id, confirm_external_processing },
+        { signal },
+      ),
+    ),
+  close: (id: string) =>
+    timed(WRITE_TIMEOUT_MS, (signal) =>
+      jsonRequest<Conversation>(
+        `${base}/${encodeURIComponent(id)}/close`,
+        "POST",
+        undefined,
+        { signal },
+      ),
+    ),
 };

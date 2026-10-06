@@ -26,6 +26,10 @@ logger = get_logger(__name__)
 _CONVERSATION_WORKER_CAPACITY = 4
 _CONVERSATION_QUEUE_SCAN_LIMIT = 100
 _CONVERSATION_WORKER_POLL_SECONDS = 1.0
+_CONVERSATION_HEARTBEAT_SECONDS = 10.0
+_CONVERSATION_STALE_RUNNING_SECONDS = 180
+_CONVERSATION_STALE_RECONCILE_SECONDS = 15.0
+_CONVERSATION_STALE_RECONCILE_LIMIT = 100
 
 
 def _priority(row: Job) -> int:
@@ -128,6 +132,90 @@ async def _queued_candidates() -> list[Job]:
         )).all())
 
 
+async def _heartbeat_running(
+    job_id: str,
+    stop_event: asyncio.Event,
+    *,
+    interval_seconds: float = _CONVERSATION_HEARTBEAT_SECONDS,
+) -> None:
+    """Persist liveness while provider I/O is in flight without changing ownership."""
+    if interval_seconds <= 0:
+        raise ValueError("Conversation heartbeat interval must be positive")
+    while not stop_event.is_set():
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval_seconds)
+            return
+        except TimeoutError:
+            pass
+        async with SessionLocal() as session:
+            row = await session.scalar(
+                select(Job)
+                .where(
+                    Job.id == job_id,
+                    Job.type == governance.JOB_TYPE,
+                    Job.status == "running",
+                )
+                .with_for_update(skip_locked=True)
+            )
+            if row is None:
+                return
+            row.updated_at = await governance._clock(session)
+            await session.commit()
+
+
+async def reconcile_stale_running(
+    *,
+    max_age_seconds: int = _CONVERSATION_STALE_RUNNING_SECONDS,
+    limit: int = _CONVERSATION_STALE_RECONCILE_LIMIT,
+) -> int:
+    """Fail closed on abandoned running work; never replay an uncertain provider call."""
+    if max_age_seconds < 1 or limit < 1:
+        raise ValueError("Conversation stale-running bounds must be positive")
+    async with SessionLocal() as session:
+        now = await governance._clock(session)
+        cutoff = now - timedelta(seconds=max_age_seconds)
+        rows = list(
+            (
+                await session.scalars(
+                    select(Job)
+                    .where(
+                        Job.type == governance.JOB_TYPE,
+                        Job.status == "running",
+                        Job.updated_at < cutoff,
+                    )
+                    .order_by(Job.updated_at, Job.id)
+                    .limit(limit)
+                    .with_for_update(skip_locked=True)
+                )
+            ).all()
+        )
+        for row in rows:
+            payload = row.payload or {}
+            row.status = "needs_review"
+            row.error = "provider_result_uncertain_stalled"
+            row.finished_at = now
+            row.updated_at = now
+            session.add(
+                AuditEvent(
+                    organization_id=row.organization_id,
+                    user_id=str(payload.get("requested_by_id") or "") or None,
+                    action="conversation.turn_needs_review",
+                    resource_type="conversation_job",
+                    resource_id=row.id,
+                    details={
+                        "conversation_id": str(payload.get("conversation_id") or ""),
+                        "provider_output_accepted": False,
+                        "automatic_retry": False,
+                        "stale_heartbeat": True,
+                        "heartbeat_timeout_seconds": max_age_seconds,
+                    },
+                )
+            )
+        if rows:
+            await session.commit()
+        return len(rows)
+
+
 async def run_turn(job_id: str) -> bool:
     async with SessionLocal() as session:
         candidate = await session.get(Job, job_id)
@@ -228,6 +316,11 @@ async def run_turn(job_id: str) -> bool:
         # Return to provider I/O only after an acknowledged durable claim commit.
         await session.commit()
 
+    heartbeat_stop = asyncio.Event()
+    heartbeat_task = asyncio.create_task(
+        _heartbeat_running(job_id, heartbeat_stop),
+        name=f"aionex-conversation-heartbeat:{job_id}",
+    )
     try:
         result = await ai._execute_provider(provider, agent, prompt)
         response = str(result.get("text", "")).strip()
@@ -245,6 +338,18 @@ async def run_turn(job_id: str) -> bool:
         output = {}
         outcome = "needs_review"
         reason = "provider_result_uncertain_" + type(exc).__name__
+    finally:
+        heartbeat_stop.set()
+        heartbeat_task.cancel()
+        heartbeat_result = await asyncio.gather(heartbeat_task, return_exceptions=True)
+        heartbeat_error = heartbeat_result[0] if heartbeat_result else None
+        if isinstance(heartbeat_error, BaseException) and not isinstance(
+            heartbeat_error, asyncio.CancelledError
+        ):
+            logger.warning(
+                "Conversation provider heartbeat stopped unexpectedly",
+                error_type=type(heartbeat_error).__name__,
+            )
 
     async with SessionLocal() as session:
         job = await session.scalar(select(Job).where(Job.id == job_id).with_for_update())
@@ -320,8 +425,24 @@ class ConversationWorker:
 
     async def _run(self) -> None:
         active: dict[str, asyncio.Task[bool]] = {}
+        loop = asyncio.get_running_loop()
+        next_reconcile = 0.0
         try:
             while not self._stopping:
+                if loop.time() >= next_reconcile:
+                    try:
+                        reconciled = await reconcile_stale_running()
+                        if reconciled:
+                            logger.warning(
+                                "Conversation stale running work moved to review",
+                                reconciled=reconciled,
+                            )
+                    except Exception:
+                        logger.warning(
+                            "Conversation stale-running reconciliation temporarily unavailable"
+                        )
+                    next_reconcile = loop.time() + _CONVERSATION_STALE_RECONCILE_SECONDS
+
                 progressed, errors = self._consume_done(active)
                 for job_id, error in errors:
                     if isinstance(error, HTTPException) and error.status_code in {401, 403, 404}:
