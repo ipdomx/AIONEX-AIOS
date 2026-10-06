@@ -4050,7 +4050,7 @@
     "growth_social_connected_accounts_without_unapproved_spend"
   ],
   "new_server_migration": {
-    "status": "CUTOVER_COMPLETE_NEW_SERVER_AUTHORITATIVE_NS12_OBSERVATION_ACTIVE_PR872_MERGED_NS15_RECONCILIATION",
+    "status": "CUTOVER_COMPLETE_NEW_SERVER_AUTHORITATIVE_NS12_OBSERVATION_ACTIVE_PR875_MERGED_NS15_RECONCILIATION",
     "roadmap": "docs/project/NEW-SERVER-MIGRATION-ROADMAP.md",
     "runtime_plan": "docs/project/runtime/new-server-migration-20261004/PLAN.md",
     "runtime_status": "docs/project/runtime/new-server-migration-20261004/STATUS.json",
@@ -4159,19 +4159,30 @@
     "completion_definition_ar": "لا يعتبر النقل والإطلاق مكتملين قبل نجاح الفحص المستقل والأمن والتخزين والنقل والقبول الإنتاجي واختبار الألف والنسخ/الاستعادة والرصد وفترة الرجوع، واجتياز مرونة استلام الردود/البث وإعادة الاتصال دون فقد أو تكرار تنفيذ أو تكلفة، ثم مطابقة التوثيق وموافقة المالك الصريحة على إلغاء الخادم القديم.",
     "old_server_retained_for_rollback": true,
     "current_production_release_sha": "46eb80c8b7474d26f1cc9a2c8718aabd4d842391",
-    "current_protected_main_sha": "9dd7a79d3b590a25675d5209de14b5176cba7f7f",
+    "current_protected_main_sha": "704a79cf3c98b70b526fa9c08eb1b88bd1221096",
     "fr23_security_closure": {
       "pr": 870,
       "state": "MERGED",
       "merge_commit": "fa19d69412e2a28f266a0934ca20597215b8672c",
       "protected_ci": "PASS",
-      "closure_state": "MERGED_WITH_TWO_PATCHABLE_VIP_ALERTS_PENDING_AND_FOUR_NOT_USED_BINARY_REACHABILITY_DISMISSALS",
+      "closure_state": "PATCHABLE_VIP_FIXES_MERGED_DEPENDABOT_INDEX_RECONCILIATION_PENDING",
+      "vip_dependency_reconciliation": {
+        "pr": 875,
+        "state": "MERGED",
+        "accepted_head": "7b803101e323a129dc49665fa7855030e256d317",
+        "merge_commit": "704a79cf3c98b70b526fa9c08eb1b88bd1221096",
+        "protected_ci": "PASS",
+        "source_map_js": "1.2.2",
+        "postcss_selector_parser": "7.1.6",
+        "npm_audit_omit_dev": "0 vulnerabilities"
+      },
       "dependabot_open_snapshot": {
         "count": 2,
         "high": 1,
         "medium": 1,
-        "captured_on": "2026-10-06",
+        "captured_on": "2026-10-06 immediately after PR875 merge",
         "release_blocker_until_reconciled": true,
+        "index_reconciliation_pending": true,
         "alerts": [
           "source-map-js -> 1.2.2",
           "postcss-selector-parser -> 7.1.6"
