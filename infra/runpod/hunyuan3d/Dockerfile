@@ -14,7 +14,7 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends nodejs; \
     npm install -g @gltf-transform/cli@4.4.2; \
     cd /usr/lib/node_modules/@gltf-transform/cli; \
-    npm install --omit=dev --no-audit --no-fund --save-exact sharp@0.35.4; \
+    npm install --omit=dev --no-audit --no-fund --save-exact sharp@0.35.5; \
     apt-get update; \
     apt-get dist-upgrade -y; \
     apt-get purge -y --auto-remove \
