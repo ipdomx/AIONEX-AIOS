@@ -9,3 +9,5 @@ This receipt records three controls requested during final-release continuation:
 3. **Every material state transition is retained.** PASS, FAIL, BLOCKED/HOLD, PENDING_RETRY, ROLLBACK, IN_PROGRESS and COMPLETE are preserved in the runtime journal/checkpoint with SHA/evidence/next-action fields. The canonical map is the reviewed summary and is reconciled at material checkpoints rather than on every transient CI poll. Generated STATE.json and PROJECT-REPORT.md remain project_hub outputs only.
 
 The anti-stall/reconnect source is now implemented as PR #872 at exact head `cd2fd3077e61af60ad79fff83b6186af65a6bca8`, with focused local acceptance recorded. It is still **not** a production-acceptance claim: protected exact-head CI, merge, deployment and runtime smoke remain required before closure.
+
+Current security reconciliation note: PR #870 is merged with protected CI PASS, but the default branch still exposes 6 open Dependabot alerts (3 high, 3 medium). They remain explicit FR-23 reconciliation work and must not be hidden by the merge result.

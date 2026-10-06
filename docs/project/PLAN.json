@@ -4164,7 +4164,15 @@
       "pr": 870,
       "state": "MERGED",
       "merge_commit": "fa19d69412e2a28f266a0934ca20597215b8672c",
-      "protected_ci": "PASS"
+      "protected_ci": "PASS",
+      "closure_state": "MERGED_WITH_RESIDUAL_DEPENDABOT_RECONCILIATION_REQUIRED",
+      "dependabot_open_snapshot": {
+        "count": 6,
+        "high": 3,
+        "medium": 3,
+        "captured_on": "2026-10-06",
+        "release_blocker_until_reconciled": true
+      }
     },
     "observation": {
       "status": "ACTIVE",

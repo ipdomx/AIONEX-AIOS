@@ -7,6 +7,7 @@ Status: CUTOVER_COMPLETE_NEW_SERVER_AUTHORITATIVE_NS12_OBSERVATION_ACTIVE_FR23_M
 - The new Debian 12 production server is the authoritative public runtime.
 - The old production server is retained intact as the rollback anchor and must not be retired before the original NS-12 observation gate and explicit Owner approval.
 - Protected GitHub `main` is currently `fa19d69412e2a28f266a0934ca20597215b8672c`, which includes the merged FR-23 security dependency closure from PR #870.
+- GitHub Dependabot still reports 6 open alerts on protected `main` (3 high, 3 medium). These remain an explicit FR-23 reconciliation item; merge/CI success is not treated as proof that the Dependabot queue is empty.
 - The currently deployed application release remains `46eb80c8b7474d26f1cc9a2c8718aabd4d842391` until a newer protected-main rollout is explicitly accepted.
 - Canonical FR-09 1,000-user acceptance is PASS on the new server; the staged authenticated-read growth envelope through 5,000 sessions is recorded as a synthetic capacity envelope, not a claim of 5,000 simultaneous heavy AI/GPU generations.
 - NS-12 observation started at `2026-10-05T16:43:26Z`; the earliest 72-hour completion is `2026-10-08T16:43:26Z`. Application updates do not reset this original window.
