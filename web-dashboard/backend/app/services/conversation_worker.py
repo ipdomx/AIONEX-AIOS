@@ -147,7 +147,8 @@ async def _heartbeat_running(
             await asyncio.wait_for(stop_event.wait(), timeout=interval_seconds)
             return
         except TimeoutError:
-            pass
+            if stop_event.is_set():
+                return
         async with SessionLocal() as session:
             row = await session.scalar(
                 select(Job)

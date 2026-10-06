@@ -47,10 +47,9 @@ def test_dispatch_source_persists_wait_evidence_before_provider_io() -> None:
     source = open(worker.__file__, encoding="utf-8").read()
     assert '"dispatch_queue_wait_ms": queue_wait_ms' in source
     assert '"queue_wait_ms": queue_wait_ms' in source
-    assert (
-        "await session.commit()"
-        in source
-        and "result = await ai._execute_provider" in source
-        and source.index("await session.commit()")
-        < source.index("result = await ai._execute_provider")
-    )
+    dispatch_marker = '"dispatch_queue_wait_ms": queue_wait_ms'
+    provider_call = "ai._execute_provider(provider, agent, prompt)"
+    assert provider_call in source
+    commit_index = source.index("await session.commit()", source.index(dispatch_marker))
+    provider_index = source.index(provider_call, commit_index)
+    assert commit_index < provider_index
