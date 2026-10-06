@@ -31,10 +31,23 @@ export function ConversationsClient() {
   const [error, setError] = useState("");
   const [now, setNow] = useState(0);
   const [accessDenied, setAccessDenied] = useState(false);
+  const [syncFailures, setSyncFailures] = useState(0);
   const observedAt = useRef(0);
   const selection = useRef("");
   const createIntent = useRef<{ key: string; id: string } | null>(null);
   const sendIntent = useRef<{ key: string; id: string } | null>(null);
+
+  const selectConversation = useCallback((id: string) => {
+    setSelected(id);
+    setMessage("");
+    sendIntent.current = null;
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (id) url.searchParams.set("conversation", id);
+      else url.searchParams.delete("conversation");
+      window.history.replaceState(window.history.state, "", url);
+    }
+  }, []);
 
   const reportError = useCallback((cause: unknown) => {
     if (cause instanceof ApiError && [401, 403].includes(cause.status)) setAccessDenied(true);
@@ -48,9 +61,16 @@ export function ConversationsClient() {
       ]);
       setProjects(p.filter((x) => !["deleted", "archived", "cancelled"].includes(x.status)));
       setThreads(c); setPolicy(u); setAgents(a); setAccessDenied(false);
-      setProjectId((old) => old || new URLSearchParams(window.location.search).get("project") || p[0]?.id || "");
+      const params = new URLSearchParams(window.location.search);
+      const requestedConversation = params.get("conversation");
+      setSelected((old) => c.some((item) => item.id === old)
+        ? old
+        : requestedConversation && c.some((item) => item.id === requestedConversation)
+          ? requestedConversation
+          : "");
+      setProjectId((old) => old || params.get("project") || p[0]?.id || "");
       setAgentId((old) => a.some((x) => x.id === old) ? old : a[0]?.id || "");
-      setError("");
+      setError(""); setSyncFailures(0);
     } catch (cause) { reportError(cause); }
     finally { setLoading(false); }
   }, [reportError]);
@@ -79,8 +99,14 @@ export function ConversationsClient() {
         if (!stopped && selection.current === selected) {
           observedAt.current = performance.now(); setNow(observedAt.current);
           setHistory(next); setPolicy(usage); setAccessDenied(false);
+          setSyncFailures(0); setError("");
         }
-      } catch (cause) { if (!stopped) reportError(cause); }
+      } catch (cause) {
+        if (!stopped) {
+          setSyncFailures((value) => value + 1);
+          reportError(cause);
+        }
+      }
       finally { pending = false; }
     };
     void refresh();
@@ -98,7 +124,7 @@ export function ConversationsClient() {
     try {
       const created = await conversationApi.create(projectId, title.trim(), createIntent.current.id);
       createIntent.current = null;
-      setTitle(""); setSelected(created.id); await load();
+      setTitle(""); selectConversation(created.id); await load();
     } catch (cause) { reportError(cause); }
     finally { setBusy(false); }
   }
@@ -131,10 +157,18 @@ export function ConversationsClient() {
 
   const agent = agents.find((item) => item.id === agentId);
   const current = history?.conversation;
+  const pendingMessage = history ? [...history.messages].reverse().find(
+    (item) => ["queued", "running"].includes(item.status),
+  ) : undefined;
   // Derive the display from the server's remaining duration and a monotonic
   // elapsed interval, never from the browser's potentially incorrect wall clock.
   const seconds = current ? Math.max(0, current.seconds_remaining - Math.floor(Math.max(0, now - observedAt.current) / 1000)) : 0;
   const waiting = history?.messages.some((item) => ["queued", "running"].includes(item.status)) ?? false;
+  const heartbeatAge = pendingMessage?.heartbeat_age_seconds == null
+    ? null
+    : pendingMessage.heartbeat_age_seconds + Math.floor(Math.max(0, now - observedAt.current) / 1000);
+  const reconnecting = syncFailures > 0 ||
+    (pendingMessage?.status === "running" && heartbeatAge !== null && heartbeatAge >= 30);
   const needsReview = history?.messages.at(-1)?.status === "needs_review";
   const canSend = Boolean(current && current.status === "open" && seconds > 0 && policy?.values.enabled && !accessDenied &&
     policy.usage.day_messages < policy.values.messages_per_day &&
@@ -171,7 +205,7 @@ export function ConversationsClient() {
           </form>
           <nav aria-label={t("title")} className="max-h-[32rem] space-y-2 overflow-y-auto">
             {threads.length === 0 && <p className="text-sm text-white/50">{t("empty")}</p>}
-            {threads.map((item) => <button key={item.id} type="button" disabled={busy} onClick={() => { setSelected(item.id); setMessage(""); sendIntent.current = null; }}
+            {threads.map((item) => <button key={item.id} type="button" disabled={busy} onClick={() => selectConversation(item.id)}
               aria-current={selected === item.id ? "page" : undefined}
               className={`block w-full rounded-xl border p-3 text-start ${selected === item.id ? "border-electric-400 bg-electric-500/10" : "border-white/10 hover:bg-white/5"}`}>
               <span className="block truncate text-sm font-medium">{item.title}</span>
@@ -185,6 +219,10 @@ export function ConversationsClient() {
               <div><h2 className="text-xl font-semibold">{current.title}</h2><p className="mt-2 flex items-center gap-2 text-xs text-white/60"><Timer className="h-4 w-4" />{t("remaining")} {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")} · {current.messages_used}/{current.messages_allowed}</p></div>
               <Button variant="secondary" disabled={busy || current.status === "closed"} onClick={() => void closeConversation()}>{t("close")}</Button>
             </div>
+            {waiting && <div role="status" className="mt-4 rounded-xl border border-electric-500/20 bg-electric-500/5 p-3 text-xs leading-6 text-electric-100">
+              <p>{reconnecting ? t("reconnecting") : t("working")}</p>
+              {heartbeatAge !== null && <p className="text-white/50">{t("lastServerUpdate")}: {heartbeatAge}s</p>}
+            </div>}
             <div className="max-h-[34rem] min-h-48 space-y-4 overflow-y-auto py-5" aria-live="polite" aria-relevant="additions text">
               {history.messages.length === 0 && <p className="text-sm text-white/50">{t("firstMessage")}</p>}
               {history.messages.map((item) => <article key={item.id} className="space-y-2">

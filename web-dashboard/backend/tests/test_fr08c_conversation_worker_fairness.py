@@ -92,8 +92,12 @@ async def test_worker_automatically_runs_independent_conversations_concurrently(
         await release.wait()
         return True
 
+    async def reconcile_stale_running():
+        return 0
+
     monkeypatch.setattr(worker, "_queued_candidates", candidates)
     monkeypatch.setattr(worker, "run_turn", run_turn)
+    monkeypatch.setattr(worker, "reconcile_stale_running", reconcile_stale_running)
 
     instance = worker.ConversationWorker(capacity=2)
     await instance.start()
@@ -124,9 +128,13 @@ async def test_worker_cancels_unstarted_job_when_authority_changes(monkeypatch) 
         cancelled.append((job_id, reason))
         cancelled_event.set()
 
+    async def reconcile_stale_running():
+        return 0
+
     monkeypatch.setattr(worker, "_queued_candidates", candidates)
     monkeypatch.setattr(worker, "run_turn", run_turn)
     monkeypatch.setattr(worker, "cancel_unstarted", cancel_unstarted)
+    monkeypatch.setattr(worker, "reconcile_stale_running", reconcile_stale_running)
 
     instance = worker.ConversationWorker(capacity=1)
     await instance.start()
