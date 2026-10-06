@@ -14,6 +14,7 @@ A durable conversation turn must never leave the user looking at an indefinite s
 - Browser conversation reads are bounded by a 12-second request timeout; enqueue/close writes are bounded by 20 seconds.
 - If a send response is lost after server acceptance, the client retains the same request identity so a manual retry resolves to the same durable job and is not charged again.
 - While provider I/O is in flight, the conversation worker persists a heartbeat every 10 seconds through `Job.updated_at`.
+- A hard 150-second provider watchdog bounds the whole conversation provider call above the provider-specific HTTP timeouts; timeout outcome becomes `needs_review` and is never replayed.
 - A running conversation job with no heartbeat for 180 seconds is moved fail-closed to `needs_review`; it is **never automatically replayed**.
 - Stale reconciliation records an audit event with `stale_heartbeat=true` and `automatic_retry=false`.
 - Conversation history exposes `started_at`, `updated_at`, and `heartbeat_age_seconds`.

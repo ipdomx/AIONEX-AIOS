@@ -445,6 +445,26 @@ async def test_provider_uncertainty_is_retained_not_replayed(case, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_provider_hard_timeout_is_retained_not_replayed(case, monkeypatch):
+    c = await create(case)
+    job = await send(case, c)
+    blocker = asyncio.Event()
+
+    async def never_returns(*_):
+        await blocker.wait()
+
+    monkeypatch.setattr(worker.ai, "_execute_provider", never_returns)
+    monkeypatch.setattr(worker, "_CONVERSATION_PROVIDER_HARD_TIMEOUT_SECONDS", 0.02)
+    assert await worker.run_turn(job["job_id"])
+    assert await worker.run_turn(job["job_id"]) is False
+    async with case.sessions() as s:
+        row = await s.get(Job, job["job_id"])
+        assert row.status == "needs_review"
+        assert row.error == "provider_result_uncertain_TimeoutError"
+    assert not case.provider_calls
+
+
+@pytest.mark.asyncio
 async def test_running_turn_heartbeat_is_durable_and_visible(case):
     c = await create(case)
     job = await send(case, c)

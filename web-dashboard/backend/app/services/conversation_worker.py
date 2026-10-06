@@ -27,6 +27,7 @@ _CONVERSATION_WORKER_CAPACITY = 4
 _CONVERSATION_QUEUE_SCAN_LIMIT = 100
 _CONVERSATION_WORKER_POLL_SECONDS = 1.0
 _CONVERSATION_HEARTBEAT_SECONDS = 10.0
+_CONVERSATION_PROVIDER_HARD_TIMEOUT_SECONDS = 150.0
 _CONVERSATION_STALE_RUNNING_SECONDS = 180
 _CONVERSATION_STALE_RECONCILE_SECONDS = 15.0
 _CONVERSATION_STALE_RECONCILE_LIMIT = 100
@@ -322,7 +323,10 @@ async def run_turn(job_id: str) -> bool:
         name=f"aionex-conversation-heartbeat:{job_id}",
     )
     try:
-        result = await ai._execute_provider(provider, agent, prompt)
+        result = await asyncio.wait_for(
+            ai._execute_provider(provider, agent, prompt),
+            timeout=_CONVERSATION_PROVIDER_HARD_TIMEOUT_SECONDS,
+        )
         response = str(result.get("text", "")).strip()
         if not response:
             raise RuntimeError("No textual provider result")
