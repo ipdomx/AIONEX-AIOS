@@ -11,7 +11,7 @@ Patchable open advisory paths are refreshed to their published fixed floors:
 
 - frontend transitive `brace-expansion`: 5.x -> 5.0.12 and nested 1.x -> 1.1.21;
 - frontend runtime transitive `source-map-js`: 1.2.1 -> 1.2.2 after the exact-head dependency audit exposed GHSA-68fv-2mgg-jv7q;
-- Semgrep security environment `PyJWT[crypto]`: 2.14.0 -> 2.15.0;
+- Semgrep security environment `PyJWT[crypto]`: 2.14.0 -> 2.15.0; local Semgrep metadata-only compatibility identity advances to `1.178.0+aios.2` and permits the reviewed `>=2.14.0,<2.16.0` range;
 - Gitleaks module graph: `rardecode/v2` -> 2.2.0 and `ulikunitz/xz` -> 0.5.15; `mholt/archives` -> 0.1.5 is included because 0.1.2 is API-incompatible with rardecode/v2 2.2.0;
 - Syft module graph: `containerd/v2` -> 2.3.6 and OpenTelemetry SDK family -> 1.45.0;
 - Grype module graph: `containerd/v2` -> 2.3.6 and OpenTelemetry SDK family -> 1.45.0;
