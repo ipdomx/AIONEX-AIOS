@@ -4050,7 +4050,7 @@
     "growth_social_connected_accounts_without_unapproved_spend"
   ],
   "new_server_migration": {
-    "status": "CUTOVER_COMPLETE_OBSERVATION_ACTIVE_RELEASE_46EB80C8_SECURITY_RECONCILIATION_IN_PROGRESS",
+    "status": "CUTOVER_COMPLETE_NEW_SERVER_AUTHORITATIVE_NS12_OBSERVATION_ACTIVE_FR23_MERGED_ANTI_STALL_PR872_PROTECTED_CI",
     "roadmap": "docs/project/NEW-SERVER-MIGRATION-ROADMAP.md",
     "runtime_plan": "docs/project/runtime/new-server-migration-20261004/PLAN.md",
     "runtime_status": "docs/project/runtime/new-server-migration-20261004/STATUS.json",
@@ -4159,6 +4159,13 @@
     "completion_definition_ar": "لا يعتبر النقل والإطلاق مكتملين قبل نجاح الفحص المستقل والأمن والتخزين والنقل والقبول الإنتاجي واختبار الألف والنسخ/الاستعادة والرصد وفترة الرجوع، واجتياز مرونة استلام الردود/البث وإعادة الاتصال دون فقد أو تكرار تنفيذ أو تكلفة، ثم مطابقة التوثيق وموافقة المالك الصريحة على إلغاء الخادم القديم.",
     "old_server_retained_for_rollback": true,
     "current_production_release_sha": "46eb80c8b7474d26f1cc9a2c8718aabd4d842391",
+    "current_protected_main_sha": "fa19d69412e2a28f266a0934ca20597215b8672c",
+    "fr23_security_closure": {
+      "pr": 870,
+      "state": "MERGED",
+      "merge_commit": "fa19d69412e2a28f266a0934ca20597215b8672c",
+      "protected_ci": "PASS"
+    },
     "observation": {
       "status": "ACTIVE",
       "started_at_utc": "2026-10-05T16:43:26Z",
@@ -4168,6 +4175,7 @@
     "exact_sha_operating_discipline": {
       "mcp_entrypoint_may_be_old_management_host": true,
       "new_host_reached_via_approved_admin_channel": true,
+      "approved_transport": "MCP2 management entry -> approved SSH administration channel with strict host-key verification -> new production host",
       "resolve_exact_github_sha_before_mutation": true,
       "blind_git_pull_for_release_forbidden": true,
       "clean_detached_or_clean_sha_bound_checkout_required": true,
@@ -4177,7 +4185,18 @@
       "secrets_or_private_keys_in_tracked_docs_forbidden": true
     },
     "client_delivery_resilience": {
-      "scope_status": "REQUIRED_PENDING_IMPLEMENTATION_AND_ACCEPTANCE",
+      "scope_status": "IMPLEMENTED_CANDIDATE_PR872_PROTECTED_CI_IN_PROGRESS",
+      "source_pr": 872,
+      "exact_head_sha": "cd2fd3077e61af60ad79fff83b6186af65a6bca8",
+      "local_focused_acceptance": {
+        "governed_conversation_tests": "43 PASS",
+        "worker_fairness_tests": "6 PASS",
+        "vip_integrity": "PASS 6 locales",
+        "vip_typecheck": "PASS",
+        "vip_targeted_eslint": "PASS",
+        "vip_static_build": "PASS",
+        "backend_ruff_changed_scope": "PASS"
+      },
       "applies_to": "long-lived AI responses, streams, live progress feeds, and equivalent asynchronous delivery",
       "durable_request_or_job_identity_required": true,
       "indefinite_silent_hang_forbidden": true,

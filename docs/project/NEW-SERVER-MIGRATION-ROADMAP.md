@@ -1,5 +1,22 @@
 # AIONEX AIOS — New Production Server Migration Roadmap
 
+## Current authoritative state — 2026-10-06
+
+Status: CUTOVER_COMPLETE_NEW_SERVER_AUTHORITATIVE_NS12_OBSERVATION_ACTIVE_FR23_MERGED_ANTI_STALL_PR872_PROTECTED_CI
+
+- The new Debian 12 production server is the authoritative public runtime.
+- The old production server is retained intact as the rollback anchor and must not be retired before the original NS-12 observation gate and explicit Owner approval.
+- Protected GitHub `main` is currently `fa19d69412e2a28f266a0934ca20597215b8672c`, which includes the merged FR-23 security dependency closure from PR #870.
+- The currently deployed application release remains `46eb80c8b7474d26f1cc9a2c8718aabd4d842391` until a newer protected-main rollout is explicitly accepted.
+- Canonical FR-09 1,000-user acceptance is PASS on the new server; the staged authenticated-read growth envelope through 5,000 sessions is recorded as a synthetic capacity envelope, not a claim of 5,000 simultaneous heavy AI/GPU generations.
+- NS-12 observation started at `2026-10-05T16:43:26Z`; the earliest 72-hour completion is `2026-10-08T16:43:26Z`. Application updates do not reset this original window.
+- FR-07F conversation anti-stall/reconnect protection is implemented as PR #872 at exact head `cd2fd3077e61af60ad79fff83b6186af65a6bca8`; local focused acceptance is PASS and protected exact-head CI is still authoritative before merge/deploy.
+- NS-15 canonical reconciliation is active in PR #871. Until that PR merges, this branch is the reviewed documentation candidate while the append-only runtime checkpoint remains the immediate execution ledger.
+
+### Current continuation transport
+
+The approved continuation path is **MCP2 management entry -> approved SSH administration channel with strict host-key verification -> new production server -> clean exact-SHA checkout/worktree**. The tracked map intentionally does not contain the new host IP, SSH private-key path/material, credentials, or raw environment secrets.
+
 ## Historical migration baseline — 2026-10-04
 
 The block below is the original pre-migration baseline and must not be treated as the current runtime state after cutover.
@@ -363,7 +380,7 @@ Required behavior for every AIOS long-lived response, stream, live progress feed
 
 Acceptance must cover at least: mid-stream TCP drop, Cloudflare/proxy interruption, client app background/foreground, network change, repeated reconnect, duplicate events, server/container restart, auth refresh/expiry, terminal-event loss, and fallback polling/status recovery.
 
-Status: REQUIRED_PENDING_IMPLEMENTATION_AND_ACCEPTANCE. This section does not claim the feature is already complete.
+Status: IMPLEMENTED_CANDIDATE_PR872_PROTECTED_CI_IN_PROGRESS. Source and focused local acceptance exist at exact PR #872 head `cd2fd3077e61af60ad79fff83b6186af65a6bca8`; this is not yet a production-acceptance claim and protected exact-head CI plus post-merge rollout smoke remain required.
 
 ## NS-15 — Canonical documentation reconciliation
 
@@ -374,7 +391,7 @@ After stable cutover:
 The accepted operating path is explicit and immutable-SHA based:
 
 1. MCP2 may land on the retained management/old host; do not infer from the MCP name that the process is executing directly on the new host.
-2. Reach the new host only through the already-approved migration/administration channel; never place private keys, credentials or raw host secrets in tracked docs.
+2. Reach the new host only through the already-approved SSH migration/administration channel with strict host-key verification; never place host IPs, private-key paths/material, credentials or raw host secrets in tracked docs.
 3. Resolve the exact protected-main or reviewed PR head SHA from GitHub before mutation.
 4. On the new host, fetch the required ref and verify the exact SHA. Do not use a blind `git pull` as the release decision.
 5. Build/test from a clean detached worktree or clean checkout bound to that immutable SHA. Dirty source is never release authority.
