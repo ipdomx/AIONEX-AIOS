@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
 
 async function denyVipSession(page: Page) {
   for (const path of ["auth/me", "auth/refresh"]) {
@@ -1089,4 +1089,275 @@ test("approved Academy download preserves the server Content-Disposition filenam
   const download = await downloadPromise;
 
   expect(download.suggestedFilename()).toBe("course-e2e-v2.zip");
+});
+
+
+const ns14aThread = {
+  id: "conv-ns14a",
+  project_id: "project-ns14a",
+  user_id: "user-campaign-test",
+  title: "NS-14A resilient conversation",
+  status: "open",
+  effective_status: "open",
+  messages_used: 1,
+  messages_allowed: 20,
+  opened_at: "2026-10-07T00:00:00Z",
+  expires_at: "2026-10-08T00:00:00Z",
+  seconds_remaining: 3600,
+  version: 1,
+  last_job_id: "job-ns14a",
+  priority: 0,
+};
+
+const ns14aPolicy = {
+  values: {
+    enabled: true,
+    max_projects: 3,
+    max_open_conversations: 3,
+    max_open_conversations_per_project: 2,
+    conversation_seconds: 3600,
+    messages_per_conversation: 20,
+    messages_per_day: 40,
+    lifetime_message_credits: -1,
+    max_message_characters: 12000,
+    priority: 0,
+    default_agent_id: "agent-ns14a",
+  },
+  versions: {},
+  credit_unit: "message",
+  usage: { day: "2026-10-07", day_messages: 1, total_message_credits: 1 },
+};
+
+function ns14aHistory(status: "running" | "completed", assistantMessage: string | null = null) {
+  return {
+    conversation: ns14aThread,
+    history_limit: 200,
+    messages: [{
+      id: "message-ns14a",
+      ordinal: 1,
+      user_message: "Synthetic durable request",
+      assistant_message: assistantMessage,
+      status,
+      error: null,
+      created_at: "2026-10-07T00:00:00Z",
+      started_at: "2026-10-07T00:00:01Z",
+      updated_at: "2026-10-07T00:00:02Z",
+      heartbeat_age_seconds: status === "running" ? 2 : 0,
+      completed_at: status === "completed" ? "2026-10-07T00:00:03Z" : null,
+    }],
+  };
+}
+
+async function mockNs14aConversation(
+  page: Page,
+  historyHandler: (route: Route) => Promise<void>,
+  postHandler?: (route: Route) => Promise<void>,
+) {
+  await allowVipSession(page);
+  await page.route("**/api/v1/projects", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([{ id: "project-ns14a", name: "NS-14A Project", status: "active" }]),
+    });
+  });
+  await page.route("**/api/v1/project-conversations**", async (route) => {
+    const request = route.request();
+    const pathname = new URL(request.url()).pathname;
+    if (pathname === "/api/v1/project-conversations/policy") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(ns14aPolicy) });
+      return;
+    }
+    if (pathname === "/api/v1/project-conversations/agents") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([{
+          id: "agent-ns14a",
+          name: "Synthetic assistant",
+          provider: "ollama",
+          model: "synthetic-test",
+          external_processing: false,
+          platform_shared: true,
+        }]),
+      });
+      return;
+    }
+    if (pathname === "/api/v1/project-conversations" && request.method() === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([ns14aThread]) });
+      return;
+    }
+    if (pathname === "/api/v1/project-conversations/conv-ns14a/messages" && request.method() === "GET") {
+      await historyHandler(route);
+      return;
+    }
+    if (pathname === "/api/v1/project-conversations/conv-ns14a/messages" && request.method() === "POST" && postHandler) {
+      await postHandler(route);
+      return;
+    }
+    await route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ detail: "Unexpected NS-14A route" }) });
+  });
+}
+
+test("NS-14A repeated transport failures recover the same durable terminal result without POST replay", async ({ page }) => {
+  let historyReads = 0;
+  let allowRecovery = false;
+  let messagePosts = 0;
+  await mockNs14aConversation(
+    page,
+    async (route) => {
+      historyReads += 1;
+      if (historyReads === 1) {
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(ns14aHistory("running")) });
+        return;
+      }
+      if (!allowRecovery) {
+        await route.abort("failed");
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(ns14aHistory("completed", "Recovered durable answer")) });
+    },
+    async (route) => {
+      messagePosts += 1;
+      await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "unexpected mutation" }) });
+    },
+  );
+
+  await page.goto("/en/conversations?conversation=conv-ns14a");
+  await expect(page.getByText("Still working. This request is saved durably; refreshing or reconnecting will not submit it again.")).toBeVisible();
+  await expect.poll(() => historyReads, { timeout: 12_000 }).toBeGreaterThanOrEqual(2);
+  await expect(page.getByText("The update is delayed. Reconnecting to the same saved request automatically; do not resend it.")).toBeVisible();
+  await expect.poll(() => historyReads, { timeout: 12_000 }).toBeGreaterThanOrEqual(3);
+  expect(messagePosts).toBe(0);
+  allowRecovery = true;
+  await expect(page.getByText("Recovered durable answer", { exact: true })).toBeVisible({ timeout: 8_000 });
+  expect(messagePosts).toBe(0);
+});
+
+test("NS-14A auth expiry refreshes once and resumes durable history without resubmitting the turn", async ({ page }) => {
+  let historyReads = 0;
+  let refreshCalls = 0;
+  let messagePosts = 0;
+
+  await page.route("**/api/v1/auth/refresh", async (route) => {
+    refreshCalls += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        access_token: "synthetic",
+        refresh_token: "synthetic",
+        token_type: "bearer",
+        expires_in: 900,
+        user: {
+          id: "user-campaign-test",
+          email: "campaign@example.invalid",
+          name: "Campaign User",
+          role: "User",
+          status: "active",
+          permissions: [],
+          organization: { id: "org-campaign-test", name: "Campaign Test", plan: "professional" },
+        },
+      }),
+    });
+  });
+
+  await mockNs14aConversation(
+    page,
+    async (route) => {
+      historyReads += 1;
+      if (historyReads === 1) {
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(ns14aHistory("running")) });
+        return;
+      }
+      if (refreshCalls === 0) {
+        await route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ detail: "Synthetic expired session" }) });
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(ns14aHistory("completed", "Recovered after refresh")) });
+    },
+    async (route) => {
+      messagePosts += 1;
+      await route.fulfill({ status: 500, contentType: "application/json", body: "{}" });
+    },
+  );
+
+  await page.goto("/en/conversations?conversation=conv-ns14a");
+  await expect(page.getByText("Still working. This request is saved durably; refreshing or reconnecting will not submit it again.")).toBeVisible();
+  await expect(page.getByText("Recovered after refresh", { exact: true })).toBeVisible({ timeout: 10_000 });
+  expect(refreshCalls).toBe(1);
+  expect(messagePosts).toBe(0);
+});
+
+test("NS-14A client reload resumes the selected durable conversation without a mutation", async ({ page }) => {
+  let historyReads = 0;
+  let messagePosts = 0;
+  await mockNs14aConversation(
+    page,
+    async (route) => {
+      historyReads += 1;
+      const complete = historyReads >= 2;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(complete ? ns14aHistory("completed", "Recovered after client reload") : ns14aHistory("running")),
+      });
+    },
+    async (route) => {
+      messagePosts += 1;
+      await route.fulfill({ status: 500, contentType: "application/json", body: "{}" });
+    },
+  );
+
+  await page.goto("/en/conversations?conversation=conv-ns14a");
+  await expect(page.getByText("Still working. This request is saved durably; refreshing or reconnecting will not submit it again.")).toBeVisible();
+  await page.reload();
+  await expect(page).toHaveURL(/conversation=conv-ns14a/);
+  await expect(page.getByText("Recovered after client reload", { exact: true })).toBeVisible();
+  expect(messagePosts).toBe(0);
+});
+
+test("NS-14A lost write response retries the identical request id and charges once", async ({ page }) => {
+  let postAttempts = 0;
+  const requestIds: string[] = [];
+  const charged = new Set<string>();
+  let historyCompleted = false;
+
+  await mockNs14aConversation(
+    page,
+    async (route) => {
+      const payload = historyCompleted
+        ? ns14aHistory("completed", "Exactly-once recovered response")
+        : { ...ns14aHistory("completed", null), messages: [] };
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload) });
+    },
+    async (route) => {
+      postAttempts += 1;
+      const body = route.request().postDataJSON() as { request_id: string };
+      requestIds.push(body.request_id);
+      charged.add(body.request_id);
+      if (postAttempts === 1) {
+        await route.abort("failed");
+        return;
+      }
+      historyCompleted = true;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ job_id: "job-ns14a", status: "queued", duplicate: true }),
+      });
+    },
+  );
+
+  await page.goto("/en/conversations?conversation=conv-ns14a");
+  const message = page.getByLabel("Message", { exact: true });
+  await expect(message).toBeEnabled();
+  await message.fill("Synthetic retry after lost response");
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect.poll(() => postAttempts).toBe(1);
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(page.getByText("Exactly-once recovered response", { exact: true })).toBeVisible();
+  expect(postAttempts).toBe(2);
+  expect(new Set(requestIds).size).toBe(1);
+  expect(charged.size).toBe(1);
 });
