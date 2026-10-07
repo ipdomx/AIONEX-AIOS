@@ -1240,6 +1240,11 @@ test("NS-14A repeated transport failures recover the same durable terminal resul
 test("NS-14A auth expiry refreshes once and resumes durable history without resubmitting the turn", async ({ page }) => {
   let historyReads = 0;
   let refreshCalls = 0;
+  let injected401Count = 0;
+  const observed401Paths: string[] = [];
+  page.on("response", (response) => {
+    if (response.status() === 401) observed401Paths.push(new URL(response.url()).pathname);
+  });
   let injectAuthExpiry = false;
   let expiredInjected = false;
   let messagePosts = 0;
@@ -1277,6 +1282,7 @@ test("NS-14A auth expiry refreshes once and resumes durable history without resu
       }
       if (!expiredInjected) {
         expiredInjected = true;
+        injected401Count += 1;
         await route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ detail: "Synthetic expired session" }) });
         return;
       }
@@ -1290,9 +1296,14 @@ test("NS-14A auth expiry refreshes once and resumes durable history without resu
 
   await page.goto("/en/conversations?conversation=conv-ns14a");
   await expect(page.getByText("Still working. This request is saved durably; refreshing or reconnecting will not submit it again.")).toBeVisible();
+  const refreshesBeforeInjectedExpiry = refreshCalls;
   injectAuthExpiry = true;
   await expect(page.getByText("Recovered after refresh", { exact: true })).toBeVisible({ timeout: 10_000 });
-  expect(refreshCalls).toBe(1);
+  expect(injected401Count).toBe(1);
+  // Ignore unrelated startup refreshes; require exactly one *additional* refresh
+  // for this synthetic 401, preserving the no-write-replay invariant.
+  expect(refreshCalls - refreshesBeforeInjectedExpiry,
+    `Unexpected 401 paths: ${JSON.stringify(observed401Paths)}`).toBe(1);
   expect(messagePosts).toBe(0);
 });
 
