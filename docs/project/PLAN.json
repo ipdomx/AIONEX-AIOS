@@ -4050,7 +4050,7 @@
     "growth_social_connected_accounts_without_unapproved_spend"
   ],
   "new_server_migration": {
-    "status": "CUTOVER_COMPLETE_NEW_SERVER_AUTHORITATIVE_NS12_OBSERVATION_ACTIVE_RELEASE960_ACCEPTED_NS15_RUNTIME_RECONCILIATION",
+    "status": "CUTOVER_COMPLETE_NEW_SERVER_AUTHORITATIVE_NS12_OBSERVATION_ACTIVE_BACKEND4C6_VIP1FED_NS15_RECONCILIATION",
     "roadmap": "docs/project/NEW-SERVER-MIGRATION-ROADMAP.md",
     "runtime_plan": "docs/project/runtime/new-server-migration-20261004/PLAN.md",
     "runtime_status": "docs/project/runtime/new-server-migration-20261004/STATUS.json",
@@ -4158,14 +4158,14 @@
     ],
     "completion_definition_ar": "لا يعتبر النقل والإطلاق مكتملين قبل نجاح الفحص المستقل والأمن والتخزين والنقل والقبول الإنتاجي واختبار الألف والنسخ/الاستعادة والرصد وفترة الرجوع، واجتياز مرونة استلام الردود/البث وإعادة الاتصال دون فقد أو تكرار تنفيذ أو تكلفة، ثم مطابقة التوثيق وموافقة المالك الصريحة على إلغاء الخادم القديم.",
     "old_server_retained_for_rollback": true,
-    "current_production_release_sha": "960dab80fe8ec27b1e8bf59425b766e03f9b9783",
-    "current_protected_main_sha": "960dab80fe8ec27b1e8bf59425b766e03f9b9783",
+    "current_production_release_sha": "4c6ae50091fb568b491eacbffa0fec53a444092d",
+    "current_protected_main_sha": "1fedff22300c1abb699439f32409bbb10ccb7ce7",
     "fr23_security_closure": {
       "pr": 870,
       "state": "MERGED",
       "merge_commit": "fa19d69412e2a28f266a0934ca20597215b8672c",
       "protected_ci": "PASS",
-      "closure_state": "CLOSED_ZERO_OPEN_DEPENDABOT_WITH_EVIDENCED_NOT_USED_DISMISSALS",
+      "closure_state": "CLOSED_ZERO_OPEN_DEPENDABOT_AFTER_PR878_VIP_SHARP_0355",
       "vip_dependency_reconciliation": {
         "pr": 875,
         "state": "MERGED",
@@ -4180,7 +4180,7 @@
         "count": 0,
         "high": 0,
         "medium": 0,
-        "captured_on": "2026-10-06 after PR875 merge and Dependabot reindex",
+        "captured_on": "2026-10-07 after PR878 merge and Dependabot reindex",
         "release_blocker_until_reconciled": false,
         "index_reconciliation_pending": false,
         "alerts": [],
@@ -4190,7 +4190,16 @@
           49,
           50
         ],
-        "closure_note": "Zero open Dependabot alerts; four source-manifest findings were dismissed only with exact binary reachability evidence and no patched module release. No absolute-security claim."
+        "closure_note": "Zero open Dependabot alerts after the VIP Sharp 0.35.5 merge. Four earlier source-manifest findings remain evidence-backed not-used dismissals; no absolute-security claim."
+      },
+      "vip_sharp_0355": {
+        "pr": 878,
+        "state": "MERGED",
+        "accepted_head": "9be98e7eda77532bbf7979955f0a22f3cef46dd0",
+        "merge_commit": "1fedff22300c1abb699439f32409bbb10ccb7ce7",
+        "protected_ci": "PASS",
+        "postmerge_main_ci": "PASS",
+        "dependabot_open_after_reindex": 0
       }
     },
     "observation": {
@@ -4253,10 +4262,10 @@
       "merge_commit": "9dd7a79d3b590a25675d5209de14b5176cba7f7f",
       "protected_ci": "PASS",
       "production_deployed": true,
-      "production_release_sha": "960dab80fe8ec27b1e8bf59425b766e03f9b9783",
+      "production_release_sha": "4c6ae50091fb568b491eacbffa0fec53a444092d",
       "runtime_acceptance": {
         "status": "PASS_STRUCTURAL_AND_PUBLIC_SMOKE",
-        "evidence": "runtime checkpoint RELEASE-960DAB80-PRODUCTION-ROLLOUT-20261006.json",
+        "evidence": "runtime checkpoint RELEASE-4C6AE500-PRODUCTION-ROLLOUT-20261006.json",
         "heartbeat_seconds": 10,
         "stale_running_seconds": 180,
         "provider_hard_timeout_seconds": 150,
@@ -4268,8 +4277,10 @@
         "owner_access_http": 302,
         "unhealthy_containers": 0,
         "restarting_containers": 0,
-        "maintenance_admission_generation": 48,
-        "extended_fault_matrix_pending": true
+        "maintenance_admission_generation": 50,
+        "extended_fault_matrix_pending": true,
+        "sharp_version": "0.35.5",
+        "libvips_version": "8.18.7"
       }
     },
     "documentation_and_execution_ledger_policy": {
@@ -4314,7 +4325,42 @@
       "runtime_journal_restored_from_old_management_host": true,
       "project_hub_render_validate": "PASS",
       "generated_state_manual_edit_forbidden": true,
-      "status": "IN_PROGRESS"
+      "status": "TRACKED_REFRESH_IN_PROGRESS_AFTER_VIP1FED",
+      "current_runtime_release": "4c6ae50091fb568b491eacbffa0fec53a444092d",
+      "latest_runtime_event": "postcutover-release4c6-fr25-20261006",
+      "current_backend_runtime_release": "4c6ae50091fb568b491eacbffa0fec53a444092d",
+      "current_vip_runtime_release": "1fedff22300c1abb699439f32409bbb10ccb7ce7",
+      "current_protected_main": "1fedff22300c1abb699439f32409bbb10ccb7ce7",
+      "vip_deployment_evidence_sha256": "4c849305f1a114e3872b558d8f7147fdb238b8872a5eeee426a9335bce489e41"
+    },
+    "vip_user_portal_release": {
+      "status": "PASS_SHARED_HOSTING_DEPLOYED",
+      "source_sha": "1fedff22300c1abb699439f32409bbb10ccb7ce7",
+      "security_pr": 878,
+      "security_pr_head": "9be98e7eda77532bbf7979955f0a22f3cef46dd0",
+      "postmerge_ci": "PASS",
+      "dependabot_open_count_after_reindex": 0,
+      "sharp_version": "0.35.5",
+      "build_verify_static": "PASS",
+      "deployment_route": "existing ai.vip-e.net shared-hosting SSH route",
+      "remote_backup": "/home2/ipdom3m7/.aionex-deploy-backups/20261007T101040Z-ai-vip-before-sharp0355",
+      "package_owned_sha256_parity": "362/362",
+      "live_http": {
+        "ar": 200,
+        "de": 200,
+        "en": 200,
+        "es": 200,
+        "fr": 200,
+        "tr": 200,
+        "login": 200,
+        "projects": 200,
+        "api_health": 200,
+        "api_ready": 200
+      },
+      "cloudflare_dns_tunnel_changed": false,
+      "backend_redeployed": false,
+      "owner_access_policy_changed": false,
+      "evidence_sha256": "4c849305f1a114e3872b558d8f7147fdb238b8872a5eeee426a9335bce489e41"
     }
   }
 }
