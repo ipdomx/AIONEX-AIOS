@@ -1201,13 +1201,14 @@ async function mockNs14aConversation(
 
 test("NS-14A repeated transport failures recover the same durable terminal result without POST replay", async ({ page }) => {
   let historyReads = 0;
+  let beginFailures = false;
   let allowRecovery = false;
   let messagePosts = 0;
   await mockNs14aConversation(
     page,
     async (route) => {
       historyReads += 1;
-      if (historyReads === 1) {
+      if (!beginFailures) {
         await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(ns14aHistory("running")) });
         return;
       }
@@ -1225,9 +1226,11 @@ test("NS-14A repeated transport failures recover the same durable terminal resul
 
   await page.goto("/en/conversations?conversation=conv-ns14a");
   await expect(page.getByText("Still working. This request is saved durably; refreshing or reconnecting will not submit it again.")).toBeVisible();
-  await expect.poll(() => historyReads, { timeout: 12_000 }).toBeGreaterThanOrEqual(2);
+  const readsBeforeFailure = historyReads;
+  beginFailures = true;
+  await expect.poll(() => historyReads, { timeout: 12_000 }).toBeGreaterThan(readsBeforeFailure);
   await expect(page.getByText("The update is delayed. Reconnecting to the same saved request automatically; do not resend it.")).toBeVisible();
-  await expect.poll(() => historyReads, { timeout: 12_000 }).toBeGreaterThanOrEqual(3);
+  await expect.poll(() => historyReads, { timeout: 12_000 }).toBeGreaterThan(readsBeforeFailure + 1);
   expect(messagePosts).toBe(0);
   allowRecovery = true;
   await expect(page.getByText("Recovered durable answer", { exact: true })).toBeVisible({ timeout: 8_000 });
@@ -1237,6 +1240,8 @@ test("NS-14A repeated transport failures recover the same durable terminal resul
 test("NS-14A auth expiry refreshes once and resumes durable history without resubmitting the turn", async ({ page }) => {
   let historyReads = 0;
   let refreshCalls = 0;
+  let injectAuthExpiry = false;
+  let expiredInjected = false;
   let messagePosts = 0;
 
   await page.route("**/api/v1/auth/refresh", async (route) => {
@@ -1266,11 +1271,12 @@ test("NS-14A auth expiry refreshes once and resumes durable history without resu
     page,
     async (route) => {
       historyReads += 1;
-      if (historyReads === 1) {
+      if (!injectAuthExpiry) {
         await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(ns14aHistory("running")) });
         return;
       }
-      if (refreshCalls === 0) {
+      if (!expiredInjected) {
+        expiredInjected = true;
         await route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ detail: "Synthetic expired session" }) });
         return;
       }
@@ -1284,6 +1290,7 @@ test("NS-14A auth expiry refreshes once and resumes durable history without resu
 
   await page.goto("/en/conversations?conversation=conv-ns14a");
   await expect(page.getByText("Still working. This request is saved durably; refreshing or reconnecting will not submit it again.")).toBeVisible();
+  injectAuthExpiry = true;
   await expect(page.getByText("Recovered after refresh", { exact: true })).toBeVisible({ timeout: 10_000 });
   expect(refreshCalls).toBe(1);
   expect(messagePosts).toBe(0);
