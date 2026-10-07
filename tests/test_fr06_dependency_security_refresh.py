@@ -60,7 +60,7 @@ def test_no_unrelated_direct_frontend_dependency_upgrade() -> None:
     assert manifest["dependencies"]["firebase"] == "12.16.0"
     assert manifest["dependencies"]["next"] == "15.5.24"
     assert manifest["dependencies"]["react"] == "18.3.1"
-    assert manifest["overrides"]["sharp"] == "0.35.4"
+    assert manifest["overrides"]["sharp"] == "0.35.5"
 
 
 def test_existing_gpu_install_compatibility_checks_retained() -> None:
