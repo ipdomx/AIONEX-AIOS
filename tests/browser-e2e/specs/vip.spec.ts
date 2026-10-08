@@ -1201,6 +1201,7 @@ async function mockNs14aConversation(
 
 test("NS-14A repeated transport failures recover the same durable terminal result without POST replay", async ({ page }) => {
   let historyReads = 0;
+  let failedReads = 0;
   let beginFailures = false;
   let allowRecovery = false;
   let messagePosts = 0;
@@ -1213,6 +1214,7 @@ test("NS-14A repeated transport failures recover the same durable terminal resul
         return;
       }
       if (!allowRecovery) {
+        failedReads += 1;
         await route.abort("failed");
         return;
       }
@@ -1228,9 +1230,13 @@ test("NS-14A repeated transport failures recover the same durable terminal resul
   await expect(page.getByText("Still working. This request is saved durably; refreshing or reconnecting will not submit it again.")).toBeVisible();
   const readsBeforeFailure = historyReads;
   beginFailures = true;
-  await expect.poll(() => historyReads, { timeout: 12_000 }).toBeGreaterThan(readsBeforeFailure);
-  await expect(page.getByText("The update is delayed. Reconnecting to the same saved request automatically; do not resend it.")).toBeVisible();
-  await expect.poll(() => historyReads, { timeout: 12_000 }).toBeGreaterThan(readsBeforeFailure + 1);
+  // Do not infer a failed read merely from a started GET: React may issue
+  // several initial reads before fault injection is armed. Require two actual
+  // aborted reads, then assert that the existing durable conversation is
+  // visibly reconnecting rather than silently stuck.
+  await expect.poll(() => failedReads, { timeout: 15_000 }).toBeGreaterThanOrEqual(2);
+  await expect(page.getByText("The update is delayed. Reconnecting to the same saved request automatically; do not resend it.")).toBeVisible({ timeout: 10_000 });
+  expect(historyReads).toBeGreaterThan(readsBeforeFailure + 1);
   expect(messagePosts).toBe(0);
   allowRecovery = true;
   await expect(page.getByText("Recovered durable answer", { exact: true })).toBeVisible({ timeout: 8_000 });
@@ -1309,12 +1315,13 @@ test("NS-14A auth expiry refreshes once and resumes durable history without resu
 
 test("NS-14A client reload resumes the selected durable conversation without a mutation", async ({ page }) => {
   let historyReads = 0;
+  let terminalReadEnabled = false;
   let messagePosts = 0;
   await mockNs14aConversation(
     page,
     async (route) => {
       historyReads += 1;
-      const complete = historyReads >= 2;
+      const complete = terminalReadEnabled;
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -1331,6 +1338,9 @@ test("NS-14A client reload resumes the selected durable conversation without a m
   await expect(page.getByText("Still working. This request is saved durably; refreshing or reconnecting will not submit it again.")).toBeVisible();
   await page.reload();
   await expect(page).toHaveURL(/conversation=conv-ns14a/);
+  // Recover from the already-persisted terminal record only after the UI
+  // actually survives the reload; otherwise pre-reload polling races ahead.
+  terminalReadEnabled = true;
   await expect(page.getByText("Recovered after client reload", { exact: true })).toBeVisible();
   expect(messagePosts).toBe(0);
 });
@@ -1378,4 +1388,95 @@ test("NS-14A lost write response retries the identical request id and charges on
   expect(postAttempts).toBe(2);
   expect(new Set(requestIds).size).toBe(1);
   expect(charged.size).toBe(1);
+});
+
+test("NS-14A lost terminal history response is recovered from durable reads without replay", async ({ page }) => {
+  let terminalAvailable = false;
+  let droppedTerminalReads = 0;
+  let historyReads = 0;
+  let mutationCount = 0;
+  await mockNs14aConversation(
+    page,
+    async (route) => {
+      historyReads += 1;
+      if (!terminalAvailable) {
+        await route.fulfill({
+          status: 200, contentType: "application/json",
+          body: JSON.stringify(ns14aHistory("running")),
+        });
+        return;
+      }
+      if (droppedTerminalReads === 0) {
+        droppedTerminalReads += 1;
+        await route.abort("failed");
+        return;
+      }
+      await route.fulfill({
+        status: 200, contentType: "application/json",
+        body: JSON.stringify(ns14aHistory("completed", "Durable terminal event recovered")),
+      });
+    },
+    async (route) => {
+      mutationCount += 1;
+      await route.fulfill({ status: 500, contentType: "application/json", body: "{}" });
+    },
+  );
+  await page.goto("/en/conversations?conversation=conv-ns14a");
+  await expect(page.getByText(
+    "Still working. This request is saved durably; refreshing or reconnecting will not submit it again.",
+  )).toBeVisible();
+  terminalAvailable = true;
+  await expect.poll(() => droppedTerminalReads, { timeout: 12_000 }).toBe(1);
+  await expect(page.getByText("Durable terminal event recovered", { exact: true })).toBeVisible({ timeout: 10_000 });
+  expect(historyReads).toBeGreaterThanOrEqual(3);
+  expect(mutationCount).toBe(0);
+  await expect(page).toHaveURL(/conversation=conv-ns14a/);
+});
+
+test("NS-14A simulated background network loss recovers on foreground using GET only", async ({ page }) => {
+  let simulatedBackground = false;
+  let returnToForeground = false;
+  let backgroundReadFailures = 0;
+  let mutationCount = 0;
+  await mockNs14aConversation(
+    page,
+    async (route) => {
+      if (simulatedBackground) {
+        backgroundReadFailures += 1;
+        await route.abort("failed");
+        return;
+      }
+      await route.fulfill({
+        status: 200, contentType: "application/json",
+        body: JSON.stringify(returnToForeground
+          ? ns14aHistory("completed", "Resumed after simulated foreground")
+          : ns14aHistory("running")),
+      });
+    },
+    async (route) => {
+      mutationCount += 1;
+      await route.fulfill({ status: 500, contentType: "application/json", body: "{}" });
+    },
+  );
+  await page.goto("/en/conversations?conversation=conv-ns14a");
+  await expect(page.getByText(
+    "Still working. This request is saved durably; refreshing or reconnecting will not submit it again.",
+  )).toBeVisible();
+  simulatedBackground = true;
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  expect(await page.evaluate(() => document.visibilityState)).toBe("hidden");
+  await expect.poll(() => backgroundReadFailures, { timeout: 12_000 }).toBeGreaterThanOrEqual(1);
+  expect(mutationCount).toBe(0);
+  simulatedBackground = false;
+  returnToForeground = true;
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expect(page.getByText("Resumed after simulated foreground", { exact: true })).toBeVisible({ timeout: 10_000 });
+  await expect(page).toHaveURL(/conversation=conv-ns14a/);
+  expect(mutationCount).toBe(0);
 });
