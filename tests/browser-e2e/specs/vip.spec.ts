@@ -1379,3 +1379,94 @@ test("NS-14A lost write response retries the identical request id and charges on
   expect(new Set(requestIds).size).toBe(1);
   expect(charged.size).toBe(1);
 });
+
+test("NS-14A lost terminal history response is recovered from durable reads without replay", async ({ page }) => {
+  let terminalAvailable = false;
+  let droppedTerminalReads = 0;
+  let historyReads = 0;
+  let mutationCount = 0;
+  await mockNs14aConversation(
+    page,
+    async (route) => {
+      historyReads += 1;
+      if (!terminalAvailable) {
+        await route.fulfill({
+          status: 200, contentType: "application/json",
+          body: JSON.stringify(ns14aHistory("running")),
+        });
+        return;
+      }
+      if (droppedTerminalReads === 0) {
+        droppedTerminalReads += 1;
+        await route.abort("failed");
+        return;
+      }
+      await route.fulfill({
+        status: 200, contentType: "application/json",
+        body: JSON.stringify(ns14aHistory("completed", "Durable terminal event recovered")),
+      });
+    },
+    async (route) => {
+      mutationCount += 1;
+      await route.fulfill({ status: 500, contentType: "application/json", body: "{}" });
+    },
+  );
+  await page.goto("/en/conversations?conversation=conv-ns14a");
+  await expect(page.getByText(
+    "Still working. This request is saved durably; refreshing or reconnecting will not submit it again.",
+  )).toBeVisible();
+  terminalAvailable = true;
+  await expect.poll(() => droppedTerminalReads, { timeout: 12_000 }).toBe(1);
+  await expect(page.getByText("Durable terminal event recovered", { exact: true })).toBeVisible({ timeout: 10_000 });
+  expect(historyReads).toBeGreaterThanOrEqual(3);
+  expect(mutationCount).toBe(0);
+  await expect(page).toHaveURL(/conversation=conv-ns14a/);
+});
+
+test("NS-14A simulated background network loss recovers on foreground using GET only", async ({ page }) => {
+  let simulatedBackground = false;
+  let returnToForeground = false;
+  let backgroundReadFailures = 0;
+  let mutationCount = 0;
+  await mockNs14aConversation(
+    page,
+    async (route) => {
+      if (simulatedBackground) {
+        backgroundReadFailures += 1;
+        await route.abort("failed");
+        return;
+      }
+      await route.fulfill({
+        status: 200, contentType: "application/json",
+        body: JSON.stringify(returnToForeground
+          ? ns14aHistory("completed", "Resumed after simulated foreground")
+          : ns14aHistory("running")),
+      });
+    },
+    async (route) => {
+      mutationCount += 1;
+      await route.fulfill({ status: 500, contentType: "application/json", body: "{}" });
+    },
+  );
+  await page.goto("/en/conversations?conversation=conv-ns14a");
+  await expect(page.getByText(
+    "Still working. This request is saved durably; refreshing or reconnecting will not submit it again.",
+  )).toBeVisible();
+  simulatedBackground = true;
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  expect(await page.evaluate(() => document.visibilityState)).toBe("hidden");
+  await expect.poll(() => backgroundReadFailures, { timeout: 12_000 }).toBeGreaterThanOrEqual(1);
+  expect(mutationCount).toBe(0);
+  simulatedBackground = false;
+  returnToForeground = true;
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expect(page.getByText("Resumed after simulated foreground", { exact: true })).toBeVisible({ timeout: 10_000 });
+  await expect(page).toHaveURL(/conversation=conv-ns14a/);
+  expect(mutationCount).toBe(0);
+});
