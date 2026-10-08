@@ -628,3 +628,38 @@ async def test_status_read_does_not_write_or_rollover_usage(case):
     async with case.sessions() as s:
         row = await g._record(s, g.USAGE, case.actor.id)
         assert row.payload == before
+
+
+@pytest.mark.asyncio
+async def test_worker_interruption_retains_running_job_and_restart_reconciles_without_provider_replay(case, monkeypatch):
+    c = await create(case)
+    job = await send(case, c)
+    entered = asyncio.Event()
+    provider_calls = 0
+
+    async def interrupted_provider(*_):
+        nonlocal provider_calls
+        provider_calls += 1
+        entered.set()
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(worker.ai, "_execute_provider", interrupted_provider)
+    task = asyncio.create_task(worker.run_turn(job["job_id"]))
+    await asyncio.wait_for(entered.wait(), 2)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    async with case.sessions() as s, s.begin():
+        row = await s.get(Job, job["job_id"])
+        assert row.status == "running"
+        row.updated_at = datetime.now(UTC) - timedelta(minutes=5)
+
+    assert await worker.reconcile_stale_running(max_age_seconds=60) == 1
+    assert await worker.run_turn(job["job_id"]) is False
+    assert provider_calls == 1
+
+    async with case.sessions() as s:
+        row = await s.get(Job, job["job_id"])
+        assert row.status == "needs_review"
+        assert row.error == "provider_result_uncertain_stalled"
