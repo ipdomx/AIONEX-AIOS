@@ -1201,6 +1201,7 @@ async function mockNs14aConversation(
 
 test("NS-14A repeated transport failures recover the same durable terminal result without POST replay", async ({ page }) => {
   let historyReads = 0;
+  let failedReads = 0;
   let beginFailures = false;
   let allowRecovery = false;
   let messagePosts = 0;
@@ -1213,6 +1214,7 @@ test("NS-14A repeated transport failures recover the same durable terminal resul
         return;
       }
       if (!allowRecovery) {
+        failedReads += 1;
         await route.abort("failed");
         return;
       }
@@ -1228,9 +1230,13 @@ test("NS-14A repeated transport failures recover the same durable terminal resul
   await expect(page.getByText("Still working. This request is saved durably; refreshing or reconnecting will not submit it again.")).toBeVisible();
   const readsBeforeFailure = historyReads;
   beginFailures = true;
-  await expect.poll(() => historyReads, { timeout: 12_000 }).toBeGreaterThan(readsBeforeFailure);
-  await expect(page.getByText("The update is delayed. Reconnecting to the same saved request automatically; do not resend it.")).toBeVisible();
-  await expect.poll(() => historyReads, { timeout: 12_000 }).toBeGreaterThan(readsBeforeFailure + 1);
+  // Do not infer a failed read merely from a started GET: React may issue
+  // several initial reads before fault injection is armed. Require two actual
+  // aborted reads, then assert that the existing durable conversation is
+  // visibly reconnecting rather than silently stuck.
+  await expect.poll(() => failedReads, { timeout: 15_000 }).toBeGreaterThanOrEqual(2);
+  await expect(page.getByText("The update is delayed. Reconnecting to the same saved request automatically; do not resend it.")).toBeVisible({ timeout: 10_000 });
+  expect(historyReads).toBeGreaterThan(readsBeforeFailure + 1);
   expect(messagePosts).toBe(0);
   allowRecovery = true;
   await expect(page.getByText("Recovered durable answer", { exact: true })).toBeVisible({ timeout: 8_000 });
@@ -1309,12 +1315,13 @@ test("NS-14A auth expiry refreshes once and resumes durable history without resu
 
 test("NS-14A client reload resumes the selected durable conversation without a mutation", async ({ page }) => {
   let historyReads = 0;
+  let terminalReadEnabled = false;
   let messagePosts = 0;
   await mockNs14aConversation(
     page,
     async (route) => {
       historyReads += 1;
-      const complete = historyReads >= 2;
+      const complete = terminalReadEnabled;
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -1331,6 +1338,9 @@ test("NS-14A client reload resumes the selected durable conversation without a m
   await expect(page.getByText("Still working. This request is saved durably; refreshing or reconnecting will not submit it again.")).toBeVisible();
   await page.reload();
   await expect(page).toHaveURL(/conversation=conv-ns14a/);
+  // Recover from the already-persisted terminal record only after the UI
+  // actually survives the reload; otherwise pre-reload polling races ahead.
+  terminalReadEnabled = true;
   await expect(page.getByText("Recovered after client reload", { exact: true })).toBeVisible();
   expect(messagePosts).toBe(0);
 });
