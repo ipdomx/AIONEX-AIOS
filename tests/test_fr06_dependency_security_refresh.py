@@ -58,7 +58,7 @@ def test_every_grpc_lock_instance_is_patched_and_matches_override() -> None:
 def test_no_unrelated_direct_frontend_dependency_upgrade() -> None:
     manifest = json.loads((VIP / "package.json").read_text())
     assert manifest["dependencies"]["firebase"] == "12.16.0"
-    assert manifest["dependencies"]["next"] == "15.5.24"
+    assert manifest["dependencies"]["next"] == "15.5.27"
     assert manifest["dependencies"]["react"] == "18.3.1"
     assert manifest["overrides"]["sharp"] == "0.35.5"
 
