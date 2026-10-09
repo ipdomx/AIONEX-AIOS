@@ -1,5 +1,37 @@
 # AIONEX AIOS — New Production Server Migration Roadmap
 
+## 2026-10-09 — Namecheap confirmed Virtual Media permissions; rescue boot offered as paid assistance
+
+**أحدث رد مباشر من Namecheap بعد استيضاح صلاحيات IPMI — يُقدّم على الاستنتاجات الأقدم:**
+> 1. It has permissions, but IPMI is isolated from the world, so using any 3-party links would be impossible (also applies to question 3)
+> 2. We can mount rescueCD and boot the server into it as paid assistance.
+
+**التفسير الدقيق:** دعم Namecheap يؤكد أن حساب IPMI **له صلاحية استخدام Virtual Media المطلوبة**، رغم أن صفحة Network تعرض تحذير منع تغيير إعدادات الشبكة؛ ليست صلاحية Administrator الشاملة مضمونة. شبكة BMC/IPMI **معزولة عن العالم الخارجي**، فلا يمكن الاعتماد على مشاركة SMB/ISO على خادم NEW أو رابط طرف ثالث؛ لا تفتح منفذ SMB/445 للعامة ولا تحاول تجاوز عزلة BMC. Namecheap **ترفض تصوير الأقراص بنفسها** لكنها تعرض **تركيب rescueCD والإقلاع منه كخدمة مدفوعة**؛ الإقلاع فقط لا يعني نسخ البيانات.
+
+### نقطة القرار التالية R02/R04 — الحصول على عرض مدفوع قبل أي Reset/Boot
+
+اطلب من موظف Namecheap، **دون منح أي تفويض بالتنفيذ**:
+1. **السعر المحدد** للعملية، إن كان مبلغًا ثابتًا أو بالساعة، والضرائب/رسوم المساعدة/تكرار المحاولة/حد الجلسة، والموعد ومدة التنفيذ.
+2. **اسم وإصدار RescueCD** ونوع الدخول بعد الإقلاع (كونسول IPMI، شبكة، SSH) وهل يمكنه الإقلاع إلى بيئة live بلا format أو إعادة تثبيت أو كتابة على أقراص /dev/sda و/dev/sdb أو تجميع RAID1 للكتابة؛ rescue ينبغي أن يترك أقراص المصدر غير مركبة للكتابة.
+3. **أهم شرط تشغيلي:** هل تعمل للشاشة Rescue الشبكة العامة الخاصة بـOLD، وهل يمكن الوصول إلى **NEW 203.161.33.64 عبر SSH/22** من نظام الإنقاذ نفسه (ليس BMC)، وهل تسمح Namecheap بنقل نحو 1.92TB إلى خادم آخر تابع للحساب نفسه، وأي حدود سرعة/حجم/تكلفة bandwidth؟ **عزلة BMC لا تثبت عزلة Rescue Linux**؛ مساران شبكيان مختلفان. لا تفترض إمكان اتصال Rescue قبل تأكيد/اختبار مباشر.
+4. هل يمكن الاحتفاظ بـRescueCD قيد الإقلاع مدة كافية لتصوير القرصين والتحقق من البصمات، وهل تستطيع الشركة توفير **نظام تشغيل إنقاذ يستطيع تشغيل SSH وdd/sha256sum** بشكل مستقل دون السماح لها برؤية كلمات مرور أو مفاتيح الحساب الخاصة؟ كيف ينتهي وصول المساعدة وحسابات الإنقاذ؟
+5. هل سيستمر وصول **IPMI عبر VPN** أثناء Rescue، وهل يمكن التحكم بعملية الإقلاع التالية/إلغاء Rescue والوصول إلى OLD Ubuntu إذا أخفقت شبكة Rescue؟ هل يمكن الحصول على موافقة المالك بشكل منفصل **قبل** Boot؟
+
+**قرار التشغيل الحالي: HOLD — لا توافق على الدفع أو إعادة تشغيل القديم حتى تتوفر الأجوبة السابقة.** اطلب فقط العرض والتفاصيل؛ لا تطلب من الدعم إعادة تشغيل الجهاز أثناء المحادثة. أداة @AIONEX Server MCP 2 ما زالت متصلة عبر OLD Ubuntu وسوف تتوقف أثناء أي Rescue boot؛ يجب تثبيت طريقة إدارة مستقلة قابلة للاستعمال (IPMI console مع اتصالات Rescue→NEW وNEW SSH) وتقبُّل فترة انقطاع أداة ChatGPT القديمة قبل إعطاء موافقة صريحة. لا تضغط أي زر Save/Mount/Reboot من الواجهة الحالية، والخانات تبقى فارغة لأن مشاركة ISO خارجية غير قابلة للوصول عبر BMC.
+
+### إذا جاءت الموافقة والشروط PASS: خطة التنفيذ المفوضة المقبلة
+
+- تأكد من سلامة NEW ومراقبته ووجود مساحة 3TB تقريبًا في مخزن الاستقبال المخصص root0700، وخطة العودة واحتياطي المفاتيح. لا تغيير لإنتاج NEW أو أقراصه.
+- بعد موافقة المالك على السعر والوقت والعملية، **Namecheap** تركّب RescueCD وتقلع OLD بتوقيت محدد؛ لا تقوم بإعادة التثبيت ولا تفتح/تعدل LUKS أو RAID ولا تبدّل إعدادات الإقلاع الدائمة.
+- تحقق من هوية القرصين في Rescue بواسطة /dev/disk/by-id وSerial وأحجام كل منهما (960,197,124,096 بايت حسب OLD Ubuntu، ويجب إعادة تأكيدها داخل Rescue)، وافحص أن RAID/الجذر القديم **غير مركبين للكتابة**.
+- اختبر اتصال Rescue→NEW الآمن، ونفّذ تصوير كل **قرص فيزيائي كامل** إلى ملف **عادي** جديد على NEW عبر SSH مشفر، وليس نسخًا إلى كتلة /dev/* أو overwrite production. سجل حجم كل ملف، SHA256 للقرص المصدر والصورة المنقولة، خطأ read، حالة نقل البيانات، واحتفظ بالملفات المؤقتة .partial حتى تكتمل صلاحيتها.
+- تحقق من بنية partition/RAID/LUKS للقراءة فقط في صورة RAW، واحتفظ بمفاتيح الاسترجاع خارج OLD وNEW ومع الصور المؤمّنة. عند الفشل عُد بسلام إلى Ubuntu القديم دون حذف الأصل أو الادعاء بأن النسخة مكتملة.
+- لا تعتمد Shutdown/Decommission بعد تصوير RAW وحده؛ اختبر NEW MCP مستقلًا أو سلّم صراحة أن OLD ChatGPT Connector سيتوقف، وأكمل TURN relay وoffline key escrow والنقاط الأخرى الموثقة. من غير اختبار REAL new-host round-trip لا تدّع أن أداة ChatGPT نُقلت إلى NEW.
+
+**معايير الحالة الحالية:** Namecheap Virtual Media privilege **confirmed by support**, BMC third-party ISO routing **not supported**, **paid provider RescueCD boot possible in principle**, **quote NOT YET RECEIVED**, Rescue public network/SSH access NOT VERIFIED, image transfer NOT STARTED, old-host boot unchanged, NEW production kept running. هذا النص للتوثيق والمتابعة ولا يُعتبر تفويضًا بإعادة تشغيل OLD.
+
+---
+
 ## 2026-10-09 — IPMI network screenshot / BMC Operator privilege restriction (current blocker)
 
 **New factual evidence from two owner screenshots after opening Configuration > Network, same OLD Supermicro BMC (not Ubuntu console):**
