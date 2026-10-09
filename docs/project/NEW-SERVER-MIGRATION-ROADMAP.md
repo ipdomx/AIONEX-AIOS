@@ -1,5 +1,13 @@
 # AIONEX AIOS — New Production Server Migration Roadmap
 
+## Latest gate: manual 180-second GRUB menu and independent NEW observer (2026-10-09 21:20 UTC)
+
+- OWNER APPROVED one reboot to free SystemRescue, but no new reboot occurred yet. Previous grub-reboot warned about RAID1/diskfilter persistence. DO NOT use grub-reboot. Existing OLD /boot/grub/custom.cfg instead now ends with commands: set default=0; set timeout_style=menu; set timeout=180. Ubuntu remains default first GRUB entry; select AIONEX SystemRescue OFFLINE RAM manually via owner iPhone Supermicro IPMI Console within 180s, otherwise Ubuntu auto-boots. GRUB script syntax PASS; grubenv next_entry EMPTY. OLD root0600 rollback: /root/aionex-rescue-iso-20261009/BEFORE-MANUAL-GRUB-MENU-20261009T212042Z.cfg; SHA256 6545127bfaf4ffc596cc4576c5df6fc3c3077cd9bdd50cb03b5d78b2fc039520. New custom.cfg SHA256 a40e209a4dd7ce920bd63136160330e94cdb7094e693a76461eff31d8178871b. Main grub.cfg and /etc/default/grub were not rewritten.
+- NEW-only independent read-only aionex-old-rescue-progress.timer/service ACTIVE, Python observer at /var/lib/aionex-migration/old-host-offline-disk-image/old-rescue-progress.py. Results under root-only observations/RESCUE-WATCH-*.json every ~60s. Tested Result=success, 36 production containers unchanged. Observes OLD TCP22, NEW free bytes, existing RAW file sizes only; NOT an imaging agent. Existing hourly AIONEX Rescue Watchdog automation preserved exact id 6ac2c4b7a2308191aaa547054041f383 (no new duplicate task).
+- NEXT: owner opens live IPMI console and verifies keyboard first; then a reboot may be coordinated. OLD connected ChatGPT MCP will fail during Rescue, so NO automatic rescue access from ChatGPT is promised. Owner chooses manual GRUB Rescue entry. On boot, use previously staged /boot/iso/AIONEX-RESCUE-PREFLIGHT.sh only inside actual SystemRescue to validate Rescue network and pinned SSH to NEW; do not perform RAW transfers without confirming physical drive identity/by-id and read-only source state. Actual RAW disk images 0/2 and Rescue-to-NEW network UNTESTED.
+- Evidence/continuity details are recorded in issue #884: https://github.com/ipdomx/AIONEX-AIOS/issues/884 . This PR remains unmerged unless exact-head required CI passes.
+
+---
 ## 2026-10-09 21:08 UTC — PREBOOT HELPERS / RUNBOOK CHECKPOINT
 
 **حقائق محدثة لتحاشي فشل نصوص الإنقاذ بعد إعادة الإقلاع:**
