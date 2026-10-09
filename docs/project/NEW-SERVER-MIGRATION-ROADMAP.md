@@ -1,5 +1,43 @@
 # AIONEX AIOS — New Production Server Migration Roadmap
 
+## 2026-10-09 — NO-FEE LOCAL GRUB ISO STAGING: SOURCE-VERIFIED (LATEST)
+
+**ملخص عاجل لاستكمال أي محادثة من هذه النقطة:** المالك طلب تصوير قرصي السيرفر القديم بالكامل **بدون أي رسوم Namecheap**، ويستخدم iPhone مع SSH قصير بدون Nano/EOF، ويمكنه الدخول إلى كونسول Supermicro IPMI القديم عبر VPN. مسار Virtual Media/SMB الخارجي غير متاح لأن شبكة BMC معزولة، ودعم Namecheap يعرض RescueCD مدفوعًا فقط؛ لذلك انتقلنا للمسار المجاني المعتمد رسميًا: الإقلاع من **ISO على القرص الداخلي بواسطة GRUB**. المرجع الأساسي: https://www.system-rescue.org/manual/Installing_SystemRescue_on_the_disk/ و https://www.system-rescue.org/manual/Booting_SystemRescue/ .
+
+### ما تم فعليًا (كلّه قبل أي إعادة تشغيل أخرى)
+
+1. **Rescue ISO الأصلي تم تنزيله والتحقق منه بالكامل** في OLD `nc-ph-4862`، Ubuntu root ext4 /dev/md0p2:
+   - الإصدار **SystemRescue 13.02**، الحجم بالبايت **1,381,629,952**.
+   - الملف `/root/aionex-rescue-iso-20261009/systemrescue-13.02-amd64.iso`، root0600.
+   - ملف نسخة الإقلاع الفعلية `/boot/iso/systemrescue.iso`، root0600، أيضًا الحجم 1,381,629,952.
+   - **SHA256 لكل من النسختين مطابق للبصمة المسترجعة من ناشر SystemRescue الرسمي**: `ad4d670b72859d887c7960142a9a9d36a3e50446694a035e254442f65d6e7572`. المصدر `https://www.system-rescue.org/releases/13.02/systemrescue-13.02-amd64.iso.sha256`.
+   - فحص ISO للقراءة فقط أثبت وجود `/boot/grub/loopback.cfg`، `/sysresccd/boot/x86_64/vmlinuz`، `/sysresccd/boot/x86_64/sysresccd.img`. الـISO يتضمن قائمة `copytoram` و `checksum`.
+2. **GRUB وجاهزية الإقلاع:** تم العثور على ملف `/boot/grub/custom.cfg` (موجود بالفعل عند فحص 21:00 UTC) يحوي قائمة `AIONEX SystemRescue OFFLINE RAM (no-fee; owner authorized reboot only)` ومعرّف `aionex-systemrescue-ram`، ويشير من نظام ملفات `/boot` المنفصل إلى `/iso/systemrescue.iso`، وليس إلى المسار الفعلي في نظام Linux `/boot/iso/systemrescue.iso`. هذا التمييز **صحيح** لأن الـISO على قسم /boot منفصل. إعداد القائمة يطلب `copytoram checksum`، ويفتح نواة/initramfs من ISO عبر GRUB loopback.
+   - **`grub-script-check /boot/grub/custom.cfg` PASS**، و `grub-script-check /boot/grub/grub.cfg` PASS.
+   - **`grub-fstest /dev/md0p1 ls /iso/` PASS** وأظهر `systemrescue.iso`. كذلك جرّبنا `grub-fstest /dev/md0p2 ls /root/aionex-rescue-iso-20261009/` بنجاح.
+   - **النظام ما زال مهيأ للإقلاع الافتراضي إلى Ubuntu:** `GRUB_DEFAULT=0`, `GRUB_TIMEOUT=0`, `GRUB_TIMEOUT_STYLE=hidden`. فحص `grub-editenv /boot/grub/grubenv list` رجع فارغًا: **لا توجد next_entry محددة ولا grub-reboot مختارة**. لم يُطلب reboot ولا أجري من هذه المرحلة.
+   - يوجد مسودة GRUB أخرى غير فعّالة `/root/aionex-rescue-iso-20261009/AIONEX-SYSTEMRESCUE-ONE-TIME-CANDIDATE.cfg` اختُبرت نحويًا، لكنها **ليست** القائمة الفعلية. لا تنشئ قوائم مكررة، ولا تُعدل `/boot/grub/grub.cfg` أو `/etc/default/grub` تلقائيًا.
+   - `/boot` أصبح يستخدم 84% من 2GB تقريبًا وبقي **310MB** فقط. لا تُنشئ نسخة ISO ثالثة في /boot ولا تُحدّث kernel أثناء هذه المرحلة.
+3. **حالة النظام بعد restart حدث سابقًا خارج هذه المرحلة:** `who -b` أكد أن OLD Ubuntu أعاد التشغيل **2026-10-09 19:56:49 UTC**. في فحوص 20:57–21:01 كانت خدمتا Docker وcontainerd على OLD **inactive/dead**، والمجلدات المشفرة Docker غير مركّبة، بينما أداة `aionex-phase22c-2-tunnel.service` لا تزال **active**. **لا تعيد تفعيل Docker على OLD** دون دراسة تعارض العمال، لأنه ليس الإنتاج الرئيسي. NEW `nc-ph-4354` كان عليه **36 حاوية تعمل، صفر unhealthy/restarting، وتوقيتا systemd للمراقبة active**. لا تفترض أن restart القديم حدث بواسطة هذه المحادثة، أو أن البيانات القديمة تُفقد بمجرد توقف Docker.
+4. **جهة الاستقبال:** NEW `203.161.33.64` يحتفظ بمجلد `/var/lib/aionex-migration/old-host-offline-disk-image/` root0700، ومساحة 3.27TB متاحة بالتحقق السابق، مع وصول SSH إداري مستقل من iPhone. OLD RAID1 يعمل [UU]، قرصا SAMSUNG `sda` و `sdb` **960,197,124,096 بايت لكل واحد**، وخيار البصمة الكامل يحتاج صورتين من بيئة **متوقفة بالكامل عن الكتابة**.
+
+### الخطوة التالية قبل أي reboot: تثبيت قناة شبكة Rescue والطريق العكسي
+
+- **لا تُفعّل grub-reboot أو power/reset حتى موافقة مالك صريحة بعد نجاح شروط ما قبل الإقلاع.** تشغيل Rescue يوقف Ubuntu OLD ويقطع وصول ChatGPT MCP2 الحالي فورًا؛ الأدوات الموجودة في هذه المحادثة لا تستطيع الاتصال بـNEW مباشرة عبر MCP الحالي بعد توقف OLD، حتى لو كان SSH إلى NEW يعمل من iPhone. يجب أن يستعد المالك لإكمال أوامر Rescue من كونسول IPMI عبر VPN.
+- الشبكة OLD Ubuntu **static**, عنوانه العام `209.74.65.106/24` على `wan0` والبوابة `209.74.65.1`. **SystemRescue الافتراضي يستخدم DHCP** وقد لا يحصل على IP لدى Namecheap. أثناء Rescue افحص `ip -br link` و`ip -br -4 a`، وتعرف على NIC العام الصحيح عبر MAC/PCI لا تتوقع اسم `wan0`. ثم عند الحاجة اضبط عنوان old static نفسه مؤقتًا في RAM/Rescue، ولا تغير شبكة IPMI. اختبر اتصال Rescue→NEW `203.161.33.64:22` بشكل آمن.
+- Rescue يأتي عادة بــsshd لكن جدار الحماية قد يمنع الاتصالات الواردة؛ يُفضّل **خروج SSH من Rescue إلى NEW** مع مصادقة مالك مأذونة، بدل تعريض Rescue root password للشبكة. لا تحفظ مفاتيح خاصة في GitHub أو المحادثة، ولا تستخدم كلمات مرور في kernel args. تحقق عمليًا من مصادقة جهة NEW قبل بدء صورة كبيرة. راجع https://www.system-rescue.org/manual/Network_configuration_and_programs/ .
+- ISO على RAID1 والـboot عبر GRUB؛ حاذر أن auto-assembly الافتراضي لـmd RAID قد يكتب metadata (الدليل الرسمي `nomdlvm` يمنع auto-activation لكن قد يعيق العثور على ISO الموجود على RAID). **لا تُعد أن النسخة الجنائية الصارمة غير معدلة قبل اختبار boot**؛ شرط هدفنا الحصول على صورة كاملة متسقة بعد دخول Rescue وتوقف الكتابة، وبصمة الصورة يجب أن تتحقق من الحالة المقروءة بعد Rescue. لا تستخدم filesystem repair أو mount rw.
+- دخول Live Rescue يحتاج مراجعة `lsblk -b -o NAME,TYPE,SIZE,FSTYPE` و `cat /proc/mdstat` من كونسول IPMI قبل أي أوامر تصوير. عرّف disks بــ`/dev/disk/by-id` وحجم 960,197,124,096 لكل قرص. لا تفترض تطابق ترتيب sda/sdb بين Ubuntu وRescue.
+- احفظ خطة الرجوع: GRUB one-shot عند الموافقة فقط، فلا تعيد كتابة default Ubuntu. عند فشل boot يظل IPMI Console متاحًا لبدء Ubuntu يدويًا. لا تفترض Rescue reboot آمنًا أو عودة تلقائية من أي hang.
+- **نقل صورتَي الأقراص عبر SSH إلى NEW كملفين عاديين** بعد فحص المساحة والصلاحية، وضبط source read-only، ومن دون الكتابة إلى أي `/dev/*` على NEW، وبلا نسخ RAW إلى GitHub. إجمالي 1,920,394,248,192 بايت (بدون ضغط)، وأقل وقت نظري على 1Gbps نحو **4 ساعات و16 دقيقة** مع استبعاد كل overhead؛ التنفيذ قد يستغرق أطول بكثير، ولا يُضمن انتهاء العملية اليوم. مراقبة progress/timeout واستئناف آمن + SHA256 المصدرين والصورتين وحالة أخطاء القراءة مطلوبة.
+- **موانع إغلاق OLD:** ملفات RAW كاملة الحجم ومطابقة SHA256 وحفظ المفاتيح في مكان مستقل عن السيرفرين، وتقبل المالك لفقد MCP القديم أو ربط البديل باختبار حقيقي، وتحقق TURN relay بعد تحديث external-ip في NEW، وسلامة التشغيل. ممنوع الادعاء أن النسخ الاحتياطي لـR2 اختُبر استرجاعه عمليًا حديثًا: آخر سجل DR dry_run=true.
+- **الأدلة التاريخية لملفات AIOS الأصلية** (JKS ومفاتيح الإصدار، OpenSong وWorktrees وRuntime وHunyuan ومنصة الإنتاج) محفوظة بالفعل NEW وفق SHA سجل #884؛ لا تكرر نقلها. IMAGE RAW مطلوب فقط لأن المالك طلب حرفيًا كل قديم مخفي تحت mount points بجانب التطبيقات.
+- **إذا منصة ChatGPT رفضت تنفيذ خطوة نقل سرية/RAW أو init ملف MCP سابقًا، فلا تعاودها بمسار أداة أخرى/worker.** الاستمرار المسموح به يشمل التدقيق غير الحساس والتحضير والتوثيق فقط إلى أن تتضح صلاحيات التنفيذ.
+
+**القرار:** ISO الرسمي/GRUB read-only PREPARATION = PASS. Rescue boot = **NOT STARTED**, RAW disk image bytes moved = **ZERO**, full-new-server-restore = NOT CLAIMED. الخطوة القادمة موافقة منفصلة على restart بعد تصميم Rescue static network and authenticated NEW receiver. لا توقف السيرفر دون ذلك.
+
+---
+
 ## 2026-10-09 21:02 UTC — NO-FEE LOCAL-GRUB SYSTEMRESCUE STAGED & VERIFIED (NOT BOOTED)
 
 **Supersedes paid-RescueCD-only assumption:** Based on the owner's explicit no-extra-cost requirement, we verified the official SystemRescue free **local-disk GRUB2 ISO loopback boot** procedure. Reference https://www.system-rescue.org/manual/Installing_SystemRescue_on_the_disk/ and official download https://www.system-rescue.org/Download/ . It does NOT need external IPMI Virtual Media, SMB/CIFS or paid Namecheap RescueCD assistance. It still requires an explicitly approved one-time reboot and working console. Do **not** confuse staging with successful rescue boot or complete-disk backup.
