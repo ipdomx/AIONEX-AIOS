@@ -1,5 +1,27 @@
 # AIONEX AIOS — New Production Server Migration Roadmap
 
+## 2026-10-09 21:08 UTC — PREBOOT HELPERS / RUNBOOK CHECKPOINT
+
+**حقائق محدثة لتحاشي فشل نصوص الإنقاذ بعد إعادة الإقلاع:**
+
+- تم فحص الجذر المضغوط داخل SystemRescue 13.02 الأصلي على OLD للقراءة فقط عبر `unsquashfs -cat ... etc/os-release`، ووجدنا **`ID=sysrescue`** (و`ID_LIKE=arch`)، وليس `ID=arch`. تم إصلاح حارسي التنفيذ في نصين مخصصين من حالة `ID=arch` الخطأ إلى `ID=sysrescue` الحقيقي قبل أي استخدام.
+- سكريبت الشبكة الآمن المحفوظ على قسم BOOT القديم: `/boot/iso/AIONEX-RESCUE-NETCHECK.sh`، Bash syntax PASS، وضع 0700 وroot؛ SHA256 `1f386737061bf63d2c9feba699e892ee7b46ae676517a63b6dbbbfb66d089eed`. **يُرفض التنفيذ على Ubuntu** (RC3)، ويُسمح فقط داخل live SystemRescue. بعد الإقلاع، يفحص أولًا منفذ TCP22 على NEW؛ إذا لم تعمل شبكة Rescue الافتراضية، يكتشف منفذ WAN الفيزيائي من MAC الموجود في السكريبت **المحلي فقط** ويعيد إعداد عنوان OLD العام الثابت `209.74.65.106/24` وبوابة `209.74.65.1` **في ذاكرة Rescue فقط**، ثم يتحقق من NEW. لا ينقل ملفات أو يصور أقراصًا ولا يغيّر شبكة BMC المعزولة.
+- سكريبت فحص SSH فقط `/boot/iso/AIONEX-RESCUE-SSH-CHECK.sh`، root0700، Bash syntax/Ubuntu refusal PASS، SHA256 `11092d12de528ce1972e3811deab3aafaa4da5ceeaf794ab47daea5f7fd22107`. في Rescue فقط، يحاول تركيب قسم Ubuntu القديم ext4 **للقراءة فقط بدون تحميل journal** (`mount -t ext4 -o ro,noload`) للاستفادة من هوية SSH المصرح بها والمطابقة مسبقًا على OLD بدون نسخها أو نشرها؛ ويجرب على NEW فقط إرجاع hostname المتوقع `nc-ph-4354`. **لم يُختبر في Rescue بعد ولا يضمن قبول SSH تلقائيًا**.
+- سكريبت الفحص المختصر `/boot/iso/AIONEX-RESCUE-PREFLIGHT.sh`، root0700، Bash syntax/Ubuntu refusal PASS، SHA256 `1266f45934e183847623c471ef52542ca767abdc44672a1a99082f448d370c2f`. يشغّل فحص الشبكة ثم فحص SSH ثم يعرض هوية وأحجام الأقراص وحالة RAID دون تصوير. لا يستخدم كلمات سر أو ينفذ dd. **لن يُشغَّل حتى يدخل المالك إلى Rescue بشكل واضح ويُجهز console**.
+- **طريقة الاستعمال المخطط لها داخل Rescue فقط** بعد موافقة منفصلة على reboot وظهور شاشة Live SystemRescue والتأكد أن md0p1 موجود وغير متصل للكتابة، كل سطر قصير ليتناسب مع iPhone:
+  ```sh
+  mkdir -p /mnt/oldboot
+  mount -o ro,noload /dev/md0p1 /mnt/oldboot
+  bash /mnt/oldboot/iso/AIONEX-RESCUE-PREFLIGHT.sh
+  ```
+  لو فشل أي سطر بسبب اسم جهاز مختلف أو md غير مركب أو حالة ISO mount، **قف وأرسل شاشة الخطأ**، لا تستخدم mount rw أو force ولا تغير RAID. هذا **ليس أمراً بالتنفيذ الآن في Ubuntu**.
+- NEW لديه تقرير محمي `/var/lib/aionex-migration/r1-management-20261008/SYSTEMRESCUE-NO-FEE-PREBOOT-20261009T210756Z.json`، SHA256 `923bdc2f1b65510a3c1e27ab21f3fee8c4ff25b72ee538853a8a803b5937e7c7`، يؤكد 36 حاوية على الجديد وغياب GRUB next_entry وغياب reboot/copy.
+- **NO-GO قائم:** لم يحدث الإقلاع التجريبي في Rescue، ولا اتصال Rescue→NEW، ولا أي استنساخ RAW. أي reboot الآن يعطل Connector AIONEX Server MCP 2 الحالي لأنه يمر عبر Ubuntu القديم؛ بعد reboot **لن يستطيع ChatGPT الحالي إدارة القديم أو الجديد بأدوات MCP القديمة**. سيحتاج المستخدم كونسول IPMI وSSH الجديد. لا تضع `grub-reboot` في grubenv أو تفعل Restart من دون موافقة مالك صريحة. عند الموافقة يتطلب الاختيار مرة واحدة فقط مع إثبات GRUB/الرجوع؛ الجاهزية البرمجية لا تساوي نجاح الإقلاع الحقيقي.
+
+**التسليم لهذه اللحظة:** ISO الرسمي بشاهد SHA PASS؛ boot ISO مستقل SHA PASS؛ custom.cfg موجود ومتحقق نحويًا، اختيار Ubuntu الافتراضي باقٍ، helper scripts محمية ومختبرة لرفض التشغيل في Ubuntu؛ NEW سليمة (36 حاوية)؛ **لم تحدث خطوة تصوير أو استبدال أقراص أو إعادة إقلاع إضافية**.
+
+---
+
 ## 2026-10-09 — NO-FEE LOCAL GRUB ISO STAGING: SOURCE-VERIFIED (LATEST)
 
 **ملخص عاجل لاستكمال أي محادثة من هذه النقطة:** المالك طلب تصوير قرصي السيرفر القديم بالكامل **بدون أي رسوم Namecheap**، ويستخدم iPhone مع SSH قصير بدون Nano/EOF، ويمكنه الدخول إلى كونسول Supermicro IPMI القديم عبر VPN. مسار Virtual Media/SMB الخارجي غير متاح لأن شبكة BMC معزولة، ودعم Namecheap يعرض RescueCD مدفوعًا فقط؛ لذلك انتقلنا للمسار المجاني المعتمد رسميًا: الإقلاع من **ISO على القرص الداخلي بواسطة GRUB**. المرجع الأساسي: https://www.system-rescue.org/manual/Installing_SystemRescue_on_the_disk/ و https://www.system-rescue.org/manual/Booting_SystemRescue/ .
