@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import asdict, dataclass
 import json
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -140,18 +141,47 @@ def build_ramp(profile: CapacityProfile) -> tuple[RampStep, ...]:
     return tuple(steps)
 
 
+def _fs_device(path: Path) -> int:
+    return path.stat().st_dev
+
+
+def measure_runtime_free_space() -> dict[str, Any]:
+    """Read the real Docker/containerd backing filesystems; do not infer from /."""
+    root = Path("/")
+    docker = Path("/var/lib/docker")
+    containerd = Path("/var/lib/containerd")
+    root_device = _fs_device(root)
+    runtime_devices = (_fs_device(docker), _fs_device(containerd))
+    runtime_free = min(shutil.disk_usage(path).free for path in (docker, containerd))
+    return {
+        "measurement_paths": [str(docker), str(containerd)],
+        "runtime_min_free_bytes": runtime_free,
+        "runtime_fs_separate_from_root": all(dev != root_device for dev in runtime_devices),
+        "docker_containerd_share_filesystem": runtime_devices[0] == runtime_devices[1],
+    }
+
+
 def build_preflight(
     profile: CapacityProfile,
     *,
     fr08_accepted: bool,
     free_bytes: int,
     heavy_min_free_bytes: int,
+    measured_storage: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     blockers: list[str] = []
     if not fr08_accepted:
         blockers.append("FR-08 dependency is not accepted")
     if free_bytes < heavy_min_free_bytes:
         blockers.append("free disk is below the configured heavy-work capacity gate")
+    if measured_storage is None:
+        blockers.append("Docker runtime filesystem capacity is not independently measured")
+    else:
+        if measured_storage.get("runtime_fs_separate_from_root") is not True:
+            blockers.append("Docker/containerd runtime filesystem identity is not verified")
+        measured_free = measured_storage.get("runtime_min_free_bytes")
+        if type(measured_free) is not int or measured_free < heavy_min_free_bytes:
+            blockers.append("Docker/containerd runtime free space is below the heavy-work gate")
 
     return {
         "schema": 1,
@@ -174,7 +204,10 @@ def build_preflight(
             "provider_calls": False,
             "fr08_accepted": fr08_accepted,
             "free_bytes": free_bytes,
+            "free_bytes_provenance": "operator_supplied_staging_budget_not_measured",
+            "measured_runtime_storage": measured_storage,
             "heavy_min_free_bytes": heavy_min_free_bytes,
+            "load_test_authorized": False,
             "heavy_work_permitted": not blockers,
             "blockers": blockers,
         },
@@ -198,11 +231,17 @@ def main() -> int:
     args = parser.parse_args()
 
     profile = CapacityProfile.from_plan(load_plan(args.plan))
+    try:
+        measured_storage = measure_runtime_free_space()
+    except (OSError, ValueError):
+        # Absent/unreadable vault paths are a HOLD, never implicit root-disk PASS.
+        measured_storage = None
     result = build_preflight(
         profile,
         fr08_accepted=args.fr08_accepted,
         free_bytes=args.free_bytes,
         heavy_min_free_bytes=args.heavy_min_free_bytes,
+        measured_storage=measured_storage,
     )
     raw = json.dumps(result, indent=2, ensure_ascii=False, sort_keys=True) + "\n"
     if args.output is None:
