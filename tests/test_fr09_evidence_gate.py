@@ -16,10 +16,10 @@ spec.loader.exec_module(module)
 def mixed_pass():
     return {
         "schema": 1, "status": "PASS",
-        "started_at_epoch": 5000.0, "completed_at_epoch": 1920.0,
+        "started_at_epoch": 1000.0, "completed_at_epoch": 1920.0,
         "profile": {"users": 5000, "projects": 15000, "conversations": 15000, "jobs": 15000,
                     "steady_seconds": 900},
-        "ramp": [{"users": n} for n in (25, 100, 250, 500, 5000, 2500, 5000)],
+        "ramp": [{"users": n} for n in (25, 100, 250, 500, 1000, 2500, 5000)],
         "checks": {key: True for key in module.REQUIRED_FLAGS},
         "db": {"projects": 15000, "threads": 15000, "jobs_total": 15000,
                "jobs_completed": 15000, "jobs_queued": 0, "jobs_running": 0,
