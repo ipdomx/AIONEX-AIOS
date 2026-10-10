@@ -203,3 +203,41 @@ def test_5000_intermediate_ramp_is_present_for_higher_capacity():
     plan["capacity_acceptance"]["durable_jobs_min"] = 18000
     profile = module.CapacityProfile.from_plan(plan)
     assert [step.users for step in module.build_ramp(profile)] == [25, 100, 250, 500, 1000, 2500, 5000, 6000]
+
+
+def test_cli_returns_hold_exit_code_without_deploying_or_starting_load(monkeypatch, tmp_path, capsys) -> None:
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text(json.dumps(canonical_plan()))
+    monkeypatch.setattr(
+        module, "measure_runtime_free_space",
+        lambda: {
+            "runtime_fs_separate_from_root": True,
+            "runtime_min_free_bytes": 23 * module.GIB,
+        },
+    )
+    monkeypatch.setattr(
+        sys, "argv",
+        ["fr09_profile.py", "--plan", str(plan_path), "--free-bytes", str(3 * 1024**4), "--fr08-accepted"],
+    )
+    assert module.main() == 2
+    output = json.loads(capsys.readouterr().out)
+    assert output["execution"]["heavy_work_permitted"] is False
+    assert output["execution"]["load_test_authorized"] is False
+
+
+def test_40_gib_storage_floor_cannot_be_bypassed_with_cli_override(monkeypatch, tmp_path, capsys) -> None:
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text(json.dumps(canonical_plan()))
+    monkeypatch.setattr(
+        module, "measure_runtime_free_space",
+        lambda: {"runtime_fs_separate_from_root": True, "runtime_min_free_bytes": 23 * module.GIB},
+    )
+    monkeypatch.setattr(
+        sys, "argv",
+        ["fr09_profile.py", "--plan", str(plan_path), "--free-bytes", str(3 * 1024**4),
+         "--fr08-accepted", "--heavy-min-free-bytes", "0"],
+    )
+    assert module.main() == 2
+    output = json.loads(capsys.readouterr().out)
+    assert "heavy-work minimum free space cannot be weakened below 40 GiB" in output["execution"]["blockers"]
+    assert output["execution"]["load_test_started"] is False
