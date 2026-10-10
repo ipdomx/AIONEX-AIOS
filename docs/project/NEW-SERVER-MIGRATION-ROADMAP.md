@@ -1,5 +1,307 @@
 # AIONEX AIOS — New Production Server Migration Roadmap
 
+## Latest gate: manual 180-second GRUB menu and independent NEW observer (2026-10-09 21:20 UTC)
+
+- OWNER APPROVED one reboot to free SystemRescue, but no new reboot occurred yet. Previous grub-reboot warned about RAID1/diskfilter persistence. DO NOT use grub-reboot. Existing OLD /boot/grub/custom.cfg instead now ends with commands: set default=0; set timeout_style=menu; set timeout=180. Ubuntu remains default first GRUB entry; select AIONEX SystemRescue OFFLINE RAM manually via owner iPhone Supermicro IPMI Console within 180s, otherwise Ubuntu auto-boots. GRUB script syntax PASS; grubenv next_entry EMPTY. OLD root0600 rollback: /root/aionex-rescue-iso-20261009/BEFORE-MANUAL-GRUB-MENU-20261009T212042Z.cfg; SHA256 6545127bfaf4ffc596cc4576c5df6fc3c3077cd9bdd50cb03b5d78b2fc039520. New custom.cfg SHA256 a40e209a4dd7ce920bd63136160330e94cdb7094e693a76461eff31d8178871b. Main grub.cfg and /etc/default/grub were not rewritten.
+- NEW-only independent read-only aionex-old-rescue-progress.timer/service ACTIVE, Python observer at /var/lib/aionex-migration/old-host-offline-disk-image/old-rescue-progress.py. Results under root-only observations/RESCUE-WATCH-*.json every ~60s. Tested Result=success, 36 production containers unchanged. Observes OLD TCP22, NEW free bytes, existing RAW file sizes only; NOT an imaging agent. Existing hourly AIONEX Rescue Watchdog automation preserved exact id 6ac2c4b7a2308191aaa547054041f383 (no new duplicate task).
+- NEXT: owner opens live IPMI console and verifies keyboard first; then a reboot may be coordinated. OLD connected ChatGPT MCP will fail during Rescue, so NO automatic rescue access from ChatGPT is promised. Owner chooses manual GRUB Rescue entry. On boot, use previously staged /boot/iso/AIONEX-RESCUE-PREFLIGHT.sh only inside actual SystemRescue to validate Rescue network and pinned SSH to NEW; do not perform RAW transfers without confirming physical drive identity/by-id and read-only source state. Actual RAW disk images 0/2 and Rescue-to-NEW network UNTESTED.
+- Evidence/continuity details are recorded in issue #884: https://github.com/ipdomx/AIONEX-AIOS/issues/884 . This PR remains unmerged unless exact-head required CI passes.
+
+---
+## 2026-10-09 21:08 UTC — PREBOOT HELPERS / RUNBOOK CHECKPOINT
+
+**حقائق محدثة لتحاشي فشل نصوص الإنقاذ بعد إعادة الإقلاع:**
+
+- تم فحص الجذر المضغوط داخل SystemRescue 13.02 الأصلي على OLD للقراءة فقط عبر `unsquashfs -cat ... etc/os-release`، ووجدنا **`ID=sysrescue`** (و`ID_LIKE=arch`)، وليس `ID=arch`. تم إصلاح حارسي التنفيذ في نصين مخصصين من حالة `ID=arch` الخطأ إلى `ID=sysrescue` الحقيقي قبل أي استخدام.
+- سكريبت الشبكة الآمن المحفوظ على قسم BOOT القديم: `/boot/iso/AIONEX-RESCUE-NETCHECK.sh`، Bash syntax PASS، وضع 0700 وroot؛ SHA256 `1f386737061bf63d2c9feba699e892ee7b46ae676517a63b6dbbbfb66d089eed`. **يُرفض التنفيذ على Ubuntu** (RC3)، ويُسمح فقط داخل live SystemRescue. بعد الإقلاع، يفحص أولًا منفذ TCP22 على NEW؛ إذا لم تعمل شبكة Rescue الافتراضية، يكتشف منفذ WAN الفيزيائي من MAC الموجود في السكريبت **المحلي فقط** ويعيد إعداد عنوان OLD العام الثابت `209.74.65.106/24` وبوابة `209.74.65.1` **في ذاكرة Rescue فقط**، ثم يتحقق من NEW. لا ينقل ملفات أو يصور أقراصًا ولا يغيّر شبكة BMC المعزولة.
+- سكريبت فحص SSH فقط `/boot/iso/AIONEX-RESCUE-SSH-CHECK.sh`، root0700، Bash syntax/Ubuntu refusal PASS، SHA256 `11092d12de528ce1972e3811deab3aafaa4da5ceeaf794ab47daea5f7fd22107`. في Rescue فقط، يحاول تركيب قسم Ubuntu القديم ext4 **للقراءة فقط بدون تحميل journal** (`mount -t ext4 -o ro,noload`) للاستفادة من هوية SSH المصرح بها والمطابقة مسبقًا على OLD بدون نسخها أو نشرها؛ ويجرب على NEW فقط إرجاع hostname المتوقع `nc-ph-4354`. **لم يُختبر في Rescue بعد ولا يضمن قبول SSH تلقائيًا**.
+- سكريبت الفحص المختصر `/boot/iso/AIONEX-RESCUE-PREFLIGHT.sh`، root0700، Bash syntax/Ubuntu refusal PASS، SHA256 `1266f45934e183847623c471ef52542ca767abdc44672a1a99082f448d370c2f`. يشغّل فحص الشبكة ثم فحص SSH ثم يعرض هوية وأحجام الأقراص وحالة RAID دون تصوير. لا يستخدم كلمات سر أو ينفذ dd. **لن يُشغَّل حتى يدخل المالك إلى Rescue بشكل واضح ويُجهز console**.
+- **طريقة الاستعمال المخطط لها داخل Rescue فقط** بعد موافقة منفصلة على reboot وظهور شاشة Live SystemRescue والتأكد أن md0p1 موجود وغير متصل للكتابة، كل سطر قصير ليتناسب مع iPhone:
+  ```sh
+  mkdir -p /mnt/oldboot
+  mount -o ro,noload /dev/md0p1 /mnt/oldboot
+  bash /mnt/oldboot/iso/AIONEX-RESCUE-PREFLIGHT.sh
+  ```
+  لو فشل أي سطر بسبب اسم جهاز مختلف أو md غير مركب أو حالة ISO mount، **قف وأرسل شاشة الخطأ**، لا تستخدم mount rw أو force ولا تغير RAID. هذا **ليس أمراً بالتنفيذ الآن في Ubuntu**.
+- NEW لديه تقرير محمي `/var/lib/aionex-migration/r1-management-20261008/SYSTEMRESCUE-NO-FEE-PREBOOT-20261009T210756Z.json`، SHA256 `923bdc2f1b65510a3c1e27ab21f3fee8c4ff25b72ee538853a8a803b5937e7c7`، يؤكد 36 حاوية على الجديد وغياب GRUB next_entry وغياب reboot/copy.
+- **NO-GO قائم:** لم يحدث الإقلاع التجريبي في Rescue، ولا اتصال Rescue→NEW، ولا أي استنساخ RAW. أي reboot الآن يعطل Connector AIONEX Server MCP 2 الحالي لأنه يمر عبر Ubuntu القديم؛ بعد reboot **لن يستطيع ChatGPT الحالي إدارة القديم أو الجديد بأدوات MCP القديمة**. سيحتاج المستخدم كونسول IPMI وSSH الجديد. لا تضع `grub-reboot` في grubenv أو تفعل Restart من دون موافقة مالك صريحة. عند الموافقة يتطلب الاختيار مرة واحدة فقط مع إثبات GRUB/الرجوع؛ الجاهزية البرمجية لا تساوي نجاح الإقلاع الحقيقي.
+
+**التسليم لهذه اللحظة:** ISO الرسمي بشاهد SHA PASS؛ boot ISO مستقل SHA PASS؛ custom.cfg موجود ومتحقق نحويًا، اختيار Ubuntu الافتراضي باقٍ، helper scripts محمية ومختبرة لرفض التشغيل في Ubuntu؛ NEW سليمة (36 حاوية)؛ **لم تحدث خطوة تصوير أو استبدال أقراص أو إعادة إقلاع إضافية**.
+
+---
+
+## 2026-10-09 — NO-FEE LOCAL GRUB ISO STAGING: SOURCE-VERIFIED (LATEST)
+
+**ملخص عاجل لاستكمال أي محادثة من هذه النقطة:** المالك طلب تصوير قرصي السيرفر القديم بالكامل **بدون أي رسوم Namecheap**، ويستخدم iPhone مع SSH قصير بدون Nano/EOF، ويمكنه الدخول إلى كونسول Supermicro IPMI القديم عبر VPN. مسار Virtual Media/SMB الخارجي غير متاح لأن شبكة BMC معزولة، ودعم Namecheap يعرض RescueCD مدفوعًا فقط؛ لذلك انتقلنا للمسار المجاني المعتمد رسميًا: الإقلاع من **ISO على القرص الداخلي بواسطة GRUB**. المرجع الأساسي: https://www.system-rescue.org/manual/Installing_SystemRescue_on_the_disk/ و https://www.system-rescue.org/manual/Booting_SystemRescue/ .
+
+### ما تم فعليًا (كلّه قبل أي إعادة تشغيل أخرى)
+
+1. **Rescue ISO الأصلي تم تنزيله والتحقق منه بالكامل** في OLD `nc-ph-4862`، Ubuntu root ext4 /dev/md0p2:
+   - الإصدار **SystemRescue 13.02**، الحجم بالبايت **1,381,629,952**.
+   - الملف `/root/aionex-rescue-iso-20261009/systemrescue-13.02-amd64.iso`، root0600.
+   - ملف نسخة الإقلاع الفعلية `/boot/iso/systemrescue.iso`، root0600، أيضًا الحجم 1,381,629,952.
+   - **SHA256 لكل من النسختين مطابق للبصمة المسترجعة من ناشر SystemRescue الرسمي**: `ad4d670b72859d887c7960142a9a9d36a3e50446694a035e254442f65d6e7572`. المصدر `https://www.system-rescue.org/releases/13.02/systemrescue-13.02-amd64.iso.sha256`.
+   - فحص ISO للقراءة فقط أثبت وجود `/boot/grub/loopback.cfg`، `/sysresccd/boot/x86_64/vmlinuz`، `/sysresccd/boot/x86_64/sysresccd.img`. الـISO يتضمن قائمة `copytoram` و `checksum`.
+2. **GRUB وجاهزية الإقلاع:** تم العثور على ملف `/boot/grub/custom.cfg` (موجود بالفعل عند فحص 21:00 UTC) يحوي قائمة `AIONEX SystemRescue OFFLINE RAM (no-fee; owner authorized reboot only)` ومعرّف `aionex-systemrescue-ram`، ويشير من نظام ملفات `/boot` المنفصل إلى `/iso/systemrescue.iso`، وليس إلى المسار الفعلي في نظام Linux `/boot/iso/systemrescue.iso`. هذا التمييز **صحيح** لأن الـISO على قسم /boot منفصل. إعداد القائمة يطلب `copytoram checksum`، ويفتح نواة/initramfs من ISO عبر GRUB loopback.
+   - **`grub-script-check /boot/grub/custom.cfg` PASS**، و `grub-script-check /boot/grub/grub.cfg` PASS.
+   - **`grub-fstest /dev/md0p1 ls /iso/` PASS** وأظهر `systemrescue.iso`. كذلك جرّبنا `grub-fstest /dev/md0p2 ls /root/aionex-rescue-iso-20261009/` بنجاح.
+   - **النظام ما زال مهيأ للإقلاع الافتراضي إلى Ubuntu:** `GRUB_DEFAULT=0`, `GRUB_TIMEOUT=0`, `GRUB_TIMEOUT_STYLE=hidden`. فحص `grub-editenv /boot/grub/grubenv list` رجع فارغًا: **لا توجد next_entry محددة ولا grub-reboot مختارة**. لم يُطلب reboot ولا أجري من هذه المرحلة.
+   - يوجد مسودة GRUB أخرى غير فعّالة `/root/aionex-rescue-iso-20261009/AIONEX-SYSTEMRESCUE-ONE-TIME-CANDIDATE.cfg` اختُبرت نحويًا، لكنها **ليست** القائمة الفعلية. لا تنشئ قوائم مكررة، ولا تُعدل `/boot/grub/grub.cfg` أو `/etc/default/grub` تلقائيًا.
+   - `/boot` أصبح يستخدم 84% من 2GB تقريبًا وبقي **310MB** فقط. لا تُنشئ نسخة ISO ثالثة في /boot ولا تُحدّث kernel أثناء هذه المرحلة.
+3. **حالة النظام بعد restart حدث سابقًا خارج هذه المرحلة:** `who -b` أكد أن OLD Ubuntu أعاد التشغيل **2026-10-09 19:56:49 UTC**. في فحوص 20:57–21:01 كانت خدمتا Docker وcontainerd على OLD **inactive/dead**، والمجلدات المشفرة Docker غير مركّبة، بينما أداة `aionex-phase22c-2-tunnel.service` لا تزال **active**. **لا تعيد تفعيل Docker على OLD** دون دراسة تعارض العمال، لأنه ليس الإنتاج الرئيسي. NEW `nc-ph-4354` كان عليه **36 حاوية تعمل، صفر unhealthy/restarting، وتوقيتا systemd للمراقبة active**. لا تفترض أن restart القديم حدث بواسطة هذه المحادثة، أو أن البيانات القديمة تُفقد بمجرد توقف Docker.
+4. **جهة الاستقبال:** NEW `203.161.33.64` يحتفظ بمجلد `/var/lib/aionex-migration/old-host-offline-disk-image/` root0700، ومساحة 3.27TB متاحة بالتحقق السابق، مع وصول SSH إداري مستقل من iPhone. OLD RAID1 يعمل [UU]، قرصا SAMSUNG `sda` و `sdb` **960,197,124,096 بايت لكل واحد**، وخيار البصمة الكامل يحتاج صورتين من بيئة **متوقفة بالكامل عن الكتابة**.
+
+### الخطوة التالية قبل أي reboot: تثبيت قناة شبكة Rescue والطريق العكسي
+
+- **لا تُفعّل grub-reboot أو power/reset حتى موافقة مالك صريحة بعد نجاح شروط ما قبل الإقلاع.** تشغيل Rescue يوقف Ubuntu OLD ويقطع وصول ChatGPT MCP2 الحالي فورًا؛ الأدوات الموجودة في هذه المحادثة لا تستطيع الاتصال بـNEW مباشرة عبر MCP الحالي بعد توقف OLD، حتى لو كان SSH إلى NEW يعمل من iPhone. يجب أن يستعد المالك لإكمال أوامر Rescue من كونسول IPMI عبر VPN.
+- الشبكة OLD Ubuntu **static**, عنوانه العام `209.74.65.106/24` على `wan0` والبوابة `209.74.65.1`. **SystemRescue الافتراضي يستخدم DHCP** وقد لا يحصل على IP لدى Namecheap. أثناء Rescue افحص `ip -br link` و`ip -br -4 a`، وتعرف على NIC العام الصحيح عبر MAC/PCI لا تتوقع اسم `wan0`. ثم عند الحاجة اضبط عنوان old static نفسه مؤقتًا في RAM/Rescue، ولا تغير شبكة IPMI. اختبر اتصال Rescue→NEW `203.161.33.64:22` بشكل آمن.
+- Rescue يأتي عادة بــsshd لكن جدار الحماية قد يمنع الاتصالات الواردة؛ يُفضّل **خروج SSH من Rescue إلى NEW** مع مصادقة مالك مأذونة، بدل تعريض Rescue root password للشبكة. لا تحفظ مفاتيح خاصة في GitHub أو المحادثة، ولا تستخدم كلمات مرور في kernel args. تحقق عمليًا من مصادقة جهة NEW قبل بدء صورة كبيرة. راجع https://www.system-rescue.org/manual/Network_configuration_and_programs/ .
+- ISO على RAID1 والـboot عبر GRUB؛ حاذر أن auto-assembly الافتراضي لـmd RAID قد يكتب metadata (الدليل الرسمي `nomdlvm` يمنع auto-activation لكن قد يعيق العثور على ISO الموجود على RAID). **لا تُعد أن النسخة الجنائية الصارمة غير معدلة قبل اختبار boot**؛ شرط هدفنا الحصول على صورة كاملة متسقة بعد دخول Rescue وتوقف الكتابة، وبصمة الصورة يجب أن تتحقق من الحالة المقروءة بعد Rescue. لا تستخدم filesystem repair أو mount rw.
+- دخول Live Rescue يحتاج مراجعة `lsblk -b -o NAME,TYPE,SIZE,FSTYPE` و `cat /proc/mdstat` من كونسول IPMI قبل أي أوامر تصوير. عرّف disks بــ`/dev/disk/by-id` وحجم 960,197,124,096 لكل قرص. لا تفترض تطابق ترتيب sda/sdb بين Ubuntu وRescue.
+- احفظ خطة الرجوع: GRUB one-shot عند الموافقة فقط، فلا تعيد كتابة default Ubuntu. عند فشل boot يظل IPMI Console متاحًا لبدء Ubuntu يدويًا. لا تفترض Rescue reboot آمنًا أو عودة تلقائية من أي hang.
+- **نقل صورتَي الأقراص عبر SSH إلى NEW كملفين عاديين** بعد فحص المساحة والصلاحية، وضبط source read-only، ومن دون الكتابة إلى أي `/dev/*` على NEW، وبلا نسخ RAW إلى GitHub. إجمالي 1,920,394,248,192 بايت (بدون ضغط)، وأقل وقت نظري على 1Gbps نحو **4 ساعات و16 دقيقة** مع استبعاد كل overhead؛ التنفيذ قد يستغرق أطول بكثير، ولا يُضمن انتهاء العملية اليوم. مراقبة progress/timeout واستئناف آمن + SHA256 المصدرين والصورتين وحالة أخطاء القراءة مطلوبة.
+- **موانع إغلاق OLD:** ملفات RAW كاملة الحجم ومطابقة SHA256 وحفظ المفاتيح في مكان مستقل عن السيرفرين، وتقبل المالك لفقد MCP القديم أو ربط البديل باختبار حقيقي، وتحقق TURN relay بعد تحديث external-ip في NEW، وسلامة التشغيل. ممنوع الادعاء أن النسخ الاحتياطي لـR2 اختُبر استرجاعه عمليًا حديثًا: آخر سجل DR dry_run=true.
+- **الأدلة التاريخية لملفات AIOS الأصلية** (JKS ومفاتيح الإصدار، OpenSong وWorktrees وRuntime وHunyuan ومنصة الإنتاج) محفوظة بالفعل NEW وفق SHA سجل #884؛ لا تكرر نقلها. IMAGE RAW مطلوب فقط لأن المالك طلب حرفيًا كل قديم مخفي تحت mount points بجانب التطبيقات.
+- **إذا منصة ChatGPT رفضت تنفيذ خطوة نقل سرية/RAW أو init ملف MCP سابقًا، فلا تعاودها بمسار أداة أخرى/worker.** الاستمرار المسموح به يشمل التدقيق غير الحساس والتحضير والتوثيق فقط إلى أن تتضح صلاحيات التنفيذ.
+
+**القرار:** ISO الرسمي/GRUB read-only PREPARATION = PASS. Rescue boot = **NOT STARTED**, RAW disk image bytes moved = **ZERO**, full-new-server-restore = NOT CLAIMED. الخطوة القادمة موافقة منفصلة على restart بعد تصميم Rescue static network and authenticated NEW receiver. لا توقف السيرفر دون ذلك.
+
+---
+
+## 2026-10-09 21:02 UTC — NO-FEE LOCAL-GRUB SYSTEMRESCUE STAGED & VERIFIED (NOT BOOTED)
+
+**Supersedes paid-RescueCD-only assumption:** Based on the owner's explicit no-extra-cost requirement, we verified the official SystemRescue free **local-disk GRUB2 ISO loopback boot** procedure. Reference https://www.system-rescue.org/manual/Installing_SystemRescue_on_the_disk/ and official download https://www.system-rescue.org/Download/ . It does NOT need external IPMI Virtual Media, SMB/CIFS or paid Namecheap RescueCD assistance. It still requires an explicitly approved one-time reboot and working console. Do **not** confuse staging with successful rescue boot or complete-disk backup.
+
+### Completed read-only + staged preparation on OLD nc-ph-4862 at Oct 9 20:50–21:02 UTC
+
+- Verified SystemRescue official current **13.02 amd64** (released 2026-08-01, downloaded via official Fastly HTTPS CDN). File size **1,381,629,952 bytes**, publicly published vendor SHA256 **`ad4d670b72859d887c7960142a9a9d36a3e50446694a035e254442f65d6e7572`**; local bytes matched exactly. Source retained as root0600 at **`/root/aionex-rescue-iso-20261009/systemrescue-13.02-amd64.iso`**. Exact verified identical copy placed root0600 on separate OLD 2GB RAID1 /boot partition at **`/boot/iso/systemrescue.iso`**. Remaining OLD /boot space **310 MiB**; remove redundant ISO from /boot after successful imaging and return to normal operation to avoid blocking future kernel upgrades. No secret inside upstream ISO is assumed.
+- Inspected official ISO's own `/boot/grub/loopback.cfg` and `grubsrcd.cfg` **without mounting/writing the disks**, using `grub-fstest`. The official ISO includes an explicit menu option `Boot SystemRescue and copy system to RAM (copytoram)`, with `checksum` support. OLD has **62 GiB RAM**, enough for ~1.38GB RAM boot, and GRUB2 supports custom.cfg loading. The old system boots via BIOS (not UEFI), on ext4 /boot RAID1; kernel boot partition ext4 UUID was probed before making GRUB script.
+- Created a **non-default** pre-staged GRUB2 menu entry **`aionex-systemrescue-ram`** in OLD **`/boot/grub/custom.cfg`** (mode0600), with source `/root/aionex-rescue-iso-20261009/AIONEX-SYSTEMRESCUE-FREE-RAM.grub.cfg`. Entry searches `/iso/systemrescue.iso`, obtains its filesystem UUID, loads the ISO's SystemRescue kernel/initramfs from loopback, passes `img_dev=/dev/disk/by-uuid/...`, `img_loop=/iso/systemrescue.iso`, and `copytoram checksum`. **`grub-script-check` PASS**, script SHA256 **`6545127bfaf4ffc596cc4576c5df6fc3c3077cd9bdd50cb03b5d78b2fc039520`**. Original GRUB config and grubenv copies preserved in root-only source directory.
+- Guarded confirmation: `GRUB_DEFAULT=0` remains unchanged; `grub-editenv ... list` empty, **no `next_entry` selected**, no normal boot config overwritten, **NO REBOOT, NO DISK IMAGING** performed. The installed menu entry is only *available* for a later approved one-time boot. Existing OLD current boot time 2026-10-09 19:56:44 UTC unchanged by this preparation; the old Docker/containerd units were found **inactive** at 20:59, but the OLD ChatGPT `aionex-phase22c-2-tunnel.service` remains ACTIVE. NEW still had **36 running containers**, both independent native monitoring timers ACTIVE at 21:01 UTC. Do not automatically reactivate OLD Docker: NEW is authoritative. No customer NEW production workload altered.
+- NEW image-receiver directory previously created `/var/lib/aionex-migration/old-host-offline-disk-image/`, root0700, remains ready with ~3.27TB capacity. Old physical disks each 960,197,124,096 bytes. **No RAW image has been transferred**.
+
+### Next critical preflight BEFORE owner approves disruptive reboot
+
+1. **Safety gate:** New native SSH access and monitoring are independently functional; back up recovery credentials outside BOTH machines; confirm owner can still access OLD IPMI KVM console through VPN during old Ubuntu down and understands the existing **ChatGPT MCP old endpoint disconnects**. This is a *real* production/management-impacting reboot, not implied authorization from asking for backups.
+2. **Rescue WAN connectivity:** OLD Ubuntu WAN 209.74.65.106/24 (plus .107/24) default gateway 209.74.65.1 on `wan0` is static. SystemRescue uses auto/DHCP by default, so **do not assume** live Rescue gets external SSH automatically or preserves interface name `wan0`. Booted Rescue must establish a working source→NEW SSH connection using its **normal public production network**, which is different from isolated IPMI/BMC network; use the KVM console for safe short network commands if needed. No public Samba service and no paid provider imaging are required. Do not embed network/private SSH secrets in a public GitHub file or GRUB kernel arguments.
+3. **GRUB boot reliability:** Entry syntax validation does **not** prove BIOS/RAID loopback boot on this hardware. If approved later, perform a **one-time GRUB selection only**, not permanent default update, with automatic fallback to normal Ubuntu on the next boot; observe console and verify actual `SystemRescue 13.02` login from IPMI KVM. If the boot fails, boot the original Ubuntu entry and do not overwrite partition tables.
+4. **No automated RAW copy yet:** SystemRescue `copytoram` must be proven to detach ISO backing filesystem; ensure underlying OLD RAID1/boot/root and LUKS are *not* mounted for write before imaging. Software RAID activation and journal replay might write metadata if not guarded. Reconfirm the two physical disk IDs using serial/by-id, and confirm source-only read operation. A complete OFFLINE image of EACH physical drive goes only to new files inside NEW root-only destination, never to block devices/new PROD volumes. Verify bytes, SHA256, boot/RAID/LUKS structures read-only before claiming anything; do not prematurely erase OLD.
+5. **Full new-host-only operational handoff:** Existing ChatGPT MCP NEW tunnel profile is still absent; platform previously refused initializing it and some old secret transfers, do not bypass. If owner accepts temporarily losing ChatGPT MCP from OLD after rescue, independent NEW direct SSH/native watchers remain good. TURN external-ip files on NEW were corrected on disk but no confirmed service restart/relay call PASS; latest R2 ciphertext 4/4 byte/SHA matches but dry-run only. These blockers must be reported honestly before declaring 100% decommission.
+6. **Rollback:** If no reachable Rescue IP or if GRUB boot fails, return to OLD normal Ubuntu using IPMI KVM and original GRUB entry, without adding rescue ISO hosting costs. The one-time GRUB boot selection is NOT yet set and must not be set without the owner's explicit approval.
+
+**Owner next decision:** Confirm an authorized one-time reboot to free SystemRescue ONLY after acknowledging old MCP downtime, KVM recovery/network requirements. Until then READY_TO_ATTEMPT_FREE_RESCUE_BOOT, not STARTED. This approved-free route displaces earlier Namecheap paid-mount support quotes; DO NOT re-open payment demands unless local GRUB boot actually fails and owner asks for alternatives.
+
+---
+
+## 2026-10-09 — Namecheap confirmed Virtual Media permissions; rescue boot offered as paid assistance
+
+**أحدث رد مباشر من Namecheap بعد استيضاح صلاحيات IPMI — يُقدّم على الاستنتاجات الأقدم:**
+> 1. It has permissions, but IPMI is isolated from the world, so using any 3-party links would be impossible (also applies to question 3)
+> 2. We can mount rescueCD and boot the server into it as paid assistance.
+
+**التفسير الدقيق:** دعم Namecheap يؤكد أن حساب IPMI **له صلاحية استخدام Virtual Media المطلوبة**، رغم أن صفحة Network تعرض تحذير منع تغيير إعدادات الشبكة؛ ليست صلاحية Administrator الشاملة مضمونة. شبكة BMC/IPMI **معزولة عن العالم الخارجي**، فلا يمكن الاعتماد على مشاركة SMB/ISO على خادم NEW أو رابط طرف ثالث؛ لا تفتح منفذ SMB/445 للعامة ولا تحاول تجاوز عزلة BMC. Namecheap **ترفض تصوير الأقراص بنفسها** لكنها تعرض **تركيب rescueCD والإقلاع منه كخدمة مدفوعة**؛ الإقلاع فقط لا يعني نسخ البيانات.
+
+### نقطة القرار التالية R02/R04 — الحصول على عرض مدفوع قبل أي Reset/Boot
+
+اطلب من موظف Namecheap، **دون منح أي تفويض بالتنفيذ**:
+1. **السعر المحدد** للعملية، إن كان مبلغًا ثابتًا أو بالساعة، والضرائب/رسوم المساعدة/تكرار المحاولة/حد الجلسة، والموعد ومدة التنفيذ.
+2. **اسم وإصدار RescueCD** ونوع الدخول بعد الإقلاع (كونسول IPMI، شبكة، SSH) وهل يمكنه الإقلاع إلى بيئة live بلا format أو إعادة تثبيت أو كتابة على أقراص /dev/sda و/dev/sdb أو تجميع RAID1 للكتابة؛ rescue ينبغي أن يترك أقراص المصدر غير مركبة للكتابة.
+3. **أهم شرط تشغيلي:** هل تعمل للشاشة Rescue الشبكة العامة الخاصة بـOLD، وهل يمكن الوصول إلى **NEW 203.161.33.64 عبر SSH/22** من نظام الإنقاذ نفسه (ليس BMC)، وهل تسمح Namecheap بنقل نحو 1.92TB إلى خادم آخر تابع للحساب نفسه، وأي حدود سرعة/حجم/تكلفة bandwidth؟ **عزلة BMC لا تثبت عزلة Rescue Linux**؛ مساران شبكيان مختلفان. لا تفترض إمكان اتصال Rescue قبل تأكيد/اختبار مباشر.
+4. هل يمكن الاحتفاظ بـRescueCD قيد الإقلاع مدة كافية لتصوير القرصين والتحقق من البصمات، وهل تستطيع الشركة توفير **نظام تشغيل إنقاذ يستطيع تشغيل SSH وdd/sha256sum** بشكل مستقل دون السماح لها برؤية كلمات مرور أو مفاتيح الحساب الخاصة؟ كيف ينتهي وصول المساعدة وحسابات الإنقاذ؟
+5. هل سيستمر وصول **IPMI عبر VPN** أثناء Rescue، وهل يمكن التحكم بعملية الإقلاع التالية/إلغاء Rescue والوصول إلى OLD Ubuntu إذا أخفقت شبكة Rescue؟ هل يمكن الحصول على موافقة المالك بشكل منفصل **قبل** Boot؟
+
+**قرار التشغيل الحالي: HOLD — لا توافق على الدفع أو إعادة تشغيل القديم حتى تتوفر الأجوبة السابقة.** اطلب فقط العرض والتفاصيل؛ لا تطلب من الدعم إعادة تشغيل الجهاز أثناء المحادثة. أداة @AIONEX Server MCP 2 ما زالت متصلة عبر OLD Ubuntu وسوف تتوقف أثناء أي Rescue boot؛ يجب تثبيت طريقة إدارة مستقلة قابلة للاستعمال (IPMI console مع اتصالات Rescue→NEW وNEW SSH) وتقبُّل فترة انقطاع أداة ChatGPT القديمة قبل إعطاء موافقة صريحة. لا تضغط أي زر Save/Mount/Reboot من الواجهة الحالية، والخانات تبقى فارغة لأن مشاركة ISO خارجية غير قابلة للوصول عبر BMC.
+
+### إذا جاءت الموافقة والشروط PASS: خطة التنفيذ المفوضة المقبلة
+
+- تأكد من سلامة NEW ومراقبته ووجود مساحة 3TB تقريبًا في مخزن الاستقبال المخصص root0700، وخطة العودة واحتياطي المفاتيح. لا تغيير لإنتاج NEW أو أقراصه.
+- بعد موافقة المالك على السعر والوقت والعملية، **Namecheap** تركّب RescueCD وتقلع OLD بتوقيت محدد؛ لا تقوم بإعادة التثبيت ولا تفتح/تعدل LUKS أو RAID ولا تبدّل إعدادات الإقلاع الدائمة.
+- تحقق من هوية القرصين في Rescue بواسطة /dev/disk/by-id وSerial وأحجام كل منهما (960,197,124,096 بايت حسب OLD Ubuntu، ويجب إعادة تأكيدها داخل Rescue)، وافحص أن RAID/الجذر القديم **غير مركبين للكتابة**.
+- اختبر اتصال Rescue→NEW الآمن، ونفّذ تصوير كل **قرص فيزيائي كامل** إلى ملف **عادي** جديد على NEW عبر SSH مشفر، وليس نسخًا إلى كتلة /dev/* أو overwrite production. سجل حجم كل ملف، SHA256 للقرص المصدر والصورة المنقولة، خطأ read، حالة نقل البيانات، واحتفظ بالملفات المؤقتة .partial حتى تكتمل صلاحيتها.
+- تحقق من بنية partition/RAID/LUKS للقراءة فقط في صورة RAW، واحتفظ بمفاتيح الاسترجاع خارج OLD وNEW ومع الصور المؤمّنة. عند الفشل عُد بسلام إلى Ubuntu القديم دون حذف الأصل أو الادعاء بأن النسخة مكتملة.
+- لا تعتمد Shutdown/Decommission بعد تصوير RAW وحده؛ اختبر NEW MCP مستقلًا أو سلّم صراحة أن OLD ChatGPT Connector سيتوقف، وأكمل TURN relay وoffline key escrow والنقاط الأخرى الموثقة. من غير اختبار REAL new-host round-trip لا تدّع أن أداة ChatGPT نُقلت إلى NEW.
+
+**معايير الحالة الحالية:** Namecheap Virtual Media privilege **confirmed by support**, BMC third-party ISO routing **not supported**, **paid provider RescueCD boot possible in principle**, **quote NOT YET RECEIVED**, Rescue public network/SSH access NOT VERIFIED, image transfer NOT STARTED, old-host boot unchanged, NEW production kept running. هذا النص للتوثيق والمتابعة ولا يُعتبر تفويضًا بإعادة تشغيل OLD.
+
+---
+
+## 2026-10-09 — IPMI network screenshot / BMC Operator privilege restriction (current blocker)
+
+**New factual evidence from two owner screenshots after opening Configuration > Network, same OLD Supermicro BMC (not Ubuntu console):**
+- Login header: **User root (Operator)**. The account name "root" in IPMI **does not grant Linux-root or IPMI Administrator capabilities**. A blocking popup explicitly states: **"You don't have privileges to apply for changes or actions."** Treat this as demonstrable restriction on at least the Network configuration actions; do **not** assert that the specific CD-ROM Image Mount action is denied until tested by authorized means. This is a **permission/RBAC blocker candidate** for ISO configuration.
+- Read-only Network page shows **IPv4 static** RFC1918 172.17.x.x, subnet mask **255.255.248.0 (/21)**, gateway RFC1918 172.17.24.x, internal DNS, IPv6 disabled (as displayed), VLAN disabled, effective active network interface **Dedicated**, connected **1 Gb/s full duplex**, Shared disconnected. Do not paste BMC exact internal IP, MAC or credentials into the public GitHub roadmap or issue. The fact that the owner reaches BMC through iPhone VPN does **not** prove this BMC LAN can access the NEW public server or arbitrary SMB. Network changes are both unauthorized to current Operator and risky for future remote access.
+- Official Supermicro privileges FAQ https://www.supermicro.com/en/support/faqs/faq.php?faq=11235 distinguishes Operator (restricted BMC configuration) from Administrator. Official IPMI User Guide https://www.supermicro.com/manuals/other/IPMI_Users_Guide.pdf documents Virtual Media > CD-ROM Image, Share Host, Path to Image, Save then Mount. The BMC screenshot shows Devices 1/2/3 `No disk emulation set`. No ISO currently attached or network share verified.
+
+**Next authorized step is Namecheap BMC support permission validation (not disk imaging labor):** owner to open Namecheap Dedicated/IPMI live-support ticket and ask: (a) whether the supplied IPMI login is intentionally restricted to **Operator** and how the owner can obtain *authorized* BMC Administrator access or specifically permission to configure **Virtual Media > CD-ROM Image Save/Mount**, without sharing passwords; (b) whether Namecheap exposes an isolated management-side **SMB/CIFS ISO share** that BMC can read; (c) whether management/private network permits BMC to access an ISO share on NEW and which supported SMB protocol/version/ports/network routes are possible; (d) whether a trusted one-time rescue boot can be initiated through approved Namecheap IPMI controls without provider disk-image assistance. Clarify: support previously **refused to create the complete image**, but this is a smaller permission/network capability inquiry, not a renewed imaging request.
+- **Current UI instruction:** click **Close** on privilege warning; do not press Save, alter IP/gateway/DNS, mount a guess ISO, enable public TCP445/SMB1, click Power/Reset, or log into Ubuntu tty1. Return to **Virtual Media > CD-ROM Image** only to observe status; owner can send Namecheap's reply or screenshot of approved BMC permission settings. No private SMB service, ISO, reboot, imaging or production change should be executed until explicit authorization, trusted network path, verified ISO, rescue→NEW access and safe rollback plan are in place.
+- **Contingency if Namecheap declines privilege:** Do not attempt to elevate IPMI via Linux ipmitool/firmware rewrite or other backdoor to bypass vendor role. Continue NEW authoritative AIOS production using previously verified copies, and pursue supported off-host backup/offline rescue window using BMC Administrator legitimately issued to owner. Mark **R02 and R04 HOLD: IPMI privilege and BMC-to-share reachability unknown**. No claim of complete bitwise copy today.
+
+**State:** evidence documented; permission and network confirmation **PENDING**; BMC settings unchanged; OLD operating system and ChatGPT old-only MCP remain active.
+
+---
+
+## 2026-10-09 — Namecheap OLD physical RAID imaging via Supermicro IPMI / CD-ROM Image
+
+**المهمة والعهدة:** هذه الخريطة هي مرجع التنفيذ عند انقطاع المحادثة. المالك يريد الاحتفاظ بكل بايت من السيرفر القديم اليوم إن أمكن، ثم إدارة AIONEX AIOS حصريًا من الجديد، قبل تاريخ توقف القديم المعلن 2026-10-22. السيرفران Dedicated عند Namecheap. فريق الدعم قال صراحة إنه **لن ينشئ صورة قرص أو يساعد في التصوير**؛ إجراءات النسخ على عاتق المالك. هذا لا يساوي حصولنا على موافقة بإعادة التشغيل أو ادعاء أن Rescue ISO متاح تلقائيًا.
+
+### 0. حقائق مؤكدة وحالة المرحلة — مصدر زمني 2026-10-09 19:45 UTC
+
+| العنصر | الدليل/النتيجة | الحالة |
+| --- | --- | --- |
+| OLD | nc-ph-4862، IP 209.74.65.106، جهاز Supermicro SYS-5039MC-H12TRF، لوحة X11SCE-F، BMC firmware 1.74 | PASS/READ ONLY |
+| NEW | nc-ph-4354، IP 203.161.33.64، خادم الإنتاج الفعلي منذ NS10 2026-10-05، 36 حاوية قيد التشغيل عند آخر تحقق | PASS/READ ONLY |
+| قرصا OLD | /dev/sda و/dev/sdb، كلاهما SAMSUNG MZ7L3960، حجم كل واحد **960,197,124,096 بايت** | PASS/READ ONLY |
+| RAID1 | md0 من sda2+sdb2، حالة [UU]، قسم /boot وقسم root ext4 /dev/md0p2؛ توجد ملفات حاوية LUKS2 داخل الجذر | PASS/READ ONLY |
+| المساحة المتاحة NEW | **3,274,956,136,448 بايت** تقريبًا، وصورتا القرصين بدون ضغط تحتاجان معًا **1,920,394,248,192 بايت**، بالإضافة إلى مساحات العمل وملفات ISO | PASS/READ ONLY |
+| مسار صور الأقراص NEW | /var/lib/aionex-migration/old-host-offline-disk-image/ — موجود root:root بصلاحية 0700 | PASS |
+| عيب الجرد المرئي OLD | df للجذر = 765,030,105,088 بايت مستخدمة؛ du المرئي = 351,990,788,096؛ فارق **413,039,316,992 بايت**. فحص ext4 للقراءة فقط وجد Docker/containerd قديمين تحت نقاط تركيب مشفرة تحجب الملفات؛ نسخ TAR للملفات الظاهرة ليس نسخة كاملة | CONFIRMED / DO NOT OVERCLAIM |
+| صور الأقراص كاملة | **لم يبدأ تصوير أي قرص بعد**؛ لا توجد صورة RAW مكتملة أو بصمتها | NOT STARTED |
+| IPMI | دخول المالك عبر VPN إلى ipmi.web-hosting.com، واجهة Supermicro BMC بحساب operator وتحت Virtual Media > CD-ROM Image | PASS/SCREENSHOT |
+| الأجهزة الافتراضية | Device 1/2/3 كلها “No disk emulation set” في الصورة الأخيرة | NOT MOUNTED |
+| تشغيل rescue | لا ISO مستضاف أو مركّب، ولا تم اختبار وصول BMC إلى مشاركة شبكة، ولا حدث reboot | NOT STARTED |
+| ChatGPT MCP | أداة @AIONEX Server MCP 2 الحالية تتصل عبر OLD؛ في NEW يوجد الكود ومفتاح التشغيل، لكن لا توجد profile نفق مفعلة. محاولات التهيئة السابقة رُفضت من فحوص المنصة | BLOCKED / DO NOT CIRCUMVENT |
+| بيانات AIOS الفعلية | NEW المصدر الأحدث لقواعد البيانات والملفات والإنتاج؛ أرشيفات Open Song وWorktrees وRuntime والمفاتيح الأصلية محفوظة NEW ببصمة SHA متطابقة وفق سجلات issue #884 | PASS FOR COLD CUSTODY |
+| TURN على NEW | ملفا الإعداد على القرص تغير فيهما external-ip من OLD إلى NEW مع حفظ نسخ تراجع، لكن حاوية TURN لم تُعَد تشغيلها وما زال اختبار relay الوظيفي غير مكتمل | CONFIG FILE FIXED / RUNTIME NOT ACCEPTED |
+| DR الخارجي | أحدث Cloudflare R2 backup مشفر من 2026-10-09 17:05 UTC، أربعة ciphertext objects متطابقة SHA256 وحجمًا؛ automated restore dry_run وليس استعادة كاملة حديثة | OFFSITE INTEGRITY PASS / RESTORE GATE OPEN |
+| GitHub | الوصول من NEW إلى GitHub origin HEAD نجح؛ PR #887 للوثائق لم يُدمج لأن اختبار Browser E2E/NS14A فشل، رغم نجاح اختبارات أخرى | PR CI HOLD |
+
+**تعريف النجاح:** كفاية التخزين الجديد لا تساوي نجاح النسخ. لا تقل “نقلنا كل شيء” إلا بعد صورتين كاملتين متسقتين OFFLINE من الأقراص الصحيحة، والتحقق من طول وبصمة SHA256 لكل صورة، وتسجيل خريطة RAID/الإقلاع والقدرة على فتحها للقراءة؛ ثم تحقق استقلال الإدارة والميزات قبل الإطفاء النهائي. GitHub لا يحتوي البيانات السرية أو أقراص النظام أو مخازن Docker/RAID المخفية.
+
+### 1. تفسير شاشة IPMI الأخيرة — تعليمات المالك الحالية، بلا إجراء تدميري
+
+الصورة عند Supermicro BMC القائمة **Virtual Media > CD-ROM Image** (وليست شاشة تسجيل دخول Ubuntu). تعرض:
+- Device 1 وDevice 2 وDevice 3: No disk emulation set.
+- Share Host: **عنوان مضيف مشاركة SMB/CIFS يحتوي ISO** الذي يستطيع BMC الوصول إليه. ليس عنوان السيرفر القديم أو الجديد تلقائيًا.
+- Path to Image: **المشاركة + اسم ملف ISO**؛ مثال توضيحي فقط في حال كانت المشاركة اسمها rescue والملف ثبتت تسميته بالفعل: \rescue\systemrescue-amd64.iso. الصيغة الفعلية المحددة من Supermicro هي backslash + share + backslash + filename.
+- User وPassword: حساب محدود الصلاحية للقراءة من المشاركة فقط إذا تطلبته، يُحفظ خارج المحادثة والمستودع.
+- Save: حفظ حقول الإعداد بعد تجهيز مشاركتها. Mount: محاولة ربط ISO. Unmount: إزالة ISO. زر Refresh Status آمن للقراءة.
+
+**القرار الآن: اترك الخانات فارغة، لا تضغط Save/Mount أو Power/Reboot ولا تدخل كلمة مرور Ubuntu.** لا يوجد ISO ولا Samba share مؤهلان حاليًا. التوثيق الرسمي: https://www.supermicro.com/manuals/other/IPMI_Users_Guide.pdf (قسم CD-ROM Image)، https://www.supermicro.com/en/support/faqs/faq.php?faq=32233، وصيغة المسار https://www.supermicro.com/en/support/faqs/faq.php?faq=17567.
+
+### 2. R01 — اختيار Rescue ISO موثوق والتحقق من تنزيله على مضيف مناسب
+
+- استخدم ISO إقلاع حي للأعمال الاسترجاعية مثل **SystemRescue amd64**، وليس ملف ISO للتثبيت الذي قد يمسح الأقراص. المصدر الرسمي https://www.system-rescue.org/Download/ وتعليماته https://www.system-rescue.org/Quick_start_guide/.
+- قم بتنزيل ISO والتوقيع الرقمي/ملف SHA256 من نفس الإصدار الرسمي؛ احفظه تحت مسار استقبال منفصل خاص بالجديد، وتأكد أن SHA256 يطابق القيمة المنشورة للإصدار المحدد قبل عرضه للـBMC. لا تثبت رقم إصدار غير مدقق داخل الأوامر المستقبلية. لا تستخدم ISO غير موثوق أو روابط مخترعة.
+- لا تبدأ إعادة تشغيل القديم من أجل ISO قبل إتمام R02 وR03. تنزيل ISO على NEW لا يعني تلقائيًا أن BMC يعرف الوصول إلى NEW.
+
+**معيار القبول:** ISO موجود بالمصدر الرسمي وله SHA256 مثبت على مضيف المشاركة. الحالة الحالية NOT STARTED.
+
+### 3. R02 — مشاركة ISO الخاصة فقط ومسار الوصول من BMC
+
+- الواجهة الظاهرة تستخدم **network share**؛ عادةً SMB/CIFS، ولها خانة Share Host وخانة Path to Image. لا يمكن إدخال مسار لينكس محلي مثل /root/... في Path to Image.
+- تحقق أولًا، بشكل غير تدميري، من عنوان شبكة BMC ومسار اتصاله: الوصول إلى واجهة IPMI من iPhone عبر VPN **لا يثبت** قدرة الـBMC نفسه على الوصول لعنوان 203.161.33.64 أو إلى منفذ SMB في شبكة NEW. لا تفترض أن IPMI وواجهة Linux على نفس الشبكة أو أن منفذ 445 مفتوح.
+- يفضل مشاركة ملف ISO وحيد **read-only** من مضيف يمكن للـBMC الوصول إليه عبر **شبكة إدارة خاصة/VPN موثوقة**؛ حساب Samba مؤقت بلا صلاحيات تعديل، جدار ناري يقتصر على عنوان الـBMC المعروف، وعدم عرض SMB/445 للعالم. بعض BMC القديمة تتطلب SMB1؛ لا تفعل SMB1 العام على خادم NEW الإنتاجي. إذا كان SMB1 مطلوبًا، استخدم وسيطًا معزولًا محدود الوصول أو أوقف هذه الطريقة وراجع بديلًا مدعومًا.
+- اختبار صحة مشاركة ISO يجب أن يتم من نفس مسار الشبكة الخاص بالـBMC، قدر الإمكان، قبل إدخال بيانات الاعتماد. لا تخزن Samba/ISO credentials في GitHub أو النصوص أو سجلات عامة.
+- إذا كان BMC لا يستطيع الوصول إلى المضيف، توقف عند **NETWORK/BMC SHARE BLOCKED**. البدائل: مشاركة خاصة متاحة عبر إدارة Namecheap، أو كونسول Java موثوق على كمبيوتر حقيقي متصل بالـVPN إذا كانت البيئة/الرخصة تسمح؛ **لا تفترض** أن زر HTML5 غير الفعال يبرر إعدادات عامة غير آمنة.
+
+**معيار القبول:** مشاركة مقروءة عبر شبكة إدارة آمنة ومجرب وصول BMC؛ لا خدمات SMB عامة. الحالة NOT STARTED.
+
+### 4. R03 — تجهيز مسار نقل RAW ومفتاح الإدارة والنسخ الاحتياطية قبل أي توقف
+
+- NEW لا يتغير عليه الإنتاج. مجلد الحفظ الموجود /var/lib/aionex-migration/old-host-offline-disk-image/ هو مخزن **ملفات عادية** فقط بصلاحيات جذرية 0700؛ أي ملف صورة يكون 0600 ويُعامل كأصل يحمل **أسرارًا شخصية، ملفات اعتماد وخوادم، وجذر OLD غير المشفر**. لا تنشر الصورة أو SHA لها إذا تضمنت معلومات حساسة.
+- تحقق أن NEW يستطيع استقبال **1,920,394,248,192 بايت** على الأقل بالإضافة إلى مساحة أمان. افحص حصص نظام الملفات، الإنذارات، واتصال SSH المباشر والجدار الناري. لا تستخدم dd of=/dev/mdX أو أي block device على الجديد إطلاقًا.
+- هيئ طريقة مصادقة SSH آمنة مؤقتة لبيئة الإنقاذ (Rescue قد لا يحمل مفاتيح SSH أو مسار IP القديم). **لا تعتمد على اتصال OLD Ubuntu الجاري بعد reboot**؛ وقد تصبح أداة ChatGPT القديمة غير قابلة للاستعمال أثناء Rescue.
+- احفظ نسخ R2 المشفرة ومفتاح استعادتها خارج OLD قبل توقيفه؛ لا تدعي أن اختبار dry_run استعادة كاملة. سجل لحظة التوقف، أسماء الأجهزة الأصلية، حالة RAID1، أرقام الأقراص في سجلات خاصة لا تكشف الأسرار.
+- لا تغير إعداد SSH/Cloudflare أو اسم مضيف NEW، ولا تلمس قواعد البيانات أو LUKS الجديدة. لا توقف OLD ما لم يصرح المالك بتوقيت إنقاذ يؤدي إلى انقطاع أداة MCP الحالية.
+
+**معيار القبول:** اتصال Rescue→NEW مؤمَّن ومجرب بخطوة بسيطة من دون تصوير، مساحة تحقق، وخطة عودة إذا فشل الإقلاع. الحالة NOT STARTED.
+
+### 5. R04 — تركيب ISO من شاشة المستخدم الحالية
+
+**فقط بعد اكتمال R01/R02/R03:** في صفحة IPMI Virtual Media > CD-ROM Image:
+1. **Share Host** = عنوان مشاركة SMB/CIFS القابل للوصول من BMC الذي قيس فعليًا، لا IP تخميني.
+2. **Path to Image** = \اسم-المشاركة\اسم-ISO-المؤكد.iso حسب ما تم إنشاؤه؛ Backslash وليس مسار /opt أو رابط HTTPS.
+3. **User / Password** = حساب قراءة مؤقت إذا كان مطلوبًا؛ لا إرسال للقيم في محادثة ChatGPT أو صور الشاشة.
+4. اضغط **Save** ثم **Mount**؛ اضغط **Refresh Status** وتحقق أن أحد Device 1/2/3 يعرض اسم ISO، بدل No disk emulation set. ظهور Mounted لا يعني أن النظام أقلع Rescue.
+5. **لا تضغط Power Control أو Reset** حتى تكون جميع شروط R03 محققة ويعطي المالك موافقة صريحة على نافذة توقف. إذا فشل Mount: راجع مشاركة SMB الخاصة والشبكة والصيغة بدون المساس بالتشغيل.
+
+**معيار القبول:** صورة ISO موصولة مرئيًا على BMC، دون reboot. الحالة NOT STARTED.
+
+### 6. R05 — إقلاع Rescue مرة واحدة بعد موافقة المالك
+
+- تأكد أن NEW يقدم الخدمة بالفعل، وأن القديم لا يستقبل كتابة مستخدمين حية، وأن جميع المهام الخلفية المهمة قد أُغلقت بسلام أو حالتها محفوظة. أوضح للمالك أن كل أدوات ChatGPT الحالية التي تمر عبر OLD ستنقطع بمجرد الخروج من Ubuntu.
+- احصل على **موافقة مستقلة صريحة** لإعادة تشغيل OLD في Rescue. استخدم Boot Menu/one-time virtual media إن توفر؛ لا تغيّر boot order بشكل دائم ولا تستخدم Install/Reinstall/Wipe.
+- تحقق على شاشة الكونسول أن الظاهر هو SystemRescue live environment وليس Ubuntu القديم أو شاشة مثبت. عند فشل الإقلاع، أزل Virtual Media وأعد تشغيل النظام القديم بالترتيب الأصلي مع توثيق النتيجة؛ لا تستمر في التصوير.
+- داخل Rescue افحص lsblk و /dev/disk/by-id وmd RAID metadata وحجم كل قرص ورقم سلسلة الأجهزة؛ **قد تتغير أسماء sda/sdb** بين Ubuntu وRescue. لا تفترض الأسماء بدون Serial/WWN/size. يجب أن يكون OLD RAID/filesystems **غير مركبة للكتابة**، ولا يتم تشغيل fsck أو mdadm assemble --write أو فتح/تعديل LUKS أو عمل newfs/parted/cryptsetup format.
+
+**معيار القبول:** بيئة الإنقاذ تعمل، مصدرا القرصين معروفان بهوية ثابتة، والقراءة بدون كتابة، واتصال NEW يعمل. الحالة NOT STARTED.
+
+### 7. R06 — تصوير كل قرص RAW من Rescue إلى NEW كملفات فقط
+
+**شرط قاطع:** هذه المرحلة بعد نجاح الإقلاع Rescue فقط؛ أوامر dd لا تُنفذ داخل Ubuntu القديم أثناء التشغيل ولا على أقراص الإنتاج في الجديد. لا يُنفذ أي أمر فعلي حتى يثبت المسؤول أسماء /dev/disk/by-id الصحيحة واتصال SSH. نظرًا لأن المستخدم يعمل من iPhone ويستخدم SSH لا يتحمل Nano/EOF، تُرسل الأوامر التنفيذية الصغيرة واحدة واحدة بعد ظهور Rescue.
+
+- الترتيب: صورة **القرص الفيزيائي الأول كاملًا**، ثم صورة **الثاني كاملًا** لأن المطلوب حفظ metadata كلا القرصين وليس مجرد نسخة ملفات md0.
+- التدفق المقصود: **اقرأ القرص المصدر read-only من Rescue → انقل البيانات عبر SSH موثق/مشفر → اكتب regular file جديد إلى NEW داخل مجلد الحفظ**، مثل old-physical-disk-A.raw.partial ثم B.raw.partial. أسماء الديسكات المصدر تكون by-id بناءً على Serial الفعلي، ولا يُكتب أبدًا على القرص نفسه أو NEW block devices.
+- لا تستخدم إعادة توجيه تعيد كتابة ملفات موجودة أو تعيد البدء فوق نسخة صالحة. اختبار المصدر والحجم، عدم وجود ملف الوجهة، مساحة استقبال كافية، صلاحيات وجهة 0600، وحفظ مخرجات الخروج للأنبوب pipefail كلها شروط قبل النقل.
+- إذا استعمل ضغطًا أثناء النقل فيجب أن تكون الأداة والخوارزمية والنسخة ووسيلة فك الضغط موثقة، وأن يُعاد احتساب SHA للبيانات **بعد فك الضغط**؛ RAW بدون ضغط أسهل في التحقق ومناسب من حيث السعة على NEW. لا تعد بمدة إنهاء ثابتة؛ تتأثر بسرعة القرص والشبكة ووصول IPMI.
+- يمكن استمرار النقل داخل جلسة Rescue مستقلة عن متصفح iPhone باستخدام أداة جلسات طويلة معروفة، لكن لا تفترض استئناف RAW جزئي آمن بدون تحقق حدود القطاعات والبصمات. أي ملف .partial ليس نسخة ناجحة.
+- احتفظ ببيانات SHA256 للمصدرين المُجمدين/القراءة فقط والأحجام الفعلية، ولا تعتمد على مجرد نجاح rsync أو الظهور في المجلد.
+
+**معيار القبول:** الملفان منتجان بالكامل بالحجم الصحيح، دون أي عمليات write إلى الأقراص الأصلية أو أقراص NEW الإنتاجية. الحالة NOT STARTED.
+
+### 8. R07 — إثبات حفظ جميع البايتات والاستعادة المختبرية
+
+- لكل قرص، تأكد أن حجم ملف RAW النهائي على NEW **960,197,124,096 بايت** (إذا أعادت معاينة Rescue تأكيد هذه الأحجام نفسها)، وأن **SHA256 لكل ملف** يساوي SHA256 للقرص المصدر من البيئة الهادئة. إذا كان هناك خطأ قراءة I/O أو تعذر تطابق بصمة: FAIL، لا تعتمد الملف كنسخة كاملة.
+- استخدم أدوات قراءة فقط لفحص جدول الأقسام والإقلاع وRAID superblocks وLUKS2 metadata داخل الملفات. إثبات أن البيانات المخفية تحت mount points محفوظة يتم من خلال فحص صورة OLD المصدر بطريقة للقراءة فقط، لا بإعادة استخراجها فوق NEW.
+- وثّق صورة كل قرص باسم by-id/serial وتاريخ النسخ، الأداة، SHA256، حجم الملف، الوقت والأخطاء، واختبار فتح الصورة للقراءة. خزّن manifest root-only 0600 على NEW مع نسخة مستقلة آمنة خارج الخادمين إن كانت ممكنة. بعد نجاح الفحص فقط حوّل أسماء .partial إلى .raw نهائية.
+- نسخة RAW تحمل أسرار OLD، فلا توضع على GitHub أو R2 عام ولا تُسلَّم لجهة خارجية من دون سياسة تشفير مفاتيح وحيازة. يفضّل تشفير النسخ المخزنة بمفتاح استرجاع يحتفظ به المالك **خارج OLD وNEW** ومراجعة استعادة تجريبية؛ إذا أخفق التشفير أو خرج المفتاح من السيطرة لا تحذف الأصل قبل إثبات النسخة الآمنة.
+- **لا تجرّب استعادة أي صورة raw فوق الأقراص الحية على NEW**. تحقق استعادة النظام الكاملة، إن طُلب، يتم على بيئة مختبر معزولة تمامًا.
+
+**معيار القبول:** المصدران RAW + SHA256 + manifest + فحص الهياكل PASS (ومعالجة أمن حفظ الصور). الحالة NOT STARTED.
+
+### 9. R08 — إغلاق اعتماد OLD وخدمات MCP وTURN قبل الإلغاء
+
+- **New-only management:** أداة ChatGPT MCP الحالية ما زالت تتصل بـOLD. توافر كود NEW وحده لا ينقل اتصالها. الربط الجديد يجب أن يتم بالمسار المرخص وبتكوين موثق ثم **اختبار tool round-trip يعيد hostname=nc-ph-4354**. عمليات إعداد الملف الشخصي التي رفضتها المنصة سابقًا لا تُعاد عبر أدوات بديلة. إن انتهى وقت OLD قبل الربط، يبقى SSH المباشر والمراقبة المحلية على NEW هما القناة المؤكدة؛ يسجل فقد ChatGPT مؤقتًا بصراحة.
+- **TURN:** external-ip الأصلي 209.74.65.106 كان ظاهرًا على NEW، وصُحح الملفان على القرص إلى 203.161.33.64 مع نسخ تراجع، لكن لا يوجد reboot/restart ناجح للحاوية ولا اختبار فعلي لترحيل المكالمات. يلزم إجراء صيانة مشروع واختبار relay audio/video من خارج شبكة الخوادم قبل PASS؛ فحص healthy وحده غير كاف.
+- **مفاتيح وخدمات مؤجلة:** المفتاح الثنائي Android JKS وأسرار الإصدار الأصلية وSecondary RunPod محفوظة في صندوق NEW الخاص ببصمة مطابقة، لكن لم تُفعّل. بعض رموز Meta القديمة لم تُنقل بسبب رفض منصة أمان، وتحتاج إعادة تهيئة رسمية إذا رغب المالك؛ لا تتجاوز الرفض بإعادة تغليف أو أدوات أخرى. TrendBost منتج مستقل موقوف عن النقل الفعال بقرار المالك.
+- **ضمانات DR:** أرصدة R2 الحديثة مشفرة ومتحقق منها byte-for-byte؛ **اختبار الاستعادة الأخير dry_run** ونسخة مفتاح استرجاع خارج الخوادم غير متحققة. تجنب ادعاء أن الفشل الكلي للخادم الجديد مضمون الاستعادة.
+- **إيقاف OLD:** بعد تحقق R07، وتثبيت قناة الإدارة المطلوبة، واختبار TURN أو قبول المالك بصراحة لبقاء العيب الوظيفي، يوافق المالك على إيقاف OLD دون حذفه أو إلغاء فاتورته تلقائيًا. لا تنفذ shut down مبكرًا لمجرد وجود صورة ISO. اختبر NEW لمدة مراقبة مناسبة مع traffic/user routes مستقلة، ثم المالك يلغي التجديد من Namecheap بنفسه قبل موعد 22 أكتوبر. تأكد من أن صور RAW خارج OLD وستظل متاحة عند فقد الحساب القديم.
+
+**معيار القبول النهائي:** صورتا القرصين سليمـتان ومؤمنتان، NEW يعمل، اختبارات الاتصال والإدارة مكتوبة، توقف القديم متعمّد وموثق، وتقرير تاريخي واضح بما تم وتأجل وتقبل المالك من مخاطر. المرحلة HOLD حتى استكمال الشروط.
+
+### 10. بوابات NO-GO والعودة وقيود الأوامر
+
+- لا عمل عالي الخطورة قبل **فحص اسم الجهاز والقرص في Rescue والوجهة كملف عادي على NEW**؛ لا أي Restore للقرص من الصورة على NEW الإنتاجي.
+- انقطاع mount أو قدرة BMC للوصول إلى Samba، أو عدم وجود شبكة/SSH من Rescue إلى NEW، أو نقص المساحة، أو خطأ في bytes/hash/RAID، أو عدم وضوح حفظ المفاتيح → **STOP** مع حفظ الأدلة، ثم العودة الآمنة إلى OLD Ubuntu دون مسح.
+- لا نقل لأسرار أو صورة قرص حاوية للملفات الحساسة via GitHub، ولا تفعيل SMB1/445 مكشوف للإنترنت، ولا نشر مفاتيح ISO/SMB/SSH/RunPod/Meta في شاشات المحادثة أو logs.
+- لا تعتمد أن تصوير القرصين أو نسخ 1.92TB سينتهي اليوم؛ تحكم سرعة شبكة NEW/OLD والوصول عبر Rescue قد يستغرق ساعات طويلة. إذا تعذر إنجاز كامل نسختي RAW، لا تدّعي إغلاق كامل، ويمكن تأجيل الفصل الفيزيائي حتى اتضاح الخطة؛ لا تفقد البيانات من أجل موعد طموح.
+- أي طلبات جديدة من iPhone: أوامر SSH قصيرة منفصلة **سطرًا بسطر**، بدون Nano أو EOF، ومع تأكيد Done/تم لكل خطوة. استمرارية العمل عبر issue #884 والمراحل R01–R08 بالأدلة الحديثة.
+- لا تعيد نسخ الأرشيفات الثلاثة الأساسية أو بيانات الإنتاج الأكبر عند محاولة حل مشكلة ISO؛ فهي محفوظة مسبقًا، والغرض من تصوير الأقراص هو استكمال **كل البيانات المخفية والتاريخية** التي لا يغطيها ترحيل المشروع.
+
+**الخطوة الوحيدة للمالك عند الصورة الحالية:** إبقاء صفحة CD-ROM Image مفتوحة والخانات فارغة؛ لا Save/Mount/Power. على المسؤول إعداد ISO موثوق ومشاركة SMB خصوصية قابلة للوصول من BMC والتحقق منها. ثم تعود المحادثة بأسماء Share Host/Path to Image المؤكدة فقط دون بيانات اعتماد، ليُكتب للمالك ما يدخل في كل خانة.
+
+---
+
+## Verified new-only handover update — 9 Oct 2026, after 17:16 UTC
+
+**Use this latest section before historical material below.** Owner will not renew OLD nc-ph-4862 after reported 22 Oct 2026. NEW nc-ph-4354 is the authoritative production server. Detailed immutable source references, original SHA records and accepted tests are in GitHub issue [#884](https://github.com/ipdomx/AIONEX-AIOS/issues/884). The separate privately developed AIONEX AI system is not part of AIOS host migration.
+
+### Completed — live service and irreplaceable source custody
+
+- NEW production has 36 running containers, zero unhealthy/restarting as observed Oct9 17:16 UTC. The Oct5 NS10 transfer made NEW authoritative for PostgreSQL, uploads and execution vaults; OLD user-write admission was closed. NEW-native NS12 hourly observation produced 25 retained samples by Oct9 17:00; the latest sample reported no anomalies and all ten HTTP checks at expected codes. Both independent NEW monitoring timers are active. The owner mobile root SSH public key had independently authenticated to NEW without using OLD.
+- **Supersession of early 9 Oct Android risk:** Owner independently transferred the ORIGINAL Android release JKS binary, its signing environment and deferred secondary RunPod environment by SFTP to the private NEW inbox folder /root/AIONEX-MANUAL-INBOX/critical/. All three files exactly matched OLD size and SHA256 and were chmod 0600/root:root. Receipt USER-SFTP-APP-FILES-VERIFIED-20261009T152520Z.json on NEW SHA256 c4b50a023efa4dca16e7861937b478997629ebec1db3a4f249950eb2d528ae37. Prior statements that JKS was still missing described an EARLIER point in time, not current custody. Three separate Phase34 Ed25519 signing public/private key artifacts have additionally been preserved in NEW private cold custody with exact old/new SHA256 matches; no key value is committed to Git.
+- Three unique original OLD cold archives are stored intact on NEW, root-only and not extracted into production: Open Song (3,055,034,823 bytes, SHA256 943b054ed6a7fd8af8d4446fdf4e7b0002b32d5dcdc59b073c38d4dd2ca83084), historical Worktrees (4,801,312,993 bytes, SHA256 d5d01bf5f1d59ccba62b1a59878d52765ee0012d6e361f1a0b3569a8106b9738), and historical runtime (17,548,751,033 bytes, SHA256 a80e03d5b33f4dae30de260a155010555a4dbc7e7a08c4889c3419f8f3dacefd). Open Song and Worktrees passed TAR structure checks; full Runtime member listing timed out, but old/new SHA256 parity passed. NEW private staging: /root/AIONEX-MANUAL-INBOX/models and /root/AIONEX-MANUAL-INBOX/history. See issue #884 receipts. Do not recopy/reinstall blindly.
+- Previously accepted distinct root-only cold archives also preserve original Hunyuan3D/RunPod gateway source and Git history (isolated Git reconstruction PASS), AFS/tools/disabled source-closure coordinator, TrendBost helper, old releases, old FR04C1 source and consistent 24-table historical SQLite, and RunPod job identifiers. These have immutable exact SHA evidence in issue #884.
+
+### New acceptance evidence and further preserved files
+
+- The two legacy SMTP installer scripts and old ADB firewall service unit were preserved inertly in NEW /var/lib/aionex-migration/retirement-evidence-20261008/legacy-operator-scripts/RETIREMENT-LEGACY-OPERATOR-SCRIPTS-20261009T1700Z.tar.gz; 1,976 bytes, SHA256 f2c2273067e04f9516e205597b08369739fd9d489468f1bb366b9b232c5a6532. They were not executed or installed in NEW.
+- Historical Android APK/AAB, iOS source and portal release artifacts from OLD root config releases directory were preserved in NEW legacy-app-release-artifacts/RETIREMENT-LEGACY-APP-RELEASES-20261009T1710Z.tar.gz; 237,173,412 bytes, 1,919 TAR members, SHA256 7f911ea8c00fcb206ef373ed7246eaa3f303542896a7180705b2b48c63972151. Sensitive .env/PEM/key/P12 files and one token-like JSON were excluded. This is a cold source archive, not production deployment.
+- Five nonsensitive historical RunPod metadata files are in NEW root-only legacy-runpod-metadata/RETIREMENT-RUNPOD-NONSECRET-METADATA-20261009T1720Z.tar.gz, SHA256 e96eddc08ffc2d4ebb2af9f7f7d052733dd8a7da4b243a7da4ddf383b0787329. Two separate OLD RunPod JSON files may contain token/env fields and were deliberately not copied raw; the owner already secured the separate original secondary RunPod environment through SFTP.
+- Docker: all **nine named Docker volume identities** on OLD also exist on NEW. This is structural identity parity, not all-vault byte identity. OLD has 105 anonymous volumes; zero are attached to running OLD containers, 104 are unattached to ANY OLD container and one belongs only to stopped OLD TURN. NEW has its own active TURN. Do not overwrite live NEW customer volumes with stale OLD raw PostgreSQL or Redis data or copy orphaned test cache volumes by default.
+- Ollama gemma3:4b is available on both servers. All **seven actual model blob and manifest files** (3,338,804,078 bytes) matched per-file SHA256 exactly OLD versus NEW. Two per-host Ollama Ed25519 identity files legitimately differ; never overwrite NEW private identity from OLD.
+- NEW scheduled production backup 7279bdc5-89ca-4822-a11c-8badd68b742c completed on Oct9 17:05:54Z with offsite status completed. A fresh independent NEW-to-Cloudflare-R2 read-only streaming GET verified entire ciphertext size and SHA256 for **all four** latest offsite objects (database 21,607,228 bytes, manifest 1,973, 3D 54,937,868, platform assets 54,937,868): 4/4 PASS. Automated restore validation recorded completed, validated and offsite_validated at 17:06:13Z, but **dry_run=true**; this does NOT prove real restoration of that latest encrypted backup. Separate NEW-only real isolated restoration of the Oct5 NS10 PostgreSQL dump passed with 176 public tables. NEW keyring already matches OLD and has the required R2 encryption key identity. External off-NEW keyring custody remains unverified.
+
+### Explicit residual dependency and safe old-host retirement decision
+
+1. **ChatGPT custom MCP is the operational blocker.** NEW already has tracked operator source at /opt/AIOS/ops/mcp2/server.py (28 handlers) and local root-only runtime key, but current read-only profile listing confirms **no NEW tunnel-client profiles configured**; NEW phase22c systemd tunnel services are inactive. Connected ChatGPT @AIONEX Server MCP 2 still executes against OLD. A NEW MCP profile/credential/init attempt was previously platform-safety-refused. Do not bypass it via another tool/host/account/worker. Keep OLD ChatGPT plugin/host active until a legitimate NEW endpoint is independently configured and actual NEW-host tool round-trip accepted; if old expires first, root SSH and NEW-native monitoring keep production manageable but the old ChatGPT bridge will stop. New ChatGPT entitlement/write permission may limit MCP actions even after connecting; no paid upgrade has been approved.
+2. **OLD Meta marketing access tokens remain excluded.** Three OLD provider token files are not verified on NEW. A direct secure transfer was platform-safety-blocked before execution, and NEW escrow staging directory did not appear. Do not retry/repackage the denied effect. Owner retains provider credentials privately and may reprovision through authorized provider/account interfaces later. No raw token is included in Git.
+3. **Full OLD byte-clone was NOT performed.** Old anonymous Docker volumes, partial old .deployment-backups, emulator and other project's files, rebuildable dependencies and miscellaneous old state were not attested as a lossless 689GiB image. Preserve project boundaries. The accepted listed unique AIOS runtime archives, signing keys, running service/data cutover and fresh remote backup do not mean every unrelated OLD filesystem byte moved.
+4. **Independent disaster restoration remains distinct.** Full NEW-host-loss recovery would require verified backup keyring custody outside BOTH servers and a controlled genuine decrypt/restore of latest offsite files. Automatic PostgreSQL post-reboot startup and expanded NS14A authenticated/browser fault tests also remain not fully accepted. Do not infer these gates from healthy Docker/HTTP points.
+5. **TrendBost is a separate hosted product deferred by Owner.** Legacy bridge files are preserved but NEW bridge is disabled and OLD one active; this optional tool is not required for current AIOS user-serving production and can be legitimately provisioned later.
+
+**Decision:** NEW AIOS is production-authoritative and can be administered through proven direct SSH, with authentic user-created archives, original signing identity, Hunyuan/RunPod/Git material and offsite ciphertext preserved. **Do not erase or unregister the ONLY LIVE OLD ChatGPT MCP** merely because code/key files are present on NEW. Retire the bridge only after NEW-specific connector verification or an explicit owner decision to give up ChatGPT MCP control.
+
 ## Old-host retirement dependency closure — 2026-10-09 (verified field evidence)
 
 ### 9 Oct owner custody correction and safe historical archives (14:31–14:55 UTC)
