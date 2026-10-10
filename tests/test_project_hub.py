@@ -118,4 +118,5 @@ def test_all_remaining_batches_have_short_parts_and_preserve_scope(plan):
         assert len(identifiers) == len(set(identifiers))
         assert all(name.startswith(batch["id"]) for name in identifiers)
     assert len(plan["owner_decisions"]["deferred"]) == 4
-    assert plan["capacity_acceptance"]["authenticated_active_users"] == 1000
+    assert plan["capacity_acceptance"]["authenticated_active_users"] == 5000
+    assert plan["capacity_acceptance"]["durable_jobs_min"] == 15000

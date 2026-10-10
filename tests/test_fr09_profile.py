@@ -25,22 +25,22 @@ def canonical_plan() -> dict:
 def test_canonical_expanded_profile_matches_required_topology() -> None:
     profile = module.CapacityProfile.from_plan(canonical_plan())
 
-    assert profile.authenticated_active_users == 1000
+    assert profile.authenticated_active_users == 5000
     assert profile.projects_per_user_min == 3
     assert profile.conversations_per_user_min == 3
-    assert profile.total_projects == 3000
-    assert profile.total_conversations == 3000
-    assert profile.durable_jobs_min == 3000
+    assert profile.total_projects == 15000
+    assert profile.total_conversations == 15000
+    assert profile.durable_jobs_min == 15000
     assert profile.steady_state_minutes_min == 15
 
 
 @pytest.mark.parametrize(
     ("field", "value"),
     [
-        ("authenticated_active_users", 999),
+        ("authenticated_active_users", 4999),
         ("projects_per_user_min", 2),
         ("conversations_per_user_min", 2),
-        ("durable_jobs_min", 2999),
+        ("durable_jobs_min", 14999),
         ("steady_state_minutes_min", 14),
         ("ordinary_read_p95_ms_max", 501),
         ("durable_enqueue_p95_ms_max", 1001),
@@ -62,11 +62,11 @@ def test_ramp_finishes_at_full_profile_without_inventing_extra_conversations() -
     profile = module.CapacityProfile.from_plan(canonical_plan())
     steps = module.build_ramp(profile)
 
-    assert [step.users for step in steps] == [25, 100, 250, 500, 1000]
+    assert [step.users for step in steps] == [25, 100, 250, 500, 1000, 2500, 5000]
     final = steps[-1]
-    assert final.projects == 3000
-    assert final.conversations == 3000
-    assert final.durable_jobs == 3000
+    assert final.projects == 15000
+    assert final.conversations == 15000
+    assert final.durable_jobs == 15000
     assert final.steady_state_minutes == 15
 
 
@@ -114,3 +114,27 @@ def test_historical_evidence_is_retained_as_baseline_not_acceptance() -> None:
     assert len(result["historical_receipts"]) == 4
     assert "baseline only" in result["historical_evidence_boundary"]
     assert "expanded-profile acceptance" in result["historical_evidence_boundary"]
+
+
+def test_historical_1000_user_profile_is_not_a_5000_user_release_gate():
+    historic = copy.deepcopy(canonical_plan())
+    historic["capacity_acceptance"]["authenticated_active_users"] = 1000
+    historic["capacity_acceptance"]["durable_jobs_min"] = 3000
+    with pytest.raises(module.CapacityProfileError, match="5000 users"):
+        module.CapacityProfile.from_plan(historic)
+
+
+def test_durable_jobs_scale_with_users_and_cannot_be_understated():
+    plan = copy.deepcopy(canonical_plan())
+    plan["capacity_acceptance"]["authenticated_active_users"] = 6000
+    plan["capacity_acceptance"]["durable_jobs_min"] = 15000
+    with pytest.raises(module.CapacityProfileError, match="3 durable jobs per user"):
+        module.CapacityProfile.from_plan(plan)
+
+
+def test_5000_intermediate_ramp_is_present_for_higher_capacity():
+    plan = copy.deepcopy(canonical_plan())
+    plan["capacity_acceptance"]["authenticated_active_users"] = 6000
+    plan["capacity_acceptance"]["durable_jobs_min"] = 18000
+    profile = module.CapacityProfile.from_plan(plan)
+    assert [step.users for step in module.build_ramp(profile)] == [25, 100, 250, 500, 1000, 2500, 5000, 6000]

@@ -14,10 +14,10 @@ from pathlib import Path
 from typing import Any
 
 REQUIRED_FLAGS = (
-    "authenticated_users_1000",
-    "projects_3000",
-    "conversations_3000",
-    "durable_jobs_3000",
+    "authenticated_users_5000",
+    "projects_15000",
+    "conversations_15000",
+    "durable_jobs_15000",
     "lost_jobs_zero",
     "duplicate_terminal_zero",
     "tenant_leaks_zero",
@@ -27,11 +27,11 @@ REQUIRED_FLAGS = (
     "steady_state_15m",
     "provider_spend_zero",
 )
-MIN_USERS = 1000
-MIN_ASSETS = 3000
+MIN_USERS = 5000
+MIN_ASSETS = 15000
 MIN_STEADY_SECONDS = 900
 MIN_STEADY_ROUNDS = 30
-MIN_STEADY_READS = 30000
+MIN_STEADY_READS = 150000
 MAX_READ_P95_MS = 500.0
 MAX_ENQUEUE_P95_MS = 1000.0
 MAX_ERROR_RATE = 0.005
@@ -64,7 +64,7 @@ def zero_integer(value: Any) -> bool:
 
 
 def evaluate(mixed: Any, read_only: Any = None) -> dict[str, Any]:
-    """Recompute acceptance from measured evidence, not self-claimed flags.
+    """Validate full 5000-user mixed acceptance from actual observations.
 
     The optional read-only receipt is an independent sub-test and cannot
     upgrade an absent or failed full-mixed receipt, even if perfectly green.
@@ -90,7 +90,7 @@ def evaluate(mixed: Any, read_only: Any = None) -> dict[str, Any]:
         "projects_profile": integer(at(m, "profile", "projects"), MIN_ASSETS),
         "conversations_profile": integer(at(m, "profile", "conversations"), MIN_ASSETS),
         "jobs_profile": integer(at(m, "profile", "jobs"), MIN_ASSETS),
-        "ramp_reaches_1000": ramp_steps == [25, 100, 250, 500, 1000],
+        "ramp_reaches_5000": ramp_steps == [25, 100, 250, 500, 1000, 2500, 5000],
         "15m_profile": integer(at(m, "profile", "steady_seconds"), MIN_STEADY_SECONDS),
         "15m_measured_elapsed": finite_number(at(m, "completed_at_epoch"))
         and finite_number(at(m, "started_at_epoch"))
@@ -102,17 +102,17 @@ def evaluate(mixed: Any, read_only: Any = None) -> dict[str, Any]:
         "enqueue_p95": finite_number(at(m, "latency", "enqueue", "p95_ms"), ceiling=MAX_ENQUEUE_P95_MS),
         "project_creation_api_covered": integer(at(m, "latency", "project_create", "count"), MIN_ASSETS),
         "conversation_creation_api_covered": integer(at(m, "latency", "conversation_create", "count"), MIN_ASSETS),
-        "three_thousand_projects": integer(at(m, "db", "projects"), MIN_ASSETS),
-        "three_thousand_conversations": integer(at(m, "db", "threads"), MIN_ASSETS),
-        "three_thousand_completed_jobs": integer(at(m, "db", "jobs_completed"), MIN_ASSETS),
-        "three_thousand_total_jobs": integer(at(m, "db", "jobs_total"), MIN_ASSETS),
+        "fifteen_thousand_projects": integer(at(m, "db", "projects"), MIN_ASSETS),
+        "fifteen_thousand_conversations": integer(at(m, "db", "threads"), MIN_ASSETS),
+        "fifteen_thousand_completed_jobs": integer(at(m, "db", "jobs_completed"), MIN_ASSETS),
+        "fifteen_thousand_total_jobs": integer(at(m, "db", "jobs_total"), MIN_ASSETS),
         "no_queued_jobs": zero_integer(at(m, "db", "jobs_queued")),
         "no_running_jobs": zero_integer(at(m, "db", "jobs_running")),
         "no_failed_jobs": zero_integer(at(m, "db", "jobs_failed")),
         "no_cancelled_jobs": zero_integer(at(m, "db", "jobs_cancelled")),
         "no_review_needed_jobs": zero_integer(at(m, "db", "jobs_needs_review")),
         "no_cross_tenant_mismatch": zero_integer(at(m, "db", "tenant_mismatch_jobs")),
-        "cross_tenant_negatives": integer(at(m, "cross_tenant_negative_pass"), MIN_USERS),
+        "cross_tenant_negatives_5000": integer(at(m, "cross_tenant_negative_pass"), MIN_USERS),
         "unique_job_ids": integer(at(m, "unique_job_ids"), MIN_ASSETS),
         "unexpected_error_rate": measured_rate is not None and measured_rate <= MAX_ERROR_RATE,
         "provider_external_calls_zero": zero_integer(at(m, "provider", "external_calls")),
@@ -122,7 +122,7 @@ def evaluate(mixed: Any, read_only: Any = None) -> dict[str, Any]:
     read = read_only if isinstance(read_only, dict) else {}
     read_result = at(read, "result")
     read_stage = (
-        at(read, "status") == "PASS_EXACT_MERGED_15M_READ_SLO"
+        at(read, "status") == "PASS_5000_SHARDED_READ_15M_SLO"
         and integer(at(read, "profile", "users"), MIN_USERS)
         and integer(at(read, "profile", "requests"), MIN_STEADY_READS)
         and integer(at(read, "profile", "rounds"), MIN_STEADY_ROUNDS)
@@ -146,6 +146,11 @@ def evaluate(mixed: Any, read_only: Any = None) -> dict[str, Any]:
         "measured_error_rate": round(measured_rate, 7) if measured_rate is not None else None,
         "read_only_envelope_pass": read_stage,
         "read_only_envelope_cannot_override_mixed": True,
+        "target_authenticated_users": MIN_USERS,
+        "target_projects": MIN_ASSETS,
+        "target_conversations": MIN_ASSETS,
+        "target_durable_jobs": MIN_ASSETS,
+        "heavy_ai_5000_simultaneous_inference_proven": False,
         "live_production_load_test_executed": False,
         "network_or_data_mutation": False,
     }
