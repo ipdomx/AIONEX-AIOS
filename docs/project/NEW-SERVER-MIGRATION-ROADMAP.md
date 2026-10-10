@@ -1,5 +1,14 @@
 # AIONEX AIOS — New Production Server Migration Roadmap
 
+## 2026-10-10 — FR-09 observed storage gate; full 5,000 mixed load still HOLD
+
+- Verified owner terminal new-host `nc-ph-4354`: all 36 production containers running (35 healthy; Cloudflared running without healthcheck); active source checkout is detached `f2527cf3`; GitHub protected main was fetched at `9727262b` without touching production files or container images.
+- NEW root filesystem ~3.0 TB free, but encrypted runtime vault shared by Docker and containerd ~23 GiB free of 63 GiB. The FR-09 heavy-work free-space criterion is at least **40 GiB on the relevant runtime filesystem**, not the root volume. Nominally reclaimable images/build-cache are NOT authority to prune production rollback layers.
+- A separate read-only host-space preflight source and negative tests are staged on a review branch (see `docs/project/receipts/FR-09G-observed-docker-vault-space-20261010.md`). This is **NOT deployed, NOT a lab-setup approval, and NOT a performed 5,000-user load test**. FR-08 runtime acceptance and independently isolated backend/PostgreSQL/Redis lab are additional mandatory gates.
+- NS-14 Docker vault pressure alerts are proposed in PR #891, not counted as live activated until protected CI succeeds, merges and reviewed new-host rollout confirms notification delivery. Do not stop or prune the 36 production containers.
+
+---
+
 ## Authoritative FR-09F 5000-user gate — 2026-10-10 20:10 UTC
 
 **OWNER DECISION SUPERSEDES EVERY OLDER 1,000-USER FULL-RELEASE CAPACITY CLAIM BELOW.** The canonical source `docs/project/PLAN.json` was updated in PR [#889](https://github.com/ipdomx/AIONEX-AIOS/pull/889) and merged after **five of five original protected CI checks passed** as commit `cb907a72e862933e9d5220a135a821b74fad11dc`. The required end-to-end release target is **5,000 authenticated concurrently active users**, at least **15,000 real-isolated project records**, **15,000 conversations**, **15,000 durable jobs**, and a **15-minute mixed-workload steady state**. Thresholds are unchanged: ordinary authenticated read P95 <=500 ms, enqueue P95 <=1,000 ms, unexpected errors <=0.5%, zero tenant leaks, lost jobs, and duplicate terminal executions. Owner policy denials must be accounted separately, never used to hide application failures. This test profile's three projects/conversations per user is not a fixed product quota.
