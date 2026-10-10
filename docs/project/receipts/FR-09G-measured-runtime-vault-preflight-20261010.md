@@ -9,3 +9,5 @@ This source guard adds **read-only real filesystem-device + free-byte observatio
 Offline regression tests prove that a 3 TB-free root alongside a 23 GiB-free Docker vault still fails the heavy-work gate; an unmounted vault aliasing the root is rejected; and missing measurement cannot authorize heavy work. The JSON explicitly reports `load_test_authorized=false` regardless of source-profile preflight outcome.
 
 **Non-authorization:** Even measured storage and an FR-08 flag do not prove independently isolated lab resources, authentication, test images, no-provider/billing or owner-approved runtime limits. The 5,000-user load test remains blocked until a separate disposable backend/PostgreSQL/Redis and full safety admission are independently accepted. No docker-prune, deletion, rollover or deployment is part of this proposal.
+
+**Shell contract:** the FR-09 profile CLI exits with status 2 for a HOLD (including an insufficient runtime vault or a weakened <40 GiB override), rather than returning exit 0 on a blocked preflight. Exit 0 certifies profile preflight only and never authorizes starting a load test.
