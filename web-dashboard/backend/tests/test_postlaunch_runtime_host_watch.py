@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "scripts/operations/docker-runtime-watch.py"
@@ -77,6 +78,7 @@ def _capacity_metrics(**overrides: float) -> dict[str, float]:
         "cpu_pct": 20.0,
         "memory_pct": 15.0,
         "disk_pct": 40.0,
+        "docker_disk_pct": 40.0,
         "load_pct": 25.0,
         "network_pct": 5.0,
         "swap_pct": 1.0,
@@ -126,6 +128,7 @@ def test_capacity_guard_all_thresholds_are_conservative_percentages() -> None:
         "cpu_pct": (70.0, 85.0),
         "memory_pct": (75.0, 85.0),
         "disk_pct": (70.0, 85.0),
+        "docker_disk_pct": (70.0, 85.0),
         "load_pct": (75.0, 100.0),
         "network_pct": (65.0, 80.0),
         "swap_pct": (20.0, 50.0),
@@ -134,6 +137,50 @@ def test_capacity_guard_all_thresholds_are_conservative_percentages() -> None:
         assert capacity.classify(metric, warning - 0.01) == "healthy"
         assert capacity.classify(metric, warning) == "warning"
         assert capacity.classify(metric, critical) == "critical"
+
+
+def test_capacity_guard_observes_docker_vault_even_when_root_has_headroom(monkeypatch) -> None:
+    def fake_disk_usage(path: str) -> SimpleNamespace:
+        if path == "/":
+            return SimpleNamespace(total=1000, used=90)
+        if path == "/var/lib/docker":
+            return SimpleNamespace(total=1000, used=620)
+        raise AssertionError(f"unexpected monitored path: {path}")
+
+    monkeypatch.setattr(capacity.shutil, "disk_usage", fake_disk_usage)
+    monkeypatch.setattr(capacity, "_read_cpu", lambda: (100, 80))
+    monkeypatch.setattr(capacity, "_memory_metrics", lambda: (10.0, 0.0))
+    monkeypatch.setattr(capacity, "_network_counters", lambda interface: (0, 0, 1000))
+    monkeypatch.setattr(capacity.os, "getloadavg", lambda: (0.0, 0.0, 0.0))
+    monkeypatch.setattr(capacity.os, "cpu_count", lambda: 64)
+
+    metrics, _ = capacity.collect_metrics(None, interface="wan0")
+    assert metrics["disk_pct"] == 9.0
+    assert metrics["docker_disk_pct"] == 62.0
+
+
+def test_capacity_guard_docker_vault_warning_escalation_and_recovery() -> None:
+    state = {"version": 1, "metrics": {}}
+    for used_pct in (71.0, 72.0, 73.0):
+        state, events = capacity.reconcile_capacity(
+            state, _capacity_metrics(docker_disk_pct=used_pct)
+        )
+    assert [event["event"] for event in events] == ["capacity_warning"]
+    assert events[0]["metric"] == "docker_disk_pct"
+
+    for used_pct in (86.0, 88.0):
+        state, events = capacity.reconcile_capacity(
+            state, _capacity_metrics(docker_disk_pct=used_pct)
+        )
+    assert [event["event"] for event in events] == ["capacity_critical"]
+    assert events[0]["metric"] == "docker_disk_pct"
+
+    for used_pct in (50.0, 48.0, 45.0):
+        state, events = capacity.reconcile_capacity(
+            state, _capacity_metrics(docker_disk_pct=used_pct)
+        )
+    assert [event["event"] for event in events] == ["capacity_recovered"]
+    assert events[0]["metric"] == "docker_disk_pct"
 
 
 def test_systemd_timer_runs_runtime_and_capacity_guards_host_side() -> None:
@@ -150,6 +197,7 @@ def test_runtime_host_alert_starts_and_stops_realtime_runtime() -> None:
     assert "await realtime_event_runtime.start()" in source
     assert "await realtime_event_runtime.stop()" in source
     assert "await close_redis()" in source
+    assert '"docker_disk_pct"' in source
     assert source.index("await init_redis()") < source.index("await realtime_event_runtime.start()")
     assert source.index("await realtime_event_runtime.start()") < source.index("await emit(")
     assert source.index("await realtime_event_runtime.stop()") < source.index("await close_redis()")

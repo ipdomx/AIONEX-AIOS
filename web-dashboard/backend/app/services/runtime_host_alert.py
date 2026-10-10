@@ -21,7 +21,7 @@ _EVENTS = {
     "capacity_warning", "capacity_critical", "capacity_recovered",
 }
 _CAPACITY_METRICS = {
-    "cpu_pct", "memory_pct", "disk_pct", "load_pct", "network_pct", "swap_pct"
+    "cpu_pct", "memory_pct", "disk_pct", "docker_disk_pct", "load_pct", "network_pct", "swap_pct"
 }
 
 
