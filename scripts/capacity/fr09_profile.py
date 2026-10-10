@@ -172,6 +172,8 @@ def build_preflight(
     blockers: list[str] = []
     if not fr08_accepted:
         blockers.append("FR-08 dependency is not accepted")
+    if heavy_min_free_bytes < 40 * GIB:
+        blockers.append("heavy-work minimum free space cannot be weakened below 40 GiB")
     if free_bytes < heavy_min_free_bytes:
         blockers.append("free disk is below the configured heavy-work capacity gate")
     if measured_storage is None:
@@ -248,7 +250,8 @@ def main() -> int:
         print(raw, end="")
     else:
         args.output.write_text(raw)
-    return 0
+    # A HOLD must never appear successful to a CI/operator shell caller.
+    return 0 if result["execution"]["heavy_work_permitted"] else 2
 
 
 if __name__ == "__main__":
