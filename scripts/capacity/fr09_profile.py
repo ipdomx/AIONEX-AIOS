@@ -68,16 +68,16 @@ class CapacityProfile:
         return profile
 
     def validate(self) -> None:
-        if self.authenticated_active_users < 1000:
-            raise CapacityProfileError("expanded profile requires at least 1000 users")
+        if self.authenticated_active_users < 5000:
+            raise CapacityProfileError("full 5000-user acceptance requires at least 5000 users")
         if self.projects_per_user_min < 3:
             raise CapacityProfileError("expanded profile requires at least 3 projects/user")
         if self.conversations_per_user_min < 3:
             raise CapacityProfileError(
                 "expanded profile requires at least 3 conversations/user"
             )
-        if self.durable_jobs_min < 3000:
-            raise CapacityProfileError("expanded profile requires at least 3000 jobs")
+        if self.durable_jobs_min < self.authenticated_active_users * 3:
+            raise CapacityProfileError("full profile requires at least 3 durable jobs per user")
         if self.steady_state_minutes_min < 15:
             raise CapacityProfileError("steady-state duration must be at least 15 minutes")
         if self.ordinary_read_p95_ms_max > 500:
@@ -118,7 +118,7 @@ class RampStep:
 
 
 def build_ramp(profile: CapacityProfile) -> tuple[RampStep, ...]:
-    user_steps = (25, 100, 250, 500, profile.authenticated_active_users)
+    user_steps = tuple(dict.fromkeys((25, 100, 250, 500, 1000, 2500, 5000, profile.authenticated_active_users)))
     steps: list[RampStep] = []
     for users in user_steps:
         ratio = users / profile.authenticated_active_users
