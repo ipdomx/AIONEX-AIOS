@@ -5,6 +5,7 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -86,6 +87,7 @@ def test_dependency_and_disk_gate_block_heavy_execution() -> None:
     assert result["execution"]["blockers"] == [
         "FR-08 dependency is not accepted",
         "free disk is below the configured heavy-work capacity gate",
+        "Docker runtime filesystem capacity is not independently measured",
     ]
 
 
@@ -96,10 +98,73 @@ def test_only_current_dependency_and_capacity_can_open_heavy_gate() -> None:
         fr08_accepted=True,
         free_bytes=40 * module.GIB,
         heavy_min_free_bytes=40 * module.GIB,
+        measured_storage={
+            "runtime_fs_separate_from_root": True,
+            "runtime_min_free_bytes": 45 * module.GIB,
+        },
     )
 
+    assert result["execution"]["load_test_authorized"] is False
     assert result["execution"]["heavy_work_permitted"] is True
     assert result["execution"]["blockers"] == []
+
+
+
+def test_large_root_does_not_hide_small_encrypted_docker_runtime(monkeypatch) -> None:
+    free_by_path = {
+        "/var/lib/docker": 23 * module.GIB,
+        "/var/lib/containerd": 23 * module.GIB,
+    }
+    monkeypatch.setattr(
+        module.shutil, "disk_usage",
+        lambda path: SimpleNamespace(free=free_by_path[str(path)]),
+    )
+    monkeypatch.setattr(module, "_fs_device", lambda path: 1 if str(path) == "/" else 2)
+    measured = module.measure_runtime_free_space()
+
+    assert measured["docker_containerd_share_filesystem"] is True
+    assert measured["runtime_fs_separate_from_root"] is True
+    assert measured["runtime_min_free_bytes"] == 23 * module.GIB
+    result = module.build_preflight(
+        module.CapacityProfile.from_plan(canonical_plan()),
+        fr08_accepted=True,
+        free_bytes=3 * 1024**4,
+        heavy_min_free_bytes=40 * module.GIB,
+        measured_storage=measured,
+    )
+    assert result["execution"]["heavy_work_permitted"] is False
+    assert "Docker/containerd runtime free space is below the heavy-work gate" in result["execution"]["blockers"]
+
+
+def test_unmounted_docker_runtime_on_root_never_counts_as_verified(monkeypatch) -> None:
+    monkeypatch.setattr(
+        module.shutil, "disk_usage",
+        lambda path: SimpleNamespace(free=300 * module.GIB),
+    )
+    monkeypatch.setattr(module, "_fs_device", lambda path: 1)
+    measured = module.measure_runtime_free_space()
+    assert measured["runtime_fs_separate_from_root"] is False
+    result = module.build_preflight(
+        module.CapacityProfile.from_plan(canonical_plan()),
+        fr08_accepted=True,
+        free_bytes=300 * module.GIB,
+        heavy_min_free_bytes=40 * module.GIB,
+        measured_storage=measured,
+    )
+    assert result["execution"]["heavy_work_permitted"] is False
+    assert "Docker/containerd runtime filesystem identity is not verified" in result["execution"]["blockers"]
+
+
+def test_missing_runtime_measurement_never_claims_heavy_gate() -> None:
+    result = module.build_preflight(
+        module.CapacityProfile.from_plan(canonical_plan()),
+        fr08_accepted=True,
+        free_bytes=300 * module.GIB,
+        heavy_min_free_bytes=40 * module.GIB,
+        measured_storage=None,
+    )
+    assert result["execution"]["heavy_work_permitted"] is False
+    assert result["execution"]["load_test_authorized"] is False
 
 
 def test_historical_evidence_is_retained_as_baseline_not_acceptance() -> None:
