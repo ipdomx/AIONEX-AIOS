@@ -16,30 +16,30 @@ spec.loader.exec_module(module)
 def mixed_pass():
     return {
         "schema": 1, "status": "PASS",
-        "started_at_epoch": 1000.0, "completed_at_epoch": 1920.0,
-        "profile": {"users": 1000, "projects": 3000, "conversations": 3000, "jobs": 3000,
+        "started_at_epoch": 5000.0, "completed_at_epoch": 1920.0,
+        "profile": {"users": 5000, "projects": 15000, "conversations": 15000, "jobs": 15000,
                     "steady_seconds": 900},
-        "ramp": [{"users": n} for n in (25, 100, 250, 500, 1000)],
+        "ramp": [{"users": n} for n in (25, 100, 250, 500, 5000, 2500, 5000)],
         "checks": {key: True for key in module.REQUIRED_FLAGS},
-        "db": {"projects": 3000, "threads": 3000, "jobs_total": 3000,
-               "jobs_completed": 3000, "jobs_queued": 0, "jobs_running": 0,
+        "db": {"projects": 15000, "threads": 15000, "jobs_total": 15000,
+               "jobs_completed": 15000, "jobs_queued": 0, "jobs_running": 0,
                "jobs_failed": 0, "jobs_cancelled": 0, "jobs_needs_review": 0,
                "tenant_mismatch_jobs": 0},
-        "steady_state": {"rounds": 30, "requests": 30000, "p95_ms": 27.3, "errors": 0},
+        "steady_state": {"rounds": 30, "requests": 150000, "p95_ms": 27.3, "errors": 0},
         "latency": {"auth_read": {"p95_ms": 70}, "enqueue": {"p95_ms": 110},
-                    "project_create": {"count": 3000},
-                    "conversation_create": {"count": 3000}},
-        "cross_tenant_negative_pass": 1000, "unique_job_ids": 3000,
-        "http_observation_count": 36875, "error_count": 0,
+                    "project_create": {"count": 15000},
+                    "conversation_create": {"count": 15000}},
+        "cross_tenant_negative_pass": 5000, "unique_job_ids": 15000,
+        "http_observation_count": 185000, "error_count": 0,
         "provider": {"external_calls": 0, "provider_spend_usd": 0.0},
     }
 
 
 def read_pass():
     return {
-        "status": "PASS_EXACT_MERGED_15M_READ_SLO",
-        "profile": {"users": 1000, "requests": 30000, "rounds": 30},
-        "result": {"http_200": 30000, "errors": 0, "max_shard_p95_ms": 17.135},
+        "status": "PASS_5000_SHARDED_READ_15M_SLO",
+        "profile": {"users": 5000, "requests": 150000, "rounds": 30},
+        "result": {"http_200": 150000, "errors": 0, "max_shard_p95_ms": 17.135},
     }
 
 
@@ -141,3 +141,39 @@ def test_cli_returns_zero_for_valid_synthetic_mixed_fixture(tmp_path):
                        capture_output=True, text=True)
     assert p.returncode == 0
     assert json.loads(p.stdout)["status"] == "FULL_MIXED_ACCEPTED"
+
+
+def test_previously_accepted_1000_user_counts_cannot_be_used_as_5000_evidence():
+    stale = mixed_pass()
+    stale["profile"]["users"] = 1000
+    stale["profile"]["projects"] = 3000
+    stale["profile"]["conversations"] = 3000
+    stale["profile"]["jobs"] = 3000
+    stale["db"]["projects"] = 3000
+    stale["db"]["threads"] = 3000
+    stale["db"]["jobs_total"] = 3000
+    stale["db"]["jobs_completed"] = 3000
+    stale["unique_job_ids"] = 3000
+    stale["ramp"] = [{"users": n} for n in (25, 100, 250, 500, 1000)]
+    result = module.evaluate(stale, read_pass())
+    assert result["status"] == "HOLD_FULL_MIXED"
+    assert "users" in result["failed_measured_conditions"]
+    assert "ramp_reaches_5000" in result["failed_measured_conditions"]
+
+
+def test_green_1000_user_read_only_cannot_count_as_5000_read_envelope():
+    legacy = read_pass()
+    legacy["profile"]["users"] = 1000
+    legacy["profile"]["requests"] = 30000
+    legacy["result"]["http_200"] = 30000
+    assert module.evaluate(None, legacy)["read_only_envelope_pass"] is False
+
+
+def test_capacity_ceiling_requires_15000_project_creation_timings():
+    stale = mixed_pass()
+    stale["latency"]["project_create"]["count"] = 14999
+    stale["latency"]["conversation_create"]["count"] = 14999
+    outcome = module.evaluate(stale)
+    assert outcome["status"] == "HOLD_FULL_MIXED"
+    assert "project_creation_api_covered" in outcome["failed_measured_conditions"]
+    assert "conversation_creation_api_covered" in outcome["failed_measured_conditions"]
