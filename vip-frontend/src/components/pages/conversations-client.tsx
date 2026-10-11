@@ -86,8 +86,16 @@ export function ConversationsClient() {
   }, []);
 
   useEffect(() => {
+    // Poller re-subscription must not blank an already selected durable turn:
+    // transient transport errors still need to show a reconnecting state.
+    // Changing the selected conversation (or losing authentication) does
+    // invalidate the old conversation data and must clear it immediately.
+    const selectionChanged = selection.current !== selected;
     selection.current = selected;
-    setHistory(null);
+    if (selectionChanged || !isAuthenticated) {
+      setHistory(null);
+      setSyncFailures(0);
+    }
     if (!selected || !isAuthenticated) return;
     let stopped = false;
     let pending = false;
