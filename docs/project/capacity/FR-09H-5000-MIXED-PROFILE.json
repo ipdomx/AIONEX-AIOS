@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "profile_name": "FR-09H-5000-authenticated-mixed-acceptance",
+  "additive_to": "docs/project/PLAN.json capacity_acceptance baseline",
+  "capacity_acceptance": {
+    "status": "NOT_RUN_OR_ACCEPTED",
+    "authenticated_active_users": 5000,
+    "projects_per_user_min": 3,
+    "conversations_per_user_min": 3,
+    "durable_jobs_min": 15000,
+    "steady_state_minutes_min": 15,
+    "ordinary_read_p95_ms_max": 500,
+    "durable_enqueue_p95_ms_max": 1000,
+    "unexpected_error_rate_max": 0.005,
+    "tenant_leaks_max": 0,
+    "lost_jobs_max": 0,
+    "duplicate_terminal_executions_max": 0,
+    "required_evidence": [
+      "Independent isolated 5000 active authenticated client load driver with recorded generator health and source SHA",
+      "At least 15000 separate synthetic projects, 15000 separate synthetic conversations, 15000 durable jobs",
+      "Live product HTTP authentication, Owner-policy changes, WebSocket/reconnect and conversation persistence under the same sustained workload",
+      "Tenant and project isolation invariants; no actual customer data or provider paid invocation",
+      "15 full minutes steady-state at 5000 authenticated users, without hiding dropped clients or queued tasks",
+      "Read and enqueue p50/p95/p99, application error rate, queue depth/wait and fair scheduling over multiple users",
+      "Independent worker-loss and reconnect drill with zero duplicate terminal execution and no lost jobs",
+      "Encrypted Docker/containerd runtime FREE bytes at or above 40GiB before test, not free bytes on root filesystem",
+      "FR-08E actual release and independent operational acceptance preceding FR-09 heavy load",
+      "Exact production-release image SHA and code SHA, synthetic fixtures, test rollback and verified resource cleanup",
+      "Independent reviewer acceptance for no-spend provider boundaries and full authenticated mixed capacity"
+    ]
+  },
+  "execution_guard": {
+    "type": "admission_only",
+    "current_status": "HOLD",
+    "min_encrypted_container_runtime_free_gib": 40,
+    "last_observed_free_gib": 22.72,
+    "last_observed_utc": "2026-10-11T14:49:17Z",
+    "fr08e_independent_acceptance": false,
+    "authenticated_load_test_started": false,
+    "provider_calls_allowed": false,
+    "production_workload_targeted": false,
+    "load_test_acceptance": false
+  }
+}
