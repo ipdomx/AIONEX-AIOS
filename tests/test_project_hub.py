@@ -120,3 +120,28 @@ def test_all_remaining_batches_have_short_parts_and_preserve_scope(plan):
     assert len(plan["owner_decisions"]["deferred"]) == 4
     assert plan["capacity_acceptance"]["authenticated_active_users"] == 5000
     assert plan["capacity_acceptance"]["durable_jobs_min"] == 15000
+
+
+@pytest.mark.parametrize("active_users", [1000, 4999])
+def test_plan_cannot_lower_confirmed_5000_user_target(plan, active_users):
+    plan["capacity_acceptance"]["authenticated_active_users"] = active_users
+    with pytest.raises(ValueError, match="capacity acceptance weakened"):
+        hub.validate_plan(plan)
+
+
+@pytest.mark.parametrize("active_users", [5000, 6000])
+def test_capacity_heading_uses_current_plan_and_preserves_open_acceptance(plan, tmp_path, active_users):
+    plan["capacity_acceptance"]["authenticated_active_users"] = active_users
+    plan["capacity_acceptance"]["durable_jobs_min"] = active_users * 3
+    event = {
+        "event_id": "test-fr09-open",
+        "batch_id": "FR-09",
+        "status": "in_progress",
+        "summary_ar": "اختبار عرض فقط",
+    }
+    state = hub.render(tmp_path, plan, [event])
+    report = (tmp_path / plan["report"]).read_text(encoding="utf-8")
+    assert f"## عقد قبول {active_users} مستخدم متعدد المشاريع والمحادثات" in report
+    assert state["batches"]["FR-09"]["status"] == "in_progress"
+    assert state["release_status"] == "FINAL_RELEASE_IN_PROGRESS_NOT_RELEASED"
+    assert plan["capacity_acceptance"]["status"] == "NOT_YET_ACCEPTED_5000_FULL_MIXED_PROFILE"
