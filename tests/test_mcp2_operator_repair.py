@@ -73,6 +73,12 @@ def test_new_instance_targets_only_the_independent_new_tunnel(operator, monkeypa
     spec = importlib.util.spec_from_file_location("aionex_new_operator_under_test", SOURCE)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    # CI does not have the production filesystem: mock presence, never assert
+    # actual /opt/AIOS contents on the isolated test runner.
+    monkeypatch.setattr(
+        module, "_probe_file",
+        lambda path: path == Path("/opt/AIOS/ops/mcp2/server.py"),
+    )
 
     status = module.server_status()
     assert status["runtime_instance"] == "new"
