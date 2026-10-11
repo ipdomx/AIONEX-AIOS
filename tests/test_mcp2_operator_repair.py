@@ -38,6 +38,7 @@ def operator(monkeypatch):
     fake = types.ModuleType("fastmcp")
     fake.FastMCP = FakeMCP
     monkeypatch.setitem(sys.modules, "fastmcp", fake)
+    monkeypatch.delenv("AIONEX_MCP_INSTANCE", raising=False)
     spec = importlib.util.spec_from_file_location("mcp2_operator_under_test", SOURCE)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -65,6 +66,38 @@ def test_all_public_defaults_point_to_production(name):
     defaults = dict(zip([a.arg for a in node.args.args][-len(node.args.defaults):], node.args.defaults))
     assert ast.literal_eval(defaults["path" if name == "list_directory" else "cwd"]) == "/opt/AIOS"
 
+
+
+def test_new_instance_targets_only_the_independent_new_tunnel(operator, monkeypatch):
+    monkeypatch.setenv("AIONEX_MCP_INSTANCE", "new")
+    spec = importlib.util.spec_from_file_location("aionex_new_operator_under_test", SOURCE)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    status = module.server_status()
+    assert status["runtime_instance"] == "new"
+    assert status["mcp_server_path"] == "/opt/AIOS/ops/mcp2/server.py"
+    assert status["mcp_server_exists"] is True
+    assert status["tunnel_profile"] == "aionex-new"
+    assert status["tunnel_service"] == "aionex-new-mcp-tunnel.service"
+    assert set(module.mcp.tools) == EXPECTED_TOOLS
+
+    run = Mock(return_value={"exit_code": 0, "stdout": "", "stderr": ""})
+    monkeypatch.setattr(module, "_run", run)
+    result = module.mcp_restart_tunnel()
+    assert run.call_args.args[0] == [
+        "systemctl", "--no-block", "restart", "aionex-new-mcp-tunnel.service"
+    ]
+    assert result["success"] is True
+    assert result["verification_required"] is True
+
+
+def test_unsupported_mcp_runtime_instance_is_fail_closed(operator, monkeypatch):
+    monkeypatch.setenv("AIONEX_MCP_INSTANCE", "untrusted-path")
+    spec = importlib.util.spec_from_file_location("unknown_mcp_operator_under_test", SOURCE)
+    module = importlib.util.module_from_spec(spec)
+    with pytest.raises(RuntimeError, match="Unsupported AIONEX MCP runtime instance"):
+        spec.loader.exec_module(module)
 
 def test_relative_paths_do_not_depend_on_tunnel_workdir(operator):
     assert operator._path("docs/project") == Path("/opt/AIOS/docs/project")
