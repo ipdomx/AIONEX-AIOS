@@ -290,7 +290,23 @@
     "applied_matches_published_source_heads": true,
     "published_source_revision_count": 64,
     "published_source_commit": "ca9aaaa3ffcf1002c73b826c46bce598d029811f",
-    "published_source_graph_verified_at_utc": "2026-10-11T22:27:19.429639+00:00"
+    "published_source_graph_verified_at_utc": "2026-10-11T22:27:19.429639+00:00",
+    "schema_catalog_sha256": "976ea26052ba6e27eeca846b7f7f6efe9116baaa546711742140ad76eb9ecffa",
+    "schema_catalog_definition_bytes": 564684,
+    "schema_catalog_table_create_count": 176,
+    "schema_catalog_fingerprint_method": "pg_dump --schema-only --no-owner --no-privileges",
+    "schema_catalog_pg_dump_version": "pg_dump (PostgreSQL) 16.15",
+    "schema_catalog_collected_at_utc": "2026-10-11T22:33:56.578746+00:00",
+    "table_rows_exported": 0,
+    "migration_source_files_match_runtime_image": true,
+    "migration_source_manifest_sha256": "584d25eeee5feee259e1b656fba372dc625a17b962538e16f753af79c5e3b807",
+    "migration_source_manifest": "FR25B-NEW-20261011-MIGRATIONS.json",
+    "migration_source_file_count": 64,
+    "schema_catalog_raw_dump_sha256": "17a5e83fce915171aa335aa8a65e03ffbc1bab8059493fae9055d32b19908d22",
+    "schema_catalog_normalized_definition_bytes": 564534,
+    "schema_catalog_normalization": "omit pg_dump session restrict/unrestrict nonce directives; retain schema definition bytes",
+    "schema_catalog_nonce_directive_count": 2,
+    "schema_catalog_stable_across_two_reads": true
   },
   "owner_frontend": {
     "package_version": "1.0.0",
@@ -746,5 +762,5 @@
     "owner": "FR25B-NEW-20261011-OWNER-ASSETS.json",
     "user": "FR25B-NEW-20261011-USER-ASSETS.json"
   },
-  "native_raw_inventory_sha256": "c82cd7fd39d55daa96302fa4c033588d26922c4fd7668362ed43d04597676d9c"
+  "native_raw_inventory_sha256": "3c50f40306a7bb115be5cb985427539878559575d3f251149be437dd44f557f6"
 }

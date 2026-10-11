@@ -1,0 +1,393 @@
+{
+  "files": [
+    {
+      "down_revision": null,
+      "path": "20260726_0001_initial_schema.py",
+      "revision": "20260726_0001",
+      "sha256": "f57e83f046816b8f31ed6291e03e83506aee0715291eea905ad7d8ced9ae2268"
+    },
+    {
+      "down_revision": "20260726_0001",
+      "path": "20260729_0002_owner_control_plane.py",
+      "revision": "20260729_0002",
+      "sha256": "ccef3871c9af917579ea08083dddead9c56c56b66af4a7e1794a554bd88e7edc"
+    },
+    {
+      "down_revision": "20260729_0002",
+      "path": "20260729_0003_owner_runtime_safety.py",
+      "revision": "20260729_0003",
+      "sha256": "06324d7c4be567fd9885bbad31063c3a22ff011f3e3f87b14e81b595ae9fe5e0"
+    },
+    {
+      "down_revision": "20260729_0003",
+      "path": "20260729_0004_backup_job_leases.py",
+      "revision": "20260729_0004",
+      "sha256": "b728c36830c8ccd27cdf7cf3643312e2836626871b310822cb9830963e17202a"
+    },
+    {
+      "down_revision": "20260729_0004",
+      "path": "20260802_0005_social_identity_passkeys.py",
+      "revision": "20260802_0005",
+      "sha256": "863b83dcbf900ac0e955d28f9208a31dd2d03347c383858f518a7010353f4116"
+    },
+    {
+      "down_revision": "20260802_0005",
+      "path": "20260805_0006_project_executions.py",
+      "revision": "20260805_0006",
+      "sha256": "1b8d9ff850563c12b2f6bd75360cc4797f1aa73d881d2b85ba8ac21f7fe1e7cf"
+    },
+    {
+      "down_revision": "20260805_0006",
+      "path": "20260806_0007_identity_completion.py",
+      "revision": "20260806_0007",
+      "sha256": "c9e2920d8324155ffdd93d439d2f787e8c17e1019a6df576f0ae125bdb0c18a4"
+    },
+    {
+      "down_revision": "20260806_0007",
+      "path": "20260806_0008_billing_payments.py",
+      "revision": "20260806_0008",
+      "sha256": "1e8adc88e3d677cbf5a91e4b5db523221e0b79c2c1e4237da2aba5ba7c1a92c0"
+    },
+    {
+      "down_revision": "20260806_0008",
+      "path": "20260806_0009_communications_governance.py",
+      "revision": "20260806_0009",
+      "sha256": "fedf9341daaedb910ac788e391d0e184e2dee5709d0018f33be98a6455483140"
+    },
+    {
+      "down_revision": "20260806_0009",
+      "path": "20260807_0010_projects_workforce_academy_knowledge.py",
+      "revision": "20260807_0010",
+      "sha256": "1e176d4aac455ed6a2cdeaf9308c6de4ea27c655e67407c47c245c95493a8c97"
+    },
+    {
+      "down_revision": "20260807_0010",
+      "path": "20260807_0011_studio_mobile_delivery.py",
+      "revision": "20260807_0011",
+      "sha256": "64039c252667b02de92d0a948f9e0d59fedd817df2b8641a4b7d5b1d2880cbd9"
+    },
+    {
+      "down_revision": "20260807_0011",
+      "path": "20260809_0012_mobile_store_billing.py",
+      "revision": "20260809_0012",
+      "sha256": "6aeb14c8305b864fc10a0675fa24fac5f329993a815bc9098a495af6c4c8fdd3"
+    },
+    {
+      "down_revision": "20260809_0012",
+      "path": "20260809_0013_three_d_product_integration.py",
+      "revision": "20260809_0013",
+      "sha256": "73691750a36f3b369fc71cef111937eb508a2cd1dcf9956125ef56bd78ac69cb"
+    },
+    {
+      "down_revision": "20260809_0013",
+      "path": "20260809_0014_three_d_resilience_observability.py",
+      "revision": "20260809_0014",
+      "sha256": "2f3f854b70b8d76bf2c17cbb6fbecdba12091537adc2c48e082e7630e5d1b08c"
+    },
+    {
+      "down_revision": "20260809_0014",
+      "path": "20260810_0015_metric_timestamp_index.py",
+      "revision": "20260810_0015",
+      "sha256": "5da2e5ab7f51a6e3c7b6f1789b7685da32d3c1a32793f6a3b0edb7d9693aa500"
+    },
+    {
+      "down_revision": "20260810_0015",
+      "path": "20260810_0016_security_learning_fabric.py",
+      "revision": "20260810_0016",
+      "sha256": "492e64fde8ac2081add62ec423b54a100eb916f74bc44bbbe6d35b2dca18c2cd"
+    },
+    {
+      "down_revision": "20260810_0016",
+      "path": "20260814_0017_growth_campaign_intelligence.py",
+      "revision": "20260814_0017",
+      "sha256": "b8268de02832ed81d8df39f39f119cd30e5b4d9f88df9b0c993fc04030d2eccb"
+    },
+    {
+      "down_revision": "20260814_0017",
+      "path": "20260814_0018_growth_social_accounts.py",
+      "revision": "20260814_0018",
+      "sha256": "4ae237be30d9ef260824252d5b67c3b3371d680b48b95bf510dc259db5315fb0"
+    },
+    {
+      "down_revision": "20260814_0018",
+      "path": "20260814_0019_growth_content_operations.py",
+      "revision": "20260814_0019",
+      "sha256": "62f1516d971888baf535372101e3495f9c4a6fa29e2e36d49e1f35074b88639a"
+    },
+    {
+      "down_revision": "20260814_0019",
+      "path": "20260814_0020_growth_analytics_learning.py",
+      "revision": "20260814_0020",
+      "sha256": "c6bb6e419b49885cbaaf9af37885bfad01f949aa2a57558428e090c49a013cc0"
+    },
+    {
+      "down_revision": "20260814_0020",
+      "path": "20260814_0021_growth_lead_intelligence.py",
+      "revision": "20260814_0021",
+      "sha256": "077e4a74fab88ba25341e66e7e1f8bf7b92bbd8c86c1fe63f57846f4a43fcf4f"
+    },
+    {
+      "down_revision": "20260814_0021",
+      "path": "20260814_0022_growth_unified_inbox.py",
+      "revision": "20260814_0022",
+      "sha256": "a4cfcebe12aa1177769768bbfb73bf69c402eaccc6770f4be295fbfb3ed962a5"
+    },
+    {
+      "down_revision": "20260814_0022",
+      "path": "20260814_0023_growth_paid_campaign_simulation.py",
+      "revision": "20260814_0023",
+      "sha256": "38bbc5af41c501a0894ac0ae3d5617783b3516665f113db9faebb85340d46f02"
+    },
+    {
+      "down_revision": "20260814_0023",
+      "path": "20260815_0024_growth_advanced_integrations.py",
+      "revision": "20260815_0024",
+      "sha256": "913510e1e184e4c9c1500558096e52643629aeacf0a285b7b9572333b35a2fb8"
+    },
+    {
+      "down_revision": "20260815_0024",
+      "path": "20260815_0025_growth_controlled_live_pilot.py",
+      "revision": "20260815_0025",
+      "sha256": "aa9fb038c634e2b99ddc2d8dcffaafde3afce6c932f439c11df416e3bd92f45c"
+    },
+    {
+      "down_revision": "20260815_0025",
+      "path": "20260815_0026_growth_pilot_runtime_guard.py",
+      "revision": "20260815_0026",
+      "sha256": "8de6167d574a69176b5d1107794f1b0688564b00836f66cfef2d15c1db9b385e"
+    },
+    {
+      "down_revision": "20260815_0026",
+      "path": "20260816_0027_growth_paid_live_execution.py",
+      "revision": "20260816_0027",
+      "sha256": "be41a0f8565a298a5c26d604c17e239ccbdde94b15374e418d59c1dc364ddfda"
+    },
+    {
+      "down_revision": "20260816_0027",
+      "path": "20260817_0028_phase36b_project_execution_fabric.py",
+      "revision": "20260817_0028",
+      "sha256": "efed32aef73572e8755befdb1d6d25292821bec6f5babb4ec76f581ba4b4ff49"
+    },
+    {
+      "down_revision": "20260817_0028",
+      "path": "20260817_0029_phase36c_project_ai_routing.py",
+      "revision": "20260817_0029",
+      "sha256": "1a9ff746d0c1d768a1f93546698d0ea4d93fe6dd3214d8fbce93cc8218304466"
+    },
+    {
+      "down_revision": "20260817_0029",
+      "path": "20260817_0030_phase36d_media_orchestrator.py",
+      "revision": "20260817_0030",
+      "sha256": "80c30b5f19db6c8503a775b2633970f51c2de244717c76a847a06e78572d30fe"
+    },
+    {
+      "down_revision": "20260817_0030",
+      "path": "20260817_0031_phase36d_media_render_fencing.py",
+      "revision": "20260817_0031",
+      "sha256": "0facbd01729b519e9f3c03254a2b9df45c7ad8d5f94dfbe6fcc975fe97631ecc"
+    },
+    {
+      "down_revision": "20260817_0031",
+      "path": "20260818_0032_phase36e_design_image_execution.py",
+      "revision": "20260818_0032",
+      "sha256": "1e6ed16ad2c79bd2281bad9c44355ef2acc91b342ee5f4dcf3bb432083edd2e6"
+    },
+    {
+      "down_revision": "20260818_0032",
+      "path": "20260818_0033_phase36e_truthful_image_costs.py",
+      "revision": "20260818_0033",
+      "sha256": "c5d8b2550e67a8f143d5889c25fb0db99aa662c0e11dba97ab0606be7644fc01"
+    },
+    {
+      "down_revision": "20260818_0033",
+      "path": "20260819_0034_phase36f_video_execution.py",
+      "revision": "20260819_0034",
+      "sha256": "38b1c34ddfb4d93da4aa1a3a0e10bb83551b9076b9f59606021905d97483848a"
+    },
+    {
+      "down_revision": "20260819_0034",
+      "path": "20260822_0035_phase36g_audio_speech_execution.py",
+      "revision": "20260822_0035",
+      "sha256": "891890649c0d40a1d5c12c81bc9ee7026054db1308c01d588a2dcb22e2bbb0f9"
+    },
+    {
+      "down_revision": "20260822_0035",
+      "path": "20260822_0036_phase36g_audio_transcript_execution.py",
+      "revision": "20260822_0036",
+      "sha256": "d13d9528d056d7bf038d6503d48c61bf76b5cfc193283e7bc828f596a31d8913"
+    },
+    {
+      "down_revision": "20260822_0036",
+      "path": "20260823_0037_phase36g_audio_dubbing_execution.py",
+      "revision": "20260823_0037",
+      "sha256": "d1d8cc3a2e38a2e6aa74d8a470dfe75ebff92c9e2ec5c24798cf9b1f4d71c511"
+    },
+    {
+      "down_revision": "20260823_0037",
+      "path": "20260823_0038_phase36g_audio_music_execution.py",
+      "revision": "20260823_0038",
+      "sha256": "2f687330bff32cef28fa0f7a8d0f92d1edf0c3e66a9bb20ae4ddceee69828e62"
+    },
+    {
+      "down_revision": "20260823_0038",
+      "path": "20260823_0039_audio_song_executions.py",
+      "revision": "20260823_0039",
+      "sha256": "d1b8f48b8573b1c8c16bd77505a6d82134c5f303155303c1e7f1d2cb53586765"
+    },
+    {
+      "down_revision": "20260823_0039",
+      "path": "20260824_0040_realtime_admission.py",
+      "revision": "20260824_0040",
+      "sha256": "0db33e5e6191ad8ba6de84e0bc385476aae1cffc90071f4f3d389fd6c5f60d97"
+    },
+    {
+      "down_revision": "20260824_0040",
+      "path": "20260824_0041_realtime_presence_leases.py",
+      "revision": "20260824_0041",
+      "sha256": "3d22a53fa22b2768ef3ff3bfc0c06e2c84bab634bdfb3efa7a5747d1ad66f630"
+    },
+    {
+      "down_revision": "20260824_0041",
+      "path": "20260825_0042_academy_course_packages.py",
+      "revision": "20260825_0042",
+      "sha256": "3e27da05be1268b2f6773b7c155fc979cba8ba3e1eb507d54f6c04d232cc1e61"
+    },
+    {
+      "down_revision": "20260825_0042",
+      "path": "20260825_0043_professional_high_stakes.py",
+      "revision": "20260825_0043",
+      "sha256": "54ed01b14c4d3379a43d84df084deea830fc0e1f72536881aaf4a204c83c0345"
+    },
+    {
+      "down_revision": "20260825_0043",
+      "path": "20260905_0044_realtime_recording_runtime.py",
+      "revision": "20260905_0044",
+      "sha256": "411cb65cc0fe5a02cabdca2a071652a909a77c37f1865f487f02a503c0e9f936"
+    },
+    {
+      "down_revision": "20260905_0044",
+      "path": "20260907_0045_offsite_backup_evidence.py",
+      "revision": "20260907_0045",
+      "sha256": "80cc1f541c56882c49aa8cfca20cad346a5e04e607bbdf140ae82de067ab6ef2"
+    },
+    {
+      "down_revision": "20260907_0045",
+      "path": "20260908_0046_identity_media_execution.py",
+      "revision": "20260908_0046",
+      "sha256": "568188ce89e0f7f1ee8f3943a7d4a706e53fb56553242c61b0f035d03f9f097b"
+    },
+    {
+      "down_revision": "20260908_0046",
+      "path": "20260917_0047_host_maintenance_admission.py",
+      "revision": "20260917_0047",
+      "sha256": "2ec74a6b4d579bde8b7200af01693834d6c62e442b6249e83181876ae75fd538"
+    },
+    {
+      "down_revision": "20260917_0047",
+      "path": "20260917_0048_host_maintenance_cycles.py",
+      "revision": "20260917_0048",
+      "sha256": "fa276ab8532c4a33af78adb92bd3fed3d3794bff638d0bc1c3905b9739f77582"
+    },
+    {
+      "down_revision": "20260917_0048",
+      "path": "20260917_0049_academy_maintenance_admission.py",
+      "revision": "20260917_0049",
+      "sha256": "87a1799ba9ffd86ceda6c802bd3e40dc5d00318955b805905bfb37ee3fb4c361"
+    },
+    {
+      "down_revision": "20260917_0049",
+      "path": "20260917_0050_notification_maintenance_admission.py",
+      "revision": "20260917_0050",
+      "sha256": "a5a03f3ed9fa8df5a317719f8f4ebc1a850cbcb8c2c3e0385aafbe673f751306"
+    },
+    {
+      "down_revision": "20260917_0050",
+      "path": "20260917_0051_remediation_maintenance_admission.py",
+      "revision": "20260917_0051",
+      "sha256": "5568fdf82b3205be4661978aa5ad99fa32d227e540225e51697c4389de23d9f9"
+    },
+    {
+      "down_revision": "20260917_0051",
+      "path": "20260917_0052_scan_request_admission.py",
+      "revision": "20260917_0052",
+      "sha256": "95fd36ed82a7a23b9f58124a72b4143f8167b73c9e730cde864fc102fdefb16c"
+    },
+    {
+      "down_revision": "20260917_0052",
+      "path": "20260918_0053_scan_execution_ownership.py",
+      "revision": "20260918_0053",
+      "sha256": "fe738919d00afa02df55be43b8cafb8d18e6e3ef29c7b52fb1ded0e5d44bafd0"
+    },
+    {
+      "down_revision": "20260918_0053",
+      "path": "20260918_0054_studio_request_admission.py",
+      "revision": "20260918_0054",
+      "sha256": "50c37f1545f7920c8736e79d2f542e55e09bf55ab0d3cd9d662549ca857b041e"
+    },
+    {
+      "down_revision": "20260918_0054",
+      "path": "20260918_0055_studio_execution_resources.py",
+      "revision": "20260918_0055",
+      "sha256": "5b45ecc1318997211b0bed9a814d1a8df2157d4058b6daf594a61db109c66a20"
+    },
+    {
+      "down_revision": "20260918_0055",
+      "path": "20260918_0056_studio_publication_journal.py",
+      "revision": "20260918_0056",
+      "sha256": "bf07ebb9985571294e87fb1f1bb41351d4b53abb150852a89604b670260f2e30"
+    },
+    {
+      "down_revision": "20260918_0056",
+      "path": "20260919_0057_studio_success_settlement.py",
+      "revision": "20260919_0057",
+      "sha256": "87ade3a0c81b2563596d47a5b1bb4a24f46c6bc53e5c5a0a2fd605d867e5a0ad"
+    },
+    {
+      "down_revision": "20260919_0057",
+      "path": "20260919_0058_studio_prestart_cancellation.py",
+      "revision": "20260919_0058",
+      "sha256": "ad4f12aab12267a2713b1bfb96c12efacf100b815d58c041fcb3ca6cf6502cda"
+    },
+    {
+      "down_revision": "20260919_0058",
+      "path": "20260919_0059_studio_poststart_cancellation.py",
+      "revision": "20260919_0059",
+      "sha256": "eb97cdd1ef500fbd005281078081d30c5937863df1e479982d1500df8748609f"
+    },
+    {
+      "down_revision": "20260919_0059",
+      "path": "20260919_0060_studio_postcrash_observation.py",
+      "revision": "20260919_0060",
+      "sha256": "8a3a67897e25716c26571e84f3e901a3a349b803e81e2f6a7bbd3e144c274c86"
+    },
+    {
+      "down_revision": "20260919_0060",
+      "path": "20260920_0061_studio_crash_containment.py",
+      "revision": "20260920_0061",
+      "sha256": "882ed111559b008a5dfb80faffb7f0e45c3281fa9e4445660a65d0047a3ba6d4"
+    },
+    {
+      "down_revision": "20260920_0061",
+      "path": "20260920_0062_studio_crash_reconciliation.py",
+      "revision": "20260920_0062",
+      "sha256": "114f687248e725aef93a3919f605f4105f92420398f6a566901ae37ae8fbc75a"
+    },
+    {
+      "down_revision": "20260920_0062",
+      "path": "20260920_0063_realtime_media_admission.py",
+      "revision": "20260920_0063",
+      "sha256": "ec303a732053a3791ec25dbe03235b6a9ac126c109e7a748bedc5aeb89720235"
+    },
+    {
+      "down_revision": "20260920_0063",
+      "path": "20260920_0064_realtime_provider_resources.py",
+      "revision": "20260920_0064",
+      "sha256": "226e740077bd2fdf24b60696db1a1f69644581bf24fee1bc6fbb65e6235f33b7"
+    }
+  ],
+  "revision_file_count": 64,
+  "runtime_container": "web-dashboard-backend-1",
+  "runtime_source_files_match": true,
+  "schema_version": 1,
+  "source_commit": "ca9aaaa3ffcf1002c73b826c46bce598d029811f"
+}
