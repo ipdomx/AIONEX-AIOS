@@ -49,7 +49,7 @@ def validate_plan(plan: dict[str, Any]) -> None:
     if len(plan["owner_decisions"]["deferred"]) != 4:
         raise ValueError("Owner deferred scope changed")
     profile = plan["capacity_acceptance"]
-    if profile["authenticated_active_users"] < 1000 or profile["projects_per_user_min"] < 3 or profile["conversations_per_user_min"] < 3:
+    if profile["authenticated_active_users"] < 5000 or profile["projects_per_user_min"] < 3 or profile["conversations_per_user_min"] < 3:
         raise ValueError("capacity acceptance weakened")
 
 
@@ -149,7 +149,7 @@ def render(root: Path, plan: dict[str, Any], events: list[dict[str, Any]]) -> di
         record = state["batches"][batch["id"]]
         if record.get("summary_ar"):
             out += [f"**آخر تنفيذ:** {record['summary_ar']}", f"**مرجع الدمج:** {record.get('merge_commit', 'لم يثبت بعد')}", "**الأدلة:** " + "؛ ".join(record.get("evidence", []))]
-    out += ["", "## عقد قبول ألف مستخدم متعدد المشاريع والمحادثات", "", "```json", json.dumps(plan["capacity_acceptance"], ensure_ascii=False, indent=2), "```", "", "## القدرات الـ62 — لا قدرة بلا مالك إغلاق", "", "التصنيف أدناه هو تصنيف المصدر عند إنشاء الخطة، وليس ترقية تلقائية. القبول النهائي مرتبط بدفعاته وإيصالاتها.", "", "| القدرة | التصنيف التاريخي | الدفعة النهائية / التأجيل |", "|---|---|---|"]
+    out += ["", f"## عقد قبول {plan['capacity_acceptance']['authenticated_active_users']} مستخدم متعدد المشاريع والمحادثات", "", "```json", json.dumps(plan["capacity_acceptance"], ensure_ascii=False, indent=2), "```", "", "## القدرات الـ62 — لا قدرة بلا مالك إغلاق", "", "التصنيف أدناه هو تصنيف المصدر عند إنشاء الخطة، وليس ترقية تلقائية. القبول النهائي مرتبط بدفعاته وإيصالاتها.", "", "| القدرة | التصنيف التاريخي | الدفعة النهائية / التأجيل |", "|---|---|---|"]
     for cap in plan["capabilities"]:
         out.append(f"| {cap['capability_id']} | {cap['maturity']} | {', '.join(cap.get('final_batches', [])) or cap.get('deferred_reason', '')} |")
     out += ["", "## الوظائف الأساسية السابقة التي لا تسقط من النطاق", "", "؛ ".join(plan["core_feature_groups"]), "", "## مطابقة جميع نتائج التدقيق", "", "| المرجع | النتيجة | المسؤول عن الإغلاق |", "|---|---|---|"]
