@@ -22,9 +22,23 @@ from fastmcp import FastMCP
 mcp = FastMCP("AIONEX General Server Operator")
 
 PROJECT_ROOT = Path("/opt/AIOS")
-MCP_SERVER_PATH = Path("/opt/AIOS/tools/aionex_phase22c_mcp2.py")
-TUNNEL_PROFILE = "aionex-phase22c-2"
-TUNNEL_SERVICE = "aionex-phase22c-2-tunnel.service"
+# The OLD and NEW ChatGPT connectors share the same 28-tool operator contract.
+# Select only from the two known service/path sets; never trust arbitrary
+# caller-provided paths or unit names for self-update/restart operations.
+MCP_INSTANCE = os.environ.get("AIONEX_MCP_INSTANCE", "legacy").strip().lower()
+if MCP_INSTANCE not in {"legacy", "new"}:
+    raise RuntimeError("Unsupported AIONEX MCP runtime instance")
+MCP_SERVER_PATH = Path(
+    "/opt/AIOS/ops/mcp2/server.py"
+    if MCP_INSTANCE == "new"
+    else "/opt/AIOS/tools/aionex_phase22c_mcp2.py"
+)
+TUNNEL_PROFILE = "aionex-new" if MCP_INSTANCE == "new" else "aionex-phase22c-2"
+TUNNEL_SERVICE = (
+    "aionex-new-mcp-tunnel.service"
+    if MCP_INSTANCE == "new"
+    else "aionex-phase22c-2-tunnel.service"
+)
 SERVER_VERSION = "2026.09.10.1"
 PROJECT_REPORT = PROJECT_ROOT / "docs/project/PROJECT-REPORT.md"
 BOOTSTRAP_TUNNEL_RUNTIME_KEY = Path("/root/.config/aionex-bootstrap/control-plane.key")
@@ -243,7 +257,7 @@ def _probe_file(path: Path) -> bool | None:
 
 @mcp.tool()
 def server_status() -> dict[str, Any]:
-    return {"status": "online", "purpose": "general-server-operator", "version": SERVER_VERSION, "canonical_report": str(PROJECT_REPORT), "tunnel_service": TUNNEL_SERVICE, "uid": os.getuid(), "euid": os.geteuid(), "project_root": str(PROJECT_ROOT), "project_exists": PROJECT_ROOT.is_dir(), "mcp_server_path": str(MCP_SERVER_PATH), "mcp_server_exists": _probe_file(MCP_SERVER_PATH), "tunnel_profile": TUNNEL_PROFILE, "runtime_key_exists": _probe_file(TUNNEL_RUNTIME_KEY), "deploy_key_exists": _probe_file(DEPLOY_KEY)}
+    return {"status": "online", "runtime_instance": MCP_INSTANCE, "purpose": "general-server-operator", "version": SERVER_VERSION, "canonical_report": str(PROJECT_REPORT), "tunnel_service": TUNNEL_SERVICE, "uid": os.getuid(), "euid": os.geteuid(), "project_root": str(PROJECT_ROOT), "project_exists": PROJECT_ROOT.is_dir(), "mcp_server_path": str(MCP_SERVER_PATH), "mcp_server_exists": _probe_file(MCP_SERVER_PATH), "tunnel_profile": TUNNEL_PROFILE, "runtime_key_exists": _probe_file(TUNNEL_RUNTIME_KEY), "deploy_key_exists": _probe_file(DEPLOY_KEY)}
 
 
 @mcp.tool()

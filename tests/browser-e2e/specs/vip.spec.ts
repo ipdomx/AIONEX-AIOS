@@ -1154,6 +1154,39 @@ async function mockNs14aConversation(
   postHandler?: (route: Route) => Promise<void>,
 ) {
   await allowVipSession(page);
+  // The shared shell also reads these unrelated pages. Without synthetic
+  // fixtures their requests fall through to a missing CI backend, yielding
+  // unrelated 401s that race the intentionally injected NS-14A expiry.
+  // Keep the exact one-refresh/no-write-replay assertions below unchanged.
+  await page.route("**/api/v1/security-lab/access", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        enabled: false,
+        granted: false,
+        level: null,
+        profiles: [],
+        deep_validation_requires_clone: true,
+      }),
+    });
+  });
+  await page.route("**/api/v1/growth-social/paid-campaigns/readiness", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ads_manage_allowed: false,
+        social_accounts_allowed: false,
+        linked_ad_accounts: [],
+        campaigns_visible: false,
+        reason: "not-configured",
+        live_provider_mutation_allowed: false,
+        automatic_execution_allowed: false,
+        objectives: {},
+      }),
+    });
+  });
   await page.route("**/api/v1/projects", async (route) => {
     await route.fulfill({
       status: 200,
