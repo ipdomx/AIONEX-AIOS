@@ -1,5 +1,89 @@
 # AIONEX AIOS — New Production Server Migration Roadmap
 
+## Repeatable supported OpenAI MCP outbound-tunnel activation — proven 2026-10-11
+
+This is the **working, owner-verified setup procedure** for AIONEX AIOS on NEW `nc-ph-4354`; use it as a template when onboarding another independently authorized host. It is **not** a procedure to bypass an access denial, export legacy control-plane keys, make credentials public, or create duplicate tunnels. Every host gets a dedicated authenticated runtime identity with only its authorized tunnel scope. All commands require authorized local administration on the *target* host.
+
+### 1. Platform organization and ChatGPT registration
+
+1. In OpenAI Platform `https://platform.openai.com/settings/organization/tunnels`, **create or inspect the authorized tunnel**; record its `tunnel_...` identifier and confirm the intended Platform organization and ChatGPT workspace association. On this rollout the Owner already had `AIONEX MCP NEW ROOT` registered. Seeing it in the UI does **not** prove a runtime connected.
+2. Under **Organization settings → People & Permissions → Roles**, create one scoped runtime role with **Tunnels: Read and Use**, **without Manage**; the proven owner choice was `AIONEX Tunnel Runtime`. Under Organization **Groups**, assign this organization-level role to a dedicated group and add the project's dedicated service-account identity to that group. **Project `Member` role and per-key API permissions are different surfaces from organization Tunnels RBAC.**
+3. Provision a *new independent* **runtime** API key under the correct organization/project for this scoped service account, and save it privately. Do not reuse a key from OLD or share its value in ChatGPT, chat screenshots, GitHub, shell command arguments, process listings, logs or CI. Creation of a service account and organization RBAC role alone does not guarantee entitlement or valid runtime authentication.
+4. In ChatGPT Plugins / Add custom MCP server, select **Tunnel** and the matching registered tunnel while a healthy local client is running. Connect the plugin in the desired ChatGPT workspace; owner acceptance of server/Plugin permissions is separate from OpenAI Platform Tunnels role. Do not treat connector listing or an old host's MCP status as proof of the target.
+
+### 2. Minimum target-host prerequisites, secure local key storage
+
+- Verify `hostname` is the intended target; on this rollout `nc-ph-4354`. Verify `/usr/local/bin/tunnel-client` exists and review `tunnel-client --help`, `tunnel-client init --help` and `tunnel-client help quickstart`.
+- Verify a suitable working `FastMCP` Python environment and *actual target entrypoint*: here `/opt/AIOS/.venv/bin/python /opt/AIOS/ops/mcp2/server.py`. Run its offline import check, not the stale OLD `/opt/AIOS/tools/aionex_phase22c_mcp2.py` pathname. The target entrypoint must run `mcp.run()` over **stdio** and its actual server tools must respect the target host.
+- Create private runtime directory `install -d -m 700 /root/.config/aionex-bootstrap`; store the owner's **independent** runtime key locally in `/root/.config/aionex-bootstrap/control-plane.key`, root-owned 0600, using the approved secret input surface. The owner's successful interactive phone-SSH sequence used `umask 077`, `read -rs -p 'API key: ' MCP_KEY; echo`, `printf '%s' "$MCP_KEY" > /root/.config/aionex-bootstrap/control-plane.key`, `unset MCP_KEY`, `chmod 600 .../control-plane.key`. This avoids shell history/echo but does not replace an enterprise secrets manager, off-host custody or key rotation.
+- Never embed a secret value into YAML: use a `file:` reference. Verify files exist only by `test -s`, `stat` and permission checks; never print the contents. Require loopback-only health listener and reserve no fixed production port.
+
+### 3. Create an official stdio profile and test it **before** enabling a daemon
+
+For a newly approved dedicated tunnel, substitute that tunnel's ID and correct target command. The exact successful NEW initialization had the equivalent of:
+
+```bash
+TID='<authorized-tunnel-id>'
+CMD='/opt/AIOS/.venv/bin/python /opt/AIOS/ops/mcp2/server.py'
+KREF='file:/root/.config/aionex-bootstrap/control-plane.key'
+tunnel-client init --profile aionex-new --tunnel-id "$TID" --mcp-command "$CMD" --control-plane-api-key-ref "$KREF" --health-listen-addr 127.0.0.1:0
+tunnel-client doctor --profile aionex-new --explain
+```
+
+`doctor RESULT ok` proves **static profile validity** only: for stdio it may legitimately report `mcp_server_reachable SKIP` and `oauth_metadata SKIP`. It does **not** prove OpenAI control-plane authorization. The selected `aionex-new.yaml` profile was created under `/root/.config/tunnel-client/` mode 0600 and was configured to call the real tracked Python target.
+
+For the initial authorized runtime probe, start `tunnel-client run --profile aionex-new` *in a dedicated foreground SSH session*. The target's `FastMCP` banner and `tunnel-client started` show process startup, not complete success. In a **second** shell on the same host find the dynamically allocated listener using `ss -ltnp | grep tunnel-client`, then run:
+
+```bash
+tunnel-client health --port <observed-loopback-port> --require-control-plane-poll --json
+```
+
+Pass criteria **all together**: `healthz=200 live`, `readyz=200 ready`, `control_plane_poll.ok=true`, `result=ok`. If there is a permission/401/403 failure, stop and resolve it through the official account authorization route; never try another wrapper or existing OLD secret to bypass a refusal.
+
+While client remains running, complete the ChatGPT custom connector setup and perform an actual **ChatGPT tool invocation** against it: `hostname` must return the target server identity (on this rollout `nc-ph-4354`). The connector originally failed with generic “Error creating connector” while no healthy local client was connected; it succeeded after the owner completed the actual Platform RBAC group, runtime key and running stdio client. This chronological evidence **does not prove** that any one of those components alone caused the generic error.
+
+### 4. Long-lived service without losing the only working control channel
+
+After the ChatGPT tool round-trip works, create a **reviewed dedicated** systemd service on the target, separate from OLD:
+
+```ini
+[Unit]
+Description=AIONEX MCP NEW ROOT outbound tunnel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/AIOS
+Environment=HOME=/root
+Environment=XDG_CONFIG_HOME=/root/.config
+UMask=0077
+ExecStartPre=/usr/bin/test -s /root/.config/aionex-bootstrap/control-plane.key
+ExecStartPre=/usr/bin/test -r /root/.config/tunnel-client/aionex-new.yaml
+ExecStart=/usr/local/bin/tunnel-client run --profile aionex-new
+Restart=always
+RestartSec=5s
+TimeoutStopSec=20
+KillMode=control-group
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Install it under `/etc/systemd/system/aionex-new-mcp-tunnel.service`, root 0644; run `systemctl daemon-reload` and `systemctl enable aionex-new-mcp-tunnel.service`. **Do not start a competing duplicate poller while the foreground one owns the same tunnel.** Use independent approved shell access (not the single MCP connection being replaced) to stop the foreground poller and start `systemctl start aionex-new-mcp-tunnel.service`. Verify `systemctl is-active`, `is-enabled`, `MainPID`, `NRestarts`, one process with PPID 1, a fresh `health --require-control-plane-poll` at the **new** dynamic loopback port, and another **ChatGPT tool** `hostname` round-trip. NEW passed all of these in the 2026-10-11 cutover; a full cold reboot test was intentionally not performed on production.
+
+### 5. Ongoing security, rollback, repeatability
+
+- Keep the per-tunnel key and YAML mode 0600 and never print them or store them in source. Preserve a separate approved emergency SSH route; a local systemd daemon is not a substitute for independent recovery.
+- Audit *actual* tool status after each change, not legacy metadata. In the initial `ops/mcp2/server.py` release, `server_status()` still contains OLD Phase22C constants and its `mcp_restart_tunnel` references the OLD unit. Until the independently tested source fix is accepted and carefully deployed, **do not use that MCP restart tool** to manage NEW; query the real systemd `aionex-new-mcp-tunnel.service` directly using `run_command`. The corrective source proposal is [PR #896](https://github.com/ipdomx/AIONEX-AIOS/pull/896), not yet production accepted.
+- Keep distinct tunnel identities for distinct MCP servers (e.g. AIOS vs TrendBost), scoped org/workspace permissions and independent runtime key authority. Do not automatically move ownership of an old tunnel to a new host or duplicate an old key. On fail/error preserve logs **without** bearer/token/raw command payloads.
+- A target is “connected” only after the control-plane poll, `readyz`, registered ChatGPT connector and a direct correctly identified tool round-trip. A source-only merge, UI listing, `doctor ok`, `tunnel-client started`, or mere open TCP socket are **not** equivalent.
+- Do not stop or cancel OLD production/rollback/independent bridges until the migration/retirement inventory, recovery keys and Owner's explicit decision have been reconciled.
+
+---
+
 ## NEW direct-ChatGPT independence and recovery verification — 2026-10-11 01:42 UTC
 
 This newer evidence **supersedes older statements elsewhere in this document that the NEW MCP tunnel is not configured or that no current Cloudflare R2 backup has been decrypted and restored**. It does **not** override remaining release, no-renewal, acceptance, or retirement gates. Owner requested completing permitted OLD-to-NEW dependencies without stopping production. Direct NEW operator evidence is retained privately; tracked source contains no credential or raw personal data.
