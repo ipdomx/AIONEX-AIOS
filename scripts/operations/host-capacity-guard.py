@@ -29,6 +29,7 @@ THRESHOLDS: dict[str, tuple[float, float]] = {
     "cpu_pct": (70.0, 85.0),
     "memory_pct": (75.0, 85.0),
     "disk_pct": (70.0, 85.0),
+    "docker_disk_pct": (70.0, 85.0),
     "load_pct": (75.0, 100.0),
     "network_pct": (65.0, 80.0),
     "swap_pct": (20.0, 50.0),
@@ -94,6 +95,12 @@ def collect_metrics(previous_sample: dict[str, Any] | None, *, interface: str) -
     memory_pct, swap_pct = _memory_metrics()
     disk = shutil.disk_usage("/")
     disk_pct = 0.0 if disk.total <= 0 else disk.used * 100.0 / disk.total
+    # Docker and containerd share a separate encrypted vault on the new host.
+    # Root disk headroom must never conceal pressure on this production mount.
+    docker_disk = shutil.disk_usage("/var/lib/docker")
+    docker_disk_pct = (
+        0.0 if docker_disk.total <= 0 else docker_disk.used * 100.0 / docker_disk.total
+    )
     logical_cpus = max(1, int(os.cpu_count() or 1))
     load_pct = max(0.0, os.getloadavg()[0] * 100.0 / logical_cpus)
     rx, tx, speed_mbps = _network_counters(interface)
@@ -119,6 +126,7 @@ def collect_metrics(previous_sample: dict[str, Any] | None, *, interface: str) -
         "cpu_pct": round(cpu_pct, 2),
         "memory_pct": round(memory_pct, 2),
         "disk_pct": round(disk_pct, 2),
+        "docker_disk_pct": round(docker_disk_pct, 2),
         "load_pct": round(load_pct, 2),
         "network_pct": round(network_pct, 2),
         "swap_pct": round(swap_pct, 2),
