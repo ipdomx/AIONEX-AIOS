@@ -1064,3 +1064,12 @@ Migration is complete only when all are true:
 - Owner explicitly approves retirement of the old server.
 
 Until then the status remains MIGRATION_IN_PROGRESS_NOT_COMPLETE.
+
+## 2026-10-11 23:07 UTC — FR08E full-application synthetic subgate
+
+- PASS for the bounded fresh-synthetic full-app subgate only: 20/20 checks on NEW `nc-ph-4354` using exact native source `f2527cf3815d21353916697e61a3409d2a9c62b3`.
+- Original migrations reached Alembic head `20260920_0064`; the complete FastAPI lifespan/router loaded with 64 API router nodes. Health/readiness, native authentication, authenticated project/conversation creation and persistence, access controls, security headers, and clean shutdown all passed.
+- The isolated lab used fresh PostgreSQL 16 and Redis, network `none`, no host ports, no outbound provider traffic, synthetic credentials only, and no customer/R2 data. All temporary state was removed; production remained 36 Up / 35 Healthy / 0 bad with identities and restart counters preserved.
+- Evidence: [FR08E full-app synthetic receipt](receipts/FR08E-full-app-synthetic-20261011.md); canonical event `fr08e-full-app-synthetic-subgate-20261011T230730Z`; proof SHA-256 `83d6d504b4c3765371e82ba9bf36b78ffa914288ff1180ca928608c505c651e6`.
+- Boundary: FR-08 remains **IN_PROGRESS**. This does not prove full customer R2 recovery, worker/media/inference acceptance, deployment, or the actual 5,000-user mixed workload. FR09 workload remains **NOT_RUN** until full independent FR08 admission.
+
