@@ -80,26 +80,61 @@ def version_at_least(observed: str, minimum: str) -> bool:
     return _semver_key(observed) >= _semver_key(minimum)
 
 
+BINARY_HEADER = re.compile(
+    r"^.+:\\s+go[0-9]+\\.[0-9]+(?:\\.[0-9]+)?[0-9A-Za-z.+-]*$"
+)
+
+
 def parse_go_version_m(text: str, *, minimum_dependency_count: int) -> dict[str, LinkedModule]:
-    """Parse go version -m output and reject truncated/ambiguous evidence."""
+    """Parse one complete go version -m binary, rejecting mixed/partial evidence."""
 
     modules: dict[str, LinkedModule] = {}
     current_module: str | None = None
+    header_seen = False
     build_lines = 0
     path_lines = 0
 
     for raw in text.splitlines():
-        fields = raw.strip().split()
-        if not fields:
+        stripped = raw.strip()
+        if not stripped:
             continue
-        kind = fields[0]
 
+        # The pinned builders invoke go version -m for exactly ONE binary.
+        # Without this framing, concatenated or headerless output can make
+        # absent vulnerable modules appear safe.
+        if not header_seen:
+            if BINARY_HEADER.fullmatch(stripped) is None:
+                raise EvidenceError("missing go version -m binary header")
+            header_seen = True
+            continue
+        if BINARY_HEADER.fullmatch(stripped):
+            raise EvidenceError("multiple binary headers in module evidence")
+
+        fields = stripped.split()
+        kind = fields[0]
         if kind == "path":
+            if len(fields) != 2:
+                raise EvidenceError(f"malformed binary path line: {raw!r}")
+            if path_lines:
+                raise EvidenceError("multiple path sections in module evidence")
+            if build_lines:
+                raise EvidenceError("path section after build metadata")
             path_lines += 1
             current_module = None
             continue
+        if path_lines != 1:
+            raise EvidenceError("module metadata appears before binary path")
         if kind == "build":
+            if len(fields) < 2:
+                raise EvidenceError(f"malformed build metadata: {raw!r}")
             build_lines += 1
+            current_module = None
+            continue
+        if build_lines:
+            raise EvidenceError("module metadata after binary build section")
+        if kind == "mod":
+            if len(fields) < 3:
+                raise EvidenceError(f"malformed main module line: {raw!r}")
             current_module = None
             continue
         if kind == "dep":
@@ -129,9 +164,9 @@ def parse_go_version_m(text: str, *, minimum_dependency_count: int) -> dict[str,
             )
             current_module = None
             continue
-        current_module = None
+        raise EvidenceError(f"unrecognized go version -m metadata: {raw!r}")
 
-    if path_lines < 1 or build_lines < 1:
+    if not header_seen or path_lines != 1 or build_lines < 1:
         raise EvidenceError("evidence does not look like complete go version -m output")
     if len(modules) < minimum_dependency_count:
         raise EvidenceError(
