@@ -644,3 +644,60 @@ def test_invalid_utf8_input_returns_structured_error(
         "cannot read policy" if input_kind == "policy" else "cannot read evidence"
     ) in response["error"]
     assert "Traceback" not in result.stderr
+
+
+def test_genuine_trivy_go_experiment_header_is_accepted(tmp_path: Path):
+    """The pinned Trivy Go compiler emits the actual -X:jsonv2 suffix."""
+    paths = all_good_evidence(tmp_path)
+    normal = paths["trivy"].read_text()
+    assert "/tmp/tool: go1.26.8\n" in normal
+    paths["trivy"].write_text(
+        normal.replace(
+            "/tmp/tool: go1.26.8\n",
+            "/buildcache/docker-trivy5/trivy: go1.26.8-X:jsonv2\n",
+            1,
+        )
+    )
+    code, report = TARGET.evaluate(TARGET.load_policy(POLICY), paths)
+    assert code == 0
+    assert report["status"] == "PASS"
+
+
+@pytest.mark.parametrize(
+    "invalid_suffix",
+    [
+        "-X:jsonv3",
+        "-X:jsonv2:other",
+        "-X:unapproved",
+        "-not-json:jsonv2",
+        "-X:jsonv2-extra",
+    ],
+)
+def test_unknown_go_experiment_headers_fail_closed(
+    tmp_path: Path, invalid_suffix: str
+):
+    paths = all_good_evidence(tmp_path)
+    current = paths["trivy"].read_text()
+    paths["trivy"].write_text(
+        current.replace(
+            "/tmp/tool: go1.26.8\n",
+            "/tmp/tool: go1.26.8" + invalid_suffix + "\n",
+            1,
+        )
+    )
+    with pytest.raises(TARGET.EvidenceError, match="missing go version -m binary header"):
+        TARGET.evaluate(TARGET.load_policy(POLICY), paths)
+
+
+def test_second_go_experiment_binary_header_is_rejected(tmp_path: Path):
+    paths = all_good_evidence(tmp_path)
+    original = paths["trivy"].read_text()
+    paths["trivy"].write_text(
+        original
+        + "/buildcache/docker-trivy5/other: go1.26.8-X:jsonv2\n"
+        + "\tpath\tgithub.com/aquasecurity/trivy/cmd/trivy\n"
+        + "\tdep\tgithub.com/containerd/containerd/v2\tv2.3.6\n"
+        + "\tbuild\t-buildmode=exe\n"
+    )
+    with pytest.raises(TARGET.EvidenceError, match="multiple binary headers"):
+        TARGET.evaluate(TARGET.load_policy(POLICY), paths)
