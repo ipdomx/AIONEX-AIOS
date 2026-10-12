@@ -929,16 +929,16 @@ Monitor:
 
 Exit: stable observation window with no unresolved critical issue.
 
-## NS-13 — Capacity acceptance and 5,000-user growth readiness
+## NS-13 — Canonical 5,000-user mixed capacity acceptance
 
 The new hardware is intended to provide significant headroom, but 5,000 users does not mean 5,000 simultaneous heavy AI/GPU generations on one host.
 
 Required:
-- Re-run the canonical 1,000 authenticated-user / multiple-project / multiple-conversation acceptance on the new production-equivalent configuration.
-- Characterize safe staged synthetic concurrency, as appropriate, across 500, 1,000, 2,500, and up to 5,000 sessions/projects without uncontrolled paid-provider fanout.
-- Measure p50/p95/p99 latency.
+- Complete the canonical mixed acceptance from PLAN.json on an isolated production-equivalent release after independent full FR08 acceptance: 5,000 active authenticated users, at least three projects and three conversations per user (15,000 of each), 15,000 distinct durable jobs, and at least 15 minutes at steady state.
+- Preserve the original authenticated ramp: 25, 100, 250, 500, 1,000, 2,500, and 5,000 users. Record generator resources and dropped or failed clients without uncontrolled paid-provider fanout.
+- Measure p50/p95/p99 latency with ordinary-read p95 <= 500 ms, durable-enqueue p95 <= 1,000 ms, and unexpected errors <= 0.5%. Preserve the complete denominator and record intentional Owner-policy refusals separately.
 - Measure request rate, error rate, queue depth/wait, CPU, RAM, swap, DB connections/locks, Redis, disk IOPS/latency, and network throughput.
-- Preserve tenant isolation, zero lost jobs, and zero duplicate terminal executions.
+- Preserve tenant isolation with zero tenant leaks, zero lost jobs, and zero duplicate terminal executions.
 - Abort escalation on correctness loss, rising 5xx, DB/queue saturation, swap thrash, unsafe provider fanout, RAID/storage pressure, or network saturation.
 - Record a safe operating envelope rather than claiming unlimited capacity.
 - Treat the 1 Gbps network as a possible future bottleneck.
@@ -950,7 +950,7 @@ Required:
   - specialized media/AI workers.
 - Scale horizontally before a single-host bottleneck becomes a production incident.
 
-Exit: measured capacity report with clear limits and scale-out triggers.
+Exit: the complete canonical 5,000-user mixed profile passes with measured SLO, isolation, durable-job, cleanup, operating-limit and scale-out evidence. Heavy AI/media concurrency is reported from its own measurements.
 
 ## NS-14 — Monitoring and ongoing operations
 
@@ -1055,8 +1055,8 @@ Migration is complete only when all are true:
 - Source/configuration/data migration verified.
 - New server serves public production traffic.
 - Required production acceptance PASS.
-- Canonical 1,000-user capacity acceptance PASS on the new server.
-- 5,000-user growth envelope and horizontal scaling triggers are documented honestly.
+- Canonical 5,000-active-authenticated-user mixed capacity acceptance PASS on the new server: 15,000 distinct projects, conversations and durable jobs, at least 15 minutes steady state, and all PLAN.json SLO/isolation requirements.
+- The measured heavy-workload operating envelope and horizontal scaling triggers are documented honestly; active authenticated users are not equated with simultaneous heavy AI/GPU generations.
 - Backup/restore/recovery and monitoring PASS.
 - Old-server rollback observation window completes successfully.
 - Client response/stream delivery resilience acceptance PASS, including reconnect/fallback without duplicate execution or provider charge.
@@ -1073,3 +1073,11 @@ Until then the status remains MIGRATION_IN_PROGRESS_NOT_COMPLETE.
 - Evidence: [FR08E full-app synthetic receipt](receipts/FR08E-full-app-synthetic-20261011.md); canonical event `fr08e-full-app-synthetic-subgate-20261011T230730Z`; proof SHA-256 `83d6d504b4c3765371e82ba9bf36b78ffa914288ff1180ca928608c505c651e6`.
 - Boundary: FR-08 remains **IN_PROGRESS**. This does not prove full customer R2 recovery, worker/media/inference acceptance, deployment, or the actual 5,000-user mixed workload. FR09 workload remains **NOT_RUN** until full independent FR08 admission.
 
+
+
+## 2026-10-12 — FR25C candidate preparation
+
+- The active NS-13 and migration-complete criteria now match PLAN.json: 5,000 active authenticated users, three projects/conversations per user, 15,000 durable jobs, 15-minute steady state, and the original SLO/isolation requirements. Dated historical acceptance records are retained.
+- [Candidate preflight](releases/FR25C-NEW-20261012.json) binds published main 733dd0559a9d53616f4dd5478609f6796353df09 and the native application f2527cf3815d21353916697e61a3409d2a9c62b3 separately. The Plan, reporting tool and MCP overlay match main by Git blob identity. The preflight records the roadmap before this reconciliation.
+- [Publication and rollback procedure](releases/FR25C-NEW-20261012.md) retains the running Compose project and per-service ordered overlay lists, native operational files and immutable rollback image IDs.
+- Preparation is complete for this documentation batch. Application deployment, full FR08E/NS14A/FR06/FR24 and actual 5,000-user acceptance remain separate evidence gates tracked in the live journal and issue884. This preparation neither changes worker tasks nor declares final release acceptance.

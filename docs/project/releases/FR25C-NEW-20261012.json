@@ -1,0 +1,796 @@
+{
+  "schema_version": 1,
+  "kind": "FR25C_CANDIDATE_PREPARATION_ONLY",
+  "at_utc": "2026-10-12T05:12:58.447627+00:00",
+  "project": "AIONEX AIOS",
+  "runtime": "NEW ROOT",
+  "source_base_sha": "733dd0559a9d53616f4dd5478609f6796353df09",
+  "source_base_tree_sha": "72dba9e4c1a458822eadc28e56aad6685868939d",
+  "native_application_sha": "f2527cf3815d21353916697e61a3409d2a9c62b3",
+  "compose_project": "web-dashboard",
+  "production_count": 36,
+  "healthy_count": 35,
+  "immutable_image_id_count": 17,
+  "public_health": {
+    "/health": 200,
+    "/ready": 200
+  },
+  "native_operational_overlays_at_collection": [
+    {
+      "path": "docs/project/NEW-SERVER-MIGRATION-ROADMAP.md",
+      "git_blob": "ff08d6a5d5e8bf0d3572a3f1d249d48cc75c1a74",
+      "native_sha256": "53e7641db281672fdb6e1ef1e7566782b7faa20068cfc85eab3d945938d63a67",
+      "native_git_blob": "7ae6b801d1bdc2799266e5e3fbb9678ba3b845f9",
+      "matches_published_source": false
+    },
+    {
+      "path": "docs/project/PLAN.json",
+      "git_blob": "5bf0e75f71dfdd0215fb88ab5513653aeab520f3",
+      "native_sha256": "058cdb772e2e3c834f1b64a677e7c2bf0ae2527b966eeca1fe23b0c6146a4ce5",
+      "native_git_blob": "5bf0e75f71dfdd0215fb88ab5513653aeab520f3",
+      "matches_published_source": true
+    },
+    {
+      "path": "ops/mcp2/server.py",
+      "git_blob": "60b4d449ce5d1d6a4f64b36712d60d8de95293ea",
+      "native_sha256": "0a5d8af686b9904a4dd3d99592bbdca6c20f97b024cbb5df6ecb9381af9f2d8e",
+      "native_git_blob": "60b4d449ce5d1d6a4f64b36712d60d8de95293ea",
+      "matches_published_source": true
+    },
+    {
+      "path": "scripts/project_hub.py",
+      "git_blob": "6ac8f94c38b3f10f486662c46a315cf4fee94281",
+      "native_sha256": "2448dd3fb9160dc19bd374028b1c59263e6fe6835ff3bd6a22fad1421bc67939",
+      "native_git_blob": "6ac8f94c38b3f10f486662c46a315cf4fee94281",
+      "matches_published_source": true
+    }
+  ],
+  "reviewed_roadmap_installation_target_sha256": "e878440c2efac4589763e650984837797e2b33a2472bbc1bc6b5820bee2bc189",
+  "source_comparison_scope": "Files changed between the native application commit and published main; working-tree matches do not establish image build provenance.",
+  "source_comparison": [
+    {
+      "path": "docs/phase-36/receipts/36N-2026-10-08-nextjs-15527-security.md",
+      "git_blob": "8cb95ab2a2355185d42f512fbfc0fbd28956ee98",
+      "status": "added",
+      "native_present": false,
+      "native_git_blob": null,
+      "native_sha256": null,
+      "matches_published_source": false,
+      "category": "documentation"
+    },
+    {
+      "path": "docs/project/META-MARKETING-NEW-SERVER-RUNBOOK.md",
+      "git_blob": "5fa84b522006225e7b93dc73f711bb16d41a357a",
+      "status": "added",
+      "native_present": false,
+      "native_git_blob": null,
+      "native_sha256": null,
+      "matches_published_source": false,
+      "category": "documentation"
+    },
+    {
+      "path": "docs/project/NEW-SERVER-MIGRATION-ROADMAP.md",
+      "git_blob": "ff08d6a5d5e8bf0d3572a3f1d249d48cc75c1a74",
+      "status": "modified",
+      "native_present": true,
+      "native_git_blob": "7ae6b801d1bdc2799266e5e3fbb9678ba3b845f9",
+      "native_sha256": "53e7641db281672fdb6e1ef1e7566782b7faa20068cfc85eab3d945938d63a67",
+      "matches_published_source": false,
+      "category": "documentation"
+    },
+    {
+      "path": "docs/project/PLAN.json",
+      "git_blob": "5bf0e75f71dfdd0215fb88ab5513653aeab520f3",
+      "status": "modified",
+      "native_present": true,
+      "native_git_blob": "5bf0e75f71dfdd0215fb88ab5513653aeab520f3",
+      "native_sha256": "058cdb772e2e3c834f1b64a677e7c2bf0ae2527b966eeca1fe23b0c6146a4ce5",
+      "matches_published_source": true,
+      "category": "documentation"
+    },
+    {
+      "path": "docs/project/receipts/FR-09E-evidence-gate-20261010.md",
+      "git_blob": "7258293667f70a6482d426414474851b9f79dee8",
+      "status": "added",
+      "native_present": false,
+      "native_git_blob": null,
+      "native_sha256": null,
+      "matches_published_source": false,
+      "category": "documentation"
+    },
+    {
+      "path": "docs/project/receipts/FR-09F-5000-user-acceptance-20261010.md",
+      "git_blob": "5ce97158a217a3aea7c00669d20fff0fd0c79959",
+      "status": "added",
+      "native_present": false,
+      "native_git_blob": null,
+      "native_sha256": null,
+      "matches_published_source": false,
+      "category": "documentation"
+    },
+    {
+      "path": "docs/project/receipts/FR-09G-measured-runtime-vault-preflight-20261010.md",
+      "git_blob": "a641b99b263a23622e89cdc75ea7548bc5a4a428",
+      "status": "added",
+      "native_present": false,
+      "native_git_blob": null,
+      "native_sha256": null,
+      "matches_published_source": false,
+      "category": "documentation"
+    },
+    {
+      "path": "docs/project/receipts/FR08E-full-app-synthetic-20261011.md",
+      "git_blob": "b7271cceeb2fad47770d250f661e51fb9db54fd8",
+      "status": "added",
+      "native_present": false,
+      "native_git_blob": null,
+      "native_sha256": null,
+      "matches_published_source": false,
+      "category": "documentation"
+    },
+    {
+      "path": "docs/project/receipts/FR08E-owner-realtime-fresh-recovery-20261011.md",
+      "git_blob": "d54cd16de15226a30aa8557d3b426328e81f0ad4",
+      "status": "added",
+      "native_present": true,
+      "native_git_blob": "d54cd16de15226a30aa8557d3b426328e81f0ad4",
+      "native_sha256": "b749726aef55d432f7ede0b87a6ed3336dd92e77995cc7688731c12a296dca41",
+      "matches_published_source": true,
+      "category": "documentation"
+    },
+    {
+      "path": "docs/project/receipts/NS-14-DOCKER-VAULT-CAPACITY-20261010.md",
+      "git_blob": "857d04c7d99b647be60e354cfb877d3c6bad0883",
+      "status": "added",
+      "native_present": false,
+      "native_git_blob": null,
+      "native_sha256": null,
+      "matches_published_source": false,
+      "category": "documentation"
+    },
+    {
+      "path": "docs/project/receipts/NS-14A-DURABLE-POLL-RECONNECT-20261010.md",
+      "git_blob": "085dd4f2abc303978998b396f76ccf0052b10525",
+      "status": "added",
+      "native_present": false,
+      "native_git_blob": null,
+      "native_sha256": null,
+      "matches_published_source": false,
+      "category": "documentation"
+    },
+    {
+      "path": "docs/project/releases/FR25B-NEW-20261011-MIGRATIONS.json",
+      "git_blob": "57955184168f8f2d225c1cb5386a7215140c6bb6",
+      "status": "added",
+      "native_present": false,
+      "native_git_blob": null,
+      "native_sha256": null,
+      "matches_published_source": false,
+      "category": "documentation"
+    },
+    {
+      "path": "docs/project/releases/FR25B-NEW-20261011-OWNER-ASSETS.json",
+      "git_blob": "a45388952e3c31d157b8eb752339a10c79d554ec",
+      "status": "added",
+      "native_present": false,
+      "native_git_blob": null,
+      "native_sha256": null,
+      "matches_published_source": false,
+      "category": "documentation"
+    },
+    {
+      "path": "docs/project/releases/FR25B-NEW-20261011-USER-ASSETS.json",
+      "git_blob": "f3eafb556d376ee51db6221959f6e34c0856de44",
+      "status": "added",
+      "native_present": false,
+      "native_git_blob": null,
+      "native_sha256": null,
+      "matches_published_source": false,
+      "category": "documentation"
+    },
+    {
+      "path": "docs/project/releases/FR25B-NEW-20261011.json",
+      "git_blob": "97a0fe98cd68cddaeafe20e1ebbc57b9ef6ac664",
+      "status": "added",
+      "native_present": false,
+      "native_git_blob": null,
+      "native_sha256": null,
+      "matches_published_source": false,
+      "category": "documentation"
+    },
+    {
+      "path": "docs/project/releases/FR25B-NEW-20261011.md",
+      "git_blob": "8fbcd0813ca4433ab7e56a16af9243bdf602bb08",
+      "status": "added",
+      "native_present": false,
+      "native_git_blob": null,
+      "native_sha256": null,
+      "matches_published_source": false,
+      "category": "documentation"
+    },
+    {
+      "path": "ops/mcp2/server.py",
+      "git_blob": "60b4d449ce5d1d6a4f64b36712d60d8de95293ea",
+      "status": "modified",
+      "native_present": true,
+      "native_git_blob": "60b4d449ce5d1d6a4f64b36712d60d8de95293ea",
+      "native_sha256": "0a5d8af686b9904a4dd3d99592bbdca6c20f97b024cbb5df6ecb9381af9f2d8e",
+      "matches_published_source": true,
+      "category": "operational_tool"
+    },
+    {
+      "path": "scripts/capacity/fr09_evidence_gate.py",
+      "git_blob": "032bd42ffaa1cc6d5a6194ecaa48ce679c96b5ab",
+      "status": "added",
+      "native_present": false,
+      "native_git_blob": null,
+      "native_sha256": null,
+      "matches_published_source": false,
+      "category": "capacity_acceptance_tool"
+    },
+    {
+      "path": "scripts/capacity/fr09_profile.py",
+      "git_blob": "b2e87c920c476fdf582ab2ad88c6ac62e7ed746f",
+      "status": "modified",
+      "native_present": true,
+      "native_git_blob": "8970c0f24d69b6162506cb63f03148daa0ff0edb",
+      "native_sha256": "0fad3f7863d4d904c243bbc2fedb0f9a1a860b3e35d3ab8d399b334ad913f247",
+      "matches_published_source": false,
+      "category": "capacity_acceptance_tool"
+    },
+    {
+      "path": "scripts/operations/host-capacity-guard.py",
+      "git_blob": "33634fd6cf4dc27f3f7c497ebd53beffc35ddbe3",
+      "status": "modified",
+      "native_present": true,
+      "native_git_blob": "b65bb4e8d6d0c142d0d90ae27e9703cd864cf525",
+      "native_sha256": "37d9446b7375e4509c358504558d752ebdb6fdcbf298bacdb3086d5aeb5a4c21",
+      "matches_published_source": false,
+      "category": "operational_tool"
+    },
+    {
+      "path": "scripts/project_hub.py",
+      "git_blob": "6ac8f94c38b3f10f486662c46a315cf4fee94281",
+      "status": "modified",
+      "native_present": true,
+      "native_git_blob": "6ac8f94c38b3f10f486662c46a315cf4fee94281",
+      "native_sha256": "2448dd3fb9160dc19bd374028b1c59263e6fe6835ff3bd6a22fad1421bc67939",
+      "matches_published_source": true,
+      "category": "operational_tool"
+    },
+    {
+      "path": "tests/browser-e2e/specs/vip.spec.ts",
+      "git_blob": "0daed32041207e2ce4646e713e4b77c4c027b0bc",
+      "status": "modified",
+      "native_present": true,
+      "native_git_blob": "8eada1a315d7109894e243416f8e27f9ad9261ff",
+      "native_sha256": "58763e319051f67212417fdc9d9d499e7e7e5b3b04afaee49c37243301ae1f73",
+      "matches_published_source": false,
+      "category": "test"
+    },
+    {
+      "path": "tests/test_fr06_dependency_security_refresh.py",
+      "git_blob": "fda6e8198c2a535f9686d8d3869023a45bc45e5f",
+      "status": "modified",
+      "native_present": true,
+      "native_git_blob": "4b9cd0b7cd4242e5136413a36e82794b60617903",
+      "native_sha256": "47d15e5df266332453a5123a3e8e2f8e17a810dfc9fc97f62516fca8a39b7fd5",
+      "matches_published_source": false,
+      "category": "test"
+    },
+    {
+      "path": "tests/test_fr09_evidence_gate.py",
+      "git_blob": "b4e21e333518b3674930b8f868b8056c1dbbeb6d",
+      "status": "added",
+      "native_present": false,
+      "native_git_blob": null,
+      "native_sha256": null,
+      "matches_published_source": false,
+      "category": "test"
+    },
+    {
+      "path": "tests/test_fr09_profile.py",
+      "git_blob": "e5f16e870c9815cd6689ae93a0e590b7de8772db",
+      "status": "modified",
+      "native_present": true,
+      "native_git_blob": "6eb988c0592de5992133d20701032ddf6b87c3d0",
+      "native_sha256": "6170e8f6cde9e3d6f345ab63617f42e16114672e2dc7868f997ce9e2d1f9286a",
+      "matches_published_source": false,
+      "category": "test"
+    },
+    {
+      "path": "tests/test_mcp2_operator_repair.py",
+      "git_blob": "8dd8c453fe14307df9f8bc8da92d1594a2b20a39",
+      "status": "modified",
+      "native_present": true,
+      "native_git_blob": "90ea68b8495ba5f700907680c6d21b4431079898",
+      "native_sha256": "764213fa79568451d5bbd455bed74855155490fb1e23bb7864bcdb1931100dec",
+      "matches_published_source": false,
+      "category": "test"
+    },
+    {
+      "path": "tests/test_meta_operator_migration_overlay.py",
+      "git_blob": "da53d53a104c646933116b3e88f0e9d8a92e8181",
+      "status": "added",
+      "native_present": false,
+      "native_git_blob": null,
+      "native_sha256": null,
+      "matches_published_source": false,
+      "category": "test"
+    },
+    {
+      "path": "tests/test_project_hub.py",
+      "git_blob": "a63b8e1e078d17297c582aaa4159e894d5f99b5b",
+      "status": "modified",
+      "native_present": true,
+      "native_git_blob": "c54c1afd33c170921ad09095bb548f11dffba8f6",
+      "native_sha256": "c1738e50562994d78b14384f452c323e3e919c0c6533966e5351569e7526a5fa",
+      "matches_published_source": false,
+      "category": "test"
+    },
+    {
+      "path": "vip-frontend/package-lock.json",
+      "git_blob": "dacb9a682e34833fcd58472e05647a22d7a7beea",
+      "status": "modified",
+      "native_present": true,
+      "native_git_blob": "a9858253102916e80f71a7f8cf3727ea624a1e4c",
+      "native_sha256": "025d8e632b93881b4379fd3401ad4836977836293b02b56fe1059a2fa867cdf5",
+      "matches_published_source": false,
+      "category": "frontend_dependency_manifest"
+    },
+    {
+      "path": "vip-frontend/package.json",
+      "git_blob": "d3267c85a52596a37e76950b6ec7085b69481081",
+      "status": "modified",
+      "native_present": true,
+      "native_git_blob": "93a0b8438ca0b719a1953eb8f5db357d89ae1f35",
+      "native_sha256": "92e9aefb2b6b1fa1ff9cc5978ea9f60e881a43943c4775a88d62e11c6a09c295",
+      "matches_published_source": false,
+      "category": "frontend_dependency_manifest"
+    },
+    {
+      "path": "vip-frontend/src/components/pages/conversations-client.tsx",
+      "git_blob": "7c5ae21ef9e52edd9155e07b8123919ba4b8fa05",
+      "status": "modified",
+      "native_present": true,
+      "native_git_blob": "185a8a70442c45a9ebf0b2b82c2d3dac3bad19f6",
+      "native_sha256": "b0240f71726dd60a2b09420f9ce040bb01a3b0f7a5342819dac50d5e1838e273",
+      "matches_published_source": false,
+      "category": "application_or_compose"
+    },
+    {
+      "path": "web-dashboard/backend/app/services/runtime_host_alert.py",
+      "git_blob": "a6747c9fc6c096fefa884ca78b9b02b8428e4a1c",
+      "status": "modified",
+      "native_present": true,
+      "native_git_blob": "83c658798cd34bfd8372e1161220c862231fda77",
+      "native_sha256": "40708075e4edab27a41ec37e793c60a9360502aff35b9d8b4737f63a09b93c44",
+      "matches_published_source": false,
+      "category": "application_or_compose"
+    },
+    {
+      "path": "web-dashboard/backend/tests/test_fr07_governed_conversations.py",
+      "git_blob": "2b26f7193244503ec7902ea62616487731c0256e",
+      "status": "modified",
+      "native_present": true,
+      "native_git_blob": "339d95166728f9969f7a873a03054bd7f65b3399",
+      "native_sha256": "8ef4a27e1eca8fa7df3ab0e58a3f5f17e1e7272e28421c32e4b090f9dbf18c19",
+      "matches_published_source": false,
+      "category": "test"
+    },
+    {
+      "path": "web-dashboard/backend/tests/test_postlaunch_runtime_host_watch.py",
+      "git_blob": "315c6063169980d733b746c6bef096b66d11d664",
+      "status": "modified",
+      "native_present": true,
+      "native_git_blob": "8814809427cf8eb62c7d3f3b7a92887763f0a9c4",
+      "native_sha256": "6cf0c5cc4da3ea2b4c9e3b6addeb14db975e238407c5f4ec7cce0587b100453a",
+      "matches_published_source": false,
+      "category": "test"
+    },
+    {
+      "path": "web-dashboard/docker-compose.meta-operator-secrets.json",
+      "git_blob": "a6660ec0f1b310fed897f2dc4cc883e796cf0fa9",
+      "status": "added",
+      "native_present": false,
+      "native_git_blob": null,
+      "native_sha256": null,
+      "matches_published_source": false,
+      "category": "application_or_compose"
+    },
+    {
+      "path": "web-dashboard/frontend/package-lock.json",
+      "git_blob": "66ab68d3401e895786510622d675135137fae5fc",
+      "status": "modified",
+      "native_present": true,
+      "native_git_blob": "753fea898cb20a28308b3e01de94cc7b79708f51",
+      "native_sha256": "45ccb559fa918da4106ba9d129388bedad8db8a95d3ea4c6074ed5cfb2ccbdd3",
+      "matches_published_source": false,
+      "category": "frontend_dependency_manifest"
+    },
+    {
+      "path": "web-dashboard/frontend/package.json",
+      "git_blob": "869b5badc8e33b16aace492ba72aee25b5a0afa0",
+      "status": "modified",
+      "native_present": true,
+      "native_git_blob": "629e9c5346a6ddfb3b6508f29c55e42222a62740",
+      "native_sha256": "3514d961e50cba89fd80063546211e813a1f1c646647b776823ecae448b88bf7",
+      "matches_published_source": false,
+      "category": "frontend_dependency_manifest"
+    }
+  ],
+  "runtime_images": [
+    {
+      "name": "/web-dashboard-academy-course-worker-1",
+      "service": "academy-course-worker",
+      "image_id": "sha256:dcd03d66e8f481d412db045a7e7f5808f95119339020e68a125774a978ec823c",
+      "image_reference": "aionex-aios-media-worker:release-960dab80",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-audio-dubbing-worker-1",
+      "service": "audio-dubbing-worker",
+      "image_id": "sha256:b718477e0b82c58920ee3d11baf2402d6cf54f920ecc763cd4a95106b5780b39",
+      "image_reference": "aionex-aios-backend:release-4c6ae500",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-audio-music-worker-1",
+      "service": "audio-music-worker",
+      "image_id": "sha256:b718477e0b82c58920ee3d11baf2402d6cf54f920ecc763cd4a95106b5780b39",
+      "image_reference": "aionex-aios-backend:release-4c6ae500",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-audio-song-worker-1",
+      "service": "audio-song-worker",
+      "image_id": "sha256:b718477e0b82c58920ee3d11baf2402d6cf54f920ecc763cd4a95106b5780b39",
+      "image_reference": "aionex-aios-backend:release-4c6ae500",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-audio-speech-worker-1",
+      "service": "audio-speech-worker",
+      "image_id": "sha256:b718477e0b82c58920ee3d11baf2402d6cf54f920ecc763cd4a95106b5780b39",
+      "image_reference": "aionex-aios-backend:release-4c6ae500",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-audio-transcript-worker-1",
+      "service": "audio-transcript-worker",
+      "image_id": "sha256:b718477e0b82c58920ee3d11baf2402d6cf54f920ecc763cd4a95106b5780b39",
+      "image_reference": "aionex-aios-backend:release-4c6ae500",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-backend-1",
+      "service": "backend",
+      "image_id": "sha256:b718477e0b82c58920ee3d11baf2402d6cf54f920ecc763cd4a95106b5780b39",
+      "image_reference": "aionex-aios-backend:release-4c6ae500",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-backup-worker-1",
+      "service": "backup-worker",
+      "image_id": "sha256:b718477e0b82c58920ee3d11baf2402d6cf54f920ecc763cd4a95106b5780b39",
+      "image_reference": "aionex-aios-backend:release-4c6ae500",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-cloudflared-1",
+      "service": "cloudflared",
+      "image_id": "sha256:139d24fda10f292a7f935cc44508b11afb775029e46afd286e05bc524f2d8b9b",
+      "image_reference": "cloudflare/cloudflared:2026.7.0@sha256:5e49861633763e8933475477c20bae6039ed47f32c1d267a34babc347f28f0df",
+      "state": "running",
+      "health": "none",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-communication-worker-1",
+      "service": "communication-worker",
+      "image_id": "sha256:b718477e0b82c58920ee3d11baf2402d6cf54f920ecc763cd4a95106b5780b39",
+      "image_reference": "aionex-aios-backend:release-4c6ae500",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-design-image-derivative-worker-1",
+      "service": "design-image-derivative-worker",
+      "image_id": "sha256:26ca13c91d85703314cef2e308858fe6703a57472d72fd41aeaef59472f0ea7e",
+      "image_reference": "aionex-aios-image-derivative-worker:release-4c6ae500",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-design-image-worker-1",
+      "service": "design-image-worker",
+      "image_id": "sha256:b718477e0b82c58920ee3d11baf2402d6cf54f920ecc763cd4a95106b5780b39",
+      "image_reference": "aionex-aios-backend:release-4c6ae500",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-frontend-1",
+      "service": "frontend",
+      "image_id": "sha256:2d3b78eb79fe64520849536dd34c61be121b12923b6603abffd858ee62d7fb9e",
+      "image_reference": "web-dashboard-frontend:release-0e597693",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-identity-media-worker-1",
+      "service": "identity-media-worker",
+      "image_id": "sha256:b718477e0b82c58920ee3d11baf2402d6cf54f920ecc763cd4a95106b5780b39",
+      "image_reference": "aionex-aios-backend:release-4c6ae500",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-media-worker-1",
+      "service": "media-worker",
+      "image_id": "sha256:dcd03d66e8f481d412db045a7e7f5808f95119339020e68a125774a978ec823c",
+      "image_reference": "aionex-aios-media-worker:release-960dab80",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-nginx-1",
+      "service": "nginx",
+      "image_id": "sha256:a174fd4703268215fd208cb3cc7f386dc51d21916b25d629e6d548c50fb75e1b",
+      "image_reference": "aionex-aios-nginx:hardened",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-ollama-1",
+      "service": "ollama",
+      "image_id": "sha256:752300e707b8735caf88a59fa27063b2bead90ee16e23ccd6a682ccf2d3b46cd",
+      "image_reference": "ollama/ollama@sha256:1685741456770df6e3cceb2a945a5f75e020f658d1701509668d6f4688f1dd3f",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-operations-observer-1",
+      "service": "operations-observer",
+      "image_id": "sha256:b718477e0b82c58920ee3d11baf2402d6cf54f920ecc763cd4a95106b5780b39",
+      "image_reference": "aionex-aios-backend:release-4c6ae500",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-portal-1",
+      "service": "portal",
+      "image_id": "sha256:473c841f66d5921e90af5b3056549200e969afdb2727a8c2b046935762165901",
+      "image_reference": "web-dashboard-portal:release-960dab80",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-postgres-1",
+      "service": "postgres",
+      "image_id": "sha256:1219e7ab219f7c146263d84d6e49c96bd79e25bbaafbea6292ffe7dafe2050b7",
+      "image_reference": "aionex-aios-postgres:16-hardened",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-project-worker-1",
+      "service": "project-worker",
+      "image_id": "sha256:54c7f9792b3bdcc4f42a5b5852113786e154d7103afa3dedc31995ca7d908732",
+      "image_reference": "aionex-aios-project-worker:release-960dab80",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-project-worker-2",
+      "service": "project-worker",
+      "image_id": "sha256:54c7f9792b3bdcc4f42a5b5852113786e154d7103afa3dedc31995ca7d908732",
+      "image_reference": "aionex-aios-project-worker:release-960dab80",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-project-worker-3",
+      "service": "project-worker",
+      "image_id": "sha256:54c7f9792b3bdcc4f42a5b5852113786e154d7103afa3dedc31995ca7d908732",
+      "image_reference": "aionex-aios-project-worker:release-960dab80",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-project-worker-4",
+      "service": "project-worker",
+      "image_id": "sha256:54c7f9792b3bdcc4f42a5b5852113786e154d7103afa3dedc31995ca7d908732",
+      "image_reference": "aionex-aios-project-worker:release-960dab80",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-realtime-egress-1",
+      "service": "realtime-egress",
+      "image_id": "sha256:bd3ba72696e43c55be906813a35329a5a2d5295e4f36b54825a1434b86d77897",
+      "image_reference": "livekit/egress@sha256:a3e61a70479694a5075cff3c081ab633f34d3bfa778adc6089935c96908b6550",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-realtime-livekit-1",
+      "service": "realtime-livekit",
+      "image_id": "sha256:1260b2e6346835a151bb19f065f043955acf453db04aa2f96698c1db6a85ae2a",
+      "image_reference": "livekit/livekit-server@sha256:d0d1cfdbe95617647bbe91630454526c2cdd88cec83f41114b3495b444918b9a",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-realtime-turn-1",
+      "service": "realtime-turn",
+      "image_id": "sha256:e24c689704fb31f588ffe0a08fd235f10041e8db704e12d5ddced08360977ef1",
+      "image_reference": "coturn/coturn@sha256:75e9ebd1e19005bec0c7f591d29afe22f959916ac8d9c852452f27db8c789828",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-redis-1",
+      "service": "redis",
+      "image_id": "sha256:5509c0097c6064aa8a3b1df58f1d950e67090fffa6678ae8f3f1dc2385f12deb",
+      "image_reference": "redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-security-remediation-worker-1",
+      "service": "security-remediation-worker",
+      "image_id": "sha256:b718477e0b82c58920ee3d11baf2402d6cf54f920ecc763cd4a95106b5780b39",
+      "image_reference": "aionex-aios-backend:release-4c6ae500",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-security-scan-worker-1",
+      "service": "security-scan-worker",
+      "image_id": "sha256:a5c3e7bca6e4ff77b506b3edc0a01376dd71f20f8a2ecc23cbfd686077c0571b",
+      "image_reference": "aionex-aios-security-tools:release-960dab80",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-security-zap-1",
+      "service": "security-zap",
+      "image_id": "sha256:6175579a46d477338e4b641dd9c3428936f30c3719809e2f4d36f58e60c4ddb7",
+      "image_reference": "zaproxy/zap-stable:2.17.0@sha256:781a2bdaea47324e7bab583e2263f21d257b0aee61ed51521a5be45f5f5081ef",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-studio-worker-1",
+      "service": "studio-worker",
+      "image_id": "sha256:b718477e0b82c58920ee3d11baf2402d6cf54f920ecc763cd4a95106b5780b39",
+      "image_reference": "aionex-aios-backend:release-4c6ae500",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-telegram-worker-1",
+      "service": "telegram-worker",
+      "image_id": "sha256:b718477e0b82c58920ee3d11baf2402d6cf54f920ecc763cd4a95106b5780b39",
+      "image_reference": "aionex-aios-backend:release-4c6ae500",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-three-d-worker-1",
+      "service": "three-d-worker",
+      "image_id": "sha256:b718477e0b82c58920ee3d11baf2402d6cf54f920ecc763cd4a95106b5780b39",
+      "image_reference": "aionex-aios-backend:release-4c6ae500",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-user-telegram-worker-1",
+      "service": "user-telegram-worker",
+      "image_id": "sha256:b718477e0b82c58920ee3d11baf2402d6cf54f920ecc763cd4a95106b5780b39",
+      "image_reference": "aionex-aios-backend:release-4c6ae500",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    },
+    {
+      "name": "/web-dashboard-video-provider-worker-1",
+      "service": "video-provider-worker",
+      "image_id": "sha256:ef744823f976a5767fae9afb54e436351bb4452d5e8223d282fd3b6867c57d71",
+      "image_reference": "aionex-aios-video-provider-worker:release-960dab80",
+      "state": "running",
+      "health": "healthy",
+      "restart_count": 0
+    }
+  ],
+  "capacity_contract": {
+    "status": "NOT_YET_ACCEPTED_5000_FULL_MIXED_PROFILE",
+    "authenticated_active_users": 5000,
+    "projects_per_user_min": 3,
+    "conversations_per_user_min": 3,
+    "durable_jobs_min": 15000,
+    "steady_state_minutes_min": 15,
+    "ordinary_read_p95_ms_max": 500,
+    "durable_enqueue_p95_ms_max": 1000,
+    "unexpected_error_rate_max": 0.005,
+    "tenant_leaks_max": 0,
+    "lost_jobs_max": 0,
+    "duplicate_terminal_executions_max": 0,
+    "owner_capacity_target_confirmed_at_utc": "2026-10-10"
+  },
+  "canonical_journal_snapshot": {
+    "event_count": 636,
+    "last_event_id": "fr08e-phase36c-provider-credit-subgate-20261012T041825Z",
+    "release_status": "FINAL_RELEASE_IN_PROGRESS_NOT_RELEASED",
+    "next_batch": "FR-06"
+  },
+  "prior_inventory": {
+    "path": "FR25B-NEW-20261011.json",
+    "schema_table_count": 176,
+    "migration_source_file_count": 64,
+    "public_frontend_asset_count": 191,
+    "applied_alembic_revision": "20260920_0064"
+  },
+  "readiness": {
+    "plan_reporting_mcp_source_parity": "PASS",
+    "runtime_health": "PASS",
+    "source_and_image_inventory": "RECORDED",
+    "native_operational_rollback_copies": "PRESERVED_PRIVATE",
+    "exact_publication_head_ci": "BIND_IN_PUBLICATION_RECEIPT",
+    "full_worker_functional_acceptance": "TRACKED_SEPARATELY_IN_LIVE_JOURNAL",
+    "full_fr08e_recovery": "PENDING",
+    "fr06_guarded_cold_host": "PENDING",
+    "ns14a_extended_fault_matrix": "PENDING",
+    "actual_5000_mixed_workload": "NOT_RUN",
+    "candidate_images_built_by_this_preflight": false,
+    "application_deployed_by_this_preflight": false,
+    "database_rollback_exercised_by_this_preflight": false,
+    "final_release_status": "FINAL_RELEASE_IN_PROGRESS_NOT_RELEASED"
+  },
+  "native_raw_receipt_sha256": "fb78a100d214b0f7dac4767a9bd07e51d10fd41b1684617ea22d916d4d6186aa",
+  "production_mutated": false,
+  "worker_tasks_modified": false,
+  "automations_modified": false
+}
