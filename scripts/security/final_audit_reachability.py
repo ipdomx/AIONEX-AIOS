@@ -49,13 +49,24 @@ class LinkedModule:
     replacement_version: str | None = None
 
 
-def _semver_key(value: str) -> tuple[int, int, int, int, tuple[str, ...]]:
+def _semver_key(value: str) -> tuple[int, int, int, int, tuple[tuple[int, int | str], ...]]:
     match = SEMVER.fullmatch(value)
     if not match:
         raise EvidenceError(f"unsupported semantic version: {value!r}")
     prerelease = match.group("pre")
     stable_rank = 1 if prerelease is None else 0
-    pre_parts = tuple((prerelease or "").lstrip("-").split("."))
+    pre_parts: tuple[tuple[int, int | str], ...] = ()
+    if prerelease is not None:
+        identifiers = prerelease[1:].split(".")
+        if any(
+            not part or (part.isdigit() and len(part) > 1 and part[0] == "0")
+            for part in identifiers
+        ):
+            raise EvidenceError(f"unsupported semantic version: {value!r}")
+        pre_parts = tuple(
+            (0, int(part)) if part.isdigit() else (1, part)
+            for part in identifiers
+        )
     return (
         int(match.group("major")),
         int(match.group("minor")),
@@ -95,8 +106,10 @@ def parse_go_version_m(text: str, *, minimum_dependency_count: int) -> dict[str,
             if len(fields) < 3:
                 raise EvidenceError(f"malformed dependency line: {raw!r}")
             module, version = fields[1], fields[2]
-            if module in modules and modules[module].version != version:
-                raise EvidenceError(f"conflicting versions for linked module {module}")
+            if module in modules:
+                if modules[module].version != version:
+                    raise EvidenceError(f"conflicting versions for linked module {module}")
+                raise EvidenceError(f"duplicate linked module {module}")
             modules[module] = LinkedModule(module=module, version=version)
             current_module = module
             continue
