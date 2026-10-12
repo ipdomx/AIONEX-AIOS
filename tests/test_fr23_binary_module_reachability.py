@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -383,3 +384,33 @@ def test_tool_identity_policy_cannot_be_relaxed(tmp_path: Path, attack: str):
     path.write_text(json.dumps(policy))
     with pytest.raises(TARGET.PolicyError, match="main package identity|pinned security-tool set"):
         TARGET.load_policy(path)
+
+
+def test_cli_enforces_binary_identity_end_to_end(tmp_path: Path):
+    paths = all_good_evidence(tmp_path)
+    args = [sys.executable, str(SCRIPT), "--policy", str(POLICY)]
+    for tool in sorted(paths):
+        args.extend(["--evidence", f"{tool}={paths[tool]}"])
+
+    accepted = subprocess.run(
+        args, capture_output=True, text=True, check=False, timeout=20
+    )
+    assert accepted.returncode == 0
+    assert json.loads(accepted.stdout)["status"] == "PASS"
+
+    trivy_path = paths["trivy"]
+    original = trivy_path.read_text()
+    trivy_main = TARGET.EXPECTED_MAIN_PACKAGES["trivy"]
+    grype_main = TARGET.EXPECTED_MAIN_PACKAGES["grype"]
+    assert trivy_main != grype_main
+    assert f"\tpath\t{trivy_main}\n" in original
+    trivy_path.write_text(
+        original.replace(f"\tpath\t{trivy_main}\n", f"\tpath\t{grype_main}\n", 1)
+    )
+    rejected = subprocess.run(
+        args, capture_output=True, text=True, check=False, timeout=20
+    )
+    assert rejected.returncode == 2
+    report = json.loads(rejected.stdout)
+    assert report["status"] == "ERROR"
+    assert "binary main package mismatch" in report["error"]
