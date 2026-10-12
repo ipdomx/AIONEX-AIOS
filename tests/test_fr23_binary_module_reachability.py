@@ -414,3 +414,37 @@ def test_cli_enforces_binary_identity_end_to_end(tmp_path: Path):
     report = json.loads(rejected.stdout)
     assert report["status"] == "ERROR"
     assert "binary main package mismatch" in report["error"]
+
+
+@pytest.mark.parametrize(
+    ("tool", "relative_package"),
+    [
+        ("trivy", "cmd/trivy"),
+        ("grype", "cmd/grype"),
+        ("syft", "cmd/syft"),
+        ("gitleaks", ""),
+    ],
+)
+def test_pinned_tool_package_matches_source_build_contract(
+    tool: str, relative_package: str
+):
+    """Static pin consistency; not a substitute for real binary provenance."""
+    mod = ROOT / "web-dashboard/backend/security-build" / tool / "go.mod"
+    modules = [
+        line.removeprefix("module ").strip()
+        for line in mod.read_text().splitlines()
+        if line.startswith("module ")
+    ]
+    assert len(modules) == 1
+    expected_main = (
+        modules[0] + "/" + relative_package if relative_package else modules[0]
+    )
+    assert TARGET.EXPECTED_MAIN_PACKAGES[tool] == expected_main
+
+    builder = (
+        ROOT / "web-dashboard/backend/scripts" / f"build_{tool}.py"
+    ).read_text()
+    if relative_package:
+        assert f'"./{relative_package}"' in builder
+    else:
+        assert '"-o", str(binary), "."]' in builder
