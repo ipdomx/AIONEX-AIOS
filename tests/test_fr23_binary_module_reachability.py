@@ -24,10 +24,14 @@ def load_target():
 TARGET = load_target()
 
 
-def evidence(*deps: tuple[str, str], extra_count: int = 12) -> str:
+def evidence(
+    *deps: tuple[str, str],
+    extra_count: int = 12,
+    main_package: str = "example.invalid/tool",
+) -> str:
     rows = [
         "/tmp/tool: go1.26.8",
-        "\tpath\texample.invalid/tool",
+        f"\tpath\t{main_package}",
     ]
     for index in range(extra_count):
         rows.append(f"\tdep\texample.invalid/dummy{index}\tv1.0.{index}")
@@ -53,6 +57,7 @@ def all_good_evidence(tmp_path: Path) -> dict[str, Path]:
                 ("github.com/containerd/containerd/v2", "v2.3.6"),
                 ("go.opentelemetry.io/otel", "v1.45.0"),
                 ("go.opentelemetry.io/otel/sdk", "v1.46.0"),
+                main_package="github.com/aquasecurity/trivy/cmd/trivy",
             ),
         ),
         "grype": write_evidence(
@@ -61,6 +66,7 @@ def all_good_evidence(tmp_path: Path) -> dict[str, Path]:
             evidence(
                 ("github.com/containerd/containerd/v2", "v2.3.7"),
                 ("go.opentelemetry.io/otel", "v1.45.1"),
+                main_package="github.com/anchore/grype/cmd/grype",
             ),
         ),
         "syft": write_evidence(
@@ -69,6 +75,7 @@ def all_good_evidence(tmp_path: Path) -> dict[str, Path]:
             evidence(
                 ("github.com/containerd/containerd/v2", "v2.4.1"),
                 ("go.opentelemetry.io/otel/trace", "v1.46.0"),
+                main_package="github.com/anchore/syft/cmd/syft",
             ),
         ),
         "gitleaks": write_evidence(
@@ -77,6 +84,7 @@ def all_good_evidence(tmp_path: Path) -> dict[str, Path]:
             evidence(
                 ("github.com/nwaples/rardecode/v2", "v2.2.0"),
                 ("github.com/ulikunitz/xz", "v0.5.16"),
+                main_package="github.com/zricethezav/gitleaks/v8",
             ),
         ),
     }
@@ -289,11 +297,11 @@ def test_partial_or_mixed_binaries_fail_closed(
     if mutation == "missing_header":
         invalid = valid.split("\n", 1)[1]
     elif mutation == "missing_path":
-        invalid = valid.replace("\tpath\texample.invalid/tool\n", "", 1)
+        invalid = valid.replace("\tpath\tgithub.com/aquasecurity/trivy/cmd/trivy\n", "", 1)
     elif mutation == "duplicate_path":
         invalid = valid.replace(
-            "\tpath\texample.invalid/tool\n",
-            "\tpath\texample.invalid/tool\n\tpath\texample.invalid/other\n",
+            "\tpath\tgithub.com/aquasecurity/trivy/cmd/trivy\n",
+            "\tpath\tgithub.com/aquasecurity/trivy/cmd/trivy\n\tpath\texample.invalid/other\n",
             1,
         )
     elif mutation == "second_binary":
@@ -323,8 +331,8 @@ def test_normal_main_module_metadata_is_accepted(tmp_path: Path):
     original = paths["trivy"].read_text()
     paths["trivy"].write_text(
         original.replace(
-            "\tpath\texample.invalid/tool\n",
-            "\tpath\texample.invalid/tool\n"
+            "\tpath\tgithub.com/aquasecurity/trivy/cmd/trivy\n",
+            "\tpath\tgithub.com/aquasecurity/trivy/cmd/trivy\n"
             "\tmod\texample.invalid/tool\t(devel)\n",
             1,
         )
@@ -332,3 +340,46 @@ def test_normal_main_module_metadata_is_accepted(tmp_path: Path):
     code, report = TARGET.evaluate(TARGET.load_policy(POLICY), paths)
     assert code == 0
     assert report["status"] == "PASS"
+
+
+@pytest.mark.parametrize(
+    ("tool", "incorrect_package"),
+    [
+        ("trivy", "github.com/anchore/grype/cmd/grype"),
+        ("grype", "github.com/aquasecurity/trivy/cmd/trivy"),
+        ("syft", "github.com/zricethezav/gitleaks/v8"),
+        ("gitleaks", "github.com/anchore/syft/cmd/syft"),
+    ],
+)
+def test_mislabeled_binary_evidence_fails_closed(
+    tmp_path: Path, tool: str, incorrect_package: str
+):
+    paths = all_good_evidence(tmp_path)
+    actual_package = TARGET.EXPECTED_MAIN_PACKAGES[tool]
+    assert actual_package != incorrect_package
+    original = paths[tool].read_text()
+    original_line = f"\tpath\t{actual_package}\n"
+    assert original_line in original
+    paths[tool].write_text(
+        original.replace(
+            original_line, f"\tpath\t{incorrect_package}\n", 1
+        )
+    )
+    policy = TARGET.load_policy(POLICY)
+    with pytest.raises(TARGET.EvidenceError, match="binary main package mismatch"):
+        TARGET.evaluate(policy, paths)
+
+
+@pytest.mark.parametrize("attack", ["wrong_main_package", "missing_tool", "extra_tool"])
+def test_tool_identity_policy_cannot_be_relaxed(tmp_path: Path, attack: str):
+    policy = json.loads(POLICY.read_text())
+    if attack == "wrong_main_package":
+        policy["tools"]["trivy"]["expected_main_package"] = "example.invalid/renamed"
+    elif attack == "missing_tool":
+        del policy["tools"]["trivy"]
+    else:
+        policy["tools"]["renamed"] = policy["tools"]["trivy"]
+    path = tmp_path / "unsafe-identity-policy.json"
+    path.write_text(json.dumps(policy))
+    with pytest.raises(TARGET.PolicyError, match="main package identity|pinned security-tool set"):
+        TARGET.load_policy(path)
