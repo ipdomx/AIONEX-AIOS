@@ -105,9 +105,17 @@ def test_patched_or_unlinked_modules_pass_without_claiming_alert_closure(tmp_pat
 
 def test_legacy_docker_linked_in_trivy_fails(tmp_path: Path):
     paths = all_good_evidence(tmp_path)
+    # Real go version -m emits dep records before build metadata.
+    original = paths["trivy"].read_text()
+    build_anchor = "\tbuild\t-buildmode=exe\n"
+    assert build_anchor in original
     paths["trivy"].write_text(
-        paths["trivy"].read_text()
-        + "\tdep\tgithub.com/docker/docker\tv28.5.2+incompatible\n"
+        original.replace(
+            build_anchor,
+            "\tdep\tgithub.com/docker/docker\tv28.5.2+incompatible\n"
+            + build_anchor,
+            1,
+        )
     )
     policy = TARGET.load_policy(POLICY)
     code, report = TARGET.evaluate(policy, paths)
@@ -260,3 +268,67 @@ def test_duplicate_linked_module_cannot_erase_replacement(
     policy = TARGET.load_policy(POLICY)
     with pytest.raises(TARGET.EvidenceError, match="duplicate linked module"):
         TARGET.evaluate(policy, paths)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_error"),
+    [
+        ("missing_header", "missing go version -m binary header"),
+        ("missing_path", "module metadata appears before binary path"),
+        ("duplicate_path", "multiple path sections"),
+        ("second_binary", "multiple binary headers"),
+        ("module_after_build", "module metadata after binary build section"),
+        ("unknown_record", "unrecognized go version -m metadata"),
+    ],
+)
+def test_partial_or_mixed_binaries_fail_closed(
+    tmp_path: Path, mutation: str, expected_error: str
+):
+    paths = all_good_evidence(tmp_path)
+    valid = paths["trivy"].read_text()
+    if mutation == "missing_header":
+        invalid = valid.split("\n", 1)[1]
+    elif mutation == "missing_path":
+        invalid = valid.replace("\tpath\texample.invalid/tool\n", "", 1)
+    elif mutation == "duplicate_path":
+        invalid = valid.replace(
+            "\tpath\texample.invalid/tool\n",
+            "\tpath\texample.invalid/tool\n\tpath\texample.invalid/other\n",
+            1,
+        )
+    elif mutation == "second_binary":
+        invalid = (
+            valid + "/tmp/another: go1.26.8\n"
+            "\tpath\texample.invalid/another\n"
+            "\tdep\texample.invalid/extra\tv1.0.0\n"
+            "\tbuild\t-buildmode=exe\n"
+        )
+    elif mutation == "module_after_build":
+        invalid = valid + "\tdep\texample.invalid/late\tv1.0.0\n"
+    else:
+        invalid = valid.replace(
+            "\tbuild\t-buildmode=exe\n",
+            "\tunknown\tnot-go-metadata\n\tbuild\t-buildmode=exe\n",
+            1,
+        )
+    assert invalid != valid
+    paths["trivy"].write_text(invalid)
+    policy = TARGET.load_policy(POLICY)
+    with pytest.raises(TARGET.EvidenceError, match=expected_error):
+        TARGET.evaluate(policy, paths)
+
+
+def test_normal_main_module_metadata_is_accepted(tmp_path: Path):
+    paths = all_good_evidence(tmp_path)
+    original = paths["trivy"].read_text()
+    paths["trivy"].write_text(
+        original.replace(
+            "\tpath\texample.invalid/tool\n",
+            "\tpath\texample.invalid/tool\n"
+            "\tmod\texample.invalid/tool\t(devel)\n",
+            1,
+        )
+    )
+    code, report = TARGET.evaluate(TARGET.load_policy(POLICY), paths)
+    assert code == 0
+    assert report["status"] == "PASS"
