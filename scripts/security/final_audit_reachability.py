@@ -81,7 +81,7 @@ def version_at_least(observed: str, minimum: str) -> bool:
 
 
 BINARY_HEADER = re.compile(
-    r"^.+:\\s+go[0-9]+\\.[0-9]+(?:\\.[0-9]+)?[0-9A-Za-z.+-]*$"
+    r"^.+:\s+go[0-9]+\.[0-9]+(?:\.[0-9]+)?[0-9A-Za-z.+-]*$"
 )
 
 
