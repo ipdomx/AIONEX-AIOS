@@ -141,3 +141,52 @@ def test_fixture_contains_no_key_material_or_live_paths():
     assert "/run/operator-secrets" not in raw
     assert "/root/.config/aionex" not in raw
     assert "production" not in raw.lower()
+
+
+@pytest.mark.parametrize("name,raw", [
+    ("root", '{"schema_version": 2, "schema_version": 1}'),
+    ("nested_approval", '{"gates": {"approvals": {"coordinator": false, "coordinator": true}}}'),
+    ("nested_digest", '{"backup": {"database": {"sha256": "a", "sha256": "b"}}}'),
+])
+def test_duplicate_json_fields_are_rejected_at_any_level(tmp_path, name, raw):
+    path = tmp_path / (name + ".json")
+    path.write_text(raw)
+    result = subprocess.run(
+        [sys.executable, str(SOURCE), "--manifest", str(path), "--require-live-ready"],
+        capture_output=True, text=True, check=False, timeout=20,
+    )
+    assert result.returncode == 2
+    assert "FR24_RECOVERY_CONTRACT_INVALID: duplicate JSON field:" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_duplicate_external_approval_cannot_override_denial_into_live_ready(tmp_path):
+    manifest = load_fixture()
+    for approval in manifest["gates"]["approvals"]:
+        manifest["gates"]["approvals"][approval] = True
+    for dependency in manifest["gates"]["dependencies"]:
+        manifest["gates"]["dependencies"][dependency] = True
+    raw = json.dumps(manifest)
+    assert '"coordinator": true' in raw
+    raw = raw.replace('"coordinator": true', '"coordinator": false, "coordinator": true', 1)
+    path = tmp_path / "ambiguous-approved-gates.json"
+    path.write_text(raw)
+    out = subprocess.run(
+        [sys.executable, str(SOURCE), "--manifest", str(path), "--require-live-ready"],
+        capture_output=True, text=True, check=False, timeout=20,
+    )
+    assert out.returncode == 2
+    assert "duplicate JSON field: coordinator" in out.stderr
+    assert "Traceback" not in out.stderr
+
+
+def test_non_utf8_recovery_manifest_is_rejected_without_traceback(tmp_path):
+    path = tmp_path / "non-utf8.json"
+    path.write_bytes(b"\xff\xfe\x80")
+    result = subprocess.run(
+        [sys.executable, str(SOURCE), "--manifest", str(path)],
+        capture_output=True, text=True, check=False, timeout=20,
+    )
+    assert result.returncode == 2
+    assert "FR24_RECOVERY_CONTRACT_INVALID:" in result.stderr
+    assert "Traceback" not in result.stderr
