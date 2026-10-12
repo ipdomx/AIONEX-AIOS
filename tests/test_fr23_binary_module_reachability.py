@@ -590,3 +590,57 @@ def test_cli_rejects_weakened_policy_without_fallback(tmp_path: Path):
     output = json.loads(rejected.stdout)
     assert output["status"] == "ERROR"
     assert "required reachability rule missing" in output["error"]
+
+
+@pytest.mark.parametrize("unsafe_mode", [[], {}, ["absent"], {"mode": "absent"}])
+def test_unhashable_policy_mode_is_structured_fail_closed(
+    tmp_path: Path, unsafe_mode: object
+):
+    policy = json.loads(POLICY.read_text())
+    policy["tools"]["trivy"]["rules"][0]["mode"] = unsafe_mode
+    bad_policy = tmp_path / "unsafe-mode-policy.json"
+    bad_policy.write_text(json.dumps(policy))
+    with pytest.raises(TARGET.PolicyError, match="unsupported mode"):
+        TARGET.load_policy(bad_policy)
+
+    paths = all_good_evidence(tmp_path)
+    args = [sys.executable, str(SCRIPT), "--policy", str(bad_policy)]
+    for tool in sorted(paths):
+        args.extend(["--evidence", f"{tool}={paths[tool]}"])
+    proc = subprocess.run(args, capture_output=True, text=True, check=False, timeout=20)
+    assert proc.returncode == 2
+    report = json.loads(proc.stdout)
+    assert report["status"] == "ERROR"
+    assert "unsupported mode" in report["error"]
+    assert "Traceback" not in proc.stderr
+
+
+@pytest.mark.parametrize("input_kind", ["policy", "binary_evidence"])
+def test_invalid_utf8_input_returns_structured_error(
+    tmp_path: Path, input_kind: str
+):
+    policy_file = POLICY
+    evidence_paths = all_good_evidence(tmp_path)
+    if input_kind == "policy":
+        policy_file = tmp_path / "malformed-policy.json"
+        policy_file.write_bytes(b"\xff\xfe\xff")
+        with pytest.raises(TARGET.PolicyError, match="cannot read policy"):
+            TARGET.load_policy(policy_file)
+    else:
+        evidence_paths["trivy"].write_bytes(b"\xff\xfe\xff")
+        with pytest.raises(TARGET.EvidenceError, match="cannot read evidence"):
+            TARGET.evaluate(TARGET.load_policy(policy_file), evidence_paths)
+
+    command = [sys.executable, str(SCRIPT), "--policy", str(policy_file)]
+    for name in sorted(evidence_paths):
+        command.extend(["--evidence", f"{name}={evidence_paths[name]}"])
+    result = subprocess.run(
+        command, capture_output=True, text=True, check=False, timeout=20
+    )
+    assert result.returncode == 2
+    response = json.loads(result.stdout)
+    assert response["status"] == "ERROR"
+    assert (
+        "cannot read policy" if input_kind == "policy" else "cannot read evidence"
+    ) in response["error"]
+    assert "Traceback" not in result.stderr

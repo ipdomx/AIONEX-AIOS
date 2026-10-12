@@ -260,7 +260,7 @@ def _require_bool(mapping: dict[str, Any], key: str, expected: bool) -> None:
 def load_policy(path: Path) -> dict[str, Any]:
     try:
         policy = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise PolicyError(f"cannot read policy: {exc}") from exc
 
     if not isinstance(policy, dict) or policy.get("schema") != 1:
@@ -306,7 +306,7 @@ def load_policy(path: Path) -> dict[str, Any]:
             if not isinstance(rule_id, str) or not rule_id or rule_id in seen_ids:
                 raise PolicyError(f"tool {tool} has a missing/duplicate rule id")
             seen_ids.add(rule_id)
-            if mode not in ALLOWED_RULE_MODES:
+            if not isinstance(mode, str) or mode not in ALLOWED_RULE_MODES:
                 raise PolicyError(f"rule {rule_id} has unsupported mode {mode!r}")
             if rule.get("closure_effect") != "none":
                 raise PolicyError(f"rule {rule_id} must not claim source-alert closure")
@@ -353,7 +353,7 @@ def _replacement_error(module: LinkedModule) -> str | None:
 def evaluate_tool(tool: str, config: dict[str, Any], evidence_path: Path) -> dict[str, Any]:
     try:
         raw = evidence_path.read_text(encoding="utf-8")
-    except OSError as exc:
+    except (OSError, UnicodeError) as exc:
         raise EvidenceError(f"{tool}: cannot read evidence {evidence_path}: {exc}") from exc
 
     modules = parse_go_version_m(
