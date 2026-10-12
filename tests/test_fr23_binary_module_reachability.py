@@ -556,3 +556,37 @@ def test_removed_rule_does_not_admit_vulnerable_binary(tmp_path: Path):
     unsafe.write_text(json.dumps(modified))
     with pytest.raises(TARGET.PolicyError, match="required reachability rule missing"):
         TARGET.load_policy(unsafe)
+
+
+def test_cli_rejects_weakened_policy_without_fallback(tmp_path: Path):
+    paths = all_good_evidence(tmp_path)
+    args = [sys.executable, str(SCRIPT), "--policy", str(POLICY)]
+    for tool in sorted(paths):
+        args.extend(["--evidence", f"{tool}={paths[tool]}"])
+
+    original = paths["trivy"].read_text()
+    paths["trivy"].write_text(
+        original.replace(
+            "\tdep\tgithub.com/containerd/containerd/v2\tv2.3.6\n",
+            "\tdep\tgithub.com/containerd/containerd/v2\tv2.3.3\n",
+            1,
+        )
+    )
+    # A valid policy detects the vulnerable linked module, not an audit PASS.
+    found = subprocess.run(args, capture_output=True, text=True, check=False, timeout=20)
+    assert found.returncode == 1
+    assert json.loads(found.stdout)["status"] == "FAIL"
+
+    weakened = json.loads(POLICY.read_text())
+    weakened["tools"]["trivy"]["rules"] = [
+        rule for rule in weakened["tools"]["trivy"]["rules"]
+        if rule["id"] != "trivy-containerd-floor-or-absent"
+    ]
+    altered = tmp_path / "policy-with-containerd-floor-removed.json"
+    altered.write_text(json.dumps(weakened))
+    args[args.index("--policy") + 1] = str(altered)
+    rejected = subprocess.run(args, capture_output=True, text=True, check=False, timeout=20)
+    assert rejected.returncode == 2
+    output = json.loads(rejected.stdout)
+    assert output["status"] == "ERROR"
+    assert "required reachability rule missing" in output["error"]
