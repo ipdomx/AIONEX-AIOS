@@ -613,3 +613,34 @@ def test_unhashable_policy_mode_is_structured_fail_closed(
     assert report["status"] == "ERROR"
     assert "unsupported mode" in report["error"]
     assert "Traceback" not in proc.stderr
+
+
+@pytest.mark.parametrize("input_kind", ["policy", "binary_evidence"])
+def test_invalid_utf8_input_returns_structured_error(
+    tmp_path: Path, input_kind: str
+):
+    policy_file = POLICY
+    evidence_paths = all_good_evidence(tmp_path)
+    if input_kind == "policy":
+        policy_file = tmp_path / "malformed-policy.json"
+        policy_file.write_bytes(b"\xff\xfe\xff")
+        with pytest.raises(TARGET.PolicyError, match="cannot read policy"):
+            TARGET.load_policy(policy_file)
+    else:
+        evidence_paths["trivy"].write_bytes(b"\xff\xfe\xff")
+        with pytest.raises(TARGET.EvidenceError, match="cannot read evidence"):
+            TARGET.evaluate(TARGET.load_policy(policy_file), evidence_paths)
+
+    command = [sys.executable, str(SCRIPT), "--policy", str(policy_file)]
+    for name in sorted(evidence_paths):
+        command.extend(["--evidence", f"{name}={evidence_paths[name]}"])
+    result = subprocess.run(
+        command, capture_output=True, text=True, check=False, timeout=20
+    )
+    assert result.returncode == 2
+    response = json.loads(result.stdout)
+    assert response["status"] == "ERROR"
+    assert (
+        "cannot read policy" if input_kind == "policy" else "cannot read evidence"
+    ) in response["error"]
+    assert "Traceback" not in result.stderr
