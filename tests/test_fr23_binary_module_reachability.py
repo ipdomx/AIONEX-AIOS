@@ -448,3 +448,111 @@ def test_pinned_tool_package_matches_source_build_contract(
         assert f'"./{relative_package}"' in builder
     else:
         assert '"-o", str(binary), "."]' in builder
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_error"),
+    [
+        ("drop_trivy_containerd", "required reachability rule missing"),
+        ("drop_grype_otel", "required reachability rule missing"),
+        ("drop_syft_otel", "required reachability rule missing"),
+        ("drop_gitleaks_xz", "required reachability rule missing"),
+        ("switch_mode", "required reachability rule retargeted"),
+        ("retarget_module", "required reachability rule retargeted"),
+        ("retarget_prefix", "required reachability rule retargeted"),
+        ("downgrade_containerd", "required reachability floor weakened"),
+        ("downgrade_otel", "required reachability floor weakened"),
+        ("downgrade_xz", "required reachability floor weakened"),
+        ("min_count_one", "minimum_dependency_count weakened"),
+        ("min_count_bool", "minimum_dependency_count weakened"),
+        ("malformed_alerts", "Dependabot HIGH alerts"),
+    ],
+)
+def test_mandatory_reachability_policy_cannot_be_weakened(
+    tmp_path: Path, mutation: str, expected_error: str
+):
+    policy = json.loads(POLICY.read_text())
+    if mutation.startswith("drop_"):
+        tool, rule_id = {
+            "drop_trivy_containerd": ("trivy", "trivy-containerd-floor-or-absent"),
+            "drop_grype_otel": ("grype", "grype-otel-family-floor-or-absent"),
+            "drop_syft_otel": ("syft", "syft-otel-family-floor-or-absent"),
+            "drop_gitleaks_xz": ("gitleaks", "gitleaks-xz-floor-or-absent"),
+        }[mutation]
+        policy["tools"][tool]["rules"] = [
+            rule for rule in policy["tools"][tool]["rules"]
+            if rule["id"] != rule_id
+        ]
+    elif mutation == "switch_mode":
+        policy["tools"]["trivy"]["rules"][1]["mode"] = "absent"
+    elif mutation == "retarget_module":
+        policy["tools"]["trivy"]["rules"][1]["module"] = "example.invalid/other"
+    elif mutation == "retarget_prefix":
+        policy["tools"]["syft"]["rules"][1]["prefix"] = "example.invalid/other"
+    elif mutation == "downgrade_containerd":
+        policy["tools"]["trivy"]["rules"][1]["minimum"] = "v2.3.5"
+    elif mutation == "downgrade_otel":
+        policy["tools"]["grype"]["rules"][2]["minimum"] = "v1.44.0"
+    elif mutation == "downgrade_xz":
+        policy["tools"]["gitleaks"]["rules"][1]["minimum"] = "v0.5.14"
+    elif mutation == "min_count_one":
+        policy["tools"]["trivy"]["minimum_dependency_count"] = 1
+    elif mutation == "min_count_bool":
+        policy["tools"]["trivy"]["minimum_dependency_count"] = True
+    else:
+        policy["semantics"]["preserved_open_alerts"].append({"invalid": 1})
+    file = tmp_path / "policy-mutated.json"
+    file.write_text(json.dumps(policy))
+    with pytest.raises(TARGET.PolicyError, match=expected_error):
+        TARGET.load_policy(file)
+
+
+def test_security_policy_can_strengthen_its_floors_without_bypass(tmp_path: Path):
+    policy = json.loads(POLICY.read_text())
+    policy["tools"]["trivy"]["rules"][1]["minimum"] = "v2.3.7"
+    policy["tools"]["trivy"]["minimum_dependency_count"] = 11
+    path = tmp_path / "strengthened.json"
+    path.write_text(json.dumps(policy))
+    loaded = TARGET.load_policy(path)
+    assert loaded["tools"]["trivy"]["minimum_dependency_count"] == 11
+
+    paths = all_good_evidence(tmp_path)
+    code, report = TARGET.evaluate(loaded, paths)
+    assert code == 1
+    assert report["status"] == "FAIL"
+    trivy = next(result for result in report["tools"] if result["tool"] == "trivy")
+    check = next(
+        item for item in trivy["rules"]
+        if item["id"] == "trivy-containerd-floor-or-absent"
+    )
+    assert check["status"] == "FAIL"
+
+
+def test_removed_rule_does_not_admit_vulnerable_binary(tmp_path: Path):
+    paths = all_good_evidence(tmp_path)
+    original = paths["trivy"].read_text()
+    vulnerable = (
+        "\tdep\tgithub.com/containerd/containerd/v2\tv2.3.3\n"
+    )
+    path = paths["trivy"]
+    path.write_text(
+        original.replace(
+            "\tdep\tgithub.com/containerd/containerd/v2\tv2.3.6\n",
+            vulnerable,
+            1,
+        )
+    )
+    policy = TARGET.load_policy(POLICY)
+    code, report = TARGET.evaluate(policy, paths)
+    assert code == 1
+    assert report["status"] == "FAIL"
+
+    modified = json.loads(POLICY.read_text())
+    modified["tools"]["trivy"]["rules"] = [
+        item for item in modified["tools"]["trivy"]["rules"]
+        if item["id"] != "trivy-containerd-floor-or-absent"
+    ]
+    unsafe = tmp_path / "removed-rule.json"
+    unsafe.write_text(json.dumps(modified))
+    with pytest.raises(TARGET.PolicyError, match="required reachability rule missing"):
+        TARGET.load_policy(unsafe)
