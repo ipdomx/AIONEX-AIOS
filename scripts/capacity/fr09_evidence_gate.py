@@ -35,6 +35,9 @@ MIN_STEADY_READS = 150000
 MAX_READ_P95_MS = 500.0
 MAX_ENQUEUE_P95_MS = 1000.0
 MAX_ERROR_RATE = 0.005
+# Any JSON integer exceeding IEEE-754's safe range can silently lose
+# identity/metric precision in browser, JS and dashboard report processing.
+MAX_SAFE_JSON_INTEGER = (1 << 53) - 1
 
 
 def at(value: Any, *keys: str) -> Any:
@@ -46,7 +49,9 @@ def at(value: Any, *keys: str) -> Any:
 
 
 def integer(value: Any, minimum: int = 0) -> bool:
-    return type(value) is int and value >= minimum
+    return (
+        type(value) is int and minimum <= value <= MAX_SAFE_JSON_INTEGER
+    )
 
 
 def exact_integer(value: Any, expected: int) -> bool:
@@ -54,9 +59,13 @@ def exact_integer(value: Any, expected: int) -> bool:
 
 
 def finite_number(value: Any, *, ceiling: float | None = None) -> bool:
-    if type(value) not in (int, float) or not math.isfinite(value) or value < 0:
+    if type(value) not in (int, float):
         return False
-    return ceiling is None or value <= ceiling
+    # Check the bound before math.isfinite: converting a very large Python
+    # integer to float otherwise raises OverflowError on untrusted JSON.
+    if value < 0 or value > MAX_SAFE_JSON_INTEGER:
+        return False
+    return math.isfinite(value) and (ceiling is None or value <= ceiling)
 
 
 def zero_integer(value: Any) -> bool:
