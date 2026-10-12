@@ -33,6 +33,77 @@ ALLOWED_RULE_MODES = {
 }
 
 
+# Exact Go main packages emitted by the four pinned cold-build invocations.
+EXPECTED_MAIN_PACKAGES = {
+    "trivy": "github.com/aquasecurity/trivy/cmd/trivy",
+    "grype": "github.com/anchore/grype/cmd/grype",
+    "syft": "github.com/anchore/syft/cmd/syft",
+    "gitleaks": "github.com/zricethezav/gitleaks/v8",
+}
+
+
+# Immutable source-side floors. A policy file may strengthen checks, but cannot
+# silently drop, rename, retarget or downgrade mandatory advisory safeguards.
+REQUIRED_REACHABILITY_RULES = {
+    "trivy": {
+        "trivy-legacy-docker-not-linked": {
+            "mode": "absent",
+            "module": "github.com/docker/docker"
+        },
+        "trivy-containerd-floor-or-absent": {
+            "mode": "min_version_or_absent",
+            "module": "github.com/containerd/containerd/v2",
+            "minimum": "v2.3.6"
+        },
+        "trivy-otel-family-floor-or-absent": {
+            "mode": "prefix_min_version_or_absent",
+            "prefix": "go.opentelemetry.io/otel",
+            "minimum": "v1.45.0"
+        }
+    },
+    "grype": {
+        "grype-legacy-docker-not-linked": {
+            "mode": "absent",
+            "module": "github.com/docker/docker"
+        },
+        "grype-containerd-floor-or-absent": {
+            "mode": "min_version_or_absent",
+            "module": "github.com/containerd/containerd/v2",
+            "minimum": "v2.3.6"
+        },
+        "grype-otel-family-floor-or-absent": {
+            "mode": "prefix_min_version_or_absent",
+            "prefix": "go.opentelemetry.io/otel",
+            "minimum": "v1.45.0"
+        }
+    },
+    "syft": {
+        "syft-containerd-floor-or-absent": {
+            "mode": "min_version_or_absent",
+            "module": "github.com/containerd/containerd/v2",
+            "minimum": "v2.3.6"
+        },
+        "syft-otel-family-floor-or-absent": {
+            "mode": "prefix_min_version_or_absent",
+            "prefix": "go.opentelemetry.io/otel",
+            "minimum": "v1.45.0"
+        }
+    },
+    "gitleaks": {
+        "gitleaks-rardecode-floor-or-absent": {
+            "mode": "min_version_or_absent",
+            "module": "github.com/nwaples/rardecode/v2",
+            "minimum": "v2.2.0"
+        },
+        "gitleaks-xz-floor-or-absent": {
+            "mode": "min_version_or_absent",
+            "module": "github.com/ulikunitz/xz",
+            "minimum": "v0.5.15"
+        }
+    }
+}
+MINIMUM_LINKED_DEPENDENCIES = 10
+
 class PolicyError(ValueError):
     """The committed FR-23 policy fixture is incomplete or unsafe."""
 
@@ -49,13 +120,24 @@ class LinkedModule:
     replacement_version: str | None = None
 
 
-def _semver_key(value: str) -> tuple[int, int, int, int, tuple[str, ...]]:
+def _semver_key(value: str) -> tuple[int, int, int, int, tuple[tuple[int, int | str], ...]]:
     match = SEMVER.fullmatch(value)
     if not match:
         raise EvidenceError(f"unsupported semantic version: {value!r}")
     prerelease = match.group("pre")
     stable_rank = 1 if prerelease is None else 0
-    pre_parts = tuple((prerelease or "").lstrip("-").split("."))
+    pre_parts: tuple[tuple[int, int | str], ...] = ()
+    if prerelease is not None:
+        identifiers = prerelease[1:].split(".")
+        if any(
+            not part or (part.isdigit() and len(part) > 1 and part[0] == "0")
+            for part in identifiers
+        ):
+            raise EvidenceError(f"unsupported semantic version: {value!r}")
+        pre_parts = tuple(
+            (0, int(part)) if part.isdigit() else (1, part)
+            for part in identifiers
+        )
     return (
         int(match.group("major")),
         int(match.group("minor")),
@@ -69,34 +151,77 @@ def version_at_least(observed: str, minimum: str) -> bool:
     return _semver_key(observed) >= _semver_key(minimum)
 
 
-def parse_go_version_m(text: str, *, minimum_dependency_count: int) -> dict[str, LinkedModule]:
-    """Parse go version -m output and reject truncated/ambiguous evidence."""
+BINARY_HEADER = re.compile(
+    r"^.+:\s+go[0-9]+\.[0-9]+(?:\.[0-9]+)?[0-9A-Za-z.+-]*$"
+)
+
+
+def parse_go_version_m(
+    text: str, *, minimum_dependency_count: int, expected_main_package: str | None = None
+) -> dict[str, LinkedModule]:
+    """Parse one complete go version -m binary, rejecting mixed/partial evidence."""
 
     modules: dict[str, LinkedModule] = {}
     current_module: str | None = None
+    header_seen = False
     build_lines = 0
     path_lines = 0
 
     for raw in text.splitlines():
-        fields = raw.strip().split()
-        if not fields:
+        stripped = raw.strip()
+        if not stripped:
             continue
-        kind = fields[0]
 
+        # The pinned builders invoke go version -m for exactly ONE binary.
+        # Without this framing, concatenated or headerless output can make
+        # absent vulnerable modules appear safe.
+        if not header_seen:
+            if BINARY_HEADER.fullmatch(stripped) is None:
+                raise EvidenceError("missing go version -m binary header")
+            header_seen = True
+            continue
+        if BINARY_HEADER.fullmatch(stripped):
+            raise EvidenceError("multiple binary headers in module evidence")
+
+        fields = stripped.split()
+        kind = fields[0]
         if kind == "path":
+            if len(fields) != 2:
+                raise EvidenceError(f"malformed binary path line: {raw!r}")
+            if path_lines:
+                raise EvidenceError("multiple path sections in module evidence")
+            if build_lines:
+                raise EvidenceError("path section after build metadata")
+            if expected_main_package is not None and fields[1] != expected_main_package:
+                raise EvidenceError(
+                    f"binary main package mismatch: {fields[1]!r} != {expected_main_package!r}"
+                )
             path_lines += 1
             current_module = None
             continue
+        if path_lines != 1:
+            raise EvidenceError("module metadata appears before binary path")
         if kind == "build":
+            if len(fields) < 2:
+                raise EvidenceError(f"malformed build metadata: {raw!r}")
             build_lines += 1
+            current_module = None
+            continue
+        if build_lines:
+            raise EvidenceError("module metadata after binary build section")
+        if kind == "mod":
+            if len(fields) < 3:
+                raise EvidenceError(f"malformed main module line: {raw!r}")
             current_module = None
             continue
         if kind == "dep":
             if len(fields) < 3:
                 raise EvidenceError(f"malformed dependency line: {raw!r}")
             module, version = fields[1], fields[2]
-            if module in modules and modules[module].version != version:
-                raise EvidenceError(f"conflicting versions for linked module {module}")
+            if module in modules:
+                if modules[module].version != version:
+                    raise EvidenceError(f"conflicting versions for linked module {module}")
+                raise EvidenceError(f"duplicate linked module {module}")
             modules[module] = LinkedModule(module=module, version=version)
             current_module = module
             continue
@@ -116,9 +241,9 @@ def parse_go_version_m(text: str, *, minimum_dependency_count: int) -> dict[str,
             )
             current_module = None
             continue
-        current_module = None
+        raise EvidenceError(f"unrecognized go version -m metadata: {raw!r}")
 
-    if path_lines < 1 or build_lines < 1:
+    if not header_seen or path_lines != 1 or build_lines < 1:
         raise EvidenceError("evidence does not look like complete go version -m output")
     if len(modules) < minimum_dependency_count:
         raise EvidenceError(
@@ -135,7 +260,7 @@ def _require_bool(mapping: dict[str, Any], key: str, expected: bool) -> None:
 def load_policy(path: Path) -> dict[str, Any]:
     try:
         policy = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise PolicyError(f"cannot read policy: {exc}") from exc
 
     if not isinstance(policy, dict) or policy.get("schema") != 1:
@@ -144,11 +269,17 @@ def load_policy(path: Path) -> dict[str, Any]:
     tools = policy.get("tools")
     if not isinstance(semantics, dict) or not isinstance(tools, dict) or not tools:
         raise PolicyError("policy semantics and tools are required")
+    if set(tools) != set(EXPECTED_MAIN_PACKAGES):
+        raise PolicyError("required pinned security-tool set changed")
 
     _require_bool(semantics, "reachability_only", True)
     _require_bool(semantics, "dependabot_closure", False)
     preserved = semantics.get("preserved_open_alerts")
-    if not isinstance(preserved, list) or not {48, 50}.issubset(set(preserved)):
+    if (
+        not isinstance(preserved, list)
+        or not all(type(alert) is int for alert in preserved)
+        or not {48, 50}.issubset(set(preserved))
+    ):
         raise PolicyError("Dependabot HIGH alerts 48 and 50 must remain explicitly preserved OPEN")
     if semantics.get("final_live_closure_gated_by") != ["FR-06", "FR-21"]:
         raise PolicyError("FR-06 and FR-21 must remain the explicit final/live closure gates")
@@ -158,9 +289,11 @@ def load_policy(path: Path) -> dict[str, Any]:
             raise PolicyError("tool names must be non-empty strings")
         if not isinstance(config, dict):
             raise PolicyError(f"tool {tool} configuration must be an object")
+        if config.get("expected_main_package") != EXPECTED_MAIN_PACKAGES[tool]:
+            raise PolicyError(f"tool {tool} main package identity changed")
         minimum_count = config.get("minimum_dependency_count")
-        if not isinstance(minimum_count, int) or minimum_count < 1:
-            raise PolicyError(f"tool {tool} must define a positive minimum_dependency_count")
+        if type(minimum_count) is not int or minimum_count < MINIMUM_LINKED_DEPENDENCIES:
+            raise PolicyError(f"tool {tool} minimum_dependency_count weakened")
         rules = config.get("rules")
         if not isinstance(rules, list) or not rules:
             raise PolicyError(f"tool {tool} requires at least one rule")
@@ -173,7 +306,7 @@ def load_policy(path: Path) -> dict[str, Any]:
             if not isinstance(rule_id, str) or not rule_id or rule_id in seen_ids:
                 raise PolicyError(f"tool {tool} has a missing/duplicate rule id")
             seen_ids.add(rule_id)
-            if mode not in ALLOWED_RULE_MODES:
+            if not isinstance(mode, str) or mode not in ALLOWED_RULE_MODES:
                 raise PolicyError(f"rule {rule_id} has unsupported mode {mode!r}")
             if rule.get("closure_effect") != "none":
                 raise PolicyError(f"rule {rule_id} must not claim source-alert closure")
@@ -188,6 +321,25 @@ def load_policy(path: Path) -> dict[str, Any]:
                 if not isinstance(minimum, str):
                     raise PolicyError(f"rule {rule_id} requires minimum version")
                 _semver_key(minimum)
+
+        # A parser or fixture edit alone must not turn a known vulnerable linked
+        # dependency into PASS by removing or weakening its required rule.
+        rules_by_id = {rule["id"]: rule for rule in rules}
+        for rule_id, required in REQUIRED_REACHABILITY_RULES[tool].items():
+            actual = rules_by_id.get(rule_id)
+            if actual is None:
+                raise PolicyError(f"required reachability rule missing: {tool}/{rule_id}")
+            for field in ("mode", "module", "prefix"):
+                if field in required and actual.get(field) != required[field]:
+                    raise PolicyError(
+                        f"required reachability rule retargeted: {tool}/{rule_id}/{field}"
+                    )
+            if "minimum" in required and not version_at_least(
+                actual["minimum"], required["minimum"]
+            ):
+                raise PolicyError(
+                    f"required reachability floor weakened: {tool}/{rule_id}"
+                )
     return policy
 
 
@@ -201,10 +353,14 @@ def _replacement_error(module: LinkedModule) -> str | None:
 def evaluate_tool(tool: str, config: dict[str, Any], evidence_path: Path) -> dict[str, Any]:
     try:
         raw = evidence_path.read_text(encoding="utf-8")
-    except OSError as exc:
+    except (OSError, UnicodeError) as exc:
         raise EvidenceError(f"{tool}: cannot read evidence {evidence_path}: {exc}") from exc
 
-    modules = parse_go_version_m(raw, minimum_dependency_count=config["minimum_dependency_count"])
+    modules = parse_go_version_m(
+        raw,
+        minimum_dependency_count=config["minimum_dependency_count"],
+        expected_main_package=config["expected_main_package"],
+    )
     rules_out: list[dict[str, Any]] = []
     status = "PASS"
 
@@ -293,6 +449,7 @@ def evaluate_tool(tool: str, config: dict[str, Any], evidence_path: Path) -> dic
     return {
         "tool": tool,
         "status": status,
+        "expected_main_package": config["expected_main_package"],
         "evidence": str(evidence_path),
         "evidence_sha256": hashlib.sha256(raw.encode("utf-8")).hexdigest(),
         "dependency_count": len(modules),
