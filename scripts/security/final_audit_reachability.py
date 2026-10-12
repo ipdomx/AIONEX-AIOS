@@ -33,6 +33,15 @@ ALLOWED_RULE_MODES = {
 }
 
 
+# Exact Go main packages emitted by the four pinned cold-build invocations.
+EXPECTED_MAIN_PACKAGES = {
+    "trivy": "github.com/aquasecurity/trivy/cmd/trivy",
+    "grype": "github.com/anchore/grype/cmd/grype",
+    "syft": "github.com/anchore/syft/cmd/syft",
+    "gitleaks": "github.com/zricethezav/gitleaks/v8",
+}
+
+
 class PolicyError(ValueError):
     """The committed FR-23 policy fixture is incomplete or unsafe."""
 
@@ -85,7 +94,9 @@ BINARY_HEADER = re.compile(
 )
 
 
-def parse_go_version_m(text: str, *, minimum_dependency_count: int) -> dict[str, LinkedModule]:
+def parse_go_version_m(
+    text: str, *, minimum_dependency_count: int, expected_main_package: str | None = None
+) -> dict[str, LinkedModule]:
     """Parse one complete go version -m binary, rejecting mixed/partial evidence."""
 
     modules: dict[str, LinkedModule] = {}
@@ -119,6 +130,10 @@ def parse_go_version_m(text: str, *, minimum_dependency_count: int) -> dict[str,
                 raise EvidenceError("multiple path sections in module evidence")
             if build_lines:
                 raise EvidenceError("path section after build metadata")
+            if expected_main_package is not None and fields[1] != expected_main_package:
+                raise EvidenceError(
+                    f"binary main package mismatch: {fields[1]!r} != {expected_main_package!r}"
+                )
             path_lines += 1
             current_module = None
             continue
@@ -192,6 +207,8 @@ def load_policy(path: Path) -> dict[str, Any]:
     tools = policy.get("tools")
     if not isinstance(semantics, dict) or not isinstance(tools, dict) or not tools:
         raise PolicyError("policy semantics and tools are required")
+    if set(tools) != set(EXPECTED_MAIN_PACKAGES):
+        raise PolicyError("required pinned security-tool set changed")
 
     _require_bool(semantics, "reachability_only", True)
     _require_bool(semantics, "dependabot_closure", False)
@@ -206,6 +223,8 @@ def load_policy(path: Path) -> dict[str, Any]:
             raise PolicyError("tool names must be non-empty strings")
         if not isinstance(config, dict):
             raise PolicyError(f"tool {tool} configuration must be an object")
+        if config.get("expected_main_package") != EXPECTED_MAIN_PACKAGES[tool]:
+            raise PolicyError(f"tool {tool} main package identity changed")
         minimum_count = config.get("minimum_dependency_count")
         if not isinstance(minimum_count, int) or minimum_count < 1:
             raise PolicyError(f"tool {tool} must define a positive minimum_dependency_count")
@@ -252,7 +271,11 @@ def evaluate_tool(tool: str, config: dict[str, Any], evidence_path: Path) -> dic
     except OSError as exc:
         raise EvidenceError(f"{tool}: cannot read evidence {evidence_path}: {exc}") from exc
 
-    modules = parse_go_version_m(raw, minimum_dependency_count=config["minimum_dependency_count"])
+    modules = parse_go_version_m(
+        raw,
+        minimum_dependency_count=config["minimum_dependency_count"],
+        expected_main_package=config["expected_main_package"],
+    )
     rules_out: list[dict[str, Any]] = []
     status = "PASS"
 
@@ -341,6 +364,7 @@ def evaluate_tool(tool: str, config: dict[str, Any], evidence_path: Path) -> dic
     return {
         "tool": tool,
         "status": status,
+        "expected_main_package": config["expected_main_package"],
         "evidence": str(evidence_path),
         "evidence_sha256": hashlib.sha256(raw.encode("utf-8")).hexdigest(),
         "dependency_count": len(modules),
