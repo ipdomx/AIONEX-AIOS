@@ -220,3 +220,43 @@ def test_missing_tool_evidence_fails_closed(tmp_path: Path):
     del paths["gitleaks"]
     with pytest.raises(TARGET.EvidenceError, match="evidence set mismatch"):
         TARGET.evaluate(policy, paths)
+
+
+@pytest.mark.parametrize(
+    ("observed", "minimum", "expected"),
+    [
+        ("v1.2.3-rc.2", "v1.2.3-rc.10", False),
+        ("v1.2.3-rc.10", "v1.2.3-rc.2", True),
+        ("v1.2.3-2", "v1.2.3-alpha", False),
+        ("v1.2.3-rc", "v1.2.3-rc.1", False),
+        ("v1.2.3", "v1.2.3-rc.100", True),
+    ],
+)
+def test_prerelease_version_order_matches_semver(
+    observed: str, minimum: str, expected: bool
+):
+    assert TARGET.version_at_least(observed, minimum) is expected
+
+
+@pytest.mark.parametrize("invalid", ["v1.2.3-rc.01", "v1.2.3-rc..2"])
+def test_invalid_prerelease_fails_closed(invalid: str):
+    with pytest.raises(TARGET.EvidenceError, match="unsupported semantic version"):
+        TARGET.version_at_least(invalid, "v1.2.3")
+
+
+@pytest.mark.parametrize("replacement_line", ["", "\t=>\texample.invalid/fork\tv2.3.6\n"])
+def test_duplicate_linked_module_cannot_erase_replacement(
+    tmp_path: Path, replacement_line: str
+):
+    paths = all_good_evidence(tmp_path)
+    module_line = "\tdep\tgithub.com/containerd/containerd/v2\tv2.3.6\n"
+    original = paths["trivy"].read_text()
+    assert module_line in original
+    paths["trivy"].write_text(
+        original.replace(
+            module_line, module_line + replacement_line + module_line, 1
+        )
+    )
+    policy = TARGET.load_policy(POLICY)
+    with pytest.raises(TARGET.EvidenceError, match="duplicate linked module"):
+        TARGET.evaluate(policy, paths)
