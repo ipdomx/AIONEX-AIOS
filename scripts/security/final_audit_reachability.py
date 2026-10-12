@@ -306,7 +306,7 @@ def load_policy(path: Path) -> dict[str, Any]:
             if not isinstance(rule_id, str) or not rule_id or rule_id in seen_ids:
                 raise PolicyError(f"tool {tool} has a missing/duplicate rule id")
             seen_ids.add(rule_id)
-            if mode not in ALLOWED_RULE_MODES:
+            if not isinstance(mode, str) or mode not in ALLOWED_RULE_MODES:
                 raise PolicyError(f"rule {rule_id} has unsupported mode {mode!r}")
             if rule.get("closure_effect") != "none":
                 raise PolicyError(f"rule {rule_id} must not claim source-alert closure")
