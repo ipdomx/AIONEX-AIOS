@@ -35,6 +35,9 @@ MIN_STEADY_READS = 150000
 MAX_READ_P95_MS = 500.0
 MAX_ENQUEUE_P95_MS = 1000.0
 MAX_ERROR_RATE = 0.005
+# Any JSON integer exceeding IEEE-754's safe range can silently lose
+# identity/metric precision in browser, JS and dashboard report processing.
+MAX_SAFE_JSON_INTEGER = (1 << 53) - 1
 
 
 def at(value: Any, *keys: str) -> Any:
@@ -46,7 +49,9 @@ def at(value: Any, *keys: str) -> Any:
 
 
 def integer(value: Any, minimum: int = 0) -> bool:
-    return type(value) is int and value >= minimum
+    return (
+        type(value) is int and minimum <= value <= MAX_SAFE_JSON_INTEGER
+    )
 
 
 def exact_integer(value: Any, expected: int) -> bool:
@@ -54,9 +59,13 @@ def exact_integer(value: Any, expected: int) -> bool:
 
 
 def finite_number(value: Any, *, ceiling: float | None = None) -> bool:
-    if type(value) not in (int, float) or not math.isfinite(value) or value < 0:
+    if type(value) not in (int, float):
         return False
-    return ceiling is None or value <= ceiling
+    # Check the bound before math.isfinite: converting a very large Python
+    # integer to float otherwise raises OverflowError on untrusted JSON.
+    if value < 0 or value > MAX_SAFE_JSON_INTEGER:
+        return False
+    return math.isfinite(value) and (ceiling is None or value <= ceiling)
 
 
 def zero_integer(value: Any) -> bool:
@@ -84,6 +93,70 @@ def evaluate(mixed: Any, read_only: Any = None) -> dict[str, Any]:
     ramp = at(m, "ramp")
     ramp_steps = [at(step, "users") for step in ramp] if isinstance(ramp, list) else []
 
+    # These are distinct HTTP route families. One reported request cannot
+    # simultaneously be a steady authenticated read, project create, and
+    # conversation create. Prevent internally contradictory "PASS" receipts.
+    steady_reads = at(m, "steady_state", "requests")
+    steady_errors = at(m, "steady_state", "errors")
+    project_creates = at(m, "latency", "project_create", "count")
+    conversation_creates = at(m, "latency", "conversation_create", "count")
+    request_accounting = (
+        integer(observations, 1)
+        and integer(steady_reads)
+        and integer(project_creates)
+        and integer(conversation_creates)
+        and observations >= steady_reads + project_creates + conversation_creates
+    )
+    steady_error_accounting = (
+        integer(steady_errors) and integer(errors) and integer(steady_reads)
+        and integer(observations, 1)
+        and steady_errors <= errors <= observations
+        and steady_errors <= steady_reads
+    )
+    # Profile fields are targets, never substitutes for actual observed
+    # authenticated concurrency or an independently timestamped steady window.
+    start, end = at(m, "started_at_epoch"), at(m, "completed_at_epoch")
+    steady_start = at(m, "steady_state", "window_start_epoch")
+    steady_end = at(m, "steady_state", "window_end_epoch")
+    genuine_steady_window = (
+        all(finite_number(value) for value in (start, end, steady_start, steady_end))
+        and start <= steady_start < steady_end <= end
+        and steady_end - steady_start >= MIN_STEADY_SECONDS
+    )
+    minimum_active = at(m, "steady_state", "authenticated_active_users_min")
+    unique_active = at(m, "steady_state", "unique_authenticated_users")
+    authenticated_population_consistent = (
+        integer(minimum_active, MIN_USERS)
+        and integer(unique_active, MIN_USERS)
+        and minimum_active <= unique_active
+    )
+    jobs_total = at(m, "db", "jobs_total")
+    terminal_and_pending = [
+        at(m, "db", field) for field in (
+            "jobs_completed", "jobs_queued", "jobs_running", "jobs_failed",
+            "jobs_cancelled", "jobs_needs_review",
+        )
+    ]
+    job_accounting = (
+        integer(jobs_total)
+        and all(integer(value) for value in terminal_and_pending)
+        and jobs_total == sum(terminal_and_pending)
+    )
+    unique_id_accounting = (
+        integer(jobs_total)
+        and exact_integer(at(m, "unique_job_ids"), jobs_total)
+    )
+    actual_assets_meet_profile = (
+        all(
+            integer(profile) and integer(actual) and actual >= profile
+            for profile, actual in (
+                (at(m, "profile", "projects"), at(m, "db", "projects")),
+                (at(m, "profile", "conversations"), at(m, "db", "threads")),
+                (at(m, "profile", "jobs"), jobs_total),
+            )
+        )
+    )
+
     measured = {
         "full_receipt_schema": exact_integer(at(m, "schema"), 1),
         "users": integer(at(m, "profile", "users"), MIN_USERS),
@@ -91,6 +164,13 @@ def evaluate(mixed: Any, read_only: Any = None) -> dict[str, Any]:
         "conversations_profile": integer(at(m, "profile", "conversations"), MIN_ASSETS),
         "jobs_profile": integer(at(m, "profile", "jobs"), MIN_ASSETS),
         "ramp_reaches_5000": ramp_steps == [25, 100, 250, 500, 1000, 2500, 5000],
+        "steady_authenticated_concurrency_measured": authenticated_population_consistent,
+        "15m_measured_steady_window": genuine_steady_window,
+        "consistent_total_request_observations": request_accounting,
+        "consistent_steady_errors": steady_error_accounting,
+        "all_jobs_accounted_for": job_accounting,
+        "unique_job_ids_match_total": unique_id_accounting,
+        "actual_assets_meet_profile": actual_assets_meet_profile,
         "15m_profile": integer(at(m, "profile", "steady_seconds"), MIN_STEADY_SECONDS),
         "15m_measured_elapsed": finite_number(at(m, "completed_at_epoch"))
         and finite_number(at(m, "started_at_epoch"))
