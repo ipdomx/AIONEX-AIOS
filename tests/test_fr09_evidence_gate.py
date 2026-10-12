@@ -294,3 +294,35 @@ def test_cli_rejects_internally_contradictory_capacity_receipt(tmp_path):
     assert report["status"] == "HOLD_FULL_MIXED"
     assert "consistent_steady_errors" in report["failed_measured_conditions"]
     assert "Traceback" not in run.stderr
+
+
+def test_unbounded_json_numbers_cannot_create_false_acceptance_or_crash():
+    large = 10 ** 400
+    for change, name in [
+        (lambda d: d.update(error_count=large), "consistent_steady_errors"),
+        (lambda d: d.update(http_observation_count=large), "consistent_total_request_observations"),
+        (lambda d: d["steady_state"].update(p95_ms=large), "steady_read_p95"),
+        (lambda d: d["profile"].update(users=large), "users"),
+        (lambda d: d["steady_state"].update(authenticated_active_users_min=large), "steady_authenticated_concurrency_measured"),
+    ]:
+        receipt = mixed_pass()
+        change(receipt)
+        verdict = module.evaluate(receipt)
+        assert verdict["status"] == "HOLD_FULL_MIXED"
+        assert name in verdict["failed_measured_conditions"]
+
+
+def test_unbounded_error_count_cli_returns_structured_hold(tmp_path):
+    import json
+    d = mixed_pass()
+    d["error_count"] = 10 ** 400
+    path = tmp_path / "overflow-metric.json"
+    path.write_text(json.dumps(d))
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPT), "--mixed", str(path)],
+        capture_output=True, text=True, check=False, timeout=20
+    )
+    assert proc.returncode == 2
+    verdict = json.loads(proc.stdout)
+    assert verdict["status"] == "HOLD_FULL_MIXED"
+    assert "Traceback" not in proc.stderr
