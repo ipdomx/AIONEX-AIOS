@@ -448,3 +448,256 @@ def test_pinned_tool_package_matches_source_build_contract(
         assert f'"./{relative_package}"' in builder
     else:
         assert '"-o", str(binary), "."]' in builder
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_error"),
+    [
+        ("drop_trivy_containerd", "required reachability rule missing"),
+        ("drop_grype_otel", "required reachability rule missing"),
+        ("drop_syft_otel", "required reachability rule missing"),
+        ("drop_gitleaks_xz", "required reachability rule missing"),
+        ("switch_mode", "required reachability rule retargeted"),
+        ("retarget_module", "required reachability rule retargeted"),
+        ("retarget_prefix", "required reachability rule retargeted"),
+        ("downgrade_containerd", "required reachability floor weakened"),
+        ("downgrade_otel", "required reachability floor weakened"),
+        ("downgrade_xz", "required reachability floor weakened"),
+        ("min_count_one", "minimum_dependency_count weakened"),
+        ("min_count_bool", "minimum_dependency_count weakened"),
+        ("malformed_alerts", "Dependabot HIGH alerts"),
+    ],
+)
+def test_mandatory_reachability_policy_cannot_be_weakened(
+    tmp_path: Path, mutation: str, expected_error: str
+):
+    policy = json.loads(POLICY.read_text())
+    if mutation.startswith("drop_"):
+        tool, rule_id = {
+            "drop_trivy_containerd": ("trivy", "trivy-containerd-floor-or-absent"),
+            "drop_grype_otel": ("grype", "grype-otel-family-floor-or-absent"),
+            "drop_syft_otel": ("syft", "syft-otel-family-floor-or-absent"),
+            "drop_gitleaks_xz": ("gitleaks", "gitleaks-xz-floor-or-absent"),
+        }[mutation]
+        policy["tools"][tool]["rules"] = [
+            rule for rule in policy["tools"][tool]["rules"]
+            if rule["id"] != rule_id
+        ]
+    elif mutation == "switch_mode":
+        policy["tools"]["trivy"]["rules"][1]["mode"] = "absent"
+    elif mutation == "retarget_module":
+        policy["tools"]["trivy"]["rules"][1]["module"] = "example.invalid/other"
+    elif mutation == "retarget_prefix":
+        policy["tools"]["syft"]["rules"][1]["prefix"] = "example.invalid/other"
+    elif mutation == "downgrade_containerd":
+        policy["tools"]["trivy"]["rules"][1]["minimum"] = "v2.3.5"
+    elif mutation == "downgrade_otel":
+        policy["tools"]["grype"]["rules"][2]["minimum"] = "v1.44.0"
+    elif mutation == "downgrade_xz":
+        policy["tools"]["gitleaks"]["rules"][1]["minimum"] = "v0.5.14"
+    elif mutation == "min_count_one":
+        policy["tools"]["trivy"]["minimum_dependency_count"] = 1
+    elif mutation == "min_count_bool":
+        policy["tools"]["trivy"]["minimum_dependency_count"] = True
+    else:
+        policy["semantics"]["preserved_open_alerts"].append({"invalid": 1})
+    file = tmp_path / "policy-mutated.json"
+    file.write_text(json.dumps(policy))
+    with pytest.raises(TARGET.PolicyError, match=expected_error):
+        TARGET.load_policy(file)
+
+
+def test_security_policy_can_strengthen_its_floors_without_bypass(tmp_path: Path):
+    policy = json.loads(POLICY.read_text())
+    policy["tools"]["trivy"]["rules"][1]["minimum"] = "v2.3.7"
+    policy["tools"]["trivy"]["minimum_dependency_count"] = 11
+    path = tmp_path / "strengthened.json"
+    path.write_text(json.dumps(policy))
+    loaded = TARGET.load_policy(path)
+    assert loaded["tools"]["trivy"]["minimum_dependency_count"] == 11
+
+    paths = all_good_evidence(tmp_path)
+    code, report = TARGET.evaluate(loaded, paths)
+    assert code == 1
+    assert report["status"] == "FAIL"
+    trivy = next(result for result in report["tools"] if result["tool"] == "trivy")
+    check = next(
+        item for item in trivy["rules"]
+        if item["id"] == "trivy-containerd-floor-or-absent"
+    )
+    assert check["status"] == "FAIL"
+
+
+def test_removed_rule_does_not_admit_vulnerable_binary(tmp_path: Path):
+    paths = all_good_evidence(tmp_path)
+    original = paths["trivy"].read_text()
+    vulnerable = (
+        "\tdep\tgithub.com/containerd/containerd/v2\tv2.3.3\n"
+    )
+    path = paths["trivy"]
+    path.write_text(
+        original.replace(
+            "\tdep\tgithub.com/containerd/containerd/v2\tv2.3.6\n",
+            vulnerable,
+            1,
+        )
+    )
+    policy = TARGET.load_policy(POLICY)
+    code, report = TARGET.evaluate(policy, paths)
+    assert code == 1
+    assert report["status"] == "FAIL"
+
+    modified = json.loads(POLICY.read_text())
+    modified["tools"]["trivy"]["rules"] = [
+        item for item in modified["tools"]["trivy"]["rules"]
+        if item["id"] != "trivy-containerd-floor-or-absent"
+    ]
+    unsafe = tmp_path / "removed-rule.json"
+    unsafe.write_text(json.dumps(modified))
+    with pytest.raises(TARGET.PolicyError, match="required reachability rule missing"):
+        TARGET.load_policy(unsafe)
+
+
+def test_cli_rejects_weakened_policy_without_fallback(tmp_path: Path):
+    paths = all_good_evidence(tmp_path)
+    args = [sys.executable, str(SCRIPT), "--policy", str(POLICY)]
+    for tool in sorted(paths):
+        args.extend(["--evidence", f"{tool}={paths[tool]}"])
+
+    original = paths["trivy"].read_text()
+    paths["trivy"].write_text(
+        original.replace(
+            "\tdep\tgithub.com/containerd/containerd/v2\tv2.3.6\n",
+            "\tdep\tgithub.com/containerd/containerd/v2\tv2.3.3\n",
+            1,
+        )
+    )
+    # A valid policy detects the vulnerable linked module, not an audit PASS.
+    found = subprocess.run(args, capture_output=True, text=True, check=False, timeout=20)
+    assert found.returncode == 1
+    assert json.loads(found.stdout)["status"] == "FAIL"
+
+    weakened = json.loads(POLICY.read_text())
+    weakened["tools"]["trivy"]["rules"] = [
+        rule for rule in weakened["tools"]["trivy"]["rules"]
+        if rule["id"] != "trivy-containerd-floor-or-absent"
+    ]
+    altered = tmp_path / "policy-with-containerd-floor-removed.json"
+    altered.write_text(json.dumps(weakened))
+    args[args.index("--policy") + 1] = str(altered)
+    rejected = subprocess.run(args, capture_output=True, text=True, check=False, timeout=20)
+    assert rejected.returncode == 2
+    output = json.loads(rejected.stdout)
+    assert output["status"] == "ERROR"
+    assert "required reachability rule missing" in output["error"]
+
+
+@pytest.mark.parametrize("unsafe_mode", [[], {}, ["absent"], {"mode": "absent"}])
+def test_unhashable_policy_mode_is_structured_fail_closed(
+    tmp_path: Path, unsafe_mode: object
+):
+    policy = json.loads(POLICY.read_text())
+    policy["tools"]["trivy"]["rules"][0]["mode"] = unsafe_mode
+    bad_policy = tmp_path / "unsafe-mode-policy.json"
+    bad_policy.write_text(json.dumps(policy))
+    with pytest.raises(TARGET.PolicyError, match="unsupported mode"):
+        TARGET.load_policy(bad_policy)
+
+    paths = all_good_evidence(tmp_path)
+    args = [sys.executable, str(SCRIPT), "--policy", str(bad_policy)]
+    for tool in sorted(paths):
+        args.extend(["--evidence", f"{tool}={paths[tool]}"])
+    proc = subprocess.run(args, capture_output=True, text=True, check=False, timeout=20)
+    assert proc.returncode == 2
+    report = json.loads(proc.stdout)
+    assert report["status"] == "ERROR"
+    assert "unsupported mode" in report["error"]
+    assert "Traceback" not in proc.stderr
+
+
+@pytest.mark.parametrize("input_kind", ["policy", "binary_evidence"])
+def test_invalid_utf8_input_returns_structured_error(
+    tmp_path: Path, input_kind: str
+):
+    policy_file = POLICY
+    evidence_paths = all_good_evidence(tmp_path)
+    if input_kind == "policy":
+        policy_file = tmp_path / "malformed-policy.json"
+        policy_file.write_bytes(b"\xff\xfe\xff")
+        with pytest.raises(TARGET.PolicyError, match="cannot read policy"):
+            TARGET.load_policy(policy_file)
+    else:
+        evidence_paths["trivy"].write_bytes(b"\xff\xfe\xff")
+        with pytest.raises(TARGET.EvidenceError, match="cannot read evidence"):
+            TARGET.evaluate(TARGET.load_policy(policy_file), evidence_paths)
+
+    command = [sys.executable, str(SCRIPT), "--policy", str(policy_file)]
+    for name in sorted(evidence_paths):
+        command.extend(["--evidence", f"{name}={evidence_paths[name]}"])
+    result = subprocess.run(
+        command, capture_output=True, text=True, check=False, timeout=20
+    )
+    assert result.returncode == 2
+    response = json.loads(result.stdout)
+    assert response["status"] == "ERROR"
+    assert (
+        "cannot read policy" if input_kind == "policy" else "cannot read evidence"
+    ) in response["error"]
+    assert "Traceback" not in result.stderr
+
+
+def test_genuine_trivy_go_experiment_header_is_accepted(tmp_path: Path):
+    """The pinned Trivy Go compiler emits the actual -X:jsonv2 suffix."""
+    paths = all_good_evidence(tmp_path)
+    normal = paths["trivy"].read_text()
+    assert "/tmp/tool: go1.26.8\n" in normal
+    paths["trivy"].write_text(
+        normal.replace(
+            "/tmp/tool: go1.26.8\n",
+            "/buildcache/docker-trivy5/trivy: go1.26.8-X:jsonv2\n",
+            1,
+        )
+    )
+    code, report = TARGET.evaluate(TARGET.load_policy(POLICY), paths)
+    assert code == 0
+    assert report["status"] == "PASS"
+
+
+@pytest.mark.parametrize(
+    "invalid_suffix",
+    [
+        "-X:jsonv3",
+        "-X:jsonv2:other",
+        "-X:unapproved",
+        "-not-json:jsonv2",
+        "-X:jsonv2-extra",
+    ],
+)
+def test_unknown_go_experiment_headers_fail_closed(
+    tmp_path: Path, invalid_suffix: str
+):
+    paths = all_good_evidence(tmp_path)
+    current = paths["trivy"].read_text()
+    paths["trivy"].write_text(
+        current.replace(
+            "/tmp/tool: go1.26.8\n",
+            "/tmp/tool: go1.26.8" + invalid_suffix + "\n",
+            1,
+        )
+    )
+    with pytest.raises(TARGET.EvidenceError, match="missing go version -m binary header"):
+        TARGET.evaluate(TARGET.load_policy(POLICY), paths)
+
+
+def test_second_go_experiment_binary_header_is_rejected(tmp_path: Path):
+    paths = all_good_evidence(tmp_path)
+    original = paths["trivy"].read_text()
+    paths["trivy"].write_text(
+        original
+        + "/buildcache/docker-trivy5/other: go1.26.8-X:jsonv2\n"
+        + "\tpath\tgithub.com/aquasecurity/trivy/cmd/trivy\n"
+        + "\tdep\tgithub.com/containerd/containerd/v2\tv2.3.6\n"
+        + "\tbuild\t-buildmode=exe\n"
+    )
+    with pytest.raises(TARGET.EvidenceError, match="multiple binary headers"):
+        TARGET.evaluate(TARGET.load_policy(POLICY), paths)

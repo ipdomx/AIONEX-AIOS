@@ -42,6 +42,68 @@ EXPECTED_MAIN_PACKAGES = {
 }
 
 
+# Immutable source-side floors. A policy file may strengthen checks, but cannot
+# silently drop, rename, retarget or downgrade mandatory advisory safeguards.
+REQUIRED_REACHABILITY_RULES = {
+    "trivy": {
+        "trivy-legacy-docker-not-linked": {
+            "mode": "absent",
+            "module": "github.com/docker/docker"
+        },
+        "trivy-containerd-floor-or-absent": {
+            "mode": "min_version_or_absent",
+            "module": "github.com/containerd/containerd/v2",
+            "minimum": "v2.3.6"
+        },
+        "trivy-otel-family-floor-or-absent": {
+            "mode": "prefix_min_version_or_absent",
+            "prefix": "go.opentelemetry.io/otel",
+            "minimum": "v1.45.0"
+        }
+    },
+    "grype": {
+        "grype-legacy-docker-not-linked": {
+            "mode": "absent",
+            "module": "github.com/docker/docker"
+        },
+        "grype-containerd-floor-or-absent": {
+            "mode": "min_version_or_absent",
+            "module": "github.com/containerd/containerd/v2",
+            "minimum": "v2.3.6"
+        },
+        "grype-otel-family-floor-or-absent": {
+            "mode": "prefix_min_version_or_absent",
+            "prefix": "go.opentelemetry.io/otel",
+            "minimum": "v1.45.0"
+        }
+    },
+    "syft": {
+        "syft-containerd-floor-or-absent": {
+            "mode": "min_version_or_absent",
+            "module": "github.com/containerd/containerd/v2",
+            "minimum": "v2.3.6"
+        },
+        "syft-otel-family-floor-or-absent": {
+            "mode": "prefix_min_version_or_absent",
+            "prefix": "go.opentelemetry.io/otel",
+            "minimum": "v1.45.0"
+        }
+    },
+    "gitleaks": {
+        "gitleaks-rardecode-floor-or-absent": {
+            "mode": "min_version_or_absent",
+            "module": "github.com/nwaples/rardecode/v2",
+            "minimum": "v2.2.0"
+        },
+        "gitleaks-xz-floor-or-absent": {
+            "mode": "min_version_or_absent",
+            "module": "github.com/ulikunitz/xz",
+            "minimum": "v0.5.15"
+        }
+    }
+}
+MINIMUM_LINKED_DEPENDENCIES = 10
+
 class PolicyError(ValueError):
     """The committed FR-23 policy fixture is incomplete or unsafe."""
 
@@ -90,7 +152,9 @@ def version_at_least(observed: str, minimum: str) -> bool:
 
 
 BINARY_HEADER = re.compile(
-    r"^.+:\s+go[0-9]+\.[0-9]+(?:\.[0-9]+)?[0-9A-Za-z.+-]*$"
+    # The pinned Trivy toolchain emits go1.26.8-X:jsonv2 in go version -m.
+    # Permit only that known experiment suffix; other colons still fail closed.
+    r"^.+:\s+go[0-9]+\.[0-9]+(?:\.[0-9]+)?[0-9A-Za-z.+-]*(?:-X:jsonv2)?$"
 )
 
 
@@ -198,7 +262,7 @@ def _require_bool(mapping: dict[str, Any], key: str, expected: bool) -> None:
 def load_policy(path: Path) -> dict[str, Any]:
     try:
         policy = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise PolicyError(f"cannot read policy: {exc}") from exc
 
     if not isinstance(policy, dict) or policy.get("schema") != 1:
@@ -213,7 +277,11 @@ def load_policy(path: Path) -> dict[str, Any]:
     _require_bool(semantics, "reachability_only", True)
     _require_bool(semantics, "dependabot_closure", False)
     preserved = semantics.get("preserved_open_alerts")
-    if not isinstance(preserved, list) or not {48, 50}.issubset(set(preserved)):
+    if (
+        not isinstance(preserved, list)
+        or not all(type(alert) is int for alert in preserved)
+        or not {48, 50}.issubset(set(preserved))
+    ):
         raise PolicyError("Dependabot HIGH alerts 48 and 50 must remain explicitly preserved OPEN")
     if semantics.get("final_live_closure_gated_by") != ["FR-06", "FR-21"]:
         raise PolicyError("FR-06 and FR-21 must remain the explicit final/live closure gates")
@@ -226,8 +294,8 @@ def load_policy(path: Path) -> dict[str, Any]:
         if config.get("expected_main_package") != EXPECTED_MAIN_PACKAGES[tool]:
             raise PolicyError(f"tool {tool} main package identity changed")
         minimum_count = config.get("minimum_dependency_count")
-        if not isinstance(minimum_count, int) or minimum_count < 1:
-            raise PolicyError(f"tool {tool} must define a positive minimum_dependency_count")
+        if type(minimum_count) is not int or minimum_count < MINIMUM_LINKED_DEPENDENCIES:
+            raise PolicyError(f"tool {tool} minimum_dependency_count weakened")
         rules = config.get("rules")
         if not isinstance(rules, list) or not rules:
             raise PolicyError(f"tool {tool} requires at least one rule")
@@ -240,7 +308,7 @@ def load_policy(path: Path) -> dict[str, Any]:
             if not isinstance(rule_id, str) or not rule_id or rule_id in seen_ids:
                 raise PolicyError(f"tool {tool} has a missing/duplicate rule id")
             seen_ids.add(rule_id)
-            if mode not in ALLOWED_RULE_MODES:
+            if not isinstance(mode, str) or mode not in ALLOWED_RULE_MODES:
                 raise PolicyError(f"rule {rule_id} has unsupported mode {mode!r}")
             if rule.get("closure_effect") != "none":
                 raise PolicyError(f"rule {rule_id} must not claim source-alert closure")
@@ -255,6 +323,25 @@ def load_policy(path: Path) -> dict[str, Any]:
                 if not isinstance(minimum, str):
                     raise PolicyError(f"rule {rule_id} requires minimum version")
                 _semver_key(minimum)
+
+        # A parser or fixture edit alone must not turn a known vulnerable linked
+        # dependency into PASS by removing or weakening its required rule.
+        rules_by_id = {rule["id"]: rule for rule in rules}
+        for rule_id, required in REQUIRED_REACHABILITY_RULES[tool].items():
+            actual = rules_by_id.get(rule_id)
+            if actual is None:
+                raise PolicyError(f"required reachability rule missing: {tool}/{rule_id}")
+            for field in ("mode", "module", "prefix"):
+                if field in required and actual.get(field) != required[field]:
+                    raise PolicyError(
+                        f"required reachability rule retargeted: {tool}/{rule_id}/{field}"
+                    )
+            if "minimum" in required and not version_at_least(
+                actual["minimum"], required["minimum"]
+            ):
+                raise PolicyError(
+                    f"required reachability floor weakened: {tool}/{rule_id}"
+                )
     return policy
 
 
@@ -268,7 +355,7 @@ def _replacement_error(module: LinkedModule) -> str | None:
 def evaluate_tool(tool: str, config: dict[str, Any], evidence_path: Path) -> dict[str, Any]:
     try:
         raw = evidence_path.read_text(encoding="utf-8")
-    except OSError as exc:
+    except (OSError, UnicodeError) as exc:
         raise EvidenceError(f"{tool}: cannot read evidence {evidence_path}: {exc}") from exc
 
     modules = parse_go_version_m(

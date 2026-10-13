@@ -4,7 +4,7 @@ bandit==1.9.4
 pip-audit==2.10.1
 schemathesis==4.30.0
 msgpack==1.2.3
-opentelemetry-api==1.45.1
+opentelemetry-api==1.44.0
 setuptools==84.0.0
 wheel==0.48.0
 # Explicitly local build with actual vendored code refreshed, not an upstream release.
