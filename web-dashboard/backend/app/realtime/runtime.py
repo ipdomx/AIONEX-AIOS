@@ -1,9 +1,8 @@
 """Production lifecycle owner for the distributed realtime event hub.
 
-The API process owns one local websocket hub and one Redis Pub/Sub backplane.
-Only local sockets live in process memory; cross-replica fanout is carried by
-Redis with tenant-hashed channels.  LiveKit/TURN media activation is a separate
-36H gate and is intentionally not coupled to this event-stream runtime.
+The API process owns one local websocket hub and one Redis backplane. Only local
+sockets live in process memory; live fanout and bounded cursor replay are carried
+by Redis with tenant-hashed keys. LiveKit/TURN media activation is separate.
 """
 
 from __future__ import annotations
@@ -28,8 +27,23 @@ class RealtimeEventRuntime:
     async def stop(self) -> None:
         await self._hub.stop()
 
-    async def connect(self, tenant_id: str, websocket: object) -> None:
-        await self._hub.connect(tenant_id, websocket)
+    async def connect(
+        self,
+        tenant_id: str,
+        websocket: object,
+        *,
+        after_event_id: str | None = None,
+    ) -> None:
+        await self._hub.connect(
+            tenant_id, websocket, after_event_id=after_event_id
+        )
+
+    async def replay(
+        self, tenant_id: str, websocket: object, *, after_event_id: str
+    ) -> None:
+        await self._hub.replay(
+            tenant_id, websocket, after_event_id=after_event_id
+        )
 
     async def disconnect(self, tenant_id: str, websocket: object) -> None:
         await self._hub.disconnect(tenant_id, websocket)
