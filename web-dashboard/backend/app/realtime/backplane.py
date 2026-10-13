@@ -1,8 +1,8 @@
 """Distributed tenant-scoped realtime event backplane.
 
-This module is intentionally dormant in Phase 36H Part 1.  It provides the
-provider-neutral contract that will replace process-local websocket fanout in a
-later activation part after deterministic tests and production wiring review.
+The production implementation uses Redis Pub/Sub for live fanout and a bounded,
+tenant-hashed Redis list for cursor replay. Events without an event_id retain
+legacy live-only behavior.
 """
 
 from __future__ import annotations
@@ -19,6 +19,22 @@ RealtimeDelivery = Callable[[str, RealtimeEvent], Awaitable[None]]
 
 DEFAULT_CHANNEL_PREFIX = "aios:realtime:v1"
 DEFAULT_MAX_EVENT_BYTES = 65_536
+DEFAULT_MAX_RETAINED_EVENTS = 500
+MAX_EVENT_ID_CHARACTERS = 256
+
+_RETAIN_AND_PUBLISH = """
+local entries = redis.call('LRANGE', KEYS[1], 0, -1)
+for _, entry in ipairs(entries) do
+    local ok, decoded = pcall(cjson.decode, entry)
+    if ok and tostring(decoded['event_id']) == ARGV[2] then
+        return 0
+    end
+end
+redis.call('RPUSH', KEYS[1], ARGV[1])
+redis.call('LTRIM', KEYS[1], -tonumber(ARGV[3]), -1)
+redis.call('PUBLISH', KEYS[2], ARGV[1])
+return 1
+"""
 
 
 class RealtimeBackplane(Protocol):
@@ -34,6 +50,10 @@ class RealtimeBackplane(Protocol):
 
     async def publish(self, tenant_id: str, event: RealtimeEvent) -> None: ...
 
+    async def read(
+        self, tenant_id: str, *, after_event_id: str | None = None
+    ) -> list[RealtimeEvent]: ...
+
 
 def tenant_channel(tenant_id: str, *, prefix: str = DEFAULT_CHANNEL_PREFIX) -> str:
     """Return a non-reversible Redis channel name for one tenant."""
@@ -43,6 +63,25 @@ def tenant_channel(tenant_id: str, *, prefix: str = DEFAULT_CHANNEL_PREFIX) -> s
         raise ValueError("tenant_id is required")
     digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
     return f"{prefix}:{digest}"
+
+
+def tenant_retention_key(
+    tenant_id: str, *, prefix: str = DEFAULT_CHANNEL_PREFIX
+) -> str:
+    """Return the bounded event-retention key for one tenant."""
+
+    return f"{tenant_channel(tenant_id, prefix=prefix)}:retained"
+
+
+def _event_id(value: object) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise TypeError("realtime event_id must be a string")
+    normalized = value.strip()
+    if not normalized or len(normalized) > MAX_EVENT_ID_CHARACTERS:
+        raise ValueError("realtime event_id is invalid")
+    return normalized
 
 
 def encode_event(event: RealtimeEvent, *, max_bytes: int = DEFAULT_MAX_EVENT_BYTES) -> str:
@@ -58,20 +97,20 @@ def encode_event(event: RealtimeEvent, *, max_bytes: int = DEFAULT_MAX_EVENT_BYT
 
 
 class RedisRealtimeBackplane:
-    """Redis Pub/Sub implementation with dynamic per-tenant subscriptions.
-
-    Only tenants with local websocket clients are subscribed on a given API
-    replica.  Raw tenant identifiers are never embedded in Redis channel names.
-    """
+    """Redis live fanout plus bounded replay with tenant-hashed storage keys."""
 
     def __init__(
         self,
         *,
         channel_prefix: str = DEFAULT_CHANNEL_PREFIX,
         max_event_bytes: int = DEFAULT_MAX_EVENT_BYTES,
+        max_retained_events: int = DEFAULT_MAX_RETAINED_EVENTS,
     ) -> None:
+        if max_retained_events <= 0:
+            raise ValueError("max_retained_events must be positive")
         self._channel_prefix = channel_prefix.rstrip(":")
         self._max_event_bytes = max_event_bytes
+        self._max_retained_events = max_retained_events
         self._redis: Any | None = None
         self._pubsub: Any | None = None
         self._listener: asyncio.Task[None] | None = None
@@ -168,7 +207,49 @@ class RedisRealtimeBackplane:
         redis = self._redis
         if redis is None:
             raise RuntimeError("realtime backplane is not started")
-        await redis.publish(channel, payload)
+        event_id = _event_id(event.get("event_id"))
+        if event_id is None:
+            await redis.publish(channel, payload)
+            return
+        retention_key = tenant_retention_key(
+            tenant_id, prefix=self._channel_prefix
+        )
+        await redis.eval(
+            _RETAIN_AND_PUBLISH,
+            2,
+            retention_key,
+            channel,
+            payload,
+            event_id,
+            self._max_retained_events,
+        )
+
+    async def read(
+        self, tenant_id: str, *, after_event_id: str | None = None
+    ) -> list[RealtimeEvent]:
+        redis = self._redis
+        if redis is None:
+            raise RuntimeError("realtime backplane is not started")
+        cursor = _event_id(after_event_id)
+        retention_key = tenant_retention_key(
+            tenant_id, prefix=self._channel_prefix
+        )
+        raw_events = await redis.lrange(retention_key, 0, -1)
+        events: list[RealtimeEvent] = []
+        for raw in raw_events:
+            data = raw.decode("utf-8") if isinstance(raw, bytes) else str(raw)
+            try:
+                event = json.loads(data)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(event, dict):
+                events.append(event)
+        if cursor is None:
+            return events
+        for index, event in enumerate(events):
+            if event.get("event_id") == cursor:
+                return events[index + 1 :]
+        return []
 
     async def _listen(self) -> None:
         # A retired listener exits after its current delivery, even when that
