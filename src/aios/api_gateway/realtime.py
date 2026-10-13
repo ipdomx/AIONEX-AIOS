@@ -25,6 +25,13 @@ class RealtimeHub:
         )
 
     def publish(self, event: RealtimeEvent) -> RealtimeEvent:
+        for retained in self._topics.values():
+            for existing in retained:
+                if (
+                    existing.owner_id == event.owner_id
+                    and existing.event_id == event.event_id
+                ):
+                    return existing
         self._topics[event.topic].append(event)
         return event
 
@@ -35,15 +42,19 @@ class RealtimeHub:
         topics: Iterable[str],
         after_event_id: str | None = None,
     ) -> list[RealtimeEvent]:
-        events: list[RealtimeEvent] = []
-        found_cursor = after_event_id is None
-        for topic in topics:
-            for event in self._topics.get(topic, ()):
-                if event.owner_id != owner_id:
-                    continue
-                if not found_cursor:
-                    if event.event_id == after_event_id:
-                        found_cursor = True
-                    continue
-                events.append(event)
-        return sorted(events, key=lambda event: event.created_at)
+        events = sorted(
+            (
+                event
+                for topic in topics
+                for event in self._topics.get(topic, ())
+                if event.owner_id == owner_id
+            ),
+            key=lambda event: (event.created_at, event.event_id),
+        )
+        if after_event_id is None:
+            return events
+
+        for index, event in enumerate(events):
+            if event.event_id == after_event_id:
+                return events[index + 1 :]
+        return []
