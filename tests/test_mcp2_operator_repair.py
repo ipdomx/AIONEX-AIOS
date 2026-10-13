@@ -233,3 +233,105 @@ def test_redaction_preserves_operator_metadata(operator):
     assert 'project_root=/opt/AIOS' in output
     assert 'token_count=28' in output
     assert 'status=online' in output
+
+def _synthetic_private_key(tmp_path: Path, filename: str) -> Path:
+    """Generate disposable test-only material; never read a real operator key."""
+    identity = tmp_path / filename
+    subprocess.run(
+        ["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(identity)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=True,
+        timeout=10,
+    )
+    identity.chmod(0o600)
+    return identity
+
+
+def test_empty_legacy_key_does_not_count_as_deploy_identity(operator, tmp_path):
+    placeholder = tmp_path / "legacy-deploy"
+    placeholder.touch(mode=0o600)
+    monkeypatch = pytest.MonkeyPatch()
+    try:
+        monkeypatch.setattr(operator, "MCP_INSTANCE", "legacy")
+        monkeypatch.setattr(operator, "DEPLOY_KEY", placeholder)
+        assert operator._private_deploy_key_status(placeholder) is False
+        assert operator._selected_deploy_key() is None
+        assert operator._deploy_key_presence() is False
+        monkeypatch.setenv("GIT_SSH_COMMAND", "ssh -i /injected/credential")
+        assert "GIT_SSH_COMMAND" not in operator._git_env()
+    finally:
+        monkeypatch.undo()
+
+
+def test_nonempty_invalid_key_is_rejected_by_real_ssh_parser(operator, tmp_path):
+    fake = tmp_path / "invalid-openssh"
+    fake.write_bytes(b"x" * 420)
+    fake.chmod(0o600)
+    assert operator._root_owned_private_file_status(fake) is True
+    assert operator._private_deploy_key_status(fake) is False
+
+
+def test_key_permissions_symlinks_and_hardlinks_fail_closed(operator, tmp_path):
+    identity = _synthetic_private_key(tmp_path, "isolated-test-key")
+    assert operator._private_deploy_key_status(identity) is True
+    identity.chmod(0o644)
+    assert operator._private_deploy_key_status(identity) is False
+    identity.chmod(0o600)
+    link = tmp_path / "key-symlink"
+    link.symlink_to(identity)
+    assert operator._private_deploy_key_status(link) is False
+    import os
+    other = tmp_path / "key-hardlink"
+    os.link(identity, other)
+    assert operator._private_deploy_key_status(identity) is False
+
+
+def test_new_instance_uses_valid_vault_identity_and_pinned_known_hosts(
+    operator, monkeypatch, tmp_path
+):
+    identity = _synthetic_private_key(tmp_path, "vault-test-identity")
+    empty = tmp_path / "empty-legacy"
+    empty.touch(mode=0o600)
+    hosts = tmp_path / "pinned-hosts"
+    hosts.write_bytes(b"github.com ssh-ed25519 " + b"A" * 90 + b"\n")
+    hosts.chmod(0o600)
+    monkeypatch.setattr(operator, "MCP_INSTANCE", "new")
+    monkeypatch.setattr(operator, "VAULT_DEPLOY_KEY", identity)
+    monkeypatch.setattr(operator, "DEPLOY_KEY", empty)
+    monkeypatch.setattr(operator, "PINNED_GITHUB_KNOWN_HOSTS", hosts)
+    monkeypatch.setenv("GIT_SSH_COMMAND", "ssh -i /injected/key")
+    assert operator._selected_deploy_key() == identity
+    assert operator._deploy_key_presence() is True
+    command = operator._git_env()["GIT_SSH_COMMAND"]
+    assert str(identity) in command
+    assert str(hosts) in command
+    assert "StrictHostKeyChecking=yes" in command
+    assert "IdentitiesOnly=yes" in command
+    assert "BatchMode=yes" in command
+    assert "accept-new" not in command
+    assert "/injected/key" not in command
+
+
+def test_new_instance_never_uses_legacy_key_without_host_pin(
+    operator, monkeypatch, tmp_path
+):
+    legacy = _synthetic_private_key(tmp_path, "valid-fallback-but-unpinned")
+    missing = tmp_path / "missing-host-pin"
+    monkeypatch.setattr(operator, "MCP_INSTANCE", "new")
+    monkeypatch.setattr(operator, "VAULT_DEPLOY_KEY", tmp_path / "missing-vault")
+    monkeypatch.setattr(operator, "DEPLOY_KEY", legacy)
+    monkeypatch.setattr(operator, "PINNED_GITHUB_KNOWN_HOSTS", missing)
+    assert operator._deploy_key_presence() is True
+    assert operator._selected_deploy_key() is None
+    assert "GIT_SSH_COMMAND" not in operator._git_env()
+
+
+def test_legacy_instance_preserves_authenticated_legacy_ssh_routing(
+    operator, monkeypatch, tmp_path
+):
+    legacy = _synthetic_private_key(tmp_path, "synthetic-legacy")
+    monkeypatch.setattr(operator, "MCP_INSTANCE", "legacy")
+    monkeypatch.setattr(operator, "DEPLOY_KEY", legacy)
+    assert operator._selected_deploy_key() == legacy
+    assert "StrictHostKeyChecking=accept-new" in operator._git_env()["GIT_SSH_COMMAND"]
