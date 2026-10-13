@@ -25,7 +25,12 @@ def mixed_pass():
                "jobs_completed": 15000, "jobs_queued": 0, "jobs_running": 0,
                "jobs_failed": 0, "jobs_cancelled": 0, "jobs_needs_review": 0,
                "tenant_mismatch_jobs": 0},
-        "steady_state": {"rounds": 30, "requests": 150000, "p95_ms": 27.3, "errors": 0},
+        "steady_state": {
+            "rounds": 30, "requests": 150000, "p95_ms": 27.3, "errors": 0,
+            "window_start_epoch": 1010.0, "window_end_epoch": 1910.0,
+            "authenticated_active_users_min": 5000,
+            "unique_authenticated_users": 5000,
+        },
         "latency": {"auth_read": {"p95_ms": 70}, "enqueue": {"p95_ms": 110},
                     "project_create": {"count": 15000},
                     "conversation_create": {"count": 15000}},
@@ -177,3 +182,147 @@ def test_capacity_ceiling_requires_15000_project_creation_timings():
     assert outcome["status"] == "HOLD_FULL_MIXED"
     assert "project_creation_api_covered" in outcome["failed_measured_conditions"]
     assert "conversation_creation_api_covered" in outcome["failed_measured_conditions"]
+
+
+def test_steady_errors_cannot_disappear_from_top_level_error_totals():
+    d = mixed_pass()
+    d["steady_state"]["errors"] = 2000
+    result = module.evaluate(d)
+    assert result["status"] == "HOLD_FULL_MIXED"
+    assert "consistent_steady_errors" in result["failed_measured_conditions"]
+
+
+def test_http_observation_count_must_cover_all_distinct_route_families():
+    d = mixed_pass()
+    d["http_observation_count"] = 150000
+    result = module.evaluate(d)
+    assert result["status"] == "HOLD_FULL_MIXED"
+    assert "consistent_total_request_observations" in result["failed_measured_conditions"]
+
+
+def test_claiming_more_unique_jobs_than_created_fails_closed():
+    d = mixed_pass()
+    d["unique_job_ids"] = 20000
+    result = module.evaluate(d)
+    assert result["status"] == "HOLD_FULL_MIXED"
+    assert "unique_job_ids_match_total" in result["failed_measured_conditions"]
+
+
+def test_unaccounted_db_jobs_cannot_pass_as_fully_completed():
+    d = mixed_pass()
+    d["db"]["jobs_total"] = 16000
+    result = module.evaluate(d)
+    assert result["status"] == "HOLD_FULL_MIXED"
+    assert "all_jobs_accounted_for" in result["failed_measured_conditions"]
+
+
+def test_profile_counts_must_not_exceed_actual_db_asset_counts():
+    d = mixed_pass()
+    d["profile"]["projects"] = 16000
+    result = module.evaluate(d)
+    assert result["status"] == "HOLD_FULL_MIXED"
+    assert "actual_assets_meet_profile" in result["failed_measured_conditions"]
+
+
+def test_stale_profile_without_measured_authenticated_plateau_is_not_5000():
+    d = mixed_pass()
+    del d["steady_state"]["authenticated_active_users_min"]
+    del d["steady_state"]["unique_authenticated_users"]
+    result = module.evaluate(d)
+    assert result["status"] == "HOLD_FULL_MIXED"
+    assert "steady_authenticated_concurrency_measured" in result["failed_measured_conditions"]
+
+
+def test_claiming_5000_unique_users_does_not_prove_5000_simultaneous_users():
+    d = mixed_pass()
+    d["steady_state"]["authenticated_active_users_min"] = 25
+    result = module.evaluate(d)
+    assert result["status"] == "HOLD_FULL_MIXED"
+    assert "steady_authenticated_concurrency_measured" in result["failed_measured_conditions"]
+
+
+def test_15m_total_elapsed_does_not_replace_15m_steady_window():
+    d = mixed_pass()
+    d["steady_state"]["window_start_epoch"] = 1890.0
+    result = module.evaluate(d)
+    assert result["status"] == "HOLD_FULL_MIXED"
+    assert "15m_measured_steady_window" in result["failed_measured_conditions"]
+
+
+def test_steady_window_cannot_be_outside_run_or_run_backwards():
+    d = mixed_pass()
+    d["steady_state"]["window_start_epoch"] = 900.0
+    assert "15m_measured_steady_window" in module.evaluate(d)["failed_measured_conditions"]
+    d = mixed_pass()
+    d["steady_state"]["window_end_epoch"] = 2000.0
+    assert "15m_measured_steady_window" in module.evaluate(d)["failed_measured_conditions"]
+    d = mixed_pass()
+    d["steady_state"]["window_end_epoch"] = 1005.0
+    assert "15m_measured_steady_window" in module.evaluate(d)["failed_measured_conditions"]
+
+
+def test_bad_steady_error_types_fail_closed_without_traceback():
+    for value in ("0", True, None, -1, 150001):
+        d = mixed_pass()
+        d["steady_state"]["errors"] = value
+        result = module.evaluate(d)
+        assert result["status"] == "HOLD_FULL_MIXED"
+        assert "consistent_steady_errors" in result["failed_measured_conditions"]
+
+
+def test_minimum_concurrent_population_cannot_exceed_unique_identities():
+    d = mixed_pass()
+    d["steady_state"]["unique_authenticated_users"] = 4999
+    result = module.evaluate(d)
+    assert result["status"] == "HOLD_FULL_MIXED"
+    assert "steady_authenticated_concurrency_measured" in result["failed_measured_conditions"]
+
+
+def test_cli_rejects_internally_contradictory_capacity_receipt(tmp_path):
+    import json
+    d = mixed_pass()
+    d["steady_state"]["errors"] = 180000
+    d["error_count"] = 0
+    file = tmp_path / "contradictory.json"
+    file.write_text(json.dumps(d))
+    run = subprocess.run(
+        [sys.executable, str(SCRIPT), "--mixed", str(file)],
+        capture_output=True, text=True, check=False, timeout=20,
+    )
+    assert run.returncode == 2
+    report = json.loads(run.stdout)
+    assert report["status"] == "HOLD_FULL_MIXED"
+    assert "consistent_steady_errors" in report["failed_measured_conditions"]
+    assert "Traceback" not in run.stderr
+
+
+def test_unbounded_json_numbers_cannot_create_false_acceptance_or_crash():
+    large = 10 ** 400
+    for change, name in [
+        (lambda d: d.update(error_count=large), "consistent_steady_errors"),
+        (lambda d: d.update(http_observation_count=large), "consistent_total_request_observations"),
+        (lambda d: d["steady_state"].update(p95_ms=large), "steady_read_p95"),
+        (lambda d: d["profile"].update(users=large), "users"),
+        (lambda d: d["steady_state"].update(authenticated_active_users_min=large), "steady_authenticated_concurrency_measured"),
+    ]:
+        receipt = mixed_pass()
+        change(receipt)
+        verdict = module.evaluate(receipt)
+        assert verdict["status"] == "HOLD_FULL_MIXED"
+        assert name in verdict["failed_measured_conditions"]
+
+
+def test_unbounded_error_count_cli_returns_structured_hold(tmp_path):
+    import json
+    d = mixed_pass()
+    d["error_count"] = 10 ** 400
+    path = tmp_path / "overflow-metric.json"
+    path.write_text(json.dumps(d))
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPT), "--mixed", str(path)],
+        capture_output=True, text=True, check=False, timeout=20
+    )
+    assert proc.returncode == 2
+    verdict = json.loads(proc.stdout)
+    assert verdict["status"] == "HOLD_FULL_MIXED"
+    assert "Traceback" not in proc.stderr

@@ -510,9 +510,19 @@ def validate_recovery_manifest(value: Any) -> dict[str, Any]:
     }
 
 
+def _reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Ambiguous security/approval data must fail closed at any nesting depth."""
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            _fail(f"duplicate JSON field: {key}")
+        result[key] = value
+    return result
+
+
 def _load(path: Path) -> Any:
     with path.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
+        return json.load(handle, object_pairs_hook=_reject_duplicate_json_keys)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -528,7 +538,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         report = validate_recovery_manifest(_load(args.manifest))
-    except (OSError, json.JSONDecodeError, RecoveryContractError) as exc:
+    except (OSError, UnicodeError, json.JSONDecodeError, RecoveryContractError) as exc:
         print(f"FR24_RECOVERY_CONTRACT_INVALID: {exc}", file=sys.stderr)
         return 2
     print(json.dumps(report, indent=2, sort_keys=True))

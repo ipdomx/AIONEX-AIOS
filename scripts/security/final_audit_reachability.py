@@ -152,7 +152,9 @@ def version_at_least(observed: str, minimum: str) -> bool:
 
 
 BINARY_HEADER = re.compile(
-    r"^.+:\s+go[0-9]+\.[0-9]+(?:\.[0-9]+)?[0-9A-Za-z.+-]*$"
+    # The pinned Trivy toolchain emits go1.26.8-X:jsonv2 in go version -m.
+    # Permit only that known experiment suffix; other colons still fail closed.
+    r"^.+:\s+go[0-9]+\.[0-9]+(?:\.[0-9]+)?[0-9A-Za-z.+-]*(?:-X:jsonv2)?$"
 )
 
 

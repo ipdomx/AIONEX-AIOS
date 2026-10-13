@@ -6,6 +6,7 @@ transformers==5.10.1
 trimesh==4.8.3
 rembg==2.0.78
 huggingface-hub==1.7.1
+fsspec==2026.6.0
 imageio==2.37.0
 runpod==1.11.0
 xatlas==0.0.9
