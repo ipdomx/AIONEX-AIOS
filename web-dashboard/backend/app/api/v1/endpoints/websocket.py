@@ -26,16 +26,33 @@ async def websocket_status():
 
 
 @router.websocket("/connect")
-async def websocket_connect(websocket: WebSocket, token: str):
+async def websocket_connect(
+    websocket: WebSocket,
+    token: str,
+    after_event_id: str = "",
+):
     # The raw socket is never enrolled: hub delivery always traverses fresh auth.
     guarded = AuthorizedRealtimeSocket(websocket, token, SessionLocal, authentication=auth_service)
     organization_id: str | None = None
     try:
         principal = await guarded.ensure_authorized()
         organization_id = principal.organization_id
-        await realtime_event_runtime.connect(organization_id, guarded)
+        resume_cursor = after_event_id.strip() or None
+        if resume_cursor is not None and len(resume_cursor) > 256:
+            await guarded.close(1008)
+            return
+        if resume_cursor is None:
+            await realtime_event_runtime.connect(organization_id, guarded)
+        else:
+            await realtime_event_runtime.connect(
+                organization_id, guarded, after_event_id=resume_cursor
+            )
         await guarded.send_json({"type": "connected", "organization_id": organization_id,
                                  "user_id": principal.user_id})
+        if resume_cursor is not None:
+            await realtime_event_runtime.replay(
+                organization_id, guarded, after_event_id=resume_cursor
+            )
         while not guarded.closed:
             try:
                 message = await asyncio.wait_for(websocket.receive_text(),
