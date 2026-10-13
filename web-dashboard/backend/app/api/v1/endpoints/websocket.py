@@ -41,9 +41,12 @@ async def websocket_connect(
         if resume_cursor is not None and len(resume_cursor) > 256:
             await guarded.close(1008)
             return
-        await realtime_event_runtime.connect(
-            organization_id, guarded, after_event_id=resume_cursor
-        )
+        if resume_cursor is None:
+            await realtime_event_runtime.connect(organization_id, guarded)
+        else:
+            await realtime_event_runtime.connect(
+                organization_id, guarded, after_event_id=resume_cursor
+            )
         await guarded.send_json({"type": "connected", "organization_id": organization_id,
                                  "user_id": principal.user_id})
         if resume_cursor is not None:
