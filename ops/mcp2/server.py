@@ -62,6 +62,8 @@ TUNNEL_RUNTIME_KEY = (
 )
 TUNNEL_LOG = Path("/var/log/aionex-phase22c-tunnel.log")
 DEPLOY_KEY = Path("/root/.ssh/aionex_aios_deploy")
+VAULT_DEPLOY_KEY = Path("/mnt/aionex/fr06-host-state-vault/ssh/aionex_aios_deploy")
+PINNED_GITHUB_KNOWN_HOSTS = Path("/root/.ssh/known_hosts_github_aionex")
 PYTHON_BIN = Path("/opt/AIOS/.venv/bin/python")
 RUNPOD_ENV = Path("/opt/AIOS/web-dashboard/secrets/RUNPOD_GPU.env")
 MAX_OUTPUT_CHARS = 240_000
@@ -194,8 +196,22 @@ def _shell(command: str, *, cwd: str | Path = PROJECT_ROOT, timeout_seconds: int
 
 def _git_env() -> dict[str, str]:
     env = os.environ.copy()
-    if DEPLOY_KEY.is_file():
-        env["GIT_SSH_COMMAND"] = f"ssh -i {shlex.quote(str(DEPLOY_KEY))} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+    # Never inherit a caller-controlled SSH wrapper when choosing the AIOS
+    # deploy identity.  The zero-byte legacy placeholder is not a usable key.
+    env.pop("GIT_SSH_COMMAND", None)
+    key = _selected_deploy_key()
+    if key is not None:
+        options = " -o IdentitiesOnly=yes -o BatchMode=yes"
+        if MCP_INSTANCE == "new":
+            # NEW uses its independently verified GitHub host-key file.
+            options += (
+                " -o StrictHostKeyChecking=yes"
+                f" -o UserKnownHostsFile={shlex.quote(str(PINNED_GITHUB_KNOWN_HOSTS))}"
+            )
+        else:
+            # Legacy service retains its original checkout behavior.
+            options += " -o StrictHostKeyChecking=accept-new"
+        env["GIT_SSH_COMMAND"] = f"ssh -i {shlex.quote(str(key))}{options}"
     return env
 
 
@@ -255,9 +271,72 @@ def _probe_file(path: Path) -> bool | None:
         return None
 
 
+def _root_owned_private_file_status(path: Path) -> bool | None:
+    """Validate an owner-only regular file before using it as an SSH credential."""
+    available = _probe_file(path)
+    if available is not True:
+        return available
+    try:
+        entry = path.lstat()
+    except OSError:
+        return None
+    mode = stat.S_IMODE(entry.st_mode)
+    return bool(
+        stat.S_ISREG(entry.st_mode)
+        and entry.st_uid == os.geteuid()
+        and entry.st_gid == os.getegid()
+        and entry.st_nlink == 1
+        and 64 <= entry.st_size <= 16_384
+        and mode & 0o400
+        and not mode & 0o177
+    )
+
+
+def _private_deploy_key_status(path: Path) -> bool | None:
+    safe = _root_owned_private_file_status(path)
+    if safe is not True:
+        return safe
+    try:
+        checked = subprocess.run(
+            ["ssh-keygen", "-y", "-P", "", "-f", str(path)],
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    # Never expose the derived public key or any private-key parser diagnostics.
+    return checked.returncode == 0
+
+
+def _selected_deploy_key() -> Path | None:
+    if MCP_INSTANCE == "new":
+        # No NEW SSH candidate may fall back to TOFU when the host pin is absent.
+        if _root_owned_private_file_status(PINNED_GITHUB_KNOWN_HOSTS) is not True:
+            return None
+        if _private_deploy_key_status(VAULT_DEPLOY_KEY) is True:
+            return VAULT_DEPLOY_KEY
+        return DEPLOY_KEY if _private_deploy_key_status(DEPLOY_KEY) is True else None
+    if _private_deploy_key_status(DEPLOY_KEY) is True:
+        return DEPLOY_KEY
+    return None
+
+
+def _deploy_key_presence() -> bool | None:
+    candidates = [DEPLOY_KEY]
+    if MCP_INSTANCE == "new":
+        candidates.insert(0, VAULT_DEPLOY_KEY)
+    checks = [_private_deploy_key_status(item) for item in candidates]
+    if True in checks:
+        return True
+    if None in checks:
+        return None
+    return False
+
+
 @mcp.tool()
 def server_status() -> dict[str, Any]:
-    return {"status": "online", "runtime_instance": MCP_INSTANCE, "purpose": "general-server-operator", "version": SERVER_VERSION, "canonical_report": str(PROJECT_REPORT), "tunnel_service": TUNNEL_SERVICE, "uid": os.getuid(), "euid": os.geteuid(), "project_root": str(PROJECT_ROOT), "project_exists": PROJECT_ROOT.is_dir(), "mcp_server_path": str(MCP_SERVER_PATH), "mcp_server_exists": _probe_file(MCP_SERVER_PATH), "tunnel_profile": TUNNEL_PROFILE, "runtime_key_exists": _probe_file(TUNNEL_RUNTIME_KEY), "deploy_key_exists": _probe_file(DEPLOY_KEY)}
+    return {"status": "online", "runtime_instance": MCP_INSTANCE, "purpose": "general-server-operator", "version": SERVER_VERSION, "canonical_report": str(PROJECT_REPORT), "tunnel_service": TUNNEL_SERVICE, "uid": os.getuid(), "euid": os.geteuid(), "project_root": str(PROJECT_ROOT), "project_exists": PROJECT_ROOT.is_dir(), "mcp_server_path": str(MCP_SERVER_PATH), "mcp_server_exists": _probe_file(MCP_SERVER_PATH), "tunnel_profile": TUNNEL_PROFILE, "runtime_key_exists": _probe_file(TUNNEL_RUNTIME_KEY), "deploy_key_exists": _deploy_key_presence()}
 
 
 @mcp.tool()
