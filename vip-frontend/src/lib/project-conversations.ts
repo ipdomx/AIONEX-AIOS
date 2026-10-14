@@ -94,7 +94,7 @@ export const conversationApi = {
         base,
         "POST",
         { project_id, title, request_id },
-        { signal },
+        { signal, retry: false },
       ),
     ),
   send: (
@@ -109,7 +109,7 @@ export const conversationApi = {
         `${base}/${encodeURIComponent(id)}/messages`,
         "POST",
         { message, agent_id, request_id, confirm_external_processing },
-        { signal },
+        { signal, retry: false },
       ),
     ),
   close: (id: string) =>
@@ -118,7 +118,7 @@ export const conversationApi = {
         `${base}/${encodeURIComponent(id)}/close`,
         "POST",
         undefined,
-        { signal },
+        { signal, retry: false },
       ),
     ),
 };
