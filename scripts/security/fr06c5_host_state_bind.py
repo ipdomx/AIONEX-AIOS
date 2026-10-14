@@ -62,14 +62,33 @@ def rollback_mounts(pairs=None):
 def apply():
  if os.geteuid()!=0:raise B('root required')
  if active('docker.service'):raise B('Docker must be stopped before host-state bind')
- vault_ready();attempted=[]
+ vault_ready()
+ pending=[]
+ # Preflight every target before changing any mount. Already-owned encrypted
+ # binds are accepted only with the exact restricted options used by status().
+ for src,dst,ro in PAIRS:
+  if not src.exists() or src.is_symlink() or not dst.exists() or dst.is_symlink():
+   raise B('bind source/target unsafe')
+  if exact_mount(dst):
+   if same(src,dst):
+    opts=set(run(['findmnt','-n','-o','OPTIONS','--target',str(dst)]).split(','))
+    if not {'nodev','nosuid','noexec'}.issubset(opts) or (ro and 'ro' not in opts):
+     raise B('existing owned host-state bind options drifted')
+    continue
+   if not sealed_underlay(dst):
+    raise B('host-state target already mounted without accepted read-only seal')
+  pending.append((src,dst,ro))
+ attempted=[]
  try:
-  for src,dst,ro in PAIRS:
-   if not src.exists() or src.is_symlink() or not dst.exists() or dst.is_symlink():raise B('bind source/target unsafe')
-   if exact_mount(dst) and not sealed_underlay(dst):raise B('host-state target already mounted without accepted read-only seal')
-   attempted.append((src,dst,ro));run(['mount','--bind',str(src),str(dst)]);opts='remount,bind,nodev,nosuid,noexec'+(',ro' if ro else '') ;run(['mount','-o',opts,str(dst)])
+  for src,dst,ro in pending:
+   attempted.append((src,dst,ro))
+   run(['mount','--bind',str(src),str(dst)])
+   opts='remount,bind,nodev,nosuid,noexec'+(',ro' if ro else '')
+   run(['mount','-o',opts,str(dst)])
   return status(True)
  except Exception:
+  # Only mounts created by this invocation are eligible for cleanup.
+  # Pre-existing valid directory/identity mounts remain untouched.
   try:rollback_mounts(attempted)
   except Exception as cleanup:raise B('host-state bind failed and owned-bind cleanup incomplete') from cleanup
   raise
