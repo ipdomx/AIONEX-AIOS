@@ -14,10 +14,11 @@ import platform
 import re
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
 
-from build_gitleaks import extract_verified, fetch, run, sha, source_fingerprint
+from build_gitleaks import emit_failure_diagnostic, extract_verified, fetch, run, sha, source_fingerprint
 
 RUNNER_TESTS = (
     "TestDetermineMostLikelySchemeOrder", "TestSwitchPortForFallback", "TestSanitizeCPEVersion",
@@ -79,6 +80,69 @@ def test_commands(go: str) -> list[list[str]]:
             prefix + ["./runner", "-run", "^(" + "|".join(RUNNER_TESTS) + ")$"]]
 
 
+
+def download_pinned_modules(go: str, source: Path, env: dict[str, str], output: Path,
+                            *, runner=subprocess.run, sleeper=time.sleep) -> list[dict[str, Any]]:
+    """Retry only the same checksum-pinned Go downloads, never tests/build/hash gates.
+
+    All attempts use the identical immutable public module graph and the same
+    verified compiler. Distinct logs and a manifest retain evidence, while a
+    persistent error or an integrity/lock error still fails the image build.
+    """
+    attempts: list[dict[str, Any]] = []
+    fatal_markers = (
+        b"checksum mismatch", b"security error:", b"invalid version",
+        b"unknown revision", b"malformed module path", b"requires go >=",
+        b"go: updates to go.mod needed", b"module declares its path as",
+        b"not allowed with -mod=readonly",
+    )
+    manifest = output / "go-module-download-attempts.json"
+
+    for attempt in range(1, 4):
+        logpath = output / f"go-download-attempt-{attempt}.log"
+        with logpath.open("x+b") as logfile:
+            expired = False
+            try:
+                executed = runner([go, "mod", "download", "all"], cwd=source, env=env,
+                                  stdout=logfile, stderr=subprocess.STDOUT,
+                                  check=False, timeout=240)
+                return_code = executed.returncode
+            except subprocess.TimeoutExpired:
+                expired = True
+                return_code = None
+            logfile.flush()
+            size = os.fstat(logfile.fileno()).st_size
+            tail = os.pread(logfile.fileno(), min(size, 8192), max(0, size - 8192))
+            fatal = any(marker in tail.lower() for marker in fatal_markers)
+            attempts.append({
+                "attempt": attempt,
+                "return_code": return_code,
+                "timed_out": expired,
+                "log_size_bytes": size,
+                "log_sha256": sha(logpath),
+                "integrity_or_lock_failure": fatal,
+            })
+            if return_code == 0:
+                manifest.write_text(json.dumps({
+                    "scope": "immutable_checksum_pinned_go_mod_download_only",
+                    "status": "PASS", "attempts": attempts,
+                    "source_or_module_locks_changed": False,
+                }, sort_keys=True) + "\n")
+                if attempt > 1:
+                    print("AIONEX_PINNED_GO_DOWNLOAD_RECOVERED " +
+                          json.dumps({"attempts": attempt}, sort_keys=True), flush=True)
+                return attempts
+            if fatal or attempt == 3:
+                manifest.write_text(json.dumps({
+                    "scope": "immutable_checksum_pinned_go_mod_download_only",
+                    "status": "FAIL_CLOSED", "attempts": attempts,
+                    "source_or_module_locks_changed": False,
+                }, sort_keys=True) + "\n")
+                emit_failure_diagnostic(logfile, return_code, timed_out=expired)
+                raise RuntimeError("Pinned Go module download failed after bounded attempts")
+        sleeper(2 if attempt == 1 else 5)
+    raise AssertionError("bounded Go download loop escaped unexpectedly")
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--lock-dir", type=Path, required=True)
@@ -118,7 +182,7 @@ def main() -> None:
     compiler = subprocess.check_output([go, "version"], env=env, text=True).strip()
     if compiler != "go version " + lock["toolchain_version"] + " linux/amd64":
         raise ValueError("Compiler identity differs")
-    run([go, "mod", "download", "all"], source, env, output / "download.log")
+    download_pinned_modules(go, source, env, output)
     run([go, "mod", "verify"], source, env, output / "verify.log")
     events: list[dict[str, Any]] = []
     for i, command in enumerate(test_commands(go)):
