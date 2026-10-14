@@ -11,15 +11,15 @@ export function PwaRegister() {
       return;
     }
 
-    let reloading = false;
     let registration: ServiceWorkerRegistration | null = null;
     const applyWaitingWorker = () => {
       registration?.waiting?.postMessage({ type: "SKIP_WAITING" });
     };
     const onControllerChange = () => {
-      if (reloading) return;
-      reloading = true;
-      window.location.reload();
+      // Initial clients.claim() can take control while a durable conversation
+      // is active. Signal an optional user-initiated refresh, never navigate
+      // automatically or interrupt an in-flight recovery/consumption flow.
+      window.dispatchEvent(new Event("aionex:pwa-update-available"));
     };
     const onOnline = () => {
       void registration?.update();
