@@ -70,7 +70,10 @@ export function ConversationsClient() {
           : "");
       setProjectId((old) => old || params.get("project") || p[0]?.id || "");
       setAgentId((old) => a.some((x) => x.id === old) ? old : a[0]?.id || "");
-      setError(""); setSyncFailures(0);
+      // Loading project/agent metadata does not prove durable conversation
+      // history recovered. Keep the transport warning until the selected
+      // conversation's own poll succeeds (or the selection is invalidated).
+      setError("");
     } catch (cause) { reportError(cause); }
     finally { setLoading(false); }
   }, [reportError]);
