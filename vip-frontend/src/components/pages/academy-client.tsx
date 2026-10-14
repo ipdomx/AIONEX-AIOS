@@ -227,7 +227,13 @@ export function AcademyClient() {
       const url = window.URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = filename || `course-${item.course_id}-v${item.version}.zip`;
+      const coursePrefix = item.course_id.startsWith("course-")
+        ? item.course_id
+        : `course-${item.course_id}`;
+      const courseFilename = `${coursePrefix}-v${item.version}.zip`;
+      anchor.download = filename && filename !== "aionex-project-delivery.zip"
+        ? filename
+        : courseFilename;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
