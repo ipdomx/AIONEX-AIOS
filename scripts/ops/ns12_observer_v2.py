@@ -277,7 +277,7 @@ def dns_preconnect_diagnostic(http: dict[str, Any]) -> dict[str, Any]:
         addresses: list[str] = []
         if query.get("exit_code") == 0 and not query.get("error_type"):
             for line in query.get("stdout", "").splitlines():
-                token = [REDACTED] if line.split() else ""
+                token = line.split()[0] if line.split() else ""
                 try:
                     parsed_ip = ipaddress.ip_address(token)
                 except ValueError:
