@@ -10,6 +10,91 @@ assert SPEC.loader is not None
 SPEC.loader.exec_module(observer)
 
 
+class CrossTargetDNSStallCorrelationTests(unittest.TestCase):
+    def test_correlates_timeout_with_two_slow_successful_siblings(self):
+        http = {
+            "vip_es": {
+                "status": "UNAVAILABLE",
+                "curl_phase": "DNS_OR_PRE_CONNECT_TIMEOUT",
+                "dns_seconds": 0.0,
+            },
+            "vip_ar": {
+                "status": "EXPECTED",
+                "curl_phase": "COMPLETE",
+                "dns_seconds": 2.956479,
+            },
+            "vip_fr": {
+                "status": "EXPECTED",
+                "curl_phase": "COMPLETE",
+                "dns_seconds": 2.196362,
+            },
+        }
+        result = observer.cross_target_dns_stall_correlation(http)
+        self.assertEqual(result["status"], "CORRELATED")
+        self.assertEqual(result["timed_out_endpoints"], ["vip_es"])
+        self.assertEqual(
+            [item["endpoint"] for item in result["slow_successful_endpoints"]],
+            ["vip_ar", "vip_fr"],
+        )
+        self.assertTrue(result["inference_only"])
+        self.assertFalse(result["cause_established"])
+        self.assertFalse(result["changes_primary_result"])
+
+    def test_fails_closed_for_timeout_with_one_slow_sibling(self):
+        http = {
+            "vip_es": {
+                "status": "UNAVAILABLE",
+                "curl_phase": "DNS_OR_PRE_CONNECT_TIMEOUT",
+            },
+            "vip_ar": {
+                "status": "EXPECTED",
+                "curl_phase": "COMPLETE",
+                "dns_seconds": 2.5,
+            },
+        }
+        result = observer.cross_target_dns_stall_correlation(http)
+        self.assertEqual(result["status"], "NOT_CORRELATED")
+        self.assertEqual(result["minimum_slow_successful_siblings"], 2)
+
+    def test_fails_closed_without_timeout(self):
+        http = {
+            "vip_ar": {
+                "status": "EXPECTED",
+                "curl_phase": "COMPLETE",
+                "dns_seconds": 2.5,
+            },
+            "vip_fr": {
+                "status": "EXPECTED",
+                "curl_phase": "COMPLETE",
+                "dns_seconds": 2.25,
+            },
+        }
+        result = observer.cross_target_dns_stall_correlation(http)
+        self.assertEqual(result["status"], "NOT_CORRELATED")
+        self.assertEqual(result["timed_out_endpoints"], [])
+
+    def test_ignores_malformed_or_non_successful_dns_timings(self):
+        http = {
+            "vip_es": {
+                "status": "UNAVAILABLE",
+                "curl_phase": "DNS_OR_PRE_CONNECT_TIMEOUT",
+            },
+            "vip_ar": {
+                "status": "EXPECTED",
+                "curl_phase": "COMPLETE",
+                "dns_seconds": "2.5",
+            },
+            "vip_fr": {
+                "status": "UNAVAILABLE",
+                "curl_phase": "DNS_FAILURE",
+                "dns_seconds": 3.0,
+            },
+        }
+        result = observer.cross_target_dns_stall_correlation(http)
+        self.assertEqual(result["status"], "NOT_CORRELATED")
+        self.assertEqual(result["slow_successful_endpoints"], [])
+
+
 class DNSPreconnectDiagnosticTests(unittest.TestCase):
     def test_not_triggered_preserves_primary_semantics(self):
         http = {"vip_en": {"status": "EXPECTED", "curl_phase": "COMPLETE"}}
@@ -87,6 +172,7 @@ class DNSPreconnectDiagnosticTests(unittest.TestCase):
         http = {name: {"status": "EXPECTED"} for name in observer.URLS}
         receipt = observer.make_receipt(http, host, "2026-10-14T00:00:00+00:00")
         self.assertEqual(receipt["schema"], "aionex.ns12.bounded_observer.v2")
+        self.assertEqual(receipt["cross_target_dns_stall_correlation"]["status"], "NOT_CORRELATED")
 
 
 if __name__ == "__main__":

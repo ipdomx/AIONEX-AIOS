@@ -23,6 +23,8 @@ from typing import Any
 EVIDENCE = Path(__file__).resolve().parent / "observations"
 OWNER_IMAGE = "sha256:2d3b78eb79fe64520849536dd34c61be121b12923b6603abffd858ee62d7fb9e"
 LOCAL_PROBE = ["/usr/bin/python3", "-B", "-"]
+DNS_SLOW_CORRELATION_SECONDS = 2.0
+DNS_SLOW_SIBLING_MINIMUM = 2
 URLS = {
     "api_health": ("https://api.vip-e.net/health", [200]),
     "api_ready": ("https://api.vip-e.net/ready", [200]),
@@ -187,6 +189,49 @@ def http_probe(url: str, expected: list[int]) -> dict[str, Any]:
     return decode_http(p, expected)
 
 
+def cross_target_dns_stall_correlation(http: dict[str, Any]) -> dict[str, Any]:
+    """Infer bounded cross-target DNS-path correlation from one primary sample.
+
+    This is diagnostic metadata only: it performs no retry or extra probe,
+    changes no primary HTTP result, and never establishes root cause.
+    """
+    timed_out = sorted(
+        name for name, check in http.items()
+        if name in URLS and check.get("curl_phase") == "DNS_OR_PRE_CONNECT_TIMEOUT"
+    )
+    slow_successes = []
+    for name, check in sorted(http.items()):
+        if name not in URLS or check.get("status") != "EXPECTED":
+            continue
+        dns_seconds = check.get("dns_seconds")
+        if (isinstance(dns_seconds, (int, float))
+                and not isinstance(dns_seconds, bool)
+                and math.isfinite(dns_seconds)
+                and dns_seconds >= DNS_SLOW_CORRELATION_SECONDS):
+            slow_successes.append({
+                "endpoint": name,
+                "dns_seconds": dns_seconds,
+            })
+
+    correlated = bool(timed_out) and len(slow_successes) >= DNS_SLOW_SIBLING_MINIMUM
+    return {
+        "status": "CORRELATED" if correlated else "NOT_CORRELATED",
+        "timed_out_endpoints": timed_out,
+        "slow_successful_endpoints": slow_successes,
+        "dns_slow_threshold_seconds": DNS_SLOW_CORRELATION_SECONDS,
+        "minimum_slow_successful_siblings": DNS_SLOW_SIBLING_MINIMUM,
+        "same_primary_sample_only": True,
+        "inference_only": True,
+        "cause_established": False,
+        "changes_primary_result": False,
+        "interpretation": (
+            "A correlation means the same primary sample contained a DNS/pre-connect timeout "
+            "and at least two other successful endpoints with slow DNS lookup. It does not "
+            "identify root cause or certify availability."
+        ),
+    }
+
+
 def dns_preconnect_diagnostic(http: dict[str, Any]) -> dict[str, Any]:
     """Capture bounded post-anomaly resolver and DNS-bypass evidence.
 
@@ -232,7 +277,7 @@ def dns_preconnect_diagnostic(http: dict[str, Any]) -> dict[str, Any]:
         addresses: list[str] = []
         if query.get("exit_code") == 0 and not query.get("error_type"):
             for line in query.get("stdout", "").splitlines():
-                token = line.split()[0] if line.split() else ""
+                token = [REDACTED] if line.split() else ""
                 try:
                     parsed_ip = ipaddress.ip_address(token)
                 except ValueError:
@@ -398,7 +443,9 @@ def make_receipt(http: dict[str, Any], host: dict[str, Any], started: str) -> di
             "recorded_at_utc": now_utc(), "target_host": "nc-ph-4354",
             "collector_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
             "status": "REVIEW_REQUIRED" if anomalies else "PARTIAL_SAMPLE_EXPECTED",
-            "http": http, "new_host": host, "anomalies": sorted(set(anomalies)),
+            "http": http,
+            "cross_target_dns_stall_correlation": cross_target_dns_stall_correlation(http),
+            "new_host": host, "anomalies": sorted(set(anomalies)),
             "owner_runtime_identity_matches_accepted_receipt": identity_ok and version_ok,
             "not_measured": ["authenticated_user_journeys", "postgres_and_redis_deep_metrics",
                              "all_queue_depths_and_ages", "current_backup_and_independent_restore",
