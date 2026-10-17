@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 import re
+import stat
 import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -105,7 +106,11 @@ class BlenderArtifact:
 
 
 class Blender52CandidateRunner:
-    """Execute a deterministic material/animation/environment scene offline."""
+    """Execute a scene offline into a new private destination for each run.
+
+    Existing destinations are never reused, including empty directories and
+    symlinks. This keeps prior artifacts outside a new run's acceptance path.
+    """
 
     def __init__(self, *, executable: str | Path, workspace_root: str | Path) -> None:
         self.executable = Path(executable).resolve()
@@ -128,22 +133,26 @@ class Blender52CandidateRunner:
         dest = Path(destination)
         if not dest.is_absolute():
             dest = root / dest
-        dest = dest.resolve()
+        # Resolve parents for the workspace boundary without following the
+        # final component: mkdir must reject even a dangling destination link.
+        dest = dest.parent.resolve() / dest.name
         if dest != root and root not in dest.parents:
             raise BlenderCandidateError("renderer destination escapes the bounded workspace")
-        dest.mkdir(parents=True, exist_ok=True)
+        try:
+            dest.mkdir(mode=0o700, parents=True, exist_ok=False)
+        except FileExistsError as exc:
+            raise BlenderCandidateError("renderer destination must be a new private directory") from exc
         self.preflight()
 
         script = dest / "build_scene.py"
         glb = dest / "scene.glb"
         preview = dest / "preview.png"
         manifest = dest / "renderer-manifest.json"
-        script.write_text(self._script(plan, glb, preview), encoding="utf-8")
-        script.chmod(0o600)
+        _write_private_text(script, self._script(plan, glb, preview))
 
         env = {key: os.environ[key] for key in ("LANG", "LC_ALL", "TZ") if key in os.environ}
         env.update({"HOME": str(dest / ".home"), "NO_COLOR": "1"})
-        Path(env["HOME"]).mkdir(mode=0o700, exist_ok=True)
+        Path(env["HOME"]).mkdir(mode=0o700, exist_ok=False)
         command = [
             str(self.executable),
             "--background",
@@ -164,25 +173,23 @@ class Blender52CandidateRunner:
         )
         if result.returncode != 0:
             raise BlenderCandidateError("Blender candidate execution failed")
-        for path in (glb, preview):
-            if not path.is_file() or path.stat().st_size < 64:
-                raise BlenderCandidateError("Blender candidate did not produce the required artifacts")
         version = str(self.preflight()["version"])
+        glb_sha256, glb_bytes = _artifact_metadata(glb)
+        preview_sha256, preview_bytes = _artifact_metadata(preview)
         artifact = BlenderArtifact(
             project_id=plan.project_id,
             blender_version=version,
             glb_path=glb.name,
             preview_path=preview.name,
-            glb_sha256=_sha256(glb),
-            preview_sha256=_sha256(preview),
-            glb_bytes=glb.stat().st_size,
-            preview_bytes=preview.stat().st_size,
+            glb_sha256=glb_sha256,
+            preview_sha256=preview_sha256,
+            glb_bytes=glb_bytes,
+            preview_bytes=preview_bytes,
         )
-        manifest.write_text(
+        _write_private_text(
+            manifest,
             json.dumps(artifact.snapshot(), sort_keys=True, separators=(",", ":")) + "\n",
-            encoding="utf-8",
         )
-        manifest.chmod(0o600)
         return artifact
 
     @staticmethod
@@ -191,9 +198,51 @@ class Blender52CandidateRunner:
         return f'''import bpy, json, math\nfrom pathlib import Path\nP=json.loads({payload!r})\nOUT=Path({str(glb)!r})\nPREVIEW=Path({str(preview)!r})\nbpy.ops.object.select_all(action="SELECT")\nbpy.ops.object.delete(use_global=False)\nfor datablocks in (bpy.data.materials, bpy.data.images, bpy.data.cameras, bpy.data.lights):\n    pass\n# Deterministic generated texture, embedded in the GLB.\nsize=int(P["material"]["texture_size"])\nimg=bpy.data.images.new("AIOSGeneratedTexture", width=size, height=size, alpha=True)\npixels=[]\nbase=P["material"]["base_color"]\nfor y in range(size):\n    for x in range(size):\n        f=1.0 if (x+y)%2==0 else 0.55\n        pixels.extend([base[0]*f, base[1]*f, base[2]*f, base[3]])\nimg.pixels=list(pixels)\nimg.pack()\nmat=bpy.data.materials.new(P["material"]["name"])\nmat.use_nodes=True\nbsdf=mat.node_tree.nodes.get("Principled BSDF")\nbsdf.inputs["Metallic"].default_value=float(P["material"]["metallic"])\nbsdf.inputs["Roughness"].default_value=float(P["material"]["roughness"])\ntex=mat.node_tree.nodes.new("ShaderNodeTexImage")\ntex.image=img\nmat.node_tree.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])\n# Hero mesh with PBR material and a real keyframed animation.\nbpy.ops.mesh.primitive_cube_add(location=(0,0,1))\nhero=bpy.context.object\nhero.name="AIOS_Hero"\nhero.data.materials.append(mat)\nstart=int(P["animation"]["frame_start"]); end=int(P["animation"]["frame_end"])\nhero.location.x=0.0; hero.keyframe_insert(data_path="location", frame=start)\nhero.location.x=float(P["animation"]["travel_x"]); hero.keyframe_insert(data_path="location", frame=end)\n# Environment floor with its own PBR material.\nbpy.ops.mesh.primitive_plane_add(size=float(P["environment"]["ground_size"]), location=(0,0,0))\nground=bpy.context.object; ground.name="AIOS_Environment_Ground"\ngmat=bpy.data.materials.new("AIOS_Environment_Material"); gmat.use_nodes=True\ngbsdf=gmat.node_tree.nodes.get("Principled BSDF")\ngbsdf.inputs["Base Color"].default_value=(0.035,0.055,0.08,1.0)\ngbsdf.inputs["Roughness"].default_value=0.72\nground.data.materials.append(gmat)\n# Key/fill lights and governed world background.\ndef light(name, location, energy, size):\n    data=bpy.data.lights.new(name=name, type="AREA"); data.energy=energy; data.shape="DISK"; data.size=size\n    obj=bpy.data.objects.new(name, data); bpy.context.collection.objects.link(obj); obj.location=location\n    obj.rotation_euler=(math.radians(22),0,math.radians(145)); return obj\nlight("AIOS_Key", (4,-4,6), float(P["environment"]["key_light_energy"]), 5.0)\nlight("AIOS_Fill", (-4,2,3), float(P["environment"]["key_light_energy"])*0.35, 4.0)\nworld=bpy.context.scene.world or bpy.data.worlds.new("World")\nbpy.context.scene.world=world; world.use_nodes=True\nbg=world.node_tree.nodes.get("Background"); bg.inputs["Color"].default_value=(0.015,0.025,0.05,1.0); bg.inputs["Strength"].default_value=float(P["environment"]["world_strength"])\n# Camera and deterministic preview.\nbpy.ops.object.camera_add(location=(7,-8,5), rotation=(math.radians(67),0,math.radians(40)))\ncam=bpy.context.object; bpy.context.scene.camera=cam\ndef point_at(obj, target):\n    obj.rotation_euler=(target-obj.location).to_track_quat('-Z','Y').to_euler()\nfrom mathutils import Vector\npoint_at(cam, Vector((1.0,0.0,1.0)))\nscene=bpy.context.scene\nscene.frame_start=start; scene.frame_end=end; scene.frame_set((start+end)//2)\nscene.render.engine="BLENDER_EEVEE"\nscene.render.resolution_x=512; scene.render.resolution_y=384; scene.render.resolution_percentage=100\nscene.render.image_settings.file_format="PNG"; scene.render.filepath=str(PREVIEW)\nscene.render.film_transparent=False\nbpy.ops.export_scene.gltf(filepath=str(OUT), export_format="GLB", export_animations=True, export_materials="EXPORT")\nbpy.ops.render.render(write_still=True)\nprint("AIOS_PHASE36I_SCENE_OK")\n'''
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+def _write_private_text(path: Path, text: str) -> None:
+    """Create a reserved file without overwriting or following a collision."""
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+    try:
+        with os.fdopen(os.open(path, flags, 0o600), "w", encoding="utf-8") as handle:
+            handle.write(text)
+    except OSError as exc:
+        raise BlenderCandidateError("renderer reserved file already exists or cannot be written") from exc
+
+
+def _artifact_metadata(path: Path) -> tuple[str, int]:
+    """Hash one fresh regular file without following a link or blocking on a FIFO.
+
+    The private destination establishes freshness. These checks establish file
+    identity and size only; they do not validate GLB/PNG content or a real scene.
+    """
+    flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(path, flags)
+        initial = os.fstat(descriptor)
+        if not stat.S_ISREG(initial.st_mode) or initial.st_nlink != 1 or initial.st_size < 64:
+            raise BlenderCandidateError("Blender candidate did not produce fresh regular artifacts")
+        digest = hashlib.sha256()
+        remaining = initial.st_size
+        while remaining:
+            chunk = os.read(descriptor, min(1024 * 1024, remaining))
+            if not chunk:
+                raise BlenderCandidateError("Blender candidate artifact changed during inspection")
             digest.update(chunk)
-    return digest.hexdigest()
+            remaining -= len(chunk)
+        if os.read(descriptor, 1):
+            raise BlenderCandidateError("Blender candidate artifact changed during inspection")
+        final = os.fstat(descriptor)
+        current = path.lstat()
+        identity_fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns", "st_nlink")
+        if not stat.S_ISREG(current.st_mode) or any(
+            getattr(initial, field) != getattr(final, field)
+            or getattr(final, field) != getattr(current, field)
+            for field in identity_fields
+        ):
+            raise BlenderCandidateError("Blender candidate artifact changed during inspection")
+        return digest.hexdigest(), final.st_size
+    except OSError as exc:
+        raise BlenderCandidateError("Blender candidate did not produce fresh regular artifacts") from exc
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)

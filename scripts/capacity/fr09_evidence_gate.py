@@ -236,6 +236,21 @@ def evaluate(mixed: Any, read_only: Any = None) -> dict[str, Any]:
     }
 
 
+def _reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Reject ambiguous evidence fields at every JSON object nesting depth."""
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON field")
+        result[key] = value
+    return result
+
+
+def _load(path: Path) -> Any:
+    with path.open("r", encoding="utf-8") as handle:
+        return json.load(handle, object_pairs_hook=_reject_duplicate_json_keys)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mixed", type=Path, help="full mixed workload JSON receipt")
@@ -244,8 +259,8 @@ def main() -> int:
     if args.mixed is None and args.read_only is None:
         parser.error("at least one evidence receipt is required")
     try:
-        mixed = json.loads(args.mixed.read_text()) if args.mixed else None
-        reads = json.loads(args.read_only.read_text()) if args.read_only else None
+        mixed = _load(args.mixed) if args.mixed else None
+        reads = _load(args.read_only) if args.read_only else None
         report = evaluate(mixed, reads)
     except (OSError, ValueError, UnicodeError) as exc:
         print(json.dumps({"status": "INVALID_EVIDENCE", "error_type": type(exc).__name__}, sort_keys=True))
