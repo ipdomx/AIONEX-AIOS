@@ -5,6 +5,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "capacity" / "fr09_evidence_gate.py"
 spec = importlib.util.spec_from_file_location("fr09_evidence_gate", SCRIPT)
@@ -325,4 +327,119 @@ def test_unbounded_error_count_cli_returns_structured_hold(tmp_path):
     assert proc.returncode == 2
     verdict = json.loads(proc.stdout)
     assert verdict["status"] == "HOLD_FULL_MIXED"
+    assert "Traceback" not in proc.stderr
+
+
+def _assert_invalid_receipt_cli(tmp_path, raw: str, option: str) -> None:
+    import json
+
+    receipt = tmp_path / "ambiguous.json"
+    receipt.write_text(raw, encoding="utf-8")
+    argv = [sys.executable, str(SCRIPT), option, str(receipt)]
+    if option == "--read-only":
+        valid_mixed = tmp_path / "mixed.json"
+        valid_mixed.write_text(json.dumps(mixed_pass()), encoding="utf-8")
+        argv.extend(["--mixed", str(valid_mixed)])
+    proc = subprocess.run(
+        argv, capture_output=True, text=True, check=False, timeout=20,
+    )
+    assert proc.returncode == 3
+    assert json.loads(proc.stdout) == {
+        "status": "INVALID_EVIDENCE", "error_type": "ValueError",
+    }
+    assert "Traceback" not in proc.stderr
+
+
+@pytest.mark.parametrize(
+    ("original", "ambiguous"),
+    [
+        ('"status": "PASS"', '"status": "FAIL", "status": "PASS"'),
+        ('"status": "PASS"', '"status": "PASS", "status": "PASS"'),
+        ('"status": "PASS"', r'"status": "FAIL", "\u0073tatus": "PASS"'),
+        (
+            '"tenant_leaks_zero": true',
+            '"tenant_leaks_zero": false, "tenant_leaks_zero": true',
+        ),
+        ('"external_calls": 0', '"external_calls": 1, "external_calls": 0'),
+        (
+            '"provider_spend_usd": 0.0',
+            '"provider_spend_usd": 0.01, "provider_spend_usd": 0.0',
+        ),
+        (
+            '"tenant_mismatch_jobs": 0',
+            '"tenant_mismatch_jobs": 1, "tenant_mismatch_jobs": 0',
+        ),
+        ('"error_count": 0', '"error_count": 21896, "error_count": 0'),
+        ('"users": 25}', '"users": 1, "users": 25}'),
+    ],
+    ids=[
+        "root-status", "identical-root", "escaped-root", "nested-evidence",
+        "nested-provider-calls", "nested-provider-spend", "nested-db",
+        "root-errors", "object-in-ramp-array",
+    ],
+)
+def test_cli_rejects_duplicate_fields_in_mixed_receipt(tmp_path, original, ambiguous):
+    import json
+
+    raw = json.dumps(mixed_pass())
+    assert raw.count(original) == 1
+    _assert_invalid_receipt_cli(
+        tmp_path, raw.replace(original, ambiguous, 1), "--mixed",
+    )
+
+
+@pytest.mark.parametrize(
+    ("original", "ambiguous"),
+    [
+        (
+            '"status": "PASS_5000_SHARDED_READ_15M_SLO"',
+            '"status": "FAIL", "status": "PASS_5000_SHARDED_READ_15M_SLO"',
+        ),
+        (
+            '"status": "PASS_5000_SHARDED_READ_15M_SLO"',
+            '"status": "PASS_5000_SHARDED_READ_15M_SLO", '
+            '"status": "PASS_5000_SHARDED_READ_15M_SLO"',
+        ),
+        (
+            '"status": "PASS_5000_SHARDED_READ_15M_SLO"',
+            r'"status": "FAIL", "\u0073tatus": "PASS_5000_SHARDED_READ_15M_SLO"',
+        ),
+        ('"errors": 0', '"errors": 1, "errors": 0'),
+        ('"requests": 150000', '"requests": 1, "requests": 150000'),
+    ],
+    ids=[
+        "root-status", "identical-root", "escaped-root",
+        "nested-result-errors", "nested-profile",
+    ],
+)
+def test_cli_rejects_ambiguous_read_only_even_with_valid_mixed(
+    tmp_path, original, ambiguous,
+):
+    import json
+
+    raw = json.dumps(read_pass())
+    assert raw.count(original) == 1
+    _assert_invalid_receipt_cli(
+        tmp_path, raw.replace(original, ambiguous, 1), "--read-only",
+    )
+
+
+@pytest.mark.parametrize("option", ["--mixed", "--read-only"])
+def test_cli_rejects_non_utf8_receipt_without_traceback(tmp_path, option):
+    import json
+
+    receipt = tmp_path / "non-utf8.json"
+    receipt.write_bytes(b'{"status": "\xff"}')
+    argv = [sys.executable, str(SCRIPT), option, str(receipt)]
+    if option == "--read-only":
+        valid_mixed = tmp_path / "mixed.json"
+        valid_mixed.write_text(json.dumps(mixed_pass()), encoding="utf-8")
+        argv.extend(["--mixed", str(valid_mixed)])
+    proc = subprocess.run(
+        argv, capture_output=True, text=True, check=False, timeout=20,
+    )
+    assert proc.returncode == 3
+    assert json.loads(proc.stdout) == {
+        "status": "INVALID_EVIDENCE", "error_type": "UnicodeDecodeError",
+    }
     assert "Traceback" not in proc.stderr
