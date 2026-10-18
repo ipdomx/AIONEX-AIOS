@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, asdict
 from hashlib import sha256
 import json
+from math import isfinite
 from typing import Mapping
 
 from .contracts import PerformanceProfile
@@ -63,6 +64,16 @@ class PerformanceSample:
     timing_measurement_authoritative: bool = True
 
     def validate(self) -> None:
+        for metric in (
+            "fps", "frame_time_ms", "draw_calls", "triangles",
+            "asset_bytes", "bundle_bytes", "gpu_memory_mb",
+        ):
+            value = getattr(self, metric)
+            if metric == "gpu_memory_mb" and value is None:
+                continue
+            # Python integers are finite even when they exceed the float range.
+            if not isinstance(value, int) and not isfinite(value):
+                raise ValueError(f"{metric} must be finite")
         if self.fps < 0 or self.frame_time_ms < 0:
             raise ValueError("fps and frame_time_ms must be non-negative")
         for value in (self.draw_calls, self.triangles, self.asset_bytes, self.bundle_bytes):
@@ -174,6 +185,7 @@ class PerformanceReceipt:
 
 class PerformanceReceiptBuilder:
     def build(self, sample: PerformanceSample, gate: PerformanceGateResult) -> PerformanceReceipt:
+        sample.validate()
         payload = json.dumps(
             {"sample": asdict(sample), "gate": asdict(gate)},
             sort_keys=True,
