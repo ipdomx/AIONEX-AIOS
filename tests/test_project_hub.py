@@ -2,9 +2,12 @@
 from __future__ import annotations
 
 import copy
+import fcntl
 import importlib.util
 import json
+import multiprocessing
 from pathlib import Path
+import time
 
 import pytest
 
@@ -12,6 +15,19 @@ ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("project_hub", ROOT / "scripts/project_hub.py")
 hub = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(hub)
+
+
+def hold_partial_journal(root, payload, ready):
+    directory = Path(root) / "docs/project/runtime"
+    directory.mkdir(parents=True, exist_ok=True)
+    with (directory / ".journal.lock").open("a+") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        path = directory / "events.jsonl"
+        midpoint = len(payload) // 2
+        path.write_text(payload[:midpoint], encoding="utf-8")
+        ready.set()
+        time.sleep(0.3)
+        path.write_text(payload, encoding="utf-8")
 
 
 @pytest.fixture
@@ -107,6 +123,28 @@ def test_conflicting_replay_is_rejected(plan, tmp_path):
     event["summary_ar"] = "different"
     with pytest.raises(ValueError, match="conflicting"):
         hub.record(tmp_path, event)
+
+
+def test_validate_waits_for_inflight_journal_write(plan, tmp_path):
+    directory = tmp_path / "docs/project"
+    directory.mkdir(parents=True)
+    (directory / "PLAN.json").write_text(json.dumps(plan))
+    event = {
+        "event_id": "test-partial-read",
+        "batch_id": "FR-00",
+        "status": "in_progress",
+        "summary_ar": "إيصال اختبار فقط",
+    }
+    payload = json.dumps(event) + "\n"
+    context = multiprocessing.get_context("fork")
+    ready = context.Event()
+    process = context.Process(target=hold_partial_journal, args=(tmp_path, payload, ready))
+    process.start()
+    assert ready.wait(timeout=2)
+    state = hub.validate_runtime(tmp_path, plan)
+    process.join(timeout=2)
+    assert process.exitcode == 0
+    assert state["last_event_id"] == "test-partial-read"
 
 
 def test_all_remaining_batches_have_short_parts_and_preserve_scope(plan):

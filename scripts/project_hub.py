@@ -60,6 +60,15 @@ def read_events(root: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
+def validate_runtime(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
+    """Read and validate the runtime journal under the writer's lock."""
+    directory = root / "docs/project/runtime"
+    directory.mkdir(parents=True, exist_ok=True)
+    with (directory / ".journal.lock").open("a+") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_SH)
+        return current_state(plan, read_events(root))
+
+
 def apply_event(plan: dict[str, Any], states: dict[str, dict[str, Any]], event: dict[str, Any]) -> None:
     batch = next((b for b in plan["batches"] if b["id"] == event.get("batch_id")), None)
     if batch is None or event.get("status") not in STATUSES:
@@ -198,7 +207,7 @@ def main() -> None:
     plan = load_plan(args.root)
     validate_plan(plan)
     if args.command == "validate":
-        current_state(plan, read_events(args.root))
+        validate_runtime(args.root, plan)
         print("PROJECT_HUB_VALIDATION_PASS")
         return
     if args.command == "record":
