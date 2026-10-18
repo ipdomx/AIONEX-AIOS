@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import asdict, dataclass
 import json
+import math
 import shutil
 from pathlib import Path
 from typing import Any
@@ -27,6 +28,35 @@ HISTORICAL_RECEIPTS = (
 
 class CapacityProfileError(ValueError):
     """Raised when the canonical expanded-capacity contract is incomplete."""
+
+
+_INTEGER_FIELDS = (
+    "authenticated_active_users",
+    "projects_per_user_min",
+    "conversations_per_user_min",
+    "durable_jobs_min",
+    "steady_state_minutes_min",
+    "tenant_leaks_max",
+    "lost_jobs_max",
+    "duplicate_terminal_executions_max",
+)
+_METRIC_FIELDS = (
+    "ordinary_read_p95_ms_max",
+    "durable_enqueue_p95_ms_max",
+    "unexpected_error_rate_max",
+)
+
+
+def _nonnegative_finite_number(value: Any, label: str) -> float:
+    if type(value) not in (int, float):
+        raise CapacityProfileError(f"{label} must be a number")
+    try:
+        number = float(value)
+    except OverflowError as exc:
+        raise CapacityProfileError(f"{label} must be finite") from exc
+    if not math.isfinite(number) or number < 0:
+        raise CapacityProfileError(f"{label} must be finite and non-negative")
+    return number
 
 
 @dataclass(frozen=True)
@@ -46,29 +76,34 @@ class CapacityProfile:
 
     @classmethod
     def from_plan(cls, plan: dict[str, Any]) -> "CapacityProfile":
+        if not isinstance(plan, dict):
+            raise CapacityProfileError("plan root must be an object")
         raw = plan.get("capacity_acceptance")
         if not isinstance(raw, dict):
             raise CapacityProfileError("capacity_acceptance object is required")
-        profile = cls(
-            authenticated_active_users=int(raw["authenticated_active_users"]),
-            projects_per_user_min=int(raw["projects_per_user_min"]),
-            conversations_per_user_min=int(raw["conversations_per_user_min"]),
-            durable_jobs_min=int(raw["durable_jobs_min"]),
-            steady_state_minutes_min=int(raw["steady_state_minutes_min"]),
-            ordinary_read_p95_ms_max=float(raw["ordinary_read_p95_ms_max"]),
-            durable_enqueue_p95_ms_max=float(raw["durable_enqueue_p95_ms_max"]),
-            unexpected_error_rate_max=float(raw["unexpected_error_rate_max"]),
-            tenant_leaks_max=int(raw["tenant_leaks_max"]),
-            lost_jobs_max=int(raw["lost_jobs_max"]),
-            duplicate_terminal_executions_max=int(
-                raw["duplicate_terminal_executions_max"]
-            ),
-            required_evidence=tuple(raw.get("required_evidence", ())),
-        )
+        evidence = raw.get("required_evidence", ())
+        if not isinstance(evidence, (list, tuple)):
+            raise CapacityProfileError("required evidence inventory must be a list")
+        try:
+            profile = cls(
+                **{name: raw[name] for name in _INTEGER_FIELDS},
+                **{
+                    name: _nonnegative_finite_number(raw[name], name)
+                    for name in _METRIC_FIELDS
+                },
+                required_evidence=tuple(evidence),
+            )
+        except KeyError as exc:
+            raise CapacityProfileError("required capacity profile field is missing") from exc
         profile.validate()
         return profile
 
     def validate(self) -> None:
+        for name in _INTEGER_FIELDS:
+            if type(getattr(self, name)) is not int:
+                raise CapacityProfileError(f"{name} must be an integer")
+        for name in _METRIC_FIELDS:
+            _nonnegative_finite_number(getattr(self, name), name)
         if self.authenticated_active_users < 5000:
             raise CapacityProfileError("full 5000-user acceptance requires at least 5000 users")
         if self.projects_per_user_min < 3:
@@ -96,8 +131,13 @@ class CapacityProfile:
             )
         ):
             raise CapacityProfileError("isolation/loss/duplicate ceilings must remain zero")
-        if not self.required_evidence:
-            raise CapacityProfileError("required evidence inventory must not be empty")
+        if not isinstance(self.required_evidence, (list, tuple)):
+            raise CapacityProfileError("required evidence inventory must be a list")
+        if not self.required_evidence or any(
+            not isinstance(item, str) or not item.strip()
+            for item in self.required_evidence
+        ):
+            raise CapacityProfileError("required evidence inventory must contain non-empty strings")
 
     @property
     def total_projects(self) -> int:
@@ -216,8 +256,25 @@ def build_preflight(
     }
 
 
+def _reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise CapacityProfileError("duplicate JSON field")
+        result[key] = value
+    return result
+
+
+def _reject_nonfinite_json_number(value: str) -> Any:
+    raise CapacityProfileError("non-finite JSON number")
+
+
 def load_plan(path: Path) -> dict[str, Any]:
-    value = json.loads(path.read_text())
+    value = json.loads(
+        path.read_text(encoding="utf-8"),
+        object_pairs_hook=_reject_duplicate_json_keys,
+        parse_constant=_reject_nonfinite_json_number,
+    )
     if not isinstance(value, dict):
         raise CapacityProfileError("plan root must be an object")
     return value
@@ -232,7 +289,21 @@ def main() -> int:
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
 
-    profile = CapacityProfile.from_plan(load_plan(args.plan))
+    try:
+        profile = CapacityProfile.from_plan(load_plan(args.plan))
+    except (OSError, UnicodeError, json.JSONDecodeError, CapacityProfileError) as exc:
+        print(json.dumps({
+            "status": "INVALID_PROFILE",
+            "error_type": type(exc).__name__,
+            "execution": {
+                "load_test_authorized": False,
+                "heavy_work_permitted": False,
+                "load_test_started": False,
+                "production_targeted": False,
+                "provider_calls": False,
+            },
+        }, sort_keys=True))
+        return 2
     try:
         measured_storage = measure_runtime_free_space()
     except (OSError, ValueError):
@@ -245,11 +316,13 @@ def main() -> int:
         heavy_min_free_bytes=args.heavy_min_free_bytes,
         measured_storage=measured_storage,
     )
-    raw = json.dumps(result, indent=2, ensure_ascii=False, sort_keys=True) + "\n"
+    raw = json.dumps(
+        result, indent=2, ensure_ascii=args.output is None, sort_keys=True, allow_nan=False
+    ) + "\n"
     if args.output is None:
         print(raw, end="")
     else:
-        args.output.write_text(raw)
+        args.output.write_text(raw, encoding="utf-8")
     # A HOLD must never appear successful to a CI/operator shell caller.
     return 0 if result["execution"]["heavy_work_permitted"] else 2
 
