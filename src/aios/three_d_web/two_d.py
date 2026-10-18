@@ -131,7 +131,7 @@ class TwoDProjectBuilder:
         js = '''"use strict";
 const canvas=document.getElementById("stage"),ctx=canvas.getContext("2d");
 let frame=0,x=40; window.__AIOS_EVIDENCE__={kind:"2d-animation",ready:false,frames:0,x};
-function draw(){ctx.clearRect(0,0,640,360);ctx.fillStyle="#20242a";ctx.fillRect(0,0,640,360);ctx.fillStyle="#f5f5f5";ctx.fillRect(x,150,48,48);frame++;x=40+(frame%180)*3;window.__AIOS_EVIDENCE__={kind:"2d-animation",ready:true,frames:frame,x};if(frame<240)requestAnimationFrame(draw)}
+function draw(){ctx.clearRect(0,0,640,360);ctx.fillStyle="#20242a";ctx.fillRect(0,0,640,360);ctx.fillStyle="#f5f5f5";ctx.fillRect(x,150,48,48);frame++;x=40+(frame%180)*3;window.__AIOS_EVIDENCE__={kind:"2d-animation",ready:true,frames:frame,x};requestAnimationFrame(draw)}
 requestAnimationFrame(draw);\n'''
         return {"index.html": (html, "text/html"), "animation.js": (js, "text/javascript")}
 
@@ -142,7 +142,7 @@ requestAnimationFrame(draw);\n'''
 const canvas=document.getElementById("game"),ctx=canvas.getContext("2d");let x=80,y=280,score=0,frames=0;
 window.__AIOS_EVIDENCE__={kind:"2d-game",ready:false,frames,x,y,score};
 addEventListener("keydown",e=>{if(e.key==="ArrowRight")x=Math.min(600,x+12);if(e.key==="ArrowLeft")x=Math.max(0,x-12);if(e.key===" "){score++;e.preventDefault()}});
-function loop(){ctx.clearRect(0,0,640,360);ctx.fillStyle="#18222d";ctx.fillRect(0,0,640,360);ctx.fillStyle="#58d68d";ctx.fillRect(x,y,32,32);ctx.fillStyle="#fff";ctx.fillText(`score:${score}`,16,24);frames++;window.__AIOS_EVIDENCE__={kind:"2d-game",ready:true,frames,x,y,score};if(frames<300)requestAnimationFrame(loop)}
+function loop(){ctx.clearRect(0,0,640,360);ctx.fillStyle="#18222d";ctx.fillRect(0,0,640,360);ctx.fillStyle="#58d68d";ctx.fillRect(x,y,32,32);ctx.fillStyle="#fff";ctx.fillText(`score:${score}`,16,24);frames++;window.__AIOS_EVIDENCE__={kind:"2d-game",ready:true,frames,x,y,score};requestAnimationFrame(loop)}
 canvas.focus();requestAnimationFrame(loop);\n'''
         manifest = json.dumps({"schema": 1, "controls": ["ArrowLeft", "ArrowRight", "Space"], "offline": True}, sort_keys=True) + "\n"
         return {"index.html": (html, "text/html"), "game.js": (js, "text/javascript"), "game-manifest.json": (manifest, "application/json")}
