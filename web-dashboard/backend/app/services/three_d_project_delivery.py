@@ -20,6 +20,8 @@ import os
 from pathlib import Path, PurePosixPath
 import shutil
 import socket
+import stat
+import struct
 import subprocess
 import unicodedata
 import threading
@@ -77,6 +79,129 @@ def _safe_component(value: str, fallback: str) -> str:
     return (normalized[:80] or fallback).strip("-")
 
 
+
+_MAX_LOD_VARIANT_BYTES = 24 * 1024 * 1024
+
+
+def _read_lod_payload(record: Mapping[str, Any]) -> bytes:
+    """Recheck a bounded, regular variant through symlink-free directory handles."""
+    descriptor = -1
+    try:
+        directory = os.open(
+            record["staging_root"], os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        )
+        try:
+            parts = PurePosixPath(record["relative_path"]).parts
+            for part in parts[:-1]:
+                next_directory = os.open(
+                    part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                    dir_fd=directory,
+                )
+                os.close(directory)
+                directory = next_directory
+            descriptor = os.open(
+                parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                dir_fd=directory,
+            )
+        finally:
+            os.close(directory)
+        with os.fdopen(descriptor, "rb") as stream:
+            descriptor = -1
+            before = os.fstat(stream.fileno())
+            if (
+                not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
+                or before.st_size != record["size_bytes"]
+            ):
+                raise ThreeDProjectDeliveryError("3D LOD variant file or size is invalid")
+            payload = stream.read(record["size_bytes"] + 1)
+            after = os.fstat(stream.fileno())
+        def identity(item: os.stat_result) -> tuple[int, int, int, int, int]:
+            return item.st_dev, item.st_ino, item.st_size, item.st_mtime_ns, item.st_ctime_ns
+        if (
+            identity(before) != identity(after)
+            or len(payload) != record["size_bytes"]
+            or sha256(payload).hexdigest() != record["sha256"]
+        ):
+            raise ThreeDProjectDeliveryError("3D LOD variant failed integrity verification")
+    except (OSError, ValueError) as exc:
+        raise ThreeDProjectDeliveryError("3D LOD variant is unavailable or unsafe") from exc
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+    try:
+        magic, version, length, json_length, chunk_type = struct.unpack_from("<4sIIII", payload)
+        if (
+            magic != b"glTF" or version != 2 or length != len(payload)
+            or chunk_type != 0x4E4F534A or json_length % 4
+            or 20 + json_length > len(payload)
+        ):
+            raise ValueError("invalid GLB header")
+        document = json.loads(payload[20:20 + json_length].decode("utf-8"))
+        if not isinstance(document, dict):
+            raise ValueError("GLB document must be an object")
+        for key in ("buffers", "images"):
+            entries = document.get(key, [])
+            if not isinstance(entries, list):
+                raise ValueError("invalid GLB resource collection")
+            for item in entries:
+                if not isinstance(item, dict):
+                    raise ValueError("invalid GLB resource")
+                uri = item.get("uri")
+                if uri is not None and (not isinstance(uri, str) or not uri.startswith("data:")):
+                    raise ValueError("LOD variants must embed their resources")
+    except (ValueError, UnicodeError, struct.error) as exc:
+        raise ThreeDProjectDeliveryError("3D LOD variant is not a self-contained GLB") from exc
+    return payload
+
+
+def _load_lod_variants(raw: Mapping[str, Any], root: Path) -> list[dict[str, Any]]:
+    variants = raw.get("lod_variants", [])
+    if not isinstance(variants, list) or len(variants) > 2:
+        raise ThreeDProjectDeliveryError("3D LOD variants must be a bounded list")
+    records: list[dict[str, Any]] = []
+    seen_profiles: set[str] = set()
+    seen_paths: set[str] = set()
+    for variant in variants:
+        if not isinstance(variant, dict):
+            raise ThreeDProjectDeliveryError("3D LOD variant entry is invalid")
+        try:
+            profile = PerformanceProfile(variant.get("profile"))
+        except (ValueError, TypeError) as exc:
+            raise ThreeDProjectDeliveryError("3D LOD variant profile is invalid") from exc
+        if profile not in {PerformanceProfile.MOBILE, PerformanceProfile.LOW_POWER}:
+            raise ThreeDProjectDeliveryError("3D staged LOD variants must target mobile or low_power")
+        raw_path = variant.get("path")
+        if not isinstance(raw_path, str) or "\\" in raw_path:
+            raise ThreeDProjectDeliveryError("3D LOD variant path is unsafe")
+        relative = PurePosixPath(raw_path)
+        if (
+            relative.is_absolute() or ".." in relative.parts
+            or relative.suffix.lower() != ".glb" or str(relative) != raw_path
+        ):
+            raise ThreeDProjectDeliveryError("3D LOD variant path is unsafe")
+        digest = variant.get("sha256")
+        if (
+            not isinstance(digest, str) or len(digest) != 64
+            or any(char not in "0123456789abcdefABCDEF" for char in digest)
+        ):
+            raise ThreeDProjectDeliveryError("3D LOD variant checksum is invalid")
+        size = variant.get("size_bytes")
+        if type(size) is not int or not 0 < size <= _MAX_LOD_VARIANT_BYTES:
+            raise ThreeDProjectDeliveryError("3D LOD variant size is invalid")
+        if profile.value in seen_profiles or raw_path in seen_paths:
+            raise ThreeDProjectDeliveryError("3D LOD variant profiles and paths must be unique")
+        seen_profiles.add(profile.value)
+        seen_paths.add(raw_path)
+        record = {
+            "profile": profile.value, "staging_root": root,
+            "relative_path": raw_path, "sha256": digest.lower(), "size_bytes": size,
+        }
+        _read_lod_payload(record)
+        records.append(record)
+    if seen_profiles and seen_profiles != {"mobile", "low_power"}:
+        raise ThreeDProjectDeliveryError("3D staged LOD groups require mobile and low_power variants")
+    return sorted(records, key=lambda record: record["profile"])
+
 def _load_staged_assets(manifest_path: str | Path | None) -> list[dict[str, Any]]:
     if not manifest_path:
         return []
@@ -122,6 +247,7 @@ def _load_staged_assets(manifest_path: str | Path | None) -> list[dict[str, Any]
                 "sha256": raw_digest,
                 "size_bytes": declared_size,
                 "metadata": raw.get("metadata") if isinstance(raw.get("metadata"), dict) else {},
+                "lod_variants": _load_lod_variants(raw, root),
             }
         )
     return assets
@@ -450,11 +576,25 @@ class _StaticServer:
         self.thread.join(timeout=5)
 
 
+
+def _profile_model_resources_match(
+    resource_names: Sequence[str], expected_paths: Sequence[str], origin: str,
+) -> bool:
+    """Browser evidence must contain exactly the selected model URLs."""
+    expected = {origin.rstrip("/") + "/" + path.lstrip("/") for path in expected_paths}
+    observed = {
+        str(value).split("?", 1)[0].split("#", 1)[0]
+        for value in resource_names
+        if urlsplit(str(value)).path.lower().endswith((".glb", ".gltf"))
+    }
+    return observed == expected
+
 def _browser_qa(
     dist_root: Path,
     evidence_root: Path,
     *,
     asset_bytes_by_profile: Mapping[PerformanceProfile, int],
+    asset_paths_by_profile: Mapping[PerformanceProfile, Sequence[str]],
     bundle_bytes: int,
 ) -> tuple[tuple[BrowserRunReceipt, ...], tuple[PerformanceSample, ...]]:
     try:
@@ -583,8 +723,13 @@ def _browser_qa(
                         1 for value in resource_names
                         if str(value).split("?", 1)[0].lower().endswith((".glb", ".gltf"))
                     )
+                    profile_streaming_ok = _profile_model_resources_match(
+                        resource_names,
+                        asset_paths_by_profile[profile],
+                        f"http://127.0.0.1:{server.port}",
+                    )
                     low_power_streaming_ok = (
-                        profile != PerformanceProfile.LOW_POWER or loaded_glb_count == 0
+                        profile != PerformanceProfile.LOW_POWER or profile_streaming_ok
                     )
                     logs = driver.get_log("browser")
                     console: list[ConsoleRecord] = []
@@ -647,6 +792,14 @@ def _browser_qa(
                             "camera-follow-focus",
                             camera_ok,
                             ("camera-finite" if camera_ok else "camera-invalid",),
+                        ),
+                        ScenarioResult(
+                            "profile-asset-streaming",
+                            profile_streaming_ok,
+                            (
+                                f"expected-3d-resources:{len(asset_paths_by_profile[profile])}",
+                                f"loaded-3d-resources:{loaded_glb_count}",
+                            ),
                         ),
                         ScenarioResult(
                             "low-power-asset-streaming",
@@ -713,6 +866,66 @@ def _browser_qa(
     return tuple(receipts), tuple(performance)
 
 
+
+def _copy_staged_assets(
+    records: Sequence[dict[str, Any]], blueprint: Project3DBlueprint, delivery_root: Path,
+) -> list[dict[str, Any]]:
+    """Copy the verified registry payloads before any build or browser execution."""
+    assets_root = delivery_root / "public" / "assets"
+    assets_root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    copied_assets: list[dict[str, Any]] = []
+    registry = {asset.asset_id: asset for asset in blueprint.assets}
+    for index, record in enumerate(records):
+        base_asset = registry[f"asset-{index+1:02d}"]
+        destination = assets_root / f"asset-{index+1:02d}.glb"
+        shutil.copyfile(Path(record["source"]), destination)
+        os.chmod(destination, 0o600)
+        digest = _digest_file(destination)
+        if digest != record["sha256"]:
+            raise ThreeDProjectDeliveryError("3D delivery copy failed integrity verification")
+        metadata = AssetInspector().inspect(base_asset, delivery_root)
+        copied_variants: list[dict[str, Any]] = []
+        for variant in record.get("lod_variants", ()):
+            profile = PerformanceProfile(variant["profile"])
+            selected = registry[f"asset-{index+1:02d}-{profile.value}"]
+            variant_destination = delivery_root / selected.path
+            payload = _read_lod_payload(variant)
+            with variant_destination.open("xb") as output:
+                os.chmod(variant_destination, 0o600)
+                output.write(payload)
+            variant_metadata = AssetInspector().inspect(selected, delivery_root)
+            if variant_metadata.checksum_sha256 != variant["sha256"]:
+                raise ThreeDProjectDeliveryError("3D LOD delivery copy failed integrity verification")
+            copied_variants.append({
+                "profile": profile.value,
+                "path": selected.path,
+                "sha256": variant_metadata.checksum_sha256,
+                "size_bytes": variant_metadata.bytes,
+                "meshes": variant_metadata.meshes,
+                "materials": variant_metadata.materials,
+                "textures": variant_metadata.textures,
+                "triangles": variant_metadata.triangles,
+                "compression": sorted(item.value for item in variant_metadata.compression),
+            })
+        copied_assets.append(
+            {
+                "artifact_id": record["artifact_id"],
+                "job_id": record["job_id"],
+                "provider": record["provider"],
+                "path": base_asset.path,
+                "sha256": digest,
+                "size_bytes": destination.stat().st_size,
+                "meshes": metadata.meshes,
+                "materials": metadata.materials,
+                "textures": metadata.textures,
+                "triangles": metadata.triangles,
+                "compression": sorted(item.value for item in metadata.compression),
+                "lod_variants": copied_variants,
+            }
+        )
+    return copied_assets
+
+
 class ThreeDWebDeliveryBuilder:
     """Build a complete locally validated 3D web delivery for a user project."""
 
@@ -740,8 +953,18 @@ class ThreeDWebDeliveryBuilder:
                     lazy=True,
                     lod_group=f"zone-{index+1:02d}",
                     checksum=str(record["sha256"]),
+                    lod_profile=PerformanceProfile.DESKTOP if record.get("lod_variants") else None,
                 )
             )
+            for variant in record.get("lod_variants", ()):
+                scene_assets.append(SceneAsset(
+                    asset_id=f"{asset_id}-{variant['profile']}",
+                    kind=AssetKind.GLB,
+                    path=f"public/assets/{asset_id}-{variant['profile']}.glb",
+                    required=True, lazy=True, lod_group=f"zone-{index+1:02d}",
+                    checksum=variant["sha256"],
+                    lod_profile=PerformanceProfile(variant["profile"]),
+                ))
         zone_titles = (
             "Hero Experience",
             "Innovation Lab",
@@ -752,11 +975,11 @@ class ThreeDWebDeliveryBuilder:
             "Contact Portal",
             "Future Lab",
         )
-        zone_count = max(4, min(max(1, len(scene_assets)), len(zone_titles)))
+        zone_count = max(4, min(max(1, len(asset_records)), len(zone_titles)))
         orbit = max(14.0, min(34.0, 8.0 + zone_count * 2.8))
         for index in range(zone_count):
             angle = (2.0 * math.pi * index / zone_count) - (math.pi / 2.0)
-            asset_ids = (scene_assets[index].asset_id,) if index < len(scene_assets) else ()
+            asset_ids = (f"asset-{index+1:02d}",) if index < len(asset_records) else ()
             zones.append(
                 SceneZone(
                     zone_id=f"zone-{index+1:02d}",
@@ -895,32 +1118,7 @@ class ThreeDWebDeliveryBuilder:
         scaffold = ThreeDRuntimeScaffoldBuilder().build(blueprint)
         ThreeDRuntimeScaffoldBuilder().materialize(scaffold, delivery_root)
 
-        assets_root = delivery_root / "public" / "assets"
-        assets_root.mkdir(parents=True, exist_ok=True, mode=0o700)
-        copied_assets: list[dict[str, Any]] = []
-        for index, record in enumerate(records):
-            destination = assets_root / f"asset-{index+1:02d}.glb"
-            shutil.copyfile(Path(record["source"]), destination)
-            os.chmod(destination, 0o600)
-            digest = _digest_file(destination)
-            if digest != record["sha256"]:
-                raise ThreeDProjectDeliveryError("3D delivery copy failed integrity verification")
-            metadata = AssetInspector().inspect(blueprint.assets[index], delivery_root)
-            copied_assets.append(
-                {
-                    "artifact_id": record["artifact_id"],
-                    "job_id": record["job_id"],
-                    "provider": record["provider"],
-                    "path": str(blueprint.assets[index].path),
-                    "sha256": digest,
-                    "size_bytes": destination.stat().st_size,
-                    "meshes": metadata.meshes,
-                    "materials": metadata.materials,
-                    "textures": metadata.textures,
-                    "triangles": metadata.triangles,
-                    "compression": sorted(item.value for item in metadata.compression),
-                }
-            )
+        copied_assets = _copy_staged_assets(records, blueprint, delivery_root)
 
         npm_cache = os.environ.get("PROJECT_EXECUTION_NPM_CACHE", "/var/lib/aionex/project-npm-cache")
         Path(npm_cache).mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -949,24 +1147,42 @@ class ThreeDWebDeliveryBuilder:
             path for path in bundle_files if path.suffix.lower() not in model_payload_suffixes
         ]
         bundle_bytes = sum(path.stat().st_size for path in runtime_bundle_files)
-        asset_bytes = sum(int(item["size_bytes"]) for item in copied_assets)
-        lazy_asset_ids = {asset.asset_id for asset in blueprint.assets if asset.lazy}
-        non_lazy_asset_bytes = sum(
-            int(item["size_bytes"])
-            for asset, item in zip(blueprint.assets, copied_assets, strict=True)
-            if asset.asset_id not in lazy_asset_ids
-        )
-        asset_bytes_by_profile = {
-            PerformanceProfile.DESKTOP: asset_bytes,
-            PerformanceProfile.MOBILE: asset_bytes,
-            PerformanceProfile.LOW_POWER: non_lazy_asset_bytes,
+        payload_sizes = {
+            item["path"]: int(item["size_bytes"])
+            for asset in copied_assets
+            for item in (asset, *asset["lod_variants"])
         }
+        asset_bytes = sum(payload_sizes.values())
+        assets_by_profile = {
+            profile: tuple(
+                asset for asset in blueprint.assets
+                if asset.lod_profile == profile
+                or (
+                    asset.lod_profile is None
+                    and not (profile == PerformanceProfile.LOW_POWER and asset.lazy)
+                )
+            )
+            for profile in PerformanceProfile
+        }
+        asset_bytes_by_profile = {
+            profile: sum(payload_sizes[asset.path] for asset in assets)
+            for profile, assets in assets_by_profile.items()
+        }
+        asset_paths_by_profile = {
+            profile: tuple("/" + asset.path.removeprefix("public/") for asset in assets)
+            for profile, assets in assets_by_profile.items()
+        }
+        low_power_proxy_asset_ids = [
+            asset.asset_id for asset in blueprint.assets
+            if asset.lod_profile is None and asset.lazy
+        ]
 
         qa_root = delivery_root / "qa"
         browser_runs, performance_samples = _browser_qa(
             dist,
             qa_root,
             asset_bytes_by_profile=asset_bytes_by_profile,
+            asset_paths_by_profile=asset_paths_by_profile,
             bundle_bytes=bundle_bytes,
         )
         build_manifest = {
@@ -985,9 +1201,14 @@ class ThreeDWebDeliveryBuilder:
             ],
             "browser_profiles": [sample.profile.value for sample in performance_samples],
             "profile_asset_bytes": {profile.value: value for profile, value in asset_bytes_by_profile.items()},
+            "profile_asset_paths": {profile.value: list(paths) for profile, paths in asset_paths_by_profile.items()},
             "runtime_bundle_bytes_excluding_3d_models": bundle_bytes,
             "model_payload_bytes": asset_bytes,
-            "low_power_lazy_assets_use_procedural_proxies": True,
+            "low_power_lazy_assets_use_procedural_proxies": bool(low_power_proxy_asset_ids),
+            "low_power_proxy_asset_ids": low_power_proxy_asset_ids,
+            "lod_variant_count": sum(len(item["lod_variants"]) for item in copied_assets),
+            "lod_variants_source": "verified_staging_manifest",
+            "lod_optimization_executed_by_delivery": False,
             "autonomous_asset_generation_status": autogen_status,
             "autonomous_asset_generation_degraded": autogen_status not in {"not_needed", "completed"},
             "gpu_memory_values_are_conservative_estimates": True,
@@ -1036,6 +1257,8 @@ class ThreeDWebDeliveryBuilder:
             "procedural_fallback_used": not copied_assets,
             "bundle_bytes": bundle_bytes,
             "asset_bytes": asset_bytes,
+            "profile_asset_bytes": {profile.value: value for profile, value in asset_bytes_by_profile.items()},
+            "lod_variant_count": sum(len(item["lod_variants"]) for item in copied_assets),
             "browser_qa_passed": lifecycle.visual_qa.passed,
             "performance_passed": bool(lifecycle.performance_results)
             and all(item.passed for item in lifecycle.performance_results),
