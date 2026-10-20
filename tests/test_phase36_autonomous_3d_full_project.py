@@ -61,7 +61,11 @@ def test_runtime_scaffold_is_locked_self_contained_and_instrumented() -> None:
     assert "src/scene/RuntimeProbe.tsx" in files
     assert "src/runtime/profile.ts" in files
     assert "aionex_profile" in files["src/runtime/profile.ts"]
-    assert 'profile==="low_power"&&asset.lazy' in files["src/scene/AssetModel.tsx"]
+    assert "src/runtime/assets.ts" in files
+    assert 'import { usesLowPowerProxy } from "../runtime/assets"' in files["src/scene/AssetModel.tsx"]
+    assert "usesLowPowerProxy(asset,profile)" in files["src/scene/AssetModel.tsx"]
+    assert 'import { selectZoneAssets } from "../runtime/assets"' in files["src/scene/Zone.tsx"]
+    assert "selectZoneAssets(blueprint.assets,zone.assetIds,profile)" in files["src/scene/Zone.tsx"]
     assert "zone.mobileScale" in files["src/scene/Zone.tsx"]
     assert "__AIOS_3D_READY__" in files["src/scene/RuntimeProbe.tsx"]
     assert "__AIOS_3D_METRICS__" in files["src/scene/RuntimeProbe.tsx"]
@@ -139,3 +143,4 @@ def test_full_3d_result_is_exposed_without_secret_or_signed_provider_url() -> No
     assert "autonomous_asset_generation_degraded" in types
     assert "threeDAutogenDegraded" in (ROOT / "vip-frontend/src/components/pages/projects-client.tsx").read_text()
     assert "model_url" not in types
+

@@ -39,6 +39,7 @@ class RuntimeScaffold:
             "src/App.tsx",
             "src/scene/World.tsx",
             "src/runtime/profile.ts",
+            "src/runtime/assets.ts",
             "src/controllers/PlayerController.tsx",
             "src/controllers/CameraController.tsx",
             "src/state/worldStore.ts",
@@ -77,6 +78,7 @@ class ThreeDRuntimeScaffoldBuilder:
             ScaffoldFile("src/generated/blueprint.ts", bp),
             ScaffoldFile("src/state/worldStore.ts", self._store()),
             ScaffoldFile("src/runtime/profile.ts", self._runtime_profile()),
+            ScaffoldFile("src/runtime/assets.ts", self._asset_selection()),
             ScaffoldFile("src/scene/World.tsx", self._world()),
             ScaffoldFile("src/scene/RuntimeProbe.tsx", self._runtime_probe()),
             ScaffoldFile("src/scene/Zone.tsx", self._zone()),
@@ -268,12 +270,13 @@ export function XRControls(){const [state,setState]=useState<XRState>(EMPTY);use
                     "required": a.required,
                     "lazy": a.lazy,
                     "lodGroup": a.lod_group,
+                    "lodProfile": a.lod_profile.value if a.lod_profile is not None else None,
                 }
                 for a in blueprint.assets
             ],
         }
         encoded = json.dumps(payload, indent=2, ensure_ascii=False)
-        return f'''export type AssetSpec = {{ id:string; kind:string; path:string; required:boolean; lazy:boolean; lodGroup:string|null }};\nexport type ZoneSpec = {{ id:string; title:string; position:[number,number,number]; radius:number; assetIds:string[]; mobileScale:number; desktopScale:number; interactions:string[] }};\nexport type BlueprintSpec = {{ projectId:string; title:string; objective:string; playerController:string; cameraMode:string; zones:ZoneSpec[]; assets:AssetSpec[] }};\nexport const blueprint: BlueprintSpec = {encoded};\nexport type ZoneId = string;\n'''
+        return f'''export type AssetSpec = {{ id:string; kind:string; path:string; required:boolean; lazy:boolean; lodGroup:string|null; lodProfile?:"desktop"|"mobile"|"low_power"|null }};\nexport type ZoneSpec = {{ id:string; title:string; position:[number,number,number]; radius:number; assetIds:string[]; mobileScale:number; desktopScale:number; interactions:string[] }};\nexport type BlueprintSpec = {{ projectId:string; title:string; objective:string; playerController:string; cameraMode:string; zones:ZoneSpec[]; assets:AssetSpec[] }};\nexport const blueprint: BlueprintSpec = {encoded};\nexport type ZoneId = string;\n'''
 
     @staticmethod
     def _store() -> str:
@@ -334,6 +337,39 @@ export function World(){return <>
 '''
 
     @staticmethod
+    def _asset_selection() -> str:
+        return '''import type { AssetSpec } from "../generated/blueprint";
+import type { RuntimeProfile } from "./profile";
+const PROFILES: readonly RuntimeProfile[] = ["desktop", "mobile", "low_power"];
+export function selectZoneAssets(registry: readonly AssetSpec[], assetIds: readonly string[], profile: RuntimeProfile): AssetSpec[] {
+  if (!PROFILES.includes(profile)) throw new Error("Unknown runtime profile");
+  const requested = new Set(assetIds);
+  const selected: AssetSpec[] = [];
+  const groups = new Set<string>();
+  for (const asset of registry) {
+    if (!requested.has(asset.id)) continue;
+    if (asset.lodProfile == null) { selected.push(asset); continue; }
+    const group = asset.lodGroup;
+    if (!group) throw new Error("Profiled LOD asset has no group");
+    if (groups.has(group)) continue;
+    const members = registry.filter(candidate => candidate.lodGroup === group);
+    if (members.length !== PROFILES.length || new Set(members.map(member => member.lodProfile)).size !== PROFILES.length ||
+        members.some(member => member.lodProfile == null || !PROFILES.includes(member.lodProfile) || (member.kind !== "glb" && member.kind !== "gltf"))) {
+      throw new Error("LOD group requires exactly one model for every runtime profile");
+    }
+    const match = members.find(member => member.lodProfile === profile);
+    if (!match) throw new Error("LOD group has no model for the runtime profile");
+    selected.push(match);
+    groups.add(group);
+  }
+  return selected;
+}
+export function usesLowPowerProxy(asset: AssetSpec, profile: RuntimeProfile): boolean {
+  return profile === "low_power" && asset.lazy && asset.lodProfile !== "low_power";
+}
+'''
+
+    @staticmethod
     def _runtime_probe() -> str:
         return '''import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
@@ -347,12 +383,13 @@ export function RuntimeProbe(){const {gl,camera}=useThree();const frames=useRef<
     def _zone() -> str:
         return '''import { blueprint, type ZoneSpec } from "../generated/blueprint";
 import { useRuntimeProfile } from "../runtime/profile";
+import { selectZoneAssets } from "../runtime/assets";
 import { useWorldStore } from "../state/worldStore";
 import { AssetModel } from "./AssetModel";
 export function Zone({zone}:{zone:ZoneSpec}){
   const setActiveZone=useWorldStore(s=>s.setActiveZone);
   const profile=useRuntimeProfile();
-  const assets=blueprint.assets.filter(a=>zone.assetIds.includes(a.id));
+  const assets=selectZoneAssets(blueprint.assets,zone.assetIds,profile);
   const scale=profile === "desktop" ? zone.desktopScale : zone.mobileScale;
   return <group position={zone.position} userData={{aionexZoneId:zone.id,aionexProfile:profile}} onPointerOver={()=>setActiveZone(zone.id)} onPointerOut={()=>setActiveZone(null)}>
     {assets.length?assets.map(a=><AssetModel key={a.id} asset={a} scale={scale} profile={profile}/>):<mesh><icosahedronGeometry args={[Math.max(0.8,Math.min(2.5,zone.radius/3)),2]}/><meshStandardMaterial color="#38bdf8" metalness={0.25} roughness={0.35}/></mesh>}
@@ -366,9 +403,10 @@ export function Zone({zone}:{zone:ZoneSpec}){
         return '''import { useGLTF } from "@react-three/drei";
 import type { AssetSpec } from "../generated/blueprint";
 import type { RuntimeProfile } from "../runtime/profile";
+import { usesLowPowerProxy } from "../runtime/assets";
 export function AssetModel({asset,scale=1,profile}:{asset:AssetSpec;scale?:number;profile:RuntimeProfile}){
   if(asset.kind!=="glb"&&asset.kind!=="gltf") return null;
-  if(profile==="low_power"&&asset.lazy) return <LowPowerProxy scale={scale}/>;
+  if(usesLowPowerProxy(asset,profile)) return <LowPowerProxy scale={scale}/>;
   return <Model path={asset.path} scale={scale}/>;
 }
 function LowPowerProxy({scale}:{scale:number}){return <mesh scale={Math.max(.5,scale)}><dodecahedronGeometry args={[1.2,1]}/><meshStandardMaterial color="#22d3ee" metalness={0.35} roughness={0.42}/></mesh>}

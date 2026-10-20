@@ -38,6 +38,7 @@ class SceneAsset:
     lazy: bool = True
     lod_group: str | None = None
     checksum: str | None = None
+    lod_profile: PerformanceProfile | None = None
 
     def validate(self) -> None:
         if not self.asset_id.strip():
@@ -53,6 +54,13 @@ class SceneAsset:
         }[self.kind]
         if path.suffix.lower() not in expected:
             raise ValueError(f"invalid extension for {self.kind.value}: {path.suffix}")
+        if self.lod_profile is not None:
+            if not isinstance(self.lod_profile, PerformanceProfile):
+                raise ValueError("lod_profile must be a performance profile")
+            if not isinstance(self.lod_group, str) or not self.lod_group.strip():
+                raise ValueError("profiled LOD assets require a nonempty lod_group")
+            if self.kind not in {AssetKind.GLB, AssetKind.GLTF}:
+                raise ValueError("profiled LOD assets must be GLB or GLTF models")
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,6 +112,15 @@ class Project3DBlueprint:
             raise ValueError("zone IDs must be unique")
         for asset in self.assets:
             asset.validate()
+        # A zone may refer to any member of an explicitly profiled group. The
+        # client selects exactly one registered member for its current profile.
+        # Existing unprofiled lod_group metadata retains its original meaning.
+        profiled_groups = {asset.lod_group for asset in self.assets if asset.lod_profile is not None}
+        for group in profiled_groups:
+            members = [asset for asset in self.assets if asset.lod_group == group]
+            profiles = [asset.lod_profile for asset in members]
+            if len(profiles) != len(PerformanceProfile) or set(profiles) != set(PerformanceProfile):
+                raise ValueError(f"LOD group {group} requires exactly one model for every performance profile")
         for zone in self.zones:
             zone.validate()
             unknown = set(zone.asset_ids) - asset_ids

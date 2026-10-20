@@ -138,15 +138,16 @@ class ThreeDProjectLifecycle:
                 metadata_by_id = {item.asset_id: item for item in metadata}
                 for profile in blueprint.performance_profiles:
                     # Low-power runtime deliberately substitutes lightweight procedural
-                    # proxies for lazy GLB/GLTF assets. Only assets that are actually
-                    # eligible to load in that profile count against its transfer/mesh
-                    # budget; desktop/mobile continue to validate the complete package.
+                    # proxies for unprofiled lazy GLB/GLTF assets. Explicit low-power
+                    # variants load even when lazy, so they must also be budgeted;
+                    # desktop/mobile continue to validate the complete package.
                     profile_metadata = metadata
                     if profile == PerformanceProfile.LOW_POWER:
                         profile_metadata = [
                             metadata_by_id[asset.asset_id]
                             for asset in blueprint.assets
-                            if not asset.lazy and asset.asset_id in metadata_by_id
+                            if (not asset.lazy or asset.lod_profile == PerformanceProfile.LOW_POWER)
+                            and asset.asset_id in metadata_by_id
                         ]
                     result = self._asset_gate.evaluate(profile_metadata, profile)
                     if not result.passed:
