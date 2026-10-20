@@ -51,7 +51,7 @@ from aios.three_d_web import (
     ViewportSpec,
     WebGLErrorRecord,
 )
-from aios.three_d_web.assets import AssetInspector
+from aios.three_d_web.assets import AssetInspector, DEFAULT_BUDGETS
 
 
 class ThreeDProjectDeliveryError(RuntimeError):
@@ -81,11 +81,47 @@ def _safe_component(value: str, fallback: str) -> str:
 
 
 _MAX_LOD_VARIANT_BYTES = 24 * 1024 * 1024
+_MAX_PRIMARY_ASSET_BYTES = DEFAULT_BUDGETS[PerformanceProfile.DESKTOP].max_asset_bytes
 _MAX_3D_DELIVERY_ASSETS = 8
 
 
-def _read_lod_payload(record: Mapping[str, Any]) -> bytes:
-    """Recheck a bounded, regular variant through symlink-free directory handles."""
+def _staged_glb_record(
+    raw: Mapping[str, Any], root: Path, *, label: str, max_bytes: int,
+) -> dict[str, Any]:
+    """Admit the same canonical, bounded evidence for primary and LOD models."""
+    raw_path = raw.get("path")
+    if not isinstance(raw_path, str) or "\\" in raw_path or "\x00" in raw_path:
+        raise ThreeDProjectDeliveryError(f"{label} path is unsafe")
+    relative = PurePosixPath(raw_path)
+    if (
+        relative.is_absolute() or ".." in relative.parts
+        or relative.suffix.lower() != ".glb" or str(relative) != raw_path
+    ):
+        raise ThreeDProjectDeliveryError(f"{label} path is unsafe")
+    digest = raw.get("sha256")
+    if (
+        not isinstance(digest, str) or len(digest) != 64
+        or any(char not in "0123456789abcdefABCDEF" for char in digest)
+    ):
+        raise ThreeDProjectDeliveryError(f"{label} checksum is invalid")
+    size = raw.get("size_bytes")
+    if type(size) is not int or not 0 < size <= max_bytes:
+        raise ThreeDProjectDeliveryError(f"{label} size is invalid")
+    return {
+        "staging_root": root, "relative_path": raw_path,
+        "sha256": digest.lower(), "size_bytes": size,
+    }
+
+
+def _read_staged_glb_payload(
+    record: Mapping[str, Any], *, label: str, max_bytes: int,
+) -> bytes:
+    """Recheck a bounded, regular model through symlink-free directory handles."""
+    record = _staged_glb_record(
+        {"path": record["relative_path"], "sha256": record["sha256"],
+         "size_bytes": record["size_bytes"]},
+        record["staging_root"], label=label, max_bytes=max_bytes,
+    )
     descriptor = -1
     try:
         directory = os.open(
@@ -113,7 +149,7 @@ def _read_lod_payload(record: Mapping[str, Any]) -> bytes:
                 not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
                 or before.st_size != record["size_bytes"]
             ):
-                raise ThreeDProjectDeliveryError("3D LOD variant file or size is invalid")
+                raise ThreeDProjectDeliveryError(f"{label} file or size is invalid")
             payload = stream.read(record["size_bytes"] + 1)
             after = os.fstat(stream.fileno())
         def identity(item: os.stat_result) -> tuple[int, int, int, int, int]:
@@ -123,9 +159,9 @@ def _read_lod_payload(record: Mapping[str, Any]) -> bytes:
             or len(payload) != record["size_bytes"]
             or sha256(payload).hexdigest() != record["sha256"]
         ):
-            raise ThreeDProjectDeliveryError("3D LOD variant failed integrity verification")
+            raise ThreeDProjectDeliveryError(f"{label} failed integrity verification")
     except (OSError, ValueError) as exc:
-        raise ThreeDProjectDeliveryError("3D LOD variant is unavailable or unsafe") from exc
+        raise ThreeDProjectDeliveryError(f"{label} is unavailable or unsafe") from exc
     finally:
         if descriptor >= 0:
             os.close(descriptor)
@@ -149,10 +185,16 @@ def _read_lod_payload(record: Mapping[str, Any]) -> bytes:
                     raise ValueError("invalid GLB resource")
                 uri = item.get("uri")
                 if uri is not None and (not isinstance(uri, str) or not uri.startswith("data:")):
-                    raise ValueError("LOD variants must embed their resources")
+                    raise ValueError("GLB models must embed their resources")
     except (ValueError, UnicodeError, struct.error) as exc:
-        raise ThreeDProjectDeliveryError("3D LOD variant is not a self-contained GLB") from exc
+        raise ThreeDProjectDeliveryError(f"{label} is not a self-contained GLB") from exc
     return payload
+
+
+def _read_lod_payload(record: Mapping[str, Any]) -> bytes:
+    return _read_staged_glb_payload(
+        record, label="3D LOD variant", max_bytes=_MAX_LOD_VARIANT_BYTES,
+    )
 
 
 def _load_lod_variants(raw: Mapping[str, Any], root: Path) -> list[dict[str, Any]]:
@@ -171,32 +213,15 @@ def _load_lod_variants(raw: Mapping[str, Any], root: Path) -> list[dict[str, Any
             raise ThreeDProjectDeliveryError("3D LOD variant profile is invalid") from exc
         if profile not in {PerformanceProfile.MOBILE, PerformanceProfile.LOW_POWER}:
             raise ThreeDProjectDeliveryError("3D staged LOD variants must target mobile or low_power")
-        raw_path = variant.get("path")
-        if not isinstance(raw_path, str) or "\\" in raw_path:
-            raise ThreeDProjectDeliveryError("3D LOD variant path is unsafe")
-        relative = PurePosixPath(raw_path)
-        if (
-            relative.is_absolute() or ".." in relative.parts
-            or relative.suffix.lower() != ".glb" or str(relative) != raw_path
-        ):
-            raise ThreeDProjectDeliveryError("3D LOD variant path is unsafe")
-        digest = variant.get("sha256")
-        if (
-            not isinstance(digest, str) or len(digest) != 64
-            or any(char not in "0123456789abcdefABCDEF" for char in digest)
-        ):
-            raise ThreeDProjectDeliveryError("3D LOD variant checksum is invalid")
-        size = variant.get("size_bytes")
-        if type(size) is not int or not 0 < size <= _MAX_LOD_VARIANT_BYTES:
-            raise ThreeDProjectDeliveryError("3D LOD variant size is invalid")
+        record = _staged_glb_record(
+            variant, root, label="3D LOD variant", max_bytes=_MAX_LOD_VARIANT_BYTES,
+        )
+        raw_path = record["relative_path"]
         if profile.value in seen_profiles or raw_path in seen_paths:
             raise ThreeDProjectDeliveryError("3D LOD variant profiles and paths must be unique")
         seen_profiles.add(profile.value)
         seen_paths.add(raw_path)
-        record = {
-            "profile": profile.value, "staging_root": root,
-            "relative_path": raw_path, "sha256": digest.lower(), "size_bytes": size,
-        }
+        record["profile"] = profile.value
         _read_lod_payload(record)
         records.append(record)
     if seen_profiles and seen_profiles != {"mobile", "low_power"}:
@@ -225,30 +250,22 @@ def _load_staged_assets(manifest_path: str | Path | None) -> list[dict[str, Any]
     for index, raw in enumerate(raw_assets):
         if not isinstance(raw, dict):
             raise ThreeDProjectDeliveryError("3D staged asset entry is invalid")
-        relative = PurePosixPath(str(raw.get("path") or ""))
-        if relative.is_absolute() or ".." in relative.parts or relative.suffix.lower() != ".glb":
-            raise ThreeDProjectDeliveryError("3D staged asset path is unsafe")
-        resolved = (root / Path(*relative.parts)).resolve()
-        try:
-            resolved.relative_to(root)
-        except ValueError as exc:
-            raise ThreeDProjectDeliveryError("3D staged asset escapes its staging root") from exc
-        if not resolved.is_file() or resolved.is_symlink():
-            raise ThreeDProjectDeliveryError("3D staged asset is unavailable")
-        raw_digest = str(raw.get("sha256") or "").lower()
-        if len(raw_digest) != 64 or _digest_file(resolved) != raw_digest:
-            raise ThreeDProjectDeliveryError("3D staged asset failed integrity verification")
-        declared_size = int(raw.get("size_bytes") or 0)
-        if declared_size != resolved.stat().st_size or declared_size <= 0:
-            raise ThreeDProjectDeliveryError("3D staged asset size does not match evidence")
+        primary = _staged_glb_record(
+            raw, root, label="3D staged asset", max_bytes=_MAX_PRIMARY_ASSET_BYTES,
+        )
+        _read_staged_glb_payload(
+            primary, label="3D staged asset", max_bytes=_MAX_PRIMARY_ASSET_BYTES,
+        )
         assets.append(
             {
                 "artifact_id": str(raw.get("artifact_id") or f"artifact-{index+1}"),
                 "job_id": str(raw.get("job_id") or ""),
                 "provider": str(raw.get("provider") or "unknown"),
-                "source": resolved,
-                "sha256": raw_digest,
-                "size_bytes": declared_size,
+                "source": root / primary["relative_path"],
+                "staging_root": root,
+                "relative_path": primary["relative_path"],
+                "sha256": primary["sha256"],
+                "size_bytes": primary["size_bytes"],
                 "metadata": raw.get("metadata") if isinstance(raw.get("metadata"), dict) else {},
                 "lod_variants": _load_lod_variants(raw, root),
             }
@@ -508,6 +525,8 @@ def _autogenerate_tripo_assets(
                 "job_id": task_id,
                 "provider": "tripo3d",
                 "source": destination,
+                "staging_root": generated_root,
+                "relative_path": destination.relative_to(generated_root).as_posix(),
                 "sha256": digest,
                 "size_bytes": size,
                 "metadata": {
@@ -881,8 +900,12 @@ def _copy_staged_assets(
     for index, record in enumerate(records):
         base_asset = registry[f"asset-{index+1:02d}"]
         destination = assets_root / f"asset-{index+1:02d}.glb"
-        shutil.copyfile(Path(record["source"]), destination)
-        os.chmod(destination, 0o600)
+        payload = _read_staged_glb_payload(
+            record, label="3D staged asset", max_bytes=_MAX_PRIMARY_ASSET_BYTES,
+        )
+        with destination.open("xb") as output:
+            os.fchmod(output.fileno(), 0o600)
+            output.write(payload)
         digest = _digest_file(destination)
         if digest != record["sha256"]:
             raise ThreeDProjectDeliveryError("3D delivery copy failed integrity verification")
@@ -894,7 +917,7 @@ def _copy_staged_assets(
             variant_destination = delivery_root / selected.path
             payload = _read_lod_payload(variant)
             with variant_destination.open("xb") as output:
-                os.chmod(variant_destination, 0o600)
+                os.fchmod(output.fileno(), 0o600)
                 output.write(payload)
             variant_metadata = AssetInspector().inspect(selected, delivery_root)
             if variant_metadata.checksum_sha256 != variant["sha256"]:
