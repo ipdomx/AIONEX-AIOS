@@ -81,6 +81,7 @@ def _safe_component(value: str, fallback: str) -> str:
 
 
 _MAX_LOD_VARIANT_BYTES = 24 * 1024 * 1024
+_MAX_3D_DELIVERY_ASSETS = 8
 
 
 def _read_lod_payload(record: Mapping[str, Any]) -> bytes:
@@ -217,6 +218,8 @@ def _load_staged_assets(manifest_path: str | Path | None) -> list[dict[str, Any]
     raw_assets = payload.get("assets")
     if not isinstance(raw_assets, list):
         raise ThreeDProjectDeliveryError("3D asset staging manifest is incomplete")
+    if len(raw_assets) > _MAX_3D_DELIVERY_ASSETS:
+        raise ThreeDProjectDeliveryError("3D delivery supports at most eight logical model assets")
     assets: list[dict[str, Any]] = []
     root = path.parent.resolve()
     for index, raw in enumerate(raw_assets):
@@ -939,6 +942,8 @@ class ThreeDWebDeliveryBuilder:
     def _blueprint(
         *, project_id: str, project_name: str, objective: str, asset_records: Sequence[dict[str, Any]]
     ) -> Project3DBlueprint:
+        if len(asset_records) > _MAX_3D_DELIVERY_ASSETS:
+            raise ThreeDProjectDeliveryError("3D delivery supports at most eight logical model assets")
         scene_assets: list[SceneAsset] = []
         zones: list[SceneZone] = []
         for index, record in enumerate(asset_records):

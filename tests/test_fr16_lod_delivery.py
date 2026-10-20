@@ -12,7 +12,10 @@ import subprocess
 
 import pytest
 
-from aios.three_d_web import PerformanceProfile
+from aios.three_d_web import (
+    ApprovalDecision, AssetKind, LifecycleInputs, PerformanceProfile,
+    SceneAsset, SceneZone, ThreeDProjectLifecycle, ThreeDProjectPlanner,
+)
 
 
 @pytest.fixture
@@ -28,7 +31,9 @@ def delivery():
     return module
 
 
-def _glb(triangles: int = 4, *, external: bool = False) -> bytes:
+def _glb(
+    triangles: int = 4, *, external: bool = False, padding_bytes: int = 0,
+) -> bytes:
     document = {
         "asset": {"version": "2.0"},
         "accessors": [{"count": triangles * 3, "type": "SCALAR", "componentType": 5123}],
@@ -36,7 +41,7 @@ def _glb(triangles: int = 4, *, external: bool = False) -> bytes:
     }
     if external:
         document["images"] = [{"uri": "https://example.invalid/texture.png"}]
-    payload = json.dumps(document).encode()
+    payload = json.dumps(document).encode() + b" " * padding_bytes
     payload += b" " * (-len(payload) % 4)
     return struct.pack("<4sIIII", b"glTF", 2, 20 + len(payload), len(payload), 0x4E4F534A) + payload
 
@@ -249,3 +254,71 @@ def test_browser_resource_gate_proves_the_selected_model(delivery, observed, exp
     assert delivery._profile_model_resources_match(
         observed, expected, "http://127.0.0.1:8080",
     ) is matches
+
+
+@pytest.mark.parametrize("count", [8, 9])
+@pytest.mark.parametrize("with_variants", [False, True])
+def test_delivery_never_admits_more_models_than_it_can_reference(
+    delivery, tmp_path, count, with_variants,
+):
+    manifest, asset, _ = _staging(tmp_path, variants=with_variants)
+    manifest.write_text(
+        json.dumps({"schema_version": 1, "assets": [asset] * count}), encoding="utf-8",
+    )
+    if count > 8:
+        with pytest.raises(delivery.ThreeDProjectDeliveryError, match="at most eight"):
+            delivery._load_staged_assets(manifest)
+    else:
+        records = delivery._load_staged_assets(manifest)
+        blueprint = delivery.ThreeDWebDeliveryBuilder._blueprint(
+            project_id="fixture", project_name="Fixture", objective="Bounded registry",
+            asset_records=records,
+        )
+        assert len(blueprint.zones) == 8
+        assert {asset_id for zone in blueprint.zones for asset_id in zone.asset_ids} == {
+            f"asset-{index+1:02d}" for index in range(8)
+        }
+        assert len(blueprint.assets) == (24 if with_variants else 8)
+
+
+@pytest.mark.parametrize("mobile_mib", [5, 11])
+def test_lifecycle_budgets_only_the_explicit_variant_loaded_by_each_profile(tmp_path, mobile_mib):
+    assets = []
+    zones = []
+    for group in range(3):
+        group_id = f"group-{group}"
+        for profile, size_mib in (
+            (PerformanceProfile.DESKTOP, 11),
+            (PerformanceProfile.MOBILE, mobile_mib),
+            (PerformanceProfile.LOW_POWER, 1),
+        ):
+            asset_id = f"{group_id}-{profile.value}"
+            path = f"{asset_id}.glb"
+            (tmp_path / path).write_bytes(_glb(padding_bytes=size_mib * 1024 * 1024))
+            assets.append(SceneAsset(
+                asset_id, AssetKind.GLB, path, lazy=True,
+                lod_group=group_id, lod_profile=profile,
+            ))
+        zones.append(SceneZone(
+            group_id, group_id, (0, 0, 0), 3, asset_ids=(f"{group_id}-desktop",),
+        ))
+    blueprint = ThreeDProjectPlanner().plan(
+        project_id="budgets", title="Budgets", objective="Selected model transfer",
+        assets=assets, zones=zones,
+    )
+    result = ThreeDProjectLifecycle().run(LifecycleInputs(
+        blueprint=blueprint, project_root=tmp_path, browser_runs=(), performance_samples=(),
+        production_build_passed=False, deployment_receipt=None, rollback_receipt=None,
+        approval=ApprovalDecision(False, None, "Unit test does not authorize release"),
+    ))
+    asset_failures = [item for item in result.remediation if item.stage.value == "assets"]
+    if mobile_mib == 5:
+        # Desktop files exceed the mobile per-file limit, and the full package
+        # exceeds its total limit; mobile still loads only three 5 MiB variants.
+        assert not asset_failures
+    else:
+        assert any(item.code == "asset-bytes" and "mobile" in item.message for item in asset_failures)
+        assert all("desktop" not in item.message and "low_power" not in item.message for item in asset_failures)
+    assert result.asset_manifest is not None
+    assert len(result.asset_manifest.entries) == 9
+    assert result.release_ready is False

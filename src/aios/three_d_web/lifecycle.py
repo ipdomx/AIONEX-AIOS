@@ -137,18 +137,21 @@ class ThreeDProjectLifecycle:
                     metadata.append(self._asset_inspector.inspect(asset, inputs.project_root))
                 metadata_by_id = {item.asset_id: item for item in metadata}
                 for profile in blueprint.performance_profiles:
-                    # Low-power runtime deliberately substitutes lightweight procedural
-                    # proxies for unprofiled lazy GLB/GLTF assets. Explicit low-power
-                    # variants load even when lazy, so they must also be budgeted;
-                    # desktop/mobile continue to validate the complete package.
-                    profile_metadata = metadata
-                    if profile == PerformanceProfile.LOW_POWER:
-                        profile_metadata = [
-                            metadata_by_id[asset.asset_id]
-                            for asset in blueprint.assets
-                            if (not asset.lazy or asset.lod_profile == PerformanceProfile.LOW_POWER)
-                            and asset.asset_id in metadata_by_id
-                        ]
+                    # Explicit LOD groups load one registered member per profile.
+                    # Legacy desktop/mobile assets retain complete-package accounting;
+                    # legacy lazy assets keep their low-power procedural proxy.
+                    profile_metadata = [
+                        metadata_by_id[asset.asset_id]
+                        for asset in blueprint.assets
+                        if asset.asset_id in metadata_by_id
+                        and (
+                            asset.lod_profile == profile
+                            or (
+                                asset.lod_profile is None
+                                and not (profile == PerformanceProfile.LOW_POWER and asset.lazy)
+                            )
+                        )
+                    ]
                     result = self._asset_gate.evaluate(profile_metadata, profile)
                     if not result.passed:
                         asset_gate_passed = False

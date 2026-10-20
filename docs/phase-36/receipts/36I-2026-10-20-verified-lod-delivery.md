@@ -43,8 +43,8 @@ This change is based on that merged contract.
 
 ## Verification
 
-The focused command below passed **62 tests**, with zero failures or skips, on
-the isolated worktree. The last run completed in 0.82 seconds with Python 3.11.2.
+The focused command below passed **68 tests**, with zero failures or skips, on
+the isolated worktree. The last run completed in 2.18 seconds with Python 3.11.2.
 
     LC_ALL=C.UTF-8 PYTHONUTF8=1 PYTHONDONTWRITEBYTECODE=1 \
       /opt/AIOS/.venv/bin/python -m pytest -q --tb=short --maxfail=3 \
@@ -76,15 +76,35 @@ lifecycle asset budgets. All three file entries were retained in its manifest.
 
 Measurement:
 
-    /var/lib/aionex-migration/launch-continuation-20261020T1340Z/fr16-lod-delivery/VERIFIED-LOD-DELIVERY-FIXTURE.json
+    /var/lib/aionex-migration/launch-continuation-20261020T1340Z/fr16-lod-delivery/VERIFIED-LOD-DELIVERY-FIXTURE-ATTEMPT2.json
 
 SHA-256:
 
-    8d865e344c7cf15b7be8532a546caf858365ccb18373124464747256ed7e429b
+    3d0df1dc5014ed223cc3d0e1765ab06248d040422bd69af0386174b16d08de1b
 
 Pinned original fixture receipt SHA-256:
 
     655c63a6ad90a5982b89a829376b142826323f7f727889fb2e4f506a7f6d2218
+
+## Independent review follow-up
+
+The review of the first proposed head found two integration boundaries. Both
+are addressed before merge:
+
+- Admission now enforces the existing eight-zone model limit. Eight logical
+  models remain supported with or without LOD variants; a ninth is rejected
+  before package construction instead of being silently left unreferenced.
+- Lifecycle budgets now select the matching explicit LOD member for every
+  profile, while preserving legacy complete-package and lazy-proxy behavior.
+  The artifact manifest still includes all files. Tests use three groups with
+  11 MiB desktop, 5 MiB mobile and 1 MiB low_power models to prove that mobile
+  is not charged for desktop files or the complete 51 MiB package. A negative
+  case with 11 MiB mobile files still fails its 10 MiB per-file budget.
+
+The fixture measurement was repeated against these reviewed source files; the
+current proof above includes the lifecycle file hash as well as the delivery,
+test and development-dependency hashes. The earlier measurement remains intact
+as historical evidence.
 
 ## Acceptance boundary
 
