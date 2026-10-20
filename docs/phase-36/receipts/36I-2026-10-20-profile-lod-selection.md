@@ -62,6 +62,28 @@ eaa05a6bd0f55bfcee94f5c051b543d9db3f51add4066d49f635ab44f797a6c5.
 The focused local test record has SHA-256
 8ba3f4343a0eeda84cb48322a8e84bc1caefdfb06ff4b2268f61d6ead25e1a02.
 
+## CI follow-up: existing scaffold wiring assertion
+
+The first full Core suite on commit 71f76efa3541646959c9704a12b9e9d8f991ea38
+reported 4826 passed, 1 skipped, 11 subtests passed, and one failure. The failure
+was the existing scaffold test requiring the old inline low-power predicate in
+AssetModel. That predicate now lives in the shared selector module.
+
+The existing test now requires the emitted selector file, the proxy helper
+import and call in AssetModel, and the selector import and call in Zone. Its
+other self-contained runtime assertions are retained. The new TypeScript tests
+continue to exercise both the legacy proxy behavior and explicit low-power model
+behavior, so this updates wiring coverage without removing behavioral coverage.
+
+The updated test file is
+tests/test_phase36_autonomous_3d_full_project.py (SHA-256
+12f55650de7a5492198c03adae84e5a7c71fe6306ca7c19a77e6d2a2c801ddca).
+The five source files listed above are unchanged.
+
+After the correction, the five focused suites plus the existing scaffold and
+software-browser timing tests passed 35 tests and 8 subtests with zero skips under
+CI=true. Full GitHub validation must run again on the corrected head.
+
 ## Acceptance boundary
 
 This receipt records source behavior and focused local checks. The full GitHub
@@ -74,3 +96,4 @@ provide arbitrary-asset optimization/compression, physical-device performance,
 production deployment, current-generation authenticated recovery, durable
 worker recovery, 72-hour NS12 acceptance, capacity acceptance, or full FR16/final
 release acceptance. No production runtime or provider configuration changed.
+
