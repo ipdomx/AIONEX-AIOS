@@ -169,7 +169,31 @@ class ThreeDRuntimeScaffoldBuilder:
     def _vite_config() -> str:
         return '''import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-export default defineConfig({ plugins: [react()], build: { sourcemap: false } });
+
+export default defineConfig({
+  plugins: [react()],
+  build: {
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          const path = id.replaceAll("\\\\", "/");
+          if (path.includes("/node_modules/three/build/three.core.js")) return "three-core";
+          if (path.includes("/node_modules/three/build/three.module.js")) return "three-renderer";
+          if (path.includes("/node_modules/three-stdlib/")) return "three-stdlib";
+          if (path.includes("/node_modules/@react-three/fiber/")) return "react-three-fiber";
+          if (path.includes("/node_modules/@react-three/drei/")) return "react-three-drei";
+          if (
+            path.includes("/node_modules/react-dom/") ||
+            path.includes("/node_modules/react/") ||
+            path.includes("/node_modules/scheduler/") ||
+            path.includes("/node_modules/use-sync-external-store/")
+          ) return "react-runtime";
+        },
+      },
+    },
+  },
+});
 '''
 
     @staticmethod
