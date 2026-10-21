@@ -42,8 +42,45 @@ _OFFSET_RESOURCE = "update-offset"
 _MAX_MESSAGE = 3900
 
 
+_FAILURE_CODES = frozenset({
+    "telegram_request_failed",
+    "telegram_connect_timeout",
+    "telegram_read_timeout",
+    "telegram_write_timeout",
+    "telegram_pool_timeout",
+    "telegram_timeout",
+    "telegram_network_error",
+    "telegram_http_error",
+    "telegram_invalid_json",
+    "telegram_request_rejected",
+})
+
+
 class TelegramWorkerError(RuntimeError):
-    """Sanitized Telegram worker failure."""
+    """Failure with bounded diagnostic fields, never request URLs or credentials."""
+
+    def __init__(
+        self, message: str, *, code: str = "telegram_request_failed",
+        http_status: int | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.code = code if isinstance(code, str) and code in _FAILURE_CODES else "telegram_request_failed"
+        self.http_status = (
+            http_status if type(http_status) is int and 100 <= http_status <= 599 else None
+        )
+
+
+def _transport_failure_code(error: Exception) -> str:
+    for error_type, code in (
+        (httpx.ConnectTimeout, "telegram_connect_timeout"),
+        (httpx.ReadTimeout, "telegram_read_timeout"),
+        (httpx.WriteTimeout, "telegram_write_timeout"),
+        (httpx.PoolTimeout, "telegram_pool_timeout"),
+        (httpx.TimeoutException, "telegram_timeout"),
+    ):
+        if isinstance(error, error_type):
+            return code
+    return "telegram_network_error"
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,15 +110,27 @@ class TelegramBotAPI:
         try:
             response = await self._client.post(f"{self._base_url}/{method}", json=payload)
         except (httpx.TimeoutException, httpx.NetworkError) as exc:
-            raise TelegramWorkerError(f"Telegram connection failed: {type(exc).__name__}") from None
+            raise TelegramWorkerError(
+                f"Telegram connection failed: {type(exc).__name__}",
+                code=_transport_failure_code(exc),
+            ) from None
         if response.status_code != 200:
-            raise TelegramWorkerError(f"Telegram API returned HTTP {response.status_code}")
+            raise TelegramWorkerError(
+                f"Telegram API returned HTTP {response.status_code}",
+                code="telegram_http_error", http_status=response.status_code,
+            )
         try:
             decoded = response.json()
         except ValueError:
-            raise TelegramWorkerError("Telegram API returned invalid JSON") from None
+            raise TelegramWorkerError(
+                "Telegram API returned invalid JSON",
+                code="telegram_invalid_json", http_status=response.status_code,
+            ) from None
         if not isinstance(decoded, dict) or decoded.get("ok") is not True:
-            raise TelegramWorkerError("Telegram API rejected the request")
+            raise TelegramWorkerError(
+                "Telegram API rejected the request",
+                code="telegram_request_rejected", http_status=response.status_code,
+            )
         result = decoded.get("result")
         return {"result": result}
 
@@ -127,6 +176,9 @@ class TelegramOperationsWorker:
         self.health_path = Path(settings.AIOS_TELEGRAM_HEALTH_FILE)
         self.stop_event = asyncio.Event()
         self.errors = 0
+        self.last_error_code: str | None = None
+        self.last_error_http_status: int | None = None
+        self.last_error_at: str | None = None
         self.last_update_id: int | None = None
 
     async def run(self) -> None:
@@ -167,8 +219,7 @@ class TelegramOperationsWorker:
                 if not accepted:
                     await wait_for_telegram_admission(self.stop_event)
             except TelegramWorkerError as exc:
-                self.errors += 1
-                logger.warning("Telegram polling failure", error=type(exc).__name__)
+                self._record_failure(exc)
                 self._write_health("degraded", offset=offset)
                 try:
                     await asyncio.wait_for(self.stop_event.wait(), timeout=5.0)
@@ -184,12 +235,12 @@ class TelegramOperationsWorker:
     async def _handle(self, message: TelegramInboundMessage) -> None:
         command = _command_name(message.text)
         if message.chat_type != "private":
-            await self.api.send_message(message.chat_id, "هذا البوت يعمل داخل محادثة خاصة فقط.")
+            await self.api.send_message(message.chat_id, "ÙØ°Ø§ Ø§ÙØ¨ÙØª ÙØ¹ÙÙ Ø¯Ø§Ø®Ù ÙØ­Ø§Ø¯Ø«Ø© Ø®Ø§ØµØ© ÙÙØ·.")
             await self._audit(message, command, "rejected", "non-private-chat")
             return
 
         if message.user_id not in self.allowed_users:
-            await self.api.send_message(message.chat_id, "غير مصرح لك باستخدام هذا البوت.")
+            await self.api.send_message(message.chat_id, "ØºÙØ± ÙØµØ±Ø­ ÙÙ Ø¨Ø§Ø³ØªØ®Ø¯Ø§Ù ÙØ°Ø§ Ø§ÙØ¨ÙØª.")
             await self._audit(message, command, "rejected", "not-allowlisted")
             return
 
@@ -198,7 +249,7 @@ class TelegramOperationsWorker:
             if len(arguments) != 1 or not arguments[0].isdigit():
                 await self.api.send_message(
                     message.chat_id,
-                    "استخدم /auth متبوعًا بالكود المؤقت الصادر من لوحة المالك.",
+                    "Ø§Ø³ØªØ®Ø¯Ù /auth ÙØªØ¨ÙØ¹ÙØ§ Ø¨Ø§ÙÙÙØ¯ Ø§ÙÙØ¤ÙØª Ø§ÙØµØ§Ø¯Ø± ÙÙ ÙÙØ­Ø© Ø§ÙÙØ§ÙÙ.",
                 )
                 await self._audit(message, command, "rejected", "invalid-auth-format")
                 return
@@ -216,16 +267,16 @@ class TelegramOperationsWorker:
                     # persist even though authentication itself was rejected.
                     await session.commit()
                     if exc.code == "locked":
-                        reply = "تم قفل محاولات المصادقة مؤقتًا. حاول لاحقًا."
+                        reply = "ØªÙ ÙÙÙ ÙØ­Ø§ÙÙØ§Øª Ø§ÙÙØµØ§Ø¯ÙØ© ÙØ¤ÙØªÙØ§. Ø­Ø§ÙÙ ÙØ§Ø­ÙÙØ§."
                     else:
-                        reply = "رمز المصادقة غير صالح أو انتهت صلاحيته."
+                        reply = "Ø±ÙØ² Ø§ÙÙØµØ§Ø¯ÙØ© ØºÙØ± ØµØ§ÙØ­ Ø£Ù Ø§ÙØªÙØª ØµÙØ§Ø­ÙØªÙ."
                     await self.api.send_message(message.chat_id, reply)
                     await self._audit(message, command, "rejected", exc.code)
                     return
             minutes = max(1, int(result["expires_in_seconds"]) // 60)
             await self.api.send_message(
                 message.chat_id,
-                f"تم فتح جلسة أوامر المالك لمدة {minutes} دقيقة.",
+                f"ØªÙ ÙØªØ­ Ø¬ÙØ³Ø© Ø£ÙØ§ÙØ± Ø§ÙÙØ§ÙÙ ÙÙØ¯Ø© {minutes} Ø¯ÙÙÙØ©.",
             )
             await self._audit(message, command, "completed", None)
             return
@@ -244,8 +295,8 @@ class TelegramOperationsWorker:
         if command in {"start", "help", ""} and not authenticated:
             await self.api.send_message(
                 message.chat_id,
-                "بوت المالك مقفل. أنشئ رمزًا مؤقتًا من Owner Communications "
-                "ثم أرسل /auth CODE خلال 5 دقائق.",
+                "Ø¨ÙØª Ø§ÙÙØ§ÙÙ ÙÙÙÙ. Ø£ÙØ´Ø¦ Ø±ÙØ²ÙØ§ ÙØ¤ÙØªÙØ§ ÙÙ Owner Communications "
+                "Ø«Ù Ø£Ø±Ø³Ù /auth CODE Ø®ÙØ§Ù 5 Ø¯ÙØ§Ø¦Ù.",
             )
             await self._audit(message, command, "rejected", "second-factor-required")
             return
@@ -253,7 +304,7 @@ class TelegramOperationsWorker:
         if not authenticated:
             await self.api.send_message(
                 message.chat_id,
-                "جلسة المالك مقفلة. استخدم رمز المصادقة المؤقت من لوحة المالك.",
+                "Ø¬ÙØ³Ø© Ø§ÙÙØ§ÙÙ ÙÙÙÙØ©. Ø§Ø³ØªØ®Ø¯Ù Ø±ÙØ² Ø§ÙÙØµØ§Ø¯ÙØ© Ø§ÙÙØ¤ÙØª ÙÙ ÙÙØ­Ø© Ø§ÙÙØ§ÙÙ.",
             )
             await self._audit(message, command, "rejected", "second-factor-required")
             return
@@ -265,19 +316,19 @@ class TelegramOperationsWorker:
                     telegram_user_id=message.user_id,
                 )
                 await session.commit()
-            await self.api.send_message(message.chat_id, "تم قفل جلسة أوامر المالك.")
+            await self.api.send_message(message.chat_id, "ØªÙ ÙÙÙ Ø¬ÙØ³Ø© Ø£ÙØ§ÙØ± Ø§ÙÙØ§ÙÙ.")
             await self._audit(message, command, "completed", None)
             return
 
         try:
             if command in {"start", "help", ""}:
                 reply = (
-                    "AIONEX AIOS — جلسة المالك موثقة\n"
-                    "/status — حالة المشروعات والتنفيذ\n"
-                    "/projects — أحدث المشروعات\n"
-                    "/executions — أحدث دورات التنفيذ\n"
-                    "/whoami — رقم حساب Telegram\n"
-                    "/logout — قفل جلسة أوامر المالك"
+                    "AIONEX AIOS â Ø¬ÙØ³Ø© Ø§ÙÙØ§ÙÙ ÙÙØ«ÙØ©\n"
+                    "/status â Ø­Ø§ÙØ© Ø§ÙÙØ´Ø±ÙØ¹Ø§Øª ÙØ§ÙØªÙÙÙØ°\n"
+                    "/projects â Ø£Ø­Ø¯Ø« Ø§ÙÙØ´Ø±ÙØ¹Ø§Øª\n"
+                    "/executions â Ø£Ø­Ø¯Ø« Ø¯ÙØ±Ø§Øª Ø§ÙØªÙÙÙØ°\n"
+                    "/whoami â Ø±ÙÙ Ø­Ø³Ø§Ø¨ Telegram\n"
+                    "/logout â ÙÙÙ Ø¬ÙØ³Ø© Ø£ÙØ§ÙØ± Ø§ÙÙØ§ÙÙ"
                 )
             elif command == "whoami":
                 reply = f"Telegram user ID: {message.user_id}"
@@ -288,12 +339,12 @@ class TelegramOperationsWorker:
             elif command == "executions":
                 reply = await self._executions()
             else:
-                reply = "أمر غير معروف. استخدم /help."
+                reply = "Ø£ÙØ± ØºÙØ± ÙØ¹Ø±ÙÙ. Ø§Ø³ØªØ®Ø¯Ù /help."
             await self.api.send_message(message.chat_id, reply)
             await self._audit(message, command, "completed", None)
         except Exception as exc:
             logger.exception("Telegram command failed", command=command)
-            await self.api.send_message(message.chat_id, "تعذر تنفيذ الأمر بأمان. حاول لاحقًا.")
+            await self.api.send_message(message.chat_id, "ØªØ¹Ø°Ø± ØªÙÙÙØ° Ø§ÙØ£ÙØ± Ø¨Ø£ÙØ§Ù. Ø­Ø§ÙÙ ÙØ§Ø­ÙÙØ§.")
             await self._audit(message, command, "failed", type(exc).__name__)
 
     async def _status(self) -> str:
@@ -322,11 +373,11 @@ class TelegramOperationsWorker:
                 or 0
             )
         return (
-            "حالة AIOS\n"
-            f"المشروعات: {project_total}\n"
-            f"النشطة/قيد التخطيط: {active_projects}\n"
-            f"التنفيذ الجاري: {queued}\n"
-            f"التنفيذ المكتمل: {completed}"
+            "Ø­Ø§ÙØ© AIOS\n"
+            f"Ø§ÙÙØ´Ø±ÙØ¹Ø§Øª: {project_total}\n"
+            f"Ø§ÙÙØ´Ø·Ø©/ÙÙØ¯ Ø§ÙØªØ®Ø·ÙØ·: {active_projects}\n"
+            f"Ø§ÙØªÙÙÙØ° Ø§ÙØ¬Ø§Ø±Ù: {queued}\n"
+            f"Ø§ÙØªÙÙÙØ° Ø§ÙÙÙØªÙÙ: {completed}"
         )
 
     async def _projects(self) -> str:
@@ -339,10 +390,10 @@ class TelegramOperationsWorker:
                 ).all()
             )
         if not rows:
-            return "لا توجد مشروعات حتى الآن."
-        lines = ["أحدث المشروعات:"]
+            return "ÙØ§ ØªÙØ¬Ø¯ ÙØ´Ø±ÙØ¹Ø§Øª Ø­ØªÙ Ø§ÙØ¢Ù."
+        lines = ["Ø£Ø­Ø¯Ø« Ø§ÙÙØ´Ø±ÙØ¹Ø§Øª:"]
         lines.extend(
-            f"• {item.name} — {item.status} — {item.progress}%" for item in rows
+            f"â¢ {item.name} â {item.status} â {item.progress}%" for item in rows
         )
         return "\n".join(lines)
 
@@ -357,12 +408,12 @@ class TelegramOperationsWorker:
                 )
             ).all()
         if not rows:
-            return "لا توجد دورات تنفيذ حتى الآن."
-        lines = ["أحدث دورات التنفيذ:"]
+            return "ÙØ§ ØªÙØ¬Ø¯ Ø¯ÙØ±Ø§Øª ØªÙÙÙØ° Ø­ØªÙ Ø§ÙØ¢Ù."
+        lines = ["Ø£Ø­Ø¯Ø« Ø¯ÙØ±Ø§Øª Ø§ÙØªÙÙÙØ°:"]
         for execution, project_name in rows:
-            approval = "مقبول" if execution.approved else "يحتاج مراجعة"
+            approval = "ÙÙØ¨ÙÙ" if execution.approved else "ÙØ­ØªØ§Ø¬ ÙØ±Ø§Ø¬Ø¹Ø©"
             lines.append(
-                f"• {project_name} — {execution.status}/{execution.stage} — {execution.progress}% — {approval}"
+                f"â¢ {project_name} â {execution.status}/{execution.stage} â {execution.progress}% â {approval}"
             )
         return "\n".join(lines)
 
@@ -427,6 +478,17 @@ class TelegramOperationsWorker:
             )
             await session.commit()
 
+    def _record_failure(self, error: TelegramWorkerError) -> None:
+        """Keep the last failure visible after recovery without storing its payload."""
+        self.errors += 1
+        self.last_error_code = error.code
+        self.last_error_http_status = error.http_status
+        self.last_error_at = datetime.now(UTC).isoformat()
+        logger.warning(
+            "Telegram polling failure", error=type(error).__name__,
+            error_code=error.code, http_status=error.http_status,
+        )
+
     def _write_health(self, status: str, *, offset: int) -> None:
         payload = {
             "status": status,
@@ -435,6 +497,9 @@ class TelegramOperationsWorker:
             "next_update_id": int(offset),
             "last_update_id": self.last_update_id,
             "errors": self.errors,
+            "last_error_code": self.last_error_code,
+            "last_error_http_status": self.last_error_http_status,
+            "last_error_at": self.last_error_at,
             "allowed_users_configured": len(self.allowed_users),
             "secret_returned": False,
         }
