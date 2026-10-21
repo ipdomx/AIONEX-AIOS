@@ -51,7 +51,7 @@ jobs:
 
   backend-tests:
     name: Backend Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16-alpine
@@ -87,6 +87,19 @@ jobs:
       PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}/web-dashboard/backend
     steps:
       - uses: actions/checkout@v7
+      - name: Install PostgreSQL 16 client tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends postgresql-client-16
+          echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
+      - name: Verify backup tools match PostgreSQL service
+        run: |
+          set -euo pipefail
+          for tool in pg_dump pg_restore psql createdb dropdb; do
+            executable="$(command -v "$tool")"
+            test "$executable" = "/usr/lib/postgresql/16/bin/$tool"
+            "$tool" --version | grep -Eq '\(PostgreSQL\) 16(\.|$)'
+          done
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
