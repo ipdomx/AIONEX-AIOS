@@ -42,8 +42,45 @@ _OFFSET_RESOURCE = "update-offset"
 _MAX_MESSAGE = 3900
 
 
+_FAILURE_CODES = frozenset({
+    "telegram_request_failed",
+    "telegram_connect_timeout",
+    "telegram_read_timeout",
+    "telegram_write_timeout",
+    "telegram_pool_timeout",
+    "telegram_timeout",
+    "telegram_network_error",
+    "telegram_http_error",
+    "telegram_invalid_json",
+    "telegram_request_rejected",
+})
+
+
 class TelegramWorkerError(RuntimeError):
-    """Sanitized Telegram worker failure."""
+    """Failure with bounded diagnostic fields, never request URLs or credentials."""
+
+    def __init__(
+        self, message: str, *, code: str = "telegram_request_failed",
+        http_status: int | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.code = code if isinstance(code, str) and code in _FAILURE_CODES else "telegram_request_failed"
+        self.http_status = (
+            http_status if type(http_status) is int and 100 <= http_status <= 599 else None
+        )
+
+
+def _transport_failure_code(error: Exception) -> str:
+    for error_type, code in (
+        (httpx.ConnectTimeout, "telegram_connect_timeout"),
+        (httpx.ReadTimeout, "telegram_read_timeout"),
+        (httpx.WriteTimeout, "telegram_write_timeout"),
+        (httpx.PoolTimeout, "telegram_pool_timeout"),
+        (httpx.TimeoutException, "telegram_timeout"),
+    ):
+        if isinstance(error, error_type):
+            return code
+    return "telegram_network_error"
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,15 +110,27 @@ class TelegramBotAPI:
         try:
             response = await self._client.post(f"{self._base_url}/{method}", json=payload)
         except (httpx.TimeoutException, httpx.NetworkError) as exc:
-            raise TelegramWorkerError(f"Telegram connection failed: {type(exc).__name__}") from None
+            raise TelegramWorkerError(
+                f"Telegram connection failed: {type(exc).__name__}",
+                code=_transport_failure_code(exc),
+            ) from None
         if response.status_code != 200:
-            raise TelegramWorkerError(f"Telegram API returned HTTP {response.status_code}")
+            raise TelegramWorkerError(
+                f"Telegram API returned HTTP {response.status_code}",
+                code="telegram_http_error", http_status=response.status_code,
+            )
         try:
             decoded = response.json()
         except ValueError:
-            raise TelegramWorkerError("Telegram API returned invalid JSON") from None
+            raise TelegramWorkerError(
+                "Telegram API returned invalid JSON",
+                code="telegram_invalid_json", http_status=response.status_code,
+            ) from None
         if not isinstance(decoded, dict) or decoded.get("ok") is not True:
-            raise TelegramWorkerError("Telegram API rejected the request")
+            raise TelegramWorkerError(
+                "Telegram API rejected the request",
+                code="telegram_request_rejected", http_status=response.status_code,
+            )
         result = decoded.get("result")
         return {"result": result}
 
@@ -127,6 +176,9 @@ class TelegramOperationsWorker:
         self.health_path = Path(settings.AIOS_TELEGRAM_HEALTH_FILE)
         self.stop_event = asyncio.Event()
         self.errors = 0
+        self.last_error_code: str | None = None
+        self.last_error_http_status: int | None = None
+        self.last_error_at: str | None = None
         self.last_update_id: int | None = None
 
     async def run(self) -> None:
@@ -167,8 +219,7 @@ class TelegramOperationsWorker:
                 if not accepted:
                     await wait_for_telegram_admission(self.stop_event)
             except TelegramWorkerError as exc:
-                self.errors += 1
-                logger.warning("Telegram polling failure", error=type(exc).__name__)
+                self._record_failure(exc)
                 self._write_health("degraded", offset=offset)
                 try:
                     await asyncio.wait_for(self.stop_event.wait(), timeout=5.0)
@@ -427,6 +478,17 @@ class TelegramOperationsWorker:
             )
             await session.commit()
 
+    def _record_failure(self, error: TelegramWorkerError) -> None:
+        """Keep the last failure visible after recovery without storing its payload."""
+        self.errors += 1
+        self.last_error_code = error.code
+        self.last_error_http_status = error.http_status
+        self.last_error_at = datetime.now(UTC).isoformat()
+        logger.warning(
+            "Telegram polling failure", error=type(error).__name__,
+            error_code=error.code, http_status=error.http_status,
+        )
+
     def _write_health(self, status: str, *, offset: int) -> None:
         payload = {
             "status": status,
@@ -435,6 +497,9 @@ class TelegramOperationsWorker:
             "next_update_id": int(offset),
             "last_update_id": self.last_update_id,
             "errors": self.errors,
+            "last_error_code": self.last_error_code,
+            "last_error_http_status": self.last_error_http_status,
+            "last_error_at": self.last_error_at,
             "allowed_users_configured": len(self.allowed_users),
             "secret_returned": False,
         }
