@@ -350,8 +350,14 @@ class ReplicateIdentityMediaAdapter:
             )
         try:
             return _prediction(response.json())
-        except ValueError as exc:
-            raise IdentityMediaProviderFailure("provider_response_invalid") from exc
+        except (ValueError, IdentityMediaProviderFailure) as exc:
+            # A successful POST may already have created a billable prediction.
+            # An invalid receipt is not proof of rejection; never replay blindly.
+            raise IdentityMediaProviderFailure(
+                "provider_response_invalid",
+                ambiguous_submission=True,
+                http_status=response.status_code,
+            ) from exc
 
     async def create_pinned_prediction(
         self,
@@ -394,8 +400,14 @@ class ReplicateIdentityMediaAdapter:
             )
         try:
             return _prediction(response.json())
-        except ValueError as exc:
-            raise IdentityMediaProviderFailure("provider_response_invalid") from exc
+        except (ValueError, IdentityMediaProviderFailure) as exc:
+            # A successful POST may already have created a billable prediction.
+            # An invalid receipt is not proof of rejection; never replay blindly.
+            raise IdentityMediaProviderFailure(
+                "provider_response_invalid",
+                ambiguous_submission=True,
+                http_status=response.status_code,
+            ) from exc
 
     async def get_prediction(self, prediction_id: str) -> ReplicatePrediction:
         prediction = str(prediction_id or "").strip()
