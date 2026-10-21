@@ -57,7 +57,11 @@ def read_events(root: Path) -> list[dict[str, Any]]:
     path = root / "docs/project/runtime/events.jsonl"
     if not path.exists():
         return []
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    # JSON Lines records are delimited by physical LF bytes. str.splitlines()
+    # also splits valid JSON string characters such as U+0085/U+2028/U+2029.
+    # Do not silently discard non-JSON whitespace or partially valid records.
+    with path.open("r", encoding="utf-8", newline="\n") as stream:
+        return [json.loads(line) for line in stream if line.strip(" \t\r\n")]
 
 
 def validate_runtime(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
