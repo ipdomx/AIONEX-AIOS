@@ -36,6 +36,19 @@ def test_runtime_scaffold_contains_complete_r3f_world_architecture():
     assert "Ray" not in files["src/controllers/PlayerController.tsx"]  # raycast remains R3F pointer-event driven.
 
 
+def test_runtime_scaffold_splits_the_verified_large_vendor_graph() -> None:
+    config = ThreeDRuntimeScaffoldBuilder().build(_blueprint()).as_mapping()["vite.config.ts"]
+
+    assert "manualChunks(id)" in config
+    assert 'return "three-core"' in config
+    assert 'return "three-renderer"' in config
+    assert 'return "three-stdlib"' in config
+    assert 'return "react-three-fiber"' in config
+    assert 'return "react-three-drei"' in config
+    assert 'return "react-runtime"' in config
+    assert "chunkSizeWarningLimit" not in config
+
+
 def test_blueprint_generation_is_deterministic_and_preserves_zones_assets():
     builder = ThreeDRuntimeScaffoldBuilder()
     first = builder.build(_blueprint()).as_mapping()["src/generated/blueprint.ts"]
