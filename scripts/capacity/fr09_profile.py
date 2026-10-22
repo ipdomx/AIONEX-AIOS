@@ -12,11 +12,23 @@ import argparse
 from dataclasses import asdict, dataclass
 import json
 import math
+import os
 import shutil
+import tomllib
 from pathlib import Path
 from typing import Any
 
 GIB = 1024**3
+
+# The optional test-only Docker engine is unrelated to the production daemon.
+# Keep these identities pinned. No CLI path override is permitted.
+FR09_LAB_ROOT = Path("/mnt/aionex/fr09-isolated-lab-20261011")
+FR09_LAB_DOCKER_CONFIG = Path("/var/lib/aionex-migration/fr09-isolated-lab-20261011/dockerd.json")
+FR09_LAB_CONTAINERD_CONFIG = Path("/var/lib/aionex-migration/fr09-isolated-lab-20261011/containerd.toml")
+FR09_LAB_DOCKER_SOCKET = Path("/run/aionex-fr09-lab/docker.sock")
+FR09_LAB_CONTAINERD_SOCKET = Path("/run/aionex-fr09-lab/containerd.sock")
+FR09_LAB_CONTAINERD_UNIT = Path("/etc/systemd/system/aionex-fr09-lab-containerd.service")
+FR09_LAB_DEVICE_MAPPER = "/dev/mapper/aionex-fr09-isolated-20261011"
 
 HISTORICAL_RECEIPTS = (
     "docs/phase-36/receipts/36N-2026-09-07-production-capacity-test.md",
@@ -201,6 +213,100 @@ def measure_runtime_free_space() -> dict[str, Any]:
     }
 
 
+def _verified_luks_lab_mount(root: Path) -> None:
+    """Verify the named mount really is the expected encrypted device."""
+    if root.is_symlink() or not os.path.ismount(root):
+        raise CapacityProfileError("FR09 isolated lab mount is missing or redirected")
+    device = root.stat().st_dev
+    dm_uuid_path = Path(
+        f"/sys/dev/block/{os.major(device)}:{os.minor(device)}/dm/uuid"
+    )
+    if not dm_uuid_path.read_text(encoding="ascii").strip().startswith(
+        ("CRYPT-LUKS1-", "CRYPT-LUKS2-")
+    ):
+        raise CapacityProfileError("FR09 lab runtime is not LUKS encrypted")
+    found = False
+    for line in Path("/proc/self/mountinfo").read_text(encoding="utf-8").splitlines():
+        fields = line.split()
+        if len(fields) < 10 or fields[4] != str(root) or "-" not in fields:
+            continue
+        separator = fields.index("-")
+        found = (
+            len(fields) >= separator + 3
+            and fields[separator + 1] == "ext4"
+            and fields[separator + 2] == FR09_LAB_DEVICE_MAPPER
+        )
+        break
+    if not found:
+        raise CapacityProfileError("FR09 encrypted lab mount source mismatch")
+
+
+def measure_isolated_lab_free_space() -> dict[str, Any]:
+    """Read only: verify the *separate* FR09 LUKS Docker/containerd engine.
+
+    The Docker socket is checked as an existing UNIX file, not connected to;
+    this function never starts containers or reaches any production service.
+    The production runtime free space is measured for contrast, not substituted
+    as the staging lab's actual data-root free space.
+    """
+    root = FR09_LAB_ROOT
+    docker = root / "docker-data"
+    containerd = root / "containerd-data"
+    _verified_luks_lab_mount(root)
+    root_dev = _fs_device(root)
+    production_dev = _fs_device(Path("/var/lib/docker"))
+    host_dev = _fs_device(Path("/"))
+    if root_dev in (host_dev, production_dev):
+        raise CapacityProfileError("FR09 lab must be separate from root and production Docker")
+    for child in (docker, containerd):
+        if child.is_symlink() or not child.is_dir():
+            raise CapacityProfileError("FR09 lab runtime directory is missing or redirected")
+        if child.resolve(strict=True).parent != root.resolve(strict=True):
+            raise CapacityProfileError("FR09 lab runtime path escapes encrypted mount")
+        if _fs_device(child) != root_dev:
+            raise CapacityProfileError("FR09 lab runtime directory is not on encrypted mount")
+    if not (FR09_LAB_DOCKER_SOCKET.is_socket() and FR09_LAB_CONTAINERD_SOCKET.is_socket()):
+        raise CapacityProfileError("FR09 separate runtime daemon sockets are unavailable")
+    docker_cfg = json.loads(FR09_LAB_DOCKER_CONFIG.read_text(encoding="utf-8"))
+    with FR09_LAB_CONTAINERD_CONFIG.open("rb") as source:
+        containerd_cfg = tomllib.load(source)
+    required_docker = {
+        "data-root": str(docker),
+        "bridge": "none",
+        "iptables": False,
+        "ip6tables": False,
+        "ip-forward": False,
+        "ip-masq": False,
+        "userland-proxy": False,
+    }
+    if (
+        not isinstance(docker_cfg, dict)
+        or any(docker_cfg.get(key) != expected for key, expected in required_docker.items())
+        or docker_cfg.get("hosts") != ["unix://" + str(FR09_LAB_DOCKER_SOCKET)]
+        or docker_cfg.get("exec-root") != "/run/aionex-fr09-lab/docker-exec"
+        or containerd_cfg.get("root") != str(containerd)
+        or containerd_cfg.get("state") != "/run/aionex-fr09-lab/containerd-state"
+        or ("--address " + str(FR09_LAB_CONTAINERD_SOCKET)) not in FR09_LAB_CONTAINERD_UNIT.read_text(encoding="utf-8")
+    ):
+        raise CapacityProfileError("FR09 isolated daemon configuration is not pinned")
+    return {
+        "runtime_role": "fr09-isolated-lab",
+        "measurement_paths": [str(docker), str(containerd)],
+        "runtime_min_free_bytes": min(
+            shutil.disk_usage(docker).free, shutil.disk_usage(containerd).free
+        ),
+        "runtime_fs_separate_from_root": True,
+        "runtime_fs_separate_from_production": True,
+        "docker_containerd_share_filesystem": True,
+        "lab_identity_verified": True,
+        "verified_luks_mount": str(root),
+        "separate_docker_socket": str(FR09_LAB_DOCKER_SOCKET),
+        "production_runtime_min_free_bytes": measure_runtime_free_space()[
+            "runtime_min_free_bytes"
+        ],
+    }
+
+
 def build_preflight(
     profile: CapacityProfile,
     *,
@@ -221,6 +327,12 @@ def build_preflight(
     else:
         if measured_storage.get("runtime_fs_separate_from_root") is not True:
             blockers.append("Docker/containerd runtime filesystem identity is not verified")
+        if measured_storage.get("runtime_role") == "fr09-isolated-lab" and not (
+            measured_storage.get("lab_identity_verified") is True
+            and measured_storage.get("runtime_fs_separate_from_production") is True
+            and measured_storage.get("docker_containerd_share_filesystem") is True
+        ):
+            blockers.append("FR09 isolated lab identity is not verified")
         measured_free = measured_storage.get("runtime_min_free_bytes")
         if type(measured_free) is not int or measured_free < heavy_min_free_bytes:
             blockers.append("Docker/containerd runtime free space is below the heavy-work gate")
@@ -286,6 +398,12 @@ def main() -> int:
     parser.add_argument("--free-bytes", type=int, required=True)
     parser.add_argument("--heavy-min-free-bytes", type=int, default=40 * GIB)
     parser.add_argument("--fr08-accepted", action="store_true")
+    parser.add_argument(
+        "--runtime-layout",
+        choices=("production", "isolated-lab"),
+        default="production",
+        help="Explicitly select the verified encrypted FR09 test-only daemon (default: production)",
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
 
@@ -305,7 +423,11 @@ def main() -> int:
         }, sort_keys=True))
         return 2
     try:
-        measured_storage = measure_runtime_free_space()
+        measured_storage = (
+            measure_isolated_lab_free_space()
+            if args.runtime_layout == "isolated-lab"
+            else measure_runtime_free_space()
+        )
     except (OSError, ValueError):
         # Absent/unreadable vault paths are a HOLD, never implicit root-disk PASS.
         measured_storage = None
