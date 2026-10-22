@@ -7,10 +7,11 @@
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "next lint",
-    "type-check": "npm run check:api-contracts && tsc --noEmit",
+    "type-check": "npm run check:api-contracts && npm run check:owner-finance-coverage && tsc --noEmit",
     "check:owner-arabic": "node scripts/check-owner-arabic-coverage.mjs",
     "check:api-contracts": "node scripts/check-api-contracts.mjs && npm run check:moment-security",
-    "check:moment-security": "node scripts/test-moment-security.cjs"
+    "check:moment-security": "node scripts/test-moment-security.cjs",
+    "check:owner-finance-coverage": "node --experimental-strip-types --test scripts/test-owner-finance-coverage.mjs"
   },
   "dependencies": {
     "@apollo/client": "^3.9.0",

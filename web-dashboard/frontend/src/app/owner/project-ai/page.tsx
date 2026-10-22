@@ -13,6 +13,11 @@ import {
 } from "lucide-react";
 
 import {
+  providerCreditMonitoringCopy,
+  summarizeProjectAIProviderFinanceCoverage,
+} from "@/lib/provider-credit-coverage";
+
+import {
   attestProjectAIProviderFunding,
   clearProjectAIUserPolicy,
   fetchProjectAIAccess,
@@ -107,6 +112,12 @@ export default function OwnerProjectAIPage() {
     [snapshot.providers],
   );
 
+  const financeCoverage = useMemo(
+    () =>
+      summarizeProjectAIProviderFinanceCoverage(snapshot.providers, finance),
+    [snapshot.providers, finance],
+  );
+
   const freeOptions = modelOptions.filter(
     (item) => item.local && item.provider === "ollama",
   );
@@ -147,9 +158,10 @@ export default function OwnerProjectAIPage() {
               provider.id,
               {
                 funded_credit_usd: row?.funded_usd ?? 0,
-                low_balance_threshold_usd: row?.low_balance_threshold_usd ?? 5,
+                // Missing/unreachable finance records do not imply $5/$2 limits.
+                low_balance_threshold_usd: row?.low_balance_threshold_usd ?? 0,
                 critical_balance_threshold_usd:
-                  row?.critical_balance_threshold_usd ?? 2,
+                  row?.critical_balance_threshold_usd ?? 0,
                 enabled: row?.enabled ?? true,
                 balance_amount_private: row?.balance_amount_private ?? true,
               },
@@ -258,6 +270,22 @@ export default function OwnerProjectAIPage() {
   async function saveFinance(providerId: string) {
     const draft = financeDrafts[providerId];
     if (!draft) return;
+    if (
+      draft.enabled &&
+      (!Number.isFinite(draft.funded_credit_usd) ||
+        !Number.isFinite(draft.low_balance_threshold_usd) ||
+        !Number.isFinite(draft.critical_balance_threshold_usd) ||
+        draft.funded_credit_usd <= 0 ||
+        draft.low_balance_threshold_usd <= 0 ||
+        draft.low_balance_threshold_usd > draft.funded_credit_usd ||
+        draft.critical_balance_threshold_usd < 0 ||
+        draft.critical_balance_threshold_usd > draft.low_balance_threshold_usd)
+    ) {
+      setMessage(
+        "Enter confirmed positive funded credit and a positive Low warning threshold. Critical must be between zero and Low; no invented balances are accepted.",
+      );
+      return;
+    }
     setSaving(`finance:${providerId}`);
     try {
       await updateProjectAIProviderFinance(providerId, draft);
@@ -567,6 +595,15 @@ export default function OwnerProjectAIPage() {
             Record funded credit and alert thresholds. Actual Project-AI spend
             is deducted from the recorded baseline.
           </p>
+          <p className="mt-2 text-xs text-white/60" data-finance-coverage>
+            {financeCoverage.predictive} of {financeCoverage.connected}{" "}
+            connected providers have verified numeric pre-depletion warnings.{" "}
+            {financeCoverage.ownerAttestedOnly} have private funding attestation
+            only; {financeCoverage.unverified} have unverified finance policies;{" "}
+            {financeCoverage.disabled + financeCoverage.noEarlyWarningThreshold}{" "}
+            need monitoring settings corrected. Unknown balances are never
+            treated as funded.
+          </p>
         </div>
         <div className="grid gap-4 xl:grid-cols-2">
           {snapshot.providers.map((provider) => {
@@ -582,7 +619,7 @@ export default function OwnerProjectAIPage() {
                     </div>
                     <div className="mt-1 text-xs text-white/40">
                       {provider.validated_models.length} validated models ·{" "}
-                      {row?.state ?? "not configured"}
+                      {row?.state ?? "finance unverified"}
                     </div>
                   </div>
                   {row && (
@@ -603,12 +640,7 @@ export default function OwnerProjectAIPage() {
                   )}
                 </div>
                 <div className="mt-4 rounded-xl border border-white/6 bg-white/2.5 p-3 text-xs text-white/55">
-                  {row?.funding_mode === "owner_attested" &&
-                  row.funded_confirmed
-                    ? "Funding is confirmed, but predictive low-balance alerts need a numeric funded amount. Save Funded / Low / Critical below to activate pre-exhaustion monitoring."
-                    : row?.funding_mode === "numeric_private"
-                      ? "Predictive low/critical monitoring is active. Numeric balance details are visible only to the Super Owner; general snapshots and alert payloads remain private."
-                      : "Predictive low/critical monitoring is active from the recorded funded baseline and durable provider spend."}
+                  {providerCreditMonitoringCopy(row)}
                 </div>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   <button
@@ -621,9 +653,11 @@ export default function OwnerProjectAIPage() {
                   </button>
                   <div className="rounded-xl border border-white/6 px-3 py-2.5 text-xs text-white/45">
                     Billing/quota failure alerts:{" "}
-                    {row?.billing_failure_alerts_enabled === false
-                      ? "off"
-                      : "on"}
+                    {row
+                      ? row.billing_failure_alerts_enabled
+                        ? "enabled"
+                        : "off"
+                      : "not verified"}
                   </div>
                 </div>
                 <div className="mt-4 grid grid-cols-3 gap-2">
