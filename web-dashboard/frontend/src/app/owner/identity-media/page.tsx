@@ -11,6 +11,8 @@ import {
   UserX,
 } from "lucide-react";
 
+import IdentityMediaRecoveryReview from "@/components/owner/IdentityMediaRecoveryReview";
+
 import {
   clearOwnerIdentityMediaAccess,
   getOwnerIdentityMedia,
@@ -236,6 +238,8 @@ export default function OwnerIdentityMediaPage() {
           </button>
         </div>
       </header>
+
+      <IdentityMediaRecoveryReview />
 
       <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm leading-6 text-amber-100/80">
         <div className="flex gap-3">
