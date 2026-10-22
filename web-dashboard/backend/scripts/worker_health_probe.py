@@ -71,13 +71,18 @@ def check_heartbeat(
         return False
 
 
+def configured_healthcheck(kind: str) -> int:
+    """Run a configured heartbeat check before importing heavy worker modules."""
+    policy = POLICIES[kind]
+    path = Path(os.environ.get(policy.env_var) or policy.default_path)
+    return 0 if check_heartbeat(path, policy) else 1
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--kind", choices=tuple(POLICIES), required=True)
     args = parser.parse_args()
-    policy = POLICIES[args.kind]
-    path = Path(os.environ.get(policy.env_var) or policy.default_path)
-    return 0 if check_heartbeat(path, policy) else 1
+    return configured_healthcheck(args.kind)
 
 
 if __name__ == "__main__":

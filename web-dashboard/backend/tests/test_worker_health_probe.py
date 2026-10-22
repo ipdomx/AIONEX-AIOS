@@ -103,11 +103,54 @@ def test_real_cli_uses_configured_path_and_has_no_app_dependencies(
     assert result.stdout == b""
 
 
-def test_compose_has_fast_probe_for_selected_workers() -> None:
+def test_compose_keeps_original_verified_healthcheck_contracts() -> None:
     compose = (SCRIPT.parents[2] / "docker-compose.production.yml").read_text()
     three_d = compose.split("\n  three-d-worker:", 1)[1].split("\n  project-worker:", 1)[0]
     telegram = compose.split("\n  user-telegram-worker:", 1)[1].split("\n  security-tool-cache-init:", 1)[0]
-    assert '"/app/scripts/worker_health_probe.py", "--kind", "three-d"' in three_d
-    assert '"/app/scripts/worker_health_probe.py", "--kind", "user-telegram"' in telegram
-    assert "app.services.three_d_worker\", \"--healthcheck" not in three_d
-    assert "app.services.user_telegram_worker\", \"--healthcheck" not in telegram
+    assert 'test: ["CMD", "su-exec", "aionex", "python", "-m", "app.services.three_d_worker", "--healthcheck"]' in three_d
+    assert 'test: ["CMD", "python", "-m", "app.services.user_telegram_worker", "--healthcheck"]' in telegram
+
+
+@pytest.mark.parametrize("kind,module_name,status,env_var", [
+    ("three-d", "app.services.three_d_worker", "ok", "THREE_D_WORKER_HEALTH_FILE"),
+    ("user-telegram", "app.services.user_telegram_worker", "running", "AIOS_USER_TELEGRAM_HEALTH_FILE"),
+])
+def test_original_worker_cli_fastpath_needs_no_sqlalchemy_or_provider_dependencies(
+    tmp_path: Path, kind: str, module_name: str, status: str, env_var: str,
+) -> None:
+    path = tmp_path / "worker.json"
+    env = dict(os.environ)
+    env[env_var] = str(path)
+    env["PYTHONPATH"] = str(SCRIPT.parents[1])
+    path.write_text(json.dumps({"status": status, "checked_at_epoch": __import__("time").time()}))
+    successful = subprocess.run(
+        [sys.executable, "-m", module_name, "--healthcheck"],
+        cwd=SCRIPT.parents[1], env=env, capture_output=True, timeout=5,
+    )
+    assert successful.returncode == 0, successful.stderr.decode(errors="replace")
+    assert successful.stdout == b""
+    path.write_text(json.dumps({"status": status, "checked_at_epoch": 1.0}))
+    stale = subprocess.run(
+        [sys.executable, "-m", module_name, "--healthcheck"],
+        cwd=SCRIPT.parents[1], env=env, capture_output=True, timeout=5,
+    )
+    assert stale.returncode == 1, stale.stderr.decode(errors="replace")
+    assert stale.stdout == b""
+
+
+def test_3d_healthcheck_fastpath_precedes_expensive_service_imports() -> None:
+    source = (SCRIPT.parents[1] / "app/services/three_d_worker.py").read_text()
+    assert source.index('if _health_sys.argv[1:] == ["--healthcheck"]:') < source.index(
+        "from app.services.host_maintenance_media_claims import"
+    )
+    assert source.index('raise SystemExit(_healthcheck("three-d"))') < source.index(
+        "from fastapi import HTTPException"
+    )
+
+
+def test_user_telegram_healthcheck_fastpath_precedes_sqlalchemy() -> None:
+    source = (SCRIPT.parents[1] / "app/services/user_telegram_worker.py").read_text()
+    assert source.index('if _health_sys.argv[1:] == ["--healthcheck"]:') < source.index(
+        "from sqlalchemy import select"
+    )
+    assert 'raise SystemExit(_healthcheck("user-telegram"))' in source
