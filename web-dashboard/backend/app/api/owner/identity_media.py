@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import UserRecord, require_super_owner
 from app.db.base import get_db
-from app.services import identity_media_access
+from app.services import identity_media_access, identity_media_recovery_triage
 
 router = APIRouter(prefix="/owner/identity-media", tags=["Owner Identity Media"])
 
@@ -69,6 +69,19 @@ async def snapshot(
         ),
         "raw_credentials_returned": False,
     }
+
+
+@router.get("/executions/recovery-review")
+async def execution_recovery_review(
+    limit: int = Query(default=50, ge=1, le=100),
+    actor: UserRecord = Depends(require_super_owner),
+    session: AsyncSession = Depends(get_db),
+):
+    # Read-only inventory; no provider resubmission or history modification.
+    del actor
+    return await identity_media_recovery_triage.owner_identity_media_recovery_snapshot(
+        session, limit=limit
+    )
 
 
 @router.get("/users")

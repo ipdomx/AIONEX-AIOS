@@ -127,3 +127,45 @@ export function reviewOwnerIdentityMediaRequest(
     { decision, review_note: reviewNote },
   );
 }
+
+// The Owner-only review queue is intentionally read-only. No provider jobs,
+// customer media locations or credentials are included in the response.
+export type OwnerIdentityMediaRecoveryEntry = {
+  execution_id: string;
+  operation: string;
+  provider: string;
+  status: "needs_review";
+  provider_state: string;
+  attempts: number;
+  created_at: string | null;
+  error_category: string;
+  provider_reference_recorded: boolean;
+  review_kind: string;
+  automatic_replay_allowed: false;
+  actual_provider_charge_verified: false;
+  needs_external_provenance_review: true;
+};
+
+export type OwnerIdentityMediaRecoveryReview = {
+  status: "review_required" | "no_review_records";
+  total_review_required: number;
+  no_provider_reference: number;
+  provider_reference_recorded: number;
+  shown: number;
+  truncated: boolean;
+  executions: OwnerIdentityMediaRecoveryEntry[];
+  automatic_replay_allowed: false;
+  actual_provider_charges_verified: false;
+  operator_action: string;
+  provider_job_ids_returned: false;
+  raw_credentials_returned: false;
+  customer_identity_or_storage_paths_returned: false;
+  read_only: true;
+};
+
+export function getOwnerIdentityMediaRecoveryReview(signal?: AbortSignal) {
+  return apiClient.get<OwnerIdentityMediaRecoveryReview>(
+    "/owner/identity-media/executions/recovery-review",
+    { signal, params: { limit: 50 } },
+  );
+}

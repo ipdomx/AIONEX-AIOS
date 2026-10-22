@@ -3,6 +3,27 @@ import type { SupportedLocale } from "@/lib/locale-engine";
 type Catalog = Record<string, string>;
 
 const AR: Catalog = {
+  "Execution recovery review": "مراجعة استعادة مهام الوسائط",
+  "Read-only provider provenance checks. Automatic replay is disabled.":
+    "عرض توثيق تنفيذ المزود للقراءة فقط. إعادة الإرسال التلقائية معطلة.",
+  "Refresh review": "تحديث المراجعة",
+  "Reading execution review queue...":
+    "جارٍ قراءة قائمة المهام التي تحتاج مراجعة...",
+  "Review queue not verified; retry read-only refresh.":
+    "لم يتم التحقق من قائمة المراجعة؛ أعد تحديث القراءة فقط.",
+  "Manual review required:": "مهام تتطلب مراجعة يدوية:",
+  "Without provider reference:": "دون مرجع لدى المزود:",
+  "Provider reference recorded:": "مرجع المزود مسجل:",
+  "No outstanding execution reviews.": "لا توجد مهام معلقة للمراجعة.",
+  "Automatic replay disabled": "إعادة الإرسال التلقائية معطلة",
+  "Provider ledger and billing evidence must be reconciled before any retry.":
+    "يجب مطابقة سجل عمليات المزود وأدلة الفوترة قبل أي إعادة تنفيذ.",
+  "Provider reference recorded; verify before retry.":
+    "مرجع المزود مسجل؛ تحقق منه قبل إعادة التنفيذ.",
+  "No provider reference; manual reconciliation required.":
+    "لا يوجد مرجع للمزود؛ تلزم مطابقة يدوية.",
+  "Additional review records remain beyond this page.":
+    "هناك سجلات مراجعة إضافية خارج هذه الصفحة.",
   "Conversation Governance": "إدارة المحادثات وحدود الاستخدام",
   "Server-enforced conversation duration, message quotas, user exceptions and audit.":
     "مدة المحادثة وحدود الرسائل واستثناءات المستخدم وسجل التدقيق، مع فرضها من الخادم.",
@@ -270,19 +291,29 @@ const AR: Catalog = {
   "Use plan default": "استخدام افتراضي الخطة",
   "Owner override active": "تجاوز المالك نشط",
   "Plan default": "افتراضي الخطة",
-  "Enter confirmed positive funded credit and a positive Low warning threshold. Critical must be between zero and Low; no invented balances are accepted.": "أدخل مبلغ تمويل مؤكدًا وموجبًا وحدًا موجبًا للتنبيه عند انخفاض الرصيد. يجب أن يكون الحد الحرج بين الصفر والحد المنخفض، ولا يُسمح بافتراض أرصدة غير حقيقية.",
-  "connected providers have verified numeric pre-depletion warnings.": "مزودًا متصلًا لديهم تنبيهات رقمية موثقة قبل نفاد الرصيد.",
-  "have private funding attestation only;": "لديهم تأكيد تمويل خاص دون قيمة رقمية؛",
+  "Enter confirmed positive funded credit and a positive Low warning threshold. Critical must be between zero and Low; no invented balances are accepted.":
+    "أدخل مبلغ تمويل مؤكدًا وموجبًا وحدًا موجبًا للتنبيه عند انخفاض الرصيد. يجب أن يكون الحد الحرج بين الصفر والحد المنخفض، ولا يُسمح بافتراض أرصدة غير حقيقية.",
+  "connected providers have verified numeric pre-depletion warnings.":
+    "مزودًا متصلًا لديهم تنبيهات رقمية موثقة قبل نفاد الرصيد.",
+  "have private funding attestation only;":
+    "لديهم تأكيد تمويل خاص دون قيمة رقمية؛",
   "have unverified finance policies;": "لم يتم التحقق من سياسات تمويلهم؛",
-  "need monitoring settings corrected. Unknown balances are never treated as funded.": "بحاجة لتصحيح إعدادات المراقبة. لا يُعتبر أي رصيد مجهول ممولًا.",
+  "need monitoring settings corrected. Unknown balances are never treated as funded.":
+    "بحاجة لتصحيح إعدادات المراقبة. لا يُعتبر أي رصيد مجهول ممولًا.",
   "not verified": "لم يتم التحقق",
   "finance unverified": "سياسة التمويل غير متحقق منها",
-  "Predictive credit monitoring is not verified. No numeric funded baseline or low/critical alert policy has been loaded. Enter real amounts below or check the Owner finance connection; do not assume alerts are active.": "لم يتم التحقق من مراقبة الرصيد التنبؤية. لا توجد قيمة تمويل رقمية أو سياسة محمّلة لحدود التنبيه المنخفضة والحرجة. أدخل المبالغ الحقيقية أدناه أو تحقق من اتصال إعدادات التمويل في لوحة المالك؛ لا تفترض أن التنبيهات تعمل.",
-  "This provider's predictive credit monitoring is disabled. Enable a verified numeric funding policy to receive low-balance alerts.": "مراقبة الرصيد التنبؤية لهذا المزود معطلة. فعّل سياسة تمويل رقمية موثقة لتلقي تنبيهات انخفاض الرصيد.",
-  "Funding was confirmed without an amount. Billing/quota failures can be reported, but predictive low-balance alerts require real numeric funded credit and thresholds.": "تم تأكيد التمويل دون تسجيل مبلغ. يمكن الإبلاغ عن أخطاء الفوترة أو الحصص، لكن التنبيه المبكر لانخفاض الرصيد يحتاج مبلغ تمويل رقميًا حقيقيًا وحدودًا موثقة.",
-  "A numeric policy exists, but no positive low-balance warning threshold is verified. Configure a real positive Low threshold to enable pre-depletion alerts.": "توجد سياسة رقمية، لكن لا يوجد حد موجب موثق للتنبيه بانخفاض الرصيد. حدد قيمة منخفضة حقيقية وموجبة لتفعيل التنبيه قبل نفاد الرصيد.",
-  "Numeric pre-depletion monitoring is configured. Funded balances and alert amounts remain private to the Super Owner.": "تم إعداد المراقبة الرقمية قبل نفاد الرصيد. تظل قيم الأرصدة الممولة والتنبيهات خاصة بالمالك الأعلى.",
-  "Numeric pre-depletion monitoring is configured from the recorded funded baseline and durable provider spend.": "تم إعداد المراقبة الرقمية قبل نفاد الرصيد اعتمادًا على التمويل المسجل وإنفاق المزود الفعلي المحفوظ.",
+  "Predictive credit monitoring is not verified. No numeric funded baseline or low/critical alert policy has been loaded. Enter real amounts below or check the Owner finance connection; do not assume alerts are active.":
+    "لم يتم التحقق من مراقبة الرصيد التنبؤية. لا توجد قيمة تمويل رقمية أو سياسة محمّلة لحدود التنبيه المنخفضة والحرجة. أدخل المبالغ الحقيقية أدناه أو تحقق من اتصال إعدادات التمويل في لوحة المالك؛ لا تفترض أن التنبيهات تعمل.",
+  "This provider's predictive credit monitoring is disabled. Enable a verified numeric funding policy to receive low-balance alerts.":
+    "مراقبة الرصيد التنبؤية لهذا المزود معطلة. فعّل سياسة تمويل رقمية موثقة لتلقي تنبيهات انخفاض الرصيد.",
+  "Funding was confirmed without an amount. Billing/quota failures can be reported, but predictive low-balance alerts require real numeric funded credit and thresholds.":
+    "تم تأكيد التمويل دون تسجيل مبلغ. يمكن الإبلاغ عن أخطاء الفوترة أو الحصص، لكن التنبيه المبكر لانخفاض الرصيد يحتاج مبلغ تمويل رقميًا حقيقيًا وحدودًا موثقة.",
+  "A numeric policy exists, but no positive low-balance warning threshold is verified. Configure a real positive Low threshold to enable pre-depletion alerts.":
+    "توجد سياسة رقمية، لكن لا يوجد حد موجب موثق للتنبيه بانخفاض الرصيد. حدد قيمة منخفضة حقيقية وموجبة لتفعيل التنبيه قبل نفاد الرصيد.",
+  "Numeric pre-depletion monitoring is configured. Funded balances and alert amounts remain private to the Super Owner.":
+    "تم إعداد المراقبة الرقمية قبل نفاد الرصيد. تظل قيم الأرصدة الممولة والتنبيهات خاصة بالمالك الأعلى.",
+  "Numeric pre-depletion monitoring is configured from the recorded funded baseline and durable provider spend.":
+    "تم إعداد المراقبة الرقمية قبل نفاد الرصيد اعتمادًا على التمويل المسجل وإنفاق المزود الفعلي المحفوظ.",
   "Provider credit monitoring": "مراقبة رصيد المزود",
   "Record funded credit and alert thresholds. Actual Project-AI spend is deducted from the recorded baseline.":
     "سجل الرصيد الممول وحدود التنبيه. يُخصم الإنفاق الفعلي لذكاء المشروعات من خط الأساس المسجل.",
