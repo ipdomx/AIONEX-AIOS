@@ -188,6 +188,7 @@ OWNER_API_CONTRACT = {
     ("PATCH", "/api/v1/owner/studio-governance/{capability_id}"),
     ("GET", "/api/v1/owner/identity-media"),
     ("GET", "/api/v1/owner/identity-media/users"),
+    ("GET", "/api/v1/owner/identity-media/executions/recovery-review"),
     ("PUT", "/api/v1/owner/identity-media/access"),
     ("DELETE", "/api/v1/owner/identity-media/access/{user_id}/{operation}"),
     ("GET", "/api/v1/owner/identity-media/requests"),
