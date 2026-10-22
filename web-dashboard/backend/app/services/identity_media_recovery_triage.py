@@ -110,7 +110,7 @@ async def owner_identity_media_recovery_snapshot(
         "provider_reference_recorded": total - missing,
         "shown": len(rows),
         "truncated": total > len(rows),
-        "executions": [safe_recovery_review_row(row) for row in rows],
+        "executions": [safe_recovery_review_row(dict(row)) for row in rows],
         "automatic_replay_allowed": False,
         "actual_provider_charges_verified": False,
         "operator_action": "independently_reconcile_provider_history_and_billing",
