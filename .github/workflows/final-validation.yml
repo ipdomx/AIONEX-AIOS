@@ -640,8 +640,12 @@ jobs:
             -e 's|^DATABASE_URL=.*|DATABASE_URL=postgresql+asyncpg://legacy_user:rotated-password@postgres:5432/legacy_database|' \
             .env.legacy
 
+          # Only the credential-upgrade dependency graph needs rebuilding here.
+          # Security Lab tools are built and verified in their own preceding gate;
+          # rebuilding every service would compile pinned Trivy a second time.
+          # Preserve the real reconciler, backend and backup-worker upgrade checks.
           AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" \
-            "${compose_args[@]}" up -d --build
+            "${compose_args[@]}" up -d --build backend backup-worker postgres-credential-reconciler
           AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" \
             "${compose_args[@]}" up -d --wait --wait-timeout 180 backend backup-worker
           reconciler_id="$(AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.legacy" "${compose_args[@]}" ps --all -q postgres-credential-reconciler)"

@@ -8,6 +8,7 @@ WORKFLOW = ROOT / ".github/workflows/final-validation.yml"
 BUILD = "Build Security Lab image without competing network-heavy builds"
 SETUP = "Set up isolated Security Lab builder"
 VERIFY = "Verify Security Lab toolchain image"
+LEGACY = "Verify legacy DATABASE_URL upgrade preserves PostgreSQL data"
 SCOPE = "aios-security-tools-linux-amd64-v1"
 
 
@@ -79,6 +80,19 @@ class SecurityBuildCacheContracts(unittest.TestCase):
                  "Smoke production backup worker and restore round-trip"]
         positions = [self.workflow.index(f"      - name: {name}\n") for name in names]
         self.assertEqual(positions, sorted(positions))
+
+    def test_legacy_upgrade_rebuild_is_scoped_away_from_security_image(self):
+        legacy = step(self.workflow, LEGACY)
+        build_lines = [
+            line.strip()
+            for line in legacy.splitlines()
+            if '"${compose_args[@]}" up -d --build' in line
+        ]
+        self.assertEqual(
+            build_lines,
+            ['"${compose_args[@]}" up -d --build backend backup-worker postgres-credential-reconciler'],
+        )
+        self.assertNotIn("security-scan-worker", legacy)
 
     def test_workflow_permissions_are_not_expanded(self):
         permissions = self.workflow.split("\npermissions:\n", 1)[1].split("\n\n", 1)[0]
