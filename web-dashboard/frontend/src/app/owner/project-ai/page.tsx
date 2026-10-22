@@ -113,7 +113,8 @@ export default function OwnerProjectAIPage() {
   );
 
   const financeCoverage = useMemo(
-    () => summarizeProjectAIProviderFinanceCoverage(snapshot.providers, finance),
+    () =>
+      summarizeProjectAIProviderFinanceCoverage(snapshot.providers, finance),
     [snapshot.providers, finance],
   );
 
@@ -595,12 +596,13 @@ export default function OwnerProjectAIPage() {
             is deducted from the recorded baseline.
           </p>
           <p className="mt-2 text-xs text-white/60" data-finance-coverage>
-            {financeCoverage.predictive} of {financeCoverage.connected} connected
-            providers have verified numeric pre-depletion warnings.{" "}
+            {financeCoverage.predictive} of {financeCoverage.connected}{" "}
+            connected providers have verified numeric pre-depletion warnings.{" "}
             {financeCoverage.ownerAttestedOnly} have private funding attestation
             only; {financeCoverage.unverified} have unverified finance policies;{" "}
-            {financeCoverage.disabled + financeCoverage.noEarlyWarningThreshold} need
-            monitoring settings corrected. Unknown balances are never treated as funded.
+            {financeCoverage.disabled + financeCoverage.noEarlyWarningThreshold}{" "}
+            need monitoring settings corrected. Unknown balances are never
+            treated as funded.
           </p>
         </div>
         <div className="grid gap-4 xl:grid-cols-2">
