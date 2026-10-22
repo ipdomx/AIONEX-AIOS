@@ -2,6 +2,17 @@
 
 from __future__ import annotations
 
+# Keep the existing Docker Compose healthcheck command stable for FR-06
+# verified source contracts. Avoid importing DB/provider/application stacks
+# for a local file-only health read every 30 seconds.
+if __name__ == "__main__":
+    import sys as _health_sys
+
+    if _health_sys.argv[1:] == ["--healthcheck"]:
+        from scripts.worker_health_probe import configured_healthcheck as _healthcheck
+
+        raise SystemExit(_healthcheck("three-d"))
+
 from app.services.host_maintenance_media_claims import media_claim_admission_open
 
 import argparse
