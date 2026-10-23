@@ -8,7 +8,7 @@ import os
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, cast
 from urllib.parse import urlsplit
 
 import jwt
@@ -46,6 +46,9 @@ logger = get_logger(__name__)
 ACTIVE_USER_STATUSES = frozenset({"active", "online"})
 ACTIVE_ORGANIZATION_STATUSES = frozenset({"active", "trial"})
 ACCESS_TOKEN_REVOCATION_PREFIX = "aionex:auth:revoked:access:"
+# Only source-loaded relation objects bypass repeated identity SQL roundtrips.
+# Absence (None) is distinct from a relationship not loaded by the caller.
+_AUTH_RELATION_UNLOADED = object()
 DEFAULT_PUBLIC_PORTAL_ORIGINS = (
     "https://ai.vip-e.net",
     "https://vip-e.net",
@@ -58,10 +61,15 @@ _SAFE_COOKIE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 
 def _cookie_secure() -> bool:
-    return settings.ENVIRONMENT.strip().lower() in {"production", "prod"} and not settings.DEBUG
+    return (
+        settings.ENVIRONMENT.strip().lower() in {"production", "prod"}
+        and not settings.DEBUG
+    )
 
 
-def attach_browser_session_cookies(response: Response, session_pair: dict[str, Any]) -> None:
+def attach_browser_session_cookies(
+    response: Response, session_pair: dict[str, Any]
+) -> None:
     """Set host-only HttpOnly browser credentials without changing native token responses."""
     secure = _cookie_secure()
     response.set_cookie(
@@ -220,7 +228,14 @@ class UserRecord:
 
 
 class AuthService:
-    async def _to_user_record(self, session: AsyncSession, user: User) -> UserRecord:
+    async def _to_user_record(
+        self,
+        session: AsyncSession,
+        user: User,
+        *,
+        preloaded_role: Role | None | object = _AUTH_RELATION_UNLOADED,
+        preloaded_organization: Organization | None | object = _AUTH_RELATION_UNLOADED,
+    ) -> UserRecord:
         if user.status not in ACTIVE_USER_STATUSES:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -229,7 +244,13 @@ class AuthService:
         role_name = "Unassigned"
         permissions: list[str] = []
         if user.role_id:
-            role = await session.get(Role, user.role_id)
+            # A current-session check already loaded both relations in one
+            # live identity SQL request. Preserve legacy callsites and behavior.
+            role = (
+                await session.get(Role, user.role_id)
+                if preloaded_role is _AUTH_RELATION_UNLOADED
+                else cast(Role | None, preloaded_role)
+            )
             if role is not None:
                 if role.status != "active":
                     raise HTTPException(
@@ -243,7 +264,11 @@ class AuthService:
                     .where(RolePermission.role_id == role.id)
                 )
                 permissions = list(result.scalars().all())
-        organization = await session.get(Organization, user.organization_id)
+        organization = (
+            await session.get(Organization, user.organization_id)
+            if preloaded_organization is _AUTH_RELATION_UNLOADED
+            else cast(Organization | None, preloaded_organization)
+        )
         if organization is None:
             raise HTTPException(status_code=500, detail="User organization is missing")
         if organization.status not in ACTIVE_ORGANIZATION_STATUSES:
@@ -515,12 +540,27 @@ class AuthService:
         return True
 
     async def get_user_by_id(self, session: AsyncSession, user_id: str) -> UserRecord:
-        user = await session.scalar(
-            select(User).where(User.id == user_id, User.deleted_at.is_(None))
-        )
-        if user is None:
+        # Access-token validation must recheck the live user, role and
+        # organization on every request. A single outer-joined, primary-key
+        # lookup avoids three separate DB roundtrips under simultaneous reads,
+        # without trusting stale JWT roles/permissions or caching revocations.
+        identity = (
+            await session.execute(
+                select(User, Role, Organization)
+                .outerjoin(Role, Role.id == User.role_id)
+                .outerjoin(Organization, Organization.id == User.organization_id)
+                .where(User.id == user_id, User.deleted_at.is_(None))
+            )
+        ).one_or_none()
+        if identity is None:
             raise HTTPException(status_code=404, detail="User not found")
-        return await self._to_user_record(session, user)
+        user, role, organization = identity
+        return await self._to_user_record(
+            session,
+            user,
+            preloaded_role=role,
+            preloaded_organization=organization,
+        )
 
     def serialize_user(self, user: UserRecord) -> dict[str, Any]:
         return {
