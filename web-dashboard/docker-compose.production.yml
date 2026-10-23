@@ -7,7 +7,7 @@ services:
         NEXT_PUBLIC_USER_PORTAL_URL: ${AIOS_USER_PORTAL_URL:-https://ai.vip-e.net}
     restart: unless-stopped
     mem_limit: 1g
-    cpus: "1.5"
+    cpus: "3.0"
     pids_limit: 256
     read_only: true
     cap_drop: ["ALL"]
