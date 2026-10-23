@@ -16,7 +16,7 @@ from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordBearer
 from jwt import InvalidTokenError as JWTError
 from passlib.context import CryptContext  # type: ignore[import-untyped]
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -235,6 +235,7 @@ class AuthService:
         *,
         preloaded_role: Role | None | object = _AUTH_RELATION_UNLOADED,
         preloaded_organization: Organization | None | object = _AUTH_RELATION_UNLOADED,
+        preloaded_permissions: list[str] | None | object = _AUTH_RELATION_UNLOADED,
     ) -> UserRecord:
         if user.status not in ACTIVE_USER_STATUSES:
             raise HTTPException(
@@ -258,12 +259,17 @@ class AuthService:
                         detail="Assigned role is suspended",
                     )
                 role_name = role.name
-                result = await session.execute(
-                    select(Permission.code)
-                    .join(RolePermission, RolePermission.permission_id == Permission.id)
-                    .where(RolePermission.role_id == role.id)
-                )
-                permissions = list(result.scalars().all())
+                if preloaded_permissions is _AUTH_RELATION_UNLOADED:
+                    result = await session.execute(
+                        select(Permission.code)
+                        .join(RolePermission, RolePermission.permission_id == Permission.id)
+                        .where(RolePermission.role_id == role.id)
+                    )
+                    permissions = list(result.scalars().all())
+                else:
+                    permissions = list(
+                        cast(list[str] | None, preloaded_permissions) or []
+                    )
         organization = (
             await session.get(Organization, user.organization_id)
             if preloaded_organization is _AUTH_RELATION_UNLOADED
@@ -540,13 +546,23 @@ class AuthService:
         return True
 
     async def get_user_by_id(self, session: AsyncSession, user_id: str) -> UserRecord:
-        # Access-token validation must recheck the live user, role and
-        # organization on every request. A single outer-joined, primary-key
-        # lookup avoids three separate DB roundtrips under simultaneous reads,
-        # without trusting stale JWT roles/permissions or caching revocations.
+        # Every request must read the current user, role, organization and
+        # permissions from PostgreSQL, never the JWT's possibly stale claims.
+        # Aggregate permission codes in a correlated scalar subquery so the
+        # identity row is returned exactly once, even for a many-permission role.
+        # This removes the additional role-permission DB roundtrip while
+        # retaining live role and organization revocation checks.
+        permission_codes = (
+            select(func.array_agg(Permission.code))
+            .select_from(RolePermission)
+            .join(Permission, Permission.id == RolePermission.permission_id)
+            .where(RolePermission.role_id == Role.id)
+            .correlate(Role)
+            .scalar_subquery()
+        )
         identity = (
             await session.execute(
-                select(User, Role, Organization)
+                select(User, Role, Organization, permission_codes)
                 .outerjoin(Role, Role.id == User.role_id)
                 .outerjoin(Organization, Organization.id == User.organization_id)
                 .where(User.id == user_id, User.deleted_at.is_(None))
@@ -554,12 +570,13 @@ class AuthService:
         ).one_or_none()
         if identity is None:
             raise HTTPException(status_code=404, detail="User not found")
-        user, role, organization = identity
+        user, role, organization, live_permissions = identity
         return await self._to_user_record(
             session,
             user,
             preloaded_role=role,
             preloaded_organization=organization,
+            preloaded_permissions=live_permissions,
         )
 
     def serialize_user(self, user: UserRecord) -> dict[str, Any]:
