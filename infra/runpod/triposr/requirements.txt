@@ -17,5 +17,5 @@ soupsieve==2.9
 urllib3==2.8.0
 cryptography==50.0.0
 pyOpenSSL==26.4.0
-Brotli==1.2.0
+Brotli==1.2.1
 scikit-image==0.26.0
