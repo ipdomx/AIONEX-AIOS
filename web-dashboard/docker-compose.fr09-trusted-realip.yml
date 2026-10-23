@@ -1,0 +1,8 @@
+# Optional, guarded FR09 ingress overlay. Not active in the default deployment.
+# Generate the sole trusted Cloudflared peer before activating this overlay.
+services:
+  nginx:
+    entrypoint: ["/bin/sh", "/etc/nginx/nginx-fr09-realip-entrypoint.sh"]
+    volumes:
+      - ./docker/nginx-fr09-realip-entrypoint.sh:/etc/nginx/nginx-fr09-realip-entrypoint.sh:ro
+      - ${AIOS_NGINX_TRUSTED_REALIP_DIR:?AIOS_NGINX_TRUSTED_REALIP_DIR_is_required}:/etc/nginx/aionex-realip:ro
