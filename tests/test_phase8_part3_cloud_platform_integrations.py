@@ -53,14 +53,28 @@ def test_kubernetes_operations_and_health():
     assert report.details["cluster"] == "production"
 
 
-def test_cloudflare_dns_and_approval():
+def test_cloudflare_dns_and_approval(monkeypatch):
+    import json
+
+    def fake_transport(request):
+        assert request.full_url.startswith("https://api.cloudflare.com/client/v4/")
+        if request.full_url.endswith("/user/tokens/verify"):
+            result = {"status": "active"}
+        else:
+            assert request.full_url.endswith("/zones/" + "a" * 32 + "/dns_records")
+            assert request.get_method() == "GET"
+            result = [{"id": "test-dns-id", "name": "example.com"}]
+        return json.dumps({"success": True, "result": result}).encode()
+
+    monkeypatch.setattr(CloudflareProvider, "_transport", staticmethod(fake_transport))
     platform = make_platform()
     platform.registry.register(CloudflareProvider())
     connect(platform, ConnectionProfile(name="dns", integration="cloudflare", credential_ref="cloud"))
-    result = asyncio.run(platform.connections.execute("dns", "dns_records", {"zone": "example.com"}))
+    result = asyncio.run(platform.connections.execute("dns", "dns_records", {"zone_id": "a" * 32}))
     assert result["provider"] == "cloudflare"
+    assert len(result["result"]) == 1
     with pytest.raises(PermissionError):
-        asyncio.run(platform.connections.execute("dns", "delete_dns_record", {"id": "record"}))
+        asyncio.run(platform.connections.execute("dns", "delete_dns_record", {"record_id": "b" * 32}))
 
 
 def test_object_storage_operations():
