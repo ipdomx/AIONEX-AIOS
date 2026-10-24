@@ -166,18 +166,26 @@ async def require_stream_allowed(session: AsyncSession, actor: UserRecord) -> No
 
 
 async def current_actor(session: AsyncSession, actor: UserRecord, *, lock: bool = False, permission: str | None = "projects:write") -> UserRecord:
-    statement = select(User).where(User.id == actor.id, User.deleted_at.is_(None))
+    # The caller's JWT is untrusted for authority; always refetch live
+    # User+Role+Organization+RolePermission from PostgreSQL. The former
+    # path loaded User, Org and Role *twice* before reading live permissions.
+    # Remove only those redundant trips. Keep FOR UPDATE where governance
+    # writes require serializable per-user admission.
     if lock:
-        statement = statement.with_for_update()
-    row = await session.scalar(statement.execution_options(populate_existing=True))
-    if row is None or row.organization_id != actor.organization_id or row.auth_version != actor.auth_version:
+        row = await session.scalar(
+            select(User).where(User.id == actor.id, User.deleted_at.is_(None))
+            .with_for_update().execution_options(populate_existing=True)
+        )
+        if row is None or row.organization_id != actor.organization_id or row.auth_version != actor.auth_version:
+            _deny("USER_AUTHORITY_CHANGED", 403)
+    try:
+        fresh = await auth_service.get_user_by_id(session, actor.id, refresh_cached=True)
+    except HTTPException as exc:
+        if exc.status_code == 404:
+            _deny("USER_AUTHORITY_CHANGED", 403)
+        raise
+    if fresh.organization_id != actor.organization_id or fresh.auth_version != actor.auth_version:
         _deny("USER_AUTHORITY_CHANGED", 403)
-    await session.scalar(select(Organization).where(Organization.id == row.organization_id)
-                         .execution_options(populate_existing=True))
-    if row.role_id:
-        await session.scalar(select(Role).where(Role.id == row.role_id)
-                             .execution_options(populate_existing=True))
-    fresh = await auth_service.get_user_by_id(session, actor.id)
     if permission is not None and "*" not in fresh.permissions and permission not in fresh.permissions:
         _deny("PROJECT_PERMISSION_REQUIRED", 403)
     return fresh
