@@ -212,8 +212,10 @@ class CloudflareProvider(BaseInfrastructureIntegration):
             zone = _identity(payload.get("zone_id"), "zone_id")
             path = f"/zones/{zone}/settings/security_header"
         else:
-            # Do not report made-up success for formerly stubbed operations.
-            raise NotImplementedError("Cloudflare capability is not implemented")
+            # This is unreachable through BaseInfrastructureIntegration.execute,
+            # which already rejects unadvertised capabilities. Stay fail-closed
+            # if called directly instead of reporting imaginary success.
+            raise KeyError("unsupported Cloudflare capability")
         response = await asyncio.to_thread(
             self._api, token, method, path, params=params, body=body
         )
