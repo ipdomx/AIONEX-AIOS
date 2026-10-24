@@ -539,19 +539,23 @@ class AuthService:
             await session.commit()
         return True
 
-    async def get_user_by_id(self, session: AsyncSession, user_id: str) -> UserRecord:
-        # Access-token validation must recheck the live user, role and
-        # organization on every request. A single outer-joined, primary-key
-        # lookup avoids three separate DB roundtrips under simultaneous reads,
-        # without trusting stale JWT roles/permissions or caching revocations.
-        identity = (
-            await session.execute(
-                select(User, Role, Organization)
-                .outerjoin(Role, Role.id == User.role_id)
-                .outerjoin(Organization, Organization.id == User.organization_id)
-                .where(User.id == user_id, User.deleted_at.is_(None))
-            )
-        ).one_or_none()
+    async def get_user_by_id(
+        self, session: AsyncSession, user_id: str, *, refresh_cached: bool = False,
+    ) -> UserRecord:
+        # Always read the database, not mutable JWT claims. The optional
+        # refresh_cached flag additionally refreshes any ORM User, Role, Org
+        # already present in this transaction's identity map. Governance
+        # reauthorization MUST use it to reject revocations committed by
+        # another transaction; normal callsites preserve their original path.
+        identity_query = (
+            select(User, Role, Organization)
+            .outerjoin(Role, Role.id == User.role_id)
+            .outerjoin(Organization, Organization.id == User.organization_id)
+            .where(User.id == user_id, User.deleted_at.is_(None))
+        )
+        if refresh_cached:
+            identity_query = identity_query.execution_options(populate_existing=True)
+        identity = (await session.execute(identity_query)).one_or_none()
         if identity is None:
             raise HTTPException(status_code=404, detail="User not found")
         user, role, organization = identity
