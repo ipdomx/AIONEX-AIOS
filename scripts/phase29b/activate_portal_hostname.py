@@ -198,13 +198,40 @@ def load_activation_secret(
     return CloudflareActivationSecret(token, account_id, zone_id)
 
 
+def _read_tunnel_token_file(path: Path, *, require_root: bool) -> str:
+    if not path.is_absolute() or not path.is_file() or path.is_symlink():
+        raise PortalActivationError("production tunnel token file is missing or unsafe")
+    info = path.lstat()
+    if require_root and (info.st_uid != 0 or info.st_gid != 0):
+        raise PortalActivationError("production tunnel token file must be root-owned")
+    if stat.S_IMODE(info.st_mode) != 0o600:
+        raise PortalActivationError("production tunnel token file must have mode 600")
+    lines = path.read_text(encoding="utf-8").splitlines()
+    if len(lines) != 1:
+        raise PortalActivationError("production tunnel token file must contain one line")
+    token = lines[0].strip()
+    if (
+        not 20 <= len(token) <= 4096
+        or any(character.isspace() for character in token)
+        or any(marker in token.lower() for marker in _PLACEHOLDER_MARKERS)
+    ):
+        raise PortalActivationError("production tunnel token is invalid")
+    return token
+
+
 def load_tunnel_identity(
     production_env_path: Path = PRODUCTION_ENV_PATH,
+    *,
+    require_root: bool = True,
 ) -> TunnelIdentity:
     values = _read_exact_env_loose(production_env_path)
-    token = values.get("CLOUDFLARE_TUNNEL_TOKEN", "")
-    if not token:
-        raise PortalActivationError("production tunnel token is missing")
+    token_path_value = values.get("AIOS_CLOUDFLARE_TUNNEL_TOKEN_FILE", "")
+    if not token_path_value:
+        raise PortalActivationError("production tunnel token file path is missing")
+    token = _read_tunnel_token_file(
+        Path(token_path_value),
+        require_root=require_root,
+    )
     try:
         padded = token + "=" * (-len(token) % 4)
         document = json.loads(base64.urlsafe_b64decode(padded).decode("utf-8"))
@@ -215,7 +242,6 @@ def load_tunnel_identity(
     if not _ID.fullmatch(account_id) or not _TUNNEL_ID.fullmatch(tunnel_id):
         raise PortalActivationError("production tunnel identity is invalid")
     return TunnelIdentity(account_id, tunnel_id)
-
 
 def _read_exact_env_loose(path: Path) -> dict[str, str]:
     if not path.is_absolute() or not path.is_file() or path.is_symlink():

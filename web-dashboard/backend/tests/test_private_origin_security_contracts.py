@@ -8,6 +8,9 @@ NEXT_CONFIG = ROOT / "web-dashboard/frontend/next.config.mjs"
 BACKEND_MAIN = ROOT / "web-dashboard/backend/main.py"
 PREFLIGHT = ROOT / "web-dashboard/scripts/validate-private-origin.sh"
 RUNBOOK = ROOT / "web-dashboard/PRIVATE_ORIGIN_DEPLOYMENT.md"
+PRODUCTION_ENV_EXAMPLE = ROOT / "web-dashboard/.env.production.example"
+PRIVATE_ORIGIN_ENV_EXAMPLE = ROOT / "web-dashboard/.env.private-origin.example"
+DEPLOY_ENV_EXAMPLE = ROOT / "deploy/production/.env.production.example"
 
 
 def test_origin_and_data_services_are_not_publicly_exposed():
@@ -18,11 +21,32 @@ def test_origin_and_data_services_are_not_publicly_exposed():
     assert "context: ../vip-frontend" in source
     assert "cloudflare/cloudflared" in source
     assert 'profiles: ["tunnel"]' in source
-    assert "CLOUDFLARE_TUNNEL_TOKEN" in source
+    assert '"--token-file", "/run/secrets/cloudflare_tunnel_token"' in source
+    assert '"--token",' not in source
+    assert "cloudflare_tunnel_token:" in source
+    assert "AIOS_CLOUDFLARE_TUNNEL_TOKEN_FILE" in source
     assert "5432:5432" not in source
     assert "6379:6379" not in source
     assert "8000:8000" not in source
     assert "3000:3000" not in source
+
+
+def test_cloudflare_tunnel_token_is_not_put_in_shared_application_env_files():
+    for path in (
+        PRODUCTION_ENV_EXAMPLE,
+        PRIVATE_ORIGIN_ENV_EXAMPLE,
+        DEPLOY_ENV_EXAMPLE,
+    ):
+        source = path.read_text(encoding="utf-8")
+        assert "CLOUDFLARE_TUNNEL_" + "TOKEN=" not in source
+        assert (
+            "AIOS_CLOUDFLARE_TUNNEL_TOKEN_FILE="
+            "/root/.config/aionex/cloudflare/tunnel-token"
+        ) in source
+
+    runbook = RUNBOOK.read_text(encoding="utf-8")
+    assert "Never place the token value in the shared environment file" in runbook
+    assert 'mode-`0600`' in runbook
 
 
 def test_gateway_enforces_headers_limits_and_private_docs():

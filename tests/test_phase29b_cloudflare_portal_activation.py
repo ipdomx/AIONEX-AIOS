@@ -136,15 +136,22 @@ def test_tunnel_identity_is_derived_without_returning_connector_secret(
     encoded = base64.urlsafe_b64encode(
         json.dumps({"a": ACCOUNT_ID, "t": TUNNEL_ID, "s": "hidden"}).encode()
     ).decode().rstrip("=")
+    token_path = tmp_path / "tunnel-token"
+    token_path.write_text(encoded, encoding="utf-8")
+    token_path.chmod(0o600)
     path = tmp_path / "production.env"
     path.write_text(
-        f"OTHER=value\nCLOUDFLARE_TUNNEL_TOKEN={encoded}\n",
+        f"OTHER=value\nAIOS_CLOUDFLARE_TUNNEL_TOKEN_FILE={token_path}\n",
         encoding="utf-8",
     )
-    identity = load_tunnel_identity(path)
+    identity = load_tunnel_identity(path, require_root=False)
     assert identity.account_id == ACCOUNT_ID
     assert identity.tunnel_id == TUNNEL_ID
     assert "hidden" not in repr(identity)
+
+    token_path.chmod(0o644)
+    with pytest.raises(PortalActivationError, match="mode 600"):
+        load_tunnel_identity(path, require_root=False)
 
 
 def test_ingress_builder_preserves_required_routes_and_catch_all() -> None:
