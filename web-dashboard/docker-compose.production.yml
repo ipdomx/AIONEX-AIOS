@@ -1412,11 +1412,11 @@ volumes:
   course_package_data:
   realtime_recording_data:
 
-secrets:
-  cloudflare_tunnel_token:
-    file: ${AIOS_CLOUDFLARE_TUNNEL_TOKEN_FILE:-/root/.config/aionex/cloudflare/tunnel-token}
-
 networks:
   aionex-network:
     driver: bridge
     internal: false
+
+secrets:
+  cloudflare_tunnel_token:
+    file: ${AIOS_CLOUDFLARE_TUNNEL_TOKEN_FILE:-/root/.config/aionex/cloudflare/tunnel-token}
