@@ -1,0 +1,7 @@
+services:
+  backend:
+    environment:
+      WORKERS: "8"
+      DATABASE_POOL_SIZE: "6"
+      DATABASE_MAX_OVERFLOW: "1"
+      DATABASE_POOL_CONNECTION_BUDGET: "60"

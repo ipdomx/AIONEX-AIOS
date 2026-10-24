@@ -11,28 +11,12 @@ from app.core.auth import UserRecord, auth_service
 from app.db.models import Organization, Role, User
 
 
-class _OneRow:
-    def __init__(self, values):
-        self.values = values
-
-    def one_or_none(self):
-        return self.values
-
-
-class _AllPermissions:
-    def __init__(self, names):
-        self.names = names
+class _AllIdentityRows:
+    def __init__(self, rows):
+        self.rows = rows
 
     def all(self):
-        return self.names
-
-
-class _Scalars:
-    def __init__(self, names):
-        self.names = names
-
-    def scalars(self):
-        return _AllPermissions(self.names)
+        return self.rows
 
 
 class _LiveIdentitySession:
@@ -46,13 +30,12 @@ class _LiveIdentitySession:
     async def execute(self, statement):
         self.statements.append(str(statement))
         if len(self.statements) == 1:
-            return _OneRow(
-                (self.user, self.role, self.organization)
-                if self.user is not None
-                else None
-            )
-        if len(self.statements) == 2:
-            return _Scalars(self.permissions)
+            if self.user is None:
+                return _AllIdentityRows([])
+            grants = self.permissions or (None,)
+            return _AllIdentityRows([
+                (self.user, self.role, self.organization, code) for code in grants
+            ])
         raise AssertionError("A live auth request issued excess SQL queries")
 
     async def get(self, _model, _key):
@@ -104,12 +87,13 @@ class FastAuthenticatedReadPathTests(unittest.TestCase):
         self.assertEqual(actor.organization_plan, "enterprise")
         self.assertEqual(actor.auth_version, 4)
         self.assertEqual(actor.permissions, ["projects:read", "projects:write"])
-        self.assertEqual(len(session.statements), 2)
+        self.assertEqual(len(session.statements), 1)
         joined = session.statements[0].upper()
         self.assertIn("LEFT OUTER JOIN ROLES", joined)
         self.assertIn("LEFT OUTER JOIN ORGANIZATIONS", joined)
         self.assertIn("USERS.DELETED_AT IS NULL", joined)
-        self.assertIn("ROLE_PERMISSIONS", session.statements[1].upper())
+        self.assertIn("ROLE_PERMISSIONS", session.statements[0].upper())
+        self.assertIn("PERMISSIONS", session.statements[0].upper())
 
     def test_missing_identity_not_cached_or_accepted(self):
         session = _LiveIdentitySession(user=None, role=None, organization=None)
@@ -140,7 +124,7 @@ class FastAuthenticatedReadPathTests(unittest.TestCase):
         with self.assertRaises(HTTPException) as result:
             asyncio.run(auth_service.get_user_by_id(session, u.id))
         self.assertEqual(result.exception.status_code, 403)
-        self.assertEqual(len(session.statements), 2)
+        self.assertEqual(len(session.statements), 1)
 
     def test_missing_organization_still_reports_invariant_breach(self):
         u, r, _ = identity()
@@ -174,7 +158,7 @@ class FastAuthenticatedReadPathTests(unittest.TestCase):
         actor = asyncio.run(auth_service.get_user_by_id(session, u.id))
         self.assertEqual(actor.status, "online")
         self.assertEqual(actor.organization_plan, "trial")
-        self.assertEqual(len(session.statements), 2)
+        self.assertEqual(len(session.statements), 1)
 
 
 if __name__ == "__main__":

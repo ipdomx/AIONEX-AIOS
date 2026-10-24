@@ -235,6 +235,7 @@ class AuthService:
         *,
         preloaded_role: Role | None | object = _AUTH_RELATION_UNLOADED,
         preloaded_organization: Organization | None | object = _AUTH_RELATION_UNLOADED,
+        preloaded_permissions: list[str] | None = None,
     ) -> UserRecord:
         if user.status not in ACTIVE_USER_STATUSES:
             raise HTTPException(
@@ -258,12 +259,15 @@ class AuthService:
                         detail="Assigned role is suspended",
                     )
                 role_name = role.name
-                result = await session.execute(
-                    select(Permission.code)
-                    .join(RolePermission, RolePermission.permission_id == Permission.id)
-                    .where(RolePermission.role_id == role.id)
-                )
-                permissions = list(result.scalars().all())
+                if preloaded_permissions is not None:
+                    permissions = list(preloaded_permissions)
+                else:
+                    result = await session.execute(
+                        select(Permission.code)
+                        .join(RolePermission, RolePermission.permission_id == Permission.id)
+                        .where(RolePermission.role_id == role.id)
+                    )
+                    permissions = list(result.scalars().all())
         organization = (
             await session.get(Organization, user.organization_id)
             if preloaded_organization is _AUTH_RELATION_UNLOADED
@@ -547,23 +551,35 @@ class AuthService:
         # already present in this transaction's identity map. Governance
         # reauthorization MUST use it to reject revocations committed by
         # another transaction; normal callsites preserve their original path.
+        # Resolve identity, live role/organization and effective permissions in
+        # one database roundtrip, not two. Each result row belongs to the
+        # requested single user; per-role grants are expanded only from live
+        # role_permissions and permissions tables (never from stale JWT).
         identity_query = (
-            select(User, Role, Organization)
+            select(User, Role, Organization, Permission.code)
             .outerjoin(Role, Role.id == User.role_id)
             .outerjoin(Organization, Organization.id == User.organization_id)
+            .outerjoin(RolePermission, RolePermission.role_id == Role.id)
+            .outerjoin(Permission, Permission.id == RolePermission.permission_id)
             .where(User.id == user_id, User.deleted_at.is_(None))
         )
         if refresh_cached:
+            # Explicitly refresh stale ORM identity-map objects. Required for
+            # Owner policy revocation occurring in another transaction.
             identity_query = identity_query.execution_options(populate_existing=True)
-        identity = (await session.execute(identity_query)).one_or_none()
-        if identity is None:
+        rows = (await session.execute(identity_query)).all()
+        if not rows:
             raise HTTPException(status_code=404, detail="User not found")
-        user, role, organization = identity
+        user, role, organization, _ = rows[0]
+        live_permissions = [
+            code for _, _, _, code in rows if isinstance(code, str)
+        ]
         return await self._to_user_record(
             session,
             user,
             preloaded_role=role,
             preloaded_organization=organization,
+            preloaded_permissions=live_permissions,
         )
 
     def serialize_user(self, user: UserRecord) -> dict[str, Any]:
