@@ -9,7 +9,7 @@
     {
       "env_profile": ".env.production.example",
       "affected_service_definition_count": 22,
-      "base_compose_sha256": "2277dd54c7cc4f877730a1bdc7b36f90dffb56306efb62a1176976884c064b9b",
+      "base_compose_sha256": "fe36681445a31b8d83c68177384eda03a0d25f86185ef7bbd5584fdefcc2a2f0",
       "compose_profile_scope": "*",
       "compose_version": "2.40.3+ds1-0ubuntu1~24.04.1",
       "contract_sha256": "b40b03f52000cb537995d1e82f552c7f9ca65e073cdeea634f2b0975d3f06d07",
@@ -26,7 +26,7 @@
     {
       "env_profile": ".env.production",
       "affected_service_definition_count": 22,
-      "base_compose_sha256": "2277dd54c7cc4f877730a1bdc7b36f90dffb56306efb62a1176976884c064b9b",
+      "base_compose_sha256": "fe36681445a31b8d83c68177384eda03a0d25f86185ef7bbd5584fdefcc2a2f0",
       "compose_profile_scope": "*",
       "compose_version": "2.40.3+ds1-0ubuntu1~24.04.1",
       "contract_sha256": "b40b03f52000cb537995d1e82f552c7f9ca65e073cdeea634f2b0975d3f06d07",
@@ -88,5 +88,7 @@
     "diff_whitespace": "passed",
     "security_audit": "passed",
     "repository_security_audit": "passed"
-  }
+  },
+  "reconciled_at": "2026-10-24T13:55:00Z",
+  "reconciliation": "FR23 top-level Compose secret reordered after networks so recovery inventory remains limited to named volumes; retained render hash refreshed without weakening tests."
 }
