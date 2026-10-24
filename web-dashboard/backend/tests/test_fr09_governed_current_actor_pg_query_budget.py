@@ -1,13 +1,13 @@
 """Measure true SQL roundtrips using isolated PostgreSQL and real actor records."""
 
-import asyncio
 
 import pytest
-from sqlalchemy import event, select
+from sqlalchemy import event
 
-from tests.test_fr07_governed_conversations import case
+from tests import test_fr07_governed_conversations as base
 from app.services import conversation_governance as g
-from app.db.models import Role
+
+case = base.case
 
 
 @pytest.mark.asyncio
