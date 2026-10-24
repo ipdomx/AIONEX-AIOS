@@ -192,89 +192,47 @@ def test_removed_fake_only_capabilities_not_advertised_or_executable(monkeypatch
     assert len(calls) == 1
 
 
-def test_dns_mutations_all_require_explicit_owner_approval(monkeypatch):
-    p, calls, _ = ready(monkeypatch)
-    for capability, data in [
-        ("create_dns_record", {"zone_id": ZONE, "record": {
-            "type": "A", "name": "test.example.com", "content": "192.0.2.5"
-        }}),
-        ("update_dns_record", {"zone_id": ZONE, "record_id": RECORD,
-                               "record": {"ttl": 120}}),
-        ("delete_dns_record", {"zone_id": ZONE, "record_id": RECORD}),
-    ]:
-        with pytest.raises(PermissionError, match="Owner approval"):
-            invoke(p.execute(capability, data))
-        with pytest.raises(PermissionError, match="Owner approval"):
-            invoke(p.execute(capability, {**data, "approved": "true"}))
+
+def test_dns_mutations_are_not_exposed_even_with_forged_approval(monkeypatch):
+    provider, calls, _ = ready(monkeypatch)
+    for capability in ("create_dns_record", "update_dns_record", "delete_dns_record"):
+        assert capability not in {item.name for item in provider.descriptor.capabilities}
+        for approved in (None, True, "true"):
+            with pytest.raises(KeyError, match="unsupported capability"):
+                invoke(provider.execute(capability, {
+                    "zone_id": ZONE, "record_id": RECORD,
+                    "record": {"type": "A", "name": "x.example.com",
+                               "content": "192.0.2.5"},
+                    "approved": approved,
+                }))
     assert len(calls) == 1
 
 
-def test_dns_create_patch_and_delete_use_real_methods_when_approved(monkeypatch):
+def test_dns_zone_id_path_traversal_rejected_before_any_request(monkeypatch):
     p, calls, _ = ready(monkeypatch)
-    create = invoke(p.execute("create_dns_record", {
-        "zone_id": ZONE, "approved": True,
-        "record": {"type": "A", "name": "EDGE.EXAMPLE.COM",
-                   "content": "192.0.2.5", "ttl": 120, "proxied": True},
-    }))
-    assert create["operation"] == "create_dns_record"
-    assert calls[-1][0] == "POST"
-    assert calls[-1][1].endswith(f"/zones/{ZONE}/dns_records")
-    assert json.loads(calls[-1][2]) == {
-        "type": "A", "name": "edge.example.com", "content": "192.0.2.5",
-        "ttl": 120, "proxied": True,
-    }
-
-    invoke(p.execute("update_dns_record", {
-        "zone_id": ZONE, "record_id": RECORD, "approved": True,
-        "record": {"ttl": 300},
-    }))
-    assert calls[-1][0] == "PATCH"
-    assert calls[-1][1].endswith(f"/zones/{ZONE}/dns_records/{RECORD}")
-    assert json.loads(calls[-1][2]) == {"ttl": 300}
-
-    invoke(p.execute("delete_dns_record", {
-        "zone_id": ZONE, "record_id": RECORD, "approved": True,
-    }))
-    assert calls[-1][0] == "DELETE"
-    assert calls[-1][1].endswith(f"/zones/{ZONE}/dns_records/{RECORD}")
-    assert calls[-1][2] is None
-
-
-def test_dns_zone_id_and_record_id_path_traversal_fail_before_request(monkeypatch):
-    p, calls, _ = ready(monkeypatch)
-    for value in ("../other", "a" * 31, "a" * 32 + "/etc", "https://bad.test/", 42):
-        with pytest.raises(ValueError, match="zone_id"):
-            invoke(p.execute("dns_records", {"zone_id": value}))
-        with pytest.raises(ValueError, match="record_id"):
-            invoke(p.execute("delete_dns_record", {
-                "zone_id": ZONE, "record_id": value, "approved": True,
-            }))
+    for value in ("../other", "a" * 31, "a" * 32 + "/etc",
+                  "https://bad.test/", 42):
+        for capability in ("dns_records", "zone_security_headers"):
+            with pytest.raises(ValueError, match="zone_id"):
+                invoke(p.execute(capability, {"zone_id": value}))
     assert len(calls) == 1
 
 
-def test_dns_content_controls_reject_malformed_mutations_before_network(monkeypatch):
+def test_dns_read_query_params_are_bounded_and_validated(monkeypatch):
     p, calls, _ = ready(monkeypatch)
-    cases = [
-        {"type": "A", "name": "x.example.com", "content": "not-an-ip"},
-        {"type": "AAAA", "name": "x.example.com", "content": "192.0.2.1"},
-        {"type": "CNAME", "name": "x.example.com", "content": "\nBad"},
-        {"type": "TXT", "name": "x.example.com", "content": "hello",
-         "proxied": True},
-        {"type": "A", "name": "x.example.com", "content": "192.0.2.1",
-         "ttl": 30},
-        {"type": "A", "name": "x.example.com", "content": "192.0.2.1",
-         "ttl": True},
-        {"type": "A", "name": "a/b", "content": "192.0.2.1"},
-        {"type": "A", "name": "x.example.com", "content": "192.0.2.1",
-         "token": "secret"},
-    ]
-    for record in cases:
+    for query in (
+        {"page": 0},
+        {"page": True},
+        {"per_page": 101},
+        {"per_page": 2.5},
+        {"type": ["A"]},
+        {"type": "DELETE"},
+        {"name": "evil.com/x"},
+        {"name": "a" * 254},
+    ):
         with pytest.raises(ValueError):
-            invoke(p.execute("create_dns_record", {
-                "zone_id": ZONE, "approved": True, "record": record,
-            }))
+            invoke(p.execute("dns_records", {"zone_id": ZONE, **query}))
     assert len(calls) == 1
-
 
 def test_http_error_never_reflects_token_or_api_error_body(monkeypatch):
     p, calls, responses = ready(monkeypatch)
@@ -294,6 +252,16 @@ def test_redirect_never_sends_token_elsewhere():
     assert _RejectRedirects().redirect_request(
         object(), None, 302, "Redirect", {}, "https://evil.invalid"
     ) is None
+
+
+def test_internal_api_layer_cannot_send_mutations(monkeypatch):
+    p, calls, _ = ready(monkeypatch)
+    for method in ("POST", "PUT", "PATCH", "DELETE"):
+        with pytest.raises(PermissionError, match="read-only"):
+            p._api(SECRET, method, "/zones/" + ZONE + "/dns_records")
+    with pytest.raises(PermissionError, match="read-only"):
+        p._api(SECRET, "GET", "/zones", body={"danger": "write"})
+    assert len(calls) == 1
 
 
 def test_missing_endpoint_never_says_connected(monkeypatch):

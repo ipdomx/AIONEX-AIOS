@@ -22,8 +22,10 @@ calls. That could mislead release acceptance and DNS operators.
   without echoing token values or raw provider response/error bodies.
 - Implement actual limited read-only accounts, zones and DNS record listing.
 - Implement read-only zone HSTS/security header settings query.
-- Validate all DNS zone and record path IDs and supported DNS record fields.
-  DNS create, patch, delete require approved=True and guarded validation.
+- Strictly validate zone IDs, DNS read filter fields and pagination. DNS
+  mutations, Workers, tunnels and other formerly simulated operations are not
+  advertised and cannot execute even if a caller sets approved=True. An
+  unverified boolean is not an Owner authorization boundary.
 - Do not advertise formerly mock-only unsupported Cloudflare capabilities.
 - No Worker code or running Worker state changed in this source proposal.
 
@@ -32,7 +34,7 @@ calls. That could mislead release acceptance and DNS operators.
 All tests use in-memory fake HTTP transport and synthetic credentials. No
 production token, Cloudflare account, customer data or worker was accessed.
 The tests verify truthful API request methods, resource paths, credential
-rejection, error redaction, and mutation approval. They do not constitute
+rejection, error redaction, and fail-closed denial of DNS writes. They do not constitute
 live vendor API access or authorization to alter Cloudflare DNS/settings.
 
 Public HTTPS observation at 2026-10-24: the apex vip-e.net response omitted

@@ -73,7 +73,7 @@ def test_cloudflare_dns_and_approval(monkeypatch):
     result = asyncio.run(platform.connections.execute("dns", "dns_records", {"zone_id": "a" * 32}))
     assert result["provider"] == "cloudflare"
     assert len(result["result"]) == 1
-    with pytest.raises(PermissionError):
+    with pytest.raises(KeyError, match="unsupported capability"):
         asyncio.run(platform.connections.execute("dns", "delete_dns_record", {"record_id": "b" * 32}))
 
 

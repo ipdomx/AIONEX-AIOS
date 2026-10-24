@@ -1,14 +1,13 @@
 """Authenticated Cloudflare API v4 integration with no simulated successes.
 
-Only verified API capabilities are exposed. DNS mutations require explicit
-approval and validation; all other formerly mock-only capabilities fail closed.
-This module has no automatic DNS, security-header, or tunnel mutations.
+Only verified, read-only API capabilities are exposed. DNS mutations and all
+other formerly mock-only operations fail closed and are NOT advertised. This
+module has no automatic DNS, security-header, or tunnel mutations.
 """
 
 from __future__ import annotations
 
 import asyncio
-import ipaddress
 import json
 import re
 import time
@@ -73,63 +72,16 @@ def _page(params: dict[str, Any]) -> dict[str, str]:
     return query
 
 
-def _record(value: Any, *, creation: bool) -> dict[str, Any]:
-    if not isinstance(value, dict) or not value:
-        raise ValueError("DNS record must be a nonempty object")
-    allowed = {"name", "type", "content", "ttl", "proxied"}
-    if set(value) - allowed:
-        raise ValueError("DNS record contains unsupported fields")
-    if creation and not {"name", "type", "content"} <= set(value):
-        raise ValueError("DNS creation requires name, type and content")
-    result = dict(value)
-    kind = result.get("type")
-    if kind is not None and (not isinstance(kind, str) or kind not in _DNS_TYPES):
-        raise ValueError("DNS record type is not in the bounded supported set")
-    if "name" in result:
-        result["name"] = _name(result["name"])
-    if "content" in result:
-        content = result["content"]
-        if not isinstance(content, str) or not content or len(content) > 8192:
-            raise ValueError("DNS record content must be a bounded string")
-        if any(ord(char) < 32 for char in content):
-            raise ValueError("DNS record content contains control characters")
-        if kind in ("A", "AAAA"):
-            try:
-                address = ipaddress.ip_address(content)
-            except ValueError as exc:
-                raise ValueError("DNS address content is not an IP address") from exc
-            if (kind == "A" and address.version != 4) or (
-                kind == "AAAA" and address.version != 6
-            ):
-                raise ValueError("DNS address family and type disagree")
-        if kind == "CNAME":
-            result["content"] = _name(content)
-    if "ttl" in result:
-        ttl = result["ttl"]
-        if type(ttl) is not int or (ttl != 1 and not 60 <= ttl <= 86400):
-            raise ValueError("DNS TTL must be automatic or 60 to 86400 seconds")
-    if "proxied" in result:
-        if type(result["proxied"]) is not bool:
-            raise ValueError("proxied must be a boolean")
-        if kind == "TXT":
-            raise ValueError("TXT records cannot be proxied")
-    return result
-
 
 class CloudflareProvider(BaseInfrastructureIntegration):
-    _capabilities = (
-        "accounts", "zones", "dns_records", "zone_security_headers",
-        "create_dns_record", "update_dns_record", "delete_dns_record",
-    )
+    _capabilities = ("accounts", "zones", "dns_records", "zone_security_headers")
 
     def __init__(self, name: str = "cloudflare") -> None:
-        writes = {"create_dns_record", "update_dns_record", "delete_dns_record"}
         descriptor = IntegrationDescriptor(
             name=name,
             kind=IntegrationKind.DNS,
             capabilities=tuple(
-                IntegrationCapability(item, destructive=item in writes)
-                for item in self._capabilities
+                IntegrationCapability(item) for item in self._capabilities
             ),
         )
         super().__init__(descriptor)
@@ -151,17 +103,13 @@ class CloudflareProvider(BaseInfrastructureIntegration):
     ) -> dict[str, Any]:
         if not path.startswith("/") or "//" in path or "?" in path or "#" in path:
             raise ValueError("invalid Cloudflare API path")
-        if method not in {"GET", "POST", "PATCH", "DELETE"}:
-            raise ValueError("unapproved Cloudflare API method")
+        if method != "GET" or body is not None:
+            raise PermissionError("Cloudflare API adapter is read-only")
         url = _API + path
         if params:
             url += "?" + urlencode(params)
         headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
-        data = None
-        if body is not None:
-            data = json.dumps(body, allow_nan=False, separators=(",", ":")).encode("utf-8")
-            headers["Content-Type"] = "application/json"
-        request = Request(url, data=data, headers=headers, method=method)
+        request = Request(url, headers=headers, method="GET")
         try:
             response = self._transport(request)
         except HTTPError as exc:
@@ -237,9 +185,6 @@ class CloudflareProvider(BaseInfrastructureIntegration):
             raise PermissionError("Cloudflare provider is not authenticated")
         if not isinstance(payload, dict):
             raise ValueError("Cloudflare payload must be an object")
-        if capability in {"create_dns_record", "update_dns_record", "delete_dns_record"}:
-            if payload.get("approved") is not True:
-                raise PermissionError("explicit Owner approval required for DNS mutations")
         path: str
         params: dict[str, str] = {}
         method = "GET"
@@ -252,29 +197,17 @@ class CloudflareProvider(BaseInfrastructureIntegration):
             params = _page(payload)
             if "name" in payload:
                 params["name"] = _name(payload["name"])
-        elif capability in {"dns_records", "create_dns_record", "update_dns_record", "delete_dns_record"}:
+        elif capability == "dns_records":
             zone = _identity(payload.get("zone_id"), "zone_id")
             path = f"/zones/{zone}/dns_records"
-            if capability == "dns_records":
-                params = _page(payload)
-                if "name" in payload:
-                    params["name"] = _name(payload["name"])
-                if "type" in payload:
-                    record_type = payload["type"]
-                    if not isinstance(record_type, str) or record_type not in _DNS_TYPES:
-                        raise ValueError("unsupported DNS record search type")
-                    params["type"] = record_type
-            elif capability == "create_dns_record":
-                method = "POST"
-                body = _record(payload.get("record"), creation=True)
-            else:
-                record_id = _identity(payload.get("record_id"), "record_id")
-                path += "/" + record_id
-                if capability == "update_dns_record":
-                    method = "PATCH"
-                    body = _record(payload.get("record"), creation=False)
-                else:
-                    method = "DELETE"
+            params = _page(payload)
+            if "name" in payload:
+                params["name"] = _name(payload["name"])
+            if "type" in payload:
+                record_type = payload["type"]
+                if not isinstance(record_type, str) or record_type not in _DNS_TYPES:
+                    raise ValueError("unsupported DNS record search type")
+                params["type"] = record_type
         elif capability == "zone_security_headers":
             zone = _identity(payload.get("zone_id"), "zone_id")
             path = f"/zones/{zone}/settings/security_header"
