@@ -1384,7 +1384,9 @@ services:
     cap_drop: ["ALL"]
     tmpfs:
       - /tmp:rw,noexec,nosuid,uid=65532,gid=65532,mode=0700,size=32m
-    command: ["tunnel", "--no-autoupdate", "run", "--token", "${CLOUDFLARE_TUNNEL_TOKEN:-}"]
+    command: ["tunnel", "--no-autoupdate", "run", "--token-file", "/run/secrets/cloudflare_tunnel_token"]
+    secrets:
+      - cloudflare_tunnel_token
     depends_on:
       nginx: {condition: service_healthy}
     security_opt: ["no-new-privileges:true"]
@@ -1414,3 +1416,7 @@ networks:
   aionex-network:
     driver: bridge
     internal: false
+
+secrets:
+  cloudflare_tunnel_token:
+    file: ${AIOS_CLOUDFLARE_TUNNEL_TOKEN_FILE:-/root/.config/aionex/cloudflare/tunnel-token}
