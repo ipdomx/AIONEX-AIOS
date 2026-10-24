@@ -36,6 +36,10 @@ def _match(path: Path, pattern: str) -> str:
 def source_manifest() -> dict[str, object]:
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     frontend = json.loads((ROOT / "web-dashboard/frontend/package.json").read_text(encoding="utf-8"))
+    portal = json.loads((ROOT / "vip-frontend/package.json").read_text(encoding="utf-8"))
+    portal_version = portal.get("version")
+    if not isinstance(portal_version, str) or not portal_version.strip():
+        raise RuntimeError("public portal version is required for release manifest")
     return {
         "schemaVersion": 1,
         "sourceCommit": _run("git", "rev-parse", "HEAD"),
@@ -44,6 +48,7 @@ def source_manifest() -> dict[str, object]:
             "core": str(pyproject["project"]["version"]),
             "backend": _match(ROOT / "web-dashboard/backend/app/core/config.py", r'APP_VERSION: str = "([^"]+)"'),
             "ownerFrontend": str(frontend.get("version", "unknown")),
+            "publicPortal": portal_version,
             "android": _match(ROOT / "mobile/android/app/build.gradle", r"AIOS_ANDROID_VERSION_NAME'\) \?: '([^']+)'"),
             "ios": _match(ROOT / "mobile/ios/project.yml", r"MARKETING_VERSION:\s*([^\s]+)"),
         },
