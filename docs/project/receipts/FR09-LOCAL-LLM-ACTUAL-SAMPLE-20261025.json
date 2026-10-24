@@ -1,0 +1,46 @@
+{
+  "attempted": 2,
+  "durable_worker_jobs_proven": 0,
+  "elapsed_seconds": 21.61,
+  "endpoint_category": "local_ollama",
+  "finish_utc": "2026-10-24T23:03:41.078694+00:00",
+  "fr09_full_mixed_accepted": false,
+  "fr25_released": false,
+  "inferences_per_second": 0.09255,
+  "model": "gemma3:4b",
+  "model_digest": "a2af6cc3eb7fa8be8504abaf9b04e88f17a119ec3f04a3addf55f92841195f5a",
+  "p95_wall_ms": 21592.27,
+  "paid_provider_calls": 0,
+  "receipt_hash_chain_sha256": "f2381f342b3ecd256a2ce59ad978d136ee981967e73caa11870edf03c272d6e1",
+  "requested": 2,
+  "samples": [
+    {
+      "failures": [],
+      "generated_tokens": 3,
+      "prompt_sha256": "86908d23555c875a5d1118a9a27a209c00429c5aeab84e396dd999398860290a",
+      "prompt_tokens": 56,
+      "request_index": 0,
+      "response_sha256": "b22069d76f9b93246c355ad808d777c130d86d70c399935148ddd8e9e7c6c42e",
+      "validated": true,
+      "wall_ms": 14192.14
+    },
+    {
+      "failures": [],
+      "generated_tokens": 3,
+      "prompt_sha256": "ec1f68b5ea52d7b58d5803ce8cdcfcaa194fa81fa25202328ef0fa3ec83a072b",
+      "prompt_tokens": 55,
+      "request_index": 1,
+      "response_sha256": "2fc4b207cef42c8e000a48512d1ea86ca751f1e3e082780907b2665bae7d2e23",
+      "validated": true,
+      "wall_ms": 21592.27
+    }
+  ],
+  "schema": "aionex.fr09.local-ollama-model-evidence.v1",
+  "start_utc": "2026-10-24T23:03:19.468404+00:00",
+  "status": "SAMPLE_VERIFIED_NOT_FR09_RELEASE_EVIDENCE",
+  "tier": "SAMPLE_ONLY",
+  "unverified_calls": 0,
+  "used_customer_data": false,
+  "verified_output_tokens": 6,
+  "verified_real_inference_calls": 2
+}
