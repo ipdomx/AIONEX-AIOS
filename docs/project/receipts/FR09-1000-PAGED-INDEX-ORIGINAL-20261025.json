@@ -1,0 +1,73 @@
+{
+  "all_3000_synthetic_auth_reads_http_200": true,
+  "external_provider_requests": false,
+  "full_5000_sustained_capacity_accepted": false,
+  "identical_synthetic_auth_bearers": 250,
+  "lab_containers_remaining": 0,
+  "measurements": [
+    {
+      "measurement": [
+        {
+          "max_ms": 742.85,
+          "p50_ms": 590.83,
+          "p95_ms": 669.81,
+          "p99_ms": 707.51,
+          "path": "identity",
+          "requests": 1000,
+          "success_200": 1000
+        },
+        {
+          "max_ms": 756.77,
+          "p50_ms": 572.83,
+          "p95_ms": 724.05,
+          "p99_ms": 743.55,
+          "path": "projects",
+          "requests": 1000,
+          "success_200": 1000
+        },
+        {
+          "max_ms": 970.84,
+          "p50_ms": 702.05,
+          "p95_ms": 889.13,
+          "p99_ms": 934.28,
+          "path": "conversations",
+          "requests": 1000,
+          "success_200": 1000
+        }
+      ],
+      "source_image": "aionex-aios-backend:fr25-e9951eb3-fr09-onequery-8api-20261024",
+      "stage": "candidate1000_page"
+    }
+  ],
+  "order": [
+    "candidate1000_page"
+  ],
+  "original_live_production_container_identities_unchanged": true,
+  "patch_source_tree": "perf/fr09-compact-live-grants-20261025",
+  "production_changed": false,
+  "production_credentials_read": false,
+  "schema": "aionex.fr09.1000-authenticated-materialized-project-page-index-ramp.v1",
+  "source_main": "71592e31ab4cda2455f226a31b471fd1496081cd",
+  "source_safety_and_behavior_verified": true,
+  "sql_readonly_profile": [
+    "23cab553f1edcb07fce5460bd8a5151d|1004|1406.83|1.40|20080|WITH project_page AS MATERIALIZED  (SELECT projects.id AS id, projects.created_at AS created_at  FROM projects  WHERE projects.organization_id = $2::VARCHAR AND projects.status != $3::VARCHAR ORDER BY projects.created_at DESC   LIMIT $4::INTEGER OFFS",
+    "5b41f99e69a5d23271433091ffaf7aa8|4016|691.69|0.17|4016|SELECT users.id, users.organization_id, users.role_id, users.workspace_id, users.email, users.name, users.password_hash, users.auth_version, users.status, users.avatar, users.last_active_at, users.deleted_at, users.created_at, users.updated_at, roles",
+    "9667bf8fd9b4d60ee4af4c6c80532a31|1004|61.35|0.06|3012|SELECT owner_control_records.id, owner_control_records.domain, owner_control_records.resource_id, owner_control_records.status, owner_control_records.enabled, owner_control_records.payload, owner_control_records.version, owner_control_records.created",
+    "934eb6642cf9f4071f61a8cfa2c358de|83|46.60|0.56|166|WITH RECURSIVE typeinfo_tree(     oid, ns, name, kind, basetype, elemtype, elemdelim,     range_subtype, attrtypoids, attrnames, depth) AS (     SELECT         ti.oid, ti.ns, ti.name, ti.kind, ti.basetype,         ti.elemtype, ti.elemdelim, ti.range_",
+    "517ce971ded604c06ecc2ec64f2336b9|49|2.70|0.06|0|SELECT jobs.id, jobs.organization_id, jobs.agent_id, jobs.type, jobs.status, jobs.payload, jobs.result, jobs.error, jobs.started_at, jobs.finished_at, jobs.created_at, jobs.updated_at  FROM jobs  WHERE jobs.type = $1::VARCHAR AND jobs.status = $2::VA",
+    "2805522dd41e1b57da11967ac5fa258c|6064|2.63|0.00|0|ROLLBACK",
+    "19aad9f2fe3ce0023298ab83f7e75775|6064|2.50|0.00|0|BEGIN",
+    "24885cfb7c3e55945a37c8653c58068a|83|0.57|0.01|83|SELECT                         current_setting($1) AS cur,                         set_config($2, $3, $4) AS new",
+    "6ba1b39cd880bb6ab8097b3bd3491950|1|0.56|0.56|1|SELECT pg_stat_statements_reset()",
+    "da3e0ee47489547ca8cb84876429cb17|83|0.48|0.01|83|SELECT                     set_config($2, $1, $3)"
+  ],
+  "synthetic_bearer_tokens_destroyed": true,
+  "synthetic_cohort_size": 1000,
+  "synthetic_conversation_rows": 3000,
+  "synthetic_project_rows": 3000,
+  "synthetic_records_only": true,
+  "synthetic_task_rows": 3000,
+  "test_lab": "independent-luks-encrypted-network-none",
+  "test_passed": true,
+  "tested_at_utc": "2026-10-25T14:55:37.043078+00:00"
+}
