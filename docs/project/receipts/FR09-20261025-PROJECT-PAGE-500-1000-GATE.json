@@ -1,0 +1,90 @@
+{
+  "1000_read_p95_slo_passed": false,
+  "500_global_slo_stability_across_independent_runs_proven": false,
+  "500_projects_candidate_p95_mean_ms": 437.51,
+  "500_projects_control_p95_mean_ms": 655.59,
+  "500_projects_mean_reduction_pct": 33.3,
+  "500_r2_candidate_all_read_routes_under_500ms_both_stages": true,
+  "authenticated_http_shape_and_response_checks_confirm_full_cohorts": true,
+  "files": [
+    {
+      "conversations": 1500,
+      "filename": "FR09-500-PAGED-INDEX-R2-ORIGINAL-20261025.json",
+      "projects": 1500,
+      "sha256": "65dc1cec7cd6d63f1fc01ba1508240940c45636713d414bd4331bcfe1b02f405",
+      "source_harness_bearer_metadata": 250,
+      "stages": [
+        {
+          "http_200": 1500,
+          "p95_ms": {
+            "conversations": 369.05,
+            "identity": 546.68,
+            "projects": 606.53
+          },
+          "stage": "candidate500_base1"
+        },
+        {
+          "http_200": 1500,
+          "p95_ms": {
+            "conversations": 379.35,
+            "identity": 476.32,
+            "projects": 476.49
+          },
+          "stage": "candidate500_page1"
+        },
+        {
+          "http_200": 1500,
+          "p95_ms": {
+            "conversations": 306.64,
+            "identity": 495.4,
+            "projects": 398.53
+          },
+          "stage": "candidate500_page2"
+        },
+        {
+          "http_200": 1500,
+          "p95_ms": {
+            "conversations": 305.65,
+            "identity": 432.09,
+            "projects": 704.64
+          },
+          "stage": "candidate500_base2"
+        }
+      ],
+      "users": 500
+    },
+    {
+      "conversations": 3000,
+      "filename": "FR09-1000-PAGED-INDEX-ORIGINAL-20261025.json",
+      "projects": 3000,
+      "sha256": "a231ff87c25200a61bc6ca9d7554da27924f0a0596cc01e03617f682cbace3ee",
+      "source_harness_bearer_metadata": 250,
+      "stages": [
+        {
+          "http_200": 3000,
+          "p95_ms": {
+            "conversations": 889.13,
+            "identity": 669.81,
+            "projects": 724.05
+          },
+          "stage": "candidate1000_page"
+        }
+      ],
+      "users": 1000
+    }
+  ],
+  "final_release_accepted": false,
+  "full_5000_multi_tenant_mixed_15min_accepted": false,
+  "index_migration": "20261025_0065",
+  "isolated_pg16_alembic_upgrade_verified": true,
+  "isolated_postgres_integration_tests_passed": 75,
+  "isolation_type": "independent disposable synthetic lab, no customer data",
+  "natural_72h_qualified": false,
+  "original_harness_bearer_count_metadata_stale": true,
+  "production_deployment_performed": false,
+  "real_15000_model_inferences_proven": false,
+  "schema": "aionex.fr09.project-paged-materialized-tenant-index-evidence.v1",
+  "source_base_sha": "c2f66b6fa63d7060d7ab7c1b4cf7022bbed64679",
+  "verified_1000_http200_total": 3000,
+  "verified_500_http200_total": 6000
+}
