@@ -1,0 +1,162 @@
+{
+  "all_2000_synthetic_auth_reads_http_200": true,
+  "external_provider_requests": false,
+  "full_5000_sustained_capacity_accepted": false,
+  "identical_synthetic_auth_bearers": 250,
+  "lab_containers_remaining": 0,
+  "measurements": [
+    {
+      "measurement": [
+        {
+          "max_ms": 669.78,
+          "p50_ms": 519.3,
+          "p95_ms": 660.26,
+          "p99_ms": 668.5,
+          "path": "identity",
+          "requests": 250,
+          "success_200": 250
+        },
+        {
+          "max_ms": 542.44,
+          "p50_ms": 310.6,
+          "p95_ms": 463.69,
+          "p99_ms": 526.78,
+          "path": "projects",
+          "requests": 250,
+          "success_200": 250
+        },
+        {
+          "max_ms": 726.5,
+          "p50_ms": 596.22,
+          "p95_ms": 708.87,
+          "p99_ms": 725.71,
+          "path": "conversations",
+          "requests": 250,
+          "success_200": 250
+        }
+      ],
+      "source_image": "aionex-aios-backend:fr25-e9951eb3-fr09-onequery-8api-20261024",
+      "stage": "baseline1"
+    },
+    {
+      "measurement": [
+        {
+          "max_ms": 732.36,
+          "p50_ms": 556.44,
+          "p95_ms": 711.56,
+          "p99_ms": 727.29,
+          "path": "identity",
+          "requests": 250,
+          "success_200": 250
+        },
+        {
+          "max_ms": 490.86,
+          "p50_ms": 335.2,
+          "p95_ms": 454.02,
+          "p99_ms": 485.53,
+          "path": "projects",
+          "requests": 250,
+          "success_200": 250
+        },
+        {
+          "max_ms": 700.91,
+          "p50_ms": 611.13,
+          "p95_ms": 683.36,
+          "p99_ms": 699.71,
+          "path": "conversations",
+          "requests": 250,
+          "success_200": 250
+        }
+      ],
+      "source_image": "aionex-aios-backend:fr25-e9951eb3-fr09-onequery-8api-20261024",
+      "stage": "candidate1"
+    },
+    {
+      "measurement": [
+        {
+          "max_ms": 838.68,
+          "p50_ms": 650.4,
+          "p95_ms": 835.13,
+          "p99_ms": 838.11,
+          "path": "identity",
+          "requests": 250,
+          "success_200": 250
+        },
+        {
+          "max_ms": 683.39,
+          "p50_ms": 313.34,
+          "p95_ms": 639.86,
+          "p99_ms": 682.63,
+          "path": "projects",
+          "requests": 250,
+          "success_200": 250
+        },
+        {
+          "max_ms": 1145.76,
+          "p50_ms": 517.94,
+          "p95_ms": 1130.34,
+          "p99_ms": 1144.82,
+          "path": "conversations",
+          "requests": 250,
+          "success_200": 250
+        }
+      ],
+      "source_image": "aionex-aios-backend:fr25-e9951eb3-fr09-onequery-8api-20261024",
+      "stage": "candidate2"
+    },
+    {
+      "measurement": [
+        {
+          "max_ms": 774.57,
+          "p50_ms": 564.31,
+          "p95_ms": 763.06,
+          "p99_ms": 770.16,
+          "path": "identity",
+          "requests": 250,
+          "success_200": 250
+        },
+        {
+          "max_ms": 524.29,
+          "p50_ms": 327.11,
+          "p95_ms": 476.42,
+          "p99_ms": 523.08,
+          "path": "projects",
+          "requests": 250,
+          "success_200": 250
+        },
+        {
+          "max_ms": 726.5,
+          "p50_ms": 589.03,
+          "p95_ms": 698.91,
+          "p99_ms": 725.03,
+          "path": "conversations",
+          "requests": 250,
+          "success_200": 250
+        }
+      ],
+      "source_image": "aionex-aios-backend:fr25-e9951eb3-fr09-onequery-8api-20261024",
+      "stage": "baseline2"
+    }
+  ],
+  "order": [
+    "baseline1",
+    "candidate1",
+    "candidate2",
+    "baseline2"
+  ],
+  "original_live_production_container_identities_unchanged": true,
+  "patch_source_tree": "perf/fr09-compact-live-grants-20261025",
+  "production_changed": false,
+  "production_credentials_read": false,
+  "schema": "aionex.fr09.250-synthetic-user-project-conversation-8v16-workers-ABBA.v1",
+  "source_main": "71592e31ab4cda2455f226a31b471fd1496081cd",
+  "source_safety_and_behavior_verified": true,
+  "synthetic_bearer_tokens_destroyed": true,
+  "synthetic_cohort_size": 250,
+  "synthetic_project_rows": 750,
+  "synthetic_records_only": true,
+  "synthetic_task_rows": 750,
+  "test_lab": "independent-luks-encrypted-network-none",
+  "test_passed": true,
+  "tested_at_utc": "2026-10-25T00:50:57.625090+00:00"
+}
