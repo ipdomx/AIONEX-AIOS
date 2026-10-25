@@ -628,8 +628,11 @@ class DeterministicProjectAIIntegrationRunner:
             "output_tokens": output_tokens,
             "total_tokens": input_tokens + output_tokens,
             "calculated_cost": round(total_cost, 8),
-            "approved": True,
-            "readiness_score": 1.0,
+            # Model routing and generated text are not the full human/Owner/
+            # safety/release governance cycle. Do not mark this project
+            # approved on an AI-only integration result.
+            "approved": False,
+            "readiness_score": 0.0,
             "workforce": [],
             "provider_plan": results,
             "integration_foundation": True,

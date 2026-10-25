@@ -14,6 +14,7 @@ from sqlalchemy import delete, func, select
 from app.db.base import SessionLocal
 from app.db.models import (
     AIProvider,
+    Notification,
     Organization,
     Project,
     ProjectAIRouteAttemptRecord,
@@ -344,7 +345,36 @@ async def test_launch100_users_complete_isolated_projects_under_bounded_workers(
             )
             assert len(executions) == 100
             assert all(row.status == "completed" for row in executions)
+            assert all(row.stage == "rework_required" for row in executions)
+            assert all(row.approved is False for row in executions)
+            assert all(row.readiness_score == 0.0 for row in executions)
+            assert all(row.result_summary.get("integration_foundation") is True for row in executions)
+            assert all(row.result_summary.get("approved") is False for row in executions)
+            assert all(
+                row.result_summary.get("release_approval_withheld_reason")
+                == "governance_incomplete"
+                for row in executions
+            )
             assert all(row.attempts == 1 for row in executions)
+            messages = list(
+                (
+                    await session.scalars(
+                        select(Notification).where(
+                            Notification.organization_id.like(f"{consumer_prefix}%"),
+                            Notification.type == "project.execution.completed",
+                        )
+                    )
+                ).all()
+            )
+            assert len(messages) == 100
+            assert all(
+                msg.title == "Project AI work completed; final approval withheld"
+                and msg.severity == "info"
+                and "was not executed" in msg.message
+                and msg.payload.get("release_approval_withheld") is True
+                and msg.payload.get("approved") is False
+                for msg in messages
+            )
             assert sum(row.provider == "ollama" for row in executions) == 50
             assert sum(row.provider == "mistral" for row in executions) == 40
             assert sum(row.provider == "deepseek" for row in executions) == 10

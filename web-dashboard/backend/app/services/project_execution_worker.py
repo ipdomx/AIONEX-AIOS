@@ -758,12 +758,35 @@ class ProjectExecutionWorker:
             heartbeat_task.cancel()
             await asyncio.gather(heartbeat_task, return_exceptions=True)
 
+    @staticmethod
+    def _truthful_completion_summary(summary: dict[str, Any]) -> dict[str, Any]:
+        """A model-only integration result cannot grant full project approval.
+
+        The ordinary, governed ProjectPlanningRunner remains unchanged. Only
+        explicit AI integration foundation results with incomplete governance
+        get a fail-closed terminal rework outcome. Never change the caller's
+        result mapping in place.
+        """
+        if (
+            summary.get("integration_foundation") is True
+            and summary.get("all_governance_layers_executed") is not True
+        ):
+            return {
+                **summary,
+                "approved": False,
+                "readiness_score": 0.0,
+                "release_approval_withheld": True,
+                "release_approval_withheld_reason": "governance_incomplete",
+            }
+        return summary
+
     async def complete(
         self,
         execution_id: str,
         lease_token: str,
         summary: dict[str, Any],
     ) -> None:
+        summary = self._truthful_completion_summary(summary)
         async with self.session_factory() as session:
             record = await session.scalar(
                 select(ProjectExecution)
@@ -853,19 +876,37 @@ class ProjectExecutionWorker:
                         )
                         workforce_record.payload = payload
                         workforce_record.version += 1
+            # The AI routing foundation completed *work*, not a governed
+            # project release. Never tell users that all human/Owner/workforce
+            # review happened when the result explicitly says it did not.
+            partial_ai_governance = (
+                summary.get("release_approval_withheld_reason")
+                == "governance_incomplete"
+                and summary.get("release_approval_withheld") is True
+            )
             session.add(
                 Notification(
                     organization_id=record.organization_id,
                     recipient_id=record.requested_by_id,
                     type="project.execution.completed",
-                    title="Full governed project cycle completed",
+                    title=(
+                        "Project AI work completed; final approval withheld"
+                        if partial_ai_governance
+                        else "Full governed project cycle completed"
+                    ),
                     message=(
-                        "The project passed through cognitive, government, research, "
-                        "ministry, engineering, security, workforce and release review. "
-                        + (
-                            "Every retained evidence gate passed."
-                            if record.approved
-                            else "The release remains withheld with a truthful rework and training plan."
+                        "The project AI routing work completed, but full Owner, "
+                        "security, workforce and release governance was not "
+                        "executed. The project remains in rework and is not approved."
+                        if partial_ai_governance
+                        else (
+                            "The project passed through cognitive, government, research, "
+                            "ministry, engineering, security, workforce and release review. "
+                            + (
+                                "Every retained evidence gate passed."
+                                if record.approved
+                                else "The release remains withheld with a truthful rework and training plan."
+                            )
                         )
                     ),
                     severity="success" if record.approved else "info",
@@ -874,6 +915,7 @@ class ProjectExecutionWorker:
                         "execution_id": record.id,
                         "approved": record.approved,
                         "readiness_score": record.readiness_score,
+                        "release_approval_withheld": partial_ai_governance,
                     },
                 )
             )
