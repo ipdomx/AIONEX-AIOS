@@ -344,6 +344,16 @@ async def test_launch100_users_complete_isolated_projects_under_bounded_workers(
             )
             assert len(executions) == 100
             assert all(row.status == "completed" for row in executions)
+            assert all(row.stage == "rework_required" for row in executions)
+            assert all(row.approved is False for row in executions)
+            assert all(row.readiness_score == 0.0 for row in executions)
+            assert all(row.result_summary.get("integration_foundation") is True for row in executions)
+            assert all(row.result_summary.get("approved") is False for row in executions)
+            assert all(
+                row.result_summary.get("release_approval_withheld_reason")
+                == "governance_incomplete"
+                for row in executions
+            )
             assert all(row.attempts == 1 for row in executions)
             assert sum(row.provider == "ollama" for row in executions) == 50
             assert sum(row.provider == "mistral" for row in executions) == 40
