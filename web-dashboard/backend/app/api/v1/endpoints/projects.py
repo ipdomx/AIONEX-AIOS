@@ -109,6 +109,24 @@ def _serialize_project(
     }
 
 
+def _tenant_scoped_active_task_count():
+    """Count only live tasks in the same tenant; enable the org/project/status index.
+
+    COUNT(*) avoids fetching Task.id for a count and the composite predicate
+    matches ix_tasks_org_project_status. This does not broaden visibility.
+    """
+    return (
+        select(func.count())
+        .where(
+            Task.organization_id == Project.organization_id,
+            Task.project_id == Project.id,
+            Task.status != "deleted",
+        )
+        .correlate(Project)
+        .scalar_subquery()
+    )
+
+
 async def _project_row(
     session: AsyncSession,
     project_id: str,
@@ -116,12 +134,7 @@ async def _project_row(
     *,
     include_deleted: bool = False,
 ):
-    task_count = (
-        select(func.count(Task.id))
-        .where(Task.project_id == Project.id, Task.status != "deleted")
-        .correlate(Project)
-        .scalar_subquery()
-    )
+    task_count = _tenant_scoped_active_task_count()
     statement = (
         select(Project, Workspace.name, User.name, task_count)
         .join(Workspace, Workspace.id == Project.workspace_id)
@@ -199,12 +212,7 @@ async def list_projects(
     actor: UserRecord = Depends(require_permissions("projects:read")),
     session: AsyncSession = Depends(get_db),
 ):
-    task_count = (
-        select(func.count(Task.id))
-        .where(Task.project_id == Project.id, Task.status != "deleted")
-        .correlate(Project)
-        .scalar_subquery()
-    )
+    task_count = _tenant_scoped_active_task_count()
     statement = (
         select(Project, Workspace.name, User.name, task_count)
         .join(Workspace, Workspace.id == Project.workspace_id)

@@ -4,19 +4,21 @@ from __future__ import annotations
 
 import asyncio
 import unittest
+from unittest.mock import patch
 
+from app.services import conversation_governance as governance
 from fastapi import HTTPException
 
 from app.core.auth import UserRecord, auth_service
 from app.db.models import Organization, Role, User
 
 
-class _AllIdentityRows:
-    def __init__(self, rows):
-        self.rows = rows
+class _OneIdentityRow:
+    def __init__(self, row):
+        self.row = row
 
-    def all(self):
-        return self.rows
+    def one_or_none(self):
+        return self.row
 
 
 class _LiveIdentitySession:
@@ -31,11 +33,10 @@ class _LiveIdentitySession:
         self.statements.append(str(statement))
         if len(self.statements) == 1:
             if self.user is None:
-                return _AllIdentityRows([])
-            grants = self.permissions or (None,)
-            return _AllIdentityRows([
-                (self.user, self.role, self.organization, code) for code in grants
-            ])
+                return _OneIdentityRow(None)
+            return _OneIdentityRow(
+                (self.user, self.role, self.organization, list(self.permissions))
+            )
         raise AssertionError("A live auth request issued excess SQL queries")
 
     async def get(self, _model, _key):
@@ -89,6 +90,9 @@ class FastAuthenticatedReadPathTests(unittest.TestCase):
         self.assertEqual(actor.permissions, ["projects:read", "projects:write"])
         self.assertEqual(len(session.statements), 1)
         joined = session.statements[0].upper()
+        self.assertIn("ARRAY_AGG", joined)
+        self.assertIn("ROLE_PERMISSIONS.ROLE_ID = USERS.ROLE_ID", joined)
+        self.assertNotIn("LEFT OUTER JOIN ROLE_PERMISSIONS", joined)
         self.assertIn("LEFT OUTER JOIN ROLES", joined)
         self.assertIn("LEFT OUTER JOIN ORGANIZATIONS", joined)
         self.assertIn("USERS.DELETED_AT IS NULL", joined)
@@ -132,6 +136,57 @@ class FastAuthenticatedReadPathTests(unittest.TestCase):
         with self.assertRaises(HTTPException) as result:
             asyncio.run(auth_service.get_user_by_id(session, u.id))
         self.assertEqual(result.exception.status_code, 500)
+
+    def test_live_permissions_are_unique_single_identity_row(self):
+        u, r, o = identity()
+        permissions = ("projects:read", "projects:write", "security:view")
+        session = _LiveIdentitySession(
+            user=u, role=r, organization=o, permissions=permissions
+        )
+        actor = asyncio.run(auth_service.get_user_by_id(session, u.id, refresh_cached=True))
+        self.assertEqual(actor.permissions, list(permissions))
+        self.assertEqual(len(session.statements), 1)
+
+
+    def test_empty_governed_thread_read_does_not_issue_a_clock_query(self):
+        u, _, _ = identity()
+
+        class EmptyResult:
+            def all(self):
+                return []
+
+        class EmptySession:
+            def __init__(self):
+                self.statements = []
+
+            async def execute(self, statement):
+                self.statements.append(str(statement))
+                return EmptyResult()
+
+            async def scalar(self, statement):
+                raise AssertionError("An empty inbox needs no extra clock query")
+
+        async def actor_once(session, user):
+            return user
+
+        async def policy_once(session, user):
+            return {"values": {"enabled": True}}
+
+        session = EmptySession()
+        with patch.object(governance, "current_actor", actor_once), patch.object(
+            governance, "effective_policy", policy_once
+        ):
+            result = asyncio.run(governance.list_threads(
+                session, UserRecord(
+                    id=u.id, organization_id=u.organization_id, email=u.email,
+                    name=u.name, password_hash="", role="Manager",
+                    permissions=["projects:write"], organization_name="Synthetic Org",
+                    organization_plan="enterprise",
+                )
+            ))
+        self.assertEqual(result, [])
+        self.assertEqual(len(session.statements), 1)
+        self.assertIn("clock_timestamp()", session.statements[0])
 
     def test_unassigned_role_never_receives_permission(self):
         u, _, o = identity()

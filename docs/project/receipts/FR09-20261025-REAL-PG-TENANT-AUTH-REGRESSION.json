@@ -1,0 +1,29 @@
+{
+  "accepted": true,
+  "environment": "isolated_encrypted_docker_network_none",
+  "external_provider_calls": 0,
+  "final_release_accepted": false,
+  "finished_utc": "2026-10-25T01:00:10.957206+00:00",
+  "full_5000_mixed_accepted": false,
+  "lab_container_count_after": 0,
+  "postgres_image": "postgres:16-alpine",
+  "production_data_used": false,
+  "production_identities_unchanged": true,
+  "pytest_exit_code": 0,
+  "pytest_output_sha256": "2ac2f3de2c1209b2468dad3542cf8fd2062510c51a637e2a928bc7063e0d6908",
+  "pytest_tail": [
+    "...................................................................      [100%]",
+    "=============================== warnings summary ===============================",
+    "../../opt/venv/lib/python3.11/site-packages/passlib/utils/__init__.py:854",
+    "  /opt/venv/lib/python3.11/site-packages/passlib/utils/__init__.py:854: DeprecationWarning: 'crypt' is deprecated and slated for removal in Python 3.13",
+    "    from crypt import crypt as _crypt",
+    "",
+    "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+    "67 passed, 1 warning in 32.30s",
+    ""
+  ],
+  "pytest_wall_seconds": 34.22,
+  "schema": "aionex.fr09.disposable-postgres-real-security-integration.v1",
+  "started_utc": "2026-10-25T00:59:35.084908+00:00",
+  "test_data": "synthetic"
+}
