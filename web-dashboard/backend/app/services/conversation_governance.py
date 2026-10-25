@@ -430,12 +430,18 @@ async def list_threads(session: AsyncSession, actor: UserRecord, project_id: str
     policy = (await effective_policy(session, actor))["values"]
     if not policy["enabled"]:
         _deny("OWNER_ACCESS_SUSPENDED", 403)
-    query = select(OwnerControlRecord).where(OwnerControlRecord.domain == thread_domain(actor.id))
+    # Read the PostgreSQL clock with the live conversation rows rather than
+    # doing a second SQL trip for an empty user inbox.
+    query = select(OwnerControlRecord, func.clock_timestamp()).where(
+        OwnerControlRecord.domain == thread_domain(actor.id)
+    )
     if project_id is not None:
         query = query.where(OwnerControlRecord.payload["project_id"].as_string() == _entity_id(project_id))
-    rows = list((await session.scalars(query.order_by(OwnerControlRecord.created_at.desc()).limit(1000))).all())
-    now = await _clock(session)
-    return [thread_snapshot(row, actor, policy, now) for row in rows]
+    rows = (await session.execute(query.order_by(OwnerControlRecord.created_at.desc()).limit(1000))).all()
+    if not rows:
+        return []
+    now = _utc(rows[0][1])
+    return [thread_snapshot(row, actor, policy, now) for row, _ in rows]
 
 
 async def create_thread(session: AsyncSession, actor: UserRecord, *, project_id: str,
