@@ -758,12 +758,35 @@ class ProjectExecutionWorker:
             heartbeat_task.cancel()
             await asyncio.gather(heartbeat_task, return_exceptions=True)
 
+    @staticmethod
+    def _truthful_completion_summary(summary: dict[str, Any]) -> dict[str, Any]:
+        """A model-only integration result cannot grant full project approval.
+
+        The ordinary, governed ProjectPlanningRunner remains unchanged. Only
+        explicit AI integration foundation results with incomplete governance
+        get a fail-closed terminal rework outcome. Never change the caller's
+        result mapping in place.
+        """
+        if (
+            summary.get("integration_foundation") is True
+            and summary.get("all_governance_layers_executed") is not True
+        ):
+            return {
+                **summary,
+                "approved": False,
+                "readiness_score": 0.0,
+                "release_approval_withheld": True,
+                "release_approval_withheld_reason": "governance_incomplete",
+            }
+        return summary
+
     async def complete(
         self,
         execution_id: str,
         lease_token: str,
         summary: dict[str, Any],
     ) -> None:
+        summary = self._truthful_completion_summary(summary)
         async with self.session_factory() as session:
             record = await session.scalar(
                 select(ProjectExecution)
