@@ -107,4 +107,5 @@ def test_plan_records_d9a_live_rollout_without_claiming_session_drain():
 def test_backend_keeps_0063_in_the_linear_history_after_0064():
     text = DB_TEST.read_text()
     assert '("20260920_0063", False)' in text
-    assert '("20260920_0064", True)' in text
+    assert '("20260920_0064", False)' in text
+    assert '("20261025_0065", True)' in text
