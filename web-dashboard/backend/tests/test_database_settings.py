@@ -75,7 +75,7 @@ def test_database_url_is_derived_from_postgres_credentials() -> None:
     assert url.host == "postgres"
     assert url.port == 5432
     assert url.username == "aios_user"
-    assert url.password == "p@ss:/word"
+    assert url.password =[REDACTED] "p@ss:/word"
     assert url.database == "aionex"
 
 
@@ -104,7 +104,7 @@ def test_alembic_config_accepts_percent_encoded_database_password() -> None:
     )
 
     assert config.get_main_option("sqlalchemy.url") == database_url
-    assert make_url(config.get_main_option("sqlalchemy.url")).password == (
+    assert make_url(config.get_main_option("sqlalchemy.url")).password =[REDACTED] (
         "p@ss:word/with%percent"
     )
 
@@ -329,11 +329,11 @@ class _FakeAsyncEngine:
 
 def test_backend_exposes_the_shipped_alembic_head() -> None:
     database.expected_alembic_heads.cache_clear()
-    assert database.expected_alembic_heads() == frozenset({"20260920_0064"})
+    assert database.expected_alembic_heads() == frozenset({"20261025_0065"})
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("revision,accepted", [("20260917_0052", False), ("20260918_0053", False), ("20260918_0054", False), ("20260918_0055", False), ("20260918_0056", False), ("20260919_0057", False), ("20260919_0058", False), ("20260919_0059", False), ("20260919_0060", False), ("20260920_0061", False), ("20260920_0062", False), ("20260920_0063", False), ("20260920_0064", True)])
+@pytest.mark.parametrize("revision,accepted", [("20260917_0052", False), ("20260918_0053", False), ("20260918_0054", False), ("20260918_0055", False), ("20260918_0056", False), ("20260919_0057", False), ("20260919_0058", False), ("20260919_0059", False), ("20260919_0060", False), ("20260920_0061", False), ("20260920_0062", False), ("20260920_0063", False), ("20260920_0064", False), ("20261025_0065", True)])
 async def test_registry_release_requires_its_actual_migration_head(monkeypatch, revision, accepted):
     database.expected_alembic_heads.cache_clear()
     monkeypatch.setattr(database, "engine", _FakeAsyncEngine(frozenset({revision})))
@@ -511,7 +511,7 @@ def test_production_compose_preserves_postgres_credential_contract() -> None:
         ":'backup_size'::bigint,\n  NULL,\n  "
         "to_timestamp(:'backup_completed_epoch'::double precision)"
     ) in restore_script
-    assert "lease_token = NULL" in restore_script
+    assert "lease_token = [REDACTED]" in restore_script
     assert "AND lease_token IS NULL" in restore_script
     assert "Legacy backup SHA-256 sidecar is missing or unsafe." in restore_script
     assert "Legacy backup checksum verification failed." in restore_script
@@ -530,7 +530,7 @@ def test_production_compose_preserves_postgres_credential_contract() -> None:
     assert "LOCK TABLE %s IN ACCESS EXCLUSIVE MODE" in reconcile_module
     assert "ALTER ROLE %I WITH LOGIN PASSWORD %L" in reconcile_module
     assert "VALUES ($1, $2)" in reconcile_module
-    assert "password=credentials.password" in reconcile_module
+    assert "password=[REDACTED]" in reconcile_module
     assert 'fetchval("SELECT 1")' in reconcile_module
     assert "pg_restore --no-password --clean --if-exists" in restore_script
     assert "compose stop backend" in restore_script
@@ -647,11 +647,11 @@ def test_file_backed_runtime_secrets_override_legacy_env(tmp_path: Path) -> None
     )
 
     assert configured.SECRET_KEY == app_secret.read_text()
-    assert configured.POSTGRES_PASSWORD == db_secret.read_text()
+    assert configured.POSTGRES_PASSWORD =[REDACTED] db_secret.read_text()
     resolved = make_url(configured.DATABASE_URL)
     assert resolved.host == "postgres"
     assert resolved.username == "aionex"
-    assert resolved.password == db_secret.read_text()
+    assert resolved.password =[REDACTED] db_secret.read_text()
     assert resolved.database == "aionex"
 
 
@@ -703,8 +703,8 @@ def test_production_compose_supports_postgres_password_file_and_workspace_mount(
     ):
         text = compose_path.read_text()
         assert "POSTGRES_PASSWORD_FILE: ${POSTGRES_INIT_PASSWORD_FILE:-}" in text
-        assert "POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}" in text
-        assert "POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required" not in text
+        assert "POSTGRES_PASSWORD: [REDACTED]" in text
+        assert "POSTGRES_PASSWORD:[REDACTED] is required" not in text
         assert "/workspace:ro" in text
 
 
