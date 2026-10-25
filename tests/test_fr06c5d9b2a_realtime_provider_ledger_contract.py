@@ -88,8 +88,9 @@ def test_plan_keeps_route_wiring_and_production_open():
     assert RECEIPT.is_file()
 
 
-def test_backend_shipped_head_advances_to_0064():
+def test_backend_shipped_head_includes_0065_after_0064():
     text = (ROOT / "web-dashboard/backend/tests/test_database_settings.py").read_text()
-    assert 'frozenset({"20260920_0064"})' in text
+    assert 'frozenset({"20261025_0065"})' in text
     assert '("20260920_0063", False)' in text
-    assert '("20260920_0064", True)' in text
+    assert '("20260920_0064", False)' in text
+    assert '("20261025_0065", True)' in text
