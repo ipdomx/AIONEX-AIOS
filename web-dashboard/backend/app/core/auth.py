@@ -141,11 +141,11 @@ def _as_utc(value: datetime) -> datetime:
     return value.astimezone(timezone.utc)
 
 
-def _hash_token(token: [REDACTED] -> str:
+def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-def _access_token_revocation_key(token: [REDACTED] -> str:
+def _access_token_revocation_key(token: str) -> str:
     return f"{ACCESS_TOKEN_REVOCATION_PREFIX}{_hash_token(token)}"
 
 
@@ -298,7 +298,7 @@ class AuthService:
         self,
         session: AsyncSession,
         email: str,
-        password: [REDACTED]
+        password: str,
         name: str,
         organization_name: str | None = None,
     ) -> UserRecord:
@@ -350,7 +350,7 @@ class AuthService:
         return await self._to_user_record(session, user)
 
     async def authenticate(
-        self, session: AsyncSession, email: str, password: [REDACTED]
+        self, session: AsyncSession, email: str, password: str
     ) -> UserRecord:
         normalized = email.strip().lower()
         user = await session.scalar(
@@ -420,7 +420,7 @@ class AuthService:
     async def issue_pair(
         self, session: AsyncSession, user: UserRecord
     ) -> dict[str, Any]:
-        refresh_token = [REDACTED] self.create_refresh_token(session, user)
+        refresh_token = await self.create_refresh_token(session, user)
         await session.commit()
         return {
             "access_token": self.create_access_token(user),
@@ -431,7 +431,7 @@ class AuthService:
         }
 
     async def refresh(
-        self, session: AsyncSession, refresh_token: [REDACTED]
+        self, session: AsyncSession, refresh_token: str
     ) -> dict[str, Any]:
         record = await session.scalar(
             select(RefreshSession)
@@ -454,7 +454,7 @@ class AuthService:
             # is consumed permanently instead of becoming valid after reactivation.
             await session.commit()
             raise
-        new_refresh_token = [REDACTED] self.create_refresh_token(session, user)
+        new_refresh_token = await self.create_refresh_token(session, user)
         await session.commit()
         return {
             "access_token": self.create_access_token(user),
@@ -465,7 +465,7 @@ class AuthService:
         }
 
     async def get_refresh_user(
-        self, session: AsyncSession, refresh_token: [REDACTED]
+        self, session: AsyncSession, refresh_token: str
     ) -> UserRecord:
         record = await session.scalar(
             select(RefreshSession).where(
@@ -480,7 +480,7 @@ class AuthService:
             )
         return await self.get_user_by_id(session, record.user_id)
 
-    def _decode_access_token_payload(self, token: [REDACTED] -> dict[str, Any]:
+    def _decode_access_token_payload(self, token: str) -> dict[str, Any]:
         try:
             payload = jwt.decode(
                 token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
@@ -493,7 +493,7 @@ class AuthService:
             raise HTTPException(status_code=401, detail="Invalid token type")
         return payload
 
-    async def decode_access_token(self, token: [REDACTED] -> dict[str, Any]:
+    async def decode_access_token(self, token: str) -> dict[str, Any]:
         payload = self._decode_access_token_payload(token)
         try:
             redis = await get_redis()
@@ -504,7 +504,7 @@ class AuthService:
             raise HTTPException(status_code=401, detail="Token has been revoked")
         return payload
 
-    async def revoke_access_token(self, token: [REDACTED] -> None:
+    async def revoke_access_token(self, token: str) -> None:
         payload = self._decode_access_token_payload(token)
         ttl_seconds = max(1, int(payload["exp"]) - int(_now().timestamp()))
         try:
@@ -522,7 +522,7 @@ class AuthService:
     async def revoke_refresh_token(
         self,
         session: AsyncSession,
-        refresh_token: [REDACTED]
+        refresh_token: str,
         *,
         user_id: str,
     ) -> bool:
@@ -611,13 +611,13 @@ auth_service = AuthService()
 
 async def current_user(
     request: Request,
-    token: [REDACTED] | None = Depends(oauth2_scheme),
+    token: str | None = Depends(oauth2_scheme),
     session: AsyncSession = Depends(get_db),
 ) -> UserRecord:
-    cookie_token = [REDACTED]
-    resolved_token = [REDACTED] or cookie_token
+    cookie_token = request.cookies.get(ACCESS_COOKIE_NAME)
+    resolved_token = token or cookie_token
     if not resolved_token:
-        [REDACTED] HTTPException(
+        raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
             headers={"WWW-Authenticate": "Bearer"},
