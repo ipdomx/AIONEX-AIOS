@@ -1,0 +1,181 @@
+{
+  "actual_account_provider_quota_verified": false,
+  "canonical_project": "AIONEX AIOS",
+  "capacity_shortfall_calls_per_minute": 640,
+  "captured_utc": "2026-10-25T20:03:05.600469+00:00",
+  "final_release_accepted": false,
+  "full_15000_model_inference_accepted": false,
+  "full_5000_active_mixed_model_load_accepted": false,
+  "full_profile_minutes": 15,
+  "interpretation": "Optimistic sum of independent model policy RPM, not verified vendor account quota or per-tenant authorization.",
+  "model_policy_routability_parser_used": "DurableProjectAIResolver._parse_model",
+  "optimistic_capacity_across_all_validated_models": [
+    {
+      "fresh_models": 5,
+      "lowest_evidence_validity_remaining_hours": 5.69,
+      "optimistic_calls_at_15_minutes": 5400,
+      "optimistic_independent_model_policy_calls_per_minute": 360,
+      "optimistic_shortfall_at_15_minutes": 9600,
+      "types": [
+        "deepseek",
+        "mistral",
+        "openai"
+      ]
+    }
+  ],
+  "optimistic_shortfall_calls_in_15min": 9600,
+  "optimistic_sum_independent_model_policy_calls_at_15min": 5400,
+  "optimistic_sum_independent_model_policy_rpm": 360,
+  "paid_provider_requests_executed": 0,
+  "per_provider_sanitized_status": [
+    {
+      "connected_but_missing_validated_models": true,
+      "fresh": 0,
+      "stale_or_invalid": 0,
+      "type": "anthropic"
+    },
+    {
+      "connected_but_missing_validated_models": true,
+      "fresh": 0,
+      "stale_or_invalid": 0,
+      "type": "azure_openai"
+    },
+    {
+      "connected_but_missing_validated_models": true,
+      "fresh": 0,
+      "stale_or_invalid": 0,
+      "type": "cohere"
+    },
+    {
+      "fresh": 1,
+      "stale_or_invalid": 0,
+      "type": "deepseek",
+      "validated_model_limits": [
+        {
+          "evidence_ref_present": true,
+          "expires_in_hours": 5.69,
+          "model_name_present": true,
+          "model_policy_concurrency": 6,
+          "model_policy_requests_per_minute": 120,
+          "policy_ref_present": true
+        }
+      ]
+    },
+    {
+      "connected_but_missing_validated_models": true,
+      "fresh": 0,
+      "stale_or_invalid": 0,
+      "type": "fireworks"
+    },
+    {
+      "connected_but_missing_validated_models": true,
+      "fresh": 0,
+      "stale_or_invalid": 0,
+      "type": "gemini"
+    },
+    {
+      "connected_but_missing_validated_models": true,
+      "fresh": 0,
+      "stale_or_invalid": 0,
+      "type": "groq"
+    },
+    {
+      "connected_but_missing_validated_models": true,
+      "fresh": 0,
+      "stale_or_invalid": 0,
+      "type": "huggingface"
+    },
+    {
+      "fresh": 1,
+      "stale_or_invalid": 0,
+      "type": "mistral",
+      "validated_model_limits": [
+        {
+          "evidence_ref_present": true,
+          "expires_in_hours": 5.69,
+          "model_name_present": true,
+          "model_policy_concurrency": 4,
+          "model_policy_requests_per_minute": 60,
+          "policy_ref_present": true
+        }
+      ]
+    },
+    {
+      "fresh": 0,
+      "stale_or_invalid": 1,
+      "type": "ollama",
+      "validated_model_limits": []
+    },
+    {
+      "fresh": 3,
+      "stale_or_invalid": 0,
+      "type": "openai",
+      "validated_model_limits": [
+        {
+          "evidence_ref_present": true,
+          "expires_in_hours": 5.69,
+          "model_name_present": true,
+          "model_policy_concurrency": 4,
+          "model_policy_requests_per_minute": 60,
+          "policy_ref_present": true
+        },
+        {
+          "evidence_ref_present": true,
+          "expires_in_hours": 5.69,
+          "model_name_present": true,
+          "model_policy_concurrency": 4,
+          "model_policy_requests_per_minute": 60,
+          "policy_ref_present": true
+        },
+        {
+          "evidence_ref_present": true,
+          "expires_in_hours": 5.69,
+          "model_name_present": true,
+          "model_policy_concurrency": 4,
+          "model_policy_requests_per_minute": 60,
+          "policy_ref_present": true
+        }
+      ]
+    },
+    {
+      "connected_but_missing_validated_models": true,
+      "fresh": 0,
+      "stale_or_invalid": 0,
+      "type": "openrouter"
+    },
+    {
+      "connected_but_missing_validated_models": true,
+      "fresh": 0,
+      "stale_or_invalid": 0,
+      "type": "together"
+    },
+    {
+      "connected_but_missing_validated_models": true,
+      "fresh": 0,
+      "stale_or_invalid": 0,
+      "type": "xai"
+    }
+  ],
+  "production_container_mutation": false,
+  "production_postgresql_write_performed": false,
+  "provider_counts": {
+    "connected_enabled": 14,
+    "connected_without_validation": 10,
+    "fresh_validated_models": 5,
+    "not_routable_validated_records": 0,
+    "provider_records_seen": 16,
+    "stale_validated_models": 1
+  },
+  "provider_credentials_read": false,
+  "provider_evidence_update_performed": false,
+  "provider_names_or_ids_or_customer_data_exported": false,
+  "provider_organizations_with_fresh_validated_evidence": 1,
+  "real_inference_requests_executed_by_this_readonly_audit": 0,
+  "release_decision": "HOLD_PROVIDER_CAPACITY_NOT_PROVEN",
+  "required_genuine_calls": 15000,
+  "required_real_model_calls_per_minute": 1000,
+  "schema": "aionex.fr09.readonly-model-policy-capacity-insufficiency.v2",
+  "synthetic_100_tenants_provider_authorities_validated": false,
+  "validated_model_allowed_by_each_tenant_policy_verified": false,
+  "validated_model_policy_version": "phase36c-launch100-model-policy-v2"
+}
