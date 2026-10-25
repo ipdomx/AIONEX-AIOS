@@ -113,6 +113,10 @@ async def refresh_launch_model_evidence(
                     AIProvider.organization_id
                     == settings.PROJECT_AI_PLATFORM_PROVIDER_ORGANIZATION_ID,
                     AIProvider.type.in_(sorted(by_provider)),
+                    # Configured/disconnected provider rows must never block
+                    # a single connected, enabled provider of the same type.
+                    # Routing already scopes live provider authority this way.
+                    AIProvider.status == "connected",
                 )
                 .order_by(AIProvider.type, AIProvider.id)
             )
@@ -120,6 +124,8 @@ async def refresh_launch_model_evidence(
     )
     provider_rows: dict[str, list[AIProvider]] = defaultdict(list)
     for provider in rows:
+        if not bool((provider.config or {}).get("enabled", True)):
+            continue
         provider_rows[provider.type.strip().lower()].append(provider)
 
     validated: list[str] = []
