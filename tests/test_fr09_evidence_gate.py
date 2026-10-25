@@ -618,3 +618,12 @@ def test_cli_cannot_read_world_readable_server_key(tmp_path):
     assert result.returncode == 3
     assert json.loads(result.stdout)["status"] == "INVALID_EVIDENCE"
     assert TEST_GAUGE_KEY.decode() not in result.stdout + result.stderr
+
+
+def test_unicode_non_ascii_mac_fails_closed_without_unicode_typeerror():
+    receipt = mixed_pass()
+    receipt["steady_state"]["server_concurrency"]["hmac_sha256"] = "\u00e9" * 64
+    verdict = module.evaluate(
+        receipt, trusted_server_gauge_key=TEST_GAUGE_KEY
+    )
+    assert verdict["status"] == "HOLD_FULL_MIXED"

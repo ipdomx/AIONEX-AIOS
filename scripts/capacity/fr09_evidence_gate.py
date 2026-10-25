@@ -140,7 +140,11 @@ def sampled_authenticated_concurrency(
     if type(trusted_key) is not bytes or len(trusted_key) < 32:
         return False, None
     claimed_hmac = raw.get("hmac_sha256")
-    if not isinstance(claimed_hmac, str) or len(claimed_hmac) != 64:
+    if (
+        not isinstance(claimed_hmac, str)
+        or len(claimed_hmac) != 64
+        or any(char not in "0123456789abcdef" for char in claimed_hmac)
+    ):
         return False, None
     try:
         expected_hmac = hmac.new(
