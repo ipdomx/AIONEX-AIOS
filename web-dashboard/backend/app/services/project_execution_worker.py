@@ -876,19 +876,37 @@ class ProjectExecutionWorker:
                         )
                         workforce_record.payload = payload
                         workforce_record.version += 1
+            # The AI routing foundation completed *work*, not a governed
+            # project release. Never tell users that all human/Owner/workforce
+            # review happened when the result explicitly says it did not.
+            partial_ai_governance = (
+                summary.get("release_approval_withheld_reason")
+                == "governance_incomplete"
+                and summary.get("release_approval_withheld") is True
+            )
             session.add(
                 Notification(
                     organization_id=record.organization_id,
                     recipient_id=record.requested_by_id,
                     type="project.execution.completed",
-                    title="Full governed project cycle completed",
+                    title=(
+                        "Project AI work completed; final approval withheld"
+                        if partial_ai_governance
+                        else "Full governed project cycle completed"
+                    ),
                     message=(
-                        "The project passed through cognitive, government, research, "
-                        "ministry, engineering, security, workforce and release review. "
-                        + (
-                            "Every retained evidence gate passed."
-                            if record.approved
-                            else "The release remains withheld with a truthful rework and training plan."
+                        "The project AI routing work completed, but full Owner, "
+                        "security, workforce and release governance was not "
+                        "executed. The project remains in rework and is not approved."
+                        if partial_ai_governance
+                        else (
+                            "The project passed through cognitive, government, research, "
+                            "ministry, engineering, security, workforce and release review. "
+                            + (
+                                "Every retained evidence gate passed."
+                                if record.approved
+                                else "The release remains withheld with a truthful rework and training plan."
+                            )
                         )
                     ),
                     severity="success" if record.approved else "info",
@@ -897,6 +915,7 @@ class ProjectExecutionWorker:
                         "execution_id": record.id,
                         "approved": record.approved,
                         "readiness_score": record.readiness_score,
+                        "release_approval_withheld": partial_ai_governance,
                     },
                 )
             )
