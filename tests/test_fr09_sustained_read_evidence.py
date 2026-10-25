@@ -158,3 +158,51 @@ def test_read_validation_does_not_mutate_source():
     identical = deepcopy(source)
     verify_sustained_read_slice(source)
     assert source == identical
+
+
+def test_missing_elapsed_must_provide_original_runner_attestation():
+    report = valid_receipt()
+    del report["steady_state_elapsed_seconds"]
+    with pytest.raises(ReadEvidenceError, match="driver attestation"):
+        verify_sustained_read_slice(report)
+
+
+def test_source_attested_elapsed_is_explicitly_lower_confidence(tmp_path):
+    driver = tmp_path / "sealed-runner.py"
+    driver.write_text(
+        'assert observed["steady_state_elapsed_seconds"] >= 900\n'
+        'assert observed["steady_state_minutes"] == 15\n'
+        'result["sustained_15min_synthetic_reads_proved"]=True\n'
+    )
+    report = valid_receipt()
+    del report["steady_state_elapsed_seconds"]
+    result = verify_sustained_read_slice(report, driver_source=driver)
+    assert result["read_slice_verified"] is True
+    assert result["observed_duration_s"] is None
+    assert result["elapsed_evidence_mode"] == "source_attested_minimum_900s_not_directly_persisted"
+    assert result["minute_ends_span_seconds"] == 14 * 60
+    assert len(result["source_driver_sha256"]) == 64
+    assert result["final_release_accepted"] is False
+
+
+def test_incomplete_runner_attestation_cannot_override_missing_elapsed(tmp_path):
+    driver = tmp_path / "unsafe-runner.py"
+    driver.write_text('result["sustained_15min_synthetic_reads_proved"]=True\n')
+    report = valid_receipt()
+    del report["steady_state_elapsed_seconds"]
+    with pytest.raises(ReadEvidenceError, match="source gate"):
+        verify_sustained_read_slice(report, driver_source=driver)
+
+
+def test_attested_driver_cannot_make_fake_minute_timestamps_pass(tmp_path):
+    driver = tmp_path / "sealed-runner.py"
+    driver.write_text(
+        'assert observed["steady_state_elapsed_seconds"] >= 900\n'
+        'assert observed["steady_state_minutes"] == 15\n'
+        'result["sustained_15min_synthetic_reads_proved"]=True\n'
+    )
+    report = valid_receipt()
+    del report["steady_state_elapsed_seconds"]
+    report["per_minute_read_metrics"][-1]["started_at_utc"] = "2026-10-25T18:01:00Z"
+    with pytest.raises(ReadEvidenceError):
+        verify_sustained_read_slice(report, driver_source=driver)
