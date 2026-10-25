@@ -1,0 +1,427 @@
+{
+  "base_merge_commit": "ae18cb8ff0e4af18fe61327fd75af642b6256266",
+  "cases": {
+    "500_users_16x1_workers16_cpu16": {
+      "actual_http200": 1500,
+      "all_stages_under_500ms": false,
+      "source_evidence_path": "/mnt/aionex/fr09-isolated-lab-20261011/fr09-sixteen-shard-500-authenticated-20261025/FR09-500-SIXTEEN-SHARDS-READ-20261025.json",
+      "source_sha256": "54244347acc731312393430960ba9239bb5f12970df953a624310767ed33648f",
+      "stages": [
+        {
+          "authenticated_http_200": 1500,
+          "routes": {
+            "conversations": {
+              "p50_ms": 210.39,
+              "p95_le_500ms": true,
+              "p95_ms": 261.91,
+              "p99_ms": 285.8
+            },
+            "identity": {
+              "p50_ms": 471.74,
+              "p95_le_500ms": false,
+              "p95_ms": 535.23,
+              "p99_ms": 549.12
+            },
+            "projects": {
+              "p50_ms": 387.89,
+              "p95_le_500ms": false,
+              "p95_ms": 602.46,
+              "p99_ms": 657.53
+            }
+          },
+          "stage": "candidate500"
+        }
+      ],
+      "synthetic_users": 500
+    },
+    "500_users_8x2_workers16_cpu16": {
+      "actual_http200": 1500,
+      "all_stages_under_500ms": false,
+      "source_evidence_path": "/mnt/aionex/fr09-isolated-lab-20261011/fr09-octo16-500-authenticated-20261025/FR09-500-OCTO16-CPU16-READ-20261025.json",
+      "source_sha256": "4d265499a6e809dc64e9a672aa7a2ef2baf529cdcacdf6622e570dbdae8f4c4c",
+      "stages": [
+        {
+          "authenticated_http_200": 1500,
+          "routes": {
+            "conversations": {
+              "p50_ms": 413.63,
+              "p95_le_500ms": false,
+              "p95_ms": 635.29,
+              "p99_ms": 686.4
+            },
+            "identity": {
+              "p50_ms": 402.11,
+              "p95_le_500ms": true,
+              "p95_ms": 472.58,
+              "p99_ms": 552.19
+            },
+            "projects": {
+              "p50_ms": 397.5,
+              "p95_le_500ms": false,
+              "p95_ms": 655.22,
+              "p99_ms": 707.91
+            }
+          },
+          "stage": "candidate500"
+        }
+      ],
+      "synthetic_users": 500
+    },
+    "asgi_security_4_shards": {
+      "actual_http200": 3000,
+      "all_stages_under_500ms": false,
+      "source_evidence_path": "/mnt/aionex/fr09-isolated-lab-20261011/fr09-four-shard-pure-asgi-abba-20261025/FR09-250-QUAD-ASGI-OLD-v-NEW-ABBA-20261025.json",
+      "source_sha256": "58e798a81217f3fe858615e2325015b9a3c83c5f66c917c39cff9f38fff9e6ae",
+      "stages": [
+        {
+          "authenticated_http_200": 750,
+          "routes": {
+            "conversations": {
+              "p50_ms": 226.04,
+              "p95_le_500ms": false,
+              "p95_ms": 584.97,
+              "p99_ms": 600.9
+            },
+            "identity": {
+              "p50_ms": 378.63,
+              "p95_le_500ms": true,
+              "p95_ms": 488.65,
+              "p99_ms": 522.09
+            },
+            "projects": {
+              "p50_ms": 305.83,
+              "p95_le_500ms": false,
+              "p95_ms": 711.52,
+              "p99_ms": 786.59
+            }
+          },
+          "stage": "baseline1"
+        },
+        {
+          "authenticated_http_200": 750,
+          "routes": {
+            "conversations": {
+              "p50_ms": 366.39,
+              "p95_le_500ms": false,
+              "p95_ms": 700.07,
+              "p99_ms": 714.2
+            },
+            "identity": {
+              "p50_ms": 389.2,
+              "p95_le_500ms": true,
+              "p95_ms": 472.08,
+              "p99_ms": 538.79
+            },
+            "projects": {
+              "p50_ms": 278.61,
+              "p95_le_500ms": true,
+              "p95_ms": 378.83,
+              "p99_ms": 403.97
+            }
+          },
+          "stage": "candidate1"
+        },
+        {
+          "authenticated_http_200": 750,
+          "routes": {
+            "conversations": {
+              "p50_ms": 321.11,
+              "p95_le_500ms": false,
+              "p95_ms": 609.13,
+              "p99_ms": 624.84
+            },
+            "identity": {
+              "p50_ms": 347.28,
+              "p95_le_500ms": true,
+              "p95_ms": 431.49,
+              "p99_ms": 570.76
+            },
+            "projects": {
+              "p50_ms": 241.27,
+              "p95_le_500ms": true,
+              "p95_ms": 328.03,
+              "p99_ms": 358.46
+            }
+          },
+          "stage": "candidate2"
+        },
+        {
+          "authenticated_http_200": 750,
+          "routes": {
+            "conversations": {
+              "p50_ms": 394.75,
+              "p95_le_500ms": false,
+              "p95_ms": 571.84,
+              "p99_ms": 586.62
+            },
+            "identity": {
+              "p50_ms": 423.28,
+              "p95_le_500ms": true,
+              "p95_ms": 463.45,
+              "p99_ms": 501.12
+            },
+            "projects": {
+              "p50_ms": 288.7,
+              "p95_le_500ms": false,
+              "p95_ms": 612.81,
+              "p99_ms": 636.51
+            }
+          },
+          "stage": "baseline2"
+        }
+      ],
+      "synthetic_users": 250
+    },
+    "isolated_asgi_vs_queue_latency": {
+      "actual_http200": 750,
+      "all_stages_under_500ms": false,
+      "source_evidence_path": "/mnt/aionex/fr09-isolated-lab-20261011/fr09-http-scheduler-diagnosis-20261025/FR09-250-CLIENT-VS-ASGI-TIMING.json",
+      "source_sha256": "52c7192f95ad3d056ec0495d6d0d6917d05c61dec01f368a4cc848e03c1271cd",
+      "stages": [
+        {
+          "authenticated_http_200": 750,
+          "routes": {
+            "conversations": {
+              "p50_ms": 555.6,
+              "p95_le_500ms": false,
+              "p95_ms": 620.03,
+              "p99_ms": 636.94
+            },
+            "identity": {
+              "p50_ms": 639.05,
+              "p95_le_500ms": false,
+              "p95_ms": 737.49,
+              "p99_ms": 760.9
+            },
+            "projects": {
+              "p50_ms": 338.63,
+              "p95_le_500ms": true,
+              "p95_ms": 466.81,
+              "p99_ms": 513.63
+            }
+          },
+          "stage": "timing_only"
+        }
+      ],
+      "synthetic_users": 250
+    },
+    "policy_inbox_2_sql_4_shards": {
+      "actual_http200": 3000,
+      "all_stages_under_500ms": false,
+      "source_evidence_path": "/mnt/aionex/fr09-isolated-lab-20261011/fr09-four-shard-policy-inbox-abba-20261025/FR09-250-QUAD-INBOX-2SQL-ABBA-20261025.json",
+      "source_sha256": "671df2225225b956aa62b649fd0997c0d7c1434e854e08a248758bcdefcb8c18",
+      "stages": [
+        {
+          "authenticated_http_200": 750,
+          "routes": {
+            "conversations": {
+              "p50_ms": 286.46,
+              "p95_le_500ms": false,
+              "p95_ms": 593.68,
+              "p99_ms": 625.45
+            },
+            "identity": {
+              "p50_ms": 391.88,
+              "p95_le_500ms": true,
+              "p95_ms": 474.73,
+              "p99_ms": 496.65
+            },
+            "projects": {
+              "p50_ms": 276.39,
+              "p95_le_500ms": true,
+              "p95_ms": 389.97,
+              "p99_ms": 406.02
+            }
+          },
+          "stage": "baseline1"
+        },
+        {
+          "authenticated_http_200": 750,
+          "routes": {
+            "conversations": {
+              "p50_ms": 337.56,
+              "p95_le_500ms": false,
+              "p95_ms": 590.47,
+              "p99_ms": 604.21
+            },
+            "identity": {
+              "p50_ms": 406.72,
+              "p95_le_500ms": true,
+              "p95_ms": 460.24,
+              "p99_ms": 474
+            },
+            "projects": {
+              "p50_ms": 231.81,
+              "p95_le_500ms": true,
+              "p95_ms": 337.67,
+              "p99_ms": 381.36
+            }
+          },
+          "stage": "candidate1"
+        },
+        {
+          "authenticated_http_200": 750,
+          "routes": {
+            "conversations": {
+              "p50_ms": 324.75,
+              "p95_le_500ms": false,
+              "p95_ms": 554.99,
+              "p99_ms": 573.5
+            },
+            "identity": {
+              "p50_ms": 368.33,
+              "p95_le_500ms": true,
+              "p95_ms": 431.54,
+              "p99_ms": 520.67
+            },
+            "projects": {
+              "p50_ms": 286.83,
+              "p95_le_500ms": true,
+              "p95_ms": 367.99,
+              "p99_ms": 378.84
+            }
+          },
+          "stage": "candidate2"
+        },
+        {
+          "authenticated_http_200": 750,
+          "routes": {
+            "conversations": {
+              "p50_ms": 264.75,
+              "p95_le_500ms": false,
+              "p95_ms": 669.26,
+              "p99_ms": 681.57
+            },
+            "identity": {
+              "p50_ms": 344.16,
+              "p95_le_500ms": true,
+              "p95_ms": 419.97,
+              "p99_ms": 463.03
+            },
+            "projects": {
+              "p50_ms": 239.86,
+              "p95_le_500ms": true,
+              "p95_ms": 340.54,
+              "p99_ms": 368.53
+            }
+          },
+          "stage": "baseline2"
+        }
+      ],
+      "synthetic_users": 250
+    },
+    "topology_4x2_vs_8x1_same_resources": {
+      "actual_http200": 3000,
+      "all_stages_under_500ms": false,
+      "source_evidence_path": "/mnt/aionex/fr09-isolated-lab-20261011/fr09-eight-shard-20261025/FR09-250-QUAD2-v-OCTO1-ABBA-20261025.json",
+      "source_sha256": "cd803188e18567cd835a1b89d97f418aff19c974edd584c64cfd52fde5e1811f",
+      "stages": [
+        {
+          "authenticated_http_200": 750,
+          "routes": {
+            "conversations": {
+              "p50_ms": 261.1,
+              "p95_le_500ms": false,
+              "p95_ms": 575.52,
+              "p99_ms": 595.64
+            },
+            "identity": {
+              "p50_ms": 375.84,
+              "p95_le_500ms": true,
+              "p95_ms": 468.57,
+              "p99_ms": 530.02
+            },
+            "projects": {
+              "p50_ms": 224.23,
+              "p95_le_500ms": true,
+              "p95_ms": 304.11,
+              "p99_ms": 327.9
+            }
+          },
+          "stage": "baseline1"
+        },
+        {
+          "authenticated_http_200": 750,
+          "routes": {
+            "conversations": {
+              "p50_ms": 180.28,
+              "p95_le_500ms": true,
+              "p95_ms": 240.87,
+              "p99_ms": 252.83
+            },
+            "identity": {
+              "p50_ms": 317.47,
+              "p95_le_500ms": true,
+              "p95_ms": 365.33,
+              "p99_ms": 377.94
+            },
+            "projects": {
+              "p50_ms": 217.93,
+              "p95_le_500ms": true,
+              "p95_ms": 288.94,
+              "p99_ms": 297.44
+            }
+          },
+          "stage": "candidate1"
+        },
+        {
+          "authenticated_http_200": 750,
+          "routes": {
+            "conversations": {
+              "p50_ms": 198.32,
+              "p95_le_500ms": true,
+              "p95_ms": 269.32,
+              "p99_ms": 287.17
+            },
+            "identity": {
+              "p50_ms": 307.25,
+              "p95_le_500ms": true,
+              "p95_ms": 341.63,
+              "p99_ms": 355.04
+            },
+            "projects": {
+              "p50_ms": 214.44,
+              "p95_le_500ms": true,
+              "p95_ms": 313.98,
+              "p99_ms": 346.35
+            }
+          },
+          "stage": "candidate2"
+        },
+        {
+          "authenticated_http_200": 750,
+          "routes": {
+            "conversations": {
+              "p50_ms": 463.05,
+              "p95_le_500ms": false,
+              "p95_ms": 627.17,
+              "p99_ms": 644.88
+            },
+            "identity": {
+              "p50_ms": 335.59,
+              "p95_le_500ms": true,
+              "p95_ms": 410.37,
+              "p99_ms": 446.08
+            },
+            "projects": {
+              "p50_ms": 245.09,
+              "p95_le_500ms": true,
+              "p95_ms": 322.65,
+              "p99_ms": 352.1
+            }
+          },
+          "stage": "baseline2"
+        }
+      ],
+      "synthetic_users": 250
+    }
+  },
+  "full_15000_model_inferences_proven": false,
+  "full_authenticated_5000_mixed_profile_met": false,
+  "natural_72h_stability_qualified": false,
+  "production_changes": false,
+  "production_data_or_paid_provider": false,
+  "release_status": "HOLD_NOT_RELEASED",
+  "schema": "aionex.fr09.20261025.auth-read-250-500-evidence.v1",
+  "testing_scope": "isolated synthetic HTTP authenticated users, projects, conversations"
+}

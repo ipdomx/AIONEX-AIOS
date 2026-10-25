@@ -21,6 +21,7 @@ from fastapi import FastAPI, Request, Response, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
+from starlette.datastructures import Headers, MutableHeaders
 from sqlalchemy import text
 
 setup_logging()
@@ -41,15 +42,25 @@ _PUBLIC_CACHEABLE_API = re.compile(
 )
 
 
-def _preserve_public_api_cache(request: Request, response: Response) -> bool:
-    """Preserve explicit public caching only for the read-only portal contract."""
-
-    cache_control = response.headers.get("Cache-Control", "").strip().lower()
+def _preserve_public_api_cache_values(
+    method: str, path: str, status_code: int, cache_control: str,
+) -> bool:
+    """Fail-closed portal caching decision shared by ASGI and tests."""
     return (
-        request.method in {"GET", "HEAD"}
-        and response.status_code in {200, 304}
-        and _PUBLIC_CACHEABLE_API.fullmatch(request.url.path) is not None
-        and cache_control.startswith("public")
+        method in {"GET", "HEAD"}
+        and status_code in {200, 304}
+        and _PUBLIC_CACHEABLE_API.fullmatch(path) is not None
+        and cache_control.strip().lower().startswith("public")
+    )
+
+
+def _preserve_public_api_cache(request: Request, response: Response) -> bool:
+    """Preserve the public cache contract for callers of the existing helper."""
+    return _preserve_public_api_cache_values(
+        request.method,
+        request.url.path,
+        response.status_code,
+        response.headers.get("Cache-Control", ""),
     )
 
 
@@ -88,32 +99,74 @@ app.add_middleware(
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
-@app.middleware("http")
-async def production_security_boundary(request: Request, call_next):
-    request_id = request.headers.get("x-request-id") or request.headers.get("x-correlation-id") or secrets.token_hex(16)
-    if _production():
-        allowed = _allowed_hosts()
-        host = request.headers.get("host", "").split(":", 1)[0].lower()
-        if not allowed:
-            logger.error("AIOS_ALLOWED_HOSTS is required in production")
-            return JSONResponse(status_code=503, content={"detail": "Production host policy is not configured"})
-        if host not in allowed:
-            logger.warning("Rejected untrusted host", host=host, request_id=request_id)
-            return JSONResponse(status_code=421, content={"detail": "Untrusted host"})
-    response = await call_next(request)
-    response.headers["X-Request-ID"] = request_id
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["Referrer-Policy"] = "no-referrer"
-    response.headers["Permissions-Policy"] = "camera=(), geolocation=(), microphone=(self), payment=(), usb=()"
-    if request.url.path.startswith("/api/") and not _preserve_public_api_cache(
-        request, response
-    ):
-        response.headers["Cache-Control"] = "no-store"
-    if "server" in response.headers:
-        del response.headers["server"]
-    return response
+class ProductionSecurityASGIMiddleware:
+    """Enforce production hosts and headers without BaseHTTPMiddleware tasks.
 
+    The ASGI send hook preserves streaming behavior and security headers for
+    successful and error responses; WebSockets and lifespan are untouched.
+    """
+
+    def __init__(self, downstream):
+        self.downstream = downstream
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.downstream(scope, receive, send)
+            return
+
+        headers = Headers(scope=scope)
+        request_id = (
+            headers.get("x-request-id")
+            or headers.get("x-correlation-id")
+            or secrets.token_hex(16)
+        )
+        if _production():
+            allowed = _allowed_hosts()
+            host = headers.get("host", "").split(":", 1)[0].lower()
+            if not allowed:
+                logger.error("AIOS_ALLOWED_HOSTS is required in production")
+                response = JSONResponse(
+                    status_code=503,
+                    content={"detail": "Production host policy is not configured"},
+                )
+                await response(scope, receive, send)
+                return
+            if host not in allowed:
+                logger.warning("Rejected untrusted host", host=host, request_id=request_id)
+                response = JSONResponse(
+                    status_code=421, content={"detail": "Untrusted host"}
+                )
+                await response(scope, receive, send)
+                return
+
+        async def secure_send(message):
+            if message["type"] == "http.response.start":
+                response_headers = MutableHeaders(scope=message)
+                response_headers["X-Request-ID"] = request_id
+                response_headers["X-Content-Type-Options"] = "nosniff"
+                response_headers["X-Frame-Options"] = "DENY"
+                response_headers["Referrer-Policy"] = "no-referrer"
+                response_headers["Permissions-Policy"] = (
+                    "camera=(), geolocation=(), microphone=(self), payment=(), usb=()"
+                )
+                if (
+                    scope["path"].startswith("/api/")
+                    and not _preserve_public_api_cache_values(
+                        scope["method"],
+                        scope["path"],
+                        message["status"],
+                        response_headers.get("Cache-Control", ""),
+                    )
+                ):
+                    response_headers["Cache-Control"] = "no-store"
+                if "server" in response_headers:
+                    del response_headers["server"]
+            await send(message)
+
+        await self.downstream(scope, receive, secure_send)
+
+
+app.add_middleware(ProductionSecurityASGIMiddleware)
 
 app.include_router(api_router, prefix="/api/v1")
 
