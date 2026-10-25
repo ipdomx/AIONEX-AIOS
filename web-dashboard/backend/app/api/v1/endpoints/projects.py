@@ -212,29 +212,41 @@ async def list_projects(
     actor: UserRecord = Depends(require_permissions("projects:read")),
     session: AsyncSession = Depends(get_db),
 ):
+    # Page within the actor's live tenant and filters BEFORE materializing the
+    # full Project ORM records, owner/workspace joins, and per-project task
+    # counts. PostgreSQL MATERIALIZED guards against the planner expanding
+    # those expensive per-row operations over the full tenant project table
+    # under high authenticated concurrency (FR09).
+    page = select(Project.id, Project.created_at).where(
+        Project.organization_id == actor.organization_id,
+        Project.status != "deleted",
+    )
+    if status_filter:
+        page = page.where(Project.status == status_filter)
+    if priority:
+        page = page.where(Project.priority == priority)
+    if workspace_id:
+        page = page.where(Project.workspace_id == workspace_id)
+    if search:
+        page = page.where(Project.name.ilike(f"%{search.strip()}%"))
+
+    page = (
+        page.order_by(Project.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .cte("project_page")
+        .prefix_with("MATERIALIZED", dialect="postgresql")
+    )
     task_count = _tenant_scoped_active_task_count()
     statement = (
         select(Project, Workspace.name, User.name, task_count)
+        .join(page, page.c.id == Project.id)
         .join(Workspace, Workspace.id == Project.workspace_id)
         .join(User, User.id == Project.owner_id)
-        .where(
-            Project.organization_id == actor.organization_id,
-            Project.status != "deleted",
-        )
+        .where(Project.organization_id == actor.organization_id)
+        .order_by(page.c.created_at.desc())
     )
-    if status_filter:
-        statement = statement.where(Project.status == status_filter)
-    if priority:
-        statement = statement.where(Project.priority == priority)
-    if workspace_id:
-        statement = statement.where(Project.workspace_id == workspace_id)
-    if search:
-        statement = statement.where(Project.name.ilike(f"%{search.strip()}%"))
-    rows = (
-        await session.execute(
-            statement.order_by(Project.created_at.desc()).offset(skip).limit(limit)
-        )
-    ).all()
+    rows = (await session.execute(statement)).all()
     return [
         _serialize_project(
             project,
