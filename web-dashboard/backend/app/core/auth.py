@@ -16,7 +16,7 @@ from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordBearer
 from jwt import InvalidTokenError as JWTError
 from passlib.context import CryptContext  # type: ignore[import-untyped]
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -141,11 +141,11 @@ def _as_utc(value: datetime) -> datetime:
     return value.astimezone(timezone.utc)
 
 
-def _hash_token(token: str) -> str:
+def _hash_token(token: [REDACTED] -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-def _access_token_revocation_key(token: str) -> str:
+def _access_token_revocation_key(token: [REDACTED] -> str:
     return f"{ACCESS_TOKEN_REVOCATION_PREFIX}{_hash_token(token)}"
 
 
@@ -298,7 +298,7 @@ class AuthService:
         self,
         session: AsyncSession,
         email: str,
-        password: str,
+        password: [REDACTED]
         name: str,
         organization_name: str | None = None,
     ) -> UserRecord:
@@ -350,7 +350,7 @@ class AuthService:
         return await self._to_user_record(session, user)
 
     async def authenticate(
-        self, session: AsyncSession, email: str, password: str
+        self, session: AsyncSession, email: str, password: [REDACTED]
     ) -> UserRecord:
         normalized = email.strip().lower()
         user = await session.scalar(
@@ -420,7 +420,7 @@ class AuthService:
     async def issue_pair(
         self, session: AsyncSession, user: UserRecord
     ) -> dict[str, Any]:
-        refresh_token = await self.create_refresh_token(session, user)
+        refresh_token = [REDACTED] self.create_refresh_token(session, user)
         await session.commit()
         return {
             "access_token": self.create_access_token(user),
@@ -431,7 +431,7 @@ class AuthService:
         }
 
     async def refresh(
-        self, session: AsyncSession, refresh_token: str
+        self, session: AsyncSession, refresh_token: [REDACTED]
     ) -> dict[str, Any]:
         record = await session.scalar(
             select(RefreshSession)
@@ -454,7 +454,7 @@ class AuthService:
             # is consumed permanently instead of becoming valid after reactivation.
             await session.commit()
             raise
-        new_refresh_token = await self.create_refresh_token(session, user)
+        new_refresh_token = [REDACTED] self.create_refresh_token(session, user)
         await session.commit()
         return {
             "access_token": self.create_access_token(user),
@@ -465,7 +465,7 @@ class AuthService:
         }
 
     async def get_refresh_user(
-        self, session: AsyncSession, refresh_token: str
+        self, session: AsyncSession, refresh_token: [REDACTED]
     ) -> UserRecord:
         record = await session.scalar(
             select(RefreshSession).where(
@@ -480,7 +480,7 @@ class AuthService:
             )
         return await self.get_user_by_id(session, record.user_id)
 
-    def _decode_access_token_payload(self, token: str) -> dict[str, Any]:
+    def _decode_access_token_payload(self, token: [REDACTED] -> dict[str, Any]:
         try:
             payload = jwt.decode(
                 token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
@@ -493,7 +493,7 @@ class AuthService:
             raise HTTPException(status_code=401, detail="Invalid token type")
         return payload
 
-    async def decode_access_token(self, token: str) -> dict[str, Any]:
+    async def decode_access_token(self, token: [REDACTED] -> dict[str, Any]:
         payload = self._decode_access_token_payload(token)
         try:
             redis = await get_redis()
@@ -504,7 +504,7 @@ class AuthService:
             raise HTTPException(status_code=401, detail="Token has been revoked")
         return payload
 
-    async def revoke_access_token(self, token: str) -> None:
+    async def revoke_access_token(self, token: [REDACTED] -> None:
         payload = self._decode_access_token_payload(token)
         ttl_seconds = max(1, int(payload["exp"]) - int(_now().timestamp()))
         try:
@@ -522,7 +522,7 @@ class AuthService:
     async def revoke_refresh_token(
         self,
         session: AsyncSession,
-        refresh_token: str,
+        refresh_token: [REDACTED]
         *,
         user_id: str,
     ) -> bool:
@@ -551,28 +551,36 @@ class AuthService:
         # already present in this transaction's identity map. Governance
         # reauthorization MUST use it to reject revocations committed by
         # another transaction; normal callsites preserve their original path.
-        # Resolve identity, live role/organization and effective permissions in
-        # one database roundtrip, not two. Each result row belongs to the
-        # requested single user; per-role grants are expanded only from live
-        # role_permissions and permissions tables (never from stale JWT).
+        # Fold live role grants into one correlated PostgreSQL array per user.
+        # The old joined query returned N duplicate ORM identity rows for N
+        # grants, increasing cursor and ORM costs at 5000 concurrent sessions.
+        # This is NOT a grant cache: revoked roles, suspended organizations
+        # and changed role permissions are still reread from PostgreSQL on
+        # every authenticated request (and refreshed for Owner governance).
+        live_grants = (
+            select(func.array_agg(Permission.code))
+            .select_from(RolePermission)
+            .join(Permission, Permission.id == RolePermission.permission_id)
+            .where(RolePermission.role_id == User.role_id)
+            .correlate(User)
+            .scalar_subquery()
+        )
         identity_query = (
-            select(User, Role, Organization, Permission.code)
+            select(User, Role, Organization, live_grants)
             .outerjoin(Role, Role.id == User.role_id)
             .outerjoin(Organization, Organization.id == User.organization_id)
-            .outerjoin(RolePermission, RolePermission.role_id == Role.id)
-            .outerjoin(Permission, Permission.id == RolePermission.permission_id)
             .where(User.id == user_id, User.deleted_at.is_(None))
         )
         if refresh_cached:
             # Explicitly refresh stale ORM identity-map objects. Required for
             # Owner policy revocation occurring in another transaction.
             identity_query = identity_query.execution_options(populate_existing=True)
-        rows = (await session.execute(identity_query)).all()
-        if not rows:
+        row = (await session.execute(identity_query)).one_or_none()
+        if row is None:
             raise HTTPException(status_code=404, detail="User not found")
-        user, role, organization, _ = rows[0]
+        user, role, organization, grant_codes = row
         live_permissions = [
-            code for _, _, _, code in rows if isinstance(code, str)
+            code for code in (grant_codes or ()) if isinstance(code, str)
         ]
         return await self._to_user_record(
             session,
@@ -603,13 +611,13 @@ auth_service = AuthService()
 
 async def current_user(
     request: Request,
-    token: str | None = Depends(oauth2_scheme),
+    token: [REDACTED] | None = Depends(oauth2_scheme),
     session: AsyncSession = Depends(get_db),
 ) -> UserRecord:
-    cookie_token = request.cookies.get(ACCESS_COOKIE_NAME)
-    resolved_token = token or cookie_token
+    cookie_token = [REDACTED]
+    resolved_token = [REDACTED] or cookie_token
     if not resolved_token:
-        raise HTTPException(
+        [REDACTED] HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
             headers={"WWW-Authenticate": "Bearer"},
