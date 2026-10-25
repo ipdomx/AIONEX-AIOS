@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import importlib.util
+import json
 from pathlib import Path
 import subprocess
 import sys
 
 import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "capacity" / "fr09_evidence_gate.py"
@@ -15,8 +19,25 @@ module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 
 
+TEST_GAUGE_KEY = b"fr09-test-only-synthetic-server-gauge-hmac-key-20261026"
+
+
+def _sign_server_samples(steady: dict) -> None:
+    raw = steady["server_concurrency"]
+    data = {
+        "window_start_epoch": steady["window_start_epoch"],
+        "window_end_epoch": steady["window_end_epoch"],
+        "source": raw["source"],
+        "samples": raw["samples"],
+    }
+    raw["hmac_sha256"] = hmac.new(
+        TEST_GAUGE_KEY,
+        json.dumps(data, sort_keys=True, separators=(",", ":"), allow_nan=False).encode(),
+        hashlib.sha256,
+    ).hexdigest()
+
 def mixed_pass():
-    return {
+    result = {
         "schema": 1, "status": "PASS",
         "started_at_epoch": 1000.0, "completed_at_epoch": 1920.0,
         "profile": {"users": 5000, "projects": 15000, "conversations": 15000, "jobs": 15000,
@@ -32,6 +53,15 @@ def mixed_pass():
             "window_start_epoch": 1010.0, "window_end_epoch": 1910.0,
             "authenticated_active_users_min": 5000,
             "unique_authenticated_users": 5000,
+            "server_concurrency": {
+                "source": "server-authenticated-session-tracker-v1",
+                "samples": [
+                    {"at_epoch": 1010.0 + i * 30.0,
+                     "authenticated_sessions": 5000,
+                     "distinct_authenticated_users": 5000}
+                    for i in range(31)
+                ],
+            },
         },
         "latency": {"auth_read": {"p95_ms": 70}, "enqueue": {"p95_ms": 110},
                     "project_create": {"count": 15000},
@@ -40,6 +70,8 @@ def mixed_pass():
         "http_observation_count": 185000, "error_count": 0,
         "provider": {"external_calls": 0, "provider_spend_usd": 0.0},
     }
+    _sign_server_samples(result["steady_state"])
+    return result
 
 
 def read_pass():
@@ -51,7 +83,9 @@ def read_pass():
 
 
 def test_full_mixed_synthetic_fixture_can_pass():
-    result = module.evaluate(mixed_pass(), read_pass())
+    result = module.evaluate(
+        mixed_pass(), read_pass(), trusted_server_gauge_key=TEST_GAUGE_KEY
+    )
     assert result["status"] == "FULL_MIXED_ACCEPTED"
     assert result["read_only_envelope_pass"]
     assert not result["failed_measured_conditions"]
@@ -144,8 +178,13 @@ def test_cli_returns_zero_for_valid_synthetic_mixed_fixture(tmp_path):
     mixed_path = tmp_path / "mixed.json"
     import json
     mixed_path.write_text(json.dumps(mixed_pass()))
-    p = subprocess.run([sys.executable, str(SCRIPT), "--mixed", str(mixed_path)],
-                       capture_output=True, text=True)
+    key_path = tmp_path / "synthetic-server-gauge.key"
+    key_path.write_bytes(TEST_GAUGE_KEY)
+    key_path.chmod(0o600)
+    p = subprocess.run([
+        sys.executable, str(SCRIPT), "--mixed", str(mixed_path),
+        "--trusted-server-gauge-key-file", str(key_path)],
+        capture_output=True, text=True)
     assert p.returncode == 0
     assert json.loads(p.stdout)["status"] == "FULL_MIXED_ACCEPTED"
 
@@ -443,3 +482,139 @@ def test_cli_rejects_non_utf8_receipt_without_traceback(tmp_path, option):
         "status": "INVALID_EVIDENCE", "error_type": "UnicodeDecodeError",
     }
     assert "Traceback" not in proc.stderr
+
+
+def _server_samples(receipt):
+    return receipt["steady_state"]["server_concurrency"]["samples"]
+
+
+def _assert_server_concurrency_hold(receipt):
+    verdict = module.evaluate(receipt)
+    assert verdict["status"] == "HOLD_FULL_MIXED"
+    assert "server_observed_5000_simultaneous_sessions_15m" in verdict["failed_measured_conditions"]
+    assert verdict["server_sample_minimum_distinct_users"] is None
+
+
+def test_server_side_sustained_concurrency_receipt_structure_present():
+    verdict = module.evaluate(mixed_pass(), trusted_server_gauge_key=TEST_GAUGE_KEY)
+    assert verdict["status"] == "FULL_MIXED_ACCEPTED"
+    assert verdict["server_sample_minimum_distinct_users"] == 5000
+    assert verdict["server_series_hmac_verified"] is True
+    assert verdict["server_identity_and_capture_independently_audited"] is False
+
+
+def test_client_paced_five_thousand_unique_users_cannot_replace_server_gauge():
+    receipt = mixed_pass()
+    del receipt["steady_state"]["server_concurrency"]
+    _assert_server_concurrency_hold(receipt)
+    receipt["steady_state"]["server_concurrency"] = {
+        "source": "client-paced-reads", "samples": _server_samples(mixed_pass())
+    }
+    _assert_server_concurrency_hold(receipt)
+
+
+def test_short_or_missing_server_observation_cannot_prove_15_minutes():
+    receipt = mixed_pass()
+    _server_samples(receipt).pop()
+    _assert_server_concurrency_hold(receipt)
+    receipt = mixed_pass()
+    _server_samples(receipt).pop(0)
+    _assert_server_concurrency_hold(receipt)
+    receipt = mixed_pass()
+    _server_samples(receipt)[20]["at_epoch"] += 0.01
+    _assert_server_concurrency_hold(receipt)
+
+
+def test_one_auth_session_shortfall_or_unverified_identity_holds_entire_run():
+    receipt = mixed_pass()
+    _server_samples(receipt)[14]["distinct_authenticated_users"] = 4999
+    _assert_server_concurrency_hold(receipt)
+    receipt = mixed_pass()
+    _server_samples(receipt)[14]["authenticated_sessions"] = 4999
+    _assert_server_concurrency_hold(receipt)
+    receipt = mixed_pass()
+    _server_samples(receipt)[14]["distinct_authenticated_users"] = 5001
+    _assert_server_concurrency_hold(receipt)
+
+
+def test_server_samples_fail_closed_on_out_of_order_or_missing_gap():
+    receipt = mixed_pass()
+    _server_samples(receipt)[12], _server_samples(receipt)[13] = (
+        _server_samples(receipt)[13], _server_samples(receipt)[12]
+    )
+    _assert_server_concurrency_hold(receipt)
+    receipt = mixed_pass()
+    _server_samples(receipt).pop(12)
+    _assert_server_concurrency_hold(receipt)
+
+
+@pytest.mark.parametrize("value", [True, False, "5000", None, -1, 10**400, 5000.0])
+def test_incorrect_sample_types_never_count_as_server_connections(value):
+    receipt = mixed_pass()
+    _server_samples(receipt)[4]["distinct_authenticated_users"] = value
+    _assert_server_concurrency_hold(receipt)
+
+
+@pytest.mark.parametrize("value", [True, "1020", None, -5, float("nan"), 10**400])
+def test_untrusted_sample_timestamps_are_rejected(value):
+    receipt = mixed_pass()
+    _server_samples(receipt)[6]["at_epoch"] = value
+    _assert_server_concurrency_hold(receipt)
+
+
+def test_minimum_concurrency_cannot_exceed_aggregate_unique_users():
+    receipt = mixed_pass()
+    receipt["steady_state"]["unique_authenticated_users"] = 4999
+    _assert_server_concurrency_hold(receipt)
+
+
+def test_large_fake_stream_or_nonlist_is_not_an_evidence_source():
+    receipt = mixed_pass()
+    receipt["steady_state"]["server_concurrency"]["samples"] = "31 passes"
+    _assert_server_concurrency_hold(receipt)
+    receipt = mixed_pass()
+    receipt["steady_state"]["server_concurrency"]["samples"] = (
+        _server_samples(receipt) * 200
+    )
+    _assert_server_concurrency_hold(receipt)
+
+
+def test_self_reported_5000_users_and_hmac_without_verifier_key_cannot_pass():
+    verdict = module.evaluate(mixed_pass())
+    assert verdict["status"] == "HOLD_FULL_MIXED"
+    assert "server_observed_5000_simultaneous_sessions_15m" in verdict["failed_measured_conditions"]
+
+
+def test_fake_attestation_hmac_and_wrong_key_are_rejected():
+    receipt = mixed_pass()
+    receipt["steady_state"]["server_concurrency"]["hmac_sha256"] = "0" * 64
+    assert module.evaluate(
+        receipt, trusted_server_gauge_key=TEST_GAUGE_KEY
+    )["status"] == "HOLD_FULL_MIXED"
+    assert module.evaluate(
+        mixed_pass(), trusted_server_gauge_key=b"wrong-but-long-enough-gauge-key-000000"
+    )["status"] == "HOLD_FULL_MIXED"
+
+
+def test_overstated_sample_after_hmac_signature_is_rejected():
+    receipt = mixed_pass()
+    _server_samples(receipt)[15]["distinct_authenticated_users"] = 6000
+    _server_samples(receipt)[15]["authenticated_sessions"] = 6000
+    assert module.evaluate(
+        receipt, trusted_server_gauge_key=TEST_GAUGE_KEY
+    )["status"] == "HOLD_FULL_MIXED"
+
+
+def test_cli_cannot_read_world_readable_server_key(tmp_path):
+    receipt = tmp_path / "mixed.json"
+    receipt.write_text(json.dumps(mixed_pass()))
+    key = tmp_path / "bad-key"
+    key.write_bytes(TEST_GAUGE_KEY)
+    key.chmod(0o644)
+    result = subprocess.run([
+        sys.executable, str(SCRIPT), "--mixed", str(receipt),
+        "--trusted-server-gauge-key-file", str(key)
+    ], capture_output=True, text=True)
+    assert result.returncode == 3
+    assert json.loads(result.stdout)["status"] == "INVALID_EVIDENCE"
+    assert TEST_GAUGE_KEY.decode() not in result.stdout + result.stderr
