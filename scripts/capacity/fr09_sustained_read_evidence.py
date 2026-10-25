@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Read-only FR09 15-minute synthetic HTTP evidence verifier.
 
 This checks only a bounded authenticated read sub-gate. It NEVER authorizes
