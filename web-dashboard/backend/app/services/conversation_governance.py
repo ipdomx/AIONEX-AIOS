@@ -16,7 +16,7 @@ from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -132,11 +132,9 @@ async def _global_guard(session: AsyncSession, *, exclusive: bool = False) -> Ow
     return result
 
 
-async def effective_policy(session: AsyncSession, actor: UserRecord) -> dict[str, Any]:
+def _live_policy_from_records(actor: UserRecord, rows: list[OwnerControlRecord]) -> dict[str, Any]:
+    """Compute the unchanged Owner policy from freshly fetched live rows."""
     keys = [GLOBAL, "plan:" + actor.organization_plan.strip().lower(), "user:" + actor.id]
-    rows = list((await session.scalars(select(OwnerControlRecord).where(
-        OwnerControlRecord.domain == POLICY, OwnerControlRecord.resource_id.in_(keys),
-    ).execution_options(populate_existing=True))).all())
     records = {row.resource_id: row for row in rows}
     values = dict(DEFAULTS)
     allowed = True
@@ -158,6 +156,14 @@ async def effective_policy(session: AsyncSession, actor: UserRecord) -> dict[str
     return {"values": values, "versions": versions,
             "hierarchy": "global -> plan -> user; disabled layers cannot be overridden",
             "credit_unit": "one accepted user turn; not currency"}
+
+
+async def effective_policy(session: AsyncSession, actor: UserRecord) -> dict[str, Any]:
+    keys = [GLOBAL, "plan:" + actor.organization_plan.strip().lower(), "user:" + actor.id]
+    rows = list((await session.scalars(select(OwnerControlRecord).where(
+        OwnerControlRecord.domain == POLICY, OwnerControlRecord.resource_id.in_(keys),
+    ).execution_options(populate_existing=True))).all())
+    return _live_policy_from_records(actor, rows)
 
 
 async def require_stream_allowed(session: AsyncSession, actor: UserRecord) -> None:
@@ -426,22 +432,45 @@ async def get_thread(session: AsyncSession, actor: UserRecord, conversation_id: 
 
 
 async def list_threads(session: AsyncSession, actor: UserRecord, project_id: str | None = None) -> list[dict[str, Any]]:
+    # Fetch the live Owner policy (at most three matching layers) and this
+    # user's threads in a single PostgreSQL statement, instead of querying
+    # policy and inbox independently. It must NEVER use JWT policy claims or
+    # cached permissions; the independent current_actor call checks fresh
+    # user, role, organization, authorization and revocation first.
     actor = await current_actor(session, actor)
-    policy = (await effective_policy(session, actor))["values"]
+    keys = [GLOBAL, "plan:" + actor.organization_plan.strip().lower(), "user:" + actor.id]
+    policy_selector = and_(
+        OwnerControlRecord.domain == POLICY,
+        OwnerControlRecord.resource_id.in_(keys),
+    )
+    thread_selector = OwnerControlRecord.domain == thread_domain(actor.id)
+    if project_id is not None:
+        thread_selector = and_(
+            thread_selector,
+            OwnerControlRecord.payload["project_id"].as_string() == _entity_id(project_id),
+        )
+    query = (
+        select(OwnerControlRecord, func.clock_timestamp())
+        .where(or_(policy_selector, thread_selector))
+        .order_by(
+            case((OwnerControlRecord.domain == POLICY, 0), else_=1),
+            OwnerControlRecord.created_at.desc(),
+        )
+        # At most three distinct policy rows followed by the same 1000 most
+        # recent thread rows as before. No unbounded tenant record scan.
+        .limit(1003)
+        .execution_options(populate_existing=True)
+    )
+    rows = (await session.execute(query)).all()
+    policy_records = [r for r, _ in rows if r.domain == POLICY]
+    policy = _live_policy_from_records(actor, policy_records)["values"]
     if not policy["enabled"]:
         _deny("OWNER_ACCESS_SUSPENDED", 403)
-    # Read the PostgreSQL clock with the live conversation rows rather than
-    # doing a second SQL trip for an empty user inbox.
-    query = select(OwnerControlRecord, func.clock_timestamp()).where(
-        OwnerControlRecord.domain == thread_domain(actor.id)
-    )
-    if project_id is not None:
-        query = query.where(OwnerControlRecord.payload["project_id"].as_string() == _entity_id(project_id))
-    rows = (await session.execute(query.order_by(OwnerControlRecord.created_at.desc()).limit(1000))).all()
-    if not rows:
+    threads = [(r, clock) for r, clock in rows if r.domain != POLICY][:1000]
+    if not threads:
         return []
-    now = _utc(rows[0][1])
-    return [thread_snapshot(row, actor, policy, now) for row, _ in rows]
+    now = _utc(threads[0][1])
+    return [thread_snapshot(r, actor, policy, now) for r, _ in threads]
 
 
 async def create_thread(session: AsyncSession, actor: UserRecord, *, project_id: str,
