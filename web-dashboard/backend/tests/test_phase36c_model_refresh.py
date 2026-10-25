@@ -177,3 +177,132 @@ async def test_transient_probe_failure_preserves_existing_evidence(monkeypatch) 
             assert any(row.get("model") == "mistral-medium-3-5" for row in rows)
     finally:
         await _cleanup(org_id)
+
+
+@pytest.mark.asyncio
+async def test_configured_and_disabled_ollama_duplicates_do_not_block_connected_inventory(
+    monkeypatch,
+) -> None:
+    """A connected Ollama model must refresh despite inactive sibling rows."""
+    organization_id, ids = await _seed_platform(monkeypatch)
+    duplicate_configured = f"refresh-configured-{uuid4().hex[:8]}"
+    duplicate_disabled = f"refresh-disabled-{uuid4().hex[:8]}"
+
+    async def requester(_method, url, **_kwargs):
+        return _inventory_payload(url), 2.0
+
+    try:
+        async with SessionLocal() as session:
+            session.add_all([
+                AIProvider(
+                    id=duplicate_configured,
+                    organization_id=organization_id,
+                    name="Ollama awaiting setup",
+                    type="ollama",
+                    status="configured",
+                    base_url="http://ollama:11434",
+                    config={"enabled": True},
+                ),
+                AIProvider(
+                    id=duplicate_disabled,
+                    organization_id=organization_id,
+                    name="Ollama disabled alternate",
+                    type="ollama",
+                    status="connected",
+                    base_url="http://ollama:11434",
+                    config={"enabled": False},
+                ),
+            ])
+            await session.commit()
+        async with SessionLocal() as session:
+            outcome = await refresh.refresh_launch_model_evidence(
+                session, requester=requester
+            )
+            await session.commit()
+        assert "ollama:gemma3:4b" in outcome["validated"]
+        assert not [x for x in outcome["probe_failures"] if x.startswith("ollama:")]
+        async with SessionLocal() as session:
+            primary = await session.get(AIProvider, ids["ollama"])
+            pending = await session.get(AIProvider, duplicate_configured)
+            disabled = await session.get(AIProvider, duplicate_disabled)
+            assert primary is not None and pending is not None and disabled is not None
+            assert [
+                x["model"] for x in (primary.config or {}).get("validated_models", [])
+            ] == ["gemma3:4b"]
+            assert not (pending.config or {}).get("validated_models")
+            assert not (disabled.config or {}).get("validated_models")
+    finally:
+        await _cleanup(organization_id)
+
+
+@pytest.mark.asyncio
+async def test_two_connected_enabled_ollama_records_still_fail_closed(
+    monkeypatch,
+) -> None:
+    """Filtering configured records may not weaken ambiguous connected authority."""
+    organization_id, ids = await _seed_platform(monkeypatch)
+    competing_provider_id = f"refresh-competing-{uuid4().hex[:8]}"
+
+    async def requester(_method, url, **_kwargs):
+        return _inventory_payload(url), 2.0
+
+    try:
+        async with SessionLocal() as session:
+            session.add(
+                AIProvider(
+                    id=competing_provider_id,
+                    organization_id=organization_id,
+                    name="Competing live Ollama",
+                    type="ollama",
+                    status="connected",
+                    base_url="http://ollama:11434",
+                    config={"enabled": True},
+                )
+            )
+            await session.commit()
+        async with SessionLocal() as session:
+            outcome = await refresh.refresh_launch_model_evidence(
+                session, requester=requester
+            )
+            await session.commit()
+        assert "ollama:provider-record-count-2" in outcome["probe_failures"]
+        assert "ollama:gemma3:4b" not in outcome["validated"]
+        async with SessionLocal() as session:
+            for provider_id in (ids["ollama"], competing_provider_id):
+                item = await session.get(AIProvider, provider_id)
+                assert item is not None
+                assert not (item.config or {}).get("validated_models")
+    finally:
+        await _cleanup(organization_id)
+
+
+@pytest.mark.asyncio
+async def test_configured_only_ollama_cannot_be_promoted_to_connected(
+    monkeypatch,
+) -> None:
+    """An Ollama entry with no connected authority cannot refresh by accident."""
+    organization_id, ids = await _seed_platform(monkeypatch)
+
+    async def requester(_method, url, **_kwargs):
+        return _inventory_payload(url), 2.0
+
+    try:
+        async with SessionLocal() as session:
+            item = await session.get(AIProvider, ids["ollama"])
+            assert item is not None
+            item.status = "configured"
+            await session.commit()
+        async with SessionLocal() as session:
+            outcome = await refresh.refresh_launch_model_evidence(
+                session, requester=requester
+            )
+            await session.commit()
+        assert "ollama:provider-record-count-0" in outcome["probe_failures"]
+        assert "ollama:gemma3:4b" not in outcome["validated"]
+        async with SessionLocal() as session:
+            item = await session.get(AIProvider, ids["ollama"])
+            assert item is not None
+            assert item.status == "configured"
+            assert not (item.config or {}).get("validated_models")
+    finally:
+        await _cleanup(organization_id)
