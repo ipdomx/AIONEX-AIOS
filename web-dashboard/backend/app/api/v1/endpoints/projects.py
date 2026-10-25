@@ -217,21 +217,21 @@ async def list_projects(
     # counts. PostgreSQL MATERIALIZED guards against the planner expanding
     # those expensive per-row operations over the full tenant project table
     # under high authenticated concurrency (FR09).
-    page = select(Project.id, Project.created_at).where(
+    page_query = select(Project.id, Project.created_at).where(
         Project.organization_id == actor.organization_id,
         Project.status != "deleted",
     )
     if status_filter:
-        page = page.where(Project.status == status_filter)
+        page_query = page_query.where(Project.status == status_filter)
     if priority:
-        page = page.where(Project.priority == priority)
+        page_query = page_query.where(Project.priority == priority)
     if workspace_id:
-        page = page.where(Project.workspace_id == workspace_id)
+        page_query = page_query.where(Project.workspace_id == workspace_id)
     if search:
-        page = page.where(Project.name.ilike(f"%{search.strip()}%"))
+        page_query = page_query.where(Project.name.ilike(f"%{search.strip()}%"))
 
     page = (
-        page.order_by(Project.created_at.desc())
+        page_query.order_by(Project.created_at.desc())
         .offset(skip)
         .limit(limit)
         .cte("project_page")
