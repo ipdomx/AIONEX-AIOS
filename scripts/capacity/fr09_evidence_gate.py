@@ -3,13 +3,18 @@
 
 A passed synthetic sharded-read test never substitutes for authenticated
 multi-tenant project/conversation creation and durable-job workload acceptance.
-No network, database, provider, key, or production access is used here.
+No network, database, provider, or production access is used here. An optional
+local 0600 trusted telemetry-key file is read only for source authentication.
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
+import hmac
 import json
 import math
+import os
+import stat
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +40,8 @@ MIN_STEADY_READS = 150000
 MAX_READ_P95_MS = 500.0
 MAX_ENQUEUE_P95_MS = 1000.0
 MAX_ERROR_RATE = 0.005
+MAX_SERVER_SAMPLE_GAP_SECONDS = 30.0
+MIN_SERVER_SAMPLE_COUNT = 31
 # Any JSON integer exceeding IEEE-754's safe range can silently lose
 # identity/metric precision in browser, JS and dashboard report processing.
 MAX_SAFE_JSON_INTEGER = (1 << 53) - 1
@@ -72,7 +79,102 @@ def zero_integer(value: Any) -> bool:
     return exact_integer(value, 0)
 
 
-def evaluate(mixed: Any, read_only: Any = None) -> dict[str, Any]:
+
+def sampled_authenticated_concurrency(
+    steady: Any, *, trusted_key: bytes | None = None
+) -> tuple[bool, int | None]:
+    """Require 5,000 server-measured concurrent authenticated users throughout 15m.
+
+    This is a strict *receipt structure* admission, not an origin attestation.
+    The sample stream must carry a SHA256 HMAC from an independently trusted
+    server instrumentation key. This verifies the *source key*, not whether
+    the instrumented sessions themselves were authentic; that needs separate
+    end-to-end evidence and secure key provenance.
+    """
+    if not isinstance(steady, dict):
+        return False, None
+    window_start = steady.get("window_start_epoch")
+    window_end = steady.get("window_end_epoch")
+    raw = steady.get("server_concurrency")
+    if (
+        not finite_number(window_start)
+        or not finite_number(window_end)
+        or window_end - window_start < MIN_STEADY_SECONDS
+        or not isinstance(raw, dict)
+        or raw.get("source") != "server-authenticated-session-tracker-v1"
+        or not isinstance(raw.get("samples"), list)
+    ):
+        return False, None
+
+    samples = raw["samples"]
+    if len(samples) < MIN_SERVER_SAMPLE_COUNT or len(samples) > 3600:
+        return False, None
+
+    previous: float | None = None
+    minimum: int | None = None
+    for row in samples:
+        if not isinstance(row, dict):
+            return False, None
+        observed = row.get("at_epoch")
+        sessions = row.get("authenticated_sessions")
+        users = row.get("distinct_authenticated_users")
+        if (
+            not finite_number(observed)
+            or not integer(sessions, MIN_USERS)
+            or not integer(users, MIN_USERS)
+            or users > sessions
+        ):
+            return False, None
+        if previous is None:
+            if abs(observed - window_start) > 1.0:
+                return False, None
+        elif not (previous < observed <= previous + MAX_SERVER_SAMPLE_GAP_SECONDS + 0.001):
+            return False, None
+        if observed < window_start or observed > window_end:
+            return False, None
+        previous = observed
+        minimum = users if minimum is None else min(minimum, users)
+
+    if previous is None or abs(previous - window_end) > 1.0:
+        return False, None
+    if type(trusted_key) is not bytes or len(trusted_key) < 32:
+        return False, None
+    claimed_hmac = raw.get("hmac_sha256")
+    if (
+        not isinstance(claimed_hmac, str)
+        or len(claimed_hmac) != 64
+        or any(char not in "0123456789abcdef" for char in claimed_hmac)
+    ):
+        return False, None
+    try:
+        expected_hmac = hmac.new(
+            trusted_key,
+            json.dumps(
+                {
+                    "window_start_epoch": window_start,
+                    "window_end_epoch": window_end,
+                    "source": raw["source"],
+                    "samples": samples,
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+    except (TypeError, ValueError, OverflowError):
+        return False, None
+    if not hmac.compare_digest(expected_hmac, claimed_hmac):
+        return False, None
+    unique_active = steady.get("unique_authenticated_users")
+    if not integer(unique_active, MIN_USERS) or minimum is None or minimum > unique_active:
+        return False, None
+    return True, minimum
+
+
+def evaluate(
+    mixed: Any, read_only: Any = None, *, trusted_server_gauge_key: bytes | None = None
+) -> dict[str, Any]:
     """Validate full 5000-user mixed acceptance from actual observations.
 
     The optional read-only receipt is an independent sub-test and cannot
@@ -130,6 +232,9 @@ def evaluate(mixed: Any, read_only: Any = None) -> dict[str, Any]:
         and integer(unique_active, MIN_USERS)
         and minimum_active <= unique_active
     )
+    server_series_valid, server_minimum = sampled_authenticated_concurrency(
+        at(m, "steady_state"), trusted_key=trusted_server_gauge_key
+    )
     jobs_total = at(m, "db", "jobs_total")
     terminal_and_pending = [
         at(m, "db", field) for field in (
@@ -165,6 +270,7 @@ def evaluate(mixed: Any, read_only: Any = None) -> dict[str, Any]:
         "jobs_profile": integer(at(m, "profile", "jobs"), MIN_ASSETS),
         "ramp_reaches_5000": ramp_steps == [25, 100, 250, 500, 1000, 2500, 5000],
         "steady_authenticated_concurrency_measured": authenticated_population_consistent,
+        "server_observed_5000_simultaneous_sessions_15m": server_series_valid,
         "15m_measured_steady_window": genuine_steady_window,
         "consistent_total_request_observations": request_accounting,
         "consistent_steady_errors": steady_error_accounting,
@@ -224,6 +330,9 @@ def evaluate(mixed: Any, read_only: Any = None) -> dict[str, Any]:
         "unpassed_flag_names": unpassed,
         "failed_measured_conditions": failed_measured,
         "measured_error_rate": round(measured_rate, 7) if measured_rate is not None else None,
+        "server_sample_minimum_distinct_users": server_minimum if server_series_valid else None,
+        "server_series_hmac_verified": server_series_valid,
+        "server_identity_and_capture_independently_audited": False,
         "read_only_envelope_pass": read_stage,
         "read_only_envelope_cannot_override_mixed": True,
         "target_authenticated_users": MIN_USERS,
@@ -255,13 +364,32 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mixed", type=Path, help="full mixed workload JSON receipt")
     parser.add_argument("--read-only", type=Path, help="optional sharded read receipt")
+    parser.add_argument(
+        "--trusted-server-gauge-key-file",
+        type=Path,
+        help="private key file (owner mode 0600) provisioned independently of load generator",
+    )
     args = parser.parse_args()
     if args.mixed is None and args.read_only is None:
         parser.error("at least one evidence receipt is required")
     try:
         mixed = _load(args.mixed) if args.mixed else None
         reads = _load(args.read_only) if args.read_only else None
-        report = evaluate(mixed, reads)
+        key = None
+        if args.trusted_server_gauge_key_file is not None:
+            target = args.trusted_server_gauge_key_file
+            if target.is_symlink():
+                raise ValueError("trusted server gauge key may not be a symlink")
+            metadata = target.stat()
+            if (
+                not stat.S_ISREG(metadata.st_mode)
+                or stat.S_IMODE(metadata.st_mode) != 0o600
+                or metadata.st_uid != os.geteuid()
+                or not 32 <= metadata.st_size <= 4096
+            ):
+                raise ValueError("trusted server gauge key must be private and size bounded")
+            key = target.read_bytes()
+        report = evaluate(mixed, reads, trusted_server_gauge_key=key)
     except (OSError, ValueError, UnicodeError) as exc:
         print(json.dumps({"status": "INVALID_EVIDENCE", "error_type": type(exc).__name__}, sort_keys=True))
         return 3
