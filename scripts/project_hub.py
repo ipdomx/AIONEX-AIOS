@@ -64,6 +64,70 @@ def read_events(root: Path) -> list[dict[str, Any]]:
         return [json.loads(line) for line in stream if line.strip(" \t\r\n")]
 
 
+FR25_NATURAL_SAMPLE_RE = re.compile(r"FR25-NATURAL-\\d{8}T\\d+Z\\.json")
+
+
+def fr25_natural_sample_refs(event: dict[str, Any]) -> set[str]:
+    """Return unique immutable FR25 raw-sample filenames credited by one event."""
+    references: set[str] = set()
+
+    def visit(value: Any) -> None:
+        if isinstance(value, str):
+            references.update(FR25_NATURAL_SAMPLE_RE.findall(value))
+        elif isinstance(value, list):
+            for item in value:
+                visit(item)
+        elif isinstance(value, dict):
+            for item in value.values():
+                visit(item)
+
+    visit(event.get("evidence", []))
+    return references
+
+
+def declared_fr25_reference_exceptions(events: list[dict[str, Any]]) -> dict[str, frozenset[str]]:
+    """Load exact, independently verified historical duplicate-reference acknowledgements."""
+    exceptions: dict[str, frozenset[str]] = {}
+    for event in events:
+        if (
+            event.get("schema") != "aionex.fr25.g7-evidence-dedup-audit-event.v1"
+            or event.get("verification_passed") is not True
+            or event.get("evidence_reference_duplicate_detected") is not True
+        ):
+            continue
+        sample = event.get("duplicate_raw_sample")
+        event_ids = event.get("duplicate_event_ids")
+        if (
+            not isinstance(sample, str)
+            or FR25_NATURAL_SAMPLE_RE.fullmatch(sample) is None
+            or not isinstance(event_ids, list)
+            or len(event_ids) != 2
+            or any(not isinstance(item, str) or not item for item in event_ids)
+            or len(set(event_ids)) != 2
+        ):
+            raise ValueError("invalid FR25 duplicate-reference acknowledgement")
+        declared = frozenset(event_ids)
+        if sample in exceptions and exceptions[sample] != declared:
+            raise ValueError("conflicting FR25 duplicate-reference acknowledgements")
+        exceptions[sample] = declared
+    return exceptions
+
+
+def validate_fr25_sample_references(events: list[dict[str, Any]]) -> None:
+    """Prevent distinct events from granting continuity credit for one raw sample."""
+    references: dict[str, set[str]] = {}
+    for event in events:
+        event_id = event.get("event_id")
+        if not isinstance(event_id, str) or not event_id:
+            continue
+        for sample in fr25_natural_sample_refs(event):
+            references.setdefault(sample, set()).add(event_id)
+    exceptions = declared_fr25_reference_exceptions(events)
+    for sample, event_ids in references.items():
+        if len(event_ids) > 1 and frozenset(event_ids) != exceptions.get(sample):
+            raise ValueError(f"duplicate FR25 natural sample evidence reference: {sample}")
+
+
 def validate_runtime(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
     """Read and validate the runtime journal under the writer's lock."""
     directory = root / "docs/project/runtime"
@@ -110,6 +174,7 @@ def current_state(plan: dict[str, Any], events: list[dict[str, Any]]) -> dict[st
             raise ValueError("duplicate event id in journal")
         apply_event(plan, states, event)
         seen.add(event["event_id"])
+    validate_fr25_sample_references(events)
     return {
         "schema_version": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(),
