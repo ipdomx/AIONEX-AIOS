@@ -1467,3 +1467,33 @@ Implementation ledger — 2026-09-18 / FR-06C5D7B2 conservative scan no-replay s
 - CI symptom: PR #989 Phase 34F/34G Owner frontend Arabic coverage failed because the six new failed-provider UI strings had no Arabic entries; the local TypeScript check did not exercise this independent localization contract.
 - Fix: add six Arabic translations to the existing canonical interface-translations AR catalogue and format with the approved Prettier rules. No localization bypass, no removed string, no Owner permission change, no backend or production deployment.
 - Verification: original CI failure remains in history. Re-run Owner Arabic coverage, TypeScript and Prettier plus protected workflows on a new immutable PR head. Full FR08/FR09/FR25 release remains HOLD.
+
+
+### P36-0089 - optional server-authenticated FR09 presence recorder (2026-10-26)
+- Problem: merged PR #988 has a signed 5000-concurrent-session verifier but no
+  backend-origin recorder; historic 5000 JWTs/15-minute paced HTTP reads cannot
+  prove 5000 simultaneously authenticated active sessions.
+- Root cause: evidence admission and telemetry production were implemented as
+  separate scopes. Prior tests relied on synthetic signed receipt fixtures.
+- Source-only fix: opt-in recorder binds to the already governed WebSocket
+  route AFTER successful current auth and accepted hub subscription; Redis Lua
+  atomically tracks ephemeral server-issued connection nonces and HMAC-pseudonym
+  tenant+user+auth_version identities across backend workers, refreshing only
+  after reauthorization, with 20s idle expiry and explicit disconnect cleanup.
+- Independent signed collector samples 32 times over >900s with an operator
+  private signing key distinct from the identity key. Updated verifier binds
+  every signed series to the expected unique FR09 run ID and rejects replay.
+- Security: no raw identifiers or JWTs in Redis, no public telemetry API, no
+  auto-replay, provider spend, database schema change or production activation.
+  Invalid key, revoked authorization, Redis failure and sampling gaps fail
+  closed. This telemetry is not a substitute for independently audited
+  recorder provenance, FR08 acceptance or real mixed model-job execution.
+- Tests: 16/16 backend isolated unit tests plus 160/160 FR09 pure tests pass.
+  Separate no-network LUKS Redis 7.4.11 tested the actual Lua for 5000
+  synthetic identities across 100 synthetic tenants, 1.043s registration,
+  correct duplicate-session handling and 21s stale cleanup; test containers
+  removed. These synthetic figures do NOT count as actual authenticated users.
+- Receipt: docs/phase-36/receipts/36C-FR09-2026-10-26-AUTHENTICATED-PRESENCE-SOURCE-RECORDER.md.
+- Production remains on existing healthy four project workers; opt-in presence
+  is OFF pending protected CI and controlled post-stabilization rollout. FR08,
+  actual 5000/15000, quotas/budget, natural 72h FR25 and release remain HOLD.

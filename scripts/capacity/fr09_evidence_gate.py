@@ -14,6 +14,7 @@ import hmac
 import json
 import math
 import os
+import re
 import stat
 from pathlib import Path
 from typing import Any
@@ -81,7 +82,9 @@ def zero_integer(value: Any) -> bool:
 
 
 def sampled_authenticated_concurrency(
-    steady: Any, *, trusted_key: bytes | None = None
+    steady: Any, *,
+    trusted_key: bytes | None = None,
+    expected_run_id: str | None = None,
 ) -> tuple[bool, int | None]:
     """Require 5,000 server-measured concurrent authenticated users throughout 15m.
 
@@ -102,6 +105,9 @@ def sampled_authenticated_concurrency(
         or window_end - window_start < MIN_STEADY_SECONDS
         or not isinstance(raw, dict)
         or raw.get("source") != "server-authenticated-session-tracker-v1"
+        or not isinstance(expected_run_id, str)
+        or re.fullmatch(r"fr09-[a-z0-9][a-z0-9-]{10,60}[a-z0-9]", expected_run_id) is None
+        or raw.get("run_id") != expected_run_id
         or not isinstance(raw.get("samples"), list)
     ):
         return False, None
@@ -151,6 +157,7 @@ def sampled_authenticated_concurrency(
             trusted_key,
             json.dumps(
                 {
+                    "run_id": expected_run_id,
                     "window_start_epoch": window_start,
                     "window_end_epoch": window_end,
                     "source": raw["source"],
@@ -233,7 +240,9 @@ def evaluate(
         and minimum_active <= unique_active
     )
     server_series_valid, server_minimum = sampled_authenticated_concurrency(
-        at(m, "steady_state"), trusted_key=trusted_server_gauge_key
+        at(m, "steady_state"),
+        trusted_key=trusted_server_gauge_key,
+        expected_run_id=m.get("run_id"),
     )
     jobs_total = at(m, "db", "jobs_total")
     terminal_and_pending = [
