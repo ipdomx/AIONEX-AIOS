@@ -3,6 +3,16 @@ import type { SupportedLocale } from "@/lib/locale-engine";
 type Catalog = Record<string, string>;
 
 const AR: Catalog = {
+  "Failed with unverified provider state:": "فشل محلي مع حالة مزود غير مؤكدة:",
+  "Failed without provider reference:": "فشل دون مرجع لدى المزود:",
+  "Locally failed, remote provider outcome not confirmed:":
+    "فشل محليا ولم تتأكد نتيجة المزود الخارجي:",
+  "Provider reference exists; check remote terminal status before settlement.":
+    "مرجع المزود محفوظ؛ تحقق من حالته النهائية قبل المصالحة.",
+  "No provider reference; check remote history and billing before any retry.":
+    "لا يوجد مرجع للمزود؛ تحقق من السجل والفوترة قبل أي إعادة محاولة.",
+  "Additional unverified failed provider records remain.":
+    "توجد سجلات فشل أخرى بحالة غير مؤكدة لدى المزود.",
   "Execution recovery review": "مراجعة استعادة مهام الوسائط",
   "Read-only provider provenance checks. Automatic replay is disabled.":
     "عرض توثيق تنفيذ المزود للقراءة فقط. إعادة الإرسال التلقائية معطلة.",

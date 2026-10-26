@@ -12,3 +12,6 @@
 - Rollback: revert only this Owner route projection and UI. The existing needs_review read-only behavior is preserved.
 - Remaining full launch gates: independent FR08 authentic Owner/customer recovery and rights, original remote provider-history and billing reconciliation of ambiguous historical operations, FR09 5000/15000 full real mixed acceptance, quotas/costs, and 72 hours natural FR25.
 - Verdict: SOURCE_READY_FOR_CI, not FR08_COMPLETE, not RELEASED_VERIFIED.
+
+
+- CI correction 2026-10-26: the first PR #989 Phase 34F/34G Owner frontend job failed at the independent Owner Arabic coverage gate because six new display strings lacked catalogue entries, despite TypeScript and component formatting passing locally. Root cause was missing language contract coverage for the new read-only review labels, not a backend/API failure. Added six real Arabic translations in src/lib/interface-translations.ts rather than exempting, hiding or suppressing the required checker. Re-verified the actual Owner Arabic checker, TypeScript, and Prettier. The first failed check is preserved historically; a new commit/CI run must be green before protected merge.

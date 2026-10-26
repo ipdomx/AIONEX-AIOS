@@ -1461,3 +1461,9 @@ Implementation ledger — 2026-09-18 / FR-06C5D7B2 conservative scan no-replay s
 - Scope of source-only fix: preserve current Super Owner route and its original review cohort; append bounded read-only failed-starting state counts and redacted rows, never auto-replay. No provider calls, billing mutation, customer identity/media data disclosure or extra approvals. Render failed rows in separate Owner diagnostic section and never say no outstanding records when that cohort is nonempty.
 - Tests: 18/18 isolated backend unittest cases and TypeScript tsc --noEmit --incremental false passed, plus Prettier formatting. Added negative privacy/count/no-replay tests, with no production restart or data writes. New Phase 36 receipt: docs/phase-36/receipts/36C-FR08-2026-10-26-FAILED-PROVIDER-OWNER-TRIAGE.md.
 - FR08 independent Owner/customer rights/recovery, FR09 real sustained capacity and FR25 72h remain HOLD. Deploy only after protected CI and controlled new-generation rollout, not during current natural 72h measurement.
+
+
+#### P36-0088-ARABIC-CI-CORRECTION (2026-10-26)
+- CI symptom: PR #989 Phase 34F/34G Owner frontend Arabic coverage failed because the six new failed-provider UI strings had no Arabic entries; the local TypeScript check did not exercise this independent localization contract.
+- Fix: add six Arabic translations to the existing canonical interface-translations AR catalogue and format with the approved Prettier rules. No localization bypass, no removed string, no Owner permission change, no backend or production deployment.
+- Verification: original CI failure remains in history. Re-run Owner Arabic coverage, TypeScript and Prettier plus protected workflows on a new immutable PR head. Full FR08/FR09/FR25 release remains HOLD.
