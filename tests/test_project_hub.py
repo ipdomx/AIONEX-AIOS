@@ -183,3 +183,54 @@ def test_capacity_heading_uses_current_plan_and_preserves_open_acceptance(plan, 
     assert state["batches"]["FR-09"]["status"] == "in_progress"
     assert state["release_status"] == "FINAL_RELEASE_IN_PROGRESS_NOT_RELEASED"
     assert plan["capacity_acceptance"]["status"] == "NOT_YET_ACCEPTED_5000_FULL_MIXED_PROFILE"
+
+
+def fr25_reference_event(event_id, sample):
+    return {
+        "event_id": event_id,
+        "batch_id": "FR-25",
+        "status": "in_progress",
+        "summary_ar": "اختبار مرجع عينة فقط",
+        "evidence": [f"/observations/{sample}", "sha256:" + "b" * 64],
+    }
+
+
+def fr25_reference_acknowledgement(first_id, second_id, sample):
+    return {
+        "schema": "aionex.fr25.g7-evidence-dedup-audit-event.v1",
+        "event_id": "test-fr25-reference-audit",
+        "batch_id": "FR-25",
+        "status": "in_progress",
+        "summary_ar": "تدقيق ازدواج مرجع عينة فقط",
+        "verification_passed": True,
+        "evidence_reference_duplicate_detected": True,
+        "duplicate_raw_sample": sample,
+        "duplicate_event_ids": [first_id, second_id],
+    }
+
+
+def test_duplicate_fr25_raw_sample_reference_requires_verified_acknowledgement(plan):
+    sample = "FR25-NATURAL-20261026T040000970841Z.json"
+    first = fr25_reference_event("test-fr25-first", sample)
+    second = fr25_reference_event("test-fr25-second", sample)
+    with pytest.raises(ValueError, match="duplicate FR25 natural sample"):
+        hub.current_state(plan, [first, second])
+
+
+def test_exact_verified_fr25_duplicate_acknowledgement_preserves_history(plan):
+    sample = "FR25-NATURAL-20261026T040000970841Z.json"
+    first = fr25_reference_event("test-fr25-first", sample)
+    second = fr25_reference_event("test-fr25-second", sample)
+    acknowledgement = fr25_reference_acknowledgement(first["event_id"], second["event_id"], sample)
+    state = hub.current_state(plan, [first, second, acknowledgement])
+    assert state["last_event_id"] == acknowledgement["event_id"]
+
+
+def test_verified_fr25_duplicate_acknowledgement_does_not_allow_third_credit(plan):
+    sample = "FR25-NATURAL-20261026T040000970841Z.json"
+    first = fr25_reference_event("test-fr25-first", sample)
+    second = fr25_reference_event("test-fr25-second", sample)
+    acknowledgement = fr25_reference_acknowledgement(first["event_id"], second["event_id"], sample)
+    third = fr25_reference_event("test-fr25-third", sample)
+    with pytest.raises(ValueError, match="duplicate FR25 natural sample"):
+        hub.current_state(plan, [first, second, acknowledgement, third])
