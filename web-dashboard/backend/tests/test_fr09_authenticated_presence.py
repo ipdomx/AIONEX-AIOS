@@ -4,7 +4,6 @@ No provider, production Redis, real browser credentials or live API calls.
 """
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import hmac
 import json
