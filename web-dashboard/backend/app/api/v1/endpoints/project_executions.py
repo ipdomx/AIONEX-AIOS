@@ -267,7 +267,7 @@ async def start_project_execution(
         and data.mode in {"full", "planning"}
     ):
         try:
-            access = await resolve_project_ai_access(
+            local_access = await resolve_project_ai_access(
                 session,
                 organization_id=actor.organization_id,
                 user_id=actor.id,
@@ -277,9 +277,9 @@ async def start_project_execution(
                 status_code=503,
                 detail={"code": "FREE_PROJECT_AI_POLICY_UNAVAILABLE"},
             ) from exc
-        policy = access.policy
+        policy = local_access.policy
         local_free = (
-            access.access_class == "free"
+            local_access.access_class == "free"
             and policy.offline_only is True
             and policy.privacy_mode is True
             and policy.allowed_providers == frozenset({"ollama"})
