@@ -25,6 +25,7 @@ TEST_GAUGE_KEY = b"fr09-test-only-synthetic-server-gauge-hmac-key-20261026"
 def _sign_server_samples(steady: dict) -> None:
     raw = steady["server_concurrency"]
     data = {
+        "run_id": steady["server_concurrency"]["run_id"],
         "window_start_epoch": steady["window_start_epoch"],
         "window_end_epoch": steady["window_end_epoch"],
         "source": raw["source"],
@@ -39,6 +40,7 @@ def _sign_server_samples(steady: dict) -> None:
 def mixed_pass():
     result = {
         "schema": 1, "status": "PASS",
+        "run_id": "fr09-20261026-receipt-test01",
         "started_at_epoch": 1000.0, "completed_at_epoch": 1920.0,
         "profile": {"users": 5000, "projects": 15000, "conversations": 15000, "jobs": 15000,
                     "steady_seconds": 900},
@@ -55,6 +57,7 @@ def mixed_pass():
             "unique_authenticated_users": 5000,
             "server_concurrency": {
                 "source": "server-authenticated-session-tracker-v1",
+                "run_id": "fr09-20261026-receipt-test01",
                 "samples": [
                     {"at_epoch": 1010.0 + i * 30.0,
                      "authenticated_sessions": 5000,
@@ -627,3 +630,28 @@ def test_unicode_non_ascii_mac_fails_closed_without_unicode_typeerror():
         receipt, trusted_server_gauge_key=TEST_GAUGE_KEY
     )
     assert verdict["status"] == "HOLD_FULL_MIXED"
+
+
+def test_cross_run_signed_server_samples_cannot_be_replayed_into_new_run():
+    receipt = mixed_pass()
+    receipt["run_id"] = "fr09-20261026-a-new-run-abcdef"
+    verdict = module.evaluate(
+        receipt, trusted_server_gauge_key=TEST_GAUGE_KEY
+    )
+    assert verdict["status"] == "HOLD_FULL_MIXED"
+    assert "server_observed_5000_simultaneous_sessions_15m" in (
+        verdict["failed_measured_conditions"]
+    )
+
+
+def test_server_run_id_missing_or_invalid_refuses_signed_sample_verification():
+    for bad in (None, "other", "fr09-ABCD-invalid", "", 123):
+        receipt = mixed_pass()
+        if bad is None:
+            del receipt["run_id"]
+        else:
+            receipt["run_id"] = bad
+        outcome = module.evaluate(
+            receipt, trusted_server_gauge_key=TEST_GAUGE_KEY
+        )
+        assert outcome["status"] == "HOLD_FULL_MIXED"

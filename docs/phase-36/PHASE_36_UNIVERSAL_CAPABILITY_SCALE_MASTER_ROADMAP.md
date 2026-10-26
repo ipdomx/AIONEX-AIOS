@@ -1469,6 +1469,60 @@ Implementation ledger — 2026-09-18 / FR-06C5D7B2 conservative scan no-replay s
 - Verification: original CI failure remains in history. Re-run Owner Arabic coverage, TypeScript and Prettier plus protected workflows on a new immutable PR head. Full FR08/FR09/FR25 release remains HOLD.
 
 
+### P36-0089 - optional server-authenticated FR09 presence recorder (2026-10-26)
+- Problem: merged PR #988 has a signed 5000-concurrent-session verifier but no
+  backend-origin recorder; historic 5000 JWTs/15-minute paced HTTP reads cannot
+  prove 5000 simultaneously authenticated active sessions.
+- Root cause: evidence admission and telemetry production were implemented as
+  separate scopes. Prior tests relied on synthetic signed receipt fixtures.
+- Source-only fix: opt-in recorder binds to the already governed WebSocket
+  route AFTER successful current auth and accepted hub subscription; Redis Lua
+  atomically tracks ephemeral server-issued connection nonces and HMAC-pseudonym
+  tenant+user+auth_version identities across backend workers, refreshing only
+  after reauthorization, with 20s idle expiry and explicit disconnect cleanup.
+- Independent signed collector samples 32 times over >900s with an operator
+  private signing key distinct from the identity key. Updated verifier binds
+  every signed series to the expected unique FR09 run ID and rejects replay.
+- Security: no raw identifiers or JWTs in Redis, no public telemetry API, no
+  auto-replay, provider spend, database schema change or production activation.
+  Invalid key, revoked authorization, Redis failure and sampling gaps fail
+  closed. This telemetry is not a substitute for independently audited
+  recorder provenance, FR08 acceptance or real mixed model-job execution.
+- Tests: 17/17 backend isolated unit tests plus 160/160 FR09 pure tests pass.
+  Separate no-network LUKS Redis 7.4.11 tested the actual Lua for 5000
+  synthetic identities across 100 synthetic tenants, 1.043s registration,
+  correct duplicate-session handling and 21s stale cleanup; test containers
+  removed. These synthetic figures do NOT count as actual authenticated users.
+- Receipt: docs/phase-36/receipts/36C-FR09-2026-10-26-AUTHENTICATED-PRESENCE-SOURCE-RECORDER.md.
+- Production remains on existing healthy four project workers; opt-in presence
+  is OFF pending protected CI and controlled post-stabilization rollout. FR08,
+  actual 5000/15000, quotas/budget, natural 72h FR25 and release remain HOLD.
+
+
+#### P36-0089 CI correction: older Ruff grammar rejected test with statement (2026-10-26)
+- Symptom: PR #990 Backend Tests blocked at Ruff parsing two parenthesized
+  multi-context fixtures introduced into a Python 3.11-tested unittest module.
+  Backend coverage had not yet started; product runtime was not implicated.
+- Cause/test miss: earlier isolated tests did not exercise the CI Python 3.8
+  grammar profile. Correction uses contextlib.ExitStack, not a lint exemption
+  or release-gate waiver; repeat tests and protected CI.
+- Preserve historic failed checks and retain source-only deployment state.
+  FR08 full recovery, FR09 actual 5000/15000, FR25 natural 72h and complete
+  release are still HOLD.
+
+
+#### P36-0089 CI typing correction (2026-10-26)
+- Initial CI Ruff grammar correction passed parser checks, but subsequent
+  mypy detected an unsafe Optional/Any timestamp passed to math.isfinite
+  from server-presence telemetry. Coverage was not run on that failed check.
+- Replaced dictionary.get() numeric inspection with a reusable type-safe
+  finite bounded timestamp predicate; invalid None, bool, Inf, NaN, huge
+  int and string samples cannot be signed as valid 15m evidence. Add
+  focused negative tests and re-run protected CI with no type ignore,
+  policy relaxation, production restart or user/provider contact.
+- Historic check failures remain documented. Full FR08/FR09/FR25 release
+  acceptance remains unchanged and withheld pending real-world evidence.
+
 ### P36-0090 - NS12 G7 post-anomaly DNS-bypass NameError source fix (2026-10-26)
 - Genuine FR25/NS12 07:00 UTC external seven-probe failure retained, local origin remained healthy, and new 08:00-10:00 hourly samples are natural PASS. Historical clean credit is not carried over.
 - Cause: NS12 post-anomaly helper reads undefined [REDACTED] as a Python identifier when getent returns IPv4. Exact offline reproduction raised NameError, preventing the supplemental diagnostic from collecting DNS-bypass evidence. The primary HTTP failure and thresholds were NOT altered.
