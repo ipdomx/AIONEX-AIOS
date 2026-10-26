@@ -234,3 +234,11 @@ def test_verified_fr25_duplicate_acknowledgement_does_not_allow_third_credit(pla
     third = fr25_reference_event("test-fr25-third", sample)
     with pytest.raises(ValueError, match="duplicate FR25 natural sample"):
         hub.current_state(plan, [first, second, acknowledgement, third])
+
+
+def test_fr25_reference_fence_does_not_retroactively_reject_pre_g7_history(plan):
+    sample = "FR25-NATURAL-20261024T230007955610Z.json"
+    first = fr25_reference_event("test-fr25-historical-first", sample)
+    second = fr25_reference_event("test-fr25-historical-second", sample)
+    state = hub.current_state(plan, [first, second])
+    assert state["last_event_id"] == second["event_id"]
