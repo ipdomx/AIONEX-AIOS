@@ -1453,3 +1453,17 @@ Implementation ledger — 2026-09-18 / FR-06C5D7B2 conservative scan no-replay s
 - Security limitation: no true server instrumentation or independent recorder verification is created here; this is the correct *evidence admission*, not newly proven sessions or real FR09 acceptance. No production credential, customer state, container generation, paid request or deployment is altered.
 - Tests: 72 FR09 evidence gate unit tests and 141 combined pure FR09 tests passed. External signer, full FR08 admission, actual 5000 live users, 15000 genuine model-backed durable jobs, quota and 72h FR25 remain HOLD.
 - Receipt: docs/phase-36/receipts/36C-FR09-2026-10-26-SIGNED-SESSION-CAPACITY-ATTESTATION.md.
+
+
+### P36-0088 - Owner execution review hid failed provider-started jobs (2026-10-26)
+- Current production read-only identity-media aggregate: needs_review/not_started=7, failed/starting=2, failed/not_started=4, completed/succeeded=4. The existing Owner protected GET endpoint surfaced needs_review only, so the two local-failed/remote-not-terminal executions were invisible in the Owner recovery review queue. Existing access decisions and customer status are unchanged.
+- Root cause and test gap: status=needs_review filtering omitted failed rows with provider_state still starting/processing. Earlier review tests exercised seven ambiguous records but not provider-start uncertainty after local failure.
+- Scope of source-only fix: preserve current Super Owner route and its original review cohort; append bounded read-only failed-starting state counts and redacted rows, never auto-replay. No provider calls, billing mutation, customer identity/media data disclosure or extra approvals. Render failed rows in separate Owner diagnostic section and never say no outstanding records when that cohort is nonempty.
+- Tests: 18/18 isolated backend unittest cases and TypeScript tsc --noEmit --incremental false passed, plus Prettier formatting. Added negative privacy/count/no-replay tests, with no production restart or data writes. New Phase 36 receipt: docs/phase-36/receipts/36C-FR08-2026-10-26-FAILED-PROVIDER-OWNER-TRIAGE.md.
+- FR08 independent Owner/customer rights/recovery, FR09 real sustained capacity and FR25 72h remain HOLD. Deploy only after protected CI and controlled new-generation rollout, not during current natural 72h measurement.
+
+
+#### P36-0088-ARABIC-CI-CORRECTION (2026-10-26)
+- CI symptom: PR #989 Phase 34F/34G Owner frontend Arabic coverage failed because the six new failed-provider UI strings had no Arabic entries; the local TypeScript check did not exercise this independent localization contract.
+- Fix: add six Arabic translations to the existing canonical interface-translations AR catalogue and format with the approved Prettier rules. No localization bypass, no removed string, no Owner permission change, no backend or production deployment.
+- Verification: original CI failure remains in history. Re-run Owner Arabic coverage, TypeScript and Prettier plus protected workflows on a new immutable PR head. Full FR08/FR09/FR25 release remains HOLD.
