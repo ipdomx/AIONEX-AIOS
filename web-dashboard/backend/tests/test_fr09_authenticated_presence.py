@@ -11,6 +11,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from contextlib import ExitStack
 from unittest.mock import patch
 
 from fastapi import WebSocketDisconnect
@@ -362,15 +363,20 @@ class SocketLifecycleTests(unittest.IsolatedAsyncioTestCase):
             async def receive_text(self):
                 raise WebSocketDisconnect(code=1000)
 
-        with (
-            patch.object(route, "AuthorizedRealtimeSocket", FakeGuarded),
-            patch.object(route, "realtime_event_runtime", FakeRealtime()),
-            patch.object(
-                route.ServerPresenceRecorder,
-                "from_enabled_config",
-                classmethod(get_recorder),
-            ),
-        ):
+        with ExitStack() as patches:
+            patches.enter_context(
+                patch.object(route, "AuthorizedRealtimeSocket", FakeGuarded)
+            )
+            patches.enter_context(
+                patch.object(route, "realtime_event_runtime", FakeRealtime())
+            )
+            patches.enter_context(
+                patch.object(
+                    route.ServerPresenceRecorder,
+                    "from_enabled_config",
+                    classmethod(get_recorder),
+                )
+            )
             await route.websocket_connect(FakeSocket(), token="test-no-real-token")
         self.assertLess(sequence.index("auth"), sequence.index("hub_connect"))
         self.assertLess(sequence.index("hub_connect"), sequence.index("register"))
@@ -390,13 +396,16 @@ class SocketLifecycleTests(unittest.IsolatedAsyncioTestCase):
                 sequence.append("close")
         async def must_not_get_recorder(cls):
             raise AssertionError("invalid socket must not reach FR09 collector")
-        with (
-            patch.object(route, "AuthorizedRealtimeSocket", FailGuarded),
-            patch.object(
-                route.ServerPresenceRecorder,
-                "from_enabled_config",
-                classmethod(must_not_get_recorder),
-            ),
-        ):
+        with ExitStack() as patches:
+            patches.enter_context(
+                patch.object(route, "AuthorizedRealtimeSocket", FailGuarded)
+            )
+            patches.enter_context(
+                patch.object(
+                    route.ServerPresenceRecorder,
+                    "from_enabled_config",
+                    classmethod(must_not_get_recorder),
+                )
+            )
             await route.websocket_connect(object(), token="invalid")
         self.assertEqual(sequence, ["auth_failed", "close"])

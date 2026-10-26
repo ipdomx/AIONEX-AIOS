@@ -1497,3 +1497,15 @@ Implementation ledger — 2026-09-18 / FR-06C5D7B2 conservative scan no-replay s
 - Production remains on existing healthy four project workers; opt-in presence
   is OFF pending protected CI and controlled post-stabilization rollout. FR08,
   actual 5000/15000, quotas/budget, natural 72h FR25 and release remain HOLD.
+
+
+#### P36-0089 CI correction: older Ruff grammar rejected test with statement (2026-10-26)
+- Symptom: PR #990 Backend Tests blocked at Ruff parsing two parenthesized
+  multi-context fixtures introduced into a Python 3.11-tested unittest module.
+  Backend coverage had not yet started; product runtime was not implicated.
+- Cause/test miss: earlier isolated tests did not exercise the CI Python 3.8
+  grammar profile. Correction uses contextlib.ExitStack, not a lint exemption
+  or release-gate waiver; repeat tests and protected CI.
+- Preserve historic failed checks and retain source-only deployment state.
+  FR08 full recovery, FR09 actual 5000/15000, FR25 natural 72h and complete
+  release are still HOLD.

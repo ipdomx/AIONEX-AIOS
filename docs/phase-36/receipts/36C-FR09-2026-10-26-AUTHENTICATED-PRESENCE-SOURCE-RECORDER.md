@@ -82,3 +82,17 @@ authenticated users. A client-side claim cannot be used as evidence.
   controlled later rollout, revert the websocket source and clear only its
   dedicated hashed Redis namespace after documented approval. No schema or
   customer data migration is required.
+
+
+## CI correction 2026-10-26T04:09Z
+- The protected initial/follow-up PR #990 Final Validation backend job failed
+  at Ruff static parsing, before coverage. Ruff was configured to inspect
+  Python 3.8-compatible syntax and rejected two parenthesized multi-context
+  blocks in the new tests at original lines 365/393.
+- Cause: test-only syntax required Python >=3.9, while isolated backend
+  tests used Python 3.11 and never enforced the repository-wide Ruff profile.
+- Fix: change only those two test blocks to contextlib.ExitStack, preserving
+  mock ordering and all authorization assertions. No lint suppression or
+  platform-version downgrade. The earlier CI failure remains in history.
+- All protected CI checks must still pass before protected merge. No production
+  restart, customer data write, paid provider request or active load.
