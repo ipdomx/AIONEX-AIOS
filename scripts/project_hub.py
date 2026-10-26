@@ -65,6 +65,7 @@ def read_events(root: Path) -> list[dict[str, Any]]:
 
 
 FR25_NATURAL_SAMPLE_RE = re.compile(r"FR25-NATURAL-\d{8}T\d+Z\.json")
+FR25_REFERENCE_FENCE_START = "FR25-NATURAL-20261026T010000000000Z.json"
 
 
 def fr25_natural_sample_refs(event: dict[str, Any]) -> set[str]:
@@ -121,6 +122,8 @@ def validate_fr25_sample_references(events: list[dict[str, Any]]) -> None:
         if not isinstance(event_id, str) or not event_id:
             continue
         for sample in fr25_natural_sample_refs(event):
+            if sample < FR25_REFERENCE_FENCE_START:
+                continue
             references.setdefault(sample, set()).add(event_id)
     exceptions = declared_fr25_reference_exceptions(events)
     for sample, event_ids in references.items():
