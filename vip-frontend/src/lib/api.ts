@@ -765,12 +765,13 @@ export function getProjectExecution(
 export function startProjectExecution(
   projectId: string,
   mode: "provider_neutral" | "full" | "3d_full" = "full",
+  confirmExternalProcessing = mode === "full" || mode === "3d_full",
 ): Promise<ProjectExecution> {
   return jsonRequest<ProjectExecution>(
     `/projects/${encodeURIComponent(projectId)}/executions`,
     "POST",
     {
-      confirm_external_processing: mode === "full" || mode === "3d_full",
+      confirm_external_processing: confirmExternalProcessing,
       mode,
     },
   );

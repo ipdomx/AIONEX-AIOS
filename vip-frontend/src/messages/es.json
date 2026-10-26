@@ -426,6 +426,7 @@
       "title": "Ciclo completo de proyecto gobernado",
       "description": "Ejecuta el proyecto mediante gobernanza neutral respecto al proveedor, validación determinista de workflows, controles de personal, evidencia de la academia, retención de conocimiento, seguridad y revisión de lanzamiento. Los modelos y proveedores se gestionan ahora mediante el runtime gobernado ya completado; cualquier proveedor sin configuración explícita permanece visible como no configurado.",
       "confirm": "¿Iniciar el ciclo completo y gobernado del proyecto? AIOS analizará la idea, ejecutará revisión constitucional y cognitiva, investigación controlada, planificación de seis departamentos, aprobación del plan por ingeniería jefe y ministerios, y después implementación, pruebas, seguridad y revisión de entrega.",
+      "localConfirm": "\u00bfIniciar este proyecto con el modelo local Ollama de AIOS? El procesamiento del modelo de IA se realiza localmente, sin cargos de proveedores externos de IA (0 USD). La revisi\u00f3n y aprobaci\u00f3n antes del lanzamiento siguen siendo obligatorias.",
       "start": "Iniciar ciclo completo gobernado",
       "starting": "Iniciando…",
       "startError": "No se pudo iniciar el ciclo completo del proyecto.",

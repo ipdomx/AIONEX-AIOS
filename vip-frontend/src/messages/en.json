@@ -426,6 +426,7 @@
       "title": "Full governed project cycle",
       "description": "Run the project through provider-neutral governance, deterministic workflow validation, workforce controls, academy evidence, knowledge retention, security review, and release review. Models and providers are now managed by the completed governed runtime; any provider without explicit configuration remains visibly unconfigured.",
       "confirm": "Start the full governed project cycle? AIOS will analyze the idea, run constitutional/cognitive review, controlled research, six-department planning, chief-engineer/ministry plan approval, implementation, tests, security and release review. Approved external AI processing may be used within the fixed project budget.",
+      "localConfirm": "Start this project with AIOS's local Ollama model? AI model processing runs locally, with no external AI provider fee ($0). Governance and release approval are still required.",
       "start": "Run full governed project cycle",
       "starting": "Starting…",
       "startError": "The full project cycle could not be started.",

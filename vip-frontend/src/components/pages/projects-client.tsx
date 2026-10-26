@@ -220,16 +220,22 @@ export function ProjectsClient() {
 
   async function startExecution(project: Project) {
     setExecutionError("");
+    const isFree =
+      quota?.free_tier === true ||
+      user?.organization.plan.trim().toLowerCase() === "free" ||
+      user?.role.trim().toLowerCase() === "free user";
     const confirmed = window.confirm(
-      t("execution.confirm", {
-        provider: "AIOS governed AI runtime",
-        budget: "0.05",
-      }),
+      isFree
+        ? t("execution.localConfirm")
+        : t("execution.confirm", {
+            provider: "AIOS governed AI runtime",
+            budget: "0.05",
+          }),
     );
     if (!confirmed) return;
     setStartingProjectId(project.id);
     try {
-      const execution = await startProjectExecution(project.id, "full");
+      const execution = await startProjectExecution(project.id, "full", !isFree);
       setExecutions((current) => ({
         ...current,
         [project.id]: execution,
