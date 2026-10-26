@@ -18,7 +18,7 @@ from fastapi import WebSocketDisconnect
 
 from app.realtime.authorized_socket import StreamAuthorizationLost, StreamPrincipal
 from app.realtime import fr09_authenticated_presence as m
-from app.realtime.fr09_presence_capture import collect_signed_presence
+from app.realtime.fr09_presence_capture import collect_signed_presence, _signed_content
 
 
 KEY = b"fr09-identity-fixture-only-do-not-use-in-production-20261026"
@@ -300,6 +300,22 @@ class PresenceTests(unittest.IsolatedAsyncioTestCase):
             m.identity_digest(
                 self.config, principal(user="user-1", tenant="")
             )
+
+    async def test_malformed_or_huge_collector_timestamp_never_signs(self):
+        base = [
+            {
+                "at_epoch": 1_790_000_000.0 + i * 29.5,
+                "authenticated_sessions": 5000,
+                "distinct_authenticated_users": 5000,
+            }
+            for i in range(32)
+        ]
+        for bad in (None, True, float("nan"), float("inf"), 10 ** 400, "1790000000"):
+            with self.subTest(value=str(bad)[:40]):
+                rows = [dict(x) for x in base]
+                rows[12]["at_epoch"] = bad
+                with self.assertRaises(ValueError):
+                    _signed_content(RUN_ID, rows)
 
     async def test_same_signing_and_identity_key_not_accepted(self):
         class NoSideEffects:

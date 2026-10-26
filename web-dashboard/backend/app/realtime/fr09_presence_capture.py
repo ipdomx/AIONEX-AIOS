@@ -31,6 +31,16 @@ SAMPLE_COUNT = 32
 SAMPLE_INTERVAL_SECONDS = 29.5
 MIN_STEADY_SECONDS = 900
 MAX_GAP_SECONDS = 30.001
+MAX_SAFE_EPOCH = (1 << 53) - 1
+
+
+def _finite_epoch(value: Any) -> bool:
+    """Reject nulls/booleans/overflow/nonfinite timestamps before arithmetic."""
+    return (
+        type(value) in (int, float)
+        and -MAX_SAFE_EPOCH <= value <= MAX_SAFE_EPOCH
+        and math.isfinite(float(value))
+    )
 
 
 def _signed_content(
@@ -40,10 +50,8 @@ def _signed_content(
         raise ValueError("FR09 complete sample inventory required")
     start, end = samples[0]["at_epoch"], samples[-1]["at_epoch"]
     if (
-        type(start) not in (int, float)
-        or type(end) not in (int, float)
-        or not math.isfinite(start)
-        or not math.isfinite(end)
+        not _finite_epoch(start)
+        or not _finite_epoch(end)
         or end - start < MIN_STEADY_SECONDS
     ):
         raise ValueError("FR09 sustained window was not observed")
@@ -51,8 +59,7 @@ def _signed_content(
     for row in samples:
         timestamp = row.get("at_epoch")
         if (
-            type(timestamp) not in (int, float)
-            or not math.isfinite(timestamp)
+            not _finite_epoch(timestamp)
             or type(row.get("authenticated_sessions")) is not int
             or type(row.get("distinct_authenticated_users")) is not int
             or row["authenticated_sessions"] < 0

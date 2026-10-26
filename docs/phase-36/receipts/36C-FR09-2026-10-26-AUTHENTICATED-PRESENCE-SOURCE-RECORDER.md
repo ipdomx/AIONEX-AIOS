@@ -47,7 +47,7 @@ authenticated users. A client-side claim cannot be used as evidence.
   the operator must supervise an isolated, admission-approved 900+ second run.
 
 ## Tests and independent lab
-- 16/16 focused network-disconnected read-only backend unit tests passed,
+- 17/17 focused network-disconnected read-only backend unit tests passed,
   including fail-closed Redis outages, unverified auth rejection, deduplication
   across two sessions for one user, cross-tenant isolation, auth-version
   revocation, no-broad-permission secret files, signed receipt and missing
@@ -96,3 +96,18 @@ authenticated users. A client-side claim cannot be used as evidence.
   platform-version downgrade. The earlier CI failure remains in history.
 - All protected CI checks must still pass before protected merge. No production
   restart, customer data write, paid provider request or active load.
+
+
+## Second CI correction 2026-10-26T04:20Z
+- After Ruff passed on the corrected PR #990 head, protected backend mypy
+  identified a single Optional/Any value passed to math.isfinite inside the
+  FR09 collector's timestamp loop. Backend coverage was therefore skipped.
+- Root cause: the original type(x) membership check did not narrow
+  dictionary.get(x) away from None for mypy 2.4.0.
+- Fix: a bounded _finite_epoch helper explicitly rejects None, boolean,
+  non-finite and greater-than-IEEE-safe numeric timestamps BEFORE calling
+  math.isfinite(float(value)). Both first/last and intermediate timestamps
+  must satisfy the same strict fail-closed guard. Added regression cases for
+  null, boolean, infinity, NaN, enormous int and string timestamps.
+- No mypy suppression, new dependency, reset of the original FR09 acceptance
+  gates, external user request, or production rollout. Protected CI must pass.

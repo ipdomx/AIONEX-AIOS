@@ -1488,7 +1488,7 @@ Implementation ledger — 2026-09-18 / FR-06C5D7B2 conservative scan no-replay s
   Invalid key, revoked authorization, Redis failure and sampling gaps fail
   closed. This telemetry is not a substitute for independently audited
   recorder provenance, FR08 acceptance or real mixed model-job execution.
-- Tests: 16/16 backend isolated unit tests plus 160/160 FR09 pure tests pass.
+- Tests: 17/17 backend isolated unit tests plus 160/160 FR09 pure tests pass.
   Separate no-network LUKS Redis 7.4.11 tested the actual Lua for 5000
   synthetic identities across 100 synthetic tenants, 1.043s registration,
   correct duplicate-session handling and 21s stale cleanup; test containers
@@ -1509,3 +1509,16 @@ Implementation ledger — 2026-09-18 / FR-06C5D7B2 conservative scan no-replay s
 - Preserve historic failed checks and retain source-only deployment state.
   FR08 full recovery, FR09 actual 5000/15000, FR25 natural 72h and complete
   release are still HOLD.
+
+
+#### P36-0089 CI typing correction (2026-10-26)
+- Initial CI Ruff grammar correction passed parser checks, but subsequent
+  mypy detected an unsafe Optional/Any timestamp passed to math.isfinite
+  from server-presence telemetry. Coverage was not run on that failed check.
+- Replaced dictionary.get() numeric inspection with a reusable type-safe
+  finite bounded timestamp predicate; invalid None, bool, Inf, NaN, huge
+  int and string samples cannot be signed as valid 15m evidence. Add
+  focused negative tests and re-run protected CI with no type ignore,
+  policy relaxation, production restart or user/provider contact.
+- Historic check failures remain documented. Full FR08/FR09/FR25 release
+  acceptance remains unchanged and withheld pending real-world evidence.
