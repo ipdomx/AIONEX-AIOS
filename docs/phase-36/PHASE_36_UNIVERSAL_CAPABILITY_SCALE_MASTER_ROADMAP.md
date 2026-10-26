@@ -1552,3 +1552,22 @@ Implementation ledger — 2026-09-18 / FR-06C5D7B2 conservative scan no-replay s
   This source fix does NOT prove a real end-user project success, and does
   not deploy, reset G9 continuity, change billing, charge providers or mark
   FR08/FR09/FR25 accepted. Final release remains HOLD.
+
+### P36-0092 - six-language local-Free portal consent and budget truth (2026-10-26)
+- The Full Project button previously showed external-provider language and
+  USD 0.05 even to Free local Ollama users, and sent external consent=true
+  regardless of plan. That disagreed with the Owner Free offline-only
+  zero-dollar provider policy and the backend source fix in PR #994.
+- Localized source-only remedy: use the authenticated user plan/role plus
+  Free tier status to distinguish Free from Paid, confirm Free local-model
+  AI processing with no external AI provider fee, and pass false as the
+  external processing flag. Paid and 3D still display their own explicit
+  consent and pass true only after user approval. All six locales updated.
+- Source quality: TypeScript, ESLint and locale/integrity pass offline
+  using the existing pinned Next dependencies. Four pure portal tests plus
+  17 Phase36 governance tests passed. No portal deploy, provider requests,
+  customer-data mutation, payment configuration, model-evidence changes or
+  FR25 timer reset occurred.
+- Receipt: docs/phase-36/receipts/36C-FR09-2026-10-26-PORTAL-LOCAL-CONSENT-TRUTH.md.
+  Protected CI and controlled release still required. FR08/FR09/FR25 and
+  final launch remain HOLD.

@@ -177,7 +177,13 @@ def test_normal_user_portal_has_complete_localized_full_cycle_contract() -> None
         ROOT / "vip-frontend/src/components/pages/projects-client.tsx"
     ).read_text(encoding="utf-8")
     assert 'mode: "provider_neutral" | "full" | "3d_full" = "full"' in api
-    assert 'confirm_external_processing: mode === "full" || mode === "3d_full"' in api
+    # Paid/external and 3D consent is mandatory; verified local Free can opt
+    # out without incorrectly claiming customer data is sent to external AI.
+    assert 'confirmExternalProcessing = mode === "full" || mode === "3d_full"' in api
+    assert "confirm_external_processing: confirmExternalProcessing" in api
+    assert 'startProjectExecution(project.id, "full", !isFree)' in page
+    assert 'execution.localConfirm' in page
+    assert 'startProjectExecution(project.id, "3d_full")' in page
     assert 'provider: "AIOS governed AI runtime"' in page
     assert 'budget: "0.05"' in page
     assert "downloadProjectExecution" in api

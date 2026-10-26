@@ -426,6 +426,7 @@
       "title": "Vollständiger governance-gesteuerter Projektzyklus",
       "description": "Führen Sie das Projekt durch anbieterneutrale Governance, deterministische Workflow-Prüfung, Workforce-Kontrollen, Academy-Nachweise, Wissensspeicherung sowie Sicherheits- und Release-Prüfung. Modelle und Anbieter werden nun über die abgeschlossene, kontrollierte Runtime verwaltet; Anbieter ohne ausdrückliche Konfiguration bleiben sichtbar als nicht konfiguriert gekennzeichnet.",
       "confirm": "Vollständigen gesteuerten Projektzyklus starten? AIOS analysiert die Idee, führt Verfassungs- und Denkprüfung, kontrollierte Recherche, Planung durch sechs Abteilungen, Planfreigabe durch Chefingenieur und Ministerien sowie anschließend Implementierung, Tests, Sicherheit und Release-Prüfung aus.",
+      "localConfirm": "Dieses Projekt mit dem lokalen Ollama-Modell von AIOS starten? Die Verarbeitung des KI-Modells erfolgt lokal; es fallen keine Geb\u00fchren f\u00fcr externe KI-Anbieter an (0 $). Pr\u00fcfung und Freigabe vor der Ver\u00f6ffentlichung bleiben erforderlich.",
       "start": "Vollständigen Projektzyklus starten",
       "starting": "Wird gestartet…",
       "startError": "Der vollständige Projektzyklus konnte nicht gestartet werden.",

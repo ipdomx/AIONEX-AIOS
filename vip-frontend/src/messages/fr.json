@@ -426,6 +426,7 @@
       "title": "Cycle de projet gouverné complet",
       "description": "Exécutez le projet avec une gouvernance neutre, une validation déterministe des workflows, les contrôles du personnel, les preuves de l’académie, la conservation des connaissances, la sécurité et la revue de version. Les modèles et fournisseurs sont désormais gérés par le runtime gouverné finalisé ; tout fournisseur sans configuration explicite reste clairement indiqué comme non configuré.",
       "confirm": "Démarrer le cycle complet et gouverné du projet ? AIOS analysera l’idée, exécutera les revues constitutionnelle et cognitive, la recherche contrôlée, la planification des six départements, l’approbation du plan par l’ingénieur en chef et les ministères, puis la construction, les tests, la sécurité et la revue de mise en production.",
+      "localConfirm": "D\u00e9marrer ce projet avec le mod\u00e8le Ollama local d\u2019AIOS ? Le traitement du mod\u00e8le IA est local, sans frais de fournisseur d\u2019IA externe (0 $). Les contr\u00f4les et l\u2019approbation avant publication restent obligatoires.",
       "start": "Lancer le cycle complet gouverné",
       "starting": "Démarrage…",
       "startError": "Impossible de démarrer le cycle de projet complet.",
