@@ -27,6 +27,10 @@ from app.services import communications
 from app.services.free_tier import consume_assistant_response, consume_user_message
 from app.services.conversation_governance import charge_project_request
 from app.services.lifecycle_alerts import owner_alert_channels
+from app.services.project_ai_access_policy import (
+    ProjectAIAccessPolicyError,
+    resolve_project_ai_access,
+)
 from app.services.project_execution_admission import (
     ProjectExecutionAdmissionTimeout,
     ProjectExecutionAdmissionUnavailable,
@@ -65,6 +69,17 @@ class ProjectExecutionStart(BaseModel):
     confirm_external_processing: bool = False
     mode: Literal["full", "planning", "provider_neutral", "3d_full"] = "full"
     objective: str | None = Field(default=None, min_length=10, max_length=6000)
+
+
+def _execution_origin_metadata(
+    *, provider_neutral: bool, local_free: bool
+) -> tuple[str, bool, float]:
+    """Fail closed on billing and external-processing attribution."""
+    if provider_neutral:
+        return "provider-neutral", False, 0.0
+    if local_free:
+        return "ollama", False, 0.0
+    return "openai", True, float(settings.PROJECT_EXECUTION_BUDGET_CAP_USD)
 
 
 class ProjectExecutionApproval(BaseModel):
@@ -245,7 +260,50 @@ async def start_project_execution(
                 ),
             },
         )
-    if not provider_neutral and data.confirm_external_processing is not True:
+    local_free = False
+    if (
+        not provider_neutral
+        and free_consumer
+        and data.mode in {"full", "planning"}
+    ):
+        try:
+            local_access = await resolve_project_ai_access(
+                session,
+                organization_id=actor.organization_id,
+                user_id=actor.id,
+            )
+        except ProjectAIAccessPolicyError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail={"code": "FREE_PROJECT_AI_POLICY_UNAVAILABLE"},
+            ) from exc
+        policy = local_access.policy
+        local_free = (
+            local_access.access_class == "free"
+            and policy.offline_only is True
+            and policy.privacy_mode is True
+            and policy.allowed_providers == frozenset({"ollama"})
+            and bool(policy.allowed_provider_models)
+            and all(
+                model.startswith("ollama:")
+                for model in policy.allowed_provider_models
+            )
+            and policy.max_total_estimated_cost_usd == 0.0
+            and policy.max_fallbacks == 0
+        )
+        if not local_free:
+            raise HTTPException(
+                status_code=503,
+                detail={"code": "FREE_PROJECT_AI_LOCAL_POLICY_REQUIRED"},
+            )
+
+    # Confirm external processing for all externally routed modes, including
+    # 3D. The local Free policy never requires (or invents) external consent.
+    if (
+        not provider_neutral
+        and not local_free
+        and data.confirm_external_processing is not True
+    ):
         raise HTTPException(
             status_code=422,
             detail=(
@@ -316,19 +374,25 @@ async def start_project_execution(
         await consume_user_message(session, actor, characters=len(objective))
         await consume_assistant_response(session, actor)
 
+    execution_provider, external_confirmed, execution_budget = (
+        _execution_origin_metadata(
+            provider_neutral=provider_neutral,
+            local_free=local_free,
+        )
+    )
     record = ProjectExecution(
         organization_id=actor.organization_id,
         workspace_id=project.workspace_id,
         project_id=project.id,
         requested_by_id=actor.id,
         mode="provider_neutral" if provider_neutral else ("full" if data.mode == "planning" else data.mode),
-        provider="provider-neutral" if provider_neutral else "openai",
+        provider=execution_provider,
         status="completed" if provider_neutral else "queued",
         stage="snapshot" if provider_neutral else "queued",
         progress=100 if provider_neutral else 0,
         objective=objective,
-        external_processing_confirmed=not provider_neutral,
-        budget_cap_usd=0.0 if provider_neutral else float(settings.PROJECT_EXECUTION_BUDGET_CAP_USD),
+        external_processing_confirmed=external_confirmed,
+        budget_cap_usd=execution_budget,
         result_summary={},
         resource_class="project-build-cpu",
         priority_rank={"critical": 400, "high": 300, "medium": 200, "low": 100}.get(

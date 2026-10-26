@@ -1529,3 +1529,26 @@ Implementation ledger — 2026-09-18 / FR-06C5D7B2 conservative scan no-replay s
 - Repair: a one-line patch of pinned v9 source (sha256 bf37dcb71dffe3fc35fd7ef3307c6b88aa96c32f145ab644882af41f538a4185) to create a separate v10 file (sha256 f04fac6947e5619e8f3f901642fc9c30ca9013fb7eb4879d3fab703ba5b25d88). Strict create-only source-custody script, 0600, checksum/readback and anti-symlink guards. Systemd remains v9 while protected checks are reviewed.
 - Tests: 11/11 standard-library guard unit tests and isolated diagnostic fake-probe regressions for old NameError, v10 CAPTURED and fail-closed absent DNS. No production restart, HTTP probe rerun, code activation or historical sample credit.
 - Receipt: docs/phase-36/receipts/36C-NS12-2026-10-26-POST-ANOMALY-DNS-NAMEERROR.md. Full 72h, FR06/FR08/FR09 and release stay HOLD.
+
+
+### P36-0091 - Free local AI project consent/attribution mismatch (2026-10-26)
+- Production symptom: the backend was armed with Phase36C for Free project
+  creation and the Owner's Free plan allowed only zero-cost offline
+  Ollama:gemma3:4b. However the durable project POST still demanded
+  external processing consent and saved OpenAI/0.05 USD metadata for Free
+  full/planning jobs, contradicting effective route authority.
+- Cause: provider/budget/consent fields remained hard-coded from legacy
+  OpenAI execution even after the Phase36C policy-resolved runner was armed.
+  Previously successful API tests only covered paid/legacy scenarios.
+- Source-only fix: resolve the active Free user's effective Owner policy
+  before credits/queuing, fail closed unless the policy is strictly Free,
+  offline, local Ollama-only, private, zero-dollar and no fallback; then
+  use Ollama/nonexternal/0.0 USD fields. External paid and 3D still require
+  explicit confirmation and provider-neutral remains a truthful snapshot.
+- Tests: 13/13 focused backend unittest cases in offline read-only runtime
+  (no production provider, users or DB) and 126/126 pure program/FR09
+  governance tests passed. Separate protected CI is required.
+- Receipt: docs/phase-36/receipts/36C-FR09-2026-10-26-FREE-LOCAL-CONSENT-ENVELOPE.md.
+  This source fix does NOT prove a real end-user project success, and does
+  not deploy, reset G9 continuity, change billing, charge providers or mark
+  FR08/FR09/FR25 accepted. Final release remains HOLD.

@@ -127,10 +127,16 @@ def test_live_backend_connects_full_cycle_builder_worker_and_owner_workforce() -
     assert 'execution_id="cycle"' in runner
     assert 'mode: Literal["full", "planning", "provider_neutral", "3d_full"]' in endpoint
     assert 'provider_neutral = data.mode == "provider_neutral"' in endpoint
+    # Externally routed paid/3D requests must still require consent, while a
+    # verified zero-cost local Free policy must never invent external transfer.
     assert (
-        'if not provider_neutral and data.confirm_external_processing is not True'
+        "not provider_neutral\n"
+        "        and not local_free\n"
+        "        and data.confirm_external_processing is not True"
         in endpoint
     )
+    assert 'provider="ollama"' not in endpoint  # provider comes from policy envelope
+    assert "local_access.access_class == \"free\"" in endpoint
     assert "download_project_execution" in endpoint
     assert "approve_project_execution" in endpoint
     assert "owner-approval.json" in endpoint
