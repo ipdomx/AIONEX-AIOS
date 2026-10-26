@@ -14,6 +14,7 @@ from app.core.auth import require_super_owner
 from app.services.identity_media_recovery_triage import (
     owner_identity_media_recovery_snapshot,
     safe_recovery_review_row,
+    safe_unverified_failed_row,
 )
 
 
@@ -46,9 +47,12 @@ class Result:
 
 
 class FakeReadOnlySession:
-    def __init__(self, total=0, missing=0, rows=()):
-        self.counts = [total, missing]
-        self.rows = rows
+    def __init__(
+        self, total=0, missing=0, rows=(),
+        failed_total=0, failed_missing=0, failed_rows=(),
+    ):
+        self.counts = [total, missing, failed_total, failed_missing]
+        self.rows = [rows, failed_rows]
         self.sql = []
 
     async def scalar(self, statement):
@@ -57,7 +61,7 @@ class FakeReadOnlySession:
 
     async def execute(self, statement):
         self.sql.append(str(statement))
-        return Result(self.rows)
+        return Result(self.rows.pop(0))
 
 
 class FR08OwnerReviewTests(unittest.TestCase):
@@ -128,7 +132,7 @@ class FR08OwnerReviewTests(unittest.TestCase):
         self.assertFalse(response["raw_credentials_returned"])
         self.assertFalse(response["customer_identity_or_storage_paths_returned"])
         self.assertTrue(response["read_only"])
-        self.assertEqual(len(fake.sql), 3)
+        self.assertEqual(len(fake.sql), 6)
         self.assertTrue(all(text.lstrip().upper().startswith("SELECT") for text in fake.sql))
         self.assertTrue(all(x["automatic_replay_allowed"] is False for x in response["executions"]))
 
@@ -165,6 +169,99 @@ class FR08OwnerReviewTests(unittest.TestCase):
             asyncio.run(owner_identity_media_recovery_snapshot(
                 FakeReadOnlySession(0, 0, [record()])
             ))
+
+    def test_failed_started_provider_job_is_visible_without_raw_job_identity(self):
+        sentinel = "customer-input-and-secret-must-never-be-returned"
+        item = safe_unverified_failed_row(record(
+            status="failed",
+            provider_state="starting",
+            provider_job_id=sentinel,
+            error_message=sentinel,
+            request_payload={"prompt": sentinel},
+            subject_reference=sentinel,
+        ))
+        self.assertEqual(item["status"], "failed")
+        self.assertTrue(item["provider_reference_recorded"])
+        self.assertEqual(
+            item["review_kind"],
+            "failed_provider_state_requires_read_only_reconciliation",
+        )
+        self.assertFalse(item["automatic_replay_allowed"])
+        self.assertFalse(item["actual_provider_charge_verified"])
+        self.assertNotIn(sentinel, json.dumps(item))
+
+    def test_failed_without_provider_ref_does_not_imply_no_cost(self):
+        item = safe_unverified_failed_row(record(
+            status="failed", provider_state="processing", provider_job_id=None
+        ))
+        self.assertEqual(
+            item["review_kind"],
+            "failed_no_provider_reference_requires_manual_reconciliation",
+        )
+        self.assertFalse(item["actual_provider_charge_verified"])
+        self.assertTrue(item["needs_external_provenance_review"])
+
+    def test_ineligible_failed_or_successful_provider_state_rejected(self):
+        for status, state in (
+            ("completed", "succeeded"),
+            ("needs_review", "not_started"),
+            ("failed", "succeeded"),
+            ("failed", "not_started"),
+        ):
+            with self.subTest(status=status, state=state):
+                with self.assertRaisesRegex(ValueError, "unverified failed"):
+                    safe_unverified_failed_row(record(
+                        status=status, provider_state=state
+                    ))
+
+    def test_both_review_and_failed_state_are_counted_and_read_only(self):
+        failures = [
+            record(
+                id="failed-1", status="failed", provider_state="starting",
+                provider_job_id="remote-job-example-1",
+            ),
+            record(
+                id="failed-2", status="failed", provider_state="processing",
+                provider_job_id="remote-job-example-2",
+            ),
+        ]
+        fake = FakeReadOnlySession(
+            total=7, missing=7,
+            rows=[record(id=f"review-{i}") for i in range(7)],
+            failed_total=2, failed_missing=0, failed_rows=failures,
+        )
+        report = asyncio.run(owner_identity_media_recovery_snapshot(fake))
+        self.assertEqual(report["total_review_required"], 7)
+        self.assertEqual(report["failed_provider_state_unverified"], 2)
+        self.assertEqual(report["failed_no_provider_reference"], 0)
+        self.assertEqual(report["failed_provider_reference_recorded"], 2)
+        self.assertEqual(len(report["failed_provider_state_executions"]), 2)
+        self.assertEqual(len(fake.sql), 6)
+        self.assertTrue(all(sql.lstrip().upper().startswith("SELECT") for sql in fake.sql))
+        self.assertFalse(report["automatic_replay_allowed"])
+        self.assertFalse(report["actual_provider_charges_verified"])
+        self.assertNotIn("remote-job-example", json.dumps(report))
+
+    def test_failed_counts_and_items_are_consistent(self):
+        fake = FakeReadOnlySession(
+            total=1, missing=0, rows=[record()],
+            failed_total=1, failed_missing=2, failed_rows=[],
+        )
+        with self.assertRaisesRegex(ValueError, "failed provider state count"):
+            asyncio.run(owner_identity_media_recovery_snapshot(fake))
+
+    def test_failed_state_pagination_reports_unobserved_records(self):
+        fake = FakeReadOnlySession(
+            total=0, missing=0, rows=[],
+            failed_total=4, failed_missing=4, failed_rows=[
+                record(status="failed",provider_state="starting")
+            ],
+        )
+        report = asyncio.run(owner_identity_media_recovery_snapshot(fake, limit=1))
+        self.assertEqual(report["status"], "review_required")
+        self.assertTrue(report["failed_provider_state_truncated"])
+        self.assertEqual(report["failed_no_provider_reference"], 4)
+        self.assertEqual(report["failed_provider_state_shown"], 1)
 
     def test_route_only_exposes_get_behind_super_owner_dependency(self):
         selected = [

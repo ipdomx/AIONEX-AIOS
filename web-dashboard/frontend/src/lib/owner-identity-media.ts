@@ -134,7 +134,7 @@ export type OwnerIdentityMediaRecoveryEntry = {
   execution_id: string;
   operation: string;
   provider: string;
-  status: "needs_review";
+  status: "needs_review" | "failed";
   provider_state: string;
   attempts: number;
   created_at: string | null;
@@ -154,6 +154,12 @@ export type OwnerIdentityMediaRecoveryReview = {
   shown: number;
   truncated: boolean;
   executions: OwnerIdentityMediaRecoveryEntry[];
+  failed_provider_state_unverified: number;
+  failed_no_provider_reference: number;
+  failed_provider_reference_recorded: number;
+  failed_provider_state_shown: number;
+  failed_provider_state_truncated: boolean;
+  failed_provider_state_executions: OwnerIdentityMediaRecoveryEntry[];
   automatic_replay_allowed: false;
   actual_provider_charges_verified: false;
   operator_action: string;
