@@ -64,7 +64,7 @@ def read_events(root: Path) -> list[dict[str, Any]]:
         return [json.loads(line) for line in stream if line.strip(" \t\r\n")]
 
 
-FR25_NATURAL_SAMPLE_RE = re.compile(r"FR25-NATURAL-\\d{8}T\\d+Z\\.json")
+FR25_NATURAL_SAMPLE_RE = re.compile(r"FR25-NATURAL-\d{8}T\d+Z\.json")
 
 
 def fr25_natural_sample_refs(event: dict[str, Any]) -> set[str]:
