@@ -1522,3 +1522,10 @@ Implementation ledger — 2026-09-18 / FR-06C5D7B2 conservative scan no-replay s
   policy relaxation, production restart or user/provider contact.
 - Historic check failures remain documented. Full FR08/FR09/FR25 release
   acceptance remains unchanged and withheld pending real-world evidence.
+
+### P36-0090 - NS12 G7 post-anomaly DNS-bypass NameError source fix (2026-10-26)
+- Genuine FR25/NS12 07:00 UTC external seven-probe failure retained, local origin remained healthy, and new 08:00-10:00 hourly samples are natural PASS. Historical clean credit is not carried over.
+- Cause: NS12 post-anomaly helper reads undefined [REDACTED] as a Python identifier when getent returns IPv4. Exact offline reproduction raised NameError, preventing the supplemental diagnostic from collecting DNS-bypass evidence. The primary HTTP failure and thresholds were NOT altered.
+- Repair: a one-line patch of pinned v9 source (sha256 bf37dcb71dffe3fc35fd7ef3307c6b88aa96c32f145ab644882af41f538a4185) to create a separate v10 file (sha256 f04fac6947e5619e8f3f901642fc9c30ca9013fb7eb4879d3fab703ba5b25d88). Strict create-only source-custody script, 0600, checksum/readback and anti-symlink guards. Systemd remains v9 while protected checks are reviewed.
+- Tests: 11/11 standard-library guard unit tests and isolated diagnostic fake-probe regressions for old NameError, v10 CAPTURED and fail-closed absent DNS. No production restart, HTTP probe rerun, code activation or historical sample credit.
+- Receipt: docs/phase-36/receipts/36C-NS12-2026-10-26-POST-ANOMALY-DNS-NAMEERROR.md. Full 72h, FR06/FR08/FR09 and release stay HOLD.
