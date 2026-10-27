@@ -779,11 +779,11 @@ export function ProjectsClient() {
                             <p>
                               {execution.approved
                                 ? t("execution.approved")
-                                : t("execution.rework", {
-                                    count:
-                                      execution.result.blocking_findings
-                                        ?.length || 0,
-                                  })}
+                                : execution.result.all_governance_layers_executed === true
+                                  ? t("execution.rework", {
+                                      count: execution.result.blocking_findings?.length || 0,
+                                    })
+                                  : t("execution.governancePending")}
                             </p>
                             <p className="mt-1">
                               {t("execution.usage", {
@@ -792,6 +792,28 @@ export function ProjectsClient() {
                               })}
                             </p>
                           </div>
+
+                          {execution.result.blocking_findings?.length > 0 && (
+                            <div className="rounded-xl border border-amber-200/20 p-4">
+                              <p className="font-semibold text-amber-100/85">
+                                {t("execution.rework", {
+                                  count: execution.result.blocking_findings.length,
+                                })}
+                              </p>
+                              <ul className="mt-2 list-disc space-y-1 pl-5 text-white/60">
+                                {execution.result.blocking_findings.slice(0, 12).map((finding, index) => (
+                                  <li key={index}>{finding}</li>
+                                ))}
+                              </ul>
+                              {execution.result.rework_plan?.length > 0 && (
+                                <ol className="mt-3 list-decimal space-y-1 pl-5 text-white/50">
+                                  {execution.result.rework_plan.slice(0, 12).map((action, index) => (
+                                    <li key={index}>{action}</li>
+                                  ))}
+                                </ol>
+                              )}
+                            </div>
+                          )}
 
                           <div className="grid gap-3 sm:grid-cols-3">
                             <div className="rounded-xl border border-white/[0.06] bg-black/10 p-3">
