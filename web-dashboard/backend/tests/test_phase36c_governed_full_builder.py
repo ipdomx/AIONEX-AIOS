@@ -124,6 +124,36 @@ def _specification() -> dict:
     }
 
 
+def _compact_brief() -> dict:
+    """Mirror the root compact-spec fixture without importing the root test package."""
+
+    return {
+        "kind": "aionex.compact-project.v1",
+        "title": "Task Manager Workspace",
+        "tagline": "A safe and accessible task management workspace",
+        "summary": (
+            "A local task management application with persistent records, member "
+            "reviews, and project deliverables."
+        ),
+        "roles": ["member", "reviewer"],
+        "features": [
+            "Create and save tasks",
+            "Review completed tasks",
+            "Search your task workspace",
+        ],
+        "records": [
+            {
+                "name": "task",
+                "fields": [
+                    {"name": "title", "type": "string"},
+                    {"name": "notes", "type": "text"},
+                    {"name": "completed", "type": "boolean"},
+                ],
+            }
+        ],
+    }
+
+
 class BoundedSpecInvoker:
     def __init__(self, *, valid: bool = True) -> None:
         self.valid = valid
@@ -456,10 +486,9 @@ async def test_bounded_real_local_model_brief_follows_all_reviewed_compiler_gate
         async def __call__(self, invocation):
             if invocation.role != "coder":
                 return await super().__call__(invocation)
-            from tests.test_project_ai_compact_spec import _brief
             self.calls.append("coder")
             return ProjectAIInvocationResult(
-                text=json.dumps(_brief()), cost_usd=0,
+                text=json.dumps(_compact_brief()), cost_usd=0,
                 latency_ms=1.0, input_tokens=32, output_tokens=120,
             )
 
