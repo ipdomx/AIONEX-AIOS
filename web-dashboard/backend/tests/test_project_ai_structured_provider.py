@@ -63,7 +63,7 @@ async def test_reviewed_coder_structured_request_is_bounded_and_no_model_network
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("tokens", [None, 0, 1023, 4097, True, "3072"])
+@pytest.mark.parametrize("tokens", [None, 0, 255, 4097, True, "3072"])
 async def test_invalid_coder_token_override_and_schema_cannot_make_network_call(
     monkeypatch: pytest.MonkeyPatch, tokens,
 ) -> None:
@@ -184,3 +184,36 @@ async def test_ollama_local_role_rejects_usage_overrun(
             provider, agent, "Bounded reviewer", task_max_tokens=192,
         )
     assert error.value.status_code == 502
+
+
+
+@pytest.mark.anyio
+async def test_local_compact_coder_is_bounded_to_640_not_general_chat_1024(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The proven Qwen compact brief is a bounded 640-token inference contract."""
+    sent = {}
+    async def stub(_method, _url, **kwargs):
+        sent.update(kwargs["json_body"])
+        assert kwargs["timeout"] == 90
+        return {
+            "model": "qwen2.5:1.5b",
+            "message": {"content": '{"kind":"aionex.compact-project.v1"}'},
+            "prompt_eval_count": 210,
+            "eval_count": 181,
+        }, 7420.0
+    from aios.project_ai_compact_spec import compact_project_schema
+    monkeypatch.setattr(structured, "_request_json", stub)
+    p = SimpleNamespace(type="ollama", base_url="http://127.0.0.1:11434")
+    a = SimpleNamespace(model="qwen2.5:1.5b", system_prompt="", temperature=0.0)
+    result = await structured.execute_structured_project_coder(
+        p, a, "Synthetic local compact project only",
+        project_coder_max_tokens=640,
+        project_coder_schema=compact_project_schema(),
+    )
+    assert result["model"] == "qwen2.5:1.5b"
+    assert result["usage"]["output_tokens"] == 181
+    assert sent["options"]["num_predict"] == 640
+    assert sent["options"]["num_thread"] == 6
+    assert sent["options"]["num_ctx"] == 4096
+    assert sent["keep_alive"] == "2m"

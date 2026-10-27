@@ -186,7 +186,7 @@ class ProjectAILiveProviderInvoker:
                     provider,
                     agent,
                     invocation.prompt,
-                    project_coder_max_tokens=1024 if local_compact else 3072,
+                    project_coder_max_tokens=invocation.max_tokens if local_compact else 3072,
                     project_coder_schema=(
                         compact_project_schema()
                         if local_compact
@@ -277,7 +277,7 @@ def launch_policy_tasks(
             + json.dumps(compact_project_schema(), separators=(",", ":"))
         )
         tasks = tuple(
-            replace(task, prompt=compact_prompt, max_tokens=1024)
+            replace(task, prompt=compact_prompt, max_tokens=640)
             if task.role == "coder"
             else replace(task, max_tokens=min(task.max_tokens, 192))
             for task in tasks

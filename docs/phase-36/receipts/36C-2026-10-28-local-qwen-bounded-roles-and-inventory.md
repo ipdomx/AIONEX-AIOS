@@ -25,6 +25,10 @@ ProjectAIInvocation and adds a dedicated Ollama-only non-coder adapter that
 enforces num_predict equal to the task budget, with bounded context/CPU threads,
 strict usage verification, 65-second transport deadline and no paid providers.
 It deliberately does NOT change the general-purpose AI chat adapter.
+The local JSON coder likewise inherits its **640-token** route-task budget
+and a shorter 90-second HTTP deadline, matching the actual Qwen compact JSON
+success (~181 output tokens), rather than allocating the general 1,024-token
+unbounded completion on a single CPU lease. All schema/security checks stay.
 
 ## Evidence model policy and its lifetime
 

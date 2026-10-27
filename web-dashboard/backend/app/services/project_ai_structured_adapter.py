@@ -39,7 +39,7 @@ async def execute_structured_project_coder(
     schema = project_coder_schema
     if (
         type(tokens) is not int
-        or not 1024 <= tokens <= 4096
+        or not 256 <= tokens <= 4096
         or not isinstance(schema, dict)
         or schema.get("type") != "object"
         or schema.get("additionalProperties") is not False
@@ -70,14 +70,17 @@ async def execute_structured_project_coder(
             "options": {
                 "temperature": 0.0,
                 "num_predict": tokens,
+                "num_ctx": 4096 if tokens <= 640 else 8192,
+                "num_thread": 6,
             },
+            "keep_alive": "2m",
         }
         payload, latency = await _request_json(
             "POST",
             f"{base}/api/chat",
             headers={"Content-Type": "application/json"},
             json_body=request,
-            timeout=120,
+            timeout=90 if tokens <= 640 else 120,
         )
         text = str((payload.get("message") or {}).get("content") or "").strip()
         usage = {
