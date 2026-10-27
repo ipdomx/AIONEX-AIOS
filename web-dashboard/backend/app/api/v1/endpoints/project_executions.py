@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import hashlib
-import io
+import asyncio
 import json
 import os
-import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -24,6 +23,11 @@ from app.core.config import settings
 from app.db.base import get_db
 from app.db.models import AuditEvent, Notification, Project, ProjectExecution
 from app.services import communications
+from app.services.project_delivery_archive import (
+    ARCHIVE_CHUNK_BYTES,
+    ProjectDeliveryArchiveError,
+    build_project_delivery_archive,
+)
 from app.services.free_tier import consume_assistant_response, consume_user_message
 from app.services.conversation_governance import charge_project_request
 from app.services.lifecycle_alerts import owner_alert_channels
@@ -39,6 +43,11 @@ from app.services.project_execution_admission import (
 from app.services.three_d_product import access_snapshot, project_for_actor
 
 router = APIRouter()
+# Bound CPU/disk work and in-flight temporary ZIPs without changing customer
+# request admission or project permissions. Actual archive chunks are 1 MiB.
+_download_archive_slots = asyncio.Semaphore(2)
+
+
 
 
 async def _project_execution_admission_guard():
@@ -859,53 +868,49 @@ async def download_project_execution(
     if evidence_root not in package_root.parents or not package_root.is_dir():
         raise HTTPException(status_code=409, detail="Project delivery package is unsafe")
 
-    files = [
-        path
-        for path in package_root.rglob("*")
-        if path.is_file() and not path.is_symlink()
-    ]
-    if not files or len(files) > 100:
-        raise HTTPException(status_code=409, detail="Project delivery package is invalid")
-    total_bytes = sum(path.stat().st_size for path in files)
-    if total_bytes > 50 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="Project delivery package is too large")
+    try:
+        await asyncio.wait_for(_download_archive_slots.acquire(), timeout=10)
+    except TimeoutError as exc:
+        raise HTTPException(
+            status_code=503, detail="Project download is busy; retry shortly"
+        ) from exc
 
-    archive = io.BytesIO()
-    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
-        for path in sorted(files):
-            resolved = path.resolve(strict=True)
-            if package_root not in resolved.parents:
-                raise HTTPException(
-                    status_code=409, detail="Project delivery file escapes package root"
-                )
-            bundle.write(resolved, resolved.relative_to(package_root))
-        approval_path = evidence_root / "owner-approval.json"
-        if approval_path.exists():
-            if not approval_path.is_file() or approval_path.is_symlink():
-                raise HTTPException(
-                    status_code=409, detail="Owner approval receipt is unsafe"
-                )
-            if approval_path.stat().st_size > 64 * 1024:
-                raise HTTPException(
-                    status_code=409, detail="Owner approval receipt is invalid"
-                )
-            bundle.write(approval_path, "owner-approval.json")
-    archive_bytes = archive.getvalue()
-    archive_sha256 = hashlib.sha256(archive_bytes).hexdigest()
-    archive = io.BytesIO(archive_bytes)
+    try:
+        # Compression and hashing are blocking filesystem operations. Run them
+        # off the FastAPI event loop and never buffer the ZIP into application RAM.
+        archive = await asyncio.to_thread(
+            build_project_delivery_archive, package_root, evidence_root
+        )
+    except ProjectDeliveryArchiveError as exc:
+        _download_archive_slots.release()
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except BaseException:
+        _download_archive_slots.release()
+        raise
+
+    async def _stream_download():
+        try:
+            while chunk := await asyncio.to_thread(
+                archive.stream.read, ARCHIVE_CHUNK_BYTES
+            ):
+                yield chunk
+        finally:
+            archive.stream.close()
+            _download_archive_slots.release()
+
     return StreamingResponse(
-        archive,
+        _stream_download(),
         media_type="application/zip",
         headers={
             "Content-Disposition": (
                 f'attachment; filename="aionex-project-{project_id[:8]}-{execution_id[:8]}.zip"'
             ),
+            "Content-Length": str(archive.length),
             "Cache-Control": "no-store",
             "X-AIONEX-Execution": execution_id,
-            "X-AIONEX-SHA256": archive_sha256,
+            "X-AIONEX-SHA256": archive.sha256,
         },
     )
-
 
 @router.post("/{project_id}/executions/{execution_id}/transition")
 async def transition_project_execution(
