@@ -633,6 +633,18 @@ class DeterministicProjectAIIntegrationRunner:
             # approved on an AI-only integration result.
             "approved": False,
             "readiness_score": 0.0,
+            "release_approval_withheld": True,
+            "release_approval_withheld_reason": "governance_incomplete",
+            "status": "rework_required",
+            "blocking_findings": [
+                "Model inference and route receipts do not constitute a verified executable project.",
+                "Independent implementation tests and the complete AIOS governance release cycle have not run.",
+            ],
+            "rework_plan": [
+                "Build and test executable source with retained rollback evidence.",
+                "Run the full institutional project lifecycle and explicit Owner release review.",
+            ],
+            "delivery_package": {"contains_executable_product": False},
             "workforce": [],
             "provider_plan": results,
             "integration_foundation": True,

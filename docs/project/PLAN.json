@@ -10,6 +10,7 @@
   "runtime_journal": "docs/project/runtime/events.jsonl",
   "goal_ar": "إطلاق النطاق النهائي بجميع وظائفه غير المؤجلة، مع دليل قبول 5000 مستخدم متزامن متعدد المشاريع والمحادثات وصلاحيات المالك، وليس مجرد سلامة الخدمات أو نجاح قراءة اصطناعية.",
   "owner_decisions": {
+    "fr06_postlaunch_coldhost_scope_20261027": {"continue_prelaunch_focus": ["FR-08", "FR-09", "FR-25", "Phase36 full customer-governed execution"], "do_not_use_retired_old_server": true, "existing_postgres_real_isolated_recovery_evidence_retained": true, "no_false_claim_of_offhost_test": true, "no_reduction_in_5000_user_or_15000_durable_job_targets": true, "no_retroactive_coldhost_pass": true, "owner_decision_date": "2026-10-27", "prelaunch_requirement": false, "production_encrypted_backup_and_R2_validation_must_continue": true, "source": "Explicit latest Owner instruction to defer independent cold-host recovery until after product launch", "specific_deferred_operation": "Physically separate cold host restore and offline Owner recovery key custody exercise", "status": "DEFERRED_UNTIL_AFTER_LAUNCH_BY_OWNER"},
     "licenses": "المالك أكد في 2026-09-10 امتلاك جميع التصاريح والتراخيص المطلوبة. يعتمد هذا كإقرار مالك ولا يطلب انتظار ترخيص عام للتطوير. لا يمثل تحققًا مستقلًا ولا يلغي موافقة صاحب الهوية/المستخدم أو المراجعة البشرية أو حدود الأمان.",
     "merge_policy": "العوائق الأمنية السابقة التي منعت الدمج والنشر أُغلقت بالأدلة، وDependabot الحالي صفر تنبيهات مفتوحة. من الآن لا يُدمج أو يُنشر أي تغيير إلا على exact head SHA اجتاز الفحوص المحمية المطلوبة ويكون CLEAN/MERGEABLE/current. لا force-push ولا تجاوز للفحوص ولا git pull عشوائي لاتخاذ قرار إصدار. أي تغيير في SHA بعد CI يحتاج قبولًا جديدًا لذلك الرأس قبل الدمج أو النشر.",
     "cloudflare": "الإبقاء على Cloudflare وR2 وDNS والنفق وسياسات Access الحالية دون إعادة إعداد.",
@@ -164,6 +165,7 @@
     },
     {
       "id": "FR-06",
+      "external_cold_host_recovery": {"blocks_current_development_work": false, "may_be_recorded_as_test_pass_without_new_target": false, "owner_decision_date": "2026-10-27", "protected_backup_encryption_scope_still_required": true, "specific_operation": "external physical cold-host restore only", "status": "OWNER_DEFERRED_POST_LAUNCH"},
       "title_ar": "بديل تشفير بيانات الخادم دون انتظار الاستضافة",
       "requires_deploy": true,
       "depends_on": [

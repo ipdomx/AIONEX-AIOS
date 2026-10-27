@@ -169,6 +169,33 @@ def apply_event(plan: dict[str, Any], states: dict[str, dict[str, Any]], event: 
     states[batch["id"]] = dict(event)
 
 
+def next_product_work_batch(plan: dict[str, Any], states: dict[str, dict[str, Any]]) -> str | None:
+    """Resolve current prelaunch work without falsifying the Owner-deferred cold-host test."""
+    policy = plan["owner_decisions"].get("fr06_postlaunch_coldhost_scope_20261027")
+    if not isinstance(policy, dict) or policy.get("status") != "DEFERRED_UNTIL_AFTER_LAUNCH_BY_OWNER":
+        return next((item["id"] for item in plan["batches"] if states[item["id"]]["status"] != "complete"), None)
+    by_id = {item["id"]: item for item in plan["batches"]}
+    visited: set[str] = set()
+
+    def walk(identifier: str) -> str | None:
+        if identifier in visited or identifier not in by_id:
+            return None
+        visited.add(identifier)
+        if identifier == "FR-06" and by_id[identifier].get("external_cold_host_recovery", {}).get("status") == "OWNER_DEFERRED_POST_LAUNCH":
+            return None
+        for prerequisite in by_id[identifier]["depends_on"]:
+            pending = walk(prerequisite)
+            if pending is not None:
+                return pending
+        return identifier if states[identifier]["status"] != "complete" else None
+
+    for identifier in ("FR-08", "FR-09", "FR-25"):
+        pending = walk(identifier)
+        if pending is not None:
+            return pending
+    return None
+
+
 def current_state(plan: dict[str, Any], events: list[dict[str, Any]]) -> dict[str, Any]:
     states = {b["id"]: {"status": "planned"} for b in plan["batches"]}
     seen: set[str] = set()
@@ -185,6 +212,8 @@ def current_state(plan: dict[str, Any], events: list[dict[str, Any]]) -> dict[st
         "canonical_report": plan["report"],
         "last_event_id": events[-1]["event_id"] if events else None,
         "next_batch": next((b["id"] for b in plan["batches"] if states[b["id"]]["status"] != "complete"), None),
+        "next_product_work_batch": next_product_work_batch(plan, states),
+        "postlaunch_coldhost_deferral": plan["owner_decisions"].get("fr06_postlaunch_coldhost_scope_20261027"),
         "batches": states,
         "deferred": plan["owner_decisions"]["deferred"],
     }
@@ -213,6 +242,8 @@ def atomic_write(path: Path, text: str) -> None:
 def render(root: Path, plan: dict[str, Any], events: list[dict[str, Any]]) -> dict[str, Any]:
     state = current_state(plan, events)
     out = ["# التقرير والخريطة الموحدان — AIONEX AIOS", "", f"الحالة: **{state['release_status']}**", f"آخر تحديث UTC: {state['generated_at']}", f"الدفعة التالية: **{state['next_batch']}**", "", plan["goal_ar"], "", "هذا هو مدخل المتابعة الحالي. PLAN.json هو عقد الخطة المتعقب، وruntime/events.jsonl سجل التنفيذ المحفوظ. التقارير السابقة أدلة تاريخية لا نقاط متابعة متنافسة.", "", "## قرارات المالك الملزمة"]
+    if state.get("next_product_work_batch"):
+        out.insert(6, "Owner-approved prelaunch engineering focus: **" + state["next_product_work_batch"] + "** (physical cold-host recovery deferred, never recorded as passed).")
     for key, value in plan["owner_decisions"].items():
         if isinstance(value, list):
             out.append(f"**{key}:** " + "؛ ".join(value))

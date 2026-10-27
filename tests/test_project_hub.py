@@ -242,3 +242,24 @@ def test_fr25_reference_fence_does_not_retroactively_reject_pre_g7_history(plan)
     second = fr25_reference_event("test-fr25-historical-second", sample)
     state = hub.current_state(plan, [first, second])
     assert state["last_event_id"] == second["event_id"]
+
+
+def test_owner_postlaunch_coldhost_priority_preserves_historical_batch_state(plan):
+    state = hub.current_state(plan, [receipt()])
+    assert state["next_batch"] == "FR-01"
+    assert state["next_product_work_batch"] == "FR-01"
+    assert state["postlaunch_coldhost_deferral"]["status"] == "DEFERRED_UNTIL_AFTER_LAUNCH_BY_OWNER"
+    assert state["batches"]["FR-06"]["status"] == "planned"
+    assert state["release_status"] != "RELEASED_VERIFIED"
+
+
+def test_prelaunch_priority_skip_only_physical_coldhost_and_preserve_fr07_order(plan):
+    states = {b["id"]: {"status": "complete"} for b in plan["batches"]}
+    for identifier in ("FR-06", "FR-07", "FR-08", "FR-09", "FR-25"):
+        states[identifier] = {"status": "in_progress"}
+    assert hub.next_product_work_batch(plan, states) == "FR-07"
+    states["FR-07"]["status"] = "complete"
+    assert hub.next_product_work_batch(plan, states) == "FR-08"
+    states["FR-08"]["status"] = "complete"
+    assert hub.next_product_work_batch(plan, states) == "FR-09"
+    assert states["FR-06"]["status"] == "in_progress"
