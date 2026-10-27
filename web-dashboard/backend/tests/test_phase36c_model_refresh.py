@@ -89,7 +89,7 @@ def _inventory_payload(url: str):
     if hostname == "api.deepseek.com":
         return {"data": [{"id": "deepseek-v4-pro"}]}
     if parsed.path.rstrip("/") == "/api/tags":
-        return {"models": [{"name": "gemma3:4b"}]}
+        return {"models": [{"name": "gemma3:4b"}, {"name": "qwen2.5:1.5b"}]}
     raise AssertionError(url)
 
 
@@ -106,6 +106,7 @@ async def test_refresh_persists_only_reviewed_current_launch_models(monkeypatch)
             await session.commit()
         assert set(result["validated"]) == {
             "ollama:gemma3:4b",
+            "ollama:qwen2.5:1.5b",
             "openai:gpt-5.6-sol",
             "openai:gpt-5.6-terra",
             "openai:gpt-5.6-luna",
@@ -120,7 +121,7 @@ async def test_refresh_persists_only_reviewed_current_launch_models(monkeypatch)
                 provider = await session.get(AIProvider, provider_id)
                 assert provider is not None
                 rows = (provider.config or {}).get("validated_models") or []
-                expected = 3 if provider_type == "openai" else 1
+                expected = 3 if provider_type == "openai" else (2 if provider_type == "ollama" else 1)
                 assert len(rows) == expected
                 assert all("credential" not in str(row).lower() for row in rows)
     finally:
@@ -228,7 +229,7 @@ async def test_configured_and_disabled_ollama_duplicates_do_not_block_connected_
             assert primary is not None and pending is not None and disabled is not None
             assert [
                 x["model"] for x in (primary.config or {}).get("validated_models", [])
-            ] == ["gemma3:4b"]
+            ] == ["gemma3:4b", "qwen2.5:1.5b"]
             assert not (pending.config or {}).get("validated_models")
             assert not (disabled.config or {}).get("validated_models")
     finally:

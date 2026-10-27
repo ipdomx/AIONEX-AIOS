@@ -62,6 +62,43 @@ FREE_OLLAMA_GEMMA3 = LaunchModelChoice(
     ),
 )
 
+# Genuine 27 October on-server local Qwen 1.5B trial: 181 bounded JSON tokens
+# in 4.57s generation / 7.43s end-to-end, strict compact project admission PASS,
+# plus four actual local role outputs compiled/tested as a 32-file SQLite web app.
+# Quality/latency scores are neutral INTERNAL routing heuristics, not external
+# vendor benchmarks. Every production route still requires fresh /api/tags proof.
+FREE_OLLAMA_QWEN15 = LaunchModelChoice(
+    provider_type="ollama",
+    model="qwen2.5:1.5b",
+    access_class="free",
+    priority=120,
+    official_source="https://ollama.com/library/qwen2.5",
+    spec=ProviderModelValidationSpec(
+        provider_type="ollama",
+        model="qwen2.5:1.5b",
+        tasks=frozenset({"reasoning", "research", "coding", "review"}),
+        policy_ref=f"{LAUNCH_MODEL_POLICY_VERSION}:ollama:qwen2.5-1.5b-reviewed-20261028",
+        languages=frozenset({"multilingual"}),
+        supports_tools=False,
+        supports_vision=False,
+        supports_audio=False,
+        local=True,
+        max_context_tokens=8192,
+        quality_score=0.50,
+        latency_score=0.80,
+        privacy_score=1.0,
+        input_cost_per_million=0.0,
+        output_cost_per_million=0.0,
+        requests_per_minute=24,
+        concurrent_requests=1,
+        circuit_failure_threshold=3,
+        circuit_failure_window_seconds=60,
+        circuit_open_seconds=30,
+        lease_seconds=120,
+    ),
+)
+
+
 PAID_MISTRAL_MEDIUM_35 = LaunchModelChoice(
     provider_type="mistral",
     model="mistral-medium-3-5",
@@ -228,6 +265,7 @@ OPENAI_DESIRED_CURRENT = (
 
 LAUNCH_ENABLED_MODELS: Final[tuple[LaunchModelChoice, ...]] = (
     FREE_OLLAMA_GEMMA3,
+    FREE_OLLAMA_QWEN15,
     *OPENAI_DESIRED_CURRENT,
     PAID_MISTRAL_MEDIUM_35,
     PAID_DEEPSEEK_V4_PRO,

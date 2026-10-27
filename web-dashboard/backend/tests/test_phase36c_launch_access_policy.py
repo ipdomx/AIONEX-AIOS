@@ -33,7 +33,7 @@ async def _clear_launch_policy_records(session) -> None:
 def test_free_default_is_local_zero_cost_and_paid_default_fails_until_owner_selects_models() -> None:
     free = default_plan_policy("free")
     paid = default_plan_policy("paid")
-    assert free["allowed_provider_models"] == ["ollama:gemma3:4b"]
+    assert free["allowed_provider_models"] == ["ollama:qwen2.5:1.5b"]
     assert free["max_project_cost_usd"] == 0.0
     assert free["offline_only"] is True
     assert paid["allowed_provider_models"] == []
@@ -92,7 +92,7 @@ async def test_free_consumer_resolves_platform_ollama_without_copying_provider_c
         assert access.access_class == "free"
         assert access.policy.provider_scope_organization_id == "aionex-org"
         assert access.policy.allowed_providers == frozenset({"ollama"})
-        assert access.policy.allowed_provider_models == frozenset({"ollama:gemma3:4b"})
+        assert access.policy.allowed_provider_models == frozenset({"ollama:qwen2.5:1.5b"})
         assert access.policy.max_total_estimated_cost_usd == 0
 
 

@@ -7,6 +7,7 @@ import pytest
 
 from app.services.project_ai_launch_models import (
     FREE_OLLAMA_GEMMA3,
+    FREE_OLLAMA_QWEN15,
     LAUNCH_ENABLED_MODELS,
     LAUNCH_MODEL_POLICY_VERSION,
     OPENAI_DESIRED_CURRENT,
@@ -44,7 +45,7 @@ def _inventory(provider: str, model_ids: tuple[str, ...]) -> ProviderModelInvent
 def test_launch_policy_free_is_local_zero_cost_and_paid_is_current_reviewed_set() -> None:
     free = launch_models_for("free")
     paid = launch_models_for("paid")
-    assert [item.model for item in free] == ["gemma3:4b"]
+    assert [item.model for item in free] == ["gemma3:4b", "qwen2.5:1.5b"]
     assert free[0].spec.local is True
     assert free[0].spec.input_cost_per_million == 0
     assert free[0].spec.output_cost_per_million == 0
@@ -93,6 +94,30 @@ def test_fresh_inventory_can_validate_launch_models_but_absent_model_fails_close
         build_validated_model_from_inventory(
             _inventory("mistral", ("other",)),
             PAID_MISTRAL_MEDIUM_35.spec,
+        )
+
+
+def test_qwen15_reviewed_local_inventory_is_zero_paid_credits_and_strict_fresh() -> None:
+    choice = FREE_OLLAMA_QWEN15
+    assert choice.provider_type == "ollama"
+    assert choice.access_class == "free"
+    assert choice.spec.local is True
+    assert choice.spec.supports_tools is False
+    assert choice.spec.max_context_tokens == 8192
+    assert choice.spec.concurrent_requests == 1
+    assert choice.spec.input_cost_per_million == 0.0
+    assert choice.spec.output_cost_per_million == 0.0
+    assert choice.official_source == "https://ollama.com/library/qwen2.5"
+    actual = _inventory("ollama", ("gemma3:4b", "qwen2.5:1.5b"))
+    entry = build_validated_model_from_inventory(
+        actual, choice.spec, now=actual.observed_at
+    )
+    assert entry["model"] == "qwen2.5:1.5b"
+    assert entry["local"] is True
+    assert entry["evidence_ref"].startswith("test:inventory:ollama:")
+    with pytest.raises(ProviderModelEvidenceError, match="absent"):
+        build_validated_model_from_inventory(
+            _inventory("ollama", ("gemma3:4b",)), choice.spec
         )
 
 

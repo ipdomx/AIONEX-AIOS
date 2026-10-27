@@ -34,7 +34,7 @@ SUPPORTED_ACCESS_CLASSES = frozenset({PLAN_FREE, PLAN_PAID})
 DEFAULT_FREE_POLICY: dict[str, Any] = {
     "enabled": True,
     "access_class": PLAN_FREE,
-    "allowed_provider_models": ["ollama:gemma3:4b"],
+    "allowed_provider_models": ["ollama:qwen2.5:1.5b"],
     "max_project_cost_usd": 0.0,
     "offline_only": True,
     "privacy_mode": True,
