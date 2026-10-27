@@ -32,12 +32,96 @@ from app.services.project_execution_ai_integration import (
 )
 from app.services.project_execution_routing import ProjectAIProviderPolicy
 from app.services.project_execution_worker import ProjectExecutionWorker
-from tests.test_controlled_project_builder import _specification
 from test_phase36c_project_integration_foundation import (
     _cleanup_org,
     _delete_workers,
     _seed_execution,
 )
+
+
+def _specification() -> dict:
+    """Mirror the controlled-builder fixture without importing the root test package."""
+
+    return {
+        "schema_version": 3,
+        "application_type": "web_application",
+        "title": "Governed Project Workspace",
+        "tagline": "A transparent workflow for controlled project delivery.",
+        "summary": (
+            "This prototype organizes the project objective, workflow and retained "
+            "evidence without claiming production deployment."
+        ),
+        "audience": "Project owners, reviewers and implementation teams",
+        "features": [
+            "Structured project overview",
+            "Visible governed workflow",
+            "Evidence and release boundaries",
+        ],
+        "brand": {
+            "primary": "#E11D48",
+            "secondary": "#0EA5E9",
+            "accent": "#F8FAFC",
+            "surface": "#050816",
+            "logo_concept": "A precise geometric project mark",
+        },
+        "architecture": {
+            "frontend": "Responsive browser interface",
+            "backend": "Local Python application API",
+            "data": "SQLite persistence",
+            "realtime": "No realtime runtime requested",
+            "deployment": "Local governed delivery package only",
+        },
+        "domain_blueprint": {
+            "roles": ["member", "operator"],
+            "entities": [
+                {
+                    "name": "project_record",
+                    "label": "Project record",
+                    "fields": [
+                        {"name": "title", "type": "string", "required": True},
+                        {"name": "notes", "type": "text", "required": False},
+                        {"name": "active", "type": "boolean", "required": True},
+                    ],
+                }
+            ],
+            "workflows": [
+                {
+                    "name": "Create project record",
+                    "trigger": "member submits a valid record",
+                    "steps": [
+                        "validate input",
+                        "persist record",
+                        "return governed result",
+                    ],
+                }
+            ],
+        },
+        "sections": [
+            {
+                "id": "overview",
+                "title": "Project overview",
+                "body": "Understand the requested outcome and the intended audience.",
+                "items": ["Objective summary", "Audience and value"],
+            },
+            {
+                "id": "workflow",
+                "title": "Governed workflow",
+                "body": "Follow the controlled stages from intake through review.",
+                "items": ["Council review", "Engineering delivery"],
+            },
+            {
+                "id": "evidence",
+                "title": "Evidence boundary",
+                "body": "Inspect what is proven and what still requires implementation.",
+                "items": ["Retained hashes", "Explicit limitations"],
+            },
+        ],
+        "primary_action": "Review workflow",
+        "secondary_action": "Inspect evidence",
+        "limitations": [
+            "No production deployment or external integration is claimed."
+        ],
+    }
 
 
 class BoundedSpecInvoker:
