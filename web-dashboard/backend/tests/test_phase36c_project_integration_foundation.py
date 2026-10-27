@@ -772,3 +772,54 @@ async def test_integrated_no_fallback_failure_returns_to_existing_retry_queue() 
     finally:
         await _cleanup_org(org_id)
         await _delete_workers(worker_id)
+
+
+@pytest.mark.asyncio
+async def test_direct_project_ai_integration_never_promotes_model_inference_to_release():
+    suffix = uuid4().hex[:8]
+    scope, org_id, user_id = await _seed_execution(
+        suffix, providers=(("ollama", "qwen-local-direct", True),),
+    )
+    invoker = RecordingInvoker("ollama")
+    runner = DeterministicProjectAIIntegrationRunner(
+        session_factory=SessionLocal,
+        redis_url=os.environ["REDIS_URL"],
+        policy_resolver=lambda _scope: ProjectAIProviderPolicy(
+            allowed_providers=frozenset({"ollama"}),
+        ),
+        invokers={("ollama", "qwen-local-direct"): invoker},
+        task_factory=_two_tasks,
+        redis_key_prefix=f"aionex:test:p36c:direct-no-premature-approval:{uuid4().hex}",
+    )
+    try:
+        result = await runner._run_async(
+            job_id=scope.execution_id,
+            project_name=f"Integration Project {suffix}",
+            objective=f"Governed inference integration for {suffix} requires verified executable code.",
+            tenant_id=org_id,
+            requested_by_id=user_id,
+            execution_mode="full",
+            project_id=scope.project_id,
+            stage_callback=None,
+        )
+        assert result["success"] is True
+        assert result["requests_count"] == 2
+        assert result["integration_foundation"] is True
+        assert result["all_governance_layers_executed"] is False
+        assert result["approved"] is False
+        assert result["readiness_score"] == 0.0
+        assert result["release_approval_withheld"] is True
+        assert result["release_approval_withheld_reason"] == "governance_incomplete"
+        assert result["status"] == "rework_required"
+        assert len(result["blocking_findings"]) == 2
+        assert len(result["rework_plan"]) == 2
+        assert result["delivery_package"]["contains_executable_product"] is False
+        async with SessionLocal() as session:
+            execution = await session.get(ProjectExecution, scope.execution_id)
+            assert execution is not None and execution.status == "queued"
+            memories = list((await session.scalars(select(ScopedMemory).where(
+                ScopedMemory.organization_id == org_id
+            ))).all())
+            assert len(memories) == 2
+    finally:
+        await _cleanup_org(org_id)
