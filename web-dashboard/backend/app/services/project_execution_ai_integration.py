@@ -760,6 +760,14 @@ class DeterministicProjectAIIntegrationRunner:
                     three_d_error: str | None = None
                     if execution_mode == "3d_full":
                         build_stage("three_d_build_and_browser_QA", 99)
+                        # Rebind after the asynchronous provider route so static
+                        # and runtime checks both fail closed if the injected
+                        # builder is absent or was replaced while awaiting.
+                        three_d_builder = self.three_d_builder
+                        if three_d_builder is None:
+                            raise ProjectAIIntegrationError(
+                                "3D full delivery requires an authorized builder"
+                            )
                         # The durable worker has already staged and SHA-verified
                         # any project-scoped GLB assets before invoking this route.
                         # The existing 3D builder performs its *own* source build,
@@ -774,7 +782,7 @@ class DeterministicProjectAIIntegrationRunner:
                                     "3D external provider call lacks user authorization"
                                 )
                             three_d = await asyncio.to_thread(
-                                self.three_d_builder.build,
+                                three_d_builder.build,
                                 project_id=project_id,
                                 project_name=project_name,
                                 objective=objective,
