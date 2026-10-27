@@ -238,7 +238,11 @@ def test_incomplete_loop_structure_and_legacy_key_modes_rejected(payload):
 
 @pytest.mark.parametrize("failure", [False, True])
 def test_loop_ioctl_is_get_only_and_raw_buffer_is_cleared(monkeypatch, failure):
-    monkeypatch.setattr(m.os, "fstat", lambda fd: SimpleNamespace(st_mode=stat.S_IFBLK | 0o600))
+    original_fstat = m.os.fstat
+    monkeypatch.setattr(m.os, "fstat", lambda fd: (
+        SimpleNamespace(st_mode=stat.S_IFBLK | 0o600)
+        if fd == 33 else original_fstat(fd)
+    ))
     captured = []
 
     def ioctl(fd, command, buffer, mutable):

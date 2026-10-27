@@ -61,6 +61,21 @@ disaster recovery remains Owner-deferred until after launch; full authenticated
 5,000-user/15,000 durable job steady-load acceptance, actual 72h natural
 stability and FINAL RELEASED VERIFIED remain separate unaccepted gates.
 
+## Python 3.12 Core Owner native security test fixtures (no restore test)
+
+The protected-main CI contract run under Python 3.12 reported 13 preexisting
+native mapper test failures: four test fixtures were globally replacing
+os.fstat to return partial SimpleNamespace objects even for unrelated
+pytest/contextlib temporary file descriptors. Python 3.12 cleanup expects
+real stat fields including st_size on those unrelated descriptors.
+
+The correction now forges fstat only for each explicit synthetic loop FD
+(10, 33 or 55), delegating all unrelated file descriptors to the genuine
+os.fstat. All original security assertions are retained. There are no
+production encryption/mount code changes and no FR06 physical cold-host
+recovery or final-release acceptance claim. The 14 directly affected native
+security tests passed locally; GitHub Python 3.12 remains authoritative.
+
 ## SHA256 evidence
 
 - failed production synthetic canary and cleanup: b084816caf3537e374a2e22fd9e895b3b46b003d2a1bb91802d7a4094f542c5c

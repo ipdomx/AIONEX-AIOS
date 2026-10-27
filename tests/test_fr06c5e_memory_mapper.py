@@ -304,7 +304,11 @@ def test_native_creation_uses_locked_pointer_and_never_reveals_key(case,monkeypa
             return -5 if failure=='activate' else 0
         def crypt_free(self,*args):calls.append(('free',))
     monkeypatch.setattr(m.os,'geteuid',lambda:0)
-    monkeypatch.setattr(m.os,'fstat',lambda fd:SimpleNamespace(st_mode=__import__('stat').S_IFBLK,st_rdev=os.makedev(7,3)))
+    original_fstat = m.os.fstat
+    monkeypatch.setattr(m.os,'fstat',lambda fd:(
+        SimpleNamespace(st_mode=__import__('stat').S_IFBLK,st_rdev=os.makedev(7,3))
+        if fd==10 else original_fstat(fd)
+    ))
     monkeypatch.setattr(k,'sample',lambda op:m.Runtime(case.context.boot_id,(11,12),(11,12),None))
     monkeypatch.setattr(k,'_library',lambda:Library())
     monkeypatch.setattr(m,'disable_process_dumps',lambda:calls.append(('process-nondumpable',)))

@@ -331,7 +331,10 @@ def test_inactive_header_baseline_is_not_equal_to_parent_mapper_removal(case):
 def test_native_write_is_single_and_rejects_partial_progress(monkeypatch):
     calls=[]
     monkeypatch.setattr(m.os,'geteuid',lambda:0)
-    monkeypatch.setattr(m.os,'fstat',lambda fd:SimpleNamespace(st_mode=0o60600))
+    original_fstat = m.os.fstat
+    monkeypatch.setattr(m.os,'fstat',lambda fd:(
+        SimpleNamespace(st_mode=0o60600) if fd==55 else original_fstat(fd)
+    ))
     monkeypatch.setattr(m.os,'pwrite',lambda fd,data,offset:calls.append((fd,len(data),offset)) or 17)
     with pytest.raises(m.EncryptedSwapRejected):m.LinuxEncryptedSwapKernel().write_header(55,b'x'*4096)
     assert calls==[(55,4096,0)]
