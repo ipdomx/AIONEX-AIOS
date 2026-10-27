@@ -1,6 +1,7 @@
 """Phase 36C production live-runtime adapter contracts without provider network calls."""
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -178,3 +179,84 @@ def test_launch_policy_task_factory_disables_tool_requirement_for_free_local_pol
     assert paid_coder.require_tools is False
     assert paid_coder.allow_failover is True
     assert paid_coder.max_fallbacks == 1
+
+
+
+@pytest.mark.asyncio
+async def test_ollama_planner_routes_through_scoped_fast_cpu_adapter_without_generic_provider(
+    monkeypatch,
+) -> None:
+    org_id, provider_id, evidence_ref = await _seed_provider(
+        provider_type="ollama", model="gemma3:4b"
+    )
+    observed = []
+
+    async def local(provider, agent, prompt, *, max_output_tokens):
+        observed.append((provider.type, agent.model, prompt, max_output_tokens))
+        return {
+            "text": "Reviewed synthetic local planning",
+            "usage": {"input_tokens": 100, "output_tokens": 50, "total_tokens": 150},
+            "latency_ms": 3200,
+        }
+
+    async def forbidden(*_args, **_kwargs):
+        raise AssertionError("generic provider path must not be used for local project planner")
+
+    monkeypatch.setattr(live, "execute_local_project_role", local)
+    monkeypatch.setattr(live, "_execute_provider", forbidden)
+    try:
+        invocation = replace(
+            _invocation(org_id, provider_id, evidence_ref),
+            role="planner", task_id="planner", task="reasoning",
+            provider="ollama", model="gemma3:4b", prompt="Review synthetic local project",
+        )
+        result = await live.ProjectAILiveProviderInvoker()(invocation)
+        assert result.text == "Reviewed synthetic local planning"
+        assert observed == [("ollama", "gemma3:4b", "Review synthetic local project", 192)]
+        assert result.input_tokens == 100 and result.output_tokens == 50
+        assert result.memory_note == "ollama:gemma3:4b:planner:completed"
+    finally:
+        async with SessionLocal() as session:
+            await session.execute(delete(Organization).where(Organization.id == org_id))
+            await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_ollama_compact_coder_uses_structured_json_adapter_only(
+    monkeypatch,
+) -> None:
+    org_id, provider_id, evidence_ref = await _seed_provider(
+        provider_type="ollama", model="gemma3:4b"
+    )
+    observed = []
+
+    async def structured(provider, agent, prompt, *, project_coder_max_tokens, project_coder_schema):
+        observed.append((provider.type, agent.model, project_coder_max_tokens))
+        assert project_coder_schema["properties"]["kind"]["enum"] == [
+            "aionex.compact-project.v1"
+        ]
+        return {
+            "text": '{"kind":"aionex.compact-project.v1"}',
+            "usage": {"input_tokens": 75, "output_tokens": 25, "total_tokens": 100},
+            "latency_ms": 1800,
+        }
+
+    async def forbidden(*_args, **_kwargs):
+        raise AssertionError("generic provider path must not be used for local coder")
+
+    monkeypatch.setattr(live, "execute_structured_project_coder", structured)
+    monkeypatch.setattr(live, "_execute_provider", forbidden)
+    try:
+        invocation = replace(
+            _invocation(org_id, provider_id, evidence_ref),
+            provider="ollama", model="gemma3:4b",
+            prompt="AIONEX_COMPACT_PROJECT_SPEC_V1: Build a bounded synthetic task app",
+        )
+        result = await live.ProjectAILiveProviderInvoker()(invocation)
+        assert observed == [("ollama", "gemma3:4b", 1024)]
+        assert result.output_tokens == 25
+        assert result.memory_note == "ollama:gemma3:4b:coder:completed"
+    finally:
+        async with SessionLocal() as session:
+            await session.execute(delete(Organization).where(Organization.id == org_id))
+            await session.commit()

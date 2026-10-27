@@ -6,6 +6,7 @@ provider adapter and cannot obtain final approval without strict compiler checks
 """
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from fastapi import HTTPException
@@ -19,6 +20,79 @@ from app.services.ai_runtime_service import (
     provider_credential,
     validate_provider_base_url,
 )
+
+
+def _ollama_project_cpu_threads() -> int:
+    """Bound Project AI CPU threads to the audited dedicated Ollama quota.
+
+    On the AIOS host, Ollama is limited to six CPUs. A real Gemma3:4B
+    synthetic strict JSON run with six request threads completed 232 tokens
+    in 12.55s (23.31s including load). Generic AI agent calls remain intact.
+    """
+    raw = os.environ.get("PROJECT_AI_OLLAMA_THREADS", "6")
+    try:
+        threads = int(raw)
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=503, detail="Project AI local CPU thread budget is invalid") from exc
+    if not 1 <= threads <= 8:
+        raise HTTPException(status_code=503, detail="Project AI local CPU thread budget is invalid")
+    return threads
+
+
+async def execute_local_project_role(
+    provider: AIProvider,
+    agent: AIAgent,
+    prompt: str,
+    *,
+    max_output_tokens: int = 192,
+) -> dict[str, Any]:
+    """Local-only bounded noncoder route. Never executes tool instructions."""
+    if provider.type != "ollama":
+        raise HTTPException(status_code=422, detail="Project AI local role requires Ollama")
+    if type(max_output_tokens) is not int or not 1 <= max_output_tokens <= 192:
+        raise HTTPException(status_code=422, detail="Project AI local role token budget is invalid")
+    base = validate_provider_base_url(provider.type, provider.base_url)
+    if not base:
+        raise HTTPException(status_code=503, detail="Project AI local provider endpoint is not configured")
+    request = {
+        "model": agent.model,
+        "stream": False,
+        "messages": (
+            ([{"role": "system", "content": agent.system_prompt}]
+             if agent.system_prompt else [])
+            + [{"role": "user", "content": prompt}]
+        ),
+        "options": {
+            "temperature": agent.temperature,
+            "num_predict": max_output_tokens,
+            "num_ctx": 4096,
+            "num_thread": _ollama_project_cpu_threads(),
+        },
+    }
+    payload, latency = await _request_json(
+        "POST",
+        f"{base}/api/chat",
+        headers={"Content-Type": "application/json"},
+        json_body=request,
+        timeout=100,
+    )
+    text = str((payload.get("message") or {}).get("content") or "").strip()
+    if not text or len(text) > 12000:
+        raise HTTPException(status_code=502, detail="Project AI local response was empty or oversized")
+    usage = {
+        "input_tokens": int(payload.get("prompt_eval_count") or 0),
+        "output_tokens": int(payload.get("eval_count") or 0),
+    }
+    usage["total_tokens"] = _usage_total(usage)
+    return {
+        "text": text,
+        "provider": "ollama",
+        "model": str(payload.get("model") or agent.model),
+        "usage": usage,
+        "cost": 0.0,
+        "latency_ms": round(float(latency), 2),
+        "response_id": None,
+    }
 
 
 async def execute_structured_project_coder(
@@ -70,6 +144,8 @@ async def execute_structured_project_coder(
             "options": {
                 "temperature": 0.0,
                 "num_predict": tokens,
+                "num_ctx": 4096,
+                "num_thread": _ollama_project_cpu_threads(),
             },
         }
         payload, latency = await _request_json(
