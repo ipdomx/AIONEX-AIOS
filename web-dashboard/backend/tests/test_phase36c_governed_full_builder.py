@@ -21,7 +21,6 @@ from app.db.models import ProjectExecution, OwnerControlRecord
 from app.core.config import settings
 from app.core.auth import UserRecord
 from app.api.v1.endpoints.project_executions import download_project_execution, serialize_project_execution
-from fastapi import HTTPException
 from app.services.host_maintenance_admission import DOMAIN, RESOURCE_ID, SCHEMA_VERSION, SCOPE
 from sqlalchemy import select, delete
 from app.services.project_execution_ai_integration import (
