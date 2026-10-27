@@ -14,6 +14,9 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
+import os
+from pathlib import Path
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -23,6 +26,14 @@ import redis.asyncio as aioredis
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from aios.controlled_project_builder import ControlledProjectBuildError, ControlledProjectBuilder
+from aios.project_ai_governed_compiler import (
+    ProjectAIGovernedBuildError,
+    ProjectAIGovernedCompiler,
+)
+
+from app.core.config import settings
+from app.services.three_d_project_delivery import ThreeDProjectDeliveryError
 from app.db.models import (
     AuditEvent,
     Project,
@@ -141,7 +152,7 @@ def default_project_ai_tasks(
         ProjectAITaskSpec(
             task_id="researcher",
             role="researcher",
-            task="research",
+            task="reasoning",
             prompt=f"Research constraints for {normalized_project}: {normalized_objective}",
             max_tokens=1200,
         ),
@@ -149,14 +160,22 @@ def default_project_ai_tasks(
             task_id="coder",
             role="coder",
             task="coding",
-            prompt=f"Implement {normalized_project}: {normalized_objective}",
-            max_tokens=1800,
-            require_tools=True,
+            prompt=(
+                f"Create the validated product SPECIFICATION (not executable model-generated code) "
+                f"for {normalized_project}: {normalized_objective}. "
+                "Return one JSON object with precisely these required keys and types. "
+                "Do not add Markdown fences, scripts, URLs, credentials, or claim tests. "
+                "The AIONEX compiler generates the executable files using reviewed templates. "
+                "Strict JSON schema: "
+                + json.dumps(ControlledProjectBuilder._schema(), separators=(",", ":"))
+            ),
+            max_tokens=3000,
+            require_tools=False,
         ),
         ProjectAITaskSpec(
             task_id="reviewer",
             role="reviewer",
-            task="review",
+            task="reasoning",
             prompt=f"Review {normalized_project}: {normalized_objective}",
             max_tokens=1000,
         ),
@@ -356,6 +375,8 @@ class DeterministicProjectAIIntegrationRunner:
         default_invoker: ProjectAIInvoker | None = None,
         task_factory: ProjectAITaskFactory = default_project_ai_tasks,
         policy_task_factory: ProjectAIPolicyTaskFactory | None = None,
+        governed_compiler: ProjectAIGovernedCompiler | None = None,
+        three_d_builder: Any | None = None,
         redis_key_prefix: str = "aionex:project-ai:integration:v1",
     ) -> None:
         self.session_factory = session_factory
@@ -365,6 +386,8 @@ class DeterministicProjectAIIntegrationRunner:
         self.default_invoker = default_invoker
         self.task_factory = task_factory
         self.policy_task_factory = policy_task_factory
+        self.governed_compiler = governed_compiler
+        self.three_d_builder = three_d_builder
         self.redis_key_prefix = str(redis_key_prefix or "").strip()
         if not self.redis_url or not self.redis_key_prefix:
             raise ValueError("deterministic Project AI Redis configuration is required")
@@ -384,14 +407,30 @@ class DeterministicProjectAIIntegrationRunner:
         three_d_asset_manifest: str | None = None,
         stage_callback: Callable[[str, int], None] | None = None,
     ) -> dict[str, Any]:
-        if three_d_asset_manifest:
+        if execution_mode not in {"full", "planning", "3d_full"}:
             raise ProjectAIIntegrationError(
-                "deterministic Project AI integration does not handle 3D asset staging"
+                "deterministic Project AI supports planning/full/3d_full only"
             )
-        if execution_mode not in {"full", "planning"}:
-            raise ProjectAIIntegrationError(
-                "deterministic Project AI integration supports planning/full only"
-            )
+        if execution_mode == "3d_full":
+            if not project_id or self.three_d_builder is None or self.governed_compiler is None:
+                raise ProjectAIIntegrationError("3D full delivery requires an authorized compiler and builder")
+            if three_d_asset_manifest:
+                raw = Path(three_d_asset_manifest)
+                expected = (
+                    Path(settings.PROJECT_EXECUTION_OUTPUT_ROOT)
+                    / job_id / "three-d-input" / "manifest.json"
+                )
+                if (
+                    not raw.is_absolute()
+                    or raw.is_symlink()
+                    or not raw.is_file()
+                    or raw.resolve(strict=True) != expected.resolve(strict=False)
+                ):
+                    raise ProjectAIIntegrationError(
+                        "3D asset evidence is not staged under the authorized job identity"
+                    )
+        elif three_d_asset_manifest:
+            raise ProjectAIIntegrationError("3D asset evidence is only admitted for 3d_full")
         return asyncio.run(
             self._run_async(
                 job_id=job_id,
@@ -402,6 +441,7 @@ class DeterministicProjectAIIntegrationRunner:
                 execution_mode=execution_mode,
                 project_id=project_id,
                 stage_callback=stage_callback,
+                three_d_asset_manifest=three_d_asset_manifest,
             )
         )
 
@@ -416,10 +456,24 @@ class DeterministicProjectAIIntegrationRunner:
         execution_mode: str,
         project_id: str | None,
         stage_callback: Callable[[str, int], None] | None,
+        three_d_asset_manifest: str | None = None,
     ) -> dict[str, Any]:
+        compiler_requested = (
+            execution_mode in {"full", "3d_full"}
+            and self.governed_compiler is not None
+        )
+
         def stage(name: str, progress: int) -> None:
             if stage_callback is not None:
-                stage_callback(name, max(0, min(100, int(progress))))
+                bounded = max(0, min(100, int(progress)))
+                # AI route tasks are only the first half of an actual build.
+                # The original foundation-only runner retains legacy progress.
+                stage_callback(name, bounded // 2 if compiler_requested else bounded)
+
+        def build_stage(name: str, progress: int) -> None:
+            if stage_callback is not None:
+                bounded = max(0, min(100, int(progress)))
+                stage_callback(name, min(98, 50 + round(bounded * 0.48)))
 
         scope = await self._load_scope(
             job_id=job_id,
@@ -427,12 +481,21 @@ class DeterministicProjectAIIntegrationRunner:
             requested_by_id=requested_by_id,
             project_id=project_id,
         )
+        async with self.session_factory() as session:
+            execution_record = await session.get(ProjectExecution, scope.execution_id)
+            if execution_record is None:
+                raise ProjectAIIntegrationError("ProjectExecution disappeared during admission")
+            external_confirmed = execution_record.external_processing_confirmed is True
         resolved_policy = self.policy_resolver(scope)
         policy = (
             resolved_policy
             if isinstance(resolved_policy, ProjectAIProviderPolicy)
             else await resolved_policy
         )
+        if not policy.offline_only and not external_confirmed:
+            raise ProjectAIIntegrationError(
+                "external processing was not authorized by the requesting user"
+            )
         tasks = (
             self.policy_task_factory(project_name, objective, policy)
             if self.policy_task_factory is not None
@@ -466,6 +529,7 @@ class DeterministicProjectAIIntegrationRunner:
         input_tokens = 0
         output_tokens = 0
         total_cost = 0.0
+        coder_text: str | None = None
         try:
             route_rows = await self._task_routes(plan_id)
             route_by_task = {row.task_id: row for row in route_rows}
@@ -557,6 +621,8 @@ class DeterministicProjectAIIntegrationRunner:
                             total_cost += response.cost_usd
                             input_tokens += response.input_tokens
                             output_tokens += response.output_tokens
+                            if spec.role == "coder":
+                                coder_text = response.text
                             selected = {
                                 "task_id": spec.task_id,
                                 "role": spec.role,
@@ -616,6 +682,218 @@ class DeterministicProjectAIIntegrationRunner:
         providers = sorted({item["provider"] for item in results})
         final = results[-1]
         stage("ai_integration_complete", 96)
+        delivery: dict[str, Any] | None = None
+        compile_blocker: str | None = None
+        if execution_mode == "planning" and self.governed_compiler is not None:
+            try:
+                planned = await asyncio.to_thread(
+                    self.governed_compiler.plan_only,
+                    job_id=job_id,
+                    project_name=project_name,
+                    objective=objective,
+                    tenant_id=tenant_id,
+                    requested_by_id=requested_by_id,
+                    route_results=tuple(results),
+                    total_cost_usd=total_cost,
+                    external_processing_authorized=external_confirmed,
+                )
+            except ProjectAIGovernedBuildError:
+                compile_blocker = "The six-department engineering plan failed validation"
+            else:
+                return {
+                    "success": True,
+                    "phase": 36,
+                    "mode": "planning",
+                    "status": "rework_required",
+                    "approved": False,
+                    "planning_approved": planned.planning_approved,
+                    "readiness_score": planned.readiness_score,
+                    "all_governance_layers_executed": False,
+                    "release_approval_withheld": True,
+                    "release_approval_withheld_reason": "planning_only",
+                    "blocking_findings": [
+                        "Reviewed engineering plan exists, but no executable product and full governance were run."
+                    ],
+                    "rework_plan": [
+                        "Run full implementation, actual tests, rollback and complete release governance."
+                    ],
+                    "delivery_package": planned.package,
+                    "output_directory": str(planned.output_directory),
+                    "manifest_path": str(planned.manifest_path),
+                    "model_claims_used_as_execution_proof": False,
+                    "production_modified": False,
+                    "provider": providers[0] if len(providers) == 1 else "multi-provider",
+                    "model": final["model"],
+                    "requests_count": requests_count,
+                    "retries_count": retries_count,
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "total_tokens": input_tokens + output_tokens,
+                    "calculated_cost": round(total_cost, 8),
+                    "provider_plan": results,
+                    "integration_foundation": False,
+                }
+        if execution_mode in {"full", "3d_full"} and self.governed_compiler is not None:
+            if coder_text is None:
+                compile_blocker = "No verified coder specification was produced"
+            else:
+                try:
+                    compiled = await asyncio.to_thread(
+                        self.governed_compiler.compile,
+                        job_id=job_id,
+                        project_name=project_name,
+                        objective=objective,
+                        tenant_id=tenant_id,
+                        requested_by_id=requested_by_id,
+                        coder_text=coder_text,
+                        route_results=tuple(results),
+                        total_cost_usd=total_cost,
+                        external_processing_authorized=external_confirmed,
+                        stage_callback=build_stage,
+                    )
+                except (ProjectAIGovernedBuildError, ControlledProjectBuildError):
+                    # Model format or compiler policy failures are rework outcomes,
+                    # not successful releases or retryable provider transport faults.
+                    compile_blocker = "Provider specification or governed build did not pass validation"
+                else:
+                    three_d: dict[str, Any] | None = None
+                    three_d_error: str | None = None
+                    if execution_mode == "3d_full":
+                        build_stage("three_d_build_and_browser_QA", 99)
+                        # Rebind after the asynchronous provider route so static
+                        # and runtime checks both fail closed if the injected
+                        # builder is absent or was replaced while awaiting.
+                        three_d_builder = self.three_d_builder
+                        if three_d_builder is None:
+                            raise ProjectAIIntegrationError(
+                                "3D full delivery requires an authorized builder"
+                            )
+                        # The durable worker has already staged and SHA-verified
+                        # any project-scoped GLB assets before invoking this route.
+                        # The existing 3D builder performs its *own* source build,
+                        # browser QA, performance and rollback checks.
+                        try:
+                            # The existing 3D builder accepts no per-execution
+                            # budget argument. When its configured Tripo key
+                            # might incur credits, do NOT call it for a user
+                            # who explicitly declined external processing.
+                            if not external_confirmed and os.environ.get("TRIPO_API_KEY", "").strip():
+                                raise ThreeDProjectDeliveryError(
+                                    "3D external provider call lacks user authorization"
+                                )
+                            three_d = await asyncio.to_thread(
+                                three_d_builder.build,
+                                project_id=project_id,
+                                project_name=project_name,
+                                objective=objective,
+                                execution_root=compiled.output_directory,
+                                asset_manifest_path=three_d_asset_manifest,
+                            )
+                        except ThreeDProjectDeliveryError:
+                            # The separately verified application source remains
+                            # deliverable, but 3D staging/browsers cannot claim
+                            # success. Never surface provider secrets or paths.
+                            three_d_error = "3D build or browser verification did not complete"
+                            three_d = {
+                                "mode": "3d_full",
+                                "release_ready": False,
+                                "release_reasons": [three_d_error],
+                                "production_build_passed": False,
+                                "browser_qa_passed": False,
+                                "performance_passed": False,
+                                "asset_count": 0,
+                            }
+                        if not isinstance(three_d, dict) or type(three_d.get("release_ready")) is not bool:
+                            raise ProjectAIIntegrationError("the 3D builder returned no verifiable release status")
+                        digest = str(three_d.get("aggregate_sha256") or "")
+                        path = str(three_d.get("delivery_path") or "")
+                        required_checks = ("production_build_passed", "browser_qa_passed", "performance_passed")
+                        if three_d_error is None and (
+                            len(digest) != 64
+                            or any(char not in "0123456789abcdefABCDEF" for char in digest)
+                            or path != "delivery-package/3d-web"
+                            or not (Path(compiled.output_directory) / path).is_dir()
+                            or any(type(three_d.get(name)) is not bool for name in required_checks)
+                            or (
+                                three_d["release_ready"]
+                                and not all(three_d[name] for name in required_checks)
+                            )
+                        ):
+                            raise ProjectAIIntegrationError(
+                                "3D release evidence contradicts the build and browser checks"
+                            )
+                    blockers = list(compiled.blocking_findings)
+                    rework_steps = list(compiled.rework_plan)
+                    approved = compiled.approved
+                    package = dict(compiled.delivery_package)
+                    release_review = dict(compiled.release_review)
+                    if three_d is not None:
+                        if three_d_error is None:
+                            package["three_d_web"] = three_d["delivery_path"]
+                            package["three_d_web_sha256"] = three_d["aggregate_sha256"]
+                        release_review["three_d_web"] = {
+                            "release_ready": three_d["release_ready"],
+                            "browser_qa_passed": three_d.get("browser_qa_passed") is True,
+                            "performance_passed": three_d.get("performance_passed") is True,
+                            "asset_count": int(three_d.get("asset_count") or 0),
+                        }
+                        if not three_d["release_ready"]:
+                            approved = False
+                            for reason in three_d.get("release_reasons") or ["3D runtime release gate incomplete"]:
+                                blockers.append(f"3D web: {str(reason)[:220]}")
+                                rework_steps.append("Rebuild 3D web and pass browser/performance checks")
+                    release_review["approved"] = approved
+                    release_review["status"] = "approved" if approved else "rework_required"
+                    release_review["blocking_findings"] = blockers
+                    release_review["rework_plan"] = list(dict.fromkeys(rework_steps))
+                    delivery = {
+                        "status": "approved" if approved else "rework_required",
+                        "approved": approved,
+                        "readiness_score": compiled.readiness_score,
+                        "release_approval_withheld": not approved,
+                        "release_approval_withheld_reason": (
+                            "institutional_review_blockers" if not approved else None
+                        ),
+                        "all_governance_layers_executed": compiled.governance_layers_executed,
+                        "blocking_findings": blockers,
+                        "rework_plan": list(dict.fromkeys(rework_steps)),
+                        "workforce": list(compiled.workforce),
+                        "delivery_package": package,
+                        "three_d_web": three_d,
+                        "implementation": compiled.implementation,
+                        "governance": compiled.governance,
+                        "release_review": release_review,
+                        "engineering_review": compiled.engineering_review,
+                        "security_review": compiled.security_review,
+                        "integration_review": compiled.integration_review,
+                        "application_type": compiled.application_type,
+                        "implementation_capabilities": compiled.implementation_capabilities,
+                        "fallback_used": False,
+                        "output_directory": str(compiled.output_directory),
+                        "manifest_path": str(compiled.manifest_path),
+                        "project_archive_path": str(compiled.archive_path),
+                    }
+        if delivery is not None:
+            return {
+                "success": True,
+                "phase": 36,
+                "mode": execution_mode,
+                "provider": providers[0] if len(providers) == 1 else "multi-provider",
+                "model": final["model"],
+                "requests_count": requests_count,
+                "retries_count": retries_count,
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "total_tokens": input_tokens + output_tokens,
+                "calculated_cost": round(total_cost, 8),
+                "provider_plan": results,
+                "integration_foundation": False,
+                "model_claims_used_as_execution_proof": False,
+                "production_modified": False,
+                **delivery,
+            }
+        if compile_blocker is not None:
+            stage("project_rework_required", 96)
         return {
             "success": True,
             "phase": 36,
@@ -637,6 +915,7 @@ class DeterministicProjectAIIntegrationRunner:
             "release_approval_withheld_reason": "governance_incomplete",
             "status": "rework_required",
             "blocking_findings": [
+                *([compile_blocker] if compile_blocker else []),
                 "Model inference and route receipts do not constitute a verified executable project.",
                 "Independent implementation tests and the complete AIOS governance release cycle have not run.",
             ],

@@ -7,6 +7,7 @@ fresh validated-model evidence, and emits only redacted provider failure codes.
 """
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any
@@ -23,6 +24,12 @@ from app.services.project_ai_access_policy import (
     ProjectAIAccessPolicyError,
     resolve_project_ai_access,
 )
+from aios.project_ai_governed_compiler import ProjectAIGovernedCompiler
+from aios.controlled_project_builder import ControlledProjectBuilder
+from aios.project_ai_compact_spec import compact_project_schema
+from app.services.project_ai_structured_adapter import execute_structured_project_coder
+from pathlib import Path
+from app.services.three_d_project_delivery import ThreeDWebDeliveryBuilder
 from app.services.project_execution_ai_integration import (
     DeterministicProjectAIIntegrationRunner,
     ProjectAIIntegrationError,
@@ -163,7 +170,28 @@ class ProjectAILiveProviderInvoker:
             metrics={},
         )
         try:
-            result = await _execute_provider(provider, agent, invocation.prompt)
+            if (
+                invocation.role == "coder"
+                and invocation.task == "coding"
+                and provider.type in {"ollama", "openai"}
+            ):
+                local_compact = (
+                    provider.type == "ollama"
+                    and invocation.prompt.startswith("AIONEX_COMPACT_PROJECT_SPEC_V1:")
+                )
+                result = await execute_structured_project_coder(
+                    provider,
+                    agent,
+                    invocation.prompt,
+                    project_coder_max_tokens=1024 if local_compact else 3072,
+                    project_coder_schema=(
+                        compact_project_schema()
+                        if local_compact
+                        else ControlledProjectBuilder._schema()
+                    ),
+                )
+            else:
+                result = await _execute_provider(provider, agent, invocation.prompt)
         except HTTPException as exc:
             code, billing_signal = _provider_error_code(exc)
             if billing_signal is not None:
@@ -221,6 +249,25 @@ def launch_policy_tasks(
     policy: ProjectAIProviderPolicy,
 ) -> tuple[ProjectAITaskSpec, ...]:
     tasks = default_project_ai_tasks(project_name, objective)
+    if policy.offline_only:
+        # A small local CPU model can produce a real bounded domain brief without
+        # spending minutes reproducing a large JSON specification boilerplate.
+        # The reviewed deterministic compiler expands and validates the full spec.
+        compact_prompt = (
+            "AIONEX_COMPACT_PROJECT_SPEC_V1: "
+            "Return ONLY a single JSON product brief for this request: "
+            + str(project_name).strip()[:240] + ". Objective: "
+            + str(objective).strip()[:6000] + ". "
+            "No code, invented tests, URLs, keys, Markdown or external integrations. "
+            "Required strict schema: "
+            + json.dumps(compact_project_schema(), separators=(",", ":"))
+        )
+        tasks = tuple(
+            replace(task, prompt=compact_prompt, max_tokens=1024)
+            if task.role == "coder"
+            else replace(task, max_tokens=min(task.max_tokens, 192))
+            for task in tasks
+        )
     return tuple(
         replace(
             task,
@@ -241,5 +288,9 @@ def build_live_project_ai_runner() -> DeterministicProjectAIIntegrationRunner:
         policy_resolver=resolve_live_project_ai_policy,
         default_invoker=ProjectAILiveProviderInvoker(SessionLocal),
         policy_task_factory=launch_policy_tasks,
+        governed_compiler=ProjectAIGovernedCompiler(
+            Path(settings.PROJECT_EXECUTION_OUTPUT_ROOT) / "governed-phase36c"
+        ),
+        three_d_builder=ThreeDWebDeliveryBuilder(),
         redis_key_prefix="aionex:project-ai:live:v1",
     )

@@ -142,6 +142,7 @@ def _public_result(summary: dict[str, Any] | None) -> dict[str, Any] | None:
         "total_duration",
         "approved",
         "readiness_score",
+        "planning_approved",
         "blocking_findings",
         "rework_plan",
         "comparison",

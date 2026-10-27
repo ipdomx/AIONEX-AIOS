@@ -173,6 +173,8 @@ def test_launch_policy_task_factory_disables_tool_requirement_for_free_local_pol
     assert free_coder.require_tools is False
     assert free_coder.allow_failover is False
     assert free_coder.max_fallbacks == 0
-    assert paid_coder.require_tools is True
+    # All coder model tasks now return a bounded JSON product specification.
+    # The reviewed deterministic compiler, not the model, executes tools.
+    assert paid_coder.require_tools is False
     assert paid_coder.allow_failover is True
     assert paid_coder.max_fallbacks == 1

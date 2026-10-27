@@ -261,6 +261,7 @@ class FullProjectCycle:
         tenant_id: str = "platform",
         requested_by_id: str = "system",
         external_processing_authorized: bool = True,
+        local_processing_authorized: bool = False,
         stage_callback: StageCallback | None = None,
     ) -> dict[str, Any]:
         safe_id = self._validate_execution_id(execution_id)
@@ -296,8 +297,13 @@ class FullProjectCycle:
             if implementation_directory is not None
             else None
         )
+        if local_processing_authorized is True and manifest["provider"] != "aionex-project-ai":
+            raise FullProjectCycleValidationError(
+                "local-only authorization requires pinned local Project AI evidence"
+            )
         staging.mkdir(mode=0o700)
         started = time.monotonic()
+        processing_authorized = bool(external_processing_authorized or local_processing_authorized)
 
         def stage(name: str, progress: int) -> None:
             if stage_callback is not None:
@@ -311,6 +317,7 @@ class FullProjectCycle:
                 "tenant_id": tenant_id,
                 "requested_by_id": requested_by_id,
                 "external_processing_authorized": bool(external_processing_authorized),
+                "local_processing_authorized": bool(local_processing_authorized),
                 "planning_manifest_sha256": planning_manifest_sha256,
                 "pre_implementation_plan_approved": bool(
                     plan_review_evidence is not None
@@ -335,6 +342,7 @@ class FullProjectCycle:
                 metadata={
                     "planning_manifest_sha256": intake["planning_manifest_sha256"],
                     "external_processing_authorized": external_processing_authorized,
+                    "local_processing_authorized": local_processing_authorized,
                 },
             )
             cognitive_payload: dict[str, Any] = {
@@ -365,11 +373,13 @@ class FullProjectCycle:
                 evidence=(
                     f"planning-manifest:{intake['planning_manifest_sha256']}",
                     "strict-department-schema-validated",
-                    "explicit-external-processing-consent",
+                    "locally-authorized-offline-execution"
+                    if local_processing_authorized and not external_processing_authorized
+                    else "explicit-external-processing-consent",
                 ),
                 dry_run_passed=True,
                 rollback_available=True,
-                authorization=bool(external_processing_authorized),
+                authorization=processing_authorized,
                 environment="sandbox",
                 destructive=False,
                 security_sensitive=self._security_sensitive(selected_objective),
@@ -553,7 +563,8 @@ class FullProjectCycle:
                         or constitution.requires_human_approval
                     ),
                     metadata={
-                        "authorization": external_processing_authorized,
+                        "authorization": processing_authorized,
+                        "local_processing_only": bool(local_processing_authorized),
                         "rollback_plan": "retain immutable evidence and create a new execution",
                         "irreversible": False,
                     },
@@ -901,10 +912,33 @@ class FullProjectCycle:
             raise FullProjectCycleValidationError(
                 "planning manifest is invalid"
             ) from exc
-        if not isinstance(manifest, dict) or manifest.get("provider") != "openai":
+        if not isinstance(manifest, dict) or manifest.get("provider") not in {
+            "openai", "aionex-project-ai"
+        }:
             raise FullProjectCycleValidationError(
-                "planning source must be an OpenAI controlled execution"
+                "planning must come from an approved provider workflow"
             )
+        if manifest["provider"] == "aionex-project-ai":
+            routes = manifest.get("route_evidence")
+            if (
+                manifest.get("deterministic_planning_origin") is not True
+                or not isinstance(routes, list)
+                or len(routes) != 4
+                or {item.get("role") for item in routes if isinstance(item, dict)}
+                != {"planner", "researcher", "coder", "reviewer"}
+                or any(
+                    not isinstance(item, dict)
+                    or not isinstance(item.get("result_sha256"), str)
+                    or len(item["result_sha256"]) != 64
+                    or not isinstance(item.get("evidence_ref"), str)
+                    or not item["evidence_ref"]
+                    or item.get("fallback_used") is not False
+                    for item in routes
+                )
+            ):
+                raise FullProjectCycleValidationError(
+                    "Phase36C planning is missing the audited route provenance"
+                )
         if manifest.get("fallback_used") is not False:
             raise FullProjectCycleValidationError("fallback planning is forbidden")
         if manifest.get("production_modified") is not False:
@@ -1397,13 +1431,22 @@ class FullProjectCycle:
             ) from exc
         if (
             manifest.get("mode") != "controlled-full-stack-prototype"
-            or manifest.get("provider") != "openai"
+            or manifest.get("provider") not in {"openai", "aionex-project-ai"}
             or manifest.get("fallback_used") is not False
             or manifest.get("production_modified") is not False
             or (manifest.get("tests") or {}).get("passed") is not True
             or manifest.get("rollback_tested") is not True
             or (manifest.get("planning") or {}).get("manifest_sha256")
             != planning_manifest_sha256
+            or (
+                manifest.get("provider") == "aionex-project-ai"
+                and (
+                    manifest.get("provider_role")
+                    != "bounded product JSON specification only, not arbitrary executable source"
+                    or not isinstance(manifest.get("validated_route_evidence"), dict)
+                    or not manifest["validated_route_evidence"].get("result_sha256")
+                )
+            )
         ):
             raise FullProjectCycleValidationError(
                 "implementation evidence does not satisfy the controlled prototype contract"
