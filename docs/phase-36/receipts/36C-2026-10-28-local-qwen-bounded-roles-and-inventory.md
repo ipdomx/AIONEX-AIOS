@@ -80,9 +80,33 @@ production encryption/mount code changes and no FR06 physical cold-host
 recovery or final-release acceptance claim. The 14 directly affected native
 security tests passed locally; GitHub Python 3.12 remains authoritative.
 
+## Isolated real DB/Redis verification after CI fixture adjustments
+
+After the GitHub backend test stopped at the old Gemma-only Free resolver
+fixture, the fixture was updated to the reviewed Qwen model without weakening
+tenant boundaries. Isolated PostgreSQL/Redis testing confirmed the corrected
+durable resolver and route policy.
+
+A second real isolated PostgreSQL+Redis suite checked 18 cases across model
+refresh, Free/Paid and tenant policy, and the Project AI live provider adapter.
+It initially exposed an outdated model-refresh service file in the old
+Backend image: that image still considered configured/disconnected legacy
+Ollama records in the single-provider count. The protected main source
+already fixes this and the corrected test image included that exact source
+SHA-256. All 18 tests then passed. Production Backend/worker release images
+must explicitly include the current main model-refresh module rather than
+inheriting stale source from a base image.
+
+An additional isolated Qwen compact-coder suite passed 26 contract tests,
+including the exact 640-token limit and original policy-task budget.
+The tests use synthetic data only; no expensive provider was invoked.
+
 ## SHA256 evidence
 
 - failed production synthetic canary and cleanup: b084816caf3537e374a2e22fd9e895b3b46b003d2a1bb91802d7a4094f542c5c
 - real bounded planner result: 0934cb624cff9306e27237114275e91b212446a4e0b4f534b67829fc0197889d
 - real four-role and compiled app: 9f3578ac0c0bec05659c46ec824769e62c728c270af4358e061452a3ac98d5f4
 - offline 25 tests: e0da41918e54216729fa2395631ed9ef63fe8c1618166bcd0d7334159d751f58
+
+Isolated current-model refreshed provider suite SHA-256: ae9fef2bb9005b8454e3358e435b0999b44c1b8156d0f831c210b0386cd44977
+Isolated bounded local coder suite SHA-256: d56270a5254e842f518f14195efa997a0788df78a897c9ba3df656321d80ca98

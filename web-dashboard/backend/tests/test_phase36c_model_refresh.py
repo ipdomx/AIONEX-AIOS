@@ -229,7 +229,7 @@ async def test_configured_and_disabled_ollama_duplicates_do_not_block_connected_
             assert primary is not None and pending is not None and disabled is not None
             assert [
                 x["model"] for x in (primary.config or {}).get("validated_models", [])
-            ] == ["gemma3:4b"]
+            ] == ["gemma3:4b", "qwen2.5:1.5b"]
             assert not (pending.config or {}).get("validated_models")
             assert not (disabled.config or {}).get("validated_models")
     finally:
