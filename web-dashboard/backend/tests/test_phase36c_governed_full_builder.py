@@ -32,7 +32,7 @@ from app.services.project_execution_ai_integration import (
 )
 from app.services.project_execution_routing import ProjectAIProviderPolicy
 from app.services.project_execution_worker import ProjectExecutionWorker
-from test_phase36c_project_integration_foundation import (
+from tests.test_phase36c_project_integration_foundation import (
     _cleanup_org,
     _delete_workers,
     _seed_execution,
