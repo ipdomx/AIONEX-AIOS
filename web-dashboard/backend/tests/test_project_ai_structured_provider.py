@@ -105,3 +105,82 @@ async def test_regular_agent_request_keeps_legacy_token_budget_and_no_schema(
     assert result["text"] == "normal"
     assert captured["options"]["num_predict"] == 1024
     assert "format" not in captured
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("role", ["planner", "researcher", "reviewer"])
+async def test_bounded_local_project_role_applies_exact_task_token_limit(
+    monkeypatch: pytest.MonkeyPatch, role: str,
+) -> None:
+    request: dict = {}
+
+    async def real_interface_stub(method, url, **kwargs):
+        assert method == "POST" and url == "http://127.0.0.1:11434/api/chat"
+        assert kwargs["timeout"] <= 65
+        request.update(kwargs["json_body"])
+        return {
+            "model": "qwen2.5:1.5b",
+            "message": {"content": "Reviewed project role notes"},
+            "prompt_eval_count": 30,
+            "eval_count": 192,
+        }, 7420.0
+
+    monkeypatch.setattr(structured, "_request_json", real_interface_stub)
+    provider = SimpleNamespace(type="ollama", base_url="http://127.0.0.1:11434")
+    agent = SimpleNamespace(model="qwen2.5:1.5b", temperature=0.2, system_prompt="")
+    result = await structured.execute_bounded_project_ollama_role(
+        provider, agent, f"Synthetic {role} role only",
+        task_max_tokens=192,
+    )
+    assert result["provider"] == "ollama"
+    assert result["usage"]["output_tokens"] == 192
+    assert result["usage"]["total_tokens"] == 222
+    assert request["options"]["num_predict"] == 192
+    assert request["options"]["num_ctx"] == 4096
+    assert request["options"]["num_thread"] == 6
+    assert request["stream"] is False
+    assert request["keep_alive"] == "2m"
+    assert len(request["messages"]) == 1
+    assert "format" not in request
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("tokens", [None, 0, 15, 257, True, "192"])
+async def test_local_role_invalid_token_budget_fails_without_model_call(
+    monkeypatch: pytest.MonkeyPatch, tokens,
+) -> None:
+    called = False
+
+    async def forbidden(*_args, **_kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("unexpected model request")
+
+    monkeypatch.setattr(structured, "_request_json", forbidden)
+    provider = SimpleNamespace(type="ollama", base_url="http://127.0.0.1:11434")
+    agent = SimpleNamespace(model="qwen2.5:1.5b", temperature=0.2, system_prompt="")
+    with pytest.raises(HTTPException) as error:
+        await structured.execute_bounded_project_ollama_role(
+            provider, agent, "Bounded planner",
+            task_max_tokens=tokens,
+        )
+    assert error.value.status_code == 422
+    assert called is False
+
+
+@pytest.mark.anyio
+async def test_ollama_local_role_rejects_usage_overrun(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def forged(_method, _url, **_kwargs):
+        return {"message": {"content": "bad"},
+                "prompt_eval_count": 10,"eval_count": 400}, 1.0
+
+    monkeypatch.setattr(structured, "_request_json", forged)
+    provider = SimpleNamespace(type="ollama", base_url="http://127.0.0.1:11434")
+    agent = SimpleNamespace(model="qwen2.5:1.5b", temperature=0.2, system_prompt="")
+    with pytest.raises(HTTPException) as error:
+        await structured.execute_bounded_project_ollama_role(
+            provider, agent, "Bounded reviewer", task_max_tokens=192,
+        )
+    assert error.value.status_code == 502

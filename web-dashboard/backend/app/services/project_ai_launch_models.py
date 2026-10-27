@@ -31,6 +31,42 @@ class LaunchModelChoice:
 # not represented as provider benchmark claims.  Prices/capabilities/context are
 # reviewed from the cited official provider sources and must still be combined
 # with fresh live inventory evidence before persistence/routing.
+# Proven with four actual local Qwen invocations on the production host:
+# 17.76s across roles, compact JSON accepted by the controlled compiler, and
+# a 192-token planner completed in 7.42s. Limits are deliberately conservative
+# operational caps, NOT claims of 5,000-user production throughput.
+FREE_OLLAMA_QWEN25_15B = LaunchModelChoice(
+    provider_type="ollama",
+    model="qwen2.5:1.5b",
+    access_class="free",
+    priority=120,
+    official_source="https://ollama.com/library/qwen2.5",
+    spec=ProviderModelValidationSpec(
+        provider_type="ollama",
+        model="qwen2.5:1.5b",
+        tasks=frozenset({"reasoning", "research", "coding", "review"}),
+        policy_ref=f"{LAUNCH_MODEL_POLICY_VERSION}:ollama:qwen2.5-1.5b",
+        languages=frozenset({"multilingual"}),
+        supports_tools=False,
+        supports_vision=False,
+        supports_audio=False,
+        local=True,
+        max_context_tokens=4096,
+        quality_score=0.60,
+        latency_score=0.75,
+        privacy_score=1.0,
+        input_cost_per_million=0.0,
+        output_cost_per_million=0.0,
+        requests_per_minute=8,
+        concurrent_requests=1,
+        circuit_failure_threshold=3,
+        circuit_failure_window_seconds=60,
+        circuit_open_seconds=45,
+        lease_seconds=120,
+    ),
+)
+
+
 FREE_OLLAMA_GEMMA3 = LaunchModelChoice(
     provider_type="ollama",
     model="gemma3:4b",
@@ -227,6 +263,7 @@ OPENAI_DESIRED_CURRENT = (
 )
 
 LAUNCH_ENABLED_MODELS: Final[tuple[LaunchModelChoice, ...]] = (
+    FREE_OLLAMA_QWEN25_15B,
     FREE_OLLAMA_GEMMA3,
     *OPENAI_DESIRED_CURRENT,
     PAID_MISTRAL_MEDIUM_35,

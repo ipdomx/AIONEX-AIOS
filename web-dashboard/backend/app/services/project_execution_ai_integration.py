@@ -77,6 +77,9 @@ class ProjectAIInvocation:
     prompt: str = field(repr=False)
     system_prompt: str = field(default="", repr=False)
     memory: tuple[dict[str, Any], ...] = ()
+    # Immutable per-task budget from the reviewed route plan. The Ollama
+    # Project AI adapter must not silently use the general chat 1024-token cap.
+    max_tokens: int = 1024
 
 
 @dataclass(frozen=True, slots=True)
@@ -586,6 +589,7 @@ class DeterministicProjectAIIntegrationRunner:
                         prompt=spec.prompt,
                         system_prompt=spec.system_prompt,
                         memory=remembered,
+                        max_tokens=spec.max_tokens,
                     )
                     if invoker is None:
                         failure = ProjectAIInvocationFailure(

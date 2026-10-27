@@ -27,7 +27,10 @@ from app.services.project_ai_access_policy import (
 from aios.project_ai_governed_compiler import ProjectAIGovernedCompiler
 from aios.controlled_project_builder import ControlledProjectBuilder
 from aios.project_ai_compact_spec import compact_project_schema
-from app.services.project_ai_structured_adapter import execute_structured_project_coder
+from app.services.project_ai_structured_adapter import (
+    execute_bounded_project_ollama_role,
+    execute_structured_project_coder,
+)
 from pathlib import Path
 from app.services.three_d_project_delivery import ThreeDWebDeliveryBuilder
 from app.services.project_execution_ai_integration import (
@@ -189,6 +192,17 @@ class ProjectAILiveProviderInvoker:
                         if local_compact
                         else ControlledProjectBuilder._schema()
                     ),
+                )
+            elif (
+                provider.type == "ollama"
+                and invocation.role in {"planner", "researcher", "reviewer"}
+                and invocation.task == "reasoning"
+            ):
+                result = await execute_bounded_project_ollama_role(
+                    provider,
+                    agent,
+                    invocation.prompt,
+                    task_max_tokens=invocation.max_tokens,
                 )
             else:
                 result = await _execute_provider(provider, agent, invocation.prompt)
