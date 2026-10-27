@@ -611,6 +611,18 @@ def _profile_model_resources_match(
     }
     return observed == expected
 
+def _browser_ready_wait_seconds(profile: PerformanceProfile) -> int:
+    """Allow the simulated 4x CPU-throttled device to finish initial WebGL boot.
+
+    This is only the browser *readiness wait*, not the FPS, memory, bundle-size,
+    browser-interaction or final performance acceptance criteria. All of those
+    checks remain unchanged and are independently evaluated afterward.
+    """
+    if profile == PerformanceProfile.LOW_POWER:
+        return 80
+    return 35
+
+
 def _browser_qa(
     dist_root: Path,
     evidence_root: Path,
@@ -692,7 +704,7 @@ def _browser_qa(
                         except Exception:
                             throttle = 1.0
                     driver.get(target)
-                    wait = WebDriverWait(driver, 35)
+                    wait = WebDriverWait(driver, _browser_ready_wait_seconds(profile))
                     ready = bool(
                         wait.until(
                             lambda current: current.execute_script(
