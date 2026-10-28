@@ -171,6 +171,7 @@ def test_launch_policy_task_factory_disables_tool_requirement_for_free_local_pol
     free_coder = next(task for task in free_tasks if task.role == "coder")
     paid_coder = next(task for task in paid_tasks if task.role == "coder")
     assert free_coder.require_tools is False
+    assert free_coder.max_tokens == 640
     assert free_coder.allow_failover is False
     assert free_coder.max_fallbacks == 0
     # All coder model tasks now return a bounded JSON product specification.

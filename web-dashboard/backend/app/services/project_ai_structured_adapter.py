@@ -39,7 +39,7 @@ async def execute_structured_project_coder(
     schema = project_coder_schema
     if (
         type(tokens) is not int
-        or not 1024 <= tokens <= 4096
+        or not 256 <= tokens <= 4096
         or not isinstance(schema, dict)
         or schema.get("type") != "object"
         or schema.get("additionalProperties") is not False
@@ -70,14 +70,17 @@ async def execute_structured_project_coder(
             "options": {
                 "temperature": 0.0,
                 "num_predict": tokens,
+                "num_ctx": 4096 if tokens <= 640 else 8192,
+                "num_thread": 6,
             },
+            "keep_alive": "2m",
         }
         payload, latency = await _request_json(
             "POST",
             f"{base}/api/chat",
             headers={"Content-Type": "application/json"},
             json_body=request,
-            timeout=120,
+            timeout=90 if tokens <= 640 else 120,
         )
         text = str((payload.get("message") or {}).get("content") or "").strip()
         usage = {
@@ -133,4 +136,71 @@ async def execute_structured_project_coder(
         "cost": 0.0,  # Authoritative actual pricing is recorded by ProjectAILiveProviderInvoker.
         "latency_ms": round(float(latency), 2),
         "response_id": response_id,
+    }
+
+
+async def execute_bounded_project_ollama_role(
+    provider: AIProvider,
+    agent: AIAgent,
+    prompt: str,
+    *,
+    task_max_tokens: int,
+) -> dict[str, Any]:
+    """Real Ollama non-coder task, bounded to the task's audited token budget.
+
+    This does not modify the general AI chat adapter. A local model that emits
+    unchecked text indefinitely can otherwise hold a durable lease for 120s
+    despite a planner/reviewer budget of only 192 tokens.
+    """
+    if provider.type != "ollama":
+        raise HTTPException(status_code=422, detail="Bounded local task requires Ollama")
+    if type(task_max_tokens) is not int or not 16 <= task_max_tokens <= 256:
+        raise HTTPException(status_code=422, detail="Project AI local task token budget is invalid")
+    if not isinstance(prompt, str) or not 1 <= len(prompt) <= 16000:
+        raise HTTPException(status_code=422, detail="Project AI local role prompt is invalid")
+    base = validate_provider_base_url("ollama", provider.base_url)
+    if not base:
+        raise HTTPException(status_code=503, detail="Project AI local model endpoint is not configured")
+    system_prompt = str(agent.system_prompt or "")[:2000]
+    request = {
+        "model": agent.model,
+        "stream": False,
+        "messages": (
+            ([{"role": "system", "content": system_prompt}] if system_prompt else [])
+            + [{"role": "user", "content": prompt}]
+        ),
+        "options": {
+            "temperature": max(0.0, min(1.0, float(agent.temperature))),
+            "num_predict": task_max_tokens,
+            "num_ctx": 4096,
+            # The current 6-vCPU Ollama CPU container is explicitly pinned.
+            "num_thread": 6,
+        },
+        "keep_alive": "2m",
+    }
+    payload, latency = await _request_json(
+        "POST",
+        f"{base}/api/chat",
+        headers={"Content-Type": "application/json"},
+        json_body=request,
+        timeout=65,
+    )
+    response_text = str((payload.get("message") or {}).get("content") or "").strip()
+    if not response_text or len(response_text) > 12000:
+        raise HTTPException(status_code=502, detail="Project AI local role response is empty or oversized")
+    usage = {
+        "input_tokens": int(payload.get("prompt_eval_count") or 0),
+        "output_tokens": int(payload.get("eval_count") or 0),
+    }
+    if usage["input_tokens"] < 0 or not 0 <= usage["output_tokens"] <= task_max_tokens:
+        raise HTTPException(status_code=502, detail="Project AI local role usage contradicts budget")
+    usage["total_tokens"] = _usage_total(usage)
+    return {
+        "text": response_text,
+        "provider": provider.type,
+        "model": str(payload.get("model") or agent.model),
+        "usage": usage,
+        "cost": 0.0,
+        "latency_ms": round(float(latency), 2),
+        "response_id": None,
     }

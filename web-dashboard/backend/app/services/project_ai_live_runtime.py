@@ -27,7 +27,10 @@ from app.services.project_ai_access_policy import (
 from aios.project_ai_governed_compiler import ProjectAIGovernedCompiler
 from aios.controlled_project_builder import ControlledProjectBuilder
 from aios.project_ai_compact_spec import compact_project_schema
-from app.services.project_ai_structured_adapter import execute_structured_project_coder
+from app.services.project_ai_structured_adapter import (
+    execute_bounded_project_ollama_role,
+    execute_structured_project_coder,
+)
 from pathlib import Path
 from app.services.three_d_project_delivery import ThreeDWebDeliveryBuilder
 from app.services.project_execution_ai_integration import (
@@ -183,12 +186,23 @@ class ProjectAILiveProviderInvoker:
                     provider,
                     agent,
                     invocation.prompt,
-                    project_coder_max_tokens=1024 if local_compact else 3072,
+                    project_coder_max_tokens=invocation.max_tokens if local_compact else 3072,
                     project_coder_schema=(
                         compact_project_schema()
                         if local_compact
                         else ControlledProjectBuilder._schema()
                     ),
+                )
+            elif (
+                provider.type == "ollama"
+                and invocation.role in {"planner", "researcher", "reviewer"}
+                and invocation.task == "reasoning"
+            ):
+                result = await execute_bounded_project_ollama_role(
+                    provider,
+                    agent,
+                    invocation.prompt,
+                    task_max_tokens=invocation.max_tokens,
                 )
             else:
                 result = await _execute_provider(provider, agent, invocation.prompt)
@@ -263,7 +277,7 @@ def launch_policy_tasks(
             + json.dumps(compact_project_schema(), separators=(",", ":"))
         )
         tasks = tuple(
-            replace(task, prompt=compact_prompt, max_tokens=1024)
+            replace(task, prompt=compact_prompt, max_tokens=640)
             if task.role == "coder"
             else replace(task, max_tokens=min(task.max_tokens, 192))
             for task in tasks

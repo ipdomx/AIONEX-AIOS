@@ -98,7 +98,13 @@ def _failure_boundary(monkeypatch, failure):
     monkeypatch.setattr(volatile.resource, "getrlimit", get_limit)
     monkeypatch.setattr(volatile.resource, "setrlimit", set_limit)
     monkeypatch.setattr(mapper.os, "geteuid", lambda: 0)
-    monkeypatch.setattr(mapper.os, "fstat", lambda fd: SimpleNamespace(st_mode=stat.S_IFBLK, st_rdev=os.makedev(7, 3)))
+    # Only the synthetic loop FD is forged. Python 3.12 cleanup must retain
+    # real os.fstat metadata for other descriptors (including st_size).
+    original_fstat = mapper.os.fstat
+    monkeypatch.setattr(mapper.os, "fstat", lambda fd: (
+        SimpleNamespace(st_mode=stat.S_IFBLK, st_rdev=os.makedev(7, 3))
+        if fd == 10 else original_fstat(fd)
+    ))
     kernel = mapper.LinuxMapperKernel()
     monkeypatch.setattr(kernel, "sample", lambda operation: SimpleNamespace(mapper=None))
 
