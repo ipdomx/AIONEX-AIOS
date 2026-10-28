@@ -110,3 +110,20 @@ The tests use synthetic data only; no expensive provider was invoked.
 
 Isolated current-model refreshed provider suite SHA-256: ae9fef2bb9005b8454e3358e435b0999b44c1b8156d0f831c210b0386cd44977
 Isolated bounded local coder suite SHA-256: d56270a5254e842f518f14195efa997a0788df78a897c9ba3df656321d80ca98
+
+
+## Frontend audit finding removed without runtime changes
+
+GitHub Final Validation dependency security discovered three low-severity
+vulnerabilities from the unused react-joyride 2.x > react-floater > deepmerge
+chain (GHSA-gcqx-w48m-w2h4). Exact source search found zero JavaScript/TSX
+imports and uses of react-joyride in the AIOS frontend. In a no-network,
+script-disabled Node24 npm operation, the package was uninstalled using
+package-lock-only. It removed 15 orphan dependency nodes, without adding or
+updating any other installed package or changing frontend code.
+
+Official npm audit through registry.npmjs.org after removal returned success,
+zero info/low/moderate/high/critical reported vulnerabilities in that locked
+dependency set. Production UI was not rebuilt or changed by the audit action;
+the normal independent GitHub frontend build remains authoritative.
+Official audit SHA-256: 8af7e5f0cf2e09870b2374a1e7df012906b997bcda6f669e4d269b9b4b1a0b75
