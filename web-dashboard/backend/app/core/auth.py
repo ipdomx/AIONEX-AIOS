@@ -632,6 +632,15 @@ async def current_user(
     enforce_auth_channel_role(request, user)
     if token is None and cookie_token is not None:
         enforce_cookie_request_origin(request, user)
+    if request.method.upper() in {"GET", "HEAD"} and session.in_transaction():
+        # Authentication has already read live user, role, org and grants and
+        # checked the token generation and revocation. No ORM entities escape:
+        # UserRecord is a detached value object. End the read-only transaction
+        # now rather than holding an API database-pool connection until the
+        # whole response finishes. Downstream handlers reuse this AsyncSession
+        # and acquire a fresh transaction for their own queries and policy
+        # rechecks. Mutation requests retain their existing transaction scope.
+        await session.rollback()
     return user
 
 
