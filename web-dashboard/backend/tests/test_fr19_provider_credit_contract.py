@@ -190,3 +190,17 @@ async def test_billing_failure_alert_does_not_require_or_expose_balance(
     }
     assert "remaining_usd" not in call["payload"]
     assert "funded_usd" not in call["payload"]
+
+def test_fr19_private_funding_redacts_spend_from_general_and_alert_payloads() -> None:
+    """Private modes must not expose spent amounts by subtraction."""
+    for mode in ("numeric_private", "owner_attested"):
+        snapshot = _snapshot(mode=mode, remaining=900_000)
+        public = snapshot.public()
+        owner = snapshot.owner()
+        assert public["balance_amount_private"] is True
+        assert public["consumed_since_topup_usd"] is None
+        assert owner["consumed_since_topup_usd"] == 6.0
+
+    openly_funded = _snapshot(mode="numeric")
+    assert openly_funded.public()["consumed_since_topup_usd"] == 6.0
+

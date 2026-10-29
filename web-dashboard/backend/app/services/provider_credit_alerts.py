@@ -77,7 +77,9 @@ class ProviderCreditSnapshot:
             "funded_confirmed": self.enabled and self.funding_mode in {"numeric", "numeric_private", "owner_attested"},
             "balance_amount_private": private_amount,
             "funded_usd": None if private_amount else round(self.funded_microusd / 1_000_000, 6),
-            "consumed_since_topup_usd": round(
+            # The spent amount can reveal the private funded baseline by
+            # subtraction. Never emit it in general or notification payloads.
+            "consumed_since_topup_usd": None if private_amount else round(
                 self.consumed_since_topup_microusd / 1_000_000, 6
             ),
             "remaining_usd": self.remaining_usd,
@@ -100,6 +102,12 @@ class ProviderCreditSnapshot:
         funded amount and thresholds needed for predictive alerts.
         """
         payload = self.public()
+        if self.balance_amount_private:
+            # The authenticated Owner can inspect observed spend even when
+            # finance numbers are redacted from general alert payloads.
+            payload["consumed_since_topup_usd"] = round(
+                self.consumed_since_topup_microusd / 1_000_000, 6
+            )
         if self.funding_mode == "numeric_private":
             payload.update(
                 {
