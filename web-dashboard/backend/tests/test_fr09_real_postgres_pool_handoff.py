@@ -115,17 +115,16 @@ def test_real_postgres_connection_released_before_get_response_finishes() -> Non
             finish_first_response.set()
             await engine.dispose()
 
-    with (
-        patch.object(
-            auth_service,
-            "decode_access_token",
-            AsyncMock(
-                return_value={"sub": "fr09-pool-regression", "auth_version": 17}
-            ),
+    # Keep compatibility with the project's Python 3.8 Ruff parser.
+    with patch.object(
+        auth_service,
+        "decode_access_token",
+        AsyncMock(
+            return_value={"sub": "fr09-pool-regression", "auth_version": 17}
         ),
-        patch.object(auth_service, "get_user_by_id", read_actor),
     ):
-        asyncio.run(scenario())
+        with patch.object(auth_service, "get_user_by_id", read_actor):
+            asyncio.run(scenario())
 
 
 if __name__ == "__main__":
