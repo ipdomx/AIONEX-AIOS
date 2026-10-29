@@ -93,7 +93,7 @@ async def test_attested_credit_persists_deduplicated_private_owner_alerts(
                 AIProvider(
                     id=provider_id, organization_id=tid,
                     name="No-network synthetic provider", type="synthetic",
-                    status="connected", encrypted_api_key=[REDACTED] base_url=None,
+                    status="connected", base_url=None,
                     config={"enabled": True, "runtime_spend_microusd": 0},
                 ),
             ])
