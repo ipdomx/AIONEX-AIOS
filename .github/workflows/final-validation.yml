@@ -255,13 +255,15 @@ jobs:
         env:
           COMPOSE_PARALLEL_LIMIT: "1"
         run: |
-          mkdir -p diagnostics
+          mkdir -p diagnostics/docker
+          set -o pipefail
           AIOS_ENV_FILE="$GITHUB_WORKSPACE/web-dashboard/.env.production" \
           docker compose \
             --profile media-execution \
             --env-file .env.production \
             -f docker-compose.production.yml \
-            build media-worker
+            build --progress plain media-worker \
+            2>&1 | tee diagnostics/docker/media-worker-build.log
           docker run --rm --network none \
             -e ENVIRONMENT=test \
             -e DEBUG=false \
