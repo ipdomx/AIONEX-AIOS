@@ -13,6 +13,7 @@ from unittest.mock import AsyncMock, patch
 
 from fastapi import Request
 from sqlalchemy import text
+from sqlalchemy.exc import ArgumentError
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
@@ -59,7 +60,7 @@ def test_real_postgres_connection_released_before_get_response_finishes() -> Non
     database_url = os.getenv("DATABASE_URL", "").strip()
     try:
         url = make_url(database_url)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, ArgumentError):
         raise SkipTest("Requires a disposable PostgreSQL test database")
     database_name = (url.database or "").lower()
     if (
