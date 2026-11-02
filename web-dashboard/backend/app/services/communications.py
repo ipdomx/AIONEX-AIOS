@@ -779,6 +779,34 @@ async def _effective_channels(
 
 
 def notification_snapshot(notification: Notification) -> dict[str, Any]:
+    # Never replay legacy private provider spending from durable notification
+    # rows into the API or realtime event payloads. This is a read-only copy:
+    # the stored row remains untouched until an authorized data remediation.
+    payload = dict(notification.payload or {})
+    private_provider_credit = (
+        str(notification.event_key or "").startswith("project_ai.provider_credit.")
+        and (
+            payload.get("balance_amount_private") is True
+            or payload.get("funding_mode") in {"numeric_private", "owner_attested"}
+        )
+    )
+    if private_provider_credit:
+        for key in (
+            "funded_usd",
+            "consumed_since_topup_usd",
+            "remaining_usd",
+            "low_balance_threshold_usd",
+            "critical_balance_threshold_usd",
+            "funded_microusd",
+            "baseline_spend_microusd",
+            "current_spend_microusd",
+            "consumed_since_topup_microusd",
+            "remaining_microusd",
+            "low_threshold_microusd",
+            "critical_threshold_microusd",
+        ):
+            if key in payload:
+                payload[key] = None
     return {
         "id": notification.id,
         "organization_id": notification.organization_id,
@@ -793,7 +821,7 @@ def notification_snapshot(notification: Notification) -> dict[str, Any]:
         "source_type": notification.source_type,
         "source_id": notification.source_id,
         "correlation_id": notification.correlation_id,
-        "payload": notification.payload,
+        "payload": payload,
         "read": notification.read_at is not None,
         "archived": notification.archived_at is not None,
         "read_at": iso(notification.read_at),
