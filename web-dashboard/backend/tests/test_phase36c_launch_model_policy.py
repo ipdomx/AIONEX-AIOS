@@ -45,7 +45,7 @@ def _inventory(provider: str, model_ids: tuple[str, ...]) -> ProviderModelInvent
 def test_launch_policy_free_is_local_zero_cost_and_paid_is_current_reviewed_set() -> None:
     free = launch_models_for("free")
     paid = launch_models_for("paid")
-    assert [item.model for item in free] == ["qwen2.5:1.5b", "gemma3:4b"]
+    assert [item.model for item in free] == ["aionex-ai", "qwen2.5:1.5b", "gemma3:4b"]
     assert all(item.spec.local is True for item in free)
     assert all(item.spec.input_cost_per_million == item.spec.output_cost_per_million == 0 for item in free)
     assert FREE_OLLAMA_QWEN25_15B.spec.concurrent_requests == 1

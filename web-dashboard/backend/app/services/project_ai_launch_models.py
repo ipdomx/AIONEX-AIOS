@@ -67,6 +67,42 @@ FREE_OLLAMA_QWEN25_15B = LaunchModelChoice(
 )
 
 
+# AIONEX AI (owner-approved 2026-11-03): the platform's own model, served through an
+# Ollama-compatible private endpoint on the AIOS Docker network (GPU on demand, always-on
+# CPU fallback on the host). Zero external provider spend for AIOS; per-user limits stay
+# in the Owner governance policy. Caps are conservative operational values.
+FREE_AIONEX_AI = LaunchModelChoice(
+    provider_type="ollama",
+    model="aionex-ai",
+    access_class="free",
+    priority=130,
+    official_source="https://github.com/ipdomx/AIONEX-AI",
+    spec=ProviderModelValidationSpec(
+        provider_type="ollama",
+        model="aionex-ai",
+        tasks=frozenset({"reasoning", "research", "coding", "review"}),
+        policy_ref=f"{LAUNCH_MODEL_POLICY_VERSION}:ollama:aionex-ai",
+        languages=frozenset({"multilingual"}),
+        supports_tools=False,
+        supports_vision=False,
+        supports_audio=False,
+        local=True,
+        max_context_tokens=32_768,
+        quality_score=0.75,
+        latency_score=0.70,
+        privacy_score=1.0,
+        input_cost_per_million=0.0,
+        output_cost_per_million=0.0,
+        requests_per_minute=60,
+        concurrent_requests=4,
+        circuit_failure_threshold=3,
+        circuit_failure_window_seconds=60,
+        circuit_open_seconds=45,
+        lease_seconds=180,
+    ),
+)
+
+
 FREE_OLLAMA_GEMMA3 = LaunchModelChoice(
     provider_type="ollama",
     model="gemma3:4b",
@@ -263,6 +299,7 @@ OPENAI_DESIRED_CURRENT = (
 )
 
 LAUNCH_ENABLED_MODELS: Final[tuple[LaunchModelChoice, ...]] = (
+    FREE_AIONEX_AI,
     FREE_OLLAMA_QWEN25_15B,
     FREE_OLLAMA_GEMMA3,
     *OPENAI_DESIRED_CURRENT,

@@ -389,7 +389,9 @@ async def _consume_counter(
     if current + amount > limit:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Free-tier {counter.replace('_used', '').replace('_', ' ')} limit reached",
+            detail=(f"وصلت لحد الباقة المجانية ({counter.replace('_used', '').replace('_', ' ')}). "
+                    f"رقِّ باقتك عشان تكمل. — Free-tier {counter.replace('_used', '').replace('_', ' ')} "
+                    "limit reached. Upgrade your plan to continue."),
         )
     payload[counter] = current + amount
     record.payload = payload
