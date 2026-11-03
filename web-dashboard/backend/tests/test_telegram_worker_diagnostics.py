@@ -129,7 +129,12 @@ def test_last_failure_survives_recovery_without_weakening_health(monkeypatch, tm
     assert after["errors"] == 1
     assert FAKE_TOKEN not in worker.health_path.read_text()
     assert PRIVATE_MARKER not in worker.health_path.read_text()
-    logger.warning.assert_called_once_with("Telegram polling failure", error="TelegramWorkerError", error_code=code, http_status=http_status)
+    # A single isolated failure is quiet; warnings need consecutive failures.
+    logger.warning.assert_not_called()
+    logger.debug.assert_called_once_with(
+        "Telegram polling failure", error="TelegramWorkerError", error_code=code,
+        http_status=http_status, consecutive_failures=1,
+    )
     assert PRIVATE_MARKER not in str(logger.mock_calls)
     assert FAKE_TOKEN not in str(logger.mock_calls)
 
@@ -165,7 +170,9 @@ def test_real_poll_loop_preserves_failure_then_success_without_extra_replays(mon
     async def updates(offset, timeout):
         calls.append(offset)
         if len(calls) == 1:
-            raise module.TelegramWorkerError(PRIVATE_MARKER, code="telegram_read_timeout")
+            raise module.TelegramWorkerError(
+                PRIVATE_MARKER, code="telegram_http_error", http_status=502,
+            )
         if len(calls) == 3:
             worker.stop_event.set()
         return []
@@ -178,8 +185,10 @@ def test_real_poll_loop_preserves_failure_then_success_without_extra_replays(mon
     assert states == ["running", "degraded", "running", "stopped"]
     assert calls == [0, 0, 0]
     store.assert_not_awaited()
-    logger.warning.assert_called_once()
+    logger.warning.assert_not_called()  # One 502 is below the warning threshold.
+    assert worker.consecutive_failures == 0  # Reset by the successful poll.
     health = json.loads(worker.health_path.read_text())
     assert health["errors"] == 1
-    assert health["last_error_code"] == "telegram_read_timeout"
+    assert health["last_error_code"] == "telegram_http_error"
+    assert health["last_error_http_status"] == 502
     assert module.healthcheck(worker.health_path) == 1  # A stopped process is not healthy.
