@@ -95,7 +95,7 @@ export function ContactClient() {
 
         <form
           onSubmit={submitRequest}
-          className="glass-panel rounded-3xl p-6 sm:p-9"
+          className="glass-panel accent-top rounded-3xl p-6 sm:p-9"
         >
           <MessageSquareText
             className="h-7 w-7 text-crimson-200"

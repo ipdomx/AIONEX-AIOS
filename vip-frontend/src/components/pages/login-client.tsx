@@ -99,7 +99,7 @@ export function LoginClient() {
   }
 
   return (
-    <section className="section-pad">
+    <section className="hero-surface section-pad">
       <div className="page-shell grid items-start gap-10 lg:grid-cols-[.8fr_1.2fr] lg:gap-16">
         <div className="lg:sticky lg:top-28">
           <span className="eyebrow">{t("secureAccess")}</span>
@@ -114,7 +114,7 @@ export function LoginClient() {
           </div>
         </div>
 
-        <div className="glass-panel rounded-3xl p-6 sm:p-9">
+        <div className="glass-panel accent-top rounded-3xl p-6 sm:p-9">
           {mfaChallenge ? (
             <form onSubmit={submitMfa}>
               <label htmlFor="mfa-code" className="field-label">

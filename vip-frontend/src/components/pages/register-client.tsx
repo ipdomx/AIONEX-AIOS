@@ -281,7 +281,7 @@ export function RegisterClient() {
   const phoneReady = Boolean(phoneConfig?.enabled && phoneConfig.web_config);
 
   return (
-    <section className="section-pad">
+    <section className="hero-surface section-pad">
       <div className="page-shell grid items-start gap-10 lg:grid-cols-[.72fr_1.28fr] lg:gap-14">
         <aside className="lg:sticky lg:top-28">
           <span className="eyebrow">
@@ -318,7 +318,7 @@ export function RegisterClient() {
           </div>
         </aside>
 
-        <div className="glass-panel rounded-3xl p-6 sm:p-9">
+        <div className="glass-panel accent-top rounded-3xl p-6 sm:p-9">
           <OAuthButtons
             mode="register"
             onRegistrationPrepared={useSocialRegistration}
