@@ -89,7 +89,7 @@ def _inventory_payload(url: str):
     if hostname == "api.deepseek.com":
         return {"data": [{"id": "deepseek-v4-pro"}]}
     if parsed.path.rstrip("/") == "/api/tags":
-        return {"models": [{"name": "gemma3:4b"}, {"name": "qwen2.5:1.5b"}]}
+        return {"models": [{"name": "aionex-ai"}, {"name": "unreviewed-local-model"}]}
     raise AssertionError(url)
 
 
@@ -105,8 +105,7 @@ async def test_refresh_persists_only_reviewed_current_launch_models(monkeypatch)
             result = await refresh.refresh_launch_model_evidence(session, requester=requester)
             await session.commit()
         assert set(result["validated"]) == {
-            "ollama:gemma3:4b",
-            "ollama:qwen2.5:1.5b",
+            "ollama:aionex-ai",
             "openai:gpt-5.6-sol",
             "openai:gpt-5.6-terra",
             "openai:gpt-5.6-luna",
@@ -121,7 +120,7 @@ async def test_refresh_persists_only_reviewed_current_launch_models(monkeypatch)
                 provider = await session.get(AIProvider, provider_id)
                 assert provider is not None
                 rows = (provider.config or {}).get("validated_models") or []
-                expected = 3 if provider_type == "openai" else 2 if provider_type == "ollama" else 1
+                expected = 3 if provider_type == "openai" else 1
                 assert len(rows) == expected
                 assert all("credential" not in str(row).lower() for row in rows)
     finally:
@@ -220,7 +219,7 @@ async def test_configured_and_disabled_ollama_duplicates_do_not_block_connected_
                 session, requester=requester
             )
             await session.commit()
-        assert "ollama:gemma3:4b" in outcome["validated"]
+        assert "ollama:aionex-ai" in outcome["validated"]
         assert not [x for x in outcome["probe_failures"] if x.startswith("ollama:")]
         async with SessionLocal() as session:
             primary = await session.get(AIProvider, ids["ollama"])
@@ -229,7 +228,7 @@ async def test_configured_and_disabled_ollama_duplicates_do_not_block_connected_
             assert primary is not None and pending is not None and disabled is not None
             assert [
                 x["model"] for x in (primary.config or {}).get("validated_models", [])
-            ] == ["gemma3:4b", "qwen2.5:1.5b"]
+            ] == ["aionex-ai"]
             assert not (pending.config or {}).get("validated_models")
             assert not (disabled.config or {}).get("validated_models")
     finally:
@@ -267,7 +266,7 @@ async def test_two_connected_enabled_ollama_records_still_fail_closed(
             )
             await session.commit()
         assert "ollama:provider-record-count-2" in outcome["probe_failures"]
-        assert "ollama:gemma3:4b" not in outcome["validated"]
+        assert "ollama:aionex-ai" not in outcome["validated"]
         async with SessionLocal() as session:
             for provider_id in (ids["ollama"], competing_provider_id):
                 item = await session.get(AIProvider, provider_id)
@@ -299,7 +298,7 @@ async def test_configured_only_ollama_cannot_be_promoted_to_connected(
             )
             await session.commit()
         assert "ollama:provider-record-count-0" in outcome["probe_failures"]
-        assert "ollama:gemma3:4b" not in outcome["validated"]
+        assert "ollama:aionex-ai" not in outcome["validated"]
         async with SessionLocal() as session:
             item = await session.get(AIProvider, ids["ollama"])
             assert item is not None

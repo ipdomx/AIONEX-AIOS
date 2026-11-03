@@ -227,10 +227,10 @@ async def test_durable_resolver_reads_only_explicit_platform_provider_model_gran
                 "enabled": True,
                 "validated_models": [
                     {
-                        "model": "qwen2.5:1.5b",
+                        "model": "aionex-ai",
                         "tasks": ["reasoning", "coding"],
                         "evidence_ref": "test:ollama:current",
-                        "policy_ref": "test:free:qwen-v2",
+                        "policy_ref": "test:free:aionex-ai-v1",
                         "validated_at": current.isoformat(),
                         "expires_at": (current + timedelta(hours=1)).isoformat(),
                         "languages": ["multilingual"],
@@ -309,7 +309,7 @@ async def test_durable_resolver_reads_only_explicit_platform_provider_model_gran
             now=current,
         )
         assert [(item.provider_type, item.route_model.model) for item in resolved] == [
-            ("ollama", "qwen2.5:1.5b")
+            ("ollama", "aionex-ai")
         ]
         assert resolved[0].provider_id == provider_id
 
