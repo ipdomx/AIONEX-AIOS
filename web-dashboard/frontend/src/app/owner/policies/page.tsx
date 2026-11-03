@@ -29,7 +29,7 @@ type Policy = {
 
 const statusClass: Record<PolicyStatus, string> = {
   active: "border-green-500/20 bg-green-500/10 text-green-400",
-  draft: "border-blue-500/20 bg-blue-500/10 text-blue-300",
+  draft: "border-zinc-500/20 bg-zinc-500/10 text-zinc-300",
   paused: "border-orange-500/20 bg-orange-500/10 text-orange-300",
 };
 
@@ -84,7 +84,7 @@ export default function OwnerPoliciesPage() {
         className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"
       >
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs font-medium text-electric-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs font-medium text-crimson-300">
             <ShieldCheck className="h-3.5 w-3.5" /> Owner Policy Registry
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
@@ -146,13 +146,13 @@ export default function OwnerPoliciesPage() {
             defaultValue="global"
             className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
           >
-            <option value="global" className="bg-space-800">
+            <option value="global" className="bg-obsidian-800">
               Global
             </option>
-            <option value="organization" className="bg-space-800">
+            <option value="organization" className="bg-obsidian-800">
               Organization
             </option>
-            <option value="project" className="bg-space-800">
+            <option value="project" className="bg-obsidian-800">
               Project
             </option>
           </select>
@@ -161,10 +161,10 @@ export default function OwnerPoliciesPage() {
             defaultValue="mandatory"
             className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
           >
-            <option value="mandatory" className="bg-space-800">
+            <option value="mandatory" className="bg-obsidian-800">
               Mandatory
             </option>
-            <option value="advisory" className="bg-space-800">
+            <option value="advisory" className="bg-obsidian-800">
               Advisory
             </option>
           </select>
@@ -215,21 +215,21 @@ export default function OwnerPoliciesPage() {
             onChange={(event) => setScope(event.target.value as typeof scope)}
             className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
           >
-            <option value="all" className="bg-space-800">
+            <option value="all" className="bg-obsidian-800">
               All scopes
             </option>
-            <option value="global" className="bg-space-800">
+            <option value="global" className="bg-obsidian-800">
               Global
             </option>
-            <option value="organization" className="bg-space-800">
+            <option value="organization" className="bg-obsidian-800">
               Organization
             </option>
-            <option value="project" className="bg-space-800">
+            <option value="project" className="bg-obsidian-800">
               Project
             </option>
           </select>
         </div>
-        <div className="mt-3 flex items-center gap-2 text-xs text-electric-300">
+        <div className="mt-3 flex items-center gap-2 text-xs text-zinc-300">
           <FileCog className="h-3.5 w-3.5" />
           {message}
         </div>
@@ -256,7 +256,7 @@ export default function OwnerPoliciesPage() {
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div className="max-w-3xl">
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-electric-300" />
+                    <CheckCircle2 className="h-4 w-4 text-crimson-300" />
                     <h2 className="text-sm font-semibold text-white">
                       {policy.name}
                     </h2>

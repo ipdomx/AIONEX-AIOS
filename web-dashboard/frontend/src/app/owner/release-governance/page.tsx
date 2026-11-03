@@ -24,9 +24,9 @@ const statusClass: Record<
 > = {
   passed: "border-green-500/20 bg-green-500/10 text-green-300",
   warning: "border-orange-500/20 bg-orange-500/10 text-orange-300",
-  blocked: "border-red-500/20 bg-red-500/10 text-red-300",
-  pending: "border-blue-500/20 bg-blue-500/10 text-blue-300",
-  rejected: "border-red-500/20 bg-red-500/10 text-red-300",
+  blocked: "border-rose-500/20 bg-rose-500/10 text-rose-300",
+  pending: "border-zinc-500/20 bg-zinc-500/10 text-zinc-300",
+  rejected: "border-rose-500/20 bg-rose-500/10 text-rose-300",
 };
 
 type SummaryCard = { label: string; value: number; icon: LucideIcon };
@@ -117,7 +117,7 @@ export default function OwnerReleaseGovernancePage() {
         className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"
       >
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs font-medium text-electric-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs font-medium text-crimson-300">
             <Rocket className="h-3.5 w-3.5" /> Owner Release Governance
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
@@ -141,14 +141,14 @@ export default function OwnerReleaseGovernancePage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {cards.map(({ label, value, icon: Icon }) => (
           <div key={label} className="glass-card p-5">
-            <Icon className="h-5 w-5 text-electric-300" />
+            <Icon className="h-5 w-5 text-crimson-300" />
             <div className="mt-4 text-3xl font-bold text-white">{value}</div>
             <div className="mt-1 text-xs text-white/40">{label}</div>
           </div>
         ))}
       </div>
 
-      <div className="glass-card p-4 text-xs text-electric-300">
+      <div className="glass-card p-4 text-xs text-zinc-300">
         <ShieldCheck className="mr-2 inline h-3.5 w-3.5" />
         {message}
       </div>
@@ -276,7 +276,7 @@ export default function OwnerReleaseGovernancePage() {
                     approvalGate?.status === "rejected"
                   }
                   onClick={() => void act(item.id, "reject")}
-                  className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-300 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <CircleAlert className="mr-1 inline h-3.5 w-3.5" />
                   Reject

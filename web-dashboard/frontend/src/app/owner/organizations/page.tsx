@@ -74,7 +74,7 @@ export default function OwnerOrganizationsPage() {
         className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
       >
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs text-electric-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs text-crimson-300">
             <Building2 className="h-3.5 w-3.5" /> Owner Organization Command
           </div>
           <h1 className="text-3xl font-bold text-white">
@@ -111,7 +111,7 @@ export default function OwnerOrganizationsPage() {
           },
         ].map((item) => (
           <div key={item.label} className="glass-card p-5">
-            <item.icon className="h-5 w-5 text-electric-300" />
+            <item.icon className="h-5 w-5 text-crimson-300" />
             <div className="mt-4 text-2xl font-bold text-white">
               {item.value.toLocaleString()}
             </div>
@@ -130,7 +130,7 @@ export default function OwnerOrganizationsPage() {
             className="glass-input w-full rounded-xl py-2.5 pl-10 pr-4 text-sm text-white outline-hidden"
           />
         </div>
-        <div className="mt-3 text-xs text-electric-300">
+        <div className="mt-3 text-xs text-crimson-300">
           {loading ? "Loading organizations..." : message}
         </div>
       </div>
@@ -157,7 +157,7 @@ export default function OwnerOrganizationsPage() {
                   </p>
                 </div>
                 {organization.risk === "high" ? (
-                  <ShieldAlert className="h-5 w-5 text-red-400" />
+                  <ShieldAlert className="h-5 w-5 text-rose-400" />
                 ) : (
                   <CheckCircle2 className="h-5 w-5 text-green-400" />
                 )}
@@ -193,7 +193,7 @@ export default function OwnerOrganizationsPage() {
                     className={`rounded-lg border px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50 ${
                       isRestricted
                         ? "border-green-500/20 bg-green-500/10 text-green-300"
-                        : "border-red-500/20 bg-red-500/10 text-red-300"
+                        : "border-rose-500/20 bg-rose-500/10 text-rose-300"
                     }`}
                   >
                     {organization.protected

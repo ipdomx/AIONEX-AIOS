@@ -31,7 +31,7 @@ export function LiveDataPanel({
         </div>
       )}
       {error && (
-        <div className="glass-card p-6 text-sm text-red-300">{error}</div>
+        <div className="glass-card p-6 text-sm text-rose-300">{error}</div>
       )}
       {!loading && !error && empty && (
         <div className="glass-card p-6 text-sm text-white/50">

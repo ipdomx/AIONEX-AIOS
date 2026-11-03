@@ -20,9 +20,9 @@ import {
 } from "@/lib/owner-notification-runtime";
 
 const severityClass: Record<OwnerNotificationRule["severity"], string> = {
-  info: "border-blue-500/20 bg-blue-500/10 text-blue-300",
+  info: "border-zinc-500/20 bg-zinc-500/10 text-zinc-300",
   warning: "border-orange-500/20 bg-orange-500/10 text-orange-300",
-  critical: "border-red-500/20 bg-red-500/10 text-red-300",
+  critical: "border-rose-500/20 bg-rose-500/10 text-rose-300",
 };
 
 const channelIcon: Record<
@@ -105,7 +105,7 @@ export default function OwnerNotificationRuntimePage() {
         className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"
       >
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs font-medium text-electric-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs font-medium text-crimson-300">
             <Bell className="h-3.5 w-3.5" /> Owner Notification Registry
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
@@ -130,14 +130,14 @@ export default function OwnerNotificationRuntimePage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {cards.map(([label, value, Icon]) => (
           <div key={label} className="glass-card p-5">
-            <Icon className="h-5 w-5 text-electric-300" />
+            <Icon className="h-5 w-5 text-crimson-300" />
             <div className="mt-4 text-3xl font-bold text-white">{value}</div>
             <div className="mt-1 text-xs text-white/40">{label}</div>
           </div>
         ))}
       </div>
 
-      <div className="glass-card p-4 text-xs text-electric-300">{message}</div>
+      <div className="glass-card p-4 text-xs text-zinc-300">{message}</div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         {items.map((item, index) => (

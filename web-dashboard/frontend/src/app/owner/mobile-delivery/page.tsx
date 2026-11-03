@@ -90,7 +90,7 @@ export default function OwnerMobileDeliveryPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs text-electric-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs text-crimson-300">
             <Smartphone className="h-3.5 w-3.5" /> Owner Mobile Delivery
           </div>
           <h1 className="text-3xl font-bold text-white">
@@ -114,7 +114,7 @@ export default function OwnerMobileDeliveryPage() {
         </button>
       </div>
 
-      <div className="glass-card p-4 text-xs text-electric-300">{message}</div>
+      <div className="glass-card p-4 text-xs text-zinc-300">{message}</div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {(["pwa", "android", "ios"] as const).map((platform) => {
@@ -124,7 +124,7 @@ export default function OwnerMobileDeliveryPage() {
             release.validations.every((item) => item.status === "passed");
           return (
             <div key={platform} className="glass-card p-5">
-              <Smartphone className="h-5 w-5 text-electric-300" />
+              <Smartphone className="h-5 w-5 text-crimson-300" />
               <div className="mt-4 text-xl font-bold uppercase text-white">
                 {platform}
               </div>
@@ -157,7 +157,7 @@ export default function OwnerMobileDeliveryPage() {
             <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div>
                 <div className="flex items-center gap-2 text-lg font-semibold text-white">
-                  <PackageCheck className="h-5 w-5 text-electric-300" />
+                  <PackageCheck className="h-5 w-5 text-crimson-300" />
                   {release.platform.toUpperCase()} v{release.version}
                 </div>
                 <p className="mt-1 text-xs text-white/40">
@@ -202,7 +202,7 @@ export default function OwnerMobileDeliveryPage() {
                       onClick={() =>
                         void download(release, artifact.id, artifact.filename)
                       }
-                      className="rounded-lg border border-electric-500/20 bg-electric-500/10 p-2 text-electric-300 disabled:opacity-40"
+                      className="rounded-lg border border-crimson-500/20 bg-crimson-500/10 p-2 text-crimson-300 disabled:opacity-40"
                       aria-label="Download verified artifact"
                     >
                       <Download

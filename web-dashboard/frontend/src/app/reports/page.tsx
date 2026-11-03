@@ -21,7 +21,7 @@ import {
 const inputClass =
   "glass-input rounded-xl px-3 py-2.5 text-sm text-white outline-hidden disabled:cursor-not-allowed disabled:opacity-50";
 const buttonClass =
-  "inline-flex items-center justify-center gap-2 rounded-xl border border-electric-500/20 bg-electric-500/10 px-3 py-2 text-xs font-semibold text-electric-200 transition hover:bg-electric-500/15 disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2 rounded-xl border border-crimson-500/20 bg-crimson-500/10 px-3 py-2 text-xs font-semibold text-crimson-200 transition hover:bg-crimson-500/15 disabled:cursor-not-allowed disabled:opacity-50";
 
 function saveBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -144,7 +144,7 @@ export default function ReportsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-purple-500/20 bg-purple-500/10 px-3 py-1 text-xs text-purple-300">
+          <div className="inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs text-crimson-300">
             <ShieldCheck className="h-3.5 w-3.5" /> Retained Evidence
           </div>
           <h1 className="mt-3 text-3xl font-bold text-white">
@@ -166,7 +166,7 @@ export default function ReportsPage() {
       </div>
 
       {message && (
-        <div className="rounded-xl border border-electric-500/20 bg-electric-500/10 px-4 py-3 text-sm text-electric-200">
+        <div className="rounded-xl border border-white/8 border-s-2 border-s-crimson-500 bg-obsidian-800 px-4 py-3 text-sm text-zinc-300">
           {message}
         </div>
       )}
@@ -225,8 +225,8 @@ export default function ReportsPage() {
           {reports.map((report) => (
             <section key={report.id} className="glass-card p-5">
               <div className="flex items-start gap-3">
-                <div className="rounded-xl border border-purple-500/20 bg-purple-500/10 p-2.5">
-                  <FileText className="h-5 w-5 text-purple-300" />
+                <div className="rounded-xl border border-crimson-500/20 bg-crimson-500/10 p-2.5">
+                  <FileText className="h-5 w-5 text-crimson-300" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -252,7 +252,7 @@ export default function ReportsPage() {
                           key={key}
                           className="rounded-xl border border-white/5 bg-black/15 p-3 text-center"
                         >
-                          <BarChart3 className="mx-auto h-4 w-4 text-electric-300" />
+                          <BarChart3 className="mx-auto h-4 w-4 text-crimson-300" />
                           <div className="mt-1 text-sm font-semibold text-white">
                             {String(value)}
                           </div>

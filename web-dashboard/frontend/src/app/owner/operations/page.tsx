@@ -227,7 +227,7 @@ export default function OwnerOperationsPage() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs font-medium text-electric-300">
+        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs font-medium text-crimson-300">
           <ShieldCheck className="h-3.5 w-3.5" /> Owner CRUD Gateway
         </div>
         <h1 className="text-3xl font-bold tracking-tight text-white">
@@ -265,7 +265,7 @@ export default function OwnerOperationsPage() {
                   <option
                     key={item.value}
                     value={item.value}
-                    className="bg-space-800"
+                    className="bg-obsidian-800"
                   >
                     {item.label}
                   </option>
@@ -288,7 +288,7 @@ export default function OwnerOperationsPage() {
                 {operations
                   .filter((item) => item !== "ban" || entity === "user")
                   .map((item) => (
-                    <option key={item} value={item} className="bg-space-800">
+                    <option key={item} value={item} className="bg-obsidian-800">
                       {item}
                     </option>
                   ))}
@@ -334,12 +334,12 @@ export default function OwnerOperationsPage() {
                     className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-hidden"
                   >
                     {operation === "update" && (
-                      <option value="" className="bg-space-800">
+                      <option value="" className="bg-obsidian-800">
                         Keep current plan
                       </option>
                     )}
                     {["enterprise", "professional", "starter"].map((item) => (
-                      <option key={item} value={item} className="bg-space-800">
+                      <option key={item} value={item} className="bg-obsidian-800">
                         {item}
                       </option>
                     ))}
@@ -360,14 +360,14 @@ export default function OwnerOperationsPage() {
                         disabled={organizationsLoading}
                         className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-hidden"
                       >
-                        <option value="" className="bg-space-800">
+                        <option value="" className="bg-obsidian-800">
                           Owner default organization
                         </option>
                         {organizations.map((organization) => (
                           <option
                             key={organization.id}
                             value={organization.id}
-                            className="bg-space-800"
+                            className="bg-obsidian-800"
                           >
                             {organization.name} · {organization.status}
                           </option>
@@ -394,7 +394,7 @@ export default function OwnerOperationsPage() {
                       className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-hidden"
                     >
                       {operation === "update" && (
-                        <option value="" className="bg-space-800">
+                        <option value="" className="bg-obsidian-800">
                           Keep current priority
                         </option>
                       )}
@@ -402,7 +402,7 @@ export default function OwnerOperationsPage() {
                         <option
                           key={item}
                           value={item}
-                          className="bg-space-800"
+                          className="bg-obsidian-800"
                         >
                           {item}
                         </option>
@@ -422,14 +422,14 @@ export default function OwnerOperationsPage() {
                       disabled={rolesLoading}
                       className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-hidden"
                     >
-                      <option value="" className="bg-space-800">
+                      <option value="" className="bg-obsidian-800">
                         Select a live role
                       </option>
                       {activeRoles.map((role) => (
                         <option
                           key={role.id}
                           value={role.id}
-                          className="bg-space-800"
+                          className="bg-obsidian-800"
                         >
                           {role.name} · {role.scope} · {role.status}
                         </option>
@@ -449,14 +449,14 @@ export default function OwnerOperationsPage() {
                           disabled={organizationsLoading}
                           className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-hidden"
                         >
-                          <option value="" className="bg-space-800">
+                          <option value="" className="bg-obsidian-800">
                             Select a live organization
                           </option>
                           {organizations.map((organization) => (
                             <option
                               key={organization.id}
                               value={organization.id}
-                              className="bg-space-800"
+                              className="bg-obsidian-800"
                             >
                               {organization.name} · {organization.status}
                             </option>
@@ -521,12 +521,12 @@ export default function OwnerOperationsPage() {
                 : "Execute operation"}
           </button>
 
-          <div className="flex items-start gap-2 rounded-xl border border-electric-500/15 bg-electric-500/5 p-4 text-xs text-electric-300">
+          <div className="flex items-start gap-2 rounded-xl border border-white/8 bg-obsidian-700 p-4 text-xs text-zinc-300">
             <Activity className="mt-0.5 h-4 w-4 shrink-0" />
             <div className="space-y-1">
               <div>{message}</div>
               {(organizationsLoading || rolesLoading) && (
-                <div className="text-electric-200/70">
+                <div className="text-zinc-400">
                   {organizationsLoading
                     ? organizationsMessage
                     : rolesLoading
@@ -540,7 +540,7 @@ export default function OwnerOperationsPage() {
 
         <div className="glass-card p-5">
           <div className="rounded-xl border border-white/6 bg-white/3 p-3">
-            <Icon className="h-6 w-6 text-electric-300" />
+            <Icon className="h-6 w-6 text-crimson-300" />
           </div>
           <h2 className="mt-4 text-sm font-semibold text-white">
             Current request

@@ -34,7 +34,7 @@ const statusMeta: Record<
   },
   satisfied_external_evidence: {
     label: "Satisfied by reviewed external evidence",
-    className: "border-cyan-500/20 bg-cyan-500/10 text-cyan-200",
+    className: "border-crimson-500/20 bg-crimson-500/10 text-crimson-200",
     icon: BadgeCheck,
   },
   enforced_internal_external_pending: {
@@ -44,7 +44,7 @@ const statusMeta: Record<
   },
   blocked_external: {
     label: "Blocked on external authority / infrastructure",
-    className: "border-red-500/20 bg-red-500/10 text-red-200",
+    className: "border-rose-500/20 bg-rose-500/10 text-rose-200",
     icon: AlertTriangle,
   },
   excluded_current_scope: {
@@ -195,28 +195,28 @@ function EvidenceWorkflow({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <input
-          className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-hidden focus:border-electric-400/50"
+          className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-hidden focus:border-crimson-400/50"
           placeholder={t("Evidence reference / vault URI")}
           value={reference}
           onChange={(event) => setReference(event.target.value)}
           maxLength={500}
         />
         <input
-          className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 font-mono text-xs text-white outline-hidden focus:border-electric-400/50"
+          className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 font-mono text-xs text-white outline-hidden focus:border-crimson-400/50"
           placeholder="SHA-256"
           value={sha256}
           onChange={(event) => setSha256(event.target.value)}
           maxLength={64}
         />
         <input
-          className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-hidden focus:border-electric-400/50"
+          className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-hidden focus:border-crimson-400/50"
           placeholder={t("Issuer / authority")}
           value={issuer}
           onChange={(event) => setIssuer(event.target.value)}
           maxLength={200}
         />
         <input
-          className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-hidden focus:border-electric-400/50"
+          className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-hidden focus:border-crimson-400/50"
           type="datetime-local"
           aria-label={t("Evidence expiry")}
           value={expiresAt}
@@ -224,7 +224,7 @@ function EvidenceWorkflow({
         />
       </div>
       <textarea
-        className="min-h-20 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-hidden focus:border-electric-400/50"
+        className="min-h-20 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-hidden focus:border-crimson-400/50"
         placeholder={t("Evidence notes")}
         value={notes}
         onChange={(event) => setNotes(event.target.value)}
@@ -247,7 +247,7 @@ function EvidenceWorkflow({
       {gate.owner_evidence && (
         <div className="space-y-3 border-t border-white/6 pt-4">
           <textarea
-            className="min-h-16 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-hidden focus:border-electric-400/50"
+            className="min-h-16 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-hidden focus:border-crimson-400/50"
             placeholder={t("Review note")}
             value={reviewNote}
             onChange={(event) => setReviewNote(event.target.value)}
@@ -283,7 +283,7 @@ function EvidenceWorkflow({
       )}
 
       {message && (
-        <div className="text-[11px] text-electric-200/80">{t(message)}</div>
+        <div className="text-[11px] text-zinc-300">{t(message)}</div>
       )}
     </div>
   );
@@ -353,8 +353,8 @@ function GateCard({
       </div>
 
       {liveEntries.length > 0 && (
-        <div className="rounded-xl border border-electric-500/10 bg-electric-500/5 p-3">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.15em] text-electric-300">
+        <div className="rounded-xl border border-crimson-500/10 bg-crimson-500/5 p-3">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.15em] text-crimson-300">
             {t("Live evidence")}
           </div>
           <dl className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -447,9 +447,9 @@ export default function OwnerExternalActivationPage() {
       <header className="glass-card p-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="flex gap-3">
-            <ShieldCheck className="mt-1 h-7 w-7 shrink-0 text-electric-300" />
+            <ShieldCheck className="mt-1 h-7 w-7 shrink-0 text-crimson-300" />
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-electric-300">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-crimson-300">
                 {t("External Activation Truth Ledger")}
               </p>
               <h1 className="mt-2 text-3xl font-bold text-white">
@@ -492,7 +492,7 @@ export default function OwnerExternalActivationPage() {
           </div>
         </div>
         <div className="glass-card p-5">
-          <div className="text-3xl font-bold text-cyan-200">
+          <div className="text-3xl font-bold text-crimson-200">
             {snapshot?.counts.satisfied_external_evidence ?? 0}
           </div>
           <div className="mt-1 text-xs text-white/40">
@@ -508,7 +508,7 @@ export default function OwnerExternalActivationPage() {
           </div>
         </div>
         <div className="glass-card p-5">
-          <div className="text-3xl font-bold text-red-200">
+          <div className="text-3xl font-bold text-rose-200">
             {snapshot?.counts.blocked_external ?? 0}
           </div>
           <div className="mt-1 text-xs text-white/40">
@@ -517,7 +517,7 @@ export default function OwnerExternalActivationPage() {
         </div>
       </section>
 
-      <section className="glass-card p-4 text-xs leading-6 text-electric-200/80">
+      <section className="glass-card p-4 text-xs leading-6 text-zinc-300">
         {t(message)}
         {snapshot && (
           <span className="ms-2 text-white/30">

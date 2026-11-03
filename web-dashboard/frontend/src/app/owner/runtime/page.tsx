@@ -29,13 +29,13 @@ function runtimeStatusClass(status: string) {
     return "border-green-500/20 bg-green-500/10 text-green-300";
   }
   if (["planning", "pending", "invited", "review"].includes(status)) {
-    return "border-blue-500/20 bg-blue-500/10 text-blue-300";
+    return "border-zinc-500/20 bg-zinc-500/10 text-zinc-300";
   }
   if (["paused", "suspended", "archived"].includes(status)) {
     return "border-orange-500/20 bg-orange-500/10 text-orange-300";
   }
   if (["restricted", "blocked", "inactive", "deleted"].includes(status)) {
-    return "border-red-500/20 bg-red-500/10 text-red-300";
+    return "border-rose-500/20 bg-rose-500/10 text-rose-300";
   }
   return "border-white/10 bg-white/3 text-white/45";
 }
@@ -105,7 +105,7 @@ export default function OwnerRuntimePage() {
         className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"
       >
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs font-medium text-electric-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs font-medium text-crimson-300">
             <ShieldCheck className="h-3.5 w-3.5" /> Owner Runtime
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
@@ -129,13 +129,13 @@ export default function OwnerRuntimePage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {metrics.map(({ label, value, icon: Icon }) => (
           <div key={label} className="glass-card p-5">
-            <Icon className="h-5 w-5 text-electric-300" />
+            <Icon className="h-5 w-5 text-crimson-300" />
             <div className="mt-4 text-3xl font-bold text-white">{value}</div>
             <div className="mt-1 text-xs text-white/40">{label}</div>
           </div>
         ))}
       </div>
-      <div className="glass-card p-4 text-xs text-electric-300">{message}</div>
+      <div className="glass-card p-4 text-xs text-zinc-300">{message}</div>
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold text-white">Projects</h2>
@@ -161,7 +161,7 @@ export default function OwnerRuntimePage() {
               </div>
               <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/5">
                 <div
-                  className="h-full rounded-full bg-electric-400"
+                  className="h-full rounded-full bg-crimson-500"
                   style={{
                     width: `${Math.min(100, Math.max(0, project.progress))}%`,
                   }}

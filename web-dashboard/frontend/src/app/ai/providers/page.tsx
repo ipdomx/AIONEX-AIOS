@@ -190,7 +190,7 @@ export default function AIProvidersPage() {
             className="glass-input rounded-xl px-3 py-2.5 text-sm text-white"
           >
             {creatableTypes.map((type) => (
-              <option key={type} value={type} className="bg-space-800">
+              <option key={type} value={type} className="bg-obsidian-800">
                 {type}
               </option>
             ))}
@@ -267,7 +267,7 @@ export default function AIProvidersPage() {
             Refresh
           </button>
         </div>
-        <div className="mt-3 flex items-center gap-2 text-xs text-electric-300">
+        <div className="mt-3 flex items-center gap-2 text-xs text-zinc-300">
           <Activity className="h-3.5 w-3.5" />
           {message}
         </div>
@@ -320,7 +320,7 @@ export default function AIProvidersPage() {
                       type="button"
                       disabled={Boolean(busy)}
                       onClick={() => void deleteProvider(provider)}
-                      className="glass rounded-lg px-3 py-2 text-xs text-red-300 disabled:opacity-40"
+                      className="glass rounded-lg px-3 py-2 text-xs text-rose-300 disabled:opacity-40"
                     >
                       <Trash2 className="me-1 inline h-3.5 w-3.5" />
                       Delete
@@ -349,7 +349,7 @@ export default function AIProvidersPage() {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5">
-                    <Plug className="h-5 w-5 text-electric-300" />
+                    <Plug className="h-5 w-5 text-crimson-300" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-white">

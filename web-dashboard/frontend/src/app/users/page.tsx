@@ -173,7 +173,7 @@ export default function UsersPage() {
         >
           <option value="">Organization</option>
           {organizations.map((item) => (
-            <option key={item.id} value={item.id} className="bg-space-800">
+            <option key={item.id} value={item.id} className="bg-obsidian-800">
               {item.name}
             </option>
           ))}
@@ -187,7 +187,7 @@ export default function UsersPage() {
           {roles
             .filter((item) => item.name !== "Super Owner")
             .map((item) => (
-              <option key={item.id} value={item.id} className="bg-space-800">
+              <option key={item.id} value={item.id} className="bg-obsidian-800">
                 {item.name}
               </option>
             ))}
@@ -199,7 +199,7 @@ export default function UsersPage() {
           >
             <option value="">No workspace</option>
             {workspaces.map((item) => (
-              <option key={item.id} value={item.id} className="bg-space-800">
+              <option key={item.id} value={item.id} className="bg-obsidian-800">
                 {item.name}
               </option>
             ))}
@@ -224,7 +224,7 @@ export default function UsersPage() {
         {filtered.map((user) => (
           <article key={user.id} className="glass-card p-5">
             <div className="flex items-start gap-3">
-              <span className="rounded-xl bg-electric-500/10 p-2.5 text-electric-300">
+              <span className="rounded-xl bg-crimson-500/10 p-2.5 text-crimson-300">
                 <UserRound className="h-5 w-5" />
               </span>
               <div className="min-w-0 flex-1">
@@ -269,7 +269,7 @@ export default function UsersPage() {
                     <option
                       key={item.id}
                       value={item.id}
-                      className="bg-space-800"
+                      className="bg-obsidian-800"
                     >
                       {item.name}
                     </option>
@@ -294,7 +294,7 @@ export default function UsersPage() {
               <button
                 disabled={busy}
                 onClick={() => void removeUser(user)}
-                className="rounded-lg border border-red-500/20 bg-red-500/10 p-2 text-red-300"
+                className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-2 text-rose-300"
               >
                 <Trash2 className="h-4 w-4" />
               </button>

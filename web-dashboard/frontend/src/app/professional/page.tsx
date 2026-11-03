@@ -12,7 +12,7 @@ import {
 const inputClass =
   "glass-input rounded-xl px-3 py-2.5 text-sm text-white outline-hidden disabled:opacity-50";
 const buttonClass =
-  "inline-flex items-center justify-center gap-2 rounded-xl border border-electric-500/20 bg-electric-500/10 px-3 py-2 text-xs font-semibold text-electric-200 transition hover:bg-electric-500/15 disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2 rounded-xl border border-crimson-500/20 bg-crimson-500/10 px-3 py-2 text-xs font-semibold text-crimson-200 transition hover:bg-crimson-500/15 disabled:opacity-50";
 
 export default function ProfessionalPage() {
   const [cases, setCases] = useState<ProfessionalCase[]>([]);
@@ -103,7 +103,7 @@ export default function ProfessionalPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-electric-300">
+          <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-crimson-300">
             <Stethoscope className="h-4 w-4" /> Professional Evidence
           </div>
           <h1 className="text-2xl font-bold text-white">

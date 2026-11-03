@@ -48,7 +48,7 @@ export default function IdentityMediaRecoveryReview() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <ClipboardList className="h-5 w-5 text-electric-300" />
+            <ClipboardList className="h-5 w-5 text-crimson-300" />
             <h2 className="text-lg font-semibold text-white">
               Execution recovery review
             </h2>

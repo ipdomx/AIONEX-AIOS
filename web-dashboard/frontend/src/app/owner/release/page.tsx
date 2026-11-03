@@ -29,8 +29,8 @@ type ReleaseGate = {
 const gateStatusClass: Record<ReleaseGateStatus, string> = {
   passed: "bg-green-500/10 text-green-400",
   pending: "bg-orange-500/10 text-orange-300",
-  blocked: "bg-red-500/10 text-red-300",
-  rejected: "bg-red-500/10 text-red-300",
+  blocked: "bg-rose-500/10 text-rose-300",
+  rejected: "bg-rose-500/10 text-rose-300",
 };
 
 export default function OwnerReleasePage() {
@@ -74,7 +74,7 @@ export default function OwnerReleasePage() {
         className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
       >
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs text-electric-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs text-crimson-300">
             <Rocket className="h-3.5 w-3.5" />
             Owner Release Authority
           </div>
@@ -103,7 +103,7 @@ export default function OwnerReleasePage() {
         </button>
       </motion.div>
 
-      <div className="text-xs text-electric-300">
+      <div className="text-xs text-crimson-300">
         {loading ? "Loading release gates..." : message}
       </div>
 
@@ -131,7 +131,7 @@ export default function OwnerReleasePage() {
           },
         ].map((item) => (
           <div key={item.label} className="glass-card p-5">
-            <item.icon className="h-5 w-5 text-electric-300" />
+            <item.icon className="h-5 w-5 text-crimson-300" />
             <div className="mt-4 text-xl font-bold capitalize text-white">
               {item.value}
             </div>
@@ -163,7 +163,7 @@ export default function OwnerReleasePage() {
                 {passed ? (
                   <CheckCircle2 className="h-5 w-5 text-green-400" />
                 ) : failed ? (
-                  <XCircle className="h-5 w-5 text-red-300" />
+                  <XCircle className="h-5 w-5 text-rose-300" />
                 ) : (
                   <CircleDashed className="h-5 w-5 text-orange-300" />
                 )}
@@ -189,7 +189,7 @@ export default function OwnerReleasePage() {
                   <button
                     onClick={() => validateGate(gate)}
                     disabled={busy || approvalBlocked}
-                    className="rounded-lg border border-electric-500/20 bg-electric-500/10 px-3 py-2 text-xs text-electric-300 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-lg border border-crimson-500/20 bg-crimson-500/10 px-3 py-2 text-xs text-crimson-300 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {gate.id === "approval" ? "Approve" : "Validate"}
                   </button>

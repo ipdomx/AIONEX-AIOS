@@ -27,7 +27,7 @@ type Incident = {
 
 const severityStyle = (severity: string) =>
   severity === "critical"
-    ? "border-red-500/25 bg-red-500/10 text-red-300"
+    ? "border-rose-500/25 bg-rose-500/10 text-rose-300"
     : severity === "high" || severity === "warning"
       ? "border-orange-500/25 bg-orange-500/10 text-orange-300"
       : "border-yellow-500/25 bg-yellow-500/10 text-yellow-300";
@@ -53,7 +53,7 @@ export default function OwnerIncidentsPage() {
         className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
       >
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs text-red-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-rose-500/20 bg-rose-500/10 px-3 py-1 text-xs text-rose-300">
             <Siren className="h-3.5 w-3.5" />
             Owner Incident Command
           </div>
@@ -78,7 +78,7 @@ export default function OwnerIncidentsPage() {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="glass-card p-5">
-          <Flame className="h-5 w-5 text-red-400" />
+          <Flame className="h-5 w-5 text-rose-400" />
           <div className="mt-3 text-2xl font-bold text-white">
             {
               incidents.filter(
@@ -105,7 +105,7 @@ export default function OwnerIncidentsPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-electric-500/20 bg-electric-500/10 px-4 py-3 text-xs text-electric-300">
+      <div className="rounded-xl border border-white/8 border-s-2 border-s-crimson-500 bg-obsidian-800 px-4 py-3 text-xs text-zinc-300">
         {message}
       </div>
 
@@ -131,7 +131,7 @@ export default function OwnerIncidentsPage() {
                 <div className="flex items-start gap-4">
                   <div className="rounded-xl border border-white/6 bg-white/4 p-2.5">
                     {incident.source.includes("Database") ? (
-                      <Server className="h-5 w-5 text-electric-300" />
+                      <Server className="h-5 w-5 text-crimson-300" />
                     ) : (
                       <AlertTriangle className="h-5 w-5 text-orange-400" />
                     )}

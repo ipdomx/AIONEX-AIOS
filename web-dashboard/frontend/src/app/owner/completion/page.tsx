@@ -33,7 +33,7 @@ const emptySnapshot: OwnerFinalizationSnapshot = {
 const batchClass: Record<OwnerCompletionBatch["status"], string> = {
   complete: "border-green-500/20 bg-green-500/10 text-green-300",
   pending: "border-orange-500/20 bg-orange-500/10 text-orange-300",
-  deferred: "border-blue-500/20 bg-blue-500/10 text-blue-300",
+  deferred: "border-zinc-500/20 bg-zinc-500/10 text-zinc-300",
 };
 
 export default function OwnerCompletionPage() {
@@ -87,7 +87,7 @@ export default function OwnerCompletionPage() {
       <header className="glass-card p-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex items-start gap-3">
-            <ShieldCheck className="mt-1 h-7 w-7 shrink-0 text-electric-300" />
+            <ShieldCheck className="mt-1 h-7 w-7 shrink-0 text-crimson-300" />
             <div>
               <h1 className="text-2xl font-bold text-white">
                 Platform Completion & Phase 36 Expansion
@@ -114,14 +114,14 @@ export default function OwnerCompletionPage() {
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="glass-card p-5">
-          <ShieldCheck className="h-5 w-5 text-electric-300" />
+          <ShieldCheck className="h-5 w-5 text-crimson-300" />
           <div className="mt-4 text-3xl font-bold text-white">
             {snapshot.completion}%
           </div>
           <div className="mt-1 text-xs text-white/40">Runtime readiness</div>
         </div>
         <div className="glass-card p-5">
-          <Layers3 className="h-5 w-5 text-electric-300" />
+          <Layers3 className="h-5 w-5 text-crimson-300" />
           <div className="mt-4 text-3xl font-bold text-white">
             {snapshot.phase36.completion}%
           </div>
@@ -171,24 +171,24 @@ export default function OwnerCompletionPage() {
             <span className="rounded-full border border-orange-500/20 bg-orange-500/10 px-3 py-1 text-orange-300">
               {counts.pending} pending
             </span>
-            <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-blue-300">
+            <span className="rounded-full border border-zinc-500/20 bg-zinc-500/10 px-3 py-1 text-zinc-300">
               {counts.deferred} deferred
             </span>
           </div>
         </div>
         <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/5">
           <div
-            className="h-full rounded-full bg-electric-400"
+            className="h-full rounded-full bg-crimson-500"
             style={{ width: `${snapshot.program.completion}%` }}
           />
         </div>
-        <p className="mt-3 text-xs text-electric-300">{message}</p>
+        <p className="mt-3 text-xs text-zinc-300">{message}</p>
       </section>
 
       <section className="glass-card p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-electric-300">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-crimson-300">
               Authoritative current product contract
             </p>
             <h2 className="mt-2 text-lg font-semibold text-white">
@@ -201,7 +201,7 @@ export default function OwnerCompletionPage() {
               not mean rendered, scaled, or production-ready.
             </p>
           </div>
-          <div className="rounded-xl border border-electric-400/20 bg-electric-400/10 px-4 py-3 text-xs text-electric-200">
+          <div className="rounded-xl border border-white/8 border-s-2 border-s-crimson-500 bg-obsidian-800 px-4 py-3 text-xs text-zinc-300">
             Current: {snapshot.phase36.current_batch ?? "All batches closed"}
           </div>
         </div>
@@ -251,7 +251,7 @@ export default function OwnerCompletionPage() {
 
       <section className="space-y-3">
         <div className="flex items-center gap-2">
-          <Layers3 className="h-4 w-4 text-electric-300" />
+          <Layers3 className="h-4 w-4 text-crimson-300" />
           <h2 className="text-sm font-semibold text-white">
             Historical Phase 29 completion batches
           </h2>
@@ -261,7 +261,7 @@ export default function OwnerCompletionPage() {
             <article key={batch.batch_id} className="glass-card p-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-semibold text-electric-300">
+                  <p className="text-xs font-semibold text-crimson-300">
                     Batch {batch.batch_id}
                   </p>
                   <h3 className="mt-1 text-sm font-semibold text-white">
@@ -283,7 +283,7 @@ export default function OwnerCompletionPage() {
                   verified
                 </span>
                 {batch.status === "deferred" ? (
-                  <PauseCircle className="h-4 w-4 text-blue-300" />
+                  <PauseCircle className="h-4 w-4 text-zinc-300" />
                 ) : batch.status === "complete" ? (
                   <CheckCircle2 className="h-4 w-4 text-green-300" />
                 ) : (
@@ -344,7 +344,7 @@ export default function OwnerCompletionPage() {
                 href={item.href}
                 className="glass-card flex items-center gap-3 p-4 transition hover:bg-white/5"
               >
-                <ExternalLink className="h-5 w-5 text-electric-300" />
+                <ExternalLink className="h-5 w-5 text-crimson-300" />
                 <span className="flex-1 text-sm font-medium text-white/75">
                   {item.label}
                 </span>

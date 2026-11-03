@@ -104,7 +104,7 @@ export default function OwnerThreeDPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs text-electric-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs text-crimson-300">
             <Box className="h-3.5 w-3.5" /> Owner 3D Control
           </div>
           <h1 className="text-3xl font-bold text-white">
@@ -135,12 +135,12 @@ export default function OwnerThreeDPage() {
           </button>
         </div>
       </div>
-      <div className="glass-card p-4 text-xs text-electric-300">{message}</div>
+      <div className="glass-card p-4 text-xs text-zinc-300">{message}</div>
       {operations && (
         <section className="glass-card space-y-4 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-white">
-              <Activity className="h-5 w-5 text-cyan-300" />
+              <Activity className="h-5 w-5 text-crimson-300" />
               <span className="font-semibold">3D Operations & Resilience</span>
             </div>
             <div className="flex gap-2">

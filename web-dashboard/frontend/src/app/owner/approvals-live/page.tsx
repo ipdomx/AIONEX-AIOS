@@ -79,7 +79,7 @@ export default function OwnerApprovalsLivePage() {
         className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"
       >
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs font-medium text-electric-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs font-medium text-crimson-300">
             <ShieldCheck className="h-3.5 w-3.5" /> Owner Approval Engine
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
@@ -109,7 +109,7 @@ export default function OwnerApprovalsLivePage() {
         </div>
       </div>
 
-      <div className="glass-card p-4 text-xs text-electric-300">{message}</div>
+      <div className="glass-card p-4 text-xs text-zinc-300">{message}</div>
 
       <div className="space-y-4">
         {items.map((item, index) => (
@@ -155,7 +155,7 @@ export default function OwnerApprovalsLivePage() {
                 <button
                   disabled={actingId !== null}
                   onClick={() => void decide(item, "rejected")}
-                  className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-300 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Reject
                 </button>

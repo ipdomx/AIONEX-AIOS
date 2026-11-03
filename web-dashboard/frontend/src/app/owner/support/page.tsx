@@ -152,7 +152,7 @@ export default function OwnerSupportPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs text-electric-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs text-crimson-300">
             <LifeBuoy className="h-3.5 w-3.5" />
             {t("Owner Support Command")}
           </div>
@@ -198,7 +198,7 @@ export default function OwnerSupportPage() {
       </div>
 
       {message ? (
-        <div className="rounded-xl border border-electric-500/20 bg-electric-500/10 px-4 py-3 text-xs text-electric-300">
+        <div className="rounded-xl border border-white/8 border-s-2 border-s-crimson-500 bg-obsidian-800 px-4 py-3 text-xs text-zinc-300">
           {message}
         </div>
       ) : null}
@@ -269,7 +269,7 @@ export default function OwnerSupportPage() {
                 type="button"
                 disabled={busy}
                 onClick={() => void deleteConversation()}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-300 disabled:opacity-50"
               >
                 <Trash2 className="h-3.5 w-3.5" />
                 {t("Delete conversation")}
@@ -278,20 +278,34 @@ export default function OwnerSupportPage() {
           </div>
 
           <div className="mt-6 space-y-3">
-            {(selected.messages || []).map((entry) => (
-              <div
-                key={entry.id}
-                className="rounded-xl border border-white/6 bg-black/15 p-4"
-              >
-                <div className="flex items-center justify-between gap-3 text-[10px] uppercase tracking-wider text-white/30">
-                  <span>{entry.visibility}</span>
-                  <span>{entry.created_at}</span>
+            {(selected.messages || []).map((entry) => {
+              const fromRequester = entry.sender_id === selected.requester_id;
+              return (
+                <div
+                  key={entry.id}
+                  className={
+                    fromRequester
+                      ? "chat-user ms-auto max-w-[85%] p-4"
+                      : "chat-assistant flex max-w-[92%] gap-3 py-2"
+                  }
+                >
+                  {fromRequester ? null : (
+                    <span className="chat-mark mt-0.5" aria-hidden="true">
+                      X
+                    </span>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-3 text-[10px] uppercase tracking-wider text-zinc-500">
+                      <span>{entry.visibility}</span>
+                      <span>{entry.created_at}</span>
+                    </div>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-white/85">
+                      {entry.message}
+                    </p>
+                  </div>
                 </div>
-                <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-white/70">
-                  {entry.message}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {!["closed", "cancelled", "suspended"].includes(selected.status) ? (
@@ -300,13 +314,13 @@ export default function OwnerSupportPage() {
                 value={reply}
                 onChange={(event) => setReply(event.target.value)}
                 placeholder={t("Write a durable reply")}
-                className="min-h-28 flex-1 rounded-xl border border-white/8 bg-black/20 p-4 text-sm text-white outline-hidden focus:border-electric-500/40"
+                className="glass-input min-h-28 flex-1 p-4 text-sm text-white"
               />
               <button
                 type="button"
                 disabled={busy || !reply.trim()}
                 onClick={() => void sendReply()}
-                className="inline-flex self-end items-center gap-2 rounded-xl border border-electric-500/20 bg-electric-500/10 px-4 py-3 text-xs text-electric-300 disabled:opacity-50"
+                className="btn-primary self-end px-4 py-3 text-xs disabled:opacity-50"
               >
                 {busy ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -353,7 +367,7 @@ export default function OwnerSupportPage() {
                   {ticket.updated_at}
                 </p>
               </div>
-              <MessageSquareText className="h-5 w-5 shrink-0 text-electric-300" />
+              <MessageSquareText className="h-5 w-5 shrink-0 text-crimson-300" />
             </button>
           ))}
         </div>

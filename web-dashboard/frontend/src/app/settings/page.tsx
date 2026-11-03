@@ -281,8 +281,8 @@ export default function SettingsPage() {
                     securityNotice.tone === "success"
                       ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-200"
                       : securityNotice.tone === "error"
-                        ? "border-red-500/20 bg-red-500/10 text-red-200"
-                        : "border-electric-500/20 bg-electric-500/10 text-electric-200"
+                        ? "border-rose-500/20 bg-rose-500/10 text-rose-200"
+                        : "border-crimson-500/20 bg-crimson-500/10 text-crimson-200"
                   }`}
                 >
                   {securityNotice.tone === "success" ? (
@@ -371,10 +371,10 @@ export default function SettingsPage() {
                   }}
                   className="glass-input w-full rounded-xl px-4 py-2.5 text-sm text-white"
                 >
-                  <option value="en-US" className="bg-space-800">
+                  <option value="en-US" className="bg-obsidian-800">
                     English
                   </option>
-                  <option value="ar-AE" className="bg-space-800">
+                  <option value="ar-AE" className="bg-obsidian-800">
                     العربية
                   </option>
                 </select>
@@ -391,10 +391,10 @@ export default function SettingsPage() {
                   }
                   className="glass-input w-full rounded-xl px-4 py-2.5 text-sm text-white"
                 >
-                  <option value="UTC" className="bg-space-800">
+                  <option value="UTC" className="bg-obsidian-800">
                     UTC
                   </option>
-                  <option value="Asia/Dubai" className="bg-space-800">
+                  <option value="Asia/Dubai" className="bg-obsidian-800">
                     Asia/Dubai
                   </option>
                 </select>
@@ -450,7 +450,7 @@ function SettingsLink({
 }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
-      <Settings className="mb-4 h-12 w-12 text-electric-300" />
+      <Settings className="mb-4 h-12 w-12 text-crimson-300" />
       <h2 className="text-lg font-semibold text-white">{title}</h2>
       <p className="mt-2 text-sm text-white/40">{description}</p>
       <Link href={href} className="btn-primary mt-5">

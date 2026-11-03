@@ -107,7 +107,7 @@ export default function SecurityLabPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs text-electric-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs text-crimson-300">
             <ShieldCheck className="h-3.5 w-3.5" /> AIONEX Security Lab
           </div>
           <h1 className="text-3xl font-bold text-white">
@@ -130,7 +130,7 @@ export default function SecurityLabPage() {
         </button>
       </div>
 
-      <div className="glass-card p-4 text-xs text-electric-300">{message}</div>
+      <div className="glass-card p-4 text-xs text-zinc-300">{message}</div>
 
       {!access.granted || !access.enabled ? (
         <section className="glass-card p-6">
@@ -148,21 +148,21 @@ export default function SecurityLabPage() {
         <>
           <div className="grid gap-4 md:grid-cols-3">
             <div className="glass-card p-5">
-              <ShieldCheck className="h-5 w-5 text-electric-300" />
+              <ShieldCheck className="h-5 w-5 text-crimson-300" />
               <div className="mt-3 text-2xl font-bold text-white">
                 {access.level}
               </div>
               <div className="text-xs text-white/35">Owner-granted level</div>
             </div>
             <div className="glass-card p-5">
-              <Wrench className="h-5 w-5 text-electric-300" />
+              <Wrench className="h-5 w-5 text-crimson-300" />
               <div className="mt-3 text-2xl font-bold text-white">
                 {availableTools}
               </div>
               <div className="text-xs text-white/35">Available engines</div>
             </div>
             <div className="glass-card p-5">
-              <Activity className="h-5 w-5 text-electric-300" />
+              <Activity className="h-5 w-5 text-crimson-300" />
               <div className="mt-3 text-2xl font-bold text-white">
                 {activeScans}
               </div>
@@ -188,7 +188,7 @@ export default function SecurityLabPage() {
 
           <section className="glass-card space-y-4 p-5">
             <div className="flex items-center gap-2 text-white">
-              <Play className="h-5 w-5 text-electric-300" />
+              <Play className="h-5 w-5 text-crimson-300" />
               <h2 className="font-semibold">Start security validation</h2>
             </div>
             <div className="grid gap-3 lg:grid-cols-2">

@@ -44,7 +44,7 @@ const basisLabels: Record<RealIdentityBasis, string> = {
 };
 
 const inputClass =
-  "w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white outline-hidden focus:border-electric-400/50";
+  "w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white outline-hidden focus:border-crimson-400/50";
 
 export default function OwnerIdentityMediaPage() {
   const [snapshot, setSnapshot] = useState<OwnerIdentityMediaSnapshot | null>(
@@ -213,9 +213,9 @@ export default function OwnerIdentityMediaPage() {
       <header className="glass-card p-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="flex gap-3">
-            <UserCog className="mt-1 h-7 w-7 shrink-0 text-electric-300" />
+            <UserCog className="mt-1 h-7 w-7 shrink-0 text-crimson-300" />
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-electric-300">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-crimson-300">
                 Super Owner Identity Authority
               </p>
               <h1 className="mt-2 text-3xl font-bold text-white">
@@ -266,7 +266,7 @@ export default function OwnerIdentityMediaPage() {
           <div className="text-xs text-white/40">Owner denies</div>
         </div>
         <div className="glass-card p-5">
-          <ShieldCheck className="h-5 w-5 text-electric-300" />
+          <ShieldCheck className="h-5 w-5 text-crimson-300" />
           <div className="mt-3 text-3xl font-bold text-white">
             {snapshot?.pending_requests.length ?? 0}
           </div>
@@ -274,7 +274,7 @@ export default function OwnerIdentityMediaPage() {
         </div>
       </section>
 
-      <div className="glass-card p-4 text-xs text-electric-300">{message}</div>
+      <div className="glass-card p-4 text-xs text-zinc-300">{message}</div>
 
       <section className="glass-card space-y-5 p-6">
         <div>

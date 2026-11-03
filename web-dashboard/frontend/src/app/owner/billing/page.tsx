@@ -53,7 +53,7 @@ type Tab =
 const inputClass =
   "glass-input rounded-xl px-3 py-2 text-sm text-white outline-hidden disabled:cursor-not-allowed disabled:opacity-50";
 const buttonClass =
-  "inline-flex items-center justify-center gap-2 rounded-xl border border-electric-500/20 bg-electric-500/10 px-3 py-2 text-xs font-semibold text-electric-200 transition hover:bg-electric-500/15 disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2 rounded-xl border border-crimson-500/20 bg-crimson-500/10 px-3 py-2 text-xs font-semibold text-crimson-200 transition hover:bg-crimson-500/15 disabled:cursor-not-allowed disabled:opacity-50";
 
 function idempotencyKey(prefix: string): string {
   const value =
@@ -84,7 +84,7 @@ function accountStatusClass(status: string): string {
   if (status === "past_due") {
     return "border-amber-500/20 bg-amber-500/10 text-amber-200";
   }
-  return "border-red-500/20 bg-red-500/10 text-red-300";
+  return "border-rose-500/20 bg-rose-500/10 text-rose-300";
 }
 
 export default function OwnerBillingPage() {
@@ -342,14 +342,14 @@ export default function OwnerBillingPage() {
   if (loading && !overview) {
     return (
       <div className="flex min-h-[55vh] items-center justify-center gap-3 text-white/45">
-        <LoaderCircle className="h-6 w-6 animate-spin text-electric-300" />
+        <LoaderCircle className="h-6 w-6 animate-spin text-crimson-300" />
         Loading billing control plane...
       </div>
     );
   }
 
   if (!overview) {
-    return <div className="glass-card p-8 text-red-300">{message}</div>;
+    return <div className="glass-card p-8 text-rose-300">{message}</div>;
   }
 
   const tabs: Array<[Tab, string]> = [
@@ -365,7 +365,7 @@ export default function OwnerBillingPage() {
     <div className="space-y-6 pb-20">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs text-electric-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs text-crimson-300">
             <WalletCards className="h-3.5 w-3.5" /> Durable Billing Authority
           </div>
           <h1 className="text-3xl font-bold text-white">
@@ -408,7 +408,7 @@ export default function OwnerBillingPage() {
           const MetricIcon = Icon as typeof Building2;
           return (
             <div key={String(label)} className="glass-card p-4">
-              <MetricIcon className="h-5 w-5 text-electric-300" />
+              <MetricIcon className="h-5 w-5 text-crimson-300" />
               <div className="mt-3 wrap-break-word text-xl font-bold text-white">
                 {String(value)}
               </div>
@@ -418,7 +418,7 @@ export default function OwnerBillingPage() {
         })}
       </div>
 
-      <div className="rounded-xl border border-electric-500/20 bg-electric-500/10 px-4 py-3 text-xs text-electric-200">
+      <div className="rounded-xl border border-white/8 border-s-2 border-s-crimson-500 bg-obsidian-800 px-4 py-3 text-xs text-zinc-300">
         {message}
       </div>
 
@@ -470,7 +470,7 @@ export default function OwnerBillingPage() {
                       {account.status}
                     </span>
                     {account.protected && (
-                      <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-[11px] text-blue-200">
+                      <span className="rounded-full border border-zinc-500/20 bg-zinc-500/10 px-2.5 py-1 text-[11px] text-zinc-200">
                         Protected
                       </span>
                     )}
@@ -496,7 +496,7 @@ export default function OwnerBillingPage() {
                       <option
                         key={plan.code}
                         value={plan.code}
-                        className="bg-space-800"
+                        className="bg-obsidian-800"
                       >
                         {plan.name.en || plan.code}
                       </option>
@@ -562,7 +562,7 @@ export default function OwnerBillingPage() {
         <div className="grid gap-5 xl:grid-cols-2">
           <section className="glass-card p-5">
             <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
-              <ReceiptText className="h-5 w-5 text-electric-300" /> Transactions
+              <ReceiptText className="h-5 w-5 text-crimson-300" /> Transactions
             </h2>
             <div className="mt-4 space-y-3">
               {overview.transactions.slice(0, 100).map((item) => (
@@ -630,7 +630,7 @@ export default function OwnerBillingPage() {
 
           <section className="glass-card p-5">
             <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
-              <FileText className="h-5 w-5 text-electric-300" /> Invoices
+              <FileText className="h-5 w-5 text-crimson-300" /> Invoices
             </h2>
             <div className="mt-4 space-y-3">
               {overview.invoices.slice(0, 100).map((item) => (
@@ -670,7 +670,7 @@ export default function OwnerBillingPage() {
         <div className="grid gap-5 xl:grid-cols-2">
           <section className="glass-card p-5">
             <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
-              <Tags className="h-5 w-5 text-electric-300" /> Coupons
+              <Tags className="h-5 w-5 text-crimson-300" /> Coupons
             </h2>
             <form
               onSubmit={createCoupon}
@@ -735,7 +735,7 @@ export default function OwnerBillingPage() {
 
           <section className="glass-card p-5">
             <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
-              <Percent className="h-5 w-5 text-electric-300" /> Tax rates
+              <Percent className="h-5 w-5 text-crimson-300" /> Tax rates
             </h2>
             <form onSubmit={saveTax} className="mt-4 grid gap-3 sm:grid-cols-2">
               <input
@@ -787,7 +787,7 @@ export default function OwnerBillingPage() {
 
           <section className="glass-card p-5 xl:col-span-2">
             <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
-              <Coins className="h-5 w-5 text-electric-300" /> Organization
+              <Coins className="h-5 w-5 text-crimson-300" /> Organization
               wallets
             </h2>
             <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -799,7 +799,7 @@ export default function OwnerBillingPage() {
                   <p className="font-semibold text-white">
                     {item.organization}
                   </p>
-                  <p className="mt-2 text-2xl font-bold text-electric-200">
+                  <p className="mt-2 text-2xl font-bold text-crimson-200">
                     {money(item.balance_minor, item.currency)}
                   </p>
                   <p className="mt-1 text-xs text-white/35">{item.status}</p>
@@ -819,7 +819,7 @@ export default function OwnerBillingPage() {
         <div className="grid gap-5 xl:grid-cols-2">
           <section className="glass-card p-5">
             <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
-              <KeyRound className="h-5 w-5 text-electric-300" /> Licenses
+              <KeyRound className="h-5 w-5 text-crimson-300" /> Licenses
             </h2>
             <div className="mt-4 space-y-3">
               {overview.licenses.map((item) => {
@@ -870,7 +870,7 @@ export default function OwnerBillingPage() {
 
           <section className="glass-card p-5">
             <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
-              <CreditCard className="h-5 w-5 text-electric-300" /> Metered usage
+              <CreditCard className="h-5 w-5 text-crimson-300" /> Metered usage
             </h2>
             <div className="mt-4 space-y-3">
               {overview.usage.map((item) => {
@@ -893,7 +893,7 @@ export default function OwnerBillingPage() {
                           {item.billable_quantity} billable
                         </p>
                       </div>
-                      <p className="font-semibold text-electric-200">
+                      <p className="font-semibold text-crimson-200">
                         {money(item.charge_minor, item.currency)}
                       </p>
                     </div>
@@ -1060,7 +1060,7 @@ export default function OwnerBillingPage() {
               {overview.mobile_stores.diagnostics.map((item, index) => (
                 <div
                   key={`${item.code}-${index}`}
-                  className={`rounded-xl border p-3 text-sm ${item.severity === "error" ? "border-red-500/20 text-red-300" : "border-amber-500/20 text-amber-200"}`}
+                  className={`rounded-xl border p-3 text-sm ${item.severity === "error" ? "border-rose-500/20 text-rose-300" : "border-amber-500/20 text-amber-200"}`}
                 >
                   {item.store}: {item.message}
                 </div>
@@ -1080,7 +1080,7 @@ export default function OwnerBillingPage() {
         <div className="grid gap-5 xl:grid-cols-2">
           <section className="glass-card p-5">
             <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
-              <ShieldCheck className="h-5 w-5 text-electric-300" /> Payment
+              <ShieldCheck className="h-5 w-5 text-crimson-300" /> Payment
               providers
             </h2>
             <div className="mt-4 space-y-3">
@@ -1117,7 +1117,7 @@ export default function OwnerBillingPage() {
 
           <section className="glass-card p-5">
             <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
-              <Webhook className="h-5 w-5 text-electric-300" /> Verified webhook
+              <Webhook className="h-5 w-5 text-crimson-300" /> Verified webhook
               ledger
             </h2>
             <div className="mt-4 space-y-3">
@@ -1144,7 +1144,7 @@ export default function OwnerBillingPage() {
 
           <section className="glass-card p-5 xl:col-span-2">
             <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
-              <RefreshCw className="h-5 w-5 text-electric-300" /> Reconciliation
+              <RefreshCw className="h-5 w-5 text-crimson-300" /> Reconciliation
               history
             </h2>
             <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">

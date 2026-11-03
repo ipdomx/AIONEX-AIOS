@@ -62,7 +62,7 @@ const statusClass = (status: string) => {
     return "border-green-500/20 bg-green-500/10 text-green-400";
   }
   if (status === "supervised") {
-    return "border-sky-500/20 bg-sky-500/10 text-sky-300";
+    return "border-zinc-500/20 bg-zinc-500/10 text-zinc-300";
   }
   if (status === "retraining") {
     return "border-amber-500/20 bg-amber-500/10 text-amber-300";
@@ -111,7 +111,7 @@ export default function OwnerStaffPage() {
         className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
       >
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-purple-500/20 bg-purple-500/10 px-3 py-1 text-xs font-medium text-purple-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs font-medium text-crimson-300">
             <UserCog className="h-3.5 w-3.5" />
             Owner Workforce Oversight
           </div>
@@ -133,7 +133,7 @@ export default function OwnerStaffPage() {
           { label: "In Retraining", value: retraining, icon: GraduationCap },
         ].map((item) => (
           <div key={item.label} className="glass-card p-5">
-            <item.icon className="h-5 w-5 text-purple-300" />
+            <item.icon className="h-5 w-5 text-crimson-300" />
             <div className="mt-4 text-2xl font-bold text-white">
               {item.value}
             </div>
@@ -160,13 +160,13 @@ export default function OwnerStaffPage() {
             onChange={(event) => setKind(event.target.value)}
             className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
           >
-            <option value="all" className="bg-space-800">
+            <option value="all" className="bg-obsidian-800">
               All Workforce
             </option>
-            <option value="human" className="bg-space-800">
+            <option value="human" className="bg-obsidian-800">
               Human Staff
             </option>
-            <option value="digital" className="bg-space-800">
+            <option value="digital" className="bg-obsidian-800">
               Digital Workers
             </option>
           </select>
@@ -176,13 +176,13 @@ export default function OwnerStaffPage() {
             className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
           >
             {statusOptions.map((option) => (
-              <option key={option} value={option} className="bg-space-800">
+              <option key={option} value={option} className="bg-obsidian-800">
                 {option === "all" ? "All Status" : option}
               </option>
             ))}
           </select>
         </div>
-        <div className="text-xs text-electric-300">
+        <div className="text-xs text-crimson-300">
           {loading ? "Loading workforce records..." : message}
         </div>
       </div>
@@ -207,7 +207,7 @@ export default function OwnerStaffPage() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-3">
                     <div className="rounded-xl border border-white/6 bg-white/4 p-2.5">
-                      <MemberIcon className="h-5 w-5 text-purple-300" />
+                      <MemberIcon className="h-5 w-5 text-crimson-300" />
                     </div>
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
@@ -265,7 +265,7 @@ export default function OwnerStaffPage() {
                         key={metric.label}
                         className="rounded-xl border border-white/5 bg-white/2 p-3"
                       >
-                        <metric.icon className="h-3.5 w-3.5 text-electric-300" />
+                        <metric.icon className="h-3.5 w-3.5 text-crimson-300" />
                         <div className="mt-2 text-sm font-semibold text-white">
                           {metric.value}
                         </div>
@@ -367,7 +367,7 @@ export default function OwnerStaffPage() {
                             reason: "Owner restored workforce member",
                           })
                         }
-                        className="inline-flex items-center gap-2 rounded-xl border border-electric-500/20 bg-electric-500/10 px-3 py-2 text-xs text-electric-200 disabled:opacity-40"
+                        className="inline-flex items-center gap-2 rounded-xl border border-crimson-500/20 bg-crimson-500/10 px-3 py-2 text-xs text-crimson-200 disabled:opacity-40"
                       >
                         <PlayCircle className="h-3.5 w-3.5" /> Restore
                       </button>
@@ -393,7 +393,7 @@ export default function OwnerStaffPage() {
                           reason: "Owner retired workforce member",
                         })
                       }
-                      className="inline-flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300 disabled:opacity-40"
+                      className="inline-flex items-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-300 disabled:opacity-40"
                     >
                       <UserMinus className="h-3.5 w-3.5" /> Retire
                     </button>

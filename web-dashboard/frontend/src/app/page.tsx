@@ -22,7 +22,7 @@ export default function ControlPlaneEntryPage() {
       className="flex min-h-[calc(100vh-7rem)] items-center justify-center"
     >
       <div className="flex items-center gap-3 text-sm text-white/45">
-        <LoaderCircle className="h-5 w-5 animate-spin text-electric-300" />
+        <LoaderCircle className="h-5 w-5 animate-spin text-crimson-300" />
         Opening authorized workspace…
       </div>
     </section>
