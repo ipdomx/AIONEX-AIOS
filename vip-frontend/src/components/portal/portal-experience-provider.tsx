@@ -63,6 +63,36 @@ function resolvePortalHref(value: string, locale: PortalLocale): string {
   return value === "/" ? `/${locale}` : `/${locale}${value}`;
 }
 
+// Theme values equal to a shipped default (the current Obsidian & Crimson
+// palette or the previous cyan/violet one) are not pinned inline. The
+// stylesheet tokens then apply, including the light theme, and a portal whose
+// stored configuration still carries the old untouched defaults shows the new
+// identity. Any colour the owner actually customised is still applied.
+const BUILT_IN_THEME_DEFAULTS: Record<string, readonly string[]> = {
+  "--page": ["#03050A", "#050505"],
+  "--page-deep": ["#070B14", "#0B0B0D"],
+  "--surface": ["#0B1220", "#111114"],
+  "--text": ["#FFFFFF", "#F5F5F4"],
+  "--muted-solid": ["#94A3B8", "#A1A1AA"],
+  "--primary": ["#14B8E6", "#E11D2E"],
+  "--secondary": ["#8B5CF6", "#9B0F1C"],
+  "--success": ["#10B981", "#22C55E"],
+  "--warning": ["#F59E0B"],
+  "--danger": ["#EF4444", "#F43F5E"],
+  "--portal-radius": ["16PX", "14PX"],
+  "--portal-heading-font": ['INTER, "SEGOE UI", ARIAL, SANS-SERIF'],
+  "--portal-body-font": ['INTER, "SEGOE UI", ARIAL, SANS-SERIF'],
+  "--portal-arabic-font": [
+    "TAHOMA, ARIAL, SANS-SERIF",
+    '"IBM PLEX SANS ARABIC", TAHOMA, ARIAL, SANS-SERIF',
+  ],
+};
+
+function isBuiltInThemeDefault(key: string, value: string): boolean {
+  const defaults = BUILT_IN_THEME_DEFAULTS[key];
+  return Boolean(defaults?.includes(value.trim().toUpperCase()));
+}
+
 function applyTheme(configuration: PortalConfiguration | null, locale: PortalLocale) {
   if (!configuration) return () => undefined;
   const root = document.documentElement;
@@ -92,7 +122,11 @@ function applyTheme(configuration: PortalConfiguration | null, locale: PortalLoc
     "--portal-background-opacity": String(theme.background_image_opacity),
   };
   for (const [key, value] of Object.entries(variables)) {
-    root.style.setProperty(key, value);
+    if (isBuiltInThemeDefault(key, value)) {
+      root.style.removeProperty(key);
+    } else {
+      root.style.setProperty(key, value);
+    }
   }
   root.dataset.portalButtonStyle = theme.button_style;
   root.dataset.portalGrid = theme.background_grid ? "on" : "off";

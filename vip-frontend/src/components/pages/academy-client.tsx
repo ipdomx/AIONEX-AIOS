@@ -250,7 +250,7 @@ export function AcademyClient() {
     return (
       <section className="page-shell py-16 text-white">
         <div className="glass-panel flex min-h-52 items-center justify-center rounded-3xl">
-          <LoaderCircle className="h-7 w-7 animate-spin text-electric-200" />
+          <LoaderCircle className="h-7 w-7 animate-spin text-crimson-200" />
         </div>
       </section>
     );
@@ -260,7 +260,7 @@ export function AcademyClient() {
     return (
       <section className="page-shell py-12 text-white sm:py-16">
         <div className="glass-panel mx-auto max-w-3xl rounded-3xl p-7 sm:p-10">
-          <GraduationCap className="h-8 w-8 text-electric-200" />
+          <GraduationCap className="h-8 w-8 text-crimson-200" />
           <h1 className="mt-5 text-2xl font-semibold">{t("planTitle")}</h1>
           <p className="mt-3 text-sm leading-7 text-white/45">{t("planCopy")}</p>
           <Button className="mt-6" variant="secondary" onClick={() => router.push(`/${locale}/studio`)}>
@@ -275,7 +275,7 @@ export function AcademyClient() {
     return (
       <section className="page-shell py-12 text-white sm:py-16">
         <div className="glass-panel mx-auto max-w-3xl rounded-3xl p-7 sm:p-10">
-          <ShieldCheck className="h-8 w-8 text-electric-200" />
+          <ShieldCheck className="h-8 w-8 text-crimson-200" />
           <h1 className="mt-5 text-2xl font-semibold">{t("permissionTitle")}</h1>
           <p className="mt-3 text-sm leading-7 text-white/45">{t("permissionCopy")}</p>
           <Button className="mt-6" variant="secondary" onClick={() => router.push(`/${locale}/studio`)}>
@@ -308,7 +308,7 @@ export function AcademyClient() {
 
       <div className="glass-panel mt-8 rounded-3xl p-5 sm:p-6">
         <div className="flex items-start gap-3">
-          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-electric-200" />
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-crimson-200" />
           <div>
             <p className="text-sm font-semibold">{t("governedTitle")}</p>
             <p className="mt-1 text-xs leading-6 text-white/45">{t("governedCopy")}</p>
@@ -323,7 +323,7 @@ export function AcademyClient() {
         <div className="mt-8 grid gap-6 xl:grid-cols-2">
           <form className="glass-panel rounded-3xl p-5 sm:p-7" onSubmit={submitCourse}>
             <div className="flex items-center gap-3">
-              <Plus className="h-5 w-5 text-electric-200" />
+              <Plus className="h-5 w-5 text-crimson-200" />
               <h2 className="text-lg font-semibold">{t("createCourse")}</h2>
             </div>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -341,13 +341,13 @@ export function AcademyClient() {
 
           <form className="glass-panel rounded-3xl p-5 sm:p-7" onSubmit={submitPackage}>
             <div className="flex items-center gap-3">
-              <FileArchive className="h-5 w-5 text-electric-200" />
+              <FileArchive className="h-5 w-5 text-crimson-200" />
               <h2 className="text-lg font-semibold">{t("buildPackage")}</h2>
             </div>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <select className="field-control sm:col-span-2" value={selectedCourseId} onChange={(event) => setSelectedCourseId(event.target.value)} required>
                 {!courses.length && <option value="">{t("noCourses")}</option>}
-                {courses.map((course) => <option className="bg-ink-800" value={course.id} key={course.id}>{course.title}</option>)}
+                {courses.map((course) => <option className="bg-obsidian-800" value={course.id} key={course.id}>{course.title}</option>)}
               </select>
               <input className="field-control" name="domain" minLength={2} maxLength={240} placeholder={t("domain")} required />
               <input className="field-control" name="audience" minLength={2} maxLength={240} placeholder={t("audience")} required />
@@ -385,7 +385,7 @@ export function AcademyClient() {
             <article className="glass-panel rounded-3xl p-5 sm:p-6" key={course.id}>
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2 text-xs text-electric-200"><BookOpen className="h-3.5 w-3.5" /> {course.code}</div>
+                  <div className="flex items-center gap-2 text-xs text-crimson-200"><BookOpen className="h-3.5 w-3.5" /> {course.code}</div>
                   <h3 className="mt-2 text-lg font-semibold">{course.title}</h3>
                   {course.description && <p className="mt-2 text-xs leading-6 text-white/40">{course.description}</p>}
                 </div>
@@ -412,10 +412,10 @@ export function AcademyClient() {
                       <span className="rounded-full border border-white/[0.08] px-2 py-1 text-[10px] text-white/45">{item.status}</span>
                     </div>
                     {activePackageStatuses.has(item.status) && (
-                      <div className="mt-3 flex items-center gap-2 text-xs text-electric-200"><LoaderCircle className="h-3.5 w-3.5 animate-spin" /> {t("building")}</div>
+                      <div className="mt-3 flex items-center gap-2 text-xs text-crimson-200"><LoaderCircle className="h-3.5 w-3.5 animate-spin" /> {t("building")}</div>
                     )}
                     {item.archive_sha256 && <p className="mt-3 truncate font-mono text-[10px] text-white/25">SHA-256 {item.archive_sha256}</p>}
-                    {item.error_code && <p className="mt-3 text-xs text-red-300/80">{item.error_code}</p>}
+                    {item.error_code && <p className="mt-3 text-xs text-rose-300/80">{item.error_code}</p>}
                     <div className="mt-4 flex flex-wrap gap-2">
                       {item.download_ready && (
                         <Button size="sm" disabled={busy === item.id} onClick={() => void download(item)}>

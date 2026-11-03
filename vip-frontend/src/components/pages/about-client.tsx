@@ -47,7 +47,7 @@ export function AboutClient() {
   ];
   return (
     <>
-      <section className="section-pad relative overflow-hidden border-b border-white/[0.07]">
+      <section className="hero-surface section-pad relative overflow-hidden border-b border-white/[0.08]">
         <div className="pointer-events-none absolute inset-0 grid-surface opacity-50" />
         <div className="page-shell relative max-w-5xl text-center">
           <span className="eyebrow">{t("eyebrow")}</span>
@@ -61,15 +61,15 @@ export function AboutClient() {
       </section>
       <section className="section-pad">
         <div className="page-shell grid gap-6 lg:grid-cols-2">
-          <article className="glass-panel rounded-3xl p-8 sm:p-10">
-            <Target className="h-8 w-8 text-electric-200" />
+          <article className="glass-panel accent-top rounded-3xl p-8 sm:p-10">
+            <Target className="h-8 w-8 text-crimson-200" />
             <h2 className="mt-6 text-2xl font-semibold">{t("missionTitle")}</h2>
             <p className="mt-4 text-base leading-8 text-white/55">
               {t("missionCopy")}
             </p>
           </article>
-          <article className="glass-panel rounded-3xl p-8 sm:p-10">
-            <Eye className="h-8 w-8 text-violet-400" />
+          <article className="glass-panel accent-top rounded-3xl p-8 sm:p-10">
+            <Eye className="h-8 w-8 text-zinc-300" />
             <h2 className="mt-6 text-2xl font-semibold">{t("visionTitle")}</h2>
             <p className="mt-4 text-base leading-8 text-white/55">
               {t("visionCopy")}
@@ -77,7 +77,7 @@ export function AboutClient() {
           </article>
         </div>
       </section>
-      <section className="section-pad border-y border-white/[0.07] bg-black/10">
+      <section className="section-pad border-y border-white/[0.08] bg-obsidian-900">
         <div className="page-shell">
           <div className="max-w-3xl">
             <span className="eyebrow">{t("principlesEyebrow")}</span>
@@ -87,9 +87,9 @@ export function AboutClient() {
             {principles.map(({ icon: Icon, title, copy }) => (
               <article
                 key={title}
-                className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-6 sm:p-8"
+                className="rounded-2xl border border-white/[0.08] bg-obsidian-800 p-6 transition-colors hover:border-white/[0.14] sm:p-8"
               >
-                <Icon className="h-6 w-6 text-electric-200" />
+                <Icon className="h-6 w-6 text-crimson-200" />
                 <h3 className="mt-5 text-lg font-semibold">{title}</h3>
                 <p className="mt-3 text-sm leading-7 text-white/50">{copy}</p>
               </article>

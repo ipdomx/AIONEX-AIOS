@@ -64,7 +64,7 @@ export function PricingClient() {
     return (
       <section className="section-pad">
         <div className="page-shell flex min-h-[45vh] items-center justify-center">
-          <LoaderCircle className="h-8 w-8 animate-spin text-electric-200" />
+          <LoaderCircle className="h-8 w-8 animate-spin text-crimson-200" />
         </div>
       </section>
     );
@@ -79,7 +79,7 @@ export function PricingClient() {
               ? "الأسعار غير متاحة حاليًا"
               : "Pricing is not currently available"}
           </h1>
-          {error && <p className="mt-5 text-sm text-red-200">{error}</p>}
+          {error && <p className="mt-5 text-sm text-rose-200">{error}</p>}
         </div>
       </section>
     );
@@ -91,7 +91,7 @@ export function PricingClient() {
 
   return (
     <>
-      <section className="section-pad relative overflow-hidden border-b border-white/[0.07]">
+      <section className="hero-surface section-pad relative overflow-hidden border-b border-white/[0.07]">
         <div className="pointer-events-none absolute inset-0 grid-surface opacity-50" />
         <div className="page-shell relative max-w-5xl text-center">
           <span className="eyebrow">
@@ -128,8 +128,8 @@ export function PricingClient() {
                     onClick={() => setPeriodId(id)}
                     className={`rounded-lg px-4 py-2 text-sm ${
                       selectedPeriod === id
-                        ? "bg-white text-ink-950"
-                        : "text-white/60"
+                        ? "bg-crimson-500 font-semibold text-white"
+                        : "text-white/60 transition-colors hover:text-white"
                     }`}
                   >
                     {localized(sample?.label, locale, id)}
@@ -144,7 +144,7 @@ export function PricingClient() {
       <section className="section-pad">
         <div className="page-shell">
           {error && (
-            <p className="mb-6 rounded-2xl border border-red-400/20 bg-red-500/10 px-5 py-4 text-center text-sm text-red-100">
+            <p className="mb-6 rounded-2xl border border-rose-400/20 bg-rose-500/10 px-5 py-4 text-center text-sm text-rose-100">
               {error}
             </p>
           )}
@@ -176,8 +176,8 @@ export function PricingClient() {
                   key={plan.code}
                   className={`relative rounded-3xl border p-7 sm:p-8 ${
                     plan.featured
-                      ? "border-electric-300/35 bg-electric-400/[0.08] shadow-glow"
-                      : "border-white/[0.08] bg-white/[0.025]"
+                      ? "accent-top border-crimson-500/40 bg-obsidian-800 shadow-glow"
+                      : "border-white/[0.08] bg-obsidian-800"
                   }`}
                 >
                   <h2 className="text-2xl font-semibold">

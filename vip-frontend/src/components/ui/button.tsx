@@ -8,12 +8,12 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variants = {
   primary:
-    "border-electric-300/30 bg-gradient-to-r from-electric-500 to-violet-500 text-white shadow-lg shadow-electric-500/15 hover:brightness-110",
+    "border-transparent bg-crimson-500 text-white hover:bg-crimson-400 hover:shadow-[0_0_0_1px_rgba(255,45,63,0.4),0_8px_28px_-6px_rgba(225,29,46,0.35)] active:bg-crimson-600",
   secondary:
-    "border-white/10 bg-white/[0.06] text-white hover:border-electric-300/25 hover:bg-white/[0.1]",
+    "border-white/[0.14] bg-obsidian-700 text-white hover:border-white/25 hover:bg-obsidian-600",
   ghost:
-    "border-transparent bg-transparent text-white/70 hover:bg-white/[0.06] hover:text-white",
-  danger: "border-red-400/25 bg-red-500/10 text-red-200 hover:bg-red-500/20"
+    "border-transparent bg-transparent text-zinc-400 hover:bg-white/[0.06] hover:text-white",
+  danger: "border-rose-400/25 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20"
 };
 
 const sizes = {
@@ -28,7 +28,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       ref={ref}
       type={type}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-xl border font-semibold transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-300 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-950 disabled:cursor-not-allowed disabled:opacity-45",
+        "inline-flex items-center justify-center gap-2 rounded-xl border font-semibold transition duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crimson-500 focus-visible:ring-offset-2 focus-visible:ring-offset-obsidian-950 disabled:cursor-not-allowed disabled:opacity-45",
         variants[variant],
         sizes[size],
         className

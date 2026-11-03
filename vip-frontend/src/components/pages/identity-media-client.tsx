@@ -247,7 +247,7 @@ export function IdentityMediaClient() {
   }
 
   if (loading) {
-    return <section className="page-shell py-16 text-white"><div className="glass-panel flex min-h-52 items-center justify-center rounded-3xl"><LoaderCircle className="h-7 w-7 animate-spin text-electric-200" /></div></section>;
+    return <section className="page-shell py-16 text-white"><div className="glass-panel flex min-h-52 items-center justify-center rounded-3xl"><LoaderCircle className="h-7 w-7 animate-spin text-crimson-200" /></div></section>;
   }
 
   return (
@@ -266,7 +266,7 @@ export function IdentityMediaClient() {
 
       <div className="glass-panel rounded-3xl p-5 sm:p-6">
         <div className="flex items-start gap-3">
-          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-electric-200" />
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-crimson-200" />
           <div><p className="font-semibold">{t("policyTitle")}</p><p className="mt-1 text-xs leading-6 text-white/45">{t("policyCopy")}</p></div>
         </div>
       </div>
@@ -275,8 +275,8 @@ export function IdentityMediaClient() {
         {operations.map(({ id, icon: Icon }) => {
           const cap = capabilities?.operations.find((item) => item.operation === id);
           return (
-            <button key={id} type="button" onClick={() => setOperation(id)} className={`glass-panel rounded-2xl p-4 text-start transition ${operation === id ? "ring-1 ring-electric-300/60" : "opacity-80 hover:opacity-100"}`}>
-              <Icon className="h-5 w-5 text-electric-200" />
+            <button key={id} type="button" onClick={() => setOperation(id)} className={`glass-panel rounded-2xl p-4 text-start transition ${operation === id ? "ring-1 ring-crimson-300/60" : "opacity-80 hover:opacity-100"}`}>
+              <Icon className="h-5 w-5 text-crimson-200" />
               <div className="mt-3 font-semibold">{t(`operation.${id}`)}</div>
               <div className={`mt-2 text-[11px] ${cap?.runtime_ready ? "text-emerald-300" : "text-amber-300"}`}>{cap?.runtime_ready ? t("runtimeReady") : t("runtimePending")}</div>
             </button>
@@ -359,13 +359,13 @@ export function IdentityMediaClient() {
       </form>
 
       <section className="glass-panel rounded-3xl p-5 sm:p-6">
-        <div className="flex items-center justify-between gap-4"><div><h2 className="font-semibold">{t("recentTitle")}</h2><p className="mt-1 text-xs text-white/40">{t("recentCopy")}</p></div><div className="text-xs text-electric-200">{message}</div></div>
+        <div className="flex items-center justify-between gap-4"><div><h2 className="font-semibold">{t("recentTitle")}</h2><p className="mt-1 text-xs text-white/40">{t("recentCopy")}</p></div><div className="text-xs text-crimson-200">{message}</div></div>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[760px] text-left text-xs text-white/55">
             <thead className="text-white/30"><tr><th className="py-2">{t("operationLabel")}</th><th>{t("basisLabel")}</th><th>{t("status")}</th><th>{t("provider")}</th><th>{t("cost")}</th><th>{t("output")}</th></tr></thead>
             <tbody>
               {executions.map((item) => (
-                <tr key={item.execution_id} className="border-t border-white/[0.06]"><td className="py-3">{t(`operation.${item.operation}`)}</td><td>{t(`basis.${item.identity_basis}`)}</td><td className={statusClass(item.status)}>{item.status}</td><td>{item.provider} · {item.model}</td><td>{item.actual_cost_usd == null ? t("costUnknown") : `$${item.actual_cost_usd.toFixed(4)}`}</td><td>{item.output_ready ? <button className="text-electric-200 hover:text-white" disabled={busy !== null} onClick={() => void download(item)}><Download className="inline h-4 w-4" /> {t("download")}</button> : "—"}</td></tr>
+                <tr key={item.execution_id} className="border-t border-white/[0.06]"><td className="py-3">{t(`operation.${item.operation}`)}</td><td>{t(`basis.${item.identity_basis}`)}</td><td className={statusClass(item.status)}>{item.status}</td><td>{item.provider} · {item.model}</td><td>{item.actual_cost_usd == null ? t("costUnknown") : `$${item.actual_cost_usd.toFixed(4)}`}</td><td>{item.output_ready ? <button className="text-crimson-200 hover:text-white" disabled={busy !== null} onClick={() => void download(item)}><Download className="inline h-4 w-4" /> {t("download")}</button> : "—"}</td></tr>
               ))}
               {!executions.length && <tr><td colSpan={6} className="py-8 text-center text-white/30">{t("noExecutions")}</td></tr>}
             </tbody>

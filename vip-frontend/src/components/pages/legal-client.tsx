@@ -23,10 +23,10 @@ export function LegalClient({ kind }: { kind: "privacy" | "terms" }) {
         ))}
         {kind === "terms" && (
           <div className="mt-10 flex flex-col gap-3 border-t border-white/[0.07] pt-8 text-sm">
-            <a className="text-violet-200 underline underline-offset-4" href="/legal/tencent-hunyuan-3d-2.1-license.txt" target="_blank" rel="noreferrer">
+            <a className="text-crimson-200 underline underline-offset-4" href="/legal/tencent-hunyuan-3d-2.1-license.txt" target="_blank" rel="noreferrer">
               {t("hunyuanLicense")}
             </a>
-            <a className="text-violet-200 underline underline-offset-4" href="/legal/triposr-mit-license.txt" target="_blank" rel="noreferrer">
+            <a className="text-crimson-200 underline underline-offset-4" href="/legal/triposr-mit-license.txt" target="_blank" rel="noreferrer">
               {t("triposrLicense")}
             </a>
           </div>

@@ -14,10 +14,10 @@ export function AnnouncementBanner() {
   }, [key]);
   if (!announcement?.enabled || dismissed) return null;
   const severityClass = {
-    info: "border-electric-300/20 bg-electric-400/10 text-electric-100",
+    info: "border-white/10 bg-obsidian-700 text-zinc-200",
     success: "border-emerald-300/20 bg-emerald-400/10 text-emerald-100",
     warning: "border-amber-300/20 bg-amber-400/10 text-amber-100",
-    critical: "border-red-300/20 bg-red-400/10 text-red-100",
+    critical: "border-rose-300/20 bg-rose-500/10 text-rose-100",
   }[announcement.severity];
   return (
     <div className={`border-b px-4 py-2.5 text-center text-xs ${severityClass}`}>

@@ -114,7 +114,7 @@ export function ResetPasswordClient() {
           </form>
           <Link
             href={`/${locale}/login`}
-            className="mt-6 block text-center text-sm font-semibold text-electric-200 hover:text-electric-100"
+            className="mt-6 block text-center text-sm font-semibold text-crimson-200 hover:text-crimson-100"
           >
             {t("backToLogin")}
           </Link>

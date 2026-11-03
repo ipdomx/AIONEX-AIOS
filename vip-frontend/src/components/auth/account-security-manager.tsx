@@ -120,7 +120,7 @@ export function AccountSecurityManager() {
   return (
     <section className="glass-panel rounded-3xl p-6 sm:p-9 lg:col-span-2">
       <div className="flex items-center gap-3">
-        <ShieldCheck className="h-5 w-5 text-electric-200" />
+        <ShieldCheck className="h-5 w-5 text-crimson-200" />
         <h2 className="text-xl font-semibold">{t("accountSecurityTitle")}</h2>
       </div>
       <p className="mt-3 text-sm leading-7 text-white/45">
@@ -141,7 +141,7 @@ export function AccountSecurityManager() {
       <div className="mt-7 grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-white/[0.07] p-5">
           <div className="flex items-center gap-2">
-            <Smartphone className="h-4 w-4 text-violet-300" />
+            <Smartphone className="h-4 w-4 text-zinc-300" />
             <h3 className="font-semibold">{t("mfaTitle")}</h3>
           </div>
           <p className="mt-2 text-xs leading-6 text-white/40">
@@ -165,7 +165,7 @@ export function AccountSecurityManager() {
           )}
           {setup && (
             <div className="mt-4 space-y-4">
-              <div className="rounded-xl bg-black/20 p-3 font-mono text-xs text-electric-100 break-all">
+              <div className="rounded-xl bg-black/20 p-3 font-mono text-xs text-crimson-100 break-all">
                 {setup.secret}
               </div>
               <div>
@@ -227,7 +227,7 @@ export function AccountSecurityManager() {
 
         <div className="rounded-2xl border border-white/[0.07] p-5">
           <div className="flex items-center gap-2">
-            <LogOut className="h-4 w-4 text-electric-200" />
+            <LogOut className="h-4 w-4 text-crimson-200" />
             <h3 className="font-semibold">{t("sessionsTitle")}</h3>
           </div>
           <div className="mt-4 max-h-80 space-y-2 overflow-y-auto">
@@ -253,7 +253,7 @@ export function AccountSecurityManager() {
                   <button
                     disabled={busy}
                     onClick={() => void revoke(session.id)}
-                    className="mt-2 text-xs font-semibold text-red-300 hover:text-red-200"
+                    className="mt-2 text-xs font-semibold text-rose-300 hover:text-rose-200"
                   >
                     {t("revokeSession")}
                   </button>

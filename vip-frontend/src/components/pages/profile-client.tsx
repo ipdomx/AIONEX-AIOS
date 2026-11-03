@@ -169,13 +169,13 @@ export function ProfileClient() {
           >
             <div className="flex items-center gap-3">
               <Camera
-                className="h-5 w-5 text-electric-200"
+                className="h-5 w-5 text-crimson-200"
                 aria-hidden="true"
               />
               <h2 className="text-xl font-semibold">{t("identityTitle")}</h2>
             </div>
             <div className="mt-7 flex flex-col items-start gap-5 sm:flex-row sm:items-center">
-              <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-electric-400/15 to-violet-500/15 text-2xl font-bold text-electric-100">
+              <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-crimson-400/15 to-crimson-600/15 text-2xl font-bold text-crimson-100">
                 {avatar ? (
                   <Image
                     src={avatar}
@@ -280,7 +280,7 @@ export function ProfileClient() {
           >
             <div className="flex items-center gap-3">
               <KeyRound
-                className="h-5 w-5 text-violet-400"
+                className="h-5 w-5 text-zinc-300"
                 aria-hidden="true"
               />
               <h2 className="text-xl font-semibold">{t("passwordTitle")}</h2>
@@ -336,9 +336,9 @@ export function ProfileClient() {
                 required
               />
             </div>
-            <div className="mt-6 flex items-start gap-3 rounded-xl border border-electric-300/15 bg-electric-400/[0.06] p-4 text-xs leading-6 text-white/45">
+            <div className="mt-6 flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4 text-xs leading-6 text-white/45">
               <ShieldCheck
-                className="mt-0.5 h-4 w-4 shrink-0 text-electric-200"
+                className="mt-0.5 h-4 w-4 shrink-0 text-crimson-200"
                 aria-hidden="true"
               />
               {t("sessionNotice", { count: settings.security.active_sessions })}

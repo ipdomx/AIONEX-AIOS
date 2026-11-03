@@ -97,7 +97,7 @@ export function DashboardClient() {
       <section className="section-pad">
         <div className="page-shell flex min-h-[45vh] items-center justify-center">
           <LoaderCircle
-            className="h-8 w-8 animate-spin text-electric-200"
+            className="h-8 w-8 animate-spin text-crimson-200"
             aria-label={t("loading")}
           />
         </div>
@@ -182,7 +182,7 @@ export function DashboardClient() {
             <Card key={label}>
               <CardContent>
                 <Icon
-                  className="h-5 w-5 text-electric-200"
+                  className="h-5 w-5 text-crimson-200"
                   aria-hidden="true"
                 />
                 <p className="mt-5 text-xs uppercase tracking-[0.14em] text-white/35">
@@ -210,7 +210,7 @@ export function DashboardClient() {
                 </div>
                 <Link
                   href={`/${locale}/projects`}
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-electric-200 hover:text-electric-100"
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-crimson-200 hover:text-crimson-100"
                 >
                   {t("viewProjects")}
                   <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
@@ -274,7 +274,7 @@ export function DashboardClient() {
                 >
                   {t("manageProjects")}
                   <FolderKanban
-                    className="h-4 w-4 text-electric-200"
+                    className="h-4 w-4 text-crimson-200"
                     aria-hidden="true"
                   />
                 </Link>
@@ -284,7 +284,7 @@ export function DashboardClient() {
                 >
                   {t("manageBilling")}
                   <CreditCard
-                    className="h-4 w-4 text-electric-200"
+                    className="h-4 w-4 text-crimson-200"
                     aria-hidden="true"
                   />
                 </Link>
@@ -295,7 +295,7 @@ export function DashboardClient() {
                   >
                     {t("securityLab")}
                     <ShieldCheck
-                      className="h-4 w-4 text-electric-200"
+                      className="h-4 w-4 text-crimson-200"
                       aria-hidden="true"
                     />
                   </Link>
@@ -306,7 +306,7 @@ export function DashboardClient() {
                 >
                   {t("accountSettings")}
                   <UserRound
-                    className="h-4 w-4 text-electric-200"
+                    className="h-4 w-4 text-crimson-200"
                     aria-hidden="true"
                   />
                 </Link>
@@ -316,7 +316,7 @@ export function DashboardClient() {
                 >
                   {t("notifications")}
                   <Bell
-                    className="h-4 w-4 text-electric-200"
+                    className="h-4 w-4 text-crimson-200"
                     aria-hidden="true"
                   />
                 </Link>
@@ -326,7 +326,7 @@ export function DashboardClient() {
                 >
                   {t("contactSupport")}
                   <MessageSquareText
-                    className="h-4 w-4 text-electric-200"
+                    className="h-4 w-4 text-crimson-200"
                     aria-hidden="true"
                   />
                 </Link>

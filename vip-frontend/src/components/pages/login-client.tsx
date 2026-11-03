@@ -99,22 +99,22 @@ export function LoginClient() {
   }
 
   return (
-    <section className="section-pad">
+    <section className="hero-surface section-pad">
       <div className="page-shell grid items-start gap-10 lg:grid-cols-[.8fr_1.2fr] lg:gap-16">
         <div className="lg:sticky lg:top-28">
           <span className="eyebrow">{t("secureAccess")}</span>
           <h1 className="section-title mt-7">{t("loginTitle")}</h1>
           <p className="section-copy mt-5">{t("loginDescription")}</p>
-          <div className="mt-8 flex items-start gap-3 rounded-2xl border border-electric-300/15 bg-electric-400/[0.06] p-5 text-sm leading-7 text-white/55">
+          <div className="mt-8 flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-sm leading-7 text-white/55">
             <LockKeyhole
-              className="mt-1 h-5 w-5 shrink-0 text-electric-200"
+              className="mt-1 h-5 w-5 shrink-0 text-crimson-200"
               aria-hidden="true"
             />
             {t("securityNote")}
           </div>
         </div>
 
-        <div className="glass-panel rounded-3xl p-6 sm:p-9">
+        <div className="glass-panel accent-top rounded-3xl p-6 sm:p-9">
           {mfaChallenge ? (
             <form onSubmit={submitMfa}>
               <label htmlFor="mfa-code" className="field-label">
@@ -258,14 +258,14 @@ export function LoginClient() {
               {t("noAccount")}{" "}
               <Link
                 href={`/${locale}/register`}
-                className="font-semibold text-electric-200 hover:text-electric-100"
+                className="font-semibold text-crimson-200 hover:text-crimson-100"
               >
                 {t("createAccount")}
               </Link>
               <span className="mx-2 text-white/20">·</span>
               <Link
                 href={`/${locale}/forgot-password`}
-                className="font-semibold text-electric-200 hover:text-electric-100"
+                className="font-semibold text-crimson-200 hover:text-crimson-100"
               >
                 {t("forgotPassword")}
               </Link>

@@ -214,23 +214,25 @@ class PortalBranding(BaseModel):
 
 class PortalTheme(BaseModel):
     default_mode: Literal["dark", "light", "system"] = "dark"
-    page_color: str = "#03050A"
-    page_deep_color: str = "#070B14"
-    surface_color: str = "#0B1220"
-    text_color: str = "#FFFFFF"
-    muted_color: str = "#94A3B8"
-    primary_color: str = "#14B8E6"
-    secondary_color: str = "#8B5CF6"
-    success_color: str = "#10B981"
+    # Visual identity v3 "Obsidian & Crimson" (black + red). These defaults
+    # mirror the VIP portal stylesheet tokens in vip-frontend/src/styles/globals.css.
+    page_color: str = "#050505"
+    page_deep_color: str = "#0B0B0D"
+    surface_color: str = "#111114"
+    text_color: str = "#F5F5F4"
+    muted_color: str = "#A1A1AA"
+    primary_color: str = "#E11D2E"
+    secondary_color: str = "#9B0F1C"
+    success_color: str = "#22C55E"
     warning_color: str = "#F59E0B"
-    danger_color: str = "#EF4444"
+    danger_color: str = "#F43F5E"
     heading_font_family: str = 'Inter, "Segoe UI", Arial, sans-serif'
     body_font_family: str = 'Inter, "Segoe UI", Arial, sans-serif'
-    arabic_font_family: str = "Tahoma, Arial, sans-serif"
+    arabic_font_family: str = '"IBM Plex Sans Arabic", Tahoma, Arial, sans-serif'
     heading_font_url: str = ""
     body_font_url: str = ""
     arabic_font_url: str = ""
-    radius_px: int = Field(default=16, ge=0, le=48)
+    radius_px: int = Field(default=14, ge=0, le=48)
     page_max_width_px: int = Field(default=1280, ge=960, le=1920)
     section_spacing_px: int = Field(default=96, ge=40, le=200)
     logo_size_px: int = Field(default=42, ge=24, le=128)

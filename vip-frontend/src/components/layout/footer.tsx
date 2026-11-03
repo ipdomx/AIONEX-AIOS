@@ -27,24 +27,25 @@ export function Footer() {
     },
   ];
   return (
-    <footer className="border-t border-white/[0.07] bg-black/20">
+    <footer className="relative border-t border-white/[0.08] bg-obsidian-900">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-crimson-500/60 to-transparent" />
       <div className="page-shell grid gap-10 py-12 md:grid-cols-[1.4fr_1fr_1fr]">
         <div className="max-w-md">
           <Brand locale={locale} />
-          <p className="mt-5 text-sm leading-7 text-white/45">
+          <p className="mt-5 text-sm leading-7 text-zinc-400">
             {text(footer?.description, t("description"))}
           </p>
-          <div className="mt-5 inline-flex items-center gap-2 text-xs text-emerald-200/70">
-            <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+          <div className="mt-5 inline-flex items-center gap-2 text-xs text-zinc-400">
+            <ShieldCheck className="h-4 w-4 text-crimson-200" aria-hidden="true" />
             {text(footer?.security_note, t("security"))}
           </div>
         </div>
         {columns.slice(0, 2).map((column, columnIndex) => (
           <div key={column.id}>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/35">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">
               {text(column.title, columnIndex === 0 ? t("navigation") : t("access"))}
             </p>
-            <div className="mt-4 flex flex-col gap-3 text-sm text-white/55">
+            <div className="mt-4 flex flex-col gap-3 text-sm text-zinc-400">
               {column.links
                 .filter((item) => item.enabled)
                 .sort((a, b) => a.order - b.order)
@@ -59,9 +60,9 @@ export function Footer() {
                   const label = text(item.label, fallback[item.id.replace("footer-", "")] || item.id);
                   const target = href(item.href);
                   return item.external || target.startsWith("https://") ? (
-                    <a key={item.id} href={target} target="_blank" rel="noreferrer" className="hover:text-white">{label}</a>
+                    <a key={item.id} href={target} target="_blank" rel="noreferrer" className="transition-colors hover:text-white">{label}</a>
                   ) : (
-                    <Link key={item.id} href={target} className="hover:text-white">{label}</Link>
+                    <Link key={item.id} href={target} className="transition-colors hover:text-white">{label}</Link>
                   );
                 })}
             </div>
@@ -69,14 +70,14 @@ export function Footer() {
         ))}
         {columns.length < 2 && (
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/35">{t("access")}</p>
-            <div className="mt-4 inline-flex items-center gap-2 text-sm text-white/55">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">{t("access")}</p>
+            <div className="mt-4 inline-flex items-center gap-2 text-sm text-zinc-400">
               <LockKeyhole className="h-4 w-4" aria-hidden="true" />{t("privateGateway")}
             </div>
           </div>
         )}
       </div>
-      <div className="border-t border-white/[0.06] py-5 text-center text-xs text-white/30">
+      <div className="border-t border-white/[0.06] py-5 text-center text-xs text-zinc-500">
         © {new Date().getUTCFullYear()} {configuration?.branding.site_name || "AIONEX AIOS"}. {text(footer?.copyright_text, t("rights"))}
       </div>
     </footer>

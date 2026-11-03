@@ -33,7 +33,7 @@ export function LanguageSwitcher() {
 
   return (
     <label className="relative inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-xs text-white/65 transition hover:bg-white/[0.07]">
-      <Languages className="h-4 w-4 text-electric-200" aria-hidden="true" />
+      <Languages className="h-4 w-4 text-crimson-200" aria-hidden="true" />
       <span className="sr-only">{t("language")}</span>
       <select
         value={locale}
@@ -43,7 +43,7 @@ export function LanguageSwitcher() {
         className="cursor-pointer appearance-none bg-transparent pe-4 text-xs font-medium text-white outline-none disabled:opacity-50"
       >
         {locales.map((item) => (
-          <option key={item} value={item} className="bg-ink-800 text-white">
+          <option key={item} value={item} className="bg-obsidian-800 text-white">
             {labels[item]}
           </option>
         ))}

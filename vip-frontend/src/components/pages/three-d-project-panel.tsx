@@ -127,7 +127,7 @@ function ThreeDViewer({ url, label }: { url: string; label: string }) {
   return (
     <div className="relative mt-4 overflow-hidden rounded-2xl border border-white/[0.08] bg-black/20">
       <div ref={containerRef} className="h-72 w-full sm:h-80" aria-label={label} />
-      {failed && <div className="absolute inset-0 grid place-items-center bg-ink-950/90 px-8 text-center text-xs text-white/55">{label}</div>}
+      {failed && <div className="absolute inset-0 grid place-items-center bg-obsidian-950/90 px-8 text-center text-xs text-white/55">{label}</div>}
     </div>
   );
 }
@@ -309,10 +309,10 @@ export function ThreeDProjectPanel({
   }
 
   return (
-    <div className="mt-7 rounded-2xl border border-violet-300/10 bg-violet-300/[0.035] p-5">
+    <div className="mt-7 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Box className="h-4 w-4 text-violet-200" />
+          <Box className="h-4 w-4 text-zinc-300" />
           <p className="text-sm font-semibold">{t("threeD.title")}</p>
         </div>
         <div className="flex items-center gap-2 text-[11px] text-white/35">
@@ -357,7 +357,7 @@ export function ThreeDProjectPanel({
                 <span className="text-white/35">{latest.progress}%</span>
               </div>
               <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-                <div className="h-full rounded-full bg-gradient-to-r from-violet-400 to-cyan-400" style={{ width: `${Math.max(0, Math.min(100, latest.progress))}%` }} />
+                <div className="h-full rounded-full bg-gradient-to-r from-crimson-600 to-crimson-400" style={{ width: `${Math.max(0, Math.min(100, latest.progress))}%` }} />
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-3 text-[11px] text-white/35">
                 <span>{t("threeD.stage", { stage: latest.stage.replaceAll("_", " ") })}</span>
@@ -383,7 +383,7 @@ export function ThreeDProjectPanel({
                     <span>
                       {t("threeD.termsConsent")}{" "}
                       <a
-                        className="text-violet-200 underline underline-offset-2"
+                        className="text-crimson-200 underline underline-offset-2"
                         href={`/${locale}/legal/terms`}
                         target="_blank"
                         rel="noreferrer"
@@ -414,7 +414,7 @@ export function ThreeDProjectPanel({
               <div className="grid gap-3 sm:grid-cols-[1fr_150px]">
                 <input type="file" accept="image/png,image/jpeg,image/webp" className="field-control text-xs" onChange={(event) => setFile(event.target.files?.[0] || null)} />
                 <select className="field-control text-xs" value={textureSize} onChange={(event) => setTextureSize(Number(event.target.value))}>
-                  {[512, 1024, 2048, 4096].filter((value) => value <= access.max_texture_size).map((value) => <option key={value} value={value} className="bg-ink-900">{value}px</option>)}
+                  {[512, 1024, 2048, 4096].filter((value) => value <= access.max_texture_size).map((value) => <option key={value} value={value} className="bg-obsidian-900">{value}px</option>)}
                 </select>
               </div>
               <label className="flex items-start gap-2 text-[11px] leading-5 text-white/45">
@@ -427,7 +427,7 @@ export function ThreeDProjectPanel({
                 <span>
                   {t("threeD.termsConsent")} {" "}
                   <a
-                    className="text-violet-200 underline underline-offset-2"
+                    className="text-crimson-200 underline underline-offset-2"
                     href={`/${locale}/legal/terms`}
                     target="_blank"
                     rel="noreferrer"

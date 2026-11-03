@@ -224,7 +224,7 @@ export function SecurityLabClient() {
     return (
       <section className="section-pad">
         <div className="page-shell flex min-h-[45vh] items-center justify-center">
-          <LoaderCircle className="h-8 w-8 animate-spin text-electric-200" />
+          <LoaderCircle className="h-8 w-8 animate-spin text-crimson-200" />
         </div>
       </section>
     );
@@ -261,7 +261,7 @@ export function SecurityLabClient() {
         {!access?.enabled || !access.granted ? (
           <Card>
             <CardContent>
-              <ShieldCheck className="h-6 w-6 text-electric-200" />
+              <ShieldCheck className="h-6 w-6 text-crimson-200" />
               <h2 className="mt-5 text-xl font-semibold">{t("ownerControlled")}</h2>
               <p className="mt-3 max-w-3xl text-sm leading-7 text-white/50">
                 {t("ownerControlledCopy")}
@@ -280,7 +280,7 @@ export function SecurityLabClient() {
             <Card>
               <CardContent>
                 <div className="flex items-center gap-2">
-                  <Play className="h-5 w-5 text-electric-200" />
+                  <Play className="h-5 w-5 text-crimson-200" />
                   <h2 className="text-xl font-semibold">{t("startValidation")}</h2>
                 </div>
                 <p className="mt-2 text-sm leading-7 text-white/45">
@@ -292,7 +292,7 @@ export function SecurityLabClient() {
                     <select
                       value={targetId}
                       onChange={(event) => setTargetId(event.target.value)}
-                      className="mt-2 h-12 w-full rounded-xl border border-white/10 bg-ink-950 px-3 text-white outline-none focus:border-electric-300/40"
+                      className="mt-2 h-12 w-full rounded-xl border border-white/10 bg-obsidian-950 px-3 text-white outline-none focus:border-crimson-300/40"
                     >
                       <option value="">{t("selectTarget")}</option>
                       {verifiedTargets.map((target) => (
@@ -307,7 +307,7 @@ export function SecurityLabClient() {
                     <select
                       value={profile}
                       onChange={(event) => setProfile(event.target.value as SecurityProfile)}
-                      className="mt-2 h-12 w-full rounded-xl border border-white/10 bg-ink-950 px-3 text-white outline-none focus:border-electric-300/40"
+                      className="mt-2 h-12 w-full rounded-xl border border-white/10 bg-obsidian-950 px-3 text-white outline-none focus:border-crimson-300/40"
                     >
                       {access.profiles.map((item) => (
                         <option key={item} value={item}>
@@ -331,7 +331,7 @@ export function SecurityLabClient() {
             <Card>
               <CardContent>
                 <div className="flex items-center gap-2">
-                  <ExternalLink className="h-5 w-5 text-electric-200" />
+                  <ExternalLink className="h-5 w-5 text-crimson-200" />
                   <h2 className="text-xl font-semibold">{t("externalTarget")}</h2>
                 </div>
                 <p className="mt-2 text-sm leading-7 text-white/45">
@@ -343,7 +343,7 @@ export function SecurityLabClient() {
                     value={externalOrigin}
                     onChange={(event) => setExternalOrigin(event.target.value)}
                     placeholder="https://example.com"
-                    className="h-12 flex-1 rounded-xl border border-white/10 bg-black/20 px-4 text-sm text-white outline-none placeholder:text-white/25 focus:border-electric-300/40"
+                    className="h-12 flex-1 rounded-xl border border-white/[0.14] bg-obsidian-700 px-4 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-crimson-500"
                   />
                   <Button
                     variant="secondary"
@@ -354,12 +354,12 @@ export function SecurityLabClient() {
                   </Button>
                 </div>
                 {verification && (
-                  <div className="mt-5 rounded-2xl border border-electric-300/15 bg-electric-500/[0.06] p-4 text-sm">
+                  <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm">
                     <p className="font-semibold text-white">{t("verificationStep")}</p>
                     <p className="mt-2 break-all text-white/55">
                       {verification.path}
                     </p>
-                    <code className="mt-3 block overflow-x-auto rounded-lg bg-black/25 p-3 text-xs text-electric-100">
+                    <code className="mt-3 block overflow-x-auto rounded-lg bg-black/25 p-3 text-xs text-crimson-100">
                       {verification.challenge}
                     </code>
                     <p className="mt-3 text-xs leading-6 text-white/40">
@@ -411,7 +411,7 @@ export function SecurityLabClient() {
                                 {scan.status === "completed" && (
                                   <button
                                     type="button"
-                                    className="text-electric-200 hover:text-electric-100"
+                                    className="text-crimson-200 hover:text-crimson-100"
                                     onClick={() => setSelectedScanId(scan.id)}
                                   >
                                     {t("view")}
@@ -421,7 +421,7 @@ export function SecurityLabClient() {
                                   <button
                                     type="button"
                                     disabled={busy}
-                                    className="inline-flex items-center gap-1 text-red-200 hover:text-red-100 disabled:opacity-50"
+                                    className="inline-flex items-center gap-1 text-rose-200 hover:text-rose-100 disabled:opacity-50"
                                     onClick={() => void cancelScan(scan.id)}
                                   >
                                     <StopCircle className="h-3.5 w-3.5" />
@@ -538,7 +538,7 @@ function Metric({
   return (
     <Card>
       <CardContent>
-        <Icon className="h-5 w-5 text-electric-200" aria-hidden="true" />
+        <Icon className="h-5 w-5 text-crimson-200" aria-hidden="true" />
         <p className="mt-5 text-xs uppercase tracking-[0.14em] text-white/35">{label}</p>
         <p className="mt-2 break-words text-2xl font-semibold text-white">{value}</p>
       </CardContent>

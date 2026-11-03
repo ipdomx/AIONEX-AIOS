@@ -214,7 +214,7 @@ export function RealtimeClient() {
           element.muted = true;
           element.autoplay = true;
           element.playsInline = true;
-          element.className = "aspect-video w-full rounded-2xl border border-electric-300/20 bg-black object-cover";
+          element.className = "aspect-video w-full rounded-2xl border border-crimson-300/20 bg-black object-cover";
         }
         mediaRootRef.current?.prepend(element);
       }
@@ -353,7 +353,7 @@ export function RealtimeClient() {
     return (
       <section className="page-shell py-16 text-white">
         <div className="glass-panel flex min-h-52 items-center justify-center rounded-3xl">
-          <LoaderCircle className="h-7 w-7 animate-spin text-electric-200" />
+          <LoaderCircle className="h-7 w-7 animate-spin text-crimson-200" />
         </div>
       </section>
     );
@@ -378,7 +378,7 @@ export function RealtimeClient() {
       <Card className="mt-8">
         <CardContent>
           <div className="flex items-start gap-3">
-            <ShieldCheck className="mt-0.5 h-5 w-5 text-electric-200" />
+            <ShieldCheck className="mt-0.5 h-5 w-5 text-crimson-200" />
             <div>
               <p className="font-semibold">{t("runtimeTitle")}</p>
               <p className="mt-1 text-sm text-white/50">
@@ -413,7 +413,7 @@ export function RealtimeClient() {
                   <button
                     key={room.id}
                     type="button"
-                    className={`w-full rounded-2xl border p-4 text-start transition ${selectedRoomId === room.id ? "border-electric-300/35 bg-electric-500/10" : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"}`}
+                    className={`w-full rounded-2xl border p-4 text-start transition ${selectedRoomId === room.id ? "border-crimson-300/35 bg-crimson-500/10" : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"}`}
                     onClick={() => setSelectedRoomId(room.id)}
                   >
                     <div className="flex items-center justify-between gap-3">
