@@ -67,13 +67,13 @@ _LIMIT_MESSAGES = {
 }
 
 
-def _deny(code: str, status: int = 429, **fmt: str) -> NoReturn:
+def _deny(code: str, status: int = 429, fmt: dict[str, str] | None = None) -> NoReturn:
     detail: dict[str, Any] = {"code": code, "message": code.replace("_", " ").lower()}
     if code in _LIMIT_MESSAGES:
-        detail["message"] = _LIMIT_MESSAGES[code].format(**fmt) if fmt else _LIMIT_MESSAGES[code].format(
-            reset="منتصف الليل (UTC)", reset_en="at midnight UTC")
+        detail["message"] = (_LIMIT_MESSAGES[code].format(**fmt) if fmt else _LIMIT_MESSAGES[code].format(
+            reset="منتصف الليل (UTC)", reset_en="at midnight UTC"))
         detail["upgrade_required"] = True
-        if "resets_in_seconds" in fmt:
+        if fmt and "resets_in_seconds" in fmt:
             detail["resets_in_seconds"] = int(fmt["resets_in_seconds"])
     raise HTTPException(status_code=status, detail=detail)
 
@@ -353,7 +353,7 @@ async def consume_turn(session: AsyncSession, actor: UserRecord, policy: dict[st
         payload["day"] = now.date().isoformat()
         payload["day_messages"] = 0
     if payload["day_messages"] >= policy["messages_per_day"]:
-        _deny("DAILY_MESSAGE_LIMIT", **_reset_text(now))
+        _deny("DAILY_MESSAGE_LIMIT", fmt=_reset_text(now))
     if policy["lifetime_message_credits"] >= 0 and payload["total_messages"] >= policy["lifetime_message_credits"]:
         _deny("MESSAGE_CREDITS_EXHAUSTED")
     payload["day_messages"] += 1
