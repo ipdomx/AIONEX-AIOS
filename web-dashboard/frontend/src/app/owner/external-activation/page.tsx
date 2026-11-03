@@ -282,9 +282,7 @@ function EvidenceWorkflow({
         </div>
       )}
 
-      {message && (
-        <div className="text-[11px] text-zinc-300">{t(message)}</div>
-      )}
+      {message && <div className="text-[11px] text-zinc-300">{t(message)}</div>}
     </div>
   );
 }

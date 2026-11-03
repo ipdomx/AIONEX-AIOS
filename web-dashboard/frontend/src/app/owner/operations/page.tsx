@@ -339,7 +339,11 @@ export default function OwnerOperationsPage() {
                       </option>
                     )}
                     {["enterprise", "professional", "starter"].map((item) => (
-                      <option key={item} value={item} className="bg-obsidian-800">
+                      <option
+                        key={item}
+                        value={item}
+                        className="bg-obsidian-800"
+                      >
                         {item}
                       </option>
                     ))}
