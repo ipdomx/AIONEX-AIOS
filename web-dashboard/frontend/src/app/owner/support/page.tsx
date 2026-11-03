@@ -285,8 +285,8 @@ export default function OwnerSupportPage() {
                   key={entry.id}
                   className={
                     fromRequester
-                      ? "chat-user ms-auto max-w-[85%] p-4"
-                      : "chat-assistant flex max-w-[92%] gap-3 py-2"
+                      ? "ms-auto max-w-[85%] chat-user p-4"
+                      : "flex max-w-[92%] gap-3 chat-assistant py-2"
                   }
                 >
                   {fromRequester ? null : (

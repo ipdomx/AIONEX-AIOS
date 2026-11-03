@@ -431,7 +431,7 @@ export default function Sidebar({
                         className={cn(
                           "relative flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors duration-150",
                           isActive(child.href)
-                            ? "nav-indicator bg-crimson-500/6 text-crimson-300"
+                            ? "bg-crimson-500/6 text-crimson-300 nav-indicator"
                             : "text-white/45 hover:bg-white/4 hover:text-white",
                         )}
                       >
@@ -462,7 +462,7 @@ export default function Sidebar({
         className={cn(
           "relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors duration-150",
           isActive(href)
-            ? "nav-indicator bg-crimson-500/6 text-crimson-300"
+            ? "bg-crimson-500/6 text-crimson-300 nav-indicator"
             : "text-white/55 hover:bg-white/4 hover:text-white",
         )}
       >
