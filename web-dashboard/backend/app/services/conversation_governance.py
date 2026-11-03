@@ -52,8 +52,37 @@ class Limits(BaseModel):
 DEFAULTS = Limits().model_dump()
 
 
-def _deny(code: str, status: int = 429) -> NoReturn:
-    raise HTTPException(status_code=status, detail={"code": code, "message": code.replace("_", " ").lower()})
+_LIMIT_MESSAGES = {
+    "DAILY_MESSAGE_LIMIT": ("وصلت للحد اليومي للرسائل في باقتك. العداد يتجدد خلال {reset}، "
+                            "أو رقِّ باقتك عشان تكمل دلوقتي. — You reached your plan's daily message limit. "
+                            "It resets in {reset_en}, or upgrade your plan to continue now."),
+    "MESSAGE_CREDITS_EXHAUSTED": ("خلصت رصيد الرسائل في باقتك. رقِّ باقتك عشان تكمل. — "
+                                  "Your plan's message credits are used up. Upgrade to continue."),
+    "USER_PROJECT_LIMIT": ("وصلت لأقصى عدد مشاريع في باقتك. رقِّ باقتك عشان تضيف مشاريع أكتر. — "
+                           "You reached your plan's project limit. Upgrade to add more projects."),
+    "USER_CONVERSATION_LIMIT": ("وصلت لأقصى عدد محادثات مفتوحة في باقتك. اقفل محادثة أو رقِّ باقتك. — "
+                                "You reached your plan's open conversation limit. Close one or upgrade."),
+    "PROJECT_CONVERSATION_LIMIT": ("وصلت لأقصى عدد محادثات في المشروع ده. اقفل محادثة أو رقِّ باقتك. — "
+                                   "This project reached its conversation limit. Close one or upgrade."),
+}
+
+
+def _deny(code: str, status: int = 429, fmt: dict[str, str] | None = None) -> NoReturn:
+    detail: dict[str, Any] = {"code": code, "message": code.replace("_", " ").lower()}
+    if code in _LIMIT_MESSAGES:
+        detail["message"] = (_LIMIT_MESSAGES[code].format(**fmt) if fmt else _LIMIT_MESSAGES[code].format(
+            reset="منتصف الليل (UTC)", reset_en="at midnight UTC"))
+        detail["upgrade_required"] = True
+        if fmt and "resets_in_seconds" in fmt:
+            detail["resets_in_seconds"] = int(fmt["resets_in_seconds"])
+    raise HTTPException(status_code=status, detail=detail)
+
+
+def _reset_text(now: datetime) -> dict[str, str]:
+    nxt = datetime.combine(now.date() + timedelta(days=1), datetime.min.time(), tzinfo=now.tzinfo)
+    secs = max(0, int((nxt - now).total_seconds()))
+    h, m = secs // 3600, (secs % 3600) // 60
+    return {"reset": f"{h} ساعة و{m} دقيقة", "reset_en": f"{h}h {m}m", "resets_in_seconds": str(secs)}
 
 
 def _uuid(value: str) -> str:
@@ -324,7 +353,7 @@ async def consume_turn(session: AsyncSession, actor: UserRecord, policy: dict[st
         payload["day"] = now.date().isoformat()
         payload["day_messages"] = 0
     if payload["day_messages"] >= policy["messages_per_day"]:
-        _deny("DAILY_MESSAGE_LIMIT")
+        _deny("DAILY_MESSAGE_LIMIT", fmt=_reset_text(now))
     if policy["lifetime_message_credits"] >= 0 and payload["total_messages"] >= policy["lifetime_message_credits"]:
         _deny("MESSAGE_CREDITS_EXHAUSTED")
     payload["day_messages"] += 1

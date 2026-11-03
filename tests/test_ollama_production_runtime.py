@@ -16,7 +16,7 @@ def test_live_production_compose_keeps_ollama_private_and_pinned() -> None:
     assert 'cpus: "${OLLAMA_CPUS:-4.0}"' in block
     assert 'mem_limit: ${OLLAMA_MEMORY_LIMIT:-8g}' in block
     assert 'cap_drop: ["ALL"]' in block
-    assert 'command: ["pull", "gemma3:4b"]' in compose
+    assert 'command: ["list"]' in compose
     assert compose.count('profiles: ["local-ai"]') >= 2
     assert "OLLAMA_HOST: http://ollama:11434" in compose
 
@@ -28,5 +28,5 @@ def test_alternative_production_compose_keeps_same_private_ollama_contract() -> 
     assert "ports:" not in block
     assert "expose:" not in block
     assert "ollama_model_data:/root/.ollama" in block
-    assert 'command: ["pull", "gemma3:4b"]' in compose
+    assert 'command: ["list"]' in compose
     assert compose.count('profiles: ["local-ai"]') >= 2

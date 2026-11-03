@@ -33,7 +33,7 @@ async def _clear_launch_policy_records(session) -> None:
 def test_free_default_is_local_zero_cost_and_paid_default_fails_until_owner_selects_models() -> None:
     free = default_plan_policy("free")
     paid = default_plan_policy("paid")
-    assert free["allowed_provider_models"] == ["ollama:qwen2.5:1.5b"]
+    assert free["allowed_provider_models"] == ["ollama:aionex-ai"]
     assert free["max_project_cost_usd"] == 0.0
     assert free["offline_only"] is True
     assert paid["allowed_provider_models"] == []
@@ -92,7 +92,7 @@ async def test_free_consumer_resolves_platform_ollama_without_copying_provider_c
         assert access.access_class == "free"
         assert access.policy.provider_scope_organization_id == "aionex-org"
         assert access.policy.allowed_providers == frozenset({"ollama"})
-        assert access.policy.allowed_provider_models == frozenset({"ollama:qwen2.5:1.5b"})
+        assert access.policy.allowed_provider_models == frozenset({"ollama:aionex-ai"})
         assert access.policy.max_total_estimated_cost_usd == 0
 
 
@@ -227,10 +227,10 @@ async def test_durable_resolver_reads_only_explicit_platform_provider_model_gran
                 "enabled": True,
                 "validated_models": [
                     {
-                        "model": "qwen2.5:1.5b",
+                        "model": "aionex-ai",
                         "tasks": ["reasoning", "coding"],
                         "evidence_ref": "test:ollama:current",
-                        "policy_ref": "test:free:qwen-v2",
+                        "policy_ref": "test:free:aionex-ai-v1",
                         "validated_at": current.isoformat(),
                         "expires_at": (current + timedelta(hours=1)).isoformat(),
                         "languages": ["multilingual"],
@@ -309,7 +309,7 @@ async def test_durable_resolver_reads_only_explicit_platform_provider_model_gran
             now=current,
         )
         assert [(item.provider_type, item.route_model.model) for item in resolved] == [
-            ("ollama", "qwen2.5:1.5b")
+            ("ollama", "aionex-ai")
         ]
         assert resolved[0].provider_id == provider_id
 
