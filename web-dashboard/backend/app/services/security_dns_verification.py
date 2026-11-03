@@ -41,9 +41,10 @@ def record_name(hostname: str) -> str:
         raise DnsVerificationError("DNS verification requires a hostname")
     try:
         ipaddress.ip_address(host)
+        is_ip_literal = True
     except ValueError:
-        pass
-    else:
+        is_ip_literal = False
+    if is_ip_literal:
         raise DnsVerificationError(
             "DNS TXT verification requires a domain name, not an IP address"
         )
