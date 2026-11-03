@@ -365,11 +365,11 @@ export function GrowthPaidCampaignApprovalConsole() {
   }
 
   return (
-    <section className="glass-card overflow-hidden border border-violet-500/15">
-      <div className="border-b border-white/6 bg-violet-500/4 p-5">
+    <section className="glass-card overflow-hidden border border-crimson-500/15">
+      <div className="border-b border-white/6 bg-crimson-500/4 p-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1 text-xs text-violet-200">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs text-crimson-200">
               <UserRoundCheck className="h-3.5 w-3.5" />
               {tr("Paid Campaign Owner Approval")}
             </div>
@@ -413,8 +413,8 @@ export function GrowthPaidCampaignApprovalConsole() {
           <div className="mt-2 text-2xl font-bold text-white">{approved}</div>
           <div className="text-xs text-white/35">{tr("Owner approved")}</div>
         </div>
-        <div className="rounded-xl border border-electric-500/15 bg-electric-500/4 p-4">
-          <Sparkles className="h-4 w-4 text-electric-300" />
+        <div className="rounded-xl border border-crimson-500/15 bg-crimson-500/4 p-4">
+          <Sparkles className="h-4 w-4 text-crimson-300" />
           <div className="mt-2 text-sm font-semibold text-white">AIOS</div>
           <div className="mt-1 text-xs text-white/35">
             {tr("Advisory only — never automatic")}
@@ -504,7 +504,7 @@ export function GrowthPaidCampaignApprovalConsole() {
                         <div className="text-[10px] uppercase tracking-wider text-white/30">
                           {tr("AIOS recommendation")}
                         </div>
-                        <div className="mt-1 text-xs font-medium text-electric-200">
+                        <div className="mt-1 text-xs font-medium text-crimson-200">
                           {technicalText(assessment.recommendation)}
                         </div>
                       </div>
@@ -559,7 +559,7 @@ export function GrowthPaidCampaignApprovalConsole() {
                                 <div className="mt-1 whitespace-pre-wrap text-xs text-white/50">
                                   {creative.body || "—"}
                                 </div>
-                                <div className="mt-1 break-all text-[11px] text-electric-200/70">
+                                <div className="mt-1 break-all text-[11px] text-zinc-400">
                                   {creative.destination_url || "—"}
                                 </div>
                               </div>
@@ -579,7 +579,7 @@ export function GrowthPaidCampaignApprovalConsole() {
 
                   <div className="flex shrink-0 flex-col gap-2 xl:w-48">
                     <div className="rounded-lg border border-white/6 bg-black/10 p-3 text-[11px] leading-5 text-white/35">
-                      <CircleDollarSign className="mb-1 h-3.5 w-3.5 text-electric-300" />
+                      <CircleDollarSign className="mb-1 h-3.5 w-3.5 text-crimson-300" />
                       {tr(
                         "Approval preserves the user's budget and does not authorize launch, provider mutation, or real spend.",
                       )}
@@ -600,7 +600,7 @@ export function GrowthPaidCampaignApprovalConsole() {
                         type="button"
                         disabled={busyId !== null}
                         onClick={() => void toggleLivePlan(item)}
-                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-electric-500/20 bg-electric-500/10 px-3 py-2 text-xs font-medium text-electric-200 disabled:opacity-40"
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-crimson-500/20 bg-crimson-500/10 px-3 py-2 text-xs font-medium text-crimson-200 disabled:opacity-40"
                       >
                         <ShieldCheck className="h-3.5 w-3.5" />
                         {livePanelId === item.id
@@ -612,10 +612,10 @@ export function GrowthPaidCampaignApprovalConsole() {
                 </div>
 
                 {isApproved && livePanelId === item.id ? (
-                  <div className="mt-4 rounded-xl border border-electric-500/15 bg-electric-500/3 p-4">
+                  <div className="mt-4 rounded-xl border border-crimson-500/15 bg-crimson-500/3 p-4">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <div className="text-xs font-semibold text-electric-200">
+                        <div className="text-xs font-semibold text-crimson-200">
                           {tr("Fail-closed live-plan preparation")}
                         </div>
                         <div className="mt-1 text-[11px] leading-5 text-white/35">
@@ -773,7 +773,7 @@ export function GrowthPaidCampaignApprovalConsole() {
                           !planInput.pageRef
                         }
                         onClick={() => void preparePlan(item)}
-                        className="rounded-lg bg-electric-500/15 px-3 py-2 text-xs font-medium text-electric-200 disabled:opacity-40"
+                        className="rounded-lg bg-crimson-500/15 px-3 py-2 text-xs font-medium text-crimson-200 disabled:opacity-40"
                       >
                         {tr("Prepare live-plan digest")}
                       </button>
@@ -807,7 +807,7 @@ export function GrowthPaidCampaignApprovalConsole() {
                               className={
                                 planResult.plan_valid
                                   ? "text-green-300"
-                                  : "text-red-300"
+                                  : "text-rose-300"
                               }
                             >
                               {tr("Stored digest valid")}:{" "}
@@ -885,7 +885,7 @@ export function GrowthPaidCampaignApprovalConsole() {
                             </span>
                           </div>
                           {executionResult.manual_review_required ? (
-                            <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/8 p-3 text-xs font-medium text-red-200">
+                            <div className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/8 p-3 text-xs font-medium text-rose-200">
                               {tr(
                                 "Manual review required. The uncertain provider operation will not be retried automatically, and the pilot safety guard must be reviewed before any further execution.",
                               )}
@@ -948,7 +948,7 @@ export function GrowthPaidCampaignApprovalConsole() {
         )}
       </div>
 
-      <div className="border-t border-white/6 px-5 py-3 text-xs text-electric-300">
+      <div className="border-t border-white/6 px-5 py-3 text-xs text-crimson-300">
         {tr(message)}
       </div>
     </section>

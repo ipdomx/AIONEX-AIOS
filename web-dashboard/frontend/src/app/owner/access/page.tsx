@@ -102,7 +102,7 @@ export default function OwnerAccessPage() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs text-electric-300">
+        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs text-crimson-300">
           <ShieldCheck className="h-3.5 w-3.5" />
           Owner Access Authority
         </div>
@@ -118,7 +118,7 @@ export default function OwnerAccessPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {summary.map((item) => (
           <div key={item.label} className="glass-card p-5">
-            <item.icon className="h-5 w-5 text-electric-300" />
+            <item.icon className="h-5 w-5 text-crimson-300" />
             <div className="mt-4 text-2xl font-bold text-white">
               {item.value}
             </div>
@@ -146,7 +146,7 @@ export default function OwnerAccessPage() {
             className="glass-input rounded-xl px-4 py-2 text-sm text-white outline-hidden"
           />
         </div>
-        <div className="mb-4 text-xs text-electric-300">{message}</div>
+        <div className="mb-4 text-xs text-zinc-300">{message}</div>
         {loading ? (
           <div className="py-8 text-center text-sm text-white/40">
             Loading live access roles…
@@ -160,7 +160,7 @@ export default function OwnerAccessPage() {
             {groups.map((group) => (
               <section key={group.organization} className="space-y-3">
                 <div className="flex items-center gap-2 border-b border-white/6 pb-3">
-                  <Building2 className="h-4 w-4 text-electric-300" />
+                  <Building2 className="h-4 w-4 text-crimson-300" />
                   <h3 className="text-sm font-semibold text-white">
                     {group.organization}
                   </h3>

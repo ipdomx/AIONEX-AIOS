@@ -197,7 +197,7 @@ export default function TeamsPage() {
           {organizations
             .filter((item) => item.status === "active")
             .map((item) => (
-              <option key={item.id} value={item.id} className="bg-space-800">
+              <option key={item.id} value={item.id} className="bg-obsidian-800">
                 {item.name}
               </option>
             ))}
@@ -210,7 +210,7 @@ export default function TeamsPage() {
           {workspaces
             .filter((item) => item.organization_id === createOrganizationId)
             .map((item) => (
-              <option key={item.id} value={item.id} className="bg-space-800">
+              <option key={item.id} value={item.id} className="bg-obsidian-800">
                 {item.name}
               </option>
             ))}
@@ -227,9 +227,9 @@ export default function TeamsPage() {
             <button
               key={team.id}
               onClick={() => setSelected(team.id)}
-              className={`glass-card flex w-full items-center gap-3 p-4 text-left ${selected === team.id ? "border border-electric-400/30 bg-electric-500/10" : ""}`}
+              className={`glass-card flex w-full items-center gap-3 p-4 text-left ${selected === team.id ? "border border-crimson-400/30 bg-crimson-500/10" : ""}`}
             >
-              <UsersRound className="h-5 w-5 text-electric-300" />
+              <UsersRound className="h-5 w-5 text-crimson-300" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-semibold text-white">
                   {team.name}
@@ -244,7 +244,7 @@ export default function TeamsPage() {
                   event.stopPropagation();
                   void deleteTeam(team);
                 }}
-                className="rounded-lg border border-red-500/20 bg-red-500/10 p-2 text-red-300"
+                className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-2 text-rose-300"
               >
                 <Trash2 className="h-4 w-4" />
               </span>
@@ -277,7 +277,7 @@ export default function TeamsPage() {
                       <option
                         key={user.id}
                         value={user.id}
-                        className="bg-space-800"
+                        className="bg-obsidian-800"
                       >
                         {user.name} — {user.email}
                       </option>
@@ -287,10 +287,10 @@ export default function TeamsPage() {
                   name="membership_role"
                   className="glass-input rounded-lg px-3 py-2 text-xs text-white"
                 >
-                  <option value="member" className="bg-space-800">
+                  <option value="member" className="bg-obsidian-800">
                     Member
                   </option>
-                  <option value="lead" className="bg-space-800">
+                  <option value="lead" className="bg-obsidian-800">
                     Lead
                   </option>
                 </select>
@@ -315,7 +315,7 @@ export default function TeamsPage() {
                     <button
                       disabled={busy}
                       onClick={() => void removeMember(member.id)}
-                      className="text-xs text-red-300"
+                      className="text-xs text-rose-300"
                     >
                       Remove
                     </button>

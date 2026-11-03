@@ -102,10 +102,10 @@ function messageFromError(error: unknown): string {
 
 function statusClass(status: string): string {
   if (["read_only_armed", "read_only_validated"].includes(status)) {
-    return "border-blue-500/20 bg-blue-500/10 text-blue-300";
+    return "border-zinc-500/20 bg-zinc-500/10 text-zinc-300";
   }
   if (status === "armed") {
-    return "border-red-500/30 bg-red-500/10 text-red-300";
+    return "border-rose-500/30 bg-rose-500/10 text-rose-300";
   }
   if (["disarmed", "auto_disarmed"].includes(status)) {
     return "border-orange-500/20 bg-orange-500/10 text-orange-300";
@@ -489,11 +489,11 @@ export function GrowthSocialPilotConsole() {
 
   return (
     <section className="space-y-4">
-      <div className="glass-card overflow-hidden border border-electric-500/15">
-        <div className="border-b border-white/6 bg-electric-500/4 p-5">
+      <div className="glass-card overflow-hidden border border-crimson-500/15">
+        <div className="border-b border-white/6 bg-crimson-500/4 p-5">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs text-electric-300">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs text-crimson-300">
                 <ShieldCheck className="h-3.5 w-3.5" />
                 Growth & Social Controlled Pilots
               </div>
@@ -522,14 +522,14 @@ export function GrowthSocialPilotConsole() {
 
         <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-xl border border-white/6 bg-white/2 p-4">
-            <Activity className="h-4 w-4 text-electric-300" />
+            <Activity className="h-4 w-4 text-crimson-300" />
             <div className="mt-3 text-2xl font-bold text-white">
               {pilots.length}
             </div>
             <div className="text-xs text-white/35">Controlled pilots</div>
           </div>
-          <div className="rounded-xl border border-blue-500/15 bg-blue-500/4 p-4">
-            <FlaskConical className="h-4 w-4 text-blue-300" />
+          <div className="rounded-xl border border-zinc-500/15 bg-zinc-500/4 p-4">
+            <FlaskConical className="h-4 w-4 text-zinc-300" />
             <div className="mt-3 text-2xl font-bold text-white">
               {readOnlyPilots}
             </div>
@@ -545,10 +545,10 @@ export function GrowthSocialPilotConsole() {
             </div>
           </div>
           <div
-            className={`rounded-xl border p-4 ${liveSpendEnabled ? "border-red-500/30 bg-red-500/10" : "border-green-500/20 bg-green-500/6"}`}
+            className={`rounded-xl border p-4 ${liveSpendEnabled ? "border-rose-500/30 bg-rose-500/10" : "border-green-500/20 bg-green-500/6"}`}
           >
             <CircleDollarSign
-              className={`h-4 w-4 ${liveSpendEnabled ? "text-red-300" : "text-green-300"}`}
+              className={`h-4 w-4 ${liveSpendEnabled ? "text-rose-300" : "text-green-300"}`}
             />
             <div className="mt-3 text-2xl font-bold text-white">
               {liveSpendEnabled}
@@ -558,7 +558,7 @@ export function GrowthSocialPilotConsole() {
         </div>
 
         <div
-          className={`mx-5 mb-5 flex items-start gap-3 rounded-xl border p-4 text-xs leading-5 ${liveSpendEnabled ? "border-red-500/30 bg-red-500/10 text-red-200" : "border-green-500/20 bg-green-500/5 text-green-200"}`}
+          className={`mx-5 mb-5 flex items-start gap-3 rounded-xl border p-4 text-xs leading-5 ${liveSpendEnabled ? "border-rose-500/30 bg-rose-500/10 text-rose-200" : "border-green-500/20 bg-green-500/5 text-green-200"}`}
         >
           {liveSpendEnabled ? (
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -572,7 +572,7 @@ export function GrowthSocialPilotConsole() {
           </span>
         </div>
 
-        <div className="border-t border-white/6 px-5 py-3 text-xs text-electric-300">
+        <div className="border-t border-white/6 px-5 py-3 text-xs text-zinc-300">
           {message}
         </div>
       </div>
@@ -596,10 +596,10 @@ export function GrowthSocialPilotConsole() {
               }
               className="glass-input w-full rounded-xl px-3 py-2 text-white outline-hidden"
             >
-              <option className="bg-space-800" value="read_only">
+              <option className="bg-obsidian-800" value="read_only">
                 Read only
               </option>
-              <option className="bg-space-800" value="live_spend">
+              <option className="bg-obsidian-800" value="live_spend">
                 Live spend gate
               </option>
             </select>
@@ -613,10 +613,10 @@ export function GrowthSocialPilotConsole() {
               }
               className="glass-input w-full rounded-xl px-3 py-2 text-white outline-hidden"
             >
-              <option className="bg-space-800" value="meta">
+              <option className="bg-obsidian-800" value="meta">
                 Meta
               </option>
-              <option className="bg-space-800" value="telegram">
+              <option className="bg-obsidian-800" value="telegram">
                 Telegram
               </option>
             </select>
@@ -634,19 +634,19 @@ export function GrowthSocialPilotConsole() {
               className="glass-input w-full rounded-xl px-3 py-2 text-white outline-hidden"
             >
               {createForm.provider === "telegram" ? (
-                <option className="bg-space-800" value="owner_bots">
+                <option className="bg-obsidian-800" value="owner_bots">
                   Owner bots
                 </option>
               ) : createForm.mode === "live_spend" ? (
-                <option className="bg-space-800" value="managed_ad_account">
+                <option className="bg-obsidian-800" value="managed_ad_account">
                   Managed ad account
                 </option>
               ) : (
                 <>
-                  <option className="bg-space-800" value="owned_assets">
+                  <option className="bg-obsidian-800" value="owned_assets">
                     Owned assets
                   </option>
-                  <option className="bg-space-800" value="sandbox">
+                  <option className="bg-obsidian-800" value="sandbox">
                     Sandbox
                   </option>
                 </>
@@ -681,12 +681,12 @@ export function GrowthSocialPilotConsole() {
                   }
                   className="glass-input w-full rounded-xl px-3 py-2 text-white outline-hidden"
                 >
-                  <option className="bg-space-800" value="">
+                  <option className="bg-obsidian-800" value="">
                     Select active organization
                   </option>
                   {organizations.map((organization) => (
                     <option
-                      className="bg-space-800"
+                      className="bg-obsidian-800"
                       key={organization.id}
                       value={organization.id}
                     >
@@ -707,12 +707,12 @@ export function GrowthSocialPilotConsole() {
                   }
                   className="glass-input w-full rounded-xl px-3 py-2 text-white outline-hidden"
                 >
-                  <option className="bg-space-800" value="">
+                  <option className="bg-obsidian-800" value="">
                     Select active Meta account
                   </option>
                   {metaDiscovery?.accounts.map((account) => (
                     <option
-                      className="bg-space-800"
+                      className="bg-obsidian-800"
                       disabled={!account.active}
                       key={account.scope_ref}
                       value={account.scope_ref}
@@ -727,7 +727,7 @@ export function GrowthSocialPilotConsole() {
               <div className="rounded-xl border border-white/6 bg-white/2 p-4 text-xs leading-5 text-white/45 md:col-span-2 xl:col-span-4">
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div className="flex items-start gap-2">
-                    <Target className="mt-0.5 h-4 w-4 shrink-0 text-electric-300" />
+                    <Target className="mt-0.5 h-4 w-4 shrink-0 text-crimson-300" />
                     <div>
                       <div className="font-medium text-white/70">
                         Read-only Meta target discovery
@@ -777,7 +777,7 @@ export function GrowthSocialPilotConsole() {
                   </div>
                 ) : null}
                 {selectedMetaTarget ? (
-                  <div className="mt-2 text-electric-300">
+                  <div className="mt-2 text-crimson-300">
                     Selected target: {selectedMetaTarget.name} ·{" "}
                     {selectedMetaTarget.currency ?? "—"} ·{" "}
                     {selectedMetaTarget.timezone_name ?? "—"}
@@ -813,7 +813,7 @@ export function GrowthSocialPilotConsole() {
           type="button"
           onClick={() => void handleCreate()}
           disabled={busyId !== null}
-          className="mt-4 inline-flex items-center gap-2 rounded-xl bg-electric-500/15 px-4 py-2 text-xs font-medium text-electric-200 disabled:opacity-50"
+          className="mt-4 inline-flex items-center gap-2 rounded-xl bg-crimson-500/15 px-4 py-2 text-xs font-medium text-crimson-200 disabled:opacity-50"
         >
           <Plus className="h-3.5 w-3.5" />
           Create fail-closed pilot
@@ -838,7 +838,7 @@ export function GrowthSocialPilotConsole() {
               return (
                 <article
                   key={pilot.id}
-                  className={`glass-card cursor-pointer border p-5 transition ${selected ? "border-electric-500/25" : "border-white/5"}`}
+                  className={`glass-card cursor-pointer border p-5 transition ${selected ? "border-crimson-500/25" : "border-white/5"}`}
                   onClick={() => setSelectedId(pilot.id)}
                 >
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -861,7 +861,7 @@ export function GrowthSocialPilotConsole() {
                         {pilot.capability} · Expires{" "}
                         {formatDate(pilot.expires_at)}
                       </div>
-                      <div className="mt-1 text-xs text-electric-300">
+                      <div className="mt-1 text-xs text-crimson-300">
                         {readinessScore(state)}
                       </div>
                     </div>
@@ -889,7 +889,7 @@ export function GrowthSocialPilotConsole() {
                             );
                           }}
                           disabled={busy}
-                          className="rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-1.5 text-[11px] text-blue-200 disabled:opacity-50"
+                          className="rounded-lg border border-zinc-500/20 bg-zinc-500/10 px-3 py-1.5 text-[11px] text-zinc-200 disabled:opacity-50"
                         >
                           Validate read only
                         </button>
@@ -947,7 +947,7 @@ export function GrowthSocialPilotConsole() {
           ) : (
             <div className="space-y-5">
               <div>
-                <div className="text-xs uppercase tracking-[0.16em] text-electric-300">
+                <div className="text-xs uppercase tracking-[0.16em] text-crimson-300">
                   Selected pilot
                 </div>
                 <div className="mt-2 text-lg font-semibold capitalize text-white">
@@ -1148,7 +1148,7 @@ export function GrowthSocialPilotConsole() {
                     busyId === selectedPilot.id ||
                     !readiness[selectedPilot.id]?.ready_to_arm
                   }
-                  className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-medium disabled:opacity-40 ${selectedPilot.mode === "live_spend" ? "border border-red-500/25 bg-red-500/[0.07] text-red-200" : "border border-blue-500/20 bg-blue-500/[0.07] text-blue-200"}`}
+                  className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-medium disabled:opacity-40 ${selectedPilot.mode === "live_spend" ? "border border-rose-500/25 bg-rose-500/[0.07] text-rose-200" : "border border-zinc-500/20 bg-zinc-500/[0.07] text-zinc-200"}`}
                 >
                   <ShieldCheck className="h-3.5 w-3.5" />
                   {selectedPilot.mode === "live_spend"

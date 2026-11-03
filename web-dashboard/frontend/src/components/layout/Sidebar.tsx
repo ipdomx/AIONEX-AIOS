@@ -377,16 +377,16 @@ export default function Sidebar({
               toggleSection(section.id);
             }}
             className={cn(
-              "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all",
+              "relative flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors duration-150",
               active
-                ? "bg-white/8 text-white"
-                : "text-white/50 hover:bg-white/4 hover:text-white/80",
+                ? "text-white"
+                : "text-white/55 hover:bg-white/4 hover:text-white",
             )}
           >
             <SectionIcon
               className={cn(
                 "h-[18px] w-[18px] shrink-0",
-                active && "text-electric-400",
+                active && "text-crimson-300",
               )}
             />
             {!collapsed && (
@@ -417,10 +417,8 @@ export default function Sidebar({
               >
                 <div
                   className={cn(
-                    "mt-0.5 space-y-0.5",
-                    isRtl
-                      ? "mr-4 border-r border-white/6 pr-3"
-                      : "ml-4 border-l border-white/6 pl-3",
+                    "mt-0.5 space-y-0.5 border-white/8",
+                    isRtl ? "mr-4 border-r pr-2" : "ml-4 border-l pl-2",
                   )}
                 >
                   {section.children?.map((child) => {
@@ -431,10 +429,10 @@ export default function Sidebar({
                         href={child.href}
                         onClick={onNavigate}
                         className={cn(
-                          "flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+                          "relative flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors duration-150",
                           isActive(child.href)
-                            ? "bg-white/6 text-white"
-                            : "text-white/40 hover:bg-white/3 hover:text-white/70",
+                            ? "bg-crimson-500/6 text-crimson-300 nav-indicator"
+                            : "text-white/45 hover:bg-white/4 hover:text-white",
                         )}
                       >
                         <ChildIcon className="h-3.5 w-3.5" />
@@ -462,16 +460,16 @@ export default function Sidebar({
         href={href}
         onClick={onNavigate}
         className={cn(
-          "relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all",
+          "relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors duration-150",
           isActive(href)
-            ? "bg-white/8 text-white"
-            : "text-white/50 hover:bg-white/4 hover:text-white/80",
+            ? "bg-crimson-500/6 text-crimson-300 nav-indicator"
+            : "text-white/55 hover:bg-white/4 hover:text-white",
         )}
       >
         <SectionIcon
           className={cn(
             "h-[18px] w-[18px] shrink-0",
-            isActive(href) && "text-electric-400",
+            isActive(href) && "text-crimson-300",
           )}
         />
         {!collapsed && <span className="flex-1">{section.label}</span>}
@@ -489,18 +487,21 @@ export default function Sidebar({
       }}
       transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
-        "glass-strong fixed top-0 z-50 flex h-screen flex-col border-white/6",
+        "fixed top-0 z-50 flex h-screen flex-col border-white/8 bg-obsidian-900",
         isRtl ? "right-0 border-l" : "left-0 border-r",
       )}
     >
-      <div className="flex h-16 items-center gap-3 border-b border-white/6 px-4">
-        <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/8 bg-white/4">
-          <Sparkles className="h-5 w-5 text-electric-300" />
+      <div className="flex h-16 items-center gap-3 border-b border-white/8 px-4">
+        <div className="brand-mark relative h-9 w-9 shrink-0">
+          <Sparkles className="h-[18px] w-[18px] text-white" />
         </div>
         {!collapsed && (
           <div>
-            <div className="text-sm font-semibold text-white">AIONEX AIOS</div>
-            <div className="text-[10px] text-white/35">
+            <div className="text-sm font-bold tracking-[0.06em] text-white">
+              AIONE<span className="brand-x">X</span>{" "}
+              <span className="font-semibold text-white/60">AIOS</span>
+            </div>
+            <div className="text-[10px] uppercase tracking-[0.14em] text-white/40">
               {isSuperOwner ? "Owner Control" : "Platform Control"}
             </div>
           </div>
@@ -508,14 +509,14 @@ export default function Sidebar({
       </div>
       <div className="flex-1 overflow-y-auto px-3 py-4">
         {!collapsed && (
-          <div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/25">
+          <div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">
             Navigation
           </div>
         )}
         <div className="space-y-1">{mainNavSections.map(renderSection)}</div>
         {!collapsed && favorites.length > 0 && (
-          <div className="mt-5 border-t border-white/6 pt-4">
-            <div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/25">
+          <div className="mt-5 border-t border-white/8 pt-4">
+            <div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">
               Favorites
             </div>
             {favorites.map((favorite) => (
@@ -532,13 +533,13 @@ export default function Sidebar({
           </div>
         )}
       </div>
-      <div className="border-t border-white/6 p-3">
+      <div className="border-t border-white/8 p-3">
         <div className="mb-2 space-y-1">
           {bottomNavSections.map(renderSection)}
         </div>
         <button
           onClick={onToggle}
-          className="flex w-full items-center justify-center rounded-xl border border-white/6 bg-white/3 p-2 text-white/40 hover:bg-white/6 hover:text-white/70"
+          className="flex w-full items-center justify-center rounded-xl border border-white/8 bg-obsidian-800 p-2 text-white/45 transition-colors duration-150 hover:bg-obsidian-700 hover:text-white"
         >
           {collapsed ? (
             isRtl ? (

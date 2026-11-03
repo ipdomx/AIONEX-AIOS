@@ -62,7 +62,7 @@ export default function OwnerAuditPage() {
         className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
       >
         <div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs text-electric-300">
+          <div className="inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs text-crimson-300">
             <ShieldCheck className="h-3.5 w-3.5" /> Owner Audit Command
           </div>
           <h1 className="mt-3 text-3xl font-bold text-white">
@@ -101,7 +101,7 @@ export default function OwnerAuditPage() {
           return (
             <div key={item.label} className="glass-card p-5">
               <div className="flex items-center justify-between">
-                <Icon className="h-5 w-5 text-electric-300" />
+                <Icon className="h-5 w-5 text-crimson-300" />
                 <span className="text-2xl font-bold text-white">
                   {item.value}
                 </span>
@@ -133,14 +133,14 @@ export default function OwnerAuditPage() {
               className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
             >
               {severityOptions.map((option) => (
-                <option key={option} value={option} className="bg-space-800">
+                <option key={option} value={option} className="bg-obsidian-800">
                   {option === "all" ? "All severity" : option}
                 </option>
               ))}
             </select>
           </div>
         </div>
-        <div className="mt-3 text-xs text-electric-300">
+        <div className="mt-3 text-xs text-crimson-300">
           {loading ? "Loading owner audit events..." : message}
         </div>
       </div>
@@ -162,7 +162,7 @@ export default function OwnerAuditPage() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-start gap-3">
                 <div className="rounded-xl border border-white/6 bg-white/4 p-2.5">
-                  <UserRound className="h-4 w-4 text-electric-300" />
+                  <UserRound className="h-4 w-4 text-crimson-300" />
                 </div>
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -172,10 +172,10 @@ export default function OwnerAuditPage() {
                     <span
                       className={`rounded-full border px-2 py-0.5 text-[10px] ${
                         event.severity === "critical"
-                          ? "border-red-500/20 bg-red-500/10 text-red-300"
+                          ? "border-rose-500/20 bg-rose-500/10 text-rose-300"
                           : event.severity === "warning"
                             ? "border-orange-500/20 bg-orange-500/10 text-orange-300"
-                            : "border-blue-500/20 bg-blue-500/10 text-blue-300"
+                            : "border-zinc-500/20 bg-zinc-500/10 text-zinc-300"
                       }`}
                     >
                       {event.severity}
@@ -196,7 +196,7 @@ export default function OwnerAuditPage() {
                     event.status === "completed"
                       ? "border-green-500/20 bg-green-500/10 text-green-300"
                       : event.status === "failed" || event.status === "blocked"
-                        ? "border-red-500/20 bg-red-500/10 text-red-300"
+                        ? "border-rose-500/20 bg-rose-500/10 text-rose-300"
                         : "border-orange-500/20 bg-orange-500/10 text-orange-300"
                   }`}
                 >

@@ -95,7 +95,7 @@ function Field({
   );
 }
 const inputClass =
-  "w-full rounded-xl border border-white/10 bg-black/20 px-3.5 py-3 text-sm text-white outline-hidden focus:border-electric-300/45";
+  "w-full rounded-xl border border-white/10 bg-black/20 px-3.5 py-3 text-sm text-white outline-hidden focus:border-crimson-300/45";
 const buttonClass =
   "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -246,13 +246,13 @@ export default function OwnerPortalControlPage() {
       </div>
     );
   if (!configuration)
-    return <div className="glass-card p-6 text-red-300">{message}</div>;
+    return <div className="glass-card p-6 text-rose-300">{message}</div>;
 
   return (
     <div className="space-y-6 pb-20">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs text-electric-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs text-crimson-300">
             <Palette className="h-3.5 w-3.5" /> VIP Portal Control
           </div>
           <h1 className="text-3xl font-bold text-white">
@@ -283,14 +283,14 @@ export default function OwnerPortalControlPage() {
           <button
             onClick={() => void save()}
             disabled={saving || !dirty}
-            className={`${buttonClass} bg-blue-500 text-white`}
+            className={`${buttonClass} bg-crimson-500 text-white hover:bg-crimson-400`}
           >
             <Save className="h-4 w-4" /> Save draft
           </button>
           <button
             onClick={() => void publish()}
             disabled={saving}
-            className={`${buttonClass} bg-linear-to-r from-electric-500 to-violet-500 text-white`}
+            className={`${buttonClass} bg-linear-to-r from-crimson-700 to-crimson-500 text-white`}
           >
             <Rocket className="h-4 w-4" /> Publish
           </button>
@@ -311,7 +311,7 @@ export default function OwnerPortalControlPage() {
         ))}
       </div>
       <div
-        className={`rounded-xl border px-4 py-3 text-xs ${dirty ? "border-amber-500/20 bg-amber-500/10 text-amber-200" : "border-electric-500/20 bg-electric-500/10 text-electric-200"}`}
+        className={`rounded-xl border px-4 py-3 text-xs ${dirty ? "border-amber-500/20 bg-amber-500/10 text-amber-200" : "border-crimson-500/20 bg-crimson-500/10 text-crimson-200"}`}
       >
         {message}
         {dirty && " — Unsaved changes."}
@@ -336,7 +336,7 @@ export default function OwnerPortalControlPage() {
           <button
             key={item}
             onClick={() => setLocale(item)}
-            className={`rounded-lg px-3 py-2 text-xs ${locale === item ? "bg-electric-500 text-white" : "border border-white/10 text-white/55"}`}
+            className={`rounded-lg px-3 py-2 text-xs ${locale === item ? "bg-crimson-500 text-white" : "border border-white/10 text-white/55"}`}
           >
             {localeLabels[item]}
           </button>
@@ -529,7 +529,7 @@ function BrandingEditor({
           />
           <p className="mt-4 text-xl font-bold text-white">
             {b.short_name}{" "}
-            <span className="text-electric-300">{b.wordmark_suffix}</span>
+            <span className="text-crimson-300">{b.wordmark_suffix}</span>
           </p>
           <p className="mt-2 text-sm text-white/45">{b.tagline[locale]}</p>
         </div>
@@ -811,7 +811,7 @@ function NavigationEditor({
                 Visible
               </label>
               <button
-                className="mb-1 rounded-lg p-2 text-red-300 hover:bg-red-500/10"
+                className="mb-1 rounded-lg p-2 text-rose-300 hover:bg-rose-500/10"
                 onClick={() =>
                   mutate((n) => {
                     n.navigation.splice(index, 1);
@@ -864,7 +864,7 @@ function NavigationEditor({
           </div>
         ))}
       <button
-        className={`${buttonClass} border border-electric-500/20 bg-electric-500/10 text-electric-300`}
+        className={`${buttonClass} border border-crimson-500/20 bg-crimson-500/10 text-crimson-300`}
         onClick={() =>
           mutate((n) => {
             n.navigation.push({
@@ -980,7 +980,7 @@ function PricingEditor({
         />
       ))}
       <button
-        className={`${buttonClass} border border-electric-500/20 bg-electric-500/10 text-electric-300`}
+        className={`${buttonClass} border border-crimson-500/20 bg-crimson-500/10 text-crimson-300`}
         onClick={() =>
           mutate((n) => {
             n.pricing.plans.push({
@@ -1044,7 +1044,7 @@ function PlanEditor({
 }) {
   return (
     <div
-      className={`glass-card p-6 ${plan.featured ? "ring-1 ring-electric-400/30" : ""}`}
+      className={`glass-card p-6 ${plan.featured ? "ring-1 ring-crimson-400/30" : ""}`}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -1079,7 +1079,7 @@ function PlanEditor({
             Featured
           </label>
           <button
-            className="text-red-300"
+            className="text-rose-300"
             onClick={() =>
               mutate((n) => {
                 n.pricing.plans.splice(index, 1);
@@ -1370,7 +1370,7 @@ function PlanEditor({
                 Enabled
               </label>
               <button
-                className="text-red-300"
+                className="text-rose-300"
                 onClick={() =>
                   mutate((n) => {
                     n.pricing.plans[index].periods.splice(periodIndex, 1);
@@ -1384,7 +1384,7 @@ function PlanEditor({
         ))}
       </div>
       <button
-        className="mt-3 text-xs text-electric-300"
+        className="mt-3 text-xs text-crimson-300"
         onClick={() =>
           mutate((n) => {
             n.pricing.plans[index].periods.push({
@@ -1483,7 +1483,7 @@ function PlanEditor({
               }
             />
             <button
-              className="text-red-300"
+              className="text-rose-300"
               onClick={() =>
                 mutate((n) => {
                   n.pricing.plans[index].features.splice(featureIndex, 1);
@@ -1496,7 +1496,7 @@ function PlanEditor({
         ))}
       </div>
       <button
-        className="mt-3 text-xs text-electric-300"
+        className="mt-3 text-xs text-crimson-300"
         onClick={() =>
           mutate((n) => {
             n.pricing.plans[index].features.push(emptyLocalized());
@@ -1715,7 +1715,7 @@ function AssetsEditor({
           onChange={(e) => void upload(e.target.files?.[0])}
         />
         {uploading && (
-          <LoaderCircle className="mt-3 h-5 w-5 animate-spin text-electric-300" />
+          <LoaderCircle className="mt-3 h-5 w-5 animate-spin text-crimson-300" />
         )}
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -1756,7 +1756,7 @@ function AssetsEditor({
               {asset.media_type.startsWith("image/") && (
                 <>
                   <button
-                    className="rounded-lg border border-electric-500/20 px-2.5 py-2 text-xs text-electric-300"
+                    className="rounded-lg border border-crimson-500/20 px-2.5 py-2 text-xs text-crimson-300"
                     onClick={() =>
                       mutate((n) => {
                         n.branding.logo_url = asset.public_url;
@@ -1766,7 +1766,7 @@ function AssetsEditor({
                     Use logo
                   </button>
                   <button
-                    className="rounded-lg border border-electric-500/20 px-2.5 py-2 text-xs text-electric-300"
+                    className="rounded-lg border border-crimson-500/20 px-2.5 py-2 text-xs text-crimson-300"
                     onClick={() =>
                       mutate((n) => {
                         n.branding.icon_url = asset.public_url;
@@ -1778,7 +1778,7 @@ function AssetsEditor({
                 </>
               )}
               <button
-                className="rounded-lg border border-red-500/20 px-2.5 py-2 text-xs text-red-300"
+                className="rounded-lg border border-rose-500/20 px-2.5 py-2 text-xs text-rose-300"
                 onClick={async () => {
                   if (!window.confirm("Delete this unused asset?")) return;
                   try {
@@ -2134,7 +2134,7 @@ function AdvancedEditor({
           onChange={(e) => setAdvancedText(e.target.value)}
         />
         <button
-          className={`${buttonClass} mt-4 bg-blue-500 text-white`}
+          className={`${buttonClass} mt-4 bg-crimson-500 text-white hover:bg-crimson-400`}
           onClick={apply}
         >
           <Check className="h-4 w-4" />
@@ -2191,7 +2191,7 @@ function AdvancedEditor({
           </div>
         </div>
         <button
-          className={`${buttonClass} w-full border border-red-500/20 bg-red-500/10 text-red-300`}
+          className={`${buttonClass} w-full border border-rose-500/20 bg-rose-500/10 text-rose-300`}
           onClick={() => void resetDraft()}
         >
           <Trash2 className="h-4 w-4" />

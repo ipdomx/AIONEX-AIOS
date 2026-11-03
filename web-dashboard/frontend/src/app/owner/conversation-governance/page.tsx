@@ -203,7 +203,7 @@ export default function ConversationGovernancePage() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="mb-3 flex items-center gap-2 text-xs text-electric-300">
+          <p className="mb-3 flex items-center gap-2 text-xs text-crimson-300">
             <ShieldCheck className="h-4 w-4" />
             {t("Super Owner")}
           </p>
@@ -229,7 +229,7 @@ export default function ConversationGovernancePage() {
       {error && (
         <p
           role="alert"
-          className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm"
+          className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm"
         >
           {error}
         </p>
@@ -386,7 +386,7 @@ export default function ConversationGovernancePage() {
                   <button
                     type="submit"
                     disabled={busy || !Object.keys(dirty).length || !identifier}
-                    className={`${button} bg-electric-500/20`}
+                    className={`${button} bg-crimson-500/20`}
                   >
                     <Save className="me-2 inline h-4 w-4" />
                     {t("Save policy")}
@@ -399,7 +399,7 @@ export default function ConversationGovernancePage() {
                 <h2 className="text-lg font-semibold">
                   {t("Conversation control")}
                 </h2>
-                <Link href="/users" className="text-sm text-electric-300">
+                <Link href="/users" className="text-sm text-crimson-300">
                   {t("Account suspension and roles")}
                 </Link>
               </div>

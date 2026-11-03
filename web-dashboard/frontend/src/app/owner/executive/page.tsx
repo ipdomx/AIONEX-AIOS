@@ -48,7 +48,7 @@ export default function OwnerExecutivePage() {
         className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
       >
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs font-medium text-electric-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs font-medium text-crimson-300">
             <Gauge className="h-3.5 w-3.5" />
             Owner Executive Overview
           </div>
@@ -75,7 +75,7 @@ export default function OwnerExecutivePage() {
         </div>
       </motion.div>
 
-      <div className="text-xs text-electric-300">
+      <div className="text-xs text-crimson-300">
         {loading ? "Loading executive metrics..." : message}
       </div>
 
@@ -99,7 +99,7 @@ export default function OwnerExecutivePage() {
               >
                 <div className="flex items-center justify-between">
                   <div className="rounded-xl border border-white/6 bg-white/4 p-2.5">
-                    <Icon className="h-5 w-5 text-electric-300" />
+                    <Icon className="h-5 w-5 text-crimson-300" />
                   </div>
                   <span className="text-2xl font-bold text-white">
                     {item.value}
@@ -157,7 +157,7 @@ export default function OwnerExecutivePage() {
         </section>
         <section className="glass-card p-5">
           <div className="mb-4 flex items-center gap-2">
-            <Activity className="h-5 w-5 text-electric-300" />
+            <Activity className="h-5 w-5 text-crimson-300" />
             <h2 className="text-sm font-semibold text-white">
               Owner priorities
             </h2>
@@ -169,7 +169,7 @@ export default function OwnerExecutivePage() {
                   key={item.id}
                   className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/2 px-4 py-3"
                 >
-                  <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-electric-500/10 text-xs font-bold text-electric-300">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-crimson-500/10 text-xs font-bold text-crimson-300">
                     {index + 1}
                   </span>
                   <span className="text-xs text-white/60">

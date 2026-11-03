@@ -68,7 +68,7 @@ export default function TopBar({
 
   return (
     <header
-      className="fixed left-0 right-0 top-0 z-40 flex h-16 items-center border-b border-white/8 bg-[#07090f]/95 px-3 shadow-[0_12px_32px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-[margin] duration-300 sm:px-4"
+      className="fixed left-0 right-0 top-0 z-40 flex h-16 items-center border-b border-white/8 bg-obsidian-950/90 px-3 backdrop-blur-xl transition-[margin] duration-300 sm:px-4"
       style={{
         marginLeft:
           isRtl || mobile ? "0px" : sidebarCollapsed ? "72px" : "280px",
@@ -87,22 +87,24 @@ export default function TopBar({
         </button>
       )}
       <nav className="hidden min-w-0 flex-1 items-center gap-2 text-sm sm:flex">
-        <span className="text-white/30">AIONEX</span>
+        <span className="font-semibold tracking-[0.08em] text-white/45">
+          AIONE<span className="brand-x">X</span>
+        </span>
         <span className="text-white/20">/</span>
-        <span className="truncate text-white/60">{pageLabel}</span>
+        <span className="truncate font-medium text-white/85">{pageLabel}</span>
       </nav>
 
       <div className="hidden max-w-xl flex-1 md:block">
         <button
           type="button"
           onClick={onSearchOpen}
-          className="group flex w-full items-center gap-3 rounded-xl border border-white/8 bg-white/[0.035] px-4 py-2 transition hover:border-white/12 hover:bg-white/5.5"
+          className="group flex w-full items-center gap-3 rounded-xl border border-white/8 bg-obsidian-700 px-4 py-2 transition-colors duration-150 hover:border-white/14 hover:bg-obsidian-600"
         >
           <Search className="h-4 w-4 text-white/30 transition-colors group-hover:text-white/50" />
           <span className="text-sm text-white/30 transition-colors group-hover:text-white/50">
             Search pages and Owner modules…
           </span>
-          <kbd className="ms-auto rounded-md border border-white/8 bg-white/6 px-1.5 py-0.5 font-mono text-[10px] text-white/40">
+          <kbd className="ms-auto rounded-md border border-white/10 bg-obsidian-950 px-1.5 py-0.5 font-mono text-[10px] text-white/40">
             ⇧⌘K
           </kbd>
         </button>
@@ -134,8 +136,8 @@ export default function TopBar({
             aria-expanded={profileOpen}
             aria-haspopup="menu"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-linear-to-br from-blue-500/25 to-purple-500/25">
-              <User className="h-4 w-4 text-blue-300" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-obsidian-700">
+              <User className="h-4 w-4 text-zinc-300" />
             </div>
             <div className="hidden flex-col items-start lg:flex">
               <span className="max-w-36 truncate text-xs font-semibold text-white">
@@ -163,9 +165,9 @@ export default function TopBar({
                   exit={{ opacity: 0, y: 10, scale: 0.96 }}
                   transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
                   role="menu"
-                  className={`fixed left-3 right-3 top-18 z-60 overflow-hidden rounded-2xl border border-white/12 bg-[#0b0e15] shadow-[0_24px_70px_rgba(0,0,0,0.65)] sm:absolute sm:top-12 sm:w-72 ${isRtl ? "sm:left-0 sm:right-auto" : "sm:left-auto sm:right-0"}`}
+                  className={`fixed left-3 right-3 top-18 z-60 overflow-hidden rounded-2xl border border-white/12 bg-obsidian-900 shadow-[0_24px_70px_rgba(0,0,0,0.65)] sm:absolute sm:top-12 sm:w-72 ${isRtl ? "sm:left-0 sm:right-auto" : "sm:left-auto sm:right-0"}`}
                 >
-                  <div className="border-b border-white/8 bg-white/2.5 px-4 py-4">
+                  <div className="card-accent border-b border-white/8 bg-obsidian-800 px-4 py-4">
                     <span className="block truncate text-sm font-semibold text-white">
                       {user?.name ?? "Signed-in user"}
                     </span>
@@ -207,7 +209,7 @@ export default function TopBar({
                     <button
                       type="button"
                       onClick={() => void signOut()}
-                      className="flex w-full items-center gap-3 px-4 py-3 text-sm text-red-300 transition hover:bg-red-500/10 hover:text-red-200"
+                      className="flex w-full items-center gap-3 px-4 py-3 text-sm text-rose-300 transition hover:bg-rose-500/10 hover:text-rose-200"
                     >
                       <LogOut className="h-4 w-4" />
                       Sign out

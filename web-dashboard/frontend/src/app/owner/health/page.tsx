@@ -72,7 +72,7 @@ export default function OwnerHealthPage() {
         </div>
       </motion.div>
 
-      <div className="text-xs text-electric-300">
+      <div className="text-xs text-crimson-300">
         {loading ? "Running live health checks..." : message}
       </div>
 
@@ -91,7 +91,7 @@ export default function OwnerHealthPage() {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="rounded-xl border border-white/6 bg-white/4 p-2.5">
-                    <Icon className="h-5 w-5 text-electric-300" />
+                    <Icon className="h-5 w-5 text-crimson-300" />
                   </div>
                   <div>
                     <h2 className="text-sm font-semibold text-white">

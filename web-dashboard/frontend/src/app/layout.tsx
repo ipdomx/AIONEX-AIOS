@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { IBM_Plex_Sans_Arabic, Inter, JetBrains_Mono } from "next/font/google";
 import "@/styles/globals.css";
 import RuntimeProvider from "@/components/providers/RuntimeProvider";
 import AuthProvider from "@/components/providers/AuthProvider";
@@ -10,6 +10,13 @@ import DashboardShell from "@/components/layout/DashboardShell";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+  display: "swap",
+});
+
+const plexArabic = IBM_Plex_Sans_Arabic({
+  subsets: ["arabic"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-plex-arabic",
   display: "swap",
 });
 
@@ -57,8 +64,8 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#030308" },
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#050505" },
+    { media: "(prefers-color-scheme: light)", color: "#050505" },
   ],
 };
 
@@ -71,7 +78,7 @@ export default function RootLayout({
     <html
       lang="en-US"
       dir="ltr"
-      className={`${inter.variable} ${jetbrainsMono.variable}`}
+      className={`${inter.variable} ${plexArabic.variable} ${jetbrainsMono.variable}`}
       suppressHydrationWarning
     >
       <head>

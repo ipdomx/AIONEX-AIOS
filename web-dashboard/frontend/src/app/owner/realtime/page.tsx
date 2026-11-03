@@ -27,7 +27,7 @@ const statusClass: Record<
 > = {
   healthy: "border-green-500/20 bg-green-500/10 text-green-300",
   warning: "border-orange-500/20 bg-orange-500/10 text-orange-300",
-  critical: "border-red-500/20 bg-red-500/10 text-red-300",
+  critical: "border-rose-500/20 bg-rose-500/10 text-rose-300",
   unknown: "border-white/10 bg-white/3 text-white/45",
 };
 
@@ -108,7 +108,7 @@ export default function OwnerRealtimePage() {
         className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"
       >
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs font-medium text-electric-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs font-medium text-crimson-300">
             <RadioTower className="h-3.5 w-3.5" /> Owner Realtime Control
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
@@ -132,14 +132,14 @@ export default function OwnerRealtimePage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         {cards.map(({ label, value, Icon }) => (
           <div key={label} className="glass-card p-5">
-            <Icon className="h-5 w-5 text-electric-300" />
+            <Icon className="h-5 w-5 text-crimson-300" />
             <div className="mt-4 text-3xl font-bold text-white">{value}</div>
             <div className="mt-1 text-xs text-white/40">{label}</div>
           </div>
         ))}
       </div>
 
-      <div className="glass-card p-4 text-xs text-electric-300">
+      <div className="glass-card p-4 text-xs text-zinc-300">
         <Activity className="mr-2 inline h-3.5 w-3.5" />
         {message}{" "}
         {lastUpdatedAt

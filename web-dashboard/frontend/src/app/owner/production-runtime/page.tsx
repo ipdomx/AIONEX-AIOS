@@ -46,7 +46,7 @@ const emptyFabric: ProjectExecutionFabricSnapshot = {
 const statusClass: Record<ProductionRuntimeTarget["status"], string> = {
   ready: "border-green-500/20 bg-green-500/10 text-green-300",
   degraded: "border-orange-500/20 bg-orange-500/10 text-orange-300",
-  blocked: "border-red-500/20 bg-red-500/10 text-red-300",
+  blocked: "border-rose-500/20 bg-rose-500/10 text-rose-300",
 };
 
 const summaryCards = [
@@ -142,7 +142,7 @@ export default function OwnerProductionRuntimePage() {
         className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"
       >
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs font-medium text-electric-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs font-medium text-crimson-300">
             <Globe2 className="h-3.5 w-3.5" /> Production Runtime
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
@@ -179,11 +179,11 @@ export default function OwnerProductionRuntimePage() {
               API origin: {snapshot.api_origin || "Not loaded"}
             </div>
           </div>
-          <ShieldCheck className="h-8 w-8 text-electric-300" />
+          <ShieldCheck className="h-8 w-8 text-crimson-300" />
         </div>
         <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/5">
           <div
-            className="h-full rounded-full bg-electric-400"
+            className="h-full rounded-full bg-crimson-500"
             style={{
               width: `${Math.min(100, Math.max(0, snapshot.completion))}%`,
             }}
@@ -194,7 +194,7 @@ export default function OwnerProductionRuntimePage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {summaryCards.map(({ key, label, Icon }) => (
           <div key={key} className="glass-card p-5">
-            <Icon className="h-5 w-5 text-electric-300" />
+            <Icon className="h-5 w-5 text-crimson-300" />
             <div className="mt-4 text-3xl font-bold text-white">
               {summary[key]}
             </div>
@@ -251,7 +251,7 @@ export default function OwnerProductionRuntimePage() {
         </div>
       </div>
 
-      <div className="glass-card p-4 text-xs text-electric-300">{message}</div>
+      <div className="glass-card p-4 text-xs text-zinc-300">{message}</div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         {snapshot.targets.map((item, index) => (
@@ -291,7 +291,7 @@ export default function OwnerProductionRuntimePage() {
               </button>
               <Link
                 href="/owner/release-governance"
-                className="rounded-lg border border-electric-500/20 bg-electric-500/10 px-3 py-2 text-xs text-electric-300"
+                className="rounded-lg border border-crimson-500/20 bg-crimson-500/10 px-3 py-2 text-xs text-crimson-300"
               >
                 Open release pipeline
               </Link>

@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, PropsWithChildren, useEffect, useState } from "react";
-import { Loader2, LockKeyhole, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Loader2, LockKeyhole, ShieldCheck } from "lucide-react";
 
 import { useAuth } from "@/components/providers/AuthProvider";
 
@@ -11,9 +11,9 @@ const USER_PORTAL_URL = (
 
 function LoadingScreen({ label }: { label: string }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-space-950 text-white">
+    <div className="flex min-h-screen items-center justify-center bg-obsidian-950 text-white">
       <Loader2
-        className="h-8 w-8 animate-spin text-electric-400"
+        className="h-8 w-8 animate-spin text-crimson-400"
         aria-label={label}
       />
     </div>
@@ -82,17 +82,21 @@ export default function AuthGate({ children }: PropsWithChildren) {
   if (authenticated) return <>{children}</>;
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-space-950 px-4 py-10 text-white">
-      <section className="w-full max-w-md rounded-3xl border border-white/10 bg-white/4 p-6 shadow-2xl backdrop-blur-xl sm:p-8">
+    <main className="hero-grid relative isolate flex min-h-screen items-center justify-center overflow-hidden bg-obsidian-950 px-4 py-10 text-white">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1/2 top-[18%] -z-10 h-[420px] w-[720px] max-w-full -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(225,29,46,0.12),transparent)]"
+      />
+      <section className="card-accent w-full max-w-md rounded-3xl border border-white/10 bg-obsidian-800 p-6 shadow-[0_32px_80px_-24px_rgba(0,0,0,0.9)] sm:p-8">
         <div className="mb-7 flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-electric-500/15 text-electric-300">
-            <ShieldCheck className="h-6 w-6" />
+          <div className="brand-mark h-12 w-12">
+            <ShieldCheck className="h-6 w-6 text-white" />
           </div>
           <div>
-            <p className="text-xs uppercase tracking-[0.25em] text-white/40">
-              AIONEX AIOS
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-white/55">
+              AIONE<span className="brand-x">X</span> AIOS
             </p>
-            <h1 className="text-2xl font-semibold">Private control plane</h1>
+            <h1 className="text-2xl font-bold">Private control plane</h1>
           </div>
         </div>
 
@@ -112,21 +116,25 @@ export default function AuthGate({ children }: PropsWithChildren) {
                 maxLength={32}
                 required
                 autoFocus
-                className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-hidden transition focus:border-electric-400/60 focus:ring-2 focus:ring-electric-400/20"
+                className="glass-input w-full px-4 py-3 text-white"
               />
             </label>
             {error && (
               <div
                 role="alert"
-                className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200"
+                className="flex items-start gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200"
               >
-                {error}
+                <AlertTriangle
+                  className="mt-0.5 h-4 w-4 shrink-0 text-rose-400"
+                  aria-hidden="true"
+                />
+                <span>{error}</span>
               </div>
             )}
             <button
               type="submit"
               disabled={submitting || mfaCode.length < 6}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-electric-500 px-4 py-3 font-semibold text-white transition hover:bg-electric-400 disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-crimson-500 px-4 py-3 font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] transition duration-150 hover:bg-crimson-400 hover:shadow-[0_6px_22px_-6px_rgba(225,29,46,0.6)] active:bg-crimson-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -157,7 +165,7 @@ export default function AuthGate({ children }: PropsWithChildren) {
                 onChange={(event) => setEmail(event.target.value)}
                 autoComplete="username"
                 required
-                className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-hidden transition focus:border-electric-400/60 focus:ring-2 focus:ring-electric-400/20"
+                className="glass-input w-full px-4 py-3 text-white"
               />
             </label>
             <label className="block space-y-2">
@@ -168,23 +176,27 @@ export default function AuthGate({ children }: PropsWithChildren) {
                 onChange={(event) => setPassword(event.target.value)}
                 autoComplete="current-password"
                 required
-                className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-hidden transition focus:border-electric-400/60 focus:ring-2 focus:ring-electric-400/20"
+                className="glass-input w-full px-4 py-3 text-white"
               />
             </label>
 
             {error && (
               <div
                 role="alert"
-                className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200"
+                className="flex items-start gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200"
               >
-                {error}
+                <AlertTriangle
+                  className="mt-0.5 h-4 w-4 shrink-0 text-rose-400"
+                  aria-hidden="true"
+                />
+                <span>{error}</span>
               </div>
             )}
 
             <button
               type="submit"
               disabled={submitting}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-electric-500 px-4 py-3 font-semibold text-white transition hover:bg-electric-400 disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-crimson-500 px-4 py-3 font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] transition duration-150 hover:bg-crimson-400 hover:shadow-[0_6px_22px_-6px_rgba(225,29,46,0.6)] active:bg-crimson-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

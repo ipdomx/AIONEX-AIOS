@@ -49,7 +49,7 @@ export default function OwnerNotificationsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs text-electric-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs text-crimson-300">
             <Bell className="h-3.5 w-3.5" /> Owner notifications
           </div>
           <h1 className="text-2xl font-bold text-white">Notification Center</h1>
@@ -67,7 +67,7 @@ export default function OwnerNotificationsPage() {
         </button>
       </div>
 
-      <div className="rounded-xl border border-electric-500/20 bg-electric-500/10 px-4 py-3 text-xs text-electric-300">
+      <div className="rounded-xl border border-white/8 border-s-2 border-s-crimson-500 bg-obsidian-800 px-4 py-3 text-xs text-zinc-300">
         {message}
       </div>
 
@@ -77,7 +77,7 @@ export default function OwnerNotificationsPage() {
             <button
               key={value}
               onClick={() => setFilter(value)}
-              className={`rounded-xl border px-3 py-2 text-xs font-medium capitalize transition ${filter === value ? "border-electric-500/30 bg-electric-500/10 text-electric-300" : "border-white/6 bg-white/3 text-white/45 hover:bg-white/6"}`}
+              className={`rounded-xl border px-3 py-2 text-xs font-medium capitalize transition ${filter === value ? "border-crimson-500/30 bg-crimson-500/10 text-crimson-300" : "border-white/6 bg-white/3 text-white/45 hover:bg-white/6"}`}
             >
               {value}
             </button>
@@ -106,12 +106,12 @@ export default function OwnerNotificationsPage() {
                     : Info;
             const iconClass =
               item.severity === "critical"
-                ? "text-red-400"
+                ? "text-rose-400"
                 : item.severity === "warning"
                   ? "text-orange-400"
                   : item.severity === "success"
                     ? "text-green-400"
-                    : "text-electric-300";
+                    : "text-crimson-300";
             return (
               <motion.button
                 disabled={busy || item.read}
@@ -120,7 +120,7 @@ export default function OwnerNotificationsPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.03 }}
-                className={`glass-card flex w-full items-start gap-4 p-5 text-left transition hover:bg-white/5 disabled:cursor-default ${item.read ? "opacity-70" : "border border-electric-500/10"}`}
+                className={`glass-card flex w-full items-start gap-4 p-5 text-left transition hover:bg-white/5 disabled:cursor-default ${item.read ? "opacity-70" : "border border-crimson-500/10"}`}
               >
                 <div className="rounded-xl border border-white/6 bg-white/3 p-2.5">
                   <Icon className={`h-5 w-5 ${iconClass}`} />
@@ -131,7 +131,7 @@ export default function OwnerNotificationsPage() {
                       {item.title}
                     </h2>
                     {!item.read && (
-                      <span className="h-2 w-2 rounded-full bg-electric-400" />
+                      <span className="h-2 w-2 rounded-full bg-crimson-400" />
                     )}
                   </div>
                   <p className="mt-1 text-xs leading-relaxed text-white/45">

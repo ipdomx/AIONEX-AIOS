@@ -367,7 +367,7 @@ export default function OwnerSecurityLabPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs text-electric-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs text-crimson-300">
             <ShieldCheck className="h-3.5 w-3.5" /> Super Owner Security
             Authority
           </div>
@@ -400,32 +400,32 @@ export default function OwnerSecurityLabPage() {
         </div>
       </div>
 
-      <div className="glass-card p-4 text-xs text-electric-300">{message}</div>
+      <div className="glass-card p-4 text-xs text-zinc-300">{message}</div>
 
       <div className="grid gap-4 md:grid-cols-4">
         <div className="glass-card p-5">
-          <UserRoundCog className="h-5 w-5 text-electric-300" />
+          <UserRoundCog className="h-5 w-5 text-crimson-300" />
           <div className="mt-3 text-2xl font-bold text-white">
             {activeGrants.length}
           </div>
           <div className="text-xs text-white/35">Active grants</div>
         </div>
         <div className="glass-card p-5">
-          <ShieldCheck className="h-5 w-5 text-electric-300" />
+          <ShieldCheck className="h-5 w-5 text-crimson-300" />
           <div className="mt-3 text-2xl font-bold text-white">
             {snapshot.targets.length}
           </div>
           <div className="text-xs text-white/35">Registered targets</div>
         </div>
         <div className="glass-card p-5">
-          <XCircle className="h-5 w-5 text-electric-300" />
+          <XCircle className="h-5 w-5 text-crimson-300" />
           <div className="mt-3 text-2xl font-bold text-white">
             {unresolved.length}
           </div>
           <div className="text-xs text-white/35">Unresolved findings</div>
         </div>
         <div className="glass-card p-5">
-          <BrainCircuit className="h-5 w-5 text-electric-300" />
+          <BrainCircuit className="h-5 w-5 text-crimson-300" />
           <div className="mt-3 text-2xl font-bold text-white">
             {promotedRules}
           </div>
@@ -733,7 +733,7 @@ export default function OwnerSecurityLabPage() {
                     <td className="p-2">
                       {grant.status === "active" && (
                         <button
-                          className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-1 text-red-300"
+                          className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-1 text-rose-300"
                           disabled={busy}
                           onClick={() => void revokeAccess(grant.user_id)}
                         >
@@ -795,7 +795,7 @@ export default function OwnerSecurityLabPage() {
                         False positive
                       </button>
                       <button
-                        className="rounded border border-electric-500/20 px-2 py-1 text-electric-300"
+                        className="rounded border border-crimson-500/20 px-2 py-1 text-crimson-300"
                         disabled={busy || item.state === "resolved"}
                         onClick={() => void decideFinding(item, "resolved")}
                       >
@@ -812,7 +812,7 @@ export default function OwnerSecurityLabPage() {
 
       <section className="glass-card p-5">
         <div className="flex items-center gap-2 text-white">
-          <BrainCircuit className="h-5 w-5 text-electric-300" />
+          <BrainCircuit className="h-5 w-5 text-crimson-300" />
           <h2 className="font-semibold">Security Genome & Rule Forge</h2>
         </div>
         <p className="mt-2 text-xs leading-5 text-white/40">
@@ -858,7 +858,7 @@ export default function OwnerSecurityLabPage() {
 
       <section className="glass-card space-y-4 p-5">
         <div className="flex items-center gap-2 text-white">
-          <CheckCircle2 className="h-5 w-5 text-electric-300" />
+          <CheckCircle2 className="h-5 w-5 text-crimson-300" />
           <h2 className="font-semibold">Security release gate</h2>
         </div>
         <p className="text-xs leading-5 text-white/40">

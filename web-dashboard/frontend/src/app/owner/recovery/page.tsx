@@ -75,7 +75,7 @@ export default function OwnerRecoveryPage() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs text-blue-300">
+        <div className="inline-flex items-center gap-2 rounded-full border border-zinc-500/20 bg-zinc-500/10 px-3 py-1 text-xs text-zinc-300">
           <ArchiveRestore className="h-3.5 w-3.5" /> Owner Recovery Center
         </div>
         <h1 className="mt-3 text-3xl font-bold text-white">
@@ -87,7 +87,7 @@ export default function OwnerRecoveryPage() {
         </p>
       </motion.div>
 
-      <div className="rounded-xl border border-electric-500/20 bg-electric-500/10 px-4 py-3 text-sm text-electric-300">
+      <div className="rounded-xl border border-white/8 border-s-2 border-s-crimson-500 bg-obsidian-800 px-4 py-3 text-sm text-zinc-300">
         {loading ? "Loading recovery records..." : message}
       </div>
 
@@ -97,7 +97,7 @@ export default function OwnerRecoveryPage() {
           disabled={loading || busy || processing}
           className="glass-card p-5 text-left transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <DatabaseBackup className="h-6 w-6 text-electric-300" />
+          <DatabaseBackup className="h-6 w-6 text-crimson-300" />
           <h2 className="mt-4 text-sm font-semibold text-white">
             Queue backup
           </h2>
@@ -110,7 +110,7 @@ export default function OwnerRecoveryPage() {
           disabled={loading || busy || processing || !completedBackupAvailable}
           className="glass-card p-5 text-left transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <RotateCcw className="h-6 w-6 text-purple-300" />
+          <RotateCcw className="h-6 w-6 text-crimson-300" />
           <h2 className="mt-4 text-sm font-semibold text-white">
             Queue restore validation
           </h2>
@@ -161,7 +161,7 @@ export default function OwnerRecoveryPage() {
               className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex items-center gap-3">
-                <HardDriveDownload className="h-5 w-5 text-electric-300" />
+                <HardDriveDownload className="h-5 w-5 text-crimson-300" />
                 <div>
                   <p className="text-sm font-medium text-white">
                     {record.name}

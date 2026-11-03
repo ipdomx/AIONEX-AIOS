@@ -123,7 +123,7 @@ export default function RolesPage() {
           >
             <option value="">Current organization</option>
             {organizations.map((item) => (
-              <option key={item.id} value={item.id} className="bg-space-800">
+              <option key={item.id} value={item.id} className="bg-obsidian-800">
                 {item.name}
               </option>
             ))}
@@ -177,7 +177,7 @@ export default function RolesPage() {
         {roles.map((role) => (
           <article key={role.id} className="glass-card p-5">
             <div className="flex items-start gap-3">
-              <ShieldCheck className="h-5 w-5 text-electric-300" />
+              <ShieldCheck className="h-5 w-5 text-crimson-300" />
               <div className="min-w-0 flex-1">
                 <h2 className="truncate text-sm font-semibold text-white">
                   {role.name}
@@ -190,7 +190,7 @@ export default function RolesPage() {
                 <button
                   disabled={busy}
                   onClick={() => void remove(role)}
-                  className="rounded-lg border border-red-500/20 bg-red-500/10 p-2 text-red-300"
+                  className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-2 text-rose-300"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>

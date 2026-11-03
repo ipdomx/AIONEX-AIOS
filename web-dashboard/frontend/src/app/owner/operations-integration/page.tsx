@@ -29,7 +29,7 @@ const emptySnapshot: OperationsSnapshot = {
 const statusClass: Record<OperationsTarget["status"], string> = {
   healthy: "border-green-500/20 bg-green-500/10 text-green-300",
   degraded: "border-orange-500/20 bg-orange-500/10 text-orange-300",
-  offline: "border-red-500/20 bg-red-500/10 text-red-300",
+  offline: "border-rose-500/20 bg-rose-500/10 text-rose-300",
 };
 
 export default function OwnerOperationsIntegrationPage() {
@@ -115,7 +115,7 @@ export default function OwnerOperationsIntegrationPage() {
         className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"
       >
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs font-medium text-electric-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs font-medium text-crimson-300">
             <Activity className="h-3.5 w-3.5" /> Owner Operations Integration
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
@@ -146,11 +146,11 @@ export default function OwnerOperationsIntegrationPage() {
               {snapshot.completion}%
             </div>
           </div>
-          <ShieldCheck className="h-8 w-8 text-electric-300" />
+          <ShieldCheck className="h-8 w-8 text-crimson-300" />
         </div>
         <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/5">
           <div
-            className="h-full rounded-full bg-electric-400"
+            className="h-full rounded-full bg-crimson-500"
             style={{
               width: `${Math.min(100, Math.max(0, snapshot.completion))}%`,
             }}
@@ -161,14 +161,14 @@ export default function OwnerOperationsIntegrationPage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {summaryCards.map(({ label, value, Icon }) => (
           <div key={label} className="glass-card p-5">
-            <Icon className="h-5 w-5 text-electric-300" />
+            <Icon className="h-5 w-5 text-crimson-300" />
             <div className="mt-4 text-3xl font-bold text-white">{value}</div>
             <div className="mt-1 text-xs text-white/40">{label}</div>
           </div>
         ))}
       </div>
 
-      <div className="glass-card flex items-center justify-between gap-4 p-4 text-xs text-electric-300">
+      <div className="glass-card flex items-center justify-between gap-4 p-4 text-xs text-zinc-300">
         <span>{message}</span>
         <Link
           href="/owner/recovery"
@@ -218,7 +218,7 @@ export default function OwnerOperationsIntegrationPage() {
                 <button
                   disabled={loading || actingTarget !== null}
                   onClick={() => void command(item.id, "recover")}
-                  className="rounded-lg border border-electric-500/20 bg-electric-500/10 px-3 py-2 text-xs text-electric-300 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg border border-crimson-500/20 bg-crimson-500/10 px-3 py-2 text-xs text-crimson-300 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <RotateCcw className="mr-1 inline h-3.5 w-3.5" />
                   Queue restore drill

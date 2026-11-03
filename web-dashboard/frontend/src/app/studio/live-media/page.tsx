@@ -406,7 +406,7 @@ export default function LiveMediaStudioPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-electric-300">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-crimson-300">
             AIONEX Production
           </p>
           <h1 className="mt-2 text-3xl font-bold text-white">
@@ -435,7 +435,7 @@ export default function LiveMediaStudioPage() {
         </div>
       </div>
 
-      <div className="glass-card flex items-start gap-3 p-4 text-xs text-electric-300">
+      <div className="glass-card flex items-start gap-3 p-4 text-xs text-zinc-300">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
         <span>{message}</span>
       </div>
@@ -450,11 +450,11 @@ export default function LiveMediaStudioPage() {
               key={item.id}
               type="button"
               onClick={() => setKind(item.id)}
-              className={`glass-card p-4 text-left transition ${active ? "border-electric-400/50 bg-electric-500/10" : "hover:bg-white/4"}`}
+              className={`glass-card p-4 text-left transition ${active ? "border-crimson-400/50 bg-crimson-500/10" : "hover:bg-white/4"}`}
             >
               <div className="flex items-center justify-between gap-2">
                 <Icon
-                  className={`h-5 w-5 ${active ? "text-electric-300" : "text-white/40"}`}
+                  className={`h-5 w-5 ${active ? "text-crimson-300" : "text-white/40"}`}
                 />
                 <span
                   className={`text-[10px] font-semibold uppercase ${state?.ready ? "text-emerald-300" : "text-rose-300"}`}
@@ -479,7 +479,7 @@ export default function LiveMediaStudioPage() {
       >
         <div className="space-y-5">
           <div className="flex items-center gap-3">
-            <WandSparkles className="h-5 w-5 text-electric-300" />
+            <WandSparkles className="h-5 w-5 text-crimson-300" />
             <div>
               <h2 className="font-semibold text-white">
                 {selected.title} request
@@ -1101,7 +1101,7 @@ export default function LiveMediaStudioPage() {
             </p>
           </div>
           {activeJobs && (
-            <Loader2 className="h-4 w-4 animate-spin text-electric-300" />
+            <Loader2 className="h-4 w-4 animate-spin text-crimson-300" />
           )}
         </div>
         <div className="mt-4 overflow-x-auto">

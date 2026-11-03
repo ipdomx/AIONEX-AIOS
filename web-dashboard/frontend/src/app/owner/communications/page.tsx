@@ -69,7 +69,7 @@ function statusClass(status: string): string {
     return "border-green-500/20 bg-green-500/10 text-green-300";
   }
   if (["dead_letter", "failed", "urgent", "cancelled"].includes(status)) {
-    return "border-red-500/20 bg-red-500/10 text-red-300";
+    return "border-rose-500/20 bg-rose-500/10 text-rose-300";
   }
   if (
     ["retrying", "waiting_user", "in_progress", "suspended"].includes(status)
@@ -249,7 +249,7 @@ export default function OwnerCommunicationsPage() {
         className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"
       >
         <div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs text-electric-300">
+          <div className="inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs text-crimson-300">
             <ShieldCheck className="h-3.5 w-3.5" /> Owner Communications
           </div>
           <h1 className="mt-3 text-3xl font-bold text-white">
@@ -281,7 +281,7 @@ export default function OwnerCommunicationsPage() {
           const CardIcon = Icon as React.ElementType;
           return (
             <div key={String(label)} className="glass-card p-5">
-              <CardIcon className="h-5 w-5 text-electric-300" />
+              <CardIcon className="h-5 w-5 text-crimson-300" />
               <p className="mt-3 text-2xl font-bold text-white">
                 {String(value)}
               </p>
@@ -291,15 +291,15 @@ export default function OwnerCommunicationsPage() {
         })}
       </div>
 
-      <div className="rounded-xl border border-electric-500/20 bg-electric-500/10 px-4 py-3 text-sm text-electric-300">
+      <div className="rounded-xl border border-white/8 border-s-2 border-s-crimson-500 bg-obsidian-800 px-4 py-3 text-sm text-zinc-300">
         {message || channelMessage}
       </div>
 
       <section className="glass-card p-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="flex gap-3">
-            <div className="rounded-xl border border-electric-500/20 bg-electric-500/10 p-3">
-              <LockKeyhole className="h-5 w-5 text-electric-300" />
+            <div className="rounded-xl border border-crimson-500/20 bg-crimson-500/10 p-3">
+              <LockKeyhole className="h-5 w-5 text-crimson-300" />
             </div>
             <div>
               <h2 className="text-sm font-semibold text-white">
@@ -332,7 +332,7 @@ export default function OwnerCommunicationsPage() {
             </div>
             {telegramCode ? (
               <div className="mt-2">
-                <div className="font-mono text-2xl font-semibold tracking-[0.25em] text-electric-300">
+                <div className="font-mono text-2xl font-semibold tracking-[0.25em] text-crimson-300">
                   {telegramCode}
                 </div>
                 <p className="mt-2 text-xs text-white/40">
@@ -363,7 +363,7 @@ export default function OwnerCommunicationsPage() {
             type="button"
             disabled={telegramBusy || !telegramSecurity?.session_active}
             onClick={() => void revokeTelegramSession()}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs text-red-300 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-xs text-rose-300 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <LockKeyhole className="h-4 w-4" />
             Revoke
@@ -394,7 +394,7 @@ export default function OwnerCommunicationsPage() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex gap-3">
                       <div className="rounded-xl border border-white/6 bg-white/4 p-2.5">
-                        <Icon className="h-5 w-5 text-electric-300" />
+                        <Icon className="h-5 w-5 text-crimson-300" />
                       </div>
                       <div>
                         <h3 className="text-sm font-semibold text-white">

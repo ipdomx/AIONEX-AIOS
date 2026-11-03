@@ -99,7 +99,7 @@ export default function PermissionsPage() {
             <button
               key={role.id}
               onClick={() => chooseRole(role.id)}
-              className={`w-full rounded-xl px-3 py-3 text-left text-sm ${selectedRoleId === role.id ? "bg-electric-500/15 text-electric-200" : "bg-white/2 text-white/55 hover:bg-white/5"}`}
+              className={`w-full rounded-xl px-3 py-3 text-left text-sm ${selectedRoleId === role.id ? "bg-crimson-500/15 text-crimson-200" : "bg-white/2 text-white/55 hover:bg-white/5"}`}
             >
               <span className="block font-semibold">{role.name}</span>
               <span className="mt-1 block text-[11px] opacity-60">
@@ -113,7 +113,7 @@ export default function PermissionsPage() {
         <section className="glass-card p-5">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-electric-300" />
+              <Shield className="h-5 w-5 text-crimson-300" />
               <h2 className="text-sm font-semibold text-white">
                 {selectedRole?.name || "Select a role"}
               </h2>

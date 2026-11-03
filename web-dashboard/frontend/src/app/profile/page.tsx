@@ -65,7 +65,7 @@ function QuotaCard({
 }) {
   return (
     <div className="rounded-2xl border border-white/[0.07] bg-white/2.5 p-4">
-      <Icon className="h-5 w-5 text-electric-300" />
+      <Icon className="h-5 w-5 text-crimson-300" />
       <div className="mt-3 text-xs text-white/40">{label}</div>
       <div className="mt-1 text-lg font-semibold text-white">
         {used}{" "}
@@ -165,7 +165,7 @@ export default function ProfilePage() {
   return (
     <div className="space-y-6">
       <div>
-        <div className="inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs text-electric-300">
+        <div className="inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs text-crimson-300">
           <ShieldCheck className="h-3.5 w-3.5" /> Restricted free account
         </div>
         <h1 className="mt-3 text-3xl font-bold tracking-tight text-white">
@@ -176,7 +176,7 @@ export default function ProfilePage() {
 
       {loading ? (
         <div className="glass-card flex min-h-64 items-center justify-center">
-          <Loader2 className="h-7 w-7 animate-spin text-electric-300" />
+          <Loader2 className="h-7 w-7 animate-spin text-crimson-300" />
         </div>
       ) : (
         <>
@@ -227,7 +227,7 @@ export default function ProfilePage() {
                   </div>
                 </div>
               ))}
-              <div className="sm:col-span-2 rounded-xl border border-electric-500/15 bg-electric-500/5 p-4 text-xs leading-5 text-electric-200/80">
+              <div className="sm:col-span-2 rounded-xl border border-white/8 border-s-2 border-s-crimson-500 bg-obsidian-800 p-4 text-xs leading-5 text-zinc-300">
                 This account can manage one free project, view this profile,
                 change its profile image, and change its password. Additional
                 platform capabilities require an owner-assigned plan or role.
@@ -283,7 +283,7 @@ export default function ProfilePage() {
 
           <section className="glass-card p-6">
             <div className="flex items-center gap-3">
-              <KeyRound className="h-5 w-5 text-electric-300" />
+              <KeyRound className="h-5 w-5 text-crimson-300" />
               <div>
                 <h2 className="text-lg font-semibold text-white">
                   Change password

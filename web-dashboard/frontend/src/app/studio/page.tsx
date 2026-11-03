@@ -362,7 +362,7 @@ export default function StudioPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-electric-300">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-crimson-300">
             AIONEX Production
           </p>
           <h1 className="mt-2 text-3xl font-bold text-white">
@@ -397,7 +397,7 @@ export default function StudioPage() {
         </div>
       </div>
 
-      <div className="glass-card p-4 text-xs text-electric-300">{message}</div>
+      <div className="glass-card p-4 text-xs text-zinc-300">{message}</div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
         {departments.map((item) => {
@@ -408,10 +408,10 @@ export default function StudioPage() {
               key={item.id}
               type="button"
               onClick={() => setDepartment(item.id)}
-              className={`glass-card p-4 text-left transition ${active ? "border-electric-400/50 bg-electric-500/10" : "hover:bg-white/4"}`}
+              className={`glass-card p-4 text-left transition ${active ? "border-crimson-400/50 bg-crimson-500/10" : "hover:bg-white/4"}`}
             >
               <Icon
-                className={`h-5 w-5 ${active ? "text-electric-300" : "text-white/40"}`}
+                className={`h-5 w-5 ${active ? "text-crimson-300" : "text-white/40"}`}
               />
               <div className="mt-3 text-sm font-semibold text-white">
                 {item.name}
@@ -473,14 +473,14 @@ export default function StudioPage() {
             onChange={(event) => setProjectId(event.target.value)}
             className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-hidden"
           >
-            <option value="" className="bg-space-900">
+            <option value="" className="bg-obsidian-900">
               No project attachment yet
             </option>
             {projects.map((project) => (
               <option
                 key={project.id}
                 value={project.id}
-                className="bg-space-900"
+                className="bg-obsidian-900"
               >
                 {project.name}
               </option>
@@ -505,7 +505,7 @@ export default function StudioPage() {
                 "kotlin",
                 "dart",
               ].map((item) => (
-                <option key={item} value={item} className="bg-space-900">
+                <option key={item} value={item} className="bg-obsidian-900">
                   {item}
                 </option>
               ))}
@@ -563,7 +563,7 @@ export default function StudioPage() {
                     {job.attempts}/{job.max_attempts}
                   </div>
                   {job.error_message && (
-                    <div className="mt-1 text-xs text-red-300">
+                    <div className="mt-1 text-xs text-rose-300">
                       {job.error_message}
                     </div>
                   )}
@@ -574,7 +574,7 @@ export default function StudioPage() {
                       type="button"
                       disabled={busy !== null}
                       onClick={() => void retry(job)}
-                      className="rounded-lg border border-electric-500/20 bg-electric-500/10 px-3 py-2 text-xs text-electric-300"
+                      className="rounded-lg border border-crimson-500/20 bg-crimson-500/10 px-3 py-2 text-xs text-crimson-300"
                     >
                       <RotateCcw className="mr-1 inline h-3.5 w-3.5" /> Retry
                     </button>
@@ -584,7 +584,7 @@ export default function StudioPage() {
                       type="button"
                       disabled={busy !== null}
                       onClick={() => void cancel(job)}
-                      className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300"
+                      className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-300"
                     >
                       Cancel
                     </button>
@@ -629,7 +629,7 @@ export default function StudioPage() {
                       type="button"
                       disabled={busy !== null}
                       onClick={() => void download(asset)}
-                      className="rounded-lg border border-electric-500/20 bg-electric-500/10 px-3 py-2 text-xs text-electric-300"
+                      className="rounded-lg border border-crimson-500/20 bg-crimson-500/10 px-3 py-2 text-xs text-crimson-300"
                     >
                       <Download className="mr-1 inline h-3.5 w-3.5" /> Download
                     </button>

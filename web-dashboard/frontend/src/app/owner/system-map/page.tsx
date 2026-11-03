@@ -51,7 +51,7 @@ function healthClass(health: string) {
   if (health === "warning")
     return "border-orange-500/20 bg-orange-500/10 text-orange-300";
   if (health === "critical")
-    return "border-red-500/20 bg-red-500/10 text-red-400";
+    return "border-rose-500/20 bg-rose-500/10 text-rose-400";
   return "border-white/10 bg-white/3 text-white/35";
 }
 
@@ -108,7 +108,7 @@ export default function OwnerSystemMapPage() {
         className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"
       >
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs font-medium text-electric-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs font-medium text-crimson-300">
             <Network className="h-3.5 w-3.5" /> Owner System Map
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
@@ -134,7 +134,7 @@ export default function OwnerSystemMapPage() {
           const Icon = card.icon;
           return (
             <div key={card.label} className="glass-card p-4">
-              <Icon className="h-5 w-5 text-electric-300" />
+              <Icon className="h-5 w-5 text-crimson-300" />
               <div className="mt-3 text-2xl font-bold text-white">
                 {card.value}
               </div>
@@ -146,7 +146,7 @@ export default function OwnerSystemMapPage() {
 
       <div className="glass-card p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-2 text-xs text-electric-300">
+          <div className="flex items-center gap-2 text-xs text-crimson-300">
             <Activity className="h-3.5 w-3.5" />
             {loading ? "Loading topology snapshot..." : message}
           </div>
@@ -156,7 +156,7 @@ export default function OwnerSystemMapPage() {
             className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
           >
             {regions.map((region) => (
-              <option key={region} value={region} className="bg-space-800">
+              <option key={region} value={region} className="bg-obsidian-800">
                 {region === "all" ? "All reported regions" : region}
               </option>
             ))}
@@ -183,7 +183,7 @@ export default function OwnerSystemMapPage() {
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div className="flex items-start gap-3">
                   <div className="rounded-xl border border-white/6 bg-white/4 p-2.5">
-                    <Icon className="h-5 w-5 text-electric-300" />
+                    <Icon className="h-5 w-5 text-crimson-300" />
                   </div>
                   <div>
                     <h2 className="text-sm font-semibold text-white">
