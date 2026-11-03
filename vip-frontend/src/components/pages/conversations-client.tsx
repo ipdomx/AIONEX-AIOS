@@ -198,7 +198,7 @@ export function ConversationsClient() {
           <p className="mt-3 max-w-3xl text-sm leading-7 text-white/60">{t("description")}</p></div>
         <Button variant="secondary" onClick={() => void load()} disabled={busy}><RefreshCw className="h-4 w-4" />{t("refresh")}</Button>
       </header>
-      {error && <p role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm">{error}</p>}
+      {error && <p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm">{error}</p>}
       {policy && <div className="grid gap-3 sm:grid-cols-3">
         <div className="glass-panel rounded-2xl p-4"><p className="text-xs text-white/50">{t("daily")}</p><p className="mt-2 text-xl">{policy.usage.day_messages} / {policy.values.messages_per_day}</p></div>
         <div className="glass-panel rounded-2xl p-4"><p className="text-xs text-white/50">{t("credits")}</p><p className="mt-2 text-xl">{policy.values.lifetime_message_credits < 0 ? t("unlimited") : Math.max(0, policy.values.lifetime_message_credits - policy.usage.total_message_credits)}</p></div>
@@ -218,7 +218,7 @@ export function ConversationsClient() {
             {threads.length === 0 && <p className="text-sm text-white/50">{t("empty")}</p>}
             {threads.map((item) => <button key={item.id} type="button" disabled={busy} onClick={() => selectConversation(item.id)}
               aria-current={selected === item.id ? "page" : undefined}
-              className={`block w-full rounded-xl border p-3 text-start ${selected === item.id ? "border-electric-400 bg-electric-500/10" : "border-white/10 hover:bg-white/5"}`}>
+              className={`block w-full rounded-xl border p-3 text-start ${selected === item.id ? "border-crimson-400 bg-crimson-500/10" : "border-white/10 hover:bg-white/5"}`}>
               <span className="block truncate text-sm font-medium">{item.title}</span>
               <span className="mt-1 block text-xs text-white/50">{projects.find((p) => p.id === item.project_id)?.name || item.project_id} · {statusLabel(item.effective_status)}</span>
             </button>)}
@@ -230,15 +230,15 @@ export function ConversationsClient() {
               <div><h2 className="text-xl font-semibold">{current.title}</h2><p className="mt-2 flex items-center gap-2 text-xs text-white/60"><Timer className="h-4 w-4" />{t("remaining")} {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")} · {current.messages_used}/{current.messages_allowed}</p></div>
               <Button variant="secondary" disabled={busy || current.status === "closed"} onClick={() => void closeConversation()}>{t("close")}</Button>
             </div>
-            {waiting && <div role="status" className="mt-4 rounded-xl border border-electric-500/20 bg-electric-500/5 p-3 text-xs leading-6 text-electric-100">
+            {waiting && <div role="status" className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs leading-6 text-crimson-100">
               <p>{reconnecting ? t("reconnecting") : t("working")}</p>
               {heartbeatAge !== null && <p className="text-white/50">{t("lastServerUpdate")}: {heartbeatAge}s</p>}
             </div>}
             <div className="max-h-[34rem] min-h-48 space-y-4 overflow-y-auto py-5" aria-live="polite" aria-relevant="additions text">
               {history.messages.length === 0 && <p className="text-sm text-white/50">{t("firstMessage")}</p>}
               {history.messages.map((item) => <article key={item.id} className="space-y-2">
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4"><p className="mb-2 text-xs text-white/40">{t("you")} · {item.ordinal}</p><p className="whitespace-pre-wrap break-words text-sm leading-7">{item.user_message}</p></div>
-                <div className="rounded-2xl border border-electric-500/20 bg-electric-500/5 p-4"><p className="mb-2 text-xs text-electric-200">{t("assistant")} · {statusLabel(item.status)}</p>
+                <div className="ms-auto max-w-[88%] rounded-2xl border border-white/[0.08] bg-obsidian-700 p-4"><p className="mb-2 text-xs text-zinc-500">{t("you")} · {item.ordinal}</p><p className="whitespace-pre-wrap break-words text-sm leading-7">{item.user_message}</p></div>
+                <div className="px-1 py-2"><p className="mb-2 flex items-center gap-2 text-xs text-zinc-400"><span aria-hidden="true" className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-crimson-500 text-[10px] font-black text-white">X</span>{t("assistant")} · {statusLabel(item.status)}</p>
                   <p className="whitespace-pre-wrap break-words text-sm leading-7">{item.assistant_message || (item.status === "needs_review" ? t("review") : item.error || t("pending"))}</p></div>
               </article>)}
             </div>

@@ -124,7 +124,7 @@ export function SupportClient() {
     return (
       <section className="section-pad">
         <div className="page-shell flex min-h-[45vh] items-center justify-center">
-          <LoaderCircle className="h-8 w-8 animate-spin text-electric-200" />
+          <LoaderCircle className="h-8 w-8 animate-spin text-crimson-200" />
         </div>
       </section>
     );
@@ -203,7 +203,7 @@ export function SupportClient() {
                     value={reply}
                     onChange={(event) => setReply(event.target.value)}
                     placeholder={t("replyPlaceholder")}
-                    className="min-h-24 flex-1 rounded-2xl border border-white/10 bg-black/20 p-4 text-white placeholder:text-white/25"
+                    className="min-h-24 flex-1 rounded-2xl border border-white/[0.14] bg-obsidian-700 p-4 text-white placeholder:text-zinc-500 focus:border-crimson-500"
                   />
                   <Button
                     className="self-end"
@@ -227,13 +227,13 @@ export function SupportClient() {
                     value={subject}
                     onChange={(event) => setSubject(event.target.value)}
                     placeholder={t("subject")}
-                    className="h-11 rounded-xl border border-white/10 bg-black/20 px-3 text-white placeholder:text-white/25"
+                    className="h-11 rounded-xl border border-white/[0.14] bg-obsidian-700 px-3 text-white placeholder:text-zinc-500 focus:border-crimson-500"
                   />
                   <div className="grid grid-cols-2 gap-3">
                     <select
                       value={category}
                       onChange={(event) => setCategory(event.target.value)}
-                      className="h-11 rounded-xl border border-white/10 bg-ink-950 px-3 text-white"
+                      className="h-11 rounded-xl border border-white/10 bg-obsidian-950 px-3 text-white"
                     >
                       {[
                         "general",
@@ -251,7 +251,7 @@ export function SupportClient() {
                     <select
                       value={priority}
                       onChange={(event) => setPriority(event.target.value)}
-                      className="h-11 rounded-xl border border-white/10 bg-ink-950 px-3 text-white"
+                      className="h-11 rounded-xl border border-white/10 bg-obsidian-950 px-3 text-white"
                     >
                       {['low', 'normal', 'high', 'urgent'].map((value) => (
                         <option key={value} value={value}>
@@ -264,7 +264,7 @@ export function SupportClient() {
                     value={message}
                     onChange={(event) => setMessage(event.target.value)}
                     placeholder={t("message")}
-                    className="min-h-36 rounded-2xl border border-white/10 bg-black/20 p-4 text-white placeholder:text-white/25"
+                    className="min-h-36 rounded-2xl border border-white/[0.14] bg-obsidian-700 p-4 text-white placeholder:text-zinc-500 focus:border-crimson-500"
                   />
                   <Button
                     onClick={() => void submitTicket()}
@@ -297,7 +297,7 @@ export function SupportClient() {
                             {formatDate(ticket.updated_at, locale)} · {ticket.status}
                           </p>
                         </div>
-                        <MessageSquareText className="h-5 w-5 shrink-0 text-electric-200" />
+                        <MessageSquareText className="h-5 w-5 shrink-0 text-crimson-200" />
                       </button>
                     ))
                   ) : (

@@ -257,7 +257,7 @@ export function NotificationsClient() {
       <section className="section-pad">
         <div className="page-shell flex min-h-[45vh] items-center justify-center">
           <LoaderCircle
-            className="h-8 w-8 animate-spin text-electric-200"
+            className="h-8 w-8 animate-spin text-crimson-200"
             aria-label={t("loading")}
           />
         </div>
@@ -342,7 +342,7 @@ export function NotificationsClient() {
                       className={`rounded-2xl border p-5 ${
                         item.read
                           ? "border-white/[0.07] bg-black/10"
-                          : "border-electric-300/20 bg-electric-500/[0.06]"
+                          : "border-crimson-300/20 bg-crimson-500/[0.06]"
                       }`}
                     >
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -418,7 +418,7 @@ export function NotificationsClient() {
                         className="flex items-start justify-between gap-4 rounded-xl border border-white/[0.07] bg-black/15 p-4"
                       >
                         <div className="flex min-w-0 gap-3">
-                          <Icon className="mt-0.5 h-5 w-5 shrink-0 text-electric-200" />
+                          <Icon className="mt-0.5 h-5 w-5 shrink-0 text-crimson-200" />
                           <div className="min-w-0">
                             <p className="font-medium text-white">{channel.name}</p>
                             <p className="mt-1 text-xs leading-5 text-white/35">
@@ -473,7 +473,7 @@ export function NotificationsClient() {
                               .value as NotificationPreference["minimum_severity"],
                           })
                         }
-                        className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-ink-950 px-3 text-white"
+                        className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-obsidian-950 px-3 text-white"
                       >
                         <option value="info">{t("severity.info")}</option>
                         <option value="warning">{t("severity.warning")}</option>
@@ -514,7 +514,7 @@ export function NotificationsClient() {
                         event.target.value as CommunicationEndpoint["channel"],
                       )
                     }
-                    className="h-11 rounded-xl border border-white/10 bg-ink-950 px-3 text-white"
+                    className="h-11 rounded-xl border border-white/10 bg-obsidian-950 px-3 text-white"
                   >
                     {externalChannels.map((channel) => (
                       <option key={channel} value={channel}>
@@ -526,13 +526,13 @@ export function NotificationsClient() {
                     value={endpointAddress}
                     onChange={(event) => setEndpointAddress(event.target.value)}
                     placeholder={t("endpointAddress")}
-                    className="h-11 rounded-xl border border-white/10 bg-black/20 px-3 text-white placeholder:text-white/25"
+                    className="h-11 rounded-xl border border-white/[0.14] bg-obsidian-700 px-3 text-white placeholder:text-zinc-500 focus:border-crimson-500"
                   />
                   <input
                     value={endpointLabel}
                     onChange={(event) => setEndpointLabel(event.target.value)}
                     placeholder={t("endpointLabel")}
-                    className="h-11 rounded-xl border border-white/10 bg-black/20 px-3 text-white placeholder:text-white/25"
+                    className="h-11 rounded-xl border border-white/[0.14] bg-obsidian-700 px-3 text-white placeholder:text-zinc-500 focus:border-crimson-500"
                   />
                   <Button
                     onClick={() => void addEndpoint()}

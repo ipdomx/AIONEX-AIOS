@@ -444,7 +444,7 @@ export function ProjectsClient() {
           <div className="glass-panel mt-8 rounded-3xl p-5 sm:p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-electric-200">{t("phase36Title")}</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-crimson-200">{t("phase36Title")}</p>
                 <p className="mt-2 max-w-3xl text-sm leading-relaxed text-white/45">{t("phase36Description")}</p>
               </div>
               <div className="grid min-w-[260px] grid-cols-3 gap-2 text-center text-xs">
@@ -499,7 +499,7 @@ export function ProjectsClient() {
             className="glass-panel mt-8 rounded-3xl p-6 sm:p-8"
           >
             <div className="flex items-center gap-3">
-              <Plus className="h-5 w-5 text-electric-200" />
+              <Plus className="h-5 w-5 text-crimson-200" />
               <h2 className="text-xl font-semibold">{t("createTitle")}</h2>
             </div>
             <div className="mt-7 grid gap-5 sm:grid-cols-2">
@@ -531,7 +531,7 @@ export function ProjectsClient() {
                     <option
                       key={workspace.id}
                       value={workspace.id}
-                      className="bg-ink-800"
+                      className="bg-obsidian-800"
                     >
                       {workspace.name}
                     </option>
@@ -550,7 +550,7 @@ export function ProjectsClient() {
                 >
                   {(["low", "medium", "high", "critical"] as const).map(
                     (value) => (
-                      <option key={value} value={value} className="bg-ink-800">
+                      <option key={value} value={value} className="bg-obsidian-800">
                         {t(`priorityValue.${value}`)}
                       </option>
                     ),
@@ -623,7 +623,7 @@ export function ProjectsClient() {
               >
                 <div className="flex items-start justify-between gap-5">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-electric-200">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-crimson-200">
                       {statusLabel(project.status)}
                     </p>
                     <h2 className="mt-3 text-xl font-semibold">
@@ -644,7 +644,7 @@ export function ProjectsClient() {
                   aria-label={t("progress", { value: project.progress })}
                 >
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-electric-400 to-violet-500"
+                    className="h-full rounded-full bg-gradient-to-r from-crimson-600 to-crimson-400"
                     style={{
                       width: `${Math.max(0, Math.min(100, project.progress))}%`,
                     }}
@@ -672,10 +672,10 @@ export function ProjectsClient() {
                   </div>
                 )}
 
-                <div className="mt-7 rounded-2xl border border-electric-300/10 bg-electric-300/[0.035] p-5">
+                <div className="mt-7 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
-                      <BrainCircuit className="h-4 w-4 text-electric-200" />
+                      <BrainCircuit className="h-4 w-4 text-crimson-200" />
                       <p className="text-sm font-semibold">
                         {t("execution.title")}
                       </p>
@@ -728,7 +728,7 @@ export function ProjectsClient() {
                     <>
                       <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-violet-500"
+                          className="h-full rounded-full bg-gradient-to-r from-crimson-600 to-crimson-400"
                           style={{
                             width: `${Math.max(0, Math.min(100, execution.progress))}%`,
                           }}
@@ -818,7 +818,7 @@ export function ProjectsClient() {
                           <div className="grid gap-3 sm:grid-cols-3">
                             <div className="rounded-xl border border-white/[0.06] bg-black/10 p-3">
                               <p className="flex items-center gap-2 text-white/65">
-                                <Landmark className="h-3.5 w-3.5 text-electric-200" />
+                                <Landmark className="h-3.5 w-3.5 text-crimson-200" />
                                 {t("execution.governanceTitle")}
                               </p>
                               <p className="mt-1 text-white/35">
@@ -829,7 +829,7 @@ export function ProjectsClient() {
                             </div>
                             <div className="rounded-xl border border-white/[0.06] bg-black/10 p-3">
                               <p className="flex items-center gap-2 text-white/65">
-                                <Search className="h-3.5 w-3.5 text-electric-200" />
+                                <Search className="h-3.5 w-3.5 text-crimson-200" />
                                 {t("execution.researchTitle")}
                               </p>
                               <p className="mt-1 text-white/35">
@@ -845,7 +845,7 @@ export function ProjectsClient() {
                             </div>
                             <div className="rounded-xl border border-white/[0.06] bg-black/10 p-3">
                               <p className="flex items-center gap-2 text-white/65">
-                                <GraduationCap className="h-3.5 w-3.5 text-electric-200" />
+                                <GraduationCap className="h-3.5 w-3.5 text-crimson-200" />
                                 {t("execution.workforceTitle")}
                               </p>
                               <p className="mt-1 text-white/35">
@@ -866,9 +866,9 @@ export function ProjectsClient() {
                           </div>
 
                           {execution.result.three_d_web && (
-                            <div className="rounded-xl border border-cyan-300/15 bg-cyan-300/[0.04] p-4">
+                            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
                               <p className="flex items-center gap-2 text-white/70">
-                                <Boxes className="h-4 w-4 text-cyan-300" />
+                                <Boxes className="h-4 w-4 text-zinc-300" />
                                 {t("execution.threeDResultTitle")}
                               </p>
                               <p className="mt-2 text-white/40">

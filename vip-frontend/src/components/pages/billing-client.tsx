@@ -311,7 +311,7 @@ export function BillingClient() {
     return (
       <section className="section-pad">
         <div className="page-shell flex min-h-[45vh] items-center justify-center">
-          <LoaderCircle className="h-8 w-8 animate-spin text-electric-200" />
+          <LoaderCircle className="h-8 w-8 animate-spin text-crimson-200" />
         </div>
       </section>
     );
@@ -382,7 +382,7 @@ export function BillingClient() {
             return (
               <Card key={String(label)}>
                 <CardContent>
-                  <MetricIcon className="h-5 w-5 text-electric-200" />
+                  <MetricIcon className="h-5 w-5 text-crimson-200" />
                   <p className="mt-5 text-xs uppercase tracking-[0.14em] text-white/35">
                     {String(label)}
                   </p>
@@ -464,7 +464,7 @@ export function BillingClient() {
                     key={plan.code}
                     className={`rounded-3xl border p-6 ${
                       selectedPlanCode === plan.code
-                        ? "border-electric-300/40 bg-electric-400/[0.08]"
+                        ? "border-crimson-300/40 bg-crimson-400/[0.08]"
                         : "border-white/[0.08] bg-white/[0.025]"
                     }`}
                   >
@@ -532,7 +532,7 @@ export function BillingClient() {
                       }}
                       className={`rounded-xl border px-4 py-2 text-sm ${
                         selectedPeriod.id === period.id
-                          ? "border-electric-300/40 bg-electric-400/10 text-electric-100"
+                          ? "border-crimson-300/40 bg-crimson-400/10 text-crimson-100"
                           : "border-white/10 text-white/55"
                       }`}
                     >
@@ -607,7 +607,7 @@ export function BillingClient() {
                 </p>
               )}
               {checkoutResult?.summary.instructions && (
-                <div className="mt-6 rounded-2xl border border-electric-300/20 bg-electric-400/[0.06] p-5">
+                <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                   <h3 className="font-semibold">{t("paymentInstructions")}</h3>
                   <dl className="mt-4 grid gap-3 sm:grid-cols-2">
                     {Object.entries(checkoutResult.summary.instructions).map(
@@ -728,7 +728,7 @@ export function BillingClient() {
         <Card>
           <CardContent>
             <h2 className="flex items-center gap-2 text-xl font-semibold">
-              <ReceiptText className="h-5 w-5 text-electric-200" />{" "}
+              <ReceiptText className="h-5 w-5 text-crimson-200" />{" "}
               {t("invoices")}
             </h2>
             <div className="mt-5 overflow-x-auto">

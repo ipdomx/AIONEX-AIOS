@@ -237,7 +237,7 @@ export function CampaignsClient() {
       <section className="glass-card overflow-hidden p-6 md:p-8">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-electric-300/20 bg-electric-500/10 px-3 py-1 text-xs text-electric-200">
+            <div className="inline-flex items-center gap-2 rounded-full border border-crimson-300/20 bg-crimson-500/10 px-3 py-1 text-xs text-crimson-200">
               <Megaphone className="h-3.5 w-3.5" /> {t("eyebrow")}
             </div>
             <h1 className="mt-4 text-3xl font-bold text-white md:text-4xl">{t("title")}</h1>
@@ -256,7 +256,7 @@ export function CampaignsClient() {
 
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
           <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-            <CircleDollarSign className="h-4 w-4 text-electric-300" />
+            <CircleDollarSign className="h-4 w-4 text-crimson-300" />
             <div className="mt-2 text-2xl font-bold text-white">{campaigns.length}</div>
             <div className="text-xs text-white/35">{t("campaignCount")}</div>
           </div>
@@ -265,8 +265,8 @@ export function CampaignsClient() {
             <div className="mt-2 text-2xl font-bold text-white">{pendingCount}</div>
             <div className="text-xs text-white/35">{t("pendingOwner")}</div>
           </div>
-          <div className="rounded-xl border border-violet-500/15 bg-violet-500/[0.04] p-4">
-            <BrainCircuit className="h-4 w-4 text-violet-300" />
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+            <BrainCircuit className="h-4 w-4 text-zinc-300" />
             <div className="mt-2 text-sm font-semibold text-white">AIOS</div>
             <div className="mt-1 text-xs text-white/35">{t("adviceOnly")}</div>
           </div>
@@ -277,7 +277,7 @@ export function CampaignsClient() {
 
       <section className="glass-card p-6 md:p-8">
         <div className="flex items-start gap-3">
-          <Sparkles className="mt-1 h-5 w-5 text-electric-300" />
+          <Sparkles className="mt-1 h-5 w-5 text-crimson-300" />
           <div>
             <h2 className="text-xl font-semibold text-white">{t("createTitle")}</h2>
             <p className="mt-1 text-sm text-white/45">{t("createDescription")}</p>
@@ -300,7 +300,7 @@ export function CampaignsClient() {
               ].map(([value, label]) => {
                 const liveReady = selectedAccount?.live_objectives.includes(value);
                 return (
-                  <option key={value} className="bg-ink-900" value={value}>
+                  <option key={value} className="bg-obsidian-900" value={value}>
                     {t(label)} — {liveReady ? t("objectiveLiveReady") : t("objectiveAnalysisOnly")}
                   </option>
                 );
@@ -312,7 +312,7 @@ export function CampaignsClient() {
             <span className="text-xs text-white/50">{t("adAccount")}</span>
             <select value={selectedAccount?.id ?? ""} onChange={(e) => setLinkedAccountId(e.target.value)} className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none">
               {readiness?.linked_ad_accounts.map((account) => (
-                <option key={account.id} className="bg-ink-900" value={account.id}>{account.display_name} · {account.provider}</option>
+                <option key={account.id} className="bg-obsidian-900" value={account.id}>{account.display_name} · {account.provider}</option>
               ))}
             </select>
           </label>
@@ -364,7 +364,7 @@ export function CampaignsClient() {
             <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4} className="glass-input w-full rounded-xl px-4 py-3 text-sm text-white outline-none" />
           </label>
 
-          <div className="md:col-span-2 xl:col-span-4 rounded-xl border border-electric-500/15 bg-electric-500/[0.04] p-4 text-xs leading-6 text-white/45">
+          <div className="md:col-span-2 xl:col-span-4 rounded-xl border border-white/10 bg-white/[0.03] p-4 text-xs leading-6 text-white/45">
             {t("freedomNotice")}
           </div>
           <div className="md:col-span-2 xl:col-span-4">
@@ -377,9 +377,9 @@ export function CampaignsClient() {
       </section>
 
       {result && (
-        <section className="glass-card border border-violet-500/15 p-6 md:p-8">
+        <section className="glass-card border border-white/10 p-6 md:p-8">
           <div className="flex items-start gap-3">
-            <BrainCircuit className="mt-1 h-5 w-5 text-violet-300" />
+            <BrainCircuit className="mt-1 h-5 w-5 text-zinc-300" />
             <div className="flex-1">
               <h2 className="text-xl font-semibold text-white">{t("analysisTitle")}</h2>
               <p className="mt-1 text-sm text-white/45">{t("analysisDescription")}</p>
@@ -389,7 +389,7 @@ export function CampaignsClient() {
           <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-xl border border-white/[0.06] p-4">
               <div className="text-xs text-white/35">{t("recommendation")}</div>
-              <div className="mt-2 text-sm font-semibold text-electric-200">{recommendationText(result.budget_assessment)}</div>
+              <div className="mt-2 text-sm font-semibold text-crimson-200">{recommendationText(result.budget_assessment)}</div>
             </div>
             <div className="rounded-xl border border-white/[0.06] p-4">
               <div className="text-xs text-white/35">{t("simulatedCpa")}</div>
@@ -442,7 +442,7 @@ export function CampaignsClient() {
                         key={key}
                         className={`rounded-lg border px-3 py-2 text-[11px] ${
                           current
-                            ? "border-electric-400/30 bg-electric-500/10 text-electric-100"
+                            ? "border-crimson-400/30 bg-crimson-500/10 text-crimson-100"
                             : reached
                               ? "border-green-500/15 bg-green-500/[0.05] text-green-200/80"
                               : "border-white/[0.05] text-white/25"
@@ -460,7 +460,7 @@ export function CampaignsClient() {
                   </div>
                 ) : null}
                 {campaign.manual_review_required ? (
-                  <div className="mt-3 rounded-lg border border-red-500/25 bg-red-500/[0.07] p-3 text-xs leading-5 text-red-200">
+                  <div className="mt-3 rounded-lg border border-rose-500/25 bg-rose-500/[0.07] p-3 text-xs leading-5 text-rose-200">
                     {t("manualReviewNote")}
                   </div>
                 ) : null}

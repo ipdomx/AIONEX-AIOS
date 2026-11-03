@@ -11,6 +11,9 @@ export function Brand({ locale, compact = false }: { locale: string; compact?: b
     ? Math.max(28, (configuration?.theme.logo_size_px || 42) - 6)
     : configuration?.theme.logo_size_px || 42;
   const siteName = branding?.site_name || "AIONEX AIOS";
+  const shortName = branding?.short_name || "AIONEX";
+  // Wordmark: the name in white with a trailing "X" picked out in crimson.
+  const accentX = /x$/i.test(shortName);
   return (
     <Link href={`/${locale}`} className="brand-lockup" aria-label={siteName}>
       {/* Dynamic owner assets may be served by the API, so next/image is intentionally not used. */}
@@ -22,7 +25,10 @@ export function Brand({ locale, compact = false }: { locale: string; compact?: b
         className="shrink-0 object-contain"
       />
       <span className="brand-words">
-        <strong>{branding?.short_name || "AIONEX"}</strong>
+        <strong>
+          {accentX ? shortName.slice(0, -1) : shortName}
+          {accentX && <span className="brand-x">{shortName.slice(-1)}</span>}
+        </strong>
         <span>{branding?.wordmark_suffix || "AIOS"}</span>
       </span>
     </Link>

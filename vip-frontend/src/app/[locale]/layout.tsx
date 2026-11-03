@@ -11,6 +11,7 @@ import { AuthProvider } from "@/hooks/use-auth";
 import { PwaRegister } from "@/components/pwa/pwa-register";
 import { PortalExperienceProvider } from "@/components/portal/portal-experience-provider";
 import { localeDirection, locales, type Locale } from "@/i18n";
+import { interFont, plexArabicFont } from "@/lib/fonts";
 import { SITE_URL } from "@/lib/site";
 import "@/styles/globals.css";
 
@@ -22,7 +23,7 @@ type Props = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#03050a",
+  themeColor: "#050505",
   colorScheme: "dark light",
 };
 
@@ -94,7 +95,12 @@ export default async function LocaleLayout({ children, params }: Props) {
     inLanguage: locales,
   };
   return (
-    <html lang={locale} dir={direction} suppressHydrationWarning>
+    <html
+      lang={locale}
+      dir={direction}
+      className={`${interFont.variable} ${plexArabicFont.variable}`}
+      suppressHydrationWarning
+    >
       <body className={locale === "ar" ? "font-arabic" : "font-sans"}>
         <PortalExperienceProvider
           messages={messages}

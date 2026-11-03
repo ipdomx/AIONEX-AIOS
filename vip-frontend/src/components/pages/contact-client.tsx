@@ -68,19 +68,19 @@ export function ContactClient() {
           <p className="section-copy mt-6">{t("description")}</p>
           {(contact.support_email || contact.sales_email || contact.phone || contact.whatsapp_url || text(contact.address) || Object.keys(contact.social_links).length > 0) && (
             <div className="mt-8 space-y-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-5 text-sm text-white/55">
-              {contact.support_email && <a className="flex items-center gap-3 hover:text-white" href={`mailto:${contact.support_email}`}><Mail className="h-4 w-4 text-electric-200" />{contact.support_email}</a>}
-              {contact.sales_email && contact.sales_email !== contact.support_email && <a className="flex items-center gap-3 hover:text-white" href={`mailto:${contact.sales_email}`}><Mail className="h-4 w-4 text-violet-400" />{contact.sales_email}</a>}
-              {contact.phone && <a className="flex items-center gap-3 hover:text-white" href={`tel:${contact.phone.replace(/[^+0-9]/g, "")}`}><Phone className="h-4 w-4 text-electric-200" />{contact.phone}</a>}
+              {contact.support_email && <a className="flex items-center gap-3 hover:text-white" href={`mailto:${contact.support_email}`}><Mail className="h-4 w-4 text-crimson-200" />{contact.support_email}</a>}
+              {contact.sales_email && contact.sales_email !== contact.support_email && <a className="flex items-center gap-3 hover:text-white" href={`mailto:${contact.sales_email}`}><Mail className="h-4 w-4 text-zinc-300" />{contact.sales_email}</a>}
+              {contact.phone && <a className="flex items-center gap-3 hover:text-white" href={`tel:${contact.phone.replace(/[^+0-9]/g, "")}`}><Phone className="h-4 w-4 text-crimson-200" />{contact.phone}</a>}
               {contact.whatsapp_url && <a className="flex items-center gap-3 hover:text-white" href={contact.whatsapp_url} target="_blank" rel="noreferrer"><MessageCircle className="h-4 w-4 text-emerald-300" />WhatsApp <ExternalLink className="h-3.5 w-3.5" /></a>}
-              {text(contact.address) && <p className="flex items-start gap-3"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-electric-200" />{text(contact.address)}</p>}
-              {Object.entries(contact.social_links || {}).map(([network, url]) => <a key={network} className="flex items-center gap-3 capitalize hover:text-white" href={url} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4 text-electric-200" />{network}</a>)}
+              {text(contact.address) && <p className="flex items-start gap-3"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-crimson-200" />{text(contact.address)}</p>}
+              {Object.entries(contact.social_links || {}).map(([network, url]) => <a key={network} className="flex items-center gap-3 capitalize hover:text-white" href={url} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4 text-crimson-200" />{network}</a>)}
             </div>
           )}
 
-          <div className="mt-8 rounded-2xl border border-electric-300/15 bg-electric-400/[0.06] p-5">
+          <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
             <div className="flex items-start gap-3">
               <ShieldCheck
-                className="mt-0.5 h-5 w-5 shrink-0 text-electric-200"
+                className="mt-0.5 h-5 w-5 shrink-0 text-crimson-200"
                 aria-hidden="true"
               />
               <div>
@@ -98,7 +98,7 @@ export function ContactClient() {
           className="glass-panel rounded-3xl p-6 sm:p-9"
         >
           <MessageSquareText
-            className="h-7 w-7 text-electric-200"
+            className="h-7 w-7 text-crimson-200"
             aria-hidden="true"
           />
           <h2 className="mt-5 text-xl font-semibold">{t("formTitle")}</h2>
@@ -107,7 +107,7 @@ export function ContactClient() {
               <p>{t("signInRequired")}</p>
               <Link
                 href={`/${locale}/login`}
-                className="mt-2 inline-flex items-center gap-2 font-semibold text-electric-100 hover:text-white"
+                className="mt-2 inline-flex items-center gap-2 font-semibold text-crimson-100 hover:text-white"
               >
                 <LogIn className="h-4 w-4" aria-hidden="true" />
                 {t("signIn")}

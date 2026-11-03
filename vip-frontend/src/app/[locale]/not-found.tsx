@@ -10,7 +10,7 @@ export default async function NotFound() {
         <p className="title-gradient text-7xl font-bold">404</p>
         <h1 className="mt-6 text-3xl font-semibold">{t("notFoundTitle")}</h1>
         <p className="section-copy mt-4">{t("notFoundCopy")}</p>
-        <Link href={`/${locale}`} className="mt-8 inline-flex h-12 items-center justify-center rounded-xl bg-white px-6 text-sm font-bold text-ink-950">
+        <Link href={`/${locale}`} className="mt-8 inline-flex h-12 items-center justify-center portal-primary-button px-6 text-sm font-bold">
           {t("backHome")}
         </Link>
       </div>

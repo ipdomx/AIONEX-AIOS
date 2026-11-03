@@ -333,7 +333,7 @@ export function RegisterClient() {
               </span>
               <button
                 type="button"
-                className="ms-auto font-semibold text-electric-100 hover:underline"
+                className="ms-auto font-semibold text-crimson-100 hover:underline"
                 onClick={clearSocialRegistration}
               >
                 {t("socialClear")}
@@ -474,7 +474,7 @@ export function RegisterClient() {
             <div className="mt-7 rounded-2xl border border-white/[0.08] bg-black/15 p-5 sm:p-6">
               <div className="flex items-start gap-3">
                 <Phone
-                  className="mt-0.5 h-5 w-5 shrink-0 text-electric-200"
+                  className="mt-0.5 h-5 w-5 shrink-0 text-crimson-200"
                   aria-hidden="true"
                 />
                 <div>
@@ -569,20 +569,20 @@ export function RegisterClient() {
                 type="checkbox"
                 name="consent"
                 required
-                className="mt-1 h-4 w-4 accent-cyan-400"
+                className="mt-1 h-4 w-4 accent-crimson-500"
               />
               <span>
                 {t("consentLead")}{" "}
                 <Link
                   href={`/${locale}/legal/terms`}
-                  className="text-electric-200 hover:underline"
+                  className="text-crimson-200 hover:underline"
                 >
                   {t("terms")}
                 </Link>{" "}
                 {t("and")}{" "}
                 <Link
                   href={`/${locale}/legal/privacy`}
-                  className="text-electric-200 hover:underline"
+                  className="text-crimson-200 hover:underline"
                 >
                   {t("privacy")}
                 </Link>
@@ -617,7 +617,7 @@ export function RegisterClient() {
             {t("hasAccount")}{" "}
             <Link
               href={`/${locale}/login`}
-              className="font-semibold text-electric-200 hover:text-electric-100"
+              className="font-semibold text-crimson-200 hover:text-crimson-100"
             >
               {t("signIn")}
             </Link>

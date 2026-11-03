@@ -11,7 +11,7 @@ export default function GlobalNotFound() {
         </p>
         <Link
           href="/ar"
-          className="mt-8 inline-flex h-12 items-center justify-center rounded-xl bg-white px-6 text-sm font-bold text-ink-950"
+          className="mt-8 inline-flex h-12 items-center justify-center portal-primary-button px-6 text-sm font-bold"
         >
           Return home
         </Link>

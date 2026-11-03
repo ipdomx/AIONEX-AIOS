@@ -102,6 +102,9 @@ export function Navbar() {
         }))
     : fallbackLinks;
 
+  const currentPath = pathname.replace(/\/$/, "");
+  const isActive = (target: string) => currentPath === target.replace(/\/$/, "");
+
   function NavigationLink({
     link,
     mobile = false,
@@ -109,13 +112,12 @@ export function Navbar() {
     link: (typeof links)[number];
     mobile?: boolean;
   }) {
+    const active = isActive(link.href);
     const className = mobile
-      ? "rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06] hover:text-white"
+      ? "nav-link rounded-xl px-4 py-3 text-sm hover:bg-white/[0.06]"
       : cn(
-          "rounded-lg px-4 py-2 text-sm transition",
-          pathname === link.href
-            ? "bg-white/[0.07] text-white"
-            : "text-white/55 hover:bg-white/[0.05] hover:text-white",
+          "nav-link rounded-xl px-4 py-2 text-sm font-medium",
+          !active && "hover:bg-white/[0.04]",
         );
     if (link.external || link.href.startsWith("https://")) {
       return (
@@ -124,6 +126,7 @@ export function Navbar() {
           target="_blank"
           rel="noreferrer"
           className={className}
+          data-active={active ? "true" : undefined}
           onClick={() => mobile && setOpen(false)}
         >
           {link.label}
@@ -134,6 +137,7 @@ export function Navbar() {
       <Link
         href={link.href}
         className={className}
+        data-active={active ? "true" : undefined}
         onClick={() => mobile && setOpen(false)}
       >
         {link.label}
@@ -148,7 +152,7 @@ export function Navbar() {
   }
 
   return (
-    <header className="relative border-b border-white/[0.07] bg-ink-950/80 backdrop-blur-2xl">
+    <header className="relative border-b border-white/[0.08] bg-obsidian-950/80 backdrop-blur-xl">
       <nav
         className="page-shell flex h-20 items-center justify-between"
         aria-label={t("mainNavigation")}
@@ -170,30 +174,34 @@ export function Navbar() {
             <>
               <Link
                 href={`/${locale}/dashboard`}
-                className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/65 hover:text-white"
+                className="nav-link inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm"
+                data-active={isActive(`/${locale}/dashboard`) ? "true" : undefined}
               >
                 <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
                 {t("dashboard")}
               </Link>
               <Link
                 href={`/${locale}/projects`}
-                className="rounded-xl px-3 py-2 text-sm text-white/65 hover:text-white"
+                className="nav-link rounded-xl px-3 py-2 text-sm"
+                data-active={isActive(`/${locale}/projects`) ? "true" : undefined}
               >
                 {t("projects")}
               </Link>
-              <Link href={`/${locale}/conversations`} className="rounded-xl px-3 py-2 text-sm text-white/65 hover:text-white">
+              <Link href={`/${locale}/conversations`} className="nav-link rounded-xl px-3 py-2 text-sm" data-active={isActive(`/${locale}/conversations`) ? "true" : undefined}>
                 {t("conversations")}
               </Link>
               <Link
                 href={`/${locale}/studio`}
-                className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/65 hover:text-white"
+                className="nav-link inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm"
+                data-active={isActive(`/${locale}/studio`) ? "true" : undefined}
               >
                 <Sparkles className="h-4 w-4" aria-hidden="true" />
                 {t("studio")}
               </Link>
               <Link
                 href={`/${locale}/realtime`}
-                className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/65 hover:text-white"
+                className="nav-link inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm"
+                data-active={isActive(`/${locale}/realtime`) ? "true" : undefined}
               >
                 <Radio className="h-4 w-4" aria-hidden="true" />
                 {t("realtime")}
@@ -201,7 +209,8 @@ export function Navbar() {
               {campaignsVisible && (
                 <Link
                   href={`/${locale}/campaigns`}
-                  className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/65 hover:text-white"
+                  className="nav-link inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm"
+                  data-active={isActive(`/${locale}/campaigns`) ? "true" : undefined}
                 >
                   <Megaphone className="h-4 w-4" aria-hidden="true" />
                   {t("campaigns")}
@@ -209,7 +218,8 @@ export function Navbar() {
               )}
               <Link
                 href={`/${locale}/billing`}
-                className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/65 hover:text-white"
+                className="nav-link inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm"
+                data-active={isActive(`/${locale}/billing`) ? "true" : undefined}
               >
                 <CreditCard className="h-4 w-4" aria-hidden="true" />
                 {t("billing")}
@@ -217,7 +227,8 @@ export function Navbar() {
               {securityLabVisible && (
                 <Link
                   href={`/${locale}/security-lab`}
-                  className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/65 hover:text-white"
+                  className="nav-link inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm"
+                  data-active={isActive(`/${locale}/security-lab`) ? "true" : undefined}
                 >
                   <ShieldCheck className="h-4 w-4" aria-hidden="true" />
                   {t("securityLab")}
@@ -225,21 +236,23 @@ export function Navbar() {
               )}
               <Link
                 href={`/${locale}/notifications`}
-                className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/65 hover:text-white"
+                className="nav-link inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm"
+                data-active={isActive(`/${locale}/notifications`) ? "true" : undefined}
               >
                 <Bell className="h-4 w-4" aria-hidden="true" />
                 {t("notifications")}
               </Link>
               <Link
                 href={`/${locale}/support`}
-                className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/65 hover:text-white"
+                className="nav-link inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm"
+                data-active={isActive(`/${locale}/support`) ? "true" : undefined}
               >
                 <LifeBuoy className="h-4 w-4" aria-hidden="true" />
                 {t("support")}
               </Link>
               <Link
                 href={`/${locale}/profile`}
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-sm text-white/70 hover:bg-white/[0.08] hover:text-white"
+                className="portal-secondary-button inline-flex h-10 items-center gap-2 px-3 text-sm"
               >
                 <UserRound className="h-4 w-4" aria-hidden="true" />
                 {t("profile")}
@@ -258,13 +271,13 @@ export function Navbar() {
               <>
                 <Link
                   href={`/${locale}/login`}
-                  className="rounded-xl px-4 py-2 text-sm font-medium text-white/70 hover:text-white"
+                  className="nav-link rounded-xl px-4 py-2 text-sm font-medium"
                 >
                   {t("login")}
                 </Link>
                 <Link
                   href={`/${locale}/register`}
-                  className="inline-flex h-10 items-center rounded-xl border border-electric-300/30 bg-gradient-to-r from-electric-500 to-violet-500 px-4 text-sm font-semibold text-white shadow-lg shadow-electric-500/15 transition hover:brightness-110"
+                  className="portal-primary-button inline-flex h-10 items-center px-4 text-sm font-semibold text-white"
                 >
                   {t("register")}
                 </Link>
@@ -275,7 +288,7 @@ export function Navbar() {
 
         <button
           type="button"
-          className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-white lg:hidden"
+          className="icon-button h-11 w-11 lg:hidden"
           onClick={() => setOpen((current) => !current)}
           aria-expanded={open}
           aria-label={open ? t("closeMenu") : t("openMenu")}
@@ -285,7 +298,7 @@ export function Navbar() {
       </nav>
 
       {open && (
-        <div className="border-t border-white/[0.07] bg-ink-950/95 px-4 py-5 backdrop-blur-2xl lg:hidden">
+        <div className="border-t border-white/[0.08] bg-obsidian-950/95 px-4 py-5 backdrop-blur-xl lg:hidden">
           <div className="mx-auto flex max-w-7xl flex-col gap-2">
             {links.map((link) => (
               <NavigationLink key={link.id} link={link} mobile />
@@ -295,31 +308,36 @@ export function Navbar() {
                 <Link
                   href={`/${locale}/dashboard`}
                   onClick={() => setOpen(false)}
-                  className="rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06]"
+                  className="nav-link rounded-xl px-4 py-3 text-sm hover:bg-white/[0.06]"
+                  data-active={isActive(`/${locale}/dashboard`) ? "true" : undefined}
                 >
                   {t("dashboard")}
                 </Link>
                 <Link
                   href={`/${locale}/projects`}
                   onClick={() => setOpen(false)}
-                  className="rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06]"
+                  className="nav-link rounded-xl px-4 py-3 text-sm hover:bg-white/[0.06]"
+                  data-active={isActive(`/${locale}/projects`) ? "true" : undefined}
                 >
                   {t("projects")}
                 </Link>
-                <Link href={`/${locale}/conversations`} onClick={() => setOpen(false)} className="rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06]">
+                <Link href={`/${locale}/conversations`} onClick={() => setOpen(false)} className="nav-link rounded-xl px-4 py-3 text-sm hover:bg-white/[0.06]"
+                  data-active={isActive(`/${locale}/conversations`) ? "true" : undefined}>
                   {t("conversations")}
                 </Link>
                 <Link
                   href={`/${locale}/studio`}
                   onClick={() => setOpen(false)}
-                  className="rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06]"
+                  className="nav-link rounded-xl px-4 py-3 text-sm hover:bg-white/[0.06]"
+                  data-active={isActive(`/${locale}/studio`) ? "true" : undefined}
                 >
                   {t("studio")}
                 </Link>
                 <Link
                   href={`/${locale}/realtime`}
                   onClick={() => setOpen(false)}
-                  className="rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06]"
+                  className="nav-link rounded-xl px-4 py-3 text-sm hover:bg-white/[0.06]"
+                  data-active={isActive(`/${locale}/realtime`) ? "true" : undefined}
                 >
                   {t("realtime")}
                 </Link>
@@ -327,7 +345,8 @@ export function Navbar() {
                   <Link
                     href={`/${locale}/campaigns`}
                     onClick={() => setOpen(false)}
-                    className="rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06]"
+                    className="nav-link rounded-xl px-4 py-3 text-sm hover:bg-white/[0.06]"
+                    data-active={isActive(`/${locale}/campaigns`) ? "true" : undefined}
                   >
                     {t("campaigns")}
                   </Link>
@@ -335,7 +354,8 @@ export function Navbar() {
                 <Link
                   href={`/${locale}/billing`}
                   onClick={() => setOpen(false)}
-                  className="rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06]"
+                  className="nav-link rounded-xl px-4 py-3 text-sm hover:bg-white/[0.06]"
+                  data-active={isActive(`/${locale}/billing`) ? "true" : undefined}
                 >
                   {t("billing")}
                 </Link>
@@ -343,7 +363,8 @@ export function Navbar() {
                   <Link
                     href={`/${locale}/security-lab`}
                     onClick={() => setOpen(false)}
-                    className="rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06]"
+                    className="nav-link rounded-xl px-4 py-3 text-sm hover:bg-white/[0.06]"
+                    data-active={isActive(`/${locale}/security-lab`) ? "true" : undefined}
                   >
                     {t("securityLab")}
                   </Link>
@@ -351,21 +372,24 @@ export function Navbar() {
                 <Link
                   href={`/${locale}/notifications`}
                   onClick={() => setOpen(false)}
-                  className="rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06]"
+                  className="nav-link rounded-xl px-4 py-3 text-sm hover:bg-white/[0.06]"
+                  data-active={isActive(`/${locale}/notifications`) ? "true" : undefined}
                 >
                   {t("notifications")}
                 </Link>
                 <Link
                   href={`/${locale}/support`}
                   onClick={() => setOpen(false)}
-                  className="rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06]"
+                  className="nav-link rounded-xl px-4 py-3 text-sm hover:bg-white/[0.06]"
+                  data-active={isActive(`/${locale}/support`) ? "true" : undefined}
                 >
                   {t("support")}
                 </Link>
                 <Link
                   href={`/${locale}/profile`}
                   onClick={() => setOpen(false)}
-                  className="rounded-xl px-4 py-3 text-sm text-white/70 hover:bg-white/[0.06]"
+                  className="nav-link rounded-xl px-4 py-3 text-sm hover:bg-white/[0.06]"
+                  data-active={isActive(`/${locale}/profile`) ? "true" : undefined}
                 >
                   {t("profile")}
                 </Link>
@@ -389,14 +413,14 @@ export function Navbar() {
                   <Link
                     href={`/${locale}/login`}
                     onClick={() => setOpen(false)}
-                    className="inline-flex h-11 items-center justify-center rounded-xl border border-white/10 text-sm font-semibold text-white/75"
+                    className="portal-secondary-button inline-flex h-11 items-center justify-center text-sm font-semibold"
                   >
                     {t("login")}
                   </Link>
                   <Link
                     href={`/${locale}/register`}
                     onClick={() => setOpen(false)}
-                    className="inline-flex h-11 items-center justify-center rounded-xl bg-gradient-to-r from-electric-500 to-violet-500 text-sm font-semibold text-white"
+                    className="portal-primary-button inline-flex h-11 items-center justify-center text-sm font-semibold text-white"
                   >
                     {t("register")}
                   </Link>

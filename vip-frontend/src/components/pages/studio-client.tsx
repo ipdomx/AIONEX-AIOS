@@ -446,7 +446,7 @@ export function StudioClient() {
     return (
       <section className="page-shell py-16 text-white">
         <div className="glass-panel flex min-h-52 items-center justify-center rounded-3xl">
-          <LoaderCircle className="h-7 w-7 animate-spin text-electric-200" />
+          <LoaderCircle className="h-7 w-7 animate-spin text-crimson-200" />
         </div>
       </section>
     );
@@ -478,7 +478,7 @@ export function StudioClient() {
 
       <div className="glass-panel mt-8 rounded-3xl p-5 sm:p-6">
         <div className="flex items-start gap-3">
-          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-electric-200" />
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-crimson-200" />
           <div>
             <p className="text-sm font-semibold">{t("governedTitle")}</p>
             <p className="mt-1 text-xs leading-6 text-white/45">{t("governedCopy")}</p>
@@ -488,7 +488,7 @@ export function StudioClient() {
 
       <div className="glass-panel mt-5 rounded-3xl p-5 sm:p-6">
         <div className="flex items-start gap-3">
-          <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-electric-200" />
+          <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-crimson-200" />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold">{t("readinessTitle")}</p>
             <p className="mt-1 text-xs leading-6 text-white/45">{t("readinessCopy")}</p>
@@ -553,12 +553,12 @@ export function StudioClient() {
                 }}
                 className={`rounded-2xl border p-4 text-start transition disabled:cursor-not-allowed disabled:opacity-40 ${
                   active
-                    ? "border-electric-300/40 bg-electric-300/10"
+                    ? "border-crimson-300/40 bg-crimson-300/10"
                     : "border-white/[0.07] bg-white/[0.025] hover:bg-white/[0.05]"
                 }`}
                 title={!available ? capabilityUnavailableMessage(capability?.availability_reason) : capability?.external_gates.join(" · ") || undefined}
               >
-                <Sparkles className="h-4 w-4 text-electric-200" />
+                <Sparkles className="h-4 w-4 text-crimson-200" />
                 <div className="mt-3 text-sm font-semibold">{t(`families.${preset.key}`)}</div>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {available ? (
@@ -598,7 +598,7 @@ export function StudioClient() {
             >
               {!workspaces.length && <option value="">{t("sectorNoWorkspace")}</option>}
               {workspaces.map((workspace) => (
-                <option className="bg-ink-800" key={workspace.id} value={workspace.id}>{workspace.name}</option>
+                <option className="bg-obsidian-800" key={workspace.id} value={workspace.id}>{workspace.name}</option>
               ))}
             </select>
           </div>
@@ -634,7 +634,7 @@ export function StudioClient() {
 
           <form onSubmit={createCustomSectorProject} className="glass-panel mt-5 rounded-2xl p-5 sm:p-6">
             <div className="flex items-center gap-3">
-              <WandSparkles className="h-4 w-4 text-electric-200" />
+              <WandSparkles className="h-4 w-4 text-crimson-200" />
               <div>
                 <p className="text-sm font-semibold">{t("customSectorTitle")}</p>
                 <p className="mt-1 text-xs text-white/35">{t("customSectorCopy")}</p>
@@ -663,7 +663,7 @@ export function StudioClient() {
       <div className="mt-8 grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
         <form onSubmit={submit} className="glass-panel rounded-3xl p-5 sm:p-7">
           <div className="flex items-center gap-3">
-            <WandSparkles className="h-5 w-5 text-electric-200" />
+            <WandSparkles className="h-5 w-5 text-crimson-200" />
             <h2 className="text-lg font-semibold">{t("createTitle")}</h2>
           </div>
 
@@ -679,7 +679,7 @@ export function StudioClient() {
               >
                 {departments.map((item) => (
                   <option
-                    className="bg-ink-800"
+                    className="bg-obsidian-800"
                     key={item.id}
                     value={item.id}
                     disabled={departmentAvailability[item.id] === false}
@@ -692,9 +692,9 @@ export function StudioClient() {
             <div>
               <label className="field-label" htmlFor="studio-project">{t("project")}</label>
               <select id="studio-project" name="project_id" className="field-control" defaultValue="">
-                <option className="bg-ink-800" value="">{t("projectOptional")}</option>
+                <option className="bg-obsidian-800" value="">{t("projectOptional")}</option>
                 {projects.map((project) => (
-                  <option className="bg-ink-800" key={project.id} value={project.id}>{project.name}</option>
+                  <option className="bg-obsidian-800" key={project.id} value={project.id}>{project.name}</option>
                 ))}
               </select>
             </div>
@@ -719,7 +719,7 @@ export function StudioClient() {
                 <label className="field-label" htmlFor="studio-language">{t("programmingLanguage")}</label>
                 <select id="studio-language" name="programming_language" className="field-control" defaultValue="python">
                   {['python', 'typescript', 'javascript', 'rust', 'go', 'java', 'php'].map((value) => (
-                    <option className="bg-ink-800" value={value} key={value}>{value}</option>
+                    <option className="bg-obsidian-800" value={value} key={value}>{value}</option>
                   ))}
                 </select>
               </div>
@@ -767,7 +767,7 @@ export function StudioClient() {
               <article key={job.id} className="glass-panel rounded-2xl p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex min-w-0 items-start gap-3">
-                    <div className="rounded-xl bg-electric-300/10 p-2 text-electric-200"><Icon className="h-4 w-4" /></div>
+                    <div className="rounded-xl bg-crimson-300/10 p-2 text-crimson-200"><Icon className="h-4 w-4" /></div>
                     <div className="min-w-0">
                       <h3 className="truncate text-sm font-semibold">{job.title}</h3>
                       <p className="mt-1 text-[11px] text-white/35">{job.department} · {job.output_kind}</p>
@@ -777,7 +777,7 @@ export function StudioClient() {
                 </div>
 
                 <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-                  <div className="h-full rounded-full bg-gradient-to-r from-electric-400 to-violet-500" style={{ width: `${Math.max(0, Math.min(100, job.progress))}%` }} />
+                  <div className="h-full rounded-full bg-gradient-to-r from-crimson-600 to-crimson-400" style={{ width: `${Math.max(0, Math.min(100, job.progress))}%` }} />
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <div className="rounded-xl bg-black/10 p-3"><div className="text-[10px] text-white/30">{t("progress")}</div><div className="mt-1 text-xs">{job.progress}%</div></div>
@@ -785,7 +785,7 @@ export function StudioClient() {
                   <div className="rounded-xl bg-black/10 p-3"><div className="text-[10px] text-white/30">{t("cost")}</div><div className="mt-1 text-xs">${cost.toFixed(6)}</div></div>
                   <div className="rounded-xl bg-black/10 p-3"><div className="text-[10px] text-white/30">{t("safety")}</div><div className="mt-1 truncate text-xs">{job.safety_status}</div></div>
                 </div>
-                {job.error_message && <p className="mt-3 text-xs text-red-300/80">{job.error_message}</p>}
+                {job.error_message && <p className="mt-3 text-xs text-rose-300/80">{job.error_message}</p>}
                 <div className="mt-4 flex flex-wrap gap-2">
                   {["failed", "cancelled"].includes(job.status) && (
                     <Button variant="secondary" size="sm" disabled={busy === job.id} onClick={() => void jobAction(job, "retry")}>
@@ -843,7 +843,7 @@ export function StudioClient() {
                     value={attachmentTargets[asset.id] || projects[0]?.id || ""}
                     onChange={(event) => setAttachmentTargets((current) => ({ ...current, [asset.id]: event.target.value }))}
                   >
-                    {projects.map((project) => <option className="bg-ink-800" key={project.id} value={project.id}>{project.name}</option>)}
+                    {projects.map((project) => <option className="bg-obsidian-800" key={project.id} value={project.id}>{project.name}</option>)}
                   </select>
                   <Button size="sm" variant="secondary" disabled={busy === asset.id} onClick={() => void attach(asset)}><Paperclip className="h-3.5 w-3.5" /> {t("attach")}</Button>
                 </div>

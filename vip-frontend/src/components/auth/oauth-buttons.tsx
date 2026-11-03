@@ -163,7 +163,7 @@ export function OAuthButtons({
               disabled={!enabled || Boolean(loadingProvider)}
               onClick={() => void signIn(provider.id)}
               className={cn(
-                "flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 px-3 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-300",
+                "flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 px-3 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crimson-300",
                 styles[provider.id],
                 (!enabled || loadingProvider) &&
                   "cursor-not-allowed opacity-55",

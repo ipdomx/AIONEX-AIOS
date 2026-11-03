@@ -20,9 +20,9 @@ export function StatusMessage({
         tone === "success" &&
           "border-emerald-400/20 bg-emerald-500/10 text-emerald-100",
         tone === "error" &&
-          "border-red-400/20 bg-red-500/10 text-red-100",
+          "border-rose-400/25 bg-rose-500/10 text-rose-100",
         tone === "info" &&
-          "border-electric-300/20 bg-electric-500/[0.08] text-electric-50",
+          "border-white/10 bg-obsidian-700 text-zinc-200",
         className
       )}
     >

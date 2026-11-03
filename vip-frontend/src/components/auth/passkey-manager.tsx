@@ -65,7 +65,7 @@ export function PasskeyManager() {
   return (
     <div className="glass-panel rounded-3xl p-6 sm:p-9 lg:col-span-2">
       <div className="flex items-center gap-3">
-        <Fingerprint className="h-5 w-5 text-electric-200" aria-hidden="true" />
+        <Fingerprint className="h-5 w-5 text-crimson-200" aria-hidden="true" />
         <h2 className="text-xl font-semibold">{t("passkeyTitle")}</h2>
       </div>
       <p className="mt-3 text-sm leading-7 text-white/45">

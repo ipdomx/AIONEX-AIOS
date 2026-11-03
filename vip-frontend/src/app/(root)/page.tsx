@@ -9,7 +9,7 @@ export default function RootPage() {
   }, []);
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#03050a] text-white">
+    <main className="flex min-h-screen items-center justify-center bg-[#050505] text-white">
       <Link href="/ar/" className="rounded-xl border border-white/10 px-5 py-3">
         AIONEX AIOS
       </Link>
