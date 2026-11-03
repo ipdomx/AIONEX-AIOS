@@ -107,13 +107,13 @@ export default function OrganizationsPage() {
           name="plan"
           className="glass-input rounded-xl px-3 py-2 text-sm text-white"
         >
-          <option value="enterprise" className="bg-space-800">
+          <option value="enterprise" className="bg-obsidian-800">
             Enterprise
           </option>
-          <option value="professional" className="bg-space-800">
+          <option value="professional" className="bg-obsidian-800">
             Professional
           </option>
-          <option value="free" className="bg-space-800">
+          <option value="free" className="bg-obsidian-800">
             Free
           </option>
         </select>
@@ -127,7 +127,7 @@ export default function OrganizationsPage() {
         {items.map((item) => (
           <article key={item.id} className="glass-card p-5">
             <div className="flex items-start gap-3">
-              <span className="rounded-xl bg-electric-500/10 p-2.5 text-electric-300">
+              <span className="rounded-xl bg-crimson-500/10 p-2.5 text-crimson-300">
                 <Building2 className="h-5 w-5" />
               </span>
               <div className="min-w-0 flex-1">

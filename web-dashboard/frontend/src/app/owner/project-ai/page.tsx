@@ -419,7 +419,7 @@ export default function OwnerProjectAIPage() {
       <header className="glass-card p-5 sm:p-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs text-electric-300">
+            <div className="inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs text-crimson-300">
               <UserCog className="h-3.5 w-3.5" /> Project AI Launch Control
             </div>
             <h1 className="mt-3 text-3xl font-bold text-white">
@@ -458,26 +458,26 @@ export default function OwnerProjectAIPage() {
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <div className="glass-card p-4">
-          <Users className="h-5 w-5 text-electric-300" />
+          <Users className="h-5 w-5 text-crimson-300" />
           <div className="mt-3 text-2xl font-bold text-white">100</div>
           <div className="text-xs text-white/40">Launch admission target</div>
         </div>
         <div className="glass-card p-4">
-          <Bot className="h-5 w-5 text-electric-300" />
+          <Bot className="h-5 w-5 text-crimson-300" />
           <div className="mt-3 text-2xl font-bold text-white">
             {snapshot.providers.length}
           </div>
           <div className="text-xs text-white/40">Platform providers</div>
         </div>
         <div className="glass-card p-4">
-          <CheckCircle2 className="h-5 w-5 text-electric-300" />
+          <CheckCircle2 className="h-5 w-5 text-crimson-300" />
           <div className="mt-3 text-2xl font-bold text-white">
             {modelOptions.length}
           </div>
           <div className="text-xs text-white/40">Validated models</div>
         </div>
         <div className="glass-card p-4">
-          <CircleDollarSign className="h-5 w-5 text-electric-300" />
+          <CircleDollarSign className="h-5 w-5 text-crimson-300" />
           <div className="mt-3 text-2xl font-bold text-white">
             {Object.values(finance).filter(Boolean).length}
           </div>
@@ -487,7 +487,7 @@ export default function OwnerProjectAIPage() {
         </div>
       </section>
 
-      <div className="rounded-xl border border-electric-500/15 bg-electric-500/5 px-4 py-3 text-xs text-electric-200/80">
+      <div className="rounded-xl border border-white/8 border-s-2 border-s-crimson-500 bg-obsidian-800 px-4 py-3 text-xs text-zinc-300">
         {message}
       </div>
 
@@ -644,7 +644,7 @@ export default function OwnerProjectAIPage() {
                 </div>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   <button
-                    className="rounded-xl border border-electric-500/25 bg-electric-500/10 px-3 py-2.5 text-xs font-semibold text-electric-200 disabled:opacity-50"
+                    className="rounded-xl border border-crimson-500/25 bg-crimson-500/10 px-3 py-2.5 text-xs font-semibold text-crimson-200 disabled:opacity-50"
                     disabled={saving !== null}
                     onClick={() => void attestFunding(provider.id)}
                   >

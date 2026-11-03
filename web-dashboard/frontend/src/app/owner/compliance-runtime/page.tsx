@@ -21,7 +21,7 @@ const statusClass: Record<ComplianceControl["status"], string> = {
   compliant: "border-green-500/20 bg-green-500/10 text-green-300",
   partial: "border-orange-500/20 bg-orange-500/10 text-orange-300",
   warning: "border-orange-500/20 bg-orange-500/10 text-orange-300",
-  non_compliant: "border-red-500/20 bg-red-500/10 text-red-300",
+  non_compliant: "border-rose-500/20 bg-rose-500/10 text-rose-300",
   not_applicable: "border-white/10 bg-white/3 text-white/40",
   not_assessed: "border-white/10 bg-white/3 text-white/40",
 };
@@ -126,7 +126,7 @@ export default function OwnerComplianceRuntimePage() {
         className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"
       >
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs font-medium text-electric-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs font-medium text-crimson-300">
             <FileCheck2 className="h-3.5 w-3.5" /> Owner Compliance Runtime
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
@@ -150,14 +150,14 @@ export default function OwnerComplianceRuntimePage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {cards.map(([label, value, Icon]) => (
           <div key={label} className="glass-card p-5">
-            <Icon className="h-5 w-5 text-electric-300" />
+            <Icon className="h-5 w-5 text-crimson-300" />
             <div className="mt-4 text-3xl font-bold text-white">{value}</div>
             <div className="mt-1 text-xs text-white/40">{label}</div>
           </div>
         ))}
       </div>
 
-      <div className="glass-card p-4 text-xs text-electric-300">{message}</div>
+      <div className="glass-card p-4 text-xs text-zinc-300">{message}</div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         {items.map((item, index) => (
@@ -206,7 +206,7 @@ export default function OwnerComplianceRuntimePage() {
                   actingId !== null || !evidenceReferences[item.id]?.trim()
                 }
                 onClick={() => void recordEvidence(item.id)}
-                className="rounded-lg border border-electric-500/20 bg-electric-500/10 px-3 py-2 text-xs text-electric-300 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-lg border border-crimson-500/20 bg-crimson-500/10 px-3 py-2 text-xs text-crimson-300 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {actingId === item.id ? "Recording…" : "Record evidence"}
               </button>

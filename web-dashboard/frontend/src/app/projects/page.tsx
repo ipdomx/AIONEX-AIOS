@@ -102,11 +102,11 @@ export default function ProjectsPage() {
 
   const getPriorityColor = (value: string) =>
     value === "critical"
-      ? "bg-red-500/10 text-red-400 border-red-500/20"
+      ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
       : value === "high"
         ? "bg-orange-500/10 text-orange-400 border-orange-500/20"
         : value === "medium"
-          ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
+          ? "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
           : "bg-white/10 text-white/40 border-white/20";
 
   return (
@@ -162,14 +162,14 @@ export default function ProjectsPage() {
             onChange={(event) => setWorkspaceId(event.target.value)}
             className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white outline-hidden"
           >
-            <option value="" className="bg-space-800">
+            <option value="" className="bg-obsidian-800">
               Select a workspace
             </option>
             {workspaces.map((workspace) => (
               <option
                 key={workspace.id}
                 value={workspace.id}
-                className="bg-space-800"
+                className="bg-obsidian-800"
               >
                 {workspace.name}
               </option>
@@ -185,16 +185,16 @@ export default function ProjectsPage() {
             onChange={(event) => setPriority(event.target.value)}
             className="w-full px-4 py-2.5 rounded-xl glass-input text-sm text-white outline-hidden"
           >
-            <option value="low" className="bg-space-800">
+            <option value="low" className="bg-obsidian-800">
               Low
             </option>
-            <option value="medium" className="bg-space-800">
+            <option value="medium" className="bg-obsidian-800">
               Medium
             </option>
-            <option value="high" className="bg-space-800">
+            <option value="high" className="bg-obsidian-800">
               High
             </option>
-            <option value="critical" className="bg-space-800">
+            <option value="critical" className="bg-obsidian-800">
               Critical
             </option>
           </select>
@@ -225,19 +225,19 @@ export default function ProjectsPage() {
           onChange={(event) => setStatusFilter(event.target.value)}
           className="px-4 py-2.5 rounded-xl glass-input text-sm text-white outline-hidden"
         >
-          <option value="all" className="bg-space-800">
+          <option value="all" className="bg-obsidian-800">
             All Status
           </option>
-          <option value="active" className="bg-space-800">
+          <option value="active" className="bg-obsidian-800">
             Active
           </option>
-          <option value="planning" className="bg-space-800">
+          <option value="planning" className="bg-obsidian-800">
             Planning
           </option>
-          <option value="paused" className="bg-space-800">
+          <option value="paused" className="bg-obsidian-800">
             Paused
           </option>
-          <option value="completed" className="bg-space-800">
+          <option value="completed" className="bg-obsidian-800">
             Completed
           </option>
         </select>
@@ -249,11 +249,11 @@ export default function ProjectsPage() {
         </div>
       )}
       {error && (
-        <div className="glass-card p-5 border border-red-500/20 flex items-start gap-3 text-red-300">
+        <div className="glass-card p-5 border border-rose-500/20 flex items-start gap-3 text-rose-300">
           <AlertCircle className="w-5 h-5 mt-0.5" />
           <div>
             <p className="font-semibold">Request failed</p>
-            <p className="text-sm text-red-300/70 mt-1">{error}</p>
+            <p className="text-sm text-rose-300/70 mt-1">{error}</p>
           </div>
         </div>
       )}
@@ -269,8 +269,8 @@ export default function ProjectsPage() {
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-linear-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center border border-white/8">
-                    <FolderOpen className="w-5 h-5 text-blue-400" />
+                  <div className="w-10 h-10 rounded-xl bg-obsidian-700 flex items-center justify-center border border-white/8">
+                    <FolderOpen className="w-5 h-5 text-crimson-300" />
                   </div>
                   <div>
                     <h3 className="text-sm font-semibold text-white">
@@ -296,7 +296,7 @@ export default function ProjectsPage() {
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${project.progress}%` }}
-                    className="h-full rounded-full bg-linear-to-r from-blue-500 to-cyan-500"
+                    className="h-full rounded-full bg-linear-to-r from-crimson-700 to-crimson-500"
                   />
                 </div>
               </div>

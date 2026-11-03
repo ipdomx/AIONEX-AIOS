@@ -238,12 +238,12 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
           className="fixed inset-0 z-100 flex items-start justify-center px-4 pt-[12vh]"
           onClick={onClose}
         >
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" />
           <motion.div
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className="glass-card relative w-full max-w-2xl overflow-hidden shadow-modal"
+            className="glass-card card-accent relative w-full max-w-2xl overflow-hidden bg-obsidian-900 shadow-modal"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center gap-3 border-b border-white/6 px-4 py-4">
@@ -286,13 +286,13 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
                     onMouseEnter={() => setSelectedIndex(index)}
                     onClick={() => openResult(result)}
                     className={`flex w-full items-center gap-3 px-4 py-3 text-left transition ${
-                      selected ? "bg-white/8" : "hover:bg-white/3"
+                      selected ? "bg-obsidian-700" : "hover:bg-white/4"
                     }`}
                   >
                     <span
                       className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
                         result.type === "owner"
-                          ? "bg-electric-500/20 text-electric-400"
+                          ? "bg-crimson-500/15 text-crimson-300"
                           : "bg-white/5 text-white/55"
                       }`}
                     >

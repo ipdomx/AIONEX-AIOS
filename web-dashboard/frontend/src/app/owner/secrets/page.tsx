@@ -46,10 +46,10 @@ function statusClass(status: string) {
   if (status === "active")
     return "border-green-500/20 bg-green-500/10 text-green-400";
   if (status === "rotating")
-    return "border-blue-500/20 bg-blue-500/10 text-blue-300";
+    return "border-zinc-500/20 bg-zinc-500/10 text-zinc-300";
   if (status === "expired")
     return "border-orange-500/20 bg-orange-500/10 text-orange-300";
-  return "border-red-500/20 bg-red-500/10 text-red-400";
+  return "border-rose-500/20 bg-rose-500/10 text-rose-400";
 }
 
 export default function OwnerSecretsPage() {
@@ -106,7 +106,7 @@ export default function OwnerSecretsPage() {
         className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"
       >
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs font-medium text-electric-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs font-medium text-crimson-300">
             <LockKeyhole className="h-3.5 w-3.5" /> Owner Secrets &amp; Keys
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
@@ -184,16 +184,16 @@ export default function OwnerSecretsPage() {
                 }
                 className="glass-input mt-1 w-full rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
               >
-                <option value="global" className="bg-space-800">
+                <option value="global" className="bg-obsidian-800">
                   Global
                 </option>
-                <option value="organization" className="bg-space-800">
+                <option value="organization" className="bg-obsidian-800">
                   Organization
                 </option>
-                <option value="project" className="bg-space-800">
+                <option value="project" className="bg-obsidian-800">
                   Project
                 </option>
-                <option value="service" className="bg-space-800">
+                <option value="service" className="bg-obsidian-800">
                   Service
                 </option>
               </select>
@@ -245,7 +245,7 @@ export default function OwnerSecretsPage() {
           ],
         ].map(([label, value]) => (
           <div key={String(label)} className="glass-card p-4">
-            <KeyRound className="h-5 w-5 text-electric-300" />
+            <KeyRound className="h-5 w-5 text-crimson-300" />
             <div className="mt-3 text-2xl font-bold text-white">
               {String(value)}
             </div>
@@ -270,24 +270,24 @@ export default function OwnerSecretsPage() {
             onChange={(event) => setScope(event.target.value as typeof scope)}
             className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
           >
-            <option value="all" className="bg-space-800">
+            <option value="all" className="bg-obsidian-800">
               All scopes
             </option>
-            <option value="global" className="bg-space-800">
+            <option value="global" className="bg-obsidian-800">
               Global
             </option>
-            <option value="organization" className="bg-space-800">
+            <option value="organization" className="bg-obsidian-800">
               Organization
             </option>
-            <option value="project" className="bg-space-800">
+            <option value="project" className="bg-obsidian-800">
               Project
             </option>
-            <option value="service" className="bg-space-800">
+            <option value="service" className="bg-obsidian-800">
               Service
             </option>
           </select>
         </div>
-        <div className="mt-3 flex items-center gap-2 text-xs text-electric-300">
+        <div className="mt-3 flex items-center gap-2 text-xs text-crimson-300">
           <ShieldCheck className="h-3.5 w-3.5" />
           {loading ? "Loading external secret references..." : message}
         </div>
@@ -331,7 +331,7 @@ export default function OwnerSecretsPage() {
                 <button
                   onClick={() => markReferenceRotated(secret.id)}
                   disabled={busy || secret.status === "revoked"}
-                  className="rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-xs text-blue-300 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg border border-zinc-500/20 bg-zinc-500/10 px-3 py-2 text-xs text-zinc-300 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <RefreshCw className="mr-1 inline h-3.5 w-3.5" />
                   Record rotation
@@ -339,7 +339,7 @@ export default function OwnerSecretsPage() {
                 <button
                   onClick={() => revokeSecretReference(secret.id)}
                   disabled={busy || secret.status === "revoked"}
-                  className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-300 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Trash2 className="mr-1 inline h-3.5 w-3.5" />
                   Revoke reference

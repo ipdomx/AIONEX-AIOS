@@ -62,7 +62,7 @@ export default function DashboardShell({
   }, []);
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-space-950">
+    <div className="min-h-screen overflow-x-hidden bg-obsidian-950">
       {mobile && mobileSidebarOpen && (
         <button
           type="button"
@@ -107,9 +107,9 @@ export default function DashboardShell({
       </motion.main>
       <Link
         href="/studio"
-        className="fixed bottom-5 inset-s-4 z-40 flex items-center gap-2 rounded-full border border-electric-400/30 bg-space-900/95 px-4 py-2.5 text-sm font-semibold text-white shadow-xl backdrop-blur-xl transition hover:border-electric-300/60 hover:bg-electric-500/15 sm:inset-e-5 sm:inset-s-auto"
+        className="fixed bottom-5 inset-s-4 z-40 flex items-center gap-2 rounded-xl border border-white/10 bg-obsidian-800/95 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_12px_32px_-12px_rgba(0,0,0,0.8)] backdrop-blur-xl transition-colors duration-150 hover:border-crimson-500/60 hover:bg-obsidian-700 sm:inset-e-5 sm:inset-s-auto"
       >
-        <Palette className="h-4 w-4 text-electric-300" />
+        <Palette className="h-4 w-4 text-crimson-300" />
         Production Studio
       </Link>
       <CommandPalette

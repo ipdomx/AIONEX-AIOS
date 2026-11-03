@@ -153,7 +153,7 @@ export default function OwnerAccountSecurityManager() {
           className={`flex items-start gap-2 rounded-xl border px-4 py-3 text-sm ${
             notice.tone === "success"
               ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-200"
-              : "border-red-500/20 bg-red-500/10 text-red-200"
+              : "border-rose-500/20 bg-rose-500/10 text-rose-200"
           }`}
         >
           {notice.tone === "success" ? (
@@ -168,7 +168,7 @@ export default function OwnerAccountSecurityManager() {
       <div className="grid gap-5 xl:grid-cols-2">
         <section className="rounded-xl border border-white/6 bg-white/2 p-5">
           <div className="flex items-center gap-2">
-            <KeyRound className="h-4 w-4 text-electric-300" />
+            <KeyRound className="h-4 w-4 text-crimson-300" />
             <h3 className="font-medium text-white">
               Multi-factor authentication
             </h3>
@@ -197,7 +197,7 @@ export default function OwnerAccountSecurityManager() {
                 Add this secret or provisioning URI to an authenticator, store
                 the recovery codes securely, then verify one generated code.
               </p>
-              <div className="break-all rounded-lg bg-black/20 p-3 font-mono text-xs text-electric-200">
+              <div className="break-all rounded-lg bg-black/20 p-3 font-mono text-xs text-crimson-200">
                 {setup.secret}
               </div>
               <div className="break-all rounded-lg bg-black/20 p-3 font-mono text-[10px] text-white/45">
@@ -251,7 +251,7 @@ export default function OwnerAccountSecurityManager() {
               />
               <button
                 disabled={busy}
-                className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm text-red-300 sm:col-span-2 disabled:opacity-50"
+                className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-2 text-sm text-rose-300 sm:col-span-2 disabled:opacity-50"
               >
                 Disable MFA and revoke sessions
               </button>
@@ -261,7 +261,7 @@ export default function OwnerAccountSecurityManager() {
 
         <section className="rounded-xl border border-white/6 bg-white/2 p-5">
           <div className="flex items-center gap-2">
-            <LogOut className="h-4 w-4 text-electric-300" />
+            <LogOut className="h-4 w-4 text-crimson-300" />
             <h3 className="font-medium text-white">Account sessions</h3>
           </div>
           <div className="mt-4 max-h-96 space-y-2 overflow-y-auto">
@@ -292,7 +292,7 @@ export default function OwnerAccountSecurityManager() {
                     type="button"
                     disabled={busy}
                     onClick={() => void revoke(session.id)}
-                    className="mt-2 text-xs font-semibold text-red-300 hover:text-red-200 disabled:opacity-50"
+                    className="mt-2 text-xs font-semibold text-rose-300 hover:text-rose-200 disabled:opacity-50"
                   >
                     Revoke this session
                   </button>

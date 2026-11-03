@@ -60,7 +60,7 @@ export default function OwnerGlobalSearchPage() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs font-medium text-electric-300">
+        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs font-medium text-crimson-300">
           <Search className="h-3.5 w-3.5" />
           Owner Navigation Search
         </div>
@@ -90,21 +90,21 @@ export default function OwnerGlobalSearchPage() {
             onChange={(event) => setSectionId(event.target.value)}
             className="glass-input rounded-xl px-4 py-3 text-sm text-white outline-hidden"
           >
-            <option value="all" className="bg-space-800">
+            <option value="all" className="bg-obsidian-800">
               All Owner groups
             </option>
             {ownerNavigationSections.map((section) => (
               <option
                 key={section.id}
                 value={section.id}
-                className="bg-space-800"
+                className="bg-obsidian-800"
               >
                 {section.label}
               </option>
             ))}
           </select>
         </div>
-        <p className="mt-3 text-xs text-electric-300">
+        <p className="mt-3 text-xs text-crimson-300">
           {results.length} reachable Owner page{results.length === 1 ? "" : "s"}
           {" · "}
           {loading
@@ -132,7 +132,7 @@ export default function OwnerGlobalSearchPage() {
               >
                 <div className="flex items-start gap-3">
                   <span className="rounded-xl border border-white/6 bg-white/4 p-2.5">
-                    <Icon className="h-5 w-5 text-electric-300" />
+                    <Icon className="h-5 w-5 text-crimson-300" />
                   </span>
                   <span>
                     <span className="block text-sm font-semibold text-white">

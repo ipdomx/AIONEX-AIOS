@@ -55,7 +55,7 @@ export default function OwnerApprovalsPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-electric-500/20 bg-electric-500/10 px-4 py-3 text-xs text-electric-300">
+      <div className="rounded-xl border border-white/8 border-s-2 border-s-crimson-500 bg-obsidian-800 px-4 py-3 text-xs text-zinc-300">
         {message}
       </div>
 
@@ -80,7 +80,7 @@ export default function OwnerApprovalsPage() {
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex items-start gap-3">
                   <div className="rounded-xl border border-white/6 bg-white/3 p-2.5">
-                    <FileCheck2 className="h-5 w-5 text-electric-300" />
+                    <FileCheck2 className="h-5 w-5 text-crimson-300" />
                   </div>
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -88,7 +88,7 @@ export default function OwnerApprovalsPage() {
                         {item.title}
                       </h2>
                       <span
-                        className={`rounded-full border px-2 py-0.5 text-[10px] ${item.risk === "high" ? "border-red-500/20 bg-red-500/10 text-red-300" : item.risk === "medium" ? "border-orange-500/20 bg-orange-500/10 text-orange-300" : "border-green-500/20 bg-green-500/10 text-green-300"}`}
+                        className={`rounded-full border px-2 py-0.5 text-[10px] ${item.risk === "high" ? "border-rose-500/20 bg-rose-500/10 text-rose-300" : item.risk === "medium" ? "border-orange-500/20 bg-orange-500/10 text-orange-300" : "border-green-500/20 bg-green-500/10 text-green-300"}`}
                       >
                         {item.risk} risk
                       </span>
@@ -105,7 +105,7 @@ export default function OwnerApprovalsPage() {
                     <button
                       disabled={busy}
                       onClick={() => void execute(item.id, "reject")}
-                      className="inline-flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2 text-xs font-medium text-red-300 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex items-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-2 text-xs font-medium text-rose-300 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <XCircle className="h-4 w-4" />
                       Reject
@@ -121,7 +121,7 @@ export default function OwnerApprovalsPage() {
                   </div>
                 ) : (
                   <div
-                    className={`inline-flex items-center gap-2 text-xs font-medium ${item.status === "approved" ? "text-green-400" : "text-red-400"}`}
+                    className={`inline-flex items-center gap-2 text-xs font-medium ${item.status === "approved" ? "text-green-400" : "text-rose-400"}`}
                   >
                     {item.status === "approved" ? (
                       <CheckCircle2 className="h-4 w-4" />
@@ -138,7 +138,7 @@ export default function OwnerApprovalsPage() {
       </div>
 
       <div className="glass-card flex items-center gap-3 p-4 text-xs text-white/45">
-        <Clock className="h-4 w-4 text-electric-300" />
+        <Clock className="h-4 w-4 text-crimson-300" />
         Every meeting decision is recorded in the owner audit trail.
       </div>
     </div>

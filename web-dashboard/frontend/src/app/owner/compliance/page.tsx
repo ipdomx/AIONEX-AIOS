@@ -38,16 +38,16 @@ const statusClass: Record<ControlStatus, string> = {
   active: "border-green-500/20 bg-green-500/10 text-green-400",
   partial: "border-orange-500/20 bg-orange-500/10 text-orange-300",
   warning: "border-orange-500/20 bg-orange-500/10 text-orange-300",
-  non_compliant: "border-red-500/20 bg-red-500/10 text-red-400",
+  non_compliant: "border-rose-500/20 bg-rose-500/10 text-rose-400",
   not_applicable: "border-white/10 bg-white/3 text-white/35",
   not_assessed: "border-white/10 bg-white/3 text-white/35",
 };
 
 const riskClass = {
   low: "text-green-400",
-  medium: "text-blue-300",
+  medium: "text-zinc-300",
   high: "text-orange-400",
-  critical: "text-red-400",
+  critical: "text-rose-400",
 };
 
 export default function OwnerCompliancePage() {
@@ -111,7 +111,7 @@ export default function OwnerCompliancePage() {
         className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"
       >
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs font-medium text-electric-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs font-medium text-crimson-300">
             <ShieldCheck className="h-3.5 w-3.5" /> Owner Compliance Center
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
@@ -147,7 +147,7 @@ export default function OwnerCompliancePage() {
           const MetricIcon = Icon as typeof ShieldCheck;
           return (
             <div key={String(label)} className="glass-card p-4">
-              <MetricIcon className="h-5 w-5 text-electric-300" />
+              <MetricIcon className="h-5 w-5 text-crimson-300" />
               <div className="mt-3 text-2xl font-bold text-white">
                 {String(value)}
               </div>
@@ -175,24 +175,24 @@ export default function OwnerCompliancePage() {
             }
             className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
           >
-            <option value="all" className="bg-space-800">
+            <option value="all" className="bg-obsidian-800">
               All frameworks
             </option>
-            <option value="ISO 27001" className="bg-space-800">
+            <option value="ISO 27001" className="bg-obsidian-800">
               ISO 27001
             </option>
-            <option value="SOC 2" className="bg-space-800">
+            <option value="SOC 2" className="bg-obsidian-800">
               SOC 2
             </option>
-            <option value="GDPR" className="bg-space-800">
+            <option value="GDPR" className="bg-obsidian-800">
               GDPR
             </option>
-            <option value="NIST" className="bg-space-800">
+            <option value="NIST" className="bg-obsidian-800">
               NIST
             </option>
           </select>
         </div>
-        <div className="mt-3 text-xs text-electric-300">{message}</div>
+        <div className="mt-3 text-xs text-zinc-300">{message}</div>
       </div>
 
       <div className="space-y-3">
@@ -226,7 +226,7 @@ export default function OwnerCompliancePage() {
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                   <div className="flex items-start gap-3">
                     <div className="rounded-xl border border-white/6 bg-white/4 p-2.5">
-                      <FileCheck2 className="h-5 w-5 text-electric-300" />
+                      <FileCheck2 className="h-5 w-5 text-crimson-300" />
                     </div>
                     <div>
                       <h2 className="text-sm font-semibold text-white">
@@ -266,7 +266,7 @@ export default function OwnerCompliancePage() {
                             busy || !evidenceReferences[item.id]?.trim()
                           }
                           onClick={() => void recordEvidence(item.id)}
-                          className="rounded-lg border border-electric-500/20 bg-electric-500/10 px-3 py-2 text-xs text-electric-300 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="rounded-lg border border-crimson-500/20 bg-crimson-500/10 px-3 py-2 text-xs text-crimson-300 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           Record evidence
                         </button>
@@ -306,7 +306,7 @@ export default function OwnerCompliancePage() {
                           status: "non_compliant",
                         })
                       }
-                      className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-300 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Fail
                     </button>

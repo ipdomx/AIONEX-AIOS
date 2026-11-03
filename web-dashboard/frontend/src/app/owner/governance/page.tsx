@@ -45,7 +45,7 @@ type Tab = "bodies" | "policies" | "decisions";
 const inputClass =
   "glass-input rounded-xl px-3 py-2 text-sm text-white outline-hidden disabled:cursor-not-allowed disabled:opacity-50";
 const buttonClass =
-  "inline-flex items-center justify-center gap-2 rounded-xl border border-electric-500/20 bg-electric-500/10 px-3 py-2 text-xs font-semibold text-electric-200 transition hover:bg-electric-500/15 disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2 rounded-xl border border-crimson-500/20 bg-crimson-500/10 px-3 py-2 text-xs font-semibold text-crimson-200 transition hover:bg-crimson-500/15 disabled:cursor-not-allowed disabled:opacity-50";
 
 function dateValue(value: string | null): string {
   if (!value) return "—";
@@ -60,7 +60,7 @@ function statusClass(status: string): string {
     return "border-green-500/20 bg-green-500/10 text-green-300";
   }
   if (["rejected", "retired"].includes(status)) {
-    return "border-red-500/20 bg-red-500/10 text-red-300";
+    return "border-rose-500/20 bg-rose-500/10 text-rose-300";
   }
   return "border-amber-500/20 bg-amber-500/10 text-amber-200";
 }
@@ -242,7 +242,7 @@ export default function OwnerGovernancePage() {
         })}
       </div>
 
-      <div className="glass-card p-4 text-xs text-electric-300">{message}</div>
+      <div className="glass-card p-4 text-xs text-zinc-300">{message}</div>
 
       <div className="flex flex-wrap gap-2">
         {(["bodies", "policies", "decisions"] as Tab[]).map((value) => (
@@ -443,7 +443,7 @@ export default function OwnerGovernancePage() {
                           retireGovernancePolicy(item.id),
                         )
                       }
-                      className="inline-flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="inline-flex items-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-300 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       Retire
                     </button>

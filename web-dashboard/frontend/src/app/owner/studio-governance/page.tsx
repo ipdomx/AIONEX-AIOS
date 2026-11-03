@@ -120,9 +120,9 @@ export default function OwnerStudioGovernancePage() {
       <header className="glass-card p-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="flex gap-3">
-            <SlidersHorizontal className="mt-1 h-7 w-7 shrink-0 text-electric-300" />
+            <SlidersHorizontal className="mt-1 h-7 w-7 shrink-0 text-crimson-300" />
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-electric-300">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-crimson-300">
                 Unified Studio Capability Governance
               </p>
               <h1 className="mt-2 text-3xl font-bold text-white">
@@ -150,7 +150,7 @@ export default function OwnerStudioGovernancePage() {
 
       <section className="grid gap-4 sm:grid-cols-3">
         <div className="glass-card p-5">
-          <Sparkles className="h-5 w-5 text-electric-300" />
+          <Sparkles className="h-5 w-5 text-crimson-300" />
           <div className="mt-3 text-3xl font-bold text-white">
             {items.length}
           </div>
@@ -164,7 +164,7 @@ export default function OwnerStudioGovernancePage() {
           <div className="mt-1 text-xs text-white/40">Enabled families</div>
         </div>
         <div className="glass-card p-5">
-          <SlidersHorizontal className="h-5 w-5 text-violet-300" />
+          <SlidersHorizontal className="h-5 w-5 text-crimson-300" />
           <div className="mt-3 text-lg font-bold text-white">
             Provider-neutral
           </div>
@@ -172,7 +172,7 @@ export default function OwnerStudioGovernancePage() {
         </div>
       </section>
 
-      <div className="glass-card p-4 text-xs text-electric-300">{message}</div>
+      <div className="glass-card p-4 text-xs text-zinc-300">{message}</div>
 
       <section className="grid gap-4 xl:grid-cols-2">
         {items.map((item) => (

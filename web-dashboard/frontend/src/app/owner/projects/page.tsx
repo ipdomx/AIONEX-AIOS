@@ -74,7 +74,7 @@ export default function OwnerProjectsPage() {
         className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
       >
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs text-electric-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs text-crimson-300">
             <FolderKanban className="h-3.5 w-3.5" /> Owner Project Command
           </div>
           <h1 className="text-3xl font-bold text-white">
@@ -115,7 +115,7 @@ export default function OwnerProjectsPage() {
             placeholder="Search every project..."
           />
         </div>
-        <div className="mb-4 text-xs text-electric-300">
+        <div className="mb-4 text-xs text-crimson-300">
           {loading ? "Loading governed projects..." : message}
         </div>
         <div className="space-y-3">
@@ -136,7 +136,7 @@ export default function OwnerProjectsPage() {
                       {project.name}
                     </h2>
                     {["high", "critical"].includes(project.risk) ? (
-                      <AlertTriangle className="h-4 w-4 text-red-400" />
+                      <AlertTriangle className="h-4 w-4 text-rose-400" />
                     ) : (
                       <ShieldCheck className="h-4 w-4 text-green-400" />
                     )}
@@ -207,7 +207,7 @@ export default function OwnerProjectsPage() {
                         runProjectAction(project.id, "request-review")
                       }
                       disabled={busy}
-                      className="rounded-lg border border-purple-500/20 bg-purple-500/10 p-2 text-purple-300 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-lg border border-crimson-500/20 bg-crimson-500/10 p-2 text-crimson-300 disabled:cursor-not-allowed disabled:opacity-50"
                       aria-label={`Request review for ${project.name}`}
                     >
                       <ClipboardCheck className="h-4 w-4" />
@@ -241,7 +241,7 @@ export default function OwnerProjectsPage() {
                     <button
                       onClick={() => runProjectAction(project.id, "cancel")}
                       disabled={busy}
-                      className="rounded-lg border border-red-500/20 bg-red-500/10 p-2 text-red-300 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-2 text-rose-300 disabled:cursor-not-allowed disabled:opacity-50"
                       aria-label={`Cancel ${project.name}`}
                     >
                       <XCircle className="h-4 w-4" />

@@ -162,11 +162,11 @@ export default function AIAgentsPage() {
       case "running":
         return "bg-green-500/10 text-green-400 border-green-500/20";
       case "idle":
-        return "bg-blue-500/10 text-blue-400 border-blue-500/20";
+        return "bg-zinc-500/10 text-zinc-400 border-zinc-500/20";
       case "paused":
         return "bg-orange-500/10 text-orange-400 border-orange-500/20";
       case "error":
-        return "bg-red-500/10 text-red-400 border-red-500/20";
+        return "bg-rose-500/10 text-rose-400 border-rose-500/20";
       default:
         return "bg-white/10 text-white/40 border-white/20";
     }
@@ -242,7 +242,7 @@ export default function AIAgentsPage() {
             required
             className="glass-input rounded-xl px-3 py-2.5 text-sm text-white"
           >
-            <option value="" className="bg-space-800">
+            <option value="" className="bg-obsidian-800">
               Select configured provider
             </option>
             {providers
@@ -253,7 +253,7 @@ export default function AIAgentsPage() {
                 <option
                   key={provider.id}
                   value={provider.id}
-                  className="bg-space-800"
+                  className="bg-obsidian-800"
                 >
                   {provider.name} · {provider.type}
                 </option>
@@ -307,19 +307,19 @@ export default function AIAgentsPage() {
             onChange={(event) => setStatusFilter(event.target.value)}
             className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
           >
-            <option value="all" className="bg-space-800">
+            <option value="all" className="bg-obsidian-800">
               All statuses
             </option>
-            <option value="running" className="bg-space-800">
+            <option value="running" className="bg-obsidian-800">
               Running
             </option>
-            <option value="idle" className="bg-space-800">
+            <option value="idle" className="bg-obsidian-800">
               Idle
             </option>
-            <option value="paused" className="bg-space-800">
+            <option value="paused" className="bg-obsidian-800">
               Paused
             </option>
-            <option value="error" className="bg-space-800">
+            <option value="error" className="bg-obsidian-800">
               Error
             </option>
           </select>
@@ -347,8 +347,8 @@ export default function AIAgentsPage() {
             >
               <div className="mb-4 flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/8 bg-linear-to-br from-purple-500/20 to-blue-500/20">
-                    <Bot className="h-5 w-5 text-purple-400" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/8 bg-obsidian-700">
+                    <Bot className="h-5 w-5 text-crimson-300" />
                   </div>
                   <div>
                     <h2 className="text-sm font-semibold text-white">
@@ -379,7 +379,7 @@ export default function AIAgentsPage() {
                 </div>
                 <div className="rounded-lg bg-white/2 p-2.5">
                   <div className="mb-1 flex items-center gap-1.5">
-                    <XCircle className="h-3 w-3 text-red-400" />
+                    <XCircle className="h-3 w-3 text-rose-400" />
                     <span className="text-[10px] uppercase tracking-wider text-white/40">
                       Failed
                     </span>
@@ -438,7 +438,7 @@ export default function AIAgentsPage() {
                   type="button"
                   disabled={Boolean(busy) || agent.status === "running"}
                   onClick={() => void remove(agent)}
-                  className="glass rounded-lg p-2 text-red-300 disabled:opacity-35"
+                  className="glass rounded-lg p-2 text-rose-300 disabled:opacity-35"
                   aria-label={`Delete ${agent.name}`}
                 >
                   <Trash2 className="h-3.5 w-3.5" />

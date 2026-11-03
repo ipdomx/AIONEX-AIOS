@@ -70,7 +70,7 @@ function safeLimitsJson(value: string): Record<string, unknown> {
 function decisionClass(allowed: boolean) {
   return allowed
     ? "border-green-500/20 bg-green-500/10 text-green-300"
-    : "border-red-500/20 bg-red-500/10 text-red-300";
+    : "border-rose-500/20 bg-rose-500/10 text-rose-300";
 }
 
 export function GrowthSocialAccessConsole() {
@@ -267,7 +267,7 @@ export function GrowthSocialAccessConsole() {
     <section className="space-y-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-xs text-cyan-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs text-crimson-300">
             <ShieldCheck className="h-3.5 w-3.5" /> Growth &amp; Social Owner
             Authority
           </div>
@@ -316,7 +316,7 @@ export function GrowthSocialAccessConsole() {
           { label: "Managed targets", value: summary.targets, icon: Users },
         ].map((item) => (
           <div key={item.label} className="glass-card p-4">
-            <item.icon className="h-5 w-5 text-cyan-300" />
+            <item.icon className="h-5 w-5 text-crimson-300" />
             <div className="mt-3 text-2xl font-bold text-white">
               {item.value}
             </div>
@@ -326,7 +326,7 @@ export function GrowthSocialAccessConsole() {
       </div>
 
       {invalidRecords > 0 && (
-        <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
+        <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm text-rose-300">
           <AlertTriangle className="mr-2 inline h-4 w-4" />
           Some legacy override records are malformed and were hidden from this
           console. Review server audit records before cleanup.
@@ -372,10 +372,10 @@ export function GrowthSocialAccessConsole() {
                 disabled={busy || Boolean(selectedOverride)}
                 className="glass-input mt-2 w-full rounded-xl px-3 py-2.5 text-sm text-white outline-hidden"
               >
-                <option value="user" className="bg-space-800">
+                <option value="user" className="bg-obsidian-800">
                   User
                 </option>
-                <option value="organization" className="bg-space-800">
+                <option value="organization" className="bg-obsidian-800">
                   Organization
                 </option>
               </select>
@@ -391,7 +391,7 @@ export function GrowthSocialAccessConsole() {
               >
                 {selectedOverride &&
                   !targets.some((target) => target.id === subjectId) && (
-                    <option value={subjectId} className="bg-space-800">
+                    <option value={subjectId} className="bg-obsidian-800">
                       {selectedOverride.subject_name ?? "Missing target"} ·{" "}
                       {subjectId}
                     </option>
@@ -400,7 +400,7 @@ export function GrowthSocialAccessConsole() {
                   <option
                     key={target.id}
                     value={target.id}
-                    className="bg-space-800"
+                    className="bg-obsidian-800"
                   >
                     {targetLabel(target)}
                   </option>
@@ -420,7 +420,7 @@ export function GrowthSocialAccessConsole() {
                   <option
                     key={item.id}
                     value={item.id}
-                    className="bg-space-800"
+                    className="bg-obsidian-800"
                   >
                     {item.id}
                     {item.approval_default ? " · approval by default" : ""}
@@ -448,7 +448,7 @@ export function GrowthSocialAccessConsole() {
                 disabled={busy}
                 className={`rounded-xl border px-4 py-3 text-sm font-medium ${
                   decision === "deny"
-                    ? "border-red-500/30 bg-red-500/15 text-red-300"
+                    ? "border-rose-500/30 bg-rose-500/15 text-rose-300"
                     : "border-white/10 bg-white/2 text-white/40"
                 }`}
               >
@@ -492,7 +492,7 @@ export function GrowthSocialAccessConsole() {
             </label>
 
             {selectedOverride?.limits_redacted && (
-              <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-300">
+              <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-300">
                 This legacy record contains unsafe or invalid limits and is
                 redacted. Clear the override instead of overwriting it from the
                 console.
@@ -528,7 +528,7 @@ export function GrowthSocialAccessConsole() {
                 organization capability.
               </p>
             </div>
-            <div className="text-xs text-cyan-300">
+            <div className="text-xs text-crimson-300">
               {loading ? "Loading access overrides…" : message}
             </div>
           </div>
@@ -548,9 +548,9 @@ export function GrowthSocialAccessConsole() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       {item.scope === "user" ? (
-                        <UserRound className="h-4 w-4 text-cyan-300" />
+                        <UserRound className="h-4 w-4 text-crimson-300" />
                       ) : (
-                        <Building2 className="h-4 w-4 text-cyan-300" />
+                        <Building2 className="h-4 w-4 text-crimson-300" />
                       )}
                       <span className="wrap-break-word text-sm font-semibold text-white">
                         {item.subject_name ?? "Missing target"}
@@ -570,7 +570,7 @@ export function GrowthSocialAccessConsole() {
                       {item.subject_detail ?? item.subject_id} ·{" "}
                       {item.subject_status}
                     </div>
-                    <div className="mt-2 font-mono text-xs text-cyan-200/80">
+                    <div className="mt-2 font-mono text-xs text-zinc-300">
                       {item.capability}
                     </div>
                     {item.capability === "ads.manage" && item.allowed && (
@@ -598,7 +598,7 @@ export function GrowthSocialAccessConsole() {
                       type="button"
                       onClick={() => void clearOverride(item)}
                       disabled={busy}
-                      className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300 disabled:opacity-40"
+                      className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-300 disabled:opacity-40"
                     >
                       <Trash2 className="mr-1 inline h-3.5 w-3.5" /> Clear
                     </button>

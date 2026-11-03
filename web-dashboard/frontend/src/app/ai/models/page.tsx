@@ -75,7 +75,7 @@ export default function AIModelsPage() {
         {models.map((m) => (
           <section key={`${m.provider}:${m.model}`} className="glass-card p-5">
             <div className="flex items-center gap-3">
-              <Brain className="h-5 w-5 text-electric-300" />
+              <Brain className="h-5 w-5 text-crimson-300" />
               <div>
                 <h2 className="font-semibold text-white">{m.model}</h2>
                 <div className="text-xs text-white/40">

@@ -52,14 +52,14 @@ function statusStyle(status: string) {
     return "border-orange-500/20 bg-orange-500/10 text-orange-400";
   if (status === "warning")
     return "border-yellow-500/20 bg-yellow-500/10 text-yellow-300";
-  return "border-red-500/20 bg-red-500/10 text-red-400";
+  return "border-rose-500/20 bg-rose-500/10 text-rose-400";
 }
 
 const riskStyles: Record<Entity["risk"], string> = {
   low: "text-green-400",
-  medium: "text-blue-300",
+  medium: "text-zinc-300",
   high: "text-orange-400",
-  critical: "text-red-400",
+  critical: "text-rose-400",
 };
 
 export default function OwnerGlobalCommandPage() {
@@ -149,7 +149,7 @@ export default function OwnerGlobalCommandPage() {
         className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"
       >
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs font-medium text-electric-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs font-medium text-crimson-300">
             <ShieldCheck className="h-3.5 w-3.5" /> Owner Global Command
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
@@ -191,7 +191,7 @@ export default function OwnerGlobalCommandPage() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         {summaryCards.map(({ label, value, icon: Icon }) => (
           <div key={label} className="glass-card p-4">
-            <Icon className="h-5 w-5 text-electric-300" />
+            <Icon className="h-5 w-5 text-crimson-300" />
             <div className="mt-3 text-2xl font-bold text-white">{value}</div>
             <div className="text-xs text-white/35">{label}</div>
           </div>
@@ -216,21 +216,21 @@ export default function OwnerGlobalCommandPage() {
             }
             className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
           >
-            <option value="all" className="bg-space-800">
+            <option value="all" className="bg-obsidian-800">
               All entities
             </option>
-            <option value="project" className="bg-space-800">
+            <option value="project" className="bg-obsidian-800">
               Projects
             </option>
-            <option value="organization" className="bg-space-800">
+            <option value="organization" className="bg-obsidian-800">
               Organizations
             </option>
-            <option value="service" className="bg-space-800">
+            <option value="service" className="bg-obsidian-800">
               Services
             </option>
           </select>
         </div>
-        <div className="mt-3 flex items-center gap-2 text-xs text-electric-300">
+        <div className="mt-3 flex items-center gap-2 text-xs text-crimson-300">
           <Activity className="h-3.5 w-3.5" />
           {loading ? "Loading controlled entities..." : message}
         </div>
@@ -255,7 +255,7 @@ export default function OwnerGlobalCommandPage() {
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div className="flex items-start gap-3">
                   <div className="rounded-xl border border-white/6 bg-white/4 p-2.5">
-                    <Icon className="h-5 w-5 text-electric-300" />
+                    <Icon className="h-5 w-5 text-crimson-300" />
                   </div>
                   <div>
                     <h2 className="text-sm font-semibold text-white">
@@ -340,7 +340,7 @@ export default function OwnerGlobalCommandPage() {
       </div>
 
       <div className="flex justify-end">
-        <Link href="/owner" className="text-xs text-electric-300">
+        <Link href="/owner" className="text-xs text-crimson-300">
           Back to Owner Center
         </Link>
       </div>

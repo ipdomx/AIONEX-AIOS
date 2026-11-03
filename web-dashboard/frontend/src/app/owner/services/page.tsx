@@ -107,14 +107,14 @@ export default function OwnerServicesPage() {
           <button
             key={item}
             onClick={() => setCategory(item)}
-            className={`rounded-xl px-4 py-2 text-xs font-medium transition ${category === item ? "bg-electric-500/15 text-electric-300 border border-electric-500/20" : "glass text-white/45 hover:text-white/75"}`}
+            className={`rounded-xl px-4 py-2 text-xs font-medium transition ${category === item ? "bg-crimson-500/15 text-crimson-300 border border-crimson-500/20" : "glass text-white/45 hover:text-white/75"}`}
           >
             {item}
           </button>
         ))}
       </div>
 
-      <div className="rounded-xl border border-electric-500/20 bg-electric-500/10 px-4 py-3 text-xs text-electric-300">
+      <div className="rounded-xl border border-white/8 border-s-2 border-s-crimson-500 bg-obsidian-800 px-4 py-3 text-xs text-zinc-300">
         {message}
       </div>
 
@@ -144,7 +144,7 @@ export default function OwnerServicesPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-3">
                     <div className="rounded-xl border border-white/6 bg-white/4 p-2.5">
-                      <Icon className="h-5 w-5 text-electric-300" />
+                      <Icon className="h-5 w-5 text-crimson-300" />
                     </div>
                     <div>
                       <h2 className="text-sm font-semibold text-white">

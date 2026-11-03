@@ -44,11 +44,11 @@ export default function OwnerDashboardPage() {
       <motion.header
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="glass-card min-w-0 overflow-hidden p-4 sm:p-6"
+        className="glass-card card-accent min-w-0 overflow-hidden p-4 sm:p-6"
       >
         <div className="flex min-w-0 flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">
-            <div className="mb-2 inline-flex max-w-full items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-[11px] font-medium text-electric-300 sm:text-xs">
+            <div className="mb-2 inline-flex max-w-full items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-[11px] font-medium text-crimson-300 sm:text-xs">
               <Gauge className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">Super Owner Command Center</span>
             </div>
@@ -80,27 +80,27 @@ export default function OwnerDashboardPage() {
         </div>
       </motion.header>
 
-      <section className="rounded-xl border border-electric-500/15 bg-electric-500/5 px-4 py-3 text-xs leading-relaxed text-electric-200/80">
+      <section className="rounded-xl border border-white/8 border-s-2 border-s-crimson-500 bg-obsidian-800 px-4 py-3 text-xs leading-relaxed text-zinc-300">
         {loading ? "Loading live owner control data…" : message}
       </section>
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         <div className="glass-card p-4 sm:p-5">
-          <Gauge className="h-5 w-5 text-electric-300" />
+          <Gauge className="h-5 w-5 text-crimson-300" />
           <div className="mt-4 text-3xl font-bold text-white">
             {metric("projects")}
           </div>
           <div className="mt-1 text-xs text-white/40">Live projects</div>
         </div>
         <div className="glass-card p-4 sm:p-5">
-          <Gavel className="h-5 w-5 text-electric-300" />
+          <Gavel className="h-5 w-5 text-crimson-300" />
           <div className="mt-4 text-3xl font-bold text-white">
             {metric("organizations")}
           </div>
           <div className="mt-1 text-xs text-white/40">Organizations</div>
         </div>
         <div className="glass-card p-4 sm:p-5">
-          <ShieldCheck className="h-5 w-5 text-electric-300" />
+          <ShieldCheck className="h-5 w-5 text-crimson-300" />
           <div className="mt-4 text-3xl font-bold text-white">
             {metric("users")}
           </div>
@@ -120,7 +120,7 @@ export default function OwnerDashboardPage() {
         return (
           <section key={section.id} className="min-w-0 space-y-3">
             <div className="flex min-w-0 items-center gap-2">
-              <SectionIcon className="h-4 w-4 shrink-0 text-electric-300" />
+              <SectionIcon className="h-4 w-4 shrink-0 text-crimson-300" />
               <h2 className="truncate text-sm font-semibold text-white">
                 {section.label}
               </h2>
@@ -143,7 +143,7 @@ export default function OwnerDashboardPage() {
                       href={item.href}
                       className="glass-card block h-full min-w-0 p-4 transition hover:bg-white/5 sm:p-5"
                     >
-                      <Icon className="h-5 w-5 text-electric-300" />
+                      <Icon className="h-5 w-5 text-crimson-300" />
                       <h3 className="mt-4 wrap-break-word text-sm font-semibold text-white">
                         {item.label}
                       </h3>

@@ -46,7 +46,7 @@ const statusClass = (status: string) =>
     : status === "degraded"
       ? "border-orange-500/20 bg-orange-500/10 text-orange-300"
       : status === "pending"
-        ? "border-blue-500/20 bg-blue-500/10 text-blue-300"
+        ? "border-zinc-500/20 bg-zinc-500/10 text-zinc-300"
         : "border-white/10 bg-white/3 text-white/35";
 
 const icons: Record<string, React.ElementType> = {
@@ -120,7 +120,7 @@ export default function OwnerIntegrationsPage() {
         className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"
       >
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-electric-500/20 bg-electric-500/10 px-3 py-1 text-xs font-medium text-electric-300">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-crimson-500/20 bg-crimson-500/10 px-3 py-1 text-xs font-medium text-crimson-300">
             <PlugZap className="h-3.5 w-3.5" /> Owner Integration Registry
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">
@@ -145,7 +145,7 @@ export default function OwnerIntegrationsPage() {
           const Icon = card.icon;
           return (
             <div key={card.label} className="glass-card p-4">
-              <Icon className="h-5 w-5 text-electric-300" />
+              <Icon className="h-5 w-5 text-crimson-300" />
               <div className="mt-3 text-2xl font-bold text-white">
                 {card.value}
               </div>
@@ -171,30 +171,30 @@ export default function OwnerIntegrationsPage() {
             onChange={(event) => setCategory(event.target.value)}
             className="glass-input rounded-xl px-4 py-2.5 text-sm text-white outline-hidden"
           >
-            <option value="all" className="bg-space-800">
+            <option value="all" className="bg-obsidian-800">
               All categories
             </option>
-            <option value="ai" className="bg-space-800">
+            <option value="ai" className="bg-obsidian-800">
               AI Runtime
             </option>
-            <option value="source" className="bg-space-800">
+            <option value="source" className="bg-obsidian-800">
               Source Control
             </option>
-            <option value="cloud" className="bg-space-800">
+            <option value="cloud" className="bg-obsidian-800">
               Cloud
             </option>
-            <option value="data" className="bg-space-800">
+            <option value="data" className="bg-obsidian-800">
               Data
             </option>
-            <option value="security" className="bg-space-800">
+            <option value="security" className="bg-obsidian-800">
               Security
             </option>
-            <option value="communication" className="bg-space-800">
+            <option value="communication" className="bg-obsidian-800">
               Communication
             </option>
           </select>
         </div>
-        <div className="mt-3 flex items-center gap-2 text-xs text-electric-300">
+        <div className="mt-3 flex items-center gap-2 text-xs text-zinc-300">
           <Activity className="h-3.5 w-3.5" />
           {message}
         </div>
@@ -224,7 +224,7 @@ export default function OwnerIntegrationsPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-3">
                     <div className="rounded-xl border border-white/6 bg-white/4 p-2.5">
-                      <Icon className="h-5 w-5 text-electric-300" />
+                      <Icon className="h-5 w-5 text-crimson-300" />
                     </div>
                     <div>
                       <h2 className="text-sm font-semibold text-white">
@@ -293,7 +293,7 @@ export default function OwnerIntegrationsPage() {
                   <button
                     disabled={busy || !item.configured}
                     onClick={() => void execute(item.id, "health-check")}
-                    className="rounded-lg border border-electric-500/20 bg-electric-500/10 px-3 py-2 text-xs text-electric-300 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-lg border border-crimson-500/20 bg-crimson-500/10 px-3 py-2 text-xs text-crimson-300 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Verify configuration
                   </button>

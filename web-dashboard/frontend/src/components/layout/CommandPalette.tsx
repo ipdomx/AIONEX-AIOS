@@ -275,12 +275,12 @@ export default function CommandPalette({
           className="fixed inset-0 z-100 flex items-start justify-center px-4 pt-[12vh]"
           onClick={onClose}
         >
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" />
           <motion.div
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className="glass-card relative w-full max-w-2xl overflow-hidden shadow-modal"
+            className="glass-card card-accent relative w-full max-w-2xl overflow-hidden bg-obsidian-900 shadow-modal"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center gap-3 border-b border-white/6 px-4 py-4">
@@ -316,8 +316,8 @@ export default function CommandPalette({
                         onClick={() => openCommand(command)}
                         className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition ${
                           selected
-                            ? "bg-white/8 text-white"
-                            : "text-white/60 hover:bg-white/3 hover:text-white/80"
+                            ? "bg-obsidian-700 text-white"
+                            : "text-white/60 hover:bg-white/4 hover:text-white"
                         }`}
                       >
                         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/4">
