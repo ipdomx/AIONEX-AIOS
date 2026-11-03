@@ -33,7 +33,7 @@ async def _clear_launch_policy_records(session) -> None:
 def test_free_default_is_local_zero_cost_and_paid_default_fails_until_owner_selects_models() -> None:
     free = default_plan_policy("free")
     paid = default_plan_policy("paid")
-    assert free["allowed_provider_models"] == ["ollama:qwen2.5:1.5b"]
+    assert free["allowed_provider_models"] == ["ollama:aionex-ai"]
     assert free["max_project_cost_usd"] == 0.0
     assert free["offline_only"] is True
     assert paid["allowed_provider_models"] == []

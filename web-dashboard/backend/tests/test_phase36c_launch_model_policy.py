@@ -6,8 +6,7 @@ from datetime import UTC, datetime
 import pytest
 
 from app.services.project_ai_launch_models import (
-    FREE_OLLAMA_GEMMA3,
-    FREE_OLLAMA_QWEN25_15B,
+    FREE_AIONEX_AI,
     LAUNCH_ENABLED_MODELS,
     LAUNCH_MODEL_POLICY_VERSION,
     OPENAI_DESIRED_CURRENT,
@@ -45,11 +44,11 @@ def _inventory(provider: str, model_ids: tuple[str, ...]) -> ProviderModelInvent
 def test_launch_policy_free_is_local_zero_cost_and_paid_is_current_reviewed_set() -> None:
     free = launch_models_for("free")
     paid = launch_models_for("paid")
-    assert [item.model for item in free] == ["aionex-ai", "qwen2.5:1.5b", "gemma3:4b"]
+    assert [item.model for item in free] == ["aionex-ai"]
     assert all(item.spec.local is True for item in free)
     assert all(item.spec.input_cost_per_million == item.spec.output_cost_per_million == 0 for item in free)
-    assert FREE_OLLAMA_QWEN25_15B.spec.concurrent_requests == 1
-    assert FREE_OLLAMA_QWEN25_15B.spec.requests_per_minute == 8
+    assert FREE_AIONEX_AI.spec.concurrent_requests == 4
+    assert FREE_AIONEX_AI.spec.requests_per_minute == 60
     assert {item.model for item in paid} == {
         "gpt-5.6-sol",
         "gpt-5.6-terra",
@@ -70,11 +69,9 @@ def test_reviewed_specs_match_current_provider_capability_and_pricing_policy() -
     assert PAID_DEEPSEEK_V4_PRO.spec.supports_tools is True
     assert PAID_DEEPSEEK_V4_PRO.spec.input_cost_per_million == 0.435
     assert PAID_DEEPSEEK_V4_PRO.spec.output_cost_per_million == 0.87
-    assert FREE_OLLAMA_GEMMA3.spec.max_context_tokens == 128_000
-    assert FREE_OLLAMA_GEMMA3.spec.supports_tools is False
-    assert FREE_OLLAMA_QWEN25_15B.spec.max_context_tokens == 4096
-    assert FREE_OLLAMA_QWEN25_15B.spec.supports_tools is False
-    assert FREE_OLLAMA_QWEN25_15B.spec.local is True
+    assert FREE_AIONEX_AI.spec.max_context_tokens == 32_768
+    assert FREE_AIONEX_AI.spec.supports_tools is False
+    assert FREE_AIONEX_AI.spec.local is True
     assert LAUNCH_MODEL_POLICY_VERSION == "phase36c-launch100-model-policy-v2"
     openai = {item.model: item for item in OPENAI_DESIRED_CURRENT}
     assert openai["gpt-5.6-sol"].spec.input_cost_per_million == 5.0

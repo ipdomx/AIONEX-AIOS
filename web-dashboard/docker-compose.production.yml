@@ -1220,7 +1220,7 @@ services:
     mem_limit: 512m
     cpus: "1.0"
     pids_limit: 128
-    command: ["pull", "gemma3:4b"]
+    command: ["list"]
     environment:
       OLLAMA_HOST: http://ollama:11434
     depends_on:
