@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import UserRecord, require_super_owner
 from app.db.base import get_db
 from app.db.models import AuditEvent, SecurityAccessGrant, SecurityTarget
-from app.services import security_fabric
+from app.services import security_entitlement, security_fabric
 
 router = APIRouter(prefix="/owner/security-lab", tags=["owner-security-lab"])
 
@@ -37,6 +37,19 @@ class ReleaseGatePolicy(BaseModel):
     require_backup_restore_evidence: bool | None = None
 
 
+class SubscriptionAccessPolicy(BaseModel):
+    """Owner-editable plan entitlement and per-subscriber usage limits."""
+
+    enabled: bool | None = None
+    entitlement: str | None = Field(default=None, min_length=1, max_length=120)
+    plan_codes: list[str] | None = Field(default=None, max_length=20)
+    max_verified_targets: int | None = Field(default=None, ge=0, le=1000)
+    max_scans_per_month: int | None = Field(default=None, ge=0, le=100000)
+    max_concurrent_scans: int | None = Field(default=None, ge=1, le=10)
+    reverify_after_days: int | None = Field(default=None, ge=1, le=365)
+    dns_timeout_seconds: int | None = Field(default=None, ge=1, le=15)
+
+
 class PolicyUpdate(BaseModel):
     enabled: bool | None = None
     managed_domain_suffixes: list[str] | None = Field(default=None, max_length=100)
@@ -48,6 +61,7 @@ class PolicyUpdate(BaseModel):
     auto_rule_candidates: bool | None = None
     auto_remediation_enabled: bool | None = None
     release_gate: ReleaseGatePolicy | None = None
+    subscription_access: SubscriptionAccessPolicy | None = None
 
 
 def grant_snapshot(grant: SecurityAccessGrant) -> dict[str, Any]:
@@ -87,8 +101,13 @@ async def snapshot(
             )
         ).all()
     )
+    policy = await security_fabric.get_policy(session)
+    entitled, basis = await security_entitlement.entitled_plans(
+        session, policy["subscription_access"]
+    )
     return {
-        "policy": await security_fabric.get_policy(session),
+        "policy": policy,
+        "subscription_entitlement": {"plan_codes": entitled, "basis": basis},
         "grants": [grant_snapshot(item) for item in grants],
         "targets": [security_fabric.target_snapshot(item) for item in targets],
     }

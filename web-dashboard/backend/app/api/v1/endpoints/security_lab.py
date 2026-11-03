@@ -1,25 +1,41 @@
-"""Entitlement-gated Security Lab API for authorized project targets."""
+"""Entitlement-gated Security Lab API for authorized project targets.
+
+Access: the Super Owner always; Owner ``SecurityAccessGrant`` overrides; and,
+automatically, subscribers whose active plan is entitled to website scanning
+(see ``app.services.security_entitlement``). Subscribers are scoped to their own
+external targets and bounded by usage limits. Reports a user already owns stay
+readable after access lapses; only new scans require current access.
+"""
 
 from __future__ import annotations
 
-from typing import Literal
+from collections import Counter
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import UserRecord, current_user
 from app.db.base import get_db
 from app.db.models import SecurityFinding, SecurityScan, SecurityTarget
-from app.services import security_fabric, security_scanning
+from app.services import (
+    security_dns_verification,
+    security_entitlement,
+    security_fabric,
+    security_scanning,
+)
 from app.services.host_maintenance_scan_admission import require_scan_admission
 from app.services.host_maintenance_admission import (
     HostMaintenanceClosed,
     HostMaintenanceUnavailable,
 )
+from app.services.security_entitlement import SecurityAccess, SecurityLabError
 
 router = APIRouter()
+
+SEVERITY_ORDER = ("critical", "high", "medium", "low", "info")
 
 
 class ManagedTargetRequest(BaseModel):
@@ -34,6 +50,7 @@ class ExternalTargetRequest(BaseModel):
 
 class ExternalVerifyRequest(BaseModel):
     challenge: str = Field(min_length=20, max_length=300)
+    method: Literal["http_file", "dns_txt"] = "http_file"
 
 
 class ScanRequest(BaseModel):
@@ -41,14 +58,28 @@ class ScanRequest(BaseModel):
     profile: Literal["passive", "standard", "advanced", "elite"] = "passive"
 
 
-async def _require_access(session: AsyncSession, actor: UserRecord) -> str:
-    level = await security_fabric.access_level(session, actor)
-    if level is None:
-        raise HTTPException(
-            status_code=403,
-            detail="Security Lab access is controlled by the Super Owner",
-        )
-    return level
+def _lab_error(exc: SecurityLabError) -> HTTPException:
+    return HTTPException(status_code=exc.status_code, detail=exc.detail())
+
+
+async def _resolve(session: AsyncSession, actor: UserRecord) -> SecurityAccess:
+    return await security_entitlement.resolve_access(session, actor)
+
+
+async def _require_access(session: AsyncSession, actor: UserRecord) -> SecurityAccess:
+    access = await _resolve(session, actor)
+    if access.level is None:
+        raise _lab_error(access.plan_required())
+    return access
+
+
+def _own_targets(stmt: Any, access: SecurityAccess, actor: UserRecord) -> Any:
+    if security_entitlement.privileged_inventory(access, actor):
+        return stmt
+    return stmt.where(
+        SecurityTarget.created_by_id == actor.id,
+        SecurityTarget.kind == "external_authorized",
+    )
 
 
 @router.get("/access")
@@ -56,17 +87,43 @@ async def access(
     actor: UserRecord = Depends(current_user), session: AsyncSession = Depends(get_db)
 ):
     policy = await security_fabric.get_policy(session)
-    level = await security_fabric.access_level(session, actor)
+    decision = await security_entitlement.resolve_access(session, actor, policy=policy)
+    settings = policy["subscription_access"]
+    reports = int(
+        await session.scalar(
+            select(func.count(SecurityScan.id)).where(
+                SecurityScan.organization_id == actor.organization_id,
+                SecurityScan.requested_by_id == actor.id,
+            )
+        )
+        or 0
+    )
+    denial = None
+    if not policy["enabled"]:
+        denial = security_entitlement.LAB_DISABLED
+    elif decision.level is None:
+        denial = security_entitlement.PLAN_REQUIRED
     return {
         "enabled": bool(policy["enabled"]),
-        "granted": level is not None,
-        "level": level,
-        "profiles": [
-            profile
-            for profile in security_fabric.PROFILE_RANK
-            if security_fabric.profile_allowed(level, profile)
-        ],
+        "granted": decision.level is not None,
+        "level": decision.level,
+        "source": decision.source,
+        "profiles": decision.profiles(),
         "deep_validation_requires_clone": policy["deep_validation_requires_clone"],
+        "denial_code": denial,
+        "upgrade_required": denial == security_entitlement.PLAN_REQUIRED,
+        "plan_code": decision.plan_code,
+        "entitled_plans": list(decision.entitled_plan_codes),
+        "limits": security_entitlement.limits(decision),
+        "usage": await security_entitlement.usage(session, actor),
+        "reports_available": reports > 0,
+        "verification": {
+            "methods": list(security_fabric.VERIFICATION_METHODS),
+            "http_file_path": security_fabric.HTTP_VERIFICATION_PATH,
+            "dns_record_prefix": security_dns_verification.DNS_RECORD_PREFIX,
+            "dns_value_prefix": security_dns_verification.DNS_VALUE_PREFIX,
+            "reverify_after_days": settings["reverify_after_days"],
+        },
     }
 
 
@@ -84,16 +141,19 @@ async def tools(
 async def targets(
     actor: UserRecord = Depends(current_user), session: AsyncSession = Depends(get_db)
 ):
-    await _require_access(session, actor)
+    # Readable without current access so lapsed subscribers keep their history;
+    # non-privileged callers only ever see targets they registered themselves.
+    access = await _resolve(session, actor)
+    stmt = select(SecurityTarget).where(
+        SecurityTarget.organization_id == actor.organization_id,
+        SecurityTarget.status == "active",
+    )
     rows = list(
         (
             await session.scalars(
-                select(SecurityTarget)
-                .where(
-                    SecurityTarget.organization_id == actor.organization_id,
-                    SecurityTarget.status == "active",
+                _own_targets(stmt, access, actor).order_by(
+                    SecurityTarget.updated_at.desc()
                 )
-                .order_by(SecurityTarget.updated_at.desc())
             )
         ).all()
     )
@@ -131,8 +191,26 @@ async def external_target(
     actor: UserRecord = Depends(current_user),
     session: AsyncSession = Depends(get_db),
 ):
-    await _require_access(session, actor)
+    access = await _require_access(session, actor)
     try:
+        normalized, _hostname = security_fabric.normalize_origin(data.origin)
+        if access.is_subscriber:
+            existing = await session.scalar(
+                select(SecurityTarget).where(
+                    SecurityTarget.organization_id == actor.organization_id,
+                    SecurityTarget.origin == normalized,
+                    SecurityTarget.status == "active",
+                )
+            )
+            if existing is not None and not security_entitlement.subscriber_owns_target(
+                access, actor, existing
+            ):
+                raise ValueError(
+                    "This website is already registered by another account in your organization"
+                )
+            await security_entitlement.enforce_target_limit(
+                session, access, actor, origin=normalized
+            )
         target, challenge = await security_fabric.register_external_target(
             session, actor, origin=data.origin
         )
@@ -140,12 +218,13 @@ async def external_target(
         await session.refresh(target)
         return {
             **security_fabric.target_snapshot(target),
-            "verification": {
-                "method": "http_file",
-                "path": "/.well-known/aionex-security-verification.txt",
-                "challenge": challenge,
-            },
+            "verification": security_fabric.verification_instructions(
+                target, challenge
+            ),
         }
+    except SecurityLabError as exc:
+        await session.rollback()
+        raise _lab_error(exc) from exc
     except ValueError as exc:
         await session.rollback()
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -158,7 +237,7 @@ async def verify_target(
     actor: UserRecord = Depends(current_user),
     session: AsyncSession = Depends(get_db),
 ):
-    await _require_access(session, actor)
+    access = await _require_access(session, actor)
     target = await session.scalar(
         select(SecurityTarget)
         .where(
@@ -167,21 +246,80 @@ async def verify_target(
         )
         .with_for_update()
     )
-    if target is None:
+    if target is None or not security_entitlement.subscriber_owns_target(
+        access, actor, target
+    ):
         raise HTTPException(status_code=404, detail="Security target not found")
     try:
+        if target.authorization_status != "verified":
+            await security_entitlement.enforce_target_limit(
+                session, access, actor, verifying=True
+            )
         await security_fabric.verify_external_target(
-            session, actor, target, challenge=data.challenge
+            session, actor, target, challenge=data.challenge, method=data.method
         )
         await session.commit()
         await session.refresh(target)
         return security_fabric.target_snapshot(target)
+    except SecurityLabError as exc:
+        await session.rollback()
+        raise _lab_error(exc) from exc
+    except security_dns_verification.DnsVerificationError as exc:
+        await session.rollback()
+        raise HTTPException(
+            status_code=422, detail={"code": exc.code, "message": str(exc)}
+        ) from exc
     except PermissionError as exc:
         await session.rollback()
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
         await session.rollback()
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.delete("/targets/{target_id}")
+async def archive_target(
+    target_id: str,
+    actor: UserRecord = Depends(current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    # Removing a site frees a subscriber's target allowance; it needs no current
+    # entitlement, only ownership. Scans and findings stay readable.
+    target = await session.scalar(
+        select(SecurityTarget)
+        .where(
+            SecurityTarget.id == target_id,
+            SecurityTarget.organization_id == actor.organization_id,
+            SecurityTarget.status == "active",
+        )
+        .with_for_update()
+    )
+    if target is None or (
+        actor.role != "Super Owner"
+        and (target.kind != "external_authorized" or target.created_by_id != actor.id)
+    ):
+        raise HTTPException(status_code=404, detail="Security target not found")
+    active = int(
+        await session.scalar(
+            select(func.count(SecurityScan.id)).where(
+                SecurityScan.target_id == target.id,
+                SecurityScan.status.in_(security_scanning.ACTIVE_SCAN_STATES),
+            )
+        )
+        or 0
+    )
+    if active:
+        raise HTTPException(
+            status_code=409, detail="Cancel the running scan before removing this site"
+        )
+    target.status = "archived"
+    target.authorization_status = "revoked"
+    target.active_scan_allowed = False
+    target.challenge_hash = None
+    target.revoked_at = security_fabric.now()
+    await session.commit()
+    await session.refresh(target)
+    return security_fabric.target_snapshot(target)
 
 
 @router.post("/scans", status_code=status.HTTP_202_ACCEPTED)
@@ -209,6 +347,9 @@ async def create_scan(
             status_code=503,
             detail="Security scan admission is currently unavailable.",
         ) from None
+    except SecurityLabError as exc:
+        await session.rollback()
+        raise _lab_error(exc) from exc
     except PermissionError as exc:
         await session.rollback()
         raise HTTPException(status_code=403, detail=str(exc)) from exc
@@ -229,7 +370,8 @@ async def scans(
     actor: UserRecord = Depends(current_user),
     session: AsyncSession = Depends(get_db),
 ):
-    await _require_access(session, actor)
+    # Past reports stay readable after a subscription lapses: the requester
+    # filter below, not current entitlement, authorizes reading history.
     stmt = select(SecurityScan).where(
         SecurityScan.organization_id == actor.organization_id
     )
@@ -245,13 +387,9 @@ async def scans(
     return [security_scanning.scan_snapshot(item) for item in rows]
 
 
-@router.get("/scans/{scan_id}/findings")
-async def findings(
-    scan_id: str,
-    actor: UserRecord = Depends(current_user),
-    session: AsyncSession = Depends(get_db),
-):
-    await _require_access(session, actor)
+async def _owned_scan(
+    session: AsyncSession, actor: UserRecord, scan_id: str
+) -> SecurityScan:
     scan = await session.scalar(
         select(SecurityScan).where(
             SecurityScan.id == scan_id,
@@ -262,7 +400,13 @@ async def findings(
         actor.role != "Super Owner" and scan.requested_by_id != actor.id
     ):
         raise HTTPException(status_code=404, detail="Security scan not found")
-    rows = list(
+    return scan
+
+
+async def _scan_findings(
+    session: AsyncSession, scan: SecurityScan
+) -> list[SecurityFinding]:
+    return list(
         (
             await session.scalars(
                 select(SecurityFinding)
@@ -271,7 +415,52 @@ async def findings(
             )
         ).all()
     )
+
+
+@router.get("/scans/{scan_id}/findings")
+async def findings(
+    scan_id: str,
+    actor: UserRecord = Depends(current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    scan = await _owned_scan(session, actor, scan_id)
+    rows = await _scan_findings(session, scan)
     return [security_scanning.finding_snapshot(item) for item in rows]
+
+
+@router.get("/scans/{scan_id}/report")
+async def scan_report(
+    scan_id: str,
+    actor: UserRecord = Depends(current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    """Printable report: the scan, its target and findings grouped by severity."""
+
+    scan = await _owned_scan(session, actor, scan_id)
+    target = await session.get(SecurityTarget, scan.target_id)
+    rows = [security_scanning.finding_snapshot(item) for item in await _scan_findings(session, scan)]
+    grouped: dict[str, list[dict[str, Any]]] = {key: [] for key in SEVERITY_ORDER}
+    for item in rows:
+        severity = str(item.get("severity") or "info").lower()
+        grouped.setdefault(severity if severity in grouped else "info", []).append(item)
+    counts = Counter({key: len(value) for key, value in grouped.items()})
+    return {
+        "scan": security_scanning.scan_snapshot(scan),
+        "target": (
+            {
+                "id": target.id,
+                "origin": target.origin,
+                "hostname": target.hostname,
+                "verification_method": target.verification_method,
+                "verified_at": target.verified_at.isoformat() if target.verified_at else None,
+            }
+            if target is not None
+            else None
+        ),
+        "severity_counts": {key: counts.get(key, 0) for key in SEVERITY_ORDER},
+        "findings_by_severity": grouped,
+        "generated_at": security_fabric.now().isoformat(),
+    }
 
 
 @router.post("/scans/{scan_id}/cancel", status_code=status.HTTP_202_ACCEPTED)
@@ -460,6 +649,9 @@ async def remediation_retest(
             status_code=503,
             detail="Security scan admission is currently unavailable.",
         ) from None
+    except SecurityLabError as exc:
+        await session.rollback()
+        raise _lab_error(exc) from exc
     except PermissionError as exc:
         await session.rollback()
         raise HTTPException(status_code=403, detail=str(exc)) from exc

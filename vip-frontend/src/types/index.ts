@@ -207,7 +207,25 @@ export type SecurityAccessLevel =
   | "advanced"
   | "elite"
   | "autonomous"
-  | "owner";
+  | "owner"
+  | "subscriber";
+
+export type SecurityVerificationMethod = "http_file" | "dns_txt";
+
+export interface SecurityLabLimits {
+  max_verified_targets: number;
+  max_scans_per_month: number;
+  max_concurrent_scans: number;
+}
+
+export interface SecurityLabUsage {
+  targets: number;
+  verified_targets: number;
+  scans_this_month: number;
+  active_scans: number;
+  period_start: string;
+  period_end: string;
+}
 
 export interface SecurityLabAccess {
   enabled: boolean;
@@ -215,6 +233,58 @@ export interface SecurityLabAccess {
   level: SecurityAccessLevel | null;
   profiles: SecurityProfile[];
   deep_validation_requires_clone: boolean;
+  source?: "owner" | "grant" | "subscription" | null;
+  denial_code?: string | null;
+  upgrade_required?: boolean;
+  plan_code?: string | null;
+  entitled_plans?: string[];
+  limits?: SecurityLabLimits | null;
+  usage?: SecurityLabUsage;
+  reports_available?: boolean;
+  verification?: {
+    methods: SecurityVerificationMethod[];
+    http_file_path: string;
+    dns_record_prefix: string;
+    dns_value_prefix: string;
+    reverify_after_days: number;
+  };
+}
+
+export interface SecurityVerificationInstructions {
+  method: string;
+  path: string;
+  url?: string;
+  challenge: string;
+  methods?: {
+    http_file: {
+      method: "http_file";
+      available: boolean;
+      path: string;
+      url: string;
+      content: string;
+    };
+    dns_txt: {
+      method: "dns_txt";
+      available: boolean;
+      record_name: string | null;
+      record_type: "TXT";
+      record_value: string;
+    };
+  };
+}
+
+export interface SecurityScanReport {
+  scan: SecurityScanRecord;
+  target: {
+    id: string;
+    origin: string;
+    hostname: string;
+    verification_method: string;
+    verified_at: string | null;
+  } | null;
+  severity_counts: Record<string, number>;
+  findings_by_severity: Record<string, SecurityFindingRecord[]>;
+  generated_at: string;
 }
 
 export interface SecurityTool {

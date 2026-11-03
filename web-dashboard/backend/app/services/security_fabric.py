@@ -6,7 +6,7 @@ import hashlib
 import ipaddress
 import secrets
 import socket
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -36,6 +36,26 @@ LEVEL_MAX_PROFILE = {
     "elite": "elite",
     "autonomous": "elite",
     "owner": "elite",
+    # Automatic access from an active top-plan subscription. Advanced/Elite
+    # remain Owner-granted because they require an isolated security clone.
+    "subscriber": "standard",
+}
+VERIFICATION_METHODS = ("http_file", "dns_txt")
+HTTP_VERIFICATION_PATH = "/.well-known/aionex-security-verification.txt"
+SUBSCRIPTION_ACCESS_DEFAULTS: dict[str, Any] = {
+    # Subscribers on an entitled plan get scanning automatically. A plan is
+    # entitled when its code is listed in ``plan_codes``; when that list is
+    # empty, when it carries the ``entitlement`` flag in the billing catalogue;
+    # and when no active plan carries the flag, the top-ranked active plan
+    # (highest monthly price) is entitled.
+    "enabled": True,
+    "entitlement": "security.web_scanning",
+    "plan_codes": [],
+    "max_verified_targets": 3,
+    "max_scans_per_month": 20,
+    "max_concurrent_scans": 1,
+    "reverify_after_days": 30,
+    "dns_timeout_seconds": 5,
 }
 DEFAULT_POLICY: dict[str, Any] = {
     "enabled": True,
@@ -55,6 +75,7 @@ DEFAULT_POLICY: dict[str, Any] = {
         "require_security_headers": True,
         "require_backup_restore_evidence": True,
     },
+    "subscription_access": dict(SUBSCRIPTION_ACCESS_DEFAULTS),
 }
 
 
@@ -171,8 +192,54 @@ async def get_policy(
         **DEFAULT_POLICY["release_gate"],
         **dict(policy.get("release_gate") or {}),
     }
+    policy["subscription_access"] = normalize_subscription_access(
+        dict(policy.get("subscription_access") or {})
+    )
     policy["enabled"] = bool(record.enabled and policy.get("enabled", True))
     return policy
+
+
+def _bounded_int(value: Any, default: int, low: int, high: int) -> int:
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(low, min(high, number))
+
+
+def normalize_subscription_access(raw: dict[str, Any]) -> dict[str, Any]:
+    merged = {**SUBSCRIPTION_ACCESS_DEFAULTS, **raw}
+    codes = sorted(
+        {
+            str(value).strip().lower().replace("_", "-").replace(" ", "-")
+            for value in list(merged.get("plan_codes") or [])
+            if str(value).strip()
+        }
+    )
+    if len(codes) > 20:
+        raise ValueError("Too many Security Lab subscription plan codes")
+    entitlement = str(merged.get("entitlement") or "").strip()
+    defaults = SUBSCRIPTION_ACCESS_DEFAULTS
+    return {
+        "enabled": bool(merged.get("enabled", True)),
+        "entitlement": entitlement[:120] or defaults["entitlement"],
+        "plan_codes": codes,
+        "max_verified_targets": _bounded_int(
+            merged.get("max_verified_targets"), defaults["max_verified_targets"], 0, 1000
+        ),
+        "max_scans_per_month": _bounded_int(
+            merged.get("max_scans_per_month"), defaults["max_scans_per_month"], 0, 100000
+        ),
+        "max_concurrent_scans": _bounded_int(
+            merged.get("max_concurrent_scans"), defaults["max_concurrent_scans"], 1, 10
+        ),
+        "reverify_after_days": _bounded_int(
+            merged.get("reverify_after_days"), defaults["reverify_after_days"], 1, 365
+        ),
+        "dns_timeout_seconds": _bounded_int(
+            merged.get("dns_timeout_seconds"), defaults["dns_timeout_seconds"], 1, 15
+        ),
+    }
 
 
 async def update_policy(
@@ -195,6 +262,13 @@ async def update_policy(
             **current["release_gate"],
             **dict(updates["release_gate"]),
         }
+    if "subscription_access" in updates:
+        merged["subscription_access"] = normalize_subscription_access(
+            {
+                **current["subscription_access"],
+                **dict(updates["subscription_access"]),
+            }
+        )
     suffixes = [
         str(value).lower().strip().lstrip(".")
         for value in merged.get("managed_domain_suffixes", [])
@@ -565,17 +639,88 @@ async def register_external_target(
         )
         session.add(target)
     else:
+        if target.status != "active":
+            # An archived origin re-enters the inventory under the actor that
+            # re-registers it and must prove ownership again.
+            target.created_by_id = actor.id
+            target.status = "active"
         target.authorization_status = "pending"
         target.challenge_hash = digest
         target.active_scan_allowed = False
         target.verified_at = None
         target.revoked_at = None
-        target.target_metadata = {
-            **dict(target.target_metadata or {}),
-            "verified_addresses": addresses,
-        }
+        metadata = dict(target.target_metadata or {})
+        metadata.pop("verification", None)
+        target.target_metadata = {**metadata, "verified_addresses": addresses}
     await session.flush()
     return target, raw_challenge
+
+
+def verification_instructions(target: SecurityTarget, challenge: str) -> dict[str, Any]:
+    from app.services import security_dns_verification as dns_verification
+
+    return {
+        # ``method``/``path``/``challenge`` keep the original response shape.
+        "method": "http_file",
+        "path": HTTP_VERIFICATION_PATH,
+        "url": target.origin.rstrip("/") + HTTP_VERIFICATION_PATH,
+        "challenge": challenge,
+        "methods": {
+            "http_file": {
+                "method": "http_file",
+                "available": True,
+                "path": HTTP_VERIFICATION_PATH,
+                "url": target.origin.rstrip("/") + HTTP_VERIFICATION_PATH,
+                "content": challenge,
+            },
+            "dns_txt": dns_verification.instructions(target.hostname, challenge),
+        },
+    }
+
+
+async def _http_file_value(target: SecurityTarget) -> str | None:
+    url = target.origin.rstrip("/") + HTTP_VERIFICATION_PATH
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as client:
+        response = await client.get(
+            url, headers={"User-Agent": "AIONEX-Security-Verification/1.0"}
+        )
+    if response.status_code != 200:
+        return None
+    return response.text.strip()
+
+
+async def _confirm_ownership(
+    target: SecurityTarget,
+    *,
+    method: str,
+    matches: Any,
+    dns_timeout: float,
+) -> list[str]:
+    """Fetch the published proof for ``method`` and test it with ``matches``.
+
+    The target hostname must still resolve only to public addresses before any
+    proof is fetched, so DNS TXT verification never weakens the SSRF guard.
+    """
+
+    from app.services import security_dns_verification as dns_verification
+
+    if method not in VERIFICATION_METHODS:
+        raise ValueError("Unsupported verification method")
+    addresses = assert_public_target(target.hostname)
+    if method == "dns_txt":
+        tokens = await dns_verification.lookup_tokens(
+            target.hostname, timeout=dns_timeout
+        )
+        if not any(matches(token) for token in tokens):
+            raise dns_verification.DnsVerificationError(
+                "DNS TXT verification record was not found for "
+                + dns_verification.record_name(target.hostname)
+            )
+        return addresses
+    value = await _http_file_value(target)
+    if value is None or not matches(value):
+        raise ValueError("External target verification file was not confirmed")
+    return addresses
 
 
 async def verify_external_target(
@@ -584,30 +729,39 @@ async def verify_external_target(
     target: SecurityTarget,
     *,
     challenge: str,
+    method: str = "http_file",
 ) -> SecurityTarget:
     if (
         target.organization_id != actor.organization_id
         or target.kind != "external_authorized"
     ):
         raise PermissionError("External target is not available")
-    if target.challenge_hash != hashlib.sha256(challenge.encode()).hexdigest():
+    digest = hashlib.sha256(challenge.encode()).hexdigest()
+    if target.challenge_hash != digest:
         raise ValueError("Verification challenge does not match")
-    current_addresses = assert_public_target(target.hostname)
-    url = target.origin.rstrip("/") + "/.well-known/aionex-security-verification.txt"
-    async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as client:
-        response = await client.get(
-            url, headers={"User-Agent": "AIONEX-Security-Verification/1.0"}
-        )
-    if response.status_code != 200 or response.text.strip() != challenge:
-        raise ValueError("External target verification file was not confirmed")
     policy = await get_policy(session)
+    current_addresses = await _confirm_ownership(
+        target,
+        method=method,
+        matches=lambda value: value == challenge,
+        dns_timeout=float(policy["subscription_access"]["dns_timeout_seconds"]),
+    )
+    verified_at = now()
     target.authorization_status = "verified"
+    target.verification_method = method
     target.verified_by_id = actor.id
-    target.verified_at = now()
+    target.verified_at = verified_at
     target.active_scan_allowed = bool(policy["active_on_verified_targets"])
     target.target_metadata = {
         **dict(target.target_metadata or {}),
         "verified_addresses": current_addresses,
+        # Only the digest is retained so ownership can be re-proven later
+        # without storing the bearer challenge itself.
+        "verification": {
+            "method": method,
+            "challenge_sha256": digest,
+            "verified_at": verified_at.isoformat(),
+        },
     }
     target.challenge_hash = None
     session.add(
@@ -617,10 +771,67 @@ async def verify_external_target(
             action="security.target.verified",
             resource_type="security_target",
             resource_id=target.id,
-            details={"hostname": target.hostname, "method": target.verification_method},
+            details={"hostname": target.hostname, "method": method},
         )
     )
     return target
+
+
+def verification_is_stale(
+    target: SecurityTarget, *, max_age_days: int, moment: datetime | None = None
+) -> bool:
+    if target.kind != "external_authorized":
+        return False
+    verified_at = target.verified_at
+    if verified_at is None:
+        return True
+    if verified_at.tzinfo is None:
+        verified_at = verified_at.replace(tzinfo=UTC)
+    return (moment or now()) - verified_at > timedelta(days=max(1, int(max_age_days)))
+
+
+async def reverify_external_target(
+    session: AsyncSession, target: SecurityTarget
+) -> SecurityTarget:
+    """Re-prove ownership of a previously verified external target.
+
+    Raises ``ValueError`` (or a DNS verification error) when the published proof
+    is gone; callers must then refuse the scan without persisting anything.
+    """
+
+    metadata = dict(target.target_metadata or {})
+    record = dict(metadata.get("verification") or {})
+    digest = str(record.get("challenge_sha256") or "")
+    method = str(record.get("method") or target.verification_method or "http_file")
+    if len(digest) != 64 or method not in VERIFICATION_METHODS:
+        raise ValueError(
+            "Target verification has expired; register the target again to re-verify ownership"
+        )
+    policy = await get_policy(session)
+    await _confirm_ownership(
+        target,
+        method=method,
+        matches=lambda value: hashlib.sha256(value.encode()).hexdigest() == digest,
+        dns_timeout=float(policy["subscription_access"]["dns_timeout_seconds"]),
+    )
+    verified_at = now()
+    target.verified_at = verified_at
+    target.target_metadata = {
+        **metadata,
+        "verification": {**record, "reverified_at": verified_at.isoformat()},
+    }
+    return target
+
+
+def _public_metadata(raw: dict[str, Any] | None) -> dict[str, Any]:
+    metadata = dict(raw or {})
+    if isinstance(metadata.get("verification"), dict):
+        metadata["verification"] = {
+            key: value
+            for key, value in metadata["verification"].items()
+            if key != "challenge_sha256"
+        }
+    return metadata
 
 
 def target_snapshot(target: SecurityTarget) -> dict[str, Any]:
@@ -634,6 +845,6 @@ def target_snapshot(target: SecurityTarget) -> dict[str, Any]:
         "verification_method": target.verification_method,
         "active_scan_allowed": target.active_scan_allowed,
         "status": target.status,
-        "metadata": target.target_metadata,
+        "metadata": _public_metadata(target.target_metadata),
         "verified_at": target.verified_at.isoformat() if target.verified_at else None,
     }
