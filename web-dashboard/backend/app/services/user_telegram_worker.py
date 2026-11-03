@@ -37,11 +37,13 @@ from app.services.host_maintenance_telegram import (
 )
 from app.services import user_telegram_auth
 from app.services.telegram_worker import (
+    POLL_FAILURE_WARNING_THRESHOLD,
     TelegramBotAPI,
     TelegramInboundMessage,
     TelegramWorkerError,
     load_bot_token,
     parse_inbound_message,
+    poll_backoff_seconds,
 )
 
 logger = get_logger(__name__)
@@ -80,6 +82,7 @@ class UserTelegramWorker:
 
         self._write_health("running", offset=offset)
         while not self.stop_event.is_set():
+            long_polling = False
             try:
                 if not identity_recorded:
                     identity_recorded = await run_telegram_action(
@@ -93,9 +96,11 @@ class UserTelegramWorker:
                     self._write_health("running", offset=offset)
                     await wait_for_telegram_admission(self.stop_event)
                     continue
+                long_polling = True
                 updates = await self.api.get_updates(
                     offset, settings.AIOS_USER_TELEGRAM_LONG_POLL_SECONDS,
                 )
+                long_polling = False
                 if self.stop_event.is_set():
                     break
                 accepted = await run_telegram_action(lambda: consume(updates), consumer="user")
@@ -106,13 +111,30 @@ class UserTelegramWorker:
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
+                if (
+                    long_polling
+                    and isinstance(exc, TelegramWorkerError)
+                    and exc.code == "telegram_read_timeout"
+                ):
+                    # An idle long poll timing out is normal; poll again quietly.
+                    logger.debug("User Telegram long poll read timeout")
+                    self._write_health("running", offset=offset)
+                    continue
                 self.errors += 1
-                logger.warning(
+                # Transient Telegram failures warn only after N in a row;
+                # anything else (database, programming errors) warns at once.
+                log = (
+                    logger.warning
+                    if self.errors >= POLL_FAILURE_WARNING_THRESHOLD
+                    or not isinstance(exc, TelegramWorkerError)
+                    else logger.debug
+                )
+                log(
                     "User Telegram polling iteration failed",
                     error_type=type(exc).__name__, consecutive_errors=self.errors,
                 )
                 self._write_health("running", offset=offset)
-                await asyncio.sleep(min(30, max(1, 2 ** min(self.errors, 5))))
+                await asyncio.sleep(poll_backoff_seconds(self.errors, maximum=30.0))
 
     async def _record_bot_identity(self) -> None:
         result = await self.api._call("getMe", {})
