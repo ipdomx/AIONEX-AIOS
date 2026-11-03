@@ -92,7 +92,7 @@ async def test_free_consumer_resolves_platform_ollama_without_copying_provider_c
         assert access.access_class == "free"
         assert access.policy.provider_scope_organization_id == "aionex-org"
         assert access.policy.allowed_providers == frozenset({"ollama"})
-        assert access.policy.allowed_provider_models == frozenset({"ollama:qwen2.5:1.5b"})
+        assert access.policy.allowed_provider_models == frozenset({"ollama:aionex-ai"})
         assert access.policy.max_total_estimated_cost_usd == 0
 
 
