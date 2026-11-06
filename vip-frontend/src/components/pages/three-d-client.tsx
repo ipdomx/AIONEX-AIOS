@@ -132,7 +132,6 @@ export function ThreeDClient() {
   const [links, setLinks] = useState<ThreeDArtifactLinks | null>(null);
   const [linksError, setLinksError] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState("");
   const [clarificationFile, setClarificationFile] = useState<File | null>(null);
   const [textureSize, setTextureSize] = useState(1024);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -428,16 +427,6 @@ export function ThreeDClient() {
       cancelled = true;
     };
   }, [describeError, projectId, selectedJobId, selectedReady]);
-
-  useEffect(() => {
-    if (!file) {
-      setPreviewUrl("");
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
 
   function validateFile(value: File | null): value is File {
     if (!value || !access) return false;
@@ -803,13 +792,10 @@ export function ThreeDClient() {
                   <p id="three-d-image-hint" className="mt-2 text-xs text-white/40">
                     {t("create.imageHint", { max: access.max_input_megabytes })}
                   </p>
-                  {previewUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={previewUrl}
-                      alt={t("create.previewAlt")}
-                      className="mt-3 h-32 w-32 rounded-xl border border-white/[0.08] object-cover"
-                    />
+                  {file && (
+                    <p className="mt-2 break-all text-xs text-white/60" role="status">
+                      {t("create.selected", { name: file.name })} · <span dir="ltr">{formatBytes(file.size)}</span>
+                    </p>
                   )}
                 </div>
 

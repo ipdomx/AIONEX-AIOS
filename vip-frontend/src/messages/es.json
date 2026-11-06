@@ -1331,7 +1331,7 @@
       "body": "Para obtener el mejor resultado, sube una foto nítida de un solo objeto sobre un fondo liso.",
       "imageLabel": "Imagen de origen",
       "imageHint": "PNG, JPEG o WebP, hasta {max} MB.",
-      "previewAlt": "Imagen de origen seleccionada",
+      "selected": "Seleccionado: {name}",
       "textureLabel": "Resolución de texturas",
       "outputLabel": "Salida:",
       "outputValue": "GLB (glTF binario con texturas PBR)",

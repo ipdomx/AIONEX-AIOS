@@ -1331,7 +1331,7 @@
       "body": "Pour un meilleur résultat, importez une photo nette d'un seul objet sur un fond uni.",
       "imageLabel": "Image source",
       "imageHint": "PNG, JPEG ou WebP, jusqu'à {max} Mo.",
-      "previewAlt": "Image source sélectionnée",
+      "selected": "Sélectionné : {name}",
       "textureLabel": "Résolution des textures",
       "outputLabel": "Sortie :",
       "outputValue": "GLB (glTF binaire avec textures PBR)",

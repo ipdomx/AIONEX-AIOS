@@ -1331,7 +1331,7 @@
       "body": "Laden Sie für das beste Ergebnis ein klares Foto eines einzelnen Objekts vor einfachem Hintergrund hoch.",
       "imageLabel": "Quellbild",
       "imageHint": "PNG, JPEG oder WebP, bis zu {max} MB.",
-      "previewAlt": "Ausgewähltes Quellbild",
+      "selected": "Ausgewählt: {name}",
       "textureLabel": "Texturauflösung",
       "outputLabel": "Ausgabe:",
       "outputValue": "GLB (binäres glTF mit PBR-Texturen)",

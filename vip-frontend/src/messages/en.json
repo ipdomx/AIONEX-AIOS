@@ -1331,7 +1331,7 @@
       "body": "Upload one clear photo of a single object on a plain background for the best result.",
       "imageLabel": "Source image",
       "imageHint": "PNG, JPEG or WebP, up to {max} MB.",
-      "previewAlt": "Selected source image",
+      "selected": "Selected: {name}",
       "textureLabel": "Texture resolution",
       "outputLabel": "Output:",
       "outputValue": "GLB (binary glTF with PBR textures)",

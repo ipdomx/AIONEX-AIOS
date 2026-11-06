@@ -1331,7 +1331,7 @@
       "body": "En iyi sonuç için düz bir arka plan üzerinde tek bir nesnenin net fotoğrafını yükleyin.",
       "imageLabel": "Kaynak görsel",
       "imageHint": "PNG, JPEG veya WebP, en fazla {max} MB.",
-      "previewAlt": "Seçilen kaynak görsel",
+      "selected": "Seçilen: {name}",
       "textureLabel": "Doku çözünürlüğü",
       "outputLabel": "Çıktı:",
       "outputValue": "GLB (PBR dokulu ikili glTF)",

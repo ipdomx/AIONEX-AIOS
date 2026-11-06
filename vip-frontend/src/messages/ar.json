@@ -1331,7 +1331,7 @@
       "body": "للحصول على أفضل نتيجة، ارفع صورة واضحة لمجسّم واحد على خلفية بسيطة.",
       "imageLabel": "الصورة المصدر",
       "imageHint": "PNG أو JPEG أو WebP، بحد أقصى {max} ميغابايت.",
-      "previewAlt": "الصورة المصدر المختارة",
+      "selected": "الملف المختار: {name}",
       "textureLabel": "دقة الخامات",
       "outputLabel": "المخرجات:",
       "outputValue": "GLB (glTF ثنائي مع خامات PBR)",
