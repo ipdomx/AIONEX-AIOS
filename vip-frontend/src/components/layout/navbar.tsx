@@ -5,6 +5,7 @@ import {
   Box,
   CalendarDays,
   CreditCard,
+  Inbox,
   LayoutDashboard,
   LifeBuoy,
   Megaphone,
@@ -248,6 +249,14 @@ export function Navbar() {
                 <CalendarDays className="h-4 w-4" aria-hidden="true" />
                 {t("socialCalendar")}
               </Link>
+              <Link
+                href={`/${locale}/social/inbox`}
+                className="nav-link inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm"
+                data-active={isActive(`/${locale}/social/inbox`) ? "true" : undefined}
+              >
+                <Inbox className="h-4 w-4" aria-hidden="true" />
+                {t("socialInbox")}
+              </Link>
               {campaignsVisible && (
                 <Link
                   href={`/${locale}/campaigns`}
@@ -414,6 +423,14 @@ export function Navbar() {
                   data-active={isActive(`/${locale}/social/calendar`) ? "true" : undefined}
                 >
                   {t("socialCalendar")}
+                </Link>
+                <Link
+                  href={`/${locale}/social/inbox`}
+                  onClick={() => setOpen(false)}
+                  className="nav-link rounded-xl px-4 py-3 text-sm hover:bg-white/[0.06]"
+                  data-active={isActive(`/${locale}/social/inbox`) ? "true" : undefined}
+                >
+                  {t("socialInbox")}
                 </Link>
                 {campaignsVisible && (
                   <Link

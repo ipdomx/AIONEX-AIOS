@@ -43,7 +43,9 @@
     "socialComposeTitle": "Gönderi oluştur",
     "socialComposeDescription": "Bir kez yazın, Facebook Sayfalarınızda ve Instagram hesaplarınızda yayınlayın.",
     "socialCalendarTitle": "İçerik takvimi",
-    "socialCalendarDescription": "Zamanlanmış ve yayınlanmış gönderiler, hesap bazlı sonuçlarla."
+    "socialCalendarDescription": "Zamanlanmış ve yayınlanmış gönderiler, hesap bazlı sonuçlarla.",
+    "socialInboxTitle": "Birleşik gelen kutusu",
+    "socialInboxDescription": "Facebook ve Instagram yorumları, Messenger ve Instagram Direct mesajları tek bir yerde."
   },
   "nav": {
     "social": "Sosyal hesaplar",
@@ -72,7 +74,8 @@
     "realtime": "Canlı iletişim",
     "conversations": "Proje sohbetleri",
     "socialCompose": "Gönderi oluştur",
-    "socialCalendar": "Takvim"
+    "socialCalendar": "Takvim",
+    "socialInbox": "Gelen kutusu"
   },
   "footer": {
     "description": "Ajanları, modelleri, projeleri ve operasyonel kontrolleri koordine eden yönetişimli bir yapay zekâ işletim sistemi.",
@@ -549,7 +552,12 @@
     "terms6Title": "Yargı alanı, paylaşım ve sağlayıcı kontrolleri",
     "terms6Copy": "Ülke algılamasını, model sağlayıcı yönlendirmesini, güvenlik kontrollerini veya Owner politikasını aşmaya çalışmayın. Hunyuan çalışmalarını veya çıktılarını lisansın izin verdiği bölge dışında istemeyin, erişmeyin, görüntülemeyin, dağıtmayın veya paylaşmayın. Her 3D üretim isteği, güncel üçüncü taraf model koşulları sürümünün kabulünü gerektirir. Üst kaynak lisanslarının tam kopyaları aşağıda mevcuttur. Hunyuan kullanımı bakımından, atıf yoluyla dâhil edilen Acceptable Use Policy dâhil Bölüm 5(a) ve 5(b) kısıtlamaları bu Koşullara dâhildir ve bu Koşullar kapsamında bağlayıcı ve uygulanabilirdir.",
     "hunyuanLicense": "Tencent Hunyuan 3D 2.1 lisans kopyası",
-    "triposrLicense": "TripoSR MIT lisans kopyası"
+    "triposrLicense": "TripoSR MIT lisans kopyası",
+    "privacy5Title": "Facebook ve Instagram (Meta) verileri",
+    "privacy5Copy": "Bir Facebook Sayfası veya Instagram Business hesabı bağladığınızda AIONEX AIOS, Meta’dan adınızı ve uygulamaya özel kimliğinizi, seçtiğiniz Sayfaları ve hesapları ve bunların erişim belirteçlerini alır. Belirteçler şifreli saklanır ve tarayıcıya asla ulaşmaz. Verilen izinler yalnızca uygulamada istediğiniz işler için kullanılır: gönderilerinizi yayınlamak ve zamanlamak, Sayfalarınıza gelen yorumları ve Messenger ile Instagram Direct mesajlarını gelen kutusunda göstermek, isteğiniz üzerine yanıtlamak veya yorumları gizlemek. Meta verileri asla satılmaz, reklam veya yapay zekâ modeli eğitimi için kullanılmaz ve yalnızca hizmet için gerekli altyapı sağlayıcılarıyla paylaşılır. Yapay zekâ yanıt önerisi, konuşma metnini yalnızca düğmeye bastığınızda AIONEX AI modeline gönderir ve onayınız olmadan hiçbir yanıt gönderilmez.",
+    "privacy6Title": "Meta verilerinin silinmesi",
+    "privacy6Copy": "Herhangi bir hesabın bağlantısını istediğiniz zaman hesaplar sayfasından kesebilirsiniz; bu, erişim belirteçlerini hemen siler. Uygulamayı Facebook ayarlarınızdan kaldırırsanız veya orada silme isterseniz AIONEX AIOS, Meta’nın imzalı isteğini alır, erişim belirteçlerini siler, hesapların bağlantısını keser ve saklanan gelen kutusu konuşmalarını siler; ardından isteği takip etmeniz için size bir onay kodu verir.",
+    "dataDeletionLink": "Veri silme talimatları ve istek durumu"
   },
   "passwordRecovery": {
     "eyebrow": "Güvenli hesap kurtarma",
@@ -1432,7 +1440,7 @@
     "description": "Facebook Sayfalarınızı ve Instagram İşletme hesaplarınızı Meta'nın resmi girişiyle bağlayın. Erişim belirteçleri sunucularımızda şifreli kalır ve tarayıcınıza asla ulaşmaz.",
     "refresh": "Yenile",
     "loading": "Yükleniyor",
-    "honesty": "Bağlama işlemi hesaplarınızı ilişkilendirir ve erişimlerini denetler. Yayınlama ve zamanlama Gönderi oluştur ve Takvim sayfalarından kullanılabilir; birleşik gelen kutusu henüz etkin değildir.",
+    "honesty": "Bağlama işlemi hesaplarınızı ilişkilendirir ve erişimlerini denetler. Yayınlama ve zamanlama Gönderi oluştur ve Takvim sayfalarından kullanılabilir; birleşik gelen kutusu hazır ancak henüz etkin değil, çünkü Meta’nın uygulama izinlerini onaylamasını bekliyor.",
     "signedOut": {
       "title": "Hesaplarınızı bağlamak için giriş yapın",
       "body": "Sosyal hesaplarınız AIONEX hesabınıza bağlanır, bu nedenle önce giriş yapmanız gerekir.",
@@ -1722,6 +1730,137 @@
       "aiQuota": "Planınızın yapay zekâ mesaj sınırına ulaştınız. Yakında yenilenir veya planınızı yükseltin.",
       "conflict": "Bu gönderi mevcut durumunda artık değiştirilemez.",
       "generic": "Bir sorun oluştu. Tekrar deneyin."
+    }
+  },
+  "dataDeletion": {
+    "eyebrow": "Gizlilik",
+    "title": "Veri silme talimatları",
+    "intro": "AIONEX AIOS’un Facebook ve Instagram’dan aldığı verileri nasıl sileceğiniz ve bir silme isteğini nasıl kontrol edeceğiniz.",
+    "stepsTitle": "Verilerinizi nasıl silersiniz",
+    "step1": "AIONEX içinde: sosyal hesaplar sayfasını açın ve Sayfa veya hesapta Bağlantıyı kes seçeneğini seçin; erişim belirteçleri hemen silinir.",
+    "step2": "Facebook’ta: Ayarlar ve gizlilik → Ayarlar → Uygulamalar ve web siteleri, ardından AIONEX-AIOS’u seçip Kaldır’ı seçin.",
+    "step3": "Tüm verilerin silinmesini istemek için: aynı ekranda İstek gönder’i seçin. Meta, AIONEX AIOS’a imzalı bir istek gönderir; belirteçler, bağlı hesaplar ve gelen kutusu konuşmaları silinir.",
+    "step4": "Meta size bir bağlantı ve onay kodu gösterir. İsteği kontrol etmek için bağlantıyı açın veya kodu aşağıya girin.",
+    "whatTitle": "Neler silinir",
+    "whatCopy": "Kullanıcı ve Sayfa erişim belirteçleri silinir, Facebook Sayfaları ve Instagram hesaplarının bağlantısı kesilir, gelen kutusunda saklanan yorumlar ve mesajlar silinir ve Meta adınız ile fotoğrafınız bağlantı kaydından kaldırılır.\nYalnızca yasanın saklamamızı zorunlu kıldığı güvenlik denetim kayıtları ve mali kayıtlar kalır; bunlar erişim belirteci içermez.",
+    "contactTitle": "Yardım mı gerekiyor?",
+    "contactCopy": "Verilerinizin silinmesini iletişim sayfasından da isteyebilirsiniz; AIONEX AIOS ekibi size yanıt verir.",
+    "contactLink": "İletişim sayfası",
+    "privacyLink": "Gizlilik bildirimi",
+    "status": {
+      "title": "Silme isteği durumu",
+      "intro": "Meta’nın size verdiği onay kodunu girin.",
+      "codeLabel": "Onay kodu",
+      "check": "Kontrol et",
+      "invalid": "Kod 8 ile 32 arasında harf veya rakamdan oluşur.",
+      "notFound": "Bu koda ait bir istek bulunamadı.",
+      "error": "Durum şu anda kontrol edilemedi. Kısa süre sonra tekrar deneyin.",
+      "kindDeletion": "Veri silme isteği",
+      "kindDeauthorize": "Uygulamanın kaldırılması",
+      "completed": "Tamamlandı",
+      "received": "Alındı",
+      "requestedAt": "İstek tarihi: {date}",
+      "completedAt": "Tamamlanma: {date}",
+      "counts": "İptal edilen izinler: {connections} · Bağlantısı kesilen hesaplar: {accounts} · Silinen konuşmalar: {conversations}"
+    }
+  },
+  "socialInbox": {
+    "eyebrow": "Birleşik gelen kutusu",
+    "title": "Tüm yorumlar ve mesajlar tek bir yerde",
+    "description": "Facebook Sayfalarınızdaki ve Instagram hesaplarınızdaki yorumlar ile bağlı hesaplarınızın Messenger ve Instagram Direct mesajları. Yanıtlayın, istenmeyen yorumları gizleyin ve AIONEX AI’dan yanıt önerisi isteyin.",
+    "accountsLink": "Bağlı hesaplar",
+    "common": {
+      "loading": "Yükleniyor",
+      "signedOutTitle": "Gelen kutusunu açmak için giriş yapın",
+      "signedOutBody": "Gelen kutusu yalnızca AIONEX hesabınıza bağlı hesapların konuşmalarını gösterir; önce giriş yapın.",
+      "login": "Giriş yap",
+      "refresh": "Yenile",
+      "unknownParticipant": "Adsız kişi"
+    },
+    "readiness": {
+      "awaitingTitle": "Meta izni ve onayı bekleniyor",
+      "awaitingBody": "Gelen kutusu, Meta uygulamanın izinlerini onayladıktan (App Review) ve hesaplarınız bu izinleri verdikten sonra çalışır. O zamana kadar yeni yorumlar veya mesajlar gelmeyebilir ve örnek veri gösterilmez.",
+      "notConfigured": "Meta uygulaması sunucuda henüz yapılandırılmadı.",
+      "webhookMissing": "Meta Webhooks henüz kurulmadı; güncellemeler düzenli eşitlemeye dayanıyor.",
+      "noAccounts": "Henüz bağlı hesap yok.",
+      "connectLink": "Hesap bağla",
+      "states": {
+        "ready": "Hazır",
+        "awaiting_permission": "İzin bekleniyor",
+        "reconnect_required": "Yeniden bağlanmalı",
+        "disconnected": "Bağlantı kesildi"
+      },
+      "missingScopes": "Eksik izinler: {scopes}",
+      "subscribe": "Canlı güncellemeleri aç",
+      "subscribed": "Bu hesap için Meta’dan canlı güncellemeler istendi.",
+      "subscribedAt": "Canlı güncellemeler {date} tarihinde istendi",
+      "liveNotVerified": "Gerçek hesaplarla canlı alım, yayından önce doğrulanacak. Yedek eşitleme yaklaşık her {minutes} dakikada bir çalışır."
+    },
+    "filters": {
+      "label": "Konuşmaları filtrele",
+      "platform": "Platform",
+      "all": "Tümü",
+      "facebook": "Facebook",
+      "instagram": "Instagram",
+      "status": "Durum",
+      "anyStatus": "Tüm durumlar",
+      "unreadOnly": "Yalnızca okunmamış"
+    },
+    "statuses": {
+      "open": "Açık",
+      "pending": "Beklemede",
+      "closed": "Kapalı"
+    },
+    "channels": {
+      "comment": "Yorum",
+      "dm": "Doğrudan mesaj"
+    },
+    "list": {
+      "label": "Konuşmalar",
+      "empty": "Henüz konuşma yok. Bağlı bir hesaba gelen yorum veya mesaj, ulaştığı anda burada görünür.",
+      "emptyFiltered": "Bu filtrelere uyan konuşma yok.",
+      "unread": "Okunmamış: {count}"
+    },
+    "thread": {
+      "select": "Okumak ve yanıtlamak için listeden bir konuşma seçin.",
+      "account": "Hesap: {name}",
+      "statusLabel": "Konuşma durumu",
+      "markUnread": "Okunmadı olarak işaretle",
+      "read": "Okundu",
+      "business": "Yanıtınız",
+      "removed": "Bu mesaj kaldırıldı.",
+      "attachment": "Ek: {type}",
+      "hidden": "Herkese gizli",
+      "hide": "Yorumu gizle",
+      "unhide": "Yorumu göster",
+      "windowOpen": "Bu mesajı {date} tarihine kadar yanıtlayabilirsiniz (Meta’nın 24 saatlik penceresi).",
+      "windowClosedTitle": "24 saatlik pencere kapandı.",
+      "windowClosedBody": "Meta, doğrudan mesajlara yalnızca müşterinin son mesajından sonraki 24 saat içinde yanıt verilmesine izin verir. Yeni bir mesaj gönderdiğinde tekrar yanıtlayabilirsiniz."
+    },
+    "reply": {
+      "labelComment": "Yoruma herkese açık yanıt",
+      "labelDm": "Özel yanıt",
+      "placeholder": "Yanıtınızı yazın…",
+      "counter": "{count} / {max} karakter",
+      "suggest": "AIONEX AI ile öner",
+      "suggestionNote": "Bu yalnızca bir öneri. Göndermeden önce gözden geçirip düzenleyin.",
+      "send": "Gönder",
+      "sent": "Yanıt gönderildi; Meta onayladı."
+    },
+    "errors": {
+      "generic": "Bir sorun oluştu. Kısa süre sonra tekrar deneyin.",
+      "rateLimited": "Çok fazla istek. Biraz bekleyip tekrar deneyin.",
+      "windowClosed": "24 saatlik pencere kapandı; bu mesaj şu anda yanıtlanamaz.",
+      "reconnect": "Hesabın erişimi sona erdi. Hesaplar sayfasından yeniden bağlayın.",
+      "disconnected": "Bu hesabın bağlantısı kesildi.",
+      "permission": "İzin henüz onaylanmadığı veya bu Sayfa için verilmediği için Meta reddetti.",
+      "notConfigured": "Meta uygulaması sunucuda henüz yapılandırılmadı.",
+      "outcomeUnknown": "Yanıtın gönderildiği doğrulanamadı. Tekrar göndermeden önce konuşmayı Facebook veya Instagram’da kontrol edin.",
+      "aiQuota": "Planınızın bugünkü yapay zekâ kotası doldu.",
+      "aiUnavailable": "AIONEX AI şu anda kullanılamıyor.",
+      "aiFailed": "AIONEX AI yanıt öneremedi. Kendiniz yazın veya tekrar deneyin.",
+      "aiNothing": "Henüz yanıtlanacak müşteri mesajı yok.",
+      "notFound": "Bu konuşma yok veya hesaplarınıza ait değil."
     }
   }
 }

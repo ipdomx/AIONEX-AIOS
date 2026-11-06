@@ -36,7 +36,7 @@ async function waitUntilReady() {
 
 async function checkRoutes() {
   const locales = ["ar", "en", "fr", "de", "es", "tr"];
-  const publicPaths = ["", "/about", "/contact", "/legal/privacy", "/legal/terms"];
+  const publicPaths = ["", "/about", "/contact", "/legal/privacy", "/legal/terms", "/legal/data-deletion"];
   const privatePaths = [
     "/login",
     "/register",
@@ -46,6 +46,7 @@ async function checkRoutes() {
     "/social",
     "/social/compose",
     "/social/calendar",
+    "/social/inbox",
     "/notifications",
     "/support",
   ];

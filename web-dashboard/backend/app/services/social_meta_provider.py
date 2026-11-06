@@ -40,6 +40,9 @@ DEFAULT_SCOPES: tuple[str, ...] = (
     "pages_read_engagement",
     "pages_manage_posts",
     "pages_messaging",
+    "pages_read_user_content",
+    "pages_manage_engagement",
+    "pages_manage_metadata",
     "instagram_basic",
     "instagram_content_publish",
     "instagram_manage_messages",
@@ -47,10 +50,11 @@ DEFAULT_SCOPES: tuple[str, ...] = (
     "business_management",
 )
 # Capabilities the requested scopes are meant for. Publishing is implemented
-# by social_meta_publisher (roadmap 3.3); the inbox is roadmap 3.6.
+# by social_meta_publisher (roadmap 3.3); the inbox (roadmap 3.6) by
+# social_inbox and social_meta_inbox.
 CAPABILITIES: dict[str, tuple[str, ...]] = {
-    "facebook": ("account.read", "content.publish", "inbox.read", "inbox.reply"),
-    "instagram": ("account.read", "content.publish", "inbox.read", "inbox.reply"),
+    "facebook": ("account.read", "content.publish", "inbox.read", "inbox.reply", "inbox.moderate"),
+    "instagram": ("account.read", "content.publish", "inbox.read", "inbox.reply", "inbox.moderate"),
 }
 MAX_ASSET_PAGES = 5
 PAGE_SIZE = 100

@@ -110,4 +110,5 @@ def test_backend_keeps_0063_in_the_linear_history_after_0064():
     assert '("20260920_0064", False)' in text
     assert '("20261025_0065", False)' in text
     assert '("20261106_0066", False)' in text
-    assert '("20261106_0067", True)' in text
+    assert '("20261106_0067", False)' in text
+    assert '("20261106_0068", True)' in text
