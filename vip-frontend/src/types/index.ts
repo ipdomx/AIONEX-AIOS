@@ -1341,3 +1341,221 @@ export interface SocialAiAssistResult {
   provider: string;
   aionex_ai: boolean;
 }
+
+// --- P4 Meta Ads for users (roadmap 4.1-4.5). Tokens never reach the browser.
+
+export interface AdsAccess {
+  allowed: boolean;
+  level: "owner" | "grant" | "subscriber" | null;
+  source: string | null;
+  reason: string;
+  plan_code: string | null;
+  entitlement: string;
+  activation_enabled: boolean;
+  daily_cap_minor: number;
+  lifetime_cap_minor: number;
+  max_ad_accounts: number;
+  max_active_campaigns: number;
+  owner_token_fallback: boolean;
+  live_verified: boolean;
+  activation_phrase: string;
+}
+
+export interface AdsConnection {
+  id: string;
+  display_name: string;
+  status: string;
+  ads_scopes_granted: string[];
+  ads_scopes_missing: string[];
+  can_read: boolean;
+  can_manage: boolean;
+  token_expires_at: string | null;
+}
+
+export interface AdsAvailableAccount {
+  ad_account_id: string;
+  name: string;
+  currency: string;
+  timezone_name: string;
+  account_status: number;
+  active: boolean;
+  business_name: string | null;
+  linked: boolean;
+}
+
+export interface AdAccountLink {
+  id: string;
+  ad_account_id: string;
+  name: string;
+  currency: string;
+  timezone_name: string;
+  account_status: number;
+  business_name: string | null;
+  source: "oauth" | "owner_token";
+  connection_id: string | null;
+  status: string;
+  cpa_target_minor: number | null;
+  insights_synced_through: string | null;
+  last_sync_at: string | null;
+  next_sync_at: string | null;
+  throttle_until: string | null;
+  sync_state: string;
+  sync_error: string | null;
+  created_at: string | null;
+}
+
+export interface AdsKpi {
+  value: number | null;
+  previous: number | null;
+  change_pct: number | null;
+}
+
+export interface AdsMetrics {
+  spend: number;
+  impressions: number;
+  reach: number;
+  clicks: number;
+  link_clicks: number;
+  conversions: number;
+  conversion_value: number;
+  ctr: number | null;
+  cpc: number | null;
+  cpm: number | null;
+  cpa: number | null;
+  roas: number | null;
+  frequency: number | null;
+}
+
+export interface AdsCampaignMetrics extends AdsMetrics {
+  campaign_id: string;
+  name: string;
+}
+
+export interface AdsBreakdownMetrics extends AdsMetrics {
+  value: string;
+}
+
+export interface AdsTrendPoint {
+  day: string;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  ctr: number | null;
+  cpa: number | null;
+  roas: number | null;
+}
+
+export interface AdsAlert {
+  type: "spend_spike" | "cpa_above_target" | "frequency_fatigue" | string;
+  severity: "warning" | "info" | string;
+  campaign_id?: string;
+  name?: string;
+  evidence: Record<string, number | string | null>;
+}
+
+export interface AdsDashboard {
+  link: AdAccountLink;
+  currency: string;
+  period: { from: string; to: string };
+  previous_period: { from: string; to: string };
+  kpis: Record<string, AdsKpi>;
+  trend: AdsTrendPoint[];
+  campaigns: { basis: "roas" | "cpa" | "ctr"; top: AdsCampaignMetrics[]; bottom: AdsCampaignMetrics[]; count: number };
+  breakdowns: Record<string, AdsBreakdownMetrics[]>;
+  alerts: AdsAlert[];
+  has_data: boolean;
+  synced_through: string | null;
+  simulated: false;
+  live_verified: boolean;
+}
+
+export interface AdsRecommendation {
+  type: "budget_shift" | "creative_fatigue" | "audience" | "bid_or_schedule" | "other";
+  title: string;
+  action: string;
+  rationale: string;
+  evidence: Record<string, number>;
+  advisory_only: true;
+  auto_apply: false;
+}
+
+export interface AdsRecommendationRun {
+  id: string;
+  link_id: string;
+  period: { from: string; to: string };
+  provider: string;
+  model: string;
+  aionex_ai: boolean;
+  items: AdsRecommendation[];
+  rejected: number;
+  advisory_only: true;
+  auto_apply: false;
+  created_at: string | null;
+}
+
+export type AdsObjective = "traffic" | "awareness" | "engagement";
+
+export interface AdsCampaign {
+  id: string;
+  link_id: string;
+  name: string;
+  objective: AdsObjective | string;
+  status: "draft" | "provisioning" | "paused" | "active" | "auto_paused" | "failed" | string;
+  currency: string;
+  daily_budget_minor: number | null;
+  lifetime_budget_minor: number | null;
+  start_time: string | null;
+  end_time: string | null;
+  targeting: Record<string, unknown>;
+  creative: Record<string, unknown>;
+  provisioned: boolean;
+  meta_campaign_id: string | null;
+  spend_to_date: number;
+  spend_today: number;
+  activated_at: string | null;
+  paused_at: string | null;
+  pause_reason: string | null;
+  error_code: string | null;
+  created_at: string | null;
+  live_verified: boolean;
+}
+
+export interface AdsCampaignInput {
+  link_id: string;
+  name: string;
+  objective: AdsObjective;
+  daily_budget_minor?: number | null;
+  lifetime_budget_minor?: number | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  targeting: {
+    countries: string[];
+    age_min: number;
+    age_max: number;
+    genders: number[];
+    publisher_platforms: ("facebook" | "instagram")[];
+  };
+  creative: {
+    source: "upload" | "studio" | "post";
+    media_ref?: string | null;
+    post_target_id?: string | null;
+    page_account_id?: string | null;
+    instagram_account_id?: string | null;
+    message?: string;
+    headline?: string;
+    link_url?: string | null;
+    call_to_action?: string;
+  };
+  client_idempotency_key: string;
+}
+
+export interface AdsUsage {
+  currency: string;
+  spend_today: number;
+  spend_lifetime: number;
+  active_daily_budgets_minor: number;
+  active_campaigns: number;
+  daily_cap_minor: number;
+  lifetime_cap_minor: number;
+}

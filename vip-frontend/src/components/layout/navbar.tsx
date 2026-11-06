@@ -27,7 +27,7 @@ import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
-import { getPaidCampaignReadiness, getSecurityLabAccess } from "@/lib/api";
+import { getAdsAccess, getPaidCampaignReadiness, getSecurityLabAccess } from "@/lib/api";
 import { usePortalExperience } from "@/components/portal/portal-experience-provider";
 import { cn } from "@/lib/utils";
 
@@ -62,13 +62,17 @@ export function Navbar() {
       .catch(() => {
         if (!cancelled) setSecurityLabVisible(false);
       });
-    void getPaidCampaignReadiness()
-      .then((access) => {
-        if (!cancelled) setCampaignsVisible(access.campaigns_visible);
-      })
-      .catch(() => {
-        if (!cancelled) setCampaignsVisible(false);
-      });
+    // The campaigns area opens for owner-reviewed planning (GS-12) or for
+    // users entitled to Meta Ads management (P4, ads.manage).
+    void Promise.allSettled([getPaidCampaignReadiness(), getAdsAccess()]).then(
+      ([readiness, ads]) => {
+        if (cancelled) return;
+        setCampaignsVisible(
+          (readiness.status === "fulfilled" && readiness.value.campaigns_visible) ||
+            (ads.status === "fulfilled" && ads.value.allowed),
+        );
+      },
+    );
     return () => {
       cancelled = true;
     };

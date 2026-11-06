@@ -174,6 +174,13 @@ for (const route of [
   "/social/posts/validate",
   "/social/media",
   "/social/ai/assist",
+  "/ads/access",
+  "/ads/connect/meta/start",
+  "/ads/connections",
+  "/ads/accounts",
+  "/ads/analytics",
+  "/ads/recommendations",
+  "/ads/campaigns",
 ]) {
   if (!apiSource.includes(route))
     violations.push(`src/lib/api.ts: confirmed route missing: ${route}`);

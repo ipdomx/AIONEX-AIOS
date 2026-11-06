@@ -2,6 +2,7 @@
 
 import {
   BadgeCheck,
+  BarChart3,
   BrainCircuit,
   CircleDollarSign,
   LoaderCircle,
@@ -10,6 +11,8 @@ import {
   Send,
   ShieldCheck,
   Sparkles,
+  Plus,
+  Wallet,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -19,17 +22,27 @@ import { Button } from "@/components/ui/button";
 import { StatusMessage } from "@/components/ui/status-message";
 import { useAuth } from "@/hooks/use-auth";
 import {
+  getAdsAccess,
   getPaidCampaignReadiness,
+  listAdAccountLinks,
   listPaidCampaigns,
   prepareAndSimulatePaidCampaign,
 } from "@/lib/api";
 import type {
+  AdAccountLink,
+  AdsAccess,
   PaidCampaign,
   PaidCampaignAdAccount,
   PaidCampaignBudgetAssessment,
   PaidCampaignPreparationResult,
   PaidCampaignReadiness,
 } from "@/types";
+
+import { AdsAccountsPanel } from "./ads-accounts-panel";
+import { AdsCampaignBuilder } from "./ads-campaign-builder";
+import { AdsDashboardPanel } from "./ads-dashboard";
+
+type CampaignTab = "dashboard" | "accounts" | "create" | "planning";
 
 function errorText(cause: unknown, fallback: string): string {
   return cause instanceof Error && cause.message ? cause.message : fallback;
@@ -71,6 +84,7 @@ function deliveryProgress(stage: PaidCampaign["delivery_stage"]): number {
 
 export function CampaignsClient() {
   const t = useTranslations("campaigns");
+  const tAds = useTranslations("ads");
   const locale = useLocale();
   const router = useRouter();
   const { isAuthenticated, isLoading } = useAuth();
@@ -81,6 +95,11 @@ export function CampaignsClient() {
   const [result, setResult] = useState<PaidCampaignPreparationResult | null>(null);
   const [readiness, setReadiness] = useState<PaidCampaignReadiness | null>(null);
   const [linkedAccountId, setLinkedAccountId] = useState("");
+  const [loaded, setLoaded] = useState(false);
+  const [adsAccess, setAdsAccess] = useState<AdsAccess | null>(null);
+  const [adsLinks, setAdsLinks] = useState<AdAccountLink[]>([]);
+  const [tab, setTab] = useState<CampaignTab | null>(null);
+  const [connectNotice, setConnectNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
   const [name, setName] = useState("");
   const [objective, setObjective] = useState("traffic");
@@ -98,31 +117,67 @@ export function CampaignsClient() {
     if (!isLoading && !isAuthenticated) router.replace(`/${locale}/login`);
   }, [isAuthenticated, isLoading, locale, router]);
 
+  const loadAdsLinks = useCallback(async () => {
+    setAdsLinks((await listAdAccountLinks()).items);
+  }, []);
+
   const load = useCallback(async () => {
     if (!isAuthenticated) return;
     setLoading(true);
     setError("");
     try {
-      const access = await getPaidCampaignReadiness();
+      // GS-12 owner-reviewed planning and P4 Meta Ads management are gated
+      // independently; the page opens when either is available.
+      const [readinessResult, adsResult] = await Promise.allSettled([
+        getPaidCampaignReadiness(),
+        getAdsAccess(),
+      ]);
+      const access = readinessResult.status === "fulfilled" ? readinessResult.value : null;
+      const ads = adsResult.status === "fulfilled" ? adsResult.value : null;
       setReadiness(access);
-      if (!access.campaigns_visible) {
+      setAdsAccess(ads);
+      if (!access && !ads) {
+        setError(t("loadError"));
+        return;
+      }
+      if (!access?.campaigns_visible && !ads?.allowed) {
         setCampaigns([]);
         setResult(null);
         router.replace(`/${locale}/dashboard`);
         return;
       }
-      setLinkedAccountId((current) =>
-        access.linked_ad_accounts.some((item) => item.id === current)
-          ? current
-          : (access.linked_ad_accounts[0]?.id ?? ""),
-      );
-      setCampaigns(await listPaidCampaigns());
+      setTab((current) => current ?? (ads?.allowed ? "dashboard" : "planning"));
+      if (access?.campaigns_visible) {
+        setLinkedAccountId((current) =>
+          access.linked_ad_accounts.some((item) => item.id === current)
+            ? current
+            : (access.linked_ad_accounts[0]?.id ?? ""),
+        );
+        setCampaigns(await listPaidCampaigns());
+      }
+      if (ads?.allowed) await loadAdsLinks();
     } catch (cause) {
       setError(errorText(cause, t("loadError")));
     } finally {
       setLoading(false);
+      setLoaded(true);
     }
-  }, [isAuthenticated, locale, router, t]);
+  }, [isAuthenticated, loadAdsLinks, locale, router, t]);
+
+  // The Meta ads-permission callback lands here; read it once and clear it.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const params = new URLSearchParams(window.location.search);
+    const outcome = params.get("result");
+    if (!outcome || params.get("connect") !== "meta") return;
+    setTab("accounts");
+    setConnectNotice(
+      outcome === "success"
+        ? { tone: "success", text: tAds("accounts.connectSuccess") }
+        : { tone: "error", text: tAds("accounts.connectError") },
+    );
+    window.history.replaceState(window.history.state, "", window.location.pathname);
+  }, [isAuthenticated, tAds]);
 
   useEffect(() => {
     void load();
@@ -219,7 +274,7 @@ export function CampaignsClient() {
     }
   }
 
-  if (isLoading || !isAuthenticated || (loading && readiness === null)) {
+  if (isLoading || !isAuthenticated || !loaded) {
     return (
       <div className="page-shell py-16">
         <div className="glass-card p-8 text-center text-white/55">
@@ -230,7 +285,26 @@ export function CampaignsClient() {
     );
   }
 
-  if (!readiness?.campaigns_visible) return null;
+  const planningVisible = Boolean(readiness?.campaigns_visible);
+  const adsVisible = Boolean(adsAccess?.allowed);
+  if (!planningVisible && !adsVisible) {
+    return error ? (
+      <div className="page-shell py-16">
+        <StatusMessage tone="error">{error}</StatusMessage>
+      </div>
+    ) : null;
+  }
+  const tabs: { key: CampaignTab; label: string; icon: typeof BarChart3 }[] = [
+    ...(adsVisible
+      ? [
+          { key: "dashboard" as const, label: tAds("tabs.dashboard"), icon: BarChart3 },
+          { key: "accounts" as const, label: tAds("tabs.accounts"), icon: Wallet },
+          { key: "create" as const, label: tAds("tabs.create"), icon: Plus },
+        ]
+      : []),
+    ...(planningVisible ? [{ key: "planning" as const, label: tAds("tabs.planning"), icon: Sparkles }] : []),
+  ];
+  const activeTab = tabs.some((item) => item.key === tab) ? (tab as CampaignTab) : tabs[0].key;
 
   return (
     <div className="page-shell space-y-6 py-10">
@@ -254,7 +328,7 @@ export function CampaignsClient() {
           </button>
         </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+        {activeTab === "planning" && <div className="mt-6 grid gap-3 sm:grid-cols-3">
           <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
             <CircleDollarSign className="h-4 w-4 text-crimson-300" />
             <div className="mt-2 text-2xl font-bold text-white">{campaigns.length}</div>
@@ -270,10 +344,46 @@ export function CampaignsClient() {
             <div className="mt-2 text-sm font-semibold text-white">AIOS</div>
             <div className="mt-1 text-xs text-white/35">{t("adviceOnly")}</div>
           </div>
-        </div>
+        </div>}
+
+        {tabs.length > 1 && (
+          <div role="tablist" className="mt-6 flex flex-wrap gap-2">
+            {tabs.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === item.key}
+                  onClick={() => setTab(item.key)}
+                  className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm transition ${
+                    activeTab === item.key
+                      ? "border-crimson-400/40 bg-crimson-500/10 text-white"
+                      : "border-white/10 bg-white/[0.03] text-white/55 hover:text-white"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" /> {item.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       {error && <StatusMessage tone="error">{error}</StatusMessage>}
+
+      {adsVisible && activeTab !== "planning" && (
+        <p className="text-xs leading-5 text-white/35">{tAds("liveNotice")}</p>
+      )}
+      {adsAccess && activeTab === "dashboard" && <AdsDashboardPanel links={adsLinks} />}
+      {adsAccess && activeTab === "accounts" && (
+        <AdsAccountsPanel access={adsAccess} links={adsLinks} onChanged={loadAdsLinks} notice={connectNotice} />
+      )}
+      {adsAccess && activeTab === "create" && <AdsCampaignBuilder access={adsAccess} links={adsLinks} />}
+
+      {activeTab === "planning" && (
+      <>
 
       <section className="glass-card p-6 md:p-8">
         <div className="flex items-start gap-3">
@@ -470,6 +580,8 @@ export function CampaignsClient() {
           ))
         )}
       </section>
+      </>
+      )}
     </div>
   );
 }
