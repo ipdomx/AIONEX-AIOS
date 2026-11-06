@@ -159,7 +159,7 @@ async def test_facebook_photo_multi_photo_and_video_flows():
     assert graph.calls[0][3] == {"url": IMAGE_URL, "caption": "Hello #aionex", "published": "true"}
 
     graph = Graph()
-    graph.on("POST", f"{PAGE_ID}/photos", (200, {"id": "71"}), (200, {"id": "72"}))
+    graph.on("POST", f"{PAGE_ID}/photos", (200, {"id": "710"}), (200, {"id": "720"}))
     graph.on("POST", f"{PAGE_ID}/feed", (200, {"id": f"{PAGE_ID}_73"}))
     graph.on("GET", f"{PAGE_ID}_73", (200, {"permalink_url": "https://www.facebook.com/p/73"}))
     hooks = Hooks(graph)
@@ -169,8 +169,8 @@ async def test_facebook_photo_multi_photo_and_video_flows():
     )
     assert multi.remote_post_id == f"{PAGE_ID}_73"
     assert [call[3].get("published") for call in graph.calls[:2]] == ["false", "false"]
-    assert graph.calls[2][3]["attached_media[0]"] == '{"media_fbid": "71"}'
-    assert graph.calls[2][3]["attached_media[1]"] == '{"media_fbid": "72"}'
+    assert graph.calls[2][3]["attached_media[0]"] == '{"media_fbid": "710"}'
+    assert graph.calls[2][3]["attached_media[1]"] == '{"media_fbid": "720"}'
     assert hooks.commit_at == 2  # unpublished uploads first, then the guard, then /feed
 
     graph = Graph()
