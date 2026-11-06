@@ -106,6 +106,8 @@ async def receive_webhook(
                 duplicates += 1
                 continue
             row = await session.get(SocialWebhookEvent, ledger)
+            if row is None:
+                raise RuntimeError("webhook ledger row vanished inside its transaction")
             if change.item is None:
                 row.outcome = "ignored"
                 continue
@@ -133,7 +135,8 @@ async def _signed_callback(request: Request, session: AsyncSession, kind: str) -
         form = parse_qs(body.decode("utf-8"), max_num_fields=10)
     except (UnicodeDecodeError, ValueError):
         form = {}
-    signed = (form.get("signed_request") or [None])[0]
+    values = form.get("signed_request") or []
+    signed = values[0] if values else None
     try:
         payload = webhooks.parse_signed_request(signed)
         outcome = await deletion.handle_callback(

@@ -27,6 +27,7 @@ from app.core.config import settings
 from app.services.social_connectors import SocialConnectorError
 from app.services.social_meta_inbox import (
     InboxItem,
+    as_dict,
     attachment_summary,
     clean_name,
     clean_text,
@@ -117,7 +118,7 @@ def parse_payload(payload: Any) -> list[WebhookChange]:
             if not isinstance(change, dict):
                 continue
             field = str(change.get("field") or "")[:32]
-            value = change.get("value") if isinstance(change.get("value"), dict) else {}
+            value = as_dict(change.get("value"))
             key = _key(object_type, entry_id, field, value)
             item: InboxItem | None = None
             if object_type == "page" and field == "feed":
@@ -146,7 +147,7 @@ def _feed_item(page_id: str, value: dict[str, Any]) -> InboxItem | None:
     parent_id = str(value.get("parent_id") or "")
     parent = parent_id if valid_id(parent_id) else None
     root = parent if parent and parent != post_id else comment_id
-    author = value.get("from") if isinstance(value.get("from"), dict) else {}
+    author = as_dict(value.get("from"))
     author_id = str(author.get("id") or "") if valid_id(str(author.get("id") or "")) else None
     own = author_id == page_id
     name = clean_name(author.get("name"))
@@ -175,9 +176,9 @@ def _instagram_comment_item(ig_id: str, value: dict[str, Any]) -> InboxItem | No
         return None
     parent_id = str(value.get("parent_id") or "")
     parent = parent_id if valid_id(parent_id) else None
-    media = value.get("media") if isinstance(value.get("media"), dict) else {}
+    media = as_dict(value.get("media"))
     media_id = str(media.get("id") or "")
-    author = value.get("from") if isinstance(value.get("from"), dict) else {}
+    author = as_dict(value.get("from"))
     author_id = str(author.get("id") or "") if valid_id(str(author.get("id") or "")) else None
     own = author_id == ig_id
     name = clean_name(author.get("username"))
@@ -206,12 +207,8 @@ def _messaging_item(provider: str, entry_id: str, event: dict[str, Any]) -> Inbo
     mid = message.get("mid")
     if not valid_mid(mid):
         return None
-    sender = str((event.get("sender") or {}).get("id") or "") if isinstance(event.get("sender"), dict) else ""
-    recipient = (
-        str((event.get("recipient") or {}).get("id") or "")
-        if isinstance(event.get("recipient"), dict)
-        else ""
-    )
+    sender = str(as_dict(event.get("sender")).get("id") or "")
+    recipient = str(as_dict(event.get("recipient")).get("id") or "")
     echo = message.get("is_echo") is True
     participant = recipient if echo else sender
     if not valid_id(participant) or participant == entry_id:

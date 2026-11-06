@@ -64,6 +64,10 @@ class InboxItem:
     attachments: tuple[dict[str, str], ...] = field(default_factory=tuple)
 
 
+def as_dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
 def valid_id(value: Any) -> bool:
     return isinstance(value, str) and bool(_ID_RE.fullmatch(value))
 
@@ -116,8 +120,8 @@ def attachment_summary(value: Any) -> tuple[dict[str, str], ...]:
         if not isinstance(raw, dict):
             continue
         kind = re.sub(r"[^a-z_]", "", str(raw.get("type") or "file").lower())[:24] or "file"
-        payload = raw.get("payload") if isinstance(raw.get("payload"), dict) else {}
-        url = payload.get("url") if isinstance(payload, dict) else None
+        payload = as_dict(raw.get("payload"))
+        url = payload.get("url")
         entry = {"type": kind}
         if isinstance(url, str) and url.startswith("https://") and len(url) <= 1024:
             entry["url"] = url
@@ -290,16 +294,16 @@ class MetaInboxClient:
         )
         items: list[InboxItem] = []
         for post in _data(payload):
-            post_id = post.get("id")
+            post_id = str(post.get("id") or "")
             if not valid_id(post_id):
                 continue
             for comment in _data(post.get("comments")):
-                comment_id = comment.get("id")
+                comment_id = str(comment.get("id") or "")
                 if not valid_id(comment_id):
                     continue
-                parent = comment.get("parent") if isinstance(comment.get("parent"), dict) else {}
+                parent = as_dict(comment.get("parent"))
                 parent_id = parent.get("id") if valid_id(parent.get("id")) else None
-                author = comment.get("from") if isinstance(comment.get("from"), dict) else {}
+                author = as_dict(comment.get("from"))
                 author_id = author.get("id") if valid_id(author.get("id")) else None
                 root = parent_id or comment_id
                 items.append(
@@ -336,7 +340,7 @@ class MetaInboxClient:
         )
         items: list[InboxItem] = []
         for media in _data(payload):
-            media_id = media.get("id")
+            media_id = str(media.get("id") or "")
             if not valid_id(media_id):
                 continue
             for comment in _data(media.get("comments")):
@@ -387,7 +391,7 @@ class MetaInboxClient:
                 mid = message.get("id")
                 if not valid_mid(mid):
                     continue
-                sender = message.get("from") if isinstance(message.get("from"), dict) else {}
+                sender = as_dict(message.get("from"))
                 outbound = sender.get("id") in own
                 items.append(
                     InboxItem(
@@ -419,7 +423,7 @@ def _data(node: Any) -> list[dict[str, Any]]:
 def _ig_comment(
     ig_id: str, media_id: str, comment: dict[str, Any], *, root: str, parent: str | None
 ) -> InboxItem:
-    author = comment.get("from") if isinstance(comment.get("from"), dict) else {}
+    author = as_dict(comment.get("from"))
     author_id = author.get("id") if valid_id(author.get("id")) else None
     name = clean_name(comment.get("username") or author.get("username"))
     own = author_id == ig_id
