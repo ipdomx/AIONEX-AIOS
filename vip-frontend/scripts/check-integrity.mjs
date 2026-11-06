@@ -67,6 +67,7 @@ const requiredFiles = [
   "src/app/[locale]/register/page.tsx",
   "src/app/[locale]/profile/page.tsx",
   "src/app/[locale]/projects/page.tsx",
+  "src/app/[locale]/3d/page.tsx",
   "src/app/[locale]/notifications/page.tsx",
   "src/app/[locale]/support/page.tsx",
   "src/app/[locale]/security-lab/page.tsx",

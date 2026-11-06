@@ -1,5 +1,7 @@
 {
   "meta": {
+    "threeDTitle": "De imagen a 3D",
+    "threeDDescription": "Genera modelos 3D texturizados a partir de imágenes, previsualízalos en el navegador y descarga GLB u OBJ.",
     "title": "AIONEX AIOS — Sistema operativo de IA gobernado",
     "description": "Un sistema gobernado para agentes inteligentes, orquestación multimodelo, proyectos y control empresarial.",
     "homeTitle": "Crea y gobierna proyectos inteligentes",
@@ -38,6 +40,7 @@
     "realtimeDescription": "Voz, vídeo, pantalla compartida y grabación con consentimiento explícito."
   },
   "nav": {
+    "threeD": "3D",
     "home": "Inicio",
     "about": "Quiénes somos",
     "contact": "Contacto",
@@ -380,6 +383,7 @@
       "critical": "Crítica"
     },
     "threeD": {
+      "resetView": "Restablecer vista",
       "title": "Generación 3D con texturas",
       "loading": "Cargando acceso 3D…",
       "loadError": "No se pudo cargar el acceso 3D.",
@@ -1276,6 +1280,139 @@
       "failed": "Fallida",
       "cancelled": "Cancelada",
       "needs_review": "Requiere revisión"
+    }
+  },
+  "threeDStudio": {
+    "eyebrow": "Generación 3D",
+    "title": "De imagen a 3D",
+    "description": "Convierte la foto de un producto u objeto en un modelo 3D texturizado, sigue el trabajo en directo, inspecciónalo en el navegador y descarga el resultado.",
+    "loading": "Cargando el espacio 3D…",
+    "refresh": "Actualizar",
+    "projectsLink": "Abrir proyectos",
+    "queued": "Tu imagen se aceptó y el trabajo 3D está en cola.",
+    "signedOut": {
+      "title": "Inicia sesión para usar la generación 3D",
+      "body": "Los trabajos 3D, las vistas previas y las descargas son privados de tu cuenta. Inicia sesión o crea una cuenta para continuar.",
+      "login": "Iniciar sesión",
+      "register": "Crear cuenta"
+    },
+    "noProjects": {
+      "title": "Crea primero un proyecto",
+      "body": "Los trabajos 3D se guardan dentro de un proyecto para que tu equipo pueda encontrar y reutilizar los resultados.",
+      "cta": "Ir a proyectos"
+    },
+    "project": {
+      "label": "Proyecto",
+      "hint": "Los trabajos nuevos y la lista de abajo pertenecen a este proyecto."
+    },
+    "quota": {
+      "remaining": "Restantes este mes",
+      "active": "Trabajos activos",
+      "plan": "Plan"
+    },
+    "upgrade": {
+      "planTitle": "La generación 3D no está incluida en tu plan",
+      "planBody": "Tu plan actual no incluye generación 3D. Cambia a un plan con acceso 3D para crear modelos.",
+      "billingTitle": "La facturación requiere atención",
+      "billingBody": "La facturación de tu organización no está activa, por lo que la generación 3D está en pausa. Revisa tu plan para recuperar el acceso.",
+      "quotaTitle": "Límite mensual de 3D alcanzado",
+      "quotaBody": "Has usado todas las generaciones 3D incluidas este mes. Mejora tu plan o espera al siguiente mes de facturación.",
+      "cta": "Ver planes"
+    },
+    "unavailable": {
+      "disabledTitle": "La generación 3D está desactivada",
+      "disabledBody": "El propietario de la plataforma ha desactivado el servicio 3D. No se pondrá ningún trabajo en cola hasta que se vuelva a activar.",
+      "providerTitle": "Proveedor 3D no disponible",
+      "jurisdictionTitle": "No disponible en tu región",
+      "jobsStillVisible": "Los trabajos y descargas existentes siguen disponibles abajo cuando tu plan lo permite."
+    },
+    "create": {
+      "title": "Crear desde una imagen",
+      "body": "Para obtener el mejor resultado, sube una foto nítida de un solo objeto sobre un fondo liso.",
+      "imageLabel": "Imagen de origen",
+      "imageHint": "PNG, JPEG o WebP, hasta {max} MB.",
+      "selected": "Seleccionado: {name}",
+      "textureLabel": "Resolución de texturas",
+      "outputLabel": "Salida:",
+      "outputValue": "GLB (glTF binario con texturas PBR)",
+      "modelLabel": "Modelo:",
+      "costLabel": "Coste:",
+      "costValue": "1 generación de tu cupo mensual",
+      "hunyuanNoAffiliation": "Operado por {operator}. Tencent no está afiliada a este servicio ni lo patrocina ni lo respalda.",
+      "modelPolicy": "El servidor selecciona el modelo para tu región. Nunca se ofrecen modelos que siguen en revisión de seguridad.",
+      "textTitle": "De texto a 3D",
+      "textBody": "Aún no disponible: el servicio 3D solo acepta imágenes por ahora.",
+      "submit": "Generar modelo 3D",
+      "submitting": "Enviando…"
+    },
+    "terms": {
+      "consent": "Acepto los términos actuales de los modelos 3D de terceros y las restricciones territoriales.",
+      "link": "Revisar términos"
+    },
+    "jobs": {
+      "title": "Tus trabajos 3D",
+      "empty": "Todavía no hay trabajos 3D en este proyecto.",
+      "polling": "Actualizando",
+      "cost": "Coste GPU estimado ${cost}"
+    },
+    "viewer": {
+      "empty": "Selecciona un trabajo para previsualizar su modelo.",
+      "stage": "Etapa: {stage}",
+      "attempt": "Intento {attempt} / {total}",
+      "cancel": "Cancelar",
+      "clarifyLabel": "Imagen de reemplazo",
+      "clarifySubmit": "Enviar imagen de reemplazo",
+      "inProgress": "Se está generando el modelo. Esta página se actualiza automáticamente.",
+      "noArtifact": "El trabajo terminó sin un modelo descargable.",
+      "loadingLinks": "Preparando enlaces seguros…",
+      "loadingModel": "Cargando modelo…",
+      "previewError": "No se pudo cargar la vista previa 3D. Actualiza los enlaces seguros e inténtalo de nuevo.",
+      "viewport": "Vista previa 3D interactiva. Arrastra para girar, desplaza o pellizca para hacer zoom y usa las flechas para mover.",
+      "controlsHint": "Arrastra para girar · desplaza o pellizca para hacer zoom · arrastra con el botón derecho o usa las flechas para mover.",
+      "reset": "Restablecer vista",
+      "zoomIn": "Acercar",
+      "zoomOut": "Alejar"
+    },
+    "download": {
+      "glb": "Descargar GLB",
+      "obj": "Exportar OBJ",
+      "refresh": "Actualizar enlaces seguros",
+      "objNote": "El OBJ se convierte en tu navegador a partir de la vista previa y solo contiene geometría (sin texturas).",
+      "expiry": "Los enlaces seguros caducan en unos {minutes} min."
+    },
+    "status": {
+      "queued": "En cola",
+      "running": "Generando",
+      "cancel_requested": "Cancelando",
+      "needs_clarification": "Necesita una imagen más clara",
+      "completed": "Completado",
+      "failed": "Fallido",
+      "cancelled": "Cancelado"
+    },
+    "errors": {
+      "load": "No se pudo cargar el acceso 3D.",
+      "projects": "No se pudieron cargar tus proyectos.",
+      "jobs": "No se pudieron cargar los trabajos 3D.",
+      "links": "No se pudieron emitir enlaces seguros del modelo.",
+      "create": "No se pudo poner en cola el trabajo 3D.",
+      "cancel": "No se pudo cancelar el trabajo 3D.",
+      "clarify": "No se pudo enviar la imagen de reemplazo.",
+      "obj": "La exportación OBJ falló.",
+      "invalidType": "Sube una imagen PNG, JPEG o WebP.",
+      "tooLarge": "La imagen es demasiado grande.",
+      "tooLargeLimit": "La imagen supera el límite de {max} MB.",
+      "termsRequired": "Acepta primero los términos actuales de los modelos 3D de terceros.",
+      "quota": "Has alcanzado tu límite mensual de 3D.",
+      "concurrency": "Ya tienes el número máximo de trabajos 3D activos. Espera a que termine uno.",
+      "notGranted": "Tu plan no incluye generación 3D.",
+      "providerUnavailable": "El proveedor de generación 3D no está disponible temporalmente. No se puso nada en cola; inténtalo más tarde.",
+      "maintenance": "La generación multimedia está en pausa por mantenimiento. No se puso nada en cola; inténtalo más tarde.",
+      "jurisdiction": "La generación 3D o la salida de este modelo no tiene licencia para tu región.",
+      "duplicate": "Esta solicitud entra en conflicto con un envío anterior. Recarga e inténtalo de nuevo.",
+      "sessionExpired": "Tu sesión ha caducado. Vuelve a iniciar sesión.",
+      "forbidden": "No tienes permiso para este proyecto.",
+      "expired": "Este modelo superó su periodo de retención y ya no está disponible.",
+      "rateLimited": "Demasiadas solicitudes. Espera un momento."
     }
   }
 }

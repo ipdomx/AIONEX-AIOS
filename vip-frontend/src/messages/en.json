@@ -1,5 +1,7 @@
 {
   "meta": {
+    "threeDTitle": "Image to 3D",
+    "threeDDescription": "Generate textured 3D models from images, preview them in the browser and download GLB or OBJ.",
     "title": "AIONEX AIOS — Governed AI Operating System",
     "description": "A governed operating system for intelligent agents, multi-model orchestration, project execution, and enterprise control.",
     "homeTitle": "Build and govern intelligent projects",
@@ -38,6 +40,7 @@
     "realtimeDescription": "Secure tenant-scoped voice, video, screen sharing and consent-governed recording."
   },
   "nav": {
+    "threeD": "3D",
     "home": "Home",
     "about": "About",
     "contact": "Contact",
@@ -380,6 +383,7 @@
       "critical": "Critical"
     },
     "threeD": {
+      "resetView": "Reset view",
       "title": "Textured 3D generation",
       "loading": "Loading 3D access…",
       "loadError": "3D access could not be loaded.",
@@ -1276,6 +1280,139 @@
       "failed": "Failed",
       "cancelled": "Cancelled",
       "needs_review": "Needs review"
+    }
+  },
+  "threeDStudio": {
+    "eyebrow": "3D generation",
+    "title": "Image to 3D",
+    "description": "Turn a product or object photo into a textured 3D model, follow the job live, inspect it in the browser and download the result.",
+    "loading": "Loading 3D workspace…",
+    "refresh": "Refresh",
+    "projectsLink": "Open projects",
+    "queued": "Your image was accepted and the 3D job is queued.",
+    "signedOut": {
+      "title": "Sign in to use 3D generation",
+      "body": "3D jobs, previews and downloads are private to your account. Sign in or create an account to continue.",
+      "login": "Sign in",
+      "register": "Create account"
+    },
+    "noProjects": {
+      "title": "Create a project first",
+      "body": "3D jobs are stored inside a project so your team can find and reuse the results.",
+      "cta": "Go to projects"
+    },
+    "project": {
+      "label": "Project",
+      "hint": "New jobs and the list below belong to this project."
+    },
+    "quota": {
+      "remaining": "Left this month",
+      "active": "Active jobs",
+      "plan": "Plan"
+    },
+    "upgrade": {
+      "planTitle": "3D generation is not included in your plan",
+      "planBody": "Your current plan does not include 3D generation. Upgrade to a plan with 3D access to create models.",
+      "billingTitle": "Billing needs attention",
+      "billingBody": "Billing for your organization is not active, so 3D generation is paused. Review your plan to restore access.",
+      "quotaTitle": "Monthly 3D limit reached",
+      "quotaBody": "You have used all 3D generations included this month. Upgrade your plan or wait for the next billing month.",
+      "cta": "View plans"
+    },
+    "unavailable": {
+      "disabledTitle": "3D generation is turned off",
+      "disabledBody": "The 3D service is currently disabled by the platform owner. No job will be queued until it is enabled again.",
+      "providerTitle": "3D provider unavailable",
+      "jurisdictionTitle": "Not available in your region",
+      "jobsStillVisible": "Existing jobs and downloads below stay available when your plan allows it."
+    },
+    "create": {
+      "title": "Create from an image",
+      "body": "Upload one clear photo of a single object on a plain background for the best result.",
+      "imageLabel": "Source image",
+      "imageHint": "PNG, JPEG or WebP, up to {max} MB.",
+      "selected": "Selected: {name}",
+      "textureLabel": "Texture resolution",
+      "outputLabel": "Output:",
+      "outputValue": "GLB (binary glTF with PBR textures)",
+      "modelLabel": "Model:",
+      "costLabel": "Cost:",
+      "costValue": "1 generation from your monthly allowance",
+      "hunyuanNoAffiliation": "Operated by {operator}. Tencent is not affiliated with, sponsoring, or endorsing this service.",
+      "modelPolicy": "The model is selected by the server for your region. Models still under security review are never offered.",
+      "textTitle": "Text to 3D",
+      "textBody": "Not available yet: the 3D service currently accepts images only.",
+      "submit": "Generate 3D model",
+      "submitting": "Submitting…"
+    },
+    "terms": {
+      "consent": "I accept the current third-party 3D model terms and jurisdiction restrictions.",
+      "link": "Review terms"
+    },
+    "jobs": {
+      "title": "Your 3D jobs",
+      "empty": "No 3D jobs in this project yet.",
+      "polling": "Updating",
+      "cost": "Est. GPU cost ${cost}"
+    },
+    "viewer": {
+      "empty": "Select a job to preview its model.",
+      "stage": "Stage: {stage}",
+      "attempt": "Attempt {attempt} / {total}",
+      "cancel": "Cancel",
+      "clarifyLabel": "Replacement image",
+      "clarifySubmit": "Submit replacement image",
+      "inProgress": "The model is being generated. This page updates automatically.",
+      "noArtifact": "The job finished without a downloadable model.",
+      "loadingLinks": "Preparing secure links…",
+      "loadingModel": "Loading model…",
+      "previewError": "The 3D preview could not be loaded. Refresh the secure links and try again.",
+      "viewport": "Interactive 3D preview. Drag to orbit, scroll or pinch to zoom, arrow keys to pan.",
+      "controlsHint": "Drag to orbit · scroll or pinch to zoom · right-drag or arrow keys to pan.",
+      "reset": "Reset view",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out"
+    },
+    "download": {
+      "glb": "Download GLB",
+      "obj": "Export OBJ",
+      "refresh": "Refresh secure links",
+      "objNote": "OBJ is converted in your browser from the preview and contains geometry only (no textures).",
+      "expiry": "Secure links expire in about {minutes} min."
+    },
+    "status": {
+      "queued": "Queued",
+      "running": "Generating",
+      "cancel_requested": "Cancelling",
+      "needs_clarification": "Needs a clearer image",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "errors": {
+      "load": "3D access could not be loaded.",
+      "projects": "Your projects could not be loaded.",
+      "jobs": "3D jobs could not be loaded.",
+      "links": "Secure model links could not be issued.",
+      "create": "The 3D job could not be queued.",
+      "cancel": "The 3D job could not be cancelled.",
+      "clarify": "The replacement image could not be submitted.",
+      "obj": "The OBJ export failed.",
+      "invalidType": "Upload a PNG, JPEG or WebP image.",
+      "tooLarge": "The image is too large.",
+      "tooLargeLimit": "The image exceeds the {max} MB limit.",
+      "termsRequired": "Accept the current third-party 3D model terms first.",
+      "quota": "Your monthly 3D limit has been reached.",
+      "concurrency": "You already have the maximum number of active 3D jobs. Wait for one to finish.",
+      "notGranted": "Your plan does not include 3D generation.",
+      "providerUnavailable": "The 3D generation provider is temporarily unavailable. Nothing was queued; please try again later.",
+      "maintenance": "Media generation is paused for maintenance. Nothing was queued; please try again later.",
+      "jurisdiction": "3D generation or this model's output is not licensed for your region.",
+      "duplicate": "This request conflicts with an earlier submission. Reload and try again.",
+      "sessionExpired": "Your session has expired. Sign in again.",
+      "forbidden": "You do not have permission for this project.",
+      "expired": "This model has passed its retention period and is no longer available.",
+      "rateLimited": "Too many requests. Please wait a moment."
     }
   }
 }

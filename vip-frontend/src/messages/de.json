@@ -1,5 +1,7 @@
 {
   "meta": {
+    "threeDTitle": "Bild zu 3D",
+    "threeDDescription": "Erzeugen Sie texturierte 3D-Modelle aus Bildern, prüfen Sie sie im Browser und laden Sie GLB oder OBJ herunter.",
     "title": "AIONEX AIOS — Gesteuertes KI-Betriebssystem",
     "description": "Ein gesteuertes System für intelligente Agenten, Multi-Modell-Orchestrierung, Projekte und Unternehmenskontrolle.",
     "homeTitle": "Intelligente Projekte aufbauen und steuern",
@@ -38,6 +40,7 @@
     "realtimeDescription": "Sichere Sprach- und Videoanrufe, Bildschirmfreigabe und zustimmungspflichtige Aufzeichnung."
   },
   "nav": {
+    "threeD": "3D",
     "home": "Start",
     "about": "Über uns",
     "contact": "Kontakt",
@@ -380,6 +383,7 @@
       "critical": "Kritisch"
     },
     "threeD": {
+      "resetView": "Ansicht zurücksetzen",
       "title": "Texturierte 3D-Erzeugung",
       "loading": "3D-Zugriff wird geladen…",
       "loadError": "3D-Zugriff konnte nicht geladen werden.",
@@ -1276,6 +1280,139 @@
       "failed": "Fehlgeschlagen",
       "cancelled": "Abgebrochen",
       "needs_review": "Prüfung erforderlich"
+    }
+  },
+  "threeDStudio": {
+    "eyebrow": "3D-Generierung",
+    "title": "Bild zu 3D",
+    "description": "Verwandeln Sie ein Produkt- oder Objektfoto in ein texturiertes 3D-Modell, verfolgen Sie den Auftrag live, prüfen Sie ihn im Browser und laden Sie das Ergebnis herunter.",
+    "loading": "3D-Arbeitsbereich wird geladen…",
+    "refresh": "Aktualisieren",
+    "projectsLink": "Projekte öffnen",
+    "queued": "Ihr Bild wurde angenommen und der 3D-Auftrag ist in der Warteschlange.",
+    "signedOut": {
+      "title": "Melden Sie sich an, um die 3D-Generierung zu nutzen",
+      "body": "3D-Aufträge, Vorschauen und Downloads sind privat für Ihr Konto. Melden Sie sich an oder erstellen Sie ein Konto, um fortzufahren.",
+      "login": "Anmelden",
+      "register": "Konto erstellen"
+    },
+    "noProjects": {
+      "title": "Erstellen Sie zuerst ein Projekt",
+      "body": "3D-Aufträge werden in einem Projekt gespeichert, damit Ihr Team die Ergebnisse finden und wiederverwenden kann.",
+      "cta": "Zu den Projekten"
+    },
+    "project": {
+      "label": "Projekt",
+      "hint": "Neue Aufträge und die Liste unten gehören zu diesem Projekt."
+    },
+    "quota": {
+      "remaining": "Übrig diesen Monat",
+      "active": "Aktive Aufträge",
+      "plan": "Tarif"
+    },
+    "upgrade": {
+      "planTitle": "3D-Generierung ist nicht in Ihrem Tarif enthalten",
+      "planBody": "Ihr aktueller Tarif umfasst keine 3D-Generierung. Wechseln Sie zu einem Tarif mit 3D-Zugang, um Modelle zu erstellen.",
+      "billingTitle": "Abrechnung erfordert Aufmerksamkeit",
+      "billingBody": "Die Abrechnung Ihrer Organisation ist nicht aktiv, daher ist die 3D-Generierung pausiert. Prüfen Sie Ihren Tarif, um den Zugang wiederherzustellen.",
+      "quotaTitle": "Monatliches 3D-Limit erreicht",
+      "quotaBody": "Sie haben alle in diesem Monat enthaltenen 3D-Generierungen verbraucht. Wechseln Sie den Tarif oder warten Sie auf den nächsten Abrechnungsmonat.",
+      "cta": "Tarife ansehen"
+    },
+    "unavailable": {
+      "disabledTitle": "3D-Generierung ist ausgeschaltet",
+      "disabledBody": "Der 3D-Dienst ist derzeit vom Plattformbetreiber deaktiviert. Bis zur erneuten Aktivierung wird kein Auftrag eingereiht.",
+      "providerTitle": "3D-Anbieter nicht verfügbar",
+      "jurisdictionTitle": "In Ihrer Region nicht verfügbar",
+      "jobsStillVisible": "Bestehende Aufträge und Downloads unten bleiben verfügbar, sofern Ihr Tarif es erlaubt."
+    },
+    "create": {
+      "title": "Aus einem Bild erstellen",
+      "body": "Laden Sie für das beste Ergebnis ein klares Foto eines einzelnen Objekts vor einfachem Hintergrund hoch.",
+      "imageLabel": "Quellbild",
+      "imageHint": "PNG, JPEG oder WebP, bis zu {max} MB.",
+      "selected": "Ausgewählt: {name}",
+      "textureLabel": "Texturauflösung",
+      "outputLabel": "Ausgabe:",
+      "outputValue": "GLB (binäres glTF mit PBR-Texturen)",
+      "modelLabel": "Modell:",
+      "costLabel": "Kosten:",
+      "costValue": "1 Generierung aus Ihrem Monatskontingent",
+      "hunyuanNoAffiliation": "Betrieben von {operator}. Tencent ist mit diesem Dienst nicht verbunden, sponsert oder empfiehlt ihn nicht.",
+      "modelPolicy": "Das Modell wird vom Server für Ihre Region ausgewählt. Modelle, die sich noch in der Sicherheitsprüfung befinden, werden nie angeboten.",
+      "textTitle": "Text zu 3D",
+      "textBody": "Noch nicht verfügbar: Der 3D-Dienst akzeptiert derzeit nur Bilder.",
+      "submit": "3D-Modell generieren",
+      "submitting": "Wird gesendet…"
+    },
+    "terms": {
+      "consent": "Ich akzeptiere die aktuellen Bedingungen für 3D-Modelle von Drittanbietern und die Gebietsbeschränkungen.",
+      "link": "Bedingungen ansehen"
+    },
+    "jobs": {
+      "title": "Ihre 3D-Aufträge",
+      "empty": "In diesem Projekt gibt es noch keine 3D-Aufträge.",
+      "polling": "Wird aktualisiert",
+      "cost": "Geschätzte GPU-Kosten ${cost}"
+    },
+    "viewer": {
+      "empty": "Wählen Sie einen Auftrag, um sein Modell anzuzeigen.",
+      "stage": "Phase: {stage}",
+      "attempt": "Versuch {attempt} / {total}",
+      "cancel": "Abbrechen",
+      "clarifyLabel": "Ersatzbild",
+      "clarifySubmit": "Ersatzbild senden",
+      "inProgress": "Das Modell wird generiert. Diese Seite aktualisiert sich automatisch.",
+      "noArtifact": "Der Auftrag wurde ohne herunterladbares Modell beendet.",
+      "loadingLinks": "Sichere Links werden vorbereitet…",
+      "loadingModel": "Modell wird geladen…",
+      "previewError": "Die 3D-Vorschau konnte nicht geladen werden. Aktualisieren Sie die sicheren Links und versuchen Sie es erneut.",
+      "viewport": "Interaktive 3D-Vorschau. Ziehen zum Drehen, scrollen oder zwei Finger zum Zoomen, Pfeiltasten zum Verschieben.",
+      "controlsHint": "Ziehen zum Drehen · scrollen oder zwei Finger zum Zoomen · Rechtsziehen oder Pfeiltasten zum Verschieben.",
+      "reset": "Ansicht zurücksetzen",
+      "zoomIn": "Vergrößern",
+      "zoomOut": "Verkleinern"
+    },
+    "download": {
+      "glb": "GLB herunterladen",
+      "obj": "OBJ exportieren",
+      "refresh": "Sichere Links aktualisieren",
+      "objNote": "OBJ wird in Ihrem Browser aus der Vorschau umgewandelt und enthält nur Geometrie (keine Texturen).",
+      "expiry": "Sichere Links laufen in etwa {minutes} Min. ab."
+    },
+    "status": {
+      "queued": "In Warteschlange",
+      "running": "Wird generiert",
+      "cancel_requested": "Wird abgebrochen",
+      "needs_clarification": "Klareres Bild nötig",
+      "completed": "Abgeschlossen",
+      "failed": "Fehlgeschlagen",
+      "cancelled": "Abgebrochen"
+    },
+    "errors": {
+      "load": "Der 3D-Zugang konnte nicht geladen werden.",
+      "projects": "Ihre Projekte konnten nicht geladen werden.",
+      "jobs": "3D-Aufträge konnten nicht geladen werden.",
+      "links": "Sichere Modell-Links konnten nicht ausgestellt werden.",
+      "create": "Der 3D-Auftrag konnte nicht eingereiht werden.",
+      "cancel": "Der 3D-Auftrag konnte nicht abgebrochen werden.",
+      "clarify": "Das Ersatzbild konnte nicht gesendet werden.",
+      "obj": "Der OBJ-Export ist fehlgeschlagen.",
+      "invalidType": "Laden Sie ein PNG-, JPEG- oder WebP-Bild hoch.",
+      "tooLarge": "Das Bild ist zu groß.",
+      "tooLargeLimit": "Das Bild überschreitet das Limit von {max} MB.",
+      "termsRequired": "Akzeptieren Sie zuerst die aktuellen Bedingungen für 3D-Modelle von Drittanbietern.",
+      "quota": "Ihr monatliches 3D-Limit ist erreicht.",
+      "concurrency": "Sie haben bereits die maximale Anzahl aktiver 3D-Aufträge. Warten Sie, bis einer beendet ist.",
+      "notGranted": "Ihr Tarif umfasst keine 3D-Generierung.",
+      "providerUnavailable": "Der 3D-Anbieter ist vorübergehend nicht verfügbar. Es wurde nichts eingereiht; bitte versuchen Sie es später erneut.",
+      "maintenance": "Die Mediengenerierung ist wegen Wartung pausiert. Es wurde nichts eingereiht; bitte versuchen Sie es später erneut.",
+      "jurisdiction": "3D-Generierung oder die Ausgabe dieses Modells ist für Ihre Region nicht lizenziert.",
+      "duplicate": "Diese Anfrage steht im Konflikt mit einer früheren Übermittlung. Laden Sie neu und versuchen Sie es erneut.",
+      "sessionExpired": "Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an.",
+      "forbidden": "Sie haben keine Berechtigung für dieses Projekt.",
+      "expired": "Dieses Modell hat seine Aufbewahrungsfrist überschritten und ist nicht mehr verfügbar.",
+      "rateLimited": "Zu viele Anfragen. Bitte warten Sie einen Moment."
     }
   }
 }

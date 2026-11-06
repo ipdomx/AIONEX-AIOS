@@ -6,7 +6,7 @@ import { AnnouncementBanner } from "@/components/portal/announcement-banner";
 import { usePortalExperience } from "@/components/portal/portal-experience-provider";
 
 const portalRoute =
-  /^\/(?:ar|en|fr|de|es|tr)\/(?:dashboard|projects|conversations|studio|academy|campaigns|profile)(?:\/|$)/;
+  /^\/(?:ar|en|fr|de|es|tr)\/(?:dashboard|projects|conversations|studio|academy|campaigns|profile|3d)(?:\/|$)/;
 
 export function SiteFrame({
   children,
