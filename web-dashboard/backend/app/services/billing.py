@@ -382,7 +382,12 @@ async def sync_catalog(session: AsyncSession) -> dict[str, Any]:
                     or "none"
                 ).lower(),
                 "provider_reference": provider_reference,
-                "price_metadata": {"label": raw_period.get("label") or {}},
+                "price_metadata": {
+                    "label": raw_period.get("label") or {},
+                    "trial_days": max(
+                        0, min(730, int(raw_period.get("trial_days") or 0))
+                    ),
+                },
             }
             if price is None:
                 price = BillingPrice(
@@ -406,6 +411,9 @@ async def sync_catalog(session: AsyncSession) -> dict[str, Any]:
                     "currency": price.currency,
                     "enabled": price.enabled,
                     "provider": price.provider,
+                    "trial_days": int(
+                        dict(price.price_metadata or {}).get("trial_days") or 0
+                    ),
                     "checkout_available": bool(
                         public_plan["enabled"]
                         and price.enabled
@@ -783,28 +791,57 @@ async def _stripe_checkout(
     *,
     idempotency_key: str,
     transport: httpx.AsyncBaseTransport | None = None,
+    customer: str | None = None,
+    locale: str | None = None,
+    discount: tuple[str, str] | None = None,
+    tax_rate_reference: str | None = None,
+    trial_days: int = 0,
 ) -> dict[str, Any]:
+    from app.services import stripe_billing
+
     if not settings.STRIPE_SECRET_KEY:
         raise HTTPException(status_code=503, detail="Stripe is not configured")
     if not price.provider_reference:
         raise HTTPException(status_code=409, detail="Stripe price reference is missing")
-    data = [
+    success_url, cancel_url = stripe_billing.checkout_return_urls(locale)
+    data: list[tuple[str, str]] = [
         ("mode", "subscription"),
-        ("success_url", settings.PAYMENTS_SUCCESS_URL),
-        ("cancel_url", settings.PAYMENTS_CANCEL_URL),
-        ("customer_email", actor.email),
+        ("success_url", success_url),
+        ("cancel_url", cancel_url),
+        # Reuse the organization's Stripe customer; Checkout creates one on the
+        # first subscription and the completion webhook stores it.
+        ("customer", customer) if customer else ("customer_email", actor.email),
         ("client_reference_id", checkout.id),
         ("line_items[0][price]", price.provider_reference),
         ("line_items[0][quantity]", "1"),
-        ("allow_promotion_codes", "true"),
-        ("automatic_payment_methods[enabled]", "true"),
         ("metadata[organization_id]", actor.organization_id),
         ("metadata[user_id]", actor.id),
         ("metadata[plan_code]", plan.code),
         ("metadata[price_id]", price.id),
         ("metadata[checkout_id]", checkout.id),
         ("metadata[google_pay_enabled]", "true"),
+        # The subscription carries the mapping too, so customer.subscription.*
+        # events resolve the organization even before checkout completion.
+        ("subscription_data[metadata][organization_id]", actor.organization_id),
+        ("subscription_data[metadata][plan_code]", plan.code),
+        ("subscription_data[metadata][price_id]", price.id),
+        ("subscription_data[metadata][checkout_id]", checkout.id),
     ]
+    if discount is not None:
+        # Stripe rejects discounts together with allow_promotion_codes.
+        data.append((f"discounts[0][{discount[0]}]", discount[1]))
+    else:
+        data.append(("allow_promotion_codes", "true"))
+    if trial_days > 0:
+        data.append(("subscription_data[trial_period_days]", str(trial_days)))
+    if settings.STRIPE_AUTOMATIC_TAX:
+        data.append(("automatic_tax[enabled]", "true"))
+        data.append(("billing_address_collection", "required"))
+        if customer:
+            data.append(("customer_update[address]", "auto"))
+            data.append(("customer_update[name]", "auto"))
+    elif tax_rate_reference:
+        data.append(("line_items[0][tax_rates][0]", tax_rate_reference))
     async with httpx.AsyncClient(
         base_url=settings.STRIPE_API_BASE, timeout=30, transport=transport
     ) as client:
@@ -1018,8 +1055,11 @@ async def create_checkout(
     idempotency_key: str,
     coupon_code: str | None = None,
     billing_country: str | None = None,
+    locale: str | None = None,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> dict[str, Any]:
+    from app.services import stripe_billing
+
     key = idempotency_key.strip()
     if len(key) < 12 or len(key) > 160:
         raise HTTPException(
@@ -1077,6 +1117,23 @@ async def create_checkout(
             detail="Provider price reference is missing",
         )
 
+    if price.provider == "stripe":
+        live = await stripe_billing.live_stripe_subscription(
+            session, actor.organization_id
+        )
+        if live is not None:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "SUBSCRIPTION_EXISTS",
+                    "message": (
+                        "This organization already has a card subscription; change "
+                        "the plan or manage it from the billing portal instead"
+                    ),
+                    "subscription_status": live.status,
+                },
+            )
+
     coupon = None
     if coupon_code:
         coupon = await session.scalar(
@@ -1086,10 +1143,38 @@ async def create_checkout(
         )
         if coupon is None:
             raise HTTPException(status_code=422, detail="Coupon is not valid")
+    stripe_discount = None
+    if coupon is not None and price.provider == "stripe":
+        # The discount must be applied by Stripe, or the card would be charged
+        # the full price while the local invoice shows the discount.
+        stripe_discount = stripe_billing.coupon_stripe_discount(coupon.coupon_metadata)
+        if stripe_discount is None:
+            raise HTTPException(
+                status_code=422,
+                detail="Coupon is not available for card checkout",
+            )
     discount_minor = _coupon_discount(coupon, price.amount_minor, price.currency)
     taxable_minor = max(0, price.amount_minor - discount_minor)
-    tax_rate, tax_minor = await _tax(session, billing_country, taxable_minor)
+    stripe_tax_reference = None
+    if price.provider == "stripe" and settings.STRIPE_AUTOMATIC_TAX:
+        # Stripe Tax computes tax from the customer address at checkout; the
+        # paid invoice webhook records the final amount.
+        tax_rate, tax_minor = None, 0
+    else:
+        tax_rate, tax_minor = await _tax(session, billing_country, taxable_minor)
+        if price.provider == "stripe" and tax_rate is not None and tax_minor > 0:
+            stripe_tax_reference = stripe_billing.stripe_tax_rate_map().get(
+                tax_rate.code.upper()
+            )
+            if stripe_tax_reference is None and not tax_rate.inclusive:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Tax rate is not mapped to a Stripe tax rate",
+                )
     total_minor = taxable_minor + (0 if tax_rate and tax_rate.inclusive else tax_minor)
+    trial_days = max(
+        0, min(730, int(dict(price.price_metadata or {}).get("trial_days") or 0))
+    )
 
     checkout = BillingCheckoutSession(
         organization_id=actor.organization_id,
@@ -1109,6 +1194,13 @@ async def create_checkout(
             "currency": price.currency,
             "plan_code": plan.code,
             "period_code": price.period_code,
+            "tax_mode": (
+                "stripe_automatic"
+                if price.provider == "stripe" and settings.STRIPE_AUTOMATIC_TAX
+                else "local"
+            ),
+            "trial_days": trial_days,
+            "locale": stripe_billing.portal_locale(locale),
         },
     )
     session.add(checkout)
@@ -1187,6 +1279,11 @@ async def create_checkout(
 
     try:
         if price.provider == "stripe":
+            account = await session.scalar(
+                select(BillingAccount).where(
+                    BillingAccount.organization_id == actor.organization_id
+                )
+            )
             result = await _stripe_checkout(
                 checkout,
                 actor,
@@ -1194,6 +1291,16 @@ async def create_checkout(
                 price,
                 idempotency_key=key,
                 transport=transport,
+                customer=(
+                    str((account.provider_customers or {}).get("stripe") or "")
+                    or None
+                    if account is not None
+                    else None
+                ),
+                locale=locale,
+                discount=stripe_discount,
+                tax_rate_reference=stripe_tax_reference,
+                trial_days=trial_days,
             )
         elif price.provider == "paypal":
             result = await _paypal_checkout(
@@ -1524,26 +1631,34 @@ async def process_webhook_event(
             BillingWebhookEvent.external_event_id == event_id,
         )
     )
-    if existing is not None:
+    if existing is not None and not (provider == "stripe" and existing.status == "failed"):
         return {
             "accepted": True,
             "duplicate": True,
             "event_id": existing.id,
             "status": existing.status,
         }
-    event = BillingWebhookEvent(
-        provider=provider,
-        external_event_id=event_id,
-        event_type=event_type,
-        payload_hash=hashlib.sha256(raw).hexdigest(),
-        event_payload=_redact_event(payload),
-    )
-    session.add(event)
+    if existing is not None:
+        # A Stripe retry of an event that failed earlier is processed again;
+        # the handlers are idempotent, so a partial earlier attempt is safe.
+        event = existing
+        event.status = "received"
+        event.error = None
+    else:
+        event = BillingWebhookEvent(
+            provider=provider,
+            external_event_id=event_id,
+            event_type=event_type,
+            payload_hash=hashlib.sha256(raw).hexdigest(),
+            event_payload=_redact_event(payload),
+        )
+        session.add(event)
     try:
         await session.flush()
     except IntegrityError:
         await session.rollback()
         return {"accepted": True, "duplicate": True, "status": "processed"}
+    event_status = "processed"
     try:
         obj = _event_object(provider, payload)
         metadata = _metadata(obj)
@@ -1561,7 +1676,15 @@ async def process_webhook_event(
         )
         if checkout is not None:
             organization_id = checkout.organization_id
-        if event_type in {
+        if provider == "stripe":
+            from app.services import stripe_billing
+
+            outcome = await stripe_billing.process_stripe_event(
+                session, payload, event_id=event_id, event_type=event_type
+            )
+            event_status = str(outcome.get("status") or "processed")
+            organization_id = str(outcome.get("organization_id") or organization_id)
+        elif event_type in {
             "checkout.session.completed",
             "PAYMENT.CAPTURE.COMPLETED",
             "BILLING.SUBSCRIPTION.ACTIVATED",
@@ -1730,7 +1853,7 @@ async def process_webhook_event(
             )
             if transaction is not None:
                 transaction.status = "refunded"
-        event.status = "processed"
+        event.status = event_status
         event.processed_at = now()
         session.add(
             _audit(
@@ -1742,13 +1865,32 @@ async def process_webhook_event(
                     "organization_id": organization_id or None,
                     "provider": provider,
                     "event_type": event_type,
+                    "outcome": event_status,
                 },
             )
         )
         await session.commit()
     except Exception as exc:
-        event.status = "failed"
-        event.error = type(exc).__name__
+        # Discard every partial change, then record the failure on its own so
+        # the provider retry (409) is processed from a clean state.
+        await session.rollback()
+        failed = await session.scalar(
+            select(BillingWebhookEvent).where(
+                BillingWebhookEvent.provider == provider,
+                BillingWebhookEvent.external_event_id == event_id,
+            )
+        )
+        if failed is None:
+            failed = BillingWebhookEvent(
+                provider=provider,
+                external_event_id=event_id,
+                event_type=event_type,
+                payload_hash=hashlib.sha256(raw).hexdigest(),
+                event_payload=_redact_event(payload),
+            )
+            session.add(failed)
+        failed.status = "failed"
+        failed.error = type(exc).__name__
         await session.commit()
         raise HTTPException(
             status_code=409, detail="Webhook was verified but could not be reconciled"
@@ -1757,7 +1899,7 @@ async def process_webhook_event(
         "accepted": True,
         "duplicate": False,
         "event_id": event.id,
-        "status": event.status,
+        "status": event_status,
     }
 
 
@@ -2060,8 +2202,11 @@ async def cancel_subscription(
     actor: UserRecord,
     *,
     immediately: bool = False,
+    idempotency_key: str | None = None,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> dict[str, Any]:
+    from app.services import stripe_billing
+
     subscription = await session.scalar(
         select(BillingSubscription)
         .where(
@@ -2083,32 +2228,25 @@ async def cancel_subscription(
                 detail="Provider subscription reference is missing",
             )
         if subscription.provider == "stripe":
-            if not settings.STRIPE_SECRET_KEY:
-                raise HTTPException(status_code=503, detail="Stripe is not configured")
-            async with httpx.AsyncClient(
-                base_url=settings.STRIPE_API_BASE,
-                timeout=30,
-                transport=transport,
-            ) as client:
-                if immediately:
-                    response = await client.delete(
-                        f"/v1/subscriptions/{subscription.external_reference}",
-                        headers={
-                            "Authorization": f"Bearer {settings.STRIPE_SECRET_KEY}"
-                        },
-                    )
-                else:
-                    response = await client.post(
-                        f"/v1/subscriptions/{subscription.external_reference}",
-                        headers={
-                            "Authorization": f"Bearer {settings.STRIPE_SECRET_KEY}",
-                            "Content-Type": "application/x-www-form-urlencoded",
-                        },
-                        content=urlencode({"cancel_at_period_end": "true"}),
-                    )
-            if response.status_code >= 400:
-                raise HTTPException(
-                    status_code=502, detail="Stripe cancellation failed"
+            key = (idempotency_key or "").strip() or stripe_billing.new_idempotency_key(
+                "cancel-now" if immediately else "cancel-at-end", subscription.id
+            )
+            if immediately:
+                await stripe_billing.stripe_request(
+                    "DELETE",
+                    f"/v1/subscriptions/{subscription.external_reference}",
+                    idempotency_key=key,
+                    transport=transport,
+                    failure="Stripe cancellation failed",
+                )
+            else:
+                await stripe_billing.stripe_request(
+                    "POST",
+                    f"/v1/subscriptions/{subscription.external_reference}",
+                    data=[("cancel_at_period_end", "true")],
+                    idempotency_key=key,
+                    transport=transport,
+                    failure="Stripe cancellation failed",
                 )
         elif subscription.provider == "paypal":
             oauth_value = await _paypal_token(transport)
@@ -2154,11 +2292,12 @@ async def cancel_subscription(
         subscription.status = "canceled"
         subscription.canceled_at = now()
         subscription.cancel_at_period_end = False
-        account = await ensure_billing_account(
-            session, actor.organization_id, lock=True
+        await session.flush()
+        # Losing the subscription downgrades to the free plan: paid actions
+        # stop at once while the account, free features and reports remain.
+        await stripe_billing.reconcile_account_entitlements(
+            session, actor.organization_id
         )
-        account.status = "suspended"
-        account.suspended_at = now()
     else:
         subscription.cancel_at_period_end = True
     session.add(
@@ -2355,8 +2494,12 @@ async def owner_overview(session: AsyncSession) -> dict[str, Any]:
         )
     ).all()
     successful = [item for item in transactions if item.status == "succeeded"]
+    from app.services import stripe_billing
+
+    subscription_view = await stripe_billing.owner_subscription_view(session)
     return {
         "catalog": catalog,
+        "subscriptions": subscription_view["subscriptions"],
         "accounts": [
             {
                 "id": account.id,
@@ -2474,6 +2617,7 @@ async def owner_overview(session: AsyncSession) -> dict[str, Any]:
                 wallet.balance_minor for wallet, _ in wallet_rows
             ),
             "usage_charge_minor": sum(item.charge_minor for item in usage_records),
+            **subscription_view["summary"],
         },
         "providers": provider_readiness(),
         "mobile_stores": await __import__("app.services.mobile_store_billing", fromlist=["owner_store_overview"]).owner_store_overview(session),
@@ -2567,8 +2711,19 @@ async def owner_create_coupon(
     currency: str | None,
     max_redemptions: int | None,
     expires_at: datetime | None,
+    stripe_coupon: str | None = None,
+    stripe_promotion_code: str | None = None,
 ) -> dict[str, Any]:
     normalized = code.strip().upper()
+    stripe_mapping: dict[str, str] = {}
+    if stripe_coupon and stripe_coupon.strip():
+        stripe_mapping["stripe_coupon"] = stripe_coupon.strip()[:255]
+    if stripe_promotion_code and stripe_promotion_code.strip():
+        if not stripe_promotion_code.strip().startswith("promo_"):
+            raise HTTPException(
+                status_code=422, detail="Stripe promotion code id must start with promo_"
+            )
+        stripe_mapping["stripe_promotion_code"] = stripe_promotion_code.strip()[:255]
     if not normalized or len(normalized) > 80:
         raise HTTPException(status_code=422, detail="Coupon code is invalid")
     if discount_type == "percent":
@@ -2603,6 +2758,7 @@ async def owner_create_coupon(
         currency=money_currency,
         max_redemptions=max_redemptions,
         expires_at=expires_at,
+        coupon_metadata=stripe_mapping,
     )
     session.add(coupon)
     session.add(
@@ -2644,6 +2800,10 @@ def coupon_snapshot(item: BillingCoupon) -> dict[str, Any]:
         "redeemed_count": item.redeemed_count,
         "expires_at": _as_utc(item.expires_at).isoformat() if item.expires_at else None,
         "active": item.active,
+        "stripe_mapped": bool(
+            (item.coupon_metadata or {}).get("stripe_coupon")
+            or (item.coupon_metadata or {}).get("stripe_promotion_code")
+        ),
     }
 
 
@@ -3103,16 +3263,19 @@ async def owner_refund(
             invoice.amount_refunded_minor += amount_minor
             if invoice.amount_refunded_minor >= invoice.amount_paid_minor:
                 invoice.status = "refunded"
-    await post_wallet_entry(
-        session,
-        transaction.organization_id,
-        amount_minor=amount_minor,
-        idempotency_key=f"refund-credit:{idempotency_key}",
-        entry_type="credit",
-        description="Refund credit",
-        reference_type="billing_refund",
-        reference_id=refund.id,
-    )
+    if provider in {"manual", "bank_transfer", "internal"}:
+        # Card/provider refunds go back to the original payment method; only
+        # offline refunds become wallet credit (no double refund).
+        await post_wallet_entry(
+            session,
+            transaction.organization_id,
+            amount_minor=amount_minor,
+            idempotency_key=f"refund-credit:{idempotency_key}",
+            entry_type="credit",
+            description="Refund credit",
+            reference_type="billing_refund",
+            reference_id=refund.id,
+        )
     session.add(
         _audit(
             actor,
@@ -3249,36 +3412,51 @@ async def create_billing_portal_session(
     session: AsyncSession,
     actor: UserRecord,
     *,
+    locale: str | None = None,
+    idempotency_key: str | None = None,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> dict[str, str]:
-    account = await ensure_billing_account(session, actor.organization_id)
-    customer = str((account.provider_customers or {}).get("stripe") or "")
+    """Stripe customer portal: payment methods, invoices, plan and cancellation."""
+
+    from app.services import stripe_billing
+
+    account = await session.scalar(
+        select(BillingAccount).where(
+            BillingAccount.organization_id == actor.organization_id
+        )
+    )
+    customer = str(((account.provider_customers if account else None) or {}).get("stripe") or "")
     if not customer or not settings.STRIPE_SECRET_KEY:
         raise HTTPException(
             status_code=409,
             detail="Stripe billing portal is not available for this account",
         )
-    async with httpx.AsyncClient(
-        base_url=settings.STRIPE_API_BASE, timeout=30, transport=transport
-    ) as client:
-        response = await client.post(
-            "/v1/billing_portal/sessions",
-            headers={
-                "Authorization": f"Bearer {settings.STRIPE_SECRET_KEY}",
-                "Content-Type": "application/x-www-form-urlencoded",
-            },
-            content=urlencode(
-                {
-                    "customer": customer,
-                    "return_url": settings.PAYMENTS_SUCCESS_URL.split("?", 1)[0],
-                }
-            ),
-        )
-    if response.status_code >= 400:
-        raise HTTPException(
-            status_code=502, detail="Billing portal session creation failed"
-        )
-    url = str(response.json().get("url") or "")
+    data = [
+        ("customer", customer),
+        ("return_url", stripe_billing.portal_billing_url(locale, (("portal", "return"),))),
+    ]
+    if settings.STRIPE_PORTAL_CONFIGURATION_ID:
+        data.append(("configuration", settings.STRIPE_PORTAL_CONFIGURATION_ID))
+    payload = await stripe_billing.stripe_request(
+        "POST",
+        "/v1/billing_portal/sessions",
+        data=data,
+        idempotency_key=(idempotency_key or "").strip()
+        or stripe_billing.new_idempotency_key("portal", actor.organization_id),
+        transport=transport,
+        failure="Billing portal session creation failed",
+    )
+    url = str(payload.get("url") or "")
     if not url.startswith("https://"):
         raise HTTPException(status_code=502, detail="Billing portal URL is invalid")
+    session.add(
+        _audit(
+            actor,
+            "billing.portal.session_created",
+            "billing_account",
+            account.id if account else None,
+            {"organization_id": actor.organization_id},
+        )
+    )
+    await session.commit()
     return {"url": url}

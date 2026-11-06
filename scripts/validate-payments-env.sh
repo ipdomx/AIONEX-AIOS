@@ -81,6 +81,14 @@ success_url="$(value_or_default PAYMENTS_SUCCESS_URL 'https://ai.vip-e.net/en/bi
 cancel_url="$(value_or_default PAYMENTS_CANCEL_URL 'https://ai.vip-e.net/en/billing?checkout=cancelled')"
 [[ "$success_url" == https://* ]] || { echo "PAYMENTS_SUCCESS_URL must use HTTPS" >&2; exit 1; }
 [[ "$cancel_url" == https://* ]] || { echo "PAYMENTS_CANCEL_URL must use HTTPS" >&2; exit 1; }
+portal_base="$(value_or_default PAYMENTS_PORTAL_BASE_URL 'https://ai.vip-e.net')"
+[[ "$portal_base" == https://* ]] || { echo "PAYMENTS_PORTAL_BASE_URL must use HTTPS" >&2; exit 1; }
+validate_optional_bool STRIPE_AUTOMATIC_TAX
+stripe_tax_rates="$(read_value STRIPE_TAX_RATES)"
+if [[ -n "$stripe_tax_rates" && ! "$stripe_tax_rates" =~ ^[A-Za-z0-9_.-]+=txr_[A-Za-z0-9]+(,[A-Za-z0-9_.-]+=txr_[A-Za-z0-9]+)*$ ]]; then
+  echo "STRIPE_TAX_RATES must be CODE=txr_... pairs separated by commas" >&2
+  exit 1
+fi
 
 tolerance="$(value_or_default PAYMENTS_WEBHOOK_TOLERANCE_SECONDS 300)"
 if [[ ! "$tolerance" =~ ^[0-9]+$ ]] || (( tolerance < 30 || tolerance > 3600 )); then
