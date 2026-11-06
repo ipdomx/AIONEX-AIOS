@@ -90,10 +90,11 @@ def test_plan_keeps_route_wiring_and_production_open():
 
 def test_backend_shipped_head_includes_0065_after_0064():
     text = (ROOT / "web-dashboard/backend/tests/test_database_settings.py").read_text()
-    assert 'frozenset({"20261106_0068"})' in text
+    assert 'frozenset({"20261106_0069"})' in text
     assert '("20260920_0063", False)' in text
     assert '("20260920_0064", False)' in text
     assert '("20261025_0065", False)' in text
     assert '("20261106_0066", False)' in text
     assert '("20261106_0067", False)' in text
-    assert '("20261106_0068", True)' in text
+    assert '("20261106_0068", False)' in text
+    assert '("20261106_0069", True)' in text

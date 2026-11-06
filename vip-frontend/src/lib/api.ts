@@ -1,5 +1,14 @@
 import type {
   AccountSession,
+  AdAccountLink,
+  AdsAccess,
+  AdsAvailableAccount,
+  AdsCampaign,
+  AdsCampaignInput,
+  AdsConnection,
+  AdsDashboard,
+  AdsRecommendationRun,
+  AdsUsage,
   AccountSettings,
   BillingCatalog,
   BillingCheckout,
@@ -1313,6 +1322,103 @@ export function socialAiAssist(input: {
   tone: string;
 }): Promise<SocialAiAssistResult> {
   return jsonRequest<SocialAiAssistResult>("/social/ai/assist", "POST", input);
+}
+
+// --- Meta Ads for users (P4). The ads permission is requested incrementally on
+// the Meta login; campaigns are created PAUSED and activation needs a typed
+// confirmation under the Owner spend caps. No token ever reaches the browser.
+
+export function getAdsAccess(): Promise<AdsAccess> {
+  return request<AdsAccess>("/ads/access");
+}
+
+export function startAdsConnect(locale: string): Promise<{ authorize_url: string; expires_in: number }> {
+  return jsonRequest("/ads/connect/meta/start", "POST", { locale });
+}
+
+export function listAdsConnections(): Promise<{ items: AdsConnection[] }> {
+  return request<{ items: AdsConnection[] }>("/ads/connections");
+}
+
+export function listAvailableAdAccounts(input: {
+  source: "oauth" | "owner_token";
+  connectionId?: string | null;
+}): Promise<{ items: AdsAvailableAccount[] }> {
+  const query = new URLSearchParams({ source: input.source });
+  if (input.connectionId) query.set("connection_id", input.connectionId);
+  return request<{ items: AdsAvailableAccount[] }>(`/ads/accounts/available?${query.toString()}`);
+}
+
+export function linkAdAccounts(input: {
+  source: "oauth" | "owner_token";
+  connection_id?: string | null;
+  ad_account_ids: string[];
+}): Promise<{ items: AdAccountLink[] }> {
+  return jsonRequest("/ads/accounts", "POST", input);
+}
+
+export function listAdAccountLinks(): Promise<{ items: AdAccountLink[] }> {
+  return request<{ items: AdAccountLink[] }>("/ads/accounts");
+}
+
+export function updateAdAccountLink(linkId: string, input: { cpa_target_minor: number | null }): Promise<AdAccountLink> {
+  return jsonRequest<AdAccountLink>(`/ads/accounts/${encodeURIComponent(linkId)}`, "PATCH", input);
+}
+
+export function unlinkAdAccount(linkId: string): Promise<AdAccountLink> {
+  return jsonRequest<AdAccountLink>(`/ads/accounts/${encodeURIComponent(linkId)}`, "DELETE");
+}
+
+export function requestAdAccountSync(linkId: string): Promise<AdAccountLink> {
+  return jsonRequest<AdAccountLink>(`/ads/accounts/${encodeURIComponent(linkId)}/sync`, "POST", {});
+}
+
+export function getAdsAnalytics(linkId: string, range?: { from: string; to: string }): Promise<AdsDashboard> {
+  const query = new URLSearchParams({ link_id: linkId });
+  if (range) {
+    query.set("date_from", range.from);
+    query.set("date_to", range.to);
+  }
+  return request<AdsDashboard>(`/ads/analytics?${query.toString()}`);
+}
+
+export function getAdsUsage(linkId: string): Promise<AdsUsage> {
+  return request<AdsUsage>(`/ads/usage?${new URLSearchParams({ link_id: linkId }).toString()}`);
+}
+
+export function createAdsRecommendations(input: {
+  link_id: string;
+  language: string;
+  external_processing_confirmed: boolean;
+}): Promise<AdsRecommendationRun> {
+  return jsonRequest<AdsRecommendationRun>("/ads/recommendations", "POST", input);
+}
+
+export function getLatestAdsRecommendations(linkId: string): Promise<{ item: AdsRecommendationRun | null }> {
+  return request(`/ads/recommendations?${new URLSearchParams({ link_id: linkId }).toString()}`);
+}
+
+export function listAdsCampaigns(): Promise<{ items: AdsCampaign[] }> {
+  return request<{ items: AdsCampaign[] }>("/ads/campaigns");
+}
+
+export function createAdsCampaign(input: AdsCampaignInput): Promise<AdsCampaign> {
+  return jsonRequest<AdsCampaign>("/ads/campaigns", "POST", input);
+}
+
+export function provisionAdsCampaign(campaignId: string): Promise<AdsCampaign> {
+  return jsonRequest<AdsCampaign>(`/ads/campaigns/${encodeURIComponent(campaignId)}/provision`, "POST", {});
+}
+
+export function activateAdsCampaign(
+  campaignId: string,
+  input: { confirmation: string; confirmed_budget_minor: number },
+): Promise<AdsCampaign> {
+  return jsonRequest<AdsCampaign>(`/ads/campaigns/${encodeURIComponent(campaignId)}/activate`, "POST", input);
+}
+
+export function pauseAdsCampaign(campaignId: string): Promise<AdsCampaign> {
+  return jsonRequest<AdsCampaign>(`/ads/campaigns/${encodeURIComponent(campaignId)}/pause`, "POST", {});
 }
 
 // --- Social unified inbox (P3 3.6). Replies go through the Graph API on the

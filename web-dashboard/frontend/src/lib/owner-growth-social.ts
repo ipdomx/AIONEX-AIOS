@@ -467,3 +467,34 @@ export function executeOwnerGrowthPaidCampaignPausedGraph(
     input,
   );
 }
+
+// --- P4 Meta Ads for users: Owner policy (entitlement, activation, per-user spend caps).
+
+export type OwnerAdsPolicy = {
+  enabled: boolean;
+  entitlement: string;
+  plan_codes: string[];
+  activation_enabled: boolean;
+  daily_cap_minor: number;
+  lifetime_cap_minor: number;
+  user_caps: Record<
+    string,
+    { daily_cap_minor: number; lifetime_cap_minor: number }
+  >;
+  max_ad_accounts_per_user: number;
+  max_active_campaigns_per_user: number;
+  max_recommendation_runs_per_day: number;
+};
+
+export function getOwnerAdsPolicy() {
+  return apiClient.get<{ policy: OwnerAdsPolicy; live_verified: boolean }>(
+    "/owner/ads/policy",
+  );
+}
+
+export function updateOwnerAdsPolicy(updates: Partial<OwnerAdsPolicy>) {
+  return apiClient.patch<{ policy: OwnerAdsPolicy; live_verified: boolean }>(
+    "/owner/ads/policy",
+    updates,
+  );
+}

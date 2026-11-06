@@ -146,7 +146,13 @@ class SocialConnector(Protocol):
 
     def capabilities(self) -> dict[str, tuple[str, ...]]: ...
 
-    def authorize_url(self, *, state: str, code_challenge: str | None) -> str: ...
+    def authorize_url(
+        self,
+        *,
+        state: str,
+        code_challenge: str | None,
+        extra_scopes: tuple[str, ...] = (),
+    ) -> str: ...
 
     async def exchange_code(
         self, *, code: str, code_verifier: str | None

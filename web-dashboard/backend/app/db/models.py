@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     JSON,
     BigInteger,
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -2330,6 +2331,10 @@ class SocialOAuthState(Base, TimestampMixin):
     locale: Mapped[str] = mapped_column(String(8), default="en", nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # P4: "social" (Pages/Instagram) or "ads" (incremental ads permission).
+    purpose: Mapped[str] = mapped_column(
+        String(16), default="social", server_default="social", nullable=False
+    )
 
 
 class SocialMediaUpload(Base, TimestampMixin):
@@ -2609,6 +2614,216 @@ class SocialDataDeletionRequest(Base, TimestampMixin):
     conversations_deleted: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AdAccountLink(Base, TimestampMixin):
+    """A Meta ad account one user selected for ads management (P4, roadmap 4.1).
+
+    Scoped to the organization *and* the user who linked it. ``source`` is
+    ``oauth`` (the user's own Meta login grant in ``social_connections``) or
+    ``owner_token`` (the Super Owner's operator token file, owner only). No
+    token is stored here; the grant's encrypted token is used at call time.
+    """
+
+    __tablename__ = "ad_account_links"
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id", "user_id", "ad_account_id", name="uq_ad_account_links_user_account"
+        ),
+        Index("ix_ad_account_links_status_next_sync", "status", "next_sync_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    connection_id: Mapped[str | None] = mapped_column(
+        ForeignKey("social_connections.id", ondelete="SET NULL"), index=True
+    )
+    source: Mapped[str] = mapped_column(String(16), default="oauth", nullable=False)
+    provider: Mapped[str] = mapped_column(String(16), default="meta", nullable=False)
+    ad_account_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    name: Mapped[str] = mapped_column(String(240), nullable=False)
+    currency: Mapped[str] = mapped_column(String(8), nullable=False)
+    timezone_name: Mapped[str] = mapped_column(String(64), default="UTC", nullable=False)
+    account_status: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    business_name: Mapped[str | None] = mapped_column(String(240))
+    status: Mapped[str] = mapped_column(String(16), default="active", nullable=False)
+    cpa_target_minor: Mapped[int | None] = mapped_column(BigInteger)
+    insights_synced_through: Mapped[date | None] = mapped_column(Date)
+    last_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    next_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    throttle_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    sync_state: Mapped[str] = mapped_column(String(24), default="pending", nullable=False)
+    sync_error: Mapped[str | None] = mapped_column(String(120))
+    lease_owner: Mapped[str | None] = mapped_column(String(80))
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class AdInsightDaily(Base, TimestampMixin):
+    """One day of Meta Insights for one campaign/adset/ad, optionally broken down.
+
+    The natural key (link, level, object, date, breakdown, value) is unique, so
+    re-ingesting a window replaces rows instead of duplicating them.
+    """
+
+    __tablename__ = "ad_insights_daily"
+    __table_args__ = (
+        UniqueConstraint(
+            "link_id",
+            "level",
+            "object_id",
+            "day",
+            "breakdown",
+            "breakdown_value",
+            name="uq_ad_insights_daily_natural_key",
+        ),
+        Index("ix_ad_insights_daily_link_level_day", "link_id", "level", "breakdown", "day"),
+        Index("ix_ad_insights_daily_org_user_day", "organization_id", "user_id", "day"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    link_id: Mapped[str] = mapped_column(
+        ForeignKey("ad_account_links.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    level: Mapped[str] = mapped_column(String(16), nullable=False)
+    object_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    object_name: Mapped[str] = mapped_column(String(240), default="", nullable=False)
+    campaign_id: Mapped[str | None] = mapped_column(String(32))
+    adset_id: Mapped[str | None] = mapped_column(String(32))
+    day: Mapped[date] = mapped_column(Date, nullable=False)
+    breakdown: Mapped[str] = mapped_column(String(24), default="none", nullable=False)
+    breakdown_value: Mapped[str] = mapped_column(String(80), default="", nullable=False)
+    currency: Mapped[str] = mapped_column(String(8), nullable=False)
+    spend: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    impressions: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    reach: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    clicks: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    link_clicks: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    conversions: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    conversion_value: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    frequency: Mapped[float | None] = mapped_column(Float)
+    ctr: Mapped[float | None] = mapped_column(Float)
+    cpc: Mapped[float | None] = mapped_column(Float)
+    cpm: Mapped[float | None] = mapped_column(Float)
+    actions: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class AdInsightSyncRun(Base, TimestampMixin):
+    """Audit trail of one insights ingestion run, including async report runs."""
+
+    __tablename__ = "ad_insight_sync_runs"
+    __table_args__ = (
+        Index("ix_ad_insight_sync_runs_link_started", "link_id", "started_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    link_id: Mapped[str] = mapped_column(
+        ForeignKey("ad_account_links.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    mode: Mapped[str] = mapped_column(String(16), nullable=False)
+    date_from: Mapped[date] = mapped_column(Date, nullable=False)
+    date_to: Mapped[date] = mapped_column(Date, nullable=False)
+    report_run_ids: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    rows_upserted: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    calls: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    throttle: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    error_code: Mapped[str | None] = mapped_column(String(120))
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AdCampaign(Base, TimestampMixin):
+    """A Meta campaign a user created from the platform (P4, roadmap 4.5).
+
+    Always created PAUSED on Meta (campaign, ad set, creative, ad). Activation
+    is a separate typed-confirmation action under the Owner spend guard, and
+    the insights worker auto-pauses it when the user's spend cap is reached.
+    """
+
+    __tablename__ = "ad_campaigns"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "client_idempotency_key", name="uq_ad_campaigns_user_idempotency"
+        ),
+        Index("ix_ad_campaigns_org_user_status", "organization_id", "user_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    link_id: Mapped[str] = mapped_column(
+        ForeignKey("ad_account_links.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(240), nullable=False)
+    objective: Mapped[str] = mapped_column(String(40), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), default="draft", nullable=False)
+    currency: Mapped[str] = mapped_column(String(8), nullable=False)
+    daily_budget_minor: Mapped[int | None] = mapped_column(BigInteger)
+    lifetime_budget_minor: Mapped[int | None] = mapped_column(BigInteger)
+    start_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    targeting: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    creative: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    client_idempotency_key: Mapped[str | None] = mapped_column(String(80))
+    meta_campaign_id: Mapped[str | None] = mapped_column(String(32))
+    meta_adset_id: Mapped[str | None] = mapped_column(String(32))
+    meta_creative_id: Mapped[str | None] = mapped_column(String(32))
+    meta_ad_id: Mapped[str | None] = mapped_column(String(32))
+    spend_to_date: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    spend_today: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    paused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    pause_reason: Mapped[str | None] = mapped_column(String(64))
+    guard_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    error_code: Mapped[str | None] = mapped_column(String(120))
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class AdRecommendationRun(Base, TimestampMixin):
+    """AI recommendations grounded on stored metrics (P4, roadmap 4.4). Advisory only."""
+
+    __tablename__ = "ad_recommendation_runs"
+    __table_args__ = (
+        Index("ix_ad_recommendation_runs_org_user_created", "organization_id", "user_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    link_id: Mapped[str] = mapped_column(
+        ForeignKey("ad_account_links.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    period_from: Mapped[date] = mapped_column(Date, nullable=False)
+    period_to: Mapped[date] = mapped_column(Date, nullable=False)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    model: Mapped[str] = mapped_column(String(120), nullable=False)
+    grounding: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    items: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    rejected: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
 
 class GrowthSocialProviderCapability(Base, TimestampMixin):

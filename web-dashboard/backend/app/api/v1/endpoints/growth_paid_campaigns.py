@@ -14,6 +14,7 @@ from app.db.models import (
     GrowthPaidDecision,
     GrowthPaidLiveExecution,
 )
+from app.services import ads_entitlement
 from app.services import growth_paid_campaigns as paid
 
 router = APIRouter()
@@ -187,7 +188,11 @@ async def paid_campaign_readiness(
     actor: UserRecord = Depends(current_user),
     session: AsyncSession = Depends(get_db),
 ):
-    return await paid.campaign_readiness(session, actor)
+    readiness = await paid.campaign_readiness(session, actor)
+    # P4: the campaigns area also opens for users entitled to Meta Ads
+    # management, so the portal needs no extra probe to decide visibility.
+    ads_access = await ads_entitlement.resolve_access(session, actor)
+    return {**readiness, "ads_management_visible": ads_access.granted}
 
 
 @router.get("")

@@ -63,9 +63,12 @@ export function Navbar() {
       .catch(() => {
         if (!cancelled) setSecurityLabVisible(false);
       });
+    // The campaigns area opens for owner-reviewed planning (GS-12) or for
+    // users entitled to Meta Ads management (P4, ads.manage).
     void getPaidCampaignReadiness()
       .then((access) => {
-        if (!cancelled) setCampaignsVisible(access.campaigns_visible);
+        if (!cancelled)
+          setCampaignsVisible(access.campaigns_visible || Boolean(access.ads_management_visible));
       })
       .catch(() => {
         if (!cancelled) setCampaignsVisible(false);

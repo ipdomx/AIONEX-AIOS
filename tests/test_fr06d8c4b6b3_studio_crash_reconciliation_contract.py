@@ -208,7 +208,7 @@ def test_all_legacy_terminal_writers_fence_crash_reconciliation():
 
 def test_backend_keeps_studio_migrations_in_linear_history_after_0064():
     text = DATABASE_TEST.read_text()
-    assert 'frozenset({"20261106_0068"})' in text
+    assert 'frozenset({"20261106_0069"})' in text
     assert '("20260920_0061", False)' in text
     assert '("20260920_0062", False)' in text
     assert '("20260920_0063", False)' in text
@@ -216,4 +216,5 @@ def test_backend_keeps_studio_migrations_in_linear_history_after_0064():
     assert '("20261025_0065", False)' in text
     assert '("20261106_0066", False)' in text
     assert '("20261106_0067", False)' in text
-    assert '("20261106_0068", True)' in text
+    assert '("20261106_0068", False)' in text
+    assert '("20261106_0069", True)' in text

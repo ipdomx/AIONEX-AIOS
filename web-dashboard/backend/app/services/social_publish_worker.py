@@ -117,6 +117,7 @@ class SocialPublishWorker:
         publisher: MetaPublisher | None = None,
         lease_seconds: int | None = None,
         clock: Callable[[], datetime] = _now,
+        ads_job: Any | None = None,
         inbox_backfill: InboxBackfill | None = None,
     ) -> None:
         self.session_factory: SessionFactory = session_factory or SessionLocal
@@ -130,6 +131,10 @@ class SocialPublishWorker:
         self.published = 0
         self.failed = 0
         self.errors = 0
+        # P4: the Meta Ads insights job (``ads_insights.InsightsJob``) runs in
+        # this worker's loop on its own tick.
+        self.ads_job = ads_job
+        self._ads_next_tick = 0.0
         self.inbox_backfill = inbox_backfill
 
     # --- readiness -------------------------------------------------------------------
@@ -559,10 +564,23 @@ class SocialPublishWorker:
                         target_id=claim.target_id,
                         error_type=type(outcome).__name__,
                     )
+        await self._run_ads_job()
         await self.run_inbox_backfill()
         self.cycles += 1
         self.write_health("running")
         return len(claims)
+
+    async def _run_ads_job(self) -> None:
+        if self.ads_job is None or time.monotonic() < self._ads_next_tick:
+            return
+        self._ads_next_tick = time.monotonic() + float(settings.ADS_INSIGHTS_TICK_SECONDS)
+        try:
+            await self.ads_job.run_once()
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            self.errors += 1
+            logger.error("Ads insights job failed", error_type=type(exc).__name__)
 
     async def run_inbox_backfill(self) -> int:
         if self.inbox_backfill is None or self.stop_event.is_set():
@@ -608,6 +626,7 @@ class SocialPublishWorker:
             "published": self.published,
             "failed": self.failed,
             "errors": self.errors,
+            "ads_insights": self.ads_job.health() if self.ads_job is not None else None,
             "inbox_poll_enabled": self.inbox_backfill is not None,
             "inbox_stored": self.inbox_backfill.stored if self.inbox_backfill else 0,
             "secret_returned": False,
@@ -631,8 +650,13 @@ def healthcheck(path: str | Path, *, maximum_age_seconds: float | None = None) -
 
 
 async def async_main() -> int:
+    ads_job = None
+    if settings.ADS_INSIGHTS_WORKER_ENABLED:
+        from app.services.ads_insights import InsightsJob
+
+        ads_job = InsightsJob()
     backfill = InboxBackfill(SessionLocal) if settings.SOCIAL_INBOX_POLL_ENABLED else None
-    worker = SocialPublishWorker(inbox_backfill=backfill)
+    worker = SocialPublishWorker(inbox_backfill=backfill, ads_job=ads_job)
     loop = asyncio.get_running_loop()
     for signum in (signal.SIGINT, signal.SIGTERM):
         try:

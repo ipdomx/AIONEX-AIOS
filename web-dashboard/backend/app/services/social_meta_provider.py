@@ -49,6 +49,7 @@ DEFAULT_SCOPES: tuple[str, ...] = (
     "instagram_manage_comments",
     "business_management",
 )
+DEFAULT_ADS_SCOPES: tuple[str, ...] = ("ads_read", "ads_management", "business_management")
 # Capabilities the requested scopes are meant for. Publishing is implemented
 # by social_meta_publisher (roadmap 3.3); the inbox (roadmap 3.6) by
 # social_inbox and social_meta_inbox.
@@ -67,14 +68,27 @@ _ALLOWED_TASKS = frozenset(
 )
 
 
-def configured_scopes() -> tuple[str, ...]:
-    raw = str(settings.META_OAUTH_SCOPES or "")
+def _parse_scopes(raw: str) -> tuple[str, ...]:
     scopes: list[str] = []
     for item in re.split(r"[\s,]+", raw):
         scope = item.strip().lower()
         if scope and _SCOPE_RE.fullmatch(scope) and scope not in scopes:
             scopes.append(scope)
-    return tuple(scopes) or DEFAULT_SCOPES
+    return tuple(scopes)
+
+
+def configured_scopes() -> tuple[str, ...]:
+    return _parse_scopes(str(settings.META_OAUTH_SCOPES or "")) or DEFAULT_SCOPES
+
+
+def ads_scopes() -> tuple[str, ...]:
+    """P4: the Marketing API permissions requested incrementally (configurable)."""
+
+    return _parse_scopes(str(settings.META_ADS_OAUTH_SCOPES or "")) or DEFAULT_ADS_SCOPES
+
+
+def merge_scopes(*groups: tuple[str, ...]) -> tuple[str, ...]:
+    return tuple(dict.fromkeys(scope for group in groups for scope in group))
 
 
 def _secret_value(direct: str, file_path: str, *, label: str) -> tuple[str, str | None]:
@@ -294,7 +308,13 @@ class MetaConnector:
 
     # --- OAuth ---------------------------------------------------------------------
 
-    def authorize_url(self, *, state: str, code_challenge: str | None) -> str:
+    def authorize_url(
+        self,
+        *,
+        state: str,
+        code_challenge: str | None,
+        extra_scopes: tuple[str, ...] = (),
+    ) -> str:
         app_id, _secret = self._require_credentials()
         if not state:
             raise SocialConnectorError("oauth-state-missing")
@@ -303,8 +323,11 @@ class MetaConnector:
             "redirect_uri": self.redirect_uri,
             "state": state,
             "response_type": "code",
-            "scope": ",".join(self.scopes()),
+            "scope": ",".join(merge_scopes(self.scopes(), extra_scopes)),
         }
+        if extra_scopes:
+            # Incremental permission: ask again even for previously declined scopes.
+            params["auth_type"] = "rerequest"
         if self.supports_pkce:
             if not code_challenge:
                 raise SocialConnectorError("pkce-challenge-missing")
