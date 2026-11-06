@@ -53,6 +53,11 @@ import type {
   User,
   Workspace,
 } from "@/types";
+import {
+  createRefreshGate,
+  parseRetryAfterMs,
+  RefreshFailure,
+} from "@/lib/auth-refresh-gate";
 
 const API_ROOT = (process.env.NEXT_PUBLIC_API_URL || "/api/v1").replace(
   /\/$/,
@@ -147,6 +152,8 @@ function storeSession(session: LoginResponse): LoginResponse {
   removeStorage(LEGACY_STORAGE_KEYS.access);
   removeStorage(LEGACY_STORAGE_KEYS.refresh);
   writeStorage(STORAGE_KEYS.user, JSON.stringify(session.user));
+  // A fresh session (login or successful refresh) lifts any refresh backoff.
+  refreshGate.reset();
   return session;
 }
 
@@ -178,8 +185,6 @@ interface ApiRequestOptions extends RequestInit {
   auth?: boolean;
   retry?: boolean;
 }
-
-let refreshInFlight: Promise<LoginResponse> | null = null;
 
 async function responsePayload(response: Response): Promise<unknown> {
   if (response.status === 204) return null;
@@ -216,10 +221,10 @@ function apiError(response: Response, payload: unknown): ApiError {
   );
 }
 
-async function refreshSession(): Promise<LoginResponse> {
-  if (refreshInFlight) return refreshInFlight;
-  refreshInFlight = (async () => {
-    const response = await fetch(`${API_ROOT}/auth/refresh`, {
+async function performRefresh(): Promise<LoginResponse> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_ROOT}/auth/refresh`, {
       method: "POST",
       credentials: "include",
       headers: {
@@ -228,17 +233,35 @@ async function refreshSession(): Promise<LoginResponse> {
       },
       body: JSON.stringify({}),
     });
-    const payload = await responsePayload(response);
-    if (!response.ok) {
-      clearSession();
-      throw apiError(response, payload);
-    }
-    return storeSession(payload as LoginResponse);
-  })().finally(() => {
-    refreshInFlight = null;
-  });
+  } catch {
+    // Network failure or a CORS-blocked response (for example an nginx 429
+    // without CORS headers). Never surface it as an unhandled rejection.
+    throw new RefreshFailure(null);
+  }
+  let payload: unknown = null;
+  try {
+    payload = await responsePayload(response);
+  } catch {
+    payload = null;
+  }
+  if (!response.ok || !payload || typeof payload !== "object") {
+    throw new RefreshFailure(
+      response.ok ? null : response.status,
+      parseRetryAfterMs(response.headers.get("Retry-After")),
+    );
+  }
+  return storeSession(payload as LoginResponse);
+}
 
-  return refreshInFlight;
+// One shared refresh for the whole page: anonymous visitors never refresh,
+// concurrent 401s share one request and failures back off instead of looping.
+const refreshGate = createRefreshGate<LoginResponse>({
+  hasSessionHint: hasStoredSession,
+  clearSession,
+});
+
+function refreshSession(): Promise<LoginResponse | null> {
+  return refreshGate.run(performRefresh);
 }
 
 export async function request<T>(
@@ -254,8 +277,11 @@ export async function request<T>(
     headers,
   });
   if (response.status === 401 && auth && retry) {
-    await refreshSession();
-    return request<T>(path, { ...init, auth, retry: false });
+    // Never refresh recursively: the replay runs with retry disabled, and a
+    // failed or skipped refresh surfaces the original 401 below.
+    if (await refreshSession()) {
+      return request<T>(path, { ...init, auth, retry: false });
+    }
   }
 
   const payload = await responsePayload(response);
@@ -272,8 +298,7 @@ export async function downloadAuthenticated(
     credentials: "include",
     headers,
   });
-  if (response.status === 401 && retry) {
-    await refreshSession();
+  if (response.status === 401 && retry && (await refreshSession())) {
     return downloadAuthenticated(path, false);
   }
   if (!response.ok) {
@@ -296,8 +321,7 @@ export async function downloadAuthenticatedBlob(
     credentials: "include",
     headers: { Accept: "*/*" },
   });
-  if (response.status === 401 && retry) {
-    await refreshSession();
+  if (response.status === 401 && retry && (await refreshSession())) {
     return downloadAuthenticatedBlob(path, false);
   }
   if (!response.ok) {

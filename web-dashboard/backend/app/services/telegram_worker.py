@@ -6,6 +6,7 @@ import argparse
 import asyncio
 import json
 import os
+import random
 import re
 import signal
 import stat
@@ -40,6 +41,14 @@ _TOKEN_PATTERN = re.compile(r"^[0-9]{5,16}:[A-Za-z0-9_-]{24,220}$")
 _OFFSET_DOMAIN = "telegram-worker"
 _OFFSET_RESOURCE = "update-offset"
 _MAX_MESSAGE = 3900
+# Long polling holds the HTTP response open for up to the getUpdates `timeout`
+# parameter, so the HTTP read timeout must always exceed it by a safe margin.
+_LONG_POLL_READ_MARGIN_SECONDS = 15.0
+# Failures (5xx, connect timeouts, network errors) back off exponentially with
+# jitter; a warning is logged only once this many failures happen in a row.
+POLL_FAILURE_WARNING_THRESHOLD = 3
+_POLL_BACKOFF_BASE_SECONDS = 1.0
+_POLL_BACKOFF_MAX_SECONDS = 60.0
 
 
 _FAILURE_CODES = frozenset({
@@ -68,6 +77,25 @@ class TelegramWorkerError(RuntimeError):
         self.http_status = (
             http_status if type(http_status) is int and 100 <= http_status <= 599 else None
         )
+
+
+def long_poll_read_timeout(poll_seconds: int | float) -> float:
+    """HTTP read timeout for a getUpdates call holding the response open."""
+    return max(0.0, float(poll_seconds)) + _LONG_POLL_READ_MARGIN_SECONDS
+
+
+def poll_backoff_seconds(
+    consecutive_failures: int,
+    *,
+    jitter: float | None = None,
+    base: float = _POLL_BACKOFF_BASE_SECONDS,
+    maximum: float = _POLL_BACKOFF_MAX_SECONDS,
+) -> float:
+    """Exponential backoff with jitter, in [ceiling / 2, ceiling]."""
+    exponent = max(0, min(int(consecutive_failures) - 1, 16))
+    ceiling = min(maximum, base * (2 ** exponent))
+    fraction = random.random() if jitter is None else min(1.0, max(0.0, jitter))
+    return ceiling / 2 + (ceiling / 2) * fraction
 
 
 def _transport_failure_code(error: Exception) -> str:
@@ -106,9 +134,16 @@ class TelegramBotAPI:
     async def close(self) -> None:
         await self._client.aclose()
 
-    async def _call(self, method: str, payload: dict[str, Any]) -> dict[str, Any]:
+    async def _call(
+        self, method: str, payload: dict[str, Any], *, timeout: httpx.Timeout | None = None,
+    ) -> dict[str, Any]:
         try:
-            response = await self._client.post(f"{self._base_url}/{method}", json=payload)
+            if timeout is None:
+                response = await self._client.post(f"{self._base_url}/{method}", json=payload)
+            else:
+                response = await self._client.post(
+                    f"{self._base_url}/{method}", json=payload, timeout=timeout,
+                )
         except (httpx.TimeoutException, httpx.NetworkError) as exc:
             raise TelegramWorkerError(
                 f"Telegram connection failed: {type(exc).__name__}",
@@ -142,6 +177,10 @@ class TelegramBotAPI:
                 "timeout": int(timeout_seconds),
                 "allowed_updates": ["message"],
             },
+            # The default client read timeout must not cut a long poll short.
+            timeout=httpx.Timeout(
+                10.0, connect=10.0, read=long_poll_read_timeout(timeout_seconds),
+            ),
         )
         result = response["result"]
         return [item for item in result if isinstance(item, dict)] if isinstance(result, list) else []
@@ -176,6 +215,7 @@ class TelegramOperationsWorker:
         self.health_path = Path(settings.AIOS_TELEGRAM_HEALTH_FILE)
         self.stop_event = asyncio.Event()
         self.errors = 0
+        self.consecutive_failures = 0
         self.last_error_code: str | None = None
         self.last_error_http_status: int | None = None
         self.last_error_at: str | None = None
@@ -204,25 +244,38 @@ class TelegramOperationsWorker:
 
         self._write_health("running", offset=offset)
         while not self.stop_event.is_set():
+            long_polling = False
             try:
                 if not await telegram_poll_admission_open(consumer="owner"):
                     self._write_health("running", offset=offset)
                     await wait_for_telegram_admission(self.stop_event)
                     continue
+                long_polling = True
                 updates = await self.api.get_updates(
                     offset, settings.AIOS_TELEGRAM_LONG_POLL_SECONDS,
                 )
+                long_polling = False
                 if self.stop_event.is_set():
                     break
                 accepted = await run_telegram_action(lambda: consume(updates), consumer="owner")
+                self._record_success()
                 self._write_health("running", offset=offset)
                 if not accepted:
                     await wait_for_telegram_admission(self.stop_event)
             except TelegramWorkerError as exc:
+                if long_polling and exc.code == "telegram_read_timeout":
+                    # An idle long poll that outlived its read timeout is not an
+                    # incident: poll again immediately without counting it.
+                    logger.debug("Telegram long poll read timeout", error_code=exc.code)
+                    self._write_health("running", offset=offset)
+                    continue
                 self._record_failure(exc)
                 self._write_health("degraded", offset=offset)
                 try:
-                    await asyncio.wait_for(self.stop_event.wait(), timeout=5.0)
+                    await asyncio.wait_for(
+                        self.stop_event.wait(),
+                        timeout=poll_backoff_seconds(self.consecutive_failures),
+                    )
                 except TimeoutError:
                     continue
             except asyncio.CancelledError:
@@ -479,15 +532,35 @@ class TelegramOperationsWorker:
             await session.commit()
 
     def _record_failure(self, error: TelegramWorkerError) -> None:
-        """Keep the last failure visible after recovery without storing its payload."""
+        """Keep the last failure visible after recovery without storing its payload.
+
+        Isolated transient failures (Telegram 502s, connect timeouts, network
+        blips) are logged at debug level; a warning is emitted only once
+        ``POLL_FAILURE_WARNING_THRESHOLD`` failures happen in a row.
+        """
         self.errors += 1
+        self.consecutive_failures += 1
         self.last_error_code = error.code
         self.last_error_http_status = error.http_status
         self.last_error_at = datetime.now(UTC).isoformat()
-        logger.warning(
+        log = (
+            logger.warning
+            if self.consecutive_failures >= POLL_FAILURE_WARNING_THRESHOLD
+            else logger.debug
+        )
+        log(
             "Telegram polling failure", error=type(error).__name__,
             error_code=error.code, http_status=error.http_status,
+            consecutive_failures=self.consecutive_failures,
         )
+
+    def _record_success(self) -> None:
+        if self.consecutive_failures >= POLL_FAILURE_WARNING_THRESHOLD:
+            logger.info(
+                "Telegram polling recovered",
+                consecutive_failures=self.consecutive_failures,
+            )
+        self.consecutive_failures = 0
 
     def _write_health(self, status: str, *, offset: int) -> None:
         payload = {

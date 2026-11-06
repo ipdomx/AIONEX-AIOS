@@ -1,5 +1,11 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 
+import {
+  createRefreshGate,
+  parseRetryAfterMs,
+  RefreshFailure,
+} from "@/lib/auth-refresh-gate";
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
 
 export interface ApiErrorShape {
@@ -26,10 +32,38 @@ function createCorrelationId(): string {
   return `aionex-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 }
 
+const SESSION_STORAGE_KEYS = [
+  "aionex.access_token",
+  "aionex.refresh_token",
+  "aionex.user",
+] as const;
+
+function hasSessionHint(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return Boolean(window.localStorage.getItem("aionex.user"));
+  } catch {
+    return false;
+  }
+}
+
+function clearStoredSession(): void {
+  if (typeof window === "undefined") return;
+  try {
+    for (const key of SESSION_STORAGE_KEYS) window.localStorage.removeItem(key);
+  } catch {
+    // Storage may be blocked by browser privacy settings.
+  }
+}
 
 class ApiClient {
   private readonly client: AxiosInstance;
-  private refreshPromise: Promise<boolean> | null = null;
+  // Single-flight refresh: never for anonymous visitors, never retried after
+  // a failure (terminal failures clear the session once, all failures back off).
+  private readonly refreshGate = createRefreshGate<true>({
+    hasSessionHint,
+    clearSession: clearStoredSession,
+  });
 
   constructor() {
     this.client = axios.create({
@@ -68,30 +102,33 @@ class ApiClient {
   }
 
   private async refreshAccessToken(): Promise<boolean> {
-    if (!this.refreshPromise) {
-      this.refreshPromise = axios
-        .post(
+    const refreshed = await this.refreshGate.run(async () => {
+      try {
+        await axios.post(
           `${API_BASE_URL}/auth/refresh`,
           {},
           {
             withCredentials: true,
             headers: { "X-Correlation-ID": createCorrelationId() },
           },
-        )
-        .then(() => true)
-        .catch(() => {
-          if (typeof window !== "undefined") {
-            window.localStorage.removeItem("aionex.access_token");
-            window.localStorage.removeItem("aionex.refresh_token");
-            window.localStorage.removeItem("aionex.user");
-          }
-          return false;
-        })
-        .finally(() => {
-          this.refreshPromise = null;
-        });
-    }
-    return this.refreshPromise;
+        );
+        return true as const;
+      } catch (error) {
+        const response = (error as AxiosError).response;
+        if (!response) throw new RefreshFailure(null);
+        const retryAfter = response.headers?.["retry-after"];
+        throw new RefreshFailure(
+          response.status,
+          parseRetryAfterMs(typeof retryAfter === "string" ? retryAfter : null),
+        );
+      }
+    });
+    return refreshed === true;
+  }
+
+  /** Lift any refresh backoff after an explicit, successful sign-in. */
+  resetRefreshBackoff(): void {
+    this.refreshGate.reset();
   }
 
   async request<T>(config: AxiosRequestConfig): Promise<T> {

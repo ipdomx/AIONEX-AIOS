@@ -67,6 +67,7 @@ function saveSession(response: LoginResponse): void {
   window.localStorage.removeItem(ACCESS_TOKEN_KEY);
   window.localStorage.removeItem(REFRESH_TOKEN_KEY);
   window.localStorage.setItem(USER_KEY, JSON.stringify(response.user));
+  apiClient.resetRefreshBackoff();
 }
 
 function clearSession(): void {
