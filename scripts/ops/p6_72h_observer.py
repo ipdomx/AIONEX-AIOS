@@ -19,6 +19,7 @@ Never mutates services, configuration, credentials or customer data.
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import hashlib
 import importlib.util
 import json
@@ -132,7 +133,7 @@ def sample_anomalies(sample: dict[str, Any]) -> list[str]:
     origin = sample.get("origin_errors") or {}
     if origin.get("status") != "MEASURED":
         anomalies.append("origin_errors_unavailable")
-    elif origin.get("total", 0) >= 50 and origin.get("rate_5xx", 0) > SAMPLE_5XX_RATE_MAX:
+    elif origin.get("total", 0) >= 50 and origin.get("5xx", 0) / origin["total"] > SAMPLE_5XX_RATE_MAX:
         anomalies.append("origin_5xx_spike")
     backup = sample.get("backup") or {}
     if backup.get("status") != "MEASURED":
@@ -148,17 +149,16 @@ def sample_anomalies(sample: dict[str, Any]) -> list[str]:
 def take_sample(run_id: str, interval: int, ns12: Any | None = None) -> dict[str, Any]:
     ns12 = ns12 or load_ns12()
     started = now_utc()
-    http = {}
-    for name, (url, expected) in ns12.URLS.items():
-        http[name] = _probe(ns12, url, expected)
-        if http[name].get("status") != "EXPECTED":
-            # One confirmation probe: a single dropped packet is recorded
-            # (first_attempt) but only a confirmed failure counts as downtime.
-            time.sleep(5)
-            retry = _probe(ns12, url, expected)
-            retry["first_attempt"] = {k: http[name].get(k) for k in ("status", "http_code", "curl_phase")}
-            http[name] = retry
-    host = ns12.host_probe()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=12) as pool:
+        probes = {name: pool.submit(_confirmed_probe, ns12, url, expected)
+                  for name, (url, expected) in ns12.URLS.items()}
+        host_future = pool.submit(ns12.host_probe)
+        origin_future = pool.submit(origin_error_rate, interval)
+        backup_future = pool.submit(backup_freshness, time.time())
+        http = {name: future.result() for name, future in probes.items()}
+        host = host_future.result()
+        origin = origin_future.result()
+        backup = backup_future.result()
     containers = (host.get("checks") or {}).get("containers") if host.get("status") == "MEASURED" else {"status": "UNAVAILABLE"}
     sample = {
         "schema": SCHEMA_SAMPLE,
@@ -171,12 +171,24 @@ def take_sample(run_id: str, interval: int, ns12: Any | None = None) -> dict[str
         "http": {name: {k: v.get(k) for k in ("status", "http_code", "curl_phase", "total_seconds", "first_attempt") if k in v}
                  for name, v in http.items()},
         "containers": _compact_containers(containers or {}),
-        "origin_errors": origin_error_rate(interval),
-        "backup": backup_freshness(time.time()),
+        "origin_errors": origin,
+        "backup": backup,
         "production_mutation": False,
     }
     sample["anomalies"] = sample_anomalies(sample)
     return sample
+
+
+def _confirmed_probe(ns12: Any, url: str, expected: list[int]) -> dict[str, Any]:
+    first = _probe(ns12, url, expected)
+    if first.get("status") == "EXPECTED":
+        return first
+    # One confirmation probe: a single dropped packet is recorded
+    # (first_attempt) but only a confirmed failure counts as downtime.
+    time.sleep(5)
+    retry = _probe(ns12, url, expected)
+    retry["first_attempt"] = {k: first.get(k) for k in ("status", "http_code", "curl_phase")}
+    return retry
 
 
 def _probe(ns12: Any, url: str, expected: list[int]) -> dict[str, Any]:

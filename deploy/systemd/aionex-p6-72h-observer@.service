@@ -1,0 +1,14 @@
+[Unit]
+Description=AIONEX P6 gate 6.2 72h observation sample (%i)
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/AIOS/scripts/ops/p6_72h_observer.py sample --run-id %i --interval 120 --dir /var/lib/aionex-migration/p6-72h/%i
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/aionex-migration/p6-72h
+TimeoutStartSec=110
