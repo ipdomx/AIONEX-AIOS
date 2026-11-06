@@ -1,0 +1,21 @@
+# P6 gate 6.1 capacity tuning (see docs/project/P6-CAPACITY-ANALYSIS.md).
+# This is the configuration the 5000-user run must measure; if the run
+# passes, it is the configuration that ships. It keeps the API Postgres pool
+# ceiling at 8 x (6 + 1) = 56 <= DATABASE_POOL_CONNECTION_BUDGET 60, so
+# Postgres max_connections=100 keeps headroom for the workers.
+services:
+  backend:
+    cpus: "8.0"
+    # 8 uvicorn processes (~0.3-0.4 GiB each) + 8 x 1 Argon2 thread x 64 MiB.
+    mem_limit: 6g
+    environment:
+      WORKERS: "8"
+      DATABASE_POOL_SIZE: "6"
+      DATABASE_MAX_OVERFLOW: "1"
+      DATABASE_POOL_TIMEOUT_SECONDS: "5"
+      DATABASE_POOL_CONNECTION_BUDGET: "60"
+      # 14 admission slots + >= 34 for auth revocation checks, realtime and presence.
+      REDIS_POOL_SIZE: "48"
+      PASSWORD_HASH_THREADS: "1"
+  nginx:
+    cpus: "2.0"
