@@ -27,6 +27,20 @@ PROVIDER_STATE_DOMAIN = "3d-provider-runtime"
 PROVIDER_STATE_RESOURCE = "hunyuan3d"
 LEGACY_PRIMARY_PROVIDER_RESOURCE = "runpod"
 SUPPORTED_PROVIDER_RESOURCES = {"hunyuan3d", "triposr"}
+# Permanent provider conditions (operator-paused endpoint, rejected credential).
+# They are tracked separately from the transient-failure circuit so they never
+# count toward ``provider_failure_threshold``.
+PROVIDER_PAUSED_CODE = "THREE_D_PROVIDER_PAUSED"
+PROVIDER_AUTH_CODE = "THREE_D_PROVIDER_AUTH"
+PERMANENT_PROVIDER_CODES = frozenset({PROVIDER_PAUSED_CODE, PROVIDER_AUTH_CODE})
+_PAUSED_FIELDS = {
+    "paused": False,
+    "paused_code": None,
+    "paused_at": None,
+    "paused_until": None,
+    "paused_http_status": None,
+    "paused_provider_error_code": None,
+}
 
 
 def now() -> datetime:
@@ -145,6 +159,7 @@ async def _provider_record(
                     "last_failure_at": None,
                     "last_success_at": None,
                     "last_error_code": None,
+                    **_PAUSED_FIELDS,
                 },
                 version=1,
             )
@@ -166,6 +181,12 @@ def _provider_payload(record: OwnerControlRecord) -> dict[str, Any]:
         "last_failure_at": payload.get("last_failure_at"),
         "last_success_at": payload.get("last_success_at"),
         "last_error_code": payload.get("last_error_code"),
+        "paused": bool(payload.get("paused")),
+        "paused_code": payload.get("paused_code"),
+        "paused_at": payload.get("paused_at"),
+        "paused_until": payload.get("paused_until"),
+        "paused_http_status": payload.get("paused_http_status"),
+        "paused_provider_error_code": payload.get("paused_provider_error_code"),
     }
 
 
@@ -195,7 +216,16 @@ async def provider_circuit_snapshot(
         record.status = "half_open"
         record.payload = payload
         record.version += 1
-    payload["available"] = payload["state"] in {"closed", "half_open"}
+    paused_until = _parse_iso(payload["paused_until"])
+    if payload["paused"] and (paused_until is None or paused_until <= now()):
+        # Re-probe a paused endpoint once its hold expires; a still-paused
+        # endpoint is re-marked by the next submission without retry.
+        payload.update(_PAUSED_FIELDS)
+        record.payload = payload
+        record.version += 1
+    payload["available"] = (
+        payload["state"] in {"closed", "half_open"} and not payload["paused"]
+    )
     return payload
 
 
@@ -203,6 +233,21 @@ async def assert_provider_available(
     session: AsyncSession, *, provider: str = PROVIDER_STATE_RESOURCE
 ) -> dict[str, Any]:
     state = await provider_circuit_snapshot(session, provider=provider, lock=True)
+    if state["paused"]:
+        code = str(state.get("paused_code") or PROVIDER_PAUSED_CODE)
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": code,
+                "provider_state": "paused" if code == PROVIDER_PAUSED_CODE else "unavailable",
+                "message": (
+                    "3D generation is temporarily unavailable: the GPU provider endpoint is paused."
+                    if code == PROVIDER_PAUSED_CODE
+                    else "3D generation is temporarily unavailable: the GPU provider rejected AIOS credentials."
+                ),
+                "retry_after": state.get("paused_until"),
+            },
+        )
     if state["state"] == "open":
         raise HTTPException(
             status_code=503,
@@ -227,11 +272,50 @@ async def record_provider_success(
             "open_until": None,
             "last_success_at": now().isoformat(),
             "last_error_code": None,
+            **_PAUSED_FIELDS,
         }
     )
     record.payload = payload
     record.status = "closed"
     record.enabled = True
+    record.version += 1
+    return payload
+
+
+async def record_provider_paused(
+    session: AsyncSession,
+    *,
+    error_code: str,
+    provider: str = PROVIDER_STATE_RESOURCE,
+    http_status: int | None = None,
+    provider_error_code: str | None = None,
+) -> dict[str, Any]:
+    """Mark a provider endpoint permanently unavailable for a bounded hold.
+
+    Unlike :func:`record_provider_failure` this never increments
+    ``consecutive_failures``: an operator-paused endpoint or a rejected
+    credential is not a transient outage and must not open the circuit.
+    """
+    if error_code not in PERMANENT_PROVIDER_CODES:
+        raise ValueError("not a permanent 3D provider error code")
+    policy = await get_three_d_policy(session)
+    record = await _provider_record(session, provider=provider, lock=True)
+    payload = _provider_payload(record)
+    moment = now()
+    payload.update(
+        {
+            "paused": True,
+            "paused_code": error_code,
+            "paused_at": moment.isoformat(),
+            "paused_until": (
+                moment + timedelta(seconds=int(policy["provider_circuit_open_seconds"]))
+            ).isoformat(),
+            "paused_http_status": int(http_status) if http_status is not None else None,
+            "paused_provider_error_code": (provider_error_code or None),
+            "last_error_code": error_code,
+        }
+    )
+    record.payload = payload
     record.version += 1
     return payload
 
@@ -286,6 +370,7 @@ async def reset_provider_circuit(
             "open_until": None,
             "last_error_code": None,
             "last_success_at": now().isoformat(),
+            **_PAUSED_FIELDS,
         }
     )
     record.payload = payload

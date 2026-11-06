@@ -41,12 +41,15 @@ from app.services import billing, communications
 from app.services.three_d_policy import get_three_d_policy
 from app.services.three_d_provider_policy import provider_runtime_configured
 from app.services.three_d_resilience import (
+    PROVIDER_AUTH_CODE,
+    PROVIDER_PAUSED_CODE,
     cleanup_expired_three_d_data,
     assert_provider_available,
     maybe_emit_spend_alerts,
     provider_circuit_snapshot,
     provider_outage_alert,
     record_provider_failure,
+    record_provider_paused,
     record_provider_success,
 )
 from app.services.three_d_product import (
@@ -108,6 +111,35 @@ def _safe_provider_message(state: str) -> str:
     if state == "CANCELLED":
         return "3D generation was cancelled before completion."
     return "The 3D provider could not complete this request."
+
+
+def _provider_error_text(exc: RunPodError) -> str:
+    """Sanitized one-line provider evidence: HTTP status, code and message."""
+    parts = []
+    if exc.status is not None:
+        parts.append(f"HTTP {exc.status}")
+    if exc.code:
+        parts.append(exc.code)
+    text = " ".join(parts)
+    if exc.provider_message:
+        text = f"{text}: {exc.provider_message}" if text else exc.provider_message
+    return text or "no provider detail"
+
+
+def _permanent_provider_code(exc: RunPodError) -> str:
+    return PROVIDER_PAUSED_CODE if exc.category == "paused" else PROVIDER_AUTH_CODE
+
+
+def _permanent_provider_message(exc: RunPodError) -> str:
+    if exc.category == "paused":
+        return (
+            "The 3D GPU provider endpoint is paused, so 3D generation is temporarily "
+            f"unavailable. ({_provider_error_text(exc)})"
+        )
+    return (
+        "The 3D GPU provider rejected the AIOS credentials, so 3D generation is "
+        f"temporarily unavailable. ({_provider_error_text(exc)})"
+    )
 
 
 def _manifest_acceptable(provider: str, manifest: dict) -> bool:
@@ -211,6 +243,7 @@ class ThreeDGenerationWorker:
                     "3D provider preflight failed",
                     provider=provider,
                     error_type=type(exc).__name__,
+                    **(exc.safe_details() if isinstance(exc, RunPodError) else {}),
                 )
                 continue
             if isinstance(health, dict):
@@ -229,7 +262,7 @@ class ThreeDGenerationWorker:
             blocked_provider_values: set[str] = set()
             for provider in ("hunyuan3d", "triposr"):
                 state = await provider_circuit_snapshot(session, provider=provider)
-                if state["state"] != "open":
+                if state["state"] != "open" and not state.get("paused"):
                     continue
                 blocked_provider_values.add(provider)
                 if provider == "hunyuan3d":
@@ -446,7 +479,14 @@ class ThreeDGenerationWorker:
             await communications.publish_realtime(item)
 
     async def _failed(
-        self, job_id: str, lease_token: str, code: str, message: str, *, retryable: bool
+        self,
+        job_id: str,
+        lease_token: str,
+        code: str,
+        message: str,
+        *,
+        retryable: bool,
+        provider_detail: dict[str, object] | None = None,
     ) -> None:
         async with SessionLocal() as session:
             job = await session.scalar(
@@ -468,13 +508,21 @@ class ThreeDGenerationWorker:
                 job.lease_token = None
                 job.error_code = code
                 job.error_message = "A temporary provider error occurred; AIOS scheduled a bounded retry."
+                if provider_detail and provider_detail.get("http_status") is not None:
+                    job.error_message += (
+                        f" (provider HTTP {provider_detail.get('http_status')})"
+                    )
                 job.version += 1
                 session.add(
                     audit_job(
                         job,
                         "3d.job.retry_scheduled",
                         actor_id=None,
-                        details={"error_code": code, "attempt": job.attempts},
+                        details={
+                            "error_code": code,
+                            "attempt": job.attempts,
+                            **(provider_detail or {}),
+                        },
                     )
                 )
                 await session.commit()
@@ -489,7 +537,10 @@ class ThreeDGenerationWorker:
             job.version += 1
             session.add(
                 audit_job(
-                    job, "3d.job.failed", actor_id=None, details={"error_code": code}
+                    job,
+                    "3d.job.failed",
+                    actor_id=None,
+                    details={"error_code": code, **(provider_detail or {})},
                 )
             )
             notes = await notify_job(
@@ -806,6 +857,31 @@ class ThreeDGenerationWorker:
             consecutive_failures=state.get("consecutive_failures"),
         )
 
+    async def _provider_permanent(
+        self, job: ThreeDGenerationJob, exc: RunPodError
+    ) -> str:
+        """Record a paused/auth provider without counting a transient failure."""
+        code = _permanent_provider_code(exc)
+        async with SessionLocal() as session:
+            await record_provider_paused(
+                session,
+                error_code=code,
+                provider=job.provider,
+                http_status=exc.status,
+                provider_error_code=exc.code,
+            )
+            await session.commit()
+        self.last_provider_failure_at = now().isoformat()
+        logger.warning(
+            "3D provider permanently unavailable",
+            job_id=job.id,
+            trace_id=job.trace_id,
+            provider=job.provider,
+            error_code=code,
+            **exc.safe_details(),
+        )
+        return code
+
     async def _provider_success(self, job: ThreeDGenerationJob) -> None:
         async with SessionLocal() as session:
             state = await record_provider_success(session, provider=job.provider)
@@ -840,7 +916,12 @@ class ThreeDGenerationWorker:
                 self.next_cleanup_at = time.monotonic() + interval
 
     async def _defer_for_open_circuit(
-        self, job_id: str, lease_token: str, *, provider: str
+        self,
+        job_id: str,
+        lease_token: str,
+        *,
+        provider: str,
+        code: str = "THREE_D_PROVIDER_CIRCUIT_OPEN",
     ) -> None:
         async with SessionLocal() as session:
             job = await session.scalar(
@@ -859,9 +940,12 @@ class ThreeDGenerationWorker:
             job.progress = 0
             job.lease_token = None
             job.attempts = max(0, job.attempts - 1)
-            job.error_code = "THREE_D_PROVIDER_CIRCUIT_OPEN"
+            job.error_code = code
             job.error_message = (
-                "The selected 3D provider is recovering; this job remains queued."
+                "The selected 3D provider is temporarily unavailable (paused or "
+                "rejecting credentials); this job remains queued."
+                if code in {PROVIDER_PAUSED_CODE, PROVIDER_AUTH_CODE}
+                else "The selected 3D provider is recovering; this job remains queued."
             )
             job.version += 1
             session.add(
@@ -923,6 +1007,7 @@ class ThreeDGenerationWorker:
                 provider_job_id=provider_job_id,
                 reason=reason,
                 error_type=type(exc).__name__,
+                **exc.safe_details(),
             )
             return False
 
@@ -966,8 +1051,12 @@ class ThreeDGenerationWorker:
             except HTTPException as exc:
                 if exc.status_code != 503:
                     raise
+                detail = exc.detail if isinstance(exc.detail, dict) else {}
                 await self._defer_for_open_circuit(
-                    job_id, lease_token, provider=job.provider
+                    job_id,
+                    lease_token,
+                    provider=job.provider,
+                    code=str(detail.get("code") or "THREE_D_PROVIDER_CIRCUIT_OPEN"),
                 )
                 return
             try:
@@ -1030,9 +1119,38 @@ class ThreeDGenerationWorker:
                     trace_id=job.trace_id,
                     provider_job_id=provider_job_id,
                 )
-            except (RunPodError, ThreeDStorageError, OSError) as exc:
-                if isinstance(exc, RunPodError):
-                    await self._provider_failure(job, "THREE_D_SUBMIT_FAILED")
+            except RunPodError as exc:
+                if exc.permanent:
+                    # Paused endpoint / rejected credential: retrying cannot
+                    # succeed and must not push the transient circuit open.
+                    code = await self._provider_permanent(job, exc)
+                    await self._failed(
+                        job_id,
+                        lease_token,
+                        code,
+                        _permanent_provider_message(exc),
+                        retryable=False,
+                        provider_detail=exc.safe_details(),
+                    )
+                    return
+                await self._provider_failure(job, "THREE_D_SUBMIT_FAILED")
+                logger.warning(
+                    "3D submission failed",
+                    job_id=job_id,
+                    error_type=type(exc).__name__,
+                    **exc.safe_details(),
+                )
+                await self._failed(
+                    job_id,
+                    lease_token,
+                    "THREE_D_SUBMIT_FAILED",
+                    "The 3D job could not be submitted to the GPU provider "
+                    f"({_provider_error_text(exc)}).",
+                    retryable=True,
+                    provider_detail=exc.safe_details(),
+                )
+                return
+            except (ThreeDStorageError, OSError) as exc:
                 logger.warning(
                     "3D submission failed", job_id=job_id, error_type=type(exc).__name__
                 )
@@ -1073,7 +1191,20 @@ class ThreeDGenerationWorker:
                     job_id=job_id,
                     trace_id=job.trace_id,
                     error_type=type(exc).__name__,
+                    **exc.safe_details(),
                 )
+                if exc.category == "auth":
+                    # A rejected credential cannot recover by polling.
+                    code = await self._provider_permanent(job, exc)
+                    await self._failed(
+                        job_id,
+                        lease_token,
+                        code,
+                        _permanent_provider_message(exc),
+                        retryable=False,
+                        provider_detail=exc.safe_details(),
+                    )
+                    return
                 await self._provider_failure(job, "THREE_D_PROVIDER_STATUS_ERROR")
                 if time.monotonic() - poll_started > max_queue + max_runtime + 60:
                     await self._failed(
