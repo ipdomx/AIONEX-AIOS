@@ -478,6 +478,7 @@ OWNER_PAGE_BATCH: Final[dict[str, str]] = {
 
 VIP_PAGE_BATCH: Final[dict[str, str]] = {
     "[locale]/conversations/page.tsx": "FR-07",
+    "[locale]/3d/page.tsx": "34D",
     "(root)/page.tsx": "29B", "[locale]/about/page.tsx": "29B",
     "[locale]/academy/page.tsx": "36J",
     "[locale]/billing/page.tsx": "29D",

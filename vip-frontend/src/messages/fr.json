@@ -1,5 +1,7 @@
 {
   "meta": {
+    "threeDTitle": "De l'image à la 3D",
+    "threeDDescription": "Générez des modèles 3D texturés à partir d'images, prévisualisez-les dans le navigateur et téléchargez-les en GLB ou OBJ.",
     "title": "AIONEX AIOS — Système d’exploitation IA gouverné",
     "description": "Un système gouverné pour les agents intelligents, l’orchestration multimodèle, les projets et le contrôle d’entreprise.",
     "homeTitle": "Construire et gouverner des projets intelligents",
@@ -38,6 +40,7 @@
     "realtimeDescription": "Voix, vidéo, partage d’écran et enregistrement avec consentement explicite."
   },
   "nav": {
+    "threeD": "3D",
     "home": "Accueil",
     "about": "À propos",
     "contact": "Contact",
@@ -380,6 +383,7 @@
       "critical": "Critique"
     },
     "threeD": {
+      "resetView": "Réinitialiser la vue",
       "title": "Génération 3D texturée",
       "loading": "Chargement de l’accès 3D…",
       "loadError": "Impossible de charger l’accès 3D.",
@@ -1276,6 +1280,139 @@
       "failed": "Échec",
       "cancelled": "Annulée",
       "needs_review": "À vérifier"
+    }
+  },
+  "threeDStudio": {
+    "eyebrow": "Génération 3D",
+    "title": "De l'image à la 3D",
+    "description": "Transformez la photo d'un produit ou d'un objet en modèle 3D texturé, suivez la tâche en direct, inspectez-la dans le navigateur et téléchargez le résultat.",
+    "loading": "Chargement de l'espace 3D…",
+    "refresh": "Actualiser",
+    "projectsLink": "Ouvrir les projets",
+    "queued": "Votre image a été acceptée et la tâche 3D est en file d'attente.",
+    "signedOut": {
+      "title": "Connectez-vous pour utiliser la génération 3D",
+      "body": "Les tâches 3D, aperçus et téléchargements sont privés à votre compte. Connectez-vous ou créez un compte pour continuer.",
+      "login": "Se connecter",
+      "register": "Créer un compte"
+    },
+    "noProjects": {
+      "title": "Créez d'abord un projet",
+      "body": "Les tâches 3D sont enregistrées dans un projet afin que votre équipe puisse retrouver et réutiliser les résultats.",
+      "cta": "Aller aux projets"
+    },
+    "project": {
+      "label": "Projet",
+      "hint": "Les nouvelles tâches et la liste ci-dessous appartiennent à ce projet."
+    },
+    "quota": {
+      "remaining": "Restant ce mois-ci",
+      "active": "Tâches actives",
+      "plan": "Offre"
+    },
+    "upgrade": {
+      "planTitle": "La génération 3D n'est pas incluse dans votre offre",
+      "planBody": "Votre offre actuelle n'inclut pas la génération 3D. Passez à une offre avec accès 3D pour créer des modèles.",
+      "billingTitle": "La facturation demande votre attention",
+      "billingBody": "La facturation de votre organisation n'est pas active ; la génération 3D est donc suspendue. Vérifiez votre offre pour rétablir l'accès.",
+      "quotaTitle": "Limite mensuelle 3D atteinte",
+      "quotaBody": "Vous avez utilisé toutes les générations 3D incluses ce mois-ci. Changez d'offre ou attendez le prochain mois de facturation.",
+      "cta": "Voir les offres"
+    },
+    "unavailable": {
+      "disabledTitle": "La génération 3D est désactivée",
+      "disabledBody": "Le service 3D est actuellement désactivé par le propriétaire de la plateforme. Aucune tâche ne sera mise en file tant qu'il n'est pas réactivé.",
+      "providerTitle": "Fournisseur 3D indisponible",
+      "jurisdictionTitle": "Indisponible dans votre région",
+      "jobsStillVisible": "Les tâches et téléchargements existants restent disponibles ci-dessous lorsque votre offre le permet."
+    },
+    "create": {
+      "title": "Créer à partir d'une image",
+      "body": "Pour un meilleur résultat, importez une photo nette d'un seul objet sur un fond uni.",
+      "imageLabel": "Image source",
+      "imageHint": "PNG, JPEG ou WebP, jusqu'à {max} Mo.",
+      "previewAlt": "Image source sélectionnée",
+      "textureLabel": "Résolution des textures",
+      "outputLabel": "Sortie :",
+      "outputValue": "GLB (glTF binaire avec textures PBR)",
+      "modelLabel": "Modèle :",
+      "costLabel": "Coût :",
+      "costValue": "1 génération de votre quota mensuel",
+      "hunyuanNoAffiliation": "Exploité par {operator}. Tencent n'est ni affilié à ce service, ni ne le parraine ou ne le cautionne.",
+      "modelPolicy": "Le modèle est choisi par le serveur pour votre région. Les modèles encore en revue de sécurité ne sont jamais proposés.",
+      "textTitle": "Du texte à la 3D",
+      "textBody": "Pas encore disponible : le service 3D n'accepte actuellement que des images.",
+      "submit": "Générer le modèle 3D",
+      "submitting": "Envoi…"
+    },
+    "terms": {
+      "consent": "J'accepte les conditions actuelles des modèles 3D tiers et les restrictions territoriales.",
+      "link": "Consulter les conditions"
+    },
+    "jobs": {
+      "title": "Vos tâches 3D",
+      "empty": "Aucune tâche 3D dans ce projet pour le moment.",
+      "polling": "Mise à jour",
+      "cost": "Coût GPU estimé ${cost}"
+    },
+    "viewer": {
+      "empty": "Sélectionnez une tâche pour prévisualiser son modèle.",
+      "stage": "Étape : {stage}",
+      "attempt": "Tentative {attempt} / {total}",
+      "cancel": "Annuler",
+      "clarifyLabel": "Image de remplacement",
+      "clarifySubmit": "Envoyer l'image de remplacement",
+      "inProgress": "Le modèle est en cours de génération. Cette page se met à jour automatiquement.",
+      "noArtifact": "La tâche s'est terminée sans modèle téléchargeable.",
+      "loadingLinks": "Préparation des liens sécurisés…",
+      "loadingModel": "Chargement du modèle…",
+      "previewError": "L'aperçu 3D n'a pas pu être chargé. Actualisez les liens sécurisés et réessayez.",
+      "viewport": "Aperçu 3D interactif. Faites glisser pour pivoter, faites défiler ou pincez pour zoomer, flèches pour déplacer.",
+      "controlsHint": "Glisser pour pivoter · défiler ou pincer pour zoomer · clic droit ou flèches pour déplacer.",
+      "reset": "Réinitialiser la vue",
+      "zoomIn": "Zoom avant",
+      "zoomOut": "Zoom arrière"
+    },
+    "download": {
+      "glb": "Télécharger le GLB",
+      "obj": "Exporter en OBJ",
+      "refresh": "Actualiser les liens sécurisés",
+      "objNote": "L'OBJ est converti dans votre navigateur à partir de l'aperçu et ne contient que la géométrie (sans textures).",
+      "expiry": "Les liens sécurisés expirent dans environ {minutes} min."
+    },
+    "status": {
+      "queued": "En file d'attente",
+      "running": "Génération",
+      "cancel_requested": "Annulation",
+      "needs_clarification": "Image plus nette requise",
+      "completed": "Terminé",
+      "failed": "Échec",
+      "cancelled": "Annulé"
+    },
+    "errors": {
+      "load": "L'accès 3D n'a pas pu être chargé.",
+      "projects": "Vos projets n'ont pas pu être chargés.",
+      "jobs": "Les tâches 3D n'ont pas pu être chargées.",
+      "links": "Les liens sécurisés du modèle n'ont pas pu être émis.",
+      "create": "La tâche 3D n'a pas pu être mise en file.",
+      "cancel": "La tâche 3D n'a pas pu être annulée.",
+      "clarify": "L'image de remplacement n'a pas pu être envoyée.",
+      "obj": "L'export OBJ a échoué.",
+      "invalidType": "Importez une image PNG, JPEG ou WebP.",
+      "tooLarge": "L'image est trop volumineuse.",
+      "tooLargeLimit": "L'image dépasse la limite de {max} Mo.",
+      "termsRequired": "Acceptez d'abord les conditions actuelles des modèles 3D tiers.",
+      "quota": "Votre limite mensuelle 3D est atteinte.",
+      "concurrency": "Vous avez déjà le nombre maximal de tâches 3D actives. Attendez qu'une se termine.",
+      "notGranted": "Votre offre n'inclut pas la génération 3D.",
+      "providerUnavailable": "Le fournisseur de génération 3D est temporairement indisponible. Rien n'a été mis en file ; réessayez plus tard.",
+      "maintenance": "La génération de médias est suspendue pour maintenance. Rien n'a été mis en file ; réessayez plus tard.",
+      "jurisdiction": "La génération 3D ou la sortie de ce modèle n'est pas autorisée dans votre région.",
+      "duplicate": "Cette demande entre en conflit avec un envoi précédent. Rechargez et réessayez.",
+      "sessionExpired": "Votre session a expiré. Reconnectez-vous.",
+      "forbidden": "Vous n'avez pas l'autorisation pour ce projet.",
+      "expired": "Ce modèle a dépassé sa durée de conservation et n'est plus disponible.",
+      "rateLimited": "Trop de requêtes. Patientez un instant."
     }
   }
 }

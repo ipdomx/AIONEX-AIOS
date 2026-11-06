@@ -1,5 +1,7 @@
 {
   "meta": {
+    "threeDTitle": "Görselden 3D'ye",
+    "threeDDescription": "Görsellerden dokulu 3D modeller üretin, tarayıcıda önizleyin ve GLB veya OBJ olarak indirin.",
     "title": "AIONEX AIOS — Yönetişimli Yapay Zekâ İşletim Sistemi",
     "description": "Akıllı ajanlar, çoklu model orkestrasyonu, projeler ve kurumsal kontrol için yönetişimli bir sistem.",
     "homeTitle": "Akıllı projeler oluşturun ve yönetin",
@@ -38,6 +40,7 @@
     "realtimeDescription": "Güvenli ses, video, ekran paylaşımı ve açık onaylı kayıt."
   },
   "nav": {
+    "threeD": "3D",
     "home": "Ana sayfa",
     "about": "Hakkımızda",
     "contact": "İletişim",
@@ -380,6 +383,7 @@
       "critical": "Kritik"
     },
     "threeD": {
+      "resetView": "Görünümü sıfırla",
       "title": "Dokulu 3D üretimi",
       "loading": "3D erişimi yükleniyor…",
       "loadError": "3D erişimi yüklenemedi.",
@@ -1276,6 +1280,139 @@
       "failed": "Başarısız",
       "cancelled": "İptal edildi",
       "needs_review": "İnceleme gerekli"
+    }
+  },
+  "threeDStudio": {
+    "eyebrow": "3D üretim",
+    "title": "Görselden 3D'ye",
+    "description": "Bir ürün ya da nesne fotoğrafını dokulu bir 3D modele dönüştürün, işi canlı izleyin, tarayıcıda inceleyin ve sonucu indirin.",
+    "loading": "3D çalışma alanı yükleniyor…",
+    "refresh": "Yenile",
+    "projectsLink": "Projeleri aç",
+    "queued": "Görseliniz kabul edildi ve 3D işi kuyruğa alındı.",
+    "signedOut": {
+      "title": "3D üretimi kullanmak için giriş yapın",
+      "body": "3D işleri, önizlemeler ve indirmeler hesabınıza özeldir. Devam etmek için giriş yapın veya hesap oluşturun.",
+      "login": "Giriş yap",
+      "register": "Hesap oluştur"
+    },
+    "noProjects": {
+      "title": "Önce bir proje oluşturun",
+      "body": "3D işleri bir proje içinde saklanır; böylece ekibiniz sonuçları bulup yeniden kullanabilir.",
+      "cta": "Projelere git"
+    },
+    "project": {
+      "label": "Proje",
+      "hint": "Yeni işler ve aşağıdaki liste bu projeye aittir."
+    },
+    "quota": {
+      "remaining": "Bu ay kalan",
+      "active": "Etkin işler",
+      "plan": "Plan"
+    },
+    "upgrade": {
+      "planTitle": "3D üretim planınıza dahil değil",
+      "planBody": "Mevcut planınız 3D üretimi içermiyor. Model oluşturmak için 3D erişimi olan bir plana yükseltin.",
+      "billingTitle": "Faturalandırma ilgi bekliyor",
+      "billingBody": "Kuruluşunuzun faturalandırması etkin değil, bu yüzden 3D üretim duraklatıldı. Erişimi geri kazanmak için planınızı gözden geçirin.",
+      "quotaTitle": "Aylık 3D sınırına ulaşıldı",
+      "quotaBody": "Bu ay dahil olan tüm 3D üretimleri kullandınız. Planınızı yükseltin veya bir sonraki fatura ayını bekleyin.",
+      "cta": "Planları gör"
+    },
+    "unavailable": {
+      "disabledTitle": "3D üretim kapalı",
+      "disabledBody": "3D hizmeti şu anda platform sahibi tarafından devre dışı bırakıldı. Yeniden etkinleştirilene kadar hiçbir iş kuyruğa alınmaz.",
+      "providerTitle": "3D sağlayıcısı kullanılamıyor",
+      "jurisdictionTitle": "Bölgenizde kullanılamıyor",
+      "jobsStillVisible": "Planınız izin verdiğinde aşağıdaki mevcut işler ve indirmeler kullanılabilir kalır."
+    },
+    "create": {
+      "title": "Görselden oluştur",
+      "body": "En iyi sonuç için düz bir arka plan üzerinde tek bir nesnenin net fotoğrafını yükleyin.",
+      "imageLabel": "Kaynak görsel",
+      "imageHint": "PNG, JPEG veya WebP, en fazla {max} MB.",
+      "previewAlt": "Seçilen kaynak görsel",
+      "textureLabel": "Doku çözünürlüğü",
+      "outputLabel": "Çıktı:",
+      "outputValue": "GLB (PBR dokulu ikili glTF)",
+      "modelLabel": "Model:",
+      "costLabel": "Maliyet:",
+      "costValue": "Aylık hakkınızdan 1 üretim",
+      "hunyuanNoAffiliation": "{operator} tarafından işletilir. Tencent bu hizmetle bağlantılı değildir, sponsor olmaz veya onaylamaz.",
+      "modelPolicy": "Model, bölgeniz için sunucu tarafından seçilir. Güvenlik incelemesi süren modeller asla sunulmaz.",
+      "textTitle": "Metinden 3D'ye",
+      "textBody": "Henüz kullanılamıyor: 3D hizmeti şu anda yalnızca görsel kabul ediyor.",
+      "submit": "3D model üret",
+      "submitting": "Gönderiliyor…"
+    },
+    "terms": {
+      "consent": "Güncel üçüncü taraf 3D model koşullarını ve bölge kısıtlamalarını kabul ediyorum.",
+      "link": "Koşulları incele"
+    },
+    "jobs": {
+      "title": "3D işleriniz",
+      "empty": "Bu projede henüz 3D işi yok.",
+      "polling": "Güncelleniyor",
+      "cost": "Tahmini GPU maliyeti ${cost}"
+    },
+    "viewer": {
+      "empty": "Modelini önizlemek için bir iş seçin.",
+      "stage": "Aşama: {stage}",
+      "attempt": "Deneme {attempt} / {total}",
+      "cancel": "İptal et",
+      "clarifyLabel": "Yedek görsel",
+      "clarifySubmit": "Yedek görseli gönder",
+      "inProgress": "Model üretiliyor. Bu sayfa otomatik olarak güncellenir.",
+      "noArtifact": "İş, indirilebilir bir model olmadan tamamlandı.",
+      "loadingLinks": "Güvenli bağlantılar hazırlanıyor…",
+      "loadingModel": "Model yükleniyor…",
+      "previewError": "3D önizleme yüklenemedi. Güvenli bağlantıları yenileyip tekrar deneyin.",
+      "viewport": "Etkileşimli 3D önizleme. Döndürmek için sürükleyin, yakınlaştırmak için kaydırın veya iki parmakla sıkıştırın, kaydırmak için ok tuşlarını kullanın.",
+      "controlsHint": "Döndürmek için sürükle · yakınlaştırmak için kaydır veya sıkıştır · kaydırmak için sağ tıkla sürükle veya ok tuşları.",
+      "reset": "Görünümü sıfırla",
+      "zoomIn": "Yakınlaştır",
+      "zoomOut": "Uzaklaştır"
+    },
+    "download": {
+      "glb": "GLB indir",
+      "obj": "OBJ olarak dışa aktar",
+      "refresh": "Güvenli bağlantıları yenile",
+      "objNote": "OBJ, önizlemeden tarayıcınızda dönüştürülür ve yalnızca geometri içerir (doku yoktur).",
+      "expiry": "Güvenli bağlantıların süresi yaklaşık {minutes} dk içinde dolar."
+    },
+    "status": {
+      "queued": "Kuyrukta",
+      "running": "Üretiliyor",
+      "cancel_requested": "İptal ediliyor",
+      "needs_clarification": "Daha net görsel gerekli",
+      "completed": "Tamamlandı",
+      "failed": "Başarısız",
+      "cancelled": "İptal edildi"
+    },
+    "errors": {
+      "load": "3D erişimi yüklenemedi.",
+      "projects": "Projeleriniz yüklenemedi.",
+      "jobs": "3D işleri yüklenemedi.",
+      "links": "Güvenli model bağlantıları oluşturulamadı.",
+      "create": "3D işi kuyruğa alınamadı.",
+      "cancel": "3D işi iptal edilemedi.",
+      "clarify": "Yedek görsel gönderilemedi.",
+      "obj": "OBJ dışa aktarımı başarısız oldu.",
+      "invalidType": "PNG, JPEG veya WebP görsel yükleyin.",
+      "tooLarge": "Görsel çok büyük.",
+      "tooLargeLimit": "Görsel {max} MB sınırını aşıyor.",
+      "termsRequired": "Önce güncel üçüncü taraf 3D model koşullarını kabul edin.",
+      "quota": "Aylık 3D sınırınıza ulaşıldı.",
+      "concurrency": "Zaten en fazla sayıda etkin 3D işiniz var. Birinin bitmesini bekleyin.",
+      "notGranted": "Planınız 3D üretimi içermiyor.",
+      "providerUnavailable": "3D üretim sağlayıcısı geçici olarak kullanılamıyor. Hiçbir şey kuyruğa alınmadı; lütfen daha sonra tekrar deneyin.",
+      "maintenance": "Medya üretimi bakım nedeniyle duraklatıldı. Hiçbir şey kuyruğa alınmadı; lütfen daha sonra tekrar deneyin.",
+      "jurisdiction": "3D üretim veya bu modelin çıktısı bölgeniz için lisanslı değil.",
+      "duplicate": "Bu istek önceki bir gönderimle çakışıyor. Sayfayı yenileyip tekrar deneyin.",
+      "sessionExpired": "Oturumunuzun süresi doldu. Tekrar giriş yapın.",
+      "forbidden": "Bu proje için izniniz yok.",
+      "expired": "Bu modelin saklama süresi doldu ve artık kullanılamıyor.",
+      "rateLimited": "Çok fazla istek. Lütfen biraz bekleyin."
     }
   }
 }
