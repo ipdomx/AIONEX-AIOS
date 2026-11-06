@@ -45,6 +45,11 @@ RATE_LIMITS: dict[str, tuple[int, int]] = {
     "publish": (60, 600),
     "upload": (60, 600),
     "ai_assist": (30, 600),
+    # P3 unified inbox (social_inbox.py).
+    "inbox_reply": (60, 600),
+    "inbox_moderate": (60, 600),
+    "inbox_suggest": (30, 600),
+    "inbox_subscribe": (20, 600),
 }
 
 Locale = Literal["ar", "en", "fr", "de", "es", "tr"]

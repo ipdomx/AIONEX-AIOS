@@ -76,6 +76,8 @@ from app.api.v1.endpoints import (
     servers,
     settings,
     social,
+    social_inbox,
+    social_meta_callbacks,
     social_publishing,
     studio,
     support,
@@ -246,6 +248,8 @@ api_router.include_router(growth_provider_connectors.router, prefix="/growth-soc
 api_router.include_router(growth_social_accounts.router, prefix="/growth-social", tags=["Growth Social Accounts"])
 api_router.include_router(social.router, prefix="/social", tags=["Social Connectors"])
 api_router.include_router(social_publishing.router, prefix="/social", tags=["Social Publishing"])
+api_router.include_router(social_inbox.router, prefix="/social", tags=["Social Inbox"])
+api_router.include_router(social_meta_callbacks.router, prefix="/social", tags=["Social Meta Callbacks"])
 api_router.include_router(
     user_telegram.router,
     prefix="/telegram",
