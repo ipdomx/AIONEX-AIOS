@@ -1,10 +1,10 @@
 # AIONEX AIOS Backend — development/test dependency set.
 -r requirements-runtime.txt
 
-pytest==9.1.1
-pytest-asyncio==1.4.0
+pytest==9.2.0
+pytest-asyncio==1.4.1.post1
 pytest-cov==4.1.0
 black==26.10.1
-mypy==2.4.0
-ruff==0.16.6
-pre-commit==4.6.2
+mypy==2.4.1
+ruff==0.17.3
+pre-commit==4.7.0
