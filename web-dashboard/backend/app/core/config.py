@@ -1278,6 +1278,44 @@ class Settings(BaseSettings):
     SOCIAL_IG_CONTAINER_MAX_WAIT_SECONDS: int = Field(
         default=600, ge=30, le=1800, validation_alias="SOCIAL_IG_CONTAINER_MAX_WAIT_SECONDS"
     )
+    # P4 Meta Ads for users (roadmap 4.1-4.5). The ads scopes are requested as
+    # an incremental permission on the Meta connector, on top of the social
+    # scopes; the set is configurable.
+    META_ADS_OAUTH_SCOPES: str = Field(
+        default="ads_read,ads_management,business_management",
+        validation_alias="META_ADS_OAUTH_SCOPES",
+    )
+    ADS_INSIGHTS_WORKER_ENABLED: bool = Field(
+        default=True, validation_alias="ADS_INSIGHTS_WORKER_ENABLED"
+    )
+    ADS_INSIGHTS_TICK_SECONDS: int = Field(
+        default=60, ge=10, le=3600, validation_alias="ADS_INSIGHTS_TICK_SECONDS"
+    )
+    ADS_INSIGHTS_SYNC_INTERVAL_SECONDS: int = Field(
+        default=3600, ge=300, le=86400, validation_alias="ADS_INSIGHTS_SYNC_INTERVAL_SECONDS"
+    )
+    ADS_INSIGHTS_ACTIVE_SYNC_INTERVAL_SECONDS: int = Field(
+        default=900, ge=300, le=86400, validation_alias="ADS_INSIGHTS_ACTIVE_SYNC_INTERVAL_SECONDS"
+    )
+    ADS_INSIGHTS_INITIAL_BACKFILL_DAYS: int = Field(
+        default=30, ge=1, le=365, validation_alias="ADS_INSIGHTS_INITIAL_BACKFILL_DAYS"
+    )
+    ADS_INSIGHTS_LOOKBACK_DAYS: int = Field(
+        default=3, ge=0, le=28, validation_alias="ADS_INSIGHTS_LOOKBACK_DAYS"
+    )
+    ADS_INSIGHTS_ASYNC_MIN_DAYS: int = Field(
+        default=14, ge=1, le=365, validation_alias="ADS_INSIGHTS_ASYNC_MIN_DAYS"
+    )
+    ADS_INSIGHTS_BREAKDOWNS: str = Field(
+        default="age,gender,platform_position,country",
+        validation_alias="ADS_INSIGHTS_BREAKDOWNS",
+    )
+    ADS_INSIGHTS_THROTTLE_PCT: int = Field(
+        default=75, ge=10, le=100, validation_alias="ADS_INSIGHTS_THROTTLE_PCT"
+    )
+    ADS_INSIGHTS_LEASE_SECONDS: int = Field(
+        default=900, ge=120, le=3600, validation_alias="ADS_INSIGHTS_LEASE_SECONDS"
+    )
 
     @model_validator(mode="after")
     def resolve_database_url(self) -> "Settings":

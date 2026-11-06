@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends
 
 from app.api.owner import (
+    ads_management as owner_ads_management,
     conversation_governance as owner_conversation_governance,
     external_activation as owner_external_activation,
     growth_access as owner_growth_access,
@@ -24,6 +25,7 @@ from app.api.owner import (
 from app.api.owner import portal as owner_portal
 from app.api.v1.endpoints import (
     academy,
+    ads,
     ai_agents,
     ai_providers,
     auth,
@@ -246,6 +248,7 @@ api_router.include_router(growth_provider_connectors.router, prefix="/growth-soc
 api_router.include_router(growth_social_accounts.router, prefix="/growth-social", tags=["Growth Social Accounts"])
 api_router.include_router(social.router, prefix="/social", tags=["Social Connectors"])
 api_router.include_router(social_publishing.router, prefix="/social", tags=["Social Publishing"])
+api_router.include_router(ads.router, prefix="/ads", tags=["Meta Ads"])
 api_router.include_router(
     user_telegram.router,
     prefix="/telegram",
@@ -318,6 +321,7 @@ owner_router.include_router(control_plane.router)
 owner_router.include_router(owner_growth_access.router)
 owner_router.include_router(owner_growth_pilots.router)
 owner_router.include_router(owner_growth_paid_campaigns.router)
+owner_router.include_router(owner_ads_management.router)
 owner_router.include_router(owner_project_ai.router)
 owner_router.include_router(owner_external_activation.router)
 owner_router.include_router(owner_studio_governance.router)

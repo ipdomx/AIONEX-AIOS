@@ -148,15 +148,39 @@ class CallbackResult:
     ok: bool
     code: str
     connection_id: str | None = None
+    purpose: str = "social"
+
+
+PURPOSES = ("social", "ads")
+
+
+def purpose_scopes(provider: str, purpose: str) -> tuple[str, ...]:
+    """Extra scopes a purpose adds on top of the connector's base scopes (P4)."""
+
+    if purpose == "social":
+        return ()
+    if purpose == "ads" and provider == "meta":
+        from app.services.social_meta_provider import ads_scopes
+
+        return ads_scopes()
+    raise SocialConnectorError("connect-purpose-unsupported", status_code=422)
 
 
 async def start_connect(
-    session: AsyncSession, actor: UserRecord, provider_key: str, *, locale: str | None
+    session: AsyncSession,
+    actor: UserRecord,
+    provider_key: str,
+    *,
+    locale: str | None,
+    purpose: str = "social",
 ) -> StartResult:
     connector = framework.get_connector(provider_key)
     status = connector.status()
     if not status.configured:
         raise SocialConnectorError("provider-not-configured", status_code=409)
+    if purpose not in PURPOSES:
+        raise SocialConnectorError("connect-purpose-unsupported", status_code=422)
+    extra_scopes = purpose_scopes(connector.key, purpose)
     now = _now()
     await session.execute(
         delete(SocialOAuthState).where(
@@ -178,7 +202,13 @@ async def start_connect(
     binding = framework.new_browser_binding()
     verifier = framework.new_code_verifier() if connector.supports_pkce else None
     challenge = framework.code_challenge_s256(verifier) if verifier else None
-    authorize_url = connector.authorize_url(state=state, code_challenge=challenge)
+    authorize_url = (
+        connector.authorize_url(
+            state=state, code_challenge=challenge, extra_scopes=extra_scopes
+        )
+        if extra_scopes
+        else connector.authorize_url(state=state, code_challenge=challenge)
+    )
     ttl = int(settings.SOCIAL_OAUTH_STATE_TTL_SECONDS)
     normalized_locale = normalize_locale(locale)
     session.add(
@@ -191,6 +221,7 @@ async def start_connect(
             code_verifier_ciphertext=framework.seal_token(verifier) if verifier else None,
             locale=normalized_locale,
             expires_at=now + timedelta(seconds=ttl),
+            purpose=purpose,
         )
     )
     _audit(
@@ -200,7 +231,13 @@ async def start_connect(
         action="social.oauth.started",
         resource_type="social_connection",
         resource_id=None,
-        details={"provider": connector.key, "pkce": bool(verifier), "locale": normalized_locale},
+        details={
+            "provider": connector.key,
+            "pkce": bool(verifier),
+            "locale": normalized_locale,
+            "purpose": purpose,
+            "extra_scopes": list(extra_scopes),
+        },
     )
     await session.flush()
     return StartResult(authorize_url=authorize_url, browser_binding=binding, expires_in=ttl)
@@ -228,8 +265,9 @@ async def complete_callback(
     if row is None or row.provider != provider:
         return CallbackResult(provider, DEFAULT_LOCALE, False, "oauth-state-invalid")
     locale = normalize_locale(row.locale)
+    purpose = row.purpose if row.purpose in PURPOSES else "social"
     if row.consumed_at is not None:
-        return CallbackResult(provider, locale, False, "oauth-state-replayed")
+        return CallbackResult(provider, locale, False, "oauth-state-replayed", purpose=purpose)
     row.consumed_at = _now()
     await session.flush()
     organization_id, user_id = row.organization_id, row.user_id
@@ -242,9 +280,9 @@ async def complete_callback(
             action="social.oauth.failed",
             resource_type="social_connection",
             resource_id=None,
-            details={"provider": provider, "reason": reason},
+            details={"provider": provider, "reason": reason, "purpose": purpose},
         )
-        return CallbackResult(provider, locale, False, reason)
+        return CallbackResult(provider, locale, False, reason, purpose=purpose)
 
     if (_aware(row.expires_at) or _now()) <= _now():
         return fail("oauth-state-expired")
@@ -275,6 +313,10 @@ async def complete_callback(
         return fail(exc.code)
     if not health.valid:
         return fail("oauth-token-invalid")
+    try:
+        requested = framework_scopes(connector, purpose)
+    except SocialConnectorError as exc:
+        return fail(exc.code)
 
     connection = await session.scalar(
         select(SocialConnection).where(
@@ -298,13 +340,17 @@ async def complete_callback(
         connection.version += 1
     connection.display_name = identity.display_name
     connection.avatar_url = identity.avatar_url
-    connection.requested_scopes = list(connector.scopes())
+    if purpose == "ads":
+        # Keep any scope an earlier grant asked for in the requested set.
+        requested = tuple(dict.fromkeys([*(connection.requested_scopes or []), *requested]))
+    connection.requested_scopes = list(requested)
     connection.granted_scopes = list(health.scopes)
     connection.token_ciphertext = framework.seal_token(grant.access_token)
     connection.token_expires_at = health.expires_at or grant.expires_at
-    connection.status = "pending_selection"
+    # An ads grant needs no Page selection; a social grant waits for it.
+    connection.status = "active" if purpose == "ads" else "pending_selection"
     connection.health_state = "healthy"
-    connection.health_reasons = _missing_scope_reasons(connector.scopes(), health.scopes)
+    connection.health_reasons = _missing_scope_reasons(requested, health.scopes)
     connection.last_health_at = _now()
     connection.revoked_at = None
     await session.flush()
@@ -319,10 +365,15 @@ async def complete_callback(
             "provider": provider,
             "granted_scopes": list(health.scopes),
             "long_lived": True,
+            "purpose": purpose,
         },
     )
     await session.flush()
-    return CallbackResult(provider, locale, True, "connected", connection.id)
+    return CallbackResult(provider, locale, True, "connected", connection.id, purpose=purpose)
+
+
+def framework_scopes(connector: framework.SocialConnector, purpose: str) -> tuple[str, ...]:
+    return tuple(dict.fromkeys([*connector.scopes(), *purpose_scopes(connector.key, purpose)]))
 
 
 def _missing_scope_reasons(
@@ -341,7 +392,8 @@ def portal_redirect_url(result: CallbackResult) -> str:
     }
     if result.connection_id:
         query["connection"] = result.connection_id
-    return f"{base}/{result.locale}/social/?{urlencode(query)}"
+    page = "campaigns" if result.purpose == "ads" else "social"
+    return f"{base}/{result.locale}/{page}/?{urlencode(query)}"
 
 
 # --- connections and assets ---------------------------------------------------------

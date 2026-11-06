@@ -45,6 +45,12 @@ RATE_LIMITS: dict[str, tuple[int, int]] = {
     "publish": (60, 600),
     "upload": (60, 600),
     "ai_assist": (30, 600),
+    # P4 Meta Ads (ads.py).
+    "ads_read": (240, 600),
+    "ads_write": (60, 600),
+    "ads_sync": (12, 600),
+    "ads_activate": (10, 600),
+    "ads_ai": (20, 600),
 }
 
 Locale = Literal["ar", "en", "fr", "de", "es", "tr"]
