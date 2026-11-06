@@ -2332,6 +2332,150 @@ class SocialOAuthState(Base, TimestampMixin):
     consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class SocialMediaUpload(Base, TimestampMixin):
+    """A user's composer upload in private media storage (P3 publishing).
+
+    Only the uploader can attach it to a post. Providers that need a public
+    URL get a short-lived signed bridge URL or a storage presigned URL.
+    """
+
+    __tablename__ = "social_media_uploads"
+    __table_args__ = (
+        Index("ix_social_media_uploads_org_user_created", "organization_id", "user_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    filename: Mapped[str] = mapped_column(String(200), nullable=False)
+    media_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    width: Mapped[int | None] = mapped_column(Integer)
+    height: Mapped[int | None] = mapped_column(Integer)
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+    storage_backend: Mapped[str] = mapped_column(String(24), nullable=False)
+    storage_key: Mapped[str] = mapped_column(String(512), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), default="ready", nullable=False)
+
+
+class SocialPost(Base, TimestampMixin):
+    """A composed post published to one or more OAuth-connected accounts.
+
+    Status: draft, scheduled, publishing, published, partially_failed, failed,
+    canceled. Each target account has its own ``SocialPostTarget`` result.
+    """
+
+    __tablename__ = "social_posts"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "client_idempotency_key", name="uq_social_posts_user_idempotency"
+        ),
+        Index("ix_social_posts_org_user_scheduled", "organization_id", "user_id", "scheduled_at"),
+        Index("ix_social_posts_status_scheduled", "status", "scheduled_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    status: Mapped[str] = mapped_column(String(24), default="draft", nullable=False)
+    post_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    caption: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    link_url: Mapped[str | None] = mapped_column(String(2048))
+    media: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    timezone: Mapped[str] = mapped_column(String(64), default="UTC", nullable=False)
+    retry_policy: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    client_idempotency_key: Mapped[str | None] = mapped_column(String(80))
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    canceled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class SocialPostTarget(Base, TimestampMixin):
+    """One account's publish job and result for a ``SocialPost``.
+
+    ``idempotency_key`` is unique; ``dispatch_started_at`` is written and
+    committed before the first provider call that can create a post, so an
+    interrupted publish is never replayed blindly.
+    """
+
+    __tablename__ = "social_post_targets"
+    __table_args__ = (
+        UniqueConstraint("post_id", "account_id", name="uq_social_post_targets_post_account"),
+        UniqueConstraint("idempotency_key", name="uq_social_post_targets_idempotency_key"),
+        Index("ix_social_post_targets_status_next", "status", "next_attempt_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    post_id: Mapped[str] = mapped_column(
+        ForeignKey("social_posts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    account_id: Mapped[str | None] = mapped_column(
+        ForeignKey("growth_social_accounts.id", ondelete="SET NULL"), index=True
+    )
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    account_name: Mapped[str] = mapped_column(String(240), nullable=False)
+    overrides: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    status: Mapped[str] = mapped_column(String(24), default="pending", nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    lease_owner: Mapped[str | None] = mapped_column(String(64))
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    dispatch_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    container_id: Mapped[str | None] = mapped_column(String(64))
+    remote_post_id: Mapped[str | None] = mapped_column(String(128))
+    permalink: Mapped[str | None] = mapped_column(String(1024))
+    error_code: Mapped[str | None] = mapped_column(String(120))
+    error_message: Mapped[str | None] = mapped_column(String(500))
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class SocialPostAttempt(Base, TimestampMixin):
+    """Append-only result log of every publish attempt for a target."""
+
+    __tablename__ = "social_post_attempts"
+    __table_args__ = (
+        UniqueConstraint("target_id", "attempt_number", name="uq_social_post_attempts_number"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    target_id: Mapped[str] = mapped_column(
+        ForeignKey("social_post_targets.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    attempt_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    worker: Mapped[str] = mapped_column(String(64), nullable=False)
+    outcome: Mapped[str] = mapped_column(String(24), nullable=False)
+    transient: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    error_code: Mapped[str | None] = mapped_column(String(120))
+    error_message: Mapped[str | None] = mapped_column(String(500))
+    remote_post_id: Mapped[str | None] = mapped_column(String(128))
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class GrowthSocialProviderCapability(Base, TimestampMixin):
     """Provider capability verification state; GS-03 cannot mark capabilities live-verified."""
 

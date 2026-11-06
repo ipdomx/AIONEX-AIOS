@@ -56,6 +56,11 @@ import type {
   SocialConnection,
   SocialDisconnectResult,
   SocialProvider,
+  SocialAiAssistResult,
+  SocialMediaItem,
+  SocialPost,
+  SocialPostInput,
+  SocialValidationReport,
   User,
   Workspace,
 } from "@/types";
@@ -1221,4 +1226,85 @@ export function disconnectSocialAccount(accountId: string): Promise<SocialDiscon
     `/social/accounts/${encodeURIComponent(accountId)}`,
     "DELETE",
   );
+}
+
+// --- Social publishing (P3 3.3-3.5). The worker publishes; these routes only
+// queue, schedule, cancel and read Graph results recorded by the server.
+
+export function listSocialPosts(range?: {
+  start: string;
+  end: string;
+}): Promise<{ items: SocialPost[] }> {
+  const query = range
+    ? `?${new URLSearchParams({ start: range.start, end: range.end }).toString()}`
+    : "";
+  return request<{ items: SocialPost[] }>(`/social/posts${query}`);
+}
+
+export function getSocialPost(postId: string): Promise<SocialPost> {
+  return request<SocialPost>(`/social/posts/${encodeURIComponent(postId)}`);
+}
+
+export function validateSocialPost(input: SocialPostInput): Promise<SocialValidationReport> {
+  return jsonRequest<SocialValidationReport>("/social/posts/validate", "POST", input);
+}
+
+export function createSocialPost(input: SocialPostInput): Promise<SocialPost> {
+  return jsonRequest<SocialPost>("/social/posts", "POST", input);
+}
+
+export function updateSocialPost(postId: string, input: SocialPostInput): Promise<SocialPost> {
+  return jsonRequest<SocialPost>(`/social/posts/${encodeURIComponent(postId)}`, "PATCH", input);
+}
+
+export function deleteSocialPost(postId: string): Promise<{ id: string; deleted: boolean }> {
+  return jsonRequest(`/social/posts/${encodeURIComponent(postId)}`, "DELETE");
+}
+
+export function scheduleSocialPost(
+  postId: string,
+  scheduledAt: string,
+  timezone: string,
+): Promise<SocialPost> {
+  return jsonRequest<SocialPost>(
+    `/social/posts/${encodeURIComponent(postId)}/schedule`,
+    "POST",
+    { scheduled_at: scheduledAt, timezone },
+  );
+}
+
+export function publishSocialPostNow(postId: string): Promise<SocialPost> {
+  return jsonRequest<SocialPost>(`/social/posts/${encodeURIComponent(postId)}/publish`, "POST", {});
+}
+
+export function cancelSocialPost(postId: string): Promise<SocialPost> {
+  return jsonRequest<SocialPost>(`/social/posts/${encodeURIComponent(postId)}/cancel`, "POST", {});
+}
+
+export function listSocialMedia(): Promise<{
+  uploads: SocialMediaItem[];
+  studio: SocialMediaItem[];
+}> {
+  return request("/social/media");
+}
+
+export function uploadSocialMedia(file: File): Promise<SocialMediaItem> {
+  const body = new FormData();
+  body.set("file", file);
+  return request<SocialMediaItem>("/social/media", { method: "POST", body });
+}
+
+export function deleteSocialMedia(mediaId: string): Promise<{ id: string; deleted: boolean }> {
+  return jsonRequest(`/social/media/${encodeURIComponent(mediaId)}`, "DELETE");
+}
+
+export function socialAiAssist(input: {
+  mode: "draft" | "improve" | "hashtags";
+  text: string;
+  topic: string;
+  language: string;
+  platforms: ("facebook" | "instagram")[];
+  tone: string;
+}): Promise<SocialAiAssistResult> {
+  return jsonRequest<SocialAiAssistResult>("/social/ai/assist", "POST", input);
 }

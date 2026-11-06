@@ -50,8 +50,8 @@ def test_pgdata_consumers_and_database_clients_are_fully_guarded() -> None:
         "postgres-credential-reconciler",
     ]
     clients = value["database_clients"]["services"]
-    assert len(clients) == 24
-    assert value["database_clients"]["service_definition_count"] == 24
+    assert len(clients) == 25
+    assert value["database_clients"]["service_definition_count"] == 25
     assert value["database_clients"]["candidate_restart_policy"] == "no"
     assert value["database_clients"]["postgres_restart_policy"] == "no"
     admission = ADMISSION.read_text(encoding="utf-8")
@@ -87,7 +87,7 @@ def test_source_overlay_validator_passes_example_environment() -> None:
     assert result.returncode == 0, result.stderr
     value = json.loads(result.stdout)
     assert value["validation"] == "FR06C2_DATABASE_OVERLAY_PASS"
-    assert value["database_client_service_count"] == 24
+    assert value["database_client_service_count"] == 25
     assert value["legacy_pgdata_mounts_after_merge"] == 0
     assert value["unrelated_service_or_top_level_drift"] is False
     assert value["production_changed"] is False

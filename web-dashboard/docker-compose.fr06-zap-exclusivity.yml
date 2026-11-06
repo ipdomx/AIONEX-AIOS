@@ -77,6 +77,10 @@ services:
     environment:
       SECURITY_ZAP_URL: ""
       SECURITY_ZAP_API_KEY: ""
+  social-publish-worker:
+    environment:
+      SECURITY_ZAP_URL: ""
+      SECURITY_ZAP_API_KEY: ""
   studio-worker:
     environment:
       SECURITY_ZAP_URL: ""

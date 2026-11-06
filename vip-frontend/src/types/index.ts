@@ -1211,3 +1211,133 @@ export interface SocialDisconnectResult {
   connection_revoked: boolean;
   provider_revoked: boolean;
 }
+
+// --- Social publishing (P3 3.3-3.5). Results carry Graph ids, never tokens.
+
+export type SocialPostType = "text" | "link" | "image" | "carousel" | "video" | "reel";
+
+export type SocialPostStatus =
+  | "draft"
+  | "scheduled"
+  | "publishing"
+  | "published"
+  | "partially_failed"
+  | "failed"
+  | "canceled";
+
+export type SocialTargetStatus =
+  | "pending"
+  | "publishing"
+  | "retry_wait"
+  | "published"
+  | "failed"
+  | "canceled";
+
+export interface SocialPostAttempt {
+  attempt_number: number;
+  outcome: string;
+  transient: boolean;
+  error_code: string | null;
+  error_message: string | null;
+  remote_post_id: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+export interface SocialPostTarget {
+  id: string;
+  account_id: string | null;
+  provider: "facebook" | "instagram" | string;
+  account_name: string;
+  overrides: { caption?: string; share_to_feed?: boolean };
+  status: SocialTargetStatus;
+  attempts: number;
+  max_attempts: number;
+  next_attempt_at: string | null;
+  remote_post_id: string | null;
+  permalink: string | null;
+  error_code: string | null;
+  error_message: string | null;
+  published_at: string | null;
+  last_attempt_at: string | null;
+  attempt_log?: SocialPostAttempt[];
+}
+
+export interface SocialPost {
+  id: string;
+  status: SocialPostStatus;
+  post_type: SocialPostType;
+  caption: string;
+  link_url: string | null;
+  media: { ref: string }[];
+  scheduled_at: string | null;
+  timezone: string;
+  retry_policy: { max_attempts?: number; backoff_seconds?: number };
+  published_at: string | null;
+  canceled_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  targets: SocialPostTarget[];
+}
+
+export interface SocialPostInput {
+  post_type: SocialPostType;
+  caption: string;
+  link_url?: string | null;
+  media: string[];
+  account_ids: string[];
+  overrides?: Record<string, { caption?: string; share_to_feed?: boolean }>;
+  timezone: string;
+  retry_policy?: { max_attempts: number; backoff_seconds: number };
+  client_idempotency_key?: string;
+}
+
+export interface SocialValidationIssue {
+  code: string;
+  severity: "error" | "warning";
+  field: string;
+}
+
+export interface SocialValidationReport {
+  valid: boolean;
+  targets: {
+    target_id: string | null;
+    account_id: string | null;
+    provider: string;
+    issues: SocialValidationIssue[];
+  }[];
+  media: {
+    ref: string;
+    kind: string;
+    media_type: string;
+    size_bytes: number;
+    width: number | null;
+    height: number | null;
+    duration_ms: number | null;
+  }[];
+}
+
+export interface SocialMediaItem {
+  ref: string;
+  id: string;
+  source: "upload" | "studio";
+  kind: "image" | "video" | string;
+  filename: string;
+  title?: string;
+  media_type: string;
+  size_bytes: number;
+  width: number | null;
+  height: number | null;
+  duration_ms: number | null;
+  created_at: string | null;
+}
+
+export interface SocialAiAssistResult {
+  caption: string;
+  hashtags: string[];
+  mode: "draft" | "improve" | "hashtags";
+  language: string;
+  model: string;
+  provider: string;
+  aionex_ai: boolean;
+}

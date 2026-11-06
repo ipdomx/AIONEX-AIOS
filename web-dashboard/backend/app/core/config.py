@@ -1253,6 +1253,31 @@ class Settings(BaseSettings):
         le=1800,
         validation_alias="SOCIAL_OAUTH_STATE_TTL_SECONDS",
     )
+    # P3 publishing (roadmap 3.3-3.5). Instagram fetches media from a public
+    # URL: local media is exposed through a short-lived HMAC bridge under this
+    # public API origin; S3-compatible media uses presigned URLs instead.
+    SOCIAL_MEDIA_PUBLIC_BASE_URL: str = Field(
+        default="https://api.vip-e.net", validation_alias="SOCIAL_MEDIA_PUBLIC_BASE_URL"
+    )
+    SOCIAL_MEDIA_URL_TTL_SECONDS: int = Field(
+        default=3600, ge=300, le=21600, validation_alias="SOCIAL_MEDIA_URL_TTL_SECONDS"
+    )
+    SOCIAL_PUBLISH_WORKER_POLL_SECONDS: int = Field(
+        default=10, ge=1, le=300, validation_alias="SOCIAL_PUBLISH_WORKER_POLL_SECONDS"
+    )
+    SOCIAL_PUBLISH_LEASE_SECONDS: int = Field(
+        default=900, ge=120, le=3600, validation_alias="SOCIAL_PUBLISH_LEASE_SECONDS"
+    )
+    SOCIAL_PUBLISH_WORKER_HEALTH_FILE: str = Field(
+        default="/tmp/aionex-social-publish-worker.json",
+        validation_alias="SOCIAL_PUBLISH_WORKER_HEALTH_FILE",
+    )
+    SOCIAL_IG_CONTAINER_POLL_SECONDS: int = Field(
+        default=5, ge=1, le=60, validation_alias="SOCIAL_IG_CONTAINER_POLL_SECONDS"
+    )
+    SOCIAL_IG_CONTAINER_MAX_WAIT_SECONDS: int = Field(
+        default=600, ge=30, le=1800, validation_alias="SOCIAL_IG_CONTAINER_MAX_WAIT_SECONDS"
+    )
 
     @model_validator(mode="after")
     def resolve_database_url(self) -> "Settings":

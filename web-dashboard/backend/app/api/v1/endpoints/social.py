@@ -39,6 +39,12 @@ RATE_LIMITS: dict[str, tuple[int, int]] = {
     "connect": (20, 600),
     "health": (30, 600),
     "disconnect": (30, 600),
+    # P3 publishing (social_publishing.py).
+    "validate": (240, 600),
+    "post_write": (120, 600),
+    "publish": (60, 600),
+    "upload": (60, 600),
+    "ai_assist": (30, 600),
 }
 
 Locale = Literal["ar", "en", "fr", "de", "es", "tr"]

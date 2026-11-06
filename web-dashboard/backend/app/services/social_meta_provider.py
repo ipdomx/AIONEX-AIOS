@@ -46,9 +46,8 @@ DEFAULT_SCOPES: tuple[str, ...] = (
     "instagram_manage_comments",
     "business_management",
 )
-# Capabilities the requested scopes are meant for. Publishing and inbox are
-# later roadmap items (3.3 and 3.6); the catalog marks only connect-level
-# features as live.
+# Capabilities the requested scopes are meant for. Publishing is implemented
+# by social_meta_publisher (roadmap 3.3); the inbox is roadmap 3.6.
 CAPABILITIES: dict[str, tuple[str, ...]] = {
     "facebook": ("account.read", "content.publish", "inbox.read", "inbox.reply"),
     "instagram": ("account.read", "content.publish", "inbox.read", "inbox.reply"),
