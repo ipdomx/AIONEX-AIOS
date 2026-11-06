@@ -1238,7 +1238,8 @@ class Settings(BaseSettings):
     META_OAUTH_SCOPES: str = Field(
         default=(
             "pages_show_list,pages_read_engagement,pages_manage_posts,"
-            "pages_messaging,instagram_basic,instagram_content_publish,"
+            "pages_messaging,pages_read_user_content,pages_manage_engagement,"
+            "pages_manage_metadata,instagram_basic,instagram_content_publish,"
             "instagram_manage_messages,instagram_manage_comments,business_management"
         ),
         validation_alias="META_OAUTH_SCOPES",
@@ -1277,6 +1278,23 @@ class Settings(BaseSettings):
     )
     SOCIAL_IG_CONTAINER_MAX_WAIT_SECONDS: int = Field(
         default=600, ge=30, le=1800, validation_alias="SOCIAL_IG_CONTAINER_MAX_WAIT_SECONDS"
+    )
+    # P3 unified inbox (roadmap 3.6). Meta webhook subscriptions are verified
+    # with this token (the *_FILE path wins, like META_APP_SECRET_FILE); a
+    # missing token makes the verify challenge fail closed. Event payloads are
+    # authenticated with X-Hub-Signature-256 over the raw body and the app
+    # secret. The publish worker also runs a periodic poll fallback.
+    META_WEBHOOK_VERIFY_TOKEN: str = Field(
+        default="", validation_alias="META_WEBHOOK_VERIFY_TOKEN"
+    )
+    META_WEBHOOK_VERIFY_TOKEN_FILE: str = Field(
+        default="", validation_alias="META_WEBHOOK_VERIFY_TOKEN_FILE"
+    )
+    SOCIAL_INBOX_POLL_ENABLED: bool = Field(
+        default=True, validation_alias="SOCIAL_INBOX_POLL_ENABLED"
+    )
+    SOCIAL_INBOX_POLL_SECONDS: int = Field(
+        default=900, ge=60, le=86400, validation_alias="SOCIAL_INBOX_POLL_SECONDS"
     )
 
     @model_validator(mode="after")

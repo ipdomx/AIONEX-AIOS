@@ -2476,6 +2476,141 @@ class SocialPostAttempt(Base, TimestampMixin):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class SocialInboxConversation(Base, TimestampMixin):
+    """One unified-inbox conversation on an OAuth-connected account (P3 3.6).
+
+    ``channel`` is ``comment`` (a top-level comment with its replies on a
+    Facebook Page post or Instagram media) or ``dm`` (a Messenger or Instagram
+    Direct thread with one participant). It belongs to the account's owner
+    (``user_id``); nobody else in the organization can read or answer it.
+    ``last_inbound_at`` drives Meta's 24-hour messaging window for DMs.
+    """
+
+    __tablename__ = "social_inbox_conversations"
+    __table_args__ = (
+        UniqueConstraint(
+            "account_id", "external_thread_ref", name="uq_social_inbox_conversations_thread"
+        ),
+        Index(
+            "ix_social_inbox_conversations_owner_last",
+            "organization_id",
+            "user_id",
+            "last_message_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    account_id: Mapped[str] = mapped_column(
+        ForeignKey("growth_social_accounts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    channel: Mapped[str] = mapped_column(String(16), nullable=False)
+    external_thread_ref: Mapped[str] = mapped_column(String(255), nullable=False)
+    object_ref: Mapped[str | None] = mapped_column(String(128))
+    participant_ref: Mapped[str | None] = mapped_column(String(128))
+    participant_name: Mapped[str | None] = mapped_column(String(240))
+    status: Mapped[str] = mapped_column(String(16), default="open", nullable=False)
+    unread_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    assigned_to_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    last_message_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_inbound_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_message_preview: Mapped[str] = mapped_column(String(280), default="", nullable=False)
+    sentiment: Mapped[str] = mapped_column(String(16), default="neutral", nullable=False)
+    tags: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class SocialInboxMessage(Base, TimestampMixin):
+    """One comment, reply or direct message in a unified-inbox conversation.
+
+    ``(account_id, external_message_ref)`` is unique, so the webhook and the
+    poll fallback can deliver the same Meta object any number of times.
+    """
+
+    __tablename__ = "social_inbox_messages"
+    __table_args__ = (
+        UniqueConstraint(
+            "account_id", "external_message_ref", name="uq_social_inbox_messages_external"
+        ),
+        Index("ix_social_inbox_messages_conversation_sent", "conversation_id", "sent_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    conversation_id: Mapped[str] = mapped_column(
+        ForeignKey("social_inbox_conversations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    account_id: Mapped[str] = mapped_column(
+        ForeignKey("growth_social_accounts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    external_message_ref: Mapped[str] = mapped_column(String(255), nullable=False)
+    parent_ref: Mapped[str | None] = mapped_column(String(255))
+    direction: Mapped[str] = mapped_column(String(16), nullable=False)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    author_ref: Mapped[str | None] = mapped_column(String(128))
+    author_name: Mapped[str | None] = mapped_column(String(240))
+    body: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    attachments: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    hidden: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    removed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    source: Mapped[str] = mapped_column(String(16), nullable=False)
+    sent_by_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SocialWebhookEvent(Base, TimestampMixin):
+    """Idempotency ledger for signed Meta webhook changes (no message text)."""
+
+    __tablename__ = "social_webhook_events"
+    __table_args__ = (
+        UniqueConstraint("provider", "event_key", name="uq_social_webhook_events_key"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    event_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    object_type: Mapped[str] = mapped_column(String(24), nullable=False)
+    field: Mapped[str] = mapped_column(String(32), nullable=False)
+    entry_ref: Mapped[str] = mapped_column(String(64), nullable=False)
+    outcome: Mapped[str] = mapped_column(String(24), nullable=False)
+    matched_accounts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SocialDataDeletionRequest(Base, TimestampMixin):
+    """A Meta data-deletion or deauthorize callback and what it removed.
+
+    Only a digest of the app-scoped Meta user id is kept. The confirmation
+    code is returned to Meta and lets the person check the status page.
+    """
+
+    __tablename__ = "social_data_deletion_requests"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    confirmation_code: Mapped[str] = mapped_column(String(32), nullable=False, unique=True)
+    external_user_digest: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    connections_revoked: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    accounts_cleared: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    conversations_deleted: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class GrowthSocialProviderCapability(Base, TimestampMixin):
     """Provider capability verification state; GS-03 cannot mark capabilities live-verified."""
 
