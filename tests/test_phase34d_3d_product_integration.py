@@ -11,7 +11,11 @@ MODELS = (BACKEND / "app/db/models.py").read_text()
 MIGRATION = (BACKEND / "alembic/versions/20260809_0013_three_d_product_integration.py").read_text()
 COMPOSE = (ROOT / "web-dashboard/docker-compose.production.yml").read_text()
 ENTRYPOINT = (BACKEND / "scripts/docker-entrypoint.sh").read_text()
-PANEL = (ROOT / "vip-frontend/src/components/pages/three-d-project-panel.tsx").read_text()
+# The Projects 3D panel renders through the shared three.js viewer component,
+# so the portal contract covers both files.
+PANEL = (ROOT / "vip-frontend/src/components/pages/three-d-project-panel.tsx").read_text() + (
+    ROOT / "vip-frontend/src/components/three-d/three-d-viewer.tsx"
+).read_text()
 VIP_API = (ROOT / "vip-frontend/src/lib/api.ts").read_text()
 OWNER_API = (BACKEND / "app/api/owner/three_d.py").read_text()
 OWNER_UI = (ROOT / "web-dashboard/frontend/src/app/owner/3d/page.tsx").read_text()

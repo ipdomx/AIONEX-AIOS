@@ -2,6 +2,7 @@
 
 import {
   Bell,
+  Box,
   CreditCard,
   LayoutDashboard,
   LifeBuoy,
@@ -205,6 +206,14 @@ export function Navbar() {
                 {t("studio")}
               </Link>
               <Link
+                href={`/${locale}/3d`}
+                className="nav-link inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm"
+                data-active={isActive(`/${locale}/3d`) ? "true" : undefined}
+              >
+                <Box className="h-4 w-4" aria-hidden="true" />
+                {t("threeD")}
+              </Link>
+              <Link
                 href={`/${locale}/realtime`}
                 className="nav-link inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm"
                 data-active={isActive(`/${locale}/realtime`) ? "true" : undefined}
@@ -338,6 +347,14 @@ export function Navbar() {
                   data-active={isActive(`/${locale}/studio`) ? "true" : undefined}
                 >
                   {t("studio")}
+                </Link>
+                <Link
+                  href={`/${locale}/3d`}
+                  onClick={() => setOpen(false)}
+                  className="nav-link rounded-xl px-4 py-3 text-sm hover:bg-white/[0.06]"
+                  data-active={isActive(`/${locale}/3d`) ? "true" : undefined}
+                >
+                  {t("threeD")}
                 </Link>
                 <Link
                   href={`/${locale}/realtime`}
