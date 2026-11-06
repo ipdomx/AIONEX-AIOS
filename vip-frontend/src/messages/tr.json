@@ -1438,7 +1438,7 @@
     "description": "Facebook Sayfalarınızı ve Instagram İşletme hesaplarınızı Meta'nın resmi girişiyle bağlayın. Erişim belirteçleri sunucularımızda şifreli kalır ve tarayıcınıza asla ulaşmaz.",
     "refresh": "Yenile",
     "loading": "Yükleniyor",
-    "honesty": "Bağlama işlemi hesaplarınızı ilişkilendirir ve erişimlerini denetler. Yayınlama ve zamanlama Gönderi oluştur ve Takvim sayfalarından kullanılabilir; birleşik gelen kutusu henüz etkin değildir.",
+    "honesty": "Bağlama işlemi hesaplarınızı ilişkilendirir ve erişimlerini denetler. Yayınlama ve zamanlama Gönderi oluştur ve Takvim sayfalarından kullanılabilir; birleşik gelen kutusu hazır ancak henüz etkin değil, çünkü Meta’nın uygulama izinlerini onaylamasını bekliyor.",
     "signedOut": {
       "title": "Hesaplarınızı bağlamak için giriş yapın",
       "body": "Sosyal hesaplarınız AIONEX hesabınıza bağlanır, bu nedenle önce giriş yapmanız gerekir.",

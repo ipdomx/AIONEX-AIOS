@@ -1438,7 +1438,7 @@
     "description": "Conecta tus Páginas de Facebook y cuentas de Instagram para empresas con el inicio de sesión oficial de Meta. Los tokens se guardan cifrados en nuestros servidores y nunca llegan a tu navegador.",
     "refresh": "Actualizar",
     "loading": "Cargando",
-    "honesty": "Conectar vincula tus cuentas y comprueba su acceso. La publicación y la programación están disponibles en Redactar y Calendario; la bandeja de entrada unificada aún no está activa.",
+    "honesty": "Conectar vincula tus cuentas y comprueba su acceso. La publicación y la programación están disponibles en Redactar y Calendario; la bandeja de entrada unificada está lista pero aún no activa, porque espera que Meta apruebe los permisos de la aplicación.",
     "signedOut": {
       "title": "Inicia sesión para conectar tus cuentas",
       "body": "Tus cuentas sociales se vinculan a tu cuenta de AIONEX, así que primero debes iniciar sesión.",

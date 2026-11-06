@@ -1438,7 +1438,7 @@
     "description": "Connectez vos Pages Facebook et comptes Instagram professionnels avec la connexion officielle de Meta. Les jetons restent chiffrés sur nos serveurs et n'atteignent jamais votre navigateur.",
     "refresh": "Actualiser",
     "loading": "Chargement",
-    "honesty": "La connexion relie vos comptes et vérifie leurs accès. La publication et la planification sont disponibles depuis Rédiger et Calendrier ; la boîte de réception unifiée n'est pas encore active.",
+    "honesty": "La connexion relie vos comptes et vérifie leurs accès. La publication et la planification sont disponibles depuis Rédiger et Calendrier ; la boîte de réception unifiée est prête mais pas encore active, car elle attend que Meta approuve les autorisations de l’application.",
     "signedOut": {
       "title": "Connectez-vous pour relier vos comptes",
       "body": "Vos comptes sociaux sont liés à votre compte AIONEX : vous devez d'abord vous connecter.",

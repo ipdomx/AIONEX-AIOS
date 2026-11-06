@@ -1438,7 +1438,7 @@
     "description": "Connect your Facebook Pages and Instagram Business accounts with Meta's official login. Tokens stay encrypted on our servers and never reach your browser.",
     "refresh": "Refresh",
     "loading": "Loading",
-    "honesty": "Connecting links your accounts and checks their access. Publishing and scheduling are available from Compose and Calendar; the unified inbox is not live yet.",
+    "honesty": "Connecting links your accounts and checks their access. Publishing and scheduling are available from Compose and Calendar; the unified inbox is built but not live yet, because it waits for Meta to approve the app’s permissions.",
     "signedOut": {
       "title": "Sign in to connect your accounts",
       "body": "Your social accounts are linked to your AIONEX account, so you need to sign in first.",

@@ -1438,7 +1438,7 @@
     "description": "Verbinden Sie Ihre Facebook-Seiten und Instagram-Business-Konten über den offiziellen Meta-Login. Tokens bleiben verschlüsselt auf unseren Servern und erreichen nie Ihren Browser.",
     "refresh": "Aktualisieren",
     "loading": "Wird geladen",
-    "honesty": "Das Verbinden verknüpft Ihre Konten und prüft deren Zugriff. Veröffentlichen und Planen sind über Verfassen und Kalender verfügbar; der gemeinsame Posteingang ist noch nicht aktiv.",
+    "honesty": "Das Verbinden verknüpft Ihre Konten und prüft deren Zugriff. Veröffentlichen und Planen sind über Verfassen und Kalender verfügbar; der einheitliche Posteingang ist fertig, aber noch nicht aktiv, weil er auf die Freigabe der App-Berechtigungen durch Meta wartet.",
     "signedOut": {
       "title": "Melden Sie sich an, um Konten zu verbinden",
       "body": "Ihre Social-Konten werden mit Ihrem AIONEX-Konto verknüpft, daher müssen Sie sich zuerst anmelden.",
