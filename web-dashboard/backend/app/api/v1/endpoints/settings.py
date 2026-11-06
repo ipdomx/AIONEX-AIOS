@@ -8,7 +8,7 @@ import re
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from app.core.auth import UserRecord, current_user, pwd_context
+from app.core.auth import UserRecord, current_user, hash_password, verify_password
 from app.core.config import settings
 from app.db.base import get_db
 from app.db.models import OwnerControlRecord, PasskeyCredential, RefreshSession, User, uuid_str
@@ -227,14 +227,14 @@ async def change_password(
     user = await session.get(User, actor.id)
     if user is None or user.deleted_at is not None:
         raise HTTPException(status_code=404, detail="User not found")
-    if not pwd_context.verify(data.current_password, user.password_hash):
+    if not await verify_password(data.current_password, user.password_hash):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
-    if pwd_context.verify(data.new_password, user.password_hash):
+    if await verify_password(data.new_password, user.password_hash):
         raise HTTPException(
             status_code=409,
             detail="New password must differ from the current password",
         )
-    user.password_hash = pwd_context.hash(data.new_password)
+    user.password_hash = await hash_password(data.new_password)
     user.auth_version += 1
     sessions = (
         await session.scalars(

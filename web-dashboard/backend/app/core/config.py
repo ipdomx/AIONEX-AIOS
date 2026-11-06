@@ -993,6 +993,13 @@ class Settings(BaseSettings):
     ALGORITHM: str = Field(default="HS256", validation_alias="ALGORITHM")
     MFA_ENABLED: bool = Field(default=True, validation_alias="MFA_ENABLED")
     PASSWORD_MIN_LENGTH: int = Field(default=12, validation_alias="PASSWORD_MIN_LENGTH")
+    # Argon2id (64 MiB, t=3) is CPU and memory heavy. Hashes run on a small
+    # dedicated thread pool per API process so a login burst never blocks the
+    # asyncio event loop (gate 6.1 capacity finding). The bound also caps the
+    # transient Argon2 memory at threads x 64 MiB per process.
+    PASSWORD_HASH_THREADS: int = Field(
+        default=2, ge=1, le=16, validation_alias="PASSWORD_HASH_THREADS"
+    )
     PASSWORD_RESET_EXPIRE_MINUTES: int = Field(
         default=30, ge=5, le=1440, validation_alias="PASSWORD_RESET_EXPIRE_MINUTES"
     )

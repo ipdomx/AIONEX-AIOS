@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import os
 import secrets
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Awaitable, Callable, cast
@@ -40,6 +43,50 @@ pwd_context = CryptContext(
     argon2__time_cost=3,
     argon2__parallelism=4,
 )
+_password_executor: ThreadPoolExecutor | None = None
+_password_executor_lock = threading.Lock()
+
+
+def _password_hash_executor() -> ThreadPoolExecutor:
+    """Return the per-process bounded pool used for Argon2 work.
+
+    argon2-cffi releases the GIL while hashing, so threads give real
+    parallelism and, more importantly, keep the event loop free to serve every
+    other request while a login is being verified.
+    """
+    global _password_executor
+    with _password_executor_lock:
+        if _password_executor is None:
+            _password_executor = ThreadPoolExecutor(
+                max_workers=settings.PASSWORD_HASH_THREADS,
+                thread_name_prefix="aionex-password-hash",
+            )
+        return _password_executor
+
+
+async def hash_password(password: str) -> str:
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(_password_hash_executor(), pwd_context.hash, password)
+
+
+async def verify_password(password: str, password_hash: str) -> bool:
+    loop = asyncio.get_running_loop()
+    return bool(
+        await loop.run_in_executor(
+            _password_hash_executor(), pwd_context.verify, password, password_hash
+        )
+    )
+
+
+async def verify_and_update_password(
+    password: str, password_hash: str
+) -> tuple[bool, str | None]:
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(
+        _password_hash_executor(), pwd_context.verify_and_update, password, password_hash
+    )
+
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 logger = get_logger(__name__)
 
@@ -341,7 +388,7 @@ class AuthService:
             role_id=role.id,
             email=normalized,
             name=name.strip(),
-            password_hash=pwd_context.hash(password),
+            password_hash=await hash_password(password),
             status="active",
         )
         session.add(user)
@@ -361,7 +408,7 @@ class AuthService:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password",
             )
-        verified, replacement_hash = pwd_context.verify_and_update(
+        verified, replacement_hash = await verify_and_update_password(
             password, user.password_hash
         )
         if not verified:

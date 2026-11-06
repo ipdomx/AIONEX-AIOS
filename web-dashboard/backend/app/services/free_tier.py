@@ -19,7 +19,7 @@ import secrets
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
-from app.core.auth import UserRecord, current_user, pwd_context
+from app.core.auth import UserRecord, current_user, hash_password
 from app.core.config import settings
 from app.db.base import get_db
 from app.db.models import (
@@ -988,7 +988,7 @@ async def register_free_account(
         role_id=role.id,
         email=normalized_email,
         name=normalized_name,
-        password_hash=pwd_context.hash(password),
+        password_hash=await hash_password(password),
         status="active",
     )
     session.add(user)
