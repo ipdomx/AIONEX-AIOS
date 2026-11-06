@@ -60,8 +60,75 @@ def _profile_mode(profile: str, target: SecurityTarget, policy: dict[str, Any]) 
     return "passive"
 
 
+SEVERITY_LEVELS = ("critical", "high", "medium", "low", "info")
+RESOLVED_AT_EXECUTION = "resolved_at_execution"
+
+
+def _severity_bucket(value: Any) -> str:
+    """Bucket a severity exactly like the scan report endpoint does."""
+    severity = str(value or "info").lower()
+    return severity if severity in SEVERITY_LEVELS else "info"
+
+
+def unique_severity_counts(findings: list[dict[str, Any]]) -> dict[str, int]:
+    """Count severities over findings that are already deduplicated."""
+    counts = Counter(_severity_bucket(item.get("severity")) for item in findings)
+    return {key: counts.get(key, 0) for key in SEVERITY_LEVELS}
+
+
+def finding_fingerprint(raw: dict[str, Any]) -> str:
+    """The dedup key persisted as SecurityFinding.fingerprint."""
+    return str(
+        raw.get("fingerprint")
+        or hashlib.sha256(repr(sorted(raw.items())).encode()).hexdigest()
+    )
+
+
+def deduplicate_findings(findings: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """First occurrence per fingerprint, in order; mirrors the findings table."""
+    unique: dict[str, dict[str, Any]] = {}
+    for raw in findings:
+        unique.setdefault(finding_fingerprint(raw), raw)
+    return unique
+
+
+def resolve_tool_availability(
+    tool_plan: list[dict[str, Any]], runtime_catalog: list[dict[str, Any]] | None
+) -> list[dict[str, Any]]:
+    """Apply the scan worker's reported availability to a tool plan.
+
+    Optional engines are installed in the scan-worker container, not in the API
+    process, so availability comes only from the worker's durable runtime
+    record. Without such a record the plan says it is resolved at execution.
+    """
+    runtime = {str(item.get("id")): item for item in runtime_catalog or []}
+    resolved: list[dict[str, Any]] = []
+    for row in tool_plan:
+        item = dict(row)
+        if item.get("builtin"):
+            item["available"] = True
+            item["availability"] = "builtin"
+            resolved.append(item)
+            continue
+        reported = runtime.get(str(item.get("id")))
+        if reported is None or reported.get("runtime_status") == "not_reported":
+            item["available"] = None
+            item["availability"] = RESOLVED_AT_EXECUTION
+            item["runtime_checked_at"] = None
+        else:
+            item["available"] = bool(reported.get("available"))
+            item["availability"] = "available" if item["available"] else "unavailable"
+            item["runtime_checked_at"] = reported.get("runtime_checked_at")
+        resolved.append(item)
+    return resolved
+
+
 def build_tool_plan(
-    profile: str, *, source_available: bool, execution_mode: str
+    profile: str,
+    *,
+    source_available: bool,
+    execution_mode: str,
+    runtime_catalog: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     rank = security_fabric.PROFILE_RANK[profile]
     selected: list[str] = ["aionex-tls", "aionex-headers"]
@@ -88,8 +155,9 @@ def build_tool_plan(
         selected.extend(["schemathesis", "nmap", "nikto"])
     if execution_mode == "intrusive_clone" and rank >= 2:
         selected.extend(["zap-active", "restler", "sqlmap", "xsstrike", "commix"])
-    catalog = {item["id"]: item for item in security_tools.catalog_snapshot()}
-    return [catalog[item] for item in dict.fromkeys(selected) if item in catalog]
+    catalog = {item["id"]: item for item in security_tools.catalog_definitions()}
+    plan = [catalog[item] for item in dict.fromkeys(selected) if item in catalog]
+    return resolve_tool_availability(plan, runtime_catalog)
 
 
 async def request_scan(
@@ -195,7 +263,10 @@ async def request_scan(
         status="queued",
         execution_mode=execution_mode,
         tool_plan=build_tool_plan(
-            profile, source_available=source_available, execution_mode=execution_mode
+            profile,
+            source_available=source_available,
+            execution_mode=execution_mode,
+            runtime_catalog=await security_tools.runtime_catalog_snapshot(session),
         ),
         summary={
             "access_level": level,
@@ -447,15 +518,10 @@ async def execute_scan(session: AsyncSession, scan: SecurityScan) -> SecuritySca
         else None
     )
     await runtime.checkpoint()
-    seen: set[str] = set()
-    for raw in all_findings:
-        fingerprint = str(
-            raw.get("fingerprint")
-            or hashlib.sha256(repr(sorted(raw.items())).encode()).hexdigest()
-        )
-        if fingerprint in seen:
-            continue
-        seen.add(fingerprint)
+    deduplicated = deduplicate_findings(all_findings)
+    seen = set(deduplicated)
+    unique_findings = list(deduplicated.values())
+    for fingerprint, raw in deduplicated.items():
         session.add(
             SecurityFinding(
                 id=uuid_str(),
@@ -478,20 +544,24 @@ async def execute_scan(session: AsyncSession, scan: SecurityScan) -> SecuritySca
                 ),
             )
         )
-    counts = Counter(
-        str(item.get("severity") or "info").lower() for item in all_findings
+    # Availability is read from the scan worker's own runtime record, never
+    # from a binary probe in the API process that admitted the scan.
+    scan.tool_plan = resolve_tool_availability(
+        list(scan.tool_plan or []),
+        await security_tools.runtime_catalog_snapshot(session),
     )
     scan.summary = {
         **dict(scan.summary or {}),
         "finding_count": len(seen),
-        "severity": {
-            key: counts.get(key, 0)
-            for key in ("critical", "high", "medium", "low", "info")
-        },
+        "severity": unique_severity_counts(unique_findings),
         "engines": results,
         "deep_validation": deep_plan,
         "optional_tools": [
-            {"id": item["id"], "available": item["available"]}
+            {
+                "id": item["id"],
+                "available": item["available"],
+                "availability": item["availability"],
+            }
             for item in scan.tool_plan
             if not item.get("builtin")
         ],

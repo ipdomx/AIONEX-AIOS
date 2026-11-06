@@ -507,6 +507,11 @@ _RISK_PATTERNS: tuple[tuple[str, re.Pattern[str], str, str], ...] = (
 _REDACT = re.compile(r"(?i)(api[_-]?key|secret|token|password)(\s*[:=]\s*)([^\s,;]+)")
 
 
+def catalog_definitions() -> list[dict[str, Any]]:
+    """Catalog rows without a local binary probe (for API-side tool plans)."""
+    return [asdict(item) for item in TOOL_CATALOG]
+
+
 def catalog_snapshot() -> list[dict[str, Any]]:
     result = []
     for item in TOOL_CATALOG:
@@ -1337,7 +1342,7 @@ async def runtime_catalog_snapshot(session) -> list[dict[str, Any]]:
     checked_at = payload.get("checked_at")
     status = record.status if record is not None else "not_reported"
     result = []
-    for row in catalog_snapshot():
+    for row in catalog_definitions():
         item = dict(row)
         item["available"] = (
             item["id"] in available_ids if record is not None else bool(item["builtin"])
