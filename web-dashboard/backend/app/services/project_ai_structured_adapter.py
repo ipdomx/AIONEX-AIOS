@@ -11,6 +11,7 @@ from typing import Any
 from fastapi import HTTPException
 
 from app.db.models import AIAgent, AIProvider
+from app.services import aionex_ai_plan_signal
 from app.services.ai_runtime_service import (
     _execute_provider,
     _openai_text,
@@ -75,12 +76,17 @@ async def execute_structured_project_coder(
             },
             "keep_alive": "2m",
         }
+        raw_body, plan_headers = aionex_ai_plan_signal.signed_request(
+            provider.type, agent.model, request
+        )
+        signed: dict[str, Any] = {"raw_body": raw_body} if raw_body is not None else {}
         payload, latency = await _request_json(
             "POST",
             f"{base}/api/chat",
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", **plan_headers},
             json_body=request,
             timeout=90 if tokens <= 640 else 120,
+            **signed,
         )
         text = str((payload.get("message") or {}).get("content") or "").strip()
         usage = {
@@ -178,12 +184,17 @@ async def execute_bounded_project_ollama_role(
         },
         "keep_alive": "2m",
     }
+    raw_body, plan_headers = aionex_ai_plan_signal.signed_request(
+        provider.type, agent.model, request
+    )
+    signed: dict[str, Any] = {"raw_body": raw_body} if raw_body is not None else {}
     payload, latency = await _request_json(
         "POST",
         f"{base}/api/chat",
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", **plan_headers},
         json_body=request,
         timeout=65,
+        **signed,
     )
     response_text = str((payload.get("message") or {}).get("content") or "").strip()
     if not response_text or len(response_text) > 12000:

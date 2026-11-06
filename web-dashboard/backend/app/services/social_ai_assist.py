@@ -25,6 +25,7 @@ from app.core.auth import UserRecord
 from app.core.owner_policy import require_owner_service_allowed
 from app.db.models import AIAgent, AIProvider, AuditEvent
 from app.services import ai_runtime_service as ai
+from app.services import aionex_ai_plan_signal
 from app.services import conversation_governance as governance
 from app.services.social_connectors import SocialConnectorError
 from app.services.social_publishing_rules import IG_CAPTION_MAX, IG_HASHTAGS_MAX
@@ -213,12 +214,20 @@ async def assist(
             },
         )
     )
+    aionex_plan = await aionex_ai_plan_signal.plan_for_dispatch(
+        session,
+        provider_type=provider.type,
+        model=agent.model,
+        organization_id=actor.organization_id,
+        role_name=actor.role,
+    )
     # The quota reservation is durable before the provider is called.
     await session.commit()
     try:
-        result = await asyncio.wait_for(
-            ai._execute_provider(provider, agent, prompt), timeout=PROVIDER_TIMEOUT_SECONDS
-        )
+        with aionex_ai_plan_signal.plan_context(aionex_plan):
+            result = await asyncio.wait_for(
+                ai._execute_provider(provider, agent, prompt), timeout=PROVIDER_TIMEOUT_SECONDS
+            )
     except asyncio.TimeoutError as exc:
         raise SocialConnectorError("ai-provider-timeout", status_code=504) from exc
     except (HTTPException, RuntimeError, ValueError, OSError) as exc:

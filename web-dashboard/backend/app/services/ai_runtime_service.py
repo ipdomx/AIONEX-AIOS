@@ -26,7 +26,7 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.db.base import SessionLocal
 from app.db.models import AIAgent, AIProvider, AuditEvent, Job, User, uuid_str
-from app.services import communications
+from app.services import aionex_ai_plan_signal, communications
 from app.services.provider_credit_alerts import notify_provider_billing_failure
 from app.services.project_execution_routing_durable import usd_to_microusd
 
@@ -633,11 +633,15 @@ def _openai_text(payload: dict[str, Any]) -> str:
     return "".join(pieces).strip()
 
 
-async def _request_json(method: str, url: str, *, headers: dict[str, str], json_body: dict[str, Any] | None = None, timeout: float = 30.0, allow_array: bool = False) -> tuple[Any, float]:
+async def _request_json(method: str, url: str, *, headers: dict[str, str], json_body: dict[str, Any] | None = None, timeout: float = 30.0, allow_array: bool = False, raw_body: bytes | None = None) -> tuple[Any, float]:
     started = time.monotonic()
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=10.0), follow_redirects=False) as client:
-            response = await client.request(method, url, headers=headers, json=json_body)
+            if raw_body is not None:
+                # Pre-serialized bytes (e.g. a signed AIONEX AI body) are sent unchanged.
+                response = await client.request(method, url, headers=headers, content=raw_body)
+            else:
+                response = await client.request(method, url, headers=headers, json=json_body)
     except (httpx.TimeoutException, httpx.NetworkError) as exc:
         raise HTTPException(status_code=503, detail=f"Provider connection failed ({type(exc).__name__})") from exc
     elapsed_ms = (time.monotonic() - started) * 1000
@@ -824,7 +828,9 @@ async def _execute_provider(provider: AIProvider, agent: AIAgent, prompt: str) -
             response_id = payload.get("responseId")
         elif provider.type == "ollama":
             body = {"model": agent.model, "stream": False, "messages": ([{"role": "system", "content": system_prompt}] if system_prompt else []) + [{"role": "user", "content": prompt}], "options": {"temperature": agent.temperature, "num_predict": max_tokens}}
-            payload, latency = await _request_json("POST", f"{base}/api/chat", headers={"Content-Type": "application/json"}, json_body=body, timeout=120)
+            raw_body, plan_headers = aionex_ai_plan_signal.signed_request(provider.type, agent.model, body)
+            signed: dict[str, Any] = {"raw_body": raw_body} if raw_body is not None else {}
+            payload, latency = await _request_json("POST", f"{base}/api/chat", headers={"Content-Type": "application/json", **plan_headers}, json_body=body, timeout=120, **signed)
             text = str((payload.get("message") or {}).get("content") or "").strip()
             usage = {"input_tokens": int(payload.get("prompt_eval_count", 0) or 0), "output_tokens": int(payload.get("eval_count", 0) or 0)}
             usage["total_tokens"] = usage["input_tokens"] + usage["output_tokens"]
@@ -894,10 +900,18 @@ async def run_job(job_id: str) -> None:
         await session.commit()
         requested_by_id = str((job.payload or {}).get("requested_by_id") or "")
         prompt = str((job.payload or {}).get("prompt") or "")
+        aionex_plan = await aionex_ai_plan_signal.plan_for_dispatch(
+            session,
+            provider_type=provider.type,
+            model=agent.model,
+            organization_id=job.organization_id,
+            user_id=requested_by_id or None,
+        )
 
     failure_status_code: int | None = None
     try:
-        result = await _execute_provider(provider, agent, prompt)
+        with aionex_ai_plan_signal.plan_context(aionex_plan):
+            result = await _execute_provider(provider, agent, prompt)
         failure: str | None = None
     except Exception as exc:
         result = {}

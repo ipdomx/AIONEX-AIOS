@@ -482,6 +482,13 @@ class Settings(BaseSettings):
         validation_alias="PROJECT_EXECUTION_WORKER_STALE_SECONDS",
     )
 
+    # Shared HMAC secret for the signed X-AIONEX-Plan priority headers sent to
+    # the AIONEX AI gateway. Unset or unreadable: no headers (behaviour as before).
+    AIONEX_AI_PLAN_SECRET_FILE: str = Field(
+        default="",
+        max_length=1024,
+        validation_alias="AIONEX_AI_PLAN_SECRET_FILE",
+    )
     THREE_D_RUNPOD_SECRET_FILE: str = Field(
         default="/run/secrets/aionex/runpod-gpu.env",
         validation_alias="THREE_D_RUNPOD_SECRET_FILE",
