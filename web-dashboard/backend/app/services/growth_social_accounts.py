@@ -363,6 +363,8 @@ async def disconnect_account(
     row = await _account(session, actor, account_id)
     row.status = "revoked"
     row.credential_ref = None
+    # P3 OAuth-connected rows also hold an encrypted asset token; delete it.
+    row.token_ciphertext = None
     row.health_state = "revoked"
     row.health_reasons = ["disconnected"]
     row.paused_at = None

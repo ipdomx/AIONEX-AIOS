@@ -50,6 +50,12 @@ import type {
   ThreeDGenerationJob,
   RegistrationTelemetry,
   SocialRegistrationPreparation,
+  SocialAccount,
+  SocialAsset,
+  SocialConnectResult,
+  SocialConnection,
+  SocialDisconnectResult,
+  SocialProvider,
   User,
   Workspace,
 } from "@/types";
@@ -1148,5 +1154,71 @@ export function prepareAndSimulatePaidCampaign(
     "/growth-social/paid-campaigns/prepare-and-simulate",
     "POST",
     input,
+  );
+}
+
+// --- Social connectors (P3). Tokens never reach the browser; only account
+// metadata, scopes and health come back from these routes.
+
+export function listSocialProviders(): Promise<{ items: SocialProvider[] }> {
+  return request<{ items: SocialProvider[] }>("/social/providers");
+}
+
+export function startSocialConnect(
+  provider: string,
+  locale: string,
+): Promise<{ authorize_url: string; expires_in: number }> {
+  return jsonRequest(
+    `/social/connect/${encodeURIComponent(provider)}/start`,
+    "POST",
+    { locale },
+  );
+}
+
+export function listSocialConnections(): Promise<{ items: SocialConnection[] }> {
+  return request<{ items: SocialConnection[] }>("/social/connections");
+}
+
+export function listSocialConnectionAssets(
+  connectionId: string,
+): Promise<{ connection: SocialConnection; items: SocialAsset[] }> {
+  return request(`/social/connections/${encodeURIComponent(connectionId)}/assets`);
+}
+
+export function connectSocialAssets(
+  connectionId: string,
+  assetIds: string[],
+): Promise<SocialConnectResult> {
+  return jsonRequest<SocialConnectResult>(
+    `/social/connections/${encodeURIComponent(connectionId)}/assets`,
+    "POST",
+    { asset_ids: assetIds },
+  );
+}
+
+export function disconnectSocialConnection(
+  connectionId: string,
+): Promise<{ connection: SocialConnection; provider_revoked: boolean }> {
+  return jsonRequest(
+    `/social/connections/${encodeURIComponent(connectionId)}`,
+    "DELETE",
+  );
+}
+
+export function listSocialAccounts(): Promise<{ items: SocialAccount[] }> {
+  return request<{ items: SocialAccount[] }>("/social/accounts");
+}
+
+export function checkSocialAccountHealth(accountId: string): Promise<SocialAccount> {
+  return jsonRequest<SocialAccount>(
+    `/social/accounts/${encodeURIComponent(accountId)}/health`,
+    "POST",
+  );
+}
+
+export function disconnectSocialAccount(accountId: string): Promise<SocialDisconnectResult> {
+  return jsonRequest<SocialDisconnectResult>(
+    `/social/accounts/${encodeURIComponent(accountId)}`,
+    "DELETE",
   );
 }

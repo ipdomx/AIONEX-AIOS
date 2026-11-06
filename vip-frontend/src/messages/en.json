@@ -1,5 +1,7 @@
 {
   "meta": {
+    "socialTitle": "Social accounts",
+    "socialDescription": "Connect your Facebook Pages and Instagram Business accounts to AIONEX securely.",
     "threeDTitle": "Image to 3D",
     "threeDDescription": "Generate textured 3D models from images, preview them in the browser and download GLB or OBJ.",
     "title": "AIONEX AIOS — Governed AI Operating System",
@@ -40,6 +42,7 @@
     "realtimeDescription": "Secure tenant-scoped voice, video, screen sharing and consent-governed recording."
   },
   "nav": {
+    "social": "Social accounts",
     "threeD": "3D",
     "home": "Home",
     "about": "About",
@@ -1413,6 +1416,96 @@
       "forbidden": "You do not have permission for this project.",
       "expired": "This model has passed its retention period and is no longer available.",
       "rateLimited": "Too many requests. Please wait a moment."
+    }
+  },
+  "social": {
+    "eyebrow": "Social accounts",
+    "title": "Your social accounts",
+    "description": "Connect your Facebook Pages and Instagram Business accounts with Meta's official login. Tokens stay encrypted on our servers and never reach your browser.",
+    "refresh": "Refresh",
+    "loading": "Loading",
+    "honesty": "Connecting links your accounts and checks their access. Publishing, scheduling and the unified inbox are not live yet and will arrive in a later release.",
+    "signedOut": {
+      "title": "Sign in to connect your accounts",
+      "body": "Your social accounts are linked to your AIONEX account, so you need to sign in first.",
+      "login": "Sign in",
+      "register": "Create account"
+    },
+    "errors": {
+      "rateLimited": "Too many attempts. Please wait a few minutes and try again.",
+      "notConfigured": "Meta connection is not configured on this platform yet.",
+      "comingSoon": "This platform is not available yet.",
+      "provider": "Meta did not accept the request. Please try again.",
+      "reconnect": "This connection is no longer active. Connect again to continue.",
+      "generic": "Something went wrong. Please try again."
+    },
+    "callback": {
+      "connected": "Meta login succeeded. Choose the Pages and Instagram accounts you want to connect.",
+      "accessDenied": "You cancelled the Meta login or did not grant the requested permissions.",
+      "stateExpired": "The connection request expired. Please start again.",
+      "stateMismatch": "The connection could not be verified in this browser. Start again from this page.",
+      "stateInvalid": "This connection link is invalid or was already used. Please start again.",
+      "tokenInvalid": "Meta returned an access token that is not valid. Please try again.",
+      "notConfigured": "Meta connection is not configured on this platform yet.",
+      "providerError": "Meta could not complete the connection. Please try again.",
+      "generic": "The connection could not be completed. Please try again.",
+      "assetsConnected": "Your selected accounts are connected.",
+      "nothingConnected": "No account was connected.",
+      "disconnected": "The account was disconnected and its access was removed."
+    },
+    "providers": {
+      "title": "Platforms",
+      "metaBody": "Facebook Pages you manage and the Instagram Business accounts linked to them.",
+      "metaNotConfigured": "Meta login is not configured on this platform yet, so it cannot be used.",
+      "comingSoonBody": "Support for this platform is coming soon.",
+      "connectFacebook": "Connect with Facebook",
+      "comingSoonButton": "Coming soon",
+      "status": {
+        "available": "Available",
+        "notConfigured": "Not configured",
+        "comingSoon": "Coming soon"
+      }
+    },
+    "pending": {
+      "title": "Finish connecting",
+      "choose": "Choose accounts",
+      "cancel": "Cancel connection"
+    },
+    "picker": {
+      "title": "Choose accounts for {name}",
+      "body": "Select the Pages and Instagram accounts to connect. You can disconnect any of them later.",
+      "empty": "No Pages were found for this Meta account. Make sure you manage at least one Facebook Page.",
+      "noneInGroup": "None found.",
+      "pages": "Facebook Pages",
+      "instagram": "Instagram Business accounts",
+      "alreadyConnected": "Already connected",
+      "notGranted": "Access was not granted for this account",
+      "skipped": "{count, plural, one {# account could not be connected.} other {# accounts could not be connected.}}",
+      "connect": "{count, plural, =0 {Connect} one {Connect # account} other {Connect # accounts}}",
+      "later": "Later"
+    },
+    "kinds": {
+      "page": "Facebook Page",
+      "instagram": "Instagram Business"
+    },
+    "accounts": {
+      "title": "Connected accounts",
+      "empty": "No accounts are connected yet.",
+      "never": "never",
+      "lastChecked": "Last checked: {date}",
+      "checkHealth": "Check health",
+      "disconnect": "Disconnect",
+      "confirmDisconnect": "Confirm disconnect"
+    },
+    "health": {
+      "healthy": "Healthy",
+      "expiring": "Expiring soon",
+      "degraded": "Missing permissions",
+      "invalid": "Access invalid",
+      "expired": "Expired",
+      "error": "Check failed",
+      "revoked": "Disconnected",
+      "unknown": "Not checked yet"
     }
   }
 }

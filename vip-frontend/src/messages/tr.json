@@ -1,5 +1,7 @@
 {
   "meta": {
+    "socialTitle": "Sosyal hesaplar",
+    "socialDescription": "Facebook Sayfalarınızı ve Instagram İşletme hesaplarınızı AIONEX'e güvenle bağlayın.",
     "threeDTitle": "Görselden 3D'ye",
     "threeDDescription": "Görsellerden dokulu 3D modeller üretin, tarayıcıda önizleyin ve GLB veya OBJ olarak indirin.",
     "title": "AIONEX AIOS — Yönetişimli Yapay Zekâ İşletim Sistemi",
@@ -40,6 +42,7 @@
     "realtimeDescription": "Güvenli ses, video, ekran paylaşımı ve açık onaylı kayıt."
   },
   "nav": {
+    "social": "Sosyal hesaplar",
     "threeD": "3D",
     "home": "Ana sayfa",
     "about": "Hakkımızda",
@@ -1413,6 +1416,96 @@
       "forbidden": "Bu proje için izniniz yok.",
       "expired": "Bu modelin saklama süresi doldu ve artık kullanılamıyor.",
       "rateLimited": "Çok fazla istek. Lütfen biraz bekleyin."
+    }
+  },
+  "social": {
+    "eyebrow": "Sosyal hesaplar",
+    "title": "Sosyal hesaplarınız",
+    "description": "Facebook Sayfalarınızı ve Instagram İşletme hesaplarınızı Meta'nın resmi girişiyle bağlayın. Erişim belirteçleri sunucularımızda şifreli kalır ve tarayıcınıza asla ulaşmaz.",
+    "refresh": "Yenile",
+    "loading": "Yükleniyor",
+    "honesty": "Bağlama işlemi hesaplarınızı ilişkilendirir ve erişimlerini denetler. Yayınlama, zamanlama ve birleşik gelen kutusu henüz etkin değildir ve sonraki bir sürümde gelecektir.",
+    "signedOut": {
+      "title": "Hesaplarınızı bağlamak için giriş yapın",
+      "body": "Sosyal hesaplarınız AIONEX hesabınıza bağlanır, bu nedenle önce giriş yapmanız gerekir.",
+      "login": "Giriş yap",
+      "register": "Hesap oluştur"
+    },
+    "errors": {
+      "rateLimited": "Çok fazla deneme. Birkaç dakika bekleyip tekrar deneyin.",
+      "notConfigured": "Meta bağlantısı bu platformda henüz yapılandırılmadı.",
+      "comingSoon": "Bu platform henüz kullanılamıyor.",
+      "provider": "Meta isteği kabul etmedi. Lütfen tekrar deneyin.",
+      "reconnect": "Bu bağlantı artık etkin değil. Devam etmek için yeniden bağlanın.",
+      "generic": "Bir şeyler ters gitti. Lütfen tekrar deneyin."
+    },
+    "callback": {
+      "connected": "Meta girişi başarılı. Bağlamak istediğiniz Sayfaları ve Instagram hesaplarını seçin.",
+      "accessDenied": "Meta girişini iptal ettiniz veya istenen izinleri vermediniz.",
+      "stateExpired": "Bağlantı isteğinin süresi doldu. Lütfen yeniden başlayın.",
+      "stateMismatch": "Bağlantı bu tarayıcıda doğrulanamadı. Bu sayfadan yeniden başlayın.",
+      "stateInvalid": "Bu bağlantı geçersiz veya daha önce kullanılmış. Lütfen yeniden başlayın.",
+      "tokenInvalid": "Meta geçersiz bir erişim belirteci döndürdü. Lütfen tekrar deneyin.",
+      "notConfigured": "Meta bağlantısı bu platformda henüz yapılandırılmadı.",
+      "providerError": "Meta bağlantıyı tamamlayamadı. Lütfen tekrar deneyin.",
+      "generic": "Bağlantı tamamlanamadı. Lütfen tekrar deneyin.",
+      "assetsConnected": "Seçtiğiniz hesaplar bağlandı.",
+      "nothingConnected": "Hiçbir hesap bağlanmadı.",
+      "disconnected": "Hesabın bağlantısı kesildi ve erişimi kaldırıldı."
+    },
+    "providers": {
+      "title": "Platformlar",
+      "metaBody": "Yönettiğiniz Facebook Sayfaları ve bunlara bağlı Instagram İşletme hesapları.",
+      "metaNotConfigured": "Meta girişi bu platformda henüz yapılandırılmadığı için kullanılamıyor.",
+      "comingSoonBody": "Bu platform için destek yakında geliyor.",
+      "connectFacebook": "Facebook ile bağlan",
+      "comingSoonButton": "Yakında",
+      "status": {
+        "available": "Kullanılabilir",
+        "notConfigured": "Yapılandırılmadı",
+        "comingSoon": "Yakında"
+      }
+    },
+    "pending": {
+      "title": "Bağlamayı tamamlayın",
+      "choose": "Hesapları seç",
+      "cancel": "Bağlantıyı iptal et"
+    },
+    "picker": {
+      "title": "{name} için hesapları seçin",
+      "body": "Bağlanacak Sayfaları ve Instagram hesaplarını seçin. Herhangi birinin bağlantısını daha sonra kesebilirsiniz.",
+      "empty": "Bu Meta hesabı için Sayfa bulunamadı. En az bir Facebook Sayfası yönettiğinizden emin olun.",
+      "noneInGroup": "Bulunamadı.",
+      "pages": "Facebook Sayfaları",
+      "instagram": "Instagram İşletme hesapları",
+      "alreadyConnected": "Zaten bağlı",
+      "notGranted": "Bu hesap için erişim verilmedi",
+      "skipped": "{count, plural, other {# hesap bağlanamadı.}}",
+      "connect": "{count, plural, =0 {Bağla} other {# hesabı bağla}}",
+      "later": "Daha sonra"
+    },
+    "kinds": {
+      "page": "Facebook Sayfası",
+      "instagram": "Instagram İşletme"
+    },
+    "accounts": {
+      "title": "Bağlı hesaplar",
+      "empty": "Henüz bağlı hesap yok.",
+      "never": "hiç",
+      "lastChecked": "Son kontrol: {date}",
+      "checkHealth": "Durumu kontrol et",
+      "disconnect": "Bağlantıyı kes",
+      "confirmDisconnect": "Bağlantı kesmeyi onayla"
+    },
+    "health": {
+      "healthy": "Sağlıklı",
+      "expiring": "Yakında sona eriyor",
+      "degraded": "Eksik izinler",
+      "invalid": "Erişim geçersiz",
+      "expired": "Süresi doldu",
+      "error": "Kontrol başarısız",
+      "revoked": "Bağlantı kesildi",
+      "unknown": "Henüz kontrol edilmedi"
     }
   }
 }

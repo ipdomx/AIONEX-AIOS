@@ -108,4 +108,5 @@ def test_backend_keeps_0063_in_the_linear_history_after_0064():
     text = DB_TEST.read_text()
     assert '("20260920_0063", False)' in text
     assert '("20260920_0064", False)' in text
-    assert '("20261025_0065", True)' in text
+    assert '("20261025_0065", False)' in text
+    assert '("20261106_0066", True)' in text
