@@ -1173,6 +1173,8 @@
     "loadError": "Yüklenemedi.",
     "runtimeReady": "Runtime hazır",
     "runtimePending": "Runtime bekliyor",
+    "acceptancePending": "Kabul testi sürüyor",
+    "acceptancePendingNote": "Yakında: Bu işlem hâlâ kabul testinde olduğu için henüz gönderilemez. Diğer işlemler kullanılabilir.",
     "identityBasis": "Kimlik temeli",
     "subject": "Kimlik / konu referansı",
     "subjectPlaceholder": "Kendi kimliğim, onaylı kişi veya kurgusal persona",
