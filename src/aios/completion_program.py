@@ -492,6 +492,7 @@ VIP_PAGE_BATCH: Final[dict[str, str]] = {
     "[locale]/projects/page.tsx": "29F", "[locale]/realtime/page.tsx": "36H", "[locale]/register/page.tsx": "29C",
     "[locale]/reset-password/page.tsx": "29C",
     "[locale]/security-lab/page.tsx": "34E",
+    "[locale]/social/page.tsx": "GS-03",
     "[locale]/studio/page.tsx": "36M",
     "[locale]/studio/identity-media/page.tsx": "36G",
 }
@@ -506,7 +507,7 @@ ENDPOINT_BATCH: Final[dict[str, str]] = {
     "mobile_delivery": "29H", "monitoring": "29G", "notifications": "29E", "organizations": "29C",
     "permissions": "29C", "portal": "29B", "professional": "29F", "project_executions": "29F", "projects": "29F", "realtime_media": "36H",
     "reports": "29F", "roles": "29C", "search": "29B", "security": "29G", "security_lab": "34E",
-    "servers": "29G", "settings": "29C", "studio": "29H", "support": "29E",
+    "servers": "29G", "settings": "29C", "social": "GS-03", "studio": "29H", "support": "29E",
     "tasks": "29F", "teams": "29C", "three_d_jobs": "34D", "user_telegram": "29E", "users": "29C", "websocket": "29E",
     "workflows": "29F", "workforce": "29F", "workspaces": "29C",
 }

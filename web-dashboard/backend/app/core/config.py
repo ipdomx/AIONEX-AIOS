@@ -1217,6 +1217,43 @@ class Settings(BaseSettings):
         validation_alias="PASSKEY_CHALLENGE_TTL_SECONDS",
     )
 
+    # P3 social connectors. The Meta app id and secret come from the
+    # environment or from private one-line secret files (the *_FILE path wins).
+    # They are read lazily by the Meta connector, so a missing or unreadable
+    # value makes the provider report ``not_configured`` instead of failing
+    # application startup.
+    META_APP_ID: str = Field(default="", validation_alias="META_APP_ID")
+    META_APP_ID_FILE: str = Field(default="", validation_alias="META_APP_ID_FILE")
+    META_APP_SECRET: str = Field(default="", validation_alias="META_APP_SECRET")
+    META_APP_SECRET_FILE: str = Field(
+        default="", validation_alias="META_APP_SECRET_FILE"
+    )
+    META_GRAPH_API_VERSION: str = Field(
+        default="v26.0", validation_alias="META_GRAPH_API_VERSION"
+    )
+    META_OAUTH_REDIRECT_URI: str = Field(
+        default="https://api.vip-e.net/api/v1/social/oauth/meta/callback",
+        validation_alias="META_OAUTH_REDIRECT_URI",
+    )
+    META_OAUTH_SCOPES: str = Field(
+        default=(
+            "pages_show_list,pages_read_engagement,pages_manage_posts,"
+            "pages_messaging,instagram_basic,instagram_content_publish,"
+            "instagram_manage_messages,instagram_manage_comments,business_management"
+        ),
+        validation_alias="META_OAUTH_SCOPES",
+    )
+    META_OAUTH_USE_PKCE: bool = Field(default=True, validation_alias="META_OAUTH_USE_PKCE")
+    SOCIAL_PORTAL_URL: str = Field(
+        default="https://ai.vip-e.net", validation_alias="SOCIAL_PORTAL_URL"
+    )
+    SOCIAL_OAUTH_STATE_TTL_SECONDS: int = Field(
+        default=600,
+        ge=120,
+        le=1800,
+        validation_alias="SOCIAL_OAUTH_STATE_TTL_SECONDS",
+    )
+
     @model_validator(mode="after")
     def resolve_database_url(self) -> "Settings":
         """Resolve file-backed secrets, build the DB URL, and enforce capacity."""

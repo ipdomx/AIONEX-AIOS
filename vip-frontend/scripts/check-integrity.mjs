@@ -68,6 +68,7 @@ const requiredFiles = [
   "src/app/[locale]/profile/page.tsx",
   "src/app/[locale]/projects/page.tsx",
   "src/app/[locale]/3d/page.tsx",
+  "src/app/[locale]/social/page.tsx",
   "src/app/[locale]/notifications/page.tsx",
   "src/app/[locale]/support/page.tsx",
   "src/app/[locale]/security-lab/page.tsx",
@@ -164,6 +165,9 @@ for (const route of [
   "/projects",
   "/growth-social/paid-campaigns",
   "/growth-social/paid-campaigns/prepare-and-simulate",
+  "/social/providers",
+  "/social/accounts",
+  "/social/connections",
 ]) {
   if (!apiSource.includes(route))
     violations.push(`src/lib/api.ts: confirmed route missing: ${route}`);

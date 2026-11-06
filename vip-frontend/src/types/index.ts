@@ -1133,3 +1133,81 @@ export interface PaidCampaignPreparationResult {
   live_provider_call: false;
   live_campaign_mutation: false;
 }
+
+export type SocialProviderStatus = "configured" | "not_configured" | "coming_soon";
+
+export interface SocialProvider {
+  key: string;
+  display_name: string;
+  status: SocialProviderStatus;
+  reason: string | null;
+  connectable: boolean;
+  account_providers: string[];
+  scopes: string[];
+  capabilities: Record<string, string[]>;
+  supports_pkce: boolean;
+}
+
+export interface SocialConnection {
+  id: string;
+  provider: string;
+  external_user_id: string;
+  display_name: string;
+  avatar_url: string | null;
+  requested_scopes: string[];
+  granted_scopes: string[];
+  token_expires_at: string | null;
+  status: "pending_selection" | "active" | "revoked" | string;
+  health_state: string;
+  health_reasons: string[];
+  last_health_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface SocialAsset {
+  asset_id: string;
+  provider: "facebook" | "instagram" | string;
+  account_kind: string;
+  external_id: string;
+  display_name: string;
+  handle: string | null;
+  avatar_url: string | null;
+  linked_external_id: string | null;
+  tasks: string[];
+  connected: boolean;
+  connectable: boolean;
+}
+
+export interface SocialAccount {
+  id: string;
+  connection_id: string | null;
+  provider: "facebook" | "instagram" | string;
+  connector: string | null;
+  account_kind: string;
+  external_account_id: string;
+  display_name: string;
+  handle: string | null;
+  avatar_url: string | null;
+  scopes: string[];
+  linked_external_id: string | null;
+  status: string;
+  health_state: string;
+  health_reasons: string[];
+  token_expires_at: string | null;
+  last_health_at: string | null;
+  credential_stored: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface SocialConnectResult {
+  items: SocialAccount[];
+  skipped: { asset_id: string; reason: string }[];
+}
+
+export interface SocialDisconnectResult {
+  account: SocialAccount;
+  connection_revoked: boolean;
+  provider_revoked: boolean;
+}

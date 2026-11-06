@@ -1,5 +1,7 @@
 {
   "meta": {
+    "socialTitle": "Social-Konten",
+    "socialDescription": "Verbinden Sie Ihre Facebook-Seiten und Instagram-Business-Konten sicher mit AIONEX.",
     "threeDTitle": "Bild zu 3D",
     "threeDDescription": "Erzeugen Sie texturierte 3D-Modelle aus Bildern, prüfen Sie sie im Browser und laden Sie GLB oder OBJ herunter.",
     "title": "AIONEX AIOS — Gesteuertes KI-Betriebssystem",
@@ -40,6 +42,7 @@
     "realtimeDescription": "Sichere Sprach- und Videoanrufe, Bildschirmfreigabe und zustimmungspflichtige Aufzeichnung."
   },
   "nav": {
+    "social": "Social-Konten",
     "threeD": "3D",
     "home": "Start",
     "about": "Über uns",
@@ -1413,6 +1416,96 @@
       "forbidden": "Sie haben keine Berechtigung für dieses Projekt.",
       "expired": "Dieses Modell hat seine Aufbewahrungsfrist überschritten und ist nicht mehr verfügbar.",
       "rateLimited": "Zu viele Anfragen. Bitte warten Sie einen Moment."
+    }
+  },
+  "social": {
+    "eyebrow": "Social-Konten",
+    "title": "Ihre Social-Konten",
+    "description": "Verbinden Sie Ihre Facebook-Seiten und Instagram-Business-Konten über den offiziellen Meta-Login. Tokens bleiben verschlüsselt auf unseren Servern und erreichen nie Ihren Browser.",
+    "refresh": "Aktualisieren",
+    "loading": "Wird geladen",
+    "honesty": "Das Verbinden verknüpft Ihre Konten und prüft deren Zugriff. Veröffentlichen, Planen und der gemeinsame Posteingang sind noch nicht aktiv und folgen in einer späteren Version.",
+    "signedOut": {
+      "title": "Melden Sie sich an, um Konten zu verbinden",
+      "body": "Ihre Social-Konten werden mit Ihrem AIONEX-Konto verknüpft, daher müssen Sie sich zuerst anmelden.",
+      "login": "Anmelden",
+      "register": "Konto erstellen"
+    },
+    "errors": {
+      "rateLimited": "Zu viele Versuche. Bitte warten Sie einige Minuten und versuchen Sie es erneut.",
+      "notConfigured": "Die Meta-Verbindung ist auf dieser Plattform noch nicht eingerichtet.",
+      "comingSoon": "Diese Plattform ist noch nicht verfügbar.",
+      "provider": "Meta hat die Anfrage nicht angenommen. Bitte erneut versuchen.",
+      "reconnect": "Diese Verbindung ist nicht mehr aktiv. Verbinden Sie sich erneut.",
+      "generic": "Etwas ist schiefgelaufen. Bitte erneut versuchen."
+    },
+    "callback": {
+      "connected": "Meta-Login erfolgreich. Wählen Sie die Seiten und Instagram-Konten, die Sie verbinden möchten.",
+      "accessDenied": "Sie haben den Meta-Login abgebrochen oder die angeforderten Berechtigungen nicht erteilt.",
+      "stateExpired": "Die Verbindungsanfrage ist abgelaufen. Bitte neu starten.",
+      "stateMismatch": "Die Verbindung konnte in diesem Browser nicht bestätigt werden. Starten Sie erneut auf dieser Seite.",
+      "stateInvalid": "Dieser Verbindungslink ist ungültig oder wurde bereits verwendet. Bitte neu starten.",
+      "tokenInvalid": "Meta hat ein ungültiges Zugriffstoken zurückgegeben. Bitte erneut versuchen.",
+      "notConfigured": "Die Meta-Verbindung ist auf dieser Plattform noch nicht eingerichtet.",
+      "providerError": "Meta konnte die Verbindung nicht abschließen. Bitte erneut versuchen.",
+      "generic": "Die Verbindung konnte nicht abgeschlossen werden. Bitte erneut versuchen.",
+      "assetsConnected": "Die ausgewählten Konten sind verbunden.",
+      "nothingConnected": "Es wurde kein Konto verbunden.",
+      "disconnected": "Das Konto wurde getrennt und sein Zugriff entfernt."
+    },
+    "providers": {
+      "title": "Plattformen",
+      "metaBody": "Facebook-Seiten, die Sie verwalten, und die damit verknüpften Instagram-Business-Konten.",
+      "metaNotConfigured": "Der Meta-Login ist auf dieser Plattform noch nicht eingerichtet und kann nicht verwendet werden.",
+      "comingSoonBody": "Unterstützung für diese Plattform folgt in Kürze.",
+      "connectFacebook": "Mit Facebook verbinden",
+      "comingSoonButton": "Demnächst",
+      "status": {
+        "available": "Verfügbar",
+        "notConfigured": "Nicht eingerichtet",
+        "comingSoon": "Demnächst"
+      }
+    },
+    "pending": {
+      "title": "Verbindung abschließen",
+      "choose": "Konten wählen",
+      "cancel": "Verbindung abbrechen"
+    },
+    "picker": {
+      "title": "Konten für {name} wählen",
+      "body": "Wählen Sie die Seiten und Instagram-Konten, die verbunden werden sollen. Sie können jedes später trennen.",
+      "empty": "Für dieses Meta-Konto wurden keine Seiten gefunden. Stellen Sie sicher, dass Sie mindestens eine Facebook-Seite verwalten.",
+      "noneInGroup": "Keine gefunden.",
+      "pages": "Facebook-Seiten",
+      "instagram": "Instagram-Business-Konten",
+      "alreadyConnected": "Bereits verbunden",
+      "notGranted": "Für dieses Konto wurde kein Zugriff gewährt",
+      "skipped": "{count, plural, one {# Konto konnte nicht verbunden werden.} other {# Konten konnten nicht verbunden werden.}}",
+      "connect": "{count, plural, =0 {Verbinden} one {# Konto verbinden} other {# Konten verbinden}}",
+      "later": "Später"
+    },
+    "kinds": {
+      "page": "Facebook-Seite",
+      "instagram": "Instagram Business"
+    },
+    "accounts": {
+      "title": "Verbundene Konten",
+      "empty": "Noch keine Konten verbunden.",
+      "never": "nie",
+      "lastChecked": "Zuletzt geprüft: {date}",
+      "checkHealth": "Status prüfen",
+      "disconnect": "Trennen",
+      "confirmDisconnect": "Trennen bestätigen"
+    },
+    "health": {
+      "healthy": "In Ordnung",
+      "expiring": "Läuft bald ab",
+      "degraded": "Fehlende Berechtigungen",
+      "invalid": "Zugriff ungültig",
+      "expired": "Abgelaufen",
+      "error": "Prüfung fehlgeschlagen",
+      "revoked": "Getrennt",
+      "unknown": "Noch nicht geprüft"
     }
   }
 }

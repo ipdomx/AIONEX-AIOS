@@ -1,5 +1,7 @@
 {
   "meta": {
+    "socialTitle": "Comptes sociaux",
+    "socialDescription": "Connectez vos Pages Facebook et comptes Instagram professionnels à AIONEX en toute sécurité.",
     "threeDTitle": "De l'image à la 3D",
     "threeDDescription": "Générez des modèles 3D texturés à partir d'images, prévisualisez-les dans le navigateur et téléchargez-les en GLB ou OBJ.",
     "title": "AIONEX AIOS — Système d’exploitation IA gouverné",
@@ -40,6 +42,7 @@
     "realtimeDescription": "Voix, vidéo, partage d’écran et enregistrement avec consentement explicite."
   },
   "nav": {
+    "social": "Comptes sociaux",
     "threeD": "3D",
     "home": "Accueil",
     "about": "À propos",
@@ -1413,6 +1416,96 @@
       "forbidden": "Vous n'avez pas l'autorisation pour ce projet.",
       "expired": "Ce modèle a dépassé sa durée de conservation et n'est plus disponible.",
       "rateLimited": "Trop de requêtes. Patientez un instant."
+    }
+  },
+  "social": {
+    "eyebrow": "Comptes sociaux",
+    "title": "Vos comptes sociaux",
+    "description": "Connectez vos Pages Facebook et comptes Instagram professionnels avec la connexion officielle de Meta. Les jetons restent chiffrés sur nos serveurs et n'atteignent jamais votre navigateur.",
+    "refresh": "Actualiser",
+    "loading": "Chargement",
+    "honesty": "La connexion relie vos comptes et vérifie leurs accès. La publication, la planification et la boîte de réception unifiée ne sont pas encore actives et arriveront dans une version ultérieure.",
+    "signedOut": {
+      "title": "Connectez-vous pour relier vos comptes",
+      "body": "Vos comptes sociaux sont liés à votre compte AIONEX : vous devez d'abord vous connecter.",
+      "login": "Se connecter",
+      "register": "Créer un compte"
+    },
+    "errors": {
+      "rateLimited": "Trop de tentatives. Patientez quelques minutes puis réessayez.",
+      "notConfigured": "La connexion Meta n'est pas encore configurée sur la plateforme.",
+      "comingSoon": "Cette plateforme n'est pas encore disponible.",
+      "provider": "Meta n'a pas accepté la demande. Veuillez réessayer.",
+      "reconnect": "Cette connexion n'est plus active. Reconnectez-vous pour continuer.",
+      "generic": "Une erreur s'est produite. Veuillez réessayer."
+    },
+    "callback": {
+      "connected": "Connexion Meta réussie. Choisissez les Pages et comptes Instagram à connecter.",
+      "accessDenied": "Vous avez annulé la connexion Meta ou refusé les autorisations demandées.",
+      "stateExpired": "La demande de connexion a expiré. Recommencez.",
+      "stateMismatch": "La connexion n'a pas pu être vérifiée dans ce navigateur. Recommencez depuis cette page.",
+      "stateInvalid": "Ce lien de connexion est invalide ou déjà utilisé. Recommencez.",
+      "tokenInvalid": "Meta a renvoyé un jeton d'accès invalide. Veuillez réessayer.",
+      "notConfigured": "La connexion Meta n'est pas encore configurée sur la plateforme.",
+      "providerError": "Meta n'a pas pu finaliser la connexion. Veuillez réessayer.",
+      "generic": "La connexion n'a pas pu être finalisée. Veuillez réessayer.",
+      "assetsConnected": "Les comptes sélectionnés sont connectés.",
+      "nothingConnected": "Aucun compte n'a été connecté.",
+      "disconnected": "Le compte a été déconnecté et son accès supprimé."
+    },
+    "providers": {
+      "title": "Plateformes",
+      "metaBody": "Les Pages Facebook que vous gérez et les comptes Instagram professionnels qui y sont liés.",
+      "metaNotConfigured": "La connexion Meta n'est pas encore configurée sur la plateforme et ne peut pas être utilisée.",
+      "comingSoonBody": "La prise en charge de cette plateforme arrive bientôt.",
+      "connectFacebook": "Se connecter avec Facebook",
+      "comingSoonButton": "Bientôt",
+      "status": {
+        "available": "Disponible",
+        "notConfigured": "Non configuré",
+        "comingSoon": "Bientôt"
+      }
+    },
+    "pending": {
+      "title": "Terminer la connexion",
+      "choose": "Choisir les comptes",
+      "cancel": "Annuler la connexion"
+    },
+    "picker": {
+      "title": "Choisir les comptes pour {name}",
+      "body": "Sélectionnez les Pages et comptes Instagram à connecter. Vous pourrez les déconnecter plus tard.",
+      "empty": "Aucune Page trouvée pour ce compte Meta. Vérifiez que vous gérez au moins une Page Facebook.",
+      "noneInGroup": "Aucun trouvé.",
+      "pages": "Pages Facebook",
+      "instagram": "Comptes Instagram professionnels",
+      "alreadyConnected": "Déjà connecté",
+      "notGranted": "L'accès n'a pas été accordé pour ce compte",
+      "skipped": "{count, plural, one {# compte n'a pas pu être connecté.} other {# comptes n'ont pas pu être connectés.}}",
+      "connect": "{count, plural, =0 {Connecter} one {Connecter # compte} other {Connecter # comptes}}",
+      "later": "Plus tard"
+    },
+    "kinds": {
+      "page": "Page Facebook",
+      "instagram": "Instagram professionnel"
+    },
+    "accounts": {
+      "title": "Comptes connectés",
+      "empty": "Aucun compte n'est encore connecté.",
+      "never": "jamais",
+      "lastChecked": "Dernière vérification : {date}",
+      "checkHealth": "Vérifier l'état",
+      "disconnect": "Déconnecter",
+      "confirmDisconnect": "Confirmer la déconnexion"
+    },
+    "health": {
+      "healthy": "Opérationnel",
+      "expiring": "Expire bientôt",
+      "degraded": "Autorisations manquantes",
+      "invalid": "Accès invalide",
+      "expired": "Expiré",
+      "error": "Vérification échouée",
+      "revoked": "Déconnecté",
+      "unknown": "Pas encore vérifié"
     }
   }
 }

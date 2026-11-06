@@ -16,6 +16,7 @@ const localizedRoutes = [
   "profile",
   "projects",
   "3d",
+  "social",
   "notifications",
   "support",
   "pricing",

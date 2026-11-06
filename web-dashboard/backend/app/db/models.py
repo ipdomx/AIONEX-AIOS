@@ -2243,6 +2243,93 @@ class GrowthSocialAccount(Base, TimestampMixin):
     provider_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     settings: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    # P3 OAuth-connected assets. The asset token is Fernet-encrypted at rest
+    # and is never serialized; GS-03 operator rows leave these columns empty.
+    connection_id: Mapped[str | None] = mapped_column(
+        ForeignKey("social_connections.id", ondelete="SET NULL"), index=True
+    )
+    connected_via: Mapped[str | None] = mapped_column(String(24))
+    avatar_url: Mapped[str | None] = mapped_column(String(1024))
+    scopes: Mapped[list[str] | None] = mapped_column(JSON)
+    token_ciphertext: Mapped[str | None] = mapped_column(Text)
+
+
+class SocialConnection(Base, TimestampMixin):
+    """One user's OAuth grant with a social provider (P3 connector framework).
+
+    The provider user token is Fernet-encrypted at rest and never serialized.
+    Connectable assets (Pages, Instagram Business accounts, ...) selected from
+    the grant become ``GrowthSocialAccount`` rows linked by ``connection_id``.
+    """
+
+    __tablename__ = "social_connections"
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id",
+            "user_id",
+            "provider",
+            "external_user_id",
+            name="uq_social_connection_user_provider_external",
+        ),
+        Index(
+            "ix_social_connections_org_user_provider",
+            "organization_id",
+            "user_id",
+            "provider",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    external_user_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(240), nullable=False)
+    avatar_url: Mapped[str | None] = mapped_column(String(1024))
+    requested_scopes: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    granted_scopes: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    token_ciphertext: Mapped[str | None] = mapped_column(Text)
+    token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(
+        String(32), default="pending_selection", nullable=False
+    )
+    health_state: Mapped[str] = mapped_column(String(32), default="unknown", nullable=False)
+    health_reasons: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    last_health_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class SocialOAuthState(Base, TimestampMixin):
+    """Single-use OAuth ``state`` bound to a user, an org and a browser cookie.
+
+    Only digests of the state and browser binding are stored; the PKCE
+    verifier is Fernet-encrypted. A row is consumed on its first callback.
+    """
+
+    __tablename__ = "social_oauth_states"
+    __table_args__ = (
+        Index("ix_social_oauth_states_user_expiry", "user_id", "expires_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_str)
+    state_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    browser_binding_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    code_verifier_ciphertext: Mapped[str | None] = mapped_column(Text)
+    locale: Mapped[str] = mapped_column(String(8), default="en", nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class GrowthSocialProviderCapability(Base, TimestampMixin):

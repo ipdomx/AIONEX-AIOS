@@ -75,6 +75,7 @@ from app.api.v1.endpoints import (
     security_lab,
     servers,
     settings,
+    social,
     studio,
     support,
     tasks,
@@ -242,6 +243,7 @@ api_router.include_router(growth_inbox.router, prefix="/growth-social/inbox", ta
 api_router.include_router(growth_paid_campaigns.router, prefix="/growth-social/paid-campaigns", tags=["Growth Paid Campaigns"])
 api_router.include_router(growth_provider_connectors.router, prefix="/growth-social", tags=["Growth Provider Connectors"])
 api_router.include_router(growth_social_accounts.router, prefix="/growth-social", tags=["Growth Social Accounts"])
+api_router.include_router(social.router, prefix="/social", tags=["Social Connectors"])
 api_router.include_router(
     user_telegram.router,
     prefix="/telegram",

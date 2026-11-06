@@ -10,6 +10,7 @@ import {
   Radio,
   LogOut,
   Menu,
+  Share2,
   ShieldCheck,
   Sparkles,
   UserRound,
@@ -221,6 +222,14 @@ export function Navbar() {
                 <Radio className="h-4 w-4" aria-hidden="true" />
                 {t("realtime")}
               </Link>
+              <Link
+                href={`/${locale}/social`}
+                className="nav-link inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm"
+                data-active={isActive(`/${locale}/social`) ? "true" : undefined}
+              >
+                <Share2 className="h-4 w-4" aria-hidden="true" />
+                {t("social")}
+              </Link>
               {campaignsVisible && (
                 <Link
                   href={`/${locale}/campaigns`}
@@ -363,6 +372,14 @@ export function Navbar() {
                   data-active={isActive(`/${locale}/realtime`) ? "true" : undefined}
                 >
                   {t("realtime")}
+                </Link>
+                <Link
+                  href={`/${locale}/social`}
+                  onClick={() => setOpen(false)}
+                  className="nav-link rounded-xl px-4 py-3 text-sm hover:bg-white/[0.06]"
+                  data-active={isActive(`/${locale}/social`) ? "true" : undefined}
+                >
+                  {t("social")}
                 </Link>
                 {campaignsVisible && (
                   <Link
