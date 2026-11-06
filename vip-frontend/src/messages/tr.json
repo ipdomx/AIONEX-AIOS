@@ -643,7 +643,13 @@
     "sourceMobileStore": "Mobil mağaza aboneliği",
     "sourceWeb": "Web aboneliği",
     "manageStoreSubscription": "Mağazada yönet",
-    "restorePurchases": "Satın alımları geri yükle"
+    "restorePurchases": "Satın alımları geri yükle",
+    "changePlan": "Planı değiştir",
+    "planChangeRequested": "Plan değişikliği Stripe'a gönderildi. Yükseltmelerde orantılı fark hemen tahsil edilir ve ödeme sonrası geçerli olur; düşürmelerde kullanılmayan süre sonraki faturaya alacak olarak yansır.",
+    "resumeSubscription": "Aboneliği sürdür",
+    "resumeSuccess": "Planlanan iptal kaldırıldı. Aboneliğiniz yenilenecek.",
+    "resumeError": "Abonelik sürdürülemedi.",
+    "pastDueNotice": "Son ödemeniz başarısız oldu. Ücretli özellikler fatura ödenene kadar duraklatıldı. Ödeme yönteminizi sağlayıcı portalından güncelleyin."
   },
   "notifications": {
     "eyebrow": "İletişim merkezi",

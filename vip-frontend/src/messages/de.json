@@ -643,7 +643,13 @@
     "sourceMobileStore": "Mobile-Store-Abonnement",
     "sourceWeb": "Web-Abonnement",
     "manageStoreSubscription": "Im Store verwalten",
-    "restorePurchases": "Käufe wiederherstellen"
+    "restorePurchases": "Käufe wiederherstellen",
+    "changePlan": "Tarif ändern",
+    "planChangeRequested": "Tarifwechsel an Stripe gesendet. Upgrades berechnen die anteilige Differenz sofort und gelten nach Zahlung; Downgrades schreiben die ungenutzte Zeit auf der nächsten Rechnung gut.",
+    "resumeSubscription": "Abo behalten",
+    "resumeSuccess": "Die geplante Kündigung wurde entfernt. Ihr Abo wird verlängert.",
+    "resumeError": "Das Abo konnte nicht fortgesetzt werden.",
+    "pastDueNotice": "Ihre letzte Zahlung ist fehlgeschlagen. Kostenpflichtige Funktionen sind pausiert, bis die Rechnung bezahlt ist. Aktualisieren Sie Ihre Zahlungsmethode im Anbieterportal."
   },
   "notifications": {
     "eyebrow": "Kommunikationszentrum",

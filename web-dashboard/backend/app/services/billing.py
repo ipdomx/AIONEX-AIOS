@@ -472,7 +472,12 @@ async def _internal_plan(session: AsyncSession, organization_plan: str) -> Billi
         status="internal",
         default_currency=_currency(None),
         limits={},
-        entitlements=["*"],
+        # The free tier never receives the internal wildcard.
+        entitlements=(
+            ["account.profile", "projects.core", "support.requests"]
+            if code == "free"
+            else ["*"]
+        ),
         metering={},
         source_version=0,
         source_hash=_catalog_hash({"internal": code}),
@@ -1143,7 +1148,7 @@ async def create_checkout(
         )
         if coupon is None:
             raise HTTPException(status_code=422, detail="Coupon is not valid")
-    stripe_discount = None
+    stripe_discount: tuple[str, str] | None = None
     if coupon is not None and price.provider == "stripe":
         # The discount must be applied by Stripe, or the card would be charged
         # the full price while the local invoice shows the discount.
@@ -1155,7 +1160,9 @@ async def create_checkout(
             )
     discount_minor = _coupon_discount(coupon, price.amount_minor, price.currency)
     taxable_minor = max(0, price.amount_minor - discount_minor)
-    stripe_tax_reference = None
+    stripe_tax_reference: str | None = None
+    tax_rate: BillingTaxRate | None = None
+    tax_minor = 0
     if price.provider == "stripe" and settings.STRIPE_AUTOMATIC_TAX:
         # Stripe Tax computes tax from the customer address at checkout; the
         # paid invoice webhook records the final amount.

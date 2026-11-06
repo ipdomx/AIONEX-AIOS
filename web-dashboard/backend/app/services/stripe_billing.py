@@ -342,6 +342,13 @@ def _safe_json(response: httpx.Response) -> dict[str, Any]:
 async def free_plan(session: AsyncSession) -> BillingPlan:
     plan = await session.scalar(select(BillingPlan).where(BillingPlan.code == FREE_PLAN_CODE))
     if plan is not None:
+        if "*" in list(plan.entitlements or []):
+            # An internal placeholder must never grant the wildcard to the
+            # free tier; keep only explicit entitlements.
+            plan.entitlements = sorted(
+                {item for item in plan.entitlements if item != "*"}
+                | set(FREE_BASE_ENTITLEMENTS)
+            )
         return plan
     # Never fall back to the internal ``*`` wildcard plan on subscription loss.
     plan = BillingPlan(
@@ -364,6 +371,11 @@ async def free_plan(session: AsyncSession) -> BillingPlan:
 def _rank(item: BillingSubscription) -> tuple[datetime, str, str]:
     end = core._as_utc(item.current_period_end) or datetime.max.replace(tzinfo=UTC)
     return end, item.provider, item.id
+
+
+def _period_open(item: BillingSubscription, moment: datetime) -> bool:
+    end = core._as_utc(item.current_period_end)
+    return end is None or end > moment
 
 
 async def _lock_account(session: AsyncSession, organization_id: str) -> BillingAccount:
@@ -398,12 +410,7 @@ async def reconcile_account_entitlements(
             )
         ).all()
     )
-    live = [
-        item
-        for item in rows
-        if core._as_utc(item.current_period_end) is None
-        or core._as_utc(item.current_period_end) > moment
-    ]
+    live = [item for item in rows if _period_open(item, moment)]
     organization = await session.get(Organization, organization_id)
     previous_plan_id = account.plan_id
     if live:
