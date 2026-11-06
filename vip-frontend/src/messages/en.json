@@ -1181,6 +1181,8 @@
     "loadError": "Identity Media could not be loaded.",
     "runtimeReady": "Runtime ready",
     "runtimePending": "Runtime pending",
+    "acceptancePending": "Acceptance pending",
+    "acceptancePendingNote": "Coming soon: this operation is still in acceptance testing, so it cannot be submitted yet. Other operations are available.",
     "identityBasis": "Identity basis",
     "subject": "Identity / subject reference",
     "subjectPlaceholder": "My identity, consented subject reference, or fictional persona",

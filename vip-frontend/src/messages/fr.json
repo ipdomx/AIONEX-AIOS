@@ -1181,6 +1181,8 @@
     "loadError": "Chargement impossible.",
     "runtimeReady": "Runtime prêt",
     "runtimePending": "Runtime en attente",
+    "acceptancePending": "Validation en cours",
+    "acceptancePendingNote": "Bientôt disponible : cette opération est encore en tests de validation et ne peut pas encore être soumise. Les autres opérations sont disponibles.",
     "identityBasis": "Base de l’identité",
     "subject": "Référence identité / sujet",
     "subjectPlaceholder": "Mon identité, personne consentante ou persona fictif",

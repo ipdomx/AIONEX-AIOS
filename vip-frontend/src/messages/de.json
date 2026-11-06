@@ -1181,6 +1181,8 @@
     "loadError": "Laden fehlgeschlagen.",
     "runtimeReady": "Runtime bereit",
     "runtimePending": "Runtime ausstehend",
+    "acceptancePending": "Abnahme ausstehend",
+    "acceptancePendingNote": "Demnächst: Dieser Vorgang befindet sich noch in der Abnahmeprüfung und kann noch nicht gestartet werden. Andere Vorgänge sind verfügbar.",
     "identityBasis": "Identitätsbasis",
     "subject": "Identität / Referenz",
     "subjectPlaceholder": "Meine Identität, Person mit Zustimmung oder fiktive Persona",

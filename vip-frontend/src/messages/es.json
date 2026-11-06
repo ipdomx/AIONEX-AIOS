@@ -1181,6 +1181,8 @@
     "loadError": "No se pudo cargar.",
     "runtimeReady": "Runtime listo",
     "runtimePending": "Runtime pendiente",
+    "acceptancePending": "Aceptación pendiente",
+    "acceptancePendingNote": "Próximamente: esta operación sigue en pruebas de aceptación y todavía no se puede enviar. Las demás operaciones están disponibles.",
     "identityBasis": "Base de identidad",
     "subject": "Identidad / referencia",
     "subjectPlaceholder": "Mi identidad, persona con consentimiento o personaje ficticio",

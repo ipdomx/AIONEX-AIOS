@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.config import settings
 from app.db.base import SessionLocal
 from app.db.models import AIAgent, AIProvider, ProjectExecution
-from app.services import communications
+from app.services import aionex_ai_plan_signal, communications
 from app.services.ai_runtime_service import _execute_provider, provider_enabled
 from app.services.project_ai_access_policy import (
     ProjectAIAccessPolicyError,
@@ -157,6 +157,16 @@ class ProjectAILiveProviderInvoker:
             if provider.status != "connected" or not provider_enabled(provider):
                 raise ProjectAIInvocationFailure("provider_unavailable")
             entry = _validated_entry(provider, invocation)
+            aionex_plan: str | None = None
+            if aionex_ai_plan_signal.signing_enabled(provider.type, invocation.model):
+                execution = await session.get(ProjectExecution, invocation.scope.execution_id)
+                aionex_plan = await aionex_ai_plan_signal.plan_for_dispatch(
+                    session,
+                    provider_type=provider.type,
+                    model=invocation.model,
+                    organization_id=invocation.scope.organization_id,
+                    user_id=execution.requested_by_id if execution is not None else None,
+                )
 
         agent = AIAgent(
             organization_id=invocation.scope.organization_id,
@@ -173,39 +183,40 @@ class ProjectAILiveProviderInvoker:
             metrics={},
         )
         try:
-            if (
-                invocation.role == "coder"
-                and invocation.task == "coding"
-                and provider.type in {"ollama", "openai"}
-            ):
-                local_compact = (
+            with aionex_ai_plan_signal.plan_context(aionex_plan):
+                if (
+                    invocation.role == "coder"
+                    and invocation.task == "coding"
+                    and provider.type in {"ollama", "openai"}
+                ):
+                    local_compact = (
+                        provider.type == "ollama"
+                        and invocation.prompt.startswith("AIONEX_COMPACT_PROJECT_SPEC_V1:")
+                    )
+                    result = await execute_structured_project_coder(
+                        provider,
+                        agent,
+                        invocation.prompt,
+                        project_coder_max_tokens=invocation.max_tokens if local_compact else 3072,
+                        project_coder_schema=(
+                            compact_project_schema()
+                            if local_compact
+                            else ControlledProjectBuilder._schema()
+                        ),
+                    )
+                elif (
                     provider.type == "ollama"
-                    and invocation.prompt.startswith("AIONEX_COMPACT_PROJECT_SPEC_V1:")
-                )
-                result = await execute_structured_project_coder(
-                    provider,
-                    agent,
-                    invocation.prompt,
-                    project_coder_max_tokens=invocation.max_tokens if local_compact else 3072,
-                    project_coder_schema=(
-                        compact_project_schema()
-                        if local_compact
-                        else ControlledProjectBuilder._schema()
-                    ),
-                )
-            elif (
-                provider.type == "ollama"
-                and invocation.role in {"planner", "researcher", "reviewer"}
-                and invocation.task == "reasoning"
-            ):
-                result = await execute_bounded_project_ollama_role(
-                    provider,
-                    agent,
-                    invocation.prompt,
-                    task_max_tokens=invocation.max_tokens,
-                )
-            else:
-                result = await _execute_provider(provider, agent, invocation.prompt)
+                    and invocation.role in {"planner", "researcher", "reviewer"}
+                    and invocation.task == "reasoning"
+                ):
+                    result = await execute_bounded_project_ollama_role(
+                        provider,
+                        agent,
+                        invocation.prompt,
+                        task_max_tokens=invocation.max_tokens,
+                    )
+                else:
+                    result = await _execute_provider(provider, agent, invocation.prompt)
         except HTTPException as exc:
             code, billing_signal = _provider_error_code(exc)
             if billing_signal is not None:

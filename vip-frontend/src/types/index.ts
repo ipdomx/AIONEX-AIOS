@@ -460,6 +460,10 @@ export interface ThreeDAccess {
   };
   third_party_terms_version: string;
   third_party_terms_required: boolean;
+  /** "available" here; a paused/unavailable provider answers 503 instead. */
+  provider_state?: "available" | "paused" | "unavailable";
+  provider_failover?: boolean;
+  provider_states?: Record<string, string>;
 }
 
 export interface ThreeDArtifact {

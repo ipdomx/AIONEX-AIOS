@@ -2,13 +2,126 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import re
 import time
 import urllib.error
 import urllib.request
 
+# Provider error codes that no retry can fix: the endpoint was paused by the
+# operator (max_workers=0) or the credential is not accepted.
+PAUSED_ERROR_CODES = frozenset({"ENDPOINT_PAUSED"})
+AUTH_HTTP_STATUSES = frozenset({401, 403})
+_MAX_ERROR_BODY_BYTES = 4096
+_MAX_PROVIDER_MESSAGE_CHARS = 160
+_PAUSED_MESSAGE = re.compile(r"\bendpoint\s+is\s+paused\b", re.IGNORECASE)
+_SECRET_PATTERNS = (
+    re.compile(r"(?i)bearer\s+\S+"),
+    re.compile(r"(?i)\brpa_[A-Za-z0-9]+"),
+    re.compile(r"(?i)\b(?:api[_-]?key|token|secret|password)\s*[=:]\s*\S+"),
+    re.compile(r"[A-Za-z0-9+/_=-]{32,}"),
+)
+
+
+def sanitize_provider_text(value: object, *, limit: int = _MAX_PROVIDER_MESSAGE_CHARS) -> str | None:
+    """Return a short, log-safe provider message with credentials redacted."""
+    text = "".join(ch if ch.isprintable() else " " for ch in str(value or ""))
+    for pattern in _SECRET_PATTERNS:
+        text = pattern.sub("[redacted]", text)
+    text = " ".join(text.split())
+    if not text:
+        return None
+    return text[:limit]
+
+
+def sanitize_provider_code(value: object) -> str | None:
+    code = re.sub(r"[^A-Z0-9_]", "_", str(value or "").strip().upper())[:64].strip("_")
+    return code or None
+
+
+def _error_fields(raw: bytes) -> tuple[str | None, str | None]:
+    """Extract (code, message) from a RunPod error body without trusting it."""
+    try:
+        document = json.loads(raw.decode("utf-8", "replace")) if raw else None
+    except json.JSONDecodeError:
+        return None, sanitize_provider_text(raw.decode("utf-8", "replace")) if raw else None
+    code: object = None
+    message: object = None
+    if isinstance(document, dict):
+        nested = document.get("error")
+        if isinstance(nested, dict):
+            code = nested.get("code") or nested.get("error_code")
+            message = nested.get("message") or nested.get("error")
+        else:
+            message = nested if isinstance(nested, str) else document.get("message")
+        code = code or document.get("code") or document.get("error_code") or document.get("errorCode")
+    elif isinstance(document, str):
+        message = document
+    clean_code = sanitize_provider_code(code) if isinstance(code, (str, int)) else None
+    clean_message = sanitize_provider_text(message) if isinstance(message, str) else None
+    if clean_code is None and clean_message and _PAUSED_MESSAGE.search(clean_message):
+        clean_code = "ENDPOINT_PAUSED"
+    return clean_code, clean_message
+
 
 class RunPodError(RuntimeError):
-    """Sanitized RunPod lifecycle failure."""
+    """Sanitized RunPod lifecycle failure.
+
+    ``status``, ``code`` and ``provider_message`` carry the HTTP status and the
+    sanitized provider error so callers can log them and classify the failure
+    without ever seeing credentials.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status: int | None = None,
+        code: str | None = None,
+        provider_message: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.status = status
+        self.code = code
+        self.provider_message = provider_message
+
+    @classmethod
+    def from_http(cls, prefix: str, status: int, raw: bytes) -> RunPodError:
+        code, provider_message = _error_fields(raw)
+        text = f"{prefix} HTTP {status}"
+        if code:
+            text += f" {code}"
+        if provider_message:
+            text += f": {provider_message}"
+        return cls(text, status=status, code=code, provider_message=provider_message)
+
+    @property
+    def category(self) -> str:
+        """``paused``, ``auth`` or ``transient``."""
+        if self.code in PAUSED_ERROR_CODES:
+            return "paused"
+        if self.status in AUTH_HTTP_STATUSES:
+            return "auth"
+        return "transient"
+
+    @property
+    def permanent(self) -> bool:
+        """True when retrying the same request cannot succeed."""
+        return self.category != "transient"
+
+    def safe_details(self) -> dict[str, object]:
+        return {
+            "http_status": self.status,
+            "provider_error_code": self.code,
+            "provider_error_message": self.provider_message,
+            "error_category": self.category,
+        }
+
+
+def _read_error_body(exc: urllib.error.HTTPError) -> bytes:
+    try:
+        return exc.read(_MAX_ERROR_BODY_BYTES) or b""
+    except (OSError, ValueError):
+        return b""
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,7 +165,7 @@ class RunPodClient:
                 raw = response.read()
                 return json.loads(raw.decode()) if raw else {}
         except urllib.error.HTTPError as exc:
-            raise RunPodError(f"RunPod HTTP {exc.code}") from None
+            raise RunPodError.from_http("RunPod", exc.code, _read_error_body(exc)) from None
         except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
             raise RunPodError(f"RunPod connection failed: {type(exc).__name__}") from None
 
@@ -118,7 +231,9 @@ class RunPodServerlessClient:
                 raw = response.read()
                 return json.loads(raw.decode()) if raw else {}
         except urllib.error.HTTPError as exc:
-            raise RunPodError(f"RunPod Serverless HTTP {exc.code}") from None
+            raise RunPodError.from_http(
+                "RunPod Serverless", exc.code, _read_error_body(exc)
+            ) from None
         except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
             raise RunPodError(f"RunPod Serverless connection failed: {type(exc).__name__}") from None
 

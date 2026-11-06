@@ -268,11 +268,33 @@ async def create_identity_execution(
     session: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     if not settings.IDENTITY_MEDIA_LIVE_ENABLED:
-        raise HTTPException(status_code=503, detail="Identity Media runtime is not live")
+        raise HTTPException(
+            status_code=503,
+            detail={"code": "IDENTITY_MEDIA_RUNTIME_NOT_LIVE", "message": "Identity Media runtime is not live"},
+        )
     if not str(settings.REPLICATE_API_TOKEN or "").strip():
-        raise HTTPException(status_code=503, detail="Identity Media provider is not configured")
+        raise HTTPException(
+            status_code=503,
+            detail={"code": "IDENTITY_MEDIA_PROVIDER_NOT_CONFIGURED", "message": "Identity Media provider is not configured"},
+        )
+    if not identity_media_access.operation_available_to(actor, operation):
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "IDENTITY_MEDIA_OPERATION_NOT_ACCEPTED",
+                "operation": operation,
+                "message": "This Identity Media operation is still in acceptance testing and cannot be submitted yet",
+            },
+        )
     if operation not in _RUNTIME_MODELS:
-        raise HTTPException(status_code=503, detail="This Identity Media operation is visible but runtime acceptance is pending")
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "IDENTITY_MEDIA_RUNTIME_PENDING",
+                "operation": operation,
+                "message": "This Identity Media operation is visible but runtime acceptance is pending",
+            },
+        )
     if identity_basis == "licensed_public_figure":
         raise HTTPException(
             status_code=503,
