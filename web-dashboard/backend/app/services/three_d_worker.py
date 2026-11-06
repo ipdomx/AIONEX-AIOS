@@ -25,6 +25,7 @@ import os
 from pathlib import Path
 import signal
 import time
+from typing import Any
 from uuid import uuid4
 
 from fastapi import HTTPException
@@ -1051,7 +1052,7 @@ class ThreeDGenerationWorker:
             except HTTPException as exc:
                 if exc.status_code != 503:
                     raise
-                detail = exc.detail if isinstance(exc.detail, dict) else {}
+                detail: dict[str, Any] = exc.detail if isinstance(exc.detail, dict) else {}
                 await self._defer_for_open_circuit(
                     job_id,
                     lease_token,

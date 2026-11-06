@@ -5,7 +5,7 @@ from __future__ import annotations
 from app.services.host_maintenance_media_enqueue import require_media_enqueue_admission
 
 from datetime import timedelta
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import (
     APIRouter,
@@ -110,7 +110,7 @@ async def _licensed_provider_route(
             # A paused (or credential-rejected) endpoint fails over to the
             # next licensed candidate exactly like an open circuit.
             blocked.append(provider)
-            detail = exc.detail if isinstance(exc.detail, dict) else {}
+            detail: dict[str, Any] = exc.detail if isinstance(exc.detail, dict) else {}
             provider_states[provider] = (
                 "paused"
                 if detail.get("code") == "THREE_D_PROVIDER_PAUSED"
