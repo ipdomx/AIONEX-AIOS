@@ -160,6 +160,8 @@ OWNER_API_CONTRACT = {
     ("POST", "/api/v1/owner/portal/reset-draft"),
     ("POST", "/api/v1/owner/portal/assets"),
     ("DELETE", "/api/v1/owner/portal/assets/{asset_id}"),
+    ("GET", "/api/v1/owner/ads/policy"),
+    ("PATCH", "/api/v1/owner/ads/policy"),
     ("GET", "/api/v1/owner/security-lab"),
     ("PATCH", "/api/v1/owner/security-lab/policy"),
     ("POST", "/api/v1/owner/security-lab/grants"),
@@ -410,6 +412,7 @@ OWNER_MUTATION_REQUESTS = {
     ("POST", "/api/v1/owner/portal/reset-draft"): None,
     ("POST", "/api/v1/owner/portal/assets"): {"__files__": True},
     ("DELETE", "/api/v1/owner/portal/assets/{asset_id}"): None,
+    ("PATCH", "/api/v1/owner/ads/policy"): {"daily_cap_minor": 5000},
     ("PATCH", "/api/v1/owner/security-lab/policy"): {"enabled": True},
     ("POST", "/api/v1/owner/security-lab/grants"): {
         "user_id": "missing-user",

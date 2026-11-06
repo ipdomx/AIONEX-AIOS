@@ -13,7 +13,7 @@ import math
 import re
 from dataclasses import dataclass, field
 from datetime import date, timedelta
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Mapping, Sequence
 
 LEVELS = ("campaign", "adset", "ad")
 BREAKDOWNS: dict[str, tuple[str, ...]] = {
@@ -410,7 +410,7 @@ def rank_campaigns(rows: Iterable[Mapping[str, Any]], *, limit: int = 5) -> dict
     """Top and bottom campaigns by ROAS when values exist, else by CPA, else by CTR."""
 
     grouped = by_object(rows)
-    items = []
+    items: list[dict[str, Any]] = []
     for object_id, (name, total) in grouped.items():
         metrics = total.metrics()
         if not total.spend and not total.impressions:
@@ -462,7 +462,7 @@ FATIGUE_CTR_DROP_PCT = 20.0
 
 
 def alerts(
-    campaign_rows: list[Mapping[str, Any]],
+    campaign_rows: Sequence[Mapping[str, Any]],
     *,
     as_of: date,
     cpa_target: float | None,

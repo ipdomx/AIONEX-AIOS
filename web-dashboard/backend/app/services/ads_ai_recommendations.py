@@ -54,7 +54,7 @@ def grounding_from(board: dict[str, Any]) -> dict[str, Any]:
         if value["value"] is not None
     }
     ranking = board["campaigns"]
-    campaigns = []
+    campaigns: list[dict[str, Any]] = []
     for item in sorted(
         [*ranking["top"], *ranking["bottom"]], key=lambda entry: entry["spend"] or 0.0, reverse=True
     ):

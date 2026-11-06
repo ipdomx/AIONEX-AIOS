@@ -33,6 +33,13 @@ router = APIRouter()
 
 Locale = Literal["ar", "en", "fr", "de", "es", "tr"]
 Source = Literal["oauth", "owner_token"]
+Platform = Literal["facebook", "instagram"]
+
+
+def _all_platforms() -> list[Platform]:
+    return ["facebook", "instagram"]
+
+
 _UUID = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 
 
@@ -65,8 +72,8 @@ class TargetingInput(BaseModel):
     age_min: int = Field(default=18, ge=18, le=65)
     age_max: int = Field(default=65, ge=18, le=65)
     genders: list[int] = Field(default_factory=list, max_length=2)
-    publisher_platforms: list[Literal["facebook", "instagram"]] = Field(
-        default_factory=lambda: ["facebook", "instagram"], min_length=1, max_length=2
+    publisher_platforms: list[Platform] = Field(
+        default_factory=_all_platforms, min_length=1, max_length=2
     )
 
 
