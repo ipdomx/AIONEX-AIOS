@@ -26,7 +26,7 @@ from app.services import ads_analytics as analytics
 from app.services import ads_campaigns as campaigns
 from app.services import ads_entitlement as entitlement
 from app.services import social_connections as connections
-from app.services.ads_meta_graph import MetaAdsGraph
+from app.services.ads_meta_graph import AdsGraphError, MetaAdsGraph
 from app.services.social_connectors import SocialConnectorError
 
 router = APIRouter()
@@ -105,6 +105,11 @@ def _error(exc: Exception) -> HTTPException:
         return HTTPException(status_code=exc.status_code, detail=exc.detail())
     if isinstance(exc, entitlement.AdsAccessError):
         return HTTPException(status_code=exc.status_code, detail=exc.detail())
+    if isinstance(exc, AdsGraphError):
+        return HTTPException(
+            status_code=exc.status_code,
+            detail={"code": exc.code, "message": exc.code.replace("-", " ")},
+        )
     if isinstance(exc, SocialConnectorError):
         return HTTPException(
             status_code=exc.status_code,
@@ -113,7 +118,7 @@ def _error(exc: Exception) -> HTTPException:
     raise exc
 
 
-_HANDLED = (accounts.AdsError, entitlement.AdsAccessError, SocialConnectorError)
+_HANDLED = (accounts.AdsError, entitlement.AdsAccessError, AdsGraphError, SocialConnectorError)
 
 
 @router.get("/access")
