@@ -71,11 +71,13 @@ const requiredFiles = [
   "src/app/[locale]/social/page.tsx",
   "src/app/[locale]/social/compose/page.tsx",
   "src/app/[locale]/social/calendar/page.tsx",
+  "src/app/[locale]/social/inbox/page.tsx",
   "src/app/[locale]/notifications/page.tsx",
   "src/app/[locale]/support/page.tsx",
   "src/app/[locale]/security-lab/page.tsx",
   "src/app/[locale]/legal/privacy/page.tsx",
   "src/app/[locale]/legal/terms/page.tsx",
+  "src/app/[locale]/legal/data-deletion/page.tsx",
   "src/lib/api.ts",
   "src/lib/firebase-phone-auth.ts",
   "src/lib/firebase-social-auth.ts",
@@ -174,6 +176,9 @@ for (const route of [
   "/social/posts/validate",
   "/social/media",
   "/social/ai/assist",
+  "/social/inbox/status",
+  "/social/inbox/conversations",
+  "/social/meta/data-deletion/status",
 ]) {
   if (!apiSource.includes(route))
     violations.push(`src/lib/api.ts: confirmed route missing: ${route}`);

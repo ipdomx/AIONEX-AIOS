@@ -57,6 +57,12 @@ import type {
   SocialDisconnectResult,
   SocialProvider,
   SocialAiAssistResult,
+  SocialInboxConversation,
+  SocialInboxReadiness,
+  SocialInboxAccountReadiness,
+  SocialInboxSuggestion,
+  SocialInboxThread,
+  MetaDataDeletionStatus,
   SocialMediaItem,
   SocialPost,
   SocialPostInput,
@@ -1307,4 +1313,84 @@ export function socialAiAssist(input: {
   tone: string;
 }): Promise<SocialAiAssistResult> {
   return jsonRequest<SocialAiAssistResult>("/social/ai/assist", "POST", input);
+}
+
+// --- Social unified inbox (P3 3.6). Replies go through the Graph API on the
+// server; DMs outside Meta's 24-hour window are refused there.
+
+export function getSocialInboxStatus(): Promise<SocialInboxReadiness> {
+  return request<SocialInboxReadiness>("/social/inbox/status");
+}
+
+export function subscribeSocialInboxAccount(accountId: string): Promise<SocialInboxAccountReadiness> {
+  return jsonRequest<SocialInboxAccountReadiness>(
+    `/social/inbox/accounts/${encodeURIComponent(accountId)}/subscribe`,
+    "POST",
+    {},
+  );
+}
+
+export function listSocialInboxConversations(filters: {
+  platform?: "facebook" | "instagram";
+  channel?: "comment" | "dm";
+  unread?: boolean;
+  status?: "open" | "pending" | "closed";
+} = {}): Promise<{ items: SocialInboxConversation[]; unread_conversations: number; has_more: boolean }> {
+  const params = new URLSearchParams();
+  if (filters.platform) params.set("platform", filters.platform);
+  if (filters.channel) params.set("channel", filters.channel);
+  if (filters.unread !== undefined) params.set("unread", String(filters.unread));
+  if (filters.status) params.set("status", filters.status);
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return request(`/social/inbox/conversations${query}`);
+}
+
+export function getSocialInboxConversation(conversationId: string): Promise<SocialInboxThread> {
+  return request<SocialInboxThread>(`/social/inbox/conversations/${encodeURIComponent(conversationId)}`);
+}
+
+export function updateSocialInboxConversation(
+  conversationId: string,
+  changes: { read?: boolean; status?: "open" | "pending" | "closed"; assigned_to_id?: string; unassign?: boolean },
+): Promise<SocialInboxThread> {
+  return jsonRequest<SocialInboxThread>(
+    `/social/inbox/conversations/${encodeURIComponent(conversationId)}`,
+    "PATCH",
+    changes,
+  );
+}
+
+export function replySocialInboxConversation(conversationId: string, text: string): Promise<SocialInboxThread> {
+  return jsonRequest<SocialInboxThread>(
+    `/social/inbox/conversations/${encodeURIComponent(conversationId)}/reply`,
+    "POST",
+    { text },
+  );
+}
+
+export function suggestSocialInboxReply(
+  conversationId: string,
+  input: { language: string; tone: string },
+): Promise<SocialInboxSuggestion> {
+  return jsonRequest<SocialInboxSuggestion>(
+    `/social/inbox/conversations/${encodeURIComponent(conversationId)}/suggest`,
+    "POST",
+    input,
+  );
+}
+
+export function setSocialInboxMessageVisibility(messageId: string, hidden: boolean): Promise<SocialInboxThread> {
+  return jsonRequest<SocialInboxThread>(
+    `/social/inbox/messages/${encodeURIComponent(messageId)}/visibility`,
+    "POST",
+    { hidden },
+  );
+}
+
+// Public status of a Meta data-deletion request (no sign-in needed).
+export function getMetaDataDeletionStatus(code: string): Promise<MetaDataDeletionStatus> {
+  return request<MetaDataDeletionStatus>(
+    `/social/meta/data-deletion/status?code=${encodeURIComponent(code)}`,
+    { auth: false },
+  );
 }
