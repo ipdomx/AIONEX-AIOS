@@ -1,14 +1,50 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { PortalSectionList } from "@/components/pages/portal-home";
 import { usePortalExperience } from "@/components/portal/portal-experience-provider";
+
+// Facebook/Instagram (Meta) data use and deletion. Always shown on the privacy
+// notice, also when the Owner configured custom sections, because Meta App
+// Review requires the privacy policy to describe it.
+function MetaDataSections() {
+  const t = useTranslations("legal");
+  const locale = useLocale();
+  return (
+    <>
+      {[5, 6].map((index) => (
+        <section key={index} className="mt-10 border-t border-white/[0.07] pt-8">
+          <h2 className="text-xl font-semibold">{t(`privacy${index}Title`)}</h2>
+          <p className="mt-4 whitespace-pre-line text-sm leading-8 text-white/55">{t(`privacy${index}Copy`)}</p>
+        </section>
+      ))}
+      <div className="mt-6 text-sm">
+        <Link className="text-crimson-200 underline underline-offset-4" href={`/${locale}/legal/data-deletion`}>
+          {t("dataDeletionLink")}
+        </Link>
+      </div>
+    </>
+  );
+}
 
 export function LegalClient({ kind }: { kind: "privacy" | "terms" }) {
   const t = useTranslations("legal");
   const { configuration } = usePortalExperience();
   const configured = configuration?.pages[kind]?.sections || [];
-  if (configured.length) return <PortalSectionList sections={configured} />;
+  if (configured.length) {
+    if (kind !== "privacy") return <PortalSectionList sections={configured} />;
+    return (
+      <>
+        <PortalSectionList sections={configured} />
+        <section className="section-pad pt-0">
+          <article className="page-shell max-w-4xl">
+            <MetaDataSections />
+          </article>
+        </section>
+      </>
+    );
+  }
   return (
     <section className="section-pad">
       <article className="page-shell max-w-4xl">
@@ -21,6 +57,7 @@ export function LegalClient({ kind }: { kind: "privacy" | "terms" }) {
             <p className="mt-4 whitespace-pre-line text-sm leading-8 text-white/55">{t(`${kind}${index}Copy`)}</p>
           </section>
         ))}
+        {kind === "privacy" && <MetaDataSections />}
         {kind === "terms" && (
           <div className="mt-10 flex flex-col gap-3 border-t border-white/[0.07] pt-8 text-sm">
             <a className="text-crimson-200 underline underline-offset-4" href="/legal/tencent-hunyuan-3d-2.1-license.txt" target="_blank" rel="noreferrer">

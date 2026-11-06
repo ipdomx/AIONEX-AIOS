@@ -1337,6 +1337,100 @@ export interface SocialMediaItem {
   created_at: string | null;
 }
 
+// --- Social unified inbox (P3 3.6). Message text comes from Meta users and is
+// always rendered as plain text.
+export type SocialInboxChannel = "comment" | "dm";
+export type SocialInboxStatus = "open" | "pending" | "closed";
+
+export interface SocialInboxReplyWindow {
+  applies: boolean;
+  open: boolean;
+  expires_at: string | null;
+}
+
+export interface SocialInboxConversation {
+  id: string;
+  account_id: string;
+  account_name: string | null;
+  account_handle: string | null;
+  account_status: string;
+  provider: "facebook" | "instagram" | string;
+  channel: SocialInboxChannel;
+  object_ref: string | null;
+  participant_ref: string | null;
+  participant_name: string | null;
+  status: SocialInboxStatus;
+  unread_count: number;
+  assigned_to_id: string | null;
+  last_message_at: string | null;
+  last_inbound_at: string | null;
+  last_message_preview: string;
+  sentiment: string;
+  tags: string[];
+  reply_window: SocialInboxReplyWindow;
+  version: number;
+}
+
+export interface SocialInboxMessage {
+  id: string;
+  external_message_ref: string;
+  parent_ref: string | null;
+  direction: "inbound" | "outbound";
+  kind: string;
+  author_name: string | null;
+  body: string;
+  attachments: { type: string; url?: string }[];
+  hidden: boolean;
+  removed: boolean;
+  source: string;
+  sent_by_id: string | null;
+  sent_at: string;
+}
+
+export interface SocialInboxThread extends SocialInboxConversation {
+  messages: SocialInboxMessage[];
+}
+
+export interface SocialInboxAccountReadiness {
+  account_id: string;
+  provider: string;
+  display_name: string;
+  handle: string | null;
+  state: "ready" | "awaiting_permission" | "reconnect_required" | "disconnected";
+  missing_scopes: string[];
+  webhook_subscribed_at: string | null;
+}
+
+export interface SocialInboxReadiness {
+  meta_app_configured: boolean;
+  webhook_configured: boolean;
+  webhook_url: string;
+  poll_enabled: boolean;
+  poll_seconds: number;
+  messaging_window_hours: number;
+  live_verified: boolean;
+  accounts: SocialInboxAccountReadiness[];
+}
+
+export interface SocialInboxSuggestion {
+  reply: string;
+  language: string;
+  model: string;
+  provider: string;
+  aionex_ai: boolean;
+}
+
+export interface MetaDataDeletionStatus {
+  confirmation_code: string;
+  kind: "deletion" | "deauthorize";
+  status: string;
+  requested_at: string;
+  completed_at: string | null;
+  connections_revoked: number;
+  accounts_cleared: number;
+  conversations_deleted: number;
+}
+
 export interface SocialAiAssistResult {
   caption: string;
   hashtags: string[];

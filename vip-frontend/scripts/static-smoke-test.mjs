@@ -19,11 +19,13 @@ const localizedRoutes = [
   "social",
   "social/compose",
   "social/calendar",
+  "social/inbox",
   "notifications",
   "support",
   "pricing",
   "legal/privacy",
   "legal/terms",
+  "legal/data-deletion",
 ];
 const expectedUrls = [
   "/",

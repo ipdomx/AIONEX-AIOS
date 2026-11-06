@@ -14,6 +14,10 @@ retry with exponential backoff up to the post's retry policy; permanent
 errors fail at once; an expired or revoked token marks the account as
 needing reconnect. A post becomes ``published`` only with a Graph id for
 every non-canceled target.
+
+The same worker runs the unified-inbox poll fallback (roadmap 3.6,
+``social_inbox_backfill``) every ``SOCIAL_INBOX_POLL_SECONDS`` when
+``SOCIAL_INBOX_POLL_ENABLED`` is set; a failed poll never blocks publishing.
 """
 
 from __future__ import annotations
@@ -49,6 +53,8 @@ from app.services import social_posts as posts
 from app.services import social_publishing_rules as rules
 from app.services.social_connections import CONNECTED_VIA
 from app.services.social_connectors import SocialConnectorError
+from app.services.social_inbox_backfill import REQUIRED_TABLES as INBOX_TABLES
+from app.services.social_inbox_backfill import InboxBackfill
 from app.services.social_meta_publisher import (
     GraphPublishError,
     MetaPublisher,
@@ -112,6 +118,7 @@ class SocialPublishWorker:
         lease_seconds: int | None = None,
         clock: Callable[[], datetime] = _now,
         ads_job: Any | None = None,
+        inbox_backfill: InboxBackfill | None = None,
     ) -> None:
         self.session_factory: SessionFactory = session_factory or SessionLocal
         self.publisher = publisher or MetaPublisher()
@@ -128,12 +135,14 @@ class SocialPublishWorker:
         # this worker's loop on its own tick.
         self.ads_job = ads_job
         self._ads_next_tick = 0.0
+        self.inbox_backfill = inbox_backfill
 
     # --- readiness -------------------------------------------------------------------
 
     async def preflight(self) -> None:
         async with self.session_factory() as session:
-            checks = " AND ".join(f"to_regclass('{name}') IS NOT NULL" for name in _REQUIRED_TABLES)
+            tables = _REQUIRED_TABLES + (INBOX_TABLES if self.inbox_backfill else ())
+            checks = " AND ".join(f"to_regclass('{name}') IS NOT NULL" for name in tables)
             ready = bool(await session.scalar(text(f"SELECT {checks}")))
             if not ready:
                 raise RuntimeError("Social publish worker database schema is not current")
@@ -556,6 +565,7 @@ class SocialPublishWorker:
                         error_type=type(outcome).__name__,
                     )
         await self._run_ads_job()
+        await self.run_inbox_backfill()
         self.cycles += 1
         self.write_health("running")
         return len(claims)
@@ -571,6 +581,18 @@ class SocialPublishWorker:
         except Exception as exc:
             self.errors += 1
             logger.error("Ads insights job failed", error_type=type(exc).__name__)
+
+    async def run_inbox_backfill(self) -> int:
+        if self.inbox_backfill is None or self.stop_event.is_set():
+            return 0
+        try:
+            return await self.inbox_backfill.run_if_due()
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            self.errors += 1
+            logger.error("Social inbox poll cycle failed", error_type=type(exc).__name__)
+            return 0
 
     async def run_forever(self) -> None:
         await self.preflight()
@@ -605,6 +627,8 @@ class SocialPublishWorker:
             "failed": self.failed,
             "errors": self.errors,
             "ads_insights": self.ads_job.health() if self.ads_job is not None else None,
+            "inbox_poll_enabled": self.inbox_backfill is not None,
+            "inbox_stored": self.inbox_backfill.stored if self.inbox_backfill else 0,
             "secret_returned": False,
         }
         self.health_path.parent.mkdir(parents=True, exist_ok=True)
@@ -631,7 +655,8 @@ async def async_main() -> int:
         from app.services.ads_insights import InsightsJob
 
         ads_job = InsightsJob()
-    worker = SocialPublishWorker(ads_job=ads_job)
+    backfill = InboxBackfill(SessionLocal) if settings.SOCIAL_INBOX_POLL_ENABLED else None
+    worker = SocialPublishWorker(inbox_backfill=backfill, ads_job=ads_job)
     loop = asyncio.get_running_loop()
     for signum in (signal.SIGINT, signal.SIGTERM):
         try:

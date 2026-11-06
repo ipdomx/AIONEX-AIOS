@@ -43,7 +43,9 @@
     "socialComposeTitle": "Beitrag verfassen",
     "socialComposeDescription": "Einmal schreiben und auf Facebook-Seiten und Instagram-Konten veröffentlichen.",
     "socialCalendarTitle": "Inhaltskalender",
-    "socialCalendarDescription": "Geplante und veröffentlichte Beiträge mit Ergebnis pro Konto."
+    "socialCalendarDescription": "Geplante und veröffentlichte Beiträge mit Ergebnis pro Konto.",
+    "socialInboxTitle": "Einheitlicher Posteingang",
+    "socialInboxDescription": "Facebook- und Instagram-Kommentare sowie Messenger- und Instagram-Direct-Nachrichten an einem Ort."
   },
   "nav": {
     "social": "Social-Konten",
@@ -72,7 +74,8 @@
     "realtime": "Echtzeit",
     "conversations": "Projektgespräche",
     "socialCompose": "Verfassen",
-    "socialCalendar": "Kalender"
+    "socialCalendar": "Kalender",
+    "socialInbox": "Posteingang"
   },
   "footer": {
     "description": "Ein gesteuertes KI-Betriebssystem zur Koordination von Agenten, Modellen, Projekten und Betriebskontrollen.",
@@ -549,7 +552,12 @@
     "terms6Title": "Gebiet, Weitergabe und Anbietersteuerung",
     "terms6Copy": "Umgehe weder Ländererkennung noch Anbieter-Routing, Sicherheitskontrollen oder Owner-Richtlinien. Hunyuan-Werke oder -Ausgaben dürfen außerhalb des durch die Lizenz erlaubten Gebiets weder angefordert, abgerufen, angezeigt, verteilt noch geteilt werden. Für jede 3D-Generierung ist die aktuelle Version der Drittanbieter-Modellbedingungen zu akzeptieren. Vollständige Kopien der Upstream-Lizenzen stehen unten bereit. Für die Nutzung von Hunyuan werden die Beschränkungen der Abschnitte 5(a) und 5(b), einschließlich der einbezogenen Acceptable Use Policy, in diese Bedingungen aufgenommen und sind im Rahmen dieser Bedingungen verbindlich und durchsetzbar.",
     "hunyuanLicense": "Kopie der Tencent Hunyuan 3D 2.1-Lizenz",
-    "triposrLicense": "Kopie der TripoSR-MIT-Lizenz"
+    "triposrLicense": "Kopie der TripoSR-MIT-Lizenz",
+    "privacy5Title": "Facebook- und Instagram-Daten (Meta)",
+    "privacy5Copy": "Wenn Sie eine Facebook-Seite oder ein Instagram-Business-Konto verbinden, erhält AIONEX AIOS von Meta Ihren Namen und Ihre app-bezogene ID, die von Ihnen ausgewählten Seiten und Konten sowie deren Zugriffstoken. Token werden verschlüsselt gespeichert und gelangen nie in den Browser. Die erteilten Berechtigungen werden nur für das genutzt, was Sie in der App anfordern: Ihre Beiträge veröffentlichen und planen, Kommentare sowie Messenger- und Instagram-Direct-Nachrichten an Ihre Seiten im Posteingang anzeigen und auf Ihren Wunsch darauf antworten oder Kommentare ausblenden. Meta-Daten werden nie verkauft, nicht für Werbung oder das Training von KI-Modellen verwendet und nur mit den für den Betrieb nötigen Infrastrukturanbietern geteilt. Ein KI-Antwortvorschlag sendet den Gesprächstext nur dann an das Modell AIONEX AI, wenn Sie die Schaltfläche drücken, und ohne Ihre Zustimmung wird keine Antwort gesendet.",
+    "privacy6Title": "Löschen von Meta-Daten",
+    "privacy6Copy": "Sie können jedes Konto jederzeit auf der Kontenseite trennen; dabei werden seine Zugriffstoken sofort gelöscht. Wenn Sie die App in Ihren Facebook-Einstellungen entfernen oder dort die Löschung anfordern, erhält AIONEX AIOS die signierte Anfrage von Meta, löscht die Zugriffstoken, trennt die Konten und entfernt die gespeicherten Posteingangs-Unterhaltungen; anschließend erhalten Sie einen Bestätigungscode, um die Anfrage zu verfolgen.",
+    "dataDeletionLink": "Anleitung zur Datenlöschung und Status der Anfrage"
   },
   "passwordRecovery": {
     "eyebrow": "Sichere Kontowiederherstellung",
@@ -1432,7 +1440,7 @@
     "description": "Verbinden Sie Ihre Facebook-Seiten und Instagram-Business-Konten über den offiziellen Meta-Login. Tokens bleiben verschlüsselt auf unseren Servern und erreichen nie Ihren Browser.",
     "refresh": "Aktualisieren",
     "loading": "Wird geladen",
-    "honesty": "Das Verbinden verknüpft Ihre Konten und prüft deren Zugriff. Veröffentlichen und Planen sind über Verfassen und Kalender verfügbar; der gemeinsame Posteingang ist noch nicht aktiv.",
+    "honesty": "Das Verbinden verknüpft Ihre Konten und prüft deren Zugriff. Veröffentlichen und Planen sind über Verfassen und Kalender verfügbar; der einheitliche Posteingang ist fertig, aber noch nicht aktiv, weil er auf die Freigabe der App-Berechtigungen durch Meta wartet.",
     "signedOut": {
       "title": "Melden Sie sich an, um Konten zu verbinden",
       "body": "Ihre Social-Konten werden mit Ihrem AIONEX-Konto verknüpft, daher müssen Sie sich zuerst anmelden.",
@@ -1722,6 +1730,137 @@
       "aiQuota": "Das KI-Nachrichtenlimit Ihres Tarifs ist erreicht. Es setzt sich bald zurück, oder wechseln Sie den Tarif.",
       "conflict": "Dieser Beitrag kann in seinem aktuellen Zustand nicht mehr geändert werden.",
       "generic": "Etwas ist schiefgelaufen. Bitte erneut versuchen."
+    }
+  },
+  "dataDeletion": {
+    "eyebrow": "Datenschutz",
+    "title": "Anleitung zur Datenlöschung",
+    "intro": "So löschen Sie die Daten, die AIONEX AIOS von Facebook und Instagram erhalten hat, und so prüfen Sie eine Löschanfrage.",
+    "stepsTitle": "So löschen Sie Ihre Daten",
+    "step1": "In AIONEX: Öffnen Sie die Seite der sozialen Konten und wählen Sie bei der Seite oder dem Konto „Trennen“; die Zugriffstoken werden sofort gelöscht.",
+    "step2": "Auf Facebook: Einstellungen und Privatsphäre → Einstellungen → Apps und Websites, dann AIONEX-AIOS auswählen und „Entfernen“ wählen.",
+    "step3": "Um die Löschung aller Daten anzufordern: Wählen Sie im selben Bildschirm „Anfrage senden“. Meta sendet eine signierte Anfrage an AIONEX AIOS, das die Token, die verbundenen Konten und die Posteingangs-Unterhaltungen löscht.",
+    "step4": "Meta zeigt Ihnen einen Link und einen Bestätigungscode. Öffnen Sie den Link oder geben Sie den Code unten ein, um die Anfrage zu prüfen.",
+    "whatTitle": "Was gelöscht wird",
+    "whatCopy": "Die Benutzer- und Seiten-Zugriffstoken werden gelöscht, die Facebook-Seiten und Instagram-Konten getrennt, die im Posteingang gespeicherten Kommentare und Nachrichten entfernt und Ihr Meta-Name und -Bild aus dem Verbindungsdatensatz gelöscht.\nNur Sicherheits-Prüfeinträge und gesetzlich aufzubewahrende Finanzunterlagen bleiben bestehen; sie enthalten keine Zugriffstoken.",
+    "contactTitle": "Brauchen Sie Hilfe?",
+    "contactCopy": "Sie können die Löschung Ihrer Daten auch über die Kontaktseite anfordern; das AIONEX-AIOS-Team antwortet Ihnen.",
+    "contactLink": "Kontaktseite",
+    "privacyLink": "Datenschutzhinweis",
+    "status": {
+      "title": "Status der Löschanfrage",
+      "intro": "Geben Sie den Bestätigungscode ein, den Meta Ihnen gegeben hat.",
+      "codeLabel": "Bestätigungscode",
+      "check": "Prüfen",
+      "invalid": "Der Code besteht aus 8 bis 32 Buchstaben oder Ziffern.",
+      "notFound": "Zu diesem Code wurde keine Anfrage gefunden.",
+      "error": "Der Status konnte gerade nicht geprüft werden. Versuchen Sie es gleich erneut.",
+      "kindDeletion": "Anfrage zur Datenlöschung",
+      "kindDeauthorize": "Entfernen der App",
+      "completed": "Abgeschlossen",
+      "received": "Eingegangen",
+      "requestedAt": "Angefordert: {date}",
+      "completedAt": "Abgeschlossen: {date}",
+      "counts": "Widerrufene Freigaben: {connections} · Getrennte Konten: {accounts} · Gelöschte Unterhaltungen: {conversations}"
+    }
+  },
+  "socialInbox": {
+    "eyebrow": "Einheitlicher Posteingang",
+    "title": "Alle Kommentare und Nachrichten an einem Ort",
+    "description": "Kommentare auf Ihren Facebook-Seiten und Instagram-Konten sowie Messenger- und Instagram-Direct-Nachrichten Ihrer verbundenen Konten. Antworten Sie, blenden Sie unerwünschte Kommentare aus und lassen Sie sich von AIONEX AI eine Antwort vorschlagen.",
+    "accountsLink": "Verbundene Konten",
+    "common": {
+      "loading": "Wird geladen",
+      "signedOutTitle": "Melden Sie sich an, um den Posteingang zu öffnen",
+      "signedOutBody": "Der Posteingang zeigt nur Unterhaltungen der mit Ihrem AIONEX-Konto verbundenen Konten; bitte melden Sie sich zuerst an.",
+      "login": "Anmelden",
+      "refresh": "Aktualisieren",
+      "unknownParticipant": "Person ohne Namen"
+    },
+    "readiness": {
+      "awaitingTitle": "Warten auf Meta-Berechtigung und -Freigabe",
+      "awaitingBody": "Der Posteingang funktioniert erst, wenn Meta die Berechtigungen der App (App Review) freigegeben hat und Ihre Konten sie erteilt haben. Bis dahin kommen neue Kommentare oder Nachrichten eventuell nicht an, und es werden keine Beispieldaten angezeigt.",
+      "notConfigured": "Die Meta-App ist auf dem Server noch nicht eingerichtet.",
+      "webhookMissing": "Meta-Webhooks sind noch nicht eingerichtet; Aktualisierungen beruhen auf der regelmäßigen Synchronisierung.",
+      "noAccounts": "Es sind noch keine Konten verbunden.",
+      "connectLink": "Konto verbinden",
+      "states": {
+        "ready": "Bereit",
+        "awaiting_permission": "Berechtigung ausstehend",
+        "reconnect_required": "Neu verbinden erforderlich",
+        "disconnected": "Getrennt"
+      },
+      "missingScopes": "Fehlende Berechtigungen: {scopes}",
+      "subscribe": "Live-Aktualisierung aktivieren",
+      "subscribed": "Live-Aktualisierungen wurden für dieses Konto bei Meta angefordert.",
+      "subscribedAt": "Live-Aktualisierung angefordert am {date}",
+      "liveNotVerified": "Die echte Zustellung mit realen Konten wird vor dem Start geprüft. Die Ersatz-Synchronisierung läuft etwa alle {minutes} Minuten."
+    },
+    "filters": {
+      "label": "Unterhaltungen filtern",
+      "platform": "Plattform",
+      "all": "Alle",
+      "facebook": "Facebook",
+      "instagram": "Instagram",
+      "status": "Status",
+      "anyStatus": "Jeder Status",
+      "unreadOnly": "Nur ungelesene"
+    },
+    "statuses": {
+      "open": "Offen",
+      "pending": "Wartend",
+      "closed": "Geschlossen"
+    },
+    "channels": {
+      "comment": "Kommentar",
+      "dm": "Direktnachricht"
+    },
+    "list": {
+      "label": "Unterhaltungen",
+      "empty": "Noch keine Unterhaltungen. Ein Kommentar oder eine Nachricht an ein verbundenes Konto erscheint hier, sobald sie eintrifft.",
+      "emptyFiltered": "Keine Unterhaltungen entsprechen diesen Filtern.",
+      "unread": "Ungelesen: {count}"
+    },
+    "thread": {
+      "select": "Wählen Sie eine Unterhaltung aus der Liste, um sie zu lesen und zu beantworten.",
+      "account": "Konto: {name}",
+      "statusLabel": "Status der Unterhaltung",
+      "markUnread": "Als ungelesen markieren",
+      "read": "Gelesen",
+      "business": "Ihre Antwort",
+      "removed": "Diese Nachricht wurde entfernt.",
+      "attachment": "Anhang: {type}",
+      "hidden": "Öffentlich ausgeblendet",
+      "hide": "Kommentar ausblenden",
+      "unhide": "Kommentar einblenden",
+      "windowOpen": "Sie können bis {date} auf diese Nachricht antworten (24-Stunden-Fenster von Meta).",
+      "windowClosedTitle": "Das 24-Stunden-Fenster ist geschlossen.",
+      "windowClosedBody": "Meta erlaubt Antworten auf Direktnachrichten nur innerhalb von 24 Stunden nach der letzten Nachricht des Kunden. Sie können wieder antworten, sobald eine neue Nachricht eintrifft."
+    },
+    "reply": {
+      "labelComment": "Öffentliche Antwort auf den Kommentar",
+      "labelDm": "Private Antwort",
+      "placeholder": "Schreiben Sie Ihre Antwort…",
+      "counter": "{count} von {max} Zeichen",
+      "suggest": "Mit AIONEX AI vorschlagen",
+      "suggestionNote": "Das ist nur ein Vorschlag. Prüfen und bearbeiten Sie ihn vor dem Senden.",
+      "send": "Senden",
+      "sent": "Antwort gesendet; Meta hat sie bestätigt."
+    },
+    "errors": {
+      "generic": "Etwas ist schiefgelaufen. Versuchen Sie es gleich erneut.",
+      "rateLimited": "Zu viele Anfragen. Warten Sie kurz und versuchen Sie es erneut.",
+      "windowClosed": "Das 24-Stunden-Fenster ist geschlossen; diese Nachricht kann jetzt nicht beantwortet werden.",
+      "reconnect": "Der Zugriff des Kontos ist abgelaufen. Verbinden Sie es auf der Kontenseite neu.",
+      "disconnected": "Dieses Konto wurde getrennt.",
+      "permission": "Meta hat abgelehnt, weil die Berechtigung noch nicht freigegeben oder für diese Seite nicht erteilt ist.",
+      "notConfigured": "Die Meta-App ist auf dem Server noch nicht eingerichtet.",
+      "outcomeUnknown": "Der Versand der Antwort konnte nicht bestätigt werden. Prüfen Sie die Unterhaltung auf Facebook oder Instagram, bevor Sie erneut senden.",
+      "aiQuota": "Das KI-Kontingent Ihres Tarifs ist für heute aufgebraucht.",
+      "aiUnavailable": "AIONEX AI ist gerade nicht verfügbar.",
+      "aiFailed": "AIONEX AI konnte keine Antwort vorschlagen. Schreiben Sie selbst oder versuchen Sie es erneut.",
+      "aiNothing": "Es gibt noch keine Kundennachricht zum Beantworten.",
+      "notFound": "Diese Unterhaltung existiert nicht oder gehört nicht zu Ihren Konten."
     }
   },
   "ads": {

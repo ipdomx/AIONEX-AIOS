@@ -43,7 +43,9 @@
     "socialComposeTitle": "Rédiger une publication",
     "socialComposeDescription": "Rédigez une fois et publiez sur vos Pages Facebook et comptes Instagram.",
     "socialCalendarTitle": "Calendrier de contenu",
-    "socialCalendarDescription": "Publications planifiées et publiées, résultat par compte."
+    "socialCalendarDescription": "Publications planifiées et publiées, résultat par compte.",
+    "socialInboxTitle": "Boîte de réception unifiée",
+    "socialInboxDescription": "Commentaires Facebook et Instagram, messages Messenger et Instagram Direct au même endroit."
   },
   "nav": {
     "social": "Comptes sociaux",
@@ -72,7 +74,8 @@
     "realtime": "Temps réel",
     "conversations": "Conversations de projet",
     "socialCompose": "Rédiger",
-    "socialCalendar": "Calendrier"
+    "socialCalendar": "Calendrier",
+    "socialInbox": "Boîte de réception"
   },
   "footer": {
     "description": "Un système d’exploitation IA gouverné pour coordonner agents, modèles, projets et contrôles opérationnels.",
@@ -549,7 +552,12 @@
     "terms6Title": "Territoire, partage et contrôles du fournisseur",
     "terms6Copy": "Ne contournez pas la détection du pays, le routage du fournisseur, les contrôles de sécurité ou la politique du propriétaire. Ne demandez, n’accédez, n’affichez, ne distribuez ni ne partagez des œuvres ou sorties Hunyuan hors du territoire autorisé par sa licence. Chaque génération 3D exige l’acceptation de la version actuelle des conditions des modèles tiers. Les copies complètes des licences amont sont disponibles ci-dessous. Pour l’utilisation de Hunyuan, les restrictions des sections 5(a) et 5(b), y compris la politique d’utilisation acceptable incorporée, sont intégrées aux présentes conditions et sont obligatoires et opposables.",
     "hunyuanLicense": "Copie de la licence Tencent Hunyuan 3D 2.1",
-    "triposrLicense": "Copie de la licence MIT de TripoSR"
+    "triposrLicense": "Copie de la licence MIT de TripoSR",
+    "privacy5Title": "Données Facebook et Instagram (Meta)",
+    "privacy5Copy": "Lorsque vous connectez une Page Facebook ou un compte Instagram Business, AIONEX AIOS reçoit de Meta votre nom et votre identifiant propre à l’application, les Pages et comptes que vous sélectionnez et leurs jetons d’accès. Les jetons sont stockés chiffrés et n’atteignent jamais le navigateur. Les autorisations accordées servent uniquement à ce que vous demandez dans l’application : publier et programmer vos publications, afficher dans la boîte de réception les commentaires et les messages Messenger et Instagram Direct envoyés à vos Pages, y répondre ou masquer des commentaires à votre demande. Les données Meta ne sont jamais vendues, utilisées pour la publicité ou pour entraîner des modèles d’IA, et ne sont partagées qu’avec les prestataires d’infrastructure nécessaires au service. Une suggestion de réponse par IA envoie le texte de la conversation au modèle AIONEX AI uniquement lorsque vous appuyez sur le bouton, et aucune réponse n’est envoyée sans votre accord.",
+    "privacy6Title": "Suppression des données Meta",
+    "privacy6Copy": "Vous pouvez déconnecter un compte à tout moment depuis la page des comptes, ce qui supprime immédiatement ses jetons d’accès. Si vous supprimez l’application dans vos paramètres Facebook ou y demandez la suppression, AIONEX AIOS reçoit la demande signée de Meta, supprime les jetons d’accès, déconnecte les comptes et efface les conversations stockées de la boîte de réception, puis vous remet un code de confirmation pour suivre la demande.",
+    "dataDeletionLink": "Instructions de suppression des données et état de la demande"
   },
   "passwordRecovery": {
     "eyebrow": "Récupération sécurisée du compte",
@@ -1432,7 +1440,7 @@
     "description": "Connectez vos Pages Facebook et comptes Instagram professionnels avec la connexion officielle de Meta. Les jetons restent chiffrés sur nos serveurs et n'atteignent jamais votre navigateur.",
     "refresh": "Actualiser",
     "loading": "Chargement",
-    "honesty": "La connexion relie vos comptes et vérifie leurs accès. La publication et la planification sont disponibles depuis Rédiger et Calendrier ; la boîte de réception unifiée n'est pas encore active.",
+    "honesty": "La connexion relie vos comptes et vérifie leurs accès. La publication et la planification sont disponibles depuis Rédiger et Calendrier ; la boîte de réception unifiée est prête mais pas encore active, car elle attend que Meta approuve les autorisations de l’application.",
     "signedOut": {
       "title": "Connectez-vous pour relier vos comptes",
       "body": "Vos comptes sociaux sont liés à votre compte AIONEX : vous devez d'abord vous connecter.",
@@ -1722,6 +1730,137 @@
       "aiQuota": "Vous avez atteint la limite de messages IA de votre forfait. Elle se renouvelle bientôt, ou passez à un forfait supérieur.",
       "conflict": "Cette publication ne peut plus être modifiée dans son état actuel.",
       "generic": "Une erreur s'est produite. Réessayez."
+    }
+  },
+  "dataDeletion": {
+    "eyebrow": "Confidentialité",
+    "title": "Instructions de suppression des données",
+    "intro": "Comment supprimer les données qu’AIONEX AIOS a reçues de Facebook et d’Instagram, et comment suivre une demande de suppression.",
+    "stepsTitle": "Comment supprimer vos données",
+    "step1": "Dans AIONEX : ouvrez la page des comptes sociaux et choisissez Déconnecter sur la Page ou le compte ; ses jetons d’accès sont supprimés immédiatement.",
+    "step2": "Sur Facebook : Paramètres et confidentialité → Paramètres → Applications et sites web, puis sélectionnez AIONEX-AIOS et choisissez Supprimer.",
+    "step3": "Pour demander la suppression de toutes les données : sur le même écran, choisissez Envoyer une demande de suppression. Meta envoie une demande signée à AIONEX AIOS, qui supprime les jetons, les comptes connectés et les conversations de la boîte de réception.",
+    "step4": "Meta vous affiche un lien et un code de confirmation. Ouvrez le lien ou saisissez le code ci-dessous pour suivre la demande.",
+    "whatTitle": "Ce qui est supprimé",
+    "whatCopy": "Les jetons d’accès utilisateur et de Page sont supprimés, les Pages Facebook et comptes Instagram sont déconnectés, les commentaires et messages stockés dans la boîte de réception sont effacés, et votre nom et votre photo Meta sont retirés de l’enregistrement de connexion.\nSeuls subsistent les journaux d’audit de sécurité et les registres financiers que la loi nous oblige à conserver ; ils ne contiennent aucun jeton d’accès.",
+    "contactTitle": "Besoin d’aide ?",
+    "contactCopy": "Vous pouvez aussi demander la suppression de vos données via la page de contact ; l’équipe AIONEX AIOS vous répondra.",
+    "contactLink": "Page de contact",
+    "privacyLink": "Avis de confidentialité",
+    "status": {
+      "title": "État de la demande de suppression",
+      "intro": "Saisissez le code de confirmation fourni par Meta.",
+      "codeLabel": "Code de confirmation",
+      "check": "Vérifier",
+      "invalid": "Le code comporte de 8 à 32 lettres ou chiffres.",
+      "notFound": "Aucune demande ne correspond à ce code.",
+      "error": "Impossible de vérifier l’état pour le moment. Réessayez bientôt.",
+      "kindDeletion": "Demande de suppression des données",
+      "kindDeauthorize": "Retrait de l’application",
+      "completed": "Terminée",
+      "received": "Reçue",
+      "requestedAt": "Demandée : {date}",
+      "completedAt": "Terminée : {date}",
+      "counts": "Autorisations révoquées : {connections} · Comptes déconnectés : {accounts} · Conversations supprimées : {conversations}"
+    }
+  },
+  "socialInbox": {
+    "eyebrow": "Boîte de réception unifiée",
+    "title": "Tous les commentaires et messages au même endroit",
+    "description": "Les commentaires de vos Pages Facebook et comptes Instagram, et les messages Messenger et Instagram Direct de vos comptes connectés. Répondez, masquez les commentaires indésirables et demandez une suggestion de réponse à AIONEX AI.",
+    "accountsLink": "Comptes connectés",
+    "common": {
+      "loading": "Chargement",
+      "signedOutTitle": "Connectez-vous pour ouvrir la boîte de réception",
+      "signedOutBody": "La boîte de réception n’affiche que les conversations des comptes liés à votre compte AIONEX ; connectez-vous d’abord.",
+      "login": "Se connecter",
+      "refresh": "Actualiser",
+      "unknownParticipant": "Personne sans nom"
+    },
+    "readiness": {
+      "awaitingTitle": "En attente de l’autorisation et de l’approbation de Meta",
+      "awaitingBody": "La boîte de réception ne fonctionne qu’une fois que Meta a approuvé les autorisations de l’application (App Review) et que vos comptes les ont accordées. D’ici là, les nouveaux commentaires ou messages peuvent ne pas arriver, et aucune donnée d’exemple n’est affichée.",
+      "notConfigured": "L’application Meta n’est pas encore configurée sur le serveur.",
+      "webhookMissing": "Les Webhooks Meta ne sont pas encore configurés ; les mises à jour reposent sur la synchronisation périodique.",
+      "noAccounts": "Aucun compte n’est encore connecté.",
+      "connectLink": "Connecter un compte",
+      "states": {
+        "ready": "Prêt",
+        "awaiting_permission": "Autorisation en attente",
+        "reconnect_required": "Reconnexion requise",
+        "disconnected": "Déconnecté"
+      },
+      "missingScopes": "Autorisations manquantes : {scopes}",
+      "subscribe": "Activer les mises à jour en direct",
+      "subscribed": "Les mises à jour en direct ont été demandées à Meta pour ce compte.",
+      "subscribedAt": "Mises à jour en direct demandées le {date}",
+      "liveNotVerified": "La réception réelle avec de vrais comptes sera vérifiée avant le lancement. La synchronisation de secours s’exécute environ toutes les {minutes} minutes."
+    },
+    "filters": {
+      "label": "Filtrer les conversations",
+      "platform": "Plateforme",
+      "all": "Toutes",
+      "facebook": "Facebook",
+      "instagram": "Instagram",
+      "status": "État",
+      "anyStatus": "Tous les états",
+      "unreadOnly": "Non lues uniquement"
+    },
+    "statuses": {
+      "open": "Ouverte",
+      "pending": "En attente",
+      "closed": "Fermée"
+    },
+    "channels": {
+      "comment": "Commentaire",
+      "dm": "Message privé"
+    },
+    "list": {
+      "label": "Conversations",
+      "empty": "Aucune conversation pour l’instant. Un commentaire ou un message adressé à un compte connecté apparaît ici dès son arrivée.",
+      "emptyFiltered": "Aucune conversation ne correspond à ces filtres.",
+      "unread": "Non lues : {count}"
+    },
+    "thread": {
+      "select": "Choisissez une conversation dans la liste pour la lire et y répondre.",
+      "account": "Compte : {name}",
+      "statusLabel": "État de la conversation",
+      "markUnread": "Marquer comme non lue",
+      "read": "Lue",
+      "business": "Votre réponse",
+      "removed": "Ce message a été supprimé.",
+      "attachment": "Pièce jointe : {type}",
+      "hidden": "Masqué au public",
+      "hide": "Masquer le commentaire",
+      "unhide": "Afficher le commentaire",
+      "windowOpen": "Vous pouvez répondre à ce message jusqu’au {date} (fenêtre de 24 heures de Meta).",
+      "windowClosedTitle": "La fenêtre de 24 heures est fermée.",
+      "windowClosedBody": "Meta n’autorise les réponses aux messages privés que dans les 24 heures suivant le dernier message du client. Vous pourrez répondre de nouveau dès qu’il enverra un nouveau message."
+    },
+    "reply": {
+      "labelComment": "Réponse publique au commentaire",
+      "labelDm": "Réponse privée",
+      "placeholder": "Écrivez votre réponse…",
+      "counter": "{count} sur {max} caractères",
+      "suggest": "Suggérer avec AIONEX AI",
+      "suggestionNote": "Ce n’est qu’une suggestion. Relisez-la et modifiez-la avant l’envoi.",
+      "send": "Envoyer",
+      "sent": "Réponse envoyée ; Meta l’a confirmée."
+    },
+    "errors": {
+      "generic": "Un problème est survenu. Réessayez bientôt.",
+      "rateLimited": "Trop de demandes. Patientez un instant et réessayez.",
+      "windowClosed": "La fenêtre de 24 heures est fermée ; impossible de répondre à ce message pour l’instant.",
+      "reconnect": "L’accès du compte a expiré. Reconnectez-le depuis la page des comptes.",
+      "disconnected": "Ce compte a été déconnecté.",
+      "permission": "Meta a refusé : l’autorisation n’est pas encore approuvée ou n’est pas accordée pour cette Page.",
+      "notConfigured": "L’application Meta n’est pas encore configurée sur le serveur.",
+      "outcomeUnknown": "Impossible de confirmer l’envoi de la réponse. Vérifiez la conversation sur Facebook ou Instagram avant de renvoyer.",
+      "aiQuota": "Le quota d’IA de votre forfait est épuisé pour aujourd’hui.",
+      "aiUnavailable": "AIONEX AI n’est pas disponible pour le moment.",
+      "aiFailed": "AIONEX AI n’a pas pu suggérer de réponse. Rédigez la vôtre ou réessayez.",
+      "aiNothing": "Il n’y a pas encore de message client auquel répondre.",
+      "notFound": "Cette conversation n’existe pas ou n’appartient pas à vos comptes."
     }
   },
   "ads": {

@@ -1,7 +1,7 @@
 """Add the P4 Meta Ads schema (ad-account links, insights, campaigns, AI runs).
 
-Revision ID: 20261106_0068
-Revises: 20261106_0067
+Revision ID: 20261106_0069
+Revises: 20261106_0068 (social inbox)
 
 Creates ``ad_account_links`` (a user's selected Meta ad accounts, per tenant
 and user, with incremental-sync and throttle state), ``ad_insights_daily``
@@ -20,8 +20,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = "20261106_0068"
-down_revision = "20261106_0067"
+revision = "20261106_0069"
+down_revision = "20261106_0068"
 branch_labels = None
 depends_on = None
 
