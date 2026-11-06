@@ -323,18 +323,20 @@ async def validate_post(
         refs=[str(item.get("ref")) for item in post.media or [] if isinstance(item, dict)],
     )
     infos = [item.info for item in resolved]
-    results = []
+    results: list[dict[str, Any]] = []
+    blocked = False
     for target in targets:
         if target.status == "canceled":
             continue
         issues = rules.validate_target(
             target_content(post, target.provider, dict(target.overrides or {}), infos)
         )
+        blocked = blocked or rules.has_errors(issues)
         results.append(
             {"target_id": target.id, "account_id": target.account_id, "provider": target.provider, "issues": issues}
         )
     return {
-        "valid": not any(rules.has_errors(item["issues"]) for item in results),
+        "valid": not blocked,
         "targets": results,
         "media": [
             {
