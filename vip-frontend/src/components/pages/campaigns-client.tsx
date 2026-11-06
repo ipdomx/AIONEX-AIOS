@@ -128,12 +128,11 @@ export function CampaignsClient() {
     try {
       // GS-12 owner-reviewed planning and P4 Meta Ads management are gated
       // independently; the page opens when either is available.
-      const [readinessResult, adsResult] = await Promise.allSettled([
-        getPaidCampaignReadiness(),
-        getAdsAccess(),
-      ]);
-      const access = readinessResult.status === "fulfilled" ? readinessResult.value : null;
-      const ads = adsResult.status === "fulfilled" ? adsResult.value : null;
+      const access = await getPaidCampaignReadiness().catch(() => null);
+      const ads =
+        access === null || access.ads_management_visible
+          ? await getAdsAccess().catch(() => null)
+          : null;
       setReadiness(access);
       setAdsAccess(ads);
       if (!access && !ads) {

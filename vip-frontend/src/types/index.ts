@@ -1093,6 +1093,7 @@ export interface PaidCampaignReadiness {
   social_accounts_allowed: boolean;
   linked_ad_accounts: PaidCampaignAdAccount[];
   campaigns_visible: boolean;
+  ads_management_visible?: boolean;
   reason: string;
   live_provider_mutation_allowed: false;
   automatic_execution_allowed: false;
